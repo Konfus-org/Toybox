@@ -1,5 +1,6 @@
 ﻿using Avalonia;
-using Avalonia.ReactiveUI;
+using Avalonia.Dialogs;
+using ShowMeTheXaml;
 using System;
 namespace Toybox;
 
@@ -14,9 +15,16 @@ sealed class Program
 
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
+    {
+        var app = AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
             .LogToTrace()
-            .UseReactiveUI();
+            .UseXamlDisplay();
+
+        if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() || OperatingSystem.IsLinux())
+            app.UseManagedSystemDialogs();
+
+        return app;
+    }
 }

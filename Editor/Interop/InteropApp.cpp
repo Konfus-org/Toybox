@@ -30,9 +30,9 @@ namespace Toybox::Interop
 		if (_blue < 0)
 			_blue = 1;
 
-		_red += 0.01f;
-		_green += 0.01f;
-		_blue += 0.01f;
+		_red += 0.001f;
+		_green += 0.001f;
+		_blue += 0.001f;
 	}
 	// =============
 	// TESTING CODE
