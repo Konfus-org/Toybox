@@ -19,7 +19,7 @@ project "Interop"
     }
 	
     -- Setup standard platforms and configs
-	IncludeEngine()
+    IncludeEngine()
     StandardPlatforms()
     StandardConfigs()
 	
@@ -27,12 +27,11 @@ project "Interop"
 	filter "system:Windows"
         defines
         {
-			"TOYBOX_EDITOR",
-			"TBX_EDITOR_CORE_EXPORT_DLL"
-		}
+			"TOYBOX_EDITOR"
+	}
 	
 	-- Needed for .DLL stufffilter "configurations:Debug"
-	filter "configurations:Debug"
+    filter "configurations:Debug"
         buildoptions "/MDd"
 
     filter "configurations:Optimized"
