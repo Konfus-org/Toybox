@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Styling;
+using SukiUI;
 using Toybox.ViewModels;
 using Toybox.Views;
 
@@ -15,6 +17,7 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        // Setup main window
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var mainWindow = new MainWindow
@@ -23,6 +26,9 @@ public partial class App : Application
             };
             desktop.MainWindow = mainWindow;
         }
+
+        // Default to dark theme
+        SukiTheme.GetInstance().ChangeBaseTheme(ThemeVariant.Dark);
 
         base.OnFrameworkInitializationCompleted();
     }

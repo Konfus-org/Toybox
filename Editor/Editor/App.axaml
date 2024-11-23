@@ -10,7 +10,7 @@
     </Application.DataTemplates>
     
     <Application.Styles>
-        <suki:SukiTheme ThemeColor="Blue"/>
+        <suki:SukiTheme ThemeColor="Green"/>
     </Application.Styles>
     
 </Application>
