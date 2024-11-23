@@ -1,5 +1,7 @@
 #pragma once
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <iostream>
 #include <memory>
 #include <utility>
@@ -16,3 +18,5 @@
 #ifdef TBX_PLATFORM_WINDOWS
     #include <Windows.h>
 #endif
+
+#undef _CRT_SECURE_NO_WARNINGS
