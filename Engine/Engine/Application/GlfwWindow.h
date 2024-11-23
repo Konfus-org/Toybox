@@ -33,5 +33,7 @@ namespace Toybox::Application
 
         void SetupCallbacks();
         void SetupContext();
+        void InitGlad();
+        void InitGlfwIfNotAlreadyInitialized();
     };
 }

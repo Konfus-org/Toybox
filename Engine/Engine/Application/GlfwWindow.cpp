@@ -1,6 +1,7 @@
 #include "tbxpch.h"
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
+#include <glad/glad.h>
 #include "GlfwWindow.h"
 #include "WindowMode.h"
 #include "Debug/Logging/Logging.h"
@@ -20,16 +21,28 @@ namespace Toybox::Application
 
 		TBX_INFO("Creating a new glfw window...");
 
+		InitGlfwIfNotAlreadyInitialized();
+		SetMode(mode);
+		InitGlad();
+    
+		TBX_INFO("Created a new glfw window: {} of size: {}, {}", title, size->Width, size->Height);
+	}
+
+	void GlfwWindow::InitGlad()
+	{
+
+		int status = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+		TBX_ASSERT(status, "Failed to initialize glad!");
+	}
+
+	void GlfwWindow::InitGlfwIfNotAlreadyInitialized()
+	{
 		if (!s_glfwInitialized)
 		{
 			const bool success = glfwInit();
 			TBX_ASSERT(success, "Failed to initialize glfw!");
 			s_glfwInitialized = true;
 		}
-
-		SetMode(mode);
-    
-		TBX_INFO("Created a new glfw window: {} of size: {}, {}", title, size->Width, size->Height);
 	}
 
 	GlfwWindow::~GlfwWindow()
@@ -124,7 +137,11 @@ namespace Toybox::Application
 
 	void GlfwWindow::SetupCallbacks()
 	{
-		// Setup callbacks
+		glfwSetErrorCallback([](int error, const char* description)
+		{
+			TBX_CRITICAL("Glfw error: ({0}): {1}", error, description);
+		});
+
 		glfwSetWindowSizeCallback(_glfwWindow, [](GLFWwindow* window, int width, int height)
 		{
 			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);

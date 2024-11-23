@@ -14,7 +14,6 @@ project "Engine"
     defines
     {
         "TOYBOX",
-		"_CRT_SECURE_NO_WARNINGS",
 		"GLFW_INCLUDE_NONE"
     }
 
@@ -30,13 +29,15 @@ project "Engine"
     {
         "./",
         "%{IncludeDir.spdlog}",
-        "%{IncludeDir.glfw}"
+        "%{IncludeDir.glfw}",
+        "%{IncludeDir.glad}"
     }
 
     links
     {
         "spdlog",
         "glfw",
+        "glad",
         "opengl32.lib",
         "dwmapi.lib"
     }

@@ -4,6 +4,7 @@ ThirdPartyOutputDir = "../../../Build/"
 IncludeDir = {}
 IncludeDir["spdlog"] = "%{wks.location}/3rd Party/Libraries/spdlog/include"
 IncludeDir["glfw"] = "%{wks.location}/3rd Party/Libraries/glfw/include"
+IncludeDir["glad"] = "%{wks.location}/3rd Party/Libraries/glad/include"
 IncludeDir["Engine"] = "%{wks.location}/Engine/Engine"
 
 -- Easy way to add supported platforms
@@ -102,6 +103,7 @@ workspace "Toybox"
 	group "_3rd Party"
 		include "3rd Party/Libraries/glfw"
 		include "3rd Party/Libraries/spdlog"
+		include "3rd Party/Libraries/glad"
 	
 	group "Engine"
 		include "Engine/Engine"
