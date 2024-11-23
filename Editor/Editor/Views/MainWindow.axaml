@@ -26,6 +26,7 @@
             <MenuItem Header="Edit" Margin="0">
                 <Button Content="Undo"></Button>
                 <Button Content="Redo"></Button>
+                <Button Content="Theme"></Button>
                 <Button Content="Options"></Button>
             </MenuItem>
         </Menu>
