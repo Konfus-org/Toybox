@@ -38,8 +38,7 @@ project "Engine"
         "spdlog",
         "glfw",
         "glad",
-        "opengl32.lib",
-        "dwmapi.lib"
+        "opengl32.lib"
     }
 	
     -- Setup standard platforms and configs
@@ -51,7 +50,6 @@ project "Engine"
     filter "system:Windows"
         defines
         {
-			"TBX_EXPORT_DLL",
             "GLFW_EXPOSE_NATIVE_WIN32"
         }
 

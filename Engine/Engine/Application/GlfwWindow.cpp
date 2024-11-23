@@ -142,6 +142,13 @@ namespace Toybox::Application
 			TBX_CRITICAL("Glfw error: ({0}): {1}", error, description);
 		});
 
+		glfwSetFramebufferSizeCallback(_glfwWindow, [](GLFWwindow* window, int width, int height)
+		{
+			// Tell glfw to redraw while resizing
+			glClear(GL_COLOR_BUFFER_BIT);
+			glfwSwapBuffers(window);
+		});
+
 		glfwSetWindowSizeCallback(_glfwWindow, [](GLFWwindow* window, int width, int height)
 		{
 			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
