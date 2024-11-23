@@ -8,4 +8,7 @@ public class Interop
 
     [DllImport("../Interop/Interop.dll")]
     public static extern void UpdateViewport();
+
+    [DllImport("../Interop/Interop.dll")]
+    public static extern void CloseViewport();
 }

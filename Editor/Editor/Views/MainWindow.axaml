@@ -19,23 +19,28 @@
     <Grid RowDefinitions="Auto, *">
         <!-- Menu bar -->
         <Menu Grid.Row="0">
-            <MenuItem Header="_File" Margin="0">
-                <Button Content="TEST"></Button>
-                <Button Content="TEST"></Button>
-                <Button Content="TEST"></Button>
+            <MenuItem Header="File" Margin="0">
+                <Button Content="Open"></Button>
+                <Button Content="Save"></Button>
+            </MenuItem>
+            <MenuItem Header="Edit" Margin="0">
+                <Button Content="Undo"></Button>
+                <Button Content="Redo"></Button>
+                <Button Content="Options"></Button>
             </MenuItem>
         </Menu>
 
+        <!-- Dock Host -->
         <docking:DockingHost Grid.Row="1">
-
+            
+            <!-- Viewport -->
             <docking:DockingTabControl>
-                <TabItem Header="Viewport">
-                    <!-- Game View (NOTE: Native host controls are drawn above everything, so we can't have a control rendered over it in the same window) -->
+                <docking:ClosableTabItem Header="Viewport">
                     <controls:ThreeDViewport Grid.Row="1" Name="ThreeDViewport">
                     </controls:ThreeDViewport>
-                </TabItem>
+                </docking:ClosableTabItem>
             </docking:DockingTabControl>
-
+            
         </docking:DockingHost>
     </Grid>
 </suki:SukiWindow>

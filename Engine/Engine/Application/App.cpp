@@ -8,6 +8,7 @@ namespace Toybox::Application
     bool _isRunning;
     std::string _name;
     IWindow* _mainWindow;
+    Layers::LayerStack _layerStack;
 
     App::App(const std::string& name)
     {
@@ -36,12 +37,27 @@ namespace Toybox::Application
         Events::AppUpdateEvent updateEvent;
         OnEvent(updateEvent);
 
+        for (auto it = _layerStack.ReverseBegin(); it != _layerStack.ReverseEnd(); ++it)
+        {
+            (*it)->OnUpdate();
+        }
+
         OnUpdate();
     }
 
     void App::Close()
     {
         _isRunning = false;
+    }
+
+    void App::PushLayer(Layers::Layer* layer)
+    {
+        _layerStack.PushLayer(layer);
+    }
+
+    void App::PushOverlay(Layers::Layer* layer)
+    {
+        _layerStack.PushOverlay(layer);
     }
 
     const bool App::IsRunning() const
@@ -69,13 +85,12 @@ namespace Toybox::Application
     {
         Events::EventDispatcher dispatcher(e);
         dispatcher.Dispatch<Events::WindowCloseEvent>(TBX_BIND_EVENT_FN(App::OnWindowClose));
-        //dispatcher.Dispatch<WindowResizeEvent>(TBX_BIND_EVENT_FN(Application::OnWindowResize));
+        //dispatcher.Dispatch<Events::WindowResizeEvent>(TBX_BIND_EVENT_FN(Application::OnWindowResize));
 
-        /*for (auto it = m_LayerStack.rbegin(); it != m_LayerStack.rend(); ++it)
+        for (auto it = _layerStack.ReverseBegin(); it != _layerStack.ReverseEnd(); ++it)
         {
-            if (e.Handled)
-                break;
+            if (e.Handled) break;
             (*it)->OnEvent(e);
-        }*/
+        }
     }
 }

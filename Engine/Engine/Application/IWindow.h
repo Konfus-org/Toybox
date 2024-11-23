@@ -17,13 +17,13 @@ namespace Toybox::Application
         virtual void Update() = 0;
 
         virtual void SetVSyncEnabled(bool enabled) = 0;
-        virtual bool GetVSyncEnabled() const = 0;
+        virtual const bool GetVSyncEnabled() const = 0;
 
-        virtual Math::Size* GetSize() const = 0;
+        virtual const Math::Size* GetSize() const = 0;
         virtual void SetSize(Math::Size* size) = 0;
 
-        virtual std::string GetTitle() const = 0;
-        virtual Math::uint64 GetId() const = 0;
+        virtual const std::string GetTitle() const = 0;
+        virtual const Math::uint64 GetId() const = 0;
 
         virtual void SetEventCallback(const EventCallbackFn& callback) = 0;
 

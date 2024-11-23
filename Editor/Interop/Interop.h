@@ -26,3 +26,11 @@ TBX_EDITOR_CORE_API void UpdateViewport()
         EditorCoreApp->Update();
     }
 }
+
+TBX_EDITOR_CORE_API void CloseViewport()
+{
+    if (EditorCoreApp != nullptr && EditorCoreApp->GetMainWindow() != nullptr)
+    {
+        EditorCoreApp->Close();
+    }
+}

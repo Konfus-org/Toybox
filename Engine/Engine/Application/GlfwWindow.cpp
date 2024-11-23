@@ -50,7 +50,7 @@ namespace Toybox::Application
 		glfwSwapInterval(_vSyncEnabled);
 	}
 
-	bool GlfwWindow::GetVSyncEnabled() const
+	const bool GlfwWindow::GetVSyncEnabled() const
 	{
 		return _vSyncEnabled;
 	}
@@ -60,17 +60,17 @@ namespace Toybox::Application
 		_size = size;
 	}
 
-	Math::Size* GlfwWindow::GetSize() const
+	const Math::Size* GlfwWindow::GetSize() const
 	{
 		return _size;
 	}
 
-	std::string GlfwWindow::GetTitle() const
+	const std::string GlfwWindow::GetTitle() const
 	{
 		return _title;
 	}
 
-	Math::uint64 GlfwWindow::GetId() const
+	const Math::uint64 GlfwWindow::GetId() const
 	{
 		// TODO: make this platform agnostic (need to do diff things depending on platform!)
 		return (Math::uint64)glfwGetWin32Window(_glfwWindow);

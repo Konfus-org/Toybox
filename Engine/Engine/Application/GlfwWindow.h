@@ -14,13 +14,13 @@ namespace Toybox::Application
         void Update() override;
 
         void SetVSyncEnabled(bool enabled) override;
-        bool GetVSyncEnabled() const override;
+        bool const GetVSyncEnabled() const override;
 
         void SetSize(Math::Size* size) override;
-        Math::Size* GetSize() const override;
+        const Math::Size* GetSize() const override;
 
-        std::string GetTitle() const override;
-        Math::uint64 GetId() const override;
+        const std::string GetTitle() const override;
+        const Math::uint64 GetId() const override;
 
         void SetEventCallback(const EventCallbackFn& callback) override;
         void SetMode(WindowMode mode) override;

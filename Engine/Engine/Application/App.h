@@ -3,30 +3,30 @@
 #include "tbxpch.h"
 #include "IWindow.h"
 #include "ToyboxAPI.h"
+#include "Layers/Layers.h"
 #include "Events/Events.h"
 
 namespace Toybox::Application
 {
     class TOYBOX_API App
     {
-    // Public lifetime methods
     public:
         App(const std::string& name);
         virtual ~App();
         void Launch();
         void Update();
         void Close();
-    // Public getters and setters
-    public:
+        void PushLayer(Layers::Layer* layer);
+        void PushOverlay(Layers::Layer* layer);
         const bool IsRunning() const;
         const std::string& GetName() const;
         IWindow* GetMainWindow() const;
-    // Protected lifetime methods
+
     protected:
         virtual void OnOpen() = 0;
         virtual void OnUpdate() = 0;
         virtual void OnClose() = 0;
-    // Private lifetime methods
+
     private:
         bool OnWindowClose(Events::WindowCloseEvent& e);
         void OnEvent(Events::Event& e);

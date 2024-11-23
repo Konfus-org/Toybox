@@ -1,4 +1,5 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Platform;
 using System;
 using System.Threading.Tasks;
@@ -15,8 +16,8 @@ public partial class ThreeDViewport : UserControl
 
 public class Native3DViewport : NativeControlHost
 {
-    private bool _viewportAppLaunched;
     private Task? _viewportRenderTask;
+    private bool _isRendering;
 
     public Native3DViewport()
     {
@@ -25,45 +26,48 @@ public class Native3DViewport : NativeControlHost
 
     protected override IPlatformHandle CreateNativeControlCore(IPlatformHandle parent)
     {
-        var editorCoreHandle = Launch();
+        Int32 editorCoreHandle = LaunchViewportCore();
         var platformHandle = new PlatformHandle(editorCoreHandle, Name);
         return platformHandle;
     }
 
-    protected override void DestroyNativeControlCore(IPlatformHandle control)
-    {
-        // TODO: we have to tell the core to shutdown here
-        _viewportRenderTask?.Dispose();
-        base.DestroyNativeControlCore(control);
-    }
 
-    private Int32 Launch()
+    private Int32 LaunchViewportCore()
     {
         Int32 editorCoreHandle = 0;
+        bool viewportLaunched = false;
 
-        void UpdateLoop()
+        void CoreUpdateLoop()
         {
-            if (!_viewportAppLaunched)
+            if (!viewportLaunched)
             {
                 editorCoreHandle = Core.Interop.LaunchViewport();
-                _viewportAppLaunched = true;
+                viewportLaunched = true;
+                _isRendering = true;
             }
 
-            while (true)
+            while (_isRendering)
             {
                 Core.Interop.UpdateViewport();
             }
+
+            Core.Interop.CloseViewport();
         }
 
         _viewportRenderTask = Task.Factory.StartNew(
-            action: UpdateLoop, 
+            action: CoreUpdateLoop,
             creationOptions: TaskCreationOptions.LongRunning);
 
-        while (!_viewportAppLaunched)
+        while (!viewportLaunched)
         {
             // do nothing... waiting for the viewport to launch
         }
 
         return editorCoreHandle;
+    }
+
+    private void KillViewport()
+    {
+        _isRendering = false;
     }
 }
