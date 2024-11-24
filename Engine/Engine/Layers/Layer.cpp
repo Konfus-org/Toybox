@@ -3,8 +3,6 @@
 
 namespace Toybox::Layers 
 {
-	std::string _name;
-
 	Layer::Layer(const std::string& name)
 	{
 		_name = name;

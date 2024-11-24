@@ -1,5 +1,4 @@
 #pragma once
-
 #include "Math/BitOperations.h"
 
 namespace Toybox::Events

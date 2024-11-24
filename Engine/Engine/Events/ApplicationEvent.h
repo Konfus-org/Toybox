@@ -1,5 +1,4 @@
 #pragma once
-
 #include "Math/Size.h"
 #include "Event.h"
 

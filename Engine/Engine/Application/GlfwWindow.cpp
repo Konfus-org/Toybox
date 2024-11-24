@@ -28,6 +28,12 @@ namespace Toybox::Application
 		TBX_INFO("Created a new glfw window: {} of size: {}, {}", title, size->Width, size->Height);
 	}
 
+	GlfwWindow::~GlfwWindow()
+	{
+		glfwDestroyWindow(_glfwWindow);
+		delete _size;
+	}
+
 	void GlfwWindow::InitGlad()
 	{
 
@@ -45,10 +51,9 @@ namespace Toybox::Application
 		}
 	}
 
-	GlfwWindow::~GlfwWindow()
+	std::any GlfwWindow::GetNativeWindow() const
 	{
-		glfwDestroyWindow(_glfwWindow);
-		delete _size;
+		return _glfwWindow;
 	}
 
 	void GlfwWindow::Update()
@@ -85,8 +90,15 @@ namespace Toybox::Application
 
 	const Math::uint64 GlfwWindow::GetId() const
 	{
-		// TODO: make this platform agnostic (need to do diff things depending on platform!)
+#ifdef TBX_PLATFORM_WINDOWS
 		return (Math::uint64)glfwGetWin32Window(_glfwWindow);
+#endif
+#ifdef TBX_PLATFORM_OSX
+		return (Math::uint64)glfwGetCocoaWindow(_glfwWindow);
+#endif
+#ifdef TBX_PLATFORM_LINUX
+		return (Math::uint64)glfwGetX11Window(_glfwWindow);
+#endif
 	}
 
 	void GlfwWindow::SetEventCallback(const EventCallbackFn& callback)

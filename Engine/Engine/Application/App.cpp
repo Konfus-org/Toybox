@@ -5,15 +5,15 @@
 
 namespace Toybox::Application
 {
-    bool _isRunning;
-    std::string _name;
-    IWindow* _mainWindow;
-    Layers::LayerStack _layerStack;
+    App* App::_instance = nullptr;
 
     App::App(const std::string& name)
     {
+        _instance = this;
+
         _name = name;
         _isRunning = false;
+        _mainWindow = nullptr;
     }
 
     App::~App()
@@ -21,13 +21,17 @@ namespace Toybox::Application
         if (_isRunning) Close();
         delete _mainWindow;
     }
+
+    App* App::GetInstance()
+    {
+        return _instance;
+    }
     
     void App::Launch()
     {
         _isRunning = true;
         _mainWindow = new GlfwWindow(_name, new Math::Size(1920, 1080), WindowMode::Windowed);
         _mainWindow->SetEventCallback(TBX_BIND_EVENT_FN(App::OnEvent));
-        OnOpen();
     }
 
     void App::Update()
@@ -41,8 +45,6 @@ namespace Toybox::Application
         {
             (*it)->OnUpdate();
         }
-
-        OnUpdate();
     }
 
     void App::Close()
@@ -90,7 +92,7 @@ namespace Toybox::Application
         for (auto it = _layerStack.ReverseBegin(); it != _layerStack.ReverseEnd(); ++it)
         {
             if (e.Handled) break;
-            (*it)->OnEvent(e);
+            //(*it)->OnEvent(e);
         }
     }
 }

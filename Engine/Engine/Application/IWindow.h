@@ -1,5 +1,4 @@
 #pragma once
-
 #include "tbxpch.h"
 #include "ToyboxAPI.h"
 #include "WindowMode.h"
@@ -24,6 +23,7 @@ namespace Toybox::Application
 
         virtual const std::string GetTitle() const = 0;
         virtual const Math::uint64 GetId() const = 0;
+        virtual std::any GetNativeWindow() const = 0;
 
         virtual void SetEventCallback(const EventCallbackFn& callback) = 0;
 

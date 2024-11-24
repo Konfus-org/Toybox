@@ -16,5 +16,8 @@ namespace Toybox::Layers
         virtual void OnEvent(Events::Event& event) = 0;
 
         const std::string GetName() const;
+
+    private:
+        std::string _name;
     };
 }

@@ -8,12 +8,7 @@ namespace Toybox::Interop
     class InteropApp : public Application::App
     {
     public:
-        InteropApp() : Application::App("Toybox") { }
+        InteropApp();
         ~InteropApp() = default;
-
-    protected:
-        void OnOpen() override;
-        void OnUpdate() override;
-        void OnClose() override;
     };
 }

@@ -3,7 +3,6 @@
 
 namespace Toybox::Layers 
 {
-
 	LayerStack::~LayerStack()
 	{
 		for (Layer* layer : _layers)
@@ -44,5 +43,4 @@ namespace Toybox::Layers
 			_layers.erase(it);
 		}
 	}
-
 }

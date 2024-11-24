@@ -1,5 +1,4 @@
 #pragma once
-
 #include "ToyboxAPI.h"
 #include "EventCategory.h"
 
@@ -12,7 +11,7 @@ namespace Toybox::Events
     public:
         virtual ~Event() = default;
         virtual int GetCategorization() const = 0;
-        bool IsInCategory(EventCategory category) const
+        inline bool IsInCategory(EventCategory category) const
         {
             return GetCategorization() & category;
         }

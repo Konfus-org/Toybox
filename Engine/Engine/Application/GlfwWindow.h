@@ -21,6 +21,7 @@ namespace Toybox::Application
 
         const std::string GetTitle() const override;
         const Math::uint64 GetId() const override;
+        std::any GetNativeWindow() const override;
 
         void SetEventCallback(const EventCallbackFn& callback) override;
         void SetMode(WindowMode mode) override;
