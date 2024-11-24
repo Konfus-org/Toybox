@@ -1,14 +1,18 @@
 #pragma once
+#include "Math/Math.h"
 
 namespace Toybox::Input
 {
-    /*// Controller input
-    bool IsGamepadButtonDown(const int inputCode);
-    bool IsGamepadButtonUp(const int inputCode);
-    bool IsGamepadButtonHeld(const int inputCode);
+    bool IsGamepadButtonDown(const int id, const int button);
+    bool IsGamepadButtonUp(const int id, const int button);
+    bool IsGamepadButtonHeld(const int id, const int button);
 
-    // Mouse and keyboard input
-    bool IsKeyDown(const int inputCode);
-    bool IsKeyUp(const int inputCode);
-    bool IsKeyHeld(const int inputCode);*/
+    bool IsKeyDown(const int keyCode);
+    bool IsKeyUp(const int keyCode);
+    bool IsKeyHeld(const int keyCode);
+
+    bool IsMouseButtonDown(const int button);
+    bool IsMouseButtonUp(const int button);
+    bool IsMouseButtonHeld(const int button);
+    Math::Vector2 GetMousePosition();
 }

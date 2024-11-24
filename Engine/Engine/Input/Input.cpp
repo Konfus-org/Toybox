@@ -4,21 +4,21 @@
 
 namespace Toybox::Input
 {
-    /*static IInputHandler* _handler = new GlfwInputHandler();
+    static IInputHandler* _handler = new GlfwInputHandler();
 
-    bool IsGamepadButtonDown(const int inputCode)
+    bool IsGamepadButtonDown(const int id, const int inputCode)
     {
-        return _handler->IsGamepadButtonDown(inputCode);
+        return _handler->IsGamepadButtonDown(id, inputCode);
     }
 
-    bool IsGamepadButtonUp(const int inputCode)
+    bool IsGamepadButtonUp(const int id, const int inputCode)
     {
-        return _handler->IsGamepadButtonUp(inputCode);
+        return _handler->IsGamepadButtonUp(id, inputCode);
     }
 
-    bool IsGamepadButtonHeld(const int inputCode)
+    bool IsGamepadButtonHeld(const int id, const int inputCode)
     {
-        return _handler->IsGamepadButtonHeld(inputCode);
+        return _handler->IsGamepadButtonHeld(id, inputCode);
     }
 
     bool IsKeyDown(const int inputCode)
@@ -34,5 +34,25 @@ namespace Toybox::Input
     bool IsKeyHeld(const int inputCode)
     {
         return _handler->IsKeyHeld(inputCode);
-    }*/
+    }
+
+    bool IsMouseButtonDown(const int button)
+    {
+        return _handler->IsMouseButtonDown(button);
+    }
+
+    bool IsMouseButtonUp(const int button)
+    {
+        return _handler->IsMouseButtonUp(button);
+    }
+
+    bool IsMouseButtonHeld(const int button)
+    {
+        return _handler->IsMouseButtonHeld(button);
+    }
+
+    Math::Vector2 GetMousePosition()
+    {
+        return _handler->GetMousePosition();
+    }
 }

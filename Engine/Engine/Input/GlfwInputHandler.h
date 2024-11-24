@@ -6,15 +6,18 @@ namespace Toybox::Input
     class GlfwInputHandler : public IInputHandler
     {
     public:
-        // Controller input
-        bool IsGamepadButtonDown(const int inputCode) override;
-        bool IsGamepadButtonUp(const int inputCode) override;
-        bool IsGamepadButtonHeld(const int inputCode) override;
+        bool IsGamepadButtonDown(const int id, const int button) override;
+        bool IsGamepadButtonUp(const int id, const int button) override;
+        bool IsGamepadButtonHeld(const int id, const int button) override;
 
-        // Mouse and keyboard input
-        bool IsKeyDown(const int inputCode) override;
-        bool IsKeyUp(const int inputCode) override;
-        bool IsKeyHeld(const int inputCode) override;
+        bool IsKeyDown(const int keyCode) override;
+        bool IsKeyUp(const int keyCode) override;
+        bool IsKeyHeld(const int keyCode) override;
+
+        bool IsMouseButtonDown(const int button) override;
+        bool IsMouseButtonUp(const int button) override;
+        bool IsMouseButtonHeld(const int button) override;
+        Math::Vector2 GetMousePosition() override;
     };
 }
 
