@@ -2,7 +2,7 @@
 
 namespace Toybox::Math
 {
-    struct TOYBOX_API Size
+    struct Size
     {
         int Width, Height;
 

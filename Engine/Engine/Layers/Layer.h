@@ -1,10 +1,9 @@
 #pragma once
-#include "ToyboxAPI.h"
 #include "Events/Event.h"
 
 namespace Toybox::Layers
 {
-    class TOYBOX_API Layer
+    class Layer
     {
     public:
         Layer(const std::string& name);

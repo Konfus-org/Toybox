@@ -1,13 +1,12 @@
 #pragma once
 #include "tbxpch.h"
 #include "IWindow.h"
-#include "ToyboxAPI.h"
 #include "Layers/Layers.h"
 #include "Events/Events.h"
 
 namespace Toybox::Application
 {
-    class TOYBOX_API App
+    class App
     {
     public:
         static App* GetInstance();
@@ -39,5 +38,5 @@ namespace Toybox::Application
     };
 
     // API to create app, meant to be defined in CLIENT!
-    //App* CreateApp();
+    App* CreateApp();
 }

@@ -10,38 +10,44 @@
     mc:Ignorable="d" d:DesignWidth="1920" d:DesignHeight="1080"
     x:Class="Toybox.Views.MainWindow"
     Icon="/Assets/avalonia-logo.ico"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaChromeHints="PreferSystemChrome"
+    ExtendClientAreaTitleBarHeightHint="-1"
+    SystemDecorations="Full"
     Title="Toybox">
 
     <Design.DataContext>
         <viewModels:MainWindowVM/>
     </Design.DataContext>
-    
-    <Grid RowDefinitions="Auto, *">
-        <!-- Menu bar -->
-        <Menu Grid.Row="0">
-            <MenuItem Header="File" Margin="0">
-                <Button Content="Open"></Button>
-                <Button Content="Save"></Button>
-            </MenuItem>
-            <MenuItem Header="Edit" Margin="0">
-                <Button Content="Undo"></Button>
-                <Button Content="Redo"></Button>
-                <Button Content="Theme"></Button>
-                <Button Content="Options"></Button>
-            </MenuItem>
-        </Menu>
+    <Panel>
+        <Grid RowDefinitions="Auto, *">
+            
+            <!-- Menu bar -->
+            <Menu Grid.Row="0">
+                <MenuItem Header="File" Margin="0">
+                    <Button Content="Open"></Button>
+                    <Button Content="Save"></Button>
+                </MenuItem>
+                <MenuItem Header="Edit" Margin="0">
+                    <Button Content="Undo"></Button>
+                    <Button Content="Redo"></Button>
+                    <Button Content="Theme"></Button>
+                    <Button Content="Options"></Button>
+                </MenuItem>
+            </Menu>
 
-        <!-- Dock Host -->
-        <docking:DockingHost Grid.Row="1">
-            
-            <!-- Viewport -->
-            <docking:DockingTabControl>
-                <docking:ClosableTabItem Header="Viewport">
-                    <controls:ThreeDViewport Grid.Row="1" Name="ThreeDViewport">
-                    </controls:ThreeDViewport>
-                </docking:ClosableTabItem>
-            </docking:DockingTabControl>
-            
-        </docking:DockingHost>
-    </Grid>
+            <!-- Workspace -->
+            <docking:DockingHost Grid.Row="1" Margin="5">
+
+                <!-- Viewport -->
+                <docking:DockingTabControl>
+                    <docking:ClosableTabItem Header="Viewport">
+                        <controls:ThreeDViewport Grid.Row="1" Name="ThreeDViewport">
+                        </controls:ThreeDViewport>
+                    </docking:ClosableTabItem>
+                </docking:DockingTabControl>
+
+            </docking:DockingHost>
+        </Grid>
+    </Panel>
 </suki:SukiWindow>

@@ -4,7 +4,7 @@
 
 namespace Toybox::Events
 {
-    class TOYBOX_API AppEvent : public Event
+    class AppEvent : public Event
     {
     public:
         int GetCategorization() const override
@@ -13,15 +13,15 @@ namespace Toybox::Events
         }
     };
 
-    class TOYBOX_API AppTickEvent : public AppEvent { };
+    class AppTickEvent : public AppEvent { };
 
-    class TOYBOX_API AppUpdateEvent : public AppEvent { };
+    class AppUpdateEvent : public AppEvent { };
 
-    class TOYBOX_API AppRenderEvent : public AppEvent { };
+    class AppRenderEvent : public AppEvent { };
 
-    class TOYBOX_API WindowCloseEvent : public AppEvent { };
+    class WindowCloseEvent : public AppEvent { };
 
-    class TOYBOX_API WindowResizeEvent : public AppEvent
+    class WindowResizeEvent : public AppEvent
     {
     public:
         WindowResizeEvent(unsigned int width, unsigned int height) : _width(width), _height(height) {}

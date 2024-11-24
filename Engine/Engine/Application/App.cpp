@@ -92,7 +92,7 @@ namespace Toybox::Application
         for (auto it = _layerStack.ReverseBegin(); it != _layerStack.ReverseEnd(); ++it)
         {
             if (e.Handled) break;
-            //(*it)->OnEvent(e);
+            (*it)->OnEvent(e);
         }
     }
 }

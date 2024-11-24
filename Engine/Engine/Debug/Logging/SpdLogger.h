@@ -1,6 +1,4 @@
 #pragma once
-
-#include "ToyboxAPI.h"
 #include "ILogger.h"
 
 namespace Toybox::Debug

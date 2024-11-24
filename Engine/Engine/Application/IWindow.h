@@ -1,6 +1,5 @@
 #pragma once
 #include "tbxpch.h"
-#include "ToyboxAPI.h"
 #include "WindowMode.h"
 #include "Events/Event.h"
 #include "Math/Size.h"
@@ -8,7 +7,7 @@
 
 namespace Toybox::Application
 {
-    class TOYBOX_API IWindow
+    class IWindow
     {
     public:
         using EventCallbackFn = std::function<void(Events::Event&)>;

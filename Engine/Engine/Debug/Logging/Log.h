@@ -1,11 +1,9 @@
 #pragma once
-
-#include "ToyboxAPI.h"
 #include "LogLevel.h"
 
 namespace Toybox::Debug
 {
-    class TOYBOX_API Log
+    class Log
     {
     public:
         static void Trace(std::string msg);

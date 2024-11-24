@@ -2,7 +2,7 @@
 
 namespace Toybox::Math
 {
-    struct TOYBOX_API Vector2
+    struct Vector2
     {
         float X, Y;
 
