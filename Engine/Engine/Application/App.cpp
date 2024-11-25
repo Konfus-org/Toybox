@@ -1,7 +1,7 @@
 #include "tbxpch.h"
 #include "App.h"
-#include "IWindow.h"
-#include "GlfwWindow.h"
+#include "Windowing/IWindow.h"
+#include "Windowing/GlfwWindow.h"
 
 namespace Toybox::Application
 {
@@ -30,7 +30,7 @@ namespace Toybox::Application
     void App::Launch()
     {
         _isRunning = true;
-        _mainWindow = new GlfwWindow(_name, new Math::Size(1920, 1080), WindowMode::Windowed);
+        _mainWindow = new Windowing::GlfwWindow(_name, new Math::Size(1920, 1080), Windowing::WindowMode::Windowed);
         _mainWindow->SetEventCallback(TBX_BIND_EVENT_FN(App::OnEvent));
     }
 
@@ -72,7 +72,7 @@ namespace Toybox::Application
         return _name;
     }
 
-    IWindow* App::GetMainWindow() const
+    Windowing::IWindow* App::GetMainWindow() const
     {
         return _mainWindow;
     }

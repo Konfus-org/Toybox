@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-namespace Toybox::Application
+namespace Toybox::Application::Windowing
 {
     enum WindowMode
     {

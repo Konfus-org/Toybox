@@ -1,6 +1,6 @@
 #pragma once
 #include "tbxpch.h"
-#include "IWindow.h"
+#include "Windowing/IWindow.h"
 #include "Layers/Layers.h"
 #include "Events/Events.h"
 
@@ -23,14 +23,14 @@ namespace Toybox::Application
 
         const bool IsRunning() const;
         const std::string& GetName() const;
-        IWindow* GetMainWindow() const;
+        Windowing::IWindow* GetMainWindow() const;
 
     private:
         static App* _instance;
 
         bool _isRunning = false;
         std::string _name = "App";
-        IWindow* _mainWindow = nullptr;
+        Windowing::IWindow* _mainWindow = nullptr;
         Layers::LayerStack _layerStack;
 
         bool OnWindowClose(Events::WindowCloseEvent& e);

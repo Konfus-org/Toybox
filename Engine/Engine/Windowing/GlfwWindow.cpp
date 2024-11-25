@@ -8,7 +8,7 @@
 #include "Debug/Assert.h"
 #include "Events/Events.h"
 
-namespace Toybox::Application
+namespace Toybox::Application::Windowing
 {
 	static bool s_glfwInitialized = false;
 	GLFWwindow* _glfwWindow;

@@ -3,7 +3,7 @@ project "Modules"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
-	warnings "Default"
+    warnings "Default"
     
     targetdir ("../../" .. OutputDir .. "/bin/%{prj.name}/")
     objdir    ("../../" .. OutputDir .. "/obj/%{prj.name}/")

@@ -3,7 +3,7 @@ project "Engine"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
-	warnings "Default"
+    warnings "Default"
     
     targetdir ("../../" .. OutputDir .. "/bin/%{prj.name}/")
     objdir    ("../../" .. OutputDir .. "/obj/%{prj.name}/")
@@ -14,7 +14,7 @@ project "Engine"
     defines
     {
         "TOYBOX",
-		"GLFW_INCLUDE_NONE"
+        "GLFW_INCLUDE_NONE"
     }
 
     files
@@ -40,13 +40,13 @@ project "Engine"
         "glad",
         "opengl32.lib"
     }
-	
+    
     -- Setup standard platforms and configs
     StandardPlatforms()
     StandardConfigs()
 
     -- Expose native platform methods 
-	-- which is needed to grab handles of windows for editor
+    -- which is needed to grab handles of windows for editor
     filter "system:Windows"
         defines
         {
@@ -64,4 +64,4 @@ project "Engine"
         {
             "GLFW_EXPOSE_NATIVE_COCOA"
         }
-		
+        

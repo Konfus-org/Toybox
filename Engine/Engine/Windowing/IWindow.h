@@ -5,7 +5,7 @@
 #include "Math/Size.h"
 #include "Math/Int64.h"
 
-namespace Toybox::Application
+namespace Toybox::Application::Windowing
 {
     class IWindow
     {

@@ -3,7 +3,7 @@ project "Sandbox"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
-	ignoredefaultlibraries { "MSVCRT" }
+    ignoredefaultlibraries { "MSVCRT" }
 
     entrypoint "mainCRTStartup"
     
@@ -17,7 +17,7 @@ project "Sandbox"
         "./**.hpp",
         "./**.cpp"
     }
-	
-	IncludeEngine()
+    
+    IncludeEngine()
     StandardPlatforms()
     StandardConfigs()

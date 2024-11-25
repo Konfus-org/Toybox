@@ -3,8 +3,8 @@ project "Interop"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
-	warnings "Default"
-	ignoredefaultlibraries { "MSVCRT" }
+    warnings "Default"
+    ignoredefaultlibraries { "MSVCRT" }
 
     targetdir ("../../" .. OutputDir .. "/bin/%{prj.name}/")
     objdir    ("../../" .. OutputDir .. "/obj/%{prj.name}/")
@@ -17,20 +17,20 @@ project "Interop"
         "./**.cpp",
         "./**.cs",
     }
-	
+    
     -- Setup standard platforms and configs
     IncludeEngine()
     StandardPlatforms()
     StandardConfigs()
-	
-	-- Editor Supported Platforms
-	filter "system:Windows"
+    
+    -- Editor Supported Platforms
+    filter "system:Windows"
         defines
         {
-			"TOYBOX_EDITOR"
-	}
-	
-	-- Needed for .DLL stufffilter "configurations:Debug"
+            "TOYBOX_EDITOR"
+    }
+    
+    -- Needed for .DLL stufffilter "configurations:Debug"
     filter "configurations:Debug"
         buildoptions "/MDd"
 

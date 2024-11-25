@@ -3,7 +3,7 @@
 #include "IWindow.h"
 #include "WindowMode.h"
 
-namespace Toybox::Application
+namespace Toybox::Application::Windowing
 {
     class GlfwWindow : public IWindow
     {

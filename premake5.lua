@@ -39,10 +39,10 @@ function StandardConfigs()
         runtime "Debug"
         optimize "Off"
         symbols "On"
-		flags
-		{
-			"MultiProcessorCompile"
-		}
+        flags
+        {
+            "MultiProcessorCompile"
+        }
         defines
         {
             "TBX_DEBUG",
@@ -53,10 +53,10 @@ function StandardConfigs()
         runtime "Release"
         optimize "On"
         symbols "On"
-		flags
-		{
-			"MultiProcessorCompile"
-		}
+        flags
+        {
+            "MultiProcessorCompile"
+        }
         defines
         {
             "TBX_OPTIMIZED"
@@ -66,10 +66,10 @@ function StandardConfigs()
         runtime "Release"
         optimize "On"
         symbols "Off"
-		flags
-		{
-			"MultiProcessorCompile"
-		}
+        flags
+        {
+            "MultiProcessorCompile"
+        }
         defines 
         {
             "TBX_RELEASE"
@@ -90,31 +90,31 @@ function IncludeEngine()
 end
 
 workspace "Toybox"
-	architecture "x86_64"
-	startproject "Sandbox"
+    architecture "x86_64"
+    startproject "Sandbox"
 
-	configurations
-	{
-		"Debug",
-		"Optimized",
-		"Release"
-	}
+    configurations
+    {
+        "Debug",
+        "Optimized",
+        "Release"
+    }
 
-	group "_3rd Party"
-		include "3rd Party/Libraries/glfw"
-		include "3rd Party/Libraries/spdlog"
-		include "3rd Party/Libraries/glad"
-	
-	group "Engine"
-		include "Engine/Engine"
-		include "Engine/Modules"
-		
-	group "Editor"
-		include "Editor/Interop"
-		externalproject "Editor"
-		   location "Editor/Editor"
-		   kind "WindowedApp"
-		   language "C#"
+    group "_3rd Party"
+        include "3rd Party/Libraries/glfw"
+        include "3rd Party/Libraries/spdlog"
+        include "3rd Party/Libraries/glad"
+    
+    group "Engine"
+        include "Engine/Engine"
+        include "Engine/Modules"
+        
+    group "Editor"
+        include "Editor/Interop"
+        externalproject "Editor"
+           location "Editor/Editor"
+           kind "WindowedApp"
+           language "C#"
 
-	group "Testing"
-		include "Sandbox"
+    group "Testing"
+        include "Sandbox"
