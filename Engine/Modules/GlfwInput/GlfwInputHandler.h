@@ -1,9 +1,9 @@
 #pragma once
-#include "IInputHandler.h"
+#include <Toybox.h>
 
-namespace Toybox::Input
+namespace GlfwInput
 {
-    class GlfwInputHandler : public IInputHandler
+    class GlfwInputHandler : public Toybox::Input::IInputHandler
     {
     public:
         bool IsGamepadButtonDown(const int id, const int button) override;
@@ -17,7 +17,7 @@ namespace Toybox::Input
         bool IsMouseButtonDown(const int button) override;
         bool IsMouseButtonUp(const int button) override;
         bool IsMouseButtonHeld(const int button) override;
-        Math::Vector2 GetMousePosition() override;
+        Toybox::Math::Vector2 GetMousePosition() override;
     };
 }
 

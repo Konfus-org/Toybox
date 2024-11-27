@@ -1,10 +1,11 @@
 #include "tbxpch.h"
 #include "Input.h"
-#include "GlfwInputHandler.h"
+#include "IInputHandler.h"
+#include "Modules/Modules.h"
 
 namespace Toybox::Input
 {
-    static IInputHandler* _handler = new GlfwInputHandler();
+    static IInputHandler* _handler = Modules::ModuleServer::GetInstance()->GetModule<Modules::InputModule>()->Create();
 
     bool IsGamepadButtonDown(const int id, const int inputCode)
     {

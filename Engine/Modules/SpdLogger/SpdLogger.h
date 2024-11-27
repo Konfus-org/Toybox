@@ -1,9 +1,9 @@
 #pragma once
-#include "ILogger.h"
+#include <Toybox.h>
 
-namespace Toybox::Debug
+namespace SpdLogging
 {
-    class SpdLogger : public ILogger
+    class SpdLogger : public Toybox::Debug::ILogger
     {
     public:
         SpdLogger();

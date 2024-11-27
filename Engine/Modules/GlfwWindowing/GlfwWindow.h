@@ -1,34 +1,35 @@
 #pragma once
+#include <Toybox.h>
 
-#include "IWindow.h"
-#include "WindowMode.h"
-
-namespace Toybox::Application::Windowing
+namespace GlfwWindowing
 {
-    class GlfwWindow : public IWindow
+    class GlfwWindow : public Toybox::Windowing::IWindow
     {
     public:
-        GlfwWindow(const std::string& title, Math::Size* size, WindowMode mode);
+        GlfwWindow();
         ~GlfwWindow();
 
+        void Open(Toybox::Windowing::WindowMode mode) override;
         void Update() override;
 
         void SetVSyncEnabled(bool enabled) override;
         bool const GetVSyncEnabled() const override;
 
-        void SetSize(Math::Size* size) override;
-        const Math::Size* GetSize() const override;
+        void SetSize(Toybox::Math::Size* size) override;
+        const Toybox::Math::Size* GetSize() const override;
 
         const std::string GetTitle() const override;
-        const Math::uint64 GetId() const override;
+        void SetTitle(const std::string& title) override;
+
+        const Toybox::Math::uint64 GetId() const override;
         std::any GetNativeWindow() const override;
 
         void SetEventCallback(const EventCallbackFn& callback) override;
-        void SetMode(WindowMode mode) override;
+        void SetMode(Toybox::Windowing::WindowMode mode) override;
 
     private:
         std::string _title;
-        Math::Size* _size;
+        Toybox::Math::Size* _size;
         bool _vSyncEnabled;
         EventCallbackFn _eventCallback;
 
@@ -37,4 +38,9 @@ namespace Toybox::Application::Windowing
         void InitGlad();
         void InitGlfwIfNotAlreadyInitialized();
     };
+
+    extern Toybox::Windowing::IWindow* Create()
+    {
+        return new GlfwWindow();
+    }
 }

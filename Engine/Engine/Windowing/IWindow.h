@@ -5,13 +5,14 @@
 #include "Math/Size.h"
 #include "Math/Int64.h"
 
-namespace Toybox::Application::Windowing
+namespace Toybox::Windowing
 {
     class IWindow
     {
     public:
         using EventCallbackFn = std::function<void(Events::Event&)>;
 
+        virtual void Open(WindowMode mode) = 0;
         virtual void Update() = 0;
 
         virtual void SetVSyncEnabled(bool enabled) = 0;
@@ -21,6 +22,8 @@ namespace Toybox::Application::Windowing
         virtual void SetSize(Math::Size* size) = 0;
 
         virtual const std::string GetTitle() const = 0;
+        virtual void SetTitle(const std::string& title) = 0;
+
         virtual const Math::uint64 GetId() const = 0;
         virtual std::any GetNativeWindow() const = 0;
 

@@ -1,13 +1,12 @@
-#include "tbxpch.h"
-#include "Application/App.h"
 #include "GlfwInputHandler.h"
 #include <GLFW/glfw3.h>
+#include <Toybox.h>
 
-namespace Toybox::Input
+namespace GlfwInput
 {
     GLFWwindow* GetAppMainGlfwWindow()
     {
-        auto* app = Application::App::GetInstance();
+        auto* app = Toybox::Application::App::GetInstance();
         GLFWwindow* appMainWindow = std::any_cast<GLFWwindow*>(app->GetMainWindow()->GetNativeWindow());
         return appMainWindow;
     }
@@ -76,11 +75,11 @@ namespace Toybox::Input
         return GetMouseButtonState(button) == GLFW_REPEAT;
     }
 
-    Math::Vector2 GlfwInputHandler::GetMousePosition()
+    Toybox::Math::Vector2 GlfwInputHandler::GetMousePosition()
     {
         double xPos;
         double yPos;
         glfwGetCursorPos(GetAppMainGlfwWindow(), &xPos, &yPos);
-        return Math::Vector2(xPos, yPos);
+        return Toybox::Math::Vector2((float)xPos, (float)yPos);
     }
 }

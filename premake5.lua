@@ -104,10 +104,14 @@ workspace "Toybox"
         include "3rd Party/Libraries/glfw"
         include "3rd Party/Libraries/spdlog"
         include "3rd Party/Libraries/glad"
-    
+
     group "Engine"
         include "Engine/Engine"
-        include "Engine/Modules"
+
+    group "Engine Modules"
+        include "Engine/Modules/GlfwInput"
+        include "Engine/Modules/GlfwWindowing"
+        include "Engine/Modules/SpdLogger"
         
     group "Editor"
         include "Editor/Interop"

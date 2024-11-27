@@ -2,6 +2,7 @@
 
 #include "tbxpch.h"
 #include "Log.h"
+#include "ILogger.h"
 #include "LogLevel.h"
 
 #define TBX_TRACE(msg, ...)         ::Toybox::Debug::Log::Trace(std::vformat(msg, std::make_format_args(__VA_ARGS__)))

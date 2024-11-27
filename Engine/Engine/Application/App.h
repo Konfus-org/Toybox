@@ -9,7 +9,7 @@ namespace Toybox::Application
     class App
     {
     public:
-        static App* GetInstance();
+        static const App* GetInstance();
 
         App(const std::string& name);
         virtual ~App();

@@ -1,7 +1,7 @@
 #include "tbxpch.h"
 #include "App.h"
 #include "Windowing/IWindow.h"
-#include "Windowing/GlfwWindow.h"
+#include "Modules/Modules.h"
 
 namespace Toybox::Application
 {
@@ -22,7 +22,7 @@ namespace Toybox::Application
         delete _mainWindow;
     }
 
-    App* App::GetInstance()
+    const App* App::GetInstance()
     {
         return _instance;
     }
@@ -30,7 +30,9 @@ namespace Toybox::Application
     void App::Launch()
     {
         _isRunning = true;
-        _mainWindow = new Windowing::GlfwWindow(_name, new Math::Size(1920, 1080), Windowing::WindowMode::Windowed);
+
+        auto* windowModule = Modules::ModuleServer::GetInstance()->GetModule<Modules::WindowModule>();
+        _mainWindow = windowModule->Create();
         _mainWindow->SetEventCallback(TBX_BIND_EVENT_FN(App::OnEvent));
     }
 
