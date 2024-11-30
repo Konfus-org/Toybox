@@ -5,7 +5,7 @@
 
 namespace Toybox::Debug
 {
-	ILogger* _logger = Modules::ModuleServer::GetInstance()->GetModule<Modules::LoggerModule>()->Create();
+	ILogger* _logger = ((Modules::LoggerModule*)Modules::ModuleServer::GetInstance()->GetModule("Spd Logger"))->Create();
 
 	static void FallbackLog(std::string msg)
 	{

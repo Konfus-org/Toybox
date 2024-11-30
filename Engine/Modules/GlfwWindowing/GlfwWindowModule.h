@@ -4,12 +4,27 @@
 
 namespace GlfwWindowing
 {
-    class GlfwWindowModule : public Toybox::Modules::WindowModule
+    TBX_MODULE_API class GlfwWindowModule : public Toybox::Modules::WindowModule
     {
     public:
         Toybox::Windowing::IWindow* Create() override
         {
             return new GlfwWindow();
+        }
+
+        const std::string GetName() const override
+        {
+            return "Glfw Windowing";
+        }
+
+        const std::string GetAuthor() const override
+        {
+            return "Jeremy Hummel";
+        }
+
+        const int GetVersion() const override
+        {
+            return 0;
         }
     };
 }

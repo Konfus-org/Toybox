@@ -4,12 +4,27 @@
 
 namespace GlfwInput
 {
-    class GlfwInputModule : public Toybox::Modules::InputModule
+    TBX_MODULE_API class GlfwInputModule : public Toybox::Modules::InputModule
     {
     public:
         Toybox::Input::IInputHandler* Create() override
         {
             return new GlfwInputHandler();
+        }
+
+        const std::string GetName() const override
+        {
+            return "Glfw Input";
+        }
+
+        const std::string GetAuthor() const override
+        {
+            return "Jeremy Hummel";
+        }
+
+        const int GetVersion() const override
+        {
+            return 0;
         }
     };
 }

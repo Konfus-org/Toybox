@@ -31,7 +31,7 @@ namespace Toybox::Application
     {
         _isRunning = true;
 
-        auto* windowModule = Modules::ModuleServer::GetInstance()->GetModule<Modules::WindowModule>();
+        auto* windowModule = (Modules::WindowModule*)Modules::ModuleServer::GetInstance()->GetModule("Glfw Windowing");
         _mainWindow = windowModule->Create();
         _mainWindow->SetEventCallback(TBX_BIND_EVENT_FN(App::OnEvent));
     }

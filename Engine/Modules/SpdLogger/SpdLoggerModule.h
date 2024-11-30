@@ -4,12 +4,27 @@
 
 namespace SpdLogging
 {
-    class SpdLoggerModule : public Toybox::Modules::LoggerModule
+    TBX_MODULE_API class SpdLoggerModule : public Toybox::Modules::LoggerModule
     {
     public:
         Toybox::Debug::ILogger* Create() override
         {
             return new SpdLogger();
+        }
+
+        const std::string GetName() const override
+        {
+            return "Spd Logger";
+        }
+
+        const std::string GetAuthor() const override
+        {
+            return "Jeremy Hummel";
+        }
+
+        const int GetVersion() const override
+        {
+            return 0;
         }
     };
 }

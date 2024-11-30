@@ -4,26 +4,26 @@
 
 namespace GlfwInput
 {
-    GLFWwindow* GetAppMainGlfwWindow()
+    static GLFWwindow* GetAppMainGlfwWindow()
     {
         auto* app = Toybox::Application::App::GetInstance();
         GLFWwindow* appMainWindow = std::any_cast<GLFWwindow*>(app->GetMainWindow()->GetNativeWindow());
         return appMainWindow;
     }
 
-    int GetKeyState(int keyCode)
+    static int GetKeyState(int keyCode)
     {
         auto state = glfwGetKey(GetAppMainGlfwWindow(), keyCode);
         return state;
     }
 
-    int GetMouseButtonState(int button)
+    static int GetMouseButtonState(int button)
     {
         auto state = glfwGetMouseButton(GetAppMainGlfwWindow(), button);
         return state;
     }
 
-    int GetGamepadButtonState(int button, int id)
+    static int GetGamepadButtonState(int button, int id)
     {
         int numberOfPressedButtons;
         const unsigned char* buttons = glfwGetJoystickButtons(id, &numberOfPressedButtons);

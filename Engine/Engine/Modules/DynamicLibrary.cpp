@@ -3,7 +3,7 @@
 
 namespace Toybox::Modules
 {
-#if defined(TBX_PLATFORM_WINDOWS)
+#ifdef TBX_PLATFORM_WINDOWS
 #include <windows.h>
 
     bool DynamicLibrary::Load(const std::string& path) 
@@ -22,6 +22,7 @@ namespace Toybox::Modules
         if (_handle) 
         {
             FreeLibrary(static_cast<HMODULE>(_handle));
+            delete _handle;
             _handle = nullptr;
         }
     }

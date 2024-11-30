@@ -5,7 +5,7 @@
 
 namespace Toybox::Input
 {
-    static IInputHandler* _handler = Modules::ModuleServer::GetInstance()->GetModule<Modules::InputModule>()->Create();
+    static IInputHandler* _handler = ((Modules::InputModule*)Modules::ModuleServer::GetInstance()->GetModule("Glfw Input"))->Create();
 
     bool IsGamepadButtonDown(const int id, const int inputCode)
     {

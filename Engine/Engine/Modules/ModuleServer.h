@@ -1,4 +1,6 @@
 #pragma once
+#include "tbxpch.h"
+#include "ModuleAPI.h"
 
 namespace Toybox::Modules
 {
@@ -10,8 +12,7 @@ namespace Toybox::Modules
         ModuleServer();
         ~ModuleServer();
 
-        template<class Interface>
-        Interface* GetModule() const;
+        Module* GetModule(const std::string& name) const;
     };
 }
 

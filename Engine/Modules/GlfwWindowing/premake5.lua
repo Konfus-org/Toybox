@@ -6,8 +6,8 @@ project "GlfwWindowing"
     warnings "Default"
     ignoredefaultlibraries { "MSVCRT" }
 
-    targetdir ("../../" .. OutputDir .. "/bin/Modules/")
-    objdir    ("../../" .. OutputDir .. "/obj/Modules/")
+    targetdir ("../../../" .. OutputDir .. "/bin/Modules/")
+    objdir    ("../../../" .. OutputDir .. "/obj/Modules/")
 
     files
     {

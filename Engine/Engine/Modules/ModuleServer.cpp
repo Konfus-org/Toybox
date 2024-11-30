@@ -1,6 +1,7 @@
 #include "tbxpch.h"
 #include "ModuleServer.h"
-#include "ModuleLoader.h"
+#include "LoadedModule.h"
+#include <direct.h>
 
 namespace Toybox::Modules
 {
@@ -9,36 +10,65 @@ namespace Toybox::Modules
 
     const ModuleServer* ModuleServer::GetInstance()
     {
+        if (_instance == nullptr)
+        {
+            _instance = new ModuleServer();
+        }
+
         return _instance;
     }
 
+
     ModuleServer::ModuleServer()
     {
-        _instance = this;
+        _loadedModules = new std::vector<LoadedModule*>();
 
-        ModuleLoader loader;
-        _loadedModules = loader.LoadModules();
+        auto currentPath = std::filesystem::current_path();
+        auto fullPathToModules = currentPath.append("\\Modules");
+        for (const auto& entry : std::filesystem::directory_iterator(fullPathToModules))
+        {
+            if (!entry.is_regular_file()) continue;
+
+            // Platform-specific extension check
+#if defined(TBX_PLATFORM_WINDOWS)
+            if (entry.path().extension() == ".dll")
+#elif defined(TBX_PLATFORM_LINUX)
+            if (entry.path().extension() == ".so")
+#elif defined(TBX_PLATFORM_OSX)
+            if (entry.path().extension() == ".dylib")
+#else
+            if (false)
+#endif
+            {
+                auto* loadedModule = new LoadedModule(entry.path().string());
+                if (loadedModule->GetLib() != nullptr)
+                {
+                    _loadedModules->push_back(loadedModule);
+                }
+            }
+        }
     }
 
     ModuleServer::~ModuleServer()
     {
-        for (auto* module : *_loadedModules)
+        delete _instance;
+        for (auto* loadedMod : *_loadedModules)
         {
-            delete module;
+            delete loadedMod;
         }
         delete _loadedModules;
-        delete _instance;
     }
 
-    template<class Interface>
-    inline Interface* ModuleServer::GetModule() const
+    Module* ModuleServer::GetModule(const std::string& name) const
     {
-        for (auto* module : *_loadedModules)
+        for (auto* loadedMod : *_loadedModules)
         {
-            if (Interface* ptr = dynamic_cast<Interface*>(module))
+            if (loadedMod->GetModule()->GetName() == name)
             {
-                return ptr;
+                return loadedMod->GetModule();
             }
         }
+
+        return nullptr;
     }
 }

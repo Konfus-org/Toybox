@@ -1,9 +1,10 @@
 #pragma once
-#include <string>
+#include "tbxpch.h"
 
 namespace Toybox::Modules
 {
-    class DynamicLibrary {
+    class DynamicLibrary 
+    {
     public:
         DynamicLibrary() = default;
         ~DynamicLibrary();
