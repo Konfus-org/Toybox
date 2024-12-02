@@ -4,9 +4,9 @@
 
 namespace SpdLogging
 {
-    Toybox::ILogger* SpdLoggerModule::Create()
+    Toybox::ILogger* SpdLoggerModule::CreateLogger(const std::string& name)
     {
-        return new SpdLogger();
+        return new SpdLogger(name);
     }
 
     const std::string SpdLoggerModule::GetName() const

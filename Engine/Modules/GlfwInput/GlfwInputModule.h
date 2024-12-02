@@ -6,7 +6,7 @@ namespace GlfwInput
     class GlfwInputModule : public Toybox::InputModule
     {
     public:
-        Toybox::IInputHandler* Create() override;
+        Toybox::IInputHandler* CreateInputHandler() override;
         const std::string GetName() const override;
         const std::string GetAuthor() const override;
         const int GetVersion() const override;

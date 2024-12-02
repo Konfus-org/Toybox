@@ -11,14 +11,14 @@ namespace GlfwWindowing
 
 	GlfwWindow::GlfwWindow()
 	{
+		Toybox::Size size(0, 0);
+		_size = size;
 		_vSyncEnabled = true;
-		_size = nullptr;
 	}
 
 	GlfwWindow::~GlfwWindow()
 	{
 		glfwDestroyWindow(_glfwWindow);
-		delete _size;
 	}
 
 	void GlfwWindow::InitGlad()
@@ -61,13 +61,12 @@ namespace GlfwWindowing
 		return _vSyncEnabled;
 	}
 
-	void GlfwWindow::SetSize(Toybox::Size* size)
+	void GlfwWindow::SetSize(Toybox::Size size)
 	{
-		delete _size;
 		_size = size;
 	}
 
-	const Toybox::Size* GlfwWindow::GetSize() const
+	const Toybox::Size GlfwWindow::GetSize() const
 	{
 		return _size;
 	}
@@ -117,26 +116,26 @@ namespace GlfwWindowing
 			//Windowed mode (monitor = nullptr)
 			case Toybox::WindowMode::Windowed:
 			{
-				_glfwWindow = glfwCreateWindow((int)_size->Width, (int)_size->Height, _title.c_str(), nullptr, nullptr);
+				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), nullptr, nullptr);
 				break;
 			}
 			// Fullscreen mode (monitor != nullptr)
 			case Toybox::WindowMode::Fullscreen:
 			{
-				_glfwWindow = glfwCreateWindow((int)_size->Width, (int)_size->Height, _title.c_str(), glfwGetPrimaryMonitor(), nullptr);
+				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), glfwGetPrimaryMonitor(), nullptr);
 				break;
 			}
 			// Borderless (monitor = nullptr, decorated = false)
 			case Toybox::WindowMode::Borderless:
 			{
 				glfwWindowHint(GLFW_DECORATED, false);
-				_glfwWindow = glfwCreateWindow((int)_size->Width, (int)_size->Height, _title.c_str(), nullptr, nullptr);
+				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), nullptr, nullptr);
 				break;
 			}
 			// Fullscreen borderless (monitor != nullptr, video mode = monitor mode)
 			case Toybox::WindowMode::FullscreenBorderless:
 			{
-				_glfwWindow = glfwCreateWindow((int)_size->Width, (int)_size->Height, _title.c_str(), glfwGetPrimaryMonitor(), nullptr);
+				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), glfwGetPrimaryMonitor(), nullptr);
 				break;
 			}
 		}
@@ -163,7 +162,7 @@ namespace GlfwWindowing
 		glfwSetWindowSizeCallback(_glfwWindow, [](GLFWwindow* window, int width, int height)
 		{
 			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
-			toyboxWindow.SetSize(new Toybox::Size(width, height));
+			toyboxWindow.SetSize(Toybox::Size(width, height));
 
 			Toybox::WindowResizeEvent event(width, height);
 			toyboxWindow._eventCallback(event);

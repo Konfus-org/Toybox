@@ -7,12 +7,8 @@
 
 namespace Toybox
 {
-    App* App::_instance = nullptr;
-
     App::App(const std::string& name)
     {
-        _instance = this;
-
         _name = name;
         _isRunning = false;
         _mainWindow = nullptr;
@@ -23,26 +19,21 @@ namespace Toybox
         if (_isRunning) Close();
         delete _mainWindow;
     }
-
-    const App* App::GetInstance()
-    {
-        return _instance;
-    }
     
     void App::Launch()
     {
         _isRunning = true;
 
-        // Init logging
+        // Opn log
         Log::Open();
-
-        // Init input
-        Input::StartHandling();
 
         // Create main window
         auto* windowModule = (WindowModule*)ModuleServer::GetModule("Glfw Windowing");
-        _mainWindow = windowModule->Create();
+        _mainWindow = windowModule->OpenNewWindow(_name, WindowMode::Fullscreen, Size(1080, 1920));
         _mainWindow->SetEventCallback(TBX_BIND_EVENT_FN(App::OnEvent));
+
+        // Start handling input
+        Input::StartHandling();
     }
 
     void App::Update()
@@ -63,7 +54,6 @@ namespace Toybox
         _isRunning = false;
         Input::StopHandling();
         Log::Close();
-        delete _instance;
     }
 
     void App::PushLayer(Layer* layer)

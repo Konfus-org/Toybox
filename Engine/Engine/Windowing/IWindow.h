@@ -18,8 +18,8 @@ namespace Toybox
         virtual void SetVSyncEnabled(bool enabled) = 0;
         virtual const bool GetVSyncEnabled() const = 0;
 
-        virtual const Size* GetSize() const = 0;
-        virtual void SetSize(Size* size) = 0;
+        virtual const Size GetSize() const = 0;
+        virtual void SetSize(Size size) = 0;
 
         virtual const std::string GetTitle() const = 0;
         virtual void SetTitle(const std::string& title) = 0;

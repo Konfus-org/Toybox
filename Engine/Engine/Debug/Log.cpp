@@ -14,7 +14,7 @@ namespace Toybox
 
 	void Log::Open()
 	{
-		_logger = ((LoggerModule*)ModuleServer::GetModule("Spd Logger"))->Create();
+		_logger = ((LoggerModule*)ModuleServer::GetModule("Spd Logger"))->CreateLogger("Toybox::Core");
 	}
 
 	void Log::Close()

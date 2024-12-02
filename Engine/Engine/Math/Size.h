@@ -4,12 +4,19 @@ namespace Toybox
 {
     struct Size
     {
-        int Width, Height;
+    public:
+        Size()
+        {
+            Width = 0;
+            Height = 0;
+        }
 
         Size(int width, int height)
         {
             Width = width;
             Height = height;
         }
+
+        int Width, Height;
     };
 }

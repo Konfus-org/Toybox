@@ -6,7 +6,7 @@ namespace SpdLogging
     class SpdLoggerModule : public Toybox::LoggerModule
     {
     public:
-        Toybox::ILogger* Create() override;
+        Toybox::ILogger* CreateLogger(const std::string& name) override;
         const std::string GetName() const override;
         const std::string GetAuthor() const override;
         const int GetVersion() const override;

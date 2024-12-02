@@ -9,24 +9,24 @@ namespace Toybox
     class WindowModule : public Module
     {
     public:
-        virtual IWindow* Create() = 0;
+        virtual IWindow* OpenNewWindow(const std::string& name, WindowMode mode, Size size) = 0;
     };
 
     class InputModule : public Module
     {
     public:
-        virtual IInputHandler* Create() = 0;
+        virtual IInputHandler* CreateInputHandler() = 0;
     };
 
     class LoggerModule : public Module
     {
     public:
-        virtual ILogger* Create() = 0;
+        virtual ILogger* CreateLogger(const std::string& name) = 0;
     };
 
     class DefaultWindowModule : public WindowModule
     {
-        IWindow* Create() override
+        IWindow* OpenNewWindow(const std::string& name, WindowMode mode, Size size) override
         {
             return nullptr;
         }
@@ -49,7 +49,7 @@ namespace Toybox
 
     class DefaultInputModule : public InputModule
     {
-        IInputHandler* Create() override
+        IInputHandler* CreateInputHandler() override
         {
             return nullptr;
         }
@@ -72,7 +72,7 @@ namespace Toybox
 
     class DefaultLoggerModule : public LoggerModule
     {
-        ILogger* Create() override
+        ILogger* CreateLogger(const std::string& name) override
         {
             return nullptr;
         }

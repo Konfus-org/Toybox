@@ -9,7 +9,6 @@ namespace Toybox
     class App
     {
     public:
-        static const App* GetInstance();
 
         App(const std::string& name);
         virtual ~App();
@@ -26,7 +25,6 @@ namespace Toybox
         IWindow* GetMainWindow() const;
 
     private:
-        static App* _instance;
         bool _isRunning = false;
         std::string _name = "App";
         IWindow* _mainWindow = nullptr;
@@ -38,4 +36,7 @@ namespace Toybox
 
     // API to create app, meant to be defined in CLIENT!
     App* CreateApp();
+
+    // API to get instance of app
+    App* GetAppInstance();
 }

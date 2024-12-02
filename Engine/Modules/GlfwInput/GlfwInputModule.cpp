@@ -3,7 +3,7 @@
 
 namespace GlfwInput
 {
-    Toybox::IInputHandler* GlfwInputModule::Create()
+    Toybox::IInputHandler* GlfwInputModule::CreateInputHandler()
     {
         return new GlfwInputHandler();
     }

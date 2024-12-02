@@ -7,14 +7,7 @@ namespace SpdLogging
 {
     std::shared_ptr<spdlog::logger> _spdLogger;
 
-    SpdLogging::SpdLogger::SpdLogger()
-    {
-        _spdLogger = spdlog::stdout_color_mt("CORE");
-        _spdLogger->set_pattern("%^[%T]: %v%$");
-        _spdLogger->set_level(spdlog::level::level_enum::trace);
-    }
-
-    SpdLogging::SpdLogger::SpdLogger(std::string name)
+    SpdLogging::SpdLogger::SpdLogger(const std::string& name)
     {
         _spdLogger = spdlog::stdout_color_mt(name);
         _spdLogger->set_pattern("%^[%T]: %v%$");

@@ -9,7 +9,7 @@ namespace Toybox
 
     void Input::StartHandling()
     {
-        _handler = ((InputModule*)ModuleServer::GetModule("Glfw Input"))->Create();
+        _handler = ((InputModule*)ModuleServer::GetModule("Glfw Input"))->CreateInputHandler();
     }
 
     void Input::StopHandling()

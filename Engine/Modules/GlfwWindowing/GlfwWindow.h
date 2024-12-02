@@ -15,8 +15,8 @@ namespace GlfwWindowing
         void SetVSyncEnabled(bool enabled) override;
         bool const GetVSyncEnabled() const override;
 
-        void SetSize(Toybox::Size* size) override;
-        const Toybox::Size* GetSize() const override;
+        void SetSize(Toybox::Size size) override;
+        const Toybox::Size GetSize() const override;
 
         const std::string GetTitle() const override;
         void SetTitle(const std::string& title) override;
@@ -28,9 +28,9 @@ namespace GlfwWindowing
         void SetMode(Toybox::WindowMode mode) override;
 
     private:
-        std::string _title;
-        Toybox::Size* _size;
         bool _vSyncEnabled;
+        std::string _title;
+        Toybox::Size _size;
         EventCallbackFn _eventCallback;
 
         void SetupCallbacks();

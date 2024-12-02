@@ -6,7 +6,7 @@ namespace GlfwInput
 {
     static GLFWwindow* GetAppMainGlfwWindow()
     {
-        auto* app = Toybox::App::GetInstance();
+        auto* app = Toybox::GetAppInstance();
         GLFWwindow* appMainWindow = std::any_cast<GLFWwindow*>(app->GetMainWindow()->GetNativeWindow());
         return appMainWindow;
     }
