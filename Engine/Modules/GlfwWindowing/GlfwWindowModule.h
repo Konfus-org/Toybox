@@ -6,7 +6,7 @@ namespace GlfwWindowing
     class GlfwWindowModule : public Toybox::WindowModule
     {
     public:
-        Toybox::Windowing::IWindow* Create() override;
+        Toybox::IWindow* Create() override;
         const std::string GetName() const override;
         const std::string GetAuthor() const override;
         const int GetVersion() const override;

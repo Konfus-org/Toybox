@@ -6,7 +6,7 @@ float _red = 1;
 float _green = 0.5f;
 float _blue = 0;
 
-void ChangeWindowColorTest()
+static void ChangeWindowColorTest()
 {
 	glClearColor(_red, _green, _blue, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -50,7 +50,7 @@ void TestLayer::OnUpdate()
 	ChangeWindowColorTest();
 }
 
-void TestLayer::OnEvent(Toybox::Events::Event& event)
+void TestLayer::OnEvent(Toybox::Event& event)
 {
 	auto eventCat = event.GetCategorization();
 	TBX_TRACE("Event of type {0} occurred!", eventCat);

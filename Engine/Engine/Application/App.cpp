@@ -7,7 +7,7 @@
 
 namespace Toybox
 {
-    static App* _instance = nullptr;
+    App* App::_instance = nullptr;
 
     App::App(const std::string& name)
     {
@@ -34,10 +34,10 @@ namespace Toybox
         _isRunning = true;
 
         // Init logging
-        Log::Init();
+        Log::Open();
 
         // Init input
-        Input::Init();
+        Input::StartHandling();
 
         // Create main window
         auto* windowModule = (WindowModule*)ModuleServer::GetModule("Glfw Windowing");
@@ -61,8 +61,8 @@ namespace Toybox
     void App::Close()
     {
         _isRunning = false;
+        Input::StopHandling();
         Log::Close();
-        Input::Stop();
         delete _instance;
     }
 

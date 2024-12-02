@@ -5,6 +5,8 @@
 
 namespace Toybox
 {
+    static std::vector<LoadedModule*>* _loadedModules = nullptr;
+
     void ModuleServer::LoadModules()
     {
         _loadedModules = new std::vector<LoadedModule*>();

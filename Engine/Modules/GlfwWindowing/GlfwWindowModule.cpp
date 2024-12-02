@@ -3,7 +3,7 @@
 
 namespace GlfwWindowing
 {
-    Toybox::Windowing::IWindow* GlfwWindowModule::Create()
+    Toybox::IWindow* GlfwWindowModule::Create()
     {
         return new GlfwWindow();
     }

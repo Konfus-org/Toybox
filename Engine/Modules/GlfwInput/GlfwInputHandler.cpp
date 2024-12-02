@@ -6,7 +6,7 @@ namespace GlfwInput
 {
     static GLFWwindow* GetAppMainGlfwWindow()
     {
-        auto* app = Toybox::Application::App::GetInstance();
+        auto* app = Toybox::App::GetInstance();
         GLFWwindow* appMainWindow = std::any_cast<GLFWwindow*>(app->GetMainWindow()->GetNativeWindow());
         return appMainWindow;
     }
@@ -75,11 +75,11 @@ namespace GlfwInput
         return GetMouseButtonState(button) == GLFW_REPEAT;
     }
 
-    Toybox::Math::Vector2 GlfwInputHandler::GetMousePosition()
+    Toybox::Vector2 GlfwInputHandler::GetMousePosition()
     {
         double xPos;
         double yPos;
         glfwGetCursorPos(GetAppMainGlfwWindow(), &xPos, &yPos);
-        return Toybox::Math::Vector2((float)xPos, (float)yPos);
+        return Toybox::Vector2((float)xPos, (float)yPos);
     }
 }

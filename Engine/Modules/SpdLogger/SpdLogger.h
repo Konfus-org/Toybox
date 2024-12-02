@@ -3,7 +3,7 @@
 
 namespace SpdLogging
 {
-    class SpdLogger : public Toybox::Debug::ILogger
+    class SpdLogger : public Toybox::ILogger
     {
     public:
         SpdLogger();

@@ -5,12 +5,14 @@
 
 namespace Toybox
 {
-    void Input::Init()
+    IInputHandler* Input::_handler = nullptr;
+
+    void Input::StartHandling()
     {
         _handler = ((InputModule*)ModuleServer::GetModule("Glfw Input"))->Create();
     }
 
-    void Input::Stop()
+    void Input::StopHandling()
     {
         delete _handler;
     }

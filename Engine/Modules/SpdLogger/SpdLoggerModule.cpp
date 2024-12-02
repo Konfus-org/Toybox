@@ -4,7 +4,7 @@
 
 namespace SpdLogging
 {
-    Toybox::Debug::ILogger* SpdLoggerModule::Create()
+    Toybox::ILogger* SpdLoggerModule::Create()
     {
         return new SpdLogger();
     }

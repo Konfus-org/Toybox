@@ -7,8 +7,8 @@ namespace Toybox
     class Input
     {
     public:
-        static void Init();
-        static void Stop();
+        static void StartHandling();
+        static void StopHandling();
 
         static bool IsGamepadButtonDown(const int id, const int button);
         static bool IsGamepadButtonUp(const int id, const int button);

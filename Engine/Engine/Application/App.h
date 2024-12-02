@@ -26,6 +26,7 @@ namespace Toybox
         IWindow* GetMainWindow() const;
 
     private:
+        static App* _instance;
         bool _isRunning = false;
         std::string _name = "App";
         IWindow* _mainWindow = nullptr;

@@ -1,12 +1,12 @@
 #pragma once
-#include "LogLevel.h"
+#include "ILogger.h"
 
 namespace Toybox
 {
     class Log
     {
     public:
-        static void Init();
+        static void Open();
 
         static void Close();
 
