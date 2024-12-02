@@ -1,6 +1,6 @@
 #pragma once
 
-#define TBX_MODULE_API extern "C" __declspec(dllexport)
+#define TBX_MODULE_API __declspec(dllexport)
 
 namespace Toybox::Modules
 {

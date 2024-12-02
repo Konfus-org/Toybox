@@ -8,7 +8,7 @@ namespace Toybox::Modules
 
     bool DynamicLibrary::Load(const std::string& path) 
     {
-        _handle = LoadLibrary((LPCWSTR)path.c_str());
+        _handle = LoadLibraryA(path.c_str());
         return _handle != nullptr;
     }
 

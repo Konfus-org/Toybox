@@ -12,6 +12,7 @@ namespace GlfwWindowing
 	GlfwWindow::GlfwWindow()
 	{
 		_vSyncEnabled = true;
+		_size = nullptr;
 	}
 
 	GlfwWindow::~GlfwWindow()
@@ -22,7 +23,6 @@ namespace GlfwWindowing
 
 	void GlfwWindow::InitGlad()
 	{
-
 		int status = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 		TBX_ASSERT(status, "Failed to initialize glad!");
 	}
@@ -63,6 +63,7 @@ namespace GlfwWindowing
 
 	void GlfwWindow::SetSize(Toybox::Math::Size* size)
 	{
+		delete _size;
 		_size = size;
 	}
 
@@ -162,7 +163,7 @@ namespace GlfwWindowing
 		glfwSetWindowSizeCallback(_glfwWindow, [](GLFWwindow* window, int width, int height)
 		{
 			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
-			toyboxWindow.SetSize(new Toybox::Windowing::Math::Size(width, height));
+			toyboxWindow.SetSize(new Toybox::Math::Size(width, height));
 
 			Toybox::Events::WindowResizeEvent event(width, height);
 			toyboxWindow._eventCallback(event);
@@ -183,19 +184,19 @@ namespace GlfwWindowing
 			{
 			case GLFW_PRESS:
 			{
-				Events::KeyPressedEvent event(key);
+				Toybox::Events::KeyPressedEvent event(key);
 				toyboxWindow._eventCallback(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
-				Events::KeyReleasedEvent event(key);
+				Toybox::Events::KeyReleasedEvent event(key);
 				toyboxWindow._eventCallback(event);
 				break;
 			}
 			case GLFW_REPEAT:
 			{
-				Events::KeyRepeatedEvent event(key, 1);
+				Toybox::Events::KeyRepeatedEvent event(key, 1);
 				toyboxWindow._eventCallback(event);
 				break;
 			}
@@ -206,7 +207,7 @@ namespace GlfwWindowing
 		{
 			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
 
-			Events::KeyPressedEvent event(keycode);
+			Toybox::Events::KeyPressedEvent event(keycode);
 			toyboxWindow._eventCallback(event);
 		});
 
@@ -218,13 +219,13 @@ namespace GlfwWindowing
 			{
 			case GLFW_PRESS:
 			{
-				Events::MouseButtonPressedEvent event(button);
+				Toybox::Events::MouseButtonPressedEvent event(button);
 				toyboxWindow._eventCallback(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
-				Events::MouseButtonReleasedEvent event(button);
+				Toybox::Events::MouseButtonReleasedEvent event(button);
 				toyboxWindow._eventCallback(event);
 				break;
 			}
@@ -235,7 +236,7 @@ namespace GlfwWindowing
 		{
 			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
 
-			Events::MouseScrolledEvent event((float)xOffset, (float)yOffset);
+			Toybox::Events::MouseScrolledEvent event((float)xOffset, (float)yOffset);
 			toyboxWindow._eventCallback(event);
 		});
 
@@ -243,7 +244,7 @@ namespace GlfwWindowing
 		{
 			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
 
-			Events::MouseMovedEvent event((float)xPos, (float)yPos);
+			Toybox::Events::MouseMovedEvent event((float)xPos, (float)yPos);
 			toyboxWindow._eventCallback(event);
 		});
 	}

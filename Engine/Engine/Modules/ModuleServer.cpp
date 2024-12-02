@@ -23,9 +23,15 @@ namespace Toybox::Modules
     {
         _loadedModules = new std::vector<LoadedModule*>();
 
-        auto currentPath = std::filesystem::current_path();
-        auto fullPathToModules = currentPath.append("\\Modules");
-        for (const auto& entry : std::filesystem::directory_iterator(fullPathToModules))
+#ifdef NDEBUG
+        // nondebug
+        const auto pathToModules = "..\\Modules";
+#else
+        // debug code
+        const auto pathToModules = "..\\Build\\bin\\Modules";
+#endif
+        auto modulesInModuleDir = std::filesystem::directory_iterator(pathToModules);
+        for (const auto& entry : modulesInModuleDir)
         {
             if (!entry.is_regular_file()) continue;
 

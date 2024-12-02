@@ -14,7 +14,7 @@ TBX_EDITOR_CORE_API Toybox::Math::uint64 LaunchViewport()
     {
         EditorCoreApp = (Toybox::Interop::InteropApp*)Toybox::Application::CreateApp();
         EditorCoreApp->Launch();
-        EditorCoreApp->GetMainWindow()->SetMode(Toybox::Application::WindowMode::Borderless);
+        EditorCoreApp->GetMainWindow()->SetMode(Toybox::Windowing::WindowMode::Borderless);
     }
     return EditorCoreApp->GetMainWindow()->GetId();
 }
