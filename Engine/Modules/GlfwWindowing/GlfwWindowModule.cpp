@@ -19,13 +19,12 @@ namespace GlfwWindowing
     }
 
     const int GlfwWindowModule::GetVersion() const
-
     {
         return 0;
     }
 }
 
-Toybox::Modules::WindowModule* Load()
+Toybox::WindowModule* Load()
 {
     return new GlfwWindowing::GlfwWindowModule();
 }

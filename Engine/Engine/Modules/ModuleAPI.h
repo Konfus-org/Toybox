@@ -2,7 +2,7 @@
 
 #define TBX_MODULE_API __declspec(dllexport)
 
-namespace Toybox::Modules
+namespace Toybox
 {
     class Module
     {

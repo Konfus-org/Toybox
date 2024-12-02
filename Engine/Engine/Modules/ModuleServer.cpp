@@ -3,23 +3,9 @@
 #include "LoadedModule.h"
 #include <direct.h>
 
-namespace Toybox::Modules
+namespace Toybox
 {
-    ModuleServer* _instance;
-    std::vector<LoadedModule*>* _loadedModules;
-
-    const ModuleServer* ModuleServer::GetInstance()
-    {
-        if (_instance == nullptr)
-        {
-            _instance = new ModuleServer();
-        }
-
-        return _instance;
-    }
-
-
-    ModuleServer::ModuleServer()
+    void ModuleServer::LoadModules()
     {
         _loadedModules = new std::vector<LoadedModule*>();
 
@@ -55,9 +41,8 @@ namespace Toybox::Modules
         }
     }
 
-    ModuleServer::~ModuleServer()
+    void ModuleServer::UnloadModules()
     {
-        delete _instance;
         for (auto* loadedMod : *_loadedModules)
         {
             delete loadedMod;
@@ -65,7 +50,7 @@ namespace Toybox::Modules
         delete _loadedModules;
     }
 
-    Module* ModuleServer::GetModule(const std::string& name) const
+    Module* ModuleServer::GetModule(const std::string& name)
     {
         for (auto* loadedMod : *_loadedModules)
         {

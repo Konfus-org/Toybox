@@ -2,7 +2,7 @@
 #include "Math/Vector2.h"
 #include "Event.h"
 
-namespace Toybox::Events
+namespace Toybox
 {
     class MouseEvent : public Event
     {
@@ -17,9 +17,9 @@ namespace Toybox::Events
     public:
         MouseMovedEvent(float x, float y) : _xPos(x), _yPos(y) { }
 
-        Math::Vector2* GetPosition() const
+        Vector2* GetPosition() const
         {
-            return new Math::Vector2(_xPos, _yPos);
+            return new Vector2(_xPos, _yPos);
         }
 
     private:
@@ -32,9 +32,9 @@ namespace Toybox::Events
     public:
         MouseScrolledEvent(float x, float y) : _xScroll(x), _yScroll(y) { }
 
-        Math::Vector2* GetScrollDir() const
+        Vector2* GetScrollDir() const
         {
-            return new Math::Vector2(_xScroll, _yScroll);
+            return new Vector2(_xScroll, _yScroll);
         }
 
     private:

@@ -2,14 +2,14 @@
 #include <Toybox.h>
 #include <ToyboxEntryPoint.h>
 
-class SandboxApp : public Toybox::Application::App
+class SandboxApp : public Toybox::App
 {
 public:
     SandboxApp();
     ~SandboxApp() override = default;
 };
 
-Toybox::Application::App* Toybox::Application::CreateApp()
+Toybox::App* Toybox::CreateApp()
 {
     return new SandboxApp();
 }

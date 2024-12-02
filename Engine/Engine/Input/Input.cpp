@@ -3,56 +3,64 @@
 #include "IInputHandler.h"
 #include "Modules/Modules.h"
 
-namespace Toybox::Input
+namespace Toybox
 {
-    static IInputHandler* _handler = ((Modules::InputModule*)Modules::ModuleServer::GetInstance()->GetModule("Glfw Input"))->Create();
+    void Input::Init()
+    {
+        _handler = ((InputModule*)ModuleServer::GetModule("Glfw Input"))->Create();
+    }
 
-    bool IsGamepadButtonDown(const int id, const int inputCode)
+    void Input::Stop()
+    {
+        delete _handler;
+    }
+
+    bool Input::IsGamepadButtonDown(const int id, const int inputCode)
     {
         return _handler->IsGamepadButtonDown(id, inputCode);
     }
 
-    bool IsGamepadButtonUp(const int id, const int inputCode)
+    bool Input::IsGamepadButtonUp(const int id, const int inputCode)
     {
         return _handler->IsGamepadButtonUp(id, inputCode);
     }
 
-    bool IsGamepadButtonHeld(const int id, const int inputCode)
+    bool Input::IsGamepadButtonHeld(const int id, const int inputCode)
     {
         return _handler->IsGamepadButtonHeld(id, inputCode);
     }
 
-    bool IsKeyDown(const int inputCode)
+    bool Input::IsKeyDown(const int inputCode)
     {
         return _handler->IsKeyDown(inputCode);
     }
 
-    bool IsKeyUp(const int inputCode)
+    bool Input::IsKeyUp(const int inputCode)
     {
         return _handler->IsKeyUp(inputCode);
     }
 
-    bool IsKeyHeld(const int inputCode)
+    bool Input::IsKeyHeld(const int inputCode)
     {
         return _handler->IsKeyHeld(inputCode);
     }
 
-    bool IsMouseButtonDown(const int button)
+    bool Input::IsMouseButtonDown(const int button)
     {
         return _handler->IsMouseButtonDown(button);
     }
 
-    bool IsMouseButtonUp(const int button)
+    bool Input::IsMouseButtonUp(const int button)
     {
         return _handler->IsMouseButtonUp(button);
     }
 
-    bool IsMouseButtonHeld(const int button)
+    bool Input::IsMouseButtonHeld(const int button)
     {
         return _handler->IsMouseButtonHeld(button);
     }
 
-    Math::Vector2 GetMousePosition()
+    Vector2 Input::GetMousePosition()
     {
         return _handler->GetMousePosition();
     }

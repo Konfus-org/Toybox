@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Toybox::Math
+namespace Toybox
 {
 	typedef unsigned long long uint64;
 	typedef long long int64;

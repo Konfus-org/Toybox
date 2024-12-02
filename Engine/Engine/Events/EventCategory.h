@@ -1,7 +1,7 @@
 #pragma once
 #include "Math/BitOperations.h"
 
-namespace Toybox::Events
+namespace Toybox
 {
     enum EventCategory
     {

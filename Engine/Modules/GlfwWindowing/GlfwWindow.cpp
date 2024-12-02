@@ -37,7 +37,7 @@ namespace GlfwWindowing
 		}
 	}
 
-	void GlfwWindow::Open(Toybox::Windowing::WindowMode mode)
+	void GlfwWindow::Open(Toybox::WindowMode mode)
 	{
 		InitGlfwIfNotAlreadyInitialized();
 		SetMode(mode);
@@ -61,13 +61,13 @@ namespace GlfwWindowing
 		return _vSyncEnabled;
 	}
 
-	void GlfwWindow::SetSize(Toybox::Math::Size* size)
+	void GlfwWindow::SetSize(Toybox::Size* size)
 	{
 		delete _size;
 		_size = size;
 	}
 
-	const Toybox::Math::Size* GlfwWindow::GetSize() const
+	const Toybox::Size* GlfwWindow::GetSize() const
 	{
 		return _size;
 	}
@@ -87,25 +87,25 @@ namespace GlfwWindowing
 		return _glfwWindow;
 	}
 
-	const Toybox::Math::uint64 GlfwWindow::GetId() const
+	const Toybox::uint64 GlfwWindow::GetId() const
 	{
 #ifdef TBX_PLATFORM_WINDOWS
-		return (Toybox::Math::uint64)glfwGetWin32Window(_glfwWindow);
+		return (Toybox::uint64)glfwGetWin32Window(_glfwWindow);
 #endif
 #ifdef TBX_PLATFORM_OSX
-		return (Toybox::Math::uint64)glfwGetCocoaWindow(_glfwWindow);
+		return (Toybox::uint64)glfwGetCocoaWindow(_glfwWindow);
 #endif
 #ifdef TBX_PLATFORM_LINUX
-		return (Toybox::Math::uint64)glfwGetX11Window(_glfwWindow);
+		return (Toybox::uint64)glfwGetX11Window(_glfwWindow);
 #endif
 	}
 
-	void GlfwWindow::SetEventCallback(const Toybox::Windowing::IWindow::EventCallbackFn& callback)
+	void GlfwWindow::SetEventCallback(const EventCallbackFn& callback)
 	{
 		_eventCallback = callback;
 	}
 
-	void GlfwWindow::SetMode(Toybox::Windowing::WindowMode mode)
+	void GlfwWindow::SetMode(Toybox::WindowMode mode)
 	{
 		if (_glfwWindow != nullptr)
 		{
@@ -115,26 +115,26 @@ namespace GlfwWindowing
 		switch (mode)
 		{
 			//Windowed mode (monitor = nullptr)
-			case Toybox::Windowing::WindowMode::Windowed:
+			case Toybox::WindowMode::Windowed:
 			{
 				_glfwWindow = glfwCreateWindow((int)_size->Width, (int)_size->Height, _title.c_str(), nullptr, nullptr);
 				break;
 			}
 			// Fullscreen mode (monitor != nullptr)
-			case Toybox::Windowing::WindowMode::Fullscreen:
+			case Toybox::WindowMode::Fullscreen:
 			{
 				_glfwWindow = glfwCreateWindow((int)_size->Width, (int)_size->Height, _title.c_str(), glfwGetPrimaryMonitor(), nullptr);
 				break;
 			}
 			// Borderless (monitor = nullptr, decorated = false)
-			case Toybox::Windowing::WindowMode::Borderless:
+			case Toybox::WindowMode::Borderless:
 			{
 				glfwWindowHint(GLFW_DECORATED, false);
 				_glfwWindow = glfwCreateWindow((int)_size->Width, (int)_size->Height, _title.c_str(), nullptr, nullptr);
 				break;
 			}
 			// Fullscreen borderless (monitor != nullptr, video mode = monitor mode)
-			case Toybox::Windowing::WindowMode::FullscreenBorderless:
+			case Toybox::WindowMode::FullscreenBorderless:
 			{
 				_glfwWindow = glfwCreateWindow((int)_size->Width, (int)_size->Height, _title.c_str(), glfwGetPrimaryMonitor(), nullptr);
 				break;
@@ -163,16 +163,16 @@ namespace GlfwWindowing
 		glfwSetWindowSizeCallback(_glfwWindow, [](GLFWwindow* window, int width, int height)
 		{
 			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
-			toyboxWindow.SetSize(new Toybox::Math::Size(width, height));
+			toyboxWindow.SetSize(new Toybox::Size(width, height));
 
-			Toybox::Events::WindowResizeEvent event(width, height);
+			Toybox::WindowResizeEvent event(width, height);
 			toyboxWindow._eventCallback(event);
 		});
 
 		glfwSetWindowCloseCallback(_glfwWindow, [](GLFWwindow* window)
 		{
 			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
-			Toybox::Events::WindowCloseEvent event;
+			Toybox::WindowCloseEvent event;
 			toyboxWindow._eventCallback(event);
 		});
 
@@ -184,19 +184,19 @@ namespace GlfwWindowing
 			{
 			case GLFW_PRESS:
 			{
-				Toybox::Events::KeyPressedEvent event(key);
+				Toybox::KeyPressedEvent event(key);
 				toyboxWindow._eventCallback(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
-				Toybox::Events::KeyReleasedEvent event(key);
+				Toybox::KeyReleasedEvent event(key);
 				toyboxWindow._eventCallback(event);
 				break;
 			}
 			case GLFW_REPEAT:
 			{
-				Toybox::Events::KeyRepeatedEvent event(key, 1);
+				Toybox::KeyRepeatedEvent event(key, 1);
 				toyboxWindow._eventCallback(event);
 				break;
 			}
@@ -207,7 +207,7 @@ namespace GlfwWindowing
 		{
 			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
 
-			Toybox::Events::KeyPressedEvent event(keycode);
+			Toybox::KeyPressedEvent event(keycode);
 			toyboxWindow._eventCallback(event);
 		});
 
@@ -219,13 +219,13 @@ namespace GlfwWindowing
 			{
 			case GLFW_PRESS:
 			{
-				Toybox::Events::MouseButtonPressedEvent event(button);
+				Toybox::MouseButtonPressedEvent event(button);
 				toyboxWindow._eventCallback(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
-				Toybox::Events::MouseButtonReleasedEvent event(button);
+				Toybox::MouseButtonReleasedEvent event(button);
 				toyboxWindow._eventCallback(event);
 				break;
 			}
@@ -236,7 +236,7 @@ namespace GlfwWindowing
 		{
 			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
 
-			Toybox::Events::MouseScrolledEvent event((float)xOffset, (float)yOffset);
+			Toybox::MouseScrolledEvent event((float)xOffset, (float)yOffset);
 			toyboxWindow._eventCallback(event);
 		});
 
@@ -244,7 +244,7 @@ namespace GlfwWindowing
 		{
 			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
 
-			Toybox::Events::MouseMovedEvent event((float)xPos, (float)yPos);
+			Toybox::MouseMovedEvent event((float)xPos, (float)yPos);
 			toyboxWindow._eventCallback(event);
 		});
 	}

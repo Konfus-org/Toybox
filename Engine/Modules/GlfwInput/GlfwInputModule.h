@@ -3,7 +3,7 @@
 
 namespace GlfwInput
 {
-    class GlfwInputModule : public Toybox::Modules::InputModule
+    class GlfwInputModule : public Toybox::InputModule
     {
     public:
         Toybox::Input::IInputHandler* Create() override;
@@ -13,4 +13,4 @@ namespace GlfwInput
     };
 }
 
-extern "C" TBX_MODULE_API Toybox::Modules::InputModule* Load();
+extern "C" TBX_MODULE_API Toybox::InputModule* Load();

@@ -2,10 +2,12 @@
 #include "App.h"
 #include "Windowing/IWindow.h"
 #include "Modules/Modules.h"
+#include "Debug/Debugging.h"
+#include "Input/Input.h"
 
-namespace Toybox::Application
+namespace Toybox
 {
-    App* App::_instance = nullptr;
+    static App* _instance = nullptr;
 
     App::App(const std::string& name)
     {
@@ -31,7 +33,14 @@ namespace Toybox::Application
     {
         _isRunning = true;
 
-        auto* windowModule = (Modules::WindowModule*)Modules::ModuleServer::GetInstance()->GetModule("Glfw Windowing");
+        // Init logging
+        Log::Init();
+
+        // Init input
+        Input::Init();
+
+        // Create main window
+        auto* windowModule = (WindowModule*)ModuleServer::GetModule("Glfw Windowing");
         _mainWindow = windowModule->Create();
         _mainWindow->SetEventCallback(TBX_BIND_EVENT_FN(App::OnEvent));
     }
@@ -40,7 +49,7 @@ namespace Toybox::Application
     {
         _mainWindow->Update();
 
-        Events::AppUpdateEvent updateEvent;
+        AppUpdateEvent updateEvent;
         OnEvent(updateEvent);
 
         for (auto it = _layerStack.ReverseBegin(); it != _layerStack.ReverseEnd(); ++it)
@@ -52,14 +61,17 @@ namespace Toybox::Application
     void App::Close()
     {
         _isRunning = false;
+        Log::Close();
+        Input::Stop();
+        delete _instance;
     }
 
-    void App::PushLayer(Layers::Layer* layer)
+    void App::PushLayer(Layer* layer)
     {
         _layerStack.PushLayer(layer);
     }
 
-    void App::PushOverlay(Layers::Layer* layer)
+    void App::PushOverlay(Layer* layer)
     {
         _layerStack.PushOverlay(layer);
     }
@@ -74,21 +86,21 @@ namespace Toybox::Application
         return _name;
     }
 
-    Windowing::IWindow* App::GetMainWindow() const
+    IWindow* App::GetMainWindow() const
     {
         return _mainWindow;
     }
 
-    bool App::OnWindowClose(Events::WindowCloseEvent& e)
+    bool App::OnWindowClose(WindowCloseEvent& e)
     {
         Close();
         return true;
     }
 
-    void App::OnEvent(Events::Event& e)
+    void App::OnEvent(Event& e)
     {
-        Events::EventDispatcher dispatcher(e);
-        dispatcher.Dispatch<Events::WindowCloseEvent>(TBX_BIND_EVENT_FN(App::OnWindowClose));
+        EventDispatcher dispatcher(e);
+        dispatcher.Dispatch<WindowCloseEvent>(TBX_BIND_EVENT_FN(App::OnWindowClose));
         //dispatcher.Dispatch<Events::WindowResizeEvent>(TBX_BIND_EVENT_FN(Application::OnWindowResize));
 
         for (auto it = _layerStack.ReverseBegin(); it != _layerStack.ReverseEnd(); ++it)

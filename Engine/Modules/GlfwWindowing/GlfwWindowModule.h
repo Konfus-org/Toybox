@@ -3,7 +3,7 @@
 
 namespace GlfwWindowing
 {
-    class GlfwWindowModule : public Toybox::Modules::WindowModule
+    class GlfwWindowModule : public Toybox::WindowModule
     {
     public:
         Toybox::Windowing::IWindow* Create() override;
@@ -13,4 +13,4 @@ namespace GlfwWindowing
     };
 }
 
-extern "C" TBX_MODULE_API Toybox::Modules::WindowModule* Load();
+extern "C" TBX_MODULE_API Toybox::WindowModule* Load();

@@ -1,7 +1,7 @@
 #pragma once
 #include "Math/Math.h"
 
-namespace Toybox::Input
+namespace Toybox
 {
     class IInputHandler
     {
@@ -17,6 +17,6 @@ namespace Toybox::Input
         virtual bool IsMouseButtonDown(const int button) = 0;
         virtual bool IsMouseButtonUp(const int button) = 0;
         virtual bool IsMouseButtonHeld(const int button) = 0;
-        virtual Math::Vector2 GetMousePosition() = 0;
+        virtual Vector2 GetMousePosition() = 0;
     };
 }

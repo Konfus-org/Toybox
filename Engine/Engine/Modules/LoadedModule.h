@@ -1,9 +1,9 @@
 #pragma once
 #include "DynamicLibrary.h"
 #include "ModuleAPI.h"
-#include <Debug/Logging/Logging.h>
+#include "Debug/Logging.h"
 
-namespace Toybox::Modules
+namespace Toybox
 {
     class LoadedModule
     {

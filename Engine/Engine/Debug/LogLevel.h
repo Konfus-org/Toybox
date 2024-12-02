@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Toybox::Debug
+namespace Toybox
 {
     enum LogLevel
     {

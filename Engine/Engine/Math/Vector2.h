@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Toybox::Math
+namespace Toybox
 {
     struct Vector2
     {

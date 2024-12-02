@@ -1,7 +1,7 @@
 #pragma once
 #include "Events/Event.h"
 
-namespace Toybox::Layers
+namespace Toybox
 {
     class Layer
     {
@@ -12,7 +12,7 @@ namespace Toybox::Layers
         virtual void OnAttach() = 0;
         virtual void OnDetach() = 0;
         virtual void OnUpdate() = 0;
-        virtual void OnEvent(Events::Event& event) = 0;
+        virtual void OnEvent(Event& event) = 0;
 
         const std::string GetName() const;
 

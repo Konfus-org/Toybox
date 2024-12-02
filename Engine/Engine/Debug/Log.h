@@ -1,11 +1,15 @@
 #pragma once
 #include "LogLevel.h"
 
-namespace Toybox::Debug
+namespace Toybox
 {
     class Log
     {
     public:
+        static void Init();
+
+        static void Close();
+
         static void Trace(std::string msg);
 
         static void Info(std::string msg);
@@ -30,5 +34,8 @@ namespace Toybox::Debug
 
         template<typename... Args>
         static void Critical(std::string msg, Args&&... args);
+
+    private:
+        static ILogger* _logger;
     };
 }

@@ -1,18 +1,20 @@
 #pragma once
 #include "tbxpch.h"
 #include "ModuleAPI.h"
+#include "LoadedModule.h"
 
-namespace Toybox::Modules
+namespace Toybox
 {
     class ModuleServer
     {
     public:
-        static const ModuleServer* GetInstance();
+        static void LoadModules();
+        static void UnloadModules();
 
-        ModuleServer();
-        ~ModuleServer();
+        static Module* GetModule(const std::string& name);
 
-        Module* GetModule(const std::string& name) const;
+    private:
+        static std::vector<LoadedModule*>* _loadedModules;
     };
 }
 

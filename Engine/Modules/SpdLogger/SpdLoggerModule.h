@@ -3,7 +3,7 @@
 
 namespace SpdLogging
 {
-    class SpdLoggerModule : public Toybox::Modules::LoggerModule
+    class SpdLoggerModule : public Toybox::LoggerModule
     {
     public:
         Toybox::Debug::ILogger* Create() override;
@@ -13,4 +13,4 @@ namespace SpdLogging
     };
 }
 
-extern "C" TBX_MODULE_API Toybox::Modules::LoggerModule* Load();
+extern "C" TBX_MODULE_API Toybox::LoggerModule* Load();

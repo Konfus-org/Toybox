@@ -1,7 +1,7 @@
 #include "tbxpch.h"
 #include "DynamicLibrary.h"
 
-namespace Toybox::Modules
+namespace Toybox
 {
 #ifdef TBX_PLATFORM_WINDOWS
 #include <windows.h>

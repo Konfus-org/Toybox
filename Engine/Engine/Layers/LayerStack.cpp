@@ -1,7 +1,7 @@
 #include "tbxpch.h"
 #include "LayerStack.h"
 
-namespace Toybox::Layers 
+namespace Toybox 
 {
 	LayerStack::~LayerStack()
 	{

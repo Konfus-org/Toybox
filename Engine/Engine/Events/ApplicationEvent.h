@@ -2,7 +2,7 @@
 #include "Math/Size.h"
 #include "Event.h"
 
-namespace Toybox::Events
+namespace Toybox
 {
     class AppEvent : public Event
     {
@@ -26,9 +26,9 @@ namespace Toybox::Events
     public:
         WindowResizeEvent(unsigned int width, unsigned int height) : _width(width), _height(height) {}
 
-        Math::Size* GetSize() const
+        Size* GetSize() const
         {
-            return new Math::Size(_width, _height);
+            return new Size(_width, _height);
         }
 
         int GetCategorization() const override

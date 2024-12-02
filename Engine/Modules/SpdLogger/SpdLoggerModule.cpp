@@ -25,7 +25,7 @@ namespace SpdLogging
     }
 }
 
-Toybox::Modules::LoggerModule* Load()
+Toybox::LoggerModule* Load()
 {
     return new SpdLogging::SpdLoggerModule();
 }

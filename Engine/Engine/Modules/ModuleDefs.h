@@ -1,32 +1,32 @@
 #pragma once
 #include "Windowing/IWindow.h"
 #include "Input/IInputHandler.h"
-#include "Debug/Logging/ILogger.h"
+#include "Debug/ILogger.h"
 #include "ModuleAPI.h"
 
-namespace Toybox::Modules
+namespace Toybox
 {
     class WindowModule : public Module
     {
     public:
-        virtual Windowing::IWindow* Create() = 0;
+        virtual IWindow* Create() = 0;
     };
 
     class InputModule : public Module
     {
     public:
-        virtual Input::IInputHandler* Create() = 0;
+        virtual IInputHandler* Create() = 0;
     };
 
     class LoggerModule : public Module
     {
     public:
-        virtual Debug::ILogger* Create() = 0;
+        virtual ILogger* Create() = 0;
     };
 
     class DefaultWindowModule : public WindowModule
     {
-        Windowing::IWindow* Create() override
+        IWindow* Create() override
         {
             return nullptr;
         }
@@ -49,7 +49,7 @@ namespace Toybox::Modules
 
     class DefaultInputModule : public InputModule
     {
-        Input::IInputHandler* Create() override
+        IInputHandler* Create() override
         {
             return nullptr;
         }
@@ -72,7 +72,7 @@ namespace Toybox::Modules
 
     class DefaultLoggerModule : public LoggerModule
     {
-        Debug::ILogger* Create() override
+        ILogger* Create() override
         {
             return nullptr;
         }

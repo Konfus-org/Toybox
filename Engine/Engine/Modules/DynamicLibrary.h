@@ -1,7 +1,7 @@
 #pragma once
 #include "tbxpch.h"
 
-namespace Toybox::Modules
+namespace Toybox
 {
     class DynamicLibrary 
     {

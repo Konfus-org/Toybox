@@ -24,7 +24,7 @@ namespace GlfwInput
     }
 }
 
-Toybox::Modules::InputModule* Load()
+Toybox::InputModule* Load()
 {
     return new GlfwInput::GlfwInputModule();
 }
