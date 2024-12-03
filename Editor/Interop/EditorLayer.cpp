@@ -1,7 +1,7 @@
 #include "EditorLayer.h"
 #include <gl/GL.h>
 
-namespace Toybox::Interop
+namespace Toybox::Editor
 {
 	float _red = 1;
 	float _green = 0.5f;

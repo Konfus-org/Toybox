@@ -1,7 +1,7 @@
 #pragma once
 #include <Toybox.h>
 
-namespace Toybox::Interop
+namespace Toybox::Editor
 {
     class EditorLayer : public Toybox::Layer
     {
