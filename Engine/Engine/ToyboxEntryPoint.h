@@ -2,12 +2,6 @@
 #include "Application/App.h"
 #include "Modules/Modules.h"
 
-extern Toybox::App* AppInstance;
-extern Toybox::App* Toybox::GetAppInstance()
-{
-    return AppInstance;
-}
-
 extern Toybox::App* Toybox::CreateApp();
 
 int main(int argc, char* argv[])
@@ -16,15 +10,19 @@ int main(int argc, char* argv[])
     Toybox::ModuleServer::LoadModules();
 
     // Create and run application
-    AppInstance = Toybox::CreateApp();
-    AppInstance->Launch();
-    while (AppInstance->IsRunning())
+    auto* app = Toybox::CreateApp();
+    app->Launch();
+    while (app->IsRunning())
     {
-        AppInstance->Update();
+        app->Update();
     }
 
     // Final cleanup
+    delete app;
+
+    Toybox::Input::StopHandling();
+    Toybox::Log::Close();
     Toybox::ModuleServer::UnloadModules();
-    delete AppInstance;
+
     return 0;
 }

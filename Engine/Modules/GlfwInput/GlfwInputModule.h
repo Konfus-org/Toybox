@@ -6,7 +6,9 @@ namespace GlfwInput
     class GlfwInputModule : public Toybox::InputModule
     {
     public:
-        Toybox::IInputHandler* CreateInputHandler() override;
+        Toybox::IInputHandler* CreateInputHandler(void* mainNativeWindow) override;
+        void DestroyInputHandler(Toybox::IInputHandler* handlerToDestroy) override;
+
         const std::string GetName() const override;
         const std::string GetAuthor() const override;
         const int GetVersion() const override;
@@ -14,3 +16,4 @@ namespace GlfwInput
 }
 
 extern "C" TBX_MODULE_API Toybox::InputModule* Load();
+extern "C" TBX_MODULE_API void Unload();

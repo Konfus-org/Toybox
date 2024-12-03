@@ -9,6 +9,11 @@ namespace SpdLogging
         return new SpdLogger(name);
     }
 
+    void SpdLoggerModule::DestroyLogger(Toybox::ILogger* loggerToDestroy)
+    {
+        delete loggerToDestroy;
+    }
+
     const std::string SpdLoggerModule::GetName() const
     {
         return "Spd Logger";
@@ -25,7 +30,14 @@ namespace SpdLogging
     }
 }
 
+SpdLogging::SpdLoggerModule* _module = nullptr;
 Toybox::LoggerModule* Load()
 {
-    return new SpdLogging::SpdLoggerModule();
+    if (_module == nullptr) _module = new SpdLogging::SpdLoggerModule();
+    return _module;
+}
+
+void Unload()
+{
+    delete _module;
 }

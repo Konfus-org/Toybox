@@ -19,10 +19,9 @@ namespace Toybox
 
     void DynamicLibrary::Unload() 
     {
-        if (_handle) 
+        if (_handle)
         {
             FreeLibrary(static_cast<HMODULE>(_handle));
-            delete _handle;
             _handle = nullptr;
         }
     }

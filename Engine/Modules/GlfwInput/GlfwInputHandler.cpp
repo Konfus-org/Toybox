@@ -4,22 +4,17 @@
 
 namespace GlfwInput
 {
-    static GLFWwindow* GetAppMainGlfwWindow()
-    {
-        auto* app = Toybox::GetAppInstance();
-        GLFWwindow* appMainWindow = std::any_cast<GLFWwindow*>(app->GetMainWindow()->GetNativeWindow());
-        return appMainWindow;
-    }
+    GLFWwindow* _mainWindow = nullptr;
 
     static int GetKeyState(int keyCode)
     {
-        auto state = glfwGetKey(GetAppMainGlfwWindow(), keyCode);
+        auto state = glfwGetKey(_mainWindow, keyCode);
         return state;
     }
 
     static int GetMouseButtonState(int button)
     {
-        auto state = glfwGetMouseButton(GetAppMainGlfwWindow(), button);
+        auto state = glfwGetMouseButton(_mainWindow, button);
         return state;
     }
 
@@ -28,6 +23,11 @@ namespace GlfwInput
         int numberOfPressedButtons;
         const unsigned char* buttons = glfwGetJoystickButtons(id, &numberOfPressedButtons);
         return buttons[button];
+    }
+
+    GlfwInputHandler::GlfwInputHandler(void* mainWindow)
+    {
+        _mainWindow = (GLFWwindow*)mainWindow;
     }
 
     bool GlfwInputHandler::IsGamepadButtonDown(const int button, int id)
@@ -79,7 +79,7 @@ namespace GlfwInput
     {
         double xPos;
         double yPos;
-        glfwGetCursorPos(GetAppMainGlfwWindow(), &xPos, &yPos);
+        glfwGetCursorPos(_mainWindow, &xPos, &yPos);
         return Toybox::Vector2((float)xPos, (float)yPos);
     }
 }

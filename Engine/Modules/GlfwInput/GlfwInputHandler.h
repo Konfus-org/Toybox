@@ -6,6 +6,8 @@ namespace GlfwInput
     class GlfwInputHandler : public Toybox::IInputHandler
     {
     public:
+        GlfwInputHandler(void* mainWindow);
+
         bool IsGamepadButtonDown(const int id, const int button) override;
         bool IsGamepadButtonUp(const int id, const int button) override;
         bool IsGamepadButtonHeld(const int id, const int button) override;

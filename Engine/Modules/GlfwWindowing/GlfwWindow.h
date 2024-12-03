@@ -22,7 +22,7 @@ namespace GlfwWindowing
         void SetTitle(const std::string& title) override;
 
         const Toybox::uint64 GetId() const override;
-        std::any GetNativeWindow() const override;
+        void* GetNativeWindow() const override;
 
         void SetEventCallback(const EventCallbackFn& callback) override;
         void SetMode(Toybox::WindowMode mode) override;

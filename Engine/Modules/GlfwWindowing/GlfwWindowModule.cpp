@@ -8,8 +8,13 @@ namespace GlfwWindowing
         auto* glfwWindow = new GlfwWindow();
         glfwWindow->SetTitle(name);
         glfwWindow->SetSize(size);
-        glfwWindow->SetMode(mode);
+        glfwWindow->Open(mode);
         return glfwWindow;
+    }
+
+    void GlfwWindowModule::DestroyWindow(Toybox::IWindow* windowToDestroy)
+    {
+        delete windowToDestroy;
     }
 
     const std::string GlfwWindowModule::GetName() const
@@ -28,7 +33,14 @@ namespace GlfwWindowing
     }
 }
 
+Toybox::WindowModule* _module = nullptr;
 Toybox::WindowModule* Load()
 {
-    return new GlfwWindowing::GlfwWindowModule();
+    if (_module == nullptr) _module = new GlfwWindowing::GlfwWindowModule();
+    return _module;
+}
+
+void Unload()
+{
+    delete _module;
 }

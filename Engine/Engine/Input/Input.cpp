@@ -2,6 +2,7 @@
 #include "Input.h"
 #include "IInputHandler.h"
 #include "Modules/Modules.h"
+#include "Application/App.h"
 
 namespace Toybox
 {
@@ -9,12 +10,13 @@ namespace Toybox
 
     void Input::StartHandling()
     {
-        _handler = ((InputModule*)ModuleServer::GetModule("Glfw Input"))->CreateInputHandler();
+        auto* mainNativeWindow = App::Instance->GetMainWindow()->GetNativeWindow();
+        _handler = ((InputModule*)ModuleServer::GetModule("Glfw Input"))->CreateInputHandler(mainNativeWindow);
     }
 
     void Input::StopHandling()
     {
-        delete _handler;
+        ((InputModule*)ModuleServer::GetModule("Glfw Input"))->DestroyInputHandler(_handler);
     }
 
     bool Input::IsGamepadButtonDown(const int id, const int inputCode)

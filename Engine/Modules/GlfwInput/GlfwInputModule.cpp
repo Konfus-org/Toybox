@@ -3,9 +3,14 @@
 
 namespace GlfwInput
 {
-    Toybox::IInputHandler* GlfwInputModule::CreateInputHandler()
+    Toybox::IInputHandler* GlfwInputModule::CreateInputHandler(void* mainNativeWindow)
     {
-        return new GlfwInputHandler();
+        return new GlfwInputHandler(mainNativeWindow);
+    }
+
+    void GlfwInputModule::DestroyInputHandler(Toybox::IInputHandler* handlerToDestroy)
+    {
+        delete handlerToDestroy;
     }
 
     const std::string GlfwInputModule::GetName() const
@@ -24,7 +29,14 @@ namespace GlfwInput
     }
 }
 
+Toybox::InputModule* _module = nullptr;
 Toybox::InputModule* Load()
 {
-    return new GlfwInput::GlfwInputModule();
+    if (_module == nullptr) _module = new GlfwInput::GlfwInputModule();
+    return _module;
+}
+
+void Unload()
+{
+    delete _module;
 }

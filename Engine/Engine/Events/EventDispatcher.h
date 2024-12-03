@@ -11,7 +11,9 @@ namespace Toybox
         template<typename T, typename F>
         bool Dispatch(const F& func)
         {
-            if (typeid(m_Event).name() == typeid(T).name())
+            std::string eventName = typeid(m_Event).name();
+            std::string inputName = typeid(T).name();
+            if (eventName == inputName)
             {
                 m_Event.Handled |= func(static_cast<T&>(m_Event));
                 return true;

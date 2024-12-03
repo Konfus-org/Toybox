@@ -25,7 +25,7 @@ namespace Toybox
         virtual void SetTitle(const std::string& title) = 0;
 
         virtual const uint64 GetId() const = 0;
-        virtual std::any GetNativeWindow() const = 0;
+        virtual void* GetNativeWindow() const = 0;
 
         virtual void SetEventCallback(const EventCallbackFn& callback) = 0;
 

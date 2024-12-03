@@ -6,8 +6,8 @@
 
 namespace GlfwWindowing
 {
-	static bool s_glfwInitialized = false;
-	GLFWwindow* _glfwWindow;
+	static bool _glfwInitialized = false;
+	static GLFWwindow* _glfwWindow = nullptr;
 
 	GlfwWindow::GlfwWindow()
 	{
@@ -29,11 +29,11 @@ namespace GlfwWindowing
 
 	void GlfwWindow::InitGlfwIfNotAlreadyInitialized()
 	{
-		if (!s_glfwInitialized)
+		if (!_glfwInitialized)
 		{
 			const bool success = glfwInit();
 			TBX_ASSERT(success, "Failed to initialize glfw!");
-			s_glfwInitialized = true;
+			_glfwInitialized = true;
 		}
 	}
 
@@ -81,7 +81,7 @@ namespace GlfwWindowing
 		_title = title;
 	}
 
-	std::any GlfwWindow::GetNativeWindow() const
+	void* GlfwWindow::GetNativeWindow() const
 	{
 		return _glfwWindow;
 	}
@@ -102,6 +102,7 @@ namespace GlfwWindowing
 	void GlfwWindow::SetEventCallback(const EventCallbackFn& callback)
 	{
 		_eventCallback = callback;
+		SetupCallbacks();
 	}
 
 	void GlfwWindow::SetMode(Toybox::WindowMode mode)
@@ -113,7 +114,7 @@ namespace GlfwWindowing
 
 		switch (mode)
 		{
-			//Windowed mode (monitor = nullptr)
+			// Windowed mode (monitor = nullptr)
 			case Toybox::WindowMode::Windowed:
 			{
 				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), nullptr, nullptr);
@@ -122,20 +123,49 @@ namespace GlfwWindowing
 			// Fullscreen mode (monitor != nullptr)
 			case Toybox::WindowMode::Fullscreen:
 			{
-				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), glfwGetPrimaryMonitor(), nullptr);
+				GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
+				const GLFWvidmode* videoMode = glfwGetVideoMode(primaryMonitor);
+
+				// Set window hints for a fullscreen window
+				glfwWindowHint(GLFW_DECORATED, false); // Disable window decorations
+				glfwWindowHint(GLFW_RESIZABLE, false); // Make it non-resizable
+				glfwWindowHint(GLFW_REFRESH_RATE, videoMode->refreshRate); // Match refresh rate
+				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), primaryMonitor, nullptr);
+
+				// Position the window at (0, 0) to cover the whole screen
+				glfwSetWindowPos(_glfwWindow, 0, 0);
 				break;
 			}
 			// Borderless (monitor = nullptr, decorated = false)
 			case Toybox::WindowMode::Borderless:
 			{
-				glfwWindowHint(GLFW_DECORATED, false);
+				GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
+				const GLFWvidmode* videoMode = glfwGetVideoMode(primaryMonitor);
+
+				// Set window hints for a borderless window
+				glfwWindowHint(GLFW_DECORATED, false); // Disable window decorations
+				glfwWindowHint(GLFW_REFRESH_RATE, videoMode->refreshRate); // Match refresh rate
+
+				// Create window
 				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), nullptr, nullptr);
 				break;
 			}
 			// Fullscreen borderless (monitor != nullptr, video mode = monitor mode)
 			case Toybox::WindowMode::FullscreenBorderless:
 			{
-				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), glfwGetPrimaryMonitor(), nullptr);
+				GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
+				const GLFWvidmode* videoMode = glfwGetVideoMode(primaryMonitor);
+
+				// Set window hints for a borderless window
+				glfwWindowHint(GLFW_DECORATED, false); // Disable window decorations
+				glfwWindowHint(GLFW_RESIZABLE, false); // Make it non-resizable
+				glfwWindowHint(GLFW_REFRESH_RATE, videoMode->refreshRate); // Match refresh rate
+
+				// Create window
+				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), primaryMonitor, nullptr);
+
+				// Position the window at (0, 0) to cover the whole screen
+				glfwSetWindowPos(_glfwWindow, 0, 0);
 				break;
 			}
 		}

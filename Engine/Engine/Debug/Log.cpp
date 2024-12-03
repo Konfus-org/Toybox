@@ -19,7 +19,7 @@ namespace Toybox
 
 	void Log::Close()
 	{
-		delete _logger;
+		((LoggerModule*)ModuleServer::GetModule("Spd Logger"))->DestroyLogger(_logger);
 	}
 
 	void Log::Trace(std::string msg)
