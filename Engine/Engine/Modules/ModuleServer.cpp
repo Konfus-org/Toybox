@@ -1,11 +1,13 @@
 #include "tbxpch.h"
 #include "ModuleServer.h"
-#include "LoadedModule.h"
+#include "DynamicLibrary.h"
+#include "Debug/Debugging.h"
 #include <direct.h>
 
 namespace Toybox
 {
-    static std::vector<LoadedModule*> _loadedModules;
+    static std::vector<DynamicLibrary*> _loadedLibs;
+    static std::vector<Module*> _loadedModules;
 
     static DynamicLibrary* LoadLib(const std::string& location)
     {
@@ -20,6 +22,7 @@ namespace Toybox
             library = nullptr;
             return nullptr;
         }
+
         return library;
     }
 
@@ -40,12 +43,8 @@ namespace Toybox
         }
 
         Module* module = loadModuleFunc();
-
-        auto* loadedModule = new LoadedModule(module, library);
-        if (loadedModule->GetLib() != nullptr)
-        {
-            _loadedModules.push_back(loadedModule);
-        }
+        _loadedModules.push_back(module);
+        _loadedLibs.push_back(library);
 
         return true;
     }
@@ -69,12 +68,9 @@ namespace Toybox
         std::vector<Module*>* modules = loadModulesFunc();
         for (auto* module : *modules)
         {
-            auto* loadedModule = new LoadedModule(module, library);
-            if (loadedModule->GetLib() != nullptr)
-            {
-                _loadedModules.push_back(loadedModule);
-            }
+            _loadedModules.push_back(module);
         }
+        _loadedLibs.push_back(library);
 
         return true;
     }
@@ -120,9 +116,19 @@ namespace Toybox
 
     void ModuleServer::UnloadModules()
     {
-        for (auto* loadedMod : _loadedModules)
+        for (auto* loadedLib : _loadedLibs)
         {
-            delete loadedMod;
+            using PluginUnloadFunc = void(*)();
+            auto unloadLibFunc = reinterpret_cast<PluginUnloadFunc>(loadedLib->GetSymbol("Unload"));
+            if (!unloadLibFunc)
+            {
+                auto libName = loadedLib->GetName();
+                TBX_ERROR("Failed to unload module: {0}, does it have a \"extern TBX_MODULE_API Unload(Module* module)\" method defined?", libName);
+                return;
+            }
+
+            unloadLibFunc();
+            delete loadedLib;
         }
     }
 
@@ -130,9 +136,9 @@ namespace Toybox
     {
         for (auto* loadedMod : _loadedModules)
         {
-            if (loadedMod->GetModule()->GetName() == name)
+            if (loadedMod->GetName() == name)
             {
-                return loadedMod->GetModule();
+                return loadedMod;
             }
         }
 

@@ -1,7 +1,6 @@
 #pragma once
 #include "tbxpch.h"
 #include "ModuleAPI.h"
-#include "LoadedModule.h"
 
 namespace Toybox
 {

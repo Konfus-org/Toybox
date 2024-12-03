@@ -3,11 +3,17 @@
 
 namespace Toybox
 {
+    std::string DynamicLibrary::GetName() const
+    {
+        return _name;
+    }
+
 #ifdef TBX_PLATFORM_WINDOWS
 #include <windows.h>
 
-    bool DynamicLibrary::Load(const std::string& path) 
+    bool DynamicLibrary::Load(const std::string& path)
     {
+        _name = path;
         _handle = LoadLibraryA(path.c_str());
         return _handle != nullptr;
     }
@@ -31,6 +37,7 @@ namespace Toybox
 
     bool DynamicLibrary::Load(const std::string& path) 
     {
+        _name = path;
         handle = dlopen(path.c_str(), RTLD_LAZY);
         return handle != nullptr;
     }
