@@ -108,7 +108,7 @@ workspace "Toybox"
     group "Engine"
         include "Engine/Engine"
 
-    group "Engine Modules"
+    group "Engine/Modules"
         include "Engine/Modules/Glfw Interface"
         include "Engine/Modules/SpdLog Interface"
         
