@@ -1,4 +1,4 @@
-project "SpdLogger"
+project "SpdLog Interface"
     kind "SharedLib"
     language "C++"
     cppdialect "C++20"

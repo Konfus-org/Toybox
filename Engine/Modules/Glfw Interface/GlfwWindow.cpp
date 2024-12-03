@@ -112,57 +112,56 @@ namespace GlfwWindowing
 			glfwDestroyWindow(_glfwWindow);
 		}
 
+		GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
+		const GLFWvidmode* videoMode = glfwGetVideoMode(primaryMonitor);
+
 		switch (mode)
 		{
 			// Windowed mode (monitor = nullptr)
 			case Toybox::WindowMode::Windowed:
 			{
+				// Set window hints for a windowed window
+				glfwWindowHint(GLFW_REFRESH_RATE, videoMode->refreshRate); // Match refresh rate
+
+				// Create window
+				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), nullptr, nullptr);
+				break;
+			}
+			// Borderless (monitor = nullptr, decorated = false)
+			case Toybox::WindowMode::Borderless:
+			{
+				// Set window hints for a borderless window
+				glfwWindowHint(GLFW_DECORATED, false); // Disable window decorations
+				glfwWindowHint(GLFW_REFRESH_RATE, videoMode->refreshRate); // Match refresh rate
+
+				// Create window
 				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), nullptr, nullptr);
 				break;
 			}
 			// Fullscreen mode (monitor != nullptr)
 			case Toybox::WindowMode::Fullscreen:
 			{
-				GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
-				const GLFWvidmode* videoMode = glfwGetVideoMode(primaryMonitor);
-
 				// Set window hints for a fullscreen window
-				glfwWindowHint(GLFW_DECORATED, false); // Disable window decorations
 				glfwWindowHint(GLFW_RESIZABLE, false); // Make it non-resizable
 				glfwWindowHint(GLFW_REFRESH_RATE, videoMode->refreshRate); // Match refresh rate
-				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), primaryMonitor, nullptr);
+
+				// Create window
+				_glfwWindow = glfwCreateWindow(videoMode->width, videoMode->height, _title.c_str(), nullptr, nullptr);
 
 				// Position the window at (0, 0) to cover the whole screen
 				glfwSetWindowPos(_glfwWindow, 0, 0);
 				break;
 			}
-			// Borderless (monitor = nullptr, decorated = false)
-			case Toybox::WindowMode::Borderless:
-			{
-				GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
-				const GLFWvidmode* videoMode = glfwGetVideoMode(primaryMonitor);
-
-				// Set window hints for a borderless window
-				glfwWindowHint(GLFW_DECORATED, false); // Disable window decorations
-				glfwWindowHint(GLFW_REFRESH_RATE, videoMode->refreshRate); // Match refresh rate
-
-				// Create window
-				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), nullptr, nullptr);
-				break;
-			}
 			// Fullscreen borderless (monitor != nullptr, video mode = monitor mode)
 			case Toybox::WindowMode::FullscreenBorderless:
 			{
-				GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
-				const GLFWvidmode* videoMode = glfwGetVideoMode(primaryMonitor);
-
 				// Set window hints for a borderless window
 				glfwWindowHint(GLFW_DECORATED, false); // Disable window decorations
 				glfwWindowHint(GLFW_RESIZABLE, false); // Make it non-resizable
 				glfwWindowHint(GLFW_REFRESH_RATE, videoMode->refreshRate); // Match refresh rate
 
 				// Create window
-				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), primaryMonitor, nullptr);
+				_glfwWindow = glfwCreateWindow(videoMode->width, videoMode->height, _title.c_str(), nullptr, nullptr);
 
 				// Position the window at (0, 0) to cover the whole screen
 				glfwSetWindowPos(_glfwWindow, 0, 0);

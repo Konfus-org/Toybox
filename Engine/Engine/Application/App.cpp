@@ -33,7 +33,7 @@ namespace Toybox
 
         // Create main window
         auto* windowModule = (WindowModule*)ModuleServer::GetModule("Glfw Windowing");
-        _mainWindow = windowModule->OpenNewWindow(_name, WindowMode::Fullscreen, Size(1920, 1080));
+        _mainWindow = windowModule->OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
         _mainWindow->SetEventCallback(TBX_BIND_EVENT_FN(App::OnEvent));
 
         // Start handling input

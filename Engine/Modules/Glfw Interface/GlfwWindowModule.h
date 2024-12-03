@@ -13,6 +13,3 @@ namespace GlfwWindowing
         const int GetVersion() const override;
     };
 }
-
-extern "C" TBX_MODULE_API Toybox::WindowModule* Load(); 
-extern "C" TBX_MODULE_API void Unload();

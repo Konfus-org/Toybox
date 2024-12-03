@@ -109,9 +109,8 @@ workspace "Toybox"
         include "Engine/Engine"
 
     group "Engine Modules"
-        include "Engine/Modules/GlfwInput"
-        include "Engine/Modules/GlfwWindowing"
-        include "Engine/Modules/SpdLogger"
+        include "Engine/Modules/Glfw Interface"
+        include "Engine/Modules/SpdLog Interface"
         
     group "Editor"
         include "Editor/Interop"

@@ -28,15 +28,3 @@ namespace GlfwInput
         return 0;
     }
 }
-
-Toybox::InputModule* _module = nullptr;
-Toybox::InputModule* Load()
-{
-    if (_module == nullptr) _module = new GlfwInput::GlfwInputModule();
-    return _module;
-}
-
-void Unload()
-{
-    delete _module;
-}

@@ -8,36 +8,11 @@ namespace Toybox
     class LoadedModule
     {
     public:
-        LoadedModule(const std::string& location)
+        LoadedModule(Module* module, DynamicLibrary* lib)
         {
-            _module = nullptr;
-            _library = new DynamicLibrary();
-            if (!_library->Load(location))
-            {
-                TBX_ERROR("Failed to load library: {0}", location);
-
-                _library->Unload();
-                delete _library;
-
-                _library = nullptr;
-                return;
-            }
-
-            using PluginLoadFunc = Module*(*)();
-            auto loadModuleFunc = reinterpret_cast<PluginLoadFunc>(_library->GetSymbol("Load"));
-            if (!loadModuleFunc)
-            {
-                TBX_ERROR("Failed to load library: {0}, does it have a \"extern TBX_MODULE_API Load()\" method defined?", location);
-
-                _library->Unload();
-                delete _library;
-
-                _library = nullptr;
-                return;
-            }
-
-            Module* module = loadModuleFunc();
             _module = module;
+            _library = lib;
+            _name = _module->GetName();
         }
 
         ~LoadedModule()
@@ -48,10 +23,16 @@ namespace Toybox
             {
                 auto moduleName = _module->GetName();
                 TBX_ERROR("Failed to unload module: {0}, does it have a \"extern TBX_MODULE_API Unload(Module* module)\" method defined?", moduleName);
+                return;
             }
 
             unloadModuleFunc(_module);
             delete _library;
+        }
+
+        inline const std::string GetName() const
+        {
+            return _name;
         }
 
         inline const DynamicLibrary* GetLib() const
@@ -65,6 +46,7 @@ namespace Toybox
         }
 
     private:
+        std::string _name;
         DynamicLibrary* _library;
         Module* _module;
     };

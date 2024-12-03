@@ -32,15 +32,3 @@ namespace GlfwWindowing
         return 0;
     }
 }
-
-Toybox::WindowModule* _module = nullptr;
-Toybox::WindowModule* Load()
-{
-    if (_module == nullptr) _module = new GlfwWindowing::GlfwWindowModule();
-    return _module;
-}
-
-void Unload()
-{
-    delete _module;
-}

@@ -14,6 +14,3 @@ namespace GlfwInput
         const int GetVersion() const override;
     };
 }
-
-extern "C" TBX_MODULE_API Toybox::InputModule* Load();
-extern "C" TBX_MODULE_API void Unload();

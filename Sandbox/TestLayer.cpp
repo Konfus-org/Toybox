@@ -43,15 +43,12 @@ void TestLayer::OnDetach()
 
 void TestLayer::OnUpdate()
 {
-	_frameCount++;
 	auto mousePos = Toybox::Input::GetMousePosition();
-	TBX_WARN("Frame count: {0}", _frameCount);
 	TBX_ERROR("Mouse position: ({0}, {1})", mousePos.X, mousePos.Y);
+
 	ChangeWindowColorTest();
 }
 
 void TestLayer::OnEvent(Toybox::Event& event)
 {
-	auto eventCat = event.GetCategorization();
-	TBX_TRACE("Event of type {0} occurred!", eventCat);
 }
