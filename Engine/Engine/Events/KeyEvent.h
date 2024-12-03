@@ -22,12 +22,22 @@ namespace Toybox
     {
     public:
         KeyPressedEvent(int keyCode) : KeyEvent(keyCode) { }
+
+        const std::string GetName() const override
+        {
+            return "Key Pressed Event";
+        }
     };
 
     class KeyReleasedEvent : public KeyEvent
     {
     public:
         KeyReleasedEvent(int keyCode) : KeyEvent(keyCode) { }
+
+        const std::string GetName() const override
+        {
+            return "Key Released Event";
+        }
     }; 
     
     class KeyHeldEvent : public KeyEvent
@@ -35,6 +45,12 @@ namespace Toybox
     public:
         KeyHeldEvent(int keyCode, float timeHeld) :
             KeyEvent(keyCode), _timeHeld(timeHeld) {}
+
+        const std::string GetName() const override
+        {
+            return "Key Held Event";
+        }
+
     private:
         float _timeHeld;
     };
@@ -44,6 +60,11 @@ namespace Toybox
     public:
         KeyRepeatedEvent(int keyCode, int repeatCount) : 
             KeyEvent(keyCode), _repeatCount(repeatCount) {}
+
+        const std::string GetName() const override
+        {
+            return "Key Repeated Event";
+        }
     private:
         int _repeatCount;
     };

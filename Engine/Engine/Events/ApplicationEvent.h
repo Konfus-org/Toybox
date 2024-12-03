@@ -13,13 +13,32 @@ namespace Toybox
         }
     };
 
-    class AppTickEvent : public AppEvent { };
+    class AppUpdateEvent : public AppEvent 
+    {
 
-    class AppUpdateEvent : public AppEvent { };
+        const std::string GetName() const override
+        {
+            return "App Update Event";
+        }
+    };
 
-    class AppRenderEvent : public AppEvent { };
+    class AppRenderEvent : public AppEvent 
+    {
 
-    class WindowCloseEvent : public AppEvent { };
+        const std::string GetName() const override
+        {
+            return "App Render Event";
+        }
+    };
+
+    class WindowCloseEvent : public AppEvent 
+    {
+
+        const std::string GetName() const override
+        {
+            return "Window Close Event";
+        }
+    };
 
     class WindowResizeEvent : public AppEvent
     {
@@ -34,6 +53,11 @@ namespace Toybox
         int GetCategorization() const override
         {
             return EventCategory::Application;
+        }
+
+        const std::string GetName() const override
+        {
+            return "Window Resize Event";
         }
 
     private:

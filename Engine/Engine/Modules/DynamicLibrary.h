@@ -10,7 +10,7 @@ namespace Toybox
         ~DynamicLibrary();
 
         std::string GetName() const;
-        bool Load(const std::string& path);
+        bool Load(const std::string path);
         void* GetSymbol(const std::string& name);
         void Unload();
 

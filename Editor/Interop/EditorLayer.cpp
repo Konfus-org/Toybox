@@ -1,4 +1,4 @@
-#include "MainLayer.h"
+#include "EditorLayer.h"
 #include <gl/GL.h>
 
 namespace Toybox::Interop
@@ -32,24 +32,24 @@ namespace Toybox::Interop
 		_blue += 0.001f;
 	}
 
-	void MainLayer::OnAttach()
+	void EditorLayer::OnAttach()
 	{
-		TBX_TRACE("Main layer attached!");
+		TBX_TRACE("Editor layer attached!");
 	}
 
-	void MainLayer::OnDetach()
+	void EditorLayer::OnDetach()
 	{
-		TBX_TRACE("Main layer detached!");
+		TBX_TRACE("Editor layer detached!");
 	}
 
-	void MainLayer::OnUpdate()
+	void EditorLayer::OnUpdate()
 	{
 		ChangeWindowColorTest();
 	}
 
-	void MainLayer::OnEvent(Toybox::Events::Event& event)
+	void EditorLayer::OnEvent(Toybox::Event& event)
 	{
-		auto eventCat = event.GetCategorization();
-		TBX_TRACE("Event of type {0} occurred!", eventCat);
+		auto& eventName = event.GetName();
+		TBX_TRACE("{0} occurred!", eventName);
 	}
 }

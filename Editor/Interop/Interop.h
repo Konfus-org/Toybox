@@ -3,18 +3,18 @@
 #include "InteropApp.h"
 
 static Toybox::Interop::InteropApp* EditorCoreApp;
-Toybox::Application::App* Toybox::Application::CreateApp()
+Toybox::App* Toybox::CreateApp()
 {
     return new Toybox::Interop::InteropApp();
 }
 
-TBX_EDITOR_CORE_API Toybox::Math::uint64 LaunchViewport()
+TBX_EDITOR_CORE_API Toybox::uint64 LaunchViewport()
 {
     if (EditorCoreApp == nullptr) 
     {
-        EditorCoreApp = (Toybox::Interop::InteropApp*)Toybox::Application::CreateApp();
+        EditorCoreApp = (Toybox::Interop::InteropApp*)Toybox::CreateApp();
         EditorCoreApp->Launch();
-        EditorCoreApp->GetMainWindow()->SetMode(Toybox::Windowing::WindowMode::Borderless);
+        EditorCoreApp->GetMainWindow()->SetMode(Toybox::WindowMode::Borderless);
     }
     return EditorCoreApp->GetMainWindow()->GetId();
 }

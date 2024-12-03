@@ -9,7 +9,7 @@ namespace Toybox
 {
     App* App::Instance = nullptr;
 
-    App::App(const std::string& name)
+    App::App(const std::string name)
     {
         _name = name;
         _isRunning = false;
@@ -75,7 +75,7 @@ namespace Toybox
         return _isRunning;
     }
 
-    const std::string& App::GetName() const
+    const std::string App::GetName() const
     {
         return _name;
     }

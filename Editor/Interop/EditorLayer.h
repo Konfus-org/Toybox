@@ -3,15 +3,15 @@
 
 namespace Toybox::Interop
 {
-    class MainLayer : public Toybox::Layers::Layer
+    class EditorLayer : public Toybox::Layer
     {
     public:
-        MainLayer(const std::string& name) : Toybox::Layers::Layer(name) { }
+        EditorLayer(const std::string& name) : Toybox::Layer(name) { }
 
         void OnAttach() override;
         void OnDetach() override;
         void OnUpdate() override;
-        void OnEvent(Toybox::Events::Event& event) override;
+        void OnEvent(Toybox::Event& event) override;
     };
 }
 

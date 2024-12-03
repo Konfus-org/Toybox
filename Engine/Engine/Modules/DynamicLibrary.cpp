@@ -11,7 +11,7 @@ namespace Toybox
 #ifdef TBX_PLATFORM_WINDOWS
 #include <windows.h>
 
-    bool DynamicLibrary::Load(const std::string& path)
+    bool DynamicLibrary::Load(const std::string path)
     {
         _name = path;
         _handle = LoadLibraryA(path.c_str());

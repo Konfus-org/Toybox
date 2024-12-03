@@ -17,6 +17,11 @@ namespace Toybox
     public:
         MouseMovedEvent(float x, float y) : _xPos(x), _yPos(y) { }
 
+        const std::string GetName() const override
+        {
+            return "Mouse Moved Event";
+        }
+
         Vector2* GetPosition() const
         {
             return new Vector2(_xPos, _yPos);
@@ -31,6 +36,11 @@ namespace Toybox
     {
     public:
         MouseScrolledEvent(float x, float y) : _xScroll(x), _yScroll(y) { }
+
+        const std::string GetName() const override
+        {
+            return "Mouse Scrolled Event";
+        }
 
         Vector2* GetScrollDir() const
         {
@@ -47,6 +57,11 @@ namespace Toybox
     public:
         MouseButtonPressedEvent(int button) : _button(button) { }
 
+        const std::string GetName() const override
+        {
+            return "Mouse Button Pressed Event";
+        }
+
         int GetButtonPressed() const
         {
             return _button;
@@ -60,6 +75,11 @@ namespace Toybox
     {
     public:
         MouseButtonReleasedEvent(int button) : _button(button) { }
+
+        const std::string GetName() const override
+        {
+            return "Mouse Button Released Event";
+        }
 
         int GetButtonReleased() const
         {

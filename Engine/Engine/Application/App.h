@@ -12,7 +12,7 @@ namespace Toybox
     public:
         static App* Instance;
 
-        App(const std::string& name);
+        App(const std::string name);
         virtual ~App();
 
         void Launch();
@@ -23,7 +23,7 @@ namespace Toybox
         void PushOverlay(Layer* layer);
 
         const bool IsRunning() const;
-        const std::string& GetName() const;
+        const std::string GetName() const;
         IWindow* GetMainWindow() const;
 
     private:

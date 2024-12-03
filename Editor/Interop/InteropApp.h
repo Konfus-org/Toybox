@@ -5,7 +5,7 @@
 
 namespace Toybox::Interop
 {
-    class InteropApp : public Application::App
+    class InteropApp : public App
     {
     public:
         InteropApp();

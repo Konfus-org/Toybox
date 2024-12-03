@@ -8,13 +8,16 @@ namespace Toybox
     class Event
     {
     public:
+        Event() = default;
         virtual ~Event() = default;
+
         virtual int GetCategorization() const = 0;
+        virtual const std::string GetName() const = 0;
         inline bool IsInCategory(EventCategory category) const
         {
             return GetCategorization() & category;
         }
-
+        
         bool Handled = false;
     };
 }
