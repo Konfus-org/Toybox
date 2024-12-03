@@ -6,6 +6,6 @@ namespace Toybox::Interop
 {
     InteropApp::InteropApp() : App("Toybox")
     {
-        PushLayer(new MainLayer("Main Layer"));
+        PushLayer(new EditorLayer("Main Layer"));
     }
 }
