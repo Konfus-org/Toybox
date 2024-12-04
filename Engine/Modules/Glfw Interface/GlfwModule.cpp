@@ -17,6 +17,6 @@ std::vector<Toybox::Module*>* LoadMultiple()
 
 void Unload()
 {
-    for (auto* module : *_modules) delete module;
+    for (auto* mod : *_modules) delete mod;
     delete _modules;
 }

@@ -10,7 +10,7 @@ namespace Toybox
         static void LoadModules();
         static void UnloadModules();
 
-        static Module* GetModule(const std::string& name);
+        static Module* GetModule(const std::string_view& name);
     };
 }
 

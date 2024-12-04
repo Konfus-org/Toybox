@@ -30,7 +30,7 @@ namespace Toybox
         if (library == nullptr) return false;
 
         using PluginLoadFunc = Module*(*)();
-        auto loadModuleFunc = reinterpret_cast<PluginLoadFunc>(library->GetSymbol("Load"));
+        auto loadModuleFunc = static_cast<PluginLoadFunc>(library->GetSymbol("Load"));
         if (!loadModuleFunc)
         {
             library->Unload();
@@ -40,8 +40,8 @@ namespace Toybox
             return false;
         }
 
-        Module* module = loadModuleFunc();
-        _loadedModules.push_back(module);
+        Module* mod = loadModuleFunc();
+        _loadedModules.push_back(mod);
         _loadedLibs.push_back(library);
 
         return true;
@@ -53,7 +53,7 @@ namespace Toybox
         if (library == nullptr) return false;
 
         using PluginLoadFunc = std::vector<Module*>*(*)();
-        auto loadModulesFunc = reinterpret_cast<PluginLoadFunc>(library->GetSymbol("LoadMultiple"));
+        auto loadModulesFunc = static_cast<PluginLoadFunc>(library->GetSymbol("LoadMultiple"));
         if (!loadModulesFunc)
         {
             library->Unload();
@@ -63,10 +63,10 @@ namespace Toybox
             return false;
         }
 
-        std::vector<Module*>* modules = loadModulesFunc();
-        for (auto* module : *modules)
+        const std::vector<Module*>* modules = loadModulesFunc();
+        for (auto* mod : *modules)
         {
-            _loadedModules.push_back(module);
+            _loadedModules.push_back(mod);
         }
         _loadedLibs.push_back(library);
 
@@ -82,7 +82,7 @@ namespace Toybox
         // debug code
         const auto pathToModules = "..\\Build\\bin\\Modules";
 #endif
-        auto modulesInModuleDir = std::filesystem::directory_iterator(pathToModules);
+        const auto& modulesInModuleDir = std::filesystem::directory_iterator(pathToModules);
         for (const auto& entry : modulesInModuleDir)
         {
             if (!entry.is_regular_file()) continue;
@@ -111,7 +111,7 @@ namespace Toybox
         for (auto* loadedLib : _loadedLibs)
         {
             using PluginUnloadFunc = void(*)();
-            auto unloadLibFunc = reinterpret_cast<PluginUnloadFunc>(loadedLib->GetSymbol("Unload"));
+            auto unloadLibFunc = static_cast<PluginUnloadFunc>(loadedLib->GetSymbol("Unload"));
             if (!unloadLibFunc)
             {
                 auto libName = loadedLib->GetName();
@@ -124,7 +124,7 @@ namespace Toybox
         }
     }
 
-    Module* ModuleServer::GetModule(const std::string& name)
+    Module* ModuleServer::GetModule(const std::string_view& name)
     {
         for (auto* loadedMod : _loadedModules)
         {
