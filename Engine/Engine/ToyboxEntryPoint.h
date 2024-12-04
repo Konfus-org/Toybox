@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
         app->Update();
     }
 
-    // Final cleanup
+    // Final cleanup (order important, do not change!)
     delete app;
 
     Toybox::Input::StopHandling();

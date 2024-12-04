@@ -3,14 +3,11 @@
 #include "LogLevel.h"
 #include "Modules/Modules.h"
 
+#define TBX_VALIDATE_LOGGER(error_msg) if (_logger == nullptr) { std::cout << "Logger null! Falling back to std::cout " + error_msg << std::endl; return; }
+
 namespace Toybox
 {
 	ILogger* Log::_logger = nullptr;
-
-	static void FallbackLog(std::string msg)
-	{
-		std::cout << msg << std::endl;
-	}
 
 	void Log::Open()
 	{
@@ -20,68 +17,50 @@ namespace Toybox
 	void Log::Close()
 	{
 		((LoggerModule*)ModuleServer::GetModule("Spd Logger"))->DestroyLogger(_logger);
+		_logger = nullptr;
 	}
 
 	void Log::Trace(std::string msg)
 	{
-		if (_logger == nullptr)
-		{
-			FallbackLog("Trace: " + msg);
-			return;
-		}
+		TBX_VALIDATE_LOGGER(msg);
+
 		_logger->Log(LogLevel::Trace, msg);
 	}
 
 	void Log::Info(std::string msg)
 	{
-		if (_logger == nullptr)
-		{
-			FallbackLog("Info: " + msg);
-			return;
-		}
+		TBX_VALIDATE_LOGGER(msg);
+
 		_logger->Log(LogLevel::Info, msg);
 	}
 
 	void Log::Warn(std::string msg)
 	{
-		if (_logger == nullptr)
-		{
-			FallbackLog("Warn: " + msg);
-			return;
-		}
+		TBX_VALIDATE_LOGGER(msg);
+
 		_logger->Log(LogLevel::Warn, msg);
 	}
 
 	void Log::Error(std::string msg)
 	{
-		if (_logger == nullptr)
-		{
-			FallbackLog("Error: " + msg);
-			return;
-		}
+		TBX_VALIDATE_LOGGER(msg);
+
 		_logger->Log(LogLevel::Error, msg);
 	}
 
 	void Log::Critical(std::string msg)
 	{
-		if (_logger == nullptr)
-		{
-			FallbackLog("Critical: " + msg);
-			return;
-		}
+		TBX_VALIDATE_LOGGER(msg);
+
 		_logger->Log(LogLevel::Critical, msg);
 	}
 
 	template<typename... Args>
 	void Log::Trace(std::string msg, Args&&... args)
 	{
+		TBX_VALIDATE_LOGGER(msg);
+
 		va_start(args, msg);
-		if (_logger == nullptr)
-		{
-			FallbackLog("Trace: " + std::format(msg, args));
-			va_end(args);
-			return;
-		}
 		_logger->Log(LogLevel::Trace, std::format(msg, args));
 		va_end(args);
 	}
@@ -89,13 +68,9 @@ namespace Toybox
 	template<typename... Args>
 	void Log::Info(std::string msg, Args&&... args)
 	{
+		TBX_VALIDATE_LOGGER(msg);
+
 		va_start(args, msg);
-		if (_logger == nullptr)
-		{
-			FallbackLog("Info: " + std::format(msg, args));
-			va_end(args);
-			return;
-		}
 		_logger->Log(LogLevel::Info, std::format(msg, args));
 		va_end(args);
 	}
@@ -103,13 +78,9 @@ namespace Toybox
 	template<typename... Args>
 	void Log::Warn(std::string msg, Args&&... args)
 	{
+		TBX_VALIDATE_LOGGER(msg);
+
 		va_start(args, msg);
-		if (_logger == nullptr)
-		{
-			FallbackLog("Warn: " + std::format(msg, args));
-			va_end(args);
-			return;
-		}
 		_logger->Log(LogLevel::Warn, std::format(msg, args));
 		va_end(args);
 	}
@@ -117,13 +88,9 @@ namespace Toybox
 	template<typename... Args>
 	void Log::Error(std::string msg, Args&&... args)
 	{
+		TBX_VALIDATE_LOGGER(msg);
+
 		va_start(args, msg);
-		if (_logger == nullptr)
-		{
-			FallbackLog("Error: " + std::format(msg, args));
-			va_end(args);
-			return;
-		}
 		_logger->Log(LogLevel::Error, std::format(msg, args));
 		va_end(args);
 	}
@@ -131,13 +98,9 @@ namespace Toybox
 	template<typename... Args>
 	void Log::Critical(std::string msg, Args&&... args)
 	{
+		TBX_VALIDATE_LOGGER(msg);
+
 		va_start(args, msg);
-		if (_logger == nullptr)
-		{
-			FallbackLog("Critical: " + std::format(msg, args));
-			va_end(args);
-			return;
-		}
 		_logger->Log(LogLevel::Critical, std::format(msg, args));
 		va_end(args);
 	}

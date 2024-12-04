@@ -43,9 +43,8 @@ void TestLayer::OnDetach()
 
 void TestLayer::OnUpdate()
 {
-	auto mousePos = Toybox::Input::GetMousePosition();
-	TBX_ERROR("Mouse position: ({0}, {1})", mousePos.X, mousePos.Y);
-
+	auto spaceHeld = Toybox::Input::IsKeyDown(32);
+	if (spaceHeld) TBX_TRACE("Space pressed!");
 	ChangeWindowColorTest();
 }
 

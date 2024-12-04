@@ -1,4 +1,4 @@
-project "Editor Interop"
+project "Interop"
     kind "SharedLib"
     language "C++"
     cppdialect "C++20"

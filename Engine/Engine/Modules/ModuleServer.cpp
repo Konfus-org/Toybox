@@ -14,8 +14,6 @@ namespace Toybox
         auto* library = new DynamicLibrary();
         if (!library->Load(location))
         {
-            TBX_ERROR("Failed to load library: {0}", location);
-
             library->Unload();
             delete library;
 
@@ -101,13 +99,7 @@ namespace Toybox
 #endif
             {
                 const std::string location = entry.path().string();
-                bool success = LoadSingleFromLocation(location);
-                if (!success)
-                {
-                    success = LoadMultipleFromLocation(location);
-                    if (success) continue;
-                }
-                
+                if (LoadSingleFromLocation(location) || LoadMultipleFromLocation(location)) continue;
                 const std::string failureMsg = "Failed to load library: {0}, does it have a \"extern TBX_MODULE_API Module* Load()\" or \"extern TBX_MODULE_API std::vector<Module*> LoadMultiple()\" method defined?";
                 TBX_ERROR(failureMsg, location);
             }
