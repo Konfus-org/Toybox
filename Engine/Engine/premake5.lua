@@ -28,11 +28,6 @@ project "Engine"
         "./**.hpp",
         "./**.cpp"
     }
-
-    links
-    {
-        "opengl32.lib"
-    }
     
     -- Setup standard platforms and configs
     StandardPlatforms()

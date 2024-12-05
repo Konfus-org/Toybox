@@ -76,6 +76,19 @@ function StandardConfigs()
         }
 end
 
+-- Easy way to add dll configs
+function DllConfigs()
+    -- Needed for .DLL
+    filter "configurations:Debug"
+        buildoptions "/MDd"
+
+    filter "configurations:Optimized"
+        buildoptions "/MD"
+    
+    filter "configurations:Dist"
+        buildoptions "/MD"
+end
+
 -- Easy way to link Engine
 function IncludeEngine()
     includedirs

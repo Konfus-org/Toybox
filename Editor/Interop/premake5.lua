@@ -22,6 +22,7 @@ project "Interop"
     IncludeEngine()
     StandardPlatforms()
     StandardConfigs()
+    DllConfigs()
     
     -- Editor Supported Platforms
     filter "system:Windows"
@@ -29,13 +30,3 @@ project "Interop"
         {
             "TOYBOX_EDITOR"
     }
-    
-    -- Needed for .DLL stufffilter "configurations:Debug"
-    filter "configurations:Debug"
-        buildoptions "/MDd"
-
-    filter "configurations:Optimized"
-        buildoptions "/MD"
-    
-    filter "configurations:Dist"
-        buildoptions "/MD"

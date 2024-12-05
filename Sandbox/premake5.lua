@@ -17,6 +17,12 @@ project "Sandbox"
         "./**.hpp",
         "./**.cpp"
     }
+
+    links
+    {
+        -- For testing! Remove once we have a proper rendering abstraction!
+        "opengl32.lib"
+    }
     
     IncludeEngine()
     StandardPlatforms()

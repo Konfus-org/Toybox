@@ -40,6 +40,7 @@ project "Glfw Interface"
     IncludeEngine()
     StandardPlatforms()
     StandardConfigs()
+    DllConfigs()
 
     -- Expose native platform methods 
     -- which is needed to grab handles of windows for editor
@@ -60,13 +61,3 @@ project "Glfw Interface"
         {
             "GLFW_EXPOSE_NATIVE_COCOA"
         }
-    
-    -- Needed for .DLL
-    filter "configurations:Debug"
-        buildoptions "/MDd"
-
-    filter "configurations:Optimized"
-        buildoptions "/MD"
-    
-    filter "configurations:Dist"
-        buildoptions "/MD"

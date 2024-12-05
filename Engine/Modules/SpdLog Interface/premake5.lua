@@ -29,18 +29,8 @@ project "SpdLog Interface"
         "spdlog"
     }
 
-    
     -- Setup standard platforms and configs
     IncludeEngine()
     StandardPlatforms()
     StandardConfigs()
-    
-    -- Needed for .DLL
-    filter "configurations:Debug"
-        buildoptions "/MDd"
-
-    filter "configurations:Optimized"
-        buildoptions "/MD"
-    
-    filter "configurations:Dist"
-        buildoptions "/MD"
+    DllConfigs()
