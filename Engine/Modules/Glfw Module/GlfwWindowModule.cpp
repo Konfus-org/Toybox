@@ -3,7 +3,7 @@
 
 namespace GlfwWindowing
 {
-    Toybox::IWindow* GlfwWindowModule::OpenNewWindow(const std::string& name, Toybox::WindowMode mode, Toybox::Size size)
+    Toybox::IWindow* GlfwWindowModule::CreateNewWindow(const std::string& name, Toybox::WindowMode mode, Toybox::Size size)
     {
         auto* glfwWindow = new GlfwWindow();
         glfwWindow->SetTitle(name);

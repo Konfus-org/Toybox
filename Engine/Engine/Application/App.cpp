@@ -98,7 +98,7 @@ namespace Toybox
     IWindow* App::CreateNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
         auto* windowModule = (WindowModule*)ModuleServer::GetModule(DefaultWindowModuleName);
-        auto* window = windowModule->OpenNewWindow(name, mode, size);
+        auto* window = windowModule->CreateNewWindow(name, mode, size);
         window->SetEventCallback(TBX_BIND_EVENT_FN(App::OnEvent));
         return window;
     }

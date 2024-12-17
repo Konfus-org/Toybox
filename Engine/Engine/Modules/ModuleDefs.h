@@ -6,13 +6,23 @@
 
 namespace Toybox
 {
+    class RendererModule : public Module
+    {
+    public:
+        RendererModule() = default;
+        virtual ~RendererModule() = default;
+
+        virtual IWindow* CreateRenderer(const std::string& name, WindowMode mode, Size size) = 0;
+        virtual void DestroyRenderer(IWindow* windowToDestroy) = 0;
+    };
+
     class WindowModule : public Module
     {
     public:
         WindowModule() = default;
         virtual ~WindowModule() = default;
 
-        virtual IWindow* OpenNewWindow(const std::string& name, WindowMode mode, Size size) = 0;
+        virtual IWindow* CreateNewWindow(const std::string& name, WindowMode mode, Size size) = 0;
         virtual void DestroyWindow(IWindow* windowToDestroy) = 0;
     };
 

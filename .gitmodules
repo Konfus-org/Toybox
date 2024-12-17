@@ -4,7 +4,13 @@
 [submodule "3rd Party/Libraries/glfw"]
 	path = 3rd Party/glfw
 	url = https://github.com/Konfus-dev/glfw.git
+[submodule "3rd Party/Libraries/glad"]
+	path = 3rd Party/glad
+	url = https://github.com/Konfus-dev/glad.git
 [submodule "3rd Party/Libraries/Coral"]
 	path = 3rd Party/Coral
-	url = https://github.com/Konfus-dev/Coral
+	url = https://github.com/Konfus-dev/Coral.git
+[submodule "3rd Party/Libraries/bgfx"]
+	path = 3rd Party/bgfx
+	url = https://github.com/Konfus-dev/bgfx.git
 
