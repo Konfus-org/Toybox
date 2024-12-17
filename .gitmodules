@@ -1,16 +1,13 @@
 [submodule "3rd Party/Libraries/spdlog"]
-	path = 3rd Party/spdlog
+	path = 3rd Party/Libraries/spdlog
 	url = https://github.com/Konfus-dev/spdlog.git
 [submodule "3rd Party/Libraries/glfw"]
-	path = 3rd Party/glfw
+	path = 3rd Party/Libraries/glfw
 	url = https://github.com/Konfus-dev/glfw.git
-[submodule "3rd Party/Libraries/glad"]
-	path = 3rd Party/glad
-	url = https://github.com/Konfus-dev/glad.git
 [submodule "3rd Party/Libraries/Coral"]
-	path = 3rd Party/Coral
+	path = 3rd Party/Libraries/Coral
 	url = https://github.com/Konfus-dev/Coral.git
 [submodule "3rd Party/Libraries/bgfx"]
-	path = 3rd Party/bgfx
+	path = 3rd Party/Libraries/bgfx
 	url = https://github.com/Konfus-dev/bgfx.git
 
