@@ -1,4 +1,4 @@
-project "Glfw Interface"
+project "Glfw Module"
     kind "SharedLib"
     language "C++"
     cppdialect "C++20"
