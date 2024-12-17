@@ -26,14 +26,12 @@ project "Glfw Module"
     includedirs
     {
         "./",
-        "%{IncludeDir.glfw}",
-        "%{IncludeDir.glad}"
+        "%{IncludeDir.glfw}"
     }
 
     links
     {
-        "glfw",
-        "glad",
+        "glfw"
     }
 
     -- Setup standard platforms and configs

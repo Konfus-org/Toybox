@@ -1,6 +1,5 @@
 #include "GlfwWindow.h"
 #include <GLFW/glfw3native.h>
-#include <glad/glad.h>
 #include <Toybox.h>
 
 namespace GlfwWindowing
@@ -20,14 +19,12 @@ namespace GlfwWindowing
 	void GlfwWindow::Open(Toybox::WindowMode mode)
 	{
 		SetMode(mode);
-
-		// Init glad, needs to be done AFTER a window is opened (SetMode is called)!
-		int status = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-		TBX_ASSERT(status, "Failed to initialize glad!");
 	}
 
 	void GlfwWindow::Update()
 	{
+		if (!Toybox::App::Instance->IsRunning()) return;
+
 		glfwPollEvents();
 		glfwSwapBuffers(_glfwWindow);
 	}
@@ -166,7 +163,6 @@ namespace GlfwWindowing
 		glfwSetFramebufferSizeCallback(_glfwWindow, [](GLFWwindow* window, int width, int height)
 		{
 			// Tell glfw to redraw while resizing
-			glClear(GL_COLOR_BUFFER_BIT);
 			glfwSwapBuffers(window);
 		});
 

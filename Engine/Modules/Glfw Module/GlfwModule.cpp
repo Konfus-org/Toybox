@@ -2,9 +2,9 @@
 #include "GlfwInputModule.h"
 #include "GlfwWindowModule.h"
 #include <GLFW/glfw3.h>
-#include <glad/glad.h>
 
-std::vector<Toybox::Module*>* _modules = nullptr;
+static std::vector<Toybox::Module*>* _modules = nullptr;
+
 std::vector<Toybox::Module*>* LoadMultiple()
 {
     if (_modules == nullptr)

@@ -39,8 +39,6 @@ namespace Toybox
 
     void App::Update()
     {
-        if (_mainWindow == nullptr) return;
-
         _mainWindow->Update();
 
         AppUpdateEvent updateEvent;
