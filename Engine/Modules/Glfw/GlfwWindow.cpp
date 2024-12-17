@@ -1,14 +1,10 @@
 #include "GlfwWindow.h"
-#include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 #include <glad/glad.h>
 #include <Toybox.h>
 
 namespace GlfwWindowing
 {
-	static bool _glfwInitialized = false;
-	static GLFWwindow* _glfwWindow = nullptr;
-
 	GlfwWindow::GlfwWindow()
 	{
 		Toybox::Size size(0, 0);
@@ -21,27 +17,13 @@ namespace GlfwWindowing
 		glfwDestroyWindow(_glfwWindow);
 	}
 
-	void GlfwWindow::InitGlad()
-	{
-		int status = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-		TBX_ASSERT(status, "Failed to initialize glad!");
-	}
-
-	void GlfwWindow::InitGlfwIfNotAlreadyInitialized()
-	{
-		if (!_glfwInitialized)
-		{
-			const bool success = glfwInit();
-			TBX_ASSERT(success, "Failed to initialize glfw!");
-			_glfwInitialized = true;
-		}
-	}
-
 	void GlfwWindow::Open(Toybox::WindowMode mode)
 	{
-		InitGlfwIfNotAlreadyInitialized();
 		SetMode(mode);
-		InitGlad();
+
+		// Init glad, needs to be done AFTER a window is opened (SetMode is called)!
+		int status = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+		TBX_ASSERT(status, "Failed to initialize glad!");
 	}
 
 	void GlfwWindow::Update()
@@ -56,7 +38,7 @@ namespace GlfwWindowing
 		glfwSwapInterval(_vSyncEnabled);
 	}
 
-	const bool GlfwWindow::GetVSyncEnabled() const
+	bool GlfwWindow::GetVSyncEnabled() const
 	{
 		return _vSyncEnabled;
 	}
@@ -66,12 +48,12 @@ namespace GlfwWindowing
 		_size = size;
 	}
 
-	const Toybox::Size GlfwWindow::GetSize() const
+	Toybox::Size GlfwWindow::GetSize() const
 	{
 		return _size;
 	}
 
-	const std::string GlfwWindow::GetTitle() const
+	std::string GlfwWindow::GetTitle() const
 	{
 		return _title;
 	}
@@ -81,12 +63,12 @@ namespace GlfwWindowing
 		_title = title;
 	}
 
-	void* GlfwWindow::GetNativeWindow() const
+	std::any GlfwWindow::GetNativeWindow() const
 	{
 		return _glfwWindow;
 	}
 
-	const Toybox::uint64 GlfwWindow::GetId() const
+	Toybox::uint64 GlfwWindow::GetId() const
 	{
 #ifdef TBX_PLATFORM_WINDOWS
 		return (Toybox::uint64)glfwGetWin32Window(_glfwWindow);
@@ -124,10 +106,10 @@ namespace GlfwWindowing
 				glfwWindowHint(GLFW_REFRESH_RATE, videoMode->refreshRate); // Match refresh rate
 
 				// Create window
-				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), nullptr, nullptr);
+				_glfwWindow = glfwCreateWindow(_size.Width, _size.Height, _title.c_str(), nullptr, nullptr);
 				break;
 			}
-			// Borderless (monitor = nullptr, decorated = false)
+			// Borderless mode (monitor = nullptr, decorated = false)
 			case Toybox::WindowMode::Borderless:
 			{
 				// Set window hints for a borderless window
@@ -135,7 +117,7 @@ namespace GlfwWindowing
 				glfwWindowHint(GLFW_REFRESH_RATE, videoMode->refreshRate); // Match refresh rate
 
 				// Create window
-				_glfwWindow = glfwCreateWindow((int)_size.Width, (int)_size.Height, _title.c_str(), nullptr, nullptr);
+				_glfwWindow = glfwCreateWindow(_size.Width, _size.Height, _title.c_str(), nullptr, nullptr);
 				break;
 			}
 			// Fullscreen mode (monitor != nullptr)
@@ -152,7 +134,7 @@ namespace GlfwWindowing
 				glfwSetWindowPos(_glfwWindow, 0, 0);
 				break;
 			}
-			// Fullscreen borderless (monitor != nullptr, video mode = monitor mode)
+			// Fullscreen borderless mode (monitor != nullptr, video mode = monitor mode)
 			case Toybox::WindowMode::FullscreenBorderless:
 			{
 				// Set window hints for a borderless window
@@ -193,47 +175,52 @@ namespace GlfwWindowing
 			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
 			toyboxWindow.SetSize(Toybox::Size(width, height));
 
-			Toybox::WindowResizeEvent event(width, height);
+			Toybox::WindowResizeEvent event(toyboxWindow.GetId(), width, height);
 			toyboxWindow._eventCallback(event);
 		});
 
 		glfwSetWindowCloseCallback(_glfwWindow, [](GLFWwindow* window)
 		{
-			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
-			Toybox::WindowCloseEvent event;
+			const GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
+			Toybox::WindowCloseEvent event(toyboxWindow.GetId());
 			toyboxWindow._eventCallback(event);
 		});
 
 		glfwSetKeyCallback(_glfwWindow, [](GLFWwindow* window, int key, int scancode, int action, int mods)
 		{
-			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
+			const GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
 
 			switch (action)
 			{
-			case GLFW_PRESS:
-			{
-				Toybox::KeyPressedEvent event(key);
-				toyboxWindow._eventCallback(event);
-				break;
-			}
-			case GLFW_RELEASE:
-			{
-				Toybox::KeyReleasedEvent event(key);
-				toyboxWindow._eventCallback(event);
-				break;
-			}
-			case GLFW_REPEAT:
-			{
-				Toybox::KeyRepeatedEvent event(key, 1);
-				toyboxWindow._eventCallback(event);
-				break;
-			}
+				case GLFW_PRESS:
+				{
+					Toybox::KeyPressedEvent event(key);
+					toyboxWindow._eventCallback(event);
+					break;
+				}
+				case GLFW_RELEASE:
+				{
+					Toybox::KeyReleasedEvent event(key);
+					toyboxWindow._eventCallback(event);
+					break;
+				}
+				case GLFW_REPEAT:
+				{
+					Toybox::KeyRepeatedEvent event(key, 1);
+					toyboxWindow._eventCallback(event);
+					break;
+				}
+				default:
+				{
+					TBX_ASSERT(false, "Unhandled key press action!");
+					break;
+				}
 			}
 		});
 
 		glfwSetCharCallback(_glfwWindow, [](GLFWwindow* window, unsigned int keycode)
 		{
-			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
+			const GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
 
 			Toybox::KeyPressedEvent event(keycode);
 			toyboxWindow._eventCallback(event);
@@ -241,28 +228,33 @@ namespace GlfwWindowing
 
 		glfwSetMouseButtonCallback(_glfwWindow, [](GLFWwindow* window, int button, int action, int mods)
 		{
-			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
+			const GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
 
 			switch (action)
 			{
-			case GLFW_PRESS:
-			{
-				Toybox::MouseButtonPressedEvent event(button);
-				toyboxWindow._eventCallback(event);
-				break;
-			}
-			case GLFW_RELEASE:
-			{
-				Toybox::MouseButtonReleasedEvent event(button);
-				toyboxWindow._eventCallback(event);
-				break;
-			}
+				case GLFW_PRESS:
+				{
+					Toybox::MouseButtonPressedEvent event(button);
+					toyboxWindow._eventCallback(event);
+					break;
+				}
+				case GLFW_RELEASE:
+				{
+					Toybox::MouseButtonReleasedEvent event(button);
+					toyboxWindow._eventCallback(event);
+					break;
+				}
+				default:
+				{
+					TBX_ASSERT(false, "Unhandled mouse button press action!");
+					break;
+				}
 			}
 		});
 
 		glfwSetScrollCallback(_glfwWindow, [](GLFWwindow* window, double xOffset, double yOffset)
 		{
-			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
+			const GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
 
 			Toybox::MouseScrolledEvent event((float)xOffset, (float)yOffset);
 			toyboxWindow._eventCallback(event);
@@ -270,7 +262,7 @@ namespace GlfwWindowing
 
 		glfwSetCursorPosCallback(_glfwWindow, [](GLFWwindow* window, double xPos, double yPos)
 		{
-			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
+			const GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
 
 			Toybox::MouseMovedEvent event((float)xPos, (float)yPos);
 			toyboxWindow._eventCallback(event);

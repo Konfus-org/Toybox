@@ -9,6 +9,9 @@ namespace Toybox
     class WindowModule : public Module
     {
     public:
+        WindowModule() = default;
+        virtual ~WindowModule() = default;
+
         virtual IWindow* OpenNewWindow(const std::string& name, WindowMode mode, Size size) = 0;
         virtual void DestroyWindow(IWindow* windowToDestroy) = 0;
     };
@@ -16,13 +19,19 @@ namespace Toybox
     class InputModule : public Module
     {
     public:
-        virtual IInputHandler* CreateInputHandler(void* mainNativeWindow) = 0;
+        InputModule() = default;
+        virtual ~InputModule() = default;
+
+        virtual IInputHandler* CreateInputHandler(std::any mainNativeWindow) = 0;
         virtual void DestroyInputHandler(IInputHandler* handlerToDestroy) = 0;
     };
 
     class LoggerModule : public Module
     {
     public:
+        LoggerModule() = default;
+        virtual ~LoggerModule() = default;
+
         virtual ILogger* CreateLogger(const std::string& name) = 0;
         virtual void DestroyLogger(ILogger* loggerToDestroy) = 0;
     };

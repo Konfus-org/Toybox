@@ -1,12 +1,13 @@
 #pragma once
 #include <Toybox.h>
+#include <GLFW/glfw3.h>
 
 namespace GlfwInput
 {
     class GlfwInputHandler : public Toybox::IInputHandler
     {
     public:
-        GlfwInputHandler(void* mainWindow);
+        GlfwInputHandler(std::any mainWindow);
 
         bool IsGamepadButtonDown(const int id, const int button) override;
         bool IsGamepadButtonUp(const int id, const int button) override;
@@ -20,6 +21,13 @@ namespace GlfwInput
         bool IsMouseButtonUp(const int button) override;
         bool IsMouseButtonHeld(const int button) override;
         Toybox::Vector2 GetMousePosition() override;
+
+    private:
+        GLFWwindow* _mainWindow = nullptr;
+
+        int GetKeyState(int keyCode);
+        int GetMouseButtonState(int button);
+        int GetGamepadButtonState(int button, int id);
     };
 }
 

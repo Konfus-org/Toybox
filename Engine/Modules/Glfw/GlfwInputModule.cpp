@@ -3,7 +3,7 @@
 
 namespace GlfwInput
 {
-    Toybox::IInputHandler* GlfwInputModule::CreateInputHandler(void* mainNativeWindow)
+    Toybox::IInputHandler* GlfwInputModule::CreateInputHandler(std::any mainNativeWindow)
     {
         return new GlfwInputHandler(mainNativeWindow);
     }
@@ -13,17 +13,17 @@ namespace GlfwInput
         delete handlerToDestroy;
     }
 
-    const std::string GlfwInputModule::GetName() const
+    std::string GlfwInputModule::GetName() const
     {
         return "Glfw Input";
     }
 
-    const std::string GlfwInputModule::GetAuthor() const
+    std::string GlfwInputModule::GetAuthor() const
     {
         return "Jeremy Hummel";
     }
 
-    const int GlfwInputModule::GetVersion() const
+    int GlfwInputModule::GetVersion() const
     {
         return 0;
     }

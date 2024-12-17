@@ -6,7 +6,7 @@ namespace Toybox
     class KeyEvent : public Event
     {
     public:
-        KeyEvent(int keyCode) : _keyCode(keyCode) {}
+        explicit KeyEvent(int keyCode) : _keyCode(keyCode) {}
 
         int GetKeyCode() const { return _keyCode; }
         int GetCategorization() const override
@@ -21,9 +21,9 @@ namespace Toybox
     class KeyPressedEvent : public KeyEvent
     {
     public:
-        KeyPressedEvent(int keyCode) : KeyEvent(keyCode) { }
+        using KeyEvent::KeyEvent;
 
-        const std::string GetName() const override
+        std::string GetName() const override
         {
             return "Key Pressed Event";
         }
@@ -32,9 +32,9 @@ namespace Toybox
     class KeyReleasedEvent : public KeyEvent
     {
     public:
-        KeyReleasedEvent(int keyCode) : KeyEvent(keyCode) { }
+        using KeyEvent::KeyEvent;
 
-        const std::string GetName() const override
+        std::string GetName() const override
         {
             return "Key Released Event";
         }
@@ -46,9 +46,14 @@ namespace Toybox
         KeyHeldEvent(int keyCode, float timeHeld) :
             KeyEvent(keyCode), _timeHeld(timeHeld) {}
 
-        const std::string GetName() const override
+        std::string GetName() const override
         {
             return "Key Held Event";
+        }
+
+        inline float GetTimeHeld() const
+        {
+            return _timeHeld;
         }
 
     private:
@@ -61,10 +66,16 @@ namespace Toybox
         KeyRepeatedEvent(int keyCode, int repeatCount) : 
             KeyEvent(keyCode), _repeatCount(repeatCount) {}
 
-        const std::string GetName() const override
+        std::string GetName() const override
         {
             return "Key Repeated Event";
         }
+
+        inline int GetRepeatCount() const
+        {
+            return _repeatCount;
+        }
+
     private:
         int _repeatCount;
     };

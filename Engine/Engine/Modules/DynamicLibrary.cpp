@@ -1,6 +1,14 @@
 #include "tbxpch.h"
 #include "DynamicLibrary.h"
 
+#ifdef TBX_PLATFORM_WINDOWS
+#include <windows.h>
+#elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_OSX)
+#include <dlfcn.h>
+#else
+#error Unsupported platform
+#endif
+
 namespace Toybox
 {
     std::string DynamicLibrary::GetName() const
@@ -9,9 +17,8 @@ namespace Toybox
     }
 
 #ifdef TBX_PLATFORM_WINDOWS
-#include <windows.h>
 
-    bool DynamicLibrary::Load(const std::string path)
+    bool DynamicLibrary::Load(const std::string& path)
     {
         _name = path;
         _handle = LoadLibraryA(path.c_str());
@@ -33,7 +40,6 @@ namespace Toybox
     }
 
 #elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_OSX)
-#include <dlfcn.h>
 
     bool DynamicLibrary::Load(const std::string& path) 
     {
@@ -56,9 +62,6 @@ namespace Toybox
         }
     }
 }
-
-#else
-#error Unsupported platform
 #endif
 
     DynamicLibrary::~DynamicLibrary() 

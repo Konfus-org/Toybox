@@ -3,14 +3,14 @@
 
 namespace SpdLogging
 {
-    class SpdLoggerModule : public Toybox::LoggerModule
+    class SpdLogModule : public Toybox::LoggerModule
     {
     public:
         Toybox::ILogger* CreateLogger(const std::string& name) override;
         void DestroyLogger(Toybox::ILogger* loggerToDestroy) override;
-        const std::string GetName() const override;
-        const std::string GetAuthor() const override;
-        const int GetVersion() const override;
+        std::string GetName() const override;
+        std::string GetAuthor() const override;
+        int GetVersion() const override;
     };
 }
 

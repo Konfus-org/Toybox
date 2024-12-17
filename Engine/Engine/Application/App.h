@@ -12,27 +12,30 @@ namespace Toybox
     public:
         static App* Instance;
 
-        App(const std::string name);
+        App(const std::string& name);
         virtual ~App();
 
         void Launch();
         void Update();
         void Close();
 
+        void OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
         void PushLayer(Layer* layer);
         void PushOverlay(Layer* layer);
 
-        const bool IsRunning() const;
-        const std::string GetName() const;
+        bool IsRunning() const;
+        std::string GetName() const;
         IWindow* GetMainWindow() const;
 
     private:
         bool _isRunning = false;
         std::string _name = "App";
         IWindow* _mainWindow = nullptr;
+        std::vector<IWindow*> _windows;
         LayerStack _layerStack;
 
-        bool OnWindowClose(WindowCloseEvent& e);
+        IWindow* CreateNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
+        bool OnWindowClose(const WindowCloseEvent& e);
         void OnEvent(Event& e);
     };
 

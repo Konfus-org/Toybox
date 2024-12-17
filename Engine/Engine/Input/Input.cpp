@@ -13,8 +13,8 @@ namespace Toybox
 
     void Input::StartHandling()
     {
-        auto* mainNativeWindow = App::Instance->GetMainWindow()->GetNativeWindow();
-        _handler = ((InputModule*)ModuleServer::GetModule("Glfw Input"))->CreateInputHandler(mainNativeWindow);
+        auto mainNativeWindow = App::Instance->GetMainWindow()->GetNativeWindow();
+        _handler = ((InputModule*)ModuleServer::GetModule(DefaultInputModuleName))->CreateInputHandler(mainNativeWindow);
     }
 
     void Input::StopHandling()

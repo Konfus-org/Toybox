@@ -1,7 +1,6 @@
 #include "tbxpch.h"
 #include "App.h"
 #include "Windowing/IWindow.h"
-#include "Modules/Modules.h"
 #include "Debug/Debugging.h"
 #include "Input/Input.h"
 
@@ -9,7 +8,7 @@ namespace Toybox
 {
     App* App::Instance = nullptr;
 
-    App::App(const std::string name)
+    App::App(const std::string& name)
     {
         _name = name;
         _isRunning = false;
@@ -32,9 +31,7 @@ namespace Toybox
         Log::Open();
 
         // Create main window
-        auto* windowModule = (WindowModule*)ModuleServer::GetModule("Glfw Windowing");
-        _mainWindow = windowModule->OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
-        _mainWindow->SetEventCallback(TBX_BIND_EVENT_FN(App::OnEvent));
+        OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
 
         // Start handling input
         Input::StartHandling();
@@ -42,6 +39,8 @@ namespace Toybox
 
     void App::Update()
     {
+        if (_mainWindow == nullptr) return;
+
         _mainWindow->Update();
 
         AppUpdateEvent updateEvent;
@@ -57,7 +56,18 @@ namespace Toybox
     void App::Close()
     {
         _isRunning = false;
-        ((WindowModule*)ModuleServer::GetModule("Glfw Windowing"))->DestroyWindow(_mainWindow);
+        _mainWindow = nullptr;
+        for (auto* window : _windows)
+        {
+            ((WindowModule*)ModuleServer::GetModule(DefaultWindowModuleName))->DestroyWindow(window);
+        }
+    }
+
+    void App::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
+    {
+        auto* window = CreateNewWindow(name, mode, size);
+        _windows.push_back(window);
+        if (_mainWindow == nullptr) _mainWindow = window;
     }
 
     void App::PushLayer(Layer* layer)
@@ -70,12 +80,12 @@ namespace Toybox
         _layerStack.PushOverlay(layer);
     }
 
-    const bool App::IsRunning() const
+    bool App::IsRunning() const
     {
         return _isRunning;
     }
 
-    const std::string App::GetName() const
+    std::string App::GetName() const
     {
         return _name;
     }
@@ -85,7 +95,15 @@ namespace Toybox
         return _mainWindow;
     }
 
-    bool App::OnWindowClose(WindowCloseEvent& e)
+    IWindow* App::CreateNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
+    {
+        auto* windowModule = (WindowModule*)ModuleServer::GetModule(DefaultWindowModuleName);
+        auto* window = windowModule->OpenNewWindow(name, mode, size);
+        window->SetEventCallback(TBX_BIND_EVENT_FN(App::OnEvent));
+        return window;
+    }
+
+    bool App::OnWindowClose(const WindowCloseEvent& e)
     {
         Close();
         return true;

@@ -6,6 +6,9 @@ namespace Toybox
     class IInputHandler
     {
     public:
+        IInputHandler() = default;
+        virtual ~IInputHandler() = default;
+
         virtual bool IsGamepadButtonDown(const int id, const int button) = 0;
         virtual bool IsGamepadButtonUp(const int id, const int button) = 0;
         virtual bool IsGamepadButtonHeld(const int id, const int button) = 0;

@@ -1,5 +1,6 @@
 #pragma once
 #include <Toybox.h>
+#include <GLFW/glfw3.h>
 
 namespace GlfwWindowing
 {
@@ -7,35 +8,34 @@ namespace GlfwWindowing
     {
     public:
         GlfwWindow();
-        ~GlfwWindow();
+        virtual ~GlfwWindow();
 
         void Open(Toybox::WindowMode mode) override;
         void Update() override;
 
         void SetVSyncEnabled(bool enabled) override;
-        bool const GetVSyncEnabled() const override;
+        bool GetVSyncEnabled() const override;
 
         void SetSize(Toybox::Size size) override;
-        const Toybox::Size GetSize() const override;
+        Toybox::Size GetSize() const override;
 
-        const std::string GetTitle() const override;
+        std::string GetTitle() const override;
         void SetTitle(const std::string& title) override;
 
-        const Toybox::uint64 GetId() const override;
-        void* GetNativeWindow() const override;
+        Toybox::uint64 GetId() const override;
+        std::any GetNativeWindow() const override;
 
         void SetEventCallback(const EventCallbackFn& callback) override;
         void SetMode(Toybox::WindowMode mode) override;
 
     private:
-        bool _vSyncEnabled;
+        GLFWwindow* _glfwWindow = nullptr;
+        EventCallbackFn _eventCallback;
         std::string _title;
         Toybox::Size _size;
-        EventCallbackFn _eventCallback;
+        bool _vSyncEnabled;
 
         void SetupCallbacks();
         void SetupContext();
-        void InitGlad();
-        void InitGlfwIfNotAlreadyInitialized();
     };
 }

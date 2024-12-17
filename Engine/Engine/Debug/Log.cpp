@@ -11,12 +11,12 @@ namespace Toybox
 
 	void Log::Open()
 	{
-		_logger = ((LoggerModule*)ModuleServer::GetModule("Spd Logger"))->CreateLogger("Toybox::Core");
+		_logger = ((LoggerModule*)ModuleServer::GetModule(DefaultLoggingModuleName))->CreateLogger("Toybox::Core");
 	}
 
 	void Log::Close()
 	{
-		((LoggerModule*)ModuleServer::GetModule("Spd Logger"))->DestroyLogger(_logger);
+		((LoggerModule*)ModuleServer::GetModule(DefaultLoggingModuleName))->DestroyLogger(_logger);
 		_logger = nullptr;
 	}
 

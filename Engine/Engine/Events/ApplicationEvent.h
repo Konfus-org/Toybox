@@ -15,8 +15,8 @@ namespace Toybox
 
     class AppUpdateEvent : public AppEvent 
     {
-
-        const std::string GetName() const override
+    public:
+        std::string GetName() const override
         {
             return "App Update Event";
         }
@@ -24,30 +24,47 @@ namespace Toybox
 
     class AppRenderEvent : public AppEvent 
     {
-
-        const std::string GetName() const override
+    public:
+        std::string GetName() const override
         {
             return "App Render Event";
         }
     };
 
-    class WindowCloseEvent : public AppEvent 
+    class WindowEvent : public AppEvent
     {
+    public:
+        explicit WindowEvent(uint64 windowId) : _windowId(windowId) {}
 
-        const std::string GetName() const override
+        inline uint64 GetWindowId() const
+        {
+            return _windowId;
+        }
+
+    private:
+        uint64 _windowId;
+    };
+
+    class WindowCloseEvent : public WindowEvent
+    {
+    public:
+        using WindowEvent::WindowEvent;
+
+        std::string GetName() const override
         {
             return "Window Close Event";
         }
     };
 
-    class WindowResizeEvent : public AppEvent
+    class WindowResizeEvent : public WindowEvent
     {
     public:
-        WindowResizeEvent(unsigned int width, unsigned int height) : _width(width), _height(height) {}
+        WindowResizeEvent(uint64 windowId, unsigned int width, unsigned int height)
+            : WindowEvent(windowId), _width(width), _height(height) {}
 
-        Size* GetSize() const
+        Size GetSize() const
         {
-            return new Size(_width, _height);
+            return Size(_width, _height);
         }
 
         int GetCategorization() const override
@@ -55,7 +72,7 @@ namespace Toybox
             return EventCategory::Application;
         }
 
-        const std::string GetName() const override
+        std::string GetName() const override
         {
             return "Window Resize Event";
         }

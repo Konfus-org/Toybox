@@ -1,77 +1,12 @@
 #include "tbxpch.h"
 #include "ModuleServer.h"
-#include "DynamicLibrary.h"
 #include "Debug/Debugging.h"
 #include <direct.h>
 
 namespace Toybox
 {
-    static std::vector<DynamicLibrary*> _loadedLibs;
-    static std::vector<Module*> _loadedModules;
-
-    static DynamicLibrary* LoadLib(const std::string& location)
-    {
-        auto* library = new DynamicLibrary();
-        if (!library->Load(location))
-        {
-            library->Unload();
-            delete library;
-
-            library = nullptr;
-            return nullptr;
-        }
-
-        return library;
-    }
-
-    static bool LoadSingleFromLocation(const std::string& location)
-    {
-        auto* library = LoadLib(location);
-        if (library == nullptr) return false;
-
-        using PluginLoadFunc = Module*(*)();
-        auto loadModuleFunc = static_cast<PluginLoadFunc>(library->GetSymbol("Load"));
-        if (!loadModuleFunc)
-        {
-            library->Unload();
-            delete library;
-
-            library = nullptr;
-            return false;
-        }
-
-        Module* mod = loadModuleFunc();
-        _loadedModules.push_back(mod);
-        _loadedLibs.push_back(library);
-
-        return true;
-    }
-
-    static bool LoadMultipleFromLocation(const std::string& location)
-    {
-        auto* library = LoadLib(location);
-        if (library == nullptr) return false;
-
-        using PluginLoadFunc = std::vector<Module*>*(*)();
-        auto loadModulesFunc = static_cast<PluginLoadFunc>(library->GetSymbol("LoadMultiple"));
-        if (!loadModulesFunc)
-        {
-            library->Unload();
-            delete library;
-
-            library = nullptr;
-            return false;
-        }
-
-        const std::vector<Module*>* modules = loadModulesFunc();
-        for (auto* mod : *modules)
-        {
-            _loadedModules.push_back(mod);
-        }
-        _loadedLibs.push_back(library);
-
-        return true;
-    }
+    std::vector<DynamicLibrary*> ModuleServer::_loadedLibs;
+    std::vector<Module*> ModuleServer::_loadedModules;
 
     void ModuleServer::LoadModules()
     {
@@ -98,9 +33,9 @@ namespace Toybox
             if (false)
 #endif
             {
-                const std::string location = entry.path().string();
+                const std::string& location = entry.path().string();
                 if (LoadSingleFromLocation(location) || LoadMultipleFromLocation(location)) continue;
-                const std::string failureMsg = "Failed to load library: {0}, does it have a \"extern TBX_MODULE_API Module* Load()\" or \"extern TBX_MODULE_API std::vector<Module*> LoadMultiple()\" method defined?";
+                const std::string& failureMsg = "Failed to load library: {0}, does it have a \"extern TBX_MODULE_API Module* Load()\" or \"extern TBX_MODULE_API std::vector<Module*> LoadMultiple()\" method defined?";
                 TBX_ERROR(failureMsg, location);
             }
         }
@@ -135,5 +70,69 @@ namespace Toybox
         }
 
         return nullptr;
+    }
+
+    DynamicLibrary* ModuleServer::LoadLib(const std::string& location)
+    {
+        auto* library = new DynamicLibrary();
+        if (!library->Load(location))
+        {
+            library->Unload();
+            delete library;
+
+            library = nullptr;
+            return nullptr;
+        }
+
+        return library;
+    }
+
+    bool ModuleServer::LoadSingleFromLocation(const std::string& location)
+    {
+        auto* library = LoadLib(location);
+        if (library == nullptr) return false;
+
+        using PluginLoadFunc = Module * (*)();
+        auto loadModuleFunc = static_cast<PluginLoadFunc>(library->GetSymbol("Load"));
+        if (!loadModuleFunc)
+        {
+            library->Unload();
+            delete library;
+
+            library = nullptr;
+            return false;
+        }
+
+        Module* mod = loadModuleFunc();
+        _loadedModules.push_back(mod);
+        _loadedLibs.push_back(library);
+
+        return true;
+    }
+
+    bool ModuleServer::LoadMultipleFromLocation(const std::string& location)
+    {
+        auto* library = LoadLib(location);
+        if (library == nullptr) return false;
+
+        using PluginLoadFunc = std::vector<Module*>* (*)();
+        auto loadModulesFunc = static_cast<PluginLoadFunc>(library->GetSymbol("LoadMultiple"));
+        if (!loadModulesFunc)
+        {
+            library->Unload();
+            delete library;
+
+            library = nullptr;
+            return false;
+        }
+
+        const std::vector<Module*>* modules = loadModulesFunc();
+        for (auto* mod : *modules)
+        {
+            _loadedModules.push_back(mod);
+        }
+        _loadedLibs.push_back(library);
+
+        return true;
     }
 }

@@ -17,17 +17,17 @@ namespace GlfwWindowing
         delete windowToDestroy;
     }
 
-    const std::string GlfwWindowModule::GetName() const
+    std::string GlfwWindowModule::GetName() const
     {
         return "Glfw Windowing";
     }
 
-    const std::string GlfwWindowModule::GetAuthor() const
+    std::string GlfwWindowModule::GetAuthor() const
     {
         return "Jeremy Hummel";
     }
 
-    const int GlfwWindowModule::GetVersion() const
+    int GlfwWindowModule::GetVersion() const
     {
         return 0;
     }
