@@ -6,7 +6,7 @@ project "Sandbox"
     ignoredefaultlibraries { "MSVCRT" }
 
     entrypoint "mainCRTStartup"
-    
+
     targetdir ("../" .. OutputDir .. "/bin/%{prj.name}/")
     objdir    ("../" .. OutputDir .. "/obj/%{prj.name}/")
 
@@ -23,7 +23,7 @@ project "Sandbox"
         -- For testing! Remove once we have a proper rendering abstraction!
         "opengl32.lib"
     }
-    
+  
     IncludeEngine()
     StandardPlatforms()
     StandardConfigs()
