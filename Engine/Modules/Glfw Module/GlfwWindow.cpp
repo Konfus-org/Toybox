@@ -23,8 +23,6 @@ namespace GlfwWindowing
 
 	void GlfwWindow::Update()
 	{
-		if (!Toybox::App::Instance->IsRunning()) return;
-
 		glfwPollEvents();
 		glfwSwapBuffers(_glfwWindow);
 	}

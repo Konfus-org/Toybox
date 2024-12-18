@@ -4,7 +4,6 @@ ThirdPartyOutputDir = "../../../Build/"
 IncludeDir = {}
 IncludeDir["spdlog"] = "%{wks.location}/3rd Party/Libraries/spdlog/include"
 IncludeDir["glfw"] = "%{wks.location}/3rd Party/Libraries/glfw/include"
-IncludeDir["bgfx"] = "%{wks.location}/3rd Party/Libraries/bgfx/include"
 IncludeDir["Coral"] = "%{wks.location}/3rd Party/Libraries/Coral/Coral.Native/include"
 IncludeDir["Engine"] = "%{wks.location}/Engine/Engine"
 
@@ -117,7 +116,6 @@ workspace "Toybox"
     group "_3rd Party"
         include "3rd Party/Libraries/glfw"
         include "3rd Party/Libraries/spdlog"
-        include "3rd Party/Libraries/bgfx"
         include "3rd Party/Libraries/Coral/Coral.Native"
         include "3rd Party/Libraries/Coral/Coral.Managed"
 
