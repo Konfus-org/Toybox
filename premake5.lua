@@ -4,11 +4,8 @@ ThirdPartyOutputDir = "../../../Build/"
 IncludeDir = {}
 IncludeDir["spdlog"] = "%{wks.location}/3rd Party/Libraries/spdlog/include"
 IncludeDir["glfw"] = "%{wks.location}/3rd Party/Libraries/glfw/include"
-IncludeDir["SFML"] = "%{wks.location}/3rd Party/Libraries/SFML/include"
-IncludeDir["SFML-Candle"] = "%{wks.location}/3rd Party/Libraries/SFML/include"
 IncludeDir["Coral"] = "%{wks.location}/3rd Party/Libraries/Coral/Coral.Native/include"
-IncludeDir["EngineCore"] = "%{wks.location}/Engine/Core"
-IncludeDir["EngineRuntime"] = "%{wks.location}/Engine/Runtime"
+IncludeDir["Engine"] = "%{wks.location}/Engine/Engine"
 
 -- Easy way to add supported platforms
 function StandardPlatforms()
@@ -92,16 +89,16 @@ function DllConfigs()
         buildoptions "/MD"
 end
 
--- Easy way to link Engine Runtime
+-- Easy way to link Engine
 function IncludeEngine()
     includedirs
     {
-        "%{IncludeDir.EngineRuntime}"
+        "%{IncludeDir.Engine}"
     }
 
     links
     {
-        "Runtime"
+        "Engine"
     }
 end
 
@@ -119,23 +116,20 @@ workspace "Toybox"
     group "_3rd Party"
         include "3rd Party/Libraries/glfw"
         include "3rd Party/Libraries/spdlog"
-        include "3rd Party/Libraries/SFML"
-        include "3rd Party/Libraries/SFML-Candle"
         include "3rd Party/Libraries/Coral/Coral.Native"
         include "3rd Party/Libraries/Coral/Coral.Managed"
 
     group "Engine"
-        include "Engine/Core"
-        include "Engine/Runtime"
+        include "Engine/Engine"
 
     group "Engine/Modules"
         include "Engine/Modules/Glfw Module"
         include "Engine/Modules/SpdLog Module"
-      
+        
     group "Editor"
         include "Editor/Interop"
-        externalproject "App"
-           location "Editor/App"
+        externalproject "Editor"
+           location "Editor/Editor"
            kind "WindowedApp"
            language "C#"
 

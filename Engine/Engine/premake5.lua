@@ -1,32 +1,35 @@
-project "Interop"
-    kind "SharedLib"
+project "Engine"
+    kind "StaticLib"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
     warnings "Default"
-    ignoredefaultlibraries { "MSVCRT" }
-
+    
     targetdir ("../../" .. OutputDir .. "/bin/%{prj.name}/")
     objdir    ("../../" .. OutputDir .. "/obj/%{prj.name}/")
+
+    pchheader "tbxpch.h"
+    pchsource "tbxpch.cpp"
+
+    defines
+    {
+        "TOYBOX"
+    }
+
+    includedirs
+    {
+        "./"
+    }
 
     files
     {
         "./**.h",
         "./**.c",
         "./**.hpp",
-        "./**.cpp",
-        "./**.cs",
+        "./**.cpp"
     }
     
     -- Setup standard platforms and configs
-    IncludeEngine()
     StandardPlatforms()
     StandardConfigs()
-    DllConfigs()
-    
-    -- Editor Supported Platforms
-    filter "system:Windows"
-        defines
-        {
-            "TOYBOX_EDITOR"
-    }
+        
