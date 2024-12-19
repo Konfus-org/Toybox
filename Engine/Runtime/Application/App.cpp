@@ -56,15 +56,19 @@ namespace Toybox
 
     void App::Close()
     {
-        Toybox::Input::StopHandling();
-
         _isRunning = false;
         _mainWindow = nullptr;
+
+        // We will immediately stop handling input
+        Toybox::Input::StopHandling();
+
+        // Cleanup any remaining windows that are open
         for (auto* window : _windows)
         {
             ((WindowModule*)ModuleServer::GetModule(DefaultWindowModuleName))->DestroyWindow(window);
         }
         
+        // Close log and unload modules
         Toybox::Log::Close();
         Toybox::ModuleServer::UnloadModules();
     }
@@ -111,7 +115,17 @@ namespace Toybox
 
     bool App::OnWindowClose(const WindowCloseEvent& e)
     {
-        Close();
+        // If the window is our main window, set running flag to false which will trigger the app to close
+        if (e.GetWindowId() == _mainWindow->GetId()) _isRunning = false;
+
+        // Find the window that was closed and destroy it
+        for (auto* window : _windows)
+        {
+            if (e.GetWindowId() == window->GetId())
+            {
+                ((WindowModule*)ModuleServer::GetModule(DefaultWindowModuleName))->DestroyWindow(window);
+            }
+        }
         return true;
     }
 
