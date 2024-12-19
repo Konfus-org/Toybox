@@ -1,9 +1,8 @@
 #pragma once
-#include "tbxpch.h"
 
 namespace Toybox
 {
-    struct Color
+    TOYBOX_API struct Color
     {
     public:
         float R;

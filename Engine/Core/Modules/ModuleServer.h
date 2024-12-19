@@ -5,7 +5,7 @@
 
 namespace Toybox
 {
-    class ModuleServer
+    TOYBOX_API class ModuleServer
     {
     public:
         static void LoadModules();

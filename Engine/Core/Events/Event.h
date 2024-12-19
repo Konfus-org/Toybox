@@ -5,7 +5,7 @@
 
 namespace Toybox
 {
-    class Event
+    TOYBOX_API class Event
     {
     public:
         Event() = default;

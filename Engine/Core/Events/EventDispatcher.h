@@ -3,7 +3,7 @@
 
 namespace Toybox
 {
-    class EventDispatcher
+    TOYBOX_API class EventDispatcher
     {
     public:
         explicit(false) EventDispatcher(Event& event) : m_Event(event) { }

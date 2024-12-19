@@ -4,7 +4,7 @@
 
 namespace Toybox
 {
-    class AppEvent : public Event
+    TOYBOX_API class AppEvent : public Event
     {
     public:
         int GetCategorization() const override
@@ -13,7 +13,7 @@ namespace Toybox
         }
     };
 
-    class AppUpdateEvent : public AppEvent
+    TOYBOX_API class AppUpdateEvent : public AppEvent
     {
     public:
         std::string GetName() const override
@@ -22,7 +22,7 @@ namespace Toybox
         }
     };
 
-    class AppRenderEvent : public AppEvent
+    TOYBOX_API class AppRenderEvent : public AppEvent
     {
     public:
         std::string GetName() const override
@@ -31,7 +31,7 @@ namespace Toybox
         }
     };
 
-    class WindowEvent : public AppEvent
+    TOYBOX_API class WindowEvent : public AppEvent
     {
     public:
         explicit WindowEvent(uint64 windowId) : _windowId(windowId) {}
@@ -45,7 +45,7 @@ namespace Toybox
         uint64 _windowId;
     };
 
-    class WindowCloseEvent : public WindowEvent
+    TOYBOX_API class WindowCloseEvent : public WindowEvent
     {
     public:
         using WindowEvent::WindowEvent;
@@ -56,7 +56,7 @@ namespace Toybox
         }
     };
 
-    class WindowResizeEvent : public WindowEvent
+    TOYBOX_API class WindowResizeEvent : public WindowEvent
     {
     public:
         WindowResizeEvent(uint64 windowId, unsigned int width, unsigned int height)
@@ -65,6 +65,11 @@ namespace Toybox
         Size GetSize() const
         {
             return Size(_width, _height);
+        }
+
+        int GetCategorization() const override
+        {
+            return EventCategory::Application;
         }
 
         std::string GetName() const override

@@ -1,5 +1,6 @@
 #pragma once
 #include "EditorCoreAPI.h"
+#include "EditorCoreApp.h"
 
 static Toybox::Editor::EditorCoreApp* EditorCoreApp;
 Toybox::App* Toybox::CreateApp()

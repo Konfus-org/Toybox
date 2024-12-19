@@ -4,7 +4,7 @@
 
 namespace Toybox
 {
-    class MouseEvent : public Event
+    TOYBOX_API class MouseEvent : public Event
     {
         int GetCategorization() const override
         {
@@ -12,7 +12,7 @@ namespace Toybox
         }
     };
 
-    class MouseMovedEvent : public MouseEvent
+    TOYBOX_API class MouseMovedEvent : public MouseEvent
     {
     public:
         MouseMovedEvent(float x, float y) : _xPos(x), _yPos(y) { }
@@ -32,7 +32,7 @@ namespace Toybox
         float _yPos;
     };
 
-    class MouseScrolledEvent : public MouseEvent
+    TOYBOX_API class MouseScrolledEvent : public MouseEvent
     {
     public:
         MouseScrolledEvent(float x, float y) : _xScroll(x), _yScroll(y) { }
@@ -52,7 +52,7 @@ namespace Toybox
         float _yScroll;
     };
 
-    class MouseButtonPressedEvent : public MouseEvent
+    TOYBOX_API class MouseButtonPressedEvent : public MouseEvent
     {
     public:
         explicit MouseButtonPressedEvent(int button) : _button(button) { }
@@ -71,7 +71,7 @@ namespace Toybox
         int _button;
     };
 
-    class MouseButtonReleasedEvent : public MouseEvent
+    TOYBOX_API class MouseButtonReleasedEvent : public MouseEvent
     {
     public:
         explicit MouseButtonReleasedEvent(int button) : _button(button) { }

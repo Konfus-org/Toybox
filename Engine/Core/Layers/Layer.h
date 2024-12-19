@@ -4,7 +4,7 @@
 
 namespace Toybox
 {
-    class Layer
+    TOYBOX_API class Layer
     {
     public:
         Layer(const std::string& name);

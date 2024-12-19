@@ -49,7 +49,7 @@ namespace Toybox::Editor
 
 	void EditorLayer::OnEvent(Toybox::Event& event)
 	{
-		auto eventName = event.GetName();
+		auto& eventName = event.GetName();
 		TBX_TRACE("{0} occurred!", eventName);
 	}
 }
