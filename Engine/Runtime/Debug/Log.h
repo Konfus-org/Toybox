@@ -1,9 +1,10 @@
 #pragma once
-#include "ILogger.h"
+#include <Core.h>
+#include "tbxAPI.h"
 
 namespace Toybox
 {
-    class Log
+    class TBX_API Log
     {
     public:
         static void Open();

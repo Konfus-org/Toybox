@@ -1,6 +1,5 @@
 #pragma once
-#include "tbxpch.h"
-#include "Module.h"
+#include <Core.h>
 #include "DynamicLibrary.h"
 
 namespace Toybox

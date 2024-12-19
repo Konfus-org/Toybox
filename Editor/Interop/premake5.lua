@@ -18,6 +18,12 @@ project "Interop"
         "./**.cs",
     }
 
+    links
+    {
+        -- For testing! Remove once we have a proper rendering abstraction!
+        "opengl32.lib"
+    }
+
     ToyboxAppConfigs()
 
     -- Editor Supported Platforms

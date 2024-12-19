@@ -3,6 +3,7 @@
 #include "Modules/Modules.h"
 #include "Debug/Debugging.h"
 #include "Input/Input.h"
+#include <Debug/Log.h>
 
 namespace Toybox
 {
@@ -30,14 +31,14 @@ namespace Toybox
         // Load modules
         ModuleServer::LoadModules();
 
-        // Opn log
+        // Open log
         Log::Open();
 
         // Create main window
         OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
 
         // Start handling input
-        Input::StartHandling(_mainWindow);
+        Input::StartHandling();
     }
 
     void App::Update()
@@ -60,7 +61,7 @@ namespace Toybox
         _mainWindow = nullptr;
 
         // We will immediately stop handling input
-        Toybox::Input::StopHandling();
+        Input::StopHandling();
 
         // Cleanup any remaining windows that are open
         for (auto* window : _windows)
@@ -69,8 +70,8 @@ namespace Toybox
         }
         
         // Close log and unload modules
-        Toybox::Log::Close();
-        Toybox::ModuleServer::UnloadModules();
+        Log::Close();
+        ModuleServer::UnloadModules();
     }
 
     void App::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)

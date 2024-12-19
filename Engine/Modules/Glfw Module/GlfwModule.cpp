@@ -9,7 +9,7 @@ std::vector<Toybox::Module*>* LoadMultiple()
 {
     if (_modules == nullptr)
     {
-        const bool success = glfwInit();
+        const bool& success = glfwInit();
         TBX_ASSERT(success, "Failed to initialize glfw!");
 
         _modules = new std::vector<Toybox::Module*>();

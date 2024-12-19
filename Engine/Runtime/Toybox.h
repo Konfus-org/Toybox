@@ -4,6 +4,8 @@
 #include <Core.h>
 #include "tbxAPI.h"
 #include "Application/App.h"
+#include "Input/Input.h"
+#include "Debug/Logging.h"
 
 namespace Toybox
 {

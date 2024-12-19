@@ -1,6 +1,4 @@
-#include "tbxpch.h"
 #include "Log.h"
-#include "LogLevel.h"
 #include "Modules/Modules.h"
 
 #define TBX_VALIDATE_LOGGER(error_msg) if (_logger == nullptr) { std::cout << "Logger null! Falling back to std::cout " + error_msg << std::endl; return; }
@@ -11,7 +9,8 @@ namespace Toybox
 
 	void Log::Open()
 	{
-		_logger = ((LoggerModule*)ModuleServer::GetModule(DefaultLoggingModuleName))->CreateLogger("Toybox::Core");
+		auto* logger = ((LoggerModule*)ModuleServer::GetModule(DefaultLoggingModuleName))->CreateLogger("Toybox::Runtime");
+		_logger = logger;
 	}
 
 	void Log::Close()
