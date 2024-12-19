@@ -4,7 +4,7 @@
 
 namespace Toybox
 {
-    TOYBOX_API class Input
+    class Input
     {
     public:
         static void StartHandling();

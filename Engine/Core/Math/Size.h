@@ -4,7 +4,7 @@
 
 namespace Toybox
 {
-    TOYBOX_API struct Size
+    struct Size
     {
     public:
         Size() : Width(0), Height(0) {}

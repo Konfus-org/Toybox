@@ -7,7 +7,7 @@
 
 namespace Toybox
 {
-    TOYBOX_API class App
+    class App
     {
     public:
         static App* Instance;

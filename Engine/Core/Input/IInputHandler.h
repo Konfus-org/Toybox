@@ -4,7 +4,7 @@
 
 namespace Toybox
 {
-    TOYBOX_API class IInputHandler
+    class IInputHandler
     {
     public:
         IInputHandler() = default;

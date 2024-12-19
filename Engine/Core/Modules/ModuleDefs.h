@@ -6,7 +6,7 @@
 
 namespace Toybox
 {
-    TOYBOX_API class RendererModule : public Module
+    class RendererModule : public Module
     {
     public:
         RendererModule() = default;
@@ -16,7 +16,7 @@ namespace Toybox
         virtual void DestroyRenderer(IWindow* windowToDestroy) = 0;
     };
 
-    TOYBOX_API class WindowModule : public Module
+    class WindowModule : public Module
     {
     public:
         WindowModule() = default;
@@ -26,7 +26,7 @@ namespace Toybox
         virtual void DestroyWindow(IWindow* windowToDestroy) = 0;
     };
 
-    TOYBOX_API class InputModule : public Module
+    class InputModule : public Module
     {
     public:
         InputModule() = default;
@@ -36,7 +36,7 @@ namespace Toybox
         virtual void DestroyInputHandler(IInputHandler* handlerToDestroy) = 0;
     };
 
-    TOYBOX_API class LoggerModule : public Module
+    class LoggerModule : public Module
     {
     public:
         LoggerModule() = default;

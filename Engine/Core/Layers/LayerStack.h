@@ -4,7 +4,7 @@
 
 namespace Toybox 
 {
-	TOYBOX_API class LayerStack
+	class LayerStack
 	{
 	public:
 		LayerStack() = default;

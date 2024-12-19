@@ -3,7 +3,7 @@
 
 namespace Toybox
 {
-    TOYBOX_API struct Vector2
+    struct Vector2
     {
     public:
         Vector2() : X(0), Y(0) {}

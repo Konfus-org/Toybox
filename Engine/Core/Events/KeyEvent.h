@@ -3,7 +3,7 @@
 
 namespace Toybox
 {
-    TOYBOX_API class KeyEvent : public Event
+    class KeyEvent : public Event
     {
     public:
         explicit KeyEvent(int keyCode) : _keyCode(keyCode) {}
@@ -18,7 +18,7 @@ namespace Toybox
         int _keyCode;
     };
 
-    TOYBOX_API class KeyPressedEvent : public KeyEvent
+    class KeyPressedEvent : public KeyEvent
     {
     public:
         using KeyEvent::KeyEvent;
@@ -29,7 +29,7 @@ namespace Toybox
         }
     };
 
-    TOYBOX_API class KeyReleasedEvent : public KeyEvent
+    class KeyReleasedEvent : public KeyEvent
     {
     public:
         using KeyEvent::KeyEvent;
@@ -40,7 +40,7 @@ namespace Toybox
         }
     }; 
     
-    TOYBOX_API class KeyHeldEvent : public KeyEvent
+    class KeyHeldEvent : public KeyEvent
     {
     public:
         KeyHeldEvent(int keyCode, float timeHeld) :
@@ -60,7 +60,7 @@ namespace Toybox
         float _timeHeld;
     };
 
-    TOYBOX_API class KeyRepeatedEvent : public KeyEvent
+    class KeyRepeatedEvent : public KeyEvent
     {
     public:
         KeyRepeatedEvent(int keyCode, int repeatCount) : 

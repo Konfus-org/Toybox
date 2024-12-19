@@ -4,7 +4,7 @@
 
 namespace Toybox
 {
-    TOYBOX_API class Module
+    class Module
     {
     public:
         virtual std::string GetName() const = 0;

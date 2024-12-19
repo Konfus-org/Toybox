@@ -5,8 +5,6 @@ project "Sandbox"
     staticruntime "Off"
     ignoredefaultlibraries { "MSVCRT" }
 
-    entrypoint "mainCRTStartup"
-
     targetdir ("../" .. OutputDir .. "/bin/%{prj.name}/")
     objdir    ("../" .. OutputDir .. "/obj/%{prj.name}/")
 

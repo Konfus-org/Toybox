@@ -3,7 +3,7 @@
 
 namespace Toybox
 {
-	TOYBOX_API using uint64 = unsigned long long;
-	TOYBOX_API using int64 = long long;
-	TOYBOX_API using uint = unsigned int;
+	using uint64 = unsigned long long;
+	using int64 = long long;
+	using uint = unsigned int;
 }

@@ -2,7 +2,7 @@
 
 namespace Toybox
 {
-    TOYBOX_API enum LogLevel
+    enum LogLevel
     {
         Trace = 0,
         Debug = 1,

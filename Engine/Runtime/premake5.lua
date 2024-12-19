@@ -10,8 +10,7 @@ project "Runtime"
 
     defines
     {
-        "TOYBOX",
-        "TOYBOX_EXPORT_DLL"
+        "TOYBOX"
     }
 
     files

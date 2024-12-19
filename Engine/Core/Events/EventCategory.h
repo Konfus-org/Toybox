@@ -3,7 +3,7 @@
 
 namespace Toybox
 {
-    TOYBOX_API enum EventCategory
+    enum EventCategory
     {
         None = 0,
         Input = BIT(0),
