@@ -1,10 +1,9 @@
 #pragma once
-#include "tbxapi.h"
 #include "Events/Event.h"
 
 namespace Toybox
 {
-    class TBX_API Layer
+    class Layer
     {
     public:
         Layer(const std::string& name);

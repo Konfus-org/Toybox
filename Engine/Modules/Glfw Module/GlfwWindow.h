@@ -1,5 +1,5 @@
 #pragma once
-#include <Toybox.h>
+#include <Core.h>
 #include <GLFW/glfw3.h>
 
 namespace GlfwWindowing
@@ -8,7 +8,7 @@ namespace GlfwWindowing
     {
     public:
         GlfwWindow();
-        virtual ~GlfwWindow();
+        ~GlfwWindow() final;
 
         void Open(Toybox::WindowMode mode) override;
         void Update() override;

@@ -1,9 +1,8 @@
 #pragma once
-#include "tbxapi.h"
 
 namespace Toybox
 {
-    class TBX_API ILogger
+    class ILogger
     {
     public:
         virtual ~ILogger() = default;

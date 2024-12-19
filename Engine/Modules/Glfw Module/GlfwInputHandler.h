@@ -1,5 +1,5 @@
 #pragma once
-#include <Toybox.h>
+#include <Core.h>
 #include <GLFW/glfw3.h>
 
 namespace GlfwInput

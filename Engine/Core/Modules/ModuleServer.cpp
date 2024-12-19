@@ -49,8 +49,8 @@ namespace Toybox
             auto unloadLibFunc = static_cast<PluginUnloadFunc>(loadedLib->GetSymbol("Unload"));
             if (!unloadLibFunc)
             {
-                auto libName = loadedLib->GetName();
-                TBX_ERROR("Failed to unload module: {0}, does it have a \"extern TBX_MODULE_API Unload(Module* module)\" method defined?", libName);
+                const auto& libName = loadedLib->GetName();
+                TBX_ASSERT(false, "Failed to unload module: {0}, does it have a \"extern TBX_MODULE_API Unload(Module* module)\" method defined?", libName);
                 return;
             }
 

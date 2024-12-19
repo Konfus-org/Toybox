@@ -1,10 +1,9 @@
 #pragma once
-#include "tbxapi.h"
 #include "tbxpch.h"
 
 namespace Toybox
 {
-    class TBX_API Module
+    class Module
     {
     public:
         Module() = default;

@@ -1,13 +1,14 @@
 #pragma once
 #include "Math/Math.h"
+#include "Windowing/IWindow.h"
 #include "IInputHandler.h"
 
 namespace Toybox
 {
-    class TBX_API Input
+    class Input
     {
     public:
-        static void StartHandling();
+        static void StartHandling(IWindow* mainWindow);
         static void StopHandling();
 
         static bool IsGamepadButtonDown(const int id, const int button);

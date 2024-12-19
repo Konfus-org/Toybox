@@ -3,7 +3,7 @@
 
 namespace Toybox
 {
-    class TBX_API Log
+    class Log
     {
     public:
         static void Open();

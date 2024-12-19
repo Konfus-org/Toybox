@@ -5,10 +5,11 @@ IncludeDir = {}
 IncludeDir["spdlog"] = "%{wks.location}/3rd Party/Libraries/spdlog/include"
 IncludeDir["glfw"] = "%{wks.location}/3rd Party/Libraries/glfw/include"
 IncludeDir["Coral"] = "%{wks.location}/3rd Party/Libraries/Coral/Coral.Native/include"
-IncludeDir["Engine"] = "%{wks.location}/Engine/Core"
+IncludeDir["Core"] = "%{wks.location}/Engine/Core"
+IncludeDir["Runtime"] = "%{wks.location}/Engine/Runtime"
 
 -- Easy way to add supported platforms
-function StandardPlatforms()
+function ToyboxPlatforms()
     -- Platforms
     filter "system:Windows"
         systemversion "latest"
@@ -33,7 +34,7 @@ function StandardPlatforms()
 end
 
 -- Easy way to add standard configs
-function StandardConfigs()
+function ToyboxConfigs()
     -- Configurations
     filter "configurations:Debug"
         runtime "Debug"
@@ -61,7 +62,7 @@ function StandardConfigs()
         {
             "TBX_OPTIMIZED"
         }
-    
+
     filter "configurations:Release"
         runtime "Release"
         optimize "On"
@@ -89,17 +90,46 @@ function DllConfigs()
         buildoptions "/MD"
 end
 
--- Easy way to link Engine
-function IncludeEngine()
+-- Easy way to link just the Core
+function IncludeToyboxCore()
     includedirs
     {
-        "%{IncludeDir.Engine}"
+        "%{IncludeDir.Core}"
     }
 
     links
     {
         "Core"
     }
+end
+
+-- Easy way to link just the Runtime
+function IncludeToyboxRuntime()
+    includedirs
+    {
+        "%{IncludeDir.Runtime}"
+    }
+
+    links
+    {
+        "Runtime"
+    }
+end
+
+function ToyboxModuleConfigs()
+    IncludeToyboxCore()
+    ToyboxPlatforms()
+    ToyboxConfigs()
+    DllConfigs()
+end
+
+-- Easy way to link to toybox Engine
+function ToyboxAppConfigs()
+    IncludeToyboxRuntime()
+    IncludeToyboxCore()
+    ToyboxPlatforms()
+    ToyboxConfigs()
+    DllConfigs()
 end
 
 workspace "Toybox"
@@ -116,16 +146,16 @@ workspace "Toybox"
     group "_3rd Party"
         include "3rd Party/Libraries/glfw"
         include "3rd Party/Libraries/spdlog"
-        include "3rd Party/Libraries/Coral/Coral.Native"
-        include "3rd Party/Libraries/Coral/Coral.Managed"
+        include "3rd Party/Libraries/Coral"
 
     group "Engine"
         include "Engine/Core"
+        include "Engine/Runtime"
 
     group "Engine/Modules"
         include "Engine/Modules/Glfw Module"
         include "Engine/Modules/SpdLog Module"
-        
+
     group "Editor"
         include "Editor/Interop"
         externalproject "App"

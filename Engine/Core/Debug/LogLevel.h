@@ -1,9 +1,8 @@
 #pragma once
-#include "tbxapi.h"
 
 namespace Toybox
 {
-    enum TBX_API LogLevel
+    enum LogLevel
     {
         Trace = 0,
         Debug = 1,

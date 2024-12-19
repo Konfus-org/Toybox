@@ -1,12 +1,11 @@
 #pragma once
 #include "tbxpch.h"
-#include "tbxapi.h"
 #include "Module.h"
 #include "DynamicLibrary.h"
 
 namespace Toybox
 {
-    class TBX_API ModuleServer
+    class ModuleServer
     {
     public:
         static void LoadModules();

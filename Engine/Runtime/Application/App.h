@@ -1,9 +1,6 @@
 #pragma once
-#include "tbxpch.h"
-#include "Windowing/IWindow.h"
-#include "Modules/Modules.h"
-#include "Layers/Layers.h"
-#include "Events/Events.h"
+#include <Core.h>
+#include "tbxAPI.h"
 
 namespace Toybox
 {
@@ -12,7 +9,7 @@ namespace Toybox
     public:
         static App* Instance;
 
-        App(const std::string& name);
+        explicit(false) App(const std::string& name);
         virtual ~App();
 
         void Launch();
@@ -38,7 +35,4 @@ namespace Toybox
         bool OnWindowClose(const WindowCloseEvent& e);
         void OnEvent(Event& e);
     };
-
-    // API to create app, meant to be defined in CLIENT!
-    App* CreateApp();
 }

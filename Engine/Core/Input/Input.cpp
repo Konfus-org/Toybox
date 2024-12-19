@@ -2,7 +2,6 @@
 #include "Input.h"
 #include "IInputHandler.h"
 #include "Modules/Modules.h"
-#include "Application/App.h"
 #include "Debug/Debugging.h"
 
 #define TBX_VALIDATE_INPUT(error_msg, ...) if (_handler == nullptr) { TBX_ERROR(error_msg, __VA_ARGS__); return false; }
@@ -11,10 +10,9 @@ namespace Toybox
 {
     IInputHandler* Input::_handler = nullptr;
 
-    void Input::StartHandling()
+    void Input::StartHandling(IWindow* mainWindow)
     {
-        auto mainNativeWindow = App::Instance->GetMainWindow()->GetNativeWindow();
-        _handler = ((InputModule*)ModuleServer::GetModule(DefaultInputModuleName))->CreateInputHandler(mainNativeWindow);
+        _handler = ((InputModule*)ModuleServer::GetModule(DefaultInputModuleName))->CreateInputHandler(mainWindow->GetNativeWindow());
     }
 
     void Input::StopHandling()

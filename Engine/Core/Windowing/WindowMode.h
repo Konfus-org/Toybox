@@ -2,7 +2,7 @@
 
 namespace Toybox
 {
-    enum TBX_API WindowMode
+    enum WindowMode
     {
         Windowed = 0,
         Fullscreen = 1,

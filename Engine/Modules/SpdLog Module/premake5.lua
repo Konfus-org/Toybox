@@ -1,4 +1,4 @@
-project "SpdLog Interface"
+project "SpdLog Module"
     kind "SharedLib"
     language "C++"
     cppdialect "C++20"
@@ -30,7 +30,4 @@ project "SpdLog Interface"
     }
 
     -- Setup standard platforms and configs
-    IncludeEngine()
-    StandardPlatforms()
-    StandardConfigs()
-    DllConfigs()
+    ToyboxModuleConfigs()

@@ -2,11 +2,11 @@
 #include "DynamicLibrary.h"
 
 #ifdef TBX_PLATFORM_WINDOWS
-#include <windows.h>
+    #include <windows.h>
 #elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_OSX)
-#include <dlfcn.h>
+    #include <dlfcn.h>
 #else
-#error Unsupported platform
+    #error Unsupported platform
 #endif
 
 namespace Toybox

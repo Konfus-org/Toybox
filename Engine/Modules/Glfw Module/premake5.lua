@@ -34,11 +34,7 @@ project "Glfw Module"
         "glfw"
     }
 
-    -- Setup standard platforms and configs
-    IncludeEngine()
-    StandardPlatforms()
-    StandardConfigs()
-    DllConfigs()
+    ToyboxModuleConfigs()
 
     -- Expose native platform methods 
     -- which is needed to grab handles of windows for editor

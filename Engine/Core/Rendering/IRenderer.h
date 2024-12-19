@@ -3,7 +3,7 @@
 
 namespace Toybox
 {
-    class TBX_API IRenderer
+    class IRenderer
     {
     public:
         IRenderer() = default;

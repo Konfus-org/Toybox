@@ -1,9 +1,8 @@
 #pragma once
-#include "tbxapi.h"
 
 namespace Toybox
 {
-    struct TBX_API Vector2
+    struct Vector2
     {
     public:
         Vector2() = default;

@@ -1,6 +1,6 @@
 #include "GlfwWindow.h"
 #include <GLFW/glfw3native.h>
-#include <Toybox.h>
+#include <Core.h>
 
 namespace GlfwWindowing
 {
@@ -23,8 +23,11 @@ namespace GlfwWindowing
 
 	void GlfwWindow::Update()
 	{
-		glfwPollEvents();
 		glfwSwapBuffers(_glfwWindow);
+
+		// Needs to be at the end of the update! 
+		// Otherwise something like closing will run and anything after could throw errors because the window was destroyed...
+		glfwPollEvents(); 
 	}
 
 	void GlfwWindow::SetVSyncEnabled(const bool enabled)
@@ -168,7 +171,6 @@ namespace GlfwWindowing
 		{
 			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
 			toyboxWindow.SetSize(Toybox::Size(width, height));
-
 			Toybox::WindowResizeEvent event(toyboxWindow.GetId(), width, height);
 			toyboxWindow._eventCallback(event);
 		});

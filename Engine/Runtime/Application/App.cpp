@@ -1,6 +1,6 @@
-#include "tbxpch.h"
 #include "App.h"
 #include "Windowing/IWindow.h"
+#include "Modules/Modules.h"
 #include "Debug/Debugging.h"
 #include "Input/Input.h"
 
@@ -27,6 +27,9 @@ namespace Toybox
     {
         _isRunning = true;
 
+        // Load modules
+        ModuleServer::LoadModules();
+
         // Opn log
         Log::Open();
 
@@ -34,7 +37,7 @@ namespace Toybox
         OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
 
         // Start handling input
-        Input::StartHandling();
+        Input::StartHandling(_mainWindow);
     }
 
     void App::Update()
@@ -53,12 +56,17 @@ namespace Toybox
 
     void App::Close()
     {
+        Toybox::Input::StopHandling();
+
         _isRunning = false;
         _mainWindow = nullptr;
         for (auto* window : _windows)
         {
             ((WindowModule*)ModuleServer::GetModule(DefaultWindowModuleName))->DestroyWindow(window);
         }
+        
+        Toybox::Log::Close();
+        Toybox::ModuleServer::UnloadModules();
     }
 
     void App::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)

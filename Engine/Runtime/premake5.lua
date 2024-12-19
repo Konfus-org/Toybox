@@ -1,14 +1,11 @@
-project "Core"
-    kind "StaticLib"
+project "Runtime"
+    kind "SharedLib"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
 
     targetdir ("../../" .. OutputDir .. "/bin/")
     objdir    ("../../" .. OutputDir .. "/obj/")
-
-    pchheader "tbxpch.h"
-    pchsource "tbxpch.cpp"
 
     defines
     {
@@ -28,6 +25,11 @@ project "Core"
         "./**.cpp"
     }
 
-    -- Setup standard platforms and configs
-    ToyboxConfigs()
-    ToyboxPlatforms()
+    -- Set dependson for modules so we don't have to manually rebuild when they change
+    links
+    {
+        "Glfw Module",
+        "SpdLog Module"
+    }
+
+    ToyboxModuleConfigs()

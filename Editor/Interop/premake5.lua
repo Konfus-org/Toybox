@@ -6,8 +6,8 @@ project "Interop"
     warnings "Default"
     ignoredefaultlibraries { "MSVCRT" }
 
-    targetdir ("../../" .. OutputDir .. "/bin/%{prj.name}/")
-    objdir    ("../../" .. OutputDir .. "/obj/%{prj.name}/")
+    targetdir ("../../" .. OutputDir .. "/bin/")
+    objdir    ("../../" .. OutputDir .. "/obj/")
 
     files
     {
@@ -17,16 +17,9 @@ project "Interop"
         "./**.cpp",
         "./**.cs",
     }
-    
-    -- Setup standard platforms and configs
-    IncludeEngine()
-    StandardPlatforms()
-    StandardConfigs()
-    DllConfigs()
-    
+
+    ToyboxAppConfigs()
+
     -- Editor Supported Platforms
     filter "system:Windows"
-        defines
-        {
-            "TOYBOX_EDITOR"
-    }
+        defines "TOYBOX_EDITOR"
