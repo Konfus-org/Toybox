@@ -22,7 +22,10 @@ namespace Toybox
         inline std::shared_ptr<T> CreateShared()
         {
             auto* ptr = Create();
-            auto shared = std::shared_ptr<T>(ptr, [this](T* ptrToDestroy) { Destroy(ptrToDestroy); });
+            auto shared = std::shared_ptr<T>(ptr, [this](T* ptrToDestroy) 
+            { 
+                Destroy(ptrToDestroy); 
+            });
             return shared;
         }
 

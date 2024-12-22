@@ -12,10 +12,12 @@ namespace Toybox
 		auto loggerFactory = ModuleServer::GetFactoryModule<ILogger>();
         auto sharedLogger = loggerFactory->CreateShared();
 		_logger = sharedLogger;
+		_logger->Open("Toybox::Runtime", "Log\\Toybox.log");
 	}
 
 	void Log::Close()
 	{
+		_logger->Close();
 		_logger = nullptr;
 	}
 

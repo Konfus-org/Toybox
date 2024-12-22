@@ -1,6 +1,5 @@
 #include "ModuleServer.h"
 #include "Debug/Debugging.h"
-#include <typeindex>
 
 namespace Toybox
 {
@@ -21,14 +20,11 @@ namespace Toybox
     }
 
     template<typename T>
-    inline std::shared_ptr<FactoryModule<T>> ModuleServer::GetFactoryModule()
+    std::shared_ptr<FactoryModule<T>> ModuleServer::GetFactoryModule()
     {
-        auto typeToFindIndex = std::type_index(typeid(T));
-
         for (const auto& loadedMod : _loadedModules)
         {
-            auto moduleTypeIndex = std::type_index(typeid(*loadedMod));
-            if (moduleTypeIndex == typeToFindIndex)
+            if (std::dynamic_pointer_cast<FactoryModule<T>>(loadedMod))
             {
                 return std::static_pointer_cast<FactoryModule<T>>(loadedMod);
             }

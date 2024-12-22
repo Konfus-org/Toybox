@@ -17,6 +17,7 @@ namespace Toybox
         auto handlerFactory = ModuleServer::GetFactoryModule<IInputHandler>();
         auto sharedHandler = handlerFactory->CreateShared();
         _handler = sharedHandler;
+        _handler->SetContext(App::Instance->GetMainWindow()->GetNativeWindow());
     }
 
     void Input::StopHandling()
