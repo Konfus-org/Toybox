@@ -3,21 +3,24 @@
 #include "Debug/Debugging.h"
 #include "Modules/Modules.h"
 
-#define TBX_VALIDATE_INPUT(error_msg, ...) if (_handler == nullptr) { TBX_ERROR(error_msg, __VA_ARGS__); return false; }
+#define TBX_VALIDATE_INPUT(error_msg, ...)  if (_handler == nullptr) { TBX_ERROR(error_msg, __VA_ARGS__); return false; }
+
+// Explicit instantiation of the template
+template std::shared_ptr<Toybox::FactoryModule<Toybox::IInputHandler>> Toybox::ModuleServer::GetFactoryModule<Toybox::IInputHandler>();
 
 namespace Toybox
 {
-    IInputHandler* Input::_handler = nullptr;
+    std::shared_ptr<IInputHandler> Input::_handler = nullptr;
 
     void Input::StartHandling()
     {
-        auto* inputHandler = ((InputModule*)ModuleServer::GetModule(DefaultInputModuleName))->CreateInputHandler(App::Instance->GetMainWindow()->GetNativeWindow());
-        _handler = inputHandler;
+        auto handlerFactory = ModuleServer::GetFactoryModule<IInputHandler>();
+        auto sharedHandler = handlerFactory->CreateShared();
+        _handler = sharedHandler;
     }
 
     void Input::StopHandling()
     {
-        ((InputModule*)ModuleServer::GetModule(DefaultInputModuleName))->DestroyInputHandler(_handler);
         _handler = nullptr;
     }
 

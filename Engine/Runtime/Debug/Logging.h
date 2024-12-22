@@ -2,6 +2,7 @@
 
 #include "Log.h"
 
+// Basic logging defined in core so undefine here so we can use our runtime logging system
 #undef TBX_TRACE
 #undef TBX_INFO
 #undef TBX_WARN

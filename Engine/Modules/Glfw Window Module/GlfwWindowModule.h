@@ -1,13 +1,13 @@
 #pragma once
 #include <Core.h>
 
-namespace SpdLogging
+namespace GlfwWindowing
 {
-    class SpdLogModule : public Toybox::FactoryModule<Toybox::ILogger>
+    class GlfwWindowModule : public Toybox::FactoryModule<Toybox::IWindow>
     {
     public:
-        Toybox::ILogger* Create() override;
-        void Destroy(Toybox::ILogger* logger) override;
+        Toybox::IWindow* Create() override;
+        void Destroy(Toybox::IWindow* windowToDestroy) override;
 
         std::string GetName() const override;
         std::string GetAuthor() const override;

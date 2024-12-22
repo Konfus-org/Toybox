@@ -3,7 +3,6 @@ project "SpdLog Module"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
-    warnings "Default"
     ignoredefaultlibraries { "MSVCRT" }
 
     targetdir ("../../../" .. OutputDir .. "/bin/Modules/")

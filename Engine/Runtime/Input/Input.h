@@ -4,26 +4,27 @@
 
 namespace Toybox
 {
-    class TBX_API Input
+    class Input
     {
     public:
-        static void StartHandling();
-        static void StopHandling();
+        TBX_API static void StartHandling();
+        TBX_API static void StopHandling();
 
-        static bool IsGamepadButtonDown(const int id, const int button);
-        static bool IsGamepadButtonUp(const int id, const int button);
-        static bool IsGamepadButtonHeld(const int id, const int button);
+        TBX_API static bool IsGamepadButtonDown(const int id, const int button);
+        TBX_API static bool IsGamepadButtonUp(const int id, const int button);
+        TBX_API static bool IsGamepadButtonHeld(const int id, const int button);
 
-        static bool IsKeyDown(const int keyCode);
-        static bool IsKeyUp(const int keyCode);
-        static bool IsKeyHeld(const int keyCode);
+        TBX_API static bool IsKeyDown(const int keyCode);
+        TBX_API static bool IsKeyUp(const int keyCode);
+        TBX_API static bool IsKeyHeld(const int keyCode);
 
-        static bool IsMouseButtonDown(const int button);
-        static bool IsMouseButtonUp(const int button);
-        static bool IsMouseButtonHeld(const int button);
-        static Vector2 GetMousePosition();
+        TBX_API static bool IsMouseButtonDown(const int button);
+        TBX_API static bool IsMouseButtonUp(const int button);
+        TBX_API static bool IsMouseButtonHeld(const int button);
+        TBX_API static Vector2 GetMousePosition();
 
     private:
-        static IInputHandler* _handler;
+        static std::shared_ptr<IInputHandler> _handler;
+        static bool _validateOnceFlag;
     };
 }

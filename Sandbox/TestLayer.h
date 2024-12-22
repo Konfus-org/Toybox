@@ -4,7 +4,7 @@
 class TestLayer : public Toybox::Layer
 {
 public:
-    TestLayer(const std::string& name) : Layer(name) { }
+    using Layer::Layer;
 
     void OnAttach() override;
     void OnDetach() override;

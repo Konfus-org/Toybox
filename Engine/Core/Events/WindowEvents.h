@@ -1,36 +1,9 @@
 #pragma once
 #include "Math/Size.h"
-#include "Event.h"
+#include "ApplicationEvents.h"
 
 namespace Toybox
 {
-    class AppEvent : public Event
-    {
-    public:
-        int GetCategorization() const override
-        {
-            return EventCategory::Application;
-        }
-    };
-
-    class AppUpdateEvent : public AppEvent 
-    {
-    public:
-        std::string GetName() const override
-        {
-            return "App Update Event";
-        }
-    };
-
-    class AppRenderEvent : public AppEvent 
-    {
-    public:
-        std::string GetName() const override
-        {
-            return "App Render Event";
-        }
-    };
-
     class WindowEvent : public AppEvent
     {
     public:
@@ -43,6 +16,25 @@ namespace Toybox
 
     private:
         uint64 _windowId;
+    };
+
+    class CreateWindowEvent : public AppEvent
+    {
+    public:
+        std::string GetWindowName() const
+        {
+
+        }
+
+        int GetCategorization() const override
+        {
+            return EventCategory::Application;
+        }
+
+        std::string GetName() const override
+        {
+            return "Create Window Event";
+        }
     };
 
     class WindowCloseEvent : public WindowEvent
@@ -60,7 +52,8 @@ namespace Toybox
     {
     public:
         WindowResizeEvent(uint64 windowId, unsigned int width, unsigned int height)
-            : WindowEvent(windowId), _width(width), _height(height) {}
+            : WindowEvent(windowId), _width(width), _height(height) {
+        }
 
         Size GetSize() const
         {
@@ -82,4 +75,3 @@ namespace Toybox
         unsigned int _height;
     };
 }
-

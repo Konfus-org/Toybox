@@ -43,8 +43,7 @@ void TestLayer::OnDetach()
 
 void TestLayer::OnUpdate()
 {
-	auto spaceHeld = Toybox::Input::IsKeyDown(32);
-	if (spaceHeld) TBX_TRACE("Space pressed!");
+	if (Toybox::Input::IsKeyDown(TBX_KEY_SPACE)) TBX_TRACE("Space pressed!");
 	ChangeWindowColorTest();
 }
 

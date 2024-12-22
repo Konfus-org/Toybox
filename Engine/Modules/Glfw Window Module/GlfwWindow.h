@@ -10,13 +10,13 @@ namespace GlfwWindowing
         GlfwWindow();
         ~GlfwWindow() final;
 
-        void Open(Toybox::WindowMode mode) override;
+        void Open(const Toybox::WindowMode& mode) override;
         void Update() override;
 
-        void SetVSyncEnabled(bool enabled) override;
+        void SetVSyncEnabled(const bool& enabled) override;
         bool GetVSyncEnabled() const override;
 
-        void SetSize(Toybox::Size size) override;
+        void SetSize(const Toybox::Size& size) override;
         Toybox::Size GetSize() const override;
 
         std::string GetTitle() const override;
@@ -26,7 +26,7 @@ namespace GlfwWindowing
         std::any GetNativeWindow() const override;
 
         void SetEventCallback(const EventCallbackFn& callback) override;
-        void SetMode(Toybox::WindowMode mode) override;
+        void SetMode(const Toybox::WindowMode& mode) override;
 
     private:
         GLFWwindow* _glfwWindow = nullptr;

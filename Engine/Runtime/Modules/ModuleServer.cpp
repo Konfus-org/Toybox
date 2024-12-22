@@ -1,10 +1,58 @@
 #include "ModuleServer.h"
 #include "Debug/Debugging.h"
+#include <typeindex>
 
 namespace Toybox
 {
-    std::vector<DynamicLibrary*> ModuleServer::_loadedLibs;
-    std::vector<Module*> ModuleServer::_loadedModules;
+    std::vector<std::shared_ptr<DynamicLibrary>> ModuleServer::_loadedLibs;
+    std::vector<std::shared_ptr<Module>> ModuleServer::_loadedModules;
+
+    std::shared_ptr<Module> ModuleServer::GetModule(const std::string_view& name)
+    {
+        for (const auto& loadedMod : _loadedModules)
+        {
+            if (loadedMod->GetName() == name)
+            {
+                return loadedMod;
+            }
+        }
+
+        return nullptr;
+    }
+
+    template<typename T>
+    inline std::shared_ptr<FactoryModule<T>> ModuleServer::GetFactoryModule()
+    {
+        auto typeToFindIndex = std::type_index(typeid(T));
+
+        for (const auto& loadedMod : _loadedModules)
+        {
+            auto moduleTypeIndex = std::type_index(typeid(*loadedMod));
+            if (moduleTypeIndex == typeToFindIndex)
+            {
+                return std::static_pointer_cast<FactoryModule<T>>(loadedMod);
+            }
+        }
+
+        return nullptr;
+    }
+
+    // Explicit instantiations for module types
+    template std::shared_ptr<FactoryModule<IInputHandler>> ModuleServer::GetFactoryModule<IInputHandler>();
+    template std::shared_ptr<FactoryModule<IWindow>> ModuleServer::GetFactoryModule<IWindow>();
+    template std::shared_ptr<FactoryModule<ILogger>> ModuleServer::GetFactoryModule<ILogger>();
+
+    std::shared_ptr<DynamicLibrary> ModuleServer::LoadLib(const std::string& location)
+    {
+        auto library = std::make_unique<DynamicLibrary>();
+        if (!library->Load(location))
+        {
+            library->Unload();
+            return nullptr;
+        }
+
+        return library;
+    }
 
     void ModuleServer::LoadModules()
     {
@@ -32,8 +80,8 @@ namespace Toybox
 #endif
             {
                 const std::string& location = entry.path().string();
-                if (LoadSingleFromLocation(location) || LoadMultipleFromLocation(location)) continue;
-                const std::string& failureMsg = "Failed to load library: {0}, does it have a \"extern TBX_MODULE_API Module* Load()\" or \"extern TBX_MODULE_API std::vector<Module*> LoadMultiple()\" method defined?";
+                if (LoadModuleFromLocation(location)) continue;
+                const std::string& failureMsg = R"_(Failed to load library: {0}, does it have a "extern "C" TBX_MODULE_API Module* Load()" method defined?)_";
                 TBX_ERROR(failureMsg, location);
             }
         }
@@ -41,96 +89,85 @@ namespace Toybox
 
     void ModuleServer::UnloadModules()
     {
-        for (auto* loadedLib : _loadedLibs)
+        for (const auto& loadedLib : _loadedLibs)
         {
-            using PluginUnloadFunc = void(*)();
-            auto unloadLibFunc = static_cast<PluginUnloadFunc>(loadedLib->GetSymbol("Unload"));
-            if (!unloadLibFunc)
-            {
-                const auto& libName = loadedLib->GetName();
-                TBX_ASSERT(false, "Failed to unload module: {0}, does it have a \"extern TBX_MODULE_API Unload(Module* module)\" method defined?", libName);
-                return;
-            }
-
-            unloadLibFunc();
-            delete loadedLib;
+            loadedLib->Unload();
         }
     }
 
-    Module* ModuleServer::GetModule(const std::string_view& name)
+    bool ModuleServer::LoadModuleFromLocation(const std::string& location)
     {
-        for (auto* loadedMod : _loadedModules)
-        {
-            if (loadedMod->GetName() == name)
-            {
-                return loadedMod;
-            }
-        }
-
-        return nullptr;
-    }
-
-    DynamicLibrary* ModuleServer::LoadLib(const std::string& location)
-    {
-        auto* library = new DynamicLibrary();
-        if (!library->Load(location))
-        {
-            library->Unload();
-            delete library;
-
-            library = nullptr;
-            return nullptr;
-        }
-
-        return library;
-    }
-
-    bool ModuleServer::LoadSingleFromLocation(const std::string& location)
-    {
-        auto* library = LoadLib(location);
+        // Load modules library from given location
+        auto library = LoadLib(location);
         if (library == nullptr) return false;
 
-        using PluginLoadFunc = Module * (*)();
-        auto loadModuleFunc = static_cast<PluginLoadFunc>(library->GetSymbol("Load"));
-        if (!loadModuleFunc)
-        {
-            library->Unload();
-            delete library;
+#ifdef TBX_DEBUG
+        // Uncomment to list symbols
+        // library->ListSymbols();
+#endif
 
-            library = nullptr;
+        // Get load module function from library
+        using PluginLoadFunc = Module*(*)();
+        auto loadFuncSymbol = library->GetSymbol("Load");
+        if (!loadFuncSymbol)
+        {
+            // Coudn't find load function, unload library and return false
+            library->Unload();
             return false;
         }
+        auto loadModuleFunc = static_cast<PluginLoadFunc>(loadFuncSymbol);
+        auto* loadedModule = loadModuleFunc();
 
-        Module* mod = loadModuleFunc();
+        // Wrap module in shared_ptr with custom destructor
+        std::shared_ptr<Module> mod(loadedModule, UnloadModule);
+
         _loadedModules.push_back(mod);
         _loadedLibs.push_back(library);
 
         return true;
     }
 
-    bool ModuleServer::LoadMultipleFromLocation(const std::string& location)
+    void ModuleServer::UnloadModule(Module* moduleToUnload)
     {
-        auto* library = LoadLib(location);
-        if (library == nullptr) return false;
-
-        using PluginLoadFunc = std::vector<Module*>* (*)();
-        auto loadModulesFunc = static_cast<PluginLoadFunc>(library->GetSymbol("LoadMultiple"));
-        if (!loadModulesFunc)
+        // Get index of module to unload
+        int moduleToUnloadIndex = 0;
+        for (const auto& mod : _loadedModules)
         {
-            library->Unload();
-            delete library;
-
-            library = nullptr;
-            return false;
+            if (mod.get() == moduleToUnload)
+            {
+                break;
+            }
+            moduleToUnloadIndex++;
+        }
+        if (moduleToUnloadIndex == _loadedModules.size())
+        {
+            // Couldn't find module in list of loaded modules
+            const std::string& moduleName = moduleToUnload->GetName();
+            const std::string& failureMsg = R"_(!!!Likely Memory Leak!!!: Failed to unload the module {moduleName}! Could not find it in the list of loaded modules....)_";
+            TBX_ASSERT(false, failureMsg, moduleName);
+            return;
         }
 
-        const std::vector<Module*>* modules = loadModulesFunc();
-        for (auto* mod : *modules)
+        // Unload module
+        using PluginUnloadFunc = void(*)(Module*);
+        auto unloadFuncSymbol = _loadedLibs[moduleToUnloadIndex]->GetSymbol("Unload");
+        if (!unloadFuncSymbol)
         {
-            _loadedModules.push_back(mod);
+            // Couldn't find unload function in module library
+            const std::string& moduleName = moduleToUnload->GetName();
+            const std::string& libraryPath = _loadedLibs[moduleToUnloadIndex]->GetPath();
+            const std::string& failureMsg = R"_(!!!Likely Memory Leak!!!: Failed to unload the module {0} in library {1}, does it have a "extern "C" TBX_MODULE_API void Unload(Module* moduleToUnload)" method defined?)_";
+            TBX_ASSERT(false, failureMsg, moduleName, libraryPath);
+            return;
         }
-        _loadedLibs.push_back(library);
+        auto unloadModuleFunc = static_cast<PluginUnloadFunc>(unloadFuncSymbol);
+        unloadModuleFunc(moduleToUnload);
+        _loadedLibs[moduleToUnloadIndex]->Unload();
 
-        return true;
+        // Remove module from list of loaded modules
+        _loadedModules.erase(_loadedModules.begin() + moduleToUnloadIndex);
+
+        // Remove module library from list of loaded libraries
+        _loadedLibs.erase(_loadedLibs.begin() + moduleToUnloadIndex);
     }
 }

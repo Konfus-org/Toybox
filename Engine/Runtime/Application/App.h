@@ -4,34 +4,35 @@
 
 namespace Toybox
 {
-    class TBX_API App
+    // TODO: move application to core! Or at least an interface with the singelton pattern so we can access it from the modules.
+    class App
     {
     public:
-        static App* Instance;
+        TBX_API static App* Instance;
 
-        explicit(false) App(const std::string& name);
-        virtual ~App();
+        TBX_API explicit(false) App(const std::string_view& name);
+        TBX_API virtual ~App();
 
-        void Launch();
-        void Update();
-        void Close();
+        TBX_API void Launch();
+        TBX_API void Update();
+        TBX_API void Close();
 
-        void OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
-        void PushLayer(Layer* layer);
-        void PushOverlay(Layer* layer);
+        TBX_API void OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
+        TBX_API void PushLayer(Layer* layer);
+        TBX_API void PushOverlay(Layer* layer);
 
-        bool IsRunning() const;
-        std::string GetName() const;
-        IWindow* GetMainWindow() const;
+        TBX_API bool IsRunning() const;
+        TBX_API std::string GetName() const;
+        TBX_API std::shared_ptr<IWindow> GetMainWindow() const;
 
     private:
         bool _isRunning = false;
         std::string _name = "App";
-        IWindow* _mainWindow = nullptr;
-        std::vector<IWindow*> _windows;
+        std::shared_ptr<IWindow> _mainWindow = nullptr;
+        std::vector<std::shared_ptr<IWindow>> _windows;
         LayerStack _layerStack;
 
-        IWindow* CreateNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
+        std::shared_ptr<IWindow> CreateNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
         bool OnWindowClose(const WindowCloseEvent& e);
         void OnEvent(Event& e);
     };

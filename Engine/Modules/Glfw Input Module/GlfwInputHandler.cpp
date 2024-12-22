@@ -3,9 +3,10 @@
 
 namespace GlfwInput
 {
-    GlfwInputHandler::GlfwInputHandler(std::any mainWindow)
+    void GlfwInputHandler::SetContext(const std::any& context)
     {
-        _mainWindow = std::any_cast<GLFWwindow*>(mainWindow);
+        _mainWindow = std::any_cast<GLFWwindow*>(context);
+        glfwMakeContextCurrent(_mainWindow);
     }
 
     bool GlfwInputHandler::IsGamepadButtonDown(const int button, int id)
@@ -79,5 +80,4 @@ namespace GlfwInput
         const unsigned char* buttons = glfwGetJoystickButtons(id, &numberOfPressedButtons);
         return buttons[button];
     }
-
 }

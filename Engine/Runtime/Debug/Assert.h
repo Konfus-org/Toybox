@@ -1,5 +1,6 @@
 #pragma once
 
+// Basic assert defined in core, redefine it here to use log
 #undef TBX_ASSERT
 
 #ifdef TBX_ASSERTS_ENABLED

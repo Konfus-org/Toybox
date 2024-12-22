@@ -153,7 +153,8 @@ workspace "Toybox"
         include "Engine/Runtime"
 
     group "Engine/Modules"
-        include "Engine/Modules/Glfw Module"
+        include "Engine/Modules/Glfw Window Module"
+        include "Engine/Modules/Glfw Input Module"
         include "Engine/Modules/SpdLog Module"
 
     group "Editor"

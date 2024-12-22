@@ -16,7 +16,7 @@ namespace GlfwWindowing
 		glfwDestroyWindow(_glfwWindow);
 	}
 
-	void GlfwWindow::Open(Toybox::WindowMode mode)
+	void GlfwWindow::Open(const Toybox::WindowMode& mode)
 	{
 		SetMode(mode);
 	}
@@ -30,7 +30,7 @@ namespace GlfwWindowing
 		glfwPollEvents(); 
 	}
 
-	void GlfwWindow::SetVSyncEnabled(const bool enabled)
+	void GlfwWindow::SetVSyncEnabled(const bool& enabled)
 	{
 		_vSyncEnabled = enabled;
 		glfwSwapInterval(_vSyncEnabled);
@@ -41,7 +41,7 @@ namespace GlfwWindowing
 		return _vSyncEnabled;
 	}
 
-	void GlfwWindow::SetSize(Toybox::Size size)
+	void GlfwWindow::SetSize(const Toybox::Size& size)
 	{
 		_size = size;
 	}
@@ -85,7 +85,7 @@ namespace GlfwWindowing
 		SetupCallbacks();
 	}
 
-	void GlfwWindow::SetMode(Toybox::WindowMode mode)
+	void GlfwWindow::SetMode(const Toybox::WindowMode& mode)
 	{
 		if (_glfwWindow != nullptr)
 		{

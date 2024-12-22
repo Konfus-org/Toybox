@@ -9,12 +9,12 @@ namespace Toybox
 {
     App* App::Instance = nullptr;
 
-    App::App(const std::string& name)
+    App::App(const std::string_view& name)
     {
         _name = name;
         _isRunning = false;
         _mainWindow = nullptr;
-
+        
         delete Instance;
         Instance = this;
     }
@@ -43,7 +43,10 @@ namespace Toybox
 
     void App::Update()
     {
-        _mainWindow->Update();
+        if (_mainWindow != nullptr)
+        {
+            _mainWindow->Update();
+        }
 
         AppUpdateEvent updateEvent;
         OnEvent(updateEvent);
@@ -62,72 +65,10 @@ namespace Toybox
 
         // We will immediately stop handling input
         Input::StopHandling();
-
-        // Cleanup any remaining windows that are open
-        for (auto* window : _windows)
-        {
-            ((WindowModule*)ModuleServer::GetModule(DefaultWindowModuleName))->DestroyWindow(window);
-        }
         
         // Close log and unload modules
         Log::Close();
         ModuleServer::UnloadModules();
-    }
-
-    void App::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
-    {
-        auto* window = CreateNewWindow(name, mode, size);
-        _windows.push_back(window);
-        if (_mainWindow == nullptr) _mainWindow = window;
-    }
-
-    void App::PushLayer(Layer* layer)
-    {
-        _layerStack.PushLayer(layer);
-    }
-
-    void App::PushOverlay(Layer* layer)
-    {
-        _layerStack.PushOverlay(layer);
-    }
-
-    bool App::IsRunning() const
-    {
-        return _isRunning;
-    }
-
-    std::string App::GetName() const
-    {
-        return _name;
-    }
-
-    IWindow* App::GetMainWindow() const
-    {
-        return _mainWindow;
-    }
-
-    IWindow* App::CreateNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
-    {
-        auto* windowModule = (WindowModule*)ModuleServer::GetModule(DefaultWindowModuleName);
-        auto* window = windowModule->CreateNewWindow(name, mode, size);
-        window->SetEventCallback(TBX_BIND_EVENT_FN(App::OnEvent));
-        return window;
-    }
-
-    bool App::OnWindowClose(const WindowCloseEvent& e)
-    {
-        // If the window is our main window, set running flag to false which will trigger the app to close
-        if (e.GetWindowId() == _mainWindow->GetId()) _isRunning = false;
-
-        // Find the window that was closed and destroy it
-        for (auto* window : _windows)
-        {
-            if (e.GetWindowId() == window->GetId())
-            {
-                ((WindowModule*)ModuleServer::GetModule(DefaultWindowModuleName))->DestroyWindow(window);
-            }
-        }
-        return true;
     }
 
     void App::OnEvent(Event& e)
@@ -141,5 +82,68 @@ namespace Toybox
             if (e.Handled) break;
             (*it)->OnEvent(e);
         }
+    }
+
+    void App::PushLayer(Layer* layer)
+    {
+        _layerStack.PushLayer(layer);
+    }
+
+    void App::PushOverlay(Layer* layer)
+    {
+        _layerStack.PushOverlay(layer);
+    }
+
+    void App::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
+    {
+        auto window = CreateNewWindow(name, mode, size);
+        _windows.push_back(window);
+        if (_mainWindow == nullptr) _mainWindow = window;
+    }
+
+    std::shared_ptr<IWindow> App::CreateNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
+    {
+        auto windowFactory = ModuleServer::GetFactoryModule<IWindow>();
+        auto sharedWindow = windowFactory->CreateShared();
+        sharedWindow->SetTitle(name);
+        sharedWindow->SetSize(size);
+        sharedWindow->Open(mode);
+        sharedWindow->SetEventCallback(TBX_BIND_EVENT_FN(App::OnEvent));
+        return sharedWindow;
+    }
+
+    bool App::OnWindowClose(const WindowCloseEvent& e)
+    {
+        // If the window is our main window, set running flag to false which will trigger the app to close
+        if (e.GetWindowId() == _mainWindow->GetId()) _isRunning = false;
+
+        // Find the window that was closed and remove it from the list, which will trigger its destruction once nothing no longer references it...
+        std::shared_ptr<IWindow> windowToRemove;
+        for (auto window : _windows)
+        {
+            if (e.GetWindowId() == window->GetId())
+            {
+                windowToRemove = window;
+                break;
+            }
+        }
+        _windows.erase(std::remove(_windows.begin(), _windows.end(), windowToRemove), _windows.end());
+
+        return true;
+    }
+
+    std::shared_ptr<IWindow> App::GetMainWindow() const
+    {
+        return _mainWindow;
+    }
+
+    std::string App::GetName() const
+    {
+        return _name;
+    }
+
+    bool App::IsRunning() const
+    {
+        return _isRunning;
     }
 }

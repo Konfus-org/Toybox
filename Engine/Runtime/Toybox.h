@@ -5,6 +5,7 @@
 #include "tbxAPI.h"
 #include "Application/App.h"
 #include "Input/Input.h"
+#include "Input/InputCodes.h"
 #include "Debug/Logging.h"
 
 namespace Toybox
