@@ -8,8 +8,6 @@ namespace Toybox
     class App
     {
     public:
-        TBX_API static App* Instance;
-
         TBX_API explicit(false) App(const std::string_view& name);
         TBX_API virtual ~App();
 

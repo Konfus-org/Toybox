@@ -7,7 +7,7 @@ namespace Toybox
     class Input
     {
     public:
-        TBX_API static void StartHandling();
+        TBX_API static void StartHandling(const std::weak_ptr<IWindow>& context);
         TBX_API static void StopHandling();
 
         TBX_API static bool IsGamepadButtonDown(const int id, const int button);

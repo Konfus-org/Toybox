@@ -7,16 +7,11 @@
 
 namespace Toybox
 {
-    App* App::Instance = nullptr;
-
     App::App(const std::string_view& name)
     {
         _name = name;
         _isRunning = false;
         _mainWindow = nullptr;
-        
-        delete Instance;
-        Instance = this;
     }
 
     App::~App()
@@ -34,11 +29,23 @@ namespace Toybox
         // Open log
         Log::Open();
 
+#ifdef TBX_DEBUG
+        // Once log is open, we can print out all loaded modules to the log for debug purposes
+        const auto& modules = ModuleServer::GetModules();
+        const auto& numModules = modules.size();
+        TBX_INFO("Loaded {0} modules:", numModules);
+        for (const auto& loadedMod : modules)
+        {
+            const auto& modName = loadedMod.lock()->GetName();
+            TBX_INFO("    - {0}", modName);
+        }
+#endif
+
         // Create main window
         OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
 
         // Start handling input
-        Input::StartHandling();
+        Input::StartHandling(_mainWindow);
     }
 
     void App::Update()

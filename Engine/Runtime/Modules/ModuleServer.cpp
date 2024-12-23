@@ -19,6 +19,17 @@ namespace Toybox
         return {};
     }
 
+    std::vector<std::weak_ptr<Module>> ModuleServer::GetModules()
+    {
+        std::vector<std::weak_ptr<Module>> modules;
+        for (const auto& loadedMod : _loadedModules)
+        {
+            const auto& mod = loadedMod->GetModule().lock();
+            modules.push_back(mod);
+        }
+        return modules;
+    }
+
     template<typename T>
     std::weak_ptr<FactoryModule<T>> ModuleServer::GetFactoryModule()
     {

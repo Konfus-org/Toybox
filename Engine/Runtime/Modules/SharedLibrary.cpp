@@ -34,10 +34,6 @@ namespace Toybox
 
     bool SharedLibrary::Load(const std::string& path)
     {
-#ifdef TBX_DEBUG
-        TBX_INFO("Loading library: {0}", path);
-#endif
-
 #ifdef TBX_PLATFORM_WINDOWS
 
         _path = path;

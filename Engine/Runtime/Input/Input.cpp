@@ -9,12 +9,12 @@ namespace Toybox
 {
     std::shared_ptr<IInputHandler> Input::_handler;
 
-    void Input::StartHandling()
+    void Input::StartHandling(const std::weak_ptr<IWindow>& context)
     {
         auto handlerFactory = ModuleServer::GetFactoryModule<IInputHandler>();
         auto sharedHandler = handlerFactory.lock()->CreateShared();
         _handler = sharedHandler;
-        _handler->SetContext(App::Instance->GetMainWindow().lock()->GetNativeWindow());
+        _handler->SetContext(context.lock()->GetNativeWindow());
     }
 
     void Input::StopHandling()

@@ -4,12 +4,9 @@ namespace Toybox
 {
     void Run(App& app)
     {
-        // Create and run application
+        // Launch and run application
         app.Launch();
-        while (app.IsRunning())
-        {
-            app.Update();
-        }
+        while (app.IsRunning()) app.Update();
         app.Close();
     }
 }
