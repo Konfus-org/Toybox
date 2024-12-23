@@ -4,9 +4,6 @@
 [submodule "3rd Party/Libraries/glfw"]
 	path = 3rd Party/Libraries/glfw
 	url = https://github.com/Konfus-dev/glfw.git
-[submodule "3rd Party/Libraries/Coral"]
-	path = 3rd Party/Libraries/Coral
-	url = https://github.com/Konfus-dev/Coral.git
 [submodule "3rd Party/Libraries/SFML"]
 	path = 3rd Party/Libraries/SFML
 	url = https://github.com/Konfus-dev/SFML.git

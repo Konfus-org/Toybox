@@ -135,6 +135,7 @@ end
 workspace "Toybox"
     architecture "x86_64"
     startproject "Sandbox"
+    platforms { "Win32", "Win64", "Linux", "Macosx" }
 
     configurations
     {
