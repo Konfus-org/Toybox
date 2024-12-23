@@ -5,8 +5,8 @@ namespace GlfwInput
 {
     void GlfwInputHandler::SetContext(const std::any& context)
     {
-        _mainWindow = std::any_cast<GLFWwindow*>(context);
-        glfwMakeContextCurrent(_mainWindow);
+        _context = std::any_cast<GLFWwindow*>(context);
+        glfwMakeContextCurrent(_context);
     }
 
     bool GlfwInputHandler::IsGamepadButtonDown(const int button, int id)
@@ -58,19 +58,19 @@ namespace GlfwInput
     {
         double xPos;
         double yPos;
-        glfwGetCursorPos(_mainWindow, &xPos, &yPos);
+        glfwGetCursorPos(_context, &xPos, &yPos);
         return Toybox::Vector2((float)xPos, (float)yPos);
     }
 
     int GlfwInputHandler::GetKeyState(int keyCode)
     {
-        auto state = glfwGetKey(_mainWindow, keyCode);
+        auto state = glfwGetKey(_context, keyCode);
         return state;
     }
 
     int GlfwInputHandler::GetMouseButtonState(int button)
     {
-        auto state = glfwGetMouseButton(_mainWindow, button);
+        auto state = glfwGetMouseButton(_context, button);
         return state;
     }
 

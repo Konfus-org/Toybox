@@ -19,7 +19,7 @@ namespace Toybox
     class FactoryModule : public Module
     {
     public:
-        inline std::shared_ptr<T> CreateShared()
+        std::shared_ptr<T> CreateShared()
         {
             auto* ptr = Create();
             auto shared = std::shared_ptr<T>(ptr, [this](T* ptrToDestroy) 

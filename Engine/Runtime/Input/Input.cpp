@@ -5,24 +5,21 @@
 
 #define TBX_VALIDATE_INPUT(error_msg, ...)  if (_handler == nullptr) { TBX_ERROR(error_msg, __VA_ARGS__); return false; }
 
-// Explicit instantiation of the template
-template std::shared_ptr<Toybox::FactoryModule<Toybox::IInputHandler>> Toybox::ModuleServer::GetFactoryModule<Toybox::IInputHandler>();
-
 namespace Toybox
 {
-    std::shared_ptr<IInputHandler> Input::_handler = nullptr;
+    std::shared_ptr<IInputHandler> Input::_handler;
 
     void Input::StartHandling()
     {
         auto handlerFactory = ModuleServer::GetFactoryModule<IInputHandler>();
-        auto sharedHandler = handlerFactory->CreateShared();
+        auto sharedHandler = handlerFactory.lock()->CreateShared();
         _handler = sharedHandler;
-        _handler->SetContext(App::Instance->GetMainWindow()->GetNativeWindow());
+        _handler->SetContext(App::Instance->GetMainWindow().lock()->GetNativeWindow());
     }
 
     void Input::StopHandling()
     {
-        _handler = nullptr;
+        _handler.reset();
     }
 
     bool Input::IsGamepadButtonDown(const int id, const int button)
@@ -81,7 +78,7 @@ namespace Toybox
 
     Vector2 Input::GetMousePosition()
     {
-        if (_handler == nullptr)
+        if (_handler != nullptr)
         {
             TBX_ERROR("Handler is null! Cannot get mouse position.");
             return Vector2();

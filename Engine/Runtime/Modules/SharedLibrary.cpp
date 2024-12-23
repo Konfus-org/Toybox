@@ -1,5 +1,5 @@
 #include "tbxpch.h"
-#include "DynamicLibrary.h"
+#include "SharedLibrary.h"
 #ifdef TBX_PLATFORM_WINDOWS
     #include <Windows.h>
     #include <DbgHelp.h>
@@ -11,17 +11,28 @@
 
 namespace Toybox
 {
-    DynamicLibrary::~DynamicLibrary()
+    SharedLibrary::SharedLibrary(const std::string& path)
+    {
+        Load(path);
+    }
+
+    SharedLibrary::~SharedLibrary()
     {
         Unload();
     }
 
-    std::string DynamicLibrary::GetPath() const
+    std::string SharedLibrary::GetPath() const
     {
         return _path;
     }
 
-    bool DynamicLibrary::Load(const std::string& path)
+    bool SharedLibrary::IsValid()
+    {
+        const auto& handle = std::any_cast<HMODULE>(_handle);
+        return handle;
+    }
+
+    bool SharedLibrary::Load(const std::string& path)
     {
 #ifdef TBX_DEBUG
         TBX_INFO("Loading library: {0}", path);
@@ -43,7 +54,7 @@ namespace Toybox
 #endif
     }
 
-    void DynamicLibrary::Unload()
+    void SharedLibrary::Unload()
     {
 #ifdef TBX_PLATFORM_WINDOWS
 
@@ -63,7 +74,7 @@ namespace Toybox
 #endif
     }
 
-    Symbol DynamicLibrary::GetSymbol(const std::string& name)
+    Symbol SharedLibrary::GetSymbol(const std::string& name)
     {
 #ifdef TBX_PLATFORM_WINDOWS
 
@@ -81,7 +92,7 @@ namespace Toybox
 #endif
     }
 
-    void DynamicLibrary::ListSymbols()
+    void SharedLibrary::ListSymbols()
     {
 #ifdef TBX_PLATFORM_WINDOWS
 

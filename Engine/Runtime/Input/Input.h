@@ -25,6 +25,5 @@ namespace Toybox
 
     private:
         static std::shared_ptr<IInputHandler> _handler;
-        static bool _validateOnceFlag;
     };
 }

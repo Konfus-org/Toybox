@@ -23,12 +23,12 @@ namespace Toybox
 
         TBX_API bool IsRunning() const;
         TBX_API std::string GetName() const;
-        TBX_API std::shared_ptr<IWindow> GetMainWindow() const;
+        TBX_API std::weak_ptr<IWindow> GetMainWindow() const;
 
     private:
         bool _isRunning = false;
         std::string _name = "App";
-        std::shared_ptr<IWindow> _mainWindow = nullptr;
+        std::shared_ptr<IWindow> _mainWindow;
         std::vector<std::shared_ptr<IWindow>> _windows;
         LayerStack _layerStack;
 

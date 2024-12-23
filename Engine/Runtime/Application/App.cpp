@@ -104,7 +104,13 @@ namespace Toybox
     std::shared_ptr<IWindow> App::CreateNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
         auto windowFactory = ModuleServer::GetFactoryModule<IWindow>();
-        auto sharedWindow = windowFactory->CreateShared();
+        if (!Toybox::IsWeakPointerValid(windowFactory))
+        {
+            TBX_ERROR("Failed to create window because the window {0}, because the window factory couldn't be found...", name);
+            return nullptr;
+        }
+
+        auto sharedWindow = windowFactory.lock()->CreateShared();
         sharedWindow->SetTitle(name);
         sharedWindow->SetSize(size);
         sharedWindow->Open(mode);
@@ -132,7 +138,7 @@ namespace Toybox
         return true;
     }
 
-    std::shared_ptr<IWindow> App::GetMainWindow() const
+    std::weak_ptr<IWindow> App::GetMainWindow() const
     {
         return _mainWindow;
     }

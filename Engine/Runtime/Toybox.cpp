@@ -10,5 +10,6 @@ namespace Toybox
         {
             app.Update();
         }
+        app.Close();
     }
 }

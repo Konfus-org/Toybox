@@ -23,7 +23,7 @@ namespace GlfwInput
         Toybox::Vector2 GetMousePosition() override;
 
     private:
-        GLFWwindow* _mainWindow = nullptr;
+        GLFWwindow* _context = nullptr;
 
         int GetKeyState(int keyCode);
         int GetMouseButtonState(int button);
