@@ -1,4 +1,6 @@
+#include "tbxpch.h"
 #include "LoadedModule.h"
+#include "Debug/Debugging.h"
 
 namespace Toybox
 {

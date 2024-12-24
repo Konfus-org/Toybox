@@ -33,8 +33,4 @@ project "Runtime"
         "SpdLog Module"
     }
 
-    -- To debug loading shared libs at runtime
-    filter "system:Windows"
-        links "DbgHelp.lib"
-
     ToyboxModuleConfigs()

@@ -1,5 +1,5 @@
 project "Core"
-    kind "StaticLib"
+    kind "SharedLib"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
@@ -28,6 +28,11 @@ project "Core"
         "./**.cpp"
     }
 
+    -- To debug loading shared libs at runtime
+    filter "system:Windows"
+        links "DbgHelp.lib"
+
     -- Setup standard platforms and configs
     ToyboxConfigs()
     ToyboxPlatforms()
+    DllConfigs()

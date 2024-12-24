@@ -1,7 +1,5 @@
 #pragma once
 #include "tbxpch.h"
-#include "Debug/Logging.h"
-#include <Core.h>
 
 namespace Toybox
 {

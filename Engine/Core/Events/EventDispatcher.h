@@ -1,9 +1,10 @@
 #pragma once
 #include "Event.h"
+#include "tbxAPI.h"
 
 namespace Toybox
 {
-    class EventDispatcher
+    class TBX_API EventDispatcher
     {
     public:
         EventDispatcher(Event& event) : m_Event(event) { }

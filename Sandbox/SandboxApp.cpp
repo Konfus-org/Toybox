@@ -1,9 +1,9 @@
 #include "SandboxApp.h"
 #include "TestLayer.h"
 
-void SandboxApp::Launch()
+
+SandboxApp::SandboxApp() : Toybox::App("Sandbox")
 {
     const auto& testLayer = std::make_shared<TestLayer>("Testing");
     PushLayer(testLayer);
-    Toybox::App::Launch();
 }

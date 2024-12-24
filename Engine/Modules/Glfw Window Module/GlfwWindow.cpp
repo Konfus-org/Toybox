@@ -79,7 +79,7 @@ namespace GlfwWindowing
 #endif
 	}
 
-	void GlfwWindow::SetEventCallback(const EventCallbackFn& callback)
+	void GlfwWindow::SetEventCallback(const Toybox::EventCallbackFn& callback)
 	{
 		_eventCallback = callback;
 		SetupCallbacks();

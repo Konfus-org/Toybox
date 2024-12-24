@@ -25,14 +25,14 @@ namespace GlfwWindowing
         Toybox::uint64 GetId() const override;
         std::any GetNativeWindow() const override;
 
-        void SetEventCallback(const EventCallbackFn& callback) override;
+        void SetEventCallback(const Toybox::EventCallbackFn& callback) override;
         void SetMode(const Toybox::WindowMode& mode) override;
 
     private:
         GLFWwindow* _glfwWindow = nullptr;
-        EventCallbackFn _eventCallback;
         std::string _title;
         Toybox::Size _size;
+        Toybox::EventCallbackFn _eventCallback;
         bool _vSyncEnabled;
 
         void SetupCallbacks();

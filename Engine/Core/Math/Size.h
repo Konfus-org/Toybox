@@ -1,9 +1,10 @@
 #pragma once
 #include "Int.h"
+#include "tbxAPI.h"
 
 namespace Toybox
 {
-    struct Size
+    struct TBX_API Size
     {
     public:
         Size() = default;

@@ -1,5 +1,5 @@
 #pragma once
-#include <Core.h>
+#include "ILogger.h"
 #include "tbxAPI.h"
 
 namespace Toybox
@@ -7,7 +7,7 @@ namespace Toybox
     class Log
     {
     public:
-        TBX_API static void Open();
+        TBX_API static void Open(const std::string& name, const std::string& logSaveLocation);
 
         TBX_API static void Close();
 

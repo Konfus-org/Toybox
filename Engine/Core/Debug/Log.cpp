@@ -1,5 +1,7 @@
+#include "tbxpch.h"
 #include "Log.h"
-#include "Modules/Modules.h"
+#include "LogLevel.h"
+#include "Modules/ModuleServer.h"
 
 #define TBX_VALIDATE_LOGGER(error_msg) if (_logger == nullptr) { std::cout << "Logger null! Falling back to std::cout " + error_msg << std::endl; return; }
 
@@ -7,12 +9,12 @@ namespace Toybox
 {
 	std::shared_ptr<ILogger> Log::_logger;
 
-	void Log::Open()
+	void Log::Open(const std::string& name, const std::string& logSaveLocation)
 	{
 		auto loggerFactory = ModuleServer::GetFactoryModule<ILogger>();
-        auto sharedLogger = loggerFactory.lock()->CreateShared();
+		auto sharedLogger = loggerFactory.lock()->CreateShared();
 		_logger = sharedLogger;
-		_logger->Open("Toybox::Runtime", "Log\\Toybox.log");
+		_logger->Open(name, logSaveLocation);
 	}
 
 	void Log::Close()

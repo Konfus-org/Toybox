@@ -1,9 +1,10 @@
 #pragma once
-#include "tbxpch.h"
+#include "Color.h"
+#include "tbxAPI.h"
 
 namespace Toybox
 {
-    class IRenderer
+    class TBX_API IRenderer
     {
     public:
         IRenderer() = default;

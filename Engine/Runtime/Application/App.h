@@ -4,23 +4,23 @@
 
 namespace Toybox
 {
-    class App : public IApp
+    class App
     {
     public:
         TBX_API explicit(false) App(const std::string_view& name);
-        TBX_API ~App() override;
+        TBX_API ~App();
 
-        TBX_API void Launch() override;
-        TBX_API void Update() override;
-        TBX_API void Close() override;
+        TBX_API void Launch();
+        TBX_API void Update();
+        TBX_API void Close();
 
-        TBX_API void OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size) override;
-        TBX_API void PushLayer(const std::shared_ptr<Layer>& layer) override;
-        TBX_API void PushOverlay(const std::shared_ptr<Layer>& layer) override;
+        TBX_API void OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
+        TBX_API void PushLayer(const std::shared_ptr<Layer>& layer);
+        TBX_API void PushOverlay(const std::shared_ptr<Layer>& layer);
 
-        TBX_API bool IsRunning() const override;
-        TBX_API std::string GetName() const override;
-        TBX_API std::weak_ptr<IWindow> GetMainWindow() const override;
+        TBX_API bool IsRunning() const;
+        TBX_API std::string GetName() const;
+        TBX_API std::weak_ptr<IWindow> GetMainWindow() const;
 
     private:
         bool _isRunning = false;

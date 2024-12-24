@@ -1,5 +1,6 @@
 #pragma once
 #include "SharedLibrary.h"
+#include "Module.h"
 
 namespace Toybox
 {

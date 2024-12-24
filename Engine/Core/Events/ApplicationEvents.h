@@ -1,10 +1,11 @@
 #pragma once
 #include "Math/Size.h"
 #include "Event.h"
+#include "tbxAPI.h"
 
 namespace Toybox
 {
-    class AppEvent : public Event
+    class TBX_API AppEvent : public Event
     {
     public:
         int GetCategorization() const override
@@ -13,7 +14,7 @@ namespace Toybox
         }
     };
 
-    class AppUpdateEvent : public AppEvent 
+    class TBX_API AppUpdateEvent : public AppEvent
     {
     public:
         std::string GetName() const override
@@ -22,7 +23,7 @@ namespace Toybox
         }
     };
 
-    class AppRenderEvent : public AppEvent 
+    class TBX_API AppRenderEvent : public AppEvent
     {
     public:
         std::string GetName() const override

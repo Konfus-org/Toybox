@@ -1,10 +1,11 @@
 #pragma once
 #include "Math/Vector2.h"
 #include "Event.h"
+#include "tbxAPI.h"
 
 namespace Toybox
 {
-    class MouseEvent : public Event
+    class TBX_API MouseEvent : public Event
     {
         int GetCategorization() const override
         {
@@ -12,7 +13,7 @@ namespace Toybox
         }
     };
 
-    class MouseMovedEvent : public MouseEvent
+    class TBX_API MouseMovedEvent : public MouseEvent
     {
     public:
         MouseMovedEvent(float x, float y) : _xPos(x), _yPos(y) { }
@@ -32,7 +33,7 @@ namespace Toybox
         float _yPos;
     };
 
-    class MouseScrolledEvent : public MouseEvent
+    class TBX_API MouseScrolledEvent : public MouseEvent
     {
     public:
         MouseScrolledEvent(float x, float y) : _xScroll(x), _yScroll(y) { }
@@ -52,7 +53,7 @@ namespace Toybox
         float _yScroll;
     };
 
-    class MouseButtonPressedEvent : public MouseEvent
+    class TBX_API MouseButtonPressedEvent : public MouseEvent
     {
     public:
         explicit MouseButtonPressedEvent(int button) : _button(button) { }
@@ -71,7 +72,7 @@ namespace Toybox
         int _button;
     };
 
-    class MouseButtonReleasedEvent : public MouseEvent
+    class TBX_API MouseButtonReleasedEvent : public MouseEvent
     {
     public:
         explicit MouseButtonReleasedEvent(int button) : _button(button) { }

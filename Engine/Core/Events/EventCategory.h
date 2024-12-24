@@ -1,9 +1,10 @@
 #pragma once
 #include "Math/BitOperations.h"
+#include "tbxAPI.h"
 
 namespace Toybox
 {
-    enum EventCategory
+    enum TBX_API EventCategory
     {
         None = 0,
         Input = BIT(0),

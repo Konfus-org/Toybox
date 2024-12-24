@@ -1,8 +1,9 @@
 ﻿#pragma once
+#include "tbxAPI.h"
 
 namespace Toybox
 {
-    enum WindowMode
+    enum TBX_API WindowMode
     {
         Windowed = 0,
         Fullscreen = 1,

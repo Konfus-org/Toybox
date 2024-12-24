@@ -1,10 +1,11 @@
 #pragma once
 #include "Math/Size.h"
 #include "ApplicationEvents.h"
+#include "tbxAPI.h"
 
 namespace Toybox
 {
-    class WindowEvent : public AppEvent
+    class TBX_API WindowEvent : public AppEvent
     {
     public:
         explicit WindowEvent(uint64 windowId) : _windowId(windowId) {}
@@ -18,26 +19,7 @@ namespace Toybox
         uint64 _windowId;
     };
 
-    class CreateWindowEvent : public AppEvent
-    {
-    public:
-        std::string GetWindowName() const
-        {
-
-        }
-
-        int GetCategorization() const override
-        {
-            return EventCategory::Application;
-        }
-
-        std::string GetName() const override
-        {
-            return "Create Window Event";
-        }
-    };
-
-    class WindowCloseEvent : public WindowEvent
+    class TBX_API WindowCloseEvent : public WindowEvent
     {
     public:
         using WindowEvent::WindowEvent;
@@ -48,7 +30,7 @@ namespace Toybox
         }
     };
 
-    class WindowResizeEvent : public WindowEvent
+    class TBX_API WindowResizeEvent : public WindowEvent
     {
     public:
         WindowResizeEvent(uint64 windowId, unsigned int width, unsigned int height)

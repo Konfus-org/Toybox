@@ -1,5 +1,5 @@
+#include "tbxpch.h"
 #include "ModuleServer.h"
-#include "Debug/Debugging.h"
 
 namespace Toybox
 {
@@ -44,11 +44,6 @@ namespace Toybox
 
         return {};
     }
-
-    // Explicit instantiations for module types
-    template std::weak_ptr<FactoryModule<IInputHandler>> ModuleServer::GetFactoryModule<IInputHandler>();
-    template std::weak_ptr<FactoryModule<IWindow>> ModuleServer::GetFactoryModule<IWindow>();
-    template std::weak_ptr<FactoryModule<ILogger>> ModuleServer::GetFactoryModule<ILogger>();
 
     void ModuleServer::LoadModules()
     {

@@ -1,6 +1,6 @@
 #pragma once
-#include <Core.h>
-#include "tbxAPI.h"
+#include "IInputHandler.h"
+#include "Windowing/IWindow.h"
 
 namespace Toybox
 {

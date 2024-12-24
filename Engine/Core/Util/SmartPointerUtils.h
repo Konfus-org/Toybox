@@ -7,6 +7,6 @@ namespace Toybox
     template<typename T>
     bool IsWeakPointerValid(const std::weak_ptr<T>& handler)
     {
-        return handler.lock() && !handler.expired();
+        return !handler.expired() && handler.lock() != nullptr;
     }
 }

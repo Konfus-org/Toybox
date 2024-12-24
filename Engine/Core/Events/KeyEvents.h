@@ -1,9 +1,10 @@
 #pragma once
 #include "Event.h"
+#include "tbxAPI.h"
 
 namespace Toybox
 {
-    class KeyEvent : public Event
+    class TBX_API KeyEvent : public Event
     {
     public:
         explicit KeyEvent(int keyCode) : _keyCode(keyCode) {}
@@ -18,7 +19,7 @@ namespace Toybox
         int _keyCode;
     };
 
-    class KeyPressedEvent : public KeyEvent
+    class TBX_API KeyPressedEvent : public KeyEvent
     {
     public:
         using KeyEvent::KeyEvent;
@@ -29,7 +30,7 @@ namespace Toybox
         }
     };
 
-    class KeyReleasedEvent : public KeyEvent
+    class TBX_API KeyReleasedEvent : public KeyEvent
     {
     public:
         using KeyEvent::KeyEvent;
@@ -40,7 +41,7 @@ namespace Toybox
         }
     }; 
     
-    class KeyHeldEvent : public KeyEvent
+    class TBX_API KeyHeldEvent : public KeyEvent
     {
     public:
         KeyHeldEvent(int keyCode, float timeHeld) :
@@ -60,7 +61,7 @@ namespace Toybox
         float _timeHeld;
     };
 
-    class KeyRepeatedEvent : public KeyEvent
+    class TBX_API KeyRepeatedEvent : public KeyEvent
     {
     public:
         KeyRepeatedEvent(int keyCode, int repeatCount) : 

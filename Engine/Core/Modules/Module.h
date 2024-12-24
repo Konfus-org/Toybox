@@ -1,10 +1,11 @@
 #pragma once
 #include "tbxpch.h"
+#include "tbxAPI.h"
 #include "ModuleAPI.h"
 
 namespace Toybox
 {
-    class Module
+    class TBX_API Module
     {
     public:
         Module() = default;
@@ -16,7 +17,7 @@ namespace Toybox
     };
 
     template<typename T>
-    class FactoryModule : public Module
+    class TBX_API FactoryModule : public Module
     {
     public:
         std::shared_ptr<T> CreateShared()

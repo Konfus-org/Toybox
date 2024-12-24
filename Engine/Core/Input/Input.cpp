@@ -1,7 +1,8 @@
+#include "tbxpch.h"
 #include "Input.h"
-#include "Application/App.h"
+#include "Windowing/IWindow.h"
+#include "Modules/ModuleServer.h"
 #include "Debug/Debugging.h"
-#include "Modules/Modules.h"
 
 #define TBX_VALIDATE_INPUT(error_msg, ...)  if (_handler == nullptr) { TBX_ERROR(error_msg, __VA_ARGS__); return false; }
 

@@ -1,9 +1,5 @@
 #include "App.h"
-#include "Windowing/IWindow.h"
-#include "Modules/Modules.h"
-#include "Debug/Debugging.h"
-#include "Input/Input.h"
-#include <Debug/Log.h>
+#include <Core.h>
 
 namespace Toybox
 {
@@ -27,7 +23,7 @@ namespace Toybox
         ModuleServer::LoadModules();
 
         // Open log
-        Log::Open();
+        Log::Open("Toybox::Runtime", "Logs/Toybox.log");
 
 #ifdef TBX_DEBUG
         // Once log is open, we can print out all loaded modules to the log for debug purposes

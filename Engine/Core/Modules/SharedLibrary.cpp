@@ -1,5 +1,6 @@
 #include "tbxpch.h"
 #include "SharedLibrary.h"
+#include "Debug/Debugging.h"
 #ifdef TBX_PLATFORM_WINDOWS
     #include <Windows.h>
     #include <DbgHelp.h>

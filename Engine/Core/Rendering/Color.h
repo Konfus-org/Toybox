@@ -1,8 +1,9 @@
 #pragma once
+#include "tbxAPI.h"
 
 namespace Toybox
 {
-    struct Color
+    struct TBX_API Color
     {
     public:
         Color() = default;

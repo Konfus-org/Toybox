@@ -6,15 +6,15 @@ namespace Toybox
     class Layer
     {
     public:
-        explicit(false) Layer(const std::string_view& name);
-        virtual ~Layer() = default;
+        TBX_API explicit(false) Layer(const std::string_view& name);
+        TBX_API virtual ~Layer() = default;
 
-        virtual void OnAttach() = 0;
-        virtual void OnDetach() = 0;
-        virtual void OnUpdate() = 0;
-        virtual void OnEvent(Event& event) = 0;
+        TBX_API virtual void OnAttach() = 0;
+        TBX_API virtual void OnDetach() = 0;
+        TBX_API virtual void OnUpdate() = 0;
+        TBX_API virtual void OnEvent(Event& event) = 0;
 
-        std::string GetName() const;
+        TBX_API std::string GetName() const;
 
     private:
         std::string _name;
