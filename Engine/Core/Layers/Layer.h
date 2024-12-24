@@ -6,7 +6,7 @@ namespace Toybox
     class Layer
     {
     public:
-        Layer(const std::string& name);
+        explicit(false) Layer(const std::string_view& name);
         virtual ~Layer() = default;
 
         virtual void OnAttach() = 0;
@@ -14,7 +14,7 @@ namespace Toybox
         virtual void OnUpdate() = 0;
         virtual void OnEvent(Event& event) = 0;
 
-        const std::string GetName() const;
+        std::string GetName() const;
 
     private:
         std::string _name;

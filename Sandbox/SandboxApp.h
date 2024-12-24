@@ -4,6 +4,7 @@
 class SandboxApp : public Toybox::App
 {
 public:
-    SandboxApp();
-    ~SandboxApp() override = default;
+    SandboxApp() : Toybox::App("Sandbox") {}
+
+    void Launch() override;
 };

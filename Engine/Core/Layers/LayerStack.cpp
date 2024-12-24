@@ -3,27 +3,18 @@
 
 namespace Toybox 
 {
-	LayerStack::~LayerStack()
-	{
-		for (Layer* layer : _layers)
-		{
-			layer->OnDetach();
-			delete layer;
-		}
-	}
-
-	void LayerStack::PushLayer(Layer* layer)
+	void LayerStack::PushLayer(const std::shared_ptr<Layer>& layer)
 	{
 		_layers.emplace(_layers.begin() + _layerInsertIndex, layer);
 		_layerInsertIndex++;
 	}
 
-	void LayerStack::PushOverlay(Layer* overlay)
+	void LayerStack::PushOverlay(const std::shared_ptr<Layer>& overlay)
 	{
 		_layers.emplace_back(overlay);
 	}
 
-	void LayerStack::PopLayer(Layer* layer)
+	void LayerStack::PopLayer(const std::shared_ptr<Layer>& layer)
 	{
 		auto it = std::find(_layers.begin(), _layers.begin() + _layerInsertIndex, layer);
 		if (it != _layers.begin() + _layerInsertIndex)
@@ -34,7 +25,7 @@ namespace Toybox
 		}
 	}
 
-	void LayerStack::PopOverlay(Layer* overlay)
+	void LayerStack::PopOverlay(const std::shared_ptr<Layer>& overlay)
 	{
 		auto it = std::find(_layers.begin() + _layerInsertIndex, _layers.end(), overlay);
 		if (it != _layers.end())

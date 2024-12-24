@@ -1,6 +1,7 @@
 #pragma once
 
 // Everything we want exposed to other applications using the toybox engine we put here!
+#include "Application/IApp.h"
 #include "Input/IInputHandler.h"
 #include "Windowing/IWindow.h"
 #include "Rendering/Rendering.h"

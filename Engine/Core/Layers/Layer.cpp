@@ -3,12 +3,12 @@
 
 namespace Toybox 
 {
-	Layer::Layer(const std::string& name)
+	Layer::Layer(const std::string_view& name)
 	{
 		_name = name;
 	}
 
-	const std::string Layer::GetName() const
+	std::string Layer::GetName() const
 	{
 		return _name;
 	}

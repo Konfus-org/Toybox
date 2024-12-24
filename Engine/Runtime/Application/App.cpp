@@ -91,12 +91,12 @@ namespace Toybox
         }
     }
 
-    void App::PushLayer(Layer* layer)
+    void App::PushLayer(const std::shared_ptr<Layer>& layer)
     {
         _layerStack.PushLayer(layer);
     }
 
-    void App::PushOverlay(Layer* layer)
+    void App::PushOverlay(const std::shared_ptr<Layer>& layer)
     {
         _layerStack.PushOverlay(layer);
     }
