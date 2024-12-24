@@ -1,2 +1,2 @@
 "3rd Party"\Tools\premake\premake5.exe vs2022
-pause
+if NOT ["%errorlevel%"]==["0"] pause

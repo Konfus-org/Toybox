@@ -116,6 +116,7 @@ function IncludeToyboxRuntime()
 end
 
 function ToyboxModuleConfigs()
+    defines "TOYBOX"
     IncludeToyboxCore()
     ToyboxPlatforms()
     ToyboxConfigs()
