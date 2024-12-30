@@ -1,30 +1,30 @@
-#include "GlfwInputModule.h"
-#include "GlfwInputHandler.h"
+#include "GLFWInputModule.h"
+#include "GLFWInputHandler.h"
 #include <GLFW/glfw3.h>
 
-namespace GlfwInput
+namespace GLFWInput
 {
-    Toybox::IInputHandler* GlfwInputModule::Create()
+    Toybox::IInputHandler* GLFWInputModule::Create()
     {
-        return new GlfwInputHandler();
+        return new GLFWInputHandler();
     }
 
-    void GlfwInputModule::Destroy(Toybox::IInputHandler* handlerToDestroy)
+    void GLFWInputModule::Destroy(Toybox::IInputHandler* handlerToDestroy)
     {
         delete handlerToDestroy;
     }
 
-    std::string GlfwInputModule::GetName() const
+    std::string GLFWInputModule::GetName() const
     {
-        return "Glfw Input";
+        return "GLFW Input";
     }
 
-    std::string GlfwInputModule::GetAuthor() const
+    std::string GLFWInputModule::GetAuthor() const
     {
         return "Jeremy Hummel";
     }
 
-    int GlfwInputModule::GetVersion() const
+    int GLFWInputModule::GetVersion() const
     {
         return 0;
     }
@@ -32,9 +32,7 @@ namespace GlfwInput
 
 Toybox::Module* Load()
 {
-    const bool& success = glfwInit();
-    TBX_ASSERT(success, "Failed to initialize glfw!");
-    return new GlfwInput::GlfwInputModule();
+    return new GLFWInput::GLFWInputModule();
 }
 
 void Unload(Toybox::Module* moduleToUnload)

@@ -1,13 +1,13 @@
 #pragma once
 #include <Core.h>
 
-namespace GLFWWindowing
+namespace OpenGLRendering
 {
-    class GLFWWindowModule : public Toybox::FactoryModule<Toybox::IWindow>
+    class OpenGLRenderingModule : public Toybox::FactoryModule<Toybox::IRenderer>
     {
     public:
-        Toybox::IWindow* Create() override;
-        void Destroy(Toybox::IWindow* windowToDestroy) override;
+        Toybox::IRenderer* Create() override;
+        void Destroy(Toybox::IRenderer* windowToDestroy) override;
 
         std::string GetName() const override;
         std::string GetAuthor() const override;

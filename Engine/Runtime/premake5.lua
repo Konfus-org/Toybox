@@ -4,8 +4,8 @@ project "Runtime"
     cppdialect "C++20"
     staticruntime "Off"
 
-    targetdir ("../../" .. OutputDir .. "/bin/")
-    objdir    ("../../" .. OutputDir .. "/obj/")
+    targetdir ("../../" .. OutputTargetDir .. "")
+    objdir    ("../../" .. OutputIntermediateDir .. "")
 
     defines
     {
@@ -28,8 +28,9 @@ project "Runtime"
     -- Set dependson for modules so we don't have to manually rebuild when they change
     links
     {
-        "Glfw Window Module",
-        "Glfw Input Module",
+        "OpenGL Rendering Module",
+        "GLFW Window Module",
+        "GLFW Input Module",
         "SpdLog Module"
     }
 

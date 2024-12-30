@@ -5,8 +5,8 @@ project "Sandbox"
     staticruntime "Off"
     ignoredefaultlibraries { "MSVCRT" }
 
-    targetdir ("../" .. OutputDir .. "/bin/")
-    objdir    ("../" .. OutputDir .. "/obj/")
+    targetdir ("../" .. OutputTargetDir .. "")
+    objdir    ("../" .. OutputIntermediateDir .. "")
 
     files
     {

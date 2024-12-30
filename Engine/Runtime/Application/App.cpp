@@ -20,10 +20,17 @@ namespace Toybox
         _isRunning = true;
 
         // Load modules
-        ModuleServer::LoadModules();
+#ifdef NDEBUG
+        const auto pathToModules = "..\\Modules";
+#else
+        const auto pathToModules = "..\\Build\\bin\\Modules";
+#endif
+        ModuleServer::LoadModules(pathToModules);
 
         // Open log
-        Log::Open("Toybox::Runtime", "Logs/Toybox.log");
+        const auto& currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        const auto& logPath = std::format("Logs\\{}.log", currentTime);
+        Log::Open("Toybox::Runtime", logPath);
 
 #ifdef TBX_DEBUG
         // Once log is open, we can print out all loaded modules to the log for debug purposes
@@ -46,10 +53,7 @@ namespace Toybox
 
     void App::Update()
     {
-        if (_mainWindow != nullptr)
-        {
-            _mainWindow->Update();
-        }
+        if (_mainWindow != nullptr) _mainWindow->Update();
 
         AppUpdateEvent updateEvent;
         OnEvent(updateEvent);
@@ -106,18 +110,35 @@ namespace Toybox
 
     std::shared_ptr<IWindow> App::CreateNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
+        // Create window
         auto windowFactory = ModuleServer::GetFactoryModule<IWindow>();
         if (!Toybox::IsWeakPointerValid(windowFactory))
         {
-            TBX_ERROR("Failed to create window because the window {0}, because the window factory couldn't be found...", name);
+            TBX_ERROR("Failed to create {0} window, because the window factory couldn't be found. Is a windowing module installed?", name);
             return nullptr;
         }
-
         auto sharedWindow = windowFactory.lock()->CreateShared();
+
+        // Configure and open window
         sharedWindow->SetTitle(name);
         sharedWindow->SetSize(size);
         sharedWindow->Open(mode);
         sharedWindow->SetEventCallback(TBX_BIND_EVENT_FN(App::OnEvent));
+
+        // Create renderer and attach to window
+        auto rendererFactory = ModuleServer::GetFactoryModule<IRenderer>();
+        if (!Toybox::IsWeakPointerValid(rendererFactory))
+        {
+            TBX_ERROR("Failed to create renderer for the {0} window, because the renderer factory couldn't be found. Is a renderer module installed?", name);
+        }
+        else
+        {
+            auto sharedRenderer = rendererFactory.lock()->CreateShared();
+            sharedRenderer->Initialize(sharedWindow);
+            sharedWindow->SetRenderer(sharedRenderer);
+            sharedWindow->SetVSyncEnabled(true);
+        }
+
         return sharedWindow;
     }
 

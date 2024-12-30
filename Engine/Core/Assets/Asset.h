@@ -17,7 +17,7 @@ namespace Toybox
         TBX_API void Unload();
 
     protected:
-        virtual bool LoadData(const std::filebuf& fileContents) = 0;
+        TBX_API virtual bool LoadData(const std::filebuf& fileContents) = 0;
 
     private:
         std::string _name;

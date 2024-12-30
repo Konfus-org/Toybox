@@ -2,14 +2,15 @@
 #include <Core.h>
 #include <GLFW/glfw3.h>
 
-namespace GlfwWindowing
+namespace GLFWWindowing
 {
-    class GlfwWindow : public Toybox::IWindow
+    class GLFWWindow : public Toybox::IWindow
     {
     public:
-        GlfwWindow();
-        ~GlfwWindow() final;
+        GLFWWindow();
+        ~GLFWWindow() final;
 
+        void SetRenderer(const std::shared_ptr<Toybox::IRenderer>& renderer) override;
         void Open(const Toybox::WindowMode& mode) override;
         void Update() override;
 
@@ -29,13 +30,14 @@ namespace GlfwWindowing
         void SetMode(const Toybox::WindowMode& mode) override;
 
     private:
-        GLFWwindow* _glfwWindow = nullptr;
+        bool _vSyncEnabled;
         std::string _title;
         Toybox::Size _size;
         Toybox::EventCallbackFn _eventCallback;
-        bool _vSyncEnabled;
+        std::shared_ptr<Toybox::IRenderer> _renderer;
+        GLFWwindow* _glfwWindow = nullptr;
 
         void SetupCallbacks();
-        void SetupContext();
+        void OnSizeChanged();
     };
 }

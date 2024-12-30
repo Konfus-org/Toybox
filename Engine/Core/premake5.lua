@@ -4,8 +4,8 @@ project "Core"
     cppdialect "C++20"
     staticruntime "Off"
 
-    targetdir ("../../" .. OutputDir .. "/bin/")
-    objdir    ("../../" .. OutputDir .. "/obj/")
+    targetdir ("../../" .. OutputTargetDir .. "")
+    objdir    ("../../" .. OutputIntermediateDir .. "")
 
     pchheader "tbxpch.h"
     pchsource "tbxpch.cpp"

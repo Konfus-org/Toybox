@@ -6,8 +6,8 @@ project "Interop"
     warnings "Default"
     ignoredefaultlibraries { "MSVCRT" }
 
-    targetdir ("../../" .. OutputDir .. "/bin/")
-    objdir    ("../../" .. OutputDir .. "/obj/")
+    targetdir ("../../" .. OutputTargetDir .. "")
+    objdir    ("../../" .. OutputIntermediateDir .. "")
 
     files
     {

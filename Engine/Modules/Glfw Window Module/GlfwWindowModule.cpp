@@ -1,30 +1,30 @@
-#include "GlfwWindowModule.h"
-#include "GlfwWindow.h"
+#include "GLFWWindowModule.h"
+#include "GLFWWindow.h"
 #include <GLFW/glfw3.h>
 
-namespace GlfwWindowing
+namespace GLFWWindowing
 {
-    Toybox::IWindow* GlfwWindowModule::Create()
+    Toybox::IWindow* GLFWWindowModule::Create()
     {
-        return new GlfwWindow();
+        return new GLFWWindow();
     }
 
-    void GlfwWindowModule::Destroy(Toybox::IWindow* windowToDestroy)
+    void GLFWWindowModule::Destroy(Toybox::IWindow* windowToDestroy)
     {
         delete windowToDestroy;
     }
 
-    std::string GlfwWindowModule::GetName() const
+    std::string GLFWWindowModule::GetName() const
     {
-        return "Glfw Windowing";
+        return "GLFW Windowing";
     }
 
-    std::string GlfwWindowModule::GetAuthor() const
+    std::string GLFWWindowModule::GetAuthor() const
     {
         return "Jeremy Hummel";
     }
 
-    int GlfwWindowModule::GetVersion() const
+    int GLFWWindowModule::GetVersion() const
     {
         return 0;
     }
@@ -34,7 +34,7 @@ Toybox::Module* Load()
 {
     const bool& success = glfwInit();
     TBX_ASSERT(success, "Failed to initialize glfw!");
-    return new GlfwWindowing::GlfwWindowModule();
+    return new GLFWWindowing::GLFWWindowModule();
 }
 
 void Unload(Toybox::Module* moduleToUnload)

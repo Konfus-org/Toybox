@@ -1,9 +1,9 @@
 #pragma once
 #include <Core.h>
 
-namespace GlfwInput
+namespace GLFWInput
 {
-    class GlfwInputModule : public Toybox::FactoryModule<Toybox::IInputHandler>
+    class GLFWInputModule : public Toybox::FactoryModule<Toybox::IInputHandler>
     {
     public:
         std::string GetName() const override;

@@ -1,72 +1,87 @@
-#include "GlfwWindow.h"
+#include "GLFWWindow.h"
 #include <GLFW/glfw3native.h>
 #include <Core.h>
 
-namespace GlfwWindowing
+namespace GLFWWindowing
 {
-	GlfwWindow::GlfwWindow()
+	GLFWWindow::GLFWWindow()
 	{
 		Toybox::Size size(0, 0);
 		_size = size;
 		_vSyncEnabled = true;
 	}
 
-	GlfwWindow::~GlfwWindow()
+	GLFWWindow::~GLFWWindow()
 	{
 		glfwDestroyWindow(_glfwWindow);
 	}
 
-	void GlfwWindow::Open(const Toybox::WindowMode& mode)
+	void GLFWWindow::SetRenderer(const std::shared_ptr<Toybox::IRenderer>& renderer)
+	{
+		_renderer = renderer;
+		_renderer->SetViewport({ 0, 0 }, _size);
+	}
+
+	void GLFWWindow::Open(const Toybox::WindowMode& mode)
 	{
 		SetMode(mode);
 	}
 
-	void GlfwWindow::Update()
+	void GLFWWindow::Update()
 	{
-		glfwSwapBuffers(_glfwWindow);
+		// Draw basic color to window for now
+		// TODO: use a queue to pass things to renderer
+		_renderer->BeginFrame();
+		_renderer->Draw(Toybox::Color(20, 20, 30, 255));
+		_renderer->EndFrame();
 
 		// Needs to be at the end of the update! 
 		// Otherwise something like closing will run and anything after could throw errors because the window was destroyed...
-		glfwPollEvents(); 
+		glfwPollEvents();
 	}
 
-	void GlfwWindow::SetVSyncEnabled(const bool& enabled)
+	void GLFWWindow::SetVSyncEnabled(const bool& enabled)
 	{
 		_vSyncEnabled = enabled;
-		glfwSwapInterval(_vSyncEnabled);
+		_renderer->SetVSyncEnabled(enabled);
 	}
 
-	bool GlfwWindow::GetVSyncEnabled() const
+	bool GLFWWindow::GetVSyncEnabled() const
 	{
 		return _vSyncEnabled;
 	}
 
-	void GlfwWindow::SetSize(const Toybox::Size& size)
+	void GLFWWindow::SetSize(const Toybox::Size& size)
 	{
 		_size = size;
+		if (_glfwWindow != nullptr)
+		{
+			glfwSetWindowSize(_glfwWindow, _size.Width, _size.Height);
+		}
+		OnSizeChanged();
 	}
 
-	Toybox::Size GlfwWindow::GetSize() const
+	Toybox::Size GLFWWindow::GetSize() const
 	{
 		return _size;
 	}
 
-	std::string GlfwWindow::GetTitle() const
+	std::string GLFWWindow::GetTitle() const
 	{
 		return _title;
 	}
 
-	void GlfwWindow::SetTitle(const std::string& title)
+	void GLFWWindow::SetTitle(const std::string& title)
 	{
 		_title = title;
 	}
 
-	std::any GlfwWindow::GetNativeWindow() const
+	std::any GLFWWindow::GetNativeWindow() const
 	{
 		return _glfwWindow;
 	}
 
-	Toybox::uint64 GlfwWindow::GetId() const
+	Toybox::uint64 GLFWWindow::GetId() const
 	{
 #ifdef TBX_PLATFORM_WINDOWS
 		return (Toybox::uint64)glfwGetWin32Window(_glfwWindow);
@@ -79,13 +94,13 @@ namespace GlfwWindowing
 #endif
 	}
 
-	void GlfwWindow::SetEventCallback(const Toybox::EventCallbackFn& callback)
+	void GLFWWindow::SetEventCallback(const Toybox::EventCallbackFn& callback)
 	{
 		_eventCallback = callback;
 		SetupCallbacks();
 	}
 
-	void GlfwWindow::SetMode(const Toybox::WindowMode& mode)
+	void GLFWWindow::SetMode(const Toybox::WindowMode& mode)
 	{
 		if (_glfwWindow != nullptr)
 		{
@@ -149,12 +164,11 @@ namespace GlfwWindowing
 			}
 		}
 
-		SetVSyncEnabled(_vSyncEnabled);
-		SetupContext();
+		glfwSetWindowUserPointer(_glfwWindow, this);
 		SetupCallbacks();
 	}
 
-	void GlfwWindow::SetupCallbacks()
+	void GLFWWindow::SetupCallbacks()
 	{
 		glfwSetErrorCallback([](int error, const char* description)
 		{
@@ -169,22 +183,23 @@ namespace GlfwWindowing
 
 		glfwSetWindowSizeCallback(_glfwWindow, [](GLFWwindow* window, int width, int height)
 		{
-			GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
-			toyboxWindow.SetSize(Toybox::Size(width, height));
+			GLFWWindow& toyboxWindow = *(GLFWWindow*)glfwGetWindowUserPointer(window);
+			toyboxWindow._size = { width, height };
+			toyboxWindow.OnSizeChanged();
 			Toybox::WindowResizeEvent event(toyboxWindow.GetId(), width, height);
 			toyboxWindow._eventCallback(event);
 		});
 
 		glfwSetWindowCloseCallback(_glfwWindow, [](GLFWwindow* window)
 		{
-			const GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
+			const GLFWWindow& toyboxWindow = *(GLFWWindow*)glfwGetWindowUserPointer(window);
 			Toybox::WindowCloseEvent event(toyboxWindow.GetId());
 			toyboxWindow._eventCallback(event);
 		});
 
 		glfwSetKeyCallback(_glfwWindow, [](GLFWwindow* window, int key, int scancode, int action, int mods)
 		{
-			const GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
+			const GLFWWindow& toyboxWindow = *(GLFWWindow*)glfwGetWindowUserPointer(window);
 
 			switch (action)
 			{
@@ -216,7 +231,7 @@ namespace GlfwWindowing
 
 		glfwSetCharCallback(_glfwWindow, [](GLFWwindow* window, unsigned int keycode)
 		{
-			const GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
+			const GLFWWindow& toyboxWindow = *(GLFWWindow*)glfwGetWindowUserPointer(window);
 
 			Toybox::KeyPressedEvent event(keycode);
 			toyboxWindow._eventCallback(event);
@@ -224,7 +239,7 @@ namespace GlfwWindowing
 
 		glfwSetMouseButtonCallback(_glfwWindow, [](GLFWwindow* window, int button, int action, int mods)
 		{
-			const GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
+			const GLFWWindow& toyboxWindow = *(GLFWWindow*)glfwGetWindowUserPointer(window);
 
 			switch (action)
 			{
@@ -250,7 +265,7 @@ namespace GlfwWindowing
 
 		glfwSetScrollCallback(_glfwWindow, [](GLFWwindow* window, double xOffset, double yOffset)
 		{
-			const GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
+			const GLFWWindow& toyboxWindow = *(GLFWWindow*)glfwGetWindowUserPointer(window);
 
 			Toybox::MouseScrolledEvent event((float)xOffset, (float)yOffset);
 			toyboxWindow._eventCallback(event);
@@ -258,16 +273,20 @@ namespace GlfwWindowing
 
 		glfwSetCursorPosCallback(_glfwWindow, [](GLFWwindow* window, double xPos, double yPos)
 		{
-			const GlfwWindow& toyboxWindow = *(GlfwWindow*)glfwGetWindowUserPointer(window);
+			const GLFWWindow& toyboxWindow = *(GLFWWindow*)glfwGetWindowUserPointer(window);
 
 			Toybox::MouseMovedEvent event((float)xPos, (float)yPos);
 			toyboxWindow._eventCallback(event);
 		});
 	}
 
-	void GlfwWindow::SetupContext()
+	void GLFWWindow::OnSizeChanged()
 	{
-		glfwMakeContextCurrent(_glfwWindow);
-		glfwSetWindowUserPointer(_glfwWindow, this);
+		if (_renderer != nullptr)
+		{
+			_renderer->BeginFrame();
+			_renderer->SetViewport({ 0, 0 }, _size);
+			_renderer->EndFrame();
+		}
 	}
 }

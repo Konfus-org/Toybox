@@ -111,10 +111,10 @@ namespace Toybox
         // Callback function for symbol enumeration
         TBX_INFO("Symbols in the shared library {0}:", _path);
         const auto& enumSymbolsCallback = [](PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID UserContext) -> BOOL
-            {
-                TBX_INFO(pSymInfo->Name);
-                return TRUE;
-            };
+        {
+            TBX_INFO(pSymInfo->Name);
+            return TRUE;
+        };
 
         if (!SymEnumSymbols(GetCurrentProcess(), baseAddr, "*", enumSymbolsCallback, nullptr))
         {

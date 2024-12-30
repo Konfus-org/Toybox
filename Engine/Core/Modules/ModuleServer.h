@@ -10,7 +10,7 @@ namespace Toybox
     class ModuleServer
     {
     public:
-        TBX_API static void LoadModules();
+        TBX_API static void LoadModules(const std::string& pathToModules);
         TBX_API static void UnloadModules();
 
         TBX_API static std::weak_ptr<Module> GetModule(const std::string_view& name);
@@ -26,6 +26,7 @@ namespace Toybox
     // Explicit instantiations for module types
     template std::weak_ptr<FactoryModule<IInputHandler>> TBX_API ModuleServer::GetFactoryModule<IInputHandler>();
     template std::weak_ptr<FactoryModule<IWindow>> TBX_API ModuleServer::GetFactoryModule<IWindow>();
+    template std::weak_ptr<FactoryModule<IRenderer>> TBX_API ModuleServer::GetFactoryModule<IRenderer>();
     template std::weak_ptr<FactoryModule<ILogger>> TBX_API ModuleServer::GetFactoryModule<ILogger>();
 }
 

@@ -1,80 +1,79 @@
-#include "GlfwInputHandler.h"
+#include "GLFWInputHandler.h"
 #include <Core.h>
 
-namespace GlfwInput
+namespace GLFWInput
 {
-    void GlfwInputHandler::SetContext(const std::any& context)
+    void GLFWInputHandler::SetContext(const std::weak_ptr<Toybox::IWindow>& windowToListenTo)
     {
-        _context = std::any_cast<GLFWwindow*>(context);
-        glfwMakeContextCurrent(_context);
+        _windowToListenTo = std::any_cast<GLFWwindow*>(windowToListenTo.lock()->GetNativeWindow());
     }
 
-    bool GlfwInputHandler::IsGamepadButtonDown(const int button, int id)
+    bool GLFWInputHandler::IsGamepadButtonDown(const int button, int id)
     {
         return GetGamepadButtonState(0, button) == GLFW_PRESS;
     }
 
-    bool GlfwInputHandler::IsGamepadButtonUp(const int button, int id)
+    bool GLFWInputHandler::IsGamepadButtonUp(const int button, int id)
     {
         return GetGamepadButtonState(0, button) == GLFW_RELEASE;
     }
 
-    bool GlfwInputHandler::IsGamepadButtonHeld(const int button, int id)
+    bool GLFWInputHandler::IsGamepadButtonHeld(const int button, int id)
     {
         return GetGamepadButtonState(0, button) == GLFW_REPEAT;
     }
 
-    bool GlfwInputHandler::IsKeyDown(const int keyCode)
+    bool GLFWInputHandler::IsKeyDown(const int keyCode)
     {
         return GetKeyState(keyCode) == GLFW_PRESS;
     }
 
-    bool GlfwInputHandler::IsKeyUp(const int keyCode)
+    bool GLFWInputHandler::IsKeyUp(const int keyCode)
     {
         return GetKeyState(keyCode) == GLFW_RELEASE;
     }
 
-    bool GlfwInputHandler::IsKeyHeld(const int keyCode)
+    bool GLFWInputHandler::IsKeyHeld(const int keyCode)
     {
         return GetKeyState(keyCode) == GLFW_REPEAT;
     }
 
-    bool GlfwInputHandler::IsMouseButtonDown(const int button)
+    bool GLFWInputHandler::IsMouseButtonDown(const int button)
     {
         return GetMouseButtonState(button) == GLFW_PRESS;
     }
 
-    bool GlfwInputHandler::IsMouseButtonUp(const int button)
+    bool GLFWInputHandler::IsMouseButtonUp(const int button)
     {
         return GetMouseButtonState(button) == GLFW_RELEASE;
     }
 
-    bool GlfwInputHandler::IsMouseButtonHeld(const int button)
+    bool GLFWInputHandler::IsMouseButtonHeld(const int button)
     {
         return GetMouseButtonState(button) == GLFW_REPEAT;
     }
 
-    Toybox::Vector2 GlfwInputHandler::GetMousePosition()
+    Toybox::Vector2 GLFWInputHandler::GetMousePosition()
     {
         double xPos;
         double yPos;
-        glfwGetCursorPos(_context, &xPos, &yPos);
+        glfwGetCursorPos(_windowToListenTo, &xPos, &yPos);
         return Toybox::Vector2((float)xPos, (float)yPos);
     }
 
-    int GlfwInputHandler::GetKeyState(int keyCode)
+    int GLFWInputHandler::GetKeyState(int keyCode)
     {
-        auto state = glfwGetKey(_context, keyCode);
+        auto state = glfwGetKey(_windowToListenTo, keyCode);
         return state;
     }
 
-    int GlfwInputHandler::GetMouseButtonState(int button)
+    int GLFWInputHandler::GetMouseButtonState(int button)
     {
-        auto state = glfwGetMouseButton(_context, button);
+        auto state = glfwGetMouseButton(_windowToListenTo, button);
         return state;
     }
 
-    int GlfwInputHandler::GetGamepadButtonState(int button, int id)
+    int GLFWInputHandler::GetGamepadButtonState(int button, int id)
     {
         int numberOfPressedButtons;
         const unsigned char* buttons = glfwGetJoystickButtons(id, &numberOfPressedButtons);

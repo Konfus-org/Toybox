@@ -2,12 +2,12 @@
 #include <Core.h>
 #include <GLFW/glfw3.h>
 
-namespace GlfwInput
+namespace GLFWInput
 {
-    class GlfwInputHandler : public Toybox::IInputHandler
+    class GLFWInputHandler : public Toybox::IInputHandler
     {
     public:
-        void SetContext(const std::any& context) override;
+        void SetContext(const std::weak_ptr<Toybox::IWindow>& windowToListenTo) override;
 
         bool IsGamepadButtonDown(const int id, const int button) override;
         bool IsGamepadButtonUp(const int id, const int button) override;
@@ -23,7 +23,7 @@ namespace GlfwInput
         Toybox::Vector2 GetMousePosition() override;
 
     private:
-        GLFWwindow* _context = nullptr;
+        GLFWwindow* _windowToListenTo = nullptr;
 
         int GetKeyState(int keyCode);
         int GetMouseButtonState(int button);

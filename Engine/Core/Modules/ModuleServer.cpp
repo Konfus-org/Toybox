@@ -45,19 +45,15 @@ namespace Toybox
         return {};
     }
 
-    void ModuleServer::LoadModules()
+    void ModuleServer::LoadModules(const std::string& pathToModules)
     {
-#ifdef NDEBUG
-        // non-debug
-        const auto pathToModules = "..\\Modules";
-#else
-        // debug code
-        const auto pathToModules = "..\\Build\\bin\\Modules";
-#endif
-
         const auto& modulesInModuleDir = std::filesystem::directory_iterator(pathToModules);
         for (const auto& entry : modulesInModuleDir)
         {
+            // Recursively load directories
+            if (entry.is_directory()) LoadModules(entry.path().string());
+            
+            // Skip anything that isn't a file
             if (!entry.is_regular_file()) continue;
 
             // Platform-specific extension check

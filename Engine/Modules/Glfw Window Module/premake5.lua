@@ -1,20 +1,19 @@
-project "Glfw Window Module"
+project "GLFW Window Module"
     kind "SharedLib"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
     ignoredefaultlibraries { "MSVCRT" }
 
-    targetdir ("../../../" .. OutputDir .. "/bin/Modules/")
-    objdir    ("../../../" .. OutputDir .. "/obj/Modules/")
+    targetdir ("../../../" .. OutputTargetModulesDir .. "")
+    objdir    ("../../../" .. OutputIntermediateModulesDir .. "")
 
     files
     {
         "./**.h",
         "./**.c",
         "./**.hpp",
-        "./**.cpp",
-        "./**.cs",
+        "./**.cpp"
     }
 
     defines
@@ -25,12 +24,12 @@ project "Glfw Window Module"
     includedirs
     {
         "./",
-        "%{IncludeDir.glfw}"
+        "%{IncludeDir.GLFW}"
     }
 
     links
     {
-        "glfw"
+        "GLFW"
     }
 
     ToyboxModuleConfigs()

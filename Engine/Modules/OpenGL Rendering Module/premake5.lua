@@ -1,4 +1,4 @@
-project "SpdLog Module"
+project "OpenGL Rendering Module"
     kind "SharedLib"
     language "C++"
     cppdialect "C++20"
@@ -16,16 +16,22 @@ project "SpdLog Module"
         "./**.cpp"
     }
 
+    defines
+    {
+        "GLFW_INCLUDE_NONE"
+    }
+
     includedirs
     {
         "./",
-        "%{IncludeDir.spdlog}"
+        "%{IncludeDir.GLFW}",
+        "%{IncludeDir.glad}",
     }
 
     links
     {
-        "spdlog"
+        "GLFW",
+        "glad"
     }
 
-    -- Setup standard platforms and configs
     ToyboxModuleConfigs()

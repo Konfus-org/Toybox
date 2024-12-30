@@ -1,5 +1,6 @@
 #pragma once
 #include <tbxpch.h>
+#include "Windowing/IWindow.h"
 #include "Math/Math.h"
 
 namespace Toybox
@@ -10,7 +11,7 @@ namespace Toybox
         IInputHandler() = default;
         virtual ~IInputHandler() = default;
 
-        virtual void SetContext(const std::any& context) = 0;
+        virtual void SetContext(const std::weak_ptr<IWindow>& windowToListenTo) = 0;
 
         virtual bool IsGamepadButtonDown(const int id, const int button) = 0;
         virtual bool IsGamepadButtonUp(const int id, const int button) = 0;

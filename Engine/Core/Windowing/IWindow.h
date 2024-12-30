@@ -2,19 +2,20 @@
 #include "tbxpch.h"
 #include "tbxAPI.h"
 #include "WindowMode.h"
-#include "Events/Event.h"
 #include "Math/Size.h"
 #include "Math/Int.h"
+#include "Events/Event.h"
+#include "Rendering/IRenderer.h"
 
 namespace Toybox
 {
     class TBX_API IWindow
     {
     public:
-
         IWindow() = default;
         virtual ~IWindow() = default;
 
+        virtual void SetRenderer(const std::shared_ptr<IRenderer>& renderer) = 0;
         virtual void Open(const WindowMode& mode) = 0;
         virtual void Update() = 0;
 

@@ -12,4 +12,15 @@ namespace Toybox
         float X;
         float Y;
     };
+
+
+    struct TBX_API Vector2I
+    {
+    public:
+        Vector2I() = default;
+        Vector2I(int x, int y) : X(x), Y(y) {}
+
+        int X;
+        int Y;
+    };
 }
