@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <functional>
 #include <any>
+#include <array>
 #include <sstream>
 #include <filesystem>
 #include <string>

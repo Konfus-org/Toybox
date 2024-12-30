@@ -1,5 +1,7 @@
 #pragma once
+#include "tbxpch.h"
 #include "tbxAPI.h"
+#include "Matrix.h"
 
 namespace Toybox
 {
@@ -12,5 +14,17 @@ namespace Toybox
         float X;
         float Y;
         float Z;
+
+        static Vector3 Identity() { return Vector3(1, 1, 1); }
+
+        Matrix ToMatrix() const
+        {
+            return Matrix({
+                X, 0, 0, 0,
+                0, Y, 0, 0,
+                0, 0, Z, 0,
+                0, 0, 0, 1
+            });
+        }
     };
 }

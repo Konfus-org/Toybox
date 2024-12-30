@@ -9,6 +9,7 @@ namespace Toybox
     class Mesh : public Asset
     {
     public:
+        TBX_API Mesh() = default;
         TBX_API Mesh(const std::vector<Vertex>& vertices, const std::vector<uint>& indices)
             : Vertices(vertices), Indices(indices) {}
 

@@ -32,7 +32,18 @@ namespace GLFWWindowing
 		// Draw basic color to window for now
 		// TODO: use a queue to pass things to renderer
 		_renderer->BeginFrame();
-		_renderer->Draw(Toybox::Color(20, 20, 30, 255));
+
+		//_renderer->Draw(Toybox::Color(20, 20, 30, 255));
+
+		//// Testing / Drawing triangle
+		auto vertices = std::vector<Toybox::Vertex>();
+		vertices.push_back(Toybox::Vertex({ 0,  1, 0 }));
+		vertices.push_back(Toybox::Vertex({ -1, -1, 0 }));
+		vertices.push_back(Toybox::Vertex({ 1, -1, 0 }));
+		auto mesh = Toybox::Mesh(vertices, {0, 1, 2});
+		_renderer->Draw(mesh, Toybox::Vector3(), Toybox::Quaternion(), Toybox::Scale(1.0f, 1.0f, 1.0f));
+		//// Testing / Drawing triangle
+
 		_renderer->EndFrame();
 
 		// Needs to be at the end of the update! 
