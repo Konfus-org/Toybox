@@ -30,12 +30,12 @@ namespace OpenGLRendering
         std::shared_ptr<OpenGLBuffer> _buffer = nullptr;
         std::weak_ptr<Toybox::IWindow> _context;
 
-        GLuint _vao;
-        GLuint _vbo;
-        GLuint _ibo;
-        GLuint _shaderProgram;
+        Toybox::uint _vertexArray;
+        Toybox::uint _vertexBuffer;
+        Toybox::uint _indexBuffer;
+        //GLuint _shaderProgram;
 
-        GLuint LoadShader(const std::string& vertexSrc, const std::string& fragmentSrc) const;
+        //GLuint LoadShader(const std::string& vertexSrc, const std::string& fragmentSrc) const;
         //GLuint LoadTexture(const std::string& filepath);
     };
 }
