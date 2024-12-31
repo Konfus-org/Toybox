@@ -10,6 +10,11 @@ namespace Toybox
     public:
         explicit WindowEvent(uint64 windowId) : _windowId(windowId) {}
 
+        int GetCategorization() const override
+        { 
+            return static_cast<int>(EventCategory::Window);
+        }
+
         inline uint64 GetWindowId() const
         {
             return _windowId;
@@ -40,11 +45,6 @@ namespace Toybox
         Size GetSize() const
         {
             return Size(_width, _height);
-        }
-
-        int GetCategorization() const override
-        {
-            return EventCategory::Application;
         }
 
         std::string GetName() const override

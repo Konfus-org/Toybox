@@ -4,7 +4,7 @@
 
 namespace Toybox
 {
-    enum TBX_API EventCategory
+    enum class TBX_API EventCategory
     {
         None = 0,
         Input = BIT(0),
@@ -12,5 +12,6 @@ namespace Toybox
         Keyboard = BIT(2),
         Controller = BIT(3),
         Application = BIT(4),
+        Window = BIT(5),
     };
 }

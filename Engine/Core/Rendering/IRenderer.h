@@ -3,6 +3,7 @@
 #include "Color.h"
 #include "Math/Math.h"
 #include "Mesh.h"
+#include "Texture.h"
 
 namespace Toybox
 {
@@ -22,9 +23,9 @@ namespace Toybox
         virtual void EndFrame() = 0;
 
         virtual void ClearScreen() = 0;
-        virtual void Draw(Color color) = 0;
-        virtual void Draw(Mesh& mesh, const Vector3& worldPos, const Quaternion& rotation, const Scale& scale) = 0;
-        //virtual void Draw(const Texture& texture, const Vector3& worldPos, const Quaternion& rotation, const Scale& scale) = 0;
+        virtual void Draw(const Color& color) = 0;
+        virtual void Draw(const Mesh& mesh, const Vector3& worldPos, const Quaternion& rotation, const Scale& scale) = 0;
+        virtual void Draw(const Texture& texture, const Vector3& worldPos, const Quaternion& rotation, const Scale& scale) = 0;
         virtual void Draw(const std::string& text, const Vector3& worldPos, const Quaternion& rotation, const Scale& scale) = 0;
 
         virtual void SetViewport(const Vector2I& screenPos, const Size& size) = 0;

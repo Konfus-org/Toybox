@@ -36,12 +36,8 @@ namespace GLFWWindowing
 		_renderer->Draw(Toybox::Color(20, 20, 30, 255));
 
 		//// Testing / Drawing triangle
-		auto vertices = std::vector<Toybox::Vertex>();
-		vertices.push_back(Toybox::Vertex({ -0.5f, -0.5f, 0.0f }));
-		vertices.push_back(Toybox::Vertex({ 0.5f, -0.5f, 0.0f }));
-		vertices.push_back(Toybox::Vertex({ 0.0f, 0.5f, 0.0f }));
-		auto mesh = Toybox::Mesh(vertices, {0, 1, 2});
-		_renderer->Draw(mesh, Toybox::Vector3(), Toybox::Quaternion(), Toybox::Scale(1.0f, 1.0f, 1.0f));
+		const auto& mesh = Toybox::Mesh::Triangle();
+		_renderer->Draw(mesh, Toybox::Vector3(), Toybox::Quaternion(), Toybox::Scale());
 		//// Testing / Drawing triangle
 
 		_renderer->EndFrame();
@@ -68,8 +64,8 @@ namespace GLFWWindowing
 		if (_glfwWindow != nullptr)
 		{
 			glfwSetWindowSize(_glfwWindow, _size.Width, _size.Height);
+			OnSizeChanged();
 		}
-		OnSizeChanged();
 	}
 
 	Toybox::Size GLFWWindow::GetSize() const
@@ -186,109 +182,120 @@ namespace GLFWWindowing
 			TBX_CRITICAL("Glfw error: ({0}): {1}", error, description);
 		});
 
-		glfwSetFramebufferSizeCallback(_glfwWindow, [](GLFWwindow* window, int width, int height)
-		{
-			// Tell glfw to redraw while resizing
-			glfwSwapBuffers(window);
-		});
-
 		glfwSetWindowSizeCallback(_glfwWindow, [](GLFWwindow* window, int width, int height)
 		{
 			GLFWWindow& toyboxWindow = *(GLFWWindow*)glfwGetWindowUserPointer(window);
 			toyboxWindow._size = { width, height };
 			toyboxWindow.OnSizeChanged();
-			Toybox::WindowResizeEvent event(toyboxWindow.GetId(), width, height);
-			toyboxWindow._eventCallback(event);
 		});
 
 		glfwSetWindowCloseCallback(_glfwWindow, [](GLFWwindow* window)
 		{
 			const GLFWWindow& toyboxWindow = *(GLFWWindow*)glfwGetWindowUserPointer(window);
-			Toybox::WindowCloseEvent event(toyboxWindow.GetId());
-			toyboxWindow._eventCallback(event);
+            toyboxWindow.OnWindowClosed();
 		});
 
 		glfwSetKeyCallback(_glfwWindow, [](GLFWwindow* window, int key, int scancode, int action, int mods)
 		{
 			const GLFWWindow& toyboxWindow = *(GLFWWindow*)glfwGetWindowUserPointer(window);
-
-			switch (action)
-			{
-				case GLFW_PRESS:
-				{
-					Toybox::KeyPressedEvent event(key);
-					toyboxWindow._eventCallback(event);
-					break;
-				}
-				case GLFW_RELEASE:
-				{
-					Toybox::KeyReleasedEvent event(key);
-					toyboxWindow._eventCallback(event);
-					break;
-				}
-				case GLFW_REPEAT:
-				{
-					Toybox::KeyRepeatedEvent event(key, 1);
-					toyboxWindow._eventCallback(event);
-					break;
-				}
-				default:
-				{
-					TBX_ASSERT(false, "Unhandled key press action!");
-					break;
-				}
-			}
+			toyboxWindow.OnKeyPressed(key, scancode, action, mods);
 		});
 
 		glfwSetCharCallback(_glfwWindow, [](GLFWwindow* window, unsigned int keycode)
 		{
 			const GLFWWindow& toyboxWindow = *(GLFWWindow*)glfwGetWindowUserPointer(window);
-
-			Toybox::KeyPressedEvent event(keycode);
-			toyboxWindow._eventCallback(event);
+			toyboxWindow.OnKeyPressed(keycode, 0, GLFW_PRESS, 0);
 		});
 
 		glfwSetMouseButtonCallback(_glfwWindow, [](GLFWwindow* window, int button, int action, int mods)
 		{
 			const GLFWWindow& toyboxWindow = *(GLFWWindow*)glfwGetWindowUserPointer(window);
-
-			switch (action)
-			{
-				case GLFW_PRESS:
-				{
-					Toybox::MouseButtonPressedEvent event(button);
-					toyboxWindow._eventCallback(event);
-					break;
-				}
-				case GLFW_RELEASE:
-				{
-					Toybox::MouseButtonReleasedEvent event(button);
-					toyboxWindow._eventCallback(event);
-					break;
-				}
-				default:
-				{
-					TBX_ASSERT(false, "Unhandled mouse button press action!");
-					break;
-				}
-			}
+			toyboxWindow.OnMouseButtonPressed(button, action, mods);
 		});
 
 		glfwSetScrollCallback(_glfwWindow, [](GLFWwindow* window, double xOffset, double yOffset)
 		{
 			const GLFWWindow& toyboxWindow = *(GLFWWindow*)glfwGetWindowUserPointer(window);
-
-			Toybox::MouseScrolledEvent event((float)xOffset, (float)yOffset);
-			toyboxWindow._eventCallback(event);
+			toyboxWindow.OnMouseScrolled(xOffset, yOffset);
 		});
 
 		glfwSetCursorPosCallback(_glfwWindow, [](GLFWwindow* window, double xPos, double yPos)
 		{
 			const GLFWWindow& toyboxWindow = *(GLFWWindow*)glfwGetWindowUserPointer(window);
-
-			Toybox::MouseMovedEvent event((float)xPos, (float)yPos);
-			toyboxWindow._eventCallback(event);
+            toyboxWindow.OnMouseMoved(xPos, yPos);
 		});
+	}
+
+	void GLFWWindow::OnKeyPressed(int key, [[maybe_unused]] int scancode, int action, [[maybe_unused]] int mods) const
+	{
+		switch (action)
+		{
+			case GLFW_PRESS:
+			{
+				Toybox::KeyPressedEvent event(key);
+				_eventCallback(event);
+				break;
+			}
+			case GLFW_RELEASE:
+			{
+				Toybox::KeyReleasedEvent event(key);
+				_eventCallback(event);
+				break;
+			}
+			case GLFW_REPEAT:
+			{
+				Toybox::KeyRepeatedEvent event(key, 1);
+				_eventCallback(event);
+				break;
+			}
+			default:
+			{
+				TBX_ASSERT(false, "Unhandled key press action!");
+				break;
+			}
+		}
+	}
+
+	void GLFWWindow::OnMouseButtonPressed(int button, int action, [[maybe_unused]] int mods) const
+	{
+		switch (action)
+		{
+			case GLFW_PRESS:
+			{
+				Toybox::MouseButtonPressedEvent event(button);
+				_eventCallback(event);
+				break;
+			}
+			case GLFW_RELEASE:
+			{
+				Toybox::MouseButtonReleasedEvent event(button);
+				_eventCallback(event);
+				break;
+			}
+			default:
+			{
+				TBX_ASSERT(false, "Unhandled mouse button press action!");
+				break;
+			}
+		}
+	}
+
+	void GLFWWindow::OnMouseScrolled(double offsetX, double offsetY) const
+	{
+		Toybox::MouseScrolledEvent event((float)offsetX, (float)offsetY);
+		_eventCallback(event);
+	}
+
+	void GLFWWindow::OnMouseMoved(double posX, double posY) const
+	{
+		Toybox::MouseMovedEvent event((float)posX, (float)posY);
+		_eventCallback(event);
+	}
+
+	void GLFWWindow::OnWindowClosed() const
+	{
+		Toybox::WindowCloseEvent event(GetId());
+		_eventCallback(event);
 	}
 
 	void GLFWWindow::OnSizeChanged()
@@ -299,5 +306,7 @@ namespace GLFWWindowing
 			_renderer->SetViewport({ 0, 0 }, _size);
 			_renderer->EndFrame();
 		}
+		Toybox::WindowResizeEvent event(GetId(), _size.Width, _size.Height);
+		_eventCallback(event);
 	}
 }

@@ -9,7 +9,8 @@ namespace Toybox
     {
         int GetCategorization() const override
         {
-            return EventCategory::Mouse | EventCategory::Input;
+            return static_cast<int>(EventCategory::Mouse) | 
+                static_cast<int>(EventCategory::Input);
         }
     };
 

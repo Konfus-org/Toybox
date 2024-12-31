@@ -4,19 +4,20 @@
 
 namespace OpenGLRendering
 {
-    class OpenGLBuffer
+    class OpenGLContext
     {
     public:
-        explicit OpenGLBuffer(const std::weak_ptr<Toybox::IWindow>& windowToRenderInto);
-        ~OpenGLBuffer() = default;
+        explicit OpenGLContext(const std::weak_ptr<Toybox::IWindow>& windowToRenderInto);
+        ~OpenGLContext() = default;
 
         // TODO: implement
         ////void SetData(const std::any& data, size_t size);
         ////void Bind() const;
         ////void Unbind() const ;
 
-        void Swap();
+        void SwapBuffers();
         void SetSwapInterval(const int& interval) const;
+        GLFWwindow* GetRenderSurface();
 
     private:
         GLFWwindow* _windowToRenderTo = nullptr;

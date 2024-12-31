@@ -12,7 +12,7 @@ namespace Toybox
         int GetKeyCode() const { return _keyCode; }
         int GetCategorization() const override
         {
-            return EventCategory::Keyboard | EventCategory::Input;
+            return static_cast<int>(EventCategory::Keyboard) | static_cast<int>(EventCategory::Input);
         }
  
     private:

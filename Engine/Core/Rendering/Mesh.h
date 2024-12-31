@@ -1,23 +1,68 @@
 #pragma once
 #include "tbxpch.h"
-#include "Math/Int.h"
+#include "Buffers.h"
 #include "Vertex.h"
+#include "Math/Int.h"
 
 namespace Toybox
 {
     struct Mesh
     {
     public:
-        TBX_API Mesh() = default;
-        TBX_API Mesh(const std::vector<Vertex>& vertices, const std::vector<uint>& indices)
-            : Vertices(vertices), Indices(indices) {}
+        TBX_API static Mesh Triangle()
+        { 
+            return Mesh(
+                { 
+                    Toybox::Vertex({ -0.5f, -0.5f, 0.0f }), 
+                    Toybox::Vertex({ 0.5f, -0.5f, 0.0f }), 
+                    Toybox::Vertex({ 0.0f, 0.5f, 0.0f }) 
+                }, 
+                { 0, 1, 2 }
+            );
+        }
 
-        TBX_API inline std::vector<Vertex> GetVertices() const { return Vertices; }
-        TBX_API inline std::vector<uint> GetIndices() const { return Indices; }
+        TBX_API static Mesh Quad()
+        {
+            return Mesh(
+                {
+                    Toybox::Vertex({ -0.5f, -0.5f, 0.0f }),
+                    Toybox::Vertex({ 0.5f, -0.5f, 0.0f }),
+                    Toybox::Vertex({ 0.5f, 0.5f, 0.0f }),
+                    Toybox::Vertex({ -0.5f, 0.5f, 0.0f }),
+                },
+                { 0, 1, 2, 2, 3, 0 }
+            );
+        }
+
+        TBX_API static Mesh Cube()
+        {
+            return Mesh(
+                {
+                    Toybox::Vertex({ -1.0f, -1.0f, -1.0f }),
+                    Toybox::Vertex({ 1.0f, -1.0f, -1.0f }),
+                    Toybox::Vertex({ 1.0f, 1.0f, -1.0f }),
+                    Toybox::Vertex({ -1.0f, 1.0f, -1.0f }),
+                    Toybox::Vertex({ -1.0f, -1.0f, 1.0f }),
+                    Toybox::Vertex({ 1.0f, -1.0f, 1.0f }),
+                    Toybox::Vertex({ 1.0f, 1.0f, 1.0f }),
+                    Toybox::Vertex({ -1.0f, 1.0f, 1.0f }),
+                },
+                { 0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4 }
+            );
+        }
+
+        TBX_API Mesh() = default;
+        TBX_API Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32>& indices)
+            : _vertexBuffer(vertices), _indexBuffer(indices) {}
+        TBX_API Mesh(const VertexBuffer& vertices, const IndexBuffer& indices)
+            : _vertexBuffer(vertices), _indexBuffer(indices) {}
+
+        TBX_API inline VertexBuffer GetVertexBuffer() const { return _vertexBuffer; }
+        TBX_API inline IndexBuffer GetIndexBuffer() const { return _indexBuffer; }
 
     private:
-        std::vector<Vertex> Vertices; // Mesh vertices (points, normals, texture coords)
-        std::vector<uint> Indices;    // Order in which to draw vertices, can also be used for instancing / re-using vertices in a mesh
+        VertexBuffer _vertexBuffer;  
+        IndexBuffer _indexBuffer;
     };
 }
 

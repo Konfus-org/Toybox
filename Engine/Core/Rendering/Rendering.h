@@ -1,8 +1,9 @@
 #pragma once
 
 #include "Color.h"
-#include "Vertex.h"
-#include "IBuffer.h"
-#include "IVertexBuffer.h"
-#include "IRenderer.h"
+#include "Buffers.h"
 #include "Shader.h"
+#include "Texture.h"
+#include "Mesh.h"
+#include "Vertex.h"
+#include "IRenderer.h"

@@ -1,5 +1,5 @@
 #pragma once
-#include "Color.h"
+#include "tbxAPI.h"
 #include "Math/Vector2.h"
 #include "Math/Vector3.h"
 
@@ -8,7 +8,10 @@ namespace Toybox
     struct TBX_API Vertex
     {
         Vertex() = default;
-        Vertex(const Vector3& position) : Position(position) {}
+
+        explicit(false) Vertex(const Vector3& position) 
+            : Position(position), Normal(0, 0, 0), TexCoord(0, 0) {}
+
         Vertex(const Vector3& position, const Vector3& normal, const Vector2& texCoord)
             : Position(position), Normal(normal), TexCoord(texCoord) {}
 

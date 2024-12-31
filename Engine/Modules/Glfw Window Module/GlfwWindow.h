@@ -38,6 +38,11 @@ namespace GLFWWindowing
         GLFWwindow* _glfwWindow = nullptr;
 
         void SetupCallbacks();
+        void OnKeyPressed(int key, int scancode, int action, int mods) const;
+        void OnMouseButtonPressed(int button, int action, int mods) const;
+        void OnMouseScrolled(double offsetX, double offsetY) const;
+        void OnMouseMoved(double posX, double posY) const;
+        void OnWindowClosed() const;
         void OnSizeChanged();
     };
 }

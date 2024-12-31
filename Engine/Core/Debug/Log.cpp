@@ -26,30 +26,30 @@ namespace Toybox
 	void Log::Trace(const std::string& msg)
 	{
 		TBX_VALIDATE_LOGGER(msg);
-		_logger->Log(LogLevel::Trace, msg);
+		_logger->Log(static_cast<int>(LogLevel::Trace), msg);
 	}
 
 	void Log::Info(const std::string& msg)
 	{
 		TBX_VALIDATE_LOGGER(msg);
-		_logger->Log(LogLevel::Info, msg);
+		_logger->Log(static_cast<int>(LogLevel::Info), msg);
 	}
 
 	void Log::Warn(const std::string& msg)
 	{
 		TBX_VALIDATE_LOGGER(msg);
-		_logger->Log(LogLevel::Warn, msg);
+		_logger->Log(static_cast<int>(LogLevel::Warn), msg);
 	}
 
 	void Log::Error(const std::string& msg)
 	{
 		TBX_VALIDATE_LOGGER(msg);
-		_logger->Log(LogLevel::Error, msg);
+		_logger->Log(static_cast<int>(LogLevel::Error), msg);
 	}
 
 	void Log::Critical(const std::string& msg)
 	{
 		TBX_VALIDATE_LOGGER(msg);
-		_logger->Log(LogLevel::Critical, msg);
+		_logger->Log(static_cast<int>(LogLevel::Critical), msg);
 	}
 }

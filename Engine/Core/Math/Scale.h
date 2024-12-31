@@ -6,7 +6,7 @@ namespace Toybox
     struct TBX_API Scale
     {
     public:
-        Scale() = default;
+        Scale() : X(1), Y(1), Z(1) {}
         Scale(float x, float y, float z) : X(x), Y(y), Z(z) {}
 
         float X;

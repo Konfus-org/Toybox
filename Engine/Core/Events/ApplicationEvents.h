@@ -10,7 +10,7 @@ namespace Toybox
     public:
         int GetCategorization() const override
         {
-            return EventCategory::Application;
+            return static_cast<int>(EventCategory::Application);
         }
     };
 

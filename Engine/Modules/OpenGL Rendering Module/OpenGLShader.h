@@ -1,16 +1,19 @@
 #pragma once
 #include <Core.h>
 
-class OpenGLShader : public Toybox::Shader
+namespace OpenGLRendering
 {
-public:
-    ~OpenGLShader() final;
+    class OpenGLShader : public Toybox::IShader
+    {
+    public:
+        ~OpenGLShader() final;
 
-    void Compile(const std::string& vertexShader, const std::string& fragmentShader) override;
-    void Bind() const override;
-    void Unbind() const override;
-    
-private:
-    Toybox::uint _rendererId;
-};
+        void Compile(const std::string& vertexShader, const std::string& fragmentShader) override;
+        void Bind() const override;
+        void Unbind() const override;
+
+    private:
+        Toybox::uint _rendererId = -1;
+    };
+}
 

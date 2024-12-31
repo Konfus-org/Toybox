@@ -1,5 +1,7 @@
 #pragma once
-#include "OpenGLBuffer.h"
+#include "OpenGLContext.h"
+#include "OpenGLBuffers.h"
+#include "OpenGLShader.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <Core.h>
@@ -16,9 +18,9 @@ namespace OpenGLRendering
         void EndFrame() override;
 
         void ClearScreen() override;
-        void Draw(Toybox::Color color) override;
-        void Draw(Toybox::Mesh& mesh, const Toybox::Vector3& worldPos, const Toybox::Quaternion& rotation, const Toybox::Scale& scale) override;
-        //void Draw(const Toybox::Texture& texture, const Toybox::Vector3& worldPos, const Toybox::Quaternion& rotation, const Toybox::Scale& scale) override;
+        void Draw(const Toybox::Color& color) override;
+        void Draw(const Toybox::Mesh& mesh, const Toybox::Vector3& worldPos, const Toybox::Quaternion& rotation, const Toybox::Scale& scale) override;
+        void Draw(const Toybox::Texture& texture, const Toybox::Vector3& worldPos, const Toybox::Quaternion& rotation, const Toybox::Scale& scale) override;
         void Draw(const std::string& text, const Toybox::Vector3& worldPos, const Toybox::Quaternion& rotation, const Toybox::Scale& scale) override;
 
         void SetViewport(const Toybox::Vector2I& screenPos, const Toybox::Size& size) override;
@@ -27,20 +29,12 @@ namespace OpenGLRendering
         std::string GetRendererName() const override;
 
     private:
-        std::shared_ptr<Toybox::Shader> _shader;
-        std::shared_ptr<OpenGLBuffer> _buffer;
-        std::weak_ptr<Toybox::IWindow> _context;
+        std::unique_ptr<OpenGLShader> _shader;
+        std::unique_ptr<OpenGLContext> _context;
 
-        Toybox::uint _indicesCount;
+        std::unique_ptr<OpenGLVertexBuffer> _vertexBuffer;
+        std::unique_ptr<OpenGLIndexBuffer> _indexBuffer;
         Toybox::uint _vertexArray;
-        Toybox::uint _vertexBuffer;
-        Toybox::uint _indexBuffer;
-
-
-        //GLuint _shaderProgram;
-
-        //GLuint LoadShader(const std::string& vertexSrc, const std::string& fragmentSrc) const;
-        //GLuint LoadTexture(const std::string& filepath);
     };
 }
 
