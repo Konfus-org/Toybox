@@ -27,11 +27,14 @@ namespace OpenGLRendering
 
     void OpenGLRenderer::BeginFrame()
     {
+        // Clear screen at the beginning of our frame
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
     void OpenGLRenderer::EndFrame()
     {
+        // Draw at the end of our frame if we have anything to draw
+        if (_vertexArray) glDrawElements(GL_TRIANGLES, _indicesCount, GL_UNSIGNED_INT, nullptr);
         _buffer->Swap();
     }
 
@@ -45,6 +48,7 @@ namespace OpenGLRendering
     {
         glClearColor(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glBindVertexArray(0);
     }
 
     void OpenGLRenderer::Draw(Toybox::Mesh& mesh, const Toybox::Vector3& worldPos, const Toybox::Quaternion& rotation, const Toybox::Scale& scale)
@@ -72,12 +76,9 @@ namespace OpenGLRendering
         const auto& indices = mesh.GetIndices();
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices.data(), GL_STATIC_DRAW);
 
-        // Draw mesh
-        const auto& numberOfIndices = indices.size();
+        // Bind vertex array and update indices count
+        _indicesCount = (Toybox::uint)indices.size();
         glBindVertexArray(_vertexArray);
-        glDrawElements(GL_TRIANGLES, numberOfIndices, GL_UNSIGNED_INT, nullptr);
-
-        // TODO: Draw mesh
     }
 
     void OpenGLRenderer::Draw(const Toybox::Texture& texture, const Toybox::Vector3& worldPos, const Toybox::Quaternion& rotation, const Toybox::Scale& size)

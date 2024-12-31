@@ -30,6 +30,7 @@ namespace OpenGLRendering
         std::shared_ptr<OpenGLBuffer> _buffer = nullptr;
         std::weak_ptr<Toybox::IWindow> _context;
 
+        Toybox::uint _indicesCount;
         Toybox::uint _vertexArray;
         Toybox::uint _vertexBuffer;
         Toybox::uint _indexBuffer;
