@@ -5,3 +5,4 @@
 #include "IBuffer.h"
 #include "IVertexBuffer.h"
 #include "IRenderer.h"
+#include "Shader.h"

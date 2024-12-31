@@ -1,12 +1,11 @@
 #pragma once
 #include "tbxpch.h"
-#include "Asset.h"
 #include "Math/Int.h"
-#include "Rendering/Vertex.h"
+#include "Vertex.h"
 
 namespace Toybox
 {
-    class Mesh : public Asset
+    struct Mesh
     {
     public:
         TBX_API Mesh() = default;
@@ -16,12 +15,9 @@ namespace Toybox
         TBX_API inline std::vector<Vertex> GetVertices() const { return Vertices; }
         TBX_API inline std::vector<uint> GetIndices() const { return Indices; }
 
-    protected:
-        TBX_API  bool LoadData(const std::filebuf& fileContents) override;
-
     private:
-        std::vector<Vertex> Vertices;
-        std::vector<uint> Indices;
+        std::vector<Vertex> Vertices; // Mesh vertices (points, normals, texture coords)
+        std::vector<uint> Indices;    // Order in which to draw vertices, can also be used for instancing / re-using vertices in a mesh
     };
 }
 

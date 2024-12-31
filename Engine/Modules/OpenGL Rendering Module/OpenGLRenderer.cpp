@@ -1,4 +1,5 @@
 #include "OpenGLRenderer.h"
+#include "OpenGLShader.h"
 
 namespace OpenGLRendering
 {
@@ -7,6 +8,39 @@ namespace OpenGLRendering
         auto buffer = std::make_shared<OpenGLBuffer>(context);
         _buffer = buffer;
         _context = context;
+
+        // TODO: pass shader to renderer instead of initializing here...
+        _shader = std::make_shared<OpenGLShader>();
+
+        const auto& vertexSrc = R"(
+            #version 330 core
+
+            layout(location = 0) in vec3 currentPosition;
+
+            out vec3 position;
+            
+            void main()
+            {
+                position = currentPosition;
+                gl_Position = vec4(currentPosition, 1.0);
+            }
+        )";
+
+
+        const auto& fragmentSrc = R"(
+            #version 330 core
+
+            layout(location = 0) out vec4 color;
+
+            in vec3 position;
+            
+            void main()
+            {
+                color = vec4(position * 0.5 + 0.5, 1.0);
+            }
+        )";
+
+        _shader->Compile(vertexSrc, fragmentSrc);
 
         glGenVertexArrays(1, &_vertexArray);
         glBindVertexArray(_vertexArray);
@@ -29,6 +63,9 @@ namespace OpenGLRendering
     {
         // Clear screen at the beginning of our frame
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // Bind our shader
+        _shader->Bind();
     }
 
     void OpenGLRenderer::EndFrame()
@@ -48,7 +85,6 @@ namespace OpenGLRendering
     {
         glClearColor(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glBindVertexArray(0);
     }
 
     void OpenGLRenderer::Draw(Toybox::Mesh& mesh, const Toybox::Vector3& worldPos, const Toybox::Quaternion& rotation, const Toybox::Scale& scale)
@@ -81,10 +117,10 @@ namespace OpenGLRendering
         glBindVertexArray(_vertexArray);
     }
 
-    void OpenGLRenderer::Draw(const Toybox::Texture& texture, const Toybox::Vector3& worldPos, const Toybox::Quaternion& rotation, const Toybox::Scale& size)
-    {
-        // TODO: Draw texture
-    }
+    ////void OpenGLRenderer::Draw(const Toybox::Texture& texture, const Toybox::Vector3& worldPos, const Toybox::Quaternion& rotation, const Toybox::Scale& size)
+    ////{
+    ////    // TODO: Draw texture
+    ////}
 
     void OpenGLRenderer::Draw(const std::string& text, const Toybox::Vector3& worldPos, const Toybox::Quaternion& rotation, const Toybox::Scale& size)
     {

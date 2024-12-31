@@ -10,5 +10,6 @@
 #include "Events/Events.h"
 #include "Math/Math.h"
 #include "Util/Utils.h"
+#include "Assets/Asset.h"
 #include "tbxpch.h"
 #include "tbxAPI.h"
