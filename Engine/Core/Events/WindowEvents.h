@@ -15,7 +15,7 @@ namespace Toybox
             return static_cast<int>(EventCategory::Window);
         }
 
-        inline uint64 GetWindowId() const
+        uint64 GetWindowId() const
         {
             return _windowId;
         }

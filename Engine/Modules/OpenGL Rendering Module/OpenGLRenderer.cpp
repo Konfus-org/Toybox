@@ -18,12 +18,13 @@ namespace OpenGLRendering
 
         const Toybox::BufferLayout& bufferLayout = {
             { Toybox::ShaderDataType::Float3, "outPosition" },
-            { Toybox::ShaderDataType::Float3, "outColor" },
-            { Toybox::ShaderDataType::Float2, "outNormal" }
+            //{ Toybox::ShaderDataType::Float4, "outColor" }
         };
 
-        // Tell gpu the layout of our vertex buffer so it can draw it properly
-        _vertexBuffer->AddAttribute(0, 3, GL_FLOAT, 3 * sizeof(float), false);
+        _vertexBuffer->SetLayout(bufferLayout);
+
+        ////// Tell gpu the layout of our vertex buffer so it can draw it properly
+        //_vertexBuffer->AddAttribute(0, 3, GL_FLOAT, 3 * sizeof(float), 0, false);
 
         // TODO: pass shader to renderer instead of initializing here...
         _shader = std::make_unique<OpenGLShader>();

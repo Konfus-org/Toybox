@@ -15,7 +15,7 @@ namespace Toybox
 
         virtual int GetCategorization() const = 0;
         virtual std::string GetName() const = 0;
-        inline bool IsInCategory(EventCategory category) const
+        bool IsInCategory(EventCategory category) const
         {
             return GetCategorization() & static_cast<int>(category);
         }

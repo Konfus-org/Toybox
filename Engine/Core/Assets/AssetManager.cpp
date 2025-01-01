@@ -8,12 +8,12 @@ namespace Toybox
         return false;
     }
 
-    std::weak_ptr<Asset> Toybox::AssetManager::GetAsset(const std::string& assetName)
+    const std::weak_ptr<Asset> Toybox::AssetManager::GetAsset(const uint32& id)
     {
         return std::weak_ptr<Asset>();
     }
 
-    void AssetManager::UnloadAsset(const std::string& assetName)
+    void AssetManager::UnloadAsset(const uint32& id)
     {
     }
 

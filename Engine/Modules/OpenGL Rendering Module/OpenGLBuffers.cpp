@@ -26,6 +26,31 @@ namespace OpenGLRendering
         glBufferData(GL_ARRAY_BUFFER, sizeofVertices, verticesVec.data(), GL_STATIC_DRAW);
     }
 
+    void OpenGLVertexBuffer::SetLayout(const Toybox::BufferLayout& layout) const
+    {
+        Toybox::uint32 index = 0;
+        for (const auto& element : layout)
+        {
+            AddAttribute(
+                index, 
+                element.GetCount(), 
+                ShaderDataTypeToOpenGLType(element.GetType()),
+                layout.GetStride(),
+                element.GetOffset(),
+                element.IsNormalized());
+            index++;
+        }
+    }
+
+    void OpenGLVertexBuffer::AddAttribute(const Toybox::uint& index, const Toybox::uint& size, const Toybox::uint& type, const Toybox::uint& stride, const Toybox::uint& offset, const bool& normalized) const
+    {
+        glEnableVertexAttribArray(index);
+#pragma warning( push )
+#pragma warning( disable : 4312 )
+        glVertexAttribPointer(index, size, type, normalized, stride, (const void*)offset);
+#pragma warning( pop )
+    }
+
     void OpenGLVertexBuffer::Bind() const
     {
         glBindBuffer(GL_ARRAY_BUFFER, _rendererId);
@@ -34,12 +59,6 @@ namespace OpenGLRendering
     void OpenGLVertexBuffer::Unbind() const
     {
         glBindBuffer(GL_ARRAY_BUFFER, 0);
-    }
-
-    void OpenGLVertexBuffer::AddAttribute(Toybox::uint index, Toybox::uint size, Toybox::uint type, Toybox::uint stride, bool normalized) const
-    {
-        glEnableVertexAttribArray(index);
-        glVertexAttribPointer(index, size, type, normalized, stride, nullptr);
     }
 
     /////////////////////////////////////////////////////////////////////////////

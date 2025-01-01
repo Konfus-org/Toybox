@@ -52,7 +52,7 @@ namespace Toybox
             return "Key Held Event";
         }
 
-        inline float GetTimeHeld() const
+        float GetTimeHeld() const
         {
             return _timeHeld;
         }
@@ -72,7 +72,7 @@ namespace Toybox
             return "Key Repeated Event";
         }
 
-        inline int GetRepeatCount() const
+        int GetRepeatCount() const
         {
             return _repeatCount;
         }

@@ -57,8 +57,8 @@ namespace Toybox
         TBX_API Mesh(const VertexBuffer& vertices, const IndexBuffer& indices)
             : _vertexBuffer(vertices), _indexBuffer(indices) {}
 
-        TBX_API inline VertexBuffer GetVertexBuffer() const { return _vertexBuffer; }
-        TBX_API inline IndexBuffer GetIndexBuffer() const { return _indexBuffer; }
+        TBX_API VertexBuffer GetVertexBuffer() const { return _vertexBuffer; }
+        TBX_API IndexBuffer GetIndexBuffer() const { return _indexBuffer; }
 
     private:
         VertexBuffer _vertexBuffer;  

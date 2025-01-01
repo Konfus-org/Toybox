@@ -19,4 +19,20 @@ namespace Toybox
         Vector3 Normal;    // (nx, ny, nz) for lighting
         Vector2 TexCoord;  // (u, v) for texture mapping
     };
+
+    static std::vector<float> FlattenVertexVector(const std::vector<Vertex>& vertices)
+    {
+        auto numberOfVertices = vertices.size();
+        std::vector<float> meshPoints(numberOfVertices * 3);
+        int positionToPlace = 0;
+        for (const auto& vertex : vertices)
+        {
+            const auto& position = vertex.Position;
+            meshPoints[positionToPlace] = position.X;
+            meshPoints[positionToPlace + 1] = position.Y;
+            meshPoints[positionToPlace + 2] = position.Z;
+            positionToPlace += 3;
+        }
+        return meshPoints;
+    }
 }

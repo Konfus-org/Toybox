@@ -55,14 +55,13 @@ namespace Toybox
     {
         if (_mainWindow != nullptr) _mainWindow->Update();
 
+        for (const auto& layer : _layerStack)
+        {
+            layer->OnUpdate();
+        }
+
         AppUpdateEvent updateEvent;
         OnEvent(updateEvent);
-
-        for (auto it = _layerStack.ReverseBegin(); it != _layerStack.ReverseEnd(); ++it)
-        {
-            if (!_isRunning) return;
-            (*it)->OnUpdate();
-        }
     }
 
     void App::Close()
@@ -84,10 +83,10 @@ namespace Toybox
         dispatcher.Dispatch<WindowCloseEvent>(TBX_BIND_EVENT_FN(App::OnWindowClose));
         //dispatcher.Dispatch<Events::WindowResizeEvent>(TBX_BIND_EVENT_FN(Application::OnWindowResize));
 
-        for (auto it = _layerStack.ReverseBegin(); it != _layerStack.ReverseEnd(); ++it)
+        for (const auto& layer : _layerStack)
         {
             if (e.Handled) break;
-            (*it)->OnEvent(e);
+            layer->OnEvent(e);
         }
     }
 

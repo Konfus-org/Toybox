@@ -22,6 +22,12 @@ project "glad"
         "include/glad/*.h",
         "include/KHR/*.h"
     }
+    
+    filter "system:windows"
+        defines
+        {
+            "_CRT_SECURE_NO_WARNINGS"
+        }
 
     filter "configurations:Debug"
         runtime "Debug"

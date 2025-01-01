@@ -11,7 +11,7 @@ namespace Toybox
 
 	void Log::Open(const std::string& name, const std::string& logSaveLocation)
 	{
-		auto loggerFactory = ModuleServer::GetFactoryModule<ILogger>();
+		const auto& loggerFactory = ModuleServer::GetFactoryModule<ILogger>();
 		auto sharedLogger = loggerFactory.lock()->CreateShared();
 		_logger = sharedLogger;
 		_logger->Open(name, logSaveLocation);
