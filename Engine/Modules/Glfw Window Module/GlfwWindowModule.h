@@ -1,13 +1,13 @@
 #pragma once
-#include <Core.h>
+#include <TbxCore.h>
 
 namespace GLFWWindowing
 {
-    class GLFWWindowModule : public Toybox::FactoryModule<Toybox::IWindow>
+    class GLFWWindowModule : public Tbx::FactoryModule<Tbx::IWindow>
     {
     public:
-        Toybox::IWindow* Create() override;
-        void Destroy(Toybox::IWindow* windowToDestroy) override;
+        Tbx::IWindow* Create() override;
+        void Destroy(Tbx::IWindow* windowToDestroy) override;
 
         std::string GetName() const override;
         std::string GetAuthor() const override;
@@ -15,5 +15,5 @@ namespace GLFWWindowing
     };
 }
 
-extern "C" TBX_MODULE_API Toybox::Module* Load();
-extern "C" TBX_MODULE_API void Unload(Toybox::Module* moduleToUnload);
+extern "C" TBX_MODULE_API Tbx::Module* Load();
+extern "C" TBX_MODULE_API void Unload(Tbx::Module* moduleToUnload);

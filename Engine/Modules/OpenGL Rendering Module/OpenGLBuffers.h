@@ -1,5 +1,5 @@
 #pragma once
-#include <Core.h>
+#include <TbxCore.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -20,17 +20,17 @@ namespace OpenGLRendering
         OpenGLVertexBuffer();
         ~OpenGLVertexBuffer() override;
 
-        void SetData(const Toybox::VertexBuffer& vertices);
-        void AddAttribute(const Toybox::uint& index, const Toybox::uint& size, const Toybox::uint& type, const Toybox::uint& stride, const Toybox::uint& offset, const bool& normalized) const;
+        void SetData(const Tbx::VertexBuffer& vertices);
+        void AddAttribute(const Tbx::uint& index, const Tbx::uint& size, const Tbx::uint& type, const Tbx::uint& stride, const Tbx::uint& offset, const bool& normalized) const;
 
         void Bind() const override;
         void Unbind() const override;
 
-        Toybox::uint32 GetCount() const { return _count; }
+        Tbx::uint32 GetCount() const { return _count; }
 
     private:
-        Toybox::uint32 _rendererId;
-        Toybox::uint32 _count;
+        Tbx::uint32 _rendererId;
+        Tbx::uint32 _count;
     };
 
     class OpenGLIndexBuffer : public IBindable
@@ -39,15 +39,15 @@ namespace OpenGLRendering
         OpenGLIndexBuffer();
         ~OpenGLIndexBuffer() override;
 
-        void SetData(const Toybox::IndexBuffer& indices);
+        void SetData(const Tbx::IndexBuffer& indices);
         void Bind() const override;
         void Unbind() const override;
 
-        Toybox::uint32 GetCount() const { return _count; }
+        Tbx::uint32 GetCount() const { return _count; }
 
     private:
-        Toybox::uint32 _rendererId;
-        Toybox::uint32 _count;
+        Tbx::uint32 _rendererId;
+        Tbx::uint32 _count;
     };
 
     class OpenGLVertexArray : public IBindable
@@ -59,18 +59,18 @@ namespace OpenGLRendering
         void Bind() const override;
         void Unbind() const override;
 
-        void AddVertexBuffer(const Toybox::VertexBuffer& buffer);
-        void SetIndexBuffer(const Toybox::IndexBuffer& buffer);
+        void AddVertexBuffer(const Tbx::VertexBuffer& buffer);
+        void SetIndexBuffer(const Tbx::IndexBuffer& buffer);
 
         const std::vector<OpenGLVertexBuffer>& GetVertexBuffers() const { return _vertexBuffers; }
         const OpenGLIndexBuffer& GetIndexBuffer() const { return _indexBuffer; }
-        Toybox::uint32 GetIndexCount() const { return _indexBuffer.GetCount(); }
+        Tbx::uint32 GetIndexCount() const { return _indexBuffer.GetCount(); }
 
         void Clear() { _vertexBuffers.clear(); }
 
     private:
         std::vector<OpenGLVertexBuffer> _vertexBuffers;
         OpenGLIndexBuffer _indexBuffer;
-        Toybox::uint32 _rendererId;
+        Tbx::uint32 _rendererId;
     };
 }

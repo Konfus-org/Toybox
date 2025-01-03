@@ -10,7 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 
-namespace Toybox.Views.Docking;
+namespace Tbx.Views.Docking;
 
 public class ClosableTabItem : TabItem
 {

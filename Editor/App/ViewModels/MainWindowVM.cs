@@ -1,7 +1,7 @@
 ﻿using Avalonia.Styling;
 using SukiUI;
 
-namespace Toybox.ViewModels;
+namespace Tbx.ViewModels;
 
 public class MainWindowVM : ViewModel
 {

@@ -2,7 +2,7 @@
 #include "Math/BitOperations.h"
 #include "tbxAPI.h"
 
-namespace Toybox
+namespace Tbx
 {
     enum class TBX_API EventCategory
     {

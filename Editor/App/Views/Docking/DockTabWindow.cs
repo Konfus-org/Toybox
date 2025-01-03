@@ -7,7 +7,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using System;
 
-namespace Toybox.Views.Docking;
+namespace Tbx.Views.Docking;
 
 internal class DockTabWindow : Window
 {

@@ -43,10 +43,10 @@ void TestLayer::OnDetach()
 
 void TestLayer::OnUpdate()
 {
-	if (Toybox::Input::IsKeyDown(TBX_KEY_SPACE)) TBX_TRACE("Space pressed!");
+	if (Tbx::Input::IsKeyDown(TBX_KEY_SPACE)) TBX_TRACE("Space pressed!");
 	//ChangeWindowColorTest();
 }
 
-void TestLayer::OnEvent(Toybox::Event& event)
+void TestLayer::OnEvent(Tbx::Event& event)
 {
 }

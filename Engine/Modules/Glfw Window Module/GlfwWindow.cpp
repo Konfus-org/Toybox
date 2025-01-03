@@ -1,12 +1,11 @@
 #include "GLFWWindow.h"
 #include <GLFW/glfw3native.h>
-#include <Core.h>
 
 namespace GLFWWindowing
 {
 	GLFWWindow::GLFWWindow()
 	{
-		Toybox::Size size(0, 0);
+		Tbx::Size size(0, 0);
 		_size = size;
 		_vSyncEnabled = true;
 	}
@@ -16,13 +15,13 @@ namespace GLFWWindowing
 		glfwDestroyWindow(_glfwWindow);
 	}
 
-	void GLFWWindow::SetRenderer(const std::shared_ptr<Toybox::IRenderer>& renderer)
+	void GLFWWindow::SetRenderer(const std::shared_ptr<Tbx::IRenderer>& renderer)
 	{
 		_renderer = renderer;
 		_renderer->SetViewport({ 0, 0 }, _size);
 	}
 
-	void GLFWWindow::Open(const Toybox::WindowMode& mode)
+	void GLFWWindow::Open(const Tbx::WindowMode& mode)
 	{
 		SetMode(mode);
 	}
@@ -41,30 +40,30 @@ namespace GLFWWindowing
 			// Draw square
 			////const auto& sqaureMeshVerts =
 			////{
-			////	Toybox::Vertex(Toybox::Vector3(-0.5f, -0.5f, 0.0f), Toybox::Color(0.0f, 0.8f, 0.1f, 1.0f)),
-			////	Toybox::Vertex(Toybox::Vector3(0.5f, -0.5f, 0.0f), Toybox::Color(0.0f, 0.8f, 0.1f, 1.0f)),
-			////	Toybox::Vertex(Toybox::Vector3(0.5f, 0.5f, 0.0f), Toybox::Color(0.0f, 0.8f, 0.1f, 1.0f)),
-			////	Toybox::Vertex(Toybox::Vector3(-0.5f, 0.5f, 0.0f), Toybox::Color(0.0f, 0.8f, 0.1f, 1.0f))
+			////	Tbx::Vertex(Tbx::Vector3(-0.5f, -0.5f, 0.0f), Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f)),
+			////	Tbx::Vertex(Tbx::Vector3(0.5f, -0.5f, 0.0f), Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f)),
+			////	Tbx::Vertex(Tbx::Vector3(0.5f, 0.5f, 0.0f), Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f)),
+			////	Tbx::Vertex(Tbx::Vector3(-0.5f, 0.5f, 0.0f), Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f))
 			////};
-			////const std::vector<Toybox::uint32>& squareMeshIndices = { 0, 1, 2, 2, 3, 0 };
-			////const auto& squareMesh = Toybox::Mesh(sqaureMeshVerts, squareMeshIndices);
-			////_renderer->Draw(squareMesh, Toybox::Vector3(), Toybox::Quaternion(), Toybox::Scale());
+			////const std::vector<Tbx::uint32>& squareMeshIndices = { 0, 1, 2, 2, 3, 0 };
+			////const auto& squareMesh = Tbx::Mesh(sqaureMeshVerts, squareMeshIndices);
+			////_renderer->Draw(squareMesh, Tbx::Vector3(), Tbx::Quaternion(), Tbx::Scale());
 
 			// Draw triangle
 			const auto& triangleMeshVerts =
 			{
-				Toybox::Vertex(Toybox::Vector3(-0.5f, -0.5f, 0.0f), Toybox::Color(0.8f, 0.2f, 0.1f, 1.0f)),
-				Toybox::Vertex(Toybox::Vector3(0.5f, -0.5f, 0.0f), Toybox::Color(0.1f, 0.8f, 0.2f, 1.0f)),
-				Toybox::Vertex(Toybox::Vector3(0.0f, 0.5f, 0.0f), Toybox::Color(0.2f, 0.1f, 0.8f, 1.0f)),
+				Tbx::Vertex(Tbx::Vector3(-0.5f, -0.5f, 0.0f), Tbx::Color(0.8f, 0.2f, 0.1f, 1.0f)),
+				Tbx::Vertex(Tbx::Vector3(0.5f, -0.5f, 0.0f), Tbx::Color(0.1f, 0.8f, 0.2f, 1.0f)),
+				Tbx::Vertex(Tbx::Vector3(0.0f, 0.5f, 0.0f), Tbx::Color(0.2f, 0.1f, 0.8f, 1.0f)),
 			};
-			const std::vector<Toybox::uint32>& triangleMeshIndices = { 0, 1, 2 };
-			const auto& triangleMesh = Toybox::Mesh(triangleMeshVerts, triangleMeshIndices);
-			_renderer->Draw(triangleMesh, Toybox::Vector3(), Toybox::Quaternion(), Toybox::Scale());
+			const std::vector<Tbx::uint32>& triangleMeshIndices = { 0, 1, 2 };
+			const auto& triangleMesh = Tbx::Mesh(triangleMeshVerts, triangleMeshIndices);
+			_renderer->Draw(triangleMesh, Tbx::Vector3(), Tbx::Quaternion(), Tbx::Scale());
 
 			//// !Testing! ////
 		}
 
-		_renderer->Draw(Toybox::Color(0.2f, 0.2f, 0.3f, 1));
+		_renderer->Draw(Tbx::Color(0.2f, 0.2f, 0.3f, 1));
 
 		_renderer->EndFrame();
 
@@ -84,7 +83,7 @@ namespace GLFWWindowing
 		return _vSyncEnabled;
 	}
 
-	void GLFWWindow::SetSize(const Toybox::Size& size)
+	void GLFWWindow::SetSize(const Tbx::Size& size)
 	{
 		_size = size;
 		if (_glfwWindow != nullptr)
@@ -94,7 +93,7 @@ namespace GLFWWindowing
 		}
 	}
 
-	Toybox::Size GLFWWindow::GetSize() const
+	Tbx::Size GLFWWindow::GetSize() const
 	{
 		return _size;
 	}
@@ -114,26 +113,26 @@ namespace GLFWWindowing
 		return _glfwWindow;
 	}
 
-	Toybox::uint64 GLFWWindow::GetId() const
+	Tbx::uint64 GLFWWindow::GetId() const
 	{
 #ifdef TBX_PLATFORM_WINDOWS
-		return (Toybox::uint64)glfwGetWin32Window(_glfwWindow);
+		return (Tbx::uint64)glfwGetWin32Window(_glfwWindow);
 #endif
 #ifdef TBX_PLATFORM_OSX
-		return (Toybox::uint64)glfwGetCocoaWindow(_glfwWindow);
+		return (Tbx::uint64)glfwGetCocoaWindow(_glfwWindow);
 #endif
 #ifdef TBX_PLATFORM_LINUX
-		return (Toybox::uint64)glfwGetX11Window(_glfwWindow);
+		return (Tbx::uint64)glfwGetX11Window(_glfwWindow);
 #endif
 	}
 
-	void GLFWWindow::SetEventCallback(const Toybox::EventCallbackFn& callback)
+	void GLFWWindow::SetEventCallback(const Tbx::EventCallbackFn& callback)
 	{
 		_eventCallback = callback;
 		SetupCallbacks();
 	}
 
-	void GLFWWindow::SetMode(const Toybox::WindowMode& mode)
+	void GLFWWindow::SetMode(const Tbx::WindowMode& mode)
 	{
 		if (_glfwWindow != nullptr)
 		{
@@ -146,7 +145,7 @@ namespace GLFWWindowing
 		switch (mode)
 		{
 			// Windowed mode (monitor = nullptr)
-			case Toybox::WindowMode::Windowed:
+			case Tbx::WindowMode::Windowed:
 			{
 				// Set window hints for a windowed window
 				glfwWindowHint(GLFW_REFRESH_RATE, videoMode->refreshRate); // Match refresh rate
@@ -156,7 +155,7 @@ namespace GLFWWindowing
 				break;
 			}
 			// Borderless mode (monitor = nullptr, decorated = false)
-			case Toybox::WindowMode::Borderless:
+			case Tbx::WindowMode::Borderless:
 			{
 				// Set window hints for a borderless window
 				glfwWindowHint(GLFW_DECORATED, false); // Disable window decorations
@@ -167,7 +166,7 @@ namespace GLFWWindowing
 				break;
 			}
 			// Fullscreen mode (monitor != nullptr)
-			case Toybox::WindowMode::Fullscreen:
+			case Tbx::WindowMode::Fullscreen:
 			{
 				// Set window hints for a fullscreen window
 				glfwWindowHint(GLFW_RESIZABLE, false); // Make it non-resizable
@@ -181,7 +180,7 @@ namespace GLFWWindowing
 				break;
 			}
 			// Fullscreen borderless mode (monitor != nullptr, video mode = monitor mode)
-			case Toybox::WindowMode::FullscreenBorderless:
+			case Tbx::WindowMode::FullscreenBorderless:
 			{
 				// Set window hints for a borderless window
 				glfwWindowHint(GLFW_DECORATED, false); // Disable window decorations
@@ -258,19 +257,19 @@ namespace GLFWWindowing
 		{
 			case GLFW_PRESS:
 			{
-				Toybox::KeyPressedEvent event(key);
+				Tbx::KeyPressedEvent event(key);
 				_eventCallback(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
-				Toybox::KeyReleasedEvent event(key);
+				Tbx::KeyReleasedEvent event(key);
 				_eventCallback(event);
 				break;
 			}
 			case GLFW_REPEAT:
 			{
-				Toybox::KeyRepeatedEvent event(key, 1);
+				Tbx::KeyRepeatedEvent event(key, 1);
 				_eventCallback(event);
 				break;
 			}
@@ -288,13 +287,13 @@ namespace GLFWWindowing
 		{
 			case GLFW_PRESS:
 			{
-				Toybox::MouseButtonPressedEvent event(button);
+				Tbx::MouseButtonPressedEvent event(button);
 				_eventCallback(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
-				Toybox::MouseButtonReleasedEvent event(button);
+				Tbx::MouseButtonReleasedEvent event(button);
 				_eventCallback(event);
 				break;
 			}
@@ -308,19 +307,19 @@ namespace GLFWWindowing
 
 	void GLFWWindow::OnMouseScrolled(double offsetX, double offsetY) const
 	{
-		Toybox::MouseScrolledEvent event((float)offsetX, (float)offsetY);
+		Tbx::MouseScrolledEvent event((float)offsetX, (float)offsetY);
 		_eventCallback(event);
 	}
 
 	void GLFWWindow::OnMouseMoved(double posX, double posY) const
 	{
-		Toybox::MouseMovedEvent event((float)posX, (float)posY);
+		Tbx::MouseMovedEvent event((float)posX, (float)posY);
 		_eventCallback(event);
 	}
 
 	void GLFWWindow::OnWindowClosed() const
 	{
-		Toybox::WindowCloseEvent event(GetId());
+		Tbx::WindowCloseEvent event(GetId());
 		_eventCallback(event);
 	}
 
@@ -332,7 +331,7 @@ namespace GLFWWindowing
 			_renderer->SetViewport({ 0, 0 }, _size);
 			_renderer->EndFrame();
 		}
-		Toybox::WindowResizeEvent event(GetId(), _size.Width, _size.Height);
+		Tbx::WindowResizeEvent event(GetId(), _size.Width, _size.Height);
 		_eventCallback(event);
 	}
 }

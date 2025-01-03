@@ -3,7 +3,7 @@
 #include "ApplicationEvents.h"
 #include "tbxAPI.h"
 
-namespace Toybox
+namespace Tbx
 {
     class TBX_API WindowEvent : public AppEvent
     {

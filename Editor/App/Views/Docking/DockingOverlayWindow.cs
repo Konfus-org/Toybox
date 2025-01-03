@@ -2,14 +2,14 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
-using Toybox.Extensions;
+using Tbx.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
-namespace Toybox.Views.Docking;
+namespace Tbx.Views.Docking;
 
 internal class DockingOverlayWindow : Window
 {

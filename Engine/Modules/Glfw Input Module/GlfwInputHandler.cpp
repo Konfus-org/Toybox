@@ -1,9 +1,8 @@
 #include "GLFWInputHandler.h"
-#include <Core.h>
 
 namespace GLFWInput
 {
-    void GLFWInputHandler::SetContext(const std::weak_ptr<Toybox::IWindow>& windowToListenTo)
+    void GLFWInputHandler::SetContext(const std::weak_ptr<Tbx::IWindow>& windowToListenTo)
     {
         _windowToListenTo = std::any_cast<GLFWwindow*>(windowToListenTo.lock()->GetNativeWindow());
     }
@@ -53,12 +52,12 @@ namespace GLFWInput
         return GetMouseButtonState(button) == GLFW_REPEAT;
     }
 
-    Toybox::Vector2 GLFWInputHandler::GetMousePosition()
+    Tbx::Vector2 GLFWInputHandler::GetMousePosition()
     {
         double xPos;
         double yPos;
         glfwGetCursorPos(_windowToListenTo, &xPos, &yPos);
-        return Toybox::Vector2((float)xPos, (float)yPos);
+        return Tbx::Vector2((float)xPos, (float)yPos);
     }
 
     int GLFWInputHandler::GetKeyState(int keyCode)

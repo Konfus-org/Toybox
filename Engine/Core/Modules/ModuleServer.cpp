@@ -1,7 +1,7 @@
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "ModuleServer.h"
 
-namespace Toybox
+namespace Tbx
 {
     std::vector<std::shared_ptr<LoadedModule>> ModuleServer::_loadedModules;
 

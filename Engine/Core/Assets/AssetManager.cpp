@@ -1,14 +1,14 @@
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "AssetManager.h"
 
-namespace Toybox
+namespace Tbx
 {
     bool AssetManager::LoadAsset(const std::string& filePath)
     {
         return false;
     }
 
-    const std::weak_ptr<Asset> Toybox::AssetManager::GetAsset(const uint32& id)
+    const std::weak_ptr<Asset> Tbx::AssetManager::GetAsset(const uint32& id)
     {
         return std::weak_ptr<Asset>();
     }

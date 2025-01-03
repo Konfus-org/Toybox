@@ -1,8 +1,8 @@
 using Avalonia.Controls;
-using Toybox.ViewModels;
+using Tbx.ViewModels;
 using SukiUI.Controls;
 
-namespace Toybox.Views;
+namespace Tbx.Views;
 
 public partial class MainWindow : SukiWindow
 {

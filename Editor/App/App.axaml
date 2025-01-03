@@ -1,8 +1,8 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:suki="https://github.com/kikipoulet/SukiUI"
-             x:Class="Toybox.App"
-             xmlns:views="using:Toybox.Views"
+             x:Class="Tbx.App"
+             xmlns:views="using:Tbx.Views"
              RequestedThemeVariant="Default">
             
     <Application.DataTemplates>

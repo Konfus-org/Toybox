@@ -1,13 +1,13 @@
 #pragma once
-#include <Core.h>
+#include <TbxCore.h>
 
 namespace SpdLogging
 {
-    class SpdLogModule : public Toybox::FactoryModule<Toybox::ILogger>
+    class SpdLogModule : public Tbx::FactoryModule<Tbx::ILogger>
     {
     public:
-        Toybox::ILogger* Create() override;
-        void Destroy(Toybox::ILogger* logger) override;
+        Tbx::ILogger* Create() override;
+        void Destroy(Tbx::ILogger* logger) override;
 
         std::string GetName() const override;
         std::string GetAuthor() const override;
@@ -15,5 +15,5 @@ namespace SpdLogging
     };
 }
 
-extern "C" TBX_MODULE_API Toybox::Module* Load();
-extern "C" TBX_MODULE_API void Unload(Toybox::Module* moduleToUnload);
+extern "C" TBX_MODULE_API Tbx::Module* Load();
+extern "C" TBX_MODULE_API void Unload(Tbx::Module* moduleToUnload);

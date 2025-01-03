@@ -1,10 +1,10 @@
 #pragma once
-#include <Core.h>
+#include <TbxCore.h>
 #include <glad/glad.h>
 
 namespace OpenGLRendering
 {
-    class OpenGLShader : public Toybox::IShader
+    class OpenGLShader : public Tbx::IShader
     {
     public:
         ~OpenGLShader() final;
@@ -14,12 +14,12 @@ namespace OpenGLRendering
         void Unbind() const override;
 
     private:
-        Toybox::uint _rendererId = -1;
+        Tbx::uint _rendererId = -1;
     };
 
-    static GLenum ShaderDataTypeToOpenGLType(const Toybox::ShaderDataType& type)
+    static GLenum ShaderDataTypeToOpenGLType(const Tbx::ShaderDataType& type)
     {
-        using enum Toybox::ShaderDataType;
+        using enum Tbx::ShaderDataType;
         switch (type)
         {
         case None:     return GL_NONE;

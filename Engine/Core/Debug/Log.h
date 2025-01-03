@@ -2,7 +2,7 @@
 #include "ILogger.h"
 #include "tbxAPI.h"
 
-namespace Toybox
+namespace Tbx
 {
     class Log
     {

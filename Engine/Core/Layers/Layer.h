@@ -1,7 +1,7 @@
 #pragma once
 #include "Events/Event.h"
 
-namespace Toybox
+namespace Tbx
 {
     class Layer
     {

@@ -3,7 +3,7 @@
 #include "Windowing/IWindow.h"
 #include "Math/Math.h"
 
-namespace Toybox
+namespace Tbx
 {
     class IInputHandler
     {

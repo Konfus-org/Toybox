@@ -1,10 +1,10 @@
 #pragma once
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "tbxAPI.h"
 #include "Asset.h"
 #include "Math/Math.h"
 
-namespace Toybox
+namespace Tbx
 {
     class AssetManager
     {

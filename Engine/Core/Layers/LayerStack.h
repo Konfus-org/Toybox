@@ -1,9 +1,9 @@
 #pragma once
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "Layer.h"
 #include "Math/Math.h"
 
-namespace Toybox 
+namespace Tbx 
 {
 	class LayerStack
 	{

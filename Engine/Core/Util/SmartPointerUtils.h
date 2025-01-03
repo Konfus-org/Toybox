@@ -1,8 +1,8 @@
 #pragma once
 
-#include "tbxpch.h"
+#include "TbxPCH.h"
 
-namespace Toybox
+namespace Tbx
 {
     template<typename T>
     bool IsWeakPointerValid(const std::weak_ptr<T>& handler)

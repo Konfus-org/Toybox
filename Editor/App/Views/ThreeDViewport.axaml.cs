@@ -3,7 +3,7 @@ using Avalonia.Input;
 using Avalonia.Platform;
 using System;
 using System.Threading.Tasks;
-namespace Toybox.Views;
+namespace Tbx.Views;
 
 public partial class ThreeDViewport : UserControl
 {

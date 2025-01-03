@@ -1,8 +1,7 @@
 #pragma once
-#include <Core.h>
-#include "tbxAPI.h"
+#include <TbxCore.h>
 
-namespace Toybox
+namespace Tbx
 {
     class App
     {

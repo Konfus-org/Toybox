@@ -1,7 +1,7 @@
 #pragma once
 #include "tbxAPI.h"
 
-namespace Toybox
+namespace Tbx
 {
     enum class TBX_API LogLevel
     {

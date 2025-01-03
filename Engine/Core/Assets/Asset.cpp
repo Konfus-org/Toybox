@@ -1,8 +1,8 @@
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "Asset.h"
 #include "Debug/Debugging.h"
 
-namespace Toybox
+namespace Tbx
 {
     bool Asset::Load(const std::string& filePath)
     {

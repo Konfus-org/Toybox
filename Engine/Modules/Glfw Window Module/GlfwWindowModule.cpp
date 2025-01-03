@@ -4,12 +4,12 @@
 
 namespace GLFWWindowing
 {
-    Toybox::IWindow* GLFWWindowModule::Create()
+    Tbx::IWindow* GLFWWindowModule::Create()
     {
         return new GLFWWindow();
     }
 
-    void GLFWWindowModule::Destroy(Toybox::IWindow* windowToDestroy)
+    void GLFWWindowModule::Destroy(Tbx::IWindow* windowToDestroy)
     {
         delete windowToDestroy;
     }
@@ -30,14 +30,14 @@ namespace GLFWWindowing
     }
 }
 
-Toybox::Module* Load()
+Tbx::Module* Load()
 {
     const bool& success = glfwInit();
     TBX_ASSERT(success, "Failed to initialize glfw!");
     return new GLFWWindowing::GLFWWindowModule();
 }
 
-void Unload(Toybox::Module* moduleToUnload)
+void Unload(Tbx::Module* moduleToUnload)
 {
     delete moduleToUnload;
     glfwTerminate();

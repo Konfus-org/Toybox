@@ -1,6 +1,4 @@
 #include "OpenGLShader.h"
-#include <glad/glad.h>
-#include <Core.h>
 
 namespace OpenGLRendering
 {

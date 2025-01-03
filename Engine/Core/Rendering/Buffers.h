@@ -1,10 +1,10 @@
 #pragma once
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "tbxAPI.h"
 #include "Shader.h"
 #include "Math/Math.h"
 
-namespace Toybox
+namespace Tbx
 {
     struct BufferElement
     {
@@ -21,7 +21,7 @@ namespace Toybox
         TBX_API ShaderDataType GetType() const { return _type; }
         TBX_API uint32 GetCount() const 
         {
-            using enum Toybox::ShaderDataType;
+            using enum Tbx::ShaderDataType;
             switch (_type)
             {
                 case None:   return 0;

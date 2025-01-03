@@ -1,40 +1,40 @@
 #pragma once
-#include <Core.h>
+#include <TbxCore.h>
 #include <GLFW/glfw3.h>
 
 namespace GLFWWindowing
 {
-    class GLFWWindow : public Toybox::IWindow
+    class GLFWWindow : public Tbx::IWindow
     {
     public:
         GLFWWindow();
         ~GLFWWindow() final;
 
-        void SetRenderer(const std::shared_ptr<Toybox::IRenderer>& renderer) override;
-        void Open(const Toybox::WindowMode& mode) override;
+        void SetRenderer(const std::shared_ptr<Tbx::IRenderer>& renderer) override;
+        void Open(const Tbx::WindowMode& mode) override;
         void Update() override;
 
         void SetVSyncEnabled(const bool& enabled) override;
         bool GetVSyncEnabled() const override;
 
-        void SetSize(const Toybox::Size& size) override;
-        Toybox::Size GetSize() const override;
+        void SetSize(const Tbx::Size& size) override;
+        Tbx::Size GetSize() const override;
 
         std::string GetTitle() const override;
         void SetTitle(const std::string& title) override;
 
-        Toybox::uint64 GetId() const override;
+        Tbx::uint64 GetId() const override;
         std::any GetNativeWindow() const override;
 
-        void SetEventCallback(const Toybox::EventCallbackFn& callback) override;
-        void SetMode(const Toybox::WindowMode& mode) override;
+        void SetEventCallback(const Tbx::EventCallbackFn& callback) override;
+        void SetMode(const Tbx::WindowMode& mode) override;
 
     private:
         bool _vSyncEnabled;
         std::string _title;
-        Toybox::Size _size;
-        Toybox::EventCallbackFn _eventCallback;
-        std::shared_ptr<Toybox::IRenderer> _renderer;
+        Tbx::Size _size;
+        Tbx::EventCallbackFn _eventCallback;
+        std::shared_ptr<Tbx::IRenderer> _renderer;
         GLFWwindow* _glfwWindow = nullptr;
 
         void SetupCallbacks();

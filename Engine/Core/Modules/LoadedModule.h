@@ -2,7 +2,7 @@
 #include "SharedLibrary.h"
 #include "Module.h"
 
-namespace Toybox
+namespace Tbx
 {
     class LoadedModule
     {

@@ -1,9 +1,9 @@
 #pragma once
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "tbxAPI.h"
 #include "Matrix.h"
 
-namespace Toybox
+namespace Tbx
 {
     struct TBX_API Vector3
     {

@@ -1,5 +1,5 @@
 ﻿using System.Runtime.InteropServices;
-namespace Toybox.Core;
+namespace Tbx.Core;
 
 public class Interop
 {

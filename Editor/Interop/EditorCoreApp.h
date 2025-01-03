@@ -1,9 +1,9 @@
 #pragma once
-#include <Toybox.h>
+#include <Tbx.h>
 #include "EditorCoreApp.h"
 #include "EditorCoreAPI.h"
 
-namespace Toybox::Editor
+namespace Tbx::Editor
 {
     class EditorCoreApp : public App
     {

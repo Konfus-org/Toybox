@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Toybox.Views.Docking
+namespace Tbx.Views.Docking
 {
     [Flags]
     public enum DockFlags

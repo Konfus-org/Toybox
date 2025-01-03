@@ -5,7 +5,7 @@
 #include "Math/Vector2.h"
 #include "Math/Vector3.h"
 
-namespace Toybox
+namespace Tbx
 {
     struct TBX_API Vertex
     {
@@ -47,10 +47,10 @@ namespace Toybox
         }
 
 
-        const Toybox::BufferLayout& bufferLayout =
+        const Tbx::BufferLayout& bufferLayout =
         {
-                { Toybox::ShaderDataType::Float3, "position" },
-                { Toybox::ShaderDataType::Float4, "color" }
+                { Tbx::ShaderDataType::Float3, "position" },
+                { Tbx::ShaderDataType::Float4, "color" }
         };
 
         return VertexBuffer(meshPoints, bufferLayout);

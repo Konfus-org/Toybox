@@ -1,10 +1,9 @@
 #include "OpenGLContext.h"
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
 
 namespace OpenGLRendering
 {
-    OpenGLContext::OpenGLContext(const std::weak_ptr<Toybox::IWindow>& windowToRenderInto)
+    OpenGLContext::OpenGLContext(const std::weak_ptr<Tbx::IWindow>& windowToRenderInto)
     {
         // Initialize opengl
         auto* window = std::any_cast<GLFWwindow*>(windowToRenderInto.lock()->GetNativeWindow());
@@ -26,7 +25,7 @@ namespace OpenGLRendering
         const std::string& openGLVersion = (const char*)glGetString(GL_VERSION);
         TBX_INFO("  Version: {0}", openGLVersion);
 
-        TBX_ASSERT(GLVersion.major > 4 || (GLVersion.major == 4 && GLVersion.minor >= 5), "Toybox requires at least OpenGL version 4.5!");
+        TBX_ASSERT(GLVersion.major > 4 || (GLVersion.major == 4 && GLVersion.minor >= 5), "Tbx requires at least OpenGL version 4.5!");
     }
 
     void OpenGLContext::SwapBuffers()

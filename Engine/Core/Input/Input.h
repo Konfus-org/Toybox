@@ -2,7 +2,7 @@
 #include "IInputHandler.h"
 #include "Windowing/IWindow.h"
 
-namespace Toybox
+namespace Tbx
 {
     class Input
     {

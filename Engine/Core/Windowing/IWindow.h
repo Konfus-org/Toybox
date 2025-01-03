@@ -1,5 +1,5 @@
 #pragma once
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "tbxAPI.h"
 #include "WindowMode.h"
 #include "Math/Size.h"
@@ -7,7 +7,7 @@
 #include "Events/Event.h"
 #include "Rendering/IRenderer.h"
 
-namespace Toybox
+namespace Tbx
 {
     class TBX_API IWindow
     {

@@ -1,7 +1,7 @@
 #pragma once
-#include "tbxpch.h"
+#include "TbxPCH.h"
 
-namespace Toybox
+namespace Tbx
 {
     class ILogger
     {

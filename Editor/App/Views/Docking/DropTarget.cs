@@ -1,7 +1,7 @@
 ﻿using Avalonia.Controls;
 using System;
 
-namespace Toybox.Views.Docking;
+namespace Tbx.Views.Docking;
 
 public struct DropTarget : IEquatable<DropTarget>
 {

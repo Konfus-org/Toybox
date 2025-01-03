@@ -5,7 +5,7 @@
 #include "Windowing/IWindow.h"
 #include "Debug/ILogger.h"
 
-namespace Toybox
+namespace Tbx
 {
     class ModuleServer
     {

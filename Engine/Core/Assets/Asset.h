@@ -1,8 +1,8 @@
 #pragma once
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "tbxAPI.h"
 
-namespace Toybox
+namespace Tbx
 {
     class Asset
     {

@@ -1,10 +1,10 @@
 #pragma once
-#include <Core.h>
 #include <spdlog/spdlog.h>
+#include <TbxCore.h>
 
 namespace SpdLogging
 {
-    class SpdLogger : public Toybox::ILogger
+    class SpdLogger : public Tbx::ILogger
     {
     public:
         void Open(const std::string& name, const std::string& filePath) override;

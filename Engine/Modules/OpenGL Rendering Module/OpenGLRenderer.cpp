@@ -3,7 +3,7 @@
 namespace OpenGLRendering
 {
 
-    void OpenGLRenderer::Initialize(const std::weak_ptr<Toybox::IWindow>& context)
+    void OpenGLRenderer::Initialize(const std::weak_ptr<Tbx::IWindow>& context)
     {
         _shader = std::make_unique<OpenGLShader>();
         _context = std::make_unique<OpenGLContext>(context);
@@ -77,13 +77,13 @@ namespace OpenGLRendering
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
-    void OpenGLRenderer::Draw(const Toybox::Color& color)
+    void OpenGLRenderer::Draw(const Tbx::Color& color)
     {
         glClearColor(color.R, color.G, color.B, color.A);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
-    void OpenGLRenderer::Draw(const Toybox::Mesh& mesh, const Toybox::Vector3& worldPos, const Toybox::Quaternion& rotation, const Toybox::Scale& scale)
+    void OpenGLRenderer::Draw(const Tbx::Mesh& mesh, const Tbx::Vector3& worldPos, const Tbx::Quaternion& rotation, const Tbx::Scale& scale)
     {
         // Clear old buffer
         _vertArray->Clear();
@@ -97,17 +97,17 @@ namespace OpenGLRendering
         _vertArray->SetIndexBuffer(meshIndexBuffer);
     }
 
-    void OpenGLRenderer::Draw(const Toybox::Texture& texture, const Toybox::Vector3& worldPos, const Toybox::Quaternion& rotation, const Toybox::Scale& size)
+    void OpenGLRenderer::Draw(const Tbx::Texture& texture, const Tbx::Vector3& worldPos, const Tbx::Quaternion& rotation, const Tbx::Scale& size)
     {
         // TODO: Draw texture
     }
 
-    void OpenGLRenderer::Draw(const std::string& text, const Toybox::Vector3& worldPos, const Toybox::Quaternion& rotation, const Toybox::Scale& size)
+    void OpenGLRenderer::Draw(const std::string& text, const Tbx::Vector3& worldPos, const Tbx::Quaternion& rotation, const Tbx::Scale& size)
     {
         // TODO: Draw text
     }
 
-    void OpenGLRenderer::SetViewport(const Toybox::Vector2I& screenPos, const Toybox::Size& size)
+    void OpenGLRenderer::SetViewport(const Tbx::Vector2I& screenPos, const Tbx::Size& size)
     {
         glViewport(screenPos.X, screenPos.Y, size.Width, size.Height);
     }

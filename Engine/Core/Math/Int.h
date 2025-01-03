@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Toybox
+namespace Tbx
 {
 	using uint = unsigned int;
 	using uint32 = uint32_t;

@@ -3,14 +3,14 @@ using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using Toybox.Extensions;
+using Tbx.Extensions;
 using System;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
-namespace Toybox.Views.Docking;
+namespace Tbx.Views.Docking;
 
 public class DockingTabControl : TabControl
 {

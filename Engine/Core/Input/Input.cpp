@@ -1,4 +1,4 @@
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "Input.h"
 #include "Windowing/IWindow.h"
 #include "Modules/ModuleServer.h"
@@ -6,7 +6,7 @@
 
 #define TBX_VALIDATE_INPUT(error_msg, ...)  if (_handler == nullptr) { TBX_ERROR(error_msg, __VA_ARGS__); return false; }
 
-namespace Toybox
+namespace Tbx
 {
     std::shared_ptr<IInputHandler> Input::_handler;
 

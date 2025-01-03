@@ -1,11 +1,11 @@
 #pragma once
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "Color.h"
 #include "Math/Math.h"
 #include "Mesh.h"
 #include "Texture.h"
 
-namespace Toybox
+namespace Tbx
 {
     // Forward declare window to avoid circular dependency build issue
     class IWindow;

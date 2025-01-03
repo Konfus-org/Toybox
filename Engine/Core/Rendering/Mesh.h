@@ -1,11 +1,11 @@
 #pragma once
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "Buffers.h"
 #include "Vertex.h"
 #include "Color.h"
 #include "Math/Int.h"
 
-namespace Toybox
+namespace Tbx
 {
     struct Mesh
     {

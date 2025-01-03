@@ -1,7 +1,7 @@
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "Layer.h"
 
-namespace Toybox 
+namespace Tbx 
 {
 	Layer::Layer(const std::string_view& name)
 	{

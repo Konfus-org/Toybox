@@ -3,18 +3,18 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:viewModels="clr-namespace:Toybox.ViewModels"
-    xmlns:controls="clr-namespace:Toybox.Views"
+    xmlns:viewModels="clr-namespace:Tbx.ViewModels"
+    xmlns:controls="clr-namespace:Tbx.Views"
     xmlns:suki="clr-namespace:SukiUI.Controls;assembly=SukiUI"
-    xmlns:docking="using:Toybox.Views.Docking"
+    xmlns:docking="using:Tbx.Views.Docking"
     mc:Ignorable="d" d:DesignWidth="1920" d:DesignHeight="1080"
-    x:Class="Toybox.Views.MainWindow"
+    x:Class="Tbx.Views.MainWindow"
     Icon="/Assets/avalonia-logo.ico"
     ExtendClientAreaToDecorationsHint="True"
     ExtendClientAreaChromeHints="PreferSystemChrome"
     ExtendClientAreaTitleBarHeightHint="-1"
     SystemDecorations="Full"
-    Title="Toybox">
+    Title="Tbx">
 
     <Design.DataContext>
         <viewModels:MainWindowVM/>

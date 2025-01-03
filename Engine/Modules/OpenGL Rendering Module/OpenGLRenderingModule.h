@@ -1,13 +1,13 @@
 #pragma once
-#include <Core.h>
+#include <TbxCore.h>
 
 namespace OpenGLRendering
 {
-    class OpenGLRenderingModule : public Toybox::FactoryModule<Toybox::IRenderer>
+    class OpenGLRenderingModule : public Tbx::FactoryModule<Tbx::IRenderer>
     {
     public:
-        Toybox::IRenderer* Create() override;
-        void Destroy(Toybox::IRenderer* windowToDestroy) override;
+        Tbx::IRenderer* Create() override;
+        void Destroy(Tbx::IRenderer* windowToDestroy) override;
 
         std::string GetName() const override;
         std::string GetAuthor() const override;
@@ -15,5 +15,5 @@ namespace OpenGLRendering
     };
 }
 
-extern "C" TBX_MODULE_API Toybox::Module* Load();
-extern "C" TBX_MODULE_API void Unload(Toybox::Module* moduleToUnload);
+extern "C" TBX_MODULE_API Tbx::Module* Load();
+extern "C" TBX_MODULE_API void Unload(Tbx::Module* moduleToUnload);

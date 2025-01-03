@@ -1,4 +1,4 @@
-﻿namespace Toybox.ViewModels;
+﻿namespace Tbx.ViewModels;
 
 public class GameOverlayVM : ViewModel
 {

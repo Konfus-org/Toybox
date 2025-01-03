@@ -1,7 +1,7 @@
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "LayerStack.h"
 
-namespace Toybox 
+namespace Tbx 
 {
 	void LayerStack::PushLayer(const std::shared_ptr<Layer>& layer)
 	{

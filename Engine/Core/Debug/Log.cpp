@@ -1,11 +1,11 @@
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "Log.h"
 #include "LogLevel.h"
 #include "Modules/ModuleServer.h"
 
 #define TBX_VALIDATE_LOGGER(error_msg) if (_logger == nullptr) { std::cout << "Logger null! Falling back to std::cout " + error_msg << std::endl; return; }
 
-namespace Toybox
+namespace Tbx
 {
 	std::shared_ptr<ILogger> Log::_logger;
 

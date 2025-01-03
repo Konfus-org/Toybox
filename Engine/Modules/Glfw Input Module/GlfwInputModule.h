@@ -1,9 +1,9 @@
 #pragma once
-#include <Core.h>
+#include <TbxCore.h>
 
 namespace GLFWInput
 {
-    class GLFWInputModule : public Toybox::FactoryModule<Toybox::IInputHandler>
+    class GLFWInputModule : public Tbx::FactoryModule<Tbx::IInputHandler>
     {
     public:
         std::string GetName() const override;
@@ -11,10 +11,10 @@ namespace GLFWInput
         int GetVersion() const override;
 
     protected:
-        Toybox::IInputHandler* Create() override;
-        void Destroy(Toybox::IInputHandler* handlerToDestroy) override;
+        Tbx::IInputHandler* Create() override;
+        void Destroy(Tbx::IInputHandler* handlerToDestroy) override;
     };
 }
 
-extern "C" TBX_MODULE_API Toybox::Module* Load();
-extern "C" TBX_MODULE_API void Unload(Toybox::Module* moduleToUnload);
+extern "C" TBX_MODULE_API Tbx::Module* Load();
+extern "C" TBX_MODULE_API void Unload(Tbx::Module* moduleToUnload);

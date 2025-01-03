@@ -1,6 +1,6 @@
 #include "Toybox.h"
 
-namespace Toybox
+namespace Tbx
 {
     void Run(App& app)
     {

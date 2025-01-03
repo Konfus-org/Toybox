@@ -4,6 +4,6 @@
 int main() 
 {
     SandboxApp app;
-    Toybox::Run(app);
+    Tbx::Run(app);
     return 0;
 }

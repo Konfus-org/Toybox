@@ -1,6 +1,6 @@
 ﻿using Avalonia;
 
-namespace Toybox.Extensions
+namespace Tbx.Extensions
 {
     public static class VisualExtensions
     {

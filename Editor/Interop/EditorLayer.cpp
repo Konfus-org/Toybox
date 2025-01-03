@@ -1,7 +1,7 @@
 #include "EditorLayer.h"
 #include <gl/GL.h>
 
-namespace Toybox::Editor
+namespace Tbx::Editor
 {
 	float _red = 1;
 	float _green = 0.5f;
@@ -47,7 +47,7 @@ namespace Toybox::Editor
 		ChangeWindowColorTest();
 	}
 
-	void EditorLayer::OnEvent(Toybox::Event& event)
+	void EditorLayer::OnEvent(Tbx::Event& event)
 	{
 		auto eventName = event.GetName();
 		TBX_TRACE("{0} occurred!", eventName);

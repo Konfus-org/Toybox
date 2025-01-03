@@ -1,7 +1,7 @@
 #include "App.h"
-#include <Core.h>
+#include <TbxCore.h>
 
-namespace Toybox
+namespace Tbx
 {
     App::App(const std::string_view& name)
     {
@@ -30,7 +30,7 @@ namespace Toybox
         // Open log
         const auto& currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         const auto& logPath = std::format("Logs\\{}.log", currentTime);
-        Log::Open("Toybox::Runtime", logPath);
+        Log::Open("Tbx::Runtime", logPath);
 
 #ifdef TBX_DEBUG
         // Once log is open, we can print out all loaded modules to the log for debug purposes
@@ -111,7 +111,7 @@ namespace Toybox
     {
         // Create window
         auto windowFactory = ModuleServer::GetFactoryModule<IWindow>();
-        if (!Toybox::IsWeakPointerValid(windowFactory))
+        if (!Tbx::IsWeakPointerValid(windowFactory))
         {
             TBX_ERROR("Failed to create {0} window, because the window factory couldn't be found. Is a windowing module installed?", name);
             return nullptr;
@@ -126,7 +126,7 @@ namespace Toybox
 
         // Create renderer and attach to window
         auto rendererFactory = ModuleServer::GetFactoryModule<IRenderer>();
-        if (!Toybox::IsWeakPointerValid(rendererFactory))
+        if (!Tbx::IsWeakPointerValid(rendererFactory))
         {
             TBX_ERROR("Failed to create renderer for the {0} window, because the renderer factory couldn't be found. Is a renderer module installed?", name);
         }

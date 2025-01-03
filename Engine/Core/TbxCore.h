@@ -11,5 +11,5 @@
 #include "Math/Math.h"
 #include "Util/Utils.h"
 #include "Assets/Asset.h"
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "tbxAPI.h"

@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Toybox
+namespace Tbx
 {
     struct TBX_API Texture
     {

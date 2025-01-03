@@ -2,9 +2,9 @@
 #include "EditorCoreApp.h"
 #include "EditorLayer.h"
 
-namespace Toybox::Editor
+namespace Tbx::Editor
 {
-    EditorCoreApp::EditorCoreApp() : App("Toybox")
+    EditorCoreApp::EditorCoreApp() : App("Tbx")
     {
         PushLayer(new EditorLayer("Main Layer"));
     }

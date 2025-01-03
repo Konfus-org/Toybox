@@ -10,7 +10,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 
-namespace Toybox.Views.Docking;
+namespace Tbx.Views.Docking;
 
 public class SplitFractions(params int[] fractions)
 {

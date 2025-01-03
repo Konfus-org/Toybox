@@ -1,9 +1,9 @@
 #pragma once
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "tbxAPI.h"
 #include "ModuleAPI.h"
 
-namespace Toybox
+namespace Tbx
 {
     class TBX_API Module
     {

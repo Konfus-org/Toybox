@@ -3,10 +3,10 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
 using SukiUI;
-using Toybox.ViewModels;
-using Toybox.Views;
+using Tbx.ViewModels;
+using Tbx.Views;
 
-namespace Toybox;
+namespace Tbx;
 
 public partial class App : Application
 {

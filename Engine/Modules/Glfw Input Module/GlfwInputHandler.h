@@ -1,13 +1,13 @@
 #pragma once
-#include <Core.h>
+#include <TbxCore.h>
 #include <GLFW/glfw3.h>
 
 namespace GLFWInput
 {
-    class GLFWInputHandler : public Toybox::IInputHandler
+    class GLFWInputHandler : public Tbx::IInputHandler
     {
     public:
-        void SetContext(const std::weak_ptr<Toybox::IWindow>& windowToListenTo) override;
+        void SetContext(const std::weak_ptr<Tbx::IWindow>& windowToListenTo) override;
 
         bool IsGamepadButtonDown(const int id, const int button) override;
         bool IsGamepadButtonUp(const int id, const int button) override;
@@ -20,7 +20,7 @@ namespace GLFWInput
         bool IsMouseButtonDown(const int button) override;
         bool IsMouseButtonUp(const int button) override;
         bool IsMouseButtonHeld(const int button) override;
-        Toybox::Vector2 GetMousePosition() override;
+        Tbx::Vector2 GetMousePosition() override;
 
     private:
         GLFWwindow* _windowToListenTo = nullptr;

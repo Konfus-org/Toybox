@@ -2,7 +2,7 @@
 #include "Int.h"
 #include "tbxAPI.h"
 
-namespace Toybox
+namespace Tbx
 {
     struct TBX_API Size
     {

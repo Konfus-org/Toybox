@@ -4,12 +4,12 @@
 
 namespace GLFWInput
 {
-    Toybox::IInputHandler* GLFWInputModule::Create()
+    Tbx::IInputHandler* GLFWInputModule::Create()
     {
         return new GLFWInputHandler();
     }
 
-    void GLFWInputModule::Destroy(Toybox::IInputHandler* handlerToDestroy)
+    void GLFWInputModule::Destroy(Tbx::IInputHandler* handlerToDestroy)
     {
         delete handlerToDestroy;
     }
@@ -30,12 +30,12 @@ namespace GLFWInput
     }
 }
 
-Toybox::Module* Load()
+Tbx::Module* Load()
 {
     return new GLFWInput::GLFWInputModule();
 }
 
-void Unload(Toybox::Module* moduleToUnload)
+void Unload(Tbx::Module* moduleToUnload)
 {
     delete moduleToUnload;
 }

@@ -19,14 +19,14 @@ namespace OpenGLRendering
         glDeleteBuffers(1, &_rendererId);
     }
 
-    void OpenGLVertexBuffer::SetData(const Toybox::VertexBuffer& vertices)
+    void OpenGLVertexBuffer::SetData(const Tbx::VertexBuffer& vertices)
     {
         const auto& verticesVec = vertices.GetVertices();
-        _count = (Toybox::uint32)verticesVec.size();
+        _count = (Tbx::uint32)verticesVec.size();
         glBindBuffer(GL_ARRAY_BUFFER, _rendererId);
         glBufferData(GL_ARRAY_BUFFER, _count * sizeof(float), vertices.GetVertices().data(), GL_STATIC_DRAW);
 
-        Toybox::uint32 index = 0;
+        Tbx::uint32 index = 0;
         const auto& layout = vertices.GetLayout();
         for (const auto& element : layout)
         {
@@ -42,7 +42,7 @@ namespace OpenGLRendering
         }
     }
 
-    void OpenGLVertexBuffer::AddAttribute(const Toybox::uint& index, const Toybox::uint& size, const Toybox::uint& type, const Toybox::uint& stride, const Toybox::uint& offset, const bool& normalized) const
+    void OpenGLVertexBuffer::AddAttribute(const Tbx::uint& index, const Tbx::uint& size, const Tbx::uint& type, const Tbx::uint& stride, const Tbx::uint& offset, const bool& normalized) const
     {
         glEnableVertexAttribArray(index);
 #pragma warning( push )
@@ -71,11 +71,11 @@ namespace OpenGLRendering
         glCreateBuffers(1, &_rendererId);
     }
 
-    void OpenGLIndexBuffer::SetData(const Toybox::IndexBuffer& indices)
+    void OpenGLIndexBuffer::SetData(const Tbx::IndexBuffer& indices)
     {
         const auto& indicesVec = indices.GetIndices();
-        _count = (Toybox::uint32)indicesVec.size();
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, _count * sizeof(Toybox::uint32), indicesVec.data(), GL_STATIC_DRAW);
+        _count = (Tbx::uint32)indicesVec.size();
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, _count * sizeof(Tbx::uint32), indicesVec.data(), GL_STATIC_DRAW);
     }
 
     OpenGLIndexBuffer::~OpenGLIndexBuffer()
@@ -104,10 +104,10 @@ namespace OpenGLRendering
 
     OpenGLVertexArray::~OpenGLVertexArray()
     {
-        glDeleteBuffers(1, &_rendererId);
+        glDeleteVertexArrays(1, &_rendererId);
     }
 
-    void OpenGLVertexArray::AddVertexBuffer(const Toybox::VertexBuffer& buffer)
+    void OpenGLVertexArray::AddVertexBuffer(const Tbx::VertexBuffer& buffer)
     {
         TBX_ASSERT(buffer.GetLayout().GetElements().size(), "Vertex buffer has no layout... a layout MUST be provided!");
 
@@ -116,7 +116,7 @@ namespace OpenGLRendering
         glBuffer.SetData(buffer);
     }
 
-    void OpenGLVertexArray::SetIndexBuffer(const Toybox::IndexBuffer& buffer)
+    void OpenGLVertexArray::SetIndexBuffer(const Tbx::IndexBuffer& buffer)
     {
         _indexBuffer.Bind();
         _indexBuffer.SetData(buffer);

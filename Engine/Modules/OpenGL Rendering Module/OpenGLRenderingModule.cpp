@@ -3,12 +3,12 @@
 
 namespace OpenGLRendering
 {
-    Toybox::IRenderer* OpenGLRenderingModule::Create()
+    Tbx::IRenderer* OpenGLRenderingModule::Create()
     {
         return new OpenGLRenderer();
     }
 
-    void OpenGLRenderingModule::Destroy(Toybox::IRenderer* rendererToDestroy)
+    void OpenGLRenderingModule::Destroy(Tbx::IRenderer* rendererToDestroy)
     {
         delete rendererToDestroy;
     }
@@ -29,12 +29,12 @@ namespace OpenGLRendering
     }
 }
 
-Toybox::Module* Load()
+Tbx::Module* Load()
 {
     return new OpenGLRendering::OpenGLRenderingModule();
 }
 
-void Unload(Toybox::Module* moduleToUnload)
+void Unload(Tbx::Module* moduleToUnload)
 {
     delete moduleToUnload;
 }

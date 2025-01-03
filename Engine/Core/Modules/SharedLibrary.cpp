@@ -1,4 +1,4 @@
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "SharedLibrary.h"
 #include "Debug/Debugging.h"
 #ifdef TBX_PLATFORM_WINDOWS
@@ -10,7 +10,7 @@
     #error Unsupported platform
 #endif
 
-namespace Toybox
+namespace Tbx
 {
     SharedLibrary::SharedLibrary(const std::string& path)
     {

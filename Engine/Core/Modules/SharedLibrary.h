@@ -1,7 +1,7 @@
 #pragma once
-#include "tbxpch.h"
+#include "TbxPCH.h"
 
-namespace Toybox
+namespace Tbx
 {
     // A symbol can be anything...
     using Symbol = void*;

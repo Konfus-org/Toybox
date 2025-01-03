@@ -1,7 +1,7 @@
 #pragma once
 #include <Toybox.h>
 
-class TestLayer : public Toybox::Layer
+class TestLayer : public Tbx::Layer
 {
 public:
     using Layer::Layer;
@@ -9,6 +9,6 @@ public:
     void OnAttach() override;
     void OnDetach() override;
     void OnUpdate() override;
-    void OnEvent(Toybox::Event& event) override;
+    void OnEvent(Tbx::Event& event) override;
 };
 

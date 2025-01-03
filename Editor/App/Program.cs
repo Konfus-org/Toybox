@@ -2,7 +2,7 @@
 using Avalonia.Dialogs;
 using ShowMeTheXaml;
 using System;
-namespace Toybox;
+namespace Tbx;
 
 sealed class Program
 {

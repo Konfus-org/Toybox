@@ -4,12 +4,12 @@
 
 namespace SpdLogging
 {
-    Toybox::ILogger* SpdLogModule::Create()
+    Tbx::ILogger* SpdLogModule::Create()
     {
         return new SpdLogger();
     }
 
-    void SpdLogModule::Destroy(Toybox::ILogger* logger)
+    void SpdLogModule::Destroy(Tbx::ILogger* logger)
     {
         delete logger;
     }
@@ -30,12 +30,12 @@ namespace SpdLogging
     }
 }
 
-Toybox::Module* Load()
+Tbx::Module* Load()
 {
     return new SpdLogging::SpdLogModule();
 }
 
-void Unload(Toybox::Module* moduleToUnload)
+void Unload(Tbx::Module* moduleToUnload)
 {
     delete moduleToUnload;
 }

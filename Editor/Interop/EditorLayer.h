@@ -1,17 +1,17 @@
 #pragma once
-#include <Toybox.h>
+#include <Tbx.h>
 
-namespace Toybox::Editor
+namespace Tbx::Editor
 {
-    class EditorLayer : public Toybox::Layer
+    class EditorLayer : public Tbx::Layer
     {
     public:
-        EditorLayer(const std::string& name) : Toybox::Layer(name) { }
+        EditorLayer(const std::string& name) : Tbx::Layer(name) { }
 
         void OnAttach() override;
         void OnDetach() override;
         void OnUpdate() override;
-        void OnEvent(Toybox::Event& event) override;
+        void OnEvent(Tbx::Event& event) override;
     };
 }
 

@@ -1,8 +1,8 @@
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "LoadedModule.h"
 #include "Debug/Debugging.h"
 
-namespace Toybox
+namespace Tbx
 {
     LoadedModule::LoadedModule(const std::string& location)
     {
@@ -14,12 +14,12 @@ namespace Toybox
         Unload();
     }
 
-    std::weak_ptr<Module> Toybox::LoadedModule::GetModule() const
+    std::weak_ptr<Module> Tbx::LoadedModule::GetModule() const
     {
         return _module;
     }
 
-    std::weak_ptr<SharedLibrary> Toybox::LoadedModule::GetLibrary() const
+    std::weak_ptr<SharedLibrary> Tbx::LoadedModule::GetLibrary() const
     {
         return _library;
     }

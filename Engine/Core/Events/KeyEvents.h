@@ -2,7 +2,7 @@
 #include "Event.h"
 #include "tbxAPI.h"
 
-namespace Toybox
+namespace Tbx
 {
     class TBX_API KeyEvent : public Event
     {

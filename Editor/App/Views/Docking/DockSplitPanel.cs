@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 
-namespace Toybox.Views.Docking;
+namespace Tbx.Views.Docking;
 
 public class DockSplitPanel : DockPanel
 {

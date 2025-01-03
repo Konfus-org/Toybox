@@ -1,10 +1,10 @@
 #pragma once
 #include "tbxAPI.h"
-#include "tbxpch.h"
+#include "TbxPCH.h"
 #include "Math/Int.h"
 #include "Debug/Debugging.h"
 
-namespace Toybox
+namespace Tbx
 {
     enum class TBX_API ShaderDataType
     {
@@ -24,7 +24,7 @@ namespace Toybox
 
     static uint32 GetShaderDataTypeSize(ShaderDataType type)
     {
-        using enum Toybox::ShaderDataType;
+        using enum Tbx::ShaderDataType;
         switch (type)
         {
             case Float:  return 4;

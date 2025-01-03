@@ -11,7 +11,7 @@ using System.Diagnostics;
 using System.Linq;
 using LIST_MODIFY_HANDLER = System.Collections.Specialized.NotifyCollectionChangedEventHandler;
 
-namespace Toybox.Views.Docking;
+namespace Tbx.Views.Docking;
 
 public partial class DockingHost : DockSplitPanel
 {

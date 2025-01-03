@@ -1,5 +1,5 @@
 #pragma once
-#include <Core.h>
+#include <TbxCore.h>
 #include <GLFW/glfw3.h>
 
 namespace OpenGLRendering
@@ -7,7 +7,7 @@ namespace OpenGLRendering
     class OpenGLContext
     {
     public:
-        explicit OpenGLContext(const std::weak_ptr<Toybox::IWindow>& windowToRenderInto);
+        explicit OpenGLContext(const std::weak_ptr<Tbx::IWindow>& windowToRenderInto);
         ~OpenGLContext() = default;
 
         // TODO: implement

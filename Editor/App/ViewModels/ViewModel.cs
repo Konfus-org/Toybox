@@ -1,6 +1,6 @@
 ﻿using ReactiveUI;
 
-namespace Toybox.ViewModels;
+namespace Tbx.ViewModels;
 
 public class ViewModel : ReactiveObject
 {
