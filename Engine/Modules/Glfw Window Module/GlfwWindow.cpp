@@ -33,12 +33,38 @@ namespace GLFWWindowing
 		// TODO: use a queue to pass things to renderer
 		_renderer->BeginFrame();
 
-		_renderer->Draw(Toybox::Color(20, 20, 30, 255));
+		// TODO: remove
+		{
+			//// !Testing! ////
+			
+			// TODO: get drawing two things working! Rn it can only draw one thing at a time...
+			// Draw square
+			////const auto& sqaureMeshVerts =
+			////{
+			////	Toybox::Vertex(Toybox::Vector3(-0.5f, -0.5f, 0.0f), Toybox::Color(0.0f, 0.8f, 0.1f, 1.0f)),
+			////	Toybox::Vertex(Toybox::Vector3(0.5f, -0.5f, 0.0f), Toybox::Color(0.0f, 0.8f, 0.1f, 1.0f)),
+			////	Toybox::Vertex(Toybox::Vector3(0.5f, 0.5f, 0.0f), Toybox::Color(0.0f, 0.8f, 0.1f, 1.0f)),
+			////	Toybox::Vertex(Toybox::Vector3(-0.5f, 0.5f, 0.0f), Toybox::Color(0.0f, 0.8f, 0.1f, 1.0f))
+			////};
+			////const std::vector<Toybox::uint32>& squareMeshIndices = { 0, 1, 2, 2, 3, 0 };
+			////const auto& squareMesh = Toybox::Mesh(sqaureMeshVerts, squareMeshIndices);
+			////_renderer->Draw(squareMesh, Toybox::Vector3(), Toybox::Quaternion(), Toybox::Scale());
 
-		//// Testing / Drawing triangle
-		const auto& mesh = Toybox::Mesh::Triangle();
-		_renderer->Draw(mesh, Toybox::Vector3(), Toybox::Quaternion(), Toybox::Scale());
-		//// Testing / Drawing triangle
+			// Draw triangle
+			const auto& triangleMeshVerts =
+			{
+				Toybox::Vertex(Toybox::Vector3(-0.5f, -0.5f, 0.0f), Toybox::Color(0.8f, 0.2f, 0.1f, 1.0f)),
+				Toybox::Vertex(Toybox::Vector3(0.5f, -0.5f, 0.0f), Toybox::Color(0.1f, 0.8f, 0.2f, 1.0f)),
+				Toybox::Vertex(Toybox::Vector3(0.0f, 0.5f, 0.0f), Toybox::Color(0.2f, 0.1f, 0.8f, 1.0f)),
+			};
+			const std::vector<Toybox::uint32>& triangleMeshIndices = { 0, 1, 2 };
+			const auto& triangleMesh = Toybox::Mesh(triangleMeshVerts, triangleMeshIndices);
+			_renderer->Draw(triangleMesh, Toybox::Vector3(), Toybox::Quaternion(), Toybox::Scale());
+
+			//// !Testing! ////
+		}
+
+		_renderer->Draw(Toybox::Color(0.2f, 0.2f, 0.3f, 1));
 
 		_renderer->EndFrame();
 

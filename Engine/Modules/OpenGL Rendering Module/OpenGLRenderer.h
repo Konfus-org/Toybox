@@ -31,10 +31,7 @@ namespace OpenGLRendering
     private:
         std::unique_ptr<OpenGLShader> _shader;
         std::unique_ptr<OpenGLContext> _context;
-
-        std::unique_ptr<OpenGLVertexBuffer> _vertexBuffer;
-        std::unique_ptr<OpenGLIndexBuffer> _indexBuffer;
-        Toybox::uint _vertexArray;
+        std::unique_ptr<OpenGLVertexArray> _vertArray;
     };
 }
 

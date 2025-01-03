@@ -9,6 +9,7 @@
 #include <functional>
 #include <any>
 #include <array>
+#include <queue>
 #include <sstream>
 #include <filesystem>
 #include <string>

@@ -1,7 +1,6 @@
 #pragma once
 #include "tbxpch.h"
 #include "tbxAPI.h"
-#include "Vertex.h"
 #include "Shader.h"
 #include "Math/Math.h"
 
@@ -11,17 +10,15 @@ namespace Toybox
     {
     public:
         TBX_API BufferElement() = default;
-
         TBX_API BufferElement(const ShaderDataType& type, const std::string& name, const bool& normalized = false)
             : _name(name), _size(GetShaderDataTypeSize(type)), _type(type), _normalized(normalized) {}
-
         TBX_API BufferElement(const ShaderDataType& type, const std::string& name, const uint32& offset, const bool& normalized = false)
             : _name(name), _size(GetShaderDataTypeSize(type)), _offset(offset), _type(type), _normalized(normalized) {}
 
         TBX_API bool IsNormalized() const { return _normalized; }
         TBX_API const std::string& GetName() const { return _name; }
-        TBX_API const uint32& GetSize() const { return _size; }
-        TBX_API const ShaderDataType& GetType() const { return _type; }
+        TBX_API uint32 GetSize() const { return _size; }
+        TBX_API ShaderDataType GetType() const { return _type; }
         TBX_API uint32 GetCount() const 
         {
             using enum Toybox::ShaderDataType;
@@ -45,7 +42,7 @@ namespace Toybox
             return 0;
         }
 
-        TBX_API const uint32& GetOffset() const { return _offset; }
+        TBX_API uint32 GetOffset() const { return _offset; }
         TBX_API void SetOffset(const uint32& offset) { _offset = offset; }
 
     private:
@@ -60,29 +57,22 @@ namespace Toybox
     {
     public:
         TBX_API BufferLayout() = default;
-
+        explicit(false) TBX_API BufferLayout(const std::vector<BufferElement>& elements) : _elements(elements)
+        {
+            CalculatOffsetsAndStride();
+        }
         explicit(false) TBX_API BufferLayout(const std::initializer_list<BufferElement>& elements) : _elements(elements)
         {
             CalculatOffsetsAndStride();
         }
 
-        explicit(false) TBX_API BufferLayout(const std::vector<BufferElement>& elements) : _elements(elements)
-        {
-            CalculatOffsetsAndStride();
-        }
-
         TBX_API const std::vector<BufferElement>& GetElements() const { return _elements; }
-        TBX_API const uint32& GetStride() const { return _stride; }
+        TBX_API uint32 GetStride() const { return _stride; }
 
-        TBX_API std::vector<BufferElement>::iterator begin() { return _elements.begin(); }
-        TBX_API std::vector<BufferElement>::iterator end() { return _elements.end(); }
-        TBX_API std::vector<BufferElement>::reverse_iterator rbegin() { return _elements.rbegin(); }
-        TBX_API std::vector<BufferElement>::reverse_iterator rend() { return _elements.rend(); }
-
-        TBX_API std::vector<BufferElement>::const_iterator begin() const { return _elements.begin(); }
-        TBX_API std::vector<BufferElement>::const_iterator end() const { return _elements.end(); }
-        TBX_API std::vector<BufferElement>::const_reverse_iterator rbegin() const { return _elements.rbegin(); }
-        TBX_API std::vector<BufferElement>::const_reverse_iterator rend() const { return _elements.rend(); }
+        std::vector<BufferElement>::iterator begin() { return _elements.begin(); }
+        std::vector<BufferElement>::iterator end() { return _elements.end(); }
+        std::vector<BufferElement>::const_iterator begin() const { return _elements.begin(); }
+        std::vector<BufferElement>::const_iterator end() const { return _elements.end(); }
 
     private:
         std::vector<BufferElement> _elements;
@@ -104,19 +94,26 @@ namespace Toybox
     struct VertexBuffer
     {
     public:
-        TBX_API explicit(false) VertexBuffer(const std::vector<Vertex>& vertices) : _vertices(FlattenVertexVector(vertices)) {}
-        TBX_API explicit(false) VertexBuffer(const std::vector<float>& vertices) : _vertices(vertices) {}
+        TBX_API VertexBuffer() = default;
+        TBX_API explicit(false) VertexBuffer(const std::vector<float>& vertices, const BufferLayout& layout) 
+            : _vertices(vertices), _layout(layout) {}
+        TBX_API explicit(false) VertexBuffer(const std::initializer_list<float>& vertices, const BufferLayout& layout)
+            : _vertices(vertices), _layout(layout) {}
 
+        TBX_API const BufferLayout& GetLayout() const { return _layout; }
         TBX_API std::vector<float> GetVertices() const { return _vertices; }
 
     private:
         std::vector<float> _vertices;
+        BufferLayout _layout;
     };
 
     struct IndexBuffer
     {
     public:
-        TBX_API explicit(false) IndexBuffer(const std::vector<uint>& indices) : _indices(indices) {}
+        TBX_API IndexBuffer() = default;
+        TBX_API explicit(false) IndexBuffer(const std::vector<uint32>& indices) : _indices(indices) {}
+        TBX_API explicit(false) IndexBuffer(const std::initializer_list<uint32>& indices) : _indices(indices) {}
         TBX_API std::vector<uint32> GetIndices() const { return _indices; }
 
     private:

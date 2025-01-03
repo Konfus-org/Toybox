@@ -1,4 +1,5 @@
 #include "OpenGLBuffers.h"
+#include "OpenGLShader.h"
 
 
 namespace OpenGLRendering
@@ -21,23 +22,22 @@ namespace OpenGLRendering
     void OpenGLVertexBuffer::SetData(const Toybox::VertexBuffer& vertices)
     {
         const auto& verticesVec = vertices.GetVertices();
-        const auto& sizeofVertices = sizeof(verticesVec);
         _count = (Toybox::uint32)verticesVec.size();
-        glBufferData(GL_ARRAY_BUFFER, sizeofVertices, verticesVec.data(), GL_STATIC_DRAW);
-    }
+        glBindBuffer(GL_ARRAY_BUFFER, _rendererId);
+        glBufferData(GL_ARRAY_BUFFER, _count * sizeof(float), vertices.GetVertices().data(), GL_STATIC_DRAW);
 
-    void OpenGLVertexBuffer::SetLayout(const Toybox::BufferLayout& layout) const
-    {
         Toybox::uint32 index = 0;
+        const auto& layout = vertices.GetLayout();
         for (const auto& element : layout)
         {
-            AddAttribute(
-                index, 
-                element.GetCount(), 
-                ShaderDataTypeToOpenGLType(element.GetType()),
-                layout.GetStride(),
-                element.GetOffset(),
-                element.IsNormalized());
+            const auto& count = element.GetCount();
+            const auto& type = ShaderDataTypeToOpenGLType(element.GetType());
+            const auto& stride = layout.GetStride();
+            const auto& offset = element.GetOffset();
+            const auto& normalized = element.IsNormalized() ? GL_TRUE : GL_FALSE;
+
+            AddAttribute(index, count, type, stride, offset, normalized);
+
             index++;
         }
     }
@@ -74,9 +74,8 @@ namespace OpenGLRendering
     void OpenGLIndexBuffer::SetData(const Toybox::IndexBuffer& indices)
     {
         const auto& indicesVec = indices.GetIndices();
-        const auto& sizeofIndices = sizeof(indicesVec);
         _count = (Toybox::uint32)indicesVec.size();
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeofIndices, indicesVec.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, _count * sizeof(Toybox::uint32), indicesVec.data(), GL_STATIC_DRAW);
     }
 
     OpenGLIndexBuffer::~OpenGLIndexBuffer()
@@ -92,5 +91,44 @@ namespace OpenGLRendering
     void OpenGLIndexBuffer::Unbind() const
     {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    }
+
+    /////////////////////////////////////////////////////////////////////////////
+    /// Vertex Array ////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////
+
+    OpenGLVertexArray::OpenGLVertexArray()
+    {
+        glGenVertexArrays(1, &_rendererId);
+    }
+
+    OpenGLVertexArray::~OpenGLVertexArray()
+    {
+        glDeleteBuffers(1, &_rendererId);
+    }
+
+    void OpenGLVertexArray::AddVertexBuffer(const Toybox::VertexBuffer& buffer)
+    {
+        TBX_ASSERT(buffer.GetLayout().GetElements().size(), "Vertex buffer has no layout... a layout MUST be provided!");
+
+        auto& glBuffer = _vertexBuffers.emplace_back();
+        glBuffer.Bind();
+        glBuffer.SetData(buffer);
+    }
+
+    void OpenGLVertexArray::SetIndexBuffer(const Toybox::IndexBuffer& buffer)
+    {
+        _indexBuffer.Bind();
+        _indexBuffer.SetData(buffer);
+    }
+
+    void OpenGLVertexArray::Bind() const
+    {
+        glBindVertexArray(_rendererId);
+    }
+
+    void OpenGLVertexArray::Unbind() const
+    {
+        glBindVertexArray(0);
     }
 }

@@ -2,44 +2,29 @@
 
 namespace OpenGLRendering
 {
+
     void OpenGLRenderer::Initialize(const std::weak_ptr<Toybox::IWindow>& context)
     {
-        _context = std::make_unique<OpenGLContext>(context);
-        _vertexBuffer = std::make_unique<OpenGLVertexBuffer>();
-        _indexBuffer = std::make_unique<OpenGLIndexBuffer>();
-
-        // Create our vertex array
-        glGenVertexArrays(1, &_vertexArray);
-        glBindVertexArray(_vertexArray);
-
-        // Bind vertex and index buffers
-        _vertexBuffer->Bind();
-        _indexBuffer->Bind();
-
-        const Toybox::BufferLayout& bufferLayout = {
-            { Toybox::ShaderDataType::Float3, "outPosition" },
-            //{ Toybox::ShaderDataType::Float4, "outColor" }
-        };
-
-        _vertexBuffer->SetLayout(bufferLayout);
-
-        ////// Tell gpu the layout of our vertex buffer so it can draw it properly
-        //_vertexBuffer->AddAttribute(0, 3, GL_FLOAT, 3 * sizeof(float), 0, false);
-
-        // TODO: pass shader to renderer instead of initializing here...
         _shader = std::make_unique<OpenGLShader>();
+        _context = std::make_unique<OpenGLContext>(context);
+        _vertArray = std::make_unique<OpenGLVertexArray>();
+        _vertArray->Bind();
 
+        // TODO: pass shader source to renderer instead of hard coding here...
         // Compile and bind our shader
         const auto& vertexSrc = R"(
             #version 330 core
 
             layout(location = 0) in vec3 inPosition;
+            layout(location = 1) in vec4 inColor;
 
-            out vec3 outPosition;
+            out vec3 position;
+            out vec4 color;
             
             void main()
             {
-                outPosition = inPosition;
+                position = inPosition;
+                color = inColor;
                 gl_Position = vec4(inPosition, 1.0);
             }
         )";
@@ -50,11 +35,13 @@ namespace OpenGLRendering
 
             layout(location = 0) out vec4 outColor;
 
-            in vec3 outPosition;
+            in vec3 position;
+            in vec4 color;
             
             void main()
             {
-                outColor = vec4(outPosition * 0.5 + 0.5, 1.0);
+                outColor = vec4(position * 0.5 + 0.5, 1.0);
+                outColor = color;
             }
         )";
 
@@ -64,7 +51,8 @@ namespace OpenGLRendering
 
     void OpenGLRenderer::Shutdown()
     {
-        glDeleteVertexArrays(1, &_vertexArray);
+        _vertArray->Clear();
+        _vertArray->Unbind();
     }
 
     void OpenGLRenderer::BeginFrame()
@@ -76,9 +64,9 @@ namespace OpenGLRendering
     void OpenGLRenderer::EndFrame()
     {
         // Draw at the end of our frame if we have anything to draw
-        if (_vertexArray && _vertexBuffer->GetCount() > 0)
+        if (const auto& indexCount = _vertArray->GetIndexCount(); indexCount > 0)
         {
-            glDrawElements(GL_TRIANGLES, _indexBuffer->GetCount(), GL_UNSIGNED_INT, nullptr);
+            glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, nullptr);
         }
         _context->SwapBuffers();
     }
@@ -91,19 +79,22 @@ namespace OpenGLRendering
 
     void OpenGLRenderer::Draw(const Toybox::Color& color)
     {
-        glClearColor(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f);
+        glClearColor(color.R, color.G, color.B, color.A);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
     void OpenGLRenderer::Draw(const Toybox::Mesh& mesh, const Toybox::Vector3& worldPos, const Toybox::Quaternion& rotation, const Toybox::Scale& scale)
     {
+        // Clear old buffer
+        _vertArray->Clear();
+
         // Set vertex buffer
-        const auto& meshVertBuff = mesh.GetVertexBuffer();
-        _vertexBuffer->SetData(meshVertBuff);
+        const auto& meshVertexBuffer = mesh.GetVertexBuffer();
+        _vertArray->AddVertexBuffer(meshVertexBuffer);
 
         // Set index buffer
-        const auto& meshIndexBuff = mesh.GetIndexBuffer();
-        _indexBuffer->SetData(meshIndexBuff);
+        const auto& meshIndexBuffer = mesh.GetIndexBuffer();
+        _vertArray->SetIndexBuffer(meshIndexBuffer);
     }
 
     void OpenGLRenderer::Draw(const Toybox::Texture& texture, const Toybox::Vector3& worldPos, const Toybox::Quaternion& rotation, const Toybox::Scale& size)
