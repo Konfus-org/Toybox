@@ -1,4 +1,5 @@
 #pragma once
+#include "InputCodes.h"
 #include "IInputHandler.h"
 #include "Windowing/IWindow.h"
 
@@ -7,8 +8,9 @@ namespace Tbx
     class Input
     {
     public:
-        TBX_API static void StartHandling(const std::weak_ptr<IWindow>& context);
-        TBX_API static void StopHandling();
+        TBX_API static void Initialize();
+        TBX_API static void Stop();
+        TBX_API static void SetContext(const std::weak_ptr<IWindow>& context);
 
         TBX_API static bool IsGamepadButtonDown(const int id, const int button);
         TBX_API static bool IsGamepadButtonUp(const int id, const int button);

@@ -1,5 +1,5 @@
 #include "App.h"
-#include "Rendering/Rendering.h"
+#include "Rendering.h"
 #include <TbxCore.h>
 
 namespace Tbx
@@ -28,7 +28,6 @@ namespace Tbx
 #endif
         ModuleServer::LoadModules(pathToModules);
 
-        // Open log
         const auto& currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         const auto& logPath = std::format("Logs\\{}.log", currentTime);
         Log::Open("Tbx::Runtime", logPath);
@@ -45,14 +44,9 @@ namespace Tbx
         }
 #endif
 
-        // Create main window
         OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
-
-        // Initialize rendering
         Rendering::Initialize();
-
-        // Start handling input
-        Input::StartHandling(_mainWindow);
+        Input::Initialize();
     }
 
     void App::Update()
@@ -68,6 +62,7 @@ namespace Tbx
         // Draw whatever has been passed to renderer to windows
         for (const auto& window : _windows)
         {
+            Input::SetContext(window);
             Rendering::Draw(window);
         }
 
@@ -82,7 +77,7 @@ namespace Tbx
         _mainWindow = nullptr;
 
         // We will immediately stop handling input
-        Input::StopHandling();
+        Input::Stop();
 
         // Fush rendering
         Rendering::Flush();

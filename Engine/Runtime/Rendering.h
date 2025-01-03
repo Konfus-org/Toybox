@@ -13,8 +13,8 @@ namespace Tbx
         TBX_API static void Flush();
 
     private:
-        static std::weak_ptr<IWindow> _lastSurface;
         static std::shared_ptr<IRenderer> _renderer;
+        static std::weak_ptr<IWindow> _lastSurface;
         static RenderQueue _renderQueue;
     };
 }

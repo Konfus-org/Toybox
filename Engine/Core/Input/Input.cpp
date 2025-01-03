@@ -10,17 +10,21 @@ namespace Tbx
 {
     std::shared_ptr<IInputHandler> Input::_handler;
 
-    void Input::StartHandling(const std::weak_ptr<IWindow>& context)
+    void Input::Initialize()
     {
         auto handlerFactory = ModuleServer::GetFactoryModule<IInputHandler>();
         auto sharedHandler = handlerFactory.lock()->CreateShared();
         _handler = sharedHandler;
-        _handler->SetContext(context);
     }
 
-    void Input::StopHandling()
+    void Input::Stop()
     {
         _handler.reset();
+    }
+
+    void Input::SetContext(const std::weak_ptr<IWindow>& context)
+    {
+        _handler->SetContext(context);
     }
 
     bool Input::IsGamepadButtonDown(const int id, const int button)

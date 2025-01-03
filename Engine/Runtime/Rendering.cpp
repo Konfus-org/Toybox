@@ -2,7 +2,11 @@
 
 namespace Tbx
 {
-    TBX_API void Rendering::Initialize()
+    std::shared_ptr<IRenderer> Rendering::_renderer;
+    std::weak_ptr<IWindow> Rendering::_lastSurface;
+    RenderQueue Rendering::_renderQueue;
+
+    void Rendering::Initialize()
     {
         auto rendererFactory = ModuleServer::GetFactoryModule<IRenderer>();
         if (!Tbx::IsWeakPointerValid(rendererFactory))
@@ -16,7 +20,7 @@ namespace Tbx
         }
     }
 
-    TBX_API void Rendering::SetVSyncEnabled(bool enabled)
+    void Rendering::SetVSyncEnabled(bool enabled)
     {
         _renderer->SetVSyncEnabled(enabled);
     }
