@@ -7,13 +7,10 @@ namespace OpenGLRendering
     class OpenGLContext
     {
     public:
-        explicit OpenGLContext(const std::weak_ptr<Tbx::IWindow>& windowToRenderInto);
+        OpenGLContext() = default;
         ~OpenGLContext() = default;
 
-        // TODO: implement
-        ////void SetData(const std::any& data, size_t size);
-        ////void Bind() const;
-        ////void Unbind() const ;
+        void Set(const std::weak_ptr<Tbx::IWindow>& windowToRenderInto);
 
         void SwapBuffers();
         void SetSwapInterval(const int& interval) const;

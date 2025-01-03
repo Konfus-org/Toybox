@@ -3,15 +3,13 @@
 namespace OpenGLRendering
 {
 
-    void OpenGLRenderer::Initialize(const std::weak_ptr<Tbx::IWindow>& context)
+    void OpenGLRenderer::SetContext(const std::weak_ptr<Tbx::IWindow>& context)
     {
-        _shader = std::make_unique<OpenGLShader>();
-        _context = std::make_unique<OpenGLContext>(context);
-        _vertArray = std::make_unique<OpenGLVertexArray>();
-        _vertArray->Bind();
+        _context.Set(context);
 
         // TODO: pass shader source to renderer instead of hard coding here...
         // Compile and bind our shader
+        _shader = std::make_unique<OpenGLShader>();
         const auto& vertexSrc = R"(
             #version 330 core
 
@@ -28,7 +26,6 @@ namespace OpenGLRendering
                 gl_Position = vec4(inPosition, 1.0);
             }
         )";
-
 
         const auto& fragmentSrc = R"(
             #version 330 core
@@ -49,32 +46,35 @@ namespace OpenGLRendering
         _shader->Bind();
     }
 
-    void OpenGLRenderer::Shutdown()
+    void OpenGLRenderer::Flush()
     {
-        _vertArray->Clear();
-        _vertArray->Unbind();
+        _vertArraysToDraw.clear();
     }
 
-    void OpenGLRenderer::BeginFrame()
+    void OpenGLRenderer::BeginDraw()
     {
         // Clear screen at the beginning of our frame
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
-    void OpenGLRenderer::EndFrame()
+    void OpenGLRenderer::EndDraw()
     {
         // Draw at the end of our frame if we have anything to draw
-        if (const auto& indexCount = _vertArray->GetIndexCount(); indexCount > 0)
+        for (const auto& vertArrayToDraw : _vertArraysToDraw)
         {
-            glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, nullptr);
+            vertArrayToDraw.Bind();
+            glDrawElements(GL_TRIANGLES, vertArrayToDraw.GetIndexCount(), GL_UNSIGNED_INT, nullptr);
         }
-        _context->SwapBuffers();
+
+        // Finally swap buffers
+        _context.SwapBuffers();
     }
 
-    void OpenGLRenderer::ClearScreen()
+    void OpenGLRenderer::Clear()
     {
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        _vertArraysToDraw.clear();
     }
 
     void OpenGLRenderer::Draw(const Tbx::Color& color)
@@ -83,26 +83,27 @@ namespace OpenGLRendering
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
-    void OpenGLRenderer::Draw(const Tbx::Mesh& mesh, const Tbx::Vector3& worldPos, const Tbx::Quaternion& rotation, const Tbx::Scale& scale)
+    void OpenGLRenderer::Draw(const Tbx::Mesh& mesh)
     {
-        // Clear old buffer
-        _vertArray->Clear();
+        // Emplace and bind
+        auto& vertArray = _vertArraysToDraw.emplace_back();
+        vertArray.Bind();
 
-        // Set vertex buffer
+        // Add vertex buffer
         const auto& meshVertexBuffer = mesh.GetVertexBuffer();
-        _vertArray->AddVertexBuffer(meshVertexBuffer);
+        vertArray.AddVertexBuffer(meshVertexBuffer);
 
         // Set index buffer
         const auto& meshIndexBuffer = mesh.GetIndexBuffer();
-        _vertArray->SetIndexBuffer(meshIndexBuffer);
+        vertArray.SetIndexBuffer(meshIndexBuffer);
     }
 
-    void OpenGLRenderer::Draw(const Tbx::Texture& texture, const Tbx::Vector3& worldPos, const Tbx::Quaternion& rotation, const Tbx::Scale& size)
+    void OpenGLRenderer::Draw(const Tbx::Texture& texture)
     {
         // TODO: Draw texture
     }
 
-    void OpenGLRenderer::Draw(const std::string& text, const Tbx::Vector3& worldPos, const Tbx::Quaternion& rotation, const Tbx::Scale& size)
+    void OpenGLRenderer::Draw(const std::string& text)
     {
         // TODO: Draw text
     }
@@ -114,7 +115,7 @@ namespace OpenGLRendering
 
     void OpenGLRenderer::SetVSyncEnabled(const bool& enabled)
     {
-        _context->SetSwapInterval(enabled);
+        _context.SetSwapInterval(enabled);
     }
 
     std::string OpenGLRenderer::GetRendererName() const

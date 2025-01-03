@@ -1,6 +1,6 @@
 #pragma once
 #include "ILogger.h"
-#include "tbxAPI.h"
+#include "TbxAPI.h"
 
 namespace Tbx
 {

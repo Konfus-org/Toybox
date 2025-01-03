@@ -1,13 +1,13 @@
 #pragma once
 #include <TbxCore.h>
 
-namespace SpdLogging
+namespace GLFWWindowing
 {
-    class SpdLogModule : public Tbx::FactoryModule<Tbx::ILogger>
+    class GLFWWindowFactory : public Tbx::FactoryModule<Tbx::IWindow>
     {
     public:
-        Tbx::ILogger* Create() override;
-        void Destroy(Tbx::ILogger* logger) override;
+        Tbx::IWindow* Create() override;
+        void Destroy(Tbx::IWindow* windowToDestroy) override;
 
         std::string GetName() const override;
         std::string GetAuthor() const override;

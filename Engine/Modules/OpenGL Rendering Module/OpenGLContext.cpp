@@ -3,7 +3,7 @@
 
 namespace OpenGLRendering
 {
-    OpenGLContext::OpenGLContext(const std::weak_ptr<Tbx::IWindow>& windowToRenderInto)
+    void OpenGLContext::Set(const std::weak_ptr<Tbx::IWindow>& windowToRenderInto)
     {
         // Initialize opengl
         auto* window = std::any_cast<GLFWwindow*>(windowToRenderInto.lock()->GetNativeWindow());

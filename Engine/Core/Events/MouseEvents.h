@@ -1,7 +1,7 @@
 #pragma once
 #include "Math/Vector2.h"
 #include "Event.h"
-#include "tbxAPI.h"
+#include "TbxAPI.h"
 
 namespace Tbx
 {

@@ -1,5 +1,5 @@
 #pragma once
-#include "tbxAPI.h"
+#include "TbxAPI.h"
 #include "LoadedModule.h"
 #include "Input/IInputHandler.h"
 #include "Windowing/IWindow.h"

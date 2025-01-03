@@ -1,6 +1,6 @@
 #pragma once
 #include "TbxPCH.h"
-#include "tbxAPI.h"
+#include "TbxAPI.h"
 #include "WindowMode.h"
 #include "Math/Size.h"
 #include "Math/Int.h"
@@ -15,12 +15,8 @@ namespace Tbx
         IWindow() = default;
         virtual ~IWindow() = default;
 
-        virtual void SetRenderer(const std::shared_ptr<IRenderer>& renderer) = 0;
         virtual void Open(const WindowMode& mode) = 0;
         virtual void Update() = 0;
-
-        virtual void SetVSyncEnabled(const bool& enabled) = 0;
-        virtual bool GetVSyncEnabled() const = 0;
 
         virtual Size GetSize() const = 0;
         virtual void SetSize(const Size& size) = 0;

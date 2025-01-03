@@ -16,17 +16,25 @@ namespace Tbx
         IRenderer() = default;
         virtual ~IRenderer() = default;
 
-        virtual void Initialize(const std::weak_ptr<IWindow>& context) = 0;
-        virtual void Shutdown() = 0;
+        /// Lifetime calls ///
 
-        virtual void BeginFrame() = 0;
-        virtual void EndFrame() = 0;
+        virtual void SetContext(const std::weak_ptr<IWindow>& context) = 0;
+        virtual void Flush() = 0;
 
-        virtual void ClearScreen() = 0;
+        /// Regular lifetime calls, renderer deals with how it deques render commands ///
+
+        virtual void BeginDraw() = 0;
+        virtual void EndDraw() = 0;
+
+        /// Immediate mode calls ///
+
+        virtual void Clear() = 0;
         virtual void Draw(const Color& color) = 0;
-        virtual void Draw(const Mesh& mesh, const Vector3& worldPos, const Quaternion& rotation, const Scale& scale) = 0;
-        virtual void Draw(const Texture& texture, const Vector3& worldPos, const Quaternion& rotation, const Scale& scale) = 0;
-        virtual void Draw(const std::string& text, const Vector3& worldPos, const Quaternion& rotation, const Scale& scale) = 0;
+        virtual void Draw(const Mesh& mesh) = 0;
+        virtual void Draw(const Texture& texture) = 0;
+        virtual void Draw(const std::string& text) = 0;
+
+        /// Setters and getters ///
 
         virtual void SetViewport(const Vector2I& screenPos, const Size& size) = 0;
         virtual void SetVSyncEnabled(const bool& enabled) = 0;

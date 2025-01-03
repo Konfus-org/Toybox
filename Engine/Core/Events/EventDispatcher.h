@@ -1,13 +1,13 @@
 #pragma once
 #include "Event.h"
-#include "tbxAPI.h"
+#include "TbxAPI.h"
 
 namespace Tbx
 {
     class TBX_API EventDispatcher
     {
     public:
-        EventDispatcher(Event& event) : m_Event(event) { }
+        explicit(false) EventDispatcher(Event& event) : m_Event(event) { }
         
         template<typename T, typename F>
         bool Dispatch(const F& func)

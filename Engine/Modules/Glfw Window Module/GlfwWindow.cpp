@@ -7,18 +7,11 @@ namespace GLFWWindowing
 	{
 		Tbx::Size size(0, 0);
 		_size = size;
-		_vSyncEnabled = true;
 	}
 
 	GLFWWindow::~GLFWWindow()
 	{
 		glfwDestroyWindow(_glfwWindow);
-	}
-
-	void GLFWWindow::SetRenderer(const std::shared_ptr<Tbx::IRenderer>& renderer)
-	{
-		_renderer = renderer;
-		_renderer->SetViewport({ 0, 0 }, _size);
 	}
 
 	void GLFWWindow::Open(const Tbx::WindowMode& mode)
@@ -28,59 +21,9 @@ namespace GLFWWindowing
 
 	void GLFWWindow::Update()
 	{
-		// Draw basic color to window for now
-		// TODO: use a queue to pass things to renderer
-		_renderer->BeginFrame();
-
-		// TODO: remove
-		{
-			//// !Testing! ////
-			
-			// TODO: get drawing two things working! Rn it can only draw one thing at a time...
-			// Draw square
-			////const auto& sqaureMeshVerts =
-			////{
-			////	Tbx::Vertex(Tbx::Vector3(-0.5f, -0.5f, 0.0f), Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f)),
-			////	Tbx::Vertex(Tbx::Vector3(0.5f, -0.5f, 0.0f), Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f)),
-			////	Tbx::Vertex(Tbx::Vector3(0.5f, 0.5f, 0.0f), Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f)),
-			////	Tbx::Vertex(Tbx::Vector3(-0.5f, 0.5f, 0.0f), Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f))
-			////};
-			////const std::vector<Tbx::uint32>& squareMeshIndices = { 0, 1, 2, 2, 3, 0 };
-			////const auto& squareMesh = Tbx::Mesh(sqaureMeshVerts, squareMeshIndices);
-			////_renderer->Draw(squareMesh, Tbx::Vector3(), Tbx::Quaternion(), Tbx::Scale());
-
-			// Draw triangle
-			const auto& triangleMeshVerts =
-			{
-				Tbx::Vertex(Tbx::Vector3(-0.5f, -0.5f, 0.0f), Tbx::Color(0.8f, 0.2f, 0.1f, 1.0f)),
-				Tbx::Vertex(Tbx::Vector3(0.5f, -0.5f, 0.0f), Tbx::Color(0.1f, 0.8f, 0.2f, 1.0f)),
-				Tbx::Vertex(Tbx::Vector3(0.0f, 0.5f, 0.0f), Tbx::Color(0.2f, 0.1f, 0.8f, 1.0f)),
-			};
-			const std::vector<Tbx::uint32>& triangleMeshIndices = { 0, 1, 2 };
-			const auto& triangleMesh = Tbx::Mesh(triangleMeshVerts, triangleMeshIndices);
-			_renderer->Draw(triangleMesh, Tbx::Vector3(), Tbx::Quaternion(), Tbx::Scale());
-
-			//// !Testing! ////
-		}
-
-		_renderer->Draw(Tbx::Color(0.2f, 0.2f, 0.3f, 1));
-
-		_renderer->EndFrame();
-
 		// Needs to be at the end of the update! 
 		// Otherwise something like closing will run and anything after could throw errors because the window was destroyed...
 		glfwPollEvents();
-	}
-
-	void GLFWWindow::SetVSyncEnabled(const bool& enabled)
-	{
-		_vSyncEnabled = enabled;
-		_renderer->SetVSyncEnabled(enabled);
-	}
-
-	bool GLFWWindow::GetVSyncEnabled() const
-	{
-		return _vSyncEnabled;
 	}
 
 	void GLFWWindow::SetSize(const Tbx::Size& size)
@@ -325,12 +268,6 @@ namespace GLFWWindowing
 
 	void GLFWWindow::OnSizeChanged()
 	{
-		if (_renderer != nullptr)
-		{
-			_renderer->BeginFrame();
-			_renderer->SetViewport({ 0, 0 }, _size);
-			_renderer->EndFrame();
-		}
 		Tbx::WindowResizeEvent event(GetId(), _size.Width, _size.Height);
 		_eventCallback(event);
 	}

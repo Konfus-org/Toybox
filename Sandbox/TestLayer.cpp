@@ -45,6 +45,32 @@ void TestLayer::OnUpdate()
 {
 	if (Tbx::Input::IsKeyDown(TBX_KEY_SPACE)) TBX_TRACE("Space pressed!");
 	//ChangeWindowColorTest();
+
+	// Draw square
+	const auto& sqaureMeshVerts =
+	{
+		Tbx::Vertex(Tbx::Vector3(-0.5f, -0.5f, 0.0f), Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f)),
+		Tbx::Vertex(Tbx::Vector3(0.5f, -0.5f, 0.0f), Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f)),
+		Tbx::Vertex(Tbx::Vector3(0.5f, 0.5f, 0.0f), Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f)),
+		Tbx::Vertex(Tbx::Vector3(-0.5f, 0.5f, 0.0f), Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f))
+	};
+	const std::vector<Tbx::uint32>& squareMeshIndices = { 0, 1, 2, 2, 3, 0 };
+	const auto& squareMesh = Tbx::Mesh(sqaureMeshVerts, squareMeshIndices);
+	const auto& drawSquareCmd = Tbx::DrawMeshCommand(squareMesh);
+
+	// Draw triangle
+	const auto& triangleMeshVerts =
+	{
+		Tbx::Vertex(Tbx::Vector3(-0.5f, -0.5f, 0.0f), Tbx::Color(0.8f, 0.2f, 0.1f, 1.0f)),
+		Tbx::Vertex(Tbx::Vector3(0.5f, -0.5f, 0.0f), Tbx::Color(0.1f, 0.8f, 0.2f, 1.0f)),
+		Tbx::Vertex(Tbx::Vector3(0.0f, 0.5f, 0.0f), Tbx::Color(0.2f, 0.1f, 0.8f, 1.0f)),
+	};
+	const std::vector<Tbx::uint32>& triangleMeshIndices = { 0, 1, 2 };
+	const auto& triangleMesh = Tbx::Mesh(triangleMeshVerts, triangleMeshIndices);
+	const auto& drawTriangleCmd = Tbx::DrawMeshCommand(triangleMesh);
+
+	////Tbx::RenderQueue::Enqueue(drawSquareCmd);
+	////Tbx::RenderQueue::Enqueue(drawTriangleCmd);
 }
 
 void TestLayer::OnEvent(Tbx::Event& event)

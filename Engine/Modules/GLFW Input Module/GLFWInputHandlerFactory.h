@@ -3,7 +3,7 @@
 
 namespace GLFWInput
 {
-    class GLFWInputModule : public Tbx::FactoryModule<Tbx::IInputHandler>
+    class GLFWInputHandlerFactory : public Tbx::FactoryModule<Tbx::IInputHandler>
     {
     public:
         std::string GetName() const override;

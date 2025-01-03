@@ -1,0 +1,3 @@
+#define TBX_API __declspec(dllexport)
+#define TBX_API __declspec(dllimport)
+#define TBX_API

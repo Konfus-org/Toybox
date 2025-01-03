@@ -1,5 +1,5 @@
 #pragma once
-#include "tbxAPI.h"
+#include "TbxAPI.h"
 #include "Color.h"
 #include "Buffers.h"
 #include "Math/Vector2.h"
@@ -11,16 +11,16 @@ namespace Tbx
     {
         Vertex() = default;
         explicit(false) Vertex(const Vector3& position) 
-            : Position(position), Normal(0, 0, 0), TexCoord(0, 0) {}
+            : Position(position) {}
         Vertex(const Vector3& position, const Color& color)
-            : Position(position), Normal(0, 0, 0), TexCoord(0, 0), Color(color) {}
+            : Position(position), Color(color) {}
         Vertex(const Vector3& position, const Vector3& normal, const Vector2& texCoord)
             : Position(position), Normal(normal), TexCoord(texCoord) {}
 
-        Vector3 Position;  // (x, y, z) in 3D space
-        Vector3 Normal;    // (nx, ny, nz) for lighting
-        Vector2 TexCoord;  // (u, v) for texture mapping
-        Color Color;       // (r, g, b, a) for color
+        Vector3 Position = { 0, 0, 0 };                // (x, y, z) in 3D space
+        Vector3 Normal   = { 0, 0, 0 };                // (nx, ny, nz) for lighting
+        Vector2 TexCoord = { 0, 0 };                   // (u, v) for texture mapping
+        Color Color      = { 1.0f, 1.0f, 1.0f, 1.0f }; // (r, g, b, a) for color
     };
 
     static VertexBuffer VertexVectorToBuffer(const std::vector<Vertex>& vertices)

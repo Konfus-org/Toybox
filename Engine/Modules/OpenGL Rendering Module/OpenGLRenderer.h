@@ -11,17 +11,17 @@ namespace OpenGLRendering
     class OpenGLRenderer : public Tbx::IRenderer
     {
     public:
-        void Initialize(const std::weak_ptr<Tbx::IWindow>& context) override;
-        void Shutdown() override;
+        void SetContext(const std::weak_ptr<Tbx::IWindow>& context) override;
+        void Flush() override;
 
-        void BeginFrame() override;
-        void EndFrame() override;
+        void BeginDraw() override;
+        void EndDraw() override;
 
-        void ClearScreen() override;
+        void Clear() override;
         void Draw(const Tbx::Color& color) override;
-        void Draw(const Tbx::Mesh& mesh, const Tbx::Vector3& worldPos, const Tbx::Quaternion& rotation, const Tbx::Scale& scale) override;
-        void Draw(const Tbx::Texture& texture, const Tbx::Vector3& worldPos, const Tbx::Quaternion& rotation, const Tbx::Scale& scale) override;
-        void Draw(const std::string& text, const Tbx::Vector3& worldPos, const Tbx::Quaternion& rotation, const Tbx::Scale& scale) override;
+        void Draw(const Tbx::Mesh& mesh) override;
+        void Draw(const Tbx::Texture& texture) override;
+        void Draw(const std::string& text) override;
 
         void SetViewport(const Tbx::Vector2I& screenPos, const Tbx::Size& size) override;
         void SetVSyncEnabled(const bool& enabled) override;
@@ -29,9 +29,11 @@ namespace OpenGLRendering
         std::string GetRendererName() const override;
 
     private:
+        std::vector<OpenGLVertexArray> _vertArraysToDraw;
+        OpenGLContext _context;
+
+        // TODO: Pass shader source to renderer instead of hard coding here...
         std::unique_ptr<OpenGLShader> _shader;
-        std::unique_ptr<OpenGLContext> _context;
-        std::unique_ptr<OpenGLVertexArray> _vertArray;
     };
 }
 

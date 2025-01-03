@@ -30,6 +30,8 @@ namespace Tbx
 
         std::shared_ptr<IWindow> CreateNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
         bool OnWindowClose(const WindowCloseEvent& e);
+        bool OnWindowResize(const WindowResizeEvent& e);
+        std::shared_ptr<IWindow> GetWindow(const uint64& id);
         void OnEvent(Event& e);
     };
 }

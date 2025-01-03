@@ -7,3 +7,5 @@
 #include "Mesh.h"
 #include "Vertex.h"
 #include "IRenderer.h"
+#include "RenderQueue.h"
+#include "RenderCommands.h"

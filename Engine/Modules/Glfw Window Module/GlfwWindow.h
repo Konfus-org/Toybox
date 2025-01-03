@@ -9,13 +9,8 @@ namespace GLFWWindowing
     public:
         GLFWWindow();
         ~GLFWWindow() final;
-
-        void SetRenderer(const std::shared_ptr<Tbx::IRenderer>& renderer) override;
         void Open(const Tbx::WindowMode& mode) override;
         void Update() override;
-
-        void SetVSyncEnabled(const bool& enabled) override;
-        bool GetVSyncEnabled() const override;
 
         void SetSize(const Tbx::Size& size) override;
         Tbx::Size GetSize() const override;
@@ -30,11 +25,9 @@ namespace GLFWWindowing
         void SetMode(const Tbx::WindowMode& mode) override;
 
     private:
-        bool _vSyncEnabled;
         std::string _title;
         Tbx::Size _size;
         Tbx::EventCallbackFn _eventCallback;
-        std::shared_ptr<Tbx::IRenderer> _renderer;
         GLFWwindow* _glfwWindow = nullptr;
 
         void SetupCallbacks();

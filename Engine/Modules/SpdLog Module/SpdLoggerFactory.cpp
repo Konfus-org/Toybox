@@ -1,30 +1,30 @@
 #pragma once
-#include "SpdLogModule.h"
+#include "SpdLoggerFactory.h"
 #include "SpdLogger.h"
 
 namespace SpdLogging
 {
-    Tbx::ILogger* SpdLogModule::Create()
+    Tbx::ILogger* SpdLoggerFactory::Create()
     {
         return new SpdLogger();
     }
 
-    void SpdLogModule::Destroy(Tbx::ILogger* logger)
+    void SpdLoggerFactory::Destroy(Tbx::ILogger* logger)
     {
         delete logger;
     }
 
-    std::string SpdLogModule::GetName() const
+    std::string SpdLoggerFactory::GetName() const
     {
         return "Spd Log";
     }
 
-    std::string SpdLogModule::GetAuthor() const
+    std::string SpdLoggerFactory::GetAuthor() const
     {
         return "Jeremy Hummel";
     }
 
-    int SpdLogModule::GetVersion() const
+    int SpdLoggerFactory::GetVersion() const
     {
         return 0;
     }
@@ -32,7 +32,7 @@ namespace SpdLogging
 
 Tbx::Module* Load()
 {
-    return new SpdLogging::SpdLogModule();
+    return new SpdLogging::SpdLoggerFactory();
 }
 
 void Unload(Tbx::Module* moduleToUnload)

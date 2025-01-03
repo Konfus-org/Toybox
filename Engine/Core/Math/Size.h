@@ -1,6 +1,6 @@
 #pragma once
 #include "Int.h"
-#include "tbxAPI.h"
+#include "TbxAPI.h"
 
 namespace Tbx
 {

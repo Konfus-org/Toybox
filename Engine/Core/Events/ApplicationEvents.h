@@ -1,7 +1,7 @@
 #pragma once
 #include "Math/Size.h"
 #include "Event.h"
-#include "tbxAPI.h"
+#include "TbxAPI.h"
 
 namespace Tbx
 {

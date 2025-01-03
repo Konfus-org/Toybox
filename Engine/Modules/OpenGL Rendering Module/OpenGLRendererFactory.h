@@ -3,7 +3,7 @@
 
 namespace OpenGLRendering
 {
-    class OpenGLRenderingModule : public Tbx::FactoryModule<Tbx::IRenderer>
+    class OpenGLRendererFactory : public Tbx::FactoryModule<Tbx::IRenderer>
     {
     public:
         Tbx::IRenderer* Create() override;

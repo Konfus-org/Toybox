@@ -1,4 +1,5 @@
 #include "App.h"
+#include "Rendering/Rendering.h"
 #include <TbxCore.h>
 
 namespace Tbx
@@ -47,6 +48,9 @@ namespace Tbx
         // Create main window
         OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
 
+        // Initialize rendering
+        Rendering::Initialize();
+
         // Start handling input
         Input::StartHandling(_mainWindow);
     }
@@ -55,11 +59,19 @@ namespace Tbx
     {
         if (_mainWindow != nullptr) _mainWindow->Update();
 
+        // Update layers
         for (const auto& layer : _layerStack)
         {
             layer->OnUpdate();
         }
 
+        // Draw whatever has been passed to renderer to windows
+        for (const auto& window : _windows)
+        {
+            Rendering::Draw(window);
+        }
+
+        // Process events
         AppUpdateEvent updateEvent;
         OnEvent(updateEvent);
     }
@@ -71,6 +83,9 @@ namespace Tbx
 
         // We will immediately stop handling input
         Input::StopHandling();
+
+        // Fush rendering
+        Rendering::Flush();
         
         // Close log and unload modules
         Log::Close();
@@ -81,7 +96,7 @@ namespace Tbx
     {
         EventDispatcher dispatcher(e);
         dispatcher.Dispatch<WindowCloseEvent>(TBX_BIND_EVENT_FN(App::OnWindowClose));
-        //dispatcher.Dispatch<Events::WindowResizeEvent>(TBX_BIND_EVENT_FN(Application::OnWindowResize));
+        dispatcher.Dispatch<WindowResizeEvent>(TBX_BIND_EVENT_FN(App::OnWindowResize));
 
         for (const auto& layer : _layerStack)
         {
@@ -124,20 +139,6 @@ namespace Tbx
         sharedWindow->Open(mode);
         sharedWindow->SetEventCallback(TBX_BIND_EVENT_FN(App::OnEvent));
 
-        // Create renderer and attach to window
-        auto rendererFactory = ModuleServer::GetFactoryModule<IRenderer>();
-        if (!Tbx::IsWeakPointerValid(rendererFactory))
-        {
-            TBX_ERROR("Failed to create renderer for the {0} window, because the renderer factory couldn't be found. Is a renderer module installed?", name);
-        }
-        else
-        {
-            auto sharedRenderer = rendererFactory.lock()->CreateShared();
-            sharedRenderer->Initialize(sharedWindow);
-            sharedWindow->SetRenderer(sharedRenderer);
-            sharedWindow->SetVSyncEnabled(true);
-        }
-
         return sharedWindow;
     }
 
@@ -147,18 +148,33 @@ namespace Tbx
         if (e.GetWindowId() == _mainWindow->GetId()) _isRunning = false;
 
         // Find the window that was closed and remove it from the list, which will trigger its destruction once nothing no longer references it...
-        std::shared_ptr<IWindow> windowToRemove;
-        for (auto window : _windows)
-        {
-            if (e.GetWindowId() == window->GetId())
-            {
-                windowToRemove = window;
-                break;
-            }
-        }
+        std::shared_ptr<IWindow> windowToRemove = GetWindow(e.GetWindowId());
         _windows.erase(std::remove(_windows.begin(), _windows.end(), windowToRemove), _windows.end());
 
         return true;
+    }
+
+    bool App::OnWindowResize(const WindowResizeEvent& e)
+    {
+        // Draw the window while its resizing so there are no artifacts during the resize
+        std::shared_ptr<IWindow> windowThatWasResized = GetWindow(e.GetWindowId());
+        Rendering::Draw(windowThatWasResized);
+
+        // Allow other things to process window resize events
+        return false;
+    }
+
+    std::shared_ptr<IWindow> App::GetWindow(const uint64& id)
+    {
+        for (const auto& window : _windows)
+        {
+            if (window->GetId() == id)
+            {
+                return window;
+            }
+        }
+
+        return nullptr;
     }
 
     std::weak_ptr<IWindow> App::GetMainWindow() const

@@ -1,5 +1,5 @@
 #pragma once
-#include "tbxAPI.h"
+#include "TbxAPI.h"
 #include "TbxPCH.h"
 
 struct TBX_API Matrix
