@@ -4,14 +4,14 @@
 
 namespace OpenGLRendering
 {
-    class OpenGLShader : public Tbx::IShader
+    class OpenGLShader
     {
     public:
-        ~OpenGLShader() final;
+        ~OpenGLShader();
 
-        void Compile(const std::string& vertexShader, const std::string& fragmentShader) override;
-        void Bind() const override;
-        void Unbind() const override;
+        void Compile(const Tbx::Shader& shader);
+        void Bind() const;
+        void Unbind() const;
 
     private:
         Tbx::uint _rendererId = -1;

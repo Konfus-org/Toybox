@@ -20,19 +20,15 @@ namespace Tbx
     {
         _isRunning = true;
 
-        // Module load paths differ between debug and release
-#ifdef NDEBUG
-        const auto pathToModules = "..\\Modules";
-#else
-        const auto pathToModules = "..\\Build\\bin\\Modules";
-#endif
-        ModuleServer::LoadModules(pathToModules);
-
-        const auto& currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        const auto& logPath = std::format("Logs\\{}.log", currentTime);
-        Log::Open("Tbx::Runtime", logPath);
-
 #ifdef TBX_DEBUG
+        // DEBUG:
+        
+        // Open modules with debug/build path
+        ModuleServer::LoadModules("..\\Build\\bin\\Modules");
+
+        // No log file in debug
+        Log::Open("Tbx::Runtime"); 
+
         // Once log is open, we can print out all loaded modules to the log for debug purposes
         const auto& modules = ModuleServer::GetModules();
         const auto& numModules = modules.size();
@@ -42,6 +38,18 @@ namespace Tbx
             const auto& modName = loadedMod.lock()->GetName();
             TBX_INFO("    - {0}", modName);
         }
+#else 
+        // RELEASE:
+        
+        // Open modules with release path
+        ModuleServer::LoadModules("..\\Modules");
+
+        // Open log file in non-debug
+        const auto& currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        // TODO: only keep last 10 log files
+        const auto& logPath = std::format("Logs\\{}.log", currentTime);
+        Log::Open("Tbx::Runtime", logPath);
+
 #endif
 
         OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
@@ -75,6 +83,12 @@ namespace Tbx
         _isRunning = false;
         _mainWindow = nullptr;
 
+        // Call detach on all layers
+        for (const auto& layer : _layerStack)
+        {
+            layer->OnDetach();
+        }
+
         Input::Stop();
         Rendering::Shutdown();
         Log::Close();
@@ -101,6 +115,7 @@ namespace Tbx
     void App::PushLayer(const std::shared_ptr<Layer>& layer)
     {
         _layerStack.PushLayer(layer);
+        layer->OnAttach();
     }
 
     void App::PushOverlay(const std::shared_ptr<Layer>& layer)
@@ -144,6 +159,7 @@ namespace Tbx
         std::shared_ptr<IWindow> windowToRemove = GetWindow(e.GetWindowId());
         _windows.erase(std::remove(_windows.begin(), _windows.end(), windowToRemove), _windows.end());
 
+        // Don't allow other things to process window close events as the window is about to be destroyed
         return true;
     }
 
@@ -151,11 +167,15 @@ namespace Tbx
     {
         // Draw the window while its resizing so there are no artifacts during the resize
         std::shared_ptr<IWindow> windowThatWasResized = GetWindow(e.GetWindowId());
-        Rendering::Draw(windowThatWasResized, true);
+        const bool& wasVSyncEnabled = Rendering::IsVSyncEnabled();
+        Rendering::SetVSyncEnabled(true); // Enable vsync so the window doesn't flicker
+        Rendering::Draw(windowThatWasResized);
+        Rendering::SetVSyncEnabled(wasVSyncEnabled); // Set vsync back to what it was
 
+        // Log window resize
         const auto& newSize = windowThatWasResized->GetSize();
         const auto& name = windowThatWasResized->GetTitle();
-        TBX_TRACE("Window {0} resized to {1}x{2}", name, newSize.Width, newSize.Height);
+        TBX_INFO("Window {0} resized to {1}x{2}", name, newSize.Width, newSize.Height);
 
         // Allow other things to process window resize events
         return false;

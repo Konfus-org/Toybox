@@ -7,7 +7,7 @@ namespace Tbx
     class Log
     {
     public:
-        TBX_API static void Open(const std::string& name, const std::string& logSaveLocation);
+        TBX_API static void Open(const std::string& name, const std::string& logSaveLocation = "");
 
         TBX_API static void Close();
 

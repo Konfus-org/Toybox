@@ -45,13 +45,17 @@ namespace Tbx
         return 0;
     }
 
-    class TBX_API IShader
+    class  Shader
     {
     public:
-        virtual ~IShader() = default;
+        TBX_API Shader(const std::string_view& vertexSrc, const std::string_view& fragmentSrc) : _vertexSrc(vertexSrc), _fragmentSrc(fragmentSrc) {}
+        TBX_API ~Shader() = default;
 
-        virtual void Compile(const std::string& vertexSrc, const std::string& fragmentSrc) = 0;
-        virtual void Bind() const = 0;
-        virtual void Unbind() const = 0;
+        TBX_API const std::string& GetVertexSource() const { return _vertexSrc; }
+        TBX_API const std::string& GetFragmentSource() const { return _fragmentSrc; }
+
+    private:
+        std::string _vertexSrc;
+        std::string _fragmentSrc;
     };
 }

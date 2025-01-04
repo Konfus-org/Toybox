@@ -6,6 +6,7 @@ namespace Tbx
     std::shared_ptr<IRenderer> Rendering::_renderer;
     std::weak_ptr<IWindow> Rendering::_renderSurface;
     RenderQueue Rendering::_renderQueue;
+    bool Rendering::_vsyncEnabled;
 
     void Rendering::Initialize()
     {
@@ -30,6 +31,12 @@ namespace Tbx
     void Rendering::SetVSyncEnabled(bool enabled)
     {
         _renderer->SetVSyncEnabled(enabled);
+        _vsyncEnabled = enabled;
+    }
+
+    TBX_API bool Rendering::IsVSyncEnabled()
+    {
+        return _vsyncEnabled;
     }
 
     void Rendering::Submit(const RenderCommand& command, const std::any& data)
@@ -47,13 +54,13 @@ namespace Tbx
         }
     }
 
-    void Rendering::Draw(const std::weak_ptr<IWindow>& surface, bool resizing)
+    void Rendering::Draw(const std::weak_ptr<IWindow>& surface)
     {
         if (!Tbx::IsWeakPointerValid(_renderSurface) || _renderSurface.lock() != surface.lock())
         {
-            // Update context
+            // Update context if needed
             _renderer->SetContext(surface);
-            _renderer->SetVSyncEnabled(true); // Default to vsync on
+            _renderer->SetVSyncEnabled(false); // Default to vsync off
             _renderSurface = surface;
         }
 
@@ -61,12 +68,8 @@ namespace Tbx
         const auto& surfaceSize = surface.lock()->GetSize();
         _renderer->SetViewport({ 0, 0 }, surfaceSize);
 
-        _renderer->BeginDraw();
-
-        // Process batch if we aren't resizing
-        if (!resizing) ProcessNextBatch();
-        
-        _renderer->EndDraw();
+        // Render whatever is in our queue
+        ProcessNextBatch();
     }
 
     void Rendering::Flush()
@@ -77,6 +80,8 @@ namespace Tbx
 
     void Rendering::ProcessNextBatch()
     {
+        _renderer->BeginDraw();
+
         // TODO: we prolly don't want to constantly draw and flush if nothing has changed....
         while (!_renderQueue.IsEmpty())
         {
@@ -87,41 +92,52 @@ namespace Tbx
                 using enum Tbx::RenderCommand;
                 switch (item.Command)
                 {
-                case Clear:
-                    _renderer->Clear(); break;
-                case RenderColor:
-                {
-                    const auto& colorData = std::any_cast<Color>(item.Data);
-                    _renderer->Draw(colorData);
-                    break;
-                }
-                case RenderTexture:
-                {
-                    const auto& textureData = std::any_cast<Texture>(item.Data);
-                    _renderer->Draw(textureData);
-                    break;
-                }
-                case RenderMesh:
-                {
-                    const auto& meshData = std::any_cast<Mesh>(item.Data);
-                    _renderer->Draw(meshData);
-                    break;
-                }
-                case RenderText:
-                {
-                    const auto& textData = std::any_cast<std::string>(item.Data);
-                    _renderer->Draw(textData);
-                    break;
-                }
-                default:
-                {
-                    TBX_ASSERT(false, "Unknown render command type.");
-                    break;
-                }
+                    case Clear:
+                    {
+                        _renderer->Clear(); 
+                        break;
+                    }
+                    case SetShader:
+                    {
+                        const auto& shaderData = std::any_cast<Shader>(item.Data);
+                        _renderer->SetShader(shaderData);
+                        break;
+                    }
+                    case RenderColor:
+                    {
+                        const auto& colorData = std::any_cast<Color>(item.Data);
+                        _renderer->Draw(colorData);
+                        break;
+                    }
+                    case RenderTexture:
+                    {
+                        const auto& textureData = std::any_cast<Texture>(item.Data);
+                        _renderer->Draw(textureData);
+                        break;
+                    }
+                    case RenderMesh:
+                    {
+                        const auto& meshData = std::any_cast<Mesh>(item.Data);
+                        _renderer->Draw(meshData);
+                        break;
+                    }
+                    case RenderText:
+                    {
+                        const auto& textData = std::any_cast<std::string>(item.Data);
+                        _renderer->Draw(textData);
+                        break;
+                    }
+                    default:
+                    {
+                        TBX_ASSERT(false, "Unknown render command type.");
+                        break;
+                    }
                 }
             }
 
             _renderQueue.Pop();
         }
+
+        _renderer->EndDraw();
     }
 }

@@ -10,13 +10,23 @@ namespace SpdLogging
     {
         // Create console and file sinks
         auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-        auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(filePath);
 
-        // Combine sinks into a logger
-        spdlog::logger multiSinkLogger(name, { consoleSink, fileSink });
+        if (!filePath.empty())
+        {
+            // We have file path, make file sync
+            auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(filePath);
+
+            // Combine file and console sinks into a logger
+            spdlog::logger multiSinkLogger(name, { consoleSink, fileSink });
+            _spdLogger = std::make_shared<spdlog::logger>(multiSinkLogger);
+        }
+        else
+        {
+            // Just use console
+            _spdLogger = std::make_shared<spdlog::logger>(name, consoleSink);
+        }
 
         // Set up and register the logger
-        _spdLogger = std::make_shared<spdlog::logger>(multiSinkLogger);
         _spdLogger->set_pattern("%^[%T]: %v%$");
         _spdLogger->set_level(spdlog::level::level_enum::trace);
         spdlog::register_logger(_spdLogger);

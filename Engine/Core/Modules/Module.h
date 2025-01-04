@@ -30,6 +30,16 @@ namespace Tbx
             return shared;
         }
 
+        std::unique_ptr<T> CreateUnique()
+        {
+            auto* ptr = Create();
+            auto unique = std::unique_ptr<T>(ptr, [this](T* ptrToDestroy) 
+            { 
+                Destroy(ptrToDestroy); 
+            });
+            return unique;
+        }
+
     protected:
         virtual T* Create() = 0;
         virtual void Destroy(T* toDestroy) = 0;

@@ -4,17 +4,17 @@ namespace OpenGLRendering
 {
 	OpenGLShader::~OpenGLShader()
 	{
+		glUseProgram(0);
 		glDeleteProgram(_rendererId);
 	}
 
-	void OpenGLShader::Compile(const std::string& vertexSrc, const std::string& fragmentSrc)
+	void OpenGLShader::Compile(const Tbx::Shader& shader)
 	{
 		// The code below is a lighty modified version of the example code found here:
 		// https://www.khronos.org/opengl/wiki/Shader_Compilation
 
-		// Unbind from any old shader src we were using if we re-compile
-		Unbind();
-		glDeleteProgram(_rendererId);
+        const auto& vertexSrc = shader.GetVertexSource();
+        const auto& fragmentSrc = shader.GetFragmentSource();
 
 		// Create an empty vertex shader handle
 		GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
