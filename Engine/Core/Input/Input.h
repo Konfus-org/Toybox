@@ -27,5 +27,6 @@ namespace Tbx
 
     private:
         static std::shared_ptr<IInputHandler> _handler;
+        static std::weak_ptr<IWindow> _context;
     };
 }

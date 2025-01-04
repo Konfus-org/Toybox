@@ -7,14 +7,18 @@ namespace Tbx
     {
     public:
         TBX_API static void Initialize();
+        TBX_API static void Shutdown();
+
         TBX_API static void SetVSyncEnabled(bool enabled);
-        TBX_API static void Submit(const RenderCommand& command);
-        TBX_API static void Draw(const std::weak_ptr<IWindow>& surface);
+        TBX_API static void Submit(const RenderCommand& command, const std::any& data);
+        TBX_API static void Draw(const std::weak_ptr<IWindow>& surface, bool resizing = false);
         TBX_API static void Flush();
 
     private:
         static std::shared_ptr<IRenderer> _renderer;
-        static std::weak_ptr<IWindow> _lastSurface;
+        static std::weak_ptr<IWindow> _renderSurface;
         static RenderQueue _renderQueue;
+
+        static void ProcessNextBatch();
     };
 }

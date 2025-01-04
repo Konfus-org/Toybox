@@ -20,7 +20,7 @@ namespace Tbx
     {
         _isRunning = true;
 
-        // Load modules
+        // Module load paths differ between debug and release
 #ifdef NDEBUG
         const auto pathToModules = "..\\Modules";
 #else
@@ -51,22 +51,21 @@ namespace Tbx
 
     void App::Update()
     {
-        if (_mainWindow != nullptr) _mainWindow->Update();
+        for (const auto& window : _windows)
+        {
+            Rendering::Draw(window);
 
-        // Update layers
+            Input::SetContext(window);
+            window->Update();
+
+            Rendering::Flush();
+        }
+
         for (const auto& layer : _layerStack)
         {
             layer->OnUpdate();
         }
 
-        // Draw whatever has been passed to renderer to windows
-        for (const auto& window : _windows)
-        {
-            Input::SetContext(window);
-            Rendering::Draw(window);
-        }
-
-        // Process events
         AppUpdateEvent updateEvent;
         OnEvent(updateEvent);
     }
@@ -76,15 +75,14 @@ namespace Tbx
         _isRunning = false;
         _mainWindow = nullptr;
 
-        // We will immediately stop handling input
         Input::Stop();
-
-        // Fush rendering
-        Rendering::Flush();
-        
-        // Close log and unload modules
+        Rendering::Shutdown();
         Log::Close();
-        ModuleServer::UnloadModules();
+
+        // Has to be last! 
+        // Everything depends on modules, including the log, input and rendering. 
+        // So they cannot be shutdown after modules are unloaded.
+        ModuleServer::Shutdown();
     }
 
     void App::OnEvent(Event& e)
@@ -153,7 +151,11 @@ namespace Tbx
     {
         // Draw the window while its resizing so there are no artifacts during the resize
         std::shared_ptr<IWindow> windowThatWasResized = GetWindow(e.GetWindowId());
-        Rendering::Draw(windowThatWasResized);
+        Rendering::Draw(windowThatWasResized, true);
+
+        const auto& newSize = windowThatWasResized->GetSize();
+        const auto& name = windowThatWasResized->GetTitle();
+        TBX_TRACE("Window {0} resized to {1}x{2}", name, newSize.Width, newSize.Height);
 
         // Allow other things to process window resize events
         return false;

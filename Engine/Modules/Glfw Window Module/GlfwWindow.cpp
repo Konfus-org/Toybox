@@ -266,7 +266,7 @@ namespace GLFWWindowing
 		_eventCallback(event);
 	}
 
-	void GLFWWindow::OnSizeChanged()
+	void GLFWWindow::OnSizeChanged() const
 	{
 		Tbx::WindowResizeEvent event(GetId(), _size.Width, _size.Height);
 		_eventCallback(event);

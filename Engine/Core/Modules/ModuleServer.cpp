@@ -74,7 +74,7 @@ namespace Tbx
         }
     }
 
-    void ModuleServer::UnloadModules()
+    void ModuleServer::Shutdown()
     {
         _loadedModules.clear();
     }

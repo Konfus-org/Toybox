@@ -11,7 +11,7 @@ namespace Tbx
     {
     public:
         TBX_API static void LoadModules(const std::string& pathToModules);
-        TBX_API static void UnloadModules();
+        TBX_API static void Shutdown();
 
         TBX_API static std::weak_ptr<Module> GetModule(const std::string_view& name);
         TBX_API static std::vector<std::weak_ptr<Module>> GetModules();

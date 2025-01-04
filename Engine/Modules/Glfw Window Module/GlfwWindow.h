@@ -36,6 +36,6 @@ namespace GLFWWindowing
         void OnMouseScrolled(double offsetX, double offsetY) const;
         void OnMouseMoved(double posX, double posY) const;
         void OnWindowClosed() const;
-        void OnSizeChanged();
+        void OnSizeChanged() const;
     };
 }

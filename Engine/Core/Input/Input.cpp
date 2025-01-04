@@ -3,12 +3,14 @@
 #include "Windowing/IWindow.h"
 #include "Modules/ModuleServer.h"
 #include "Debug/Debugging.h"
+#include "Util/SmartPointerUtils.h"
 
 #define TBX_VALIDATE_INPUT(error_msg, ...)  if (_handler == nullptr) { TBX_ERROR(error_msg, __VA_ARGS__); return false; }
 
 namespace Tbx
 {
     std::shared_ptr<IInputHandler> Input::_handler;
+    std::weak_ptr<IWindow> Input::_context;
 
     void Input::Initialize()
     {
@@ -24,7 +26,11 @@ namespace Tbx
 
     void Input::SetContext(const std::weak_ptr<IWindow>& context)
     {
-        _handler->SetContext(context);
+        if (!IsWeakPointerValid(_context) || context.lock() != _context.lock())
+        {
+            _handler->SetContext(context);
+            _context = context;
+        }
     }
 
     bool Input::IsGamepadButtonDown(const int id, const int button)

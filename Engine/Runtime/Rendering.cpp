@@ -1,9 +1,10 @@
+#include "TbxPCH.h"
 #include "Rendering.h"
 
 namespace Tbx
 {
     std::shared_ptr<IRenderer> Rendering::_renderer;
-    std::weak_ptr<IWindow> Rendering::_lastSurface;
+    std::weak_ptr<IWindow> Rendering::_renderSurface;
     RenderQueue Rendering::_renderQueue;
 
     void Rendering::Initialize()
@@ -15,9 +16,15 @@ namespace Tbx
         }
         else
         {
-            auto sharedRenderer = rendererFactory.lock()->CreateShared();
+            const auto& sharedRenderer = rendererFactory.lock()->CreateShared();
             _renderer = sharedRenderer;
         }
+    }
+
+    TBX_API void Rendering::Shutdown()
+    {
+        Flush();
+        _renderer.reset();
     }
 
     void Rendering::SetVSyncEnabled(bool enabled)
@@ -25,79 +32,96 @@ namespace Tbx
         _renderer->SetVSyncEnabled(enabled);
     }
 
-    void Rendering::Submit(const RenderCommand& command)
+    void Rendering::Submit(const RenderCommand& command, const std::any& data)
     {
         if (_renderQueue.IsEmpty())
         {
             auto renderBatch = RenderBatch();
-            renderBatch.AddCommand(command);
-            _renderQueue.Enqueue(renderBatch);
+            renderBatch.AddItem({ command, data });
+            _renderQueue.Push(renderBatch);
         }
         else
         {
             auto& frameBatch = _renderQueue.Peek();
-            frameBatch.AddCommand(command);
+            frameBatch.AddItem({ command, data });
         }
     }
 
-    void Rendering::Draw(const std::weak_ptr<IWindow>& surface)
+    void Rendering::Draw(const std::weak_ptr<IWindow>& surface, bool resizing)
     {
-        if (_lastSurface.lock() != surface.lock())
+        if (!Tbx::IsWeakPointerValid(_renderSurface) || _renderSurface.lock() != surface.lock())
         {
             // Update context
             _renderer->SetContext(surface);
             _renderer->SetVSyncEnabled(true); // Default to vsync on
-            _lastSurface = surface;
+            _renderSurface = surface;
         }
 
         // Update viewport
         const auto& surfaceSize = surface.lock()->GetSize();
         _renderer->SetViewport({ 0, 0 }, surfaceSize);
 
-        // Process batch 
-        // TODO: we prolly don't want to constantly draw and flush if nothing has changed....
         _renderer->BeginDraw();
-        while (!_renderQueue.IsEmpty())
-        {
-            const auto& batch = _renderQueue.Dequeue();
 
-            for (const auto& command : batch)
-            {
-                const auto& commandTypeId = typeid(command);
-
-                if (commandTypeId == typeid(Tbx::ClearCommand))
-                {
-                    _renderer->Clear();
-                }
-                else if (commandTypeId == typeid(Tbx::DrawColorCommand))
-                {
-                    const auto& drawCommand = static_cast<const Tbx::DrawColorCommand&>(command);
-                    _renderer->Draw(drawCommand.GetColor());
-                }
-                else if (commandTypeId == typeid(Tbx::DrawMeshCommand))
-                {
-                    const auto& drawCommand = static_cast<const Tbx::DrawMeshCommand&>(command);
-                    _renderer->Draw(drawCommand.GetMesh());
-                }
-                else if (commandTypeId == typeid(Tbx::DrawTextureCommand))
-                {
-                    const auto& drawCommand = static_cast<const Tbx::DrawTextureCommand&>(command);
-                    _renderer->Draw(drawCommand.GetTexture());
-                }
-                else if (commandTypeId == typeid(Tbx::DrawTextCommand))
-                {
-                    const auto& drawCommand = static_cast<const Tbx::DrawTextCommand&>(command);
-                    _renderer->Draw(drawCommand.GetText());
-                }
-            }
-        }
+        // Process batch if we aren't resizing
+        if (!resizing) ProcessNextBatch();
+        
         _renderer->EndDraw();
-        _renderer->Flush();
     }
 
     void Rendering::Flush()
     {
         _renderer->Flush();
         _renderQueue.Clear();
+    }
+
+    void Rendering::ProcessNextBatch()
+    {
+        // TODO: we prolly don't want to constantly draw and flush if nothing has changed....
+        while (!_renderQueue.IsEmpty())
+        {
+            const auto& batch = _renderQueue.Peek();
+
+            for (const auto& item : batch)
+            {
+                using enum Tbx::RenderCommand;
+                switch (item.Command)
+                {
+                case Clear:
+                    _renderer->Clear(); break;
+                case RenderColor:
+                {
+                    const auto& colorData = std::any_cast<Color>(item.Data);
+                    _renderer->Draw(colorData);
+                    break;
+                }
+                case RenderTexture:
+                {
+                    const auto& textureData = std::any_cast<Texture>(item.Data);
+                    _renderer->Draw(textureData);
+                    break;
+                }
+                case RenderMesh:
+                {
+                    const auto& meshData = std::any_cast<Mesh>(item.Data);
+                    _renderer->Draw(meshData);
+                    break;
+                }
+                case RenderText:
+                {
+                    const auto& textData = std::any_cast<std::string>(item.Data);
+                    _renderer->Draw(textData);
+                    break;
+                }
+                default:
+                {
+                    TBX_ASSERT(false, "Unknown render command type.");
+                    break;
+                }
+                }
+            }
+
+            _renderQueue.Pop();
+        }
     }
 }
