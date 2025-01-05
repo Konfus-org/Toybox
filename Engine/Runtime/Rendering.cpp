@@ -97,31 +97,31 @@ namespace Tbx
                         _renderer->Clear(); 
                         break;
                     }
-                    case SetShader:
+                    case Shader:
                     {
                         const auto& shaderData = std::any_cast<Shader>(item.Data);
                         _renderer->SetShader(shaderData);
                         break;
                     }
-                    case RenderColor:
+                    case Color:
                     {
                         const auto& colorData = std::any_cast<Color>(item.Data);
                         _renderer->Draw(colorData);
                         break;
                     }
-                    case RenderTexture:
+                    case Texture:
                     {
                         const auto& textureData = std::any_cast<Texture>(item.Data);
                         _renderer->Draw(textureData);
                         break;
                     }
-                    case RenderMesh:
+                    case Mesh:
                     {
                         const auto& meshData = std::any_cast<Mesh>(item.Data);
                         _renderer->Draw(meshData);
                         break;
                     }
-                    case RenderText:
+                    case Text:
                     {
                         const auto& textData = std::any_cast<std::string>(item.Data);
                         _renderer->Draw(textData);

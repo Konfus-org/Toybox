@@ -21,6 +21,7 @@ namespace Tbx
         _isRunning = true;
 
 #ifdef TBX_DEBUG
+
         // DEBUG:
         
         // Open modules with debug/build path
@@ -38,7 +39,9 @@ namespace Tbx
             const auto& modName = loadedMod.lock()->GetName();
             TBX_INFO("    - {0}", modName);
         }
+
 #else 
+
         // RELEASE:
         
         // Open modules with release path

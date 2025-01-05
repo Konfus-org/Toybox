@@ -6,6 +6,7 @@
 #include "Math/Int.h"
 #include "Events/Event.h"
 #include "Rendering/IRenderer.h"
+#include "Rendering/Camera.h"
 
 namespace Tbx
 {
@@ -18,10 +19,13 @@ namespace Tbx
         virtual void Open(const WindowMode& mode) = 0;
         virtual void Update() = 0;
 
-        virtual Size GetSize() const = 0;
+        virtual void SetCamera(const Camera& camera) = 0;
+        virtual const Camera& GetCamera() const = 0;
+
+        virtual const Size& GetSize() const = 0;
         virtual void SetSize(const Size& size) = 0;
 
-        virtual std::string GetTitle() const = 0;
+        virtual const std::string& GetTitle() const = 0;
         virtual void SetTitle(const std::string& title) = 0;
 
         virtual uint64 GetId() const = 0;

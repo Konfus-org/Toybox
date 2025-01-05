@@ -23,7 +23,6 @@ namespace OpenGLRendering
         auto& glShader = _shaders.emplace_back();
         glShader.Compile(shader);
         glShader.Bind();
-        
     }
 
     void OpenGLRenderer::Flush()

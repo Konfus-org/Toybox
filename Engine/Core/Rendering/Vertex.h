@@ -2,8 +2,7 @@
 #include "TbxAPI.h"
 #include "Color.h"
 #include "Buffers.h"
-#include "Math/Vector2.h"
-#include "Math/Vector3.h"
+#include "Math/Vectors.h"
 
 namespace Tbx
 {

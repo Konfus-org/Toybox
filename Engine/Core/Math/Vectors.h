@@ -1,4 +1,5 @@
 #pragma once
+#include "TbxPCH.h"
 #include "TbxAPI.h"
 
 namespace Tbx
@@ -13,7 +14,6 @@ namespace Tbx
         float Y;
     };
 
-
     struct TBX_API Vector2I
     {
     public:
@@ -22,5 +22,19 @@ namespace Tbx
 
         int X;
         int Y;
+    };
+
+    struct TBX_API Vector3
+    {
+    public:
+        Vector3() = default;
+        Vector3(float x, float y, float z) : X(x), Y(y), Z(z) {}
+
+        float X;
+        float Y;
+        float Z;
+
+        static Vector3 Zero() { return Vector3(0, 0, 0); }
+        static Vector3 Identity() { return Vector3(1, 1, 1); }
     };
 }

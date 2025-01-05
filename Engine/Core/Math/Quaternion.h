@@ -1,5 +1,6 @@
 #pragma once
 #include "TbxAPI.h"
+//#include "Operations.h"
 
 namespace Tbx
 {
@@ -16,23 +17,29 @@ namespace Tbx
 
         static Quaternion Identity() { return Quaternion(0.0f, 0.0f, 0.0f, 1.0f); }
 
-        Matrix ToMatrix() const
-        {
-            float xx = X * X;
-            float xy = X * Y;
-            float xz = X * Z;
-            float xw = X * W;
-            float yy = Y * Y;
-            float yz = Y * Z;
-            float yw = Y * W;
-            float zz = Z * Z;
-            float zw = Z * W;
-            return Matrix({
-                1 - 2 * (yy + zz), 2 * (xy - zw), 2 * (xz + yw), 0,
-                2 * (xy + zw), 1 - 2 * (xx + zz), 2 * (yz - xw), 0,
-                2 * (xz - yw), 2 * (yz + xw), 1 - 2 * (xx + yy), 0,
-                0, 0, 0, 1
-            });
-        }
+        ////static Quaternion FromEuler(const Vector3& euler)
+        ////{
+        ////    return FromEuler(euler.X, euler.Y, euler.Z);
+        ////}
+
+        ////static Quaternion FromEuler(float x, float y, float z)
+        ////{
+        ////    float roll = x * 0.5f;
+        ////    float pitch = y * 0.5f;
+        ////    float yaw = z * 0.5f;
+
+        ////    float cr = Math::Cos(roll);
+        ////    float sr = Math::Sin(roll);
+        ////    float cp = Math::Cos(pitch);
+        ////    float sp = Math::Sin(pitch);
+        ////    float cy = Math::Cos(yaw);
+        ////    float sy = Math::Sin(yaw);
+
+        ////    return Quaternion(
+        ////        sr * cp * cy - cr * sp * sy, 
+        ////        cr * sp * cy + sr * cp * sy, 
+        ////        cr * cp * sy - sr * sp * cy, 
+        ////        cr * cp * cy + sr * sp * sy);
+        ////}
     };
 }

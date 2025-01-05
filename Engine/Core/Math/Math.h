@@ -1,9 +1,10 @@
 #pragma once
 
-#include "BitOperations.h"
-#include "Vector2.h"
-#include "Vector3.h"
+#include "Operations.h"
 #include "Quaternion.h"
+#include "Matrices.h"
+#include "Vectors.h"
 #include "Size.h"
 #include "Scale.h"
+#include "Bounds.h"
 #include "Int.h"

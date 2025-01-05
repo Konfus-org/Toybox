@@ -63,7 +63,7 @@ static void SetShaderTest()
         )";
 
 	const auto& shader = Tbx::Shader(vertexSrc, fragmentSrc);
-	Tbx::Rendering::Submit(Tbx::RenderCommand::SetShader, shader);
+	Tbx::Rendering::Submit(Tbx::RenderCommand::Shader, shader);
 }
 
 static void ChangeWindowColorTest()
@@ -87,7 +87,7 @@ static void ChangeWindowColorTest()
 	_green += 0.001f;
 	_blue += 0.001f;
 
-	Tbx::Rendering::Submit(Tbx::RenderCommand::RenderColor, Tbx::Color(_red, _green, _blue, 1.0f));
+	Tbx::Rendering::Submit(Tbx::RenderCommand::Color, Tbx::Color(_red, _green, _blue, 1.0f));
 }
 
 static void DrawSquareTest()
@@ -102,7 +102,7 @@ static void DrawSquareTest()
 	const std::vector<Tbx::uint32>& squareMeshIndices = { 0, 1, 2, 2, 3, 0 };
 	const auto& squareMesh = Tbx::Mesh(sqaureMeshVerts, squareMeshIndices);
 
-	Tbx::Rendering::Submit(Tbx::RenderCommand::RenderMesh, squareMesh);
+	Tbx::Rendering::Submit(Tbx::RenderCommand::Mesh, squareMesh);
 }
 
 static void DrawTriangleTest()
@@ -116,12 +116,15 @@ static void DrawTriangleTest()
 	const std::vector<Tbx::uint32>& triangleMeshIndices = { 0, 1, 2 };
 	const auto& triangleMesh = Tbx::Mesh(triangleMeshVerts, triangleMeshIndices);
 
-	Tbx::Rendering::Submit(Tbx::RenderCommand::RenderMesh, triangleMesh);
+	Tbx::Rendering::Submit(Tbx::RenderCommand::Mesh, triangleMesh);
 }
 
 void TestLayer::OnAttach()
 {
 	TBX_TRACE("Main layer attached!");
+
+	
+
 	SetShaderTest();
 }
 
