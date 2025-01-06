@@ -5,50 +5,46 @@ namespace Tbx
 {
     Camera::Camera()
     {
-        SetPerspective(60.0f, 1.0f, 0.1f, 100.0f);
-
-        _position = Vector3::Zero();
-        _rotation = Quaternion::Identity();
-        _viewMatrix = Matrix::Identity();
-        _viewProjectionMatrix = Matrix::Identity();
         _viewProjectionMatrix = _projectionMatrix * _viewMatrix;
     }
 
-    Camera::Camera(const Bounds& bounds, float zNear, float zFar)
+    void Camera::SetOrthagraphic(float size, float aspect, float zNear, float zFar)
     {
-        SetOrthagraphic(bounds, zNear, zFar);
+        _isPerspective = false;
+        _zNear = zNear;
+        _zFar = zFar;
+        _aspect = aspect;
+        _bounds = Bounds::FromOrthographicProjection(size, aspect);
+        _projectionMatrix = Matrix::OrthographicProjection(_bounds, zNear, zFar);
 
-        _position = Vector3::Zero();
-        _rotation = Quaternion::Identity();
-        _viewMatrix = Matrix::Identity();
-        _viewProjectionMatrix = Matrix::Identity();
-        _viewProjectionMatrix = _projectionMatrix * _viewMatrix;
-    }
-
-    Camera::Camera(float fov, float aspect, float zNear, float zFar)
-    {
-        SetPerspective(fov, aspect, zNear, zFar);
-
-        _position = Vector3::Zero();
-        _rotation = Quaternion::Identity();
-        _viewMatrix = Matrix::Identity();
-        _viewProjectionMatrix = Matrix::Identity();
-        _viewProjectionMatrix = _projectionMatrix * _viewMatrix;
-    }
-
-    void Camera::Update()
-    {
-        //RecalculateMatrices();
-    }
-
-    void Camera::SetOrthagraphic(const Bounds& bounds, float zNear, float zFar)
-    {
-        _projectionMatrix = Matrix::OrthographicProjection(bounds, zNear, zFar);
+        RecalculateMatrices();
     }
 
     void Camera::SetPerspective(float fov, float aspect, float zNear, float zFar)
     {
-        _projectionMatrix = Matrix::PerspectiveProjection(fov, aspect, zNear, zFar);
+        _isPerspective = true;
+        _zNear = zNear;
+        _zFar = zFar;
+        _aspect = aspect;
+        _bounds = Bounds::FromPerspectiveProjection(fov, aspect, zNear);
+        _projectionMatrix = Matrix::PerspectiveProjection(_bounds, zNear, zFar);
+
+        RecalculateMatrices();
+    }
+
+    void Camera::SetAspect(float aspect)
+    {
+        if (_aspect == aspect) return;
+
+        if (_isPerspective)
+        {
+            SetPerspective(_fov, _aspect, _zNear, _zFar);
+        }
+        else
+        {
+            auto orthographicSize = (_bounds.Left + _bounds.Top) / 2.0f;
+            SetOrthagraphic(orthographicSize, aspect, _zNear, _zFar);
+        }
     }
 
     void Camera::RecalculateMatrices()

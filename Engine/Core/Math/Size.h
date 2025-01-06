@@ -12,5 +12,7 @@ namespace Tbx
 
         uint Width;
         uint Height;
+
+        float AspectRatio() const { return (float)Width / (float)Height; }
     };
 }

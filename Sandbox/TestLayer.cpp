@@ -130,9 +130,9 @@ void TestLayer::OnAttach()
 	// Configure ortho camera
 	const auto& mainWindow = SandboxApp::Instance->GetMainWindow();
 	const auto& mainWindowCam = mainWindow.lock()->GetCamera().lock();
+	const auto& mainWindowSize = mainWindow.lock()->GetSize();
 
-	// TODO: fix the camera, its not working rn!!!
-	mainWindowCam->SetOrthagraphic({ -1.0f, 1.0f, -1.0f, 1.0f }, -1.0f, 1.0f);
+	mainWindowCam->SetOrthagraphic(1, mainWindowSize.AspectRatio(), -1, 1);
 	////mainWindowCam->SetPosition(Tbx::Vector3(-1.0f, 0.0f, 0.0f));
 	////mainWindowCam->SetRotation(Tbx::Quaternion::FromEuler(Tbx::Vector3(0.0f, 0.0f, 45.0f)));
     Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix()));
@@ -146,6 +146,15 @@ void TestLayer::OnDetach()
 void TestLayer::OnUpdate()
 {
 	if (Tbx::Input::IsKeyDown(TBX_KEY_SPACE)) TBX_TRACE("Space pressed!");
+
+	const auto& mainWindow = SandboxApp::Instance->GetMainWindow();
+	const auto& mainWindowCam = mainWindow.lock()->GetCamera().lock();
+
+	if (Tbx::Input::IsKeyDown(TBX_KEY_W))
+	{
+		mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(0.0f, 0.1f, 0.0f));
+		Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix()));
+	}
 	
 	ChangeWindowColorTest();
     DrawSquareTest();

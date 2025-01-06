@@ -28,7 +28,7 @@ namespace OpenGLRendering
     void OpenGLRenderer::UploadShaderData(const Tbx::ShaderData& data)
     {
         // TODO: Need to keep track of active shader and upload data to it!
-        auto& glShader = _shaders.back();
+        const auto& glShader = _shaders.back();
         glShader.UploadData(data);
     }
 

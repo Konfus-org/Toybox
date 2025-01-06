@@ -36,5 +36,10 @@ namespace Tbx
 
         static Vector3 Zero() { return Vector3(0, 0, 0); }
         static Vector3 Identity() { return Vector3(1, 1, 1); }
+
+        friend Vector3 operator + (const Vector3& lhs, const Vector3& rhs) { return Vector3(lhs.X + rhs.X, lhs.Y + rhs.Y, lhs.Z + rhs.Z); }
+        friend Vector3 operator - (const Vector3& lhs, const Vector3& rhs) { return Vector3(lhs.X - rhs.X, lhs.Y - rhs.Y, lhs.Z - rhs.Z); }
+        friend Vector3 operator * (const Vector3& lhs, const Vector3& rhs) { return Vector3(lhs.X * rhs.X, lhs.Y * rhs.Y, lhs.Z * rhs.Z); }
+        friend Vector3 operator / (const Vector3& lhs, const Vector3& rhs) { return Vector3(lhs.X / rhs.X, lhs.Y / rhs.Y, lhs.Z / rhs.Z); }
     };
 }

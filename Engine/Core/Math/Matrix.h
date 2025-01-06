@@ -12,7 +12,7 @@ namespace Tbx
     struct TBX_API Matrix
     {
     public:
-        Matrix() = default;
+        Matrix() : Values(Identity()) {};
         explicit(false) Matrix(const std::array<float, 16>& data) : Values(data) {}
 
         std::array<float, 16> Values;
@@ -23,7 +23,7 @@ namespace Tbx
         static Matrix FromScale(const Vector3& scale);
         static Matrix FromTRS(const Vector3& position, const Quaternion& rotation, const Vector3& scale);
         static Matrix OrthographicProjection(const Bounds& bounds, float zNear, float zFar);
-        static Matrix PerspectiveProjection(float fov, float aspect, float zNear, float zFar);
+        static Matrix PerspectiveProjection(const Bounds& bounds, float zNear, float zFar);
         static float Determinant(const Matrix& matrix);
         static Matrix Inverse(const Matrix& matrix);
         static Matrix Translate(const Matrix& matrix, const Vector3& translate);

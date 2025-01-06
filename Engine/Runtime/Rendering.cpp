@@ -68,6 +68,10 @@ namespace Tbx
         const auto& surfaceSize = surface.lock()->GetSize();
         _renderer->SetViewport({ 0, 0 }, surfaceSize);
 
+        // Update camera
+        const auto& surfaceView = surface.lock()->GetCamera().lock(); 
+        surfaceView->SetAspect((float)surfaceSize.Width / (float)surfaceSize.Height);
+
         // Render whatever is in our queue
         ProcessNextBatch();
     }
