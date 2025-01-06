@@ -1,6 +1,6 @@
 #include "TestLayer.h"
+#include "SandboxApp.h"
 #include <gl/GL.h>
-
 
 std::chrono::high_resolution_clock::time_point _lastTime;
 int _frameCount = 0;
@@ -36,6 +36,8 @@ static void SetShaderTest()
             layout(location = 0) in vec3 inPosition;
             layout(location = 1) in vec4 inColor;
 
+            uniform mat4 viewProjection;
+
             out vec3 position;
             out vec4 color;
             
@@ -43,7 +45,7 @@ static void SetShaderTest()
             {
                 position = inPosition;
                 color = inColor;
-                gl_Position = vec4(inPosition, 1.0);
+                gl_Position = viewProjection * vec4(inPosition, 1.0);
             }
         )";
 
@@ -63,7 +65,7 @@ static void SetShaderTest()
         )";
 
 	const auto& shader = Tbx::Shader(vertexSrc, fragmentSrc);
-	Tbx::Rendering::Submit(Tbx::RenderCommand::Shader, shader);
+	Tbx::Rendering::Submit(Tbx::RenderCommand::SetShader, shader);
 }
 
 static void ChangeWindowColorTest()
@@ -87,7 +89,7 @@ static void ChangeWindowColorTest()
 	_green += 0.001f;
 	_blue += 0.001f;
 
-	Tbx::Rendering::Submit(Tbx::RenderCommand::Color, Tbx::Color(_red, _green, _blue, 1.0f));
+	Tbx::Rendering::Submit(Tbx::RenderCommand::RenderColor, Tbx::Color(_red, _green, _blue, 1.0f));
 }
 
 static void DrawSquareTest()
@@ -102,7 +104,7 @@ static void DrawSquareTest()
 	const std::vector<Tbx::uint32>& squareMeshIndices = { 0, 1, 2, 2, 3, 0 };
 	const auto& squareMesh = Tbx::Mesh(sqaureMeshVerts, squareMeshIndices);
 
-	Tbx::Rendering::Submit(Tbx::RenderCommand::Mesh, squareMesh);
+	Tbx::Rendering::Submit(Tbx::RenderCommand::RenderMesh, squareMesh);
 }
 
 static void DrawTriangleTest()
@@ -116,16 +118,24 @@ static void DrawTriangleTest()
 	const std::vector<Tbx::uint32>& triangleMeshIndices = { 0, 1, 2 };
 	const auto& triangleMesh = Tbx::Mesh(triangleMeshVerts, triangleMeshIndices);
 
-	Tbx::Rendering::Submit(Tbx::RenderCommand::Mesh, triangleMesh);
+	Tbx::Rendering::Submit(Tbx::RenderCommand::RenderMesh, triangleMesh);
 }
 
 void TestLayer::OnAttach()
 {
 	TBX_TRACE("Main layer attached!");
 
-	
-
 	SetShaderTest();
+
+	// Configure ortho camera
+	const auto& mainWindow = SandboxApp::Instance->GetMainWindow();
+	const auto& mainWindowCam = mainWindow.lock()->GetCamera().lock();
+
+	// TODO: fix the camera, its not working rn!!!
+	mainWindowCam->SetOrthagraphic({ -1.0f, 1.0f, -1.0f, 1.0f }, -1.0f, 1.0f);
+	////mainWindowCam->SetPosition(Tbx::Vector3(-1.0f, 0.0f, 0.0f));
+	////mainWindowCam->SetRotation(Tbx::Quaternion::FromEuler(Tbx::Vector3(0.0f, 0.0f, 45.0f)));
+    Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix()));
 }
 
 void TestLayer::OnDetach()

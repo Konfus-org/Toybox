@@ -12,6 +12,7 @@ namespace OpenGLRendering
         void Compile(const Tbx::Shader& shader);
         void Bind() const;
         void Unbind() const;
+        void UploadData(const Tbx::ShaderData& data) const;
 
     private:
         Tbx::uint _rendererId = -1;

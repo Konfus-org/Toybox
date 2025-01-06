@@ -1,46 +1,46 @@
 #include "TbxPCH.h"
-#include "Matrices.h"
+#include "Matrix.h"
 
 namespace Tbx
 {
-    Matrix4x4 Matrix4x4::Identity()
+    Matrix Matrix::Identity()
     {
-        return Matrix4x4({ 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f });
+        return Matrix({ 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f });
     }
 
-    Matrix4x4 Matrix4x4::FromPosition(const Vector3& position)
+    Matrix Matrix::FromPosition(const Vector3& position)
     {
-        auto result = Matrix4x4::Identity();
+        auto result = Matrix::Identity();
         result = Translate(result, position);
         return result;
     }
 
-    Matrix4x4 Matrix4x4::FromRotation(const Quaternion& rotation)
+    Matrix Matrix::FromRotation(const Quaternion& rotation)
     {
-        auto result = Matrix4x4::Identity();
+        auto result = Matrix::Identity();
         result = Rotate(result, rotation);
         return result;
     }
 
-    Matrix4x4 Matrix4x4::FromScale(const Vector3& scale)
+    Matrix Matrix::FromScale(const Vector3& scale)
     {
-        auto result = Matrix4x4::Identity();
+        auto result = Matrix::Identity();
         result = Scale(result, scale);
         return result;
     }
 
-    Matrix4x4 Matrix4x4::FromTRS(const Vector3& position, const Quaternion& rotation, const Vector3& scale)
+    Matrix Matrix::FromTRS(const Vector3& position, const Quaternion& rotation, const Vector3& scale)
     {
-        auto result = Matrix4x4::Identity();
+        auto result = Matrix::Identity();
         result = Translate(result, position);
         result = Rotate(result, rotation);
         result = Scale(result, scale);
         return result;
     }
 
-    Matrix4x4 Matrix4x4::OrthographicProjection(const Bounds& bounds, float zNear, float zFar)
+    Matrix Matrix::OrthographicProjection(const Bounds& bounds, float zNear, float zFar)
     {
-        Matrix4x4 result;
+        Matrix result;
 
         const auto& left = bounds.Left;
         const auto& right = bounds.Right;
@@ -57,22 +57,22 @@ namespace Tbx
         return result;
     }
 
-    Matrix4x4 Matrix4x4::PerspectiveProjection(float fov, float aspect, float zNear, float zFar)
+    Matrix Matrix::PerspectiveProjection(float fov, float aspect, float zNear, float zFar)
     {
-        Matrix4x4 result;
+        Matrix result;
 
-        result.Data[0] = 1.0f / (aspect * tanf(fov / 2.0f));
-        result.Data[5] = 1.0f / tanf(fov / 2.0f);
-        result.Data[10] = (zFar + zNear) / (zNear - zFar);
-        result.Data[11] = -1.0f;
-        result.Data[14] = (2.0f * zFar * zNear) / (zNear - zFar);
+        result.Values[0] = 1.0f / (aspect * tanf(fov / 2.0f));
+        result.Values[5] = 1.0f / tanf(fov / 2.0f);
+        result.Values[10] = (zFar + zNear) / (zNear - zFar);
+        result.Values[11] = -1.0f;
+        result.Values[14] = (2.0f * zFar * zNear) / (zNear - zFar);
 
         return result;
     }
 
-    float Matrix4x4::Determinant(const Matrix4x4& matrix)
+    float Matrix::Determinant(const Matrix& matrix)
     {
-        const auto& data = matrix.Data;
+        const auto& data = matrix.Values;
         float determinant = data[0] * (data[5] * (data[10] * data[15] - data[11] * data[14]) -
             data[6] * (data[9] * data[15] - data[11] * data[13]) +
             data[7] * (data[9] * data[14] - data[10] * data[13])) -
@@ -88,7 +88,7 @@ namespace Tbx
         return determinant;
     }
 
-    Matrix4x4 Matrix4x4::Inverse(const Matrix4x4& matrix)
+    Matrix Matrix::Inverse(const Matrix& matrix)
     {
         int n = 4;
         float determinant = 0.0f;
@@ -100,11 +100,11 @@ namespace Tbx
         // Matrix is not invertible
         if (determinant == 0.0f)
         {
-            return Matrix4x4::Identity();
+            return Matrix::Identity();
         }
 
         // Create an identity matrix
-        std::array<float, 16> identity = Matrix4x4::Identity().Data;
+        std::array<float, 16> identity = Matrix::Identity().Values;
 
         // Perform Gauss-Jordan elimination
         for (int i = 0; i < n; i++)
@@ -159,10 +159,10 @@ namespace Tbx
         }
 
         // Return inverted matrix
-        return Matrix4x4(identity);
+        return Matrix(identity);
     }
 
-    Matrix4x4 Matrix4x4::Translate(const Matrix4x4& matrix, const Vector3& translate)
+    Matrix Matrix::Translate(const Matrix& matrix, const Vector3& translate)
     {
         auto result = matrix;
 
@@ -173,7 +173,7 @@ namespace Tbx
         return result;
     }
 
-    Matrix4x4 Matrix4x4::Rotate(const Matrix4x4& matrix, const Quaternion& rotation)
+    Matrix Matrix::Rotate(const Matrix& matrix, const Quaternion& rotation)
     {
         const auto& x = rotation.X;
         const auto& y = rotation.Y;
@@ -194,7 +194,7 @@ namespace Tbx
         return result;
     }
 
-    Matrix4x4 Matrix4x4::Scale(const Matrix4x4& matrix, const Vector3& scale)
+    Matrix Matrix::Scale(const Matrix& matrix, const Vector3& scale)
     {
         auto result = matrix;
 

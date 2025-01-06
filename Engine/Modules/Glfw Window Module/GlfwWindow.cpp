@@ -7,7 +7,7 @@ namespace GLFWWindowing
 	{
 		Tbx::Size size(0, 0);
 		_size = size;
-		_camera = Tbx::Camera();
+		_camera = std::make_shared<Tbx::Camera>();
 	}
 
 	GLFWWindow::~GLFWWindow()
@@ -22,19 +22,12 @@ namespace GLFWWindowing
 
 	void GLFWWindow::Update()
 	{
-		_camera.Update();
-
 		// Needs to be at the end of the update! 
 		// Otherwise something like closing will run and anything after could throw errors because the window was destroyed...
 		glfwPollEvents();
 	}
 
-	void GLFWWindow::SetCamera(const Tbx::Camera& camera)
-	{
-        _camera = camera;
-	}
-
-	const Tbx::Camera& GLFWWindow::GetCamera() const
+	std::weak_ptr<Tbx::Camera> GLFWWindow::GetCamera() const
 	{
         return _camera;
 	}

@@ -132,4 +132,12 @@ namespace OpenGLRendering
 	{
 		glUseProgram(0);
 	}
+
+	void OpenGLShader::UploadData(const Tbx::ShaderData& data) const
+	{
+		// For now we only support uploading mat4 data
+		// TODO: support more data types!
+        const auto& location = glGetUniformLocation(_rendererId, data.GetName().c_str());
+		glUniformMatrix4fv(location, 1, GL_FALSE, data.GetData().Values.data());
+	}
 }

@@ -25,9 +25,17 @@ namespace OpenGLRendering
         glShader.Bind();
     }
 
+    void OpenGLRenderer::UploadShaderData(const Tbx::ShaderData& data)
+    {
+        // TODO: Need to keep track of active shader and upload data to it!
+        auto& glShader = _shaders.back();
+        glShader.UploadData(data);
+    }
+
     void OpenGLRenderer::Flush()
     {
         _vertArraysToDraw.clear();
+        _shaders.clear();
     }
 
     void OpenGLRenderer::Clear()

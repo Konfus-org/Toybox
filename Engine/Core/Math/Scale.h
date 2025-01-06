@@ -15,9 +15,9 @@ namespace Tbx
 
         static Scale Identity() { return Scale(1.0f, 1.0f, 1.0f); }
 
-        Matrix4x4 ToMatrix() const
+        Matrix ToMatrix() const
         {
-            return Matrix4x4({
+            return Matrix({
                 X, 0.0f, 0.0f, 0.0f,
                 0.0f, Y, 0.0f, 0.0f,
                 0.0f, 0.0f, Z, 0.0f,

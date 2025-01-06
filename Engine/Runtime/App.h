@@ -13,12 +13,16 @@ namespace Tbx
         TBX_API void Update();
         TBX_API void Close();
 
+        TBX_API virtual void OnStart() = 0;
+        TBX_API virtual void OnUpdate() = 0;
+        TBX_API virtual void OnShutdown() = 0;
+
         TBX_API void OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
         TBX_API void PushLayer(const std::shared_ptr<Layer>& layer);
         TBX_API void PushOverlay(const std::shared_ptr<Layer>& layer);
 
         TBX_API bool IsRunning() const;
-        TBX_API std::string GetName() const;
+        TBX_API const std::string& GetName() const;
         TBX_API std::weak_ptr<IWindow> GetMainWindow() const;
 
     private:

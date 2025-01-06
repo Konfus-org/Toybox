@@ -19,7 +19,9 @@ namespace Tbx
         virtual void SetContext(const std::weak_ptr<IWindow>& context) = 0;
         virtual void SetViewport(const Vector2I& screenPos, const Size& size) = 0;
         virtual void SetVSyncEnabled(const bool& enabled) = 0;
+
         virtual void SetShader(const Shader& shader) = 0;
+        virtual void UploadShaderData(const ShaderData& data) = 0;
 
         virtual void Flush() = 0;
         virtual void Clear() = 0;

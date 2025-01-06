@@ -19,8 +19,7 @@ namespace Tbx
         virtual void Open(const WindowMode& mode) = 0;
         virtual void Update() = 0;
 
-        virtual void SetCamera(const Camera& camera) = 0;
-        virtual const Camera& GetCamera() const = 0;
+        virtual std::weak_ptr<Camera> GetCamera() const = 0;
 
         virtual const Size& GetSize() const = 0;
         virtual void SetSize(const Size& size) = 0;

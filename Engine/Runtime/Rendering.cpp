@@ -72,6 +72,11 @@ namespace Tbx
         ProcessNextBatch();
     }
 
+    TBX_API void Rendering::Clear()
+    {
+        _renderer->Clear();
+    }
+
     void Rendering::Flush()
     {
         _renderer->Flush();
@@ -97,31 +102,37 @@ namespace Tbx
                         _renderer->Clear(); 
                         break;
                     }
-                    case Shader:
+                    case SetShader:
                     {
                         const auto& shaderData = std::any_cast<Shader>(item.Data);
                         _renderer->SetShader(shaderData);
                         break;
                     }
-                    case Color:
+                    case UploadShaderData:
+                    {
+                        const auto& shaderData = std::any_cast<ShaderData>(item.Data);
+                        _renderer->UploadShaderData(shaderData);
+                        break;
+                    }
+                    case RenderColor:
                     {
                         const auto& colorData = std::any_cast<Color>(item.Data);
                         _renderer->Draw(colorData);
                         break;
                     }
-                    case Texture:
+                    case RenderTexture:
                     {
                         const auto& textureData = std::any_cast<Texture>(item.Data);
                         _renderer->Draw(textureData);
                         break;
                     }
-                    case Mesh:
+                    case RenderMesh:
                     {
                         const auto& meshData = std::any_cast<Mesh>(item.Data);
                         _renderer->Draw(meshData);
                         break;
                     }
-                    case Text:
+                    case RenderText:
                     {
                         const auto& textData = std::any_cast<std::string>(item.Data);
                         _renderer->Draw(textData);

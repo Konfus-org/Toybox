@@ -14,7 +14,9 @@ namespace OpenGLRendering
         void SetContext(const std::weak_ptr<Tbx::IWindow>& context) override;
         void SetViewport(const Tbx::Vector2I& screenPos, const Tbx::Size& size) override;
         void SetVSyncEnabled(const bool& enabled) override;
+
         void SetShader(const Tbx::Shader& shader) override;
+        void UploadShaderData(const Tbx::ShaderData& data) override;
 
         void Flush() override;
         void Clear() override;

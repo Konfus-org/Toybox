@@ -2,6 +2,7 @@
 #include "TbxAPI.h"
 #include "TbxPCH.h"
 #include "Math/Int.h"
+#include "Math/Matrix.h"
 #include "Debug/Debugging.h"
 
 namespace Tbx
@@ -44,6 +45,18 @@ namespace Tbx
         TBX_ASSERT(false, "Unknown ShaderDataType!");
         return 0;
     }
+
+    struct ShaderData
+    {
+    public:
+        TBX_API ShaderData(const std::string& name, const Matrix& data) : _name(name), _data(data) {}
+        TBX_API const std::string& GetName() const { return _name; }
+        TBX_API const Matrix& GetData() const { return _data; }
+
+    private:
+        std::string _name;
+        Matrix _data;
+    };
 
     class  Shader
     {

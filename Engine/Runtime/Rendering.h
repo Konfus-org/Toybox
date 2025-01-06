@@ -14,6 +14,7 @@ namespace Tbx
 
         TBX_API static void Submit(const RenderCommand& command, const std::any& data = nullptr);
         TBX_API static void Draw(const std::weak_ptr<IWindow>& surface);
+        TBX_API static void Clear();
         TBX_API static void Flush();
 
     private:

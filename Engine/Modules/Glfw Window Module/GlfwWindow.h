@@ -12,8 +12,7 @@ namespace GLFWWindowing
         void Open(const Tbx::WindowMode& mode) override;
         void Update() override;
 
-        void SetCamera(const Tbx::Camera& camera) override;
-        const Tbx::Camera& GetCamera() const override;
+        std::weak_ptr<Tbx::Camera> GetCamera() const override;
 
         void SetSize(const Tbx::Size& size) override;
         const Tbx::Size& GetSize() const override;
@@ -30,7 +29,7 @@ namespace GLFWWindowing
     private:
         std::string _title;
         Tbx::Size _size;
-        Tbx::Camera _camera;
+        std::shared_ptr<Tbx::Camera> _camera;
         Tbx::EventCallbackFn _eventCallback;
         GLFWwindow* _glfwWindow = nullptr;
 

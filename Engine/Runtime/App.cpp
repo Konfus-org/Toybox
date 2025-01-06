@@ -58,6 +58,8 @@ namespace Tbx
         OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
         Rendering::Initialize();
         Input::Initialize();
+
+        OnStart();
     }
 
     void App::Update()
@@ -69,7 +71,7 @@ namespace Tbx
             Input::SetContext(window);
             window->Update();
 
-            Rendering::Flush();
+            Rendering::Clear();
         }
 
         for (const auto& layer : _layerStack)
@@ -77,12 +79,16 @@ namespace Tbx
             layer->OnUpdate();
         }
 
+        OnUpdate();
+
         AppUpdateEvent updateEvent;
         OnEvent(updateEvent);
     }
 
     void App::Close()
     {
+        OnShutdown();
+
         _isRunning = false;
         _mainWindow = nullptr;
 
@@ -184,6 +190,11 @@ namespace Tbx
         return false;
     }
 
+    std::weak_ptr<IWindow> App::GetMainWindow() const
+    {
+        return _mainWindow;
+    }
+
     std::shared_ptr<IWindow> App::GetWindow(const uint64& id)
     {
         for (const auto& window : _windows)
@@ -197,12 +208,7 @@ namespace Tbx
         return nullptr;
     }
 
-    std::weak_ptr<IWindow> App::GetMainWindow() const
-    {
-        return _mainWindow;
-    }
-
-    std::string App::GetName() const
+    const std::string& App::GetName() const
     {
         return _name;
     }

@@ -1,7 +1,7 @@
 #pragma once
 #include "TbxAPI.h"
 #include "Math/Bounds.h"
-#include "Math/Matrices.h"
+#include "Math/Matrix.h"
 #include "Math/Vectors.h"
 #include "Math/Quaternion.h"
 
@@ -27,14 +27,14 @@ namespace Tbx
         const Quaternion& GetRotation() const { return _rotation; }
         void SetRotation(const Quaternion& rotation) { _rotation = rotation; }
 
-        const Matrix4x4& GetViewProjectionMatrix() const { return _viewProjectionMatrix; }
-        const Matrix4x4& GetProjectionMatrix() const { return _projectionMatrix; }
-        const Matrix4x4& GetViewMatrix() const { return _viewMatrix; }
+        const Matrix& GetViewProjectionMatrix() const { return _viewProjectionMatrix; }
+        const Matrix& GetProjectionMatrix() const { return _projectionMatrix; }
+        const Matrix& GetViewMatrix() const { return _viewMatrix; }
 
     private:
-        Matrix4x4 _viewProjectionMatrix;
-        Matrix4x4 _projectionMatrix;
-        Matrix4x4 _viewMatrix;
+        Matrix _viewProjectionMatrix;
+        Matrix _projectionMatrix;
+        Matrix _viewMatrix;
 
         Vector3 _position;
         Quaternion _rotation;
