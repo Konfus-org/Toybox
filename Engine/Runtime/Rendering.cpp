@@ -30,8 +30,8 @@ namespace Tbx
 
     void Rendering::SetVSyncEnabled(bool enabled)
     {
-        _renderer->SetVSyncEnabled(enabled);
         _vsyncEnabled = enabled;
+        _renderer->SetVSyncEnabled(enabled);
     }
 
     TBX_API bool Rendering::IsVSyncEnabled()
@@ -60,7 +60,7 @@ namespace Tbx
         {
             // Update context if needed
             _renderer->SetContext(surface);
-            _renderer->SetVSyncEnabled(false); // Default to vsync off
+            _renderer->SetVSyncEnabled(_vsyncEnabled);
             _renderSurface = surface;
         }
 

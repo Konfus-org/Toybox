@@ -1,5 +1,5 @@
 #pragma once
-#include "Math/Operations.h"
+#include "Math/Bits.h"
 #include "TbxAPI.h"
 
 namespace Tbx

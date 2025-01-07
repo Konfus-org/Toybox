@@ -13,6 +13,7 @@ workspace "Toybox"
     }
 
     group "_3rd Party"
+        include "3rd Party/Libraries/glm"
         include "3rd Party/Libraries/glad"
         include "3rd Party/Libraries/GLFW"
         include "3rd Party/Libraries/spdlog"

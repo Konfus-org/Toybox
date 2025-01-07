@@ -123,7 +123,7 @@ static void DrawTriangleTest()
 
 void TestLayer::OnAttach()
 {
-	TBX_TRACE("Main layer attached!");
+	TBX_TRACE("Test layer attached!");
 
 	SetShaderTest();
 
@@ -135,17 +135,19 @@ void TestLayer::OnAttach()
 	mainWindowCam->SetOrthagraphic(1, mainWindowSize.AspectRatio(), -1, 1);
 	////mainWindowCam->SetPosition(Tbx::Vector3(-1.0f, 0.0f, 0.0f));
 	////mainWindowCam->SetRotation(Tbx::Quaternion::FromEuler(Tbx::Vector3(0.0f, 0.0f, 45.0f)));
+
+	Tbx::Rendering::SetVSyncEnabled(true);
     Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix()));
 }
 
 void TestLayer::OnDetach()
 {
-	TBX_TRACE("Main layer detached!");
+	TBX_TRACE("Test layer detached!");
 }
 
 void TestLayer::OnUpdate()
 {
-	if (Tbx::Input::IsKeyDown(TBX_KEY_SPACE)) TBX_TRACE("Space pressed!");
+	//if (Tbx::Input::IsKeyDown(TBX_KEY_SPACE)) TBX_TRACE("Space pressed!");
 
 	const auto& mainWindow = SandboxApp::Instance->GetMainWindow();
 	const auto& mainWindowCam = mainWindow.lock()->GetCamera().lock();
@@ -153,10 +155,37 @@ void TestLayer::OnUpdate()
 	if (Tbx::Input::IsKeyDown(TBX_KEY_W))
 	{
 		mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(0.0f, 0.1f, 0.0f));
-		Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix()));
 	}
+    else if (Tbx::Input::IsKeyDown(TBX_KEY_S))
+    {
+        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(0.0f, -0.1f, 0.0f));
+    }
+
+    if (Tbx::Input::IsKeyDown(TBX_KEY_A))
+    {
+        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(-0.1f, 0.0f, 0.0f));
+    }
+    else if (Tbx::Input::IsKeyDown(TBX_KEY_D))
+    {
+        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(0.1f, 0.0f, 0.0f));
+    }
+
+    if (Tbx::Input::IsKeyDown(TBX_KEY_Q))
+    {
+		const auto& currentRot = mainWindowCam->GetRotation();
+		const auto& newRot = currentRot + Tbx::Vector3(0.0f, 0.0f, 10.0f);
+		mainWindowCam->SetRotation(newRot);
+    }
+    else if (Tbx::Input::IsKeyDown(TBX_KEY_E))
+    {
+		const auto& currentRot = mainWindowCam->GetRotation();
+		const auto& newRot = currentRot + Tbx::Vector3(0.0f, 0.0f, -10.0f);
+		mainWindowCam->SetRotation(newRot);
+    }
+
+    Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix()));
 	
-	ChangeWindowColorTest();
+	//ChangeWindowColorTest();
     DrawSquareTest();
     DrawTriangleTest();
 

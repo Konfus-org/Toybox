@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Operations.h"
+#include "Bits.h"
+#include "Trig.h"
 #include "Quaternion.h"
 #include "Matrix.h"
 #include "Vectors.h"

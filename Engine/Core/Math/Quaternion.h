@@ -1,7 +1,7 @@
-#pragma once
+﻿#pragma once
 #include "TbxAPI.h"
 #include "Vectors.h"
-#include "Operations.h"
+#include "Trig.h"
 
 namespace Tbx
 {
@@ -9,6 +9,7 @@ namespace Tbx
     {
     public:
         Quaternion() = default;
+        explicit(false) Quaternion(Vector3 euler) { auto q = FromEuler(euler); X = q.X; Y = q.Y; Z = q.Z; W = q.W; }
         Quaternion(float x, float y, float z, float w) : X(x), Y(y), Z(z), W(w) {}
 
         float X;
@@ -17,30 +18,16 @@ namespace Tbx
         float W;
 
         static Quaternion Identity() { return Quaternion(0.0f, 0.0f, 0.0f, 1.0f); }
+        static Quaternion FromEuler(const Vector3& euler) { return FromEuler(euler.X, euler.Y, euler.Z); }
+        static Quaternion FromEuler(float x, float y, float z);
+        static Vector3 ToEuler(const Quaternion& quaternion);
 
-        static Quaternion FromEuler(const Vector3& euler)
-        {
-            return FromEuler(euler.X, euler.Y, euler.Z);
-        }
+        static Quaternion Add(const Quaternion& lhs, const Quaternion& rhs);
+        static Quaternion Subtract(const Quaternion& lhs, const Quaternion& rhs);
+        static Quaternion Multiply(const Quaternion& lhs, const Quaternion& rhs);
 
-        static Quaternion FromEuler(float x, float y, float z)
-        {
-            float roll = x * 0.5f;
-            float pitch = y * 0.5f;
-            float yaw = z * 0.5f;
-
-            float cr = Math::Cos(roll);
-            float sr = Math::Sin(roll);
-            float cp = Math::Cos(pitch);
-            float sp = Math::Sin(pitch);
-            float cy = Math::Cos(yaw);
-            float sy = Math::Sin(yaw);
-
-            return Quaternion(
-                sr * cp * cy - cr * sp * sy, 
-                cr * sp * cy + sr * cp * sy, 
-                cr * cp * sy - sr * sp * cy, 
-                cr * cp * cy + sr * sp * sy);
-        }
+        friend Quaternion operator+(const Quaternion& lhs, const Quaternion& rhs) { return Add(lhs, rhs); }
+        friend Quaternion operator-(const Quaternion& lhs, const Quaternion& rhs) { return Subtract(lhs, rhs); }
+        friend Quaternion operator*(const Quaternion& lhs, const Quaternion& rhs) { return Multiply(lhs, rhs); }
     };
 }

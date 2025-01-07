@@ -8,17 +8,17 @@ project "OpenGL Rendering Module"
     targetdir ("../../../" .. OutputTargetModulesDir .. "")
     objdir    ("../../../" .. OutputIntermediateModulesDir .. "")
 
+    defines
+    {
+        "GLFW_INCLUDE_NONE"
+    }
+
     files
     {
         "./**.h",
         "./**.c",
         "./**.hpp",
         "./**.cpp"
-    }
-
-    defines
-    {
-        "GLFW_INCLUDE_NONE"
     }
 
     includedirs

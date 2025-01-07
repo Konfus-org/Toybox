@@ -24,6 +24,7 @@ namespace OpenGLRendering
         TBX_INFO("  GLSL: {0}", glslVersion);
         const std::string& openGLVersion = (const char*)glGetString(GL_VERSION);
         TBX_INFO("  Version: {0}", openGLVersion);
+        TBX_INFO("\n");
 
         TBX_ASSERT(GLVersion.major > 4 || (GLVersion.major == 4 && GLVersion.minor >= 5), "Tbx requires at least OpenGL version 4.5!");
     }

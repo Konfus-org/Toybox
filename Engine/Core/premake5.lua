@@ -12,12 +12,8 @@ project "Core"
 
     defines
     {
-        "TOYBOX"
-    }
-
-    includedirs
-    {
-        "./"
+        "TOYBOX",
+        "GLM_ENABLE_EXPERIMENTAL"
     }
 
     files
@@ -26,6 +22,17 @@ project "Core"
         "./**.c",
         "./**.hpp",
         "./**.cpp"
+    }
+
+    includedirs
+    {
+        "./",
+        "%{IncludeDir.glm}",
+    }
+
+    links
+    {
+        "glm"
     }
 
     -- To debug loading shared libs at runtime

@@ -27,7 +27,7 @@ namespace Tbx
         _zFar = zFar;
         _aspect = aspect;
         _bounds = Bounds::FromPerspectiveProjection(fov, aspect, zNear);
-        _projectionMatrix = Matrix::PerspectiveProjection(_bounds, zNear, zFar);
+        _projectionMatrix = Matrix::PerspectiveProjection(fov, aspect, zNear, zFar);
 
         RecalculateMatrices();
     }
@@ -38,12 +38,12 @@ namespace Tbx
 
         if (_isPerspective)
         {
-            SetPerspective(_fov, _aspect, _zNear, _zFar);
+            SetPerspective(_fov, aspect, _zNear, _zFar);
         }
         else
         {
-            auto orthographicSize = (_bounds.Left + _bounds.Top) / 2.0f;
-            SetOrthagraphic(orthographicSize, aspect, _zNear, _zFar);
+            const auto& size = _bounds.Bottom;
+            SetOrthagraphic(size, aspect, _zNear, _zFar);
         }
     }
 
@@ -51,9 +51,9 @@ namespace Tbx
     {
         const auto& translationMatrix = Matrix::FromPosition(_position);
         const auto& rotationMatrix = Matrix::FromRotation(_rotation);
-        auto transformMatrix = rotationMatrix * translationMatrix;
+        const auto& transformMatrix = translationMatrix * rotationMatrix;
 
-        _viewMatrix = Matrix::Inverse(transformMatrix.Values);
+        _viewMatrix = Matrix::Inverse(transformMatrix);
         _viewProjectionMatrix = _projectionMatrix * _viewMatrix;
     }
 }

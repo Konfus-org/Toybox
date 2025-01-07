@@ -57,6 +57,7 @@ namespace Tbx
 
         OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
         Rendering::Initialize();
+        Rendering::Draw(_mainWindow);
         Input::Initialize();
 
         OnStart();
