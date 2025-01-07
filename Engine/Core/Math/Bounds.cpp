@@ -8,10 +8,10 @@ namespace Tbx
         float halfWidth = (size * aspect);
         float halfHeight = size;
 
-        float left = halfWidth;
-        float right = -halfWidth;
-        float top = -halfHeight;
-        float bottom = halfHeight;
+        float left = -halfWidth;
+        float right = halfWidth;
+        float top = halfHeight;
+        float bottom = -halfHeight;
 
         return { left, right, top, bottom };
     }

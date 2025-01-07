@@ -173,13 +173,13 @@ void TestLayer::OnUpdate()
     if (Tbx::Input::IsKeyDown(TBX_KEY_Q))
     {
 		const auto& currentRot = mainWindowCam->GetRotation();
-		const auto& newRot = currentRot + Tbx::Vector3(0.0f, 0.0f, 10.0f);
+		const auto& newRot = currentRot * Tbx::Vector3(0.0f, 0.0f, -10.0f);
 		mainWindowCam->SetRotation(newRot);
     }
     else if (Tbx::Input::IsKeyDown(TBX_KEY_E))
     {
 		const auto& currentRot = mainWindowCam->GetRotation();
-		const auto& newRot = currentRot + Tbx::Vector3(0.0f, 0.0f, -10.0f);
+		const auto& newRot = currentRot * Tbx::Vector3(0.0f, 0.0f, 10.0f);
 		mainWindowCam->SetRotation(newRot);
     }
 

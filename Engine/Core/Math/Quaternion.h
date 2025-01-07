@@ -1,7 +1,6 @@
 ﻿#pragma once
 #include "TbxAPI.h"
 #include "Vectors.h"
-#include "Trig.h"
 
 namespace Tbx
 {
@@ -9,7 +8,7 @@ namespace Tbx
     {
     public:
         Quaternion() = default;
-        explicit(false) Quaternion(Vector3 euler) { auto q = FromEuler(euler); X = q.X; Y = q.Y; Z = q.Z; W = q.W; }
+        explicit(false) Quaternion(const Vector3& euler) { const auto& q = FromEuler(euler); X = q.X; Y = q.Y; Z = q.Z; W = q.W; }
         Quaternion(float x, float y, float z, float w) : X(x), Y(y), Z(z), W(w) {}
 
         float X;
@@ -17,7 +16,7 @@ namespace Tbx
         float Z;
         float W;
 
-        static Quaternion Identity() { return Quaternion(0.0f, 0.0f, 0.0f, 1.0f); }
+        static Quaternion Identity();
         static Quaternion FromEuler(const Vector3& euler) { return FromEuler(euler.X, euler.Y, euler.Z); }
         static Quaternion FromEuler(float x, float y, float z);
         static Vector3 ToEuler(const Quaternion& quaternion);

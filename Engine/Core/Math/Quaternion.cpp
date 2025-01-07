@@ -1,13 +1,20 @@
 #include "TbxPCH.h"
 #include "Quaternion.h"
+#include "Trig.h"
 #include <glm/fwd.hpp>
 #include <glm/gtx/euler_angles.hpp>
 
 namespace Tbx
 {
+    Quaternion Quaternion::Identity()
+    {
+        const auto& glmQuat = glm::identity<glm::quat>();
+        return Quaternion(glmQuat.x, glmQuat.y, glmQuat.z, glmQuat.w);
+    }
+
     Quaternion Quaternion::FromEuler(float x, float y, float z)
     {
-        glm::quat result = glm::vec3(x, y, z);
+        glm::quat result = glm::vec3(Math::DegreesToRadians(x), Math::DegreesToRadians(y), Math::DegreesToRadians(z));
         return Quaternion(result.x, result.y, result.z, result.w);
     }
 

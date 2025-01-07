@@ -51,7 +51,7 @@ namespace Tbx
     {
         const auto& translationMatrix = Matrix::FromPosition(_position);
         const auto& rotationMatrix = Matrix::FromRotation(_rotation);
-        const auto& transformMatrix = translationMatrix * rotationMatrix;
+        const auto& transformMatrix = rotationMatrix * translationMatrix;
 
         _viewMatrix = Matrix::Inverse(transformMatrix);
         _viewProjectionMatrix = _projectionMatrix * _viewMatrix;

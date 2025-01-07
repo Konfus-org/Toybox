@@ -31,13 +31,7 @@ namespace Tbx
 
     Matrix Matrix::Identity()
     {
-        return Matrix(
-            { 
-                1.0f, 0.0f, 0.0f, 0.0f, 
-                0.0f, 1.0f, 0.0f, 0.0f, 
-                0.0f, 0.0f, 1.0f, 0.0f,
-                0.0f, 0.0f, 0.0f, 1.0f 
-            });
+        return GlmMat4ToMatrix(glm::mat4(1.0f));
     }
 
     Matrix Matrix::FromPosition(const Vector3& position)
