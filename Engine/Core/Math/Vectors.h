@@ -15,9 +15,16 @@ namespace Tbx
         float Y;
         float Z;
 
-        static Vector3 Zero() { return Vector3(0, 0, 0); }
-        static Vector3 Identity() { return Vector3(1, 1, 1); }
+        std::string ToString() const { return std::format("({}, {}, {})", X, Y, Z); }
 
+        static Vector3 Zero() { return Vector3(0, 0, 0); }
+        static Vector3 One() { return Vector3(1, 1, 1); }
+        static Vector3 Forward() { return Vector3(0, 0, 1); }
+        static Vector3 Up() { return Vector3(0, 1, 0); }
+        static Vector3 Right() { return Vector3(1, 0, 0); }
+        static Vector3 Left() { return Vector3(-1, 0, 0); }
+
+        static Vector3 Normalize(const Vector3& vector);
         static Vector3 Add(const Vector3& lhs, const Vector3& rhs);
         static Vector3 Subtract(const Vector3& lhs, const Vector3& rhs);
         static Vector3 Multiply(const Vector3& lhs, const Vector3& rhs);

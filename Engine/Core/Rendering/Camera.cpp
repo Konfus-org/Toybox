@@ -10,26 +10,30 @@ namespace Tbx
 
     void Camera::SetOrthagraphic(float size, float aspect, float zNear, float zFar)
     {
+        const auto& bounds = Bounds::FromOrthographicProjection(size, aspect);
+
         _isPerspective = false;
         _zNear = zNear;
         _zFar = zFar;
+        _fov = size;
         _aspect = aspect;
-        _bounds = Bounds::FromOrthographicProjection(size, aspect);
-        _projectionMatrix = Matrix::OrthographicProjection(_bounds, zNear, zFar);
+        _projectionMatrix = Matrix::OrthographicProjection(bounds, zNear, zFar);
 
-        RecalculateMatrices();
+        RecalculateViewProjection();
     }
 
     void Camera::SetPerspective(float fov, float aspect, float zNear, float zFar)
     {
+        const auto& fovRadians = Math::DegreesToRadians(fov);
+
         _isPerspective = true;
         _zNear = zNear;
         _zFar = zFar;
         _aspect = aspect;
-        _bounds = Bounds::FromPerspectiveProjection(fov, aspect, zNear);
-        _projectionMatrix = Matrix::PerspectiveProjection(fov, aspect, zNear, zFar);
+        _fov = fovRadians;
+        _projectionMatrix = Matrix::PerspectiveProjection(fovRadians, aspect, zNear, zFar);
 
-        RecalculateMatrices();
+        RecalculateViewProjection();
     }
 
     void Camera::SetAspect(float aspect)
@@ -42,18 +46,18 @@ namespace Tbx
         }
         else
         {
-            const auto& size = _bounds.Bottom;
-            SetOrthagraphic(size, aspect, _zNear, _zFar);
+            SetOrthagraphic(_fov, aspect, _zNear, _zFar);
         }
     }
 
-    void Camera::RecalculateMatrices()
+    void Camera::RecalculateViewProjection()
     {
-        const auto& translationMatrix = Matrix::FromPosition(_position);
+        const auto& flipXVector = Vector3(-1, 1, 1);
+        const auto& cameraViewPos = _position * flipXVector;
+        const auto& lookAtPos = cameraViewPos + Vector3::Forward();
         const auto& rotationMatrix = Matrix::FromRotation(_rotation);
-        const auto& transformMatrix = rotationMatrix * translationMatrix;
 
-        _viewMatrix = Matrix::Inverse(transformMatrix);
+        _viewMatrix = Matrix::LookAt(cameraViewPos, lookAtPos, {0.0f, 1.0f, 0.0f}) * rotationMatrix;
         _viewProjectionMatrix = _projectionMatrix * _viewMatrix;
     }
 }

@@ -16,11 +16,14 @@ namespace Tbx
         float Z;
         float W;
 
+        std::string ToString() const { return std::format("(X: {}, Y: {}, Z: {}, W: {})", X, Y, Z, W); }
+
         static Quaternion Identity();
         static Quaternion FromEuler(const Vector3& euler) { return FromEuler(euler.X, euler.Y, euler.Z); }
         static Quaternion FromEuler(float x, float y, float z);
         static Vector3 ToEuler(const Quaternion& quaternion);
 
+        static Quaternion Normalize(const Quaternion& quaternion);
         static Quaternion Add(const Quaternion& lhs, const Quaternion& rhs);
         static Quaternion Subtract(const Quaternion& lhs, const Quaternion& rhs);
         static Quaternion Multiply(const Quaternion& lhs, const Quaternion& rhs);

@@ -17,15 +17,15 @@ namespace Tbx
         void SetAspect(float aspect);
 
         const Vector3& GetPosition() const { return _position; }
-        void SetPosition(const Vector3& position) { _position = position; RecalculateMatrices(); }
+        void SetPosition(const Vector3& position) { _position = position; RecalculateViewProjection(); }
 
         const Quaternion& GetRotation() const { return _rotation; }
-        void SetRotation(const Quaternion& rotation) { _rotation = rotation; RecalculateMatrices(); }
+        void SetRotation(const Quaternion& rotation) { _rotation = rotation; RecalculateViewProjection(); }
 
         bool IsPerspective() const { return _isPerspective; }
         bool IsOrthagraphic() const { return !_isPerspective; }
 
-        const Bounds& GetBounds() const { return _bounds; }
+        float GetFov() const { return Math::RadiansToDegrees(_fov); }
         const Matrix& GetViewProjectionMatrix() const { return _viewProjectionMatrix; }
         const Matrix& GetProjectionMatrix() const { return _projectionMatrix; }
         const Matrix& GetViewMatrix() const { return _viewMatrix; }
@@ -37,7 +37,6 @@ namespace Tbx
         float _fov = 60.0f;
         float _aspect = 1.78f;
 
-        Bounds _bounds = Bounds::Identity();
         Vector3 _position = Vector3::Zero();
         Quaternion _rotation = Quaternion::Identity();
 
@@ -45,6 +44,6 @@ namespace Tbx
         Matrix _projectionMatrix = Matrix::Identity();
         Matrix _viewMatrix = Matrix::Identity();
 
-        void RecalculateMatrices();
+        void RecalculateViewProjection();
     };
 }

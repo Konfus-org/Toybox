@@ -29,7 +29,7 @@ namespace Tbx
     public:
         using WindowEvent::WindowEvent;
 
-        std::string GetName() const override
+        std::string ToString() const override
         {
             return "Window Close Event";
         }
@@ -47,7 +47,7 @@ namespace Tbx
             return Size(_width, _height);
         }
 
-        std::string GetName() const override
+        std::string ToString() const override
         {
             return "Window Resize Event";
         }

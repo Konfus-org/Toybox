@@ -13,8 +13,8 @@ namespace Tbx
         Event() = default;
         virtual ~Event() = default;
 
+        virtual std::string ToString() const = 0;
         virtual int GetCategorization() const = 0;
-        virtual std::string GetName() const = 0;
         bool IsInCategory(EventCategory category) const
         {
             return GetCategorization() & static_cast<int>(category);

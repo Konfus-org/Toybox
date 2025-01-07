@@ -13,6 +13,7 @@ namespace Tbx
         uint Width;
         uint Height;
 
+        std::string ToString() const { return std::format("(Width: {}, Height: {})", Width, Height); }
         float AspectRatio() const { return (float)Width / (float)Height; }
     };
 }

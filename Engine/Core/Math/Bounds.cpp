@@ -18,7 +18,7 @@ namespace Tbx
 
     Bounds Tbx::Bounds::FromPerspectiveProjection(float fov, float aspectRatio, float zNear)
     {
-        float scale = Math::Tan(Math::DegreesToRadians(fov * 0.5f) * zNear);
+        float scale = Math::Tan(fov * 0.5f * zNear);
 
         const float right = aspectRatio * -scale;
         const float left = -right;

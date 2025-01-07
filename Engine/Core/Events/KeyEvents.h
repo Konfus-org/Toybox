@@ -24,7 +24,7 @@ namespace Tbx
     public:
         using KeyEvent::KeyEvent;
 
-        std::string GetName() const override
+        std::string ToString() const override
         {
             return "Key Pressed Event";
         }
@@ -35,7 +35,7 @@ namespace Tbx
     public:
         using KeyEvent::KeyEvent;
 
-        std::string GetName() const override
+        std::string ToString() const override
         {
             return "Key Released Event";
         }
@@ -47,7 +47,7 @@ namespace Tbx
         KeyHeldEvent(int keyCode, float timeHeld) :
             KeyEvent(keyCode), _timeHeld(timeHeld) {}
 
-        std::string GetName() const override
+        std::string ToString() const override
         {
             return "Key Held Event";
         }
@@ -67,7 +67,7 @@ namespace Tbx
         KeyRepeatedEvent(int keyCode, int repeatCount) : 
             KeyEvent(keyCode), _repeatCount(repeatCount) {}
 
-        std::string GetName() const override
+        std::string ToString() const override
         {
             return "Key Repeated Event";
         }

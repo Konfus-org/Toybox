@@ -24,6 +24,14 @@ namespace Tbx
         return Vector3(Math::RadiansToDegrees(result.x), Math::RadiansToDegrees(result.y), Math::RadiansToDegrees(result.z));
     }
 
+    Quaternion Quaternion::Normalize(const Quaternion& quaternion)
+    {
+        const auto& glmQuat = glm::quat(quaternion.W, quaternion.X, quaternion.Y, quaternion.Z);
+        const auto& result = glm::normalize(glmQuat);
+
+        return Quaternion(result.x, result.y, result.z, result.w);
+    }
+
     Quaternion Quaternion::Add(const Quaternion& lhs, const Quaternion& rhs)
     {
         const auto& glmL = glm::quat(lhs.W, lhs.X, lhs.Y, lhs.Z);

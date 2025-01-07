@@ -132,8 +132,9 @@ void TestLayer::OnAttach()
 	const auto& mainWindowCam = mainWindow.lock()->GetCamera().lock();
 	const auto& mainWindowSize = mainWindow.lock()->GetSize();
 
-	mainWindowCam->SetOrthagraphic(1, mainWindowSize.AspectRatio(), -1, 1);
-	////mainWindowCam->SetPosition(Tbx::Vector3(-1.0f, 0.0f, 0.0f));
+	//mainWindowCam->SetPerspective(45.0f, mainWindowSize.AspectRatio(), 0.1f, 100);
+	mainWindowCam->SetOrthagraphic(1, mainWindowSize.AspectRatio(), -1, 10);
+	mainWindowCam->SetPosition(Tbx::Vector3(0.0f, 0.0f, -1.0f));
 	////mainWindowCam->SetRotation(Tbx::Quaternion::FromEuler(Tbx::Vector3(0.0f, 0.0f, 45.0f)));
 
 	Tbx::Rendering::SetVSyncEnabled(true);
@@ -155,19 +156,46 @@ void TestLayer::OnUpdate()
 	if (Tbx::Input::IsKeyDown(TBX_KEY_W))
 	{
 		mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(0.0f, 0.1f, 0.0f));
+
+		const auto& pos = mainWindowCam->GetPosition().ToString();
+		TBX_TRACE("Position: {0}", pos);
 	}
     else if (Tbx::Input::IsKeyDown(TBX_KEY_S))
     {
         mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(0.0f, -0.1f, 0.0f));
+
+		const auto& pos = mainWindowCam->GetPosition().ToString();
+		TBX_TRACE("Position: {0}", pos);
     }
 
     if (Tbx::Input::IsKeyDown(TBX_KEY_A))
     {
         mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(-0.1f, 0.0f, 0.0f));
+
+		const auto& pos = mainWindowCam->GetPosition().ToString();
+		TBX_TRACE("Position: {0}", pos);
     }
     else if (Tbx::Input::IsKeyDown(TBX_KEY_D))
     {
         mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(0.1f, 0.0f, 0.0f));
+
+		const auto& pos = mainWindowCam->GetPosition().ToString();
+		TBX_TRACE("Position: {0}", pos);
+    }
+
+    if (Tbx::Input::IsKeyDown(TBX_KEY_UP))
+    {
+        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(0.0f, 0.0f, 0.1f));
+
+		const auto& pos = mainWindowCam->GetPosition().ToString();
+		TBX_TRACE("Position: {0}", pos);
+    }
+    else if (Tbx::Input::IsKeyDown(TBX_KEY_DOWN))
+    {
+        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(0.0f, 0.0f, -0.1f));
+
+		const auto& pos = mainWindowCam->GetPosition().ToString();
+		TBX_TRACE("Position: {0}", pos);
     }
 
     if (Tbx::Input::IsKeyDown(TBX_KEY_Q))
@@ -175,12 +203,18 @@ void TestLayer::OnUpdate()
 		const auto& currentRot = mainWindowCam->GetRotation();
 		const auto& newRot = currentRot * Tbx::Vector3(0.0f, 0.0f, -10.0f);
 		mainWindowCam->SetRotation(newRot);
+
+		const auto& rot = mainWindowCam->GetRotation().ToString();
+		TBX_TRACE("Rotation: {0}", rot);
     }
     else if (Tbx::Input::IsKeyDown(TBX_KEY_E))
     {
 		const auto& currentRot = mainWindowCam->GetRotation();
 		const auto& newRot = currentRot * Tbx::Vector3(0.0f, 0.0f, 10.0f);
 		mainWindowCam->SetRotation(newRot);
+
+		const auto& rot = mainWindowCam->GetRotation().ToString();
+		TBX_TRACE("Rotation: {0}", rot);
     }
 
     Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix()));
@@ -189,7 +223,7 @@ void TestLayer::OnUpdate()
     DrawSquareTest();
     DrawTriangleTest();
 
-    CalucateAndPrintFPS();
+    //CalucateAndPrintFPS();
 }
 
 void TestLayer::OnEvent(Tbx::Event& event)

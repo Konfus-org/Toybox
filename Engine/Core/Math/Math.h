@@ -6,6 +6,5 @@
 #include "Matrix.h"
 #include "Vectors.h"
 #include "Size.h"
-#include "Scale.h"
 #include "Bounds.h"
 #include "Int.h"

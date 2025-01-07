@@ -17,7 +17,7 @@ namespace Tbx
     class TBX_API AppUpdateEvent : public AppEvent
     {
     public:
-        std::string GetName() const override
+        std::string ToString() const override
         {
             return "App Update Event";
         }
@@ -26,7 +26,7 @@ namespace Tbx
     class TBX_API AppRenderEvent : public AppEvent
     {
     public:
-        std::string GetName() const override
+        std::string ToString() const override
         {
             return "App Render Event";
         }
