@@ -48,3 +48,6 @@ Testing/
 Build/
 bin/
 obj/
+compileData.scor
+compileData.scor.gbl
+compileData.scor.t0000
