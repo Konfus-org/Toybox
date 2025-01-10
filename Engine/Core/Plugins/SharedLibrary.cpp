@@ -1,6 +1,7 @@
 #include "TbxPCH.h"
 #include "SharedLibrary.h"
 #include "Debug/Debugging.h"
+
 #ifdef TBX_PLATFORM_WINDOWS
     #include <Windows.h>
     #include <DbgHelp.h>
@@ -100,11 +101,11 @@ namespace Tbx
             return;
         }
 
-        // Enumerate symbols in the loaded module
+        // Enumerate symbols in the loaded plugin
         DWORD64 baseAddr = SymLoadModule64(GetCurrentProcess(), nullptr, _path.c_str(), nullptr, 0, 0);
         if (baseAddr == 0)
         {
-            TBX_ERROR("Failed to load module for symbol enumeration");
+            TBX_ERROR("Failed to load plugin for symbol enumeration");
             return;
         }
 

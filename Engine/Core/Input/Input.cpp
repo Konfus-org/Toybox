@@ -1,7 +1,7 @@
 #include "TbxPCH.h"
 #include "Input.h"
 #include "Windowing/IWindow.h"
-#include "Modules/ModuleServer.h"
+#include "Plugins/PluginServer.h"
 #include "Debug/Debugging.h"
 #include "Util/SmartPointerUtils.h"
 
@@ -14,7 +14,7 @@ namespace Tbx
 
     void Input::Initialize()
     {
-        auto handlerFactory = ModuleServer::GetFactoryModule<IInputHandler>();
+        auto handlerFactory = PluginServer::GetPlugin<IInputHandler>();
         auto sharedHandler = handlerFactory.lock()->CreateShared();
         _handler = sharedHandler;
     }

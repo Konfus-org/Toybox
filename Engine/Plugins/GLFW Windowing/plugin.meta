@@ -1,0 +1,6 @@
+{
+    name: "GLFW Windowing",
+    version: "0.0.1",
+    author: "Konfus-dev",
+    description: "Platform agnostic windowing system provided by GLFW."
+}

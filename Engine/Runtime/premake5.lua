@@ -28,10 +28,10 @@ project "Runtime"
     -- Set links for modules so we don't have to manually rebuild when they change
     links
     {
-        "OpenGL Rendering Module",
-        "GLFW Window Module",
-        "GLFW Input Module",
-        "SpdLog Module"
+        "OpenGL Rendering",
+        "GLFW Windowing",
+        "GLFW Input",
+        "Spd Logging"
     }
 
     ToyboxModuleConfigs()

@@ -23,14 +23,12 @@ namespace GLFWWindowing
         Tbx::uint64 GetId() const override;
         std::any GetNativeWindow() const override;
 
-        void SetEventCallback(const Tbx::EventCallbackFn& callback) override;
         void SetMode(const Tbx::WindowMode& mode) override;
 
     private:
         std::string _title;
         Tbx::Size _size;
         std::shared_ptr<Tbx::Camera> _camera;
-        Tbx::EventCallbackFn _eventCallback;
         GLFWwindow* _glfwWindow = nullptr;
 
         void SetupCallbacks();

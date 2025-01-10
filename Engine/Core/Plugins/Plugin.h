@@ -1,23 +1,23 @@
 #pragma once
 #include "TbxPCH.h"
 #include "TbxAPI.h"
-#include "ModuleAPI.h"
+#include "Events/Event.h"
 
 namespace Tbx
 {
-    class TBX_API Module
+    class TBX_API Plugin
     {
     public:
-        Module() = default;
-        virtual ~Module() = default;
+        Plugin() = default;
+        virtual ~Plugin() = default;
 
-        virtual std::string GetName() const = 0;
-        virtual std::string GetAuthor() const = 0;
-        virtual int GetVersion() const = 0;
+        virtual void OnLoad() = 0;
+        virtual void OnUnload() = 0;
     };
 
+    // TODO: we will remove the factory plugin and make all plugins event based... i.e. they listen to events
     template<typename T>
-    class TBX_API FactoryModule : public Module
+    class TBX_API FactoryPlugin : public Plugin
     {
     public:
         std::shared_ptr<T> CreateShared()

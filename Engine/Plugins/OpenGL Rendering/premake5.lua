@@ -1,12 +1,12 @@
-project "OpenGL Rendering Module"
+project "OpenGL Rendering"
     kind "SharedLib"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
     ignoredefaultlibraries { "MSVCRT" }
 
-    targetdir ("../../../" .. OutputTargetModulesDir .. "")
-    objdir    ("../../../" .. OutputIntermediateModulesDir .. "")
+    targetdir ("../../../" .. OutputTargetPluginDir .. "")
+    objdir    ("../../../" .. OutputIntermediatePluginDir .. "")
 
     defines
     {

@@ -30,8 +30,6 @@ namespace Tbx
         virtual uint64 GetId() const = 0;
         virtual std::any GetNativeWindow() const = 0;
 
-        virtual void SetEventCallback(const EventCallbackFn& callback) = 0;
-
         virtual void SetMode(const WindowMode& mode) = 0;
     };
 }

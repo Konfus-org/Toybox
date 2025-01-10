@@ -1,8 +1,8 @@
 
 OutputTargetDir = "Build/bin/"
 OutputIntermediateDir = "Build/obj/%{prj.name}/"
-OutputTargetModulesDir = "Build/bin/Modules/"
-OutputIntermediateModulesDir = "Build/obj/Modules/%{prj.name}/"
+OutputTargetPluginDir = "Build/bin/Plugins/%{prj.name}/"
+OutputIntermediatePluginDir = "Build/obj/Plugins/%{prj.name}/"
 
 -- Easy way to add supported platforms
 function ToyboxPlatforms()

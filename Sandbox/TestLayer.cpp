@@ -225,7 +225,3 @@ void TestLayer::OnUpdate()
 
     //CalucateAndPrintFPS();
 }
-
-void TestLayer::OnEvent(Tbx::Event& event)
-{
-}

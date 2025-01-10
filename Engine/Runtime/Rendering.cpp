@@ -10,7 +10,7 @@ namespace Tbx
 
     void Rendering::Initialize()
     {
-        auto rendererFactory = ModuleServer::GetFactoryModule<IRenderer>();
+        auto rendererFactory = PluginServer::GetPlugin<IRenderer>();
         if (!Tbx::IsWeakPointerValid(rendererFactory))
         {
             TBX_ERROR("Failed to initialize rendering, because a renderer factory couldn't be found. Is a renderer module installed?");
@@ -22,7 +22,7 @@ namespace Tbx
         }
     }
 
-    TBX_API void Rendering::Shutdown()
+    void Rendering::Shutdown()
     {
         Flush();
         _renderer.reset();
@@ -34,7 +34,7 @@ namespace Tbx
         _renderer->SetVSyncEnabled(enabled);
     }
 
-    TBX_API bool Rendering::IsVSyncEnabled()
+    bool Rendering::IsVSyncEnabled()
     {
         return _vsyncEnabled;
     }

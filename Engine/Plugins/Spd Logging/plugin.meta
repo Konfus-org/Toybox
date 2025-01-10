@@ -1,0 +1,6 @@
+{
+    name: "Spd Logging",
+    version: "0.0.1",
+    author: "Konfus-dev",
+    description: "Efficient and easy logging to console and log file backed by the spdlog library."
+}

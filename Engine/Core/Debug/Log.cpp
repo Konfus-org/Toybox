@@ -1,7 +1,7 @@
 #include "TbxPCH.h"
 #include "Log.h"
 #include "LogLevel.h"
-#include "Modules/ModuleServer.h"
+#include "Plugins/PluginServer.h"
 
 #define TBX_VALIDATE_LOGGER(error_msg) if (_logger == nullptr) { std::cout << "Logger null! Falling back to std::cout " + error_msg << std::endl; return; }
 
@@ -11,7 +11,7 @@ namespace Tbx
 
 	void Log::Open(const std::string& name, const std::string& logSaveLocation)
 	{
-		const auto& loggerFactory = ModuleServer::GetFactoryModule<ILogger>();
+		const auto& loggerFactory = PluginServer::GetPlugin<ILogger>();
 		auto sharedLogger = loggerFactory.lock()->CreateShared();
 		_logger = sharedLogger;
 		_logger->Open(name, logSaveLocation);

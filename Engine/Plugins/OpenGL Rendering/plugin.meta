@@ -1,0 +1,6 @@
+{
+    name: "OpenGL Rendering",
+    version: "0.0.1",
+    author: "Konfus-dev",
+    description: "Rendering system implemented using the OpenGL API."
+}

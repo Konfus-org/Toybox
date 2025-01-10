@@ -18,6 +18,7 @@ namespace GLFWWindowing
 	void GLFWWindow::Open(const Tbx::WindowMode& mode)
 	{
 		SetMode(mode);
+		SetupCallbacks();
 	}
 
 	void GLFWWindow::Update()
@@ -73,12 +74,6 @@ namespace GLFWWindowing
 #ifdef TBX_PLATFORM_LINUX
 		return (Tbx::uint64)glfwGetX11Window(_glfwWindow);
 #endif
-	}
-
-	void GLFWWindow::SetEventCallback(const Tbx::EventCallbackFn& callback)
-	{
-		_eventCallback = callback;
-		SetupCallbacks();
 	}
 
 	void GLFWWindow::SetMode(const Tbx::WindowMode& mode)
@@ -207,19 +202,19 @@ namespace GLFWWindowing
 			case GLFW_PRESS:
 			{
 				Tbx::KeyPressedEvent event(key);
-				_eventCallback(event);
+				Tbx::EventDispatcher::Send(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
 				Tbx::KeyReleasedEvent event(key);
-				_eventCallback(event);
+				Tbx::EventDispatcher::Send(event);
 				break;
 			}
 			case GLFW_REPEAT:
 			{
 				Tbx::KeyRepeatedEvent event(key, 1);
-				_eventCallback(event);
+				Tbx::EventDispatcher::Send(event);
 				break;
 			}
 			default:
@@ -237,13 +232,13 @@ namespace GLFWWindowing
 			case GLFW_PRESS:
 			{
 				Tbx::MouseButtonPressedEvent event(button);
-				_eventCallback(event);
+				Tbx::EventDispatcher::Send(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
 				Tbx::MouseButtonReleasedEvent event(button);
-				_eventCallback(event);
+				Tbx::EventDispatcher::Send(event);
 				break;
 			}
 			default:
@@ -257,24 +252,24 @@ namespace GLFWWindowing
 	void GLFWWindow::OnMouseScrolled(double offsetX, double offsetY) const
 	{
 		Tbx::MouseScrolledEvent event((float)offsetX, (float)offsetY);
-		_eventCallback(event);
+		Tbx::EventDispatcher::Send(event);
 	}
 
 	void GLFWWindow::OnMouseMoved(double posX, double posY) const
 	{
 		Tbx::MouseMovedEvent event((float)posX, (float)posY);
-		_eventCallback(event);
+		Tbx::EventDispatcher::Send(event);
 	}
 
 	void GLFWWindow::OnWindowClosed() const
 	{
 		Tbx::WindowCloseEvent event(GetId());
-		_eventCallback(event);
+		Tbx::EventDispatcher::Send(event);
 	}
 
 	void GLFWWindow::OnSizeChanged() const
 	{
 		Tbx::WindowResizeEvent event(GetId(), _size.Width, _size.Height);
-		_eventCallback(event);
+		Tbx::EventDispatcher::Send(event);
 	}
 }

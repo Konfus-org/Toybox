@@ -36,6 +36,5 @@ namespace Tbx
         bool OnWindowClose(const WindowCloseEvent& e);
         bool OnWindowResize(const WindowResizeEvent& e);
         std::shared_ptr<IWindow> GetWindow(const uint64& id);
-        void OnEvent(Event& e);
     };
 }

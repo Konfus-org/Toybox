@@ -4,7 +4,7 @@
 #include "Input/Input.h"
 #include "Windowing/IWindow.h"
 #include "Rendering/RenderingAPI.h"
-#include "Modules/Modules.h"
+#include "Plugins/PluginAPI.h"
 #include "Layers/Layers.h"
 #include "Debug/Debugging.h"
 #include "Events/Events.h"

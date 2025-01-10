@@ -25,27 +25,27 @@ namespace Tbx
         // DEBUG:
         
         // Open modules with debug/build path
-        ModuleServer::LoadModules("..\\Build\\bin\\Modules");
+        PluginServer::LoadPlugins("..\\Build\\bin\\Plugins");
 
         // No log file in debug
-        Log::Open("Tbx::Runtime"); 
+        Log::Open("Tbx::Runtime");
 
         // Once log is open, we can print out all loaded modules to the log for debug purposes
-        const auto& modules = ModuleServer::GetModules();
-        const auto& numModules = modules.size();
-        TBX_INFO("Loaded {0} modules:", numModules);
-        for (const auto& loadedMod : modules)
-        {
-            const auto& modName = loadedMod.lock()->GetName();
-            TBX_INFO("    - {0}", modName);
-        }
+        const auto& plugins = PluginServer::GetPlugins();
+        const auto& numPlugins = plugins.size();
+        TBX_INFO("Loaded {0} plugins:", numPlugins);
+        ////for (const auto& loadedMod : plugins)
+        ////{
+        ////    const auto& pluginName = loadedMod.lock()->GetName();
+        ////    TBX_INFO("    - {0}", pluginName);
+        ////}
 
 #else 
 
         // RELEASE:
         
         // Open modules with release path
-        ModuleServer::LoadModules("..\\Modules");
+        PluginServer::LoadPlugins("..\\Plugins");
 
         // Open log file in non-debug
         const auto& currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -54,6 +54,7 @@ namespace Tbx
         Log::Open("Tbx::Runtime", logPath);
 
 #endif
+        // Subscribe to events:
 
         OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
         Rendering::Initialize();
@@ -83,7 +84,7 @@ namespace Tbx
         OnUpdate();
 
         AppUpdateEvent updateEvent;
-        OnEvent(updateEvent);
+        EventDispatcher::Send(updateEvent);
     }
 
     void App::Close()
@@ -106,20 +107,7 @@ namespace Tbx
         // Has to be last! 
         // Everything depends on modules, including the log, input and rendering. 
         // So they cannot be shutdown after modules are unloaded.
-        ModuleServer::Shutdown();
-    }
-
-    void App::OnEvent(Event& e)
-    {
-        EventDispatcher dispatcher(e);
-        dispatcher.Dispatch<WindowCloseEvent>(TBX_BIND_EVENT_FN(App::OnWindowClose));
-        dispatcher.Dispatch<WindowResizeEvent>(TBX_BIND_EVENT_FN(App::OnWindowResize));
-
-        for (const auto& layer : _layerStack)
-        {
-            if (e.Handled) break;
-            layer->OnEvent(e);
-        }
+        PluginServer::Shutdown();
     }
 
     void App::PushLayer(const std::shared_ptr<Layer>& layer)
@@ -143,7 +131,7 @@ namespace Tbx
     std::shared_ptr<IWindow> App::CreateNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
         // Create window
-        auto windowFactory = ModuleServer::GetFactoryModule<IWindow>();
+        auto windowFactory = PluginServer::GetPlugin<IWindow>();
         if (!Tbx::IsWeakPointerValid(windowFactory))
         {
             TBX_ERROR("Failed to create {0} window, because the window factory couldn't be found. Is a windowing module installed?", name);
@@ -155,7 +143,6 @@ namespace Tbx
         sharedWindow->SetTitle(name);
         sharedWindow->SetSize(size);
         sharedWindow->Open(mode);
-        sharedWindow->SetEventCallback(TBX_BIND_EVENT_FN(App::OnEvent));
 
         return sharedWindow;
     }

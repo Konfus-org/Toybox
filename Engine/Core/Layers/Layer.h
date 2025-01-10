@@ -12,7 +12,6 @@ namespace Tbx
         TBX_API virtual void OnAttach() = 0;
         TBX_API virtual void OnDetach() = 0;
         TBX_API virtual void OnUpdate() = 0;
-        TBX_API virtual void OnEvent(Event& event) = 0;
 
         TBX_API std::string GetName() const;
 
