@@ -31,14 +31,14 @@ namespace Tbx
         Log::Open("Tbx::Runtime");
 
         // Once log is open, we can print out all loaded modules to the log for debug purposes
-        const auto& plugins = PluginServer::GetPlugins();
+        const auto& plugins = PluginServer::GetLoadedPlugins();
         const auto& numPlugins = plugins.size();
         TBX_INFO("Loaded {0} plugins:", numPlugins);
-        ////for (const auto& loadedMod : plugins)
-        ////{
-        ////    const auto& pluginName = loadedMod.lock()->GetName();
-        ////    TBX_INFO("    - {0}", pluginName);
-        ////}
+        for (const auto& loadedMod : plugins)
+        {
+            const auto& pluginInfo = loadedMod->GetPluginInfo().ToString();
+            TBX_INFO("    - {0}", pluginInfo);
+        }
 
 #else 
 
@@ -131,16 +131,21 @@ namespace Tbx
     std::shared_ptr<IWindow> App::CreateNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
         // Create window
-        const auto& window = PluginServer::GetPlugin<IWindow>();
-        if (window == nullptr)
+        const auto& windowFactoryPlugin = PluginServer::GetPlugin<IWindowFactory>();
+        if (windowFactoryPlugin == nullptr)
         {
-            TBX_ERROR("Failed to create {0} window. Is a windowing plugin installed?", name);
+            TBX_ERROR("Failed to get window factory plugin to create the window {0}, is a window factory plugin installed?", name);
             return nullptr;
         }
 
-        // Configure and open window
-        window->SetTitle(name);
-        window->SetSize(size);
+        const auto& window = windowFactoryPlugin->Create(name, size);
+        if (window == nullptr)
+        {
+            TBX_ERROR("Failed to create the window {0}", name);
+            return nullptr;
+        }
+
+        // Open window
         window->Open(mode);
 
         return window;

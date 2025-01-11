@@ -15,11 +15,10 @@ namespace Tbx
     };
 
     template<typename T>
-    class TBX_API Plugin
+    class TBX_API Plugin : public IPlugin
     {
     public:
         Plugin() = default;
-        virtual ~Plugin() = default;
 
         std::shared_ptr<T> GetImplementation()
         {
@@ -30,16 +29,9 @@ namespace Tbx
             });
             return shared;
         }
-
-        void Unload() 
-        { 
-            OnUnload();
-        }
         
     protected:
         virtual T* Provide() = 0;
         virtual void Destroy(T* toDestroy) = 0;
-        virtual void OnLoad() = 0;
-        virtual void OnUnload() = 0;
     };
 }

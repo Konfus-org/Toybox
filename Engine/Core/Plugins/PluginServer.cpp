@@ -31,15 +31,10 @@ namespace Tbx
         for (const auto& loadedPlug : _loadedPlugins)
         {
             const auto& plug = loadedPlug->GetPlugin();
-            const std::shared_ptr<Plugin<T>> typedPlugin = std::dynamic_pointer_cast<Plugin<T>>(plug);
-            if (typedPlugin)
+            const auto& castedPlug = std::dynamic_pointer_cast<Plugin<T>>(plug);
+            if (castedPlug)
             {
-                return typedPlugin->GetImplementation();
-            }
-            else
-            {
-                const auto& pluginInfo = loadedPlug->GetPluginInfo().ToString();
-                TBX_ERROR("Couldn't get plugin {0} because it is not a plugin that provides an implementation!", pluginInfo);
+                return castedPlug->GetImplementation();
             }
         }
 

@@ -91,15 +91,18 @@ namespace Tbx
     {
         _renderer->BeginDraw();
 
-        const auto& batch = _renderQueue.Peek();
-        for (const auto& item : batch)
+        if (!_renderQueue.IsEmpty())
         {
-            using enum Tbx::RenderCommand;
-            switch (item.Command)
+            const auto& batch = _renderQueue.Peek();
+
+            for (const auto& item : batch)
             {
+                using enum Tbx::RenderCommand;
+                switch (item.Command)
+                {
                 case Clear:
                 {
-                    _renderer->Clear(); 
+                    _renderer->Clear();
                     break;
                 }
                 case SetShader:
@@ -143,10 +146,12 @@ namespace Tbx
                     TBX_ASSERT(false, "Unknown render command type.");
                     break;
                 }
+                }
             }
+
+            _renderQueue.Pop();
         }
 
-        _renderQueue.Pop();
         _renderer->EndDraw();
     }
 }
