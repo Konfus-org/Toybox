@@ -1,5 +1,8 @@
 #pragma once
 
+#include "Plugin.h"
+#include "PluginInfo.h"
+#include "LoadedPlugin.h"
 #include "PluginServer.h"
 
 #ifdef TBX_PLATFORM_WINDOWS

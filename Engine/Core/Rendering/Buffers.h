@@ -2,7 +2,7 @@
 #include "TbxPCH.h"
 #include "TbxAPI.h"
 #include "Shader.h"
-#include "Math/Math.h"
+#include "Math/MathAPI.h"
 
 namespace Tbx
 {

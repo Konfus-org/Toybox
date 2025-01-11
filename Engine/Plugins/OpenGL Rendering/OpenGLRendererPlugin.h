@@ -3,10 +3,10 @@
 
 namespace OpenGLRendering
 {
-    class OpenGLRendererFactory : public Tbx::FactoryPlugin<Tbx::IRenderer>
+    class OpenGLRendererPlugin : public Tbx::Plugin<Tbx::IRenderer>
     {
     public:
-        Tbx::IRenderer* Create() override;
+        Tbx::IRenderer* Provide() override;
         void Destroy(Tbx::IRenderer* windowToDestroy) override;
 
         void OnLoad() override;

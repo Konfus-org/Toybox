@@ -3,7 +3,7 @@
 #include "TbxPCH.h"
 #include "Math/Int.h"
 #include "Math/Matrix.h"
-#include "Debug/Debugging.h"
+#include "Debug/DebugAPI.h"
 
 namespace Tbx
 {

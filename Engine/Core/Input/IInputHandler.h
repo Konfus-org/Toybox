@@ -1,7 +1,7 @@
 #pragma once
 #include <tbxpch.h>
 #include "Windowing/IWindow.h"
-#include "Math/Math.h"
+#include "Math/Vectors.h"
 
 namespace Tbx
 {

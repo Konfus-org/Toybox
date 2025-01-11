@@ -2,7 +2,7 @@
 #include "TbxPCH.h"
 #include "TbxAPI.h"
 #include "Asset.h"
-#include "Math/Math.h"
+#include "Math/Int.h"
 
 namespace Tbx
 {

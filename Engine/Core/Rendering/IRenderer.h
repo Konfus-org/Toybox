@@ -1,9 +1,9 @@
 #pragma once
 #include "TbxPCH.h"
 #include "Color.h"
-#include "Math/Math.h"
 #include "Mesh.h"
 #include "Texture.h"
+#include "Math/Vectors.h"
 
 namespace Tbx
 {

@@ -1,23 +1,25 @@
 #pragma once
 #include "SharedLibrary.h"
 #include "Plugin.h"
+#include "PluginInfo.h"
 
 namespace Tbx
 {
     class LoadedPlugin
     {
     public:
-        explicit(false) LoadedPlugin(const std::string& location);
-        virtual ~LoadedPlugin();
+        explicit(false) LoadedPlugin(const std::string& location) { Load(location); }
+        ~LoadedPlugin() { Unload(); }
 
-        std::weak_ptr<Plugin> GetPlugin() const;
-        std::weak_ptr<SharedLibrary> GetLibrary() const;
+        const PluginInfo& GetPluginInfo() const { return _pluginInfo; }
+        std::shared_ptr<IPlugin> GetPlugin() const { return _plugin; }
 
     private:
         void Load(const std::string& location);
         void Unload();
 
-        std::shared_ptr<Plugin> _plugin = nullptr;
-        std::shared_ptr<SharedLibrary> _library = nullptr;
+        PluginInfo _pluginInfo;
+        SharedLibrary _library;
+        std::shared_ptr<IPlugin> _plugin = nullptr;
     };
 }

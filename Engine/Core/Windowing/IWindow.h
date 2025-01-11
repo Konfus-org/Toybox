@@ -19,6 +19,7 @@ namespace Tbx
         virtual void Open(const WindowMode& mode) = 0;
         virtual void Update() = 0;
 
+        // TODO: not sure if the window should own the camera... investigate
         virtual std::weak_ptr<Camera> GetCamera() const = 0;
 
         virtual const Size& GetSize() const = 0;

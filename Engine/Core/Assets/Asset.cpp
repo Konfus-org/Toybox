@@ -1,6 +1,6 @@
 #include "TbxPCH.h"
 #include "Asset.h"
-#include "Debug/Debugging.h"
+#include "Debug/DebugAPI.h"
 
 namespace Tbx
 {

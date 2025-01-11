@@ -1,48 +1,49 @@
 #include "TbxPCH.h"
 #include "PluginServer.h"
+#include "Util/SmartPointerUtils.h"
+#include <filesystem>
 
 namespace Tbx
 {
     std::vector<std::shared_ptr<LoadedPlugin>> PluginServer::_loadedPlugins;
 
-    ////std::weak_ptr<Plugin> PluginServer::GetPlugin(const std::string_view& name)
-    ////{
-    ////    for (const auto& loadedMod : _loadedPlugins)
-    ////    {
-    ////        const auto& plug = loadedMod->GetPlugin().lock();
-    ////        if (plug->GetName() == name)
-    ////        {
-    ////            return plug;
-    ////        }
-    ////    }
-
-    ////    return {};
-    ////}
-
-    std::vector<std::weak_ptr<Plugin>> PluginServer::GetPlugins()
+    std::shared_ptr<IPlugin> PluginServer::GetPlugin(const std::string_view& name)
     {
-        std::vector<std::weak_ptr<Plugin>> plugins;
-        for (const auto& loadedPlugin : _loadedPlugins)
+        for (const auto& loadedPlug : _loadedPlugins)
         {
-            const auto& plug = loadedPlugin->GetPlugin().lock();
-            plugins.push_back(plug);
-        }
-        return plugins;
-    }
-
-    template<typename T>
-    std::weak_ptr<FactoryPlugin<T>> PluginServer::GetPlugin()
-    {
-        for (const auto& loadedMod : _loadedPlugins)
-        {
-            const auto& mod = loadedMod->GetPlugin().lock();
-            if (std::dynamic_pointer_cast<FactoryPlugin<T>>(mod))
+            if (loadedPlug->GetPluginInfo().Name == name)
             {
-                return std::static_pointer_cast<FactoryPlugin<T>>(mod);
+                return loadedPlug->GetPlugin();
             }
         }
 
-        return {};
+        return nullptr;
+    }
+
+    std::vector<std::shared_ptr<LoadedPlugin>> PluginServer::GetLoadedPlugins()
+    {
+        return _loadedPlugins;
+    }
+
+    template<typename T>
+    std::shared_ptr<T> PluginServer::GetPlugin()
+    {
+        for (const auto& loadedPlug : _loadedPlugins)
+        {
+            const auto& plug = loadedPlug->GetPlugin();
+            const std::shared_ptr<Plugin<T>> typedPlugin = std::dynamic_pointer_cast<Plugin<T>>(plug);
+            if (typedPlugin)
+            {
+                return typedPlugin->GetImplementation();
+            }
+            else
+            {
+                const auto& pluginInfo = loadedPlug->GetPluginInfo().ToString();
+                TBX_ERROR("Couldn't get plugin {0} because it is not a plugin that provides an implementation!", pluginInfo);
+            }
+        }
+
+        return nullptr;
     }
 
     void PluginServer::LoadPlugins(const std::string& pathToPlugins)
@@ -76,6 +77,8 @@ namespace Tbx
 
     void PluginServer::Shutdown()
     {
+        // Clear refs to loaded plugins.. 
+        // this will cause them to unload themselves when all refs to them die
         _loadedPlugins.clear();
     }
 }

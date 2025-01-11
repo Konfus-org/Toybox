@@ -1,6 +1,8 @@
 #include "TbxPCH.h"
 #include "Rendering.h"
 
+#define TBX_VALIDATE_RENDERER(error_msg, ...)  if (_renderer == nullptr) { TBX_ERROR(error_msg, __VA_ARGS__); return; }
+
 namespace Tbx
 {
     std::shared_ptr<IRenderer> Rendering::_renderer;
@@ -10,16 +12,7 @@ namespace Tbx
 
     void Rendering::Initialize()
     {
-        auto rendererFactory = PluginServer::GetPlugin<IRenderer>();
-        if (!Tbx::IsWeakPointerValid(rendererFactory))
-        {
-            TBX_ERROR("Failed to initialize rendering, because a renderer factory couldn't be found. Is a renderer module installed?");
-        }
-        else
-        {
-            const auto& sharedRenderer = rendererFactory.lock()->CreateShared();
-            _renderer = sharedRenderer;
-        }
+        _renderer = PluginServer::GetPlugin<IRenderer>();
     }
 
     void Rendering::Shutdown()
@@ -31,6 +24,9 @@ namespace Tbx
     void Rendering::SetVSyncEnabled(bool enabled)
     {
         _vsyncEnabled = enabled;
+
+        TBX_VALIDATE_RENDERER("Failed to set vsync to {0}, because the renderer couldn't be found.", enabled);
+
         _renderer->SetVSyncEnabled(enabled);
     }
 
@@ -56,6 +52,8 @@ namespace Tbx
 
     void Rendering::Draw(const std::weak_ptr<IWindow>& surface)
     {
+        TBX_VALIDATE_RENDERER("Failed to draw to {0}, because the renderer couldn't be found.", surface.lock()->GetTitle());
+
         if (!Tbx::IsWeakPointerValid(_renderSurface) || _renderSurface.lock() != surface.lock())
         {
             // Update context if needed
@@ -78,6 +76,8 @@ namespace Tbx
 
     TBX_API void Rendering::Clear()
     {
+        TBX_VALIDATE_RENDERER("Failed to clear, because the renderer couldn't be found.");
+
         _renderer->Clear();
     }
 
@@ -91,68 +91,62 @@ namespace Tbx
     {
         _renderer->BeginDraw();
 
-        // TODO: we prolly don't want to constantly draw and flush if nothing has changed....
-        while (!_renderQueue.IsEmpty())
+        const auto& batch = _renderQueue.Peek();
+        for (const auto& item : batch)
         {
-            const auto& batch = _renderQueue.Peek();
-
-            for (const auto& item : batch)
+            using enum Tbx::RenderCommand;
+            switch (item.Command)
             {
-                using enum Tbx::RenderCommand;
-                switch (item.Command)
+                case Clear:
                 {
-                    case Clear:
-                    {
-                        _renderer->Clear(); 
-                        break;
-                    }
-                    case SetShader:
-                    {
-                        const auto& shaderData = std::any_cast<Shader>(item.Data);
-                        _renderer->SetShader(shaderData);
-                        break;
-                    }
-                    case UploadShaderData:
-                    {
-                        const auto& shaderData = std::any_cast<ShaderData>(item.Data);
-                        _renderer->UploadShaderData(shaderData);
-                        break;
-                    }
-                    case RenderColor:
-                    {
-                        const auto& colorData = std::any_cast<Color>(item.Data);
-                        _renderer->Draw(colorData);
-                        break;
-                    }
-                    case RenderTexture:
-                    {
-                        const auto& textureData = std::any_cast<Texture>(item.Data);
-                        _renderer->Draw(textureData);
-                        break;
-                    }
-                    case RenderMesh:
-                    {
-                        const auto& meshData = std::any_cast<Mesh>(item.Data);
-                        _renderer->Draw(meshData);
-                        break;
-                    }
-                    case RenderText:
-                    {
-                        const auto& textData = std::any_cast<std::string>(item.Data);
-                        _renderer->Draw(textData);
-                        break;
-                    }
-                    default:
-                    {
-                        TBX_ASSERT(false, "Unknown render command type.");
-                        break;
-                    }
+                    _renderer->Clear(); 
+                    break;
+                }
+                case SetShader:
+                {
+                    const auto& shaderData = std::any_cast<Shader>(item.Data);
+                    _renderer->SetShader(shaderData);
+                    break;
+                }
+                case UploadShaderData:
+                {
+                    const auto& shaderData = std::any_cast<ShaderData>(item.Data);
+                    _renderer->UploadShaderData(shaderData);
+                    break;
+                }
+                case RenderColor:
+                {
+                    const auto& colorData = std::any_cast<Color>(item.Data);
+                    _renderer->Draw(colorData);
+                    break;
+                }
+                case RenderTexture:
+                {
+                    const auto& textureData = std::any_cast<Texture>(item.Data);
+                    _renderer->Draw(textureData);
+                    break;
+                }
+                case RenderMesh:
+                {
+                    const auto& meshData = std::any_cast<Mesh>(item.Data);
+                    _renderer->Draw(meshData);
+                    break;
+                }
+                case RenderText:
+                {
+                    const auto& textData = std::any_cast<std::string>(item.Data);
+                    _renderer->Draw(textData);
+                    break;
+                }
+                default:
+                {
+                    TBX_ASSERT(false, "Unknown render command type.");
+                    break;
                 }
             }
-
-            _renderQueue.Pop();
         }
 
+        _renderQueue.Pop();
         _renderer->EndDraw();
     }
 }

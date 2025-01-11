@@ -1,6 +1,6 @@
 #include "TbxPCH.h"
 #include "SharedLibrary.h"
-#include "Debug/Debugging.h"
+#include "Debug/DebugAPI.h"
 
 #ifdef TBX_PLATFORM_WINDOWS
     #include <Windows.h>
@@ -13,21 +13,6 @@
 
 namespace Tbx
 {
-    SharedLibrary::SharedLibrary(const std::string& path)
-    {
-        Load(path);
-    }
-
-    SharedLibrary::~SharedLibrary()
-    {
-        Unload();
-    }
-
-    std::string SharedLibrary::GetPath() const
-    {
-        return _path;
-    }
-
     bool SharedLibrary::IsValid()
     {
         const auto& handle = std::any_cast<HMODULE>(_handle);

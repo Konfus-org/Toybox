@@ -1,7 +1,7 @@
 #pragma once
 #include "TbxPCH.h"
 #include "Layer.h"
-#include "Math/Math.h"
+#include "Math/Int.h"
 
 namespace Tbx 
 {

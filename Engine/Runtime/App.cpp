@@ -131,20 +131,19 @@ namespace Tbx
     std::shared_ptr<IWindow> App::CreateNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
         // Create window
-        auto windowFactory = PluginServer::GetPlugin<IWindow>();
-        if (!Tbx::IsWeakPointerValid(windowFactory))
+        const auto& window = PluginServer::GetPlugin<IWindow>();
+        if (window == nullptr)
         {
-            TBX_ERROR("Failed to create {0} window, because the window factory couldn't be found. Is a windowing module installed?", name);
+            TBX_ERROR("Failed to create {0} window. Is a windowing plugin installed?", name);
             return nullptr;
         }
-        auto sharedWindow = windowFactory.lock()->CreateShared();
 
         // Configure and open window
-        sharedWindow->SetTitle(name);
-        sharedWindow->SetSize(size);
-        sharedWindow->Open(mode);
+        window->SetTitle(name);
+        window->SetSize(size);
+        window->Open(mode);
 
-        return sharedWindow;
+        return window;
     }
 
     bool App::OnWindowClose(const WindowCloseEvent& e)

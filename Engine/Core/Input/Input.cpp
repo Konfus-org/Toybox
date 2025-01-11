@@ -2,7 +2,7 @@
 #include "Input.h"
 #include "Windowing/IWindow.h"
 #include "Plugins/PluginServer.h"
-#include "Debug/Debugging.h"
+#include "Debug/DebugAPI.h"
 #include "Util/SmartPointerUtils.h"
 
 #define TBX_VALIDATE_INPUT(error_msg, ...)  if (_handler == nullptr) { TBX_ERROR(error_msg, __VA_ARGS__); return false; }
@@ -14,9 +14,7 @@ namespace Tbx
 
     void Input::Initialize()
     {
-        auto handlerFactory = PluginServer::GetPlugin<IInputHandler>();
-        auto sharedHandler = handlerFactory.lock()->CreateShared();
-        _handler = sharedHandler;
+        _handler = PluginServer::GetPlugin<IInputHandler>();
     }
 
     void Input::Stop()

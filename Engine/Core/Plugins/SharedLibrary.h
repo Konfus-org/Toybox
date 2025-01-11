@@ -9,21 +9,17 @@ namespace Tbx
     class SharedLibrary 
     {
     public:
-        explicit(false) SharedLibrary(const std::string& path);
-        ~SharedLibrary();
-
-        std::string GetPath() const;
+        bool Load(const std::string& path);
+        void Unload();
 
         bool IsValid();
 
+        std::string GetPath() const { return _path; }
         Symbol GetSymbol(const std::string& symbolName);
         void ListSymbols();
 
     private:
         std::string _path;
         std::any _handle = nullptr;
-
-        bool Load(const std::string& path);
-        void Unload();
     };
 }

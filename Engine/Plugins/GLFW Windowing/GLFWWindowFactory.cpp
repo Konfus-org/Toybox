@@ -4,26 +4,11 @@
 
 namespace GLFWWindowing
 {
-    Tbx::IWindow* GLFWWindowFactory::Create()
+    std::shared_ptr<Tbx::IWindow> GLFWWindowFactory::Create(const std::string& title, const Tbx::Size& size)
     {
-        return new GLFWWindow();
-    }
-
-    void GLFWWindowFactory::Destroy(Tbx::IWindow* windowToDestroy)
-    {
-        delete windowToDestroy;
-    }
-
-    void GLFWWindowFactory::OnLoad()
-    {
-        const auto& status = glfwInit();
-        TBX_ASSERT(status, "Failed to initialize GLFW!");
-    }
-
-    void GLFWWindowFactory::OnUnload()
-    {
-        glfwTerminate();
+        const auto& window = std::make_shared<GLFWWindow>();
+        window->SetTitle(title);
+        window->SetSize(size);
+        return window;
     }
 }
-
-TBX_REGISTER_PLUGIN(GLFWWindowing::GLFWWindowFactory);

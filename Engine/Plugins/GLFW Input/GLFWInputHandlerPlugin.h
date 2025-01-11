@@ -3,10 +3,10 @@
 
 namespace GLFWInput
 {
-    class GLFWInputHandlerFactory : public Tbx::FactoryPlugin<Tbx::IInputHandler>
+    class GLFWInputHandlerPlugin : public Tbx::Plugin<Tbx::IInputHandler>
     {
     public:
-        Tbx::IInputHandler* Create() override;
+        Tbx::IInputHandler* Provide() override;
         void Destroy(Tbx::IInputHandler* handlerToDestroy) override;
 
         void OnLoad() override;

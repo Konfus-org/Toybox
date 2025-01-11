@@ -70,4 +70,8 @@ namespace Tbx
     template void TBX_API EventDispatcher::Subscribe<WindowResizeEvent>(const EventCallback& callback);
     template void TBX_API EventDispatcher::Unsubscribe<WindowResizeEvent>(const EventCallback& callbackToRemove);
     template void TBX_API EventDispatcher::Send<WindowResizeEvent>(const WindowResizeEvent& event);
+
+    template void TBX_API EventDispatcher::Subscribe<AppUpdateEvent>(const EventCallback& callback);
+    template void TBX_API EventDispatcher::Unsubscribe<AppUpdateEvent>(const EventCallback& callbackToRemove);
+    template void TBX_API EventDispatcher::Send<AppUpdateEvent>(const AppUpdateEvent& event);
 }

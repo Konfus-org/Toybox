@@ -2,8 +2,9 @@
 #include "Log.h"
 #include "LogLevel.h"
 #include "Plugins/PluginServer.h"
+#include <iostream>
 
-#define TBX_VALIDATE_LOGGER(error_msg) if (_logger == nullptr) { std::cout << "Logger null! Falling back to std::cout " + error_msg << std::endl; return; }
+#define TBX_VALIDATE_LOGGER(error_msg) if (_logger == nullptr) { std::cout << "Tbx::Core: " + error_msg << std::endl; return; }
 
 namespace Tbx
 {
@@ -11,9 +12,7 @@ namespace Tbx
 
 	void Log::Open(const std::string& name, const std::string& logSaveLocation)
 	{
-		const auto& loggerFactory = PluginServer::GetPlugin<ILogger>();
-		auto sharedLogger = loggerFactory.lock()->CreateShared();
-		_logger = sharedLogger;
+		_logger = PluginServer::GetPlugin<ILogger>();
 		_logger->Open(name, logSaveLocation);
 	}
 

@@ -14,20 +14,20 @@ namespace Tbx
         TBX_API static void LoadPlugins(const std::string& pathToPlugins);
         TBX_API static void Shutdown();
 
-        //TBX_API static std::weak_ptr<Plugin> GetPlugin(const std::string_view& name);
-        TBX_API static std::vector<std::weak_ptr<Plugin>> GetPlugins();
+        TBX_API static std::shared_ptr<IPlugin> GetPlugin(const std::string_view& name);
+        TBX_API static std::vector<std::shared_ptr<LoadedPlugin>> GetLoadedPlugins();
 
         template <typename T>
-        TBX_API static std::weak_ptr<FactoryPlugin<T>> GetPlugin();
+        TBX_API static std::shared_ptr<T> GetPlugin();
 
     private:
         static std::vector<std::shared_ptr<LoadedPlugin>> _loadedPlugins;
     };
 
     // Explicit instantiations for plugin types
-    template std::weak_ptr<FactoryPlugin<IInputHandler>> TBX_API PluginServer::GetPlugin<IInputHandler>();
-    template std::weak_ptr<FactoryPlugin<IWindow>> TBX_API PluginServer::GetPlugin<IWindow>();
-    template std::weak_ptr<FactoryPlugin<IRenderer>> TBX_API PluginServer::GetPlugin<IRenderer>();
-    template std::weak_ptr<FactoryPlugin<ILogger>> TBX_API PluginServer::GetPlugin<ILogger>();
+    template std::shared_ptr<IInputHandler> TBX_API PluginServer::GetPlugin<IInputHandler>();
+    template std::shared_ptr<IWindow> TBX_API PluginServer::GetPlugin<IWindow>();
+    template std::shared_ptr<IRenderer> TBX_API PluginServer::GetPlugin<IRenderer>();
+    template std::shared_ptr<ILogger> TBX_API PluginServer::GetPlugin<ILogger>();
 }
 

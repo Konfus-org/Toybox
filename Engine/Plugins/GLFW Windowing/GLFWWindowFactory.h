@@ -3,13 +3,9 @@
 
 namespace GLFWWindowing
 {
-    class GLFWWindowFactory : public Tbx::FactoryPlugin<Tbx::IWindow>
+    class GLFWWindowFactory : public Tbx::IWindowFactory
     {
     public:
-        Tbx::IWindow* Create() override;
-        void Destroy(Tbx::IWindow* windowToDestroy) override;
-
-        void OnLoad() override;
-        void OnUnload() override;
+        std::shared_ptr<Tbx::IWindow> Create(const std::string& title, const Tbx::Size& size) override;
     };
 }
