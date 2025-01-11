@@ -20,6 +20,7 @@ namespace Tbx
     void Input::Stop()
     {
         _handler.reset();
+        _context.reset();
     }
 
     void Input::SetContext(const std::weak_ptr<IWindow>& context)

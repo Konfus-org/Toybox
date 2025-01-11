@@ -1,11 +1,11 @@
 #pragma once
-#include "Math/Size.h"
-#include "ApplicationEvents.h"
 #include "TbxAPI.h"
+#include "Event.h"
+#include "Math/Size.h"
 
 namespace Tbx
 {
-    class TBX_API WindowEvent : public AppEvent
+    class TBX_API WindowEvent : public Event
     {
     public:
         explicit WindowEvent(uint64 windowId) : _windowId(windowId) {}

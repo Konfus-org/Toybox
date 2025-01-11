@@ -13,12 +13,17 @@ namespace Tbx
 
     App::~App()
     {
-        if (_isRunning) Close();
+        if (_isRunning) 
+            ShutdownSystems();
     }
     
     void App::Launch()
     {
         _isRunning = true;
+
+        // Sub to window events
+        EventDispatcher::Subscribe<WindowCloseEvent>(TBX_BIND_EVENT_CALLBACK(OnWindowClose));
+        EventDispatcher::Subscribe<WindowResizeEvent>(TBX_BIND_EVENT_CALLBACK(OnWindowResize));
 
 #ifdef TBX_DEBUG
 
@@ -54,11 +59,11 @@ namespace Tbx
         Log::Open("Tbx::Runtime", logPath);
 
 #endif
-        // Subscribe to events:
-
         OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
+
         Rendering::Initialize();
         Rendering::Draw(_mainWindow);
+
         Input::Initialize();
 
         OnStart();
@@ -84,15 +89,22 @@ namespace Tbx
         OnUpdate();
 
         AppUpdateEvent updateEvent;
-        EventDispatcher::Send(updateEvent);
+        //EventDispatcher::Send(updateEvent);
     }
 
     void App::Close()
     {
         OnShutdown();
+        ShutdownSystems();
+    }
 
+    void App::ShutdownSystems()
+    {
         _isRunning = false;
-        _mainWindow = nullptr;
+
+        // Remove refs to windows to allow them to be destroyed
+        _mainWindow.reset();
+        _windows.clear();
 
         // Call detach on all layers
         for (const auto& layer : _layerStack)
@@ -151,7 +163,7 @@ namespace Tbx
         return window;
     }
 
-    bool App::OnWindowClose(const WindowCloseEvent& e)
+    void App::OnWindowClose(WindowCloseEvent& e)
     {
         // If the window is our main window, set running flag to false which will trigger the app to close
         if (e.GetWindowId() == _mainWindow->GetId()) _isRunning = false;
@@ -161,10 +173,10 @@ namespace Tbx
         _windows.erase(std::remove(_windows.begin(), _windows.end(), windowToRemove), _windows.end());
 
         // Don't allow other things to process window close events as the window is about to be destroyed
-        return true;
+        e.Handled = true;
     }
 
-    bool App::OnWindowResize(const WindowResizeEvent& e)
+    void App::OnWindowResize(const WindowResizeEvent& e)
     {
         // Draw the window while its resizing so there are no artifacts during the resize
         std::shared_ptr<IWindow> windowThatWasResized = GetWindow(e.GetWindowId());
@@ -177,9 +189,6 @@ namespace Tbx
         const auto& newSize = windowThatWasResized->GetSize();
         const auto& name = windowThatWasResized->GetTitle();
         TBX_INFO("Window {0} resized to {1}x{2}", name, newSize.Width, newSize.Height);
-
-        // Allow other things to process window resize events
-        return false;
     }
 
     std::weak_ptr<IWindow> App::GetMainWindow() const

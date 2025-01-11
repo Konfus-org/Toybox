@@ -32,9 +32,12 @@ namespace Tbx
         std::vector<std::shared_ptr<IWindow>> _windows;
         LayerStack _layerStack;
 
+        void ShutdownSystems();
+
         std::shared_ptr<IWindow> CreateNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
-        bool OnWindowClose(const WindowCloseEvent& e);
-        bool OnWindowResize(const WindowResizeEvent& e);
         std::shared_ptr<IWindow> GetWindow(const uint64& id);
+
+        void OnWindowClose(WindowCloseEvent& e);
+        void OnWindowResize(const WindowResizeEvent& e);
     };
 }

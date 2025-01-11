@@ -3,50 +3,59 @@
 
 namespace Tbx
 {
-    std::unordered_map<std::type_index, std::vector<EventCallback>> EventDispatcher::_subscriptions;
-
-    template <typename EventType>
-    void EventDispatcher::Subscribe(const EventCallback& callback)
-    {
-        const auto& typeId = std::type_index(typeid(EventType));
-        if (!_subscriptions.contains(typeId))
-        {
-            _subscriptions[typeId] = std::vector<EventCallback>();
-        }
-        _subscriptions[typeId].push_back(callback);
-    }
+    std::unordered_map<uint64, std::vector<std::function<void(Event&)>>> EventDispatcher::_subscribers;
+    std::mutex EventDispatcher::_mutex;
 
     template<typename EventType>
-    void EventDispatcher::Unsubscribe(const EventCallback& callbackToRemove)
+    void EventDispatcher::Subscribe(const std::function<void(EventType&)>& callback)
     {
-        const auto& typeId = std::type_index(typeid(EventType));
-        if (_subscriptions.contains(typeId))
-        {
-            // TODO: implement unsubscribing...
-            
-            ////auto callbacks = _subscriptions[typeId];
-            ////auto removed = std::remove(callbacks.begin(), callbacks.end(), callbackToRemove);
-            ////callbacks.erase(removed, callbacks.end());
+        std::scoped_lock<std::mutex> lock(_mutex);
 
-            ////if (callbacks.empty())
-            ////{
-            ////    _subscriptions.erase(typeId);
-            ////}
+        const auto& eventInfo = typeid(EventType);
+        const auto& hashCode = eventInfo.hash_code();
+        const auto& name = eventInfo.name();
+        TBX_INFO("The event {0}-{1} has been subscribed to!", name, hashCode);
+
+        if (_subscribers.contains(hashCode) == false)
+        {
+            _subscribers[hashCode] = std::vector<std::function<void(Event&)>>();
         }
-    }
 
-    template<typename EventType>
-    void EventDispatcher::Send(const EventType& event)
-    {
-        const auto& typeId = std::type_index(typeid(event));
-        if (_subscriptions.contains(typeId))
-        {
-            for (const auto& callback : _subscriptions[typeId])
+        auto& callbacks = _subscribers[hashCode];
+        callbacks.push_back([callback](Event& event)
             {
-                if (callback(event))
-                {
-                    return;
-                }
+                callback(static_cast<EventType&>(event));
+            });
+    }
+
+    template<typename EventType>
+    void EventDispatcher::Unsubscribe(const std::function<void(EventType&)>& callback)
+    {
+        // TODO: implement
+    }
+
+    template<typename EventType>
+    void EventDispatcher::Send(EventType& event)
+    {
+        std::scoped_lock<std::mutex> lock(_mutex);
+
+        const auto& eventInfo = typeid(EventType);
+        const auto& hashCode = eventInfo.hash_code();
+        const auto& name = eventInfo.name();
+        TBX_INFO("The event {0}-{1} has been sent!", name, hashCode);
+
+        if (_subscribers.contains(hashCode) == false)
+        {
+            return;
+        }
+
+        const auto& callbacks = _subscribers[hashCode];
+        for (const auto& callback : callbacks)
+        {
+            callback(event);
+            if (event.Handled)
+            {
+                break;
             }
         }
     }

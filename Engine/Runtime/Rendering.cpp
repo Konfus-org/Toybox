@@ -19,6 +19,7 @@ namespace Tbx
     {
         Flush();
         _renderer.reset();
+        _renderSurface.reset();
     }
 
     void Rendering::SetVSyncEnabled(bool enabled)
