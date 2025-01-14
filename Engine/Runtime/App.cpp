@@ -22,8 +22,8 @@ namespace Tbx
         _isRunning = true;
 
         // Sub to window events
-        EventDispatcher::Subscribe<WindowCloseEvent>(TBX_BIND_EVENT_CALLBACK(OnWindowClose));
-        EventDispatcher::Subscribe<WindowResizeEvent>(TBX_BIND_EVENT_CALLBACK(OnWindowResize));
+        _windowCloseEventId = Events::Subscribe<WindowCloseEvent>(TBX_BIND_CALLBACK(OnWindowClose));
+        _windowResizeEventId = Events::Subscribe<WindowResizeEvent>(TBX_BIND_CALLBACK(OnWindowResize));
 
 #ifdef TBX_DEBUG
 
@@ -101,6 +101,10 @@ namespace Tbx
     void App::ShutdownSystems()
     {
         _isRunning = false;
+
+        // Unsub to window events
+        Events::Unsubscribe<WindowCloseEvent>(_windowCloseEventId);
+        Events::Unsubscribe<WindowResizeEvent>(_windowResizeEventId);
 
         // Remove refs to windows to allow them to be destroyed
         _mainWindow.reset();

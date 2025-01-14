@@ -11,4 +11,8 @@ public:
     void OnStart() override;
     void OnUpdate() override;
     void OnShutdown() override;
+
+private:
+    Tbx::UUID _windowCloseEventId;
+    void TestingEventCallback(const Tbx::WindowCloseEvent& e);
 };
