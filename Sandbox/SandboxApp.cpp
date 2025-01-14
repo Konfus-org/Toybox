@@ -23,7 +23,7 @@ void SandboxApp::OnUpdate()
 
 void SandboxApp::OnShutdown()
 {
-    Tbx::Events::Unsubscribe<Tbx::WindowCloseEvent>(_windowCloseEventId);
+    Tbx::Events::Unsubscribe(_windowCloseEventId);
 }
 
 void SandboxApp::TestingEventCallback(const Tbx::WindowCloseEvent& e)

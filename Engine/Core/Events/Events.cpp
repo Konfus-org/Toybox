@@ -26,39 +26,29 @@ namespace Tbx
         return callbackToAdd.GetId();
     }
 
-    template<class TEvent>
     void Events::Unsubscribe(const UUID& callbackToUnsub)
     {
         std::scoped_lock<std::mutex> lock(_mutex);
 
-        const auto& eventInfo = typeid(TEvent);
-        const auto& hashCode = eventInfo.hash_code();
-
-        if (_subscribers.contains(hashCode) == false)
+        for (auto& [hashCode, callbacks] : _subscribers)
         {
-            return;
-        }
-
-        auto& callbacks = _subscribers[hashCode];
-        for (auto it = callbacks.begin(); it != callbacks.end();)
-        {
-            if (it->GetId() == callbackToUnsub)
+            for (auto it = callbacks.begin(); it != callbacks.end();)
             {
-                it = callbacks.erase(it);
-                break;
-            }
-            it++;
-        }
+                if (it->GetId() != callbackToUnsub) 
+                {
+                    it++;
+                    continue;
+                }
 
-        if (callbacks.empty())
-        {
-            _subscribers.erase(hashCode);
+                it = callbacks.erase(it);
+                if (callbacks.empty()) _subscribers.erase(hashCode);
+                return;
+            }
         }
     }
 
     template <class TEvent>
     void Events::Send(TEvent& event)
-
     {
         std::scoped_lock<std::mutex> lock(_mutex);
 

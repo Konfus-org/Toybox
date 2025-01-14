@@ -89,7 +89,7 @@ namespace Tbx
         OnUpdate();
 
         AppUpdateEvent updateEvent;
-        //EventDispatcher::Send(updateEvent);
+        Events::Send(updateEvent);
     }
 
     void App::Close()
@@ -103,18 +103,24 @@ namespace Tbx
         _isRunning = false;
 
         // Unsub to window events
-        Events::Unsubscribe<WindowCloseEvent>(_windowCloseEventId);
-        Events::Unsubscribe<WindowResizeEvent>(_windowResizeEventId);
-
-        // Remove refs to windows to allow them to be destroyed
-        _mainWindow.reset();
-        _windows.clear();
+        Events::Unsubscribe(_windowCloseEventId);
+        Events::Unsubscribe(_windowResizeEventId);
 
         // Call detach on all layers
         for (const auto& layer : _layerStack)
         {
             layer->OnDetach();
         }
+
+        // Close all windows
+        for (const auto& window : _windows)
+        {
+            window->Close();
+        }
+
+        // Remove refs to windows to allow them to be destroyed
+        _mainWindow.reset();
+        _windows.clear();
 
         Input::Stop();
         Rendering::Shutdown();

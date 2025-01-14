@@ -21,6 +21,11 @@ namespace GLFWWindowing
 		SetupCallbacks();
 	}
 
+	void GLFWWindow::Close()
+	{
+        glfwDestroyWindow(_glfwWindow);
+	}
+
 	void GLFWWindow::Update()
 	{
 		// Needs to be at the end of the update! 
