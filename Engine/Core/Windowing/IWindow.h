@@ -5,8 +5,8 @@
 #include "Math/Size.h"
 #include "Math/Int.h"
 #include "Events/Event.h"
-#include "Rendering/IRenderer.h"
-#include "Rendering/Camera.h"
+#include "Renderer/IRenderer.h"
+#include "Renderer/Camera.h"
 
 namespace Tbx
 {

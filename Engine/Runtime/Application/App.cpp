@@ -1,5 +1,6 @@
 #include "App.h"
-#include "Rendering.h"
+#include "Rendering/Rendering.h"
+#include "Time/DeltaTime.h"
 #include <TbxCore.h>
 
 namespace Tbx
@@ -71,6 +72,10 @@ namespace Tbx
 
     void App::Update()
     {
+        // Update delta time
+        Time::DeltaTime::Update();
+
+        // Update windows
         for (const auto& window : _windows)
         {
             Rendering::Draw(window);
@@ -81,13 +86,16 @@ namespace Tbx
             Rendering::Clear();
         }
 
+        // Then layers
         for (const auto& layer : _layerStack)
         {
             layer->OnUpdate();
         }
 
+        // Call on update for app inheritors
         OnUpdate();
 
+        // Send update event
         AppUpdateEvent updateEvent;
         Events::Send(updateEvent);
     }

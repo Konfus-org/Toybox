@@ -3,7 +3,7 @@
 // Everything we want exposed to other applications using the toybox engine we put here!
 #include "Input/InputAPI.h"
 #include "Windowing/WindowingAPI.h"
-#include "Rendering/RenderingAPI.h"
+#include "Renderer/RendererAPI.h"
 #include "Plugins/PluginAPI.h"
 #include "Layers/LayersAPI.h"
 #include "Debug/DebugAPI.h"

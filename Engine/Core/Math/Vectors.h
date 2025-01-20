@@ -20,7 +20,9 @@ namespace Tbx
         static Vector3 Zero() { return Vector3(0, 0, 0); }
         static Vector3 One() { return Vector3(1, 1, 1); }
         static Vector3 Forward() { return Vector3(0, 0, 1); }
+        static Vector3 Backward() { return Vector3(0, 0, -1); }
         static Vector3 Up() { return Vector3(0, 1, 0); }
+        static Vector3 Down() { return Vector3(0, -1, 0); }
         static Vector3 Right() { return Vector3(1, 0, 0); }
         static Vector3 Left() { return Vector3(-1, 0, 0); }
 

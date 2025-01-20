@@ -7,10 +7,14 @@ std::chrono::high_resolution_clock::time_point _lastTime;
 int _frameCount = 0;
 float _fps = 0;
 
+float _camMoveSpeed = 1.0f;
+float _camRotateSpeed = 180.0f;
+
 float _red = 1;
 float _green = 0.5f;
 float _blue = 0;
 
+// TODO: Create a debugging plugin that uses ImGUI to print debug info when debug mode is enabled (F5 or F12 key pressed)
 static void CalucateAndPrintFPS()
 {
 	_frameCount++;
@@ -151,19 +155,22 @@ void TestLayer::OnUpdate()
 {
 	//if (Tbx::Input::IsKeyDown(TBX_KEY_SPACE)) TBX_TRACE("Space pressed!");
 
+	const auto& deltaTime = Tbx::Time::DeltaTime::Seconds();
+	TBX_TRACE("Delta Time: {0}", deltaTime);
+
 	const auto& mainWindow = SandboxApp::Instance->GetMainWindow();
 	const auto& mainWindowCam = mainWindow.lock()->GetCamera().lock();
 
 	if (Tbx::Input::IsKeyDown(TBX_KEY_W))
 	{
-		mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(0.0f, 0.1f, 0.0f));
+		mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Up() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
 
 		const auto& pos = mainWindowCam->GetPosition().ToString();
 		TBX_TRACE("Position: {0}", pos);
 	}
     else if (Tbx::Input::IsKeyDown(TBX_KEY_S))
     {
-        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(0.0f, -0.1f, 0.0f));
+        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Down() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
 
 		const auto& pos = mainWindowCam->GetPosition().ToString();
 		TBX_TRACE("Position: {0}", pos);
@@ -171,14 +178,14 @@ void TestLayer::OnUpdate()
 
     if (Tbx::Input::IsKeyDown(TBX_KEY_A))
     {
-        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(-0.1f, 0.0f, 0.0f));
+        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Left() * _camMoveSpeed) * Tbx::Time::DeltaTime::Seconds());
 
 		const auto& pos = mainWindowCam->GetPosition().ToString();
 		TBX_TRACE("Position: {0}", pos);
     }
     else if (Tbx::Input::IsKeyDown(TBX_KEY_D))
     {
-        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(0.1f, 0.0f, 0.0f));
+        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Right() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
 
 		const auto& pos = mainWindowCam->GetPosition().ToString();
 		TBX_TRACE("Position: {0}", pos);
@@ -186,14 +193,14 @@ void TestLayer::OnUpdate()
 
     if (Tbx::Input::IsKeyDown(TBX_KEY_UP))
     {
-        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(0.0f, 0.0f, 0.1f));
+        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Forward() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
 
 		const auto& pos = mainWindowCam->GetPosition().ToString();
 		TBX_TRACE("Position: {0}", pos);
     }
     else if (Tbx::Input::IsKeyDown(TBX_KEY_DOWN))
     {
-        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + Tbx::Vector3(0.0f, 0.0f, -0.1f));
+        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Backward() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
 
 		const auto& pos = mainWindowCam->GetPosition().ToString();
 		TBX_TRACE("Position: {0}", pos);
@@ -202,7 +209,7 @@ void TestLayer::OnUpdate()
     if (Tbx::Input::IsKeyDown(TBX_KEY_Q))
     {
 		const auto& currentRot = mainWindowCam->GetRotation();
-		const auto& newRot = currentRot * Tbx::Vector3(0.0f, 0.0f, -10.0f);
+		const auto& newRot = currentRot * (Tbx::Vector3(0.0f, 0.0f, -1.0f) * _camRotateSpeed * Tbx::Time::DeltaTime::Seconds());
 		mainWindowCam->SetRotation(newRot);
 
 		const auto& rot = mainWindowCam->GetRotation().ToString();
@@ -211,7 +218,7 @@ void TestLayer::OnUpdate()
     else if (Tbx::Input::IsKeyDown(TBX_KEY_E))
     {
 		const auto& currentRot = mainWindowCam->GetRotation();
-		const auto& newRot = currentRot * Tbx::Vector3(0.0f, 0.0f, 10.0f);
+		const auto& newRot = currentRot * (Tbx::Vector3(0.0f, 0.0f, 1.0f) * _camRotateSpeed * Tbx::Time::DeltaTime::Seconds());
 		mainWindowCam->SetRotation(newRot);
 
 		const auto& rot = mainWindowCam->GetRotation().ToString();
