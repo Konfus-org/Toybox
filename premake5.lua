@@ -18,15 +18,15 @@ workspace "Toybox"
         include "3rd Party/Libraries/GLFW"
         include "3rd Party/Libraries/spdlog"
 
+    group "Plugins"
+        include "Plugins/GLFW Input"
+        include "Plugins/GLFW Windowing"
+        include "Plugins/OpenGL Renderer"
+        include "Plugins/Spd Logging"
+
     group "Engine"
         include "Engine/Core"
         include "Engine/Runtime"
-
-    group "Engine/Plugins"
-        include "Engine/Plugins/GLFW Windowing"
-        include "Engine/Plugins/GLFW Input"
-        include "Engine/Plugins/OpenGL Rendering"
-        include "Engine/Plugins/Spd Logging"
 
     group "Editor"
         include "Editor/Interop"

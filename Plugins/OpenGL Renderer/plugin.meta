@@ -2,5 +2,10 @@
     name: "OpenGL Rendering",
     version: "0.0.1",
     author: "Konfus-dev",
+    language: "C++",
+    dependencies:
+    {
+        "GLFW"
+    },
     description: "Rendering system implemented using the OpenGL API."
 }

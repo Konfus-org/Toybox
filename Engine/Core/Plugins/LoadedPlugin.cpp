@@ -16,6 +16,7 @@ namespace Tbx
 
         // TODO: also load plugin metadata/info
 
+
 #ifdef TBX_DEBUG
         // Uncomment to list symbols
         // library->ListSymbols();
@@ -60,6 +61,7 @@ namespace Tbx
             const auto& unloadPluginFunc = static_cast<PluginUnloadFunc>(unloadFuncSymbol);
             unloadPluginFunc(pluginToUnload);
         });
+
         _plugin = sharedLoadedPlugin;
         _plugin->OnLoad();
     }
