@@ -1,5 +1,5 @@
 #pragma once
-#include <Tbx.h>
+#include <Toybox.h>
 #include "EditorCoreApp.h"
 #include "EditorCoreAPI.h"
 

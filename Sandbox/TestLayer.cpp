@@ -156,7 +156,7 @@ void TestLayer::OnUpdate()
 	//if (Tbx::Input::IsKeyDown(TBX_KEY_SPACE)) TBX_TRACE("Space pressed!");
 
 	const auto& deltaTime = Tbx::Time::DeltaTime::Seconds();
-	TBX_TRACE("Delta Time: {0}", deltaTime);
+	//TBX_TRACE("Delta Time: {0}", deltaTime);
 
 	const auto& mainWindow = SandboxApp::Instance->GetMainWindow();
 	const auto& mainWindowCam = mainWindow.lock()->GetCamera().lock();

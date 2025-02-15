@@ -5,8 +5,8 @@ project "GLFW Input"
     staticruntime "Off"
     ignoredefaultlibraries { "MSVCRT" }
 
-    targetdir ("../../../" .. OutputTargetPluginDir .. "")
-    objdir    ("../../../" .. OutputIntermediatePluginDir .. "")
+    targetdir ("../../" .. OutputTargetPluginDir .. "")
+    objdir    ("../../" .. OutputIntermediatePluginDir .. "")
 
     files
     {
@@ -32,7 +32,7 @@ project "GLFW Input"
         "GLFW"
     }
 
-    ToyboxModuleConfigs()
+    ToyboxPluginConfigs()
 
     -- Expose native platform methods 
     -- which is needed to grab handles of windows for editor

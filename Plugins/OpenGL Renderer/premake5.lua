@@ -5,8 +5,8 @@ project "OpenGL Rendering"
     staticruntime "Off"
     ignoredefaultlibraries { "MSVCRT" }
 
-    targetdir ("../../../" .. OutputTargetPluginDir .. "")
-    objdir    ("../../../" .. OutputIntermediatePluginDir .. "")
+    targetdir ("../../" .. OutputTargetPluginDir .. "")
+    objdir    ("../../" .. OutputIntermediatePluginDir .. "")
 
     defines
     {
@@ -34,4 +34,4 @@ project "OpenGL Rendering"
         "glad"
     }
 
-    ToyboxModuleConfigs()
+    ToyboxPluginConfigs()

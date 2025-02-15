@@ -11,7 +11,7 @@ namespace Tbx
     {
         for (const auto& loadedPlug : _loadedPlugins)
         {
-            if (loadedPlug->GetPluginInfo().Name == name)
+            if (loadedPlug->GetPluginInfo().GetName() == name)
             {
                 return loadedPlug->GetPlugin();
             }
@@ -63,8 +63,8 @@ namespace Tbx
             if (false)
 #endif
             {
-                const std::string& location = entry.path().string();
-                auto plug = std::make_shared<LoadedPlugin>(location);
+                const std::string& fileName = entry.path().filename().string();
+                auto plug = std::make_shared<LoadedPlugin>(pathToPlugins, fileName);
                 _loadedPlugins.push_back(plug);
             }
         }

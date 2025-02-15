@@ -112,12 +112,24 @@ function IncludeToyboxRuntime()
     }
 end
 
-function ToyboxModuleConfigs()
+function ToyboxUsingCoreConfigs()
     defines "TOYBOX"
+
     IncludeToyboxCore()
     ToyboxPlatforms()
     ToyboxConfigs()
     DllConfigs()
+end
+
+function ToyboxPluginConfigs()
+
+    postbuildcommands
+    {
+        "{ECHO} Copying plugin.meta from \"%{prj.location}plugin.meta\" to \"../../%{OutputTargetPluginDir}\"",
+        "{COPYFILE} \"%{prj.location}plugin.meta\" \"../../%{OutputTargetPluginDir}\""
+    }
+
+    ToyboxUsingCoreConfigs()
 end
 
 -- Easy way to link to toybox Engine

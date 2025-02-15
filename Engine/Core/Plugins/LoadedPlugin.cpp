@@ -1,21 +1,27 @@
 #include "TbxPCH.h"
 #include "LoadedPlugin.h"
 #include "Debug/DebugAPI.h"
-#include <fstream>
 
 namespace Tbx
 {
-    void LoadedPlugin::Load(const std::string& location)
+    void LoadedPlugin::Load(const std::string& folderPath, const std::string& pluginDllFileName)
     {
-        _library.Load(location);
+        // Load plugin metadata
+        const auto& pluginMetadataPath = folderPath + "\\" + "plugin.meta";
+        _pluginInfo.Load(pluginMetadataPath);
+        if (_pluginInfo.IsValid() == false)
+        {
+            const std::string& failureMsg = "Failed to load plugin metadata! Does it exist at: {0}";
+            TBX_ERROR(failureMsg, pluginMetadataPath);
+        }
+
+        const std::string& pluginFullPath = folderPath + "\\" + pluginDllFileName;
+        _library.Load(pluginFullPath);
         if (_library.IsValid() == false)
         {
             const std::string& failureMsg = "Failed to load library! Does it exist at: {0}";
-            TBX_ERROR(failureMsg, location);
+            TBX_ERROR(failureMsg, pluginFullPath);
         }
-
-        // TODO: also load plugin metadata/info
-
 
 #ifdef TBX_DEBUG
         // Uncomment to list symbols
@@ -28,7 +34,7 @@ namespace Tbx
         if (!loadFuncSymbol)
         {
             const std::string& failureMsg = "Failed to load library because no load library function was found in: {0}, is it calling TBX_REGISTER_PLUGIN?";
-            TBX_ERROR(failureMsg, location);
+            TBX_ERROR(failureMsg, pluginFullPath);
             _library.Unload();
             return;
         }
@@ -37,7 +43,7 @@ namespace Tbx
         if (!_library.GetSymbol("Unload"))
         {
             const std::string& failureMsg = "No unload library function found in: {0}, is it calling TBX_REGISTER_PLUGIN?";
-            TBX_ERROR(failureMsg, location);
+            TBX_ERROR(failureMsg, pluginFullPath);
             return;
         }
 
@@ -62,6 +68,7 @@ namespace Tbx
             unloadPluginFunc(pluginToUnload);
         });
 
+        // Set and init plugin
         _plugin = sharedLoadedPlugin;
         _plugin->OnLoad();
     }

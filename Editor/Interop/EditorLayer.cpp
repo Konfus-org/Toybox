@@ -46,10 +46,4 @@ namespace Tbx::Editor
 	{
 		ChangeWindowColorTest();
 	}
-
-	void EditorLayer::OnEvent(Tbx::Event& event)
-	{
-		auto eventName = event.GetName();
-		TBX_TRACE("{0} occurred!", eventName);
-	}
 }
