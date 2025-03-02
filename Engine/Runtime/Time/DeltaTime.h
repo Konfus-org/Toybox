@@ -8,7 +8,6 @@ namespace Tbx::Time
     class DeltaTime
     {
     public:
-
         // Gets delta time in seconds
         TBX_API static float Seconds() { return _valueInSeconds; }
         // Gets delta time in milliseconds

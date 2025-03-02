@@ -1,5 +1,6 @@
 #pragma once
 #include "TbxAPI.h"
+#include <string>
 
 namespace Tbx
 {

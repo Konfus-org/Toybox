@@ -28,11 +28,13 @@ project "Core"
     {
         "./",
         "%{IncludeDir.glm}",
+        "%{IncludeDir.ModernJSON}",
     }
 
     links
     {
-        "glm"
+        "glm",
+        "ModernJSON"
     }
 
     -- To debug loading shared libs at runtime

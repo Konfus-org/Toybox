@@ -42,8 +42,16 @@ namespace Tbx
         TBX_INFO("Loaded {0} plugins:", numPlugins);
         for (const auto& loadedMod : plugins)
         {
-            const auto& pluginInfo = loadedMod->GetPluginInfo().ToString();
-            TBX_INFO("    - {0}", pluginInfo);
+            const auto& pluginInfo = loadedMod->GetPluginInfo();
+            const auto& pluginName = pluginInfo.GetName();
+            const auto& pluginVersion = pluginInfo.GetVersion();
+            const auto& pluginAuthor = pluginInfo.GetAuthor();
+            const auto& pluginDescription = pluginInfo.GetDescription();
+
+            TBX_INFO("{0}:", pluginName);
+            TBX_INFO("    - Version: {0}", pluginVersion);
+            TBX_INFO("    - Author: {0}", pluginAuthor);
+            TBX_INFO("    - Description: {0}", pluginDescription);
         }
 
 #else 
@@ -162,18 +170,10 @@ namespace Tbx
     {
         // Create window
         const auto& windowFactoryPlugin = PluginServer::GetPlugin<IWindowFactory>();
-        if (windowFactoryPlugin == nullptr)
-        {
-            TBX_ERROR("Failed to get window factory plugin to create the window {0}, is a window factory plugin installed?", name);
-            return nullptr;
-        }
+        TBX_VALIDATE_PTR(windowFactoryPlugin, "Failed to get window factory plugin to create the window {0}, is a window factory plugin installed?", name);
 
         const auto& window = windowFactoryPlugin->Create(name, size);
-        if (window == nullptr)
-        {
-            TBX_ERROR("Failed to create the window {0}", name);
-            return nullptr;
-        }
+        TBX_VALIDATE_PTR(window, "Failed to create the window {0}", name);
 
         // Open window
         window->Open(mode);

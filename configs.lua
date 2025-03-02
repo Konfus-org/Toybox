@@ -1,4 +1,3 @@
-
 OutputTargetDir = "Build/bin/"
 OutputIntermediateDir = "Build/obj/%{prj.name}/"
 OutputTargetPluginDir = "Build/bin/Plugins/%{prj.name}/"

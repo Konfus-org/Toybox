@@ -8,7 +8,7 @@ namespace Tbx
 {
     /// <summary>
     /// A render command is an instruction to the renderer.
-    /// It contains no instructions itself, but data the renderer uses to know how/what to render.
+    /// Its purpose is to tell the renderer what to do and should be used in conjunction with appropriate data sent to the renderer.
     /// </summary>
     enum class TBX_API RenderCommand
     {

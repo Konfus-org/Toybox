@@ -17,6 +17,7 @@ workspace "Toybox"
         include "3rd Party/Libraries/glad"
         include "3rd Party/Libraries/GLFW"
         include "3rd Party/Libraries/spdlog"
+        include "3rd Party/Libraries/ModernJSON"
 
     group "Plugins"
         include "Plugins/GLFW Input"

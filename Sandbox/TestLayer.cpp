@@ -132,15 +132,19 @@ void TestLayer::OnAttach()
 
 	SetShaderTest();
 
-	// Configure ortho camera
+	// Configure camera
 	const auto& mainWindow = SandboxApp::Instance->GetMainWindow();
 	const auto& mainWindowCam = mainWindow.lock()->GetCamera().lock();
 	const auto& mainWindowSize = mainWindow.lock()->GetSize();
 
-	//mainWindowCam->SetPerspective(45.0f, mainWindowSize.AspectRatio(), 0.1f, 100);
-	mainWindowCam->SetOrthagraphic(1, mainWindowSize.AspectRatio(), -1, 10);
-	mainWindowCam->SetPosition(Tbx::Vector3(0.0f, 0.0f, -1.0f));
-	////mainWindowCam->SetRotation(Tbx::Quaternion::FromEuler(Tbx::Vector3(0.0f, 0.0f, 45.0f)));
+	// Test perspective camera
+	mainWindowCam->SetPerspective(45.0f, mainWindowSize.AspectRatio(), 0.1f, 100);
+	mainWindowCam->SetPosition(Tbx::Vector3(0.0f, 0.0f, -5.0f));
+	mainWindowCam->SetRotation(Tbx::Quaternion::FromEuler(Tbx::Vector3(0.0f, 0.0f, 45.0f)));
+
+	// Test ortho camera
+	////mainWindowCam->SetOrthagraphic(1, mainWindowSize.AspectRatio(), -1, 10);
+	////mainWindowCam->SetPosition(Tbx::Vector3(0.0f, 0.0f, -1.0f));
 
 	Tbx::Rendering::SetVSyncEnabled(true);
     Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix()));

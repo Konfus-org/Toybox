@@ -7,3 +7,6 @@
 [submodule "3rd Party/Libraries/glm"]
 	path = 3rd Party/Libraries/glm
 	url = https://github.com/Konfus-dev/glm.git
+[submodule "3rd Party/Libraries/ModernJSON"]
+	path = 3rd Party/Libraries/JSON_For_Modern_Cpp
+	url = https://github.com/Konfus-dev/JSON_For_Modern_Cpp.git
