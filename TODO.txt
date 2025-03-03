@@ -1,3 +1,1 @@
-- Need to fix ModernJSON submodule by removing and re-adding! (be sure to retain the new premake by moving out of the dir before nuking it, and re-adding after pulling fresh version)
-- Need to put back licenses into the 3rd party repos as well as the ReadMe's
 - Finish graphics crud and component architecture so I can start on a game!
