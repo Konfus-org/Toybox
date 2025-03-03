@@ -1,6 +1,8 @@
-project "glad"
+project "ModernJSON"
     kind "StaticLib"
-    language "C"
+    language "C++"
+    cppdialect "C++17"
+    staticruntime "Off"
 
     if OutputIntermediateDir == nil or OutputTargetDir == nil then
         targetdir ("Build/bin/%{prj.name}/")
@@ -11,23 +13,19 @@ project "glad"
         objdir    ("../../../" .. OutputIntermediateDir .. "")
     end
 
-    includedirs
-    {
-        "include"
-    }
-
     files
     {
-        "src/*.c",
-        "include/glad/*.h",
-        "include/KHR/*.h"
+        "include/nlohmann/**.hpp",
+        "include/nlohmann/**.cpp",
+        "single_include/nlohmann/**.hpp",
+        "single_include/nlohmann/**.cpp"
     }
-    
-    filter "system:windows"
-        defines
-        {
-            "_CRT_SECURE_NO_WARNINGS"
-        }
+
+    includedirs
+    {
+        "include",
+        "single_include"
+    }
 
     filter "configurations:Debug"
         runtime "Debug"
