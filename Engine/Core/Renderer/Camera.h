@@ -7,6 +7,7 @@
 
 namespace Tbx
 {
+    // TODO: this should be a component (block) in the future. We need to also implement the idea of game objects (Toys) and components (blocks)
     class TBX_API Camera
     {
     public:
@@ -16,6 +17,7 @@ namespace Tbx
         void SetPerspective(float fov, float aspect, float zNear, float zFar);
         void SetAspect(float aspect);
 
+        // TODO: this should all be in a seperate "Transform" component (block) in the future
         const Vector3& GetPosition() const { return _position; }
         void SetPosition(const Vector3& position) { _position = position; RecalculateViewProjection(); }
 

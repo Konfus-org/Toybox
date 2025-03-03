@@ -1,1 +1,3 @@
+- Turn plugins into separate git repos and re-add them in the form of submodules
+- We need to implement the idea of game objects (Toys), components (Blocks), re-usable scenes/prefabs (Boxes), and tags (Stickers): https://app.milanote.com/1TnXYQ1J3DKx1t?p=1qxa59LKwUz
 - Finish graphics crud and component architecture so I can start on a game!
