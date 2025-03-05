@@ -3,36 +3,13 @@
 #include <gl/GL.h>
 #include <chrono>
 
-std::chrono::high_resolution_clock::time_point _lastTime;
-int _frameCount = 0;
-float _fps = 0;
-
 float _camMoveSpeed = 1.0f;
 float _camRotateSpeed = 180.0f;
 
-float _red = 1;
-float _green = 0.5f;
-float _blue = 0;
+Tbx::Texture _testTex;
+Tbx::Vector3 _trianglePosition = Tbx::Vector3::Zero();
 
-// TODO: Create a debugging plugin that uses ImGUI to print debug info when debug mode is enabled (F5 or F12 key pressed)
-static void CalucateAndPrintFPS()
-{
-	_frameCount++;
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<float> elapsed = currentTime - _lastTime;
-
-	// If one second has passed, calculate FPS
-	if (elapsed.count() >= 1.0f) 
-	{
-		_fps = _frameCount / elapsed.count();
-		_frameCount = 0;
-		_lastTime = currentTime;
-	}
-
-	TBX_INFO("FPS: {0}", _fps);
-}
-
-static void SetShaderTest()
+static void SetupTestShader()
 {
 	// Pass shader to renderer
 	const auto& vertexSrc = R"(
@@ -40,17 +17,18 @@ static void SetShaderTest()
 
             layout(location = 0) in vec3 inPosition;
             layout(location = 1) in vec4 inColor;
+            layout(location = 2) in vec2 inTextureCoord;
 
             uniform mat4 viewProjection;
+            uniform mat4 transform;
 
-            out vec3 position;
             out vec4 color;
+            out vec2 textureCoord;
             
             void main()
             {
-                position = inPosition;
                 color = inColor;
-                gl_Position = viewProjection * vec4(inPosition, 1.0);
+                gl_Position = viewProjection * transform * vec4(inPosition, 1.0);
             }
         )";
 
@@ -59,13 +37,14 @@ static void SetShaderTest()
 
             layout(location = 0) out vec4 outColor;
 
-            in vec3 position;
             in vec4 color;
+            in vec2 textureCoord;
+
+            uniform sampler2D textureUniform;
             
             void main()
             {
-                outColor = vec4(position * 0.5 + 0.5, 1.0);
-                outColor = color;
+                outColor = texture(textureUniform, textureCoord) * color;
             }
         )";
 
@@ -73,64 +52,55 @@ static void SetShaderTest()
 	Tbx::Rendering::Submit(Tbx::RenderCommand::SetShader, shader);
 }
 
-static void ChangeWindowColorTest()
+static void UploadTestTexture()
 {
-	if (_red > 1)
-		_red = 0;
-	if (_red < 0)
-		_red = 1;
-
-	if (_green > 1)
-		_green = 0;
-	if (_green < 0)
-		_green = 1;
-
-	if (_blue > 1)
-		_blue = 0;
-	if (_blue < 0)
-		_blue = 1;
-
-	_red += 0.001f;
-	_green += 0.001f;
-	_blue += 0.001f;
-
-	Tbx::Rendering::Submit(Tbx::RenderCommand::RenderColor, Tbx::Color(_red, _green, _blue, 1.0f));
+	_testTex = Tbx::Texture("Assets/Checkerboard.png");
+	Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("textureUniform", 0, Tbx::ShaderDataType::Int)); // Uploading texture position (0 rn for diffuse, add more for other textures like normals, height, etc...)
 }
 
 static void DrawSquareTest()
 {
 	const auto& sqaureMeshVerts =
 	{
-		Tbx::Vertex(Tbx::Vector3(-0.5f, -0.5f, 0.0f), Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f)),
-		Tbx::Vertex(Tbx::Vector3(0.5f, -0.5f, 0.0f), Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f)),
-		Tbx::Vertex(Tbx::Vector3(0.5f, 0.5f, 0.0f), Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f)),
-		Tbx::Vertex(Tbx::Vector3(-0.5f, 0.5f, 0.0f), Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f))
+		Tbx::Vertex(
+			Tbx::Vector3(-0.5f, -0.5f, 0.0f),    // Position
+			Tbx::Vector3(0.0f, 0.0f, 0.0f),      // Normal
+			Tbx::Vector2I(0.0f, 0.0f),           // Texture coordinates
+			Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f)), // Color
+
+		Tbx::Vertex(
+			Tbx::Vector3(0.5f, -0.5f, 0.0f),     // Position
+			Tbx::Vector3(0.0f, 0.0f, 0.0f),      // Normal
+			Tbx::Vector2I(1.0f, 0.0f),           // Texture coordinates
+			Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f)), // Color
+
+		Tbx::Vertex(
+			Tbx::Vector3(0.5f, 0.5f, 0.0f),		 // Position
+			Tbx::Vector3(0.0f, 0.0f, 0.0f),      // Normal
+			Tbx::Vector2I(1.0f, 1.0f),           // Texture coordinates
+			Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f)), // Color
+
+		Tbx::Vertex(
+			Tbx::Vector3(-0.5f, 0.5f, 0.0f),     // Position
+			Tbx::Vector3(0.0f, 0.0f, 0.0f),      // Normal
+			Tbx::Vector2I(0.0f, 1.0f),           // Texture coordinates
+			Tbx::Color(0.0f, 0.8f, 0.1f, 1.0f))  // Color
 	};
 	const std::vector<Tbx::uint32>& squareMeshIndices = { 0, 1, 2, 2, 3, 0 };
 	const auto& squareMesh = Tbx::Mesh(sqaureMeshVerts, squareMeshIndices);
 
+	Tbx::Rendering::Submit(Tbx::RenderCommand::SetTexture, _testTex);
+	Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("transform", Tbx::Matrix::FromPosition(_trianglePosition), Tbx::ShaderDataType::Mat4));
 	Tbx::Rendering::Submit(Tbx::RenderCommand::RenderMesh, squareMesh);
-}
-
-static void DrawTriangleTest()
-{
-	const auto& triangleMeshVerts =
-	{
-		Tbx::Vertex(Tbx::Vector3(-0.5f, -0.5f, 0.0f), Tbx::Color(0.8f, 0.2f, 0.1f, 1.0f)),
-		Tbx::Vertex(Tbx::Vector3(0.5f, -0.5f, 0.0f), Tbx::Color(0.1f, 0.8f, 0.2f, 1.0f)),
-		Tbx::Vertex(Tbx::Vector3(0.0f, 0.5f, 0.0f), Tbx::Color(0.2f, 0.1f, 0.8f, 1.0f)),
-	};
-	const std::vector<Tbx::uint32>& triangleMeshIndices = { 0, 1, 2 };
-	const auto& triangleMesh = Tbx::Mesh(triangleMeshVerts, triangleMeshIndices);
-
-	Tbx::Rendering::Submit(Tbx::RenderCommand::RenderMesh, triangleMesh);
 }
 
 void TestLayer::OnAttach()
 {
 	TBX_TRACE("Test layer attached!");
 
-	SetShaderTest();
+	SetupTestShader();
+
+	UploadTestTexture();
 
 	// Configure camera
 	const auto& mainWindow = SandboxApp::Instance->GetMainWindow();
@@ -140,14 +110,14 @@ void TestLayer::OnAttach()
 	// Test perspective camera
 	mainWindowCam->SetPerspective(45.0f, mainWindowSize.AspectRatio(), 0.1f, 100);
 	mainWindowCam->SetPosition(Tbx::Vector3(0.0f, 0.0f, -5.0f));
-	mainWindowCam->SetRotation(Tbx::Quaternion::FromEuler(Tbx::Vector3(0.0f, 0.0f, 45.0f)));
+	mainWindowCam->SetRotation(Tbx::Quaternion::FromEuler(Tbx::Vector3(0.0f, 0.0f, 0.0f)));
 
 	// Test ortho camera
 	////mainWindowCam->SetOrthagraphic(1, mainWindowSize.AspectRatio(), -1, 10);
 	////mainWindowCam->SetPosition(Tbx::Vector3(0.0f, 0.0f, -1.0f));
 
 	Tbx::Rendering::SetVSyncEnabled(true);
-    Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix()));
+    Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix(), Tbx::ShaderDataType::Mat4));
 }
 
 void TestLayer::OnDetach()
@@ -165,49 +135,32 @@ void TestLayer::OnUpdate()
 	const auto& mainWindow = SandboxApp::Instance->GetMainWindow();
 	const auto& mainWindowCam = mainWindow.lock()->GetCamera().lock();
 
+	// Camera movement and rotation
 	if (Tbx::Input::IsKeyDown(TBX_KEY_W))
 	{
 		mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Up() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
-
-		const auto& pos = mainWindowCam->GetPosition().ToString();
-		TBX_TRACE("Position: {0}", pos);
 	}
     else if (Tbx::Input::IsKeyDown(TBX_KEY_S))
     {
         mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Down() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
-
-		const auto& pos = mainWindowCam->GetPosition().ToString();
-		TBX_TRACE("Position: {0}", pos);
     }
 
     if (Tbx::Input::IsKeyDown(TBX_KEY_A))
     {
         mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Left() * _camMoveSpeed) * Tbx::Time::DeltaTime::Seconds());
-
-		const auto& pos = mainWindowCam->GetPosition().ToString();
-		TBX_TRACE("Position: {0}", pos);
     }
     else if (Tbx::Input::IsKeyDown(TBX_KEY_D))
     {
         mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Right() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
-
-		const auto& pos = mainWindowCam->GetPosition().ToString();
-		TBX_TRACE("Position: {0}", pos);
     }
 
     if (Tbx::Input::IsKeyDown(TBX_KEY_UP))
     {
         mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Forward() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
-
-		const auto& pos = mainWindowCam->GetPosition().ToString();
-		TBX_TRACE("Position: {0}", pos);
     }
     else if (Tbx::Input::IsKeyDown(TBX_KEY_DOWN))
     {
         mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Backward() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
-
-		const auto& pos = mainWindowCam->GetPosition().ToString();
-		TBX_TRACE("Position: {0}", pos);
     }
 
     if (Tbx::Input::IsKeyDown(TBX_KEY_Q))
@@ -215,25 +168,21 @@ void TestLayer::OnUpdate()
 		const auto& currentRot = mainWindowCam->GetRotation();
 		const auto& newRot = currentRot * (Tbx::Vector3(0.0f, 0.0f, -1.0f) * _camRotateSpeed * Tbx::Time::DeltaTime::Seconds());
 		mainWindowCam->SetRotation(newRot);
-
-		const auto& rot = mainWindowCam->GetRotation().ToString();
-		TBX_TRACE("Rotation: {0}", rot);
     }
     else if (Tbx::Input::IsKeyDown(TBX_KEY_E))
     {
 		const auto& currentRot = mainWindowCam->GetRotation();
 		const auto& newRot = currentRot * (Tbx::Vector3(0.0f, 0.0f, 1.0f) * _camRotateSpeed * Tbx::Time::DeltaTime::Seconds());
 		mainWindowCam->SetRotation(newRot);
-
-		const auto& rot = mainWindowCam->GetRotation().ToString();
-		TBX_TRACE("Rotation: {0}", rot);
     }
 
-    Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix()));
-	
-	//ChangeWindowColorTest();
-    DrawSquareTest();
-    DrawTriangleTest();
+	// Triangle movement
+	if (Tbx::Input::IsKeyDown(TBX_KEY_SPACE))
+	{
+		_trianglePosition = _trianglePosition + (Tbx::Vector3::Up() * _camMoveSpeed * 2 * Tbx::Time::DeltaTime::Seconds());
+	}
 
-    //CalucateAndPrintFPS();
+	DrawSquareTest();
+
+    Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix(), Tbx::ShaderDataType::Mat4));
 }

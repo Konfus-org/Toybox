@@ -1,18 +1,34 @@
 #pragma once
+#include "TbxAPI.h"
+#include "TbxPCH.h"
+#include "Math/MathAPI.h"
+#include <string>
 
 namespace Tbx
 {
-    struct TBX_API Texture
+    using TextureData = unsigned char;
+
+    struct Texture
     {
     public:
-        Texture() = default;
-        virtual ~Texture() = default;
+        TBX_API Texture() = default;
+        TBX_API explicit(false) Texture(const std::string& path);
+        TBX_API ~Texture() = default;
 
-        float GetWidth() const { return _width; }
-        float GetHeight() const { return _height; }
+        TBX_API std::shared_ptr <TextureData> GetData() const { return _data; }
+
+        TBX_API std::string GetPath() const { return _path; }
+
+        TBX_API uint GetWidth() const { return _width; }
+        TBX_API uint GetHeight() const { return _height; }
+        TBX_API int GetChannels() const { return _channels; }
 
     private:
-        float _width = 0.0f;
-        float _height = 0.0f;
+        uint _width = 0;
+        uint _height = 0;
+        int _channels = 0;
+
+        std::shared_ptr<TextureData> _data = nullptr;
+        std::string _path = "";
     };
 }

@@ -25,7 +25,7 @@ project "OpenGL Rendering"
     {
         "./",
         "%{IncludeDir.GLFW}",
-        "%{IncludeDir.glad}",
+        "%{IncludeDir.glad}"
     }
 
     links

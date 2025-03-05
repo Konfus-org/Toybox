@@ -20,6 +20,7 @@ namespace Tbx
         virtual void SetViewport(const Vector2I& screenPos, const Size& size) = 0;
         virtual void SetVSyncEnabled(const bool& enabled) = 0;
 
+        virtual void SetTexture(const Texture& texture) = 0;
         virtual void SetShader(const Shader& shader) = 0;
         virtual void UploadShaderData(const ShaderData& data) = 0;
 
@@ -31,7 +32,5 @@ namespace Tbx
 
         virtual void Draw(const Color& color) = 0;
         virtual void Draw(const Mesh& mesh) = 0;
-        virtual void Draw(const Texture& texture) = 0;
-        virtual void Draw(const std::string& text) = 0;
     };
 }

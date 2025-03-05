@@ -101,52 +101,46 @@ namespace Tbx
                 using enum Tbx::RenderCommand;
                 switch (item.Command)
                 {
-                case Clear:
-                {
-                    _renderer->Clear();
-                    break;
-                }
-                case SetShader:
-                {
-                    const auto& shaderData = std::any_cast<Shader>(item.Data);
-                    _renderer->SetShader(shaderData);
-                    break;
-                }
-                case UploadShaderData:
-                {
-                    const auto& shaderData = std::any_cast<ShaderData>(item.Data);
-                    _renderer->UploadShaderData(shaderData);
-                    break;
-                }
-                case RenderColor:
-                {
-                    const auto& colorData = std::any_cast<Color>(item.Data);
-                    _renderer->Draw(colorData);
-                    break;
-                }
-                case RenderTexture:
-                {
-                    const auto& textureData = std::any_cast<Texture>(item.Data);
-                    _renderer->Draw(textureData);
-                    break;
-                }
-                case RenderMesh:
-                {
-                    const auto& meshData = std::any_cast<Mesh>(item.Data);
-                    _renderer->Draw(meshData);
-                    break;
-                }
-                case RenderText:
-                {
-                    const auto& textData = std::any_cast<std::string>(item.Data);
-                    _renderer->Draw(textData);
-                    break;
-                }
-                default:
-                {
-                    TBX_ASSERT(false, "Unknown render command type.");
-                    break;
-                }
+                    case Clear:
+                    {
+                        _renderer->Clear();
+                        break;
+                    }
+                    case SetShader:
+                    {
+                        const auto& shaderData = std::any_cast<Shader>(item.Data);
+                        _renderer->SetShader(shaderData);
+                        break;
+                    }
+                    case SetTexture:
+                    {
+                        const auto& textureData = std::any_cast<Texture>(item.Data);
+                        _renderer->SetTexture(textureData);
+                        break;
+                    }
+                    case UploadShaderData:
+                    {
+                        const auto& shaderData = std::any_cast<ShaderData>(item.Data);
+                        _renderer->UploadShaderData(shaderData);
+                        break;
+                    }
+                    case RenderColor:
+                    {
+                        const auto& colorData = std::any_cast<Color>(item.Data);
+                        _renderer->Draw(colorData);
+                        break;
+                    }
+                    case RenderMesh:
+                    {
+                        const auto& meshData = std::any_cast<Mesh>(item.Data);
+                        _renderer->Draw(meshData);
+                        break;
+                    }
+                    default:
+                    {
+                        TBX_ASSERT(false, "Unknown render command type.");
+                        break;
+                    }
                 }
             }
 

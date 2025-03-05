@@ -25,7 +25,7 @@ namespace Tbx
 
     static uint32 GetShaderDataTypeSize(ShaderDataType type)
     {
-        using enum Tbx::ShaderDataType;
+        using enum ShaderDataType;
         switch (type)
         {
             case Float:  return 4;
@@ -49,13 +49,17 @@ namespace Tbx
     struct ShaderData
     {
     public:
-        TBX_API ShaderData(const std::string& name, const Matrix& data) : _name(name), _data(data) {}
+        TBX_API ShaderData(const std::string& name, const std::any& data, const ShaderDataType& type) 
+            : _name(name), _data(data), _type(type) {}
+
         TBX_API const std::string& GetName() const { return _name; }
-        TBX_API const Matrix& GetData() const { return _data; }
+        TBX_API const std::any& GetData() const { return _data; }
+        TBX_API ShaderDataType GetType() const { return _type; }
 
     private:
         std::string _name;
-        Matrix _data;
+        std::any _data;
+        ShaderDataType _type;
     };
 
     class  Shader

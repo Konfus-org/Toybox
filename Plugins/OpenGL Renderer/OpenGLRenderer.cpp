@@ -17,9 +17,17 @@ namespace OpenGLRendering
         _context.SetSwapInterval(enabled);
     }
 
+    void OpenGLRenderer::SetTexture(const Tbx::Texture& texture)
+    {
+        OpenGLTexture glTexture;
+        glTexture.SetData(texture);
+        glTexture.Bind();
+    }
+
     void OpenGLRenderer::SetShader(const Tbx::Shader& shader)
     {
-        // TODO: we need to check if the shader already exists and just bind it if it does!
+        // TODO: we need to check if the shader already exists and just bind it if it does! 
+        // Then we can add the concept of "active shader" to the renderer and batch things by shader
         auto& glShader = _shaders.emplace_back();
         glShader.Compile(shader);
         glShader.Bind();
@@ -34,7 +42,6 @@ namespace OpenGLRendering
 
     void OpenGLRenderer::Flush()
     {
-        _vertArraysToDraw.clear();
         _shaders.clear();
     }
 
@@ -42,25 +49,15 @@ namespace OpenGLRendering
     {
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        _vertArraysToDraw.clear();
     }
 
     void OpenGLRenderer::BeginDraw()
     {
-        // Clear screen at the beginning of our frame
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
     void OpenGLRenderer::EndDraw()
     {
-        // Draw at the end of our frame if we have anything to draw
-        for (const auto& vertArrayToDraw : _vertArraysToDraw)
-        {
-            vertArrayToDraw.Bind();
-            glDrawElements(GL_TRIANGLES, vertArrayToDraw.GetIndexCount(), GL_UNSIGNED_INT, nullptr);
-        }
-
-        // Finally swap buffers
         _context.SwapBuffers();
     }
 
@@ -72,26 +69,14 @@ namespace OpenGLRendering
 
     void OpenGLRenderer::Draw(const Tbx::Mesh& mesh)
     {
-        // Emplace and bind
-        auto& vertArray = _vertArraysToDraw.emplace_back();
+        OpenGLVertexArray vertArray;
         vertArray.Bind();
 
-        // Add vertex buffer
         const auto& meshVertexBuffer = mesh.GetVertexBuffer();
         vertArray.AddVertexBuffer(meshVertexBuffer);
-
-        // Set index buffer
         const auto& meshIndexBuffer = mesh.GetIndexBuffer();
         vertArray.SetIndexBuffer(meshIndexBuffer);
-    }
 
-    void OpenGLRenderer::Draw(const Tbx::Texture& texture)
-    {
-        // TODO: Draw texture
-    }
-
-    void OpenGLRenderer::Draw(const std::string& text)
-    {
-        // TODO: Draw text
+        glDrawElements(GL_TRIANGLES, vertArray.GetIndexCount(), GL_UNSIGNED_INT, nullptr);
     }
 }

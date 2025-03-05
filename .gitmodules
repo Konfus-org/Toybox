@@ -11,3 +11,6 @@
 [submodule "3rd Party/Libraries/glm"]
 	path = 3rd Party/Libraries/glm
 	url = https://github.com/Konfus-org/glm.git
+[submodule "3rd Party/Libraries/imgui"]
+	path = 3rd Party/Libraries/imgui
+	url = https://github.com/Konfus-org/imgui.git

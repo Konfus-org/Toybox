@@ -1,17 +1,18 @@
 #pragma once
+#include "IBindable.h"
 #include <TbxCore.h>
 #include <glad/glad.h>
 
 namespace OpenGLRendering
 {
-    class OpenGLShader
+    class OpenGLShader : public IBindable
     {
     public:
-        ~OpenGLShader();
+        ~OpenGLShader() final;
 
         void Compile(const Tbx::Shader& shader);
-        void Bind() const;
-        void Unbind() const;
+        void Bind() const final;
+        void Unbind() const final;
         void UploadData(const Tbx::ShaderData& data) const;
 
     private:

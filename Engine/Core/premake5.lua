@@ -29,11 +29,13 @@ project "Core"
         "./",
         "%{IncludeDir.glm}",
         "%{IncludeDir.ModernJSON}",
+        "%{IncludeDir.stbimg}",
     }
 
     links
     {
         "glm",
+        "stbimg",
         "ModernJSON"
     }
 

@@ -7,6 +7,7 @@
 
 namespace Tbx
 {
+    // TODO: Mesh should be a "Block" or component
     struct Mesh
     {
     public:

@@ -13,19 +13,21 @@ namespace Tbx
             : Position(position) {}
         Vertex(const Vector3& position, const Color& color)
             : Position(position), Color(color) {}
-        Vertex(const Vector3& position, const Vector3& normal, const Vector2& texCoord)
+        Vertex(const Vector3& position, const Vector3& normal, const Vector2I& texCoord)
             : Position(position), Normal(normal), TexCoord(texCoord) {}
+        Vertex(const Vector3& position, const Vector3& normal, const Vector2I& texCoord, const Color& color)
+            : Position(position), Normal(normal), TexCoord(texCoord), Color(color) {}
 
-        Vector3 Position = { 0, 0, 0 };                // (x, y, z) in 3D space
-        Vector3 Normal   = { 0, 0, 0 };                // (nx, ny, nz) for lighting
-        Vector2 TexCoord = { 0, 0 };                   // (u, v) for texture mapping
-        Color Color      = { 1.0f, 1.0f, 1.0f, 1.0f }; // (r, g, b, a) for color
+        Vector3 Position  = { 0, 0, 0 };                // (x, y, z) in 3D space
+        Vector3 Normal    = { 0, 0, 0 };                // (nx, ny, nz) for lighting
+        Vector2I TexCoord = { 0, 0 };                   // (u, v) for texture mapping
+        Color Color       = { 1.0f, 1.0f, 1.0f, 1.0f }; // (r, g, b, a) for color
     };
 
     static VertexBuffer VertexVectorToBuffer(const std::vector<Vertex>& vertices)
     {
         auto numberOfVertices = vertices.size();
-        std::vector<float> meshPoints(numberOfVertices * 7);
+        std::vector<float> meshPoints(numberOfVertices * 9);
         int positionToPlace = 0;
         for (const auto& vertex : vertices)
         {
@@ -40,16 +42,21 @@ namespace Tbx
             meshPoints[positionToPlace + 5] = color.B;
             meshPoints[positionToPlace + 6] = color.A;
 
-            // TODO: Add normal and texture coordinates.... rn renderer only uses position and color
+            const auto& textCoord = vertex.TexCoord;
+            meshPoints[positionToPlace + 7] = (float)textCoord.X;
+            meshPoints[positionToPlace + 8] = (float)textCoord.Y;
 
-            positionToPlace += 7;
+            // TODO: Add normal coordinates.... rn renderer only uses position, texture, and color
+
+            positionToPlace += 9;
         }
 
 
         const Tbx::BufferLayout& bufferLayout =
         {
-                { Tbx::ShaderDataType::Float3, "position" },
-                { Tbx::ShaderDataType::Float4, "color" }
+            { Tbx::ShaderDataType::Float3, "position" },
+            { Tbx::ShaderDataType::Float4, "color" },
+            { Tbx::ShaderDataType::Int2,   "textureCoord" },
         };
 
         return VertexBuffer(meshPoints, bufferLayout);

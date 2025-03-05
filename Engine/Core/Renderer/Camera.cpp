@@ -24,14 +24,12 @@ namespace Tbx
 
     void Camera::SetPerspective(float fov, float aspect, float zNear, float zFar)
     {
-        const auto& fovRadians = Math::DegreesToRadians(fov);
-
         _isPerspective = true;
         _zNear = zNear;
         _zFar = zFar;
         _aspect = aspect;
-        _fov = fovRadians;
-        _projectionMatrix = Matrix::PerspectiveProjection(fovRadians, aspect, zNear, zFar);
+        _fov = fov;
+        _projectionMatrix = Matrix::PerspectiveProjection(Math::DegreesToRadians(fov), aspect, zNear, zFar);
 
         RecalculateViewProjection();
     }

@@ -2,6 +2,57 @@
 
 namespace OpenGLRendering
 {
+	///// Helpers //////////////////////////////////////////////////////////////////
+	static void UploadUniformInt(const std::string& name, int value, Tbx::uint rendererId)
+	{
+		GLint location = glGetUniformLocation(rendererId, name.c_str());
+		glUniform1i(location, value);
+	}
+
+	static void UploadUniformIntArray(const std::string& name, std::vector<int> values, Tbx::uint rendererId)
+	{
+		GLint location = glGetUniformLocation(rendererId, name.c_str());
+		glUniform1iv(location, (Tbx::uint32)values.size(), values.data());
+	}
+
+	static void UploadUniformFloat(const std::string& name, float value, Tbx::uint rendererId)
+	{
+		GLint location = glGetUniformLocation(rendererId, name.c_str());
+		glUniform1f(location, value);
+	}
+
+	static void UploadUniformFloat2(const std::string& name, const Tbx::Vector2& value, Tbx::uint rendererId)
+	{
+		GLint location = glGetUniformLocation(rendererId, name.c_str());
+		glUniform2f(location, value.X, value.Y);
+	}
+
+	static void UploadUniformFloat3(const std::string& name, const Tbx::Vector3& value, Tbx::uint rendererId)
+	{
+		GLint location = glGetUniformLocation(rendererId, name.c_str());
+		glUniform3f(location, value.X, value.Y, value.Z);
+	}
+
+	static void UploadUniformFloat4(const std::string& name, const Tbx::Color& value, Tbx::uint rendererId)
+	{
+		GLint location = glGetUniformLocation(rendererId, name.c_str());
+		glUniform4f(location, value.R, value.G, value.B, value.A);
+	}
+
+	// TODO: Implement when needed... Toybox doesn't have a mat3 yet...
+	////static void UploadUniformMat3(const std::string& name, const Tbx::Matrix& matrix, Tbx::uint rendererId)
+	////{
+	////	GLint location = glGetUniformLocation(rendererId, name.c_str());
+	////	glUniformMatrix3fv(location, 1, GL_FALSE, matrix.Values.data());
+	////}
+
+	static void UploadUniformMat4(const std::string& name, const Tbx::Matrix& matrix, Tbx::uint rendererId)
+	{
+		GLint location = glGetUniformLocation(rendererId, name.c_str());
+		glUniformMatrix4fv(location, 1, GL_FALSE, matrix.Values.data());
+	}
+
+	///// Shader Class //////////////////////////////////////////////////////////////////
 	OpenGLShader::~OpenGLShader()
 	{
 		glUseProgram(0);
@@ -135,9 +186,43 @@ namespace OpenGLRendering
 
 	void OpenGLShader::UploadData(const Tbx::ShaderData& data) const
 	{
-		// For now we only support uploading mat4 data
-		// TODO: support more data types!
-        const auto& location = glGetUniformLocation(_rendererId, data.GetName().c_str());
-		glUniformMatrix4fv(location, 1, GL_FALSE, data.GetData().Values.data());
+		switch (data.GetType())
+		{
+			case Tbx::ShaderDataType::Mat4:
+			{
+                UploadUniformMat4(data.GetName(), std::any_cast<Tbx::Matrix>(data.GetData()), _rendererId);
+				break;
+			}
+            case Tbx::ShaderDataType::Float:
+            {
+                UploadUniformFloat(data.GetName(), std::any_cast<float>(data.GetData()), _rendererId);
+                break;
+            }
+            case Tbx::ShaderDataType::Float2:
+            {
+                UploadUniformFloat2(data.GetName(), std::any_cast<Tbx::Vector2>(data.GetData()), _rendererId);
+                break;
+            }
+            case Tbx::ShaderDataType::Float3:
+            {
+                UploadUniformFloat3(data.GetName(), std::any_cast<Tbx::Vector3>(data.GetData()), _rendererId);
+                break;
+            }
+            case Tbx::ShaderDataType::Float4:
+            {
+                UploadUniformFloat4(data.GetName(), std::any_cast<Tbx::Color>(data.GetData()), _rendererId);
+                break;
+            }
+            case Tbx::ShaderDataType::Int:
+            {
+				UploadUniformInt(data.GetName(), std::any_cast<int>(data.GetData()), _rendererId);
+                break;
+            }
+			default:
+			{
+				TBX_ASSERT(false, "Unsupported shader data type.");
+				break;
+			}
+		}
 	}
 }
