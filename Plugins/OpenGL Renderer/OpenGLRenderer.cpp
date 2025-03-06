@@ -17,10 +17,10 @@ namespace OpenGLRendering
         _context.SetSwapInterval(enabled);
     }
 
-    void OpenGLRenderer::UploadTexture(const Tbx::Texture& texture)
+    void OpenGLRenderer::UploadTexture(const Tbx::Texture& texture, const Tbx::uint& slot)
     {
         auto& lastGlTexture = _textures.emplace_back();
-        lastGlTexture.SetData(texture);
+        lastGlTexture.SetData(texture, slot);
     }
 
     void OpenGLRenderer::UploadShader(const Tbx::Shader& shader)

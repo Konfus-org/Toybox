@@ -16,7 +16,7 @@ namespace OpenGLRendering
         void SetViewport(const Tbx::Vector2I& screenPos, const Tbx::Size& size) override;
         void SetVSyncEnabled(const bool& enabled) override;
 
-        void UploadTexture(const Tbx::Texture& texture) override;
+        void UploadTexture(const Tbx::Texture& texture, const Tbx::uint& slot) override;
         void UploadShader(const Tbx::Shader& shader) override;
         void UploadShaderData(const Tbx::ShaderData& data) override;
 

@@ -54,7 +54,7 @@ static void CreateTestMat()
 
 	// Upload texture to renderer
 	auto testTex = Tbx::Texture("Assets/Checkerboard.png");
-	Tbx::Rendering::Submit(Tbx::RenderCommand::UploadTexture, testTex);
+	Tbx::Rendering::Submit(Tbx::RenderCommand::UploadTexture, Tbx::TextureRenderData(testTex, 0));
 	// Uploading texture position (0 rn for diffuse, add more for other textures like normals, height, etc...)
 	// TODO: automate the texture position
 	Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("textureUniform", 0, Tbx::ShaderDataType::Int)); 

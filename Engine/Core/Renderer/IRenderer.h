@@ -21,7 +21,7 @@ namespace Tbx
         virtual void SetViewport(const Vector2I& screenPos, const Size& size) = 0;
         virtual void SetVSyncEnabled(const bool& enabled) = 0;
 
-        virtual void UploadTexture(const Texture& texture) = 0;
+        virtual void UploadTexture(const Tbx::Texture& texture, const Tbx::uint& slot) = 0;
         virtual void UploadShader(const Shader& shader) = 0;
         virtual void UploadShaderData(const ShaderData& data) = 0;
 

@@ -116,8 +116,8 @@ namespace Tbx
                     }
                     case UploadTexture:
                     {
-                        const auto& textureData = std::any_cast<Texture>(item.Data);
-                        _renderer->UploadTexture(textureData);
+                        const auto& textureData = std::any_cast<TextureRenderData>(item.Data);
+                        _renderer->UploadTexture(textureData.GetTexture(), textureData.GetSlot());
                         break;
                     }
                     case UploadShaderData:

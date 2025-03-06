@@ -12,9 +12,10 @@ namespace OpenGLRendering
         glDeleteTextures(1, &_rendererId);
     }
 
-    void OpenGLTexture::SetData(const Tbx::Texture& tex)
+    void OpenGLTexture::SetData(const Tbx::Texture& tex, const Tbx::uint& slot)
     {
         _associatedAssetId = tex.GetId();
+        _slot = slot;
 
         // Setup texture parameters
         auto filtering = 0;
@@ -43,11 +44,11 @@ namespace OpenGLRendering
 
     void OpenGLTexture::Bind() const
     {
-        glBindTextureUnit(0, _rendererId);
+        glBindTextureUnit(_slot, _rendererId);
     }
 
     void OpenGLTexture::Unbind() const
     {
-        glBindTextureUnit(0, 0);
+        glBindTextureUnit(_slot, 0);
     }
 }

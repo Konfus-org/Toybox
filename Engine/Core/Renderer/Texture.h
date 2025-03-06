@@ -51,4 +51,17 @@ namespace Tbx
         std::shared_ptr<TextureData> _data = nullptr;
         std::string _path = "";
     };
+
+    struct TextureRenderData
+    {
+    public:
+        TBX_API TextureRenderData(const Texture& texture, const uint& slot = 0) : _texture(texture), _slot(slot) {}
+        TBX_API ~TextureRenderData() = default;
+
+        TBX_API uint GetSlot() const { return _slot; }
+        TBX_API const Texture& GetTexture() const { return _texture; }
+    private:
+        uint _slot;
+        Texture _texture;
+    };
 }
