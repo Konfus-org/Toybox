@@ -56,7 +56,7 @@ namespace Tbx
         {
             { Tbx::ShaderDataType::Float3, "position" },
             { Tbx::ShaderDataType::Float4, "color" },
-            { Tbx::ShaderDataType::Int2,   "textureCoord" },
+            { Tbx::ShaderDataType::Float2, "textureCoord" },
         };
 
         return VertexBuffer(meshPoints, bufferLayout);

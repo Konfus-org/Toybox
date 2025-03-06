@@ -18,8 +18,10 @@ namespace OpenGLRendering
         glDeleteTextures(1, &_rendererId);
     }
 
-    void OpenGLTexture::SetData(const Tbx::Texture& tex) const
+    void OpenGLTexture::SetData(const Tbx::Texture& tex)
     {
+        _associatedAssetId = tex.GetId();
+
         glTextureStorage2D(_rendererId, 1, GL_RGB8, tex.GetWidth(), tex.GetHeight());
         glTextureSubImage2D(_rendererId, 0, 0, 0, tex.GetWidth(), tex.GetHeight(), GL_RGB, GL_UNSIGNED_BYTE, tex.GetData().get());
     }

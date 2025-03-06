@@ -16,21 +16,21 @@ namespace OpenGLRendering
         void SetViewport(const Tbx::Vector2I& screenPos, const Tbx::Size& size) override;
         void SetVSyncEnabled(const bool& enabled) override;
 
-        void SetTexture(const Tbx::Texture& texture) override;
-        void SetShader(const Tbx::Shader& shader) override;
+        void UploadTexture(const Tbx::Texture& texture) override;
+        void UploadShader(const Tbx::Shader& shader) override;
         void UploadShaderData(const Tbx::ShaderData& data) override;
 
         void Flush() override;
-        void Clear() override;
+        void Clear(const Tbx::Color& color = Tbx::Color::Black()) override;
 
         void BeginDraw() override;
         void EndDraw() override;
 
-        void Draw(const Tbx::Color& color) override;
-        void Draw(const Tbx::Mesh& mesh) override;
+        void Draw(const Tbx::Mesh& mesh, const Tbx::Material& material) override;
 
     private:
         std::vector<OpenGLShader> _shaders;
+        std::vector<OpenGLTexture> _textures;
         OpenGLContext _context;
     };
 }

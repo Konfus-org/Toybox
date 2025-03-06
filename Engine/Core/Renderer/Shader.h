@@ -4,6 +4,7 @@
 #include "Math/Int.h"
 #include "Math/Matrix.h"
 #include "Debug/DebugAPI.h"
+#include "Util/ID.h"
 
 namespace Tbx
 {
@@ -62,17 +63,20 @@ namespace Tbx
         ShaderDataType _type;
     };
 
-    class  Shader
+    class Shader
     {
     public:
+        Shader() = default;
         TBX_API Shader(const std::string_view& vertexSrc, const std::string_view& fragmentSrc) : _vertexSrc(vertexSrc), _fragmentSrc(fragmentSrc) {}
         TBX_API ~Shader() = default;
 
         TBX_API const std::string& GetVertexSource() const { return _vertexSrc; }
         TBX_API const std::string& GetFragmentSource() const { return _fragmentSrc; }
+        TBX_API ID GetId() const { return _id; }
 
     private:
         std::string _vertexSrc;
         std::string _fragmentSrc;
+        ID _id;
     };
 }

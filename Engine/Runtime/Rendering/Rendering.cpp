@@ -18,6 +18,7 @@ namespace Tbx
     void Rendering::Shutdown()
     {
         Flush();
+
         _renderer.reset();
         _renderSurface.reset();
     }
@@ -103,19 +104,20 @@ namespace Tbx
                 {
                     case Clear:
                     {
-                        _renderer->Clear();
+                        const auto& colorData = std::any_cast<Color>(item.Data);
+                        _renderer->Clear(colorData);
                         break;
                     }
-                    case SetShader:
+                    case UploadShader:
                     {
                         const auto& shaderData = std::any_cast<Shader>(item.Data);
-                        _renderer->SetShader(shaderData);
+                        _renderer->UploadShader(shaderData);
                         break;
                     }
-                    case SetTexture:
+                    case UploadTexture:
                     {
                         const auto& textureData = std::any_cast<Texture>(item.Data);
-                        _renderer->SetTexture(textureData);
+                        _renderer->UploadTexture(textureData);
                         break;
                     }
                     case UploadShaderData:
@@ -124,16 +126,10 @@ namespace Tbx
                         _renderer->UploadShaderData(shaderData);
                         break;
                     }
-                    case RenderColor:
-                    {
-                        const auto& colorData = std::any_cast<Color>(item.Data);
-                        _renderer->Draw(colorData);
-                        break;
-                    }
                     case RenderMesh:
                     {
-                        const auto& meshData = std::any_cast<Mesh>(item.Data);
-                        _renderer->Draw(meshData);
+                        const auto& meshData = std::any_cast<MeshRenderData>(item.Data);
+                        _renderer->Draw(meshData.GetMesh(), meshData.GetMaterial());
                         break;
                     }
                     default:

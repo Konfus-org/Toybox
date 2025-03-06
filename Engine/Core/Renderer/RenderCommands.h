@@ -14,10 +14,9 @@ namespace Tbx
     {
         None = 0,
         Clear,
-        SetTexture,
-        SetShader,
+        UploadTexture,
+        UploadShader,
         UploadShaderData,
-        RenderColor,
         RenderMesh,
     };
 }

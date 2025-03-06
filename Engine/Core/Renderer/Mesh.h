@@ -2,6 +2,7 @@
 #include "TbxPCH.h"
 #include "Buffers.h"
 #include "Vertex.h"
+#include "Material.h"
 #include "Color.h"
 #include "Math/Int.h"
 
@@ -27,6 +28,19 @@ namespace Tbx
     private:
         VertexBuffer _vertexBuffer;  
         IndexBuffer _indexBuffer;
+    };
+
+    struct MeshRenderData
+    {
+        TBX_API MeshRenderData(const Mesh& mesh, const Material& material) : _mesh(mesh), _material(material) {}
+        TBX_API ~MeshRenderData() = default;
+
+        TBX_API const Mesh& GetMesh() const { return _mesh; }
+        TBX_API const Material& GetMaterial() const { return _material; }
+
+    private:
+        Mesh _mesh;
+        Material _material;
     };
 }
 

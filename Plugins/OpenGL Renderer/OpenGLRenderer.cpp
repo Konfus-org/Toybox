@@ -17,25 +17,20 @@ namespace OpenGLRendering
         _context.SetSwapInterval(enabled);
     }
 
-    void OpenGLRenderer::SetTexture(const Tbx::Texture& texture)
+    void OpenGLRenderer::UploadTexture(const Tbx::Texture& texture)
     {
-        OpenGLTexture glTexture;
-        glTexture.SetData(texture);
-        glTexture.Bind();
+        auto& lastGlTexture = _textures.emplace_back();
+        lastGlTexture.SetData(texture);
     }
 
-    void OpenGLRenderer::SetShader(const Tbx::Shader& shader)
+    void OpenGLRenderer::UploadShader(const Tbx::Shader& shader)
     {
-        // TODO: we need to check if the shader already exists and just bind it if it does! 
-        // Then we can add the concept of "active shader" to the renderer and batch things by shader
         auto& glShader = _shaders.emplace_back();
         glShader.Compile(shader);
-        glShader.Bind();
     }
 
     void OpenGLRenderer::UploadShaderData(const Tbx::ShaderData& data)
     {
-        // TODO: Need to keep track of active shader and upload data to it!
         const auto& glShader = _shaders.back();
         glShader.UploadData(data);
     }
@@ -43,11 +38,12 @@ namespace OpenGLRendering
     void OpenGLRenderer::Flush()
     {
         _shaders.clear();
+        _textures.clear();
     }
 
-    void OpenGLRenderer::Clear()
+    void OpenGLRenderer::Clear(const Tbx::Color& color)
     {
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClearColor(color.R, color.G, color.B, color.A);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
@@ -61,14 +57,21 @@ namespace OpenGLRendering
         _context.SwapBuffers();
     }
 
-    void OpenGLRenderer::Draw(const Tbx::Color& color)
+    void OpenGLRenderer::Draw(const Tbx::Mesh& mesh, const Tbx::Material& material)
     {
-        glClearColor(color.R, color.G, color.B, color.A);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    }
+        // TODO: account for multiple textures and multiple mater
+        const auto& materialShaderId = material.GetShader().GetId();
+        const auto& materialTextureId = material.GetTextures().front().GetId();
 
-    void OpenGLRenderer::Draw(const Tbx::Mesh& mesh)
-    {
+        const auto& glShader = std::find_if(_shaders.begin(), _shaders.end(),
+            [&](const OpenGLShader& shader) { return shader.GetAssociatedAssetId() == materialShaderId; });
+
+        const auto& glTexture = std::find_if(_textures.begin(), _textures.end(),
+            [&](const OpenGLTexture& texture) { return texture.GetAssociatedAssetId() == materialTextureId; });
+
+        glShader->Bind();
+        glTexture->Bind();
+
         OpenGLVertexArray vertArray;
         vertArray.Bind();
 

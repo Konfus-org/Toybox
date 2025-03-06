@@ -6,12 +6,12 @@
 float _camMoveSpeed = 1.0f;
 float _camRotateSpeed = 180.0f;
 
-Tbx::Texture _testTex;
+Tbx::Material _testMat;
 Tbx::Vector3 _trianglePosition = Tbx::Vector3::Zero();
 
-static void SetupTestShader()
+static void CreateTestMat()
 {
-	// Pass shader to renderer
+	// Upload shader to renderer
 	const auto& vertexSrc = R"(
             #version 330 core
 
@@ -28,6 +28,7 @@ static void SetupTestShader()
             void main()
             {
                 color = inColor;
+                textureCoord = inTextureCoord;
                 gl_Position = viewProjection * transform * vec4(inPosition, 1.0);
             }
         )";
@@ -44,18 +45,22 @@ static void SetupTestShader()
             
             void main()
             {
-                outColor = texture(textureUniform, textureCoord) * color;
+                outColor = texture(textureUniform, textureCoord);
             }
         )";
 
 	const auto& shader = Tbx::Shader(vertexSrc, fragmentSrc);
-	Tbx::Rendering::Submit(Tbx::RenderCommand::SetShader, shader);
-}
+	Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShader, shader);
 
-static void UploadTestTexture()
-{
-	_testTex = Tbx::Texture("Assets/Checkerboard.png");
-	Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("textureUniform", 0, Tbx::ShaderDataType::Int)); // Uploading texture position (0 rn for diffuse, add more for other textures like normals, height, etc...)
+	// Upload texture to renderer
+	auto testTex = Tbx::Texture("Assets/Checkerboard.png");
+	Tbx::Rendering::Submit(Tbx::RenderCommand::UploadTexture, testTex);
+	// Uploading texture position (0 rn for diffuse, add more for other textures like normals, height, etc...)
+	// TODO: automate the texture position
+	Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("textureUniform", 0, Tbx::ShaderDataType::Int)); 
+
+	// Create test material
+	_testMat = Tbx::Material(shader, { testTex });
 }
 
 static void DrawSquareTest()
@@ -89,18 +94,15 @@ static void DrawSquareTest()
 	const std::vector<Tbx::uint32>& squareMeshIndices = { 0, 1, 2, 2, 3, 0 };
 	const auto& squareMesh = Tbx::Mesh(sqaureMeshVerts, squareMeshIndices);
 
-	Tbx::Rendering::Submit(Tbx::RenderCommand::SetTexture, _testTex);
 	Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("transform", Tbx::Matrix::FromPosition(_trianglePosition), Tbx::ShaderDataType::Mat4));
-	Tbx::Rendering::Submit(Tbx::RenderCommand::RenderMesh, squareMesh);
+	Tbx::Rendering::Submit(Tbx::RenderCommand::RenderMesh, Tbx::MeshRenderData(squareMesh, _testMat));
 }
 
 void TestLayer::OnAttach()
 {
 	TBX_TRACE("Test layer attached!");
 
-	SetupTestShader();
-
-	UploadTestTexture();
+	CreateTestMat();
 
 	// Configure camera
 	const auto& mainWindow = SandboxApp::Instance->GetMainWindow();

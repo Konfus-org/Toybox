@@ -12,11 +12,14 @@ namespace OpenGLRendering
         OpenGLTexture();
         ~OpenGLTexture() final;
 
-        void SetData(const Tbx::Texture& tex) const;
+        void SetData(const Tbx::Texture& tex);
         void Bind() const final;
         void Unbind() const final;
 
+        Tbx::ID GetAssociatedAssetId() const { return _associatedAssetId; }
+
     private:
+        Tbx::ID _associatedAssetId = -1;
         Tbx::uint32 _rendererId = -1;
     };
 }

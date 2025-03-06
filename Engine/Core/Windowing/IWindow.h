@@ -29,7 +29,7 @@ namespace Tbx
         virtual const std::string& GetTitle() const = 0;
         virtual void SetTitle(const std::string& title) = 0;
 
-        virtual uint64 GetId() const = 0;
+        virtual ID GetId() const = 0;
         virtual std::any GetNativeWindow() const = 0;
 
         virtual void SetMode(const WindowMode& mode) = 0;
