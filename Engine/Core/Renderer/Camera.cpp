@@ -55,7 +55,7 @@ namespace Tbx
         const auto& lookAtPos = cameraViewPos + Vector3::Forward();
         const auto& rotationMatrix = Matrix::FromRotation(_rotation);
 
-        _viewMatrix = Matrix::LookAt(cameraViewPos, lookAtPos, {0.0f, 1.0f, 0.0f}) * rotationMatrix;
+        _viewMatrix = Matrix::LookAt(cameraViewPos, lookAtPos, Vector3::Up()) * rotationMatrix;
         _viewProjectionMatrix = _projectionMatrix * _viewMatrix;
     }
 }

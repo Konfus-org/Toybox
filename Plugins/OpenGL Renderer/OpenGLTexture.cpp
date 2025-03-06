@@ -5,12 +5,6 @@ namespace OpenGLRendering
     OpenGLTexture::OpenGLTexture()
     {
         glCreateTextures(GL_TEXTURE_2D, 1, &_rendererId);
-
-        glTextureParameteri(_rendererId, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTextureParameteri(_rendererId, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        glTextureParameteri(_rendererId, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTextureParameteri(_rendererId, GL_TEXTURE_WRAP_T, GL_REPEAT);
     }
 
     OpenGLTexture::~OpenGLTexture()
@@ -22,6 +16,27 @@ namespace OpenGLRendering
     {
         _associatedAssetId = tex.GetId();
 
+        // Setup texture parameters
+        auto filtering = 0;
+        if (tex.GetFilter() == Tbx::TextureFilter::Nearest)
+            filtering = GL_NEAREST;
+        else if (tex.GetFilter() == Tbx::TextureFilter::Linear)
+            filtering = GL_LINEAR;
+
+        auto wrapping = 0;
+        if (tex.GetWrap() == Tbx::TextureWrap::Repeat)
+            wrapping = GL_REPEAT;
+        else if (tex.GetWrap() == Tbx::TextureWrap::MirroredRepeat)
+            wrapping = GL_MIRRORED_REPEAT;
+        else if (tex.GetWrap() == Tbx::TextureWrap::ClampToEdge)
+            wrapping = GL_CLAMP_TO_EDGE;
+
+        glTextureParameteri(_rendererId, GL_TEXTURE_MIN_FILTER, filtering);
+        glTextureParameteri(_rendererId, GL_TEXTURE_MAG_FILTER, filtering);
+        glTextureParameteri(_rendererId, GL_TEXTURE_WRAP_S, wrapping);
+        glTextureParameteri(_rendererId, GL_TEXTURE_WRAP_T, wrapping);
+
+        // Upload texture data to GPU
         glTextureStorage2D(_rendererId, 1, GL_RGB8, tex.GetWidth(), tex.GetHeight());
         glTextureSubImage2D(_rendererId, 0, 0, 0, tex.GetWidth(), tex.GetHeight(), GL_RGB, GL_UNSIGNED_BYTE, tex.GetData().get());
     }
