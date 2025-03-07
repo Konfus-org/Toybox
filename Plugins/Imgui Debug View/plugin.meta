@@ -1,0 +1,7 @@
+{
+    "name": "ImGui Debug View",
+    "language": "C++",
+    "version": "0.0.1",
+    "author": "Konfus-dev",
+    "description": "Debug view with info like FPS and memory usage."
+}
