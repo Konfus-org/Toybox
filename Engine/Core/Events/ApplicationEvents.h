@@ -14,21 +14,30 @@ namespace Tbx
         }
     };
 
+    class TBX_API AppInitializedEvent : public AppEvent
+    {
+    public:
+        std::string ToString() const override
+        {
+            return "App Initialized Event";
+        }
+    };
+
+    class TBX_API AppShutdownEvent : public AppEvent
+    {
+    public:
+        std::string ToString() const override
+        {
+            return "App Started Event";
+        }
+    };
+
     class TBX_API AppUpdateEvent : public AppEvent
     {
     public:
         std::string ToString() const override
         {
             return "App Update Event";
-        }
-    };
-
-    class TBX_API AppRenderEvent : public AppEvent
-    {
-    public:
-        std::string ToString() const override
-        {
-            return "App Render Event";
         }
     };
 }

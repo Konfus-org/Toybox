@@ -34,4 +34,4 @@ project "Runtime"
         "Spd Logging"
     }
 
-    ToyboxUsingCoreConfigs()
+    ToyboxRuntimeConfigs()

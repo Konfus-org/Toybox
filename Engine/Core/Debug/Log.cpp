@@ -1,55 +1,20 @@
 #include "TbxPCH.h"
 #include "Log.h"
-#include "LogLevel.h"
-#include "FallbackLogger.h"
-#include "Plugins/PluginServer.h"
-#include <iostream>
+#include "DebugAPI.h"
 
 namespace Tbx
 {
-	std::shared_ptr<ILogger> Log::_logger;
+    void Log::Open(const std::string& name, const std::string& logSaveLocation)
+    {
+        auto event = OpenLogEvent(name, logSaveLocation);
+        Events::Send(event);
+        TBX_ASSERT(event.Handled, "Failed to open the log {}, is a logger created and listening?", name);
+    }
 
-	void Log::Open(const std::string& name, const std::string& logSaveLocation)
-	{
-		_logger = std::make_shared<FallbackLogger>();
-		_logger->Open(name, logSaveLocation);
-
-		auto pluginLogger = PluginServer::GetPlugin<ILogger>();
-
-		TBX_VALIDATE_PTR(pluginLogger, "Failed to load logger plugin!");
-
-		_logger = pluginLogger;
-		_logger->Open(name, logSaveLocation);
-	}
-
-	void Log::Close()
-	{
-		_logger->Close();
-		_logger.reset();
-	}
-
-	void Log::Trace(const std::string& msg)
-	{
-		_logger->Log(static_cast<int>(LogLevel::Trace), msg);
-	}
-
-	void Log::Info(const std::string& msg)
-	{
-		_logger->Log(static_cast<int>(LogLevel::Info), msg);
-	}
-
-	void Log::Warn(const std::string& msg)
-	{
-		_logger->Log(static_cast<int>(LogLevel::Warn), msg);
-	}
-
-	void Log::Error(const std::string& msg)
-	{
-		_logger->Log(static_cast<int>(LogLevel::Error), msg);
-	}
-
-	void Log::Critical(const std::string& msg)
-	{
-		_logger->Log(static_cast<int>(LogLevel::Critical), msg);
-	}
+    void Log::Close(const std::string& name)
+    {
+        auto event = CloseLogEvent(name);
+        Events::Send(event);
+        TBX_ASSERT(event.Handled, "Failed to close the log {}, is a logger under that name created and listening?", name);
+    }
 }

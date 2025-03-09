@@ -14,8 +14,8 @@ namespace Tbx::Time
         TBX_API static float Milliseconds() { return _valueInSeconds * 1000.0f; }
 
     private:
-        static float _valueInSeconds;
-        static std::chrono::high_resolution_clock::time_point _lastFrameTime;
+        static inline float _valueInSeconds;
+        static inline std::chrono::high_resolution_clock::time_point _lastFrameTime;
 
         static void Update();
 

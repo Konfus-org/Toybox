@@ -35,6 +35,17 @@ namespace Tbx
         }
     };
 
+    class TBX_API CreateWindowEvent : public WindowEvent
+    {
+    public:
+        using WindowEvent::WindowEvent;
+
+        std::string ToString() const override
+        {
+            return "Create Window Event";
+        }
+    };
+
     class TBX_API WindowResizeEvent : public WindowEvent
     {
     public:

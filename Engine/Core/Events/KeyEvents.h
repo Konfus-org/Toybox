@@ -10,7 +10,8 @@ namespace Tbx
         explicit KeyEvent(int keyCode) : _keyCode(keyCode) {}
 
         int GetKeyCode() const { return _keyCode; }
-        int GetCategorization() const override
+
+        int GetCategorization() const final
         {
             return static_cast<int>(EventCategory::Keyboard) | static_cast<int>(EventCategory::Input);
         }
@@ -24,7 +25,7 @@ namespace Tbx
     public:
         using KeyEvent::KeyEvent;
 
-        std::string ToString() const override
+        std::string ToString() const final
         {
             return "Key Pressed Event";
         }
@@ -35,7 +36,7 @@ namespace Tbx
     public:
         using KeyEvent::KeyEvent;
 
-        std::string ToString() const override
+        std::string ToString() const final
         {
             return "Key Released Event";
         }
@@ -47,7 +48,7 @@ namespace Tbx
         KeyHeldEvent(int keyCode, float timeHeld) :
             KeyEvent(keyCode), _timeHeld(timeHeld) {}
 
-        std::string ToString() const override
+        std::string ToString() const final
         {
             return "Key Held Event";
         }
@@ -67,7 +68,7 @@ namespace Tbx
         KeyRepeatedEvent(int keyCode, int repeatCount) : 
             KeyEvent(keyCode), _repeatCount(repeatCount) {}
 
-        std::string ToString() const override
+        std::string ToString() const final
         {
             return "Key Repeated Event";
         }

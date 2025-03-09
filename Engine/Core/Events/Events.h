@@ -1,13 +1,14 @@
 #pragma once
-#include "Event.h"
 #include "TbxAPI.h"
 #include "TbxPCH.h"
+#include "Event.h"
 #include "Callback.h"
 #include "KeyEvents.h"
 #include "MouseEvents.h"
 #include "WindowEvents.h"
 #include "ApplicationEvents.h"
-#include "Debug/DebugAPI.h"
+#include "RenderEvents.h"
+#include "LogEvents.h"
 #include <typeindex>
 #include <mutex>
 
@@ -19,49 +20,70 @@ namespace Tbx
     {
     public:
         template <class TEvent>
-        TBX_API static UUID Subscribe(const CallbackFunction<TEvent>& callback);
+        TBX_API static inline UUID Subscribe(const CallbackFunction<TEvent>& callback)
+        {
+            std::scoped_lock<std::mutex> lock(_mutex);
 
-        TBX_API static void Unsubscribe(const UUID& callbackToUnsub);
+            const auto& eventInfo = typeid(TEvent);
+            const auto& hashCode = eventInfo.hash_code();
+
+            if (_subscribers.contains(hashCode) == false)
+            {
+                _subscribers[hashCode] = std::vector<Callback<Event>>();
+            }
+
+            auto& callbacks = _subscribers[hashCode];
+            auto callbackToAdd = Callback<Event>([callback](Event& event) { callback(static_cast<TEvent&>(event)); });
+            callbacks.push_back(callbackToAdd);
+
+            return callbackToAdd.GetId();
+        }
+
+        TBX_API static inline void Unsubscribe(const UUID& callbackToUnsub)
+        {
+            std::scoped_lock<std::mutex> lock(_mutex);
+
+            for (auto& [hashCode, callbacks] : _subscribers)
+            {
+                for (auto it = callbacks.begin(); it != callbacks.end();)
+                {
+                    if (it->GetId() != callbackToUnsub)
+                    {
+                        it++;
+                        continue;
+                    }
+
+                    it = callbacks.erase(it);
+                    if (callbacks.empty()) _subscribers.erase(hashCode);
+                    return;
+                }
+            }
+        }
 
         template <class TEvent>
-        TBX_API static void Send(TEvent& event);
+        TBX_API static inline bool Send(TEvent& event)
+        {
+            std::scoped_lock<std::mutex> lock(_mutex);
+
+            const auto& eventInfo = typeid(TEvent);
+            const auto& hashCode = eventInfo.hash_code();
+
+            if (_subscribers.contains(hashCode) == false)
+            {
+                return false;
+            }
+
+            const auto& callbacks = _subscribers[hashCode];
+            for (auto& callback : callbacks)
+            {
+                callback(event);
+            }
+            
+            return event.Handled;
+        }
 
     private:
-        static std::unordered_map<hash, std::vector<Callback<Event>>> _subscribers;
-        static std::mutex _mutex;
+        static inline std::unordered_map<hash, std::vector<Callback<Event>>> _subscribers;
+        static inline std::mutex _mutex;
     };
-
-    // Template definitions
-    template UUID TBX_API Events::Subscribe<KeyPressedEvent>(const CallbackFunction<KeyPressedEvent>& callback);
-    template void TBX_API Events::Send<KeyPressedEvent>(KeyPressedEvent& event);
-
-    template UUID TBX_API Events::Subscribe<KeyReleasedEvent>(const CallbackFunction<KeyReleasedEvent>& callback);
-    template void TBX_API Events::Send<KeyReleasedEvent>(KeyReleasedEvent& event);
-
-    template UUID TBX_API Events::Subscribe<KeyHeldEvent>(const CallbackFunction<KeyHeldEvent>& callback);
-    template void TBX_API Events::Send<KeyHeldEvent>(KeyHeldEvent& event);
-
-    template UUID TBX_API Events::Subscribe<KeyRepeatedEvent>(const CallbackFunction<KeyRepeatedEvent>& callback);
-    template void TBX_API Events::Send<KeyRepeatedEvent>(KeyRepeatedEvent& event);
-
-    template UUID TBX_API Events::Subscribe<MouseButtonPressedEvent>(const CallbackFunction<MouseButtonPressedEvent>& callback);
-    template void TBX_API Events::Send<MouseButtonPressedEvent>(MouseButtonPressedEvent& event);
-
-    template UUID TBX_API Events::Subscribe<MouseButtonReleasedEvent>(const CallbackFunction<MouseButtonReleasedEvent>& callback);
-    template void TBX_API Events::Send<MouseButtonReleasedEvent>(MouseButtonReleasedEvent& event);
-
-    template UUID TBX_API Events::Subscribe<MouseMovedEvent>(const CallbackFunction<MouseMovedEvent>& callback);
-    template void TBX_API Events::Send<MouseMovedEvent>(MouseMovedEvent& event);
-
-    template UUID TBX_API Events::Subscribe<MouseScrolledEvent>(const CallbackFunction<MouseScrolledEvent>& callback);
-    template void TBX_API Events::Send<MouseScrolledEvent>(MouseScrolledEvent& event);
-
-    template UUID TBX_API Events::Subscribe<WindowCloseEvent>(const CallbackFunction<WindowCloseEvent>& callback);
-    template void TBX_API Events::Send<WindowCloseEvent>(WindowCloseEvent& event);
-
-    template UUID TBX_API Events::Subscribe<WindowResizeEvent>(const CallbackFunction<WindowResizeEvent>& callback);
-    template void TBX_API Events::Send<WindowResizeEvent>(WindowResizeEvent& event);
-
-    template UUID TBX_API Events::Subscribe<AppUpdateEvent>(const CallbackFunction<AppUpdateEvent>& callback);
-    template void TBX_API Events::Send<AppUpdateEvent>(AppUpdateEvent& event);
 }

@@ -111,7 +111,7 @@ function IncludeToyboxRuntime()
     }
 end
 
-function ToyboxUsingCoreConfigs()
+function ToyboxRuntimeConfigs()
     defines "TOYBOX"
 
     IncludeToyboxCore()
@@ -128,14 +128,15 @@ function ToyboxPluginConfigs()
         "{COPYFILE} \"%{prj.location}plugin.meta\" \"../../%{OutputTargetPluginDir}\""
     }
 
-    ToyboxUsingCoreConfigs()
+    ToyboxRuntimeConfigs()
 end
 
 -- Easy way to link to toybox Engine
 function ToyboxAppConfigs()
-    IncludeToyboxRuntime()
     IncludeToyboxCore()
+    IncludeToyboxRuntime()
     ToyboxPlatforms()
     ToyboxConfigs()
     DllConfigs()
+
 end

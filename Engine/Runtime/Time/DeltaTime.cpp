@@ -2,9 +2,6 @@
 
 namespace Tbx::Time
 {
-    float DeltaTime::_valueInSeconds;
-    std::chrono::high_resolution_clock::time_point DeltaTime::_lastFrameTime;
-
     void DeltaTime::Update()
     {
         auto currentTime = std::chrono::high_resolution_clock::now();

@@ -7,7 +7,7 @@ namespace Tbx
 {
     class TBX_API MouseEvent : public Event
     {
-        int GetCategorization() const override
+        int GetCategorization() const final
         {
             return static_cast<int>(EventCategory::Mouse) | 
                 static_cast<int>(EventCategory::Input);
@@ -19,7 +19,7 @@ namespace Tbx
     public:
         MouseMovedEvent(float x, float y) : _xPos(x), _yPos(y) { }
 
-        std::string ToString() const override
+        std::string ToString() const final
         {
             return "Mouse Moved Event";
         }
@@ -39,7 +39,7 @@ namespace Tbx
     public:
         MouseScrolledEvent(float x, float y) : _xScroll(x), _yScroll(y) { }
 
-        std::string ToString() const override
+        std::string ToString() const final
         {
             return "Mouse Scrolled Event";
         }
@@ -59,7 +59,7 @@ namespace Tbx
     public:
         explicit MouseButtonPressedEvent(int button) : _button(button) { }
 
-        std::string ToString() const override
+        std::string ToString() const final
         {
             return "Mouse Button Pressed Event";
         }
@@ -78,7 +78,7 @@ namespace Tbx
     public:
         explicit MouseButtonReleasedEvent(int button) : _button(button) { }
 
-        std::string ToString() const override
+        std::string ToString() const final
         {
             return "Mouse Button Released Event";
         }

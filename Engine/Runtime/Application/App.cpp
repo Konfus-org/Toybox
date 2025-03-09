@@ -140,7 +140,7 @@ namespace Tbx
 
         Input::Stop();
         Rendering::Shutdown();
-        Log::Close();
+        Log::Close("Tbx::Runtime");
 
         // Has to be last! 
         // Everything depends on modules, including the log, input and rendering. 
