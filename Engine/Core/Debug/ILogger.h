@@ -11,5 +11,6 @@ namespace Tbx
         virtual void Close() = 0;
         virtual void Log(int lvl, const std::string& msg) = 0;
         virtual void Flush() = 0;
+        virtual std::string GetName() = 0;
     };
 }

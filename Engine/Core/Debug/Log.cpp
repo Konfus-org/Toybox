@@ -4,17 +4,17 @@
 
 namespace Tbx
 {
-    void Log::Open(const std::string& name, const std::string& logSaveLocation)
+    void Log::Open(const std::string& logSaveLocation)
     {
-        auto event = OpenLogEvent(name, logSaveLocation);
+        auto event = OpenLogEvent(logSaveLocation, _logName);
         Events::Send(event);
-        TBX_ASSERT(event.Handled, "Failed to open the log {}, is a logger created and listening?", name);
+        TBX_ASSERT(event.Handled, "Failed to open the log {}, is a logger created and listening?", _logName);
     }
 
-    void Log::Close(const std::string& name)
+    void Log::Close()
     {
-        auto event = CloseLogEvent(name);
+        auto event = CloseLogEvent(_logName);
         Events::Send(event);
-        TBX_ASSERT(event.Handled, "Failed to close the log {}, is a logger under that name created and listening?", name);
+        TBX_ASSERT(event.Handled, "Failed to close the log {}, is a logger under that name created and listening?", _logName);
     }
 }

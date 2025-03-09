@@ -8,8 +8,8 @@ namespace Tbx
     class Log
     {
     public:
-        TBX_API static void Open(const std::string& name, const std::string& logSaveLocation = "");
-        TBX_API static void Close(const std::string& name);
+        TBX_API static void Open(const std::string& logSaveLocation = "");
+        TBX_API static void Close();
 
         template<typename... Args>
         TBX_API static inline void Trace(const std::string& fmt_str, Args&&... args)
@@ -41,13 +41,16 @@ namespace Tbx
             SendWriteToLogEvent(std::vformat(fmt_str, std::make_format_args(args...)), LogLevel::Critical);
         }
 
-        TBX_API static inline void SendWriteToLogEvent(const std::string& msg, const LogLevel& lvl)
+    private:
+        static inline const std::string _logName = "TBX";
+
+        static inline void SendWriteToLogEvent(const std::string& msg, const LogLevel& lvl)
         {
-            auto event = WriteLineToLogEvent(lvl, msg);
+            auto event = WriteLineToLogEvent(lvl, msg, _logName);
             if (!Events::Send(event)) FallbackLog(msg, lvl);
         }
 
-        TBX_API static inline void FallbackLog(const std::string& msg, LogLevel lvl)
+        static inline void FallbackLog(const std::string& msg, LogLevel lvl)
         {
             switch (lvl)
             {

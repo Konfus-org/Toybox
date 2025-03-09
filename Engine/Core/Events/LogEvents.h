@@ -50,7 +50,7 @@ namespace Tbx
             return "OpenLogEvent";
         }
 
-        TBX_API std::string GetLogName() const { return _logName; }
+        TBX_API std::string GetNameOfLogToClose() const { return _logName; }
 
     private:
         std::string _logName = "";
@@ -59,18 +59,20 @@ namespace Tbx
     class WriteLineToLogEvent : public LogEvent
     {
     public:
-        TBX_API WriteLineToLogEvent(const LogLevel& level, const std::string& lineToWrite)
-            : _level(level), _lineToWrite(lineToWrite) {}
+        TBX_API WriteLineToLogEvent(const LogLevel& level, const std::string& lineToWrite, const std::string& logToWriteTo)
+            : _level(level), _lineToWrite(lineToWrite), _logToWriteTo(logToWriteTo){}
 
         TBX_API std::string ToString() const override
         {
             return "WriteToLogEvent";
         }
 
-        TBX_API std::string GetLineToWrite() const { return _lineToWrite; }
-        TBX_API LogLevel GetLevel() const { return _level; }
+        TBX_API LogLevel GetLogLevel() const { return _level; }
+        TBX_API std::string GetLineToWriteToLog() const { return _lineToWrite; }
+        TBX_API std::string GetNameOfLogToWriteTo() const { return _logToWriteTo; }
 
     private:
+        std::string _logToWriteTo = "";
         std::string _lineToWrite = "";
         LogLevel _level = LogLevel::Trace;
     };

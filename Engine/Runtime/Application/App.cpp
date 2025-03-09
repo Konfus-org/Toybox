@@ -34,7 +34,7 @@ namespace Tbx
         PluginServer::LoadPlugins("..\\Build\\bin\\Plugins");
 
         // No log file in debug
-        Log::Open("Tbx::Runtime");
+        Log::Open();
 
         // Once log is open, we can print out all loaded modules to the log for debug purposes
         const auto& plugins = PluginServer::GetLoadedPlugins();
@@ -65,7 +65,7 @@ namespace Tbx
         const auto& currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         // TODO: only keep last 10 log files
         const auto& logPath = std::format("Logs\\{}.log", currentTime);
-        Log::Open("Tbx::Runtime", logPath);
+        Log::Open(logPath);
 
 #endif
         OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
@@ -140,7 +140,7 @@ namespace Tbx
 
         Input::Stop();
         Rendering::Shutdown();
-        Log::Close("Tbx::Runtime");
+        Log::Close();
 
         // Has to be last! 
         // Everything depends on modules, including the log, input and rendering. 

@@ -22,17 +22,17 @@ namespace Tbx
         template <class TEvent>
         TBX_API static inline UUID Subscribe(const CallbackFunction<TEvent>& callback)
         {
-            std::scoped_lock<std::mutex> lock(_mutex);
+            std::scoped_lock<std::mutex> lock(GetMutex());
 
             const auto& eventInfo = typeid(TEvent);
             const auto& hashCode = eventInfo.hash_code();
 
-            if (_subscribers.contains(hashCode) == false)
+            if (GetSubscribers().contains(hashCode) == false)
             {
-                _subscribers[hashCode] = std::vector<Callback<Event>>();
+                GetSubscribers()[hashCode] = std::vector<Callback<Event>>();
             }
 
-            auto& callbacks = _subscribers[hashCode];
+            auto& callbacks = GetSubscribers()[hashCode];
             auto callbackToAdd = Callback<Event>([callback](Event& event) { callback(static_cast<TEvent&>(event)); });
             callbacks.push_back(callbackToAdd);
 
@@ -41,9 +41,9 @@ namespace Tbx
 
         TBX_API static inline void Unsubscribe(const UUID& callbackToUnsub)
         {
-            std::scoped_lock<std::mutex> lock(_mutex);
+            std::scoped_lock<std::mutex> lock(GetMutex());
 
-            for (auto& [hashCode, callbacks] : _subscribers)
+            for (auto& [hashCode, callbacks] : GetSubscribers())
             {
                 for (auto it = callbacks.begin(); it != callbacks.end();)
                 {
@@ -54,7 +54,7 @@ namespace Tbx
                     }
 
                     it = callbacks.erase(it);
-                    if (callbacks.empty()) _subscribers.erase(hashCode);
+                    if (callbacks.empty()) GetSubscribers().erase(hashCode);
                     return;
                 }
             }
@@ -63,17 +63,17 @@ namespace Tbx
         template <class TEvent>
         TBX_API static inline bool Send(TEvent& event)
         {
-            std::scoped_lock<std::mutex> lock(_mutex);
+            std::scoped_lock<std::mutex> lock(GetMutex());
 
             const auto& eventInfo = typeid(TEvent);
             const auto& hashCode = eventInfo.hash_code();
 
-            if (_subscribers.contains(hashCode) == false)
+            if (GetSubscribers().contains(hashCode) == false)
             {
                 return false;
             }
 
-            const auto& callbacks = _subscribers[hashCode];
+            const auto& callbacks = GetSubscribers()[hashCode];
             for (auto& callback : callbacks)
             {
                 callback(event);
@@ -82,8 +82,11 @@ namespace Tbx
             return event.Handled;
         }
 
+        TBX_API static std::mutex& GetMutex();
+        TBX_API static std::unordered_map<hash, std::vector<Callback<Event>>>& GetSubscribers();
+
     private:
-        static inline std::unordered_map<hash, std::vector<Callback<Event>>> _subscribers;
-        static inline std::mutex _mutex;
+        static std::unordered_map<hash, std::vector<Callback<Event>>> _subscribers;
+        static std::mutex _mutex;
     };
 }
