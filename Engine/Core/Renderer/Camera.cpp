@@ -1,5 +1,6 @@
 #include "TbxPCH.h"
 #include "Camera.h"
+#include "Math/Matrix.h"
 
 namespace Tbx
 {

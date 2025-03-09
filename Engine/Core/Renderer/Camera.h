@@ -4,6 +4,7 @@
 #include "Math/Matrix.h"
 #include "Math/Vectors.h"
 #include "Math/Quaternion.h"
+#include "Math/Trig.h"
 
 namespace Tbx
 {

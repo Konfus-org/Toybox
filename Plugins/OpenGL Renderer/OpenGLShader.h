@@ -15,10 +15,10 @@ namespace OpenGLRendering
         void Unbind() const final;
         void UploadData(const Tbx::ShaderData& data) const;
 
-        Tbx::ID GetAssociatedAssetId() const { return _associatedAssetId; }
+        Tbx::UID GetAssociatedAssetId() const { return _associatedAssetId; }
 
     private:
-        Tbx::ID _associatedAssetId = -1;
+        Tbx::UID _associatedAssetId = -1;
         Tbx::uint _rendererId = -1;
     };
 

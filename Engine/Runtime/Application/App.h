@@ -36,11 +36,6 @@ namespace Tbx
         UUID _windowResizeEventId;
 
         void ShutdownSystems();
-
-        std::shared_ptr<IWindow> CreateNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
-        std::shared_ptr<IWindow> GetWindow(const uint64& id);
-
-        void OnWindowClose(WindowCloseEvent& e);
         void OnWindowResize(const WindowResizeEvent& e);
     };
 }

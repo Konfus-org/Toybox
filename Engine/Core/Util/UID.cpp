@@ -1,19 +1,19 @@
 #include "TbxPCH.h"
-#include "ID.h"
+#include "UID.h"
 
 namespace Tbx
 {
-    ID::ID(uint64 id)
+    UID::UID(uint64 id)
     {
         _id = id;
     }
 
-    ID::ID()
+    UID::UID()
     {
         _id = GetNextId();
     }
 
-    uint64 ID::GetNextId()
+    uint64 UID::GetNextId()
     {
         static uint64 _nextId = 0;
 

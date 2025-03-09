@@ -25,22 +25,6 @@ namespace Tbx
         return _loadedPlugins;
     }
 
-    template<typename T>
-    std::shared_ptr<T> PluginServer::GetPlugin()
-    {
-        for (const auto& loadedPlug : _loadedPlugins)
-        {
-            const auto& plug = loadedPlug->GetPlugin();
-            const auto& castedPlug = std::dynamic_pointer_cast<Plugin<T>>(plug);
-            if (castedPlug)
-            {
-                return castedPlug->GetImplementation();
-            }
-        }
-
-        return nullptr;
-    }
-
     void PluginServer::LoadPlugins(const std::string& pathToPlugins)
     {
         const auto& pluginsInPluginDir = std::filesystem::directory_iterator(pathToPlugins);

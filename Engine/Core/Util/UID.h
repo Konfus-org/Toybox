@@ -4,12 +4,12 @@
 
 namespace Tbx
 {
-    struct TBX_API ID
+    struct TBX_API UID
     {
     public:
-        explicit(false) ID(uint64 id);
-        ID();
-        ~ID() = default;
+        explicit(false) UID(uint64 id);
+        UID();
+        ~UID() = default;
 
         const uint64& GetId() const { return _id; }
 

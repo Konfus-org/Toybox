@@ -3,3 +3,4 @@
 #include "IWindow.h"
 #include "IWindowFactory.h"
 #include "WindowMode.h"
+#include "WindowManager.h"

@@ -12,7 +12,7 @@ namespace Tbx
     {
     public:
         explicit(false) Callback(CallbackFunction<TArg> func)
-            : _callbackFn(std::move(func)), _id(UUID::Generate()) {}
+            : _callbackFn(std::move(func)) {}
 
         const UUID& GetId() const
         {
@@ -35,7 +35,7 @@ namespace Tbx
         }
 
     private:
-        CallbackFunction<TArg> _callbackFn;
-        UUID _id;
+        CallbackFunction<TArg> _callbackFn = nullptr;
+        UUID _id = UUID::Generate();
     };
 }

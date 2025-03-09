@@ -1,5 +1,4 @@
 #pragma once
-#include "TbxPCH.h"
 #include "Buffers.h"
 #include "Vertex.h"
 #include "Material.h"

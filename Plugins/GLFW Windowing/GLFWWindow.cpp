@@ -68,7 +68,7 @@ namespace GLFWWindowing
 		return _glfwWindow;
 	}
 
-	Tbx::ID GLFWWindow::GetId() const
+	Tbx::UID GLFWWindow::GetId() const
 	{
 #ifdef TBX_PLATFORM_WINDOWS
 		return (Tbx::uint64)glfwGetWin32Window(_glfwWindow);

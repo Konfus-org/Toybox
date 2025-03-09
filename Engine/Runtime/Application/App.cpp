@@ -22,8 +22,7 @@ namespace Tbx
     {
         _isRunning = true;
 
-        // Sub to window events
-        _windowCloseEventId = Events::Subscribe<WindowCloseEvent>(TBX_BIND_CALLBACK(OnWindowClose));
+        // Sub to events
         _windowResizeEventId = Events::Subscribe<WindowResizeEvent>(TBX_BIND_CALLBACK(OnWindowResize));
 
 #ifdef TBX_DEBUG
@@ -68,7 +67,7 @@ namespace Tbx
         Log::Open(logPath);
 
 #endif
-        OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
+        WindowManager::OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
 
         Rendering::Initialize();
         Rendering::Draw(_mainWindow);
@@ -159,72 +158,40 @@ namespace Tbx
         _layerStack.PushOverlay(layer);
     }
 
-    void App::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
-    {
-        auto window = CreateNewWindow(name, mode, size);
-        _windows.push_back(window);
-        if (_mainWindow == nullptr) _mainWindow = window;
-    }
+    ////void App::OnWindowClose(WindowCloseEvent& e)
+    ////{
+    ////    // If the window is our main window, set running flag to false which will trigger the app to close
+    ////    if (e.GetWindowId() == _mainWindow->GetId()) _isRunning = false;
 
-    std::shared_ptr<IWindow> App::CreateNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
-    {
-        // Create window
-        const auto& windowFactoryPlugin = PluginServer::GetPlugin<IWindowFactory>();
-        TBX_VALIDATE_PTR(windowFactoryPlugin, "Failed to get window factory plugin to create the window {0}, is a window factory plugin installed?", name);
+    ////    // Find the window that was closed and remove it from the list, which will trigger its destruction once nothing no longer references it...
+    ////    std::shared_ptr<IWindow> windowToRemove = GetWindow(e.GetWindowId());
+    ////    _windows.erase(std::remove(_windows.begin(), _windows.end(), windowToRemove), _windows.end());
 
-        const auto& window = windowFactoryPlugin->Create(name, size);
-        TBX_VALIDATE_PTR(window, "Failed to create the window {0}", name);
-
-        // Open window
-        window->Open(mode);
-
-        return window;
-    }
-
-    void App::OnWindowClose(WindowCloseEvent& e)
-    {
-        // If the window is our main window, set running flag to false which will trigger the app to close
-        if (e.GetWindowId() == _mainWindow->GetId()) _isRunning = false;
-
-        // Find the window that was closed and remove it from the list, which will trigger its destruction once nothing no longer references it...
-        std::shared_ptr<IWindow> windowToRemove = GetWindow(e.GetWindowId());
-        _windows.erase(std::remove(_windows.begin(), _windows.end(), windowToRemove), _windows.end());
-
-        // Don't allow other things to process window close events as the window is about to be destroyed
-        e.Handled = true;
-    }
+    ////    // Don't allow other things to process window close events as the window is about to be destroyed
+    ////    e.Handled = true;
+    ////}
 
     void App::OnWindowResize(const WindowResizeEvent& e)
     {
+        // TODO: Move to renderer...
+
+        std::weak_ptr<IWindow> windowThatWasResized = WindowManager::GetWindow(e.GetWindowId());
+
         // Draw the window while its resizing so there are no artifacts during the resize
-        std::shared_ptr<IWindow> windowThatWasResized = GetWindow(e.GetWindowId());
         const bool& wasVSyncEnabled = Rendering::IsVSyncEnabled();
         Rendering::SetVSyncEnabled(true); // Enable vsync so the window doesn't flicker
         Rendering::Draw(windowThatWasResized);
         Rendering::SetVSyncEnabled(wasVSyncEnabled); // Set vsync back to what it was
 
         // Log window resize
-        const auto& newSize = windowThatWasResized->GetSize();
-        const auto& name = windowThatWasResized->GetTitle();
+        const auto& newSize = windowThatWasResized.lock()->GetSize();
+        const auto& name = windowThatWasResized.lock()->GetTitle();
         TBX_INFO("Window {0} resized to {1}x{2}", name, newSize.Width, newSize.Height);
     }
 
     std::weak_ptr<IWindow> App::GetMainWindow() const
     {
         return _mainWindow;
-    }
-
-    std::shared_ptr<IWindow> App::GetWindow(const uint64& id)
-    {
-        for (const auto& window : _windows)
-        {
-            if (window->GetId() == id)
-            {
-                return window;
-            }
-        }
-
-        return nullptr;
     }
 
     const std::string& App::GetName() const

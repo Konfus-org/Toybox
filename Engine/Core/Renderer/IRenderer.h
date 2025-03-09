@@ -1,5 +1,4 @@
 #pragma once
-#include "TbxPCH.h"
 #include "Color.h"
 #include "Mesh.h"
 #include "Texture.h"

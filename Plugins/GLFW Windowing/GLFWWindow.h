@@ -21,7 +21,7 @@ namespace GLFWWindowing
         const std::string& GetTitle() const override;
         void SetTitle(const std::string& title) override;
 
-        Tbx::ID GetId() const override;
+        Tbx::UID GetId() const override;
         std::any GetNativeWindow() const override;
 
         void SetMode(const Tbx::WindowMode& mode) override;

@@ -1,12 +1,9 @@
 #pragma once
-#include "TbxPCH.h"
 #include "TbxAPI.h"
 #include "WindowMode.h"
-#include "Math/Size.h"
-#include "Math/Int.h"
-#include "Events/Event.h"
-#include "Renderer/IRenderer.h"
 #include "Renderer/Camera.h"
+#include "Math/Size.h"
+#include "Util/UID.h"
 
 namespace Tbx
 {
@@ -29,7 +26,7 @@ namespace Tbx
         virtual const std::string& GetTitle() const = 0;
         virtual void SetTitle(const std::string& title) = 0;
 
-        virtual ID GetId() const = 0;
+        virtual UID GetId() const = 0;
         virtual std::any GetNativeWindow() const = 0;
 
         virtual void SetMode(const WindowMode& mode) = 0;

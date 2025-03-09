@@ -1,14 +1,7 @@
 #pragma once
 #include "TbxAPI.h"
-#include "TbxPCH.h"
 #include "Event.h"
 #include "Callback.h"
-#include "KeyEvents.h"
-#include "MouseEvents.h"
-#include "WindowEvents.h"
-#include "ApplicationEvents.h"
-#include "RenderEvents.h"
-#include "LogEvents.h"
 #include <typeindex>
 #include <mutex>
 

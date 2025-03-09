@@ -1,5 +1,6 @@
 #include "TbxPCH.h"
 #include "Bounds.h"
+#include "Trig.h"
 
 namespace Tbx
 {

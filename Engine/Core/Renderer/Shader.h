@@ -4,7 +4,7 @@
 #include "Math/Int.h"
 #include "Math/Matrix.h"
 #include "Debug/DebugAPI.h"
-#include "Util/ID.h"
+#include "Util/UID.h"
 
 namespace Tbx
 {
@@ -72,11 +72,11 @@ namespace Tbx
 
         TBX_API const std::string& GetVertexSource() const { return _vertexSrc; }
         TBX_API const std::string& GetFragmentSource() const { return _fragmentSrc; }
-        TBX_API ID GetId() const { return _id; }
+        TBX_API UID GetId() const { return _id; }
 
     private:
         std::string _vertexSrc;
         std::string _fragmentSrc;
-        ID _id;
+        UID _id;
     };
 }

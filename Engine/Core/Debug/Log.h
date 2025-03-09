@@ -1,6 +1,7 @@
 #pragma once
 #include "TbxAPI.h"
-#include "Events/Events.h"
+#include "LogLevel.h"
+#include "Events/EventAPI.h"
 #include <iostream>
 
 namespace Tbx

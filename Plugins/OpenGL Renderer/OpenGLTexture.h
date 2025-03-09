@@ -16,11 +16,11 @@ namespace OpenGLRendering
         void Bind() const final;
         void Unbind() const final;
 
-        Tbx::ID GetAssociatedAssetId() const { return _associatedAssetId; }
+        Tbx::UID GetAssociatedAssetId() const { return _associatedAssetId; }
 
     private:
         Tbx::uint _slot = 0;
-        Tbx::ID _associatedAssetId = -1;
+        Tbx::UID _associatedAssetId = -1;
         Tbx::uint32 _rendererId = -1;
     };
 }
