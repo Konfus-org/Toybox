@@ -9,7 +9,7 @@ namespace Tbx
         TBX_API explicit(false) App(const std::string_view& name);
         TBX_API ~App();
 
-        TBX_API void Launch();
+        TBX_API void Launch(bool headless = false);
         TBX_API void Update();
         TBX_API void Close();
 
@@ -17,7 +17,6 @@ namespace Tbx
         TBX_API virtual void OnUpdate() = 0;
         TBX_API virtual void OnShutdown() = 0;
 
-        TBX_API void OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
         TBX_API void PushLayer(const std::shared_ptr<Layer>& layer);
         TBX_API void PushOverlay(const std::shared_ptr<Layer>& layer);
 
@@ -27,8 +26,9 @@ namespace Tbx
 
     private:
         bool _isRunning = false;
+        bool _isHeadless = false;
         std::string _name = "App";
-        std::shared_ptr<IWindow> _mainWindow;
+        std::weak_ptr<IWindow> _mainWindow;
         std::vector<std::shared_ptr<IWindow>> _windows;
         LayerStack _layerStack;
 

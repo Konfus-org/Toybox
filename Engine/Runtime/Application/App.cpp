@@ -9,7 +9,6 @@ namespace Tbx
     {
         _name = name;
         _isRunning = false;
-        _mainWindow = nullptr;
     }
 
     App::~App()
@@ -18,12 +17,10 @@ namespace Tbx
             ShutdownSystems();
     }
     
-    void App::Launch()
+    void App::Launch(bool headless)
     {
         _isRunning = true;
-
-        // Sub to events
-        _windowResizeEventId = Events::Subscribe<WindowResizeEvent>(TBX_BIND_CALLBACK(OnWindowResize));
+        _isHeadless = headless;
 
 #ifdef TBX_DEBUG
 
@@ -67,10 +64,20 @@ namespace Tbx
         Log::Open(logPath);
 
 #endif
-        WindowManager::OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
 
-        Rendering::Initialize();
-        Rendering::Draw(_mainWindow);
+        if (!_isHeadless)
+        {
+            // Subscribe to window events
+            _windowResizeEventId = Events::Subscribe<WindowResizeEvent>(TBX_BIND_CALLBACK(OnWindowResize));
+
+            // Open main window
+            const auto& mainWindowId = WindowManager::OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
+            _mainWindow = WindowManager::GetWindow(mainWindowId);
+
+            // Init rendering and draw first frame
+            Rendering::Initialize();
+            Rendering::Draw(_mainWindow);
+        }
 
         Input::Initialize();
 
@@ -82,15 +89,18 @@ namespace Tbx
         // Update delta time
         Time::DeltaTime::Update();
 
-        // Update windows
-        for (const auto& window : _windows)
+        if (!_isHeadless)
         {
-            Rendering::Draw(window);
+            // Update windows
+            for (const auto& window : _windows)
+            {
+                Rendering::Draw(window);
 
-            Input::SetContext(window);
-            window->Update();
+                Input::SetContext(window);
+                window->Update();
 
-            Rendering::Clear();
+                Rendering::Clear();
+            }
         }
 
         // Then layers

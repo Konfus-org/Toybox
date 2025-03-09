@@ -22,7 +22,7 @@ namespace Tbx
         Events::Send<GetWindowEvent>(event);
 
         TBX_ASSERT(event.Handled, "Failed to get window with the id {}!", std::to_string(id));
-        TBX_VALIDATE_PTR(event.GetResult().lock(), "No result returned when querying for window with the id {}!", std::to_string(id));
+        TBX_VALIDATE_WEAK_PTR(event.GetResult(), "No result returned when querying for window with the id {}!", std::to_string(id));
 
         return event.GetResult();
     }

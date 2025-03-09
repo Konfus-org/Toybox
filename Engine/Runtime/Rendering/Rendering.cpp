@@ -1,8 +1,6 @@
 #include "TbxPCH.h"
 #include "Rendering.h"
 
-#define TBX_VALIDATE_RENDERER(error_msg, ...)  if (_renderer == nullptr) { TBX_ERROR(error_msg, __VA_ARGS__); return; }
-
 namespace Tbx
 {
     std::shared_ptr<IRenderer> Rendering::_renderer;
@@ -13,6 +11,7 @@ namespace Tbx
     void Rendering::Initialize()
     {
         _renderer = PluginServer::GetPlugin<IRenderer>();
+        TBX_VALIDATE_PTR(_renderer, "Failed to init rendering, because the renderer plugin failed to load or couldn't be found.");
     }
 
     void Rendering::Shutdown()
@@ -26,8 +25,6 @@ namespace Tbx
     void Rendering::SetVSyncEnabled(bool enabled)
     {
         _vsyncEnabled = enabled;
-
-        TBX_VALIDATE_RENDERER("Failed to set vsync to {0}, because the renderer couldn't be found.", enabled);
 
         _renderer->SetVSyncEnabled(enabled);
     }
@@ -54,9 +51,9 @@ namespace Tbx
 
     void Rendering::Draw(const std::weak_ptr<IWindow>& surface)
     {
-        TBX_VALIDATE_RENDERER("Failed to draw to {0}, because the renderer couldn't be found.", surface.lock()->GetTitle());
+        TBX_VALIDATE_WEAK_PTR(surface, "Failed to draw to {0}, because the given weak pointer to the render surface is invalid.");
 
-        if (!Tbx::IsWeakPointerValid(_renderSurface) || _renderSurface.lock() != surface.lock())
+        if (_renderSurface.lock() != surface.lock())
         {
             // Update context if needed
             _renderer->SetContext(surface);
@@ -78,8 +75,6 @@ namespace Tbx
 
     TBX_API void Rendering::Clear()
     {
-        TBX_VALIDATE_RENDERER("Failed to clear, because the renderer couldn't be found.");
-
         _renderer->Clear();
     }
 

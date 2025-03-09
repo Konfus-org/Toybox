@@ -15,3 +15,4 @@
 #endif
 
 #define TBX_VALIDATE_PTR(ptr, error_msg, ...)  TBX_ASSERT(ptr != nullptr, error_msg, __VA_ARGS__)
+#define TBX_VALIDATE_WEAK_PTR(ptr, error_msg, ...)  TBX_ASSERT((!ptr.expired() && ptr.lock() != nullptr), error_msg, __VA_ARGS__)
