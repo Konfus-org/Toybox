@@ -1,5 +1,5 @@
 #pragma once
-#include "TbxAPI.h"
+#include "ToolboxAPI.h"
 #include "Math/Bounds.h"
 #include "Math/Matrix.h"
 #include "Math/Vectors.h"

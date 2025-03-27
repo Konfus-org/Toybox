@@ -1,6 +1,6 @@
 #pragma once
+#include "ToolboxAPI.h"
 #include "Math/Bits.h"
-#include "TbxAPI.h"
 
 namespace Tbx
 {

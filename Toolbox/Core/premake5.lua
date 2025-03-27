@@ -7,8 +7,8 @@ project "Core"
     targetdir ("../../" .. OutputTargetDir .. "")
     objdir    ("../../" .. OutputIntermediateDir .. "")
 
-    pchheader "./Core/TbxCorePCH.h"
-    pchsource "./Core/TbxCorePCH.cpp"
+    pchheader "ToolboxPCH.h"
+    pchsource "ToolboxPCH.cpp"
 
     defines
     {

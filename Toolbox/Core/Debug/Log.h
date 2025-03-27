@@ -1,7 +1,9 @@
 #pragma once
-#include "TbxAPI.h"
+#include "ToolboxAPI.h"
 #include "LogLevel.h"
-#include "Events/EventAPI.h"
+#include "LogEvents.h"
+#include "ILoggable.h"
+#include "Event Dispatcher/EventDispatcherAPI.h"
 #include <iostream>
 
 namespace Tbx
@@ -11,6 +13,31 @@ namespace Tbx
     public:
         TBX_API static void Open(const std::string& logSaveLocation = "");
         TBX_API static void Close();
+
+        TBX_API static inline void Trace(const ILoggable& loggable)
+        {
+            SendWriteToLogEvent(loggable.ToString(), LogLevel::Trace);
+        }
+
+        TBX_API static inline void Info(const ILoggable& loggable)
+        {
+            SendWriteToLogEvent(loggable.ToString(), LogLevel::Info);
+        }
+
+        TBX_API static inline void Warn(const ILoggable& loggable)
+        {
+            SendWriteToLogEvent(loggable.ToString(), LogLevel::Warn);
+        }
+
+        TBX_API static inline void Error(const ILoggable& loggable)
+        {
+            SendWriteToLogEvent(loggable.ToString(), LogLevel::Error);
+        }
+
+        TBX_API static inline void Critical(const ILoggable& loggable)
+        {
+            SendWriteToLogEvent(loggable.ToString(), LogLevel::Critical);
+        }
 
         template<typename... Args>
         TBX_API static inline void Trace(const std::string& fmt_str, Args&&... args)
@@ -49,7 +76,7 @@ namespace Tbx
         static inline void SendWriteToLogEvent(const std::string& msg, const LogLevel& lvl)
         {
             auto event = WriteLineToLogRequestEvent(lvl, msg, _logName);
-            if (!Events::Send(event)) FallbackLog(msg, lvl);
+            if (!EventDispatcher::Send(event)) FallbackLog(msg, lvl);
         }
 
         static inline void FallbackLog(const std::string& msg, LogLevel lvl)

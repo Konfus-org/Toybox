@@ -1,7 +1,7 @@
 #pragma once
-#include "TbxAPI.h"
-#include "Event.h"
-#include "Debug/LogLevel.h"
+#include "ToolboxAPI.h"
+#include "LogLevel.h"
+#include "Event Dispatcher/Event.h"
 #include <format>
 
 namespace Tbx

@@ -1,5 +1,4 @@
 #pragma once
-#include "TbxCorePCH.h"
 
 namespace Tbx
 {

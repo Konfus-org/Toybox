@@ -1,3 +1,4 @@
+#include "ToolboxPCH.h"
 #include "DeltaTime.h"
 
 namespace Tbx::Time

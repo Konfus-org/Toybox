@@ -1,6 +1,5 @@
 #pragma once
-#include "Application/App.h"
-#include <TbxCore.h>
+#include "ToolboxAPI.h"
 #include <chrono>
 
 namespace Tbx::Time
@@ -10,14 +9,17 @@ namespace Tbx::Time
     public:
         // Gets delta time in seconds
         TBX_API static float Seconds();
+
         // Gets delta time in milliseconds
         TBX_API static float Milliseconds();
+
+        // Updates delta time
+        // Should be called once per frame
+        TBX_API static void Update();
 
     private:
         static float _valueInSeconds;
         static std::chrono::high_resolution_clock::time_point _lastFrameTime;
-
-        static void Update();
 
         friend class App;
     };

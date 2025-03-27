@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Debug/Log.h"
+#include "Log.h"
 
 #define TBX_TRACE(msg, ...)         Tbx::Log::Trace(msg, __VA_ARGS__)
 #define TBX_INFO(msg, ...)          Tbx::Log::Info(msg, __VA_ARGS__)

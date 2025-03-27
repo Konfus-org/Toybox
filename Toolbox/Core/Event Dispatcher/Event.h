@@ -1,14 +1,15 @@
 #pragma once
-#include "TbxAPI.h"
+#include "ToolboxAPI.h"
 #include "EventCategory.h"
+#include "Debug/ILoggable.h"
 
 namespace Tbx
 {
-    class TBX_API Event
+    class TBX_API Event : public ILoggable
     {
     public:
         Event() = default;
-        virtual ~Event() = default;
+        ~Event() override = default;
 
         virtual std::string ToString() const = 0;
         virtual int GetCategorization() const = 0;
@@ -19,6 +20,4 @@ namespace Tbx
         
         bool Handled = false;
     };
-
-    using EventCallbackFn = TBX_API std::function<void(Event&)>;
 }

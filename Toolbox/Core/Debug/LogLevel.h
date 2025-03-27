@@ -1,5 +1,5 @@
 #pragma once
-#include "TbxAPI.h"
+#include "ToolboxAPI.h"
 #include <string>
 
 namespace Tbx

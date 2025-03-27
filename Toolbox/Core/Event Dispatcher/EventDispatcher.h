@@ -1,7 +1,7 @@
 #pragma once
-#include "TbxAPI.h"
+#include "ToolboxAPI.h"
 #include "Event.h"
-#include "Callback.h"
+#include "Callbacks/CallbackAPI.h"
 #include <typeindex>
 #include <mutex>
 
@@ -10,7 +10,7 @@
 
 namespace Tbx
 {
-    class Events
+    class EventDispatcher
     {
     public:
         template <class TEvent>

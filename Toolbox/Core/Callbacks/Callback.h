@@ -1,12 +1,10 @@
 #pragma once
 #include "Math/Int.h"
 #include "Ids/UID.h"
+#include "CallbackFunction.h"
 
 namespace Tbx
 {
-    template <typename TArg>
-    using CallbackFunction = std::function<void(TArg&)>;
-
     template <typename TArg>
     class Callback
     {

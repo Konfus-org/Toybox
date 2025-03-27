@@ -1,5 +1,4 @@
 #pragma once
-#include "TbxPCH.h"
 #include "Layer.h"
 #include "Math/Int.h"
 

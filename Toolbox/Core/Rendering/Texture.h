@@ -1,6 +1,5 @@
 #pragma once
-#include "TbxAPI.h"
-#include "TbxPCH.h"
+#include "ToolboxAPI.h"
 #include "Math/MathAPI.h"
 #include "Ids/UID.h"
 #include <string>
