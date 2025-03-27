@@ -3,7 +3,7 @@ include "includes"
 
 workspace "Toolbox"
     architecture "x86_64"
-    startproject "Tests"
+    startproject "Tests/Simple App Test"
 
     configurations
     {
@@ -21,10 +21,10 @@ workspace "Toolbox"
         include "3rd Party/Libraries/stbimg"
 
     group "Plugins"
-        include "Toolbox/Plugins/GLFW Input"
-        include "Toolbox/Plugins/GLFW Windowing"
-        include "Toolbox/Plugins/OpenGL Renderer"
-        include "Toolbox/Plugins/Spd Logging"
+        include "Plugins/GLFW Input"
+        include "Plugins/GLFW Windowing"
+        include "Plugins/OpenGL Renderer"
+        include "Plugins/Spd Logging"
 
     group "Toolbox"
         include "Toolbox/Core"
