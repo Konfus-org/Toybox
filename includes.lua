@@ -1,0 +1,10 @@
+IncludeDir = {}
+IncludeDir["glm"] = "%{wks.location}/3rd Party/Libraries/glm"
+IncludeDir["spdlog"] = "%{wks.location}/3rd Party/Libraries/spdlog/include"
+IncludeDir["GLFW"] = "%{wks.location}/3rd Party/Libraries/GLFW/include"
+IncludeDir["glad"] = "%{wks.location}/3rd Party/Libraries/glad/include"
+IncludeDir["ModernJSON"] = "%{wks.location}/3rd Party/Libraries/ModernJSON/single_include"
+IncludeDir["stbimg"] = "%{wks.location}/3rd Party/Libraries/stbimg/include"
+IncludeDir["TbxCore"] = "%{wks.location}/Toolbox/Core"
+IncludeDir["TbxApp"] = "%{wks.location}/Toolbox/App"
+IncludeDir["TbxRuntime"] = "%{wks.location}/Toolbox/Runtime"

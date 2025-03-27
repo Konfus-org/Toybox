@@ -1,0 +1,7 @@
+{
+    "name": "GLFW Input",
+    "language": "C++",
+    "version": "0.0.1",
+    "author": "Konfus-dev",
+    "description": "Platform agnostic input handling provided by the GLFW library."
+}

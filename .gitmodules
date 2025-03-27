@@ -1,0 +1,15 @@
+[submodule "3rd Party/Libraries/imgui"]
+	path = 3rd Party/Libraries/imgui
+	url = https://github.com/Konfus-org/imgui.git
+[submodule "3rd Party/Libraries/ModernJSON"]
+	path = 3rd Party/Libraries/ModernJSON
+	url = https://github.com/Konfus-org/ModernJSON.git
+[submodule "3rd Party/Libraries/GLFW"]
+	path = 3rd Party/Libraries/GLFW
+	url = https://github.com/Konfus-org/GLFW.git
+[submodule "3rd Party/Libraries/glm"]
+	path = 3rd Party/Libraries/glm
+	url = https://github.com/Konfus-org/glm.git
+[submodule "3rd Party/Libraries/spdlog"]
+	path = 3rd Party/Libraries/spdlog
+	url = https://github.com/Konfus-org/spdlog.git
