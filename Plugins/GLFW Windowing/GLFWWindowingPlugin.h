@@ -1,5 +1,5 @@
 #pragma once
-#include <TbxCore.h>
+#include <App/App.h>
 
 namespace GLFWWindowing
 {
