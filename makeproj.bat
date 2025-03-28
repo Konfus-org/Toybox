@@ -1,4 +1,7 @@
-echo off
+@echo off
+echo:
+echo Starting premake..
+echo:
 "3rd Party"\Tools\premake\premake5.exe vs2022
 if not ["%errorlevel%"]==["0"] (
     echo:

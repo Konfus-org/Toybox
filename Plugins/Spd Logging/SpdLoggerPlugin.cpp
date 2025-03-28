@@ -22,16 +22,16 @@ namespace SpdLogging
 
     void SpdLoggerPlugin::OnLoad()
     {
-        _writeToLogEventId = Tbx::Events::Subscribe<Tbx::WriteLineToLogRequestEvent>(TBX_BIND_CALLBACK(OnWriteToLog));
-        _openLogEventId = Tbx::Events::Subscribe<Tbx::OpenLogRequestEvent>(TBX_BIND_CALLBACK(OnOpenLog));
-        _closeLogEventId = Tbx::Events::Subscribe<Tbx::CloseLogRequestEvent>(TBX_BIND_CALLBACK(OnCloseLog));
+        _writeToLogEventId = Tbx::EventDispatcher::Subscribe<Tbx::WriteLineToLogRequestEvent>(TBX_BIND_CALLBACK(OnWriteToLog));
+        _openLogEventId = Tbx::EventDispatcher::Subscribe<Tbx::OpenLogRequestEvent>(TBX_BIND_CALLBACK(OnOpenLog));
+        _closeLogEventId = Tbx::EventDispatcher::Subscribe<Tbx::CloseLogRequestEvent>(TBX_BIND_CALLBACK(OnCloseLog));
     }
 
     void SpdLoggerPlugin::OnUnload()
     {
-        Tbx::Events::Unsubscribe(_writeToLogEventId);
-        Tbx::Events::Unsubscribe(_openLogEventId);
-        Tbx::Events::Unsubscribe(_closeLogEventId);
+        Tbx::EventDispatcher::Unsubscribe(_writeToLogEventId);
+        Tbx::EventDispatcher::Unsubscribe(_openLogEventId);
+        Tbx::EventDispatcher::Unsubscribe(_closeLogEventId);
 
         _loggers.clear();
 

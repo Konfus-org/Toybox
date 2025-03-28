@@ -27,9 +27,9 @@ workspace "Toolbox"
         include "Plugins/Spd Logging"
 
     group "Toolbox"
-        include "Include/Tbx/Core"
-        include "Include/Tbx/App"
-        include "Include/Tbx/Runtime"
+        include "Toolbox/Core"
+        include "Toolbox/App"
+        include "Toolbox/Runtime"
 
     group "Testing"
         include "Tests/Simple App Test"

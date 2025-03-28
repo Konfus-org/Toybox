@@ -1,6 +1,6 @@
 #pragma once
 #include <spdlog/spdlog.h>
-#include <TbxCore.h>
+#include <Tbx/App/App.h>
 
 namespace SpdLogging
 {

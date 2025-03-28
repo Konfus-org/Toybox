@@ -1,5 +1,6 @@
 #pragma once
-#include <App/App.h>
+#include <Tbx/App/Plugins/Plugin.h>
+#include <Tbx/App/Events/WindowEvents.h>
 
 namespace GLFWWindowing
 {
@@ -12,7 +13,7 @@ namespace GLFWWindowing
         void OnUnload() override;
 
     private:
-        Tbx::GUID _openNewWindowRequestEventId;
+        Tbx::UID _openNewWindowRequestEventId;
         std::shared_ptr<Tbx::IWindowFactory> _windowFactory;
 
         void OnOpenNewWindow(Tbx::OpenNewWindowRequestEvent& e);

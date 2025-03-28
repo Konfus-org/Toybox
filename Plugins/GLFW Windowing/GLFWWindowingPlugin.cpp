@@ -17,7 +17,7 @@ namespace GLFWWindowing
     void GLFWWindowingPlugin::OnLoad()
     {
         _windowFactory = std::make_shared<GLFWWindowFactory>();
-        _openNewWindowRequestEventId = Tbx::Events::Subscribe<Tbx::OpenNewWindowRequestEvent>(TBX_BIND_CALLBACK(OnOpenNewWindow));
+        _openNewWindowRequestEventId = Tbx::EventDispatcher::Subscribe<Tbx::OpenNewWindowRequestEvent>(TBX_BIND_CALLBACK(OnOpenNewWindow));
 
         const auto& status = glfwInit();
         TBX_ASSERT(status, "Failed to initialize GLFW!");

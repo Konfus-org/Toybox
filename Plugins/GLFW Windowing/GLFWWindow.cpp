@@ -205,19 +205,19 @@ namespace GLFWWindowing
 			case GLFW_PRESS:
 			{
 				Tbx::KeyPressedEvent event(key);
-				Tbx::Events::Send(event);
+				Tbx::EventDispatcher::Send(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
 				Tbx::KeyReleasedEvent event(key);
-				Tbx::Events::Send(event);
+				Tbx::EventDispatcher::Send(event);
 				break;
 			}
 			case GLFW_REPEAT:
 			{
 				Tbx::KeyRepeatedEvent event(key, 1);
-				Tbx::Events::Send(event);
+				Tbx::EventDispatcher::Send(event);
 				break;
 			}
 			default:
@@ -235,13 +235,13 @@ namespace GLFWWindowing
 			case GLFW_PRESS:
 			{
 				Tbx::MouseButtonPressedEvent event(button);
-				Tbx::Events::Send(event);
+				Tbx::EventDispatcher::Send(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
 				Tbx::MouseButtonReleasedEvent event(button);
-				Tbx::Events::Send(event);
+				Tbx::EventDispatcher::Send(event);
 				break;
 			}
 			default:
@@ -255,24 +255,24 @@ namespace GLFWWindowing
 	void GLFWWindow::OnMouseScrolled(double offsetX, double offsetY) const
 	{
 		Tbx::MouseScrolledEvent event((float)offsetX, (float)offsetY);
-		Tbx::Events::Send(event);
+		Tbx::EventDispatcher::Send(event);
 	}
 
 	void GLFWWindow::OnMouseMoved(double posX, double posY) const
 	{
 		Tbx::MouseMovedEvent event((float)posX, (float)posY);
-		Tbx::Events::Send(event);
+		Tbx::EventDispatcher::Send(event);
 	}
 
 	void GLFWWindow::OnWindowClosed() const
 	{
 		Tbx::WindowClosedEvent event(GetId());
-		Tbx::Events::Send(event);
+		Tbx::EventDispatcher::Send(event);
 	}
 
 	void GLFWWindow::OnSizeChanged() const
 	{
 		Tbx::WindowResizedEvent event(GetId(), _size.Width, _size.Height);
-		Tbx::Events::Send(event);
+		Tbx::EventDispatcher::Send(event);
 	}
 }

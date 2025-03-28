@@ -1,5 +1,5 @@
 #pragma once
-#include <App/App.h>
+#include <Tbx/App/Windowing/IWindowFactory.h>
 
 namespace GLFWWindowing
 {

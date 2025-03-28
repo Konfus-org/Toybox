@@ -29,7 +29,7 @@ function PlatformConfigs()
 end
 
 -- Easy way to add standard configs
-function StandardConfigs()
+function StandardBuildConfigs()
     -- Configurations
     filter "configurations:Debug"
         runtime "Debug"
@@ -85,6 +85,35 @@ function DllConfigs()
         buildoptions "/MD"
 end
 
+-- Easy way to configure toolbox project
+function ToolboxProjectConfigs()
+    targetdir ("../../" .. OutputTargetDir .. "")
+    objdir    ("../../" .. OutputIntermediateDir .. "")
+
+    defines
+    {
+        "TOOLBOX",
+        "GLM_ENABLE_EXPERIMENTAL"
+    }
+
+    files
+    {
+        "./Include/**.h",
+        "./Include/**.hpp",
+        "./Source/**.c",
+        "./Source/**.cpp"
+    }
+
+    includedirs
+    {
+        "./Include"
+    }
+
+    PlatformConfigs()
+    StandardBuildConfigs()
+    DllConfigs()
+end
+
 function ToolboxPluginConfigs()
 
     postbuildcommands
@@ -106,7 +135,7 @@ function ToolboxPluginConfigs()
     }
 
     PlatformConfigs()
-    StandardConfigs()
+    StandardBuildConfigs()
     DllConfigs()
 end
 
@@ -125,6 +154,6 @@ function UsingToolboxConfigs()
     }
 
     PlatformConfigs()
-    StandardConfigs()
+    StandardBuildConfigs()
     DllConfigs()
 end
