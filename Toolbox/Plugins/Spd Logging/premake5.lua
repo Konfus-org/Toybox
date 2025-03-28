@@ -1,12 +1,12 @@
-project "ImgGui Debug View"
+project "Spd Logging"
     kind "SharedLib"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
     ignoredefaultlibraries { "MSVCRT" }
 
-    targetdir ("../../" .. OutputTargetPluginDir .. "")
-    objdir    ("../../" .. OutputIntermediatePluginDir .. "")
+    targetdir ("../../../" .. OutputTargetPluginDir .. "")
+    objdir    ("../../../" .. OutputIntermediatePluginDir .. "")
 
     files
     {
@@ -19,12 +19,12 @@ project "ImgGui Debug View"
     includedirs
     {
         "./",
-        "%{IncludeDir.imgui}"
+        "%{IncludeDir.spdlog}"
     }
 
     links
     {
-        "imgui"
+        "spdlog"
     }
 
     ToolboxPluginConfigs()

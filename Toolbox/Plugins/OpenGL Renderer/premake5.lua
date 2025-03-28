@@ -5,8 +5,8 @@ project "OpenGL Renderer"
     staticruntime "Off"
     ignoredefaultlibraries { "MSVCRT" }
 
-    targetdir ("../../" .. OutputTargetPluginDir .. "")
-    objdir    ("../../" .. OutputIntermediatePluginDir .. "")
+    targetdir ("../../../" .. OutputTargetPluginDir .. "")
+    objdir    ("../../../" .. OutputIntermediatePluginDir .. "")
 
     defines
     {

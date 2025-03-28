@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/App/Plugins/LoadedPlugin.h"
+#include "Tbx/Runtime/Plugins/LoadedPlugin.h"
 #include <Tbx/Core/DllExport.h>
 #include <memory>
 #include <string>

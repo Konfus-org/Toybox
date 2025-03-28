@@ -30,7 +30,7 @@ namespace Tbx
         }
     };
 
-    class EXPORT AppUpdateEvent : public AppEvent
+    class EXPORT AppUpdatedEvent : public AppEvent
     {
     public:
         std::string ToString() const override

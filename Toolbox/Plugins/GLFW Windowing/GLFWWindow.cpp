@@ -1,5 +1,9 @@
 #include "GLFWWindow.h"
 #include <GLFW/glfw3native.h>
+#include <Tbx/Core/Debug/DebugAPI.h>
+#include <Tbx/Core/Events/EventDispatcher.h>
+#include <Tbx/App/Events/MouseEvents.h>
+#include <Tbx/App/Events/KeyEvents.h>
 
 namespace GLFWWindowing
 {
@@ -41,6 +45,7 @@ namespace GLFWWindowing
 		_size = size;
 		if (_glfwWindow != nullptr)
 		{
+			_camera->SetAspect((float)size.Width / (float)size.Height);
 			glfwSetWindowSize(_glfwWindow, _size.Width, _size.Height);
 			OnSizeChanged();
 		}
@@ -161,6 +166,12 @@ namespace GLFWWindowing
 			toyboxWindow.OnSizeChanged();
 		});
 
+		glfwSetWindowFocusCallback(_glfwWindow, [](GLFWwindow* window, int focused)
+        {
+            const GLFWWindow& toyboxWindow = *(GLFWWindow*)glfwGetWindowUserPointer(window);
+            toyboxWindow.OnWindowFocusChanged(focused);
+        });
+
 		glfwSetWindowCloseCallback(_glfwWindow, [](GLFWwindow* window)
 		{
 			const GLFWWindow& toyboxWindow = *(GLFWWindow*)glfwGetWindowUserPointer(window);
@@ -268,6 +279,12 @@ namespace GLFWWindowing
 	{
 		Tbx::WindowClosedEvent event(GetId());
 		Tbx::EventDispatcher::Send(event);
+	}
+
+	void GLFWWindow::OnWindowFocusChanged(bool isFocused) const
+	{
+        Tbx::WindowFocusChangedEvent event(GetId(), isFocused);
+        Tbx::EventDispatcher::Send(event);
 	}
 
 	void GLFWWindow::OnSizeChanged() const

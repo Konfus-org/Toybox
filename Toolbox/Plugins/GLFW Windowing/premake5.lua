@@ -1,12 +1,12 @@
-project "GLFW Input"
+project "GLFW Windowing"
     kind "SharedLib"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
     ignoredefaultlibraries { "MSVCRT" }
 
-    targetdir ("../../" .. OutputTargetPluginDir .. "")
-    objdir    ("../../" .. OutputIntermediatePluginDir .. "")
+    targetdir ("../../../" .. OutputTargetPluginDir .. "")
+    objdir    ("../../../" .. OutputIntermediatePluginDir .. "")
 
     files
     {

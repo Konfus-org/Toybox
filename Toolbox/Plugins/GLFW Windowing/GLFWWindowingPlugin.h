@@ -1,5 +1,5 @@
 #pragma once
-#include <Tbx/App/Plugins/Plugin.h>
+#include <Tbx/Core/Plugins/Plugin.h>
 #include <Tbx/App/Events/WindowEvents.h>
 
 namespace GLFWWindowing

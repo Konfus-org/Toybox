@@ -2,8 +2,7 @@
 #include "Tbx/App/App.h"
 #include "Tbx/App/Input/Input.h"
 #include "Tbx/App/Time/DeltaTime.h"
-#include "Tbx/App/Plugins/PluginServer.h"
-#include "Tbx/App/Renderer/RenderStack.h"
+#include "Tbx/App/Render Pipeline/RenderPipeline.h"
 #include "Tbx/App/Windowing/WindowManager.h"
 #include "Tbx/App/Events/ApplicationEvents.h"
 #include <Tbx/Core/Events/EventDispatcher.h>
@@ -27,66 +26,21 @@ namespace Tbx
         _isRunning = true;
         _isHeadless = headless;
 
-#ifdef TBX_DEBUG
-
-        // DEBUG:
-        
-        // Open modules with debug/build path
-        PluginServer::LoadPlugins("..\\Build\\bin\\Plugins");
-
-        // No log file in debug
-        Log::Open();
-
-        // Once log is open, we can print out all loaded modules to the log for debug purposes
-        const auto& plugins = PluginServer::GetLoadedPlugins();
-        const auto& numPlugins = plugins.size();
-        TBX_INFO("Loaded {0} plugins:", numPlugins);
-        for (const auto& loadedMod : plugins)
-        {
-            const auto& pluginInfo = loadedMod->GetPluginInfo();
-            const auto& pluginName = pluginInfo.GetName();
-            const auto& pluginVersion = pluginInfo.GetVersion();
-            const auto& pluginAuthor = pluginInfo.GetAuthor();
-            const auto& pluginDescription = pluginInfo.GetDescription();
-
-            TBX_INFO("{0}:", pluginName);
-            TBX_INFO("    - Version: {0}", pluginVersion);
-            TBX_INFO("    - Author: {0}", pluginAuthor);
-            TBX_INFO("    - Description: {0}", pluginDescription);
-        }
-
-        // TODO: only keep last 10 log files in release...
-#else 
-
-        // RELEASE:
-        
-        // Open modules with release path
-        PluginServer::LoadPlugins("..\\Plugins");
-
-        // Open log file in non-debug
-        const auto& currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        const auto& logPath = std::format("Logs\\{}.log", currentTime);
-        Log::Open(logPath);
-
-#endif
-
         if (!_isHeadless)
         {
             // Subscribe to window events
             _windowClosedEventId = EventDispatcher::Subscribe<WindowClosedEvent>(TBX_BIND_CALLBACK(OnWindowClosed));
             _windowResizeEventId = EventDispatcher::Subscribe<WindowResizedEvent>(TBX_BIND_CALLBACK(OnWindowResize));
 
+            // Init rendering
+            RenderPipeline::Initialize();
+
+            // Init input
+            Input::Initialize();
+
             // Open main window
             WindowManager::OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
             auto mainWindow = WindowManager::GetMainWindow();
-
-            // Init rendering and draw first frame
-            RenderStack::Initialize();
-            RenderStack::Draw(mainWindow);
-
-            // Init input and set initial context
-            Input::Initialize();
-            Input::SetContext(mainWindow);
         }
 
         OnStart();
@@ -101,7 +55,7 @@ namespace Tbx
         OnUpdate();
 
         // Send update event
-        AppUpdateEvent updateEvent;
+        AppUpdatedEvent updateEvent;
         EventDispatcher::Send(updateEvent);
 
         // Then update layers
@@ -120,8 +74,8 @@ namespace Tbx
             // Update windows
             for (const auto& window : WindowManager::GetAllWindows())
             {
-                RenderStack::Clear();
-                RenderStack::Draw(window);
+                RenderPipeline::Clear();
+                RenderPipeline::Process(window);
 
                 Input::SetContext(window); // TODO: do this on focus instead...
                 window.lock()->Update(); // TODO: do this on update instead...
@@ -153,18 +107,13 @@ namespace Tbx
         {
             // Close all windows, shutdown rendering and input if we are not headless.
             WindowManager::CloseAllWindows();
-            RenderStack::Shutdown();
+            RenderPipeline::Shutdown();
             Input::Stop();
         }
 
         // Finally close the log and shutdown events, this should be the last thing to happen before modules are unloaded
         Log::Close();
         EventDispatcher::Clear();
-
-        // Has to be last! 
-        // Everything depends on modules, including the log, input and rendering. 
-        // So they cannot be shutdown after modules are unloaded.
-        PluginServer::Shutdown();
     }
 
     void App::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size) const
@@ -206,11 +155,12 @@ namespace Tbx
     {
         std::weak_ptr<IWindow> windowThatWasResized = WindowManager::GetWindow(e.GetWindowId());
 
+        // TODO: Do this in the render pipeline!!!!
         // Draw the window while its resizing so there are no artifacts during the resize
-        const bool& wasVSyncEnabled = RenderStack::IsVSyncEnabled();
-        RenderStack::SetVSyncEnabled(true); // Enable vsync so the window doesn't flicker
-        RenderStack::Draw(windowThatWasResized);
-        RenderStack::SetVSyncEnabled(wasVSyncEnabled); // Set vsync back to what it was
+        const bool& wasVSyncEnabled = RenderPipeline::IsVSyncEnabled();
+        RenderPipeline::SetVSyncEnabled(true); // Enable vsync so the window doesn't flicker
+        RenderPipeline::Process(windowThatWasResized);
+        RenderPipeline::SetVSyncEnabled(wasVSyncEnabled); // Set vsync back to what it was
 
         // Log window resize
         const auto& newSize = windowThatWasResized.lock()->GetSize();

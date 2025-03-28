@@ -1,5 +1,5 @@
 #include "Tbx/App/PCH.h"
-#include "Tbx/App/Plugins/PluginServer.h"
+#include "Tbx/Runtime/Plugins/PluginServer.h"
 #include <filesystem>
 
 namespace Tbx

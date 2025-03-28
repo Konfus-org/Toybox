@@ -7,7 +7,8 @@
 namespace Tbx
 {
     std::map<UID, std::shared_ptr<IWindow>> WindowManager::_windows;
-    UID WindowManager::_maindWindowId = -1;
+    UID WindowManager::_mainWindowId = -1;
+    UID WindowManager::_focusedWindowId = -1;
 
     UID WindowManager::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
@@ -20,7 +21,7 @@ namespace Tbx
 
         if (_windows.empty())
         {
-            _maindWindowId = window->GetId();
+            _mainWindowId = window->GetId();
         }
 
         _windows[window->GetId()] = window;
@@ -29,13 +30,18 @@ namespace Tbx
 
     std::weak_ptr<IWindow> WindowManager::GetMainWindow()
     {
-        return GetWindow(_maindWindowId);
+        return GetWindow(_mainWindowId);
     }
 
     std::weak_ptr<IWindow> WindowManager::GetWindow(const UID& id)
     {
         TBX_ASSERT(_windows.find(id) != _windows.end(), "Window with the id {} does not exist!", id.ToString());
         return _windows[id];
+    }
+
+    std::weak_ptr<IWindow> WindowManager::GetFocusedWindow()
+    {
+        return GetWindow(_focusedWindowId);
     }
 
     std::vector<std::weak_ptr<IWindow>> WindowManager::GetAllWindows()

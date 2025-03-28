@@ -1,7 +1,5 @@
 #pragma once
-#include "Tbx/App/Plugins/SharedLibrary.h"
-#include "Tbx/App/Plugins/Plugin.h"
-#include "Tbx/App/Plugins/PluginInfo.h"
+#include <Tbx/Core/Plugins/PluginsAPI.h>
 
 namespace Tbx
 {

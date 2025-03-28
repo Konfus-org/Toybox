@@ -14,6 +14,8 @@ namespace Tbx
         EXPORT static UID OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
 
         EXPORT static std::weak_ptr<IWindow> GetMainWindow();
+        EXPORT static std::weak_ptr<IWindow> GetFocusedWindow();
+
         EXPORT static std::weak_ptr<IWindow> GetWindow(const UID& id);
         EXPORT static std::vector<std::weak_ptr<IWindow>> GetAllWindows();
 
@@ -22,6 +24,7 @@ namespace Tbx
 
     private:
         static std::map<UID, std::shared_ptr<IWindow>> _windows;
-        static UID _maindWindowId;
+        static UID _mainWindowId;
+        static UID _focusedWindowId;
     };
 }

@@ -1,17 +1,15 @@
 #pragma once
 #include <Tbx/App/Events/WindowEvents.h>
 #include <Tbx/App/Layers/LayerStack.h>
-#include <Tbx/Core/Core.h>
+#include <Tbx/Core/Plugins/Plugin.h>
 
 namespace Tbx
 {
-    // TODO: this should be a singleton! Then maybe turn window manager to window stack and have this own it (so it doesn't have to be a singleton) and game should be layer plugin? So we can hot reload!!!
-    // TODO: fix plugins... I've changed a lot and moved a ton of stuff to runtime so I have to restructure plugins to account for that. I've also flattened the GLFW input and window plugins into one GLFW plugin...
-    class App
+    class App : public Plugin<App>
     {
     public:
         EXPORT explicit(false) App(const std::string_view& name);
-        EXPORT virtual ~App();
+        EXPORT ~App() override;
 
         EXPORT void Launch(bool headless = false);
         EXPORT void Update();

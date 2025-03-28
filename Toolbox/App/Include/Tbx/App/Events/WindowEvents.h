@@ -54,6 +54,23 @@ namespace Tbx
         Size _size;
     };
 
+    class EXPORT WindowFocusChangedEvent : public WindowActionEvent
+    {
+    public:
+        explicit WindowFocusChangedEvent(UID windowId, bool isFocused)
+            : WindowActionEvent(windowId), _isFocused(isFocused) {}
+
+        std::string ToString() const final
+        {
+            return "Window Focused Event";
+        }
+
+        bool IsFocused() const { return _isFocused; }
+
+    private:
+        bool _isFocused = false;
+    };
+
     class EXPORT WindowClosedEvent : public WindowActionEvent
     {
     public:
