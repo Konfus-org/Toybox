@@ -13,13 +13,13 @@ namespace Tbx
 
         // DEBUG:
         
-        // Open modules with debug/build path
+        // Open plugins with debug/build path
         PluginServer::LoadPlugins("..\\Build\\bin\\Plugins");
 
         // No log file in debug
         Log::Open();
 
-        // Once log is open, we can print out all loaded modules to the log for debug purposes
+        // Once log is open, we can print out all loaded plugins to the log for debug purposes
         const auto& plugins = PluginServer::GetLoadedPlugins();
         const auto& numPlugins = plugins.size();
         TBX_INFO("Loaded {0} plugins:", numPlugins);
@@ -42,7 +42,7 @@ namespace Tbx
 
         // RELEASE:
 
-        // Open modules with release path
+        // Open plugins with release path
         PluginServer::LoadPlugins("..\\Plugins");
 
         // Open log file in non-debug
@@ -58,11 +58,12 @@ namespace Tbx
         app.Close();
 
         // Has to be last! 
-        // Everything depends on modules, including the log, input and rendering. 
-        // So they cannot be shutdown after modules are unloaded.
+        // Everything depends on plugins, including the log, input and rendering. 
+        // So they cannot be shutdown after plugins are unloaded.
         PluginServer::Shutdown();
     }
 
+    // TODO: we need to load app via plugin server, then implement keybind to reload plugins (simple hot reloading)
     ////int main()
     ////{
     ////    try

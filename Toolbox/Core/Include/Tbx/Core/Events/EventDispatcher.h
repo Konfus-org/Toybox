@@ -73,7 +73,7 @@ namespace Tbx
                 callback(event);
             }
             
-            return event.Handled;
+            return event.IsHandled;
         }
 
         EXPORT static void Clear();

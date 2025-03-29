@@ -33,7 +33,7 @@ namespace GLFWWindowing
         auto newWindow = _windowFactory->Create(e.GetName(), e.GetSize());
         newWindow->Open(e.GetMode());
         e.SetResult(newWindow);
-        e.Handled = true;
+        e.IsHandled = true;
     }
 }
 

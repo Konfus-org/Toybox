@@ -33,14 +33,10 @@ namespace Tbx
         bool _isHeadless = false;
         std::string _name = "App";
         LayerStack _layerStack;
-
-        UID _windowResizeEventId;
         UID _windowClosedEventId;
 
         void ShutdownSystems();
 
-        void OnWindowResize(const WindowResizedEvent& e);
-
-        void OnWindowClosed(WindowClosedEvent& e);
+        void OnWindowClosed(const WindowClosedEvent& e);
     };
 }

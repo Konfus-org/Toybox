@@ -10,6 +10,7 @@ namespace Tbx
     {
     public:
         EXPORT static void Initialize();
+        EXPORT static void Shutdown();
 
         /// <summary>
         /// Creates and opens a new window, the first window will be set as the main window.

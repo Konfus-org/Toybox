@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
 #include "Tbx/Core/Events/Event.h"
+#include <memory>
 
 namespace Tbx
 {

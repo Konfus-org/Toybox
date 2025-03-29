@@ -5,6 +5,7 @@
 #include "Tbx/App/Events/ApplicationEvents.h"
 #include "Tbx/App/Events/WindowEvents.h"
 #include "Tbx/App/Windowing/IWindow.h"
+#include <Tbx/Core/Ids/UID.h>
 
 namespace Tbx
 {

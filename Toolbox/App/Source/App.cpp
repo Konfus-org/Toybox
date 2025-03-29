@@ -32,7 +32,6 @@ namespace Tbx
         {
             // Subscribe to window events
             _windowClosedEventId = EventDispatcher::Subscribe<WindowClosedEvent>(TBX_BIND_CALLBACK(OnWindowClosed));
-            _windowResizeEventId = EventDispatcher::Subscribe<WindowResizedEvent>(TBX_BIND_CALLBACK(OnWindowResize));
 
             // Init rendering
             RenderPipeline::Initialize();
@@ -79,7 +78,6 @@ namespace Tbx
 
         // Unsub to window events and shutdown events
         EventDispatcher::Unsubscribe(_windowClosedEventId);
-        EventDispatcher::Unsubscribe(_windowResizeEventId);
 
         // Call detach on all layers
         for (const auto& layer : _layerStack)
@@ -90,9 +88,9 @@ namespace Tbx
         if (!_isHeadless)
         {
             // Close all windows, shutdown rendering and input if we are not headless.
-            WindowManager::CloseAllWindows();
+            WindowManager::Shutdown();
             RenderPipeline::Shutdown();
-            Input::Stop();
+            Input::Shutdown();
         }
 
         // Finally close the log and shutdown events, this should be the last thing to happen before modules are unloaded
@@ -116,7 +114,7 @@ namespace Tbx
         _layerStack.PushOverlay(layer);
     }
 
-    void App::OnWindowClosed(WindowClosedEvent& e)
+    void App::OnWindowClosed(const WindowClosedEvent& e)
     {
         // If the window is our main window, set running flag to false which will trigger the app to close
         if (e.GetWindowId() == WindowManager::GetMainWindow().lock()->GetId())
@@ -125,31 +123,6 @@ namespace Tbx
             _isRunning = false;
             WindowManager::CloseAllWindows();
         }
-        else
-        {
-            // Find the window that was closed and remove it from the list, which will trigger its destruction once nothing no longer references it...
-            WindowManager::CloseWindow(e.GetWindowId());
-        }
-
-        // Don't allow other things to process window close events as the window is about to be destroyed
-        e.Handled = true;
-    }
-
-    void App::OnWindowResize(const WindowResizedEvent& e)
-    {
-        std::weak_ptr<IWindow> windowThatWasResized = WindowManager::GetWindow(e.GetWindowId());
-
-        // TODO: Do this in the render pipeline!!!!
-        // Draw the window while its resizing so there are no artifacts during the resize
-        const bool& wasVSyncEnabled = RenderPipeline::IsVSyncEnabled();
-        RenderPipeline::SetVSyncEnabled(true); // Enable vsync so the window doesn't flicker
-        RenderPipeline::Process(windowThatWasResized);
-        RenderPipeline::SetVSyncEnabled(wasVSyncEnabled); // Set vsync back to what it was
-
-        // Log window resize
-        const auto& newSize = windowThatWasResized.lock()->GetSize();
-        const auto& name = windowThatWasResized.lock()->GetTitle();
-        TBX_INFO("Window {0} resized to {1}x{2}", name, newSize.Width, newSize.Height);
     }
 
     std::weak_ptr<IWindow> App::GetMainWindow() const

@@ -9,17 +9,18 @@
 
 namespace Tbx
 {
+    bool RenderPipeline::_vsyncEnabled = false;
+    UID RenderPipeline::_focusedWindowId = -1;
+    UID RenderPipeline::_appUpdatedEventId = -1;
+    UID RenderPipeline::_windowResizeEventId = -1;
+    UID RenderPipeline::_windowFocusChangedEventId = -1;
     RenderQueue RenderPipeline::_renderQueue;
-    bool RenderPipeline::_vsyncEnabled;
 
     void RenderPipeline::Initialize()
     {
         _appUpdatedEventId = EventDispatcher::Subscribe<AppUpdatedEvent>(TBX_BIND_STATIC_CALLBACK(OnAppUpdated));
         _windowFocusChangedEventId = EventDispatcher::Subscribe<WindowFocusChangedEvent>(TBX_BIND_STATIC_CALLBACK(OnWindowFocusChanged));
         _windowResizeEventId = EventDispatcher::Subscribe<WindowResizedEvent>(TBX_BIND_STATIC_CALLBACK(OnWindowResize));
-
-        //_renderer = PluginServer::GetPlugin<IRenderer>();
-        //TBX_VALIDATE_PTR(_renderer, "Failed to init rendering, because the renderer plugin failed to load or couldn't be found.");
     }
 
     void RenderPipeline::Shutdown()
@@ -31,7 +32,8 @@ namespace Tbx
     {
         _vsyncEnabled = enabled;
 
-        //_renderer->SetVSyncEnabled(enabled);
+        SetVSyncRequestEvent request(enabled);
+        EventDispatcher::Send(request);
     }
 
     bool RenderPipeline::IsVSyncEnabled()
@@ -56,7 +58,7 @@ namespace Tbx
 
     void RenderPipeline::Clear()
     {
-        RenderClearFrameRequestEvent request;
+        ClearFrameRequestEvent request;
         EventDispatcher::Send(request);
     }
 
@@ -123,7 +125,6 @@ namespace Tbx
             ////}
         }
 
-        ////_renderer->EndDraw();
         EndRenderFrameRequestEvent endFrameRequest;
         EventDispatcher::Send(beginFrameRequest);
     }
@@ -137,7 +138,7 @@ namespace Tbx
     {
         if (!e.IsFocused()) return;
 
-        RenderSetContextRequestEvent request(WindowManager::GetWindow(e.GetWindowId()));
+        SetRenderContextRequestEvent request(WindowManager::GetWindow(e.GetWindowId()));
         EventDispatcher::Send(request);
     }
 
@@ -145,7 +146,6 @@ namespace Tbx
     {
         std::weak_ptr<IWindow> windowThatWasResized = WindowManager::GetWindow(e.GetWindowId());
 
-        // TODO: Do this in the render pipeline!!!!
         // Draw the window while its resizing so there are no artifacts during the resize
         const bool& wasVSyncEnabled = RenderPipeline::IsVSyncEnabled();
         SetVSyncEnabled(true); // Enable vsync so the window doesn't flicker

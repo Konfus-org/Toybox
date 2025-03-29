@@ -22,13 +22,22 @@ namespace Tbx
             EventDispatcher::Subscribe<WindowFocusChangedEvent>(TBX_BIND_STATIC_CALLBACK(OnWindowFocusChanged));
     }
 
+    void WindowManager::Shutdown()
+    {
+        EventDispatcher::Unsubscribe(_appUpdatedEventId);
+        EventDispatcher::Unsubscribe(_windowCloseEventId);
+        EventDispatcher::Unsubscribe(_windowFocusChangedEventId);
+
+        CloseAllWindows();
+    }
+
     UID WindowManager::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
         auto event = OpenNewWindowRequestEvent(name, mode, size);
         EventDispatcher::Send<OpenNewWindowRequestEvent>(event);
         auto window = event.GetResult();
 
-        TBX_ASSERT(event.Handled, "Failed to open new window with the name {}!", name);
+        TBX_ASSERT(event.IsHandled, "Failed to open new window with the name {}!", name);
         TBX_VALIDATE_PTR(window, "No result returned when opening new window with the name {}!", name);
 
         if (_windows.empty())

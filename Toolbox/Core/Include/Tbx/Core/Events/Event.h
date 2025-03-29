@@ -18,6 +18,6 @@ namespace Tbx
             return GetCategorization() & static_cast<int>(category);
         }
         
-        bool Handled = false;
+        bool IsHandled = false;
     };
 }

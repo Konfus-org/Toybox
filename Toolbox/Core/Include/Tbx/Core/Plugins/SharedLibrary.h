@@ -1,4 +1,5 @@
 #pragma once
+#include "Tbx/Core/DllExport.h"
 #include <string>
 #include <any>
 
@@ -10,14 +11,14 @@ namespace Tbx
     class SharedLibrary 
     {
     public:
-        bool Load(const std::string& path);
-        void Unload();
+        EXPORT bool Load(const std::string& path);
+        EXPORT void Unload();
 
-        bool IsValid();
+        EXPORT bool IsValid();
 
-        std::string GetPath() const { return _path; }
-        Symbol GetSymbol(const std::string& symbolName);
-        void ListSymbols();
+        EXPORT std::string GetPath() const { return _path; }
+        EXPORT Symbol GetSymbol(const std::string& symbolName);
+        EXPORT void ListSymbols();
 
     private:
         std::string _path;

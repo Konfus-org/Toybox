@@ -16,12 +16,12 @@ namespace Tbx
         }
     };
 
-    class EXPORT RenderClearFrameRequestEvent : public RenderEvent
+    class EXPORT ClearFrameRequestEvent : public RenderEvent
     {
     public:
         std::string ToString() const final
         {
-            return "ClearFrameEvent";
+            return "Clear Frame Event";
         }
     };
 
@@ -30,7 +30,7 @@ namespace Tbx
     public:
         std::string ToString() const final
         {
-            return "BeginRenderFrameRequestEvent";
+            return "Begin Render Frame Request Event";
         }
     };
 
@@ -39,53 +39,52 @@ namespace Tbx
     public:
         std::string ToString() const final
         {
-            return "EndRenderFrameRequestEvent";
+            return "End Render Frame Request Event";
         }
     };
 
-    class EXPORT RenderFrameRequestEvent : public RenderEvent
+    class RenderFrameRequestEvent : public RenderEvent
     {
     public:
-        explicit RenderFrameRequestEvent(const RenderBatch& batch)
-            : _batch(batch) {
-        }
+        EXPORT explicit RenderFrameRequestEvent(const RenderBatch& batch)
+            : _batch(batch) {}
 
-        std::string ToString() const final
+        EXPORT std::string ToString() const final
         {
-            return "RenderFrameRequestEvent";
+            return "Render Frame Request Event";
         }
 
-        RenderBatch& GetBatch() { return _batch; }
+        EXPORT RenderBatch& GetBatch() { return _batch; }
 
     private:
         RenderBatch _batch;
     };
 
-    class EXPORT RenderSetContextRequestEvent : public RenderEvent
+    class SetRenderContextRequestEvent : public RenderEvent
     {
     public:
-        explicit RenderSetContextRequestEvent(const std::weak_ptr<IWindow>& context)
-            : _renderContext(_renderContext) {
+        EXPORT explicit SetRenderContextRequestEvent(const std::weak_ptr<IWindow>& context)
+            : _renderContext(_renderContext) {}
+
+        EXPORT std::string ToString() const final
+        {
+            return "Set Render Context Request Event";
         }
 
-        std::string ToString() const final
-        {
-            return "SetRenderContextRequestEvent";
-        }
     private:
         std::weak_ptr<IWindow> _renderContext;
     };
 
-    class EXPORT RenderSetVSyncRequestEvent : public RenderEvent
+    class EXPORT SetVSyncRequestEvent : public RenderEvent
     {
     public:
-        explicit RenderSetVSyncRequestEvent(const bool& vsync)
+        explicit SetVSyncRequestEvent(const bool& vsync)
             : _vSync(vsync) {
         }
 
         std::string ToString() const final
         {
-            return "RenderSetVSyncRequestEvent";
+            return "Render Set VSync Request Event";
         }
 
         bool GetVSync() const { return _vSync; }
