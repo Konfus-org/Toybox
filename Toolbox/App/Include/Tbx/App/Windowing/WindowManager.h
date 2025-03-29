@@ -1,5 +1,7 @@
 #pragma once
-#include "IWindow.h"
+#include "Tbx/App/Windowing/IWindow.h"
+#include "Tbx/App/Events/WindowEvents.h"
+#include "Tbx/App/Events/ApplicationEvents.h"
 #include <map>
 
 namespace Tbx
@@ -7,6 +9,8 @@ namespace Tbx
     class WindowManager
     {
     public:
+        EXPORT static void Initialize();
+
         /// <summary>
         /// Creates and opens a new window, the first window will be set as the main window.
         /// </summary>
@@ -26,5 +30,12 @@ namespace Tbx
         static std::map<UID, std::shared_ptr<IWindow>> _windows;
         static UID _mainWindowId;
         static UID _focusedWindowId;
+        static UID _appUpdatedEventId;
+        static UID _windowCloseEventId;
+        static UID _windowFocusChangedEventId;
+
+        static void OnAppUpdated(const AppUpdatedEvent& event);
+        static void OnWindowClose(const WindowClosedEvent& event);
+        static void OnWindowFocusChanged(const WindowFocusChangedEvent& event);
     };
 }

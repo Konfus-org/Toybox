@@ -1,5 +1,4 @@
-#include "Tbx/App/PCH.h"
-#include "Tbx/App/Plugins/LoadedPlugin.h"
+#include "Tbx/Runtime/Plugins/LoadedPlugin.h"
 #include <Tbx/Core/Debug/DebugAPI.h>
 
 namespace Tbx

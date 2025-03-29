@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/App/Plugins/PluginMetaReader.h"
+#include "Tbx/Runtime/Plugins/PluginMetaReader.h"
 
 namespace Tbx
 {

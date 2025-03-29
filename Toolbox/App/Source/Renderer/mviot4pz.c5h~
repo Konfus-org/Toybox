@@ -56,8 +56,7 @@ namespace Tbx
 
     void RenderPipeline::Clear()
     {
-        RenderClearFrameRequestEvent request;
-        EventDispatcher::Send(request);
+        //_renderer->Clear();
     }
 
     void RenderPipeline::Flush()
@@ -65,19 +64,41 @@ namespace Tbx
         _renderQueue.Clear();
     }
 
+    void Process(const std::weak_ptr<IWindow>& surface)
+    {
+        // TODO: we will change the surface on focus change event
+        TBX_VALIDATE_WEAK_PTR(surface, "Failed to draw to {0}, because the given weak pointer to the render surface is invalid.");
+
+        ////if (_renderSurface.lock() != surface.lock())
+        ////{
+        ////    // Update context if needed
+        ////    _renderer->SetContext(surface);
+        ////    _renderer->SetVSyncEnabled(_vsyncEnabled);
+        ////    _renderSurface = surface;
+        ////}
+
+        // TODO: Update viewport on window resize event
+        const auto& surfaceSize = surface.lock()->GetSize();
+        //_renderer->SetViewport({ 0, 0 }, surfaceSize);
+
+        // Render whatever is in our queue
+        //ProcessNextBatch();
+    }
+
     void RenderPipeline::ProcessNextBatch()
     {
-        BeginRenderFrameRequestEvent beginFrameRequest;
-        EventDispatcher::Send(beginFrameRequest);
+        ////_renderer->BeginDraw();
 
+        Render
+
+        // TODO: Send render command event
         if (!_renderQueue.IsEmpty())
         {
             const auto& batch = _renderQueue.Peek();
             RenderFrameRequestEvent request(batch);
-            EventDispatcher::Send(request);
+            EventDispatcher::Send<RenderFrameRequestEvent>(request);
             _renderQueue.Pop();
 
-            // TODO: put this into the renderer
             ////for (const auto& item : batch)
             ////{
             ////    using enum Tbx::RenderCommand;
@@ -124,8 +145,6 @@ namespace Tbx
         }
 
         ////_renderer->EndDraw();
-        EndRenderFrameRequestEvent endFrameRequest;
-        EventDispatcher::Send(beginFrameRequest);
     }
 
     void RenderPipeline::OnAppUpdated(const AppUpdatedEvent& e)
@@ -137,8 +156,8 @@ namespace Tbx
     {
         if (!e.IsFocused()) return;
 
-        RenderSetContextRequestEvent request(WindowManager::GetWindow(e.GetWindowId()));
-        EventDispatcher::Send(request);
+        SetRenderContextRequestEvent request(WindowManager::GetWindow(e.GetWindowId()));
+        EventDispatcher::Send<SetRenderContextRequestEvent>(request);
     }
 
     void RenderPipeline::OnWindowResize(const WindowResizedEvent& e)

@@ -1,0 +1,7 @@
+{
+    "name": "Application",
+    "language": "C++",
+    "version": "0.0.1",
+    "author": "Konfus-dev",
+    "description": "The app implementing Toolbox, this is loaded as a plugin to allow for hot reloading."
+}

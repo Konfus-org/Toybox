@@ -25,8 +25,9 @@ project "App"
         --"Spd Logging"
     }
 
-    -- To debug loading shared libs at runtime
-    filter "system:Windows"
-        links "DbgHelp.lib"
-
     ToolboxProjectConfigs()
+    ToolboxPluginPostBuildConfig()
+
+    -- Override default targetdir defined in project configs function
+    targetdir ("../../" .. OutputTargetPluginDir .. "")
+    objdir    ("../../" .. OutputIntermediatePluginDir .. "")

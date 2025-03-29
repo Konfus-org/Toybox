@@ -7,13 +7,15 @@ project "Runtime"
     includedirs
     {
         "%{IncludeDir.TbxCore}",
-        "%{IncludeDir.TbxApp}"
+        "%{IncludeDir.TbxApp}",
+        "%{IncludeDir.ModernJSON}"
     }
 
     links
     {
         "Core",
-        "App"
+        "App",
+        "ModernJSON"
     }
 
     ToolboxProjectConfigs()

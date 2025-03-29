@@ -5,17 +5,6 @@ project "GLFW Input"
     staticruntime "Off"
     ignoredefaultlibraries { "MSVCRT" }
 
-    targetdir ("../../../" .. OutputTargetPluginDir .. "")
-    objdir    ("../../../" .. OutputIntermediatePluginDir .. "")
-
-    files
-    {
-        "./**.h",
-        "./**.c",
-        "./**.hpp",
-        "./**.cpp"
-    }
-
     defines
     {
         "GLFW_INCLUDE_NONE"

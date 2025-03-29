@@ -23,6 +23,7 @@ namespace Tbx
 
     private:
         static bool _vsyncEnabled;
+        static UID _focusedWindowId;
         static UID _appUpdatedEventId;
         static UID _windowResizeEventId;
         static UID _windowFocusChangedEventId;

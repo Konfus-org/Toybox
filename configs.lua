@@ -87,6 +87,7 @@ end
 
 -- Easy way to configure toolbox project
 function ToolboxProjectConfigs()
+
     targetdir ("../../" .. OutputTargetDir .. "")
     objdir    ("../../" .. OutputIntermediateDir .. "")
 
@@ -98,10 +99,10 @@ function ToolboxProjectConfigs()
 
     files
     {
-        "./Include/**.h",
-        "./Include/**.hpp",
-        "./Source/**.c",
-        "./Source/**.cpp"
+        "./**.h",
+        "./**.c",
+        "./**.hpp",
+        "./**.cpp"
     }
 
     includedirs
@@ -114,12 +115,35 @@ function ToolboxProjectConfigs()
     DllConfigs()
 end
 
-function ToolboxPluginConfigs()
-
+-- Easy way to add post build steps for plugins
+function ToolboxPluginPostBuildConfig()
     postbuildcommands
     {
         "{ECHO} Copying plugin.meta from \"%{prj.location}plugin.meta\" to \"../../%{OutputTargetPluginDir}\"",
         "{COPYFILE} \"%{prj.location}plugin.meta\" \"../../%{OutputTargetPluginDir}\""
+    }
+end
+
+-- Easy way to configure toolbox plugin project
+function ToolboxPluginConfigs()
+
+    ToolboxPluginPostBuildConfig()
+
+    targetdir ("../../../" .. OutputTargetPluginDir .. "")
+    objdir    ("../../../" .. OutputIntermediatePluginDir .. "")
+
+    defines
+    {
+        "TOOLBOX",
+        "GLM_ENABLE_EXPERIMENTAL"
+    }
+
+    files
+    {
+        "./**.h",
+        "./**.c",
+        "./**.hpp",
+        "./**.cpp"
     }
 
     includedirs

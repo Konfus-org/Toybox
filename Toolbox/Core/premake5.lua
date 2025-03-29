@@ -21,4 +21,8 @@ project "Core"
         "%{IncludeDir.stbimg}"
     }
 
+    -- To debug loading shared libs at runtime
+    filter "system:Windows"
+        links "DbgHelp.lib"
+
     ToolboxProjectConfigs()

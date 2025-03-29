@@ -1,7 +1,8 @@
-#include "Tbx/App/PCH.h"
-#include "Tbx/App/Plugins/PluginMetaReader.h"
+#include "Tbx/Runtime/Plugins/PluginMetaReader.h"
+#include <Tbx/Core/Debug/DebugAPI.h>
 #include <nlohmann/json.hpp>
 #include <fstream>
+#include <map>
 
 namespace Tbx
 {

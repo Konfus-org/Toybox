@@ -18,7 +18,9 @@ namespace Tbx
     App::~App()
     {
         if (_isRunning) 
+        {
             ShutdownSystems();
+        }
     }
     
     void App::Launch(bool headless)
@@ -62,24 +64,6 @@ namespace Tbx
         for (const auto& layer : _layerStack)
         {
             layer->OnUpdate();
-        }
-
-        // Finally update windows
-        // Needs to be last, as update will trigger events to be processed, and in the case of shutdown, we need to process that at the end of our loop
-        if (!_isHeadless)
-        {
-            // TODO: break this stuff out into their own layers!
-            // Windowing layer, rendering layer, input layer...
-            
-            // Update windows
-            for (const auto& window : WindowManager::GetAllWindows())
-            {
-                RenderPipeline::Clear();
-                RenderPipeline::Process(window);
-
-                Input::SetContext(window); // TODO: do this on focus instead...
-                window.lock()->Update(); // TODO: do this on update instead...
-            }
         }
     }
 

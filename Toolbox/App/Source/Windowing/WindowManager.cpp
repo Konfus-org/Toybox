@@ -1,6 +1,5 @@
 #include "Tbx/App/PCH.h"
 #include "Tbx/App/Windowing/WindowManager.h"
-#include "Tbx/App/Events/WindowEvents.h"
 #include <Tbx/Core/Events/EventDispatcher.h>
 #include <Tbx/Core/Debug/DebugAPI.h>
 
@@ -9,6 +8,19 @@ namespace Tbx
     std::map<UID, std::shared_ptr<IWindow>> WindowManager::_windows;
     UID WindowManager::_mainWindowId = -1;
     UID WindowManager::_focusedWindowId = -1;
+    UID WindowManager::_appUpdatedEventId = -1;
+    UID WindowManager::_windowCloseEventId = -1;
+    UID WindowManager::_windowFocusChangedEventId = -1;
+
+    void WindowManager::Initialize()
+    {
+        _appUpdatedEventId = 
+            EventDispatcher::Subscribe<AppUpdatedEvent>(TBX_BIND_STATIC_CALLBACK(OnAppUpdated));
+        _windowCloseEventId =
+            EventDispatcher::Subscribe<WindowClosedEvent>(TBX_BIND_STATIC_CALLBACK(OnWindowClose));
+        _windowFocusChangedEventId =
+            EventDispatcher::Subscribe<WindowFocusChangedEvent>(TBX_BIND_STATIC_CALLBACK(OnWindowFocusChanged));
+    }
 
     UID WindowManager::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
@@ -63,5 +75,26 @@ namespace Tbx
     void WindowManager::CloseAllWindows()
     {
         _windows.clear();
+    }
+
+    void WindowManager::OnAppUpdated(const AppUpdatedEvent& e)
+    {
+        for (const auto& [id, window] : _windows)
+        {
+            window->Update();
+        }
+    }
+
+    void WindowManager::OnWindowClose(const WindowClosedEvent& e)
+    {
+        CloseWindow(e.GetWindowId());
+    }
+
+    void WindowManager::OnWindowFocusChanged(const WindowFocusChangedEvent& e)
+    {
+        if (e.IsFocused())
+        {
+            _focusedWindowId = e.GetWindowId();
+        }
     }
 }
