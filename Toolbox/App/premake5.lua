@@ -4,11 +4,23 @@ project "App"
     cppdialect "C++20"
     staticruntime "Off"
 
+    targetdir ("../../" .. OutputTargetPluginDir .. "")
+    objdir    ("../../" .. OutputIntermediatePluginDir .. "")
+
     pchheader "Tbx/App/PCH.h"
     pchsource "Source/PCH.cpp" -- Full path MUST be specified relative to the premake5.lua (this) script.
 
+    files
+    {
+        "./**.h",
+        "./**.c",
+        "./**.hpp",
+        "./**.cpp"
+    }
+
     includedirs
     {
+        "./Include",
         "%{IncludeDir.TbxCore}",
         "%{IncludeDir.ModernJSON}"
     }
@@ -25,9 +37,18 @@ project "App"
         --"Spd Logging"
     }
 
-    ToolboxProjectConfigs()
-    ToolboxPluginPostBuildConfig()
+    defines
+    {
+        "TOOLBOX",
+        "GLM_ENABLE_EXPERIMENTAL"
+    }
 
-    -- Override default targetdir defined in project configs function
-    targetdir ("../../" .. OutputTargetPluginDir .. "")
-    objdir    ("../../" .. OutputIntermediatePluginDir .. "")
+    postbuildcommands
+    {
+        "{ECHO} Copying plugin.meta from \"%{prj.location}plugin.meta\" to \"../../%{OutputTargetPluginDir}\"",
+        "{COPYFILE} \"%{prj.location}plugin.meta\" \"../../%{OutputTargetPluginDir}\""
+    }
+
+    PlatformConfigs()
+    StandardBuildConfigs()
+    DllConfigs()

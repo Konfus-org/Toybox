@@ -115,19 +115,14 @@ function ToolboxProjectConfigs()
     DllConfigs()
 end
 
--- Easy way to add post build steps for plugins
-function ToolboxPluginPostBuildConfig()
-    postbuildcommands
-    {
-        "{ECHO} Copying plugin.meta from \"%{prj.location}plugin.meta\" to \"../../%{OutputTargetPluginDir}\"",
-        "{COPYFILE} \"%{prj.location}plugin.meta\" \"../../%{OutputTargetPluginDir}\""
-    }
-end
-
 -- Easy way to configure toolbox plugin project
 function ToolboxPluginConfigs()
 
-    ToolboxPluginPostBuildConfig()
+    postbuildcommands
+    {
+        "{ECHO} Copying plugin.meta from \"%{prj.location}plugin.meta\" to \"../../../%{OutputTargetPluginDir}\"",
+        "{COPYFILE} \"%{prj.location}plugin.meta\" \"../../../%{OutputTargetPluginDir}\""
+    }
 
     targetdir ("../../../" .. OutputTargetPluginDir .. "")
     objdir    ("../../../" .. OutputIntermediatePluginDir .. "")

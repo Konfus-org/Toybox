@@ -1,6 +1,8 @@
 #pragma once
 #include "SpdLoggerPlugin.h"
 #include "SpdLogger.h"
+#include <Tbx/Core/Plugins/PluginAPI.h>
+#include <Tbx/Core/Events/EventDispatcher.h>
 
 namespace SpdLogging
 {
@@ -44,14 +46,14 @@ namespace SpdLogging
         if (logger != _loggers.end()) 
         {
             (*logger)->Log((int)e.GetLogLevel(), e.GetLineToWriteToLog());
-            e.Handled = true;
+            e.IsHandled = true;
         }
     }
 
     void SpdLoggerPlugin::OnOpenLog(Tbx::OpenLogRequestEvent& e)
     {
         Provide()->Open(e.GetLogName(), e.GetLogFilePath());
-        e.Handled = true;
+        e.IsHandled = true;
     }
 
     void SpdLoggerPlugin::OnCloseLog(Tbx::CloseLogRequestEvent& e)
@@ -61,7 +63,7 @@ namespace SpdLogging
         {
             (*logger)->Close();
             _loggers.erase(std::remove(_loggers.begin(), _loggers.end(), *logger), _loggers.end());
-            e.Handled = true;
+            e.IsHandled = true;
         }
     }
 }

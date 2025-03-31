@@ -1,6 +1,6 @@
 #pragma once
 #include "IBindable.h"
-#include <TbxCore.h>
+#include <Tbx/Core/Rendering/Shader.h>
 #include <glad/glad.h>
 
 namespace OpenGLRendering

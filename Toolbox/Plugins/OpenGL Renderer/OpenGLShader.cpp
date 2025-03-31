@@ -1,4 +1,5 @@
 #include "OpenGLShader.h"
+#include <Tbx/Core/Rendering/Color.h>
 
 namespace OpenGLRendering
 {

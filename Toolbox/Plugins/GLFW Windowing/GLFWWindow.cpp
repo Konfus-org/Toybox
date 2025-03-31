@@ -2,8 +2,7 @@
 #include <GLFW/glfw3native.h>
 #include <Tbx/Core/Debug/DebugAPI.h>
 #include <Tbx/Core/Events/EventDispatcher.h>
-#include <Tbx/App/Events/MouseEvents.h>
-#include <Tbx/App/Events/KeyEvents.h>
+#include <Tbx/App/Events/InputEvents.h>
 
 namespace GLFWWindowing
 {

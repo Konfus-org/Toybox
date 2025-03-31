@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Plugin.h"
-#include "PluginInfo.h"
 
 #ifdef TBX_PLATFORM_WINDOWS
     #define TBX_EXPORT_PLUGIN_ITEM __declspec(dllexport)

@@ -1,5 +1,6 @@
 #pragma once
-#include <TbxCore.h>
+#include <Tbx/App/Input/IInputHandler.h>
+#include <Tbx/Core/Plugins/PluginsAPI.h>
 
 namespace GLFWInput
 {

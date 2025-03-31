@@ -5,7 +5,7 @@
 #include "OpenGLTexture.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <TbxCore.h>
+#include <Tbx/App/Render Pipeline/IRenderer.h>
 
 namespace OpenGLRendering
 {

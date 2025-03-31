@@ -18,6 +18,7 @@ workspace "Toolbox"
         include "3rd Party/Libraries/GLFW"
         include "3rd Party/Libraries/spdlog"
         include "3rd Party/Libraries/ModernJSON"
+        include "3rd Party/Libraries/ImGui"
         include "3rd Party/Libraries/stbimg"
 
     group "Toolbox"

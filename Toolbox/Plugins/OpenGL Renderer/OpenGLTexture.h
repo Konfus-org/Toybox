@@ -1,6 +1,6 @@
 #pragma once
 #include "IBindable.h"
-#include <TbxCore.h>
+#include <Tbx/Core/Rendering/Texture.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 

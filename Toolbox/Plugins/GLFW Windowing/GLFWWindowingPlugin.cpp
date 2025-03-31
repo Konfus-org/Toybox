@@ -1,5 +1,7 @@
 #include "GLFWWindowingPlugin.h"
 #include "GLFWWindowFactory.h"
+#include <Tbx/App/Events/WindowEvents.h>
+#include <Tbx/Core/Debug/DebugAPI.h>
 #include <GLFW/glfw3.h>
 
 namespace GLFWWindowing

@@ -16,15 +16,22 @@ project "ImgGui Debug View"
         "./**.cpp"
     }
 
+    defines
+    {
+        "GLFW_INCLUDE_NONE"
+    }
+
     includedirs
     {
         "./",
-        "%{IncludeDir.imgui}"
+        "%{IncludeDir.ImGui}",
+        "%{IncludeDir.GLFW}"
     }
 
     links
     {
-        "imgui"
+        "GLFW",
+        "ImGui"
     }
 
     ToolboxPluginConfigs()

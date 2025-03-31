@@ -1,4 +1,5 @@
 #include "OpenGLContext.h"
+#include <Tbx/Core/Debug/DebugAPI.h>
 #include <glad/glad.h>
 
 namespace OpenGLRendering
