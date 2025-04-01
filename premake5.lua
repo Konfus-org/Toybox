@@ -3,7 +3,7 @@ include "includes"
 
 workspace "Toolbox"
     architecture "x86_64"
-    startproject "Tests/Simple App Test"
+    startproject "Toolbox/Runtime"
 
     configurations
     {

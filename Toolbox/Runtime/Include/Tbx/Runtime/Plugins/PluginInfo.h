@@ -15,6 +15,7 @@ namespace Tbx
             _author = metaData["author"];
             _version = metaData["version"];
             _description = metaData["description"];
+            _lib = metaData["lib"];
         }
 
         bool IsValid() const { return !(_name.empty() || _author.empty() || _version.empty() || _description.empty()); }
@@ -22,6 +23,7 @@ namespace Tbx
         std::string GetAuthor() const { return _author; }
         std::string GetVersion() const { return _version; }
         std::string GetDescription() const { return _description; }
+        std::string GetLib() const { return _lib; }
 
         std::string ToString() const
         {
@@ -33,6 +35,6 @@ namespace Tbx
         std::string _author;
         std::string _version;
         std::string _description;
-
+        std::string _lib;
     };
 }

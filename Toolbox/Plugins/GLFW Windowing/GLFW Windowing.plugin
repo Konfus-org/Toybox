@@ -1,5 +1,6 @@
 {
     "name": "GLFW Windowing",
+    "lib": "GLFW Windowing.dll",
     "language": "C++",
     "version": "0.0.1",
     "author": "Konfus-dev",

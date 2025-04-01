@@ -28,7 +28,7 @@ namespace Tbx
         EXPORT const std::string& GetName() const;
         EXPORT std::weak_ptr<IWindow> GetMainWindow() const;
 
-        EXPORT static std::weak_ptr<App> GetInstance() { return _instance; }
+        EXPORT static std::weak_ptr<App> GetInstance();
 
     private:
         static std::shared_ptr<App> _instance;

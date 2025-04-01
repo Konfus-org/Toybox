@@ -120,8 +120,8 @@ function ToolboxPluginConfigs()
 
     postbuildcommands
     {
-        "{ECHO} Copying plugin.meta from \"%{prj.location}plugin.meta\" to \"../../../%{OutputTargetPluginDir}\"",
-        "{COPYFILE} \"%{prj.location}plugin.meta\" \"../../../%{OutputTargetPluginDir}\""
+        "{ECHO} Copying plugin meta from \"%{prj.location}%{prj.name}.plugin\" to \"../../../%{OutputTargetPluginDir}\"",
+        "{COPYFILE} \"%{prj.location}%{prj.name}.plugin\" \"../../../%{OutputTargetPluginDir}\""
     }
 
     targetdir ("../../../" .. OutputTargetPluginDir .. "")
@@ -163,13 +163,21 @@ function UsingToolboxConfigs()
     includedirs
     {
         "%{IncludeDir.TbxCore}",
-        "%{IncludeDir.TbxApp}"
+        "%{IncludeDir.TbxApp}",
+        "%{IncludeDir.TbxRuntime}",
     }
 
     links
     {
         "Core",
-        "App"
+        "App",
+        "Runtime"
+    }
+
+    postbuildcommands
+    {
+        "{ECHO} Copying plugin meta from \"%{prj.location}%{prj.name}.plugin\" to \"../../%{OutputTargetPluginDir}\"",
+        "{COPYFILE} \"%{prj.location}%{prj.name}.plugin\" \"../../%{OutputTargetPluginDir}\""
     }
 
     PlatformConfigs()

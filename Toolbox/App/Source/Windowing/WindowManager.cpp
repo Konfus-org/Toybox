@@ -77,6 +77,11 @@ namespace Tbx
 
     void WindowManager::CloseWindow(const UID& id)
     {
+        if (_windows.empty())
+        {
+            return;
+        }
+
         TBX_ASSERT(_windows.find(id) != _windows.end(), "Window with the id {} does not exist!", id.ToString());
         _windows.erase(id);
     }

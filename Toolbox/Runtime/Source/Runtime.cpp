@@ -1,3 +1,4 @@
+#include "Tbx/Runtime/Runtime.h"
 #include "Tbx/Runtime/Plugins/PluginServer.h"
 #include "Tbx/Core/Debug/DebugAPI.h"
 #include "Tbx/App/App.h"
@@ -6,15 +7,16 @@
 
 namespace Tbx
 {
-    void Run(App& app)
+
+    // Loads plugins and logs which plugins were loaded
+    void LoadPlugins()
     {
-        // Load plugins
 #ifdef TBX_DEBUG
 
         // DEBUG:
-        
+
         // Open plugins with debug/build path
-        PluginServer::LoadPlugins("..\\Build\\bin\\Plugins");
+        PluginServer::LoadPlugins("..\\..\\Build\\bin\\Plugins");
 
         // No log file in debug
         Log::Open();
@@ -51,28 +53,42 @@ namespace Tbx
         Log::Open(logPath);
 
 #endif
-        // Launch and run application
-        app.Launch();
-        while (app.IsRunning()) app.Update();
-        app.Close();
+    }
 
-        // Has to be last! 
-        // Everything depends on plugins, including the log, input and rendering. 
-        // So they cannot be shutdown after plugins are unloaded.
+    // Unloads all plugins
+    // Has to be last! 
+    // Everything depends on plugins, including the log, input and rendering. 
+    // So they cannot be shutdown after plugins are unloaded.
+    void UnloadPlugins()
+    {
         PluginServer::Shutdown();
+    }
+
+    // Launches and runs a toolbox application
+    void Run(std::shared_ptr<App> app)
+    {
+        app->Launch();
+        while (app->IsRunning()) app->Update();
+        app->Close();
     }
 }
 
+std::shared_ptr<Tbx::App> _appPlugin;
 int main()
 {
     try
     {
-        auto appPlugin = Tbx::PluginServer::GetPlugin<Tbx::App>();
-        Tbx::Run(*appPlugin);
+        Tbx::LoadPlugins();
+
+        _appPlugin = Tbx::PluginServer::GetPlugin<Tbx::App>();
+        Tbx::Run(_appPlugin);
+
+        Tbx::UnloadPlugins();
     }
     catch (const std::exception& ex)
     {
         TBX_ERROR("{0}", ex.what());
+
         return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;

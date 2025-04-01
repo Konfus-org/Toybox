@@ -1,4 +1,4 @@
-project "ImgGui Debug View"
+project "ImGui Debug View"
     kind "SharedLib"
     language "C++"
     cppdialect "C++20"

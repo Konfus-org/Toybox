@@ -3,18 +3,20 @@
 
 namespace Tbx
 {
-    void LoadedPlugin::Load(const std::string& folderPath, const std::string& pluginDllFileName)
+    void LoadedPlugin::Load(const std::string& pluginFolderPath, const std::string& pluginFileName)
     {
         // Load plugin metadata
-        const auto& pluginMetadataPath = folderPath + "\\" + "plugin.meta";
+        const auto& pluginMetadataPath = pluginFolderPath + "\\" + pluginFileName;
         _pluginInfo.Load(pluginMetadataPath);
+
+        // Check to see if this is an application being loaded
         if (_pluginInfo.IsValid() == false)
         {
-            const std::string& failureMsg = "Failed to load plugin metadata! Does it exist at: {0}";
-            TBX_ERROR(failureMsg, pluginMetadataPath);
+            const auto& appMetadataPath = pluginFolderPath + "\\" + "app.meta";
+            _pluginInfo.Load(appMetadataPath);
         }
 
-        const std::string& pluginFullPath = folderPath + "\\" + pluginDllFileName;
+        const std::string& pluginFullPath = pluginFolderPath + "\\" + _pluginInfo.GetLib();
         _library.Load(pluginFullPath);
         if (_library.IsValid() == false)
         {
@@ -22,6 +24,7 @@ namespace Tbx
             TBX_ERROR(failureMsg, pluginFullPath);
         }
 
+        // TODO: have a verbose mode!
 #ifdef TBX_DEBUG
         // Uncomment to list symbols
         // library->ListSymbols();
@@ -74,8 +77,11 @@ namespace Tbx
 
     void LoadedPlugin::Unload()
     {
-        _plugin->OnUnload();
-        _plugin.reset();
+        if (_plugin != nullptr)
+        {
+            _plugin->OnUnload();
+            _plugin.reset();
+        }
         _library.Unload();
     }
 }

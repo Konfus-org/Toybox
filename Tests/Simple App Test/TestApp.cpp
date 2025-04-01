@@ -1,5 +1,6 @@
 #include "TestApp.h"
 #include "TestLayer.h"
+#include <Tbx/Core/Plugins/RegisterPlugin.h>
 
 SandboxApp::SandboxApp() : Tbx::App("Sandbox")
 {
@@ -40,3 +41,5 @@ void SandboxApp::Destroy(Tbx::App* toDestroy)
 {
     delete toDestroy;
 }
+
+TBX_REGISTER_PLUGIN(SandboxApp);

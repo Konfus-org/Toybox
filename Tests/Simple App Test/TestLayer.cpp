@@ -5,7 +5,6 @@
 #include <Tbx/App/Input/InputCodes.h>
 #include <Tbx/App/Time/DeltaTime.h>
 #include <Tbx/App/App.h>
-#include <gl/GL.h>
 #include <chrono>
 
 float _camMoveSpeed = 1.0f;
@@ -61,14 +60,14 @@ static void CreateTestMat()
 	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadShader, shader);
 
 	// Upload texture to renderer
-	auto testTex = Tbx::Texture("Assets/Checkerboard.png");
-	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadTexture, Tbx::TextureRenderData(testTex, 0));
+	////auto testTex = Tbx::Texture("Assets/Checkerboard.png");
+	////Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadTexture, Tbx::TextureRenderData(testTex, 0));
 	// Uploading texture position (0 rn for diffuse, add more for other textures like normals, height, etc...)
 	// TODO: automate the texture position
 	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("textureUniform", 0, Tbx::ShaderDataType::Int));
 
 	// Create test material
-	_testMat = Tbx::Material(shader, { testTex });
+	//_testMat = Tbx::Material(shader, { testTex });
 }
 
 static void DrawSquareTest()
@@ -113,7 +112,7 @@ void TestLayer::OnAttach()
 	CreateTestMat();
 
 	// Configure camera
-	const auto& mainWindow = Tbx::App::GetInstance()->GetMainWindow();
+	const auto& mainWindow = Tbx::App::GetInstance().lock()->GetMainWindow();
 	const auto& mainWindowCam = mainWindow.lock()->GetCamera().lock();
 	const auto& mainWindowSize = mainWindow.lock()->GetSize();
 
@@ -142,55 +141,55 @@ void TestLayer::OnUpdate()
 	const auto& deltaTime = Tbx::Time::DeltaTime::Seconds();
 	//TBX_TRACE("Delta Time: {0}", deltaTime);
 
-	const auto& mainWindow = Tbx::App::GetInstance()->GetMainWindow();
+	const auto& mainWindow = Tbx::App::GetInstance().lock()->GetMainWindow();
 	const auto& mainWindowCam = mainWindow.lock()->GetCamera().lock();
 
 	// Camera movement and rotation
-	if (Tbx::Input::IsKeyDown(TBX_KEY_W))
-	{
-		mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Up() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
-	}
-    else if (Tbx::Input::IsKeyDown(TBX_KEY_S))
-    {
-        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Down() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
-    }
+	////if (Tbx::Input::IsKeyDown(TBX_KEY_W))
+	////{
+	////	mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Up() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
+	////}
+ ////   else if (Tbx::Input::IsKeyDown(TBX_KEY_S))
+ ////   {
+ ////       mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Down() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
+ ////   }
 
-    if (Tbx::Input::IsKeyDown(TBX_KEY_A))
-    {
-        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Left() * _camMoveSpeed) * Tbx::Time::DeltaTime::Seconds());
-    }
-    else if (Tbx::Input::IsKeyDown(TBX_KEY_D))
-    {
-        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Right() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
-    }
+ ////   if (Tbx::Input::IsKeyDown(TBX_KEY_A))
+ ////   {
+ ////       mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Left() * _camMoveSpeed) * Tbx::Time::DeltaTime::Seconds());
+ ////   }
+ ////   else if (Tbx::Input::IsKeyDown(TBX_KEY_D))
+ ////   {
+ ////       mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Right() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
+ ////   }
 
-    if (Tbx::Input::IsKeyDown(TBX_KEY_UP))
-    {
-        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Forward() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
-    }
-    else if (Tbx::Input::IsKeyDown(TBX_KEY_DOWN))
-    {
-        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Backward() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
-    }
+ ////   if (Tbx::Input::IsKeyDown(TBX_KEY_UP))
+ ////   {
+ ////       mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Forward() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
+ ////   }
+ ////   else if (Tbx::Input::IsKeyDown(TBX_KEY_DOWN))
+ ////   {
+ ////       mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Backward() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
+ ////   }
 
-    if (Tbx::Input::IsKeyDown(TBX_KEY_Q))
-    {
-		const auto& currentRot = mainWindowCam->GetRotation();
-		const auto& newRot = currentRot * (Tbx::Vector3(0.0f, 0.0f, -1.0f) * _camRotateSpeed * Tbx::Time::DeltaTime::Seconds());
-		mainWindowCam->SetRotation(newRot);
-    }
-    else if (Tbx::Input::IsKeyDown(TBX_KEY_E))
-    {
-		const auto& currentRot = mainWindowCam->GetRotation();
-		const auto& newRot = currentRot * (Tbx::Vector3(0.0f, 0.0f, 1.0f) * _camRotateSpeed * Tbx::Time::DeltaTime::Seconds());
-		mainWindowCam->SetRotation(newRot);
-    }
+ ////   if (Tbx::Input::IsKeyDown(TBX_KEY_Q))
+ ////   {
+	////	const auto& currentRot = mainWindowCam->GetRotation();
+	////	const auto& newRot = currentRot * (Tbx::Vector3(0.0f, 0.0f, -1.0f) * _camRotateSpeed * Tbx::Time::DeltaTime::Seconds());
+	////	mainWindowCam->SetRotation(newRot);
+ ////   }
+ ////   else if (Tbx::Input::IsKeyDown(TBX_KEY_E))
+ ////   {
+	////	const auto& currentRot = mainWindowCam->GetRotation();
+	////	const auto& newRot = currentRot * (Tbx::Vector3(0.0f, 0.0f, 1.0f) * _camRotateSpeed * Tbx::Time::DeltaTime::Seconds());
+	////	mainWindowCam->SetRotation(newRot);
+ ////   }
 
-	// Triangle movement
-	if (Tbx::Input::IsKeyDown(TBX_KEY_SPACE))
-	{
-		_trianglePosition = _trianglePosition + (Tbx::Vector3::Up() * _camMoveSpeed * 2 * Tbx::Time::DeltaTime::Seconds());
-	}
+	////// Triangle movement
+	////if (Tbx::Input::IsKeyDown(TBX_KEY_SPACE))
+	////{
+	////	_trianglePosition = _trianglePosition + (Tbx::Vector3::Up() * _camMoveSpeed * 2 * Tbx::Time::DeltaTime::Seconds());
+	////}
 
 	DrawSquareTest();
 

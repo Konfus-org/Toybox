@@ -35,19 +35,12 @@ namespace Tbx
             // Skip anything that isn't a file
             if (!entry.is_regular_file()) continue;
 
-            // Platform-specific extension check
-#if defined(TBX_PLATFORM_WINDOWS)
-            if (entry.path().extension() == ".dll")
-#elif defined(TBX_PLATFORM_LINUX)
-            if (entry.path().extension() == ".so")
-#elif defined(TBX_PLATFORM_OSX)
-            if (entry.path().extension() == ".dylib")
-#else
-            if (false)
-#endif
+            // Extension check
+            if (entry.path().extension() == ".plugin")
             {
                 const std::string& fileName = entry.path().filename().string();
                 auto plug = std::make_shared<LoadedPlugin>(pathToPlugins, fileName);
+                if (plug->IsValid() == false) continue;
                 _loadedPlugins.push_back(plug);
             }
         }

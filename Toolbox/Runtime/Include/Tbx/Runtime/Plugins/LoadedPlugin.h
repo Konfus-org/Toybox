@@ -1,5 +1,7 @@
 #pragma once
 #include <Tbx/Core/Plugins/PluginsAPI.h>
+#include <Tbx/Runtime/Plugins/PluginInfo.h>
+#include <Tbx/Core/DllExport.h>
 #include <memory>
 
 namespace Tbx
@@ -7,21 +9,22 @@ namespace Tbx
     class LoadedPlugin
     {
     public:
-        explicit(false) LoadedPlugin(const std::string& folderPath, const std::string& pluginDllFileName) 
+        EXPORT explicit(false) LoadedPlugin(const std::string& pluginFolderPath, const std::string& pluginFileName) 
         {
-            Load(folderPath, pluginDllFileName);
+            Load(pluginFolderPath, pluginFileName);
         }
 
-        ~LoadedPlugin() 
+        EXPORT ~LoadedPlugin()
         { 
             Unload(); 
         }
 
-        const PluginInfo& GetPluginInfo() const { return _pluginInfo; }
-        std::shared_ptr<IPlugin> GetPlugin() const { return _plugin; }
+        EXPORT bool IsValid() const { return _plugin != nullptr; }
+        EXPORT const PluginInfo& GetPluginInfo() const { return _pluginInfo; }
+        EXPORT std::shared_ptr<IPlugin> GetPlugin() const { return _plugin; }
 
     private:
-        void Load(const std::string& folderPath, const std::string& pluginDllFileName);
+        void Load(const std::string& pluginFolderPath, const std::string& pluginFileName);
         void Unload();
 
         PluginInfo _pluginInfo;

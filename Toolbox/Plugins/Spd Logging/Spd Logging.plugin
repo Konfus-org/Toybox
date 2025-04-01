@@ -1,5 +1,6 @@
 {
     "name": "Spd Logging",
+    "lib": "Spd Logging.dll",
     "language": "C++",
     "version": "0.0.1",
     "author": "Konfus-dev",

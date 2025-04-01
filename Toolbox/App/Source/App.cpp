@@ -43,6 +43,7 @@ namespace Tbx
             Input::Initialize();
 
             // Open main window
+            WindowManager::Initialize();
             WindowManager::OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
             auto mainWindow = WindowManager::GetMainWindow();
         }
@@ -128,9 +129,9 @@ namespace Tbx
         }
     }
 
-    std::weak_ptr<IWindow> App::GetMainWindow() const
+    bool App::IsRunning() const
     {
-        return WindowManager::GetMainWindow();
+        return _isRunning;
     }
 
     const std::string& App::GetName() const
@@ -138,8 +139,13 @@ namespace Tbx
         return _name;
     }
 
-    bool App::IsRunning() const
+    std::weak_ptr<IWindow> App::GetMainWindow() const
     {
-        return _isRunning;
+        return WindowManager::GetMainWindow();
+    }
+
+    std::weak_ptr<App> App::GetInstance()
+    {
+        return _instance;
     }
 }

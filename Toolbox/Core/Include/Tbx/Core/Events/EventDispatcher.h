@@ -16,7 +16,7 @@ namespace Tbx
         template <class TEvent>
         EXPORT static inline UID Subscribe(const CallbackFunction<TEvent>& callback)
         {
-            std::scoped_lock<std::mutex> lock(GetMutex());
+            //std::scoped_lock<std::mutex> lock(GetMutex());
 
             const auto& eventInfo = typeid(TEvent);
             const auto& hashCode = eventInfo.hash_code();
@@ -35,7 +35,7 @@ namespace Tbx
 
         EXPORT static inline void Unsubscribe(const UID& callbackToUnsub)
         {
-            std::scoped_lock<std::mutex> lock(GetMutex());
+            //std::scoped_lock<std::mutex> lock(GetMutex());
 
             for (auto& [hashCode, callbacks] : GetSubscribers())
             {
@@ -57,7 +57,7 @@ namespace Tbx
         template <class TEvent>
         EXPORT static inline bool Send(TEvent& event)
         {
-            std::scoped_lock<std::mutex> lock(GetMutex());
+            //std::scoped_lock<std::mutex> lock(GetMutex());
 
             const auto& eventInfo = typeid(TEvent);
             const auto& hashCode = eventInfo.hash_code();

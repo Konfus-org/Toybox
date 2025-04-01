@@ -1,5 +1,5 @@
 project "Runtime"
-    kind "SharedLib"
+    kind "ConsoleApp"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
@@ -15,7 +15,13 @@ project "Runtime"
     {
         "Core",
         "App",
-        "ModernJSON"
+        "ModernJSON",
+
+        -- Set links for modules so we don't have to manually rebuild when they change
+        "OpenGL Renderer",
+        "GLFW Windowing",
+        "GLFW Input",
+        "Spd Logging"
     }
 
     ToolboxProjectConfigs()
