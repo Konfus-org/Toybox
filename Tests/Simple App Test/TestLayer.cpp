@@ -1,5 +1,10 @@
 #include "TestLayer.h"
-#include "SandboxApp.h"
+#include <Tbx/Core/Rendering/RenderingAPI.h>
+#include <Tbx/App/Render Pipeline/RenderPipelineAPI.h>
+#include <Tbx/App/Input/Input.h>
+#include <Tbx/App/Input/InputCodes.h>
+#include <Tbx/App/Time/DeltaTime.h>
+#include <Tbx/App/App.h>
 #include <gl/GL.h>
 #include <chrono>
 
@@ -53,14 +58,14 @@ static void CreateTestMat()
         )";
 
 	const auto& shader = Tbx::Shader(vertexSrc, fragmentSrc);
-	Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShader, shader);
+	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadShader, shader);
 
 	// Upload texture to renderer
 	auto testTex = Tbx::Texture("Assets/Checkerboard.png");
-	Tbx::Rendering::Submit(Tbx::RenderCommand::UploadTexture, Tbx::TextureRenderData(testTex, 0));
+	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadTexture, Tbx::TextureRenderData(testTex, 0));
 	// Uploading texture position (0 rn for diffuse, add more for other textures like normals, height, etc...)
 	// TODO: automate the texture position
-	Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("textureUniform", 0, Tbx::ShaderDataType::Int)); 
+	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("textureUniform", 0, Tbx::ShaderDataType::Int));
 
 	// Create test material
 	_testMat = Tbx::Material(shader, { testTex });
@@ -97,8 +102,8 @@ static void DrawSquareTest()
 	const std::vector<Tbx::uint32>& squareMeshIndices = { 0, 1, 2, 2, 3, 0 };
 	const auto& squareMesh = Tbx::Mesh(sqaureMeshVerts, squareMeshIndices);
 
-	Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("transform", Tbx::Matrix::FromPosition(_trianglePosition), Tbx::ShaderDataType::Mat4));
-	Tbx::Rendering::Submit(Tbx::RenderCommand::RenderMesh, Tbx::MeshRenderData(squareMesh, _testMat));
+	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("transform", Tbx::Matrix::FromPosition(_trianglePosition), Tbx::ShaderDataType::Mat4));
+	Tbx::RenderPipeline::Push(Tbx::RenderCommand::RenderMesh, Tbx::MeshRenderData(squareMesh, _testMat));
 }
 
 void TestLayer::OnAttach()
@@ -108,7 +113,7 @@ void TestLayer::OnAttach()
 	CreateTestMat();
 
 	// Configure camera
-	const auto& mainWindow = SandboxApp::Instance->GetMainWindow();
+	const auto& mainWindow = Tbx::App::GetInstance()->GetMainWindow();
 	const auto& mainWindowCam = mainWindow.lock()->GetCamera().lock();
 	const auto& mainWindowSize = mainWindow.lock()->GetSize();
 
@@ -121,8 +126,8 @@ void TestLayer::OnAttach()
 	////mainWindowCam->SetOrthagraphic(1, mainWindowSize.AspectRatio(), -1, 10);
 	////mainWindowCam->SetPosition(Tbx::Vector3(0.0f, 0.0f, -1.0f));
 
-	Tbx::Rendering::SetVSyncEnabled(true);
-    Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix(), Tbx::ShaderDataType::Mat4));
+	Tbx::RenderPipeline::SetVSyncEnabled(true);
+	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix(), Tbx::ShaderDataType::Mat4));
 }
 
 void TestLayer::OnDetach()
@@ -137,7 +142,7 @@ void TestLayer::OnUpdate()
 	const auto& deltaTime = Tbx::Time::DeltaTime::Seconds();
 	//TBX_TRACE("Delta Time: {0}", deltaTime);
 
-	const auto& mainWindow = SandboxApp::Instance->GetMainWindow();
+	const auto& mainWindow = Tbx::App::GetInstance()->GetMainWindow();
 	const auto& mainWindowCam = mainWindow.lock()->GetCamera().lock();
 
 	// Camera movement and rotation
@@ -191,5 +196,5 @@ void TestLayer::OnUpdate()
 
 	//TBX_TRACE("Camera Position: {0}", mainWindowCam->GetPosition().ToString());
 
-    Tbx::Rendering::Submit(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix(), Tbx::ShaderDataType::Mat4));
+    Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix(), Tbx::ShaderDataType::Mat4));
 }

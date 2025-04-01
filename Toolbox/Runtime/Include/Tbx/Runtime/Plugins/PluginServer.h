@@ -33,6 +33,24 @@ namespace Tbx
             return nullptr;
         }
 
+        template <typename T>
+        EXPORT static std::vector<std::shared_ptr<T>> GetPlugins()
+        {
+            std::vector<std::shared_ptr<T>> plugins;
+            const auto& loadedPlugins = GetLoadedPlugins();
+            for (const auto& loadedPlug : loadedPlugins)
+            {
+                const auto& plug = loadedPlug->GetPlugin();
+                const auto& castedPlug = std::dynamic_pointer_cast<Plugin<T>>(plug);
+                if (castedPlug)
+                {
+                    plugins.push_back(castedPlug);
+                }
+            }
+
+            return plugins;
+        }
+
     private:
         static std::vector<std::shared_ptr<LoadedPlugin>> _loadedPlugins;
     };

@@ -6,7 +6,6 @@ namespace Tbx
 {
     std::vector<std::shared_ptr<LoadedPlugin>> PluginServer::_loadedPlugins;
 
-    // TODO: implement a way to get multiple plugins of a type (we want to have layer plugins for example)
     std::shared_ptr<IPlugin> PluginServer::GetPlugin(const std::string_view& name)
     {
         for (const auto& loadedPlug : _loadedPlugins)

@@ -15,7 +15,7 @@ namespace Tbx
         EXPORT void Update();
         EXPORT void Close();
 
-        EXPORT virtual void OnStart() = 0;
+        EXPORT virtual void OnLaunch() = 0;
         EXPORT virtual void OnUpdate() = 0;
         EXPORT virtual void OnShutdown() = 0;
 
@@ -28,7 +28,11 @@ namespace Tbx
         EXPORT const std::string& GetName() const;
         EXPORT std::weak_ptr<IWindow> GetMainWindow() const;
 
+        EXPORT static std::weak_ptr<App> GetInstance() { return _instance; }
+
     private:
+        static std::shared_ptr<App> _instance;
+
         bool _isRunning = false;
         bool _isHeadless = false;
         std::string _name = "App";

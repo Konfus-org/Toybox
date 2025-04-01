@@ -51,7 +51,6 @@ namespace Tbx
         Log::Open(logPath);
 
 #endif
-
         // Launch and run application
         app.Launch();
         while (app.IsRunning()) app.Update();
@@ -62,20 +61,19 @@ namespace Tbx
         // So they cannot be shutdown after plugins are unloaded.
         PluginServer::Shutdown();
     }
+}
 
-    // TODO: we need to load app via plugin server, then implement keybind to reload plugins (simple hot reloading)
-    ////int main()
-    ////{
-    ////    try
-    ////    {
-    ////        auto appPlugin = PluginServer::GetPlugin<App>();
-    ////        Run(*appPlugin);
-    ////    }
-    ////    catch (const std::exception& ex)
-    ////    {
-    ////        TBX_ERROR("{0}", ex.what());
-    ////        return EXIT_FAILURE;
-    ////    }
-    ////    return EXIT_SUCCESS;
-    ////}
+int main()
+{
+    try
+    {
+        auto appPlugin = Tbx::PluginServer::GetPlugin<Tbx::App>();
+        Tbx::Run(*appPlugin);
+    }
+    catch (const std::exception& ex)
+    {
+        TBX_ERROR("{0}", ex.what());
+        return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
 }

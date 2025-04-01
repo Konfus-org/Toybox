@@ -1,5 +1,5 @@
 #pragma once
-#include <Toybox.h>
+#include <Tbx/App/App.h>
 
 class SandboxApp : public Tbx::App
 {
@@ -8,7 +8,13 @@ public:
 
     SandboxApp();
 
-    void OnStart() override;
+    void OnLaunch() override;
     void OnUpdate() override;
     void OnShutdown() override;
+
+    // Inherited via App
+    void OnLoad() override;
+    void OnUnload() override;
+    Tbx::App* Provide() override;
+    void Destroy(Tbx::App* toDestroy) override;
 };

@@ -1,5 +1,5 @@
 #pragma once
 
 #include "Plugin.h"
-#include "PluginAPI.h"
+#include "RegisterPlugin.h"
 #include "SharedLibrary.h"

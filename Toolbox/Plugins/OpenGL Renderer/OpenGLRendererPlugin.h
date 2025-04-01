@@ -1,5 +1,5 @@
 #pragma once
-#include <Tbx/Core/Plugins/PluginAPI.h>
+#include <Tbx/Core/Plugins/RegisterPlugin.h>
 #include <Tbx/App/Render Pipeline/IRenderer.h>
 
 namespace OpenGLRendering

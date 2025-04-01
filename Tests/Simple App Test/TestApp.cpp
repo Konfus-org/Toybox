@@ -1,14 +1,16 @@
-#include "SandboxApp.h"
+#include "TestApp.h"
 #include "TestLayer.h"
-
-SandboxApp* SandboxApp::Instance;
 
 SandboxApp::SandboxApp() : Tbx::App("Sandbox")
 {
-    Instance = this;
 }
 
-void SandboxApp::OnStart()
+void SandboxApp::OnLoad()
+{
+    // Do nothing
+}
+
+void SandboxApp::OnLaunch()
 {
     const auto& testLayer = std::make_shared<TestLayer>("Testing");
     PushLayer(testLayer);
@@ -22,4 +24,19 @@ void SandboxApp::OnUpdate()
 void SandboxApp::OnShutdown()
 {
     // Do nothing
+}
+
+void SandboxApp::OnUnload()
+{
+    // Do nothing
+}
+
+Tbx::App* SandboxApp::Provide()
+{
+    return new SandboxApp();
+}
+
+void SandboxApp::Destroy(Tbx::App* toDestroy)
+{
+    delete toDestroy;
 }

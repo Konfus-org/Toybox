@@ -1,5 +1,5 @@
 #pragma once
-#include <Tbx/Core/Plugins/PluginAPI.h>
+#include <Tbx/Core/Plugins/RegisterPlugin.h>
 #include <Tbx/App/Events/WindowEvents.h>
 #include <Tbx/App/Windowing/IWindowFactory.h>
 

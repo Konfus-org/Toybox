@@ -9,10 +9,13 @@
 
 namespace Tbx
 {
+    std::shared_ptr<App> App::_instance;
+
     App::App(const std::string_view& name)
     {
         _name = name;
         _isRunning = false;
+        _instance = std::shared_ptr<App>(this);
     }
 
     App::~App()
@@ -44,7 +47,7 @@ namespace Tbx
             auto mainWindow = WindowManager::GetMainWindow();
         }
 
-        OnStart();
+        OnLaunch();
     }
 
     void App::Update()
