@@ -1,6 +1,6 @@
 #pragma once
+#include "Tbx/Core/Rendering/IRenderer.h"
 #include "Tbx/App/Render Pipeline/RenderCommands.h"
-#include "Tbx/App/Render Pipeline/IRenderer.h"
 #include "Tbx/App/Render Pipeline/RenderQueue.h"
 #include "Tbx/App/Events/ApplicationEvents.h"
 #include "Tbx/App/Events/WindowEvents.h"

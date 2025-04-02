@@ -5,7 +5,12 @@ project "App"
     staticruntime "Off"
 
     pchheader "Tbx/App/PCH.h"
-    pchsource "Source/PCH.cpp" -- Full path MUST be specified relative to the premake5.lua (this) script.
+    pchsource "Source/Tbx/App/PCH.cpp" -- Full path MUST be specified relative to the premake5.lua (this) script.
+
+    defines
+    {
+        "TOOLBOX"
+    }
 
     includedirs
     {

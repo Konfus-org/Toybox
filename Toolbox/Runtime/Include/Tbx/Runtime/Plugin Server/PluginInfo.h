@@ -1,12 +1,13 @@
 #pragma once
-#include "Tbx/Runtime/Plugins/PluginMetaReader.h"
+#include "Tbx/Runtime/Plugin Server/PluginMetaReader.h"
+#include <Tbx/Core/DllExport.h>
 
 namespace Tbx
 {
     struct PluginInfo
     {
     public:
-        void Load(const std::string& location)
+        EXPORT void Load(const std::string& location)
         {
             auto metaData = PluginMetaReader::Read(location);
             if (metaData.empty()) return;
@@ -18,14 +19,14 @@ namespace Tbx
             _lib = metaData["lib"];
         }
 
-        bool IsValid() const { return !(_name.empty() || _author.empty() || _version.empty() || _description.empty()); }
-        std::string GetName() const { return _name; }
-        std::string GetAuthor() const { return _author; }
-        std::string GetVersion() const { return _version; }
-        std::string GetDescription() const { return _description; }
-        std::string GetLib() const { return _lib; }
+        EXPORT bool IsValid() const { return !(_name.empty() || _author.empty() || _version.empty() || _description.empty()); }
+        EXPORT std::string GetName() const { return _name; }
+        EXPORT std::string GetAuthor() const { return _author; }
+        EXPORT std::string GetVersion() const { return _version; }
+        EXPORT std::string GetDescription() const { return _description; }
+        EXPORT std::string GetLib() const { return _lib; }
 
-        std::string ToString() const
+        EXPORT std::string ToString() const
         {
             return std::format("Name: {}\nAuthor: {}\nVersion: {}\nDescription: {}", _name, _author, _version, _description);
         }

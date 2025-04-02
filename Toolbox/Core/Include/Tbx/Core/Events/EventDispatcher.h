@@ -33,26 +33,7 @@ namespace Tbx
             return callbackToAdd.GetId();
         }
 
-        EXPORT static inline void Unsubscribe(const UID& callbackToUnsub)
-        {
-            //std::scoped_lock<std::mutex> lock(GetMutex());
-
-            for (auto& [hashCode, callbacks] : GetSubscribers())
-            {
-                for (auto it = callbacks.begin(); it != callbacks.end();)
-                {
-                    if (it->GetId() != callbackToUnsub)
-                    {
-                        it++;
-                        continue;
-                    }
-
-                    it = callbacks.erase(it);
-                    if (callbacks.empty()) GetSubscribers().erase(hashCode);
-                    return;
-                }
-            }
-        }
+        EXPORT static void Unsubscribe(const UID& callbackToUnsub);
 
         template <class TEvent>
         EXPORT static inline bool Send(TEvent& event)

@@ -3,7 +3,7 @@ include "includes"
 
 workspace "Toolbox"
     architecture "x86_64"
-    startproject "Toolbox/Runtime"
+    startproject "Tests/Simple App Test/Host"
 
     configurations
     {
@@ -33,5 +33,6 @@ workspace "Toolbox"
             include "Toolbox/Plugins/Spd Logging"
 
     group "Testing"
-        include "Tests/Simple App Test"
+        include "Tests/Simple App Test/App"
+        include "Tests/Simple App Test/Host"
         include "Tests/Unit Tests"

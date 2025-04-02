@@ -91,12 +91,6 @@ function ToolboxProjectConfigs()
     targetdir ("../../" .. OutputTargetDir .. "")
     objdir    ("../../" .. OutputIntermediateDir .. "")
 
-    defines
-    {
-        "TOOLBOX",
-        "GLM_ENABLE_EXPERIMENTAL"
-    }
-
     files
     {
         "./**.h",
@@ -107,7 +101,8 @@ function ToolboxProjectConfigs()
 
     includedirs
     {
-        "./Include"
+        "./Include",
+        "./Source"
     }
 
     PlatformConfigs()
@@ -122,15 +117,6 @@ function ToolboxPluginConfigs()
     {
         "{ECHO} Copying plugin meta from \"%{prj.location}%{prj.name}.plugin\" to \"../../../%{OutputTargetPluginDir}\"",
         "{COPYFILE} \"%{prj.location}%{prj.name}.plugin\" \"../../../%{OutputTargetPluginDir}\""
-    }
-
-    targetdir ("../../../" .. OutputTargetPluginDir .. "")
-    objdir    ("../../../" .. OutputIntermediatePluginDir .. "")
-
-    defines
-    {
-        "TOOLBOX",
-        "GLM_ENABLE_EXPERIMENTAL"
     }
 
     files
@@ -172,12 +158,6 @@ function UsingToolboxConfigs()
         "Core",
         "App",
         "Runtime"
-    }
-
-    postbuildcommands
-    {
-        "{ECHO} Copying plugin meta from \"%{prj.location}%{prj.name}.plugin\" to \"../../%{OutputTargetPluginDir}\"",
-        "{COPYFILE} \"%{prj.location}%{prj.name}.plugin\" \"../../%{OutputTargetPluginDir}\""
     }
 
     PlatformConfigs()

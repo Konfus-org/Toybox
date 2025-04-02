@@ -109,13 +109,15 @@ namespace Tbx
 
     void App::PushLayer(const std::shared_ptr<Layer>& layer)
     {
-        _layerStack.PushLayer(layer);
+        if (layer->IsOverlay())
+        {
+            _layerStack.PushOverlay(layer);
+        }
+        else 
+        {
+            _layerStack.PushLayer(layer);
+        }
         layer->OnAttach();
-    }
-
-    void App::PushOverlay(const std::shared_ptr<Layer>& layer)
-    {
-        _layerStack.PushOverlay(layer);
     }
 
     void App::OnWindowClosed(const WindowClosedEvent& e)

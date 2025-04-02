@@ -1,6 +1,6 @@
 #pragma once
 #include <Tbx/Core/Plugins/PluginsAPI.h>
-#include <Tbx/Runtime/Plugins/PluginInfo.h>
+#include <Tbx/Runtime/Plugin Server/PluginInfo.h>
 #include <Tbx/Core/DllExport.h>
 #include <memory>
 

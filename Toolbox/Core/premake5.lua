@@ -5,7 +5,13 @@ project "Core"
     staticruntime "Off"
 
     pchheader "Tbx/Core/PCH.h"
-    pchsource "Source/PCH.cpp" -- Full path MUST be specified relative to the premake5.lua (this) script.
+    pchsource "Source/Tbx/Core/PCH.cpp" -- Full path MUST be specified relative to the premake5.lua (this) script.
+
+    defines
+    {
+        "TOOLBOX",
+        "GLM_ENABLE_EXPERIMENTAL"
+    }
 
     links
     {

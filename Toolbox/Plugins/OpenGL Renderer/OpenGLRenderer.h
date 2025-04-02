@@ -3,9 +3,9 @@
 #include "OpenGLBuffers.h"
 #include "OpenGLShader.h"
 #include "OpenGLTexture.h"
+#include <Tbx/Core/Rendering/IRenderer.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <Tbx/App/Render Pipeline/IRenderer.h>
 
 namespace OpenGLRendering
 {

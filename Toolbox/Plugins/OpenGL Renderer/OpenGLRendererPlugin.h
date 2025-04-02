@@ -1,6 +1,6 @@
 #pragma once
 #include <Tbx/Core/Plugins/RegisterPlugin.h>
-#include <Tbx/App/Render Pipeline/IRenderer.h>
+#include "Tbx/Core/Rendering/IRenderer.h"
 
 namespace OpenGLRendering
 {

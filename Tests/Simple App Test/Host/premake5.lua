@@ -1,12 +1,12 @@
-project "Simple Test App"
-    kind "SharedLib"
+project "Simple Test App Host"
+    kind "ConsoleApp"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
     ignoredefaultlibraries { "MSVCRT" }
 
-    targetdir ("../../" .. OutputTargetPluginDir .. "")
-    objdir    ("../../" .. OutputTargetPluginDir .. "")
+    targetdir ("../../../" .. OutputTargetDir .. "")
+    objdir    ("../../../" .. OutputIntermediateDir .. "")
 
     files
     {

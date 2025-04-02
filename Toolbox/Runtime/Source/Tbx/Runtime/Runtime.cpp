@@ -1,22 +1,22 @@
 #include "Tbx/Runtime/Runtime.h"
-#include "Tbx/Runtime/Plugins/PluginServer.h"
-#include "Tbx/Core/Debug/DebugAPI.h"
-#include "Tbx/App/App.h"
+#include "Tbx/Runtime/Plugin Server/PluginServer.h"
+#include <Tbx/Core/Debug/DebugAPI.h>
+#include <Tbx/App/Layers/Layer.h>
+#include <Tbx/App/App.h>
 #include <chrono>
+#include <sstream>
 #include <format>
 
 namespace Tbx
 {
-
-    // Loads plugins and logs which plugins were loaded
-    void LoadPlugins()
+    void LoadPlugins(const std::string& pathToPlugins)
     {
 #ifdef TBX_DEBUG
 
         // DEBUG:
 
         // Open plugins with debug/build path
-        PluginServer::LoadPlugins("..\\..\\Build\\bin\\Plugins");
+        PluginServer::LoadPlugins(pathToPlugins);
 
         // No log file in debug
         Log::Open();
@@ -55,41 +55,68 @@ namespace Tbx
 #endif
     }
 
-    // Unloads all plugins
-    // Has to be last! 
-    // Everything depends on plugins, including the log, input and rendering. 
-    // So they cannot be shutdown after plugins are unloaded.
     void UnloadPlugins()
     {
         PluginServer::Shutdown();
     }
 
-    // Launches and runs a toolbox application
-    void Run(std::shared_ptr<App> app)
+    void LoadExternalLayers(App& app)
     {
-        app->Launch();
-        while (app->IsRunning()) app->Update();
-        app->Close();
+        auto layerPlugins = PluginServer::GetPlugins<Layer>();
+        for (const auto& layerPlugin : layerPlugins)
+        {
+            app.PushLayer(layerPlugin);
+        }
     }
-}
 
-std::shared_ptr<Tbx::App> _appPlugin;
-int main()
-{
-    try
+    void LaunchAndRun(App& app)
     {
-        Tbx::LoadPlugins();
-
-        _appPlugin = Tbx::PluginServer::GetPlugin<Tbx::App>();
-        Tbx::Run(_appPlugin);
-
-        Tbx::UnloadPlugins();
+        app.Launch();
+        while (app.IsRunning())
+        {
+            app.Update();
+        }
+        app.Close();
     }
-    catch (const std::exception& ex)
+
+    bool Run(App& app)
     {
-        TBX_ERROR("{0}", ex.what());
+        try
+        {
+            LoadPlugins(TBX_PATH_TO_PLUGINS);
+            LoadExternalLayers(app);
+            LaunchAndRun(app);
+            UnloadPlugins();
+        }
+        catch (const std::exception& ex)
+        {
+            TBX_ERROR("{0}", ex.what());
 
-        return EXIT_FAILURE;
+            return false;
+        }
+
+        return true;
     }
-    return EXIT_SUCCESS;
+
+    bool LoadAndRunApp()
+    {
+        try
+        {
+            LoadPlugins(TBX_PATH_TO_PLUGINS);
+
+            auto app = PluginServer::GetPlugin<App>();
+            LoadExternalLayers(*app);
+            LaunchAndRun(*app);
+
+            UnloadPlugins();
+        }
+        catch (const std::exception& ex)
+        {
+            TBX_ERROR("{0}", ex.what());
+
+            return false;
+        }
+
+        return true;
+    }
 }

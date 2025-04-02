@@ -3,5 +3,6 @@
 
 namespace Tbx
 {
-    void EXPORT Run(App& app);
+    EXPORT bool Run(App& app);
+    EXPORT bool LoadAndRunApp();
 }

@@ -10,6 +10,7 @@ namespace Tbx
         EXPORT explicit(false) Layer(const std::string_view& name);
         EXPORT virtual ~Layer() = default;
 
+        EXPORT virtual bool IsOverlay() = 0;
         EXPORT virtual void OnAttach() = 0;
         EXPORT virtual void OnDetach() = 0;
         EXPORT virtual void OnUpdate() = 0;

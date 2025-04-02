@@ -1,5 +1,5 @@
 project "Runtime"
-    kind "ConsoleApp"
+    kind "SharedLib"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
@@ -9,6 +9,12 @@ project "Runtime"
         "%{IncludeDir.TbxCore}",
         "%{IncludeDir.TbxApp}",
         "%{IncludeDir.ModernJSON}"
+    }
+
+    defines
+    {
+        "TOOLBOX",
+        "TBX_PATH_TO_PLUGINS=\"..\\\\..\\\\..\\\\Build\\\\bin\\\\Plugins\\\\ \""
     }
 
     links

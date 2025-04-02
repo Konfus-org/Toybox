@@ -1,6 +1,5 @@
 #pragma once
 #include <Tbx/App/App.h>
-#include <Tbx/Runtime/Runtime.h>
 
 class SandboxApp : public Tbx::App
 {

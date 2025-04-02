@@ -1,5 +1,5 @@
 #include "Tbx/App/PCH.h"
-#include "Tbx/Runtime/Plugins/PluginServer.h"
+#include "Tbx/Runtime/Plugin Server/PluginServer.h"
 #include <filesystem>
 
 namespace Tbx
@@ -17,6 +17,11 @@ namespace Tbx
         }
 
         return nullptr;
+    }
+
+    void PluginServer::RegisterPlugin(std::shared_ptr<LoadedPlugin> plugin)
+    {
+        _loadedPlugins.push_back(plugin);
     }
 
     std::vector<std::shared_ptr<LoadedPlugin>> PluginServer::GetLoadedPlugins()
@@ -44,6 +49,12 @@ namespace Tbx
                 _loadedPlugins.push_back(plug);
             }
         }
+    }
+
+    void PluginServer::ReloadPlugins(const std::string& pathToPlugins)
+    {
+        _loadedPlugins.clear();
+        LoadPlugins(pathToPlugins);
     }
 
     void PluginServer::Shutdown()

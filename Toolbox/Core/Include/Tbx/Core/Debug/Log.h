@@ -72,7 +72,6 @@ namespace Tbx
     private:
         static inline const std::string _logName = "TBX";
 
-        // TODO: Implement and write to file...
         static inline void SendWriteToLogEvent(const std::string& msg, const LogLevel& lvl)
         {
             auto event = WriteLineToLogRequestEvent(lvl, msg, _logName);

@@ -1,6 +1,6 @@
 #pragma once
-#include <Tbx/App/Events/WindowEvents.h>
-#include <Tbx/App/Layers/LayerStack.h>
+#include "Tbx/App/Events/WindowEvents.h"
+#include "Tbx/App/Layers/LayerStack.h"
 #include <Tbx/Core/Plugins/Plugin.h>
 
 namespace Tbx
@@ -22,7 +22,6 @@ namespace Tbx
         EXPORT void OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size) const;
 
         EXPORT void PushLayer(const std::shared_ptr<Layer>& layer);
-        EXPORT void PushOverlay(const std::shared_ptr<Layer>& layer);
 
         EXPORT bool IsRunning() const;
         EXPORT const std::string& GetName() const;
