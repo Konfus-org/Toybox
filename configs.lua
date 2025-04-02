@@ -139,6 +139,11 @@ function ToolboxPluginConfigs()
         "App"
     }
 
+    defines
+    {
+        "TOOLBOX"
+    }
+
     PlatformConfigs()
     StandardBuildConfigs()
     DllConfigs()
@@ -146,6 +151,11 @@ end
 
 -- Easy way to link to toybox Engine
 function UsingToolboxConfigs()
+    defines
+    {
+        "TOOLBOX"
+    }
+
     includedirs
     {
         "%{IncludeDir.TbxCore}",

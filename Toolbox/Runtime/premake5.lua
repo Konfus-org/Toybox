@@ -14,7 +14,7 @@ project "Runtime"
     defines
     {
         "TOOLBOX",
-        "TBX_PATH_TO_PLUGINS=\"..\\\\..\\\\..\\\\Build\\\\bin\\\\Plugins\\\\ \""
+        "TBX_PATH_TO_PLUGINS=\"..\\\\..\\\\..\\\\Build\\\\bin\\\\Plugins\""
     }
 
     links

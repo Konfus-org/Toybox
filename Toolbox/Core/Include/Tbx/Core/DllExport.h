@@ -1,7 +1,11 @@
 #pragma once
 
 #ifdef TBX_PLATFORM_WINDOWS
-    #define EXPORT __declspec(dllexport)
+    #ifdef TOOLBOX
+        #define EXPORT __declspec(dllexport)
+    #else
+        #define EXPORT __declspec(dllimport)
+    #endif
 #else
     #define EXPORT
 #endif

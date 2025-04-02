@@ -1,24 +1,12 @@
 #pragma once
-#include "Tbx/Runtime/Plugin Server/PluginMetaReader.h"
-#include <Tbx/Core/DllExport.h>
+#include "Tbx/Core/DllExport.h"
 
 namespace Tbx
 {
     struct PluginInfo
     {
     public:
-        EXPORT void Load(const std::string& location)
-        {
-            auto metaData = PluginMetaReader::Read(location);
-            if (metaData.empty()) return;
-
-            _name = metaData["name"];
-            _author = metaData["author"];
-            _version = metaData["version"];
-            _description = metaData["description"];
-            _lib = metaData["lib"];
-        }
-
+        EXPORT void Load(const std::string& location);
         EXPORT bool IsValid() const { return !(_name.empty() || _author.empty() || _version.empty() || _description.empty()); }
         EXPORT std::string GetName() const { return _name; }
         EXPORT std::string GetAuthor() const { return _author; }

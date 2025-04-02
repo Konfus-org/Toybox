@@ -5,7 +5,7 @@
 
 namespace Tbx
 {
-    class App : public Plugin<App>
+    class App : public Plugin<App>, public std::enable_shared_from_this<App>
     {
     public:
         EXPORT explicit(false) App(const std::string_view& name);

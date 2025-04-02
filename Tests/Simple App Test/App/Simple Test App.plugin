@@ -1,6 +1,6 @@
 {
     "name": "Simple Test App",
-    "lib": "Simple Test App Dll.dll",
+    "lib": "Simple Test App.dll",
     "language": "C++",
     "version": "0.0.1",
     "author": "Konfus-dev",

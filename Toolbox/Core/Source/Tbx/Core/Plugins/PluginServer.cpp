@@ -1,23 +1,10 @@
-#include "Tbx/App/PCH.h"
-#include "Tbx/Runtime/Plugin Server/PluginServer.h"
+#include "Tbx/Core/PCH.h"
+#include "Tbx/Core/Plugins/PluginServer.h"
 #include <filesystem>
 
 namespace Tbx
 {
     std::vector<std::shared_ptr<LoadedPlugin>> PluginServer::_loadedPlugins;
-
-    std::shared_ptr<IPlugin> PluginServer::GetPlugin(const std::string_view& name)
-    {
-        for (const auto& loadedPlug : _loadedPlugins)
-        {
-            if (loadedPlug->GetPluginInfo().GetName() == name)
-            {
-                return loadedPlug->GetPlugin();
-            }
-        }
-
-        return nullptr;
-    }
 
     void PluginServer::RegisterPlugin(std::shared_ptr<LoadedPlugin> plugin)
     {

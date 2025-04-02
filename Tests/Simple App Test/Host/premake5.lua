@@ -16,4 +16,14 @@ project "Simple Test App Host"
         "./**.cpp"
     }
 
+    links
+    {
+        "Simple Test App",
+    }
+
+    includedirs
+    {
+        "%{IncludeDir.TestApp}",
+    }
+
     UsingToolboxConfigs()

@@ -15,15 +15,18 @@ namespace Tbx
     };
 
     template<typename T>
-    class EXPORT Plugin : public IPlugin
+    class Plugin : public IPlugin
     {
     public:
-        Plugin() = default;
+        EXPORT Plugin() = default;
 
-        std::shared_ptr<T> GetImplementation()
+        /// <summary>
+        /// Returns a shared pointer to a new implementation of T
+        /// </summary>
+        EXPORT std::shared_ptr<T> ProvideImplementation()
         {
             auto* ptr = Provide();
-            auto shared = std::shared_ptr<T>(ptr, [this](T* ptrToDestroy) 
+            auto shared = std::shared_ptr<T>(ptr, [this](T* ptrToDestroy)
             {
                 Destroy(ptrToDestroy);
             });

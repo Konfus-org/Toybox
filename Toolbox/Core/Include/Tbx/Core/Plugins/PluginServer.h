@@ -1,6 +1,6 @@
 #pragma once
-#include "Tbx/Runtime/Plugin Server/LoadedPlugin.h"
-#include <Tbx/Core/DllExport.h>
+#include "Tbx/Core/Plugins/LoadedPlugin.h"
+#include "Tbx/Core/DllExport.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -17,7 +17,6 @@ namespace Tbx
 
         EXPORT static void RegisterPlugin(std::shared_ptr<LoadedPlugin> plugin);
         EXPORT static std::vector<std::shared_ptr<LoadedPlugin>> GetLoadedPlugins();
-        EXPORT static std::shared_ptr<IPlugin> GetPlugin(const std::string_view& name);
 
         template <typename T>
         EXPORT static std::shared_ptr<T> GetPlugin()
@@ -26,10 +25,10 @@ namespace Tbx
             for (const auto& loadedPlug : loadedPlugins)
             {
                 const auto& plug = loadedPlug->GetPlugin();
-                const auto& castedPlug = std::dynamic_pointer_cast<Plugin<T>>(plug);
+                const std::shared_ptr<Plugin<T>> castedPlug = std::dynamic_pointer_cast<Plugin<T>>(plug);
                 if (castedPlug)
                 {
-                    return castedPlug->GetImplementation();
+                    return castedPlug->ProvideImplementation();
                 }
             }
 
@@ -47,7 +46,7 @@ namespace Tbx
                 const auto& castedPlug = std::dynamic_pointer_cast<Plugin<T>>(plug);
                 if (castedPlug)
                 {
-                    plugins.push_back(castedPlug->GetImplementation());
+                    plugins.push_back(castedPlug->ProvideImplementation());
                 }
             }
 

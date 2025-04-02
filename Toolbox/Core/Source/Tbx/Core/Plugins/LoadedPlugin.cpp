@@ -1,8 +1,34 @@
-#include "Tbx/Runtime/Plugin Server/LoadedPlugin.h"
+#include "Tbx/Core/PCH.h"
+#include "Tbx/Core/Plugins/LoadedPlugin.h"
 #include <Tbx/Core/Debug/DebugAPI.h>
 
 namespace Tbx
 {
+    LoadedPlugin::LoadedPlugin(const std::string& pluginFolderPath, const std::string& pluginFileName)
+    {
+        Load(pluginFolderPath, pluginFileName);
+    }
+
+    LoadedPlugin::~LoadedPlugin() 
+    { 
+        Unload(); 
+    }
+
+    bool LoadedPlugin::IsValid() const
+    {
+        return _plugin != nullptr;
+    }
+
+    const PluginInfo& LoadedPlugin::GetPluginInfo() const
+    {
+        return _pluginInfo;
+    }
+
+    std::shared_ptr<IPlugin> LoadedPlugin::GetPlugin() const
+    {
+        return _plugin;
+    }
+
     void LoadedPlugin::Load(const std::string& pluginFolderPath, const std::string& pluginFileName)
     {
         // Load plugin metadata
