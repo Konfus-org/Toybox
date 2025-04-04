@@ -1,6 +1,5 @@
 #include "TestApp.h"
 #include "TestLayer.h"
-#include <Tbx/Core/Plugins/RegisterPlugin.h>
 
 SandboxApp::SandboxApp() : Tbx::App("Sandbox")
 {
@@ -31,5 +30,3 @@ void SandboxApp::OnShutdown()
 {
     // Do nothing
 }
-
-TBX_REGISTER_PLUGIN(SandboxApp);

@@ -21,20 +21,32 @@ namespace Tbx
         EventDispatcher::Unsubscribe(_windowFocusChangedEventId);
     }
 
-    ////bool Input::IsGamepadButtonDown(const int id, const int button)
-    ////{
-    ////    return _handler->IsGamepadButtonDown(id, button);
-    ////}
+    bool Input::IsGamepadButtonDown(const int id, const int button)
+    {
+        IsGamepadButtonDownRequestEvent request(id, button);
+        EventDispatcher::Dispatch(request);
+        TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
 
-    ////bool Input::IsGamepadButtonUp(const int id, const int button)
-    ////{
-    ////    return _handler->IsGamepadButtonUp(id, button);
-    ////}
+        return request.GetResult();
+    }
 
-    ////bool Input::IsGamepadButtonHeld(const int id, const int button)
-    ////{
-    ////    return _handler->IsGamepadButtonHeld(id, button);
-    ////}
+    bool Input::IsGamepadButtonUp(const int id, const int button)
+    {
+        IsGamepadButtonUpRequestEvent request(id, button);
+        EventDispatcher::Dispatch(request);
+        TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
+
+        return request.GetResult();
+    }
+
+    bool Input::IsGamepadButtonHeld(const int id, const int button)
+    {
+        IsGamepadButtonHeldRequestEvent request(id, button);
+        EventDispatcher::Dispatch(request);
+        TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
+
+        return request.GetResult();
+    }
 
     bool Input::IsKeyDown(const int inputCode)
     {
@@ -54,36 +66,50 @@ namespace Tbx
         return request.GetResult();
     }
 
-    ////bool Input::IsKeyHeld(const int inputCode)
-    ////{
-    ////    return _handler->IsKeyHeld(inputCode);
-    ////}
+    bool Input::IsKeyHeld(const int inputCode)
+    {
+        IsKeyHeldRequestEvent request(inputCode);
+        EventDispatcher::Dispatch(request);
+        TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
 
-    ////bool Input::IsMouseButtonDown(const int button)
-    ////{
-    ////    return _handler->IsMouseButtonDown(button);
-    ////}
+        return request.GetResult();
+    }
 
-    ////bool Input::IsMouseButtonUp(const int button)
-    ////{
-    ////    return _handler->IsMouseButtonUp(button);
-    ////}
+    bool Input::IsMouseButtonDown(const int button)
+    {
+        IsMouseButtonDownRequestEvent request(button);
+        EventDispatcher::Dispatch(request);
+        TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
 
-    ////bool Input::IsMouseButtonHeld(const int button)
-    ////{
-    ////    return _handler->IsMouseButtonHeld(button);
-    ////}
+        return request.GetResult();
+    }
 
-    ////Vector2 Input::GetMousePosition()
-    ////{
-    ////    if (_handler != nullptr)
-    ////    {
-    ////        TBX_ERROR("Handler is null! Cannot get mouse position.");
-    ////        return Vector2();
-    ////    }
+    bool Input::IsMouseButtonUp(const int button)
+    {
+        IsMouseButtonUpRequestEvent request(button);
+        EventDispatcher::Dispatch(request);
+        TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
 
-    ////    return _handler->GetMousePosition();
-    ////}
+        return request.GetResult();
+    }
+
+    bool Input::IsMouseButtonHeld(const int button)
+    {
+        IsMouseButtonHeldRequestEvent request(button);
+        EventDispatcher::Dispatch(request);
+        TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
+
+        return request.GetResult();
+    }
+
+    Vector2 Input::GetMousePosition()
+    {
+        GetMousePositionRequestEvent request;
+        EventDispatcher::Dispatch(request);
+        TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
+
+        return request.GetResult();
+    }
 
     void Input::OnWindowFocusChanged(const WindowFocusChangedEvent& e)
     {

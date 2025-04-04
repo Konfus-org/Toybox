@@ -4,12 +4,7 @@
 #include <any>
 
 #ifdef TBX_PLATFORM_WINDOWS
-    #include <Windows.h>
     #include <DbgHelp.h>
-#elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_OSX)
-    #include <dlfcn.h>
-#else
-    #error Unsupported platform
 #endif
 
 namespace Tbx
@@ -25,9 +20,8 @@ namespace Tbx
 #ifdef TBX_PLATFORM_WINDOWS
 
         _path = path;
-        const auto& handle = LoadLibraryA(path.c_str());
-        _handle = handle;
-        return handle != nullptr;
+        _handle = LoadLibraryA(path.c_str());
+        return _handle != nullptr;
 
 #elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_OSX)
 
@@ -42,32 +36,21 @@ namespace Tbx
     {
 #ifdef TBX_PLATFORM_WINDOWS
 
-        const auto& handle = std::any_cast<HMODULE>(_handle);
-        if (handle)
-        {
-            FreeLibrary(handle);
-        }
+        FreeLibrary(_handle);
 
 #elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_OSX)
 
-        if (_handle)
-        {
-            dlclose(handle);
-        }
+        dlclose(handle);
 
 #endif
+        _handle = nullptr;
     }
 
     Symbol SharedLibrary::GetSymbol(const std::string& name)
     {
 #ifdef TBX_PLATFORM_WINDOWS
 
-        const auto& handle = std::any_cast<HMODULE>(_handle);
-        if (handle)
-        {
-            return GetProcAddress(handle, name.c_str());
-        }
-        return nullptr;
+        return _handle ? GetProcAddress(_handle, name.c_str()) : nullptr;
 
 #elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_OSX)
 
@@ -81,7 +64,7 @@ namespace Tbx
 #ifdef TBX_PLATFORM_WINDOWS
 
         // Initialize symbol handling
-        if (!SymInitialize(GetCurrentProcess(), nullptr, TRUE))
+        if (!SymInitialize(GetCurrentProcess(), nullptr, true))
         {
             TBX_ERROR("SymInitialize failed");
             return;
@@ -97,13 +80,9 @@ namespace Tbx
 
         // Callback function for symbol enumeration
         TBX_INFO("Symbols in the shared library {0}:", _path);
-        const auto& enumSymbolsCallback = [](PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID UserContext) -> BOOL
-        {
-            TBX_INFO(pSymInfo->Name);
-            return TRUE;
-        };
-
-        if (!SymEnumSymbols(GetCurrentProcess(), baseAddr, "*", enumSymbolsCallback, nullptr))
+        
+        if (!SymEnumSymbols(GetCurrentProcess(), baseAddr, "*", 
+            [](PSYMBOL_INFO info, ULONG, PVOID) {TBX_INFO(info->Name); return 1; }, nullptr))
         {
             TBX_ERROR("Failed to enumerate symbols");
         }
@@ -112,7 +91,9 @@ namespace Tbx
         SymCleanup(GetCurrentProcess());
 
 #elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_OSX)
-        #error DynamicLibrary::ListSymbols is not implemented for this platform!
+
+        TBX_ASSERT(false, "DynamicLibrary::ListSymbols is not implemented for this platform!");
+
 #endif
     }
 

@@ -6,6 +6,7 @@
 namespace Tbx
 {
     std::map<UID, std::shared_ptr<IWindow>> WindowManager::_windows;
+    std::vector<UID> WindowManager::_windowsToCloseOnNextUpdate;
     UID WindowManager::_mainWindowId = -1;
     UID WindowManager::_focusedWindowId = -1;
     UID WindowManager::_appUpdatedEventId = -1;
@@ -77,10 +78,7 @@ namespace Tbx
 
     void WindowManager::CloseWindow(const UID& id)
     {
-        if (_windows.empty())
-        {
-            return;
-        }
+        if (_windows.empty()) return;
 
         TBX_ASSERT(_windows.find(id) != _windows.end(), "Window with the id {} does not exist!", id.ToString());
         _windows.erase(id);
@@ -93,15 +91,25 @@ namespace Tbx
 
     void WindowManager::OnAppUpdated(const AppUpdatedEvent& e)
     {
+        if (_windows.empty()) return;
+
+        // Update all windows
         for (const auto& [id, window] : _windows)
         {
             window->Update();
         }
+
+        // Close windows that are mark for close
+        for (const auto& id : _windowsToCloseOnNextUpdate)
+        {
+            CloseWindow(id);
+        }
+        _windowsToCloseOnNextUpdate.clear();
     }
 
     void WindowManager::OnWindowClose(const WindowClosedEvent& e)
     {
-        CloseWindow(e.GetWindowId());
+        _windowsToCloseOnNextUpdate.push_back(e.GetWindowId());
     }
 
     void WindowManager::OnWindowFocusChanged(const WindowFocusChangedEvent& e)

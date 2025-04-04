@@ -173,10 +173,11 @@ namespace Tbx
         int _button;
     };
 
+    // TODO: Make event handlers for the below events
     class EXPORT InputRequestEvent : public KeyEvent
     {
     public:
-        InputRequestEvent(int keyCode) 
+        explicit InputRequestEvent(int keyCode) 
             : KeyEvent(keyCode) {}
 
         bool GetResult() const { return _result; }
@@ -208,6 +209,124 @@ namespace Tbx
         {
             return "Is Key Up Request Event";
         }
+    };
+
+    class EXPORT IsKeyHeldRequestEvent : public InputRequestEvent
+    {
+    public:
+        explicit IsKeyHeldRequestEvent(int keyCode)
+            : InputRequestEvent(keyCode) {}
+
+        std::string ToString() const final
+        {
+            return "Is Key Held Request Event";
+        }
+    };
+
+    class EXPORT ButtonRequestEvent : public InputRequestEvent
+    {
+    public:
+        explicit ButtonRequestEvent(uint gamepadId, uint button)
+            : InputRequestEvent(button), _gamepadId(gamepadId) {}
+
+        uint GetGamepadId() const { return _gamepadId; }
+
+    private:
+        uint _gamepadId = 0;
+    };
+
+    class EXPORT IsGamepadButtonDownRequestEvent : public ButtonRequestEvent
+    {
+    public:
+        explicit IsGamepadButtonDownRequestEvent(uint gamepadId, uint button)
+            : ButtonRequestEvent(gamepadId, button) {}
+
+        std::string ToString() const final
+        {
+            return "Is Button Down Request Event";
+        }
+    };
+
+    class EXPORT IsGamepadButtonUpRequestEvent : public ButtonRequestEvent
+    {
+    public:
+        explicit IsGamepadButtonUpRequestEvent(uint gamepadId, uint button)
+            : ButtonRequestEvent(gamepadId, button) {}
+
+        std::string ToString() const final
+        {
+            return "Is Button Up Request Event";
+        }
+    };
+
+    class EXPORT IsGamepadButtonHeldRequestEvent : public ButtonRequestEvent
+    {
+    public:
+        explicit IsGamepadButtonHeldRequestEvent(uint gamepadId, uint button)
+            : ButtonRequestEvent(gamepadId, button) {}
+
+        std::string ToString() const final
+        {
+            return "Is Button Held Request Event";
+        }
+    };
+
+    class EXPORT IsMouseButtonDownRequestEvent : public InputRequestEvent
+    {
+    public:
+        explicit IsMouseButtonDownRequestEvent(int button)
+            : InputRequestEvent(button) {}
+
+        std::string ToString() const final
+        {
+            return "Is Button Down Request Event";
+        }
+    };
+
+    class EXPORT IsMouseButtonUpRequestEvent : public InputRequestEvent
+    {
+    public:
+        explicit IsMouseButtonUpRequestEvent(int button)
+            : InputRequestEvent(button) {}
+
+        std::string ToString() const final
+        {
+            return "Is Button Up Request Event";
+        }
+    };
+
+    class EXPORT IsMouseButtonHeldRequestEvent : public InputRequestEvent
+    {
+    public:
+        explicit IsMouseButtonHeldRequestEvent(int button)
+            : InputRequestEvent(button) {}
+
+        std::string ToString() const final
+        {
+            return "Is Button Held Request Event";
+        }
+    };
+
+    class EXPORT GetMousePositionRequestEvent : public Event
+    {
+    public:
+        GetMousePositionRequestEvent() {}
+
+        int GetCategorization() const final
+        {
+            return static_cast<int>(EventCategory::Input);
+        }
+
+        std::string ToString() const final
+        {
+            return "Get Mouse Position Request Event";
+        }
+
+        const Vector2& GetResult() const { return _position; }
+        void SetResult(const Vector2& position) { _position = position; }
+
+    private:
+        Vector2 _position;
     };
 
     class EXPORT SetInputContextRequestEvent : public Event

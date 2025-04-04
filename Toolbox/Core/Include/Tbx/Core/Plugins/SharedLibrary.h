@@ -7,6 +7,15 @@ namespace Tbx
 {
     // A symbol can be anything...
     using Symbol = void*;
+#if defined(TBX_PLATFORM_WINDOWS)
+    #include <windows.h>
+    using LibHandle = HMODULE;
+#elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_OSX)
+    #include <dlfcn.h>
+    using LibHandle = void*;
+#else
+    #error Unsupported platform
+#endif
 
     class SharedLibrary 
     {
@@ -22,6 +31,6 @@ namespace Tbx
 
     private:
         std::string _path = "";
-        std::any _handle = nullptr;
+        LibHandle _handle = nullptr;
     };
 }

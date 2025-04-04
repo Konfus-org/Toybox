@@ -9,8 +9,6 @@
 
 namespace Tbx
 {
-    std::shared_ptr<App> App::_instance = nullptr;
-
     App::App(const std::string_view& name)
     {
         _name = name;
@@ -27,7 +25,6 @@ namespace Tbx
     
     void App::Launch(bool headless)
     {
-        _instance = std::shared_ptr<App>(this);
         _isRunning = true;
         _isHeadless = headless;
 
@@ -53,21 +50,23 @@ namespace Tbx
 
     void App::Update()
     {
+        if (!_isRunning) return;
+
         // Update delta time
         Time::DeltaTime::Update();
 
         // Call on update for app inheritors
         OnUpdate();
 
-        // Send update event
-        AppUpdatedEvent updateEvent;
-        EventDispatcher::Dispatch(updateEvent);
-
-        // Then update layers
+        // Update layers
         for (const auto& layer : _layerStack)
         {
             layer->OnUpdate();
         }
+
+        // Send update event
+        AppUpdatedEvent updateEvent;
+        EventDispatcher::Dispatch(updateEvent);
     }
 
     void App::Close()
@@ -96,10 +95,6 @@ namespace Tbx
             RenderPipeline::Shutdown();
             Input::Shutdown();
         }
-
-        // Finally close the log and shutdown events, this should be the last thing to happen before modules are unloaded
-        Log::Close();
-        EventDispatcher::Clear();
     }
 
     void App::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size) const
@@ -127,7 +122,6 @@ namespace Tbx
         {
             // Stop running and close all windows
             _isRunning = false;
-            WindowManager::CloseAllWindows();
         }
     }
 
@@ -144,10 +138,5 @@ namespace Tbx
     std::weak_ptr<IWindow> App::GetMainWindow() const
     {
         return WindowManager::GetMainWindow();
-    }
-
-    std::weak_ptr<App> App::GetInstance()
-    {
-        return _instance;
     }
 }

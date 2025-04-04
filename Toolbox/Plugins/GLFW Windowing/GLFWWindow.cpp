@@ -22,6 +22,7 @@ namespace GLFWWindowing
 	{
 		SetMode(mode);
 		SetupCallbacks();
+		glfwFocusWindow(_glfwWindow);
 	}
 
 	void GLFWWindow::Close()

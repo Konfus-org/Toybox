@@ -10,15 +10,15 @@
  *  @ingroup input
  *  @{ */
 
-#define TBX_HAT_CENTERED           0
-#define TBX_HAT_UP                 1
-#define TBX_HAT_RIGHT              2
-#define TBX_HAT_DOWN               4
-#define TBX_HAT_LEFT               8
-#define TBX_HAT_RIGHT_UP           (TBX_HAT_RIGHT | TBX_HAT_UP)
-#define TBX_HAT_RIGHT_DOWN         (TBX_HAT_RIGHT | TBX_HAT_DOWN)
-#define TBX_HAT_LEFT_UP            (TBX_HAT_LEFT  | TBX_HAT_UP)
-#define TBX_HAT_LEFT_DOWN          (TBX_HAT_LEFT  | TBX_HAT_DOWN)
+#define TBX_THUMBSTICK_CENTERED           0
+#define TBX_THUMBSTICK_UP                 1
+#define TBX_THUMBSTICK_RIGHT              2
+#define TBX_THUMBSTICK_DOWN               4
+#define TBX_THUMBSTICK_LEFT               8
+#define TBX_THUMBSTICK_RIGHT_UP           (TBX_HAT_RIGHT | TBX_HAT_UP)
+#define TBX_THUMBSTICK_RIGHT_DOWN         (TBX_HAT_RIGHT | TBX_HAT_DOWN)
+#define TBX_THUMBSTICK_LEFT_UP            (TBX_HAT_LEFT  | TBX_HAT_UP)
+#define TBX_THUMBSTICK_LEFT_DOWN          (TBX_HAT_LEFT  | TBX_HAT_DOWN)
 
 
 /*! @} */
@@ -26,7 +26,7 @@
 /*! @defgroup keys Keyboard key tokens
  *  @brief Keyboard key tokens.
  *
- *  See [key input](@ref input_key) for how these are used.
+ *  See GLFW [key input](@ref input_key) for how these are used.
  *
  *  These key codes are inspired by the _USB HID Usage Tables v1.12_ (p. 53-60),
  *  but re-arranged to map to 7-bit ASCII for printable keys (function keys are
@@ -180,7 +180,7 @@
 /*! @defgroup mods Modifier key flags
  *  @brief Modifier key flags.
  *
- *  See [key input](@ref input_key) for how these are used.
+ *  See GLFW [key input](@ref input_key) for how these are used.
  *
  *  @ingroup input
  *  @{ */
@@ -234,7 +234,7 @@
 /*! @defgroup buttons Mouse buttons
  *  @brief Mouse button IDs.
  *
- *  See [mouse button input](@ref input_mouse_button) for how these are used.
+ *  See GLFW [mouse button input](@ref input_mouse_button) for how these are used.
  *
  *  @ingroup input
  *  @{ */
@@ -257,43 +257,43 @@
 /*! @defgroup joysticks Joysticks
  *  @brief Joystick IDs.
  *
- *  See [joystick input](@ref joystick) for how these are used.
+ *  See GLFW [joystick input](@ref joystick) for how these are used.
  *
  *  @ingroup input
  *  @{ */
 
-#define TBX_JOYSTICK_1             0
-#define TBX_JOYSTICK_2             1
-#define TBX_JOYSTICK_3             2
-#define TBX_JOYSTICK_4             3
-#define TBX_JOYSTICK_5             4
-#define TBX_JOYSTICK_6             5
-#define TBX_JOYSTICK_7             6
-#define TBX_JOYSTICK_8             7
-#define TBX_JOYSTICK_9             8
-#define TBX_JOYSTICK_10            9
-#define TBX_JOYSTICK_11            10
-#define TBX_JOYSTICK_12            11
-#define TBX_JOYSTICK_13            12
-#define TBX_JOYSTICK_14            13
-#define TBX_JOYSTICK_15            14
-#define TBX_JOYSTICK_16            15
-#define TBX_JOYSTICK_LAST          TBX_JOYSTICK_16
+#define TBX_GAMEPAD_1             0
+#define TBX_GAMEPAD_2             1
+#define TBX_GAMEPAD_3             2
+#define TBX_GAMEPAD_4             3
+#define TBX_GAMEPAD_5             4
+#define TBX_GAMEPAD_6             5
+#define TBX_GAMEPAD_7             6
+#define TBX_GAMEPAD_8             7
+#define TBX_GAMEPAD_9             8
+#define TBX_GAMEPAD_10            9
+#define TBX_GAMEPAD_11            10
+#define TBX_GAMEPAD_12            11
+#define TBX_GAMEPAD_13            12
+#define TBX_GAMEPAD_14            13
+#define TBX_GAMEPAD_15            14
+#define TBX_GAMEPAD_16            15
+#define TBX_GAMEPAD_LAST          TBX_GAMEPAD_16
 
 /*! @} */
 
 /*! @defgroup gamepad_buttons Gamepad buttons
  *  @brief Gamepad buttons.
  *
- *  See @ref gamepad for how these are used.
+ *  See GLFW @ref gamepad for how these are used.
  *
  *  @ingroup input
  *  @{ */
 
-#define TBX_GAMEPAD_BUTTON_A               0
-#define TBX_GAMEPAD_BUTTON_B               1
-#define TBX_GAMEPAD_BUTTON_X               2
-#define TBX_GAMEPAD_BUTTON_Y               3
+#define TBX_GAMEPAD_BUTTON_SOUTH           0
+#define TBX_GAMEPAD_BUTTON_EAST            1
+#define TBX_GAMEPAD_BUTTON_WEST            2
+#define TBX_GAMEPAD_BUTTON_NORTH           3
 #define TBX_GAMEPAD_BUTTON_LEFT_BUMPER     4
 #define TBX_GAMEPAD_BUTTON_RIGHT_BUMPER    5
 #define TBX_GAMEPAD_BUTTON_BACK            6
@@ -307,17 +307,12 @@
 #define TBX_GAMEPAD_BUTTON_DPAD_LEFT       14
 #define TBX_GAMEPAD_BUTTON_LAST            TBX_GAMEPAD_BUTTON_DPAD_LEFT
 
-#define TBX_GAMEPAD_BUTTON_CROSS       TBX_GAMEPAD_BUTTON_A
-#define TBX_GAMEPAD_BUTTON_CIRCLE      TBX_GAMEPAD_BUTTON_B
-#define TBX_GAMEPAD_BUTTON_SQUARE      TBX_GAMEPAD_BUTTON_X
-#define TBX_GAMEPAD_BUTTON_TRIANGLE    TBX_GAMEPAD_BUTTON_Y
-
 /*! @} */
 
 /*! @defgroup gamepad_axes Gamepad axes
  *  @brief Gamepad axes.
  *
- *  See @ref gamepad for how these are used.
+ *  See GLFW @ref gamepad for how these are used.
  *
  *  @ingroup input
  *  @{ */

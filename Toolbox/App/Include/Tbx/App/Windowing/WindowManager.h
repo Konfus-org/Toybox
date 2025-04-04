@@ -29,6 +29,8 @@ namespace Tbx
 
     private:
         static std::map<UID, std::shared_ptr<IWindow>> _windows;
+        static std::vector<UID> _windowsToCloseOnNextUpdate;
+
         static UID _mainWindowId;
         static UID _focusedWindowId;
         static UID _appUpdatedEventId;

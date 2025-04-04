@@ -62,10 +62,9 @@ namespace Tbx
             return;
         }
 
+        // Load and wrap plugin in shared_ptr with custom destructor
         const auto& loadPluginFunc = static_cast<PluginLoadFunc>(loadFuncSymbol);
         auto* loadedPlugin = loadPluginFunc();
-
-        // Wrap plugin in shared_ptr with custom destructor
         std::shared_ptr<Plugin> sharedLoadedPlugin(loadedPlugin, [this](Plugin* pluginToUnload)
         {
             // Use library to free plugin memory because it owns it
@@ -91,9 +90,12 @@ namespace Tbx
     {
         if (_plugin != nullptr)
         {
+            TBX_ASSERT(_plugin.use_count() == 1, "Plugin is still in use! Ensure all references are released before unloading!");
+
             _plugin->OnUnload();
             _plugin.reset();
         }
+
         _library.Unload();
     }
 }

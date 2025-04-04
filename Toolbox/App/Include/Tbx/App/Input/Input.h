@@ -11,22 +11,18 @@ namespace Tbx
         EXPORT static void Initialize();
         EXPORT static void Shutdown();
 
-        // TODO: reimplement gamepad support via events
-        ////EXPORT static bool IsGamepadButtonDown(const int id, const int button);
-        ////EXPORT static bool IsGamepadButtonUp(const int id, const int button);
-        ////EXPORT static bool IsGamepadButtonHeld(const int id, const int button);
+        EXPORT static bool IsGamepadButtonDown(const int gamepadId, const int button);
+        EXPORT static bool IsGamepadButtonUp(const int gamepadId, const int button);
+        EXPORT static bool IsGamepadButtonHeld(const int gamepadId, const int button);
 
         EXPORT static bool IsKeyDown(const int keyCode);
         EXPORT static bool IsKeyUp(const int keyCode);
+        EXPORT static bool IsKeyHeld(const int keyCode);
 
-        // TODO: reimplement key held support via events
-        //EXPORT static bool IsKeyHeld(const int keyCode);
-
-        // TODO: reimplement mouse support via events
-        ////EXPORT static bool IsMouseButtonDown(const int button);
-        ////EXPORT static bool IsMouseButtonUp(const int button);
-        ////EXPORT static bool IsMouseButtonHeld(const int button);
-        ////EXPORT static Vector2 GetMousePosition();
+        EXPORT static bool IsMouseButtonDown(const int button);
+        EXPORT static bool IsMouseButtonUp(const int button);
+        EXPORT static bool IsMouseButtonHeld(const int button);
+        EXPORT static Vector2 GetMousePosition();
 
     private:
         static void OnWindowFocusChanged(const WindowFocusChangedEvent& args);

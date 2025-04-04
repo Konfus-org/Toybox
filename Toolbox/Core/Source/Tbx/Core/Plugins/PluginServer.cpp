@@ -15,7 +15,7 @@ namespace Tbx
         // Sort by priority
         std::sort(foundPluginInfos.begin(), foundPluginInfos.end(), [](const PluginInfo& a, const PluginInfo& b) 
         {
-            return a.GetPriority() < b.GetPriority(); 
+            return a.GetPriority() > b.GetPriority(); 
         });
 
         // Load plugins
@@ -48,12 +48,21 @@ namespace Tbx
 
     void PluginServer::ReloadPlugins(const std::string& pathToPlugins)
     {
-        _loadedPlugins.clear();
+        // Unload...
+        UnloadPlugins();
+        // Reload...
         LoadPlugins(pathToPlugins);
     }
 
-    void PluginServer::Shutdown()
+    void PluginServer::UnloadPlugins()
     {
+        // Sort by reverse priority so highest prio is unloaded last
+        std::sort(_loadedPlugins.begin(), _loadedPlugins.end(),
+            [](const std::shared_ptr<LoadedPlugin> a, const std::shared_ptr<LoadedPlugin> b)
+        {
+            return a->GetInfo().GetPriority() < b->GetInfo().GetPriority();
+        });
+
         // Clear refs to loaded plugins.. 
         // this will cause them to unload themselves when all refs to them die
         _loadedPlugins.clear();

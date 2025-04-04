@@ -27,19 +27,14 @@ namespace Tbx
         EXPORT const std::string& GetName() const;
         EXPORT std::weak_ptr<IWindow> GetMainWindow() const;
 
-        EXPORT static std::weak_ptr<App> GetInstance();
-
     private:
-        static std::shared_ptr<App> _instance;
+        void ShutdownSystems();
+        void OnWindowClosed(const WindowClosedEvent& e);
 
         bool _isRunning = false;
         bool _isHeadless = false;
         std::string _name = "App";
         LayerStack _layerStack;
         UID _windowClosedEventId;
-
-        void ShutdownSystems();
-
-        void OnWindowClosed(const WindowClosedEvent& e);
     };
 }

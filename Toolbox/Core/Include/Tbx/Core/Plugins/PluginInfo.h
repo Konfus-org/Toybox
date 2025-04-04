@@ -35,6 +35,6 @@ namespace Tbx
         std::string _description = "";
         std::string _lib = "";
         std::string _pathToFolder = "";
-        int _priority = 2147483647;
+        int _priority = -2147483647;
     };
 }

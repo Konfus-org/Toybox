@@ -11,8 +11,31 @@ namespace Tbx
 
     static void WriteToConsole(const std::string& msg, LogLevel lvl)
     {
-        auto event = WriteLineToLogRequestEvent(lvl, msg, "Tbx::Core");
-        if (!EventDispatcher::Dispatch(event)) WriteToConsole(msg, lvl);
+        switch (lvl)
+        {
+            using enum LogLevel;
+            case Trace:
+                std::cout << "Tbx::Core::Trace: " << msg << std::endl;
+                break;
+            case Debug:
+                std::cout << "Tbx::Core::Debug: " << msg << std::endl;
+                break;
+            case Info:
+                std::cout << "Tbx::Core::Info: " << msg << std::endl;
+                break;
+            case Warn:
+                std::cout << "Tbx::Core::Warn: " << msg << std::endl;
+                break;
+            case Error:
+                std::cout << "Tbx::Core::Error: " << msg << std::endl;
+                break;
+            case Critical:
+                std::cout << "Tbx::Core::Critical: " << msg << std::endl;
+                break;
+            default:
+                std::cout << "Tbx::Core::LEVEL_NOT_DEFINED : " << msg << std::endl;
+                break;
+        }
     }
 
     void WriteToLogEventDispatcher::Dispatch(const std::string& msg, const LogLevel& lvl) const

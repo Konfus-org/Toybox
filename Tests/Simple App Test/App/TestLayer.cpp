@@ -4,6 +4,7 @@
 #include <Tbx/App/Input/Input.h>
 #include <Tbx/App/Input/InputCodes.h>
 #include <Tbx/App/Time/DeltaTime.h>
+#include <Tbx/App/Windowing/WindowManager.h>
 #include <Tbx/App/App.h>
 #include <chrono>
 
@@ -112,7 +113,7 @@ void TestLayer::OnAttach()
 	CreateTestMat();
 
 	// Configure camera
-	const auto& mainWindow = Tbx::App::GetInstance().lock()->GetMainWindow();
+	const auto& mainWindow = Tbx::WindowManager::GetMainWindow();
 	const auto& mainWindowCam = mainWindow.lock()->GetCamera().lock();
 	const auto& mainWindowSize = mainWindow.lock()->GetSize();
 
@@ -141,7 +142,7 @@ void TestLayer::OnUpdate()
 	const auto& deltaTime = Tbx::Time::DeltaTime::Seconds();
 	//TBX_TRACE("Delta Time: {0}", deltaTime);
 
-	const auto& mainWindow = Tbx::App::GetInstance().lock()->GetMainWindow();
+	const auto& mainWindow = Tbx::WindowManager::GetMainWindow();
 	const auto& mainWindowCam = mainWindow.lock()->GetCamera().lock();
 
 	// Camera movement and rotation

@@ -1,7 +1,7 @@
 {
     "name": "Spd Logging",
     "lib": "Spd Logging.dll",
-    "priority": "-2147483647",
+    "priority": "2147483647",
     "language": "C++",
     "version": "0.0.1",
     "author": "Konfus-dev",

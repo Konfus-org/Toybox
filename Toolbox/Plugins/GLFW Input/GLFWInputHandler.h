@@ -12,25 +12,25 @@ namespace GLFWInput
 
         void SetContext(const std::weak_ptr<Tbx::IWindow>& windowToListenTo) override;
 
-        bool IsGamepadButtonDown(const int id, const int button) override;
-        bool IsGamepadButtonUp(const int id, const int button) override;
-        bool IsGamepadButtonHeld(const int id, const int button) override;
+        bool IsGamepadButtonDown(const int id, const int button) const override;
+        bool IsGamepadButtonUp(const int id, const int button) const override;
+        bool IsGamepadButtonHeld(const int id, const int button) const override;
 
-        bool IsKeyDown(const int keyCode) override;
-        bool IsKeyUp(const int keyCode) override;
-        bool IsKeyHeld(const int keyCode) override;
+        bool IsKeyDown(const int keyCode) const override;
+        bool IsKeyUp(const int keyCode) const override;
+        bool IsKeyHeld(const int keyCode) const override;
 
-        bool IsMouseButtonDown(const int button) override;
-        bool IsMouseButtonUp(const int button) override;
-        bool IsMouseButtonHeld(const int button) override;
-        Tbx::Vector2 GetMousePosition() override;
+        bool IsMouseButtonDown(const int button) const override;
+        bool IsMouseButtonUp(const int button) const override;
+        bool IsMouseButtonHeld(const int button) const override;
+        Tbx::Vector2 GetMousePosition() const override;
 
     private:
         GLFWwindow* _windowToListenTo = nullptr;
 
-        int GetKeyState(int keyCode);
-        int GetMouseButtonState(int button);
-        int GetGamepadButtonState(int button, int id);
+        int GetKeyState(int keyCode) const;
+        int GetMouseButtonState(int button) const;
+        int GetGamepadButtonState(int button, int id) const;
     };
 }
 
