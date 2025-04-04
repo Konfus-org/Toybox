@@ -1,4 +1,5 @@
 #include "GLFWInputHandler.h"
+#include <Tbx/Core/Debug/DebugAPI.h>
 
 namespace GLFWInput
 {
@@ -54,7 +55,8 @@ namespace GLFWInput
 
     Tbx::Vector2 GLFWInputHandler::GetMousePosition() const
     {
-        if (_windowToListenTo == nullptr) return { 0, 0 };
+        TBX_VALIDATE_PTR(_windowToListenTo, "Cannot get mouse position, there is no context set (window to ask for input)!");
+        if (_windowToListenTo == nullptr) return Tbx::Vector2();
 
         double xPos;
         double yPos;
@@ -64,6 +66,7 @@ namespace GLFWInput
 
     int GLFWInputHandler::GetKeyState(int keyCode) const
     {
+        TBX_VALIDATE_PTR(_windowToListenTo, "Cannot get key state, there is no context set (window to ask for input)!");
         if (_windowToListenTo == nullptr) return -1;
 
         auto state = glfwGetKey(_windowToListenTo, keyCode);
@@ -72,6 +75,7 @@ namespace GLFWInput
 
     int GLFWInputHandler::GetMouseButtonState(int button) const
     {
+        TBX_VALIDATE_PTR(_windowToListenTo, "Cannot get mouse button state, there is no context set (window to ask for input)!");
         if (_windowToListenTo == nullptr) return -1;
 
         auto state = glfwGetMouseButton(_windowToListenTo, button);
@@ -80,6 +84,7 @@ namespace GLFWInput
 
     int GLFWInputHandler::GetGamepadButtonState(int button, int id) const
     {
+        TBX_VALIDATE_PTR(_windowToListenTo, "Cannot get gamepad button state, there is no context set (window to ask for input)!");
         if (_windowToListenTo == nullptr) return -1;
 
         int numberOfPressedButtons;

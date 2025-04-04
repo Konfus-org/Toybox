@@ -33,6 +33,7 @@ namespace GLFWInput
         void OnIsGamepadButtonUpEvent(Tbx::IsGamepadButtonUpRequestEvent& e) const;
         void OnIsGamepadButtonHeldEvent(Tbx::IsGamepadButtonHeldRequestEvent& e) const;
 
+        Tbx::UID _onSetContextRequestEventUID;
         Tbx::UID _onIsKeyDownEventUID;
         Tbx::UID _onIsKeyUpEventUID;
         Tbx::UID _onIsKeyHeldEventUID;

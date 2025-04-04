@@ -10,6 +10,7 @@ namespace SpdLogging
         SpdLogger() = default;
         ~SpdLogger() override;
 
+        bool IsOpen() { return _spdLogger != nullptr; }
         void Open(const std::string& name, const std::string& filePath) final;
         void Close() final;
         void Log(int lvl, const std::string& msg) final;

@@ -48,10 +48,14 @@ namespace Tbx
 
     void PluginServer::ReloadPlugins(const std::string& pathToPlugins)
     {
+        TBX_INFO("Reloading plugins...");
+
         // Unload...
         UnloadPlugins();
         // Reload...
         LoadPlugins(pathToPlugins);
+
+        TBX_INFO("Plugins reloaded!");
     }
 
     void PluginServer::UnloadPlugins()

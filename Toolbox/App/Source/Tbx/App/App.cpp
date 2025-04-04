@@ -43,6 +43,10 @@ namespace Tbx
             WindowManager::Initialize();
             WindowManager::OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
             auto mainWindow = WindowManager::GetMainWindow();
+
+            // Tell things the main window should be focused on
+            auto windowFocusChangedEvent = WindowFocusChangedEvent(mainWindow.lock()->GetId(), true);
+            EventDispatcher::Dispatch(windowFocusChangedEvent);
         }
 
         OnLaunch();
@@ -77,6 +81,8 @@ namespace Tbx
 
     void App::ShutdownSystems()
     {
+        TBX_INFO("Shutting down...");
+
         _isRunning = false;
 
         // Unsub to window events and shutdown events

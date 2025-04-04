@@ -9,9 +9,11 @@ namespace GLFWWindowing
     public:
         GLFWWindow();
         ~GLFWWindow() final;
+
         void Open(const Tbx::WindowMode& mode) override;
         void Close() override;
         void Update() override;
+        void Focus() override;
 
         std::weak_ptr<Tbx::Camera> GetCamera() const override;
 

@@ -10,6 +10,8 @@
 #include <format>
 namespace Tbx
 {
+    static bool _reloadPlugins = false;
+
     void LoadExternalLayers(std::shared_ptr<App> app)
     {
         auto layerPlugins = PluginServer::GetPlugins<Layer>();
@@ -21,6 +23,8 @@ namespace Tbx
 
     void LaunchAndRun(std::shared_ptr<App> app)
     {
+        LoadExternalLayers(app);
+
         app->Launch();
         while (app->IsRunning())
         {
@@ -34,7 +38,8 @@ namespace Tbx
             // Shortcut to hot reload plugins
             if (Input::IsKeyDown(TBX_KEY_F5))
             {
-                PluginServer::ReloadPlugins(TBX_PATH_TO_PLUGINS);
+                _reloadPlugins = true;
+                break;
             }
 
             // Update the app
@@ -50,10 +55,7 @@ namespace Tbx
         try
         {
             PluginServer::LoadPlugins(TBX_PATH_TO_PLUGINS);
-
-            LoadExternalLayers(app);
             LaunchAndRun(app);
-
             PluginServer::UnloadPlugins();
         }
         catch (const std::exception& ex)
@@ -66,20 +68,33 @@ namespace Tbx
         return true;
     }
 
+    void RunLoadedApp()
+    {
+        auto app = PluginServer::GetPlugin<App>();
+        TBX_VALIDATE_PTR(app, "Could not load app! Is the TBX_PATH_TO_PLUGINS defined correctly and is the dll containing the app being build there?");
+
+        LaunchAndRun(app);
+
+        if (_reloadPlugins)
+        {
+            _reloadPlugins = false;
+
+            // Clear our reference to the app so that it can be reloaded
+            app.reset();
+
+            // Reload the plugin and rerun the app plugin
+            PluginServer::ReloadPlugins(TBX_PATH_TO_PLUGINS);
+            RunLoadedApp();
+        }
+    }
+
     bool LoadAndRunApp()
     {
         try
         {
             PluginServer::LoadPlugins(TBX_PATH_TO_PLUGINS);
 
-            // App lifetime, we need our ref to the app to be cleared by the time plugins are unloaded since it is a plugin
-            {
-                auto app = PluginServer::GetPlugin<App>();
-                TBX_VALIDATE_PTR(app, "Could not load app! Is the TBX_PATH_TO_PLUGINS defined correctly and is the dll containing the app being build there?");
-
-                LoadExternalLayers(app);
-                LaunchAndRun(app);
-            }
+            RunLoadedApp();
 
             PluginServer::UnloadPlugins();
         }

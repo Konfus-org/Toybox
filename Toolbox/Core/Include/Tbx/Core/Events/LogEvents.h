@@ -59,8 +59,8 @@ namespace Tbx
     class WriteLineToLogRequestEvent : public LogEvent
     {
     public:
-        EXPORT WriteLineToLogRequestEvent(const LogLevel& level, const std::string& lineToWrite, const std::string& logToWriteTo)
-            : _level(level), _lineToWrite(lineToWrite), _logToWriteTo(logToWriteTo){}
+        EXPORT WriteLineToLogRequestEvent(const LogLevel& level, const std::string& lineToWrite, const std::string& logToWriteTo, const std::string& logFilePath)
+            : _level(level), _lineToWrite(lineToWrite), _logToWriteTo(logToWriteTo), _logFilePath(logFilePath) {}
 
         EXPORT std::string ToString() const override
         {
@@ -69,11 +69,13 @@ namespace Tbx
 
         EXPORT LogLevel GetLogLevel() const { return _level; }
         EXPORT std::string GetLineToWriteToLog() const { return _lineToWrite; }
-        EXPORT std::string GetNameOfLogToWriteTo() const { return _logToWriteTo; }
+        EXPORT std::string GetLogName() const { return _logToWriteTo; }
+        EXPORT std::string GetLogFilePath() const { return _logFilePath; }
 
     private:
         std::string _logToWriteTo = "";
         std::string _lineToWrite = "";
+        std::string _logFilePath = "";
         LogLevel _level = LogLevel::Trace;
     };
 }

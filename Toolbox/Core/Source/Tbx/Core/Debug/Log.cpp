@@ -7,6 +7,8 @@
 namespace Tbx
 {
     static const std::string _logName = "Tbx::Core";
+
+    std::string Log::_logFilePath = "";
     bool Log::_isOpen = false;
 
     static void WriteToConsole(const std::string& msg, LogLevel lvl)
@@ -47,7 +49,7 @@ namespace Tbx
         }
 
         // Send message
-        auto event = WriteLineToLogRequestEvent(lvl, msg, "Tbx::Core");
+        auto event = WriteLineToLogRequestEvent(lvl, msg, _logName, Log::GetFilePath());
         if (!EventDispatcher::Dispatch(event)) WriteToConsole(msg, lvl);
     }
 
@@ -61,8 +63,8 @@ namespace Tbx
 #else 
         // Open log file in non-debug
         const auto& currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        const auto& logPath = std::format("Logs\\{}.log", currentTime);
-        auto event = OpenLogRequestEvent(logPath, _logName);
+        _logFilePath = std::format("Logs\\{}.log", currentTime);
+        auto event = OpenLogRequestEvent(_logFilePath, _logName);
 #endif
 
         EventDispatcher::Dispatch(event);
@@ -82,5 +84,10 @@ namespace Tbx
         TBX_ASSERT(event.IsHandled, "Failed to close the log {}, is a logger under that name created and listening?", _logName);
 
         _isOpen = false;
+    }
+
+    std::string Log::GetFilePath()
+    {
+        return _logFilePath;
     }
 }

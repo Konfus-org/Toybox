@@ -18,12 +18,15 @@ namespace SpdLogging
         Tbx::EventDispatcher::Unsubscribe(_writeToLogEventId);
         Tbx::EventDispatcher::Unsubscribe(_openLogEventId);
         Tbx::EventDispatcher::Unsubscribe(_closeLogEventId);
+        
+        Close();
 
         spdlog::drop_all();
     }
 
     void SpdLoggerPlugin::OnWriteToLogEvent(Tbx::WriteLineToLogRequestEvent& e)
     {
+        if (!IsOpen()) Open(e.GetLogName(), e.GetLogFilePath());
         Log((int)e.GetLogLevel(), e.GetLineToWriteToLog());
         e.IsHandled = true;
     }

@@ -22,7 +22,6 @@ namespace GLFWWindowing
 	{
 		SetMode(mode);
 		SetupCallbacks();
-		glfwFocusWindow(_glfwWindow);
 	}
 
 	void GLFWWindow::Close()
@@ -33,6 +32,11 @@ namespace GLFWWindowing
 	void GLFWWindow::Update()
 	{
 		glfwPollEvents();
+	}
+
+	void GLFWWindow::Focus()
+	{
+        glfwFocusWindow(_glfwWindow);
 	}
 
 	std::weak_ptr<Tbx::Camera> GLFWWindow::GetCamera() const

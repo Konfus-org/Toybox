@@ -20,6 +20,8 @@ namespace Tbx
         EXPORT static bool IsOpen();
         EXPORT static void Close();
 
+        EXPORT static std::string GetFilePath();
+
         EXPORT static inline void Trace(const ILoggable& loggable)
         {
             _dispatcher.Dispatch(loggable.ToString(), LogLevel::Trace);
@@ -81,6 +83,7 @@ namespace Tbx
 
     private:
         static inline WriteToLogEventDispatcher _dispatcher = {};
+        static std::string _logFilePath;
         static bool _isOpen;
     };
 }

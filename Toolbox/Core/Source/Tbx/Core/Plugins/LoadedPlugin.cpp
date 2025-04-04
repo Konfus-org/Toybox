@@ -90,7 +90,7 @@ namespace Tbx
     {
         if (_plugin != nullptr)
         {
-            TBX_ASSERT(_plugin.use_count() == 1, "Plugin is still in use! Ensure all references are released before unloading!");
+            TBX_ASSERT(_plugin.use_count() == 1, "{} Plugin is still in use! Ensure all references are released before unloading!", _pluginInfo.GetName());
 
             _plugin->OnUnload();
             _plugin.reset();

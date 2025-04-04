@@ -6,6 +6,8 @@ namespace GLFWInput
 {
     void GLFWInputHandlerPlugin::OnLoad()
     {
+        _onSetContextRequestEventUID = Tbx::EventDispatcher::Subscribe<Tbx::SetInputContextRequestEvent>(TBX_BIND_CALLBACK(OnSetContextRequestEvent));
+
         _onIsKeyDownEventUID = Tbx::EventDispatcher::Subscribe<Tbx::IsKeyDownRequestEvent>(TBX_BIND_CALLBACK(OnIsKeyDownEvent));
         _onIsKeyUpEventUID = Tbx::EventDispatcher::Subscribe<Tbx::IsKeyUpRequestEvent>(TBX_BIND_CALLBACK(OnIsKeyUpEvent));
         _onIsKeyHeldEventUID = Tbx::EventDispatcher::Subscribe<Tbx::IsKeyHeldRequestEvent>(TBX_BIND_CALLBACK(OnIsKeyHeldEvent));
@@ -23,13 +25,18 @@ namespace GLFWInput
 
     void GLFWInputHandlerPlugin::OnUnload()
     {
+        Tbx::EventDispatcher::Unsubscribe(_onSetContextRequestEventUID);
+
         Tbx::EventDispatcher::Unsubscribe(_onIsKeyDownEventUID);
         Tbx::EventDispatcher::Unsubscribe(_onIsKeyUpEventUID);
         Tbx::EventDispatcher::Unsubscribe(_onIsKeyHeldEventUID);
+
         Tbx::EventDispatcher::Unsubscribe(_onGetMousePositionEventUID);
+
         Tbx::EventDispatcher::Unsubscribe(_onIsMouseButtonDownEventUID);
         Tbx::EventDispatcher::Unsubscribe(_onIsMouseButtonUpEventUID);
         Tbx::EventDispatcher::Unsubscribe(_onIsMouseButtonHeldEventUID);
+
         Tbx::EventDispatcher::Unsubscribe(_onIsGamepadButtonDownEventUID);
         Tbx::EventDispatcher::Unsubscribe(_onIsGamepadButtonUpEventUID);
         Tbx::EventDispatcher::Unsubscribe(_onIsGamepadButtonHeldEventUID);
