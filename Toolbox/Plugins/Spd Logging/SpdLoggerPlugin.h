@@ -7,9 +7,12 @@
 
 namespace SpdLogging
 {
-    class SpdLoggerPlugin : public SpdLogger, public Tbx::Plugin
+    class SpdLoggerPlugin : public Tbx::Plugin, public SpdLogger
     {
     public:
+        SpdLoggerPlugin() = default;
+        ~SpdLoggerPlugin() final = default;
+
         void OnLoad() override;
         void OnUnload() override;
 

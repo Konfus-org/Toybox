@@ -7,6 +7,9 @@ namespace GLFWInput
     class GLFWInputHandler : public Tbx::IInputHandler
     {
     public:
+        GLFWInputHandler() = default;
+        ~GLFWInputHandler() override = default;
+
         void SetContext(const std::weak_ptr<Tbx::IWindow>& windowToListenTo) override;
 
         bool IsGamepadButtonDown(const int id, const int button) override;

@@ -14,7 +14,7 @@ namespace Tbx
         float B; // Blue 0-1
         float A; // Alpha 0-1
 
-        static Color White() { return Color(1.0f, 1.0f, 1.0f, 1.0f); }
+        static Color White() { return Color(1.0f, 1.0f, 1.0f, 1.0f); } 
         static Color Black() { return Color(0.0f, 0.0f, 0.0f, 1.0f); }
     };
     

@@ -5,6 +5,12 @@
 
 namespace SpdLogging
 {
+    SpdLogger::~SpdLogger()
+    {
+        spdlog::drop(_spdLogger->name());
+        _spdLogger.reset();
+    }
+
     void SpdLogger::Open(const std::string& name, const std::string& filePath)
     {
         // Create console and file sinks

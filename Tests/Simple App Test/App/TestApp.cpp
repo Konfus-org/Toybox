@@ -11,6 +11,11 @@ void SandboxApp::OnLoad()
     // Do nothing
 }
 
+void SandboxApp::OnUnload()
+{
+    // Do nothing
+}
+
 void SandboxApp::OnLaunch()
 {
     const auto& testLayer = std::make_shared<TestLayer>("Testing");

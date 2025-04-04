@@ -6,9 +6,12 @@
 
 namespace GLFWWindowing
 {
-    class GLFWWindowingPlugin : public GLFWWindowFactory, public Tbx::Plugin
+    class GLFWWindowingPlugin : public Tbx::Plugin, public GLFWWindowFactory
     {
     public:
+        GLFWWindowingPlugin() = default;
+        ~GLFWWindowingPlugin() final = default;
+
         void OnLoad() override;
         void OnUnload() override;
 

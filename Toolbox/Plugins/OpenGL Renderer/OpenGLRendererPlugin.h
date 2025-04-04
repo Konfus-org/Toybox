@@ -5,9 +5,12 @@
 
 namespace OpenGLRendering
 {
-    class OpenGLRendererPlugin : public OpenGLRenderer, public Tbx::Plugin
+    class OpenGLRendererPlugin : public Tbx::Plugin, public OpenGLRenderer
     {
     public:
+        OpenGLRendererPlugin() = default;
+        ~OpenGLRendererPlugin() final = default;
+
         void OnLoad() override;
         void OnUnload() override;
     };

@@ -5,6 +5,10 @@ namespace ImGuiDebugViewPlugin
 {
     class ImGuiDebugViewLayer : public Tbx::Layer
     {
+    public:
+        ImGuiDebugViewLayer() = default;
+        ~ImGuiDebugViewLayer() override = default;
+
         void OnAttach() override;
         void OnDetach() override;
         void OnUpdate() override;

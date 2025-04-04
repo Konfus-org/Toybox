@@ -5,9 +5,12 @@
 
 namespace GLFWInput
 {
-    class GLFWInputHandlerPlugin : public GLFWInputHandler, public Tbx::Plugin
+    class GLFWInputHandlerPlugin : public Tbx::Plugin, public GLFWInputHandler
     {
     public:
+        GLFWInputHandlerPlugin() = default;
+        ~GLFWInputHandlerPlugin() final = default;
+
         void OnLoad() override;
         void OnUnload() override;
     };

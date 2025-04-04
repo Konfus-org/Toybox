@@ -12,6 +12,9 @@ namespace OpenGLRendering
     class OpenGLRenderer : public Tbx::IRenderer
     {
     public:
+        OpenGLRenderer() = default;
+        ~OpenGLRenderer() override = default;
+
         void SetContext(const std::weak_ptr<Tbx::IWindow>& context) override;
         void SetViewport(const Tbx::Vector2I& screenPos, const Tbx::Size& size) override;
         void SetVSyncEnabled(const bool& enabled) override;

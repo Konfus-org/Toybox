@@ -7,6 +7,9 @@ namespace SpdLogging
     class SpdLogger : public Tbx::ILogger
     {
     public:
+        SpdLogger() = default;
+        ~SpdLogger() override;
+
         void Open(const std::string& name, const std::string& filePath) final;
         void Close() final;
         void Log(int lvl, const std::string& msg) final;
