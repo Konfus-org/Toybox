@@ -1,11 +1,11 @@
 #include "Tbx/Core/PCH.h"
-#include "Tbx/Core/Math/Matrix.h"
+#include "Tbx/Core/Math/Mat4x4.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 namespace Tbx
 {
-    static Matrix GlmMat4ToMatrix(const glm::mat4& glmMat)
+    static Mat4x4 GlmMat4ToMatrix(const glm::mat4& glmMat)
     {
         std::array<float, 16> result;
         for (int i = 0; i < 4; i++) 
@@ -18,7 +18,7 @@ namespace Tbx
         return result;
     }
 
-    std::string Matrix::ToString() const
+    std::string Mat4x4::ToString() const
     {
         return std::format(
             "[{}, {}, {}, {}],\n[{}, {}, {}, {}],\n[{}, {}, {}, {}],\n[{}, {}, {}, {}]",
@@ -29,9 +29,9 @@ namespace Tbx
         );
     }
 
-    Matrix Matrix::Zero()
+    Mat4x4 Mat4x4::Zero()
     {
-        return Matrix(
+        return Mat4x4(
             { 
                 0.0f, 0.0f, 0.0f, 0.0f, 
                 0.0f, 0.0f, 0.0f, 0.0f, 
@@ -40,31 +40,31 @@ namespace Tbx
             });
     }
 
-    Matrix Matrix::Identity()
+    Mat4x4 Mat4x4::Identity()
     {
         return GlmMat4ToMatrix(glm::mat4(1.0f));
     }
 
-    Matrix Matrix::FromPosition(const Vector3& position)
+    Mat4x4 Mat4x4::FromPosition(const Vector3& position)
     {
         const auto& glmMat = glm::translate(glm::mat4(1.0f), glm::vec3(position.X, position.Y, position.Z));
         return GlmMat4ToMatrix(glmMat);
     }
 
-    Matrix Matrix::FromRotation(const Quaternion& rotation)
+    Mat4x4 Mat4x4::FromRotation(const Quaternion& rotation)
     {
         const auto& glmQuat = glm::quat(rotation.W, rotation.X, rotation.Y, rotation.Z);
         const auto& glmMat = glm::mat4_cast(glm::normalize(glmQuat));
         return GlmMat4ToMatrix(glmMat);
     }
 
-    Matrix Matrix::FromScale(const Vector3& scale)
+    Mat4x4 Mat4x4::FromScale(const Vector3& scale)
     {
         const auto& glmMat = glm::scale(glm::mat4(1.0f), glm::vec3(scale.X, scale.Y, scale.Z));
         return GlmMat4ToMatrix(glmMat);
     }
 
-    Matrix Matrix::FromTRS(const Vector3& position, const Quaternion& rotation, const Vector3& scale)
+    Mat4x4 Mat4x4::FromTRS(const Vector3& position, const Quaternion& rotation, const Vector3& scale)
     {
         const auto& positionMatrix = FromPosition(position);
         const auto& scaleMatrix = FromScale(scale);
@@ -73,7 +73,7 @@ namespace Tbx
         return result;
     }
 
-    Matrix Matrix::LookAt(Vector3 from, Vector3 target, Vector3 up)
+    Mat4x4 Mat4x4::LookAt(Vector3 from, Vector3 target, Vector3 up)
     {
         const auto& glmVecFrom = glm::vec3(from.X, from.Y, from.Z);
         const auto& glmVecTarget = glm::vec3(target.X, target.Y, target.Z);
@@ -82,26 +82,26 @@ namespace Tbx
         return GlmMat4ToMatrix(glm::lookAt(glmVecFrom, glmVecTarget, glmVecUp));
     }
 
-    Matrix Matrix::OrthographicProjection(const Bounds& bounds, float zNear, float zFar)
+    Mat4x4 Mat4x4::OrthographicProjection(const Bounds& bounds, float zNear, float zFar)
     {
         const auto& glmMat = glm::ortho(bounds.Left, bounds.Right, bounds.Bottom, bounds.Top, zNear, zFar);
         return GlmMat4ToMatrix(glmMat);
     }
 
-    Matrix Matrix::PerspectiveProjection(float fov, float aspect, float zNear, float zFar)
+    Mat4x4 Mat4x4::PerspectiveProjection(float fov, float aspect, float zNear, float zFar)
     {
         const auto& glmMat = glm::perspective(fov, aspect, zNear, zFar);
         return GlmMat4ToMatrix(glmMat);
     }
 
-    Matrix Matrix::Inverse(const Matrix& matrix)
+    Mat4x4 Mat4x4::Inverse(const Mat4x4& matrix)
     {
         const auto& glmMat = glm::make_mat4(matrix.Values.data());
         const auto& inversedGlmMat = glm::inverse(glmMat);
         return GlmMat4ToMatrix(inversedGlmMat);
     }
 
-    Matrix Matrix::Translate(const Matrix& matrix, const Vector3& translate)
+    Mat4x4 Mat4x4::Translate(const Mat4x4& matrix, const Vector3& translate)
     {
         auto result = matrix;
 
@@ -112,7 +112,7 @@ namespace Tbx
         return result;
     }
 
-    Matrix Matrix::Rotate(const Matrix& matrix, const Quaternion& rotation)
+    Mat4x4 Mat4x4::Rotate(const Mat4x4& matrix, const Quaternion& rotation)
     {
         const auto& x = rotation.X;
         const auto& y = rotation.Y;
@@ -133,7 +133,7 @@ namespace Tbx
         return result;
     }
 
-    Matrix Matrix::Scale(const Matrix& matrix, const Vector3& scale)
+    Mat4x4 Mat4x4::Scale(const Mat4x4& matrix, const Vector3& scale)
     {
         auto result = matrix;
 
@@ -144,7 +144,7 @@ namespace Tbx
         return result;
     }
 
-    Matrix Matrix::Add(const Matrix& lhs, const Matrix& rhs)
+    Mat4x4 Mat4x4::Add(const Mat4x4& lhs, const Mat4x4& rhs)
     {
         const auto& lhsMat = glm::make_mat4(lhs.Values.data());
         const auto& rhsMat = glm::make_mat4(rhs.Values.data());
@@ -153,7 +153,7 @@ namespace Tbx
         return GlmMat4ToMatrix(result);
     }
 
-    Matrix Matrix::Subtract(const Matrix& lhs, const Matrix& rhs)
+    Mat4x4 Mat4x4::Subtract(const Mat4x4& lhs, const Mat4x4& rhs)
     {
         const auto& lhsMat = glm::make_mat4(lhs.Values.data());
         const auto& rhsMat = glm::make_mat4(rhs.Values.data());
@@ -162,7 +162,7 @@ namespace Tbx
         return GlmMat4ToMatrix(result);
     }
 
-    Matrix Matrix::Multiply(const Matrix& lhs, const Matrix& rhs)
+    Mat4x4 Mat4x4::Multiply(const Mat4x4& lhs, const Mat4x4& rhs)
     {
         const auto& lhsMat = glm::make_mat4(lhs.Values.data());
         const auto& rhsMat = glm::make_mat4(rhs.Values.data());
@@ -171,14 +171,14 @@ namespace Tbx
         return GlmMat4ToMatrix(result);
     }
 
-    Matrix Matrix::Multiply(float lhs, const Matrix& rhs)
+    Mat4x4 Mat4x4::Multiply(float lhs, const Mat4x4& rhs)
     {
         const auto& rhsMat = glm::make_mat4(rhs.Values.data());
         const auto& result = lhs * rhsMat;
         return GlmMat4ToMatrix(result);
     }
 
-    Matrix Matrix::Multiply(const Matrix& lhs, float rhs)
+    Mat4x4 Mat4x4::Multiply(const Mat4x4& lhs, float rhs)
     {
         const auto& lhsMat = glm::make_mat4(lhs.Values.data());
         const auto& result = lhsMat * rhs;

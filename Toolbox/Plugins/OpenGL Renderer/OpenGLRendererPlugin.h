@@ -1,15 +1,13 @@
 #pragma once
+#include "OpenGLRenderer.h"
+#include <Tbx/Core/Rendering/IRenderer.h>
 #include <Tbx/Core/Plugins/RegisterPlugin.h>
-#include "Tbx/Core/Rendering/IRenderer.h"
 
 namespace OpenGLRendering
 {
-    class OpenGLRendererPlugin : public Tbx::Plugin<Tbx::IRenderer>
+    class OpenGLRendererPlugin : public OpenGLRenderer, public Tbx::Plugin
     {
     public:
-        Tbx::IRenderer* Provide() override;
-        void Destroy(Tbx::IRenderer* windowToDestroy) override;
-
         void OnLoad() override;
         void OnUnload() override;
     };

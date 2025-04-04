@@ -1,6 +1,6 @@
 #include "Tbx/Core/PCH.h"
 #include "Tbx/Core/Rendering/Camera.h"
-#include "Tbx/Core/Math/Matrix.h"
+#include "Tbx/Core/Math/Mat4x4.h"
 
 namespace Tbx
 {
@@ -18,7 +18,7 @@ namespace Tbx
         _zFar = zFar;
         _fov = size;
         _aspect = aspect;
-        _projectionMatrix = Matrix::OrthographicProjection(bounds, zNear, zFar);
+        _projectionMatrix = Mat4x4::OrthographicProjection(bounds, zNear, zFar);
 
         RecalculateViewProjection();
     }
@@ -30,7 +30,7 @@ namespace Tbx
         _zFar = zFar;
         _aspect = aspect;
         _fov = fov;
-        _projectionMatrix = Matrix::PerspectiveProjection(Math::DegreesToRadians(fov), aspect, zNear, zFar);
+        _projectionMatrix = Mat4x4::PerspectiveProjection(Math::DegreesToRadians(fov), aspect, zNear, zFar);
 
         RecalculateViewProjection();
     }
@@ -54,9 +54,9 @@ namespace Tbx
         const auto& flipXVector = Vector3(-1, 1, 1);
         const auto& cameraViewPos = _position * flipXVector;
         const auto& lookAtPos = cameraViewPos + Vector3::Forward();
-        const auto& rotationMatrix = Matrix::FromRotation(_rotation);
+        const auto& rotationMatrix = Mat4x4::FromRotation(_rotation);
 
-        _viewMatrix = Matrix::LookAt(cameraViewPos, lookAtPos, Vector3::Up()) * rotationMatrix;
+        _viewMatrix = Mat4x4::LookAt(cameraViewPos, lookAtPos, Vector3::Up()) * rotationMatrix;
         _viewProjectionMatrix = _projectionMatrix * _viewMatrix;
     }
 }

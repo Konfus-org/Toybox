@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/App/Input/IInputHandler.h"
+#include "Tbx/App/Input/InputCodes.h"
 #include "Tbx/App/Windowing/IWindow.h"
 #include "Tbx/App/Events/WindowEvents.h"
 
@@ -29,8 +29,8 @@ namespace Tbx
         ////EXPORT static Vector2 GetMousePosition();
 
     private:
-        static UID _windowFocusChangedEventId;
-
         static void OnWindowFocusChanged(const WindowFocusChangedEvent& args);
+
+        static UID _windowFocusChangedEventId;
     };
 }

@@ -7,7 +7,10 @@ namespace Tbx
     struct EXPORT UID
     {
     public:
+        // Explicitly sets the ID
         explicit(false) UID(uint64 id);
+
+        // Will generate a new UID
         UID();
         ~UID() = default;
 
@@ -18,8 +21,8 @@ namespace Tbx
         std::string ToString() const { return std::to_string(_id); }
 
     private:
-        uint64 _id = -1;
-
         static uint64 GetNextId();
+
+        uint64 _id = -1;
     };
 }

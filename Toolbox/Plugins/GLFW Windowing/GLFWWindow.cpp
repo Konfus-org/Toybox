@@ -215,19 +215,19 @@ namespace GLFWWindowing
 			case GLFW_PRESS:
 			{
 				Tbx::KeyPressedEvent event(key);
-				Tbx::EventDispatcher::Send(event);
+				Tbx::EventDispatcher::Dispatch(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
 				Tbx::KeyReleasedEvent event(key);
-				Tbx::EventDispatcher::Send(event);
+				Tbx::EventDispatcher::Dispatch(event);
 				break;
 			}
 			case GLFW_REPEAT:
 			{
 				Tbx::KeyRepeatedEvent event(key, 1);
-				Tbx::EventDispatcher::Send(event);
+				Tbx::EventDispatcher::Dispatch(event);
 				break;
 			}
 			default:
@@ -245,13 +245,13 @@ namespace GLFWWindowing
 			case GLFW_PRESS:
 			{
 				Tbx::MouseButtonPressedEvent event(button);
-				Tbx::EventDispatcher::Send(event);
+				Tbx::EventDispatcher::Dispatch(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
 				Tbx::MouseButtonReleasedEvent event(button);
-				Tbx::EventDispatcher::Send(event);
+				Tbx::EventDispatcher::Dispatch(event);
 				break;
 			}
 			default:
@@ -265,30 +265,30 @@ namespace GLFWWindowing
 	void GLFWWindow::OnMouseScrolled(double offsetX, double offsetY) const
 	{
 		Tbx::MouseScrolledEvent event((float)offsetX, (float)offsetY);
-		Tbx::EventDispatcher::Send(event);
+		Tbx::EventDispatcher::Dispatch(event);
 	}
 
 	void GLFWWindow::OnMouseMoved(double posX, double posY) const
 	{
 		Tbx::MouseMovedEvent event((float)posX, (float)posY);
-		Tbx::EventDispatcher::Send(event);
+		Tbx::EventDispatcher::Dispatch(event);
 	}
 
 	void GLFWWindow::OnWindowClosed() const
 	{
 		Tbx::WindowClosedEvent event(GetId());
-		Tbx::EventDispatcher::Send(event);
+		Tbx::EventDispatcher::Dispatch(event);
 	}
 
 	void GLFWWindow::OnWindowFocusChanged(bool isFocused) const
 	{
         Tbx::WindowFocusChangedEvent event(GetId(), isFocused);
-        Tbx::EventDispatcher::Send(event);
+        Tbx::EventDispatcher::Dispatch(event);
 	}
 
 	void GLFWWindow::OnSizeChanged() const
 	{
 		Tbx::WindowResizedEvent event(GetId(), _size.Width, _size.Height);
-		Tbx::EventDispatcher::Send(event);
+		Tbx::EventDispatcher::Dispatch(event);
 	}
 }

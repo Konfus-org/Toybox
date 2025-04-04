@@ -11,7 +11,6 @@ namespace Tbx
         Event() = default;
         ~Event() override = default;
 
-        virtual std::string ToString() const = 0;
         virtual int GetCategorization() const = 0;
         bool IsInCategory(EventCategory category) const
         {

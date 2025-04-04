@@ -34,6 +34,6 @@ namespace Tbx
 
     private:
         CallbackFunction<TArg> _callbackFn = nullptr;
-        UID _id;
+        UID _id = UID();
     };
 }

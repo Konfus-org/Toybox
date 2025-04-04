@@ -33,7 +33,7 @@ namespace Tbx
         _vsyncEnabled = enabled;
 
         SetVSyncRequestEvent request(enabled);
-        EventDispatcher::Send(request);
+        EventDispatcher::Dispatch(request);
     }
 
     bool RenderPipeline::IsVSyncEnabled()
@@ -59,7 +59,7 @@ namespace Tbx
     void RenderPipeline::Clear()
     {
         ClearFrameRequestEvent request;
-        EventDispatcher::Send(request);
+        EventDispatcher::Dispatch(request);
     }
 
     void RenderPipeline::Flush()
@@ -70,13 +70,13 @@ namespace Tbx
     void RenderPipeline::ProcessNextBatch()
     {
         BeginRenderFrameRequestEvent beginFrameRequest;
-        EventDispatcher::Send(beginFrameRequest);
+        EventDispatcher::Dispatch(beginFrameRequest);
 
         if (!_renderQueue.IsEmpty())
         {
             const auto& batch = _renderQueue.Peek();
             RenderFrameRequestEvent request(batch);
-            EventDispatcher::Send(request);
+            EventDispatcher::Dispatch(request);
             _renderQueue.Pop();
 
             // TODO: put this into the renderer
@@ -126,7 +126,7 @@ namespace Tbx
         }
 
         EndRenderFrameRequestEvent endFrameRequest;
-        EventDispatcher::Send(beginFrameRequest);
+        EventDispatcher::Dispatch(beginFrameRequest);
     }
 
     void RenderPipeline::OnAppUpdated(const AppUpdatedEvent& e)
@@ -139,7 +139,7 @@ namespace Tbx
         if (!e.IsFocused()) return;
 
         SetRenderContextRequestEvent request(WindowManager::GetWindow(e.GetWindowId()));
-        EventDispatcher::Send(request);
+        EventDispatcher::Dispatch(request);
     }
 
     void RenderPipeline::OnWindowResize(const WindowResizedEvent& e)

@@ -101,7 +101,7 @@ static void DrawSquareTest()
 	const std::vector<Tbx::uint32>& squareMeshIndices = { 0, 1, 2, 2, 3, 0 };
 	const auto& squareMesh = Tbx::Mesh(sqaureMeshVerts, squareMeshIndices);
 
-	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("transform", Tbx::Matrix::FromPosition(_trianglePosition), Tbx::ShaderDataType::Mat4));
+	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("transform", Tbx::Mat4x4::FromPosition(_trianglePosition), Tbx::ShaderDataType::Mat4));
 	Tbx::RenderPipeline::Push(Tbx::RenderCommand::RenderMesh, Tbx::MeshRenderData(squareMesh, _testMat));
 }
 

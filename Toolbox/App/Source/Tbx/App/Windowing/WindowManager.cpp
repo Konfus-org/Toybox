@@ -34,7 +34,7 @@ namespace Tbx
     UID WindowManager::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
         auto event = OpenNewWindowRequestEvent(name, mode, size);
-        EventDispatcher::Send<OpenNewWindowRequestEvent>(event);
+        EventDispatcher::Dispatch<OpenNewWindowRequestEvent>(event);
         auto window = event.GetResult();
 
         TBX_ASSERT(event.IsHandled, "Failed to open new window with the name {}!", name);

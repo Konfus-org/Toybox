@@ -27,19 +27,4 @@ void SandboxApp::OnShutdown()
     // Do nothing
 }
 
-void SandboxApp::OnUnload()
-{
-    // Do nothing
-}
-
-Tbx::App* SandboxApp::Provide()
-{
-    return new SandboxApp();
-}
-
-void SandboxApp::Destroy(Tbx::App* toDestroy)
-{
-    delete toDestroy;
-}
-
 TBX_REGISTER_PLUGIN(SandboxApp);

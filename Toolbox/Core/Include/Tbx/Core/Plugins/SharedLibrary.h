@@ -21,7 +21,7 @@ namespace Tbx
         EXPORT void ListSymbols();
 
     private:
-        std::string _path;
+        std::string _path = "";
         std::any _handle = nullptr;
     };
 }

@@ -61,7 +61,7 @@ namespace Tbx
 
         // Send update event
         AppUpdatedEvent updateEvent;
-        EventDispatcher::Send(updateEvent);
+        EventDispatcher::Dispatch(updateEvent);
 
         // Then update layers
         for (const auto& layer : _layerStack)

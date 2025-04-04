@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
 #include "Tbx/Core/Math/Bounds.h"
-#include "Tbx/Core/Math/Matrix.h"
+#include "Tbx/Core/Math/Mat4x4.h"
 #include "Tbx/Core/Math/Vectors.h"
 #include "Tbx/Core/Math/Quaternion.h"
 #include "Tbx/Core/Math/Trig.h"
@@ -29,9 +29,9 @@ namespace Tbx
         bool IsOrthagraphic() const { return !_isPerspective; }
 
         float GetFov() const { return Math::RadiansToDegrees(_fov); }
-        const Matrix& GetViewProjectionMatrix() const { return _viewProjectionMatrix; }
-        const Matrix& GetProjectionMatrix() const { return _projectionMatrix; }
-        const Matrix& GetViewMatrix() const { return _viewMatrix; }
+        const Mat4x4& GetViewProjectionMatrix() const { return _viewProjectionMatrix; }
+        const Mat4x4& GetProjectionMatrix() const { return _projectionMatrix; }
+        const Mat4x4& GetViewMatrix() const { return _viewMatrix; }
 
     private:
         bool _isPerspective = true;
@@ -43,9 +43,9 @@ namespace Tbx
         Vector3 _position = Vector3::Zero();
         Quaternion _rotation = Quaternion::Identity();
 
-        Matrix _viewProjectionMatrix = Matrix::Identity();
-        Matrix _projectionMatrix = Matrix::Identity();
-        Matrix _viewMatrix = Matrix::Identity();
+        Mat4x4 _viewProjectionMatrix = Mat4x4::Identity();
+        Mat4x4 _projectionMatrix = Mat4x4::Identity();
+        Mat4x4 _viewMatrix = Mat4x4::Identity();
 
         void RecalculateViewProjection();
     };

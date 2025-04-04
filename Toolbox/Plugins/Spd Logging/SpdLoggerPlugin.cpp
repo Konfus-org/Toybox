@@ -6,27 +6,11 @@
 
 namespace SpdLogging
 {
-    Tbx::ILogger* SpdLoggerPlugin::Provide()
-    {
-        _loggers.push_back(std::make_shared<SpdLogger>());
-        return _loggers.back().get();
-    }
-
-    void SpdLoggerPlugin::Destroy(Tbx::ILogger* toDestroy)
-    {
-        const auto& logger = std::find_if(_loggers.begin(), _loggers.end(), [&](std::shared_ptr<SpdLogger> logger) { return logger->GetName() == toDestroy->GetName(); });
-        if (logger != _loggers.end())
-        {
-            (*logger)->Close();
-            _loggers.erase(std::remove(_loggers.begin(), _loggers.end(), *logger), _loggers.end());
-        }
-    }
-
     void SpdLoggerPlugin::OnLoad()
     {
-        _writeToLogEventId = Tbx::EventDispatcher::Subscribe<Tbx::WriteLineToLogRequestEvent>(TBX_BIND_CALLBACK(OnWriteToLog));
-        _openLogEventId = Tbx::EventDispatcher::Subscribe<Tbx::OpenLogRequestEvent>(TBX_BIND_CALLBACK(OnOpenLog));
-        _closeLogEventId = Tbx::EventDispatcher::Subscribe<Tbx::CloseLogRequestEvent>(TBX_BIND_CALLBACK(OnCloseLog));
+        _writeToLogEventId = Tbx::EventDispatcher::Subscribe<Tbx::WriteLineToLogRequestEvent>(TBX_BIND_CALLBACK(OnWriteToLogEvent));
+        _openLogEventId = Tbx::EventDispatcher::Subscribe<Tbx::OpenLogRequestEvent>(TBX_BIND_CALLBACK(OnOpenLogEvent));
+        _closeLogEventId = Tbx::EventDispatcher::Subscribe<Tbx::CloseLogRequestEvent>(TBX_BIND_CALLBACK(OnCloseLogEvent));
     }
 
     void SpdLoggerPlugin::OnUnload()
@@ -35,36 +19,25 @@ namespace SpdLogging
         Tbx::EventDispatcher::Unsubscribe(_openLogEventId);
         Tbx::EventDispatcher::Unsubscribe(_closeLogEventId);
 
-        _loggers.clear();
-
         spdlog::drop_all();
     }
 
-    void SpdLoggerPlugin::OnWriteToLog(Tbx::WriteLineToLogRequestEvent& e)
+    void SpdLoggerPlugin::OnWriteToLogEvent(Tbx::WriteLineToLogRequestEvent& e)
     {
-        const auto& logger = std::find_if(_loggers.begin(), _loggers.end(), [&](std::shared_ptr<SpdLogger> logger) { return logger->GetName() == e.GetNameOfLogToWriteTo(); });
-        if (logger != _loggers.end()) 
-        {
-            (*logger)->Log((int)e.GetLogLevel(), e.GetLineToWriteToLog());
-            e.IsHandled = true;
-        }
-    }
-
-    void SpdLoggerPlugin::OnOpenLog(Tbx::OpenLogRequestEvent& e)
-    {
-        Provide()->Open(e.GetLogName(), e.GetLogFilePath());
+        Log((int)e.GetLogLevel(), e.GetLineToWriteToLog());
         e.IsHandled = true;
     }
 
-    void SpdLoggerPlugin::OnCloseLog(Tbx::CloseLogRequestEvent& e)
+    void SpdLoggerPlugin::OnOpenLogEvent(Tbx::OpenLogRequestEvent& e)
     {
-        const auto& logger = std::find_if(_loggers.begin(), _loggers.end(), [&](std::shared_ptr<SpdLogger> logger) { return logger->GetName() == e.GetNameOfLogToClose(); });
-        if (logger != _loggers.end())
-        {
-            (*logger)->Close();
-            _loggers.erase(std::remove(_loggers.begin(), _loggers.end(), *logger), _loggers.end());
-            e.IsHandled = true;
-        }
+        Open(e.GetLogName(), e.GetLogFilePath());
+        e.IsHandled = true;
+    }
+
+    void SpdLoggerPlugin::OnCloseLogEvent(Tbx::CloseLogRequestEvent& e)
+    {
+        Close();
+        e.IsHandled = true;
     }
 }
 

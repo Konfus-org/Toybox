@@ -2,6 +2,8 @@
 #include "Tbx/Core/DllExport.h"
 #include "Tbx/Core/Rendering/Shader.h"
 #include "Tbx/Core/Math/MathAPI.h"
+#include <string>
+#include <vector>
 
 namespace Tbx
 {

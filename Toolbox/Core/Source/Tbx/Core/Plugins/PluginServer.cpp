@@ -1,40 +1,48 @@
 #include "Tbx/Core/PCH.h"
 #include "Tbx/Core/Plugins/PluginServer.h"
+#include "Tbx/Core/Debug/DebugAPI.h"
 #include <filesystem>
 
 namespace Tbx
 {
-    std::vector<std::shared_ptr<LoadedPlugin>> PluginServer::_loadedPlugins;
-
-    void PluginServer::RegisterPlugin(std::shared_ptr<LoadedPlugin> plugin)
-    {
-        _loadedPlugins.push_back(plugin);
-    }
-
-    std::vector<std::shared_ptr<LoadedPlugin>> PluginServer::GetLoadedPlugins()
-    {
-        return _loadedPlugins;
-    }
+    std::vector<std::shared_ptr<LoadedPlugin>> PluginServer::_loadedPlugins = {};
 
     void PluginServer::LoadPlugins(const std::string& pathToPlugins)
     {
-        const auto& pluginsInPluginDir = std::filesystem::directory_iterator(pathToPlugins);
-        for (const auto& entry : pluginsInPluginDir)
-        {
-            // Recursively load directories
-            if (entry.is_directory()) LoadPlugins(entry.path().string());
-            
-            // Skip anything that isn't a file
-            if (!entry.is_regular_file()) continue;
+        // Find plugin infos
+        auto foundPluginInfos = FindPluginInfosInDirectory(pathToPlugins);
 
-            // Extension check
-            if (entry.path().extension() == ".plugin")
-            {
-                const std::string& fileName = entry.path().filename().string();
-                auto plug = std::make_shared<LoadedPlugin>(pathToPlugins, fileName);
-                if (plug->IsValid() == false) continue;
-                _loadedPlugins.push_back(plug);
-            }
+        // Sort by priority
+        std::sort(foundPluginInfos.begin(), foundPluginInfos.end(), [](const PluginInfo& a, const PluginInfo& b) 
+        {
+            return a.GetPriority() < b.GetPriority(); 
+        });
+
+        // Load plugins
+        for (const auto& pluginInfo : foundPluginInfos)
+        {
+            auto loadedPlugin = std::make_shared<LoadedPlugin>(pluginInfo);
+            TBX_ASSERT(loadedPlugin->IsValid(), "Failed to load plugin: {0}", pluginInfo.GetName());
+            if (!loadedPlugin->IsValid()) continue;
+            _loadedPlugins.push_back(loadedPlugin);
+        }
+
+        // Log loaded plugins
+        const auto& plugins = PluginServer::GetLoadedPlugins();
+        const auto& numPlugins = plugins.size();
+        TBX_INFO("Loaded {0} plugins:", numPlugins);
+        for (const auto& loadedPlug : plugins)
+        {
+            const auto& pluginInfo = loadedPlug->GetInfo();
+            const auto& pluginName = pluginInfo.GetName();
+            const auto& pluginVersion = pluginInfo.GetVersion();
+            const auto& pluginAuthor = pluginInfo.GetAuthor();
+            const auto& pluginDescription = pluginInfo.GetDescription();
+
+            TBX_INFO("{0}:", pluginName);
+            TBX_INFO("    - Version: {0}", pluginVersion);
+            TBX_INFO("    - Author: {0}", pluginAuthor);
+            TBX_INFO("    - Description: {0}", pluginDescription);
         }
     }
 
@@ -49,5 +57,51 @@ namespace Tbx
         // Clear refs to loaded plugins.. 
         // this will cause them to unload themselves when all refs to them die
         _loadedPlugins.clear();
+    }
+
+    void PluginServer::RegisterPlugin(std::shared_ptr<LoadedPlugin> plugin)
+    {
+        _loadedPlugins.push_back(plugin);
+    }
+
+    std::vector<std::shared_ptr<LoadedPlugin>> PluginServer::GetLoadedPlugins()
+    {
+        return _loadedPlugins;
+    }
+
+    std::vector<PluginInfo> PluginServer::FindPluginInfosInDirectory(const std::string& pathToPlugins)
+    {
+        std::vector<PluginInfo> foundPluginInfos = {};
+
+        const auto& filesInPluginDir = std::filesystem::directory_iterator(pathToPlugins);
+        for (const auto& entry : filesInPluginDir)
+        {
+            // Recursively search directories
+            if (entry.is_directory())
+            {
+                auto pluginInfosFoundInDir = FindPluginInfosInDirectory(entry.path().string());
+                for (const auto& pluginInfo : pluginInfosFoundInDir)
+                {
+                    foundPluginInfos.push_back(pluginInfo);
+                }
+            }
+
+            // Skip anything that isn't a file
+            if (!entry.is_regular_file()) continue;
+
+            // Extension check
+            if (entry.path().extension() == ".plugin")
+            {
+                const std::string& fileName = entry.path().filename().string();
+
+                auto plugInfo = PluginInfo(entry.path().parent_path().string(), fileName);
+                TBX_ASSERT(plugInfo.IsValid(), "Invalid plugin info at: {0}!", entry.path().string());
+                if (!plugInfo.IsValid()) continue;
+
+                foundPluginInfos.push_back(plugInfo);
+            }
+        }
+
+        return foundPluginInfos;
     }
 }

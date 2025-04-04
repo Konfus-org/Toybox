@@ -1,21 +1,11 @@
 #include "GLFWWindowingPlugin.h"
-#include "GLFWWindowFactory.h"
+#include <Tbx/Core/Events/EventDispatcher.h>
 #include <Tbx/App/Events/WindowEvents.h>
 #include <Tbx/Core/Debug/DebugAPI.h>
 #include <GLFW/glfw3.h>
 
 namespace GLFWWindowing
 {
-    Tbx::IWindowFactory* GLFWWindowing::GLFWWindowingPlugin::Provide()
-    {
-        return _windowFactory.get();
-    }
-
-    void GLFWWindowingPlugin::Destroy(Tbx::IWindowFactory* toDestroy)
-    {
-        delete toDestroy;
-    }
-
     void GLFWWindowingPlugin::OnLoad()
     {
         _windowFactory = std::make_shared<GLFWWindowFactory>();
@@ -27,6 +17,7 @@ namespace GLFWWindowing
 
     void GLFWWindowingPlugin::OnUnload()
     {
+        _windowFactory.reset();
         glfwTerminate();
     }
 

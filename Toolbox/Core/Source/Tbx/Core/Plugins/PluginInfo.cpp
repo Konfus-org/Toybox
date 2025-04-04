@@ -2,14 +2,28 @@
 #include "Tbx/Core/Plugins/PluginInfo.h"
 #include "Tbx/Core/Plugins/PluginMetaReader.h"
 
-void Tbx::PluginInfo::Load(const std::string& location)
+namespace Tbx
 {
-    auto metaData = PluginMetaReader::Read(location);
-    if (metaData.empty()) return;
+    PluginInfo::PluginInfo(const std::string& pathToPluginFolder, const std::string& pluginFileName)
+    {
+        _pathToFolder = pathToPluginFolder;
+        Load(pathToPluginFolder + "\\" + pluginFileName);
+    }
 
-    _name = metaData["name"];
-    _author = metaData["author"];
-    _version = metaData["version"];
-    _description = metaData["description"];
-    _lib = metaData["lib"];
+    void PluginInfo::Load(const std::string& pathToPluginFile)
+    {
+        auto metaData = PluginMetaReader::Read(pathToPluginFile);
+        if (metaData.empty()) return;
+
+        _name = metaData["name"];
+        _author = metaData["author"];
+        _version = metaData["version"];
+        _description = metaData["description"];
+        _lib = metaData["lib"];
+
+        const auto& prio = metaData["priority"];
+        if (prio.empty()) return;
+
+        _priority = std::stoi(prio);
+    }
 }

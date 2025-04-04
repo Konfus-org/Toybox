@@ -1,5 +1,6 @@
 #include "OpenGLShader.h"
 #include <Tbx/Core/Rendering/Color.h>
+#include <vector>
 
 namespace OpenGLRendering
 {
@@ -47,7 +48,7 @@ namespace OpenGLRendering
 	////	glUniformMatrix3fv(location, 1, GL_FALSE, matrix.Values.data());
 	////}
 
-	static void UploadUniformMat4(const std::string& name, const Tbx::Matrix& matrix, Tbx::uint rendererId)
+	static void UploadUniformMat4(const std::string& name, const Tbx::Mat4x4& matrix, Tbx::uint rendererId)
 	{
 		GLint location = glGetUniformLocation(rendererId, name.c_str());
 		glUniformMatrix4fv(location, 1, GL_FALSE, matrix.Values.data());
@@ -193,7 +194,7 @@ namespace OpenGLRendering
 		{
 			case Tbx::ShaderDataType::Mat4:
 			{
-                UploadUniformMat4(data.GetName(), std::any_cast<Tbx::Matrix>(data.GetData()), _rendererId);
+                UploadUniformMat4(data.GetName(), std::any_cast<Tbx::Mat4x4>(data.GetData()), _rendererId);
 				break;
 			}
             case Tbx::ShaderDataType::Float:

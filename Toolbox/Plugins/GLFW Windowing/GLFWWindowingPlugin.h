@@ -1,15 +1,14 @@
 #pragma once
+#include "GLFWWindowFactory.h"
 #include <Tbx/Core/Plugins/RegisterPlugin.h>
 #include <Tbx/App/Events/WindowEvents.h>
 #include <Tbx/App/Windowing/IWindowFactory.h>
 
 namespace GLFWWindowing
 {
-    class GLFWWindowingPlugin : public Tbx::Plugin<Tbx::IWindowFactory>
+    class GLFWWindowingPlugin : public GLFWWindowFactory, public Tbx::Plugin
     {
     public:
-        Tbx::IWindowFactory* Provide() override;
-        void Destroy(Tbx::IWindowFactory* toDestroy) override;
         void OnLoad() override;
         void OnUnload() override;
 

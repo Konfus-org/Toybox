@@ -3,12 +3,10 @@
 
 namespace Tbx 
 {
-    std::unordered_map<hash, std::vector<Callback<Event>>> EventDispatcher::_subscribers;
-    std::mutex EventDispatcher::_mutex;
+    std::unordered_map<hash, std::vector<Callback<Event>>> EventDispatcher::_subscribers = {};
 
     void EventDispatcher::Unsubscribe(const UID& callbackToUnsub)
     {
-        //std::scoped_lock<std::mutex> lock(GetMutex());
 
         for (auto& [hashCode, callbacks] : GetSubscribers())
         {
@@ -30,11 +28,6 @@ namespace Tbx
     void EventDispatcher::Clear()
     {
         _subscribers.clear();
-    }
-
-    std::mutex& EventDispatcher::GetMutex()
-    {
-        return _mutex;
     }
 
     std::unordered_map<hash, std::vector<Callback<Event>>>& EventDispatcher::GetSubscribers()

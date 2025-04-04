@@ -10,7 +10,6 @@ namespace Tbx
     class PluginServer
     {
     public:
-        // TODO: implement a priority system for plugin loading, i.e. logging should ALWAYS be loaded first...
         EXPORT static void LoadPlugins(const std::string& pathToPlugins);
         EXPORT static void ReloadPlugins(const std::string& pathToPlugins);
         EXPORT static void Shutdown();
@@ -24,12 +23,10 @@ namespace Tbx
             const auto& loadedPlugins = GetLoadedPlugins();
             for (const auto& loadedPlug : loadedPlugins)
             {
-                const auto& plug = loadedPlug->GetPlugin();
-                const std::shared_ptr<Plugin<T>> castedPlug = std::dynamic_pointer_cast<Plugin<T>>(plug);
-                if (castedPlug)
-                {
-                    return castedPlug->ProvideImplementation();
-                }
+                const auto& plugImpl = loadedPlug->GetAs<T>();
+                if (!plugImpl) continue;
+
+                return plugImpl;
             }
 
             return nullptr;
@@ -42,18 +39,18 @@ namespace Tbx
             const auto& loadedPlugins = GetLoadedPlugins();
             for (const auto& loadedPlug : loadedPlugins)
             {
-                const auto& plug = loadedPlug->GetPlugin();
-                const auto& castedPlug = std::dynamic_pointer_cast<Plugin<T>>(plug);
-                if (castedPlug)
-                {
-                    plugins.push_back(castedPlug->ProvideImplementation());
-                }
+                const auto& plugImpl = loadedPlug->GetAs<T>();
+                if (!plugImpl) continue;
+
+                plugins.push_back(plugImpl);
             }
 
             return plugins;
         }
 
     private:
+        static std::vector<PluginInfo> FindPluginInfosInDirectory(const std::string& pathToPlugins);
+
         static std::vector<std::shared_ptr<LoadedPlugin>> _loadedPlugins;
     };
 }

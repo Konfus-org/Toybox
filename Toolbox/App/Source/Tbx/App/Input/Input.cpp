@@ -39,7 +39,7 @@ namespace Tbx
     bool Input::IsKeyDown(const int inputCode)
     {
         IsKeyDownRequestEvent request(inputCode);
-        EventDispatcher::Send(request);
+        EventDispatcher::Dispatch(request);
         TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
 
         return request.GetResult();
@@ -48,7 +48,7 @@ namespace Tbx
     bool Input::IsKeyUp(const int inputCode)
     {
         IsKeyUpRequestEvent request(inputCode);
-        EventDispatcher::Send(request);
+        EventDispatcher::Dispatch(request);
         TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
 
         return request.GetResult();
@@ -88,6 +88,6 @@ namespace Tbx
     void Input::OnWindowFocusChanged(const WindowFocusChangedEvent& e)
     {
         SetInputContextRequestEvent request(WindowManager::GetWindow(e.GetWindowId()));
-        EventDispatcher::Send(request);
+        EventDispatcher::Dispatch(request);
     }
 }

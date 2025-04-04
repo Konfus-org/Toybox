@@ -12,7 +12,4 @@ public:
 
     void OnLoad() override;
     void OnUnload() override;
-
-    Tbx::App* Provide() override;
-    void Destroy(Tbx::App* toDestroy) override;
 };

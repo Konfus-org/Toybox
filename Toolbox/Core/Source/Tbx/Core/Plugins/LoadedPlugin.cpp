@@ -4,14 +4,17 @@
 
 namespace Tbx
 {
-    LoadedPlugin::LoadedPlugin(const std::string& pluginFolderPath, const std::string& pluginFileName)
+    LoadedPlugin::LoadedPlugin(const PluginInfo& pluginInfo)
     {
-        Load(pluginFolderPath, pluginFileName);
+        _pluginInfo = pluginInfo;
+        TBX_ASSERT(_pluginInfo.IsValid(), "Cannot load plugin! Invalid plugin info...");
+
+        Load();
     }
 
     LoadedPlugin::~LoadedPlugin() 
-    { 
-        Unload(); 
+    {
+        Unload();
     }
 
     bool LoadedPlugin::IsValid() const
@@ -19,35 +22,21 @@ namespace Tbx
         return _plugin != nullptr;
     }
 
-    const PluginInfo& LoadedPlugin::GetPluginInfo() const
+    const PluginInfo& LoadedPlugin::GetInfo() const
     {
         return _pluginInfo;
     }
 
-    std::shared_ptr<IPlugin> LoadedPlugin::GetPlugin() const
+    void LoadedPlugin::Load()
     {
-        return _plugin;
-    }
+        // TODO: We want plugins to be EAZY PEAZY so our register macro should define the provide and delete methods, and we no longer interface with the IPlugin anymore...
+        // instead this will OWN the plugins implementation as a shared ptr. We will turn this into a template that calls the get instance on loading the plugin.
 
-    void LoadedPlugin::Load(const std::string& pluginFolderPath, const std::string& pluginFileName)
-    {
-        // Load plugin metadata
-        const auto& pluginMetadataPath = pluginFolderPath + "\\" + pluginFileName;
-        _pluginInfo.Load(pluginMetadataPath);
-
-        // Check to see if this is an application being loaded
-        if (_pluginInfo.IsValid() == false)
-        {
-            const auto& appMetadataPath = pluginFolderPath + "\\" + "app.meta";
-            _pluginInfo.Load(appMetadataPath);
-        }
-
-        const std::string& pluginFullPath = pluginFolderPath + "\\" + _pluginInfo.GetLib();
+        const std::string& pluginFullPath = _pluginInfo.GetLocation() + "\\" + _pluginInfo.GetLib();
         _library.Load(pluginFullPath);
         if (_library.IsValid() == false)
         {
-            const std::string& failureMsg = "Failed to load library! Does it exist at: {0}";
-            TBX_ERROR(failureMsg, pluginFullPath);
+            TBX_ERROR("Failed to load library! Does it exist at: {0}", pluginFullPath);
         }
 
         // TODO: have a verbose mode!
@@ -57,12 +46,11 @@ namespace Tbx
 #endif
 
         // Get load plugin function from library
-        using PluginLoadFunc = IPlugin*(*)();
+        using PluginLoadFunc = Plugin*(*)();
         const auto& loadFuncSymbol = _library.GetSymbol("Load");
         if (!loadFuncSymbol)
         {
-            const std::string& failureMsg = "Failed to load library because no load library function was found in: {0}, is it calling TBX_REGISTER_PLUGIN?";
-            TBX_ERROR(failureMsg, pluginFullPath);
+            TBX_ERROR("Failed to load library because no load library function was found in: {0}, is it calling TBX_REGISTER_PLUGIN?", pluginFullPath);
             _library.Unload();
             return;
         }
@@ -70,8 +58,7 @@ namespace Tbx
         // Ensure we have an unload function
         if (!_library.GetSymbol("Unload"))
         {
-            const std::string& failureMsg = "No unload library function found in: {0}, is it calling TBX_REGISTER_PLUGIN?";
-            TBX_ERROR(failureMsg, pluginFullPath);
+            TBX_ERROR("No unload library function found in: {0}, is it calling TBX_REGISTER_PLUGIN?", pluginFullPath);
             return;
         }
 
@@ -79,17 +66,16 @@ namespace Tbx
         auto* loadedPlugin = loadPluginFunc();
 
         // Wrap plugin in shared_ptr with custom destructor
-        std::shared_ptr<IPlugin> sharedLoadedPlugin(loadedPlugin, [this](IPlugin* pluginToUnload)
+        std::shared_ptr<Plugin> sharedLoadedPlugin(loadedPlugin, [this](Plugin* pluginToUnload)
         {
             // Use library to free plugin memory because it owns it
-            using PluginUnloadFunc = void(*)(IPlugin*);
+            using PluginUnloadFunc = void(*)(Plugin*);
             const auto& unloadFuncSymbol = _library.GetSymbol("Unload");
             if (!unloadFuncSymbol)
             {
                 // Couldn't find unload function in plugin library
                 const std::string& libraryPath = _library.GetPath();
-                const std::string& failureMsg = "(!!!Likely Memory Leak!!!: Failed to unload the plugin from library: {0}, is it calling TBX_REGISTER_PLUGIN?";
-                TBX_ASSERT(false, failureMsg, libraryPath);
+                TBX_ASSERT(false, "(!!!Likely Memory Leak!!!: Failed to unload the plugin from library: {0}, is it calling TBX_REGISTER_PLUGIN?", libraryPath);
                 return;
             }
             const auto& unloadPluginFunc = static_cast<PluginUnloadFunc>(unloadFuncSymbol);

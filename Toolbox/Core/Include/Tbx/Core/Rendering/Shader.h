@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/Math/Matrix.h"
+#include "Tbx/Core/Math/Mat4x4.h"
 #include "Tbx/Core/Math/Int.h"
 #include "Tbx/Core/Ids/UID.h"
 #include "Tbx/Core/Debug/DebugAPI.h"

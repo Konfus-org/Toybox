@@ -4,11 +4,9 @@
 
 namespace ImGuiDebugViewPlugin
 {
-    class ImGuiDebugViewPlugin : public Tbx::Plugin<Tbx::Layer>
+    class ImGuiDebugViewPlugin : public Tbx::Layer, public Tbx::Plugin
     {
     public:
-        Tbx::Layer* Provide() override;
-        void Destroy(Tbx::Layer* toDestroy) override;
         void OnLoad() override;
         void OnUnload() override;
     };
