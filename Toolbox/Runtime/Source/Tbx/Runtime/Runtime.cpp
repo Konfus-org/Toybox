@@ -28,6 +28,10 @@ namespace Tbx
         app->Launch();
         while (app->IsRunning())
         {
+
+#ifndef TBX_RELEASE
+            // Only allow reloading and force quit whwn not released!
+            
             // Shortcut to kill the app
             if (Input::IsKeyDown(TBX_KEY_F4) && 
                 (Input::IsKeyDown(TBX_KEY_LEFT_ALT) || Input::IsKeyDown(TBX_KEY_RIGHT_ALT)))
@@ -41,6 +45,7 @@ namespace Tbx
                 _reloadPlugins = true;
                 break;
             }
+#endif
 
             // Update the app
             app->Update();
