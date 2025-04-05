@@ -10,11 +10,16 @@ namespace Tbx
     {
     public:
         explicit(false) Callback(CallbackFunction<TArg> func)
-            : _callbackFn(std::move(func)) {}
+            : _callbackFn(func), _name(func.target_type().name()) {}
 
         const UID& GetId() const
         {
             return _id;
+        }
+
+        const std::string& GetName() const
+        {
+            return _name;
         }
 
         void Invoke(TArg& event) const
@@ -33,6 +38,7 @@ namespace Tbx
         }
 
     private:
+        std::string _name;
         CallbackFunction<TArg> _callbackFn = nullptr;
         UID _id = UID();
     };

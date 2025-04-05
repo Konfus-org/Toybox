@@ -17,7 +17,7 @@ namespace GLFWWindowing
 
     void GLFWWindowingPlugin::OnUnload()
     {
-        Tbx::EventDispatcher::Unsubscribe(_openNewWindowRequestEventId);
+        Tbx::EventDispatcher::Unsubscribe<Tbx::OpenNewWindowRequestEvent>(_openNewWindowRequestEventId);
 
         _windowFactory.reset();
         glfwTerminate();

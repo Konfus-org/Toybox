@@ -25,9 +25,9 @@ namespace Tbx
 
     void WindowManager::Shutdown()
     {
-        EventDispatcher::Unsubscribe(_appUpdatedEventId);
-        EventDispatcher::Unsubscribe(_windowCloseEventId);
-        EventDispatcher::Unsubscribe(_windowFocusChangedEventId);
+        EventDispatcher::Unsubscribe<AppUpdatedEvent>(_appUpdatedEventId);
+        EventDispatcher::Unsubscribe<WindowClosedEvent>(_windowCloseEventId);
+        EventDispatcher::Unsubscribe<WindowFocusChangedEvent>(_windowFocusChangedEventId);
 
         CloseAllWindows();
     }

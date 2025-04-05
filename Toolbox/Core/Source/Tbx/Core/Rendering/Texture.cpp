@@ -2,6 +2,7 @@
 #include "Tbx/Core/Rendering/Texture.h"
 #include "Tbx/Core/Debug/DebugAPI.h"
 #include <stb_image.h>
+#include <filesystem>
 
 namespace Tbx
 {

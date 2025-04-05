@@ -25,21 +25,21 @@ namespace GLFWInput
 
     void GLFWInputHandlerPlugin::OnUnload()
     {
-        Tbx::EventDispatcher::Unsubscribe(_onSetContextRequestEventUID);
+        Tbx::EventDispatcher::Unsubscribe<Tbx::SetInputContextRequestEvent>(_onSetContextRequestEventUID);
 
-        Tbx::EventDispatcher::Unsubscribe(_onIsKeyDownEventUID);
-        Tbx::EventDispatcher::Unsubscribe(_onIsKeyUpEventUID);
-        Tbx::EventDispatcher::Unsubscribe(_onIsKeyHeldEventUID);
+        Tbx::EventDispatcher::Unsubscribe<Tbx::IsKeyDownRequestEvent>(_onIsKeyDownEventUID);
+        Tbx::EventDispatcher::Unsubscribe<Tbx::IsKeyUpRequestEvent>(_onIsKeyUpEventUID);
+        Tbx::EventDispatcher::Unsubscribe<Tbx::IsKeyHeldRequestEvent>(_onIsKeyHeldEventUID);
 
-        Tbx::EventDispatcher::Unsubscribe(_onGetMousePositionEventUID);
+        Tbx::EventDispatcher::Unsubscribe<Tbx::GetMousePositionRequestEvent>(_onGetMousePositionEventUID);
 
-        Tbx::EventDispatcher::Unsubscribe(_onIsMouseButtonDownEventUID);
-        Tbx::EventDispatcher::Unsubscribe(_onIsMouseButtonUpEventUID);
-        Tbx::EventDispatcher::Unsubscribe(_onIsMouseButtonHeldEventUID);
+        Tbx::EventDispatcher::Unsubscribe<Tbx::IsMouseButtonDownRequestEvent>(_onIsMouseButtonDownEventUID);
+        Tbx::EventDispatcher::Unsubscribe<Tbx::IsMouseButtonUpRequestEvent>(_onIsMouseButtonUpEventUID);
+        Tbx::EventDispatcher::Unsubscribe<Tbx::IsMouseButtonHeldRequestEvent>(_onIsMouseButtonHeldEventUID);
 
-        Tbx::EventDispatcher::Unsubscribe(_onIsGamepadButtonDownEventUID);
-        Tbx::EventDispatcher::Unsubscribe(_onIsGamepadButtonUpEventUID);
-        Tbx::EventDispatcher::Unsubscribe(_onIsGamepadButtonHeldEventUID);
+        Tbx::EventDispatcher::Unsubscribe<Tbx::IsGamepadButtonDownRequestEvent>(_onIsGamepadButtonDownEventUID);
+        Tbx::EventDispatcher::Unsubscribe<Tbx::IsGamepadButtonUpRequestEvent>(_onIsGamepadButtonUpEventUID);
+        Tbx::EventDispatcher::Unsubscribe<Tbx::IsGamepadButtonHeldRequestEvent>(_onIsGamepadButtonHeldEventUID);
     }
     
     void GLFWInputHandlerPlugin::OnSetContextRequestEvent(Tbx::SetInputContextRequestEvent& e)

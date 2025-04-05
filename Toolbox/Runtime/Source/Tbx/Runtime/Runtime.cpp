@@ -12,18 +12,13 @@ namespace Tbx
 {
     static bool _reloadPlugins = false;
 
-    void LoadExternalLayers(std::shared_ptr<App> app)
+    void RunApp(std::shared_ptr<App> app)
     {
         auto layerPlugins = PluginServer::GetPlugins<Layer>();
         for (const auto& layerPlugin : layerPlugins)
         {
             app->PushLayer(layerPlugin);
         }
-    }
-
-    void LaunchAndRun(std::shared_ptr<App> app)
-    {
-        LoadExternalLayers(app);
 
         app->Launch();
         while (app->IsRunning())
@@ -55,30 +50,12 @@ namespace Tbx
         app->Close();
     }
 
-    bool Run(std::shared_ptr<App> app)
-    {
-        try
-        {
-            PluginServer::LoadPlugins(TBX_PATH_TO_PLUGINS);
-            LaunchAndRun(app);
-            PluginServer::UnloadPlugins();
-        }
-        catch (const std::exception& ex)
-        {
-            TBX_ERROR("{0}", ex.what());
-
-            return false;
-        }
-
-        return true;
-    }
-
     void RunLoadedApp()
     {
         auto app = PluginServer::GetPlugin<App>();
         TBX_VALIDATE_PTR(app, "Could not load app! Is the TBX_PATH_TO_PLUGINS defined correctly and is the dll containing the app being build there?");
 
-        LaunchAndRun(app);
+        RunApp(app);
 
         if (_reloadPlugins)
         {
@@ -93,14 +70,12 @@ namespace Tbx
         }
     }
 
-    bool LoadAndRunApp()
+    bool Run()
     {
         try
         {
             PluginServer::LoadPlugins(TBX_PATH_TO_PLUGINS);
-
             RunLoadedApp();
-
             PluginServer::UnloadPlugins();
         }
         catch (const std::exception& ex)

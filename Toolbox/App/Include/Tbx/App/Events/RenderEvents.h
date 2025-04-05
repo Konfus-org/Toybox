@@ -16,12 +16,21 @@ namespace Tbx
         }
     };
 
-    class EXPORT ClearFrameRequestEvent : public RenderEvent
+    class EXPORT ClearScreenRequestEvent : public RenderEvent
     {
     public:
         std::string ToString() const final
         {
             return "Clear Frame Event";
+        }
+    };
+
+    class EXPORT FlushRendererRequestEvent : public RenderEvent
+    {
+    public:
+        std::string ToString() const final
+        {
+            return "Flush Renderer Request Event";
         }
     };
 
@@ -54,7 +63,10 @@ namespace Tbx
             return "Render Frame Request Event";
         }
 
-        EXPORT RenderBatch& GetBatch() { return _batch; }
+        EXPORT const RenderBatch& GetBatch() const
+        {
+            return _batch; 
+        }
 
     private:
         RenderBatch _batch;
@@ -64,11 +76,16 @@ namespace Tbx
     {
     public:
         EXPORT explicit SetRenderContextRequestEvent(const std::weak_ptr<IWindow>& context)
-            : _renderContext(_renderContext) {}
+            : _renderContext(context) {}
 
         EXPORT std::string ToString() const final
         {
             return "Set Render Context Request Event";
+        }
+
+        EXPORT std::weak_ptr<IWindow> GetContext() const 
+        { 
+            return _renderContext; 
         }
 
     private:

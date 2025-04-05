@@ -1,6 +1,6 @@
 #include "ImGuiDebugViewPlugin.h"
 
-namespace ImGuiDebugViewPlugin
+namespace ImGuiDebugView
 {
     void ImGuiDebugViewPlugin::OnLoad()
     {

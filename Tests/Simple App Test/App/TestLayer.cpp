@@ -61,14 +61,14 @@ static void CreateTestMat()
 	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadShader, shader);
 
 	// Upload texture to renderer
-	////auto testTex = Tbx::Texture("Assets/Checkerboard.png");
-	////Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadTexture, Tbx::TextureRenderData(testTex, 0));
+	auto testTex = Tbx::Texture("Assets\\Checkerboard.png");
+	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadTexture, Tbx::TextureRenderData(testTex, 0));
 	// Uploading texture position (0 rn for diffuse, add more for other textures like normals, height, etc...)
 	// TODO: automate the texture position
 	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("textureUniform", 0, Tbx::ShaderDataType::Int));
 
 	// Create test material
-	//_testMat = Tbx::Material(shader, { testTex });
+	_testMat = Tbx::Material(shader, { testTex });
 }
 
 static void DrawSquareTest()
@@ -192,7 +192,7 @@ void TestLayer::OnUpdate()
 	////	_trianglePosition = _trianglePosition + (Tbx::Vector3::Up() * _camMoveSpeed * 2 * Tbx::Time::DeltaTime::Seconds());
 	////}
 
-	DrawSquareTest();
+	//DrawSquareTest();
 
 	//TBX_TRACE("Camera Position: {0}", mainWindowCam->GetPosition().ToString());
 

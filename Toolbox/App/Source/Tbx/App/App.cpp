@@ -86,7 +86,7 @@ namespace Tbx
         _isRunning = false;
 
         // Unsub to window events and shutdown events
-        EventDispatcher::Unsubscribe(_windowClosedEventId);
+        EventDispatcher::Unsubscribe<WindowClosedEvent>(_windowClosedEventId);
 
         // Call detach on all layers
         for (const auto& layer : _layerStack)

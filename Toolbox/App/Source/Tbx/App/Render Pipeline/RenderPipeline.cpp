@@ -10,11 +10,13 @@
 namespace Tbx
 {
     bool RenderPipeline::_vsyncEnabled = false;
+
+    RenderQueue RenderPipeline::_renderQueue;
+
     UID RenderPipeline::_focusedWindowId = -1;
     UID RenderPipeline::_appUpdatedEventId = -1;
     UID RenderPipeline::_windowResizeEventId = -1;
     UID RenderPipeline::_windowFocusChangedEventId = -1;
-    RenderQueue RenderPipeline::_renderQueue;
 
     void RenderPipeline::Initialize()
     {
@@ -25,6 +27,10 @@ namespace Tbx
 
     void RenderPipeline::Shutdown()
     {
+        EventDispatcher::Unsubscribe<AppUpdatedEvent>(_appUpdatedEventId);
+        EventDispatcher::Unsubscribe<WindowFocusChangedEvent>(_windowFocusChangedEventId);
+        EventDispatcher::Unsubscribe<WindowResizedEvent>(_windowResizeEventId);
+
         Flush();
     }
 
@@ -58,12 +64,14 @@ namespace Tbx
 
     void RenderPipeline::Clear()
     {
-        ClearFrameRequestEvent request;
+        ClearScreenRequestEvent request;
         EventDispatcher::Dispatch(request);
     }
 
     void RenderPipeline::Flush()
     {
+        FlushRendererRequestEvent request;
+        EventDispatcher::Dispatch(request);
         _renderQueue.Clear();
     }
 
@@ -78,58 +86,13 @@ namespace Tbx
             RenderFrameRequestEvent request(batch);
             EventDispatcher::Dispatch(request);
             _renderQueue.Pop();
-
-            // TODO: put this into the renderer
-            ////for (const auto& item : batch)
-            ////{
-            ////    using enum Tbx::RenderCommand;
-            ////    switch (item.Command)
-            ////    {
-            ////        case Clear:
-            ////        {
-            ////            const auto& colorData = std::any_cast<Color>(item.Data);
-
-            ////            _renderer->Clear(colorData);
-            ////            break;
-            ////        }
-            ////        case UploadShader:
-            ////        {
-            ////            const auto& shaderData = std::any_cast<Shader>(item.Data);
-            ////            _renderer->UploadShader(shaderData);
-            ////            break;
-            ////        }
-            ////        case UploadTexture:
-            ////        {
-            ////            const auto& textureData = std::any_cast<TextureRenderData>(item.Data);
-            ////            _renderer->UploadTexture(textureData.GetTexture(), textureData.GetSlot());
-            ////            break;
-            ////        }
-            ////        case UploadShaderData:
-            ////        {
-            ////            const auto& shaderData = std::any_cast<ShaderData>(item.Data);
-            ////            _renderer->UploadShaderData(shaderData);
-            ////            break;
-            ////        }
-            ////        case RenderMesh:
-            ////        {
-            ////            const auto& meshData = std::any_cast<MeshRenderData>(item.Data);
-            ////            _renderer->Draw(meshData.GetMesh(), meshData.GetMaterial());
-            ////            break;
-            ////        }
-            ////        default:
-            ////        {
-            ////            TBX_ASSERT(false, "Unknown render command type.");
-            ////            break;
-            ////        }
-            ////    }
-            ////}
         }
 
         EndRenderFrameRequestEvent endFrameRequest;
         EventDispatcher::Dispatch(beginFrameRequest);
     }
 
-    void RenderPipeline::OnAppUpdated(const AppUpdatedEvent& e)
+    void RenderPipeline::OnAppUpdated(const AppUpdatedEvent&)
     {
         ProcessNextBatch();
     }
@@ -138,7 +101,7 @@ namespace Tbx
     {
         if (!e.IsFocused()) return;
 
-        SetRenderContextRequestEvent request(WindowManager::GetWindow(e.GetWindowId()));
+        auto request = SetRenderContextRequestEvent(WindowManager::GetWindow(e.GetWindowId()));
         EventDispatcher::Dispatch(request);
     }
 

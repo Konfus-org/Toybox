@@ -18,7 +18,7 @@ namespace Tbx
 
     void Input::Shutdown()
     {
-        EventDispatcher::Unsubscribe(_windowFocusChangedEventId);
+        EventDispatcher::Unsubscribe<WindowFocusChangedEvent>(_windowFocusChangedEventId);
     }
 
     bool Input::IsGamepadButtonDown(const int id, const int button)

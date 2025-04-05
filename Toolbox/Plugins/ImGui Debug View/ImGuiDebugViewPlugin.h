@@ -3,7 +3,7 @@
 #include <Tbx/Core/Plugins/RegisterPlugin.h>
 #include <Tbx/App/Layers/Layer.h>
 
-namespace ImGuiDebugViewPlugin
+namespace ImGuiDebugView
 {
     class ImGuiDebugViewPlugin : public Tbx::Plugin, public ImGuiDebugViewLayer
     {
@@ -15,3 +15,5 @@ namespace ImGuiDebugViewPlugin
         void OnUnload() override;
     };
 }
+
+//TBX_REGISTER_PLUGIN(ImGuiDebugView::ImGuiDebugViewPlugin)

@@ -2,5 +2,5 @@
 
 int main()
 {
-    return Tbx::LoadAndRunApp();
+    return Tbx::Run();
 }

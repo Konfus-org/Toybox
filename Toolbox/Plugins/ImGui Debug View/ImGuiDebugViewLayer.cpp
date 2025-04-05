@@ -1,6 +1,6 @@
 #include "ImGuiDebugViewLayer.h"
 
-namespace ImGuiDebugViewPlugin
+namespace ImGuiDebugView
 {
     void ImGuiDebugViewLayer::OnAttach()
     {
@@ -12,5 +12,10 @@ namespace ImGuiDebugViewPlugin
 
     void ImGuiDebugViewLayer::OnUpdate()
     {
+    }
+
+    bool ImGuiDebugViewLayer::IsOverlay()
+    {
+        return true;
     }
 }

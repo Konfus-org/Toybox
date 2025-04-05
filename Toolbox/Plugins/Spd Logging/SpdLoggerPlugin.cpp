@@ -15,9 +15,9 @@ namespace SpdLogging
 
     void SpdLoggerPlugin::OnUnload()
     {
-        Tbx::EventDispatcher::Unsubscribe(_writeToLogEventId);
-        Tbx::EventDispatcher::Unsubscribe(_openLogEventId);
-        Tbx::EventDispatcher::Unsubscribe(_closeLogEventId);
+        Tbx::EventDispatcher::Unsubscribe<Tbx::WriteLineToLogRequestEvent>(_writeToLogEventId);
+        Tbx::EventDispatcher::Unsubscribe<Tbx::OpenLogRequestEvent>(_openLogEventId);
+        Tbx::EventDispatcher::Unsubscribe<Tbx::CloseLogRequestEvent>(_closeLogEventId);
         
         Close();
 

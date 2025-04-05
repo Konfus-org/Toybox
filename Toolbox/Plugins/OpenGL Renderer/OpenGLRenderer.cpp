@@ -39,6 +39,7 @@ namespace OpenGLRendering
     {
         _shaders.clear();
         _textures.clear();
+        glFlush();
     }
 
     void OpenGLRenderer::Clear(const Tbx::Color& color)
