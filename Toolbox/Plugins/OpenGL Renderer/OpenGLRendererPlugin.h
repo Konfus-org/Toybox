@@ -34,3 +34,5 @@ namespace OpenGLRendering
         Tbx::UID _flushEventId;
     };
 }
+
+TBX_REGISTER_PLUGIN(OpenGLRendering::OpenGLRendererPlugin);

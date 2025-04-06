@@ -1,7 +1,6 @@
 #pragma once
 #include "SpdLoggerPlugin.h"
 #include "SpdLogger.h"
-#include <Tbx/Core/Plugins/RegisterPlugin.h>
 #include <Tbx/Core/Events/EventCoordinator.h>
 
 namespace SpdLogging
@@ -43,5 +42,3 @@ namespace SpdLogging
         e.IsHandled = true;
     }
 }
-
-TBX_REGISTER_PLUGIN(SpdLogging::SpdLoggerPlugin);

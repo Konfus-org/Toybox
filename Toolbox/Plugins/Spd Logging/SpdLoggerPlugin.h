@@ -4,6 +4,7 @@
 #include <Tbx/Core/Debug/ILogger.h>
 #include <Tbx/Core/Plugins/Plugin.h>
 #include <Tbx/Core/Events/LogEvents.h>
+#include <Tbx/Core/Plugins/RegisterPlugin.h>
 
 namespace SpdLogging
 {
@@ -26,3 +27,5 @@ namespace SpdLogging
         Tbx::UID _closeLogEventId = -1;
     };
 }
+
+TBX_REGISTER_PLUGIN(SpdLogging::SpdLoggerPlugin);

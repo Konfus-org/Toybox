@@ -16,4 +16,4 @@ namespace ImGuiDebugView
     };
 }
 
-//TBX_REGISTER_PLUGIN(ImGuiDebugView::ImGuiDebugViewPlugin)
+TBX_REGISTER_PLUGIN(ImGuiDebugView::ImGuiDebugViewPlugin)

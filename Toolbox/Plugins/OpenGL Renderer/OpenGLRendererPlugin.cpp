@@ -91,5 +91,3 @@ namespace OpenGLRendering
         e.IsHandled = true;
     }
 }
-
-TBX_REGISTER_PLUGIN(OpenGLRendering::OpenGLRendererPlugin);

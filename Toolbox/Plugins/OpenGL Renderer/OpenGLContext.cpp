@@ -6,7 +6,6 @@ namespace OpenGLRendering
 {
     OpenGLContext::~OpenGLContext()
     {
-        glfwMakeContextCurrent(nullptr);
         _windowToRenderTo = nullptr;
     }
 

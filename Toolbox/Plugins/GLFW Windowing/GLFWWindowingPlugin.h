@@ -22,3 +22,5 @@ namespace GLFWWindowing
         void OnOpenNewWindow(Tbx::OpenNewWindowRequest& e);
     };
 }
+
+TBX_REGISTER_PLUGIN(GLFWWindowing::GLFWWindowingPlugin);

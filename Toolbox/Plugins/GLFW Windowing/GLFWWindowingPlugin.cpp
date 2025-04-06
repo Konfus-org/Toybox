@@ -32,5 +32,3 @@ namespace GLFWWindowing
         e.IsHandled = true;
     }
 }
-
-TBX_REGISTER_PLUGIN(GLFWWindowing::GLFWWindowingPlugin);

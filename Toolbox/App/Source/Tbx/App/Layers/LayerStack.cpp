@@ -3,6 +3,21 @@
 
 namespace Tbx 
 {
+	LayerStack::~LayerStack()
+	{
+		Clear();
+	}
+
+	void LayerStack::Clear()
+	{
+		for (const auto& layer : _layers)
+		{
+			layer->OnDetach();
+		}
+		_layers.clear();
+		_layerInsertIndex = 0;
+	}
+
 	void LayerStack::PushLayer(const std::shared_ptr<Layer>& layer)
 	{
 		_layers.emplace(_layers.begin() + _layerInsertIndex, layer);

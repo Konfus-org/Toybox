@@ -45,4 +45,6 @@ namespace GLFWInput
         Tbx::UID _onIsGamepadButtonUpEventUID;
         Tbx::UID _onIsGamepadButtonHeldEventUID;
     };
+
+    TBX_REGISTER_PLUGIN(GLFWInput::GLFWInputHandlerPlugin);
 }

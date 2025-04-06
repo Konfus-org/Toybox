@@ -88,11 +88,8 @@ namespace Tbx
         // Unsub to window events and shutdown events
         EventCoordinator::Unsubscribe<WindowClosed>(_windowClosedEventId);
 
-        // Call detach on all layers
-        for (const auto& layer : _layerStack)
-        {
-            layer->OnDetach();
-        }
+        // Clear layers
+        _layerStack.Clear();
 
         if (!_isHeadless)
         {

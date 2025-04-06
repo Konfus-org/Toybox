@@ -118,5 +118,3 @@ namespace GLFWInput
         e.IsHandled = true;
     }
 }
-
-TBX_REGISTER_PLUGIN(GLFWInput::GLFWInputHandlerPlugin);

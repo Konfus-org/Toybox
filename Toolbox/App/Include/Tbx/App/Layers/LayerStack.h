@@ -10,8 +10,9 @@ namespace Tbx
 	{
 	public:
 		LayerStack() = default;
-		~LayerStack() = default;
+		~LayerStack();
 
+		EXPORT void Clear();
 		EXPORT void PushLayer(const std::shared_ptr<Layer>& layer);
 		EXPORT void PushOverlay(const std::shared_ptr<Layer>& overlay);
 		EXPORT void PopLayer(const std::shared_ptr<Layer>& layer);
