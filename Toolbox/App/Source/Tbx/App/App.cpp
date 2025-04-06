@@ -5,7 +5,7 @@
 #include "Tbx/App/Render Pipeline/RenderPipeline.h"
 #include "Tbx/App/Windowing/WindowManager.h"
 #include "Tbx/App/Events/ApplicationEvents.h"
-#include <Tbx/Core/Events/EventDispatcher.h>
+#include <Tbx/Core/Events/EventCoordinator.h>
 
 namespace Tbx
 {
@@ -31,7 +31,7 @@ namespace Tbx
         if (!_isHeadless)
         {
             // Subscribe to window events
-            _windowClosedEventId = EventDispatcher::Subscribe<WindowClosedEvent>(TBX_BIND_CALLBACK(OnWindowClosed));
+            _windowClosedEventId = EventCoordinator::Subscribe<WindowClosed>(TBX_BIND_FN(OnWindowClosed));
 
             // Init rendering
             RenderPipeline::Initialize();
@@ -45,8 +45,8 @@ namespace Tbx
             auto mainWindow = WindowManager::GetMainWindow();
 
             // Tell things the main window should be focused on
-            auto windowFocusChangedEvent = WindowFocusChangedEvent(mainWindow.lock()->GetId(), true);
-            EventDispatcher::Dispatch(windowFocusChangedEvent);
+            auto windowFocusChangedEvent = WindowFocusChanged(mainWindow.lock()->GetId(), true);
+            EventCoordinator::Send(windowFocusChangedEvent);
         }
 
         OnLaunch();
@@ -69,8 +69,8 @@ namespace Tbx
         }
 
         // Send update event
-        AppUpdatedEvent updateEvent;
-        EventDispatcher::Dispatch(updateEvent);
+        AppUpdated updateEvent;
+        EventCoordinator::Send(updateEvent);
     }
 
     void App::Close()
@@ -86,7 +86,7 @@ namespace Tbx
         _isRunning = false;
 
         // Unsub to window events and shutdown events
-        EventDispatcher::Unsubscribe<WindowClosedEvent>(_windowClosedEventId);
+        EventCoordinator::Unsubscribe<WindowClosed>(_windowClosedEventId);
 
         // Call detach on all layers
         for (const auto& layer : _layerStack)
@@ -121,7 +121,7 @@ namespace Tbx
         layer->OnAttach();
     }
 
-    void App::OnWindowClosed(const WindowClosedEvent& e)
+    void App::OnWindowClosed(const WindowClosed& e)
     {
         // If the window is our main window, set running flag to false which will trigger the app to close
         if (e.GetWindowId() == WindowManager::GetMainWindow().lock()->GetId())

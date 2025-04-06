@@ -15,15 +15,15 @@ namespace Tbx
         }
     };
 
-    class OpenLogRequestEvent : public LogEvent
+    class OpenLogRequest : public LogEvent
     {
     public:
         // Don't open file, just create logger and write to std::out
-        explicit EXPORT OpenLogRequestEvent(const std::string& logName)
+        explicit EXPORT OpenLogRequest(const std::string& logName)
             : _logName(logName) {}
 
         // Open log file and write to it as well as std::out
-        EXPORT OpenLogRequestEvent(const std::string& logFilePath, const std::string& logName) 
+        EXPORT OpenLogRequest(const std::string& logFilePath, const std::string& logName) 
             : _logFilePath(logFilePath), _logName(logName) {}
 
         EXPORT std::string ToString() const override
@@ -39,10 +39,10 @@ namespace Tbx
         std::string _logName = "";
     };
 
-    class CloseLogRequestEvent : public LogEvent
+    class CloseLogRequest : public LogEvent
     {
     public:
-        explicit EXPORT CloseLogRequestEvent(const std::string& logName)
+        explicit EXPORT CloseLogRequest(const std::string& logName)
             : _logName(logName) { }
 
         EXPORT std::string ToString() const override
@@ -56,10 +56,10 @@ namespace Tbx
         std::string _logName = "";
     };
 
-    class WriteLineToLogRequestEvent : public LogEvent
+    class WriteLineToLogRequest : public LogEvent
     {
     public:
-        EXPORT WriteLineToLogRequestEvent(const LogLevel& level, const std::string& lineToWrite, const std::string& logToWriteTo, const std::string& logFilePath)
+        EXPORT WriteLineToLogRequest(const LogLevel& level, const std::string& lineToWrite, const std::string& logToWriteTo, const std::string& logFilePath)
             : _level(level), _lineToWrite(lineToWrite), _logToWriteTo(logToWriteTo), _logFilePath(logFilePath) {}
 
         EXPORT std::string ToString() const override

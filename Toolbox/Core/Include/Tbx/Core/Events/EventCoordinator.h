@@ -7,12 +7,12 @@
 #include <typeindex>
 #include <vector>
 
-#define TBX_BIND_CALLBACK(fn) [this](auto&&... args) { return this->fn(std::forward<decltype(args)>(args)...); }
-#define TBX_BIND_STATIC_CALLBACK(fn) [](auto&&... args) { return fn(std::forward<decltype(args)>(args)...); }
+#define TBX_BIND_FN(fn) [this](auto&&... args) { return this->fn(std::forward<decltype(args)>(args)...); }
+#define TBX_BIND_STATIC_FN(fn) [](auto&&... args) { return fn(std::forward<decltype(args)>(args)...); }
 
 namespace Tbx
 {
-    class EventDispatcher
+    class EventCoordinator
     {
     public:
         template <class TEvent>
@@ -27,10 +27,10 @@ namespace Tbx
             }
 
             auto& callbacks = GetSubscribers()[hashCode];
-            auto callbackToAdd = Callback<Event>([callback](Event& event) { callback(static_cast<TEvent&>(event)); });
-            callbacks.push_back(callbackToAdd);
+            const Callback<Event>& newCallback = callbacks
+                .emplace_back([callback](Event& event) { callback(static_cast<TEvent&>(event)); });
 
-            return callbackToAdd.GetId();
+            return newCallback.GetId();
         }
 
         template <class TEvent>
@@ -65,7 +65,7 @@ namespace Tbx
         }
 
         template <class TEvent>
-        EXPORT static inline bool Dispatch(TEvent& event)
+        EXPORT static inline bool Send(TEvent& event)
         {
             const auto& eventInfo = typeid(TEvent);
             const auto& hashCode = eventInfo.hash_code();
@@ -84,10 +84,10 @@ namespace Tbx
             return event.IsHandled;
         }
 
-        EXPORT static void Clear();
-        EXPORT static std::unordered_map<hash, std::vector<Callback<Event>>>& GetSubscribers();
+        EXPORT static void ClearSubscribers();
 
     private:
+        EXPORT static std::unordered_map<hash, std::vector<Callback<Event>>>& GetSubscribers();
         static std::unordered_map<hash, std::vector<Callback<Event>>> _subscribers;
     };
 }

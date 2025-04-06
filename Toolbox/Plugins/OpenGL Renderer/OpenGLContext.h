@@ -8,9 +8,9 @@ namespace OpenGLRendering
     {
     public:
         OpenGLContext() = default;
-        ~OpenGLContext() = default;
+        ~OpenGLContext();
 
-        void Set(const std::weak_ptr<Tbx::IWindow>& windowToRenderInto);
+        void Set(const std::weak_ptr<Tbx::IRenderSurface>& surfaceToRenderInto);
 
         void SwapBuffers();
         void SetSwapInterval(const int& interval) const;

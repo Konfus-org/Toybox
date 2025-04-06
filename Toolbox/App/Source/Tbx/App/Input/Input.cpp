@@ -3,7 +3,7 @@
 #include "Tbx/App/Windowing/IWindow.h"
 #include "Tbx/App/Windowing/WindowManager.h"
 #include "Tbx/App/Events/InputEvents.h"
-#include <Tbx/Core/Events/EventDispatcher.h>
+#include <Tbx/Core/Events/EventCoordinator.h>
 #include <Tbx/Core/Debug/DebugAPI.h>
 
 namespace Tbx
@@ -13,18 +13,18 @@ namespace Tbx
     void Input::Initialize()
     {
         _windowFocusChangedEventId = 
-            EventDispatcher::Subscribe<WindowFocusChangedEvent>(TBX_BIND_STATIC_CALLBACK(OnWindowFocusChanged));
+            EventCoordinator::Subscribe<WindowFocusChanged>(TBX_BIND_STATIC_FN(OnWindowFocusChanged));
     }
 
     void Input::Shutdown()
     {
-        EventDispatcher::Unsubscribe<WindowFocusChangedEvent>(_windowFocusChangedEventId);
+        EventCoordinator::Unsubscribe<WindowFocusChanged>(_windowFocusChangedEventId);
     }
 
     bool Input::IsGamepadButtonDown(const int id, const int button)
     {
-        IsGamepadButtonDownRequestEvent request(id, button);
-        EventDispatcher::Dispatch(request);
+        IsGamepadButtonDownRequest request(id, button);
+        EventCoordinator::Send(request);
         TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
 
         return request.GetResult();
@@ -32,8 +32,8 @@ namespace Tbx
 
     bool Input::IsGamepadButtonUp(const int id, const int button)
     {
-        IsGamepadButtonUpRequestEvent request(id, button);
-        EventDispatcher::Dispatch(request);
+        IsGamepadButtonUpRequest request(id, button);
+        EventCoordinator::Send(request);
         TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
 
         return request.GetResult();
@@ -41,8 +41,8 @@ namespace Tbx
 
     bool Input::IsGamepadButtonHeld(const int id, const int button)
     {
-        IsGamepadButtonHeldRequestEvent request(id, button);
-        EventDispatcher::Dispatch(request);
+        IsGamepadButtonHeldRequest request(id, button);
+        EventCoordinator::Send(request);
         TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
 
         return request.GetResult();
@@ -50,8 +50,8 @@ namespace Tbx
 
     bool Input::IsKeyDown(const int inputCode)
     {
-        IsKeyDownRequestEvent request(inputCode);
-        EventDispatcher::Dispatch(request);
+        IsKeyDownRequest request(inputCode);
+        EventCoordinator::Send(request);
         TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
 
         return request.GetResult();
@@ -59,8 +59,8 @@ namespace Tbx
 
     bool Input::IsKeyUp(const int inputCode)
     {
-        IsKeyUpRequestEvent request(inputCode);
-        EventDispatcher::Dispatch(request);
+        IsKeyUpRequest request(inputCode);
+        EventCoordinator::Send(request);
         TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
 
         return request.GetResult();
@@ -68,8 +68,8 @@ namespace Tbx
 
     bool Input::IsKeyHeld(const int inputCode)
     {
-        IsKeyHeldRequestEvent request(inputCode);
-        EventDispatcher::Dispatch(request);
+        IsKeyHeldRequest request(inputCode);
+        EventCoordinator::Send(request);
         TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
 
         return request.GetResult();
@@ -77,8 +77,8 @@ namespace Tbx
 
     bool Input::IsMouseButtonDown(const int button)
     {
-        IsMouseButtonDownRequestEvent request(button);
-        EventDispatcher::Dispatch(request);
+        IsMouseButtonDownRequest request(button);
+        EventCoordinator::Send(request);
         TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
 
         return request.GetResult();
@@ -86,8 +86,8 @@ namespace Tbx
 
     bool Input::IsMouseButtonUp(const int button)
     {
-        IsMouseButtonUpRequestEvent request(button);
-        EventDispatcher::Dispatch(request);
+        IsMouseButtonUpRequest request(button);
+        EventCoordinator::Send(request);
         TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
 
         return request.GetResult();
@@ -96,7 +96,7 @@ namespace Tbx
     bool Input::IsMouseButtonHeld(const int button)
     {
         IsMouseButtonHeldRequestEvent request(button);
-        EventDispatcher::Dispatch(request);
+        EventCoordinator::Send(request);
         TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
 
         return request.GetResult();
@@ -104,16 +104,16 @@ namespace Tbx
 
     Vector2 Input::GetMousePosition()
     {
-        GetMousePositionRequestEvent request;
-        EventDispatcher::Dispatch(request);
+        GetMousePositionRequest request;
+        EventCoordinator::Send(request);
         TBX_ASSERT(request.IsHandled, "Input code not handled! Do we have a handler created and listening?");
 
         return request.GetResult();
     }
 
-    void Input::OnWindowFocusChanged(const WindowFocusChangedEvent& e)
+    void Input::OnWindowFocusChanged(const WindowFocusChanged& e)
     {
-        SetInputContextRequestEvent request(WindowManager::GetWindow(e.GetWindowId()));
-        EventDispatcher::Dispatch(request);
+        SetInputContextRequest request(WindowManager::GetWindow(e.GetWindowId()));
+        EventCoordinator::Send(request);
     }
 }

@@ -1,10 +1,9 @@
 #pragma once
-#include "Tbx/Core/Rendering/IRenderer.h"
-#include "Tbx/App/Render Pipeline/RenderCommands.h"
 #include "Tbx/App/Render Pipeline/RenderQueue.h"
 #include "Tbx/App/Events/ApplicationEvents.h"
 #include "Tbx/App/Events/WindowEvents.h"
 #include "Tbx/App/Windowing/IWindow.h"
+#include <Tbx/Core/Rendering/RenderData.h>
 #include <Tbx/Core/Ids/UID.h>
 
 namespace Tbx
@@ -18,22 +17,19 @@ namespace Tbx
         EXPORT static void SetVSyncEnabled(bool enabled);
         EXPORT static bool IsVSyncEnabled();
 
-        EXPORT static void Push(const RenderCommand& command, const std::any& data = nullptr);
+        EXPORT static void Push(const RenderData& data);
         EXPORT static void Clear();
         EXPORT static void Flush();
 
     private:
-        static bool _vsyncEnabled;
-        static UID _focusedWindowId;
-        static UID _appUpdatedEventId;
-        static UID _windowResizeEventId;
-        static UID _windowFocusChangedEventId;
+        static void ProcessNextBatch();
+        static void OnAppUpdated(const AppUpdated& e);
+
         static RenderQueue _renderQueue;
 
-        static void ProcessNextBatch();
+        static bool _vsyncEnabled;
 
-        static void OnAppUpdated(const AppUpdatedEvent& e);
-        static void OnWindowFocusChanged(const WindowFocusChangedEvent& e);
-        static void OnWindowResize(const WindowResizedEvent& e);
+        static UID _focusedWindowId;
+        static UID _appUpdatedEventId;
     };
 }

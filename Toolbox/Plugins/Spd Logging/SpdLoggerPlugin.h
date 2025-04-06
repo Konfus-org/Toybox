@@ -17,9 +17,9 @@ namespace SpdLogging
         void OnUnload() override;
 
     private:
-        void OnWriteToLogEvent(Tbx::WriteLineToLogRequestEvent& e);
-        void OnOpenLogEvent(Tbx::OpenLogRequestEvent& e);
-        void OnCloseLogEvent(Tbx::CloseLogRequestEvent& e);
+        void OnWriteToLogEvent(Tbx::WriteLineToLogRequest& e);
+        void OnOpenLogEvent(Tbx::OpenLogRequest& e);
+        void OnCloseLogEvent(Tbx::CloseLogRequest& e);
 
         Tbx::UID _writeToLogEventId = -1;
         Tbx::UID _openLogEventId = -1;

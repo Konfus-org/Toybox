@@ -37,8 +37,8 @@ namespace Tbx
         static UID _windowCloseEventId;
         static UID _windowFocusChangedEventId;
 
-        static void OnAppUpdated(const AppUpdatedEvent& event);
-        static void OnWindowClose(const WindowClosedEvent& event);
-        static void OnWindowFocusChanged(const WindowFocusChangedEvent& event);
+        static void OnAppUpdated(const AppUpdated& event);
+        static void OnWindowClose(const WindowClosed& event);
+        static void OnWindowFocusChanged(const WindowFocusChanged& event);
     };
 }

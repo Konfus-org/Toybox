@@ -1,115 +1,91 @@
 #include "OpenGLRendererPlugin.h"
-#include <Tbx/Core/Events/EventDispatcher.h>
+#include <Tbx/Core/Events/EventCoordinator.h>
+#include <Tbx/App/Render Pipeline/RenderPipeline.h>
+#include <Tbx/App/Windowing/WindowManager.h>
 
 namespace OpenGLRendering
 {
     void OpenGLRendererPlugin::OnLoad()
     {
-        _setRenderContextEventId = Tbx::EventDispatcher::Subscribe<Tbx::SetRenderContextRequestEvent>(TBX_BIND_CALLBACK(OnSetRenderContextEvent));
-        _setVSyncEventId = Tbx::EventDispatcher::Subscribe<Tbx::SetVSyncRequestEvent>(TBX_BIND_CALLBACK(OnSetVSyncEvent));
+        _windowFocusChangedEventId = 
+            Tbx::EventCoordinator::Subscribe<Tbx::WindowFocusChanged>(TBX_BIND_FN(OnWindowFocusChanged));
+        _windowResizedEventId = 
+            Tbx::EventCoordinator::Subscribe<Tbx::WindowResized>(TBX_BIND_FN(OnWindowResized));
 
-        // TODO: something here is wrong.. we are leaking memory like crazy on begin frame...
-        ////_beginRenderFrameEventId = Tbx::EventDispatcher::Subscribe<Tbx::BeginRenderFrameRequestEvent>(TBX_BIND_CALLBACK(OnBeginRenderFrameEvent));
-        ////_renderFrameEventId = Tbx::EventDispatcher::Subscribe<Tbx::RenderFrameRequestEvent>(TBX_BIND_CALLBACK(OnRenderFrameEvent));
-        ////_endRenderFrameEventId = Tbx::EventDispatcher::Subscribe<Tbx::EndRenderFrameRequestEvent>(TBX_BIND_CALLBACK(OnEndRenderFrameEvent));
-
-        //_clearScreenEventId = Tbx::EventDispatcher::Subscribe<Tbx::ClearScreenRequestEvent>(TBX_BIND_CALLBACK(OnClearScreenRenderEvent));
-        _flushEventId = Tbx::EventDispatcher::Subscribe<Tbx::FlushRendererRequestEvent>(TBX_BIND_CALLBACK(OnFlushEvent));
+        _setVSyncEventId = 
+            Tbx::EventCoordinator::Subscribe<Tbx::SetVSyncRequest>(TBX_BIND_FN(OnSetVSyncEvent));
+        _renderFrameEventId = 
+            Tbx::EventCoordinator::Subscribe<Tbx::RenderFrameRequest>(TBX_BIND_FN(OnRenderFrameEvent));
+        _clearScreenEventId = 
+            Tbx::EventCoordinator::Subscribe<Tbx::ClearScreenRequest>(TBX_BIND_FN(OnClearScreenRenderEvent));
+        _flushEventId = 
+            Tbx::EventCoordinator::Subscribe<Tbx::FlushRendererRequest>(TBX_BIND_FN(OnFlushEvent));
     }
 
     void OpenGLRendererPlugin::OnUnload()
     {
-        Tbx::EventDispatcher::Unsubscribe<Tbx::SetRenderContextRequestEvent>(_setRenderContextEventId);
-        Tbx::EventDispatcher::Unsubscribe<Tbx::SetVSyncRequestEvent>(_setVSyncEventId);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::WindowFocusChanged>(_windowFocusChangedEventId);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::WindowResized>(_windowResizedEventId);
 
-        //Tbx::EventDispatcher::Unsubscribe<Tbx::BeginRenderFrameRequestEvent>(_beginRenderFrameEventId);
-        //Tbx::EventDispatcher::Unsubscribe<Tbx::RenderFrameRequestEvent>(_renderFrameEventId);
-        //Tbx::EventDispatcher::Unsubscribe<Tbx::EndRenderFrameRequestEvent>(_endRenderFrameEventId);
-
-        //Tbx::EventDispatcher::Unsubscribe<Tbx::ClearScreenRequestEvent>(_clearScreenEventId);
-        Tbx::EventDispatcher::Unsubscribe<Tbx::FlushRendererRequestEvent>(_flushEventId);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::SetVSyncRequest>(_setVSyncEventId);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::RenderFrameRequest>(_renderFrameEventId);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::ClearScreenRequest>(_clearScreenEventId);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::FlushRendererRequest>(_flushEventId);
     }
 
-    void OpenGLRendererPlugin::OnSetRenderContextEvent(Tbx::SetRenderContextRequestEvent& e)
+    void OpenGLRendererPlugin::OnWindowFocusChanged(const Tbx::WindowFocusChanged& e)
     {
-        auto viewportSize = e.GetContext().lock()->GetSize();
-        SetContext(e.GetContext());
-        e.IsHandled = true;
+        if (!e.IsFocused()) return;
+
+        SetContext(Tbx::WindowManager::GetWindow(e.GetWindowId()));
+        SetViewport({ 0, 0 }, Tbx::WindowManager::GetWindow(e.GetWindowId()).lock()->GetSize());
     }
 
-    void OpenGLRendererPlugin::OnSetVSyncEvent(Tbx::SetVSyncRequestEvent& e)
+    void OpenGLRendererPlugin::OnWindowResized(const Tbx::WindowResized& e)
+    {
+        std::weak_ptr<Tbx::IWindow> windowThatWasResized = Tbx::WindowManager::GetWindow(e.GetWindowId());
+
+        SetVSyncEnabled(true); // Enable vsync so the window doesn't flicker
+
+        // Draw the window while its resizing so there are no artifacts during the resize
+        const bool& wasVSyncEnabled = Tbx::RenderPipeline::IsVSyncEnabled();
+        SetViewport({ 0, 0 }, e.GetNewSize());
+        Redraw();
+        SetVSyncEnabled(wasVSyncEnabled); // Set vsync back to what it was
+
+        // Log window resize
+        const auto& newSize = windowThatWasResized.lock()->GetSize();
+        const auto& name = windowThatWasResized.lock()->GetTitle();
+        TBX_INFO("Renderer responding to Window {0} resized to {1}x{2}", name, newSize.Width, newSize.Height);
+    }
+
+    void OpenGLRendererPlugin::OnSetVSyncEvent(Tbx::SetVSyncRequest& e)
     {
         SetVSyncEnabled(e.GetVSync());
         e.IsHandled = true;
     }
 
-    void OpenGLRendererPlugin::OnBeginRenderFrameEvent(Tbx::BeginRenderFrameRequestEvent& e)
+    void OpenGLRendererPlugin::OnRenderFrameEvent(Tbx::RenderFrameRequest& e)
     {
-        Flush();
-        Clear();
         BeginDraw();
-        e.IsHandled = true;
-    }
 
-    void OpenGLRendererPlugin::OnRenderFrameEvent(Tbx::RenderFrameRequestEvent& e)
-    {
         const auto& batch = e.GetBatch();
-        //for (const auto& item : batch)
-        //{
-        //    switch (item.Command)
-        //    {
-        //        case Tbx::RenderCommand::Clear:
-        //        {
-        //            const auto& colorData = std::any_cast<Tbx::Color>(item.Data);
-        //            Clear(colorData);
-        //            break;
-        //        }
-        //        case Tbx::RenderCommand::UploadShader:
-        //        {
-        //            const auto& shaderData = std::any_cast<Tbx::Shader>(item.Data);
-        //            UploadShader(shaderData);
-        //            break;
-        //        }
-        //        case Tbx::RenderCommand::UploadTexture:
-        //        {
-        //            const auto& textureData = std::any_cast<Tbx::TextureRenderData>(item.Data);
-        //            UploadTexture(textureData.GetTexture(), textureData.GetSlot());
-        //            break;
-        //        }
-        //        case Tbx::RenderCommand::UploadShaderData:
-        //        {
-        //            const auto& shaderData = std::any_cast<Tbx::ShaderData>(item.Data);
-        //            UploadShaderData(shaderData);
-        //            break;
-        //        }
-        //        case Tbx::RenderCommand::RenderMesh:
-        //        {
-        //            const auto& meshData = std::any_cast<Tbx::MeshRenderData>(item.Data);
-        //            Draw(meshData.GetMesh(), meshData.GetMaterial());
-        //            break;
-        //        }
-        //        default:
-        //        {
-        //            TBX_ASSERT(false, "Unknown render command type.");
-        //            break;
-        //        }
-        //    }
-        //}
-    }
-
-    void OpenGLRendererPlugin::OnEndRenderFrameEvent(Tbx::EndRenderFrameRequestEvent& e)
-    {
-        EndDraw();
+        for (const auto& item : batch)
+        {
+            ProcessData(item);
+        }
         e.IsHandled = true;
+
+        EndDraw();
     }
 
-    void OpenGLRendererPlugin::OnClearScreenRenderEvent(Tbx::ClearScreenRequestEvent& e)
+    void OpenGLRendererPlugin::OnClearScreenRenderEvent(Tbx::ClearScreenRequest& e)
     {
         Clear(Tbx::Color::DarkGrey());
         e.IsHandled = true;
     }
 
-    void OpenGLRendererPlugin::OnFlushEvent(Tbx::FlushRendererRequestEvent& e)
+    void OpenGLRendererPlugin::OnFlushEvent(Tbx::FlushRendererRequest& e)
     {
         Flush();
         e.IsHandled = true;

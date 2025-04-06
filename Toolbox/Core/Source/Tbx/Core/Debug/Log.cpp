@@ -1,7 +1,7 @@
 #include "Tbx/Core/PCH.h"
 #include "Tbx/Core/Debug/Log.h"
 #include "Tbx/Core/Debug/DebugAPI.h"
-#include "Tbx/Core/Events/EventDispatcher.h"
+#include "Tbx/Core/Events/EventCoordinator.h"
 #include "Tbx/Core/Events/LogEvents.h"
 
 namespace Tbx
@@ -49,8 +49,8 @@ namespace Tbx
         }
 
         // Send message
-        auto event = WriteLineToLogRequestEvent(lvl, msg, _logName, Log::GetFilePath());
-        if (!EventDispatcher::Dispatch(event)) WriteToConsole(msg, lvl);
+        auto event = WriteLineToLogRequest(lvl, msg, _logName, Log::GetFilePath());
+        if (!EventCoordinator::Send(event)) WriteToConsole(msg, lvl);
     }
 
     void Log::Open()
@@ -59,7 +59,7 @@ namespace Tbx
 
 #ifdef TBX_DEBUG
         // No log file in debug
-        auto event = OpenLogRequestEvent("", _logName);
+        auto event = OpenLogRequest("", _logName);
 #else 
         // Open log file in non-debug
         const auto& currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -67,7 +67,7 @@ namespace Tbx
         auto event = OpenLogRequestEvent(_logFilePath, _logName);
 #endif
 
-        EventDispatcher::Dispatch(event);
+        EventCoordinator::Send(event);
         TBX_ASSERT(event.IsHandled, "Failed to open the log {}, is a logger created and listening?", _logName);
     }
 
@@ -78,9 +78,9 @@ namespace Tbx
 
     void Log::Close()
     {
-        auto event = CloseLogRequestEvent(_logName);
+        auto event = CloseLogRequest(_logName);
 
-        EventDispatcher::Dispatch(event);
+        EventCoordinator::Send(event);
         TBX_ASSERT(event.IsHandled, "Failed to close the log {}, is a logger under that name created and listening?", _logName);
 
         _isOpen = false;

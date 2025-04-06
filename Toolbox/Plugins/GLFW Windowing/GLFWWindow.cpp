@@ -1,7 +1,7 @@
 #include "GLFWWindow.h"
 #include <GLFW/glfw3native.h>
 #include <Tbx/Core/Debug/DebugAPI.h>
-#include <Tbx/Core/Events/EventDispatcher.h>
+#include <Tbx/Core/Events/EventCoordinator.h>
 #include <Tbx/App/Events/InputEvents.h>
 
 namespace GLFWWindowing
@@ -219,20 +219,20 @@ namespace GLFWWindowing
 		{
 			case GLFW_PRESS:
 			{
-				Tbx::KeyPressedEvent event(key);
-				Tbx::EventDispatcher::Dispatch(event);
+				Tbx::KeyPressed event(key);
+				Tbx::EventCoordinator::Send(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
-				Tbx::KeyReleasedEvent event(key);
-				Tbx::EventDispatcher::Dispatch(event);
+				Tbx::KeyReleased event(key);
+				Tbx::EventCoordinator::Send(event);
 				break;
 			}
 			case GLFW_REPEAT:
 			{
-				Tbx::KeyRepeatedEvent event(key, 1);
-				Tbx::EventDispatcher::Dispatch(event);
+				Tbx::KeyRepeated event(key, 1);
+				Tbx::EventCoordinator::Send(event);
 				break;
 			}
 			default:
@@ -249,14 +249,14 @@ namespace GLFWWindowing
 		{
 			case GLFW_PRESS:
 			{
-				Tbx::MouseButtonPressedEvent event(button);
-				Tbx::EventDispatcher::Dispatch(event);
+				Tbx::MouseButtonPressed event(button);
+				Tbx::EventCoordinator::Send(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
-				Tbx::MouseButtonReleasedEvent event(button);
-				Tbx::EventDispatcher::Dispatch(event);
+				Tbx::MouseButtonReleased event(button);
+				Tbx::EventCoordinator::Send(event);
 				break;
 			}
 			default:
@@ -269,31 +269,31 @@ namespace GLFWWindowing
 
 	void GLFWWindow::OnMouseScrolled(double offsetX, double offsetY) const
 	{
-		Tbx::MouseScrolledEvent event((float)offsetX, (float)offsetY);
-		Tbx::EventDispatcher::Dispatch(event);
+		Tbx::MouseScrolled event((float)offsetX, (float)offsetY);
+		Tbx::EventCoordinator::Send(event);
 	}
 
 	void GLFWWindow::OnMouseMoved(double posX, double posY) const
 	{
-		Tbx::MouseMovedEvent event((float)posX, (float)posY);
-		Tbx::EventDispatcher::Dispatch(event);
+		Tbx::MouseMoved event((float)posX, (float)posY);
+		Tbx::EventCoordinator::Send(event);
 	}
 
 	void GLFWWindow::OnWindowClosed() const
 	{
-		Tbx::WindowClosedEvent event(GetId());
-		Tbx::EventDispatcher::Dispatch(event);
+		Tbx::WindowClosed event(GetId());
+		Tbx::EventCoordinator::Send(event);
 	}
 
 	void GLFWWindow::OnWindowFocusChanged(bool isFocused) const
 	{
-        Tbx::WindowFocusChangedEvent event(GetId(), isFocused);
-        Tbx::EventDispatcher::Dispatch(event);
+        Tbx::WindowFocusChanged event(GetId(), isFocused);
+        Tbx::EventCoordinator::Send(event);
 	}
 
 	void GLFWWindow::OnSizeChanged() const
 	{
-		Tbx::WindowResizedEvent event(GetId(), _size.Width, _size.Height);
-		Tbx::EventDispatcher::Dispatch(event);
+		Tbx::WindowResized event(GetId(), _size.Width, _size.Height);
+		Tbx::EventCoordinator::Send(event);
 	}
 }

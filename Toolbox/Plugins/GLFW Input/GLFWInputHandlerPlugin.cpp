@@ -1,82 +1,82 @@
 #include "GLFWInputHandlerPlugin.h"
-#include <Tbx/Core/Events/EventDispatcher.h>
+#include <Tbx/Core/Events/EventCoordinator.h>
 #include <GLFW/glfw3.h>
 
 namespace GLFWInput
 {
     void GLFWInputHandlerPlugin::OnLoad()
     {
-        _onSetContextRequestEventUID = Tbx::EventDispatcher::Subscribe<Tbx::SetInputContextRequestEvent>(TBX_BIND_CALLBACK(OnSetContextRequestEvent));
+        _onSetContextRequestEventUID = Tbx::EventCoordinator::Subscribe<Tbx::SetInputContextRequest>(TBX_BIND_FN(OnSetContextRequestEvent));
 
-        _onIsKeyDownEventUID = Tbx::EventDispatcher::Subscribe<Tbx::IsKeyDownRequestEvent>(TBX_BIND_CALLBACK(OnIsKeyDownEvent));
-        _onIsKeyUpEventUID = Tbx::EventDispatcher::Subscribe<Tbx::IsKeyUpRequestEvent>(TBX_BIND_CALLBACK(OnIsKeyUpEvent));
-        _onIsKeyHeldEventUID = Tbx::EventDispatcher::Subscribe<Tbx::IsKeyHeldRequestEvent>(TBX_BIND_CALLBACK(OnIsKeyHeldEvent));
+        _onIsKeyDownEventUID = Tbx::EventCoordinator::Subscribe<Tbx::IsKeyDownRequest>(TBX_BIND_FN(OnIsKeyDownEvent));
+        _onIsKeyUpEventUID = Tbx::EventCoordinator::Subscribe<Tbx::IsKeyUpRequest>(TBX_BIND_FN(OnIsKeyUpEvent));
+        _onIsKeyHeldEventUID = Tbx::EventCoordinator::Subscribe<Tbx::IsKeyHeldRequest>(TBX_BIND_FN(OnIsKeyHeldEvent));
 
-        _onGetMousePositionEventUID = Tbx::EventDispatcher::Subscribe<Tbx::GetMousePositionRequestEvent>(TBX_BIND_CALLBACK(OnGetMousePositionEvent));
+        _onGetMousePositionEventUID = Tbx::EventCoordinator::Subscribe<Tbx::GetMousePositionRequest>(TBX_BIND_FN(OnGetMousePositionEvent));
 
-        _onIsMouseButtonDownEventUID = Tbx::EventDispatcher::Subscribe<Tbx::IsMouseButtonDownRequestEvent>(TBX_BIND_CALLBACK(OnIsMouseButtonDownEvent));
-        _onIsMouseButtonUpEventUID = Tbx::EventDispatcher::Subscribe<Tbx::IsMouseButtonUpRequestEvent>(TBX_BIND_CALLBACK(OnIsMouseButtonUpEvent));
-        _onIsMouseButtonHeldEventUID = Tbx::EventDispatcher::Subscribe<Tbx::IsMouseButtonHeldRequestEvent>(TBX_BIND_CALLBACK(OnIsMouseButtonHeldEvent));
+        _onIsMouseButtonDownEventUID = Tbx::EventCoordinator::Subscribe<Tbx::IsMouseButtonDownRequest>(TBX_BIND_FN(OnIsMouseButtonDownEvent));
+        _onIsMouseButtonUpEventUID = Tbx::EventCoordinator::Subscribe<Tbx::IsMouseButtonUpRequest>(TBX_BIND_FN(OnIsMouseButtonUpEvent));
+        _onIsMouseButtonHeldEventUID = Tbx::EventCoordinator::Subscribe<Tbx::IsMouseButtonHeldRequestEvent>(TBX_BIND_FN(OnIsMouseButtonHeldEvent));
 
-        _onIsGamepadButtonDownEventUID = Tbx::EventDispatcher::Subscribe<Tbx::IsGamepadButtonDownRequestEvent>(TBX_BIND_CALLBACK(OnIsGamepadButtonDownEvent));
-        _onIsGamepadButtonUpEventUID = Tbx::EventDispatcher::Subscribe<Tbx::IsGamepadButtonUpRequestEvent>(TBX_BIND_CALLBACK(OnIsGamepadButtonUpEvent));
-        _onIsGamepadButtonHeldEventUID = Tbx::EventDispatcher::Subscribe<Tbx::IsGamepadButtonHeldRequestEvent>(TBX_BIND_CALLBACK(OnIsGamepadButtonHeldEvent));
+        _onIsGamepadButtonDownEventUID = Tbx::EventCoordinator::Subscribe<Tbx::IsGamepadButtonDownRequest>(TBX_BIND_FN(OnIsGamepadButtonDownEvent));
+        _onIsGamepadButtonUpEventUID = Tbx::EventCoordinator::Subscribe<Tbx::IsGamepadButtonUpRequest>(TBX_BIND_FN(OnIsGamepadButtonUpEvent));
+        _onIsGamepadButtonHeldEventUID = Tbx::EventCoordinator::Subscribe<Tbx::IsGamepadButtonHeldRequest>(TBX_BIND_FN(OnIsGamepadButtonHeldEvent));
     }
 
     void GLFWInputHandlerPlugin::OnUnload()
     {
-        Tbx::EventDispatcher::Unsubscribe<Tbx::SetInputContextRequestEvent>(_onSetContextRequestEventUID);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::SetInputContextRequest>(_onSetContextRequestEventUID);
 
-        Tbx::EventDispatcher::Unsubscribe<Tbx::IsKeyDownRequestEvent>(_onIsKeyDownEventUID);
-        Tbx::EventDispatcher::Unsubscribe<Tbx::IsKeyUpRequestEvent>(_onIsKeyUpEventUID);
-        Tbx::EventDispatcher::Unsubscribe<Tbx::IsKeyHeldRequestEvent>(_onIsKeyHeldEventUID);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::IsKeyDownRequest>(_onIsKeyDownEventUID);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::IsKeyUpRequest>(_onIsKeyUpEventUID);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::IsKeyHeldRequest>(_onIsKeyHeldEventUID);
 
-        Tbx::EventDispatcher::Unsubscribe<Tbx::GetMousePositionRequestEvent>(_onGetMousePositionEventUID);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::GetMousePositionRequest>(_onGetMousePositionEventUID);
 
-        Tbx::EventDispatcher::Unsubscribe<Tbx::IsMouseButtonDownRequestEvent>(_onIsMouseButtonDownEventUID);
-        Tbx::EventDispatcher::Unsubscribe<Tbx::IsMouseButtonUpRequestEvent>(_onIsMouseButtonUpEventUID);
-        Tbx::EventDispatcher::Unsubscribe<Tbx::IsMouseButtonHeldRequestEvent>(_onIsMouseButtonHeldEventUID);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::IsMouseButtonDownRequest>(_onIsMouseButtonDownEventUID);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::IsMouseButtonUpRequest>(_onIsMouseButtonUpEventUID);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::IsMouseButtonHeldRequestEvent>(_onIsMouseButtonHeldEventUID);
 
-        Tbx::EventDispatcher::Unsubscribe<Tbx::IsGamepadButtonDownRequestEvent>(_onIsGamepadButtonDownEventUID);
-        Tbx::EventDispatcher::Unsubscribe<Tbx::IsGamepadButtonUpRequestEvent>(_onIsGamepadButtonUpEventUID);
-        Tbx::EventDispatcher::Unsubscribe<Tbx::IsGamepadButtonHeldRequestEvent>(_onIsGamepadButtonHeldEventUID);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::IsGamepadButtonDownRequest>(_onIsGamepadButtonDownEventUID);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::IsGamepadButtonUpRequest>(_onIsGamepadButtonUpEventUID);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::IsGamepadButtonHeldRequest>(_onIsGamepadButtonHeldEventUID);
     }
     
-    void GLFWInputHandlerPlugin::OnSetContextRequestEvent(Tbx::SetInputContextRequestEvent& e)
+    void GLFWInputHandlerPlugin::OnSetContextRequestEvent(Tbx::SetInputContextRequest& e)
     {
         SetContext(e.GetContext());
         e.IsHandled = true;
     }
 
-    void GLFWInputHandlerPlugin::OnIsKeyDownEvent(Tbx::IsKeyDownRequestEvent& e) const
+    void GLFWInputHandlerPlugin::OnIsKeyDownEvent(Tbx::IsKeyDownRequest& e) const
     {
         auto result = IsKeyDown(e.GetKeyCode());
         e.SetResult(result);
         e.IsHandled = true;
     }
 
-    void GLFWInputHandlerPlugin::OnIsKeyUpEvent(Tbx::IsKeyUpRequestEvent& e) const
+    void GLFWInputHandlerPlugin::OnIsKeyUpEvent(Tbx::IsKeyUpRequest& e) const
     {
         auto result = IsKeyUp(e.GetKeyCode());
         e.SetResult(result);
         e.IsHandled = true;
     }
 
-    void GLFWInputHandlerPlugin::OnIsKeyHeldEvent(Tbx::IsKeyHeldRequestEvent& e) const
+    void GLFWInputHandlerPlugin::OnIsKeyHeldEvent(Tbx::IsKeyHeldRequest& e) const
     {
         auto result = IsKeyHeld(e.GetKeyCode());
         e.SetResult(result);
         e.IsHandled = true;
     }
 
-    void GLFWInputHandlerPlugin::OnIsMouseButtonDownEvent(Tbx::IsMouseButtonDownRequestEvent& e) const
+    void GLFWInputHandlerPlugin::OnIsMouseButtonDownEvent(Tbx::IsMouseButtonDownRequest& e) const
     {
         auto result = IsMouseButtonDown(e.GetKeyCode());
         e.SetResult(result);
         e.IsHandled = true;
     }
 
-    void GLFWInputHandlerPlugin::OnIsMouseButtonUpEvent(Tbx::IsMouseButtonUpRequestEvent& e) const
+    void GLFWInputHandlerPlugin::OnIsMouseButtonUpEvent(Tbx::IsMouseButtonUpRequest& e) const
     {
         auto result = IsMouseButtonUp(e.GetKeyCode());
         e.SetResult(result);
@@ -90,28 +90,28 @@ namespace GLFWInput
         e.IsHandled = true;
     }
 
-    void GLFWInputHandlerPlugin::OnGetMousePositionEvent(Tbx::GetMousePositionRequestEvent& e) const
+    void GLFWInputHandlerPlugin::OnGetMousePositionEvent(Tbx::GetMousePositionRequest& e) const
     {
         auto result = GetMousePosition();
         e.SetResult(result);
         e.IsHandled = true;
     }
 
-    void GLFWInputHandlerPlugin::OnIsGamepadButtonDownEvent(Tbx::IsGamepadButtonDownRequestEvent& e) const
+    void GLFWInputHandlerPlugin::OnIsGamepadButtonDownEvent(Tbx::IsGamepadButtonDownRequest& e) const
     {
         auto result = IsGamepadButtonDown(e.GetKeyCode(), e.GetGamepadId());
         e.SetResult(result);
         e.IsHandled = true;
     }
 
-    void GLFWInputHandlerPlugin::OnIsGamepadButtonUpEvent(Tbx::IsGamepadButtonUpRequestEvent& e) const
+    void GLFWInputHandlerPlugin::OnIsGamepadButtonUpEvent(Tbx::IsGamepadButtonUpRequest& e) const
     {
         auto result = IsGamepadButtonUp(e.GetKeyCode(), e.GetGamepadId());
         e.SetResult(result);
         e.IsHandled = true;
     }
 
-    void GLFWInputHandlerPlugin::OnIsGamepadButtonHeldEvent(Tbx::IsGamepadButtonHeldRequestEvent& e) const
+    void GLFWInputHandlerPlugin::OnIsGamepadButtonHeldEvent(Tbx::IsGamepadButtonHeldRequest& e) const
     {
         auto result = IsGamepadButtonHeld(e.GetKeyCode(), e.GetGamepadId());
         e.SetResult(result);

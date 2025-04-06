@@ -4,10 +4,16 @@
 
 namespace OpenGLRendering
 {
-    void OpenGLContext::Set(const std::weak_ptr<Tbx::IWindow>& windowToRenderInto)
+    OpenGLContext::~OpenGLContext()
+    {
+        glfwMakeContextCurrent(nullptr);
+        _windowToRenderTo = nullptr;
+    }
+
+    void OpenGLContext::Set(const std::weak_ptr<Tbx::IRenderSurface>& surfaceToRenderInto)
     {
         // Initialize opengl
-        auto* window = std::any_cast<GLFWwindow*>(windowToRenderInto.lock()->GetNativeWindow());
+        auto* window = std::any_cast<GLFWwindow*>(surfaceToRenderInto.lock()->GetNativeWindow());
         TBX_ASSERT(window, "OpenGL graphics context cannot be initialized, native window is invalid!");
         _windowToRenderTo = window;
 

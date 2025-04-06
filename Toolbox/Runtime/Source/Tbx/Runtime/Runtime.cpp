@@ -1,7 +1,7 @@
 #include "Tbx/Runtime/Runtime.h"
 #include "Tbx/Core/Plugins/PluginServer.h"
 #include <Tbx/Core/Debug/DebugAPI.h>
-#include <Tbx/Core/Events/EventDispatcher.h>
+#include <Tbx/Core/Events/EventCoordinator.h>
 #include <Tbx/App/Layers/Layer.h>
 #include <Tbx/App/Input/Input.h>
 #include <Tbx/App/App.h>

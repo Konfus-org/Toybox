@@ -17,21 +17,21 @@ namespace GLFWInput
         void OnUnload() override;
 
     private:
-        void OnSetContextRequestEvent(Tbx::SetInputContextRequestEvent& e);
+        void OnSetContextRequestEvent(Tbx::SetInputContextRequest& e);
 
-        void OnIsKeyDownEvent(Tbx::IsKeyDownRequestEvent& e) const;
-        void OnIsKeyUpEvent(Tbx::IsKeyUpRequestEvent& e) const;
-        void OnIsKeyHeldEvent(Tbx::IsKeyHeldRequestEvent& e) const;
+        void OnIsKeyDownEvent(Tbx::IsKeyDownRequest& e) const;
+        void OnIsKeyUpEvent(Tbx::IsKeyUpRequest& e) const;
+        void OnIsKeyHeldEvent(Tbx::IsKeyHeldRequest& e) const;
 
-        void OnGetMousePositionEvent(Tbx::GetMousePositionRequestEvent& e) const;
+        void OnGetMousePositionEvent(Tbx::GetMousePositionRequest& e) const;
 
-        void OnIsMouseButtonDownEvent(Tbx::IsMouseButtonDownRequestEvent& e) const;
-        void OnIsMouseButtonUpEvent(Tbx::IsMouseButtonUpRequestEvent& e) const;
+        void OnIsMouseButtonDownEvent(Tbx::IsMouseButtonDownRequest& e) const;
+        void OnIsMouseButtonUpEvent(Tbx::IsMouseButtonUpRequest& e) const;
         void OnIsMouseButtonHeldEvent(Tbx::IsMouseButtonHeldRequestEvent& e) const;
 
-        void OnIsGamepadButtonDownEvent(Tbx::IsGamepadButtonDownRequestEvent& e) const;
-        void OnIsGamepadButtonUpEvent(Tbx::IsGamepadButtonUpRequestEvent& e) const;
-        void OnIsGamepadButtonHeldEvent(Tbx::IsGamepadButtonHeldRequestEvent& e) const;
+        void OnIsGamepadButtonDownEvent(Tbx::IsGamepadButtonDownRequest& e) const;
+        void OnIsGamepadButtonUpEvent(Tbx::IsGamepadButtonUpRequest& e) const;
+        void OnIsGamepadButtonHeldEvent(Tbx::IsGamepadButtonHeldRequest& e) const;
 
         Tbx::UID _onSetContextRequestEventUID;
         Tbx::UID _onIsKeyDownEventUID;

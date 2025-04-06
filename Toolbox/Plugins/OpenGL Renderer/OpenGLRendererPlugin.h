@@ -3,6 +3,7 @@
 #include <Tbx/Core/Rendering/IRenderer.h>
 #include <Tbx/Core/Plugins/RegisterPlugin.h>
 #include <Tbx/App/Events/RenderEvents.h>
+#include <Tbx/App/Events/WindowEvents.h>
 
 namespace OpenGLRendering
 {
@@ -16,20 +17,18 @@ namespace OpenGLRendering
         void OnUnload() override;
 
     private:
-        void OnSetRenderContextEvent(Tbx::SetRenderContextRequestEvent& e);
-        void OnSetVSyncEvent(Tbx::SetVSyncRequestEvent& e);
+        void OnWindowFocusChanged(const Tbx::WindowFocusChanged& e);
+        void OnWindowResized(const Tbx::WindowResized& e);
 
-        void OnBeginRenderFrameEvent(Tbx::BeginRenderFrameRequestEvent& e);
-        void OnRenderFrameEvent(Tbx::RenderFrameRequestEvent& e);
-        void OnEndRenderFrameEvent(Tbx::EndRenderFrameRequestEvent& e);
+        void OnSetVSyncEvent(Tbx::SetVSyncRequest& e);
+        void OnRenderFrameEvent(Tbx::RenderFrameRequest& e);
+        void OnClearScreenRenderEvent(Tbx::ClearScreenRequest& e);
+        void OnFlushEvent(Tbx::FlushRendererRequest& e);
 
-        void OnClearScreenRenderEvent(Tbx::ClearScreenRequestEvent& e);
-        void OnFlushEvent(Tbx::FlushRendererRequestEvent& e);
+        Tbx::UID _windowFocusChangedEventId;
+        Tbx::UID _windowResizedEventId;
 
-        Tbx::UID _setRenderContextEventId;
         Tbx::UID _setVSyncEventId;
-        Tbx::UID _beginRenderFrameEventId;
-        Tbx::UID _endRenderFrameEventId;
         Tbx::UID _renderFrameEventId;
         Tbx::UID _clearScreenEventId;
         Tbx::UID _flushEventId;

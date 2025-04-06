@@ -2,7 +2,7 @@
 
 namespace OpenGLRendering
 {
-    void OpenGLRenderer::SetContext(const std::weak_ptr<Tbx::IWindow>& context)
+    void OpenGLRenderer::SetContext(const std::weak_ptr<Tbx::IRenderSurface>& context)
     {
         _context.Set(context);
     }
@@ -15,6 +15,54 @@ namespace OpenGLRendering
     void OpenGLRenderer::SetVSyncEnabled(const bool& enabled)
     {
         _context.SetSwapInterval(enabled);
+    }
+
+    void OpenGLRenderer::ProcessData(const Tbx::RenderData& data)
+    {
+        const auto& command = data.GetCommand();
+        const auto& payload = data.GetPayload();
+        switch (command)
+        {
+            case Tbx::RenderCommand::None:
+            {
+                break;
+            }
+            case Tbx::RenderCommand::Clear:
+            {
+                const auto& colorData = std::any_cast<Tbx::Color>(payload);
+                Clear(colorData);
+                break;
+            }
+            case Tbx::RenderCommand::UploadShader:
+            {
+                const auto& shaderData = std::any_cast<Tbx::Shader>(payload);
+                UploadShader(shaderData);
+                break;
+            }
+            case Tbx::RenderCommand::UploadTexture:
+            {
+                const auto& textureData = std::any_cast<Tbx::TextureRenderData>(payload);
+                UploadTexture(textureData.GetTexture(), textureData.GetSlot());
+                break;
+            }
+            case Tbx::RenderCommand::UploadShaderData:
+            {
+                const auto& shaderData = std::any_cast<Tbx::ShaderData>(payload);
+                UploadShaderData(shaderData);
+                break;
+            }
+            case Tbx::RenderCommand::RenderMesh:
+            {
+                const auto& meshData = std::any_cast<Tbx::MeshRenderData>(payload);
+                Draw(meshData.GetMesh(), meshData.GetMaterial());
+                break;
+            }
+            default:
+            {
+                TBX_ASSERT(false, "Unknown render command type.");
+                break;
+            }
+        }
     }
 
     void OpenGLRenderer::UploadTexture(const Tbx::Texture& texture, const Tbx::uint& slot)
@@ -82,5 +130,27 @@ namespace OpenGLRendering
         vertArray.SetIndexBuffer(meshIndexBuffer);
 
         glDrawElements(GL_TRIANGLES, vertArray.GetIndexCount(), GL_UNSIGNED_INT, nullptr);
+    }
+
+    void OpenGLRenderer::Redraw()
+    {
+        Clear();
+
+        const auto& command = _lastDrawnData.GetCommand();
+        const auto& payload = _lastDrawnData.GetPayload();
+        switch (command)
+        {
+            case Tbx::RenderCommand::RenderMesh:
+            {
+                const auto& meshData = std::any_cast<Tbx::MeshRenderData>(payload);
+                Draw(meshData.GetMesh(), meshData.GetMaterial());
+                break;
+            }
+            default:
+            {
+                TBX_ASSERT(false, "Redraw only supports RenderMesh command.");
+                break;
+            }
+        }
     }
 }

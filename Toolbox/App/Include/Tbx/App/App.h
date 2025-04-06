@@ -29,7 +29,7 @@ namespace Tbx
 
     private:
         void ShutdownSystems();
-        void OnWindowClosed(const WindowClosedEvent& e);
+        void OnWindowClosed(const WindowClosed& e);
 
         bool _isRunning = false;
         bool _isHeadless = false;

@@ -1,16 +1,16 @@
 #include "Tbx/Core/PCH.h"
-#include "Tbx/Core/Events/EventDispatcher.h"
+#include "Tbx/Core/Events/EventCoordinator.h"
 
 namespace Tbx 
 {
-    std::unordered_map<hash, std::vector<Callback<Event>>> EventDispatcher::_subscribers = {};
+    std::unordered_map<hash, std::vector<Callback<Event>>> EventCoordinator::_subscribers = {};
 
-    void EventDispatcher::Clear()
+    void EventCoordinator::ClearSubscribers()
     {
         _subscribers.clear();
     }
 
-    std::unordered_map<hash, std::vector<Callback<Event>>>& EventDispatcher::GetSubscribers()
+    std::unordered_map<hash, std::vector<Callback<Event>>>& EventCoordinator::GetSubscribers()
     {
         return _subscribers;
     }

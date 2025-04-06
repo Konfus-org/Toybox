@@ -1,6 +1,6 @@
 #include "Tbx/App/PCH.h"
 #include "Tbx/App/Windowing/WindowManager.h"
-#include <Tbx/Core/Events/EventDispatcher.h>
+#include <Tbx/Core/Events/EventCoordinator.h>
 #include <Tbx/Core/Debug/DebugAPI.h>
 
 namespace Tbx
@@ -16,26 +16,26 @@ namespace Tbx
     void WindowManager::Initialize()
     {
         _appUpdatedEventId = 
-            EventDispatcher::Subscribe<AppUpdatedEvent>(TBX_BIND_STATIC_CALLBACK(OnAppUpdated));
+            EventCoordinator::Subscribe<AppUpdated>(TBX_BIND_STATIC_FN(OnAppUpdated));
         _windowCloseEventId =
-            EventDispatcher::Subscribe<WindowClosedEvent>(TBX_BIND_STATIC_CALLBACK(OnWindowClose));
+            EventCoordinator::Subscribe<WindowClosed>(TBX_BIND_STATIC_FN(OnWindowClose));
         _windowFocusChangedEventId =
-            EventDispatcher::Subscribe<WindowFocusChangedEvent>(TBX_BIND_STATIC_CALLBACK(OnWindowFocusChanged));
+            EventCoordinator::Subscribe<WindowFocusChanged>(TBX_BIND_STATIC_FN(OnWindowFocusChanged));
     }
 
     void WindowManager::Shutdown()
     {
-        EventDispatcher::Unsubscribe<AppUpdatedEvent>(_appUpdatedEventId);
-        EventDispatcher::Unsubscribe<WindowClosedEvent>(_windowCloseEventId);
-        EventDispatcher::Unsubscribe<WindowFocusChangedEvent>(_windowFocusChangedEventId);
+        EventCoordinator::Unsubscribe<AppUpdated>(_appUpdatedEventId);
+        EventCoordinator::Unsubscribe<WindowClosed>(_windowCloseEventId);
+        EventCoordinator::Unsubscribe<WindowFocusChanged>(_windowFocusChangedEventId);
 
         CloseAllWindows();
     }
 
     UID WindowManager::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
-        auto event = OpenNewWindowRequestEvent(name, mode, size);
-        EventDispatcher::Dispatch<OpenNewWindowRequestEvent>(event);
+        auto event = OpenNewWindowRequest(name, mode, size);
+        EventCoordinator::Send<OpenNewWindowRequest>(event);
         auto window = event.GetResult();
 
         TBX_ASSERT(event.IsHandled, "Failed to open new window with the name {}!", name);
@@ -89,7 +89,7 @@ namespace Tbx
         _windows.clear();
     }
 
-    void WindowManager::OnAppUpdated(const AppUpdatedEvent& e)
+    void WindowManager::OnAppUpdated(const AppUpdated& e)
     {
         if (_windows.empty()) return;
 
@@ -107,12 +107,12 @@ namespace Tbx
         _windowsToCloseOnNextUpdate.clear();
     }
 
-    void WindowManager::OnWindowClose(const WindowClosedEvent& e)
+    void WindowManager::OnWindowClose(const WindowClosed& e)
     {
         _windowsToCloseOnNextUpdate.push_back(e.GetWindowId());
     }
 
-    void WindowManager::OnWindowFocusChanged(const WindowFocusChangedEvent& e)
+    void WindowManager::OnWindowFocusChanged(const WindowFocusChanged& e)
     {
         if (e.IsFocused())
         {

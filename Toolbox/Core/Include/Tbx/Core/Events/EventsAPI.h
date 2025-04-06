@@ -1,6 +1,6 @@
 #pragma once
 
 #include "Event.h"
-#include "EventDispatcher.h"
+#include "EventCoordinator.h"
 #include "EventCategory.h"
 #include "LogEvents.h"

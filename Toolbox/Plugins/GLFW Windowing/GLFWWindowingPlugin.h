@@ -19,6 +19,6 @@ namespace GLFWWindowing
         Tbx::UID _openNewWindowRequestEventId;
         std::shared_ptr<Tbx::IWindowFactory> _windowFactory;
 
-        void OnOpenNewWindow(Tbx::OpenNewWindowRequestEvent& e);
+        void OnOpenNewWindow(Tbx::OpenNewWindowRequest& e);
     };
 }

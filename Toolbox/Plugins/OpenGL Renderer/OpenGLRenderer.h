@@ -4,6 +4,7 @@
 #include "OpenGLShader.h"
 #include "OpenGLTexture.h"
 #include <Tbx/Core/Rendering/IRenderer.h>
+#include <Tbx/App/Render Pipeline/RenderQueue.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -15,23 +16,27 @@ namespace OpenGLRendering
         OpenGLRenderer() = default;
         ~OpenGLRenderer() override = default;
 
-        void SetContext(const std::weak_ptr<Tbx::IWindow>& context) override;
-        void SetViewport(const Tbx::Vector2I& screenPos, const Tbx::Size& size) override;
-        void SetVSyncEnabled(const bool& enabled) override;
+        void SetContext(const std::weak_ptr<Tbx::IRenderSurface>& context) final;
+        void SetViewport(const Tbx::Vector2I& screenPos, const Tbx::Size& size) final;
+        void SetVSyncEnabled(const bool& enabled) final;
 
-        void UploadTexture(const Tbx::Texture& texture, const Tbx::uint& slot) override;
-        void UploadShader(const Tbx::Shader& shader) override;
-        void UploadShaderData(const Tbx::ShaderData& data) override;
+        void ProcessData(const Tbx::RenderData& data) final;
 
-        void Flush() override;
-        void Clear(const Tbx::Color& color = Tbx::Color::Black()) override;
+        void UploadTexture(const Tbx::Texture& texture, const Tbx::uint& slot) final;
+        void UploadShader(const Tbx::Shader& shader) final;
+        void UploadShaderData(const Tbx::ShaderData& data) final;
 
-        void BeginDraw() override;
-        void EndDraw() override;
+        void Flush() final;
+        void Clear(const Tbx::Color& color = Tbx::Color::Black()) final;
 
-        void Draw(const Tbx::Mesh& mesh, const Tbx::Material& material) override;
+        void BeginDraw() final;
+        void EndDraw() final;
+
+        void Draw(const Tbx::Mesh& mesh, const Tbx::Material& material) final;
+        void Redraw() final;
 
     private:
+        Tbx::RenderData _lastDrawnData;
         std::vector<OpenGLShader> _shaders;
         std::vector<OpenGLTexture> _textures;
         OpenGLContext _context;

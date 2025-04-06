@@ -22,7 +22,7 @@ namespace Tbx
         int _keyCode;
     };
 
-    class EXPORT KeyPressedEvent : public KeyEvent
+    class EXPORT KeyPressed : public KeyEvent
     {
     public:
         using KeyEvent::KeyEvent;
@@ -33,7 +33,7 @@ namespace Tbx
         }
     };
 
-    class EXPORT KeyReleasedEvent : public KeyEvent
+    class EXPORT KeyReleased : public KeyEvent
     {
     public:
         using KeyEvent::KeyEvent;
@@ -44,10 +44,10 @@ namespace Tbx
         }
     };
 
-    class EXPORT KeyHeldEvent : public KeyEvent
+    class EXPORT KeyHeld : public KeyEvent
     {
     public:
-        KeyHeldEvent(int keyCode, float timeHeld) :
+        KeyHeld(int keyCode, float timeHeld) :
             KeyEvent(keyCode), _timeHeld(timeHeld) {
         }
 
@@ -65,10 +65,10 @@ namespace Tbx
         float _timeHeld;
     };
 
-    class EXPORT KeyRepeatedEvent : public KeyEvent
+    class EXPORT KeyRepeated : public KeyEvent
     {
     public:
-        KeyRepeatedEvent(int keyCode, int repeatCount) :
+        KeyRepeated(int keyCode, int repeatCount) :
             KeyEvent(keyCode), _repeatCount(repeatCount) {
         }
 
@@ -95,10 +95,10 @@ namespace Tbx
         }
     };
 
-    class EXPORT MouseMovedEvent : public MouseEvent
+    class EXPORT MouseMoved : public MouseEvent
     {
     public:
-        MouseMovedEvent(float x, float y) : _xPos(x), _yPos(y) {}
+        MouseMoved(float x, float y) : _xPos(x), _yPos(y) {}
 
         std::string ToString() const final
         {
@@ -115,10 +115,10 @@ namespace Tbx
         float _yPos;
     };
 
-    class EXPORT MouseScrolledEvent : public MouseEvent
+    class EXPORT MouseScrolled : public MouseEvent
     {
     public:
-        MouseScrolledEvent(float x, float y) : _xScroll(x), _yScroll(y) {}
+        MouseScrolled(float x, float y) : _xScroll(x), _yScroll(y) {}
 
         std::string ToString() const final
         {
@@ -135,10 +135,10 @@ namespace Tbx
         float _yScroll;
     };
 
-    class EXPORT MouseButtonPressedEvent : public MouseEvent
+    class EXPORT MouseButtonPressed : public MouseEvent
     {
     public:
-        explicit MouseButtonPressedEvent(int button) : _button(button) {}
+        explicit MouseButtonPressed(int button) : _button(button) {}
 
         std::string ToString() const final
         {
@@ -154,10 +154,10 @@ namespace Tbx
         int _button;
     };
 
-    class EXPORT MouseButtonReleasedEvent : public MouseEvent
+    class EXPORT MouseButtonReleased : public MouseEvent
     {
     public:
-        explicit MouseButtonReleasedEvent(int button) : _button(button) {}
+        explicit MouseButtonReleased(int button) : _button(button) {}
 
         std::string ToString() const final
         {
@@ -174,10 +174,10 @@ namespace Tbx
     };
 
     // TODO: Make event handlers for the below events
-    class EXPORT InputRequestEvent : public KeyEvent
+    class EXPORT InputRequest : public KeyEvent
     {
     public:
-        explicit InputRequestEvent(int keyCode) 
+        explicit InputRequest(int keyCode) 
             : KeyEvent(keyCode) {}
 
         bool GetResult() const { return _result; }
@@ -187,11 +187,11 @@ namespace Tbx
         bool _result = false;
     };
 
-    class EXPORT IsKeyDownRequestEvent : public InputRequestEvent
+    class EXPORT IsKeyDownRequest : public InputRequest
     {
     public:
-        explicit IsKeyDownRequestEvent(int keyCode)
-            : InputRequestEvent(keyCode) {}
+        explicit IsKeyDownRequest(int keyCode)
+            : InputRequest(keyCode) {}
 
         std::string ToString() const final
         {
@@ -199,11 +199,11 @@ namespace Tbx
         }
     };
 
-    class EXPORT IsKeyUpRequestEvent : public InputRequestEvent
+    class EXPORT IsKeyUpRequest : public InputRequest
     {
     public:
-        explicit IsKeyUpRequestEvent(int keyCode)
-            : InputRequestEvent(keyCode) {}
+        explicit IsKeyUpRequest(int keyCode)
+            : InputRequest(keyCode) {}
 
         std::string ToString() const final
         {
@@ -211,11 +211,11 @@ namespace Tbx
         }
     };
 
-    class EXPORT IsKeyHeldRequestEvent : public InputRequestEvent
+    class EXPORT IsKeyHeldRequest : public InputRequest
     {
     public:
-        explicit IsKeyHeldRequestEvent(int keyCode)
-            : InputRequestEvent(keyCode) {}
+        explicit IsKeyHeldRequest(int keyCode)
+            : InputRequest(keyCode) {}
 
         std::string ToString() const final
         {
@@ -223,11 +223,11 @@ namespace Tbx
         }
     };
 
-    class EXPORT ButtonRequestEvent : public InputRequestEvent
+    class EXPORT ButtonRequest : public InputRequest
     {
     public:
-        explicit ButtonRequestEvent(uint gamepadId, uint button)
-            : InputRequestEvent(button), _gamepadId(gamepadId) {}
+        explicit ButtonRequest(uint gamepadId, uint button)
+            : InputRequest(button), _gamepadId(gamepadId) {}
 
         uint GetGamepadId() const { return _gamepadId; }
 
@@ -235,11 +235,11 @@ namespace Tbx
         uint _gamepadId = 0;
     };
 
-    class EXPORT IsGamepadButtonDownRequestEvent : public ButtonRequestEvent
+    class EXPORT IsGamepadButtonDownRequest : public ButtonRequest
     {
     public:
-        explicit IsGamepadButtonDownRequestEvent(uint gamepadId, uint button)
-            : ButtonRequestEvent(gamepadId, button) {}
+        explicit IsGamepadButtonDownRequest(uint gamepadId, uint button)
+            : ButtonRequest(gamepadId, button) {}
 
         std::string ToString() const final
         {
@@ -247,11 +247,11 @@ namespace Tbx
         }
     };
 
-    class EXPORT IsGamepadButtonUpRequestEvent : public ButtonRequestEvent
+    class EXPORT IsGamepadButtonUpRequest : public ButtonRequest
     {
     public:
-        explicit IsGamepadButtonUpRequestEvent(uint gamepadId, uint button)
-            : ButtonRequestEvent(gamepadId, button) {}
+        explicit IsGamepadButtonUpRequest(uint gamepadId, uint button)
+            : ButtonRequest(gamepadId, button) {}
 
         std::string ToString() const final
         {
@@ -259,11 +259,11 @@ namespace Tbx
         }
     };
 
-    class EXPORT IsGamepadButtonHeldRequestEvent : public ButtonRequestEvent
+    class EXPORT IsGamepadButtonHeldRequest : public ButtonRequest
     {
     public:
-        explicit IsGamepadButtonHeldRequestEvent(uint gamepadId, uint button)
-            : ButtonRequestEvent(gamepadId, button) {}
+        explicit IsGamepadButtonHeldRequest(uint gamepadId, uint button)
+            : ButtonRequest(gamepadId, button) {}
 
         std::string ToString() const final
         {
@@ -271,11 +271,11 @@ namespace Tbx
         }
     };
 
-    class EXPORT IsMouseButtonDownRequestEvent : public InputRequestEvent
+    class EXPORT IsMouseButtonDownRequest : public InputRequest
     {
     public:
-        explicit IsMouseButtonDownRequestEvent(int button)
-            : InputRequestEvent(button) {}
+        explicit IsMouseButtonDownRequest(int button)
+            : InputRequest(button) {}
 
         std::string ToString() const final
         {
@@ -283,11 +283,11 @@ namespace Tbx
         }
     };
 
-    class EXPORT IsMouseButtonUpRequestEvent : public InputRequestEvent
+    class EXPORT IsMouseButtonUpRequest : public InputRequest
     {
     public:
-        explicit IsMouseButtonUpRequestEvent(int button)
-            : InputRequestEvent(button) {}
+        explicit IsMouseButtonUpRequest(int button)
+            : InputRequest(button) {}
 
         std::string ToString() const final
         {
@@ -295,11 +295,11 @@ namespace Tbx
         }
     };
 
-    class EXPORT IsMouseButtonHeldRequestEvent : public InputRequestEvent
+    class EXPORT IsMouseButtonHeldRequestEvent : public InputRequest
     {
     public:
         explicit IsMouseButtonHeldRequestEvent(int button)
-            : InputRequestEvent(button) {}
+            : InputRequest(button) {}
 
         std::string ToString() const final
         {
@@ -307,10 +307,10 @@ namespace Tbx
         }
     };
 
-    class EXPORT GetMousePositionRequestEvent : public Event
+    class EXPORT GetMousePositionRequest : public Event
     {
     public:
-        GetMousePositionRequestEvent() {}
+        GetMousePositionRequest() {}
 
         int GetCategorization() const final
         {
@@ -329,10 +329,10 @@ namespace Tbx
         Vector2 _position;
     };
 
-    class EXPORT SetInputContextRequestEvent : public Event
+    class EXPORT SetInputContextRequest : public Event
     {
     public:
-        explicit SetInputContextRequestEvent(const std::weak_ptr<IWindow>& context) 
+        explicit SetInputContextRequest(const std::weak_ptr<IWindow>& context) 
             : _context(context) {}
 
         int GetCategorization() const final
