@@ -58,14 +58,19 @@ static void CreateTestMat()
         )";
 
 	const auto& shader = Tbx::Shader(vertexSrc, fragmentSrc);
-	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadShader, shader);
+    const auto& uploadShaderData = Tbx::RenderData(Tbx::RenderCommand::UploadShader, shader);
+	Tbx::RenderPipeline::Push(uploadShaderData);
 
 	// Upload texture to renderer
 	auto testTex = Tbx::Texture("Assets\\Checkerboard.png");
-	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadTexture, Tbx::TextureRenderData(testTex, 0));
+    const auto& uploadTextureData = Tbx::RenderData(Tbx::RenderCommand::UploadTexture, Tbx::TextureRenderData(testTex, 0));
+	Tbx::RenderPipeline::Push(uploadTextureData);
 	// Uploading texture position (0 rn for diffuse, add more for other textures like normals, height, etc...)
 	// TODO: automate the texture position
-	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("textureUniform", 0, Tbx::ShaderDataType::Int));
+
+	const auto& shaderData = Tbx::ShaderData("textureUniform", 0, Tbx::ShaderDataType::Int);
+	const auto& renderShaderData = Tbx::RenderData(Tbx::RenderCommand::UploadShaderData, shaderData);
+	Tbx::RenderPipeline::Push(renderShaderData);
 
 	// Create test material
 	_testMat = Tbx::Material(shader, { testTex });
@@ -102,8 +107,12 @@ static void DrawSquareTest()
 	const std::vector<Tbx::uint32>& squareMeshIndices = { 0, 1, 2, 2, 3, 0 };
 	const auto& squareMesh = Tbx::Mesh(sqaureMeshVerts, squareMeshIndices);
 
-	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("transform", Tbx::Mat4x4::FromPosition(_trianglePosition), Tbx::ShaderDataType::Mat4));
-	Tbx::RenderPipeline::Push(Tbx::RenderCommand::RenderMesh, Tbx::MeshRenderData(squareMesh, _testMat));
+	const auto& shaderData = Tbx::ShaderData("transform", Tbx::Mat4x4::FromPosition(_trianglePosition), Tbx::ShaderDataType::Mat4);
+	const auto& renderShaderData = Tbx::RenderData(Tbx::RenderCommand::UploadShaderData, shaderData);
+	Tbx::RenderPipeline::Push(renderShaderData);
+
+    const auto& renderMeshData = Tbx::RenderData(Tbx::RenderCommand::RenderMesh, Tbx::MeshRenderData(squareMesh, _testMat));
+	Tbx::RenderPipeline::Push(renderMeshData);
 }
 
 void TestLayer::OnAttach()
@@ -127,7 +136,10 @@ void TestLayer::OnAttach()
 	////mainWindowCam->SetPosition(Tbx::Vector3(0.0f, 0.0f, -1.0f));
 
 	Tbx::RenderPipeline::SetVSyncEnabled(true);
-	Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix(), Tbx::ShaderDataType::Mat4));
+
+	const auto& shaderData = Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix(), Tbx::ShaderDataType::Mat4);
+	const auto& renderData = Tbx::RenderData(Tbx::RenderCommand::UploadShaderData, shaderData);
+	Tbx::RenderPipeline::Push(renderData);
 }
 
 void TestLayer::OnDetach()
@@ -196,5 +208,7 @@ void TestLayer::OnUpdate()
 
 	//TBX_TRACE("Camera Position: {0}", mainWindowCam->GetPosition().ToString());
 
-    Tbx::RenderPipeline::Push(Tbx::RenderCommand::UploadShaderData, Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix(), Tbx::ShaderDataType::Mat4));
+	const auto& shaderData = Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix(), Tbx::ShaderDataType::Mat4);
+	const auto& renderData = Tbx::RenderData(Tbx::RenderCommand::UploadShaderData, shaderData);
+    Tbx::RenderPipeline::Push(renderData);
 }

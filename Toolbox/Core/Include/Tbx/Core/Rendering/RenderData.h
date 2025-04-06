@@ -8,6 +8,7 @@ namespace Tbx
     struct RenderData
     {
     public:
+        RenderData() = default;
         RenderData(const RenderCommand& command, const std::any& payload)
             : _command(command), _payload(payload) {}
 

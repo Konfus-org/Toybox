@@ -140,6 +140,10 @@ namespace OpenGLRendering
         const auto& payload = _lastDrawnData.GetPayload();
         switch (command)
         {
+            case Tbx::RenderCommand::None:
+            {
+                break;
+            }
             case Tbx::RenderCommand::RenderMesh:
             {
                 const auto& meshData = std::any_cast<Tbx::MeshRenderData>(payload);
