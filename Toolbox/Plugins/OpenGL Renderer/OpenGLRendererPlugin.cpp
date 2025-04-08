@@ -44,14 +44,20 @@ namespace OpenGLRendering
     void OpenGLRendererPlugin::OnWindowResized(const Tbx::WindowResized& e)
     {
         std::weak_ptr<Tbx::IWindow> windowThatWasResized = Tbx::WindowManager::GetWindow(e.GetWindowId());
-
-        SetVSyncEnabled(true); // Enable vsync so the window doesn't flicker
+        
+        // Enable vsync so the window doesn't flicker
+        const bool& wasVSyncEnabled = Tbx::RenderPipeline::IsVSyncEnabled();
+        SetVSyncEnabled(true);
 
         // Draw the window while its resizing so there are no artifacts during the resize
-        const bool& wasVSyncEnabled = Tbx::RenderPipeline::IsVSyncEnabled();
         SetViewport({ 0, 0 }, e.GetNewSize());
+        Clear(Tbx::Color::DarkGrey());
+        BeginDraw();
         Redraw();
-        SetVSyncEnabled(wasVSyncEnabled); // Set vsync back to what it was
+        EndDraw();
+
+        // Set vsync back to what it was
+        SetVSyncEnabled(wasVSyncEnabled); 
 
         // Log window resize
         const auto& newSize = windowThatWasResized.lock()->GetSize();
@@ -67,6 +73,8 @@ namespace OpenGLRendering
 
     void OpenGLRendererPlugin::OnRenderFrameEvent(Tbx::RenderFrameRequest& e)
     {
+        Clear(Tbx::Color::DarkGrey());
+
         BeginDraw();
 
         const auto& batch = e.GetBatch();
@@ -75,6 +83,9 @@ namespace OpenGLRendering
             ProcessData(item);
         }
         e.IsHandled = true;
+
+        auto renderedFrameEvent = Tbx::RenderedFrameEvent();
+        Tbx::EventCoordinator::Send<Tbx::RenderedFrameEvent>(renderedFrameEvent);
 
         EndDraw();
     }

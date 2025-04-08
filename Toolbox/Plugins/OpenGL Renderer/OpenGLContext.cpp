@@ -14,6 +14,12 @@ namespace OpenGLRendering
         // Initialize opengl
         auto* window = std::any_cast<GLFWwindow*>(surfaceToRenderInto.lock()->GetNativeWindow());
         TBX_ASSERT(window, "OpenGL graphics context cannot be initialized, native window is invalid!");
+        if (_windowToRenderTo == window)
+        {
+            // We've already been initialized for this window, early out!
+            return;
+        }
+
         _windowToRenderTo = window;
 
         glfwMakeContextCurrent(_windowToRenderTo);

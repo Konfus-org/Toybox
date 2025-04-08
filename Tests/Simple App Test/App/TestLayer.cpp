@@ -158,53 +158,53 @@ void TestLayer::OnUpdate()
 	const auto& mainWindowCam = mainWindow.lock()->GetCamera().lock();
 
 	// Camera movement and rotation
-	////if (Tbx::Input::IsKeyDown(TBX_KEY_W))
-	////{
-	////	mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Up() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
-	////}
- ////   else if (Tbx::Input::IsKeyDown(TBX_KEY_S))
- ////   {
- ////       mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Down() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
- ////   }
+	if (Tbx::Input::IsKeyDown(TBX_KEY_W))
+	{
+		mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Up() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
+	}
+    else if (Tbx::Input::IsKeyDown(TBX_KEY_S))
+    {
+        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Down() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
+    }
 
- ////   if (Tbx::Input::IsKeyDown(TBX_KEY_A))
- ////   {
- ////       mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Left() * _camMoveSpeed) * Tbx::Time::DeltaTime::Seconds());
- ////   }
- ////   else if (Tbx::Input::IsKeyDown(TBX_KEY_D))
- ////   {
- ////       mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Right() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
- ////   }
+    if (Tbx::Input::IsKeyDown(TBX_KEY_A))
+    {
+        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Left() * _camMoveSpeed) * Tbx::Time::DeltaTime::Seconds());
+    }
+    else if (Tbx::Input::IsKeyDown(TBX_KEY_D))
+    {
+        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Right() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
+    }
 
- ////   if (Tbx::Input::IsKeyDown(TBX_KEY_UP))
- ////   {
- ////       mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Forward() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
- ////   }
- ////   else if (Tbx::Input::IsKeyDown(TBX_KEY_DOWN))
- ////   {
- ////       mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Backward() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
- ////   }
+    if (Tbx::Input::IsKeyDown(TBX_KEY_UP))
+    {
+        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Forward() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
+    }
+    else if (Tbx::Input::IsKeyDown(TBX_KEY_DOWN))
+    {
+        mainWindowCam->SetPosition(mainWindowCam->GetPosition() + (Tbx::Vector3::Backward() * _camMoveSpeed * Tbx::Time::DeltaTime::Seconds()));
+    }
 
- ////   if (Tbx::Input::IsKeyDown(TBX_KEY_Q))
- ////   {
-	////	const auto& currentRot = mainWindowCam->GetRotation();
-	////	const auto& newRot = currentRot * (Tbx::Vector3(0.0f, 0.0f, -1.0f) * _camRotateSpeed * Tbx::Time::DeltaTime::Seconds());
-	////	mainWindowCam->SetRotation(newRot);
- ////   }
- ////   else if (Tbx::Input::IsKeyDown(TBX_KEY_E))
- ////   {
-	////	const auto& currentRot = mainWindowCam->GetRotation();
-	////	const auto& newRot = currentRot * (Tbx::Vector3(0.0f, 0.0f, 1.0f) * _camRotateSpeed * Tbx::Time::DeltaTime::Seconds());
-	////	mainWindowCam->SetRotation(newRot);
- ////   }
+    if (Tbx::Input::IsKeyDown(TBX_KEY_Q))
+    {
+		const auto& currentRot = mainWindowCam->GetRotation();
+		const auto& newRot = currentRot * (Tbx::Vector3(0.0f, 0.0f, -1.0f) * _camRotateSpeed * Tbx::Time::DeltaTime::Seconds());
+		mainWindowCam->SetRotation(newRot);
+    }
+    else if (Tbx::Input::IsKeyDown(TBX_KEY_E))
+    {
+		const auto& currentRot = mainWindowCam->GetRotation();
+		const auto& newRot = currentRot * (Tbx::Vector3(0.0f, 0.0f, 1.0f) * _camRotateSpeed * Tbx::Time::DeltaTime::Seconds());
+		mainWindowCam->SetRotation(newRot);
+    }
 
-	////// Triangle movement
-	////if (Tbx::Input::IsKeyDown(TBX_KEY_SPACE))
-	////{
-	////	_trianglePosition = _trianglePosition + (Tbx::Vector3::Up() * _camMoveSpeed * 2 * Tbx::Time::DeltaTime::Seconds());
-	////}
+	// Triangle movement
+	if (Tbx::Input::IsKeyDown(TBX_KEY_SPACE))
+	{
+		_trianglePosition = _trianglePosition + (Tbx::Vector3::Up() * _camMoveSpeed * 2 * Tbx::Time::DeltaTime::Seconds());
+	}
 
-	//DrawSquareTest();
+	DrawSquareTest();
 
 	//TBX_TRACE("Camera Position: {0}", mainWindowCam->GetPosition().ToString());
 

@@ -16,6 +16,15 @@ namespace Tbx
         }
     };
 
+    class EXPORT RenderedFrameEvent : public RenderEvent
+    {
+    public:
+        std::string ToString() const final
+        {
+            return "Rendered Frame Event";
+        }
+    };
+
     class EXPORT ClearScreenRequest : public RenderEvent
     {
     public:

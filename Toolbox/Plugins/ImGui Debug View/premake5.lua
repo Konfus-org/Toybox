@@ -18,13 +18,15 @@ project "ImGui Debug View"
 
     defines
     {
-        "GLFW_INCLUDE_NONE"
+        "GLFW_INCLUDE_NONE",
+        "IMGUI_IMPL_OPENGL_ES3"
     }
 
     includedirs
     {
         "./",
         "%{IncludeDir.ImGui}",
+        "%{IncludeDir.ImGuiBackends}",
         "%{IncludeDir.GLFW}"
     }
 

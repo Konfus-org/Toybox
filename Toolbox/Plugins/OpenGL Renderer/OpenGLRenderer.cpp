@@ -53,6 +53,7 @@ namespace OpenGLRendering
             }
             case Tbx::RenderCommand::RenderMesh:
             {
+                _lastDrawnData = data;
                 const auto& meshData = std::any_cast<Tbx::MeshRenderData>(payload);
                 Draw(meshData.GetMesh(), meshData.GetMaterial());
                 break;
@@ -134,8 +135,6 @@ namespace OpenGLRendering
 
     void OpenGLRenderer::Redraw()
     {
-        Clear();
-
         const auto& command = _lastDrawnData.GetCommand();
         const auto& payload = _lastDrawnData.GetPayload();
         switch (command)

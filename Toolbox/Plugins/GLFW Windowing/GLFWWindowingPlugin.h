@@ -16,10 +16,9 @@ namespace GLFWWindowing
         void OnUnload() override;
 
     private:
-        Tbx::UID _openNewWindowRequestEventId;
-        std::shared_ptr<Tbx::IWindowFactory> _windowFactory;
-
         void OnOpenNewWindow(Tbx::OpenNewWindowRequest& e);
+
+        Tbx::UID _openNewWindowRequestEventId;
     };
 }
 

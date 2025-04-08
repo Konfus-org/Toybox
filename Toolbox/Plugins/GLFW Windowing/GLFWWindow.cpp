@@ -293,6 +293,7 @@ namespace GLFWWindowing
 
 	void GLFWWindow::OnSizeChanged() const
 	{
+        _camera->SetAspect((float)_size.Width / (float)_size.Height);
 		Tbx::WindowResized event(GetId(), _size.Width, _size.Height);
 		Tbx::EventCoordinator::Send(event);
 	}

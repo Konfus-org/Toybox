@@ -8,7 +8,6 @@ namespace GLFWWindowing
 {
     void GLFWWindowingPlugin::OnLoad()
     {
-        _windowFactory = std::make_shared<GLFWWindowFactory>();
         _openNewWindowRequestEventId = Tbx::EventCoordinator::Subscribe<Tbx::OpenNewWindowRequest>(TBX_BIND_FN(OnOpenNewWindow));
 
         const auto& status = glfwInit();
@@ -19,16 +18,20 @@ namespace GLFWWindowing
     {
         Tbx::EventCoordinator::Unsubscribe<Tbx::OpenNewWindowRequest>(_openNewWindowRequestEventId);
 
-        _windowFactory.reset();
         glfwTerminate();
     }
 
     void GLFWWindowingPlugin::OnOpenNewWindow(Tbx::OpenNewWindowRequest& e)
     {
-        auto newWindow = _windowFactory->Create(e.GetName(), e.GetSize());
+        auto newWindow = Create(e.GetName(), e.GetSize());
         newWindow->Open(e.GetMode());
         newWindow->Focus();
         e.SetResult(newWindow);
         e.IsHandled = true;
+    }
+
+    void OnGlfwError(int error, const char* description)
+    {
+        TBX_ERROR("GLFW Error ({}): {}", error, description);
     }
 }

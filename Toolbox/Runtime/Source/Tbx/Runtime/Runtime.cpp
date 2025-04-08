@@ -14,13 +14,17 @@ namespace Tbx
 
     void RunApp(std::shared_ptr<App> app)
     {
+        // Launch first
+        app->Launch();
+
+        // Load layer plugins
         auto layerPlugins = PluginServer::GetPlugins<Layer>();
         for (const auto& layerPlugin : layerPlugins)
         {
             app->PushLayer(layerPlugin);
         }
 
-        app->Launch();
+        // Then run the app!
         while (app->IsRunning())
         {
 

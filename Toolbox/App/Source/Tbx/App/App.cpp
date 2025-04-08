@@ -111,7 +111,7 @@ namespace Tbx
         {
             _layerStack.PushOverlay(layer);
         }
-        else 
+        else
         {
             _layerStack.PushLayer(layer);
         }
