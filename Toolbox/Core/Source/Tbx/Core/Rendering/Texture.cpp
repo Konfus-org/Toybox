@@ -8,19 +8,19 @@ namespace Tbx
 {
     Texture::Texture(const std::string& path)
     {
-        int width, height, channels;
-        auto* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
+        int width;
+        int height;
+        int channels;
 
+        auto* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
         TBX_ASSERT(data, "Failed to load texture: {0}", path);
 
-        std::shared_ptr<TextureData> sharedData(data, [](TextureData* dataToDelete)
-        {
-            stbi_image_free(dataToDelete);
-        });
-
-        _data = sharedData;
         _width = width;
         _height = height;
         _channels = channels;
+        _data = std::shared_ptr<TextureData>(data, [](TextureData* dataToDelete)
+        {
+            stbi_image_free(dataToDelete);
+        });
     }
 }

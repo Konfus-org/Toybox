@@ -31,7 +31,7 @@ namespace Tbx
         if (!_isHeadless)
         {
             // Subscribe to window events
-            _windowClosedEventId = EventCoordinator::Subscribe<WindowClosed>(TBX_BIND_FN(OnWindowClosed));
+            _windowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_FN(OnWindowClosed));
 
             // Init rendering
             RenderPipeline::Initialize();
@@ -45,7 +45,7 @@ namespace Tbx
             auto mainWindow = WindowManager::GetMainWindow();
 
             // Tell things the main window should be focused on
-            auto windowFocusChangedEvent = WindowFocusChanged(mainWindow.lock()->GetId(), true);
+            auto windowFocusChangedEvent = WindowFocusChangedEvent(mainWindow.lock()->GetId(), true);
             EventCoordinator::Send(windowFocusChangedEvent);
         }
 
@@ -69,7 +69,7 @@ namespace Tbx
         }
 
         // Send update event
-        AppUpdated updateEvent;
+        AppUpdatedEvent updateEvent;
         EventCoordinator::Send(updateEvent);
     }
 
@@ -86,7 +86,7 @@ namespace Tbx
         _isRunning = false;
 
         // Unsub to window events and shutdown events
-        EventCoordinator::Unsubscribe<WindowClosed>(_windowClosedEventId);
+        EventCoordinator::Unsubscribe<WindowClosedEvent>(_windowClosedEventId);
 
         // Clear layers
         _layerStack.Clear();
@@ -118,7 +118,7 @@ namespace Tbx
         layer->OnAttach();
     }
 
-    void App::OnWindowClosed(const WindowClosed& e)
+    void App::OnWindowClosed(const WindowClosedEvent& e)
     {
         // If the window is our main window, set running flag to false which will trigger the app to close
         if (e.GetWindowId() == WindowManager::GetMainWindow().lock()->GetId())

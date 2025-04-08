@@ -11,20 +11,20 @@ namespace Tbx
     struct Mesh
     {
     public:
-        EXPORT static Mesh MakeTriangle(const Color& color = Color(1.0f, 1.0f, 1.0f, 1.0f));
-
         EXPORT Mesh() = default;
-        EXPORT Mesh(const std::initializer_list<Vertex>& vertices, const std::initializer_list<uint32>& indices)
-            : _vertexBuffer(VertexVectorToBuffer(vertices)), _indexBuffer(indices) {}
-        EXPORT Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32>& indices)
-            : _vertexBuffer(VertexVectorToBuffer(vertices)), _indexBuffer(indices) {}
+        EXPORT Mesh(const std::initializer_list<Vertex>& vertices, const std::initializer_list<uint32>& indices);
+        EXPORT Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32>& indices);
         EXPORT Mesh(const VertexBuffer& vertices, const IndexBuffer& indices)
             : _vertexBuffer(vertices), _indexBuffer(indices) {}
 
         EXPORT VertexBuffer GetVertexBuffer() const { return _vertexBuffer; }
         EXPORT IndexBuffer GetIndexBuffer() const { return _indexBuffer; }
 
+        EXPORT static Mesh MakeTriangle(const Color& color = Color(1.0f, 1.0f, 1.0f, 1.0f));
+
     private:
+        VertexBuffer VertexVectorToBuffer(const std::vector<Vertex>& vertices) const;
+
         VertexBuffer _vertexBuffer;  
         IndexBuffer _indexBuffer;
     };

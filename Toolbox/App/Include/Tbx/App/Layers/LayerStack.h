@@ -9,7 +9,7 @@ namespace Tbx
 	class LayerStack
 	{
 	public:
-		~LayerStack();
+		EXPORT ~LayerStack();
 
 		EXPORT void Clear();
 		EXPORT void PushLayer(const std::shared_ptr<Layer>& layer);
@@ -31,5 +31,4 @@ namespace Tbx
 		std::vector<std::shared_ptr<Layer>> _layers;
 		uint _layerInsertIndex = 0;
 	};
-
 }

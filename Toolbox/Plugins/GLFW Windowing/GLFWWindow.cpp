@@ -219,19 +219,19 @@ namespace GLFWWindowing
 		{
 			case GLFW_PRESS:
 			{
-				Tbx::KeyPressed event(key);
+				Tbx::KeyPressedEvent event(key);
 				Tbx::EventCoordinator::Send(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
-				Tbx::KeyReleased event(key);
+				Tbx::KeyReleasedEvent event(key);
 				Tbx::EventCoordinator::Send(event);
 				break;
 			}
 			case GLFW_REPEAT:
 			{
-				Tbx::KeyRepeated event(key, 1);
+				Tbx::KeyRepeatedEvent event(key, 1);
 				Tbx::EventCoordinator::Send(event);
 				break;
 			}
@@ -249,13 +249,13 @@ namespace GLFWWindowing
 		{
 			case GLFW_PRESS:
 			{
-				Tbx::MouseButtonPressed event(button);
+				Tbx::MouseButtonPressedEvent event(button);
 				Tbx::EventCoordinator::Send(event);
 				break;
 			}
 			case GLFW_RELEASE:
 			{
-				Tbx::MouseButtonReleased event(button);
+				Tbx::MouseButtonReleasedEvent event(button);
 				Tbx::EventCoordinator::Send(event);
 				break;
 			}
@@ -269,32 +269,32 @@ namespace GLFWWindowing
 
 	void GLFWWindow::OnMouseScrolled(double offsetX, double offsetY) const
 	{
-		Tbx::MouseScrolled event((float)offsetX, (float)offsetY);
+		Tbx::MouseScrolledEvent event((float)offsetX, (float)offsetY);
 		Tbx::EventCoordinator::Send(event);
 	}
 
 	void GLFWWindow::OnMouseMoved(double posX, double posY) const
 	{
-		Tbx::MouseMoved event((float)posX, (float)posY);
+		Tbx::MouseMovedEvent event((float)posX, (float)posY);
 		Tbx::EventCoordinator::Send(event);
 	}
 
 	void GLFWWindow::OnWindowClosed() const
 	{
-		Tbx::WindowClosed event(GetId());
+		Tbx::WindowClosedEvent event(GetId());
 		Tbx::EventCoordinator::Send(event);
 	}
 
 	void GLFWWindow::OnWindowFocusChanged(bool isFocused) const
 	{
-        Tbx::WindowFocusChanged event(GetId(), isFocused);
+        Tbx::WindowFocusChangedEvent event(GetId(), isFocused);
         Tbx::EventCoordinator::Send(event);
 	}
 
 	void GLFWWindow::OnSizeChanged() const
 	{
         _camera->SetAspect((float)_size.Width / (float)_size.Height);
-		Tbx::WindowResized event(GetId(), _size.Width, _size.Height);
+		Tbx::WindowResizedEvent event(GetId(), _size.Width, _size.Height);
 		Tbx::EventCoordinator::Send(event);
 	}
 }

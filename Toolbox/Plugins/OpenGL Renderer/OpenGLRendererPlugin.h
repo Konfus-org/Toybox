@@ -17,8 +17,8 @@ namespace OpenGLRendering
         void OnUnload() override;
 
     private:
-        void OnWindowFocusChanged(const Tbx::WindowFocusChanged& e);
-        void OnWindowResized(const Tbx::WindowResized& e);
+        void OnWindowFocusChanged(const Tbx::WindowFocusChangedEvent& e);
+        void OnWindowResized(const Tbx::WindowResizedEvent& e);
 
         void OnSetVSyncEvent(Tbx::SetVSyncRequest& e);
         void OnRenderFrameEvent(Tbx::RenderFrameRequest& e);

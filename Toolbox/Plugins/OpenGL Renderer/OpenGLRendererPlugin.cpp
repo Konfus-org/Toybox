@@ -8,9 +8,9 @@ namespace OpenGLRendering
     void OpenGLRendererPlugin::OnLoad()
     {
         _windowFocusChangedEventId = 
-            Tbx::EventCoordinator::Subscribe<Tbx::WindowFocusChanged>(TBX_BIND_FN(OnWindowFocusChanged));
+            Tbx::EventCoordinator::Subscribe<Tbx::WindowFocusChangedEvent>(TBX_BIND_FN(OnWindowFocusChanged));
         _windowResizedEventId = 
-            Tbx::EventCoordinator::Subscribe<Tbx::WindowResized>(TBX_BIND_FN(OnWindowResized));
+            Tbx::EventCoordinator::Subscribe<Tbx::WindowResizedEvent>(TBX_BIND_FN(OnWindowResized));
 
         _setVSyncEventId = 
             Tbx::EventCoordinator::Subscribe<Tbx::SetVSyncRequest>(TBX_BIND_FN(OnSetVSyncEvent));
@@ -24,8 +24,8 @@ namespace OpenGLRendering
 
     void OpenGLRendererPlugin::OnUnload()
     {
-        Tbx::EventCoordinator::Unsubscribe<Tbx::WindowFocusChanged>(_windowFocusChangedEventId);
-        Tbx::EventCoordinator::Unsubscribe<Tbx::WindowResized>(_windowResizedEventId);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::WindowFocusChangedEvent>(_windowFocusChangedEventId);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::WindowResizedEvent>(_windowResizedEventId);
 
         Tbx::EventCoordinator::Unsubscribe<Tbx::SetVSyncRequest>(_setVSyncEventId);
         Tbx::EventCoordinator::Unsubscribe<Tbx::RenderFrameRequest>(_renderFrameEventId);
@@ -33,7 +33,7 @@ namespace OpenGLRendering
         Tbx::EventCoordinator::Unsubscribe<Tbx::FlushRendererRequest>(_flushEventId);
     }
 
-    void OpenGLRendererPlugin::OnWindowFocusChanged(const Tbx::WindowFocusChanged& e)
+    void OpenGLRendererPlugin::OnWindowFocusChanged(const Tbx::WindowFocusChangedEvent& e)
     {
         if (!e.IsFocused()) return;
 
@@ -41,7 +41,7 @@ namespace OpenGLRendering
         SetViewport({ 0, 0 }, Tbx::WindowManager::GetWindow(e.GetWindowId()).lock()->GetSize());
     }
 
-    void OpenGLRendererPlugin::OnWindowResized(const Tbx::WindowResized& e)
+    void OpenGLRendererPlugin::OnWindowResized(const Tbx::WindowResizedEvent& e)
     {
         std::weak_ptr<Tbx::IWindow> windowThatWasResized = Tbx::WindowManager::GetWindow(e.GetWindowId());
         

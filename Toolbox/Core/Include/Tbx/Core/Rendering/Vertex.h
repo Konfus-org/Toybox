@@ -23,6 +23,4 @@ namespace Tbx
         Vector2I TexCoord = { 0, 0 };                   // (u, v) for texture mapping
         Color Color       = { 1.0f, 1.0f, 1.0f, 1.0f }; // (r, g, b, a) for color
     };
-
-    static VertexBuffer VertexVectorToBuffer(const std::vector<Vertex>& vertices);
 }

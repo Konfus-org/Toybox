@@ -16,18 +16,18 @@ namespace Tbx
     void WindowManager::Initialize()
     {
         _appUpdatedEventId = 
-            EventCoordinator::Subscribe<AppUpdated>(TBX_BIND_STATIC_FN(OnAppUpdated));
+            EventCoordinator::Subscribe<AppUpdatedEvent>(TBX_BIND_STATIC_FN(OnAppUpdated));
         _windowCloseEventId =
-            EventCoordinator::Subscribe<WindowClosed>(TBX_BIND_STATIC_FN(OnWindowClose));
+            EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_STATIC_FN(OnWindowClose));
         _windowFocusChangedEventId =
-            EventCoordinator::Subscribe<WindowFocusChanged>(TBX_BIND_STATIC_FN(OnWindowFocusChanged));
+            EventCoordinator::Subscribe<WindowFocusChangedEvent>(TBX_BIND_STATIC_FN(OnWindowFocusChanged));
     }
 
     void WindowManager::Shutdown()
     {
-        EventCoordinator::Unsubscribe<AppUpdated>(_appUpdatedEventId);
-        EventCoordinator::Unsubscribe<WindowClosed>(_windowCloseEventId);
-        EventCoordinator::Unsubscribe<WindowFocusChanged>(_windowFocusChangedEventId);
+        EventCoordinator::Unsubscribe<AppUpdatedEvent>(_appUpdatedEventId);
+        EventCoordinator::Unsubscribe<WindowClosedEvent>(_windowCloseEventId);
+        EventCoordinator::Unsubscribe<WindowFocusChangedEvent>(_windowFocusChangedEventId);
 
         CloseAllWindows();
     }
@@ -89,7 +89,7 @@ namespace Tbx
         _windows.clear();
     }
 
-    void WindowManager::OnAppUpdated(const AppUpdated& e)
+    void WindowManager::OnAppUpdated(const AppUpdatedEvent& e)
     {
         if (_windows.empty()) return;
 
@@ -107,12 +107,12 @@ namespace Tbx
         _windowsToCloseOnNextUpdate.clear();
     }
 
-    void WindowManager::OnWindowClose(const WindowClosed& e)
+    void WindowManager::OnWindowClose(const WindowClosedEvent& e)
     {
         _windowsToCloseOnNextUpdate.push_back(e.GetWindowId());
     }
 
-    void WindowManager::OnWindowFocusChanged(const WindowFocusChanged& e)
+    void WindowManager::OnWindowFocusChanged(const WindowFocusChangedEvent& e)
     {
         if (e.IsFocused())
         {

@@ -19,12 +19,12 @@ namespace Tbx
 
     void RenderPipeline::Initialize()
     {
-        _appUpdatedEventId = EventCoordinator::Subscribe<AppUpdated>(TBX_BIND_STATIC_FN(OnAppUpdated));
+        _appUpdatedEventId = EventCoordinator::Subscribe<AppUpdatedEvent>(TBX_BIND_STATIC_FN(OnAppUpdated));
     }
 
     void RenderPipeline::Shutdown()
     {
-        EventCoordinator::Unsubscribe<AppUpdated>(_appUpdatedEventId);
+        EventCoordinator::Unsubscribe<AppUpdatedEvent>(_appUpdatedEventId);
 
         Flush();
     }
@@ -81,7 +81,7 @@ namespace Tbx
         }
     }
 
-    void RenderPipeline::OnAppUpdated(const AppUpdated&)
+    void RenderPipeline::OnAppUpdated(const AppUpdatedEvent&)
     {
         ProcessNextBatch();
     }

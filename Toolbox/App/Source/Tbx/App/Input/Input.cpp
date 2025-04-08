@@ -13,12 +13,12 @@ namespace Tbx
     void Input::Initialize()
     {
         _windowFocusChangedEventId = 
-            EventCoordinator::Subscribe<WindowFocusChanged>(TBX_BIND_STATIC_FN(OnWindowFocusChanged));
+            EventCoordinator::Subscribe<WindowFocusChangedEvent>(TBX_BIND_STATIC_FN(OnWindowFocusChanged));
     }
 
     void Input::Shutdown()
     {
-        EventCoordinator::Unsubscribe<WindowFocusChanged>(_windowFocusChangedEventId);
+        EventCoordinator::Unsubscribe<WindowFocusChangedEvent>(_windowFocusChangedEventId);
     }
 
     bool Input::IsGamepadButtonDown(const int id, const int button)
@@ -111,7 +111,7 @@ namespace Tbx
         return request.GetResult();
     }
 
-    void Input::OnWindowFocusChanged(const WindowFocusChanged& e)
+    void Input::OnWindowFocusChanged(const WindowFocusChangedEvent& e)
     {
         SetInputContextRequest request(WindowManager::GetWindow(e.GetWindowId()));
         EventCoordinator::Send(request);

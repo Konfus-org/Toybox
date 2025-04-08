@@ -127,7 +127,7 @@ void TestLayer::OnAttach()
 	const auto& mainWindowSize = mainWindow.lock()->GetSize();
 
 	// Test perspective camera
-	mainWindowCam->SetPerspective(45.0f, mainWindowSize.AspectRatio(), 0.1f, 100);
+	mainWindowCam->SetPerspective(45.0f, mainWindowSize.GetAspectRatio(), 0.1f, 100);
 	mainWindowCam->SetPosition(Tbx::Vector3(0.0f, 0.0f, -5.0f));
 	mainWindowCam->SetRotation(Tbx::Quaternion::FromEuler(Tbx::Vector3(0.0f, 0.0f, 0.0f)));
 

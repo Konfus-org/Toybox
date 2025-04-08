@@ -7,11 +7,6 @@ project "App"
     pchheader "Tbx/App/PCH.h"
     pchsource "Source/Tbx/App/PCH.cpp" -- Full path MUST be specified relative to the premake5.lua (this) script.
 
-    defines
-    {
-        "TOOLBOX"
-    }
-
     includedirs
     {
         "%{IncludeDir.TbxCore}",

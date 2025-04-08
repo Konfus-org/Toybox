@@ -105,6 +105,12 @@ function ToolboxProjectConfigs()
         "./Source"
     }
 
+    defines
+    {
+        "TOOLBOX",
+        "COMPILING_TOOLBOX"
+    }
+
     PlatformConfigs()
     StandardBuildConfigs()
     DllConfigs()

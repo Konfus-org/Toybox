@@ -1,4 +1,5 @@
 #include "ImGuiDebugViewLayer.h"
+#include <Tbx/App/Input/Input.h>
 #include <Tbx/App/Windowing/WindowManager.h>
 #include <Tbx/Core/Events/EventCoordinator.h>
 #include <imgui_impl_opengl3.h>
@@ -7,9 +8,6 @@
 
 namespace ImGuiDebugView
 {
-    static bool _showDemoWindow = true;
-    static ImVec4 _clearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
     void ImGuiDebugViewLayer::OnAttach()
     {
         // Decide GL+GLSL versions
@@ -41,22 +39,27 @@ namespace ImGuiDebugView
         //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
         // Setup Dear ImGui style
-        //ImGui::StyleColorsDark();
-        ImGui::StyleColorsLight();
+        ImGui::StyleColorsDark();
+        //ImGui::StyleColorsLight();
+
+        // Init size
+        const auto& mainWindow = Tbx::WindowManager::GetMainWindow();
+        _windowResolution = mainWindow.lock()->GetSize();
 
         // Setup Platform/Renderer backends
-        const auto& mainWindow = Tbx::WindowManager::GetMainWindow();
         auto* nativeWindow = std::any_cast<GLFWwindow*>(mainWindow.lock()->GetNativeWindow());
         ImGui_ImplGlfw_InitForOpenGL(nativeWindow, true);
         ImGui_ImplOpenGL3_Init(glsl_version);
 
         // Sub to frame rendered event so we know when to draw
         _frameRenderedEventId = Tbx::EventCoordinator::Subscribe<Tbx::RenderedFrameEvent>(TBX_BIND_FN(OnFrameRendered));
+        _windowResizedEventId = Tbx::EventCoordinator::Subscribe<Tbx::WindowResizedEvent>(TBX_BIND_FN(OnWindowResized));
     }
 
     void ImGuiDebugViewLayer::OnDetach()
     {
         Tbx::EventCoordinator::Unsubscribe<Tbx::RenderedFrameEvent>(_frameRenderedEventId);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::WindowResizedEvent>(_windowResizedEventId);
 
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplGlfw_Shutdown();
@@ -64,42 +67,53 @@ namespace ImGuiDebugView
 
     void ImGuiDebugViewLayer::OnUpdate()
     {
+        // Get io from last frame
+        const ImGuiIO& io = ImGui::GetIO();
+
         // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-
-        // TESTING: /////////////////
-        
-        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
+        // Listen for key press to toggle the debug window
+        if (Tbx::Input::IsKeyDown(TBX_KEY_F1))
         {
-            static float f = 0.0f;
-            static int counter = 0;
+            _showDebugWindowOnDebugBtnUp = true;
+        }
+        if (_showDebugWindowOnDebugBtnUp && 
+            Tbx::Input::IsKeyUp(TBX_KEY_F1))
+        {
+            _showDebugWindowOnDebugBtnUp = false;
+            _isDebugWindowOpen = !_isDebugWindowOpen;
+        }
 
-            ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+        // Show debug window
+        if (_isDebugWindowOpen)
+        {
+            ImGui::Begin("Tbx Debugger", &_isDebugWindowOpen);
 
-            ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-            ImGui::Checkbox("Demo Window", &_showDemoWindow);      // Edit bools storing our window open/close state
+            if (ImGui::CollapsingHeader("Performance"))
+            {
+                ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+            }
 
-            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-            ImGui::ColorEdit3("clear color", (float*)&_clearColor); // Edit 3 floats representing a color
+            if (ImGui::CollapsingHeader("Display"))
+            {
+                ImGui::Text("Resolution: (%d, %d)", _windowResolution.Width, _windowResolution.Height);
+                ImGui::Text("Aspect Ratio: (%.1f)", _windowResolution.GetAspectRatio());
+            }
 
-            if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-                counter++;
-            ImGui::SameLine();
-            ImGui::Text("counter = %d", counter);
+            if (ImGui::CollapsingHeader("Input"))
+            {
+                ImGui::Text("Mouse Position: (%.1f, %.1f)", io.MousePos.x, io.MousePos.y);
+                ImGui::Text("Mouse Delta: (%.1f, %.1f)", io.MouseDelta.x, io.MouseDelta.y);
+            }
 
-            const ImGuiIO& io = ImGui::GetIO();
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
             ImGui::End();
         }
 
         // Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-        ImGui::ShowDemoWindow(&_showDemoWindow);
-
-        // END TESTING /////////////////
-
+        //ImGui::ShowDemoWindow(&_showDemoWindow);
 
         // Finally, render
         ImGui::Render();
@@ -114,5 +128,10 @@ namespace ImGuiDebugView
     {
         // This needs to be called after the frame has been rendered by the TBX renderer
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    }
+
+    void ImGuiDebugViewLayer::OnWindowResized(const Tbx::WindowResizedEvent& e)
+    {
+        _windowResolution = e.GetNewSize();
     }
 }
