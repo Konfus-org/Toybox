@@ -2,13 +2,7 @@
 
 #define TBX_KEY_UNKNOWN            -1
 
-/*! @defgroup hat_state Joystick hat states
- *  @brief Joystick hat states.
- *
- *  See [joystick hat input](@ref joystick_hat) for how these are used.
- *
- *  @ingroup input
- *  @{ */
+/* Thumbstick states */
 
 #define TBX_THUMBSTICK_CENTERED           0
 #define TBX_THUMBSTICK_UP                 1
@@ -19,33 +13,6 @@
 #define TBX_THUMBSTICK_RIGHT_DOWN         (TBX_HAT_RIGHT | TBX_HAT_DOWN)
 #define TBX_THUMBSTICK_LEFT_UP            (TBX_HAT_LEFT  | TBX_HAT_UP)
 #define TBX_THUMBSTICK_LEFT_DOWN          (TBX_HAT_LEFT  | TBX_HAT_DOWN)
-
-
-/*! @} */
-
-/*! @defgroup keys Keyboard key tokens
- *  @brief Keyboard key tokens.
- *
- *  See GLFW [key input](@ref input_key) for how these are used.
- *
- *  These key codes are inspired by the _USB HID Usage Tables v1.12_ (p. 53-60),
- *  but re-arranged to map to 7-bit ASCII for printable keys (function keys are
- *  put in the 256+ range).
- *
- *  The naming of the key codes follow these rules:
- *   - The US keyboard layout is used
- *   - Names of printable alphanumeric characters are used (e.g. "A", "R",
- *     "3", etc.)
- *   - For non-alphanumeric characters, Unicode:ish names are used (e.g.
- *     "COMMA", "LEFT_SQUARE_BRACKET", etc.). Note that some names do not
- *     correspond to the Unicode standard (usually for brevity)
- *   - Keys that lack a clear US mapping are named "WORLD_x"
- *   - For non-printable keys, custom names are used (e.g. "F4",
- *     "BACKSPACE", etc.)
- *
- *  @ingroup input
- *  @{
- */
 
 /* Printable keys */
 
@@ -175,45 +142,38 @@
 
 #define TBX_KEY_LAST               TBX_KEY_MENU
 
-/*! @} */
 
-/*! @defgroup mods Modifier key flags
- *  @brief Modifier key flags.
- *
- *  See GLFW [key input](@ref input_key) for how these are used.
- *
- *  @ingroup input
- *  @{ */
+/* Modifier key flags. */
 
-/*! @brief If this bit is set one or more Shift keys were held down.
+/*  If this bit is set one or more Shift keys were held down.
  *
  *  If this bit is set one or more Shift keys were held down.
  */
 
 #define TBX_MOD_SHIFT           0x0001
 
-/*! @brief If this bit is set one or more Control keys were held down.
+/*  If this bit is set one or more Control keys were held down.
  *
  *  If this bit is set one or more Control keys were held down.
  */
 
 #define TBX_MOD_CONTROL         0x0002
 
-/*! @brief If this bit is set one or more Alt keys were held down.
+/*  If this bit is set one or more Alt keys were held down.
  *
  *  If this bit is set one or more Alt keys were held down.
  */
 
 #define TBX_MOD_ALT             0x0004
 
-/*! @brief If this bit is set one or more Super keys were held down.
+/*  If this bit is set one or more Super keys were held down.
  *
  *  If this bit is set one or more Super keys were held down.
  */
 
 #define TBX_MOD_SUPER           0x0008
 
-/*! @brief If this bit is set the Caps Lock key is enabled.
+/*  If this bit is set the Caps Lock key is enabled.
  *
  *  If this bit is set the Caps Lock key is enabled and the @ref
  *  TBX_LOCK_KEY_MODS input mode is set.
@@ -221,7 +181,7 @@
 
 #define TBX_MOD_CAPS_LOCK       0x0010
 
-/*! @brief If this bit is set the Num Lock key is enabled.
+/*! If this bit is set the Num Lock key is enabled.
  *
  *  If this bit is set the Num Lock key is enabled and the @ref
  *  TBX_LOCK_KEY_MODS input mode is set.
@@ -229,15 +189,7 @@
 
 #define TBX_MOD_NUM_LOCK        0x0020
 
-/*! @} */
-
-/*! @defgroup buttons Mouse buttons
- *  @brief Mouse button IDs.
- *
- *  See GLFW [mouse button input](@ref input_mouse_button) for how these are used.
- *
- *  @ingroup input
- *  @{ */
+/* Mouse buttons */
 
 #define TBX_MOUSE_BUTTON_1         0
 #define TBX_MOUSE_BUTTON_2         1
@@ -252,15 +204,7 @@
 #define TBX_MOUSE_BUTTON_RIGHT     TBX_MOUSE_BUTTON_2
 #define TBX_MOUSE_BUTTON_MIDDLE    TBX_MOUSE_BUTTON_3
 
-/*! @} */
-
-/*! @defgroup joysticks Joysticks
- *  @brief Joystick IDs.
- *
- *  See GLFW [joystick input](@ref joystick) for how these are used.
- *
- *  @ingroup input
- *  @{ */
+ /* Gamepad IDs */
 
 #define TBX_GAMEPAD_1             0
 #define TBX_GAMEPAD_2             1
@@ -280,15 +224,7 @@
 #define TBX_GAMEPAD_16            15
 #define TBX_GAMEPAD_LAST          TBX_GAMEPAD_16
 
-/*! @} */
-
-/*! @defgroup gamepad_buttons Gamepad buttons
- *  @brief Gamepad buttons.
- *
- *  See GLFW @ref gamepad for how these are used.
- *
- *  @ingroup input
- *  @{ */
+/* Gamepad buttons */
 
 #define TBX_GAMEPAD_BUTTON_SOUTH           0
 #define TBX_GAMEPAD_BUTTON_EAST            1
@@ -307,15 +243,7 @@
 #define TBX_GAMEPAD_BUTTON_DPAD_LEFT       14
 #define TBX_GAMEPAD_BUTTON_LAST            TBX_GAMEPAD_BUTTON_DPAD_LEFT
 
-/*! @} */
-
-/*! @defgroup gamepad_axes Gamepad axes
- *  @brief Gamepad axes.
- *
- *  See GLFW @ref gamepad for how these are used.
- *
- *  @ingroup input
- *  @{ */
+/* Gamepad axes */
 
 #define TBX_GAMEPAD_AXIS_LEFT_X        0
 #define TBX_GAMEPAD_AXIS_LEFT_Y        1

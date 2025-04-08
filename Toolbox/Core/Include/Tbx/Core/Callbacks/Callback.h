@@ -3,8 +3,15 @@
 #include "Tbx/Core/Ids/UID.h"
 #include "Tbx/Core/Callbacks/CallbackFunction.h"
 
+#define TBX_BIND_FN(fn) [this](auto&&... args) { return this->fn(std::forward<decltype(args)>(args)...); }
+#define TBX_BIND_STATIC_FN(fn) [](auto&&... args) { return fn(std::forward<decltype(args)>(args)...); }
+
 namespace Tbx
 {
+    /// <summary>
+    /// A wrapper around a method/function pointer that allows us to store a function and call it later.
+    /// If passing a classes function you must first bind it to the callback like using TBX_BIND_FN or if the function is static use TBX_BIND_STATIC_FN.
+    /// </summary>
     template <typename TArg>
     class Callback
     {
@@ -38,8 +45,8 @@ namespace Tbx
         }
 
     private:
-        std::string _name;
         CallbackFunction<TArg> _callbackFn = nullptr;
+        std::string _name = "";
         UID _id = UID();
     };
 }

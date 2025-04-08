@@ -23,7 +23,7 @@ namespace Tbx
 
     private:
         static void ProcessNextBatch();
-        static void OnAppUpdated(const AppUpdated& e);
+        static void OnAppUpdated(const AppUpdatedEvent& e);
 
         static RenderQueue _renderQueue;
 

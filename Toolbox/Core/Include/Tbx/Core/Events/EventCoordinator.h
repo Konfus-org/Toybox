@@ -7,14 +7,17 @@
 #include <typeindex>
 #include <vector>
 
-#define TBX_BIND_FN(fn) [this](auto&&... args) { return this->fn(std::forward<decltype(args)>(args)...); }
-#define TBX_BIND_STATIC_FN(fn) [](auto&&... args) { return fn(std::forward<decltype(args)>(args)...); }
-
 namespace Tbx
 {
     class EventCoordinator
     {
     public:
+        /// <summary>
+        /// Sets a method to be called when an event is fired.
+        /// If passing a classes function you must first bind it to the callback like using TBX_BIND_FN or 
+        /// if the function is static or not associated with a class instance use TBX_BIND_STATIC_FN.
+        /// The UID returned is the ID of the callback and can be used to unsubscribe from the event.
+        /// </summary>
         template <class TEvent>
         EXPORT static inline UID Subscribe(const CallbackFunction<TEvent>& callback)
         {
@@ -33,6 +36,9 @@ namespace Tbx
             return newCallback.GetId();
         }
 
+        /// <summary>
+        /// Removes the method associated with the given UID from the list of callbacks for an event.
+        /// </summary>
         template <class TEvent>
         EXPORT static void Unsubscribe(const UID& callbackToUnsub)
         {
@@ -64,6 +70,9 @@ namespace Tbx
             }
         }
 
+        /// <summary>
+        /// Sends an event to all subscribers.
+        /// </summary>
         template <class TEvent>
         EXPORT static inline bool Send(TEvent& event)
         {
@@ -84,6 +93,9 @@ namespace Tbx
             return event.IsHandled;
         }
 
+        /// <summary>
+        /// Clears all subscribers for all events.
+        /// </summary>
         EXPORT static void ClearSubscribers();
 
     private:

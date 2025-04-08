@@ -11,6 +11,10 @@ namespace Tbx
         explicit(false) Vector3(float x) : X(x), Y(x), Z(x) {}
         Vector3(float x, float y, float z) : X(x), Y(y), Z(z) {}
 
+        friend Vector3 operator + (const Vector3& lhs, const Vector3& rhs) { return Add(lhs, rhs); }
+        friend Vector3 operator - (const Vector3& lhs, const Vector3& rhs) { return Subtract(lhs, rhs); }
+        friend Vector3 operator * (const Vector3& lhs, const Vector3& rhs) { return Multiply(lhs, rhs); }
+
         std::string ToString() const { return std::format("({}, {}, {})", X, Y, Z); }
 
         static Vector3 Identity() { return Vector3(1, 1, 1); }
@@ -28,13 +32,9 @@ namespace Tbx
         static Vector3 Subtract(const Vector3& lhs, const Vector3& rhs);
         static Vector3 Multiply(const Vector3& lhs, const Vector3& rhs);
 
-        friend Vector3 operator + (const Vector3& lhs, const Vector3& rhs) { return Add(lhs, rhs); }
-        friend Vector3 operator - (const Vector3& lhs, const Vector3& rhs) { return Subtract(lhs, rhs); }
-        friend Vector3 operator * (const Vector3& lhs, const Vector3& rhs) { return Multiply(lhs, rhs); }
-
-        float X;
-        float Y;
-        float Z;
+        float X = 0;
+        float Y = 0;
+        float Z = 0;
     };
 
     struct EXPORT Vector2
@@ -48,8 +48,8 @@ namespace Tbx
         static Vector2 Zero() { return Vector2(0, 0); }
         static Vector2 Identity() { return Vector2(1, 1); }
 
-        float X;
-        float Y;
+        float X = 0;
+        float Y = 0;
     };
 
     struct EXPORT Vector2I
@@ -63,7 +63,7 @@ namespace Tbx
         static Vector2I Zero() { return Vector2I(0, 0); }
         static Vector2I Identity() { return Vector2I(1, 1); }
 
-        int X;
-        int Y;
+        int X = 0;
+        int Y = 0;
     };
 }

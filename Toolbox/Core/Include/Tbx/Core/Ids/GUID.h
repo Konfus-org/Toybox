@@ -3,20 +3,22 @@
 #include "Tbx/Core/Math/Int.h"
 #include <random>
 
-
 namespace Tbx
 {
     class GUID
     {
     public:
-        EXPORT GUID() = default;
+        // Explicitly sets the GUID to a specific value
         EXPORT explicit(false) GUID(const std::string& uuid) : _value(uuid) {}
+        // Implicitly sets the GUID to the default value (00000000-0000-0000-0000-000000000000)
+        EXPORT GUID() = default;
 
         EXPORT std::string GetValue() const { return _value; }
         EXPORT explicit(false) operator std::string() const { return GetValue(); }
 
         EXPORT bool operator==(const GUID& other) const = default;
 
+        // Generates a new GUID of the format 00000000-0000-0000-0000-000000000000
         EXPORT static GUID Generate()
         {
             static std::random_device rd;

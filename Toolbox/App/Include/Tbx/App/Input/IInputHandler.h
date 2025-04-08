@@ -7,7 +7,6 @@ namespace Tbx
     class IInputHandler
     {
     public:
-        IInputHandler() = default;
         virtual ~IInputHandler() = default;
 
         virtual void SetContext(const std::weak_ptr<IWindow>& windowToListenTo) = 0;

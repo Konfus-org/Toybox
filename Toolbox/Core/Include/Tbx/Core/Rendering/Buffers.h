@@ -76,9 +76,6 @@ namespace Tbx
         std::vector<BufferElement>::const_iterator end() const { return _elements.end(); }
 
     private:
-        std::vector<BufferElement> _elements;
-        uint32 _stride = 0;
-
         void CalculatOffsetsAndStride()
         {
             _stride = 0;
@@ -90,6 +87,9 @@ namespace Tbx
                 _stride += element.GetSize();
             }
         }
+
+        std::vector<BufferElement> _elements;
+        uint32 _stride = 0;
     };
 
     struct VertexBuffer

@@ -9,7 +9,6 @@ namespace Tbx
 	class LayerStack
 	{
 	public:
-		LayerStack() = default;
 		~LayerStack();
 
 		EXPORT void Clear();

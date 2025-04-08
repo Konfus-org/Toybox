@@ -27,6 +27,7 @@ namespace Tbx
     public:
         bool IsEmpty() const { return _renderQueue.empty(); }
         uint32 GetCount() const { return (uint32)_renderQueue.size(); }
+
         RenderBatch& Peek() { return _renderQueue.front(); }
         void Push(const RenderBatch& batch) { _renderQueue.push(batch); }
         void Pop() { _renderQueue.pop(); }

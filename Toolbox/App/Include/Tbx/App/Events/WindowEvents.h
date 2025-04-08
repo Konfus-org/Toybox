@@ -18,10 +18,10 @@ namespace Tbx
         }
     };
 
-    class EXPORT WindowAction : public WindowEvent
+    class EXPORT WindowActionEvent : public WindowEvent
     {
     public:
-        explicit WindowAction(UID windowId) : _windowId(windowId) {}
+        explicit WindowActionEvent(UID windowId) : _windowId(windowId) {}
 
         UID GetWindowId() const { return _windowId; }
 
@@ -29,11 +29,11 @@ namespace Tbx
         UID _windowId = -1;
     };
 
-    class EXPORT WindowFocusChanged : public WindowAction
+    class EXPORT WindowFocusChangedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowFocusChanged(UID windowId, bool isFocused)
-            : WindowAction(windowId), _isFocused(isFocused) {}
+        explicit WindowFocusChangedEvent(UID windowId, bool isFocused)
+            : WindowActionEvent(windowId), _isFocused(isFocused) {}
 
         std::string ToString() const final
         {
@@ -46,11 +46,11 @@ namespace Tbx
         bool _isFocused = false;
     };
 
-    class EXPORT WindowClosed : public WindowAction
+    class EXPORT WindowClosedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowClosed(UID windowId) 
-            : WindowAction(windowId) {}
+        explicit WindowClosedEvent(UID windowId) 
+            : WindowActionEvent(windowId) {}
 
         std::string ToString() const final
         {
@@ -58,11 +58,11 @@ namespace Tbx
         }
     };
 
-    class EXPORT WindowResized : public WindowAction
+    class EXPORT WindowResizedEvent : public WindowActionEvent
     {
     public:
-        WindowResized(UID windowId, uint width, uint height)
-            : WindowAction(windowId), _width(width), _height(height) {}
+        WindowResizedEvent(UID windowId, uint width, uint height)
+            : WindowActionEvent(windowId), _width(width), _height(height) {}
 
         Size GetNewSize() const
         {

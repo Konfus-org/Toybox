@@ -11,7 +11,6 @@ namespace Tbx
     class EXPORT IRenderer
     {
     public:
-        IRenderer() = default;
         virtual ~IRenderer() = default;
 
         virtual void SetContext(const std::weak_ptr<IRenderSurface>& context) = 0;

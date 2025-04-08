@@ -26,13 +26,11 @@ namespace Tbx
     public:
         EXPORT Texture() = default;
         EXPORT explicit(false) Texture(const std::string& path);
-        EXPORT ~Texture() = default;
 
         EXPORT std::shared_ptr <TextureData> GetData() const { return _data; }
 
         EXPORT std::string GetPath() const { return _path; }
 
-        EXPORT UID GetId() const { return _id; }
         EXPORT uint GetWidth() const { return _width; }
         EXPORT uint GetHeight() const { return _height; }
         EXPORT int GetChannels() const { return _channels; }
@@ -45,7 +43,6 @@ namespace Tbx
         int _channels = 0;
         TextureWrap _wrap = TextureWrap::Repeat;
         TextureFilter _filter = TextureFilter::Nearest;
-        UID _id;
 
         std::shared_ptr<TextureData> _data = nullptr;
         std::string _path = "";
@@ -54,13 +51,15 @@ namespace Tbx
     struct TextureRenderData
     {
     public:
-        EXPORT TextureRenderData(const Texture& texture, const uint& slot = 0) : _texture(texture), _slot(slot) {}
+        EXPORT TextureRenderData(const Texture& texture, const uint& slot = 0) 
+            : _texture(texture), _slot(slot) {}
         EXPORT ~TextureRenderData() = default;
 
         EXPORT uint GetSlot() const { return _slot; }
         EXPORT const Texture& GetTexture() const { return _texture; }
+
     private:
-        uint _slot;
         Texture _texture;
+        uint _slot = 0;
     };
 }

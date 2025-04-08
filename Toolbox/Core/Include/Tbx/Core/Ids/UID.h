@@ -9,10 +9,8 @@ namespace Tbx
     public:
         // Explicitly sets the ID
         explicit(false) UID(uint64 id);
-
         // Will generate a new UID
         UID();
-        ~UID() = default;
 
         const uint64& GetId() const { return _id; }
 

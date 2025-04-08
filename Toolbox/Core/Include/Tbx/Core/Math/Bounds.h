@@ -12,19 +12,15 @@ namespace Tbx
         Bounds(float left, float right, float top, float bottom) 
             : Left(left), Right(right), Top(top), Bottom(bottom) {}
 
+        std::string ToString() const override { return std::format("[Left: {}, Right: {}, Top: {}, Bottom: {}]", Left, Right, Top, Bottom); }
+
+        static Bounds Identity() { return { -1.0f, 1.0f, -1.0f, 1.0f }; }
+        static Bounds FromOrthographicProjection(float size, float aspect);
+        static Bounds FromPerspectiveProjection(float fov, float aspectRatio, float zNear);
+
         float Left;
         float Right;
         float Top;
         float Bottom;
-
-        std::string ToString() const override { return std::format("[Left: {}, Right: {}, Top: {}, Bottom: {}]", Left, Right, Top, Bottom); }
-
-        static Bounds Identity()
-        {
-            return { -1.0f, 1.0f, -1.0f, 1.0f };
-        }
-
-        static Bounds FromOrthographicProjection(float size, float aspect);
-        static Bounds FromPerspectiveProjection(float fov, float aspectRatio, float zNear);
     };
 }

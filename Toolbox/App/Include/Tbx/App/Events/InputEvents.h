@@ -22,7 +22,7 @@ namespace Tbx
         int _keyCode;
     };
 
-    class EXPORT KeyPressed : public KeyEvent
+    class EXPORT KeyPressedEvent : public KeyEvent
     {
     public:
         using KeyEvent::KeyEvent;
@@ -33,7 +33,7 @@ namespace Tbx
         }
     };
 
-    class EXPORT KeyReleased : public KeyEvent
+    class EXPORT KeyReleasedEvent : public KeyEvent
     {
     public:
         using KeyEvent::KeyEvent;
@@ -44,10 +44,10 @@ namespace Tbx
         }
     };
 
-    class EXPORT KeyHeld : public KeyEvent
+    class EXPORT KeyHeldEvent : public KeyEvent
     {
     public:
-        KeyHeld(int keyCode, float timeHeld) :
+        KeyHeldEvent(int keyCode, float timeHeld) :
             KeyEvent(keyCode), _timeHeld(timeHeld) {
         }
 
@@ -65,10 +65,10 @@ namespace Tbx
         float _timeHeld;
     };
 
-    class EXPORT KeyRepeated : public KeyEvent
+    class EXPORT KeyRepeatedEvent : public KeyEvent
     {
     public:
-        KeyRepeated(int keyCode, int repeatCount) :
+        KeyRepeatedEvent(int keyCode, int repeatCount) :
             KeyEvent(keyCode), _repeatCount(repeatCount) {
         }
 
@@ -95,10 +95,10 @@ namespace Tbx
         }
     };
 
-    class EXPORT MouseMoved : public MouseEvent
+    class EXPORT MouseMovedEvent : public MouseEvent
     {
     public:
-        MouseMoved(float x, float y) : _xPos(x), _yPos(y) {}
+        MouseMovedEvent(float x, float y) : _xPos(x), _yPos(y) {}
 
         std::string ToString() const final
         {
@@ -115,10 +115,10 @@ namespace Tbx
         float _yPos;
     };
 
-    class EXPORT MouseScrolled : public MouseEvent
+    class EXPORT MouseScrolledEvent : public MouseEvent
     {
     public:
-        MouseScrolled(float x, float y) : _xScroll(x), _yScroll(y) {}
+        MouseScrolledEvent(float x, float y) : _xScroll(x), _yScroll(y) {}
 
         std::string ToString() const final
         {
@@ -135,10 +135,10 @@ namespace Tbx
         float _yScroll;
     };
 
-    class EXPORT MouseButtonPressed : public MouseEvent
+    class EXPORT MouseButtonPressedEvent : public MouseEvent
     {
     public:
-        explicit MouseButtonPressed(int button) : _button(button) {}
+        explicit MouseButtonPressedEvent(int button) : _button(button) {}
 
         std::string ToString() const final
         {
@@ -154,10 +154,10 @@ namespace Tbx
         int _button;
     };
 
-    class EXPORT MouseButtonReleased : public MouseEvent
+    class EXPORT MouseButtonReleasedEvent : public MouseEvent
     {
     public:
-        explicit MouseButtonReleased(int button) : _button(button) {}
+        explicit MouseButtonReleasedEvent(int button) : _button(button) {}
 
         std::string ToString() const final
         {

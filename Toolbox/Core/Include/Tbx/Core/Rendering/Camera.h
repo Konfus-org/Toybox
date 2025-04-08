@@ -34,11 +34,7 @@ namespace Tbx
         const Mat4x4& GetViewMatrix() const { return _viewMatrix; }
 
     private:
-        bool _isPerspective = true;
-        float _zNear = 0.1f;
-        float _zFar = 1000.0f;
-        float _fov = 60.0f;
-        float _aspect = 1.78f;
+        void RecalculateViewProjection();
 
         Vector3 _position = Vector3::Zero();
         Quaternion _rotation = Quaternion::Identity();
@@ -47,6 +43,10 @@ namespace Tbx
         Mat4x4 _projectionMatrix = Mat4x4::Identity();
         Mat4x4 _viewMatrix = Mat4x4::Identity();
 
-        void RecalculateViewProjection();
+        bool _isPerspective = true;
+        float _zNear = 0.1f;
+        float _zFar = 1000.0f;
+        float _fov = 60.0f;
+        float _aspect = 1.78f;
     };
 }

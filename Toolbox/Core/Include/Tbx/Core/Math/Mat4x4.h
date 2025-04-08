@@ -14,7 +14,15 @@ namespace Tbx
         Mat4x4() : Values(Identity()) {};
         explicit(false) Mat4x4(const std::array<float, 16>& data) : Values(data) {}
 
-        std::array<float, 16> Values;
+        float& operator[](int index) { return Values[index]; }
+        const float& operator[](int index) const { return Values[index]; }
+        explicit(false) operator std::array<float, 16>() const { return Values; }
+
+        friend Mat4x4 operator*(float lhs, const Mat4x4& rhs) { return Multiply(lhs, rhs); }
+        friend Mat4x4 operator*(const Mat4x4& lhs, float rhs) { return Multiply(lhs, rhs); }
+        friend Mat4x4 operator*(const Mat4x4& lhs, const Mat4x4& rhs) { return Multiply(lhs, rhs); }
+        friend Mat4x4 operator+(const Mat4x4& lhs, const Mat4x4& rhs) { return Add(lhs, rhs); }
+        friend Mat4x4 operator-(const Mat4x4& lhs, const Mat4x4& rhs) { return Subtract(lhs, rhs); }
 
         std::string ToString() const override;
 
@@ -42,14 +50,6 @@ namespace Tbx
         static Mat4x4 Multiply(float lhs, const Mat4x4& rhs);
         static Mat4x4 Multiply(const Mat4x4& lhs, float rhs);
 
-        float& operator[](int index) { return Values[index]; }
-        const float& operator[](int index) const { return Values[index]; }
-        explicit(false) operator std::array<float, 16>() const { return Values; }
-
-        friend Mat4x4 operator*(float lhs, const Mat4x4& rhs) { return Multiply(lhs, rhs); }
-        friend Mat4x4 operator*(const Mat4x4& lhs, float rhs) { return Multiply(lhs, rhs); }
-        friend Mat4x4 operator*(const Mat4x4& lhs, const Mat4x4& rhs) { return Multiply(lhs, rhs); }
-        friend Mat4x4 operator+(const Mat4x4& lhs, const Mat4x4& rhs) { return Add(lhs, rhs); }
-        friend Mat4x4 operator-(const Mat4x4& lhs, const Mat4x4& rhs) { return Subtract(lhs, rhs); }
+        std::array<float, 16> Values;
     };
 }

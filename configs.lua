@@ -141,7 +141,7 @@ function ToolboxPluginConfigs()
 
     defines
     {
-        "TOOLBOX"
+        "COMPILING_TOOLBOX"
     }
 
     PlatformConfigs()
@@ -153,7 +153,7 @@ end
 function UsingToolboxConfigs()
     defines
     {
-        "TOOLBOX"
+        "COMPILING_TOOLBOX"
     }
 
     includedirs

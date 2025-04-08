@@ -14,13 +14,13 @@ namespace Tbx::Time
         EXPORT static float Milliseconds();
 
     private:
-        static float _valueInSeconds;
-        static std::chrono::high_resolution_clock::time_point _lastFrameTime;
+        friend class App;
 
         // Updates delta time
         // Should be called once per frame
         static void Update();
 
-        friend class App;
+        static float _valueInSeconds;
+        static std::chrono::high_resolution_clock::time_point _lastFrameTime;
     };
 }

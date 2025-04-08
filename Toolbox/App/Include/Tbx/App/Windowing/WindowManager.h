@@ -29,6 +29,10 @@ namespace Tbx
         EXPORT static void CloseAllWindows();
 
     private:
+        static void OnAppUpdated(const AppUpdatedEvent& event);
+        static void OnWindowClose(const WindowClosedEvent& event);
+        static void OnWindowFocusChanged(const WindowFocusChangedEvent& event);
+
         static std::map<UID, std::shared_ptr<IWindow>> _windows;
         static std::vector<UID> _windowsToCloseOnNextUpdate;
 
@@ -37,9 +41,5 @@ namespace Tbx
         static UID _appUpdatedEventId;
         static UID _windowCloseEventId;
         static UID _windowFocusChangedEventId;
-
-        static void OnAppUpdated(const AppUpdated& event);
-        static void OnWindowClose(const WindowClosed& event);
-        static void OnWindowFocusChanged(const WindowFocusChanged& event);
     };
 }

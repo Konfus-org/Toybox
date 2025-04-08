@@ -10,6 +10,7 @@ project "Core"
     defines
     {
         "TOOLBOX",
+        "COMPILING_TOOLBOX",
         "GLM_ENABLE_EXPERIMENTAL"
     }
 

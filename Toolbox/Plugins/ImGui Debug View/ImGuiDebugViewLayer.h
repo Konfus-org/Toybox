@@ -12,8 +12,8 @@ namespace ImGuiDebugView
     class ImGuiDebugViewLayer : public Tbx::Layer
     {
     public:
-        ImGuiDebugViewLayer() : Tbx::Layer("ImGui") {}
-        ~ImGuiDebugViewLayer() override = default;
+        ImGuiDebugViewLayer() 
+            : Tbx::Layer("ImGui") {}
 
         void OnAttach() override;
         void OnDetach() override;

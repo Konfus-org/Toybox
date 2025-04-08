@@ -73,9 +73,9 @@ namespace Tbx
         EXPORT std::string GetLogFilePath() const { return _logFilePath; }
 
     private:
-        std::string _logToWriteTo = "";
-        std::string _lineToWrite = "";
-        std::string _logFilePath = "";
         LogLevel _level = LogLevel::Trace;
+        std::string _lineToWrite = "";
+        std::string _logToWriteTo = "";
+        std::string _logFilePath = "";
     };
 }
