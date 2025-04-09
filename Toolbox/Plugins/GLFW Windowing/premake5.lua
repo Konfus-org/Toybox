@@ -23,7 +23,7 @@ project "GLFW Windowing"
 
     includedirs
     {
-        "./",
+        "./Source",
         "%{IncludeDir.GLFW}"
     }
 

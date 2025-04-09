@@ -18,7 +18,7 @@ project "Spd Logging"
 
     includedirs
     {
-        "./",
+        "./Source",
         "%{IncludeDir.spdlog}"
     }
 

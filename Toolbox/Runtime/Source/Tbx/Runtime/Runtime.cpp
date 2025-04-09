@@ -10,10 +10,10 @@
 #include <format>
 namespace Tbx
 {
-    static bool _reloadPlugins = false;
-
-    void RunApp(std::shared_ptr<App> app)
+    bool RunApp(std::shared_ptr<App> app)
     {
+        bool reloadPlugins = false;
+
         // Launch first
         app->Launch();
 
@@ -41,7 +41,7 @@ namespace Tbx
             // Shortcut to hot reload plugins
             if (Input::IsKeyDown(TBX_KEY_F5))
             {
-                _reloadPlugins = true;
+                reloadPlugins = true;
                 break;
             }
 #endif
@@ -52,33 +52,52 @@ namespace Tbx
 
         // Close the app
         app->Close();
+
+        return reloadPlugins;
     }
 
     void RunLoadedApp()
     {
-        auto app = PluginServer::GetPlugin<App>();
+        auto apps = PluginServer::GetPlugins<App>();
+        TBX_ASSERT(apps.size() != 0,
+            "Toybox needs an app defined to run, have you setup an app correctly?"
+            "The app library should be loaded as a tbx plugin to allow for hot reloading and you should have a host application to call 'Tbx::Run'.");
+        TBX_ASSERT(!(apps.size() > 1), "Toybox only supports one app at a time!");
+
+        auto app = apps[0];
         TBX_VALIDATE_PTR(app, "Could not load app! Is the TBX_PATH_TO_PLUGINS defined correctly and is the dll containing the app being build there?");
 
-        RunApp(app);
+        bool reloadPlugins = RunApp(app);
 
-        if (_reloadPlugins)
+        if (reloadPlugins)
         {
-            _reloadPlugins = false;
-
             // Clear our reference to the app so that it can be reloaded
             app.reset();
 
             // Reload the plugin and rerun the app plugin
-            PluginServer::ReloadPlugins(TBX_PATH_TO_PLUGINS);
+            PluginServer::ReloadPlugins();
             RunLoadedApp();
         }
+    }
+
+    bool Load(const std::string& pathToPlugins)
+    {
+        try
+        {
+            PluginServer::LoadPlugins(pathToPlugins);
+        }
+        catch (const std::exception& ex)
+        {
+            TBX_ERROR("{0}", ex.what());
+            return false;
+        }
+        return true;
     }
 
     bool Run()
     {
         try
         {
-            PluginServer::LoadPlugins(TBX_PATH_TO_PLUGINS);
             RunLoadedApp();
             PluginServer::UnloadPlugins();
         }

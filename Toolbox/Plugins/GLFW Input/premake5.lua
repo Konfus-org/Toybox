@@ -15,7 +15,7 @@ project "GLFW Input"
 
     includedirs
     {
-        "./",
+        "./Source",
         "%{IncludeDir.GLFW}"
     }
 

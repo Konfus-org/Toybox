@@ -11,12 +11,6 @@ project "Runtime"
         "%{IncludeDir.ModernJSON}"
     }
 
-    defines
-    {
-        "TOOLBOX",
-        "TBX_PATH_TO_PLUGINS=\"..\\\\..\\\\..\\\\Build\\\\bin\\\\Plugins\""
-    }
-
     links
     {
         "Core",

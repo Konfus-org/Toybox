@@ -24,16 +24,18 @@ project "ImGui Debug View"
 
     includedirs
     {
-        "./",
+        "./Source",
         "%{IncludeDir.ImGui}",
         "%{IncludeDir.ImGuiBackends}",
-        "%{IncludeDir.GLFW}"
+        "%{IncludeDir.GLFW}",
+        "%{IncludeDir.sys_info}",
     }
 
     links
     {
         "GLFW",
-        "ImGui"
+        "ImGui",
+        "sys_info"
     }
 
     ToolboxPluginConfigs()

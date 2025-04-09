@@ -3,9 +3,11 @@
 #include <Tbx/App/Events/RenderEvents.h>
 #include <Tbx/App/Events/WindowEvents.h>
 #include <Tbx/Core/Ids/UID.h>
-#include <imgui.h>
-#include <imgui_impl_glfw.h>
+#include <sys_info/ProcessInfo.h>
+#include <sys_info/SystemInformation.h>
 #include <imgui_impl_opengl3.h>
+#include <imgui_impl_glfw.h>
+#include <imgui.h>
 #include <GLFW/glfw3.h>
 
 namespace ImGuiDebugView
@@ -32,5 +34,7 @@ namespace ImGuiDebugView
         bool _isDebugWindowOpen = false;
 
         Tbx::Size _windowResolution = { 0, 0 };
+        ProcessInfo _processInfo;
+        SystemInformation _systemInfo;
     };
 }

@@ -5,8 +5,8 @@ project "Unit Tests"
     staticruntime "Off"
     ignoredefaultlibraries { "MSVCRT" }
 
-    targetdir ("../" .. OutputTargetDir .. "")
-    objdir    ("../" .. OutputIntermediateDir .. "")
+    targetdir ("../../../../" .. OutputTargetDir .. "")
+    objdir    ("../../../../" .. OutputIntermediateDir .. "")
 
     files
     {

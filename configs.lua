@@ -35,6 +35,7 @@ function StandardBuildConfigs()
         runtime "Debug"
         optimize "Off"
         symbols "On"
+        linkoptions { "/LTCG:incremental" }  -- Enable Link Time Code Generation and Incremental linking
         flags
         {
             "MultiProcessorCompile"
@@ -49,6 +50,7 @@ function StandardBuildConfigs()
         runtime "Release"
         optimize "On"
         symbols "On"
+        linkoptions { "/LTCG:incremental" }  -- Enable Link Time Code Generation and Incremental linking
         flags
         {
             "MultiProcessorCompile"
@@ -62,6 +64,7 @@ function StandardBuildConfigs()
         runtime "Release"
         optimize "On"
         symbols "Off"
+        linkoptions { "/LTCG:incremental" }  -- Enable Link Time Code Generation and Incremental linking
         flags
         {
             "MultiProcessorCompile"
@@ -80,7 +83,7 @@ function DllConfigs()
 
     filter "configurations:Optimized"
         buildoptions "/MD"
-    
+
     filter "configurations:Dist"
         buildoptions "/MD"
 end

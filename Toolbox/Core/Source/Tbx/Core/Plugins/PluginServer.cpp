@@ -6,9 +6,13 @@
 namespace Tbx
 {
     std::vector<std::shared_ptr<LoadedPlugin>> PluginServer::_loadedPlugins = {};
+    std::string PluginServer::_pathToLoadedPlugins = "";
 
     void PluginServer::LoadPlugins(const std::string& pathToPlugins)
     {
+        _pathToLoadedPlugins = pathToPlugins;
+        TBX_ASSERT(!pathToPlugins.empty(), "Path to plugins is empty!");
+
         // Find plugin infos
         auto foundPluginInfos = FindPluginInfosInDirectory(pathToPlugins);
 
@@ -46,14 +50,14 @@ namespace Tbx
         }
     }
 
-    void PluginServer::ReloadPlugins(const std::string& pathToPlugins)
+    void PluginServer::ReloadPlugins()
     {
         TBX_INFO("Reloading plugins...");
 
         // Unload...
         UnloadPlugins();
         // Reload...
-        LoadPlugins(pathToPlugins);
+        LoadPlugins(_pathToLoadedPlugins);
 
         TBX_INFO("Plugins reloaded!");
     }

@@ -13,3 +13,6 @@
 [submodule "3rd Party/Libraries/spdlog"]
 	path = 3rd Party/Libraries/spdlog
 	url = https://github.com/Konfus-org/spdlog.git
+[submodule "3rd Party/Libraries/sys_info"]
+	path = 3rd Party/Libraries/sys_info
+	url = https://github.com/Konfus-org/sys_info.git

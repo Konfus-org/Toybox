@@ -31,13 +31,16 @@ project "stbimg"
 
     filter "configurations:Debug"
         runtime "Debug"
+        linkoptions { "/LTCG:incremental" }  -- Enable Link Time Code Generation and Incremental linking
         symbols "on"
+
+    filter "configurations:Optimized"
+        runtime "Release"
+        linkoptions { "/LTCG:incremental" }  -- Enable Link Time Code Generation and Incremental linking
+        optimize "on"
 
     filter "configurations:Release"
         runtime "Release"
         optimize "on"
-
-    filter "configurations:Dist"
-        runtime "Release"
-        optimize "on"
+        linkoptions { "/LTCG:incremental" }  -- Enable Link Time Code Generation and Incremental linking
         symbols "off"

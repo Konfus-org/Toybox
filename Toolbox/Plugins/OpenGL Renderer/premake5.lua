@@ -23,7 +23,7 @@ project "OpenGL Renderer"
 
     includedirs
     {
-        "./",
+        "./Source",
         "%{IncludeDir.GLFW}",
         "%{IncludeDir.glad}"
     }

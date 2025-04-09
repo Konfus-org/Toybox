@@ -7,6 +7,7 @@ IncludeDir["ModernJSON"] = "%{wks.location}/3rd Party/Libraries/ModernJSON/singl
 IncludeDir["ImGui"] = "%{wks.location}/3rd Party/Libraries/ImGui"
 IncludeDir["ImGuiBackends"] = "%{wks.location}/3rd Party/Libraries/ImGui/backends"
 IncludeDir["stbimg"] = "%{wks.location}/3rd Party/Libraries/stbimg/include"
+IncludeDir["sys_info"] = "%{wks.location}/3rd Party/Libraries/sys_info/core/include/"
 IncludeDir["TbxCore"] = "%{wks.location}/Toolbox/Core/Include"
 IncludeDir["TbxApp"] = "%{wks.location}/Toolbox/App/Include"
 IncludeDir["TbxRuntime"] = "%{wks.location}/Toolbox/Runtime/Include"
