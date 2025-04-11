@@ -31,7 +31,6 @@ namespace GLFWWindowing
     private:
         std::string _title;
         Tbx::Size _size;
-        std::shared_ptr<Tbx::Camera> _camera;
         GLFWwindow* _glfwWindow = nullptr;
 
         void SetupCallbacks();

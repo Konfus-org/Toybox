@@ -10,7 +10,6 @@ namespace GLFWWindowing
 	{
 		Tbx::Size size(0, 0);
 		_size = size;
-		_camera = std::make_shared<Tbx::Camera>();
 	}
 
 	GLFWWindow::~GLFWWindow()
@@ -39,17 +38,11 @@ namespace GLFWWindowing
         glfwFocusWindow(_glfwWindow);
 	}
 
-	std::weak_ptr<Tbx::Camera> GLFWWindow::GetCamera() const
-	{
-        return _camera;
-	}
-
 	void GLFWWindow::SetSize(const Tbx::Size& size)
 	{
 		_size = size;
 		if (_glfwWindow != nullptr)
 		{
-			_camera->SetAspect((float)size.Width / (float)size.Height);
 			glfwSetWindowSize(_glfwWindow, _size.Width, _size.Height);
 			OnSizeChanged();
 		}

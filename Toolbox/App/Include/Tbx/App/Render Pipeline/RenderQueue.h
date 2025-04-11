@@ -28,8 +28,10 @@ namespace Tbx
         bool IsEmpty() const { return _renderQueue.empty(); }
         uint32 GetCount() const { return (uint32)_renderQueue.size(); }
 
-        RenderBatch& Peek() { return _renderQueue.front(); }
+        RenderBatch& Emplace() { return _renderQueue.emplace(); }
         void Push(const RenderBatch& batch) { _renderQueue.push(batch); }
+
+        RenderBatch& Peek() { return _renderQueue.front(); }
         void Pop() { _renderQueue.pop(); }
         void Clear() { _renderQueue = std::queue<RenderBatch>(); }
 

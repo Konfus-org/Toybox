@@ -15,17 +15,49 @@ namespace Tbx
         _indexBuffer = indices;
     }
 
-    Mesh Mesh::MakeTriangle(const Color& color)
+    Mesh Mesh::MakeTriangle()
     {
         const auto& meshVerts = 
         {
-            Tbx::Vertex(Vector3(-0.5f, -0.5f, 0.0f), color),
-            Tbx::Vertex(Vector3(0.5f, -0.5f, 0.0f), color),
-            Tbx::Vertex(Vector3(0.0f, 0.5f, 0.0f), color)
+            Tbx::Vertex(Vector3(-0.5f, -0.5f, 0.0f)),
+            Tbx::Vertex(Vector3(0.5f, -0.5f, 0.0f)),
+            Tbx::Vertex(Vector3(0.0f, 0.5f, 0.0f))
         };
         const std::vector<uint32>& meshIndices = { 0, 1, 2 };
         const auto& mesh = Mesh(meshVerts, meshIndices);
         return mesh;
+    }
+
+    Mesh Mesh::MakeQuad()
+    {
+        const auto& quadMeshVerts =
+        {
+            Vertex(
+                Vector3(-0.5f, -0.5f, 0.0f),    // Position
+                Vector3(0.0f, 0.0f, 0.0f),      // Normal
+                Vector2I(0.0f, 0.0f),           // Texture coordinates
+                Color(0.0f, 0.0f, 0.0f, 1.0f)), // Color
+
+            Vertex(
+                Vector3(0.5f, -0.5f, 0.0f),     // Position
+                Vector3(0.0f, 0.0f, 0.0f),      // Normal
+                Vector2I(1.0f, 0.0f),           // Texture coordinates
+                Color(0.0f, 0.0f, 0.0f, 1.0f)), // Color
+
+            Vertex(
+                Vector3(0.5f, 0.5f, 0.0f),		 // Position
+                Vector3(0.0f, 0.0f, 0.0f),      // Normal
+                Vector2I(1.0f, 1.0f),           // Texture coordinates
+                Color(0.0f, 0.0f, 0.0f, 1.0f)), // Color
+
+            Vertex(
+                Vector3(-0.5f, 0.5f, 0.0f),     // Position
+                Vector3(0.0f, 0.0f, 0.0f),      // Normal
+                Vector2I(0.0f, 1.0f),           // Texture coordinates
+                Color(0.0f, 0.0f, 0.0f, 1.0f))  // Color
+        };
+        const std::vector<Tbx::uint32>& squareMeshIndices = { 0, 1, 2, 2, 3, 0 };
+        return Mesh(quadMeshVerts, squareMeshIndices);
     }
 
     VertexBuffer Mesh::VertexVectorToBuffer(const std::vector<Vertex>& vertices) const

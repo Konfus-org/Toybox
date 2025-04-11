@@ -10,12 +10,13 @@
 
 namespace Tbx
 {
+    UID RenderPipeline::_appUpdatedEventId = -1;
+
+    std::shared_ptr<Playspace> RenderPipeline::_currentPlayspace = nullptr;
+    RenderProcessor RenderPipeline::_renderProcessor = {};
     RenderQueue RenderPipeline::_renderQueue = {};
 
     bool RenderPipeline::_vsyncEnabled = false;
-
-    UID RenderPipeline::_focusedWindowId = -1;
-    UID RenderPipeline::_appUpdatedEventId = -1;
 
     void RenderPipeline::Initialize()
     {
@@ -27,6 +28,12 @@ namespace Tbx
         EventCoordinator::Unsubscribe<AppUpdatedEvent>(_appUpdatedEventId);
 
         Flush();
+    }
+
+    void RenderPipeline::SetContext(const std::shared_ptr<Playspace>& currentPlayspace)
+    {
+        _currentPlayspace = currentPlayspace;
+        _renderProcessor.PreProcess(currentPlayspace);
     }
 
     void RenderPipeline::SetVSyncEnabled(bool enabled)
@@ -46,9 +53,8 @@ namespace Tbx
     {
         if (_renderQueue.IsEmpty())
         {
-            auto renderBatch = RenderBatch();
-            renderBatch.AddItem(data);
-            _renderQueue.Push(renderBatch);
+            RenderBatch& batch = _renderQueue.Emplace();
+            batch.AddItem(data);
         }
         else
         {
@@ -83,6 +89,7 @@ namespace Tbx
 
     void RenderPipeline::OnAppUpdated(const AppUpdatedEvent&)
     {
+        _renderProcessor.Process(_currentPlayspace);
         ProcessNextBatch();
     }
 }

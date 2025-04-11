@@ -32,7 +32,9 @@ namespace OpenGLRendering
         void BeginDraw() final;
         void EndDraw() final;
 
-        void Draw(const Tbx::Mesh& mesh, const Tbx::Material& material) final;
+        void SetMaterial(const Tbx::Material& material) final;
+
+        void Draw(const Tbx::Mesh& mesh) final;
         void Redraw() final;
 
     private:

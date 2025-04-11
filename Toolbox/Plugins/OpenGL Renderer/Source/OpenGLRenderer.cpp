@@ -29,33 +29,39 @@ namespace OpenGLRendering
             }
             case Tbx::RenderCommand::Clear:
             {
-                const auto& colorData = std::any_cast<Tbx::Color>(payload);
+                const auto& colorData = std::any_cast<Tbx::Color&>(payload);
                 Clear(colorData);
                 break;
             }
             case Tbx::RenderCommand::UploadShader:
             {
-                const auto& shaderData = std::any_cast<Tbx::Shader>(payload);
+                const auto& shaderData = std::any_cast<Tbx::Shader&>(payload);
                 UploadShader(shaderData);
                 break;
             }
             case Tbx::RenderCommand::UploadTexture:
             {
-                const auto& textureData = std::any_cast<Tbx::TextureRenderData>(payload);
+                const auto& textureData = std::any_cast<Tbx::TextureRenderData&>(payload);
                 UploadTexture(textureData.GetTexture(), textureData.GetSlot());
                 break;
             }
             case Tbx::RenderCommand::UploadShaderData:
             {
-                const auto& shaderData = std::any_cast<Tbx::ShaderData>(payload);
+                const auto& shaderData = std::any_cast<Tbx::ShaderData&>(payload);
                 UploadShaderData(shaderData);
+                break;
+            }
+            case Tbx::RenderCommand::SetMaterial:
+            {
+                const auto& materialData = std::any_cast<Tbx::Material&>(payload);
+                SetMaterial(materialData);
                 break;
             }
             case Tbx::RenderCommand::RenderMesh:
             {
                 _lastDrawnData = data;
-                const auto& meshData = std::any_cast<Tbx::MeshRenderData>(payload);
-                Draw(meshData.GetMesh(), meshData.GetMaterial());
+                const auto& meshData = std::any_cast<Tbx::Mesh&>(payload);
+                Draw(meshData);
                 break;
             }
             default:
@@ -107,9 +113,8 @@ namespace OpenGLRendering
         _context.SwapBuffers();
     }
 
-    void OpenGLRenderer::Draw(const Tbx::Mesh& mesh, const Tbx::Material& material)
+    void OpenGLRenderer::SetMaterial(const Tbx::Material& material)
     {
-        // TODO: account for multiple textures and multiple mater
         const auto& materialShaderId = material.GetShader().GetId();
         const auto& materialTextureId = material.GetTextures().front().GetId();
 
@@ -121,7 +126,10 @@ namespace OpenGLRendering
 
         glShader->Bind();
         glTexture->Bind();
+    }
 
+    void OpenGLRenderer::Draw(const Tbx::Mesh& mesh)
+    {
         OpenGLVertexArray vertArray;
         vertArray.Bind();
 
@@ -146,7 +154,7 @@ namespace OpenGLRendering
             case Tbx::RenderCommand::RenderMesh:
             {
                 const auto& meshData = std::any_cast<Tbx::MeshRenderData>(payload);
-                Draw(meshData.GetMesh(), meshData.GetMaterial());
+                Draw(meshData.GetMesh());
                 break;
             }
             default:

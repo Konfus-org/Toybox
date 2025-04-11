@@ -7,7 +7,6 @@
 
 namespace Tbx
 {
-    // TODO: Mesh should be a "Block" or component
     struct Mesh
     {
     public:
@@ -17,10 +16,14 @@ namespace Tbx
         EXPORT Mesh(const VertexBuffer& vertices, const IndexBuffer& indices)
             : _vertexBuffer(vertices), _indexBuffer(indices) {}
 
-        EXPORT VertexBuffer GetVertexBuffer() const { return _vertexBuffer; }
-        EXPORT IndexBuffer GetIndexBuffer() const { return _indexBuffer; }
+        EXPORT const VertexBuffer& GetVertexBuffer() const { return _vertexBuffer; }
+        EXPORT const IndexBuffer& GetIndexBuffer() const { return _indexBuffer; }
 
-        EXPORT static Mesh MakeTriangle(const Color& color = Color(1.0f, 1.0f, 1.0f, 1.0f));
+        EXPORT void SetVertexBuffer(const VertexBuffer& vertices) { _vertexBuffer = vertices; }
+        EXPORT void SetIndexBuffer(const IndexBuffer& indices) { _indexBuffer = indices; }
+
+        EXPORT static Mesh MakeTriangle();
+        EXPORT static Mesh MakeQuad();
 
     private:
         VertexBuffer VertexVectorToBuffer(const std::vector<Vertex>& vertices) const;
@@ -31,7 +34,8 @@ namespace Tbx
 
     struct MeshRenderData
     {
-        EXPORT MeshRenderData(const Mesh& mesh, const Material& material) : _mesh(mesh), _material(material) {}
+        EXPORT MeshRenderData(const Mesh& mesh, const Material& material) 
+            : _mesh(mesh), _material(material) {}
         EXPORT ~MeshRenderData() = default;
 
         EXPORT const Mesh& GetMesh() const { return _mesh; }

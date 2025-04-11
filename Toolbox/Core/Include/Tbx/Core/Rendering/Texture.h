@@ -21,7 +21,6 @@ namespace Tbx
         Repeat
     };
 
-    // TODO: Texture should be a "Block" or component
     // TODO: Seperate loading of texture and texture data
     struct Texture
     {
@@ -31,7 +30,6 @@ namespace Tbx
 
         EXPORT std::shared_ptr <TextureData> GetData() const { return _data; }
 
-        EXPORT UID GetId() const { return _id; }
         EXPORT std::string GetPath() const { return _path; }
 
         EXPORT uint GetWidth() const { return _width; }
@@ -41,7 +39,7 @@ namespace Tbx
         EXPORT TextureFilter GetFilter() const { return _filter; }
 
     private:
-        UID _id; // TODO: this needs to be owned by a TextureAsset or something
+        UID _id;
         uint _width = 0;
         uint _height = 0;
         int _channels = 0;

@@ -9,11 +9,29 @@ namespace Tbx
     /// </summary>
     enum class EXPORT RenderCommand
     {
+        /// <summary>
+        /// Does nothing.
+        /// </summary>
         None = 0,
+        /// <summary>
+        /// Clears the screen.
+        /// </summary>
         Clear,
-        UploadTexture,
-        UploadShader,
-        UploadShaderData,
+        /// <summary>
+        /// Compiles a materials shader(s) and uploads its texture data to the GPU.
+        /// </summary>
+        CompileMaterial,
+        /// <summary>
+        /// Uploads data to a materials shader.
+        /// </summary>
+        UploadMaterialShaderData,
+        /// <summary>
+        /// Sets the material to use for rendering.
+        /// </summary>
+        SetMaterial,
+        /// <summary>
+        /// Renders a mesh.
+        /// </summary>
         RenderMesh,
     };
 }
