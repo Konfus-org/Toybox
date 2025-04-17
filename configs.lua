@@ -91,8 +91,8 @@ end
 -- Easy way to configure toolbox project
 function ToolboxProjectConfigs()
 
-    targetdir ("../../" .. OutputTargetDir .. "")
-    objdir    ("../../" .. OutputIntermediateDir .. "")
+    targetdir ("../" .. OutputTargetDir .. "")
+    objdir    ("../" .. OutputIntermediateDir .. "")
 
     files
     {
@@ -110,8 +110,8 @@ function ToolboxProjectConfigs()
 
     defines
     {
-        "TOOLBOX",
-        "COMPILING_TOOLBOX"
+        "TOYBOX",
+        "COMPILING_TOYBOX"
     }
 
     PlatformConfigs()
@@ -124,8 +124,8 @@ function ToolboxPluginConfigs()
 
     postbuildcommands
     {
-        "{ECHO} Copying plugin meta from \"%{prj.location}%{prj.name}.plugin\" to \"../../../%{OutputTargetPluginDir}\"",
-        "{COPYFILE} \"%{prj.location}%{prj.name}.plugin\" \"../../../%{OutputTargetPluginDir}\""
+        "{ECHO} Copying plugin meta from \"%{prj.location}%{prj.name}.plugin\" to \"../../%{OutputTargetPluginDir}\"",
+        "{COPYFILE} \"%{prj.location}%{prj.name}.plugin\" \"../../%{OutputTargetPluginDir}\""
     }
 
     files
@@ -139,18 +139,18 @@ function ToolboxPluginConfigs()
     includedirs
     {
         "%{IncludeDir.TbxCore}",
-        "%{IncludeDir.TbxApp}"
+        "%{IncludeDir.TbxRuntime}"
     }
 
     links
     {
         "Core",
-        "App"
+        "Runtime"
     }
 
     defines
     {
-        "COMPILING_TOOLBOX"
+        "COMPILING_TOYBOX"
     }
 
     PlatformConfigs()
@@ -162,21 +162,21 @@ end
 function UsingToolboxConfigs()
     defines
     {
-        "COMPILING_TOOLBOX"
+        "COMPILING_TOYBOX"
     }
 
     includedirs
     {
         "%{IncludeDir.TbxCore}",
-        "%{IncludeDir.TbxApp}",
         "%{IncludeDir.TbxRuntime}",
+        "%{IncludeDir.TbxLoader}"
     }
 
     links
     {
         "Core",
-        "App",
-        "Runtime"
+        "Runtime",
+        "Loader"
     }
 
     PlatformConfigs()
