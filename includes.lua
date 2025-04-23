@@ -14,7 +14,7 @@ IncludeDir["sys_info"] = "%{wks.location}/3rd Party/Libraries/sys_info/core/incl
 -- Toybox
 IncludeDir["TbxCore"] = "%{wks.location}/Core/Include"
 IncludeDir["TbxRuntime"] = "%{wks.location}/Runtime/Include"
-IncludeDir["TbxLoader"] = "%{wks.location}/Loader/Include"
+IncludeDir["TbxRuntimeHost"] = "%{wks.location}/Runtime Host/Include"
 
 -- Testing
 IncludeDir["TestApp"] = "%{wks.location}/Tests/Simple App Test/App"

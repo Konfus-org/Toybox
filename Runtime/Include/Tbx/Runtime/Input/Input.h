@@ -1,15 +1,21 @@
 #pragma once
+#include "Tbx/Runtime/Layers/Layer.h"
 #include "Tbx/Runtime/Input/InputCodes.h"
 #include "Tbx/Runtime/Windowing/IWindow.h"
 #include "Tbx/Runtime/Events/WindowEvents.h"
 
 namespace Tbx
 {
-    class Input
+    class Input : public Layer
     {
     public:
-        EXPORT static void Initialize();
-        EXPORT static void Shutdown();
+        Input(const std::string_view& name) : Layer(name) {}
+        ~Input() override = default;
+
+        bool IsOverlay() override;
+        void OnAttach() override;
+        void OnDetach() override;
+        void OnUpdate() override;
 
         EXPORT static bool IsGamepadButtonDown(const int gamepadId, const int button);
         EXPORT static bool IsGamepadButtonUp(const int gamepadId, const int button);

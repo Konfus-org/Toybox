@@ -4,7 +4,6 @@
 #include "OpenGLShader.h"
 #include "OpenGLTexture.h"
 #include <Tbx/Core/Rendering/IRenderer.h>
-#include <Tbx/Runtime/Render Pipeline/RenderQueue.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -18,6 +17,7 @@ namespace OpenGLRendering
 
         void SetContext(const std::weak_ptr<Tbx::IRenderSurface>& context) final;
         void SetViewport(const Tbx::Vector2I& screenPos, const Tbx::Size& size) final;
+        void SetResolution(const Tbx::Size& size) final;
         void SetVSyncEnabled(const bool& enabled) final;
 
         void ProcessData(const Tbx::RenderData& data) final;
@@ -27,7 +27,7 @@ namespace OpenGLRendering
         void UploadShaderData(const Tbx::ShaderData& data) final;
 
         void Flush() final;
-        void Clear(const Tbx::Color& color = Tbx::Color::Black()) final;
+        void Clear(const Tbx::Color& color) final;
 
         void BeginDraw() final;
         void EndDraw() final;
@@ -38,10 +38,17 @@ namespace OpenGLRendering
         void Redraw() final;
 
     private:
-        Tbx::RenderData _lastDrawnData;
-        std::vector<OpenGLShader> _shaders;
-        std::vector<OpenGLTexture> _textures;
-        OpenGLContext _context;
+        Tbx::uint _frameBuf = 0;
+        Tbx::uint _depthBuf = 0;
+        Tbx::uint _colorTex = 0;
+
+        Tbx::Size _resolution = { 1920, 1080 };
+        Tbx::Size _viewportSize = { 1920, 1080 };
+
+        Tbx::RenderData _lastDrawnData = {};
+        std::vector<OpenGLShader> _shaders = {};
+        std::vector<OpenGLTexture> _textures = {};
+        OpenGLContext _context = {};
     };
 }
 

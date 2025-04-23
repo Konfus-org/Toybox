@@ -16,4 +16,4 @@ project "Unit Tests"
         "./**.cpp"
     }
 
-    UsingToolboxConfigs()
+    UsingToyboxConfigs()

@@ -5,8 +5,8 @@ project "ImGui Debug View"
     staticruntime "Off"
     ignoredefaultlibraries { "MSVCRT" }
 
-    targetdir ("../../../" .. OutputTargetPluginDir .. "")
-    objdir    ("../../../" .. OutputIntermediatePluginDir .. "")
+    targetdir ("../../" .. OutputTargetPluginDir .. "")
+    objdir    ("../../" .. OutputIntermediatePluginDir .. "")
 
     files
     {
@@ -38,4 +38,4 @@ project "ImGui Debug View"
         "sys_info"
     }
 
-    ToolboxPluginConfigs()
+    ToyboxPluginConfigs()

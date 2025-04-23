@@ -4,6 +4,8 @@
 #include <Tbx/Core/Plugins/RegisterPlugin.h>
 #include <Tbx/Runtime/Events/RenderEvents.h>
 #include <Tbx/Runtime/Events/WindowEvents.h>
+#include <Tbx/Runtime/Events/ApplicationEvents.h>
+#include <Tbx/Runtime/App/GraphicsSettings.h>
 
 namespace OpenGLRendering
 {
@@ -20,18 +22,23 @@ namespace OpenGLRendering
         void OnWindowFocusChanged(const Tbx::WindowFocusChangedEvent& e);
         void OnWindowResized(const Tbx::WindowResizedEvent& e);
 
-        void OnSetVSyncEvent(Tbx::SetVSyncRequest& e);
-        void OnRenderFrameEvent(Tbx::RenderFrameRequest& e);
-        void OnClearScreenRenderEvent(Tbx::ClearScreenRequest& e);
-        void OnFlushEvent(Tbx::FlushRendererRequest& e);
+        void OnGraphicsSettingsChanged(const Tbx::AppGraphicsSettingsChangedEvent& e);
+        void OnRenderFrameRequest(Tbx::RenderFrameRequest& e);
+        void OnClearScreenRequest(Tbx::ClearScreenRequest& e);
+        void OnFlushRequest(Tbx::FlushRendererRequest& e);
 
-        Tbx::UID _windowFocusChangedEventId;
-        Tbx::UID _windowResizedEventId;
+        Tbx::GraphicsSettings _settings = {};
+        Tbx::Color _clearColor = {};
 
-        Tbx::UID _setVSyncEventId;
-        Tbx::UID _renderFrameEventId;
-        Tbx::UID _clearScreenEventId;
-        Tbx::UID _flushEventId;
+        Tbx::UID _windowFocusChangedEventId = -1;
+        Tbx::UID _windowResizedEventId = -1;
+
+        Tbx::UID _graphicsSettingsChangedEventId = -1;
+
+        Tbx::UID _setVSyncEventId = -1;
+        Tbx::UID _renderFrameEventId = -1;
+        Tbx::UID _clearScreenEventId = -1;
+        Tbx::UID _flushEventId = -1;
     };
 }
 

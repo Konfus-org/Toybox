@@ -1,4 +1,5 @@
 #pragma once
+#include "Tbx/Runtime/Layers/Layer.h"
 #include "Tbx/Runtime/Windowing/IWindow.h"
 #include "Tbx/Runtime/Events/WindowEvents.h"
 #include "Tbx/Runtime/Events/ApplicationEvents.h"
@@ -7,11 +8,16 @@
 
 namespace Tbx
 {
-    class WindowManager
+    class WindowManager : public Layer
     {
     public:
-        EXPORT static void Initialize();
-        EXPORT static void Shutdown();
+        WindowManager(const std::string_view& name) : Layer(name) {}
+        ~WindowManager() override = default;
+
+        bool IsOverlay() override;
+        void OnAttach() override;
+        void OnDetach() override;
+        void OnUpdate() override;
 
         /// <summary>
         /// Creates and opens a new window, the first window will be set as the main window.
@@ -29,7 +35,6 @@ namespace Tbx
         EXPORT static void CloseAllWindows();
 
     private:
-        static void OnAppUpdated(const AppUpdatedEvent& event);
         static void OnWindowClose(const WindowClosedEvent& event);
         static void OnWindowFocusChanged(const WindowFocusChangedEvent& event);
 

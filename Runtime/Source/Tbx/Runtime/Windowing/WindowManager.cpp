@@ -13,23 +13,44 @@ namespace Tbx
     UID WindowManager::_windowCloseEventId = -1;
     UID WindowManager::_windowFocusChangedEventId = -1;
 
-    void WindowManager::Initialize()
+    bool WindowManager::IsOverlay()
     {
-        _appUpdatedEventId = 
-            EventCoordinator::Subscribe<AppUpdatedEvent>(TBX_BIND_STATIC_FN(OnAppUpdated));
+        return false;
+    }
+
+    void WindowManager::OnAttach()
+    {
         _windowCloseEventId =
             EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_STATIC_FN(OnWindowClose));
         _windowFocusChangedEventId =
             EventCoordinator::Subscribe<WindowFocusChangedEvent>(TBX_BIND_STATIC_FN(OnWindowFocusChanged));
     }
 
-    void WindowManager::Shutdown()
+    void WindowManager::OnDetach()
     {
         EventCoordinator::Unsubscribe<AppUpdatedEvent>(_appUpdatedEventId);
         EventCoordinator::Unsubscribe<WindowClosedEvent>(_windowCloseEventId);
         EventCoordinator::Unsubscribe<WindowFocusChangedEvent>(_windowFocusChangedEventId);
 
         CloseAllWindows();
+    }
+
+    void WindowManager::OnUpdate()
+    {
+        if (_windows.empty()) return;
+
+        // Update all windows
+        for (const auto& [id, window] : _windows)
+        {
+            window->Update();
+        }
+
+        // Close windows that are mark for close
+        for (const auto& id : _windowsToCloseOnNextUpdate)
+        {
+            CloseWindow(id);
+        }
+        _windowsToCloseOnNextUpdate.clear();
     }
 
     UID WindowManager::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
@@ -87,24 +108,6 @@ namespace Tbx
     void WindowManager::CloseAllWindows()
     {
         _windows.clear();
-    }
-
-    void WindowManager::OnAppUpdated(const AppUpdatedEvent& e)
-    {
-        if (_windows.empty()) return;
-
-        // Update all windows
-        for (const auto& [id, window] : _windows)
-        {
-            window->Update();
-        }
-
-        // Close windows that are mark for close
-        for (const auto& id : _windowsToCloseOnNextUpdate)
-        {
-            CloseWindow(id);
-        }
-        _windowsToCloseOnNextUpdate.clear();
     }
 
     void WindowManager::OnWindowClose(const WindowClosedEvent& e)

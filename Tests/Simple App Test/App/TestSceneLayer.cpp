@@ -1,21 +1,19 @@
 #include "TestSceneLayer.h"
 #include <Tbx/Core/Rendering/RenderingAPI.h>
-#include <Tbx/Runtime/App.h>
 #include <Tbx/Runtime/Input/Input.h>
 #include <Tbx/Runtime/Input/InputCodes.h>
 #include <Tbx/Runtime/Time/DeltaTime.h>
 #include <Tbx/Runtime/Windowing/WindowManager.h>
-#include <Tbx/Runtime/Render Pipeline/RenderPipeline.h>
 #include <Tbx/Core/TBS/Toy.h>
+#include <Tbx/Core/TBS/World.h>
 #include <Tbx/Core/Math/Transform.h>
-#include <Tbx/Core/Rendering/DefaultShader.h>
 
 void TestSceneLayer::OnAttach()
 {
 	TBX_TRACE("Test scene attached!");
 
 	// Setup testing scene...
-    _playSpace = std::make_shared<Tbx::Playspace>();
+    _playSpace = Tbx::World::AddPlayspace();
 
     auto rootBox = _playSpace->AddBox();
 	auto checkerBox2dToy = rootBox->AddToy();
@@ -27,8 +25,6 @@ void TestSceneLayer::OnAttach()
 	// Add a material to the toy
     auto material = checkerBox2dToy->AddBlock<Tbx::Material>();
     material->SetTexture(0, Tbx::Texture("Assets/Checkerboard.png"));
-
-	//Tbx::RenderPipeline::SetContext(_playSpace)
 }
 
 void TestSceneLayer::OnDetach()

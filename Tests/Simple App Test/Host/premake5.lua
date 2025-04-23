@@ -31,4 +31,4 @@ project "Simple Test App Host"
         "%{IncludeDir.TestApp}",
     }
 
-    UsingToolboxConfigs()
+    UsingToyboxConfigs()

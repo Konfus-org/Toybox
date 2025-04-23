@@ -1,5 +1,5 @@
 #pragma once
-#include <Tbx/Runtime/App.h>
+#include <Tbx/Runtime/App/App.h>
 #include <Tbx/Core/Plugins/RegisterPlugin.h>
 
 class SandboxApp : public Tbx::App

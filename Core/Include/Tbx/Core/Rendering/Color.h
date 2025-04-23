@@ -17,27 +17,37 @@ namespace Tbx
         /// </summary>
         Color(float r, float g, float b, float a) 
             : R(r), G(g), B(b), A(a) {}
-
-        static Color White() { return Color(1.0f, 1.0f, 1.0f, 1.0f); }
-        static Color Black() { return Color(0.0f, 0.0f, 0.0f, 1.0f); }
-        static Color DarkGrey() { return Color(0.1f, 0.1f, 0.1f, 1.0f); }
         
         /// <summary>
         /// Amount of red in the color (0-1)
         /// </summary>
-        float R;
+        float R = 0;
         /// <summary>
         /// Amount of green in the color (0-1)
         /// </summary>
-        float G;
+        float G = 0;
         /// <summary>
         /// Amount of blue in the color (0-1)
         /// </summary>
-        float B;
+        float B = 0;
         /// <summary>
         /// Alpha/Transparency value (0-1)
         /// </summary>
-        float A;
+        float A = 1;
     };
-    
+
+    namespace Colors
+    {
+        EXPORT inline const Color& White = Color(1.0f, 1.0f, 1.0f, 1.0f);
+        EXPORT inline const Color& Black = Color(0.0f, 0.0f, 0.0f, 1.0f);
+        EXPORT inline const Color& Red = Color(1.0f, 0.0f, 0.0f, 1.0f);
+        EXPORT inline const Color& Green = Color(0.0f, 1.0f, 0.0f, 1.0f);
+        EXPORT inline const Color& Blue = Color(0.0f, 0.0f, 1.0f, 1.0f);
+        EXPORT inline const Color& Yellow = Color(1.0f, 1.0f, 0.0f, 1.0f);
+        EXPORT inline const Color& Cyan = Color(0.0f, 1.0f, 1.0f, 1.0f);
+        EXPORT inline const Color& Magenta = Color(1.0f, 0.0f, 1.0f, 1.0f);
+        EXPORT inline const Color& Grey = Color(0.5f, 0.5f, 0.5f, 1.0f);
+        EXPORT inline const Color& LightGrey = Color(0.75f, 0.75f, 0.75f, 1.0f);
+        EXPORT inline const Color& DarkGrey = Color(0.1f, 0.1f, 0.1f, 1.0f);
+    }
 }

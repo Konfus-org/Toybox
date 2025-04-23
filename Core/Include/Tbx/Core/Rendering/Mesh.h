@@ -2,7 +2,6 @@
 #include "Tbx/Core/Rendering/Buffers.h"
 #include "Tbx/Core/Rendering/Vertex.h"
 #include "Tbx/Core/Rendering/Material.h"
-#include "Tbx/Core/Rendering/Color.h"
 #include "Tbx/Core/Math/Int.h"
 
 namespace Tbx
@@ -54,5 +53,11 @@ namespace Tbx
         Mesh _mesh;
         Material _material;
     };
+
+    namespace SimpleMesh
+    {
+        EXPORT inline const Mesh& Quad = Mesh::MakeQuad();
+        EXPORT inline const Mesh& Triangle = Mesh::MakeTriangle();
+    }
 }
 

@@ -10,15 +10,25 @@ namespace Tbx
 {
     UID Input::_windowFocusChangedEventId;
 
-    void Input::Initialize()
+    bool Input::IsOverlay()
     {
-        _windowFocusChangedEventId = 
+        return false;
+    }
+
+    void Input::OnAttach()
+    {
+        _windowFocusChangedEventId =
             EventCoordinator::Subscribe<WindowFocusChangedEvent>(TBX_BIND_STATIC_FN(OnWindowFocusChanged));
     }
 
-    void Input::Shutdown()
+    void Input::OnDetach()
     {
         EventCoordinator::Unsubscribe<WindowFocusChangedEvent>(_windowFocusChangedEventId);
+    }
+
+    void Input::OnUpdate()
+    {
+        // Do nothing...
     }
 
     bool Input::IsGamepadButtonDown(const int id, const int button)

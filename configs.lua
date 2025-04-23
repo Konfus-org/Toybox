@@ -88,8 +88,8 @@ function DllConfigs()
         buildoptions "/MD"
 end
 
--- Easy way to configure toolbox project
-function ToolboxProjectConfigs()
+-- Easy way to configure Toybox project
+function ToyboxProjectConfigs()
 
     targetdir ("../" .. OutputTargetDir .. "")
     objdir    ("../" .. OutputIntermediateDir .. "")
@@ -119,8 +119,8 @@ function ToolboxProjectConfigs()
     DllConfigs()
 end
 
--- Easy way to configure toolbox plugin project
-function ToolboxPluginConfigs()
+-- Easy way to configure Toybox plugin project
+function ToyboxPluginConfigs()
 
     postbuildcommands
     {
@@ -133,7 +133,8 @@ function ToolboxPluginConfigs()
         "./**.h",
         "./**.c",
         "./**.hpp",
-        "./**.cpp"
+        "./**.cpp",
+        "./**.lua"
     }
 
     includedirs
@@ -159,7 +160,7 @@ function ToolboxPluginConfigs()
 end
 
 -- Easy way to link to toybox Engine
-function UsingToolboxConfigs()
+function UsingToyboxConfigs()
     defines
     {
         "COMPILING_TOYBOX"
@@ -169,7 +170,7 @@ function UsingToolboxConfigs()
     {
         "%{IncludeDir.TbxCore}",
         "%{IncludeDir.TbxRuntime}",
-        "%{IncludeDir.TbxLoader}"
+        "%{IncludeDir.TbxRuntimeHost}"
     }
 
     links

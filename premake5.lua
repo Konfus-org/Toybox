@@ -1,7 +1,7 @@
 include "configs"
 include "includes"
 
-workspace "Toolbox"
+workspace "Toybox"
     architecture "x86_64"
     startproject "Tests/Simple App Test/Host"
 
@@ -25,7 +25,7 @@ workspace "Toolbox"
     group "Toybox"
         include "Core"
         include "Runtime"
-        include "Loader"
+        include "Runtime Host"
 
     group "Toybox/Plugins"
             include "Plugins/GLFW Input"

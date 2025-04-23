@@ -1,4 +1,4 @@
-project "Loader"
+project "RuntimeHost"
     kind "SharedLib"
     language "C++"
     cppdialect "C++20"
@@ -25,4 +25,4 @@ project "Loader"
         "Spd Logging"
     }
 
-    ToolboxProjectConfigs()
+    ToyboxProjectConfigs()

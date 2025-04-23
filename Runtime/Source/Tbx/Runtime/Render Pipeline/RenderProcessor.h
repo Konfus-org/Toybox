@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/Runtime/Render Pipeline/RenderQueue.h"
+#include <Tbx/Core/Rendering/RenderQueue.h>
 #include <Tbx/Core/Rendering/Shader.h>
 #include <Tbx/Core/Rendering/Material.h>
 #include <Tbx/Core/Rendering/Camera.h>

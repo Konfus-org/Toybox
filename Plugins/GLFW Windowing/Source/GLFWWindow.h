@@ -1,5 +1,5 @@
 #pragma once
-#include <Tbx/Runtime/App.h>
+#include <Tbx/Runtime/App/App.h>
 #include <GLFW/glfw3.h>
 
 namespace GLFWWindowing
@@ -14,8 +14,6 @@ namespace GLFWWindowing
         void Close() override;
         void Update() override;
         void Focus() override;
-
-        std::weak_ptr<Tbx::Camera> GetCamera() const override;
 
         void SetSize(const Tbx::Size& size) override;
         const Tbx::Size& GetSize() const override;

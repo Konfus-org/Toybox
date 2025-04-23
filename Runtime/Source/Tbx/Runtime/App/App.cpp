@@ -22,29 +22,27 @@ namespace Tbx
         }
     }
     
-    void App::Launch(bool headless)
+    void App::Launch()
     {
         _status = AppStatus::Initializing;
 
-        // TODO: headless config
-        //if (!_isHeadless)
-        {
-            // Subscribe to window events
-            _windowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_FN(OnWindowClosed));
+        // Subscribe to window events
+        _windowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_FN(OnWindowClosed));
 
-            // TODO: convert input into a layer, we still want some static methods on it, but I don't want the static lifetime stuff...
-            // Init input
-            Input::Initialize();
+        // Add default layers
+        PushLayer(std::make_shared<Input>("Input"));
+        PushLayer(std::make_shared<WindowManager>("Windowing"));
+        PushLayer(std::make_shared<RenderPipeline>("Rendering"));
 
-            // Open main window
-            WindowManager::Initialize();
-            WindowManager::OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
-            auto mainWindow = WindowManager::GetMainWindow();
+        // Open main window
+        WindowManager::OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
+        auto mainWindow = WindowManager::GetMainWindow();
+        auto windowFocusChangedEvent = WindowFocusChangedEvent(mainWindow.lock()->GetId(), true);
+        EventCoordinator::Send(windowFocusChangedEvent);
 
-            // Tell things the main window should be focused on
-            auto windowFocusChangedEvent = WindowFocusChangedEvent(mainWindow.lock()->GetId(), true);
-            EventCoordinator::Send(windowFocusChangedEvent);
-        }
+        // Set default graphics settings
+        auto graphicsSettingsChangedEvent = AppGraphicsSettingsChangedEvent(_graphicsSettings);
+        EventCoordinator::Send(graphicsSettingsChangedEvent);
 
         OnLaunch();
     }
@@ -108,14 +106,6 @@ namespace Tbx
         // Clear layers
         _layerStack.Clear();
 
-        //if (!_isHeadless)
-        {
-            // Close all windows, shutdown rendering and input if we are not headless.
-            // TODO: Window manager should be a layer
-            WindowManager::Shutdown();
-            Input::Shutdown();
-        }
-
         // Set status to closed or reloading if we are reloading
         _status = oldStatus == AppStatus::Reloading 
             ? AppStatus::Reloading 
@@ -163,5 +153,12 @@ namespace Tbx
     std::weak_ptr<IWindow> App::GetMainWindow() const
     {
         return WindowManager::GetMainWindow();
+    }
+
+    void App::SetGraphicsSettings(const GraphicsSettings& settings)
+    {
+        _graphicsSettings = settings;
+        auto graphicsSettingsChangedEvent = AppGraphicsSettingsChangedEvent(settings);
+        EventCoordinator::Send(graphicsSettingsChangedEvent);
     }
 }

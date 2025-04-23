@@ -1,6 +1,5 @@
 #include "OpenGLRendererPlugin.h"
 #include <Tbx/Core/Events/EventCoordinator.h>
-#include <Tbx/Runtime/Render Pipeline/RenderPipeline.h>
 #include <Tbx/Runtime/Windowing/WindowManager.h>
 
 namespace OpenGLRendering
@@ -12,14 +11,15 @@ namespace OpenGLRendering
         _windowResizedEventId = 
             Tbx::EventCoordinator::Subscribe<Tbx::WindowResizedEvent>(TBX_BIND_FN(OnWindowResized));
 
-        _setVSyncEventId = 
-            Tbx::EventCoordinator::Subscribe<Tbx::SetVSyncRequest>(TBX_BIND_FN(OnSetVSyncEvent));
+        _graphicsSettingsChangedEventId =
+            Tbx::EventCoordinator::Subscribe<Tbx::AppGraphicsSettingsChangedEvent>(TBX_BIND_FN(OnGraphicsSettingsChanged));
+
         _renderFrameEventId = 
-            Tbx::EventCoordinator::Subscribe<Tbx::RenderFrameRequest>(TBX_BIND_FN(OnRenderFrameEvent));
+            Tbx::EventCoordinator::Subscribe<Tbx::RenderFrameRequest>(TBX_BIND_FN(OnRenderFrameRequest));
         _clearScreenEventId = 
-            Tbx::EventCoordinator::Subscribe<Tbx::ClearScreenRequest>(TBX_BIND_FN(OnClearScreenRenderEvent));
+            Tbx::EventCoordinator::Subscribe<Tbx::ClearScreenRequest>(TBX_BIND_FN(OnClearScreenRequest));
         _flushEventId = 
-            Tbx::EventCoordinator::Subscribe<Tbx::FlushRendererRequest>(TBX_BIND_FN(OnFlushEvent));
+            Tbx::EventCoordinator::Subscribe<Tbx::FlushRendererRequest>(TBX_BIND_FN(OnFlushRequest));
     }
 
     void OpenGLRendererPlugin::OnUnload()
@@ -27,7 +27,8 @@ namespace OpenGLRendering
         Tbx::EventCoordinator::Unsubscribe<Tbx::WindowFocusChangedEvent>(_windowFocusChangedEventId);
         Tbx::EventCoordinator::Unsubscribe<Tbx::WindowResizedEvent>(_windowResizedEventId);
 
-        Tbx::EventCoordinator::Unsubscribe<Tbx::SetVSyncRequest>(_setVSyncEventId);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::WindowResizedEvent>(_graphicsSettingsChangedEventId);
+
         Tbx::EventCoordinator::Unsubscribe<Tbx::RenderFrameRequest>(_renderFrameEventId);
         Tbx::EventCoordinator::Unsubscribe<Tbx::ClearScreenRequest>(_clearScreenEventId);
         Tbx::EventCoordinator::Unsubscribe<Tbx::FlushRendererRequest>(_flushEventId);
@@ -46,18 +47,17 @@ namespace OpenGLRendering
         std::weak_ptr<Tbx::IWindow> windowThatWasResized = Tbx::WindowManager::GetWindow(e.GetWindowId());
         
         // Enable vsync so the window doesn't flicker
-        const bool& wasVSyncEnabled = Tbx::RenderPipeline::IsVSyncEnabled();
         SetVSyncEnabled(true);
 
         // Draw the window while its resizing so there are no artifacts during the resize
         SetViewport({ 0, 0 }, e.GetNewSize());
-        Clear(Tbx::Color::DarkGrey());
+        Clear(_clearColor);
         BeginDraw();
         Redraw();
         EndDraw();
 
         // Set vsync back to what it was
-        SetVSyncEnabled(wasVSyncEnabled); 
+        SetVSyncEnabled(_settings.VSyncEnabled);
 
         // Log window resize
         const auto& newSize = windowThatWasResized.lock()->GetSize();
@@ -65,15 +65,19 @@ namespace OpenGLRendering
         TBX_INFO("Renderer responding to Window {0} resized to {1}x{2}", name, newSize.Width, newSize.Height);
     }
 
-    void OpenGLRendererPlugin::OnSetVSyncEvent(Tbx::SetVSyncRequest& e)
+    void OpenGLRendererPlugin::OnGraphicsSettingsChanged(const Tbx::AppGraphicsSettingsChangedEvent& e)
     {
-        SetVSyncEnabled(e.GetVSync());
-        e.IsHandled = true;
+        const auto& settings = e.GetNewSettings();
+
+        _settings = settings;
+        _clearColor = settings.ClearColor;
+        SetVSyncEnabled(settings.VSyncEnabled);
+        SetViewport({ 0, 0 }, settings.Resolution);
     }
 
-    void OpenGLRendererPlugin::OnRenderFrameEvent(Tbx::RenderFrameRequest& e)
+    void OpenGLRendererPlugin::OnRenderFrameRequest(Tbx::RenderFrameRequest& e)
     {
-        Clear(Tbx::Color::DarkGrey());
+        Clear(_clearColor);
 
         BeginDraw();
 
@@ -90,13 +94,13 @@ namespace OpenGLRendering
         EndDraw();
     }
 
-    void OpenGLRendererPlugin::OnClearScreenRenderEvent(Tbx::ClearScreenRequest& e)
+    void OpenGLRendererPlugin::OnClearScreenRequest(Tbx::ClearScreenRequest& e)
     {
-        Clear(Tbx::Color::DarkGrey());
+        Clear(_clearColor);
         e.IsHandled = true;
     }
 
-    void OpenGLRendererPlugin::OnFlushEvent(Tbx::FlushRendererRequest& e)
+    void OpenGLRendererPlugin::OnFlushRequest(Tbx::FlushRendererRequest& e)
     {
         Flush();
         e.IsHandled = true;

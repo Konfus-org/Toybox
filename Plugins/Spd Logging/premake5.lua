@@ -5,8 +5,8 @@ project "Spd Logging"
     staticruntime "Off"
     ignoredefaultlibraries { "MSVCRT" }
 
-    targetdir ("../../../" .. OutputTargetPluginDir .. "")
-    objdir    ("../../../" .. OutputIntermediatePluginDir .. "")
+    targetdir ("../../" .. OutputTargetPluginDir .. "")
+    objdir    ("../../" .. OutputIntermediatePluginDir .. "")
 
     files
     {
@@ -27,4 +27,4 @@ project "Spd Logging"
         "spdlog"
     }
 
-    ToolboxPluginConfigs()
+    ToyboxPluginConfigs()

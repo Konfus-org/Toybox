@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/Runtime/Render Pipeline/RenderQueue.h"
+#include <Tbx/Core/Rendering/RenderQueue.h>
 #include <Tbx/Core/DllExport.h>
 #include <Tbx/Core/Events/Event.h>
 #include <array>
@@ -61,23 +61,5 @@ namespace Tbx
 
     private:
         RenderBatch _batch;
-    };
-
-    class EXPORT SetVSyncRequest : public RenderEvent
-    {
-    public:
-        explicit SetVSyncRequest(const bool& vsync)
-            : _vSync(vsync) {
-        }
-
-        std::string ToString() const final
-        {
-            return "Render Set VSync Request Event";
-        }
-
-        bool GetVSync() const { return _vSync; }
-
-    private:
-        bool _vSync;
     };
 }

@@ -32,4 +32,4 @@ project "Core"
     filter "system:Windows"
         links "DbgHelp.lib"
 
-    ToolboxProjectConfigs()
+    ToyboxProjectConfigs()

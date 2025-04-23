@@ -25,6 +25,11 @@ namespace Tbx
         virtual void SetViewport(const Vector2I& screenPos, const Size& size) = 0;
 
         /// <summary>
+        /// Sets the resolution for the renderer, this is seperate from the viewport size.
+        /// </summary>
+        virtual void SetResolution(const Tbx::Size& size) = 0;
+
+        /// <summary>
         /// Sets the VSync for the renderer.
         /// Vsync is used to synchronize the frame rate of the renderer with the refresh rate of the monitor.
         /// </summary>
@@ -58,7 +63,7 @@ namespace Tbx
         /// <summary>
         /// Clears the screen with the given color.
         /// </summary>
-        virtual void Clear(const Tbx::Color& color = Tbx::Color::Black()) = 0;
+        virtual void Clear(const Tbx::Color& color = Tbx::Colors::DarkGrey) = 0;
 
         /// <summary>
         /// Call this before drawing anything to the screen.

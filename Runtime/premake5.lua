@@ -19,4 +19,4 @@ project "Runtime"
         "ModernJSON"
     }
 
-    ToolboxProjectConfigs()
+    ToyboxProjectConfigs()

@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/Runtime/Events/WindowEvents.h"
 #include "Tbx/Runtime/Layers/LayerStack.h"
+#include "Tbx/Runtime/App/GraphicsSettings.h"
 #include <Tbx/Core/Plugins/Plugin.h>
 
 namespace Tbx
@@ -22,7 +23,7 @@ namespace Tbx
         EXPORT explicit(false) App(const std::string_view& name);
         EXPORT ~App() override;
 
-        EXPORT void Launch(bool headless = false);
+        EXPORT void Launch();
         EXPORT void Update();
         EXPORT void Close();
 
@@ -31,12 +32,13 @@ namespace Tbx
         EXPORT virtual void OnShutdown() = 0;
 
         EXPORT void OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size) const;
-
         EXPORT void PushLayer(const std::shared_ptr<Layer>& layer);
 
         EXPORT const AppStatus& GetStatus() const;
         EXPORT const std::string& GetName() const;
         EXPORT std::weak_ptr<IWindow> GetMainWindow() const;
+
+        EXPORT void SetGraphicsSettings(const GraphicsSettings& settings);
 
     private:
         void ShutdownSystems();
@@ -44,6 +46,7 @@ namespace Tbx
 
         std::string _name = "App";
         AppStatus _status = AppStatus::None;
+        GraphicsSettings _graphicsSettings = {};
         LayerStack _layerStack = {};
         UID _windowClosedEventId = -1;
     };
