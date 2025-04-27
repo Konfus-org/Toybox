@@ -4,6 +4,12 @@
 
 namespace Tbx
 {
+    Camera::Camera()
+    {
+        // Defaults to perspective, need to calc default projection matrix
+        SetPerspective(_fov, _aspect, _zNear, _zFar);
+    }
+
     void Camera::SetOrthagraphic(float size, float aspect, float zNear, float zFar)
     {
         const auto& bounds = Bounds::FromOrthographicProjection(size, aspect);
@@ -40,21 +46,32 @@ namespace Tbx
         }
     }
 
-    Mat4x4 Camera::CalculateViewMatrix(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& camProjection)
+    Mat4x4 Camera::CalculateViewMatrix(const Vector3& camPosition, const Quaternion& camRotation)
     {
-        const auto& flipXVector = Vector3(-1, 1, 1);
-        const auto& cameraViewPos = camPosition * flipXVector;
-        const auto& lookAtPos = cameraViewPos + Vector3::Forward();
-        const auto& rotationMatrix = Mat4x4::FromRotation(camRotation);
+        // Flip the X-axis (if needed for your coordinate system)
+        auto flippedPosition = camPosition * Vector3(-1.0f, 1.0f, 1.0f);
 
-        auto viewMatrix = Mat4x4::LookAt(cameraViewPos, lookAtPos, Vector3::Up()) * rotationMatrix;
-        return viewMatrix;
+        // Calculate the view matrix
+        Mat4x4 rotationMatrix = Mat4x4::FromRotation(camRotation);
+        Mat4x4 translationMatrix = Mat4x4::Translate(Mat4x4::Identity(), flippedPosition * -1);
+
+        return rotationMatrix * translationMatrix;
     }
 
-    Mat4x4 Camera::CalculateViewProjectionMatrix(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& camProjection)
+    Mat4x4 Camera::CalculateViewProjectionMatrix(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& projectionMatrix)
     {
-        auto viewMatrix = CalculateViewMatrix(camPosition, camRotation, camProjection);
-        auto viewProjectionMatrix = camProjection * viewMatrix;
-        return viewMatrix;
+        Mat4x4 viewMatrix = CalculateViewMatrix(camPosition, camRotation);
+        return projectionMatrix * viewMatrix;
     }
+
+    //void Camera::RecalculateViewProjection()
+    //{
+    //    const auto& flipXVector = Vector3(-1, 1, 1);
+    //    const auto& cameraViewPos = _position * flipXVector;
+    //    const auto& lookAtPos = cameraViewPos + Vector3::Forward();
+    //    const auto& rotationMatrix = Matrix::FromRotation(_rotation);
+
+    //    _viewMatrix = Matrix::LookAt(cameraViewPos, lookAtPos, Vector3::Up()) * rotationMatrix;
+    //    _viewProjectionMatrix = _projectionMatrix * _viewMatrix;
+    //}
 }

@@ -37,6 +37,8 @@ namespace OpenGLRendering
         void Draw(const Tbx::Mesh& mesh) final;
         void Redraw() final;
 
+        Tbx::Size GetViewportSize() const { return _viewportSize; }
+
     private:
         Tbx::uint _frameBuf = 0;
         Tbx::uint _depthBuf = 0;
@@ -46,8 +48,10 @@ namespace OpenGLRendering
         Tbx::Size _viewportSize = { 1920, 1080 };
 
         Tbx::RenderData _lastDrawnData = {};
+
         std::vector<OpenGLShader> _shaders = {};
         std::vector<OpenGLTexture> _textures = {};
+
         OpenGLContext _context = {};
     };
 }

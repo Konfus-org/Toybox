@@ -74,20 +74,45 @@ namespace Tbx
         /// <summary>
         /// Will create a custom shader with the given vertex and fragment source.
         /// </summary>
-        EXPORT Shader(const std::string_view& vertexSrc, const std::string_view& fragmentSrc) : _vertexSrc(vertexSrc), _fragmentSrc(fragmentSrc) {}
+        EXPORT Shader(const std::string_view& vertexSrc, const std::string_view& fragmentSrc)
+            : _vertexSrc(vertexSrc), _fragmentSrc(fragmentSrc) {}
 
         EXPORT const std::string& GetVertexSource() const { return _vertexSrc; }
         EXPORT const std::string& GetFragmentSource() const { return _fragmentSrc; }
 
     private:
-        std::string _vertexSrc = R"( 
-            // Default Vertex Shader
+        std::string _vertexSrc = R"(
+            #version 330 core
 
+            layout(location = 0) in vec3 inPosition;
+            layout(location = 1) in vec4 inVertColor;
+            layout(location = 2) in vec4 inNormal; // TODO: implement normals!
+            layout(location = 3) in vec2 inTextureCoord;
+
+            uniform mat4 viewProjectionUni;
+            uniform mat4 transformUni;
+            uniform vec4 colorUni;
+
+            out vec4 color;
+            out vec4 vertColor;
+            out vec4 normal;
+            out vec2 textureCoord;
+            
+            void main()
+            {
+                color = colorUni;
+                vertColor = inVertColor;
+                textureCoord = inTextureCoord;
+                gl_Position = viewProjectionUni * transformUni * vec4(inPosition, 1.0);
+            }
+        )";
+        std::string _fragmentSrc = R"(
             #version 330 core
 
             layout(location = 0) out vec4 outColor;
 
             in vec4 color;
+            in vec4 vertColor;
             in vec4 normal; // TODO: implement normals!
             in vec2 textureCoord;
 
@@ -95,31 +120,8 @@ namespace Tbx
             
             void main()
             {
-                outColor = texture(textureUniform, textureCoord) * color;
-            }
-        )";
-        std::string _fragmentSrc = R"( 
-            // Default Fragment Shader
-
-            #version 330 core
-
-            layout(location = 0) in vec3 inPosition;
-            layout(location = 1) in vec4 inColor;
-            layout(location = 2) in vec4 inNormal; // TODO: implement normals!
-            layout(location = 3) in vec2 inTextureCoord;
-
-            uniform mat4 viewProjection;
-            uniform mat4 transform;
-
-            out vec4 color;
-            out vec4 normal;
-            out vec2 textureCoord;
-            
-            void main()
-            {
-                color = inColor;
-                textureCoord = inTextureCoord;
-                gl_Position = viewProjection * transform * vec4(inPosition, 1.0);
+                vec4 texColor = color;
+                outColor = texColor;
             }
         )";
     };

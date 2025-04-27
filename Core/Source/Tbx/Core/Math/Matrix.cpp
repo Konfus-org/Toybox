@@ -54,7 +54,7 @@ namespace Tbx
     Mat4x4 Mat4x4::FromRotation(const Quaternion& rotation)
     {
         const auto& glmQuat = glm::quat(rotation.W, rotation.X, rotation.Y, rotation.Z);
-        const auto& glmMat = glm::mat4_cast(glm::normalize(glmQuat));
+        const auto& glmMat = glm::mat4_cast(glmQuat);
         return GlmMat4ToMatrix(glmMat);
     }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Color.h"
+#include "Camera.h"
 #include "Buffers.h"
 #include "Shader.h"
 #include "Texture.h"
@@ -9,5 +10,6 @@
 #include "Material.h"
 #include "RenderCommands.h"
 #include "RenderData.h"
+#include "RenderQueue.h"
 #include "IRenderer.h"
 #include "IRenderSurface.h"

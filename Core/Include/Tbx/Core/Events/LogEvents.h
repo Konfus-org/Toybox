@@ -28,7 +28,7 @@ namespace Tbx
 
         EXPORT std::string ToString() const override
         {
-            return "OpenLogEvent";
+            return "Open Log Event";
         }
 
         EXPORT std::string GetLogFilePath() const { return _logFilePath; }
@@ -47,7 +47,7 @@ namespace Tbx
 
         EXPORT std::string ToString() const override
         {
-            return "OpenLogEvent";
+            return "Close Log Event";
         }
 
         EXPORT std::string GetNameOfLogToClose() const { return _logName; }
@@ -64,7 +64,7 @@ namespace Tbx
 
         EXPORT std::string ToString() const override
         {
-            return "WriteToLogEvent";
+            return "Write To Log Event";
         }
 
         EXPORT LogLevel GetLogLevel() const { return _level; }

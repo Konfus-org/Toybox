@@ -72,7 +72,7 @@ namespace OpenGLRendering
         _settings = settings;
         _clearColor = settings.ClearColor;
         SetVSyncEnabled(settings.VSyncEnabled);
-        SetViewport({ 0, 0 }, settings.Resolution);
+        SetResolution(settings.Resolution);
     }
 
     void OpenGLRendererPlugin::OnRenderFrameRequest(Tbx::RenderFrameRequest& e)
@@ -86,12 +86,13 @@ namespace OpenGLRendering
         {
             ProcessData(item);
         }
-        e.IsHandled = true;
 
         auto renderedFrameEvent = Tbx::RenderedFrameEvent();
         Tbx::EventCoordinator::Send<Tbx::RenderedFrameEvent>(renderedFrameEvent);
 
         EndDraw();
+
+        e.IsHandled = true;
     }
 
     void OpenGLRendererPlugin::OnClearScreenRequest(Tbx::ClearScreenRequest& e)

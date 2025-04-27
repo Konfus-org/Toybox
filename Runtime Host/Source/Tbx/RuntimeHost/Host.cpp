@@ -73,14 +73,25 @@ namespace Tbx
     AppStatus RunHost(const std::string& pathToPlugins)
     {
         // Load app and plugins
-        const auto& app = Load(pathToPlugins);
+        auto app = Load(pathToPlugins);
 
-        // Run app and reload/rerun if a reload is triggered...
+        // Run app
         auto status = Run(app);
         if (status == AppStatus::Reloading)
         {
+            // Clear ref to app so we can unload it below
+            app.reset();
+
+            // Reload/rerun if a reload is triggered...
+            PluginServer::UnloadPlugins();
             status = RunHost(pathToPlugins);
         }
+
+        // Clear ref to app so we can unload it below
+        app.reset();
+
+        // Unload plugins
+        PluginServer::UnloadPlugins();
 
         // Finally return and assert last status of the app
         TBX_ASSERT(status == AppStatus::Closed, "App didn't shutdown correctly!");

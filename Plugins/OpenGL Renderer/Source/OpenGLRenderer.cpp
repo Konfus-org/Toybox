@@ -17,30 +17,33 @@ namespace OpenGLRendering
     {
         _resolution = size;
 
-        glGenFramebuffers(1, &_frameBuf);
-        glBindFramebuffer(GL_FRAMEBUFFER, _frameBuf);
+        //glGenFramebuffers(1, &_frameBuf);
+        //glBindFramebuffer(GL_FRAMEBUFFER, _frameBuf);
 
-        // Create color attachment
-        glGenTextures(1, &_colorTex);
-        glBindTexture(GL_TEXTURE_2D, _colorTex);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, size.Width, size.Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _colorTex, 0);
-        
-        // Depth buffer
-        glGenRenderbuffers(1, &_depthBuf);
-        glBindRenderbuffer(GL_RENDERBUFFER, _depthBuf);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, size.Width, size.Height);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, _depthBuf);
+        //// Create color attachment
+        //glGenTextures(1, &_colorTex);
+        //glBindTexture(GL_TEXTURE_2D, _colorTex);
+        //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, size.Width, size.Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _colorTex, 0);
 
-        // Check framebuffer status
-        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) 
-        {
-            TBX_ASSERT(false, "Framebuffer is not complete!");
-        }
-        
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        //// Depth buffer
+        //glGenRenderbuffers(1, &_depthBuf);
+        //glBindRenderbuffer(GL_RENDERBUFFER, _depthBuf);
+        //glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, size.Width, size.Height);
+        //glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, _depthBuf);
+
+        //// Check framebuffer status
+        //if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        //{
+        //    TBX_ASSERT(false, "Framebuffer is not complete!");
+        //}
+
+        //// Unbind the framebuffer
+        //glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
     void OpenGLRenderer::SetVSyncEnabled(const bool& enabled)
@@ -141,19 +144,20 @@ namespace OpenGLRendering
     {
         // Clear whatever was on screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // Render scene to offscreen FBO
-        // This allows us to render at a resolution independent of screen size
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
     void OpenGLRenderer::EndDraw()
     {
-        // Blit scene FBO to screen
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, _frameBuf);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-        glBlitFramebuffer(0, 0, _resolution.Width, _resolution.Height,
-            0, 0, _viewportSize.Width, _viewportSize.Height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        //// Blit scene FBO to screen
+        //glBindFramebuffer(GL_READ_FRAMEBUFFER, _frameBuf);
+        //glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _frameBuf);
+        //glBlitFramebuffer(
+        //    0, 0, _resolution.Width, _resolution.Height,
+        //    0, 0, _viewportSize.Width, _viewportSize.Height,
+        //    GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_LINEAR);
+
+        //// Unbind framebuffers
+        //glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // Swap our buffers
         _context.SwapBuffers();
@@ -167,6 +171,8 @@ namespace OpenGLRendering
             [&](const OpenGLShader& shader) { return shader.GetAssociatedAssetId() == materialShaderId; });
 
         glShader->Bind();
+
+        glShader->UploadData(Tbx::ShaderData("colorUni", material.GetColor(), Tbx::ShaderDataType::Float4));
 
         for (const auto& texture : material.GetTextures())
         {
@@ -191,25 +197,6 @@ namespace OpenGLRendering
 
     void OpenGLRenderer::Redraw()
     {
-        const auto& command = _lastDrawnData.GetCommand();
-        const auto& payload = _lastDrawnData.GetPayload();
-        switch (command)
-        {
-            case Tbx::RenderCommand::None:
-            {
-                break;
-            }
-            case Tbx::RenderCommand::RenderMesh:
-            {
-                const auto& meshData = std::any_cast<Tbx::MeshRenderData>(payload);
-                Draw(meshData.GetMesh());
-                break;
-            }
-            default:
-            {
-                TBX_ASSERT(false, "Redraw only supports RenderMesh command.");
-                break;
-            }
-        }
+        ProcessData(_lastDrawnData);
     }
 }

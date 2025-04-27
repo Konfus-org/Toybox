@@ -28,6 +28,6 @@ namespace Tbx
         }
 
     private:
-        std::shared_ptr<T> data;
+        std::shared_ptr<T> data = nullptr;
     };
 }

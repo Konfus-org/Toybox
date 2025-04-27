@@ -94,7 +94,7 @@ namespace Tbx
         const BufferLayout& bufferLayout =
         {
             { ShaderDataType::Float3, "position" },
-            { ShaderDataType::Float4, "color" },
+            { ShaderDataType::Float4, "vertColor" },
             { ShaderDataType::Float3, "normal" },
             { ShaderDataType::Float2, "textureCoord" },
         };

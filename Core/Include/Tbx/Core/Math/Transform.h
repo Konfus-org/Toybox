@@ -11,13 +11,13 @@ namespace Tbx
     /// </summary>
     struct EXPORT Transform
     {
-        Transform() : Position(Vector3::Zero()), Rotation(Quaternion::Identity()), Scale(Vector3::One()) {}
+        Transform() = default;
         Transform(const Vector3& position, const Quaternion& rotation, const Vector3& scale)
             : Position(position), Rotation(rotation), Scale(scale) {}
 
-        Vector3 Position;
-        Quaternion Rotation;
-        Vector3 Scale;
+        Vector3 Position = Vector3::Zero();
+        Quaternion Rotation = Tbx::Quaternion::FromEuler(Tbx::Vector3(0.0f, 0.0f, 0.0f));
+        Vector3 Scale = Vector3::One();
     };
 }
 

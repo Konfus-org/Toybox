@@ -137,6 +137,8 @@ namespace ImGuiDebugView
 
     void ImGuiDebugViewLayer::OnFrameRendered(const Tbx::RenderedFrameEvent&) const
     {
+        if (ImGui::GetDrawData() == nullptr) return;
+
         // This needs to be called after the frame has been rendered by the TBX renderer
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     }

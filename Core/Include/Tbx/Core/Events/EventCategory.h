@@ -14,6 +14,7 @@ namespace Tbx
         Application = BIT(4),
         Window = BIT(5),
         Render = BIT(6),
+        World = BIT(6),
         Debug = BIT(7),
     };
 }

@@ -11,6 +11,8 @@ namespace Tbx
     class EXPORT Camera
     {
     public:
+        Camera();
+
         void SetOrthagraphic(float size, float aspect, float zNear, float zFar);
         void SetPerspective(float fov, float aspect, float zNear, float zFar);
         void SetAspect(float aspect);
@@ -19,10 +21,12 @@ namespace Tbx
         bool IsOrthagraphic() const { return !_isPerspective; }
 
         float GetFov() const { return Math::RadiansToDegrees(_fov); }
+        float GetZNear() const { return _zNear; }
+        float GetZFar() const { return _zFar; }
         const Mat4x4& GetProjectionMatrix() const { return _projectionMatrix; }
 
-        static Mat4x4 CalculateViewMatrix(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& camProjection);
-        static Mat4x4 CalculateViewProjectionMatrix(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& camProjection);
+        static Mat4x4 CalculateViewMatrix(const Vector3& camPosition, const Quaternion& camRotation);
+        static Mat4x4 CalculateViewProjectionMatrix(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& projectionMatrix);
 
     private:
         Mat4x4 _projectionMatrix = Mat4x4::Identity();

@@ -18,7 +18,7 @@ project "Simple Test App Host"
 
     defines
     {
-        "PATH_TO_PLUGINS=\"../../Build/bin/Plugins/\""
+        "PATH_TO_PLUGINS=\"../../../Build/bin/Plugins/\""
     }
 
     links

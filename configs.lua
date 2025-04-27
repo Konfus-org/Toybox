@@ -99,7 +99,8 @@ function ToyboxProjectConfigs()
         "./**.h",
         "./**.c",
         "./**.hpp",
-        "./**.cpp"
+        "./**.cpp",
+        "./**.lua"
     }
 
     includedirs
@@ -177,7 +178,7 @@ function UsingToyboxConfigs()
     {
         "Core",
         "Runtime",
-        "Loader"
+        "RuntimeHost"
     }
 
     PlatformConfigs()

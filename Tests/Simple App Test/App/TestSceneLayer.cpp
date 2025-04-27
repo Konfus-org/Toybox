@@ -3,10 +3,9 @@
 #include <Tbx/Runtime/Input/Input.h>
 #include <Tbx/Runtime/Input/InputCodes.h>
 #include <Tbx/Runtime/Time/DeltaTime.h>
-#include <Tbx/Runtime/Windowing/WindowManager.h>
+#include <Tbx/Core/Math/Transform.h>
 #include <Tbx/Core/TBS/Toy.h>
 #include <Tbx/Core/TBS/World.h>
-#include <Tbx/Core/Math/Transform.h>
 
 void TestSceneLayer::OnAttach()
 {
@@ -24,7 +23,16 @@ void TestSceneLayer::OnAttach()
 
 	// Add a material to the toy
     auto material = checkerBox2dToy->AddBlock<Tbx::Material>();
-    material->SetTexture(0, Tbx::Texture("Assets/Checkerboard.png"));
+	material->SetColor(Tbx::Colors::Red);
+    //material->SetTexture(0, Tbx::Texture("Assets/Checkerboard.png"));
+
+	// Add camera toy
+	auto cameraToy = rootBox->AddToy();
+	cameraToy->AddBlock<Tbx::Camera>();
+	cameraToy->AddBlock<Tbx::Transform>()->Position = { 0, 0, -10 };
+
+	// Set our playspace as the main playspace
+	Tbx::World::SetMainPlayspace(_playSpace);
 }
 
 void TestSceneLayer::OnDetach()
@@ -90,7 +98,7 @@ void TestSceneLayer::OnUpdate()
 
 	//TBX_TRACE("Camera Position: {0}", mainWindowCam->GetPosition().ToString());
 
-	const auto& shaderData = Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix(), Tbx::ShaderDataType::Mat4);
-	const auto& renderData = Tbx::RenderData(Tbx::RenderCommand::UploadShaderData, shaderData);
-    Tbx::RenderPipeline::Push(renderData);
+	////const auto& shaderData = Tbx::ShaderData("viewProjection", mainWindowCam->GetViewProjectionMatrix(), Tbx::ShaderDataType::Mat4);
+	////const auto& renderData = Tbx::RenderData(Tbx::RenderCommand::UploadShaderData, shaderData);
+ ////   Tbx::RenderPipeline::Push(renderData);
 }

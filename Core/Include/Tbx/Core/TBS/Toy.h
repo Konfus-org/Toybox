@@ -24,7 +24,7 @@ namespace Tbx
         {
             if (auto it = _blocks.find(std::type_index(typeid(T))); it != _blocks.end())
             {
-                return std::dynamic_pointer_cast<T>(it->second);
+                return std::any_cast<std::shared_ptr<T>>(it->second);
             }
             return nullptr;
         }
@@ -44,9 +44,9 @@ namespace Tbx
         template <typename T>
         EXPORT std::shared_ptr<T> AddBlock()
         {
-            std::shared_ptr<Block<T>> block = std::make_shared<Block<T>>();
+            std::shared_ptr<T> block = std::make_shared<T>();
             _blocks[std::type_index(typeid(T))] = block;
-            return block->Get();
+            return block;
         }
 
 
@@ -54,6 +54,6 @@ namespace Tbx
         /// <summary>
         /// The blocks that make up the toy.
         /// </summary>
-        std::unordered_map<std::type_index, std::shared_ptr<IBlock>> _blocks;
+        std::unordered_map<std::type_index, std::any> _blocks = {};
     };
 }

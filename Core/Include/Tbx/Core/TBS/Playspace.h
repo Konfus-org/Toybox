@@ -33,10 +33,10 @@ namespace Tbx
         /// </summary>
         EXPORT std::shared_ptr<Box> AddBox()
         {
-            return _boxes.emplace_back();
+            return _boxes.emplace_back(new Box());
         }
 
     private:
-        std::vector<std::shared_ptr<Box>> _boxes;
+        std::vector<std::shared_ptr<Box>> _boxes = {};
     };
 }

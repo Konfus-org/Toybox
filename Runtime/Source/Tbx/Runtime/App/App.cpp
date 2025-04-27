@@ -32,7 +32,6 @@ namespace Tbx
         // Add default layers
         PushLayer(std::make_shared<Input>("Input"));
         PushLayer(std::make_shared<WindowManager>("Windowing"));
-        PushLayer(std::make_shared<RenderPipeline>("Rendering"));
 
         // Open main window
         WindowManager::OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
@@ -44,7 +43,11 @@ namespace Tbx
         auto graphicsSettingsChangedEvent = AppGraphicsSettingsChangedEvent(_graphicsSettings);
         EventCoordinator::Send(graphicsSettingsChangedEvent);
 
+        PushLayer(std::make_shared<RenderPipeline>("Rendering"));
+
         OnLaunch();
+
+        _status = AppStatus::Running;
     }
 
     void App::Update()
@@ -79,8 +82,12 @@ namespace Tbx
         // Update layers
         for (const auto& layer : _layerStack)
         {
+            if (_status != AppStatus::Running) return;
+
             layer->OnUpdate();
         }
+
+        if (_status != AppStatus::Running) return;
 
         // Send update event
         AppUpdatedEvent updateEvent;

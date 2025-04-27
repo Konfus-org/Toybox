@@ -8,9 +8,7 @@ namespace Tbx
     struct EXPORT GraphicsSettings
     {
         bool VSyncEnabled = true;
-        // TODO: to support resolution that is seperate from window size 
-        // we need to render to a texture then blit to the window
-        Size Resolution = Size(1280, 720);
+        Size Resolution = Size(800, 600);
         Color ClearColor = Color(0.0f, 0.0f, 0.0f, 1.0f);
     };
 }

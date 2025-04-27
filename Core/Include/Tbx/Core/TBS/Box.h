@@ -61,7 +61,7 @@ namespace Tbx
         /// </summary>
         EXPORT std::shared_ptr<Toy> AddToy()
         {
-            return _toys.emplace_back();
+            return _toys.emplace_back(new Toy());
         }
 
         /// <summary>
@@ -77,11 +77,11 @@ namespace Tbx
         /// </summary>
         EXPORT std::shared_ptr<Box> AddBox()
         {
-            return _boxes.emplace_back();
+            return _boxes.emplace_back(new Box());
         }
 
     private:
-        std::vector<std::shared_ptr<Toy>> _toys;
-        std::vector<std::shared_ptr<Box>> _boxes;
+        std::vector<std::shared_ptr<Toy>> _toys = {};
+        std::vector<std::shared_ptr<Box>> _boxes = {};
     };
 }
