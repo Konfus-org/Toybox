@@ -2,24 +2,27 @@
 #include "Tbx/Core/DllExport.h"
 #include "Tbx/Core/TBS/Playspace.h"
 #include <memory>
-#include <vector>
+#include <array>
 
 namespace Tbx
 {
     class World
     {
     public:
-        EXPORT static std::shared_ptr<Playspace> AddPlayspace();
-        EXPORT static void AddPlayspace(std::shared_ptr<Playspace> playspace);
-        EXPORT static void RemovePlayspace(std::shared_ptr<Playspace> playspace);
+        EXPORT static void Initialize();
+        EXPORT static void Update();
+        EXPORT static void Destroy();
+
+        EXPORT static UID MakePlayspace();
+        EXPORT static void RemovePlayspace(UID id);
+
+        EXPORT static std::weak_ptr<Playspace> GetPlayspace(UID id);
         EXPORT static std::vector<std::shared_ptr<Playspace>> GetPlayspaces();
-
-        EXPORT static void SetMainPlayspace(std::shared_ptr<Playspace> playspace);
-        EXPORT static std::shared_ptr<Playspace> GetMainPlayspace();
-
+        EXPORT static uint32 GetPlayspaceCount();
 
     private:
-        static std::shared_ptr<Playspace> _mainPlayspace; 
+        // TODO: make a pool of playspaces
         static std::vector<std::shared_ptr<Playspace>> _playspaces;
+        static uint32 _playspaceCount;
     };
 }

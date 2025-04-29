@@ -1,59 +1,48 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/TBS/Block.h"
-#include "Tbx/Core/TBS/IBoxable.h"
-#include <unordered_map>
-#include <vector>
-#include <typeindex>
-#include <memory>
+#include "Tbx/Core/Ids/UsesUID.h"
+#include <bitset>
 
 namespace Tbx
 {
+    const int MAX_NUMBER_OF_BLOCKS_ON_A_TOY = 32;
+    struct EXPORT BlockMask 
+        : public std::bitset<MAX_NUMBER_OF_BLOCKS_ON_A_TOY> {};
+
     /// <summary>
-    /// A toy is really just a collection of blocks or "components". 
-    /// It is a way to group blocks together to make a "game object" that has some behaviors.
+    /// Stores information about a toy.
     /// </summary>
-    struct Toy : public IBoxable
+    struct EXPORT ToyInfo
     {
     public:
         /// <summary>
-        /// Gets a block of the specified type.
+        /// Id of the toy.
         /// </summary>
-        template <typename T>
-        EXPORT std::shared_ptr<T> GetBlock() const
-        {
-            if (auto it = _blocks.find(std::type_index(typeid(T))); it != _blocks.end())
-            {
-                return std::any_cast<std::shared_ptr<T>>(it->second);
-            }
-            return nullptr;
-        }
+        UID ToyId = 0;
 
         /// <summary>
-        /// Adds a block to the toy.
+        /// Id of parent playspace.
         /// </summary>
-        template <typename T>
-        EXPORT void AddBlock(std::shared_ptr<Block<T>> block)
-        {
-            _blocks[std::type_index(typeid(T))] = block;
-        }
+        UID ParentPlayspace = 0;
 
         /// <summary>
-        /// Creates and adds a block to the toy then returns it.
+        /// A mask to keep track of what blocks a toy has.
         /// </summary>
-        template <typename T>
-        EXPORT std::shared_ptr<T> AddBlock()
-        {
-            std::shared_ptr<T> block = std::make_shared<T>();
-            _blocks[std::type_index(typeid(T))] = block;
-            return block;
-        }
+        BlockMask BlockMask = {};
 
-
-    private:
         /// <summary>
-        /// The blocks that make up the toy.
+        /// Flag indicating if a toy is valid.
+        /// A toy is not valid after its been deleted.
         /// </summary>
-        std::unordered_map<std::type_index, std::any> _blocks = {};
+        bool IsDeleted = false;
+    };
+
+    /// <summary>
+    /// Represents a toy/gameobject, which is a collection of blocks/components.
+    /// </summary>
+    struct EXPORT Toy : public UsesUID
+    {
+        explicit(false) Toy(UID id) : UsesUID(id) {}
+        explicit(false) Toy(uint64 id) : UsesUID(id) {}
     };
 }

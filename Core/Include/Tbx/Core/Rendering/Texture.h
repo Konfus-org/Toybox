@@ -3,6 +3,7 @@
 #include "Tbx/Core/Math/MathAPI.h"
 #include "Tbx/Core/Ids/UsesUID.h"
 #include <string>
+#include <memory>
 
 namespace Tbx
 {
@@ -21,11 +22,17 @@ namespace Tbx
         Repeat
     };
 
-    // TODO: Seperate loading of texture and texture data
     struct Texture : public UsesUID
     {
     public:
+        /// <summary>
+        /// Defaults to a 1x1 white texture
+        /// </summary>
         EXPORT Texture() = default;
+
+        /// <summary>
+        /// Loads a texture from a file
+        /// </summary>
         EXPORT explicit(false) Texture(const std::string& path);
 
         EXPORT std::shared_ptr <TextureData> GetData() const { return _data; }
@@ -38,13 +45,13 @@ namespace Tbx
         EXPORT TextureFilter GetFilter() const { return _filter; }
 
     private:
-        uint _width = 0;
-        uint _height = 0;
+        uint _width = 1;
+        uint _height = 1;
         int _channels = 0;
         TextureWrap _wrap = TextureWrap::Repeat;
         TextureFilter _filter = TextureFilter::Nearest;
 
-        std::shared_ptr<TextureData> _data = nullptr;
+        std::shared_ptr<TextureData> _data = std::make_shared<TextureData>(255);
         std::string _path = "";
     };
 }

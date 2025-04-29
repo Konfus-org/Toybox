@@ -7,15 +7,15 @@ namespace Tbx
     class EXPORT UsesUID
     {
     public:
-        explicit UsesUID(const UID& uid) : _id(uid) {}
         UsesUID() = default;
-        virtual ~UsesUID() = default;
+        explicit UsesUID(const UID& uid) : _id(uid) {}
 
         const UID& GetId() const { return _id; }
 
         bool operator==(const UsesUID& other) const { return _id == other._id; }
+        explicit(false) operator uint64() const { return GetId(); }
 
     private:
-        UID _id;
+        UID _id = 0;
     };
 }

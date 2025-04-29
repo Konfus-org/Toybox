@@ -13,17 +13,13 @@ namespace Tbx
         }
     };
 
-    class WorldMainPlayspaceChangedEvent : public WorldEvent
+    class WorldPlayspacesAddedEvent : public WorldEvent
     {
     public:
-        // Don't open file, just create logger and write to std::out
-        explicit EXPORT WorldMainPlayspaceChangedEvent(const std::shared_ptr<Playspace>& newMainPs)
-            : _newMainPs(newMainPs) {}
+        explicit WorldPlayspacesAddedEvent(std::vector<UID> newPlayspaces) 
+            : _newPlayspaces(newPlayspaces) {}
 
-        EXPORT std::shared_ptr<Playspace> GetNewMainPlayspace() const
-        {
-            return _newMainPs;
-        }
+        std::vector<UID> GetNewPlayspaces() const { return _newPlayspaces; }
 
         EXPORT std::string ToString() const override
         {
@@ -31,6 +27,24 @@ namespace Tbx
         }
 
     private:
-        std::shared_ptr<Playspace> _newMainPs;
+        std::vector<UID> _newPlayspaces = {};
+    };
+
+    class WorldPlayspacesRemovedEvent : public WorldEvent
+    {
+    public:
+        explicit WorldPlayspacesRemovedEvent(std::vector<UID> removedPlayspaces)
+            : _removedPlayspaces(removedPlayspaces) {
+        }
+
+        std::vector<UID> GetRemovedPlayspaces() const { return _removedPlayspaces; }
+
+        EXPORT std::string ToString() const override
+        {
+            return "Set World Main Playspace Event";
+        }
+
+    private:
+        std::vector<UID> _removedPlayspaces = {};
     };
 }

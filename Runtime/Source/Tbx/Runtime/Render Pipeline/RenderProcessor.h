@@ -5,7 +5,6 @@
 #include <Tbx/Core/Rendering/Camera.h>
 #include <Tbx/Core/Rendering/Mesh.h>
 #include <Tbx/Core/TBS/Toy.h>
-#include <Tbx/Core/TBS/Block.h>
 #include <Tbx/Core/TBS/Playspace.h>
 #include <Tbx/Core/Math/Transform.h>
 #include <vector>
@@ -23,21 +22,18 @@ namespace Tbx
         /// <summary>
         /// Gets render data required to setup playspace such as compiling shaders.
         /// </summary>
-        const RenderBatch& PreProcess(const std::shared_ptr<Playspace>& playspace);
+        const RenderBatch& PreProcess(const std::weak_ptr<Playspace>& playspace);
 
         /// <summary>
         /// Returns render data required to render playspace.
         /// </summary>
-        const RenderBatch& Process(const std::shared_ptr<Playspace>& playspace);
+        const RenderBatch& Process(const std::weak_ptr<Playspace>& playspace);
 
     private:
-        void PreProcessBoxes(const std::vector<std::shared_ptr<Box>>& boxes);
 
-        void PreProcessToy(const std::shared_ptr<Toy>& toy);
+        void PreProcessToy(const Toy& toy, const std::weak_ptr<Playspace>& playspace);
 
-        void ProcessBoxes(const std::vector<std::shared_ptr<Box>>& boxes);
-
-        void ProcessToy(const std::shared_ptr<Toy>& toy);
+        void ProcessToy(const Toy& toy, const std::weak_ptr<Playspace>& playspace);
 
         RenderBatch _currBatch = {};
     };

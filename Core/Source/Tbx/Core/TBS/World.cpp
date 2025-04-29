@@ -5,53 +5,59 @@
 
 namespace Tbx
 {
-    std::shared_ptr<Playspace> World::_mainPlayspace = nullptr;
     std::vector<std::shared_ptr<Playspace>> World::_playspaces = {};
+    uint32 World::_playspaceCount = 0;
 
-    std::shared_ptr<Playspace> World::AddPlayspace()
+    void World::Initialize()
     {
-        auto newPlayspace = _playspaces.emplace_back(new Playspace());
-        if (_mainPlayspace == nullptr)
-        {
-            _mainPlayspace = newPlayspace;
-            auto setMainPlayspaceEvent = WorldMainPlayspaceChangedEvent(_mainPlayspace);
-            EventCoordinator::Send(setMainPlayspaceEvent);
-        }
-
-        return newPlayspace;
+        // Do nothing for now...
     }
 
-    void World::AddPlayspace(std::shared_ptr<Playspace> playspace)
+    void World::Update()
     {
-        _playspaces.push_back(playspace);
-        if (_mainPlayspace == nullptr)
-        {
-            _mainPlayspace = playspace;
-            auto setMainPlayspaceEvent = WorldMainPlayspaceChangedEvent(_mainPlayspace);
-            EventCoordinator::Send(setMainPlayspaceEvent);
-        }
+        // Nothing for now...
     }
 
-    void World::RemovePlayspace(std::shared_ptr<Playspace> playspace)
+    void World::Destroy()
     {
-        std::erase(_playspaces, playspace);
-        if (_playspaces.empty()) _mainPlayspace = nullptr;
+        _playspaces.clear();
+        _playspaceCount = 0;
     }
 
-    void World::SetMainPlayspace(std::shared_ptr<Playspace> playspace)
+    std::weak_ptr<Playspace> World::GetPlayspace(UID id)
     {
-        _mainPlayspace = playspace;
-        auto setMainPlayspaceEvent = WorldMainPlayspaceChangedEvent(_mainPlayspace);
-        EventCoordinator::Send(setMainPlayspaceEvent);
-    }
-
-    std::shared_ptr<Playspace> World::GetMainPlayspace()
-    {
-        return _mainPlayspace;
+        TBX_ASSERT(id < _playspaceCount, "Playspace does not exist or was deleted!");
+        return _playspaces[id];
     }
 
     std::vector<std::shared_ptr<Playspace>> World::GetPlayspaces()
     {
         return _playspaces;
+    }
+
+    uint32 World::GetPlayspaceCount()
+    {
+        return _playspaceCount;
+    }
+
+    void World::RemovePlayspace(UID id)
+    {
+        _playspaces.erase(_playspaces.begin() + id);
+        _playspaceCount--;
+
+        auto event = WorldPlayspacesRemovedEvent({ id });
+        EventCoordinator::Send(event);
+    }
+
+    UID World::MakePlayspace()
+    {
+        auto id = _playspaceCount;
+        _playspaces.emplace_back(std::make_shared<Tbx::Playspace>(id));
+        _playspaceCount++;
+
+        auto event = WorldPlayspacesAddedEvent( {id });
+        EventCoordinator::Send(event);
+
+        return id;
     }
 }

@@ -1,26 +1,32 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
 #include "Tbx/Core/Math/Int.h"
+#include <string>
 
 namespace Tbx
 {
     struct EXPORT UID
     {
     public:
-        // Explicitly sets the ID
-        explicit(false) UID(uint64 id);
-        // Will generate a new UID
-        UID();
+        /// <summary>
+        /// Will generate a new UID
+        /// </summary>
+        UID() : _value(GetNextId()) {}
 
-        const uint64& GetId() const { return _id; }
+        /// <summary>
+        /// Explicitly sets the ID
+        /// </summary>
+        explicit(false) UID(uint64 id) : _value(id) {}
 
-        explicit(false) operator uint64() const { return _id; }
+        const uint64& GetValue() const { return _value; }
 
-        std::string ToString() const { return std::to_string(_id); }
+        std::string ToString() const { return std::to_string(_value); }
+
+        explicit(false) operator uint64() const { return _value; }
 
     private:
         static uint64 GetNextId();
 
-        uint64 _id = -1;
+        uint64 _value = 0;
     };
 }

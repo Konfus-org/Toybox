@@ -4,6 +4,7 @@
 #include "Tbx/Core/Debug/LogLevel.h"
 #include "Tbx/Core/Debug/ILoggable.h"
 #include <iostream>
+#include <format>
 
 namespace Tbx
 {

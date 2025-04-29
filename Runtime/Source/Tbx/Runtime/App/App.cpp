@@ -4,6 +4,8 @@
 #include "Tbx/Runtime/Time/DeltaTime.h"
 #include "Tbx/Runtime/Render Pipeline/RenderPipeline.h"
 #include "Tbx/Runtime/Windowing/WindowManager.h"
+#include "Tbx/Runtime/World/WorldLayer.h"
+#include "Tbx/Runtime/Events/EventCoordinatorLayer.h"
 #include "Tbx/Runtime/Events/ApplicationEvents.h"
 #include <Tbx/Core/Events/EventCoordinator.h>
 
@@ -29,9 +31,12 @@ namespace Tbx
         // Subscribe to window events
         _windowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_FN(OnWindowClosed));
 
-        // Add default layers
+        // Add default layers (order is important as they will be updated and destroyed in reverse order)
         PushLayer(std::make_shared<Input>("Input"));
+        PushLayer(std::make_shared<WorldLayer>("World"));
+        PushLayer(std::make_shared<RenderPipeline>("Rendering"));
         PushLayer(std::make_shared<WindowManager>("Windowing"));
+        PushLayer(std::make_shared<EventCoordinatorLayer>("Events"));
 
         // Open main window
         WindowManager::OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
@@ -42,8 +47,6 @@ namespace Tbx
         // Set default graphics settings
         auto graphicsSettingsChangedEvent = AppGraphicsSettingsChangedEvent(_graphicsSettings);
         EventCoordinator::Send(graphicsSettingsChangedEvent);
-
-        PushLayer(std::make_shared<RenderPipeline>("Rendering"));
 
         OnLaunch();
 

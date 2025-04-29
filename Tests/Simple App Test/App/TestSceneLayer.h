@@ -14,8 +14,6 @@ public:
     void OnUpdate() override;
 
 private:
-    std::shared_ptr<Tbx::Playspace> _playSpace;
-
     float _camMoveSpeed = 1.0f;
     float _camRotateSpeed = 180.0f;
 };

@@ -3,16 +3,6 @@
 
 namespace Tbx
 {
-    UID::UID(uint64 id)
-    {
-        _id = id;
-    }
-
-    UID::UID()
-    {
-        _id = GetNextId();
-    }
-
     uint64 UID::GetNextId()
     {
         static uint64 _nextId = 0;

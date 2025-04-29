@@ -22,12 +22,12 @@ namespace Tbx
         void OnUpdate() override;
 
     private:
-        void OnMainPlayspaceChangedEvent(const WorldMainPlayspaceChangedEvent& e);
+        void OnPlayspaceChangedEvent(const WorldPlayspacesAddedEvent& e);
         void Clear() const;
         void Flush();
         void ProcessNextBatch();
 
-        UID _worldMainPlayspaceChangedEventId = -1;
+        UID _worldPlayspaceChangedEventId = -1;
         RenderProcessor _renderProcessor = {};
         RenderQueue _renderQueue = {};
     };
