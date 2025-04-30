@@ -14,6 +14,7 @@ namespace Tbx
 
         bool operator==(const UsesUID& other) const { return _id == other._id; }
         explicit(false) operator uint64() const { return GetId(); }
+        explicit(false) operator UID() const { return GetId(); }
 
     private:
         UID _id = 0;

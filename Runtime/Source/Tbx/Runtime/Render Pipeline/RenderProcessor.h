@@ -1,13 +1,7 @@
 #pragma once
 #include <Tbx/Core/Rendering/RenderQueue.h>
-#include <Tbx/Core/Rendering/Shader.h>
-#include <Tbx/Core/Rendering/Material.h>
-#include <Tbx/Core/Rendering/Camera.h>
-#include <Tbx/Core/Rendering/Mesh.h>
 #include <Tbx/Core/TBS/Toy.h>
-#include <Tbx/Core/TBS/Playspace.h>
-#include <Tbx/Core/Math/Transform.h>
-#include <vector>
+#include <Tbx/Core/TBS/PlaySpace.h>
 #include <memory>
 
 namespace Tbx
@@ -22,18 +16,18 @@ namespace Tbx
         /// <summary>
         /// Gets render data required to setup playspace such as compiling shaders.
         /// </summary>
-        const RenderBatch& PreProcess(const std::weak_ptr<Playspace>& playspace);
+        const RenderBatch& PreProcess(const std::weak_ptr<PlaySpace>& playspace);
 
         /// <summary>
         /// Returns render data required to render playspace.
         /// </summary>
-        const RenderBatch& Process(const std::weak_ptr<Playspace>& playspace);
+        const RenderBatch& Process(const std::weak_ptr<PlaySpace>& playspace);
 
     private:
 
-        void PreProcessToy(const Toy& toy, const std::weak_ptr<Playspace>& playspace);
+        void PreProcessToy(const Toy& toy, const std::weak_ptr<PlaySpace>& playspace);
 
-        void ProcessToy(const Toy& toy, const std::weak_ptr<Playspace>& playspace);
+        void ProcessToy(const Toy& toy, const std::weak_ptr<PlaySpace>& playspace);
 
         RenderBatch _currBatch = {};
     };

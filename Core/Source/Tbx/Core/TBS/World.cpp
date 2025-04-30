@@ -5,7 +5,7 @@
 
 namespace Tbx
 {
-    std::vector<std::shared_ptr<Playspace>> World::_playspaces = {};
+    std::vector<std::shared_ptr<PlaySpace>> World::_playspaces = {};
     uint32 World::_playspaceCount = 0;
 
     void World::Initialize()
@@ -24,13 +24,18 @@ namespace Tbx
         _playspaceCount = 0;
     }
 
-    std::weak_ptr<Playspace> World::GetPlayspace(UID id)
+    std::weak_ptr<PlaySpace> World::GetPlayspace(UID id)
     {
-        TBX_ASSERT(id < _playspaceCount, "Playspace does not exist or was deleted!");
+        if (id < _playspaceCount - 1)
+        {
+            TBX_ASSERT(false, "PlaySpace does not exist or was deleted!");
+            return {};
+        }
+
         return _playspaces[id];
     }
 
-    std::vector<std::shared_ptr<Playspace>> World::GetPlayspaces()
+    std::vector<std::shared_ptr<PlaySpace>> World::GetPlayspaces()
     {
         return _playspaces;
     }
@@ -52,10 +57,10 @@ namespace Tbx
     UID World::MakePlayspace()
     {
         auto id = _playspaceCount;
-        _playspaces.emplace_back(std::make_shared<Tbx::Playspace>(id));
+        _playspaces.emplace_back(std::make_shared<Tbx::PlaySpace>(id));
         _playspaceCount++;
 
-        auto event = WorldPlayspacesAddedEvent( {id });
+        auto event = WorldPlayspacesAddedEvent( { id } );
         EventCoordinator::Send(event);
 
         return id;

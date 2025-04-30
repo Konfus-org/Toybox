@@ -27,6 +27,9 @@ void TestSceneLayer::OnAttach()
 	Tbx::Toy cameraToy = playspace->MakeToy();
 	playspace->AddBlockTo<Tbx::Camera>(cameraToy);
 	playspace->AddBlockTo<Tbx::Transform>(cameraToy);
+
+	// Opens our new playspace
+	playspace->Open();
 }
 
 void TestSceneLayer::OnDetach()

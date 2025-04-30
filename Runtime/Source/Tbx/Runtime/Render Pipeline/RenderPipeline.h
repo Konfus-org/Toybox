@@ -2,10 +2,7 @@
 #include "Tbx/Runtime/Render Pipeline/RenderProcessor.h"
 #include "Tbx/Runtime/Layers/Layer.h"
 #include <Tbx/Core/Rendering/RenderQueue.h>
-#include <Tbx/Core/Rendering/RenderData.h>
-#include <Tbx/Core/Events/EventCoordinator.h>
 #include <Tbx/Core/Events/WorldEvents.h>
-#include "Tbx/Core/TBS/Playspace.h"
 #include <Tbx/Core/Ids/UID.h>
 
 namespace Tbx
@@ -22,7 +19,7 @@ namespace Tbx
         void OnUpdate() override;
 
     private:
-        void OnPlayspaceChangedEvent(const WorldPlayspacesAddedEvent& e);
+        void OnOpenPlayspaceRequest(OpenPlayspacesRequest& e);
         void Clear() const;
         void Flush();
         void ProcessNextBatch();

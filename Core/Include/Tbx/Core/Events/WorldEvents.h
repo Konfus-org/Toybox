@@ -13,6 +13,10 @@ namespace Tbx
         }
     };
 
+    /// <summary>
+    /// Occurs when a playspaces have been added to the world.
+    /// This happens when playspaces are being loaded.
+    /// </summary>
     class WorldPlayspacesAddedEvent : public WorldEvent
     {
     public:
@@ -23,13 +27,17 @@ namespace Tbx
 
         EXPORT std::string ToString() const override
         {
-            return "Set World Main Playspace Event";
+            return "Added Playspaces To The World Event";
         }
 
     private:
         std::vector<UID> _newPlayspaces = {};
     };
 
+    /// <summary>
+    /// Occurs when playspaces have been removed from the world.
+    /// This happens when playspaces are being unloaded.
+    /// </summary>
     class WorldPlayspacesRemovedEvent : public WorldEvent
     {
     public:
@@ -41,10 +49,53 @@ namespace Tbx
 
         EXPORT std::string ToString() const override
         {
-            return "Set World Main Playspace Event";
+            return "Removed Playspaces From The World Event";
         }
 
     private:
         std::vector<UID> _removedPlayspaces = {};
+    };
+
+    /// <summary>
+    /// A request to open playspaces in a world.
+    /// </summary>
+    class OpenPlayspacesRequest : public WorldEvent
+    {
+    public:
+        explicit OpenPlayspacesRequest(std::vector<UID> playspacesToOpen)
+            : _playspaceToOpen(playspacesToOpen) {
+        }
+
+        std::vector<UID> GetPlayspacesToOpen() const { return _playspaceToOpen; }
+
+        EXPORT std::string ToString() const override
+        {
+            return "Open Playspaces Request";
+        }
+
+    private:
+        std::vector<UID> _playspaceToOpen = {};
+    };
+
+    /// <summary>
+    /// Occurs when playspaces are opened.
+    /// This happens when playspaces have been loaded.
+    /// </summary>
+    class OpenedPlayspacesEvent : public WorldEvent
+    {
+    public:
+        explicit OpenedPlayspacesEvent(std::vector<UID> openedPlayspaces)
+            : _openedPlayspaces(openedPlayspaces) {
+        }
+
+        std::vector<UID> GetOpenedPlayspaces() const { return _openedPlayspaces; }
+
+        EXPORT std::string ToString() const override
+        {
+            return "Opened Playspaces Request";
+        }
+
+    private:
+        std::vector<UID> _openedPlayspaces = {};
     };
 }

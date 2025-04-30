@@ -3,70 +3,67 @@
 
 namespace Tbx
 {
-    Playspace::Playspace(UID id) : UsesUID(id)
+    PlaySpace::PlaySpace(UID id) : UsesUID(id)
     {
         for (uint i = 0; i < MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE; i++)
         {
-            _availableIds.push(i);
+            _availableToyIndices.emplace(i);
         }
     }
 
-    Toy Playspace::MakeToy()
+    Toy PlaySpace::MakeToy()
     {
         TBX_ASSERT(
-            _livingToyCount < MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE,
+            GetToyCount() < MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE,
             "Max number of toys in a playspace reached! Cannot make a new toy. The max number of toys is {0}",
             MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE);
 
+        // Get next available toy from the pool
+        const auto& nextToy = _availableToyIndices.front();
+        _availableToyIndices.pop();
+
         // Get next available toy
-        auto& toyInfo = _toyPool[_livingToyCount];
+        auto& toyInfo = _toyPool[nextToy];
+        toyInfo.ToyId = GetToyId(nextToy, toyInfo.Version++);
 
-        // If it was deleted, reset it
-        toyInfo.IsDeleted = false;
-
-        // Validate to ensure toy from pool is valid
-        ValidateToy(toyInfo);
-
-        // Make toy
-        const auto& newToy = _availableIds.front();
-        _availableIds.pop();
-
-        // Update entity count
-        _livingToyCount++;
-
-        return newToy;
+        return toyInfo.ToyId;
     }
 
-    ToyInfo Playspace::GetToyInfo(const Toy& toy) const
+    void PlaySpace::DestroyToy(Toy& toy)
     {
-        return _toyPool[toy];
-    }
+        auto toyIndex = GetToyIndex(toy);
+        auto& toyInfo = _toyPool[toyIndex];
 
-    uint64 Playspace::GetToyCount() const 
-    { 
-        return _livingToyCount; 
-    }
+        // ensures you're not accessing an entity that has been deleted
+        if (toyInfo.ToyId != toy)
+        {
+            TBX_ASSERT(false, "Toy has already been deleted!");
+            return;
+        }
 
-    void Playspace::DeleteToy(const Toy& toy)
-    {
-        auto& toyInfo = _toyPool[toy];
+        // Set invalid
+        toyInfo.ToyId = GetToyId(-1, toyInfo.Version);
+        toy = toyInfo.ToyId;
 
-        ValidateToy(toyInfo);
-
-        // Update pool
+        // Reset mask
         toyInfo.BlockMask.reset();
-        toyInfo.IsDeleted = true;
 
         // Return toy to pool
-        _availableIds.push(toy);
-
-        // Update entity count
-        _livingToyCount--;
+        _availableToyIndices.push(toyIndex);
     }
 
-    bool Playspace::IsToyValid(const Toy& toy) const
+    uint PlaySpace::GetToyCount() const 
+    { 
+        return static_cast<uint>(MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE - _availableToyIndices.size());
+    }
+
+    void PlaySpace::Open() const
     {
-        auto& toyInfo = _toyPool[toy];
-        return !toyInfo.IsDeleted;
+        auto openRequest = OpenPlayspacesRequest({ GetId() });
+        EventCoordinator::Send(openRequest);
+        TBX_ASSERT(openRequest.IsHandled, "Failed to open playspaces! Is a handler created and listening?");
+
+        auto openedEvent = OpenedPlayspacesEvent({ GetId() });
+        EventCoordinator::Send(openedEvent);
     }
 }

@@ -1,10 +1,15 @@
 #include "Tbx/Runtime/PCH.h"
 #include "Tbx/Runtime/Render Pipeline/RenderProcessor.h"
 #include "Tbx/Runtime/Windowing/WindowManager.h"
+#include <Tbx/Core/Rendering/Shader.h>
+#include <Tbx/Core/Rendering/Material.h>
+#include <Tbx/Core/Rendering/Camera.h>
+#include <Tbx/Core/Rendering/Mesh.h>
+#include <Tbx/Core/Math/Transform.h>
 
 namespace Tbx
 {
-    const RenderBatch& RenderProcessor::PreProcess(const std::weak_ptr<Playspace>& playspace)
+    const RenderBatch& RenderProcessor::PreProcess(const std::weak_ptr<PlaySpace>& playspace)
     {
         _currBatch.Clear();
 
@@ -16,7 +21,7 @@ namespace Tbx
         return _currBatch;
     }
 
-    const RenderBatch& RenderProcessor::Process(const std::weak_ptr<Playspace>& playspace)
+    const RenderBatch& RenderProcessor::Process(const std::weak_ptr<PlaySpace>& playspace)
     {
         _currBatch.Clear();
 
@@ -28,7 +33,7 @@ namespace Tbx
         return _currBatch;
     }
 
-    void RenderProcessor::PreProcessToy(const Toy& toy, const std::weak_ptr<Playspace>& playspace)
+    void RenderProcessor::PreProcessToy(const Toy& toy, const std::weak_ptr<PlaySpace>& playspace)
     {
         // NOTE: Order is important here!
 
@@ -41,7 +46,7 @@ namespace Tbx
         }
     }
 
-    void RenderProcessor::ProcessToy(const Toy& toy, const std::weak_ptr<Playspace>& playspace)
+    void RenderProcessor::ProcessToy(const Toy& toy, const std::weak_ptr<PlaySpace>& playspace)
     {
         // NOTE: Order is important here!
         

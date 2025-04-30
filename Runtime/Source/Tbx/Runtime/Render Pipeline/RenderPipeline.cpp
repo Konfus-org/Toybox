@@ -2,9 +2,6 @@
 #include "Tbx/Runtime/Render Pipeline/RenderProcessor.h"
 #include "Tbx/Runtime/Render Pipeline/RenderPipeline.h"
 #include "Tbx/Runtime/Events/RenderEvents.h"
-#include "Tbx/Runtime/Events/WindowEvents.h"
-#include "Tbx/Runtime/Windowing/WindowManager.h"
-#include <Tbx/Core/Rendering/RenderingAPI.h>
 #include <Tbx/Core/Events/EventCoordinator.h>
 #include <Tbx/Core/Plugins/PluginServer.h>
 #include <Tbx/Core/TBS/World.h>
@@ -17,13 +14,9 @@ namespace Tbx
         return false;
     }
 
-
-    Camera _cam = Camera();
-    static std::shared_ptr<Material> _redMat = nullptr;
-
     void RenderPipeline::OnAttach()
     {
-        _worldPlayspaceChangedEventId = EventCoordinator::Subscribe<WorldPlayspacesAddedEvent>(TBX_BIND_FN(OnPlayspaceChangedEvent));
+        _worldPlayspaceChangedEventId = EventCoordinator::Subscribe<OpenPlayspacesRequest>(TBX_BIND_FN(OnOpenPlayspaceRequest));
     }
 
     void RenderPipeline::OnDetach()
@@ -36,7 +29,7 @@ namespace Tbx
     {
         for (const auto& playspace : World::GetPlayspaces())
         {
-            auto nextBatch = _renderProcessor.Process(playspace);
+            auto& nextBatch = _renderProcessor.Process(playspace);
             _renderQueue.Push(nextBatch);
         }
 
@@ -44,13 +37,15 @@ namespace Tbx
         ProcessNextBatch();
     }
 
-    void RenderPipeline::OnPlayspaceChangedEvent(const WorldPlayspacesAddedEvent& e)
+    void RenderPipeline::OnOpenPlayspaceRequest(OpenPlayspacesRequest& e)
     {
-        for (const auto& playspaceId : e.GetNewPlayspaces())
+        for (const auto& playspaceId : e.GetPlayspacesToOpen())
         {
-            auto nextBatch = _renderProcessor.PreProcess(World::GetPlayspace(playspaceId));
+            auto& nextBatch = _renderProcessor.PreProcess(World::GetPlayspace(playspaceId));
             _renderQueue.Push(nextBatch);
         }
+
+        e.IsHandled = true;
 
         ProcessNextBatch();
     }

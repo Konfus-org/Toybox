@@ -1,5 +1,5 @@
 #pragma once
-#include <Tbx/Core/TBS/Playspace.h>
+#include <Tbx/Core/TBS/PlaySpace.h>
 #include <Tbx/Runtime/Layers/Layer.h>
 #include <memory>
 
