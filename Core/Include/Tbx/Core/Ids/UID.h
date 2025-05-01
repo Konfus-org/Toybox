@@ -13,10 +13,9 @@ namespace Tbx
         /// </summary>
         UID() : _value(GetNextId()) {}
 
-        /// <summary>
-        /// Explicitly sets the ID
-        /// </summary>
         explicit(false) UID(uint64 id) : _value(id) {}
+        explicit(false) UID(uint id) : _value(static_cast<uint64>(id)) {}
+        explicit(false) UID(int id) : _value(static_cast<uint64>(id)) {}
 
         const uint64& GetValue() const { return _value; }
 

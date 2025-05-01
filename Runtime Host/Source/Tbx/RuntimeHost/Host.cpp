@@ -63,7 +63,7 @@ namespace Tbx
         }
         catch (const std::exception& ex)
         {
-            TBX_ERROR("App crashed! Error: {0}", ex.what());
+            TBX_ASSERT(false, "App crashed! Error: {0}", ex.what());
             return AppStatus::Error;
         }
 

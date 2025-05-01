@@ -8,4 +8,5 @@ namespace Tbx
 	using uint64 = unsigned long long;
 	using int64 = long long;
 	using hash = size_t;
+	using byte = unsigned char;
 }

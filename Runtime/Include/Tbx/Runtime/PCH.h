@@ -15,6 +15,7 @@
 #include <random>
 #include <unordered_map>
 #include <unordered_set>
+#include <ranges>
 
 #ifdef TBX_PLATFORM_WINDOWS
     #include <Windows.h>

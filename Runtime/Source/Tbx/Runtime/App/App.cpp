@@ -32,11 +32,11 @@ namespace Tbx
         _windowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_FN(OnWindowClosed));
 
         // Add default layers (order is important as they will be updated and destroyed in reverse order)
-        PushLayer(std::make_shared<Input>("Input"));
-        PushLayer(std::make_shared<WorldLayer>("World"));
-        PushLayer(std::make_shared<RenderPipeline>("Rendering"));
-        PushLayer(std::make_shared<WindowManager>("Windowing"));
         PushLayer(std::make_shared<EventCoordinatorLayer>("Events"));
+        PushLayer(std::make_shared<WindowManager>("Windowing"));
+        PushLayer(std::make_shared<RenderPipeline>("Rendering"));
+        PushLayer(std::make_shared<WorldLayer>("World"));
+        PushLayer(std::make_shared<Input>("Input"));
 
         // Open main window
         WindowManager::OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));

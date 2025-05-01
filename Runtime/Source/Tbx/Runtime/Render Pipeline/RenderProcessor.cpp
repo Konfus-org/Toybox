@@ -69,7 +69,7 @@ namespace Tbx
         }
 
         // Camera block, upload the camera data
-        if (playspace.lock()->HasBlockOn<Transform>(toy))
+        if (playspace.lock()->HasBlockOn<Camera>(toy))
         {
             auto& camera = playspace.lock()->GetBlockOn<Camera>(toy);
             // Update cameras perspective based on MainWindows view

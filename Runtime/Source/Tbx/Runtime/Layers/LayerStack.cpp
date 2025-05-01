@@ -1,6 +1,7 @@
 #include "Tbx/Runtime/PCH.h"
 #include "Tbx/Runtime/Layers/LayerStack.h"
 
+
 namespace Tbx 
 {
 	LayerStack::~LayerStack()
@@ -10,9 +11,11 @@ namespace Tbx
 
 	void LayerStack::Clear()
 	{
-		for (const auto& layer : _layers)
-		{
-			layer->OnDetach();
+		// Detach and clear ref in reverse order, as most important was likely add first.
+		for (auto& layer : std::ranges::reverse_view(_layers))
+        {
+            layer->OnDetach();
+			layer.reset();
 		}
 		_layers.clear();
 		_layerInsertIndex = 0;

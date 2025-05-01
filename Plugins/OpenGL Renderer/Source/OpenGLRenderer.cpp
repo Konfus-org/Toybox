@@ -69,17 +69,23 @@ namespace OpenGLRendering
             }
             case Tbx::RenderCommand::CompileMaterial:
             {
-                const auto& material = std::any_cast<std::shared_ptr<Tbx::Material>>(payload);
+                const auto& material = std::any_cast<const Tbx::Material&>(payload);
 
-                CompileShader(material->GetShader());
+                CompileShader(material.GetShader());
 
                 int textureSlot = 0;
-                for (const auto& texture : material->GetTextures())
+                for (const auto& texture : material.GetTextures())
                 {
                     UploadTexture(texture, textureSlot);
                     textureSlot++;
                 }
 
+                break;
+            }
+            case Tbx::RenderCommand::SetMaterial:
+            {
+                const auto& material = std::any_cast<const Tbx::Material&>(payload);
+                SetMaterial(material);
                 break;
             }
             case Tbx::RenderCommand::UploadMaterialShaderData:
@@ -88,17 +94,11 @@ namespace OpenGLRendering
                 UploadShaderData(shaderData);
                 break;
             }
-            case Tbx::RenderCommand::SetMaterial:
-            {
-                const auto& materialData = std::any_cast<std::shared_ptr<Tbx::Material>>(payload);
-                SetMaterial(*materialData);
-                break;
-            }
             case Tbx::RenderCommand::RenderMesh:
             {
                 _lastDrawnData = data;
-                const auto& meshData = std::any_cast<std::shared_ptr<Tbx::Mesh>>(payload);
-                Draw(*meshData);
+                const auto& mesh = std::any_cast<const Tbx::Mesh&>(payload);
+                Draw(mesh);
                 break;
             }
             default:

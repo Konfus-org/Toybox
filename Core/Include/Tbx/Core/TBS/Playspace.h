@@ -4,20 +4,14 @@
 #include "Tbx/Core/Debug/DebugAPI.h"
 #include "Tbx/Core/TBS/Toy.h"
 #include "Tbx/Core/Memory/MemoryPool.h"
+#include "Tbx/Core/Events/EventCoordinator.h"
 #include <queue>
 #include <memory>
 #include <array>
 
-#include "Tbx/Core/Events/EventCoordinator.h"
-#include "Tbx/Core/Events/WorldEvents.h"
-
 namespace Tbx
 {
     constexpr int MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE = 5000;
-
-    // Forward declaration for friend declaration in playspace below...
-    template<typename... BlockTypes>
-    struct PlayspaceView;
 
     /// <summary>
     /// A play space is a collection of toys.
@@ -34,7 +28,7 @@ namespace Tbx
         /// Create a new toy.
         /// </summary>
         /// <returns></returns>
-        EXPORT Toy MakeToy();
+        EXPORT Toy MakeToy(const std::string_view& name);
 
         /// <summary>
         /// Destroys a specific toy.
@@ -68,16 +62,10 @@ namespace Tbx
         template<typename T>
         EXPORT bool HasBlockOn(const Toy& toy)
         {
-            // ensures you're not accessing an entity
-            // that has been deleted
             const ToyInfo& toyInfo = GetToyInfo(toy);
-            if (toyInfo.ToyId != toy)
-            {
-                TBX_ASSERT(false, "Toy has been deleted!");
-                return true;
-            }
+            TBX_ASSERT(toyInfo.Id == toy, "Toy has been deleted!");
 
-            uint blockId = GetBlockIndex<T>();
+            uint32 blockId = GetBlockIndex<T>();
             return toyInfo.BlockMask.test(blockId);
         }
 
@@ -88,10 +76,12 @@ namespace Tbx
         template<typename T>
         EXPORT bool TryGetBlockOn(const Toy& toy, const T& outBlock)
         {
+            TBX_ASSERT(IsToyValid(toy), "Toy is invalid! Was it deleted? Was it created correctly?");
+
             if (!HasBlockOn<T>(toy)) return false;
 
-            uint toyIndex = GetToyIndex(toy);
-            uint blockIndex = GetBlockIndex<T>();
+            uint32 toyIndex = GetToyIndex(toy);
+            uint32 blockIndex = GetBlockIndex<T>();
 
             auto* block = _blockPools[blockIndex]->Get<T>(toyIndex);
             outBlock = *block;
@@ -105,13 +95,11 @@ namespace Tbx
         template<typename T>
         EXPORT T& GetBlockOn(const Toy& toy)
         {
-            if (!HasBlockOn<T>(toy))
-            {
-                TBX_ASSERT(false, "Block doesn't exist on the given toy!");
-            }
+            TBX_ASSERT(HasBlockOn<T>(toy), "Block doesn't exist on the given toy!");
+            TBX_ASSERT(IsToyValid(toy), "Toy is invalid! Was it deleted? Was it created correctly?");
 
-            uint toyIndex = GetToyIndex(toy);
-            uint blockIndex = GetBlockIndex<T>();
+            uint32 toyIndex = GetToyIndex(toy);
+            uint32 blockIndex = GetBlockIndex<T>();
             auto* block = _blockPools[blockIndex]->Get<T>(toyIndex);
             return *block;
         }
@@ -122,17 +110,14 @@ namespace Tbx
         template<typename T>
         EXPORT T& AddBlockTo(const Toy& toy)
         {
-            uint toyIndex = GetToyIndex(toy);
-            uint blockIndex = GetBlockIndex<T>();
+            uint32 toyIndex = GetToyIndex(toy);
             auto& toyInfo = _toyPool[toyIndex];
 
-            // ensures you're not accessing an entity
-            // that has been deleted
-            if (toyInfo.ToyId != toy)
-            {
-                TBX_ASSERT(false, "Toy has been deleted!");
-            }
+            TBX_ASSERT(!HasBlockOn<T>(toy), "Already has the block of this type on the given toy!");
+            TBX_ASSERT(toyInfo.Id == toy, "Toy has been deleted!");
+            TBX_ASSERT(IsToyValid(toy), "Toy is invalid! Was it deleted? Was it created correctly?");
 
+            uint32 blockIndex = GetBlockIndex<T>();
             if (_blockPools.size() <= blockIndex)
             {
                 // Not enough component pools, resize!
@@ -150,6 +135,8 @@ namespace Tbx
             // Looks up the component in the pool, and initializes it with placement new
             auto* block = new(_blockPools[blockIndex]->Get<T>(toyIndex))T();
 
+            TBX_ASSERT(HasBlockOn<T>(toy), "Block didn't get added correctly!");
+
             return *block;
         }
 
@@ -159,19 +146,16 @@ namespace Tbx
         template<typename T>
         EXPORT void RemoveBlockFrom(const Toy& toy)
         {
-            uint toyIndex = GetToyIndex(toy);
+            uint32 toyIndex = GetToyIndex(toy);
             auto& toyInfo = _toyPool[toyIndex];
 
-            // ensures you're not accessing an entity
-            // that has been deleted
-            if (toyInfo.ToyId != toy)
-            {
-                TBX_ASSERT(false, "Toy has been deleted!");
-                return;
-            }
+            TBX_ASSERT(toyInfo.Id == toy, "Toy has been deleted!");
+            TBX_ASSERT(HasBlockOn<T>(toy), "Block doesn't exist on toy so it cannot be removed!");
 
-            uint blockIndex = GetBlockIndex<T>();
+            uint32 blockIndex = GetBlockIndex<T>();
             toyInfo.BlockMask.reset(blockIndex);
+
+            TBX_ASSERT(!HasBlockOn<T>(toy), "Block didn't get removed correctly!");
         }
 
         /// <summary>
@@ -180,27 +164,12 @@ namespace Tbx
         EXPORT void Open() const;
 
     private:
-        template<typename... BlockTypes>
-        friend struct PlayspaceView;
-
-        template <class T>
-        uint32 GetBlockIndex()
-        {
-            _blockTypeCount++;
-            static uint32 blockId = _blockTypeCount;
-            return blockId;
-        }
-
-        uint GetToyIndex(const UID& id) const
-        {
-            // Shift down 32 so we lose the version and get our index
-            return id >> 32;
-        }
+        static uint32 _blockTypeCount;
+        static uint32 _blockId;
 
         std::array<ToyInfo, MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE> _toyPool = {};
         std::vector<std::unique_ptr<MemoryPool>> _blockPools = {};
         std::queue<uint> _availableToyIndices = {};
-        uint32 _blockTypeCount = 0;
     };
 
     /// <summary>
@@ -209,12 +178,13 @@ namespace Tbx
     struct PlayspaceIterator
     {
     public:
-        EXPORT PlayspaceIterator(const std::weak_ptr<PlaySpace>& space, uint index, BlockMask mask, bool iterateAll)
+        EXPORT PlayspaceIterator(const std::weak_ptr<PlaySpace>& space, uint32 index, BlockMask mask, bool iterateAll)
             : _playspace(space), _currIndex(index), _blockMask(mask), _iterateAll(iterateAll) { }
 
-        EXPORT uint64 operator*() const
+        EXPORT Toy operator*() const
         {
-            return _playspace.lock()->GetToyInfo(_currIndex).ToyId;
+            auto& toyInfo = _playspace.lock()->GetToyInfo(_currIndex);
+            return { toyInfo.Name, toyInfo.Id };
         }
 
         EXPORT bool operator!=(const PlayspaceIterator& other) const
@@ -224,9 +194,17 @@ namespace Tbx
 
         EXPORT PlayspaceIterator& operator++()
         {
-            while (_currIndex < _playspace.lock()->GetToyCount() && !ValidIndex())
+            while (_currIndex < _playspace.lock()->GetToyCount())
             {
                 _currIndex++;
+
+                auto toyInfo = _playspace.lock()->GetToyInfo(_currIndex);
+                auto isMatchingBlockMask = (_blockMask & toyInfo.BlockMask) != 0;
+                auto isToyValid = IsToyValid(toyInfo.Id);
+                if (isToyValid && isMatchingBlockMask)
+                {
+                    break;
+                }
             }
             return *this;
         }
@@ -234,12 +212,12 @@ namespace Tbx
     private:
         bool ValidIndex() const
         {
-            return IsToyValid(_playspace.lock()->GetToyInfo(_currIndex).ToyId)  // It's a valid entity ID
+            return IsToyValid(_playspace.lock()->GetToyInfo(_currIndex).Id)  // It's a valid entity ID
                 && (_iterateAll || _blockMask == (_blockMask & _playspace.lock()->GetToyInfo(_currIndex).BlockMask)); // It has the correct component mask
         }
 
         std::weak_ptr<PlaySpace> _playspace = {};
-        uint _currIndex = 0;
+        uint32 _currIndex = 0;
         BlockMask _blockMask = {};
         bool _iterateAll = false;
     };
@@ -263,21 +241,26 @@ namespace Tbx
             else
             {
                 // Unpack the template parameters into an initializer list
-                std::vector<uint32> blockIds = { 0, space.lock()->GetBlockIndex<BlockTypes>() ...};
+                std::vector<uint32> blockIndices = { 0, GetBlockIndex<BlockTypes>() ...};
                 for (int index = 1; index < (sizeof...(BlockTypes) + 1); index++)
                 {
-                    _blockMask.set(blockIds[index]);
+                    _blockMask.set(blockIndices[index]);
                 }
             }
         }
 
         EXPORT PlayspaceIterator begin() const
         {
-            uint firstIndex = 0;
-            while (firstIndex < _playspace.lock()->GetToyCount() &&
-                (_blockMask != (_blockMask & _playspace.lock()->GetToyInfo(firstIndex).BlockMask) ||
-                    !IsToyValid(_playspace.lock()->GetToyInfo(firstIndex).ToyId)))
+            uint32 firstIndex = 0;
+            while (firstIndex < _playspace.lock()->GetToyCount())
             {
+                auto toyInfo = _playspace.lock()->GetToyInfo(firstIndex);
+                auto isMatchingBlockMask = (_blockMask & toyInfo.BlockMask) != 0;
+                auto isToyValid = IsToyValid(toyInfo.Id);
+                if (isToyValid && isMatchingBlockMask)
+                {
+                    break;
+                }
                 firstIndex++;
             }
             return { _playspace, firstIndex, _blockMask, _viewAll };
@@ -290,7 +273,7 @@ namespace Tbx
 
     private:
         std::weak_ptr<PlaySpace> _playspace = {};
-        BlockMask _blockMask;
+        BlockMask _blockMask = {};
         bool _viewAll = false;
     };
 }

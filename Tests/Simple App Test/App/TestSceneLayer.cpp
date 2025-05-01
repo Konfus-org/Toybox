@@ -16,7 +16,7 @@ void TestSceneLayer::OnAttach()
 	auto playspace = Tbx::World::GetPlayspace(playSpaceId).lock();
 
     // Create checkboard toy
-	Tbx::Toy checkerBox2dToy = playspace->MakeToy();
+	Tbx::Toy checkerBox2dToy = playspace->MakeToy("Checkbox");
 	playspace->AddBlockTo<Tbx::Mesh>(checkerBox2dToy);
 	playspace->AddBlockTo<Tbx::Transform>(checkerBox2dToy);
 	auto& material = playspace->AddBlockTo<Tbx::Material>(checkerBox2dToy);
@@ -24,7 +24,7 @@ void TestSceneLayer::OnAttach()
 	material.SetColor(Tbx::Colors::Red);
 
 	// Create camera toy
-	Tbx::Toy cameraToy = playspace->MakeToy();
+	Tbx::Toy cameraToy = playspace->MakeToy("Camera");
 	playspace->AddBlockTo<Tbx::Camera>(cameraToy);
 	playspace->AddBlockTo<Tbx::Transform>(cameraToy);
 
