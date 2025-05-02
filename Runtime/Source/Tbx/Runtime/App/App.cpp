@@ -34,7 +34,6 @@ namespace Tbx
         // Add default layers (order is important as they will be updated and destroyed in reverse order)
         PushLayer(std::make_shared<EventCoordinatorLayer>("Events"));
         PushLayer(std::make_shared<WindowManager>("Windowing"));
-        PushLayer(std::make_shared<RenderPipeline>("Rendering"));
         PushLayer(std::make_shared<WorldLayer>("World"));
         PushLayer(std::make_shared<Input>("Input"));
 
@@ -47,6 +46,8 @@ namespace Tbx
         // Set default graphics settings
         auto graphicsSettingsChangedEvent = AppGraphicsSettingsChangedEvent(_graphicsSettings);
         EventCoordinator::Send(graphicsSettingsChangedEvent);
+
+        PushLayer(std::make_shared<RenderPipeline>("Rendering"));
 
         OnLaunch();
 

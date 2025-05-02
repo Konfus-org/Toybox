@@ -40,6 +40,22 @@
 /// </summary>
 #define TBX_CRITICAL(msg, ...)      Tbx::Log::Critical(msg, __VA_ARGS__)
 
+
+#define TBX_VERBOSE_ENABLED
+#ifdef TBX_VERBOSE_ENABLED
+    /// <summary>
+    /// Logs verbose info for debugging IF verbose logging is enabled.
+    /// Verbose logging is enabled.
+    /// </summary>
+    #define TBX_VERBOSE(msg, ...)   Tbx::Log::Info(msg, __VA_ARGS__)
+#else
+    /// <summary>
+    /// Logs verbose info for debugging IF verbose logging is enabled.
+    /// Verbose logging is disabled.
+    /// </summary>
+    #define TBX_VERBOSE(msg, ...)
+#endif
+
 #ifdef TBX_ASSERTS_ENABLED
     /// <summary>
     /// Asserts that a condition is true, if it isn't this method sends a critical level msg to the log.

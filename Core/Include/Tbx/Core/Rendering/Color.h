@@ -1,9 +1,10 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
+#include "Tbx/Core/Debug/ILoggable.h"
 
 namespace Tbx
 {
-    struct EXPORT Color
+    struct EXPORT Color : public ILoggable
     {
     public:
         /// <summary>
@@ -17,6 +18,15 @@ namespace Tbx
         /// </summary>
         Color(float r, float g, float b, float a) 
             : R(r), G(g), B(b), A(a) {}
+
+        std::string ToString() const override
+        {
+            return
+                "R: " + std::to_string(R) + 
+                "G: " + std::to_string(G) + 
+                "B: " + std::to_string(B) + 
+                "A: " + std::to_string(A);
+        }
         
         /// <summary>
         /// Amount of red in the color (0-1)

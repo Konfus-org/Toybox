@@ -16,3 +16,6 @@
 [submodule "3rd Party/Libraries/sys_info"]
 	path = 3rd Party/Libraries/sys_info
 	url = https://github.com/Konfus-org/sys_info.git
+[submodule "3rd Party/Libraries/googletest"]
+	path = 3rd Party/Libraries/googletest
+	url = https://github.com/Konfus-org/googletest.git

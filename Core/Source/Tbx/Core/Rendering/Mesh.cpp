@@ -3,6 +3,12 @@
 
 namespace Tbx
 {
+    Mesh::Mesh(const Mesh& mesh)
+    {
+        _vertexBuffer = mesh.GetVertices();
+        _indexBuffer = mesh.GetIndices();
+    }
+
     Mesh::Mesh(const std::initializer_list<Vertex>& vertices, const std::initializer_list<uint32>& indices)
     {
         _vertexBuffer = VertexVectorToBuffer(vertices);

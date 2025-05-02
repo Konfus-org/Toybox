@@ -20,7 +20,9 @@ project "glad"
     {
         "src/*.c",
         "include/glad/*.h",
-        "include/KHR/*.h"
+        "include/KHR/*.h",
+        "./**.md",
+        "./**.lua",
     }
 
     filter "system:windows"

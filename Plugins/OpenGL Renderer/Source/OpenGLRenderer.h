@@ -1,10 +1,8 @@
 #pragma once
 #include "OpenGLContext.h"
-#include "OpenGLBuffers.h"
 #include "OpenGLShader.h"
 #include "OpenGLTexture.h"
 #include <Tbx/Core/Rendering/IRenderer.h>
-#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 namespace OpenGLRendering
@@ -20,19 +18,18 @@ namespace OpenGLRendering
         void SetResolution(const Tbx::Size& size) final;
         void SetVSyncEnabled(const bool& enabled) final;
 
-        void ProcessData(const Tbx::RenderData& data) final;
-
+        void SetMaterial(const Tbx::Material& material) final;
         void UploadTexture(const Tbx::Texture& texture, const Tbx::uint& slot) final;
         void CompileShader(const Tbx::Shader& shader) final;
         void UploadShaderData(const Tbx::ShaderData& data) final;
+
+        void ProcessData(const Tbx::RenderData& data) final;
 
         void Flush() final;
         void Clear(const Tbx::Color& color) final;
 
         void BeginDraw() final;
         void EndDraw() final;
-
-        void SetMaterial(const Tbx::Material& material) final;
 
         void Draw(const Tbx::Mesh& mesh) final;
         void Redraw() final;

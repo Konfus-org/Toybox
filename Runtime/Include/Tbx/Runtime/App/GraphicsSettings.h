@@ -9,6 +9,6 @@ namespace Tbx
     {
         bool VSyncEnabled = true;
         Size Resolution = Size(800, 600);
-        Color ClearColor = Color(0.0f, 0.0f, 0.0f, 1.0f);
+        Color ClearColor = Color(0.1f, 0.1f, 0.1f, 1.0f);
     };
 }

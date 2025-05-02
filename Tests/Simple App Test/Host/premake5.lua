@@ -4,6 +4,7 @@ project "Simple Test App Host"
     cppdialect "C++20"
     staticruntime "Off"
     ignoredefaultlibraries { "MSVCRT" }
+    externalwarnings "Off"
 
     targetdir ("../../../" .. OutputTargetDir .. "")
     objdir    ("../../../" .. OutputIntermediateDir .. "")

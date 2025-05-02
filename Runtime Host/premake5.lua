@@ -3,6 +3,7 @@ project "RuntimeHost"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
+    externalwarnings "Off"
 
     includedirs
     {

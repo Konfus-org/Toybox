@@ -62,7 +62,6 @@ namespace OpenGLRendering
         // Log window resize
         const auto& newSize = windowThatWasResized.lock()->GetSize();
         const auto& name = windowThatWasResized.lock()->GetTitle();
-        TBX_INFO("Renderer responding to Window {0} resized to {1}x{2}", name, newSize.Width, newSize.Height);
     }
 
     void OpenGLRendererPlugin::OnGraphicsSettingsChanged(const Tbx::AppGraphicsSettingsChangedEvent& e)

@@ -28,7 +28,7 @@ namespace Tbx
         /// Create a new toy.
         /// </summary>
         /// <returns></returns>
-        EXPORT Toy MakeToy(const std::string_view& name);
+        EXPORT Toy MakeToy(const std::string& name);
 
         /// <summary>
         /// Destroys a specific toy.
@@ -183,22 +183,22 @@ namespace Tbx
 
         EXPORT Toy operator*() const
         {
-            auto& toyInfo = _playspace.lock()->GetToyInfo(_currIndex);
+            auto& toyInfo = _playspace->GetToyInfo(_currIndex);
             return { toyInfo.Name, toyInfo.Id };
         }
 
         EXPORT bool operator!=(const PlayspaceIterator& other) const
         {
-            return _currIndex != other._currIndex && _currIndex != _playspace.lock()->GetToyCount();
+            return _currIndex != other._currIndex && _currIndex != _playspace->GetToyCount();
         }
 
         EXPORT PlayspaceIterator& operator++()
         {
-            while (_currIndex < _playspace.lock()->GetToyCount())
+            while (_currIndex < _playspace->GetToyCount())
             {
                 _currIndex++;
 
-                auto toyInfo = _playspace.lock()->GetToyInfo(_currIndex);
+                auto toyInfo = _playspace->GetToyInfo(_currIndex);
                 auto isMatchingBlockMask = (_blockMask & toyInfo.BlockMask) != 0;
                 auto isToyValid = IsToyValid(toyInfo.Id);
                 if (isToyValid && isMatchingBlockMask)
@@ -212,11 +212,11 @@ namespace Tbx
     private:
         bool ValidIndex() const
         {
-            return IsToyValid(_playspace.lock()->GetToyInfo(_currIndex).Id)  // It's a valid entity ID
-                && (_iterateAll || _blockMask == (_blockMask & _playspace.lock()->GetToyInfo(_currIndex).BlockMask)); // It has the correct component mask
+            return IsToyValid(_playspace->GetToyInfo(_currIndex).Id)  // It's a valid entity ID
+                && (_iterateAll || _blockMask == (_blockMask & _playspace->GetToyInfo(_currIndex).BlockMask)); // It has the correct component mask
         }
 
-        std::weak_ptr<PlaySpace> _playspace = {};
+        std::shared_ptr<PlaySpace> _playspace = {};
         uint32 _currIndex = 0;
         BlockMask _blockMask = {};
         bool _iterateAll = false;
@@ -252,9 +252,9 @@ namespace Tbx
         EXPORT PlayspaceIterator begin() const
         {
             uint32 firstIndex = 0;
-            while (firstIndex < _playspace.lock()->GetToyCount())
+            while (firstIndex < _playspace->GetToyCount())
             {
-                auto toyInfo = _playspace.lock()->GetToyInfo(firstIndex);
+                auto toyInfo = _playspace->GetToyInfo(firstIndex);
                 auto isMatchingBlockMask = (_blockMask & toyInfo.BlockMask) != 0;
                 auto isToyValid = IsToyValid(toyInfo.Id);
                 if (isToyValid && isMatchingBlockMask)
@@ -268,11 +268,11 @@ namespace Tbx
 
         EXPORT PlayspaceIterator end() const
         {
-            return { _playspace, _playspace.lock()->GetToyCount(), _blockMask, _viewAll };
+            return { _playspace, _playspace->GetToyCount(), _blockMask, _viewAll };
         }
 
     private:
-        std::weak_ptr<PlaySpace> _playspace = {};
+        std::shared_ptr<PlaySpace> _playspace = {};
         BlockMask _blockMask = {};
         bool _viewAll = false;
     };

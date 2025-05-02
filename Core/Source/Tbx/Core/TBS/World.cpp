@@ -24,7 +24,7 @@ namespace Tbx
         _playspaceCount = 0;
     }
 
-    std::weak_ptr<PlaySpace> World::GetPlayspace(UID id)
+    std::shared_ptr<PlaySpace> World::GetPlayspace(UID id)
     {
         if (id < _playspaceCount - 1)
         {

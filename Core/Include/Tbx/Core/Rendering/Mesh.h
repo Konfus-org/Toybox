@@ -19,6 +19,7 @@ namespace Tbx
             _indexBuffer = quad.GetIndices();
         }
 
+        EXPORT Mesh(const Mesh& mesh);
         EXPORT Mesh(const std::initializer_list<Vertex>& vertices, const std::initializer_list<uint32>& indices);
         EXPORT Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32>& indices);
         EXPORT Mesh(const VertexBuffer& vertices, const IndexBuffer& indices)
@@ -54,7 +55,7 @@ namespace Tbx
         Material _material;
     };
 
-    namespace SimpleMesh
+    namespace Primitives
     {
         EXPORT inline const Mesh& Quad = Mesh::MakeQuad();
         EXPORT inline const Mesh& Triangle = Mesh::MakeTriangle();

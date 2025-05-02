@@ -15,7 +15,7 @@ namespace Tbx
         }
     }
 
-    Toy PlaySpace::MakeToy(const std::string_view& name)
+    Toy PlaySpace::MakeToy(const std::string& name)
     {
         TBX_ASSERT(
             GetToyCount() < MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE,

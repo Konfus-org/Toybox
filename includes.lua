@@ -10,6 +10,8 @@ IncludeDir["ImGui"] = "%{wks.location}/3rd Party/Libraries/ImGui"
 IncludeDir["ImGuiBackends"] = "%{wks.location}/3rd Party/Libraries/ImGui/backends"
 IncludeDir["stbimg"] = "%{wks.location}/3rd Party/Libraries/stbimg/include"
 IncludeDir["sys_info"] = "%{wks.location}/3rd Party/Libraries/sys_info/core/include/"
+IncludeDir["googletest"] = "%{wks.location}/3rd Party/Libraries/googletest/googletest/"
+IncludeDir["googlemock"] = "%{wks.location}/3rd Party/Libraries/googletest/googlemock/"
 
 -- Toybox
 IncludeDir["TbxCore"] = "%{wks.location}/Core/Include"

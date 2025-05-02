@@ -22,7 +22,7 @@ namespace Tbx
             auto& map = GetMap();
             if (!map.contains(hashCode))
             {
-                map[hashCode] = map.size();
+                map[hashCode] = static_cast<uint32>(map.size());
             }
 
             return map[hashCode];
@@ -100,6 +100,10 @@ namespace Tbx
     struct EXPORT ToyInfo
     {
     public:
+        ToyInfo() = default;
+        ToyInfo(std::string name, UID id, UID parent, BlockMask mask)
+            : Name(name), Id(id), Parent(parent), BlockMask(mask) {}
+
         /// <summary>
         /// The display name of a toy.
         /// Useful for debugging and UI.
@@ -134,11 +138,12 @@ namespace Tbx
     /// </summary>
     struct EXPORT Toy : public UsesUID
     {
+    public:
 #ifdef TBX_DEBUG
-        explicit(false) Toy(const std::string_view& name, UID id)
-        : UsesUID(id), Name(name) {}
-        explicit(false) Toy(const std::string_view& name, uint64 id)
-        : UsesUID(id), Name(name) {}
+        explicit(false) Toy(const std::string& name, UID id)
+            : UsesUID(id), Name(name) {}
+        explicit(false) Toy(const std::string& name, uint64 id)
+            : UsesUID(id), Name(name) {}
 
         /// <summary>
         /// The name of a toy.
@@ -147,9 +152,9 @@ namespace Tbx
         std::string Name = "";
 
 #elif
-        explicit(false) Toy(const std::string_view& name, UID id)
+        explicit(false) Toy(const std::string& name, UID id)
             : UsesUID(id) {}
-        explicit(false) Toy(const std::string_view& name, uint64 id)
+        explicit(false) Toy(const std::string& name, uint64 id)
             : UsesUID(id) {}
 #endif
     };

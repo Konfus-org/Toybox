@@ -98,9 +98,11 @@ function ToyboxProjectConfigs()
     {
         "./**.h",
         "./**.c",
+        "./**.cc",
         "./**.hpp",
         "./**.cpp",
-        "./**.lua"
+        "./**.md",
+        "./**.lua",
     }
 
     includedirs
@@ -133,9 +135,11 @@ function ToyboxPluginConfigs()
     {
         "./**.h",
         "./**.c",
+        "./**.cc",
         "./**.hpp",
         "./**.cpp",
-        "./**.lua"
+        "./**.md",
+        "./**.lua",
     }
 
     includedirs

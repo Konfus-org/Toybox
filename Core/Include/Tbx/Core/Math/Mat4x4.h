@@ -23,6 +23,7 @@ namespace Tbx
         friend Mat4x4 operator*(const Mat4x4& lhs, const Mat4x4& rhs) { return Multiply(lhs, rhs); }
         friend Mat4x4 operator+(const Mat4x4& lhs, const Mat4x4& rhs) { return Add(lhs, rhs); }
         friend Mat4x4 operator-(const Mat4x4& lhs, const Mat4x4& rhs) { return Subtract(lhs, rhs); }
+        friend bool   operator==(const Mat4x4& lhs, const Mat4x4& rhs) { return lhs.Values == rhs.Values; }
 
         std::string ToString() const override;
 
@@ -49,6 +50,7 @@ namespace Tbx
         static Mat4x4 Multiply(const Mat4x4& lhs, const Mat4x4& rhs);
         static Mat4x4 Multiply(float lhs, const Mat4x4& rhs);
         static Mat4x4 Multiply(const Mat4x4& lhs, float rhs);
+        static bool IsEqual(const Mat4x4& lhs, float rhs);
 
         std::array<float, 16> Values;
     };

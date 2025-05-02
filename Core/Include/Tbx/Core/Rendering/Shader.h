@@ -1,6 +1,5 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/Math/Mat4x4.h"
 #include "Tbx/Core/Math/Int.h"
 #include "Tbx/Core/Ids/UsesUID.h"
 #include "Tbx/Core/Debug/DebugAPI.h"
@@ -40,7 +39,6 @@ namespace Tbx
             case Int3:   return 4 * 3;
             case Int4:   return 4 * 4;
             case Bool:   return 1;
-            default:     return 0;
         }
 
         TBX_ASSERT(false, "Unknown ShaderDataType!");
@@ -121,7 +119,7 @@ namespace Tbx
             void main()
             {
                 vec4 texColor = color;
-                texColor *= texture(textureUniform, textureCoord);
+                //texColor *= texture(textureUniform, textureCoord);
                 outColor = texColor;
             }
         )";

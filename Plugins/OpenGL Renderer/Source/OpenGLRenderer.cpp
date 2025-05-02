@@ -1,4 +1,5 @@
 #include "OpenGLRenderer.h"
+#include "OpenGLBuffers.h"
 
 namespace OpenGLRendering
 {
@@ -9,12 +10,16 @@ namespace OpenGLRendering
 
     void OpenGLRenderer::SetViewport(const Tbx::Vector2I& screenPos, const Tbx::Size& size)
     {
+        TBX_VERBOSE("OpenGl Renderer: Set viewport size to {}...\n", size.ToString());
+
         _viewportSize = size;
         glViewport(screenPos.X, screenPos.Y, size.Width, size.Height);
     }
 
     void OpenGLRenderer::SetResolution(const Tbx::Size& size)
     {
+        TBX_VERBOSE("OpenGl Renderer: Set resolution to {}...\n", size.ToString());
+
         _resolution = size;
 
         //glGenFramebuffers(1, &_frameBuf);
@@ -48,87 +53,14 @@ namespace OpenGLRendering
 
     void OpenGLRenderer::SetVSyncEnabled(const bool& enabled)
     {
+        TBX_VERBOSE("OpenGl Renderer: Set vsync to {}...\n", enabled);
         _context.SetSwapInterval(enabled);
-    }
-
-    void OpenGLRenderer::ProcessData(const Tbx::RenderData& data)
-    {
-        const auto& command = data.GetCommand();
-        const auto& payload = data.GetPayload();
-        switch (command)
-        {
-            case Tbx::RenderCommand::None:
-            {
-                break;
-            }
-            case Tbx::RenderCommand::Clear:
-            {
-                const auto& color = std::any_cast<const Tbx::Color&>(payload);
-                Clear(color);
-                break;
-            }
-            case Tbx::RenderCommand::CompileMaterial:
-            {
-                const auto& material = std::any_cast<const Tbx::Material&>(payload);
-
-                CompileShader(material.GetShader());
-
-                int textureSlot = 0;
-                for (const auto& texture : material.GetTextures())
-                {
-                    UploadTexture(texture, textureSlot);
-                    textureSlot++;
-                }
-
-                break;
-            }
-            case Tbx::RenderCommand::SetMaterial:
-            {
-                const auto& material = std::any_cast<const Tbx::Material&>(payload);
-                SetMaterial(material);
-                break;
-            }
-            case Tbx::RenderCommand::UploadMaterialShaderData:
-            {
-                const auto& shaderData = std::any_cast<const Tbx::ShaderData&>(payload);
-                UploadShaderData(shaderData);
-                break;
-            }
-            case Tbx::RenderCommand::RenderMesh:
-            {
-                _lastDrawnData = data;
-                const auto& mesh = std::any_cast<const Tbx::Mesh&>(payload);
-                Draw(mesh);
-                break;
-            }
-            default:
-            {
-                TBX_ASSERT(false, "Unknown render command type.");
-                break;
-            }
-        }
-    }
-
-    void OpenGLRenderer::UploadTexture(const Tbx::Texture& texture, const Tbx::uint& slot)
-    {
-        auto& lastGlTexture = _textures.emplace_back();
-        lastGlTexture.SetData(texture, slot);
-    }
-
-    void OpenGLRenderer::CompileShader(const Tbx::Shader& shader)
-    {
-        auto& glShader = _shaders.emplace_back();
-        glShader.Compile(shader);
-    }
-
-    void OpenGLRenderer::UploadShaderData(const Tbx::ShaderData& data)
-    {
-        const auto& glShader = _shaders.back();
-        glShader.UploadData(data);
     }
 
     void OpenGLRenderer::Flush()
     {
+        TBX_VERBOSE("OpenGl Renderer: flushing...\n");
+
         _shaders.clear();
         _textures.clear();
         glFlush();
@@ -136,18 +68,24 @@ namespace OpenGLRendering
 
     void OpenGLRenderer::Clear(const Tbx::Color& color)
     {
+        TBX_VERBOSE("OpenGl Renderer: clearing to {}...\n", color.ToString());
+
         glClearColor(color.R, color.G, color.B, color.A);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
     void OpenGLRenderer::BeginDraw()
     {
+        TBX_VERBOSE("OpenGl Renderer: BEGIN DRAW");
+
         // Clear whatever was on screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
     void OpenGLRenderer::EndDraw()
     {
+        TBX_VERBOSE("OpenGl Renderer: END DRAW \n");
+
         //// Blit scene FBO to screen
         //glBindFramebuffer(GL_READ_FRAMEBUFFER, _frameBuf);
         //glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _frameBuf);
@@ -161,6 +99,105 @@ namespace OpenGLRendering
 
         // Swap our buffers
         _context.SwapBuffers();
+    }
+
+    void OpenGLRenderer::Draw(const Tbx::Mesh& mesh)
+    {
+        OpenGLVertexArray vertArray;
+        vertArray.Bind();
+
+        const auto& meshVertexBuffer = mesh.GetVertices();
+        vertArray.AddVertexBuffer(meshVertexBuffer);
+        const auto& meshIndexBuffer = mesh.GetIndices();
+        vertArray.SetIndexBuffer(meshIndexBuffer);
+
+        glDrawElements(GL_TRIANGLES, vertArray.GetIndexCount(), GL_UNSIGNED_INT, nullptr);
+    }
+
+    void OpenGLRenderer::Redraw()
+    {
+        ProcessData(_lastDrawnData);
+    }
+
+    void OpenGLRenderer::ProcessData(const Tbx::RenderData& data)
+    {
+        const auto& command = data.GetCommand();
+        const auto& payload = data.GetPayload();
+        switch (command)
+        {
+        case Tbx::RenderCommand::None:
+        {
+            TBX_VERBOSE("OpenGl Renderer: Processing none cmd...");
+            break;
+        }
+        case Tbx::RenderCommand::Clear:
+        {
+            TBX_VERBOSE("OpenGl Renderer: Processing clear cmd...");
+
+            const auto& color = std::any_cast<const Tbx::Color&>(payload);
+            Clear(color);
+            break;
+        }
+        case Tbx::RenderCommand::CompileMaterial:
+        {
+            TBX_VERBOSE("OpenGl Renderer: Processing compile material cmd...");
+
+            const auto& material = *std::any_cast<std::shared_ptr<Tbx::Material>>(payload);
+
+            CompileShader(material.GetShader());
+
+            int textureSlot = 0;
+            for (const auto& texture : material.GetTextures())
+            {
+                UploadTexture(texture, textureSlot);
+                textureSlot++;
+            }
+
+            break;
+        }
+        case Tbx::RenderCommand::UploadMaterialShaderData:
+        {
+            TBX_VERBOSE("OpenGl Renderer: Processing upload material data cmd...");
+
+            const auto& shaderData = std::any_cast<const Tbx::ShaderData&>(payload);
+            UploadShaderData(shaderData);
+            break;
+        }
+        case Tbx::RenderCommand::SetMaterial:
+        {
+            TBX_VERBOSE("OpenGl Renderer: Processing set material cmd...");
+
+            const auto& material = *std::any_cast<std::shared_ptr<Tbx::Material>>(payload);
+            SetMaterial(material);
+            break;
+        }
+        case Tbx::RenderCommand::RenderMesh:
+        {
+            TBX_VERBOSE("OpenGl Renderer: Processing mesh cmd...");
+
+            _lastDrawnData = data;
+            const auto& mesh = *std::any_cast<std::shared_ptr<Tbx::Mesh>>(payload);
+            Draw(mesh);
+            break;
+        }
+        default:
+        {
+            TBX_ASSERT(false, "Unknown render command type.");
+            break;
+        }
+        }
+    }
+
+    void OpenGLRenderer::UploadTexture(const Tbx::Texture& texture, const Tbx::uint& slot)
+    {
+        auto& lastGlTexture = _textures.emplace_back();
+        lastGlTexture.SetData(texture, slot);
+    }
+
+    void OpenGLRenderer::CompileShader(const Tbx::Shader& shader)
+    {
+        auto& glShader = _shaders.emplace_back();
+        glShader.Compile(shader);
     }
 
     void OpenGLRenderer::SetMaterial(const Tbx::Material& material)
@@ -182,21 +219,9 @@ namespace OpenGLRendering
         }
     }
 
-    void OpenGLRenderer::Draw(const Tbx::Mesh& mesh)
+    void OpenGLRenderer::UploadShaderData(const Tbx::ShaderData& data)
     {
-        OpenGLVertexArray vertArray;
-        vertArray.Bind();
-
-        const auto& meshVertexBuffer = mesh.GetVertices();
-        vertArray.AddVertexBuffer(meshVertexBuffer);
-        const auto& meshIndexBuffer = mesh.GetIndices();
-        vertArray.SetIndexBuffer(meshIndexBuffer);
-
-        glDrawElements(GL_TRIANGLES, vertArray.GetIndexCount(), GL_UNSIGNED_INT, nullptr);
-    }
-
-    void OpenGLRenderer::Redraw()
-    {
-        ProcessData(_lastDrawnData);
+        const auto& glShader = _shaders.back();
+        glShader.UploadData(data);
     }
 }

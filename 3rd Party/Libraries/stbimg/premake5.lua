@@ -16,7 +16,9 @@ project "stbimg"
     files
     {
         "src/*.cpp",
-        "include/*.h"
+        "include/*.h",
+        "./**.md",
+        "./**.lua",
     }
 
     includedirs
@@ -31,16 +33,16 @@ project "stbimg"
 
     filter "configurations:Debug"
         runtime "Debug"
-        linkoptions { "/LTCG:incremental" }  -- Enable Link Time Code Generation and Incremental linking
+        linkoptions { "/MDd" }  -- Enable Link Time Code Generation and Incremental linking
         symbols "on"
 
     filter "configurations:Optimized"
         runtime "Release"
-        linkoptions { "/LTCG:incremental" }  -- Enable Link Time Code Generation and Incremental linking
+        linkoptions { "/MDd" }  -- Enable Link Time Code Generation and Incremental linking
         optimize "on"
 
     filter "configurations:Release"
         runtime "Release"
         optimize "on"
-        linkoptions { "/LTCG:incremental" }  -- Enable Link Time Code Generation and Incremental linking
+        linkoptions { "/MD" }  -- Enable Link Time Code Generation and Incremental linking
         symbols "off"

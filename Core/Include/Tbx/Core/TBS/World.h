@@ -16,7 +16,7 @@ namespace Tbx
         EXPORT static UID MakePlayspace();
         EXPORT static void RemovePlayspace(UID id);
 
-        EXPORT static std::weak_ptr<PlaySpace> GetPlayspace(UID id);
+        EXPORT static std::shared_ptr<PlaySpace> GetPlayspace(UID id);
         EXPORT static std::vector<std::shared_ptr<PlaySpace>> GetPlayspaces();
         EXPORT static uint32 GetPlayspaceCount();
 

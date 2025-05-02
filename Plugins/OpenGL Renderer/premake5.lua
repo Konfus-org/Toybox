@@ -4,6 +4,7 @@ project "OpenGL Renderer"
     cppdialect "C++20"
     staticruntime "Off"
     ignoredefaultlibraries { "MSVCRT" }
+    externalwarnings "Off"
 
     targetdir ("../../" .. OutputTargetPluginDir .. "")
     objdir    ("../../" .. OutputIntermediatePluginDir .. "")

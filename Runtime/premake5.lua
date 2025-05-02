@@ -3,6 +3,7 @@ project "Runtime"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
+    externalwarnings "Off"
 
     pchheader "Tbx/Runtime/PCH.h"
     pchsource "Source/Tbx/Runtime/PCH.cpp" -- Full path MUST be specified relative to the premake5.lua (this) script.

@@ -1,11 +1,10 @@
 #pragma once
 #include <Tbx/Core/Math/Int.h>
 #include <Tbx/Core/Rendering/RenderData.h>
-#include <memory>
+#include <algorithm>
 #include <utility>
 #include <vector>
 #include <queue>
-#include <any>
 
 namespace Tbx
 {
@@ -18,6 +17,15 @@ namespace Tbx
         void Clear() { _items.clear(); }
 
         const std::vector<RenderData>& GetItems() const { return _items; }
+
+        void Sort()
+        {
+            auto& itemsToSort = _items;
+            std::ranges::sort(itemsToSort, [](const RenderData& a, const RenderData& b)
+            {
+                return static_cast<int>(a.GetCommand()) < static_cast<int>(b.GetCommand());
+            });
+        }
 
         std::vector<RenderData>::iterator begin() { return _items.begin(); }
         std::vector<RenderData>::iterator end() { return _items.end(); }
@@ -32,7 +40,7 @@ namespace Tbx
     {
     public:
         bool IsEmpty() const { return _renderQueue.empty(); }
-        uint32 GetCount() const { return (uint32)_renderQueue.size(); }
+        uint GetCount() const { return static_cast<uint>(_renderQueue.size()); }
 
         RenderBatch& Emplace() { return _renderQueue.emplace(); }
         void Push(const RenderBatch& batch) { _renderQueue.push(batch); }

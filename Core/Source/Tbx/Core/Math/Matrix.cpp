@@ -184,4 +184,11 @@ namespace Tbx
         const auto& result = lhsMat * rhs;
         return GlmMat4ToMatrix(result);
     }
+
+    bool Mat4x4::IsEqual(const Mat4x4& lhs, float rhs)
+    {
+        const auto& lhsMat = glm::make_mat4(lhs.Values.data());
+        const auto& rhsMat = glm::make_mat4(lhs.Values.data());
+        return lhsMat == rhsMat;
+    }
 }

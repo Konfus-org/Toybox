@@ -1,6 +1,8 @@
 #include "OpenGLShader.h"
 #include <Tbx/Core/Rendering/Color.h>
+#include <Tbx/Core/Math/Mat4x4.h>
 #include <vector>
+
 
 namespace OpenGLRendering
 {
@@ -194,31 +196,43 @@ namespace OpenGLRendering
 		{
 			case Tbx::ShaderDataType::Mat4:
 			{
+				TBX_VERBOSE("OpenGl Renderer: Uploading Mat4 shader data {}...", data.GetName());
+
                 UploadUniformMat4(data.GetName(), std::any_cast<Tbx::Mat4x4>(data.GetData()), _rendererId);
 				break;
 			}
             case Tbx::ShaderDataType::Float:
             {
+				TBX_VERBOSE("OpenGl Renderer: Uploading Float shader data {}...", data.GetName());
+
                 UploadUniformFloat(data.GetName(), std::any_cast<float>(data.GetData()), _rendererId);
                 break;
             }
             case Tbx::ShaderDataType::Float2:
             {
+				TBX_VERBOSE("OpenGl Renderer: Uploading Float2 shader data {}...", data.GetName());
+
                 UploadUniformFloat2(data.GetName(), std::any_cast<Tbx::Vector2>(data.GetData()), _rendererId);
                 break;
             }
             case Tbx::ShaderDataType::Float3:
             {
+				TBX_VERBOSE("OpenGl Renderer: Uploading Float3 shader data {}...", data.GetName());
+
                 UploadUniformFloat3(data.GetName(), std::any_cast<Tbx::Vector3>(data.GetData()), _rendererId);
                 break;
             }
             case Tbx::ShaderDataType::Float4:
             {
+				TBX_VERBOSE("OpenGl Renderer: Uploading Float4 shader data {}...", data.GetName());
+
                 UploadUniformFloat4(data.GetName(), std::any_cast<Tbx::Color>(data.GetData()), _rendererId);
                 break;
             }
             case Tbx::ShaderDataType::Int:
             {
+				TBX_VERBOSE("OpenGl Renderer: Uploading Int shader data {}...", data.GetName());
+
 				UploadUniformInt(data.GetName(), std::any_cast<int>(data.GetData()), _rendererId);
                 break;
             }
