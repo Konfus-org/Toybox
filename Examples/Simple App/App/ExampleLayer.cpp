@@ -30,8 +30,7 @@ void ExampleLayer::OnAttach()
 	_mainCam = _playspace->MakeToy("Camera");
 	_playspace->AddBlockTo<Tbx::Camera>(_mainCam);
 	auto& transform = _playspace->AddBlockTo<Tbx::Transform>(_mainCam);
-	transform.Position = { 0, 0, -5 };
-	transform.Rotation = Tbx::Vector3(0, 180, 0);
+	transform.Position = { 0, 0, -10 };
 
 	// Opens our new playspace
 	_playspace->Open();

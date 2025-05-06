@@ -211,14 +211,14 @@ namespace OpenGLRendering
 
         glShader->Bind();
 
-        //glShader->UploadData(Tbx::ShaderData("colorUni", material.GetColor(), Tbx::ShaderDataType::Float4));
+        glShader->UploadData(Tbx::ShaderData("colorUni", material.GetColor(), Tbx::ShaderDataType::Float4));
 
-        //for (const auto& texture : material.GetTextures())
-        //{
-        //    const auto& glTexture = std::find_if(_textures.begin(), _textures.end(),
-        //        [&](const OpenGLTexture& glt) { return glt.GetAssociatedAssetId() == texture.GetId(); });
-        //    glTexture->Bind();
-        //}
+        for (const auto& texture : material.GetTextures())
+        {
+            const auto& glTexture = std::find_if(_textures.begin(), _textures.end(),
+                [&](const OpenGLTexture& glt) { return glt.GetAssociatedAssetId() == texture.GetId(); });
+            glTexture->Bind();
+        }
     }
 
     void OpenGLRenderer::UploadShaderData(const Tbx::ShaderData& data)

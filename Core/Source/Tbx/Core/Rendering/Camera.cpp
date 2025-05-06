@@ -49,15 +49,11 @@ namespace Tbx
 
     Mat4x4 Camera::CalculateViewMatrix(const Vector3& camPosition, const Quaternion& camRotation)
     {
-        // Rotate the base forward vector by the camera's rotation
-        Vector3 forward = Vector3::Normalize(camRotation * Vector3::Forward());  // Left-hande
+        // Calculate the view matrix
+        Mat4x4 rotationMatrix = Mat4x4::FromRotation(camRotation);
+        Mat4x4 translationMatrix = Mat4x4::Translate(Mat4x4::Identity(), camPosition * -1);
 
-        // Calculate the target point the camera is looking at
-        Vector3 target = camPosition + forward;
-
-        // Use the LookAt function to create the view matrix.
-        // In a left-handed system, the "up" vector is typically +Y.
-        return Mat4x4::LookAt(camPosition, target, Vector3::Up());
+        return rotationMatrix * translationMatrix;
     }
 
     Mat4x4 Camera::CalculateViewProjectionMatrix(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& projectionMatrix)
