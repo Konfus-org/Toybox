@@ -26,17 +26,23 @@ namespace Tbx
         static Vector3 Zero() { return {0, 0, 0}; }
         static Vector3 One() { return {1, 1, 1}; }
         /// <summary>
-        /// This engine uses the Left-Handed coordinate system, so [0, 0, 1] is our forward vector.
+        /// Toybox uses the Left-Handed coordinate system, so [0, 0, 1] is our forward vector.
         /// </summary>
         static Vector3 Forward() { return {0, 0, 1}; }
         /// <summary>
-        /// This engine uses the Left-Handed coordinate system, so [0, 0, -1] is our backward vector.
+        /// Toybox uses the Left-Handed coordinate system, so [0, 0, -1] is our backward vector.
         /// </summary>
         static Vector3 Backward() { return {0, 0, -1}; }
         static Vector3 Up() { return {0, 1, 0}; }
         static Vector3 Down() { return {0, -1, 0}; }
-        static Vector3 Right() { return {1, 0, 0}; }
-        static Vector3 Left() { return {-1, 0, 0}; }
+        /// <summary>
+        /// Toybox uses the Left-Handed coordinate system, so [1, 0, 0] is our left vector.
+        /// </summary>
+        static Vector3 Left() { return {1, 0, 0}; }
+        /// <summary>
+        /// Toybox uses the Left-Handed coordinate system, so [-1, 0, 0] is our right vector.
+        /// </summary>
+        static Vector3 Right() { return {-1, 0, 0}; }
 
         static Vector3 Normalize(const Vector3& vector);
         static Vector3 Add(const Vector3& lhs, const Vector3& rhs);

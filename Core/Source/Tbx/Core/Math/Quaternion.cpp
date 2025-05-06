@@ -16,7 +16,7 @@ namespace Tbx
     Quaternion Quaternion::FromAxisAngle(const Vector3& axis, float angle)
     {
         auto glmAxis = glm::vec3(Math::DegreesToRadians(axis.X), Math::DegreesToRadians(axis.Y), Math::DegreesToRadians(axis.Z));
-        glm::quat result = glm::angleAxis(Math::DegreesToRadians(angle), glmAxis);
+        glm::quat result = glm::angleAxis(Math::DegreesToRadians(angle), glm::normalize(glmAxis));
         return { result.x, result.y, result.z, result.w };
     }
 

@@ -51,7 +51,7 @@ namespace Tbx
     {
         // Calculate the view matrix
         Mat4x4 rotationMatrix = Mat4x4::FromRotation(camRotation);
-        Mat4x4 translationMatrix = Mat4x4::Translate(Mat4x4::Identity(), camPosition * -1);
+        Mat4x4 translationMatrix = Mat4x4::Translate(Mat4x4::Identity(), camPosition * Vector3(-1, 1, 1) * -1);
 
         return rotationMatrix * translationMatrix;
     }

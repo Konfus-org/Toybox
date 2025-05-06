@@ -49,40 +49,40 @@ void ExampleLayer::OnUpdate()
 	auto& camTransform = _playspace->GetBlockOn<Tbx::Transform>(_mainCam);
 	if (Tbx::Input::IsKeyDown(TBX_KEY_W))
 	{
-		camTransform.Position = camTransform.Position + Tbx::Vector3::Forward() * _camMoveSpeed * deltaTime;
+		camTransform.Position = camTransform.Position + Tbx::Vector3::Forward() * (_camMoveSpeed * deltaTime);
 	}
     else if (Tbx::Input::IsKeyDown(TBX_KEY_S))
     {
-		camTransform.Position = camTransform.Position + Tbx::Vector3::Backward() * _camMoveSpeed * deltaTime;
+		camTransform.Position = camTransform.Position + Tbx::Vector3::Backward() * (_camMoveSpeed * deltaTime);
     }
 
     if (Tbx::Input::IsKeyDown(TBX_KEY_A))
     {
-		camTransform.Position = camTransform.Position + Tbx::Vector3::Left() * _camMoveSpeed * deltaTime;
+		camTransform.Position = camTransform.Position + Tbx::Vector3::Left() * (_camMoveSpeed * deltaTime);
     }
     else if (Tbx::Input::IsKeyDown(TBX_KEY_D))
     {
-		camTransform.Position = camTransform.Position + Tbx::Vector3::Right() * _camMoveSpeed * deltaTime;
+		camTransform.Position = camTransform.Position + Tbx::Vector3::Right() * (_camMoveSpeed * deltaTime);
     }
 
     if (Tbx::Input::IsKeyDown(TBX_KEY_Q))
     {
-		camTransform.Position = camTransform.Position + Tbx::Vector3::Forward() * _camMoveSpeed * deltaTime;
+		camTransform.Position = camTransform.Position + Tbx::Vector3::Forward() * (_camMoveSpeed * deltaTime);
     }
     else if (Tbx::Input::IsKeyDown(TBX_KEY_E))
     {
-		camTransform.Position = camTransform.Position + Tbx::Vector3::Backward() * _camMoveSpeed * deltaTime;
+		camTransform.Position = camTransform.Position + Tbx::Vector3::Backward() * (_camMoveSpeed * deltaTime);
     }
 
 	// Camera rotation
     if (Tbx::Input::IsKeyDown(TBX_KEY_LEFT))
     {
-		auto rotationToApply = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3(0.0f, 1.0f, 0.0f), -1.0f * _camRotateSpeed * deltaTime);
+		auto rotationToApply = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3(0.0f, 1.0f, 0.0f), 1.0f * (_camRotateSpeed * deltaTime));
 		camTransform.Rotation = camTransform.Rotation * rotationToApply;
     }
     else if (Tbx::Input::IsKeyDown(TBX_KEY_RIGHT))
     {
-		auto rotationToApply = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3(0.0f, 1.0f, 0.0f), 1.0f * _camRotateSpeed * deltaTime);
+		auto rotationToApply = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3(0.0f, 1.0f, 0.0f), -1.0f * (_camRotateSpeed * deltaTime));
 		camTransform.Rotation = camTransform.Rotation * rotationToApply;
     }
 	else if (Tbx::Input::IsKeyDown(TBX_KEY_UP))
