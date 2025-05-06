@@ -1,15 +1,9 @@
 #include "Tbx/Core/PCH.h"
 #include "Tbx/Core/Math/Trig.h"
 #include <glm/glm.hpp>
-#include <glm/ext/scalar_constants.hpp>
 
 namespace Tbx::Math
 {
-    float PI()
-    {
-        return glm::pi<float>();
-    }
-
     float DegreesToRadians(float degrees)
     {
         return glm::radians(degrees);

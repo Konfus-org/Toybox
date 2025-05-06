@@ -3,59 +3,83 @@
 #include "Tbx/Core/Math/Trig.h"
 #include <glm/fwd.hpp>
 #include <glm/gtx/euler_angles.hpp>
+#include <glm/gtx/matrix_interpolation.hpp>
 
 namespace Tbx
 {
     Quaternion Quaternion::Identity()
     {
-        const auto& glmQuat = glm::identity<glm::quat>();
-        return Quaternion(glmQuat.x, glmQuat.y, glmQuat.z, glmQuat.w);
+        const auto glmQuat = glm::identity<glm::quat>();
+        return {glmQuat.x, glmQuat.y, glmQuat.z, glmQuat.w};
+    }
+
+    Quaternion Quaternion::FromAxisAngle(const Vector3& axis, float angle)
+    {
+        auto glmAxis = glm::vec3(Math::DegreesToRadians(axis.X), Math::DegreesToRadians(axis.Y), Math::DegreesToRadians(axis.Z));
+        glm::quat result = glm::angleAxis(Math::DegreesToRadians(angle), glmAxis);
+        return { result.x, result.y, result.z, result.w };
     }
 
     Quaternion Quaternion::FromEuler(float x, float y, float z)
     {
-        glm::quat result = glm::vec3(Math::DegreesToRadians(x), Math::DegreesToRadians(y), Math::DegreesToRadians(z));
-        return Quaternion(result.x, result.y, result.z, result.w);
+        const auto result = glm::quat(glm::vec3(Math::DegreesToRadians(x), Math::DegreesToRadians(y), Math::DegreesToRadians(z)));
+        return {result.x, result.y, result.z, result.w};
     }
 
     Vector3 Quaternion::ToEuler(const Quaternion& quaternion)
     {
-        glm::vec3 result = glm::eulerAngles(glm::quat(quaternion.W, quaternion.X, quaternion.Y, quaternion.Z));
-        return Vector3(Math::RadiansToDegrees(result.x), Math::RadiansToDegrees(result.y), Math::RadiansToDegrees(result.z));
+        glm::vec3 result = glm::degrees(glm::eulerAngles(glm::quat(quaternion.W, quaternion.X, quaternion.Y, quaternion.Z)));
+        return {result.x, result.y, result.z};
     }
 
     Quaternion Quaternion::Normalize(const Quaternion& quaternion)
     {
-        const auto& glmQuat = glm::quat(quaternion.W, quaternion.X, quaternion.Y, quaternion.Z);
-        const auto& result = glm::normalize(glmQuat);
+        const auto glmQuat = glm::quat(quaternion.W, quaternion.X, quaternion.Y, quaternion.Z);
+        const auto result = glm::normalize(glmQuat);
 
-        return Quaternion(result.x, result.y, result.z, result.w);
+        return {result.x, result.y, result.z, result.w};
     }
 
     Quaternion Quaternion::Add(const Quaternion& lhs, const Quaternion& rhs)
     {
-        const auto& glmL = glm::quat(lhs.W, lhs.X, lhs.Y, lhs.Z);
-        const auto& glmR = glm::quat(rhs.W, rhs.X, rhs.Y, rhs.Z);
+        const auto glmL = glm::quat(lhs.W, lhs.X, lhs.Y, lhs.Z);
+        const auto glmR = glm::quat(rhs.W, rhs.X, rhs.Y, rhs.Z);
 
         auto result = glmL + glmR;
-        return Quaternion(result.x, result.y, result.z, result.w);
+        return {result.x, result.y, result.z, result.w};
     }
 
     Quaternion Quaternion::Subtract(const Quaternion& lhs, const Quaternion& rhs)
     {
-        const auto& glmL = glm::quat(rhs.W, lhs.X, lhs.Y, lhs.Z);
-        const auto& glmR = glm::quat(lhs.W, rhs.X, rhs.Y, rhs.Z);
+        const auto glmL = glm::quat(lhs.W, lhs.X, lhs.Y, lhs.Z);
+        const auto glmR = glm::quat(rhs.W, rhs.X, rhs.Y, rhs.Z);
 
         auto result = glmL - glmR;
-        return Quaternion(result.x, result.y, result.z, result.w);
+        return {result.x, result.y, result.z, result.w};
     }
 
     Quaternion Quaternion::Multiply(const Quaternion& lhs, const Quaternion& rhs)
     {
-        const auto& glmL = glm::quat(lhs.W, lhs.X, lhs.Y, lhs.Z);
-        const auto& glmR = glm::quat(rhs.W, rhs.X, rhs.Y, rhs.Z);
+        const auto glmL = glm::quat(lhs.W, lhs.X, lhs.Y, lhs.Z);
+        const auto glmR = glm::quat(rhs.W, rhs.X, rhs.Y, rhs.Z);
 
         auto result = glmL * glmR;
-        return Quaternion(result.x, result.y, result.z, result.w);
+        return {result.x, result.y, result.z, result.w};
+    }
+
+    Vector3 Quaternion::Multiply(const Quaternion& lhs, const Vector3& rhs)
+    {
+        const auto glmL = glm::quat(lhs.W, lhs.X, lhs.Y, lhs.Z);
+        const auto glmR = glm::vec3(rhs.X, rhs.Y, rhs.Z);
+        auto result = glmL * glmR;
+        return { result.x, result.y, result.z };
+    }
+
+    Vector3 Quaternion::Multiply(const Vector3& lhs, const Quaternion& rhs)
+    {
+        const auto& glmL = glm::vec3(lhs.X, lhs.Y, lhs.Z);
+        const auto& glmR = glm::quat(rhs.W, rhs.X, rhs.Y, rhs.Z);
+        auto result = glmL * glmR;
+        return { result.x, result.y, result.z };
     }
 }

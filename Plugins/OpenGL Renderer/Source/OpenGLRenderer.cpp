@@ -125,66 +125,66 @@ namespace OpenGLRendering
         const auto& payload = data.GetPayload();
         switch (command)
         {
-        case Tbx::RenderCommand::None:
-        {
-            TBX_VERBOSE("OpenGl Renderer: Processing none cmd...");
-            break;
-        }
-        case Tbx::RenderCommand::Clear:
-        {
-            TBX_VERBOSE("OpenGl Renderer: Processing clear cmd...");
-
-            const auto& color = std::any_cast<const Tbx::Color&>(payload);
-            Clear(color);
-            break;
-        }
-        case Tbx::RenderCommand::CompileMaterial:
-        {
-            TBX_VERBOSE("OpenGl Renderer: Processing compile material cmd...");
-
-            const auto& material = *std::any_cast<std::shared_ptr<Tbx::Material>>(payload);
-
-            CompileShader(material.GetShader());
-
-            int textureSlot = 0;
-            for (const auto& texture : material.GetTextures())
+            case Tbx::RenderCommand::None:
             {
-                UploadTexture(texture, textureSlot);
-                textureSlot++;
+                TBX_VERBOSE("OpenGl Renderer: Processing none cmd...");
+                break;
             }
+            case Tbx::RenderCommand::Clear:
+            {
+                TBX_VERBOSE("OpenGl Renderer: Processing clear cmd...");
 
-            break;
-        }
-        case Tbx::RenderCommand::UploadMaterialShaderData:
-        {
-            TBX_VERBOSE("OpenGl Renderer: Processing upload material data cmd...");
+                const auto& color = std::any_cast<const Tbx::Color&>(payload);
+                Clear(color);
+                break;
+            }
+            case Tbx::RenderCommand::CompileMaterial:
+            {
+                TBX_VERBOSE("OpenGl Renderer: Processing compile material cmd...");
 
-            const auto& shaderData = std::any_cast<const Tbx::ShaderData&>(payload);
-            UploadShaderData(shaderData);
-            break;
-        }
-        case Tbx::RenderCommand::SetMaterial:
-        {
-            TBX_VERBOSE("OpenGl Renderer: Processing set material cmd...");
+                const auto& material = std::any_cast<const Tbx::Material&>(payload);
 
-            const auto& material = *std::any_cast<std::shared_ptr<Tbx::Material>>(payload);
-            SetMaterial(material);
-            break;
-        }
-        case Tbx::RenderCommand::RenderMesh:
-        {
-            TBX_VERBOSE("OpenGl Renderer: Processing mesh cmd...");
+                CompileShader(material.GetShader());
 
-            _lastDrawnData = data;
-            const auto& mesh = *std::any_cast<std::shared_ptr<Tbx::Mesh>>(payload);
-            Draw(mesh);
-            break;
-        }
-        default:
-        {
-            TBX_ASSERT(false, "Unknown render command type.");
-            break;
-        }
+                int textureSlot = 0;
+                for (const auto& texture : material.GetTextures())
+                {
+                    UploadTexture(texture, textureSlot);
+                    textureSlot++;
+                }
+
+                break;
+            }
+            case Tbx::RenderCommand::UploadMaterialShaderData:
+            {
+                TBX_VERBOSE("OpenGl Renderer: Processing upload material data cmd...");
+
+                const auto& shaderData = std::any_cast<const Tbx::ShaderData&>(payload);
+                UploadShaderData(shaderData);
+                break;
+            }
+            case Tbx::RenderCommand::SetMaterial:
+            {
+                TBX_VERBOSE("OpenGl Renderer: Processing set material cmd...");
+
+                const auto& material = std::any_cast<const Tbx::Material&>(payload);
+                SetMaterial(material);
+                break;
+            }
+            case Tbx::RenderCommand::RenderMesh:
+            {
+                TBX_VERBOSE("OpenGl Renderer: Processing mesh cmd...");
+
+                _lastDrawnData = data;
+                const auto& mesh = std::any_cast<const Tbx::Mesh&>(payload);
+                Draw(mesh);
+                break;
+            }
+            default:
+            {
+                TBX_ASSERT(false, "Unknown render command type.");
+                break;
+            }
         }
     }
 
@@ -204,19 +204,21 @@ namespace OpenGLRendering
     {
         const auto& materialShaderId = material.GetShader().GetId();
 
-        const auto& glShader = std::find_if(_shaders.begin(), _shaders.end(),
-            [&](const OpenGLShader& shader) { return shader.GetAssociatedAssetId() == materialShaderId; });
+        const auto& glShader = std::ranges::find_if(_shaders, [&](const OpenGLShader& shader)
+        {
+            return shader.GetAssociatedAssetId() == materialShaderId;
+        });
 
         glShader->Bind();
 
-        glShader->UploadData(Tbx::ShaderData("colorUni", material.GetColor(), Tbx::ShaderDataType::Float4));
+        //glShader->UploadData(Tbx::ShaderData("colorUni", material.GetColor(), Tbx::ShaderDataType::Float4));
 
-        for (const auto& texture : material.GetTextures())
-        {
-            const auto& glTexture = std::find_if(_textures.begin(), _textures.end(),
-                [&](const OpenGLTexture& glt) { return glt.GetAssociatedAssetId() == texture.GetId(); });
-            glTexture->Bind();
-        }
+        //for (const auto& texture : material.GetTextures())
+        //{
+        //    const auto& glTexture = std::find_if(_textures.begin(), _textures.end(),
+        //        [&](const OpenGLTexture& glt) { return glt.GetAssociatedAssetId() == texture.GetId(); });
+        //    glTexture->Bind();
+        //}
     }
 
     void OpenGLRenderer::UploadShaderData(const Tbx::ShaderData& data)

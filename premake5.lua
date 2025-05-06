@@ -3,7 +3,7 @@ include "includes"
 
 workspace "Toybox"
     architecture "x86_64"
-    startproject "Tests/Simple App Test/Host"
+    startproject "Examples/Simple App/Host"
 
     configurations
     {
@@ -37,6 +37,8 @@ workspace "Toybox"
         include "Plugins/Spd Logging"
 
     group "Toybox/Tests"
-        include "Tests/Simple App Test/App"
-        include "Tests/Simple App Test/Host"
-        include "Tests/Unit Tests"
+        include "Tests/Core Tests"
+
+    group "Toybox/Examples"
+        include "Examples/Simple App/App"
+        include "Examples/Simple App/Host"

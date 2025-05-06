@@ -40,8 +40,6 @@
 /// </summary>
 #define TBX_CRITICAL(msg, ...)      Tbx::Log::Critical(msg, __VA_ARGS__)
 
-
-#define TBX_VERBOSE_ENABLED
 #ifdef TBX_VERBOSE_ENABLED
     /// <summary>
     /// Logs verbose info for debugging IF verbose logging is enabled.

@@ -19,7 +19,7 @@ namespace Tbx
             PreProcessToy(toy, playspace);
         }
 
-        _currBatch.Sort();
+        //_currBatch.Sort();
 
         return _currBatch;
     }
@@ -33,7 +33,7 @@ namespace Tbx
             ProcessToy(toy, playspace);
         }
 
-        _currBatch.Sort();
+        //_currBatch.Sort();
 
         return _currBatch;
     }
@@ -83,12 +83,12 @@ namespace Tbx
     void RenderProcessor::ProcessToy(const Toy& toy, const std::shared_ptr<PlaySpace>& playspace)
     {
         // NOTE: Order is important here!
-        
-        // Mesh block, upload the mesh data
-        if (playspace->HasBlockOn<Mesh>(toy))
+
+        // Material block, upload the material data
+        if (playspace->HasBlockOn<Material>(toy))
         {
-            auto& mesh = playspace->GetBlockOn<Mesh>(toy);
-            _currBatch.Emplace(RenderCommand::RenderMesh, Mesh::MakeQuad());
+            auto& material = playspace->GetBlockOn<Material>(toy);
+            _currBatch.Emplace(RenderCommand::SetMaterial, material);
         }
 
         // Transform block, upload the transform data
@@ -100,6 +100,13 @@ namespace Tbx
                 Mat4x4::FromTRS(transform.Position, transform.Rotation, transform.Scale),
                 ShaderDataType::Mat4);
             _currBatch.Emplace(RenderCommand::UploadMaterialShaderData, shaderData);
+        }
+        
+        // Mesh block, upload the mesh data
+        if (playspace->HasBlockOn<Mesh>(toy))
+        {
+            auto& mesh = playspace->GetBlockOn<Mesh>(toy);
+            _currBatch.Emplace(RenderCommand::RenderMesh, Mesh::MakeQuad());
         }
 
         // Camera block, upload the camera data
@@ -129,13 +136,6 @@ namespace Tbx
                 const auto& shaderData = ShaderData("viewProjectionUni", viewProjMatrix, ShaderDataType::Mat4);
                 _currBatch.Emplace(RenderCommand::UploadMaterialShaderData, shaderData);
             }
-        }
-
-        // Material block, upload the material data
-        if (playspace->HasBlockOn<Material>(toy))
-        {
-            auto& material = playspace->GetBlockOn<Material>(toy);
-            _currBatch.Emplace(RenderCommand::SetMaterial, material);
         }
     }
 }

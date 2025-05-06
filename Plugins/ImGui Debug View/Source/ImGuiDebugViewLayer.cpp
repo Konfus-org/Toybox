@@ -6,6 +6,9 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3_loader.h>
 
+#include "Tbx/Core/Math/Transform.h"
+#include "Tbx/Core/TBS/World.h"
+
 namespace ImGuiDebugView
 {
     void ImGuiDebugViewLayer::OnAttach()
@@ -43,7 +46,7 @@ namespace ImGuiDebugView
         //ImGui::StyleColorsLight();
 
         // Init size
-        const auto& mainWindow = Tbx::WindowManager::GetMainWindow();
+        const auto mainWindow = Tbx::WindowManager::GetMainWindow();
         _windowResolution = mainWindow.lock()->GetSize();
 
         // Setup Platform/Renderer backends
@@ -103,15 +106,32 @@ namespace ImGuiDebugView
                 ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
                 ImGui::Text("CPU Usage: %.1f%%", cpuUsage);
                 ImGui::Text("System CPU Usage: %.1f%%", cpuSysUsage);
-                ImGui::Text("Memory Usage (Available): %.1f%%", (float)memory / maxMemory * 100.0f);
-                ImGui::Text("Memory Usage (In MB): %.1f MB", (float)memory / 1024.0f / 1024.0f);
-                ImGui::Text("System Memory Usage: %.1f MB", (float)memUsage / 1024.0f / 1024.0f);
+                ImGui::Text("Memory Usage (Available): %.1f%%", static_cast<float>(memory) / maxMemory * 100.0f);
+                ImGui::Text("Memory Usage (In MB): %.1f MB", static_cast<float>(memory) / 1024.0f / 1024.0f);
+                ImGui::Text("System Memory Usage: %.1f MB", static_cast<float>(memUsage) / 1024.0f / 1024.0f);
             }
 
             if (ImGui::CollapsingHeader("Display"))
             {
                 ImGui::Text("Resolution: (%d, %d)", _windowResolution.Width, _windowResolution.Height);
                 ImGui::Text("Aspect Ratio: (%.1f)", _windowResolution.GetAspectRatio());
+            }
+
+            if (ImGui::CollapsingHeader("Rendering"))
+            {
+                int cameraNumber = 0;
+                auto playspaces = Tbx::World::GetPlayspaces();
+                for (auto playspace : playspaces)
+                {
+                    for (auto camera : Tbx::PlayspaceView<Tbx::Camera>(playspace))
+                    {
+                        auto& camTrans = playspace->GetBlockOn<Tbx::Transform>(camera);
+                        ImGui::Text("Camera %d Position: %s", cameraNumber, camTrans.Position.ToString().c_str());
+                        ImGui::Text("Camera %d Rotation: %s", cameraNumber, Tbx::Quaternion::ToEuler(camTrans.Rotation).ToString().c_str());
+                        ImGui::Text("Camera %d Scale: %s", cameraNumber, camTrans.Scale.ToString().c_str());
+                        cameraNumber++;
+                    }
+                }
             }
 
             if (ImGui::CollapsingHeader("Input"))

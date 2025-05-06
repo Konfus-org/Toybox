@@ -33,16 +33,16 @@ project "stbimg"
 
     filter "configurations:Debug"
         runtime "Debug"
-        linkoptions { "/MDd" }  -- Enable Link Time Code Generation and Incremental linking
+        linkoptions { "/MDd" } 
         symbols "on"
 
     filter "configurations:Optimized"
         runtime "Release"
-        linkoptions { "/MDd" }  -- Enable Link Time Code Generation and Incremental linking
+        linkoptions { "/MDd" } 
         optimize "on"
 
     filter "configurations:Release"
         runtime "Release"
         optimize "on"
-        linkoptions { "/MD" }  -- Enable Link Time Code Generation and Incremental linking
+        linkoptions { "/MD" } 
         symbols "off"

@@ -140,6 +140,8 @@ namespace Tbx
     {
     public:
 #ifdef TBX_DEBUG
+        explicit(false) Toy()
+            : UsesUID(-1) {}
         explicit(false) Toy(const std::string& name, UID id)
             : UsesUID(id), Name(name) {}
         explicit(false) Toy(const std::string& name, uint64 id)

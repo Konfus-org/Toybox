@@ -1,6 +1,7 @@
 #include "Tbx/Core/PCH.h"
 #include "Tbx/Core/Rendering/Camera.h"
 #include "Tbx/Core/Math/Mat4x4.h"
+#include "Tbx/Core/Math/Trig.h"
 
 namespace Tbx
 {
@@ -48,14 +49,15 @@ namespace Tbx
 
     Mat4x4 Camera::CalculateViewMatrix(const Vector3& camPosition, const Quaternion& camRotation)
     {
-        // Flip the X-axis (if needed for your coordinate system)
-        auto flippedPosition = camPosition * Vector3(-1.0f, 1.0f, 1.0f);
+        // Rotate the base forward vector by the camera's rotation
+        Vector3 forward = Vector3::Normalize(camRotation * Vector3::Forward());  // Left-hande
 
-        // Calculate the view matrix
-        Mat4x4 rotationMatrix = Mat4x4::FromRotation(camRotation);
-        Mat4x4 translationMatrix = Mat4x4::Translate(Mat4x4::Identity(), flippedPosition * -1);
+        // Calculate the target point the camera is looking at
+        Vector3 target = camPosition + forward;
 
-        return rotationMatrix * translationMatrix;
+        // Use the LookAt function to create the view matrix.
+        // In a left-handed system, the "up" vector is typically +Y.
+        return Mat4x4::LookAt(camPosition, target, Vector3::Up());
     }
 
     Mat4x4 Camera::CalculateViewProjectionMatrix(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& projectionMatrix)

@@ -7,16 +7,21 @@
 #include <Tbx/Core/TBS/World.h>
 #include <memory>
 
-#include "Tbx/Core/Rendering/Material.h"
-#include "Tbx/Core/Rendering/Mesh.h"
-#include "Tbx/Core/Rendering/Shader.h"
-#include "Tbx/Runtime/Windowing/WindowManager.h"
+///////// TESTING /////////////
+
+//#include "Tbx/Core/Rendering/Material.h"
+//#include "Tbx/Core/Rendering/Mesh.h"
+//#include "Tbx/Core/Rendering/Shader.h"
+//#include "Tbx/Runtime/Windowing/WindowManager.h"
+//static Camera _cam = Camera();
+//static std::shared_ptr<Material> _redMat = nullptr;
+//static std::shared_ptr<Mesh> _squareMesh = nullptr;
+
+///////// TESTING /////////////
 
 namespace Tbx
 {
-    static Camera _cam = Camera();
-    static std::shared_ptr<Material> _redMat = nullptr;
-    static std::shared_ptr<Mesh> _squareMesh = nullptr;
+
 
     bool RenderPipeline::IsOverlay()
     {

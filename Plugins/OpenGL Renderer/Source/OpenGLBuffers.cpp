@@ -1,7 +1,6 @@
 #include "OpenGLBuffers.h"
 #include "OpenGLShader.h"
 
-
 namespace OpenGLRendering
 {
     /////////////////////////////////////////////////////////////////////////////
@@ -22,7 +21,7 @@ namespace OpenGLRendering
     void OpenGLVertexBuffer::SetData(const Tbx::VertexBuffer& vertices)
     {
         const auto& verticesVec = vertices.GetVertices();
-        _count = (Tbx::uint32)verticesVec.size();
+        _count = static_cast<Tbx::uint32>(verticesVec.size());
         glBindBuffer(GL_ARRAY_BUFFER, _rendererId);
         glBufferData(GL_ARRAY_BUFFER, _count * sizeof(float), vertices.GetVertices().data(), GL_STATIC_DRAW);
 
@@ -47,7 +46,7 @@ namespace OpenGLRendering
         glEnableVertexAttribArray(index);
 #pragma warning( push )
 #pragma warning( disable : 4312 )
-        glVertexAttribPointer(index, size, type, normalized, stride, (const void*)offset);
+        glVertexAttribPointer(index, size, type, normalized, stride, reinterpret_cast<const void*>(offset));
 #pragma warning( pop )
     }
 
@@ -74,7 +73,7 @@ namespace OpenGLRendering
     void OpenGLIndexBuffer::SetData(const Tbx::IndexBuffer& indices)
     {
         const auto& indicesVec = indices.GetIndices();
-        _count = (Tbx::uint32)indicesVec.size();
+        _count = static_cast<Tbx::uint32>(indicesVec.size());
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, _count * sizeof(Tbx::uint32), indicesVec.data(), GL_STATIC_DRAW);
     }
 

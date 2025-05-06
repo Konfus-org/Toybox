@@ -1,10 +1,8 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/Math/Bounds.h"
 #include "Tbx/Core/Math/Mat4x4.h"
 #include "Tbx/Core/Math/Vectors.h"
 #include "Tbx/Core/Math/Quaternion.h"
-#include "Tbx/Core/Math/Trig.h"
 
 namespace Tbx
 {
@@ -20,7 +18,8 @@ namespace Tbx
         bool IsPerspective() const { return _isPerspective; }
         bool IsOrthagraphic() const { return !_isPerspective; }
 
-        float GetFov() const { return Math::RadiansToDegrees(_fov); }
+        float GetAspect() const { return _aspect; }
+        float GetFov() const { return _fov; }
         float GetZNear() const { return _zNear; }
         float GetZFar() const { return _zFar; }
         const Mat4x4& GetProjectionMatrix() const { return _projectionMatrix; }

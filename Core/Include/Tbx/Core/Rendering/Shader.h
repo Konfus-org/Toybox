@@ -119,7 +119,6 @@ namespace Tbx
             void main()
             {
                 vec4 texColor = color;
-                //texColor *= texture(textureUniform, textureCoord);
                 outColor = texColor;
             }
         )";

@@ -16,7 +16,7 @@ namespace Tbx
             : Position(position), Rotation(rotation), Scale(scale) {}
 
         Vector3 Position = Vector3::Zero();
-        Quaternion Rotation = Tbx::Quaternion::FromEuler(Tbx::Vector3(0.0f, 0.0f, 0.0f));
+        Quaternion Rotation = Quaternion::Identity();
         Vector3 Scale = Vector3::One();
     };
 }

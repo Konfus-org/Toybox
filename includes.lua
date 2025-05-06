@@ -18,5 +18,5 @@ IncludeDir["TbxCore"] = "%{wks.location}/Core/Include"
 IncludeDir["TbxRuntime"] = "%{wks.location}/Runtime/Include"
 IncludeDir["TbxRuntimeHost"] = "%{wks.location}/Runtime Host/Include"
 
--- Testing
-IncludeDir["TestApp"] = "%{wks.location}/Tests/Simple App Test/App"
+-- Examples
+IncludeDir["ExampleApp"] = "%{wks.location}/Tests/Simple App Test/App"
