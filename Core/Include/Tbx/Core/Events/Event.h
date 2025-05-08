@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
 #include "Tbx/Core/Events/EventCategory.h"
-#include "Tbx/Core/Debug/ILoggable.h"
+#include "Tbx/Core/Debug/IPrintable.h"
 
 namespace Tbx
 {
@@ -13,9 +13,11 @@ namespace Tbx
     /// In general all events should be named using past tense, ex: CoolThingHappenedEvent.
     /// If the event is marked as handled, the event coordinator will stop processing it and not send it to any other subscribers.
     /// </summary>
-    class EXPORT Event : public ILoggable
+    class EXPORT Event : public IPrintable
     {
     public:
+        virtual ~Event() = default;
+
         /// <summary>
         /// Gets int value of the event categorization (EventCategory).
         /// </summary>

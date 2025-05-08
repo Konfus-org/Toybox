@@ -22,7 +22,7 @@ namespace Tbx
         EXPORT static UID Subscribe(const CallbackFunction<TEvent>& callback)
         {
             const auto& eventInfo = typeid(TEvent);
-            const auto& hashCode = eventInfo.hash_code();
+            const auto hashCode = eventInfo.hash_code();
 
             if (GetSubscribers().contains(hashCode) == false)
             {
@@ -43,7 +43,7 @@ namespace Tbx
         EXPORT static void Unsubscribe(const UID& callbackToUnsub)
         {
             const auto& eventInfo = typeid(TEvent);
-            const auto& hashCode = eventInfo.hash_code();
+            const auto hashCode = eventInfo.hash_code();
 
             if (GetSubscribers().contains(hashCode) == false)
             {
@@ -77,7 +77,7 @@ namespace Tbx
         EXPORT static bool Send(TEvent& event)
         {
             const auto& eventInfo = typeid(TEvent);
-            const auto& hashCode = eventInfo.hash_code();
+            const auto hashCode = eventInfo.hash_code();
 
             if (GetSubscribers().contains(hashCode) == false)
             {

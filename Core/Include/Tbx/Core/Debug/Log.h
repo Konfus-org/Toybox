@@ -1,9 +1,7 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/Debug/DebugAPI.h"
 #include "Tbx/Core/Debug/LogLevel.h"
-#include "Tbx/Core/Debug/ILoggable.h"
-#include <iostream>
+#include "Tbx/Core/Debug/IPrintable.h"
 #include <format>
 
 namespace Tbx
@@ -50,59 +48,8 @@ namespace Tbx
         /// If a log is created and listening the msg will be written to a log file in release, others a console in debug.
         /// This is a good method to use to add debug info to the log to track down bugs.
         /// </summary>
-        EXPORT static inline void Trace(const ILoggable& loggable)
-        {
-            _dispatcher.Dispatch(loggable.ToString(), LogLevel::Trace);
-        }
-
-        /// <summary>
-        /// Sends an info level msg to the log.
-        /// If a log is created and listening the msg will be written to a log file in release, others a console in debug.
-        /// This is a good method to use to log info to the log that we want to track during runtime. Ex: window resize, layers attached, shutdown triggered, etc...
-        /// </summary>
-        EXPORT static inline void Info(const ILoggable& loggable)
-        {
-            _dispatcher.Dispatch(loggable.ToString(), LogLevel::Info);
-        }
-
-        /// <summary>
-        /// Sends a warn level msg to the log.
-        /// If a log is created and listening the msg will be written to a log file in release, others a console in debug.
-        /// This is a good method to use to warn about something that might be problematic, but can likely be ignored and app execution can continue without crashing.
-        /// I.e. errors we can recover from.
-        /// </summary>
-        EXPORT static inline void Warn(const ILoggable& loggable)
-        {
-            _dispatcher.Dispatch(loggable.ToString(), LogLevel::Warn);
-        }
-
-        /// <summary>
-        /// Sends an error level msg to the log.
-        /// If a log is created and listening the msg will be written to a log file in release, others a console in debug.
-        /// This is a good method to use to log errors that will likely cause issues during runtime.
-        /// </summary>
-        EXPORT static inline void Error(const ILoggable& loggable)
-        {
-            _dispatcher.Dispatch(loggable.ToString(), LogLevel::Error);
-        }
-
-        /// <summary>
-        /// Sends a critical level msg to the log.
-        /// If a log is created and listening the msg will be written to a log file in release, others a console in debug.
-        /// This is a good method to use if the app is in a state where it cannot continue i.e. unrecoverable errors.
-        /// </summary>
-        EXPORT static inline void Critical(const ILoggable& loggable)
-        {
-            _dispatcher.Dispatch(loggable.ToString(), LogLevel::Critical);
-        }
-
-        /// <summary>
-        /// Sends a trace level msg to the log.
-        /// If a log is created and listening the msg will be written to a log file in release, others a console in debug.
-        /// This is a good method to use to add debug info to the log to track down bugs.
-        /// </summary>
         template<typename... Args>
-        EXPORT static inline void Trace(const std::string& fmt_str, Args&&... args)
+        EXPORT static void Trace(const std::string& fmt_str, Args&&... args)
         {
             auto msg = std::vformat(fmt_str, std::make_format_args(args...));
             _dispatcher.Dispatch(msg, LogLevel::Trace);
@@ -114,7 +61,7 @@ namespace Tbx
         /// This is a good method to use to log info to the log that we want to track during runtime. Ex: window resize, layers attached, shutdown triggered, etc...
         /// </summary>
         template<typename... Args>
-        EXPORT static inline void Info(const std::string& fmt_str, Args&&... args)
+        EXPORT static void Info(const std::string& fmt_str, Args&&... args)
         {
             auto msg = std::vformat(fmt_str, std::make_format_args(args...));
             _dispatcher.Dispatch(msg, LogLevel::Info);
@@ -127,7 +74,7 @@ namespace Tbx
         /// I.e. errors we can recover from.
         /// </summary>
         template<typename... Args>
-        EXPORT static inline void Warn(const std::string& fmt_str, Args&&... args)
+        EXPORT static void Warn(const std::string& fmt_str, Args&&... args)
         {
             auto msg = std::vformat(fmt_str, std::make_format_args(args...));
             _dispatcher.Dispatch(msg, LogLevel::Warn);
@@ -139,7 +86,7 @@ namespace Tbx
         /// This is a good method to use to log errors that will likely cause issues during runtime.
         /// </summary>
         template<typename... Args>
-        EXPORT static inline void Error(const std::string& fmt_str, Args&&... args)
+        EXPORT static void Error(const std::string& fmt_str, Args&&... args)
         {
             auto msg = std::vformat(fmt_str, std::make_format_args(args...));
             _dispatcher.Dispatch(msg, LogLevel::Error);
@@ -151,7 +98,7 @@ namespace Tbx
         /// This is a good method to use if the app is in a state where it cannot continue i.e. unrecoverable errors.
         /// </summary>
         template<typename... Args>
-        EXPORT static inline void Critical(const std::string& fmt_str, Args&&... args)
+        EXPORT static void Critical(const std::string& fmt_str, Args&&... args)
         {
             auto msg = std::vformat(fmt_str, std::make_format_args(args...));
         }

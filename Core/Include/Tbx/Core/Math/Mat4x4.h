@@ -12,7 +12,7 @@ namespace Tbx
     /// A 4x4 matrix to store data. Most often used for rendering.
     /// This matrix stores data in column major order.
     /// </summary>
-    struct EXPORT Mat4x4 : public ILoggable
+    struct EXPORT Mat4x4 : public IPrintable
     {
     public:
         /// <summary>

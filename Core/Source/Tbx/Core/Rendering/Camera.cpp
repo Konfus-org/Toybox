@@ -49,11 +49,16 @@ namespace Tbx
 
     Mat4x4 Camera::CalculateViewMatrix(const Vector3& camPosition, const Quaternion& camRotation)
     {
-        // Calculate the view matrix
+        // 1. Get the inverse of the camera's rotation
         Mat4x4 rotationMatrix = Mat4x4::FromRotation(camRotation);
-        Mat4x4 translationMatrix = Mat4x4::Translate(Mat4x4::Identity(), camPosition * Vector3(-1, 1, 1) * -1);
+        Mat4x4 inverseRotationMatrix = Mat4x4::Inverse(rotationMatrix); // Or rotationMatrix.Transpose() for orthonormal matrices
 
-        return rotationMatrix * translationMatrix;
+        // 2. Get the inverse of the camera's position
+        Mat4x4 translationMatrix = Mat4x4::Translate(Mat4x4::Identity(), camPosition * -1);
+
+        // The view matrix first rotates the world opposite to the camera's rotation,
+        // then translates the world opposite to the camera's position.
+        return inverseRotationMatrix * translationMatrix;
     }
 
     Mat4x4 Camera::CalculateViewProjectionMatrix(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& projectionMatrix)
@@ -61,15 +66,4 @@ namespace Tbx
         Mat4x4 viewMatrix = CalculateViewMatrix(camPosition, camRotation);
         return projectionMatrix * viewMatrix;
     }
-
-    //void Camera::RecalculateViewProjection()
-    //{
-    //    const auto& flipXVector = Vector3(-1, 1, 1);
-    //    const auto& cameraViewPos = _position * flipXVector;
-    //    const auto& lookAtPos = cameraViewPos + Vector3::Forward();
-    //    const auto& rotationMatrix = Matrix::FromRotation(_rotation);
-
-    //    _viewMatrix = Matrix::LookAt(cameraViewPos, lookAtPos, Vector3::Up()) * rotationMatrix;
-    //    _viewProjectionMatrix = _projectionMatrix * _viewMatrix;
-    //}
 }

@@ -27,23 +27,23 @@ namespace Tbx
         /// <summary>
         /// Sets the resolution for the renderer, this is seperate from the viewport size.
         /// </summary>
-        virtual void SetResolution(const Tbx::Size& size) = 0;
+        virtual void SetResolution(const Size& size) = 0;
 
         /// <summary>
         /// Sets the VSync for the renderer.
         /// Vsync is used to synchronize the frame rate of the renderer with the refresh rate of the monitor.
         /// </summary>
-        virtual void SetVSyncEnabled(const bool& enabled) = 0;
+        virtual void SetVSyncEnabled(bool enabled) = 0;
         
         /// <summary>
         /// Processes the render data and sends it to the GPU.
         /// </summary>
-        virtual void ProcessData(const Tbx::RenderData& data) = 0;
+        virtual void ProcessData(const RenderData& data) = 0;
 
         /// <summary>
         /// Uploads the texture to the GPU.
         /// </summary>
-        virtual void UploadTexture(const Tbx::Texture& texture, const Tbx::uint& slot) = 0;
+        virtual void UploadTexture(const Texture& texture, uint slot) = 0;
 
         /// <summary>
         /// Uploads the shader to the GPU.
@@ -63,7 +63,7 @@ namespace Tbx
         /// <summary>
         /// Clears the screen with the given color.
         /// </summary>
-        virtual void Clear(const Tbx::Color& color = Tbx::Colors::DarkGrey) = 0;
+        virtual void Clear(const Color& color = Colors::DarkGrey) = 0;
 
         /// <summary>
         /// Call this before drawing anything to the screen.

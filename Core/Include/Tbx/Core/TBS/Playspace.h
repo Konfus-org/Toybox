@@ -159,7 +159,7 @@ namespace Tbx
         }
 
         /// <summary>
-        /// Opens a playspace in the world.
+        /// Opens a playSpace in the world.
         /// </summary>
         EXPORT void Open() const;
 
@@ -173,32 +173,32 @@ namespace Tbx
     };
 
     /// <summary>
-    /// Used to iterate over a playspace.
+    /// Used to iterate over a playSpace.
     /// </summary>
     struct PlayspaceIterator
     {
     public:
         EXPORT PlayspaceIterator(const std::weak_ptr<PlaySpace>& space, uint32 index, BlockMask mask, bool iterateAll)
-            : _playspace(space), _currIndex(index), _blockMask(mask), _iterateAll(iterateAll) { }
+            : _playSpace(space), _currIndex(index), _blockMask(mask), _iterateAll(iterateAll) { }
 
         EXPORT Toy operator*() const
         {
-            auto& toyInfo = _playspace->GetToyInfo(_currIndex);
+            auto& toyInfo = _playSpace->GetToyInfo(_currIndex);
             return { toyInfo.Name, toyInfo.Id };
         }
 
         EXPORT bool operator!=(const PlayspaceIterator& other) const
         {
-            return _currIndex != other._currIndex && _currIndex != _playspace->GetToyCount();
+            return _currIndex != other._currIndex && _currIndex != _playSpace->GetToyCount();
         }
 
         EXPORT PlayspaceIterator& operator++()
         {
-            while (_currIndex < _playspace->GetToyCount())
+            while (_currIndex < _playSpace->GetToyCount())
             {
                 _currIndex++;
 
-                auto toyInfo = _playspace->GetToyInfo(_currIndex);
+                auto toyInfo = _playSpace->GetToyInfo(_currIndex);
                 auto isMatchingBlockMask = (_blockMask & toyInfo.BlockMask) != 0;
                 auto isToyValid = IsToyValid(toyInfo.Id);
                 if (isToyValid && isMatchingBlockMask)
@@ -212,25 +212,25 @@ namespace Tbx
     private:
         bool ValidIndex() const
         {
-            return IsToyValid(_playspace->GetToyInfo(_currIndex).Id)  // It's a valid entity ID
-                && (_iterateAll || _blockMask == (_blockMask & _playspace->GetToyInfo(_currIndex).BlockMask)); // It has the correct component mask
+            return IsToyValid(_playSpace->GetToyInfo(_currIndex).Id)  // It's a valid entity ID
+                && (_iterateAll || _blockMask == (_blockMask & _playSpace->GetToyInfo(_currIndex).BlockMask)); // It has the correct component mask
         }
 
-        std::shared_ptr<PlaySpace> _playspace = {};
+        std::shared_ptr<PlaySpace> _playSpace = {};
         uint32 _currIndex = 0;
         BlockMask _blockMask = {};
         bool _iterateAll = false;
     };
 
     /// <summary>
-    /// A slice of the playspace, limited to a specific set of block types.
+    /// A slice of the playSpace, limited to a specific set of block types.
     /// Good for iterating over a specific set of components/blocks.
     /// </summary>
     template<typename... BlockTypes>
     struct PlayspaceView
     {
     public:
-        EXPORT explicit(false) PlayspaceView(const std::weak_ptr<PlaySpace>& space) : _playspace(space)
+        EXPORT explicit(false) PlayspaceView(const std::weak_ptr<PlaySpace>& space) : _playSpace(space)
         {
             TBX_VALIDATE_WEAK_PTR(space, "PlaySpace reference is invalid! PlaySpace must have been deleted.");
 
@@ -252,9 +252,9 @@ namespace Tbx
         EXPORT PlayspaceIterator begin() const
         {
             uint32 firstIndex = 0;
-            while (firstIndex < _playspace->GetToyCount())
+            while (firstIndex < _playSpace->GetToyCount())
             {
-                auto toyInfo = _playspace->GetToyInfo(firstIndex);
+                auto toyInfo = _playSpace->GetToyInfo(firstIndex);
                 auto isMatchingBlockMask = (_blockMask & toyInfo.BlockMask) != 0;
                 auto isToyValid = IsToyValid(toyInfo.Id);
                 if (isToyValid && isMatchingBlockMask)
@@ -263,16 +263,16 @@ namespace Tbx
                 }
                 firstIndex++;
             }
-            return { _playspace, firstIndex, _blockMask, _viewAll };
+            return { _playSpace, firstIndex, _blockMask, _viewAll };
         }
 
         EXPORT PlayspaceIterator end() const
         {
-            return { _playspace, _playspace->GetToyCount(), _blockMask, _viewAll };
+            return { _playSpace, _playSpace->GetToyCount(), _blockMask, _viewAll };
         }
 
     private:
-        std::shared_ptr<PlaySpace> _playspace = {};
+        std::shared_ptr<PlaySpace> _playSpace = {};
         BlockMask _blockMask = {};
         bool _viewAll = false;
     };

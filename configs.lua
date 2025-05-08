@@ -35,7 +35,7 @@ function StandardBuildConfigs()
         runtime "Debug"
         optimize "Off"
         symbols "On"
-        linkoptions { "/MDd" } 
+        buildoptions { "/MDd" }
         flags
         {
             "MultiProcessorCompile"
@@ -50,7 +50,7 @@ function StandardBuildConfigs()
         runtime "Release"
         optimize "On"
         symbols "On"
-        linkoptions { "/MDd" } 
+        buildoptions { "/MDd" }
         flags
         {
             "MultiProcessorCompile"
@@ -64,7 +64,7 @@ function StandardBuildConfigs()
         runtime "Release"
         optimize "On"
         symbols "Off"
-        linkoptions { "/MD" } 
+        buildoptions { "/MD" }
         flags
         {
             "MultiProcessorCompile"

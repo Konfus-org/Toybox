@@ -2,7 +2,6 @@
 #include "Tbx/Core/DllExport.h"
 #include "Tbx/Core/Debug/LogLevel.h"
 #include "Tbx/Core/Events/Event.h"
-#include <format>
 
 namespace Tbx
 {
@@ -26,7 +25,7 @@ namespace Tbx
         EXPORT OpenLogRequest(const std::string& logFilePath, const std::string& logName) 
             : _logFilePath(logFilePath), _logName(logName) {}
 
-        EXPORT std::string ToString() const override
+        EXPORT std::string ToString() const final
         {
             return "Open Log Event";
         }
@@ -45,7 +44,7 @@ namespace Tbx
         explicit EXPORT CloseLogRequest(const std::string& logName)
             : _logName(logName) { }
 
-        EXPORT std::string ToString() const override
+        EXPORT std::string ToString() const final
         {
             return "Close Log Event";
         }
@@ -62,7 +61,7 @@ namespace Tbx
         EXPORT WriteLineToLogRequest(const LogLevel& level, const std::string& lineToWrite, const std::string& logToWriteTo, const std::string& logFilePath)
             : _level(level), _lineToWrite(lineToWrite), _logToWriteTo(logToWriteTo), _logFilePath(logFilePath) {}
 
-        EXPORT std::string ToString() const override
+        EXPORT std::string ToString() const final
         {
             return "Write To Log Event";
         }

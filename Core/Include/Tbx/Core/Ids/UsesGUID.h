@@ -9,7 +9,6 @@ namespace Tbx
     public:
         explicit UsesGUID(const GUID& guid) : _id(guid) {}
         UsesGUID() : _id(GUID::Generate()) {}
-        virtual ~UsesGUID() = default;
 
         const GUID& GetId() const { return _id; }
 

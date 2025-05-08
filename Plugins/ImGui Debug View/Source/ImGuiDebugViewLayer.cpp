@@ -120,12 +120,12 @@ namespace ImGuiDebugView
             if (ImGui::CollapsingHeader("Rendering"))
             {
                 int cameraNumber = 0;
-                auto playspaces = Tbx::World::GetPlayspaces();
-                for (auto playspace : playspaces)
+                auto playSpaces = Tbx::World::GetPlaySpaces();
+                for (auto playSpace : playSpaces)
                 {
-                    for (auto camera : Tbx::PlayspaceView<Tbx::Camera>(playspace))
+                    for (auto camera : Tbx::PlayspaceView<Tbx::Camera>(playSpace))
                     {
-                        auto& camTrans = playspace->GetBlockOn<Tbx::Transform>(camera);
+                        auto& camTrans = playSpace->GetBlockOn<Tbx::Transform>(camera);
                         ImGui::Text("Camera %d Position: %s", cameraNumber, camTrans.Position.ToString().c_str());
                         ImGui::Text("Camera %d Rotation: %s", cameraNumber, Tbx::Quaternion::ToEuler(camTrans.Rotation).ToString().c_str());
                         ImGui::Text("Camera %d Scale: %s", cameraNumber, camTrans.Scale.ToString().c_str());

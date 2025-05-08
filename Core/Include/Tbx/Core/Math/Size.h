@@ -1,11 +1,11 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
 #include "Tbx/Core/Math/Int.h"
-#include "Tbx/Core/Debug/ILoggable.h"
+#include "Tbx/Core/Debug/IPrintable.h"
 
 namespace Tbx
 {
-    struct EXPORT Size : public ILoggable
+    struct EXPORT Size : public IPrintable
     {
     public:
         Size() = default;

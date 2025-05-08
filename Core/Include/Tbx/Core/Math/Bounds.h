@@ -1,12 +1,12 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/Debug/ILoggable.h"
+#include "Tbx/Core/Debug/IPrintable.h"
 #include <string>
 #include <format>
 
 namespace Tbx
 {
-    struct EXPORT Bounds : public ILoggable
+    struct EXPORT Bounds : public IPrintable
     {
     public:
         Bounds(float left, float right, float top, float bottom) 

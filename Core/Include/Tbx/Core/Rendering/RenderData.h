@@ -8,12 +8,12 @@ namespace Tbx
     struct RenderData
     {
     public:
-        RenderData() = default;
-        RenderData(const RenderCommand& command, const std::any& payload)
+        EXPORT RenderData() = default;
+        EXPORT RenderData(const RenderCommand& command, const std::any& payload)
             : _command(command), _payload(payload) {}
 
-        const RenderCommand& GetCommand() const { return _command; }
-        const std::any& GetPayload() const { return _payload; }
+        EXPORT const RenderCommand& GetCommand() const { return _command; }
+        EXPORT const std::any& GetPayload() const { return _payload; }
 
     private:
         RenderCommand _command = RenderCommand::None;

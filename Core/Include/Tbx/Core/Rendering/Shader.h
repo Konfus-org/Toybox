@@ -51,7 +51,7 @@ namespace Tbx
         EXPORT ShaderData(const std::string& name, const std::any& data, const ShaderDataType& type) 
             : _name(name), _data(data), _type(type) {}
 
-        EXPORT const std::string& GetName() const { return _name; }
+        EXPORT std::string GetName() const { return _name; }
         EXPORT const std::any& GetData() const { return _data; }
         EXPORT ShaderDataType GetType() const { return _type; }
 

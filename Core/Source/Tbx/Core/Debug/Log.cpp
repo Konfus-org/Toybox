@@ -3,6 +3,7 @@
 #include "Tbx/Core/Debug/DebugAPI.h"
 #include "Tbx/Core/Events/EventCoordinator.h"
 #include "Tbx/Core/Events/LogEvents.h"
+#include <iostream>
 
 namespace Tbx
 {

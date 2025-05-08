@@ -19,7 +19,7 @@ namespace Tbx
     {
         TBX_ASSERT(
             GetToyCount() < MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE,
-            "Max number of toys in a playspace reached! Cannot make a new toy. The max number of toys is {0}",
+            "Max number of toys in a playSpace reached! Cannot make a new toy. The max number of toys is {0}",
             MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE);
 
         // Get next available toy from the pool
@@ -70,11 +70,11 @@ namespace Tbx
 
     void PlaySpace::Open() const
     {
-        auto openRequest = OpenPlayspacesRequest({ GetId() });
+        auto openRequest = OpenPlaySpacesRequest({ GetId() });
         EventCoordinator::Send(openRequest);
-        TBX_ASSERT(openRequest.IsHandled, "Failed to open playspaces! Is a handler created and listening?");
+        TBX_ASSERT(openRequest.IsHandled, "Failed to open playSpaces! Is a handler created and listening?");
 
-        auto openedEvent = OpenedPlayspacesEvent({ GetId() });
+        auto openedEvent = OpenedPlaySpacesEvent({ GetId() });
         EventCoordinator::Send(openedEvent);
     }
 }

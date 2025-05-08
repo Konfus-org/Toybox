@@ -1,6 +1,5 @@
 #pragma once
-#include "Tbx/Core/Math/Int.h"
-#include "Tbx/Core/Ids/UID.h"
+#include "Tbx/Core/Ids/UsesUID.h"
 #include "Tbx/Core/Callbacks/CallbackFunction.h"
 
 #define TBX_BIND_FN(fn) [this](auto&&... args) { return this->fn(std::forward<decltype(args)>(args)...); }
@@ -13,40 +12,19 @@ namespace Tbx
     /// If passing a classes function you must first bind it to the callback like using TBX_BIND_FN or if the function is static use TBX_BIND_STATIC_FN.
     /// </summary>
     template <typename TArg>
-    class Callback
+    class Callback : public UsesUID, public IPrintable
     {
     public:
         explicit(false) Callback(CallbackFunction<TArg> func)
             : _callbackFn(func), _name(func.target_type().name()) {}
 
-        const UID& GetId() const
-        {
-            return _id;
-        }
+        void Invoke(TArg& event) const { _callbackFn(event); }
+        void operator()(TArg& event) const { Invoke(event); }
 
-        const std::string& GetName() const
-        {
-            return _name;
-        }
-
-        void Invoke(TArg& event) const
-        {
-            _callbackFn(event);
-        }
-
-        void operator()(TArg& event) const
-        {
-            Invoke(event);
-        }
-
-        bool operator==(const Callback& other) const
-        {
-            return _id == other._id;
-        }
+        std::string ToString() const final { return _name; }
 
     private:
         CallbackFunction<TArg> _callbackFn = nullptr;
         std::string _name = "";
-        UID _id = UID();
     };
 }

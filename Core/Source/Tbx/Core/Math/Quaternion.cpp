@@ -2,8 +2,7 @@
 #include "Tbx/Core/Math/Quaternion.h"
 #include "Tbx/Core/Math/Trig.h"
 #include <glm/fwd.hpp>
-#include <glm/gtx/euler_angles.hpp>
-#include <glm/gtx/matrix_interpolation.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 namespace Tbx
 {
@@ -13,10 +12,34 @@ namespace Tbx
         return {glmQuat.x, glmQuat.y, glmQuat.z, glmQuat.w};
     }
 
+    Vector3 Quaternion::GetForward(const Quaternion& rot)
+    {
+        const auto glmQuat = glm::quat(rot.W, rot.X, rot.Y, rot.Z);
+        glm::vec3 objectForward = glm::vec3(0.0f, 0.0f, 1.0f);
+        glm::vec3 result = glm::normalize(glm::rotate(glmQuat, objectForward));
+        return { result.x, result.y, result.z };
+    }
+
+    Vector3 Quaternion::GetRight(const Quaternion& rot)
+    {
+        const auto glmQuat = glm::quat(rot.W, rot.X, rot.Y, rot.Z);
+        glm::vec3 objectRight = glm::vec3(-1.0f, 0.0f, 0.0f);
+        glm::vec3 result = glm::normalize(glm::rotate(glmQuat, objectRight));
+        return { result.x, result.y, result.z };
+    }
+
+    Vector3 Quaternion::GetUp(const Quaternion& rot)
+    {
+        const auto glmQuat = glm::quat(rot.W, rot.X, rot.Y, rot.Z);
+        glm::vec3 objectUp = glm::vec3(0.0f, 1.0f, 0.0f); 
+        glm::vec3 result = glm::normalize(glm::rotate(glmQuat, objectUp));
+        return { result.x, result.y, result.z };
+    }
+
     Quaternion Quaternion::FromAxisAngle(const Vector3& axis, float angle)
     {
-        auto glmAxis = glm::vec3(Math::DegreesToRadians(axis.X), Math::DegreesToRadians(axis.Y), Math::DegreesToRadians(axis.Z));
-        glm::quat result = glm::angleAxis(Math::DegreesToRadians(angle), glm::normalize(glmAxis));
+        glm::vec3 glmAxis = glm::normalize(glm::vec3(axis.X, axis.Y, axis.Z)); // Normalize the axis
+        glm::quat result = glm::angleAxis(Math::DegreesToRadians(angle), glmAxis); // Convert angle to radians
         return { result.x, result.y, result.z, result.w };
     }
 

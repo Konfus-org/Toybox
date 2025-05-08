@@ -14,88 +14,85 @@ namespace Tbx
     };
 
     /// <summary>
-    /// Occurs when a playspaces have been added to the world.
-    /// This happens when playspaces are being loaded.
+    /// Occurs when a playSpaces have been added to the world.
+    /// This happens when playSpaces are being loaded.
     /// </summary>
-    class WorldPlayspacesAddedEvent : public WorldEvent
+    class WorldPlaySpacesAddedEvent : public WorldEvent
     {
     public:
-        explicit WorldPlayspacesAddedEvent(std::vector<UID> newPlayspaces) 
-            : _newPlayspaces(newPlayspaces) {}
+        explicit WorldPlaySpacesAddedEvent(const std::vector<UID>& newPlaySpaces) 
+            : _newPlaySpaces(newPlaySpaces) {}
 
-        std::vector<UID> GetNewPlayspaces() const { return _newPlayspaces; }
+        const std::vector<UID>& GetNewPlaySpaces() const { return _newPlaySpaces; }
 
-        EXPORT std::string ToString() const override
+        EXPORT std::string ToString() const final
         {
-            return "Added Playspaces To The World Event";
+            return "Added PlaySpaces To The World Event";
         }
 
     private:
-        std::vector<UID> _newPlayspaces = {};
+        std::vector<UID> _newPlaySpaces = {};
     };
 
     /// <summary>
-    /// Occurs when playspaces have been removed from the world.
-    /// This happens when playspaces are being unloaded.
+    /// Occurs when playSpaces have been removed from the world.
+    /// This happens when playSpaces are being unloaded.
     /// </summary>
-    class WorldPlayspacesRemovedEvent : public WorldEvent
+    class WorldPlaySpacesRemovedEvent : public WorldEvent
     {
     public:
-        explicit WorldPlayspacesRemovedEvent(std::vector<UID> removedPlayspaces)
-            : _removedPlayspaces(removedPlayspaces) {
-        }
+        explicit WorldPlaySpacesRemovedEvent(const std::vector<UID>& removedPlaySpaces)
+            : _removedPlaySpaces(removedPlaySpaces) {}
 
-        std::vector<UID> GetRemovedPlayspaces() const { return _removedPlayspaces; }
+        const std::vector<UID>& GetRemovedPlaySpaces() const { return _removedPlaySpaces; }
 
-        EXPORT std::string ToString() const override
+        EXPORT std::string ToString() const final
         {
-            return "Removed Playspaces From The World Event";
+            return "Removed PlaySpaces From The World Event";
         }
 
     private:
-        std::vector<UID> _removedPlayspaces = {};
+        std::vector<UID> _removedPlaySpaces = {};
     };
 
     /// <summary>
-    /// A request to open playspaces in a world.
+    /// A request to open playSpaces in a world.
     /// </summary>
-    class OpenPlayspacesRequest : public WorldEvent
+    class OpenPlaySpacesRequest : public WorldEvent
     {
     public:
-        explicit OpenPlayspacesRequest(std::vector<UID> playspacesToOpen)
-            : _playspaceToOpen(playspacesToOpen) {
-        }
+        explicit OpenPlaySpacesRequest(const std::vector<UID>& playSpacesToOpen)
+            : _playSpaceToOpen(playSpacesToOpen) {}
 
-        std::vector<UID> GetPlayspacesToOpen() const { return _playspaceToOpen; }
+        const std::vector<UID>& GetPlaySpacesToOpen() const { return _playSpaceToOpen; }
 
-        EXPORT std::string ToString() const override
+        EXPORT std::string ToString() const final
         {
-            return "Open Playspaces Request";
+            return "Open PlaySpaces Request";
         }
 
     private:
-        std::vector<UID> _playspaceToOpen = {};
+        std::vector<UID> _playSpaceToOpen = {};
     };
 
     /// <summary>
-    /// Occurs when playspaces are opened.
-    /// This happens when playspaces have been loaded.
+    /// Occurs when playSpaces are opened.
+    /// This happens when playSpaces have been loaded.
     /// </summary>
-    class OpenedPlayspacesEvent : public WorldEvent
+    class OpenedPlaySpacesEvent : public WorldEvent
     {
     public:
-        explicit OpenedPlayspacesEvent(std::vector<UID> openedPlayspaces)
-            : _openedPlayspaces(openedPlayspaces) {
-        }
+        explicit OpenedPlaySpacesEvent(const std::vector<UID>& openedPlaySpaces)
+            : _openedPlaySpaces(openedPlaySpaces) {}
 
-        std::vector<UID> GetOpenedPlayspaces() const { return _openedPlayspaces; }
+        const std::vector<UID>& GetOpenedPlaySpaces() const { return _openedPlaySpaces; }
 
-        EXPORT std::string ToString() const override
+        EXPORT std::string ToString() const final
         {
-            return "Opened Playspaces Request";
+            return "Opened PlaySpaces Request";
         }
 
     private:
-        std::vector<UID> _openedPlayspaces = {};
+        std::vector<UID> _openedPlaySpaces = {};
     };
 }

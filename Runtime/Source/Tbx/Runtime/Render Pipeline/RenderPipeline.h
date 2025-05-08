@@ -19,7 +19,7 @@ namespace Tbx
         void OnUpdate() override;
 
     private:
-        void OnOpenPlayspaceRequest(OpenPlayspacesRequest& e);
+        void OnOpenPlayspaceRequest(OpenPlaySpacesRequest& e);
         void Clear() const;
         void Flush();
         void ProcessNextBatch();

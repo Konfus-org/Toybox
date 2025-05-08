@@ -117,7 +117,7 @@ namespace Tbx
 
         /// <summary>
         /// Id of parent.
-        /// The parent can be another toy or playspace.
+        /// The parent can be another toy or playSpace.
         /// </summary>
         UID Parent = -1;
 

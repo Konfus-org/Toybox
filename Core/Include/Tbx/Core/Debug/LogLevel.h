@@ -1,6 +1,5 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
-#include <string>
 
 namespace Tbx
 {

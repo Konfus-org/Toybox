@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/Debug/ILoggable.h"
+#include "Tbx/Core/Debug/IPrintable.h"
 #include <format>
 
 namespace Tbx
@@ -8,7 +8,7 @@ namespace Tbx
     /// <summary>
     /// Represents a position, scale, or direction in 3d space. X, Y, Z are stored as euler angles.
     /// </summary>
-    struct EXPORT Vector3 : public ILoggable
+    struct EXPORT Vector3 : public IPrintable
     {
     public:
         Vector3() = default;
@@ -25,24 +25,6 @@ namespace Tbx
         static Vector3 Identity() { return {1, 1, 1}; }
         static Vector3 Zero() { return {0, 0, 0}; }
         static Vector3 One() { return {1, 1, 1}; }
-        /// <summary>
-        /// Toybox uses the Left-Handed coordinate system, so [0, 0, 1] is our forward vector.
-        /// </summary>
-        static Vector3 Forward() { return {0, 0, 1}; }
-        /// <summary>
-        /// Toybox uses the Left-Handed coordinate system, so [0, 0, -1] is our backward vector.
-        /// </summary>
-        static Vector3 Backward() { return {0, 0, -1}; }
-        static Vector3 Up() { return {0, 1, 0}; }
-        static Vector3 Down() { return {0, -1, 0}; }
-        /// <summary>
-        /// Toybox uses the Left-Handed coordinate system, so [1, 0, 0] is our left vector.
-        /// </summary>
-        static Vector3 Left() { return {1, 0, 0}; }
-        /// <summary>
-        /// Toybox uses the Left-Handed coordinate system, so [-1, 0, 0] is our right vector.
-        /// </summary>
-        static Vector3 Right() { return {-1, 0, 0}; }
 
         static Vector3 Normalize(const Vector3& vector);
         static Vector3 Add(const Vector3& lhs, const Vector3& rhs);
@@ -60,7 +42,7 @@ namespace Tbx
     /// <summary>
     /// Represents a position, scale, or direction in 2d space. X, Y are stored as euler angles.
     /// </summary>
-    struct EXPORT Vector2 : public ILoggable
+    struct EXPORT Vector2 : public IPrintable
     {
     public:
         Vector2() = default;
@@ -80,7 +62,7 @@ namespace Tbx
     /// <summary>
     /// Represents a position, scale, or direction in 2d space. X, Y are stored as euler angles.
     /// </summary>
-    struct EXPORT Vector2I : public ILoggable
+    struct EXPORT Vector2I : public IPrintable
     {
     public:
         Vector2I() = default;
@@ -96,4 +78,32 @@ namespace Tbx
         int X = 0;
         int Y = 0;
     };
+
+    namespace WorldSpace
+    {
+        /// <summary>
+        /// World forward vector. Toybox uses the Left-Handed coordinate system, so [0, 0, 1] is our forward vector.
+        /// </summary>
+        static inline Vector3 Forward = { 0, 0, 1 };
+        /// <summary>
+        /// World backward vector. Toybox uses the Left-Handed coordinate system, so [0, 0, -1] is our backward vector.
+        /// </summary>
+        static inline Vector3 Backward = { 0, 0, -1 };
+        /// <summary>
+        /// World up vector.
+        /// </summary>
+        static inline Vector3 Up = { 0, 1, 0 };
+        /// <summary>
+        /// World down vector.
+        /// </summary>
+        static inline Vector3 Down = { 0, -1, 0 };
+        /// <summary>
+        /// Toybox uses the Left-Handed coordinate system, so [1, 0, 0] is our left vector.
+        /// </summary>
+        static inline Vector3 Left = { 1, 0, 0 };
+        /// <summary>
+        /// Toybox uses the Left-Handed coordinate system, so [-1, 0, 0] is our right vector.
+        /// </summary>
+        static inline Vector3 Right = { -1, 0, 0 };
+    }
 }

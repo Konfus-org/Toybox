@@ -51,7 +51,7 @@ namespace OpenGLRendering
         //glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
-    void OpenGLRenderer::SetVSyncEnabled(const bool& enabled)
+    void OpenGLRenderer::SetVSyncEnabled(bool enabled)
     {
         TBX_VERBOSE("OpenGl Renderer: Set vsync to {}...\n", enabled);
         _context.SetSwapInterval(enabled);
@@ -188,7 +188,7 @@ namespace OpenGLRendering
         }
     }
 
-    void OpenGLRenderer::UploadTexture(const Tbx::Texture& texture, const Tbx::uint& slot)
+    void OpenGLRenderer::UploadTexture(const Tbx::Texture& texture, Tbx::uint slot)
     {
         auto& lastGlTexture = _textures.emplace_back();
         lastGlTexture.SetData(texture, slot);

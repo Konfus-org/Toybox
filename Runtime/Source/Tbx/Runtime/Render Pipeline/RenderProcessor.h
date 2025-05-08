@@ -7,27 +7,27 @@
 namespace Tbx
 {
     /// <summary>
-    /// This processes a playspace for rendering.
-    /// It takes all the boxes and toys in the playspace and converts them to render data for the render pipeline to consume.
+    /// This processes a playSpace for rendering.
+    /// It takes all the boxes and toys in the playSpace and converts them to render data for the render pipeline to consume.
     /// </summary>
     class RenderProcessor
     {
     public:
         /// <summary>
-        /// Gets render data required to setup playspace such as compiling shaders.
+        /// Gets render data required to setup playSpace such as compiling shaders.
         /// </summary>
-        const RenderBatch& PreProcess(const std::shared_ptr<PlaySpace>& playspace);
+        const RenderBatch& PreProcess(const std::shared_ptr<PlaySpace>& playSpace);
 
         /// <summary>
-        /// Returns render data required to render playspace.
+        /// Returns render data required to render playSpace.
         /// </summary>
-        const RenderBatch& Process(const std::shared_ptr<PlaySpace>& playspace);
+        const RenderBatch& Process(const std::shared_ptr<PlaySpace>& playSpace);
 
     private:
 
-        void PreProcessToy(const Toy& toy, const std::shared_ptr<PlaySpace>& playspace);
+        void PreProcessToy(const Toy& toy, const std::shared_ptr<PlaySpace>& playSpace);
 
-        void ProcessToy(const Toy& toy, const std::shared_ptr<PlaySpace>& playspace);
+        void ProcessToy(const Toy& toy, const std::shared_ptr<PlaySpace>& playSpace);
 
         RenderBatch _currBatch = {};
     };

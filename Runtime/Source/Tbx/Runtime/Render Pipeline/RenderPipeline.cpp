@@ -30,7 +30,7 @@ namespace Tbx
 
     void RenderPipeline::OnAttach()
     {
-        _worldPlayspaceChangedEventId = EventCoordinator::Subscribe<OpenPlayspacesRequest>(TBX_BIND_FN(OnOpenPlayspaceRequest));
+        _worldPlayspaceChangedEventId = EventCoordinator::Subscribe<OpenPlaySpacesRequest>(TBX_BIND_FN(OnOpenPlayspaceRequest));
 
         ///////// TESTING /////////////
 
@@ -74,15 +74,15 @@ namespace Tbx
 
     void RenderPipeline::OnDetach()
     {
-        EventCoordinator::Unsubscribe<WorldPlayspacesAddedEvent>(_worldPlayspaceChangedEventId);
+        EventCoordinator::Unsubscribe<WorldPlaySpacesAddedEvent>(_worldPlayspaceChangedEventId);
         Flush();
     }
 
     void RenderPipeline::OnUpdate()
     {
-        for (const auto& playspace : World::GetPlayspaces())
+        for (const auto& playSpace : World::GetPlaySpaces())
         {
-            auto& nextBatch = _renderProcessor.Process(playspace);
+            auto& nextBatch = _renderProcessor.Process(playSpace);
             _renderQueue.Push(nextBatch);
         }
 
@@ -115,11 +115,11 @@ namespace Tbx
         ProcessNextBatch();
     }
 
-    void RenderPipeline::OnOpenPlayspaceRequest(OpenPlayspacesRequest& e)
+    void RenderPipeline::OnOpenPlayspaceRequest(OpenPlaySpacesRequest& e)
     {
-        for (const auto& playspaceId : e.GetPlayspacesToOpen())
+        for (const auto& playSpaceId : e.GetPlaySpacesToOpen())
         {
-            auto& nextBatch = _renderProcessor.PreProcess(World::GetPlayspace(playspaceId));
+            auto& nextBatch = _renderProcessor.PreProcess(World::GetPlayspace(playSpaceId));
             _renderQueue.Push(nextBatch);
         }
 

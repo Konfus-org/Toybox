@@ -1,10 +1,10 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/Debug/ILoggable.h"
+#include "Tbx/Core/Debug/IPrintable.h"
 
 namespace Tbx
 {
-    struct EXPORT Color : public ILoggable
+    struct EXPORT Color : public IPrintable
     {
     public:
         /// <summary>

@@ -1,6 +1,5 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/Math/MathAPI.h"
 #include "Tbx/Core/Ids/UsesUID.h"
 #include <string>
 #include <memory>

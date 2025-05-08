@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include "Tbx/Core/DllExport.h"
 #include "Tbx/Core/Math/Vectors.h"
-#include "Tbx/Core/Debug/ILoggable.h"
+#include "Tbx/Core/Debug/IPrintable.h"
 #include <format>
 
 namespace Tbx
@@ -9,7 +9,7 @@ namespace Tbx
     /// <summary>
     /// Represents a rotation. X, Y, Z, W are stored as radians.
     /// </summary>
-    struct EXPORT Quaternion : public ILoggable
+    struct EXPORT Quaternion : public IPrintable
     {
     public:
         Quaternion() = default;
@@ -31,6 +31,7 @@ namespace Tbx
 
         std::string ToString() const override { return std::format("(X: {}, Y: {}, Z: {}, W: {})", X, Y, Z, W); }
 
+        static Quaternion Identity();
         static Quaternion Normalize(const Quaternion& quaternion);
         static Quaternion Add(const Quaternion& lhs, const Quaternion& rhs);
         static Quaternion Subtract(const Quaternion& lhs, const Quaternion& rhs);
@@ -38,7 +39,19 @@ namespace Tbx
         static Vector3 Multiply(const Quaternion& lhs, const Vector3& rhs);
         static Vector3 Multiply(const Vector3& lhs, const Quaternion& rhs);
 
-        static Quaternion Identity();
+        /// <summary>
+        /// Gets the local right from a rotation.
+        /// </summary>
+        static Vector3 GetRight(const Quaternion& rot);
+        /// <summary>
+        /// Gets the local forward from a rotation.
+        /// </summary>
+        static Vector3 GetForward(const Quaternion& rot);
+        /// <summary>
+        /// Gets the local forward from a rotation.
+        /// </summary>
+        static Vector3 GetUp(const Quaternion& rot);
+
         static Quaternion FromAxisAngle(const Vector3& axis, float angle);
         static Quaternion FromEuler(const Vector3& euler) { return FromEuler(euler.X, euler.Y, euler.Z); }
         static Quaternion FromEuler(float x, float y, float z);

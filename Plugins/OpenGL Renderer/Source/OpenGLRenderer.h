@@ -16,10 +16,10 @@ namespace OpenGLRendering
         void SetContext(const std::weak_ptr<Tbx::IRenderSurface>& context) final;
         void SetViewport(const Tbx::Vector2I& screenPos, const Tbx::Size& size) final;
         void SetResolution(const Tbx::Size& size) final;
-        void SetVSyncEnabled(const bool& enabled) final;
+        void SetVSyncEnabled(bool enabled) final;
 
         void SetMaterial(const Tbx::Material& material) final;
-        void UploadTexture(const Tbx::Texture& texture, const Tbx::uint& slot) final;
+        void UploadTexture(const Tbx::Texture& texture, Tbx::uint slot) final;
         void CompileShader(const Tbx::Shader& shader) final;
         void UploadShaderData(const Tbx::ShaderData& data) final;
 

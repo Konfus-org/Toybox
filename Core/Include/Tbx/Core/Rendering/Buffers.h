@@ -11,18 +11,19 @@ namespace Tbx
     {
     public:
         EXPORT BufferElement() = default;
-        EXPORT BufferElement(const ShaderDataType& type, const std::string& name, const bool& normalized = false)
+        EXPORT BufferElement(const ShaderDataType type, const std::string& name, const bool normalized = false)
             : _name(name), _size(GetShaderDataTypeSize(type)), _type(type), _normalized(normalized) {}
-        EXPORT BufferElement(const ShaderDataType& type, const std::string& name, const uint32& offset, const bool& normalized = false)
+        EXPORT BufferElement(const ShaderDataType type, const std::string& name, const uint32 offset, const bool normalized = false)
             : _name(name), _size(GetShaderDataTypeSize(type)), _offset(offset), _type(type), _normalized(normalized) {}
 
         EXPORT bool IsNormalized() const { return _normalized; }
-        EXPORT const std::string& GetName() const { return _name; }
+        EXPORT std::string GetName() const { return _name; }
         EXPORT uint32 GetSize() const { return _size; }
         EXPORT ShaderDataType GetType() const { return _type; }
+
         EXPORT uint32 GetCount() const 
         {
-            using enum Tbx::ShaderDataType;
+            using enum ShaderDataType;
             switch (_type)
             {
                 case None:   return 0;

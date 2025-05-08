@@ -22,7 +22,7 @@ project "glad"
         "include/glad/*.h",
         "include/KHR/*.h",
         "./**.md",
-        "./**.lua",
+        "./**.lua"
     }
 
     filter "system:windows"
@@ -30,19 +30,19 @@ project "glad"
         {
             "_CRT_SECURE_NO_WARNINGS"
         }
-
+        
     filter "configurations:Debug"
         runtime "Debug"
-        linkoptions { "/MDd" }
-        symbols "on"
+        buildoptions { "/MDd" } 
+        symbols "On"
 
     filter "configurations:Optimized"
         runtime "Release"
-        linkoptions { "/MDd" }
-        optimize "on"
+        buildoptions { "/MDd" } 
+        optimize "On"
 
     filter "configurations:Release"
         runtime "Release"
-        optimize "on"
-        linkoptions { "/MD" }
-        symbols "off"
+        optimize "On"
+        buildoptions { "/MD" } 
+        symbols "Off"
