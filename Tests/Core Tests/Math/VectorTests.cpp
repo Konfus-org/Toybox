@@ -1,5 +1,6 @@
 ﻿#include "PCH.h"
 #include <Tbx/Core/Math/Vectors.h>
+#include <Tbx/Core/Math/Constants.h>
 
 namespace Tbx::Tests::Core::Math
 {
@@ -118,7 +119,7 @@ namespace Tbx::Tests::Core::Math
     TEST(Vector2Tests, Zero_ReturnsZeroVector)
     {
         // Act
-        Vector2 v = Vector2::Zero();
+        Vector2 v = Constants::Vector2::Zero;
 
         // Assert
         EXPECT_FLOAT_EQ(v.X, 0);
@@ -141,7 +142,7 @@ namespace Tbx::Tests::Core::Math
     TEST(Vector2ITests, Identity_ReturnsVectorWithOnes)
     {
         // Act
-        Vector2I v = Vector2I::Identity();
+        Vector2I v = Constants::Vector2I::Identity;
 
         // Assert
         EXPECT_EQ(v.X, 1);

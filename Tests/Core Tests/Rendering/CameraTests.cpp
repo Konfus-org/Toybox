@@ -1,7 +1,8 @@
 #include "PCH.h"
 #include <Tbx/Core/Rendering/Camera.h>
+#include <Tbx/Core/Math/Trig.h>
+#include <Tbx/Core/Math/Constants.h>
 
-#include "Tbx/Core/Math/Trig.h"
 
 namespace Tbx::Tests::Core::Rendering
 {
@@ -112,21 +113,21 @@ namespace Tbx::Tests::Core::Rendering
     {
         // Arrange
         Vector3 camPosition(0, 0, 0);
-        Quaternion camRotation = Quaternion::Identity();
-        Mat4x4 expected = Mat4x4::Identity();
+        Quaternion camRotation = Constants::Quaternion::Identity;
+        Mat4x4 expected = Constants::Mat4x4::Identity;
 
         // Act
         Mat4x4 result = Camera::CalculateViewMatrix(camPosition, camRotation);
 
         // Assert
-        ASSERT_EQ(result, Mat4x4::Identity());
+        ASSERT_EQ(result, Constants::Mat4x4::Identity);
     }
 
     TEST(CameraTests, CalculateViewMatrix_TranslationOnly)
     {
         // Arrange
         Vector3 position(1.0f, 2.0f, 3.0f);
-        Quaternion rotation = Quaternion::Identity();
+        Quaternion rotation = Constants::Quaternion::Identity;
 
         // Act
         Mat4x4 result = Camera::CalculateViewMatrix(position, rotation);
@@ -146,13 +147,13 @@ namespace Tbx::Tests::Core::Rendering
     {
         // Arrange
         Vector3 camPosition(0, 0, 0);
-        Quaternion camRotation = Quaternion::Identity();
-        Mat4x4 projection = Mat4x4::Identity();
+        Quaternion camRotation = Constants::Quaternion::Identity;
+        Mat4x4 projection = Constants::Mat4x4::Identity;
 
         // Act
         Mat4x4 result = Camera::CalculateViewProjectionMatrix(camPosition, camRotation, projection);
 
         // Assert
-        ASSERT_EQ(result.ToString(), Mat4x4::Identity().ToString());
+        ASSERT_EQ(result.ToString(), Constants::Mat4x4::Identity.ToString());
     }
 }

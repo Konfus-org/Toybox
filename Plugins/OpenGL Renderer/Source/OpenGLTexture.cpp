@@ -14,7 +14,7 @@ namespace OpenGLRendering
 
     void OpenGLTexture::SetData(const Tbx::Texture& tex, const Tbx::uint& slot)
     {
-        _associatedAssetId = tex.GetId();
+        _associatedAssetId = tex.Id;
         _slot = slot;
 
         // Setup texture parameters

@@ -33,7 +33,7 @@ namespace Tbx
             const Callback<Event>& newCallback = callbacks
                 .emplace_back([callback](Event& event) { callback(static_cast<TEvent&>(event)); });
 
-            return newCallback.GetId();
+            return newCallback.Id;
         }
 
         /// <summary>
@@ -53,7 +53,7 @@ namespace Tbx
             auto& callbacks = GetSubscribers()[hashCode];
             auto callbackToDeleteIt = std::find_if(callbacks.begin(), callbacks.end(), [callbackToUnsub](const Callback<Event>& c)
             {
-                return c.GetId() == callbackToUnsub; 
+                return c.Id == callbackToUnsub; 
             });
 
             if (callbackToDeleteIt != callbacks.end())

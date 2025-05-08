@@ -1,4 +1,5 @@
 #include "Tbx/Core/PCH.h"
+#include "Tbx/Core/Math/Constants.h"
 #include "Tbx/Core/Math/Mat4x4.h"
 #include "Tbx/Core/Math/Trig.h"
 #include "Tbx/Core/Math/Int.h"
@@ -13,6 +14,11 @@ namespace Tbx
         std::array<float, 16> arr;
         std::memcpy(arr.data(), glm::value_ptr(glmMat), sizeof(arr));
         return arr;
+    }
+
+    Mat4x4::Mat4x4()
+    {
+        Values = Constants::Mat4x4::Identity;
     }
 
     Mat4x4::Mat4x4(const std::initializer_list<float>& data)
@@ -73,22 +79,6 @@ namespace Tbx
             Values[2], Values[6], Values[10], Values[14],
             Values[3], Values[7], Values[11], Values[15]
         );
-    }
-
-    Mat4x4 Mat4x4::Zero()
-    {
-        return 
-     {
-            0.0f, 0.0f, 0.0f, 0.0f, 
-            0.0f, 0.0f, 0.0f, 0.0f, 
-            0.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f 
-        };
-    }
-
-    Mat4x4 Mat4x4::Identity()
-    {
-        return GlmMat4ToTbxMat4x4(glm::mat4(1.0f));
     }
 
     Mat4x4 Mat4x4::FromPosition(const Vector3& position)

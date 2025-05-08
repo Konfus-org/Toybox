@@ -1,8 +1,7 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/Math/Vectors.h"
+#include "Tbx/Core/Math/Quaternion.h"
 #include "Tbx/Core/Math/Bounds.h"
-#include "Quaternion.h"
 #include <array>
 #include <string>
 
@@ -18,7 +17,7 @@ namespace Tbx
         /// <summary>
         /// Creates a new default 4x4 matrix. The default value is the identity matrix.
         /// </summary>
-        Mat4x4() : Values(Identity()) {}
+        Mat4x4();
 
         /// <summary>
         /// Creates a new matrix with the given data, the data must be passed in column major order.
@@ -57,9 +56,6 @@ namespace Tbx
 
         std::string ToString() const override;
 
-        static Mat4x4 Zero();
-        static Mat4x4 Identity();
-
         static Mat4x4 FromPosition(const Vector3& position);
         static Mat4x4 FromRotation(const Quaternion& rotation);
         static Mat4x4 FromScale(const Vector3& scale);
@@ -81,6 +77,7 @@ namespace Tbx
         static Mat4x4 Multiply(const Mat4x4& lhs, const Mat4x4& rhs);
         static Mat4x4 Multiply(float lhs, const Mat4x4& rhs);
         static Mat4x4 Multiply(const Mat4x4& lhs, float rhs);
+
         static bool IsEqual(const Mat4x4& lhs, float rhs);
 
         /// <summary>

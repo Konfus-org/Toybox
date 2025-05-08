@@ -1,6 +1,7 @@
 ﻿#include "PCH.h"
 #include <Tbx/Core/Math/Bounds.h>
 #include <Tbx/Core/Math/Trig.h>
+#include <Tbx/Core/Math/Constants.h>
 
 namespace Tbx::Tests::Core::Math
 {
@@ -37,7 +38,7 @@ namespace Tbx::Tests::Core::Math
     TEST(BoundsTests, Identity_ReturnsDefaultBounds)
     {
         // Act
-        Bounds bounds = Bounds::Identity();
+        Bounds bounds = Constants::Bounds::Identity;
 
         // Assert
         EXPECT_FLOAT_EQ(bounds.Left, -1.0f);

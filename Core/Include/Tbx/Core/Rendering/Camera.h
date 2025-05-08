@@ -1,5 +1,6 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
+#include "Tbx/Core/Math/Constants.h"
 #include "Tbx/Core/Math/Mat4x4.h"
 #include "Tbx/Core/Math/Vectors.h"
 #include "Tbx/Core/Math/Quaternion.h"
@@ -28,7 +29,7 @@ namespace Tbx
         static Mat4x4 CalculateViewProjectionMatrix(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& projectionMatrix);
 
     private:
-        Mat4x4 _projectionMatrix = Mat4x4::Identity();
+        Mat4x4 _projectionMatrix = Constants::Mat4x4::Identity;
 
         bool _isPerspective = true;
         float _zNear = 0.1f;

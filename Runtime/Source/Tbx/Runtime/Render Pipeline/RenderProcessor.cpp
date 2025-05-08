@@ -66,14 +66,16 @@ namespace Tbx
             {
                 // Use the transform block's position and rotation
                 auto& cameraTransform = playSpace->GetBlockOn<Transform>(toy);
-                const auto& viewProjMatrix = Camera::CalculateViewProjectionMatrix(cameraTransform.Position, cameraTransform.Rotation, camera.GetProjectionMatrix());
+                const auto& viewProjMatrix = Camera::CalculateViewProjectionMatrix(
+                    cameraTransform.Position, cameraTransform.Rotation, camera.GetProjectionMatrix());
                 const auto& shaderData = ShaderData("viewProjectionUni", viewProjMatrix, ShaderDataType::Mat4);
                 _currBatch.Emplace(RenderCommand::UploadMaterialShaderData, shaderData);
             }
             else
             {
                 // No transform block, use default camera position and rotation
-                const auto& viewProjMatrix = Camera::CalculateViewProjectionMatrix(Vector3::Zero(), Quaternion::Identity(), camera.GetProjectionMatrix());
+                const auto& viewProjMatrix = Camera::CalculateViewProjectionMatrix(
+                    Constants::Vector3::Zero, Constants::Quaternion::Identity, camera.GetProjectionMatrix());
                 const auto& shaderData = ShaderData("viewProjectionUni", viewProjMatrix, ShaderDataType::Mat4);
                 _currBatch.Emplace(RenderCommand::UploadMaterialShaderData, shaderData);
             }
@@ -95,7 +97,7 @@ namespace Tbx
         if (playSpace->HasBlockOn<Transform>(toy))
         {
             auto& transform = playSpace->GetBlockOn<Transform>(toy);
-            const auto& shaderData = ShaderData(
+            const auto shaderData = ShaderData(
                 "transformUni",
                 Mat4x4::FromTRS(transform.Position, transform.Rotation, transform.Scale),
                 ShaderDataType::Mat4);
@@ -125,15 +127,17 @@ namespace Tbx
             {
                 // Use the transform block's position and rotation
                 auto& cameraTransform = playSpace->GetBlockOn<Transform>(toy);
-                const auto& viewProjMatrix = Camera::CalculateViewProjectionMatrix(cameraTransform.Position, cameraTransform.Rotation, camera.GetProjectionMatrix());
-                const auto& shaderData = ShaderData("viewProjectionUni", viewProjMatrix, ShaderDataType::Mat4);
+                const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(
+                    cameraTransform.Position, cameraTransform.Rotation, camera.GetProjectionMatrix());
+                const auto shaderData = ShaderData("viewProjectionUni", viewProjMatrix, ShaderDataType::Mat4);
                 _currBatch.Emplace(RenderCommand::UploadMaterialShaderData, shaderData);
             }
             else
             {
                 // No transform block, use default camera position and rotation
-                const auto& viewProjMatrix = Camera::CalculateViewProjectionMatrix(Vector3::Zero(), Quaternion::Identity(), camera.GetProjectionMatrix());
-                const auto& shaderData = ShaderData("viewProjectionUni", viewProjMatrix, ShaderDataType::Mat4);
+                const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(
+                    Constants::Vector3::Zero, Constants::Quaternion::Identity, camera.GetProjectionMatrix());
+                const auto shaderData = ShaderData("viewProjectionUni", viewProjMatrix, ShaderDataType::Mat4);
                 _currBatch.Emplace(RenderCommand::UploadMaterialShaderData, shaderData);
             }
         }

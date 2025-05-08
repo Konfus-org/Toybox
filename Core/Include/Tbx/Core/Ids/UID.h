@@ -11,20 +11,17 @@ namespace Tbx
         /// <summary>
         /// Will generate a new UID
         /// </summary>
-        UID() : _value(GetNextId()) {}
-        explicit(false) UID(uint64 id) : _value(id) {}
-        explicit(false) UID(uint id) : _value(static_cast<uint64>(id)) {}
-        explicit(false) UID(int id) : _value(static_cast<uint64>(id)) {}
+        UID() : Value(GetNextId()) {}
+        explicit(false) UID(uint64 id) : Value(id) {}
+        explicit(false) UID(uint id) : Value(static_cast<uint64>(id)) {}
+        explicit(false) UID(int id) : Value(static_cast<uint64>(id)) {}
 
-        uint64 GetValue() const { return _value; }
+        std::string ToString() const { return std::to_string(Value); }
 
-        std::string ToString() const { return std::to_string(_value); }
+        explicit(false) operator uint64() const { return Value; }
 
-        explicit(false) operator uint64() const { return _value; }
-
-    private:
         static uint64 GetNextId();
 
-        uint64 _value = 0;
+        uint64 Value = 0;
     };
 }

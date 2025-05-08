@@ -2,9 +2,52 @@
 #include "Tbx/Core/Math/Vectors.h"
 #include <glm/glm.hpp>
 
-
 namespace Tbx
 {
+    Vector3& Vector3::operator+=(const Vector3& other)
+    {
+        X += other.X;
+        Y += other.Y;
+        Z += other.Z;
+        return *this;
+    }
+
+    Vector3& Vector3::operator-=(const Vector3& other)
+    {
+        X -= other.X;
+        Y -= other.Y;
+        Z -= other.Z;
+        return *this;
+    }
+
+    Vector3& Vector3::operator*=(const Vector3& other)
+    {
+        X *= other.X;
+        Y *= other.Y;
+        Z *= other.Z;
+        return *this;
+    }
+
+    Vector3& Vector3::operator*=(float other)
+    {
+        X *= other;
+        Y *= other;
+        Z *= other;
+        return *this;
+    }
+
+    std::string Vector3::ToString() const
+    {
+        return std::format("({}, {}, {})", X, Y, Z);
+    }
+
+    bool Vector3::IsNearlyZero(float tolerance) const
+    {
+        return glm::abs(X) < tolerance &&
+            glm::abs(Y) < tolerance &&
+            glm::abs(Z) < tolerance;
+    }
+
     Vector3 Vector3::Normalize(const Vector3& vector)
     {
         const auto& glmVec = glm::vec3(vector.X, vector.Y, vector.Z);
@@ -62,5 +105,15 @@ namespace Tbx
 
         const auto& result = glm::dot(glmVecL, glmVecR);
         return result;
+    }
+
+    std::string Vector2::ToString() const
+    {
+        return std::format("({}, {})", X, Y);
+    }
+
+    std::string Vector2I::ToString() const
+    {
+        return std::format("({}, {})", X, Y);
     }
 }

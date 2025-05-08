@@ -31,7 +31,7 @@ namespace Tbx
         toyInfo.Name = name;
         toyInfo.Version++;
         toyInfo.Id = GetToyId(nextToy, toyInfo.Version);
-        toyInfo.Parent = GetId();
+        toyInfo.Parent = Id;
         toyInfo.BlockMask.reset();
 
         TBX_ASSERT(GetToyVersion(toyInfo.Id) == toyInfo.Version, "Toy version does not match calculation! Version calculation or version incrementation is incorrect!");
@@ -54,7 +54,7 @@ namespace Tbx
 
         // Set invalid
         toyInfo.Id = GetToyId(-1, toyInfo.Version);
-        toy = Toy(toy.Name, toyInfo.Id);
+        toy = Toy(toy.GetName(), toyInfo.Id);
 
         // Reset mask
         toyInfo.BlockMask.reset();
@@ -70,11 +70,11 @@ namespace Tbx
 
     void PlaySpace::Open() const
     {
-        auto openRequest = OpenPlaySpacesRequest({ GetId() });
+        auto openRequest = OpenPlaySpacesRequest({ Id });
         EventCoordinator::Send(openRequest);
         TBX_ASSERT(openRequest.IsHandled, "Failed to open playSpaces! Is a handler created and listening?");
 
-        auto openedEvent = OpenedPlaySpacesEvent({ GetId() });
+        auto openedEvent = OpenedPlaySpacesEvent({ Id });
         EventCoordinator::Send(openedEvent);
     }
 }

@@ -1,7 +1,6 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
 #include "Tbx/Core/Debug/IPrintable.h"
-#include <format>
 
 namespace Tbx
 {
@@ -20,11 +19,25 @@ namespace Tbx
         friend Vector3 operator * (const Vector3& lhs, const Vector3& rhs) { return Multiply(lhs, rhs); }
         friend Vector3 operator * (const Vector3& lhs, float scalar) { return Multiply(lhs, scalar); }
 
-        std::string ToString() const override { return std::format("({}, {}, {})", X, Y, Z); }
+        Vector3& operator += (const Vector3& other);
+        Vector3& operator -= (const Vector3& other);
+        Vector3& operator *= (const Vector3& other);
+        Vector3& operator *= (float other);
 
-        static Vector3 Identity() { return {1, 1, 1}; }
-        static Vector3 Zero() { return {0, 0, 0}; }
-        static Vector3 One() { return {1, 1, 1}; }
+        std::string ToString() const override;
+
+        /// <summary>
+        /// Returns true if the vector is nearly zero in all components
+        /// </summary>
+        bool IsNearlyZero(float tolerance = 1e-6f) const;
+
+        Vector3 Normalize() const { return Normalize(*this); }
+        Vector3 Add(const Vector3& rhs) const { return Add(*this, rhs); }
+        Vector3 Subtract(const Vector3& rhs) const { return Subtract(*this, rhs); }
+        Vector3 Multiply(const Vector3& rhs) const { return Multiply(*this, rhs); }
+        Vector3 Multiply(float scalar) const { return Multiply(*this, scalar); }
+        Vector3 Cross(const Vector3& rhs) const { return Cross(*this, rhs); }
+        float Dot(const Vector3& rhs) const { return Dot(*this, rhs); }
 
         static Vector3 Normalize(const Vector3& vector);
         static Vector3 Add(const Vector3& lhs, const Vector3& rhs);
@@ -48,12 +61,9 @@ namespace Tbx
         Vector2() = default;
         explicit(false) Vector2(float x) : X(x), Y(x) {}
         Vector2(float x, float y) : X(x), Y(y) {}
-        explicit(false) Vector2(Vector3 vector) : X(vector.X), Y(vector.Y) {}
+        explicit(false) Vector2(const Vector3& vector) : X(vector.X), Y(vector.Y) {}
 
-        std::string ToString() const override { return std::format("({}, {})", X, Y); }
-
-        static Vector2 Zero() { return {0, 0}; }
-        static Vector2 Identity() { return {1, 1}; }
+        std::string ToString() const override;
 
         float X = 0;
         float Y = 0;
@@ -70,10 +80,7 @@ namespace Tbx
         explicit(false) Vector2I(const Vector3& vector) : X(static_cast<int>(vector.X)), Y(static_cast<int>(vector.Y)) {}
         Vector2I(int x, int y) : X(x), Y(y) {}
 
-        std::string ToString() const override { return std::format("({}, {})", X, Y); }
-
-        static Vector2I Zero() { return {0, 0}; }
-        static Vector2I Identity() { return {1, 1}; }
+        std::string ToString() const override;
 
         int X = 0;
         int Y = 0;

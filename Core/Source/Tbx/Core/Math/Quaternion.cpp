@@ -6,12 +6,6 @@
 
 namespace Tbx
 {
-    Quaternion Quaternion::Identity()
-    {
-        const auto glmQuat = glm::identity<glm::quat>();
-        return {glmQuat.x, glmQuat.y, glmQuat.z, glmQuat.w};
-    }
-
     Vector3 Quaternion::GetForward(const Quaternion& rot)
     {
         const auto glmQuat = glm::quat(rot.W, rot.X, rot.Y, rot.Z);
@@ -46,13 +40,36 @@ namespace Tbx
     Quaternion Quaternion::FromEuler(float x, float y, float z)
     {
         const auto result = glm::quat(glm::vec3(Math::DegreesToRadians(x), Math::DegreesToRadians(y), Math::DegreesToRadians(z)));
-        return {result.x, result.y, result.z, result.w};
+        return {result.x, result.y, -result.z, result.w};
     }
 
     Vector3 Quaternion::ToEuler(const Quaternion& quaternion)
     {
         glm::vec3 result = glm::degrees(glm::eulerAngles(glm::quat(quaternion.W, quaternion.X, quaternion.Y, quaternion.Z)));
         return {result.x, result.y, result.z};
+    }
+
+    bool Quaternion::IsEqualOrEquivalent(const Quaternion& lhs, const Quaternion& rhs, float epsilon)
+    {
+        // If q and -q are both valid rotations, check both possibilities
+        bool directMatch =
+            std::abs(lhs.X - rhs.X) < epsilon &&
+            std::abs(lhs.Y - rhs.Y) < epsilon &&
+            std::abs(lhs.Z - rhs.Z) < epsilon &&
+            std::abs(lhs.W - rhs.W) < epsilon;
+
+        bool negatedMatch =
+            std::abs(lhs.X + rhs.X) < epsilon &&
+            std::abs(lhs.Y + rhs.Y) < epsilon &&
+            std::abs(lhs.Z + rhs.Z) < epsilon &&
+            std::abs(lhs.W + rhs.W) < epsilon;
+
+        return directMatch || negatedMatch;
+    }
+
+    std::string Quaternion::ToString() const
+    {
+        return std::format("(X: {}, Y: {}, Z: {}, W: {})", X, Y, Z, W);
     }
 
     Quaternion Quaternion::Normalize(const Quaternion& quaternion)
@@ -87,7 +104,7 @@ namespace Tbx
         const auto glmR = glm::quat(rhs.W, rhs.X, rhs.Y, rhs.Z);
 
         auto result = glmL * glmR;
-        return {result.x, result.y, result.z, result.w};
+        return { result.x, result.y, result.z, result.w };
     }
 
     Vector3 Quaternion::Multiply(const Quaternion& lhs, const Vector3& rhs)

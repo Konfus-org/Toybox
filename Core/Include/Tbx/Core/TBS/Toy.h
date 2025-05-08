@@ -2,6 +2,7 @@
 #include "Tbx/Core/DllExport.h"
 #include "Tbx/Core/Ids/UsesUID.h"
 #include "Tbx/Core/Math/Int.h"
+#include "Tbx/Core/Strings/String.h"
 #include <unordered_map>
 #include <typeinfo>
 #include <bitset>
@@ -41,7 +42,7 @@ namespace Tbx
     inline uint32 GetToyVersion(const UID& id)
     {
         // Cast to a 32 bit int to get our version number (loosing the top 32 bits)
-        return static_cast<uint32>(id.GetValue());
+        return static_cast<uint32>(id.Value);
     }
 
     /// <summary>
@@ -60,7 +61,7 @@ namespace Tbx
     {
         // Used by a template so needs defined in the header...
         // Shift down 32 so we lose the version and get our index
-        return id.GetValue() >> 32;
+        return id.Value >> 32;
     }
 
     /// <summary>
@@ -90,30 +91,23 @@ namespace Tbx
     /// A mask that represents the block types that are attached to a Toy.
     /// </summary>
     struct EXPORT BlockMask
-        : public std::bitset<MAX_NUMBER_OF_BLOCKS_ON_A_TOY>
-    {
-    };
+        : public std::bitset<MAX_NUMBER_OF_BLOCKS_ON_A_TOY> {};
 
     /// <summary>
     /// Stores information about a toy.
     /// </summary>
-    struct EXPORT ToyInfo
+    struct EXPORT ToyInfo : public UsesUID
     {
     public:
         ToyInfo() = default;
-        ToyInfo(std::string name, UID id, UID parent, BlockMask mask)
-            : Name(name), Id(id), Parent(parent), BlockMask(mask) {}
+        ToyInfo(const std::string& name, const UID& id, const UID& parent, const BlockMask& mask)
+            : UsesUID(id), Name(name), Parent(parent), BlockMask(mask) {}
 
         /// <summary>
         /// The display name of a toy.
         /// Useful for debugging and UI.
         /// </summary>
-        std::string Name = "";
-
-        /// <summary>
-        /// Id of the toy.
-        /// </summary>
-        UID Id = -1;
+        String Name = "";
 
         /// <summary>
         /// Id of parent.
@@ -136,27 +130,30 @@ namespace Tbx
     /// <summary>
     /// Represents a toy/gameobject, which is a collection of blocks/components.
     /// </summary>
-    struct EXPORT Toy : public UsesUID
+    struct Toy : public UsesUID
     {
     public:
-#ifdef TBX_DEBUG
-        explicit(false) Toy()
+        EXPORT explicit(false) Toy()
             : UsesUID(-1) {}
-        explicit(false) Toy(const std::string& name, UID id)
-            : UsesUID(id), Name(name) {}
-        explicit(false) Toy(const std::string& name, uint64 id)
-            : UsesUID(id), Name(name) {}
+        EXPORT explicit(false) Toy(const std::string& name, const UID& id)
+            : UsesUID(id), _name(name) {}
+        EXPORT explicit(false) Toy(const std::string& name, uint64 id)
+            : UsesUID(id), _name(name) {}
 
+#ifdef TBX_DEBUG
         /// <summary>
         /// The name of a toy.
-        /// This is only available in debug mode!
+        /// WARNING: This is only available on a Toy object in debug mode!
+        /// If you need this for purposes other than debugging, look to ToyInfo.Name!
         /// </summary>
-        std::string Name = "";
+        EXPORT std::string GetName() { return _name; }
 
+    private:
+        std::string _name;
 #elif
-        explicit(false) Toy(const std::string& name, UID id)
+        EXPORT explicit(false) Toy(const std::string& name, UID id)
             : UsesUID(id) {}
-        explicit(false) Toy(const std::string& name, uint64 id)
+        EXPORT explicit(false) Toy(const std::string& name, uint64 id)
             : UsesUID(id) {}
 #endif
     };

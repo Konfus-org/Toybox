@@ -68,7 +68,7 @@ namespace OpenGLRendering
 		// The code below is a lighty modified version of the example code found here:
 		// https://www.khronos.org/opengl/wiki/Shader_Compilation
 		
-		_associatedAssetId = shader.GetId();
+		_associatedAssetId = shader.Id;
 
         const auto& vertexSrc = shader.GetVertexSource();
         const auto& fragmentSrc = shader.GetFragmentSource();

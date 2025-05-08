@@ -202,7 +202,7 @@ namespace OpenGLRendering
 
     void OpenGLRenderer::SetMaterial(const Tbx::Material& material)
     {
-        const auto& materialShaderId = material.GetShader().GetId();
+        const auto& materialShaderId = material.GetShader().Id;
 
         const auto& glShader = std::ranges::find_if(_shaders, [&](const OpenGLShader& shader)
         {
@@ -215,8 +215,10 @@ namespace OpenGLRendering
 
         for (const auto& texture : material.GetTextures())
         {
-            const auto& glTexture = std::find_if(_textures.begin(), _textures.end(),
-                [&](const OpenGLTexture& glt) { return glt.GetAssociatedAssetId() == texture.GetId(); });
+            const auto& glTexture = std::ranges::find_if(_textures,[&](const OpenGLTexture& glt)
+            {
+                return glt.GetAssociatedAssetId() == texture.Id;
+            });
             glTexture->Bind();
         }
     }

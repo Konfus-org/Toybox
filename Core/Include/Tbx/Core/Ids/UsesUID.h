@@ -8,15 +8,12 @@ namespace Tbx
     {
     public:
         UsesUID() = default;
-        explicit UsesUID(const UID& uid) : _id(uid) {}
+        explicit UsesUID(const UID& uid) : Id(uid) {}
 
-        const UID& GetId() const { return _id; }
+        bool operator==(const UsesUID& other) const { return Id == other.Id; }
+        explicit(false) operator uint64() const { return Id; }
+        explicit(false) operator UID() const { return Id; }
 
-        bool operator==(const UsesUID& other) const { return _id == other._id; }
-        explicit(false) operator uint64() const { return GetId(); }
-        explicit(false) operator UID() const { return GetId(); }
-
-    private:
-        UID _id = 0;
+        UID Id; // Auto increments to next id on construct
     };
 }
