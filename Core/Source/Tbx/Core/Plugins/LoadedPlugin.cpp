@@ -29,21 +29,13 @@ namespace Tbx
 
     void LoadedPlugin::Load()
     {
-        // TODO: We want plugins to be EAZY PEAZY so our register macro should define the provide and delete methods, and we no longer interface with the IPlugin anymore...
-        // instead this will OWN the plugins implementation as a shared ptr. We will turn this into a template that calls the get instance on loading the plugin.
-
         const std::string& pluginFullPath = _pluginInfo.GetLocation() + "\\" + _pluginInfo.GetLib();
         _library.Load(pluginFullPath);
         if (_library.IsValid() == false)
         {
             TBX_ERROR("Failed to load library! Does it exist at: {0}", pluginFullPath);
+            return;
         }
-
-        // TODO: have a verbose mode!
-#ifdef TBX_DEBUG
-        // Uncomment to list symbols
-        // library->ListSymbols();
-#endif
 
         // Get load plugin function from library
         using PluginLoadFunc = Plugin*(*)();
@@ -84,6 +76,10 @@ namespace Tbx
         // Set and init plugin
         _plugin = sharedLoadedPlugin;
         _plugin->OnLoad();
+
+#ifdef TBX_DEBUG
+        _library.ListSymbols();
+#endif
     }
 
     void LoadedPlugin::Unload()

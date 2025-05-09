@@ -20,7 +20,12 @@ namespace Tbx
 #ifdef TBX_PLATFORM_WINDOWS
 
         _path = path;
-        _handle = LoadLibraryA(path.c_str());
+        auto tmpName = path + ".rplugin.dll";
+        if (CopyFileA(path.c_str(), tmpName.c_str(), FALSE))
+        {
+            // Load the copied DLL and get the functions from it.
+            _handle = LoadLibraryA(tmpName.c_str());
+        }
         return _handle != nullptr;
 
 #elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_OSX)
@@ -79,7 +84,7 @@ namespace Tbx
         }
 
         // Callback function for symbol enumeration
-        TBX_INFO("Symbols in the shared library {0}:", _path);
+        TBX_VERBOSE("Symbols in the shared library {0}:", _path);
         
         if (!SymEnumSymbols(GetCurrentProcess(), baseAddr, "*", 
             [](PSYMBOL_INFO info, ULONG, PVOID) {TBX_INFO(info->Name); return 1; }, nullptr))

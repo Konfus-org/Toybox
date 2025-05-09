@@ -21,7 +21,7 @@ void ExampleLayer::OnAttach()
 	_level->AddBlockTo<Tbx::Transform>(checkerBox2dToy);
 	auto& material = _level->AddBlockTo<Tbx::Material>(checkerBox2dToy);
     material.SetTexture(0, Tbx::Texture("Assets/Checkerboard.png"));
-	material.SetColor(Tbx::Colors::Red);
+	material.SetColor(Tbx::Colors::Yellow);
 
 	// Create camera toy
 	_fpsCam = _level->MakeToy("Camera");

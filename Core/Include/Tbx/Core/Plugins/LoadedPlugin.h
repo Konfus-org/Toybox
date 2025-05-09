@@ -4,7 +4,6 @@
 #include "Tbx/Core/Plugins/PluginInfo.h"
 #include "Tbx/Core/DllExport.h"
 #include <memory>
-#include <string>
 
 namespace Tbx
 {

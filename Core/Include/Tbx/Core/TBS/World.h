@@ -2,7 +2,6 @@
 #include "Tbx/Core/DllExport.h"
 #include "Tbx/Core/TBS/PlaySpace.h"
 #include <memory>
-#include <array>
 
 namespace Tbx
 {
