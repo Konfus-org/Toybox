@@ -12,6 +12,7 @@ namespace Tbx
         Initializing,
         Running,
         Reloading,
+        Restarting,
         Exiting,
         Closed,
         Error

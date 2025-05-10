@@ -63,6 +63,7 @@ namespace OpenGLRendering
 
         _shaders.clear();
         _textures.clear();
+
         glFlush();
     }
 

@@ -32,7 +32,7 @@ namespace Tbx
         }
 
         // Log loaded plugins
-        const auto& plugins = PluginServer::GetLoadedPlugins();
+        const auto& plugins = _loadedPlugins;
         const auto& numPlugins = plugins.size();
         TBX_INFO("Loaded {0} plugins:", numPlugins);
         for (const auto& loadedPlug : plugins)
@@ -50,6 +50,35 @@ namespace Tbx
         }
     }
 
+    void PluginServer::RestartPlugins()
+    {
+        TBX_INFO("Restarting plugins...");
+
+        // Sort by reverse priority so highest prio is unloaded last
+        std::ranges::sort(_loadedPlugins, [](const std::shared_ptr<LoadedPlugin> a, const std::shared_ptr<LoadedPlugin> b)
+        {
+            return a->GetInfo().GetPriority() < b->GetInfo().GetPriority();
+        });
+
+        const auto& plugins = _loadedPlugins;
+        for (const auto& loadedPlug : plugins)
+        {
+            const auto& pluginInfo = loadedPlug->GetInfo();
+            const auto& pluginName = pluginInfo.GetName();
+            loadedPlug->Restart();
+
+            TBX_INFO("Restarting: {0}", pluginName);
+        }
+
+        // Put back into reg priority
+        std::ranges::sort(_loadedPlugins, [](const std::shared_ptr<LoadedPlugin> a, const std::shared_ptr<LoadedPlugin> b)
+        {
+            return a->GetInfo().GetPriority() > b->GetInfo().GetPriority();
+        });
+
+        TBX_INFO("Plugins restarted!");
+    }
+
     void PluginServer::ReloadPlugins()
     {
         TBX_INFO("Reloading plugins...");
@@ -65,8 +94,7 @@ namespace Tbx
     void PluginServer::UnloadPlugins()
     {
         // Sort by reverse priority so highest prio is unloaded last
-        std::sort(_loadedPlugins.begin(), _loadedPlugins.end(),
-            [](const std::shared_ptr<LoadedPlugin> a, const std::shared_ptr<LoadedPlugin> b)
+        std::ranges::sort(_loadedPlugins,[](const std::shared_ptr<LoadedPlugin> a, const std::shared_ptr<LoadedPlugin> b)
         {
             return a->GetInfo().GetPriority() < b->GetInfo().GetPriority();
         });
@@ -76,7 +104,7 @@ namespace Tbx
         _loadedPlugins.clear();
     }
 
-    void PluginServer::RegisterPlugin(std::shared_ptr<LoadedPlugin> plugin)
+    void PluginServer::RegisterPlugin(const std::shared_ptr<LoadedPlugin>& plugin)
     {
         _loadedPlugins.push_back(plugin);
     }

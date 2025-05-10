@@ -4,6 +4,9 @@
 
 namespace Tbx
 {
+    using PluginLoadFunc = Plugin * (*)();
+    using PluginUnloadFunc = void(*)(Plugin*);
+
     LoadedPlugin::LoadedPlugin(const PluginInfo& pluginInfo)
     {
         _pluginInfo = pluginInfo;
@@ -27,6 +30,12 @@ namespace Tbx
         return _pluginInfo;
     }
 
+    void LoadedPlugin::Restart() const
+    {
+        _plugin->OnUnload();
+        _plugin->OnLoad();
+    }
+
     void LoadedPlugin::Load()
     {
         const std::string& pluginFullPath = _pluginInfo.GetLocation() + "\\" + _pluginInfo.GetLib();
@@ -38,7 +47,6 @@ namespace Tbx
         }
 
         // Get load plugin function from library
-        using PluginLoadFunc = Plugin*(*)();
         const auto& loadFuncSymbol = _library.GetSymbol("Load");
         if (!loadFuncSymbol)
         {
@@ -60,7 +68,6 @@ namespace Tbx
         std::shared_ptr<Plugin> sharedLoadedPlugin(loadedPlugin, [this](Plugin* pluginToUnload)
         {
             // Use library to free plugin memory because it owns it
-            using PluginUnloadFunc = void(*)(Plugin*);
             const auto& unloadFuncSymbol = _library.GetSymbol("Unload");
             if (!unloadFuncSymbol)
             {

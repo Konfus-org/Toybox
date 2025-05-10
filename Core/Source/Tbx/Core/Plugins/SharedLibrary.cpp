@@ -67,7 +67,7 @@ namespace Tbx
     void SharedLibrary::ListSymbols()
     {
 #ifdef TBX_PLATFORM_WINDOWS
-
+#ifdef TBX_VERBOSE_ENABLED
         // Initialize symbol handling
         if (!SymInitialize(GetCurrentProcess(), nullptr, true))
         {
@@ -87,7 +87,7 @@ namespace Tbx
         TBX_VERBOSE("Symbols in the shared library {0}:", _path);
         
         if (!SymEnumSymbols(GetCurrentProcess(), baseAddr, "*", 
-            [](PSYMBOL_INFO info, ULONG, PVOID) {TBX_INFO(info->Name); return 1; }, nullptr))
+            [](PSYMBOL_INFO info, ULONG, PVOID) {TBX_VERBOSE(info->Name); return 1; }, nullptr))
         {
             TBX_ERROR("Failed to enumerate symbols");
         }
@@ -99,6 +99,7 @@ namespace Tbx
 
         TBX_ASSERT(false, "DynamicLibrary::ListSymbols is not implemented for this platform!");
 
+#endif
 #endif
     }
 

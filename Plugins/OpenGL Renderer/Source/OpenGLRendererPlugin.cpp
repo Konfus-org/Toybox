@@ -32,6 +32,8 @@ namespace OpenGLRendering
         Tbx::EventCoordinator::Unsubscribe<Tbx::RenderFrameRequest>(_renderFrameEventId);
         Tbx::EventCoordinator::Unsubscribe<Tbx::ClearScreenRequest>(_clearScreenEventId);
         Tbx::EventCoordinator::Unsubscribe<Tbx::FlushRendererRequest>(_flushEventId);
+
+        Flush();
     }
 
     void OpenGLRendererPlugin::OnWindowFocusChanged(const Tbx::WindowFocusChangedEvent& e)

@@ -72,8 +72,15 @@ namespace Tbx
             return;
         }
 
+        // Shortcut to restart app
+        if (Input::IsKeyDown(TBX_KEY_F2))
+        {
+            _status = AppStatus::Restarting;
+            return;
+        }
+
         // Shortcut to hot reload plugins
-        if (Input::IsKeyDown(TBX_KEY_F5))
+        if (Input::IsKeyDown(TBX_KEY_F3))
         {
             _status = AppStatus::Reloading;
             return;
@@ -118,8 +125,8 @@ namespace Tbx
         _layerStack.Clear();
 
         // Set status to closed or reloading if we are reloading
-        _status = oldStatus == AppStatus::Reloading 
-            ? AppStatus::Reloading 
+        _status = oldStatus == AppStatus::Reloading || oldStatus == AppStatus::Restarting
+            ? oldStatus
             : AppStatus::Closed;
     }
 

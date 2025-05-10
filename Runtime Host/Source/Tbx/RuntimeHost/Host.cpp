@@ -9,7 +9,7 @@
 
 namespace Tbx
 {
-    std::shared_ptr<App> Load(const std::string& pathToPlugins)
+    static std::shared_ptr<App> Load(const std::string& pathToPlugins)
     {
         try
         {
@@ -36,7 +36,7 @@ namespace Tbx
         }
     }
 
-    AppStatus Run(std::shared_ptr<App> app)
+    static AppStatus Run(const std::shared_ptr<App>& app)
     {
         try
         {
@@ -70,26 +70,33 @@ namespace Tbx
 
     AppStatus RunHost(const std::string& pathToPlugins)
     {
-        // Load app and plugins
-        auto app = Load(pathToPlugins);
+        std::shared_ptr<App> app = nullptr;
+        auto status = AppStatus::Initializing;
 
-        // Run app
-        auto status = Run(app);
-        if (status == AppStatus::Reloading)
+        while (status != AppStatus::Error   ||
+               status != AppStatus::Closed)
         {
-            // Clear ref to app so we can unload it below
-            app.reset();
+            if (status == AppStatus::Reloading || status == AppStatus::Initializing)
+            {
+                // Load app and plugins (app is a plugin)
+                app = Load(pathToPlugins);
+            }
 
-            // Reload/rerun if a reload is triggered...
-            PluginServer::UnloadPlugins();
-            status = RunHost(pathToPlugins);
+            // Run app
+            status = Run(app);
+
+            if (status != AppStatus::Restarting)
+            {
+                // We only want to unload everything if we are reloading things or shutting down!
+                app.reset();
+                PluginServer::UnloadPlugins();
+            }
+            else
+            {
+                // We are restarting, tell our plugins to restart too
+                PluginServer::RestartPlugins();
+            }
         }
-
-        // Clear ref to app so we can unload it below
-        app.reset();
-
-        // Unload plugins
-        PluginServer::UnloadPlugins();
 
         // Finally return and assert last status of the app
         TBX_ASSERT(status == AppStatus::Closed, "App didn't shutdown correctly!");
