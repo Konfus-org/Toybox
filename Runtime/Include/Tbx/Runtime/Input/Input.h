@@ -1,8 +1,8 @@
 #pragma once
 #include "Tbx/Runtime/Layers/Layer.h"
-#include "Tbx/Runtime/Input/InputCodes.h"
-#include "Tbx/Runtime/Windowing/IWindow.h"
 #include "Tbx/Runtime/Events/WindowEvents.h"
+#include "Tbx/Runtime/Input/InputCodes.h"
+#include <Tbx/Math/Vectors.h>
 
 namespace Tbx
 {

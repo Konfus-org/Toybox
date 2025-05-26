@@ -10,6 +10,11 @@ namespace Tbx
         Load(pathToPluginFolder + "\\" + pluginFileName);
     }
 
+    std::string PluginInfo::ToString() const
+    {
+        return std::format("Name: {}\nAuthor: {}\nVersion: {}\nDescription: {}", _name, _author, _version, _description);
+    }
+
     void PluginInfo::Load(const std::string& pathToPluginFile)
     {
         auto metaData = PluginMetaReader::Read(pathToPluginFile);

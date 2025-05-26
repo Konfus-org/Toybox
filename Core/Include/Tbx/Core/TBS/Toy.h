@@ -1,8 +1,8 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
 #include "Tbx/Core/Ids/UsesUID.h"
-#include "Tbx/Core/Math/Int.h"
 #include "Tbx/Core/Strings/String.h"
+#include <Tbx/Math/Int.h>
 #include <unordered_map>
 #include <typeinfo>
 #include <bitset>

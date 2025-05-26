@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Tbx/Core/Debug/IPrintable.h"
 #include "Tbx/Core/Debug/ILogger.h"
 #include "Tbx/Core/Debug/Log.h"
 

@@ -1,12 +1,10 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/Debug/IPrintable.h"
 #include <string>
-#include <format>
 
 namespace Tbx
 {
-    struct PluginInfo : IPrintable
+    struct PluginInfo
     {
     public:
         EXPORT PluginInfo() = default;
@@ -21,10 +19,7 @@ namespace Tbx
         EXPORT int GetPriority() const { return _priority; }
         EXPORT std::string GetLocation() const { return _pathToFolder; }
 
-        EXPORT std::string ToString() const override
-        {
-            return std::format("Name: {}\nAuthor: {}\nVersion: {}\nDescription: {}", _name, _author, _version, _description);
-        }
+        EXPORT std::string ToString() const;
 
     private:
         void Load(const std::string& pathToPluginFile);

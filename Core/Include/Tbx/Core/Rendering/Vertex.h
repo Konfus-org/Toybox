@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
 #include "Tbx/Core/Rendering/Color.h"
-#include "Tbx/Core/Math/Vectors.h"
+#include <Tbx/Math/Vectors.h>
 
 namespace Tbx
 {

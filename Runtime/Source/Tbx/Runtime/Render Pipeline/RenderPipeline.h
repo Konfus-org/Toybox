@@ -25,7 +25,6 @@ namespace Tbx
         void ProcessNextBatch();
 
         UID _worldPlayspaceChangedEventId = -1;
-        RenderProcessor _renderProcessor = {};
         RenderQueue _renderQueue = {};
     };
 }

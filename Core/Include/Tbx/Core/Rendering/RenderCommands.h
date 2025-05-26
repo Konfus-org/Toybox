@@ -19,20 +19,24 @@ namespace Tbx
         /// </summary>
         Clear = 1,
         /// <summary>
-        /// Compiles a materials shader(s) and uploads its texture data to the GPU.
+        /// Compiles a materials shader.
         /// </summary>
         CompileMaterial = 2,
         /// <summary>
+        /// Uploads a materials textures to the GPU.
+        /// </summary>
+        UploadMaterialsTextures = 3,
+        /// <summary>
         /// Sets the material to use for rendering.
         /// </summary>
-        SetMaterial = 3,
+        SetMaterial = 4,
         /// <summary>
         /// Uploads data to a materials shader.
         /// </summary>
-        UploadMaterialShaderData = 4,
+        UploadMaterialShaderData = 5,
         /// <summary>
         /// Renders a mesh.
         /// </summary>
-        RenderMesh = 5,
+        RenderMesh = 6,
     };
 }

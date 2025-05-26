@@ -33,7 +33,7 @@ namespace Tbx
         }
 
     private:
-        Shader _shader = {};
+        Shader _shader = Shaders::DefaultShader;
         Color _color = Colors::White; // default to white shader
         std::vector<Texture> _textures = { Texture() }; // default to one small white texture
     };

@@ -5,6 +5,9 @@ project "Core"
     staticruntime "Off"
     externalwarnings "Off"
 
+    targetdir ("../" .. OutputTargetDir .. "")
+    objdir    ("../" .. OutputIntermediateDir .. "")
+
     pchheader "Tbx/Core/PCH.h"
     pchsource "Source/Tbx/Core/PCH.cpp" -- Full path MUST be specified relative to the premake5.lua (this) script.
 
@@ -19,16 +22,22 @@ project "Core"
 
     links
     {
-        "glm",
         "stbimg",
-        "ModernJSON"
+        "ModernJSON",
+        "googletest",
+        "googlemock",
+        table.unpack(Using.TbxCorePluginLinks)
     }
 
     includedirs
     {
-        "%{IncludeDir.glm}",
-        "%{IncludeDir.ModernJSON}",
-        "%{IncludeDir.stbimg}"
+        "%{Using.ModernJSON}",
+        "%{Using.stbimg}",
+        "%{Using.googletest}",
+        "%{Using.googletest}/include",
+        "%{Using.googlemock}",
+        "%{Using.googlemock}/include",
+        table.unpack(Using.TbxCorePluginDirs)
     }
 
     -- To debug loading shared libs at runtime

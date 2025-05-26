@@ -1,8 +1,0 @@
-{
-    "name": "ImGui Debug View",
-    "lib": "ImGui Debug View.dll",
-    "language": "C++",
-    "version": "0.0.1",
-    "author": "Konfus-dev",
-    "description": "Debug view with info like FPS and memory usage."
-}

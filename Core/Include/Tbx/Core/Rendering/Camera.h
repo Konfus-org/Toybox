@@ -1,32 +1,32 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/Math/Constants.h"
-#include "Tbx/Core/Math/Mat4x4.h"
-#include "Tbx/Core/Math/Vectors.h"
-#include "Tbx/Core/Math/Quaternion.h"
+#include <Tbx/Math/Constants.h>
+#include <Tbx/Math/Mat4x4.h>
+#include <Tbx/Math/Vectors.h>
+#include <Tbx/Math/Quaternion.h>
 
 namespace Tbx
 {
-    class EXPORT Camera
+    class Camera
     {
     public:
-        Camera();
+        EXPORT Camera();
 
-        void SetOrthagraphic(float size, float aspect, float zNear, float zFar);
-        void SetPerspective(float fov, float aspect, float zNear, float zFar);
-        void SetAspect(float aspect);
+        EXPORT void SetOrthagraphic(float size, float aspect, float zNear, float zFar);
+        EXPORT void SetPerspective(float fov, float aspect, float zNear, float zFar);
+        EXPORT void SetAspect(float aspect);
 
-        bool IsPerspective() const { return _isPerspective; }
-        bool IsOrthagraphic() const { return !_isPerspective; }
+        EXPORT bool IsPerspective() const { return _isPerspective; }
+        EXPORT bool IsOrthagraphic() const { return !_isPerspective; }
 
-        float GetAspect() const { return _aspect; }
-        float GetFov() const { return _fov; }
-        float GetZNear() const { return _zNear; }
-        float GetZFar() const { return _zFar; }
-        const Mat4x4& GetProjectionMatrix() const { return _projectionMatrix; }
+        EXPORT float GetAspect() const { return _aspect; }
+        EXPORT float GetFov() const { return _fov; }
+        EXPORT float GetZNear() const { return _zNear; }
+        EXPORT float GetZFar() const { return _zFar; }
+        EXPORT const Mat4x4& GetProjectionMatrix() const { return _projectionMatrix; }
 
-        static Mat4x4 CalculateViewMatrix(const Vector3& camPosition, const Quaternion& camRotation);
-        static Mat4x4 CalculateViewProjectionMatrix(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& projectionMatrix);
+        EXPORT static Mat4x4 CalculateViewMatrix(const Vector3& camPosition, const Quaternion& camRotation);
+        EXPORT static Mat4x4 CalculateViewProjectionMatrix(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& projectionMatrix);
 
     private:
         Mat4x4 _projectionMatrix = Constants::Mat4x4::Identity;

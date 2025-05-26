@@ -1,9 +1,10 @@
-include "configs"
-include "includes"
+dofile("./Tools/Premake/Scripts/utils.lua")
+dofile("./Tools/Premake/Scripts/configs.lua")
+dofile("./Tools/Premake/Scripts/includes.lua")
 
 workspace "Toybox"
     architecture "x86_64"
-    startproject "Examples/Simple App/Host"
+    startproject "Main"
 
     configurations
     {
@@ -12,33 +13,24 @@ workspace "Toybox"
         "Release"
     }
 
-    group "_3rd Party"
-        include "3rd Party/Libraries/glm"
-        include "3rd Party/Libraries/glad"
-        include "3rd Party/Libraries/GLFW"
-        include "3rd Party/Libraries/spdlog"
-        include "3rd Party/Libraries/ModernJSON"
-        include "3rd Party/Libraries/ImGui"
-        include "3rd Party/Libraries/stbimg"
-        include "3rd Party/Libraries/sys_info"
-        include "3rd Party/Libraries/googletest/googletest"
-        include "3rd Party/Libraries/googletest/googlemock"
+    -- Load dependency projects
+    LoadProjectsFromFolder("./Dependencies", "Dependencies")
+
+    -- Load plugin projects
+    -- Load 2x which is a hack to ensure we load deps
+    LoadProjectsFromFolder("./Plugins", "Toybox/Plugins")
+    LoadProjectsFromFolder("./Plugins", "Toybox/Plugins")
+
+    -- Load all test projects
+    local testDirs = os.matchdirs("**/Tests")
+    for _, testDir in ipairs(testDirs) do
+        LoadProjectsFromFolder(testDir .. "/../", "Toybox/Tests")
+    end
 
     group "Toybox"
         include "Core"
         include "Runtime"
-        include "Runtime Host"
-
-    group "Toybox/Plugins"
-        include "Plugins/GLFW Input"
-        include "Plugins/GLFW Windowing"
-        include "Plugins/OpenGL Renderer"
-        include "Plugins/ImGui Debug View"
-        include "Plugins/Spd Logging"
-
-    group "Toybox/Tests"
-        include "Tests/Core Tests"
+        include "Main"
 
     group "Toybox/Examples"
-        include "Examples/Simple App/App"
-        include "Examples/Simple App/Host"
+        include "Examples/Simple App"

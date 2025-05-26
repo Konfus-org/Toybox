@@ -16,19 +16,15 @@ namespace Tbx
         /// <summary>
         /// Gets render data required to setup playSpace such as compiling shaders.
         /// </summary>
-        const RenderBatch& PreProcess(const std::shared_ptr<PlaySpace>& playSpace);
+        static std::vector<RenderBatch> PreProcess(const std::shared_ptr<PlaySpace>& playSpace);
 
         /// <summary>
         /// Returns render data required to render playSpace.
         /// </summary>
-        const RenderBatch& Process(const std::shared_ptr<PlaySpace>& playSpace);
+        static std::vector<RenderBatch> Process(const std::shared_ptr<PlaySpace>& playSpace);
 
     private:
-
-        void PreProcessToy(const Toy& toy, const std::shared_ptr<PlaySpace>& playSpace);
-
-        void ProcessToy(const Toy& toy, const std::shared_ptr<PlaySpace>& playSpace);
-
-        RenderBatch _currBatch = {};
+        static void PreProcessToy(const Toy& toy, const std::shared_ptr<PlaySpace>& playSpace, std::unordered_map<uint64, RenderBatch>& batchesOut);
+        static void ProcessToy(const Toy& toy, const std::shared_ptr<PlaySpace>& playSpace, std::unordered_map<uint64, RenderBatch>& batchesOut);
     };
 }

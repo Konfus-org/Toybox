@@ -2,7 +2,7 @@
 #include "Tbx/Runtime/Windowing/IWindow.h"
 #include <Tbx/Core/DllExport.h>
 #include <Tbx/Core/Events/Event.h>
-#include <Tbx/Core/Math/Vectors.h>
+#include <Tbx/Math/Vectors.h>
 
 namespace Tbx
 {

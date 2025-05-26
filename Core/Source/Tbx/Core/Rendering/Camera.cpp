@@ -1,7 +1,7 @@
 #include "Tbx/Core/PCH.h"
 #include "Tbx/Core/Rendering/Camera.h"
-#include "Tbx/Core/Math/Mat4x4.h"
-#include "Tbx/Core/Math/Trig.h"
+#include <Tbx/Math/Mat4x4.h>
+#include <Tbx/Math/Trig.h>
 
 namespace Tbx
 {

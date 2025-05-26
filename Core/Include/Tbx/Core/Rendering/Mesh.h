@@ -2,7 +2,7 @@
 #include "Tbx/Core/Rendering/Buffers.h"
 #include "Tbx/Core/Rendering/Vertex.h"
 #include "Tbx/Core/Rendering/Material.h"
-#include "Tbx/Core/Math/Int.h"
+#include <Tbx/Math/Int.h>
 
 namespace Tbx
 {

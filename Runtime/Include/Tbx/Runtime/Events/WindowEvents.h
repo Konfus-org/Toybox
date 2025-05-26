@@ -2,8 +2,8 @@
 #include "Tbx/Runtime/Windowing/IWindow.h"
 #include <Tbx/Core/DllExport.h>
 #include <Tbx/Core/Events/Event.h>
-#include <Tbx/Core/Math/Size.h>
 #include <Tbx/Core/Ids/UID.h>
+#include <Tbx/Math/Size.h>
 #include <string>
 #include <memory>
 

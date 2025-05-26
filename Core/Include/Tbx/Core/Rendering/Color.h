@@ -1,10 +1,9 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/Debug/IPrintable.h"
 
 namespace Tbx
 {
-    struct EXPORT Color : public IPrintable
+    struct EXPORT Color
     {
     public:
         /// <summary>
@@ -19,7 +18,7 @@ namespace Tbx
         Color(float r, float g, float b, float a) 
             : R(r), G(g), B(b), A(a) {}
 
-        std::string ToString() const override
+        std::string ToString() const
         {
             return
                 "R: " + std::to_string(R) + 

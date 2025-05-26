@@ -1,5 +1,5 @@
-project "Runtime"
-    kind "SharedLib"
+project "Main"
+    kind "ConsoleApp"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
@@ -8,19 +8,19 @@ project "Runtime"
     targetdir ("../" .. OutputTargetDir .. "")
     objdir    ("../" .. OutputIntermediateDir .. "")
 
-    pchheader "Tbx/Runtime/PCH.h"
-    pchsource "Source/Tbx/Runtime/PCH.cpp" -- Full path MUST be specified relative to the premake5.lua (this) script.
-
     includedirs
     {
         "%{Using.TbxCore}",
-        "%{Using.ModernJSON}"
+        "%{Using.TbxRuntime}",
+        "%{Using.ModernJSON}",
     }
 
     links
     {
         "Core",
-        "ModernJSON"
+        "Runtime",
+        "ModernJSON",
+        table.unpack(Using.TbxPluginLinks),
     }
 
     ToyboxProjectConfigs()

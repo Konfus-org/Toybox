@@ -1,6 +1,6 @@
 #include "Tbx/Core/PCH.h"
 #include "Tbx/Core/Plugins/PluginMetaReader.h"
-#include <Tbx/Core/Debug/DebugAPI.h>
+#include "Tbx/Core/Debug/DebugAPI.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <map>

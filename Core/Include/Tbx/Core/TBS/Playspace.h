@@ -104,6 +104,43 @@ namespace Tbx
             return *block;
         }
 
+
+        /// <summary>
+        /// Adds a block to a toy.
+        /// </summary>
+        template<typename T>
+        EXPORT T& AddBlockTo(const Toy& toy, const T& block)
+        {
+            uint32 toyIndex = GetToyIndex(toy);
+            auto& toyInfo = _toyPool[toyIndex];
+
+            TBX_ASSERT(!HasBlockOn<T>(toy), "Already has the block of this type on the given toy!");
+            TBX_ASSERT(toyInfo.Id == toy, "Toy has been deleted!");
+            TBX_ASSERT(IsToyValid(toy), "Toy is invalid! Was it deleted? Was it created correctly?");
+
+            uint32 blockIndex = GetBlockIndex<T>();
+            if (_blockPools.size() <= blockIndex)
+            {
+                // Not enough component pools, resize!
+                _blockPools.resize(blockIndex + 1);
+            }
+            if (_blockPools[blockIndex] == nullptr)
+            {
+                // We've resized! Make a new pool to fill the space for our new block type.
+                _blockPools[blockIndex] = std::make_unique<MemoryPool>(sizeof(T), MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE);
+            }
+
+            // Add to mask
+            toyInfo.BlockMask.set(blockIndex);
+
+            // Looks up the component in the pool, and initializes it with placement new
+            *_blockPools[blockIndex]->Get<T>(toyIndex) = block;
+
+            TBX_ASSERT(HasBlockOn<T>(toy), "Block didn't get added correctly!");
+
+            return block;
+        }
+
         /// <summary>
         /// Adds a block to a toy.
         /// </summary>

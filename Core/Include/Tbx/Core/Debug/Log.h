@@ -1,7 +1,6 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
 #include "Tbx/Core/Debug/LogLevel.h"
-#include "Tbx/Core/Debug/IPrintable.h"
 #include <format>
 
 namespace Tbx

@@ -1,7 +1,6 @@
 #pragma once
 #include "Tbx/Core/DllExport.h"
 #include "Tbx/Core/Events/EventCategory.h"
-#include "Tbx/Core/Debug/IPrintable.h"
 
 namespace Tbx
 {
@@ -13,7 +12,7 @@ namespace Tbx
     /// In general all events should be named using past tense, ex: CoolThingHappenedEvent.
     /// If the event is marked as handled, the event coordinator will stop processing it and not send it to any other subscribers.
     /// </summary>
-    class EXPORT Event : public IPrintable
+    class EXPORT Event
     {
     public:
         virtual ~Event() = default;
@@ -22,6 +21,11 @@ namespace Tbx
         /// Gets int value of the event categorization (EventCategory).
         /// </summary>
         virtual int GetCategorization() const = 0;
+
+        /// <summary>
+        /// For debugging, prints the event in human-readable format.
+        /// </summary>
+        virtual std::string ToString() const = 0;
 
         /// <summary>
         /// Checks if the event is in the specified category.

@@ -1,6 +1,7 @@
 #include "Tbx/Runtime/PCH.h"
 #include "Tbx/Runtime/App/App.h"
 #include "Tbx/Runtime/Input/Input.h"
+#include "Tbx/Runtime/Input/InputCodes.h"
 #include "Tbx/Runtime/Time/DeltaTime.h"
 #include "Tbx/Runtime/Render Pipeline/RenderPipeline.h"
 #include "Tbx/Runtime/Windowing/WindowManager.h"
