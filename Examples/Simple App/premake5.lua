@@ -6,13 +6,13 @@ project "Simple App"
     ignoredefaultlibraries { "MSVCRT" }
     externalwarnings "Off"
 
-    targetdir ("../../../" .. OutputTargetPluginDir .. "")
-    objdir    ("../../../" .. OutputIntermediatePluginDir .. "")
+    targetdir ("../../" .. OutputTargetPluginDir .. "")
+    objdir    ("../../" .. OutputIntermediatePluginDir .. "")
 
     postbuildcommands
     {
-        "{ECHO} Copying plugin meta from \"%{prj.location}%{prj.name}.plugin\" to \"../../../%{OutputTargetPluginDir}\"",
-        "{COPYFILE} \"%{prj.location}%{prj.name}.plugin\" \"../../../%{OutputTargetPluginDir}\""
+        "{ECHO} Copying plugin meta from \"%{prj.location}%{prj.name}.plugin\" to \"../../%{OutputTargetPluginDir}\"",
+        "{COPYFILE} \"%{prj.location}%{prj.name}.plugin\" \"../../%{OutputTargetPluginDir}\""
     }
 
     files
@@ -54,3 +54,4 @@ project "Simple App"
     PlatformConfigs()
     StandardBuildConfigs()
     DllConfigs()
+    RegisterPlugin("Simple App")

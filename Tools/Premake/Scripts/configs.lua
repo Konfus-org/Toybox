@@ -1,7 +1,7 @@
-OutputTargetDir = "Build/bin/"
-OutputIntermediateDir = "Build/obj/%{prj.name}/"
-OutputTargetPluginDir = "Build/bin/Plugins/%{prj.name}/"
-OutputIntermediatePluginDir = "Build/obj/Plugins/%{prj.name}/"
+OutputTargetDir = "Build/bin/%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
+OutputIntermediateDir = "Build/obj/%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}/%{prj.name}/"
+OutputTargetPluginDir = "Build/bin/%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}/Plugins/%{prj.name}/"
+OutputIntermediatePluginDir = "Build/obj/%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}/Plugins/%{prj.name}/"
 
 -- Easy way to add supported platforms
 function PlatformConfigs()
