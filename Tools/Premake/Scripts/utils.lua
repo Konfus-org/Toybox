@@ -1,17 +1,112 @@
+Using = {}
+Using["TbxCorePluginDirs"] = {}
+Using["TbxCorePluginLinks"] = {}
+Using["TbxPluginLinks"] = {}
 
--- Easy way to register a core plugin (static)
-function RegisterCorePlugin(path, name)
+-- Easy way to register a plugin (static, known at compile time)
+function RegisterStaticPlugin(path, name)
     table.insert(Using["TbxCorePluginDirs"], path)
     table.insert(Using["TbxCorePluginLinks"], name)
+
+    postbuildcommands
+    {
+        "{ECHO} Copying plugin meta from \"%{prj.location}%{prj.name}.plugin\" to \"../../%{OutputTargetDir}\"",
+        "{COPYFILE} \"%{prj.location}%{prj.name}.plugin\" \"../../%{OutputTargetDir}\""
+    }
 end
 
 -- Easy way to register a plugin (dynamic/loaded at runtime)
-function RegisterPlugin(name)
+function RegisterDynamicPlugin(name)
     table.insert(Using["TbxPluginLinks"], name)
+
+    postbuildcommands
+    {
+        "{ECHO} Copying plugin meta from \"%{prj.location}%{prj.name}.plugin\" to \"../../%{OutputTargetDir}\"",
+        "{COPYFILE} \"%{prj.location}%{prj.name}.plugin\" \"../../%{OutputTargetDir}\""
+    }
+
+    -- Gather includes
+    local includes =
+    {
+        _MAIN_SCRIPT_DIR .. "/Core/Include",
+        _MAIN_SCRIPT_DIR .. "/Runtime/Include"
+    }
+    for _, dir in ipairs(Using.TbxCorePluginDirs) do
+        table.insert(includes, dir)
+    end
+    includedirs(includes)
+
+    -- Gather links
+    local linkList =
+    {
+        "Core",
+        "Runtime"
+    }
+    for _, link in ipairs(Using.TbxCorePluginLinks) do
+        table.insert(linkList, link)
+    end
+    links(linkList)
+end
+
+function ApplyDependencyConfigs()
+    -- Dependency configs
+    flags { "MultiProcessorCompile" }
+    filter "configurations:Debug"
+        runtime "Debug"
+        buildoptions { "/MDd" }
+        symbols "On"
+    filter "configurations:Release-Assert"
+        runtime "Release"
+        buildoptions { "/MDd" }
+        optimize "On"
+    filter "configurations:Release"
+        runtime "Release"
+        optimize "On"
+        buildoptions { "/MD" }
+        symbols "Off"
+    filter {}
+end
+
+function ApplyToyboxConfigs()
+    -- Toybox configs
+    flags { "MultiProcessorCompile" }
+    fatalwarnings { "All" }
+    externalwarnings "Off"
+    filter "configurations:Debug"
+        runtime "Debug"
+        buildoptions { "/MDd" }
+        symbols "On"
+        defines { "TBX_DEBUG", "TBX_ASSERTS_ENABLED" }
+    filter "configurations:Release-Assert"
+        runtime "Release"
+        buildoptions { "/MDd" }
+        optimize "On"
+        defines { "TBX_ASSERTS_ENABLED" }
+    filter "configurations:Release"
+        runtime "Release"
+        optimize "On"
+        buildoptions { "/MD" }
+        symbols "Off"
+        defines { "TBX_FULL_RELEASE" }
+    filter "system:Windows"
+        systemversion "latest"
+        defines { "TBX_PLATFORM_WINDOWS" }
+    filter "system:Linux"
+        systemversion "latest"
+        defines { "TBX_PLATFORM_LINUX" }
+    filter "system:Macosx"
+        systemversion "latest"
+        defines { "TBX_PLATFORM_OSX" }
+    filter {}
+    defines
+    {
+        "TOYBOX",
+        "COMPILING_TOYBOX"
+    }
 end
 
 -- Loads all projects in a folder (not recursive)
-function LoadProjectsFromFolder(folderPath, groupName)
+function LoadProjectsFromFolder(folderPath, groupName, applyConfigsFunc)
     group(groupName) -- Start group
 
     local subdirs = os.matchdirs(folderPath .. "/*")
@@ -23,11 +118,17 @@ function LoadProjectsFromFolder(folderPath, groupName)
         local entryScript = path.join(dir, "premake5.lua")
         if os.isfile(entryScript) then
             dofile(entryScript)
+            if applyConfigsFunc ~= nil then
+                applyConfigsFunc()
+            end
         else
             -- Fallback: assume file is named after project
             local defaultScript = path.join(dir, name .. ".lua")
             if os.isfile(defaultScript) then
                 dofile(defaultScript)
+                if applyConfigsFunc ~= nil then
+                    applyConfigsFunc()
+                end
             else
                 -- do nothing...
             end
@@ -68,11 +169,11 @@ function GenerateCmakeSolution(cmakeSourceDir, cmakeBuildDir, objDir, binDir, cm
         combinedOptions
     )
 
-    print("Generating Diligent Engine VS solution with CMake:")
+    print("Generating VS solution with CMake:")
     print(cmd)
 
     local result = os.execute(cmd)
-    if result ~= 0 then
-        error("Failed to generate Diligent Engine VS solution")
+    if result ~= true then
+        error("Failed to generate VS solution")
     end
 end

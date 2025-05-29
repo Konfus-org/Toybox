@@ -14,7 +14,7 @@
 	path = Dependencies/spdlog
 	url = https://github.com/Konfus-org/spdlog.git
 [submodule "Dependencies/ModernJSON"]
-	path = Dependencies/ModernJSON
+	path = Dependencies/nlohmann_json
 	url = https://github.com/Konfus-org/ModernJSON.git
 [submodule "Dependencies/ImGui"]
 	path = Dependencies/ImGui

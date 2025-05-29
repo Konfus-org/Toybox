@@ -67,7 +67,7 @@
     /// If a log is created and listening the msg will be written to a log file in release, others a console in debug.
     /// This is a good method to use to validate things.
     /// </summary>
-    #define TBX_ASSERT(...) if(!(check)) TBX_CRITICAL(msg, __VA_ARGS__);
+    #define TBX_ASSERT(check, msg, ...) if(!(check)) TBX_CRITICAL(msg, __VA_ARGS__);
 #endif
 
 /// <summary>

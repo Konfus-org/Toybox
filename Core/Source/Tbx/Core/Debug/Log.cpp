@@ -3,6 +3,7 @@
 #include "Tbx/Core/Debug/DebugAPI.h"
 #include "Tbx/Core/Events/EventCoordinator.h"
 #include "Tbx/Core/Events/LogEvents.h"
+#include <chrono>
 #include <iostream>
 
 namespace Tbx
@@ -65,7 +66,7 @@ namespace Tbx
         // Open log file in non-debug
         const auto& currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         _logFilePath = std::format("Logs\\{}.log", currentTime);
-        auto event = OpenLogRequestEvent(_logFilePath, _logName);
+        auto event = OpenLogRequest(_logFilePath, _logName);
 #endif
 
         EventCoordinator::Send(event);

@@ -3,24 +3,29 @@ project "Main"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
-    externalwarnings "Off"
 
-    targetdir ("../" .. OutputTargetDir .. "")
-    objdir    ("../" .. OutputIntermediateDir .. "")
-
+    files
+    {
+        "./**.hpp",
+        "./**.cpp",
+        "./**.h",
+        "./**.c",
+        "./**.md",
+        "./**.lua",
+        "./**.txt"
+    }
     includedirs
     {
-        "%{Using.TbxCore}",
-        "%{Using.TbxRuntime}",
-        "%{Using.ModernJSON}",
+        "./Include",
+        "./Source",
+        "../Core/Include",
+        "../Runtime/Include",
+        table.unpack(Using.TbxCorePluginDirs)
     }
-
     links
     {
         "Core",
         "Runtime",
-        "ModernJSON",
         table.unpack(Using.TbxPluginLinks),
+        table.unpack(Using.TbxCorePluginLinks)
     }
-
-    ToyboxProjectConfigs()

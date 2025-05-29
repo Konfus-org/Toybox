@@ -3,45 +3,43 @@ project "Core"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
-    externalwarnings "Off"
-
-    targetdir ("../" .. OutputTargetDir .. "")
-    objdir    ("../" .. OutputIntermediateDir .. "")
 
     pchheader "Tbx/Core/PCH.h"
     pchsource "Source/Tbx/Core/PCH.cpp" -- Full path MUST be specified relative to the premake5.lua (this) script.
 
-    defines
+    files
     {
-        "TOYBOX",
-        "COMPILING_TOYBOX",
-        "GLM_ENABLE_EXPERIMENTAL",
-        "GLM_FORCE_LEFT_HANDED",
-        "GLM_DEPTH_ZERO_TO_ONE"
+        "./Source/**.h",
+        "./Source/**.c",
+        "./Source/**.cc",
+        "./Source/**.hpp",
+        "./Source/**.cpp",
+        "./Include/**.h",
+        "./Include/**.c",
+        "./Include/**.cc",
+        "./Include/**.hpp",
+        "./Include/**.cpp",
+        "./**.plugin",
+        "./**.md",
+        "./*.lua",
+        "./*.txt"
     }
-
+    includedirs
+    {
+        "./Include",
+        "./Source",
+        _MAIN_SCRIPT_DIR .. "/Dependencies/stbimg/include",
+        _MAIN_SCRIPT_DIR .. "/Dependencies/nlohmann_json/include",
+        table.unpack(Using.TbxCorePluginDirs)
+    }
     links
     {
         "stbimg",
-        "ModernJSON",
-        "googletest",
-        "googlemock",
+        "nlohmann_json",
         table.unpack(Using.TbxCorePluginLinks)
-    }
-
-    includedirs
-    {
-        "%{Using.ModernJSON}",
-        "%{Using.stbimg}",
-        "%{Using.googletest}",
-        "%{Using.googletest}/include",
-        "%{Using.googlemock}",
-        "%{Using.googlemock}/include",
-        table.unpack(Using.TbxCorePluginDirs)
     }
 
     -- To debug loading shared libs at runtime
     filter "system:Windows"
         links "DbgHelp.lib"
-
-    ToyboxProjectConfigs()
+    filter {}

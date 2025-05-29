@@ -3,24 +3,30 @@ project "Runtime"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
-    externalwarnings "Off"
-
-    targetdir ("../" .. OutputTargetDir .. "")
-    objdir    ("../" .. OutputIntermediateDir .. "")
 
     pchheader "Tbx/Runtime/PCH.h"
     pchsource "Source/Tbx/Runtime/PCH.cpp" -- Full path MUST be specified relative to the premake5.lua (this) script.
 
+    files
+    {
+        "./**.hpp",
+        "./**.cpp",
+        "./**.h",
+        "./**.c",
+        "./**.md",
+        "./**.lua",
+        "./**.txt",
+        "./**.plugin"
+    }
     includedirs
     {
-        "%{Using.TbxCore}",
-        "%{Using.ModernJSON}"
+        "./Include",
+        "./Source",
+        "../Core/Include",
+        table.unpack(Using.TbxCorePluginDirs)
     }
-
     links
     {
         "Core",
-        "ModernJSON"
+        table.unpack(Using.TbxCorePluginLinks)
     }
-
-    ToyboxProjectConfigs()

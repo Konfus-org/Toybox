@@ -3,10 +3,6 @@ project "Core Tests"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
-    ignoredefaultlibraries { "MSVCRT" }
-
-    targetdir ("../../" .. OutputTargetDir .. "")
-    objdir    ("../../" .. OutputIntermediateDir .. "")
 
     pchheader "PCH.h"
     pchsource "PCH.cpp" -- Full path MUST be specified relative to the premake5.lua (this) script.
@@ -20,18 +16,16 @@ project "Core Tests"
         "./**.md",
         "./**.lua",
     }
-
     includedirs
     {
         "./",
         "../Include",
-        "%{Using.googletest}",
-        "%{Using.googletest}/include",
-        "%{Using.googlemock}",
-        "%{Using.googlemock}/include",
+        _MAIN_SCRIPT_DIR .. "/Dependencies/googletest/googletest",
+        _MAIN_SCRIPT_DIR .. "/Dependencies/googletest/googletest/include",
+        _MAIN_SCRIPT_DIR .. "/Dependencies/googletest/googlemock",
+        _MAIN_SCRIPT_DIR .. "/Dependencies/googletest/googlemock/include",
         table.unpack(Using.TbxCorePluginDirs)
     }
-
     links
     {
         "Core",
@@ -39,5 +33,3 @@ project "Core Tests"
         "googlemock",
         table.unpack(Using.TbxCorePluginLinks)
     }
-
-    ToyboxProjectConfigs()
