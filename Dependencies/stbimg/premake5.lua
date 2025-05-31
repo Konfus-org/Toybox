@@ -15,3 +15,7 @@ project "stbimg"
     {
         "include"
     }
+    defines
+    {
+        "STB_IMAGE_IMPLEMENTATION"
+    }

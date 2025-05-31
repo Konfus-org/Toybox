@@ -16,6 +16,10 @@ workspace "Toybox"
     targetdir (OutputTargetDir)
     objdir    (OutputObjDir)
 
+    -- Target all projects
+    project "*"
+        flags { "MultiProcessorCompile" }
+
     -- Load dependency projects
     LoadProjectsFromFolder("./Dependencies", "Dependencies", ApplyDependencyConfigs)
 

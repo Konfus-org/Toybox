@@ -50,7 +50,6 @@ end
 
 function ApplyDependencyConfigs()
     -- Dependency configs
-    flags { "MultiProcessorCompile" }
     filter "configurations:Debug"
         runtime "Debug"
         buildoptions { "/MDd" }
@@ -107,13 +106,14 @@ end
 
 -- Loads all projects in a folder (not recursive)
 function LoadProjectsFromFolder(folderPath, groupName, applyConfigsFunc)
-    group(groupName) -- Start group
 
     local subdirs = os.matchdirs(folderPath .. "/*")
     table.sort(subdirs) -- Optional: consistent load order
 
     for _, dir in ipairs(subdirs) do
         local name = path.getname(dir)
+
+        group(groupName) -- Start group
 
         local entryScript = path.join(dir, "premake5.lua")
         if os.isfile(entryScript) then
@@ -133,9 +133,9 @@ function LoadProjectsFromFolder(folderPath, groupName, applyConfigsFunc)
                 -- do nothing...
             end
         end
-    end
 
-    group("") -- Exit group context
+        group("") -- Exit group context
+    end
 end
 
 function GenerateCmakeSolution(cmakeSourceDir, cmakeBuildDir, objDir, binDir, cmakeOptions)
