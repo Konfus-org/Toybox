@@ -1,19 +1,7 @@
 @echo off
 
-:: Deleting old vs proj files
-set "scriptDir=%~dp0..\..\.."
-
-echo Deleting Visual Studio project and solution files in %scriptDir% and its subdirectories...
-
-for /r "%scriptDir%" %%f in (*.vcxproj *.csproj *.vcproj *.sln *.vcxproj.filters *.vcxproj.user) do (
-    echo Deleting %%f
-    del "%%f"
-)
-
-echo Done.
-endlocal
-
 :: Running premake to generate new solution and proj files
+set "scriptDir=%~dp0..\..\.."
 echo:
 echo Starting premake..
 echo:
@@ -28,4 +16,3 @@ if not ["%errorlevel%"]==["0"] (
 echo:
 echo Success!
 echo:
-timeout /t 3

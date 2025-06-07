@@ -1,0 +1,8 @@
+{
+    "name": "GLFW Winput",
+    "lib": "GLFW Winput.dll",
+    "language": "C++",
+    "version": "0.0.1",
+    "author": "Konfus-dev",
+    "description": "Platform agnostic input handling and windowing provided by the GLFW library."
+}

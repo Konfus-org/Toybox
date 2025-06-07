@@ -1,0 +1,8 @@
+{
+    "name": "NVRHI Renderer",
+    "lib": "NVRHI Renderer.dll",
+    "language": "C++",
+    "version": "0.0.1",
+    "author": "Konfus-dev",
+    "description": "Rendering system implemented using the NVRHI library."
+}

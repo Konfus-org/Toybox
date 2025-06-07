@@ -3,7 +3,6 @@ project "Simple App"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
-    ignoredefaultlibraries { "MSVCRT" }
     externalwarnings "Off"
 
     files
@@ -16,17 +15,6 @@ project "Simple App"
         "./**.lua",
         "./**.txt",
         "./**.plugin"
-    }
-    includedirs
-    {
-        "%{Using.TbxCore}",
-        "%{Using.TbxRuntime}"
-    }
-
-    links
-    {
-        "Core",
-        "Runtime"
     }
 
     RegisterDynamicPlugin("Simple App")

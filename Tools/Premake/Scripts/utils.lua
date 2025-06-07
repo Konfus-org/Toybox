@@ -10,8 +10,7 @@ function RegisterStaticPlugin(path, name)
 
     postbuildcommands
     {
-        "{ECHO} Copying plugin meta from \"%{prj.location}%{prj.name}.plugin\" to \"../../%{OutputTargetDir}\"",
-        "{COPYFILE} \"%{prj.location}%{prj.name}.plugin\" \"../../%{OutputTargetDir}\""
+        "{COPYFILE} \"%{prj.location}%{prj.name}.plugin\" \"%{OutputTargetDir}\""
     }
 end
 
@@ -21,15 +20,14 @@ function RegisterDynamicPlugin(name)
 
     postbuildcommands
     {
-        "{ECHO} Copying plugin meta from \"%{prj.location}%{prj.name}.plugin\" to \"../../%{OutputTargetDir}\"",
-        "{COPYFILE} \"%{prj.location}%{prj.name}.plugin\" \"../../%{OutputTargetDir}\""
+        "{COPYFILE} \"%{prj.location}%{prj.name}.plugin\" \"%{OutputTargetDir}\""
     }
 
     -- Gather includes
     local includes =
     {
-        _MAIN_SCRIPT_DIR .. "/Core/Include",
-        _MAIN_SCRIPT_DIR .. "/Runtime/Include"
+        _MAIN_SCRIPT_DIR .. "/Engine/Core/Include",
+        _MAIN_SCRIPT_DIR .. "/Engine/Application/Include"
     }
     for _, dir in ipairs(Using.TbxCorePluginDirs) do
         table.insert(includes, dir)
@@ -40,7 +38,7 @@ function RegisterDynamicPlugin(name)
     local linkList =
     {
         "Core",
-        "Runtime"
+        "Application"
     }
     for _, link in ipairs(Using.TbxCorePluginLinks) do
         table.insert(linkList, link)

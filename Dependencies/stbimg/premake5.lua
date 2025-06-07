@@ -8,8 +8,7 @@ project "stbimg"
     {
         "src/*.cpp",
         "include/*.h",
-        "./**.md",
-        "./**.lua",
+        "./**.md"
     }
     includedirs
     {
