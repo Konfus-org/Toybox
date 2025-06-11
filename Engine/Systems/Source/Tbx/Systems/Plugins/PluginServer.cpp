@@ -1,6 +1,6 @@
 #include "Tbx/Systems/PCH.h"
 #include "Tbx/Systems/Plugins/PluginServer.h"
-#include "Tbx/Debug/DebugMacros.h"
+#include "Tbx/Systems/Debug/Debugging.h"
 #include <filesystem>
 
 namespace Tbx

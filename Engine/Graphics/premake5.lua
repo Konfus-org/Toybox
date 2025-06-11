@@ -25,11 +25,13 @@ project "Graphics"
     {
         "./Include",
         "./Source",
-        _MAIN_SCRIPT_DIR .. "/Dependencies/stbimg/include",
+        "../Math/Include",
+        "../Utils/Include",
         table.unpack(Using.TbxCorePluginDirs)
     }
     links
     {
-        "stbimg",
+        "Math",
+        "Utils",
         table.unpack(Using.TbxCorePluginLinks)
     }

@@ -1,8 +1,8 @@
 #pragma once
-#include "Tbx/Runtime/Events/WindowEvents.h"
-#include "Tbx/Runtime/Layers/LayerStack.h"
-#include "Tbx/Runtime/App/GraphicsSettings.h"
-#include <Tbx/Core/Plugins/Plugin.h>
+#include "Tbx/Application/Layers/LayerStack.h"
+#include "Tbx/Systems/Windowing/WindowEvents.h"
+#include "Tbx/Systems/Plugins/IPlugin.h"
+#include "Tbx/Graphics/GraphicsSettings.h"
 
 namespace Tbx
 {
@@ -18,7 +18,7 @@ namespace Tbx
         Error
     };
 
-    class App : public Plugin
+    class App : public IPlugin
     {
     public:
         EXPORT explicit(false) App(const std::string_view& name);

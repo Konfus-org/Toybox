@@ -1,7 +1,5 @@
 #pragma once
-#include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/Ids/UsesUID.h"
-#include "Tbx/Core/Debug/DebugAPI.h"
+#include "Tbx/Utils/DllExport.h"
 #include <Tbx/Math/Int.h>
 #include <any>
 
@@ -41,13 +39,13 @@ namespace Tbx
             case Bool:   return 1;
         }
 
-        TBX_ASSERT(false, "Unknown ShaderDataType!");
         return 0;
     }
 
     struct ShaderData
     {
     public:
+        EXPORT ShaderData() = default;
         EXPORT ShaderData(const std::string& name, const std::any& data, const ShaderDataType& type) 
             : _name(name), _data(data), _type(type) {}
 
@@ -56,12 +54,12 @@ namespace Tbx
         EXPORT ShaderDataType GetType() const { return _type; }
 
     private:
-        std::string _name;
-        std::any _data;
-        ShaderDataType _type;
+        std::string _name = "";
+        std::any _data = nullptr;
+        ShaderDataType _type = ShaderDataType::None;
     };
 
-    class Shader : public UsesUID
+    class Shader
     {
     public:
         /// <summary>

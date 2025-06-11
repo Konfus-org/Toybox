@@ -1,11 +1,11 @@
-project "Runtime"
+project "Application"
     kind "SharedLib"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
 
-    pchheader "Tbx/Runtime/PCH.h"
-    pchsource "Source/Tbx/Runtime/PCH.cpp" -- Full path MUST be specified relative to the premake5.lua (this) script.
+    pchheader "Tbx/Application/PCH.h"
+    pchsource "Source/Tbx/Application/PCH.cpp" -- Full path MUST be specified relative to the premake5.lua (this) script.
 
     files
     {
@@ -13,18 +13,23 @@ project "Runtime"
         "./**.cpp",
         "./**.h",
         "./**.c",
-        "./**.md",
-        "./**.lua"
+        "./**.md"
     }
     includedirs
     {
         "./Include",
         "./Source",
-        "../Core/Include",
+        "../Math/Include",
+        "../Graphics/Include",
+        "../Utils/Include",
+        "../Systems/Include",
         table.unpack(Using.TbxCorePluginDirs)
     }
     links
     {
-        "Core",
+        "Math",
+        "Graphics",
+        "Utils",
+        "Systems",
         table.unpack(Using.TbxCorePluginLinks)
     }

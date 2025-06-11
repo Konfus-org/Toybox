@@ -1,4 +1,4 @@
-project "Core Tests"
+project "Graphics Tests"
     kind "ConsoleApp"
     language "C++"
     cppdialect "C++20"
@@ -13,13 +13,14 @@ project "Core Tests"
         "./**.c",
         "./**.hpp",
         "./**.cpp",
-        "./**.md",
-        "./**.lua",
+        "./**.md"
     }
     includedirs
     {
         "./",
         "../Include",
+        "../../Math/Include",
+        "../../Utils/Include",
         _MAIN_SCRIPT_DIR .. "/Dependencies/googletest/googletest",
         _MAIN_SCRIPT_DIR .. "/Dependencies/googletest/googletest/include",
         _MAIN_SCRIPT_DIR .. "/Dependencies/googletest/googlemock",
@@ -28,7 +29,9 @@ project "Core Tests"
     }
     links
     {
-        "Core",
+        "Graphics",
+        "Math",
+        "Utils",
         "googletest",
         "googlemock",
         table.unpack(Using.TbxCorePluginLinks)

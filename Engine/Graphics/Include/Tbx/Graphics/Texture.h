@@ -1,6 +1,7 @@
 #pragma once
-#include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/Ids/UsesUID.h"
+#include "Tbx/Utils/DllExport.h"
+#include "Tbx/Utils/Ids/UsesUID.h"
+#include "Tbx/Math/Size.h"
 #include <string>
 #include <memory>
 
@@ -30,9 +31,9 @@ namespace Tbx
         EXPORT Texture() = default;
 
         /// <summary>
-        /// Loads a texture from a file
+        /// Pass data to be owned by the texture struct.
         /// </summary>
-        EXPORT explicit(false) Texture(const std::string& path);
+        EXPORT Texture(const Size& size, int channels, std::shared_ptr<TextureData> data);
 
         EXPORT std::shared_ptr <TextureData> GetData() const { return _data; }
         EXPORT std::string GetPath() const { return _path; }

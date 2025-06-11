@@ -6,12 +6,12 @@ namespace Tbx::Time
     float DeltaTime::_valueInSeconds;
     std::chrono::high_resolution_clock::time_point DeltaTime::_lastFrameTime;
 
-    EXPORT float DeltaTime::InSeconds()
+    float DeltaTime::InSeconds()
     {
         return _valueInSeconds;
     }
 
-    EXPORT float DeltaTime::InMilliseconds()
+    float DeltaTime::InMilliseconds()
     {
         return _valueInSeconds * 1000.0f;
     }

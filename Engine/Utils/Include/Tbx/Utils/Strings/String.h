@@ -16,7 +16,7 @@ namespace Tbx
 
         String& operator=(const String& other);
         String& operator=(String&& other) noexcept;
-        operator std::string() const { return _data; }
+        explicit(false) operator std::string() const { return _data; }
 
         const char* CStr() const;
         size_t Length() const;

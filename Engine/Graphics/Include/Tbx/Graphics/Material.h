@@ -1,12 +1,18 @@
 #pragma once
-#include "Tbx/Core/Rendering/Shader.h"
-#include "Tbx/Core/Rendering/Texture.h"
-#include "Tbx/Core/Rendering/Color.h"
+#include "Tbx/Utils/DllExport.h"
+#include "Tbx/Utils/DllExport.h"
+#include "Tbx/Graphics/Shader.h"
+#include "Tbx/Graphics/Texture.h"
+#include "Tbx/Graphics/Color.h"
 #include <vector>
+#include <unordered_map>
 
 namespace Tbx
 {
-    class Material
+    /// <summary>
+    ///  A material is a shader, shader data (colors, viewmatrix, etc...), and textures.
+    /// </summary>
+    class Material : public UsesUID
     {
     public:
         /// <summary>
@@ -19,11 +25,12 @@ namespace Tbx
             : _shader(shader) {}
 
         EXPORT const Shader& GetShader() const { return _shader; }
-        EXPORT const std::vector<Texture>& GetTextures() const { return _textures; }
-        EXPORT const Color& GetColor() const { return _color; }
-
         EXPORT void SetShader(const Shader& shader) { _shader = shader; }
-        EXPORT void SetColor(const Color& color) { _color = color; }
+
+        EXPORT const ShaderData& GetData(const std::string& name) const { return _data.at(name); }
+        EXPORT void SetData(const std::string& name, const ShaderData& data) { _data[name] = data; }
+
+        EXPORT const std::vector<Texture>& GetTextures() const { return _textures; }
         EXPORT void SetTextures(const std::vector<Texture>& textures) { _textures = textures; }
 
         EXPORT void SetTexture(const uint& slot, const Texture& texture)
@@ -34,7 +41,7 @@ namespace Tbx
 
     private:
         Shader _shader = Shaders::DefaultShader;
-        Color _color = Colors::White; // default to white shader
+        std::unordered_map<std::string, ShaderData> _data = {};
         std::vector<Texture> _textures = { Texture() }; // default to one small white texture
     };
 }

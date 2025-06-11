@@ -1,6 +1,6 @@
 #pragma once
-#include "Tbx/Runtime/App/GraphicsSettings.h"
-#include <Tbx/Core/Events/Event.h>
+#include "Tbx/Graphics/GraphicsSettings.h"
+#include "Tbx/Systems/Events/Event.h"
 
 namespace Tbx
 {

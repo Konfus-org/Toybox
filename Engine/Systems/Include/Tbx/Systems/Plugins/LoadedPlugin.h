@@ -1,8 +1,8 @@
 #pragma once
-#include "Tbx/Utils/DllExport.h"
 #include "Tbx/Systems/Plugins/IPlugin.h"
 #include "Tbx/Systems/Plugins/SharedLibrary.h"
 #include "Tbx/Systems/Plugins/PluginInfo.h"
+#include "Tbx/Utils/DllExport.h"
 #include <memory>
 
 namespace Tbx

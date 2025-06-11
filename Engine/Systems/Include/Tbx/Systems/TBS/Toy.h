@@ -2,7 +2,7 @@
 #include "Tbx/Utils/DllExport.h"
 #include "Tbx/Utils/Ids/UsesUID.h"
 #include "Tbx/Utils/Strings/String.h"
-#include <Tbx/Math/Int.h>
+#include "Tbx/Math/Int.h"
 #include <unordered_map>
 #include <typeinfo>
 #include <bitset>
@@ -130,31 +130,16 @@ namespace Tbx
     /// <summary>
     /// Represents a toy/gameobject, which is a collection of blocks/components.
     /// </summary>
-    struct Toy : public UsesUID
+    struct EXPORT Toy : public UsesUID
     {
     public:
-        EXPORT explicit(false) Toy()
+        explicit(false) Toy()
             : UsesUID(-1) {}
-        EXPORT explicit(false) Toy(const std::string& name, const UID& id)
-            : UsesUID(id), _name(name) {}
-        EXPORT explicit(false) Toy(const std::string& name, uint64 id)
-            : UsesUID(id), _name(name) {}
+        explicit(false) Toy(const std::string& name, const UID& id)
+            : UsesUID(id), Name(name) {}
+        explicit(false) Toy(const std::string& name, uint64 id)
+            : UsesUID(id), Name(name) {}
 
-#ifdef TBX_DEBUG
-        /// <summary>
-        /// The name of a toy.
-        /// WARNING: This is only available on a Toy object in debug mode!
-        /// If you need this for purposes other than debugging, look to ToyInfo.Name!
-        /// </summary>
-        EXPORT std::string GetName() { return _name; }
-
-    private:
-        std::string _name;
-#elif
-        EXPORT explicit(false) Toy(const std::string& name, UID id)
-            : UsesUID(id) {}
-        EXPORT explicit(false) Toy(const std::string& name, uint64 id)
-            : UsesUID(id) {}
-#endif
+        String Name = "";
     };
 }

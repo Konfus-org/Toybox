@@ -25,8 +25,8 @@ project "Systems"
     {
         "./Include",
         "./Source",
-        "../Debug/Include",
         "../Math/Include",
+        "../Graphics/Include",
         "../Utils/Include",
         _MAIN_SCRIPT_DIR .. "/Dependencies/nlohmann_json/include",
         table.unpack(Using.TbxCorePluginDirs)
@@ -34,8 +34,8 @@ project "Systems"
     links
     {
         "Math",
+        "Graphics",
         "Utils",
-        "Debug",
         "nlohmann_json",
         table.unpack(Using.TbxCorePluginLinks)
     }

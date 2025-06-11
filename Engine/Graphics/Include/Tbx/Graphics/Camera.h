@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/Core/DllExport.h"
+#include "Tbx/Utils/DllExport.h"
 #include <Tbx/Math/Constants.h>
 #include <Tbx/Math/Mat4x4.h>
 #include <Tbx/Math/Vectors.h>

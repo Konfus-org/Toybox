@@ -1,5 +1,5 @@
-#include "Tbx/Core/PCH.h"
-#include "Tbx/Core/Rendering/Camera.h"
+#include "Tbx/Graphics/PCH.h"
+#include "Tbx/Graphics/Camera.h"
 #include <Tbx/Math/Mat4x4.h>
 #include <Tbx/Math/Trig.h>
 

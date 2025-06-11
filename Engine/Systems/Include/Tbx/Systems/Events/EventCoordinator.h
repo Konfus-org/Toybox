@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/Utils/DllExport.h"
 #include "Tbx/Utils/Callbacks/Callback.h"
-#include "Tbx/Debug/DebugMacros.h"
+#include "Tbx/Systems/Debug/Debugging.h"
 #include "Tbx/Systems/Events/Event.h"
 #include <unordered_map>
 #include <typeindex>

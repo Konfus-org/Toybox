@@ -1,10 +1,10 @@
 #pragma once
+#include "Tbx/Systems/TBS/Toy.h"
+#include "Tbx/Systems/Debug/Debugging.h"
+#include "Tbx/Systems/Events/EventCoordinator.h"
 #include "Tbx/Utils/DllExport.h"
 #include "Tbx/Utils/Ids/UsesUID.h"
 #include "Tbx/Utils/Memory/MemoryPool.h"
-#include "Tbx/Debug/DebugMacros.h"
-#include "Tbx/Systems/TBS/Toy.h"
-#include "Tbx/Systems/Events/EventCoordinator.h"
 #include <queue>
 #include <memory>
 #include <array>
@@ -18,11 +18,11 @@ namespace Tbx
     /// A play space is a way to group sets of toys together to make some "scene".
     /// It can be used to represent a level, scene, or chunk.
     /// </summary>
-    class PlaySpace : public UsesUID
+    class Playspace : public UsesUID
     {
     public:
-        EXPORT PlaySpace() = default;
-        EXPORT explicit PlaySpace(UID id);
+        EXPORT Playspace() = default;
+        EXPORT explicit Playspace(UID id);
 
         /// <summary>
         /// Create a new toy.
@@ -200,9 +200,6 @@ namespace Tbx
         EXPORT void Open() const;
 
     private:
-        static uint32 _blockTypeCount;
-        static uint32 _blockId;
-
         std::array<ToyInfo, MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE> _toyPool = {};
         std::vector<std::unique_ptr<MemoryPool>> _blockPools = {};
         std::queue<uint> _availableToyIndices = {};
@@ -214,7 +211,7 @@ namespace Tbx
     struct PlayspaceIterator
     {
     public:
-        EXPORT PlayspaceIterator(const std::weak_ptr<PlaySpace>& space, uint32 index, BlockMask mask, bool iterateAll)
+        EXPORT PlayspaceIterator(const std::weak_ptr<Playspace>& space, uint32 index, BlockMask mask, bool iterateAll)
             : _playSpace(space), _currIndex(index), _blockMask(mask), _iterateAll(iterateAll) { }
 
         EXPORT Toy operator*() const
@@ -252,7 +249,7 @@ namespace Tbx
                 && (_iterateAll || _blockMask == (_blockMask & _playSpace->GetToyInfo(_currIndex).BlockMask)); // It has the correct component mask
         }
 
-        std::shared_ptr<PlaySpace> _playSpace = {};
+        std::shared_ptr<Playspace> _playSpace = {};
         uint32 _currIndex = 0;
         BlockMask _blockMask = {};
         bool _iterateAll = false;
@@ -266,7 +263,7 @@ namespace Tbx
     struct PlayspaceView
     {
     public:
-        EXPORT explicit(false) PlayspaceView(const std::weak_ptr<PlaySpace>& space) : _playSpace(space)
+        EXPORT explicit(false) PlayspaceView(const std::weak_ptr<Playspace>& space) : _playSpace(space)
         {
             TBX_VALIDATE_WEAK_PTR(space, "PlaySpace reference is invalid! PlaySpace must have been deleted.");
 
@@ -308,7 +305,7 @@ namespace Tbx
         }
 
     private:
-        std::shared_ptr<PlaySpace> _playSpace = {};
+        std::shared_ptr<Playspace> _playSpace = {};
         BlockMask _blockMask = {};
         bool _viewAll = false;
     };

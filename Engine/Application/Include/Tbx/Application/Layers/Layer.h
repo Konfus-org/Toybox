@@ -1,5 +1,5 @@
 #pragma once
-#include <Tbx/Core/DllExport.h>
+#include <Tbx/Utils/DllExport.h>
 #include <string>
 
 namespace Tbx
@@ -7,7 +7,7 @@ namespace Tbx
     class Layer
     {
     public:
-        EXPORT explicit(false) Layer(const std::string_view& name);
+        EXPORT explicit(false) Layer(const std::string& name);
         EXPORT virtual ~Layer() = default;
 
         EXPORT virtual bool IsOverlay() = 0;

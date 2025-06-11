@@ -1,7 +1,6 @@
 #pragma once
-#include "Tbx/Core/Rendering/Buffers.h"
-#include "Tbx/Core/Rendering/Vertex.h"
-#include "Tbx/Core/Rendering/Material.h"
+#include "Tbx/Graphics/Buffers.h"
+#include "Tbx/Graphics/Vertex.h"
 #include <Tbx/Math/Int.h>
 
 namespace Tbx
@@ -39,20 +38,6 @@ namespace Tbx
 
         VertexBuffer _vertexBuffer;  
         IndexBuffer _indexBuffer;
-    };
-
-    struct MeshRenderData
-    {
-        EXPORT MeshRenderData(const Mesh& mesh, const Material& material) 
-            : _mesh(mesh), _material(material) {}
-        EXPORT ~MeshRenderData() = default;
-
-        EXPORT const Mesh& GetMesh() const { return _mesh; }
-        EXPORT const Material& GetMaterial() const { return _material; }
-
-    private:
-        Mesh _mesh;
-        Material _material;
     };
 
     namespace Primitives

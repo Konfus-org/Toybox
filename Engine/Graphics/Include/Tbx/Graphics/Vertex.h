@@ -1,6 +1,6 @@
 #pragma once
-#include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/Rendering/Color.h"
+#include "Tbx/Utils/DllExport.h"
+#include "Tbx/Graphics/Color.h"
 #include <Tbx/Math/Vectors.h>
 
 namespace Tbx

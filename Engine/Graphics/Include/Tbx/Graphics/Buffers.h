@@ -1,6 +1,7 @@
 #pragma once
-#include "Tbx/Core/DllExport.h"
-#include "Tbx/Core/Rendering/Shader.h"
+#include "Tbx/Graphics/Shader.h"
+#include "Tbx/Graphics/DrawCommand.h"
+#include "Tbx/Utils/DllExport.h"
 #include <string>
 #include <vector>
 
@@ -39,7 +40,6 @@ namespace Tbx
                 case Bool:   return 1;
             }
             
-            TBX_ASSERT(false, "Buffer element has unknown ShaderDataType!");
             return 0;
         }
 
@@ -119,5 +119,35 @@ namespace Tbx
 
     private:
         std::vector<uint32> _indices;
+    };
+
+    /// <summary>
+    /// Represents one frame worth of draw commands
+    /// </summary>
+    struct FrameBuffer
+    {
+    public:
+        EXPORT void Emplace(const DrawCommandType& type, const std::any& payload) { _commands.emplace_back(type, payload); }
+        EXPORT void Add(const DrawCommand& command) { _commands.push_back(command); }
+        EXPORT void Clear() { _commands.clear(); }
+
+        EXPORT void Sort()
+        {
+            auto& itemsToSort = _commands;
+            std::ranges::sort(itemsToSort, [](const DrawCommand& a, const DrawCommand& b)
+                {
+                    return static_cast<int>(a.GetType()) < static_cast<int>(b.GetType());
+                });
+        }
+
+        const std::vector<DrawCommand>& GetCommands() const { return _commands; }
+
+        EXPORT std::vector<DrawCommand>::iterator begin() { return _commands.begin(); }
+        EXPORT std::vector<DrawCommand>::iterator end() { return _commands.end(); }
+        EXPORT std::vector<DrawCommand>::const_iterator begin() const { return _commands.begin(); }
+        EXPORT std::vector<DrawCommand>::const_iterator end() const { return _commands.end(); }
+
+    private:
+        std::vector<DrawCommand> _commands;
     };
 }

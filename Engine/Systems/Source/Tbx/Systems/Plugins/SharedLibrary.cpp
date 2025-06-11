@@ -1,6 +1,6 @@
 #include "Tbx/Systems/PCH.h"
 #include "Tbx/Systems/Plugins/SharedLibrary.h"
-#include "Tbx/Debug/DebugMacros.h"
+#include "Tbx/Systems/Debug/Debugging.h"
 #include <any>
 
 #ifdef TBX_PLATFORM_WINDOWS

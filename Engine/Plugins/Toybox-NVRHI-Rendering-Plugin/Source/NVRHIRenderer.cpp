@@ -101,16 +101,16 @@ namespace NVRHIRendering
     {
         for (const auto& item : buffer)
         {
-            const auto& command = item.GetCommand();
+            const auto& command = item.GetType();
             const auto& payload = item.GetPayload();
             switch (command)
             {
-                case Tbx::RenderCommand::None:
+                case Tbx::DrawCommandType::None:
                 {
                     TBX_VERBOSE("OpenGl Renderer: Processing none cmd...");
                     break;
                 }
-                case Tbx::RenderCommand::Clear:
+                case Tbx::DrawCommandType::Clear:
                 {
                     TBX_VERBOSE("OpenGl Renderer: Processing clear cmd...");
 
@@ -118,7 +118,7 @@ namespace NVRHIRendering
                     Clear(color);
                     break;
                 }
-                case Tbx::RenderCommand::RenderModel:
+                case Tbx::DrawCommandType::RenderModel:
                 {
                     TBX_VERBOSE("OpenGl Renderer: Processing model cmd...");
 

@@ -1,5 +1,5 @@
-#include "Tbx/Core/PCH.h"
-#include "Tbx/Core/Rendering/Mesh.h"
+#include "Tbx/Graphics/PCH.h"
+#include "Tbx/Graphics/Mesh.h"
 
 namespace Tbx
 {

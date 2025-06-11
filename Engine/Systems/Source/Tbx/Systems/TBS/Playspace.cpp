@@ -4,10 +4,7 @@
 
 namespace Tbx
 {
-    uint32  PlaySpace::_blockTypeCount;
-    uint32  PlaySpace::_blockId;
-
-    PlaySpace::PlaySpace(UID id) : UsesUID(id)
+    Playspace::Playspace(UID id) : UsesUID(id)
     {
         for (uint i = 0; i < MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE; i++)
         {
@@ -15,7 +12,7 @@ namespace Tbx
         }
     }
 
-    Toy PlaySpace::MakeToy(const std::string& name)
+    Toy Playspace::MakeToy(const std::string& name)
     {
         TBX_ASSERT(
             GetToyCount() < MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE,
@@ -40,7 +37,7 @@ namespace Tbx
         return { name, toyInfo.Id };
     }
 
-    void PlaySpace::DestroyToy(Toy& toy)
+    void Playspace::DestroyToy(Toy& toy)
     {
         auto toyIndex = GetToyIndex(toy);
         auto& toyInfo = _toyPool[toyIndex];
@@ -54,7 +51,7 @@ namespace Tbx
 
         // Set invalid
         toyInfo.Id = GetToyId(-1, toyInfo.Version);
-        toy = Toy(toy.GetName(), toyInfo.Id);
+        toy = Toy("INVALID", toyInfo.Id);
 
         // Reset mask
         toyInfo.BlockMask.reset();
@@ -63,12 +60,12 @@ namespace Tbx
         _availableToyIndices.push(toyIndex);
     }
 
-    uint PlaySpace::GetToyCount() const 
+    uint Playspace::GetToyCount() const 
     { 
         return static_cast<uint>(MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE - _availableToyIndices.size());
     }
 
-    void PlaySpace::Open() const
+    void Playspace::Open() const
     {
         auto openRequest = OpenPlaySpacesRequest({ Id });
         EventCoordinator::Send(openRequest);
