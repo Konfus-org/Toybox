@@ -11,12 +11,12 @@ namespace Tbx
 
     void WindowingLayer::OnAttach()
     {
-        WindowManager::Initialize();
+        WindowManager::SetContext();
     }
 
     void WindowingLayer::OnUpdate()
     {
-        WindowManager::Update();
+        WindowManager::DrawFrame();
     }
 
     void WindowingLayer::OnDetach()

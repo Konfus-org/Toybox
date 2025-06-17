@@ -1,5 +1,6 @@
 #pragma once
 #include "Tbx/Systems/Events/Event.h"
+#include "Tbx/Systems/Rendering/IRenderer.h"
 #include "Tbx/Graphics/Buffers.h"
 #include "Tbx/Utils/DllExport.h"
 #include <array>
@@ -62,5 +63,37 @@ namespace Tbx
 
     private:
         FrameBuffer _buffer;
+    };
+
+
+    class CreateRendererRequest : public RenderEvent
+    {
+    public:
+        EXPORT explicit CreateRendererRequest(const std::shared_ptr<IRenderSurface>& surfaceToCreateFor)
+            : _surface(surfaceToCreateFor) {}
+
+        EXPORT std::string ToString() const final
+        {
+            return "Render Frame Request Event";
+        }
+
+        EXPORT std::shared_ptr<IRenderSurface> GetSurfaceToCreateFor() const
+        {
+            return _surface;
+        }
+
+        EXPORT void SetResult(std::shared_ptr<IRenderer> newRenderer)
+        {
+            _result = newRenderer;
+        }
+
+        EXPORT std::shared_ptr<IRenderer> GetResult() const
+        {
+            return _result;
+        }
+
+    private:
+        std::shared_ptr<IRenderSurface> _surface;
+        std::shared_ptr<IRenderer> _result;
     };
 }

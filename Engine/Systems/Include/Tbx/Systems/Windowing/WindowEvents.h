@@ -46,6 +46,18 @@ namespace Tbx
         bool _isFocused = false;
     };
 
+    class EXPORT WindowOpenedEvent : public WindowActionEvent
+    {
+    public:
+        explicit WindowOpenedEvent(UID windowId)
+            : WindowActionEvent(windowId) {}
+
+        std::string ToString() const final
+        {
+            return "Window Opened Event";
+        }
+    };
+
     class EXPORT WindowClosedEvent : public WindowActionEvent
     {
     public:
@@ -54,7 +66,7 @@ namespace Tbx
 
         std::string ToString() const final
         {
-            return "Window Close Event";
+            return "Window Closed Event";
         }
     };
 

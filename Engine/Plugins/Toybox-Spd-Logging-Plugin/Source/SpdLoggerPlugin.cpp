@@ -1,7 +1,7 @@
 #pragma once
 #include "SpdLoggerPlugin.h"
 #include "SpdLogger.h"
-#include <Tbx/Core/Events/EventCoordinator.h>
+#include <Tbx/Systems/Events/EventCoordinator.h>
 
 namespace SpdLogging
 {

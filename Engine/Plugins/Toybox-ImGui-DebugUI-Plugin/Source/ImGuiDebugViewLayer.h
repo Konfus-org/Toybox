@@ -1,8 +1,9 @@
 #pragma once
 #include <Tbx/Application/Layers/Layer.h>
-#include <Tbx/Application/Events/RenderEvents.h>
-#include <Tbx/Application/Events/WindowEvents.h>
-#include <Tbx/Core/Ids/UID.h>
+#include <Tbx/Systems/Rendering/RenderEvents.h>
+#include <Tbx/Systems/Windowing/WindowEvents.h>
+#include <Tbx/Utils/Ids/UID.h>
+#include <nvrhi/nvrhi.h>
 #include <sys_info/ProcessInfo.h>
 #include <sys_info/SystemInformation.h>
 
@@ -28,8 +29,10 @@ namespace ImGuiDebugView
         bool _showDebugWindowOnDebugBtnUp = false;
         bool _isDebugWindowOpen = false;
 
+        nvrhi::IDevice* _graphicsDevice = nullptr;
         Tbx::Size _windowResolution = { 0, 0 };
-        ProcessInfo _processInfo;
-        SystemInformation _systemInfo;
+
+        ProcessInfo _processInfo = {};
+        SystemInformation _systemInfo = {};
     };
 }

@@ -8,8 +8,8 @@ namespace Tbx
     class World
     {
     public:
-        EXPORT static void Initialize();
-        EXPORT static void Update();
+        EXPORT static void SetContext();
+        EXPORT static void DrawFrame();
         EXPORT static void Destroy();
 
         EXPORT static UID MakePlayspace();

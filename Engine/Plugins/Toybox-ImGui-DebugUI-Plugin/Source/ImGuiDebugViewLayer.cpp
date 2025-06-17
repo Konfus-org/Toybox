@@ -1,61 +1,124 @@
 #include "ImGuiDebugViewLayer.h"
 #include <Tbx/Application/App/App.h>
-#include <Tbx/Application/Input/Input.h>
-#include <Tbx/Application/Windowing/WindowManager.h>
-#include <Tbx/Core/Events/EventCoordinator.h>
-#include <Tbx/Core/Rendering/Camera.h>
-#include <Tbx/Core/TBS/World.h>
+#include <Tbx/Systems/Input/Input.h>
+#include <Tbx/Systems/Rendering/Rendering.h>
+#include <Tbx/Systems/Windowing/WindowManager.h>
+#include <Tbx/Systems/Events/EventCoordinator.h>
+#include <Tbx/Systems/TBS/World.h>
+#include <Tbx/Graphics/Camera.h>
 #include <Tbx/Math/Transform.h>
 #include <imgui_impl_vulkan.h>
 #include <imgui_impl_glfw.h>
+#include <nvrhi/nvrhi.h>
 #ifdef TBX_PLATFORM_WINDOWS
 #include <imgui_impl_dx12.h>
+#include <nvrhi/d3d12.h>
 #endif
+#include <nvrhi/vulkan.h>
 
 namespace ImGuiDebugView
 {
     void ImGuiDebugViewLayer::OnAttach()
     {
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // optional
+
         // Setup Dear ImGui style
         ImGui::StyleColorsDark();
         //ImGui::StyleColorsLight();
-
+        
         // Init size
         const auto mainWindow = Tbx::WindowManager::GetMainWindow();
-        _windowResolution = mainWindow.lock()->GetSize();
+        _windowResolution = mainWindow->GetSize();
 
         // Setup Platform/Renderer backends
-        auto* nativeWindow = std::any_cast<GLFWwindow*>(mainWindow.lock()->GetNativeWindow());
+        auto* nativeWindow = static_cast<GLFWwindow*>(mainWindow->GetNativeWindow());
+        _graphicsDevice = static_cast<nvrhi::IDevice*>(Tbx::Rendering::GetRenderer(mainWindow->Id)->GetGraphicsDevice());
 
-        if (Tbx::App::Instance->GetGraphicsSettings().Api == Tbx::GraphicsApi::DirectX)
+        if (Tbx::App::GetInstance()->GetGraphicsSettings().Api == Tbx::GraphicsApi::DirectX12)
         {
+            //// DX12 ////
+
 #ifdef TBX_PLATFORM_WINDOWS
+
+            // Get device from NVRHI
             D3D12_DESCRIPTOR_HEAP_DESC desc = {};
             desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
             desc.NumDescriptors = 1;
             desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
             desc.NodeMask = 0;
 
-            ID3D12DescriptorHeap* imguiDescHeap = nullptr;
-            device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&imguiDescHeap));
+            ID3D12DescriptorHeap* imguiDescHeap = nullptr; 
+            ID3D12Device* dxDevice = dynamic_cast<nvrhi::d3d12::IDevice*>(_graphicsDevice)->getNativeObject(nvrhi::ObjectTypes::D3D12_Device);
+            dxDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&imguiDescHeap));
 
-            // DirectX
-            ImGui_ImplGlfw_InitForOther(nativeWindow, true); 
+            // Init ImGui
+            ImGui_ImplGlfw_InitForOther(nativeWindow, true);
             ImGui_ImplDX12_Init(
-                device,
-                numFramesInFlight,                     // usually your backbuffer count
-                DXGI_FORMAT_R8G8B8A8_UNORM,            // render target format
-                imguiDescHeap,                         // the descriptor heap
+                dxDevice,
+                2,
+                DXGI_FORMAT_R8G8B8A8_UNORM,
+                imguiDescHeap,
                 imguiDescHeap->GetCPUDescriptorHandleForHeapStart(),
-                imguiDescHeap->GetGPUDescriptorHandleForHeapStart()
-            );
+                imguiDescHeap->GetGPUDescriptorHandleForHeapStart());
 #endif
         }
         else
         {
-            // Vulkan
+            //// Vulkan ////
+
+            // Get required vulkan info from NVRHI
+            auto* vulkDevice = dynamic_cast<nvrhi::vulkan::IDevice*>(_graphicsDevice);
+            VkDevice vkDevice = vulkDevice->getNativeObject(nvrhi::ObjectTypes::VK_Device);
+            VkPhysicalDevice vkPhysicalDevice = vulkDevice->getNativeObject(nvrhi::ObjectTypes::VK_PhysicalDevice);
+            VkDescriptorPool vkDescriptorPool = vulkDevice->getNativeObject(nvrhi::ObjectTypes::VK_DescriptorPool);
+            VkInstance vkInstance = vulkDevice->getNativeObject(nvrhi::ObjectTypes::VK_Instance);
+            VkQueue vkQueue = vulkDevice->getNativeObject(nvrhi::ObjectTypes::VK_Queue);
+
+            // Calculate graphics queue family index
+            uint32_t vkQueueFamily = 0;
+            uint32_t deviceCount = 0;
+            vkEnumeratePhysicalDevices(vkInstance, &deviceCount, nullptr);
+            std::vector<VkPhysicalDevice> devices(deviceCount);
+            vkEnumeratePhysicalDevices(vkInstance, &deviceCount, devices.data());
+            for (const auto& dev : devices)
+            {
+                if (dev != vkPhysicalDevice) continue;
+
+                uint32_t queueCount = 0;
+                vkGetPhysicalDeviceQueueFamilyProperties(dev, &queueCount, nullptr);
+                std::vector<VkQueueFamilyProperties> queueProps(queueCount);
+                vkGetPhysicalDeviceQueueFamilyProperties(dev, &queueCount, queueProps.data());
+
+                for (uint32_t i = 0; i < queueCount; ++i)
+                {
+                    if (!(queueProps[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) continue;
+
+                    vkQueueFamily = i;
+                    break;
+                }
+            }
+
+            // Init ImGui vulkan backend
+            ImGui_ImplVulkan_InitInfo init_info = {};
+            init_info.Instance = vkInstance;
+            init_info.PhysicalDevice = vkPhysicalDevice;
+            init_info.Device = vkDevice;
+            init_info.QueueFamily = vkQueueFamily;
+            init_info.Queue = vkQueue;
+            init_info.DescriptorPool = vkDescriptorPool;
+            init_info.MinImageCount = 2;  // match your swapchain config
+            init_info.ImageCount = 2;
+            init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+            init_info.Allocator = nullptr;
+            init_info.CheckVkResultFn = nullptr;
             ImGui_ImplGlfw_InitForVulkan(nativeWindow, true);
-            ImGui_ImplVulkan_Init();
+            ImGui_ImplVulkan_Init(&init_info);
+
+            // Create fonts
+            ImGui_ImplVulkan_CreateFontsTexture();
         }
 
         // Sub to frame rendered event so we know when to draw
@@ -68,8 +131,21 @@ namespace ImGuiDebugView
         Tbx::EventCoordinator::Unsubscribe<Tbx::RenderedFrameEvent>(_frameRenderedEventId);
         Tbx::EventCoordinator::Unsubscribe<Tbx::WindowResizedEvent>(_windowResizedEventId);
 
-        ImGui_ImplOpenGL3_Shutdown();
+        if (Tbx::App::GetInstance()->GetGraphicsSettings().Api == Tbx::GraphicsApi::DirectX12)
+        {
+            // DX12
+#ifdef TBX_PLATFORM_WINDOWS
+            ImGui_ImplDX12_Shutdown();
+#endif
+        }
+        else
+        {
+            // Vulkan
+            ImGui_ImplVulkan_Shutdown();
+        }
+
         ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
     }
 
     void ImGuiDebugViewLayer::OnUpdate()
@@ -84,8 +160,18 @@ namespace ImGuiDebugView
         const ImGuiIO& io = ImGui::GetIO();
 
         // Start the Dear ImGui frame
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
+        if (Tbx::App::GetInstance()->GetGraphicsSettings().Api == Tbx::GraphicsApi::DirectX12)
+        {
+            // DX12
+#ifdef TBX_PLATFORM_WINDOWS
+            ImGui_ImplDX12_NewFrame();
+#endif
+        }
+        else
+        {
+            // Vulkan
+            ImGui_ImplVulkan_NewFrame();
+        }
         ImGui::NewFrame();
 
         // Listen for key press to toggle the debug window
@@ -164,7 +250,22 @@ namespace ImGuiDebugView
         if (ImGui::GetDrawData() == nullptr) return;
 
         // This needs to be called after the frame has been rendered by the TBX renderer
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        if (Tbx::App::GetInstance()->GetGraphicsSettings().Api == Tbx::GraphicsApi::DirectX12)
+        {
+            // DX12
+#ifdef TBX_PLATFORM_WINDOWS
+            auto* dxDevice = dynamic_cast<nvrhi::d3d12::IDevice*>(_graphicsDevice);
+            ID3D12GraphicsCommandList* dxCommandList = dxDevice->getNativeObject(nvrhi::ObjectTypes::D3D12_GraphicsCommandList);
+            ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), dxCommandList);
+#endif
+        }
+        else
+        {
+            // Vulkan
+            auto* vulkDevice = dynamic_cast<nvrhi::vulkan::IDevice*>(_graphicsDevice);
+            VkCommandBuffer vkCommandBuffer = vulkDevice->getNativeObject(nvrhi::ObjectTypes::VK_CommandBuffer);
+            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), vkCommandBuffer);
+        }
     }
 
     void ImGuiDebugViewLayer::OnWindowResized(const Tbx::WindowResizedEvent& e)

@@ -13,7 +13,7 @@ namespace Tbx
     UID WindowManager::_windowCloseEventId = -1;
     UID WindowManager::_windowFocusChangedEventId = -1;
 
-    void WindowManager::Initialize()
+    void WindowManager::SetContext()
     {
         _windowCloseEventId = EventCoordinator::Subscribe<WindowClosedEvent>(OnWindowClose);
         _windowFocusChangedEventId = EventCoordinator::Subscribe<WindowFocusChangedEvent>(OnWindowFocusChanged);
@@ -27,14 +27,14 @@ namespace Tbx
         CloseAllWindows();
     }
 
-    void WindowManager::Update()
+    void WindowManager::DrawFrame()
     {
         if (_windows.empty()) return;
 
         // Update all windows
         for (const auto& [id, window] : _windows)
         {
-            window->Update();
+            window->DrawFrame();
         }
 
         // Close windows that are mark for close
@@ -47,41 +47,45 @@ namespace Tbx
 
     UID WindowManager::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
-        auto event = OpenNewWindowRequest(name, mode, size);
-        EventCoordinator::Send<OpenNewWindowRequest>(event);
-        auto window = event.GetResult();
+        auto openRequest = OpenNewWindowRequest(name, mode, size);
+        EventCoordinator::Send<OpenNewWindowRequest>(openRequest);
+        auto window = openRequest.GetResult();
 
-        TBX_ASSERT(event.IsHandled, "Failed to open new window with the name {}!", name);
+        TBX_ASSERT(openRequest.IsHandled, "Failed to open new window with the name {}!", name);
         TBX_VALIDATE_PTR(window, "No result returned when opening new window with the name {}!", name);
 
         if (_windows.empty())
         {
-            _mainWindowId = window->GetId();
+            _mainWindowId = window->Id;
         }
 
-        _windows[window->GetId()] = window;
-        return window->GetId();
+        _windows[window->Id] = window;
+
+        auto windowOpenedEvent = WindowOpenedEvent(window->Id);
+        EventCoordinator::Send<WindowOpenedEvent>(windowOpenedEvent);
+
+        return window->Id;
     }
 
-    std::weak_ptr<IWindow> WindowManager::GetMainWindow()
+    std::shared_ptr<IWindow> WindowManager::GetMainWindow()
     {
         return GetWindow(_mainWindowId);
     }
 
-    std::weak_ptr<IWindow> WindowManager::GetWindow(const UID& id)
+    std::shared_ptr<IWindow> WindowManager::GetWindow(const UID& id)
     {
         TBX_ASSERT(_windows.find(id) != _windows.end(), "Window with the id {} does not exist!", id.ToString());
         return _windows[id];
     }
 
-    std::weak_ptr<IWindow> WindowManager::GetFocusedWindow()
+    std::shared_ptr<IWindow> WindowManager::GetFocusedWindow()
     {
         return GetWindow(_focusedWindowId);
     }
 
-    std::vector<std::weak_ptr<IWindow>> WindowManager::GetAllWindows()
+    std::vector<std::shared_ptr<IWindow>> WindowManager::GetAllWindows()
     {
-        std::vector<std::weak_ptr<IWindow>> windows;
+        std::vector<std::shared_ptr<IWindow>> windows;
         for (const auto& [id, window] : _windows)
         {
             windows.push_back(window);

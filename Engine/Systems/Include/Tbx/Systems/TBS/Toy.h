@@ -61,7 +61,7 @@ namespace Tbx
     {
         // Used by a template so needs defined in the header...
         // Shift down 32 so we lose the version and get our index
-        return id.Value >> 32;
+        return id >> 32;
     }
 
     /// <summary>

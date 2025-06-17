@@ -10,7 +10,7 @@ namespace Tbx
     class Input
     {
     public:
-        EXPORT static void Initialize();
+        EXPORT static void SetContext();
         EXPORT static void Shutdown();
 
         EXPORT static bool IsGamepadButtonDown(const int gamepadId, const int button);

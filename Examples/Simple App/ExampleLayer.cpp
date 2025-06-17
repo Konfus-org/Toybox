@@ -1,11 +1,15 @@
 #include "ExampleLayer.h"
-#include <Tbx/Core/Rendering/RenderingAPI.h>
-#include <Tbx/Runtime/Input/Input.h>
-#include <Tbx/Runtime/Input/InputCodes.h>
-#include <Tbx/Runtime/Time/DeltaTime.h>
-#include <Tbx/Core/Math/Transform.h>
-#include <Tbx/Core/TBS/Toy.h>
-#include <Tbx/Core/TBS/World.h>
+#include <Tbx/Systems/Input/Input.h>
+#include <Tbx/Systems/Input/InputCodes.h>
+#include <Tbx/Systems/TBS/Toy.h>
+#include <Tbx/Systems/TBS/World.h>
+#include <Tbx/Graphics/Texture.h>
+#include <Tbx/Graphics/Material.h>
+#include <Tbx/Graphics/Camera.h>
+#include <Tbx/Graphics/Mesh.h>
+#include <Tbx/Math/Transform.h>
+#include <Tbx/Utils/Time/DeltaTime.h>
+#include <algorithm>
 
 void ExampleLayer::OnAttach()
 {
@@ -16,12 +20,12 @@ void ExampleLayer::OnAttach()
 	_level = Tbx::World::GetPlayspace(playSpaceId);
 
     // Create blue toy
-	auto checkerText = Tbx::Texture("Assets/Checkerboard.png");
+	//auto checkerText = Tbx::Texture("Assets/Checkerboard.png");
+	auto checkerText = Tbx::Texture();
 	Tbx::Toy blueToy = _level->MakeToy("Checkerboard");
 	_level->AddBlockTo<Tbx::Mesh>(blueToy);
 	_level->AddBlockTo<Tbx::Transform>(blueToy);
 	auto& blueMat = _level->AddBlockTo<Tbx::Material>(blueToy);
-	blueMat.SetColor(Tbx::Colors::Blue);
 
 	// Create background checkerboard
 	Tbx::Toy checkerBoxToyF = _level->MakeToy("Checkerboard F");
@@ -58,7 +62,7 @@ void ExampleLayer::OnDetach()
 
 void ExampleLayer::OnUpdate()
 {
-	const auto& deltaTime = Tbx::Time::DeltaTime::Seconds();
+	const auto& deltaTime = Tbx::Time::DeltaTime::InSeconds();
 
 	// Camera movement
 	auto& camTransform = _level->GetBlockOn<Tbx::Transform>(_fpsCam);

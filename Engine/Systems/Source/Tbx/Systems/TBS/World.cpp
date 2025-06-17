@@ -8,12 +8,12 @@ namespace Tbx
     std::vector<std::shared_ptr<Playspace>> World::_playSpaces = {};
     uint32 World::_playSpaceCount = 0;
 
-    void World::Initialize()
+    void World::SetContext()
     {
         // Do nothing for now...
     }
 
-    void World::Update()
+    void World::DrawFrame()
     {
         // Nothing for now...
     }

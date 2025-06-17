@@ -5,16 +5,13 @@ project "Simple App"
     staticruntime "Off"
     externalwarnings "Off"
 
+    RegisterDynamicPlugin("Simple App")
+
     files
     {
         "./**.hpp",
         "./**.cpp",
         "./**.h",
         "./**.c",
-        "./**.md",
-        "./**.lua",
-        "./**.txt",
-        "./**.plugin"
+        "./**.md"
     }
-
-    RegisterDynamicPlugin("Simple App")

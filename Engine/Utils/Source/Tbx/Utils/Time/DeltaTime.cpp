@@ -16,7 +16,7 @@ namespace Tbx::Time
         return _valueInSeconds * 1000.0f;
     }
 
-    void DeltaTime::Update()
+    void DeltaTime::DrawFrame()
     {
         auto currentTime = std::chrono::high_resolution_clock::now();
         auto timeSinceLastFrame = std::chrono::duration_cast<std::chrono::duration<float>>(currentTime - _lastFrameTime).count();

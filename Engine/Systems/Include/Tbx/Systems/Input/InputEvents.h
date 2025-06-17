@@ -332,7 +332,7 @@ namespace Tbx
     class EXPORT SetInputContextRequest : public Event
     {
     public:
-        explicit SetInputContextRequest(const std::weak_ptr<IWindow>& context) 
+        explicit SetInputContextRequest(const std::shared_ptr<IWindow>& context)
             : _context(context) {}
 
         int GetCategorization() const final
@@ -345,9 +345,9 @@ namespace Tbx
             return "Set Input Context Request Event";
         }
 
-        const std::weak_ptr<IWindow>& GetContext() const { return _context; }
+        const std::shared_ptr<IWindow>& GetContext() const { return _context; }
 
     private:
-        const std::weak_ptr<IWindow>& _context;
+        const std::shared_ptr<IWindow>& _context;
     };
 }

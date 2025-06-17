@@ -1,9 +1,9 @@
-#include "Tbx/Main/Host.h"
-#include <Tbx/Core/Plugins/PluginServer.h>
-#include <Tbx/Core/Debug/DebugAPI.h>
-#include <Tbx/Core/Events/EventCoordinator.h>
-#include <Tbx/Runtime/Layers/Layer.h>
-#include <Tbx/Runtime/App/App.h>
+#include "Tbx/Launcher/AppHost.h"
+#include "Tbx/Systems/Plugins/PluginServer.h"
+#include "Tbx/Systems/Debug/Debugging.h"
+#include "Tbx/Systems/Events/EventCoordinator.h"
+#include "Tbx/Application/Layers/Layer.h"
+#include "Tbx/Application/App/App.h"
 #include <chrono>
 #include <format>
 
@@ -31,7 +31,8 @@ namespace Tbx
         }
         catch (const std::exception& ex)
         {
-            TBX_ERROR("{Failed to load plugins at {0}! Error: {1}", pathToPlugins, ex.what());
+            std::string errMsg = ex.what();
+            TBX_ERROR("Failed to load plugins at {0}! Error: {1}", pathToPlugins, errMsg);
             return nullptr;
         }
     }
@@ -53,7 +54,7 @@ namespace Tbx
             // Then run the app!
             while (app->GetStatus() == AppStatus::Running)
             {
-                app->Update();
+                app->DrawFrame();
             }
 
             // Cleanup
@@ -72,18 +73,24 @@ namespace Tbx
     {
         std::shared_ptr<App> app = nullptr;
         auto status = AppStatus::Initializing;
+        bool running = true;
 
-        while (status != AppStatus::Error   ||
-               status != AppStatus::Closed)
+        while (running)
         {
             if (status == AppStatus::Reloading || status == AppStatus::Initializing)
             {
                 // Load app and plugins (app is a plugin)
                 app = Load(pathToPlugins);
+                if (!app)
+                {
+                    TBX_ASSERT(false, "Failed to load an app! Is the path to plugins macro defined and point to the correct directory?");
+                    return AppStatus::Error;
+                }
             }
 
             // Run app
-            status = Run(app);
+            status = Run(app); 
+            running = status != AppStatus::Error && status != AppStatus::Closed;
 
             if (status != AppStatus::Restarting)
             {

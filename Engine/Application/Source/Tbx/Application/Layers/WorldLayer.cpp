@@ -11,12 +11,12 @@ namespace Tbx
 
     void WorldLayer::OnAttach()
     {
-        World::Initialize();
+        World::SetContext();
     }
 
     void WorldLayer::OnUpdate()
     {
-        World::Update();
+        World::DrawFrame();
     }
 
     void WorldLayer::OnDetach()

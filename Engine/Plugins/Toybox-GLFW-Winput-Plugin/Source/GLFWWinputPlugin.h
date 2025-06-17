@@ -1,14 +1,14 @@
 #pragma once
 #include "Input/GLFWInputHandler.h"
 #include "Windowing/GLFWWindowFactory.h"
-#include <Tbx/Application/Events/WindowEvents.h>
-#include <Tbx/Application/Events/InputEvents.h>
-#include <Tbx/Core/Plugins/PluginsAPI.h>
-#include <Tbx/Core/Ids/UID.h>
+#include <Tbx/Systems/Windowing/WindowEvents.h>
+#include <Tbx/Systems/Input/InputEvents.h>
+#include <Tbx/Systems/Plugins/RegisterPlugin.h>
+#include <Tbx/Utils/Ids/UID.h>
 
 namespace GLFWPlugin
 {
-    class GLFWWinputPlugin : public Tbx::Plugin, public GLFWWindowing::GLFWWindowFactory, public GLFWInput::GLFWInputHandler
+    class GLFWWinputPlugin : public Tbx::IPlugin, public GLFWWindowing::GLFWWindowFactory, public GLFWInput::GLFWInputHandler
     {
     public:
         GLFWWinputPlugin() = default;

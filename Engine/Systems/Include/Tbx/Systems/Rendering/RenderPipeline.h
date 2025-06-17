@@ -4,14 +4,9 @@
 
 namespace Tbx
 {
-    class RenderPipeline
+    class EXPORT RenderPipeline
     {
     public:
-        EXPORT static void Initialize();
-        EXPORT static void Shutdown();
-        EXPORT static void Update();
-
-    private:
         /// <summary>
         /// Pre processes a playspace and gets it ready for rendering.
         /// </summary>

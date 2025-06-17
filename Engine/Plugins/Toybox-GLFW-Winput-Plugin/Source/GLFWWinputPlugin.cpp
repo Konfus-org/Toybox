@@ -1,7 +1,7 @@
 #include "GLFWWinputPlugin.h"
-#include <Tbx/Core/Events/EventCoordinator.h>
+#include <Tbx/Systems/Events/EventCoordinator.h>
+#include <Tbx/Systems/Plugins/PluginServer.h>
 #include <GLFW/glfw3.h>
-#include <Tbx/Core/Rendering/IRenderer.h>
 
 namespace GLFWPlugin
 {
@@ -54,15 +54,7 @@ namespace GLFWPlugin
 
     void GLFWWinputPlugin::OnOpenNewWindow(Tbx::OpenNewWindowRequest& e)
     {
-        auto renderFactory = Tbx::PluginServer::GetPlugin<Tbx::IRendererFactory>();
-        if (renderFactory == nullptr)
-        {
-            TBX_ASSERT(false, "No render factory plugin found! Cannot create a window because a window required a renderer...");
-            return;
-        }
-
         auto newWindow = Create(e.GetName(), e.GetSize());
-        newWindow->SetRenderer(renderFactory->Create());
         newWindow->Open(e.GetMode());
         newWindow->Focus();
 

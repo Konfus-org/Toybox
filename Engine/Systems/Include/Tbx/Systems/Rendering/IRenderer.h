@@ -1,10 +1,10 @@
 #pragma once
-#include "Tbx/Pipelines/Rendering/IRenderSurface.h"
-#include "Tbx/Pipelines/Rendering/FrameBuffer.h"
+#include "Tbx/Systems/Rendering/IRenderSurface.h"
+#include "Tbx/Graphics/Buffers.h"
+#include "Tbx/Graphics/GraphicsSettings.h"
 #include "Tbx/Graphics/Color.h"
-#include "Tbx/Graphics/Shader.h"
-#include "Tbx/Graphics/Texture.h"
-#include "Tbx/Graphics/Mesh.h"
+#include "Tbx/Math/Vectors.h"
+#include <memory>
 
 namespace Tbx
 {
@@ -14,6 +14,8 @@ namespace Tbx
         Size Size;
     };
 
+    using GraphicsDevice = void*;
+
     class EXPORT IRenderer
     {
     public:
@@ -22,7 +24,12 @@ namespace Tbx
         /// <summary>
         /// Initializes the renderer.
         /// </summary>
-        virtual void Initialize(const std::shared_ptr<IRenderSurface>& context) = 0;
+        virtual void Initialize(const std::shared_ptr<IRenderSurface>& surface) = 0;
+
+        /// <summary>
+        /// Gets the graphics device the renderer is using.
+        /// </summary>
+        virtual GraphicsDevice GetGraphicsDevice() = 0;
 
         /// <summary>
         /// Sets the api the renderer will use.
@@ -77,18 +84,6 @@ namespace Tbx
         /// Clears the screen with the given color.
         /// </summary>
         virtual void Clear(const Color& color = Colors::DarkGrey) = 0;
-
-        /// <summary>
-        /// Call this before drawing anything to the screen.
-        /// It must be called in a pair with EndDraw() with end draw called after all drawing is done.
-        /// </summary>
-        virtual void BeginDraw() = 0;
-
-        /// <summary>
-        /// Call this after drawing everything to the screen.
-        /// It must be called in a pair with BeginDraw() with begin draw called before drawing anything.
-        /// </summary>
-        virtual void EndDraw() = 0;
 
         /// <summary>
         /// Draws a frame.

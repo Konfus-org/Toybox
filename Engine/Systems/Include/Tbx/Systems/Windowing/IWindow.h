@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/Systems/Rendering/IRenderSurface.h"
-#include "Tbx/Utils/Ids/UID.h"
+#include "Tbx/Utils/Ids/UsesUID.h"
 #include <any>
 
 namespace Tbx
@@ -13,19 +13,16 @@ namespace Tbx
         FullscreenBorderless = 3
     };
 
-    class EXPORT IWindow : public IRenderSurface
+    class EXPORT IWindow : public IRenderSurface, public UsesUID
     {
     public:
         virtual void Open(const WindowMode& mode) = 0;
         virtual void Close() = 0;
-        virtual void Update() = 0;
+        virtual void DrawFrame() = 0;
         virtual void Focus() = 0;
 
         virtual const std::string& GetTitle() const = 0;
         virtual void SetTitle(const std::string& title) = 0;
-
-        virtual UID GetId() const = 0;
-        virtual std::any GetNativeImpl() const = 0;
 
         virtual void SetMode(const WindowMode& mode) = 0;
     };

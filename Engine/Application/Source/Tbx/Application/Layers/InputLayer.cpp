@@ -11,7 +11,7 @@ namespace Tbx
 
     void InputLayer::OnAttach()
     {
-        Input::Initialize();
+        Input::SetContext();
     }
 
     void InputLayer::OnDetach()

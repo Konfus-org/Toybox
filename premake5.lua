@@ -24,8 +24,6 @@ workspace "Toybox"
     LoadProjectsFromFolder("./Dependencies", "Dependencies", ApplyDependencyConfigs)
 
     -- Load plugin projects
-    -- Load 2x which is a hack to ensure we load deps
-    LoadProjectsFromFolder("./Engine/Plugins", "Toybox/Plugins", ApplyToyboxConfigs)
     LoadProjectsFromFolder("./Engine/Plugins", "Toybox/Plugins", ApplyToyboxConfigs)
 
     -- Load all test projects

@@ -1,5 +1,5 @@
 #pragma once
-#include <Tbx/Runtime/App/App.h>
+#include <Tbx/Application/App/App.h>
 #include <string>
 
 namespace Tbx

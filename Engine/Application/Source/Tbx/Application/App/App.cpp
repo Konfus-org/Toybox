@@ -13,6 +13,8 @@
 
 namespace Tbx
 {
+    std::shared_ptr<App> App::_instance = nullptr;
+
     App::App(const std::string_view& name)
     {
         _name = name;
@@ -25,12 +27,18 @@ namespace Tbx
             ShutdownSystems();
         }
     }
+
+    std::shared_ptr<App> App::GetInstance()
+    {
+        return _instance;
+    }
     
     void App::Launch()
     {
-        _status = AppStatus::Initializing;
+        TBX_ASSERT(_instance == nullptr, "There is an existing instance still running!");
 
-        // Subscribe to window events
+        _instance = std::shared_ptr<App>(this);
+        _status = AppStatus::Initializing;
         _windowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_FN(OnWindowClosed));
 
         // Add default layers (order is important as they will be updated and destroyed in reverse order)
@@ -40,27 +48,19 @@ namespace Tbx
         PushLayer(std::make_shared<WorldLayer>());
         PushLayer(std::make_shared<InputLayer>());
 
-        // Open main window
         WindowManager::OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
-        auto mainWindow = WindowManager::GetMainWindow();
-        auto windowFocusChangedEvent = WindowFocusChangedEvent(mainWindow.lock()->GetId(), true);
-        EventCoordinator::Send(windowFocusChangedEvent);
-
-        // Set default graphics settings
-        auto graphicsSettingsChangedEvent = AppGraphicsSettingsChangedEvent(_graphicsSettings);
-        EventCoordinator::Send(graphicsSettingsChangedEvent);
 
         OnLaunch();
 
         _status = AppStatus::Running;
     }
 
-    void App::Update()
+    void App::DrawFrame()
     {
         if (_status != AppStatus::Running) return;
 
         // Update delta time
-        Time::DeltaTime::Update();
+        Time::DeltaTime::DrawFrame();
 
 #ifndef TBX_RELEASE
         // Only allow reloading and force quit when not released!
@@ -108,8 +108,12 @@ namespace Tbx
 
     void App::Close()
     {
+        // Shutdown and clear resources
         OnShutdown();
         ShutdownSystems();
+
+        // Clear instance
+        _instance = nullptr;
     }
 
     void App::ShutdownSystems()
@@ -152,7 +156,7 @@ namespace Tbx
     void App::OnWindowClosed(const WindowClosedEvent& e)
     {
         // If the window is our main window, set running flag to false which will trigger the app to close
-        if (e.GetWindowId() == WindowManager::GetMainWindow().lock()->GetId())
+        if (e.GetWindowId() == WindowManager::GetMainWindow()->Id)
         {
             // Stop running and close all windows
             _status = AppStatus::Exiting;
@@ -179,5 +183,10 @@ namespace Tbx
         _graphicsSettings = settings;
         auto graphicsSettingsChangedEvent = AppGraphicsSettingsChangedEvent(settings);
         EventCoordinator::Send(graphicsSettingsChangedEvent);
+    }
+
+    const GraphicsSettings& App::GetGraphicsSettings() const
+    {
+        return _graphicsSettings;
     }
 }

@@ -1,5 +1,5 @@
 #pragma once
-#include <Tbx/Application/Input/IInputHandler.h>
+#include <Tbx/Systems/Input/IInputHandler.h>
 #include <GLFW/glfw3.h>
 #include <memory>
 
@@ -11,7 +11,7 @@ namespace GLFWInput
         GLFWInputHandler() = default;
         ~GLFWInputHandler() override = default;
 
-        void SetContext(const std::weak_ptr<Tbx::IWindow>& windowToListenTo) override;
+        void SetContext(const std::shared_ptr<Tbx::IWindow>& windowToListenTo) override;
 
         bool IsGamepadButtonDown(const int id, const int button) const override;
         bool IsGamepadButtonUp(const int id, const int button) const override;

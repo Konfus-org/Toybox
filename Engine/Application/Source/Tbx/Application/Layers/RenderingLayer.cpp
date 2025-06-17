@@ -1,6 +1,6 @@
 #include "Tbx/Application/PCH.h"
 #include "Tbx/Application/Layers/RenderingLayer.h"
-#include "Tbx/Systems/Rendering/RenderPipeline.h"
+#include "Tbx/Systems/Rendering/Rendering.h"
 
 namespace Tbx
 {
@@ -11,16 +11,16 @@ namespace Tbx
 
     void RenderingLayer::OnAttach()
     {
-        RenderPipeline::Initialize();
+        Rendering::Initialize();
     }
 
     void RenderingLayer::OnUpdate()
     {
-        RenderPipeline::Update();
+        Rendering::DrawFrame();
     }
 
     void RenderingLayer::OnDetach()
     {
-        RenderPipeline::Shutdown();
+        Rendering::Shutdown();
     }
 }

@@ -131,15 +131,6 @@ namespace Tbx
         EXPORT void Add(const DrawCommand& command) { _commands.push_back(command); }
         EXPORT void Clear() { _commands.clear(); }
 
-        EXPORT void Sort()
-        {
-            auto& itemsToSort = _commands;
-            std::ranges::sort(itemsToSort, [](const DrawCommand& a, const DrawCommand& b)
-                {
-                    return static_cast<int>(a.GetType()) < static_cast<int>(b.GetType());
-                });
-        }
-
         const std::vector<DrawCommand>& GetCommands() const { return _commands; }
 
         EXPORT std::vector<DrawCommand>::iterator begin() { return _commands.begin(); }

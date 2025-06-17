@@ -26,7 +26,10 @@ function RegisterDynamicPlugin(name)
     -- Gather includes
     local includes =
     {
-        _MAIN_SCRIPT_DIR .. "/Engine/Core/Include",
+        _MAIN_SCRIPT_DIR .. "/Engine/Utils/Include",
+        _MAIN_SCRIPT_DIR .. "/Engine/Math/Include",
+        _MAIN_SCRIPT_DIR .. "/Engine/Graphics/Include",
+        _MAIN_SCRIPT_DIR .. "/Engine/Systems/Include",
         _MAIN_SCRIPT_DIR .. "/Engine/Application/Include"
     }
     for _, dir in ipairs(Using.TbxCorePluginDirs) do
@@ -37,7 +40,10 @@ function RegisterDynamicPlugin(name)
     -- Gather links
     local linkList =
     {
-        "Core",
+        "Utils",
+        "Math",
+        "Graphics",
+        "Systems",
         "Application"
     }
     for _, link in ipairs(Using.TbxCorePluginLinks) do

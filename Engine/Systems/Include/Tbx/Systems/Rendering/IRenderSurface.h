@@ -5,6 +5,7 @@
 namespace Tbx
 {
     using NativeHandle = size_t;
+    using NativeWindow = void*;
 
     class EXPORT IRenderSurface
     {
@@ -12,6 +13,7 @@ namespace Tbx
         virtual ~IRenderSurface() = default;
 
         virtual NativeHandle GetNativeHandle() const = 0;
+        virtual NativeWindow GetNativeWindow() const = 0;
 
         virtual const Size& GetSize() const = 0;
         virtual void SetSize(const Size& size) = 0;

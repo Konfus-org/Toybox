@@ -21,21 +21,6 @@
 
 namespace Tbx
 {
-    void RenderPipeline::Initialize()
-    {
-        // Do nothing for now...
-    }
-
-    void RenderPipeline::Shutdown()
-    {
-        // Do nothing for now...
-    }
-
-    void RenderPipeline::Update()
-    {
-        // Do nothing for now...
-    }
-
     void RenderPipeline::GetPlayspaceReadyForRendering(std::shared_ptr<Playspace> playSpace)
     {
         auto buffer = RenderProcessor::PreProcess(playSpace);

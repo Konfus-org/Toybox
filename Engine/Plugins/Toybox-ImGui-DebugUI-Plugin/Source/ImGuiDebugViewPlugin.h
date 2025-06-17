@@ -1,10 +1,10 @@
 #pragma once
 #include "ImGuiDebugViewLayer.h"
-#include <Tbx/Core/Plugins/RegisterPlugin.h>
+#include <Tbx/Systems/Plugins/RegisterPlugin.h>
 
 namespace ImGuiDebugView
 {
-    class ImGuiDebugViewPlugin : public Tbx::Plugin, public ImGuiDebugViewLayer
+    class ImGuiDebugViewPlugin : public Tbx::IPlugin, public ImGuiDebugViewLayer
     {
     public:
         ImGuiDebugViewPlugin() = default;

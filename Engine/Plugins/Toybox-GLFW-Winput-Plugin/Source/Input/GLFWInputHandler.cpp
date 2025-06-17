@@ -1,12 +1,13 @@
 #include "GLFWInputHandler.h"
-#include <Tbx/Core/Debug/DebugAPI.h>
+#include "Tbx/Systems/Debug/Debugging.h"
 #include <any>
 
 namespace GLFWInput
 {
-    void GLFWInputHandler::SetContext(const std::weak_ptr<Tbx::IWindow>& windowToListenTo)
+    void GLFWInputHandler::SetContext(const std::shared_ptr<Tbx::IWindow>& windowToListenTo)
     {
-        _windowToListenTo = std::any_cast<GLFWwindow*>(windowToListenTo.lock()->GetNativeWindow());
+        auto nativeWindow = windowToListenTo->GetNativeWindow();
+        _windowToListenTo = static_cast<GLFWwindow*>(nativeWindow);
     }
 
     bool GLFWInputHandler::IsGamepadButtonDown(const int button, int id) const

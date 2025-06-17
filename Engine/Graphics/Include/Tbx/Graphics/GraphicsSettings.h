@@ -7,10 +7,10 @@ namespace Tbx
 {
     enum class GraphicsApi
     {
-        Vulkan = 0,
-#ifdef TBX_PLATFORM_WINDOWS
-        DX12
-#endif
+        None,
+        Vulkan,
+        Metal,
+        DirectX12
     };
 
     struct EXPORT GraphicsSettings

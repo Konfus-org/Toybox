@@ -1,8 +1,9 @@
 #include "GLFWWindow.h"
 #include <GLFW/glfw3native.h>
-#include <Tbx/Core/Debug/DebugAPI.h>
-#include <Tbx/Core/Events/EventCoordinator.h>
-#include <Tbx/Application/Events/InputEvents.h>
+#include <Tbx/Systems/Events/EventCoordinator.h>
+#include <Tbx/Systems/Windowing/WindowEvents.h>
+#include <Tbx/Systems/Input/InputEvents.h>
+#include <Tbx/Systems/Debug/Debugging.h>
 
 namespace GLFWWindowing
 {
@@ -21,6 +22,7 @@ namespace GLFWWindowing
 	{
 		SetMode(mode);
 		SetupCallbacks();
+		Focus();
 	}
 
 	void GLFWWindow::Close()
@@ -28,7 +30,7 @@ namespace GLFWWindowing
         glfwDestroyWindow(_glfwWindow);
 	}
 
-	void GLFWWindow::Update()
+	void GLFWWindow::DrawFrame()
 	{
 		glfwPollEvents();
 	}
@@ -144,19 +146,9 @@ namespace GLFWWindowing
 #endif
 	}
 
-    std::any GLFWWindow::GetNativeWindow() const
+    Tbx::NativeWindow GLFWWindow::GetNativeWindow() const
 	{
 		return _glfwWindow;
-	}
-
-	std::shared_ptr<Tbx::IRenderer> GLFWWindow::GetRenderer()
-	{
-		return _renderer;
-	}
-
-	void GLFWWindow::SetRenderer(std::shared_ptr<Tbx::IRenderer> renderer)
-	{
-		_renderer = renderer;
 	}
 
 	void GLFWWindow::SetupCallbacks()

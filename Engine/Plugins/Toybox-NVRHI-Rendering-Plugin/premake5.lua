@@ -4,6 +4,8 @@ project "NVRHI Renderer"
     cppdialect "C++20"
     staticruntime "Off"
 
+    RegisterDynamicPlugin("NVRHI Renderer")
+
     local vulkan_sdk = os.getenv("VULKAN_SDK")
     assert(vulkan_sdk, "Vulkan SDK not found! Make sure you have Vulkan installed! After install restart PC to make the SDK env path to be available.")
 
@@ -40,12 +42,11 @@ project "NVRHI Renderer"
     defines
     {
         "NVRHI_WITH_VULKAN",
-        "RTXMU_WITH_VULKAN"
+        "RTXMU_WITH_VULKAN",
+        "NVRHI_SHARED_LIBRARY_BUILD"
     }
 
     filter "system:windows"
         systemversion "latest"
         defines { "NVRHI_WITH_DX12", "RTXMU_WITH_D3D12", "VK_USE_PLATFORM_WIN32_KHR" }
         links { "d3d12" }
-
-    RegisterDynamicPlugin("NVRHI Renderer")

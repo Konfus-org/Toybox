@@ -105,7 +105,7 @@ namespace Tbx
             
             // TODO: process this somewhere else!
             const auto& focusedWindow = WindowManager::GetFocusedWindow();
-            const auto mainWindowSize = focusedWindow.lock()->GetSize();
+            const auto mainWindowSize = focusedWindow->GetSize();
             const auto aspectRatio = mainWindowSize.GetAspectRatio();
             camera.SetAspect(aspectRatio);
 

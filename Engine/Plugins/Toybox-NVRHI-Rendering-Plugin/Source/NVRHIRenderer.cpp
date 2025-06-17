@@ -3,26 +3,157 @@
 #include <nvrhi/d3d12.h>
 #endif
 #include <nvrhi/vulkan.h>
+#include <Tbx/Application/App/App.h>
+#include <Tbx/Application/App/ApplicationEvents.h>
+#include <Tbx/Systems/Windowing/WindowManager.h>
+#include <Tbx/Systems/Events/EventCoordinator.h>
+#include <Tbx/Systems/Debug/Debugging.h>
+#include <Tbx/Systems/Rendering/IRenderer.h>
+#include <Tbx/Systems/Plugins/RegisterPlugin.h>
+#include <Tbx/Graphics/GraphicsSettings.h>
+#include <Tbx/Graphics/Material.h>
+#include <Tbx/Graphics/Shader.h>
+#include <Tbx/Graphics/Texture.h>
+#include <Tbx/Graphics/Mesh.h>
 
 namespace NVRHIRendering
 {
-    NVRHIRenderer::NVRHIRenderer()
+    NVRHIRenderer::~NVRHIRenderer()
     {
+        Tbx::EventCoordinator::Unsubscribe<Tbx::WindowResizedEvent>(_windowResizedEventId);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::WindowResizedEvent>(_graphicsSettingsChangedEventId);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::RenderFrameRequest>(_renderFrameEventId);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::ClearScreenRequest>(_clearScreenEventId);
+        Tbx::EventCoordinator::Unsubscribe<Tbx::FlushRendererRequest>(_flushEventId);
+
+        Flush();
+    }
+
+    void NVRHIRenderer::Initialize(const std::shared_ptr<Tbx::IRenderSurface>& surface)
+    {
+        _windowResizedEventId =
+            Tbx::EventCoordinator::Subscribe<Tbx::WindowResizedEvent>(TBX_BIND_FN(OnWindowResized));
+        _graphicsSettingsChangedEventId =
+            Tbx::EventCoordinator::Subscribe<Tbx::AppGraphicsSettingsChangedEvent>(TBX_BIND_FN(OnGraphicsSettingsChanged));
+        _renderFrameEventId =
+            Tbx::EventCoordinator::Subscribe<Tbx::RenderFrameRequest>(TBX_BIND_FN(OnRenderFrameRequest));
+        _clearScreenEventId =
+            Tbx::EventCoordinator::Subscribe<Tbx::ClearScreenRequest>(TBX_BIND_FN(OnClearScreenRequest));
+        _flushEventId =
+            Tbx::EventCoordinator::Subscribe<Tbx::FlushRendererRequest>(TBX_BIND_FN(OnFlushRequest));
+
+        _renderSurface = surface;
+        SetViewport({ {0, 0}, surface->GetSize() });
+
+        SetApi(Tbx::App::GetInstance()->GetGraphicsSettings().Api);
+    }
+
+    std::shared_ptr<Tbx::IRenderSurface> NVRHIRenderer::GetRenderSurface()
+    {
+        return _renderSurface;
+    }
+
+    Tbx::GraphicsDevice NVRHIRenderer::GetGraphicsDevice()
+    {
+        return _graphicsDevice;
     }
 
     void NVRHIRenderer::SetApi(Tbx::GraphicsApi api)
     {
+        _api = api;
+
         switch (api)
         {
             case Tbx::GraphicsApi::Vulkan:
             {
-                //// Create Vulkan device
-                //nvrhi::vulkan::DeviceDesc deviceDesc = {};
-                //// Fill deviceDesc with your VkDevice, VkPhysicalDevice, VkInstance, queues, etc.
-                //// These should be passed in or wrapped by your engine already
+                // Create Vk instance
+                VkInstance instance;
+                {
+                    auto appInfo = VkApplicationInfo();
+                    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+                    appInfo.pApplicationName = "Tbx App";
+                    appInfo.pEngineName = "Toybox";
+                    appInfo.applicationVersion = VK_MAKE_VERSION(0, 0, 1);
+                    appInfo.engineVersion = VK_MAKE_VERSION(0, 0, 1);
+                    appInfo.apiVersion = VK_API_VERSION_1_2;
 
-                //_device = nvrhi::vulkan::createDevice(deviceDesc);
-                TBX_ASSERT(_device, "Failed to create Vulkan NVRHI device!");
+                    auto instanceCreateInfo = VkInstanceCreateInfo();
+                    instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+                    instanceCreateInfo.pApplicationInfo = &appInfo;
+
+                    TBX_ASSERT(vkCreateInstance(&instanceCreateInfo, nullptr, &instance) == VK_SUCCESS, "Failed to create Vulkan instance");
+                }
+
+                // Select physical device (GPU)
+                VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+                uint32_t graphicsQueueFamilyIndex = UINT32_MAX;
+                {
+                    uint32_t deviceCount = 0;
+                    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+                    std::vector<VkPhysicalDevice> devices(deviceCount);
+                    vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+
+                    for (const auto& device : devices)
+                    {
+                        uint32_t queueFamilyCount = 0;
+                        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+                        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+                        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+                        for (uint32_t i = 0; i < queueFamilyCount; ++i)
+                        {
+                            if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+                            {
+                                physicalDevice = device;
+                                graphicsQueueFamilyIndex = i;
+                                break;
+                            }
+                        }
+
+                        if (physicalDevice != VK_NULL_HANDLE)
+                            break;
+                    }
+
+                    TBX_ASSERT(physicalDevice != VK_NULL_HANDLE, "Failed to find suitable GPU!");
+                }
+
+                // Make logical device and queue
+                VkDevice device;
+                VkQueue graphicsQueue;
+                {
+                    float queuePriority = 1.0f;
+                    auto queueCreateInfo = VkDeviceQueueCreateInfo();
+                    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+                    queueCreateInfo.queueFamilyIndex = graphicsQueueFamilyIndex;
+                    queueCreateInfo.queueCount = 1;
+                    queueCreateInfo.pQueuePriorities = &queuePriority;
+
+                    auto deviceCreateInfo = VkDeviceCreateInfo();
+                    deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+                    deviceCreateInfo.queueCreateInfoCount = 1;
+                    deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
+
+                    if (vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device) != VK_SUCCESS)
+                    {
+                        throw std::runtime_error("Failed to create logical device!");
+                    }
+
+                    vkGetDeviceQueue(device, graphicsQueueFamilyIndex, 0, &graphicsQueue);
+                }
+
+                // Now we create the NVRHI graphics device
+                {
+                    auto deviceDesc = nvrhi::vulkan::DeviceDesc();
+                    deviceDesc.instance = instance;
+                    deviceDesc.physicalDevice = physicalDevice;
+                    deviceDesc.device = device;
+                    deviceDesc.graphicsQueue = graphicsQueue;
+                    deviceDesc.graphicsQueueIndex = graphicsQueueFamilyIndex;
+                    nvrhi::DeviceHandle nvrhiDevice = nvrhi::vulkan::createDevice(deviceDesc);
+                    TBX_ASSERT(nvrhiDevice, "Failed to create NVRHI Vulkan device");
+                    _graphicsDevice = nvrhiDevice;
+                }
+
                 break;
             }
 
@@ -36,7 +167,7 @@ namespace NVRHIRendering
                 break;
             }
 
-            case Tbx::GraphicsApi::DirectX:
+            case Tbx::GraphicsApi::DirectX12:
             {
 #ifndef TBX_PLATFORM_WINDOWS
                 TBX_ASSERT(false, "Cannot use DirectX on a non-Windows platform!");
@@ -45,8 +176,8 @@ namespace NVRHIRendering
                 nvrhi::d3d12::DeviceDesc deviceDesc = {};
                 // Fill deviceDesc with your ID3D12Device, queues, descriptor sizes, etc.
 
-                _device = nvrhi::d3d12::createDevice(deviceDesc);
-                TBX_ASSERT(_device, "Failed to create DirectX NVRHI device!");
+                _graphicsDevice = nvrhi::d3d12::createDevice(deviceDesc);
+                TBX_ASSERT(_graphicsDevice, "Failed to create DirectX NVRHI device!");
                 break;
             }
             default:
@@ -57,17 +188,17 @@ namespace NVRHIRendering
         }
     }
 
-    void NVRHIRenderer::SetRenderSurface(const std::shared_ptr<Tbx::IRenderSurface>& surface)
+    Tbx::GraphicsApi NVRHIRenderer::GetApi()
     {
-        _renderSurface = surface;
+        return _api;
     }
 
-    void NVRHIRenderer::SetViewport(const Tbx::ViewPort& viewport)
+    void NVRHIRenderer::SetViewport(const Tbx::Viewport& viewport)
     {
         _viewport = viewport;
     }
 
-    const Tbx::ViewPort& NVRHIRenderer::GetViewport()
+    const Tbx::Viewport& NVRHIRenderer::GetViewport()
     {
         return _viewport;
     }
@@ -92,12 +223,15 @@ namespace NVRHIRendering
         return _vsyncEnabled;
     }
 
-    std::any NVRHIRenderer::GetGraphicsDevice()
+    void NVRHIRenderer::Flush()
     {
-        return std::any();
     }
 
-    void NVRHIRenderer::RenderFrame(const Tbx::FrameBuffer& buffer)
+    void NVRHIRenderer::Clear(const Tbx::Color& color)
+    {
+    }
+
+    void NVRHIRenderer::Draw(const Tbx::FrameBuffer& buffer)
     {
         for (const auto& item : buffer)
         {
@@ -118,12 +252,34 @@ namespace NVRHIRendering
                     Clear(color);
                     break;
                 }
-                case Tbx::DrawCommandType::RenderModel:
+                case Tbx::DrawCommandType::CompileMaterial:
+                {
+                    TBX_VERBOSE("OpenGl Renderer: Processing material cmd...");
+
+                    const auto& material = std::any_cast<const Tbx::Material&>(payload);
+
+                    // TODO: Compile material using NVRHI API
+
+                    break;
+                }
+                case Tbx::DrawCommandType::SetMaterial:
+                {
+                    TBX_VERBOSE("OpenGl Renderer: Processing material cmd...");
+
+                    const auto& material = std::any_cast<const Tbx::Material&>(payload);
+
+                    // TODO: Set material using NVRHI API
+
+                    break;
+                }
+                case Tbx::DrawCommandType::DrawMesh:
                 {
                     TBX_VERBOSE("OpenGl Renderer: Processing model cmd...");
 
-                    const auto& mesh = std::any_cast<const Tbx::Model&>(payload);
-                    Draw(mesh);
+                    const auto& mesh = std::any_cast<const Tbx::Mesh&>(payload);
+
+                    //TODO: Draw mesh using NVRHI API
+
                     break;
                 }
                 default:
@@ -135,16 +291,60 @@ namespace NVRHIRendering
         }
     }
 
-    void NVRHIRenderer::Draw(const Tbx::Model& model)
+    void NVRHIRenderer::OnWindowFocusChanged(const Tbx::WindowFocusChangedEvent& e)
     {
-        // TODO: nab models material (a shader, color, and set of textures) and mesh (vertices and indices) then use NVRHI to send to GPU
+        std::shared_ptr<Tbx::IWindow> windowThatWasFocused = Tbx::WindowManager::GetWindow(e.GetWindowId());
+        Initialize(windowThatWasFocused);
     }
 
-    void NVRHIRenderer::BeginDraw()
+    void NVRHIRenderer::OnWindowResized(const Tbx::WindowResizedEvent& e)
     {
+        std::shared_ptr<Tbx::IWindow> windowThatWasResized = Tbx::WindowManager::GetWindow(e.GetWindowId());
+        if (windowThatWasResized != GetRenderSurface()) return;
+
+        bool oldVsyncEnabled = GetVSyncEnabled();
+
+        // Enable vsync so the window doesn't flicker
+        SetVSyncEnabled(true);
+
+        // Draw the window while its resizing so there are no artifacts during the resize
+        SetViewport(Tbx::Viewport{ {0, 0}, e.GetNewSize() });
+        Clear(_clearColor);
+
+        // Set vsync back to what it was
+        SetVSyncEnabled(oldVsyncEnabled);
     }
 
-    void NVRHIRenderer::EndDraw()
+    void NVRHIRenderer::OnGraphicsSettingsChanged(const Tbx::AppGraphicsSettingsChangedEvent& e)
     {
+        const auto& settings = e.GetNewSettings();
+
+        _clearColor = settings.ClearColor;
+        SetVSyncEnabled(settings.VSyncEnabled);
+        SetResolution(settings.Resolution);
+    }
+
+    void NVRHIRenderer::OnRenderFrameRequest(Tbx::RenderFrameRequest& e)
+    {
+        Flush();
+        Clear(_clearColor);
+        Draw(e.GetBuffer());
+
+        auto renderedFrameEvent = Tbx::RenderedFrameEvent();
+        Tbx::EventCoordinator::Send<Tbx::RenderedFrameEvent>(renderedFrameEvent);
+
+        e.IsHandled = true;
+    }
+
+    void NVRHIRenderer::OnClearScreenRequest(Tbx::ClearScreenRequest& e)
+    {
+        Clear(_clearColor);
+        e.IsHandled = true;
+    }
+
+    void NVRHIRenderer::OnFlushRequest(Tbx::FlushRendererRequest& e)
+    {
+        Flush();
+        e.IsHandled = true;
     }
 }

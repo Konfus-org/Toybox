@@ -1,5 +1,5 @@
-#include "Tbx/Main/main.h"
-#include "Tbx/Main/Host.h"
+#include "Tbx/Launcher/main.h"
+#include "Tbx/Launcher/AppHost.h"
 
 #ifndef PATH_TO_PLUGINS
     #define PATH_TO_PLUGINS "./Plugins"

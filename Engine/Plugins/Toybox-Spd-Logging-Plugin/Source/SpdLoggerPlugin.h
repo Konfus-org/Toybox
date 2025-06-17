@@ -1,14 +1,14 @@
 #pragma once
 #include "SpdLogger.h"
-#include <Tbx/Core/Ids/UID.h>
-#include <Tbx/Core/Debug/ILogger.h>
-#include <Tbx/Core/Plugins/Plugin.h>
-#include <Tbx/Core/Events/LogEvents.h>
-#include <Tbx/Core/Plugins/RegisterPlugin.h>
+#include <Tbx/Systems/Debug/ILogger.h>
+#include <Tbx/Systems/Plugins/IPlugin.h>
+#include <Tbx/Systems/Plugins/RegisterPlugin.h>
+#include <Tbx/Systems/Debug/LogEvents.h>
+#include <Tbx/Utils/Ids/UID.h>
 
 namespace SpdLogging
 {
-    class SpdLoggerPlugin : public Tbx::Plugin, public SpdLogger
+    class SpdLoggerPlugin : public Tbx::IPlugin, public SpdLogger
     {
     public:
         SpdLoggerPlugin() = default;

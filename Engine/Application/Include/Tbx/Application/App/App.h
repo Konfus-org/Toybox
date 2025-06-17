@@ -21,11 +21,14 @@ namespace Tbx
     class App : public IPlugin
     {
     public:
+
         EXPORT explicit(false) App(const std::string_view& name);
         EXPORT ~App() override;
 
+        EXPORT static std::shared_ptr<App> GetInstance();
+
         EXPORT void Launch();
-        EXPORT void Update();
+        EXPORT void DrawFrame();
         EXPORT void Close();
 
         EXPORT virtual void OnLaunch() = 0;
@@ -40,10 +43,13 @@ namespace Tbx
         EXPORT std::weak_ptr<IWindow> GetMainWindow() const;
 
         EXPORT void SetGraphicsSettings(const GraphicsSettings& settings);
+        EXPORT const GraphicsSettings& GetGraphicsSettings() const;
 
     private:
         void ShutdownSystems();
         void OnWindowClosed(const WindowClosedEvent& e);
+
+        static std::shared_ptr<App> _instance;
 
         std::string _name = "App";
         AppStatus _status = AppStatus::None;

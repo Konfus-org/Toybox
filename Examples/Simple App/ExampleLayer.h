@@ -1,9 +1,7 @@
 #pragma once
-#include <Tbx/Runtime/Layers/Layer.h>
-#include <Tbx/Core/TBS/PlaySpace.h>
-#include <Tbx/Core/TBS/Toy.h>
-
-#include "Tbx/Core/Math/Vectors.h"
+#include <Tbx/Application/Layers/Layer.h>
+#include <Tbx/Systems/TBS/PlaySpace.h>
+#include <Tbx/Systems/TBS/Toy.h>
 
 class ExampleLayer : public Tbx::Layer
 {
@@ -16,7 +14,7 @@ public:
     void OnUpdate() override;
 
 private:
-    std::shared_ptr<Tbx::PlaySpace> _level = nullptr;
+    std::shared_ptr<Tbx::Playspace> _level = nullptr;
     Tbx::Toy _fpsCam = {};
     float _camPitch = 0.0f;
     float _camYaw = 0.0f;
