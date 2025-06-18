@@ -22,7 +22,6 @@ namespace GLFWWindowing
 	{
 		SetMode(mode);
 		SetupCallbacks();
-		Focus();
 	}
 
 	void GLFWWindow::Close()
@@ -38,6 +37,7 @@ namespace GLFWWindowing
 	void GLFWWindow::Focus()
 	{
         glfwFocusWindow(_glfwWindow);
+		OnWindowFocusChanged(true);
 	}
 
 	void GLFWWindow::SetMode(const Tbx::WindowMode& mode)

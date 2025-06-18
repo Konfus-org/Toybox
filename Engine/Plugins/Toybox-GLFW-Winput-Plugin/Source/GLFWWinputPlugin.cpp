@@ -56,7 +56,6 @@ namespace GLFWPlugin
     {
         auto newWindow = Create(e.GetName(), e.GetSize());
         newWindow->Open(e.GetMode());
-        newWindow->Focus();
 
         e.SetResult(newWindow);
         e.IsHandled = true;

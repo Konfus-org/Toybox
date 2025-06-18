@@ -173,7 +173,6 @@ namespace Tbx
         int _button;
     };
 
-    // TODO: Make event handlers for the below events
     class EXPORT InputRequest : public KeyEvent
     {
     public:

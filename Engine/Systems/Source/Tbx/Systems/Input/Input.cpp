@@ -10,7 +10,7 @@ namespace Tbx
 {
     UID Input::_windowFocusChangedEventId;
 
-    void Input::SetContext()
+    void Input::Initialize()
     {
         _windowFocusChangedEventId =
             EventCoordinator::Subscribe<WindowFocusChangedEvent>(TBX_BIND_STATIC_FN(OnWindowFocusChanged));

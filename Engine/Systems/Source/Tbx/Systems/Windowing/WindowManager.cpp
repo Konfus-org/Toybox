@@ -60,6 +60,7 @@ namespace Tbx
         }
 
         _windows[window->Id] = window;
+        window->Focus();
 
         auto windowOpenedEvent = WindowOpenedEvent(window->Id);
         EventCoordinator::Send<WindowOpenedEvent>(windowOpenedEvent);

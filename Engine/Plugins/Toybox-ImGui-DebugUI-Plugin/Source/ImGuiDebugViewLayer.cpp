@@ -51,7 +51,7 @@ namespace ImGuiDebugView
             desc.NodeMask = 0;
 
             ID3D12DescriptorHeap* imguiDescHeap = nullptr; 
-            ID3D12Device* dxDevice = dynamic_cast<nvrhi::d3d12::IDevice*>(_graphicsDevice)->getNativeObject(nvrhi::ObjectTypes::D3D12_Device);
+            ID3D12Device* dxDevice = _graphicsDevice->getNativeObject(nvrhi::ObjectTypes::D3D12_Device);
             dxDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&imguiDescHeap));
 
             // Init ImGui
@@ -70,12 +70,10 @@ namespace ImGuiDebugView
             //// Vulkan ////
 
             // Get required vulkan info from NVRHI
-            auto* vulkDevice = dynamic_cast<nvrhi::vulkan::IDevice*>(_graphicsDevice);
-            VkDevice vkDevice = vulkDevice->getNativeObject(nvrhi::ObjectTypes::VK_Device);
-            VkPhysicalDevice vkPhysicalDevice = vulkDevice->getNativeObject(nvrhi::ObjectTypes::VK_PhysicalDevice);
-            VkDescriptorPool vkDescriptorPool = vulkDevice->getNativeObject(nvrhi::ObjectTypes::VK_DescriptorPool);
-            VkInstance vkInstance = vulkDevice->getNativeObject(nvrhi::ObjectTypes::VK_Instance);
-            VkQueue vkQueue = vulkDevice->getNativeObject(nvrhi::ObjectTypes::VK_Queue);
+            VkDevice vkDevice = _graphicsDevice->getNativeObject(nvrhi::ObjectTypes::VK_Device);
+            VkPhysicalDevice vkPhysicalDevice = _graphicsDevice->getNativeObject(nvrhi::ObjectTypes::VK_PhysicalDevice);
+            VkInstance vkInstance = _graphicsDevice->getNativeObject(nvrhi::ObjectTypes::VK_Instance);
+            VkQueue vkQueue = _graphicsDevice->getNativeQueue(nvrhi::ObjectTypes::VK_Queue, nvrhi::CommandQueue::Graphics);
 
             // Calculate graphics queue family index
             uint32_t vkQueueFamily = 0;
@@ -102,20 +100,22 @@ namespace ImGuiDebugView
             }
 
             // Init ImGui vulkan backend
-            ImGui_ImplVulkan_InitInfo init_info = {};
-            init_info.Instance = vkInstance;
-            init_info.PhysicalDevice = vkPhysicalDevice;
-            init_info.Device = vkDevice;
-            init_info.QueueFamily = vkQueueFamily;
-            init_info.Queue = vkQueue;
-            init_info.DescriptorPool = vkDescriptorPool;
-            init_info.MinImageCount = 2;  // match your swapchain config
-            init_info.ImageCount = 2;
-            init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-            init_info.Allocator = nullptr;
-            init_info.CheckVkResultFn = nullptr;
+            ImGui_ImplVulkan_InitInfo imGuiVKInitInfo = {};
+            imGuiVKInitInfo.Instance = vkInstance;
+            imGuiVKInitInfo.PhysicalDevice = vkPhysicalDevice;
+            imGuiVKInitInfo.Device = vkDevice;
+            imGuiVKInitInfo.QueueFamily = vkQueueFamily;
+            imGuiVKInitInfo.Queue = vkQueue;
+            imGuiVKInitInfo.DescriptorPoolSize = 2;
+            imGuiVKInitInfo.MinImageCount = 3; // We use triple buffer
+            imGuiVKInitInfo.ImageCount = 3;
+            imGuiVKInitInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+            imGuiVKInitInfo.Allocator = nullptr;
+            imGuiVKInitInfo.CheckVkResultFn = nullptr;
+            imGuiVKInitInfo.UseDynamicRendering = true;
+            imGuiVKInitInfo.PipelineRenderingCreateInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
             ImGui_ImplGlfw_InitForVulkan(nativeWindow, true);
-            ImGui_ImplVulkan_Init(&init_info);
+            ImGui_ImplVulkan_Init(&imGuiVKInitInfo);
 
             // Create fonts
             ImGui_ImplVulkan_CreateFontsTexture();
@@ -160,30 +160,35 @@ namespace ImGuiDebugView
         const ImGuiIO& io = ImGui::GetIO();
 
         // Start the Dear ImGui frame
-        if (Tbx::App::GetInstance()->GetGraphicsSettings().Api == Tbx::GraphicsApi::DirectX12)
         {
-            // DX12
+            if (Tbx::App::GetInstance()->GetGraphicsSettings().Api == Tbx::GraphicsApi::DirectX12)
+            {
+                // DX12
 #ifdef TBX_PLATFORM_WINDOWS
-            ImGui_ImplDX12_NewFrame();
+                ImGui_ImplDX12_NewFrame();
 #endif
+            }
+            else
+            {
+                // Vulkan
+                ImGui_ImplVulkan_NewFrame();
+            }
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
         }
-        else
-        {
-            // Vulkan
-            ImGui_ImplVulkan_NewFrame();
-        }
-        ImGui::NewFrame();
 
         // Listen for key press to toggle the debug window
-        if (Tbx::Input::IsKeyDown(TBX_KEY_F1))
         {
-            _showDebugWindowOnDebugBtnUp = true;
-        }
-        if (_showDebugWindowOnDebugBtnUp && 
-            Tbx::Input::IsKeyUp(TBX_KEY_F1))
-        {
-            _showDebugWindowOnDebugBtnUp = false;
-            _isDebugWindowOpen = !_isDebugWindowOpen;
+            if (Tbx::Input::IsKeyDown(TBX_KEY_F1))
+            {
+                _showDebugWindowOnDebugBtnUp = true;
+            }
+            if (_showDebugWindowOnDebugBtnUp &&
+                Tbx::Input::IsKeyUp(TBX_KEY_F1))
+            {
+                _showDebugWindowOnDebugBtnUp = false;
+                _isDebugWindowOpen = !_isDebugWindowOpen;
+            }
         }
 
         // Show debug window

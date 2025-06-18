@@ -42,6 +42,8 @@ namespace NVRHIRendering
         _flushEventId =
             Tbx::EventCoordinator::Subscribe<Tbx::FlushRendererRequest>(TBX_BIND_FN(OnFlushRequest));
 
+        _nvrhiMessageHandler = std::make_unique<NVRHIMessageHandler>();
+
         _renderSurface = surface;
         SetViewport({ {0, 0}, surface->GetSize() });
 
@@ -55,7 +57,12 @@ namespace NVRHIRendering
 
     Tbx::GraphicsDevice NVRHIRenderer::GetGraphicsDevice()
     {
-        return _graphicsDevice;
+        return _graphicsDevice.Get();
+    }
+
+    Tbx::GraphicsDeviceInfo NVRHIRenderer::GetGraphicsDeviceInfo()
+    {
+        return _graphicsDeviceInfo;
     }
 
     void NVRHIRenderer::SetApi(Tbx::GraphicsApi api)
@@ -133,10 +140,7 @@ namespace NVRHIRendering
                     deviceCreateInfo.queueCreateInfoCount = 1;
                     deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
 
-                    if (vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device) != VK_SUCCESS)
-                    {
-                        throw std::runtime_error("Failed to create logical device!");
-                    }
+                    TBX_ASSERT(vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device) == VK_SUCCESS, "Failed to create logical device!");
 
                     vkGetDeviceQueue(device, graphicsQueueFamilyIndex, 0, &graphicsQueue);
                 }
@@ -144,13 +148,17 @@ namespace NVRHIRendering
                 // Now we create the NVRHI graphics device
                 {
                     auto deviceDesc = nvrhi::vulkan::DeviceDesc();
+                    deviceDesc.errorCB = _nvrhiMessageHandler.get();
                     deviceDesc.instance = instance;
                     deviceDesc.physicalDevice = physicalDevice;
                     deviceDesc.device = device;
                     deviceDesc.graphicsQueue = graphicsQueue;
                     deviceDesc.graphicsQueueIndex = graphicsQueueFamilyIndex;
                     nvrhi::DeviceHandle nvrhiDevice = nvrhi::vulkan::createDevice(deviceDesc);
+
                     TBX_ASSERT(nvrhiDevice, "Failed to create NVRHI Vulkan device");
+
+                    //_graphicsDeviceInfo = deviceDesc;
                     _graphicsDevice = nvrhiDevice;
                 }
 
@@ -173,7 +181,8 @@ namespace NVRHIRendering
                 TBX_ASSERT(false, "Cannot use DirectX on a non-Windows platform!");
 #endif
                 // Create DirectX 12 device
-                nvrhi::d3d12::DeviceDesc deviceDesc = {};
+                auto deviceDesc = nvrhi::d3d12::DeviceDesc();
+                deviceDesc.errorCB = _nvrhiMessageHandler.get();
                 // Fill deviceDesc with your ID3D12Device, queues, descriptor sizes, etc.
 
                 _graphicsDevice = nvrhi::d3d12::createDevice(deviceDesc);
