@@ -1,2 +1,2 @@
-# Toybox-The-Forge-Rendering-Plugin
-Official Toybox The-Forge rendering plugin
+# Toybox-NVRHI-Rendering-Plugin
+Official Toybox NVRHI rendering plugin

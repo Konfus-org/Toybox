@@ -60,11 +60,6 @@ namespace NVRHIRendering
         return _graphicsDevice.Get();
     }
 
-    Tbx::GraphicsDeviceInfo NVRHIRenderer::GetGraphicsDeviceInfo()
-    {
-        return _graphicsDeviceInfo;
-    }
-
     void NVRHIRenderer::SetApi(Tbx::GraphicsApi api)
     {
         _api = api;
@@ -263,7 +258,7 @@ namespace NVRHIRendering
                 }
                 case Tbx::DrawCommandType::CompileMaterial:
                 {
-                    TBX_VERBOSE("OpenGl Renderer: Processing material cmd...");
+                    TBX_VERBOSE("OpenGl Renderer: Processing compile material cmd...");
 
                     const auto& material = std::any_cast<const Tbx::Material&>(payload);
 
@@ -273,9 +268,19 @@ namespace NVRHIRendering
                 }
                 case Tbx::DrawCommandType::SetMaterial:
                 {
-                    TBX_VERBOSE("OpenGl Renderer: Processing material cmd...");
+                    TBX_VERBOSE("OpenGl Renderer: Processing set material cmd...");
 
                     const auto& material = std::any_cast<const Tbx::Material&>(payload);
+
+                    // TODO: Set material using NVRHI API
+
+                    break;
+                }
+                case Tbx::DrawCommandType::UploadMaterialData:
+                {
+                    TBX_VERBOSE("OpenGl Renderer: Processing upload material data cmd...");
+
+                    const auto& shaderData = std::any_cast<const Tbx::ShaderData&>(payload);
 
                     // TODO: Set material using NVRHI API
 

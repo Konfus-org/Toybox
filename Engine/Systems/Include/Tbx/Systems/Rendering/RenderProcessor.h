@@ -15,12 +15,12 @@ namespace Tbx
         /// <summary>
         /// Gets render data required to setup playSpace such as compiling shaders.
         /// </summary>
-        static FrameBuffer PreProcess(const std::shared_ptr<Playspace>& playspace);
+        static FrameBuffer PreProcess(const std::vector < std::shared_ptr<Playspace>>& playspaces);
 
         /// <summary>
         /// Returns render data required to render playSpace.
         /// </summary>
-        static FrameBuffer Process(const std::shared_ptr<Playspace>& playspace);
+        static FrameBuffer Process(const std::vector<std::shared_ptr<Playspace>>& playspaces);
 
     private:
         static void PreProcessToy(const Toy& toy, const std::shared_ptr<Playspace>& playSpace, FrameBuffer& buffer);

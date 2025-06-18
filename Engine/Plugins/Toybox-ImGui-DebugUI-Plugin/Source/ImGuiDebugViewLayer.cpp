@@ -118,17 +118,15 @@ namespace ImGuiDebugView
             ImGui_ImplVulkan_Init(&imGuiVKInitInfo);
 
             // Create fonts
-            ImGui_ImplVulkan_CreateFontsTexture();
+            TBX_ASSERT(ImGui_ImplVulkan_CreateFontsTexture(), "Failed to create fonts texture for ImGui's vulkan backend!");
         }
 
         // Sub to frame rendered event so we know when to draw
-        _frameRenderedEventId = Tbx::EventCoordinator::Subscribe<Tbx::RenderedFrameEvent>(TBX_BIND_FN(OnFrameRendered));
         _windowResizedEventId = Tbx::EventCoordinator::Subscribe<Tbx::WindowResizedEvent>(TBX_BIND_FN(OnWindowResized));
     }
 
     void ImGuiDebugViewLayer::OnDetach()
     {
-        Tbx::EventCoordinator::Unsubscribe<Tbx::RenderedFrameEvent>(_frameRenderedEventId);
         Tbx::EventCoordinator::Unsubscribe<Tbx::WindowResizedEvent>(_windowResizedEventId);
 
         if (Tbx::App::GetInstance()->GetGraphicsSettings().Api == Tbx::GraphicsApi::DirectX12)
@@ -214,8 +212,22 @@ namespace ImGuiDebugView
 
             if (ImGui::CollapsingHeader("Rendering"), ImGuiTreeNodeFlags_DefaultOpen)
             {
+                auto api = Tbx::App::GetInstance()->GetGraphicsSettings().Api;
+                switch (api)
+                {
+                    case Tbx::GraphicsApi::DirectX12:
+                        ImGui::Text("API: DX12");
+                        break;
+                    case Tbx::GraphicsApi::Vulkan:
+                        ImGui::Text("API: Vulkan");
+                        break;
+                    case Tbx::GraphicsApi::Metal:
+                        ImGui::Text("API: Metal");
+                        break;
+                }
+
                 int cameraNumber = 0;
-                auto playSpaces = Tbx::World::GetPlaySpaces();
+                auto playSpaces = Tbx::World::GetPlayspaces();
                 for (auto playSpace : playSpaces)
                 {
                     for (auto camera : Tbx::PlayspaceView<Tbx::Camera>(playSpace))
@@ -242,35 +254,32 @@ namespace ImGuiDebugView
         //ImGui::ShowDemoWindow(&_showDemoWindow);
 
         // Finally, render
-        ImGui::Render();
+        // TODO: make a draw call here just for IMGUI for simplicity
+        {
+            ImGui::Render();
+
+            if (Tbx::App::GetInstance()->GetGraphicsSettings().Api == Tbx::GraphicsApi::DirectX12)
+            {
+                // DX12
+#ifdef TBX_PLATFORM_WINDOWS
+                /*auto* dxDevice = dynamic_cast<nvrhi::d3d12::IDevice*>(_graphicsDevice);
+                ID3D12GraphicsCommandList* dxCommandList = dxDevice->getNativeObject(nvrhi::ObjectTypes::D3D12_GraphicsCommandList);
+                ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), dxCommandList);*/
+#endif
+            }
+            else
+            {
+                // Vulkan
+                /*auto* vulkDevice = dynamic_cast<nvrhi::vulkan::IDevice*>(_graphicsDevice);
+                VkCommandBuffer vkCommandBuffer = vulkDevice->getNativeObject(nvrhi::ObjectTypes::VK_CommandBuffer);
+                ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), vkCommandBuffer);*/
+            }
+        }
     }
 
     bool ImGuiDebugViewLayer::IsOverlay()
     {
         return true;
-    }
-
-    void ImGuiDebugViewLayer::OnFrameRendered(const Tbx::RenderedFrameEvent&) const
-    {
-        if (ImGui::GetDrawData() == nullptr) return;
-
-        // This needs to be called after the frame has been rendered by the TBX renderer
-        if (Tbx::App::GetInstance()->GetGraphicsSettings().Api == Tbx::GraphicsApi::DirectX12)
-        {
-            // DX12
-#ifdef TBX_PLATFORM_WINDOWS
-            auto* dxDevice = dynamic_cast<nvrhi::d3d12::IDevice*>(_graphicsDevice);
-            ID3D12GraphicsCommandList* dxCommandList = dxDevice->getNativeObject(nvrhi::ObjectTypes::D3D12_GraphicsCommandList);
-            ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), dxCommandList);
-#endif
-        }
-        else
-        {
-            // Vulkan
-            auto* vulkDevice = dynamic_cast<nvrhi::vulkan::IDevice*>(_graphicsDevice);
-            VkCommandBuffer vkCommandBuffer = vulkDevice->getNativeObject(nvrhi::ObjectTypes::VK_CommandBuffer);
-            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), vkCommandBuffer);
-        }
     }
 
     void ImGuiDebugViewLayer::OnWindowResized(const Tbx::WindowResizedEvent& e)

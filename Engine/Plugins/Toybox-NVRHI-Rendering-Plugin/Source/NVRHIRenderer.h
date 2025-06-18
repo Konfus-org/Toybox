@@ -17,7 +17,6 @@ namespace NVRHIRendering
 
         std::shared_ptr<Tbx::IRenderSurface> GetRenderSurface();
         Tbx::GraphicsDevice GetGraphicsDevice() final;
-        Tbx::GraphicsDeviceInfo GetGraphicsDeviceInfo() final;
 
         void SetApi(Tbx::GraphicsApi api) final;
         Tbx::GraphicsApi GetApi() override;
@@ -45,7 +44,6 @@ namespace NVRHIRendering
         void OnFlushRequest(Tbx::FlushRendererRequest& e);
         
         nvrhi::DeviceHandle _graphicsDevice = nullptr;
-        Tbx::GraphicsDeviceInfo _graphicsDeviceInfo = nullptr;
         Tbx::GraphicsApi _api = Tbx::GraphicsApi::None;
 
         std::shared_ptr<NVRHIMessageHandler> _nvrhiMessageHandler = nullptr;

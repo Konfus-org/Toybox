@@ -60,10 +60,10 @@ namespace Tbx
     /// <summary>
     /// A request to open playSpaces in a world.
     /// </summary>
-    class OpenPlaySpacesRequest : public WorldEvent
+    class OpenPlayspacesRequest : public WorldEvent
     {
     public:
-        explicit OpenPlaySpacesRequest(const std::vector<UID>& playSpacesToOpen)
+        explicit OpenPlayspacesRequest(const std::vector<UID>& playSpacesToOpen)
             : _playSpaceToOpen(playSpacesToOpen) {}
 
         const std::vector<UID>& GetPlaySpacesToOpen() const { return _playSpaceToOpen; }

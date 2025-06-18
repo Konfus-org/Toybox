@@ -20,10 +20,8 @@ namespace ImGuiDebugView
         bool IsOverlay() override;
 
     private:
-        void OnFrameRendered(const Tbx::RenderedFrameEvent&) const;
         void OnWindowResized(const Tbx::WindowResizedEvent& e);
 
-        Tbx::UID _frameRenderedEventId = -1;
         Tbx::UID _windowResizedEventId = -1;
 
         bool _showDebugWindowOnDebugBtnUp = false;

@@ -2,13 +2,14 @@
 #include "Tbx/Systems/Rendering/Rendering.h"
 #include "Tbx/Systems/Rendering/IRenderer.h"
 #include "Tbx/Systems/Rendering/RenderEvents.h"
+#include "Tbx/Systems/Rendering/RenderProcessor.h"
 #include "Tbx/Systems/Windowing/WindowManager.h"
 #include "Tbx/Systems/Events/EventCoordinator.h"
+#include "Tbx/Systems/TBS/World.h"
 #include <iostream>
 
 namespace Tbx
 {
-    RenderPipeline Rendering::_pipeline = {};
     std::map<UID, std::shared_ptr<IRenderer>> Rendering::_renderers = {};
     UID Rendering::_onWindowCreatedEventId = -1;
 
@@ -16,6 +17,7 @@ namespace Tbx
     {
         EventCoordinator::Subscribe<WindowOpenedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowCreated));
         EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowClosed));
+        EventCoordinator::Subscribe<OpenPlayspacesRequest>(TBX_BIND_STATIC_FN(Rendering::OnOpenPlayspacesRequest));
     }
 
     void Rendering::Shutdown()
@@ -26,7 +28,15 @@ namespace Tbx
 
     void Rendering::DrawFrame()
     {
-        // TODO: Process world via pipeline...
+        for (const auto& playspace : World::GetPlayspaces())
+        {
+            auto buffer = RenderProcessor::Process(playspace);
+
+            auto request = RenderFrameRequest(buffer);
+            EventCoordinator::Send(request);
+
+            TBX_ASSERT(request.IsHandled, "Render frame request was not handled. Is a renderer created and listening?");
+        }
     }
     
     std::shared_ptr<IRenderer> Rendering::GetRenderer(UID window)
@@ -40,22 +50,38 @@ namespace Tbx
         return _renderers[window];
     }
     
-    void Rendering::OnWindowCreated(const WindowOpenedEvent& event)
+    void Rendering::OnWindowCreated(const WindowOpenedEvent& e)
     {
-        auto newWindow = WindowManager::GetWindow(event.GetWindowId());
+        auto newWindow = WindowManager::GetWindow(e.GetWindowId());
         auto createRendererRequest = CreateRendererRequest(newWindow);
 
         EventCoordinator::Send(createRendererRequest);
-        TBX_ASSERT(createRendererRequest.IsHandled, "Failed to create renderer for window ID: {0}", event.GetWindowId().Value);
+        TBX_ASSERT(createRendererRequest.IsHandled, "Failed to create renderer for window ID: {0}", e.GetWindowId().Value);
 
-        _renderers[event.GetWindowId()] = createRendererRequest.GetResult();
+        _renderers[e.GetWindowId()] = createRendererRequest.GetResult();
     }
 
-    void Rendering::OnWindowClosed(const WindowClosedEvent& event)
+    void Rendering::OnWindowClosed(const WindowClosedEvent& e)
     {
-        if (_renderers.contains(event.GetWindowId()))
+        if (_renderers.contains(e.GetWindowId()))
         {
-            _renderers.erase(event.GetWindowId());
+            _renderers.erase(e.GetWindowId());
         }
+    }
+
+    void Rendering::OnOpenPlayspacesRequest(OpenPlayspacesRequest& r)
+    {
+        for (const auto& playspaceId : r.GetPlaySpacesToOpen())
+        {
+            auto playspace = World::GetPlayspace(playspaceId);
+
+            auto buffer = RenderProcessor::PreProcess(playspace);
+            auto request = RenderFrameRequest(buffer);
+            EventCoordinator::Send(request);
+
+            TBX_ASSERT(request.IsHandled, "Render frame request was not handled. Is a renderer created and listening?");
+        }
+
+        r.IsHandled = true;
     }
 }

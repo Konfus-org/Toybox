@@ -11,25 +11,31 @@
 
 namespace Tbx
 {
-    FrameBuffer RenderProcessor::PreProcess(const std::shared_ptr<Playspace>& playSpace)
+    FrameBuffer RenderProcessor::PreProcess(const std::vector<std::shared_ptr<Playspace>>& playSpaces)
     {
         FrameBuffer buffer = {};
 
-        for (const auto& toy : PlayspaceView<Material, Camera, Transform>(playSpace))
+        for (const auto& playspace : playSpaces)
         {
-            PreProcessToy(toy, playSpace, buffer);
+            // We only need to pre-process materials to upload them to the GPU
+            for (const auto& toy : PlayspaceView<Material>(playspace))
+            {
+                PreProcessToy(toy, playspace, buffer);
+            }
         }
 
         return buffer;
     }
 
-    FrameBuffer RenderProcessor::Process(const std::shared_ptr<Playspace>& playSpace)
+    FrameBuffer RenderProcessor::Process(const std::vector<std::shared_ptr<Playspace>>& playSpaces)
     {
         FrameBuffer buffer = {};
-
-        for (const auto& toy : PlayspaceView<Transform, Material, Mesh, Model, Camera>(playSpace))
+        for (const auto& playspace : playSpaces)
         {
-            ProcessToy(toy, playSpace, buffer);
+            for (const auto& toy : PlayspaceView(playspace))
+            {
+                ProcessToy(toy, playspace, buffer);
+            }
         }
 
         return buffer;
@@ -103,7 +109,7 @@ namespace Tbx
             auto& camera = playSpace->GetBlockOn<Camera>(toy);
             // Update cameras perspective based on MainWindows view
             
-            // TODO: process this somewhere else!
+            // TODO: process this somewhere else (maybe the camera?)
             const auto& focusedWindow = WindowManager::GetFocusedWindow();
             const auto mainWindowSize = focusedWindow->GetSize();
             const auto aspectRatio = mainWindowSize.GetAspectRatio();

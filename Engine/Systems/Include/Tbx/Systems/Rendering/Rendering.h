@@ -5,6 +5,7 @@
 #include "Tbx/Systems/Rendering/IRenderSurface.h"
 #include "Tbx/Systems/Rendering/RenderPipeline.h"
 #include "Tbx/Systems/Windowing/WindowEvents.h"
+#include "Tbx/Systems/TBS/WorldEvents.h"
 #include <map>
 
 namespace Tbx
@@ -33,8 +34,9 @@ namespace Tbx
         EXPORT static std::shared_ptr<IRenderer> GetRenderer(UID window);
 
     private:
-        static void OnWindowCreated(const WindowOpenedEvent& event);
-        static void OnWindowClosed(const WindowClosedEvent& event);
+        static void OnWindowCreated(const WindowOpenedEvent& e);
+        static void OnWindowClosed(const WindowClosedEvent& e);
+        static void OnOpenPlayspacesRequest(OpenPlayspacesRequest& r);
 
         static RenderPipeline _pipeline;
         static UID _onWindowCreatedEventId;

@@ -15,7 +15,6 @@ namespace Tbx
     };
 
     using GraphicsDevice = void*;
-    using GraphicsDeviceInfo = void*;
 
     class EXPORT IRenderer
     {
@@ -31,11 +30,6 @@ namespace Tbx
         /// Gets the graphics device the renderer is using.
         /// </summary>
         virtual GraphicsDevice GetGraphicsDevice() = 0;
-
-        /// <summary>
-        /// Gets the graphics device the renderer is using.
-        /// </summary>
-        virtual GraphicsDeviceInfo GetGraphicsDeviceInfo() = 0;
 
         /// <summary>
         /// Sets the api the renderer will use.

@@ -67,9 +67,9 @@ namespace Tbx
 
     void Playspace::Open() const
     {
-        auto openRequest = OpenPlaySpacesRequest({ Id });
+        auto openRequest = OpenPlayspacesRequest({ Id });
         EventCoordinator::Send(openRequest);
-        //TBX_ASSERT(openRequest.IsHandled, "Failed to open playSpaces! Is a handler created and listening?");
+        TBX_ASSERT(openRequest.IsHandled, "Failed to open playSpaces! Is a handler created and listening?");
 
         auto openedEvent = OpenedPlaySpacesEvent({ Id });
         EventCoordinator::Send(openedEvent);

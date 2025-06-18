@@ -35,7 +35,7 @@ namespace Tbx
         return _playSpaces[id];
     }
 
-    std::vector<std::shared_ptr<Playspace>> World::GetPlaySpaces()
+    std::vector<std::shared_ptr<Playspace>> World::GetPlayspaces()
     {
         return _playSpaces;
     }
