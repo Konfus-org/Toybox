@@ -1,9 +1,0 @@
-{
-    "name": "ImGui Debug UI",
-    "lib": "ImGui Debug UI.dll",
-    "priority": "2147483647",
-    "language": "C++",
-    "version": "0.0.1",
-    "author": "Konfus-dev",
-    "description": "Debug UI for help during development. Shows info like frame time, mouse pos, window size, memory consumption etc..."
-}
