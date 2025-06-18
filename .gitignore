@@ -51,3 +51,8 @@ obj/
 compileData.scor
 compileData.scor.gbl
 compileData.scor.t0000
+
+# Do not ignore my tools
+!Tools/**/*.dll
+!Tools/**/*.exe
+!Tools/**/*.pdb
