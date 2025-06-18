@@ -23,11 +23,14 @@
 	path = Dependencies/NVRHI
 	url = https://github.com/Konfus-org/NVRHI.git
 [submodule "Engine/Plugins/Toybox-GLFW-Winput-Plugin"]
-	path = Plugins/Toybox-GLFW-Winput-Plugin
+	path = Engine/Plugins/Toybox-GLFW-Winput-Plugin
 	url = https://github.com/Konfus-org/Toybox-GLFW-Winput-Plugin.git
 [submodule "Engine/Plugins/Toybox-Spd-Logging-Plugin"]
-	path = Plugins/Toybox-Spd-Logging-Plugin
+	path = Engine/Plugins/Toybox-Spd-Logging-Plugin
 	url = https://github.com/Konfus-org/Toybox-Spd-Logging-Plugin.git
 [submodule "Engine/Plugins/Toybox-ImGui-DebugUI-Plugin"]
-	path = Plugins/Toybox-ImGui-DebugUI-Plugin
+	path = Engine/Plugins/Toybox-ImGui-DebugUI-Plugin
 	url = https://github.com/Konfus-org/Toybox-ImGui-DebugUI-Plugin.git
+[submodule "Engine/Plugins/Toybox-NVRHI-Rendering-Plugin"]
+	path = Engine/Plugins/Toybox-NVRHI-Rendering-Plugin
+	url = https://github.com/Konfus-org/Toybox-NVRHI-Rendering-Plugin.git
