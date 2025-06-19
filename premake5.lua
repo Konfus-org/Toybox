@@ -1,13 +1,20 @@
-dofile("./Tools/Premake/Scripts/utils.lua")
-
+-- Global vars
+Using = {}
+Using["TbxStaticPluginDirs"] = {}
+Using["TbxStaticPluginLinks"] = {}
+Using["TbxDynamicPluginLinks"] = {}
 RootDir = string.gsub(os.realpath("."), "\\", "/")
 BuildDir = RootDir .. "/Build"
 OutputTargetDir = BuildDir .. "/bin/%{cfg.system}-%{cfg.architecture}-%{cfg.buildcfg}"
 OutputObjDir = BuildDir .. "/obj/%{cfg.system}-%{cfg.architecture}-%{cfg.buildcfg}"
 
+-- Load util funcs
+dofile("./premakeutils.lua")
+
+-- Setup workspace
 workspace "Toybox"
     architecture "x86_64"
-    startproject "./Engine/Main"
+    startproject "Launcher"
 
     -- Global configurations
     configurations { "Debug", "Release-Assert", "Release" }
@@ -24,19 +31,24 @@ workspace "Toybox"
     LoadProjectsFromFolder("./Dependencies", "Dependencies", ApplyDependencyConfigs)
 
     -- Load plugin projects
-    LoadProjectsFromFolder("./Engine/Plugins", "Toybox/Plugins", ApplyToyboxConfigs)
-
-    -- Load all test projects
-    local testDirs = os.matchdirs("**/Tests")
-    for _, testDir in ipairs(testDirs) do
-        LoadProjectsFromFolder(testDir .. "/../", "Toybox/Tests", ApplyToyboxConfigs)
-    end
+    LoadProjectsFromFolder("./Plugins", "Toybox/Plugins", ApplyToyboxConfigs)
 
     -- Examples
     LoadProjectsFromFolder("./Examples", "Examples", ApplyToyboxConfigs)
 
-    -- Setup Toybox libs
-    LoadProjectsFromFolder("./Engine", "Toybox", ApplyToyboxConfigs)
+    -- Load all test projects
+    local testDirs = os.matchdirs("**/Tests")
+    for _, testDir in ipairs(testDirs) do
+        LoadProjectsFromFolder(testDir .. "/../", "Toybox", ApplyToyboxConfigs)
+    end
 
+    -- Engine
+    group "Toybox"
+        include "./Engine"
+        ApplyToyboxConfigs()
+        include "./Launcher"
+        ApplyToyboxConfigs()
+
+    -- For building premake in project
     group "Premake"
         include "./premakeproj"

@@ -1,14 +1,14 @@
 #include "ExampleLayer.h"
-#include <Tbx/Systems/Input/Input.h>
-#include <Tbx/Systems/Input/InputCodes.h>
-#include <Tbx/Systems/TBS/Toy.h>
-#include <Tbx/Systems/TBS/World.h>
+#include <Tbx/Input/Input.h>
+#include <Tbx/Input/InputCodes.h>
+#include <Tbx/TBS/Toy.h>
+#include <Tbx/TBS/World.h>
 #include <Tbx/Graphics/Texture.h>
 #include <Tbx/Graphics/Material.h>
 #include <Tbx/Graphics/Camera.h>
 #include <Tbx/Graphics/Mesh.h>
 #include <Tbx/Math/Transform.h>
-#include <Tbx/Utils/Time/DeltaTime.h>
+#include <Tbx/Time/DeltaTime.h>
 #include <algorithm>
 
 void ExampleLayer::OnAttach()

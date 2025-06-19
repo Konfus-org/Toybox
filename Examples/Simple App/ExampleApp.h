@@ -1,6 +1,6 @@
 #pragma once
-#include <Tbx/Application/App/App.h>
-#include <Tbx/Systems/Plugins/RegisterPlugin.h>
+#include <Tbx/App/App.h>
+#include <Tbx/Plugin API/RegisterPlugin.h>
 
 class ExampleApp : public Tbx::App
 {

@@ -1,7 +1,7 @@
 #pragma once
-#include <Tbx/Application/Layers/Layer.h>
-#include <Tbx/Systems/TBS/PlaySpace.h>
-#include <Tbx/Systems/TBS/Toy.h>
+#include <Tbx/Layers/Layer.h>
+#include <Tbx/TBS/PlaySpace.h>
+#include <Tbx/TBS/Toy.h>
 
 class ExampleLayer : public Tbx::Layer
 {

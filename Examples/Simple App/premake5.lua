@@ -5,8 +5,6 @@ project "Simple App"
     staticruntime "Off"
     externalwarnings "Off"
 
-    RegisterDynamicPlugin("Simple App")
-
     files
     {
         "./**.hpp",
@@ -15,3 +13,9 @@ project "Simple App"
         "./**.c",
         "./**.md"
     }
+    includedirs
+    {
+        "./"
+    }
+
+    RegisterDynamicPlugin("Simple App")
