@@ -14,13 +14,13 @@ namespace Tbx
         Rendering::Initialize();
     }
 
-    void RenderingLayer::OnUpdate()
-    {
-        Rendering::DrawFrame();
-    }
-
     void RenderingLayer::OnDetach()
     {
         Rendering::Shutdown();
+    }
+
+    void RenderingLayer::OnUpdate()
+    {
+        Rendering::DrawFrame();
     }
 }

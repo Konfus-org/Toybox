@@ -11,7 +11,7 @@ namespace Tbx
     public:
         EXPORT static void SetContext();
         EXPORT static void Shutdown();
-        EXPORT static void DrawFrame();
+        EXPORT static void Update();
 
         /// <summary>
         /// Creates and opens a new window, the first window will be set as the main window.

@@ -1,5 +1,5 @@
 #pragma once
-#include <Tbx/Plugin API/PluginInterfaces.h>
+#include <Tbx/Plugin API/RegisterPlugin.h>
 
 namespace SDLRendering
 {
@@ -11,4 +11,6 @@ namespace SDLRendering
 
         std::shared_ptr<Tbx::IRenderer> Create(std::shared_ptr<Tbx::IRenderSurface> surface) override;
     };
+
+    TBX_REGISTER_PLUGIN(SDLRendererFactory);
 }

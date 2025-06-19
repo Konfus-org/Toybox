@@ -27,14 +27,14 @@ namespace Tbx
         CloseAllWindows();
     }
 
-    void WindowManager::DrawFrame()
+    void WindowManager::Update()
     {
         if (_windows.empty()) return;
 
         // Update all windows
         for (const auto& [id, window] : _windows)
         {
-            window->DrawFrame();
+            window->Update();
         }
 
         // Close windows that are mark for close
@@ -47,11 +47,11 @@ namespace Tbx
 
     UID WindowManager::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
-        auto openRequest = OpenNewWindowRequest(name, mode, size);
-        EventCoordinator::Send<OpenNewWindowRequest>(openRequest);
-        auto window = openRequest.GetResult();
+        auto createRequest = CreateWindowRequest(name, size);
+        EventCoordinator::Send<CreateWindowRequest>(createRequest);
+        auto window = createRequest.GetResult();
 
-        TBX_ASSERT(openRequest.IsHandled, "Failed to open new window with the name {}!", name);
+        TBX_ASSERT(createRequest.IsHandled, "Failed to open new window with the name {}!", name);
         TBX_VALIDATE_PTR(window, "No result returned when opening new window with the name {}!", name);
 
         if (window == nullptr) return -1;
@@ -62,10 +62,8 @@ namespace Tbx
         }
 
         _windows[window->GetId()] = window;
+        window->Open(mode);
         window->Focus();
-
-        auto windowOpenedEvent = WindowOpenedEvent(window->GetId());
-        EventCoordinator::Send<WindowOpenedEvent>(windowOpenedEvent);
 
         return window->GetId();
     }

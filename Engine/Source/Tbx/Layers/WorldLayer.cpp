@@ -14,13 +14,13 @@ namespace Tbx
         World::SetContext();
     }
 
-    void WorldLayer::OnUpdate()
-    {
-        World::DrawFrame();
-    }
-
     void WorldLayer::OnDetach()
     {
         World::Destroy();
+    }
+
+    void WorldLayer::OnUpdate()
+    {
+        World::Update();
     }
 }

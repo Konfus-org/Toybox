@@ -14,13 +14,13 @@ namespace Tbx
         WindowManager::SetContext();
     }
 
-    void WindowingLayer::OnUpdate()
-    {
-        WindowManager::DrawFrame();
-    }
-
     void WindowingLayer::OnDetach()
     {
         WindowManager::Shutdown();
+    }
+
+    void WindowingLayer::OnUpdate()
+    {
+        WindowManager::Update();
     }
 }

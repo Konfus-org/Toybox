@@ -66,26 +66,26 @@ namespace Tbx
         // Only allow reloading and force quit when not released!
 
         // Shortcut to kill the app
-        if (Input::IsKeyDown(TBX_KEY_F4) &&
-            (Input::IsKeyDown(TBX_KEY_LEFT_ALT) || Input::IsKeyDown(TBX_KEY_RIGHT_ALT)))
-        {
-            _status = AppStatus::Exiting;
-            return;
-        }
+        //if (Input::IsKeyDown(TBX_KEY_F4) &&
+        //    (Input::IsKeyDown(TBX_KEY_LEFT_ALT) || Input::IsKeyDown(TBX_KEY_RIGHT_ALT)))
+        //{
+        //    _status = AppStatus::Exiting;
+        //    return;
+        //}
 
-        // Shortcut to restart app
-        if (Input::IsKeyDown(TBX_KEY_F2))
-        {
-            _status = AppStatus::Restarting;
-            return;
-        }
+        //// Shortcut to restart app
+        //if (Input::IsKeyDown(TBX_KEY_F2))
+        //{
+        //    _status = AppStatus::Restarting;
+        //    return;
+        //}
 
-        // Shortcut to hot reload plugins
-        if (Input::IsKeyDown(TBX_KEY_F3))
-        {
-            _status = AppStatus::Reloading;
-            return;
-        }
+        //// Shortcut to hot reload plugins
+        //if (Input::IsKeyDown(TBX_KEY_F3))
+        //{
+        //    _status = AppStatus::Reloading;
+        //    return;
+        //}
 #endif
 
         // Call on update for app inheritors

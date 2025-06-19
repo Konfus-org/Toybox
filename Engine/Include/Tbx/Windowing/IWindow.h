@@ -18,7 +18,7 @@ namespace Tbx
     public:
         virtual void Open(const WindowMode& mode) = 0;
         virtual void Close() = 0;
-        virtual void DrawFrame() = 0;
+        virtual void Update() = 0;
         virtual void Focus() = 0;
 
         virtual const std::string& GetTitle() const = 0;

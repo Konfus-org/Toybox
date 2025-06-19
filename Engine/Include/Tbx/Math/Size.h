@@ -9,6 +9,7 @@ namespace Tbx
     {
     public:
         Size() = default;
+        Size(uint width, uint height) : Width(width), Height(height) {}
         Size(int width, int height) : Width(width), Height(height) {}
 
         std::string ToString() const;

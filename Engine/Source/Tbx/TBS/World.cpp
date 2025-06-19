@@ -13,7 +13,7 @@ namespace Tbx
         // Do nothing for now...
     }
 
-    void World::DrawFrame()
+    void World::Update()
     {
         // Nothing for now...
     }

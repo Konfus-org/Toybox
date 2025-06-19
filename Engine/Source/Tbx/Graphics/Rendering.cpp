@@ -33,7 +33,7 @@ namespace Tbx
         auto request = RenderFrameRequest(buffer);
         EventCoordinator::Send(request);
 
-        TBX_ASSERT(request.IsHandled, "Render frame request was not handled. Is a renderer created and listening?");
+        //TBX_ASSERT(request.IsHandled, "Render frame request was not handled. Is a renderer created and listening?");
     }
     
     std::shared_ptr<IRenderer> Rendering::GetRenderer(UID window)

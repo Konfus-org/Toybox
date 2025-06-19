@@ -1,5 +1,5 @@
 #pragma once
-#include <Tbx/Plugin API/PluginInterfaces.h>
+#include <Tbx/Plugin API/RegisterPlugin.h>
 
 namespace SDLInput
 {
@@ -21,4 +21,6 @@ namespace SDLInput
         bool IsMouseButtonHeld(const int button) const override;
         Tbx::Vector2 GetMousePosition() const override;
     };
+
+    TBX_REGISTER_PLUGIN(SDLInputHandler);
 }

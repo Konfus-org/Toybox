@@ -9,7 +9,7 @@ namespace Tbx
     {
     public:
         EXPORT static void SetContext();
-        EXPORT static void DrawFrame();
+        EXPORT static void Update();
         EXPORT static void Destroy();
 
         EXPORT static UID MakePlayspace();

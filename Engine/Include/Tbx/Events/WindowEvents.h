@@ -91,16 +91,14 @@ namespace Tbx
         uint _height;
     };
 
-    class OpenNewWindowRequest : public WindowEvent
+    class CreateWindowRequest : public WindowEvent
     {
     public:
-        EXPORT OpenNewWindowRequest(const std::string& name, const WindowMode& mode, const Size& size)
-            : _name(name), _mode(mode), _size(size) {
-        }
+        EXPORT CreateWindowRequest(const std::string& name, const Size& size)
+            : _name(name), _size(size) {}
 
-        EXPORT const std::string& GetName() const { return _name; }
-        EXPORT const WindowMode& GetMode() const { return _mode; }
-        EXPORT const Size& GetSize() const { return _size; }
+        EXPORT const std::string& GetNameParam() const { return _name; }
+        EXPORT const Size& GetSizeParam() const { return _size; }
 
         EXPORT std::shared_ptr<IWindow> GetResult() const { return _result; }
         EXPORT void SetResult(const std::shared_ptr<IWindow>& window) { _result = window; }
@@ -113,7 +111,6 @@ namespace Tbx
     private:
         std::shared_ptr<IWindow> _result;
         std::string _name;
-        WindowMode _mode;
         Size _size;
     };
 }
