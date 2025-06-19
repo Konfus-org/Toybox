@@ -3,7 +3,6 @@
 #include "Tbx/Utils/Ids/UID.h"
 #include "Tbx/Systems/Rendering/IRenderer.h"
 #include "Tbx/Systems/Rendering/IRenderSurface.h"
-#include "Tbx/Systems/Rendering/RenderPipeline.h"
 #include "Tbx/Systems/Windowing/WindowEvents.h"
 #include "Tbx/Systems/TBS/WorldEvents.h"
 #include <map>
@@ -38,7 +37,6 @@ namespace Tbx
         static void OnWindowClosed(const WindowClosedEvent& e);
         static void OnOpenPlayspacesRequest(OpenPlayspacesRequest& r);
 
-        static RenderPipeline _pipeline;
         static UID _onWindowCreatedEventId;
         static std::map<UID, std::shared_ptr<IRenderer>> _renderers;
     };

@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "Tbx/Math/DllExport.h"
+#include "Tbx/Utils/DllExport.h"
 #include "Tbx/Math/Vectors.h"
 
 namespace Tbx

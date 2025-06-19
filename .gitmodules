@@ -4,9 +4,6 @@
 [submodule "Dependencies/googletest"]
 	path = Dependencies/googletest
 	url = https://github.com/Konfus-org/googletest.git
-[submodule "Dependencies/GLFW"]
-	path = Dependencies/GLFW
-	url = https://github.com/Konfus-org/GLFW.git
 [submodule "Dependencies/sys_info"]
 	path = Dependencies/sys_info
 	url = https://github.com/Konfus-org/sys_info.git
@@ -19,18 +16,12 @@
 [submodule "Dependencies/ImGui"]
 	path = Dependencies/ImGui
 	url = https://github.com/Konfus-org/ImGui.git
-[submodule "Dependencies/NVRHI"]
-	path = Dependencies/NVRHI
-	url = https://github.com/Konfus-org/NVRHI.git
-[submodule "Engine/Plugins/Toybox-GLFW-Winput-Plugin"]
-	path = Engine/Plugins/Toybox-GLFW-Winput-Plugin
-	url = https://github.com/Konfus-org/Toybox-GLFW-Winput-Plugin.git
 [submodule "Engine/Plugins/Toybox-Spd-Logging-Plugin"]
 	path = Engine/Plugins/Toybox-Spd-Logging-Plugin
 	url = https://github.com/Konfus-org/Toybox-Spd-Logging-Plugin.git
 [submodule "Engine/Plugins/Toybox-ImGui-DebugUI-Plugin"]
 	path = Engine/Plugins/Toybox-ImGui-DebugUI-Plugin
 	url = https://github.com/Konfus-org/Toybox-ImGui-DebugUI-Plugin.git
-[submodule "Engine/Plugins/Toybox-NVRHI-Rendering-Plugin"]
-	path = Engine/Plugins/Toybox-NVRHI-Rendering-Plugin
-	url = https://github.com/Konfus-org/Toybox-NVRHI-Rendering-Plugin.git
+[submodule "Dependencies/SDL"]
+	path = Dependencies/SDL
+	url = https://github.com/Konfus-dev/SDL.git

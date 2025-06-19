@@ -1,5 +1,5 @@
 #include "Tbx/Utils/PCH.h"
-#include "Tbx/Utils/Strings/String.h"
+#include "Tbx/Utils/Exportable Wrappers/String.h"
 
 namespace Tbx
 {
@@ -27,14 +27,14 @@ namespace Tbx
 
     String::~String()
     {
-        free(_data);
+        delete _data;
     }
 
     String& String::operator=(String&& other) noexcept
     {
         if (this != &other)
         {
-            free(_data);
+            delete _data;
             _data = other._data;
             other._data = nullptr;
         }
@@ -45,7 +45,7 @@ namespace Tbx
     {
         if (this != &other)
         {
-            free(_data);
+            delete _data;
             CopyFrom(other._data);
         }
         return *this;

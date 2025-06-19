@@ -25,9 +25,4 @@ project "Utils"
     {
         "./Include",
         "./Source",
-        "../Math/Include"
-    }
-    links
-    {
-        "Math"
     }

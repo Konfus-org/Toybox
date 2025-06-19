@@ -2,7 +2,7 @@
 #include "Tbx/Math/Constants.h"
 #include "Tbx/Math/Mat4x4.h"
 #include "Tbx/Math/Trig.h"
-#include "Tbx/Math/Int.h"
+#include "Tbx/Utils/Type Aliases/Int.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/quaternion.hpp>

@@ -25,11 +25,13 @@ project "Math"
     {
         "./Include",
         "./Source",
+        "../Utils/Include",
         _MAIN_SCRIPT_DIR .. "/Dependencies/glm"
     }
     links
     {
-        "glm"
+        "glm",
+        "Utils"
     }
     defines
     {

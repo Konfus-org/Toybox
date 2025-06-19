@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/Graphics/Buffers.h"
 #include "Tbx/Graphics/Vertex.h"
-#include <Tbx/Math/Int.h>
+#include "Tbx/Utils/Type Aliases/Int.h"
 
 namespace Tbx
 {

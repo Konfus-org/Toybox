@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/Application/Layers/Layer.h"
-#include "Tbx/Math/Int.h"
+#include "Tbx/Utils/Type Aliases/Int.h"
 #include <memory>
 #include <vector>
 

@@ -54,5 +54,12 @@ compileData.scor.t0000
 
 # Do not ignore my tools
 !Tools/**/*.dll
-!Tools/**/*.exe
+!Tools/**/*.lib
 !Tools/**/*.pdb
+!Tools/**/*.exe
+
+# Do not ignore 3rd party dlls, libs, pdbs, and exes
+!Dependencies/**/*.dll
+!Dependencies/**/*.lib
+!Dependencies/**/*.pdb
+!Dependencies/**/*.exe

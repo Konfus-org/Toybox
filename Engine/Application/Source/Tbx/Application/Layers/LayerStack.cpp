@@ -1,7 +1,6 @@
 #include "Tbx/Application/PCH.h"
 #include "Tbx/Application/Layers/LayerStack.h"
 
-
 namespace Tbx 
 {
 	LayerStack::~LayerStack()

@@ -1,7 +1,8 @@
 #pragma once
 #include "Tbx/Utils/DllExport.h"
-#include "Tbx/Math/Int.h"
+#include "Tbx/Utils/Type Aliases/Int.h"
 #include <random>
+#include <format>
 
 namespace Tbx
 {

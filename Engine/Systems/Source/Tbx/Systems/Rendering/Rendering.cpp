@@ -28,15 +28,12 @@ namespace Tbx
 
     void Rendering::DrawFrame()
     {
-        for (const auto& playspace : World::GetPlayspaces())
-        {
-            auto buffer = RenderProcessor::Process(playspace);
+        auto buffer = RenderProcessor::Process(World::GetPlayspaces());
 
-            auto request = RenderFrameRequest(buffer);
-            EventCoordinator::Send(request);
+        auto request = RenderFrameRequest(buffer);
+        EventCoordinator::Send(request);
 
-            TBX_ASSERT(request.IsHandled, "Render frame request was not handled. Is a renderer created and listening?");
-        }
+        TBX_ASSERT(request.IsHandled, "Render frame request was not handled. Is a renderer created and listening?");
     }
     
     std::shared_ptr<IRenderer> Rendering::GetRenderer(UID window)
@@ -71,16 +68,17 @@ namespace Tbx
 
     void Rendering::OnOpenPlayspacesRequest(OpenPlayspacesRequest& r)
     {
+        auto playspaceToOpen = std::vector<std::shared_ptr<Playspace>>();
         for (const auto& playspaceId : r.GetPlaySpacesToOpen())
         {
-            auto playspace = World::GetPlayspace(playspaceId);
-
-            auto buffer = RenderProcessor::PreProcess(playspace);
-            auto request = RenderFrameRequest(buffer);
-            EventCoordinator::Send(request);
-
-            TBX_ASSERT(request.IsHandled, "Render frame request was not handled. Is a renderer created and listening?");
+            playspaceToOpen.push_back(World::GetPlayspace(playspaceId));
         }
+
+        auto buffer = RenderProcessor::PreProcess(playspaceToOpen);
+        auto request = RenderFrameRequest(buffer);
+        EventCoordinator::Send(request);
+
+        TBX_ASSERT(request.IsHandled, "Render frame request was not handled. Is a renderer created and listening?");
 
         r.IsHandled = true;
     }

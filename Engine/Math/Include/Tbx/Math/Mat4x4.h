@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/Math/DllExport.h"
+#include "Tbx/Utils/DllExport.h"
 #include "Tbx/Math/Quaternion.h"
 #include "Tbx/Math/Bounds.h"
 #include <array>

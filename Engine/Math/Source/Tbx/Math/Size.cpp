@@ -1,5 +1,6 @@
 ﻿#include "Tbx/Math/PCH.h"
 #include "Tbx/Math/Size.h"
+#include <format>
 
 namespace Tbx
 {
