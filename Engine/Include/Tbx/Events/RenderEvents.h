@@ -44,28 +44,6 @@ namespace Tbx
         }
     };
 
-    class RenderFrameRequest : public RenderEvent
-    {
-    public:
-        EXPORT explicit RenderFrameRequest(const FrameBuffer& buffer)
-            : _buffer(buffer) {
-        }
-
-        EXPORT std::string ToString() const final
-        {
-            return "Render Frame Request Event";
-        }
-
-        EXPORT const FrameBuffer& GetBuffer() const
-        {
-            return _buffer;
-        }
-
-    private:
-        FrameBuffer _buffer;
-    };
-
-
     class CreateRendererRequest : public RenderEvent
     {
     public:
@@ -77,7 +55,7 @@ namespace Tbx
             return "Render Frame Request Event";
         }
 
-        EXPORT std::shared_ptr<IRenderSurface> GetSurfaceToCreateFor() const
+        EXPORT std::shared_ptr<IRenderSurface> GetSurfaceParam() const
         {
             return _surface;
         }

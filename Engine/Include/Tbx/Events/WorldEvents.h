@@ -58,26 +58,6 @@ namespace Tbx
     };
 
     /// <summary>
-    /// A request to open playSpaces in a world.
-    /// </summary>
-    class OpenPlayspacesRequest : public WorldEvent
-    {
-    public:
-        explicit OpenPlayspacesRequest(const std::vector<UID>& playSpacesToOpen)
-            : _playSpaceToOpen(playSpacesToOpen) {}
-
-        const std::vector<UID>& GetPlaySpacesToOpen() const { return _playSpaceToOpen; }
-
-        EXPORT std::string ToString() const final
-        {
-            return "Open PlaySpaces Request";
-        }
-
-    private:
-        std::vector<UID> _playSpaceToOpen = {};
-    };
-
-    /// <summary>
     /// Occurs when playSpaces are opened.
     /// This happens when playSpaces have been loaded.
     /// </summary>

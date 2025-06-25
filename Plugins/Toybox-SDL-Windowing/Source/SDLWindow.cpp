@@ -17,7 +17,7 @@ namespace SDLWindowing
 
     Tbx::NativeWindow SDLWindow::GetNativeWindow() const
     {
-        return nullptr;
+        return _window;
     }
 
     void SDLWindow::Open(const Tbx::WindowMode& mode)

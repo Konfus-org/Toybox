@@ -67,11 +67,6 @@ namespace Tbx
 
     void Playspace::Open() const
     {
-        auto openRequest = OpenPlayspacesRequest({ GetId()});
-        EventCoordinator::Send(openRequest);
-        TBX_ASSERT(openRequest.IsHandled, "Failed to open playspaces! Is a handler created and listening?");
-
-        auto openedEvent = OpenedPlaySpacesEvent({ GetId()});
-        EventCoordinator::Send(openedEvent);
+        // TODO: Implement
     }
 }

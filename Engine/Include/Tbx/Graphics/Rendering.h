@@ -35,9 +35,9 @@ namespace Tbx
     private:
         static void OnWindowCreated(const WindowOpenedEvent& e);
         static void OnWindowClosed(const WindowClosedEvent& e);
-        static void OnOpenPlayspacesRequest(OpenPlayspacesRequest& r);
 
         static UID _onWindowCreatedEventId;
+        static UID _onWindowClosedEventId;
         static std::map<UID, std::shared_ptr<IRenderer>> _renderers;
     };
 }

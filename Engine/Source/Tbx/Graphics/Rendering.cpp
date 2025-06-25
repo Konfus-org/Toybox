@@ -12,28 +12,35 @@ namespace Tbx
 {
     std::map<UID, std::shared_ptr<IRenderer>> Rendering::_renderers = {};
     UID Rendering::_onWindowCreatedEventId = -1;
+    UID Rendering::_onWindowClosedEventId = -1;
 
     void Rendering::Initialize()
     {
-        EventCoordinator::Subscribe<WindowOpenedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowCreated));
-        EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowClosed));
-        EventCoordinator::Subscribe<OpenPlayspacesRequest>(TBX_BIND_STATIC_FN(Rendering::OnOpenPlayspacesRequest));
+        _onWindowCreatedEventId = EventCoordinator::Subscribe<WindowOpenedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowCreated));
+        _onWindowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowClosed));
     }
 
     void Rendering::Shutdown()
     {
         EventCoordinator::Unsubscribe<WindowOpenedEvent>(_onWindowCreatedEventId);
-        EventCoordinator::Unsubscribe<WindowClosedEvent>(_onWindowCreatedEventId);
+        EventCoordinator::Unsubscribe<WindowClosedEvent>(_onWindowClosedEventId);
     }
 
     void Rendering::DrawFrame()
     {
-        auto buffer = RenderProcessor::Process(World::GetPlayspaces());
+        FrameBuffer buffer;
+        auto clearColor = Tbx::Color(1, 0.1f, 0.1f, 1);
+        buffer.Add({ DrawCommandType::Clear, clearColor });
 
-        auto request = RenderFrameRequest(buffer);
-        EventCoordinator::Send(request);
+        for (const auto& window : WindowManager::GetAllWindows())
+        {
+            _renderers[window->GetId()]->Draw(buffer);
+        }
 
-        //TBX_ASSERT(request.IsHandled, "Render frame request was not handled. Is a renderer created and listening?");
+        for (const auto& window : WindowManager::GetAllWindows())
+        {
+            _renderers[window->GetId()]->Flush();
+        }
     }
     
     std::shared_ptr<IRenderer> Rendering::GetRenderer(UID window)
@@ -66,20 +73,18 @@ namespace Tbx
         }
     }
 
-    void Rendering::OnOpenPlayspacesRequest(OpenPlayspacesRequest& r)
-    {
-        auto playspaceToOpen = std::vector<std::shared_ptr<Playspace>>();
-        for (const auto& playspaceId : r.GetPlaySpacesToOpen())
-        {
-            playspaceToOpen.push_back(World::GetPlayspace(playspaceId));
-        }
+    //void Rendering::OnOpenPlayspacesRequest(OpenPlayspacesRequest& r)
+    //{
+    //    auto playspaceToOpen = std::vector<std::shared_ptr<Playspace>>();
+    //    for (const auto& playspaceId : r.GetPlaySpacesToOpen())
+    //    {
+    //        playspaceToOpen.push_back(World::GetPlayspace(playspaceId));
+    //    }
 
-        auto buffer = RenderProcessor::PreProcess(playspaceToOpen);
-        auto request = RenderFrameRequest(buffer);
-        EventCoordinator::Send(request);
+    //    auto buffer = RenderProcessor::PreProcess(playspaceToOpen);
+    //    // TODO: implement
+    //    //TBX_ASSERT(request.IsHandled, "Render frame request was not handled. Is a renderer created and listening?");
 
-        TBX_ASSERT(request.IsHandled, "Render frame request was not handled. Is a renderer created and listening?");
-
-        r.IsHandled = true;
-    }
+    //    r.IsHandled = true;
+    //}
 }
