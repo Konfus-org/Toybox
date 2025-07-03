@@ -1,6 +1,5 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Graphics/RenderProcessor.h"
-#include "Tbx/Windowing/WindowManager.h"
 #include "Tbx/Graphics/Buffers.h"
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Graphics/Material.h"
@@ -107,14 +106,6 @@ namespace Tbx
         if (playSpace->HasBlockOn<Camera>(toy))
         {
             auto& camera = playSpace->GetBlockOn<Camera>(toy);
-            // Update cameras perspective based on MainWindows view
-            
-            // TODO: process this somewhere else (maybe the camera?)
-            const auto& focusedWindow = WindowManager::GetFocusedWindow();
-            const auto mainWindowSize = focusedWindow->GetSize();
-            const auto aspectRatio = mainWindowSize.GetAspectRatio();
-            camera.SetAspect(aspectRatio);
-
             if (playSpace->HasBlockOn<Transform>(toy))
             {
                 // Use the transform block's position and rotation

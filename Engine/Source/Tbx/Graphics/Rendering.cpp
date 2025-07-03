@@ -1,15 +1,18 @@
 #include "Tbx/PCH.h"
+#include "Tbx/App/App.h"
 #include "Tbx/Graphics/Rendering.h"
 #include "Tbx/Graphics/IRenderer.h"
+#include "Tbx/Graphics/Mesh.h"
 #include "Tbx/Graphics/RenderProcessor.h"
-#include "Tbx/Windowing/WindowManager.h"
 #include "Tbx/Events/EventCoordinator.h"
 #include "Tbx/Events/RenderEvents.h"
 #include "Tbx/TBS/World.h"
+#include "Tbx/Plugin API/PluginServer.h"
 #include <iostream>
 
 namespace Tbx
 {
+    std::shared_ptr<IRendererFactoryPlugin> Rendering::_renderFactory = nullptr;
     std::map<UID, std::shared_ptr<IRenderer>> Rendering::_renderers = {};
     UID Rendering::_onWindowCreatedEventId = -1;
     UID Rendering::_onWindowClosedEventId = -1;
@@ -18,6 +21,8 @@ namespace Tbx
     {
         _onWindowCreatedEventId = EventCoordinator::Subscribe<WindowOpenedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowCreated));
         _onWindowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowClosed));
+
+        _renderFactory = PluginServer::GetPlugin<IRendererFactoryPlugin>();
     }
 
     void Rendering::Shutdown()
@@ -28,18 +33,20 @@ namespace Tbx
 
     void Rendering::DrawFrame()
     {
+        // TODO: This is testing code!!! Need actual implementation
         FrameBuffer buffer;
-        auto clearColor = Tbx::Color(1, 0.1f, 0.1f, 1);
-        buffer.Add({ DrawCommandType::Clear, clearColor });
+        /*auto clearColor = Color(1, 0.1f, 0.1f, 1);
+        auto qaudMesh = Mesh();
+        buffer.Add({ DrawCommandType::DrawMesh, qaudMesh });*/
 
-        for (const auto& window : WindowManager::GetAllWindows())
+        auto windows = App::GetInstance()->GetWindows();
+        for (const auto& window : windows)
         {
-            _renderers[window->GetId()]->Draw(buffer);
-        }
+            auto winId = window->GetId();
+            if (!_renderers.contains(winId)) continue;
 
-        for (const auto& window : WindowManager::GetAllWindows())
-        {
-            _renderers[window->GetId()]->Flush();
+            _renderers[winId]->Flush();
+            _renderers[winId]->Draw(buffer);
         }
     }
     
@@ -56,13 +63,9 @@ namespace Tbx
     
     void Rendering::OnWindowCreated(const WindowOpenedEvent& e)
     {
-        auto newWindow = WindowManager::GetWindow(e.GetWindowId());
-        auto createRendererRequest = CreateRendererRequest(newWindow);
-
-        EventCoordinator::Send(createRendererRequest);
-        TBX_ASSERT(createRendererRequest.IsHandled, "Failed to create renderer for window ID: {0}", e.GetWindowId().Value);
-
-        _renderers[e.GetWindowId()] = createRendererRequest.GetResult();
+        auto newWinId = e.GetWindowId();
+        auto newWindow = App::GetInstance()->GetWindow(newWinId);
+        _renderers[newWinId] = _renderFactory->Create(newWindow);
     }
 
     void Rendering::OnWindowClosed(const WindowClosedEvent& e)

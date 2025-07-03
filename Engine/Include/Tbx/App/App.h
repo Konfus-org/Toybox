@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/Layers/LayerStack.h"
 #include "Tbx/Events/WindowEvents.h"
+#include "Tbx/Windowing/WindowStack.h"
 #include "Tbx/Plugin API/PluginInterfaces.h"
 #include "Tbx/Graphics/GraphicsSettings.h"
 
@@ -35,7 +36,9 @@ namespace Tbx
         EXPORT virtual void OnUpdate() = 0;
         EXPORT virtual void OnShutdown() = 0;
 
-        EXPORT void OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size) const;
+        EXPORT std::shared_ptr<IWindow> GetWindow(UID id);
+        EXPORT std::vector<std::shared_ptr<IWindow>> GetWindows();
+        EXPORT UID OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
         EXPORT void PushLayer(const std::shared_ptr<Layer>& layer);
 
         EXPORT const AppStatus& GetStatus() const;
@@ -48,13 +51,20 @@ namespace Tbx
     private:
         void ShutdownSystems();
         void OnWindowClosed(const WindowClosedEvent& e);
+        void OnWindowFocused(const WindowFocusedEvent& event);
 
         static std::shared_ptr<App> _instance;
 
         std::string _name = "App";
         AppStatus _status = AppStatus::None;
         GraphicsSettings _graphicsSettings = {};
+
         LayerStack _layerStack = {};
+        WindowStack _windowStack = {};
+
+        UID _mainWindowId = -1;
+
         UID _windowClosedEventId = -1;
+        UID _windowFocusChangedEventId = -1;
     };
 }

@@ -29,21 +29,16 @@ namespace Tbx
         UID _windowId = -1;
     };
 
-    class EXPORT WindowFocusChangedEvent : public WindowActionEvent
+    class EXPORT WindowFocusedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowFocusChangedEvent(UID windowId, bool isFocused)
-            : WindowActionEvent(windowId), _isFocused(isFocused) {}
+        explicit WindowFocusedEvent(UID windowId)
+            : WindowActionEvent(windowId) {}
 
         std::string ToString() const final
         {
             return "Window Focused Event";
         }
-
-        bool IsFocused() const { return _isFocused; }
-
-    private:
-        bool _isFocused = false;
     };
 
     class EXPORT WindowOpenedEvent : public WindowActionEvent
@@ -89,28 +84,5 @@ namespace Tbx
     private:
         uint _width;
         uint _height;
-    };
-
-    class CreateWindowRequest : public WindowEvent
-    {
-    public:
-        EXPORT CreateWindowRequest(const std::string& name, const Size& size)
-            : _name(name), _size(size) {}
-
-        EXPORT const std::string& GetNameParam() const { return _name; }
-        EXPORT const Size& GetSizeParam() const { return _size; }
-
-        EXPORT std::shared_ptr<IWindow> GetResult() const { return _result; }
-        EXPORT void SetResult(const std::shared_ptr<IWindow>& window) { _result = window; }
-
-        std::string ToString() const final
-        {
-            return "Create Window Event";
-        }
-
-    private:
-        std::shared_ptr<IWindow> _result;
-        std::string _name;
-        Size _size;
     };
 }

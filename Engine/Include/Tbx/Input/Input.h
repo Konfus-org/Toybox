@@ -27,7 +27,7 @@ namespace Tbx
         EXPORT static Vector2 GetMousePosition();
 
     private:
-        static void OnWindowFocusChanged(const WindowFocusChangedEvent& args);
+        static void OnWindowFocusChanged(const WindowFocusedEvent& args);
 
         static UID _windowFocusChangedEventId;
     };

@@ -25,14 +25,14 @@ namespace Tbx
             auto app = apps[0];
             TBX_VALIDATE_PTR(app, "Could not load app! Is the TBX_PATH_TO_PLUGINS defined correctly and is the dll containing the app being build there?");
 
-            TBX_INFO("Loaded app: {0}", app->GetName());
+            TBX_TRACE_INFO("Loaded app: {0}", app->GetName());
 
             return app;
         }
         catch (const std::exception& ex)
         {
             std::string errMsg = ex.what();
-            TBX_ERROR("Failed to load plugins at {0}! Error: {1}", pathToPlugins, errMsg);
+            TBX_TRACE_ERROR("Failed to load plugins at {0}! Error: {1}", pathToPlugins, errMsg);
             return nullptr;
         }
     }

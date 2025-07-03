@@ -7,12 +7,10 @@ namespace SDLRendering
 {
     void SDLRendererFactory::OnLoad()
     {
-        _createRendererRequestId = Tbx::EventCoordinator::Subscribe<Tbx::CreateRendererRequest>(TBX_BIND_FN(OnCreateRendererRequest));
     }
 
     void SDLRendererFactory::OnUnload()
     {
-        Tbx::EventCoordinator::Unsubscribe<Tbx::CreateRendererRequest>(_createRendererRequestId);
     }
 
     void DeleteRenderer(SDLRenderer* renderer)
@@ -25,11 +23,5 @@ namespace SDLRendering
         auto renderer = std::shared_ptr<SDLRenderer>(new SDLRenderer(), [](SDLRenderer* rendererToDelete) { DeleteRenderer(rendererToDelete); });
         renderer->Initialize(surface);
         return renderer;
-    }
-
-    void SDLRendererFactory::OnCreateRendererRequest(Tbx::CreateRendererRequest& r)
-    {
-        r.SetResult(Create(r.GetSurfaceParam()));
-        r.IsHandled = true;
     }
 }

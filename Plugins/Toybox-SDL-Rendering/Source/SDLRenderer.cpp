@@ -2,18 +2,24 @@
 #include <Tbx/Debug/Debugging.h>
 #include <Tbx/Graphics/Material.h>
 #include <Tbx/Graphics/Mesh.h>
+#include <Tbx/App/App.h>
 
 namespace SDLRendering
 {
     void SDLRenderer::Initialize(const std::shared_ptr<Tbx::IRenderSurface>& surface)
     {
         auto* window = (SDL_Window*)surface->GetNativeWindow();
-
-        _renderer = std::shared_ptr<SDL_Renderer>(SDL_CreateRenderer(window, nullptr), [](SDL_Renderer* rendererToDelete) { SDL_DestroyRenderer(rendererToDelete); });
         _surface = surface;
-
         TBX_ASSERT(_surface, "No surface to render to was given!");
-        TBX_ASSERT(_renderer, "Failed to create SDL_Renderer: {}", SDL_GetError());
+
+        // create a device for either VULKAN, METAL, or DX12 with debugging enabled and choose the best driver
+        _device = std::shared_ptr<SDL_GPUDevice>(SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_DXBC, false, NULL), [](SDL_GPUDevice* deviceToDelete)
+        { 
+            SDL_DestroyGPUDevice(deviceToDelete);
+        });
+        TBX_ASSERT(_device, "Failed to create SDL_Renderer: {}", SDL_GetError());
+
+        SDL_ClaimWindowForGPUDevice(_device.get(), window);
 
         int w, h;
         SDL_GetWindowSize(window, &w, &h);
@@ -21,15 +27,13 @@ namespace SDLRendering
         _resolution = { w, h };
         _viewport = { { 0, 0 }, { w, h } };
 
-        SDL_SetRenderViewport(_renderer.get(), nullptr);
-
         std::string err = SDL_GetError();
         TBX_ASSERT(err.empty(), "An error from SDL has occured: {}", err);
     }
 
     Tbx::GraphicsDevice SDLRenderer::GetGraphicsDevice()
     {
-        return _renderer.get();
+        return _device.get();
     }
 
     void SDLRenderer::SetApi(Tbx::GraphicsApi api)
@@ -45,8 +49,6 @@ namespace SDLRendering
     void SDLRenderer::SetViewport(const Tbx::Viewport& viewport)
     {
         _viewport = viewport;
-        SDL_Rect sdlViewport = { (int)viewport.Position.X, (int)viewport.Position.Y, (int)viewport.Size.Width, (int)viewport.Size.Height };
-        SDL_SetRenderViewport(_renderer.get(), &sdlViewport);
 
         std::string err = SDL_GetError();
         TBX_ASSERT(err.empty(), "An error from SDL has occured: {}", err);
@@ -59,7 +61,6 @@ namespace SDLRendering
 
     void SDLRenderer::SetResolution(const Tbx::Size& size)
     {
-        // TODO: Implement graphics resolution that is seperate from window resolution
         _resolution = size;
     }
 
@@ -71,7 +72,6 @@ namespace SDLRendering
     void SDLRenderer::SetVSyncEnabled(bool enabled)
     {
         _vsyncEnabled = enabled;
-        // TODO: Set vsync on SDL renderer
     }
 
     bool SDLRenderer::GetVSyncEnabled()
@@ -81,18 +81,31 @@ namespace SDLRendering
 
     void SDLRenderer::Flush()
     {
-        SDL_RenderPresent(_renderer.get());
     }
 
     void SDLRenderer::Clear(const Tbx::Color& color)
     {
-        auto r = static_cast<Uint8>(color.R * 255);
-        auto g = static_cast<Uint8>(color.G * 255);
-        auto b = static_cast<Uint8>(color.B * 255);
-        auto a = static_cast<Uint8>(color.A * 255);
+        if (_currRenderPass != nullptr)
+        {
+            // End any existing passes
+            SDL_EndGPURenderPass(_currRenderPass);
+            SDL_SubmitGPUCommandBuffer(_currCommandBuffer);
+        }
 
-        SDL_SetRenderDrawColor(_renderer.get(), r, g, b, a);
-        SDL_RenderClear(_renderer.get());
+        // begin a new render pass with new clear color
+        _currCommandBuffer = SDL_AcquireGPUCommandBuffer(_device.get());
+
+        SDL_GPUTexture* swapchainTexture;
+        Uint32 width, height;
+        SDL_WaitAndAcquireGPUSwapchainTexture(_currCommandBuffer, (SDL_Window*)_surface.get(), &swapchainTexture, &width, &height);
+
+        SDL_GPUColorTargetInfo colorTargetInfo {};
+        colorTargetInfo.clear_color = { color.R * 255, color.G * 255, color.B * 255, color.A * 255 };
+        colorTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
+        colorTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
+        colorTargetInfo.texture = swapchainTexture;
+
+        _currRenderPass = SDL_BeginGPURenderPass(_currCommandBuffer, &colorTargetInfo, 1, NULL);
 
         std::string err = SDL_GetError();
         TBX_ASSERT(err.empty(), "An error from SDL has occured: {}", err);
@@ -100,6 +113,34 @@ namespace SDLRendering
 
     void SDLRenderer::Draw(const Tbx::FrameBuffer& buffer)
     {
+        // acquire the command buffer
+        _currCommandBuffer = SDL_AcquireGPUCommandBuffer(_device.get());
+
+        // get the swapchain texture
+        SDL_GPUTexture* swapchainTexture;
+        Uint32 width, height;
+        SDL_WaitAndAcquireGPUSwapchainTexture(_currCommandBuffer, (SDL_Window*)_surface.get(), &swapchainTexture, &width, &height);
+
+        // end the frame early if a swapchain texture is not available
+        if (swapchainTexture == NULL)
+        {
+            // you must always submit the command buffer
+            SDL_SubmitGPUCommandBuffer(_currCommandBuffer);
+            return;
+        }
+
+        // create the color target
+        auto colorTargetInfo = SDL_GPUColorTargetInfo();
+        auto clearColor = Tbx::App::GetInstance()->GetGraphicsSettings().ClearColor;
+        colorTargetInfo.clear_color = { clearColor.R * 255, clearColor.G * 255, clearColor.B * 255, clearColor.A * 255 };
+        colorTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
+        colorTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
+        colorTargetInfo.texture = swapchainTexture;
+
+        // begin a render pass
+        _currRenderPass = SDL_BeginGPURenderPass(_currCommandBuffer, &colorTargetInfo, 1, NULL);
+
+        // draw something
         for (const auto& cmd : buffer.GetCommands())
         {
             switch (cmd.GetType())
@@ -112,18 +153,18 @@ namespace SDLRendering
                 }
                 case Tbx::DrawCommandType::CompileMaterial:
                 {
-                    // Your system might load/compile shaders here
-                    // You could use SDL_CreateShader() and SDL_CreatePipeline()
+                    auto material = std::any_cast<const Tbx::Material&>(cmd.GetPayload());
                     break;
                 }
                 case Tbx::DrawCommandType::SetMaterial:
                 {
-                    const auto& currentMaterial = std::any_cast<const Tbx::Material&>(cmd.GetPayload());
+                    auto material = std::any_cast<const Tbx::Material&>(cmd.GetPayload());
                     break;
                 }
                 case Tbx::DrawCommandType::UploadMaterialData:
                 {
-                    const auto& data = std::any_cast<const Tbx::ShaderData&>(cmd.GetPayload());
+                    //const auto& data = std::any_cast<const Tbx::ShaderData&>(cmd.GetPayload());
+                    TBX_ASSERT(false, "NOT YET IMPLEMENTED!");
                     break;
                 }
                 case Tbx::DrawCommandType::DrawMesh:
@@ -134,9 +175,15 @@ namespace SDLRendering
                 default:
                     break;
             }
-
-            std::string err = SDL_GetError();
-            TBX_ASSERT(err.empty(), "An error from SDL has occured: {}", err);
         }
+
+        // end the render pass
+        SDL_EndGPURenderPass(_currRenderPass);
+
+        // submit the command buffer
+        SDL_SubmitGPUCommandBuffer(_currCommandBuffer);
+
+        std::string err = SDL_GetError();
+        TBX_ASSERT(err.empty(), "An error from SDL has occured: {}", err);
     }
 }

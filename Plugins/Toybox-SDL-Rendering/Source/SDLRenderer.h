@@ -1,6 +1,7 @@
 #pragma once
 #include <SDL3/SDL.h>
 #include <Tbx/Graphics/IRenderer.h>
+#include <Tbx/Graphics/Material.h>
 
 namespace SDLRendering
 {
@@ -28,8 +29,11 @@ namespace SDLRendering
         void Draw(const Tbx::FrameBuffer& buffer) override;
 
     private:
-        std::shared_ptr<SDL_Renderer> _renderer = nullptr;
+        std::shared_ptr<SDL_GPUDevice> _device = nullptr;
         std::shared_ptr<Tbx::IRenderSurface> _surface = nullptr;
+
+        SDL_GPUCommandBuffer* _currCommandBuffer = nullptr;
+        SDL_GPURenderPass* _currRenderPass = nullptr;
 
         Tbx::Size _resolution = { 0,0 };
         Tbx::Viewport _viewport = { { 0,0 }, { 0,0 } };

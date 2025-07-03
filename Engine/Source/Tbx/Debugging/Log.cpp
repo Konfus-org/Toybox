@@ -1,20 +1,63 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Debug/Log.h"
 #include "Tbx/Debug/Debugging.h"
-#include "Tbx/Events/LogEvents.h"
+#include "Tbx/Plugin API/PluginServer.h"
+#include "Tbx/Plugin API/PluginInterfaces.h"
 #include "Tbx/Events/EventCoordinator.h"
 #include <chrono>
 #include <iostream>
 
 namespace Tbx
 {
-    static const std::string _logName = "Tbx::Core";
-
+    std::shared_ptr<ILogger> Log::_logger = nullptr;
     std::string Log::_logFilePath = "";
     bool Log::_isOpen = false;
 
-    static void WriteToConsole(const std::string& msg, LogLevel lvl)
+    void Log::Open(const std::string& name)
     {
+        _isOpen = true;
+
+        auto loggerFactory = PluginServer::GetPlugin<ILoggerFactoryPlugin>();
+        TBX_ASSERT(loggerFactory, "Logger factory plugin not found! Falling back to default console logging.");
+
+#ifdef TBX_DEBUG
+        // No log file in debug
+        _logger = loggerFactory->Create(name);
+#else
+        // Open log file in non-debug
+        const auto& currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        _logFilePath = std::format("Logs\\{}.log", currentTime);
+        _logger = loggerFactory->Create(name, _logFilePath);
+#endif
+
+        TBX_ASSERT(_logger, "Failed to open the log {}!", name);
+    }
+
+    bool Log::IsOpen()
+    {
+        return _isOpen;
+    }
+
+    void Log::Close()
+    {
+        _logger = nullptr;
+        _isOpen = false;
+    }
+
+    std::string Log::GetFilePath()
+    {
+        return _logFilePath;
+    }
+
+    void Log::Write(LogLevel lvl, const std::string& msg)
+    {
+        if (_logger != nullptr)
+        {
+            _logger->Write((int)lvl, msg);
+            return;
+        }
+
+        // Fallback to std::out
         switch (lvl)
         {
             using enum LogLevel;
@@ -40,56 +83,5 @@ namespace Tbx
                 std::cout << "Tbx::Core::LEVEL_NOT_DEFINED : " << msg << std::endl;
                 break;
         }
-    }
-
-    void WriteToLogEventDispatcher::Dispatch(const std::string& msg, const LogLevel& lvl) const
-    {
-        // Open log if not already open
-        if (!Log::IsOpen())
-        {
-            Log::Open();
-        }
-
-        // Send message
-        auto event = WriteLineToLogRequest(lvl, msg, _logName, Log::GetFilePath());
-        if (!EventCoordinator::Send(event)) WriteToConsole(msg, lvl);
-    }
-
-    void Log::Open()
-    {
-        _isOpen = true;
-
-#ifdef TBX_DEBUG
-        // No log file in debug
-        auto event = OpenLogRequest("", _logName);
-#else 
-        // Open log file in non-debug
-        const auto& currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        _logFilePath = std::format("Logs\\{}.log", currentTime);
-        auto event = OpenLogRequest(_logFilePath, _logName);
-#endif
-
-        EventCoordinator::Send(event);
-        TBX_ASSERT(event.IsHandled, "Failed to open the log {}, is a logger created and listening?", _logName);
-    }
-
-    bool Log::IsOpen()
-    {
-        return _isOpen;
-    }
-
-    void Log::Close()
-    {
-        auto event = CloseLogRequest(_logName);
-
-        EventCoordinator::Send(event);
-        TBX_ASSERT(event.IsHandled, "Failed to close the log {}, is a logger under that name created and listening?", _logName);
-
-        _isOpen = false;
-    }
-
-    std::string Log::GetFilePath()
-    {
-        return _logFilePath;
     }
 }

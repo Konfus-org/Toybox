@@ -35,7 +35,7 @@ namespace Tbx
         /// </summary>
         EXPORT Texture(const Size& size, int channels, std::shared_ptr<TextureData> data);
 
-        EXPORT std::shared_ptr <TextureData> GetData() const { return _data; }
+        EXPORT std::shared_ptr<TextureData> GetData() const { return _data; }
         EXPORT std::string GetPath() const { return _path; }
 
         EXPORT uint GetWidth() const { return _width; }

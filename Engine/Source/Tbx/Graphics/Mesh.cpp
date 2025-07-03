@@ -3,22 +3,59 @@
 
 namespace Tbx
 {
+    Mesh::Mesh()
+    {
+        auto quad = MakeQuad();
+        _vertices = quad.GetVertices();
+        _vertexBuffer = VertexVectorToBuffer(_vertices);
+        _indices = quad.GetIndices();
+    }
+
     Mesh::Mesh(const Mesh& mesh)
     {
-        _vertexBuffer = mesh.GetVertices();
-        _indexBuffer = mesh.GetIndices();
+        _vertices = mesh.GetVertices();
+        _vertexBuffer = VertexVectorToBuffer(_vertices);
+        _indices = mesh.GetIndices();
     }
 
     Mesh::Mesh(const std::initializer_list<Vertex>& vertices, const std::initializer_list<uint32>& indices)
     {
+        _vertices = vertices;
         _vertexBuffer = VertexVectorToBuffer(vertices);
-        _indexBuffer = indices;
+        _indices = indices;
     }
 
     Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32>& indices)
     {
+        _vertices = vertices;
         _vertexBuffer = VertexVectorToBuffer(vertices);
-        _indexBuffer = indices;
+        _indices = indices;
+    }
+
+    const std::vector<Vertex>& Mesh::GetVertices() const
+    {
+        return _vertices;
+    }
+
+    const VertexBuffer& Mesh::GetVertexBuffer() const
+    {
+        return _vertexBuffer;
+    }
+
+    void Mesh::SetVertices(const std::vector<Vertex>& vertices)
+    {
+        _vertices = vertices;
+        _vertexBuffer = VertexVectorToBuffer(vertices);
+    }
+
+    const std::vector<uint32>& Mesh::GetIndices() const
+    {
+        return _indices;
+    }
+
+    void Mesh::SetIndices(const std::vector<uint32>& indices)
+    {
+        _indices = indices;
     }
 
     Mesh Mesh::MakeTriangle()
@@ -99,7 +136,7 @@ namespace Tbx
 
         const BufferLayout& bufferLayout =
         {
-            { ShaderDataType::Float3, "inPosition" },
+            { ShaderDataType::Float3, "position" },
             { ShaderDataType::Float4, "vertColor" },
             { ShaderDataType::Float3, "normal" },
             { ShaderDataType::Float2, "textureCoord" },

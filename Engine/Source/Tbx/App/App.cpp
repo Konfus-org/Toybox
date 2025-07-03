@@ -2,10 +2,8 @@
 #include "Tbx/App/App.h"
 #include "Tbx/Layers/InputLayer.h"
 #include "Tbx/Layers/WorldLayer.h"
-#include "Tbx/Layers/WindowingLayer.h"
 #include "Tbx/Layers/EventCoordinatorLayer.h"
 #include "Tbx/Layers/RenderingLayer.h"
-#include "Tbx/Windowing/WindowManager.h"
 #include "Tbx/Events/EventCoordinator.h"
 #include "Tbx/Events/ApplicationEvents.h"
 #include "Tbx/Input/Input.h"
@@ -43,12 +41,12 @@ namespace Tbx
 
         // Add default layers (order is important as they will be updated and destroyed in reverse order)
         PushLayer(std::make_shared<EventCoordinatorLayer>());
-        PushLayer(std::make_shared<WindowingLayer>());
         PushLayer(std::make_shared<RenderingLayer>());
         PushLayer(std::make_shared<WorldLayer>());
         PushLayer(std::make_shared<InputLayer>());
 
-        WindowManager::OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
+        // Open a main window
+        OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
 
         OnLaunch();
 
@@ -60,36 +58,44 @@ namespace Tbx
         if (_status != AppStatus::Running) return;
 
         // Update delta time
-        Time::DeltaTime::DrawFrame();
+        Time::DeltaTime::Update();
 
 #ifndef TBX_RELEASE
         // Only allow reloading and force quit when not released!
 
         // Shortcut to kill the app
-        //if (Input::IsKeyDown(TBX_KEY_F4) &&
-        //    (Input::IsKeyDown(TBX_KEY_LEFT_ALT) || Input::IsKeyDown(TBX_KEY_RIGHT_ALT)))
-        //{
-        //    _status = AppStatus::Exiting;
-        //    return;
-        //}
+        if (Input::IsKeyDown(TBX_KEY_F4) &&
+            (Input::IsKeyDown(TBX_KEY_LEFT_ALT) || Input::IsKeyDown(TBX_KEY_RIGHT_ALT)))
+        {
+            _status = AppStatus::Exiting;
+            return;
+        }
 
-        //// Shortcut to restart app
-        //if (Input::IsKeyDown(TBX_KEY_F2))
-        //{
-        //    _status = AppStatus::Restarting;
-        //    return;
-        //}
+        // Shortcut to restart app
+        if (Input::IsKeyDown(TBX_KEY_F2))
+        {
+            _status = AppStatus::Restarting;
+            return;
+        }
 
-        //// Shortcut to hot reload plugins
-        //if (Input::IsKeyDown(TBX_KEY_F3))
-        //{
-        //    _status = AppStatus::Reloading;
-        //    return;
-        //}
+        // Shortcut to hot reload plugins
+        if (Input::IsKeyDown(TBX_KEY_F3))
+        {
+            _status = AppStatus::Reloading;
+            return;
+        }
 #endif
 
         // Call on update for app inheritors
         OnUpdate();
+
+        // Update windows
+        for (const auto& window : _windowStack)
+        {
+            if (_status != AppStatus::Running) return;
+
+            window->Update();
+        }
 
         // Update layers
         for (const auto& layer : _layerStack)
@@ -118,7 +124,7 @@ namespace Tbx
 
     void App::ShutdownSystems()
     {
-        TBX_INFO("Shutting down...");
+        TBX_TRACE_INFO("Shutting down...");
 
         auto oldStatus = _status;
         _status = AppStatus::Exiting;
@@ -135,9 +141,25 @@ namespace Tbx
             : AppStatus::Closed;
     }
 
-    void App::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size) const
+    std::vector<std::shared_ptr<IWindow>> App::GetWindows()
     {
-        WindowManager::OpenNewWindow(name, mode, size);
+        return _windowStack.GetAll();
+    }
+
+    std::shared_ptr<IWindow> App::GetWindow(UID id)
+    {
+        return _windowStack.Get(id);
+    }
+
+    UID App::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
+    {
+        auto newWindowId = _windowStack.Push(name, mode, size);
+        const auto& openWindows = _windowStack.GetAll();
+        if (openWindows.size() == 1)
+        {
+            _mainWindowId = newWindowId;
+        }
+        return newWindowId;
     }
 
     void App::PushLayer(const std::shared_ptr<Layer>& layer)
@@ -156,11 +178,17 @@ namespace Tbx
     void App::OnWindowClosed(const WindowClosedEvent& e)
     {
         // If the window is our main window, set running flag to false which will trigger the app to close
-        if (e.GetWindowId() == WindowManager::GetMainWindow()->GetId())
+        if (e.GetWindowId() == _mainWindowId)
         {
             // Stop running and close all windows
             _status = AppStatus::Exiting;
         }
+
+        _windowStack.Remove(e.GetWindowId());
+    }
+
+    void App::OnWindowFocused(const WindowFocusedEvent& event)
+    {
     }
 
     const AppStatus& App::GetStatus() const
@@ -175,7 +203,8 @@ namespace Tbx
 
     std::weak_ptr<IWindow> App::GetMainWindow() const
     {
-        return WindowManager::GetMainWindow();
+        auto mainWindow = _windowStack.Get(_mainWindowId);
+        return mainWindow;
     }
 
     void App::SetGraphicsSettings(const GraphicsSettings& settings)

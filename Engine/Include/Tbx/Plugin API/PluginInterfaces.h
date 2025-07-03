@@ -2,6 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/IRenderer.h"
 #include "Tbx/Windowing/IWindow.h"
+#include "Tbx/Debug/ILogger.h"
 #include "Tbx/Layers/Layer.h"
 #include "Tbx/Math/Vectors.h"
 #include <memory>
@@ -27,6 +28,13 @@ namespace Tbx
     public:
         EXPORT ILayerPlugin(const std::string& name) : Layer(name) {}
         EXPORT virtual ~ILayerPlugin() = default;
+    };
+
+    class EXPORT ILoggerFactoryPlugin : public IPlugin
+    {
+    public:
+        virtual ~ILoggerFactoryPlugin() = default;
+        virtual std::shared_ptr<ILogger> Create(const std::string& name, const std::string filePath = "") = 0;
     };
 
     class EXPORT IRendererFactoryPlugin : public IPlugin
@@ -62,19 +70,5 @@ namespace Tbx
         virtual bool IsMouseButtonUp(const int button) const = 0;
         virtual bool IsMouseButtonHeld(const int button) const = 0;
         virtual Vector2 GetMousePosition() const = 0;
-    };
-
-    class EXPORT ILoggerPlugin : public IPlugin
-    {
-    public:
-        virtual ~ILoggerPlugin() = default;
-
-        virtual void Open(const std::string& name, const std::string& filepath) = 0;
-        virtual void Close() = 0;
-        virtual void Flush() = 0;
-
-        virtual void Log(int lvl, const std::string& msg) = 0;
-
-        virtual std::string GetName() = 0;
     };
 }

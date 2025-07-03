@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Math/Size.h"
+#include "Tbx/Graphics/Camera.h"
 
 namespace Tbx
 {

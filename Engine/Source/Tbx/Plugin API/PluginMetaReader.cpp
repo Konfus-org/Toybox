@@ -13,7 +13,7 @@ namespace Tbx
         std::ifstream file(jsonPath);
         if (!file)
         {
-            TBX_ERROR("Failed to open JSON file: {0}", jsonPath);
+            TBX_TRACE_ERROR("Failed to open JSON file: {0}", jsonPath);
             return {};
         }
 

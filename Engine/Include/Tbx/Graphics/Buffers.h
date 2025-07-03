@@ -1,7 +1,7 @@
 #pragma once
+#include "Tbx/DllExport.h"
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Graphics/DrawCommand.h"
-#include "Tbx/DllExport.h"
 #include <string>
 #include <vector>
 
@@ -107,18 +107,6 @@ namespace Tbx
     private:
         std::vector<float> _vertices;
         BufferLayout _layout;
-    };
-
-    struct IndexBuffer
-    {
-    public:
-        EXPORT IndexBuffer() = default;
-        EXPORT explicit(false) IndexBuffer(const std::vector<uint32>& indices) : _indices(indices) {}
-        EXPORT explicit(false) IndexBuffer(const std::initializer_list<uint32>& indices) : _indices(indices) {}
-        EXPORT std::vector<uint32> GetIndices() const { return _indices; }
-
-    private:
-        std::vector<uint32> _indices;
     };
 
     /// <summary>

@@ -16,5 +16,6 @@ namespace Tbx
         Render = BIT(6),
         World = BIT(6),
         Debug = BIT(7),
+        Plugin = BIT(8),
     };
 }

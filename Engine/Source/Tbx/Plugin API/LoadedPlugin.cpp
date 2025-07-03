@@ -45,7 +45,7 @@ namespace Tbx
         _library.Load(pluginFullPath);
         if (_library.IsValid() == false)
         {
-            TBX_ERROR("Failed to load library! Does it exist at: {0}", pluginFullPath);
+            TBX_TRACE_ERROR("Failed to load library! Does it exist at: {0}", pluginFullPath);
             return;
         }
 
@@ -53,7 +53,7 @@ namespace Tbx
         const auto& loadFuncSymbol = _library.GetSymbol("Load");
         if (!loadFuncSymbol)
         {
-            TBX_ERROR("Failed to load library because no load library function was found in: {0}, is it calling TBX_REGISTER_PLUGIN?", pluginFullPath);
+            TBX_TRACE_ERROR("Failed to load library because no load library function was found in: {0}, is it calling TBX_REGISTER_PLUGIN?", pluginFullPath);
             _library.Unload();
             return;
         }
@@ -61,7 +61,7 @@ namespace Tbx
         // Ensure we have an unload function
         if (!_library.GetSymbol("Unload"))
         {
-            TBX_ERROR("No unload library function found in: {0}, is it calling TBX_REGISTER_PLUGIN?", pluginFullPath);
+            TBX_TRACE_ERROR("No unload library function found in: {0}, is it calling TBX_REGISTER_PLUGIN?", pluginFullPath);
             return;
         }
 

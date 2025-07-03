@@ -1,6 +1,8 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Plugin API/PluginServer.h"
 #include "Tbx/Debug/Debugging.h"
+#include "Tbx/Events/PluginEvents.h"
+#include "Tbx/Events/EventCoordinator.h"
 #include <filesystem>
 
 namespace Tbx
@@ -29,12 +31,15 @@ namespace Tbx
             TBX_ASSERT(loadedPlugin->IsValid(), "Failed to load plugin: {0}", pluginInfo.GetName());
             if (!loadedPlugin->IsValid()) continue;
             _loadedPlugins.push_back(loadedPlugin);
+
+            auto pluginLoadedEvent = PluginLoadedEvent(loadedPlugin);
+            EventCoordinator::Send(pluginLoadedEvent);
         }
 
         // Log loaded plugins
         const auto& plugins = _loadedPlugins;
         const auto& numPlugins = plugins.size();
-        TBX_INFO("Loaded {0} plugins:", numPlugins);
+        TBX_TRACE_INFO("Loaded {0} plugins:", numPlugins);
         for (const auto& loadedPlug : plugins)
         {
             const auto& pluginInfo = loadedPlug->GetInfo();
@@ -43,16 +48,16 @@ namespace Tbx
             const auto& pluginAuthor = pluginInfo.GetAuthor();
             const auto& pluginDescription = pluginInfo.GetDescription();
 
-            TBX_INFO("{0}:", pluginName);
-            TBX_INFO("    - Version: {0}", pluginVersion);
-            TBX_INFO("    - Author: {0}", pluginAuthor);
-            TBX_INFO("    - Description: {0}", pluginDescription);
+            TBX_TRACE_INFO("{0}:", pluginName);
+            TBX_TRACE_INFO("    - Version: {0}", pluginVersion);
+            TBX_TRACE_INFO("    - Author: {0}", pluginAuthor);
+            TBX_TRACE_INFO("    - Description: {0}", pluginDescription);
         }
     }
 
     void PluginServer::RestartPlugins()
     {
-        TBX_INFO("Restarting plugins...");
+        TBX_TRACE_INFO("Restarting plugins...");
 
         // Sort by reverse priority so highest prio is unloaded last
         std::ranges::sort(_loadedPlugins, [](const std::shared_ptr<LoadedPlugin> a, const std::shared_ptr<LoadedPlugin> b)
@@ -67,7 +72,7 @@ namespace Tbx
             const auto& pluginName = pluginInfo.GetName();
             loadedPlug->Restart();
 
-            TBX_INFO("Restarting: {0}", pluginName);
+            TBX_TRACE_INFO("Restarting: {0}", pluginName);
         }
 
         // Put back into reg priority
@@ -76,19 +81,19 @@ namespace Tbx
             return a->GetInfo().GetPriority() > b->GetInfo().GetPriority();
         });
 
-        TBX_INFO("Plugins restarted!");
+        TBX_TRACE_INFO("Plugins restarted!");
     }
 
     void PluginServer::ReloadPlugins()
     {
-        TBX_INFO("Reloading plugins...");
+        TBX_TRACE_INFO("Reloading plugins...");
 
         // Unload...
         UnloadPlugins();
         // Reload...
         LoadPlugins(_pathToLoadedPlugins);
 
-        TBX_INFO("Plugins reloaded!");
+        TBX_TRACE_INFO("Plugins reloaded!");
     }
 
     void PluginServer::UnloadPlugins()

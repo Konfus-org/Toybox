@@ -11,11 +11,6 @@ namespace SDLWindowing
         void OnUnload() override;
 
         std::shared_ptr<Tbx::IWindow> Create(const std::string& title, const Tbx::Size& size) override;
-
-    private:
-        void OnCreateWindowRequest(Tbx::CreateWindowRequest& r);
-
-        Tbx::UID _openCreateWindowRequestId = -1;
     };
 
     TBX_REGISTER_PLUGIN(SDLWindowFactory);

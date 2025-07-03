@@ -21,7 +21,7 @@ namespace Tbx::Time
         /// Updates delta time.
         /// Should be called once per frame!
         /// </summary>
-        EXPORT static void DrawFrame();
+        EXPORT static void Update();
 
     private:
         static float _valueInSeconds;

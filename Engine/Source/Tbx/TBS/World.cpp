@@ -49,9 +49,6 @@ namespace Tbx
     {
         _playSpaces.erase(_playSpaces.begin() + id);
         _playSpaceCount--;
-
-        auto event = WorldPlaySpacesRemovedEvent({ id });
-        EventCoordinator::Send(event);
     }
 
     UID World::MakePlayspace()
@@ -59,9 +56,6 @@ namespace Tbx
         auto id = _playSpaceCount;
         _playSpaces.emplace_back(std::make_shared<Playspace>(id));
         _playSpaceCount++;
-
-        auto event = WorldPlaySpacesAddedEvent( { id } );
-        EventCoordinator::Send(event);
 
         return id;
     }

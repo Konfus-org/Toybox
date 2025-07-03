@@ -65,7 +65,7 @@ namespace SDLWindowing
     {
         SDL_RaiseWindow(_window);
 
-        auto e = Tbx::WindowFocusChangedEvent(GetId(), true);
+        auto e = Tbx::WindowFocusedEvent(GetId());
         Tbx::EventCoordinator::Send(e);
     }
 

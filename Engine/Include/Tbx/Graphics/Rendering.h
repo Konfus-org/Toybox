@@ -5,6 +5,7 @@
 #include "Tbx/Graphics/IRenderSurface.h"
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Events/WorldEvents.h"
+#include "Tbx/Plugin API/PluginInterfaces.h"
 #include <map>
 
 namespace Tbx
@@ -39,5 +40,6 @@ namespace Tbx
         static UID _onWindowCreatedEventId;
         static UID _onWindowClosedEventId;
         static std::map<UID, std::shared_ptr<IRenderer>> _renderers;
+        static std::shared_ptr<IRendererFactoryPlugin> _renderFactory;
     };
 }
