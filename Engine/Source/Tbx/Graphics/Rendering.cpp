@@ -35,9 +35,8 @@ namespace Tbx
     {
         // TODO: This is testing code!!! Need actual implementation
         FrameBuffer buffer;
-        /*auto clearColor = Color(1, 0.1f, 0.1f, 1);
-        auto qaudMesh = Mesh();
-        buffer.Add({ DrawCommandType::DrawMesh, qaudMesh });*/
+        auto triangleMesh = Primitives::Triangle;
+        buffer.Add({ DrawCommandType::DrawMesh, triangleMesh });
 
         auto windows = App::GetInstance()->GetWindows();
         for (const auto& window : windows)

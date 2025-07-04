@@ -34,6 +34,7 @@ namespace SDLRendering
 
         SDL_GPUCommandBuffer* _currCommandBuffer = nullptr;
         SDL_GPURenderPass* _currRenderPass = nullptr;
+        SDL_GPUTexture* _currSwapchainTexture = nullptr;
 
         Tbx::Size _resolution = { 0,0 };
         Tbx::Viewport _viewport = { { 0,0 }, { 0,0 } };

@@ -18,6 +18,6 @@ namespace Tbx
         bool VSyncEnabled = true;
         GraphicsApi Api = GraphicsApi::Vulkan;
         Size Resolution = Size(800, 600);
-        Color ClearColor = Color(0.1f, 0.1f, 0.1f, 1.0f);
+        Color ClearColor = Color(0.1f, 0.1f, 0.15f, 1.0f);
     };
 }

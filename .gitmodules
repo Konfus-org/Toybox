@@ -25,3 +25,6 @@
 [submodule "Dependencies/SDL"]
 	path = Dependencies/SDL
 	url = https://github.com/Konfus-dev/SDL.git
+[submodule "Dependencies/SDL_shadercross"]
+	path = Dependencies/SDL_shadercross
+	url = https://github.com/Konfus-org/SDL_shadercross.git
