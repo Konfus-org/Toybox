@@ -156,7 +156,6 @@ namespace SDLRendering
                 case Tbx::DrawCommandType::UploadMaterialData:
                 {
                     //const auto& data = std::any_cast<const Tbx::ShaderData&>(cmd.GetPayload());
-                    TBX_ASSERT(false, "NOT YET IMPLEMENTED!");
                     break;
                 }
                 case Tbx::DrawCommandType::DrawMesh:
