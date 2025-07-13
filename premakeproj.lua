@@ -1,4 +1,4 @@
-project "Premake (Build To Run)"
+project "Premake (Build To Run Premake)"
     kind "StaticLib"
     language "C++"
     cppdialect "C++20"
