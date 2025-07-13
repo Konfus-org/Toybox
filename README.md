@@ -10,7 +10,7 @@ The repo contains a "makeproj.bat" script that you can run (if on windows) to ge
 If you are on another platform you will have to manually invoke the premake exe located under "Tools/Premake".
 To learn how to use premake look to: https://premake.github.io/.
 
-## Whats here so far?
+## What's here so far?
 
 Honestly, not much yet. There is a simple ECS system dubbed TBS (Toy Box System), a plugin system that will find and load plugins at runtime, a math library (which is a thin wrapper around GLM), a windowing system, some graphics primitives, and an incomplete renderer and input system that are being built using SDL. I plan to add all the things a game engine needs! Audio, networking, a UI system, and more!
 
