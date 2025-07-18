@@ -16,44 +16,44 @@ namespace Tbx
     };
 
     /// <summary>
-    /// Occurs when playSpaces are opened.
-    /// This happens when playSpaces have been loaded.
+    /// Occurs when boxes are opened.
+    /// This happens when boxes have been loaded.
     /// </summary>
-    class OpenedPlayspacesEvent : public WorldEvent
+    class OpenedBoxesEvent : public WorldEvent
     {
     public:
-        explicit OpenedPlayspacesEvent(const std::vector<UID>& openedPlaySpaces)
-            : _openedPlaySpaces(openedPlaySpaces) {}
+        explicit OpenedBoxesEvent(const std::vector<UID>& openedBoxes)
+            : _openedBoxes(openedBoxes) {}
 
-        const std::vector<UID>& GetOpenedPlayspaces() const { return _openedPlaySpaces; }
+        const std::vector<UID>& GetOpenedBoxes() const { return _openedBoxes; }
 
         EXPORT std::string ToString() const final
         {
-            return "Opened PlaySpaces Request";
+            return "Opened Boxes Request";
         }
 
     private:
-        std::vector<UID> _openedPlaySpaces = {};
+        std::vector<UID> _openedBoxes = {};
     };
 
     /// <summary>
-    /// Occurs when playSpaces are opened.
-    /// This happens when playSpaces have been loaded.
+    /// Occurs when boxes are opened.
+    /// This happens when boxes have been loaded.
     /// </summary>
-    class ClosedPlayspacesEvent : public WorldEvent
+    class ClosedBoxesEvent : public WorldEvent
     {
     public:
-        explicit ClosedPlayspacesEvent(const std::vector<UID>& openedPlaySpaces)
-            : _closedPlaySpaces(openedPlaySpaces) {}
+        explicit ClosedBoxesEvent(const std::vector<UID>& openedBoxes)
+            : _closedBoxes(openedBoxes) {}
 
-        const std::vector<UID>& GetClosedPlayspaces() const { return _closedPlaySpaces; }
+        const std::vector<UID>& GetClosedBoxes() const { return _closedBoxes; }
 
         EXPORT std::string ToString() const final
         {
-            return "Opened PlaySpaces Request";
+            return "Opened Boxes Request";
         }
 
     private:
-        std::vector<UID> _closedPlaySpaces = {};
+        std::vector<UID> _closedBoxes = {};
     };
 }

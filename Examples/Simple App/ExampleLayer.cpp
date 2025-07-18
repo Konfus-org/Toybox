@@ -16,7 +16,7 @@ void ExampleLayer::OnAttach()
 	TBX_TRACE("Test scene attached!");
 
 	// Setup testing scene...
-    auto playSpaceId = Tbx::World::MakePlayspace();
+    auto playSpaceId = Tbx::World::MakeBox();
 	_level = Tbx::World::GetPlayspace(playSpaceId);
 
     // Create blue toy

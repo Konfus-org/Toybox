@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/TBS/Playspace.h"
+#include "Tbx/TBS/Box.h"
 #include "Tbx/Graphics/Buffers.h"
 #include <memory>
 
@@ -15,15 +15,15 @@ namespace Tbx
         /// <summary>
         /// Gets render data required to setup playSpace such as compiling shaders.
         /// </summary>
-        static FrameBuffer PreProcess(const std::vector < std::shared_ptr<Playspace>>& playspaces);
+        static FrameBuffer PreProcess(const std::vector < std::shared_ptr<Box>>& playspaces);
 
         /// <summary>
         /// Returns render data required to render playSpace.
         /// </summary>
-        static FrameBuffer Process(const std::vector<std::shared_ptr<Playspace>>& playspaces);
+        static FrameBuffer Process(const std::vector<std::shared_ptr<Box>>& playspaces);
 
     private:
-        static void PreProcessToy(const Toy& toy, const std::shared_ptr<Playspace>& playSpace, FrameBuffer& buffer);
-        static void ProcessToy(const Toy& toy, const std::shared_ptr<Playspace>& playSpace, FrameBuffer& buffer);
+        static void PreProcessToy(const Toy& toy, const std::shared_ptr<Box>& playSpace, FrameBuffer& buffer);
+        static void ProcessToy(const Toy& toy, const std::shared_ptr<Box>& playSpace, FrameBuffer& buffer);
     };
 }

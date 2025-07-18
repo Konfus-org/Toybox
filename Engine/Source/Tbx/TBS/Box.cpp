@@ -1,23 +1,23 @@
 #include "Tbx/PCH.h"
-#include "Tbx/TBS/Playspace.h"
+#include "Tbx/TBS/Box.h"
 #include "Tbx/Events/WorldEvents.h"
 
 namespace Tbx
 {
-    Playspace::Playspace(UID id) : UsesUID(id)
+    Box::Box(UID id) : UsesUID(id)
     {
-        for (uint i = 0; i < MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE; i++)
+        for (uint i = 0; i < MAX_NUMBER_OF_TOYS_IN_A_BOX; i++)
         {
             _availableToyIndices.emplace(i);
         }
     }
 
-    Toy Playspace::MakeToy(const std::string& name)
+    Toy Box::MakeToy(const std::string& name)
     {
         TBX_ASSERT(
-            GetToyCount() < MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE,
+            GetToyCount() < MAX_NUMBER_OF_TOYS_IN_A_BOX,
             "Max number of toys in a playSpace reached! Cannot make a new toy. The max number of toys is {0}",
-            MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE);
+            MAX_NUMBER_OF_TOYS_IN_A_BOX);
 
         // Get next available toy from the pool
         const auto& nextToy = _availableToyIndices.front();
@@ -37,7 +37,7 @@ namespace Tbx
         return { name, toyInfo.GetId()};
     }
 
-    void Playspace::DestroyToy(Toy& toy)
+    void Box::DestroyToy(Toy& toy)
     {
         auto toyIndex = GetToyIndex(toy);
         auto& toyInfo = _toyPool[toyIndex];
@@ -60,12 +60,12 @@ namespace Tbx
         _availableToyIndices.push(toyIndex);
     }
 
-    uint Playspace::GetToyCount() const 
+    uint Box::GetToyCount() const 
     { 
-        return static_cast<uint>(MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE - _availableToyIndices.size());
+        return static_cast<uint>(MAX_NUMBER_OF_TOYS_IN_A_BOX - _availableToyIndices.size());
     }
 
-    void Playspace::Open() const
+    void Box::Open() const
     {
         // TODO: Implement
     }

@@ -11,19 +11,18 @@
 
 namespace Tbx
 {
-    constexpr int MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE = 5000;
+    constexpr int MAX_NUMBER_OF_TOYS_IN_A_BOX = 5000;
 
     /// <summary>
-    /// A play space is a collection of toys.
-    /// A play space is a way to group sets of toys together to make some "scene".
-    /// It can be used to represent a level, scene, or chunk.
+    /// A box is a collection of toys.
+    /// A box is a way to group sets of toys together.
+    /// It can be used to represent a level, scene, prefab, or chunk.
     /// </summary>
-    // TODO: rename to 'Box'
-    class Playspace : public UsesUID
+    class Box : public UsesUID
     {
     public:
-        EXPORT Playspace() = default;
-        EXPORT explicit Playspace(UID id);
+        EXPORT Box() = default;
+        EXPORT explicit Box(UID id);
 
         /// <summary>
         /// Create a new toy.
@@ -127,7 +126,7 @@ namespace Tbx
             if (_blockPools[blockIndex] == nullptr)
             {
                 // We've resized! Make a new pool to fill the space for our new block type.
-                _blockPools[blockIndex] = std::make_unique<MemoryPool>(sizeof(T), MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE);
+                _blockPools[blockIndex] = std::make_unique<MemoryPool>(sizeof(T), MAX_NUMBER_OF_TOYS_IN_A_BOX);
             }
 
             // Add to mask
@@ -163,7 +162,7 @@ namespace Tbx
             if (_blockPools[blockIndex] == nullptr)
             {
                 // We've resized! Make a new pool to fill the space for our new block type.
-                _blockPools[blockIndex] = std::make_unique<MemoryPool>(sizeof(T), MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE);
+                _blockPools[blockIndex] = std::make_unique<MemoryPool>(sizeof(T), MAX_NUMBER_OF_TOYS_IN_A_BOX);
             }
 
             // Add to mask
@@ -201,7 +200,7 @@ namespace Tbx
         EXPORT void Open() const;
 
     private:
-        std::array<ToyInfo, MAX_NUMBER_OF_TOYS_IN_A_PLAYSPACE> _toyPool = {};
+        std::array<ToyInfo, MAX_NUMBER_OF_TOYS_IN_A_BOX> _toyPool = {};
         std::vector<std::unique_ptr<MemoryPool>> _blockPools = {};
         std::queue<uint> _availableToyIndices = {};
     };
@@ -212,7 +211,7 @@ namespace Tbx
     struct PlayspaceIterator
     {
     public:
-        EXPORT PlayspaceIterator(const std::weak_ptr<Playspace>& space, uint32 index, BlockMask mask, bool iterateAll)
+        EXPORT PlayspaceIterator(const std::weak_ptr<Box>& space, uint32 index, BlockMask mask, bool iterateAll)
             : _playSpace(space), _currIndex(index), _blockMask(mask), _iterateAll(iterateAll) { }
 
         EXPORT Toy operator*() const
@@ -250,7 +249,7 @@ namespace Tbx
                 && (_iterateAll || _blockMask == (_blockMask & _playSpace->GetToyInfo(_currIndex).GetBlockMask())); // It has the correct component mask
         }
 
-        std::shared_ptr<Playspace> _playSpace = {};
+        std::shared_ptr<Box> _playSpace = {};
         uint32 _currIndex = 0;
         BlockMask _blockMask = {};
         bool _iterateAll = false;
@@ -264,7 +263,7 @@ namespace Tbx
     struct PlayspaceView
     {
     public:
-        EXPORT explicit(false) PlayspaceView(const std::weak_ptr<Playspace>& space) : _playSpace(space)
+        EXPORT explicit(false) PlayspaceView(const std::weak_ptr<Box>& space) : _playSpace(space)
         {
             TBX_VALIDATE_WEAK_PTR(space, "PlaySpace reference is invalid! PlaySpace must have been deleted.");
 
@@ -306,7 +305,7 @@ namespace Tbx
         }
 
     private:
-        std::shared_ptr<Playspace> _playSpace = {};
+        std::shared_ptr<Box> _playSpace = {};
         BlockMask _blockMask = {};
         bool _viewAll = false;
     };

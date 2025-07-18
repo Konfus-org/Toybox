@@ -78,7 +78,7 @@ namespace Tbx
     //void Rendering::OnOpenPlayspacesRequest(OpenPlayspacesRequest& r)
     //{
     //    auto playspaceToOpen = std::vector<std::shared_ptr<Playspace>>();
-    //    for (const auto& playspaceId : r.GetPlaySpacesToOpen())
+    //    for (const auto& playspaceId : r.GetBoxesToOpen())
     //    {
     //        playspaceToOpen.push_back(World::GetPlayspace(playspaceId));
     //    }
