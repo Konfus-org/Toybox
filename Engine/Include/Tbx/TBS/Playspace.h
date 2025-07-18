@@ -18,6 +18,7 @@ namespace Tbx
     /// A play space is a way to group sets of toys together to make some "scene".
     /// It can be used to represent a level, scene, or chunk.
     /// </summary>
+    // TODO: rename to 'Box'
     class Playspace : public UsesUID
     {
     public:
