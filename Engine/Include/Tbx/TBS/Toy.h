@@ -117,13 +117,13 @@ namespace Tbx
 
         /// <summary>
         /// Id of parent.
-        /// The parent can be another toy or playSpace.
+        /// The parent can be another toy or box.
         /// </summary>
         EXPORT const UID& GetParent() const { return _parent; }
 
         /// <summary>
         /// Id of parent.
-        /// The parent can be another toy or playSpace.
+        /// The parent can be another toy or box.
         /// </summary>
         EXPORT void SetParent(const UID& parent) { _parent = parent; }
 

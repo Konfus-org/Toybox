@@ -16,7 +16,7 @@ namespace Tbx
     {
         TBX_ASSERT(
             GetToyCount() < MAX_NUMBER_OF_TOYS_IN_A_BOX,
-            "Max number of toys in a playSpace reached! Cannot make a new toy. The max number of toys is {0}",
+            "Max number of toys in a box reached! Cannot make a new toy. The max number of toys is {0}",
             MAX_NUMBER_OF_TOYS_IN_A_BOX);
 
         // Get next available toy from the pool

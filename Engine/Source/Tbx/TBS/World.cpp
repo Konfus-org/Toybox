@@ -6,7 +6,7 @@
 namespace Tbx
 {
     std::vector<std::shared_ptr<Box>> World::_boxes = {};
-    uint32 World::_playSpaceCount = 0;
+    uint32 World::_boxCount = 0;
 
     void World::SetContext()
     {
@@ -21,12 +21,12 @@ namespace Tbx
     void World::Destroy()
     {
         _boxes.clear();
-        _playSpaceCount = 0;
+        _boxCount = 0;
     }
 
     std::shared_ptr<Box> World::GetPlayspace(UID id)
     {
-        if (id < _playSpaceCount - 1)
+        if (id < _boxCount - 1)
         {
             TBX_ASSERT(false, "PlaySpace does not exist or was deleted!");
             return {};
@@ -42,20 +42,20 @@ namespace Tbx
 
     uint32 World::GetPlayspaceCount()
     {
-        return _playSpaceCount;
+        return _boxCount;
     }
 
     void World::RemoveBox(UID id)
     {
         _boxes.erase(_boxes.begin() + id);
-        _playSpaceCount--;
+        _boxCount--;
     }
 
     UID World::MakeBox()
     {
-        auto id = _playSpaceCount;
+        auto id = _boxCount;
         _boxes.emplace_back(std::make_shared<Box>(id));
-        _playSpaceCount++;
+        _boxCount++;
 
         return id;
     }

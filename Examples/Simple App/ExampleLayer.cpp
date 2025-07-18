@@ -16,8 +16,8 @@ void ExampleLayer::OnAttach()
 	TBX_TRACE("Test scene attached!");
 
 	// Setup testing scene...
-    auto playSpaceId = Tbx::World::MakeBox();
-	_level = Tbx::World::GetPlayspace(playSpaceId);
+    auto boxId = Tbx::World::MakeBox();
+	_level = Tbx::World::GetPlayspace(boxId);
 
     // Create blue toy
 	//auto checkerText = Tbx::Texture("Assets/Checkerboard.png");
@@ -51,7 +51,7 @@ void ExampleLayer::OnAttach()
 	auto& transform = _level->AddBlockTo<Tbx::Transform>(_fpsCam);
 	transform.Position = { 0, 0, -10 };
 
-	// Opens our new playSpace
+	// Opens our new box
 	_level->Open();
 }
 

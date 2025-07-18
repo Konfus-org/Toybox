@@ -40,12 +40,12 @@ namespace Tbx
         return buffer;
     }
 
-    void RenderProcessor::PreProcessToy(const Toy& toy, const std::shared_ptr<Box>& playSpace, FrameBuffer& buffer)
+    void RenderProcessor::PreProcessToy(const Toy& toy, const std::shared_ptr<Box>& box, FrameBuffer& buffer)
     {
         // Preprocess materials to upload textures and shaders to GPU
-        if (playSpace->HasBlockOn<Material>(toy))
+        if (box->HasBlockOn<Material>(toy))
         {
-            auto& material = playSpace->GetBlockOn<Material>(toy);
+            auto& material = box->GetBlockOn<Material>(toy);
 
             // Check if we already added this material
             auto& existingCompileMatCmds = buffer.GetCommands();
@@ -65,29 +65,29 @@ namespace Tbx
         }
     }
 
-    void RenderProcessor::ProcessToy(const Toy& toy, const std::shared_ptr<Box>& playSpace, FrameBuffer& buffer)
+    void RenderProcessor::ProcessToy(const Toy& toy, const std::shared_ptr<Box>& box, FrameBuffer& buffer)
     {
         // NOTE: Order matters here!!!
         
         // Material block, upload the material data
-        if (playSpace->HasBlockOn<Material>(toy))
+        if (box->HasBlockOn<Material>(toy))
         {
-            auto& material = playSpace->GetBlockOn<Material>(toy);
+            auto& material = box->GetBlockOn<Material>(toy);
             buffer.Emplace(DrawCommandType::SetMaterial, material);
         }
 
         // Model block, upload model data
-        if (playSpace->HasBlockOn<Model>(toy))
+        if (box->HasBlockOn<Model>(toy))
         {
-            const auto& model = playSpace->GetBlockOn<Model>(toy);
+            const auto& model = box->GetBlockOn<Model>(toy);
             buffer.Emplace(DrawCommandType::SetMaterial, model.GetMaterial());
             buffer.Emplace(DrawCommandType::DrawMesh, model.GetMesh());
         }
 
         // Transform block, upload the transform data
-        if (playSpace->HasBlockOn<Transform>(toy))
+        if (box->HasBlockOn<Transform>(toy))
         {
-            const auto& transform = playSpace->GetBlockOn<Transform>(toy);
+            const auto& transform = box->GetBlockOn<Transform>(toy);
             const auto transformData = ShaderData(
                 "transformUni",
                 Mat4x4::FromTRS(transform.Position, transform.Rotation, transform.Scale),
@@ -96,20 +96,20 @@ namespace Tbx
         }
         
         // Mesh block, upload the mesh data
-        if (playSpace->HasBlockOn<Mesh>(toy))
+        if (box->HasBlockOn<Mesh>(toy))
         {
-            auto& mesh = playSpace->GetBlockOn<Mesh>(toy);
+            auto& mesh = box->GetBlockOn<Mesh>(toy);
             buffer.Emplace(DrawCommandType::DrawMesh, mesh);
         }
 
         // Camera block, upload the camera data
-        if (playSpace->HasBlockOn<Camera>(toy))
+        if (box->HasBlockOn<Camera>(toy))
         {
-            auto& camera = playSpace->GetBlockOn<Camera>(toy);
-            if (playSpace->HasBlockOn<Transform>(toy))
+            auto& camera = box->GetBlockOn<Camera>(toy);
+            if (box->HasBlockOn<Transform>(toy))
             {
                 // Use the transform block's position and rotation
-                const auto& cameraTransform = playSpace->GetBlockOn<Transform>(toy);
+                const auto& cameraTransform = box->GetBlockOn<Transform>(toy);
                 const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(
                     cameraTransform.Position, cameraTransform.Rotation, camera.GetProjectionMatrix());
                 const auto shaderData = ShaderData("viewProjectionUni", viewProjMatrix, ShaderDataType::Mat4);

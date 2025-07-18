@@ -22,6 +22,6 @@ namespace Tbx
     private:
         // TODO: make a pool of boxes
         static std::vector<std::shared_ptr<Box>> _boxes;
-        static uint32 _playSpaceCount;
+        static uint32 _boxCount;
     };
 }
