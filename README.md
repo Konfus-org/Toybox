@@ -22,7 +22,9 @@ So before you click the "makeproj.bat" (or build via premake directly) there is 
 
 4.) Enable long file path support: https://learn.microsoft.com/en-us/answers/questions/1805411/how-to-enable-long-file-path-names-in-windows-11
 
-5.) Now we can right click-> run as administrator on the "makeproj.bat" and it should setup a VS solution for you (it needs to run as admin due to cmake stuff in third party libs generating folders and downloading things) :)
+5.) Restart your device
+
+6.) Now we can right click-> run as administrator on the "makeproj.bat" and it should setup a VS solution for you (it needs to run as admin due to cmake stuff in third party libs generating folders and downloading things) :)
 
 ## What's here so far?
 
