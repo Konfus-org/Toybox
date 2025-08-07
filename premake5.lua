@@ -9,7 +9,7 @@ OutputTargetDir = BuildDir .. "/bin/%{cfg.system}-%{cfg.architecture}-%{cfg.buil
 OutputObjDir = BuildDir .. "/obj/%{cfg.system}-%{cfg.architecture}-%{cfg.buildcfg}"
 
 -- Load util funcs
-dofile("./premakeutils.lua")
+dofile("./Tools/Premake/premakeutils.lua")
 
 -- Setup workspace
 workspace "Toybox"
@@ -51,4 +51,4 @@ workspace "Toybox"
 
     -- For building premake in project
     group "Premake"
-        include "./premakeproj"
+        include "./Tools/Premake/premakeproj"

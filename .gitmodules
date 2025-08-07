@@ -24,7 +24,19 @@
 	url = https://github.com/Konfus-org/Toybox-ImGui-DebugUI-Plugin.git
 [submodule "Dependencies/SDL_shadercross"]
 	path = Dependencies/SDL_shadercross
-	url = https://github.com/libsdl-org/SDL_shadercross.git
+	url = https://github.com/Konfus-org/SDL_shadercross.git
 [submodule "Dependencies/SDL"]
 	path = Dependencies/SDL
-	url = https://github.com/libsdl-org/SDL.git
+	url = https://github.com/Konfus-org/SDL.git
+[submodule "Tools/Konforg-Premake"]
+	path = Tools/Konforg-Premake
+	url = https://github.com/Konfus-org/Premake.git
+[submodule "Plugins/Toybox-SDL-Rendering-Plugin"]
+	path = Plugins/Toybox-SDL-Rendering-Plugin
+	url = https://github.com/Konfus-org/Toybox-SDL-Rendering-Plugin.git
+[submodule "Plugins/Toybox-SDL-Input-Plugin"]
+	path = Plugins/Toybox-SDL-Input-Plugin
+	url = https://github.com/Konfus-org/Toybox-SDL-Input-Plugin.git
+[submodule "Plugins/Toybox-SDL-Windowing-Plugin"]
+	path = Plugins/Toybox-SDL-Windowing-Plugin
+	url = https://github.com/Konfus-org/Toybox-SDL-Windowing-Plugin.git

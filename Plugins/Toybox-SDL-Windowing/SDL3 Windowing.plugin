@@ -1,9 +1,0 @@
-{
-    "name": "SDL3 Windowing",
-    "lib": "SDL3 Windowing.dll",
-    "priority": "0",
-    "language": "C++",
-    "version": "0.0.1",
-    "author": "Konfus-dev",
-    "description": "Plugin to handle windowing via the SDL library."
-}
