@@ -1,0 +1,3 @@
+[submodule "Premake-Utils"]
+	path = Scripts
+	url = https://github.com/Konfus-org/Premake-Utils.git

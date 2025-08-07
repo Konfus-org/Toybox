@@ -40,3 +40,6 @@
 [submodule "Plugins/Toybox-SDL-Windowing-Plugin"]
 	path = Plugins/Toybox-SDL-Windowing-Plugin
 	url = https://github.com/Konfus-org/Toybox-SDL-Windowing-Plugin.git
+[submodule "Tools/Premake"]
+	path = Tools/Premake
+	url = https://github.com/Konfus-org/Premake.git
