@@ -14,19 +14,21 @@ To learn how to use premake look to: https://premake.github.io/.
 There are some requirements however as this "makeproj" sadly won't just work as there are dependencies on things like SDL_Shadercross of which depend on other things.
 So before you click the "makeproj.bat" (or build via premake directly) there is a little bit of homework to do:
 
-1.) Install cmake: https://cmake.org/download/
+1.) Install cmake if not already installed: https://cmake.org/download/
 
-2.) Install python: https://www.python.org/downloads/
+2.) Install python if not already installed: https://www.python.org/downloads/
 
-3.) Install vulkan: https://vulkan.lunarg.com/sdk/home
+3.) Install vulkan if not already installed: https://vulkan.lunarg.com/sdk/home
 
-4.) Enable long file path support: https://learn.microsoft.com/en-us/answers/questions/1805411/how-to-enable-long-file-path-names-in-windows-11
+4.) Enable long file path support if not already enabled: https://learn.microsoft.com/en-us/answers/questions/1805411/how-to-enable-long-file-path-names-in-windows-11
 
-5.) Restart your device
+5.) Restart your device (no need if you didn't have to do any of the steps above)
 
 6.) Now we can double click and run the "makeproj.bat" to generate a Visual Studio solution (or if you don't want a VS solution you can manually invoke premake and tell it what format you want), if it fails to run you may need to right click and run as administrator
 
 7.) It'll take a bit so grab a coffee or drink of choice!
+
+8.) Done! Your project files have been generated. If you went with Visual Studio you just need to open the generated Toybox solution and you can press play to build and run :)
 
 ## What's here so far?
 
