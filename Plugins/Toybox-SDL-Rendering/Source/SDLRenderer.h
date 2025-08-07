@@ -1,14 +1,20 @@
 #pragma once
 #include <SDL3/SDL.h>
+#include "SDLRendererUtility.h"
 #include <Tbx/Graphics/IRenderer.h>
 #include <Tbx/Graphics/Material.h>
+#include <Tbx/Graphics/Mesh.h>
+#include <map>
 
 namespace SDLRendering
 {
     class SDLRenderer : public Tbx::IRenderer
     {
     public:
+        ~SDLRenderer();
+
         void Initialize(const std::shared_ptr<Tbx::IRenderSurface>& surface) override;
+        void Shutdown();
 
         Tbx::GraphicsDevice GetGraphicsDevice() override;
 
@@ -42,6 +48,11 @@ namespace SDLRendering
         Tbx::GraphicsApi _api = Tbx::GraphicsApi::None;
 
         bool _vsyncEnabled = false;
+
+        Tbx::Material _material;
+        std::vector<Tbx::ShaderData> _shaderDatas;
+        SDLCachedTextureManager _cachedTextureManager;
+        SDLCachedShaderManager _cachedShaderManager;
     };
 }
 

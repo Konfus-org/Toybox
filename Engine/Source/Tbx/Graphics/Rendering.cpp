@@ -4,6 +4,7 @@
 #include "Tbx/Graphics/IRenderer.h"
 #include "Tbx/Graphics/Mesh.h"
 #include "Tbx/Graphics/RenderProcessor.h"
+#include "Tbx/Graphics/Material.h"
 #include "Tbx/Events/EventCoordinator.h"
 #include "Tbx/Events/RenderEvents.h"
 #include "Tbx/TBS/World.h"
@@ -35,8 +36,83 @@ namespace Tbx
     {
         // TODO: This is testing code!!! Need actual implementation
         FrameBuffer buffer;
-        auto triangleMesh = Primitives::Triangle;
-        buffer.Add({ DrawCommandType::DrawMesh, triangleMesh });
+
+        // HACK: Where to get this from?
+        char currentDirectory[MAX_PATH];
+        DWORD result = GetCurrentDirectoryA(MAX_PATH, currentDirectory);
+        TBX_ASSERT(result != 0, "Failed in GetCurrentDirectoryA");
+        std::string workingDirectory(currentDirectory);
+
+        std::string texturePath = workingDirectory + "/../Examples/Simple App/Assets/Checkerboard.bmp";
+        std::string vertexShaderPath = workingDirectory + "/../Examples/Simple App/Assets/vertex.spv";
+        std::string fragmentShaderPath = workingDirectory + "/../Examples/Simple App/Assets/fragment.spv";
+
+        Tbx::Texture testTexture(texturePath);
+        Tbx::Shader testShader(vertexShaderPath, fragmentShaderPath);
+        Tbx::Material testMaterial;
+
+        testMaterial.SetShader(testShader);
+        testMaterial.SetTexture(0, testTexture);
+
+        Tbx::Vector3 cameraPosition(0, 0, -2.5f);
+        Tbx::Quaternion cameraRotation = Tbx::Quaternion::FromEuler(0, 0, 0);
+        Tbx::Camera camera;
+        float fov = 90;
+        float aspect = 1;//_viewport.Size.GetAspectRatio();
+        float zNear = 0.01f;
+        float zFar = 500.0f;
+        camera.SetPerspective(fov, aspect, zNear, zFar);
+        Tbx::Mat4x4 viewProjectionMatrix = camera.CalculateViewProjectionMatrix(cameraPosition, cameraRotation, camera.GetProjectionMatrix());
+
+        struct VertexUniformBlock {
+            Tbx::Mat4x4 viewProjectionMatrix;
+        };
+
+        struct FragmentUniformBlock {
+            float time;
+        };
+
+        // render quad mesh
+        {
+            auto testMesh = Primitives::Quad;
+
+            buffer.Add({ DrawCommandType::SetMaterial, testMaterial });
+
+#if USE_SHADER_UNIFORM_HACKERY
+            Tbx::Mat4x4 worldMatrix = Tbx::Mat4x4::FromPosition(Tbx::Vector3(-0.5f, -0.5f, 0.0f));
+            Tbx::Mat4x4 worldViewProjectionMatrix = worldMatrix * viewProjectionMatrix;
+            static VertexUniformBlock vertexUniformBlock = {};
+            vertexUniformBlock.viewProjectionMatrix = worldViewProjectionMatrix;
+            ShaderData vertexShaderData(false, 0, &vertexUniformBlock, sizeof(VertexUniformBlock));
+            buffer.Add({ DrawCommandType::UploadMaterialData, vertexShaderData });
+
+            // this isn't being used at the moment...it's just here to show how we would set a fragment uniform block
+            static FragmentUniformBlock fragmentUniformBlock = {};
+            fragmentUniformBlock.time = 0;
+            ShaderData fragmentShaderData(true, 0, &fragmentUniformBlock, sizeof(FragmentUniformBlock));
+            buffer.Add({ DrawCommandType::UploadMaterialData, fragmentShaderData });
+ #endif
+
+            buffer.Add({ DrawCommandType::DrawMesh, testMesh });
+        }
+
+        // render triangle mesh
+        {
+            auto testMesh = Primitives::Triangle;
+
+            buffer.Add({ DrawCommandType::SetMaterial, testMaterial });
+
+#if USE_SHADER_UNIFORM_HACKERY
+            Tbx::Mat4x4 worldMatrix = Tbx::Mat4x4::FromPosition(Tbx::Vector3(0.5f, 0.5f, 0.0f));
+            Tbx::Mat4x4 worldViewProjectionMatrix = worldMatrix * viewProjectionMatrix;
+            static VertexUniformBlock vertexUniformBlock = {};
+            vertexUniformBlock.viewProjectionMatrix = worldViewProjectionMatrix;
+            ShaderData vertexShaderData(false, 0, &vertexUniformBlock, sizeof(VertexUniformBlock));
+            buffer.Add({ DrawCommandType::UploadMaterialData, vertexShaderData });
+ #endif
+
+            buffer.Add({ DrawCommandType::DrawMesh, testMesh });
+        }
 
         auto windows = App::GetInstance()->GetWindows();
         for (const auto& window : windows)
@@ -48,7 +124,7 @@ namespace Tbx
             _renderers[winId]->Draw(buffer);
         }
     }
-    
+
     std::shared_ptr<IRenderer> Rendering::GetRenderer(UID window)
     {
         if (!_renderers.contains(window))
@@ -59,12 +135,16 @@ namespace Tbx
 
         return _renderers[window];
     }
-    
+
     void Rendering::OnWindowCreated(const WindowOpenedEvent& e)
     {
         auto newWinId = e.GetWindowId();
         auto newWindow = App::GetInstance()->GetWindow(newWinId);
-        _renderers[newWinId] = _renderFactory->Create(newWindow);
+
+        auto newRenderer = _renderFactory->Create();
+        newRenderer->Initialize(newWindow);
+
+        _renderers[newWinId] = newRenderer;
     }
 
     void Rendering::OnWindowClosed(const WindowClosedEvent& e)

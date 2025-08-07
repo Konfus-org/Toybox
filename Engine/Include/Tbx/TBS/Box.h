@@ -267,7 +267,8 @@ namespace Tbx
         {
             TBX_VALIDATE_WEAK_PTR(space, "PlaySpace reference is invalid! PlaySpace must have been deleted.");
 
-            if (sizeof...(BlockTypes) == 0)
+            const auto blockSize = sizeof...(BlockTypes);
+            if (blockSize == 0)
             {
                 _viewAll = true;
             }
@@ -275,7 +276,7 @@ namespace Tbx
             {
                 // Unpack the template parameters into an initializer list
                 std::vector<uint32> blockIndices = { 0, GetBlockIndex<BlockTypes>() ...};
-                for (int index = 1; index < (sizeof...(BlockTypes) + 1); index++)
+                for (int index = 1; index < blockSize; index++)
                 {
                     _blockMask.set(blockIndices[index]);
                 }

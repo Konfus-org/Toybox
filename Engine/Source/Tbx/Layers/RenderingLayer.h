@@ -6,7 +6,7 @@ namespace Tbx
     class RenderingLayer : public Layer
     {
     public:
-        explicit RenderingLayer() : Layer("Rendering") {}
+        RenderingLayer() : Layer("Rendering") {}
 
         bool IsOverlay() final;
         void OnAttach() final;

@@ -1,10 +1,10 @@
-project "SDL Windowing"
+project "SDL3 Windowing"
     kind "SharedLib"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
 
-    RegisterDynamicPlugin("SDL Windowing")
+    RegisterDynamicPlugin("SDL3 Windowing")
 
     files
     {
@@ -18,7 +18,7 @@ project "SDL Windowing"
     includedirs
     {
         "./Source",
-        _MAIN_SCRIPT_DIR .. "/Dependencies/SDL3/include"
+        _MAIN_SCRIPT_DIR .. "/Dependencies/SDL/include"
     }
     links
     {

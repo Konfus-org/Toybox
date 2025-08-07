@@ -16,3 +16,4 @@ if not ["%errorlevel%"]==["0"] (
 echo:
 echo Success!
 echo:
+pause

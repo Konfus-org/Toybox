@@ -1,10 +1,10 @@
-project "SDL Input"
+project "SDL3 Input"
     kind "SharedLib"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
 
-    RegisterDynamicPlugin("SDL Input")
+    RegisterDynamicPlugin("SDL3 Input")
 
     files
     {

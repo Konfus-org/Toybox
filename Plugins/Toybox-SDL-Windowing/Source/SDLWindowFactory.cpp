@@ -12,14 +12,14 @@ namespace SDLWindowing
     {
     }
 
-    void DeleteWindow(SDLWindow* windowToDelete)
+    void SDLWindowFactory::Delete(Tbx::IWindow* window)
     {
-        delete windowToDelete;
+        delete window;
     }
 
-    std::shared_ptr<Tbx::IWindow> SDLWindowFactory::Create(const std::string& title, const Tbx::Size& size)
+    Tbx::IWindow* SDLWindowFactory::New()
     {
-        auto* newWindow = new SDLWindow(title, size);
-        return std::shared_ptr<SDLWindow>(newWindow, [](SDLWindow* windowToDelete) { DeleteWindow(windowToDelete); });
+        auto* newWindow = new SDLWindow();
+        return newWindow;
     }
 }

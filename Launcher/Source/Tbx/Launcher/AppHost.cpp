@@ -13,19 +13,39 @@ namespace Tbx
     {
         try
         {
+            // Load plugins
             PluginServer::LoadPlugins(pathToPlugins);
 
-            auto apps = PluginServer::GetPlugins<App>();
+            // Open the log
+            Log::Open("Tbx");
 
+            // Get and validate app
+            auto apps = PluginServer::GetPlugins<App>();
             TBX_ASSERT(apps.size() != 0,
                 "Toybox needs an app defined to run, have you setup an app correctly?"
                 "The app library should be loaded as a tbx plugin to allow for hot reloading and you should have a host application to call 'Tbx::Run'.");
             TBX_ASSERT(!(apps.size() > 1), "Toybox only supports one app at a time!");
-
             auto app = apps[0];
             TBX_VALIDATE_PTR(app, "Could not load app! Is the TBX_PATH_TO_PLUGINS defined correctly and is the dll containing the app being build there?");
-
             TBX_TRACE_INFO("Loaded app: {0}", app->GetName());
+
+            // Log loaded plugins
+            const auto& plugins = PluginServer::GetAllPlugins();
+            const auto& numPlugins = plugins.size();
+            TBX_TRACE_INFO("Loaded {0} plugins:", numPlugins);
+            for (const auto& loadedPlug : plugins)
+            {
+                const auto& pluginInfo = loadedPlug->GetInfo();
+                const auto& pluginName = pluginInfo.GetName();
+                const auto& pluginVersion = pluginInfo.GetVersion();
+                const auto& pluginAuthor = pluginInfo.GetAuthor();
+                const auto& pluginDescription = pluginInfo.GetDescription();
+
+                TBX_TRACE_INFO("{0}:", pluginName);
+                TBX_TRACE_INFO("    - Version: {0}", pluginVersion);
+                TBX_TRACE_INFO("    - Author: {0}", pluginAuthor);
+                TBX_TRACE_INFO("    - Description: {0}", pluginDescription);
+            }
 
             return app;
         }
@@ -105,8 +125,12 @@ namespace Tbx
             }
         }
 
-        // Finally return and assert last status of the app
+        // Assert last status of the app
         TBX_ASSERT(status == AppStatus::Closed, "App didn't shutdown correctly!");
+
+        // Close log and return
+        Log::Close();
+
         return status;
     }
 }

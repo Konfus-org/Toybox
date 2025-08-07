@@ -13,15 +13,14 @@ namespace SDLRendering
     {
     }
 
-    void DeleteRenderer(SDLRenderer* renderer)
+    Tbx::IRenderer* SDLRendererFactory::New()
     {
-        delete renderer;
+        auto* renderer = new SDLRenderer();
+        return renderer;
     }
 
-    std::shared_ptr<Tbx::IRenderer> SDLRendererFactory::Create(std::shared_ptr<Tbx::IRenderSurface> surface)
+    void SDLRendererFactory::Delete(Tbx::IRenderer* renderer)
     {
-        auto renderer = std::shared_ptr<SDLRenderer>(new SDLRenderer(), [](SDLRenderer* rendererToDelete) { DeleteRenderer(rendererToDelete); });
-        renderer->Initialize(surface);
-        return renderer;
+        delete renderer;
     }
 }

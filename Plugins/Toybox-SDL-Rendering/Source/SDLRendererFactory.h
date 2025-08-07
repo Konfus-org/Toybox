@@ -10,7 +10,9 @@ namespace SDLRendering
         void OnLoad() override;
         void OnUnload() override;
 
-        std::shared_ptr<Tbx::IRenderer> Create(std::shared_ptr<Tbx::IRenderSurface> surface) override;
+    protected:
+        Tbx::IRenderer* New() override;
+        void Delete(Tbx::IRenderer* renderer) override;
     };
 
     TBX_REGISTER_PLUGIN(SDLRendererFactory);

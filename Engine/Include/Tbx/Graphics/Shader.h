@@ -3,6 +3,8 @@
 #include "Tbx/Type Aliases/Int.h"
 #include <any>
 
+#define USE_SHADER_UNIFORM_HACKERY 1
+
 namespace Tbx
 {
     enum class EXPORT ShaderDataType
@@ -48,10 +50,21 @@ namespace Tbx
         EXPORT ShaderData() = default;
         EXPORT ShaderData(const std::string& name, const std::any& data, const ShaderDataType& type) 
             : _name(name), _data(data), _type(type) {}
+#if USE_SHADER_UNIFORM_HACKERY
+        EXPORT ShaderData(bool isFragment, uint32 uniformSlot, const void* uniformData, uint32 uniformSize) 
+            : _isFragment(isFragment), _uniformSlot(uniformSlot), _uniformData(uniformData), _uniformSize(uniformSize) {}
+#endif
 
         EXPORT std::string GetName() const { return _name; }
         EXPORT const std::any& GetData() const { return _data; }
         EXPORT ShaderDataType GetType() const { return _type; }
+
+#if USE_SHADER_UNIFORM_HACKERY
+        bool _isFragment;
+        uint32 _uniformSlot;
+        const void* _uniformData;
+        uint32 _uniformSize;
+#endif
 
     private:
         std::string _name = "";

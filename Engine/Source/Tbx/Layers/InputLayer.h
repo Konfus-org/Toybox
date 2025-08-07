@@ -7,7 +7,7 @@ namespace Tbx
     class InputLayer : public Layer
     {
     public:
-        explicit InputLayer() : Layer("Input") {}
+        InputLayer() : Layer("Input") {}
 
         bool IsOverlay() final;
         void OnAttach() final;

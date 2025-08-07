@@ -4,6 +4,10 @@
 
 namespace Tbx
 {
+    /// <summary>
+    /// An application layer. Used to cleanly add and seperate functionality.
+    /// Some examples are a graphics layer, windowing layer, input layer, etc...
+    /// </summary>
     class Layer
     {
     public:

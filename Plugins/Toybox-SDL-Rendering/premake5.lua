@@ -1,10 +1,16 @@
-project "SDL Rendering"
+project "SDL3 Rendering"
     kind "SharedLib"
     language "C++"
     cppdialect "C++20"
     staticruntime "Off"
 
-    RegisterDynamicPlugin("SDL Rendering")
+    -- Check if vulkan is installed, we need it for shadercross...
+    local vulkanPath = os.getenv("VULKAN_SDK")
+    if not vulkanPath then
+        error("❌ Vulkan SDK not found! Please install it before proceeding.")
+    end
+
+    RegisterDynamicPlugin("SDL3 Rendering")
 
     files
     {
@@ -18,9 +24,13 @@ project "SDL Rendering"
     includedirs
     {
         "./Source",
-        _MAIN_SCRIPT_DIR .. "/Dependencies/SDL3/include"
+        _MAIN_SCRIPT_DIR .. "/Dependencies/SDL/include",
+        _MAIN_SCRIPT_DIR .. "/Dependencies/SDL_Shadercross/include",
+        vulkanPath
     }
     links
     {
-        "SDL3"
+        "SDL3",
+        "SDL3_shadercross",
+        "dxcompiler"
     }

@@ -35,24 +35,6 @@ namespace Tbx
             auto pluginLoadedEvent = PluginLoadedEvent(loadedPlugin);
             EventCoordinator::Send(pluginLoadedEvent);
         }
-
-        // Log loaded plugins
-        const auto& plugins = _loadedPlugins;
-        const auto& numPlugins = plugins.size();
-        TBX_TRACE_INFO("Loaded {0} plugins:", numPlugins);
-        for (const auto& loadedPlug : plugins)
-        {
-            const auto& pluginInfo = loadedPlug->GetInfo();
-            const auto& pluginName = pluginInfo.GetName();
-            const auto& pluginVersion = pluginInfo.GetVersion();
-            const auto& pluginAuthor = pluginInfo.GetAuthor();
-            const auto& pluginDescription = pluginInfo.GetDescription();
-
-            TBX_TRACE_INFO("{0}:", pluginName);
-            TBX_TRACE_INFO("    - Version: {0}", pluginVersion);
-            TBX_TRACE_INFO("    - Author: {0}", pluginAuthor);
-            TBX_TRACE_INFO("    - Description: {0}", pluginDescription);
-        }
     }
 
     void PluginServer::RestartPlugins()
@@ -114,7 +96,7 @@ namespace Tbx
         _loadedPlugins.push_back(plugin);
     }
 
-    std::vector<std::shared_ptr<LoadedPlugin>> PluginServer::GetLoadedPlugins()
+    std::vector<std::shared_ptr<LoadedPlugin>> PluginServer::GetAllPlugins()
     {
         return _loadedPlugins;
     }

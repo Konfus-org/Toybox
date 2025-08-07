@@ -17,10 +17,13 @@ namespace Tbx
 
         EXPORT static void RegisterPlugin(const std::shared_ptr<LoadedPlugin>& plugin);
 
+        /// <summary>
+        /// Gets the first plugin of a type.
+        /// </summary>
         template <typename T>
         EXPORT static std::shared_ptr<T> GetPlugin()
         {
-            const auto& loadedPlugins = GetLoadedPlugins();
+            const auto& loadedPlugins = GetAllPlugins();
             for (const auto& loadedPlug : loadedPlugins)
             {
                 const auto& plugImpl = loadedPlug->GetAs<T>();
@@ -32,11 +35,14 @@ namespace Tbx
             return nullptr;
         }
 
+        /// <summary>
+        /// Gets plugins of the specified type.
+        /// </summary>
         template <typename T>
         EXPORT static std::vector<std::shared_ptr<T>> GetPlugins()
         {
             std::vector<std::shared_ptr<T>> plugins;
-            const auto& loadedPlugins = GetLoadedPlugins();
+            const auto& loadedPlugins = GetAllPlugins();
             for (const auto& loadedPlug : loadedPlugins)
             {
                 const auto& plugImpl = loadedPlug->GetAs<T>();
@@ -48,8 +54,12 @@ namespace Tbx
             return plugins;
         }
 
+        /// <summary>
+        /// Gets all loaded plugins.
+        /// </summary>
+        EXPORT static std::vector<std::shared_ptr<LoadedPlugin>> GetAllPlugins();
+
     private:
-        EXPORT static std::vector<std::shared_ptr<LoadedPlugin>> GetLoadedPlugins();
         static std::vector<PluginInfo> FindPluginInfosInDirectory(const std::string& pathToPlugins);
 
         static std::vector<std::shared_ptr<LoadedPlugin>> _loadedPlugins;

@@ -1,5 +1,6 @@
 #include "Tbx/PCH.h"
 #include "Tbx/App/App.h"
+#include "Tbx/Layers/LogLayer.h"
 #include "Tbx/Layers/InputLayer.h"
 #include "Tbx/Layers/WorldLayer.h"
 #include "Tbx/Layers/EventCoordinatorLayer.h"
@@ -29,6 +30,16 @@ namespace Tbx
     std::shared_ptr<App> App::GetInstance()
     {
         return _instance;
+    }
+
+    void App::OnLoad()
+    {
+        // Do nothing by default
+    }
+
+    void App::OnUnload()
+    {
+        // Do nothing by default
     }
     
     void App::Launch()

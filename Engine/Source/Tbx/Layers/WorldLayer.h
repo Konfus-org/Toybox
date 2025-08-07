@@ -6,7 +6,7 @@ namespace Tbx
     class WorldLayer : public Layer
     {
     public:
-        explicit WorldLayer() : Layer("World") {}
+        WorldLayer() : Layer("World") {}
 
         bool IsOverlay() final;
         void OnAttach() final;

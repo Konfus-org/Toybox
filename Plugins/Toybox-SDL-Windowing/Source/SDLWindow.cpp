@@ -121,4 +121,9 @@ namespace SDLWindowing
             }
         }
     }
+
+    Tbx::WindowMode SDLWindow::GetMode()
+    {
+        return _currentMode;
+    }
 }

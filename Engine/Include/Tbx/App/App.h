@@ -28,6 +28,9 @@ namespace Tbx
 
         EXPORT static std::shared_ptr<App> GetInstance();
 
+        EXPORT void OnLoad() override;
+        EXPORT void OnUnload() override;
+
         EXPORT void Launch();
         EXPORT void Update();
         EXPORT void Close();

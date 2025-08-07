@@ -19,11 +19,15 @@ namespace Tbx
 
     UID WindowStack::Push(const std::string& name, const WindowMode& mode, const Size& size)
     {
-        auto window = _windowFactory->Create(name, size);
+        auto window = _windowFactory->Create();
+
         TBX_VALIDATE_PTR(window, "No result returned when opening new window with the name {}!", name);
         if (window == nullptr) return -1;
 
         _windows.push_back(window);
+
+        window->SetTitle(name);
+        window->SetSize(size);
         window->Open(mode);
         window->Focus();
 
