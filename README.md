@@ -24,7 +24,9 @@ So before you click the "makeproj.bat" (or build via premake directly) there is 
 
 5.) Restart your device
 
-6.) Now we can right click-> run as administrator on the "makeproj.bat" and it should setup a VS solution for you (it needs to run as admin due to cmake stuff in third party libs generating folders and downloading things) :)
+6.) Now we can double click and run the "makeproj.bat" to generate a Visual Studio solution (or if you don't want a VS solution you can manually invoke premake and tell it what format you want), if it fails to run you may need to right click and run as administrator
+
+7.) It'll take a bit so grab a coffee or drink of choice!
 
 ## What's here so far?
 
