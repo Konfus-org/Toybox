@@ -12,7 +12,6 @@ namespace Tbx
         None = 0,
         Initializing,
         Running,
-        Reloading,
         Restarting,
         Exiting,
         Closed,
@@ -26,7 +25,7 @@ namespace Tbx
         EXPORT explicit(false) App(const std::string_view& name);
         EXPORT ~App() override;
 
-        EXPORT static std::shared_ptr<App> GetInstance();
+        EXPORT static App* GetInstance();
 
         EXPORT void OnLoad() override;
         EXPORT void OnUnload() override;
@@ -52,11 +51,9 @@ namespace Tbx
         EXPORT const GraphicsSettings& GetGraphicsSettings() const;
 
     private:
-        void ShutdownSystems();
         void OnWindowClosed(const WindowClosedEvent& e);
-        void OnWindowFocused(const WindowFocusedEvent& event);
 
-        static std::shared_ptr<App> _instance;
+        static App* _instance;
 
         std::string _name = "App";
         AppStatus _status = AppStatus::None;
@@ -67,7 +64,7 @@ namespace Tbx
 
         UID _mainWindowId = -1;
 
+        UID _windowOpenedEventId = -1;
         UID _windowClosedEventId = -1;
-        UID _windowFocusChangedEventId = -1;
     };
 }

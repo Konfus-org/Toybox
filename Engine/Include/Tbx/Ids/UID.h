@@ -24,4 +24,6 @@ namespace Tbx
 
         uint64 Value = 0;
     };
+
+    static inline UID INVALID_UID = -1;
 }

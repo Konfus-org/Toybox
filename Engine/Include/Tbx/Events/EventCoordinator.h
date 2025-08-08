@@ -9,6 +9,24 @@
 
 namespace Tbx
 {
+    /// <summary>
+    /// Events will be suppressed during the lifetime of this class.
+    /// </summary>
+    class EXPORT EventSuppressor
+    {
+    public:
+        EventSuppressor();
+        ~EventSuppressor();
+
+        static bool IsSuppressing();
+
+    private:
+        static void Suppress();
+        static void Unsuppress();
+
+        static int _suppressCount;
+    };
+
     class EventCoordinator
     {
     public:
@@ -87,6 +105,12 @@ namespace Tbx
             const auto& callbacks = GetSubscribers()[hashCode];
             for (auto& callback : callbacks)
             {
+                if (EventSuppressor::IsSuppressing())
+                {
+                    TBX_TRACE("Event {} suppressed", eventInfo.name());
+                    return false;
+                }
+
                 callback(event);
             }
             

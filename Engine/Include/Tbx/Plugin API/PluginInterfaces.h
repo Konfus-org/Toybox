@@ -31,44 +31,25 @@ namespace Tbx
         EXPORT virtual ~ILayerPlugin() = default;
     };
 
-    template <typename T>
-    class EXPORT FactoryPlugin : public IPlugin
-    {
-    public:
-        virtual ~FactoryPlugin() = default;
-
-        /// <summary>
-        /// Creates a new instance of the factory item.
-        /// The returned shared_ptr will automatically delete the item when it goes out of scope.
-        /// </summary>
-        std::shared_ptr<T> Create()
-        {
-            T* newT = New();
-            TBX_ASSERT(newT, "Factory failed to create a new item!");
-            return std::shared_ptr<T>(newT, [this](T* toDelete) { Delete(toDelete); });
-        }
-
-    private:
-        virtual T* New() = 0;
-        virtual void Delete(T* itemCreatedByFactory) = 0;
-    };
-
-    class EXPORT ILoggerFactoryPlugin : public FactoryPlugin<ILogger>
+    class EXPORT ILoggerFactoryPlugin : public IPlugin
     {
     public:
         virtual ~ILoggerFactoryPlugin() = default;
+        virtual std::shared_ptr<ILogger> Create(const std::string& name, const std::string filePath = "") = 0;
     };
 
-    class EXPORT IRendererFactoryPlugin : public FactoryPlugin<IRenderer>
+    class EXPORT IRendererFactoryPlugin : public IPlugin
     {
     public:
         virtual ~IRendererFactoryPlugin() = default;
+        virtual std::shared_ptr<IRenderer> Create(std::shared_ptr<IRenderSurface> surface) = 0;
     };
 
-    class EXPORT IWindowFactoryPlugin : public FactoryPlugin<IWindow>
+    class EXPORT IWindowFactoryPlugin : public IPlugin
     {
     public:
         virtual ~IWindowFactoryPlugin() = default;
+        virtual std::shared_ptr<IWindow> Create(const std::string& title, const Size& size, const WindowMode mode) = 0;
     };
 
     class EXPORT IInputHandlerPlugin : public IPlugin

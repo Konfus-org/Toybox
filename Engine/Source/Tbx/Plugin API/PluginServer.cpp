@@ -37,35 +37,6 @@ namespace Tbx
         }
     }
 
-    void PluginServer::RestartPlugins()
-    {
-        TBX_TRACE_INFO("Restarting plugins...");
-
-        // Sort by reverse priority so highest prio is unloaded last
-        std::ranges::sort(_loadedPlugins, [](const std::shared_ptr<LoadedPlugin> a, const std::shared_ptr<LoadedPlugin> b)
-        {
-            return a->GetInfo().GetPriority() > b->GetInfo().GetPriority();
-        });
-
-        const auto& plugins = _loadedPlugins;
-        for (const auto& loadedPlug : plugins)
-        {
-            const auto& pluginInfo = loadedPlug->GetInfo();
-            const auto& pluginName = pluginInfo.GetName();
-            loadedPlug->Restart();
-
-            TBX_TRACE_INFO("Restarting: {0}", pluginName);
-        }
-
-        // Put back into reg priority
-        std::ranges::sort(_loadedPlugins, [](const std::shared_ptr<LoadedPlugin> a, const std::shared_ptr<LoadedPlugin> b)
-        {
-            return a->GetInfo().GetPriority() > b->GetInfo().GetPriority();
-        });
-
-        TBX_TRACE_INFO("Plugins restarted!");
-    }
-
     void PluginServer::ReloadPlugins()
     {
         TBX_TRACE_INFO("Reloading plugins...");

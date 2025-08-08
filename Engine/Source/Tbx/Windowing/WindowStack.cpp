@@ -17,21 +17,47 @@ namespace Tbx
         Clear();
     }
 
-    UID WindowStack::Push(const std::string& name, const WindowMode& mode, const Size& size)
+    void WindowStack::Push(std::shared_ptr<IWindow> window)
     {
-        auto window = _windowFactory->Create();
-
-        TBX_VALIDATE_PTR(window, "No result returned when opening new window with the name {}!", name);
-        if (window == nullptr) return -1;
-
         _windows.push_back(window);
+    }
 
-        window->SetTitle(name);
-        window->SetSize(size);
-        window->Open(mode);
-        window->Focus();
+    UID WindowStack::Emplace(const std::string& name, const Size& size, const WindowMode& mode)
+    {
+        std::shared_ptr<IWindow> window = nullptr;
 
-        return window->GetId();
+        // Will suppress the window opened event in this scope
+        // as we don't want it to happen until we have pushed the window back into the window stack
+        {
+            EventSuppressor suppressor;
+
+            // Create and open the window and push it into our stack
+            window = _windowFactory->Create(name, size, mode);
+            _windows.push_back(window);
+        }
+
+        // Ensure our window was created
+        TBX_ASSERT(window, "Failed to create window!");
+        if (window == nullptr)
+        {
+            return -1;
+        }
+
+        // Send the window opened event
+        auto id = window->GetId();
+        auto windowOpenedEvt = WindowOpenedEvent(id);
+        EventCoordinator::Send(windowOpenedEvt);
+
+        return id;
+    }
+
+    bool WindowStack::Contains(const UID& id) const
+    {
+        auto window = std::find_if(_windows.begin(), _windows.end(), [id](std::shared_ptr<IWindow> window)
+        {
+            return window->GetId() == id;
+        });
+        return window != _windows.end();
     }
 
     std::shared_ptr<IWindow> WindowStack::Get(const UID& id) const

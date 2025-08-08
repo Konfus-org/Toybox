@@ -18,7 +18,7 @@ namespace Tbx
 
         EXPORT bool IsValid() const;
         EXPORT const PluginInfo& GetInfo() const;
-        EXPORT void Restart() const;
+        EXPORT void Reload();
 
         /// <summary>
         /// Attempts to get the loaded plugin as the requested type.

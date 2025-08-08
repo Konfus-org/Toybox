@@ -34,7 +34,7 @@ namespace Tbx
         EXPORT static std::shared_ptr<IRenderer> GetRenderer(UID window);
 
     private:
-        static void OnWindowCreated(const WindowOpenedEvent& e);
+        static void OnWindowOpened(const WindowOpenedEvent& e);
         static void OnWindowClosed(const WindowClosedEvent& e);
 
         static UID _onWindowCreatedEventId;

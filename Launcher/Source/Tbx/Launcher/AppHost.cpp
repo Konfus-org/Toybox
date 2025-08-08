@@ -97,7 +97,7 @@ namespace Tbx
 
         while (running)
         {
-            if (status == AppStatus::Reloading || status == AppStatus::Initializing)
+            if (status == AppStatus::Restarting || status == AppStatus::Initializing)
             {
                 // Load app and plugins (app is a plugin)
                 app = Load(pathToPlugins);
@@ -112,24 +112,23 @@ namespace Tbx
             status = Run(app); 
             running = status != AppStatus::Error && status != AppStatus::Closed;
 
-            if (status != AppStatus::Restarting)
+            if (status == AppStatus::Restarting)
             {
                 // We only want to unload everything if we are reloading things or shutting down!
-                app.reset();
+                app = nullptr;
                 PluginServer::UnloadPlugins();
-            }
-            else
-            {
-                // We are restarting, tell our plugins to restart too
-                PluginServer::RestartPlugins();
             }
         }
 
         // Assert last status of the app
         TBX_ASSERT(status == AppStatus::Closed, "App didn't shutdown correctly!");
 
-        // Close log and return
+        // Close log
         Log::Close();
+
+        // Unload plugins
+        app = nullptr; // <- We need to clear our ref to the app to allow it to be unloaded...
+        PluginServer::UnloadPlugins();
 
         return status;
     }

@@ -14,11 +14,18 @@ namespace Tbx
         EXPORT ~WindowStack();
 
         /// <summary>
+        /// Adds an existing window to the stack
+        /// </summary>
+        /// <param name="window"></param>
+        EXPORT void Push(std::shared_ptr<IWindow> window);
+
+        /// <summary>
         /// Adds a new window to the sack and and opens it.
         /// </summary>
         /// <returns>The id of the newly created and opened window</returns>
-        EXPORT UID Push(const std::string& name, const WindowMode& mode, const Size& size);
+        EXPORT UID Emplace(const std::string& name, const Size& size, const WindowMode& mode);
 
+        EXPORT bool Contains(const UID& id) const;
         EXPORT std::shared_ptr<IWindow> Get(const UID& id) const;
         EXPORT const std::vector<std::shared_ptr<IWindow>>& GetAll();
 

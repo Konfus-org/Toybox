@@ -12,7 +12,7 @@
 
 namespace Tbx
 {
-    std::shared_ptr<App> App::_instance = nullptr;
+    App* App::_instance = nullptr;
 
     App::App(const std::string_view& name)
     {
@@ -23,11 +23,11 @@ namespace Tbx
     {
         if (_status == AppStatus::Running) 
         {
-            ShutdownSystems();
+            Close();
         }
     }
 
-    std::shared_ptr<App> App::GetInstance()
+    App* App::GetInstance()
     {
         return _instance;
     }
@@ -46,8 +46,9 @@ namespace Tbx
     {
         TBX_ASSERT(_instance == nullptr, "There is an existing instance still running!");
 
-        _instance = std::shared_ptr<App>(this);
+        _instance = this;
         _status = AppStatus::Initializing;
+
         _windowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_FN(OnWindowClosed));
 
         // Add default layers (order is important as they will be updated and destroyed in reverse order)
@@ -82,17 +83,10 @@ namespace Tbx
             return;
         }
 
-        // Shortcut to restart app
+        // Shortcut to restart/reload app
         if (Input::IsKeyDown(TBX_KEY_F2))
         {
             _status = AppStatus::Restarting;
-            return;
-        }
-
-        // Shortcut to hot reload plugins
-        if (Input::IsKeyDown(TBX_KEY_F3))
-        {
-            _status = AppStatus::Reloading;
             return;
         }
 #endif
@@ -103,17 +97,15 @@ namespace Tbx
         // Update windows
         for (const auto& window : _windowStack)
         {
-            if (_status != AppStatus::Running) return;
-
             window->Update();
+            if (_status != AppStatus::Running) return;
         }
 
         // Update layers
         for (const auto& layer : _layerStack)
         {
-            if (_status != AppStatus::Running) return;
-
             layer->OnUpdate();
+            if (_status != AppStatus::Running) return;
         }
 
         if (_status != AppStatus::Running) return;
@@ -125,20 +117,12 @@ namespace Tbx
 
     void App::Close()
     {
-        // Shutdown and clear resources
-        OnShutdown();
-        ShutdownSystems();
-
-        // Clear instance
-        _instance = nullptr;
-    }
-
-    void App::ShutdownSystems()
-    {
         TBX_TRACE_INFO("Shutting down...");
 
-        auto oldStatus = _status;
+        auto isRestarting = _status == AppStatus::Restarting;
         _status = AppStatus::Exiting;
+
+        OnShutdown();
 
         // Unsub to window events and shutdown events
         EventCoordinator::Unsubscribe<WindowClosedEvent>(_windowClosedEventId);
@@ -146,9 +130,12 @@ namespace Tbx
         // Clear layers
         _layerStack.Clear();
 
+        // Clear out our instance
+        _instance = nullptr;
+
         // Set status to closed or reloading if we are reloading
-        _status = oldStatus == AppStatus::Reloading || oldStatus == AppStatus::Restarting
-            ? oldStatus
+        _status = isRestarting
+            ? AppStatus::Restarting
             : AppStatus::Closed;
     }
 
@@ -164,7 +151,7 @@ namespace Tbx
 
     UID App::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
-        auto newWindowId = _windowStack.Push(name, mode, size);
+        auto newWindowId = _windowStack.Emplace(name, size, mode);
         const auto& openWindows = _windowStack.GetAll();
         if (openWindows.size() == 1)
         {
@@ -196,10 +183,6 @@ namespace Tbx
         }
 
         _windowStack.Remove(e.GetWindowId());
-    }
-
-    void App::OnWindowFocused(const WindowFocusedEvent& event)
-    {
     }
 
     const AppStatus& App::GetStatus() const

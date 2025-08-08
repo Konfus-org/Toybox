@@ -12,7 +12,6 @@ namespace Tbx
     public:
         EXPORT static void LoadPlugins(const std::string& pathToPlugins);
         EXPORT static void ReloadPlugins();
-        EXPORT static void RestartPlugins();
         EXPORT static void UnloadPlugins();
 
         EXPORT static void RegisterPlugin(const std::shared_ptr<LoadedPlugin>& plugin);

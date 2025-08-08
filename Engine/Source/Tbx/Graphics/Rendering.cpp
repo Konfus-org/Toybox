@@ -20,7 +20,7 @@ namespace Tbx
 
     void Rendering::Initialize()
     {
-        _onWindowCreatedEventId = EventCoordinator::Subscribe<WindowOpenedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowCreated));
+        _onWindowCreatedEventId = EventCoordinator::Subscribe<WindowOpenedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowOpened));
         _onWindowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowClosed));
 
         _renderFactory = PluginServer::GetPlugin<IRendererFactoryPlugin>();
@@ -30,6 +30,8 @@ namespace Tbx
     {
         EventCoordinator::Unsubscribe<WindowOpenedEvent>(_onWindowCreatedEventId);
         EventCoordinator::Unsubscribe<WindowClosedEvent>(_onWindowClosedEventId);
+
+        _renderFactory = nullptr;
     }
 
     void Rendering::DrawFrame()
@@ -136,22 +138,24 @@ namespace Tbx
         return _renderers[window];
     }
 
-    void Rendering::OnWindowCreated(const WindowOpenedEvent& e)
+    void Rendering::OnWindowOpened(const WindowOpenedEvent& e)
     {
         auto newWinId = e.GetWindowId();
         auto newWindow = App::GetInstance()->GetWindow(newWinId);
 
-        auto newRenderer = _renderFactory->Create();
-        newRenderer->Initialize(newWindow);
+        auto newRenderer = _renderFactory->Create(newWindow);
 
         _renderers[newWinId] = newRenderer;
     }
 
     void Rendering::OnWindowClosed(const WindowClosedEvent& e)
     {
-        if (_renderers.contains(e.GetWindowId()))
+        auto windowId = e.GetWindowId();
+        if (_renderers.contains(windowId))
         {
-            _renderers.erase(e.GetWindowId());
+            // Log or assert the state before erasing
+            TBX_ASSERT(_renderers[windowId] != nullptr, "Renderer should not be null");
+            _renderers.erase(windowId);
         }
     }
 

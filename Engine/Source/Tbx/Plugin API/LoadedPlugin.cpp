@@ -30,10 +30,12 @@ namespace Tbx
         return _pluginInfo;
     }
 
-    void LoadedPlugin::Restart() const
+    void LoadedPlugin::Reload()
     {
-        _plugin->OnUnload();
-        _plugin->OnLoad();
+        TBX_TRACE_INFO("Reloading plugin: {}", _pluginInfo.GetName());
+        
+        Unload();
+        Load();
     }
 
     void LoadedPlugin::Load()
@@ -41,7 +43,7 @@ namespace Tbx
         // Don't load static plugins
         if (_pluginInfo.GetLib().find(".lib") != std::string::npos) return;
 
-        const std::string& pluginFullPath = _pluginInfo.GetLocation() + "\\" + _pluginInfo.GetLib();
+        const std::string& pluginFullPath = _pluginInfo.GetLocation() + "/" + _pluginInfo.GetLib();
         _library.Load(pluginFullPath);
         if (_library.IsValid() == false)
         {
@@ -97,6 +99,7 @@ namespace Tbx
         if (_plugin != nullptr)
         {
             TBX_ASSERT(_plugin.use_count() == 1, "{} Plugin is still in use! Ensure all references are released before unloading!", _pluginInfo.GetName());
+            TBX_TRACE_INFO("Unloading plugin: {}", _pluginInfo.GetName());
 
             _plugin->OnUnload();
             _plugin.reset();

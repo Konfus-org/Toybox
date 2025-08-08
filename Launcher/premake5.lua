@@ -4,6 +4,10 @@ project "Launcher"
     cppdialect "C++20"
     staticruntime "Off"
 
+    filter { 'system:windows' }
+        files { 'Launcher.rc', '**.ico' }
+    filter {}
+
     files
     {
         "./**.hpp",
