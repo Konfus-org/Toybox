@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/Events/Event.h"
-#include "Tbx/Plugin API/LoadedPlugin.h"
+#include "Tbx/PluginAPI/LoadedPlugin.h"
 
 namespace Tbx
 {

@@ -115,6 +115,9 @@ namespace Tbx
     struct FrameBuffer
     {
     public:
+        EXPORT FrameBuffer() = default;
+        EXPORT explicit(false) FrameBuffer(const std::vector<DrawCommand>& commands) : _commands(commands) {}
+
         EXPORT void Emplace(const DrawCommandType& type, const std::any& payload) { _commands.emplace_back(type, payload); }
         EXPORT void Add(const DrawCommand& command) { _commands.push_back(command); }
         EXPORT void Clear() { _commands.clear(); }

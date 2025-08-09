@@ -43,3 +43,6 @@
 [submodule "Tools/Premake"]
 	path = Tools/Premake
 	url = https://github.com/Konfus-org/Premake.git
+[submodule "Plugins/Toybox-JIM-AssetLoader-Plugin"]
+	path = Plugins/Toybox-JIM-AssetLoader-Plugin
+	url = https://github.com/Konfus-org/Toybox-JIM-AssetLoader-Plugin.git

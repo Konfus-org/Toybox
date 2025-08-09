@@ -1,7 +1,7 @@
 #pragma once
-#include "Tbx/Plugin API/PluginInterfaces.h"
-#include "Tbx/Plugin API/SharedLibrary.h"
-#include "Tbx/Plugin API/PluginInfo.h"
+#include "Tbx/PluginAPI/PluginInterfaces.h"
+#include "Tbx/PluginAPI/SharedLibrary.h"
+#include "Tbx/PluginAPI/PluginInfo.h"
 #include "Tbx/DllExport.h"
 #include <memory>
 

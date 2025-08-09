@@ -2,7 +2,7 @@
 #include "Tbx/Windowing/WindowStack.h"
 #include "Tbx/Events/EventCoordinator.h"
 #include "Tbx/Debug/Debugging.h"
-#include "Tbx/Plugin API/PluginServer.h"
+#include "Tbx/PluginAPI/PluginServer.h"
 
 namespace Tbx
 {

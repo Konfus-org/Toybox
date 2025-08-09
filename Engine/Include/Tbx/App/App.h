@@ -2,7 +2,7 @@
 #include "Tbx/Layers/LayerStack.h"
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Windowing/WindowStack.h"
-#include "Tbx/Plugin API/PluginInterfaces.h"
+#include "Tbx/PluginAPI/PluginInterfaces.h"
 #include "Tbx/Graphics/GraphicsSettings.h"
 
 namespace Tbx

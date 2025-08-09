@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/Plugin API/PluginInterfaces.h"
+#include "Tbx/PluginAPI/PluginInterfaces.h"
 
 /// <summary>
 /// Macro to register a plugin to the TBX plugin system.

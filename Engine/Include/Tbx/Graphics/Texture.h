@@ -35,12 +35,14 @@ namespace Tbx
         /// </summary>
         EXPORT Texture(const Size& size, int channels, std::shared_ptr<TextureData> data);
 
-        EXPORT Texture(const std::string_view& path)
-            : _path(path) {
-        }
+        /// <summary>
+        /// Loads a texture from a file.
+        /// </summary>
+        /// <param name="path"></param>
+        EXPORT Texture(const std::string_view& path) : _filepath(path) { }
 
         EXPORT std::shared_ptr<TextureData> GetData() const { return _data; }
-        EXPORT std::string GetPath() const { return _path; }
+        EXPORT std::string GetPath() const { return _filepath; }
 
         EXPORT uint GetWidth() const { return _width; }
         EXPORT uint GetHeight() const { return _height; }
@@ -56,6 +58,6 @@ namespace Tbx
         TextureFilter _filter = TextureFilter::Nearest;
 
         std::shared_ptr<TextureData> _data = std::make_shared<TextureData>(255);
-        std::string _path = "";
+        std::string _filepath = "";
     };
 }

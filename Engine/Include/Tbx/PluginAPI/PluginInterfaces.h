@@ -7,6 +7,7 @@
 #include "Tbx/Layers/Layer.h"
 #include "Tbx/Math/Vectors.h"
 #include <memory>
+#include <Tbx/Graphics/Texture.h>
 
 namespace Tbx
 {
@@ -71,5 +72,15 @@ namespace Tbx
         virtual bool IsMouseButtonUp(const int button) const = 0;
         virtual bool IsMouseButtonHeld(const int button) const = 0;
         virtual Vector2 GetMousePosition() const = 0;
+    };
+
+    class ITextureLoaderPlugin : public IPlugin
+    {
+        virtual Texture LoadTexture(const std::string& filename) = 0;
+    };
+
+    class IShaderLoaderPlugin : public IPlugin
+    {
+        virtual Shader LoadShader(const std::string& filename) = 0;
     };
 }

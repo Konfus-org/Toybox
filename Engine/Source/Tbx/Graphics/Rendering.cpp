@@ -8,7 +8,7 @@
 #include "Tbx/Events/EventCoordinator.h"
 #include "Tbx/Events/RenderEvents.h"
 #include "Tbx/TBS/World.h"
-#include "Tbx/Plugin API/PluginServer.h"
+#include "Tbx/PluginAPI/PluginServer.h"
 #include <iostream>
 
 namespace Tbx
@@ -66,11 +66,13 @@ namespace Tbx
         camera.SetPerspective(fov, aspect, zNear, zFar);
         Tbx::Mat4x4 viewProjectionMatrix = camera.CalculateViewProjectionMatrix(cameraPosition, cameraRotation, camera.GetProjectionMatrix());
 
-        struct VertexUniformBlock {
+        struct VertexUniformBlock
+        {
             Tbx::Mat4x4 viewProjectionMatrix;
         };
 
-        struct FragmentUniformBlock {
+        struct FragmentUniformBlock
+        {
             float time;
         };
 
@@ -78,9 +80,9 @@ namespace Tbx
         {
             auto testMesh = Primitives::Quad;
 
+            buffer.Add({ DrawCommandType::CompileMaterial, testMaterial });
             buffer.Add({ DrawCommandType::SetMaterial, testMaterial });
 
-#if USE_SHADER_UNIFORM_HACKERY
             Tbx::Mat4x4 worldMatrix = Tbx::Mat4x4::FromPosition(Tbx::Vector3(-0.5f, -0.5f, 0.0f));
             Tbx::Mat4x4 worldViewProjectionMatrix = worldMatrix * viewProjectionMatrix;
             static VertexUniformBlock vertexUniformBlock = {};
@@ -93,7 +95,6 @@ namespace Tbx
             fragmentUniformBlock.time = 0;
             ShaderData fragmentShaderData(true, 0, &fragmentUniformBlock, sizeof(FragmentUniformBlock));
             buffer.Add({ DrawCommandType::UploadMaterialData, fragmentShaderData });
- #endif
 
             buffer.Add({ DrawCommandType::DrawMesh, testMesh });
         }
@@ -102,17 +103,15 @@ namespace Tbx
         {
             auto testMesh = Primitives::Triangle;
 
+            buffer.Add({ DrawCommandType::CompileMaterial, testMaterial });
             buffer.Add({ DrawCommandType::SetMaterial, testMaterial });
 
-#if USE_SHADER_UNIFORM_HACKERY
             Tbx::Mat4x4 worldMatrix = Tbx::Mat4x4::FromPosition(Tbx::Vector3(0.5f, 0.5f, 0.0f));
             Tbx::Mat4x4 worldViewProjectionMatrix = worldMatrix * viewProjectionMatrix;
             static VertexUniformBlock vertexUniformBlock = {};
             vertexUniformBlock.viewProjectionMatrix = worldViewProjectionMatrix;
             ShaderData vertexShaderData(false, 0, &vertexUniformBlock, sizeof(VertexUniformBlock));
             buffer.Add({ DrawCommandType::UploadMaterialData, vertexShaderData });
- #endif
-
             buffer.Add({ DrawCommandType::DrawMesh, testMesh });
         }
 

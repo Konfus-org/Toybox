@@ -1,5 +1,5 @@
 #include "Tbx/Launcher/AppHost.h"
-#include "Tbx/Plugin API/PluginServer.h"
+#include "Tbx/PluginAPI/PluginServer.h"
 #include "Tbx/Debug/Debugging.h"
 #include "Tbx/Events/EventCoordinator.h"
 #include "Tbx/Layers/Layer.h"

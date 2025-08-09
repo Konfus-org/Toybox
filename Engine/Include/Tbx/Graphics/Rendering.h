@@ -5,7 +5,7 @@
 #include "Tbx/Graphics/IRenderSurface.h"
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Events/WorldEvents.h"
-#include "Tbx/Plugin API/PluginInterfaces.h"
+#include "Tbx/PluginAPI/PluginInterfaces.h"
 #include <map>
 
 namespace Tbx

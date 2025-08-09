@@ -1,5 +1,5 @@
 #include "Tbx/PCH.h"
-#include "Tbx/Plugin API/SharedLibrary.h"
+#include "Tbx/PluginAPI/SharedLibrary.h"
 #include "Tbx/Debug/Debugging.h"
 #include <any>
 

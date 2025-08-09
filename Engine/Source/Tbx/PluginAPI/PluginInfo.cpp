@@ -1,6 +1,6 @@
 #include "Tbx/PCH.h"
-#include "Tbx/Plugin API/PluginInfo.h"
-#include "Tbx/Plugin API/PluginMetaReader.h"
+#include "Tbx/PluginAPI/PluginInfo.h"
+#include "Tbx/PluginAPI/PluginMetaReader.h"
 
 namespace Tbx
 {

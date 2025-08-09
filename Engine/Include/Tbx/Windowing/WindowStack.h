@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/Windowing/IWindow.h"
 #include "Tbx/Events/WindowEvents.h"
-#include "Tbx/Plugin API/PluginInterfaces.h"
+#include "Tbx/PluginAPI/PluginInterfaces.h"
 #include <map>
 #include <vector>
 

@@ -20,14 +20,12 @@ void ExampleLayer::OnAttach()
 	_level = Tbx::World::GetPlayspace(boxId);
 
     // Create blue toy
-	//auto checkerText = Tbx::Texture("Assets/Checkerboard.png");
-	auto checkerText = Tbx::Texture();
-	Tbx::Toy blueToy = _level->MakeToy("Checkerboard");
-	_level->AddBlockTo<Tbx::Mesh>(blueToy);
-	_level->AddBlockTo<Tbx::Transform>(blueToy);
-	auto& blueMat = _level->AddBlockTo<Tbx::Material>(blueToy);
+	auto checkerText = Tbx::Texture("Assets/Checkerboard.png");
+	Tbx::Toy checkerBoardBottom = _level->MakeToy("Checkerboard");
+	_level->AddBlockTo<Tbx::Mesh>(checkerBoardBottom);
+	_level->AddBlockTo<Tbx::Transform>(checkerBoardBottom);
+	auto& blueMat = _level->AddBlockTo<Tbx::Material>(checkerBoardBottom);
 
-	// Create background checkerboard
 	Tbx::Toy checkerBoxToyF = _level->MakeToy("Checkerboard F");
 	_level->AddBlockTo<Tbx::Mesh>(checkerBoxToyF);
 	auto& checkerTrans = _level->AddBlockTo<Tbx::Transform>(checkerBoxToyF);
@@ -51,7 +49,7 @@ void ExampleLayer::OnAttach()
 	auto& transform = _level->AddBlockTo<Tbx::Transform>(_fpsCam);
 	transform.Position = { 0, 0, -10 };
 
-	// Opens our new box
+	// Opens our new level
 	_level->Open();
 }
 

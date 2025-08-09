@@ -1,8 +1,8 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Debug/Log.h"
 #include "Tbx/Debug/Debugging.h"
-#include "Tbx/Plugin API/PluginServer.h"
-#include "Tbx/Plugin API/PluginInterfaces.h"
+#include "Tbx/PluginAPI/PluginServer.h"
+#include "Tbx/PluginAPI/PluginInterfaces.h"
 #include "Tbx/Events/EventCoordinator.h"
 #include <chrono>
 #include <iostream>

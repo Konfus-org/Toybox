@@ -11,13 +11,13 @@ namespace Tbx
     struct Model
     {
         EXPORT Model(const Mesh& mesh, const Material& material)
-            : _mesh(mesh), _material(material) {}
+            : _mesh(mesh), _currentMaterial(material) {}
 
         EXPORT const Mesh& GetMesh() const { return _mesh; }
-        EXPORT const Material& GetMaterial() const { return _material; }
+        EXPORT const Material& GetMaterial() const { return _currentMaterial; }
 
     private:
         Mesh _mesh;
-        Material _material;
+        Material _currentMaterial;
     };
 }
