@@ -48,9 +48,6 @@ namespace Tbx
     private:
         EXPORT static std::shared_ptr<IShaderLoaderPlugin> GetShaderLoader();
         EXPORT static std::shared_ptr<ITextureLoaderPlugin> GetTextureLoader();
-
-        static std::shared_ptr<IShaderLoaderPlugin> _shaderLoaderPlugin;
-        static std::shared_ptr<ITextureLoaderPlugin> _textureLoaderPlugin;
     };
 
     /// <summary>

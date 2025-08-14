@@ -3,24 +3,24 @@
 
 namespace Tbx
 {
-    std::shared_ptr<IShaderLoaderPlugin> AssetLoader::_shaderLoaderPlugin = nullptr;
-    std::shared_ptr<ITextureLoaderPlugin> AssetLoader::_textureLoaderPlugin = nullptr;
+    /*std::shared_ptr<IShaderLoaderPlugin> AssetLoader::_shaderLoaderPlugin = nullptr;
+    std::shared_ptr<ITextureLoaderPlugin> AssetLoader::_textureLoaderPlugin = nullptr;*/
 
     std::shared_ptr<IShaderLoaderPlugin> AssetLoader::GetShaderLoader()
     {
-        if (!_shaderLoaderPlugin)
+        /*if (!_shaderLoaderPlugin)
         {
             _shaderLoaderPlugin = PluginServer::GetPlugin<IShaderLoaderPlugin>();
-        }
-        return _shaderLoaderPlugin;
+        }*/
+        return PluginServer::GetPlugin<IShaderLoaderPlugin>();
     }
 
     std::shared_ptr<ITextureLoaderPlugin> AssetLoader::GetTextureLoader()
     {
-        if (!_textureLoaderPlugin)
+        /*if (!_textureLoaderPlugin)
         {
             _textureLoaderPlugin = PluginServer::GetPlugin<ITextureLoaderPlugin>();
-        }
-        return _textureLoaderPlugin;
+        }*/
+        return PluginServer::GetPlugin<ITextureLoaderPlugin>();
     }
 }
