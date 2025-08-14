@@ -12,7 +12,7 @@ namespace Tbx
     /// If passing a classes function you must first bind it to the callback like using TBX_BIND_FN or if the function is static use TBX_BIND_STATIC_FN.
     /// </summary>
     template <typename TArg>
-    class Callback : public UsesUID
+    class Callback : public UsesUid
     {
     public:
         explicit(false) Callback(CallbackFunction<TArg> func)

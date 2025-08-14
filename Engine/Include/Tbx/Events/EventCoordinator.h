@@ -37,7 +37,7 @@ namespace Tbx
         /// The UID returned is the ID of the callback and can be used to unsubscribe from the event.
         /// </summary>
         template <class TEvent>
-        EXPORT static UID Subscribe(const CallbackFunction<TEvent>& callback)
+        EXPORT static Uid Subscribe(const CallbackFunction<TEvent>& callback)
         {
             const auto& eventInfo = typeid(TEvent);
             const auto hashCode = eventInfo.hash_code();
@@ -58,7 +58,7 @@ namespace Tbx
         /// Removes the method associated with the given UID from the list of callbacks for an event.
         /// </summary>
         template <class TEvent>
-        EXPORT static void Unsubscribe(const UID& callbackToUnsub)
+        EXPORT static void Unsubscribe(const Uid& callbackToUnsub)
         {
             const auto& eventInfo = typeid(TEvent);
             const auto hashCode = eventInfo.hash_code();

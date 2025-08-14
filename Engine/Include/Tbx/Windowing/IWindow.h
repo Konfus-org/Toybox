@@ -13,7 +13,7 @@ namespace Tbx
         FullscreenBorderless = 3
     };
 
-    class EXPORT IWindow : public IRenderSurface, public UsesUID
+    class EXPORT IWindow : public IRenderSurface, public UsesUid
     {
     public:
         virtual void Open(const WindowMode& mode) = 0;

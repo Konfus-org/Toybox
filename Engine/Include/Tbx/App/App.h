@@ -38,9 +38,9 @@ namespace Tbx
         EXPORT virtual void OnUpdate() = 0;
         EXPORT virtual void OnShutdown() = 0;
 
-        EXPORT std::shared_ptr<IWindow> GetWindow(UID id);
+        EXPORT std::shared_ptr<IWindow> GetWindow(Uid id);
         EXPORT std::vector<std::shared_ptr<IWindow>> GetWindows();
-        EXPORT UID OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
+        EXPORT Uid OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
         EXPORT void PushLayer(const std::shared_ptr<Layer>& layer);
 
         EXPORT const AppStatus& GetStatus() const;
@@ -62,9 +62,9 @@ namespace Tbx
         LayerStack _layerStack = {};
         WindowStack _windowStack = {};
 
-        UID _mainWindowId = -1;
+        Uid _mainWindowId = Invalid::Uid;
 
-        UID _windowOpenedEventId = -1;
-        UID _windowClosedEventId = -1;
+        Uid _windowOpenedEventId = Invalid::Uid;
+        Uid _windowClosedEventId = Invalid::Uid;
     };
 }

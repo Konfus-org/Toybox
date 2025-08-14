@@ -29,6 +29,6 @@ namespace Tbx
     private:
         static void OnWindowFocusChanged(const WindowFocusedEvent& args);
 
-        static UID _windowFocusChangedEventId;
+        static Uid _windowFocusChangedEventId;
     };
 }

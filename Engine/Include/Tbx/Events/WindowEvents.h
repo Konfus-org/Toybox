@@ -21,18 +21,18 @@ namespace Tbx
     class EXPORT WindowActionEvent : public WindowEvent
     {
     public:
-        explicit WindowActionEvent(UID windowId) : _windowId(windowId) {}
+        explicit WindowActionEvent(Uid windowId) : _windowId(windowId) {}
 
-        UID GetWindowId() const { return _windowId; }
+        Uid GetWindowId() const { return _windowId; }
 
     private:
-        UID _windowId = -1;
+        Uid _windowId = Invalid::Uid;
     };
 
     class EXPORT WindowFocusedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowFocusedEvent(UID windowId)
+        explicit WindowFocusedEvent(Uid windowId)
             : WindowActionEvent(windowId) {}
 
         std::string ToString() const final
@@ -44,7 +44,7 @@ namespace Tbx
     class EXPORT WindowOpenedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowOpenedEvent(UID windowId)
+        explicit WindowOpenedEvent(Uid windowId)
             : WindowActionEvent(windowId) {}
 
         std::string ToString() const final
@@ -56,7 +56,7 @@ namespace Tbx
     class EXPORT WindowClosedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowClosedEvent(UID windowId) 
+        explicit WindowClosedEvent(Uid windowId) 
             : WindowActionEvent(windowId) {}
 
         std::string ToString() const final
@@ -68,7 +68,7 @@ namespace Tbx
     class EXPORT WindowResizedEvent : public WindowActionEvent
     {
     public:
-        WindowResizedEvent(UID windowId, uint width, uint height)
+        WindowResizedEvent(Uid windowId, uint width, uint height)
             : WindowActionEvent(windowId), _width(width), _height(height) {}
 
         Size GetNewSize() const

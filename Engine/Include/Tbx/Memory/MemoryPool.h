@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Type Aliases/Int.h"
+#include "Tbx/TypeAliases/Int.h"
 #include <memory>
 
 namespace Tbx
@@ -15,12 +15,12 @@ namespace Tbx
             : _data(std::make_shared<char[]>(elementSize * poolSize)), _elementSize(elementSize), _poolSize(poolSize) { }
 
         template<typename T>
-        EXPORT T* Get(uint64 index)
+        EXPORT T* Get(uint64 index) const
         {
             if (index >= _poolSize)
             {
-                // Handle out-of-bounds access (see point 2)
-                return nullptr; // Or throw an exception
+                TBX_ASSERT(false, "Index out of bounds!");
+                return nullptr;
             }
             void* data = _data.get() + index * _elementSize;
             return static_cast<T*>(data);

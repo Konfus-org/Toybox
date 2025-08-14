@@ -17,7 +17,7 @@ namespace Tbx
         for (const auto& playspace : boxes)
         {
             // We only need to pre-process materials to upload them to the GPU
-            for (const auto& toy : PlayspaceView<Material>(playspace))
+            for (const auto& toy : BoxView<Material>(playspace))
             {
                 PreProcessToy(toy, playspace, buffer);
             }
@@ -31,7 +31,7 @@ namespace Tbx
         FrameBuffer buffer = {};
         for (const auto& playspace : boxes)
         {
-            for (const auto& toy : PlayspaceView(playspace))
+            for (const auto& toy : BoxView(playspace))
             {
                 ProcessToy(toy, playspace, buffer);
             }
@@ -40,7 +40,7 @@ namespace Tbx
         return buffer;
     }
 
-    void RenderProcessor::PreProcessToy(const Toy& toy, const std::shared_ptr<Box>& box, FrameBuffer& buffer)
+    void RenderProcessor::PreProcessToy(const ToyHandle& toy, const std::shared_ptr<Box>& box, FrameBuffer& buffer)
     {
         // Preprocess materials to upload textures and shaders to GPU
         if (box->HasBlockOn<Material>(toy))
@@ -65,7 +65,7 @@ namespace Tbx
         }
     }
 
-    void RenderProcessor::ProcessToy(const Toy& toy, const std::shared_ptr<Box>& box, FrameBuffer& buffer)
+    void RenderProcessor::ProcessToy(const ToyHandle& toy, const std::shared_ptr<Box>& box, FrameBuffer& buffer)
     {
         // NOTE: Order matters here!!!
         

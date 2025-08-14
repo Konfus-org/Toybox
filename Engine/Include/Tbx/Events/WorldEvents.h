@@ -22,10 +22,10 @@ namespace Tbx
     class OpenedBoxesEvent : public WorldEvent
     {
     public:
-        explicit OpenedBoxesEvent(const std::vector<UID>& openedBoxes)
+        explicit OpenedBoxesEvent(const std::vector<Uid>& openedBoxes)
             : _openedBoxes(openedBoxes) {}
 
-        const std::vector<UID>& GetOpenedBoxes() const { return _openedBoxes; }
+        const std::vector<Uid>& GetOpenedBoxes() const { return _openedBoxes; }
 
         EXPORT std::string ToString() const final
         {
@@ -33,7 +33,7 @@ namespace Tbx
         }
 
     private:
-        std::vector<UID> _openedBoxes = {};
+        std::vector<Uid> _openedBoxes = {};
     };
 
     /// <summary>
@@ -43,10 +43,10 @@ namespace Tbx
     class ClosedBoxesEvent : public WorldEvent
     {
     public:
-        explicit ClosedBoxesEvent(const std::vector<UID>& openedBoxes)
+        explicit ClosedBoxesEvent(const std::vector<Uid>& openedBoxes)
             : _closedBoxes(openedBoxes) {}
 
-        const std::vector<UID>& GetClosedBoxes() const { return _closedBoxes; }
+        const std::vector<Uid>& GetClosedBoxes() const { return _closedBoxes; }
 
         EXPORT std::string ToString() const final
         {
@@ -54,6 +54,6 @@ namespace Tbx
         }
 
     private:
-        std::vector<UID> _closedBoxes = {};
+        std::vector<Uid> _closedBoxes = {};
     };
 }

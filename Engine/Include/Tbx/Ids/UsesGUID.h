@@ -4,15 +4,20 @@
 
 namespace Tbx
 {
-    class EXPORT UsesGUID
+    class UsesGuid
     {
     public:
-        UsesGUID() = default;
-        explicit UsesGUID(const GUID& guid) : _id(guid) {}
+        UsesGuid() = default;
+        explicit UsesGuid(const Guid& guid) : _id(guid) {}
 
-        const GUID& GetId() const { return _id; }
+        bool operator==(const UsesGuid& other) const { return _id == other._id; }
+        explicit(false) operator std::string() const { return _id; }
+        explicit(false) operator Guid() const { return _id; }
+
+        const Guid& GetId() const { return _id; }
+        void UpdateId(const Guid& id) { _id = id; }
 
     private:
-        GUID _id = GUID::Generate();
+        Guid _id = Guid::Generate();
     };
 }

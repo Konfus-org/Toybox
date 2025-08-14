@@ -6,7 +6,7 @@
 
 namespace Tbx
 {
-    UID Input::_windowFocusChangedEventId;
+    Uid Input::_windowFocusChangedEventId;
 
     void Input::Initialize()
     {

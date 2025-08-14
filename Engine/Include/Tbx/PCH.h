@@ -16,6 +16,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <ranges>
+#include <filesystem>
 
 #ifdef TBX_PLATFORM_WINDOWS
     #include <Windows.h>

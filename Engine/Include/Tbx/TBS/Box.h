@@ -18,35 +18,35 @@ namespace Tbx
     /// A box is a way to group sets of toys together.
     /// It can be used to represent a level, scene, prefab, or chunk.
     /// </summary>
-    class Box : public UsesUID
+    class Box : public UsesUid
     {
     public:
         EXPORT Box() = default;
-        EXPORT explicit Box(UID id);
+        EXPORT explicit Box(Uid id);
 
         /// <summary>
         /// Create a new toy.
         /// </summary>
         /// <returns></returns>
-        EXPORT Toy MakeToy(const std::string& name);
+        EXPORT ToyHandle MakeToy(const std::string& name);
 
         /// <summary>
         /// Destroys a specific toy.
         /// </summary>
-        EXPORT void DestroyToy(Toy& toy);
+        EXPORT void DestroyToy(ToyHandle& handle);
 
         /// <summary>
         /// Get information about a specific toy.
         /// </summary>
-        EXPORT const ToyInfo& GetToyInfo(const Toy& toy) const
+        EXPORT const Toy& GetToy(const ToyHandle& handle) const
         {
-            return _toyPool[GetToyIndex(toy)];
+            return _toyPool[GetToyIndex(handle)];
         }
 
         /// <summary>
         /// Get information about a specific toy.
         /// </summary>
-        EXPORT const ToyInfo& GetToyInfo(const uint& index) const
+        EXPORT const Toy& GetToy(const uint& index) const
         {
             return _toyPool[index];
         }
@@ -60,13 +60,13 @@ namespace Tbx
         /// Check if a specific toy has a specific block.
         /// </summary>
         template<typename T>
-        EXPORT bool HasBlockOn(const Toy& toy)
+        EXPORT bool HasBlockOn(const ToyHandle& handle)
         {
-            const ToyInfo& toyInfo = GetToyInfo(toy);
-            TBX_ASSERT(toyInfo.GetId() == toy, "Toy has been deleted!");
+            const Toy& toy = GetToy(handle);
+            TBX_ASSERT(toy.GetId() == handle, "Toy has been deleted!");
 
-            uint32 blockId = GetBlockIndex<T>();
-            return toyInfo.GetBlockMask().test(blockId);
+            uint32 blockId = GetBlockTypeIndex<T>();
+            return toy.GetBlockMask().test(blockId);
         }
 
         /// <summary>
@@ -74,14 +74,14 @@ namespace Tbx
         /// Returns true and outBlock if block exists, false and default T() as out otherwise.
         /// </summary>
         template<typename T>
-        EXPORT bool TryGetBlockOn(const Toy& toy, const T& outBlock)
+        EXPORT bool TryGetBlockOn(const ToyHandle& handle, const T& outBlock)
         {
-            TBX_ASSERT(IsToyValid(toy), "Toy is invalid! Was it deleted? Was it created correctly?");
+            TBX_ASSERT(IsToyValid(handle), "Toy is invalid! Was it deleted? Was it created correctly?");
 
-            if (!HasBlockOn<T>(toy)) return false;
+            if (!HasBlockOn<T>(handle)) return false;
 
-            uint32 toyIndex = GetToyIndex(toy);
-            uint32 blockIndex = GetBlockIndex<T>();
+            uint32 toyIndex = GetToyIndex(handle);
+            uint32 blockIndex = GetBlockTypeIndex<T>();
 
             auto* block = _blockPools[blockIndex]->Get<T>(toyIndex);
             outBlock = *block;
@@ -93,13 +93,13 @@ namespace Tbx
         /// Gets a block on a toy.
         /// </summary>
         template<typename T>
-        EXPORT T& GetBlockOn(const Toy& toy)
+        EXPORT T& GetBlockOn(const ToyHandle& handle)
         {
-            TBX_ASSERT(HasBlockOn<T>(toy), "Block doesn't exist on the given toy!");
-            TBX_ASSERT(IsToyValid(toy), "Toy is invalid! Was it deleted? Was it created correctly?");
+            TBX_ASSERT(HasBlockOn<T>(handle), "Block doesn't exist on the given toy!");
+            TBX_ASSERT(IsToyValid(handle), "Toy is invalid! Was it deleted? Was it created correctly?");
 
-            uint32 toyIndex = GetToyIndex(toy);
-            uint32 blockIndex = GetBlockIndex<T>();
+            uint32 toyIndex = GetToyIndex(handle);
+            uint32 blockIndex = GetBlockTypeIndex<T>();
             auto* block = _blockPools[blockIndex]->Get<T>(toyIndex);
             return *block;
         }
@@ -108,16 +108,16 @@ namespace Tbx
         /// Adds a block to a toy.
         /// </summary>
         template<typename T>
-        EXPORT T& AddBlockTo(const Toy& toy, const T& block)
+        EXPORT T& AddBlockTo(const ToyHandle& handle, T& block)
         {
-            uint32 toyIndex = GetToyIndex(toy);
-            auto& toyInfo = _toyPool[toyIndex];
+            uint32 toyIndex = GetToyIndex(handle);
+            auto& toy = _toyPool[toyIndex];
 
-            TBX_ASSERT(!HasBlockOn<T>(toy), "Already has the block of this type on the given toy!");
-            TBX_ASSERT(toyInfo.GetId() == toy, "Toy has been deleted!");
-            TBX_ASSERT(IsToyValid(toy), "Toy is invalid! Was it deleted? Was it created correctly?");
+            TBX_ASSERT(!HasBlockOn<T>(handle), "Already has the block of this type on the given toy!");
+            TBX_ASSERT(toy.GetId() == handle, "Toy has been deleted!");
+            TBX_ASSERT(IsToyValid(handle), "Toy is invalid! Was it deleted? Was it created correctly?");
 
-            uint32 blockIndex = GetBlockIndex<T>();
+            uint32 blockIndex = GetBlockTypeIndex<T>();
             if (_blockPools.size() <= blockIndex)
             {
                 // Not enough component pools, resize!
@@ -130,12 +130,12 @@ namespace Tbx
             }
 
             // Add to mask
-            toyInfo.SetBlockMask(blockIndex, true);
+            toy.SetBlockMask(blockIndex, true);
 
             // Looks up the component in the pool, and initializes it with placement new
             *_blockPools[blockIndex]->Get<T>(toyIndex) = block;
 
-            TBX_ASSERT(HasBlockOn<T>(toy), "Block didn't get added correctly!");
+            TBX_ASSERT(HasBlockOn<T>(handle), "Block didn't get added correctly!");
 
             return block;
         }
@@ -144,16 +144,16 @@ namespace Tbx
         /// Adds a block to a toy.
         /// </summary>
         template<typename T>
-        EXPORT T& AddBlockTo(const Toy& toy)
+        EXPORT T& AddBlockTo(const ToyHandle& handle)
         {
-            uint32 toyIndex = GetToyIndex(toy);
-            auto& toyInfo = _toyPool[toyIndex];
+            uint32 toyIndex = GetToyIndex(handle);
+            auto& toy = _toyPool[toyIndex];
 
-            TBX_ASSERT(!HasBlockOn<T>(toy), "Already has the block of this type on the given toy!");
-            TBX_ASSERT(toyInfo.GetId() == toy, "Toy has been deleted!");
-            TBX_ASSERT(IsToyValid(toy), "Toy is invalid! Was it deleted? Was it created correctly?");
+            TBX_ASSERT(!HasBlockOn<T>(handle), "Already has the block of this type on the given toy!");
+            TBX_ASSERT(toy.GetId() == handle, "Toy has been deleted!");
+            TBX_ASSERT(IsToyValid(handle), "Toy is invalid! Was it deleted? Was it created correctly?");
 
-            uint32 blockIndex = GetBlockIndex<T>();
+            uint32 blockIndex = GetBlockTypeIndex<T>();
             if (_blockPools.size() <= blockIndex)
             {
                 // Not enough component pools, resize!
@@ -166,12 +166,12 @@ namespace Tbx
             }
 
             // Add to mask
-            toyInfo.SetBlockMask(blockIndex, true);
+            toy.SetBlockMask(blockIndex, true);
 
             // Looks up the component in the pool, and initializes it with placement new
             auto* block = new(_blockPools[blockIndex]->Get<T>(toyIndex))T();
 
-            TBX_ASSERT(HasBlockOn<T>(toy), "Block didn't get added correctly!");
+            TBX_ASSERT(HasBlockOn<T>(handle), "Block didn't get added correctly!");
 
             return *block;
         }
@@ -180,16 +180,16 @@ namespace Tbx
         /// Removes a block from a toy.
         /// </summary>
         template<typename T>
-        EXPORT void RemoveBlockFrom(const Toy& toy)
+        EXPORT void RemoveBlockFrom(const ToyHandle& toy)
         {
             uint32 toyIndex = GetToyIndex(toy);
-            auto& toyInfo = _toyPool[toyIndex];
+            auto& toy = _toyPool[toyIndex];
 
-            TBX_ASSERT(toyInfo.GetId() == toy, "Toy has been deleted!");
+            TBX_ASSERT(toy.GetId() == toy, "Toy has been deleted!");
             TBX_ASSERT(HasBlockOn<T>(toy), "Block doesn't exist on toy so it cannot be removed!");
 
-            uint32 blockIndex = GetBlockIndex<T>();
-            toyInfo.SetBlockMask(blockIndex, false);
+            uint32 blockIndex = GetBlockTypeIndex<T>();
+            toy.SetBlockMask(blockIndex, false);
 
             TBX_ASSERT(!HasBlockOn<T>(toy), "Block didn't get removed correctly!");
         }
@@ -200,7 +200,7 @@ namespace Tbx
         EXPORT void Open() const;
 
     private:
-        std::array<ToyInfo, MAX_NUMBER_OF_TOYS_IN_A_BOX> _toyPool = {};
+        std::array<Toy, MAX_NUMBER_OF_TOYS_IN_A_BOX> _toyPool = {};
         std::vector<std::unique_ptr<MemoryPool>> _blockPools = {};
         std::queue<uint> _availableToyIndices = {};
     };
@@ -208,32 +208,32 @@ namespace Tbx
     /// <summary>
     /// Used to iterate over a box.
     /// </summary>
-    struct PlayspaceIterator
+    struct BoxIterator
     {
     public:
-        EXPORT PlayspaceIterator(const std::weak_ptr<Box>& space, uint32 index, BlockMask mask, bool iterateAll)
+        EXPORT BoxIterator(const std::weak_ptr<Box>& space, uint32 index, BlockMask mask, bool iterateAll)
             : _box(space), _currIndex(index), _blockMask(mask), _iterateAll(iterateAll) { }
 
-        EXPORT Toy operator*() const
+        EXPORT ToyHandle operator*() const
         {
-            const auto& toyInfo = _box->GetToyInfo(_currIndex);
-            return { toyInfo.GetName(), toyInfo.GetId() };
+            const auto& toy = _box->GetToy(_currIndex);
+            return { toy.GetName(), toy.GetId() };
         }
 
-        EXPORT bool operator!=(const PlayspaceIterator& other) const
+        EXPORT bool operator!=(const BoxIterator& other) const
         {
             return _currIndex != other._currIndex && _currIndex != _box->GetToyCount();
         }
 
-        EXPORT PlayspaceIterator& operator++()
+        EXPORT BoxIterator& operator++()
         {
             while (_currIndex < _box->GetToyCount())
             {
                 _currIndex++;
 
-                auto toyInfo = _box->GetToyInfo(_currIndex);
-                auto isMatchingBlockMask = (_blockMask & toyInfo.GetBlockMask()) != 0;
-                auto isToyValid = IsToyValid(toyInfo.GetId());
+                auto toy = _box->GetToy(_currIndex);
+                auto isMatchingBlockMask = (_blockMask & toy.GetBlockMask()) != 0;
+                auto isToyValid = IsToyValid(toy.GetId());
                 if (isToyValid && isMatchingBlockMask)
                 {
                     break;
@@ -245,8 +245,8 @@ namespace Tbx
     private:
         bool ValidIndex() const
         {
-            return IsToyValid(_box->GetToyInfo(_currIndex).GetId())  // It's a valid entity ID
-                && (_iterateAll || _blockMask == (_blockMask & _box->GetToyInfo(_currIndex).GetBlockMask())); // It has the correct component mask
+            return IsToyValid(_box->GetToy(_currIndex).GetId())  // It's a valid entity ID
+                && (_iterateAll || _blockMask == (_blockMask & _box->GetToy(_currIndex).GetBlockMask())); // It has the correct component mask
         }
 
         std::shared_ptr<Box> _box = {};
@@ -260,12 +260,12 @@ namespace Tbx
     /// Good for iterating over a specific set of components/blocks.
     /// </summary>
     template<typename... BlockTypes>
-    struct PlayspaceView
+    struct BoxView
     {
     public:
-        EXPORT explicit(false) PlayspaceView(const std::weak_ptr<Box>& space) : _box(space)
+        EXPORT explicit(false) BoxView(const std::weak_ptr<Box>& box) : _box(box)
         {
-            TBX_VALIDATE_WEAK_PTR(space, "PlaySpace reference is invalid! PlaySpace must have been deleted.");
+            TBX_VALIDATE_WEAK_PTR(box, "Box reference is invalid! Box must have been deleted.");
 
             const auto blockSize = sizeof...(BlockTypes);
             if (blockSize == 0)
@@ -275,7 +275,7 @@ namespace Tbx
             else
             {
                 // Unpack the template parameters into an initializer list
-                std::vector<uint32> blockIndices = { 0, GetBlockIndex<BlockTypes>() ...};
+                std::vector<uint32> blockIndices = { 0, GetBlockTypeIndex<BlockTypes>() ...};
                 for (int index = 1; index < blockSize; index++)
                 {
                     _blockMask.set(blockIndices[index]);
@@ -283,14 +283,14 @@ namespace Tbx
             }
         }
 
-        EXPORT PlayspaceIterator begin() const
+        EXPORT BoxIterator begin() const
         {
             uint32 firstIndex = 0;
             while (firstIndex < _box->GetToyCount())
             {
-                auto toyInfo = _box->GetToyInfo(firstIndex);
-                auto isMatchingBlockMask = (_blockMask & toyInfo.GetBlockMask()) != 0;
-                auto isToyValid = IsToyValid(toyInfo.GetId());
+                auto toy = _box->GetToy(firstIndex);
+                auto isMatchingBlockMask = (_blockMask & toy.GetBlockMask()) != 0;
+                auto isToyValid = IsToyValid(toy.GetId());
                 if (isToyValid && isMatchingBlockMask)
                 {
                     break;
@@ -300,7 +300,7 @@ namespace Tbx
             return { _box, firstIndex, _blockMask, _viewAll };
         }
 
-        EXPORT PlayspaceIterator end() const
+        EXPORT BoxIterator end() const
         {
             return { _box, _box->GetToyCount(), _blockMask, _viewAll };
         }

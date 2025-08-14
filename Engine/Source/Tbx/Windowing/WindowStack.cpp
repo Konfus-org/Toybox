@@ -22,7 +22,7 @@ namespace Tbx
         _windows.push_back(window);
     }
 
-    UID WindowStack::Emplace(const std::string& name, const Size& size, const WindowMode& mode)
+    Uid WindowStack::Emplace(const std::string& name, const Size& size, const WindowMode& mode)
     {
         std::shared_ptr<IWindow> window = nullptr;
 
@@ -51,7 +51,7 @@ namespace Tbx
         return id;
     }
 
-    bool WindowStack::Contains(const UID& id) const
+    bool WindowStack::Contains(const Uid& id) const
     {
         auto window = std::find_if(_windows.begin(), _windows.end(), [id](std::shared_ptr<IWindow> window)
         {
@@ -60,7 +60,7 @@ namespace Tbx
         return window != _windows.end();
     }
 
-    std::shared_ptr<IWindow> WindowStack::Get(const UID& id) const
+    std::shared_ptr<IWindow> WindowStack::Get(const Uid& id) const
     {
         auto window = std::find_if(_windows.begin(), _windows.end(), [id](std::shared_ptr<IWindow> window)
         {
@@ -75,7 +75,7 @@ namespace Tbx
         return _windows;
     }
 
-    void WindowStack::Remove(const UID& id)
+    void WindowStack::Remove(const Uid& id)
     {
         if (_windows.empty()) return;
 

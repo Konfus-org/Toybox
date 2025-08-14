@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Type Aliases/Int.h"
+#include "Tbx/TypeAliases/Int.h"
+#include "Tbx/Ids/UsesUID.h"
 #include <any>
 
 namespace Tbx
@@ -52,7 +53,7 @@ namespace Tbx
             : _isFragment(isFragment), _uniformSlot(uniformSlot), _uniformData(uniformData), _uniformSize(uniformSize) {}
 
         EXPORT std::string GetName() const { return _name; }
-        EXPORT const std::any& GetData() const { return _data; }
+        EXPORT const std::any& GetPixels() const { return _data; }
         EXPORT ShaderDataType GetType() const { return _type; }
 
         bool _isFragment;
@@ -66,7 +67,16 @@ namespace Tbx
         ShaderDataType _type = ShaderDataType::None;
     };
 
-    class Shader
+    enum class EXPORT ShaderType
+    {
+        Vertex,
+        Fragment
+    };
+
+    /// <summary>
+    /// An HLSL shader.
+    /// </summary>
+    class Shader : public UsesUid
     {
     public:
         /// <summary>
@@ -75,67 +85,108 @@ namespace Tbx
         EXPORT Shader() = default;
 
         /// <summary>
-        /// Will create a custom shader with the given vertex and fragment source.
+        /// Will create a custom shader with the given source code.
         /// </summary>
-        EXPORT Shader(const std::string_view& vertexSrc, const std::string_view& fragmentSrc)
-            : _vertexSrc(vertexSrc), _fragmentSrc(fragmentSrc) {}
+        EXPORT Shader(const std::string& src, ShaderType type)
+            : _src(src), _type(type) {}
 
-        EXPORT const std::string& GetVertexSource() const { return _vertexSrc; }
-        EXPORT const std::string& GetFragmentSource() const { return _fragmentSrc; }
+        EXPORT const std::string& GetSource() const { return _src; }
+        EXPORT ShaderType GetType() const { return _type; }
 
     private:
-        std::string _vertexSrc = "";
-        std::string _fragmentSrc = "";
+        std::string _src = "";
+        ShaderType _type = ShaderType::Vertex;
     };
 
     namespace Shaders
     {
-        EXPORT inline const Shader& DefaultShader
+        EXPORT inline const Shader& DefaultVertexShader
         {
             R"(
-                #version 330 core
-
-                layout(location = 0) in vec3 inPosition;
-                layout(location = 1) in vec4 inVertColor;
-                layout(location = 2) in vec4 inNormal; // TODO: implement normals!
-                layout(location = 3) in vec2 inTextureCoord;
-
-                uniform mat4 viewProjectionUni;
-                uniform mat4 transformUni;
-                uniform vec4 colorUni;
-
-                out vec4 color;
-                out vec4 vertColor;
-                out vec4 normal;
-                out vec2 textureCoord;
-                
-                void main()
+                // Output
+                struct PSOutput
                 {
-                    color = colorUni;
-                    vertColor = inVertColor;
-                    textureCoord = inTextureCoord;
-                    gl_Position = viewProjectionUni * transformUni * vec4(inPosition, 1.0);
+                    float4 outColor : SV_TARGET;
+                };
+
+                // Inputs
+                struct PSInput
+                {
+                    float4 color : COLOR0;
+                    float4 vertColor : COLOR1;
+                    float3 normal : NORMAL;
+                    float2 textureCoord : TEXCOORD0;
+                };
+
+                // Bindings matching GLSL layout(set=2,binding=0) and (set=3,binding=0)
+                Texture2D textureUniform : register(t0, space2);     // set 2, binding 0
+                SamplerState textureUniformSampler : register(s0, space2);
+
+                cbuffer UniformBlock : register(b0, space3)          // set 3, binding 0
+                {
+                    float time;
+                };
+
+                PSOutput main(PSInput input)
+                {
+                    PSOutput output;
+                    float4 texColor = textureUniform.Sample(textureUniformSampler, input.textureCoord);
+                    output.outColor = texColor;
+                    return output;
                 }
             )",
-        R"(
-                #version 330 core
+            ShaderType::Vertex
+        };
 
-                layout(location = 0) out vec4 outColor;
-
-                in vec4 color;
-                in vec4 vertColor;
-                in vec4 normal; // TODO: implement normals!
-                in vec2 textureCoord;
-
-                uniform sampler2D textureUniform;
-                
-                void main()
+        EXPORT inline const Shader& DefaultFragmentShader 
+        {
+            R"(
+                // Inputs
+                struct VSInput
                 {
-                    vec4 texColor = color;
-                    texColor *= texture(textureUniform, textureCoord);
-                    outColor = texColor;
+                    float3 inPosition    : POSITION;     // location 0
+                    float4 inVertColor   : COLOR0;       // location 1
+                    float3 inNormal      : NORMAL;       // location 2
+                    float2 inTextureCoord: TEXCOORD0;    // location 3
+                };
+
+                // Outputs
+                struct VSOutput
+                {
+                    float4 position      : SV_POSITION;  // gl_Position
+                    float4 color         : COLOR0;       // location 0
+                    float4 vertColor     : COLOR1;       // location 1
+                    float3 normal        : NORMAL;       // location 2
+                    float2 textureCoord  : TEXCOORD0;    // location 3
+                };
+
+                // Uniform buffer at set = 1, binding = 0
+                cbuffer UniformBlock : register(b0, space1)
+                {
+                    float4x4 viewProjectionUni;
+                    // float4x4 transformUni;  // Uncomment and add if needed
+                    // float4 colorUni;        // Uncomment and add if needed
+                };
+
+                VSOutput main(VSInput input)
+                {
+                    VSOutput output;
+
+                    // Position transform
+                    output.position = mul(viewProjectionUni, float4(input.inPosition, 1.0));
+
+                    // Pass through vertex colors
+                    output.color = input.inVertColor;
+
+                    // For matching GLSL outputs (some are commented out)
+                    output.vertColor = input.inVertColor;  // assuming you want to output this too
+                    output.normal = input.inNormal;
+                    output.textureCoord = input.inTextureCoord;
+
+                    return output;
                 }
-            )"
+            )",
+            ShaderType::Fragment
         };
     }
 }

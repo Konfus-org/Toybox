@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Type Aliases/Int.h"
+#include "Tbx/TypeAliases/Int.h"
 #include <string>
 
 namespace Tbx

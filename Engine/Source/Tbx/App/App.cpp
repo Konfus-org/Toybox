@@ -144,12 +144,12 @@ namespace Tbx
         return _windowStack.GetAll();
     }
 
-    std::shared_ptr<IWindow> App::GetWindow(UID id)
+    std::shared_ptr<IWindow> App::GetWindow(Uid id)
     {
         return _windowStack.Get(id);
     }
 
-    UID App::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
+    Uid App::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
         auto newWindowId = _windowStack.Emplace(name, size, mode);
         const auto& openWindows = _windowStack.GetAll();

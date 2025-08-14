@@ -3,7 +3,7 @@
 
 namespace Tbx
 {
-    uint64 UID::GetNextId()
+    uint64 Uid::GetNextId()
     {
         static uint64 _nextId = 0;
 

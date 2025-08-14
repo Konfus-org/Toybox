@@ -1,20 +1,20 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Type Aliases/Int.h"
+#include "Tbx/TypeAliases/Int.h"
 #include <string>
 
 namespace Tbx
 {
-    struct EXPORT UID
+    struct EXPORT Uid
     {
     public:
         /// <summary>
         /// Will generate a new UID
         /// </summary>
-        UID() : Value(GetNextId()) {}
-        explicit(false) UID(uint64 id) : Value(id) {}
-        explicit(false) UID(uint id) : Value(static_cast<uint64>(id)) {}
-        explicit(false) UID(int id) : Value(static_cast<uint64>(id)) {}
+        Uid() : Value(GetNextId()) {}
+        explicit(false) Uid(uint64 id) : Value(id) {}
+        explicit(false) Uid(uint id) : Value(static_cast<uint64>(id)) {}
+        explicit(false) Uid(int id) : Value(static_cast<uint64>(id)) {}
 
         std::string ToString() const { return std::to_string(Value); }
 
@@ -25,5 +25,34 @@ namespace Tbx
         uint64 Value = 0;
     };
 
-    static inline UID INVALID_UID = -1;
+    namespace Invalid
+    {
+        static inline Tbx::Uid Uid = -1;
+    }
+}
+
+// Specialize std::hash for UID
+namespace std
+{
+    template <>
+    struct hash<Tbx::Uid>
+    {
+        std::size_t operator()(const Tbx::Uid& uid) const
+        {
+            return std::hash<Tbx::uint64>{}(uid.Value);
+        }
+    };
+}
+
+// Specialize std::equal_to for UID
+namespace std
+{
+    template <>
+    struct equal_to<Tbx::Uid>
+    {
+        bool operator()(const Tbx::Uid& lhs, const Tbx::Uid& rhs) const
+        {
+            return lhs.Value == rhs.Value;
+        }
+    };
 }

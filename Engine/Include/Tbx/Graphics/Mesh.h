@@ -1,11 +1,12 @@
 #pragma once
 #include "Tbx/Graphics/Vertex.h"
 #include "Tbx/Graphics/Buffers.h"
-#include "Tbx/Type Aliases/Int.h"
+#include "Tbx/Ids/UsesUID.h"
+#include "Tbx/TypeAliases/Int.h"
 
 namespace Tbx
 {
-    struct Mesh
+    struct Mesh : public UsesUid
     {
     public:
         /// <summary>

@@ -12,20 +12,23 @@ namespace Tbx
     /// <summary>
     ///  A material is a shader, shader data (colors, viewmatrix, etc...), and textures.
     /// </summary>
-    class Material : public UsesUID
+    class Material : public UsesUid
     {
     public:
         /// <summary>
         /// Makes a material with the default shader and no textures.
         /// </summary>
         EXPORT Material() = default;
-        EXPORT Material(const Shader& shader, const std::vector<Texture>& textures) 
-            : _shader(shader), _textures(textures) {}
-        EXPORT explicit(false) Material(const Shader& shader) 
-            : _shader(shader) {}
+        EXPORT Material(const Shader& vertShader, const Shader& fragShader, const std::vector<Texture>& textures) 
+            : _vertexShader(vertShader), _fragmentShader(fragShader), _textures(textures) {}
+        EXPORT explicit(false) Material(const Shader& vertShader, const Shader& fragShader)
+            : _vertexShader(vertShader), _fragmentShader(fragShader) {}
 
-        EXPORT const Shader& GetShader() const { return _shader; }
-        EXPORT void SetShader(const Shader& shader) { _shader = shader; }
+        EXPORT const Shader& GetVertexShader() const { return _vertexShader; }
+        EXPORT void SetVertexShader(const Shader& shader) { _vertexShader = shader; }
+
+        EXPORT const Shader& GetFragmentShader() const { return _fragmentShader; }
+        EXPORT void SetFragmentShader(const Shader& shader) { _fragmentShader = shader; }
 
         EXPORT const ShaderData& GetData(const std::string& name) const { return _data.at(name); }
         EXPORT void SetData(const std::string& name, const ShaderData& data) { _data[name] = data; }
@@ -40,7 +43,8 @@ namespace Tbx
         }
 
     private:
-        Shader _shader = Shaders::DefaultShader;
+        Shader _vertexShader = Shaders::DefaultVertexShader;
+        Shader _fragmentShader = Shaders::DefaultFragmentShader;
         std::unordered_map<std::string, ShaderData> _data = {};
         std::vector<Texture> _textures = { Texture() }; // default to one small white texture
     };

@@ -4,7 +4,7 @@
 
 namespace Tbx
 {
-    Box::Box(UID id) : UsesUID(id)
+    Box::Box(Uid id) : UsesUid(id)
     {
         for (uint i = 0; i < MAX_NUMBER_OF_TOYS_IN_A_BOX; i++)
         {
@@ -12,7 +12,7 @@ namespace Tbx
         }
     }
 
-    Toy Box::MakeToy(const std::string& name)
+    ToyHandle Box::MakeToy(const std::string& name)
     {
         TBX_ASSERT(
             GetToyCount() < MAX_NUMBER_OF_TOYS_IN_A_BOX,
@@ -24,37 +24,37 @@ namespace Tbx
         _availableToyIndices.pop();
 
         // Get next available toy and initialize its info
-        auto& toyInfo = _toyPool[nextToy];
-        toyInfo.SetName(name);
-        toyInfo.SetParent(GetId());
-        toyInfo.ClearBlockMask();
-        toyInfo.IncrementVersion();
-        toyInfo.UpdateId(GetToyId(nextToy, toyInfo.GetVersion()));
+        auto& toy = _toyPool[nextToy];
+        toy.SetName(name);
+        toy.SetParent(GetId());
+        toy.ClearBlockMask();
+        toy.IncrementVersion();
+        toy.UpdateId(GetToyId(nextToy, toy.GetVersion()));
 
-        TBX_ASSERT(GetToyVersion(toyInfo.GetId()) == toyInfo.GetVersion(), "Toy version does not match calculation! Version calculation or version incrementation is incorrect!");
-        TBX_ASSERT(GetToyIndex(toyInfo.GetId()) == GetToyCount() - 1, "Toy index does not match calculation! Index calculation or index incrementation is incorrect!");
+        TBX_ASSERT(GetToyVersion(toy.GetId()) == toy.GetVersion(), "Toy version does not match calculation! Version calculation or version incrementation is incorrect!");
+        TBX_ASSERT(GetToyIndex(toy.GetId()) == GetToyCount() - 1, "Toy index does not match calculation! Index calculation or index incrementation is incorrect!");
 
-        return { name, toyInfo.GetId()};
+        return { name, toy.GetId()};
     }
 
-    void Box::DestroyToy(Toy& toy)
+    void Box::DestroyToy(ToyHandle& handle)
     {
-        auto toyIndex = GetToyIndex(toy);
-        auto& toyInfo = _toyPool[toyIndex];
+        auto toyIndex = GetToyIndex(handle);
+        auto& toy = _toyPool[toyIndex];
 
         // ensures you're not accessing an entity that has been deleted
-        if (toyInfo.GetId() != toy)
+        if (toy.GetId() != handle)
         {
             TBX_ASSERT(false, "Toy has already been deleted!");
             return;
         }
 
         // Set invalid
-        toyInfo.UpdateId(GetToyId(-1, toyInfo.GetVersion()));
-        toy = Toy("INVALID", toyInfo.GetId());
+        toy.UpdateId(GetToyId(-1, toy.GetVersion()));
+        handle = ToyHandle("INVALID", toy.GetId());
 
         // Reset mask
-        toyInfo.ClearBlockMask();
+        toy.ClearBlockMask();
 
         // Return toy to pool
         _availableToyIndices.push(toyIndex);

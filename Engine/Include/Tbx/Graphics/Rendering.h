@@ -31,15 +31,15 @@ namespace Tbx
         /// <summary>
         /// Gets the renderer used by a given window.
         /// </summary>
-        EXPORT static std::shared_ptr<IRenderer> GetRenderer(UID window);
+        EXPORT static std::shared_ptr<IRenderer> GetRenderer(Uid window);
 
     private:
         static void OnWindowOpened(const WindowOpenedEvent& e);
         static void OnWindowClosed(const WindowClosedEvent& e);
 
-        static UID _onWindowCreatedEventId;
-        static UID _onWindowClosedEventId;
-        static std::map<UID, std::shared_ptr<IRenderer>> _renderers;
+        static Uid _onWindowCreatedEventId;
+        static Uid _onWindowClosedEventId;
+        static std::map<Uid, std::shared_ptr<IRenderer>> _renderers;
         static std::shared_ptr<IRendererFactoryPlugin> _renderFactory;
     };
 }

@@ -23,13 +23,13 @@ namespace Tbx
         /// Adds a new window to the sack and and opens it.
         /// </summary>
         /// <returns>The id of the newly created and opened window</returns>
-        EXPORT UID Emplace(const std::string& name, const Size& size, const WindowMode& mode);
+        EXPORT Uid Emplace(const std::string& name, const Size& size, const WindowMode& mode);
 
-        EXPORT bool Contains(const UID& id) const;
-        EXPORT std::shared_ptr<IWindow> Get(const UID& id) const;
+        EXPORT bool Contains(const Uid& id) const;
+        EXPORT std::shared_ptr<IWindow> Get(const Uid& id) const;
         EXPORT const std::vector<std::shared_ptr<IWindow>>& GetAll();
 
-        EXPORT void Remove(const UID& id);
+        EXPORT void Remove(const Uid& id);
         EXPORT void Clear();
 
         EXPORT std::vector<std::shared_ptr<IWindow>>::iterator begin() { return _windows.begin(); }

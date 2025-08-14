@@ -15,7 +15,7 @@ public:
 
 private:
     std::shared_ptr<Tbx::Box> _level = nullptr;
-    Tbx::Toy _fpsCam = {};
+    Tbx::ToyHandle _fpsCam = {};
     float _camPitch = 0.0f;
     float _camYaw = 0.0f;
     float _camMoveSpeed = 1.0f;

@@ -4,20 +4,20 @@
 
 namespace Tbx
 {
-    class EXPORT UsesUID
+    class EXPORT UsesUid
     {
     public:
-        UsesUID() = default;
-        explicit UsesUID(const UID& uid) : _id(uid) {}
+        UsesUid() = default;
+        explicit UsesUid(const Uid& uid) : _id(uid) {}
 
-        bool operator==(const UsesUID& other) const { return _id == other._id; }
+        bool operator==(const UsesUid& other) const { return _id == other._id; }
         explicit(false) operator uint64() const { return _id; }
-        explicit(false) operator UID() const { return _id; }
+        explicit(false) operator Uid() const { return _id; }
 
-        const UID& GetId() const { return _id; }
-        void UpdateId(const UID& id) { _id = id; }
+        const Uid& GetId() const { return _id; }
+        void UpdateId(const Uid& id) { _id = id; }
 
     private:
-        UID _id = UID::GetNextId();
+        Uid _id = Uid::GetNextId();
     };
 }

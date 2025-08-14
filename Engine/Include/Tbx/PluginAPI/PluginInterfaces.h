@@ -2,12 +2,14 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Debug/Debugging.h"
 #include "Tbx/Graphics/IRenderer.h"
+#include "Tbx/Graphics/Texture.h"
+#include "Tbx/Graphics/Shader.h"
 #include "Tbx/Windowing/IWindow.h"
 #include "Tbx/Debug/ILogger.h"
 #include "Tbx/Layers/Layer.h"
 #include "Tbx/Math/Vectors.h"
 #include <memory>
-#include <Tbx/Graphics/Texture.h>
+#include <filesystem>
 
 namespace Tbx
 {
@@ -76,11 +78,13 @@ namespace Tbx
 
     class ITextureLoaderPlugin : public IPlugin
     {
-        virtual Texture LoadTexture(const std::string& filename) = 0;
+    public:
+        virtual std::shared_ptr<Texture> LoadTexture(const std::string& filepath) = 0;
     };
 
     class IShaderLoaderPlugin : public IPlugin
     {
-        virtual Shader LoadShader(const std::string& filename) = 0;
+    public:
+        virtual std::shared_ptr<Shader> LoadShader(const std::string& filepath) = 0;
     };
 }

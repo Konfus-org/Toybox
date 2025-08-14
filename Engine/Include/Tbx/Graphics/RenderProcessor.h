@@ -23,7 +23,7 @@ namespace Tbx
         static FrameBuffer Process(const std::vector<std::shared_ptr<Box>>& boxes);
 
     private:
-        static void PreProcessToy(const Toy& toy, const std::shared_ptr<Box>& box, FrameBuffer& buffer);
-        static void ProcessToy(const Toy& toy, const std::shared_ptr<Box>& box, FrameBuffer& buffer);
+        static void PreProcessToy(const ToyHandle& toy, const std::shared_ptr<Box>& box, FrameBuffer& buffer);
+        static void ProcessToy(const ToyHandle& toy, const std::shared_ptr<Box>& box, FrameBuffer& buffer);
     };
 }

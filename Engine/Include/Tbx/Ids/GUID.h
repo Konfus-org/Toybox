@@ -1,26 +1,30 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Type Aliases/Int.h"
+#include "Tbx/TypeAliases/Int.h"
+#include <string>
 #include <random>
 #include <format>
+#include <functional>
+#include <mutex>
+#include <unordered_map>
 
 namespace Tbx
 {
-    class GUID
+    class Guid
     {
     public:
         // Explicitly sets the GUID to a specific value
-        EXPORT explicit(false) GUID(const std::string& uuid) : _value(uuid) {}
+        EXPORT explicit(false) Guid(const std::string& guid) : _value(guid) {}
         // Implicitly sets the GUID to the default value (00000000-0000-0000-0000-000000000000)
-        EXPORT GUID() = default;
+        EXPORT Guid() = default;
 
         EXPORT std::string GetValue() const { return _value; }
         EXPORT explicit(false) operator std::string() const { return GetValue(); }
 
-        EXPORT bool operator==(const GUID& other) const = default;
+        EXPORT bool operator==(const Guid& other) const = default;
 
         // Generates a new GUID of the format 00000000-0000-0000-0000-000000000000
-        EXPORT static GUID Generate()
+        EXPORT static Guid Generate()
         {
             static std::random_device rd;
             static std::mt19937_64 gen(rd());
@@ -45,5 +49,36 @@ namespace Tbx
         
     private:
         std::string _value = "00000000-0000-0000-0000-000000000000";
+    };
+
+    namespace Invalid
+    {
+        static inline Tbx::Guid Guid = Tbx::Guid("00000000-0000-0000-0000-000000000000");
+    }
+}
+
+// Specialize std::hash for GUID
+namespace std
+{
+    template <>
+    struct hash<Tbx::Guid>
+    {
+        std::size_t operator()(const Tbx::Guid& guid) const
+        {
+            return std::hash<std::string>{}(guid.GetValue());
+        }
+    };
+}
+
+// Specialize std::equal_to for GUID
+namespace std
+{
+    template <>
+    struct equal_to<Tbx::Guid>
+    {
+        bool operator()(const Tbx::Guid& lhs, const Tbx::Guid& rhs) const
+        {
+            return lhs.GetValue() == rhs.GetValue();
+        }
     };
 }

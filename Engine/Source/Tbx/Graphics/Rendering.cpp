@@ -14,9 +14,9 @@
 namespace Tbx
 {
     std::shared_ptr<IRendererFactoryPlugin> Rendering::_renderFactory = nullptr;
-    std::map<UID, std::shared_ptr<IRenderer>> Rendering::_renderers = {};
-    UID Rendering::_onWindowCreatedEventId = -1;
-    UID Rendering::_onWindowClosedEventId = -1;
+    std::map<Uid, std::shared_ptr<IRenderer>> Rendering::_renderers = {};
+    Uid Rendering::_onWindowCreatedEventId = Invalid::Uid;
+    Uid Rendering::_onWindowClosedEventId = Invalid::Uid;
 
     void Rendering::Initialize()
     {
@@ -49,11 +49,11 @@ namespace Tbx
         std::string vertexShaderPath = workingDirectory + "/../Examples/Simple App/Assets/vertex.spv";
         std::string fragmentShaderPath = workingDirectory + "/../Examples/Simple App/Assets/fragment.spv";
 
-        Tbx::Texture testTexture(texturePath);
-        Tbx::Shader testShader(vertexShaderPath, fragmentShaderPath);
+        Tbx::Texture testTexture;
+        Tbx::Shader testShader;
         Tbx::Material testMaterial;
 
-        testMaterial.SetShader(testShader);
+        //testMaterial.SetShader(testShader);
         testMaterial.SetTexture(0, testTexture);
 
         Tbx::Vector3 cameraPosition(0, 0, -2.5f);
@@ -126,7 +126,7 @@ namespace Tbx
         }
     }
 
-    std::shared_ptr<IRenderer> Rendering::GetRenderer(UID window)
+    std::shared_ptr<IRenderer> Rendering::GetRenderer(Uid window)
     {
         if (!_renderers.contains(window))
         {

@@ -24,7 +24,7 @@ namespace Tbx
         _boxCount = 0;
     }
 
-    std::shared_ptr<Box> World::GetPlayspace(UID id)
+    std::shared_ptr<Box> World::GetBox(Uid id)
     {
         if (id < _boxCount - 1)
         {
@@ -35,23 +35,23 @@ namespace Tbx
         return _boxes[id];
     }
 
-    std::vector<std::shared_ptr<Box>> World::GetPlayspaces()
+    std::vector<std::shared_ptr<Box>> World::GetBoxes()
     {
         return _boxes;
     }
 
-    uint32 World::GetPlayspaceCount()
+    uint32 World::GetBoxCount()
     {
         return _boxCount;
     }
 
-    void World::RemoveBox(UID id)
+    void World::RemoveBox(Uid id)
     {
         _boxes.erase(_boxes.begin() + id);
         _boxCount--;
     }
 
-    UID World::MakeBox()
+    Uid World::MakeBox()
     {
         auto id = _boxCount;
         _boxes.emplace_back(std::make_shared<Box>(id));

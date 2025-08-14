@@ -12,12 +12,12 @@ namespace Tbx
         EXPORT static void Update();
         EXPORT static void Destroy();
 
-        EXPORT static UID MakeBox();
-        EXPORT static void RemoveBox(UID id);
+        EXPORT static Uid MakeBox();
+        EXPORT static void RemoveBox(Uid id);
 
-        EXPORT static std::shared_ptr<Box> GetPlayspace(UID id);
-        EXPORT static std::vector<std::shared_ptr<Box>> GetPlayspaces();
-        EXPORT static uint32 GetPlayspaceCount();
+        EXPORT static std::shared_ptr<Box> GetBox(Uid id);
+        EXPORT static std::vector<std::shared_ptr<Box>> GetBoxes();
+        EXPORT static uint32 GetBoxCount();
 
     private:
         // TODO: make a pool of boxes
