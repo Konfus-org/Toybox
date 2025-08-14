@@ -50,16 +50,17 @@ namespace Tbx
         EXPORT ShaderData(const std::string& name, const std::any& data, const ShaderDataType& type) 
             : _name(name), _data(data), _type(type) {}
         EXPORT ShaderData(bool isFragment, uint32 uniformSlot, const void* uniformData, uint32 uniformSize) 
-            : _isFragment(isFragment), _uniformSlot(uniformSlot), _uniformData(uniformData), _uniformSize(uniformSize) {}
+            : IsFragment(isFragment), UniformSlot(uniformSlot), UniformData(uniformData), UniformSize(uniformSize) {}
 
         EXPORT std::string GetName() const { return _name; }
         EXPORT const std::any& GetPixels() const { return _data; }
         EXPORT ShaderDataType GetType() const { return _type; }
 
-        bool _isFragment;
-        uint32 _uniformSlot;
-        const void* _uniformData;
-        uint32 _uniformSize;
+        // HACK: Need to figure out how to do this in a better way!
+        bool IsFragment;
+        uint32 UniformSlot;
+        const void* UniformData;
+        uint32 UniformSize;
 
     private:
         std::string _name = "";
@@ -100,7 +101,7 @@ namespace Tbx
 
     namespace Shaders
     {
-        EXPORT inline const Shader& DefaultVertexShader
+        EXPORT inline const Shader& DefaultFragmentShader
         {
             R"(
                 // Output
@@ -135,10 +136,10 @@ namespace Tbx
                     return output;
                 }
             )",
-            ShaderType::Vertex
+            ShaderType::Fragment
         };
 
-        EXPORT inline const Shader& DefaultFragmentShader 
+        EXPORT inline const Shader& DefaultVertexShader
         {
             R"(
                 // Inputs
@@ -186,7 +187,7 @@ namespace Tbx
                     return output;
                 }
             )",
-            ShaderType::Fragment
+            ShaderType::Vertex
         };
     }
 }

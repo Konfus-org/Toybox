@@ -2,6 +2,7 @@
 #include <Tbx/Layers/Layer.h>
 #include <Tbx/TBS/Box.h>
 #include <Tbx/TBS/Toy.h>
+#include <Tbx/Graphics/Material.h>
 
 class ExampleLayer : public Tbx::Layer
 {

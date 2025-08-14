@@ -46,6 +46,10 @@ namespace Tbx
     {
         TBX_ASSERT(_instance == nullptr, "There is an existing instance still running!");
 
+        // Where are we?
+        std::filesystem::path cwd = std::filesystem::current_path();
+        TBX_TRACE_INFO("Current working directory is: {}", cwd.string());
+
         _instance = this;
         _status = AppStatus::Initializing;
 

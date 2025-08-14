@@ -18,12 +18,20 @@ namespace Tbx
     Uid Rendering::_onWindowCreatedEventId = Invalid::Uid;
     Uid Rendering::_onWindowClosedEventId = Invalid::Uid;
 
+
+    Tbx::Texture _testTexture = {};
+    Tbx::Shader _testShader = {};
+    Tbx::Material _testMaterial = {};
+
     void Rendering::Initialize()
     {
         _onWindowCreatedEventId = EventCoordinator::Subscribe<WindowOpenedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowOpened));
         _onWindowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowClosed));
 
         _renderFactory = PluginServer::GetPlugin<IRendererFactoryPlugin>();
+
+        //testMaterial.SetShader(testShader);
+        _testMaterial.SetTexture(0, _testTexture);
     }
 
     void Rendering::Shutdown()
@@ -38,23 +46,6 @@ namespace Tbx
     {
         // TODO: This is testing code!!! Need actual implementation
         FrameBuffer buffer;
-
-        // HACK: Where to get this from?
-        char currentDirectory[MAX_PATH];
-        DWORD result = GetCurrentDirectoryA(MAX_PATH, currentDirectory);
-        TBX_ASSERT(result != 0, "Failed in GetCurrentDirectoryA");
-        std::string workingDirectory(currentDirectory);
-
-        std::string texturePath = workingDirectory + "/../Examples/Simple App/Assets/Checkerboard.bmp";
-        std::string vertexShaderPath = workingDirectory + "/../Examples/Simple App/Assets/vertex.spv";
-        std::string fragmentShaderPath = workingDirectory + "/../Examples/Simple App/Assets/fragment.spv";
-
-        Tbx::Texture testTexture;
-        Tbx::Shader testShader;
-        Tbx::Material testMaterial;
-
-        //testMaterial.SetShader(testShader);
-        testMaterial.SetTexture(0, testTexture);
 
         Tbx::Vector3 cameraPosition(0, 0, -2.5f);
         Tbx::Quaternion cameraRotation = Tbx::Quaternion::FromEuler(0, 0, 0);
@@ -80,8 +71,8 @@ namespace Tbx
         {
             auto testMesh = Primitives::Quad;
 
-            buffer.Add({ DrawCommandType::CompileMaterial, testMaterial });
-            buffer.Add({ DrawCommandType::SetMaterial, testMaterial });
+            buffer.Add({ DrawCommandType::CompileMaterial, _testMaterial });
+            buffer.Add({ DrawCommandType::SetMaterial, _testMaterial });
 
             Tbx::Mat4x4 worldMatrix = Tbx::Mat4x4::FromPosition(Tbx::Vector3(-0.5f, -0.5f, 0.0f));
             Tbx::Mat4x4 worldViewProjectionMatrix = worldMatrix * viewProjectionMatrix;
@@ -103,8 +94,8 @@ namespace Tbx
         {
             auto testMesh = Primitives::Triangle;
 
-            buffer.Add({ DrawCommandType::CompileMaterial, testMaterial });
-            buffer.Add({ DrawCommandType::SetMaterial, testMaterial });
+            buffer.Add({ DrawCommandType::CompileMaterial, _testMaterial });
+            buffer.Add({ DrawCommandType::SetMaterial, _testMaterial });
 
             Tbx::Mat4x4 worldMatrix = Tbx::Mat4x4::FromPosition(Tbx::Vector3(0.5f, 0.5f, 0.0f));
             Tbx::Mat4x4 worldViewProjectionMatrix = worldMatrix * viewProjectionMatrix;

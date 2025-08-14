@@ -26,6 +26,18 @@ namespace Tbx
             return static_cast<T*>(data);
         }
 
+        template<typename T>
+        EXPORT void Set(uint64 index, const T& value) const
+        {
+            if (index >= _poolSize)
+            {
+                TBX_ASSERT(false, "Index out of bounds!");
+                return;
+            }
+            void* data = _data.get() + index * _elementSize;
+            memcpy(data, &value, _elementSize);
+        }
+
     private:
         std::shared_ptr<char[]> _data = nullptr;
         uint64 _elementSize = 0;

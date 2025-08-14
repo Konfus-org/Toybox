@@ -2,6 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Ids/UsesUID.h"
 #include "Tbx/Math/Size.h"
+#include "Tbx/Debug/Debugging.h"
 #include <string>
 #include <array>
 
@@ -54,7 +55,19 @@ namespace Tbx
         EXPORT TextureFilter GetFilter() const { return _filter; }
         EXPORT TextureFormat GetFormat() const { return _format; }
 
-        EXPORT int GetChannels() const { return _format == TextureFormat::RGB ? 3 : 4; }
+        EXPORT int GetChannels() const
+        {
+            switch (_format)
+            {
+                case Tbx::TextureFormat::RGB:
+                    return 3;
+                case Tbx::TextureFormat::RGBA:
+                    return 4;
+                default:
+                    TBX_ASSERT(false, "Texture format not supported!");
+                    return 0;
+            }
+        }
 
     private:
         uint _width = 1;
@@ -64,6 +77,6 @@ namespace Tbx
         TextureFilter _filter = TextureFilter::Nearest;
         TextureFormat _format = TextureFormat::RGB;
 
-        std::vector<Pixel> _pixels = { 255 };
+        std::vector<Pixel> _pixels = { 255, 255, 255 };
     };
 }

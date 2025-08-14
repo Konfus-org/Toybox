@@ -105,7 +105,7 @@ namespace Tbx
         }
 
         /// <summary>
-        /// Adds a block to a toy.
+        /// Adds a copy of a block to a toy.
         /// </summary>
         template<typename T>
         EXPORT T& AddBlockTo(const ToyHandle& handle, T& block)
@@ -132,8 +132,8 @@ namespace Tbx
             // Add to mask
             toy.SetBlockMask(blockIndex, true);
 
-            // Looks up the component in the pool, and initializes it with placement new
-            *_blockPools[blockIndex]->Get<T>(toyIndex) = block;
+            // Looks up the component in the pool
+            _blockPools[blockIndex]->Set<T>(toyIndex, block);
 
             TBX_ASSERT(HasBlockOn<T>(handle), "Block didn't get added correctly!");
 
