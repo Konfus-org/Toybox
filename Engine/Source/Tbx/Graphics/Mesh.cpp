@@ -136,10 +136,10 @@ namespace Tbx
 
         const BufferLayout& bufferLayout =
         {
-            { ShaderDataType::Float3, "position" },
-            { ShaderDataType::Float4, "vertColor" },
-            { ShaderDataType::Float3, "normal" },
-            { ShaderDataType::Float2, "textureCoord" },
+            { ShaderUniformType::Float3, "position" },
+            { ShaderUniformType::Float4, "vertColor" },
+            { ShaderUniformType::Float3, "normal" },
+            { ShaderUniformType::Float2, "textureCoord" },
         };
 
         return VertexBuffer(meshPoints, bufferLayout);

@@ -6,7 +6,7 @@
 
 namespace Tbx
 {
-    enum class EXPORT ShaderDataType
+    enum class EXPORT ShaderUniformType
     {
         None = 0,
         Float,
@@ -22,9 +22,9 @@ namespace Tbx
         Bool
     };
 
-    static uint32 GetShaderDataTypeSize(ShaderDataType type)
+    static uint32 GetShaderDataTypeSize(ShaderUniformType type)
     {
-        using enum ShaderDataType;
+        using enum ShaderUniformType;
         switch (type)
         {
             case Float:  return 4;
@@ -47,14 +47,14 @@ namespace Tbx
     {
     public:
         EXPORT ShaderData() = default;
-        EXPORT ShaderData(const std::string& name, const std::any& data, const ShaderDataType& type) 
+        EXPORT ShaderData(const std::string& name, const std::any& data, const ShaderUniformType& type) 
             : _name(name), _data(data), _type(type) {}
         EXPORT ShaderData(bool isFragment, uint32 uniformSlot, const void* uniformData, uint32 uniformSize) 
             : IsFragment(isFragment), UniformSlot(uniformSlot), UniformData(uniformData), UniformSize(uniformSize) {}
 
         EXPORT std::string GetName() const { return _name; }
         EXPORT const std::any& GetPixels() const { return _data; }
-        EXPORT ShaderDataType GetType() const { return _type; }
+        EXPORT ShaderUniformType GetType() const { return _type; }
 
         // HACK: Need to figure out how to do this in a better way!
         bool IsFragment;
@@ -65,7 +65,7 @@ namespace Tbx
     private:
         std::string _name = "";
         std::any _data = nullptr;
-        ShaderDataType _type = ShaderDataType::None;
+        ShaderUniformType _type = ShaderUniformType::None;
     };
 
     enum class EXPORT ShaderType

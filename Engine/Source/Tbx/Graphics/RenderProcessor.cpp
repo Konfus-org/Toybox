@@ -91,7 +91,7 @@ namespace Tbx
             const auto transformData = ShaderData(
                 "transformUni",
                 Mat4x4::FromTRS(transform.Position, transform.Rotation, transform.Scale),
-                ShaderDataType::Mat4);
+                ShaderUniformType::Mat4);
             buffer.Emplace(DrawCommandType::UploadMaterialData, transformData);
         }
         
@@ -112,7 +112,7 @@ namespace Tbx
                 const auto& cameraTransform = box->GetBlockOn<Transform>(toy);
                 const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(
                     cameraTransform.Position, cameraTransform.Rotation, camera.GetProjectionMatrix());
-                const auto shaderData = ShaderData("viewProjectionUni", viewProjMatrix, ShaderDataType::Mat4);
+                const auto shaderData = ShaderData("viewProjectionUni", viewProjMatrix, ShaderUniformType::Mat4);
                 buffer.Emplace(DrawCommandType::UploadMaterialData, shaderData);
             }
             else
@@ -120,7 +120,7 @@ namespace Tbx
                 // No transform block, use default camera position and rotation
                 const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(
                     Constants::Vector3::Zero, Constants::Quaternion::Identity, camera.GetProjectionMatrix());
-                const auto shaderData = ShaderData("viewProjectionUni", viewProjMatrix, ShaderDataType::Mat4);
+                const auto shaderData = ShaderData("viewProjectionUni", viewProjMatrix, ShaderUniformType::Mat4);
                 buffer.Emplace(DrawCommandType::UploadMaterialData, shaderData);
             }
         }
