@@ -2,14 +2,11 @@
 #include "Tbx/App/App.h"
 #include "Tbx/Graphics/Rendering.h"
 #include "Tbx/Graphics/IRenderer.h"
-#include "Tbx/Graphics/Mesh.h"
 #include "Tbx/Graphics/RenderProcessor.h"
-#include "Tbx/Graphics/Material.h"
 #include "Tbx/Events/EventCoordinator.h"
 #include "Tbx/Events/RenderEvents.h"
 #include "Tbx/TBS/World.h"
 #include "Tbx/PluginAPI/PluginServer.h"
-#include <iostream>
 
 namespace Tbx
 {
@@ -18,20 +15,12 @@ namespace Tbx
     Uid Rendering::_onWindowCreatedEventId = Invalid::Uid;
     Uid Rendering::_onWindowClosedEventId = Invalid::Uid;
 
-
-    Tbx::Texture _testTexture = {};
-    Tbx::Shader _testShader = {};
-    Tbx::Material _testMaterial = {};
-
     void Rendering::Initialize()
     {
         _onWindowCreatedEventId = EventCoordinator::Subscribe<WindowOpenedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowOpened));
         _onWindowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowClosed));
 
         _renderFactory = PluginServer::GetPlugin<IRendererFactoryPlugin>();
-
-        //testMaterial.SetShader(testShader);
-        _testMaterial.SetTexture(0, _testTexture);
     }
 
     void Rendering::Shutdown()
@@ -44,66 +33,20 @@ namespace Tbx
 
     void Rendering::DrawFrame()
     {
-        // TODO: This is testing code!!! Need actual implementation
+        // Gather all boxes from the current world
+        const auto boxes = World::GetBoxes();
+
+        // Preprocess and process the world using the render processor
         FrameBuffer buffer;
-
-        Tbx::Vector3 cameraPosition(0, 0, -2.5f);
-        Tbx::Quaternion cameraRotation = Tbx::Quaternion::FromEuler(0, 0, 0);
-        Tbx::Camera camera;
-        float fov = 90;
-        float aspect = 1;//_viewport.Size.GetAspectRatio();
-        float zNear = 0.01f;
-        float zFar = 500.0f;
-        camera.SetPerspective(fov, aspect, zNear, zFar);
-        Tbx::Mat4x4 viewProjectionMatrix = camera.CalculateViewProjectionMatrix(cameraPosition, cameraRotation, camera.GetProjectionMatrix());
-
-        struct VertexUniformBlock
+        const auto preBuffer = RenderProcessor::PreProcess(boxes);
+        for (const auto& cmd : preBuffer.GetCommands())
         {
-            Tbx::Mat4x4 viewProjectionMatrix;
-        };
-
-        struct FragmentUniformBlock
-        {
-            float time;
-        };
-
-        // render quad mesh
-        {
-            auto testMesh = Primitives::Quad;
-
-            buffer.Add({ DrawCommandType::CompileMaterial, _testMaterial });
-            buffer.Add({ DrawCommandType::SetMaterial, _testMaterial });
-
-            Tbx::Mat4x4 worldMatrix = Tbx::Mat4x4::FromPosition(Tbx::Vector3(-0.5f, -0.5f, 0.0f));
-            Tbx::Mat4x4 worldViewProjectionMatrix = worldMatrix * viewProjectionMatrix;
-            static VertexUniformBlock vertexUniformBlock = {};
-            vertexUniformBlock.viewProjectionMatrix = worldViewProjectionMatrix;
-            ShaderData vertexShaderData(false, 0, &vertexUniformBlock, sizeof(VertexUniformBlock));
-            buffer.Add({ DrawCommandType::UploadMaterialData, vertexShaderData });
-
-            // this isn't being used at the moment...it's just here to show how we would set a fragment uniform block
-            static FragmentUniformBlock fragmentUniformBlock = {};
-            fragmentUniformBlock.time = 0;
-            ShaderData fragmentShaderData(true, 0, &fragmentUniformBlock, sizeof(FragmentUniformBlock));
-            buffer.Add({ DrawCommandType::UploadMaterialData, fragmentShaderData });
-
-            buffer.Add({ DrawCommandType::DrawMesh, testMesh });
+            buffer.Add(cmd);
         }
-
-        // render triangle mesh
+        const auto processed = RenderProcessor::Process(boxes);
+        for (const auto& cmd : processed.GetCommands())
         {
-            auto testMesh = Primitives::Triangle;
-
-            buffer.Add({ DrawCommandType::CompileMaterial, _testMaterial });
-            buffer.Add({ DrawCommandType::SetMaterial, _testMaterial });
-
-            Tbx::Mat4x4 worldMatrix = Tbx::Mat4x4::FromPosition(Tbx::Vector3(0.5f, 0.5f, 0.0f));
-            Tbx::Mat4x4 worldViewProjectionMatrix = worldMatrix * viewProjectionMatrix;
-            static VertexUniformBlock vertexUniformBlock = {};
-            vertexUniformBlock.viewProjectionMatrix = worldViewProjectionMatrix;
-            ShaderData vertexShaderData(false, 0, &vertexUniformBlock, sizeof(VertexUniformBlock));
-            buffer.Add({ DrawCommandType::UploadMaterialData, vertexShaderData });
-            buffer.Add({ DrawCommandType::DrawMesh, testMesh });
+            buffer.Add(cmd);
         }
 
         auto windows = App::GetInstance()->GetWindows();
