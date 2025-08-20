@@ -46,3 +46,6 @@
 [submodule "Plugins/Toybox-JIM-AssetLoader-Plugin"]
 	path = Plugins/Toybox-JIM-AssetLoader-Plugin
 	url = https://github.com/Konfus-org/Toybox-JIM-AssetLoader-Plugin.git
+[submodule "Plugins/Toybox-OpenGL-Rendering-Plugin"]
+	path = Plugins/Toybox-OpenGL-Rendering-Plugin
+	url = https://github.com/Konfus-org/Toybox-OpenGL-Rendering-Plugin.git
