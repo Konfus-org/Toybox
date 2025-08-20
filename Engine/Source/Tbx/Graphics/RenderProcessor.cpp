@@ -14,12 +14,12 @@ namespace Tbx
     {
         FrameBuffer buffer = {};
 
-        for (const auto& playspace : boxes)
+        for (const auto& box : boxes)
         {
             // We only need to pre-process materials to upload them to the GPU
-            for (const auto& toy : BoxView<Material>(playspace))
+            for (const auto& toy : BoxView<Material>(box))
             {
-                PreProcessToy(toy, playspace, buffer);
+                PreProcessToy(toy, box, buffer);
             }
         }
 
@@ -28,12 +28,23 @@ namespace Tbx
 
     FrameBuffer RenderProcessor::Process(const std::vector<std::shared_ptr<Box>>& boxes)
     {
+        // First we need to nab all the cameras and get their view projection matrices
         FrameBuffer buffer = {};
-        for (const auto& playspace : boxes)
+        for (const auto& box : boxes)
         {
-            for (const auto& toy : BoxView(playspace))
+            for (const auto& toy : BoxView<Camera>(box))
             {
-                ProcessToy(toy, playspace, buffer);
+                ProcessToy(toy, box, buffer);
+            }
+        }
+
+
+        FrameBuffer buffer = {};
+        for (const auto& box : boxes)
+        {
+            for (const auto& toy : BoxView(box))
+            {
+                ProcessToy(toy, box, buffer);
             }
         }
 
@@ -87,11 +98,15 @@ namespace Tbx
         // Transform block, upload the transform data
         if (box->HasBlockOn<Transform>(toy))
         {
+            struct VertexUniformBlock
+            {
+                Tbx::Mat4x4 viewProjectionMatrix;
+            };
             const auto& transform = box->GetBlockOn<Transform>(toy);
             const auto transformData = ShaderData(
-                "transformUni",
+                "transform",
                 Mat4x4::FromTRS(transform.Position, transform.Rotation, transform.Scale),
-                ShaderUniformType::Mat4);
+                ShaderUniformDataType::Mat4);
             buffer.Emplace(DrawCommandType::UploadMaterialData, transformData);
         }
         
@@ -112,7 +127,7 @@ namespace Tbx
                 const auto& cameraTransform = box->GetBlockOn<Transform>(toy);
                 const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(
                     cameraTransform.Position, cameraTransform.Rotation, camera.GetProjectionMatrix());
-                const auto shaderData = ShaderData("viewProjectionUni", viewProjMatrix, ShaderUniformType::Mat4);
+                const auto shaderData = ShaderData("viewProjection", viewProjMatrix, ShaderUniformDataType::Mat4);
                 buffer.Emplace(DrawCommandType::UploadMaterialData, shaderData);
             }
             else
@@ -120,7 +135,7 @@ namespace Tbx
                 // No transform block, use default camera position and rotation
                 const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(
                     Constants::Vector3::Zero, Constants::Quaternion::Identity, camera.GetProjectionMatrix());
-                const auto shaderData = ShaderData("viewProjectionUni", viewProjMatrix, ShaderUniformType::Mat4);
+                const auto shaderData = ShaderData("viewProjection", viewProjMatrix, ShaderUniformDataType::Mat4);
                 buffer.Emplace(DrawCommandType::UploadMaterialData, shaderData);
             }
         }

@@ -11,19 +11,19 @@ namespace Tbx
     {
     public:
         EXPORT BufferElement() = default;
-        EXPORT BufferElement(ShaderUniformType type, const std::string& name, bool normalized = false)
+        EXPORT BufferElement(ShaderUniformDataType type, const std::string& name, bool normalized = false)
             : _name(name), _size(GetShaderDataTypeSize(type)), _type(type), _normalized(normalized) {}
-        EXPORT BufferElement(ShaderUniformType type, const std::string& name, uint32 offset, bool normalized = false)
+        EXPORT BufferElement(ShaderUniformDataType type, const std::string& name, uint32 offset, bool normalized = false)
             : _name(name), _size(GetShaderDataTypeSize(type)), _offset(offset), _type(type), _normalized(normalized) {}
 
         EXPORT bool IsNormalized() const { return _normalized; }
         EXPORT std::string GetName() const { return _name; }
         EXPORT uint32 GetSize() const { return _size; }
-        EXPORT ShaderUniformType GetType() const { return _type; }
+        EXPORT ShaderUniformDataType GetType() const { return _type; }
 
         EXPORT uint32 GetCount() const 
         {
-            using enum ShaderUniformType;
+            using enum ShaderUniformDataType;
             switch (_type)
             {
                 case None:   return 0;
@@ -50,7 +50,7 @@ namespace Tbx
         std::string _name = "";
         uint32 _size = 0;
         uint32 _offset = 0;
-        ShaderUniformType _type = ShaderUniformType::None;
+        ShaderUniformDataType _type = ShaderUniformDataType::None;
         bool _normalized = false;
     };
 

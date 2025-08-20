@@ -88,6 +88,6 @@ namespace Tbx
         /// <summary>
         /// Draws a frame.
         /// </summary>
-        virtual void Draw(const FrameBuffer& buffer) = 0;
+        virtual void Process(const FrameBuffer& buffer) = 0;
     };
 }

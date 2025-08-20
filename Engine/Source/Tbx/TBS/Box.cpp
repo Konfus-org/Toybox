@@ -67,6 +67,7 @@ namespace Tbx
 
     void Box::Open() const
     {
-        // TODO: Implement
+        auto event = OpenedBoxEvent(GetId());
+        EventCoordinator::Send(event);
     }
 }

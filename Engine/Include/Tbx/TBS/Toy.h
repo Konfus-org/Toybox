@@ -83,8 +83,8 @@ namespace Tbx
     template <class T>
     EXPORT uint32 GetBlockTypeIndex()
     {
-        uint _blockIndex = BlockTypeIndexProvider::Provide<T>();
-        return _blockIndex;
+        uint blockIndex = BlockTypeIndexProvider::Provide<T>();
+        return blockIndex;
     }
 
     /// <summary>

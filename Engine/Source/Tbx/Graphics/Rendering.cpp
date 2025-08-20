@@ -12,21 +12,24 @@ namespace Tbx
 {
     std::shared_ptr<IRendererFactoryPlugin> Rendering::_renderFactory = nullptr;
     std::map<Uid, std::shared_ptr<IRenderer>> Rendering::_renderers = {};
-    Uid Rendering::_onWindowCreatedEventId = Invalid::Uid;
-    Uid Rendering::_onWindowClosedEventId = Invalid::Uid;
+    Uid Rendering::_windowCreatedEventId = Invalid::Uid;
+    Uid Rendering::_windowClosedEventId = Invalid::Uid;
+    Uid Rendering::_boxOpenedEventId = Invalid::Uid;
 
     void Rendering::Initialize()
     {
-        _onWindowCreatedEventId = EventCoordinator::Subscribe<WindowOpenedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowOpened));
-        _onWindowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowClosed));
+        _windowCreatedEventId = EventCoordinator::Subscribe<WindowOpenedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowOpened));
+        _windowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowClosed));
+        _boxOpenedEventId = EventCoordinator::Subscribe<OpenedBoxEvent>(TBX_BIND_STATIC_FN(Rendering::OnBoxOpened));
 
         _renderFactory = PluginServer::GetPlugin<IRendererFactoryPlugin>();
     }
 
     void Rendering::Shutdown()
     {
-        EventCoordinator::Unsubscribe<WindowOpenedEvent>(_onWindowCreatedEventId);
-        EventCoordinator::Unsubscribe<WindowClosedEvent>(_onWindowClosedEventId);
+        EventCoordinator::Unsubscribe<WindowOpenedEvent>(_windowCreatedEventId);
+        EventCoordinator::Unsubscribe<WindowClosedEvent>(_windowClosedEventId);
+        EventCoordinator::Unsubscribe<WindowClosedEvent>(_boxOpenedEventId);
 
         _renderFactory = nullptr;
     }
@@ -36,19 +39,10 @@ namespace Tbx
         // Gather all boxes from the current world
         const auto boxes = World::GetBoxes();
 
-        // Preprocess and process the world using the render processor
-        FrameBuffer buffer;
-        const auto preBuffer = RenderProcessor::PreProcess(boxes);
-        for (const auto& cmd : preBuffer.GetCommands())
-        {
-            buffer.Add(cmd);
-        }
-        const auto processed = RenderProcessor::Process(boxes);
-        for (const auto& cmd : processed.GetCommands())
-        {
-            buffer.Add(cmd);
-        }
+        // Process the world using the render processor
+        const auto buffer = RenderProcessor::Process(boxes);
 
+        // Send buffer to renderers for each window
         auto windows = App::GetInstance()->GetWindows();
         for (const auto& window : windows)
         {
@@ -56,7 +50,7 @@ namespace Tbx
             if (!_renderers.contains(winId)) continue;
 
             _renderers[winId]->Flush();
-            _renderers[winId]->Draw(buffer);
+            _renderers[winId]->Process(buffer);
         }
     }
 
@@ -92,18 +86,23 @@ namespace Tbx
         }
     }
 
-    //void Rendering::OnOpenPlayspacesRequest(OpenPlayspacesRequest& r)
-    //{
-    //    auto playspaceToOpen = std::vector<std::shared_ptr<Playspace>>();
-    //    for (const auto& playspaceId : r.GetBoxesToOpen())
-    //    {
-    //        playspaceToOpen.push_back(World::GetPlayspace(playspaceId));
-    //    }
+    void Rendering::OnBoxOpened(const OpenedBoxEvent& e)
+    {
+        // Gather all boxes from the current world
+        const auto box = World::GetBox(e.GetOpenedBox());
 
-    //    auto buffer = RenderProcessor::PreProcess(playspaceToOpen);
-    //    // TODO: implement
-    //    //TBX_ASSERT(request.IsHandled, "Render frame request was not handled. Is a renderer created and listening?");
+        // Pre-process the opened box using the render processor
+        const auto buffer = RenderProcessor::PreProcess({box});
 
-    //    r.IsHandled = true;
-    //}
+        // Send buffer to renderers for each window
+        auto windows = App::GetInstance()->GetWindows();
+        for (const auto& window : windows)
+        {
+            auto winId = window->GetId();
+            if (!_renderers.contains(winId)) continue;
+
+            _renderers[winId]->Flush();
+            _renderers[winId]->Process(buffer);
+        }
+    }
 }

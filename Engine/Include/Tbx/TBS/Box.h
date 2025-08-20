@@ -275,10 +275,10 @@ namespace Tbx
             else
             {
                 // Unpack the template parameters into an initializer list
-                std::vector<uint32> blockIndices = { 0, GetBlockTypeIndex<BlockTypes>() ...};
-                for (int index = 1; index < blockSize; index++)
+                std::vector<uint32> blockIndices = { GetBlockTypeIndex<BlockTypes>()...};
+                for (auto index : blockIndices)
                 {
-                    _blockMask.set(blockIndices[index]);
+                    _blockMask.set(index);
                 }
             }
         }
@@ -286,9 +286,9 @@ namespace Tbx
         EXPORT BoxIterator begin() const
         {
             uint32 firstIndex = 0;
-            while (firstIndex < _box->GetToyCount())
+            while (!_viewAll && firstIndex < _box->GetToyCount())
             {
-                auto toy = _box->GetToy(firstIndex);
+                const auto& toy = _box->GetToy(firstIndex);
                 auto isMatchingBlockMask = (_blockMask & toy.GetBlockMask()) != 0;
                 auto isToyValid = IsToyValid(toy.GetId());
                 if (isToyValid && isMatchingBlockMask)
