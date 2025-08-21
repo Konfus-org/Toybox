@@ -7,14 +7,21 @@ namespace Tbx
 {
     using NativeHandle = size_t;
     using NativeWindow = void*;
+    using ProcAddress = void*;
 
     class EXPORT IRenderSurface
     {
     public:
         virtual ~IRenderSurface() = default;
 
+        virtual void SwapBuffers() = 0;
+
         virtual NativeHandle GetNativeHandle() const = 0;
         virtual NativeWindow GetNativeWindow() const = 0;
+        virtual ProcAddress GetProcAddress() const = 0;
+
+        virtual int GetSwapInterval() const = 0;
+        virtual void SetSwapInterval(int interval) = 0;
 
         virtual const Size& GetSize() const = 0;
         virtual void SetSize(const Size& size) = 0;

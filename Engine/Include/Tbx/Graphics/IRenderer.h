@@ -14,8 +14,6 @@ namespace Tbx
         Size Size;
     };
 
-    using GraphicsDevice = void*;
-
     class EXPORT IRenderer
     {
     public:
@@ -27,9 +25,19 @@ namespace Tbx
         virtual void Initialize(const std::shared_ptr<IRenderSurface>& surface) = 0;
 
         /// <summary>
-        /// Gets the graphics device the renderer is using.
+        /// Draws a frame.
         /// </summary>
-        virtual GraphicsDevice GetGraphicsDevice() = 0;
+        virtual void Process(const FrameBuffer& buffer) = 0;
+
+        /// <summary>
+        /// Clears screen and flushes data passed to the GPU.
+        /// </summary>
+        virtual void Flush() = 0;
+
+        /// <summary>
+        /// Clears the screen with the given color.
+        /// </summary>
+        virtual void Clear(const Color& color = Colors::DarkGrey) = 0;
 
         /// <summary>
         /// Sets the api the renderer will use.
@@ -51,7 +59,7 @@ namespace Tbx
         /// Gets the viewport the renderer is using.
         /// The viewport is the area of the screen where the renderer will draw.
         /// </summary>
-        virtual const Viewport& GetViewport() = 0;
+        virtual Viewport GetViewport() = 0;
 
         /// <summary>
         /// Sets the resolution for the renderer, this is seperate from the viewport size.
@@ -61,7 +69,7 @@ namespace Tbx
         /// <summary>
         /// Gets the resolution used by the renderer, this is seperate from the viewport size.
         /// </summary>
-        virtual const Size& GetResolution() = 0;
+        virtual Size GetResolution() = 0;
 
         /// <summary>
         /// Sets the VSync for the renderer.
@@ -74,20 +82,5 @@ namespace Tbx
         /// Vsync is used to synchronize the frame rate of the renderer with the refresh rate of the monitor.
         /// </summary>
         virtual bool GetVSyncEnabled() = 0;
-
-        /// <summary>
-        /// Clears screen and flushes data passed to the GPU.
-        /// </summary>
-        virtual void Flush() = 0;
-
-        /// <summary>
-        /// Clears the screen with the given color.
-        /// </summary>
-        virtual void Clear(const Color& color = Colors::DarkGrey) = 0;
-
-        /// <summary>
-        /// Draws a frame.
-        /// </summary>
-        virtual void Process(const FrameBuffer& buffer) = 0;
     };
 }

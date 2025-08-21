@@ -45,9 +45,9 @@ namespace Tbx
 
     struct ShaderUniform 
     {
-        const std::string Name;
-        const std::any Data;
-        const ShaderUniformDataType DataType;
+        std::string Name = "";
+        std::any Data = nullptr;
+        ShaderUniformDataType DataType = ShaderUniformDataType::None;
     };
 
     /// <summary>
@@ -73,7 +73,7 @@ namespace Tbx
     /// <summary>
     /// An GLSL shader.
     /// </summary>
-    class Shader : public UsesUid
+    struct Shader
     {
     public:
         /// <summary>
@@ -95,12 +95,14 @@ namespace Tbx
         ShaderType _type = ShaderType::Vertex;
     };
 
-    /// <summary>
-    /// The default Tbx vertex shader in GLSL.
-    /// </summary>
-    EXPORT inline const Shader& DefaultFragmentShader
+    namespace Shaders
     {
-        R"(
+        /// <summary>
+        /// The default Tbx vertex shader in GLSL.
+        /// </summary>
+        EXPORT inline const Shader DefaultFragmentShader
+        {
+            R"(
             #version 330 core
 
             layout(location = 0) out vec4 OutColor;
@@ -118,16 +120,16 @@ namespace Tbx
                 textureColor *= texture(TextureUniform, InTextureCoord);
                 OutColor = textureColor;
             }
-        )",
-        ShaderType::Fragment
-    };
+            )",
+            ShaderType::Fragment
+        };
 
-    /// <summary>
-    /// The default Tbx fragment shader in GLSL.
-    /// </summary>
-    EXPORT inline const Shader& DefaultVertexShader
-    {
-        R"(
+        /// <summary>
+        /// The default Tbx fragment shader in GLSL.
+        /// </summary>
+        EXPORT inline const Shader DefaultVertexShader
+        {
+            R"(
             #version 330 core
 
             layout(location = 0) in vec3 InPosition;
@@ -151,7 +153,8 @@ namespace Tbx
                 TextureCoord = InTextureCoord;
                 gl_Position = ViewProjectionUniform * TransformUniform * vec4(InPosition, 1.0);
             }
-        )",
-        ShaderType::Vertex
-    };
+            )",
+            ShaderType::Vertex
+        };
+    }
 }

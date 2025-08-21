@@ -4,7 +4,7 @@
 #include "Tbx/Math/Size.h"
 #include "Tbx/Debug/Debugging.h"
 #include <string>
-#include <array>
+#include <vector>
 
 namespace Tbx
 {
@@ -32,7 +32,7 @@ namespace Tbx
     /// <summary>
     /// A texture in RGBA format
     /// </summary>
-    struct Texture : public UsesUid
+    struct Texture
     {
     public:
         /// <summary>

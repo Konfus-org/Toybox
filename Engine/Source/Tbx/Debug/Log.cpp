@@ -44,7 +44,7 @@ namespace Tbx
         _isOpen = false;
     }
 
-    std::string Log::GetFilePath()
+    std::string Log::GetFolderPath()
     {
         return _logFilePath;
     }

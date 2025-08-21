@@ -12,6 +12,8 @@
 #include <Tbx/Time/DeltaTime.h>
 #include <algorithm>
 
+//Tbx::Material _checkerMat;
+
 void ExampleLayer::OnAttach()
 {
     TBX_TRACE("Test scene attached!");
@@ -26,13 +28,10 @@ void ExampleLayer::OnAttach()
     _level = Tbx::World::GetBox(boxId);
 
     // Setup checker material
-    auto checkerMat = Tbx::Material();
-    auto vertShader = vertexShaderAsset.GetData();
-    auto fragShader = fragmentShaderAsset.GetData();
-    auto checkerText = checkerboardTexAsset.GetData();
-    checkerMat.SetFragmentShader(*fragShader);
-    checkerMat.SetVertexShader(*vertShader);
-    checkerMat.SetTexture(0, Tbx::Texture());
+    auto vertShader = *vertexShaderAsset.GetData();
+    auto fragShader = *fragmentShaderAsset.GetData();
+    auto checkerText = *checkerboardTexAsset.GetData();
+    auto checkerMat = Tbx::Material({vertShader, fragShader}, {checkerText});
 
     // Create checkboards
     Tbx::ToyHandle checkerBoardBottom = _level->MakeToy("Checkerboard");

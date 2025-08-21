@@ -71,7 +71,7 @@ namespace Tbx
         // Initialize symbol handling
         if (!SymInitialize(GetCurrentProcess(), nullptr, true))
         {
-            TBX_ERROR("SymInitialize failed");
+            TBX_TRACE_ERROR("SymInitialize failed");
             return;
         }
 
@@ -79,17 +79,17 @@ namespace Tbx
         DWORD64 baseAddr = SymLoadModule64(GetCurrentProcess(), nullptr, _path.c_str(), nullptr, 0, 0);
         if (baseAddr == 0)
         {
-            TBX_ERROR("Failed to load plugin for symbol enumeration");
+            TBX_TRACE_ERROR("Failed to load plugin for symbol enumeration");
             return;
         }
 
         // Callback function for symbol enumeration
-        TBX_VERBOSE("Symbols in the shared library {0}:", _path);
+        TBX_TRACE_VERBOSE("Symbols in the shared library {0}:", _path);
         
         if (!SymEnumSymbols(GetCurrentProcess(), baseAddr, "*", 
-            [](PSYMBOL_INFO info, ULONG, PVOID) {TBX_VERBOSE(info->Name); return 1; }, nullptr))
+            [](PSYMBOL_INFO info, ULONG, PVOID) {TBX_TRACE_VERBOSE(info->Name); return 1; }, nullptr))
         {
-            TBX_ERROR("Failed to enumerate symbols");
+            TBX_TRACE_ERROR("Failed to enumerate symbols");
         }
 
         // Clean up

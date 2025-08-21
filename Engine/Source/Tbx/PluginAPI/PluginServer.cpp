@@ -28,7 +28,16 @@ namespace Tbx
         for (const auto& pluginInfo : foundPluginInfos)
         {
             auto loadedPlugin = std::make_shared<LoadedPlugin>(pluginInfo);
-            TBX_ASSERT(loadedPlugin->IsValid(), "Failed to load plugin: {0}", pluginInfo.GetName());
+
+            if (!loadedPlugin->IsValid())
+            {
+                TBX_ASSERT(false, "Failed to load plugin: {0}", pluginInfo.GetName());
+#ifdef TBX_DEBUG
+                // TODO prompt to remove potentially stale plugins
+                //std::remove(loadedPlugin->GetInfo().GetFilePath().c_str());
+#endif
+            }
+
             if (!loadedPlugin->IsValid()) continue;
             _loadedPlugins.push_back(loadedPlugin);
 

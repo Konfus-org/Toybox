@@ -1,6 +1,8 @@
 #pragma once
 #include "Tbx/Debug/Log.h"
 
+#define TBX_VERBOSE_ENABLED
+
 /// <summary>
 /// Writes a trace level msg to the log.
 /// If a log is created and listening the msg will be written to a log file in release, a console in debug.
@@ -28,7 +30,7 @@
 /// This is a good method to use to warn about something that might be problematic, but can likely be ignored and app execution can continue without crashing.
 /// I.e. errors we can recover from.
 /// </summary>
-#define TBX_TRACE_WARN(msg, ...)          Tbx::Log::Warn(msg, __VA_ARGS__)
+#define TBX_TRACE_WARNING(msg, ...)          Tbx::Log::Warn(msg, __VA_ARGS__)
 
 /// <summary>
 /// Sends an error level msg to the log.

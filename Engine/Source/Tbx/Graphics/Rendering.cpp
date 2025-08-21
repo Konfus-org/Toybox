@@ -49,8 +49,9 @@ namespace Tbx
             auto winId = window->GetId();
             if (!_renderers.contains(winId)) continue;
 
-            _renderers[winId]->Flush();
-            _renderers[winId]->Process(buffer);
+            auto renderer = _renderers[winId];
+            renderer->Clear(App::GetInstance()->GetGraphicsSettings().ClearColor);
+            renderer->Process(buffer);
         }
     }
 

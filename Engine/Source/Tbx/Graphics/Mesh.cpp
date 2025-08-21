@@ -6,35 +6,26 @@ namespace Tbx
     Mesh::Mesh()
     {
         auto quad = MakeQuad();
-        _vertices = quad.GetVertices();
-        _vertexBuffer = VertexVectorToBuffer(_vertices);
-        _indices = quad.GetIndices();
+        _indexBuffer = quad._indexBuffer;
+        _vertexBuffer = quad._vertexBuffer;
     }
 
     Mesh::Mesh(const Mesh& mesh)
     {
-        _vertices = mesh.GetVertices();
-        _vertexBuffer = VertexVectorToBuffer(_vertices);
-        _indices = mesh.GetIndices();
+        _indexBuffer = mesh._indexBuffer;
+        _vertexBuffer = mesh._vertexBuffer;
     }
 
     Mesh::Mesh(const std::initializer_list<Vertex>& vertices, const std::initializer_list<uint32>& indices)
     {
-        _vertices = vertices;
         _vertexBuffer = VertexVectorToBuffer(vertices);
-        _indices = indices;
+        _indexBuffer = indices;
     }
 
     Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32>& indices)
     {
-        _vertices = vertices;
         _vertexBuffer = VertexVectorToBuffer(vertices);
-        _indices = indices;
-    }
-
-    const std::vector<Vertex>& Mesh::GetVertices() const
-    {
-        return _vertices;
+        _indexBuffer = indices;
     }
 
     const VertexBuffer& Mesh::GetVertexBuffer() const
@@ -42,20 +33,9 @@ namespace Tbx
         return _vertexBuffer;
     }
 
-    void Mesh::SetVertices(const std::vector<Vertex>& vertices)
+    const std::vector<uint32>& Mesh::GetIndexBuffer() const
     {
-        _vertices = vertices;
-        _vertexBuffer = VertexVectorToBuffer(vertices);
-    }
-
-    const std::vector<uint32>& Mesh::GetIndices() const
-    {
-        return _indices;
-    }
-
-    void Mesh::SetIndices(const std::vector<uint32>& indices)
-    {
-        _indices = indices;
+        return _indexBuffer;
     }
 
     Mesh Mesh::MakeTriangle()
@@ -136,10 +116,10 @@ namespace Tbx
 
         const BufferLayout& bufferLayout =
         {
-            { ShaderUniformDataType::Float3, "position" },
-            { ShaderUniformDataType::Float4, "vertColor" },
-            { ShaderUniformDataType::Float3, "normal" },
-            { ShaderUniformDataType::Float2, "textureCoord" },
+            { ShaderUniformDataType::Float3, "Position" },
+            { ShaderUniformDataType::Float4, "VertColor" },
+            { ShaderUniformDataType::Float3, "Normal" },
+            { ShaderUniformDataType::Float2, "TextureCoord" },
         };
 
         return VertexBuffer(meshPoints, bufferLayout);

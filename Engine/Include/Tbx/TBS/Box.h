@@ -105,43 +105,18 @@ namespace Tbx
         }
 
         /// <summary>
-        /// Adds a copy of a block to a toy.
+        /// Adds a copy of a block to a toy. The toy takes ownership of this copy.
         /// </summary>
         template<typename T>
         EXPORT T& AddBlockTo(const ToyHandle& handle, T& block)
         {
-            uint32 toyIndex = GetToyIndex(handle);
-            auto& toy = _toyPool[toyIndex];
-
-            TBX_ASSERT(!HasBlockOn<T>(handle), "Already has the block of this type on the given toy!");
-            TBX_ASSERT(toy.GetId() == handle, "Toy has been deleted!");
-            TBX_ASSERT(IsToyValid(handle), "Toy is invalid! Was it deleted? Was it created correctly?");
-
-            uint32 blockIndex = GetBlockTypeIndex<T>();
-            if (_blockPools.size() <= blockIndex)
-            {
-                // Not enough component pools, resize!
-                _blockPools.resize(blockIndex + 1);
-            }
-            if (_blockPools[blockIndex] == nullptr)
-            {
-                // We've resized! Make a new pool to fill the space for our new block type.
-                _blockPools[blockIndex] = std::make_unique<MemoryPool>(sizeof(T), MAX_NUMBER_OF_TOYS_IN_A_BOX);
-            }
-
-            // Add to mask
-            toy.SetBlockMask(blockIndex, true);
-
-            // Looks up the component in the pool
-            _blockPools[blockIndex]->Set<T>(toyIndex, block);
-
-            TBX_ASSERT(HasBlockOn<T>(handle), "Block didn't get added correctly!");
-
-            return block;
+            T& newBlock = AddBlockTo<T>(handle);
+            newBlock = block; // copy the block over
+            return newBlock;
         }
 
         /// <summary>
-        /// Adds a block to a toy.
+        /// Adds a block to a toy. The toy owns the block.
         /// </summary>
         template<typename T>
         EXPORT T& AddBlockTo(const ToyHandle& handle)

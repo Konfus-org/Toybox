@@ -17,7 +17,8 @@ namespace Tbx
         EXPORT std::string GetDescription() const { return _description; }
         EXPORT std::string GetLib() const { return _lib; }
         EXPORT int GetPriority() const { return _priority; }
-        EXPORT std::string GetLocation() const { return _pathToFolder; }
+        EXPORT std::string GetFolderPath() const { return _pathToFolder; }
+        EXPORT std::string GetFilePath() const { return GetFolderPath() + "/" + GetLib(); }
 
         EXPORT std::string ToString() const;
 

@@ -28,7 +28,7 @@ namespace Tbx
         /// Returns the path to the log file if we are logging to a file.
         /// If not returns an empty string.
         /// </summary>
-        EXPORT static std::string GetFilePath();
+        EXPORT static std::string GetFolderPath();
 
         /// <summary>
         /// Writes a trace level msg to the log.

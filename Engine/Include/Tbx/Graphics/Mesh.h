@@ -17,12 +17,8 @@ namespace Tbx
         EXPORT Mesh(const std::initializer_list<Vertex>& vertices, const std::initializer_list<uint32>& indices);
         EXPORT Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32>& indices);
 
-        EXPORT const std::vector<Vertex>& GetVertices() const;
         EXPORT const VertexBuffer& GetVertexBuffer() const;
-        EXPORT void SetVertices(const std::vector<Vertex>& vertices);
-
-        EXPORT const std::vector<uint32>& GetIndices() const;
-        EXPORT void SetIndices(const std::vector<uint32>& indices);
+        EXPORT const std::vector<uint32>& GetIndexBuffer() const;
 
         EXPORT static Mesh MakeTriangle();
         EXPORT static Mesh MakeQuad();
@@ -30,8 +26,7 @@ namespace Tbx
     private:
         VertexBuffer VertexVectorToBuffer(const std::vector<Vertex>& vertices) const;
 
-        std::vector<uint32> _indices;
-        std::vector<Vertex> _vertices;
+        std::vector<uint32> _indexBuffer;
         VertexBuffer _vertexBuffer;
     };
 

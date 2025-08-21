@@ -11,7 +11,6 @@ namespace Tbx
     {
         _pluginInfo = pluginInfo;
         TBX_ASSERT(_pluginInfo.IsValid(), "Cannot load plugin! Invalid plugin info...");
-
         Load();
     }
 
@@ -33,7 +32,6 @@ namespace Tbx
     void LoadedPlugin::Reload()
     {
         TBX_TRACE_INFO("Reloading plugin: {}", _pluginInfo.GetName());
-        
         Unload();
         Load();
     }
@@ -43,7 +41,7 @@ namespace Tbx
         // Don't load static plugins
         if (_pluginInfo.GetLib().find(".lib") != std::string::npos) return;
 
-        const std::string& pluginFullPath = _pluginInfo.GetLocation() + "/" + _pluginInfo.GetLib();
+        const std::string& pluginFullPath = _pluginInfo.GetFilePath();
         _library.Load(pluginFullPath);
         if (_library.IsValid() == false)
         {
