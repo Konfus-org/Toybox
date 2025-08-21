@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/Debug/Log.h"
 
-#define TBX_VERBOSE_ENABLED
+//#define TBX_VERBOSE_ENABLED
 
 /// <summary>
 /// Writes a trace level msg to the log.

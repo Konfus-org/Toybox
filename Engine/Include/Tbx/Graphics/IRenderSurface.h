@@ -20,7 +20,14 @@ namespace Tbx
         virtual NativeWindow GetNativeWindow() const = 0;
         virtual ProcAddress GetProcAddress() const = 0;
 
+        /// <summary>
+        /// Represent VSync, 0 = off, 1 = vsync, -1 = adaptive (if supported)
+        /// </summary>
         virtual int GetSwapInterval() const = 0;
+        
+        /// <summary>
+        /// Represents VSync, 0 = off, 1 = vsync, -1 = adaptive (if supported)
+        /// </summary>
         virtual void SetSwapInterval(int interval) = 0;
 
         virtual const Size& GetSize() const = 0;
