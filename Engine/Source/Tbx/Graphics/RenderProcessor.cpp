@@ -1,4 +1,5 @@
 #include "Tbx/PCH.h"
+#include "Tbx/App/App.h"
 #include "Tbx/Graphics/RenderProcessor.h"
 #include "Tbx/Graphics/Buffers.h"
 #include "Tbx/Graphics/Shader.h"
@@ -29,11 +30,25 @@ namespace Tbx
     FrameBuffer RenderProcessor::Process(const std::vector<std::shared_ptr<Box>>& boxes)
     {
         FrameBuffer buffer = {};
+
+        auto hasAnyCamera = false;
         for (const auto& box : boxes)
         {
-            for (const auto& toy : BoxView(box))
+            for (const auto& cam : BoxView<Camera>(box))
             {
-                ProcessToy(toy, box, buffer);
+                hasAnyCamera = true;
+                break;
+            }
+        }
+        if (hasAnyCamera)
+        {
+
+            for (const auto& box : boxes)
+            {
+                for (const auto& toy : BoxView(box))
+                {
+                    ProcessToy(toy, box, buffer);
+                }
             }
         }
 
@@ -89,8 +104,7 @@ namespace Tbx
         {
             const auto& transform = box->GetBlockOn<Transform>(toy);
             const auto transformMatrix = Mat4x4::FromTRS(transform.Position, transform.Rotation, transform.Scale);
-            const auto transformData = ShaderUniform("Transform", transformMatrix, ShaderUniformDataType::Mat4);
-            buffer.Emplace(DrawCommandType::UploadMaterialData, transformData);
+            buffer.Emplace(DrawCommandType::UploadMaterialData, ShaderUniform("TransformUniform", transformMatrix, ShaderUniformDataType::Mat4));
         }
         
         // Mesh block, upload the mesh data
@@ -104,21 +118,26 @@ namespace Tbx
         if (box->HasBlockOn<Camera>(toy))
         {
             auto& camera = box->GetBlockOn<Camera>(toy);
+
+            // TODO: process this somewhere else!
+            const auto& mainWindow = App::GetInstance()->GetMainWindow();
+            const auto mainWindowSize = mainWindow.lock()->GetSize();
+            const auto aspectRatio = mainWindowSize.GetAspectRatio();
+            camera.SetAspect(aspectRatio);
+
             if (box->HasBlockOn<Transform>(toy))
             {
                 // Use the transform block's position and rotation
                 const auto& cameraTransform = box->GetBlockOn<Transform>(toy);
                 const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(cameraTransform.Position, cameraTransform.Rotation, camera.GetProjectionMatrix());
-                const auto shaderData = ShaderUniform("ViewProjection", viewProjMatrix, ShaderUniformDataType::Mat4);
-                buffer.Emplace(DrawCommandType::UploadMaterialData, shaderData);
+                buffer.Emplace(DrawCommandType::UploadMaterialData, ShaderUniform("ViewProjectionUniform", viewProjMatrix, ShaderUniformDataType::Mat4));
             }
             else
             {
                 // No transform block, use default camera position and rotation
                 const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(
                     Constants::Vector3::Zero, Constants::Quaternion::Identity, camera.GetProjectionMatrix());
-                const auto shaderData = ShaderUniform("ViewProjection", viewProjMatrix, ShaderUniformDataType::Mat4);
-                buffer.Emplace(DrawCommandType::UploadMaterialData, shaderData);
+                buffer.Emplace(DrawCommandType::UploadMaterialData, ShaderUniform("ViewProjectionUniform", viewProjMatrix, ShaderUniformDataType::Mat4));
             }
         }
     }

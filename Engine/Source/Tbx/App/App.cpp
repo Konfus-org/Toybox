@@ -143,7 +143,7 @@ namespace Tbx
             : AppStatus::Closed;
     }
 
-    std::vector<std::shared_ptr<IWindow>> App::GetWindows()
+    const std::vector<std::shared_ptr<IWindow>>& App::GetWindows()
     {
         return _windowStack.GetAll();
     }

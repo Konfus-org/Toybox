@@ -31,7 +31,7 @@ void ExampleLayer::OnAttach()
     auto vertShader = *vertexShaderAsset.GetData();
     auto fragShader = *fragmentShaderAsset.GetData();
     auto checkerText = *checkerboardTexAsset.GetData();
-    auto checkerMat = Tbx::Material({vertShader, fragShader}, {checkerText});
+    auto checkerMat = Tbx::Material({vertShader, fragShader});
 
     // Create checkboards
     Tbx::ToyHandle checkerBoardBottom = _level->MakeToy("Checkerboard");
@@ -58,7 +58,7 @@ void ExampleLayer::OnAttach()
     _fpsCam = _level->MakeToy("Camera");
     _level->AddBlockTo<Tbx::Camera>(_fpsCam);
     auto& transform = _level->AddBlockTo<Tbx::Transform>(_fpsCam);
-    transform.Position = { 0, 0, -10 };
+    transform.Position = { 0, 0, -20 };
 
     // Opens our new level
     _level->Open();

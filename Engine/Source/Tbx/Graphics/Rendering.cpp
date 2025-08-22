@@ -14,12 +14,14 @@ namespace Tbx
     std::map<Uid, std::shared_ptr<IRenderer>> Rendering::_renderers = {};
     Uid Rendering::_windowCreatedEventId = Invalid::Uid;
     Uid Rendering::_windowClosedEventId = Invalid::Uid;
+    Uid Rendering::_windowResizedEventId = Invalid::Uid;
     Uid Rendering::_boxOpenedEventId = Invalid::Uid;
 
     void Rendering::Initialize()
     {
         _windowCreatedEventId = EventCoordinator::Subscribe<WindowOpenedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowOpened));
         _windowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowClosed));
+        _windowResizedEventId = EventCoordinator::Subscribe<WindowResizedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowResized));
         _boxOpenedEventId = EventCoordinator::Subscribe<OpenedBoxEvent>(TBX_BIND_STATIC_FN(Rendering::OnBoxOpened));
 
         _renderFactory = PluginServer::GetPlugin<IRendererFactoryPlugin>();
@@ -29,6 +31,7 @@ namespace Tbx
     {
         EventCoordinator::Unsubscribe<WindowOpenedEvent>(_windowCreatedEventId);
         EventCoordinator::Unsubscribe<WindowClosedEvent>(_windowClosedEventId);
+        EventCoordinator::Unsubscribe<WindowClosedEvent>(_windowResizedEventId);
         EventCoordinator::Unsubscribe<WindowClosedEvent>(_boxOpenedEventId);
 
         _renderFactory = nullptr;
@@ -70,9 +73,7 @@ namespace Tbx
     {
         auto newWinId = e.GetWindowId();
         auto newWindow = App::GetInstance()->GetWindow(newWinId);
-
         auto newRenderer = _renderFactory->Create(newWindow);
-
         _renderers[newWinId] = newRenderer;
     }
 
@@ -81,9 +82,20 @@ namespace Tbx
         auto windowId = e.GetWindowId();
         if (_renderers.contains(windowId))
         {
-            // Log or assert the state before erasing
             TBX_ASSERT(_renderers[windowId] != nullptr, "Renderer should not be null");
             _renderers.erase(windowId);
+        }
+    }
+
+    void Rendering::OnWindowResized(const WindowResizedEvent& e)
+    {
+        auto windowId = e.GetWindowId();
+        if (_renderers.contains(windowId))
+        {
+            const auto& newSize = e.GetNewSize();
+            auto renderer = _renderers[windowId];
+            TBX_ASSERT(renderer != nullptr, "Renderer should not be null");
+            renderer->SetViewport({{0, 0}, newSize});
         }
     }
 
@@ -96,7 +108,7 @@ namespace Tbx
         const auto buffer = RenderProcessor::PreProcess({box});
 
         // Send buffer to renderers for each window
-        auto windows = App::GetInstance()->GetWindows();
+        const auto& windows = App::GetInstance()->GetWindows();
         for (const auto& window : windows)
         {
             auto winId = window->GetId();

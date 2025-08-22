@@ -36,10 +36,12 @@ namespace Tbx
     private:
         static void OnWindowOpened(const WindowOpenedEvent& e);
         static void OnWindowClosed(const WindowClosedEvent& e);
+        static void OnWindowResized(const WindowResizedEvent& e);
         static void OnBoxOpened(const OpenedBoxEvent& e);
 
         static Uid _windowCreatedEventId;
         static Uid _windowClosedEventId;
+        static Uid _windowResizedEventId;
         static Uid _boxOpenedEventId;
 
         static std::map<Uid, std::shared_ptr<IRenderer>> _renderers;

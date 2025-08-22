@@ -205,11 +205,7 @@ namespace Tbx
             while (_currIndex < _box->GetToyCount())
             {
                 _currIndex++;
-
-                auto toy = _box->GetToy(_currIndex);
-                auto isMatchingBlockMask = (_blockMask & toy.GetBlockMask()) != 0;
-                auto isToyValid = IsToyValid(toy.GetId());
-                if (isToyValid && isMatchingBlockMask)
+                if (ValidIndex())
                 {
                     break;
                 }

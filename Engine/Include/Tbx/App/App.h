@@ -39,7 +39,7 @@ namespace Tbx
         EXPORT virtual void OnShutdown() = 0;
 
         EXPORT std::shared_ptr<IWindow> GetWindow(Uid id);
-        EXPORT std::vector<std::shared_ptr<IWindow>> GetWindows();
+        EXPORT const std::vector<std::shared_ptr<IWindow>>& GetWindows();
         EXPORT Uid OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
         EXPORT void PushLayer(const std::shared_ptr<Layer>& layer);
 
