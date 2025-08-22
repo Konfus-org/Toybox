@@ -31,15 +31,18 @@ void ExampleLayer::OnAttach()
     auto vertShader = *vertexShaderAsset.GetData();
     auto fragShader = *fragmentShaderAsset.GetData();
     auto checkerText = *checkerboardTexAsset.GetData();
-    auto checkerMat = Tbx::Material({vertShader, fragShader});
+    auto checkerMat = Tbx::Material({vertShader, fragShader}, {checkerText});
 
     // Create checkboards
     Tbx::ToyHandle checkerBoardBottom = _level->MakeToy("Checkerboard");
     _level->AddBlockTo<Tbx::Mesh>(checkerBoardBottom);
     _level->AddBlockTo<Tbx::Material>(checkerBoardBottom, checkerMat);
-    _level->AddBlockTo<Tbx::Transform>(checkerBoardBottom);
+    auto& checkerFrontTrans = _level->AddBlockTo<Tbx::Transform>(checkerBoardBottom);
+    checkerFrontTrans.Position = { 0, 0, 100 };
+    checkerFrontTrans.Rotation = Tbx::Quaternion::FromEuler({ 0, 45, 0 });
+    checkerFrontTrans.Scale = { 50 };
 
-    Tbx::ToyHandle checkerBoxToyFront = _level->MakeToy("Checkerboard F");
+    /*Tbx::ToyHandle checkerBoxToyFront = _level->MakeToy("Checkerboard F");
     _level->AddBlockTo<Tbx::Mesh>(checkerBoxToyFront);
     _level->AddBlockTo<Tbx::Material>(checkerBoxToyFront, checkerMat);
     auto& checkerFrontTrans = _level->AddBlockTo<Tbx::Transform>(checkerBoxToyFront);
@@ -52,13 +55,13 @@ void ExampleLayer::OnAttach()
     auto& checkerLeftTrans = _level->AddBlockTo<Tbx::Transform>(checkerBoxToyLeft);
     checkerLeftTrans.Position = { -100, 0, 0 };
     checkerLeftTrans.Rotation = Tbx::Quaternion::FromEuler({ 0, 90, 0 });
-    checkerLeftTrans.Scale = { 1000 };
+    checkerLeftTrans.Scale = { 1000 };*/
 
     // Create camera toy
     _fpsCam = _level->MakeToy("Camera");
     _level->AddBlockTo<Tbx::Camera>(_fpsCam);
     auto& transform = _level->AddBlockTo<Tbx::Transform>(_fpsCam);
-    transform.Position = { 0, 0, -20 };
+    transform.Position = { 0, 0, -5 };
 
     // Opens our new level
     _level->Open();

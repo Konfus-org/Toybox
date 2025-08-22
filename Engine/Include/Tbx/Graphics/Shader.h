@@ -65,6 +65,7 @@ namespace Tbx
     /// </summary>
     enum class EXPORT ShaderType
     {
+        None,
         Vertex,
         Fragment,
         Compute // NOT YET SUPPORTED!

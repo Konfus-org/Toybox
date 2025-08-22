@@ -68,12 +68,12 @@ namespace Tbx
     class EXPORT WindowResizedEvent : public WindowActionEvent
     {
     public:
-        WindowResizedEvent(Uid windowId, uint width, uint height)
-            : WindowActionEvent(windowId), _width(width), _height(height) {}
+        WindowResizedEvent(Uid windowId, Size newSize)
+            : WindowActionEvent(windowId), _newSize(newSize) {}
 
-        Size GetNewSize() const
+        const Size& GetNewSize() const
         {
-            return Size(_width, _height);
+            return _newSize;
         }
 
         std::string ToString() const final
@@ -82,7 +82,6 @@ namespace Tbx
         }
 
     private:
-        uint _width;
-        uint _height;
+        Size _newSize;
     };
 }

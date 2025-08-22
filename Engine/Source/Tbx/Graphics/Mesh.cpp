@@ -85,7 +85,7 @@ namespace Tbx
 
     VertexBuffer Mesh::VertexVectorToBuffer(const std::vector<Vertex>& vertices) const
     {
-        auto numberOfVertices = vertices.size();
+        const auto numberOfVertices = vertices.size();
         std::vector<float> meshPoints(numberOfVertices * 12);
         int positionToPlace = 0;
 
