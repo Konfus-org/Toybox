@@ -46,6 +46,12 @@ namespace Tbx
         EXPORT Texture(const Size& size, TextureWrap wrap, TextureFilter filter, TextureFormat format, std::vector<Pixel> pixels)
             : _width(size.Width), _height(size.Height), _wrap(wrap), _filter(filter), _format(format), _pixels(pixels) {}
 
+        /// <summary>
+        /// Pass data to be owned by the texture struct.
+        /// </summary>
+        EXPORT Texture(const Size& size, TextureFormat format, std::vector<Pixel> pixels)
+            : _width(size.Width), _height(size.Height), _format(format), _pixels(pixels) {}
+
         EXPORT const std::vector<Pixel>& GetPixels() const { return _pixels; }
 
         EXPORT uint GetWidth() const { return _width; }

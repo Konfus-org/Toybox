@@ -11,7 +11,7 @@ out vec2 TextureCoord;
 
 uniform mat4 ViewProjectionUniform;
 uniform mat4 TransformUniform;
-uniform vec4 ColorUniform;
+uniform vec4 ColorUniform = vec4(1.0, 1.0, 1.0, 1.0);
 
 void main()
 {

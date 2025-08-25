@@ -37,25 +37,26 @@ void ExampleLayer::OnAttach()
     Tbx::ToyHandle checkerBoardBottom = _level->MakeToy("Checkerboard");
     _level->AddBlockTo<Tbx::Mesh>(checkerBoardBottom);
     _level->AddBlockTo<Tbx::Material>(checkerBoardBottom, checkerMat);
-    auto& checkerFrontTrans = _level->AddBlockTo<Tbx::Transform>(checkerBoardBottom);
-    checkerFrontTrans.Position = { 0, 0, 100 };
-    checkerFrontTrans.Rotation = Tbx::Quaternion::FromEuler({ 0, 45, 0 });
-    checkerFrontTrans.Scale = { 50 };
+    auto& checkerBottomTrans = _level->AddBlockTo<Tbx::Transform>(checkerBoardBottom);
+    checkerBottomTrans.Position = { 0, -25, 100 };
+    checkerBottomTrans.Rotation = Tbx::Quaternion::FromEuler({ 90, 0, 0 });
+    checkerBottomTrans.Scale = { 50 };
 
-    /*Tbx::ToyHandle checkerBoxToyFront = _level->MakeToy("Checkerboard F");
+    Tbx::ToyHandle checkerBoxToyFront = _level->MakeToy("Checkerboard F");
     _level->AddBlockTo<Tbx::Mesh>(checkerBoxToyFront);
     _level->AddBlockTo<Tbx::Material>(checkerBoxToyFront, checkerMat);
     auto& checkerFrontTrans = _level->AddBlockTo<Tbx::Transform>(checkerBoxToyFront);
-    checkerFrontTrans.Position = { 0, 0, 100 };
-    checkerFrontTrans.Scale = { 1000 };
+    checkerFrontTrans.Position = { 0, 0, 125 };
+    checkerFrontTrans.Rotation = Tbx::Quaternion::FromEuler({ 0, 0, 0 });
+    checkerFrontTrans.Scale = { 50 };
 
     Tbx::ToyHandle checkerBoxToyLeft = _level->MakeToy("Checkerboard L");
     _level->AddBlockTo<Tbx::Mesh>(checkerBoxToyLeft);
     _level->AddBlockTo<Tbx::Material>(checkerBoxToyLeft, checkerMat);
     auto& checkerLeftTrans = _level->AddBlockTo<Tbx::Transform>(checkerBoxToyLeft);
-    checkerLeftTrans.Position = { -100, 0, 0 };
-    checkerLeftTrans.Rotation = Tbx::Quaternion::FromEuler({ 0, 90, 0 });
-    checkerLeftTrans.Scale = { 1000 };*/
+    checkerLeftTrans.Position = { 25, 0, 100 };
+    checkerLeftTrans.Rotation = Tbx::Quaternion::FromEuler({ 0, -90, 0 });
+    checkerLeftTrans.Scale = { 50 };
 
     // Create camera toy
     _fpsCam = _level->MakeToy("Camera");
