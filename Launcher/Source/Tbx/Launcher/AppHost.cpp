@@ -14,13 +14,13 @@ namespace Tbx
         try
         {
             // Load plugins
-            PluginServer::LoadPlugins(pathToPlugins);
+            PluginServer::Initialize(pathToPlugins);
 
             // Open the log
             Log::Open("Tbx");
 
             // Get and validate app
-            auto apps = PluginServer::GetPlugins<App>();
+            auto apps = PluginServer::GetAllOfType<App>();
             TBX_ASSERT(apps.size() != 0,
                 "Toybox needs an app defined to run, have you setup an app correctly?"
                 "The app library should be loaded as a tbx plugin to allow for hot reloading and you should have a host application to call 'Tbx::Run'.");
@@ -30,7 +30,7 @@ namespace Tbx
             TBX_TRACE_INFO("Loaded app: {0}", app->GetName());
 
             // Log loaded plugins
-            const auto& plugins = PluginServer::GetAllPlugins();
+            const auto& plugins = PluginServer::GetAll();
             const auto& numPlugins = plugins.size();
             TBX_TRACE_INFO("Loaded {0} plugins:", numPlugins);
             for (const auto& loadedPlug : plugins)
@@ -65,7 +65,7 @@ namespace Tbx
             app->Launch();
 
             // Load layer plugins
-            auto layerPlugins = PluginServer::GetPlugins<Layer>();
+            auto layerPlugins = PluginServer::GetAllOfType<Layer>();
             for (const auto& layerPlugin : layerPlugins)
             {
                 app->PushLayer(layerPlugin);
@@ -116,7 +116,7 @@ namespace Tbx
             {
                 // We only want to unload everything if we are reloading things or shutting down!
                 app = nullptr;
-                PluginServer::UnloadPlugins();
+                PluginServer::Shutdown();
             }
         }
 
@@ -128,7 +128,7 @@ namespace Tbx
 
         // Unload plugins
         app = nullptr; // <- We need to clear our ref to the app to allow it to be unloaded...
-        PluginServer::UnloadPlugins();
+        PluginServer::Shutdown();
 
         return status;
     }

@@ -8,7 +8,7 @@ namespace Tbx
 {
     WindowStack::WindowStack()
     {
-        _windowFactory = PluginServer::GetPlugin<IWindowFactoryPlugin>();
+        _windowFactory = PluginServer::Get<IWindowFactoryPlugin>();
         TBX_VALIDATE_PTR(_windowFactory, "Window factory plugin not found!");
     }
 

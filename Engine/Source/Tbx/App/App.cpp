@@ -6,7 +6,7 @@
 #include "Tbx/Layers/EventCoordinatorLayer.h"
 #include "Tbx/Layers/RenderingLayer.h"
 #include "Tbx/Events/EventCoordinator.h"
-#include "Tbx/Events/ApplicationEvents.h"
+#include "Tbx/Events/AppEvents.h"
 #include "Tbx/Input/Input.h"
 #include "Tbx/Time/DeltaTime.h"
 

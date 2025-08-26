@@ -10,17 +10,17 @@ namespace Tbx
     {
         /*if (!_shaderLoaderPlugin)
         {
-            _shaderLoaderPlugin = PluginServer::GetPlugin<IShaderLoaderPlugin>();
+            _shaderLoaderPlugin = PluginServer::Get<IShaderLoaderPlugin>();
         }*/
-        return PluginServer::GetPlugin<IShaderLoaderPlugin>();
+        return PluginServer::Get<IShaderLoaderPlugin>();
     }
 
     std::shared_ptr<ITextureLoaderPlugin> AssetLoader::GetTextureLoader()
     {
         /*if (!_textureLoaderPlugin)
         {
-            _textureLoaderPlugin = PluginServer::GetPlugin<ITextureLoaderPlugin>();
+            _textureLoaderPlugin = PluginServer::Get<ITextureLoaderPlugin>();
         }*/
-        return PluginServer::GetPlugin<ITextureLoaderPlugin>();
+        return PluginServer::Get<ITextureLoaderPlugin>();
     }
 }

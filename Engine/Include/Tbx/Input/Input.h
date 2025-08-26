@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Input/InputCodes.h"
+#include "Tbx/PluginAPI/PluginInterfaces.h"
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Ids/UID.h"
 #include "Tbx/Math/Vectors.h"
@@ -28,7 +29,8 @@ namespace Tbx
 
     private:
         static void OnWindowFocusChanged(const WindowFocusedEvent& args);
-
+        
         static Uid _windowFocusChangedEventId;
+        static std::shared_ptr<IInputHandlerPlugin> _inputHandler;
     };
 }

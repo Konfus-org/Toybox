@@ -24,7 +24,7 @@ namespace Tbx
         _windowResizedEventId = EventCoordinator::Subscribe<WindowResizedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowResized));
         _boxOpenedEventId = EventCoordinator::Subscribe<OpenedBoxEvent>(TBX_BIND_STATIC_FN(Rendering::OnBoxOpened));
 
-        _renderFactory = PluginServer::GetPlugin<IRendererFactoryPlugin>();
+        _renderFactory = PluginServer::Get<IRendererFactoryPlugin>();
     }
 
     void Rendering::Shutdown()

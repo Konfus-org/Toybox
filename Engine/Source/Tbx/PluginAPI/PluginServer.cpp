@@ -10,7 +10,7 @@ namespace Tbx
     std::vector<std::shared_ptr<LoadedPlugin>> PluginServer::_loadedPlugins = {};
     std::string PluginServer::_pathToLoadedPlugins = "";
 
-    void PluginServer::LoadPlugins(const std::string& pathToPlugins)
+    void PluginServer::Initialize(const std::string& pathToPlugins)
     {
         _pathToLoadedPlugins = pathToPlugins;
         TBX_ASSERT(!pathToPlugins.empty(), "Path to plugins is empty!");
@@ -46,29 +46,34 @@ namespace Tbx
         }
     }
 
+    void PluginServer::Shutdown()
+    {
+        TBX_TRACE_INFO("Unloading plugins...");
+
+        // Clear refs to loaded plugins.. 
+        // this will cause them to unload themselves
+        // Unload one by one, lowest priority first
+        while (!_loadedPlugins.empty())
+        {
+            auto plugin = _loadedPlugins.back();
+            TBX_TRACE_INFO("Unloading plugin: {}", plugin->GetInfo().GetName());
+
+            // erase last element
+            _loadedPlugins.pop_back();
+
+            // when the shared_ptr ref count drops to 0, the plugin will unload itself
+            plugin.reset();
+        }
+    }
+
     void PluginServer::ReloadPlugins()
     {
         TBX_TRACE_INFO("Reloading plugins...");
 
         // Unload...
-        UnloadPlugins();
+        Shutdown();
         // Reload...
-        LoadPlugins(_pathToLoadedPlugins);
-
-        TBX_TRACE_INFO("Plugins reloaded!");
-    }
-
-    void PluginServer::UnloadPlugins()
-    {
-        // Sort by reverse priority so highest prio is unloaded last
-        std::ranges::sort(_loadedPlugins,[](const std::shared_ptr<LoadedPlugin> a, const std::shared_ptr<LoadedPlugin> b)
-        {
-            return a->GetInfo().GetPriority() < b->GetInfo().GetPriority();
-        });
-
-        // Clear refs to loaded plugins.. 
-        // this will cause them to unload themselves when all refs to them die
-        _loadedPlugins.clear();
+        Initialize(_pathToLoadedPlugins);
     }
 
     void PluginServer::RegisterPlugin(const std::shared_ptr<LoadedPlugin>& plugin)
@@ -76,7 +81,7 @@ namespace Tbx
         _loadedPlugins.push_back(plugin);
     }
 
-    std::vector<std::shared_ptr<LoadedPlugin>> PluginServer::GetAllPlugins()
+    const std::vector<std::shared_ptr<LoadedPlugin>>& PluginServer::GetAll()
     {
         return _loadedPlugins;
     }

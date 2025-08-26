@@ -64,10 +64,7 @@ void ExampleLayer::OnAttach()
     {
         _fpsCam = _level->EmplaceToy("Camera");
         _level->EmplaceBlockOn<Tbx::Camera>(_fpsCam);
-        auto& camTransform = _level->EmplaceBlockOn<Tbx::Transform>(_fpsCam)
-            .SetPosition({ 2, 25, -5 })
-            .SetRotation(Tbx::Quaternion::FromEuler({ 15, 0, 0 }))
-            .SetScale({ 1 });
+        auto& camTransform = _level->EmplaceBlockOn<Tbx::Transform>(_fpsCam);
     }
 
     // Open our new level
@@ -88,33 +85,33 @@ void ExampleLayer::OnUpdate()
 
     // Determine movement speed
     float camSpeed = _camMoveSpeed * deltaTime;
-    /*if (Tbx::Input::IsKeyDown(TBX_KEY_LEFT_SHIFT))
+    if (Tbx::Input::IsKeyDown(TBX_KEY_LEFT_SHIFT))
     {
         camSpeed *= 4.0f;
-    }*/
+    }
 
     // Build movement direction
     Tbx::Vector3 camMoveDir = Tbx::Constants::Vector3::Zero;
-    /*if (Tbx::Input::IsKeyDown(TBX_KEY_W)) camMoveDir += Tbx::Quaternion::GetForward(camTransform.Rotation);
+    if (Tbx::Input::IsKeyDown(TBX_KEY_W)) camMoveDir += Tbx::Quaternion::GetForward(camTransform.Rotation);
     if (Tbx::Input::IsKeyDown(TBX_KEY_S)) camMoveDir -= Tbx::Quaternion::GetForward(camTransform.Rotation);
 
     if (Tbx::Input::IsKeyDown(TBX_KEY_D)) camMoveDir -= Tbx::Quaternion::GetRight(camTransform.Rotation);
     if (Tbx::Input::IsKeyDown(TBX_KEY_A)) camMoveDir += Tbx::Quaternion::GetRight(camTransform.Rotation);
 
     if (Tbx::Input::IsKeyDown(TBX_KEY_E)) camMoveDir += Tbx::WorldSpace::Up;
-    if (Tbx::Input::IsKeyDown(TBX_KEY_Q)) camMoveDir += Tbx::WorldSpace::Down;*/
+    if (Tbx::Input::IsKeyDown(TBX_KEY_Q)) camMoveDir += Tbx::WorldSpace::Down;
 
     // Apply movement if any
-    /*if (!camMoveDir.IsNearlyZero())
+    if (!camMoveDir.IsNearlyZero())
     {
         camTransform.Position += camMoveDir.Normalize() * camSpeed;
-    }*/
+    }
 
     // Camera rotation
-    /*if (Tbx::Input::IsKeyDown(TBX_KEY_LEFT))  _camYaw -= _camRotateSpeed * deltaTime;
+    if (Tbx::Input::IsKeyDown(TBX_KEY_LEFT))  _camYaw -= _camRotateSpeed * deltaTime;
     if (Tbx::Input::IsKeyDown(TBX_KEY_RIGHT)) _camYaw += _camRotateSpeed * deltaTime;
     if (Tbx::Input::IsKeyDown(TBX_KEY_UP))    _camPitch += _camRotateSpeed * deltaTime;
-    if (Tbx::Input::IsKeyDown(TBX_KEY_DOWN))  _camPitch -= _camRotateSpeed * deltaTime;*/
+    if (Tbx::Input::IsKeyDown(TBX_KEY_DOWN))  _camPitch -= _camRotateSpeed * deltaTime;
 
     // Clamp pitch to avoid flipping
     _camPitch = std::clamp(_camPitch, -89.0f, 89.0f);
@@ -124,6 +121,6 @@ void ExampleLayer::OnUpdate()
     Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::WorldSpace::Up, _camYaw);
 
     // Combine (usually yaw * pitch for FPS)
-    //camTransform.Rotation = Tbx::Quaternion::Normalize(qYaw * qPitch);
+    camTransform.Rotation = Tbx::Quaternion::Normalize(qYaw * qPitch);
 
 }

@@ -17,7 +17,7 @@ namespace Tbx
     {
         _isOpen = true;
 
-        auto loggerFactory = PluginServer::GetPlugin<ILoggerFactoryPlugin>();
+        auto loggerFactory = PluginServer::Get<ILoggerFactoryPlugin>();
         TBX_ASSERT(loggerFactory, "Logger factory plugin not found! Falling back to default console logging.");
 
 #ifdef TBX_DEBUG
