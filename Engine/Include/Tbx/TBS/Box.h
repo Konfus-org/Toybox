@@ -14,8 +14,7 @@ namespace Tbx
     constexpr int MAX_NUMBER_OF_TOYS_IN_A_BOX = 5000;
 
     /// <summary>
-    /// A box is a collection of toys.
-    /// A box is a way to group sets of toys together.
+    /// A box is a collection of toys/a way to group sets of toys together.
     /// It can be used to represent a level, scene, prefab, or chunk.
     /// </summary>
     class Box : public UsesUid
@@ -25,10 +24,15 @@ namespace Tbx
         EXPORT explicit Box(Uid id);
 
         /// <summary>
+        /// Adds a copy of the toy to the box.
+        /// </summary>
+        ToyHandle AddToy(const Toy& toy);
+
+        /// <summary>
         /// Create a new toy.
         /// </summary>
         /// <returns></returns>
-        EXPORT ToyHandle MakeToy(const std::string& name);
+        EXPORT ToyHandle EmplaceToy(const std::string& name);
 
         /// <summary>
         /// Destroys a specific toy.
