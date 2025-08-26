@@ -36,35 +36,39 @@ void ExampleLayer::OnAttach()
     _stdMat = Tbx::Material({vertShader, fragShader});
 
     // Create room
-    Tbx::ToyHandle floor = _level->EmplaceToy("Floor");
-    _level->EmplaceBlockOn<Tbx::Mesh>(floor);
-    _level->EmplaceBlockOn<Tbx::MaterialInstance>(floor, _stdMat, checkerTex);
-    _level->EmplaceBlockOn<Tbx::Transform>(floor)
-        .SetPosition({ 0, -25, 100 })
-        .SetRotation(Tbx::Quaternion::FromEuler({ 90, 0, 0 }))
-        .SetScale({ 50 });
-    Tbx::ToyHandle wallBack = _level->EmplaceToy("Wall Back");
-    _level->EmplaceBlockOn<Tbx::Mesh>(wallBack);
-    _level->EmplaceBlockOn<Tbx::MaterialInstance>(wallBack, _stdMat, wallTex);
-    _level->EmplaceBlockOn<Tbx::Transform>(wallBack)
-        .SetPosition({ 0, 0, 125 })
-        .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))
-        .SetScale({ 50 });
-    Tbx::ToyHandle wallRight = _level->EmplaceToy("Wall Right");
-    _level->EmplaceBlockOn<Tbx::Mesh>(wallRight);
-    _level->EmplaceBlockOn<Tbx::MaterialInstance>(wallRight, _stdMat, wallTex);
-    _level->EmplaceBlockOn<Tbx::Transform>(wallRight)
-        .SetPosition({ 25, 0, 100 })
-        .SetRotation(Tbx::Quaternion::FromEuler({ 0, -90, 0 }))
-        .SetScale({ 50 });
+    {
+        Tbx::ToyHandle floor = _level->EmplaceToy("Floor");
+        _level->EmplaceBlockOn<Tbx::Mesh>(floor);
+        _level->EmplaceBlockOn<Tbx::MaterialInstance>(floor, _stdMat, checkerTex);
+        _level->EmplaceBlockOn<Tbx::Transform>(floor)
+            .SetPosition({ 0, -25, 100 })
+            .SetRotation(Tbx::Quaternion::FromEuler({ 90, 0, 0 }))
+            .SetScale({ 50 });
+        Tbx::ToyHandle wallBack = _level->EmplaceToy("Wall Back");
+        _level->EmplaceBlockOn<Tbx::Mesh>(wallBack);
+        _level->EmplaceBlockOn<Tbx::MaterialInstance>(wallBack, _stdMat, wallTex);
+        _level->EmplaceBlockOn<Tbx::Transform>(wallBack)
+            .SetPosition({ 0, 0, 125 })
+            .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))
+            .SetScale({ 50 });
+        Tbx::ToyHandle wallRight = _level->EmplaceToy("Wall Right");
+        _level->EmplaceBlockOn<Tbx::Mesh>(wallRight);
+        _level->EmplaceBlockOn<Tbx::MaterialInstance>(wallRight, _stdMat, wallTex);
+        _level->EmplaceBlockOn<Tbx::Transform>(wallRight)
+            .SetPosition({ 25, 0, 100 })
+            .SetRotation(Tbx::Quaternion::FromEuler({ 0, -90, 0 }))
+            .SetScale({ 50 });
+    }
 
-    // Create camera toy
-    _fpsCam = _level->EmplaceToy("Camera");
-    _level->EmplaceBlockOn<Tbx::Camera>(_fpsCam);
-    auto& camTransform = _level->EmplaceBlockOn<Tbx::Transform>(_fpsCam)
-        .SetPosition({ 2, 25, -5 })
-        .SetRotation(Tbx::Quaternion::FromEuler({ 15, 0, 0 }))
-        .SetScale({ 1 });
+    // Create camera
+    {
+        _fpsCam = _level->EmplaceToy("Camera");
+        _level->EmplaceBlockOn<Tbx::Camera>(_fpsCam);
+        auto& camTransform = _level->EmplaceBlockOn<Tbx::Transform>(_fpsCam)
+            .SetPosition({ 2, 25, -5 })
+            .SetRotation(Tbx::Quaternion::FromEuler({ 15, 0, 0 }))
+            .SetScale({ 1 });
+    }
 
     // Open our new level
     _level->Open();
