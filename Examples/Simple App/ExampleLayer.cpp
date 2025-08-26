@@ -19,6 +19,7 @@ void ExampleLayer::OnAttach()
     TBX_TRACE("Test scene attached!");
 
     // Load assets
+    auto wallTexAsset = Tbx::Asset<Tbx::Texture>("../Examples/Simple App/Assets/Wall.jpg");
     auto checkerboardTexAsset = Tbx::Asset<Tbx::Texture>("../Examples/Simple App/Assets/Checkerboard.png");
     auto fragmentShaderAsset = Tbx::Asset<Tbx::Shader>("../Examples/Simple App/Assets/fragment.frag");
     auto vertexShaderAsset = Tbx::Asset<Tbx::Shader>("../Examples/Simple App/Assets/vertex.vert");
@@ -30,11 +31,13 @@ void ExampleLayer::OnAttach()
     // Setup checker material
     auto vertShader = *vertexShaderAsset.GetData();
     auto fragShader = *fragmentShaderAsset.GetData();
-    auto checkerText = *checkerboardTexAsset.GetData();
-    auto checkerMat = Tbx::Material({vertShader, fragShader}, {checkerText});
+    auto checkerTex = *checkerboardTexAsset.GetData();
+    auto wallTex = *wallTexAsset.GetData();
+    auto checkerMat = Tbx::Material({vertShader, fragShader}, {checkerTex});
+    auto wallMat = Tbx::Material({vertShader, fragShader}, {wallTex});
 
     // Create checkboards
-    Tbx::ToyHandle checkerBoardBottom = _level->MakeToy("Checkerboard");
+    Tbx::ToyHandle checkerBoardBottom = _level->MakeToy("Checkerboard B");
     _level->AddBlockTo<Tbx::Mesh>(checkerBoardBottom);
     _level->AddBlockTo<Tbx::Material>(checkerBoardBottom, checkerMat);
     auto& checkerBottomTrans = _level->AddBlockTo<Tbx::Transform>(checkerBoardBottom);
@@ -44,7 +47,7 @@ void ExampleLayer::OnAttach()
 
     Tbx::ToyHandle checkerBoxToyFront = _level->MakeToy("Checkerboard F");
     _level->AddBlockTo<Tbx::Mesh>(checkerBoxToyFront);
-    _level->AddBlockTo<Tbx::Material>(checkerBoxToyFront, checkerMat);
+    _level->AddBlockTo<Tbx::Material>(checkerBoxToyFront, wallMat);
     auto& checkerFrontTrans = _level->AddBlockTo<Tbx::Transform>(checkerBoxToyFront);
     checkerFrontTrans.Position = { 0, 0, 125 };
     checkerFrontTrans.Rotation = Tbx::Quaternion::FromEuler({ 0, 0, 0 });
@@ -52,7 +55,7 @@ void ExampleLayer::OnAttach()
 
     Tbx::ToyHandle checkerBoxToyLeft = _level->MakeToy("Checkerboard L");
     _level->AddBlockTo<Tbx::Mesh>(checkerBoxToyLeft);
-    _level->AddBlockTo<Tbx::Material>(checkerBoxToyLeft, checkerMat);
+    _level->AddBlockTo<Tbx::Material>(checkerBoxToyLeft, wallMat);
     auto& checkerLeftTrans = _level->AddBlockTo<Tbx::Transform>(checkerBoxToyLeft);
     checkerLeftTrans.Position = { 25, 0, 100 };
     checkerLeftTrans.Rotation = Tbx::Quaternion::FromEuler({ 0, -90, 0 });
