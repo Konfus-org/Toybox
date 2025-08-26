@@ -26,9 +26,9 @@ namespace Tbx
         /// </summary>
         SetMaterial = 4,
         /// <summary>
-        /// Uploads maetial data to GPU (things like view matrix, model position, color, etc..).
+        /// Uploads a uniform to the GPU (things like view matrix, model position, color, etc..).
         /// </summary>
-        UploadMaterialData = 5,
+        UploadUniform = 5,
         /// <summary>
         /// Renders a mesh.
         /// </summary>

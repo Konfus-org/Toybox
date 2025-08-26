@@ -7,7 +7,7 @@ namespace Tbx
     class EXPORT UsesUid
     {
     public:
-        UsesUid() = default;
+        UsesUid() : _id(Uid::GetNextId()) {}
         explicit UsesUid(const Uid& uid) : _id(uid) {}
 
         bool operator==(const UsesUid& other) const { return _id == other._id; }
@@ -18,6 +18,6 @@ namespace Tbx
         void UpdateId(const Uid& id) { _id = id; }
 
     private:
-        Uid _id = Uid::GetNextId();
+        Uid _id = Invalid::Uid;
     };
 }

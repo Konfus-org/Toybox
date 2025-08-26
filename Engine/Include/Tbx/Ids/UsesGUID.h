@@ -7,7 +7,7 @@ namespace Tbx
     class UsesGuid
     {
     public:
-        UsesGuid() = default;
+        UsesGuid() : _id(Guid::Generate()) {}
         explicit UsesGuid(const Guid& guid) : _id(guid) {}
 
         bool operator==(const UsesGuid& other) const { return _id == other._id; }
@@ -18,6 +18,6 @@ namespace Tbx
         void UpdateId(const Guid& id) { _id = id; }
 
     private:
-        Guid _id = Guid::Generate();
+        Guid _id = Invalid::Guid;
     };
 }

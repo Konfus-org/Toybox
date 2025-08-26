@@ -17,6 +17,24 @@ namespace Tbx
 
         std::string ToString() const;
 
+        Transform& SetPosition(Vector3 newPos)
+        {
+            Position = newPos;
+            return *this;
+        }
+
+        Transform& SetRotation(Quaternion newRot)
+        {
+            Rotation = newRot;
+            return *this;
+        }
+
+        Transform& SetScale(Vector3 newScale)
+        {
+            Scale = newScale;
+            return *this;
+        }
+
         Vector3 Position = Constants::Vector3::Zero;
         Quaternion Rotation = Constants::Quaternion::Identity;
         Vector3 Scale = Constants::Vector3::One;

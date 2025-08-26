@@ -114,12 +114,12 @@ namespace Tbx
             newBlock = block; // copy the block over
             return newBlock;
         }
-
+        
         /// <summary>
         /// Adds a block to a toy. The toy owns the block.
         /// </summary>
-        template<typename T>
-        EXPORT T& AddBlockTo(const ToyHandle& handle)
+        template<typename T, typename... Args>
+        EXPORT T& EmplaceBlockOn(const ToyHandle& handle, Args&&... args)
         {
             uint32 toyIndex = GetToyIndex(handle);
             auto& toy = _toyPool[toyIndex];
@@ -144,7 +144,7 @@ namespace Tbx
             toy.SetBlockMask(blockIndex, true);
 
             // Looks up the component in the pool, and initializes it with placement new
-            auto* block = new(_blockPools[blockIndex]->Get<T>(toyIndex))T();
+            auto* block = new(_blockPools[blockIndex]->Get<T>(toyIndex)) T(std::forward<Args>(args)...);
 
             TBX_ASSERT(HasBlockOn<T>(handle), "Block didn't get added correctly!");
 

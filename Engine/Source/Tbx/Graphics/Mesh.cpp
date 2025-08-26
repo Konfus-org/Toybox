@@ -10,8 +10,9 @@ namespace Tbx
         _vertexBuffer = quad._vertexBuffer;
     }
 
-    Mesh::Mesh(const Mesh& mesh)
+    Mesh::Mesh(const Mesh& mesh) : UsesUid(mesh)
     {
+        
         _indexBuffer = mesh._indexBuffer;
         _vertexBuffer = mesh._vertexBuffer;
     }

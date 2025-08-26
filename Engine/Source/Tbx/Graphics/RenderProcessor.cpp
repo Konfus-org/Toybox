@@ -18,7 +18,7 @@ namespace Tbx
         for (const auto& box : boxes)
         {
             // We only need to pre-process materials to upload them to the GPU
-            for (const auto& toy : BoxView<Material>(box))
+            for (const auto& toy : BoxView<MaterialInstance>(box))
             {
                 PreProcessToy(toy, box, buffer);
             }
@@ -58,9 +58,9 @@ namespace Tbx
     void RenderProcessor::PreProcessToy(const ToyHandle& toy, const std::shared_ptr<Box>& box, FrameBuffer& buffer)
     {
         // Preprocess materials to upload textures and shaders to GPU
-        if (box->HasBlockOn<Material>(toy))
+        if (box->HasBlockOn<MaterialInstance>(toy))
         {
-            auto& material = box->GetBlockOn<Material>(toy);
+            auto& material = box->GetBlockOn<MaterialInstance>(toy);
 
             // Check if we already added this material
             auto& existingCompileMatCmds = buffer.GetCommands();
@@ -68,7 +68,7 @@ namespace Tbx
             {
                 if (cmd.GetType() != DrawCommandType::CompileMaterial) continue;
 
-                const auto& materialToCompile = std::any_cast<const Material&>(cmd.GetPayload());
+                const auto& materialToCompile = std::any_cast<const MaterialInstance&>(cmd.GetPayload());
                 if (materialToCompile.GetId() == material)
                 {
                     return;
@@ -84,10 +84,17 @@ namespace Tbx
     {
         // NOTE: Order matters here!!!
         
-        // Material block, upload the material data
+        // Material block, should be a material instance
         if (box->HasBlockOn<Material>(toy))
         {
-            const auto& material = box->GetBlockOn<Material>(toy);
+            TBX_ASSERT(false, "A toy shouldn't use a material directly! Toys should use material instances!");
+            return;
+        }
+        
+        // Material block, upload the material data
+        if (box->HasBlockOn<MaterialInstance>(toy))
+        {
+            const auto& material = box->GetBlockOn<MaterialInstance>(toy);
             buffer.Emplace(DrawCommandType::SetMaterial, material);
         }
 
@@ -104,7 +111,7 @@ namespace Tbx
         {
             const auto& transform = box->GetBlockOn<Transform>(toy);
             const auto transformMatrix = Mat4x4::FromTRS(transform.Position, transform.Rotation, transform.Scale);
-            buffer.Emplace(DrawCommandType::UploadMaterialData, ShaderUniform("TransformUniform", transformMatrix, ShaderUniformDataType::Mat4));
+            buffer.Emplace(DrawCommandType::UploadUniform, ShaderUniform("TransformUniform", transformMatrix, ShaderUniformDataType::Mat4));
         }
         
         // Mesh block, upload the mesh data
@@ -130,14 +137,14 @@ namespace Tbx
                 // Use the transform block's position and rotation
                 const auto& cameraTransform = box->GetBlockOn<Transform>(toy);
                 const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(cameraTransform.Position, cameraTransform.Rotation, camera.GetProjectionMatrix());
-                buffer.Emplace(DrawCommandType::UploadMaterialData, ShaderUniform("ViewProjectionUniform", viewProjMatrix, ShaderUniformDataType::Mat4));
+                buffer.Emplace(DrawCommandType::UploadUniform, ShaderUniform("ViewProjectionUniform", viewProjMatrix, ShaderUniformDataType::Mat4));
             }
             else
             {
                 // No transform block, use default camera position and rotation
                 const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(
                     Constants::Vector3::Zero, Constants::Quaternion::Identity, camera.GetProjectionMatrix());
-                buffer.Emplace(DrawCommandType::UploadMaterialData, ShaderUniform("ViewProjectionUniform", viewProjMatrix, ShaderUniformDataType::Mat4));
+                buffer.Emplace(DrawCommandType::UploadUniform, ShaderUniform("ViewProjectionUniform", viewProjMatrix, ShaderUniformDataType::Mat4));
             }
         }
     }

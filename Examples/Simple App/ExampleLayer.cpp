@@ -12,7 +12,7 @@
 #include <Tbx/Time/DeltaTime.h>
 #include <algorithm>
 
-//Tbx::Material _checkerMat;
+Tbx::Material _stdMat;
 
 void ExampleLayer::OnAttach()
 {
@@ -33,41 +33,40 @@ void ExampleLayer::OnAttach()
     auto fragShader = *fragmentShaderAsset.GetData();
     auto checkerTex = *checkerboardTexAsset.GetData();
     auto wallTex = *wallTexAsset.GetData();
-    auto checkerMat = Tbx::Material({vertShader, fragShader}, {checkerTex});
-    auto wallMat = Tbx::Material({vertShader, fragShader}, {wallTex});
+    _stdMat = Tbx::Material({vertShader, fragShader});
 
-    // Create checkboards
-    Tbx::ToyHandle checkerBoardBottom = _level->MakeToy("Checkerboard B");
-    _level->AddBlockTo<Tbx::Mesh>(checkerBoardBottom);
-    _level->AddBlockTo<Tbx::Material>(checkerBoardBottom, checkerMat);
-    auto& checkerBottomTrans = _level->AddBlockTo<Tbx::Transform>(checkerBoardBottom);
-    checkerBottomTrans.Position = { 0, -25, 100 };
-    checkerBottomTrans.Rotation = Tbx::Quaternion::FromEuler({ 90, 0, 0 });
-    checkerBottomTrans.Scale = { 50 };
-
-    Tbx::ToyHandle checkerBoxToyFront = _level->MakeToy("Checkerboard F");
-    _level->AddBlockTo<Tbx::Mesh>(checkerBoxToyFront);
-    _level->AddBlockTo<Tbx::Material>(checkerBoxToyFront, wallMat);
-    auto& checkerFrontTrans = _level->AddBlockTo<Tbx::Transform>(checkerBoxToyFront);
-    checkerFrontTrans.Position = { 0, 0, 125 };
-    checkerFrontTrans.Rotation = Tbx::Quaternion::FromEuler({ 0, 0, 0 });
-    checkerFrontTrans.Scale = { 50 };
-
-    Tbx::ToyHandle checkerBoxToyLeft = _level->MakeToy("Checkerboard L");
-    _level->AddBlockTo<Tbx::Mesh>(checkerBoxToyLeft);
-    _level->AddBlockTo<Tbx::Material>(checkerBoxToyLeft, wallMat);
-    auto& checkerLeftTrans = _level->AddBlockTo<Tbx::Transform>(checkerBoxToyLeft);
-    checkerLeftTrans.Position = { 25, 0, 100 };
-    checkerLeftTrans.Rotation = Tbx::Quaternion::FromEuler({ 0, -90, 0 });
-    checkerLeftTrans.Scale = { 50 };
+    // Create room
+    Tbx::ToyHandle floor = _level->MakeToy("Floor");
+    _level->EmplaceBlockOn<Tbx::Mesh>(floor);
+    _level->EmplaceBlockOn<Tbx::MaterialInstance>(floor, _stdMat, checkerTex);
+    _level->EmplaceBlockOn<Tbx::Transform>(floor)
+        .SetPosition({ 0, -25, 100 })
+        .SetRotation(Tbx::Quaternion::FromEuler({ 90, 0, 0 }))
+        .SetScale({ 50 });
+    Tbx::ToyHandle wallBack = _level->MakeToy("Wall Back");
+    _level->EmplaceBlockOn<Tbx::Mesh>(wallBack);
+    _level->EmplaceBlockOn<Tbx::MaterialInstance>(wallBack, _stdMat, wallTex);
+    _level->EmplaceBlockOn<Tbx::Transform>(wallBack)
+        .SetPosition({ 0, 0, 125 })
+        .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))
+        .SetScale({ 50 });
+    Tbx::ToyHandle wallRight = _level->MakeToy("Wall Right");
+    _level->EmplaceBlockOn<Tbx::Mesh>(wallRight);
+    _level->EmplaceBlockOn<Tbx::MaterialInstance>(wallRight, _stdMat, wallTex);
+    _level->EmplaceBlockOn<Tbx::Transform>(wallRight)
+        .SetPosition({ 25, 0, 100 })
+        .SetRotation(Tbx::Quaternion::FromEuler({ 0, -90, 0 }))
+        .SetScale({ 50 });
 
     // Create camera toy
     _fpsCam = _level->MakeToy("Camera");
-    _level->AddBlockTo<Tbx::Camera>(_fpsCam);
-    auto& transform = _level->AddBlockTo<Tbx::Transform>(_fpsCam);
-    transform.Position = { 0, 0, -5 };
+    _level->EmplaceBlockOn<Tbx::Camera>(_fpsCam);
+    auto& camTransform = _level->EmplaceBlockOn<Tbx::Transform>(_fpsCam)
+        .SetPosition({ 2, 25, -5 })
+        .SetRotation(Tbx::Quaternion::FromEuler({ 15, 0, 0 }))
+        .SetScale({ 1 });
 
-    // Opens our new level
+    // Open our new level
     _level->Open();
 }
 
@@ -102,10 +101,10 @@ void ExampleLayer::OnUpdate()
     if (Tbx::Input::IsKeyDown(TBX_KEY_Q)) camMoveDir += Tbx::WorldSpace::Down;*/
 
     // Apply movement if any
-    if (!camMoveDir.IsNearlyZero())
+    /*if (!camMoveDir.IsNearlyZero())
     {
         camTransform.Position += camMoveDir.Normalize() * camSpeed;
-    }
+    }*/
 
     // Camera rotation
     /*if (Tbx::Input::IsKeyDown(TBX_KEY_LEFT))  _camYaw -= _camRotateSpeed * deltaTime;
@@ -121,6 +120,6 @@ void ExampleLayer::OnUpdate()
     Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::WorldSpace::Up, _camYaw);
 
     // Combine (usually yaw * pitch for FPS)
-    camTransform.Rotation = Tbx::Quaternion::Normalize(qYaw * qPitch);
+    //camTransform.Rotation = Tbx::Quaternion::Normalize(qYaw * qPitch);
 
 }
