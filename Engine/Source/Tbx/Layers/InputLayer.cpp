@@ -21,6 +21,6 @@ namespace Tbx
 
     void InputLayer::OnUpdate()
     {
-        // Do nothing...
+        Input::Update();
     }
 }

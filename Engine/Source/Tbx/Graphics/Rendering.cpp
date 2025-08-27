@@ -54,6 +54,16 @@ namespace Tbx
             renderer->Clear(App::GetInstance()->GetGraphicsSettings().ClearColor);
             renderer->Process(buffer);
         }
+
+        // Send our frame rendered event so anything can hook into our rendering and do post work...
+        RenderedFrameEvent evt;
+        EventCoordinator::Send(evt);
+
+        // Swap the buffers for each window after a frame is rendered
+        for (const auto& window : windows)
+        {
+            window->SwapBuffers();
+        }
     }
 
     std::shared_ptr<IRenderer> Rendering::GetRenderer(Uid window)

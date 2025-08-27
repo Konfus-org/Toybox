@@ -50,7 +50,5 @@ namespace Tbx
     void RenderingLayer::OnUpdate()
     {
         Rendering::DrawFrame();
-        RenderedFrameEvent evt;
-        EventCoordinator::Send(evt);
     }
 }
