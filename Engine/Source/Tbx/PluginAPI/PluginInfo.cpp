@@ -1,6 +1,7 @@
 #include "Tbx/PCH.h"
 #include "Tbx/PluginAPI/PluginInfo.h"
 #include "Tbx/PluginAPI/PluginMetaReader.h"
+#include <sstream>
 
 namespace Tbx
 {
@@ -26,9 +27,18 @@ namespace Tbx
         _description = metaData["description"];
         _lib = metaData["lib"];
 
-        const auto& prio = metaData["priority"];
-        if (prio.empty()) return;
+        const auto parseDeps = [this](const std::string& deps)
+        {
+            if (deps.empty()) return;
+            std::stringstream ss(deps);
+            std::string dep;
+            while (std::getline(ss, dep, ','))
+            {
+                if (!dep.empty()) _dependencies.push_back(dep);
+            }
+        };
 
-        _priority = std::stoi(prio);
+        parseDeps(metaData["dependencies"]);
+        parseDeps(metaData["type_dependencies"]);
     }
 }
