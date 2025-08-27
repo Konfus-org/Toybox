@@ -12,10 +12,8 @@ namespace Tbx
 		EXPORT ~SharedLayerStack();
 
 		EXPORT void Clear();
-		EXPORT void PushLayer(const std::shared_ptr<Layer>& layer);
-		EXPORT void PushOverlay(const std::shared_ptr<Layer>& overlay);
-		EXPORT void PopLayer(const std::shared_ptr<Layer>& layer);
-		EXPORT void PopOverlay(const std::shared_ptr<Layer>& overlay);
+		EXPORT void Push(const std::shared_ptr<Layer>& layer);
+		EXPORT void Pop(const std::shared_ptr<Layer>& layer);
 
 		EXPORT std::vector<std::shared_ptr<Layer>>::iterator begin() { return _layers.begin(); }
 		EXPORT std::vector<std::shared_ptr<Layer>>::iterator end() { return _layers.end(); }
@@ -29,17 +27,14 @@ namespace Tbx
 
 	private:
 		std::vector<std::shared_ptr<Layer>> _layers;
-		uint _layerInsertIndex = 0;
 	};
 
 	class WeakLayerStack
 	{
 	public:
 		EXPORT void Clear();
-		EXPORT void PushLayer(const std::weak_ptr<Layer>& layer);
-		EXPORT void PushOverlay(const std::weak_ptr<Layer>& overlay);
-		EXPORT void PopLayer(const std::weak_ptr<Layer>& layer);
-		EXPORT void PopOverlay(const std::weak_ptr<Layer>& overlay);
+		EXPORT void Push(const std::weak_ptr<Layer>& layer);
+		EXPORT void Pop(const std::weak_ptr<Layer>& layer);
 
 		EXPORT std::vector<std::weak_ptr<Layer>>::iterator begin() { return _layers.begin(); }
 		EXPORT std::vector<std::weak_ptr<Layer>>::iterator end() { return _layers.end(); }
@@ -53,6 +48,5 @@ namespace Tbx
 
 	private:
 		std::vector<std::weak_ptr<Layer>> _layers;
-		uint _layerInsertIndex = 0;
 	};
 }

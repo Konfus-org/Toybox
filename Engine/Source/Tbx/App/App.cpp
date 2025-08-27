@@ -174,15 +174,7 @@ namespace Tbx
 
     void App::PushLayer(const std::weak_ptr<Layer>& layer)
     {
-        if (layer.lock()->IsOverlay())
-        {
-            _weakLayerStack.PushOverlay(layer);
-        }
-        else
-        {
-            _weakLayerStack.PushLayer(layer);
-        }
-        layer.lock()->OnAttach();
+        _weakLayerStack.Push(layer);
     }
 
     void App::OnWindowClosed(const WindowClosedEvent& e)

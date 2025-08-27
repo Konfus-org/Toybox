@@ -1,5 +1,6 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Layers/LayerStack.h"
+#include "Tbx/Debug/Debugging.h"
 
 namespace Tbx 
 {
@@ -17,39 +18,42 @@ namespace Tbx
 			layer.reset();
 		}
 		_layers.clear();
-		_layerInsertIndex = 0;
 	}
 
-	void SharedLayerStack::PushLayer(const std::shared_ptr<Layer>& layer)
+	void SharedLayerStack::Push(const std::shared_ptr<Layer>& layer)
 	{
-		_layers.emplace(_layers.begin() + _layerInsertIndex, layer);
-		_layerInsertIndex++;
-	}
-
-	void SharedLayerStack::PushOverlay(const std::shared_ptr<Layer>& overlay)
-	{
-		_layers.emplace_back(overlay);
-	}
-
-	void SharedLayerStack::PopLayer(const std::shared_ptr<Layer>& layer)
-	{
-		auto it = std::find(_layers.begin(), _layers.begin() + _layerInsertIndex, layer);
-		if (it != _layers.begin() + _layerInsertIndex)
+		if (!layer->IsOverlay())
 		{
-			layer->OnDetach();
-			_layers.erase(it);
-			_layerInsertIndex--;
+			int layerInsertIndex = std::count_if(_layers.begin(), _layers.end(), [](const std::weak_ptr<Layer>& l) { return !l.lock()->IsOverlay(); });
+			_layers.emplace(_layers.begin() + layerInsertIndex, layer);
 		}
+		else
+		{
+			_layers.emplace_back(layer);
+		}
+		layer->OnAttach();
 	}
 
-	void SharedLayerStack::PopOverlay(const std::shared_ptr<Layer>& overlay)
+	void SharedLayerStack::Pop(const std::shared_ptr<Layer>& layer)
 	{
-		auto it = std::find(_layers.begin() + _layerInsertIndex, _layers.end(), overlay);
-		if (it != _layers.end())
+		int layerInsertIndex = std::count_if(_layers.begin(), _layers.end(), [](const std::weak_ptr<Layer>& l) { return !l.lock()->IsOverlay(); });
+		if (!layer->IsOverlay())
 		{
-			overlay->OnDetach();
-			_layers.erase(it);
+			auto it = std::find(_layers.begin(), _layers.begin() + layerInsertIndex, layer);
+			if (it != _layers.begin() + layerInsertIndex)
+			{
+				_layers.erase(it);
+			}
 		}
+		else
+		{
+			auto it = std::find(_layers.begin() + layerInsertIndex, _layers.end(), layer);
+			if (it != _layers.end())
+			{
+				_layers.erase(it);
+			}
+		}
+		layer->OnDetach();
 	}
 
 	void WeakLayerStack::Clear()
@@ -60,40 +64,57 @@ namespace Tbx
 			layer.lock()->OnDetach();
 		}
 		_layers.clear();
-		_layerInsertIndex = 0;
 	}
 
-	void WeakLayerStack::PushLayer(const std::weak_ptr<Layer>& layer)
+	void WeakLayerStack::Push(const std::weak_ptr<Layer>& layer)
 	{
-		_layers.emplace(_layers.begin() + _layerInsertIndex, layer);
-		_layerInsertIndex++;
-	}
-
-	void WeakLayerStack::PushOverlay(const std::weak_ptr<Layer>& overlay)
-	{
-		_layers.emplace_back(overlay);
-	}
-
-	void WeakLayerStack::PopLayer(const std::weak_ptr<Layer>& layer)
-	{
-		auto it = std::find_if(_layers.begin(), _layers.begin() + _layerInsertIndex,
-			[&](const std::weak_ptr<Layer>& l) { return !l.owner_before(layer) && !layer.owner_before(l); });
-		if (it != _layers.begin() + _layerInsertIndex)
+		if (layer.expired() || !layer.lock())
 		{
-			layer.lock()->OnDetach();
-			_layers.erase(it);
-			_layerInsertIndex--;
+			TBX_TRACE_WARNING("Attempted to push a stale weak pointer to an overlay onto the layer stack!");
+			return;
 		}
+
+		if (!layer.lock()->IsOverlay())
+		{
+			int layerInsertIndex = std::count_if(_layers.begin(), _layers.end(), [](const std::weak_ptr<Layer>& l) { return !l.lock()->IsOverlay(); });
+			_layers.emplace(_layers.begin() + layerInsertIndex, layer);
+		}
+		else
+		{
+			_layers.emplace_back(layer);
+		}
+		layer.lock()->OnAttach();
 	}
 
-	void WeakLayerStack::PopOverlay(const std::weak_ptr<Layer>& overlay)
+	void WeakLayerStack::Pop(const std::weak_ptr<Layer>& layer)
 	{
-		auto it = std::find_if(_layers.begin(), _layers.begin() + _layerInsertIndex,
-			[&](const std::weak_ptr<Layer>& l) { return !l.owner_before(overlay) && !overlay.owner_before(l); });
-		if (it != _layers.end())
+		if (layer.expired() || !layer.lock())
 		{
-			overlay.lock()->OnDetach();
-			_layers.erase(it);
+			TBX_TRACE_WARNING("Attempted to remove a stale weak pointer from the layer stack! In response stack is removing any invalid layers...");
+			_layers.erase(std::remove_if(_layers.begin(), _layers.end(), [](const std::weak_ptr<Layer>& l) { return l.expired() || !l.lock(); }));
+			return;
+		}
+
+		int layerInsertIndex = std::count_if(_layers.begin(), _layers.end(), [](const std::weak_ptr<Layer>& l) { return !l.lock()->IsOverlay(); });
+		if (!layer.lock()->IsOverlay())
+		{
+			auto it = std::find_if(_layers.begin(), _layers.begin() + layerInsertIndex,
+				[&](const std::weak_ptr<Layer>& l) { return !l.owner_before(layer) && !layer.owner_before(l); });
+			if (it != _layers.begin() + layerInsertIndex)
+			{
+				layer.lock()->OnDetach();
+				_layers.erase(it);
+			}
+		}
+		else
+		{
+			auto it = std::find_if(_layers.begin(), _layers.begin() + layerInsertIndex,
+				[&](const std::weak_ptr<Layer>& l) { return !l.owner_before(layer) && !layer.owner_before(l); });
+			if (it != _layers.end())
+			{
+				layer.lock()->OnDetach();
+				_layers.erase(it);
+			}
 		}
 	}
 }

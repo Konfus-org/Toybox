@@ -43,21 +43,14 @@ namespace Tbx
         EXPORT Uid OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
 
         /// <summary>
-        /// Emplaces a layer into the app. The app owns this layer and it is destroyed when the app is destroyed.
+        /// Emplaces a layer into the app.
+        /// The app owns this layer and it is destroyed when the app is destroyed.
         /// </summary>
         template <typename T, typename... Args>
         EXPORT void EmplaceLayer(Args&&... args)
         {
             auto layer = std::make_shared<T>(std::forward<Args>(args)...);
-            if (layer->IsOverlay())
-            {
-                _sharedLayerStack.PushOverlay(layer);
-            }
-            else
-            {
-                _sharedLayerStack.PushLayer(layer);
-            }
-            layer->OnAttach();
+            _sharedLayerStack.Push(layer);
         }
 
         /// <summary>

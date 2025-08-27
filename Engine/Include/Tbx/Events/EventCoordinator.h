@@ -14,13 +14,13 @@ namespace Tbx
     /// <summary>
     /// Events will be suppressed during the lifetime of this class.
     /// </summary>
-    class EXPORT EventSuppressor
+    class EventSuppressor
     {
     public:
-        EventSuppressor();
-        ~EventSuppressor();
+        EXPORT EventSuppressor();
+        EXPORT ~EventSuppressor();
 
-        static bool IsSuppressing();
+        EXPORT static bool IsSuppressing();
 
     private:
         static void Suppress();
@@ -44,7 +44,7 @@ namespace Tbx
             const auto& eventInfo = typeid(TEvent);
             const auto hashCode = eventInfo.hash_code();
 
-            std::lock_guard<std::mutex> lock(_subscribersMutex);
+            std::lock_guard<std::mutex> lock(GetMutex());
             if (GetSubscribers().contains(hashCode) == false)
             {
                 GetSubscribers()[hashCode] = std::vector<Callback<Event>>();
@@ -66,7 +66,7 @@ namespace Tbx
             const auto& eventInfo = typeid(TEvent);
             const auto hashCode = eventInfo.hash_code();
 
-            std::lock_guard<std::mutex> lock(_subscribersMutex);
+            std::lock_guard<std::mutex> lock(GetMutex());
             if (GetSubscribers().contains(hashCode) == false)
             {
                 return;
@@ -103,7 +103,7 @@ namespace Tbx
 
             std::vector<Callback<Event>> callbacksCopy;
             {
-                std::lock_guard<std::mutex> lock(_subscribersMutex);
+                std::lock_guard<std::mutex> lock(GetMutex());
                 if (GetSubscribers().contains(hashCode) == false)
                 {
                     return false;
@@ -132,6 +132,8 @@ namespace Tbx
 
     private:
         EXPORT static std::unordered_map<hash, std::vector<Callback<Event>>>& GetSubscribers();
+        EXPORT static std::mutex& GetMutex();
+
         static std::unordered_map<hash, std::vector<Callback<Event>>> _subscribers;
         static std::mutex _subscribersMutex;
     };

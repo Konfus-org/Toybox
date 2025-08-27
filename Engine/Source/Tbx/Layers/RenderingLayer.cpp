@@ -14,31 +14,43 @@ namespace Tbx
 
     void RenderingLayer::OnAttach()
     {
-        Rendering::Initialize();
         _isRunning = true;
-        _renderThread = std::thread([this]()
+        Rendering::Initialize();
+        /*_renderThread = std::thread([this]()
         {
-            while (_isRunning && App::GetInstance()->GetStatus() == AppStatus::Running)
+            try
             {
-                Rendering::DrawFrame();
-                RenderedFrameEvent evt;
-                EventCoordinator::Send(evt);
+                Rendering::Initialize();
+                while (_isRunning && App::GetInstance()->GetStatus() == AppStatus::Running)
+                {
+                    Rendering::DrawFrame();
+                    RenderedFrameEvent evt;
+                    EventCoordinator::Send(evt);
+                }
+                Rendering::Shutdown();
             }
-        });
+            catch (const std::exception& e)
+            {
+                TBX_ASSERT(false, "Render thread encountered an error! {}", e.what());
+                Rendering::Shutdown();
+            }
+        });*/
     }
 
     void RenderingLayer::OnDetach()
     {
+        Rendering::Shutdown();
         _isRunning = false;
-        if (_renderThread.joinable())
+        /*if (_renderThread.joinable())
         {
             _renderThread.join();
-        }
-        Rendering::Shutdown();
+        }*/
     }
 
     void RenderingLayer::OnUpdate()
     {
-        // Rendering happens on a separate thread
+        Rendering::DrawFrame();
+        RenderedFrameEvent evt;
+        EventCoordinator::Send(evt);
     }
 }

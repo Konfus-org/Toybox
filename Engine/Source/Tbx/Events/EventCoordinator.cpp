@@ -47,4 +47,9 @@ namespace Tbx
     {
         return _subscribers;
     }
+
+    std::mutex& EventCoordinator::GetMutex()
+    {
+        return _subscribersMutex;
+    }
 }
