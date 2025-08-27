@@ -5,7 +5,7 @@ namespace Tbx
 {
     //////////// Event Suppressor ///////////////
 
-    int EventSuppressor::_suppressCount = 0;
+    std::atomic_int EventSuppressor::_suppressCount = 0;
 
     EventSuppressor::EventSuppressor()
     {
@@ -19,25 +19,27 @@ namespace Tbx
 
     bool EventSuppressor::IsSuppressing()
     {
-        return _suppressCount > 0;
+        return _suppressCount.load(std::memory_order_relaxed) > 0;
     }
 
     void EventSuppressor::Suppress()
     {
-        _suppressCount++;
+        _suppressCount.fetch_add(1, std::memory_order_relaxed);
     }
 
     void EventSuppressor::Unsuppress()
     {
-        _suppressCount--;
+        _suppressCount.fetch_sub(1, std::memory_order_relaxed);
     }
 
     //////////// Event Coordinator ///////////////
 
     std::unordered_map<hash, std::vector<Callback<Event>>> EventCoordinator::_subscribers = {};
+    std::mutex EventCoordinator::_subscribersMutex;
 
     void EventCoordinator::ClearSubscribers()
     {
+        std::lock_guard<std::mutex> lock(_subscribersMutex);
         _subscribers.clear();
     }
 
