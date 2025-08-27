@@ -12,6 +12,7 @@ namespace Tbx
     {
     public:
         EXPORT static void Initialize();
+        EXPORT static void Update();
         EXPORT static void Shutdown();
 
         EXPORT static bool IsGamepadButtonDown(const int gamepadId, const int button);
@@ -28,9 +29,6 @@ namespace Tbx
         EXPORT static Vector2 GetMousePosition();
 
     private:
-        static void OnWindowFocusChanged(const WindowFocusedEvent& args);
-        
-        static Uid _windowFocusChangedEventId;
         static std::weak_ptr<IInputHandlerPlugin> _inputHandler;
     };
 }

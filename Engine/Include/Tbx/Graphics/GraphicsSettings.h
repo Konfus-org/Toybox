@@ -17,6 +17,6 @@ namespace Tbx
         bool VSyncEnabled = true;
         GraphicsApi Api = GraphicsApi::OpenGL;
         Size Resolution = Size(800, 600);
-        Color ClearColor = Color(0.1f, 0.1f, 0.15f, 1.0f);
+        Color ClearColor = Color(0.0f, 0.0f, 0.05f, 1.0f);
     };
 }

@@ -11,6 +11,10 @@ project "Simple App"
         "./**.cpp",
         "./**.h",
         "./**.c",
+        "./**.png",
+        "./**.jpg",
+        "./**.frag",
+        "./**.vert",
         "./**.md"
     }
     includedirs

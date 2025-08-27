@@ -3,8 +3,6 @@
 
 namespace Tbx::Math
 {
-    EXPORT constexpr float PI = 3.14159265358979323846264338327950288f;
-
     EXPORT float DegreesToRadians(float degrees);
     EXPORT float RadiansToDegrees(float radians);
 

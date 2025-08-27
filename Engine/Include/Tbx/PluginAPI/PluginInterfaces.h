@@ -60,7 +60,7 @@ namespace Tbx
     public:
         virtual ~IInputHandlerPlugin() = default;
 
-        virtual void SetContext(const std::shared_ptr<IWindow>& windowToListenTo) = 0;
+        virtual void Update() = 0;
 
         virtual bool IsGamepadButtonDown(const int gamepadId, const int button) const = 0;
         virtual bool IsGamepadButtonUp(const int gamepadId, const int button) const = 0;

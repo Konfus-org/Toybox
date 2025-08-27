@@ -7,6 +7,8 @@
 
 namespace Tbx::Constants
 {
+    EXPORT constexpr float PI = 3.14159265358979323846264338327950288f;
+
     namespace Vector3
     {
         EXPORT inline const Tbx::Vector3& One = { 1, 1, 1 };
