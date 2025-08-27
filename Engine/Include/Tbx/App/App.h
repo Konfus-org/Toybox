@@ -41,7 +41,30 @@ namespace Tbx
         EXPORT std::shared_ptr<IWindow> GetWindow(Uid id);
         EXPORT const std::vector<std::shared_ptr<IWindow>>& GetWindows();
         EXPORT Uid OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
-        EXPORT void PushLayer(const std::shared_ptr<Layer>& layer);
+
+        /// <summary>
+        /// Emplaces a layer into the app. The app owns this layer and it is destroyed when the app is destroyed.
+        /// </summary>
+        template <typename T, typename... Args>
+        EXPORT void EmplaceLayer(Args&&... args)
+        {
+            auto layer = std::make_shared<T>(std::forward<Args>(args)...);
+            if (layer->IsOverlay())
+            {
+                _sharedLayerStack.PushOverlay(layer);
+            }
+            else
+            {
+                _sharedLayerStack.PushLayer(layer);
+            }
+            layer->OnAttach();
+        }
+
+        /// <summary>
+        /// Pushes a layer to the app that the app DOES NOT OWN.
+        /// It must be kept alive by whomever pushed it.
+        /// </summary>
+        EXPORT void PushLayer(const std::weak_ptr<Layer>& layer);
 
         EXPORT const AppStatus& GetStatus() const;
         EXPORT const std::string& GetName() const;
@@ -59,7 +82,8 @@ namespace Tbx
         AppStatus _status = AppStatus::None;
         GraphicsSettings _graphicsSettings = {};
 
-        LayerStack _layerStack = {};
+        SharedLayerStack _sharedLayerStack = {};
+        WeakLayerStack _weakLayerStack = {};
         WindowStack _windowStack = {};
 
         Uid _mainWindowId = Invalid::Uid;

@@ -9,7 +9,7 @@ namespace Tbx
     WindowStack::WindowStack()
     {
         _windowFactory = PluginServer::Get<IWindowFactoryPlugin>();
-        TBX_VALIDATE_PTR(_windowFactory, "Window factory plugin not found!");
+        TBX_VALIDATE_WEAK_PTR(_windowFactory, "Window factory plugin not found!");
     }
 
     WindowStack::~WindowStack()
@@ -26,13 +26,19 @@ namespace Tbx
     {
         std::shared_ptr<IWindow> window = nullptr;
 
+        if (_windowFactory.expired() || !_windowFactory.lock())
+        {
+            TBX_ASSERT(false, "Window factory plugin not found!");
+            return Invalid::Uid;
+        }
+
         // Will suppress the window opened event in this scope
         // as we don't want it to happen until we have pushed the window back into the window stack
         {
             EventSuppressor suppressor;
 
             // Create and open the window and push it into our stack
-            window = _windowFactory->Create(name, size, mode);
+            window = _windowFactory.lock()->Create(name, size, mode);
             _windows.push_back(window);
         }
 

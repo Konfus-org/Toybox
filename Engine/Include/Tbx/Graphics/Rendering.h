@@ -45,6 +45,6 @@ namespace Tbx
         static Uid _boxOpenedEventId;
 
         static std::map<Uid, std::shared_ptr<IRenderer>> _renderers;
-        static std::shared_ptr<IRendererFactoryPlugin> _renderFactory;
+        static std::weak_ptr<IRendererFactoryPlugin> _renderFactory;
     };
 }

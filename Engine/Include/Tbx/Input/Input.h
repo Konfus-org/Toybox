@@ -31,6 +31,6 @@ namespace Tbx
         static void OnWindowFocusChanged(const WindowFocusedEvent& args);
         
         static Uid _windowFocusChangedEventId;
-        static std::shared_ptr<IInputHandlerPlugin> _inputHandler;
+        static std::weak_ptr<IInputHandlerPlugin> _inputHandler;
     };
 }

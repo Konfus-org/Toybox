@@ -17,8 +17,7 @@ void ExampleApp::OnUnload()
 
 void ExampleApp::OnLaunch()
 {
-    const auto& testLayer = std::make_shared<ExampleLayer>("Testing");
-    PushLayer(testLayer);
+    EmplaceLayer<ExampleLayer>("Testing");
 }
 
 void ExampleApp::OnUpdate()

@@ -56,10 +56,10 @@ namespace Tbx
         _windowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_FN(OnWindowClosed));
 
         // Add default layers (order is important as they will be updated and destroyed in reverse order)
-        PushLayer(std::make_shared<EventCoordinatorLayer>());
-        PushLayer(std::make_shared<RenderingLayer>());
-        PushLayer(std::make_shared<WorldLayer>());
-        PushLayer(std::make_shared<InputLayer>());
+        EmplaceLayer<EventCoordinatorLayer>();
+        EmplaceLayer<RenderingLayer>();
+        EmplaceLayer<WorldLayer>();
+        EmplaceLayer<InputLayer>();
 
         // Open a main window
         OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
@@ -106,9 +106,16 @@ namespace Tbx
         }
 
         // Update layers
-        for (const auto& layer : _layerStack)
+        for (const auto& layer : _sharedLayerStack)
         {
             layer->OnUpdate();
+            if (_status != AppStatus::Running) return;
+        }
+        for (const auto& layer : _weakLayerStack)
+        {
+            const auto layerPtr = layer.lock();
+            if (layer.expired() || layerPtr == nullptr) continue;
+            layerPtr->OnUpdate();
             if (_status != AppStatus::Running) return;
         }
 
@@ -132,7 +139,8 @@ namespace Tbx
         EventCoordinator::Unsubscribe<WindowClosedEvent>(_windowClosedEventId);
 
         // Clear layers
-        _layerStack.Clear();
+        _sharedLayerStack.Clear();
+        _weakLayerStack.Clear();
 
         // Clear out our instance
         _instance = nullptr;
@@ -164,17 +172,17 @@ namespace Tbx
         return newWindowId;
     }
 
-    void App::PushLayer(const std::shared_ptr<Layer>& layer)
+    void App::PushLayer(const std::weak_ptr<Layer>& layer)
     {
-        if (layer->IsOverlay())
+        if (layer.lock()->IsOverlay())
         {
-            _layerStack.PushOverlay(layer);
+            _weakLayerStack.PushOverlay(layer);
         }
         else
         {
-            _layerStack.PushLayer(layer);
+            _weakLayerStack.PushLayer(layer);
         }
-        layer->OnAttach();
+        layer.lock()->OnAttach();
     }
 
     void App::OnWindowClosed(const WindowClosedEvent& e)

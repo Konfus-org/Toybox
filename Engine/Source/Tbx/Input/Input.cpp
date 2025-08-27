@@ -9,12 +9,13 @@
 namespace Tbx
 {
     Uid Input::_windowFocusChangedEventId;
-    std::shared_ptr<IInputHandlerPlugin> Input::_inputHandler = nullptr;
+    std::weak_ptr<IInputHandlerPlugin> Input::_inputHandler = {};
 
     void Input::Initialize()
     {
         _windowFocusChangedEventId = EventCoordinator::Subscribe<WindowFocusedEvent>(TBX_BIND_STATIC_FN(OnWindowFocusChanged));
         _inputHandler = PluginServer::Get<IInputHandlerPlugin>();
+        TBX_VALIDATE_WEAK_PTR(_inputHandler, "Input handler plugin not found!");
     }
 
     void Input::Shutdown()
@@ -25,56 +26,97 @@ namespace Tbx
 
     bool Input::IsGamepadButtonDown(const int id, const int button)
     {
-        return _inputHandler->IsGamepadButtonDown(id, button);
+        if (_inputHandler.expired() || !_inputHandler.lock())
+        {
+            return false;
+        }
+
+        return _inputHandler.lock()->IsGamepadButtonDown(id, button);
     }
 
     bool Input::IsGamepadButtonUp(const int id, const int button)
     {
-        return _inputHandler->IsGamepadButtonUp(id, button);
+        if (_inputHandler.expired() || !_inputHandler.lock())
+        {
+            return false;
+        }
+        return _inputHandler.lock()->IsGamepadButtonUp(id, button);
     }
 
     bool Input::IsGamepadButtonHeld(const int id, const int button)
     {
-        return _inputHandler->IsGamepadButtonHeld(id, button);
+        if (_inputHandler.expired() || !_inputHandler.lock())
+        {
+            return false;
+        }
+        return _inputHandler.lock()->IsGamepadButtonHeld(id, button);
     }
 
     bool Input::IsKeyDown(const int inputCode)
     {
-        return _inputHandler->IsKeyDown(inputCode);
+        if (_inputHandler.expired() || !_inputHandler.lock())
+        {
+            return false;
+        }
+        return _inputHandler.lock()->IsKeyDown(inputCode);
     }
 
     bool Input::IsKeyUp(const int inputCode)
     {
-        return _inputHandler->IsKeyUp(inputCode);
+        if (_inputHandler.expired() || !_inputHandler.lock())
+        {
+            return false;
+        }
+        return _inputHandler.lock()->IsKeyUp(inputCode);
     }
 
     bool Input::IsKeyHeld(const int inputCode)
     {
-        return _inputHandler->IsKeyHeld(inputCode);
+        if (_inputHandler.expired() || !_inputHandler.lock())
+        {
+            return false;
+        }
+        return _inputHandler.lock()->IsKeyHeld(inputCode);
     }
 
     bool Input::IsMouseButtonDown(const int button)
     {
-        return _inputHandler->IsMouseButtonDown(button);
+        if (_inputHandler.expired() || !_inputHandler.lock())
+        {
+            return false;
+        }
+        return _inputHandler.lock()->IsMouseButtonDown(button);
     }
 
     bool Input::IsMouseButtonUp(const int button)
     {
-        return _inputHandler->IsMouseButtonUp(button);
+        return _inputHandler.lock()->IsMouseButtonUp(button);
     }
 
     bool Input::IsMouseButtonHeld(const int button)
     {
-        return _inputHandler->IsMouseButtonHeld(button);
+        if (_inputHandler.expired() || !_inputHandler.lock())
+        {
+            return false;
+        }
+        return _inputHandler.lock()->IsMouseButtonHeld(button);
     }
 
     Vector2 Input::GetMousePosition()
     {
-        return _inputHandler->GetMousePosition();
+        if (_inputHandler.expired() || !_inputHandler.lock())
+        {
+            return false;
+        }
+        return _inputHandler.lock()->GetMousePosition();
     }
 
     void Input::OnWindowFocusChanged(const WindowFocusedEvent& e)
     {
-        _inputHandler->SetContext(App::GetInstance()->GetWindow(e.GetWindowId()));
+        if (_inputHandler.expired() || !_inputHandler.lock())
+        {
+            return;
+        }
+        _inputHandler.lock()->SetContext(App::GetInstance()->GetWindow(e.GetWindowId()));
     }
 }

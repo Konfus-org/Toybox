@@ -1,5 +1,6 @@
 #include "Tbx/Launcher/AppHost.h"
 #include "Tbx/PluginAPI/PluginServer.h"
+#include "Tbx/PluginAPI/PluginInterfaces.h"
 #include "Tbx/Debug/Debugging.h"
 #include "Tbx/Events/EventCoordinator.h"
 #include "Tbx/Layers/Layer.h"
@@ -9,7 +10,9 @@
 
 namespace Tbx
 {
-    static std::shared_ptr<App> Load(const std::string& pathToPlugins)
+    static std::shared_ptr<LoadedPlugin> _logPlugin;
+
+    static std::weak_ptr<App> Load(const std::string& pathToPlugins)
     {
         try
         {
@@ -26,8 +29,8 @@ namespace Tbx
                 "The app library should be loaded as a tbx plugin to allow for hot reloading and you should have a host application to call 'Tbx::Run'.");
             TBX_ASSERT(!(apps.size() > 1), "Toybox only supports one app at a time!");
             auto app = apps[0];
-            TBX_VALIDATE_PTR(app, "Could not load app! Is the TBX_PATH_TO_PLUGINS defined correctly and is the dll containing the app being build there?");
-            TBX_TRACE_INFO("Loaded app: {0}", app->GetName());
+            TBX_VALIDATE_WEAK_PTR(app, "Could not load app! Is the TBX_PATH_TO_PLUGINS defined correctly and is the dll containing the app being build there?");
+            TBX_TRACE_INFO("Loaded app: {0}", app.lock()->GetName());
 
             // Log loaded plugins
             const auto& plugins = PluginServer::GetAll();
@@ -45,6 +48,12 @@ namespace Tbx
                 TBX_TRACE_INFO("    - Version: {0}", pluginVersion);
                 TBX_TRACE_INFO("    - Author: {0}", pluginAuthor);
                 TBX_TRACE_INFO("    - Description: {0}", pluginDescription);
+
+                // We want to store a reference to our logger plugin to control when it gets unloaded...
+                if (loadedPlug->GetAs<ILoggerFactoryPlugin>().lock() != nullptr)
+                {
+                    _logPlugin = loadedPlug;
+                }
             }
 
             return app;
@@ -53,32 +62,32 @@ namespace Tbx
         {
             std::string errMsg = ex.what();
             TBX_TRACE_ERROR("Failed to load plugins at {0}! Error: {1}", pathToPlugins, errMsg);
-            return nullptr;
+            return {};
         }
     }
 
-    static AppStatus Run(const std::shared_ptr<App>& app)
+    static AppStatus Run(const std::weak_ptr<App>& app)
     {
         try
         {
             // Launch first
-            app->Launch();
+            app.lock()->Launch();
 
             // Load layer plugins
             auto layerPlugins = PluginServer::GetAllOfType<Layer>();
             for (const auto& layerPlugin : layerPlugins)
             {
-                app->PushLayer(layerPlugin);
+                app.lock()->PushLayer(layerPlugin);
             }
 
             // Then run the app!
-            while (app->GetStatus() == AppStatus::Running)
+            while (app.lock()->GetStatus() == AppStatus::Running)
             {
-                app->Update();
+                app.lock()->Update();
             }
 
             // Cleanup
-            app->Close();
+            app.lock()->Close();
         }
         catch (const std::exception& ex)
         {
@@ -86,12 +95,12 @@ namespace Tbx
             return AppStatus::Error;
         }
 
-        return app->GetStatus();
+        return app.lock()->GetStatus();
     }
 
     AppStatus RunHost(const std::string& pathToPlugins)
     {
-        std::shared_ptr<App> app = nullptr;
+        std::weak_ptr<App> app = {};
         auto status = AppStatus::Initializing;
         bool running = true;
 
@@ -101,7 +110,7 @@ namespace Tbx
             {
                 // Load app and plugins (app is a plugin)
                 app = Load(pathToPlugins);
-                if (!app)
+                if (app.expired() || app.lock() == nullptr)
                 {
                     TBX_ASSERT(false, "Failed to load an app! Is the path to plugins macro defined and point to the correct directory?");
                     return AppStatus::Error;
@@ -115,7 +124,6 @@ namespace Tbx
             if (status == AppStatus::Restarting)
             {
                 // We only want to unload everything if we are reloading things or shutting down!
-                app = nullptr;
                 PluginServer::Shutdown();
             }
         }
@@ -123,12 +131,12 @@ namespace Tbx
         // Assert last status of the app
         TBX_ASSERT(status == AppStatus::Closed, "App didn't shutdown correctly!");
 
+        // Unload plugins
+        PluginServer::Shutdown();
+
         // Close log
         Log::Close();
-
-        // Unload plugins
-        app = nullptr; // <- We need to clear our ref to the app to allow it to be unloaded...
-        PluginServer::Shutdown();
+        _logPlugin.reset(); // <- Clear our ref to the log plugin to unload it
 
         return status;
     }

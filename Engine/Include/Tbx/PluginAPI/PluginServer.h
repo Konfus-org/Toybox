@@ -20,32 +20,32 @@ namespace Tbx
         /// Gets the first plugin of a type.
         /// </summary>
         template <typename T>
-        EXPORT static std::shared_ptr<T> Get()
+        EXPORT static std::weak_ptr<T> Get()
         {
             const auto& loadedPlugins = GetAll();
             for (const auto& loadedPlug : loadedPlugins)
             {
-                const auto& plugImpl = loadedPlug->GetAs<T>();
-                if (!plugImpl) continue;
+                const auto plugImpl = loadedPlug->GetAs<T>();
+                if (plugImpl.expired() || !plugImpl.lock()) continue;
 
                 return plugImpl;
             }
 
-            return nullptr;
+            return {};
         }
 
         /// <summary>
         /// Gets plugins of the specified type.
         /// </summary>
         template <typename T>
-        EXPORT static std::vector<std::shared_ptr<T>> GetAllOfType()
+        EXPORT static std::vector<std::weak_ptr<T>> GetAllOfType()
         {
-            std::vector<std::shared_ptr<T>> plugins;
+            std::vector<std::weak_ptr<T>> plugins;
             const auto& loadedPlugins = GetAll();
             for (const auto& loadedPlug : loadedPlugins)
             {
                 const auto& plugImpl = loadedPlug->GetAs<T>();
-                if (!plugImpl) continue;
+                if (plugImpl.expired() || !plugImpl.lock()) continue;
 
                 plugins.push_back(plugImpl);
             }

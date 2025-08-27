@@ -43,7 +43,7 @@ namespace Tbx
         EXPORT std::vector<std::shared_ptr<IWindow>>::const_reverse_iterator rend() const { return _windows.rend(); }
 
     private:
-        std::shared_ptr<IWindowFactoryPlugin> _windowFactory = nullptr;
+        std::weak_ptr<IWindowFactoryPlugin> _windowFactory = {};
         std::vector<std::shared_ptr<IWindow>> _windows = {};
     };
 }

@@ -10,7 +10,7 @@
 
 namespace Tbx
 {
-    std::shared_ptr<IRendererFactoryPlugin> Rendering::_renderFactory = nullptr;
+    std::weak_ptr<IRendererFactoryPlugin> Rendering::_renderFactory = {};
     std::map<Uid, std::shared_ptr<IRenderer>> Rendering::_renderers = {};
     Uid Rendering::_windowCreatedEventId = Invalid::Uid;
     Uid Rendering::_windowClosedEventId = Invalid::Uid;
@@ -33,8 +33,6 @@ namespace Tbx
         EventCoordinator::Unsubscribe<WindowClosedEvent>(_windowClosedEventId);
         EventCoordinator::Unsubscribe<WindowClosedEvent>(_windowResizedEventId);
         EventCoordinator::Unsubscribe<WindowClosedEvent>(_boxOpenedEventId);
-
-        _renderFactory = nullptr;
     }
 
     void Rendering::DrawFrame()
@@ -73,7 +71,13 @@ namespace Tbx
     {
         auto newWinId = e.GetWindowId();
         auto newWindow = App::GetInstance()->GetWindow(newWinId);
-        auto newRenderer = _renderFactory->Create(newWindow);
+        if (_renderFactory.expired() || !_renderFactory.lock())
+        {
+            TBX_ASSERT(false, "Render factory plugin was unloaded! Cannot create new renderer");
+            return;
+        }
+
+        auto newRenderer = _renderFactory.lock()->Create(newWindow);
         _renderers[newWinId] = newRenderer;
     }
 

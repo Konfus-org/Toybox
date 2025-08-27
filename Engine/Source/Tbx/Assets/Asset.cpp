@@ -6,7 +6,7 @@ namespace Tbx
     /*std::shared_ptr<IShaderLoaderPlugin> AssetLoader::_shaderLoaderPlugin = nullptr;
     std::shared_ptr<ITextureLoaderPlugin> AssetLoader::_textureLoaderPlugin = nullptr;*/
 
-    std::shared_ptr<IShaderLoaderPlugin> AssetLoader::GetShaderLoader()
+    std::weak_ptr<IShaderLoaderPlugin> AssetLoader::GetShaderLoader()
     {
         /*if (!_shaderLoaderPlugin)
         {
@@ -15,7 +15,7 @@ namespace Tbx
         return PluginServer::Get<IShaderLoaderPlugin>();
     }
 
-    std::shared_ptr<ITextureLoaderPlugin> AssetLoader::GetTextureLoader()
+    std::weak_ptr<ITextureLoaderPlugin> AssetLoader::GetTextureLoader()
     {
         /*if (!_textureLoaderPlugin)
         {

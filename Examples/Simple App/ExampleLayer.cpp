@@ -87,7 +87,7 @@ void ExampleLayer::OnUpdate()
     float camSpeed = _camMoveSpeed * deltaTime;
     if (Tbx::Input::IsKeyDown(TBX_KEY_LEFT_SHIFT))
     {
-        camSpeed *= 4.0f;
+        camSpeed *= 5.0f;
     }
 
     // Build movement direction
@@ -122,5 +122,4 @@ void ExampleLayer::OnUpdate()
 
     // Combine (usually yaw * pitch for FPS)
     camTransform.Rotation = Tbx::Quaternion::Normalize(qYaw * qPitch);
-
 }

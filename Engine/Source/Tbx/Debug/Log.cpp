@@ -18,11 +18,11 @@ namespace Tbx
         _isOpen = true;
 
         auto loggerFactory = PluginServer::Get<ILoggerFactoryPlugin>();
-        TBX_ASSERT(loggerFactory, "Logger factory plugin not found! Falling back to default console logging.");
+        TBX_VALIDATE_WEAK_PTR(loggerFactory, "Logger factory plugin not found! Falling back to default console logging.");
 
 #ifdef TBX_DEBUG
         // No log file in debug
-        _logger = loggerFactory->Create(name, _logFilePath);
+        _logger = loggerFactory.lock()->Create(name, _logFilePath);
 #else
         // Open log file in non-debug
         const auto& currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());

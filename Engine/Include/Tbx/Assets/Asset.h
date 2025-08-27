@@ -29,14 +29,14 @@ namespace Tbx
             if constexpr (std::is_same<Shader, AssetType>())
             {
                 auto shaderLoader = GetShaderLoader();
-                TBX_ASSERT(shaderLoader, "Shader loading plugin not found!");
-                return shaderLoader->LoadShader(filepath);
+                TBX_VALIDATE_WEAK_PTR(shaderLoader, "Shader loading plugin not found!");
+                return shaderLoader.lock()->LoadShader(filepath);
             }
             else if constexpr (std::is_same<Texture, AssetType>())
             {
                 auto textureLoader = GetTextureLoader();
-                TBX_ASSERT(textureLoader, "Texture loading plugin not found!");
-                return textureLoader->LoadTexture(filepath);
+                TBX_VALIDATE_WEAK_PTR(textureLoader, "Texture loading plugin not found!");
+                return textureLoader.lock()->LoadTexture(filepath);
             }
             else
             {
@@ -46,8 +46,8 @@ namespace Tbx
         }
 
     private:
-        EXPORT static std::shared_ptr<IShaderLoaderPlugin> GetShaderLoader();
-        EXPORT static std::shared_ptr<ITextureLoaderPlugin> GetTextureLoader();
+        EXPORT static std::weak_ptr<IShaderLoaderPlugin> GetShaderLoader();
+        EXPORT static std::weak_ptr<ITextureLoaderPlugin> GetTextureLoader();
     };
 
     /// <summary>

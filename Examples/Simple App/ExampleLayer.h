@@ -19,7 +19,7 @@ private:
     Tbx::ToyHandle _fpsCam = {};
     float _camPitch = 0.0f;
     float _camYaw = 0.0f;
-    float _camMoveSpeed = 1.0f;
+    float _camMoveSpeed = 10.0f;
     float _camRotateSpeed = 180.0f;
 };
 
