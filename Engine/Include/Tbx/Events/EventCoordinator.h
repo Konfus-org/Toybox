@@ -6,6 +6,8 @@
 #include <unordered_map>
 #include <typeindex>
 #include <vector>
+#include <mutex>
+#include <atomic>
 
 namespace Tbx
 {
@@ -24,7 +26,7 @@ namespace Tbx
         static void Suppress();
         static void Unsuppress();
 
-        static int _suppressCount;
+        static std::atomic_int _suppressCount;
     };
 
     class EventCoordinator
@@ -42,6 +44,7 @@ namespace Tbx
             const auto& eventInfo = typeid(TEvent);
             const auto hashCode = eventInfo.hash_code();
 
+            std::lock_guard<std::mutex> lock(_subscribersMutex);
             if (GetSubscribers().contains(hashCode) == false)
             {
                 GetSubscribers()[hashCode] = std::vector<Callback<Event>>();
@@ -63,6 +66,7 @@ namespace Tbx
             const auto& eventInfo = typeid(TEvent);
             const auto hashCode = eventInfo.hash_code();
 
+            std::lock_guard<std::mutex> lock(_subscribersMutex);
             if (GetSubscribers().contains(hashCode) == false)
             {
                 return;
@@ -97,13 +101,17 @@ namespace Tbx
             const auto& eventInfo = typeid(TEvent);
             const auto hashCode = eventInfo.hash_code();
 
-            if (GetSubscribers().contains(hashCode) == false)
+            std::vector<Callback<Event>> callbacksCopy;
             {
-                return false;
+                std::lock_guard<std::mutex> lock(_subscribersMutex);
+                if (GetSubscribers().contains(hashCode) == false)
+                {
+                    return false;
+                }
+                callbacksCopy = GetSubscribers()[hashCode];
             }
 
-            const auto& callbacks = GetSubscribers()[hashCode];
-            for (auto& callback : callbacks)
+            for (auto& callback : callbacksCopy)
             {
                 if (EventSuppressor::IsSuppressing())
                 {
@@ -113,7 +121,7 @@ namespace Tbx
 
                 callback(event);
             }
-            
+
             return event.IsHandled;
         }
 
@@ -125,5 +133,6 @@ namespace Tbx
     private:
         EXPORT static std::unordered_map<hash, std::vector<Callback<Event>>>& GetSubscribers();
         static std::unordered_map<hash, std::vector<Callback<Event>>> _subscribers;
+        static std::mutex _subscribersMutex;
     };
 }

@@ -1,6 +1,9 @@
 #pragma once
 #include "Tbx/Layers/Layer.h"
 
+#include <atomic>
+#include <thread>
+
 namespace Tbx
 {
     class RenderingLayer : public Layer
@@ -12,5 +15,9 @@ namespace Tbx
         void OnAttach() final;
         void OnDetach() final;
         void OnUpdate() final;
+
+    private:
+        std::atomic<bool> _isRunning = false;
+        std::thread _renderThread = {};
     };
 }
