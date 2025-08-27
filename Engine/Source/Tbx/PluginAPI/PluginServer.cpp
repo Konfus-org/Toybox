@@ -4,9 +4,30 @@
 #include "Tbx/Events/PluginEvents.h"
 #include "Tbx/Events/EventCoordinator.h"
 #include <filesystem>
+#include <algorithm>
 
 namespace Tbx
 {
+    static bool IsTypeLoaded(const std::string& typeName)
+    {
+        if (typeName == "ILoggerFactoryPlugin")
+            return !PluginServer::Get<ILoggerFactoryPlugin>().expired();
+        if (typeName == "IRendererFactoryPlugin")
+            return !PluginServer::Get<IRendererFactoryPlugin>().expired();
+        if (typeName == "IWindowFactoryPlugin")
+            return !PluginServer::Get<IWindowFactoryPlugin>().expired();
+        if (typeName == "IInputHandlerPlugin")
+            return !PluginServer::Get<IInputHandlerPlugin>().expired();
+        if (typeName == "ITextureLoaderPlugin")
+            return !PluginServer::Get<ITextureLoaderPlugin>().expired();
+        if (typeName == "IShaderLoaderPlugin")
+            return !PluginServer::Get<IShaderLoaderPlugin>().expired();
+        if (typeName == "ILayerPlugin")
+            return !PluginServer::Get<ILayerPlugin>().expired();
+
+        return false;
+    }
+
     std::vector<std::shared_ptr<LoadedPlugin>> PluginServer::_loadedPlugins = {};
     std::string PluginServer::_pathToLoadedPlugins = "";
 
@@ -16,33 +37,64 @@ namespace Tbx
         TBX_ASSERT(!pathToPlugins.empty(), "Path to plugins is empty!");
 
         // Find plugin infos
-        auto foundPluginInfos = FindPluginInfosInDirectory(pathToPlugins);
+        auto remainingPluginInfos = FindPluginInfosInDirectory(pathToPlugins);
 
-        // Sort by priority
-        std::sort(foundPluginInfos.begin(), foundPluginInfos.end(), [](const PluginInfo& a, const PluginInfo& b) 
+        // Load plugins respecting dependencies
+        while (!remainingPluginInfos.empty())
         {
-            return a.GetPriority() > b.GetPriority(); 
-        });
+            bool progress = false;
 
-        // Load plugins
-        for (const auto& pluginInfo : foundPluginInfos)
-        {
-            auto loadedPlugin = std::make_shared<LoadedPlugin>(pluginInfo);
-
-            if (!loadedPlugin->IsValid())
+            for (auto it = remainingPluginInfos.begin(); it != remainingPluginInfos.end();)
             {
-                TBX_ASSERT(false, "Failed to load plugin: {0}", pluginInfo.GetName());
+                const auto& info = *it;
+
+                bool depsMet = true;
+
+                for (const auto& dep : info.GetDependencies())
+                {
+                    auto found = std::find_if(_loadedPlugins.begin(), _loadedPlugins.end(), [&](const auto& plug)
+                    {
+                        return plug->GetInfo().GetName() == dep;
+                    });
+
+                    if (found == _loadedPlugins.end() && !IsTypeLoaded(dep))
+                    {
+                        depsMet = false;
+                        break;
+                    }
+                }
+
+                if (!depsMet)
+                {
+                    ++it;
+                    continue;
+                }
+
+                auto loadedPlugin = std::make_shared<LoadedPlugin>(info);
+
+                if (!loadedPlugin->IsValid())
+                {
+                    TBX_ASSERT(false, "Failed to load plugin: {0}", info.GetName());
 #ifdef TBX_DEBUG
-                // TODO prompt to remove potentially stale plugins
-                //std::remove(loadedPlugin->GetInfo().GetFilePath().c_str());
+                    // TODO prompt to remove potentially stale plugins
+                    //std::remove(loadedPlugin->GetInfo().GetFilePath().c_str());
 #endif
+                }
+
+                if (loadedPlugin->IsValid())
+                {
+                    _loadedPlugins.push_back(loadedPlugin);
+
+                    auto pluginLoadedEvent = PluginLoadedEvent(loadedPlugin);
+                    EventCoordinator::Send(pluginLoadedEvent);
+                }
+
+                it = remainingPluginInfos.erase(it);
+                progress = true;
             }
 
-            if (!loadedPlugin->IsValid()) continue;
-            _loadedPlugins.push_back(loadedPlugin);
-
-            auto pluginLoadedEvent = PluginLoadedEvent(loadedPlugin);
-            EventCoordinator::Send(pluginLoadedEvent);
+            TBX_ASSERT(progress, "Unable to resolve plugin dependencies!");
+            if (!progress) break;
         }
     }
 
@@ -52,7 +104,7 @@ namespace Tbx
 
         // Clear refs to loaded plugins.. 
         // this will cause them to unload themselves
-        // Unload one by one, lowest priority first
+        // Unload one by one, reverse load order
         while (!_loadedPlugins.empty())
         {
             auto plugin = _loadedPlugins.back();

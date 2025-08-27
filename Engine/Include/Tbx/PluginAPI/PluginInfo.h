@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include <string>
+#include <vector>
 
 namespace Tbx
 {
@@ -16,9 +17,10 @@ namespace Tbx
         EXPORT std::string GetVersion() const { return _version; }
         EXPORT std::string GetDescription() const { return _description; }
         EXPORT std::string GetLib() const { return _lib; }
-        EXPORT int GetPriority() const { return _priority; }
         EXPORT std::string GetFolderPath() const { return _pathToFolder; }
         EXPORT std::string GetFilePath() const { return GetFolderPath() + "/" + GetLib(); }
+
+        EXPORT const std::vector<std::string>& GetDependencies() const { return _dependencies; }
 
         EXPORT std::string ToString() const;
 
@@ -31,6 +33,6 @@ namespace Tbx
         std::string _description = "";
         std::string _lib = "";
         std::string _pathToFolder = "";
-        int _priority = -2147483647;
+        std::vector<std::string> _dependencies = {};
     };
 }
