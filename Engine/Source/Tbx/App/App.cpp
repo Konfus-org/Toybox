@@ -138,6 +138,9 @@ namespace Tbx
         // Unsub to window events and shutdown events
         EventCoordinator::Unsubscribe<WindowClosedEvent>(_windowClosedEventId);
 
+        // Clear windows
+        _windowStack.Clear();
+
         // Clear layers
         _sharedLayerStack.Clear();
         _weakLayerStack.Clear();

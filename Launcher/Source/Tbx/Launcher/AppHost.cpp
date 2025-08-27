@@ -102,7 +102,7 @@ namespace Tbx
     {
         std::weak_ptr<App> app = {};
         auto status = AppStatus::Initializing;
-        bool running = true;
+        auto running = true;
 
         while (running)
         {
@@ -121,22 +121,19 @@ namespace Tbx
             status = Run(app); 
             running = status != AppStatus::Error && status != AppStatus::Closed;
 
-            if (status == AppStatus::Restarting)
+            if (status != AppStatus::Running)
             {
-                // We only want to unload everything if we are reloading things or shutting down!
+                // If we aren't running for any reason, shutdown our plugins and close the log
                 PluginServer::Shutdown();
+
+                // Close log
+                Log::Close();
+                _logPlugin.reset(); // <- Clear our ref to the log plugin to unload it
             }
         }
 
         // Assert last status of the app
         TBX_ASSERT(status == AppStatus::Closed, "App didn't shutdown correctly!");
-
-        // Unload plugins
-        PluginServer::Shutdown();
-
-        // Close log
-        Log::Close();
-        _logPlugin.reset(); // <- Clear our ref to the log plugin to unload it
 
         return status;
     }

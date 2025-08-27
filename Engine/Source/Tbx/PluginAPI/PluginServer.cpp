@@ -66,16 +66,6 @@ namespace Tbx
         }
     }
 
-    void PluginServer::ReloadPlugins()
-    {
-        TBX_TRACE_INFO("Reloading plugins...");
-
-        // Unload...
-        Shutdown();
-        // Reload...
-        Initialize(_pathToLoadedPlugins);
-    }
-
     void PluginServer::RegisterPlugin(const std::shared_ptr<LoadedPlugin>& plugin)
     {
         _loadedPlugins.push_back(plugin);

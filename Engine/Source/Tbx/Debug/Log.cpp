@@ -18,7 +18,11 @@ namespace Tbx
         _isOpen = true;
 
         auto loggerFactory = PluginServer::Get<ILoggerFactoryPlugin>();
-        TBX_VALIDATE_WEAK_PTR(loggerFactory, "Logger factory plugin not found! Falling back to default console logging.");
+        if (loggerFactory.expired() || !loggerFactory.lock())
+        {
+            TBX_VALIDATE_WEAK_PTR(loggerFactory, "Logger factory plugin not found! Falling back to default console logging.");
+            return;
+        }
 
 #ifdef TBX_DEBUG
         // No log file in debug
