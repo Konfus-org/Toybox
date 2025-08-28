@@ -60,6 +60,9 @@ namespace Tbx
         if (!_library.GetSymbol("Unload"))
         {
             TBX_TRACE_ERROR("No unload library function found in: {0}, is it calling TBX_REGISTER_PLUGIN?", pluginFullPath);
+            // Since we already loaded the library we must unload it here to
+            // avoid leaking the library handle and associated resources.
+            _library.Unload();
             return;
         }
 
