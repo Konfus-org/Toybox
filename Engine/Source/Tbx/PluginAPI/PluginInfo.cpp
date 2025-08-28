@@ -21,24 +21,12 @@ namespace Tbx
         auto metaData = PluginMetaReader::Read(pathToPluginFile);
         if (metaData.empty()) return;
 
-        _name = metaData["name"];
-        _author = metaData["author"];
-        _version = metaData["version"];
-        _description = metaData["description"];
-        _lib = metaData["lib"];
-
-        const auto parseDeps = [this](const std::string& deps)
-        {
-            if (deps.empty()) return;
-            std::stringstream ss(deps);
-            std::string dep;
-            while (std::getline(ss, dep, ','))
-            {
-                if (!dep.empty()) _dependencies.push_back(dep);
-            }
-        };
-
-        parseDeps(metaData["dependencies"]);
-        parseDeps(metaData["type_dependencies"]);
+        _name = metaData["name"][0];
+        _author = metaData["author"][0];
+        _version = metaData["version"][0];
+        _description = metaData["description"][0];
+        _lib = metaData["lib"][0];
+        _dependencies = metaData["dependencies"];
+        _implementedTypes = metaData["type"];
     }
 }

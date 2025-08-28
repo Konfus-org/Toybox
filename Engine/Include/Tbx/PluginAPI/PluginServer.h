@@ -13,7 +13,6 @@ namespace Tbx
         EXPORT static void Initialize(const std::string& pathToPlugins);
         EXPORT static void Shutdown();
 
-        EXPORT static void ReloadPlugins();
         EXPORT static void RegisterPlugin(const std::shared_ptr<LoadedPlugin>& plugin);
 
         /// <summary>
@@ -59,7 +58,9 @@ namespace Tbx
         EXPORT static const std::vector<std::shared_ptr<LoadedPlugin>>& GetAll();
 
     private:
-        static std::vector<PluginInfo> FindPluginInfosInDirectory(const std::string& pathToPlugins);
+        static std::vector<PluginInfo> SearchDirectoryForInfos(const std::string& pathToPlugins);
+        static bool IsTypeLoaded(const std::string& pluginType);
+        static bool IsWaitingOnAll(const PluginInfo& info);
 
         static std::vector<std::shared_ptr<LoadedPlugin>> _loadedPlugins;
         static std::string _pathToLoadedPlugins;

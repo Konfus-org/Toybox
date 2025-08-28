@@ -20,12 +20,7 @@ namespace Tbx
 #ifdef TBX_PLATFORM_WINDOWS
 
         _path = path;
-        auto tmpName = path + ".rplugin.dll";
-        if (CopyFileA(path.c_str(), tmpName.c_str(), FALSE))
-        {
-            // Load the copied DLL and get the functions from it.
-            _handle = LoadLibraryA(tmpName.c_str());
-        }
+        _handle = LoadLibraryA(_path.c_str());
         return _handle != nullptr;
 
 #elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_OSX)

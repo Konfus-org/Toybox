@@ -10,7 +10,6 @@ namespace Tbx
     LoadedPlugin::LoadedPlugin(const PluginInfo& pluginInfo)
     {
         _pluginInfo = pluginInfo;
-        TBX_ASSERT(_pluginInfo.IsValid(), "Cannot load plugin! Invalid plugin info...");
         Load();
     }
 
@@ -31,7 +30,6 @@ namespace Tbx
 
     void LoadedPlugin::Reload()
     {
-        TBX_TRACE_INFO("Reloading plugin: {}", _pluginInfo.GetName());
         Unload();
         Load();
     }
@@ -43,7 +41,7 @@ namespace Tbx
 
         const std::string& pluginFullPath = _pluginInfo.GetFilePath();
         _library.Load(pluginFullPath);
-        if (_library.IsValid() == false)
+        if (!_library.IsValid())
         {
             TBX_TRACE_ERROR("Failed to load library! Does it exist at: {0}", pluginFullPath);
             return;
@@ -96,9 +94,6 @@ namespace Tbx
     {
         if (_plugin != nullptr)
         {
-            TBX_ASSERT(_plugin.use_count() == 1, "{} Plugin is still in use! Ensure all references are released before unloading!", _pluginInfo.GetName());
-            TBX_TRACE_INFO("Unloading plugin: {}", _pluginInfo.GetName());
-
             _plugin->OnUnload();
             _plugin.reset();
         }

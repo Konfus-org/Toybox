@@ -35,6 +35,15 @@ namespace Tbx
             return {};
         }
 
+
+        /// <summary>
+        /// Gets the loaded plugin.
+        /// </summary>
+        EXPORT std::weak_ptr<IPlugin> Get()
+        {
+            return _plugin;
+        }
+
     private:
         void Load();
         void Unload();

@@ -3,9 +3,11 @@
 
 namespace Tbx
 {
+    using PluginMeta = std::map<std::string, std::vector<std::string>, std::less<>>;
+
     class PluginMetaReader
     {
     public:
-        static std::map<std::string, std::string, std::less<>> Read(const std::string& jsonPath);
+        static PluginMeta Read(const std::string& jsonPath);
     };
 }

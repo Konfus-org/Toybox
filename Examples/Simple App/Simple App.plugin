@@ -4,5 +4,11 @@
     "language": "C++",
     "version": "0.0.1",
     "author": "Konfus-dev",
+    "dependencies": [
+        "All"
+    ],
+    "type": [
+        "App"
+    ],
     "description": "The app implementing Toybox, this is loaded as a plugin to allow for hot reloading."
 }

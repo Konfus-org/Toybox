@@ -10,17 +10,12 @@
 
 namespace Tbx
 {
-    static std::shared_ptr<LoadedPlugin> _logPlugin;
-
     static std::weak_ptr<App> Load(const std::string& pathToPlugins)
     {
         try
         {
             // Load plugins
             PluginServer::Initialize(pathToPlugins);
-
-            // Open the log
-            Log::Open("Tbx");
 
             // Get and validate app
             auto apps = PluginServer::GetAllOfType<App>();
@@ -32,30 +27,7 @@ namespace Tbx
             TBX_VALIDATE_WEAK_PTR(app, "Could not load app! Is the TBX_PATH_TO_PLUGINS defined correctly and is the dll containing the app being build there?");
             TBX_TRACE_INFO("Loaded app: {0}", app.lock()->GetName());
 
-            // Log loaded plugins
-            const auto& plugins = PluginServer::GetAll();
-            const auto& numPlugins = plugins.size();
-            TBX_TRACE_INFO("Loaded {0} plugins:", numPlugins);
-            for (const auto& loadedPlug : plugins)
-            {
-                const auto& pluginInfo = loadedPlug->GetInfo();
-                const auto& pluginName = pluginInfo.GetName();
-                const auto& pluginVersion = pluginInfo.GetVersion();
-                const auto& pluginAuthor = pluginInfo.GetAuthor();
-                const auto& pluginDescription = pluginInfo.GetDescription();
-
-                TBX_TRACE_INFO("{0}:", pluginName);
-                TBX_TRACE_INFO("    - Version: {0}", pluginVersion);
-                TBX_TRACE_INFO("    - Author: {0}", pluginAuthor);
-                TBX_TRACE_INFO("    - Description: {0}", pluginDescription);
-
-                // We want to store a reference to our logger plugin to control when it gets unloaded...
-                if (loadedPlug->GetAs<ILoggerFactoryPlugin>().lock() != nullptr)
-                {
-                    _logPlugin = loadedPlug;
-                }
-            }
-
+            // Finally return our app
             return app;
         }
         catch (const std::exception& ex)
@@ -121,19 +93,18 @@ namespace Tbx
             status = Run(app); 
             running = status != AppStatus::Error && status != AppStatus::Closed;
 
-            if (status != AppStatus::Running)
+            if (status == AppStatus::Restarting)
             {
-                // If we aren't running for any reason, shutdown our plugins and close the log
+                // If we are restarting we need to shutdown our plugin server
                 PluginServer::Shutdown();
-
-                // Close log
-                Log::Close();
-                _logPlugin.reset(); // <- Clear our ref to the log plugin to unload it
             }
         }
 
         // Assert last status of the app
         TBX_ASSERT(status == AppStatus::Closed, "App didn't shutdown correctly!");
+
+        // If we aren't running for any reason, shutdown our plugins and close the log
+        PluginServer::Shutdown();
 
         return status;
     }
