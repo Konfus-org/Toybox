@@ -5,30 +5,26 @@ There isn't much here yet but, hopefully, soon there will be!
 
 ## How to build
 
-Toybox uses premake to generate project files for different build environments.
-The repo contains a "makeproj.bat" script that you can run (if on windows) to generate a visual studio project.
+Toybox now uses [CMake](https://cmake.org/) to generate project files for different build environments.
 
-If you are on another platform you will have to manually invoke the premake exe located under "Tools/Premake".
-To learn how to use premake look to: https://premake.github.io/.
+### Prerequisites
 
-There are some requirements however as this "makeproj" sadly won't just work as there are dependencies on things like SDL_Shadercross of which depend on other things.
-So before you click the "makeproj.bat" (or build via premake directly) there is a little bit of homework to do:
+1. Install [CMake](https://cmake.org/download/).
+2. Install [Python](https://www.python.org/downloads/).
+3. Install the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home).
+4. Enable long file path support on Windows if necessary.
 
-1.) Install cmake if not already installed: https://cmake.org/download/
+### Building
 
-2.) Install python if not already installed: https://www.python.org/downloads/
+```
+mkdir build
+cd build
+cmake ..
+cmake --build .
+ctest
+```
 
-3.) Install vulkan if not already installed: https://vulkan.lunarg.com/sdk/home
-
-4.) Enable long file path support if not already enabled: https://learn.microsoft.com/en-us/answers/questions/1805411/how-to-enable-long-file-path-names-in-windows-11
-
-5.) Restart your device (no need if you didn't have to do any of the steps above)
-
-6.) Now we can double click and run the "makeproj.bat" to generate a Visual Studio solution (or if you don't want a VS solution you can manually invoke premake and tell it what format you want), if it fails to run you may need to right click and run as administrator
-
-7.) It'll take a bit so grab a coffee or drink of choice!
-
-8.) Done! Your project files have been generated. If you went with Visual Studio you just need to open the generated Toybox solution and you can press play to build and run :)
+The compiled binaries can be found in `build/bin`. Open the generated project with your preferred IDE or run the executables directly.
 
 ## What's here so far?
 
