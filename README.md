@@ -28,7 +28,7 @@ The compiled binaries can be found in `build/bin`. Open the generated project wi
 
 ## What's here so far?
 
-Honestly, not much yet. There is a simple ECS system dubbed TBS (Toy Box System), a plugin system that will find and load plugins at runtime, a math library (which is a thin wrapper around GLM), logging and asserts, a windowing system made using SDL, some graphics primitives, and an incomplete renderer and input system that are being built using SDL. I plan to add all the things a game engine needs! Physics, audio, networking, a UI system, editor and more!
+Honestly, not much yet. There is a simple ECS system dubbed TBS (Toy Box System), a plugin system that will find and load plugins at runtime, a math library (which is a thin wrapper around GLM), logging and asserts, a windowing system made using SDL, some graphics primitives, and a simple renderer and input system. I plan to add all the things a game engine needs! Physics, audio, networking, a UI system, editor and more!
 
 ## Contributing
 
