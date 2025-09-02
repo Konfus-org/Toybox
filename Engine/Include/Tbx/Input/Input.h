@@ -32,6 +32,5 @@ namespace Tbx
 
     private:
         static std::weak_ptr<IInputHandlerPlugin> _inputHandler;
-        static Vector2 _lastUpdateMousePos;
     };
 }

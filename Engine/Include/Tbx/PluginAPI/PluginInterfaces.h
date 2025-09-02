@@ -75,6 +75,7 @@ namespace Tbx
         virtual bool IsMouseButtonUp(int button) const = 0;
         virtual bool IsMouseButtonHeld(int button) const = 0;
         virtual Vector2 GetMousePosition() const = 0;
+        virtual Vector2 GetMouseDelta() const = 0;
     };
 
     class ITextureLoaderPlugin : public IPlugin

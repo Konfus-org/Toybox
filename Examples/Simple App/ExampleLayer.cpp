@@ -101,7 +101,7 @@ void ExampleLayer::OnUpdate()
 
         // Determine movement speed
         const float camMoveSpeed = 10.0f;
-        float camSpeed = camMoveSpeed * deltaTime;
+        float camSpeed = camMoveSpeed;
         if (Tbx::Input::IsKeyHeld(TBX_KEY_LEFT_SHIFT) ||
             Tbx::Input::IsKeyHeld(TBX_KEY_RIGHT_SHIFT) ||
             Tbx::Input::GetGamepadAxis(0, TBX_GAMEPAD_AXIS_LEFT_TRIGGER) > TBX_GAMEPAD_AXIS_DEADZONE)
@@ -148,7 +148,7 @@ void ExampleLayer::OnUpdate()
             // Apply movement if any
             if (!camMoveDir.IsNearlyZero())
             {
-                camTransform.Position += camMoveDir.Normalize() * camSpeed;
+                camTransform.Position += camMoveDir.Normalize() * camSpeed * deltaTime;
             }
         }
 
@@ -169,14 +169,17 @@ void ExampleLayer::OnUpdate()
             }
             // Mouse and gamepad axis style
             {
-                auto mouseX = Tbx::Input::GetMouseDelta();
-                if (mouseX.X != 0)
+                auto mouseDelta = Tbx::Input::GetMouseDelta();
+                if (Tbx::Input::IsMouseButtonHeld(TBX_MOUSE_BUTTON_RIGHT))
                 {
-                    _camYaw += mouseX.X * camRotateSpeed * deltaTime;
-                }
-                if (mouseX.Y != 0)
-                {
-                    _camPitch += mouseX.Y * camRotateSpeed * deltaTime;
+                    if (mouseDelta.X != 0)
+                    {
+                        _camYaw += mouseDelta.X * (camRotateSpeed / 5) * deltaTime;
+                    }
+                    if (mouseDelta.Y != 0)
+                    {
+                        _camPitch -= mouseDelta.Y * (camRotateSpeed / 5) * deltaTime;
+                    }
                 }
 
                 auto rightStickXAxisValue = Tbx::Input::GetGamepadAxis(0, TBX_GAMEPAD_AXIS_RIGHT_X);
