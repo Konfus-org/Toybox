@@ -1,51 +1,40 @@
 [submodule "Dependencies/glm"]
-	path = Dependencies/glm
-	url = https://github.com/Konfus-org/glm.git
+        path = Dependencies/glm
+        url = https://github.com/g-truc/glm.git
 [submodule "Dependencies/googletest"]
-	path = Dependencies/googletest
-	url = https://github.com/Konfus-org/googletest.git
+        path = Dependencies/googletest
+        url = https://github.com/google/googletest.git
 [submodule "Dependencies/sys_info"]
 	path = Dependencies/sys_info
 	url = https://github.com/Konfus-org/sys_info.git
 [submodule "Dependencies/spdlog"]
-	path = Dependencies/spdlog
-	url = https://github.com/Konfus-org/spdlog.git
+        path = Dependencies/spdlog
+        url = https://github.com/gabime/spdlog.git
 [submodule "Dependencies/ModernJSON"]
-	path = Dependencies/nlohmann_json
-	url = https://github.com/Konfus-org/ModernJSON.git
+        path = Dependencies/nlohmann_json
+        url = https://github.com/nlohmann/json.git
 [submodule "Dependencies/ImGui"]
-	path = Dependencies/ImGui
-	url = https://github.com/Konfus-org/ImGui.git
+        path = Dependencies/ImGui
+        url = https://github.com/ocornut/imgui.git
 [submodule "Engine/Plugins/Toybox-Spd-Logging-Plugin"]
 	path = Plugins/Toybox-Spd-Logging-Plugin
 	url = https://github.com/Konfus-org/Toybox-Spd-Logging-Plugin.git
 [submodule "Engine/Plugins/Toybox-ImGui-DebugUI-Plugin"]
 	path = Plugins/Toybox-ImGui-DebugUI-Plugin
 	url = https://github.com/Konfus-org/Toybox-ImGui-DebugUI-Plugin.git
-[submodule "Dependencies/SDL_shadercross"]
-	path = Dependencies/SDL_shadercross
-	url = https://github.com/Konfus-org/SDL_shadercross.git
 [submodule "Dependencies/SDL"]
-	path = Dependencies/SDL
-	url = https://github.com/Konfus-org/SDL.git
-[submodule "Tools/Konforg-Premake"]
-	path = Tools/Konforg-Premake
-	url = https://github.com/Konfus-org/Premake.git
-[submodule "Plugins/Toybox-SDL-Rendering-Plugin"]
-	path = Plugins/Toybox-SDL-Rendering-Plugin
-	url = https://github.com/Konfus-org/Toybox-SDL-Rendering-Plugin.git
+        path = Dependencies/SDL
+        url = https://github.com/libsdl-org/SDL.git
+
 [submodule "Plugins/Toybox-SDL-Input-Plugin"]
 	path = Plugins/Toybox-SDL-Input-Plugin
 	url = https://github.com/Konfus-org/Toybox-SDL-Input-Plugin.git
 [submodule "Plugins/Toybox-SDL-Windowing-Plugin"]
-	path = Plugins/Toybox-SDL-Windowing-Plugin
-	url = https://github.com/Konfus-org/Toybox-SDL-Windowing-Plugin.git
-[submodule "Tools/Premake"]
-	path = Tools/Premake
-	url = https://github.com/Konfus-org/Premake.git
+        path = Plugins/Toybox-SDL-Windowing-Plugin
+        url = https://github.com/Konfus-org/Toybox-SDL-Windowing-Plugin.git
 [submodule "Plugins/Toybox-JIM-AssetLoader-Plugin"]
-	path = Plugins/Toybox-JIM-AssetLoader-Plugin
-	url = https://github.com/Konfus-org/Toybox-JIM-AssetLoader-Plugin.git
+        path = Plugins/Toybox-JIM-AssetLoader-Plugin
+        url = https://github.com/Konfus-org/Toybox-JIM-AssetLoader-Plugin.git
 [submodule "Plugins/Toybox-OpenGL-Rendering-Plugin"]
 	path = Plugins/Toybox-OpenGL-Rendering-Plugin
 	url = https://github.com/Konfus-org/Toybox-OpenGL-Rendering-Plugin.git
