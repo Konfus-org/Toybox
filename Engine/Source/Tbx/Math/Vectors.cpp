@@ -292,8 +292,8 @@ namespace Tbx
 
     int Vector2I::Dot(const Vector2I& lhs, const Vector2I& rhs)
     {
-        const auto& glmVecL = glm::ivec2(lhs.X, lhs.Y);
-        const auto& glmVecR = glm::ivec2(rhs.X, rhs.Y);
+        const auto& glmVecL = glm::vec2(lhs.X, lhs.Y);
+        const auto& glmVecR = glm::vec2(rhs.X, rhs.Y);
 
         const auto& result = glm::dot(glmVecL, glmVecR);
         return result;
