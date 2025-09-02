@@ -115,7 +115,7 @@ namespace Tbx
 
     void Rendering::OnBoxOpened(const OpenedBoxEvent& e)
     {
-        // Gather all boxes from the current world
+        // Gather all boxes from the current box
         const auto box = World::GetBox(e.GetOpenedBox());
 
         // Pre-process the opened box using the render processor

@@ -20,11 +20,10 @@ private:
     Tbx::ToyHandle _fpsCam = {};
     Tbx::ToyHandle _smily = {};
 
-    float _smilyRotateSpeed = 90.0f;
+    float _smilyBobTime = 0.0f;
+    float _smilyBobAmplitude = 0.0f;
 
     float _camPitch = 0.0f;
     float _camYaw = 0.0f;
-    float _camMoveSpeed = 10.0f;
-    float _camRotateSpeed = 180.0f;
 };
 

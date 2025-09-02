@@ -220,8 +220,10 @@ namespace Tbx
     private:
         bool ValidIndex() const
         {
-            return IsToyValid(_box->GetToy(_currIndex).GetId())  // It's a valid entity ID
-                && (_iterateAll || _blockMask == (_blockMask & _box->GetToy(_currIndex).GetBlockMask())); // It has the correct component mask
+            const auto& toy = _box->GetToy(_currIndex);
+            const auto isToyValid = IsToyValid(toy.GetId());
+            const auto overlapMask = toy.GetBlockMask() & toy.GetBlockMask();
+            return isToyValid && (_iterateAll || overlapMask.any());
         }
 
         std::shared_ptr<Box> _box = {};

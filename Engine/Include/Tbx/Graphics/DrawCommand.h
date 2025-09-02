@@ -30,9 +30,13 @@ namespace Tbx
         /// </summary>
         UploadUniform = 5,
         /// <summary>
+        /// Uploads a mesh to the GPU.
+        /// </summary>
+        UploadMesh = 6,
+        /// <summary>
         /// Renders a mesh.
         /// </summary>
-        DrawMesh = 6,
+        DrawMesh = 7,
     };
 
     /// <summary>

@@ -15,9 +15,10 @@ namespace Tbx
         EXPORT static void Update();
         EXPORT static void Shutdown();
 
-        EXPORT static bool IsGamepadButtonDown(const int gamepadId, const int button);
-        EXPORT static bool IsGamepadButtonUp(const int gamepadId, const int button);
-        EXPORT static bool IsGamepadButtonHeld(const int gamepadId, const int button);
+        EXPORT static bool IsGamepadButtonDown(const int playerIndex, const int button);
+        EXPORT static bool IsGamepadButtonUp(const int playerIndex, const int button);
+        EXPORT static bool IsGamepadButtonHeld(const int playerIndex, const int button);
+        EXPORT static float GetGamepadAxis(const int playerIndex, const int axis);
 
         EXPORT static bool IsKeyDown(const int keyCode);
         EXPORT static bool IsKeyUp(const int keyCode);
@@ -27,8 +28,10 @@ namespace Tbx
         EXPORT static bool IsMouseButtonUp(const int button);
         EXPORT static bool IsMouseButtonHeld(const int button);
         EXPORT static Vector2 GetMousePosition();
+        EXPORT static Vector2 GetMouseDelta();
 
     private:
         static std::weak_ptr<IInputHandlerPlugin> _inputHandler;
+        static Vector2 _lastUpdateMousePos;
     };
 }

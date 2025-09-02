@@ -4,6 +4,20 @@
 
 namespace Tbx
 {
+    Vector3::Vector3(const Vector2& vector)
+    {
+        X = vector.X;
+        Y = vector.Y;
+        Z = 0.0f;
+    }
+
+    Vector3::Vector3(const Vector2I& vector)
+    {
+        X = static_cast<float>(vector.X);
+        Y = static_cast<float>(vector.Y);
+        Z = 0.0f;
+    }
+
     Vector3& Vector3::operator+=(const Vector3& other)
     {
         X += other.X;

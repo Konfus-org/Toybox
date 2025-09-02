@@ -18,7 +18,7 @@ namespace Tbx
         for (const auto& box : boxes)
         {
             // We only need to pre-process materials to upload them to the GPU
-            for (const auto& toy : BoxView<MaterialInstance>(box))
+            for (const auto& toy : BoxView<MaterialInstance, Mesh, Model>(box))
             {
                 PreProcessToy(toy, box, buffer);
             }
@@ -42,7 +42,6 @@ namespace Tbx
         }
         if (hasAnyCamera)
         {
-
             for (const auto& box : boxes)
             {
                 for (const auto& toy : BoxView(box))
@@ -60,10 +59,10 @@ namespace Tbx
         // Preprocess materials to upload textures and shaders to GPU
         if (box->HasBlockOn<MaterialInstance>(toy))
         {
-            auto& material = box->GetBlockOn<MaterialInstance>(toy);
+            const auto& material = box->GetBlockOn<MaterialInstance>(toy);
 
             // Check if we already added this material
-            auto& existingCompileMatCmds = buffer.GetCommands();
+            const auto& existingCompileMatCmds = buffer.GetCommands();
             for (const auto& cmd : existingCompileMatCmds)
             {
                 if (cmd.GetType() != DrawCommandType::CompileMaterial) continue;
@@ -77,6 +76,21 @@ namespace Tbx
 
             // New material, add to buffer
             buffer.Emplace(DrawCommandType::CompileMaterial, material);
+        }
+
+        // Preprocess models to upload mesh and its material data (shaders and textures) to GPU
+        if (box->HasBlockOn<Model>(toy))
+        {
+            const auto& model = box->GetBlockOn<Model>(toy);
+            buffer.Emplace(DrawCommandType::CompileMaterial, model.GetMaterial());
+            buffer.Emplace(DrawCommandType::UploadMesh, model.GetMesh());
+        }
+
+        // Preprocess meshes to upload the mesh data
+        if (box->HasBlockOn<Mesh>(toy))
+        {
+            const auto& mesh = box->GetBlockOn<Mesh>(toy);
+            buffer.Emplace(DrawCommandType::UploadMesh, mesh);
         }
     }
 
@@ -98,27 +112,12 @@ namespace Tbx
             buffer.Emplace(DrawCommandType::SetMaterial, material);
         }
 
-        // Model block, upload model data
-        if (box->HasBlockOn<Model>(toy))
-        {
-            const auto& model = box->GetBlockOn<Model>(toy);
-            buffer.Emplace(DrawCommandType::SetMaterial, model.GetMaterial());
-            buffer.Emplace(DrawCommandType::DrawMesh, model.GetMesh());
-        }
-
         // Transform block, upload the transform data
         if (box->HasBlockOn<Transform>(toy))
         {
             const auto& transform = box->GetBlockOn<Transform>(toy);
             const auto transformMatrix = Mat4x4::FromTRS(transform.Position, transform.Rotation, transform.Scale);
             buffer.Emplace(DrawCommandType::UploadUniform, ShaderUniform("TransformUniform", transformMatrix, ShaderUniformDataType::Mat4));
-        }
-        
-        // Mesh block, upload the mesh data
-        if (box->HasBlockOn<Mesh>(toy))
-        {
-            const auto& mesh = box->GetBlockOn<Mesh>(toy);
-            buffer.Emplace(DrawCommandType::DrawMesh, mesh);
         }
 
         // Camera block, upload the camera data
@@ -146,6 +145,21 @@ namespace Tbx
                     Constants::Vector3::Zero, Constants::Quaternion::Identity, camera.GetProjectionMatrix());
                 buffer.Emplace(DrawCommandType::UploadUniform, ShaderUniform("ViewProjectionUniform", viewProjMatrix, ShaderUniformDataType::Mat4));
             }
+        }
+
+        // Model block, upload model data
+        if (box->HasBlockOn<Model>(toy))
+        {
+            const auto& model = box->GetBlockOn<Model>(toy);
+            buffer.Emplace(DrawCommandType::SetMaterial, model.GetMaterial());
+            buffer.Emplace(DrawCommandType::DrawMesh, model.GetMesh());
+        }
+        
+        // Mesh block, upload the mesh data
+        if (box->HasBlockOn<Mesh>(toy))
+        {
+            const auto& mesh = box->GetBlockOn<Mesh>(toy);
+            buffer.Emplace(DrawCommandType::DrawMesh, mesh);
         }
     }
 }

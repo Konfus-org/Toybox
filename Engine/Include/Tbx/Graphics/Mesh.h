@@ -30,6 +30,20 @@ namespace Tbx
         VertexBuffer _vertexBuffer;
     };
 
+    /// <summary>
+    /// Essentially a pointer to a mesh.
+    /// </summary>
+    struct MeshInstance : public UsesUid
+    {
+    public:
+        EXPORT MeshInstance(const Mesh& mesh);
+
+        EXPORT const Mesh& GetMesh() const;
+
+    private:
+        const Mesh& _mesh;
+    };
+
     namespace Primitives
     {
         EXPORT inline const Mesh& Quad = Mesh::MakeQuad();

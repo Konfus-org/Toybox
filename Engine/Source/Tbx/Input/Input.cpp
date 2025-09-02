@@ -9,6 +9,7 @@
 namespace Tbx
 {
     std::weak_ptr<IInputHandlerPlugin> Input::_inputHandler = {};
+    Vector2 Input::_lastUpdateMousePos = Constants::Vector2::Zero;
 
     void Input::Initialize()
     {
@@ -30,9 +31,10 @@ namespace Tbx
         }
 
         _inputHandler.lock()->Update();
+        _lastUpdateMousePos = GetMousePosition();
     }
 
-    bool Input::IsGamepadButtonDown(const int id, const int button)
+    bool Input::IsGamepadButtonDown(const int playerIndex, const int button)
     {
         if (_inputHandler.expired() || !_inputHandler.lock())
         {
@@ -40,27 +42,37 @@ namespace Tbx
             return false;
         }
 
-        return _inputHandler.lock()->IsGamepadButtonDown(id, button);
+        return _inputHandler.lock()->IsGamepadButtonDown(playerIndex, button);
     }
 
-    bool Input::IsGamepadButtonUp(const int id, const int button)
+    bool Input::IsGamepadButtonUp(const int playerIndex, const int button)
     {
         if (_inputHandler.expired() || !_inputHandler.lock())
         {
             TBX_TRACE_WARNING("Input handler plugin not found cannot check gamepad button state!");
             return false;
         }
-        return _inputHandler.lock()->IsGamepadButtonUp(id, button);
+        return _inputHandler.lock()->IsGamepadButtonUp(playerIndex, button);
     }
 
-    bool Input::IsGamepadButtonHeld(const int id, const int button)
+    bool Input::IsGamepadButtonHeld(const int playerIndex, const int button)
     {
         if (_inputHandler.expired() || !_inputHandler.lock())
         {
             TBX_TRACE_WARNING("Input handler plugin not found cannot check gamepad button state!");
             return false;
         }
-        return _inputHandler.lock()->IsGamepadButtonHeld(id, button);
+        return _inputHandler.lock()->IsGamepadButtonHeld(playerIndex, button);
+    }
+
+    float Input::GetGamepadAxis(const int playerIndex, const int axis)
+    {
+        if (_inputHandler.expired() || !_inputHandler.lock())
+        {
+            TBX_TRACE_WARNING("Input handler plugin not found cannot check gamepad button state!");
+            return false;
+        }
+        return _inputHandler.lock()->GetGamepadAxis(playerIndex, axis);
     }
 
     bool Input::IsKeyDown(const int inputCode)
@@ -131,5 +143,11 @@ namespace Tbx
             return false;
         }
         return _inputHandler.lock()->GetMousePosition();
+    }
+
+    Vector2 Input::GetMouseDelta()
+    {
+        auto currPos = GetMousePosition();
+        return Vector2(currPos.X - _lastUpdateMousePos.X, currPos.Y - _lastUpdateMousePos.Y);
     }
 }

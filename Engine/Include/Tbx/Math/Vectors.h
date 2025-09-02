@@ -3,6 +3,11 @@
 
 namespace Tbx
 {
+    // Forward declarations
+    struct Vector2;
+    struct Vector2I;
+    struct Vector3;
+
     /// <summary>
     /// Represents a position, scale, or direction in 3d space. X, Y, Z are stored as euler angles.
     /// </summary>
@@ -11,6 +16,8 @@ namespace Tbx
     public:
         Vector3() = default;
         explicit(false) Vector3(float all) : X(all), Y(all), Z(all) {}
+        explicit(false) Vector3(const Vector2& vector);
+        explicit(false) Vector3(const Vector2I& vector);
         Vector3(float x, float y, float z) : X(x), Y(y), Z(z) {}
 
         friend Vector3 operator + (const Vector3& lhs, const Vector3& rhs) { return Add(lhs, rhs); }
@@ -51,6 +58,8 @@ namespace Tbx
         float Z = 0;
     };
 
+    // TODO: implement +, -, *, / operators for Vector2 and Vector2I
+
     /// <summary>
     /// Represents a position, scale, or direction in 2d space. X, Y are stored as euler angles.
     /// </summary>
@@ -58,7 +67,7 @@ namespace Tbx
     {
     public:
         Vector2() = default;
-        explicit(false) Vector2(float x) : X(x), Y(x) {}
+        explicit(false) Vector2(float all) : X(all), Y(all) {}
         Vector2(float x, float y) : X(x), Y(y) {}
         explicit(false) Vector2(const Vector3& vector) : X(vector.X), Y(vector.Y) {}
 
@@ -75,7 +84,8 @@ namespace Tbx
     {
     public:
         Vector2I() = default;
-        explicit(false) Vector2I(int x) : X(x), Y(x) {}
+        explicit(false) Vector2I(int all) : X(all), Y(all) {}
+        explicit(false) Vector2I(const Vector2& vector) : X(static_cast<int>(vector.X)), Y(static_cast<int>(vector.Y)) {}
         explicit(false) Vector2I(const Vector3& vector) : X(static_cast<int>(vector.X)), Y(static_cast<int>(vector.Y)) {}
         Vector2I(int x, int y) : X(x), Y(y) {}
 
