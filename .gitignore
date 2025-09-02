@@ -52,6 +52,15 @@ compileData.scor
 compileData.scor.gbl
 compileData.scor.t0000
 
+# CMake
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+Makefile
+
 # Do not ignore my tools
 !Tools/**/*.dll
 !Tools/**/*.lib
