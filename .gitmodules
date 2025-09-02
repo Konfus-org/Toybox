@@ -1,3 +1,7 @@
+
+[submodule "Dependencies/glad"]
+	path = Dependencies/glad
+	url = https://github.com/Dav1dde/glad.git
 [submodule "Dependencies/glm"]
         path = Dependencies/glm
         url = https://github.com/g-truc/glm.git
@@ -14,8 +18,8 @@
         path = Dependencies/nlohmann_json
         url = https://github.com/nlohmann/json.git
 [submodule "Dependencies/imgui"]
-        path = Dependencies/imgui
-        url = https://github.com/ocornut/imgui.git
+	path = Dependencies/imgui
+	url = https://github.com/ocornut/imgui.git
 [submodule "Dependencies/SDL"]
         path = Dependencies/SDL
         url = https://github.com/libsdl-org/SDL.git

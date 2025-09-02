@@ -33,7 +33,7 @@ else()
 endif()
 
 # Dependencies
-add_subdirectory(Dependencies/glad)
+add_subdirectory(Dependencies/glad/cmake)
 add_subdirectory(Dependencies/glm)
 add_subdirectory(Dependencies/googletest)
 add_subdirectory(Dependencies/ImGui)
