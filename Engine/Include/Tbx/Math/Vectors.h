@@ -58,8 +58,6 @@ namespace Tbx
         float Z = 0;
     };
 
-    // TODO: implement +, -, *, / operators for Vector2 and Vector2I
-
     /// <summary>
     /// Represents a position, scale, or direction in 2d space. X, Y are stored as euler angles.
     /// </summary>
@@ -71,7 +69,36 @@ namespace Tbx
         Vector2(float x, float y) : X(x), Y(y) {}
         explicit(false) Vector2(const Vector3& vector) : X(vector.X), Y(vector.Y) {}
 
+        friend Vector2 operator + (const Vector2& lhs, const Vector2& rhs) { return Add(lhs, rhs); }
+        friend Vector2 operator - (const Vector2& lhs, const Vector2& rhs) { return Subtract(lhs, rhs); }
+        friend Vector2 operator * (const Vector2& lhs, const Vector2& rhs) { return Multiply(lhs, rhs); }
+        friend Vector2 operator * (const Vector2& lhs, float scalar) { return Multiply(lhs, scalar); }
+
+        Vector2& operator += (const Vector2& other);
+        Vector2& operator -= (const Vector2& other);
+        Vector2& operator *= (const Vector2& other);
+        Vector2& operator *= (float other);
+
         std::string ToString() const;
+
+        /// <summary>
+        /// Returns true if the vector is nearly zero in all components
+        /// </summary>
+        bool IsNearlyZero(float tolerance = 1e-6f) const;
+
+        Vector2 Normalize() const { return Normalize(*this); }
+        Vector2 Add(const Vector2& rhs) const { return Add(*this, rhs); }
+        Vector2 Subtract(const Vector2& rhs) const { return Subtract(*this, rhs); }
+        Vector2 Multiply(const Vector2& rhs) const { return Multiply(*this, rhs); }
+        Vector2 Multiply(float scalar) const { return Multiply(*this, scalar); }
+        float Dot(const Vector2& rhs) const { return Dot(*this, rhs); }
+
+        static Vector2 Normalize(const Vector2& vector);
+        static Vector2 Add(const Vector2& lhs, const Vector2& rhs);
+        static Vector2 Subtract(const Vector2& lhs, const Vector2& rhs);
+        static Vector2 Multiply(const Vector2& lhs, const Vector2& rhs);
+        static Vector2 Multiply(const Vector2& lhs, float scalar);
+        static float Dot(const Vector2& lhs, const Vector2& rhs);
 
         float X = 0;
         float Y = 0;
@@ -89,7 +116,36 @@ namespace Tbx
         explicit(false) Vector2I(const Vector3& vector) : X(static_cast<int>(vector.X)), Y(static_cast<int>(vector.Y)) {}
         Vector2I(int x, int y) : X(x), Y(y) {}
 
+        friend Vector2I operator + (const Vector2I& lhs, const Vector2I& rhs) { return Add(lhs, rhs); }
+        friend Vector2I operator - (const Vector2I& lhs, const Vector2I& rhs) { return Subtract(lhs, rhs); }
+        friend Vector2I operator * (const Vector2I& lhs, const Vector2I& rhs) { return Multiply(lhs, rhs); }
+        friend Vector2I operator * (const Vector2I& lhs, int scalar) { return Multiply(lhs, scalar); }
+
+        Vector2I& operator += (const Vector2I& other);
+        Vector2I& operator -= (const Vector2I& other);
+        Vector2I& operator *= (const Vector2I& other);
+        Vector2I& operator *= (int other);
+
         std::string ToString() const;
+
+        /// <summary>
+        /// Returns true if the vector is nearly zero in all components
+        /// </summary>
+        bool IsNearlyZero(int tolerance = 0) const;
+
+        Vector2I Normalize() const { return Normalize(*this); }
+        Vector2I Add(const Vector2I& rhs) const { return Add(*this, rhs); }
+        Vector2I Subtract(const Vector2I& rhs) const { return Subtract(*this, rhs); }
+        Vector2I Multiply(const Vector2I& rhs) const { return Multiply(*this, rhs); }
+        Vector2I Multiply(int scalar) const { return Multiply(*this, scalar); }
+        int Dot(const Vector2I& rhs) const { return Dot(*this, rhs); }
+
+        static Vector2I Normalize(const Vector2I& vector);
+        static Vector2I Add(const Vector2I& lhs, const Vector2I& rhs);
+        static Vector2I Subtract(const Vector2I& lhs, const Vector2I& rhs);
+        static Vector2I Multiply(const Vector2I& lhs, const Vector2I& rhs);
+        static Vector2I Multiply(const Vector2I& lhs, int scalar);
+        static int Dot(const Vector2I& lhs, const Vector2I& rhs);
 
         int X = 0;
         int Y = 0;

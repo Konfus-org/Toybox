@@ -126,6 +126,86 @@ namespace Tbx::Tests::Math
         EXPECT_FLOAT_EQ(v.Y, 0);
     }
 
+    TEST(Vector2Tests, ToString_ProducesFormattedOutput)
+    {
+        // Arrange
+        Vector2 v(1.0f, 2.0f);
+
+        // Act
+        std::string str = v.ToString();
+
+        // Assert
+        EXPECT_EQ(str, "(1, 2)");
+    }
+
+    TEST(Vector2Tests, OperatorAdd_AddsTwoVectors)
+    {
+        // Arrange
+        Vector2 a(1, 2);
+        Vector2 b(4, 5);
+
+        // Act
+        Vector2 result = a + b;
+
+        // Assert
+        EXPECT_FLOAT_EQ(result.X, 5);
+        EXPECT_FLOAT_EQ(result.Y, 7);
+    }
+
+    TEST(Vector2Tests, OperatorSubtract_SubtractsTwoVectors)
+    {
+        // Arrange
+        Vector2 a(4, 5);
+        Vector2 b(1, 2);
+
+        // Act
+        Vector2 result = a - b;
+
+        // Assert
+        EXPECT_FLOAT_EQ(result.X, 3);
+        EXPECT_FLOAT_EQ(result.Y, 3);
+    }
+
+    TEST(Vector2Tests, OperatorMultiply_MultipliesTwoVectorsComponentWise)
+    {
+        // Arrange
+        Vector2 a(2, 3);
+        Vector2 b(5, 6);
+
+        // Act
+        Vector2 result = a * b;
+
+        // Assert
+        EXPECT_FLOAT_EQ(result.X, 10);
+        EXPECT_FLOAT_EQ(result.Y, 18);
+    }
+
+    TEST(Vector2Tests, Normalize_ReturnsNormalizedVector)
+    {
+        // Arrange
+        Vector2 v(3, 4);
+
+        // Act
+        Vector2 result = Vector2::Normalize(v);
+
+        // Assert
+        EXPECT_NEAR(result.X, 0.6f, 1e-5f);
+        EXPECT_NEAR(result.Y, 0.8f, 1e-5f);
+    }
+
+    TEST(Vector2Tests, Dot_ReturnsDotProduct)
+    {
+        // Arrange
+        Vector2 a(1, 2);
+        Vector2 b(4, -5);
+
+        // Act
+        float dot = Vector2::Dot(a, b);
+
+        // Assert
+        EXPECT_FLOAT_EQ(dot, -6); // 1*4 + 2*(-5) = -6
+    }
+
     TEST(Vector2ITests, Constructor_FromVector3_CastsAndCopiesXY)
     {
         // Arrange
@@ -147,5 +227,72 @@ namespace Tbx::Tests::Math
         // Assert
         EXPECT_EQ(v.X, 1);
         EXPECT_EQ(v.Y, 1);
+    }
+
+    TEST(Vector2ITests, ToString_ProducesFormattedOutput)
+    {
+        // Arrange
+        Vector2I v(1, 2);
+
+        // Act
+        std::string str = v.ToString();
+
+        // Assert
+        EXPECT_EQ(str, "(1, 2)");
+    }
+
+    TEST(Vector2ITests, OperatorAdd_AddsTwoVectors)
+    {
+        // Arrange
+        Vector2I a(1, 2);
+        Vector2I b(4, 5);
+
+        // Act
+        Vector2I result = a + b;
+
+        // Assert
+        EXPECT_EQ(result.X, 5);
+        EXPECT_EQ(result.Y, 7);
+    }
+
+    TEST(Vector2ITests, OperatorSubtract_SubtractsTwoVectors)
+    {
+        // Arrange
+        Vector2I a(4, 5);
+        Vector2I b(1, 2);
+
+        // Act
+        Vector2I result = a - b;
+
+        // Assert
+        EXPECT_EQ(result.X, 3);
+        EXPECT_EQ(result.Y, 3);
+    }
+
+    TEST(Vector2ITests, OperatorMultiply_MultipliesTwoVectorsComponentWise)
+    {
+        // Arrange
+        Vector2I a(2, 3);
+        Vector2I b(5, 6);
+
+        // Act
+        Vector2I result = a * b;
+
+        // Assert
+        EXPECT_EQ(result.X, 10);
+        EXPECT_EQ(result.Y, 18);
+    }
+
+    TEST(Vector2ITests, Dot_ReturnsDotProduct)
+    {
+        // Arrange
+        Vector2I a(1, 2);
+        Vector2I b(4, -5);
+
+        // Act
+        int dot = Vector2I::Dot(a, b);
+
+        // Assert
+        EXPECT_EQ(dot, -6); // 1*4 + 2*(-5) = -6
     }
 }
