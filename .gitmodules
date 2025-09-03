@@ -10,9 +10,9 @@
 [submodule "Plugins/Toybox-SDL-Windowing-Plugin"]
         path = Plugins/Toybox-SDL-Windowing-Plugin
         url = https://github.com/Konfus-org/Toybox-SDL-Windowing-Plugin.git
-[submodule "Plugins/Toybox-JIM-AssetLoader-Plugin"]
-        path = Plugins/Toybox-JIM-AssetLoader-Plugin
-        url = https://github.com/Konfus-org/Toybox-JIM-AssetLoader-Plugin.git
+[submodule "Plugins/Toybox-JIMS-AssetLoader-Plugin"]
+        path = Plugins/Toybox-JIMS-AssetLoader-Plugin
+        url = https://github.com/Konfus-org/Toybox-JIMS-AssetLoader-Plugin.git
 [submodule "Plugins/Toybox-OpenGL-Rendering-Plugin"]
 	path = Plugins/Toybox-OpenGL-Rendering-Plugin
 	url = https://github.com/Konfus-org/Toybox-OpenGL-Rendering-Plugin.git

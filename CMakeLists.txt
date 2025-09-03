@@ -72,12 +72,22 @@ target_link_libraries(Tests  PRIVATE tbx_config)
 target_link_libraries(Launcher  PRIVATE tbx_config)
 
 # Plugins:
-# add_subdirectory(Plugins)
+add_subdirectory(Plugin/Toybox-ImGui-DebugUI-Plugin)
+add_subdirectory(Plugin/Toybox-JISM-AssetLoader-Plugin)
+add_subdirectory(Plugin/Toybox-OpenGL-Rendering-Plugin)
+add_subdirectory(Plugin/Toybox-SDL-Input-Plugin)
+add_subdirectory(Plugin/Toybox-SDL-Windowing-Plugin)
+add_subdirectory(Plugin/Toybox-Spd-Logging-Plugin)
 
+# Organize everything into folders if using VS
 if(MSVC)
     set_property(TARGET Engine PROPERTY FOLDER "Toybox")
     set_property(TARGET Tests PROPERTY FOLDER "Toybox")
     set_property(TARGET Launcher PROPERTY FOLDER "Toybox")
+    
+    set_property(TARGET ImGuiDebugUI PROPERTY FOLDER "Toybox/Plugins")
+    set_property(TARGET JISM PROPERTY FOLDER "Toybox/Plugins")
+    set_property(TARGET Launcher PROPERTY FOLDER "Toybox/Plugins")
 
     set_property(TARGET glad PROPERTY FOLDER "Dependencies")
     set_property(TARGET glm PROPERTY FOLDER "Dependencies")
