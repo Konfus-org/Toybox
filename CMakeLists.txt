@@ -19,19 +19,15 @@ enable_testing()
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;ReleaseAssert" CACHE STRING "" FORCE)
 
-add_compile_definitions(
-    # OS
-    $<$<PLATFORM_ID:Windows>:TBX_PLATFORM_WINDOWS;WIN32_LEAN_AND_MEAN;NOMINMAX>
-    $<$<PLATFORM_ID:Darwin>:TBX_PLATFORM_OSX>
-    $<$<PLATFORM_ID:Linux>:TBX_PLATFORM_LINUX>
-
-    # Config
-    $<$<CONFIG:Debug>:TBX_DEBUG>
-    $<$<CONFIG:Release>:TBX_RELEASE>
-    $<$<CONFIG:ReleaseAssert>:TBX_RELEASE_ASSERT>
-
-    # Always define these
-    COMPILING_TOYBOX
+add_library(tbx_config INTERFACE)
+target_compile_definitions(tbx_config INTERFACE
+  $<$<PLATFORM_ID:Windows>:TBX_PLATFORM_WINDOWS=1;WIN32_LEAN_AND_MEAN;NOMINMAX>
+  $<$<PLATFORM_ID:Darwin>:TBX_PLATFORM_MACOS=1>
+  $<$<PLATFORM_ID:Linux>:TBX_PLATFORM_LINUX=1>
+  $<$<CONFIG:Debug>:TBX_DEBUG=1>
+  $<$<CONFIG:Release>:TBX_RELEASE=1>
+  $<$<CONFIG:ReleaseAssert>:TBX_RELEASE_ASSERT=1>
+  COMPILING_TOYBOX=1
 )
 
 if(MSVC)
@@ -61,6 +57,8 @@ add_subdirectory(Dependencies/sys_info)
 # Core projects
 add_subdirectory(Engine)
 add_subdirectory(Engine/Tests)
+target_link_libraries(Engine PRIVATE tbx_config)
+target_link_libraries(Tests  PRIVATE tbx_config)
 
 # Plugins:
 # add_subdirectory(Plugins)

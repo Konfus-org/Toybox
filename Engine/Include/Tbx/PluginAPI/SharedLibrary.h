@@ -10,7 +10,7 @@ namespace Tbx
 #if defined(TBX_PLATFORM_WINDOWS)
     #include <windows.h>
     using LibHandle = HMODULE;
-#elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_OSX)
+#elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_MACOS)
     #include <dlfcn.h>
     using LibHandle = void*;
 #else
