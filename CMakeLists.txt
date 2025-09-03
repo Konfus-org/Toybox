@@ -12,6 +12,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
+# Get required packages
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
 # Enable testing
 enable_testing()
 
@@ -38,27 +41,37 @@ else()
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--as-needed")
 endif()
 
-# Dependency config
+# Dependency configs
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
 set(SDL_TESTS        OFF CACHE BOOL "" FORCE)
 set(SDL_EXAMPLES     OFF CACHE BOOL "" FORCE)
+set(IMGUI_PLATFORM   SDL3   CACHE STRING "" FORCE) 
+set(IMGUI_RENDERER   OpenGL3 CACHE STRING "" FORCE)
+set(IMGUI_GL_LOADER  GLAD   CACHE STRING "" FORCE)
+set(IMGUI_BUILD_DEMO OFF    CACHE BOOL   "" FORCE)
+set(GLAD_ROOT "${CMAKE_SOURCE_DIR}/Dependencies/glad")
 
 # Dependencies
-add_subdirectory(Dependencies/glad/cmake)
+add_subdirectory(Dependencies/glad/cmake glad_cmake)
+glad_add_library(glad_gl_core_46 REPRODUCIBLE API gl:core=4.6)
 add_subdirectory(Dependencies/glm)
 add_subdirectory(Dependencies/googletest)
-#add_subdirectory(Dependencies/imgui)
 add_subdirectory(Dependencies/nlohmann_json)
 add_subdirectory(Dependencies/SDL)
 add_subdirectory(Dependencies/spdlog)
 add_subdirectory(Dependencies/stbimg)
 add_subdirectory(Dependencies/sys_info)
+add_subdirectory(Dependencies/imgui)
+
+# ImGui needs specific configuration depending on backends
 
 # Core projects
 add_subdirectory(Engine)
 add_subdirectory(Engine/Tests)
+add_subdirectory(Launcher)
 target_link_libraries(Engine PRIVATE tbx_config)
 target_link_libraries(Tests  PRIVATE tbx_config)
+target_link_libraries(Launcher  PRIVATE tbx_config)
 
 # Plugins:
 # add_subdirectory(Plugins)
@@ -66,8 +79,9 @@ target_link_libraries(Tests  PRIVATE tbx_config)
 if(MSVC)
     set_property(TARGET Engine PROPERTY FOLDER "Toybox")
     set_property(TARGET Tests PROPERTY FOLDER "Toybox")
+    set_property(TARGET Launcher PROPERTY FOLDER "Toybox")
 
-    #set_property(TARGET glad PROPERTY FOLDER "Dependencies")
+    set_property(TARGET glad_gl_core_46 PROPERTY FOLDER "Dependencies")
     set_property(TARGET glm PROPERTY FOLDER "Dependencies")
     set_property(TARGET gtest PROPERTY FOLDER "Dependencies")
     set_property(TARGET gtest_main PROPERTY FOLDER "Dependencies")

@@ -19,9 +19,6 @@
 [submodule "Dependencies/json"]
 	path = Dependencies/nlohmann_json
 	url = https://github.com/nlohmann/json.git
-[submodule "Dependencies/glad"]
-	path = Dependencies/glad
-	url = https://github.com/Dav1dde/glad.git
 [submodule "Dependencies/imgui"]
 	path = Dependencies/imgui
 	url = https://github.com/ocornut/imgui.git

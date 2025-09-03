@@ -33,6 +33,10 @@ target_link_libraries(Engine PUBLIC
     nlohmann_json
 )
 
+link_directories(
+    "${CMAKE_SOURCE_DIR}/Plugins"
+)
+
 target_compile_definitions(Engine PUBLIC
     GLM_ENABLE_EXPERIMENTAL
     GLM_FORCE_LEFT_HANDED
