@@ -60,6 +60,8 @@ cmake_install.cmake
 install_manifest.txt
 CTestTestfile.cmake
 Makefile
+*.tlog
+*.recipe
 
 # Do not ignore my tools
 !Tools/**/*.dll

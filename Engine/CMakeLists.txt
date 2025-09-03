@@ -2,7 +2,7 @@ add_library(Engine SHARED)
 
 target_compile_features(Engine PUBLIC cxx_std_20)
 
-target_precompile_headers(Engine PRIVATE "Tbx/PCH.h")
+target_precompile_headers(Engine PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Include/Tbx/PCH.h")
 
 file(GLOB_RECURSE ENGINE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.h"
