@@ -22,8 +22,10 @@ enable_testing()
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;ReleaseAssert" CACHE STRING "" FORCE)
 
+# Premake: filter "system:windows" -> add define on Windows
 add_library(tbx_config INTERFACE)
 target_compile_definitions(tbx_config INTERFACE
+  $<$<PLATFORM_ID:Windows>:_CRT_SECURE_NO_WARNINGS>
   $<$<PLATFORM_ID:Windows>:TBX_PLATFORM_WINDOWS=1;WIN32_LEAN_AND_MEAN;NOMINMAX>
   $<$<PLATFORM_ID:Darwin>:TBX_PLATFORM_MACOS=1>
   $<$<PLATFORM_ID:Linux>:TBX_PLATFORM_LINUX=1>
@@ -49,11 +51,9 @@ set(IMGUI_PLATFORM   SDL3   CACHE STRING "" FORCE)
 set(IMGUI_RENDERER   OpenGL3 CACHE STRING "" FORCE)
 set(IMGUI_GL_LOADER  GLAD   CACHE STRING "" FORCE)
 set(IMGUI_BUILD_DEMO OFF    CACHE BOOL   "" FORCE)
-set(GLAD_ROOT "${CMAKE_SOURCE_DIR}/Dependencies/glad")
 
 # Dependencies
-add_subdirectory(Dependencies/glad/cmake glad_cmake)
-glad_add_library(glad_gl_core_46 REPRODUCIBLE API gl:core=4.6)
+add_subdirectory(Dependencies/glad)
 add_subdirectory(Dependencies/glm)
 add_subdirectory(Dependencies/googletest)
 add_subdirectory(Dependencies/nlohmann_json)
@@ -62,8 +62,6 @@ add_subdirectory(Dependencies/spdlog)
 add_subdirectory(Dependencies/stbimg)
 add_subdirectory(Dependencies/sys_info)
 add_subdirectory(Dependencies/imgui)
-
-# ImGui needs specific configuration depending on backends
 
 # Core projects
 add_subdirectory(Engine)
@@ -81,13 +79,13 @@ if(MSVC)
     set_property(TARGET Tests PROPERTY FOLDER "Toybox")
     set_property(TARGET Launcher PROPERTY FOLDER "Toybox")
 
-    set_property(TARGET glad_gl_core_46 PROPERTY FOLDER "Dependencies")
+    set_property(TARGET glad PROPERTY FOLDER "Dependencies")
     set_property(TARGET glm PROPERTY FOLDER "Dependencies")
     set_property(TARGET gtest PROPERTY FOLDER "Dependencies")
     set_property(TARGET gtest_main PROPERTY FOLDER "Dependencies")
     set_property(TARGET gmock PROPERTY FOLDER "Dependencies")
     set_property(TARGET gmock_main PROPERTY FOLDER "Dependencies")
-    #set_property(TARGET imgui PROPERTY FOLDER "Dependencies")
+    set_property(TARGET imgui PROPERTY FOLDER "Dependencies")
     set_property(TARGET nlohmann_json PROPERTY FOLDER "Dependencies")
     set_property(TARGET SDL_uclibc PROPERTY FOLDER "Dependencies")
     set_property(TARGET SDL3-shared PROPERTY FOLDER "Dependencies")

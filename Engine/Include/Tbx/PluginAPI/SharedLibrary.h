@@ -8,7 +8,7 @@ namespace Tbx
     // A symbol can be anything...
     using Symbol = void*;
 #if defined(TBX_PLATFORM_WINDOWS)
-    #include <windows.h>
+    #include <Windows.h>
     using LibHandle = HMODULE;
 #elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_MACOS)
     #include <dlfcn.h>
