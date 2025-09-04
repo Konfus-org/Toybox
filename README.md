@@ -11,20 +11,35 @@ Toybox now uses [CMake](https://cmake.org/) to generate project files for differ
 
 1. Install [CMake](https://cmake.org/download/).
 2. Install [Python](https://www.python.org/downloads/).
-3. Install the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home).
+3. Ensure your system supports OpenGL (install development libraries as needed).
 4. Enable long file path support on Windows if necessary.
 
 ### Building
 
-```
-mkdir build
-cd build
-cmake ..
-cmake --build .
-ctest
+#### Windows
+
+The repository provides a CMake preset that generates Visual Studio files in the `Generated` folder:
+
+```bash
+cmake --preset tbx
+cmake --build --preset tbx
+ctest --preset tbx
 ```
 
-The compiled binaries can be found in `build/bin`. Open the generated project with your preferred IDE or run the executables directly.
+#### Other platforms
+
+```bash
+# Configure the project and generate build files in the `build` directory
+cmake -S . -B build
+
+# Compile the engine using the default build type
+cmake --build build
+
+# Run the test suite
+ctest --test-dir build
+```
+
+Compiled binaries are placed in `Build/bin`, and libraries in `Build/lib`. Open the generated project with your preferred IDE or run the executables directly.
 
 ## What's here so far?
 
