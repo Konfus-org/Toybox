@@ -11,7 +11,7 @@ Toybox now uses [CMake](https://cmake.org/) to generate project files for differ
 
 1. Install [CMake](https://cmake.org/download/).
 2. Install [Python](https://www.python.org/downloads/).
-3. Ensure your system supports OpenGL (install development libraries as needed).
+3. Ensure your system supports OpenGL (nearly everything does, so you should be good).
 4. Enable long file path support on Windows if necessary.
 
 ### Building
