@@ -61,6 +61,9 @@ set(IMGUI_PLATFORM   SDL3    CACHE STRING "" FORCE)
 set(IMGUI_RENDERER   OpenGL3 CACHE STRING "" FORCE)
 set(IMGUI_GL_LOADER  GLAD    CACHE STRING "" FORCE)
 set(IMGUI_BUILD_DEMO OFF     CACHE BOOL   "" FORCE)
+# Disable building of spdlog tests to avoid warnings treated as errors on MSVC
+set(SPDLOG_BUILD_TESTS OFF   CACHE BOOL   "" FORCE)
+set(SPDLOG_BUILD_EXAMPLES OFF CACHE BOOL  "" FORCE)
 
 # Dependencies
 add_subdirectory(Dependencies/glad)
