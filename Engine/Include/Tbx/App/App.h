@@ -12,7 +12,7 @@ namespace Tbx
         None = 0,
         Initializing,
         Running,
-        Restarting,
+        Reloading,
         Exiting,
         Closed,
         Error

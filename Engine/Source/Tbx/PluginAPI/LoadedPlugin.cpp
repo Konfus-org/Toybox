@@ -39,7 +39,7 @@ namespace Tbx
         // Don't load static plugins
         if (_pluginInfo.GetLib().find(".lib") != std::string::npos) return;
 
-        const std::string& pluginFullPath = _pluginInfo.GetFilePath();
+        const std::string& pluginFullPath = _pluginInfo.GetPathToLib();
         _library.Load(pluginFullPath);
         if (!_library.IsValid())
         {

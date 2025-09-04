@@ -90,7 +90,7 @@ namespace Tbx
         // Shortcut to restart/reload app
         if (Input::IsKeyDown(TBX_KEY_F2))
         {
-            _status = AppStatus::Restarting;
+            _status = AppStatus::Reloading;
             return;
         }
 #endif
@@ -130,7 +130,7 @@ namespace Tbx
     {
         TBX_TRACE_INFO("Shutting down...");
 
-        auto isRestarting = _status == AppStatus::Restarting;
+        auto isRestarting = _status == AppStatus::Reloading;
         _status = AppStatus::Exiting;
 
         OnShutdown();
@@ -150,7 +150,7 @@ namespace Tbx
 
         // Set status to closed or reloading if we are reloading
         _status = isRestarting
-            ? AppStatus::Restarting
+            ? AppStatus::Reloading
             : AppStatus::Closed;
     }
 

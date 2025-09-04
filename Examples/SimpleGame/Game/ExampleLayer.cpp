@@ -19,11 +19,11 @@ void ExampleLayer::OnAttach()
     TBX_TRACE("Test scene attached!");
 
     // Load assets
-    auto smilyTexAsset = Tbx::Asset<Tbx::Texture>("../Examples/Simple App/Assets/Smily.png");
-    auto wallTexAsset = Tbx::Asset<Tbx::Texture>("../Examples/Simple App/Assets/Wall.jpg");
-    auto checkerboardTexAsset = Tbx::Asset<Tbx::Texture>("../Examples/Simple App/Assets/Checkerboard.png");
-    auto fragmentShaderAsset = Tbx::Asset<Tbx::Shader>("../Examples/Simple App/Assets/fragment.frag");
-    auto vertexShaderAsset = Tbx::Asset<Tbx::Shader>("../Examples/Simple App/Assets/vertex.vert");
+    auto smilyTexAsset = Tbx::Asset<Tbx::Texture>("Assets/Smily.png");
+    auto wallTexAsset = Tbx::Asset<Tbx::Texture>("Assets/Wall.jpg");
+    auto checkerboardTexAsset = Tbx::Asset<Tbx::Texture>("Assets/Checkerboard.png");
+    auto fragmentShaderAsset = Tbx::Asset<Tbx::Shader>("Assets/fragment.frag");
+    auto vertexShaderAsset = Tbx::Asset<Tbx::Shader>("Assets/vertex.vert");
 
     // Setup testing scene...
     auto boxId = Tbx::World::MakeBox();

@@ -18,11 +18,6 @@ namespace Tbx
 
     void PluginServer::Initialize(const std::string& pathToPlugins)
     {
-        TBX_TRACE_INFO("Loading plugins...");
-
-        _pathToLoadedPlugins = pathToPlugins;
-        TBX_ASSERT(!pathToPlugins.empty(), "Path to plugins is empty!");
-
         // 1) Discover all plugin infos
         auto allInfos = SearchDirectoryForInfos(pathToPlugins);
 
@@ -33,11 +28,11 @@ namespace Tbx
         {
             if (Plugin::ImplementsType(pi, "All"))
             {
-                allLast.push_back(std::move(pi));
+                allLast.push_back(pi);
             }
             else
             {
-                normal.push_back(std::move(pi));
+                normal.push_back(pi);
             }
         }
 
@@ -157,7 +152,7 @@ namespace Tbx
             if (!entry.is_regular_file()) continue;
 
             // Extension check
-            if (entry.path().extension() == ".plugin")
+            if (entry.path().extension() == ".meta")
             {
                 const std::string& fileName = entry.path().filename().string();
 

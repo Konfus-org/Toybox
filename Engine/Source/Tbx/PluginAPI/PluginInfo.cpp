@@ -7,8 +7,7 @@ namespace Tbx
 {
     PluginInfo::PluginInfo(const std::string& pathToPluginFolder, const std::string& pluginFileName)
     {
-        _pathToFolder = pathToPluginFolder;
-        Load(pathToPluginFolder + "\\" + pluginFileName);
+        Load(pathToPluginFolder + "/" + pluginFileName);
     }
 
     std::string PluginInfo::ToString() const

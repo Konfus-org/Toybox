@@ -3,6 +3,7 @@
 #include "Tbx/Ids/UsesGUID.h"
 #include "Tbx/PluginAPI/PluginServer.h"
 #include "Tbx/PluginAPI/PluginInterfaces.h"
+#include "Tbx/Files/WorkingDirectory.h"
 #include <memory>
 #include <typeindex>
 #include <typeinfo>
@@ -21,27 +22,36 @@ namespace Tbx
         /// </summary>
         /// <typeparam name="AssetType">The type of asset to load</typeparam>
         /// <param name="filepath">The path on disk to the asset to load</param>
-        /// <returns>An Asset object containing the loaded asset, or an empty Asset object if the load failed.</returns>
+        /// <returns>An Asset object containing the loaded asset, or an nullptr if the load failed.</returns>
         template <typename AssetType>
         EXPORT static std::shared_ptr<AssetType> Load(const std::string& filepath)
         {
-            auto fsPath = std::filesystem::path(filepath);
+            // Ensure the given path is valid
+            auto fsPath = std::filesystem::path(Tbx::FileSystem::GetWorkingDirectory() + '/' + filepath);
+            std::error_code ec;
+            std::filesystem::status(fsPath, ec);
+            TBX_ASSERT(!ec, "The asset path \"{}\" isn't valid: {}", fsPath.string(), ec.message());
+            if (ec)
+            {
+                return nullptr;
+            }
+
             if constexpr (std::is_same<Shader, AssetType>())
             {
                 auto shaderLoader = GetShaderLoader();
                 TBX_VALIDATE_WEAK_PTR(shaderLoader, "Shader loading plugin not found!");
-                return shaderLoader.lock()->LoadShader(filepath);
+                return shaderLoader.lock()->LoadShader(fsPath.string());
             }
             else if constexpr (std::is_same<Texture, AssetType>())
             {
                 auto textureLoader = GetTextureLoader();
                 TBX_VALIDATE_WEAK_PTR(textureLoader, "Texture loading plugin not found!");
-                return textureLoader.lock()->LoadTexture(filepath);
+                return textureLoader.lock()->LoadTexture(fsPath.string());
             }
             else
             {
                 TBX_ASSERT(false, "Loading an asset of type {} failed! This means this type of asset is currently unsupported.", typeid(AssetType).name());
-                return {};
+                return nullptr;
             }
         }
 

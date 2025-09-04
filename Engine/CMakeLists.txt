@@ -1,49 +1,43 @@
 add_library(Engine SHARED)
 
-target_compile_features(Engine PUBLIC cxx_std_20)
-
+# PCH
 target_precompile_headers(Engine PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Include/Tbx/PCH.h")
 
-file(GLOB_RECURSE ENGINE_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.cc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.hpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Include/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Include/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Include/*.cc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Include/*.hpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Include/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.md"
-)
-target_sources(Engine PRIVATE ${ENGINE_SOURCES})
+# Sources
+file(GLOB_RECURSE INCL CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Include/*.*")
+file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.*")
+target_sources(Engine PRIVATE ${SRCS} ${INCL})
 
+# Expose include dirs to dependents (build & install time)
 target_include_directories(Engine
-    PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/Include"
-        "${CMAKE_SOURCE_DIR}/Dependencies/glm"
-        "${CMAKE_SOURCE_DIR}/Dependencies/nlohmann_json/include"
-    PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/Source"
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Include>
+    $<INSTALL_INTERFACE:Include>
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(Engine PUBLIC
+# C++20
+set_target_properties(Engine PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+
+# Link deps (prefer exported targets)
+target_link_libraries(Engine PRIVATE
     glm
     nlohmann_json
 )
 
-link_directories(
-    "${CMAKE_SOURCE_DIR}/Plugins"
-)
-
-target_compile_definitions(Engine PUBLIC
-    GLM_ENABLE_EXPERIMENTAL
-    GLM_FORCE_LEFT_HANDED
-    GLM_DEPTH_ZERO_TO_ONE
-)
-
 if(WIN32)
-    target_link_libraries(Engine PRIVATE DbgHelp.lib)
+  target_link_libraries(Engine PUBLIC DbgHelp)
 endif()
 
+# Propagate these defines to dependents
+target_compile_definitions(Engine PUBLIC
+  GLM_ENABLE_EXPERIMENTAL
+  GLM_FORCE_LEFT_HANDED
+  GLM_DEPTH_ZERO_TO_ONE
+  TBX_WORKING_ROOT_DIR="$<TARGET_FILE_DIR:Engine>"
+)
+
+# Namespaced alias for consumers
+add_library(Tbx::Engine ALIAS Engine)

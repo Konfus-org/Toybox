@@ -1,8 +1,6 @@
 #pragma once
 #include "Tbx/Debug/Log.h"
 
-//#define TBX_VERBOSE_ENABLED
-
 /// <summary>
 /// Writes a trace level msg to the log.
 /// If a log is created and listening the msg will be written to a log file in release, a console in debug.
@@ -46,7 +44,7 @@
 /// </summary>
 #define TBX_TRACE_CRITICAL(msg, ...) Tbx::Log::Critical(msg, __VA_ARGS__)
 
-#ifdef TBX_VERBOSE_ENABLED
+#ifdef TBX_VERBOSE_LOGGING
     /// <summary>
     /// Logs verbose info for debugging IF verbose logging is enabled.
     /// Verbose logging is enabled.

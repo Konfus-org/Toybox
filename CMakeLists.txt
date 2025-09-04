@@ -6,14 +6,14 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Set output directories
-set(out_root "${CMAKE_BINARY_DIR}/out")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+# Build dir
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/Build/bin")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/Build/lib")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/Build/lib")
+set(CMAKE_PDB_OUTPUT_DIRECTORY     "${CMAKE_SOURCE_DIR}/Build/pdb")
 
-# Get required packages
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
+# Options
+option(TBX_VERB_LOGGING "Enable verbose logging" OFF)
 
 # Enable testing
 enable_testing()
@@ -21,19 +21,6 @@ enable_testing()
 # Global configs
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;ReleaseAssert" CACHE STRING "" FORCE)
-
-# Premake: filter "system:windows" -> add define on Windows
-add_library(tbx_config INTERFACE)
-target_compile_definitions(tbx_config INTERFACE
-  $<$<PLATFORM_ID:Windows>:_CRT_SECURE_NO_WARNINGS>
-  $<$<PLATFORM_ID:Windows>:TBX_PLATFORM_WINDOWS=1;WIN32_LEAN_AND_MEAN;NOMINMAX>
-  $<$<PLATFORM_ID:Darwin>:TBX_PLATFORM_MACOS=1>
-  $<$<PLATFORM_ID:Linux>:TBX_PLATFORM_LINUX=1>
-  $<$<CONFIG:Debug>:TBX_DEBUG=1>
-  $<$<CONFIG:Release>:TBX_RELEASE=1>
-  $<$<CONFIG:ReleaseAssert>:TBX_RELEASE_ASSERT=1>
-  COMPILING_TOYBOX=1
-)
 
 if(MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
@@ -43,14 +30,37 @@ else()
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--as-needed")
 endif()
 
+# Tbx Configs
+add_library(tbx_config INTERFACE)
+target_compile_definitions(tbx_config INTERFACE
+  # Platform
+  $<$<PLATFORM_ID:Windows>:_CRT_SECURE_NO_WARNINGS>
+  $<$<PLATFORM_ID:Windows>:TBX_PLATFORM_WINDOWS=1;WIN32_LEAN_AND_MEAN;NOMINMAX>
+  $<$<PLATFORM_ID:Darwin>:TBX_PLATFORM_MACOS=1>
+  $<$<PLATFORM_ID:Linux>:TBX_PLATFORM_LINUX=1>
+
+  # Build
+  $<$<CONFIG:Debug>:TBX_DEBUG=1>
+  $<$<CONFIG:Debug>:TBX_ASSERTS_ENABLED=1>
+  $<$<CONFIG:Release>:TBX_RELEASE=1>
+  $<$<CONFIG:ReleaseAssert>:TBX_ASSERTS_ENABLED=1>
+  $<$<CONFIG:ReleaseAssert>:TBX_ASSERTS_ENABLED=1>
+
+  # Options
+  $<$<BOOL:${TBX_VERB_LOGGING}>:TBX_VERBOSE_LOGGING=1>
+
+  # Static
+  COMPILING_TOYBOX=1
+)
+
 # Dependency configs
-set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
-set(SDL_TESTS        OFF CACHE BOOL "" FORCE)
-set(SDL_EXAMPLES     OFF CACHE BOOL "" FORCE)
-set(IMGUI_PLATFORM   SDL3   CACHE STRING "" FORCE) 
+set(SDL_TEST_LIBRARY OFF     CACHE BOOL   "" FORCE)
+set(SDL_TESTS        OFF     CACHE BOOL   "" FORCE)
+set(SDL_EXAMPLES     OFF     CACHE BOOL   "" FORCE)
+set(IMGUI_PLATFORM   SDL3    CACHE STRING "" FORCE) 
 set(IMGUI_RENDERER   OpenGL3 CACHE STRING "" FORCE)
-set(IMGUI_GL_LOADER  GLAD   CACHE STRING "" FORCE)
-set(IMGUI_BUILD_DEMO OFF    CACHE BOOL   "" FORCE)
+set(IMGUI_GL_LOADER  GLAD    CACHE STRING "" FORCE)
+set(IMGUI_BUILD_DEMO OFF     CACHE BOOL   "" FORCE)
 
 # Dependencies
 add_subdirectory(Dependencies/glad)
@@ -67,17 +77,21 @@ add_subdirectory(Dependencies/imgui)
 add_subdirectory(Engine)
 add_subdirectory(Engine/Tests)
 add_subdirectory(Launcher)
-target_link_libraries(Engine PRIVATE tbx_config)
-target_link_libraries(Tests  PRIVATE tbx_config)
-target_link_libraries(Launcher  PRIVATE tbx_config)
+target_link_libraries(Engine PUBLIC tbx_config)
+target_link_libraries(Tests PRIVATE tbx_config)
+target_link_libraries(Launcher PUBLIC tbx_config)
+
+# Examples
+add_subdirectory(Examples/SimpleGame/Game)
+add_subdirectory(Examples/SimpleGame/Launcher)
 
 # Plugins:
-add_subdirectory(Plugin/Toybox-ImGui-DebugUI-Plugin)
-add_subdirectory(Plugin/Toybox-JISM-AssetLoader-Plugin)
-add_subdirectory(Plugin/Toybox-OpenGL-Rendering-Plugin)
-add_subdirectory(Plugin/Toybox-SDL-Input-Plugin)
-add_subdirectory(Plugin/Toybox-SDL-Windowing-Plugin)
-add_subdirectory(Plugin/Toybox-Spd-Logging-Plugin)
+add_subdirectory(Plugins/Toybox-ImGui-DebugUI-Plugin)
+add_subdirectory(Plugins/Toybox-JIMS-AssetLoader-Plugin)
+add_subdirectory(Plugins/Toybox-OpenGL-Rendering-Plugin)
+add_subdirectory(Plugins/Toybox-SDL-Input-Plugin)
+add_subdirectory(Plugins/Toybox-SDL-Windowing-Plugin)
+add_subdirectory(Plugins/Toybox-Spd-Logging-Plugin)
 
 # Organize everything into folders if using VS
 if(MSVC)
@@ -86,8 +100,14 @@ if(MSVC)
     set_property(TARGET Launcher PROPERTY FOLDER "Toybox")
     
     set_property(TARGET ImGuiDebugUI PROPERTY FOLDER "Toybox/Plugins")
-    set_property(TARGET JISM PROPERTY FOLDER "Toybox/Plugins")
-    set_property(TARGET Launcher PROPERTY FOLDER "Toybox/Plugins")
+    set_property(TARGET JIMSAssetLoader PROPERTY FOLDER "Toybox/Plugins")
+    set_property(TARGET OpenGLRendering PROPERTY FOLDER "Toybox/Plugins")
+    set_property(TARGET SDL3Input PROPERTY FOLDER "Toybox/Plugins")
+    set_property(TARGET SDL3Windowing PROPERTY FOLDER "Toybox/Plugins")
+    set_property(TARGET SpdLogging PROPERTY FOLDER "Toybox/Plugins")
+    
+    set_property(TARGET SimpleGame PROPERTY FOLDER "Toybox/Examples")
+    set_property(TARGET SGLauncher PROPERTY FOLDER "Toybox/Examples")
 
     set_property(TARGET glad PROPERTY FOLDER "Dependencies")
     set_property(TARGET glm PROPERTY FOLDER "Dependencies")

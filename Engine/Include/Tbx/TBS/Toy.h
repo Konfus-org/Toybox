@@ -174,7 +174,7 @@ namespace Tbx
         EXPORT explicit(false) ToyHandle(const std::string& name, const uint64& id)
             : UsesUid(id), _name(name) {}
 
-        EXPORT std::string GetName() { return _name; }
+        EXPORT std::string GetName() const { return _name; }
 
     private:
         std::string _name = "";
