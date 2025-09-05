@@ -47,7 +47,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        submodules: 'recursive'
+        fetch-depth: 0
+        submodules: recursive
+
+    - name: Initialize submodules
+      if: runner.os == 'Linux'
+      run: git submodule update --init --recursive
 
     - name: Install dependencies
       if: runner.os == 'Linux'
