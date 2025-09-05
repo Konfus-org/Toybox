@@ -58,7 +58,13 @@ jobs:
         fetch-depth: 0
         submodules: recursive
 
+    - name: Clean build dir (bash on Windows)
+      if: runner.os == 'Windows'
+      shell: bash
+      run: rm -rf "${{ steps.strings.outputs.build-output-dir }}"
+
     - name: Clean build dir
+      if: runner.os != 'Windows'
       run: rm -rf ${{ steps.strings.outputs.build-output-dir }}
 
     # Uncomment and modify as needed when we need to debug repo contents
