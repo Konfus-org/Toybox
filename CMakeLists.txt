@@ -30,6 +30,18 @@ else()
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--as-needed")
 endif()
 
+# Provide flag variables for the custom "ReleaseAssert" configuration.
+foreach(_var
+    CMAKE_C_FLAGS_RELEASE
+    CMAKE_CXX_FLAGS_RELEASE
+    CMAKE_EXE_LINKER_FLAGS_RELEASE
+    CMAKE_SHARED_LINKER_FLAGS_RELEASE
+    CMAKE_STATIC_LINKER_FLAGS_RELEASE
+    CMAKE_MODULE_LINKER_FLAGS_RELEASE)
+  string(REPLACE "_RELEASE" "_RELEASEASSERT" _var_name "${_var}")
+  set(${_var_name} "${${_var}}" CACHE STRING "" FORCE)
+endforeach()
+
 # Tbx Configs
 add_library(tbx_config INTERFACE)
 target_compile_definitions(tbx_config INTERFACE
