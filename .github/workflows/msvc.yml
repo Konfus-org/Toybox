@@ -53,12 +53,16 @@ jobs:
           cmakeBuildDirectory: ${{ env.build }}
           # Ruleset file that will determine what checks will be run
           ruleset: NativeRecommendedRules.ruleset
+          # Consolidate all diagnostics into a single SARIF log
+          sarifLogFile: msvc-analysis.sarif
 
       # Upload SARIF file to GitHub Code Scanning Alerts
       - name: Upload SARIF to GitHub
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: ${{ steps.run-analysis.outputs.sarif }}
+          # Ensure the SARIF upload has a unique category
+          category: msvc-code-analysis
 
       # Upload SARIF file as an Artifact to download and view
       # - name: Upload SARIF as an Artifact
