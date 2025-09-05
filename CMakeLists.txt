@@ -87,13 +87,14 @@ target_link_libraries(Launcher PUBLIC tbx_config)
 add_subdirectory(Examples/SimpleGame/Game)
 add_subdirectory(Examples/SimpleGame/Launcher)
 
-# Plugins:
-add_subdirectory(Plugins/Toybox-ImGui-DebugUI-Plugin)
-add_subdirectory(Plugins/Toybox-JIMS-AssetLoader-Plugin)
-add_subdirectory(Plugins/Toybox-OpenGL-Rendering-Plugin)
-add_subdirectory(Plugins/Toybox-SDL-Input-Plugin)
-add_subdirectory(Plugins/Toybox-SDL-Windowing-Plugin)
-add_subdirectory(Plugins/Toybox-Spd-Logging-Plugin)
+# Plugins (optional):
+# Automatically include any plugin with a CMakeLists.txt
+file(GLOB plugin_dirs RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/Plugins" "${CMAKE_CURRENT_SOURCE_DIR}/Plugins/*")
+foreach(plugin ${plugin_dirs})
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Plugins/${plugin}/CMakeLists.txt")
+    add_subdirectory(Plugins/${plugin})
+  endif()
+endforeach()
 
 # Organize everything into folders if using VS
 if(MSVC)
@@ -101,12 +102,14 @@ if(MSVC)
     set_property(TARGET Tests PROPERTY FOLDER "Toybox")
     set_property(TARGET Launcher PROPERTY FOLDER "Toybox")
     
-    set_property(TARGET ImGuiDebugUI PROPERTY FOLDER "Toybox/Plugins")
-    set_property(TARGET JIMSAssetLoader PROPERTY FOLDER "Toybox/Plugins")
-    set_property(TARGET OpenGLRendering PROPERTY FOLDER "Toybox/Plugins")
-    set_property(TARGET SDL3Input PROPERTY FOLDER "Toybox/Plugins")
-    set_property(TARGET SDL3Windowing PROPERTY FOLDER "Toybox/Plugins")
-    set_property(TARGET SpdLogging PROPERTY FOLDER "Toybox/Plugins")
+    # Place all plugin targets in a dedicated folder
+    get_property(all_targets GLOBAL PROPERTY TARGETS)
+    foreach(tgt ${all_targets})
+        get_target_property(tgt_source_dir ${tgt} SOURCE_DIR)
+        if(tgt_source_dir AND tgt_source_dir MATCHES "/Plugins/")
+            set_property(TARGET ${tgt} PROPERTY FOLDER "Toybox/Plugins")
+        endif()
+    endforeach()
     
     set_property(TARGET SimpleGame PROPERTY FOLDER "Toybox/Examples")
     set_property(TARGET SGLauncher PROPERTY FOLDER "Toybox/Examples")
