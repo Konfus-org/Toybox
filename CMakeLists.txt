@@ -43,7 +43,7 @@ target_compile_definitions(tbx_config INTERFACE
   $<$<CONFIG:Debug>:TBX_DEBUG=1>
   $<$<CONFIG:Debug>:TBX_ASSERTS_ENABLED=1>
   $<$<CONFIG:Release>:TBX_RELEASE=1>
-  $<$<CONFIG:ReleaseAssert>:TBX_ASSERTS_ENABLED=1>
+  $<$<CONFIG:ReleaseAssert>:TBX_RELEASE=1>
   $<$<CONFIG:ReleaseAssert>:TBX_ASSERTS_ENABLED=1>
 
   # Options
