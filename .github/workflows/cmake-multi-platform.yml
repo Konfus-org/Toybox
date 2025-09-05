@@ -55,6 +55,14 @@ jobs:
         fetch-depth: 0
         submodules: recursive
 
+    - name: Debug repo contents
+      run: |
+        git submodule status || true
+        ls -la
+        ls -la Plugins || true
+        ls -la Plugins/Toybox-OpenGL-Rendering-Plugin || true
+        ls -la Plugins/Toybox-SDL-Input-Plugin || true
+
     - name: Set reusable strings
       # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
       id: strings
