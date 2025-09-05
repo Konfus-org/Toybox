@@ -1,5 +1,4 @@
-# This starter workflow is for a CMake project running on multiple platforms. There is a different starter workflow if you just want a single platform.
-# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-single-platform.yml
+# This workflow is for a CMake project running on multiple platforms.
 name: CMake on multiple platforms
 
 on:
@@ -14,13 +13,12 @@ jobs:
 
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
-      fail-fast: false
+      fail-fast: true
 
       # Set up a matrix to run the following 3 configurations:
       # 1. <Windows, Release, latest MSVC compiler toolchain on the default runner image, default generator>
       # 2. <Linux, Release, latest GCC compiler toolchain on the default runner image, default generator>
       # 3. <Linux, Release, latest Clang compiler toolchain on the default runner image, default generator>
-      #
       # To add more build types (Release, Debug, RelWithDebInfo, etc.) customize the build_type list.
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -49,10 +47,6 @@ jobs:
       with:
         fetch-depth: 0
         submodules: recursive
-
-    - name: Initialize submodules
-      if: runner.os == 'Linux'
-      run: git submodule update --init --recursive
 
     - name: Install dependencies
       if: runner.os == 'Linux'
