@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(Toybox LANGUAGES CXX)
+project(Toybox LANGUAGES C CXX)
 
 # Set global C++ standard
 set(CMAKE_CXX_STANDARD 20)

@@ -25,4 +25,4 @@ target_link_libraries(Tests PRIVATE
 )
 
 # Add tests
-add_test(NAME EngineTests COMMAND Tests)
+add_test(NAME EngineTests COMMAND $<TARGET_FILE:Tests>)
