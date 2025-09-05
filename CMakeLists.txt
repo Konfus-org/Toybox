@@ -84,7 +84,6 @@ add_subdirectory(Dependencies/nlohmann_json)
 add_subdirectory(Dependencies/SDL)
 add_subdirectory(Dependencies/spdlog)
 add_subdirectory(Dependencies/stbimg)
-add_subdirectory(Dependencies/sys_info)
 add_subdirectory(Dependencies/imgui)
 
 # Core projects
@@ -135,8 +134,6 @@ if(MSVC)
     set_property(TARGET SDL3-shared PROPERTY FOLDER "Dependencies")
     set_property(TARGET spdlog PROPERTY FOLDER "Dependencies")
     set_property(TARGET stbimg PROPERTY FOLDER "Dependencies")
-    set_property(TARGET sys_info PROPERTY FOLDER "Dependencies")
-    set_property(TARGET sys_core PROPERTY FOLDER "Dependencies")
 
     set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMake")
 endif()
