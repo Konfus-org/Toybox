@@ -58,12 +58,12 @@ jobs:
         fetch-depth: 0
         submodules: recursive
 
-    - name: Clean build dir (bash on Windows)
+    - name: Clean build dir (Windows)
       if: runner.os == 'Windows'
       shell: bash
       run: rm -rf "${{ steps.strings.outputs.build-output-dir }}"
 
-    - name: Clean build dir
+    - name: Clean build dir (Linux)
       if: runner.os != 'Windows'
       run: rm -rf ${{ steps.strings.outputs.build-output-dir }}
 
@@ -85,17 +85,6 @@ jobs:
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
         -S ${{ github.workspace }}
-
-    - name: Log CMake Failure
-      if: failure()
-      run: |
-        echo "===== CMakeOutput.log ====="
-        cat ${{ steps.strings.outputs.build-output-dir }}/CMakeFiles/CMakeOutput.log || true
-        echo "===== CMakeError.log ====="
-        cat ${{ steps.strings.outputs.build-output-dir }}/CMakeFiles/CMakeError.log || true
-        - name: Build
-          # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
-          run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
 
     - name: Run Tests
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
