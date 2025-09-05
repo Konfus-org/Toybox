@@ -20,6 +20,7 @@ set_target_properties(Engine PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YE
 target_link_libraries(Tests PRIVATE
     Engine
     gtest
+    gtest_main
     gmock
 )
 
