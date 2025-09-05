@@ -8,5 +8,7 @@ Plugins:
   - 'Plugins/**'
 Dependencies:
   - 'Dependencies/**'
+CL/CI/Automation:
+  - '.github/workflows/**'
 Documentation:
   - '**/*.md'
