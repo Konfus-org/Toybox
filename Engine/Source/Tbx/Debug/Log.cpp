@@ -31,7 +31,7 @@ namespace Tbx
         // Open log file in non-debug
         const auto& currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         _logFilePath = std::format("Logs\\{}.log", currentTime);
-        _logger = loggerFactory->Create(name, _logFilePath);
+        _logger = loggerFactory.lock()->Create(name, _logFilePath);
 #endif
 
         TBX_ASSERT(_logger, "Failed to open the log {}!", name);
