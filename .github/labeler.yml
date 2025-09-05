@@ -1,0 +1,12 @@
+Engine:
+  - 'Engine/**'
+Examples:
+  - 'Examples/**'
+Launcher:
+  - 'Launcher/**'
+Plugins:
+  - 'Plugins/**'
+Dependencies:
+  - 'Dependencies/**'
+Documentation:
+  - '**/*.md'
