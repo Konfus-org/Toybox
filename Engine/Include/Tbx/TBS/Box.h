@@ -159,18 +159,18 @@ namespace Tbx
         /// Removes a block from a toy.
         /// </summary>
         template<typename T>
-        EXPORT void RemoveBlockFrom(const ToyHandle& toy)
+        EXPORT void RemoveBlockFrom(const ToyHandle& handle)
         {
-            uint32 toyIndex = GetToyIndex(toy);
+            uint32 toyIndex = GetToyIndex(handle);
             auto& toy = _toyPool[toyIndex];
 
-            TBX_ASSERT(toy.GetId() == toy, "Toy has been deleted!");
-            TBX_ASSERT(HasBlockOn<T>(toy), "Block doesn't exist on toy so it cannot be removed!");
+            TBX_ASSERT(toy.GetId() == handle, "Toy has been deleted!");
+            TBX_ASSERT(HasBlockOn<T>(handle), "Block doesn't exist on toy so it cannot be removed!");
 
             uint32 blockIndex = GetBlockTypeIndex<T>();
             toy.SetBlockMask(blockIndex, false);
 
-            TBX_ASSERT(!HasBlockOn<T>(toy), "Block didn't get removed correctly!");
+            TBX_ASSERT(!HasBlockOn<T>(handle), "Block didn't get removed correctly!");
         }
 
         /// <summary>

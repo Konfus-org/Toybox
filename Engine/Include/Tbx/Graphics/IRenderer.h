@@ -11,7 +11,7 @@ namespace Tbx
     struct Viewport
     {
         Vector2 Position;
-        Size Size;
+        Size Extents;
     };
 
     class EXPORT IRenderer
@@ -37,7 +37,7 @@ namespace Tbx
         /// <summary>
         /// Clears the screen with the given color.
         /// </summary>
-        virtual void Clear(const Color& color = Colors::DarkGrey) = 0;
+        virtual void Clear(const RgbaColor& color = Colors::DarkGrey) = 0;
 
         /// <summary>
         /// Sets the api the renderer will use.
