@@ -67,7 +67,12 @@ namespace Tbx
         }
 
         // Load and wrap plugin in shared_ptr with custom destructor
-        const auto& loadPluginFunc = static_cast<PluginLoadFunc>(loadFuncSymbol);
+        // GCC does not allow static_cast from void* to function pointer
+        // (it's also not guaranteed to be valid by the standard).  Use
+        // reinterpret_cast instead which is the correct way to cast the
+        // symbol returned from the dynamic library loader to a function
+        // pointer.
+        const auto loadPluginFunc = reinterpret_cast<PluginLoadFunc>(loadFuncSymbol);
         auto* loadedPlugin = loadPluginFunc();
         std::shared_ptr<IPlugin> sharedLoadedPlugin(loadedPlugin, [this](IPlugin* pluginToUnload)
         {
@@ -80,7 +85,9 @@ namespace Tbx
                 TBX_ASSERT(false, "(!!!Likely Memory Leak!!!: Failed to unload the plugin from library: {0}, is it calling TBX_REGISTER_PLUGIN?", libraryPath);
                 return;
             }
-            const auto& unloadPluginFunc = static_cast<PluginUnloadFunc>(unloadFuncSymbol);
+            // See note above regarding reinterpret_cast.  We perform the
+            // same cast here when calling the plugin's unload function.
+            const auto unloadPluginFunc = reinterpret_cast<PluginUnloadFunc>(unloadFuncSymbol);
             unloadPluginFunc(pluginToUnload);
         });
 
