@@ -29,6 +29,8 @@ target_link_libraries(Engine PRIVATE
 
 if(WIN32)
   target_link_libraries(Engine PUBLIC DbgHelp)
+elseif(UNIX)
+  target_link_libraries(Engine PRIVATE dl)
 endif()
 
 # Propagate these defines to dependents

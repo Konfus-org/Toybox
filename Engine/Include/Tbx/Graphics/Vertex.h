@@ -5,6 +5,11 @@
 
 namespace Tbx
 {
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wchanges-meaning"
+#endif
     struct EXPORT Vertex
     {
         Vertex() = default;
@@ -22,4 +27,7 @@ namespace Tbx
         Vector2I TexCoord = { 0, 0 };                   // (u, v) for texture mapping
         Color Color       = { 1.0f, 1.0f, 1.0f, 1.0f }; // (r, g, b, a) for color
     };
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 }
