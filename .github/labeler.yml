@@ -1,4 +1,4 @@
-Engine:
+Source:
   - 'Engine/**'
 Examples:
   - 'Examples/**'
@@ -14,5 +14,13 @@ Build System:
   - '**/*.cmake'
 CL/CI/Automation:
   - '.github/workflows/**'
+Labeler:
+  - '.github/labeler.yml'
 Documentation:
   - '**/*.md'
+Feature:
+ - head-branch: ['^feature', 'feature']
+Patch:
+ - head-branch: ['^patch', 'patch']
+Release:
+ - base-branch: 'main'
