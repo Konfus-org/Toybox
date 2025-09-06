@@ -29,7 +29,7 @@ target_link_libraries(Engine PRIVATE
 
 if(WIN32)
   target_link_libraries(Engine PUBLIC DbgHelp)
-elseif(UNIX)
+elseif(UNIX AND NOT APPLE)
   target_link_libraries(Engine PRIVATE dl)
 endif()
 

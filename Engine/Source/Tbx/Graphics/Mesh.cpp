@@ -60,25 +60,25 @@ namespace Tbx
                 Vector3(-0.5f, -0.5f, 0.0f),    // Position
                 Vector3(0.0f, 0.0f, 0.0f),      // Normal
                 Vector2I(0, 0),                 // Texture coordinates
-                Color(0.0f, 0.0f, 0.0f, 1.0f)), // Color
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)), // Color
 
             Vertex(
                 Vector3(0.5f, -0.5f, 0.0f),     // Position
                 Vector3(0.0f, 0.0f, 0.0f),      // Normal
                 Vector2I(1, 0),                 // Texture coordinates
-                Color(0.0f, 0.0f, 0.0f, 1.0f)), // Color
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)), // Color
 
             Vertex(
                 Vector3(0.5f, 0.5f, 0.0f),		 // Position
                 Vector3(0.0f, 0.0f, 0.0f),      // Normal
                 Vector2I(1, 1),                 // Texture coordinates
-                Color(0.0f, 0.0f, 0.0f, 1.0f)), // Color
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)), // Color
 
             Vertex(
                 Vector3(-0.5f, 0.5f, 0.0f),     // Position
                 Vector3(0.0f, 0.0f, 0.0f),      // Normal
                 Vector2I(0, 1),                 // Texture coordinates
-                Color(0.0f, 0.0f, 0.0f, 1.0f))  // Color
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f))  // Color
         };
         const std::vector<uint32>& squareMeshIndices = { 0, 1, 2, 2, 3, 0 };
         return Mesh(quadMeshVerts, squareMeshIndices);

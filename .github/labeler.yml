@@ -8,6 +8,10 @@ Plugins:
   - 'Plugins/**'
 Dependencies:
   - 'Dependencies/**'
+Build System:
+  - '**/CMakeLists.txt'
+  - '**/CMakePresets.json'
+  - '**/*.cmake'
 CL/CI/Automation:
   - '.github/workflows/**'
 Documentation:

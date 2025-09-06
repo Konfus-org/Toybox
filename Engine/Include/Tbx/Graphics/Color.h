@@ -4,19 +4,19 @@
 
 namespace Tbx
 {
-    struct EXPORT Color
+    struct EXPORT RgbaColor
     {
     public:
         /// <summary>
         /// Default constructor, initializes the color to black (0, 0, 0, 1)
         /// </summary>
-        Color() = default;
+        RgbaColor() = default;
 
         /// <summary>
         /// Constructor that initializes the color with the given RGBA values.
         /// Given values are expected to be in the range of 0-1.
         /// </summary>
-        Color(float r, float g, float b, float a) 
+        RgbaColor(float r, float g, float b, float a)
             : R(r), G(g), B(b), A(a) {}
 
         std::string ToString() const
@@ -48,16 +48,16 @@ namespace Tbx
 
     namespace Colors
     {
-        EXPORT inline const Color& White = Color(1.0f, 1.0f, 1.0f, 1.0f);
-        EXPORT inline const Color& Black = Color(0.0f, 0.0f, 0.0f, 1.0f);
-        EXPORT inline const Color& Red = Color(1.0f, 0.0f, 0.0f, 1.0f);
-        EXPORT inline const Color& Green = Color(0.0f, 1.0f, 0.0f, 1.0f);
-        EXPORT inline const Color& Blue = Color(0.0f, 0.0f, 1.0f, 1.0f);
-        EXPORT inline const Color& Yellow = Color(1.0f, 1.0f, 0.0f, 1.0f);
-        EXPORT inline const Color& Cyan = Color(0.0f, 1.0f, 1.0f, 1.0f);
-        EXPORT inline const Color& Magenta = Color(1.0f, 0.0f, 1.0f, 1.0f);
-        EXPORT inline const Color& Grey = Color(0.5f, 0.5f, 0.5f, 1.0f);
-        EXPORT inline const Color& LightGrey = Color(0.75f, 0.75f, 0.75f, 1.0f);
-        EXPORT inline const Color& DarkGrey = Color(0.1f, 0.1f, 0.1f, 1.0f);
+        EXPORT inline const RgbaColor& White = RgbaColor(1.0f, 1.0f, 1.0f, 1.0f);
+        EXPORT inline const RgbaColor& Black = RgbaColor(0.0f, 0.0f, 0.0f, 1.0f);
+        EXPORT inline const RgbaColor& Red = RgbaColor(1.0f, 0.0f, 0.0f, 1.0f);
+        EXPORT inline const RgbaColor& Green = RgbaColor(0.0f, 1.0f, 0.0f, 1.0f);
+        EXPORT inline const RgbaColor& Blue = RgbaColor(0.0f, 0.0f, 1.0f, 1.0f);
+        EXPORT inline const RgbaColor& Yellow = RgbaColor(1.0f, 1.0f, 0.0f, 1.0f);
+        EXPORT inline const RgbaColor& Cyan = RgbaColor(0.0f, 1.0f, 1.0f, 1.0f);
+        EXPORT inline const RgbaColor& Magenta = RgbaColor(1.0f, 0.0f, 1.0f, 1.0f);
+        EXPORT inline const RgbaColor& Grey = RgbaColor(0.5f, 0.5f, 0.5f, 1.0f);
+        EXPORT inline const RgbaColor& LightGrey = RgbaColor(0.75f, 0.75f, 0.75f, 1.0f);
+        EXPORT inline const RgbaColor& DarkGrey = RgbaColor(0.1f, 0.1f, 0.1f, 1.0f);
     }
 }
