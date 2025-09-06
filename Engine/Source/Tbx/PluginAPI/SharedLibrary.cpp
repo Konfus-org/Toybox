@@ -1,68 +1,59 @@
 #include "Tbx/PCH.h"
 #include "Tbx/PluginAPI/SharedLibrary.h"
 #include "Tbx/Debug/Debugging.h"
-#include <any>
 
-#ifdef TBX_PLATFORM_WINDOWS
-    #include <DbgHelp.h>
+#if defined(TBX_PLATFORM_WINDOWS)
+#include <DbgHelp.h>
 #endif
 
 namespace Tbx
 {
     bool SharedLibrary::IsValid()
     {
-        const auto& handle = std::any_cast<HMODULE>(_handle);
-        return handle;
+        return _handle != nullptr;
     }
 
     bool SharedLibrary::Load(const std::string& path)
     {
-#ifdef TBX_PLATFORM_WINDOWS
-
+#if defined(TBX_PLATFORM_WINDOWS)
         _path = path;
         _handle = LoadLibraryA(_path.c_str());
         return _handle != nullptr;
-
-#elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_OSX)
-
+#elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_MACOS)
         _path = path;
         _handle = dlopen(path.c_str(), RTLD_LAZY);
         return _handle != nullptr;
-
+#else
+        return false;
 #endif
     }
 
     void SharedLibrary::Unload()
     {
-#ifdef TBX_PLATFORM_WINDOWS
-
+#if defined(TBX_PLATFORM_WINDOWS)
         FreeLibrary(_handle);
-
-#elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_OSX)
-
-        dlclose(handle);
-
+#elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_MACOS)
+        if (_handle)
+            dlclose(_handle);
 #endif
         _handle = nullptr;
     }
 
     Symbol SharedLibrary::GetSymbol(const std::string& name)
     {
-#ifdef TBX_PLATFORM_WINDOWS
-
+#if defined(TBX_PLATFORM_WINDOWS)
         return _handle ? GetProcAddress(_handle, name.c_str()) : nullptr;
-
-#elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_OSX)
-
+#elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_MACOS)
         return _handle ? dlsym(_handle, name.c_str()) : nullptr;
-
+#else
+        return nullptr;
 #endif
     }
 
     void SharedLibrary::ListSymbols()
     {
-#ifdef TBX_PLATFORM_WINDOWS
-#ifdef TBX_VERBOSE_ENABLED
+#if defined(TBX_PLATFORM_WINDOWS)
+#ifdef TBX_VERBOSE_LOGGING
         // Initialize symbol handling
         if (!SymInitialize(GetCurrentProcess(), nullptr, true))
         {
@@ -89,12 +80,9 @@ namespace Tbx
 
         // Clean up
         SymCleanup(GetCurrentProcess());
-
-#elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_OSX)
-
+#endif // TBX_VERBOSE_LOGGING
+#elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_MACOS)
         TBX_ASSERT(false, "DynamicLibrary::ListSymbols is not implemented for this platform!");
-
-#endif
 #endif
     }
 
