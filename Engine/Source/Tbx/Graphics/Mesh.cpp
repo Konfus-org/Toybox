@@ -97,7 +97,7 @@ namespace Tbx
             meshPoints[positionToPlace + 1] = position.Y;
             meshPoints[positionToPlace + 2] = position.Z;
 
-            const auto& color = vertex.Tint;
+            const auto& color = vertex.Color;
             meshPoints[positionToPlace + 3] = color.R;
             meshPoints[positionToPlace + 4] = color.G;
             meshPoints[positionToPlace + 5] = color.B;
