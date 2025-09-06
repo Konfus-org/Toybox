@@ -11,7 +11,7 @@ namespace Tbx
     struct Viewport
     {
         Vector2 Position;
-        Size Extents;
+        Size Extends;
     };
 
     class EXPORT IRenderer
