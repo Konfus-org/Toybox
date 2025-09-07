@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include <cmath>
 #include "Tbx/Math/Mat4x4.h"
 #include "Tbx/Math/Trig.h"
 #include "Tbx/Math/Constants.h"
@@ -302,7 +303,7 @@ namespace Tbx::Tests::Math
         float aspect = 16.0f / 9.0f;
         float zNear = 0.1f;
         float zFar = 100.0f;
-        float f = 1.0f / tan(fov / 2.0f);
+        float f = 1.0f / std::tan(fov / 2.0f);
         float epsilon = 1e-6f;
 
         // Act
