@@ -19,6 +19,8 @@ on:
 env:
   # Path to the CMake build directory.
   build: '${{ github.workspace }}/build'
+  # Configuration to use for multi-config generators like Visual Studio
+  config: Release
 
 permissions:
   contents: read
@@ -39,11 +41,11 @@ jobs:
           submodules: 'recursive'
 
       - name: Configure CMake
-        run: cmake -B ${{ env.build }} -DCMAKE_BUILD_TYPE=${{ env.config }}
+        run: cmake -B ${{ env.build }} -S ${{ github.workspace }}
 
       # Build is required generated source files are used
       - name: Build CMake
-        run: cmake --build ${{ env.build }}
+        run: cmake --build ${{ env.build }} --config ${{ env.config }}
 
       # Run
       - name: Run MSVC Code Analysis
