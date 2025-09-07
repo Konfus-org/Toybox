@@ -85,6 +85,7 @@ add_subdirectory(Dependencies/SDL)
 add_subdirectory(Dependencies/spdlog)
 add_subdirectory(Dependencies/stbimg)
 add_subdirectory(Dependencies/imgui)
+set_property(TARGET imgui PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # Core projects
 add_subdirectory(Engine)
