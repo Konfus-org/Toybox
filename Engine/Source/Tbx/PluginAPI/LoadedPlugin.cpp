@@ -48,7 +48,7 @@ namespace Tbx
         }
 
         // Get load plugin function from library
-        const auto& loadFuncSymbol = _library.GetSymbol("Load");
+        const auto loadFuncSymbol = _library.GetSymbol("Load");
         if (!loadFuncSymbol)
         {
             TBX_TRACE_ERROR("Failed to load library because no load library function was found in: {0}, is it calling TBX_REGISTER_PLUGIN?", pluginFullPath);
@@ -56,8 +56,8 @@ namespace Tbx
             return;
         }
 
-        // Ensure we have an unload function
-        if (!_library.GetSymbol("Unload"))
+        const auto unloadFuncSymbol = _library.GetSymbol("Unload");
+        if (!unloadFuncSymbol)
         {
             TBX_TRACE_ERROR("No unload library function found in: {0}, is it calling TBX_REGISTER_PLUGIN?", pluginFullPath);
             // Since we already loaded the library we must unload it here to
@@ -73,21 +73,10 @@ namespace Tbx
         // symbol returned from the dynamic library loader to a function
         // pointer.
         const auto loadPluginFunc = reinterpret_cast<PluginLoadFunc>(loadFuncSymbol);
+        const auto unloadPluginFunc = reinterpret_cast<PluginUnloadFunc>(unloadFuncSymbol);
         auto* loadedPlugin = loadPluginFunc();
-        std::shared_ptr<IPlugin> sharedLoadedPlugin(loadedPlugin, [this](IPlugin* pluginToUnload)
+        std::shared_ptr<IPlugin> sharedLoadedPlugin(loadedPlugin, [unloadPluginFunc](IPlugin* pluginToUnload)
         {
-            // Use library to free plugin memory because it owns it
-            const auto& unloadFuncSymbol = _library.GetSymbol("Unload");
-            if (!unloadFuncSymbol)
-            {
-                // Couldn't find unload function in plugin library
-                const std::string& libraryPath = _library.GetPath();
-                TBX_ASSERT(false, "(!!!Likely Memory Leak!!!: Failed to unload the plugin from library: {0}, is it calling TBX_REGISTER_PLUGIN?", libraryPath);
-                return;
-            }
-            // See note above regarding reinterpret_cast.  We perform the
-            // same cast here when calling the plugin's unload function.
-            const auto unloadPluginFunc = reinterpret_cast<PluginUnloadFunc>(unloadFuncSymbol);
             unloadPluginFunc(pluginToUnload);
         });
 
