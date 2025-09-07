@@ -1,26 +1,20 @@
-Source:
+source:
   - 'Engine/**'
-Examples:
+examples:
   - 'Examples/**'
-Launcher:
+launcher:
   - 'Launcher/**'
-Plugins:
+plugins:
   - 'Plugins/**'
-Dependencies:
+dependencies:
   - 'Dependencies/**'
-Build System:
+build system:
   - '**/CMakeLists.txt'
   - '**/CMakePresets.json'
   - '**/*.cmake'
-CL/CI/Automation:
+automation:
   - '.github/workflows/**'
-Labeler:
+labeler:
   - '.github/labeler.yml'
-Documentation:
+documentation:
   - '**/*.md'
-Feature:
- - head-branch: ['^feature', 'feature']
-Patch:
- - head-branch: ['^patch', 'patch']
-Release:
- - base-branch: 'main'
