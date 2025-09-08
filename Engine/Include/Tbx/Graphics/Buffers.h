@@ -23,9 +23,9 @@ namespace Tbx
 
         EXPORT uint32 GetCount() const 
         {
-            using enum ShaderUniformDataType;
             switch (_type)
             {
+                using enum ShaderUniformDataType;
                 case None:   return 0;
                 case Float:  return 1;
                 case Float2: return 2;
