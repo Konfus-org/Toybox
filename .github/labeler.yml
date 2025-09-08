@@ -18,3 +18,9 @@ labeler:
   - '.github/labeler.yml'
 documentation:
   - '**/*.md'
+feature:
+  - head-branch: ['feature']
+patch:
+  - head-branch: ['patch']
+refactor:
+  - head-branch: ['refactor']
