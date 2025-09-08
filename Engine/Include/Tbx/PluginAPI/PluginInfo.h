@@ -18,7 +18,7 @@ namespace Tbx
         EXPORT const std::string& GetVersion() const { return _version; }
         EXPORT const std::string& GetDescription() const { return _description; }
         EXPORT const std::string& GetLib() const { return _lib; }
-        EXPORT const std::string GetPathToLib() const { return Tbx::FileSystem::GetWorkingDirectory() + "\\" + GetLib(); }
+        EXPORT const std::string GetPathToLib() const { return Tbx::FileSystem::GetWorkingDirectory() + "/" + GetLib(); }
         EXPORT const std::vector<std::string>& GetImplementedTypes() const { return _implementedTypes; }
         EXPORT const std::vector<std::string>& GetDependencies() const { return _dependencies; }
 
