@@ -75,6 +75,8 @@ set(IMGUI_GL_LOADER GLAD CACHE STRING "" FORCE)
 set(IMGUI_BUILD_DEMO OFF CACHE BOOL "" FORCE)
 set(SPDLOG_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(SPDLOG_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set_property(TARGET imgui PROPERTY POSITION_INDEPENDENT_CODE ON)
+set_property(TARGET glad PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # Dependencies
 add_subdirectory(Dependencies/glad)
@@ -85,7 +87,6 @@ add_subdirectory(Dependencies/SDL)
 add_subdirectory(Dependencies/spdlog)
 add_subdirectory(Dependencies/stbimg)
 add_subdirectory(Dependencies/imgui)
-set_property(TARGET imgui PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # Core projects
 add_subdirectory(Engine)
