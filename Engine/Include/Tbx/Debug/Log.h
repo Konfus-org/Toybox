@@ -3,6 +3,7 @@
 #include "Tbx/Debug/ILogger.h"
 #include "Tbx/DllExport.h"
 #include <format>
+#include <memory>
 
 namespace Tbx
 {

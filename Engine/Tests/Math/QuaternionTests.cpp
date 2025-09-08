@@ -1,4 +1,5 @@
-﻿#include "PCH.h"
+#include "PCH.h"
+#include <cmath>
 #include "Tbx/Math/Quaternion.h"
 #include "Tbx/Math/Trig.h"
 #include "Tbx/Math/Constants.h"

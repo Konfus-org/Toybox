@@ -11,6 +11,7 @@
 #include <Tbx/Math/Transform.h>
 #include <Tbx/Time/DeltaTime.h>
 #include <algorithm>
+#include <cmath>
 
 Tbx::Material _simpleTexturedMat;
 

@@ -65,7 +65,7 @@ target_compile_definitions(tbx_config INTERFACE
   COMPILING_TOYBOX=1
 )
 
-# Dependency configs
+# Dependencies
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
 set(SDL_TESTS OFF CACHE BOOL "" FORCE)
 set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -75,8 +75,6 @@ set(IMGUI_GL_LOADER GLAD CACHE STRING "" FORCE)
 set(IMGUI_BUILD_DEMO OFF CACHE BOOL "" FORCE)
 set(SPDLOG_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(SPDLOG_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-
-# Dependencies
 add_subdirectory(Dependencies/glad)
 add_subdirectory(Dependencies/glm)
 add_subdirectory(Dependencies/googletest)
@@ -85,6 +83,8 @@ add_subdirectory(Dependencies/SDL)
 add_subdirectory(Dependencies/spdlog)
 add_subdirectory(Dependencies/stbimg)
 add_subdirectory(Dependencies/imgui)
+set_property(TARGET imgui PROPERTY POSITION_INDEPENDENT_CODE ON)
+set_property(TARGET glad PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # Core projects
 add_subdirectory(Engine)

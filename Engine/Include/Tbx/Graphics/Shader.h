@@ -27,6 +27,7 @@ namespace Tbx
         switch (type)
         {
             using enum ShaderUniformDataType;
+            case None:   return 0;
             case Float:  return 4;
             case Float2: return 4 * 2;
             case Float3: return 4 * 3;
