@@ -11,8 +11,14 @@ name: Microsoft C++ Code Analysis
 on:
   push:
     branches: [ "main" ]
+    paths-ignore:
+      - '.github/labeler.yml'
+      - '**/*.md'
   pull_request:
     branches: [ "main" ]
+    paths-ignore:
+      - '.github/labeler.yml'
+      - '**/*.md'
   schedule:
     - cron: '45 12 * * 0'
 
