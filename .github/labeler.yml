@@ -14,7 +14,6 @@ build system:
   - '**/*.cmake'
 automation:
   - '.github/workflows/**'
-labeler:
   - '.github/labeler.yml'
 documentation:
   - '**/*.md'
