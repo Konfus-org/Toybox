@@ -13,12 +13,12 @@ on:
     branches: [ "main" ]
     paths-ignore:
       - '.github/labeler.yml'
-      - '**/README.md'
+      - '**/*.md'
   pull_request:
     branches: [ "main" ]
     paths-ignore:
       - '.github/labeler.yml'
-      - '**/README.md'
+      - '**/*.md'
   schedule:
     - cron: '45 12 * * 0'
 
