@@ -80,8 +80,5 @@ namespace Tbx
         WindowStack _windowStack = {};
 
         Uid _mainWindowId = Invalid::Uid;
-
-        Uid _windowOpenedEventId = Invalid::Uid;
-        Uid _windowClosedEventId = Invalid::Uid;
     };
 }

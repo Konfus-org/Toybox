@@ -12,27 +12,22 @@ namespace Tbx
 {
     std::weak_ptr<IRendererFactoryPlugin> Rendering::_renderFactory = {};
     std::map<Uid, std::shared_ptr<IRenderer>> Rendering::_renderers = {};
-    Uid Rendering::_windowCreatedEventId = Invalid::Uid;
-    Uid Rendering::_windowClosedEventId = Invalid::Uid;
-    Uid Rendering::_windowResizedEventId = Invalid::Uid;
-    Uid Rendering::_boxOpenedEventId = Invalid::Uid;
-
     void Rendering::Initialize()
     {
-        _windowCreatedEventId = EventCoordinator::Subscribe<WindowOpenedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowOpened));
-        _windowClosedEventId = EventCoordinator::Subscribe<WindowClosedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowClosed));
-        _windowResizedEventId = EventCoordinator::Subscribe<WindowResizedEvent>(TBX_BIND_STATIC_FN(Rendering::OnWindowResized));
-        _boxOpenedEventId = EventCoordinator::Subscribe<OpenedBoxEvent>(TBX_BIND_STATIC_FN(Rendering::OnBoxOpened));
+        EventCoordinator::Subscribe<WindowOpenedEvent>(&Rendering::OnWindowOpened);
+        EventCoordinator::Subscribe<WindowClosedEvent>(&Rendering::OnWindowClosed);
+        EventCoordinator::Subscribe<WindowResizedEvent>(&Rendering::OnWindowResized);
+        EventCoordinator::Subscribe<OpenedBoxEvent>(&Rendering::OnBoxOpened);
 
         _renderFactory = PluginServer::Get<IRendererFactoryPlugin>();
     }
 
     void Rendering::Shutdown()
     {
-        EventCoordinator::Unsubscribe<WindowOpenedEvent>(_windowCreatedEventId);
-        EventCoordinator::Unsubscribe<WindowClosedEvent>(_windowClosedEventId);
-        EventCoordinator::Unsubscribe<WindowClosedEvent>(_windowResizedEventId);
-        EventCoordinator::Unsubscribe<WindowClosedEvent>(_boxOpenedEventId);
+        EventCoordinator::Unsubscribe<WindowOpenedEvent>(&Rendering::OnWindowOpened);
+        EventCoordinator::Unsubscribe<WindowClosedEvent>(&Rendering::OnWindowClosed);
+        EventCoordinator::Unsubscribe<WindowResizedEvent>(&Rendering::OnWindowResized);
+        EventCoordinator::Unsubscribe<OpenedBoxEvent>(&Rendering::OnBoxOpened);
     }
 
     void Rendering::DrawFrame()
