@@ -20,8 +20,8 @@ namespace Tbx
         /// <summary>
         /// Creates a handle with the specified name.
         /// </summary>
-        ToyHandle(const std::string& name = "") :
-            _name(name)
+        ToyHandle(const std::string& name = "")
+            : _name(name)
         {
         }
 
@@ -131,10 +131,9 @@ namespace Tbx
         template <typename T, typename... Args>
         T& EmplaceBlock(Args&&... args)
         {
-            auto data = std::make_unique<T>(std::forward<Args>(args)...);
-            T& ref = *data;
-            _data[std::type_index(typeid(T))] = std::move(data);
-            return ref;
+            auto& slot = _data[std::type_index(typeid(T))];
+            slot = std::make_any<T>(std::forward<Args>(args)...);
+            return std::any_cast<T&>(slot);
         }
 
         /// <summary>
@@ -172,7 +171,7 @@ namespace Tbx
         bool _enabled = true;
         std::weak_ptr<Toy> _parent = {};
         std::vector<std::shared_ptr<Toy>> _children = {};
-        std::unordered_map<std::type_index, std::unique_ptr<void>> _data = {};
+        std::unordered_map<std::type_index, std::any> _data = {};
     };
 }
 
