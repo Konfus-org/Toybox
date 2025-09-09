@@ -9,7 +9,7 @@
 #include "Tbx/Graphics/Model.h"
 #include "Tbx/Math/Transform.h"
 #include "Tbx/Graphics/Frustum.h"
-#include "Tbx/Graphics/BoundingSphere.h"
+#include "Tbx/Graphics/Sphere.h"
 
 namespace Tbx
 {
