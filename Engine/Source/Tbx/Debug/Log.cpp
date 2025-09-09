@@ -66,25 +66,25 @@ namespace Tbx
         {
             using enum LogLevel;
             case Trace:
-                std::cout << "Tbx::Fallback::Trace: " << msg << std::endl;
+                std::cout << "Tbx::Trace: " << msg << std::endl;
                 break;
             case Debug:
-                std::cout << "Tbx::Fallback::Debug: " << msg << std::endl;
+                std::cout << "Tbx::Debug: " << msg << std::endl;
                 break;
             case Info:
-                std::cout << "Tbx::Fallback::Info: " << msg << std::endl;
+                std::cout << "Tbx::Info: " << msg << std::endl;
                 break;
             case Warn:
-                std::cout << "Tbx::Fallback::Warn: " << msg << std::endl;
+                std::cout << "Tbx::Warn: " << msg << std::endl;
                 break;
             case Error:
-                std::cout << "Tbx::Fallback::Error: " << msg << std::endl;
+                std::cout << "Tbx::Error: " << msg << std::endl;
                 break;
             case Critical:
-                std::cout << "Tbx::Fallback::Critical: " << msg << std::endl;
+                std::cout << "Tbx::Critical: " << msg << std::endl;
                 break;
             default:
-                std::cout << "Tbx::Fallback::LEVEL_NOT_DEFINED : " << msg << std::endl;
+                std::cout << "Tbx::LEVEL_NOT_DEFINED : " << msg << std::endl;
                 break;
         }
     }

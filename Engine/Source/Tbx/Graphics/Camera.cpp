@@ -2,6 +2,7 @@
 #include "Tbx/Graphics/Camera.h"
 #include "Tbx/Math/Mat4x4.h"
 #include "Tbx/Math/Trig.h"
+#include "Tbx/Graphics/Frustum.h"
 
 namespace Tbx
 {
@@ -65,5 +66,11 @@ namespace Tbx
     {
         Mat4x4 viewMatrix = CalculateViewMatrix(camPosition, camRotation);
         return projectionMatrix * viewMatrix;
+    }
+
+    Frustum Camera::CalculateFrustum(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& projectionMatrix)
+    {
+        const auto viewProj = CalculateViewProjectionMatrix(camPosition, camRotation, projectionMatrix);
+        return Frustum(viewProj);
     }
 }
