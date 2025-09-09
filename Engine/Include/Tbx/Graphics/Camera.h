@@ -27,7 +27,6 @@ namespace Tbx
         EXPORT const Mat4x4& GetProjectionMatrix() const { return _projectionMatrix; }
 
         EXPORT static Frustum CalculateFrustum(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& projectionMatrix);
-
         EXPORT static Mat4x4 CalculateViewMatrix(const Vector3& camPosition, const Quaternion& camRotation);
         EXPORT static Mat4x4 CalculateViewProjectionMatrix(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& projectionMatrix);
 

@@ -105,6 +105,8 @@ namespace Tbx
     void Rendering::OnWindowResized(const WindowResizedEvent& e)
     {
         auto windowId = e.GetWindowId();
+
+        // Update viewports
         if (_renderers.contains(windowId))
         {
             const auto& newSize = e.GetNewSize();

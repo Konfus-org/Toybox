@@ -31,10 +31,8 @@ namespace Tbx
 
     FrameBuffer FrameBufferBuilder::BuildRenderBuffer(const std::vector<std::shared_ptr<Box>>& boxes)
     {
-        // Build a view frustum from the first available camera
-        bool boxesContainsCamera = false;
+        // Build view frustums from cameras
         auto frustums = std::vector<Frustum>();
-
         for (const auto& box : boxes)
         {
             for (const auto& camToy : BoxView<Camera>(box))
@@ -52,18 +50,14 @@ namespace Tbx
 
                 // Extract the planes that make up the camera frustum
                 frustums.push_back(Camera::CalculateFrustum(camPos, camRot, camera.GetProjectionMatrix()));
-                boxesContainsCamera = true;
-                break;
             }
         }
 
-        // Start with an empty command buffer; if no camera is found this will be returned as-is
-        FrameBuffer buffer = {};
-
         // If no camera is available, we have no view frustum and nothing to draw
-        if (!boxesContainsCamera) return buffer;
+        if (frustums.empty()) return {};
 
         // Iterate through toys and skip those completely outside the view frustum
+        FrameBuffer buffer = {};
         for (const auto& box : boxes)
         {
             for (const auto& toy : BoxView(box))
@@ -167,12 +161,6 @@ namespace Tbx
         if (box->HasBlockOn<Camera>(toy))
         {
             auto& camera = box->GetBlockOn<Camera>(toy);
-
-            // TODO: process this somewhere else!
-            const auto& mainWindow = App::GetInstance()->GetMainWindow();
-            const auto mainWindowSize = mainWindow.lock()->GetSize();
-            const auto aspectRatio = mainWindowSize.GetAspectRatio();
-            camera.SetAspect(aspectRatio);
 
             if (box->HasBlockOn<Transform>(toy))
             {
