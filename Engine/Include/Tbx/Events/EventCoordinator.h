@@ -224,21 +224,24 @@ namespace Tbx
         EXPORT static Tbx::uint64 GetEventHash()
         {
             const auto& eventInfo = typeid(TEvent);
-            return eventInfo.hash_code();
+            const auto hash = eventInfo.hash_code();
+            return static_cast<Tbx::uint64>(hash);
         }
 
         template <class TEvent>
         EXPORT static Tbx::uint64 GetCallbackHash(EventHandlerFunction<TEvent> callback)
         {
             const auto& callbackInfo = typeid(EventHandlerFunction<TEvent>);
-            return callbackInfo.hash_code();
+            const auto hash = callbackInfo.hash_code() ^ reinterpret_cast<uintptr_t>(callback);
+            return static_cast<Tbx::uint64>(hash);
         }
 
         template <typename T, class TEvent>
         EXPORT static Tbx::uint64 GetCallbackHash(T* instance, ClassEventHandlerFunction<T, TEvent> callback)
         {
             const auto& callbackInfo = typeid(ClassEventHandlerFunction<T, TEvent>);
-            return callbackInfo.hash_code() ^ reinterpret_cast<uintptr_t>(instance);
+            const auto hash = callbackInfo.hash_code() ^ reinterpret_cast<uintptr_t>(instance);
+            return static_cast<Tbx::uint64>(hash);
         }
 
         EXPORT static std::unordered_map<std::size_t, std::unordered_map<std::size_t, EventCallback>>& GetSubscribers();
