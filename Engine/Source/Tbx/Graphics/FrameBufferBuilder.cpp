@@ -92,6 +92,7 @@ namespace Tbx
             const auto& material = box->GetBlockOn<MaterialInstance>(toy);
 
             // Check if we already added this material
+            auto newMaterialToUpload = true;
             const auto& existingUploadMatCmds = buffer.GetCommands();
             for (const auto& cmd : existingUploadMatCmds)
             {
@@ -100,12 +101,15 @@ namespace Tbx
                 const auto& materialToUpload = std::any_cast<const MaterialInstance&>(cmd.GetPayload());
                 if (materialToUpload.GetId() == material)
                 {
-                    return;
+                    newMaterialToUpload = false;
+                    break;
                 }
             }
-
-            // New material, add to buffer
-            buffer.Emplace(DrawCommandType::UploadMaterial, material);
+            if (newMaterialToUpload)
+            {
+                // New material, add to buffer
+                buffer.Emplace(DrawCommandType::UploadMaterial, material);
+            }
         }
 
         // Preprocess models to upload mesh and its material data (shaders and textures) to GPU

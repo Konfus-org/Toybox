@@ -20,7 +20,7 @@ namespace Tbx
     class Box : public UsesUid
     {
     public:
-        EXPORT Box() = default;
+        EXPORT Box();
         EXPORT explicit Box(Uid id);
 
         /// <summary>

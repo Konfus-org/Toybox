@@ -4,6 +4,14 @@
 
 namespace Tbx
 {
+    Box::Box() : UsesUid()
+    {
+        for (uint i = 0; i < MAX_NUMBER_OF_TOYS_IN_A_BOX; i++)
+        {
+            _availableToyIndices.emplace(i);
+        }
+    }
+
     Box::Box(Uid id) : UsesUid(id)
     {
         for (uint i = 0; i < MAX_NUMBER_OF_TOYS_IN_A_BOX; i++)

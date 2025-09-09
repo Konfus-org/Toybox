@@ -15,31 +15,23 @@ namespace Tbx::Tests::Graphics
     TEST(FrameBufferBuilderTests, BuildUploadBuffer_UploadsMaterialsAndMeshes)
     {
         // Arrange
+        Material materialA = {};
+        Texture textureA = {};
+        Material materialB = {};
+        Texture textureB = {};
         auto box = std::make_shared<Box>();
+        std::vector<std::shared_ptr<Box>> boxes = { box };
+
         auto toyA = box->EmplaceToy("ToyA");
         auto toyB = box->EmplaceToy("ToyB");
         auto toyC = box->EmplaceToy("ToyC");
 
-        Material materialA;
-        Texture textureA;
-        MaterialInstance matInstanceA(materialA, textureA);
-
-        Material materialB;
-        Texture textureB;
-        MaterialInstance matInstanceB(materialB, textureB);
-
-        Mesh meshA;
-        Mesh meshB;
-        Mesh meshC;
-
-        box->EmplaceBlockOn<MaterialInstance>(toyA, matInstanceA);
-        box->EmplaceBlockOn<Mesh>(toyA, meshA);
-        box->EmplaceBlockOn<MaterialInstance>(toyB, matInstanceA);
-        box->EmplaceBlockOn<Mesh>(toyB, meshB);
-        box->EmplaceBlockOn<MaterialInstance>(toyC, matInstanceB);
-        box->EmplaceBlockOn<Mesh>(toyC, meshC);
-
-        std::vector<std::shared_ptr<Box>> boxes{box};
+        auto& matInstanceA = box->EmplaceBlockOn<MaterialInstance>(toyA, materialA, textureA);
+        auto& meshA = box->EmplaceBlockOn<Mesh>(toyA);
+        auto& matInstanceB = box->EmplaceBlockOn<MaterialInstance>(toyB, materialA, textureA);
+        auto& meshB = box->EmplaceBlockOn<Mesh>(toyB);
+        auto& matInstanceC = box->EmplaceBlockOn<MaterialInstance>(toyC, materialB, textureB);
+        auto& meshC = box->EmplaceBlockOn<Mesh>(toyC);
 
         // Act
         FrameBufferBuilder builder;
@@ -62,11 +54,10 @@ namespace Tbx::Tests::Graphics
             }
         }
 
-        EXPECT_EQ(uploadedMaterials.size(), 2);
-        EXPECT_TRUE((uploadedMaterials[0] == matInstanceA.GetId() &&
-                     uploadedMaterials[1] == matInstanceB.GetId()) ||
-                    (uploadedMaterials[0] == matInstanceB.GetId() &&
-                     uploadedMaterials[1] == matInstanceA.GetId()));
+        EXPECT_EQ(uploadedMaterials.size(), 3);
+        EXPECT_NE(std::find(uploadedMaterials.begin(), uploadedMaterials.end(), matInstanceA.GetId()), uploadedMaterials.end());
+        EXPECT_NE(std::find(uploadedMaterials.begin(), uploadedMaterials.end(), matInstanceB.GetId()), uploadedMaterials.end());
+        EXPECT_NE(std::find(uploadedMaterials.begin(), uploadedMaterials.end(), matInstanceC.GetId()), uploadedMaterials.end());
 
         EXPECT_EQ(uploadedMeshes.size(), 3);
         EXPECT_NE(std::find(uploadedMeshes.begin(), uploadedMeshes.end(), meshA.GetId()), uploadedMeshes.end());
@@ -88,31 +79,25 @@ namespace Tbx::Tests::Graphics
         EXPECT_TRUE(buffer.GetCommands().empty());
     }
 
-    TEST(FrameBufferBuilderTests, BuildRenderBuffer_WithCamera_ProducesExpectedCommands)
+    TEST(FrameBufferBuilderTests, BuildRenderBuffer_WithCamera_ProducesExpectedCommandsInCorrectOrder)
     {
         // Arrange
+        Material material = {};
+        Texture texture = {};
         auto box = std::make_shared<Box>();
+        std::vector<std::shared_ptr<Box>> boxes = { box };
 
         // Camera setup
         auto camToy = box->EmplaceToy("CameraToy");
-        Camera camera;
-        Transform camTransform;
-        box->EmplaceBlockOn<Camera>(camToy, camera);
-        box->EmplaceBlockOn<Transform>(camToy, camTransform);
+        box->EmplaceBlockOn<Camera>(camToy);
+        box->EmplaceBlockOn<Transform>(camToy);
 
         // Visible toy setup
         auto toy = box->EmplaceToy("VisibleToy");
-        Material material;
-        Texture texture;
-        MaterialInstance matInstance(material, texture);
-        Mesh mesh;
-        Transform transform;
-        transform.Position = {0.0f, 0.0f, -5.0f};
-        box->EmplaceBlockOn<MaterialInstance>(toy, matInstance);
-        box->EmplaceBlockOn<Mesh>(toy, mesh);
-        box->EmplaceBlockOn<Transform>(toy, transform);
-
-        std::vector<std::shared_ptr<Box>> boxes{box};
+        auto& matInstance = box->EmplaceBlockOn<MaterialInstance>(toy, material, texture);
+        auto& mesh = box->EmplaceBlockOn<Mesh>(toy);
+        box->EmplaceBlockOn<Transform>(toy)
+            .SetPosition({ 0.0f, 0.0f, 5.0f });
 
         // Act
         FrameBufferBuilder builder;

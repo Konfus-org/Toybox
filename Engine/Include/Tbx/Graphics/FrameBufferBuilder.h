@@ -1,4 +1,5 @@
 #pragma once
+#include "Tbx/DllExport.h"
 #include "Tbx/TBS/Box.h"
 #include "Tbx/Graphics/Buffers.h"
 #include <memory>
@@ -8,7 +9,7 @@ namespace Tbx
     /// <summary>
     /// Builds frame buffers of render commands from boxes and their toys.
     /// </summary>
-    class FrameBufferBuilder
+    class EXPORT FrameBufferBuilder
     {
     public:
         /// <summary>
