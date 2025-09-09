@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/Plane.h"
+#include "Tbx/Graphics/Sphere.h"
 #include "Tbx/Math/Mat4x4.h"
 #include "Tbx/Math/Vectors.h"
 #include <array>
@@ -16,12 +17,12 @@ namespace Tbx
             ExtractPlanes(viewProjection);
         }
 
-        bool ContainsSphere(const Vector3& center, float radius) const
+        bool Intersects(const Sphere& sphere) const
         {
             for (const auto& plane : _planes)
             {
-                float distance = Vector3::Dot(plane.Normal, center) + plane.Distance;
-                if (distance < -radius) return false;
+                float distance = Vector3::Dot(plane.Normal, sphere.Center) + plane.Distance;
+                if (distance < -sphere.Radius) return false;
             }
             return true;
         }

@@ -1,5 +1,4 @@
 #pragma once
-
 #include "Tbx/DllExport.h"
 #include "Tbx/TBS/Box.h"
 #include "Tbx/TBS/Toy.h"
@@ -11,12 +10,19 @@
 namespace Tbx
 {
     /// <summary>
+    /// A sphere represented by a center point and radius.
+    /// </summary>
+    struct EXPORT Sphere
+    {
+        Vector3 Center = Constants::Vector3::Zero;
+        float Radius = 0.0f;
+    };
+
+    /// <summary>
     /// Simple bounding volume represented by a center point and radius.
     /// </summary>
-    struct EXPORT BoundingSphere
+    struct EXPORT BoundingSphere : public Sphere
     {
-        BoundingSphere() = default;
-
         /// <summary>
         /// Calculates a bounding sphere for a toy using its transform block if present.
         /// </summary>
@@ -35,9 +41,6 @@ namespace Tbx
             Center = position;
             Radius = std::max({ std::abs(scale.X), std::abs(scale.Y), std::abs(scale.Z) }) * 0.5f;
         }
-
-        Vector3 Center = Constants::Vector3::Zero;
-        float Radius = 0.0f;
     };
 }
 

@@ -1,4 +1,5 @@
 #include "Tbx/PCH.h"
+#include "Tbx/App/App.h"
 #include "Tbx/Graphics/FrameBufferBuilder.h"
 #include "Tbx/Graphics/Buffers.h"
 #include "Tbx/Graphics/Shader.h"
@@ -31,8 +32,8 @@ namespace Tbx
     FrameBuffer FrameBufferBuilder::BuildRenderBuffer(const std::vector<std::shared_ptr<Box>>& boxes)
     {
         // Build a view frustum from the first available camera
-        bool hasCamera = false;
-        Frustum frustum;
+        bool boxesContainsCamera = false;
+        auto frustums = std::vector<Frustum>();
 
         for (const auto& box : boxes)
         {
@@ -50,18 +51,17 @@ namespace Tbx
                 }
 
                 // Extract the planes that make up the camera frustum
-                frustum = Camera::CalculateFrustum(camPos, camRot, camera.GetProjectionMatrix());
-                hasCamera = true;
+                frustums.push_back(Camera::CalculateFrustum(camPos, camRot, camera.GetProjectionMatrix()));
+                boxesContainsCamera = true;
                 break;
             }
-            if (hasCamera) break;
         }
 
         // Start with an empty command buffer; if no camera is found this will be returned as-is
         FrameBuffer buffer = {};
 
         // If no camera is available, we have no view frustum and nothing to draw
-        if (!hasCamera) return buffer;
+        if (!boxesContainsCamera) return buffer;
 
         // Iterate through toys and skip those completely outside the view frustum
         for (const auto& box : boxes)
@@ -70,13 +70,22 @@ namespace Tbx
             {
                 if (!box->HasBlockOn<Camera>(toy))
                 {
-                    const BoundingSphere sphere(toy, box);
-                    if (!frustum.ContainsSphere(sphere.Center, sphere.Radius))
-                    {
-                        continue; // culled
-                    }
-                }
+                    const auto sphere = BoundingSphere(toy, box);
 
+                    // Check if the sphere is in at least one of our frustums
+                    bool inFrustum = false;
+                    for (const auto& frustum : frustums)
+                    {
+                        if (frustum.Intersects(sphere))
+                        {
+                            inFrustum = true;
+                            break;
+                        }
+                    }
+
+                    // Skip toy if it's outside the view frustum
+                    if (!inFrustum) continue;
+                }
                 AddToyRenderCommandsToBuffer(toy, box, buffer);
             }
         }
@@ -158,6 +167,12 @@ namespace Tbx
         if (box->HasBlockOn<Camera>(toy))
         {
             auto& camera = box->GetBlockOn<Camera>(toy);
+
+            // TODO: process this somewhere else!
+            const auto& mainWindow = App::GetInstance()->GetMainWindow();
+            const auto mainWindowSize = mainWindow.lock()->GetSize();
+            const auto aspectRatio = mainWindowSize.GetAspectRatio();
+            camera.SetAspect(aspectRatio);
 
             if (box->HasBlockOn<Transform>(toy))
             {
