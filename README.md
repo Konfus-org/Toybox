@@ -29,13 +29,8 @@ ctest --preset tbx
 #### Other platforms
 
 ```bash
-# Configure the project and generate build files in the `build` directory
 cmake -S . -B build
-
-# Compile the engine using the default build type
 cmake --build build
-
-# Run the test suite
 ctest --test-dir build
 ```
 
