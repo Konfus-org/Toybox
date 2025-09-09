@@ -9,6 +9,7 @@
 #include <vector>
 #include <mutex>
 #include <atomic>
+#include <functional>
 
 namespace Tbx
 {
@@ -230,15 +231,15 @@ namespace Tbx
         template <class TEvent>
         EXPORT static Tbx::uint64 GetCallbackHash(EventHandlerFunction<TEvent> callback)
         {
-            const auto& callbackInfo = typeid(EventHandlerFunction<TEvent>);
-            return callbackInfo.hash_code();
+            return static_cast<Tbx::uint64>(std::hash<EventHandlerFunction<TEvent>>{}(callback));
         }
 
         template <typename T, class TEvent>
         EXPORT static Tbx::uint64 GetCallbackHash(T* instance, ClassEventHandlerFunction<T, TEvent> callback)
         {
-            const auto& callbackInfo = typeid(ClassEventHandlerFunction<T, TEvent>);
-            return callbackInfo.hash_code() ^ reinterpret_cast<uintptr_t>(instance);
+            auto instanceHash = static_cast<Tbx::uint64>(std::hash<T*>{}(instance));
+            auto callbackHash = static_cast<Tbx::uint64>(std::hash<ClassEventHandlerFunction<T, TEvent>>{}(callback));
+            return instanceHash ^ callbackHash;
         }
 
         EXPORT static std::unordered_map<std::size_t, std::unordered_map<std::size_t, EventCallback>>& GetSubscribers();
