@@ -8,6 +8,7 @@
 #include <typeindex>
 #include <typeinfo>
 #include <stdexcept>
+#include <utility>
 
 namespace Tbx
 {
@@ -29,7 +30,7 @@ namespace Tbx
             // Ensure the given path is valid
             auto fsPath = std::filesystem::path(Tbx::FileSystem::GetWorkingDirectory() + '/' + filepath);
             std::error_code ec;
-            std::filesystem::status(fsPath, ec);
+            std::ignore = std::filesystem::status(fsPath, ec);
             TBX_ASSERT(!ec, "The asset path \"{}\" isn't valid: {}", fsPath.string(), ec.message());
             if (ec)
             {

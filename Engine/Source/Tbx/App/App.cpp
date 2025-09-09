@@ -53,7 +53,7 @@ namespace Tbx
         _instance = this;
         _status = AppStatus::Initializing;
 
-        EventCoordinator::Subscribe<WindowClosedEvent>(this, &App::OnWindowClosed);
+        EventCoordinator::Subscribe(this, &App::OnWindowClosed);
 
         // Add default layers (order is important as they will be updated and destroyed in reverse order)
         EmplaceLayer<EventCoordinatorLayer>();
@@ -136,7 +136,7 @@ namespace Tbx
         OnShutdown();
 
         // Unsub to window events and shutdown events
-        EventCoordinator::Unsubscribe<WindowClosedEvent>(this, &App::OnWindowClosed);
+        EventCoordinator::Unsubscribe(this, &App::OnWindowClosed);
 
         // Clear windows
         _windowStack.Clear();

@@ -1,8 +1,9 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Callbacks/CallbackFunction.h"
-#include "Tbx/Debug/Debugging.h"
 #include "Tbx/Events/Event.h"
+#include "Tbx/Debug/Debugging.h"
+#include "Tbx/Callbacks/CallbackFunction.h"
+#include "Tbx/TypeAliases/Int.h"
 #include <unordered_map>
 #include <typeindex>
 #include <vector>
@@ -11,6 +12,23 @@
 
 namespace Tbx
 {
+    template <class TEvent>
+    using EventHandlerFunction = void(*)(TEvent&);
+
+    template <class TEvent>
+    using ConstEventHandlerFunction = void(*)(const TEvent&);
+
+    template <typename T, class TEvent>
+    using ClassEventHandlerFunction = void(T::*)(TEvent&);
+
+    template <class TEvent, typename T>
+    using ClassConstEventHandlerFunction = void(T::*)(const TEvent&);
+
+    /// <summary>
+    /// A callback function that takes an event as a parameter.
+    /// </summary>
+    using EventCallback = CallbackFunction<Event>;
+
     /// <summary>
     /// Events will be suppressed during the lifetime of this class.
     /// </summary>
@@ -29,98 +47,133 @@ namespace Tbx
         static std::atomic_int _suppressCount;
     };
 
-    using EventCallback = CallbackFunction<Event>;
-
+    /// <summary>
+    /// A class that manages event subscriptions and sends events to subscribers.
+    /// </summary>
     class EventCoordinator
     {
     public:
         /// <summary>
         /// Sets a method to be called when an event is fired.
-        /// The function name is used as the key so no UID needs to be tracked.
-        /// For member functions pass the instance and the method pointer. For free or static
-        /// functions just pass the function pointer.
         /// </summary>
         template <class TEvent>
-        EXPORT static void Subscribe(void (*callback)(TEvent&))
+        EXPORT static void Subscribe(EventHandlerFunction<TEvent> callback)
         {
-            const auto& eventInfo = typeid(TEvent);
-            const auto hashCode = eventInfo.hash_code();
+            auto eventKey = GetEventHash<TEvent>();
+            auto callbackKey = GetCallbackHash(callback);
 
             std::lock_guard<std::mutex> lock(GetMutex());
-            if (GetSubscribers().contains(hashCode) == false)
+            if (GetSubscribers().contains(eventKey) == false)
             {
-                GetSubscribers()[hashCode] = {};
+                GetSubscribers()[eventKey] = {};
             }
 
-            auto key = MakeKey(callback);
-            GetSubscribers()[hashCode][key] = [callback](Event& event) { callback(static_cast<TEvent&>(event)); };
+            GetSubscribers()[eventKey][callbackKey] =
+                [callback](Event& event) { callback(static_cast<TEvent&>(event)); };
         }
 
-        template <class TEvent, typename T>
-        EXPORT static void Subscribe(T* instance, void (T::*callback)(TEvent&))
+        /// <summary>
+        /// Sets a method to be called when an event is fired.
+        /// </summary>
+        template <class TEvent>
+        EXPORT static void Subscribe(ConstEventHandlerFunction<TEvent> callback)
         {
-            const auto& eventInfo = typeid(TEvent);
-            const auto hashCode = eventInfo.hash_code();
+            Subscribe(reinterpret_cast<EventHandlerFunction<TEvent>>(callback));
+        }
+
+        /// <summary>
+        /// Sets a method to be called when an event is fired.
+        /// </summary>
+        template <typename T, class TEvent>
+        EXPORT static void Subscribe(T* instance, ClassEventHandlerFunction<T, TEvent> callback)
+        {
+            auto eventKey = GetEventHash<TEvent>();
+            auto callbackKey = GetCallbackHash(instance, callback);
 
             std::lock_guard<std::mutex> lock(GetMutex());
-            if (GetSubscribers().contains(hashCode) == false)
+            if (GetSubscribers().contains(eventKey) == false)
             {
-                GetSubscribers()[hashCode] = {};
+                GetSubscribers()[eventKey] = {};
             }
 
-            auto key = MakeKey(instance, callback);
-            GetSubscribers()[hashCode][key] = [instance, callback](Event& event) { (instance->*callback)(static_cast<TEvent&>(event)); };
+            GetSubscribers()[eventKey][callbackKey] =
+                [instance, callback](Event& event) { (instance->*callback)(static_cast<TEvent&>(event)); };
+        }
+
+        /// <summary>
+        /// Sets a method to be called when an event is fired.
+        /// </summary>
+        template <typename T, class TEvent>
+        EXPORT static void Subscribe(T* instance, ClassConstEventHandlerFunction<T, TEvent> callback)
+        {
+            Subscribe(instance, reinterpret_cast<ClassEventHandlerFunction<T, TEvent>>(callback));
         }
 
         /// <summary>
         /// Removes the method associated with the given function from the list of callbacks for an event.
         /// </summary>
         template <class TEvent>
-        EXPORT static void Unsubscribe(void (*callback)(TEvent&))
+        EXPORT static void Unsubscribe(EventHandlerFunction<TEvent> callback)
         {
-            const auto& eventInfo = typeid(TEvent);
-            const auto hashCode = eventInfo.hash_code();
+            auto eventKey = GetEventHash<TEvent>();
 
             std::lock_guard<std::mutex> lock(GetMutex());
-            if (GetSubscribers().contains(hashCode) == false)
+            if (GetSubscribers().contains(eventKey) == false)
             {
                 return;
             }
 
-            auto key = MakeKey(callback);
-            auto& callbacks = GetSubscribers()[hashCode];
-            if (callbacks.erase(key) == 0)
+            auto& callbacks = GetSubscribers()[eventKey];
+            auto callbackKey = GetCallbackHash(callback);
+
+            if (callbacks.erase(callbackKey) == 0)
             {
-                TBX_ASSERT(false, "Failed to unsubscribe from event {}. Callback not found!", eventInfo.name());
+                const auto& eventInfo = typeid(TEvent);
+                TBX_ASSERT(false, "Failed to unsubscribe from event. Callback not found!", eventInfo.name());
             }
+
             if (callbacks.empty())
             {
-                GetSubscribers().erase(hashCode);
+                GetSubscribers().erase(eventKey);
+            }
+        }
+
+        template <class TEvent>
+        EXPORT static void Unsubscribe(ConstEventHandlerFunction<TEvent> callback)
+        {
+            Unsubscribe(reinterpret_cast<EventHandlerFunction<TEvent>>(callback));
+        }
+
+        template <class TEvent, typename T>
+        EXPORT static void Unsubscribe(T* instance, ClassEventHandlerFunction<T, TEvent> callback)
+        {
+            auto eventKey = GetEventHash<TEvent>();
+
+            std::lock_guard<std::mutex> lock(GetMutex());
+            if (GetSubscribers().contains(eventKey) == false)
+            {
+                return;
+            }
+
+            auto callbackKey = GetCallbackHash(instance, callback);
+            auto& callbacks = GetSubscribers()[eventKey];
+
+            if (callbacks.erase(callbackKey) == 0)
+            {
+                const auto& eventInfo = typeid(TEvent);
+                TBX_ASSERT(false, "Failed to unsubscribe from event {}. Callback not found!", eventInfo.name());
+            }
+
+            if (callbacks.empty())
+            {
+                GetSubscribers().erase(eventKey);
             }
         }
 
         template <class TEvent, typename T>
-        EXPORT static void Unsubscribe(T* instance, void (T::*callback)(TEvent&))
+        EXPORT static void Unsubscribe(T* instance, ClassConstEventHandlerFunction<T, TEvent> callback)
         {
-            const auto& eventInfo = typeid(TEvent);
-            const auto hashCode = eventInfo.hash_code();
-
-            std::lock_guard<std::mutex> lock(GetMutex());
-            if (GetSubscribers().contains(hashCode) == false)
-            {
-                return;
-            }
-
-            auto key = MakeKey(instance, callback);
-            auto& callbacks = GetSubscribers()[hashCode];
-            if (callbacks.erase(key) == 0)
-            {
-                TBX_ASSERT(false, "Failed to unsubscribe from event {}. Callback not found!", eventInfo.name());
-            }
-            if (callbacks.empty())
-            {
-                GetSubscribers().erase(hashCode);
-            }
+            Unsubscribe(instance, reinterpret_cast<ClassEventHandlerFunction<T, TEvent>>(callback));
         }
 
         /// <summary>
@@ -167,22 +220,31 @@ namespace Tbx
         EXPORT static void ClearSubscribers();
 
     private:
+        template <class TEvent>
+        EXPORT static Tbx::uint64 GetEventHash()
+        {
+            const auto& eventInfo = typeid(TEvent);
+            return eventInfo.hash_code();
+        }
+
+        template <class TEvent>
+        EXPORT static Tbx::uint64 GetCallbackHash(EventHandlerFunction<TEvent> callback)
+        {
+            const auto& callbackInfo = typeid(EventHandlerFunction<TEvent>);
+            return callbackInfo.hash_code();
+        }
+
+        template <typename T, class TEvent>
+        EXPORT static Tbx::uint64 GetCallbackHash(T* instance, ClassEventHandlerFunction<T, TEvent> callback)
+        {
+            const auto& callbackInfo = typeid(ClassEventHandlerFunction<T, TEvent>);
+            return callbackInfo.hash_code() ^ reinterpret_cast<uintptr_t>(instance);
+        }
+
         EXPORT static std::unordered_map<std::size_t, std::unordered_map<std::size_t, EventCallback>>& GetSubscribers();
         EXPORT static std::mutex& GetMutex();
 
         static std::unordered_map<std::size_t, std::unordered_map<std::size_t, EventCallback>> _subscribers;
         static std::mutex _subscribersMutex;
-
-        template <class TEvent>
-        static std::size_t MakeKey(void (*callback)(TEvent&))
-        {
-            return std::hash<void (*)(TEvent&)>()(callback);
-        }
-
-        template <class TEvent, typename T>
-        static std::size_t MakeKey(T* instance, void (T::*callback)(TEvent&))
-        {
-            return std::hash<void (T::*)(TEvent&)>()(callback) ^ reinterpret_cast<std::size_t>(instance);
-        }
     };
 }
