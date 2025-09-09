@@ -2,7 +2,7 @@
 #include "Tbx/App/App.h"
 #include "Tbx/Graphics/Rendering.h"
 #include "Tbx/Graphics/IRenderer.h"
-#include "Tbx/Graphics/RenderProcessor.h"
+#include "Tbx/Graphics/FrameBufferBuilder.h"
 #include "Tbx/Events/EventCoordinator.h"
 #include "Tbx/Events/RenderEvents.h"
 #include "Tbx/TBS/World.h"
@@ -40,8 +40,9 @@ namespace Tbx
         // Gather all boxes from the current world
         const auto boxes = World::GetBoxes();
 
-        // Process the world using the render processor
-        const auto buffer = RenderProcessor::Process(boxes);
+        // Build a frame buffer of render commands for the world
+        FrameBufferBuilder builder;
+        const auto buffer = builder.BuildRenderBuffer(boxes);
 
         // Send buffer to renderers for each window
         auto windows = App::GetInstance()->GetWindows();
@@ -104,6 +105,8 @@ namespace Tbx
     void Rendering::OnWindowResized(const WindowResizedEvent& e)
     {
         auto windowId = e.GetWindowId();
+
+        // Update viewports
         if (_renderers.contains(windowId))
         {
             const auto& newSize = e.GetNewSize();
@@ -118,8 +121,9 @@ namespace Tbx
         // Gather all boxes from the current box
         const auto box = World::GetBox(e.GetOpenedBox());
 
-        // Pre-process the opened box using the render processor
-        const auto buffer = RenderProcessor::PreProcess({box});
+        // Pre-process the opened box using the frame buffer builder
+        FrameBufferBuilder builder;
+        const auto buffer = builder.BuildUploadBuffer({box});
 
         // Send buffer to renderers for each window
         const auto& windows = App::GetInstance()->GetWindows();

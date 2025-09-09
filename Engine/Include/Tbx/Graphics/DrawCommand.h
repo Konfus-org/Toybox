@@ -18,17 +18,17 @@ namespace Tbx
         /// </summary>
         Clear = 1,
         /// <summary>
-        /// Compiles a materials shader.
+        /// Uploads a material's shaders and textures to the GPU.
         /// </summary>
-        CompileMaterial = 2,
+        UploadMaterial = 2,
         /// <summary>
         /// Sets the material to use for rendering.
         /// </summary>
         SetMaterial = 4,
         /// <summary>
-        /// Uploads a uniform to the GPU (things like view matrix, model position, color, etc..).
+        /// Sets a uniform for the GPU (things like view matrix, model position, color, etc..).
         /// </summary>
-        UploadUniform = 5,
+        SetUniform = 5,
         /// <summary>
         /// Uploads a mesh to the GPU.
         /// </summary>

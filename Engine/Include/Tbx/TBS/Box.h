@@ -20,7 +20,7 @@ namespace Tbx
     class Box : public UsesUid
     {
     public:
-        EXPORT Box() = default;
+        EXPORT Box();
         EXPORT explicit Box(Uid id);
 
         /// <summary>
@@ -216,14 +216,14 @@ namespace Tbx
             }
             return *this;
         }
-        
+
     private:
         bool ValidIndex() const
         {
             const auto& toy = _box->GetToy(_currIndex);
             const auto isToyValid = IsToyValid(toy.GetId());
-            const auto overlapMask = toy.GetBlockMask() & toy.GetBlockMask();
-            return isToyValid && (_iterateAll || overlapMask.any());
+            const auto isMatchingBlockMask = (_blockMask & toy.GetBlockMask()) != 0;
+            return isToyValid && (_iterateAll || isMatchingBlockMask);
         }
 
         std::shared_ptr<Box> _box = {};
@@ -266,8 +266,8 @@ namespace Tbx
             while (!_viewAll && firstIndex < _box->GetToyCount())
             {
                 const auto& toy = _box->GetToy(firstIndex);
-                auto isMatchingBlockMask = (_blockMask & toy.GetBlockMask()) != 0;
-                auto isToyValid = IsToyValid(toy.GetId());
+                const auto isToyValid = IsToyValid(toy.GetId());
+                const auto isMatchingBlockMask = (_blockMask & toy.GetBlockMask()) != 0;
                 if (isToyValid && isMatchingBlockMask)
                 {
                     break;

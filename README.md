@@ -21,21 +21,26 @@ Toybox now uses [CMake](https://cmake.org/) to generate project files for differ
 The repository provides a CMake preset that generates Visual Studio files in the `Generated` folder:
 
 ```bash
+# Generate VS project in "Generated" folder
 cmake --preset tbx
+
+# Compile Toybox
 cmake --build --preset tbx
+
+# Run tests
 ctest --preset tbx
 ```
 
 #### Other platforms
 
 ```bash
-# Configure the project and generate build files in the `build` directory
+# Build to 'build' directory
 cmake -S . -B build
 
-# Compile the engine using the default build type
+# Compile Toybox
 cmake --build build
 
-# Run the test suite
+# Run tests
 ctest --test-dir build
 ```
 
