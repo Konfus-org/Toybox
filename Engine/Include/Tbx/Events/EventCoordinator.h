@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Callbacks/Callback.h"
+#include "Tbx/Callbacks/CallbackFunction.h"
 #include "Tbx/Debug/Debugging.h"
 #include "Tbx/Events/Event.h"
 #include <unordered_map>
@@ -29,17 +29,19 @@ namespace Tbx
         static std::atomic_int _suppressCount;
     };
 
+    using EventCallback = CallbackFunction<Event>;
+
     class EventCoordinator
     {
     public:
         /// <summary>
         /// Sets a method to be called when an event is fired.
-        /// If passing a classes function you must first bind it to the callback like using TBX_BIND_FN or 
-        /// if the function is static or not associated with a class instance use TBX_BIND_STATIC_FN.
-        /// The UID returned is the ID of the callback and can be used to unsubscribe from the event.
+        /// The function name is used as the key so no UID needs to be tracked.
+        /// For member functions pass the instance and the method pointer. For free or static
+        /// functions just pass the function pointer.
         /// </summary>
         template <class TEvent>
-        EXPORT static Uid Subscribe(const CallbackFunction<TEvent>& callback)
+        EXPORT static void Subscribe(void (*callback)(TEvent&))
         {
             const auto& eventInfo = typeid(TEvent);
             const auto hashCode = eventInfo.hash_code();
@@ -47,21 +49,34 @@ namespace Tbx
             std::lock_guard<std::mutex> lock(GetMutex());
             if (GetSubscribers().contains(hashCode) == false)
             {
-                GetSubscribers()[hashCode] = std::vector<Callback<Event>>();
+                GetSubscribers()[hashCode] = {};
             }
 
-            auto& callbacks = GetSubscribers()[hashCode];
-            const Callback<Event>& newCallback = callbacks
-                .emplace_back([callback](Event& event) { callback(static_cast<TEvent&>(event)); });
+            auto key = MakeKey(callback);
+            GetSubscribers()[hashCode][key] = [callback](Event& event) { callback(static_cast<TEvent&>(event)); };
+        }
 
-            return newCallback.GetId();
+        template <class TEvent, typename T>
+        EXPORT static void Subscribe(T* instance, void (T::*callback)(TEvent&))
+        {
+            const auto& eventInfo = typeid(TEvent);
+            const auto hashCode = eventInfo.hash_code();
+
+            std::lock_guard<std::mutex> lock(GetMutex());
+            if (GetSubscribers().contains(hashCode) == false)
+            {
+                GetSubscribers()[hashCode] = {};
+            }
+
+            auto key = MakeKey(instance, callback);
+            GetSubscribers()[hashCode][key] = [instance, callback](Event& event) { (instance->*callback)(static_cast<TEvent&>(event)); };
         }
 
         /// <summary>
-        /// Removes the method associated with the given UID from the list of callbacks for an event.
+        /// Removes the method associated with the given function from the list of callbacks for an event.
         /// </summary>
         template <class TEvent>
-        EXPORT static void Unsubscribe(const Uid& callbackToUnsub)
+        EXPORT static void Unsubscribe(void (*callback)(TEvent&))
         {
             const auto& eventInfo = typeid(TEvent);
             const auto hashCode = eventInfo.hash_code();
@@ -72,23 +87,39 @@ namespace Tbx
                 return;
             }
 
+            auto key = MakeKey(callback);
             auto& callbacks = GetSubscribers()[hashCode];
-            auto callbackToDeleteIt = std::find_if(callbacks.begin(), callbacks.end(), [callbackToUnsub](const Callback<Event>& c)
-            {
-                return c.GetId() == callbackToUnsub;
-            });
-
-            if (callbackToDeleteIt != callbacks.end())
-            {
-                callbacks.erase(callbackToDeleteIt);
-                if (callbacks.empty())
-                {
-                    GetSubscribers().erase(hashCode);
-                }
-            }
-            else
+            if (callbacks.erase(key) == 0)
             {
                 TBX_ASSERT(false, "Failed to unsubscribe from event {}. Callback not found!", eventInfo.name());
+            }
+            if (callbacks.empty())
+            {
+                GetSubscribers().erase(hashCode);
+            }
+        }
+
+        template <class TEvent, typename T>
+        EXPORT static void Unsubscribe(T* instance, void (T::*callback)(TEvent&))
+        {
+            const auto& eventInfo = typeid(TEvent);
+            const auto hashCode = eventInfo.hash_code();
+
+            std::lock_guard<std::mutex> lock(GetMutex());
+            if (GetSubscribers().contains(hashCode) == false)
+            {
+                return;
+            }
+
+            auto key = MakeKey(instance, callback);
+            auto& callbacks = GetSubscribers()[hashCode];
+            if (callbacks.erase(key) == 0)
+            {
+                TBX_ASSERT(false, "Failed to unsubscribe from event {}. Callback not found!", eventInfo.name());
+            }
+            if (callbacks.empty())
+            {
+                GetSubscribers().erase(hashCode);
             }
         }
 
@@ -101,14 +132,19 @@ namespace Tbx
             const auto& eventInfo = typeid(TEvent);
             const auto hashCode = eventInfo.hash_code();
 
-            std::vector<Callback<Event>> callbacksCopy;
+            std::vector<EventCallback> callbacksCopy;
             {
                 std::lock_guard<std::mutex> lock(GetMutex());
                 if (GetSubscribers().contains(hashCode) == false)
                 {
                     return false;
                 }
-                callbacksCopy = GetSubscribers()[hashCode];
+                auto mapCopy = GetSubscribers()[hashCode];
+                callbacksCopy.reserve(mapCopy.size());
+                for (auto& [_, cb] : mapCopy)
+                {
+                    callbacksCopy.push_back(cb);
+                }
             }
 
             for (auto& callback : callbacksCopy)
@@ -131,10 +167,22 @@ namespace Tbx
         EXPORT static void ClearSubscribers();
 
     private:
-        EXPORT static std::unordered_map<hash, std::vector<Callback<Event>>>& GetSubscribers();
+        EXPORT static std::unordered_map<std::size_t, std::unordered_map<std::size_t, EventCallback>>& GetSubscribers();
         EXPORT static std::mutex& GetMutex();
 
-        static std::unordered_map<hash, std::vector<Callback<Event>>> _subscribers;
+        static std::unordered_map<std::size_t, std::unordered_map<std::size_t, EventCallback>> _subscribers;
         static std::mutex _subscribersMutex;
+
+        template <class TEvent>
+        static std::size_t MakeKey(void (*callback)(TEvent&))
+        {
+            return std::hash<void (*)(TEvent&)>()(callback);
+        }
+
+        template <class TEvent, typename T>
+        static std::size_t MakeKey(T* instance, void (T::*callback)(TEvent&))
+        {
+            return std::hash<void (T::*)(TEvent&)>()(callback) ^ reinterpret_cast<std::size_t>(instance);
+        }
     };
 }

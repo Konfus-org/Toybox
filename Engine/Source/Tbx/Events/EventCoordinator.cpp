@@ -34,7 +34,7 @@ namespace Tbx
 
     //////////// Event Coordinator ///////////////
 
-    std::unordered_map<hash, std::vector<Callback<Event>>> EventCoordinator::_subscribers = {};
+    std::unordered_map<std::size_t, std::unordered_map<std::size_t, EventCallback>> EventCoordinator::_subscribers = {};
     std::mutex EventCoordinator::_subscribersMutex;
 
     void EventCoordinator::ClearSubscribers()
@@ -43,7 +43,7 @@ namespace Tbx
         _subscribers.clear();
     }
 
-    std::unordered_map<hash, std::vector<Callback<Event>>>& EventCoordinator::GetSubscribers()
+    std::unordered_map<std::size_t, std::unordered_map<std::size_t, EventCallback>>& EventCoordinator::GetSubscribers()
     {
         return _subscribers;
     }
