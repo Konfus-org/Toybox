@@ -13,8 +13,6 @@
 #include <algorithm>
 #include <cmath>
 
-Tbx::Material _simpleTexturedMat;
-
 void ExampleLayer::OnAttach()
 {
     TBX_TRACE("Test scene attached!");
@@ -27,7 +25,7 @@ void ExampleLayer::OnAttach()
     auto vertexShaderAsset = Tbx::Asset<Tbx::Shader>("Assets/vertex.vert");
 
     // Setup testing scene...
-    auto worldRoot = Tbx::World::GetInstance()->GetRoot();
+    auto worldRoot = _world->GetRoot();
 
     // Setup base material
     auto vertShader = *vertexShaderAsset.GetData();
@@ -94,7 +92,7 @@ void ExampleLayer::OnDetach()
 
 void ExampleLayer::OnUpdate()
 {
-    auto worldRoot = Tbx::World::GetInstance()->GetRoot();
+    auto worldRoot = _world->GetRoot();
     const auto& deltaTime = Tbx::Time::DeltaTime::InSeconds();
 
     // Camera movement

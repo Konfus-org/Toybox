@@ -1,5 +1,4 @@
 #include "Tbx/PCH.h"
-#include "Tbx/App/App.h"
 #include "Tbx/TBS/World.h"
 #include "Tbx/Graphics/Rendering.h"
 #include "Tbx/Graphics/IRenderer.h"
@@ -10,30 +9,33 @@
 
 namespace Tbx
 {
-    std::weak_ptr<IRendererFactoryPlugin> Rendering::_renderFactory = {};
-    std::map<Uid, std::shared_ptr<IRenderer>> Rendering::_renderers = {};
-    bool Rendering::_firstFrame = true;
-
-    void Rendering::Initialize()
+    Rendering::Rendering()
     {
-        EventCoordinator::Subscribe<WindowOpenedEvent>(&Rendering::OnWindowOpened);
-        EventCoordinator::Subscribe<WindowClosedEvent>(&Rendering::OnWindowClosed);
-        EventCoordinator::Subscribe<WindowResizedEvent>(&Rendering::OnWindowResized);
+        EventCoordinator::Subscribe(this, &Rendering::OnWindowOpened);
+        EventCoordinator::Subscribe(this, &Rendering::OnWindowClosed);
+        EventCoordinator::Subscribe(this, &Rendering::OnWindowResized);
+        EventCoordinator::Subscribe(this, &Rendering::OnGraphicsSettingsChanged);
 
         _renderFactory = PluginServer::Get<IRendererFactoryPlugin>();
     }
 
-    void Rendering::Shutdown()
+    Rendering::~Rendering()
     {
-        EventCoordinator::Unsubscribe<WindowOpenedEvent>(&Rendering::OnWindowOpened);
-        EventCoordinator::Unsubscribe<WindowClosedEvent>(&Rendering::OnWindowClosed);
-        EventCoordinator::Unsubscribe<WindowResizedEvent>(&Rendering::OnWindowResized);
+        EventCoordinator::Unsubscribe(this, &Rendering::OnWindowOpened);
+        EventCoordinator::Unsubscribe(this, &Rendering::OnWindowClosed);
+        EventCoordinator::Unsubscribe(this, &Rendering::OnWindowResized);
+        EventCoordinator::Unsubscribe(this, &Rendering::OnGraphicsSettingsChanged);
     }
 
-    void Rendering::DrawFrame()
+    void Rendering::DrawFrame(const std::shared_ptr<World>& world)
     {
+        if (!world)
+        {
+            return;
+        }
+
         // Gather all boxes from the current world
-        const auto worldRoot = World::GetInstance()->GetRoot();
+        const auto worldRoot = world->GetRoot();
 
         if (_firstFrame)
         {
@@ -42,14 +44,10 @@ namespace Tbx
             const auto buffer = builder.BuildUploadBuffer(worldRoot);
 
             // Send buffer to renderers for each window
-            const auto& windows = App::GetInstance()->GetWindows();
-            for (const auto& window : windows)
+            for (const auto& renderer : _renderers)
             {
-                auto winId = window->GetId();
-                if (!_renderers.contains(winId)) continue;
-
-                _renderers[winId]->Flush();
-                _renderers[winId]->Process(buffer);
+                renderer->Flush();
+                renderer->Process(buffer);
             }
 
             // Flip first frame flag to off
@@ -61,14 +59,9 @@ namespace Tbx
         const auto buffer = builder.BuildRenderBuffer(worldRoot);
 
         // Send buffer to renderers for each window
-        auto windows = App::GetInstance()->GetWindows();
-        for (const auto& window : windows)
+        for (const auto& renderer : _renderers)
         {
-            auto winId = window->GetId();
-            if (!_renderers.contains(winId)) continue;
-
-            auto renderer = _renderers[winId];
-            renderer->Clear(App::GetInstance()->GetGraphicsSettings().ClearColor);
+            renderer->Clear(_graphicsSettings.ClearColor);
             renderer->Process(buffer);
         }
 
@@ -77,27 +70,27 @@ namespace Tbx
         EventCoordinator::Send(evt);
 
         // Swap the buffers for each window after a frame is rendered
-        for (const auto& window : windows)
+        for (const auto& window : _windows)
         {
             window->SwapBuffers();
         }
     }
 
-    std::shared_ptr<IRenderer> Rendering::GetRenderer(Uid window)
+    std::shared_ptr<IRenderer> Rendering::GetRenderer(const std::shared_ptr<IWindow>& window)
     {
-        if (!_renderers.contains(window))
+        auto it = std::find(_windows.begin(), _windows.end(), window);
+        if (it == _windows.end())
         {
-            TBX_ASSERT(false, "No renderer found for window ID: {0}", window.Value);
+            TBX_ASSERT(false, "No renderer found for window");
             return nullptr;
         }
-
-        return _renderers[window];
+        auto index = static_cast<size_t>(std::distance(_windows.begin(), it));
+        return _renderers[index];
     }
 
     void Rendering::OnWindowOpened(const WindowOpenedEvent& e)
     {
-        auto newWinId = e.GetWindowId();
-        auto newWindow = App::GetInstance()->GetWindow(newWinId);
+        auto newWindow = e.GetWindow();
         if (_renderFactory.expired() || !_renderFactory.lock())
         {
             TBX_ASSERT(false, "Render factory plugin was unloaded! Cannot create new renderer");
@@ -105,30 +98,45 @@ namespace Tbx
         }
 
         auto newRenderer = _renderFactory.lock()->Create(newWindow);
-        _renderers[newWinId] = newRenderer;
+        _windows.push_back(newWindow);
+        _renderers.push_back(newRenderer);
     }
 
     void Rendering::OnWindowClosed(const WindowClosedEvent& e)
     {
-        auto windowId = e.GetWindowId();
-        if (_renderers.contains(windowId))
+        auto window = e.GetWindow();
+        auto it = std::find(_windows.begin(), _windows.end(), window);
+        if (it != _windows.end())
         {
-            TBX_ASSERT(_renderers[windowId] != nullptr, "Renderer should not be null");
-            _renderers.erase(windowId);
+            auto index = static_cast<size_t>(std::distance(_windows.begin(), it));
+            _windows.erase(_windows.begin() + index);
+            if (index < _renderers.size())
+            {
+                _renderers.erase(_renderers.begin() + index);
+            }
         }
     }
 
     void Rendering::OnWindowResized(const WindowResizedEvent& e)
     {
-        auto windowId = e.GetWindowId();
-
-        // Update viewports
-        if (_renderers.contains(windowId))
+        auto window = e.GetWindow();
+        auto it = std::find(_windows.begin(), _windows.end(), window);
+        if (it != _windows.end())
         {
-            const auto& newSize = e.GetNewSize();
-            auto renderer = _renderers[windowId];
-            TBX_ASSERT(renderer != nullptr, "Renderer should not be null");
-            renderer->SetViewport({{0, 0}, newSize});
+            auto index = static_cast<size_t>(std::distance(_windows.begin(), it));
+            if (index < _renderers.size())
+            {
+                const auto& newSize = e.GetNewSize();
+                auto renderer = _renderers[index];
+                TBX_ASSERT(renderer != nullptr, "Renderer should not be null");
+                renderer->SetViewport({ {0, 0}, newSize });
+            }
         }
     }
+
+    void Rendering::OnGraphicsSettingsChanged(const AppGraphicsSettingsChangedEvent& e)
+    {
+        _graphicsSettings = e.GetNewSettings();
+    }
 }
+

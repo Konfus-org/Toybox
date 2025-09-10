@@ -8,9 +8,6 @@ namespace Tbx
     public:
         explicit EventCoordinatorLayer() : Layer("Events") {}
 
-        bool IsOverlay() final;
-        void OnAttach() final;
         void OnDetach() final;
-        void OnUpdate() final;
     };
 }

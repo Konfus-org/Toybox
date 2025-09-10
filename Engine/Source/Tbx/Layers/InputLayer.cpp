@@ -4,11 +4,6 @@
 
 namespace Tbx
 {
-    bool InputLayer::IsOverlay()
-    {
-        return false;
-    }
-
     void InputLayer::OnAttach()
     {
         Input::Initialize();

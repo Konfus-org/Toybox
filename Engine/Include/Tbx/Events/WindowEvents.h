@@ -2,7 +2,6 @@
 #include "Tbx/Windowing/IWindow.h"
 #include "Tbx/Events/Event.h"
 #include "Tbx/DllExport.h"
-#include "Tbx/Ids/UID.h"
 #include "Tbx/Math/Size.h"
 #include <string>
 #include <memory>
@@ -21,19 +20,19 @@ namespace Tbx
     class EXPORT WindowActionEvent : public WindowEvent
     {
     public:
-        explicit WindowActionEvent(Uid windowId) : _windowId(windowId) {}
+        explicit WindowActionEvent(std::shared_ptr<IWindow> window) : _window(std::move(window)) {}
 
-        Uid GetWindowId() const { return _windowId; }
+        std::shared_ptr<IWindow> GetWindow() const { return _window; }
 
     private:
-        Uid _windowId = Invalid::Uid;
+        std::shared_ptr<IWindow> _window = nullptr;
     };
 
     class EXPORT WindowFocusedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowFocusedEvent(Uid windowId)
-            : WindowActionEvent(windowId) {}
+        explicit WindowFocusedEvent(std::shared_ptr<IWindow> window)
+            : WindowActionEvent(std::move(window)) {}
 
         std::string ToString() const final
         {
@@ -44,8 +43,8 @@ namespace Tbx
     class EXPORT WindowOpenedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowOpenedEvent(Uid windowId)
-            : WindowActionEvent(windowId) {}
+        explicit WindowOpenedEvent(std::shared_ptr<IWindow> window)
+            : WindowActionEvent(std::move(window)) {}
 
         std::string ToString() const final
         {
@@ -56,8 +55,8 @@ namespace Tbx
     class EXPORT WindowClosedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowClosedEvent(Uid windowId) 
-            : WindowActionEvent(windowId) {}
+        explicit WindowClosedEvent(std::shared_ptr<IWindow> window)
+            : WindowActionEvent(std::move(window)) {}
 
         std::string ToString() const final
         {
@@ -68,8 +67,8 @@ namespace Tbx
     class EXPORT WindowResizedEvent : public WindowActionEvent
     {
     public:
-        WindowResizedEvent(Uid windowId, Size newSize)
-            : WindowActionEvent(windowId), _newSize(newSize) {}
+        WindowResizedEvent(std::shared_ptr<IWindow> window, Size newSize)
+            : WindowActionEvent(std::move(window)), _newSize(newSize) {}
 
         const Size& GetNewSize() const
         {

@@ -50,11 +50,10 @@ namespace Tbx
         }
 
         // Send the window opened event
-        auto id = window->GetId();
-        auto windowOpenedEvt = WindowOpenedEvent(id);
+        auto windowOpenedEvt = WindowOpenedEvent(window);
         EventCoordinator::Send(windowOpenedEvt);
 
-        return id;
+        return window->GetId();
     }
 
     bool WindowStack::Contains(const Uid& id) const

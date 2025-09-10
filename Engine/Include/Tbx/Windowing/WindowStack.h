@@ -2,7 +2,6 @@
 #include "Tbx/Windowing/IWindow.h"
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/PluginAPI/PluginInterfaces.h"
-#include <map>
 #include <vector>
 
 namespace Tbx
