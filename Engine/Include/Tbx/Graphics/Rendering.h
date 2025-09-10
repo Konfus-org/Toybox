@@ -37,11 +37,9 @@ namespace Tbx
         static void OnWindowOpened(const WindowOpenedEvent& e);
         static void OnWindowClosed(const WindowClosedEvent& e);
         static void OnWindowResized(const WindowResizedEvent& e);
-        static void OnBoxOpened(const OpenedBoxEvent& e);
-
-        // Event subscriptions are tracked by function signatures so we no longer need UIDs.
 
         static std::map<Uid, std::shared_ptr<IRenderer>> _renderers;
         static std::weak_ptr<IRendererFactoryPlugin> _renderFactory;
+        static bool _firstFrame;
     };
 }

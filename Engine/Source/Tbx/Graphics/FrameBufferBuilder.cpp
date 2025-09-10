@@ -3,54 +3,49 @@
 #include "Tbx/Graphics/FrameBufferBuilder.h"
 #include "Tbx/Graphics/Buffers.h"
 #include "Tbx/Graphics/Shader.h"
-#include "Tbx/Graphics/Material.h"
 #include "Tbx/Graphics/Camera.h"
-#include "Tbx/Graphics/Mesh.h"
-#include "Tbx/Graphics/Model.h"
 #include "Tbx/Math/Transform.h"
 #include "Tbx/Graphics/Frustum.h"
 #include "Tbx/Graphics/Sphere.h"
 
 namespace Tbx
 {
-    FrameBuffer FrameBufferBuilder::BuildUploadBuffer(const std::vector<std::shared_ptr<Box>>& boxes)
+    FrameBuffer FrameBufferBuilder::BuildUploadBuffer(WorldView<MaterialInstance, Mesh, Model> view)
     {
         FrameBuffer buffer = {};
 
-        for (const auto& box : boxes)
+        for (const auto& toy : view)
         {
-            // We only need to pre-process materials to upload them to the GPU
-            for (const auto& toy : BoxView<MaterialInstance, Mesh, Model>(box))
-            {
-                AddToyUploadCommandsToBuffer(toy, box, buffer);
-            }
+            AddToyUploadCommandsToBuffer(toy, buffer);
         }
 
         return buffer;
     }
 
-    FrameBuffer FrameBufferBuilder::BuildRenderBuffer(const std::vector<std::shared_ptr<Box>>& boxes)
+    FrameBuffer FrameBufferBuilder::BuildRenderBuffer(FullWorldView view)
     {
         // Build view frustums from cameras
         auto frustums = std::vector<Frustum>();
-        for (const auto& box : boxes)
+        for (const auto& toy : view)
         {
-            for (const auto& camToy : BoxView<Camera>(box))
+            if (!toy->HasBlock<Camera>())
             {
-                auto& camera = box->GetBlockOn<Camera>(camToy);
-
-                Vector3 camPos = Constants::Vector3::Zero;
-                Quaternion camRot = Constants::Quaternion::Identity;
-                if (box->HasBlockOn<Transform>(camToy))
-                {
-                    const auto& camTransform = box->GetBlockOn<Transform>(camToy);
-                    camPos = camTransform.Position;
-                    camRot = camTransform.Rotation;
-                }
-
-                // Extract the planes that make up the camera frustum
-                frustums.push_back(Camera::CalculateFrustum(camPos, camRot, camera.GetProjectionMatrix()));
+                continue;
             }
+
+            auto& camera = toy->GetBlock<Camera>();
+
+            Vector3 camPos = Constants::Vector3::Zero;
+            Quaternion camRot = Constants::Quaternion::Identity;
+            if (toy->HasBlock<Transform>())
+            {
+                const auto& camTransform = toy->GetBlock<Transform>();
+                camPos = camTransform.Position;
+                camRot = camTransform.Rotation;
+            }
+
+            // Extract the planes that make up the camera frustum
+            frustums.push_back(Camera::CalculateFrustum(camPos, camRot, camera.GetProjectionMatrix()));
         }
 
         // If no camera is available, we have no view frustum and nothing to draw
@@ -58,41 +53,38 @@ namespace Tbx
 
         // Iterate through toys and skip those completely outside the view frustum
         FrameBuffer buffer = {};
-        for (const auto& box : boxes)
+        for (const auto& toy : view)
         {
-            for (const auto& toy : BoxView(box))
+            if (!toy->HasBlock<Camera>())
             {
-                if (!box->HasBlockOn<Camera>(toy))
+                const auto sphere = BoundingSphere(toy);
+
+                // Check if the sphere is in at least one of our frustums
+                bool inFrustum = false;
+                for (const auto& frustum : frustums)
                 {
-                    const auto sphere = BoundingSphere(toy, box);
-
-                    // Check if the sphere is in at least one of our frustums
-                    bool inFrustum = false;
-                    for (const auto& frustum : frustums)
+                    if (frustum.Intersects(sphere))
                     {
-                        if (frustum.Intersects(sphere))
-                        {
-                            inFrustum = true;
-                            break;
-                        }
+                        inFrustum = true;
+                        break;
                     }
-
-                    // Skip toy if it's outside the view frustum
-                    if (!inFrustum) continue;
                 }
-                AddToyRenderCommandsToBuffer(toy, box, buffer);
+
+                // Skip toy if it's outside the view frustum
+                if (!inFrustum) continue;
             }
+            AddToyRenderCommandsToBuffer(toy, buffer);
         }
 
         return buffer;
     }
 
-    void FrameBufferBuilder::AddToyUploadCommandsToBuffer(const ToyHandle& toy, const std::shared_ptr<Box>& box, FrameBuffer& buffer)
+    void FrameBufferBuilder::AddToyUploadCommandsToBuffer(const std::shared_ptr<Toy>& toy, FrameBuffer& buffer)
     {
         // Preprocess materials to upload textures and shaders to GPU
-        if (box->HasBlockOn<MaterialInstance>(toy))
+        if (toy->HasBlock<MaterialInstance>())
         {
-            const auto& material = box->GetBlockOn<MaterialInstance>(toy);
+            const auto& material = toy->GetBlock<MaterialInstance>();
 
             // Check if we already added this material
             auto newMaterialToUpload = true;
@@ -116,56 +108,56 @@ namespace Tbx
         }
 
         // Preprocess models to upload mesh and its material data (shaders and textures) to GPU
-        if (box->HasBlockOn<Model>(toy))
+        if (toy->HasBlock<Model>())
         {
-            const auto& model = box->GetBlockOn<Model>(toy);
+            const auto& model = toy->GetBlock<Model>();
             buffer.Emplace(DrawCommandType::UploadMaterial, model.GetMaterial());
             buffer.Emplace(DrawCommandType::UploadMesh, model.GetMesh());
         }
 
         // Preprocess meshes to upload the mesh data
-        if (box->HasBlockOn<Mesh>(toy))
+        if (toy->HasBlock<Mesh>())
         {
-            const auto& mesh = box->GetBlockOn<Mesh>(toy);
+            const auto& mesh = toy->GetBlock<Mesh>();
             buffer.Emplace(DrawCommandType::UploadMesh, mesh);
         }
     }
 
-    void FrameBufferBuilder::AddToyRenderCommandsToBuffer(const ToyHandle& toy, const std::shared_ptr<Box>& box, FrameBuffer& buffer)
+    void FrameBufferBuilder::AddToyRenderCommandsToBuffer(const std::shared_ptr<Toy>& toy, FrameBuffer& buffer)
     {
         // NOTE: Order matters here!!!
         
         // Material block, should be a material instance
-        if (box->HasBlockOn<Material>(toy))
+        if (toy->HasBlock<Material>())
         {
             TBX_ASSERT(false, "A toy shouldn't use a material directly! Toys should use material instances!");
             return;
         }
         
         // Material block, upload the material data
-        if (box->HasBlockOn<MaterialInstance>(toy))
+        if (toy->HasBlock<MaterialInstance>())
         {
-            const auto& material = box->GetBlockOn<MaterialInstance>(toy);
+            const auto& material = toy->GetBlock<MaterialInstance>();
             buffer.Emplace(DrawCommandType::SetMaterial, material);
         }
 
         // Transform block, upload the transform data
-        if (box->HasBlockOn<Transform>(toy))
+        if (toy->HasBlock<Transform>())
         {
-            const auto& transform = box->GetBlockOn<Transform>(toy);
+            const auto& transform = toy->GetBlock<Transform>();
             const auto transformMatrix = Mat4x4::FromTRS(transform.Position, transform.Rotation, transform.Scale);
             buffer.Emplace(DrawCommandType::SetUniform, ShaderUniform("TransformUniform", transformMatrix, ShaderUniformDataType::Mat4));
         }
 
         // Camera block, upload the camera data
-        if (box->HasBlockOn<Camera>(toy))
+        if (toy->HasBlock<Camera>())
         {
-            auto& camera = box->GetBlockOn<Camera>(toy);
+            auto& camera = toy->GetBlock<Camera>();
 
-            if (box->HasBlockOn<Transform>(toy))
+            if (toy->HasBlock<Transform>())
             {
                 // Use the transform block's position and rotation
-                const auto& cameraTransform = box->GetBlockOn<Transform>(toy);
+                const auto& cameraTransform = toy->GetBlock<Transform>();
                 const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(cameraTransform.Position, cameraTransform.Rotation, camera.GetProjectionMatrix());
                 buffer.Emplace(DrawCommandType::SetUniform, ShaderUniform("ViewProjectionUniform", viewProjMatrix, ShaderUniformDataType::Mat4));
             }
@@ -179,17 +171,17 @@ namespace Tbx
         }
 
         // Model block, upload model data
-        if (box->HasBlockOn<Model>(toy))
+        if (toy->HasBlock<Model>())
         {
-            const auto& model = box->GetBlockOn<Model>(toy);
+            const auto& model = toy->GetBlock<Model>();
             buffer.Emplace(DrawCommandType::SetMaterial, model.GetMaterial());
             buffer.Emplace(DrawCommandType::DrawMesh, model.GetMesh());
         }
         
         // Mesh block, upload the mesh data
-        if (box->HasBlockOn<Mesh>(toy))
+        if (toy->HasBlock<Mesh>())
         {
-            const auto& mesh = box->GetBlockOn<Mesh>(toy);
+            const auto& mesh = toy->GetBlock<Mesh>();
             buffer.Emplace(DrawCommandType::DrawMesh, mesh);
         }
     }

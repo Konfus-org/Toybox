@@ -1,6 +1,5 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/TBS/Box.h"
 #include "Tbx/TBS/Toy.h"
 #include "Tbx/Math/Transform.h"
 #include "Tbx/Math/Constants.h"
@@ -26,14 +25,14 @@ namespace Tbx
         /// <summary>
         /// Calculates a bounding sphere for a toy using its transform block if present.
         /// </summary>
-        BoundingSphere(const ToyHandle& toy, const std::shared_ptr<Box>& box)
+        BoundingSphere(const std::shared_ptr<Toy>& toy)
         {
             Vector3 position = Constants::Vector3::Zero;
             Vector3 scale = Constants::Vector3::One;
 
-            if (box->HasBlockOn<Transform>(toy))
+            if (toy->HasBlock<Transform>())
             {
-                const auto& transform = box->GetBlockOn<Transform>(toy);
+                const auto& transform = toy->GetBlock<Transform>();
                 position = transform.Position;
                 scale = transform.Scale;
             }

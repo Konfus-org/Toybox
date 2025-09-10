@@ -1,6 +1,10 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/TBS/Box.h"
+#include "Tbx/TBS/Toy.h"
+#include "Tbx/TBS/World.h"
+#include "Tbx/Graphics/Material.h"
+#include "Tbx/Graphics/Mesh.h"
+#include "Tbx/Graphics/Model.h"
 #include "Tbx/Graphics/Buffers.h"
 #include <memory>
 
@@ -15,15 +19,15 @@ namespace Tbx
         /// <summary>
         /// Generates commands to upload resources for the provided boxes.
         /// </summary>
-        FrameBuffer BuildUploadBuffer(const std::vector<std::shared_ptr<Box>>& boxes);
+        FrameBuffer BuildUploadBuffer(WorldView<MaterialInstance, Mesh, Model> view);
 
         /// <summary>
         /// Generates commands necessary to render the provided boxes.
         /// </summary>
-        FrameBuffer BuildRenderBuffer(const std::vector<std::shared_ptr<Box>>& boxes);
+        FrameBuffer BuildRenderBuffer(FullWorldView view);
 
     private:
-        void AddToyUploadCommandsToBuffer(const ToyHandle& toy, const std::shared_ptr<Box>& box, FrameBuffer& buffer);
-        void AddToyRenderCommandsToBuffer(const ToyHandle& toy, const std::shared_ptr<Box>& box, FrameBuffer& buffer);
+        void AddToyUploadCommandsToBuffer(const std::shared_ptr<Toy>& toy, FrameBuffer& buffer);
+        void AddToyRenderCommandsToBuffer(const std::shared_ptr<Toy>& toy, FrameBuffer& buffer);
     };
 }

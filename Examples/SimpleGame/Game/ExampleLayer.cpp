@@ -27,8 +27,7 @@ void ExampleLayer::OnAttach()
     auto vertexShaderAsset = Tbx::Asset<Tbx::Shader>("Assets/vertex.vert");
 
     // Setup testing scene...
-    auto boxId = Tbx::World::MakeBox();
-    _level = Tbx::World::GetBox(boxId);
+    auto worldRoot = Tbx::World::GetInstance()->GetRoot();
 
     // Setup base material
     auto vertShader = *vertexShaderAsset.GetData();
@@ -42,24 +41,26 @@ void ExampleLayer::OnAttach()
 
     // Create room
     {
-        Tbx::ToyHandle floor = _level->EmplaceToy("Floor");
-        _level->EmplaceBlockOn<Tbx::Mesh>(floor);
-        _level->EmplaceBlockOn<Tbx::MaterialInstance>(floor, _simpleTexturedMat, checkerTex);
-        _level->EmplaceBlockOn<Tbx::Transform>(floor)
+        auto floor = worldRoot->EmplaceChild("Floor");
+        floor->EmplaceBlock<Tbx::Mesh>();
+        floor->EmplaceBlock<Tbx::MaterialInstance>(_simpleTexturedMat, checkerTex);
+        floor->EmplaceBlock<Tbx::Transform>()
             .SetPosition({ 0, -25, 100 })
             .SetRotation(Tbx::Quaternion::FromEuler({ 90, 0, 0 }))
             .SetScale({ 50 });
-        Tbx::ToyHandle wallBack = _level->EmplaceToy("Wall Back");
-        _level->EmplaceBlockOn<Tbx::Mesh>(wallBack);
-        _level->EmplaceBlockOn<Tbx::MaterialInstance>(wallBack, _simpleTexturedMat, wallTex);
-        _level->EmplaceBlockOn<Tbx::Transform>(wallBack)
+
+        auto wallBack = worldRoot->EmplaceChild("Wall Back");
+        wallBack->EmplaceBlock<Tbx::Mesh>();
+        wallBack->EmplaceBlock<Tbx::MaterialInstance>(_simpleTexturedMat, wallTex);
+        wallBack->EmplaceBlock<Tbx::Transform>()
             .SetPosition({ 0, 0, 125 })
             .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))
             .SetScale({ 50 });
-        Tbx::ToyHandle wallRight = _level->EmplaceToy("Wall Right");
-        _level->EmplaceBlockOn<Tbx::Mesh>(wallRight);
-        _level->EmplaceBlockOn<Tbx::MaterialInstance>(wallRight, _simpleTexturedMat, wallTex);
-        _level->EmplaceBlockOn<Tbx::Transform>(wallRight)
+
+        auto wallRight = worldRoot->EmplaceChild("Wall Right");
+        wallRight->EmplaceBlock<Tbx::Mesh>();
+        wallRight->EmplaceBlock<Tbx::MaterialInstance>(_simpleTexturedMat, wallTex);
+        wallRight->EmplaceBlock<Tbx::Transform>()
             .SetPosition({ 25, 0, 100 })
             .SetRotation(Tbx::Quaternion::FromEuler({ 0, -90, 0 }))
             .SetScale({ 50 });
@@ -67,24 +68,23 @@ void ExampleLayer::OnAttach()
 
     // Create smily
     {
-        _smily = _level->EmplaceToy("Smily");
-        _level->EmplaceBlockOn<Tbx::Mesh>(_smily);
-        _level->EmplaceBlockOn<Tbx::MaterialInstance>(_smily, _simpleTexturedMat, smilyTex);
-        _level->EmplaceBlockOn<Tbx::Transform>(_smily)
+        auto smily = worldRoot->EmplaceChild("Smily");
+        smily->EmplaceBlock<Tbx::Mesh>();
+        smily->EmplaceBlock<Tbx::MaterialInstance>(_simpleTexturedMat, smilyTex);
+        smily->EmplaceBlock<Tbx::Transform>()
             .SetPosition({ 0, 0, 100 })
             .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))
             .SetScale({ 10 });
+        _smily = smily;
     }
 
     // Create camera
     {
-        _fpsCam = _level->EmplaceToy("Camera");
-        _level->EmplaceBlockOn<Tbx::Camera>(_fpsCam);
-        auto& camTransform = _level->EmplaceBlockOn<Tbx::Transform>(_fpsCam);
+        auto fpsCam = worldRoot->EmplaceChild("Camera");
+        fpsCam->EmplaceBlock<Tbx::Camera>();
+        fpsCam->EmplaceBlock<Tbx::Transform>();
+        _fpsCam = fpsCam;
     }
-
-    // Open our new level
-    _level->Open();
 }
 
 void ExampleLayer::OnDetach()
@@ -94,11 +94,12 @@ void ExampleLayer::OnDetach()
 
 void ExampleLayer::OnUpdate()
 {
+    auto worldRoot = Tbx::World::GetInstance()->GetRoot();
     const auto& deltaTime = Tbx::Time::DeltaTime::InSeconds();
 
     // Camera movement
     {
-        auto& camTransform = _level->GetBlockOn<Tbx::Transform>(_fpsCam);
+        auto& camTransform = _fpsCam->GetBlock<Tbx::Transform>();
 
         // Determine movement speed
         const float camMoveSpeed = 10.0f;
@@ -212,7 +213,7 @@ void ExampleLayer::OnUpdate()
     {
         // rotate over time
         const float smilyRotateSpeed = 90.0f;
-        auto& smilyTransform = _level->GetBlockOn<Tbx::Transform>(_smily);
+        auto& smilyTransform = _smily->GetBlock<Tbx::Transform>();
         float angle = Tbx::Constants::PI * deltaTime * smilyRotateSpeed;
         Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::WorldSpace::Up, angle);
         smilyTransform.Rotation = Tbx::Quaternion::Normalize(smilyTransform.Rotation * qYaw);

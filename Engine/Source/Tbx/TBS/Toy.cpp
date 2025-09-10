@@ -1,21 +1,34 @@
 #include "Tbx/PCH.h"
 #include "Tbx/TBS/Toy.h"
+#include "Tbx/Debug/Debugging.h"
 #include <algorithm>
 
 namespace Tbx
 {
-    Toy::Toy(const std::string& name) :
-        _handle(name)
+    Toy::Toy(const std::string& name)
     {
+        _handle = name;
     }
 
-    void Toy::AddChild(const std::shared_ptr<Toy>& child)
+    std::shared_ptr<Toy> Toy::EmplaceChild(const std::string& name)
     {
-        if (child)
+        auto child = std::make_shared<Toy>(name);
+        child->_parent = shared_from_this();
+        _children.push_back(child);
+        return child;
+    }
+
+    std::shared_ptr<Toy> Toy::AddChild(const std::shared_ptr<Toy>& child)
+    {
+        if (!child)
         {
-            child->_parent = shared_from_this();
-            _children.push_back(child);
+            TBX_ASSERT(child, "Cannot add a null child!");
+            return nullptr;
         }
+
+        child->_parent = shared_from_this();
+        _children.push_back(child);
+        return child;
     }
 
     void Toy::RemoveChild(const std::shared_ptr<Toy>& child)

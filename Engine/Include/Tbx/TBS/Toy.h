@@ -8,19 +8,27 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <any>
 
 namespace Tbx
 {
     /// <summary>
     /// Identifies a toy via a unique ID and name.
     /// </summary>
-    struct EXPORT ToyHandle : UsesUid
+    struct EXPORT ToyHandle : public UsesUid
     {
     public:
         /// <summary>
+        /// A default, invalid toy handle
+        /// </summary>
+        ToyHandle() : UsesUid(Invalid::Uid)
+        {
+        }
+
+        /// <summary>
         /// Creates a handle with the specified name.
         /// </summary>
-        ToyHandle(const std::string& name = "")
+        explicit(false) ToyHandle(const std::string& name)
             : _name(name)
         {
         }
@@ -50,10 +58,16 @@ namespace Tbx
         EXPORT Toy(const std::string& name = "");
 
         /// <summary>
+        /// Creates a child on this toy with the given name.
+        /// </summary>
+        /// <param name="child">The child toy to add.</param>
+        EXPORT std::shared_ptr<Toy> EmplaceChild(const std::string& name);
+
+        /// <summary>
         /// Adds a child to this toy and sets the child's parent.
         /// </summary>
         /// <param name="child">The child toy to add.</param>
-        EXPORT void AddChild(const std::shared_ptr<Toy>& child);
+        EXPORT std::shared_ptr<Toy> AddChild(const std::shared_ptr<Toy>& child);
 
         /// <summary>
         /// Removes a child from this toy and clears its parent.
@@ -131,9 +145,10 @@ namespace Tbx
         template <typename T, typename... Args>
         T& EmplaceBlock(Args&&... args)
         {
-            auto& slot = _data[std::type_index(typeid(T))];
-            slot = std::make_any<T>(std::forward<Args>(args)...);
-            return std::any_cast<T&>(slot);
+            const auto typeIndex = std::type_index(typeid(std::remove_cvref_t<T>));
+            auto& block = _blocks[typeIndex];
+            block = T(std::forward<Args>(args)...);
+            return std::any_cast<T&>(block);
         }
 
         /// <summary>
@@ -142,9 +157,24 @@ namespace Tbx
         /// <typeparam name="T">Type of the block to retrieve.</typeparam>
         /// <returns>Reference to the block.</returns>
         template <typename T>
-        T& GetBlock() const
+        T& GetBlock()
         {
-            return *static_cast<T*>(_data.at(std::type_index(typeid(T))).get());
+            const auto typeIndex = std::type_index(typeid(std::remove_cvref_t<T>));
+            auto& block = _blocks.at(typeIndex);
+            return std::any_cast<T&>(block);
+        }
+
+        /// <summary>
+        /// Retrieves stored data of type <typeparamref name="T"/>.
+        /// </summary>
+        /// <typeparam name="T">Type of the block to retrieve.</typeparam>
+        /// <returns>Const reference to the block.</returns>
+        template <typename T>
+        const T& GetBlock() const
+        {
+            const auto typeIndex = std::type_index(typeid(std::remove_cvref_t<T>));
+            const auto& block = _blocks.at(typeIndex);
+            return std::any_cast<const T&>(block);
         }
 
         /// <summary>
@@ -155,7 +185,8 @@ namespace Tbx
         template <typename T>
         bool HasBlock() const
         {
-            return _data.find(std::type_index(typeid(T))) != _data.end();
+            const auto typeIndex = std::type_index(typeid(std::remove_cvref_t<T>));
+            return _blocks.find(typeIndex) != _blocks.end();
         }
 
     protected:
@@ -167,11 +198,11 @@ namespace Tbx
         }
 
     private:
-        ToyHandle _handle = {};
         bool _enabled = true;
+        ToyHandle _handle = {};
         std::weak_ptr<Toy> _parent = {};
         std::vector<std::shared_ptr<Toy>> _children = {};
-        std::unordered_map<std::type_index, std::any> _data = {};
+        std::unordered_map<std::type_index, std::any> _blocks = {};
     };
 }
 

@@ -8,81 +8,90 @@
 
 namespace Tbx
 {
+    using WorldViewIterator = typename std::vector<std::shared_ptr<Toy>>::iterator;
+    using ConstWorldViewIterator = typename std::vector<std::shared_ptr<Toy>>::const_iterator;
+
     /// <summary>
-    /// Provides iteration over toys that contain data of type <typeparamref name="T"/>.
+    /// Provides iteration over toys that contain data of the specified block types.
+    /// If no types are specified, all toys are included.
     /// </summary>
-    template <typename T>
+    template <typename... Ts>
     class WorldView
     {
     public:
-        using iterator = typename std::vector<std::shared_ptr<Toy>>::iterator;
-        using const_iterator = typename std::vector<std::shared_ptr<Toy>>::const_iterator;
-
         /// <summary>
         /// Creates a view rooted at the given toy.
         /// </summary>
         /// <param name="root">Root toy to search from.</param>
-        explicit WorldView(const std::shared_ptr<Toy>& root)
+        explicit(false) WorldView(const std::shared_ptr<Toy>& root)
         {
             if (root)
             {
-                Build(root);
+                BuildViewVector(root);
             }
         }
 
-        /// <summary>
-        /// Returns an iterator to the first toy in the view.
-        /// </summary>
-        iterator begin()
-        {
-            return _toys.begin();
-        }
+        /// <summary>Returns an iterator to the first toy in the view.</summary>
+        WorldViewIterator begin() { return _viewVector.begin(); }
 
-        /// <summary>
-        /// Returns an iterator one past the last toy in the view.
-        /// </summary>
-        iterator end()
-        {
-            return _toys.end();
-        }
+        /// <summary>Returns an iterator one past the last toy in the view.</summary>
+        WorldViewIterator end() { return _viewVector.end(); }
 
-        /// <summary>
-        /// Returns a const iterator to the first toy in the view.
-        /// </summary>
-        const_iterator begin() const
-        {
-            return _toys.begin();
-        }
+        /// <summary>Returns a const iterator to the first toy in the view.</summary>
+        ConstWorldViewIterator begin() const { return _viewVector.begin(); }
 
-        /// <summary>
-        /// Returns a const iterator one past the last toy in the view.
-        /// </summary>
-        const_iterator end() const
-        {
-            return _toys.end();
-        }
+        /// <summary>Returns a const iterator one past the last toy in the view.</summary>
+        ConstWorldViewIterator end() const { return _viewVector.end(); }
+
+        /// <summary>Returns a const iterator to the first toy in the view.</summary>
+        ConstWorldViewIterator cbegin() const { return _viewVector.cbegin(); }
+
+        /// <summary>Returns a const iterator one past the last toy in the view.</summary>
+        ConstWorldViewIterator cend() const { return _viewVector.cend(); }
 
     private:
-        void Build(const std::shared_ptr<Toy>& toy)
+        /// <summary>
+        /// Returns true if the toy matches the view's type filter:
+        /// - With no Ts, always true (all toys).
+        /// - With Ts..., toy must have all specified blocks.
+        /// </summary>
+        static bool Matches(const std::shared_ptr<Toy>& toy)
         {
-            if (toy->template HasBlock<T>())
+            if constexpr (sizeof...(Ts) == 0)
             {
-                _toys.push_back(toy);
+                return true; // no filter => include all
+            }
+            else
+            {
+                return (toy->template HasBlock<Ts>() || ...); // any-of
+            }
+        }
+
+        void BuildViewVector(const std::shared_ptr<Toy>& toy)
+        {
+            if (Matches(toy))
+            {
+                _viewVector.push_back(toy);
             }
             for (const auto& child : toy->GetChildren())
             {
-                Build(child);
+                BuildViewVector(child);
             }
         }
 
-        std::vector<std::shared_ptr<Toy>> _toys = {};
+        std::vector<std::shared_ptr<Toy>> _viewVector = {};
     };
+
+    /// <summary>
+    /// A view that includes all toys in the hierarchy.
+    /// </summary>
+    using FullWorldView = WorldView<>;
 
     /// <summary>
     /// Function invoked for systems that operate on toys containing data of type <typeparamref name="T"/>.
     /// </summary>
-    template <typename T>
-    using WorldSystem = std::function<void(WorldView<T>)>;
+    template <typename... Ts>
+    using WorldSystem = std::function<void(WorldView<Ts...>&)>;
 
     /// <summary>
     /// Manages a hierarchy of toys and executes registered systems.
@@ -99,6 +108,12 @@ namespace Tbx
         /// Gets the root toy of the hierarchy.
         /// </summary>
         /// <returns>The root toy.</returns>
+        EXPORT static World* GetInstance();
+
+        /// <summary>
+        /// Gets the root toy of the hierarchy.
+        /// </summary>
+        /// <returns>The root toy.</returns>
         EXPORT std::shared_ptr<Toy> GetRoot() const;
 
         /// <summary>
@@ -106,12 +121,12 @@ namespace Tbx
         /// </summary>
         /// <typeparam name="T">Type of data required by the system.</typeparam>
         /// <param name="system">The system callback to register.</param>
-        template <typename T>
-        void AddSystem(WorldSystem<T> system)
+        template <typename... Ts>
+        void AddSystem(const WorldSystem<Ts...>& system)
         {
             _systems.push_back([this, system = std::move(system)]()
             {
-                system(WorldView<T>(_root));
+                system(WorldView<Ts...>(_root));
             });
         }
 
@@ -121,6 +136,8 @@ namespace Tbx
         EXPORT void Update();
 
     private:
+        static World* _instance;
+
         std::shared_ptr<Toy> _root = {};
         std::vector<std::function<void()>> _systems = {};
     };

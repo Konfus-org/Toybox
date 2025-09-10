@@ -7,7 +7,6 @@
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Graphics/Texture.h"
 #include "Tbx/Math/Transform.h"
-#include "Tbx/TBS/Box.h"
 #include <algorithm>
 
 namespace Tbx::Tests::Graphics
@@ -19,23 +18,22 @@ namespace Tbx::Tests::Graphics
         Texture textureA = {};
         Material materialB = {};
         Texture textureB = {};
-        auto box = std::make_shared<Box>();
-        std::vector<std::shared_ptr<Box>> boxes = { box };
 
-        auto toyA = box->EmplaceToy("ToyA");
-        auto toyB = box->EmplaceToy("ToyB");
-        auto toyC = box->EmplaceToy("ToyC");
+        auto root = std::make_shared<Toy>();
+        auto toyA = root->EmplaceChild("ToyA");
+        auto toyB = root->EmplaceChild("ToyB");
+        auto toyC = root->EmplaceChild("ToyC");
 
-        auto& matInstanceA = box->EmplaceBlockOn<MaterialInstance>(toyA, materialA, textureA);
-        auto& meshA = box->EmplaceBlockOn<Mesh>(toyA);
-        auto& matInstanceB = box->EmplaceBlockOn<MaterialInstance>(toyB, materialA, textureA);
-        auto& meshB = box->EmplaceBlockOn<Mesh>(toyB);
-        auto& matInstanceC = box->EmplaceBlockOn<MaterialInstance>(toyC, materialB, textureB);
-        auto& meshC = box->EmplaceBlockOn<Mesh>(toyC);
+        auto& meshA = toyA->EmplaceBlock<Mesh>();
+        auto& meshB = toyB->EmplaceBlock<Mesh>();
+        auto& meshC = toyC->EmplaceBlock<Mesh>();
+        auto& matInstanceA = toyA->EmplaceBlock<MaterialInstance>(materialA, textureA);
+        auto& matInstanceB = toyB->EmplaceBlock<MaterialInstance>(materialA, textureB);
+        auto& matInstanceC = toyC->EmplaceBlock<MaterialInstance>(materialB, textureB);
 
         // Act
         FrameBufferBuilder builder;
-        FrameBuffer buffer = builder.BuildUploadBuffer(boxes);
+        FrameBuffer buffer = builder.BuildUploadBuffer(root);
 
         // Assert
         std::vector<Uid> uploadedMaterials;
@@ -68,12 +66,11 @@ namespace Tbx::Tests::Graphics
     TEST(FrameBufferBuilderTests, BuildRenderBuffer_NoCamera_ReturnsEmptyBuffer)
     {
         // Arrange
-        auto box = std::make_shared<Box>();
-        std::vector<std::shared_ptr<Box>> boxes{box};
+        auto toy = std::make_shared<Toy>();
 
         // Act
         FrameBufferBuilder builder;
-        FrameBuffer buffer = builder.BuildRenderBuffer(boxes);
+        FrameBuffer buffer = builder.BuildRenderBuffer(toy);
 
         // Assert
         EXPECT_TRUE(buffer.GetCommands().empty());
@@ -84,24 +81,23 @@ namespace Tbx::Tests::Graphics
         // Arrange
         Material material = {};
         Texture texture = {};
-        auto box = std::make_shared<Box>();
-        std::vector<std::shared_ptr<Box>> boxes = { box };
+        auto root = std::make_shared<Toy>();
 
         // Camera setup
-        auto camToy = box->EmplaceToy("CameraToy");
-        box->EmplaceBlockOn<Camera>(camToy);
-        box->EmplaceBlockOn<Transform>(camToy);
+        auto camToy = root->EmplaceChild("CameraToy");
+        camToy->EmplaceBlock<Camera>();
+        camToy->EmplaceBlock<Transform>();
 
         // Visible toy setup
-        auto toy = box->EmplaceToy("VisibleToy");
-        auto& matInstance = box->EmplaceBlockOn<MaterialInstance>(toy, material, texture);
-        auto& mesh = box->EmplaceBlockOn<Mesh>(toy);
-        box->EmplaceBlockOn<Transform>(toy)
+        auto visibleToy = root->EmplaceChild("VisibleToy");
+        auto& matInstance = visibleToy->EmplaceBlock<MaterialInstance>(material, texture);
+        auto& mesh = visibleToy->EmplaceBlock<Mesh>();
+        visibleToy->EmplaceBlock<Transform>()
             .SetPosition({ 0.0f, 0.0f, 5.0f });
 
         // Act
         FrameBufferBuilder builder;
-        FrameBuffer buffer = builder.BuildRenderBuffer(boxes);
+        FrameBuffer buffer = builder.BuildRenderBuffer(root);
 
         // Assert
         const auto& cmds = buffer.GetCommands();

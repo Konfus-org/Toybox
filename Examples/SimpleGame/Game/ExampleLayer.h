@@ -1,6 +1,5 @@
 #pragma once
 #include <Tbx/Layers/Layer.h>
-#include <Tbx/TBS/Box.h>
 #include <Tbx/TBS/Toy.h>
 #include <Tbx/Graphics/Material.h>
 
@@ -15,10 +14,8 @@ public:
     void OnUpdate() override;
 
 private:
-    std::shared_ptr<Tbx::Box> _level = nullptr;
-
-    Tbx::ToyHandle _fpsCam = {};
-    Tbx::ToyHandle _smily = {};
+    std::shared_ptr<Tbx::Toy> _fpsCam = nullptr;
+    std::shared_ptr<Tbx::Toy> _smily = nullptr;
 
     float _smilyBobTime = 0.0f;
     float _smilyBobAmplitude = 0.0f;

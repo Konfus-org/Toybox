@@ -9,13 +9,12 @@
       "architecture": { "value": "x64" }
     },
     {
-      "name": "tbx",
+      "name": "tbx-vs",
       "displayName": "Toybox",
-      "inherits": "vs2022-x64-base",
-      "binaryDir": "${sourceDir}/Generated/"
+      "inherits": "vs2022-x64-base"
     }
   ],
   "buildPresets": [
-    { "name": "tbx", "configurePreset": "tbx" }
+    { "name": "tbx-vs", "configurePreset": "tbx-vs" }
   ]
 }
