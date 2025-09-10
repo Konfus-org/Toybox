@@ -1,6 +1,5 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Layers/WorldLayer.h"
-#include "Tbx/TBS/World.h"
 
 namespace Tbx
 {
@@ -11,16 +10,16 @@ namespace Tbx
 
     void WorldLayer::OnAttach()
     {
-        World::SetContext();
+        _world = std::make_shared<World>();
     }
 
     void WorldLayer::OnDetach()
     {
-        World::Destroy();
+        _world = nullptr;
     }
 
     void WorldLayer::OnUpdate()
     {
-        World::Update();
+        _world->Update();
     }
 }

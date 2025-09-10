@@ -10,6 +10,7 @@
 # Precompiled Headers
 *.gch
 *.pch
+*.pc
 
 # Compiled Dynamic libraries
 *.so
@@ -63,15 +64,5 @@ CTestTestfile.cmake
 Makefile
 *.tlog
 *.recipe
-
-# Do not ignore my tools
-!Tools/**/*.dll
-!Tools/**/*.lib
-!Tools/**/*.pdb
-!Tools/**/*.exe
-
-# Do not ignore 3rd party dlls, libs, pdbs, and exes
-!Dependencies/**/*.dll
-!Dependencies/**/*.lib
-!Dependencies/**/*.pdb
-!Dependencies/**/*.exe
+*.cmake
+*.dir

@@ -1,23 +1,24 @@
 #include "Tbx/PCH.h"
 #include "Tbx/App/App.h"
+#include "Tbx/TBS/World.h"
 #include "Tbx/Graphics/Rendering.h"
 #include "Tbx/Graphics/IRenderer.h"
 #include "Tbx/Graphics/FrameBufferBuilder.h"
 #include "Tbx/Events/EventCoordinator.h"
 #include "Tbx/Events/RenderEvents.h"
-#include "Tbx/TBS/World.h"
 #include "Tbx/PluginAPI/PluginServer.h"
 
 namespace Tbx
 {
     std::weak_ptr<IRendererFactoryPlugin> Rendering::_renderFactory = {};
     std::map<Uid, std::shared_ptr<IRenderer>> Rendering::_renderers = {};
+    bool Rendering::_firstFrame = true;
+
     void Rendering::Initialize()
     {
         EventCoordinator::Subscribe<WindowOpenedEvent>(&Rendering::OnWindowOpened);
         EventCoordinator::Subscribe<WindowClosedEvent>(&Rendering::OnWindowClosed);
         EventCoordinator::Subscribe<WindowResizedEvent>(&Rendering::OnWindowResized);
-        EventCoordinator::Subscribe<OpenedBoxEvent>(&Rendering::OnBoxOpened);
 
         _renderFactory = PluginServer::Get<IRendererFactoryPlugin>();
     }
@@ -27,17 +28,37 @@ namespace Tbx
         EventCoordinator::Unsubscribe<WindowOpenedEvent>(&Rendering::OnWindowOpened);
         EventCoordinator::Unsubscribe<WindowClosedEvent>(&Rendering::OnWindowClosed);
         EventCoordinator::Unsubscribe<WindowResizedEvent>(&Rendering::OnWindowResized);
-        EventCoordinator::Unsubscribe<OpenedBoxEvent>(&Rendering::OnBoxOpened);
     }
 
     void Rendering::DrawFrame()
     {
         // Gather all boxes from the current world
-        const auto boxes = World::GetBoxes();
+        const auto worldRoot = World::GetInstance()->GetRoot();
+
+        if (_firstFrame)
+        {
+            // Pre-process the opened box using the frame buffer builder
+            FrameBufferBuilder builder;
+            const auto buffer = builder.BuildUploadBuffer(worldRoot);
+
+            // Send buffer to renderers for each window
+            const auto& windows = App::GetInstance()->GetWindows();
+            for (const auto& window : windows)
+            {
+                auto winId = window->GetId();
+                if (!_renderers.contains(winId)) continue;
+
+                _renderers[winId]->Flush();
+                _renderers[winId]->Process(buffer);
+            }
+
+            // Flip first frame flag to off
+            _firstFrame = false;
+        }
 
         // Build a frame buffer of render commands for the world
         FrameBufferBuilder builder;
-        const auto buffer = builder.BuildRenderBuffer(boxes);
+        const auto buffer = builder.BuildRenderBuffer(worldRoot);
 
         // Send buffer to renderers for each window
         auto windows = App::GetInstance()->GetWindows();
@@ -108,27 +129,6 @@ namespace Tbx
             auto renderer = _renderers[windowId];
             TBX_ASSERT(renderer != nullptr, "Renderer should not be null");
             renderer->SetViewport({{0, 0}, newSize});
-        }
-    }
-
-    void Rendering::OnBoxOpened(const OpenedBoxEvent& e)
-    {
-        // Gather all boxes from the current box
-        const auto box = World::GetBox(e.GetOpenedBox());
-
-        // Pre-process the opened box using the frame buffer builder
-        FrameBufferBuilder builder;
-        const auto buffer = builder.BuildUploadBuffer({box});
-
-        // Send buffer to renderers for each window
-        const auto& windows = App::GetInstance()->GetWindows();
-        for (const auto& window : windows)
-        {
-            auto winId = window->GetId();
-            if (!_renderers.contains(winId)) continue;
-
-            _renderers[winId]->Flush();
-            _renderers[winId]->Process(buffer);
         }
     }
 }

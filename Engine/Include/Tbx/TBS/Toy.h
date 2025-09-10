@@ -1,182 +1,208 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Ids/UsesUID.h"
-#include "Tbx/TypeAliases/Int.h"
+#include <memory>
+#include <string>
+#include <string_view>
+#include <typeindex>
 #include <unordered_map>
-#include <typeinfo>
-#include <bitset>
+#include <utility>
+#include <vector>
+#include <any>
 
 namespace Tbx
 {
-    constexpr int MAX_NUMBER_OF_BLOCKS_ON_A_TOY = 32;
-
-    class BlockTypeIndexProvider
+    /// <summary>
+    /// Identifies a toy via a unique ID and name.
+    /// </summary>
+    struct EXPORT ToyHandle : public UsesUid
     {
     public:
-        template <class T>
-        EXPORT static uint32 Provide()
+        /// <summary>
+        /// A default, invalid toy handle
+        /// </summary>
+        ToyHandle() : UsesUid(Invalid::Uid)
         {
-            const auto& typeInfo = typeid(T);
+        }
 
-            const auto& hashCode = typeInfo.hash_code();
-            auto& map = GetMap();
-            if (!map.contains(hashCode))
-            {
-                map[hashCode] = static_cast<uint32>(map.size());
-            }
+        /// <summary>
+        /// Creates a handle with the specified name.
+        /// </summary>
+        explicit(false) ToyHandle(const std::string& name)
+            : _name(name)
+        {
+        }
 
-            return map[hashCode];
+        /// <summary>
+        /// Gets the name associated with this handle.
+        /// </summary>
+        /// <returns>The handle name.</returns>
+        const std::string& GetName() const
+        {
+            return _name;
         }
 
     private:
-        // Export to fix unresolved external symbol errors
-        EXPORT static std::unordered_map<hash, uint32>& GetMap();
-
-        static std::unordered_map<hash, uint32> _blockTypeTable;
+        std::string _name;
     };
 
     /// <summary>
-    /// Gets the version of a toy.
-    /// The "version" is the number of times a toy have been recycled from a pool.
+    /// Represents a toy in a hierarchy with arbitrary typed blocks.
     /// </summary>
-    EXPORT inline uint32 GetToyVersion(const Uid& id)
-    {
-        // Cast to a 32 bit int to get our version number (loosing the top 32 bits)
-        return static_cast<uint32>(id.Value);
-    }
-
-    /// <summary>
-    /// Gets the id of a toy from its index and version.
-    /// </summary>
-    EXPORT inline Uid GetToyId(const uint32& index, const uint32& version)
-    {
-        // Shift the index up 32, and put the version in the bottom
-        return { static_cast<uint64>(index) << 32 | version };
-    }
-
-    /// <summary>
-    /// Converts the toys ID to an index that can be used to map to where a toy lives in an array.
-    /// </summary>
-    EXPORT inline uint32 GetToyIndex(const Uid& id)
-    {
-        // Used by a template so needs defined in the header...
-        // Shift down 32 so we lose the version and get our index
-        return id >> 32;
-    }
-
-    /// <summary>
-    /// Checks if a toy is valid. A toy is invalid if it hasn't been initialized yet or if its been deleted.
-    /// </summary>
-    EXPORT inline bool IsToyValid(const Uid& id)
-    {
-        // Used by a template so needs defined in the header...
-        // Check if any flags (index, version) are invalid or if the entire id is invalid
-        auto invalidFlag = static_cast<uint>(-1);
-        return id != invalidFlag &&
-            id >> 32 != invalidFlag &&
-            GetToyVersion(id) != invalidFlag;
-    }
-
-    /// <summary>
-    /// Converts a type to an index that can be used to map to where a block lives in an array.
-    /// </summary>
-    template <class T>
-    EXPORT uint32 GetBlockTypeIndex()
-    {
-        uint blockIndex = BlockTypeIndexProvider::Provide<T>();
-        return blockIndex;
-    }
-
-    /// <summary>
-    /// A mask that represents the block types that are attached to a Toy.
-    /// </summary>
-    struct EXPORT BlockMask
-        : public std::bitset<MAX_NUMBER_OF_BLOCKS_ON_A_TOY> {};
-
-    /// <summary>
-    /// Stores information about a toy.
-    /// </summary>
-    struct Toy : public UsesUid
+    class Toy : public std::enable_shared_from_this<Toy>
     {
     public:
-        EXPORT Toy() = default;
-        EXPORT Toy(const std::string& name, const Uid& id, const Uid& parent, const BlockMask& mask, const uint32 version)
-            : UsesUid(id), _name(name), _parent(parent), _blockMask(mask), _version(version) {}
+        /// <summary>
+        /// Initializes a new instance of <see cref="Toy"/> with an optional name.
+        /// </summary>
+        EXPORT Toy(const std::string& name = "");
 
         /// <summary>
-        /// The display name of a toy.
-        /// Useful for debugging and UI.
+        /// Creates a child on this toy with the given name.
         /// </summary>
-        EXPORT const std::string& GetName() const { return _name; }
+        /// <param name="child">The child toy to add.</param>
+        EXPORT std::shared_ptr<Toy> EmplaceChild(const std::string& name);
 
         /// <summary>
-        /// The display name of a toy.
-        /// Useful for debugging and UI.
+        /// Adds a child to this toy and sets the child's parent.
         /// </summary>
-        EXPORT void SetName(const std::string& name) { _name = name; }
+        /// <param name="child">The child toy to add.</param>
+        EXPORT std::shared_ptr<Toy> AddChild(const std::shared_ptr<Toy>& child);
 
         /// <summary>
-        /// Id of parent.
-        /// The parent can be another toy or box.
+        /// Removes a child from this toy and clears its parent.
         /// </summary>
-        EXPORT const Uid& GetParent() const { return _parent; }
+        /// <param name="child">The child toy to remove.</param>
+        EXPORT void RemoveChild(const std::shared_ptr<Toy>& child);
 
         /// <summary>
-        /// Id of parent.
-        /// The parent can be another toy or box.
+        /// Retrieves a direct child matching the given handle.
         /// </summary>
-        EXPORT void SetParent(const Uid& parent) { _parent = parent; }
+        /// <param name="handle">Handle identifying the child.</param>
+        /// <returns>The child toy if found; otherwise, <c>nullptr</c>.</returns>
+        EXPORT std::shared_ptr<Toy> GetChild(const ToyHandle& handle) const;
 
         /// <summary>
-        /// A mask to keep track of what blocks a toy has.
+        /// Finds the first direct child with the specified name.
         /// </summary>
-        EXPORT const BlockMask& GetBlockMask() const { return _blockMask; }
+        /// <param name="name">Name of the child to find.</param>
+        /// <returns>The child toy if found; otherwise, <c>nullptr</c>.</returns>
+        EXPORT std::shared_ptr<Toy> FindChild(std::string_view name) const;
 
         /// <summary>
-        /// A mask to keep track of what blocks a toy has.
+        /// Returns a const reference to the list of children.
         /// </summary>
-        EXPORT void SetBlockMask(const uint32 pos, bool value) { _blockMask.set(pos, value); }
+        /// <returns>The list of child toys.</returns>
+        EXPORT const std::vector<std::shared_ptr<Toy>>& GetChildren() const;
 
         /// <summary>
-        /// A mask to keep track of what blocks a toy has.
+        /// Sets the parent for this toy.
         /// </summary>
-        EXPORT void ClearBlockMask() { _blockMask.reset(); }
+        /// <param name="parent">Shared pointer to the parent toy.</param>
+        EXPORT void SetParent(const std::shared_ptr<Toy>& parent);
 
         /// <summary>
-        /// Version of the toy.
-        /// This is incremented every time the toy is recycled.
+        /// Gets the parent toy.
         /// </summary>
-        EXPORT uint32 GetVersion() const { return _version; }
+        /// <returns>Shared pointer to the parent toy.</returns>
+        EXPORT std::shared_ptr<Toy> GetParent() const;
 
         /// <summary>
-        /// Version of the toy.
-        /// This is incremented every time the toy is recycled.
+        /// Gets the name of this toy.
         /// </summary>
-        EXPORT void IncrementVersion() { _version++; }
+        /// <returns>The toy name.</returns>
+        EXPORT const std::string& GetName() const;
+
+        /// <summary>
+        /// Gets the handle uniquely identifying this toy.
+        /// </summary>
+        /// <returns>The toy handle.</returns>
+        EXPORT const ToyHandle& GetHandle() const;
+
+        /// <summary>
+        /// Enables or disables this toy.
+        /// </summary>
+        /// <param name="enabled">True to enable the toy; otherwise, false.</param>
+        EXPORT void SetEnabled(bool enabled);
+
+        /// <summary>
+        /// Determines whether this toy is enabled.
+        /// </summary>
+        /// <returns>True if enabled; otherwise, false.</returns>
+        EXPORT bool IsEnabled() const;
+
+        /// <summary>
+        /// Updates this toy and recursively updates its children if enabled.
+        /// </summary>
+        EXPORT void Update();
+
+        /// <summary>
+        /// Constructs data of type <typeparamref name="T"/> and stores it within the toy.
+        /// </summary>
+        /// <typeparam name="T">Type of the block to construct.</typeparam>
+        /// <param name="args">Arguments forwarded to the block constructor.</param>
+        /// <returns>Reference to the constructed block.</returns>
+        template <typename T, typename... Args>
+        T& EmplaceBlock(Args&&... args)
+        {
+            const auto typeIndex = std::type_index(typeid(std::remove_cvref_t<T>));
+            auto& block = _blocks[typeIndex];
+            block = T(std::forward<Args>(args)...);
+            return std::any_cast<T&>(block);
+        }
+
+        /// <summary>
+        /// Retrieves stored data of type <typeparamref name="T"/>.
+        /// </summary>
+        /// <typeparam name="T">Type of the block to retrieve.</typeparam>
+        /// <returns>Reference to the block.</returns>
+        template <typename T>
+        T& GetBlock()
+        {
+            const auto typeIndex = std::type_index(typeid(std::remove_cvref_t<T>));
+            auto& block = _blocks.at(typeIndex);
+            return std::any_cast<T&>(block);
+        }
+
+        /// <summary>
+        /// Retrieves stored data of type <typeparamref name="T"/>.
+        /// </summary>
+        /// <typeparam name="T">Type of the block to retrieve.</typeparam>
+        /// <returns>Const reference to the block.</returns>
+        template <typename T>
+        const T& GetBlock() const
+        {
+            const auto typeIndex = std::type_index(typeid(std::remove_cvref_t<T>));
+            const auto& block = _blocks.at(typeIndex);
+            return std::any_cast<const T&>(block);
+        }
+
+        /// <summary>
+        /// Determines whether data of type <typeparamref name="T"/> is stored on this toy.
+        /// </summary>
+        /// <typeparam name="T">Type of the block to check.</typeparam>
+        /// <returns>True if the block exists; otherwise, false.</returns>
+        template <typename T>
+        bool HasBlock() const
+        {
+            const auto typeIndex = std::type_index(typeid(std::remove_cvref_t<T>));
+            return _blocks.find(typeIndex) != _blocks.end();
+        }
+
+    protected:
+        /// <summary>
+        /// Hook called during <see cref="Update"/> before children are updated.
+        /// </summary>
+        virtual void OnUpdate()
+        {
+        }
 
     private:
-        std::string _name = "";
-        Uid _parent = -1;
-        uint32 _version = static_cast<uint32>(-1);
-        BlockMask _blockMask = {};
-    };
-
-    /// <summary>
-    /// Represents a toy/gameobject, which is a collection of blocks/components.
-    /// </summary>
-    struct ToyHandle : public UsesUid
-    {
-    public:
-        EXPORT explicit(false) ToyHandle()
-            : UsesUid(-1) {}
-        EXPORT explicit(false) ToyHandle(const std::string& name, const Uid& id)
-            : UsesUid(id), _name(name) {}
-        EXPORT explicit(false) ToyHandle(const std::string& name, const uint64& id)
-            : UsesUid(id), _name(name) {}
-
-        EXPORT std::string GetName() const { return _name; }
-
-    private:
-        std::string _name = "";
+        bool _enabled = true;
+        ToyHandle _handle = {};
+        std::weak_ptr<Toy> _parent = {};
+        std::vector<std::shared_ptr<Toy>> _children = {};
+        std::unordered_map<std::type_index, std::any> _blocks = {};
     };
 }
+
