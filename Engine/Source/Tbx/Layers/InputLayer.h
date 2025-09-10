@@ -9,7 +9,6 @@ namespace Tbx
     public:
         InputLayer() : Layer("Input") {}
 
-        bool IsOverlay() final;
         void OnAttach() final;
         void OnDetach() final;
         void OnUpdate() final;

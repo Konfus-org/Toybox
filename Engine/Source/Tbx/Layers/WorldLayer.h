@@ -7,11 +7,9 @@ namespace Tbx
     class WorldLayer : public Layer
     {
     public:
-        WorldLayer() : Layer("World") {}
+        explicit WorldLayer(const std::shared_ptr<World>& world) : Layer("World"), _world(world) {}
 
-        bool IsOverlay() final;
         void OnAttach() final;
-        void OnDetach() final;
         void OnUpdate() final;
 
     private:

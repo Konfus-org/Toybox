@@ -1,5 +1,4 @@
 #include "ExampleApp.h"
-#include "ExampleLayer.h"
 
 ExampleApp::ExampleApp() : Tbx::App("Sandbox")
 {
@@ -17,7 +16,7 @@ void ExampleApp::OnUnload()
 
 void ExampleApp::OnLaunch()
 {
-    EmplaceLayer<ExampleLayer>("Testing");
+    // Do nothing
 }
 
 void ExampleApp::OnUpdate()

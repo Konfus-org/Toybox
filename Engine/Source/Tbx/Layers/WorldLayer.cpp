@@ -1,21 +1,12 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Layers/WorldLayer.h"
+#include "Tbx/Layers/RenderingLayer.h"
 
 namespace Tbx
 {
-    bool WorldLayer::IsOverlay()
-    {
-        return false;
-    }
-
     void WorldLayer::OnAttach()
     {
-        _world = std::make_shared<World>();
-    }
-
-    void WorldLayer::OnDetach()
-    {
-        _world = nullptr;
+        EmplaceLayer<RenderingLayer>(_world);
     }
 
     void WorldLayer::OnUpdate()

@@ -108,12 +108,6 @@ namespace Tbx
         /// Gets the root toy of the hierarchy.
         /// </summary>
         /// <returns>The root toy.</returns>
-        EXPORT static World* GetInstance();
-
-        /// <summary>
-        /// Gets the root toy of the hierarchy.
-        /// </summary>
-        /// <returns>The root toy.</returns>
         EXPORT std::shared_ptr<Toy> GetRoot() const;
 
         /// <summary>
@@ -136,8 +130,6 @@ namespace Tbx
         EXPORT void Update();
 
     private:
-        static World* _instance;
-
         std::shared_ptr<Toy> _root = {};
         std::vector<std::function<void()>> _systems = {};
     };

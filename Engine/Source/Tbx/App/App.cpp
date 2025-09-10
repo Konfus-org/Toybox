@@ -4,16 +4,14 @@
 #include "Tbx/Layers/InputLayer.h"
 #include "Tbx/Layers/WorldLayer.h"
 #include "Tbx/Layers/EventCoordinatorLayer.h"
-#include "Tbx/Layers/RenderingLayer.h"
 #include "Tbx/Events/EventCoordinator.h"
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Input/Input.h"
 #include "Tbx/Time/DeltaTime.h"
+#include "Tbx/TBS/World.h"
 
 namespace Tbx
 {
-    App* App::_instance = nullptr;
-
     App::App(const std::string_view& name)
     {
         _name = name;
@@ -25,11 +23,6 @@ namespace Tbx
         {
             Close();
         }
-    }
-
-    App* App::GetInstance()
-    {
-        return _instance;
     }
 
     void App::OnLoad()
@@ -44,21 +37,18 @@ namespace Tbx
     
     void App::Launch()
     {
-        TBX_ASSERT(_instance == nullptr, "There is an existing instance still running!");
-
         // Where are we?
         std::filesystem::path cwd = std::filesystem::current_path();
         TBX_TRACE_INFO("Current working directory is: {}", cwd.string());
 
-        _instance = this;
+        auto world = std::make_shared<World>();
         _status = AppStatus::Initializing;
 
         EventCoordinator::Subscribe(this, &App::OnWindowClosed);
 
         // Add default layers (order is important as they will be updated and destroyed in reverse order)
         EmplaceLayer<EventCoordinatorLayer>();
-        EmplaceLayer<RenderingLayer>();
-        EmplaceLayer<WorldLayer>();
+        EmplaceLayer<WorldLayer>(world);
         EmplaceLayer<InputLayer>();
 
         // Open a main window
@@ -106,16 +96,9 @@ namespace Tbx
         }
 
         // Update layers
-        for (const auto& layer : _sharedLayerStack)
+        for (const auto& layer : _layerStack)
         {
-            layer->OnUpdate();
-            if (_status != AppStatus::Running) return;
-        }
-        for (const auto& layer : _weakLayerStack)
-        {
-            const auto layerPtr = layer.lock();
-            if (layer.expired() || layerPtr == nullptr) continue;
-            layerPtr->OnUpdate();
+            layer->Update();
             if (_status != AppStatus::Running) return;
         }
 
@@ -142,11 +125,7 @@ namespace Tbx
         _windowStack.Clear();
 
         // Clear layers
-        _sharedLayerStack.Clear();
-        _weakLayerStack.Clear();
-
-        // Clear out our instance
-        _instance = nullptr;
+        _layerStack.Clear();
 
         // Set status to closed or reloading if we are reloading
         _status = isRestarting
@@ -175,21 +154,20 @@ namespace Tbx
         return newWindowId;
     }
 
-    void App::PushLayer(const std::weak_ptr<Layer>& layer)
-    {
-        _weakLayerStack.Push(layer);
-    }
-
     void App::OnWindowClosed(const WindowClosedEvent& e)
     {
         // If the window is our main window, set running flag to false which will trigger the app to close
-        if (e.GetWindowId() == _mainWindowId)
+        auto window = e.GetWindow();
+        if (window && window->GetId() == _mainWindowId)
         {
             // Stop running and close all windows
             _status = AppStatus::Exiting;
         }
 
-        _windowStack.Remove(e.GetWindowId());
+        if (window)
+        {
+            _windowStack.Remove(window->GetId());
+        }
     }
 
     const AppStatus& App::GetStatus() const

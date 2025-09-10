@@ -4,11 +4,6 @@
 
 namespace Tbx
 {
-    bool LogLayer::IsOverlay()
-    {
-        return false;
-    }
-
     void LogLayer::OnAttach()
     {
         Log::Open("Toybox");
@@ -17,9 +12,5 @@ namespace Tbx
     void LogLayer::OnDetach()
     {
         Log::Close();
-    }
-
-    void LogLayer::OnUpdate()
-    {
     }
 }

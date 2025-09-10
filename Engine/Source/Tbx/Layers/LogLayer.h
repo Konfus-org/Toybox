@@ -8,10 +8,8 @@ namespace Tbx
     public:
         LogLayer() : Layer("Logging") {}
 
-        bool IsOverlay() override;
         void OnAttach() override;
         void OnDetach() override;
-        void OnUpdate() override;
     };
 }
 
