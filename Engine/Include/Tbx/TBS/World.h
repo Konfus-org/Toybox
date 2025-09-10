@@ -53,7 +53,7 @@ namespace Tbx
         /// <summary>
         /// Returns true if the toy matches the view's type filter:
         /// - With no Ts, always true (all toys).
-        /// - With Ts..., toy must have all specified blocks.
+        /// - With Ts..., toy must have at least one of the specified blocks.
         /// </summary>
         static bool Matches(const std::shared_ptr<Toy>& toy)
         {
