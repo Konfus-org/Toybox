@@ -54,7 +54,7 @@ namespace Tbx
             auto layerPlugins = PluginServer::GetAllOfType<Layer>();
             for (const auto& layerPlugin : layerPlugins)
             {
-                app.lock()->PushLayer(layerPlugin);
+                app.lock()->AddLayer(layerPlugin);
             }
 
             // Then run the app!

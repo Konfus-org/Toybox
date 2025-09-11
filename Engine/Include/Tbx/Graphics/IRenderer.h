@@ -1,8 +1,8 @@
 #pragma once
 #include "Tbx/Graphics/IRenderSurface.h"
 #include "Tbx/Graphics/Buffers.h"
-#include "Tbx/Graphics/GraphicsSettings.h"
 #include "Tbx/Graphics/Color.h"
+#include "Tbx/Graphics/GraphicsApi.h"
 #include "Tbx/Math/Vectors.h"
 #include <memory>
 

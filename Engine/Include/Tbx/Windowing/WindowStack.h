@@ -13,6 +13,11 @@ namespace Tbx
         EXPORT ~WindowStack();
 
         /// <summary>
+        /// Operator to allow indexing into the window stack.
+        /// </summary>
+        EXPORT std::shared_ptr<IWindow> operator[](int index) const { return _windows[index]; }
+
+        /// <summary>
         /// Adds an existing window to the stack
         /// </summary>
         /// <param name="window"></param>
@@ -26,7 +31,7 @@ namespace Tbx
 
         EXPORT bool Contains(const Uid& id) const;
         EXPORT std::shared_ptr<IWindow> Get(const Uid& id) const;
-        EXPORT const std::vector<std::shared_ptr<IWindow>>& GetAll();
+        EXPORT const std::vector<std::shared_ptr<IWindow>>& GetAll() const;
 
         EXPORT void Remove(const Uid& id);
         EXPORT void Clear();
@@ -44,5 +49,22 @@ namespace Tbx
     private:
         std::weak_ptr<IWindowFactoryPlugin> _windowFactory = {};
         std::vector<std::shared_ptr<IWindow>> _windows = {};
+    };
+
+    class HasWindows
+    {
+    public:
+        EXPORT void UpdateWindows();
+
+        EXPORT std::shared_ptr<IWindow> GetWindow(const Uid& id) const;
+        EXPORT const std::vector<std::shared_ptr<IWindow>>& GetAllWindows() const;
+
+        EXPORT Uid OpenWindow(const std::string& name, const WindowMode& mode, const Size& size);
+
+        EXPORT void CloseWindow(const Uid& id);
+        EXPORT void CloseAllWindows();
+
+    private:
+        WindowStack _stack = {};
     };
 }

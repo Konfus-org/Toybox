@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/TBS/Toy.h"
-#include "Tbx/TBS/World.h"
+#include "Tbx/ECS/Toy.h"
+#include "Tbx/ECS/Views.h"
 #include "Tbx/Graphics/Material.h"
 #include "Tbx/Graphics/Mesh.h"
 #include "Tbx/Graphics/Model.h"

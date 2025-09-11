@@ -1,5 +1,5 @@
 #include "Tbx/PCH.h"
-#include "Tbx/TBS/Toy.h"
+#include "Tbx/ECS/Toy.h"
 #include "Tbx/Debug/Debugging.h"
 #include <algorithm>
 

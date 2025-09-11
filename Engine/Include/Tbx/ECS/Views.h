@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/TBS/Toy.h"
+#include "Tbx/ECS/Toy.h"
 #include <functional>
 #include <memory>
 #include <utility>
@@ -86,52 +86,4 @@ namespace Tbx
     /// A view that includes all toys in the hierarchy.
     /// </summary>
     using FullWorldView = WorldView<>;
-
-    /// <summary>
-    /// Function invoked for systems that operate on toys containing data of type <typeparamref name="T"/>.
-    /// </summary>
-    template <typename... Ts>
-    using WorldSystem = std::function<void(WorldView<Ts...>&)>;
-
-    /// <summary>
-    /// Manages a hierarchy of toys and executes registered systems.
-    /// </summary>
-    class World
-    {
-    public:
-        /// <summary>
-        /// Initializes a new instance of <see cref="World"/> with a root toy.
-        /// </summary>
-        EXPORT World();
-
-        /// <summary>
-        /// Gets the root toy of the hierarchy.
-        /// </summary>
-        /// <returns>The root toy.</returns>
-        EXPORT std::shared_ptr<Toy> GetRoot() const;
-
-        /// <summary>
-        /// Registers a system to operate on toys containing data of type <typeparamref name="T"/>.
-        /// </summary>
-        /// <typeparam name="T">Type of data required by the system.</typeparam>
-        /// <param name="system">The system callback to register.</param>
-        template <typename... Ts>
-        void AddSystem(const WorldSystem<Ts...>& system)
-        {
-            _systems.push_back([this, system = std::move(system)]()
-            {
-                system(WorldView<Ts...>(_root));
-            });
-        }
-
-        /// <summary>
-        /// Updates all registered systems and then updates the toy hierarchy.
-        /// </summary>
-        EXPORT void Update();
-
-    private:
-        std::shared_ptr<Toy> _root = {};
-        std::vector<std::function<void()>> _systems = {};
-    };
 }
-

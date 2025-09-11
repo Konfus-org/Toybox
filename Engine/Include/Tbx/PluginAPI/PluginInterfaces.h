@@ -30,7 +30,8 @@ namespace Tbx
     class ILayerPlugin : public IPlugin, public Layer
     {
     public:
-        EXPORT ILayerPlugin(const std::string& name) : Layer(name) {}
+        EXPORT ILayerPlugin(const std::string& name, const std::weak_ptr<App>& app)
+            : Layer(name, app) {}
         EXPORT virtual ~ILayerPlugin() = default;
     };
 

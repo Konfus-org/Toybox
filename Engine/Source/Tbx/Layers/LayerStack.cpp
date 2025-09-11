@@ -13,7 +13,6 @@ namespace Tbx
     {
         for (auto& layer : std::ranges::reverse_view(_layers))
         {
-            layer->OnDetach();
             layer.reset();
         }
         _layers.clear();
@@ -21,18 +20,59 @@ namespace Tbx
 
     void LayerStack::Push(const std::shared_ptr<Layer>& layer)
     {
-        _layers.emplace_back(layer);
-        layer->OnAttach();
+        layer->AttachTo(_layers);
     }
 
     void LayerStack::Pop(const std::shared_ptr<Layer>& layer)
     {
-        auto it = std::find(_layers.begin(), _layers.end(), layer);
-        if (it != _layers.end())
+        layer->DetachFrom(_layers);
+    }
+
+    void HasLayers::UpdateLayers()
+    {
+        for (auto& layer : _stack)
         {
-            (*it)->OnDetach();
-            _layers.erase(it);
+            layer->Update();
         }
     }
-}
 
+    std::shared_ptr<Layer> HasLayers::GetLayer(Tbx::uint index) const
+    {
+        return _stack[index];
+    }
+
+    std::shared_ptr<Layer> HasLayers::GetLayer(const std::string& name) const
+    {
+        for (auto& layer : _stack)
+        {
+            if (layer->GetName() == name)
+                return layer;
+        }
+        return nullptr;
+    }
+
+    void HasLayers::AddLayer(const std::shared_ptr<Layer>& layer)
+    {
+        _stack.Push(layer);
+    }
+
+    void HasLayers::RemoveLayer(Tbx::uint index)
+    {
+        _stack.Pop(GetLayer(index));
+    }
+
+    void HasLayers::RemoveLayer(const std::string& name)
+    {
+        _stack.Pop(GetLayer(name));
+    }
+
+    void HasLayers::RemoveLayer(const std::shared_ptr<Layer>& layer)
+    {
+        _stack.Pop(layer);
+    }
+
+    void HasLayers::ClearLayers()
+    {
+        _stack.Clear();
+    }
+}

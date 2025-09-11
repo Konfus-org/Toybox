@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/Graphics/GraphicsSettings.h"
+#include "Tbx/App/Settings.h"
 #include "Tbx/Events/Event.h"
 
 namespace Tbx
@@ -22,21 +22,21 @@ namespace Tbx
         }
     };
 
-    class EXPORT AppGraphicsSettingsChangedEvent : public AppEvent
+    class EXPORT AppSettingsChangedEvent : public AppEvent
     {
     public:
-        explicit AppGraphicsSettingsChangedEvent(const GraphicsSettings& settings)
+        explicit AppSettingsChangedEvent(const Settings& settings)
             : _settings(settings) {}
 
-        const GraphicsSettings& GetNewSettings() const { return _settings; }
+        const Settings& GetNewSettings() const { return _settings; }
 
         std::string ToString() const override
         {
-            return "Set App Graphics Settings Event";
+            return "Set App Settings Event";
         }
 
     private:
-        GraphicsSettings _settings;
+        Settings _settings;
     };
 
     class EXPORT AppShutdownEvent : public AppEvent

@@ -6,7 +6,10 @@ namespace Tbx
     class LogLayer : public Layer
     {
     public:
-        LogLayer() : Layer("Logging") {}
+        LogLayer(const std::weak_ptr<App>& app)
+            : Layer("Logging", app)
+        {
+        }
 
         void OnAttach() override;
         void OnDetach() override;

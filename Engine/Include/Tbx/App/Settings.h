@@ -1,18 +1,12 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/Color.h"
+#include "Tbx/Graphics/GraphicsApi.h"
 #include "Tbx/Math/Size.h"
 
 namespace Tbx
 {
-    enum class GraphicsApi
-    {
-        None,
-        //Vulkan,
-        OpenGL
-    };
-
-    struct EXPORT GraphicsSettings
+    struct EXPORT Settings
     {
         bool VSyncEnabled = true;
         GraphicsApi Api = GraphicsApi::OpenGL;

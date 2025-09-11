@@ -2,13 +2,10 @@
 #include "Tbx/App/App.h"
 #include "Tbx/Layers/LogLayer.h"
 #include "Tbx/Layers/InputLayer.h"
-#include "Tbx/Layers/WorldLayer.h"
-#include "Tbx/Layers/EventCoordinatorLayer.h"
-#include "Tbx/Events/EventCoordinator.h"
+#include "Tbx/Layers/EventLayer.h"
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Input/Input.h"
 #include "Tbx/Time/DeltaTime.h"
-#include "Tbx/TBS/World.h"
 
 namespace Tbx
 {
@@ -37,22 +34,21 @@ namespace Tbx
     
     void App::Launch()
     {
-        // Where are we?
         std::filesystem::path cwd = std::filesystem::current_path();
         TBX_TRACE_INFO("Current working directory is: {}", cwd.string());
 
-        auto world = std::make_shared<World>();
         _status = AppStatus::Initializing;
 
+        EventCoordinator::Subscribe(this, &App::OnWindowOpened);
         EventCoordinator::Subscribe(this, &App::OnWindowClosed);
 
-        // Add default layers (order is important as they will be updated and destroyed in reverse order)
-        EmplaceLayer<EventCoordinatorLayer>();
-        EmplaceLayer<WorldLayer>(world);
-        EmplaceLayer<InputLayer>();
+        AddLayer(std::make_shared<LogLayer>(shared_from_this()));
+        AddLayer(std::make_shared<InputLayer>(shared_from_this()));
+        AddLayer(std::make_shared<EventLayer>(shared_from_this()));
+        AddLayer(std::make_shared<WorldLayer>(shared_from_this()));
+        AddLayer(std::make_shared<RenderingLayer>(shared_from_this()));
 
-        // Open a main window
-        OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
+        OpenWindow(_name, WindowMode::Windowed, Size(1920, 1080));
 
         OnLaunch();
 
@@ -63,7 +59,6 @@ namespace Tbx
     {
         if (_status != AppStatus::Running) return;
 
-        // Update delta time
         Time::DeltaTime::Update();
 
 #ifndef TBX_RELEASE
@@ -85,26 +80,12 @@ namespace Tbx
         }
 #endif
 
-        // Call on update for app inheritors
         OnUpdate();
-
-        // Update windows
-        for (const auto& window : _windowStack)
-        {
-            window->Update();
-            if (_status != AppStatus::Running) return;
-        }
-
-        // Update layers
-        for (const auto& layer : _layerStack)
-        {
-            layer->Update();
-            if (_status != AppStatus::Running) return;
-        }
+        UpdateLayers();
+        UpdateWindows();
 
         if (_status != AppStatus::Running) return;
 
-        // Send update event
         AppUpdatedEvent updateEvent;
         EventCoordinator::Send(updateEvent);
     }
@@ -118,40 +99,23 @@ namespace Tbx
 
         OnShutdown();
 
-        // Unsub to window events and shutdown events
         EventCoordinator::Unsubscribe(this, &App::OnWindowClosed);
 
-        // Clear windows
-        _windowStack.Clear();
+        CloseAllWindows();
+        ClearLayers();
 
-        // Clear layers
-        _layerStack.Clear();
-
-        // Set status to closed or reloading if we are reloading
         _status = isRestarting
             ? AppStatus::Reloading
             : AppStatus::Closed;
     }
 
-    const std::vector<std::shared_ptr<IWindow>>& App::GetWindows()
+    void App::OnWindowOpened(const WindowOpenedEvent& e)
     {
-        return _windowStack.GetAll();
-    }
-
-    std::shared_ptr<IWindow> App::GetWindow(Uid id)
-    {
-        return _windowStack.Get(id);
-    }
-
-    Uid App::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
-    {
-        auto newWindowId = _windowStack.Emplace(name, size, mode);
-        const auto& openWindows = _windowStack.GetAll();
-        if (openWindows.size() == 1)
+        auto newWindow = e.GetWindow();
+        if (_mainWindowId == Invalid::Uid)
         {
-            _mainWindowId = newWindowId;
+            _mainWindowId = newWindow->GetId();
         }
-        return newWindowId;
     }
 
     void App::OnWindowClosed(const WindowClosedEvent& e)
@@ -166,7 +130,7 @@ namespace Tbx
 
         if (window)
         {
-            _windowStack.Remove(window->GetId());
+            CloseWindow(window->GetId());
         }
     }
 
@@ -180,21 +144,31 @@ namespace Tbx
         return _name;
     }
 
-    std::weak_ptr<IWindow> App::GetMainWindow() const
+    std::shared_ptr<IWindow> App::GetMainWindow() const
     {
-        auto mainWindow = _windowStack.Get(_mainWindowId);
+        auto mainWindow = GetWindow(_mainWindowId);
         return mainWindow;
     }
 
-    void App::SetGraphicsSettings(const GraphicsSettings& settings)
+    std::shared_ptr<WorldLayer> App::GetWorld() const
     {
-        _graphicsSettings = settings;
-        auto graphicsSettingsChangedEvent = AppGraphicsSettingsChangedEvent(settings);
+        return GetLayer<WorldLayer>();
+    }
+
+    std::shared_ptr<RenderingLayer> App::GetRendering() const
+    {
+        return GetLayer<RenderingLayer>();
+    }
+
+    void App::SetSettings(const Settings& settings)
+    {
+        _settings = settings;
+        auto graphicsSettingsChangedEvent = AppSettingsChangedEvent(settings);
         EventCoordinator::Send(graphicsSettingsChangedEvent);
     }
 
-    const GraphicsSettings& App::GetGraphicsSettings() const
+    const Settings& App::GetSettings() const
     {
-        return _graphicsSettings;
+        return _settings;
     }
 }

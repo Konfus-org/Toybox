@@ -1,9 +1,8 @@
 #include "ExampleLayer.h"
+#include <Tbx/App/App.h>
 #include <Tbx/Assets/Asset.h>
 #include <Tbx/Input/Input.h>
 #include <Tbx/Input/InputCodes.h>
-#include <Tbx/TBS/Toy.h>
-#include <Tbx/TBS/World.h>
 #include <Tbx/Graphics/Texture.h>
 #include <Tbx/Graphics/Material.h>
 #include <Tbx/Graphics/Camera.h>
@@ -25,6 +24,7 @@ void ExampleLayer::OnAttach()
     auto vertexShaderAsset = Tbx::Asset<Tbx::Shader>("Assets/vertex.vert");
 
     // Setup testing scene...
+    _world = GetApp()->GetLayer<Tbx::WorldLayer>();
     auto worldRoot = _world->GetRoot();
 
     // Setup base material

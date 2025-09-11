@@ -1,4 +1,5 @@
 #include "ExampleApp.h"
+#include "ExampleLayer.h"
 
 ExampleApp::ExampleApp() : Tbx::App("Sandbox")
 {
@@ -16,7 +17,7 @@ void ExampleApp::OnUnload()
 
 void ExampleApp::OnLaunch()
 {
-    // Do nothing
+    AddLayer(std::make_shared<ExampleLayer>("ExampleLayer"));
 }
 
 void ExampleApp::OnUpdate()

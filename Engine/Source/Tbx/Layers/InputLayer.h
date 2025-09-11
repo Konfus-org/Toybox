@@ -7,7 +7,10 @@ namespace Tbx
     class InputLayer : public Layer
     {
     public:
-        InputLayer() : Layer("Input") {}
+        InputLayer(const std::weak_ptr<App>& app)
+            : Layer("Input", app)
+        {
+        }
 
         void OnAttach() final;
         void OnDetach() final;

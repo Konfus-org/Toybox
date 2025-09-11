@@ -75,7 +75,7 @@ namespace Tbx
         return *window;
     }
 
-    const std::vector<std::shared_ptr<IWindow>>& WindowStack::GetAll()
+    const std::vector<std::shared_ptr<IWindow>>& WindowStack::GetAll() const
     {
         return _windows;
     }
@@ -95,5 +95,40 @@ namespace Tbx
     void WindowStack::Clear()
     {
         _windows.clear();
+    }
+
+    const std::vector<std::shared_ptr<IWindow>>& HasWindows::GetAllWindows() const
+    {
+        return _stack.GetAll();
+    }
+
+    void HasWindows::UpdateWindows()
+    {
+        for (auto& window : _stack)
+        {
+            window->Update();
+        }
+    }
+
+    std::shared_ptr<IWindow> HasWindows::GetWindow(const Uid& id) const
+    {
+        return _stack.Get(id);
+    }
+
+    Uid HasWindows::OpenWindow(const std::string& name, const WindowMode& mode, const Size& size)
+    {
+        auto newWindowId = _stack.Emplace(name, size, mode);
+        const auto& openWindows = _stack.GetAll();
+        return newWindowId;
+    }
+
+    void HasWindows::CloseWindow(const Uid& id)
+    {
+        _stack.Remove(id);
+    }
+
+    void HasWindows::CloseAllWindows()
+    {
+        _stack.Clear();
     }
 }
