@@ -8,7 +8,7 @@ namespace Tbx
 {
     struct EXPORT Plane
     {
-        Vector3 Normal = Constants::Vector3::Zero;
+        Vector3 Normal = Consts::Vector3::Zero;
         float Distance = 0.0f;
 
         void Normalize()

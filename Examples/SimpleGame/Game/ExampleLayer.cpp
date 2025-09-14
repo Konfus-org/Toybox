@@ -111,7 +111,7 @@ void ExampleLayer::OnUpdate()
 
         // Get movement dir
         {
-            Tbx::Vector3 camMoveDir = Tbx::Constants::Vector3::Zero;
+            Tbx::Vector3 camMoveDir = Tbx::Consts::Vector3::Zero;
 
             // Get WASD/dpad style
             {
@@ -212,7 +212,7 @@ void ExampleLayer::OnUpdate()
         // rotate over time
         const float smilyRotateSpeed = 90.0f;
         auto& smilyTransform = _smily->GetBlock<Tbx::Transform>();
-        float angle = Tbx::Constants::PI * deltaTime * smilyRotateSpeed;
+        float angle = Tbx::Consts::PI * deltaTime * smilyRotateSpeed;
         Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::WorldSpace::Up, angle);
         smilyTransform.Rotation = Tbx::Quaternion::Normalize(smilyTransform.Rotation * qYaw);
 

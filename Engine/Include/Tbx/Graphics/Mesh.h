@@ -44,10 +44,10 @@ namespace Tbx
         const Mesh& _mesh;
     };
 
-    namespace Primitives
+    namespace Consts::Mesh
     {
-        EXPORT inline const Mesh& Quad = Mesh::MakeQuad();
-        EXPORT inline const Mesh& Triangle = Mesh::MakeTriangle();
+        EXPORT inline Tbx::Mesh Quad = Tbx::Mesh::MakeQuad();
+        EXPORT inline Tbx::Mesh Triangle = Tbx::Mesh::MakeTriangle();
     }
 }
 

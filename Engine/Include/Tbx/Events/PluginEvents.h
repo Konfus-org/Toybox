@@ -1,25 +1,16 @@
 #pragma once
 #include "Tbx/Events/Event.h"
-#include "Tbx/PluginAPI/LoadedPlugin.h"
+#include "Tbx/Plugins/LoadedPlugin.h"
 
 namespace Tbx
 {
-    class EXPORT PluginEvent : public Event
-    {
-    public:
-        int GetCategorization() const override
-        {
-            return static_cast<int>(EventCategory::Plugin);
-        }
-    };
-
-    class PluginLoadedEvent : public PluginEvent
+    class PluginLoadedEvent : public Event
     {
     public:
         EXPORT PluginLoadedEvent(std::shared_ptr<LoadedPlugin> loadedPlugin)
             : _loadedPlugin(loadedPlugin) {}
 
-        EXPORT std::string ToString() const override
+        EXPORT std::string ToString() const final
         {
             return "Plugin Loaded Event";
         }

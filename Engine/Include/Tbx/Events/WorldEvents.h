@@ -8,11 +8,6 @@ namespace Tbx
 {
     class EXPORT WorldEvent : public Event
     {
-    public:
-        int GetCategorization() const final
-        {
-            return static_cast<int>(EventCategory::World);
-        }
     };
 
     /// <summary>

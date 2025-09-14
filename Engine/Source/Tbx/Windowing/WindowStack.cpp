@@ -1,17 +1,9 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Windowing/WindowStack.h"
-#include "Tbx/Events/EventCoordinator.h"
 #include "Tbx/Debug/Debugging.h"
-#include "Tbx/PluginAPI/PluginServer.h"
 
 namespace Tbx
 {
-    WindowStack::WindowStack()
-    {
-        _windowFactory = PluginServer::Get<IWindowFactoryPlugin>();
-        TBX_VALIDATE_WEAK_PTR(_windowFactory, "Window factory plugin not found!");
-    }
-
     WindowStack::~WindowStack()
     {
         Clear();
@@ -20,40 +12,6 @@ namespace Tbx
     void WindowStack::Push(std::shared_ptr<IWindow> window)
     {
         _windows.push_back(window);
-    }
-
-    Uid WindowStack::Emplace(const std::string& name, const Size& size, const WindowMode& mode)
-    {
-        std::shared_ptr<IWindow> window = nullptr;
-
-        if (_windowFactory.expired() || !_windowFactory.lock())
-        {
-            TBX_ASSERT(false, "Window factory plugin not found!");
-            return Invalid::Uid;
-        }
-
-        // Will suppress the window opened event in this scope
-        // as we don't want it to happen until we have pushed the window back into the window stack
-        {
-            EventSuppressor suppressor;
-
-            // Create and open the window and push it into our stack
-            window = _windowFactory.lock()->Create(name, size, mode);
-            _windows.push_back(window);
-        }
-
-        // Ensure our window was created
-        TBX_ASSERT(window, "Failed to create window!");
-        if (window == nullptr)
-        {
-            return -1;
-        }
-
-        // Send the window opened event
-        auto windowOpenedEvt = WindowOpenedEvent(window);
-        EventCoordinator::Send(windowOpenedEvt);
-
-        return window->GetId();
     }
 
     bool WindowStack::Contains(const Uid& id) const
@@ -95,40 +53,5 @@ namespace Tbx
     void WindowStack::Clear()
     {
         _windows.clear();
-    }
-
-    const std::vector<std::shared_ptr<IWindow>>& HasWindows::GetAllWindows() const
-    {
-        return _stack.GetAll();
-    }
-
-    void HasWindows::UpdateWindows()
-    {
-        for (auto& window : _stack)
-        {
-            window->Update();
-        }
-    }
-
-    std::shared_ptr<IWindow> HasWindows::GetWindow(const Uid& id) const
-    {
-        return _stack.Get(id);
-    }
-
-    Uid HasWindows::OpenWindow(const std::string& name, const WindowMode& mode, const Size& size)
-    {
-        auto newWindowId = _stack.Emplace(name, size, mode);
-        const auto& openWindows = _stack.GetAll();
-        return newWindowId;
-    }
-
-    void HasWindows::CloseWindow(const Uid& id)
-    {
-        _stack.Remove(id);
-    }
-
-    void HasWindows::CloseAllWindows()
-    {
-        _stack.Clear();
     }
 }

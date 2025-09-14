@@ -302,7 +302,7 @@ namespace Tbx::Tests::Math
     TEST(QuaternionTests, IdentityStaticMethod_ReturnsIdentityQuaternion)
     {
         // Arrange & Act
-        Quaternion identity = Constants::Quaternion::Identity;
+        Quaternion identity = Consts::Quaternion::Identity;
 
         // Assert
         EXPECT_NEAR(identity.X, 0.0f, 1e-6f);

@@ -11,36 +11,36 @@
 
 /// <summary>
 /// Writes a debug level msg to the log.
-    /// Msg will be written to a log file in release and a console in debug.
+/// Msg will be written to a log file in release and a console in debug.
 /// This is a good method to use to log info that is intended to be used to track down a bug with the intention to be removed once the bug is solved.
 /// </summary>
 #define TBX_TRACE_DEBUG(...) Tbx::Log::Debug(__VA_ARGS__)
 
 /// <summary>
 /// Writes a info level msg to the log.
-    /// Msg will be written to a log file in release and a console in debug.
+/// Msg will be written to a log file in release and a console in debug.
 /// This is a good method to use to log info to the log that we want to track during runtime. Ex: window resize, layers attached, shutdown triggered, etc...
 /// </summary>
 #define TBX_TRACE_INFO(...) Tbx::Log::Info(__VA_ARGS__)
 
 /// <summary>
 /// Writes a warning to the log.
-    /// Msg will be written to a log file in release and a console in debug.
+/// Msg will be written to a log file in release and a console in debug.
 /// This is a good method to use to warn about something that might be problematic, but can likely be ignored and app execution can continue without crashing.
 /// I.e. errors we can recover from.
 /// </summary>
 #define TBX_TRACE_WARNING(...) Tbx::Log::Warn(__VA_ARGS__)
 
 /// <summary>
-/// Sends an error level msg to the log.
-    /// Msg will be written to a log file in release and a console in debug.
+/// Writes an error level msg to the log.
+/// Msg will be written to a log file in release and a console in debug.
 /// This is a good method to use to log errors that will likely cause issues during runtime.
 /// </summary>
 #define TBX_TRACE_ERROR(...) Tbx::Log::Error(__VA_ARGS__)
 
 /// <summary>
-/// Sends a critical level msg to the log.
-    /// Msg will be written to a log file in release and a console in debug.
+/// Writes a critical level msg to the log.
+/// Msg will be written to a log file in release and a console in debug.
 /// This is a good method to use if the app is in a state where it cannot continue i.e. unrecoverable errors.
 /// </summary>
 #define TBX_TRACE_CRITICAL(...) Tbx::Log::Critical(__VA_ARGS__)

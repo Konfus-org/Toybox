@@ -13,11 +13,6 @@ namespace Tbx
         return _name;
     }
 
-    std::shared_ptr<App> Layer::GetApp() const
-    {
-        return _app.lock();
-    }
-
     void Layer::AttachTo(std::vector<std::shared_ptr<Layer>>& layers)
     {
         layers.push_back(shared_from_this());

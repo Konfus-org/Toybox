@@ -13,7 +13,12 @@ namespace Tbx
         /// <summary>
         /// Opens the log.
         /// </summary>
-        EXPORT static void Open(const std::string& name);
+        EXPORT static void Initialize(std::shared_ptr<ILogger> logger = nullptr);
+
+        /// <summary>
+        /// Closes the log.
+        /// </summary>
+        EXPORT static void Shutdown();
 
         /// <summary>
         /// Is the logger open and ready to log?
@@ -21,9 +26,14 @@ namespace Tbx
         EXPORT static bool IsOpen();
 
         /// <summary>
-        /// Closes the log.
+        /// Write a message to the log.
         /// </summary>
-        EXPORT static void Close();
+        EXPORT static void Write(LogLevel lvl, const std::string& msg);
+
+        /// <summary>
+        /// Write all queued messages to the log.
+        /// </summary>
+        EXPORT static void WriteQueued();
 
         /// <summary>
         /// Returns the path to the log file if we are logging to a file.
@@ -105,8 +115,7 @@ namespace Tbx
         }
 
     private:
-        EXPORT static void Write(LogLevel lvl, const std::string& msg);
-
+        static std::queue<std::pair<LogLevel, std::string>> _logQueue;
         static std::shared_ptr<ILogger> _logger;
         static std::string _logFilePath;
         static bool _isOpen;

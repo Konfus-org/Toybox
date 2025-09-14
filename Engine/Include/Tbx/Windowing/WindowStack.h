@@ -1,7 +1,5 @@
 #pragma once
 #include "Tbx/Windowing/IWindow.h"
-#include "Tbx/Events/WindowEvents.h"
-#include "Tbx/PluginAPI/PluginInterfaces.h"
 #include <vector>
 
 namespace Tbx
@@ -9,7 +7,6 @@ namespace Tbx
     class WindowStack
     {
     public:
-        EXPORT WindowStack();
         EXPORT ~WindowStack();
 
         /// <summary>
@@ -22,12 +19,6 @@ namespace Tbx
         /// </summary>
         /// <param name="window"></param>
         EXPORT void Push(std::shared_ptr<IWindow> window);
-
-        /// <summary>
-        /// Adds a new window to the sack and and opens it.
-        /// </summary>
-        /// <returns>The id of the newly created and opened window</returns>
-        EXPORT Uid Emplace(const std::string& name, const Size& size, const WindowMode& mode);
 
         EXPORT bool Contains(const Uid& id) const;
         EXPORT std::shared_ptr<IWindow> Get(const Uid& id) const;
@@ -47,24 +38,6 @@ namespace Tbx
         EXPORT std::vector<std::shared_ptr<IWindow>>::const_reverse_iterator rend() const { return _windows.rend(); }
 
     private:
-        std::weak_ptr<IWindowFactoryPlugin> _windowFactory = {};
         std::vector<std::shared_ptr<IWindow>> _windows = {};
-    };
-
-    class HasWindows
-    {
-    public:
-        EXPORT void UpdateWindows();
-
-        EXPORT std::shared_ptr<IWindow> GetWindow(const Uid& id) const;
-        EXPORT const std::vector<std::shared_ptr<IWindow>>& GetAllWindows() const;
-
-        EXPORT Uid OpenWindow(const std::string& name, const WindowMode& mode, const Size& size);
-
-        EXPORT void CloseWindow(const Uid& id);
-        EXPORT void CloseAllWindows();
-
-    private:
-        WindowStack _stack = {};
     };
 }

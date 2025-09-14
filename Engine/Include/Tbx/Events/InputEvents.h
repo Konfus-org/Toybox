@@ -1,5 +1,4 @@
 #pragma once
-#include "Tbx/Windowing/IWindow.h"
 #include "Tbx/Events/Event.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Math/Vectors.h"
@@ -12,11 +11,6 @@ namespace Tbx
         explicit KeyEvent(int keyCode) : _keyCode(keyCode) {}
 
         int GetKeyCode() const { return _keyCode; }
-
-        int GetCategorization() const final
-        {
-            return static_cast<int>(EventCategory::Keyboard) | static_cast<int>(EventCategory::Input);
-        }
 
     private:
         int _keyCode;
@@ -88,11 +82,6 @@ namespace Tbx
 
     class EXPORT MouseEvent : public Event
     {
-        int GetCategorization() const final
-        {
-            return static_cast<int>(EventCategory::Mouse) |
-                static_cast<int>(EventCategory::Input);
-        }
     };
 
     class EXPORT MouseMovedEvent : public MouseEvent

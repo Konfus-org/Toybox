@@ -4,9 +4,14 @@
 
 namespace Tbx
 {
+    InputLayer::InputLayer(std::shared_ptr<IInputHandler> inputHandler) : Layer("Input")
+    {
+        _inputHandler = inputHandler;
+    }
+
     void InputLayer::OnAttach()
     {
-        Input::Initialize();
+        Input::Initialize(_inputHandler);
     }
 
     void InputLayer::OnDetach()

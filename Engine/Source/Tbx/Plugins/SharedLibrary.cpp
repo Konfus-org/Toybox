@@ -1,5 +1,5 @@
 #include "Tbx/PCH.h"
-#include "Tbx/PluginAPI/SharedLibrary.h"
+#include "Tbx/Plugins/SharedLibrary.h"
 #include "Tbx/Debug/Debugging.h"
 
 #if defined(TBX_PLATFORM_WINDOWS)

@@ -17,4 +17,11 @@ namespace Tbx
 
         virtual std::string GetName() = 0;
     };
+
+    class EXPORT ILoggerFactory
+    {
+    public:
+        virtual ~ILoggerFactory() = default;
+        virtual std::shared_ptr<ILogger> Create(const std::string& name, const std::string filePath = "") = 0;
+    };
 }

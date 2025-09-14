@@ -3,9 +3,10 @@
 
 namespace Tbx
 {
+    std::shared_ptr<ThreeDSpace> WorldLayer::GetWorldSpace() { return _worldSpace; }
+
     void WorldLayer::OnUpdate()
     {
-        // Update the space
-        ThreeDSpace::Update();
+        _worldSpace->Update();
     }
 }

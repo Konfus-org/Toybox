@@ -119,7 +119,7 @@ namespace Tbx::Tests::Math
     TEST(Vector2Tests, Zero_ReturnsZeroVector)
     {
         // Act
-        Vector2 v = Constants::Vector2::Zero;
+        Vector2 v = Consts::Vector2::Zero;
 
         // Assert
         EXPECT_FLOAT_EQ(v.X, 0);
@@ -222,7 +222,7 @@ namespace Tbx::Tests::Math
     TEST(Vector2ITests, Identity_ReturnsVectorWithOnes)
     {
         // Act
-        Vector2I v = Constants::Vector2I::Identity;
+        Vector2I v = Consts::Vector2I::Identity;
 
         // Assert
         EXPECT_EQ(v.X, 1);

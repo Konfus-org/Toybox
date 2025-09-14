@@ -1,29 +1,25 @@
 #include "Tbx/PCH.h"
-#include "Tbx/App/App.h"
 #include "Tbx/Layers/RenderingLayer.h"
+#include "Tbx/ECS/ThreeDSpace.h"
 #include "Tbx/Graphics/FrameBufferBuilder.h"
-#include "Tbx/Events/EventCoordinator.h"
+#include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/RenderEvents.h"
-#include "Tbx/PluginAPI/PluginServer.h"
 
 namespace Tbx
 {
-    RenderingLayer::RenderingLayer(const std::weak_ptr<App> app) : Layer("Rendering", app)
+    RenderingLayer::RenderingLayer(
+        std::weak_ptr<ThreeDSpace> worldSpace,
+        std::weak_ptr<IRendererFactory> renderFactory,
+        std::weak_ptr<EventBus> eventBus) : Layer("Rendering")
     {
-        EventCoordinator::Subscribe(this, &RenderingLayer::OnWindowOpened);
-        EventCoordinator::Subscribe(this, &RenderingLayer::OnWindowClosed);
-        EventCoordinator::Subscribe(this, &RenderingLayer::OnWindowResized);
-        EventCoordinator::Subscribe(this, &RenderingLayer::OnAppSettingsChanged);
+        _renderFactory = renderFactory;
+        _eventBus = eventBus;
 
-        _renderFactory = PluginServer::Get<IRendererFactoryPlugin>();
-    }
-
-    RenderingLayer::~RenderingLayer()
-    {
-        EventCoordinator::Unsubscribe(this, &RenderingLayer::OnWindowOpened);
-        EventCoordinator::Unsubscribe(this, &RenderingLayer::OnWindowClosed);
-        EventCoordinator::Unsubscribe(this, &RenderingLayer::OnWindowResized);
-        EventCoordinator::Unsubscribe(this, &RenderingLayer::OnAppSettingsChanged);
+        auto sharedBus = _eventBus.lock();
+        sharedBus->Subscribe(this, &RenderingLayer::OnWindowOpened);
+        sharedBus->Subscribe(this, &RenderingLayer::OnWindowClosed);
+        sharedBus->Subscribe(this, &RenderingLayer::OnWindowResized);
+        sharedBus->Subscribe(this, &RenderingLayer::OnAppSettingsChanged);
     }
 
     void RenderingLayer::OnUpdate()
@@ -33,13 +29,14 @@ namespace Tbx
 
     void RenderingLayer::DrawFrame()
     {
-        auto world = GetApp()->GetWorld();
+        auto world = _worldSpace.lock();
+
         if (!world)
         {
             return;
         }
 
-        // TODO: add support for layers!
+        // TODO: add support for world layers!
 
         // Gather all boxes from the current world
         const std::shared_ptr<Toy> spaceRoot = world->GetRoot();
@@ -73,8 +70,7 @@ namespace Tbx
         }
 
         // Send our frame rendered event so anything can hook into our rendering and do post work...
-        RenderedFrameEvent evt;
-        EventCoordinator::Send(evt);
+        _eventBus.lock()->Send(RenderedFrameEvent());
 
         // Swap the buffers for each window after a frame is rendered
         for (const auto& window : _windows)

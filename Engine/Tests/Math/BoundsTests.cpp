@@ -39,7 +39,7 @@ namespace Tbx::Tests::Math
     TEST(BoundsTests, Identity_ReturnsDefaultBounds)
     {
         // Act
-        Bounds bounds = Constants::Bounds::Identity;
+        Bounds bounds = Consts::Bounds::Identity;
 
         // Assert
         EXPECT_FLOAT_EQ(bounds.Left, -1.0f);

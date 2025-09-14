@@ -8,16 +8,7 @@
 
 namespace Tbx
 {
-    class EXPORT WindowEvent : public Event
-    {
-    public:
-        int GetCategorization() const final
-        { 
-            return static_cast<int>(EventCategory::Window);
-        }
-    };
-
-    class EXPORT WindowActionEvent : public WindowEvent
+    class EXPORT WindowActionEvent : public Event
     {
     public:
         explicit WindowActionEvent(std::shared_ptr<IWindow> window) : _window(std::move(window)) {}

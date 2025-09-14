@@ -2,9 +2,11 @@
 #include "Tbx/App/App.h"
 #include "Tbx/Layers/LogLayer.h"
 #include "Tbx/Layers/InputLayer.h"
-#include "Tbx/Layers/EventLayer.h"
+#include "Tbx/Layers/WorldLayer.h"
+#include "Tbx/Layers/RenderingLayer.h"
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Input/Input.h"
+#include "Tbx/Input/InputCodes.h"
 #include "Tbx/Time/DeltaTime.h"
 
 namespace Tbx
@@ -12,47 +14,67 @@ namespace Tbx
     App::App(const std::string_view& name)
     {
         _name = name;
+        _status = AppStatus::Initializing;
+        Launch();
     }
 
     App::~App()
     {
-        if (_status == AppStatus::Running) 
+        if (_status != AppStatus::Closed || _status == AppStatus::Closing) 
         {
             Close();
         }
     }
-
-    void App::OnLoad()
-    {
-        // Do nothing by default
-    }
-
-    void App::OnUnload()
-    {
-        // Do nothing by default
-    }
     
     void App::Launch()
     {
-        std::filesystem::path cwd = std::filesystem::current_path();
-        TBX_TRACE_INFO("Current working directory is: {}", cwd.string());
+        try
+        {
+            _status = AppStatus::Initializing;
 
-        _status = AppStatus::Initializing;
+            // Init required systems
+            _eventBus = std::make_shared<EventBus>();
+            _pluginManager = std::make_shared<PluginManager>(FileSystem::GetWorkingDirectory(), _eventBus);
+            // TODO: windowing should be a layer, all app core systems should be a layer!
+            _windowManager = std::make_shared<WindowManager>(_pluginManager->GetPlugin<IWindowFactory>(), _eventBus);
+            _layerManager = std::make_shared<LayerManager>();
 
-        EventCoordinator::Subscribe(this, &App::OnWindowOpened);
-        EventCoordinator::Subscribe(this, &App::OnWindowClosed);
+            // Init required layers
+            {
+                const auto world = std::make_shared<WorldLayer>();
+                const auto rendering = std::make_shared<RenderingLayer>(world->GetWorldSpace(), _pluginManager->GetPlugin<IRendererFactory>(), _eventBus);
+                const auto input = std::make_shared<InputLayer>(_pluginManager->GetPlugin<IInputHandler>());
+                const auto log = std::make_shared<LogLayer>(_pluginManager->GetPlugin<ILoggerFactory>());
+                _layerManager->AddLayer(log);
+                _layerManager->AddLayer(input);
+                _layerManager->AddLayer(rendering);
+                _layerManager->AddLayer(world);
+            }
 
-        AddLayer(std::make_shared<LogLayer>(shared_from_this()));
-        AddLayer(std::make_shared<InputLayer>(shared_from_this()));
-        AddLayer(std::make_shared<EventLayer>(shared_from_this()));
-        AddLayer(std::make_shared<WorldLayer>(shared_from_this()));
-        AddLayer(std::make_shared<RenderingLayer>(shared_from_this()));
+            std::filesystem::path cwd = std::filesystem::current_path();
+            TBX_TRACE_INFO("Current working directory is: {}", cwd.string());
 
-        OpenWindow(_name, WindowMode::Windowed, Size(1920, 1080));
+            _eventBus->Subscribe(this, &App::OnWindowClosed);
+            _windowManager->OpenWindow(_name, WindowMode::Windowed, Size(1920, 1080));
 
-        OnLaunch();
+            OnLaunch();
 
-        _status = AppStatus::Running;
+            _status = AppStatus::Running;
+            while (_status == AppStatus::Running)
+            {
+                Update();
+            }
+        }
+        catch (std::exception ex)
+        {
+            _status = AppStatus::Error;
+            TBX_ASSERT(false, ex.what());
+        }
+
+        if (_status != AppStatus::Reloading)
+        {
+            _status = AppStatus::Closed;
+        }
     }
 
     void App::Update()
@@ -68,26 +90,29 @@ namespace Tbx
         if (Input::IsKeyDown(TBX_KEY_F4) &&
             (Input::IsKeyDown(TBX_KEY_LEFT_ALT) || Input::IsKeyDown(TBX_KEY_RIGHT_ALT)))
         {
-            _status = AppStatus::Exiting;
+            TBX_TRACE("Closing app...");
+            _status = AppStatus::Closing;
             return;
         }
 
         // Shortcut to restart/reload app
         if (Input::IsKeyDown(TBX_KEY_F2))
         {
+            TBX_TRACE("Reloading app...");
             _status = AppStatus::Reloading;
             return;
         }
 #endif
 
         OnUpdate();
-        UpdateLayers();
-        UpdateWindows();
+
+        _layerManager->UpdateLayers();
+        _windowManager->UpdateWindows();
 
         if (_status != AppStatus::Running) return;
 
-        AppUpdatedEvent updateEvent;
-        EventCoordinator::Send(updateEvent);
+        _eventBus->Post(AppUpdatedEvent());
+        _eventBus->ProcessQueue();
     }
 
     void App::Close()
@@ -95,42 +120,27 @@ namespace Tbx
         TBX_TRACE_INFO("Shutting down...");
 
         auto isRestarting = _status == AppStatus::Reloading;
-        _status = AppStatus::Exiting;
+        _status = AppStatus::Closing;
 
         OnShutdown();
 
-        EventCoordinator::Unsubscribe(this, &App::OnWindowClosed);
-
-        CloseAllWindows();
-        ClearLayers();
+        AppExitingEvent exitEvent;
+        _eventBus->Send(exitEvent);
+        _eventBus->Unsubscribe(this, &App::OnWindowClosed);
 
         _status = isRestarting
             ? AppStatus::Reloading
             : AppStatus::Closed;
     }
 
-    void App::OnWindowOpened(const WindowOpenedEvent& e)
-    {
-        auto newWindow = e.GetWindow();
-        if (_mainWindowId == Invalid::Uid)
-        {
-            _mainWindowId = newWindow->GetId();
-        }
-    }
-
     void App::OnWindowClosed(const WindowClosedEvent& e)
     {
         // If the window is our main window, set running flag to false which will trigger the app to close
         auto window = e.GetWindow();
-        if (window && window->GetId() == _mainWindowId)
+        if (window && window->GetId() == _windowManager->GetMainWindow()->GetId())
         {
             // Stop running and close all windows
-            _status = AppStatus::Exiting;
-        }
-
-        if (window)
-        {
-            CloseWindow(window->GetId());
+            _status = AppStatus::Closing;
         }
     }
 
@@ -144,27 +154,30 @@ namespace Tbx
         return _name;
     }
 
-    std::shared_ptr<IWindow> App::GetMainWindow() const
+    std::shared_ptr<EventBus> App::GetEventBus()
     {
-        auto mainWindow = GetWindow(_mainWindowId);
-        return mainWindow;
+        return _eventBus;
     }
 
-    std::shared_ptr<WorldLayer> App::GetWorld() const
+    std::shared_ptr<LayerManager> App::GetLayerManager()
     {
-        return GetLayer<WorldLayer>();
+        return _layerManager;
     }
 
-    std::shared_ptr<RenderingLayer> App::GetRendering() const
+    std::shared_ptr<WindowManager> App::GetWindowManager()
     {
-        return GetLayer<RenderingLayer>();
+        return _windowManager;
+    }
+
+    std::shared_ptr<PluginManager> App::GetPluginManager()
+    {
+        return _pluginManager;
     }
 
     void App::SetSettings(const Settings& settings)
     {
         _settings = settings;
-        auto graphicsSettingsChangedEvent = AppSettingsChangedEvent(settings);
-        EventCoordinator::Send(graphicsSettingsChangedEvent);
+        _eventBus->Post(AppSettingsChangedEvent(settings));
     }
 
     const Settings& App::GetSettings() const

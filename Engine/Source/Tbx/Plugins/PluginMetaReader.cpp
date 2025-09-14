@@ -1,5 +1,5 @@
 #include "Tbx/PCH.h"
-#include "Tbx/PluginAPI/PluginMetaReader.h"
+#include "Tbx/Plugins/PluginMetaReader.h"
 #include "Tbx/Debug/Debugging.h"
 #include <nlohmann/json.hpp>
 #include <fstream>

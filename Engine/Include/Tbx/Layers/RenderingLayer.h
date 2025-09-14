@@ -1,14 +1,12 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Ids/UID.h"
+#include "Tbx/Layers/Layer.h"
 #include "Tbx/ECS/ThreeDSpace.h"
 #include "Tbx/Graphics/IRenderer.h"
-#include "Tbx/Graphics/IRenderSurface.h"
 #include "Tbx/Windowing/IWindow.h"
+#include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/WindowEvents.h"
-#include "Tbx/Events/WorldEvents.h"
 #include "Tbx/Events/AppEvents.h"
-#include "Tbx/PluginAPI/PluginInterfaces.h"
 #include <vector>
 #include <memory>
 
@@ -21,8 +19,10 @@ namespace Tbx
     class RenderingLayer : public Layer
     {
     public:
-        EXPORT explicit(false) RenderingLayer(const std::weak_ptr<App> app);
-        EXPORT ~RenderingLayer();
+        EXPORT RenderingLayer(
+            std::weak_ptr<ThreeDSpace> worldSpace,
+            std::weak_ptr<IRendererFactory> renderFactory,
+            std::weak_ptr<EventBus> eventBus);
 
         /// <summary>
         /// Gets the renderer used by a given window.
@@ -34,15 +34,17 @@ namespace Tbx
 
     private:
         void DrawFrame();
-
         void OnWindowOpened(const WindowOpenedEvent& e);
         void OnWindowClosed(const WindowClosedEvent& e);
         void OnWindowResized(const WindowResizedEvent& e);
         void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
 
+    private:
         std::vector<std::shared_ptr<IWindow>> _windows = {};
         std::vector<std::shared_ptr<IRenderer>> _renderers = {};
-        std::weak_ptr<IRendererFactoryPlugin> _renderFactory = {};
+        std::weak_ptr<IRendererFactory> _renderFactory = {};
+        std::weak_ptr<ThreeDSpace> _worldSpace = {};
+        std::weak_ptr<EventBus> _eventBus = {};
         Tbx::RgbaColor _clearColor = {};
         bool _firstFrame = true;
     };

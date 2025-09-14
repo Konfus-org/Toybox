@@ -18,7 +18,7 @@ namespace Tbx
 
     Mat4x4::Mat4x4()
     {
-        Values = Constants::Mat4x4::Identity;
+        Values = Consts::Mat4x4::Identity;
     }
 
     Mat4x4::Mat4x4(const std::initializer_list<float>& data)

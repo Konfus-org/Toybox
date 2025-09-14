@@ -35,8 +35,8 @@ namespace Tbx
 
             auto& camera = toy->GetBlock<Camera>();
 
-            Vector3 camPos = Constants::Vector3::Zero;
-            Quaternion camRot = Constants::Quaternion::Identity;
+            Vector3 camPos = Consts::Vector3::Zero;
+            Quaternion camRot = Consts::Quaternion::Identity;
             if (toy->HasBlock<Transform>())
             {
                 const auto& camTransform = toy->GetBlock<Transform>();
@@ -165,7 +165,7 @@ namespace Tbx
             {
                 // No transform block, use default camera position and rotation
                 const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(
-                    Constants::Vector3::Zero, Constants::Quaternion::Identity, camera.GetProjectionMatrix());
+                    Consts::Vector3::Zero, Consts::Quaternion::Identity, camera.GetProjectionMatrix());
                 buffer.Emplace(DrawCommandType::SetUniform, ShaderUniform("ViewProjectionUniform", viewProjMatrix, ShaderUniformDataType::Mat4));
             }
         }

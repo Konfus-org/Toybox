@@ -4,16 +4,7 @@
 
 namespace Tbx
 {
-    class EXPORT AppEvent : public Event
-    {
-    public:
-        int GetCategorization() const override
-        {
-            return static_cast<int>(EventCategory::Application);
-        }
-    };
-
-    class EXPORT AppInitializedEvent : public AppEvent
+    class EXPORT AppInitializedEvent : public Event
     {
     public:
         std::string ToString() const override
@@ -22,7 +13,25 @@ namespace Tbx
         }
     };
 
-    class EXPORT AppSettingsChangedEvent : public AppEvent
+    class EXPORT AppExitingEvent : public Event
+    {
+    public:
+        std::string ToString() const override
+        {
+            return "App Exiting Event";
+        }
+    };
+
+    class EXPORT AppUpdatedEvent : public Event
+    {
+    public:
+        std::string ToString() const override
+        {
+            return "App Update Event";
+        }
+    };
+
+    class EXPORT AppSettingsChangedEvent : public Event
     {
     public:
         explicit AppSettingsChangedEvent(const Settings& settings)
@@ -32,29 +41,11 @@ namespace Tbx
 
         std::string ToString() const override
         {
-            return "Set App Settings Event";
+            return "App Settings Changed Event";
         }
 
     private:
         Settings _settings;
-    };
-
-    class EXPORT AppShutdownEvent : public AppEvent
-    {
-    public:
-        std::string ToString() const override
-        {
-            return "App Started Event";
-        }
-    };
-
-    class EXPORT AppUpdatedEvent : public AppEvent
-    {
-    public:
-        std::string ToString() const override
-        {
-            return "App Update Event";
-        }
     };
 }
 

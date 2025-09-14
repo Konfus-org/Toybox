@@ -51,9 +51,9 @@ namespace Tbx
         std::string _value = "00000000-0000-0000-0000-000000000000";
     };
 
-    namespace Invalid
+    namespace Consts::Invalid
     {
-        static inline Tbx::Guid Guid = Tbx::Guid("00000000-0000-0000-0000-000000000000");
+        EXPORT inline Tbx::Guid Guid = Tbx::Guid("00000000-0000-0000-0000-000000000000");
     }
 }
 

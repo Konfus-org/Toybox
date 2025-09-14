@@ -1,7 +1,7 @@
 #pragma once
-#include "Tbx/PluginAPI/PluginInterfaces.h"
-#include "Tbx/PluginAPI/SharedLibrary.h"
-#include "Tbx/PluginAPI/PluginInfo.h"
+#include "Tbx/Plugins/IPlugin.h"
+#include "Tbx/Plugins/SharedLibrary.h"
+#include "Tbx/Plugins/PluginInfo.h"
 #include "Tbx/DllExport.h"
 #include <memory>
 
@@ -25,21 +25,20 @@ namespace Tbx
         /// If the plugin is not of the requested type, nullptr is returned.
         /// </summary>
         template <typename T>
-        EXPORT std::weak_ptr<T> GetAs()
+        EXPORT std::shared_ptr<T> GetAs()
         {
             // Try to cast the plugin to the requested type
             if (const auto& castedPlug = std::dynamic_pointer_cast<T>(_plugin)) 
                 return castedPlug;
             
             // Failed to cast, return empty
-            return {};
+            return nullptr;
         }
-
 
         /// <summary>
         /// Gets the loaded plugin.
         /// </summary>
-        EXPORT std::weak_ptr<IPlugin> Get()
+        EXPORT std::shared_ptr<IPlugin> Get()
         {
             return _plugin;
         }

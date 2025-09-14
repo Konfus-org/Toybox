@@ -150,32 +150,4 @@ namespace Tbx
         int X = 0;
         int Y = 0;
     };
-
-    namespace WorldSpace
-    {
-        /// <summary>
-        /// World forward vector. Toybox uses the Left-Handed coordinate system, so [0, 0, 1] is our forward vector.
-        /// </summary>
-        EXPORT inline Vector3 Forward = { 0, 0, 1 };
-        /// <summary>
-        /// World backward vector. Toybox uses the Left-Handed coordinate system, so [0, 0, -1] is our backward vector.
-        /// </summary>
-        EXPORT inline Vector3 Backward = { 0, 0, -1 };
-        /// <summary>
-        /// World up vector.
-        /// </summary>
-        EXPORT inline Vector3 Up = { 0, 1, 0 };
-        /// <summary>
-        /// World down vector.
-        /// </summary>
-        EXPORT inline Vector3 Down = { 0, -1, 0 };
-        /// <summary>
-        /// Toybox uses the Left-Handed coordinate system, so [1, 0, 0] is our left vector.
-        /// </summary>
-        EXPORT inline Vector3 Left = { 1, 0, 0 };
-        /// <summary>
-        /// Toybox uses the Left-Handed coordinate system, so [-1, 0, 0] is our right vector.
-        /// </summary>
-        EXPORT inline Vector3 Right = { -1, 0, 0 };
-    }
 }

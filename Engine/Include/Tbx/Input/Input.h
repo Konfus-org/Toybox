@@ -1,9 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Input/InputCodes.h"
-#include "Tbx/PluginAPI/PluginInterfaces.h"
-#include "Tbx/Events/WindowEvents.h"
-#include "Tbx/Ids/UID.h"
+#include "Tbx/Input/IInputHandler.h"
 #include "Tbx/Math/Vectors.h"
 
 namespace Tbx
@@ -11,7 +8,7 @@ namespace Tbx
     class Input
     {
     public:
-        EXPORT static void Initialize();
+        EXPORT static void Initialize(const std::shared_ptr<IInputHandler>& inputHandler);
         EXPORT static void Update();
         EXPORT static void Shutdown();
 
@@ -31,6 +28,6 @@ namespace Tbx
         EXPORT static Vector2 GetMouseDelta();
 
     private:
-        static std::weak_ptr<IInputHandlerPlugin> _inputHandler;
+        static std::shared_ptr<IInputHandler> _inputHandler;
     };
 }

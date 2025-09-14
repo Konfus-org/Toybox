@@ -21,7 +21,7 @@ namespace Tbx
         /// <summary>
         /// A default, invalid toy handle
         /// </summary>
-        ToyHandle() : UsesUid(Invalid::Uid)
+        ToyHandle() : UsesUid(Consts::Invalid::Uid)
         {
         }
 

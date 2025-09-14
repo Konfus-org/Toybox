@@ -55,7 +55,7 @@ namespace Tbx
         Mat4x4 inverseRotationMatrix = Mat4x4::Inverse(rotationMatrix); // Or rotationMatrix.Transpose() for orthonormal matrices
 
         // 2. Get the inverse of the camera's position
-        Mat4x4 translationMatrix = Mat4x4::Translate(Constants::Mat4x4::Identity, camPosition * -1);
+        Mat4x4 translationMatrix = Mat4x4::Translate(Consts::Mat4x4::Identity, camPosition * -1);
 
         // The view matrix first rotates the world opposite to the camera's rotation,
         // then translates the world opposite to the camera's position.

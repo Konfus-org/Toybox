@@ -28,9 +28,9 @@ namespace Tbx
         EXPORT void Push(const std::shared_ptr<Layer>& layer);
 
         /// <summary>
-        /// Pop a layer from the top of the stack.
+        /// Removes a layer from the stack.
         /// </summary>
-        EXPORT void Pop(const std::shared_ptr<Layer>& layer);
+        EXPORT void Remove(const std::shared_ptr<Layer>& layer);
 
         EXPORT std::vector<std::shared_ptr<Layer>>::iterator begin() { return _layers.begin(); }
         EXPORT std::vector<std::shared_ptr<Layer>>::iterator end() { return _layers.end(); }
@@ -39,40 +39,6 @@ namespace Tbx
 
     private:
         std::vector<std::shared_ptr<Layer>> _layers;
-    };
-
-    class HasLayers
-    {
-    public:
-        EXPORT void UpdateLayers();
-
-        EXPORT std::shared_ptr<Layer> GetLayer(Tbx::uint index) const;
-        EXPORT std::shared_ptr<Layer> GetLayer(const std::string& name) const;
-
-        template <typename T>
-        EXPORT std::shared_ptr<T> GetLayer() const
-        {
-            for (auto layer : _stack)
-            {
-                auto castedLayer = std::dynamic_pointer_cast<T>(layer);
-                if (castedLayer)
-                {
-                    return castedLayer;
-                }
-            }
-            return nullptr;
-        }
-
-        EXPORT void AddLayer(const std::shared_ptr<Layer>& layer);
-
-        EXPORT void RemoveLayer(Tbx::uint index);
-        EXPORT void RemoveLayer(const std::string& name);
-        EXPORT void RemoveLayer(const std::shared_ptr<Layer>& layer);
-
-        EXPORT void ClearLayers();
-
-    private:
-        LayerStack _stack;
     };
 }
 

@@ -25,9 +25,9 @@ namespace Tbx
         uint64 Value = 0;
     };
 
-    namespace Invalid
+    namespace Consts::Invalid
     {
-        static inline Tbx::Uid Uid = -1;
+        EXPORT inline Tbx::Uid Uid = -1;
     }
 }
 

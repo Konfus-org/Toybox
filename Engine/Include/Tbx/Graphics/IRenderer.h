@@ -37,7 +37,7 @@ namespace Tbx
         /// <summary>
         /// Clears the screen with the given color.
         /// </summary>
-        virtual void Clear(const RgbaColor& color = Colors::DarkGrey) = 0;
+        virtual void Clear(const RgbaColor& color = Consts::Colors::DarkGrey) = 0;
 
         /// <summary>
         /// Sets the api the renderer will use.
@@ -82,5 +82,12 @@ namespace Tbx
         /// Vsync is used to synchronize the frame rate of the renderer with the refresh rate of the monitor.
         /// </summary>
         virtual bool GetVSyncEnabled() = 0;
+    };
+
+    class EXPORT IRendererFactory
+    {
+    public:
+        virtual ~IRendererFactory() = default;
+        virtual std::shared_ptr<IRenderer> Create(std::shared_ptr<IRenderSurface> surface) = 0;
     };
 }

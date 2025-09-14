@@ -1,5 +1,5 @@
 #include "Tbx/PCH.h"
-#include "Tbx/Events/EventCoordinator.h"
+#include "Tbx/Events/EventBus.h"
 
 namespace Tbx 
 {
@@ -34,22 +34,31 @@ namespace Tbx
 
     //////////// Event Coordinator ///////////////
 
-    std::unordered_map<std::size_t, std::unordered_map<std::size_t, EventCallback>> EventCoordinator::_subscribers = {};
-    std::mutex EventCoordinator::_subscribersMutex;
-
-    void EventCoordinator::ClearSubscribers()
+    void EventBus::ProcessQueue()
     {
-        std::lock_guard<std::mutex> lock(_subscribersMutex);
-        _subscribers.clear();
+        TBX_TRACE_VERBOSE("Polling events...");
+
+        while (!_eventQueue.empty())
+        {
+            auto& nextEvent = PopNextEventInQueue();
+            Send(nextEvent);
+        }
+
+        TBX_TRACE_VERBOSE("Finished polling events...");
     }
 
-    std::unordered_map<std::size_t, std::unordered_map<std::size_t, EventCallback>>& EventCoordinator::GetSubscribers()
+    Event& EventBus::PopNextEventInQueue()
     {
-        return _subscribers;
+        std::lock_guard<std::mutex> lock(_mutex);
+        auto& next = _eventQueue.front();
+        _eventQueue.pop();
+        return *next;
     }
 
-    std::mutex& EventCoordinator::GetMutex()
+    Tbx::uint64 EventBus::GetEventHash(const Event& event) const
     {
-        return _subscribersMutex;
+        const auto& eventInfo = typeid(event);
+        const auto hash = eventInfo.hash_code();
+        return static_cast<Tbx::uint64>(hash);
     }
 }

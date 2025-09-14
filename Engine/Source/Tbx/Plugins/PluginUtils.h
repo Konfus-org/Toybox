@@ -1,9 +1,8 @@
 #pragma once
 #include "Tbx/PCH.h"
-#include "Tbx/Debug/Debugging.h"
+#include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/PluginEvents.h"
-#include "Tbx/Events/EventCoordinator.h"
-#include <filesystem>
+#include "Tbx/Debug/Debugging.h"
 #include <algorithm>
 #include <unordered_set>
 #include <sstream>
@@ -45,13 +44,30 @@ namespace Tbx::Plugin
     }
 
     /// <summary>
+    /// Reports info on loaded plugin.
+    /// </summary>
+    static void ReportInfo(const PluginInfo& info)
+    {
+        const auto& pluginName = info.GetName();
+        const auto& pluginVersion = info.GetVersion();
+        const auto& pluginAuthor = info.GetAuthor();
+        const auto& pluginDescription = info.GetDescription();
+
+        TBX_TRACE_INFO("{0}:", pluginName);
+        TBX_TRACE_INFO("    - Version: {0}", pluginVersion);
+        TBX_TRACE_INFO("    - Author: {0}", pluginAuthor);
+        TBX_TRACE_INFO("    - Description: {0}", pluginDescription);
+    }
+
+    /// <summary>
     /// Load one plugin, update name/type sets, emit event.
     /// </summary>
     static bool Load(
         const PluginInfo& info,
-        std::vector<std::shared_ptr<LoadedPlugin>>& outLoaded,
+        std::shared_ptr<EventBus> eventBus,
         std::unordered_set<std::string>& loadedNames,
-        std::unordered_set<std::string>& loadedTypes)
+        std::unordered_set<std::string>& loadedTypes,
+        std::vector<std::shared_ptr<LoadedPlugin>>& outLoaded)
     {
         auto plugin = std::make_shared<LoadedPlugin>(info);
         if (!plugin->IsValid())
@@ -67,8 +83,8 @@ namespace Tbx::Plugin
             loadedTypes.insert(t);
         }
 
-        auto e = PluginLoadedEvent(plugin);
-        EventCoordinator::Send(e);
+        eventBus->Post(PluginLoadedEvent(plugin));
+        Plugin::ReportInfo(info);
 
         return true;
     }
@@ -117,21 +133,5 @@ namespace Tbx::Plugin
             oss << "\n";
         }
         TBX_TRACE_ERROR("{}", oss.str());
-    }
-
-    /// <summary>
-    /// Reports info on loaded plugin.
-    /// </summary>
-    static void ReportInfo(const PluginInfo& info)
-    {
-        const auto& pluginName = info.GetName();
-        const auto& pluginVersion = info.GetVersion();
-        const auto& pluginAuthor = info.GetAuthor();
-        const auto& pluginDescription = info.GetDescription();
-
-        TBX_TRACE_INFO("{0}:", pluginName);
-        TBX_TRACE_INFO("    - Version: {0}", pluginVersion);
-        TBX_TRACE_INFO("    - Author: {0}", pluginAuthor);
-        TBX_TRACE_INFO("    - Description: {0}", pluginDescription);
     }
 }

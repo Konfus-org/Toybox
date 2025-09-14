@@ -35,9 +35,9 @@ namespace Tbx
             return *this;
         }
 
-        Vector3 Position = Constants::Vector3::Zero;
-        Quaternion Rotation = Constants::Quaternion::Identity;
-        Vector3 Scale = Constants::Vector3::One;
+        Vector3 Position = Consts::Vector3::Zero;
+        Quaternion Rotation = Consts::Quaternion::Identity;
+        Vector3 Scale = Consts::Vector3::One;
     };
 }
 

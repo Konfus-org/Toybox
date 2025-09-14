@@ -46,7 +46,7 @@ namespace Tbx
         float A = 1;
     };
 
-    namespace Colors
+    namespace Consts::Colors
     {
         EXPORT inline const RgbaColor& White = RgbaColor(1.0f, 1.0f, 1.0f, 1.0f);
         EXPORT inline const RgbaColor& Black = RgbaColor(0.0f, 0.0f, 0.0f, 1.0f);
