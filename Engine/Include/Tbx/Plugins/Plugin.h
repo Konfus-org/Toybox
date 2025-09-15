@@ -1,20 +1,23 @@
 #pragma once
 #include "Tbx/DllExport.h"
+#include <memory>
 
 namespace Tbx
 {
+    // Forward declaration for below macro
+    class App;
+
     /// <summary>
     /// Anything in the tbx lib that is intented to be a plugin should inherit from this interface!
     /// Plugins defined inside plugin libraries can also directly inherit from this if they only need to hook into things on load/unload.
     /// Otherwise its recommended to implement one of the TBX interfaces that inherit from this directly (defined below this interface in PluginInterfaces.h).
     /// </summary>
-    class EXPORT IPlugin
+    class EXPORT Plugin
     {
     public:
-        virtual ~IPlugin() = default;
-
-        virtual void OnLoad() = 0;
-        virtual void OnUnload() = 0;
+        virtual ~Plugin() = default;
+        virtual void OnLoad() {}
+        virtual void OnUnload() {}
     };
 }
 

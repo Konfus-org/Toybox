@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/Ids/UsesGUID.h"
-#include "Tbx/Assets/AssetLoader.h"
+#include "Tbx/Assets/AssetLoaders.h"
 #include <memory>
 
 namespace Tbx

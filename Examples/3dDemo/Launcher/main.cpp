@@ -3,7 +3,7 @@
 
 int main()
 {
-    auto status = Tbx::Launch();
+    auto status = Tbx::Launcher::Launch("3d Demo");
     if (status == Tbx::AppStatus::Error)
     {
         return EXIT_FAILURE;

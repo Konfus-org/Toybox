@@ -1,13 +1,19 @@
 #pragma once
+#include <Tbx/App/App.h>
 #include <Tbx/ECS/Toy.h>
 #include <Tbx/ECS/ThreeDSpace.h>
 #include <Tbx/Graphics/Material.h>
+#include <Tbx/Layers/Layer.h>
+#include <Tbx/Plugins/Plugin.h>
 
-class ExampleLayer : public Tbx::Layer
+class Demo : public Tbx::Layer, public Tbx::Plugin
 {
 public:
-    ExampleLayer(const std::string& name, std::weak_ptr<Tbx::App> app)
-        : Layer(name, app) {}
+    Demo(const std::weak_ptr<Tbx::App>& app)
+        : Layer("3d Demo")
+        , _app(app)
+    {
+    }
 
     void OnAttach() override;
     void OnDetach() override;
@@ -24,6 +30,9 @@ private:
     float _camPitch = 0.0f;
     float _camYaw = 0.0f;
 
-    Tbx::Material _simpleTexturedMat;
+    Tbx::Material _simpleTexturedMat = {};
+    std::weak_ptr<Tbx::App> _app = {};
 };
+
+TBX_REGISTER_PLUGIN(Demo);
 

@@ -1,20 +1,20 @@
 #include "Tbx/PCH.h"
-#include "Tbx/Plugins/PluginInfo.h"
+#include "Tbx/Plugins/PluginMeta.h"
 #include "Tbx/Plugins/PluginMetaReader.h"
 
 namespace Tbx
 {
-    PluginInfo::PluginInfo(const std::string& pathToPluginFolder, const std::string& pluginFileName)
+    PluginMeta::PluginMeta(const std::string& pathToPluginFolder, const std::string& pluginFileName)
     {
         Load(pathToPluginFolder + "/" + pluginFileName);
     }
 
-    std::string PluginInfo::ToString() const
+    std::string PluginMeta::ToString() const
     {
         return std::format("Name: {}\nAuthor: {}\nVersion: {}\nDescription: {}", _name, _author, _version, _description);
     }
 
-    void PluginInfo::Load(const std::string& pathToPluginFile)
+    void PluginMeta::Load(const std::string& pathToPluginFile)
     {
         auto metaData = PluginMetaReader::Read(pathToPluginFile);
         if (metaData.empty()) return;

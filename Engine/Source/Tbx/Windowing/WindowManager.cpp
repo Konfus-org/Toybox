@@ -71,8 +71,8 @@ namespace Tbx
 
     void WindowManager::CloseWindow(const Uid& id)
     {
-        GetWindow(id)->Close();
-        _stack.Remove(id);
+        auto window = GetWindow(id);
+        window->Close();
     }
 
     void WindowManager::CloseAllWindows()
@@ -81,6 +81,5 @@ namespace Tbx
         {
             window->Close();
         }
-        _stack.Clear();
     }
 }

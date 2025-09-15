@@ -20,11 +20,14 @@ namespace Tbx
         Error
     };
 
-    class App
+    class App : std::enable_shared_from_this<App>
     {
     public:
         EXPORT explicit(false) App(const std::string_view& name);
         EXPORT virtual ~App();
+
+        EXPORT void Run();
+        EXPORT void Close();
 
         EXPORT void SetSettings(const Settings& settings);
         EXPORT const Settings& GetSettings() const;
@@ -43,9 +46,9 @@ namespace Tbx
         EXPORT virtual void OnShutdown() {};
 
     private:
-        void Launch();
+        void Initialize();
         void Update();
-        void Close();
+        void Shutdown();
         void OnWindowClosed(const WindowClosedEvent& e);
 
     private:

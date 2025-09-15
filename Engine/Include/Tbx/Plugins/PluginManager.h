@@ -11,12 +11,8 @@ namespace Tbx
     class PluginManager
     {
     public:
-        PluginManager(const std::string& pathToPlugins, std::shared_ptr<EventBus> eventBus);
+        PluginManager(const std::string& pathToPlugins, std::shared_ptr<EventBus> eventBus, const std::weak_ptr<Tbx::App>& app);
         ~PluginManager();
-
-        /// <summary>
-        /// Loads plugins at the path.
-        /// </summary>
 
         /// <summary>
         /// Registers a plugin
@@ -67,7 +63,7 @@ namespace Tbx
         EXPORT const std::vector<std::shared_ptr<LoadedPlugin>>& GetPlugins();
 
     private:
-        std::vector<PluginInfo> SearchDirectoryForInfos(const std::string& pathToPlugins);
+        std::vector<PluginMeta> SearchDirectoryForInfos(const std::string& pathToPlugins);
         EXPORT void LoadPlugins(const std::string& pathToPlugins);
         EXPORT void UnloadPlugins();
 

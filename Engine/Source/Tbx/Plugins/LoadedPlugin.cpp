@@ -4,10 +4,10 @@
 
 namespace Tbx
 {
-    using PluginLoadFunc = IPlugin*(*)();
-    using PluginUnloadFunc = void(*)(IPlugin*);
+    using PluginLoadFunc = Plugin*(*)();
+    using PluginUnloadFunc = void(*)(Plugin*);
 
-    LoadedPlugin::LoadedPlugin(const PluginInfo& pluginInfo)
+    LoadedPlugin::LoadedPlugin(const PluginMeta& pluginInfo)
     {
         _pluginInfo = pluginInfo;
         Load();
@@ -23,7 +23,7 @@ namespace Tbx
         return _plugin != nullptr;
     }
 
-    const PluginInfo& LoadedPlugin::GetInfo() const
+    const PluginMeta& LoadedPlugin::GetMeta() const
     {
         return _pluginInfo;
     }
@@ -75,7 +75,7 @@ namespace Tbx
         const auto loadPluginFunc = reinterpret_cast<PluginLoadFunc>(loadFuncSymbol);
         const auto unloadPluginFunc = reinterpret_cast<PluginUnloadFunc>(unloadFuncSymbol);
         auto* loadedPlugin = loadPluginFunc();
-        std::shared_ptr<IPlugin> sharedLoadedPlugin(loadedPlugin, [unloadPluginFunc](IPlugin* pluginToUnload)
+        std::shared_ptr<Plugin> sharedLoadedPlugin(loadedPlugin, [unloadPluginFunc](Plugin* pluginToUnload)
         {
             unloadPluginFunc(pluginToUnload);
         });

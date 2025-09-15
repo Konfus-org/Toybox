@@ -54,24 +54,4 @@ namespace Tbx
             return "Window Closed Event";
         }
     };
-
-    class EXPORT WindowResizedEvent : public WindowActionEvent
-    {
-    public:
-        WindowResizedEvent(std::shared_ptr<IWindow> window, Size newSize)
-            : WindowActionEvent(std::move(window)), _newSize(newSize) {}
-
-        const Size& GetNewSize() const
-        {
-            return _newSize;
-        }
-
-        std::string ToString() const final
-        {
-            return "Window Resize Event";
-        }
-
-    private:
-        Size _newSize;
-    };
 }

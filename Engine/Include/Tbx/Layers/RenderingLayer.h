@@ -20,9 +20,9 @@ namespace Tbx
     {
     public:
         EXPORT RenderingLayer(
-            std::weak_ptr<ThreeDSpace> worldSpace,
-            std::weak_ptr<IRendererFactory> renderFactory,
-            std::weak_ptr<EventBus> eventBus);
+            std::shared_ptr<ThreeDSpace> worldSpace,
+            std::shared_ptr<IRendererFactory> renderFactory,
+            std::shared_ptr<EventBus> eventBus);
 
         /// <summary>
         /// Gets the renderer used by a given window.
@@ -36,15 +36,14 @@ namespace Tbx
         void DrawFrame();
         void OnWindowOpened(const WindowOpenedEvent& e);
         void OnWindowClosed(const WindowClosedEvent& e);
-        void OnWindowResized(const WindowResizedEvent& e);
         void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
 
     private:
         std::vector<std::shared_ptr<IWindow>> _windows = {};
         std::vector<std::shared_ptr<IRenderer>> _renderers = {};
-        std::weak_ptr<IRendererFactory> _renderFactory = {};
-        std::weak_ptr<ThreeDSpace> _worldSpace = {};
-        std::weak_ptr<EventBus> _eventBus = {};
+        std::shared_ptr<IRendererFactory> _renderFactory = {};
+        std::shared_ptr<ThreeDSpace> _worldSpace = {};
+        std::shared_ptr<EventBus> _eventBus = {};
         Tbx::RgbaColor _clearColor = {};
         bool _firstFrame = true;
     };

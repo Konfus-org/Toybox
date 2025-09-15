@@ -14,50 +14,22 @@ namespace Tbx
     App::App(const std::string_view& name)
     {
         _name = name;
-        _status = AppStatus::Initializing;
-        Launch();
     }
 
     App::~App()
     {
-        if (_status != AppStatus::Closed || _status == AppStatus::Closing) 
+        if (_status != AppStatus::None &&
+            _status != AppStatus::Closed)
         {
-            Close();
+            Shutdown();
         }
     }
-    
-    void App::Launch()
+
+    void App::Run()
     {
         try
         {
-            _status = AppStatus::Initializing;
-
-            // Init required systems
-            _eventBus = std::make_shared<EventBus>();
-            _pluginManager = std::make_shared<PluginManager>(FileSystem::GetWorkingDirectory(), _eventBus);
-            // TODO: windowing should be a layer, all app core systems should be a layer!
-            _windowManager = std::make_shared<WindowManager>(_pluginManager->GetPlugin<IWindowFactory>(), _eventBus);
-            _layerManager = std::make_shared<LayerManager>();
-
-            // Init required layers
-            {
-                const auto world = std::make_shared<WorldLayer>();
-                const auto rendering = std::make_shared<RenderingLayer>(world->GetWorldSpace(), _pluginManager->GetPlugin<IRendererFactory>(), _eventBus);
-                const auto input = std::make_shared<InputLayer>(_pluginManager->GetPlugin<IInputHandler>());
-                const auto log = std::make_shared<LogLayer>(_pluginManager->GetPlugin<ILoggerFactory>());
-                _layerManager->AddLayer(log);
-                _layerManager->AddLayer(input);
-                _layerManager->AddLayer(rendering);
-                _layerManager->AddLayer(world);
-            }
-
-            std::filesystem::path cwd = std::filesystem::current_path();
-            TBX_TRACE_INFO("Current working directory is: {}", cwd.string());
-
-            _eventBus->Subscribe(this, &App::OnWindowClosed);
-            _windowManager->OpenWindow(_name, WindowMode::Windowed, Size(1920, 1080));
-
-            OnLaunch();
+            Initialize();
 
             _status = AppStatus::Running;
             while (_status == AppStatus::Running)
@@ -75,6 +47,43 @@ namespace Tbx
         {
             _status = AppStatus::Closed;
         }
+    }
+
+    void App::Close()
+    {
+        Shutdown();
+    }
+    
+    void App::Initialize()
+    {
+        _status = AppStatus::Initializing;
+
+        // Init required systems
+        _eventBus = std::make_shared<EventBus>();
+        _pluginManager = std::make_shared<PluginManager>(FileSystem::GetWorkingDirectory(), _eventBus, shared_from_this());
+        // TODO: windowing should be a layer, all app core systems should be a layer!
+        _windowManager = std::make_shared<WindowManager>(_pluginManager->GetPlugin<IWindowFactory>(), _eventBus);
+        _layerManager = std::make_shared<LayerManager>();
+
+        // Init required layers
+        {
+            const auto world = std::make_shared<WorldLayer>();
+            const auto rendering = std::make_shared<RenderingLayer>(world->GetWorldSpace(), _pluginManager->GetPlugin<IRendererFactory>(), _eventBus);
+            const auto input = std::make_shared<InputLayer>(_pluginManager->GetPlugin<IInputHandler>());
+            const auto log = std::make_shared<LogLayer>(_pluginManager->GetPlugin<ILoggerFactory>());
+            _layerManager->AddLayer(log);
+            _layerManager->AddLayer(input);
+            _layerManager->AddLayer(rendering);
+            _layerManager->AddLayer(world);
+        }
+
+        std::filesystem::path cwd = std::filesystem::current_path();
+        TBX_TRACE_INFO("Current working directory is: {}", cwd.string());
+
+        _eventBus->Subscribe(this, &App::OnWindowClosed);
+        _windowManager->OpenWindow(_name, WindowMode::Windowed, Size(1920, 1080));
+
+        OnLaunch();
     }
 
     void App::Update()
@@ -115,7 +124,7 @@ namespace Tbx
         _eventBus->ProcessQueue();
     }
 
-    void App::Close()
+    void App::Shutdown()
     {
         TBX_TRACE_INFO("Shutting down...");
 

@@ -1,5 +1,4 @@
-#include "ExampleLayer.h"
-#include <Tbx/App/App.h>
+#include "Demo.h"
 #include <Tbx/Assets/Asset.h>
 #include <Tbx/Input/Input.h>
 #include <Tbx/Input/InputCodes.h>
@@ -9,10 +8,8 @@
 #include <Tbx/Graphics/Mesh.h>
 #include <Tbx/Math/Transform.h>
 #include <Tbx/Time/DeltaTime.h>
-#include <algorithm>
-#include <cmath>
 
-void ExampleLayer::OnAttach()
+void Demo::OnAttach()
 {
     TBX_TRACE("Test scene attached!");
 
@@ -24,7 +21,7 @@ void ExampleLayer::OnAttach()
     auto vertexShaderAsset = Tbx::Asset<Tbx::Shader>("Assets/vertex.vert");
 
     // Setup testing scene...
-    _world = GetApp()->GetLayer<Tbx::WorldLayer>();
+    _world = World::GetInstance();
     auto worldRoot = _world->GetRoot();
 
     // Setup base material
@@ -85,12 +82,12 @@ void ExampleLayer::OnAttach()
     }
 }
 
-void ExampleLayer::OnDetach()
+void Demo::OnDetach()
 {
     TBX_TRACE("Test scene detached!");
 }
 
-void ExampleLayer::OnUpdate()
+void Demo::OnUpdate()
 {
     auto worldRoot = _world->GetRoot();
     const auto& deltaTime = Tbx::Time::DeltaTime::InSeconds();

@@ -6,11 +6,11 @@
 
 namespace Tbx
 {
-    struct PluginInfo
+    struct PluginMeta
     {
     public:
-        EXPORT PluginInfo() = default;
-        EXPORT PluginInfo(const std::string& pathToPluginFolder, const std::string& pluginFileName);
+        EXPORT PluginMeta() = default;
+        EXPORT PluginMeta(const std::string& pathToPluginFolder, const std::string& pluginFileName);
 
         EXPORT bool IsValid() const { return !(_name.empty() || _version.empty() || _lib.empty()); }
         EXPORT const std::string& GetName() const { return _name; }

@@ -1,7 +1,7 @@
 #pragma once
-#include "Tbx/Plugins/IPlugin.h"
+#include "Tbx/Plugins/Plugin.h"
+#include "Tbx/Plugins/PluginMeta.h"
 #include "Tbx/Plugins/SharedLibrary.h"
-#include "Tbx/Plugins/PluginInfo.h"
 #include "Tbx/DllExport.h"
 #include <memory>
 
@@ -10,15 +10,15 @@ namespace Tbx
     class LoadedPlugin
     {
     public:
-        EXPORT explicit(true) LoadedPlugin(const PluginInfo& pluginInfo);
+        EXPORT explicit(true) LoadedPlugin(const PluginMeta& pluginInfo);
         EXPORT ~LoadedPlugin();
 
         EXPORT LoadedPlugin(const LoadedPlugin&) = delete;
         EXPORT LoadedPlugin& operator= (const LoadedPlugin&) = delete;
 
-        EXPORT bool IsValid() const;
-        EXPORT const PluginInfo& GetInfo() const;
         EXPORT void Reload();
+        EXPORT bool IsValid() const;
+        EXPORT const PluginMeta& GetMeta() const;
 
         /// <summary>
         /// Attempts to get the loaded plugin as the requested type.
@@ -38,7 +38,7 @@ namespace Tbx
         /// <summary>
         /// Gets the loaded plugin.
         /// </summary>
-        EXPORT std::shared_ptr<IPlugin> Get()
+        EXPORT std::shared_ptr<Plugin> Get()
         {
             return _plugin;
         }
@@ -47,8 +47,8 @@ namespace Tbx
         void Load();
         void Unload();
 
-        PluginInfo _pluginInfo = {};
+        PluginMeta _pluginInfo = {};
         SharedLibrary _library = {};
-        std::shared_ptr<IPlugin> _plugin = nullptr;
+        std::shared_ptr<Plugin> _plugin = nullptr;
     };
 }

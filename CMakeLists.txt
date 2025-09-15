@@ -95,8 +95,8 @@ target_link_libraries(Tests PRIVATE tbx_config)
 target_link_libraries(Launcher PUBLIC tbx_config)
 
 # Examples
-add_subdirectory(Examples/SimpleGame/Game)
-add_subdirectory(Examples/SimpleGame/Launcher)
+add_subdirectory(Examples/3dDemo/App)
+add_subdirectory(Examples/3dDemo/Launcher)
 
 # Plugins:
 add_subdirectory(Plugins/Toybox-ImGui-DebugUI-Plugin)
@@ -119,8 +119,8 @@ if(MSVC)
     set_property(TARGET SDL3Windowing PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET SpdLogging PROPERTY FOLDER "Toybox/Plugins")
     
-    set_property(TARGET SimpleGame PROPERTY FOLDER "Toybox/Examples")
-    set_property(TARGET SGLauncher PROPERTY FOLDER "Toybox/Examples")
+    set_property(TARGET 3dDemo PROPERTY FOLDER "Toybox/Examples")
+    set_property(TARGET 3dDemoLauncher PROPERTY FOLDER "Toybox/Examples")
 
     set_property(TARGET glad PROPERTY FOLDER "Dependencies")
     set_property(TARGET glm PROPERTY FOLDER "Dependencies")

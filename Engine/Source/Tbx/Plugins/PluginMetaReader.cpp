@@ -7,7 +7,7 @@
 
 namespace Tbx
 {
-    PluginMeta PluginMetaReader::Read(const std::string& jsonPath)
+    PluginMetaData PluginMetaReader::Read(const std::string& jsonPath)
     {
         // Open the JSON file
         std::ifstream file(jsonPath);

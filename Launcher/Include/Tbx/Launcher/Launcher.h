@@ -13,5 +13,5 @@ namespace Tbx::Launcher
     /// Launches an app with the given name in a special runtime loop that allows for hot reloading.
     /// The app will load plugins that are built at the given path, if no path is given TBX_PLUGINS_ROOT_DIR is used.
     /// </summary>
-    EXPORT AppStatus Launch(const std::string& name, const std::string& path);
+    EXPORT AppStatus Launch(const std::string& name);
 }

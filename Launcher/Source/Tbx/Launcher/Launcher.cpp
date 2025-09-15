@@ -3,14 +3,16 @@
 
 namespace Tbx::Launcher
 {
-    AppStatus Launch(const std::string& name, const std::string& path)
+    AppStatus Launch(const std::string& name)
     {
         auto status = AppStatus::None;
         auto running = true;
         while (running)
         {
-            // Creating the app will launch it
+            // Creating and run an app with the given name
             auto app = App(name);
+            app.Run();
+
             // After we've closed check if the app is asking for a reload
             // or if we should fully shutdown
             auto status = app.GetStatus();

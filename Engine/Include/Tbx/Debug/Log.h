@@ -4,6 +4,7 @@
 #include "Tbx/DllExport.h"
 #include <format>
 #include <memory>
+#include <queue>
 
 namespace Tbx
 {

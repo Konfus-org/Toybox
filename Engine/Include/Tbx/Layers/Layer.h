@@ -2,6 +2,7 @@
 #include "Tbx/DllExport.h"
 #include <string>
 #include <memory>
+#include <vector>
 
 namespace Tbx
 {

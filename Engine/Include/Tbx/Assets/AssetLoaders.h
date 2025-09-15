@@ -3,6 +3,8 @@
 #include "Tbx/Graphics/Texture.h"
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Files/WorkingDirectory.h"
+#include <filesystem>
+#include <functional>
 #include <memory>
 
 namespace Tbx
