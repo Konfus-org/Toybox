@@ -4,6 +4,8 @@
 #include "Tbx/Layers/InputLayer.h"
 #include "Tbx/Layers/WorldLayer.h"
 #include "Tbx/Layers/RenderingLayer.h"
+#include "Tbx/Layers/RuntimeLayer.h"
+#include "Tbx/Layers/WindowingLayer.h"
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Input/Input.h"
 #include "Tbx/Input/InputCodes.h"
@@ -64,21 +66,27 @@ namespace Tbx
 
         // Init required systems
         _eventBus = std::make_shared<EventBus>();
-        _pluginServer = std::make_shared<PluginServer>(workingDirectory, _eventBus, shared_from_this());
+        auto self = shared_from_this();
+        _pluginServer = std::make_shared<PluginServer>(workingDirectory, _eventBus, self);
         _assetServer = std::make_shared<AssetServer>(workingDirectory, _pluginServer->GetPlugins<IAssetLoader>());
-        // TODO: windowing should be a layer, all app core systems should be a layer!
-        _windowManager = std::make_shared<WindowManager>(_pluginServer->GetPlugin<IWindowFactory>(), _eventBus);
         _layerManager = std::make_shared<LayerManager>();
 
         // Init required layers
         const auto rendering = std::make_shared<RenderingLayer>(_pluginServer->GetPlugin<IRendererFactory>(), _eventBus);
         const auto input = std::make_shared<InputLayer>(_pluginServer->GetPlugin<IInputHandler>());
         const auto log = std::make_shared<LogLayer>(_pluginServer->GetPlugin<ILoggerFactory>());
+        const auto windowingLayer = std::make_shared<WindowingLayer>(
+            _pluginServer->GetPlugin<IWindowFactory>(),
+            _eventBus,
+            _name,
+            WindowMode::Windowed,
+            Size(1920, 1080));
+        const auto runtime = std::make_shared<RuntimeLayer>(weak_from_this());
         _layerManager->AddLayer(log);
         _layerManager->AddLayer(input);
+        _layerManager->AddLayer(windowingLayer);
+        _layerManager->AddLayer(runtime);
         _layerManager->AddLayer(rendering);
-
-        _windowManager->OpenWindow(_name, WindowMode::Windowed, Size(1920, 1080));
         _eventBus->Subscribe(this, &App::OnWindowClosed);
 
         OnLaunch();
@@ -114,7 +122,6 @@ namespace Tbx
         OnUpdate();
 
         _layerManager->UpdateLayers();
-        _windowManager->UpdateWindows();
 
         if (_status != AppStatus::Running) return;
 
@@ -144,7 +151,14 @@ namespace Tbx
     {
         // If the window is our main window, set running flag to false which will trigger the app to close
         auto window = e.GetWindow();
-        if (window && window->GetId() == _windowManager->GetMainWindow()->GetId())
+        const auto windowManager = GetWindowManager();
+        if (!windowManager)
+        {
+            return;
+        }
+
+        auto mainWindow = windowManager->GetMainWindow();
+        if (window && mainWindow && window->GetId() == mainWindow->GetId())
         {
             // Stop running and close all windows
             _status = AppStatus::Closing;
@@ -173,7 +187,13 @@ namespace Tbx
 
     std::shared_ptr<WindowManager> App::GetWindowManager()
     {
-        return _windowManager;
+        if (!_layerManager)
+        {
+            return nullptr;
+        }
+
+        const auto windowingLayer = _layerManager->GetLayer<WindowingLayer>();
+        return windowingLayer ? windowingLayer->GetWindowManager() : nullptr;
     }
 
     std::shared_ptr<PluginServer> App::GetPluginServer()
@@ -195,5 +215,42 @@ namespace Tbx
     const Settings& App::GetSettings() const
     {
         return _settings;
+    }
+
+    void App::AddRuntime(const std::shared_ptr<IRuntime>& runtime)
+    {
+        if (!runtime)
+        {
+            return;
+        }
+
+        const auto runtimeLayer = _layerManager ? _layerManager->GetLayer<RuntimeLayer>() : nullptr;
+        TBX_ASSERT(runtimeLayer, "Runtime layer must exist before adding runtimes");
+        runtimeLayer->AddRuntime(runtime);
+    }
+
+    void App::RemoveRuntime(const std::shared_ptr<IRuntime>& runtime)
+    {
+        if (!runtime)
+        {
+            return;
+        }
+
+        const auto runtimeLayer = _layerManager ? _layerManager->GetLayer<RuntimeLayer>() : nullptr;
+        if (runtimeLayer)
+        {
+            runtimeLayer->RemoveRuntime(runtime);
+        }
+    }
+
+    std::vector<std::shared_ptr<IRuntime>> App::GetRuntimes() const
+    {
+        const auto runtimeLayer = _layerManager ? _layerManager->GetLayer<RuntimeLayer>() : nullptr;
+        if (runtimeLayer)
+        {
+            return runtimeLayer->GetRuntimes();
+        }
+
+        return {};
     }
 }
