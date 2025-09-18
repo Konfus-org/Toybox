@@ -23,12 +23,12 @@ namespace Tbx
         std::shared_ptr<TData> Placeholder;
         /// <summary>Absolute path for the asset if known.</summary>
         std::filesystem::path AbsolutePath;
-        /// <summary>Whether loading should be triggered for this request.</summary>
-        bool ShouldLoad = false;
-        /// <summary>Existing asynchronous task to wait on if a load is already running.</summary>
-        std::shared_future<void> ExistingTask;
-        /// <summary>Promise used to signal completion to synchronous waiters.</summary>
-        std::shared_ptr<std::promise<void>> LoadingPromise;
+        /// <summary>Current loading task associated with the asset.</summary>
+        std::shared_future<void> LoadingTask;
+        /// <summary>Status of the asset prior to leaving the record lock.</summary>
+        AssetStatus Status = AssetStatus::Unloaded;
+        /// <summary>Status that was observed before any mutations were applied.</summary>
+        AssetStatus PreviousStatus = AssetStatus::Unloaded;
     };
 
     /// <summary>
@@ -69,8 +69,7 @@ namespace Tbx
         template <typename TData>
         void BeginLoadAsync(
             const std::shared_ptr<TData>& placeholder,
-            const std::filesystem::path& absolutePath,
-            const std::shared_ptr<std::promise<void>>& loadingPromise) const;
+            const std::filesystem::path& absolutePath) const;
 
         /// <summary>
         /// Loads an asset immediately on the calling thread.
@@ -78,8 +77,7 @@ namespace Tbx
         template <typename TData>
         void LoadImmediately(
             const std::shared_ptr<TData>& placeholder,
-            const std::filesystem::path& absolutePath,
-            const std::shared_ptr<std::promise<void>>& loadingPromise) const;
+            const std::filesystem::path& absolutePath) const;
 
         /// <summary>
         /// Finds a loader instance capable of handling the requested asset type and path.
@@ -91,6 +89,11 @@ namespace Tbx
         /// Validates that an asset has a resolved path and updates bookkeeping when it does not.
         /// </summary>
         bool EnsureCanLoad(const std::filesystem::path& absolutePath) const;
+
+        /// <summary>
+        /// Marks the completion promise stored on the record as finished.
+        /// </summary>
+        static void CompleteLoadingPromise(const std::shared_ptr<AssetRecord>& record);
 
         /// <summary>
         /// Marks the provided promise complete while ignoring duplicate fulfillment errors.
@@ -120,21 +123,34 @@ namespace Tbx
             return {};
         }
 
-        if (!preparation.ShouldLoad)
+        if (preparation.Status == AssetStatus::Loaded)
+        {
+            return preparation.Placeholder;
+        }
+
+        const bool hasActiveTask =
+            preparation.Status == AssetStatus::Loading && preparation.LoadingTask.valid() &&
+            preparation.PreviousStatus == AssetStatus::Loading;
+        const bool shouldBeginLoad =
+            preparation.Status == AssetStatus::Loading &&
+            (preparation.PreviousStatus != AssetStatus::Loading || !preparation.LoadingTask.valid());
+
+        if (!shouldBeginLoad && hasActiveTask)
         {
             return preparation.Placeholder;
         }
 
         if (!EnsureCanLoad(preparation.AbsolutePath))
         {
-            FulfillPromise(preparation.LoadingPromise);
+            CompleteLoadingPromise(_record);
             return preparation.Placeholder;
         }
 
-        BeginLoadAsync(
-            preparation.Placeholder,
-            preparation.AbsolutePath,
-            preparation.LoadingPromise);
+        if (shouldBeginLoad)
+        {
+            BeginLoadAsync(preparation.Placeholder, preparation.AbsolutePath);
+        }
+
         return preparation.Placeholder;
     }
 
@@ -147,23 +163,32 @@ namespace Tbx
             return {};
         }
 
-        if (preparation.ShouldLoad)
+        if (preparation.Status == AssetStatus::Loaded)
+        {
+            return preparation.Placeholder;
+        }
+
+        const bool hasActiveTask =
+            preparation.Status == AssetStatus::Loading && preparation.LoadingTask.valid() &&
+            preparation.PreviousStatus == AssetStatus::Loading;
+        const bool shouldBeginLoad =
+            preparation.Status == AssetStatus::Loading &&
+            (preparation.PreviousStatus != AssetStatus::Loading || !preparation.LoadingTask.valid());
+
+        if (shouldBeginLoad)
         {
             if (EnsureCanLoad(preparation.AbsolutePath))
             {
-                LoadImmediately(
-                    preparation.Placeholder,
-                    preparation.AbsolutePath,
-                    preparation.LoadingPromise);
+                LoadImmediately(preparation.Placeholder, preparation.AbsolutePath);
             }
             else
             {
-                FulfillPromise(preparation.LoadingPromise);
+                CompleteLoadingPromise(_record);
             }
         }
-        else if (preparation.ExistingTask.valid())
+        else if (hasActiveTask)
         {
-            preparation.ExistingTask.wait();
+            preparation.LoadingTask.wait();
         }
 
         return preparation.Placeholder;
@@ -190,13 +215,7 @@ namespace Tbx
             return preparation;
         }
 
-        auto assignLoadingPromise = [&]()
-        {
-            auto promise = std::make_shared<std::promise<void>>();
-            _record->LoadingTask = promise->get_future().share();
-            _record->ActiveAsyncTask = std::shared_future<void>();
-            preparation.LoadingPromise = std::move(promise);
-        };
+        const auto previousStatus = _record->Handle.Status;
 
         if (!_record->Data)
         {
@@ -204,9 +223,10 @@ namespace Tbx
             _record->Data = std::static_pointer_cast<void>(newPlaceholder);
             _record->Type = requestedType;
             _record->Handle.Status = AssetStatus::Loading;
-            assignLoadingPromise();
+            _record->LoadingPromise = std::make_shared<std::promise<void>>();
+            _record->LoadingTask = _record->LoadingPromise->get_future().share();
+            _record->ActiveAsyncTask = std::shared_future<void>();
             preparation.Placeholder = std::move(newPlaceholder);
-            preparation.ShouldLoad = true;
         }
         else
         {
@@ -223,7 +243,7 @@ namespace Tbx
                 preparation.Placeholder = std::move(reboundPlaceholder);
             }
 
-            if (_record->Handle.Status == AssetStatus::Unloaded || _record->Handle.Status == AssetStatus::Failed)
+            if (previousStatus == AssetStatus::Unloaded || previousStatus == AssetStatus::Failed)
             {
                 if (preparation.Placeholder)
                 {
@@ -231,29 +251,30 @@ namespace Tbx
                 }
 
                 _record->Handle.Status = AssetStatus::Loading;
-                assignLoadingPromise();
-                preparation.ShouldLoad = true;
-            }
-            else if (_record->Handle.Status == AssetStatus::Loading)
-            {
-                preparation.ExistingTask = _record->LoadingTask;
+                _record->LoadingPromise = std::make_shared<std::promise<void>>();
+                _record->LoadingTask = _record->LoadingPromise->get_future().share();
+                _record->ActiveAsyncTask = std::shared_future<void>();
             }
         }
 
-        if (preparation.ShouldLoad && !preparation.LoadingPromise)
+        if (_record->Handle.Status == AssetStatus::Loading && !_record->LoadingPromise)
         {
-            assignLoadingPromise();
+            _record->LoadingPromise = std::make_shared<std::promise<void>>();
+            _record->LoadingTask = _record->LoadingPromise->get_future().share();
+            _record->ActiveAsyncTask = std::shared_future<void>();
         }
 
         preparation.AbsolutePath = _record->AbsolutePath;
+        preparation.LoadingTask = _record->LoadingTask;
+        preparation.Status = _record->Handle.Status;
+        preparation.PreviousStatus = previousStatus;
         return preparation;
     }
 
     template <typename TData>
     inline void AssetCourier::BeginLoadAsync(
         const std::shared_ptr<TData>& placeholder,
-        const std::filesystem::path& absolutePath,
-        const std::shared_ptr<std::promise<void>>& loadingPromise) const
+        const std::filesystem::path& absolutePath) const
     {
         if (!placeholder)
         {
@@ -262,13 +283,17 @@ namespace Tbx
                 absolutePath.string());
             if (_record)
             {
-                std::lock_guard<std::mutex> entryLock(_record->Mutex);
-                _record->Handle.Status = AssetStatus::Failed;
-                _record->LoadingTask = std::shared_future<void>();
-                _record->ActiveAsyncTask = std::shared_future<void>();
-            }
+                std::shared_ptr<std::promise<void>> promise;
+                {
+                    std::lock_guard<std::mutex> entryLock(_record->Mutex);
+                    _record->Handle.Status = AssetStatus::Failed;
+                    _record->LoadingTask = std::shared_future<void>();
+                    _record->ActiveAsyncTask = std::shared_future<void>();
+                    promise = std::exchange(_record->LoadingPromise, nullptr);
+                }
 
-            FulfillPromise(loadingPromise);
+                FulfillPromise(promise);
+            }
             return;
         }
 
@@ -278,21 +303,26 @@ namespace Tbx
             TBX_TRACE_WARNING("AssetServer: no loader available for '{}'", absolutePath.string());
             if (_record)
             {
-                std::lock_guard<std::mutex> entryLock(_record->Mutex);
-                _record->Handle.Status = AssetStatus::Failed;
-                _record->LoadingTask = std::shared_future<void>();
-                _record->ActiveAsyncTask = std::shared_future<void>();
-            }
+                std::shared_ptr<std::promise<void>> promise;
+                {
+                    std::lock_guard<std::mutex> entryLock(_record->Mutex);
+                    _record->Handle.Status = AssetStatus::Failed;
+                    _record->LoadingTask = std::shared_future<void>();
+                    _record->ActiveAsyncTask = std::shared_future<void>();
+                    promise = std::exchange(_record->LoadingPromise, nullptr);
+                }
 
-            FulfillPromise(loadingPromise);
+                FulfillPromise(promise);
+            }
             return;
         }
 
-        auto task = std::async(std::launch::async, [record = _record, loader, placeholder, absolutePath, loadingPromise]()
+        auto task = std::async(std::launch::async, [record = _record, loader, placeholder, absolutePath]()
         {
             try
             {
                 auto data = loader->Load(absolutePath);
+                std::shared_ptr<std::promise<void>> promise;
                 if (record)
                 {
                     std::lock_guard<std::mutex> entryLock(record->Mutex);
@@ -304,11 +334,15 @@ namespace Tbx
                     record->Handle.Status = AssetStatus::Loaded;
                     record->LoadingTask = std::shared_future<void>();
                     record->ActiveAsyncTask = std::shared_future<void>();
+                    promise = std::exchange(record->LoadingPromise, nullptr);
                 }
+
+                AssetCourier::FulfillPromise(promise);
             }
             catch (const std::exception& ex)
             {
                 TBX_TRACE_WARNING("AssetServer: failed to load '{}': {}", absolutePath.string(), ex.what());
+                std::shared_ptr<std::promise<void>> promise;
                 if (record)
                 {
                     std::lock_guard<std::mutex> entryLock(record->Mutex);
@@ -320,10 +354,11 @@ namespace Tbx
                     record->Handle.Status = AssetStatus::Failed;
                     record->LoadingTask = std::shared_future<void>();
                     record->ActiveAsyncTask = std::shared_future<void>();
+                    promise = std::exchange(record->LoadingPromise, nullptr);
                 }
-            }
 
-            AssetCourier::FulfillPromise(loadingPromise);
+                AssetCourier::FulfillPromise(promise);
+            }
         });
 
         if (_record)
@@ -336,8 +371,7 @@ namespace Tbx
     template <typename TData>
     inline void AssetCourier::LoadImmediately(
         const std::shared_ptr<TData>& placeholder,
-        const std::filesystem::path& absolutePath,
-        const std::shared_ptr<std::promise<void>>& loadingPromise) const
+        const std::filesystem::path& absolutePath) const
     {
         if (!placeholder)
         {
@@ -346,13 +380,17 @@ namespace Tbx
                 absolutePath.string());
             if (_record)
             {
-                std::lock_guard<std::mutex> entryLock(_record->Mutex);
-                _record->Handle.Status = AssetStatus::Failed;
-                _record->LoadingTask = std::shared_future<void>();
-                _record->ActiveAsyncTask = std::shared_future<void>();
-            }
+                std::shared_ptr<std::promise<void>> promise;
+                {
+                    std::lock_guard<std::mutex> entryLock(_record->Mutex);
+                    _record->Handle.Status = AssetStatus::Failed;
+                    _record->LoadingTask = std::shared_future<void>();
+                    _record->ActiveAsyncTask = std::shared_future<void>();
+                    promise = std::exchange(_record->LoadingPromise, nullptr);
+                }
 
-            FulfillPromise(loadingPromise);
+                FulfillPromise(promise);
+            }
             return;
         }
 
@@ -362,13 +400,17 @@ namespace Tbx
             TBX_TRACE_WARNING("AssetServer: no loader available for '{}'", absolutePath.string());
             if (_record)
             {
-                std::lock_guard<std::mutex> entryLock(_record->Mutex);
-                _record->Handle.Status = AssetStatus::Failed;
-                _record->LoadingTask = std::shared_future<void>();
-                _record->ActiveAsyncTask = std::shared_future<void>();
-            }
+                std::shared_ptr<std::promise<void>> promise;
+                {
+                    std::lock_guard<std::mutex> entryLock(_record->Mutex);
+                    _record->Handle.Status = AssetStatus::Failed;
+                    _record->LoadingTask = std::shared_future<void>();
+                    _record->ActiveAsyncTask = std::shared_future<void>();
+                    promise = std::exchange(_record->LoadingPromise, nullptr);
+                }
 
-            FulfillPromise(loadingPromise);
+                FulfillPromise(promise);
+            }
             return;
         }
 
@@ -377,15 +419,21 @@ namespace Tbx
             auto data = loader->Load(absolutePath);
             if (_record)
             {
-                std::lock_guard<std::mutex> entryLock(_record->Mutex);
-                if (placeholder)
+                std::shared_ptr<std::promise<void>> promise;
                 {
-                    *placeholder = std::move(data);
+                    std::lock_guard<std::mutex> entryLock(_record->Mutex);
+                    if (placeholder)
+                    {
+                        *placeholder = std::move(data);
+                    }
+
+                    _record->Handle.Status = AssetStatus::Loaded;
+                    _record->LoadingTask = std::shared_future<void>();
+                    _record->ActiveAsyncTask = std::shared_future<void>();
+                    promise = std::exchange(_record->LoadingPromise, nullptr);
                 }
 
-                _record->Handle.Status = AssetStatus::Loaded;
-                _record->LoadingTask = std::shared_future<void>();
-                _record->ActiveAsyncTask = std::shared_future<void>();
+                FulfillPromise(promise);
             }
         }
         catch (const std::exception& ex)
@@ -393,19 +441,23 @@ namespace Tbx
             TBX_TRACE_WARNING("AssetServer: failed to load '{}': {}", absolutePath.string(), ex.what());
             if (_record)
             {
-                std::lock_guard<std::mutex> entryLock(_record->Mutex);
-                if (placeholder)
+                std::shared_ptr<std::promise<void>> promise;
                 {
-                    *placeholder = TData{};
+                    std::lock_guard<std::mutex> entryLock(_record->Mutex);
+                    if (placeholder)
+                    {
+                        *placeholder = TData{};
+                    }
+
+                    _record->Handle.Status = AssetStatus::Failed;
+                    _record->LoadingTask = std::shared_future<void>();
+                    _record->ActiveAsyncTask = std::shared_future<void>();
+                    promise = std::exchange(_record->LoadingPromise, nullptr);
                 }
 
-                _record->Handle.Status = AssetStatus::Failed;
-                _record->LoadingTask = std::shared_future<void>();
-                _record->ActiveAsyncTask = std::shared_future<void>();
+                FulfillPromise(promise);
             }
         }
-
-        FulfillPromise(loadingPromise);
     }
 
     template <typename TData>
@@ -440,13 +492,39 @@ namespace Tbx
 
         if (_record)
         {
-            std::lock_guard<std::mutex> entryLock(_record->Mutex);
-            _record->Handle.Status = AssetStatus::Failed;
-            _record->LoadingTask = std::shared_future<void>();
-            _record->ActiveAsyncTask = std::shared_future<void>();
+            std::shared_ptr<std::promise<void>> promise;
+            {
+                std::lock_guard<std::mutex> entryLock(_record->Mutex);
+                _record->Handle.Status = AssetStatus::Failed;
+                _record->LoadingTask = std::shared_future<void>();
+                _record->ActiveAsyncTask = std::shared_future<void>();
+                promise = std::exchange(_record->LoadingPromise, nullptr);
+            }
+
+            FulfillPromise(promise);
         }
 
         return false;
+    }
+
+    inline void AssetCourier::CompleteLoadingPromise(const std::shared_ptr<AssetRecord>& record)
+    {
+        if (!record)
+        {
+            return;
+        }
+
+        std::shared_ptr<std::promise<void>> promise;
+        {
+            std::lock_guard<std::mutex> entryLock(record->Mutex);
+            promise = std::exchange(record->LoadingPromise, nullptr);
+            if (!record->LoadingTask.valid())
+            {
+                record->LoadingTask = std::shared_future<void>();
+            }
+        }
+
+        FulfillPromise(promise);
     }
 
     inline void AssetCourier::FulfillPromise(const std::shared_ptr<std::promise<void>>& promise)

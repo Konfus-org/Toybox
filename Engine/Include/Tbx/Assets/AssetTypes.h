@@ -65,6 +65,8 @@ namespace Tbx
         std::shared_future<void> LoadingTask = {};
         /// <summary>Shared future keeping the asynchronous worker alive while it loads.</summary>
         std::shared_future<void> ActiveAsyncTask = {};
+        /// <summary>Promise used to signal completion to threads waiting on synchronous loads.</summary>
+        std::shared_ptr<std::promise<void>> LoadingPromise = {};
         /// <summary>Mutex guarding modifications to the record state.</summary>
         mutable std::mutex Mutex;
     };
