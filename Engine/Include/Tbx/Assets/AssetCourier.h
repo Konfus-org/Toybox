@@ -14,6 +14,24 @@
 namespace Tbx
 {
     /// <summary>
+    /// Captures the data necessary to either reuse an existing asset or trigger a new load.
+    /// </summary>
+    template <typename TData>
+    struct AssetDeliveryPreparation
+    {
+        /// <summary>Shared pointer that callers receive.</summary>
+        std::shared_ptr<TData> Placeholder;
+        /// <summary>Absolute path for the asset if known.</summary>
+        std::filesystem::path AbsolutePath;
+        /// <summary>Whether loading should be triggered for this request.</summary>
+        bool ShouldLoad = false;
+        /// <summary>Existing asynchronous task to wait on if a load is already running.</summary>
+        std::shared_future<void> ExistingTask;
+        /// <summary>Promise used to signal completion to synchronous waiters.</summary>
+        std::shared_ptr<std::promise<void>> LoadingPromise;
+    };
+
+    /// <summary>
     /// Coordinates placeholder creation, asynchronous loading, and synchronous delivery for assets.
     /// </summary>
     class AssetCourier
@@ -40,28 +58,10 @@ namespace Tbx
 
     private:
         /// <summary>
-        /// Captures the data necessary to either reuse an existing asset or trigger a new load.
-        /// </summary>
-        template <typename TData>
-        struct DeliveryPreparation
-        {
-            /// <summary>Shared pointer that callers receive.</summary>
-            std::shared_ptr<TData> Placeholder;
-            /// <summary>Absolute path for the asset if known.</summary>
-            std::filesystem::path AbsolutePath;
-            /// <summary>Whether loading should be triggered for this request.</summary>
-            bool ShouldLoad = false;
-            /// <summary>Existing asynchronous task to wait on if a load is already running.</summary>
-            std::shared_future<void> ExistingTask;
-            /// <summary>Promise used to signal completion to synchronous waiters.</summary>
-            std::shared_ptr<std::promise<void>> LoadingPromise;
-        };
-
-        /// <summary>
         /// Determines whether data is already available and prepares a placeholder for the caller.
         /// </summary>
         template <typename TData>
-        DeliveryPreparation<TData> PrepareDelivery() const;
+        AssetDeliveryPreparation<TData> PrepareDelivery() const;
 
         /// <summary>
         /// Begins an asynchronous load for the requested asset.
@@ -170,9 +170,9 @@ namespace Tbx
     }
 
     template <typename TData>
-    inline typename AssetCourier::template DeliveryPreparation<TData> AssetCourier::PrepareDelivery() const
+    inline AssetDeliveryPreparation<TData> AssetCourier::PrepareDelivery() const
     {
-        DeliveryPreparation<TData> preparation = {};
+        AssetDeliveryPreparation<TData> preparation = {};
         if (!_record)
         {
             return preparation;
