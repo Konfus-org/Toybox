@@ -7,8 +7,6 @@
 #include <future>
 #include <memory>
 #include <mutex>
-#include <new>
-#include <type_traits>
 #include <typeindex>
 #include <utility>
 #include <vector>
@@ -49,8 +47,6 @@ namespace Tbx
         {
             /// <summary>Shared pointer that callers receive.</summary>
             std::shared_ptr<TData> Placeholder;
-            /// <summary>Storage backing the placeholder while it is populated.</summary>
-            std::shared_ptr<typename AssetCourier::template Placeholder<TData>> PlaceholderStorage;
             /// <summary>Absolute path for the asset if known.</summary>
             std::filesystem::path AbsolutePath;
             /// <summary>Whether loading should be triggered for this request.</summary>
@@ -59,49 +55,6 @@ namespace Tbx
             std::shared_future<void> ExistingTask;
             /// <summary>Promise used to signal completion to synchronous waiters.</summary>
             std::shared_ptr<std::promise<void>> LoadingPromise;
-        };
-
-        /// <summary>
-        /// Placeholder implementation that defers constructing <typeparamref name="TData"/> until loader completion.
-        /// </summary>
-        template <typename TData>
-        struct Placeholder final : AssetPlaceholderBase
-        {
-            Placeholder() = default;
-
-            ~Placeholder() override
-            {
-                Reset();
-            }
-
-            /// <summary>Retrieves a pointer to the storage that will eventually contain the asset.</summary>
-            TData* Get()
-            {
-                return std::launder(reinterpret_cast<TData*>(&_storage));
-            }
-
-            /// <summary>Destroys any constructed value residing within the storage.</summary>
-            void Reset() override
-            {
-                if (_hasValue)
-                {
-                    std::destroy_at(Get());
-                    _hasValue = false;
-                }
-            }
-
-            /// <summary>Constructs a new value in-place using the supplied loader output.</summary>
-            template <typename TValue>
-            void SetValue(TValue&& value)
-            {
-                Reset();
-                std::construct_at(Get(), std::forward<TValue>(value));
-                _hasValue = true;
-            }
-
-        private:
-            std::aligned_storage_t<sizeof(TData), alignof(TData)> _storage = {};
-            bool _hasValue = false;
         };
 
         /// <summary>
@@ -116,7 +69,6 @@ namespace Tbx
         template <typename TData>
         void BeginLoadAsync(
             const std::shared_ptr<TData>& placeholder,
-            const std::shared_ptr<Placeholder<TData>>& storage,
             const std::filesystem::path& absolutePath,
             const std::shared_ptr<std::promise<void>>& loadingPromise) const;
 
@@ -126,7 +78,6 @@ namespace Tbx
         template <typename TData>
         void LoadImmediately(
             const std::shared_ptr<TData>& placeholder,
-            const std::shared_ptr<Placeholder<TData>>& storage,
             const std::filesystem::path& absolutePath,
             const std::shared_ptr<std::promise<void>>& loadingPromise) const;
 
@@ -182,7 +133,6 @@ namespace Tbx
 
         BeginLoadAsync(
             preparation.Placeholder,
-            preparation.PlaceholderStorage,
             preparation.AbsolutePath,
             preparation.LoadingPromise);
         return preparation.Placeholder;
@@ -203,7 +153,6 @@ namespace Tbx
             {
                 LoadImmediately(
                     preparation.Placeholder,
-                    preparation.PlaceholderStorage,
                     preparation.AbsolutePath,
                     preparation.LoadingPromise);
             }
@@ -241,8 +190,6 @@ namespace Tbx
             return preparation;
         }
 
-        auto placeholderStorage = std::dynamic_pointer_cast<Placeholder<TData>>(_record->Placeholder);
-
         auto assignLoadingPromise = [&]()
         {
             auto promise = std::make_shared<std::promise<void>>();
@@ -253,19 +200,12 @@ namespace Tbx
 
         if (!_record->Data)
         {
-            if (!placeholderStorage)
-            {
-                placeholderStorage = std::make_shared<Placeholder<TData>>();
-            }
-
-            auto newPlaceholder = std::shared_ptr<TData>(placeholderStorage, placeholderStorage->Get());
+            auto newPlaceholder = std::make_shared<TData>();
             _record->Data = std::static_pointer_cast<void>(newPlaceholder);
-            _record->Placeholder = placeholderStorage;
             _record->Type = requestedType;
             _record->Handle.Status = AssetStatus::Loading;
             assignLoadingPromise();
             preparation.Placeholder = std::move(newPlaceholder);
-            preparation.PlaceholderStorage = placeholderStorage;
             preparation.ShouldLoad = true;
         }
         else
@@ -276,25 +216,18 @@ namespace Tbx
             }
 
             preparation.Placeholder = std::static_pointer_cast<TData>(_record->Data);
-            if (!placeholderStorage)
+            if (!preparation.Placeholder)
             {
-                placeholderStorage = std::make_shared<Placeholder<TData>>();
-                _record->Placeholder = placeholderStorage;
-            }
-
-            if (!preparation.Placeholder || preparation.Placeholder.get() != placeholderStorage->Get())
-            {
-                auto reboundPlaceholder = std::shared_ptr<TData>(placeholderStorage, placeholderStorage->Get());
+                auto reboundPlaceholder = std::make_shared<TData>();
                 _record->Data = std::static_pointer_cast<void>(reboundPlaceholder);
                 preparation.Placeholder = std::move(reboundPlaceholder);
             }
 
-            preparation.PlaceholderStorage = placeholderStorage;
             if (_record->Handle.Status == AssetStatus::Unloaded || _record->Handle.Status == AssetStatus::Failed)
             {
-                if (placeholderStorage)
+                if (preparation.Placeholder)
                 {
-                    placeholderStorage->Reset();
+                    *preparation.Placeholder = TData{};
                 }
 
                 _record->Handle.Status = AssetStatus::Loading;
@@ -319,16 +252,13 @@ namespace Tbx
     template <typename TData>
     inline void AssetCourier::BeginLoadAsync(
         const std::shared_ptr<TData>& placeholder,
-        const std::shared_ptr<Placeholder<TData>>& storage,
         const std::filesystem::path& absolutePath,
         const std::shared_ptr<std::promise<void>>& loadingPromise) const
     {
-        static_cast<void>(placeholder);
-
-        if (!storage)
+        if (!placeholder)
         {
             TBX_TRACE_WARNING(
-                "AssetServer: missing placeholder storage while attempting to load '{}' asynchronously.",
+                "AssetServer: missing placeholder while attempting to load '{}' asynchronously.",
                 absolutePath.string());
             if (_record)
             {
@@ -349,11 +279,6 @@ namespace Tbx
             if (_record)
             {
                 std::lock_guard<std::mutex> entryLock(_record->Mutex);
-                if (storage)
-                {
-                    storage->Reset();
-                }
-
                 _record->Handle.Status = AssetStatus::Failed;
                 _record->LoadingTask = std::shared_future<void>();
                 _record->ActiveAsyncTask = std::shared_future<void>();
@@ -363,7 +288,7 @@ namespace Tbx
             return;
         }
 
-        auto task = std::async(std::launch::async, [record = _record, loader, storage, absolutePath, loadingPromise]()
+        auto task = std::async(std::launch::async, [record = _record, loader, placeholder, absolutePath, loadingPromise]()
         {
             try
             {
@@ -371,9 +296,9 @@ namespace Tbx
                 if (record)
                 {
                     std::lock_guard<std::mutex> entryLock(record->Mutex);
-                    if (storage)
+                    if (placeholder)
                     {
-                        storage->SetValue(std::move(data));
+                        *placeholder = std::move(data);
                     }
 
                     record->Handle.Status = AssetStatus::Loaded;
@@ -387,9 +312,9 @@ namespace Tbx
                 if (record)
                 {
                     std::lock_guard<std::mutex> entryLock(record->Mutex);
-                    if (storage)
+                    if (placeholder)
                     {
-                        storage->Reset();
+                        *placeholder = TData{};
                     }
 
                     record->Handle.Status = AssetStatus::Failed;
@@ -411,16 +336,13 @@ namespace Tbx
     template <typename TData>
     inline void AssetCourier::LoadImmediately(
         const std::shared_ptr<TData>& placeholder,
-        const std::shared_ptr<Placeholder<TData>>& storage,
         const std::filesystem::path& absolutePath,
         const std::shared_ptr<std::promise<void>>& loadingPromise) const
     {
-        static_cast<void>(placeholder);
-
-        if (!storage)
+        if (!placeholder)
         {
             TBX_TRACE_WARNING(
-                "AssetServer: missing placeholder storage while attempting to load '{}' synchronously.",
+                "AssetServer: missing placeholder while attempting to load '{}' synchronously.",
                 absolutePath.string());
             if (_record)
             {
@@ -441,11 +363,6 @@ namespace Tbx
             if (_record)
             {
                 std::lock_guard<std::mutex> entryLock(_record->Mutex);
-                if (storage)
-                {
-                    storage->Reset();
-                }
-
                 _record->Handle.Status = AssetStatus::Failed;
                 _record->LoadingTask = std::shared_future<void>();
                 _record->ActiveAsyncTask = std::shared_future<void>();
@@ -461,9 +378,9 @@ namespace Tbx
             if (_record)
             {
                 std::lock_guard<std::mutex> entryLock(_record->Mutex);
-                if (storage)
+                if (placeholder)
                 {
-                    storage->SetValue(std::move(data));
+                    *placeholder = std::move(data);
                 }
 
                 _record->Handle.Status = AssetStatus::Loaded;
@@ -477,9 +394,9 @@ namespace Tbx
             if (_record)
             {
                 std::lock_guard<std::mutex> entryLock(_record->Mutex);
-                if (storage)
+                if (placeholder)
                 {
-                    storage->Reset();
+                    *placeholder = TData{};
                 }
 
                 _record->Handle.Status = AssetStatus::Failed;

@@ -47,15 +47,6 @@ namespace Tbx
     };
 
     /// <summary>
-    /// Polymorphic base for type-erased asset placeholders.
-    /// </summary>
-    struct AssetPlaceholderBase
-    {
-        virtual ~AssetPlaceholderBase() = default;
-        virtual void Reset() = 0;
-    };
-
-    /// <summary>
     /// Internal bookkeeping structure used by <see cref="AssetServer"/> to track assets.
     /// </summary>
     struct AssetRecord
@@ -70,8 +61,6 @@ namespace Tbx
         std::type_index Type = std::type_index(typeid(void));
         /// <summary>Shared pointer to the placeholder or fully loaded asset data.</summary>
         std::shared_ptr<void> Data = nullptr;
-        /// <summary>Storage backing the placeholder while an asset load is in flight.</summary>
-        std::shared_ptr<AssetPlaceholderBase> Placeholder = nullptr;
         /// <summary>Future representing an in-flight asynchronous load operation.</summary>
         std::shared_future<void> LoadingTask = {};
         /// <summary>Shared future keeping the asynchronous worker alive while it loads.</summary>
