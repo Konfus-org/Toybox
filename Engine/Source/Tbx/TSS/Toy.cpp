@@ -1,13 +1,13 @@
 #include "Tbx/PCH.h"
-#include "Tbx/ECS/Toy.h"
+#include "Tbx/TSS/Toy.h"
 #include "Tbx/Debug/Debugging.h"
 #include <algorithm>
 
 namespace Tbx
 {
     Toy::Toy(const std::string& name)
+        : _handle(name)
     {
-        _handle = name;
     }
 
     std::shared_ptr<Toy> Toy::EmplaceChild(const std::string& name)
@@ -45,7 +45,7 @@ namespace Tbx
     {
         for (const auto& child : _children)
         {
-            if (child->GetHandle() == handle)
+            if (child->GetHandle().Id == handle.Id)
             {
                 return child;
             }
@@ -82,7 +82,7 @@ namespace Tbx
 
     const std::string& Toy::GetName() const
     {
-        return _handle.GetName();
+        return _handle.Name;
     }
 
     const ToyHandle& Toy::GetHandle() const

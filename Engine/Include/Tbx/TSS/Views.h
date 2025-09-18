@@ -1,29 +1,27 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/ECS/Toy.h"
-#include <functional>
+#include "Tbx/TSS/Toy.h"
 #include <memory>
-#include <utility>
 #include <vector>
 
 namespace Tbx
 {
-    using WorldViewIterator = typename std::vector<std::shared_ptr<Toy>>::iterator;
-    using ConstWorldViewIterator = typename std::vector<std::shared_ptr<Toy>>::const_iterator;
+    using StageViewIterator = typename std::vector<std::shared_ptr<Toy>>::iterator;
+    using ConstStageViewIterator = typename std::vector<std::shared_ptr<Toy>>::const_iterator;
 
     /// <summary>
     /// Provides iteration over toys that contain data of the specified block types.
     /// If no types are specified, all toys are included.
     /// </summary>
     template <typename... Ts>
-    class WorldView
+    class StageView
     {
     public:
         /// <summary>
         /// Creates a view rooted at the given toy.
         /// </summary>
         /// <param name="root">Root toy to search from.</param>
-        explicit(false) WorldView(const std::shared_ptr<Toy>& root)
+        explicit(false) StageView(const std::shared_ptr<Toy>& root)
         {
             if (root)
             {
@@ -32,22 +30,22 @@ namespace Tbx
         }
 
         /// <summary>Returns an iterator to the first toy in the view.</summary>
-        WorldViewIterator begin() { return _viewVector.begin(); }
+        StageViewIterator begin() { return _viewVector.begin(); }
 
         /// <summary>Returns an iterator one past the last toy in the view.</summary>
-        WorldViewIterator end() { return _viewVector.end(); }
+        StageViewIterator end() { return _viewVector.end(); }
 
         /// <summary>Returns a const iterator to the first toy in the view.</summary>
-        ConstWorldViewIterator begin() const { return _viewVector.begin(); }
+        ConstStageViewIterator begin() const { return _viewVector.begin(); }
 
         /// <summary>Returns a const iterator one past the last toy in the view.</summary>
-        ConstWorldViewIterator end() const { return _viewVector.end(); }
+        ConstStageViewIterator end() const { return _viewVector.end(); }
 
         /// <summary>Returns a const iterator to the first toy in the view.</summary>
-        ConstWorldViewIterator cbegin() const { return _viewVector.cbegin(); }
+        ConstStageViewIterator cbegin() const { return _viewVector.cbegin(); }
 
         /// <summary>Returns a const iterator one past the last toy in the view.</summary>
-        ConstWorldViewIterator cend() const { return _viewVector.cend(); }
+        ConstStageViewIterator cend() const { return _viewVector.cend(); }
 
     private:
         /// <summary>
@@ -85,5 +83,5 @@ namespace Tbx
     /// <summary>
     /// A view that includes all toys in the hierarchy.
     /// </summary>
-    using FullWorldView = WorldView<>;
+    using FullStageViewView = StageView<>;
 }

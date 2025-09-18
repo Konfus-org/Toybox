@@ -1,9 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Ids/UsesUID.h"
 #include "Tbx/Math/Size.h"
 #include "Tbx/Debug/Debugging.h"
-#include <string>
 #include <vector>
 
 namespace Tbx

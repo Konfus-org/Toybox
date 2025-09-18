@@ -1,26 +1,21 @@
 #pragma once
-#include "Tbx/Events/Event.h"
 #include "Tbx/DllExport.h"
-#include "Tbx/Ids/UID.h"
-#include <vector>
+#include "Tbx/Events/Event.h"
+#include "Tbx/TSS/Stage.h"
 
 namespace Tbx
 {
-    class EXPORT WorldEvent : public Event
-    {
-    };
-
     /// <summary>
     /// Occurs when boxes are opened.
     /// This happens when boxes have been loaded.
     /// </summary>
-    class OpenedBoxEvent : public WorldEvent
+    class StageOpenedEvent : public Event
     {
     public:
-        explicit OpenedBoxEvent(const Uid& openedBox)
-            : _openedBox(openedBox) {}
+        EXPORT explicit StageOpenedEvent(std::shared_ptr<Stage> opened)
+            : _opened(opened) {}
 
-        const Uid GetOpenedBox() const { return _openedBox; }
+        EXPORT const std::shared_ptr<Stage> GetStage() const { return _opened; }
 
         EXPORT std::string ToString() const final
         {
@@ -28,20 +23,20 @@ namespace Tbx
         }
 
     private:
-        Uid _openedBox = {};
+        std::shared_ptr<Stage> _opened = {};
     };
 
     /// <summary>
     /// Occurs when boxes are opened.
     /// This happens when boxes have been loaded.
     /// </summary>
-    class ClosedBoxEvent : public WorldEvent
+    class StageClosedEvent : public Event
     {
     public:
-        explicit ClosedBoxEvent(const Uid& closed)
-            : _closedBox(closed) {}
+        EXPORT explicit StageClosedEvent(std::shared_ptr<Stage> closed)
+            : _closed(closed) {}
 
-        const Uid GetClosedBox() const { return _closedBox; }
+        EXPORT const std::shared_ptr<Stage> GetStage() const { return _closed; }
 
         EXPORT std::string ToString() const final
         {
@@ -49,6 +44,6 @@ namespace Tbx
         }
 
     private:
-        Uid _closedBox = {};
+        std::shared_ptr<Stage> _closed = {};
     };
 }

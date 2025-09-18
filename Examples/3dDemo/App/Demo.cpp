@@ -1,5 +1,4 @@
 #include "Demo.h"
-#include <Tbx/Assets/Asset.h>
 #include <Tbx/Input/Input.h>
 #include <Tbx/Input/InputCodes.h>
 #include <Tbx/Graphics/Texture.h>
@@ -14,25 +13,26 @@ void Demo::OnAttach()
     TBX_TRACE("Test scene attached!");
 
     // Load assets
-    auto smilyTexAsset = Tbx::Asset<Tbx::Texture>("Assets/Smily.png");
-    auto wallTexAsset = Tbx::Asset<Tbx::Texture>("Assets/Wall.jpg");
-    auto checkerboardTexAsset = Tbx::Asset<Tbx::Texture>("Assets/Checkerboard.png");
-    auto fragmentShaderAsset = Tbx::Asset<Tbx::Shader>("Assets/fragment.frag");
-    auto vertexShaderAsset = Tbx::Asset<Tbx::Shader>("Assets/vertex.vert");
+    auto assetServer = _app.lock()->GetAssetServer();
+    auto& smilyTexAsset = assetServer->GetAsset("Assets/Smily.png");
+    auto& wallTexAsset = assetServer->GetAsset("Assets/Wall.jpg");
+    auto& checkerboardTexAsset = assetServer->GetAsset("Assets/Checkerboard.png");
+    auto& fragmentShaderAsset = assetServer->GetAsset("Assets/fragment.frag");
+    auto& vertexShaderAsset = assetServer->GetAsset("Assets/vertex.vert");
 
     // Setup testing scene...
-    _world = World::GetInstance();
+    _world = std::make_shared<Tbx::Stage>(_app.lock()->GetEventBus());
     auto worldRoot = _world->GetRoot();
 
     // Setup base material
-    auto vertShader = *vertexShaderAsset.GetData();
-    auto fragShader = *fragmentShaderAsset.GetData();
+    auto vertShader = vertexShaderAsset.Load<Tbx::Shader>();
+    auto fragShader = fragmentShaderAsset->GetData();
     _simpleTexturedMat = Tbx::Material({vertShader, fragShader});
 
     // Get textures to use for our material instances
-    auto smilyTex = *smilyTexAsset.GetData();
-    auto wallTex = *wallTexAsset.GetData();
-    auto checkerTex = *checkerboardTexAsset.GetData();
+    auto smilyTex = smilyTexAsset->GetData();
+    auto wallTex = wallTexAsset->GetData();
+    auto checkerTex = checkerboardTexAsset->GetData();
 
     // Create room
     {

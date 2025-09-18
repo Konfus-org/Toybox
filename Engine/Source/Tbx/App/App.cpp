@@ -8,6 +8,7 @@
 #include "Tbx/Input/Input.h"
 #include "Tbx/Input/InputCodes.h"
 #include "Tbx/Time/DeltaTime.h"
+#include "Tbx/Files/Paths.h"
 
 namespace Tbx
 {
@@ -18,8 +19,7 @@ namespace Tbx
 
     App::~App()
     {
-        if (_status != AppStatus::None &&
-            _status != AppStatus::Closed)
+        if (_status != AppStatus::Closed)
         {
             Shutdown();
         }
@@ -58,30 +58,28 @@ namespace Tbx
     {
         _status = AppStatus::Initializing;
 
+        auto workingDirectory = FileSystem::GetWorkingDirectory();
+        //std::filesystem::path cwd = std::filesystem::current_path();
+        TBX_TRACE_INFO("Current working directory is: {}", workingDirectory);
+
         // Init required systems
         _eventBus = std::make_shared<EventBus>();
-        _pluginManager = std::make_shared<PluginManager>(FileSystem::GetWorkingDirectory(), _eventBus, shared_from_this());
+        _pluginServer = std::make_shared<PluginServer>(workingDirectory, _eventBus, shared_from_this());
+        _assetServer = std::make_shared<AssetServer>(workingDirectory, _pluginServer->GetPlugins<IAssetLoader>());
         // TODO: windowing should be a layer, all app core systems should be a layer!
-        _windowManager = std::make_shared<WindowManager>(_pluginManager->GetPlugin<IWindowFactory>(), _eventBus);
+        _windowManager = std::make_shared<WindowManager>(_pluginServer->GetPlugin<IWindowFactory>(), _eventBus);
         _layerManager = std::make_shared<LayerManager>();
 
         // Init required layers
-        {
-            const auto world = std::make_shared<WorldLayer>();
-            const auto rendering = std::make_shared<RenderingLayer>(world->GetWorldSpace(), _pluginManager->GetPlugin<IRendererFactory>(), _eventBus);
-            const auto input = std::make_shared<InputLayer>(_pluginManager->GetPlugin<IInputHandler>());
-            const auto log = std::make_shared<LogLayer>(_pluginManager->GetPlugin<ILoggerFactory>());
-            _layerManager->AddLayer(log);
-            _layerManager->AddLayer(input);
-            _layerManager->AddLayer(rendering);
-            _layerManager->AddLayer(world);
-        }
+        const auto rendering = std::make_shared<RenderingLayer>(_pluginServer->GetPlugin<IRendererFactory>(), _eventBus);
+        const auto input = std::make_shared<InputLayer>(_pluginServer->GetPlugin<IInputHandler>());
+        const auto log = std::make_shared<LogLayer>(_pluginServer->GetPlugin<ILoggerFactory>());
+        _layerManager->AddLayer(log);
+        _layerManager->AddLayer(input);
+        _layerManager->AddLayer(rendering);
 
-        std::filesystem::path cwd = std::filesystem::current_path();
-        TBX_TRACE_INFO("Current working directory is: {}", cwd.string());
-
-        _eventBus->Subscribe(this, &App::OnWindowClosed);
         _windowManager->OpenWindow(_name, WindowMode::Windowed, Size(1920, 1080));
+        _eventBus->Subscribe(this, &App::OnWindowClosed);
 
         OnLaunch();
     }
@@ -178,9 +176,14 @@ namespace Tbx
         return _windowManager;
     }
 
-    std::shared_ptr<PluginManager> App::GetPluginManager()
+    std::shared_ptr<PluginServer> App::GetPluginServer()
     {
-        return _pluginManager;
+        return _pluginServer;
+    }
+
+    std::shared_ptr<AssetServer> App::GetAssetServer()
+    {
+        return _assetServer;
     }
 
     void App::SetSettings(const Settings& settings)

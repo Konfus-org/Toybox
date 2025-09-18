@@ -48,7 +48,7 @@ namespace Tbx
         }
 
         // Get load plugin function from library
-        const auto loadFuncSymbol = _library.GetSymbol("Load");
+        const auto loadFuncSymbol = _library.GetSymbol("Load_" + _pluginInfo.GetName());
         if (!loadFuncSymbol)
         {
             TBX_TRACE_ERROR("Failed to load library because no load library function was found in: {0}, is it calling TBX_REGISTER_PLUGIN?", pluginFullPath);

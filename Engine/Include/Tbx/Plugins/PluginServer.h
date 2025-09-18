@@ -8,11 +8,11 @@
 
 namespace Tbx
 {
-    class PluginManager
+    class PluginServer
     {
     public:
-        PluginManager(const std::string& pathToPlugins, std::shared_ptr<EventBus> eventBus, const std::weak_ptr<Tbx::App>& app);
-        ~PluginManager();
+        PluginServer(const std::string& pathToPlugins, std::shared_ptr<EventBus> eventBus, const std::weak_ptr<Tbx::App>& app);
+        ~PluginServer();
 
         /// <summary>
         /// Registers a plugin

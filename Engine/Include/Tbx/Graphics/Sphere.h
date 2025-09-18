@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/ECS/Toy.h"
+#include "Tbx/TSS/Toy.h"
 #include "Tbx/Math/Transform.h"
 #include "Tbx/Math/Constants.h"
 #include <algorithm>

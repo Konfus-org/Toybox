@@ -2,21 +2,16 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Graphics/Texture.h"
-#include "Tbx/Graphics/Color.h"
 #include <vector>
-#include <unordered_map>
 
 namespace Tbx
 {
     /// <summary>
     ///  A material is a collection of shaders
     /// </summary>
-    class Material : public UsesUid
+    struct Material : public UsesUid
     {
     public:
-        /// <summary>
-        /// Makes a material with the default shaders
-        /// </summary>
         EXPORT Material() = default;
         EXPORT Material(const std::initializer_list<Shader>& shaders)
             : _shaders(shaders) {}
@@ -27,13 +22,13 @@ namespace Tbx
         EXPORT void SetShaders(const std::vector<Shader>& shaders) { _shaders = shaders; }
 
     private:
-        std::vector<Shader> _shaders = { Shaders::DefaultFragmentShader, Shaders::DefaultVertexShader }; // default to default fragment and vertex shaders
+        std::vector<Shader> _shaders = {};
     };
 
     /// <summary>
     /// A material instance is a material at runtime, it represents a material with different params and textures.
     /// </summary>
-    class MaterialInstance : public UsesUid
+    struct MaterialInstance : public UsesUid
     {
     public:
         EXPORT MaterialInstance(const Material& material, const Texture& texture)

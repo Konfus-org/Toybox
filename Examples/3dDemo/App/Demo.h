@@ -1,7 +1,7 @@
 #pragma once
 #include <Tbx/App/App.h>
-#include <Tbx/ECS/Toy.h>
-#include <Tbx/ECS/ThreeDSpace.h>
+#include <Tbx/TSS/Toy.h>
+#include <Tbx/TSS/Stage.h>
 #include <Tbx/Graphics/Material.h>
 #include <Tbx/Layers/Layer.h>
 #include <Tbx/Plugins/Plugin.h>
@@ -20,7 +20,7 @@ public:
     void OnUpdate() override;
 
 private:
-    std::shared_ptr<Tbx::ThreeDSpace> _world = nullptr;
+    std::shared_ptr<Tbx::Stage> _world = nullptr;
     std::shared_ptr<Tbx::Toy> _fpsCam = nullptr;
     std::shared_ptr<Tbx::Toy> _smily = nullptr;
 

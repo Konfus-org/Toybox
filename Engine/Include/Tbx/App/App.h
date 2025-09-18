@@ -1,10 +1,12 @@
 #pragma once
 #include "Tbx/App/Settings.h"
+#include "Tbx/App/IRuntime.h"
+#include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Windowing/WindowManager.h"
 #include "Tbx/Layers/LayerManager.h"
-#include "Tbx/Plugins/PluginManager.h"
+#include "Tbx/Plugins/PluginServer.h"
 #include <memory>
 
 namespace Tbx
@@ -38,7 +40,8 @@ namespace Tbx
         EXPORT std::shared_ptr<EventBus> GetEventBus();
         EXPORT std::shared_ptr<LayerManager> GetLayerManager();
         EXPORT std::shared_ptr<WindowManager> GetWindowManager();
-        EXPORT std::shared_ptr<PluginManager> GetPluginManager();
+        EXPORT std::shared_ptr<PluginServer> GetPluginServer();
+        EXPORT std::shared_ptr<AssetServer> GetAssetServer();
 
     protected:
         EXPORT virtual void OnLaunch() {};
@@ -57,7 +60,11 @@ namespace Tbx
         Settings _settings = {};
         std::shared_ptr<EventBus> _eventBus = nullptr;
         std::shared_ptr<LayerManager> _layerManager = nullptr;
-        std::shared_ptr<PluginManager> _pluginManager = nullptr;
+        std::shared_ptr<PluginServer> _pluginServer = nullptr;
+        std::shared_ptr<AssetServer> _assetServer = nullptr;
+
+        // TODO: Both of these should go into their own layers
         std::shared_ptr<WindowManager> _windowManager = nullptr;
+        std::vector<std::shared_ptr<IRuntime>> _runtimes = {};
     };
 }

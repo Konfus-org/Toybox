@@ -8,7 +8,6 @@
 namespace Tbx
 {
     RenderingLayer::RenderingLayer(
-        std::shared_ptr<ThreeDSpace> worldSpace,
         std::shared_ptr<IRendererFactory> renderFactory,
         std::shared_ptr<EventBus> eventBus) : Layer("Rendering")
     {

@@ -1,5 +1,5 @@
 #include "Tbx/PCH.h"
-#include "Tbx/Plugins/PluginManager.h"
+#include "Tbx/Plugins/PluginServer.h"
 #include "Tbx/Plugins/LoadedPlugin.h"
 #include "Tbx/Events/PluginEvents.h"
 #include "Tbx/Debug/Debugging.h"
@@ -139,28 +139,28 @@ namespace Tbx
 
 	//////////// PLUGIN MANAGER //////////////////
 
-	PluginManager::PluginManager(const std::string& pathToPlugins, std::shared_ptr<EventBus> eventBus, const std::weak_ptr<Tbx::App>& app)
+	PluginServer::PluginServer(const std::string& pathToPlugins, std::shared_ptr<EventBus> eventBus, const std::weak_ptr<Tbx::App>& app)
 	{
 		_eventBus = eventBus;
 		LoadPlugins(pathToPlugins);
 	}
 
-	PluginManager::~PluginManager()
+	PluginServer::~PluginServer()
 	{
 		UnloadPlugins();
 	}
 
-	void PluginManager::AddPlugin(const std::shared_ptr<LoadedPlugin>& plugin)
+	void PluginServer::AddPlugin(const std::shared_ptr<LoadedPlugin>& plugin)
 	{
 		_loadedPlugins.push_back(plugin);
 	}
 
-	const std::vector<std::shared_ptr<LoadedPlugin>>& PluginManager::GetPlugins()
+	const std::vector<std::shared_ptr<LoadedPlugin>>& PluginServer::GetPlugins()
 	{
 		return _loadedPlugins;
 	}
 
-	std::vector<PluginMeta> PluginManager::SearchDirectoryForInfos(const std::string& pathToPlugins)
+	std::vector<PluginMeta> PluginServer::SearchDirectoryForInfos(const std::string& pathToPlugins)
 	{
 		std::vector<PluginMeta> foundPluginInfos = {};
 
@@ -196,7 +196,7 @@ namespace Tbx
 		return foundPluginInfos;
 	}
 
-	void PluginManager::LoadPlugins(const std::string& pathToPlugins)
+	void PluginServer::LoadPlugins(const std::string& pathToPlugins)
 	{
 		// 1) Discover all plugin infos
 		auto allInfos = SearchDirectoryForInfos(pathToPlugins);
@@ -258,7 +258,7 @@ namespace Tbx
 		resolveBucket(allLast);
 	}
 
-	void PluginManager::UnloadPlugins()
+	void PluginServer::UnloadPlugins()
 	{
 		TBX_TRACE_INFO("Unloading plugins...");
 

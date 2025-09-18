@@ -1,6 +1,6 @@
 {
     "name": "3d Demo",
-    "lib": "3dDemoLib.dll",
+    "lib": "3dDemo.dll",
     "dependencies": [
         "SDL3 Windowing",
         "SDL3 Input",

@@ -1,6 +1,5 @@
 #pragma once
 #include <cstdint>
-#include <cstddef>
 
 namespace Tbx
 {
@@ -8,6 +7,6 @@ namespace Tbx
 	using uint32 = uint32_t;
 	using uint64 = unsigned long long;
 	using int64 = long long;
-        using hash = std::size_t;
-        using byte = unsigned char;
+    using hash = std::size_t;
+    using byte = unsigned char;
 }

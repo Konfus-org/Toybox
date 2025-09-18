@@ -1,7 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Layers/Layer.h"
-#include "Tbx/ECS/ThreeDSpace.h"
 #include "Tbx/Graphics/IRenderer.h"
 #include "Tbx/Windowing/IWindow.h"
 #include "Tbx/Events/EventBus.h"
@@ -20,7 +19,6 @@ namespace Tbx
     {
     public:
         EXPORT RenderingLayer(
-            std::shared_ptr<ThreeDSpace> worldSpace,
             std::shared_ptr<IRendererFactory> renderFactory,
             std::shared_ptr<EventBus> eventBus);
 
@@ -42,7 +40,6 @@ namespace Tbx
         std::vector<std::shared_ptr<IWindow>> _windows = {};
         std::vector<std::shared_ptr<IRenderer>> _renderers = {};
         std::shared_ptr<IRendererFactory> _renderFactory = {};
-        std::shared_ptr<ThreeDSpace> _worldSpace = {};
         std::shared_ptr<EventBus> _eventBus = {};
         Tbx::RgbaColor _clearColor = {};
         bool _firstFrame = true;

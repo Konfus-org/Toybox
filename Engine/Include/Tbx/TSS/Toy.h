@@ -1,50 +1,18 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Ids/UsesUID.h"
+#include "Tbx/Ids/Handle.h"
+#include "Tbx/Ids/Uid.h"
 #include <memory>
 #include <string>
 #include <string_view>
 #include <typeindex>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 #include <any>
 
 namespace Tbx
 {
-    /// <summary>
-    /// Identifies a toy via a unique ID and name.
-    /// </summary>
-    struct EXPORT ToyHandle : public UsesUid
-    {
-    public:
-        /// <summary>
-        /// A default, invalid toy handle
-        /// </summary>
-        ToyHandle() : UsesUid(Consts::Invalid::Uid)
-        {
-        }
-
-        /// <summary>
-        /// Creates a handle with the specified name.
-        /// </summary>
-        explicit(false) ToyHandle(const std::string& name)
-            : _name(name)
-        {
-        }
-
-        /// <summary>
-        /// Gets the name associated with this handle.
-        /// </summary>
-        /// <returns>The handle name.</returns>
-        const std::string& GetName() const
-        {
-            return _name;
-        }
-
-    private:
-        std::string _name;
-    };
+    using ToyHandle = Handle<Uid>;
 
     /// <summary>
     /// Represents a toy in a hierarchy with arbitrary typed blocks.

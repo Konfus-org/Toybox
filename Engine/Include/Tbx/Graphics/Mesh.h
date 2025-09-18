@@ -1,12 +1,12 @@
 #pragma once
 #include "Tbx/Graphics/Vertex.h"
 #include "Tbx/Graphics/Buffers.h"
-#include "Tbx/Ids/UsesUID.h"
+#include "Tbx/Ids/UID.h"
 #include "Tbx/TypeAliases/Int.h"
 
 namespace Tbx
 {
-    struct Mesh : public UsesUid
+    struct Mesh
     {
     public:
         /// <summary>
@@ -33,15 +33,10 @@ namespace Tbx
     /// <summary>
     /// Essentially a pointer to a mesh.
     /// </summary>
-    struct MeshInstance : public UsesUid
+    struct MeshInstance
     {
-    public:
-        EXPORT MeshInstance(const Mesh& mesh);
-
-        EXPORT const Mesh& GetMesh() const;
-
-    private:
-        const Mesh& _mesh;
+        Uid InstanceId = Uid::GetNextId();
+        Uid MeshId = Uid::Invalid;
     };
 
     namespace Consts::Mesh

@@ -44,20 +44,17 @@ namespace Tbx
         /// Alpha/Transparency value (0-1)
         /// </summary>
         float A = 1;
-    };
 
-    namespace Consts::Colors
-    {
-        EXPORT inline const RgbaColor& White = RgbaColor(1.0f, 1.0f, 1.0f, 1.0f);
-        EXPORT inline const RgbaColor& Black = RgbaColor(0.0f, 0.0f, 0.0f, 1.0f);
-        EXPORT inline const RgbaColor& Red = RgbaColor(1.0f, 0.0f, 0.0f, 1.0f);
-        EXPORT inline const RgbaColor& Green = RgbaColor(0.0f, 1.0f, 0.0f, 1.0f);
-        EXPORT inline const RgbaColor& Blue = RgbaColor(0.0f, 0.0f, 1.0f, 1.0f);
-        EXPORT inline const RgbaColor& Yellow = RgbaColor(1.0f, 1.0f, 0.0f, 1.0f);
-        EXPORT inline const RgbaColor& Cyan = RgbaColor(0.0f, 1.0f, 1.0f, 1.0f);
-        EXPORT inline const RgbaColor& Magenta = RgbaColor(1.0f, 0.0f, 1.0f, 1.0f);
-        EXPORT inline const RgbaColor& Grey = RgbaColor(0.5f, 0.5f, 0.5f, 1.0f);
-        EXPORT inline const RgbaColor& LightGrey = RgbaColor(0.75f, 0.75f, 0.75f, 1.0f);
-        EXPORT inline const RgbaColor& DarkGrey = RgbaColor(0.1f, 0.1f, 0.1f, 1.0f);
-    }
+        static RgbaColor White;
+        static RgbaColor Black;
+        static RgbaColor Red;
+        static RgbaColor Green;
+        static RgbaColor Blue;
+        static RgbaColor Yellow;
+        static RgbaColor Cyan;
+        static RgbaColor Magenta;
+        static RgbaColor Grey;
+        static RgbaColor LightGrey;
+        static RgbaColor DarkGrey;
+    };
 }

@@ -3,7 +3,7 @@
 
 namespace Tbx
 {
-    std::shared_ptr<ThreeDSpace> WorldLayer::GetWorldSpace() { return _worldSpace; }
+    std::shared_ptr<Scene> WorldLayer::GetWorldSpace() { return _worldSpace; }
 
     void WorldLayer::OnUpdate()
     {

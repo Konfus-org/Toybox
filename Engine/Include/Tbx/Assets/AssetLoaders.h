@@ -2,69 +2,66 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/Texture.h"
 #include "Tbx/Graphics/Shader.h"
-#include "Tbx/Files/WorkingDirectory.h"
+#include "Tbx/Graphics/Model.h"
+#include "Tbx/Graphics/Text.h"
 #include <filesystem>
-#include <functional>
-#include <memory>
 
 namespace Tbx
 {
-    class EXPORT ITextureLoader
+    class EXPORT IAssetLoader
     {
     public:
-        virtual std::shared_ptr<Texture> LoadTexture(const std::string& filepath) = 0;
+        virtual bool CanLoad(const std::filesystem::path& filepath) const = 0;
     };
 
-    class EXPORT IShaderLoader
+    template<typename TData>
+    class EXPORT AssetLoader : IAssetLoader
     {
     public:
-        virtual std::shared_ptr<Shader> LoadShader(const std::string& filepath) = 0;
+        virtual TData Load(const std::filesystem::path& filepath) = 0;
     };
 
-    template<typename TAsset>
-    using AssetLoadingFunc = std::function<std::shared_ptr<TAsset>(const std::string&)>;
-
-    /// <summary>
-    /// Loads an assets source data.
-    /// </summary>
-    template<typename TAsset>
-    class AssetLoader
+    class EXPORT ITextureLoader : AssetLoader<Texture>
     {
-    public:
-        AssetLoader(AssetLoadingFunc<TAsset> loadFunc) 
-            : _loadingFunc(loadFunc)
+        Texture Load(const std::filesystem::path& filepath) final
         {
+            return LoadTexture(filepath);
         }
 
-        /// <summary>
-        /// Loads asset data of type AssetType from the specified filename.
-        /// </summary>
-        /// <typeparam name="AssetType">The type of asset to load</typeparam>
-        /// <param name="filepath">The path on disk to the asset to load</param>
-        /// <returns>An Asset object containing the loaded asset, or an nullptr if the load failed.</returns>
-        EXPORT std::shared_ptr<TAsset> Load(const std::string& filepath)
+    protected:
+        virtual Texture LoadTexture(const std::filesystem::path& filepath) = 0;
+    };
+
+    class EXPORT IShaderLoader : AssetLoader<Shader>
+    {
+        Shader Load(const std::filesystem::path& filepath) final
         {
-            // Ensure the given path is valid
-            auto fsPath = std::filesystem::path(FileSystem::GetWorkingDirectory() + '/' + filepath);
-            std::error_code ec;
-            std::ignore = std::filesystem::status(fsPath, ec);
-            TBX_ASSERT(!ec, "The asset path \"{}\" isn't valid: {}", fsPath.string(), ec.message());
-            if (ec)
-            {
-                return nullptr;
-            }
-
-            auto asset = _loadingFunc(filepath);
-            if (!asset)
-            {
-                TBX_ASSERT(false, "Loading an asset of type {} failed!", typeid(TAsset).name());
-                return nullptr;
-            }
-
-            return asset;
+            return LoadShader(filepath);
         }
 
-    private:
-        AssetLoadingFunc<TAsset> _loadingFunc = {};
+    protected:
+        virtual Shader LoadShader(const std::filesystem::path& filepath) = 0;
+    };
+
+    class EXPORT IModelLoader : AssetLoader<Model>
+    {
+        Model Load(const std::filesystem::path& filepath) final
+        {
+            return LoadModel(filepath);
+        }
+
+    protected:
+        virtual Model LoadModel(const std::filesystem::path& filepath) = 0;
+    };
+
+    class EXPORT ITextLoader : AssetLoader<Text>
+    {
+        Text Load(const std::filesystem::path& filepath) final
+        {
+            return LoadText(filepath);
+        }
+
+    protected:
+        virtual Text LoadText(const std::filesystem::path& filepath) = 0;
     };
 }
