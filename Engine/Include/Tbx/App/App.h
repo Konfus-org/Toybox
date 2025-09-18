@@ -8,6 +8,7 @@
 #include "Tbx/Layers/LayerManager.h"
 #include "Tbx/Plugins/PluginServer.h"
 #include <memory>
+#include <vector>
 
 namespace Tbx
 {
@@ -43,6 +44,10 @@ namespace Tbx
         EXPORT std::shared_ptr<PluginServer> GetPluginServer();
         EXPORT std::shared_ptr<AssetServer> GetAssetServer();
 
+        EXPORT void AddRuntime(const std::shared_ptr<IRuntime>& runtime);
+        EXPORT void RemoveRuntime(const std::shared_ptr<IRuntime>& runtime);
+        EXPORT std::vector<std::shared_ptr<IRuntime>> GetRuntimes() const;
+
     protected:
         EXPORT virtual void OnLaunch() {};
         EXPORT virtual void OnUpdate() {};
@@ -63,8 +68,5 @@ namespace Tbx
         std::shared_ptr<PluginServer> _pluginServer = nullptr;
         std::shared_ptr<AssetServer> _assetServer = nullptr;
 
-        // TODO: Both of these should go into their own layers
-        std::shared_ptr<WindowManager> _windowManager = nullptr;
-        std::vector<std::shared_ptr<IRuntime>> _runtimes = {};
     };
 }
