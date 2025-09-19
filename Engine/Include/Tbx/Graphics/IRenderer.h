@@ -5,7 +5,7 @@
 #include "Tbx/Graphics/GraphicsApi.h"
 #include "Tbx/Math/Vectors.h"
 #include <memory>
-#include "Tbx/TypeAliases/Pointers.h"
+#include "Tbx/Memory/Refs/Refs.h"
 
 namespace Tbx
 {

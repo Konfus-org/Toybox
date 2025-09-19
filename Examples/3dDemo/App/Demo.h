@@ -5,7 +5,7 @@
 #include <Tbx/Graphics/Material.h>
 #include <Tbx/Layers/Layer.h>
 #include <Tbx/Plugins/Plugin.h>
-#include "Tbx/TypeAliases/Pointers.h"
+#include "Tbx/Memory/Refs/Refs.h"
 
 class Demo : public Tbx::Layer, public Tbx::Plugin
 {

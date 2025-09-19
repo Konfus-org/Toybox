@@ -1,10 +1,10 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Layers/LayerStack.h"
-#include "Tbx/TypeAliases/Int.h"
+#include "Tbx/Math/Int.h"
 #include <memory>
 #include <vector>
-#include "Tbx/TypeAliases/Pointers.h"
+#include "Tbx/Memory/Refs/Refs.h"
 
 namespace Tbx
 {

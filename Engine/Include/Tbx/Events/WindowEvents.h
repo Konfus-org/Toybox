@@ -5,7 +5,7 @@
 #include "Tbx/Math/Size.h"
 #include <string>
 #include <memory>
-#include "Tbx/TypeAliases/Pointers.h"
+#include "Tbx/Memory/Refs/Refs.h"
 
 namespace Tbx
 {

@@ -2,7 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Events/Event.h"
 #include "Tbx/TSS/Stage.h"
-#include "Tbx/TypeAliases/Pointers.h"
+#include "Tbx/Memory/Refs/Refs.h"
 
 namespace Tbx
 {

@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/Windowing/IWindow.h"
 #include <vector>
-#include "Tbx/TypeAliases/Pointers.h"
+#include "Tbx/Memory/Refs/Refs.h"
 
 namespace Tbx
 {

@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include <memory>
-#include "Tbx/TypeAliases/Pointers.h"
+#include "Tbx/Memory/Refs/Refs.h"
 
 namespace Tbx
 {

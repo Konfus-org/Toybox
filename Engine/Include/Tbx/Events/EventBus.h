@@ -3,13 +3,13 @@
 #include "Tbx/Events/Event.h"
 #include "Tbx/Debug/Debugging.h"
 #include "Tbx/Callbacks/CallbackFunction.h"
-#include "Tbx/TypeAliases/Int.h"
+#include "Tbx/Math/Int.h"
 #include <unordered_map>
 #include <typeindex>
 #include <vector>
 #include <mutex>
 #include <atomic>
-#include "Tbx/TypeAliases/Pointers.h"
+#include "Tbx/Memory/Refs/Refs.h"
 
 namespace Tbx
 {
