@@ -8,6 +8,9 @@
 
 namespace Tbx
 {
+    /// <summary>
+    /// Maintains projection parameters and helper math routines for 3D camera transforms.
+    /// </summary>
     class Camera
     {
     public:

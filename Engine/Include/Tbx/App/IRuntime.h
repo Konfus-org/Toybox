@@ -6,6 +6,9 @@ namespace Tbx
 {
     class App;
 
+    /// <summary>
+    /// Interface implemented by gameplay or tooling runtimes that plug into the application's update loop.
+    /// </summary>
     class EXPORT IRuntime
     {
     public:
