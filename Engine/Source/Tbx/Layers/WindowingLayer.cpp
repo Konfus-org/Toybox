@@ -3,44 +3,30 @@
 
 namespace Tbx
 {
-    WindowingLayer::WindowingLayer(std::shared_ptr<IWindowFactory> windowFactory,
-                                   std::shared_ptr<EventBus> eventBus,
-                                   std::string mainWindowTitle,
-                                   WindowMode mainWindowMode,
-                                   Size mainWindowSize)
-        : Layer("Windowing"),
-          _mainWindowTitle(std::move(mainWindowTitle)),
-          _mainWindowMode(mainWindowMode),
-          _mainWindowSize(mainWindowSize)
+    WindowingLayer::WindowingLayer(const std::string& appName, std::shared_ptr<IWindowFactory> windowFactory, std::shared_ptr<EventBus> eventBus) 
+        : Layer("Windowing")
+        , _windowManager(std::make_shared<WindowManager>(windowFactory, eventBus))
+        , _appName(appName)
     {
-        _windowManager = std::make_shared<WindowManager>(windowFactory, eventBus);
-        _shouldCreateMainWindow = !_mainWindowTitle.empty();
     }
 
     void WindowingLayer::OnAttach()
     {
-        if (_windowManager && _shouldCreateMainWindow)
-        {
-            _windowManager->OpenWindow(_mainWindowTitle, _mainWindowMode, _mainWindowSize);
-            _shouldCreateMainWindow = false;
-        }
+#ifdef TBX_DEBUG
+        _windowManager->OpenWindow(_appName, WindowMode::Windowed, Size(1920, 1080));
+#elif
+        _windowManager->OpenWindow(_appName, WindowMode::Fullscreen);
+#endif
     }
 
     void WindowingLayer::OnDetach()
     {
-        if (_windowManager)
-        {
-            _windowManager->CloseAllWindows();
-        }
-        _shouldCreateMainWindow = !_mainWindowTitle.empty();
+        _windowManager->CloseAllWindows();
     }
 
     void WindowingLayer::OnUpdate()
     {
-        if (_windowManager)
-        {
-            _windowManager->UpdateWindows();
-        }
+        _windowManager->UpdateWindows();
     }
 
     std::shared_ptr<WindowManager> WindowingLayer::GetWindowManager() const

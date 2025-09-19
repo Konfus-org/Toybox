@@ -20,7 +20,7 @@ namespace Tbx
         EXPORT const std::vector<std::shared_ptr<IWindow>>& GetAllWindows() const;
         EXPORT std::shared_ptr<IWindow> GetWindow(const Uid& id) const;
 
-        EXPORT Uid OpenWindow(const std::string& name, const WindowMode& mode, const Size& size);
+        EXPORT Uid OpenWindow(const std::string& name, const WindowMode& mode, const Size& size = Size(1920, 1080));
 
         EXPORT void CloseWindow(const Uid& id);
         EXPORT void CloseAllWindows();

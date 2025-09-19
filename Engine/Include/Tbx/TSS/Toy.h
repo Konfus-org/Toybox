@@ -1,6 +1,5 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Ids/Handle.h"
 #include "Tbx/Ids/Uid.h"
 #include <memory>
 #include <string>
@@ -12,7 +11,39 @@
 
 namespace Tbx
 {
-    using ToyHandle = Handle<Uid>;
+    /// <summary>
+    /// Identifies a toy via a unique ID and name.
+    /// </summary>
+    struct EXPORT ToyHandle : public UsesUid
+    {
+    public:
+        /// <summary>
+        /// A default, invalid toy handle
+        /// </summary>
+        ToyHandle() : UsesUid(Consts::Invalid::Uid)
+        {
+        }
+
+        /// <summary>
+        /// Creates a handle with the specified name.
+        /// </summary>
+        explicit(false) ToyHandle(const std::string& name)
+            : _name(name)
+        {
+        }
+
+        /// <summary>
+        /// Gets the name associated with this handle.
+        /// </summary>
+        /// <returns>The handle name.</returns>
+        const std::string& GetName() const
+        {
+            return _name;
+        }
+
+    private:
+        std::string _name;
+    };
 
     /// <summary>
     /// Represents a toy in a hierarchy with arbitrary typed blocks.
