@@ -103,10 +103,10 @@ namespace Tbx
 	/// </summary>
 	static bool LoadPlugin(
 		const PluginMeta& info,
-		std::shared_ptr<EventBus> eventBus,
+		Tbx::Ref<EventBus> eventBus,
 		std::unordered_set<std::string>& loadedNames,
 		std::unordered_set<std::string>& loadedTypes,
-		std::vector<std::shared_ptr<LoadedPlugin>>& outLoaded)
+		std::vector<Tbx::Ref<LoadedPlugin>>& outLoaded)
 	{
 		auto plugin = std::make_shared<LoadedPlugin>(info);
 		if (!plugin->IsValid())
@@ -139,7 +139,7 @@ namespace Tbx
 
 	//////////// PLUGIN MANAGER //////////////////
 
-	PluginServer::PluginServer(const std::string& pathToPlugins, std::shared_ptr<EventBus> eventBus, const std::weak_ptr<Tbx::App>& app)
+	PluginServer::PluginServer(const std::string& pathToPlugins, Tbx::Ref<EventBus> eventBus, const Tbx::WeakRef<Tbx::App>& app)
 	{
 		_eventBus = eventBus;
 		LoadPlugins(pathToPlugins);
@@ -150,12 +150,12 @@ namespace Tbx
 		UnloadPlugins();
 	}
 
-	void PluginServer::AddPlugin(const std::shared_ptr<LoadedPlugin>& plugin)
+	void PluginServer::AddPlugin(const Tbx::Ref<LoadedPlugin>& plugin)
 	{
 		_loadedPlugins.push_back(plugin);
 	}
 
-	const std::vector<std::shared_ptr<LoadedPlugin>>& PluginServer::GetPlugins()
+	const std::vector<Tbx::Ref<LoadedPlugin>>& PluginServer::GetPlugins()
 	{
 		return _loadedPlugins;
 	}
@@ -229,7 +229,7 @@ namespace Tbx
 			{
 				bool progress = false;
 
-				// Iterate and grab everything thatís ready this round
+				// Iterate and grab everything that‚Äôs ready this round
 				for (auto it = bucket.begin(); it != bucket.end(); )
 				{
 					if (ArePluginDependenciesSatisfied(*it, loadedNames, loadedTypes))
@@ -253,7 +253,7 @@ namespace Tbx
 			}
 		};
 
-		// 5) Load ìnormalî first, then the ones explicitly marked to wait until the end
+		// 5) Load ‚Äúnormal‚Äù first, then the ones explicitly marked to wait until the end
 		resolveBucket(normal);
 		resolveBucket(allLast);
 	}

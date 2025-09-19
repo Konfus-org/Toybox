@@ -79,7 +79,7 @@ namespace Tbx
         return buffer;
     }
 
-    void FrameBufferBuilder::AddToyUploadCommandsToBuffer(const std::shared_ptr<Toy>& toy, FrameBuffer& buffer)
+    void FrameBufferBuilder::AddToyUploadCommandsToBuffer(const Tbx::Ref<Toy>& toy, FrameBuffer& buffer)
     {
         // Preprocess materials to upload textures and shaders to GPU
         if (toy->HasBlock<MaterialInstance>())
@@ -123,7 +123,7 @@ namespace Tbx
         }
     }
 
-    void FrameBufferBuilder::AddToyRenderCommandsToBuffer(const std::shared_ptr<Toy>& toy, FrameBuffer& buffer)
+    void FrameBufferBuilder::AddToyRenderCommandsToBuffer(const Tbx::Ref<Toy>& toy, FrameBuffer& buffer)
     {
         // NOTE: Order matters here!!!
         

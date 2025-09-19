@@ -1,5 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
+#include "Tbx/Memory/Refs.h"
 #include <string>
 #include <memory>
 #include <vector>
@@ -19,8 +20,8 @@ namespace Tbx
 
         EXPORT std::string GetName() const;
 
-        EXPORT void AttachTo(std::vector<std::shared_ptr<Layer>>& layers);
-        EXPORT void DetachFrom(std::vector<std::shared_ptr<Layer>>& layers);
+        EXPORT void AttachTo(std::vector<Tbx::Ref<Layer>>& layers);
+        EXPORT void DetachFrom(std::vector<Tbx::Ref<Layer>>& layers);
 
         EXPORT void Update();
 

@@ -13,13 +13,13 @@ namespace Tbx
         return _name;
     }
 
-    void Layer::AttachTo(std::vector<std::shared_ptr<Layer>>& layers)
+    void Layer::AttachTo(std::vector<Tbx::Ref<Layer>>& layers)
     {
         layers.push_back(shared_from_this());
         OnAttach();
     }
 
-    void Layer::DetachFrom(std::vector<std::shared_ptr<Layer>>& layers)
+    void Layer::DetachFrom(std::vector<Tbx::Ref<Layer>>& layers)
     {
         auto it = std::find(layers.begin(), layers.end(), shared_from_this());
         if (it != layers.end())

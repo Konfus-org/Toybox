@@ -170,17 +170,17 @@ namespace Tbx
         return _name;
     }
 
-    std::shared_ptr<EventBus> App::GetEventBus()
+    Tbx::Ref<EventBus> App::GetEventBus()
     {
         return _eventBus;
     }
 
-    std::shared_ptr<LayerManager> App::GetLayerManager()
+    Tbx::Ref<LayerManager> App::GetLayerManager()
     {
         return _layerManager;
     }
 
-    std::shared_ptr<WindowManager> App::GetWindowManager()
+    Tbx::Ref<WindowManager> App::GetWindowManager()
     {
         if (!_layerManager)
         {
@@ -191,12 +191,12 @@ namespace Tbx
         return windowingLayer ? windowingLayer->GetWindowManager() : nullptr;
     }
 
-    std::shared_ptr<PluginServer> App::GetPluginServer()
+    Tbx::Ref<PluginServer> App::GetPluginServer()
     {
         return _pluginServer;
     }
 
-    std::shared_ptr<AssetServer> App::GetAssetServer()
+    Tbx::Ref<AssetServer> App::GetAssetServer()
     {
         return _assetServer;
     }
@@ -212,7 +212,7 @@ namespace Tbx
         return _settings;
     }
 
-    void App::AddRuntime(const std::shared_ptr<IRuntime>& runtime)
+    void App::AddRuntime(const Tbx::Ref<IRuntime>& runtime)
     {
         if (!runtime)
         {
@@ -224,7 +224,7 @@ namespace Tbx
         runtimeLayer->AddRuntime(runtime);
     }
 
-    void App::RemoveRuntime(const std::shared_ptr<IRuntime>& runtime)
+    void App::RemoveRuntime(const Tbx::Ref<IRuntime>& runtime)
     {
         if (!runtime)
         {
@@ -238,7 +238,7 @@ namespace Tbx
         }
     }
 
-    std::vector<std::shared_ptr<IRuntime>> App::GetRuntimes() const
+    std::vector<Tbx::Ref<IRuntime>> App::GetRuntimes() const
     {
         const auto runtimeLayer = _layerManager ? _layerManager->GetLayer<RuntimeLayer>() : nullptr;
         if (runtimeLayer)

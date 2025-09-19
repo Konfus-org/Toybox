@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/TypeAliases/Int.h"
+#include "Tbx/Math/Int.h"
+#include "Tbx/Memory/Refs.h"
 #include <memory>
 
 namespace Tbx
@@ -39,7 +40,7 @@ namespace Tbx
         }
 
     private:
-        std::shared_ptr<char[]> _data = nullptr;
+        Tbx::Ref<char[]> _data = nullptr;
         uint64 _elementSize = 0;
         uint64 _poolSize = 0;
     };

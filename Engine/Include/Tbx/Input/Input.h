@@ -2,13 +2,14 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Input/IInputHandler.h"
 #include "Tbx/Math/Vectors.h"
+#include "Tbx/Memory/Refs.h"
 
 namespace Tbx
 {
     class Input
     {
     public:
-        EXPORT static void Initialize(const std::shared_ptr<IInputHandler>& inputHandler);
+        EXPORT static void Initialize(const Tbx::Ref<IInputHandler>& inputHandler);
         EXPORT static void Update();
         EXPORT static void Shutdown();
 
@@ -28,6 +29,6 @@ namespace Tbx
         EXPORT static Vector2 GetMouseDelta();
 
     private:
-        static std::shared_ptr<IInputHandler> _inputHandler;
+        static Tbx::Ref<IInputHandler> _inputHandler;
     };
 }

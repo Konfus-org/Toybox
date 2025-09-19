@@ -5,11 +5,11 @@
 namespace Tbx
 {
     std::queue<std::pair<LogLevel, std::string>> Log::_logQueue = {};
-    std::shared_ptr<ILogger> Log::_logger = nullptr;
+    Tbx::Ref<ILogger> Log::_logger = nullptr;
     std::string Log::_logFilePath = "";
     bool Log::_isOpen = false;
 
-    void Log::Initialize(std::shared_ptr<ILogger> logger)
+    void Log::Initialize(Tbx::Ref<ILogger> logger)
     {
         _isOpen = true;
         _logger = logger;
