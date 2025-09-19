@@ -9,6 +9,9 @@ namespace Tbx
 {
     class App;
 
+    /// <summary>
+    /// Hosts app runtime modules and coordinates their attachment lifecycle within the layer stack.
+    /// </summary>
     class RuntimeLayer : public Layer
     {
     public:

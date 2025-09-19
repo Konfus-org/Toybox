@@ -1,16 +1,27 @@
 #pragma once
+#include "Tbx/Core/StringConvertible.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Math/Int.h"
 #include <string>
+#include <string_view>
+#include <utility>
 
 namespace Tbx
 {
-    struct EXPORT Guid
+    struct EXPORT Guid : public IStringConvertible
     {
+        Guid() = default;
+        explicit(false) Guid(const std::string& value) : Value(value) {}
+        explicit(false) Guid(std::string&& value) : Value(std::move(value)) {}
+        explicit(false) Guid(std::string_view value) : Value(value) {}
+        explicit(false) Guid(const char* value) : Value(value) {}
+
         // Generates a new GUID of the format 00000000-0000-0000-0000-000000000000
         static Guid Generate();
 
-        static Tbx::Guid Invalid;
+        inline static const Guid Invalid = Guid();
+
+        std::string ToString() const override { return Value; }
 
         std::string Value = "00000000-0000-0000-0000-000000000000";
     };

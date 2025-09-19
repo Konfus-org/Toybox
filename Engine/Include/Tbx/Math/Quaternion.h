@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Tbx/Core/StringConvertible.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Math/Vectors.h"
 
@@ -7,7 +8,7 @@ namespace Tbx
     /// <summary>
     /// Represents a rotation. X, Y, Z, W are stored as radians.
     /// </summary>
-    struct EXPORT Quaternion
+    struct EXPORT Quaternion : public IStringConvertible
     {
     public:
         Quaternion() = default;
@@ -27,7 +28,7 @@ namespace Tbx
         friend Vector3 operator * (const Quaternion& lhs, const Vector3& rhs) { return Multiply(lhs, rhs); }
         friend Vector3 operator * (const Vector3& lhs, const Quaternion& rhs) { return Multiply(lhs, rhs); }
 
-        std::string ToString() const;
+        std::string ToString() const override;
 
         static Quaternion Normalize(const Quaternion& quaternion);
         static Quaternion Add(const Quaternion& lhs, const Quaternion& rhs);
@@ -55,6 +56,8 @@ namespace Tbx
         static Vector3 ToEuler(const Quaternion& quaternion);
 
         static bool IsEqualOrEquivalent(const Quaternion& lhs, const Quaternion& rhs, float epsilon = 1e-5f);
+
+        inline static const Quaternion Identity = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
 
         float X = 0;
         float Y = 0;

@@ -38,7 +38,7 @@ namespace Tbx
                 Update();
             }
         }
-        catch (std::exception ex)
+        catch (const std::exception& ex)
         {
             _status = AppStatus::Error;
             TBX_ASSERT(false, ex.what());
@@ -204,7 +204,10 @@ namespace Tbx
     void App::SetSettings(const Settings& settings)
     {
         _settings = settings;
-        _eventBus->Post(AppSettingsChangedEvent(settings));
+        if (_eventBus)
+        {
+            _eventBus->Post(AppSettingsChangedEvent(settings));
+        }
     }
 
     const Settings& App::GetSettings() const

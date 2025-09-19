@@ -19,11 +19,21 @@ namespace Tbx
 
     void LayerStack::Push(const Tbx::Ref<Layer>& layer)
     {
+        if (!layer)
+        {
+            return;
+        }
+
         layer->AttachTo(_layers);
     }
 
     void LayerStack::Remove(const Tbx::Ref<Layer>& layer)
     {
+        if (!layer)
+        {
+            return;
+        }
+
         layer->DetachFrom(_layers);
     }
 }

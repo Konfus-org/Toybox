@@ -1,4 +1,5 @@
 #pragma once
+#include "Tbx/Core/StringConvertible.h"
 #include "Tbx/DllExport.h"
 #include <string>
 
@@ -10,7 +11,7 @@ namespace Tbx
     /// In general all events should be named using past tense, ex: CoolThingHappenedEvent.
     /// If the event is marked as handled, the event coordinator will stop processing it and not send it to any other subscribers.
     /// </summary>
-    class EXPORT Event
+    class EXPORT Event : public IStringConvertible
     {
     public:
         virtual ~Event() = default;
@@ -18,7 +19,7 @@ namespace Tbx
         /// <summary>
         /// For debugging, prints the event in human-readable format.
         /// </summary>
-        virtual std::string ToString() const = 0;
+        std::string ToString() const override = 0;
         
         /// <summary>
         /// Mark the event as handled. 

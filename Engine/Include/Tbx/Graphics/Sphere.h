@@ -14,7 +14,7 @@ namespace Tbx
     /// </summary>
     struct EXPORT Sphere
     {
-        Vector3 Center = Consts::Vector3::Zero;
+        Vector3 Center = Vector3::Zero;
         float Radius = 0.0f;
     };
 
@@ -28,8 +28,8 @@ namespace Tbx
         /// </summary>
         BoundingSphere(const Tbx::Ref<Toy>& toy)
         {
-            Vector3 position = Consts::Vector3::Zero;
-            Vector3 scale = Consts::Vector3::One;
+            Vector3 position = Vector3::Zero;
+            Vector3 scale = Vector3::One;
 
             if (toy->HasBlock<Transform>())
             {

@@ -8,6 +8,9 @@
 
 namespace Tbx
 {
+    /// <summary>
+    /// Container that stores layers in registration order and assists with lifecycle notifications.
+    /// </summary>
     class LayerStack
     {
     public:
@@ -33,6 +36,11 @@ namespace Tbx
         /// </summary>
         EXPORT void Remove(const Tbx::Ref<Layer>& layer);
 
+        /// <summary>
+        /// Returns the number of layers currently registered in the stack.
+        /// </summary>
+        EXPORT Tbx::uint GetCount() const { return static_cast<Tbx::uint>(_layers.size()); }
+      
         EXPORT std::vector<Tbx::Ref<Layer>>::iterator begin() { return _layers.begin(); }
         EXPORT std::vector<Tbx::Ref<Layer>>::iterator end() { return _layers.end(); }
         EXPORT std::vector<Tbx::Ref<Layer>>::const_iterator begin() const { return _layers.begin(); }

@@ -1,4 +1,5 @@
 #pragma once
+#include "Tbx/Core/StringConvertible.h"
 #include "Tbx/Debug/LogLevel.h"
 #include "Tbx/Debug/ILogger.h"
 #include "Tbx/DllExport.h"
@@ -6,6 +7,8 @@
 #include <format>
 #include <memory>
 #include <queue>
+#include <type_traits>
+#include <utility>
 
 namespace Tbx
 {
@@ -51,7 +54,7 @@ namespace Tbx
         template<typename... Args>
         EXPORT static void Trace(const std::string& fmt_str, Args&&... args)
         {
-            auto msg = std::vformat(fmt_str, std::make_format_args(args...));
+            auto msg = Format(fmt_str, std::forward<Args>(args)...);
             Write(LogLevel::Trace, msg);
         }
 
@@ -63,7 +66,7 @@ namespace Tbx
         template<typename... Args>
         EXPORT static void Info(const std::string& fmt_str, Args&&... args)
         {
-            auto msg = std::vformat(fmt_str, std::make_format_args(args...));
+            auto msg = Format(fmt_str, std::forward<Args>(args)...);
             Write(LogLevel::Info, msg);
         }
 
@@ -75,7 +78,7 @@ namespace Tbx
         template<typename... Args>
         EXPORT static void Debug(const std::string& fmt_str, Args&&... args)
         {
-            auto msg = std::vformat(fmt_str, std::make_format_args(args...));
+            auto msg = Format(fmt_str, std::forward<Args>(args)...);
             Write(LogLevel::Debug, msg);
         }
 
@@ -88,7 +91,7 @@ namespace Tbx
         template<typename... Args>
         EXPORT static void Warn(const std::string& fmt_str, Args&&... args)
         {
-            auto msg = std::vformat(fmt_str, std::make_format_args(args...));
+            auto msg = Format(fmt_str, std::forward<Args>(args)...);
             Write(LogLevel::Warn, msg);
         }
 
@@ -100,7 +103,7 @@ namespace Tbx
         template<typename... Args>
         EXPORT static void Error(const std::string& fmt_str, Args&&... args)
         {
-            auto msg = std::vformat(fmt_str, std::make_format_args(args...));
+            auto msg = Format(fmt_str, std::forward<Args>(args)...);
             Write(LogLevel::Error, msg);
         }
 
@@ -112,11 +115,30 @@ namespace Tbx
         template<typename... Args>
         EXPORT static void Critical(const std::string& fmt_str, Args&&... args)
         {
-            auto msg = std::vformat(fmt_str, std::make_format_args(args...));
+            auto msg = Format(fmt_str, std::forward<Args>(args)...);
             Write(LogLevel::Critical, msg);
         }
 
     private:
+        template <typename T>
+        static auto NormalizeFormatArg(T&& value)
+        {
+            if constexpr (std::is_base_of_v<IStringConvertible, std::decay_t<T>>)
+            {
+                return std::string(value.ToString());
+            }
+            else
+            {
+                return std::forward<T>(value);
+            }
+        }
+
+        template <typename... Args>
+        static std::string Format(const std::string& fmt_str, Args&&... args)
+        {
+            return std::format(fmt_str, NormalizeFormatArg(std::forward<Args>(args))...);
+        }
+
         static std::queue<std::pair<LogLevel, std::string>> _logQueue;
         static Tbx::Ref<ILogger> _logger;
         static std::string _logFilePath;

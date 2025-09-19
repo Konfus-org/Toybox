@@ -112,21 +112,21 @@ namespace Tbx::Tests::Graphics
     {
         // Arrange
         Vector3 camPosition(0, 0, 0);
-        Quaternion camRotation = Consts::Quaternion::Identity;
-        Mat4x4 expected = Consts::Mat4x4::Identity;
+        Quaternion camRotation = Quaternion::Identity;
+        Mat4x4 expected = Mat4x4::Identity;
 
         // Act
         Mat4x4 result = Camera::CalculateViewMatrix(camPosition, camRotation);
 
         // Assert
-        ASSERT_EQ(result, Consts::Mat4x4::Identity);
+        ASSERT_EQ(result, Mat4x4::Identity);
     }
 
     TEST(CameraTests, CalculateViewMatrix_TranslationOnly)
     {
         // Arrange
         Vector3 position(1.0f, 2.0f, 3.0f);
-        Quaternion rotation = Consts::Quaternion::Identity;
+        Quaternion rotation = Quaternion::Identity;
 
         // Act
         Mat4x4 result = Camera::CalculateViewMatrix(position, rotation);
@@ -146,13 +146,13 @@ namespace Tbx::Tests::Graphics
     {
         // Arrange
         Vector3 camPosition(0, 0, 0);
-        Quaternion camRotation = Consts::Quaternion::Identity;
-        Mat4x4 projection = Consts::Mat4x4::Identity;
+        Quaternion camRotation = Quaternion::Identity;
+        Mat4x4 projection = Mat4x4::Identity;
 
         // Act
         Mat4x4 result = Camera::CalculateViewProjectionMatrix(camPosition, camRotation, projection);
 
         // Assert
-        ASSERT_EQ(result.ToString(), Consts::Mat4x4::Identity.ToString());
+        ASSERT_EQ(result.ToString(), Mat4x4::Identity.ToString());
     }
 }

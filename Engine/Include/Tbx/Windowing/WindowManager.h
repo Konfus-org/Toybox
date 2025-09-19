@@ -29,7 +29,7 @@ namespace Tbx
     private:
         Tbx::Ref<IWindowFactory> _windowFactory = {};
         Tbx::Ref<EventBus> _eventBus = {};
-        Uid _mainWindowId = Consts::Invalid::Uid;
+        Uid _mainWindowId = Uid::Invalid;
         WindowStack _stack = {};
     };
 }

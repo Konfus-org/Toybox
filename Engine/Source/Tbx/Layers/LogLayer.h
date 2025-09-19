@@ -5,6 +5,9 @@
 
 namespace Tbx
 {
+    /// <summary>
+    /// Bridges engine logging facilities into the layer system so loggers live alongside other services.
+    /// </summary>
     class LogLayer : public Layer
     {
     public:

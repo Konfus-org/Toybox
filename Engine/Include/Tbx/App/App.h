@@ -13,6 +13,9 @@
 
 namespace Tbx
 {
+    /// <summary>
+    /// High level lifecycle states the application can transition through while running.
+    /// </summary>
     enum class AppStatus
     {
         None = 0,
@@ -24,6 +27,9 @@ namespace Tbx
         Error
     };
 
+    /// <summary>
+    /// Coordinates engine services, manages layers, and drives the lifetime of a Toybox application instance.
+    /// </summary>
     class EXPORT App : std::enable_shared_from_this<App>
     {
     public:

@@ -38,7 +38,7 @@ namespace Tbx
         /// <summary>
         /// Clears the screen with the given color.
         /// </summary>
-        virtual void Clear(const RgbaColor& color = Consts::Colors::DarkGrey) = 0;
+        virtual void Clear(const RgbaColor& color = RgbaColor::DarkGrey) = 0;
 
         /// <summary>
         /// Sets the api the renderer will use.
