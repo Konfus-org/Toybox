@@ -1,5 +1,4 @@
 #include "Tbx/PCH.h"
-#include "Tbx/Math/Constants.h"
 #include "Tbx/Math/Mat4x4.h"
 #include "Tbx/Math/Trig.h"
 #include "Tbx/TypeAliases/Int.h"
@@ -18,7 +17,7 @@ namespace Tbx
 
     Mat4x4::Mat4x4()
     {
-        Values = Consts::Mat4x4::Identity;
+        Values = Mat4x4::Identity;
     }
 
     Mat4x4::Mat4x4(const std::initializer_list<float>& data)

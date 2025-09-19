@@ -18,6 +18,6 @@ namespace Tbx
         void UpdateId(const Uid& id) { _id = id; }
 
     private:
-        Uid _id = Consts::Invalid::Uid;
+        Uid _id = Uid::Invalid;
     };
 }

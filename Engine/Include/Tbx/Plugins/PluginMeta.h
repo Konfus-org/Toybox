@@ -1,4 +1,5 @@
 #pragma once
+#include "Tbx/Core/StringConvertible.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Files/Paths.h"
 #include <string>
@@ -6,7 +7,7 @@
 
 namespace Tbx
 {
-    struct PluginMeta
+    struct PluginMeta : public IStringConvertible
     {
     public:
         EXPORT PluginMeta() = default;
@@ -22,7 +23,7 @@ namespace Tbx
         EXPORT const std::vector<std::string>& GetImplementedTypes() const { return _implementedTypes; }
         EXPORT const std::vector<std::string>& GetDependencies() const { return _dependencies; }
 
-        EXPORT std::string ToString() const;
+        EXPORT std::string ToString() const override;
 
     private:
         void Load(const std::string& pathToPluginFile);
