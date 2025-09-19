@@ -26,6 +26,7 @@ namespace Tbx
     private:
         VertexBuffer VertexVectorToBuffer(const std::vector<Vertex>& vertices) const;
 
+    private:
         std::vector<uint32> _indexBuffer;
         VertexBuffer _vertexBuffer;
     };

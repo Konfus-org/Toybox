@@ -50,12 +50,12 @@ namespace Tbx::Consts
 
     namespace Quaternion
     {
-        EXPORT inline const Tbx::Quaternion& Identity = { 0, 0, 0, 1 };
+        EXPORT inline Tbx::Quaternion Identity = { 0, 0, 0, 1 };
     }
 
     namespace Mat4x4
     {
-        EXPORT inline const Tbx::Mat4x4& Zero =
+        EXPORT inline Tbx::Mat4x4 Zero =
         {
             0.0f, 0.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 0.0f, 0.0f,
@@ -63,7 +63,7 @@ namespace Tbx::Consts
             0.0f, 0.0f, 0.0f, 0.0f
         };
 
-        EXPORT inline const Tbx::Mat4x4& Identity =
+        EXPORT inline Tbx::Mat4x4 Identity =
         {
             { 1.0f, 0.0f, 0.0f, 0.0f },
             { 0.0f, 1.0f, 0.0f, 0.0f },
@@ -74,6 +74,6 @@ namespace Tbx::Consts
 
     namespace Bounds
     {
-        EXPORT inline const Tbx::Bounds& Identity = { -1.0f, 1.0f, -1.0f, 1.0f };
+        EXPORT inline Tbx::Bounds Identity = { -1.0f, 1.0f, -1.0f, 1.0f };
     }
 }
