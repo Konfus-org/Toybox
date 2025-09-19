@@ -56,7 +56,7 @@ namespace Tbx
     {
         std::shared_ptr<IWindow> window = _windowFactory->Create(name, size, mode);
         TBX_ASSERT(window, "Failed to create window!");
-        if (_mainWindowId == Consts::Invalid::Uid)
+        if (_mainWindowId == Uid::Invalid)
         {
             _mainWindowId = window->GetId();
         }

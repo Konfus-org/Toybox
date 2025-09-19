@@ -10,11 +10,10 @@ namespace Tbx
     class WindowingLayer : public Layer
     {
     public:
-        WindowingLayer(std::shared_ptr<IWindowFactory> windowFactory,
-                       std::shared_ptr<EventBus> eventBus,
-                       std::string mainWindowTitle,
-                       WindowMode mainWindowMode,
-                       Size mainWindowSize);
+        WindowingLayer(
+            const std::string& appName,
+            std::shared_ptr<IWindowFactory> windowFactory,
+            std::shared_ptr<EventBus> eventBus);
 
         void OnAttach() override;
         void OnDetach() override;
@@ -23,11 +22,8 @@ namespace Tbx
         std::shared_ptr<WindowManager> GetWindowManager() const;
 
     private:
-        std::shared_ptr<WindowManager> _windowManager;
-        std::string _mainWindowTitle;
-        WindowMode _mainWindowMode;
-        Size _mainWindowSize;
-        bool _shouldCreateMainWindow = false;
+        std::string _appName = "Toybox";
+        std::shared_ptr<WindowManager> _windowManager = nullptr;
     };
 }
 

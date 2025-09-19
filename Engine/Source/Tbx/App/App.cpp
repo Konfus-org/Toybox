@@ -2,7 +2,6 @@
 #include "Tbx/App/App.h"
 #include "Tbx/Layers/LogLayer.h"
 #include "Tbx/Layers/InputLayer.h"
-#include "Tbx/Layers/WorldLayer.h"
 #include "Tbx/Layers/RenderingLayer.h"
 #include "Tbx/Layers/RuntimeLayer.h"
 #include "Tbx/Layers/WindowingLayer.h"
@@ -65,28 +64,24 @@ namespace Tbx
         TBX_TRACE_INFO("Current working directory is: {}", workingDirectory);
 
         // Init required systems
-        _eventBus = std::make_shared<EventBus>();
         auto self = shared_from_this();
+        _eventBus = std::make_shared<EventBus>();
         _pluginServer = std::make_shared<PluginServer>(workingDirectory, _eventBus, self);
         _assetServer = std::make_shared<AssetServer>(workingDirectory, _pluginServer->GetPlugins<IAssetLoader>());
         _layerManager = std::make_shared<LayerManager>();
 
         // Init required layers
-        const auto rendering = std::make_shared<RenderingLayer>(_pluginServer->GetPlugin<IRendererFactory>(), _eventBus);
-        const auto input = std::make_shared<InputLayer>(_pluginServer->GetPlugin<IInputHandler>());
-        const auto log = std::make_shared<LogLayer>(_pluginServer->GetPlugin<ILoggerFactory>());
-        const auto windowingLayer = std::make_shared<WindowingLayer>(
-            _pluginServer->GetPlugin<IWindowFactory>(),
-            _eventBus,
-            _name,
-            WindowMode::Windowed,
-            Size(1920, 1080));
-        const auto runtime = std::make_shared<RuntimeLayer>(weak_from_this());
+        auto rendering = std::make_shared<RenderingLayer>(_pluginServer->GetPlugin<IRendererFactory>(), _eventBus);
+        auto input = std::make_shared<InputLayer>(_pluginServer->GetPlugin<IInputHandler>());
+        auto log = std::make_shared<LogLayer>(_pluginServer->GetPlugin<ILoggerFactory>());
+        auto windowingLayer = std::make_shared<WindowingLayer>(_name, _pluginServer->GetPlugin<IWindowFactory>(), _eventBus);
+        auto runtime = std::make_shared<RuntimeLayer>(weak_from_this());
         _layerManager->AddLayer(log);
         _layerManager->AddLayer(input);
         _layerManager->AddLayer(windowingLayer);
         _layerManager->AddLayer(runtime);
         _layerManager->AddLayer(rendering);
+
         _eventBus->Subscribe(this, &App::OnWindowClosed);
 
         OnLaunch();

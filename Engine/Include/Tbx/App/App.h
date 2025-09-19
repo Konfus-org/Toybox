@@ -29,35 +29,35 @@ namespace Tbx
     /// <summary>
     /// Coordinates engine services, manages layers, and drives the lifetime of a Toybox application instance.
     /// </summary>
-    class App : std::enable_shared_from_this<App>
+    class EXPORT App : std::enable_shared_from_this<App>
     {
     public:
-        EXPORT explicit(false) App(const std::string_view& name);
-        EXPORT virtual ~App();
+        explicit(false) App(const std::string_view& name);
+        virtual ~App();
 
-        EXPORT void Run();
-        EXPORT void Close();
+        void Run();
+        void Close();
 
-        EXPORT void SetSettings(const Settings& settings);
-        EXPORT const Settings& GetSettings() const;
+        void SetSettings(const Settings& settings);
+        const Settings& GetSettings() const;
 
-        EXPORT const AppStatus& GetStatus() const;
-        EXPORT const std::string& GetName() const;
+        const AppStatus& GetStatus() const;
+        const std::string& GetName() const;
 
-        EXPORT std::shared_ptr<EventBus> GetEventBus();
-        EXPORT std::shared_ptr<LayerManager> GetLayerManager();
-        EXPORT std::shared_ptr<WindowManager> GetWindowManager();
-        EXPORT std::shared_ptr<PluginServer> GetPluginServer();
-        EXPORT std::shared_ptr<AssetServer> GetAssetServer();
+        std::shared_ptr<EventBus> GetEventBus();
+        std::shared_ptr<LayerManager> GetLayerManager();
+        std::shared_ptr<WindowManager> GetWindowManager();
+        std::shared_ptr<PluginServer> GetPluginServer();
+        std::shared_ptr<AssetServer> GetAssetServer();
 
-        EXPORT void AddRuntime(const std::shared_ptr<IRuntime>& runtime);
-        EXPORT void RemoveRuntime(const std::shared_ptr<IRuntime>& runtime);
-        EXPORT std::vector<std::shared_ptr<IRuntime>> GetRuntimes() const;
+        void AddRuntime(const std::shared_ptr<IRuntime>& runtime);
+        void RemoveRuntime(const std::shared_ptr<IRuntime>& runtime);
+        std::vector<std::shared_ptr<IRuntime>> GetRuntimes() const;
 
     protected:
-        EXPORT virtual void OnLaunch() {};
-        EXPORT virtual void OnUpdate() {};
-        EXPORT virtual void OnShutdown() {};
+        virtual void OnLaunch() {};
+        virtual void OnUpdate() {};
+        virtual void OnShutdown() {};
 
     private:
         void Initialize();
