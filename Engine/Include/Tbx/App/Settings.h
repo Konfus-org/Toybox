@@ -6,6 +6,9 @@
 
 namespace Tbx
 {
+    /// <summary>
+    /// Configures runtime behaviour for the core application such as display resolution and rendering backend.
+    /// </summary>
     struct EXPORT Settings
     {
         bool VSyncEnabled = true;

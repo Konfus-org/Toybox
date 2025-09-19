@@ -7,12 +7,20 @@ namespace Tbx
     {
         for (auto& layer : _stack)
         {
-            layer->Update();
+            if (layer)
+            {
+                layer->Update();
+            }
         }
     }
 
     std::shared_ptr<Layer> LayerManager::GetLayer(Tbx::uint index) const
     {
+        if (index >= _stack.GetCount())
+        {
+            return nullptr;
+        }
+
         return _stack[index];
     }
 
@@ -20,8 +28,10 @@ namespace Tbx
     {
         for (auto& layer : _stack)
         {
-            if (layer->GetName() == name)
+            if (layer && layer->GetName() == name)
+            {
                 return layer;
+            }
         }
         return nullptr;
     }
@@ -33,17 +43,28 @@ namespace Tbx
 
     void LayerManager::RemoveLayer(Tbx::uint index)
     {
-        _stack.Remove(GetLayer(index));
+        auto layer = GetLayer(index);
+        if (layer)
+        {
+            _stack.Remove(layer);
+        }
     }
 
     void LayerManager::RemoveLayer(const std::string& name)
     {
-        _stack.Remove(GetLayer(name));
+        auto layer = GetLayer(name);
+        if (layer)
+        {
+            _stack.Remove(layer);
+        }
     }
 
     void LayerManager::RemoveLayer(const std::shared_ptr<Layer>& layer)
     {
-        _stack.Remove(layer);
+        if (layer)
+        {
+            _stack.Remove(layer);
+        }
     }
 
     void LayerManager::ClearLayers()

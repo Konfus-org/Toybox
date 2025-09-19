@@ -16,6 +16,9 @@
 
 namespace Tbx
 {
+    /// <summary>
+    /// Represents the lifecycle state of an asset tracked by the server.
+    /// </summary>
     enum class AssetStatus
     {
         Unloaded,
@@ -48,6 +51,9 @@ namespace Tbx
         std::atomic<AssetStatus> Status = AssetStatus::Unloaded;
     };
 
+    /// <summary>
+    /// Central coordinator for discovering, loading, and caching assets backed by registered loaders.
+    /// </summary>
     class AssetServer
     {
     public:

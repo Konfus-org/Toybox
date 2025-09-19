@@ -7,6 +7,9 @@
 
 namespace Tbx
 {
+    /// <summary>
+    /// Container that stores layers in registration order and assists with lifecycle notifications.
+    /// </summary>
     class LayerStack
     {
     public:
@@ -31,6 +34,11 @@ namespace Tbx
         /// Removes a layer from the stack.
         /// </summary>
         EXPORT void Remove(const std::shared_ptr<Layer>& layer);
+
+        /// <summary>
+        /// Returns the number of layers currently registered in the stack.
+        /// </summary>
+        EXPORT Tbx::uint GetCount() const { return static_cast<Tbx::uint>(_layers.size()); }
 
         EXPORT std::vector<std::shared_ptr<Layer>>::iterator begin() { return _layers.begin(); }
         EXPORT std::vector<std::shared_ptr<Layer>>::iterator end() { return _layers.end(); }

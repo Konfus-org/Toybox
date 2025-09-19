@@ -2,6 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/TypeAliases/Int.h"
 #include <memory>
+#include <cstring>
 
 namespace Tbx
 {
@@ -35,7 +36,7 @@ namespace Tbx
                 return;
             }
             void* data = _data.get() + index * _elementSize;
-            memcpy(data, &value, _elementSize);
+            std::memcpy(data, &value, _elementSize);
         }
 
     private:

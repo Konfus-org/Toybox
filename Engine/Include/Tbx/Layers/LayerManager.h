@@ -3,10 +3,14 @@
 #include "Tbx/Layers/LayerStack.h"
 #include "Tbx/TypeAliases/Int.h"
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace Tbx
 {
+    /// <summary>
+    /// Owns the layer stack and provides helpers for querying and mutating registered layers.
+    /// </summary>
     class LayerManager
     {
     public:
@@ -36,9 +40,9 @@ namespace Tbx
         }
 
         template <typename T>
-        EXPORT std::shared_ptr<T> GetLayers() const
+        EXPORT std::vector<std::shared_ptr<T>> GetLayers() const
         {
-            auto layers = std::vector<T>();
+            std::vector<std::shared_ptr<T>> layers = {};
             for (auto layer : _stack)
             {
                 auto castedLayer = std::dynamic_pointer_cast<T>(layer);

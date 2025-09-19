@@ -3,12 +3,19 @@
 #include "Tbx/Events/Event.h"
 #include "Tbx/Debug/Debugging.h"
 #include "Tbx/Callbacks/CallbackFunction.h"
+#include "Tbx/Memory/Hashing.h"
 #include "Tbx/TypeAliases/Int.h"
 #include <unordered_map>
 #include <typeindex>
 #include <vector>
 #include <mutex>
 #include <atomic>
+#include <memory>
+#include <queue>
+#include <cstdint>
+#include <cstddef>
+#include <functional>
+#include <type_traits>
 
 namespace Tbx
 {
@@ -83,7 +90,21 @@ namespace Tbx
         template <class TEvent>
         EXPORT void Subscribe(ConstEventHandlerFunction<TEvent> callback)
         {
-            Subscribe(reinterpret_cast<EventHandlerFunction<TEvent>>(callback));
+            static_assert(std::is_base_of_v<Event, std::decay_t<TEvent>>, "TEvent must derive from Event");
+
+            auto eventKey = GetEventHash<TEvent>();
+            auto callbackKey = GetCallbackHash(callback);
+
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_subscribers.contains(eventKey) == false)
+            {
+                _subscribers[eventKey] = {};
+            }
+
+            _subscribers[eventKey][callbackKey] = [callback](Event& event)
+            {
+                callback(static_cast<const TEvent&>(event));
+            };
         }
 
         /// <summary>
@@ -115,7 +136,21 @@ namespace Tbx
         template <typename TSubscriber, class TEvent>
         EXPORT void Subscribe(TSubscriber* instance, ClassConstEventHandlerFunction<TSubscriber, TEvent> callback)
         {
-            Subscribe(instance, reinterpret_cast<ClassEventHandlerFunction<TSubscriber, TEvent>>(callback));
+            static_assert(std::is_base_of_v<Event, std::decay_t<TEvent>>, "TEvent must derive from Event");
+
+            auto eventKey = GetEventHash<TEvent>();
+            auto callbackKey = GetCallbackHash(instance, callback);
+
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_subscribers.contains(eventKey) == false)
+            {
+                _subscribers[eventKey] = {};
+            }
+
+            _subscribers[eventKey][callbackKey] = [instance, callback](Event& event)
+            {
+                (instance->*callback)(static_cast<const TEvent&>(event));
+            };
         }
 
         /// <summary>
@@ -151,7 +186,28 @@ namespace Tbx
         template <class TEvent>
         EXPORT void Unsubscribe(ConstEventHandlerFunction<TEvent> callback)
         {
-            Unsubscribe(reinterpret_cast<EventHandlerFunction<TEvent>>(callback));
+            static_assert(std::is_base_of_v<Event, std::decay_t<TEvent>>, "TEvent must derive from Event");
+
+            auto eventKey = GetEventHash<TEvent>();
+
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_subscribers.contains(eventKey) == false)
+            {
+                return;
+            }
+
+            auto callbackKey = GetCallbackHash(callback);
+            auto& callbacks = _subscribers[eventKey];
+            if (callbacks.erase(callbackKey) == 0)
+            {
+                const auto& eventInfo = typeid(TEvent);
+                TBX_ASSERT(false, "Failed to unsubscribe from event. Callback not found!", eventInfo.name());
+            }
+
+            if (callbacks.empty())
+            {
+                _subscribers.erase(eventKey);
+            }
         }
 
         template <typename TSubscriber, class TEvent>
@@ -184,7 +240,28 @@ namespace Tbx
         template <typename TSubscriber, class TEvent>
         EXPORT void Unsubscribe(TSubscriber* instance, ClassConstEventHandlerFunction<TSubscriber, TEvent> callback)
         {
-            Unsubscribe(instance, reinterpret_cast<ClassEventHandlerFunction<TSubscriber, TEvent>>(callback));
+            static_assert(std::is_base_of_v<Event, std::decay_t<TEvent>>, "TEvent must derive from Event");
+
+            auto eventKey = GetEventHash<TEvent>();
+
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_subscribers.contains(eventKey) == false)
+            {
+                return;
+            }
+
+            auto callbackKey = GetCallbackHash(instance, callback);
+            auto& callbacks = _subscribers[eventKey];
+            if (callbacks.erase(callbackKey) == 0)
+            {
+                const auto& eventInfo = typeid(TEvent);
+                TBX_ASSERT(false, "Failed to unsubscribe from event {}. Callback not found!", eventInfo.name());
+            }
+
+            if (callbacks.empty())
+            {
+                _subscribers.erase(eventKey);
+            }
         }
 
         /// <summary>
@@ -199,13 +276,18 @@ namespace Tbx
             TBX_TRACE_VERBOSE("Sending the event \"{}\"", event.ToString());
 
             const auto hashCode = GetEventHash(event);
-            std::lock_guard<std::mutex> lock(_mutex);
-            if (!_subscribers.contains(hashCode))
+            std::unordered_map<Tbx::uint64, EventCallback> callbacks = {};
             {
-                return false;
+                std::unique_lock<std::mutex> lock(_mutex);
+                auto subscriberIt = _subscribers.find(hashCode);
+                if (subscriberIt == _subscribers.end())
+                {
+                    return false;
+                }
+
+                callbacks = subscriberIt->second;
             }
 
-            const auto& callbacks = _subscribers[hashCode];
             for (auto& callback : callbacks)
             {
                 if (EventSuppressor::IsSuppressing())
@@ -252,24 +334,68 @@ namespace Tbx
         EXPORT Tbx::uint64 GetCallbackHash(EventHandlerFunction<TEvent> callback) const
         {
             const auto& callbackInfo = typeid(EventHandlerFunction<TEvent>);
-            const auto hash = callbackInfo.hash_code() ^ reinterpret_cast<uintptr_t>(callback);
-            return static_cast<Tbx::uint64>(hash);
+            const auto typeHash = static_cast<Tbx::uint64>(callbackInfo.hash_code());
+            const auto callbackHash = static_cast<Tbx::uint64>(reinterpret_cast<std::uintptr_t>(callback));
+            return Memory::CombineHashes(typeHash, callbackHash);
+        }
+
+        template <class TEvent>
+        EXPORT Tbx::uint64 GetCallbackHash(ConstEventHandlerFunction<TEvent> callback) const
+        {
+            const auto& callbackInfo = typeid(ConstEventHandlerFunction<TEvent>);
+            const auto typeHash = static_cast<Tbx::uint64>(callbackInfo.hash_code());
+            const auto callbackHash = static_cast<Tbx::uint64>(reinterpret_cast<std::uintptr_t>(callback));
+            return Memory::CombineHashes(typeHash, callbackHash);
         }
 
         template <class TEvent, typename TSubscriber>
         EXPORT Tbx::uint64 GetCallbackHash(TSubscriber* instance, ClassEventHandlerFunction<TSubscriber, TEvent> callback) const
         {
             const auto& callbackInfo = typeid(ClassEventHandlerFunction<TSubscriber, TEvent>);
-            const auto hash = callbackInfo.hash_code() ^ reinterpret_cast<uintptr_t>(instance);
-            return static_cast<Tbx::uint64>(hash);
+            const auto typeHash = static_cast<Tbx::uint64>(callbackInfo.hash_code());
+            const auto instanceHash = static_cast<Tbx::uint64>(std::hash<TSubscriber*>{}(instance));
+            const auto callbackHash = HashMemberFunctionPointer(callback);
+            return Memory::CombineHashes(Memory::CombineHashes(typeHash, instanceHash), callbackHash);
+        }
+
+        template <class TEvent, typename TSubscriber>
+        EXPORT Tbx::uint64 GetCallbackHash(TSubscriber* instance, ClassConstEventHandlerFunction<TSubscriber, TEvent> callback) const
+        {
+            const auto& callbackInfo = typeid(ClassConstEventHandlerFunction<TSubscriber, TEvent>);
+            const auto typeHash = static_cast<Tbx::uint64>(callbackInfo.hash_code());
+            const auto instanceHash = static_cast<Tbx::uint64>(std::hash<TSubscriber*>{}(instance));
+            const auto callbackHash = HashMemberFunctionPointer(callback);
+            return Memory::CombineHashes(Memory::CombineHashes(typeHash, instanceHash), callbackHash);
+        }
+
+        template <typename TMemberFunction>
+        Tbx::uint64 HashMemberFunctionPointer(TMemberFunction callback) const
+        {
+            static_assert(std::is_member_function_pointer_v<TMemberFunction>, "TMemberFunction must be a pointer to member function");
+
+            constexpr Tbx::uint64 FNV_OFFSET_BASIS = 1469598103934665603ULL;
+            constexpr Tbx::uint64 FNV_PRIME = 1099511628211ULL;
+
+            const auto* bytes = reinterpret_cast<const unsigned char*>(&callback);
+            Tbx::uint64 hash = FNV_OFFSET_BASIS;
+            for (size_t index = 0; index < sizeof(TMemberFunction); ++index)
+            {
+                hash ^= static_cast<Tbx::uint64>(bytes[index]);
+                hash *= FNV_PRIME;
+            }
+
+            return hash;
         }
 
         Tbx::uint64 GetEventHash(const Event& event) const;
-        Event& PopNextEventInQueue();
+        /// <summary>
+        /// Removes the next queued event while transferring ownership to the caller.
+        /// Returns nullptr when the queue is empty.
+        /// </summary>
+        std::unique_ptr<Event> PopNextEventInQueue();
 
         std::unordered_map<Tbx::uint64, std::unordered_map<Tbx::uint64, EventCallback>> _subscribers = {};
         std::queue<std::unique_ptr<Event>> _eventQueue = {};
         std::mutex _mutex = {};
-        bool _hasPolled = false;
     };
 }

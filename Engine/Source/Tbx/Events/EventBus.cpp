@@ -38,21 +38,31 @@ namespace Tbx
     {
         TBX_TRACE_VERBOSE("Polling events...");
 
-        while (!_eventQueue.empty())
+        while (true)
         {
-            auto& nextEvent = PopNextEventInQueue();
-            Send(nextEvent);
+            auto nextEvent = PopNextEventInQueue();
+            if (!nextEvent)
+            {
+                break;
+            }
+
+            Send(*nextEvent);
         }
 
         TBX_TRACE_VERBOSE("Finished polling events...");
     }
 
-    Event& EventBus::PopNextEventInQueue()
+    std::unique_ptr<Event> EventBus::PopNextEventInQueue()
     {
         std::lock_guard<std::mutex> lock(_mutex);
-        auto& next = _eventQueue.front();
+        if (_eventQueue.empty())
+        {
+            return nullptr;
+        }
+
+        auto next = std::move(_eventQueue.front());
         _eventQueue.pop();
-        return *next;
+        return next;
     }
 
     Tbx::uint64 EventBus::GetEventHash(const Event& event) const
