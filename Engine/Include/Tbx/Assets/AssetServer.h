@@ -48,22 +48,6 @@ namespace Tbx
         std::atomic<AssetStatus> Status = AssetStatus::Unloaded;
     };
 
-    /// <summary>
-    /// Caches runtime asset data alongside bookkeeping needed to track when it is released.
-    /// </summary>
-    struct AssetCacheEntry
-    {
-        /// <summary>
-        /// Cached asset data stored as a weak pointer so the server does not extend its lifetime.
-        /// </summary>
-        std::weak_ptr<void> LoadedAsset = {};
-        /// <summary>
-        /// Shared state flipped by the custom deleter when the cached asset is released.
-        /// Stored as an atomic flag shared across cached instances.
-        /// </summary>
-        std::shared_ptr<std::atomic<bool>> IsLoaded = {};
-    };
-
     class AssetServer
     {
     public:
@@ -183,22 +167,9 @@ namespace Tbx
                     continue;
                 }
 
-                auto cached = cacheIt->second.LoadedAsset.lock();
+                auto cached = cacheIt->second.lock();
                 if (!cached)
                 {
-                    if (cacheIt->second.IsLoaded && cacheIt->second.IsLoaded->load())
-                    {
-                        TBX_ASSERT(false, "AssetServer: cached data for {} vanished while marked loaded", record->Name);
-                    }
-
-                    record->Status.store(AssetStatus::Unloaded);
-                    cacheIt = _assetCache.erase(cacheIt);
-                    continue;
-                }
-
-                if (cacheIt->second.IsLoaded && !cacheIt->second.IsLoaded->load())
-                {
-                    TBX_ASSERT(false, "AssetServer: cached data for {} is alive but flagged as released", record->Name);
                     record->Status.store(AssetStatus::Unloaded);
                     cacheIt = _assetCache.erase(cacheIt);
                     continue;
@@ -231,31 +202,15 @@ namespace Tbx
             auto cacheIt = _assetCache.find(record->Name);
             if (cacheIt != _assetCache.end())
             {
-                auto cached = cacheIt->second.LoadedAsset.lock();
+                auto cached = cacheIt->second.lock();
                 if (cached)
                 {
-                    if (cacheIt->second.IsLoaded && !cacheIt->second.IsLoaded->load())
-                    {
-                        TBX_ASSERT(false, "AssetServer: cached data for {} is alive but flagged as released", record->Name);
-                        record->Status.store(AssetStatus::Unloaded);
-                        _assetCache.erase(cacheIt);
-                    }
-                    else
-                    {
-                        record->Status.store(AssetStatus::Loaded);
-                        return std::static_pointer_cast<TData>(cached);
-                    }
+                    record->Status.store(AssetStatus::Loaded);
+                    return std::static_pointer_cast<TData>(cached);
                 }
-                else
-                {
-                    if (cacheIt->second.IsLoaded && cacheIt->second.IsLoaded->load())
-                    {
-                        TBX_ASSERT(false, "AssetServer: cached data for {} vanished while marked loaded", record->Name);
-                    }
 
-                    record->Status.store(AssetStatus::Unloaded);
-                    _assetCache.erase(cacheIt);
-                }
+                record->Status.store(AssetStatus::Unloaded);
+                _assetCache.erase(cacheIt);
             }
 
             record->Status.store(AssetStatus::Loading);
@@ -263,14 +218,11 @@ namespace Tbx
             try
             {
                 auto loadedData = loader->Load(record->FilePath);
-                auto isLoaded = std::make_shared<std::atomic<bool>>(true);
                 std::weak_ptr<AssetRecord> recordRef = record;
                 auto sharedData = std::shared_ptr<TData>(
                     new TData(std::move(loadedData)),
-                    [isLoaded, recordRef](TData* data)
+                    [recordRef](TData* data)
                     {
-                        isLoaded->store(false);
-
                         if (auto lockedRecord = recordRef.lock())
                         {
                             lockedRecord->Status.store(AssetStatus::Unloaded);
@@ -279,11 +231,7 @@ namespace Tbx
                         delete data;
                     });
 
-                AssetCacheEntry cacheEntry = {};
-                cacheEntry.LoadedAsset = sharedData;
-                cacheEntry.IsLoaded = isLoaded;
-
-                _assetCache[record->Name] = cacheEntry;
+                _assetCache[record->Name] = sharedData;
 
                 record->Status.store(AssetStatus::Loaded);
                 return sharedData;
@@ -375,7 +323,7 @@ namespace Tbx
         /// <summary>
         /// Stores cached runtime data so it can be reused while the caller keeps it alive.
         /// </summary>
-        mutable std::unordered_map<std::string, AssetCacheEntry> _assetCache = {};
+        mutable std::unordered_map<std::string, std::weak_ptr<void>> _assetCache = {};
 
         // TODO: memory pools for each asset type that allocates a target amount of memory and keeps track of the available memory, when its full it'll clear out old stuff
         // AKA things at the beginning of the pool and are not in use (which is known via a shared pointer ref count) and start writing there.
