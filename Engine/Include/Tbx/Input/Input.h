@@ -2,6 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Input/IInputHandler.h"
 #include "Tbx/Math/Vectors.h"
+#include "Tbx/Memory/Refs.h"
 
 namespace Tbx
 {
@@ -15,7 +16,7 @@ namespace Tbx
         /// Initializes the global input handler that backs all static queries.
         /// Must be called once before any other Input methods are used.
         /// </summary>
-        EXPORT static void Initialize(const std::shared_ptr<IInputHandler>& inputHandler);
+        EXPORT static void Initialize(const Tbx::Ref<IInputHandler>& inputHandler);
         /// <summary>
         /// Polls the currently configured input handler for fresh state.
         /// </summary>
@@ -82,7 +83,8 @@ namespace Tbx
         /// </summary>
         static bool EnsureHandler();
 
-        static std::shared_ptr<IInputHandler> _inputHandler;
+    private:
+        static Tbx::Ref<IInputHandler> _inputHandler;
     };
 }
 

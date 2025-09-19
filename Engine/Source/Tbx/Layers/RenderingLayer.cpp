@@ -8,8 +8,8 @@
 namespace Tbx
 {
     RenderingLayer::RenderingLayer(
-        std::shared_ptr<IRendererFactory> renderFactory,
-        std::shared_ptr<EventBus> eventBus) : Layer("Rendering")
+        Tbx::Ref<IRendererFactory> renderFactory,
+        Tbx::Ref<EventBus> eventBus) : Layer("Rendering")
     {
         _renderFactory = renderFactory;
         _eventBus = eventBus;
@@ -29,7 +29,7 @@ namespace Tbx
         // TODO: add support for world layers!
 
         // Gather all boxes from the current world
-        const std::shared_ptr<Toy> spaceRoot = _worldSpace->GetRoot();
+        const Tbx::Ref<Toy> spaceRoot = _worldSpace->GetRoot();
 
         if (_firstFrame) // TODO: We need to do this any time we add a new renderer or toy...
         {
@@ -73,7 +73,7 @@ namespace Tbx
         }
     }
 
-    std::shared_ptr<IRenderer> RenderingLayer::GetRenderer(const std::shared_ptr<IWindow>& window)
+    Tbx::Ref<IRenderer> RenderingLayer::GetRenderer(const Tbx::Ref<IWindow>& window)
     {
         auto it = std::find(_windows.begin(), _windows.end(), window);
         if (it == _windows.end())

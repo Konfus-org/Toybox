@@ -3,6 +3,7 @@
 #include "Tbx/Plugins/PluginMeta.h"
 #include "Tbx/Plugins/SharedLibrary.h"
 #include "Tbx/DllExport.h"
+#include "Tbx/Memory/Refs.h"
 #include <memory>
 
 namespace Tbx
@@ -26,7 +27,7 @@ namespace Tbx
         /// If the plugin is not of the requested type, nullptr is returned.
         /// </summary>
         template <typename T>
-        EXPORT std::shared_ptr<T> GetAs()
+        EXPORT Tbx::Ref<T> GetAs()
         {
             // Try to cast the plugin to the requested type
             if (const auto& castedPlug = std::dynamic_pointer_cast<T>(_plugin)) 
@@ -39,7 +40,7 @@ namespace Tbx
         /// <summary>
         /// Gets the loaded plugin.
         /// </summary>
-        EXPORT std::shared_ptr<Plugin> Get()
+        EXPORT Tbx::Ref<Plugin> Get()
         {
             return _plugin;
         }
@@ -50,6 +51,6 @@ namespace Tbx
 
         PluginMeta _pluginInfo = {};
         SharedLibrary _library = {};
-        std::shared_ptr<Plugin> _plugin = nullptr;
+        Tbx::Ref<Plugin> _plugin = nullptr;
     };
 }

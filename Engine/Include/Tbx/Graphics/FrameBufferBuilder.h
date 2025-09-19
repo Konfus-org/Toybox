@@ -6,6 +6,7 @@
 #include "Tbx/Graphics/Mesh.h"
 #include "Tbx/Graphics/Model.h"
 #include "Tbx/Graphics/Buffers.h"
+#include "Tbx/Memory/Refs.h"
 #include <memory>
 
 namespace Tbx
@@ -27,7 +28,7 @@ namespace Tbx
         FrameBuffer BuildRenderBuffer(FullWorldView view);
 
     private:
-        void AddToyUploadCommandsToBuffer(const std::shared_ptr<Toy>& toy, FrameBuffer& buffer);
-        void AddToyRenderCommandsToBuffer(const std::shared_ptr<Toy>& toy, FrameBuffer& buffer);
+        void AddToyUploadCommandsToBuffer(const Tbx::Ref<Toy>& toy, FrameBuffer& buffer);
+        void AddToyRenderCommandsToBuffer(const Tbx::Ref<Toy>& toy, FrameBuffer& buffer);
     };
 }

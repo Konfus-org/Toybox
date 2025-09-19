@@ -2,6 +2,7 @@
 #include "Tbx/Windowing/IWindow.h"
 #include "Tbx/Windowing/WindowStack.h"
 #include "Tbx/Events/EventBus.h"
+#include "Tbx/Memory/Refs.h"
 #include <vector>
 
 namespace Tbx
@@ -10,15 +11,15 @@ namespace Tbx
     {
     public:
         EXPORT WindowManager(
-            std::shared_ptr<IWindowFactory> windowFactory,
-            std::shared_ptr<EventBus> eventBus);
+            Tbx::Ref<IWindowFactory> windowFactory,
+            Tbx::Ref<EventBus> eventBus);
         EXPORT ~WindowManager();
 
         EXPORT void UpdateWindows();
 
-        EXPORT std::shared_ptr<IWindow> GetMainWindow() const;
-        EXPORT const std::vector<std::shared_ptr<IWindow>>& GetAllWindows() const;
-        EXPORT std::shared_ptr<IWindow> GetWindow(const Uid& id) const;
+        EXPORT Tbx::Ref<IWindow> GetMainWindow() const;
+        EXPORT const std::vector<Tbx::Ref<IWindow>>& GetAllWindows() const;
+        EXPORT Tbx::Ref<IWindow> GetWindow(const Uid& id) const;
 
         EXPORT Uid OpenWindow(const std::string& name, const WindowMode& mode, const Size& size = Size(1920, 1080));
 
@@ -26,8 +27,8 @@ namespace Tbx
         EXPORT void CloseAllWindows();
 
     private:
-        std::shared_ptr<IWindowFactory> _windowFactory = {};
-        std::shared_ptr<EventBus> _eventBus = {};
+        Tbx::Ref<IWindowFactory> _windowFactory = {};
+        Tbx::Ref<EventBus> _eventBus = {};
         Uid _mainWindowId = Uid::Invalid;
         WindowStack _stack = {};
     };

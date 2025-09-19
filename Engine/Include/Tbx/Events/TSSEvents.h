@@ -2,6 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Events/Event.h"
 #include "Tbx/TSS/Stage.h"
+#include "Tbx/Memory/Refs.h"
 
 namespace Tbx
 {
@@ -12,10 +13,10 @@ namespace Tbx
     class StageOpenedEvent : public Event
     {
     public:
-        EXPORT explicit StageOpenedEvent(std::shared_ptr<Stage> opened)
+        EXPORT explicit StageOpenedEvent(Tbx::Ref<Stage> opened)
             : _opened(opened) {}
 
-        EXPORT const std::shared_ptr<Stage> GetStage() const { return _opened; }
+        EXPORT const Tbx::Ref<Stage> GetStage() const { return _opened; }
 
         EXPORT std::string ToString() const final
         {
@@ -23,7 +24,7 @@ namespace Tbx
         }
 
     private:
-        std::shared_ptr<Stage> _opened = {};
+        Tbx::Ref<Stage> _opened = {};
     };
 
     /// <summary>
@@ -33,10 +34,10 @@ namespace Tbx
     class StageClosedEvent : public Event
     {
     public:
-        EXPORT explicit StageClosedEvent(std::shared_ptr<Stage> closed)
+        EXPORT explicit StageClosedEvent(Tbx::Ref<Stage> closed)
             : _closed(closed) {}
 
-        EXPORT const std::shared_ptr<Stage> GetStage() const { return _closed; }
+        EXPORT const Tbx::Ref<Stage> GetStage() const { return _closed; }
 
         EXPORT std::string ToString() const final
         {
@@ -44,6 +45,6 @@ namespace Tbx
         }
 
     private:
-        std::shared_ptr<Stage> _closed = {};
+        Tbx::Ref<Stage> _closed = {};
     };
 }

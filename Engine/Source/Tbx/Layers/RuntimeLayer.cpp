@@ -4,7 +4,7 @@
 
 namespace Tbx
 {
-    RuntimeLayer::RuntimeLayer(std::weak_ptr<App> app)
+    RuntimeLayer::RuntimeLayer(Tbx::WeakRef<App> app)
         : Layer("Runtime"), _app(std::move(app))
     {
     }
@@ -50,7 +50,7 @@ namespace Tbx
         }
     }
 
-    void RuntimeLayer::AddRuntime(const std::shared_ptr<IRuntime>& runtime)
+    void RuntimeLayer::AddRuntime(const Tbx::Ref<IRuntime>& runtime)
     {
         if (!runtime)
         {
@@ -70,7 +70,7 @@ namespace Tbx
         }
     }
 
-    void RuntimeLayer::RemoveRuntime(const std::shared_ptr<IRuntime>& runtime)
+    void RuntimeLayer::RemoveRuntime(const Tbx::Ref<IRuntime>& runtime)
     {
         if (!runtime)
         {
@@ -91,12 +91,12 @@ namespace Tbx
         _runtimes.erase(it);
     }
 
-    std::vector<std::shared_ptr<IRuntime>> RuntimeLayer::GetRuntimes() const
+    std::vector<Tbx::Ref<IRuntime>> RuntimeLayer::GetRuntimes() const
     {
         return _runtimes;
     }
 
-    void RuntimeLayer::AttachRuntime(const std::shared_ptr<IRuntime>& runtime)
+    void RuntimeLayer::AttachRuntime(const Tbx::Ref<IRuntime>& runtime)
     {
         if (!runtime || _app.expired())
         {
@@ -106,7 +106,7 @@ namespace Tbx
         runtime->OnAttach(_app);
     }
 
-    void RuntimeLayer::DetachRuntime(const std::shared_ptr<IRuntime>& runtime)
+    void RuntimeLayer::DetachRuntime(const Tbx::Ref<IRuntime>& runtime)
     {
         if (!runtime)
         {

@@ -14,7 +14,7 @@ namespace Tbx
         }
     }
 
-    std::shared_ptr<Layer> LayerManager::GetLayer(Tbx::uint index) const
+    Tbx::Ref<Layer> LayerManager::GetLayer(Tbx::uint index) const
     {
         if (index >= _stack.GetCount())
         {
@@ -24,7 +24,7 @@ namespace Tbx
         return _stack[index];
     }
 
-    std::shared_ptr<Layer> LayerManager::GetLayer(const std::string& name) const
+    Tbx::Ref<Layer> LayerManager::GetLayer(const std::string& name) const
     {
         for (auto& layer : _stack)
         {
@@ -36,7 +36,7 @@ namespace Tbx
         return nullptr;
     }
 
-    void LayerManager::AddLayer(const std::shared_ptr<Layer>& layer)
+    void LayerManager::AddLayer(const Tbx::Ref<Layer>& layer)
     {
         _stack.Push(layer);
     }
@@ -59,7 +59,7 @@ namespace Tbx
         }
     }
 
-    void LayerManager::RemoveLayer(const std::shared_ptr<Layer>& layer)
+    void LayerManager::RemoveLayer(const Tbx::Ref<Layer>& layer)
     {
         if (layer)
         {

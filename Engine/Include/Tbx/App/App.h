@@ -7,6 +7,7 @@
 #include "Tbx/Windowing/WindowManager.h"
 #include "Tbx/Layers/LayerManager.h"
 #include "Tbx/Plugins/PluginServer.h"
+#include "Tbx/Memory/Refs.h"
 #include <memory>
 #include <vector>
 
@@ -44,20 +45,22 @@ namespace Tbx
         const AppStatus& GetStatus() const;
         const std::string& GetName() const;
 
-        std::shared_ptr<EventBus> GetEventBus();
-        std::shared_ptr<PluginServer> GetPluginServer();
-        std::shared_ptr<AssetServer> GetAssetServer();
+        Tbx::Ref<EventBus> GetEventBus();
 
         // TODO: hide behind some methods AddLayer<LayerType>(args...), RemoveLayer(name), GetLayer(name), GetLayers<Type>(), etc...
         // TODO: ensure each layer has a unique name.
-        std::shared_ptr<LayerManager> GetLayerManager();
+        Tbx::Ref<LayerManager> GetLayerManager();
 
-        // TODO: Hide window manager behind some methods like layer: OpenNewWindow(name, mode, size=default)
-        std::shared_ptr<WindowManager> GetWindowManager();
+        // TODO: Get rid of window manager and make the app fully own windows.
+        // They should be behind some methods like layer: OpenNewWindow(name, mode, size=default), GetWindow(id or name), etc..
+        Tbx::Ref<WindowManager> GetWindowManager();
 
-        void AddRuntime(const std::shared_ptr<IRuntime>& runtime);
-        void RemoveRuntime(const std::shared_ptr<IRuntime>& runtime);
-        std::vector<std::shared_ptr<IRuntime>> GetRuntimes() const;
+        Tbx::Ref<PluginServer> GetPluginServer();
+        Tbx::Ref<AssetServer> GetAssetServer();
+
+        void AddRuntime(const Tbx::Ref<IRuntime>& runtime);
+        void RemoveRuntime(const Tbx::Ref<IRuntime>& runtime);
+        std::vector<Tbx::Ref<IRuntime>> GetRuntimes() const;
 
     protected:
         virtual void OnLaunch() {};
@@ -74,10 +77,10 @@ namespace Tbx
         std::string _name = "App";
         AppStatus _status = AppStatus::None;
         Settings _settings = {};
-        std::shared_ptr<EventBus> _eventBus = nullptr;
-        std::shared_ptr<LayerManager> _layerManager = nullptr;
-        std::shared_ptr<PluginServer> _pluginServer = nullptr;
-        std::shared_ptr<AssetServer> _assetServer = nullptr;
+        Tbx::Ref<EventBus> _eventBus = nullptr;
+        Tbx::Ref<LayerManager> _layerManager = nullptr;
+        Tbx::Ref<PluginServer> _pluginServer = nullptr;
+        Tbx::Ref<AssetServer> _assetServer = nullptr;
 
     };
 }

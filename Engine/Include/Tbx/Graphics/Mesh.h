@@ -2,7 +2,7 @@
 #include "Tbx/Graphics/Vertex.h"
 #include "Tbx/Graphics/Buffers.h"
 #include "Tbx/Ids/UID.h"
-#include "Tbx/TypeAliases/Int.h"
+#include "Tbx/Math/Int.h"
 
 namespace Tbx
 {

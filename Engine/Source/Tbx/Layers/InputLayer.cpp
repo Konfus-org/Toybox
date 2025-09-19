@@ -4,7 +4,7 @@
 
 namespace Tbx
 {
-    InputLayer::InputLayer(std::shared_ptr<IInputHandler> inputHandler) : Layer("Input")
+    InputLayer::InputLayer(Tbx::Ref<IInputHandler> inputHandler) : Layer("Input")
     {
         _inputHandler = inputHandler;
     }

@@ -7,7 +7,7 @@
 
 namespace Tbx
 {
-    LogLayer::LogLayer(std::shared_ptr<ILoggerFactory> loggerFactory) 
+    LogLayer::LogLayer(Tbx::Ref<ILoggerFactory> loggerFactory) 
         : Layer("Logging")
     {
 #ifdef TBX_DEBUG
