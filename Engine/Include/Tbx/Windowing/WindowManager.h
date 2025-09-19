@@ -28,7 +28,7 @@ namespace Tbx
     private:
         std::shared_ptr<IWindowFactory> _windowFactory = {};
         std::shared_ptr<EventBus> _eventBus = {};
-        Uid _mainWindowId = Consts::Invalid::Uid;
+        Uid _mainWindowId = Uid::Invalid;
         WindowStack _stack = {};
     };
 }

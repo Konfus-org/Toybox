@@ -31,7 +31,7 @@ namespace Tbx
         EXPORT static Mat4x4 CalculateViewProjectionMatrix(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& projectionMatrix);
 
     private:
-        Mat4x4 _projectionMatrix = Consts::Mat4x4::Identity;
+        Mat4x4 _projectionMatrix = Mat4x4::Identity;
 
         bool _isPerspective = true;
         float _zNear = 0.1f;

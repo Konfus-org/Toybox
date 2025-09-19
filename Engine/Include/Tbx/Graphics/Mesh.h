@@ -23,6 +23,9 @@ namespace Tbx
         EXPORT static Mesh MakeTriangle();
         EXPORT static Mesh MakeQuad();
 
+        EXPORT inline static Mesh Quad = Mesh::MakeQuad();
+        EXPORT inline static Mesh Triangle = Mesh::MakeTriangle();
+
     private:
         VertexBuffer VertexVectorToBuffer(const std::vector<Vertex>& vertices) const;
 
@@ -39,10 +42,5 @@ namespace Tbx
         Uid MeshId = Uid::Invalid;
     };
 
-    namespace Consts::Mesh
-    {
-        EXPORT inline Tbx::Mesh Quad = Tbx::Mesh::MakeQuad();
-        EXPORT inline Tbx::Mesh Triangle = Tbx::Mesh::MakeTriangle();
-    }
 }
 

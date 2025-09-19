@@ -1,4 +1,5 @@
 #pragma once
+#include "Tbx/Core/StringConvertible.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Math/Constants.h"
 #include "Tbx/Math/Quaternion.h"
@@ -9,13 +10,13 @@ namespace Tbx
     /// A transform is a combination of position, rotation, and scale.
     /// It is used to represent the position, rotation, and scale of an object in 3D space.
     /// </summary>
-    struct EXPORT Transform
+    struct EXPORT Transform : public IStringConvertible
     {
         Transform() = default;
         Transform(const Vector3& position, const Quaternion& rotation, const Vector3& scale)
             : Position(position), Rotation(rotation), Scale(scale) {}
 
-        std::string ToString() const;
+        std::string ToString() const override;
 
         Transform& SetPosition(Vector3 newPos)
         {
@@ -35,9 +36,9 @@ namespace Tbx
             return *this;
         }
 
-        Vector3 Position = Consts::Vector3::Zero;
-        Quaternion Rotation = Consts::Quaternion::Identity;
-        Vector3 Scale = Consts::Vector3::One;
+        Vector3 Position = Vector3::Zero;
+        Quaternion Rotation = Quaternion::Identity;
+        Vector3 Scale = Vector3::One;
     };
 }
 

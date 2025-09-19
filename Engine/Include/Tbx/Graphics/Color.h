@@ -1,10 +1,11 @@
 #pragma once
+#include "Tbx/Core/StringConvertible.h"
 #include "Tbx/DllExport.h"
 #include <string>
 
 namespace Tbx
 {
-    struct EXPORT RgbaColor
+    struct EXPORT RgbaColor : public IStringConvertible
     {
     public:
         /// <summary>
@@ -19,7 +20,7 @@ namespace Tbx
         RgbaColor(float r, float g, float b, float a)
             : R(r), G(g), B(b), A(a) {}
 
-        std::string ToString() const
+        std::string ToString() const override
         {
             return
                 "R: " + std::to_string(R) + 
