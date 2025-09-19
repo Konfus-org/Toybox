@@ -2,6 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/TypeAliases/Int.h"
 #include <memory>
+#include "Tbx/TypeAliases/Pointers.h"
 
 namespace Tbx
 {
@@ -39,7 +40,7 @@ namespace Tbx
         }
 
     private:
-        std::shared_ptr<char[]> _data = nullptr;
+        Tbx::Ref<char[]> _data = nullptr;
         uint64 _elementSize = 0;
         uint64 _poolSize = 0;
     };

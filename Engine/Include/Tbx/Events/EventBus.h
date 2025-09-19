@@ -9,6 +9,7 @@
 #include <vector>
 #include <mutex>
 #include <atomic>
+#include "Tbx/TypeAliases/Pointers.h"
 
 namespace Tbx
 {
@@ -268,7 +269,7 @@ namespace Tbx
         Event& PopNextEventInQueue();
 
         std::unordered_map<Tbx::uint64, std::unordered_map<Tbx::uint64, EventCallback>> _subscribers = {};
-        std::queue<std::unique_ptr<Event>> _eventQueue = {};
+        std::queue<Tbx::ExclusiveRef<Event>> _eventQueue = {};
         std::mutex _mutex = {};
         bool _hasPolled = false;
     };

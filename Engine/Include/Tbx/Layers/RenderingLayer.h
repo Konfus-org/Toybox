@@ -8,6 +8,7 @@
 #include "Tbx/Events/AppEvents.h"
 #include <vector>
 #include <memory>
+#include "Tbx/TypeAliases/Pointers.h"
 
 namespace Tbx
 {
@@ -19,13 +20,13 @@ namespace Tbx
     {
     public:
         EXPORT RenderingLayer(
-            std::shared_ptr<IRendererFactory> renderFactory,
-            std::shared_ptr<EventBus> eventBus);
+            Tbx::Ref<IRendererFactory> renderFactory,
+            Tbx::Ref<EventBus> eventBus);
 
         /// <summary>
         /// Gets the renderer used by a given window.
         /// </summary>
-        EXPORT std::shared_ptr<IRenderer> GetRenderer(const std::shared_ptr<IWindow>& window);
+        EXPORT Tbx::Ref<IRenderer> GetRenderer(const Tbx::Ref<IWindow>& window);
 
     protected:
         void OnUpdate() override;
@@ -37,10 +38,10 @@ namespace Tbx
         void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
 
     private:
-        std::vector<std::shared_ptr<IWindow>> _windows = {};
-        std::vector<std::shared_ptr<IRenderer>> _renderers = {};
-        std::shared_ptr<IRendererFactory> _renderFactory = {};
-        std::shared_ptr<EventBus> _eventBus = {};
+        std::vector<Tbx::Ref<IWindow>> _windows = {};
+        std::vector<Tbx::Ref<IRenderer>> _renderers = {};
+        Tbx::Ref<IRendererFactory> _renderFactory = {};
+        Tbx::Ref<EventBus> _eventBus = {};
         Tbx::RgbaColor _clearColor = {};
         bool _firstFrame = true;
     };

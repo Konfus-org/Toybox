@@ -5,6 +5,7 @@
 #include "Tbx/Math/Constants.h"
 #include <algorithm>
 #include <memory>
+#include "Tbx/TypeAliases/Pointers.h"
 
 namespace Tbx
 {
@@ -25,7 +26,7 @@ namespace Tbx
         /// <summary>
         /// Calculates a bounding sphere for a toy using its transform block if present.
         /// </summary>
-        BoundingSphere(const std::shared_ptr<Toy>& toy)
+        BoundingSphere(const Tbx::Ref<Toy>& toy)
         {
             Vector3 position = Consts::Vector3::Zero;
             Vector3 scale = Consts::Vector3::One;

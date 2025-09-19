@@ -15,6 +15,7 @@
 #include <unordered_set>
 #include <ranges>
 #include <filesystem>
+#include "Tbx/TypeAliases/Pointers.h"
 
 #ifdef TBX_PLATFORM_WINDOWS
     #ifndef WIN32_LEAN_AND_MEAN

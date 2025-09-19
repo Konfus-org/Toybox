@@ -2,6 +2,7 @@
 #include "Tbx/DllExport.h"
 #include <string>
 #include <memory>
+#include "Tbx/TypeAliases/Pointers.h"
 
 namespace Tbx
 {
@@ -23,6 +24,6 @@ namespace Tbx
     {
     public:
         virtual ~ILoggerFactory() = default;
-        virtual std::shared_ptr<ILogger> Create(const std::string& name, const std::string filePath = "") = 0;
+        virtual Tbx::Ref<ILogger> Create(const std::string& name, const std::string filePath = "") = 0;
     };
 }

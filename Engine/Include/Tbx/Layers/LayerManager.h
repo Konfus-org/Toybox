@@ -4,6 +4,7 @@
 #include "Tbx/TypeAliases/Int.h"
 #include <memory>
 #include <vector>
+#include "Tbx/TypeAliases/Pointers.h"
 
 namespace Tbx
 {
@@ -13,16 +14,16 @@ namespace Tbx
         EXPORT void UpdateLayers();
         EXPORT void ClearLayers();
 
-        EXPORT void AddLayer(const std::shared_ptr<Layer>& layer);
+        EXPORT void AddLayer(const Tbx::Ref<Layer>& layer);
         EXPORT void RemoveLayer(Tbx::uint index);
         EXPORT void RemoveLayer(const std::string& name);
-        EXPORT void RemoveLayer(const std::shared_ptr<Layer>& layer);
+        EXPORT void RemoveLayer(const Tbx::Ref<Layer>& layer);
 
-        EXPORT std::shared_ptr<Layer> GetLayer(Tbx::uint index) const;
-        EXPORT std::shared_ptr<Layer> GetLayer(const std::string& name) const;
+        EXPORT Tbx::Ref<Layer> GetLayer(Tbx::uint index) const;
+        EXPORT Tbx::Ref<Layer> GetLayer(const std::string& name) const;
 
         template <typename T>
-        EXPORT std::shared_ptr<T> GetLayer() const
+        EXPORT Tbx::Ref<T> GetLayer() const
         {
             for (auto layer : _stack)
             {
@@ -36,7 +37,7 @@ namespace Tbx
         }
 
         template <typename T>
-        EXPORT std::shared_ptr<T> GetLayers() const
+        EXPORT Tbx::Ref<T> GetLayers() const
         {
             auto layers = std::vector<T>();
             for (auto layer : _stack)

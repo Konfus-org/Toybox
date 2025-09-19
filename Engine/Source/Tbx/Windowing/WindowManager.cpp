@@ -6,8 +6,8 @@
 namespace Tbx
 {
     WindowManager::WindowManager(
-        std::shared_ptr<IWindowFactory> windowFactory, 
-        std::shared_ptr<EventBus> eventBus)
+        Tbx::Ref<IWindowFactory> windowFactory, 
+        Tbx::Ref<EventBus> eventBus)
     {
         _windowFactory = windowFactory;
         TBX_ASSERT(_windowFactory, "Window manager given invalid window factory!");
@@ -37,24 +37,24 @@ namespace Tbx
         }
     }
 
-    const std::vector<std::shared_ptr<IWindow>>& WindowManager::GetAllWindows() const
+    const std::vector<Tbx::Ref<IWindow>>& WindowManager::GetAllWindows() const
     {
         return _stack.GetAll();
     }
 
-    std::shared_ptr<IWindow> WindowManager::GetMainWindow() const
+    Tbx::Ref<IWindow> WindowManager::GetMainWindow() const
     {
         return GetWindow(_mainWindowId);
     }
 
-    std::shared_ptr<IWindow> WindowManager::GetWindow(const Uid& id) const
+    Tbx::Ref<IWindow> WindowManager::GetWindow(const Uid& id) const
     {
         return _stack.Get(id);
     }
 
     Uid WindowManager::OpenWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
-        std::shared_ptr<IWindow> window = _windowFactory->Create(name, size, mode);
+        Tbx::Ref<IWindow> window = _windowFactory->Create(name, size, mode);
         TBX_ASSERT(window, "Failed to create window!");
         if (_mainWindowId == Consts::Invalid::Uid)
         {

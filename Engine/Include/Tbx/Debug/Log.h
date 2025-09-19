@@ -5,6 +5,7 @@
 #include <format>
 #include <memory>
 #include <queue>
+#include "Tbx/TypeAliases/Pointers.h"
 
 namespace Tbx
 {
@@ -14,7 +15,7 @@ namespace Tbx
         /// <summary>
         /// Opens the log.
         /// </summary>
-        EXPORT static void Initialize(std::shared_ptr<ILogger> logger = nullptr);
+        EXPORT static void Initialize(Tbx::Ref<ILogger> logger = nullptr);
 
         /// <summary>
         /// Closes the log.
@@ -117,7 +118,7 @@ namespace Tbx
 
     private:
         static std::queue<std::pair<LogLevel, std::string>> _logQueue;
-        static std::shared_ptr<ILogger> _logger;
+        static Tbx::Ref<ILogger> _logger;
         static std::string _logFilePath;
         static bool _isOpen;
     };

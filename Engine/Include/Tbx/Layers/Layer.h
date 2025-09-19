@@ -3,6 +3,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include "Tbx/TypeAliases/Pointers.h"
 
 namespace Tbx
 {
@@ -19,8 +20,8 @@ namespace Tbx
 
         EXPORT std::string GetName() const;
 
-        EXPORT void AttachTo(std::vector<std::shared_ptr<Layer>>& layers);
-        EXPORT void DetachFrom(std::vector<std::shared_ptr<Layer>>& layers);
+        EXPORT void AttachTo(std::vector<Tbx::Ref<Layer>>& layers);
+        EXPORT void DetachFrom(std::vector<Tbx::Ref<Layer>>& layers);
 
         EXPORT void Update();
 

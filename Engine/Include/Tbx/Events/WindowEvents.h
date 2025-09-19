@@ -5,24 +5,25 @@
 #include "Tbx/Math/Size.h"
 #include <string>
 #include <memory>
+#include "Tbx/TypeAliases/Pointers.h"
 
 namespace Tbx
 {
     class EXPORT WindowActionEvent : public Event
     {
     public:
-        explicit WindowActionEvent(std::shared_ptr<IWindow> window) : _window(std::move(window)) {}
+        explicit WindowActionEvent(Tbx::Ref<IWindow> window) : _window(std::move(window)) {}
 
-        std::shared_ptr<IWindow> GetWindow() const { return _window; }
+        Tbx::Ref<IWindow> GetWindow() const { return _window; }
 
     private:
-        std::shared_ptr<IWindow> _window = nullptr;
+        Tbx::Ref<IWindow> _window = nullptr;
     };
 
     class EXPORT WindowFocusedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowFocusedEvent(std::shared_ptr<IWindow> window)
+        explicit WindowFocusedEvent(Tbx::Ref<IWindow> window)
             : WindowActionEvent(std::move(window)) {}
 
         std::string ToString() const final
@@ -34,7 +35,7 @@ namespace Tbx
     class EXPORT WindowOpenedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowOpenedEvent(std::shared_ptr<IWindow> window)
+        explicit WindowOpenedEvent(Tbx::Ref<IWindow> window)
             : WindowActionEvent(std::move(window)) {}
 
         std::string ToString() const final
@@ -46,7 +47,7 @@ namespace Tbx
     class EXPORT WindowClosedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowClosedEvent(std::shared_ptr<IWindow> window)
+        explicit WindowClosedEvent(Tbx::Ref<IWindow> window)
             : WindowActionEvent(std::move(window)) {}
 
         std::string ToString() const final

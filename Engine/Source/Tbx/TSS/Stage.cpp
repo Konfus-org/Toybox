@@ -4,13 +4,13 @@
 
 namespace Tbx
 {
-    Stage::Stage(std::shared_ptr<EventBus> eventBus)
+    Stage::Stage(Tbx::Ref<EventBus> eventBus)
         : _root(std::make_shared<Toy>("Root"))
         , _eventBus(eventBus)
     {
     }
 
-    std::shared_ptr<Toy> Stage::GetRoot() const
+    Tbx::Ref<Toy> Stage::GetRoot() const
     {
         return _root;
     }

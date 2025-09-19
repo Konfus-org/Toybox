@@ -1,13 +1,14 @@
 #pragma once
 #include "Tbx/Events/Event.h"
 #include "Tbx/Plugins/LoadedPlugin.h"
+#include "Tbx/TypeAliases/Pointers.h"
 
 namespace Tbx
 {
     class PluginLoadedEvent : public Event
     {
     public:
-        EXPORT PluginLoadedEvent(std::shared_ptr<LoadedPlugin> loadedPlugin)
+        EXPORT PluginLoadedEvent(Tbx::Ref<LoadedPlugin> loadedPlugin)
             : _loadedPlugin(loadedPlugin) {}
 
         EXPORT std::string ToString() const final
@@ -15,12 +16,12 @@ namespace Tbx
             return "Plugin Loaded Event";
         }
 
-        EXPORT std::shared_ptr<LoadedPlugin> GetLoadedPlugin() 
+        EXPORT Tbx::Ref<LoadedPlugin> GetLoadedPlugin() 
         {
             return _loadedPlugin; 
         }
 
     private:
-        std::shared_ptr<LoadedPlugin> _loadedPlugin;
+        Tbx::Ref<LoadedPlugin> _loadedPlugin;
     };
 }

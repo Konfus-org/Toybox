@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include <memory>
+#include "Tbx/TypeAliases/Pointers.h"
 
 namespace Tbx
 {
@@ -11,8 +12,8 @@ namespace Tbx
     public:
         virtual ~IRuntime() = default;
 
-        virtual void OnAttach(std::weak_ptr<App> app) {}
-        virtual void OnDetach(std::weak_ptr<App> app) {}
-        virtual void OnUpdate(std::weak_ptr<App> app) {}
+        virtual void OnAttach(Tbx::WeakRef<App> app) {}
+        virtual void OnDetach(Tbx::WeakRef<App> app) {}
+        virtual void OnUpdate(Tbx::WeakRef<App> app) {}
     };
 }

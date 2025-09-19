@@ -3,11 +3,12 @@
 #include "Tbx/TSS/Toy.h"
 #include <memory>
 #include <vector>
+#include "Tbx/TypeAliases/Pointers.h"
 
 namespace Tbx
 {
-    using StageViewIterator = typename std::vector<std::shared_ptr<Toy>>::iterator;
-    using ConstStageViewIterator = typename std::vector<std::shared_ptr<Toy>>::const_iterator;
+    using StageViewIterator = typename std::vector<Tbx::Ref<Toy>>::iterator;
+    using ConstStageViewIterator = typename std::vector<Tbx::Ref<Toy>>::const_iterator;
 
     /// <summary>
     /// Provides iteration over toys that contain data of the specified block types.
@@ -21,7 +22,7 @@ namespace Tbx
         /// Creates a view rooted at the given toy.
         /// </summary>
         /// <param name="root">Root toy to search from.</param>
-        explicit(false) StageView(const std::shared_ptr<Toy>& root)
+        explicit(false) StageView(const Tbx::Ref<Toy>& root)
         {
             if (root)
             {
@@ -53,7 +54,7 @@ namespace Tbx
         /// - With no Ts, always true (all toys).
         /// - With Ts..., toy must have at least one of the specified blocks.
         /// </summary>
-        static bool Matches(const std::shared_ptr<Toy>& toy)
+        static bool Matches(const Tbx::Ref<Toy>& toy)
         {
             if constexpr (sizeof...(Ts) == 0)
             {
@@ -65,7 +66,7 @@ namespace Tbx
             }
         }
 
-        void BuildViewVector(const std::shared_ptr<Toy>& toy)
+        void BuildViewVector(const Tbx::Ref<Toy>& toy)
         {
             if (Matches(toy))
             {
@@ -77,7 +78,7 @@ namespace Tbx
             }
         }
 
-        std::vector<std::shared_ptr<Toy>> _viewVector = {};
+        std::vector<Tbx::Ref<Toy>> _viewVector = {};
     };
 
     /// <summary>

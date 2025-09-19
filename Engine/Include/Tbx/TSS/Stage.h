@@ -3,6 +3,7 @@
 #include "Tbx/TSS/Toy.h"
 #include "Tbx/Events/EventBus.h"
 #include <memory>
+#include "Tbx/TypeAliases/Pointers.h"
 
 namespace Tbx
 {
@@ -15,13 +16,13 @@ namespace Tbx
         /// <summary>
         /// Creates a new instance of <see cref="Stage"/> with a root toy.
         /// </summary>
-        EXPORT Stage(std::shared_ptr<EventBus> eventBus);
+        EXPORT Stage(Tbx::Ref<EventBus> eventBus);
 
         /// <summary>
         /// Gets the root toy of the hierarchy.
         /// </summary>
         /// <returns>The root toy.</returns>
-        EXPORT std::shared_ptr<Toy> GetRoot() const;
+        EXPORT Tbx::Ref<Toy> GetRoot() const;
 
         /// <summary>
         /// Updates the toy hierarchy.
@@ -39,7 +40,7 @@ namespace Tbx
         EXPORT void Close();
 
     private:
-        std::shared_ptr<Toy> _root = nullptr;
-        std::shared_ptr<EventBus> _eventBus = nullptr;
+        Tbx::Ref<Toy> _root = nullptr;
+        Tbx::Ref<EventBus> _eventBus = nullptr;
     };
 }

@@ -9,23 +9,23 @@ namespace Tbx
         Clear();
     }
 
-    void WindowStack::Push(std::shared_ptr<IWindow> window)
+    void WindowStack::Push(Tbx::Ref<IWindow> window)
     {
         _windows.push_back(window);
     }
 
     bool WindowStack::Contains(const Uid& id) const
     {
-        auto window = std::find_if(_windows.begin(), _windows.end(), [id](std::shared_ptr<IWindow> window)
+        auto window = std::find_if(_windows.begin(), _windows.end(), [id](Tbx::Ref<IWindow> window)
         {
             return window->GetId() == id;
         });
         return window != _windows.end();
     }
 
-    std::shared_ptr<IWindow> WindowStack::Get(const Uid& id) const
+    Tbx::Ref<IWindow> WindowStack::Get(const Uid& id) const
     {
-        auto window = std::find_if(_windows.begin(), _windows.end(), [id](std::shared_ptr<IWindow> window)
+        auto window = std::find_if(_windows.begin(), _windows.end(), [id](Tbx::Ref<IWindow> window)
         {
             return window->GetId() == id;
         });
@@ -33,7 +33,7 @@ namespace Tbx
         return *window;
     }
 
-    const std::vector<std::shared_ptr<IWindow>>& WindowStack::GetAll() const
+    const std::vector<Tbx::Ref<IWindow>>& WindowStack::GetAll() const
     {
         return _windows;
     }
@@ -42,7 +42,7 @@ namespace Tbx
     {
         if (_windows.empty()) return;
 
-        auto window = std::find_if(_windows.begin(), _windows.end(), [id](std::shared_ptr<IWindow> window)
+        auto window = std::find_if(_windows.begin(), _windows.end(), [id](Tbx::Ref<IWindow> window)
         {
             return window->GetId() == id;
         });

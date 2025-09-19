@@ -5,6 +5,7 @@
 #include "Tbx/Graphics/GraphicsApi.h"
 #include "Tbx/Math/Vectors.h"
 #include <memory>
+#include "Tbx/TypeAliases/Pointers.h"
 
 namespace Tbx
 {
@@ -22,7 +23,7 @@ namespace Tbx
         /// <summary>
         /// Initializes the renderer.
         /// </summary>
-        virtual void Initialize(const std::shared_ptr<IRenderSurface>& surface) = 0;
+        virtual void Initialize(const Tbx::Ref<IRenderSurface>& surface) = 0;
 
         /// <summary>
         /// Draws a frame.
@@ -88,6 +89,6 @@ namespace Tbx
     {
     public:
         virtual ~IRendererFactory() = default;
-        virtual std::shared_ptr<IRenderer> Create(std::shared_ptr<IRenderSurface> surface) = 0;
+        virtual Tbx::Ref<IRenderer> Create(Tbx::Ref<IRenderSurface> surface) = 0;
     };
 }
