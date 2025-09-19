@@ -103,12 +103,13 @@ namespace Tbx
 	/// </summary>
 	static bool LoadPlugin(
 		const PluginMeta& info,
+		std::weak_ptr<App> app,
 		std::shared_ptr<EventBus> eventBus,
 		std::unordered_set<std::string>& loadedNames,
 		std::unordered_set<std::string>& loadedTypes,
 		std::vector<std::shared_ptr<LoadedPlugin>>& outLoaded)
 	{
-		auto plugin = std::make_shared<LoadedPlugin>(info);
+		auto plugin = std::make_shared<LoadedPlugin>(info, app);
 		if (!plugin->IsValid())
 		{
 			TBX_ASSERT(false, "Failed to load plugin: {0}", info.GetName());
@@ -139,10 +140,13 @@ namespace Tbx
 
 	//////////// PLUGIN MANAGER //////////////////
 
-	PluginServer::PluginServer(const std::string& pathToPlugins, std::shared_ptr<EventBus> eventBus, const std::weak_ptr<Tbx::App>& app)
+	PluginServer::PluginServer(
+		const std::string& pathToPlugins,
+		std::shared_ptr<EventBus> eventBus,
+		std::weak_ptr<Tbx::App> app)
 	{
 		_eventBus = eventBus;
-		LoadPlugins(pathToPlugins);
+		LoadPlugins(pathToPlugins, app);
 	}
 
 	PluginServer::~PluginServer()
@@ -196,7 +200,7 @@ namespace Tbx
 		return foundPluginInfos;
 	}
 
-	void PluginServer::LoadPlugins(const std::string& pathToPlugins)
+	void PluginServer::LoadPlugins(const std::string& pathToPlugins, std::weak_ptr<Tbx::App> app)
 	{
 		// 1) Discover all plugin infos
 		auto allInfos = SearchDirectoryForInfos(pathToPlugins);

@@ -75,7 +75,7 @@ namespace Tbx
         auto input = std::make_shared<InputLayer>(_pluginServer->GetPlugin<IInputHandler>());
         auto log = std::make_shared<LogLayer>(_pluginServer->GetPlugin<ILoggerFactory>());
         auto windowingLayer = std::make_shared<WindowingLayer>(_name, _pluginServer->GetPlugin<IWindowFactory>(), _eventBus);
-        auto runtime = std::make_shared<RuntimeLayer>(weak_from_this());
+        auto runtime = std::make_shared<RuntimeLayer>(self);
         _layerManager->AddLayer(log);
         _layerManager->AddLayer(input);
         _layerManager->AddLayer(windowingLayer);

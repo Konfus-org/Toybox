@@ -4,13 +4,13 @@
 
 namespace Tbx
 {
-    using PluginLoadFunc = Plugin*(*)();
+    using PluginLoadFunc = Plugin*(*)(std::weak_ptr<App>);
     using PluginUnloadFunc = void(*)(Plugin*);
 
-    LoadedPlugin::LoadedPlugin(const PluginMeta& pluginInfo)
+    LoadedPlugin::LoadedPlugin(const PluginMeta& pluginInfo, std::weak_ptr<App> app)
     {
         _pluginInfo = pluginInfo;
-        Load();
+        Load(app);
     }
 
     LoadedPlugin::~LoadedPlugin() 
@@ -28,13 +28,7 @@ namespace Tbx
         return _pluginInfo;
     }
 
-    void LoadedPlugin::Reload()
-    {
-        Unload();
-        Load();
-    }
-
-    void LoadedPlugin::Load()
+    void LoadedPlugin::Load(std::weak_ptr<App> app)
     {
         // Don't load static plugins
         if (_pluginInfo.GetLib().find(".lib") != std::string::npos) return;
@@ -48,7 +42,7 @@ namespace Tbx
         }
 
         // Get load plugin function from library
-        const auto loadFuncSymbol = _library.GetSymbol("Load_" + _pluginInfo.GetName());
+        const auto loadFuncSymbol = _library.GetSymbol("Load");
         if (!loadFuncSymbol)
         {
             TBX_TRACE_ERROR("Failed to load library because no load library function was found in: {0}, is it calling TBX_REGISTER_PLUGIN?", pluginFullPath);
@@ -74,7 +68,7 @@ namespace Tbx
         // pointer.
         const auto loadPluginFunc = reinterpret_cast<PluginLoadFunc>(loadFuncSymbol);
         const auto unloadPluginFunc = reinterpret_cast<PluginUnloadFunc>(unloadFuncSymbol);
-        auto* loadedPlugin = loadPluginFunc();
+        auto* loadedPlugin = loadPluginFunc(app);
         std::shared_ptr<Plugin> sharedLoadedPlugin(loadedPlugin, [unloadPluginFunc](Plugin* pluginToUnload)
         {
             unloadPluginFunc(pluginToUnload);

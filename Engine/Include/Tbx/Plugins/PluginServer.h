@@ -11,7 +11,10 @@ namespace Tbx
     class PluginServer
     {
     public:
-        PluginServer(const std::string& pathToPlugins, std::shared_ptr<EventBus> eventBus, const std::weak_ptr<Tbx::App>& app);
+        PluginServer(
+            const std::string& pathToPlugins,
+            std::shared_ptr<EventBus> eventBus,
+            std::weak_ptr<Tbx::App> app);
         ~PluginServer();
 
         /// <summary>
@@ -64,7 +67,7 @@ namespace Tbx
 
     private:
         std::vector<PluginMeta> SearchDirectoryForInfos(const std::string& pathToPlugins);
-        EXPORT void LoadPlugins(const std::string& pathToPlugins);
+        EXPORT void LoadPlugins(const std::string& pathToPlugins, std::weak_ptr<Tbx::App> app);
         EXPORT void UnloadPlugins();
 
         std::vector<std::shared_ptr<LoadedPlugin>> _loadedPlugins = {};

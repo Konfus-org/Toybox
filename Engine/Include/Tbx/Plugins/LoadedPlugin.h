@@ -7,16 +7,17 @@
 
 namespace Tbx
 {
+    class App;
+
     class LoadedPlugin
     {
     public:
-        EXPORT explicit(true) LoadedPlugin(const PluginMeta& pluginInfo);
+        EXPORT explicit(true) LoadedPlugin(const PluginMeta& pluginInfo, std::weak_ptr<App> app);
         EXPORT ~LoadedPlugin();
 
         EXPORT LoadedPlugin(const LoadedPlugin&) = delete;
         EXPORT LoadedPlugin& operator= (const LoadedPlugin&) = delete;
 
-        EXPORT void Reload();
         EXPORT bool IsValid() const;
         EXPORT const PluginMeta& GetMeta() const;
 
@@ -44,7 +45,7 @@ namespace Tbx
         }
 
     private:
-        void Load();
+        void Load(std::weak_ptr<App> app);
         void Unload();
 
         PluginMeta _pluginInfo = {};

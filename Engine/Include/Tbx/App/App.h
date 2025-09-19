@@ -45,10 +45,15 @@ namespace Tbx
         const std::string& GetName() const;
 
         std::shared_ptr<EventBus> GetEventBus();
-        std::shared_ptr<LayerManager> GetLayerManager();
-        std::shared_ptr<WindowManager> GetWindowManager();
         std::shared_ptr<PluginServer> GetPluginServer();
         std::shared_ptr<AssetServer> GetAssetServer();
+
+        // TODO: hide behind some methods AddLayer<LayerType>(args...), RemoveLayer(name), GetLayer(name), GetLayers<Type>(), etc...
+        // TODO: ensure each layer has a unique name.
+        std::shared_ptr<LayerManager> GetLayerManager();
+
+        // TODO: Hide window manager behind some methods like layer: OpenNewWindow(name, mode, size=default)
+        std::shared_ptr<WindowManager> GetWindowManager();
 
         void AddRuntime(const std::shared_ptr<IRuntime>& runtime);
         void RemoveRuntime(const std::shared_ptr<IRuntime>& runtime);
