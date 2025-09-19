@@ -3,8 +3,9 @@
 #include "Tbx/Events/Event.h"
 #include "Tbx/Debug/Debugging.h"
 #include "Tbx/Callbacks/CallbackFunction.h"
+#include "Tbx/Math/Int.h"
+#include "Tbx/Memory/Refs.h"
 #include "Tbx/Memory/Hashing.h"
-#include "Tbx/TypeAliases/Int.h"
 #include <unordered_map>
 #include <typeindex>
 #include <vector>
@@ -395,7 +396,7 @@ namespace Tbx
         std::unique_ptr<Event> PopNextEventInQueue();
 
         std::unordered_map<Tbx::uint64, std::unordered_map<Tbx::uint64, EventCallback>> _subscribers = {};
-        std::queue<std::unique_ptr<Event>> _eventQueue = {};
+        std::queue<Tbx::ExclusiveRef<Event>> _eventQueue = {};
         std::mutex _mutex = {};
     };
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
+#include "Tbx/Memory/Refs.h"
 #include <memory>
 
 namespace Tbx
@@ -26,7 +27,7 @@ namespace Tbx
 /// Is required for TBX to be able to load the plugin.
 /// </summary>
 #define TBX_REGISTER_PLUGIN(pluginType) \
-    extern "C" EXPORT pluginType* Load(const std::weak_ptr<Tbx::App>& app)\
+    extern "C" EXPORT pluginType* Load(const Tbx::WeakRef<Tbx::App>& app)\
     {\
         return new pluginType(app);\
     }\

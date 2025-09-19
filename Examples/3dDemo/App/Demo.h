@@ -1,4 +1,5 @@
 #pragma once
+#include "Tbx/Memory/Refs.h"
 #include <Tbx/App/App.h>
 #include <Tbx/TSS/Toy.h>
 #include <Tbx/TSS/Stage.h>
@@ -9,7 +10,7 @@
 class Demo : public Tbx::Layer, public Tbx::Plugin
 {
 public:
-    Demo(const std::weak_ptr<Tbx::App>& app)
+    Demo(const Tbx::WeakRef<Tbx::App>& app)
         : Layer("3d Demo")
         , _app(app)
     {
@@ -20,9 +21,9 @@ public:
     void OnUpdate() override;
 
 private:
-    std::shared_ptr<Tbx::Stage> _world = nullptr;
-    std::shared_ptr<Tbx::Toy> _fpsCam = nullptr;
-    std::shared_ptr<Tbx::Toy> _smily = nullptr;
+    Tbx::Ref<Tbx::Stage> _world = nullptr;
+    Tbx::Ref<Tbx::Toy> _fpsCam = nullptr;
+    Tbx::Ref<Tbx::Toy> _smily = nullptr;
 
     float _smilyBobTime = 0.0f;
     float _smilyBobAmplitude = 0.0f;
@@ -31,7 +32,7 @@ private:
     float _camYaw = 0.0f;
 
     Tbx::Material _simpleTexturedMat = {};
-    std::weak_ptr<Tbx::App> _app = {};
+    Tbx::WeakRef<Tbx::App> _app = {};
 };
 
 TBX_REGISTER_PLUGIN(Demo);

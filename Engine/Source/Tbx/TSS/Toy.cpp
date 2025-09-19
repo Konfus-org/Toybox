@@ -10,7 +10,7 @@ namespace Tbx
     {
     }
 
-    std::shared_ptr<Toy> Toy::EmplaceChild(const std::string& name)
+    Tbx::Ref<Toy> Toy::EmplaceChild(const std::string& name)
     {
         auto child = std::make_shared<Toy>(name);
         child->_parent = shared_from_this();
@@ -18,7 +18,7 @@ namespace Tbx
         return child;
     }
 
-    std::shared_ptr<Toy> Toy::AddChild(const std::shared_ptr<Toy>& child)
+    Tbx::Ref<Toy> Toy::AddChild(const Tbx::Ref<Toy>& child)
     {
         if (!child)
         {
@@ -31,7 +31,7 @@ namespace Tbx
         return child;
     }
 
-    void Toy::RemoveChild(const std::shared_ptr<Toy>& child)
+    void Toy::RemoveChild(const Tbx::Ref<Toy>& child)
     {
         auto it = std::find(_children.begin(), _children.end(), child);
         if (it != _children.end())
@@ -41,7 +41,7 @@ namespace Tbx
         }
     }
 
-    std::shared_ptr<Toy> Toy::GetChild(const ToyHandle& handle) const
+    Tbx::Ref<Toy> Toy::GetChild(const ToyHandle& handle) const
     {
         for (const auto& child : _children)
         {
@@ -53,7 +53,7 @@ namespace Tbx
         return {};
     }
 
-    std::shared_ptr<Toy> Toy::FindChild(std::string_view name) const
+    Tbx::Ref<Toy> Toy::FindChild(std::string_view name) const
     {
         for (const auto& child : _children)
         {
@@ -65,17 +65,17 @@ namespace Tbx
         return {};
     }
 
-    const std::vector<std::shared_ptr<Toy>>& Toy::GetChildren() const
+    const std::vector<Tbx::Ref<Toy>>& Toy::GetChildren() const
     {
         return _children;
     }
 
-    void Toy::SetParent(const std::shared_ptr<Toy>& parent)
+    void Toy::SetParent(const Tbx::Ref<Toy>& parent)
     {
         _parent = parent;
     }
 
-    std::shared_ptr<Toy> Toy::GetParent() const
+    Tbx::Ref<Toy> Toy::GetParent() const
     {
         return _parent.lock();
     }

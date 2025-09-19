@@ -3,6 +3,7 @@
 #include "Tbx/Debug/LogLevel.h"
 #include "Tbx/Debug/ILogger.h"
 #include "Tbx/DllExport.h"
+#include "Tbx/Memory/Refs.h"
 #include <format>
 #include <memory>
 #include <queue>
@@ -17,7 +18,7 @@ namespace Tbx
         /// <summary>
         /// Opens the log.
         /// </summary>
-        EXPORT static void Initialize(std::shared_ptr<ILogger> logger = nullptr);
+        EXPORT static void Initialize(Tbx::Ref<ILogger> logger = nullptr);
 
         /// <summary>
         /// Closes the log.
@@ -139,7 +140,7 @@ namespace Tbx
         }
 
         static std::queue<std::pair<LogLevel, std::string>> _logQueue;
-        static std::shared_ptr<ILogger> _logger;
+        static Tbx::Ref<ILogger> _logger;
         static std::string _logFilePath;
         static bool _isOpen;
     };

@@ -17,7 +17,7 @@ namespace Tbx
         _layers.clear();
     }
 
-    void LayerStack::Push(const std::shared_ptr<Layer>& layer)
+    void LayerStack::Push(const Tbx::Ref<Layer>& layer)
     {
         if (!layer)
         {
@@ -27,7 +27,7 @@ namespace Tbx
         layer->AttachTo(_layers);
     }
 
-    void LayerStack::Remove(const std::shared_ptr<Layer>& layer)
+    void LayerStack::Remove(const Tbx::Ref<Layer>& layer)
     {
         if (!layer)
         {

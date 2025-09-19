@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/Graphics/IRenderSurface.h"
 #include "Tbx/Ids/UsesUID.h"
+#include "Tbx/Memory/Refs.h"
 
 namespace Tbx
 {
@@ -34,6 +35,6 @@ namespace Tbx
     {
     public:
         virtual ~IWindowFactory() = default;
-        virtual std::shared_ptr<IWindow> Create(const std::string& title, const Size& size, const WindowMode mode) = 0;
+        virtual Tbx::Ref<IWindow> Create(const std::string& title, const Size& size, const WindowMode mode) = 0;
     };
 }
