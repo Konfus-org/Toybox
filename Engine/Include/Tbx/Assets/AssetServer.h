@@ -3,6 +3,7 @@
 #include "Tbx/Assets/AssetLoaders.h"
 #include "Tbx/Files/Paths.h"
 #include "Tbx/Debug/Debugging.h"
+#include <atomic>
 #include <exception>
 #include <filesystem>
 #include <memory>
@@ -42,8 +43,9 @@ namespace Tbx
         std::shared_ptr<IAssetLoader> Loader = nullptr;
         /// <summary>
         /// Tracks the last known loading state for debugging and diagnostics.
+        /// Stored atomically so background release callbacks can safely update it.
         /// </summary>
-        AssetStatus Status = AssetStatus::Unloaded;
+        std::atomic<AssetStatus> Status = AssetStatus::Unloaded;
     };
 
     /// <summary>
@@ -57,8 +59,9 @@ namespace Tbx
         std::weak_ptr<void> LoadedAsset = {};
         /// <summary>
         /// Shared state flipped by the custom deleter when the cached asset is released.
+        /// Stored as an atomic flag shared across cached instances.
         /// </summary>
-        std::shared_ptr<bool> IsLoaded = {};
+        std::shared_ptr<std::atomic<bool>> IsLoaded = {};
     };
 
     class AssetServer
@@ -183,25 +186,25 @@ namespace Tbx
                 auto cached = cacheIt->second.LoadedAsset.lock();
                 if (!cached)
                 {
-                    if (cacheIt->second.IsLoaded && *cacheIt->second.IsLoaded)
+                    if (cacheIt->second.IsLoaded && cacheIt->second.IsLoaded->load())
                     {
                         TBX_ASSERT(false, "AssetServer: cached data for {} vanished while marked loaded", record->Name);
                     }
 
-                    record->Status = AssetStatus::Unloaded;
+                    record->Status.store(AssetStatus::Unloaded);
                     cacheIt = _assetCache.erase(cacheIt);
                     continue;
                 }
 
-                if (cacheIt->second.IsLoaded && !*cacheIt->second.IsLoaded)
+                if (cacheIt->second.IsLoaded && !cacheIt->second.IsLoaded->load())
                 {
                     TBX_ASSERT(false, "AssetServer: cached data for {} is alive but flagged as released", record->Name);
-                    record->Status = AssetStatus::Unloaded;
+                    record->Status.store(AssetStatus::Unloaded);
                     cacheIt = _assetCache.erase(cacheIt);
                     continue;
                 }
 
-                record->Status = AssetStatus::Loaded;
+                record->Status.store(AssetStatus::Loaded);
                 loadedAssets.push_back(std::static_pointer_cast<TData>(cached));
                 ++cacheIt;
             }
@@ -221,7 +224,7 @@ namespace Tbx
             if (!loader)
             {
                 TBX_TRACE_ERROR("AssetServer: loader mismatch when requesting {}", record->Name);
-                record->Status = AssetStatus::Failed;
+                record->Status.store(AssetStatus::Failed);
                 return nullptr;
             }
 
@@ -231,46 +234,46 @@ namespace Tbx
                 auto cached = cacheIt->second.LoadedAsset.lock();
                 if (cached)
                 {
-                    if (cacheIt->second.IsLoaded && !*cacheIt->second.IsLoaded)
+                    if (cacheIt->second.IsLoaded && !cacheIt->second.IsLoaded->load())
                     {
                         TBX_ASSERT(false, "AssetServer: cached data for {} is alive but flagged as released", record->Name);
-                        record->Status = AssetStatus::Unloaded;
+                        record->Status.store(AssetStatus::Unloaded);
                         _assetCache.erase(cacheIt);
                     }
                     else
                     {
-                        record->Status = AssetStatus::Loaded;
+                        record->Status.store(AssetStatus::Loaded);
                         return std::static_pointer_cast<TData>(cached);
                     }
                 }
                 else
                 {
-                    if (cacheIt->second.IsLoaded && *cacheIt->second.IsLoaded)
+                    if (cacheIt->second.IsLoaded && cacheIt->second.IsLoaded->load())
                     {
                         TBX_ASSERT(false, "AssetServer: cached data for {} vanished while marked loaded", record->Name);
                     }
 
-                    record->Status = AssetStatus::Unloaded;
+                    record->Status.store(AssetStatus::Unloaded);
                     _assetCache.erase(cacheIt);
                 }
             }
 
-            record->Status = AssetStatus::Loading;
+            record->Status.store(AssetStatus::Loading);
 
             try
             {
                 auto loadedData = loader->Load(record->FilePath);
-                auto isLoaded = std::make_shared<bool>(true);
+                auto isLoaded = std::make_shared<std::atomic<bool>>(true);
                 std::weak_ptr<AssetRecord> recordRef = record;
                 auto sharedData = std::shared_ptr<TData>(
                     new TData(std::move(loadedData)),
                     [isLoaded, recordRef](TData* data)
                     {
-                        *isLoaded = false;
+                        isLoaded->store(false);
 
                         if (auto lockedRecord = recordRef.lock())
                         {
-                            lockedRecord->Status = AssetStatus::Unloaded;
+                            lockedRecord->Status.store(AssetStatus::Unloaded);
                         }
 
                         delete data;
@@ -282,12 +285,12 @@ namespace Tbx
 
                 _assetCache[record->Name] = cacheEntry;
 
-                record->Status = AssetStatus::Loaded;
+                record->Status.store(AssetStatus::Loaded);
                 return sharedData;
             }
             catch (const std::exception& loadError)
             {
-                record->Status = AssetStatus::Failed;
+                record->Status.store(AssetStatus::Failed);
                 TBX_TRACE_ERROR("AssetServer: failed to load {}: {}", record->FilePath.string(), loadError.what());
                 return nullptr;
             }
