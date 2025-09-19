@@ -2,7 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Input/IInputHandler.h"
 #include "Tbx/Math/Vectors.h"
-#include "Tbx/Memory/Refs/Refs.h"
+#include "Tbx/Memory/Refs.h"
 
 namespace Tbx
 {

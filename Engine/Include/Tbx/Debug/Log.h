@@ -2,10 +2,10 @@
 #include "Tbx/Debug/LogLevel.h"
 #include "Tbx/Debug/ILogger.h"
 #include "Tbx/DllExport.h"
+#include "Tbx/Memory/Refs.h"
 #include <format>
 #include <memory>
 #include <queue>
-#include "Tbx/Memory/Refs/Refs.h"
 
 namespace Tbx
 {

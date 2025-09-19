@@ -2,8 +2,8 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/TSS/Toy.h"
 #include "Tbx/Events/EventBus.h"
+#include "Tbx/Memory/Refs.h"
 #include <memory>
-#include "Tbx/Memory/Refs/Refs.h"
 
 namespace Tbx
 {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Tbx/Memory/Refs.h"
 #include <memory>
 #include <utility>
 #include <algorithm>
@@ -15,7 +16,6 @@
 #include <unordered_set>
 #include <ranges>
 #include <filesystem>
-#include "Tbx/Memory/Refs/Refs.h"
 
 #ifdef TBX_PLATFORM_WINDOWS
     #ifndef WIN32_LEAN_AND_MEAN

@@ -6,8 +6,8 @@
 #include "Tbx/Graphics/Mesh.h"
 #include "Tbx/Graphics/Model.h"
 #include "Tbx/Graphics/Buffers.h"
+#include "Tbx/Memory/Refs.h"
 #include <memory>
-#include "Tbx/Memory/Refs/Refs.h"
 
 namespace Tbx
 {

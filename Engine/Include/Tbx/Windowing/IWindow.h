@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/Graphics/IRenderSurface.h"
 #include "Tbx/Ids/UsesUID.h"
-#include "Tbx/Memory/Refs/Refs.h"
+#include "Tbx/Memory/Refs.h"
 
 namespace Tbx
 {

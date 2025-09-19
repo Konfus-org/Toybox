@@ -3,6 +3,7 @@
 #include "Tbx/Assets/AssetLoaders.h"
 #include "Tbx/Files/Paths.h"
 #include "Tbx/Debug/Debugging.h"
+#include "Tbx/Memory/Refs.h"
 #include <atomic>
 #include <exception>
 #include <filesystem>
@@ -13,7 +14,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include "Tbx/Memory/Refs/Refs.h"
 
 namespace Tbx
 {

@@ -6,9 +6,9 @@
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Events/AppEvents.h"
+#include "Tbx/Memory/Refs.h"
 #include <vector>
 #include <memory>
-#include "Tbx/Memory/Refs/Refs.h"
 
 namespace Tbx
 {

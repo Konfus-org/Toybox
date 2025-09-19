@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Ids/Uid.h"
+#include "Tbx/Memory/Refs.h"
 #include <memory>
 #include <string>
 #include <string_view>
@@ -8,7 +9,6 @@
 #include <unordered_map>
 #include <vector>
 #include <any>
-#include "Tbx/Memory/Refs/Refs.h"
 
 namespace Tbx
 {

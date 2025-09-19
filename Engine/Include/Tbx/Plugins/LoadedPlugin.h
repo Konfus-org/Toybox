@@ -3,8 +3,8 @@
 #include "Tbx/Plugins/PluginMeta.h"
 #include "Tbx/Plugins/SharedLibrary.h"
 #include "Tbx/DllExport.h"
+#include "Tbx/Memory/Refs.h"
 #include <memory>
-#include "Tbx/Memory/Refs/Refs.h"
 
 namespace Tbx
 {

@@ -3,9 +3,9 @@
 #include "Tbx/Events/Event.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Math/Size.h"
+#include "Tbx/Memory/Refs.h"
 #include <string>
 #include <memory>
-#include "Tbx/Memory/Refs/Refs.h"
 
 namespace Tbx
 {

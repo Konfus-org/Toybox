@@ -2,10 +2,10 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Plugins/LoadedPlugin.h"
 #include "Tbx/Events/EventBus.h"
+#include "Tbx/Memory/Refs.h"
 #include <memory>
 #include <string>
 #include <vector>
-#include "Tbx/Memory/Refs/Refs.h"
 
 namespace Tbx
 {
