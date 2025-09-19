@@ -13,7 +13,9 @@
 #include <memory>
 #include <queue>
 #include <cstdint>
+#include <cstddef>
 #include <functional>
+#include <type_traits>
 
 namespace Tbx
 {
@@ -352,7 +354,7 @@ namespace Tbx
             const auto& callbackInfo = typeid(ClassEventHandlerFunction<TSubscriber, TEvent>);
             const auto typeHash = static_cast<Tbx::uint64>(callbackInfo.hash_code());
             const auto instanceHash = static_cast<Tbx::uint64>(std::hash<TSubscriber*>{}(instance));
-            const auto callbackHash = static_cast<Tbx::uint64>(std::hash<ClassEventHandlerFunction<TSubscriber, TEvent>>{}(callback));
+            const auto callbackHash = HashMemberFunctionPointer(callback);
             return Memory::CombineHashes(Memory::CombineHashes(typeHash, instanceHash), callbackHash);
         }
 
@@ -362,8 +364,27 @@ namespace Tbx
             const auto& callbackInfo = typeid(ClassConstEventHandlerFunction<TSubscriber, TEvent>);
             const auto typeHash = static_cast<Tbx::uint64>(callbackInfo.hash_code());
             const auto instanceHash = static_cast<Tbx::uint64>(std::hash<TSubscriber*>{}(instance));
-            const auto callbackHash = static_cast<Tbx::uint64>(std::hash<ClassConstEventHandlerFunction<TSubscriber, TEvent>>{}(callback));
+            const auto callbackHash = HashMemberFunctionPointer(callback);
             return Memory::CombineHashes(Memory::CombineHashes(typeHash, instanceHash), callbackHash);
+        }
+
+        template <typename TMemberFunction>
+        Tbx::uint64 HashMemberFunctionPointer(TMemberFunction callback) const
+        {
+            static_assert(std::is_member_function_pointer_v<TMemberFunction>, "TMemberFunction must be a pointer to member function");
+
+            constexpr Tbx::uint64 FNV_OFFSET_BASIS = 1469598103934665603ULL;
+            constexpr Tbx::uint64 FNV_PRIME = 1099511628211ULL;
+
+            const auto* bytes = reinterpret_cast<const unsigned char*>(&callback);
+            Tbx::uint64 hash = FNV_OFFSET_BASIS;
+            for (size_t index = 0; index < sizeof(TMemberFunction); ++index)
+            {
+                hash ^= static_cast<Tbx::uint64>(bytes[index]);
+                hash *= FNV_PRIME;
+            }
+
+            return hash;
         }
 
         Tbx::uint64 GetEventHash(const Event& event) const;
