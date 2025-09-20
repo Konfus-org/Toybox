@@ -16,7 +16,7 @@ namespace Tbx
     public:
         EXPORT explicit(false) Layer(const std::string& name)
             : _name(name) {}
-        EXPORT ~Layer();
+        EXPORT virtual ~Layer();
 
         EXPORT std::string GetName() const;
 

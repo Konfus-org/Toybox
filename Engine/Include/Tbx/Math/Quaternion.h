@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "Tbx/Core/StringConvertible.h"
+#include "Tbx/Debug/IPrintable.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Math/Vectors.h"
 
@@ -8,7 +8,7 @@ namespace Tbx
     /// <summary>
     /// Represents a rotation. X, Y, Z, W are stored as radians.
     /// </summary>
-    struct EXPORT Quaternion : public IStringConvertible
+    struct EXPORT Quaternion : public IPrintable
     {
         Quaternion() = default;
         Quaternion(float x, float y, float z, float w)

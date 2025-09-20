@@ -4,10 +4,10 @@
 
 namespace Tbx
 {
-    class EXPORT IStringConvertible
+    class EXPORT IPrintable
     {
     public:
-        virtual ~IStringConvertible() = default;
+        virtual ~IPrintable() = default;
         virtual std::string ToString() const = 0;
         explicit(false) operator std::string() const { return ToString(); }
     };

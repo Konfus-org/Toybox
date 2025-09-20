@@ -1,11 +1,11 @@
 #pragma once
-#include "Tbx/Core/StringConvertible.h"
+#include "Tbx/Debug/IPrintable.h"
 #include "Tbx/DllExport.h"
 #include <string>
 
 namespace Tbx
 {
-    struct EXPORT Bounds : public IStringConvertible
+    struct EXPORT Bounds : public IPrintable
     {
     public:
         Bounds(float left, float right, float top, float bottom) 

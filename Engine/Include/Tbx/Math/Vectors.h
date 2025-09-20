@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/Core/StringConvertible.h"
+#include "Tbx/Debug/IPrintable.h"
 #include "Tbx/DllExport.h"
 
 namespace Tbx
@@ -12,7 +12,7 @@ namespace Tbx
     /// <summary>
     /// Represents a position, scale, or direction in 3d space. X, Y, Z are stored as euler angles.
     /// </summary>
-    struct EXPORT Vector3 : public IStringConvertible
+    struct EXPORT Vector3 : public IPrintable
     {
         Vector3() = default;
         explicit(false) Vector3(float all) : X(all), Y(all), Z(all) {}
@@ -71,7 +71,7 @@ namespace Tbx
     /// <summary>
     /// Represents a position, scale, or direction in 2d space. X, Y are stored as euler angles.
     /// </summary>
-    struct EXPORT Vector2 : public IStringConvertible
+    struct EXPORT Vector2 : public IPrintable
     {
         Vector2() = default;
         explicit(false) Vector2(float all) : X(all), Y(all) {}
@@ -126,7 +126,7 @@ namespace Tbx
     /// <summary>
     /// Represents a position, scale, or direction in 2d space. X, Y are stored as euler angles.
     /// </summary>
-    struct EXPORT Vector2I : public IStringConvertible
+    struct EXPORT Vector2I : public IPrintable
     {
         Vector2I() = default;
         explicit(false) Vector2I(int all) : X(all), Y(all) {}

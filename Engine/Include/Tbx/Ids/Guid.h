@@ -1,13 +1,13 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Core/StringConvertible.h"
+#include "Tbx/Debug/IPrintable.h"
 #include <string>
 #include <string_view>
 #include <utility>
 
 namespace Tbx
 {
-    struct EXPORT Guid : public IStringConvertible
+    struct EXPORT Guid : public IPrintable
     {
         Guid() = default;
         explicit(false) Guid(const std::string& value) : Value(value) {}

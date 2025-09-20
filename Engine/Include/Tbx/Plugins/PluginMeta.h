@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/Core/StringConvertible.h"
+#include "Tbx/Debug/IPrintable.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Files/Paths.h"
 #include <string>
@@ -7,7 +7,7 @@
 
 namespace Tbx
 {
-    struct PluginMeta : public IStringConvertible
+    struct PluginMeta : public IPrintable
     {
     public:
         EXPORT PluginMeta() = default;

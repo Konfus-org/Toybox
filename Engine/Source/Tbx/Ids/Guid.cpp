@@ -7,5 +7,7 @@ namespace Tbx
 
 	Guid Guid::Generate()
 	{
+		// TODO: implement
+		return Guid();
 	}
 }

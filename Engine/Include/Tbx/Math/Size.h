@@ -1,12 +1,12 @@
 #pragma once
-#include "Tbx/Core/StringConvertible.h"
+#include "Tbx/Debug/IPrintable.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Math/Int.h"
 #include <string>
 
 namespace Tbx
 {
-    struct EXPORT Size : public IStringConvertible
+    struct EXPORT Size : public IPrintable
     {
     public:
         Size() = default;

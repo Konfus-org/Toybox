@@ -1,6 +1,5 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Layers/RenderingLayer.h"
-#include "Tbx/ECS/ThreeDSpace.h"
 #include "Tbx/Graphics/FrameBufferBuilder.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/RenderEvents.h"
@@ -27,49 +26,53 @@ namespace Tbx
     void RenderingLayer::DrawFrame()
     {
         // TODO: add support for world layers!
-
-        // Gather all boxes from the current world
-        const Tbx::Ref<Toy> spaceRoot = _worldSpace->GetRoot();
-
-        if (_firstFrame) // TODO: We need to do this any time we add a new renderer or toy...
+        // TODO: properly compress all stages into a single frame buffer
+        for (auto stage : _openStages)
         {
-            // Pre-process the opened box using the frame buffer builder
-            FrameBufferBuilder builder;
-            const auto buffer = builder.BuildUploadBuffer(spaceRoot);
+            
+            // Gather all boxes from the current world
+            const Tbx::Ref<Toy> spaceRoot = stage->GetRoot();
 
-            // Send buffer to renderers for each window
-            for (const auto& renderer : _renderers)
+            if (_firstFrame) // TODO: We need to do this any time we add a new renderer or toy...
             {
-                renderer->Flush();
-                renderer->Process(buffer);
+                // Pre-process the opened box using the frame buffer builder
+                FrameBufferBuilder builder;
+                const auto buffer = builder.BuildUploadBuffer(spaceRoot);
+
+                // Send buffer to renderers for each window
+                for (const auto& renderer : _renderers)
+                {
+                    renderer->Flush();
+                    renderer->Process(buffer);
+                }
+
+                // Flip first frame flag to off
+                _firstFrame = false;
             }
 
-            // Flip first frame flag to off
-            _firstFrame = false;
-        }
+            // Build a frame buffer of render commands for the world
+            FrameBufferBuilder builder;
+            const auto buffer = builder.BuildRenderBuffer(spaceRoot);
 
-        // Build a frame buffer of render commands for the world
-        FrameBufferBuilder builder;
-        const auto buffer = builder.BuildRenderBuffer(spaceRoot);
+            // Send buffer to renderers for each window
+            int rendererIndex = 0;
+            for (const auto& renderer : _renderers)
+            {
+                auto rendererWindow = _windows[rendererIndex];
+                renderer->SetViewport({ {0, 0}, rendererWindow->GetSize() });
+                renderer->Clear(_clearColor);
+                renderer->Process(buffer);
+                rendererIndex++;
+            }
 
-        // Send buffer to renderers for each window
-        int rendererIndex = 0;
-        for (const auto& renderer : _renderers)
-        {
-            auto rendererWindow = _windows[rendererIndex];
-            renderer->SetViewport({ {0, 0}, rendererWindow->GetSize() });
-            renderer->Clear(_clearColor);
-            renderer->Process(buffer);
-            rendererIndex++;
-        }
+            // Send our frame rendered event so anything can hook into our rendering and do post work...
+            _eventBus->Send(RenderedFrameEvent());
 
-        // Send our frame rendered event so anything can hook into our rendering and do post work...
-        _eventBus->Send(RenderedFrameEvent());
-
-        // Swap the buffers for each window after a frame is rendered
-        for (const auto& window : _windows)
-        {
-            window->SwapBuffers();
+            // Swap the buffers for each window after a frame is rendered
+            for (const auto& window : _windows)
+            {
+                window->SwapBuffers();
+            }
         }
     }
 

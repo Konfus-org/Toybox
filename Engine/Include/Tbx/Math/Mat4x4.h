@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/Core/StringConvertible.h"
+#include "Tbx/Debug/IPrintable.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Math/Quaternion.h"
 #include "Tbx/Math/Bounds.h"
@@ -12,7 +12,7 @@ namespace Tbx
     /// A 4x4 matrix to store data. Most often used for rendering.
     /// This matrix stores data in column major order.
     /// </summary>
-    struct EXPORT Mat4x4 : public IStringConvertible
+    struct EXPORT Mat4x4 : public IPrintable
     {
     public:
         /// <summary>

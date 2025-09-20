@@ -82,7 +82,7 @@ namespace Tbx
 
     const std::string& Toy::GetName() const
     {
-        return _handle.Name;
+        return _handle.GetName();
     }
 
     const ToyHandle& Toy::GetHandle() const

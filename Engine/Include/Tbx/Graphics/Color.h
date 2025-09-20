@@ -1,11 +1,11 @@
 #pragma once
-#include "Tbx/Core/StringConvertible.h"
 #include "Tbx/DllExport.h"
+#include "Tbx/Debug/IPrintable.h"
 #include <string>
 
 namespace Tbx
 {
-    struct EXPORT RgbaColor : public IStringConvertible
+    struct EXPORT RgbaColor : public IPrintable
     {
     public:
         /// <summary>
@@ -22,11 +22,7 @@ namespace Tbx
 
         std::string ToString() const override
         {
-            return
-                "R: " + std::to_string(R) + 
-                "G: " + std::to_string(G) + 
-                "B: " + std::to_string(B) + 
-                "A: " + std::to_string(A);
+            return std::format("R: {}, G: {}, B: {}, A: {}", R, G, B, A);
         }
         
         /// <summary>

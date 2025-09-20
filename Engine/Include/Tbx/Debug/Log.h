@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/Core/StringConvertible.h"
+#include "Tbx/Debug/IPrintable.h"
 #include "Tbx/Debug/LogLevel.h"
 #include "Tbx/Debug/ILogger.h"
 #include "Tbx/DllExport.h"
@@ -124,7 +124,7 @@ namespace Tbx
         template <typename T>
         static auto NormalizeFormatArg(T&& value)
         {
-            if constexpr (std::is_base_of_v<IStringConvertible, std::decay_t<T>>)
+            if constexpr (std::is_base_of_v<IPrintable, std::decay_t<T>>)
             {
                 return std::string(value.ToString());
             }

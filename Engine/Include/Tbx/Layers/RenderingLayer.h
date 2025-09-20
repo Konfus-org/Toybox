@@ -1,5 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
+#include "Tbx/TSS/Stage.h"
 #include "Tbx/Layers/Layer.h"
 #include "Tbx/Graphics/IRenderer.h"
 #include "Tbx/Windowing/IWindow.h"
@@ -8,7 +9,6 @@
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Memory/Refs.h"
 #include <vector>
-#include <memory>
 
 namespace Tbx
 {
@@ -38,6 +38,8 @@ namespace Tbx
         void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
 
     private:
+        // TODO: listen for the open/close stage event and add/remove open stages here
+        std::vector<Tbx::Ref<Stage>> _openStages = {};
         std::vector<Tbx::Ref<IWindow>> _windows = {};
         std::vector<Tbx::Ref<IRenderer>> _renderers = {};
         Tbx::Ref<IRendererFactory> _renderFactory = {};
