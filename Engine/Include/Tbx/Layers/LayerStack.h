@@ -40,7 +40,7 @@ namespace Tbx
         /// Returns the number of layers currently registered in the stack.
         /// </summary>
         EXPORT Tbx::uint GetCount() const { return static_cast<Tbx::uint>(_layers.size()); }
-      
+
         EXPORT std::vector<Tbx::Ref<Layer>>::iterator begin() { return _layers.begin(); }
         EXPORT std::vector<Tbx::Ref<Layer>>::iterator end() { return _layers.end(); }
         EXPORT std::vector<Tbx::Ref<Layer>>::const_iterator begin() const { return _layers.begin(); }

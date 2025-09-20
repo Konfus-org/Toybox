@@ -36,35 +36,71 @@ namespace Tbx
         return nullptr;
     }
 
+    std::vector<Tbx::Ref<Layer>> LayerManager::GetLayers() const
+    {
+        std::vector<Tbx::Ref<Layer>> layers = {};
+        for (auto& layer : _stack)
+        {
+            if (layer)
+            {
+                layers.push_back(layer);
+            }
+        }
+
+        return layers;
+    }
+
     void LayerManager::AddLayer(const Tbx::Ref<Layer>& layer)
     {
+        if (!layer)
+        {
+            TBX_TRACE_ERROR("LayerManager: Attempted to add an invalid layer instance.");
+            return;
+        }
+
+        const auto existing = GetLayer(layer->GetName());
+        if (existing)
+        {
+            TBX_TRACE_ERROR("LayerManager: A layer named {} is already registered.", layer->GetName());
+            return;
+        }
+
         _stack.Push(layer);
     }
 
     void LayerManager::RemoveLayer(Tbx::uint index)
     {
         auto layer = GetLayer(index);
-        if (layer)
+        if (!layer)
         {
-            _stack.Remove(layer);
+            TBX_TRACE_ERROR("LayerManager: Failed to remove layer at index {} because it does not exist.", index);
+            return;
         }
+
+        _stack.Remove(layer);
     }
 
     void LayerManager::RemoveLayer(const std::string& name)
     {
         auto layer = GetLayer(name);
-        if (layer)
+        if (!layer)
         {
-            _stack.Remove(layer);
+            TBX_TRACE_ERROR("LayerManager: Failed to remove layer named {} because it does not exist.", name);
+            return;
         }
+
+        _stack.Remove(layer);
     }
 
     void LayerManager::RemoveLayer(const Tbx::Ref<Layer>& layer)
     {
-        if (layer)
+        if (!layer)
         {
-            _stack.Remove(layer);
+            TBX_TRACE_ERROR("LayerManager: Attempted to remove an invalid layer instance.");
+            return;
         }
+
+        _stack.Remove(layer);
     }
 
     void LayerManager::ClearLayers()
