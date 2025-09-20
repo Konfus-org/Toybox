@@ -68,6 +68,7 @@ namespace Tbx
         _eventBus = std::make_shared<EventBus>();
         _pluginServer = std::make_shared<PluginServer>(workingDirectory, _eventBus, self);
         _assetServer = std::make_shared<AssetServer>(workingDirectory, _pluginServer->GetPlugins<IAssetLoader>());
+        _layerManager = std::make_shared<LayerManager>();
 
         // Init required layers
         auto rendering = std::make_shared<RenderingLayer>(_pluginServer->GetPlugin<IRendererFactory>(), _eventBus);
@@ -124,7 +125,10 @@ namespace Tbx
 
         OnUpdate();
 
-        _layers.Update();
+        if (_layerManager)
+        {
+            _layerManager->UpdateLayers();
+        }
 
         if (_status != AppStatus::Running) return;
 
@@ -179,59 +183,32 @@ namespace Tbx
 
     bool App::AddLayer(const Tbx::Ref<Layer>& layer)
     {
-        if (!layer)
-        {
-            return false;
-        }
-
-        const auto existingLayer = _layers.GetLayer(layer->GetName());
-        if (existingLayer)
-        {
-            TBX_ASSERT(false, "Layer names must be unique. A layer named {} is already registered.", layer->GetName());
-            return false;
-        }
-
-        _layers.Push(layer);
-        return true;
+        return _layerManager ? _layerManager->AddLayer(layer) : false;
     }
 
     bool App::RemoveLayer(const std::string& name)
     {
-        auto layer = _layers.GetLayer(name);
-        if (!layer)
-        {
-            return false;
-        }
-
-        _layers.Remove(name);
-        return true;
+        return _layerManager ? _layerManager->RemoveLayer(name) : false;
     }
 
     bool App::RemoveLayer(const Tbx::Ref<Layer>& layer)
     {
-        if (!layer)
-        {
-            return false;
-        }
-
-        auto existingLayer = _layers.GetLayer(layer->GetName());
-        if (!existingLayer)
-        {
-            return false;
-        }
-
-        _layers.Remove(layer);
-        return true;
+        return _layerManager ? _layerManager->RemoveLayer(layer) : false;
     }
 
     Tbx::Ref<Layer> App::GetLayer(const std::string& name) const
     {
-        return _layers.GetLayer(name);
+        return _layerManager ? _layerManager->GetLayer(name) : nullptr;
     }
 
     std::vector<Tbx::Ref<Layer>> App::GetLayers() const
     {
-        return _layers.GetLayers();
+        return _layerManager ? _layerManager->GetLayers() : std::vector<Tbx::Ref<Layer>>{};
+    }
+
+    Tbx::Ref<LayerManager> App::GetLayerManager()
+    {
+        return _layerManager;
     }
 
     Tbx::Ref<PluginServer> App::GetPluginServer()
@@ -265,7 +242,7 @@ namespace Tbx
             return;
         }
 
-        const auto runtimeLayer = _layers.GetLayer<RuntimeLayer>();
+        const auto runtimeLayer = _layerManager ? _layerManager->GetLayer<RuntimeLayer>() : nullptr;
         TBX_ASSERT(runtimeLayer, "Runtime layer must exist before adding runtimes");
         runtimeLayer->AddRuntime(runtime);
     }
@@ -277,7 +254,7 @@ namespace Tbx
             return;
         }
 
-        const auto runtimeLayer = _layers.GetLayer<RuntimeLayer>();
+        const auto runtimeLayer = _layerManager ? _layerManager->GetLayer<RuntimeLayer>() : nullptr;
         if (runtimeLayer)
         {
             runtimeLayer->RemoveRuntime(runtime);
@@ -286,7 +263,7 @@ namespace Tbx
 
     std::vector<Tbx::Ref<IRuntime>> App::GetRuntimes() const
     {
-        const auto runtimeLayer = _layers.GetLayer<RuntimeLayer>();
+        const auto runtimeLayer = _layerManager ? _layerManager->GetLayer<RuntimeLayer>() : nullptr;
         if (runtimeLayer)
         {
             return runtimeLayer->GetRuntimes();
@@ -345,7 +322,7 @@ namespace Tbx
 
     Tbx::Ref<WindowManager> App::GetWindowManager() const
     {
-        const auto windowingLayer = _layers.GetLayer<WindowingLayer>();
+        const auto windowingLayer = _layerManager ? _layerManager->GetLayer<WindowingLayer>() : nullptr;
         return windowingLayer ? windowingLayer->GetWindowManager() : nullptr;
     }
 }

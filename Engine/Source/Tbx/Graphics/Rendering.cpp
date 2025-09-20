@@ -23,14 +23,11 @@ namespace Tbx
 
     Rendering::~Rendering()
     {
-        if (_eventBus)
-        {
-            _eventBus->Unsubscribe(this, &Rendering::OnWindowOpened);
-            _eventBus->Unsubscribe(this, &Rendering::OnWindowClosed);
-            _eventBus->Unsubscribe(this, &Rendering::OnAppSettingsChanged);
-            _eventBus->Unsubscribe(this, &Rendering::OnStageOpened);
-            _eventBus->Unsubscribe(this, &Rendering::OnStageClosed);
-        }
+        _eventBus->Unsubscribe(this, &Rendering::OnWindowOpened);
+        _eventBus->Unsubscribe(this, &Rendering::OnWindowClosed);
+        _eventBus->Unsubscribe(this, &Rendering::OnAppSettingsChanged);
+        _eventBus->Unsubscribe(this, &Rendering::OnStageOpened);
+        _eventBus->Unsubscribe(this, &Rendering::OnStageClosed);
     }
 
     void Rendering::Update()
@@ -63,7 +60,7 @@ namespace Tbx
 
     void Rendering::DrawFrame()
     {
-        FrameBuffer uploadBuffer = {};
+        FlushPendingUploads();
         FrameBuffer renderBuffer = {};
 
         for (const auto& stage : _openStages)
@@ -80,37 +77,11 @@ namespace Tbx
             }
 
             FrameBufferBuilder builder;
-
-            if (_firstFrame)
-            {
-                const auto stageUploadBuffer = builder.BuildUploadBuffer(spaceRoot);
-                for (const auto& command : stageUploadBuffer)
-                {
-                    uploadBuffer.Add(command);
-                }
-            }
-
             const auto stageRenderBuffer = builder.BuildRenderBuffer(spaceRoot);
             for (const auto& command : stageRenderBuffer)
             {
                 renderBuffer.Add(command);
             }
-        }
-
-        if (_firstFrame)
-        {
-            for (const auto& renderer : _renderers)
-            {
-                if (!renderer)
-                {
-                    continue;
-                }
-
-                renderer->Flush();
-                renderer->Process(uploadBuffer);
-            }
-
-            _firstFrame = false;
         }
 
         for (size_t rendererIndex = 0; rendererIndex < _renderers.size(); ++rendererIndex)
@@ -141,9 +112,64 @@ namespace Tbx
         }
     }
 
-    void Rendering::ResetFirstFrame()
+    void Rendering::QueueStageUpload(const Tbx::Ref<Stage>& stage)
     {
-        _firstFrame = true;
+        if (!stage)
+        {
+            return;
+        }
+
+        const auto it = std::find(_pendingUploadStages.begin(), _pendingUploadStages.end(), stage);
+        if (it == _pendingUploadStages.end())
+        {
+            _pendingUploadStages.push_back(stage);
+        }
+    }
+
+    void Rendering::FlushPendingUploads()
+    {
+        if (_pendingUploadStages.empty())
+        {
+            return;
+        }
+
+        FrameBuffer uploadBuffer = {};
+        for (const auto& stage : _pendingUploadStages)
+        {
+            if (!stage)
+            {
+                continue;
+            }
+
+            const auto spaceRoot = stage->GetRoot();
+            if (!spaceRoot)
+            {
+                continue;
+            }
+
+            FrameBufferBuilder builder;
+            const auto stageUploadBuffer = builder.BuildUploadBuffer(spaceRoot);
+            for (const auto& command : stageUploadBuffer)
+            {
+                uploadBuffer.Add(command);
+            }
+        }
+
+        if (!uploadBuffer.GetCommands().empty())
+        {
+            for (const auto& renderer : _renderers)
+            {
+                if (!renderer)
+                {
+                    continue;
+                }
+
+                renderer->Flush();
+                renderer->Process(uploadBuffer);
+            }
+        }
+
+        _pendingUploadStages.clear();
     }
 
     void Rendering::AddStage(const Tbx::Ref<Stage>& stage)
@@ -160,7 +186,7 @@ namespace Tbx
         }
 
         _openStages.push_back(stage);
-        ResetFirstFrame();
+        QueueStageUpload(stage);
     }
 
     void Rendering::RemoveStage(const Tbx::Ref<Stage>& stage)
@@ -174,7 +200,12 @@ namespace Tbx
         if (it != _openStages.end())
         {
             _openStages.erase(it);
-            ResetFirstFrame();
+        }
+
+        auto pending = std::find(_pendingUploadStages.begin(), _pendingUploadStages.end(), stage);
+        if (pending != _pendingUploadStages.end())
+        {
+            _pendingUploadStages.erase(pending);
         }
     }
 
@@ -195,7 +226,10 @@ namespace Tbx
         auto newRenderer = _rendererFactory->Create(newWindow);
         _windows.push_back(newWindow);
         _renderers.push_back(newRenderer);
-        ResetFirstFrame();
+        for (const auto& stage : _openStages)
+        {
+            QueueStageUpload(stage);
+        }
     }
 
     void Rendering::OnWindowClosed(const WindowClosedEvent& e)
@@ -213,8 +247,6 @@ namespace Tbx
         {
             _renderers.erase(_renderers.begin() + static_cast<std::ptrdiff_t>(index));
         }
-
-        ResetFirstFrame();
     }
 
     void Rendering::OnAppSettingsChanged(const AppSettingsChangedEvent& e)

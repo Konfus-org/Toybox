@@ -5,7 +5,7 @@
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Layers/Layer.h"
-#include "Tbx/Layers/LayerStack.h"
+#include "Tbx/Layers/LayerManager.h"
 #include "Tbx/Plugins/PluginServer.h"
 #include "Tbx/Memory/Refs.h"
 #include "Tbx/Math/Int.h"
@@ -51,6 +51,38 @@ namespace Tbx
         const std::string& GetName() const;
 
         Tbx::Ref<EventBus> GetEventBus();
+        Tbx::Ref<PluginServer> GetPluginServer();
+        Tbx::Ref<AssetServer> GetAssetServer();
+
+        /// <summary>
+        /// Registers a new layer with the application-managed layer manager.
+        /// </summary>
+        bool AddLayer(const Tbx::Ref<Layer>& layer);
+
+        /// <summary>
+        /// Removes a layer by name from the layer manager.
+        /// </summary>
+        bool RemoveLayer(const std::string& name);
+
+        /// <summary>
+        /// Removes a specific layer instance from the layer manager.
+        /// </summary>
+        bool RemoveLayer(const Tbx::Ref<Layer>& layer);
+
+        /// <summary>
+        /// Retrieves a layer by name from the layer manager.
+        /// </summary>
+        Tbx::Ref<Layer> GetLayer(const std::string& name) const;
+
+        /// <summary>
+        /// Returns the set of layers currently managed by the application.
+        /// </summary>
+        std::vector<Tbx::Ref<Layer>> GetLayers() const;
+
+        /// <summary>
+        /// Provides direct access to the layer manager for advanced scenarios.
+        /// </summary>
+        Tbx::Ref<LayerManager> GetLayerManager();
 
         // TODO: Get rid of window manager and make the app fully own windows.
         // They should be behind some methods like layer: OpenNewWindow(name, mode, size=default), GetWindow(id or name), etc..
@@ -60,17 +92,6 @@ namespace Tbx
         std::vector<Tbx::Ref<IWindow>> GetOpenWindows() const;
         Tbx::Ref<IWindow> GetWindow(const Uid& id) const;
         Tbx::Ref<IWindow> GetMainWindow() const;
-
-        bool AddLayer(const Tbx::Ref<Layer>& layer);
-
-        bool RemoveLayer(const std::string& name);
-        bool RemoveLayer(const Tbx::Ref<Layer>& layer);
-
-        Tbx::Ref<Layer> GetLayer(const std::string& name) const;
-        std::vector<Tbx::Ref<Layer>> GetLayers() const;
-
-        Tbx::Ref<PluginServer> GetPluginServer();
-        Tbx::Ref<AssetServer> GetAssetServer();
 
         void AddRuntime(const Tbx::Ref<IRuntime>& runtime);
         void RemoveRuntime(const Tbx::Ref<IRuntime>& runtime);
@@ -94,7 +115,7 @@ namespace Tbx
         AppStatus _status = AppStatus::None;
         Settings _settings = {};
         Tbx::Ref<EventBus> _eventBus = nullptr;
-        LayerStack _layers = {};
+        Tbx::Ref<LayerManager> _layerManager = nullptr;
         Tbx::Ref<PluginServer> _pluginServer = nullptr;
         Tbx::Ref<AssetServer> _assetServer = nullptr;
 

@@ -50,35 +50,57 @@ namespace Tbx
         return layers;
     }
 
-    void LayerManager::AddLayer(const Tbx::Ref<Layer>& layer)
+    bool LayerManager::AddLayer(const Tbx::Ref<Layer>& layer)
     {
+        if (!layer)
+        {
+            return false;
+        }
+
+        const auto existing = GetLayer(layer->GetName());
+        TBX_ASSERT(!existing, "Layer names must be unique. A layer named {} is already registered.", layer->GetName());
+        if (existing)
+        {
+            return false;
+        }
+
         _stack.Push(layer);
+        return true;
     }
 
-    void LayerManager::RemoveLayer(Tbx::uint index)
+    bool LayerManager::RemoveLayer(Tbx::uint index)
     {
         auto layer = GetLayer(index);
-        if (layer)
+        if (!layer)
         {
-            _stack.Remove(layer);
+            return false;
         }
+
+        _stack.Remove(layer);
+        return true;
     }
 
-    void LayerManager::RemoveLayer(const std::string& name)
+    bool LayerManager::RemoveLayer(const std::string& name)
     {
         auto layer = GetLayer(name);
-        if (layer)
+        if (!layer)
         {
-            _stack.Remove(layer);
+            return false;
         }
+
+        _stack.Remove(layer);
+        return true;
     }
 
-    void LayerManager::RemoveLayer(const Tbx::Ref<Layer>& layer)
+    bool LayerManager::RemoveLayer(const Tbx::Ref<Layer>& layer)
     {
-        if (layer)
+        if (!layer)
         {
-            _stack.Remove(layer);
+            return false;
         }
+
+        _stack.Remove(layer);
+        return true;
     }
 
     void LayerManager::ClearLayers()

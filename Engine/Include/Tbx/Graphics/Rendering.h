@@ -35,7 +35,16 @@ namespace Tbx
 
     private:
         void DrawFrame();
-        void ResetFirstFrame();
+
+        /// <summary>
+        /// Marks the provided stage for GPU resource upload on the next frame.
+        /// </summary>
+        void QueueStageUpload(const Tbx::Ref<Stage>& stage);
+
+        /// <summary>
+        /// Uploads any pending stage resources to all active renderers.
+        /// </summary>
+        void FlushPendingUploads();
         void AddStage(const Tbx::Ref<Stage>& stage);
         void RemoveStage(const Tbx::Ref<Stage>& stage);
 
@@ -49,10 +58,10 @@ namespace Tbx
         std::vector<Tbx::Ref<Stage>> _openStages = {};
         std::vector<Tbx::Ref<IWindow>> _windows = {};
         std::vector<Tbx::Ref<IRenderer>> _renderers = {};
+        std::vector<Tbx::Ref<Stage>> _pendingUploadStages = {};
         Tbx::Ref<IRendererFactory> _rendererFactory = {};
         Tbx::Ref<EventBus> _eventBus = {};
         Tbx::RgbaColor _clearColor = {};
-        bool _firstFrame = true;
     };
 }
 
