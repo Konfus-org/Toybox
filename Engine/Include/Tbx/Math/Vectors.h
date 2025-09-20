@@ -54,15 +54,15 @@ namespace Tbx
         static Vector3 Cross(const Vector3& lhs, const Vector3& rhs);
         static float Dot(const Vector3& lhs, const Vector3& rhs);
 
-        inline static const Vector3 One = Vector3(1.0f, 1.0f, 1.0f);
-        inline static const Vector3 Zero = Vector3(0.0f, 0.0f, 0.0f);
-        inline static const Vector3 Identity = Vector3(1.0f, 1.0f, 1.0f);
-        inline static const Vector3 Forward = Vector3(0.0f, 0.0f, 1.0f);
-        inline static const Vector3 Backward = Vector3(0.0f, 0.0f, -1.0f);
-        inline static const Vector3 Up = Vector3(0.0f, 1.0f, 0.0f);
-        inline static const Vector3 Down = Vector3(0.0f, -1.0f, 0.0f);
-        inline static const Vector3 Left = Vector3(1.0f, 0.0f, 0.0f);
-        inline static const Vector3 Right = Vector3(-1.0f, 0.0f, 0.0f);
+        static Vector3 One;
+        static Vector3 Zero;
+        static Vector3 Identity;
+        static Vector3 Forward;
+        static Vector3 Backward;
+        static Vector3 Up;
+        static Vector3 Down;
+        static Vector3 Left;
+        static Vector3 Right;
 
         float X = 0;
         float Y = 0;
@@ -111,15 +111,15 @@ namespace Tbx
         static Vector2 Multiply(const Vector2& lhs, float scalar);
         static float Dot(const Vector2& lhs, const Vector2& rhs);
 
-        inline static const Vector2 One = Vector2(1.0f, 1.0f);
-        inline static const Vector2 Zero = Vector2(0.0f, 0.0f);
-        inline static const Vector2 Identity = Vector2(1.0f, 1.0f);
-        inline static const Vector2 Forward = Vector2(0.0f, 1.0f);
-        inline static const Vector2 Backward = Vector2(0.0f, -1.0f);
-        inline static const Vector2 Up = Vector2(0.0f, 1.0f);
-        inline static const Vector2 Down = Vector2(0.0f, -1.0f);
-        inline static const Vector2 Left = Vector2(1.0f, 0.0f);
-        inline static const Vector2 Right = Vector2(-1.0f, 0.0f);
+        static Vector2 One;
+        static Vector2 Zero;
+        static Vector2 Identity;
+        static Vector2 Forward;
+        static Vector2 Backward;
+        static Vector2 Up;
+        static Vector2 Down;
+        static Vector2 Left;
+        static Vector2 Right;
 
         float X = 0;
         float Y = 0;
@@ -168,15 +168,15 @@ namespace Tbx
         static Vector2I Multiply(const Vector2I& lhs, int scalar);
         static int Dot(const Vector2I& lhs, const Vector2I& rhs);
 
-        inline static const Vector2I One = Vector2I(1, 1);
-        inline static const Vector2I Zero = Vector2I(0, 0);
-        inline static const Vector2I Identity = Vector2I(1, 1);
-        inline static const Vector2I Forward = Vector2I(0, 1);
-        inline static const Vector2I Backward = Vector2I(0, -1);
-        inline static const Vector2I Up = Vector2I(0, 1);
-        inline static const Vector2I Down = Vector2I(0, -1);
-        inline static const Vector2I Left = Vector2I(1, 0);
-        inline static const Vector2I Right = Vector2I(-1, 0);
+        static Vector2I One;
+        static Vector2I Zero;
+        static Vector2I Identity;
+        static Vector2I Forward;
+        static Vector2I Backward;
+        static Vector2I Up;
+        static Vector2I Down;
+        static Vector2I Left;
+        static Vector2I Right;
 
         int X = 0;
         int Y = 0;

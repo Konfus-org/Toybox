@@ -16,7 +16,7 @@ namespace Tbx
         static Bounds FromOrthographicProjection(float size, float aspect);
         static Bounds FromPerspectiveProjection(float fov, float aspectRatio, float zNear);
 
-        inline static const Bounds Identity = Bounds(-1.0f, 1.0f, -1.0f, 1.0f);
+        static Bounds Identity;
 
         float Left;
         float Right;

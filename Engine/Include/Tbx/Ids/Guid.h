@@ -19,7 +19,7 @@ namespace Tbx
         // Generates a new GUID of the format 00000000-0000-0000-0000-000000000000
         static Guid Generate();
 
-        inline static const Guid Invalid = Guid();
+        inline static Guid Invalid = Guid();
 
         std::string ToString() const override { return Value; }
 

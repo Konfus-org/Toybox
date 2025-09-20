@@ -5,9 +5,24 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <cmath>
 
 namespace Tbx
 {
+    Mat4x4 Mat4x4::Zero = Mat4x4({
+        0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f
+    });
+
+    Mat4x4 Mat4x4::Identity = Mat4x4({
+        { 1.0f, 0.0f, 0.0f, 0.0f },
+        { 0.0f, 1.0f, 0.0f, 0.0f },
+        { 0.0f, 0.0f, 1.0f, 0.0f },
+        { 0.0f, 0.0f, 0.0f, 1.0f }
+    });
+
     static Mat4x4 GlmMat4ToTbxMat4x4(const glm::mat4& glmMat)
     {
         std::array<float, 16> arr;
@@ -218,10 +233,18 @@ namespace Tbx
         return GlmMat4ToTbxMat4x4(result);
     }
 
-    bool Mat4x4::IsEqual(const Mat4x4& lhs, float rhs)
+    bool Mat4x4::IsEqual(const Mat4x4& lhs, const Mat4x4& rhs)
     {
-        const glm::mat4 lhsMat = glm::make_mat4(lhs.Values.data());
-        const glm::mat4 rhsMat = glm::make_mat4(lhs.Values.data());
-        return lhsMat == rhsMat;
+        constexpr float epsilon = 1e-5f;
+
+        for (size_t index = 0; index < lhs.Values.size(); ++index)
+        {
+            if (std::abs(lhs.Values[index] - rhs.Values[index]) > epsilon)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

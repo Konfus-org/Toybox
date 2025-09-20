@@ -10,7 +10,7 @@
 
 namespace Tbx
 {
-    FrameBuffer FrameBufferBuilder::BuildUploadBuffer(WorldView<MaterialInstance, Mesh, Model> view)
+    FrameBuffer FrameBufferBuilder::BuildUploadBuffer(StageView<MaterialInstance, Mesh, Model> view)
     {
         FrameBuffer buffer = {};
 
@@ -22,7 +22,7 @@ namespace Tbx
         return buffer;
     }
 
-    FrameBuffer FrameBufferBuilder::BuildRenderBuffer(FullWorldView view)
+    FrameBuffer FrameBufferBuilder::BuildRenderBuffer(FullStageViewView view)
     {
         // Build view frustums from cameras
         auto frustums = std::vector<Frustum>();

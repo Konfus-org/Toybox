@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/ECS/Toy.h"
-#include "Tbx/ECS/Views.h"
+#include "Tbx/TSS/Toy.h"
+#include "Tbx/TSS/Views.h"
 #include "Tbx/Graphics/Material.h"
 #include "Tbx/Graphics/Mesh.h"
 #include "Tbx/Graphics/Model.h"
@@ -20,12 +20,12 @@ namespace Tbx
         /// <summary>
         /// Generates commands to upload resources for the provided boxes.
         /// </summary>
-        FrameBuffer BuildUploadBuffer(WorldView<MaterialInstance, Mesh, Model> view);
+        FrameBuffer BuildUploadBuffer(StageView<MaterialInstance, Mesh, Model> view);
 
         /// <summary>
         /// Generates commands necessary to render the provided boxes.
         /// </summary>
-        FrameBuffer BuildRenderBuffer(FullWorldView view);
+        FrameBuffer BuildRenderBuffer(FullStageViewView view);
 
     private:
         void AddToyUploadCommandsToBuffer(const Tbx::Ref<Toy>& toy, FrameBuffer& buffer);

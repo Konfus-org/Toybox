@@ -4,6 +4,8 @@
 
 namespace Tbx
 {
+    Bounds Bounds::Identity = Bounds(-1.0f, 1.0f, -1.0f, 1.0f);
+
     std::string Bounds::ToString() const { return std::format("[Left: {}, Right: {}, Top: {}, Bottom: {}]", Left, Right, Top, Bottom); }
 
     Bounds Bounds::FromOrthographicProjection(float size, float aspect)

@@ -79,21 +79,11 @@ namespace Tbx
         static Mat4x4 Multiply(float lhs, const Mat4x4& rhs);
         static Mat4x4 Multiply(const Mat4x4& lhs, float rhs);
 
-        static bool IsEqual(const Mat4x4& lhs, float rhs);
+        static bool IsEqual(const Mat4x4& lhs, const Mat4x4& rhs);
 
-        inline static const Mat4x4 Zero = Mat4x4({
-            0.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f
-        });
+        static Mat4x4 Zero;
 
-        inline static const Mat4x4 Identity = Mat4x4({
-            { 1.0f, 0.0f, 0.0f, 0.0f },
-            { 0.0f, 1.0f, 0.0f, 0.0f },
-            { 0.0f, 0.0f, 1.0f, 0.0f },
-            { 0.0f, 0.0f, 0.0f, 1.0f }
-        });
+        static Mat4x4 Identity;
 
         /// <summary>
         /// The matrix values, stored in a flat array in row major order.

@@ -1,12 +1,13 @@
 #pragma once
 #include "Tbx/Graphics/Vertex.h"
 #include "Tbx/Graphics/Buffers.h"
-#include "Tbx/Ids/UID.h"
+#include "Tbx/Ids/Uid.h"
+#include "Tbx/Ids/UsesUid.h"
 #include "Tbx/Math/Int.h"
 
 namespace Tbx
 {
-    struct Mesh
+    struct Mesh : public UsesUid
     {
     public:
         /// <summary>
@@ -23,8 +24,8 @@ namespace Tbx
         EXPORT static Mesh MakeTriangle();
         EXPORT static Mesh MakeQuad();
 
-        EXPORT inline static Mesh Quad = Mesh::MakeQuad();
-        EXPORT inline static Mesh Triangle = Mesh::MakeTriangle();
+        EXPORT static Mesh Quad;
+        EXPORT static Mesh Triangle;
 
     private:
         VertexBuffer VertexVectorToBuffer(const std::vector<Vertex>& vertices) const;

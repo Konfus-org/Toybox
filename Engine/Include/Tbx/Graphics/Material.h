@@ -2,6 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Graphics/Texture.h"
+#include "Tbx/Ids/UsesUid.h"
 #include <vector>
 
 namespace Tbx

@@ -23,7 +23,7 @@ namespace Tbx
 
         static uint64 GetNextId();
 
-        inline static const Uid Invalid = Uid(-1);
+        static Uid Invalid;
 
         uint64 Value = 0;
     };

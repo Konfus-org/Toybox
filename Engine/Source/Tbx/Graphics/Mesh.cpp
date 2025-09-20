@@ -3,6 +3,9 @@
 
 namespace Tbx
 {
+    Mesh Mesh::Quad = Mesh::MakeQuad();
+    Mesh Mesh::Triangle = Mesh::MakeTriangle();
+
     Mesh::Mesh()
     {
         auto quad = MakeQuad();
