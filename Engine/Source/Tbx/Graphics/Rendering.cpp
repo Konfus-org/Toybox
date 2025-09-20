@@ -84,32 +84,7 @@ namespace Tbx
             }
         }
 
-        for (size_t rendererIndex = 0; rendererIndex < _renderers.size(); ++rendererIndex)
-        {
-            const auto& renderer = _renderers[rendererIndex];
-            const auto& rendererWindow = _windows[rendererIndex];
-            if (!renderer || !rendererWindow)
-            {
-                continue;
-            }
-
-            renderer->SetViewport({ {0, 0}, rendererWindow->GetSize() });
-            renderer->Clear(_clearColor);
-            renderer->Process(renderBuffer);
-        }
-
-        if (_eventBus)
-        {
-            _eventBus->Send(RenderedFrameEvent());
-        }
-
-        for (const auto& window : _windows)
-        {
-            if (window)
-            {
-                window->SwapBuffers();
-            }
-        }
+        FlushRenderBuffer(renderBuffer);
     }
 
     void Rendering::QueueStageUpload(const Tbx::Ref<Stage>& stage)
@@ -170,6 +145,36 @@ namespace Tbx
         }
 
         _pendingUploadStages.clear();
+    }
+
+    void Rendering::FlushRenderBuffer(const FrameBuffer& renderBuffer)
+    {
+        for (size_t rendererIndex = 0; rendererIndex < _renderers.size(); ++rendererIndex)
+        {
+            const auto& renderer = _renderers[rendererIndex];
+            const auto& rendererWindow = _windows[rendererIndex];
+            if (!renderer || !rendererWindow)
+            {
+                continue;
+            }
+
+            renderer->SetViewport({ {0, 0}, rendererWindow->GetSize() });
+            renderer->Clear(_clearColor);
+            renderer->Process(renderBuffer);
+        }
+
+        if (_eventBus)
+        {
+            _eventBus->Send(RenderedFrameEvent());
+        }
+
+        for (const auto& window : _windows)
+        {
+            if (window)
+            {
+                window->SwapBuffers();
+            }
+        }
     }
 
     void Rendering::AddStage(const Tbx::Ref<Stage>& stage)

@@ -18,10 +18,10 @@ namespace Tbx
         EXPORT void UpdateLayers();
         EXPORT void ClearLayers();
 
-        EXPORT bool AddLayer(const Tbx::Ref<Layer>& layer);
-        EXPORT bool RemoveLayer(Tbx::uint index);
-        EXPORT bool RemoveLayer(const std::string& name);
-        EXPORT bool RemoveLayer(const Tbx::Ref<Layer>& layer);
+        EXPORT void AddLayer(const Tbx::Ref<Layer>& layer);
+        EXPORT void RemoveLayer(Tbx::uint index);
+        EXPORT void RemoveLayer(const std::string& name);
+        EXPORT void RemoveLayer(const Tbx::Ref<Layer>& layer);
 
         EXPORT Tbx::Ref<Layer> GetLayer(Tbx::uint index) const;
         EXPORT Tbx::Ref<Layer> GetLayer(const std::string& name) const;

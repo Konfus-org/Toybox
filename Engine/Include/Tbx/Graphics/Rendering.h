@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/IRenderer.h"
+#include "Tbx/Graphics/Buffers.h"
 #include "Tbx/Windowing/IWindow.h"
 #include "Tbx/TSS/Stage.h"
 #include "Tbx/Events/AppEvents.h"
@@ -45,6 +46,11 @@ namespace Tbx
         /// Uploads any pending stage resources to all active renderers.
         /// </summary>
         void FlushPendingUploads();
+
+        /// <summary>
+        /// Submits the provided render buffer to all active renderers and presents the results.
+        /// </summary>
+        void FlushRenderBuffer(const FrameBuffer& renderBuffer);
         void AddStage(const Tbx::Ref<Stage>& stage);
         void RemoveStage(const Tbx::Ref<Stage>& stage);
 

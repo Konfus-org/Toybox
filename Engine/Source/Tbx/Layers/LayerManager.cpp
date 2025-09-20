@@ -50,57 +50,57 @@ namespace Tbx
         return layers;
     }
 
-    bool LayerManager::AddLayer(const Tbx::Ref<Layer>& layer)
+    void LayerManager::AddLayer(const Tbx::Ref<Layer>& layer)
     {
         if (!layer)
         {
-            return false;
+            TBX_TRACE_ERROR("LayerManager: Attempted to add an invalid layer instance.");
+            return;
         }
 
         const auto existing = GetLayer(layer->GetName());
-        TBX_ASSERT(!existing, "Layer names must be unique. A layer named {} is already registered.", layer->GetName());
         if (existing)
         {
-            return false;
+            TBX_TRACE_ERROR("LayerManager: A layer named {} is already registered.", layer->GetName());
+            return;
         }
 
         _stack.Push(layer);
-        return true;
     }
 
-    bool LayerManager::RemoveLayer(Tbx::uint index)
+    void LayerManager::RemoveLayer(Tbx::uint index)
     {
         auto layer = GetLayer(index);
         if (!layer)
         {
-            return false;
+            TBX_TRACE_ERROR("LayerManager: Failed to remove layer at index {} because it does not exist.", index);
+            return;
         }
 
         _stack.Remove(layer);
-        return true;
     }
 
-    bool LayerManager::RemoveLayer(const std::string& name)
+    void LayerManager::RemoveLayer(const std::string& name)
     {
         auto layer = GetLayer(name);
         if (!layer)
         {
-            return false;
+            TBX_TRACE_ERROR("LayerManager: Failed to remove layer named {} because it does not exist.", name);
+            return;
         }
 
         _stack.Remove(layer);
-        return true;
     }
 
-    bool LayerManager::RemoveLayer(const Tbx::Ref<Layer>& layer)
+    void LayerManager::RemoveLayer(const Tbx::Ref<Layer>& layer)
     {
         if (!layer)
         {
-            return false;
+            TBX_TRACE_ERROR("LayerManager: Attempted to remove an invalid layer instance.");
+            return;
         }
 
         _stack.Remove(layer);
-        return true;
     }
 
     void LayerManager::ClearLayers()
