@@ -21,16 +21,17 @@ namespace Tbx
         void OnDetach() override;
         void OnUpdate() override;
 
-        void AddRuntime(const Ref<IRuntime>& runtime);
-        void RemoveRuntime(const Ref<IRuntime>& runtime);
+        void AddRuntime(Ref<IRuntime> runtime);
+        void RemoveRuntime(Ref<IRuntime> runtime);
         std::vector<Ref<IRuntime>> GetRuntimes() const;
 
     private:
-        void AttachRuntime(const Ref<IRuntime>& runtime);
-        void DetachRuntime(const Ref<IRuntime>& runtime);
+        void AttachRuntime(Ref<IRuntime> runtime);
+        void DetachRuntime(Ref<IRuntime> runtime);
 
-        WeakRef<App> _app;
-        std::vector<Ref<IRuntime>> _runtimes;
+    private:
+        WeakRef<App> _app = {};
+        std::vector<Ref<IRuntime>> _runtimes = {};
         bool _isAttached = false;
     };
 }

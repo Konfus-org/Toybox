@@ -1,11 +1,12 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Layers/LayerManager.h"
+#include "Tbx/Debug/Debugging.h"
 
 namespace Tbx
 {
     void LayerManager::UpdateLayers()
     {
-        for (auto& layer : _stack)
+        for (auto layer : _stack)
         {
             if (layer)
             {
@@ -26,7 +27,7 @@ namespace Tbx
 
     Ref<Layer> LayerManager::GetLayer(const std::string& name) const
     {
-        for (auto& layer : _stack)
+        for (auto layer : _stack)
         {
             if (layer && layer->GetName() == name)
             {
@@ -58,7 +59,7 @@ namespace Tbx
             return;
         }
 
-        const auto existing = GetLayer(layer->GetName());
+        auto existing = GetLayer(layer->GetName());
         if (existing)
         {
             TBX_TRACE_ERROR("LayerManager: A layer named {} is already registered.", layer->GetName());

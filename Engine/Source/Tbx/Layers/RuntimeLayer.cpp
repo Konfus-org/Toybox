@@ -50,7 +50,7 @@ namespace Tbx
         }
     }
 
-    void RuntimeLayer::AddRuntime(const Ref<IRuntime>& runtime)
+    void RuntimeLayer::AddRuntime(Ref<IRuntime> runtime)
     {
         if (!runtime)
         {
@@ -70,7 +70,7 @@ namespace Tbx
         }
     }
 
-    void RuntimeLayer::RemoveRuntime(const Ref<IRuntime>& runtime)
+    void RuntimeLayer::RemoveRuntime(Ref<IRuntime> runtime)
     {
         if (!runtime)
         {
@@ -96,7 +96,7 @@ namespace Tbx
         return _runtimes;
     }
 
-    void RuntimeLayer::AttachRuntime(const Ref<IRuntime>& runtime)
+    void RuntimeLayer::AttachRuntime(Ref<IRuntime> runtime)
     {
         if (!runtime || _app.expired())
         {
@@ -106,7 +106,7 @@ namespace Tbx
         runtime->OnAttach(_app);
     }
 
-    void RuntimeLayer::DetachRuntime(const Ref<IRuntime>& runtime)
+    void RuntimeLayer::DetachRuntime(Ref<IRuntime> runtime)
     {
         if (!runtime)
         {

@@ -143,16 +143,15 @@ namespace Tbx
             : AppStatus::Closed;
     }
 
-    void App::OnWindowClosed(const WindowClosedEvent& e)
+    void App::SetSettings(const Settings& settings)
     {
-        // If the window is our main window, set running flag to false which will trigger the app to close
-        const auto window = e.GetWindow();
-        const auto mainWindow = GetMainWindow();
-        if (window && mainWindow && window->GetId() == mainWindow->GetId())
-        {
-            // Stop running and close all windows
-            _status = AppStatus::Closing;
-        }
+        _settings = settings;
+        _eventBus->Post(AppSettingsChangedEvent(settings));
+    }
+
+    const Settings& App::GetSettings() const
+    {
+        return _settings;
     }
 
     const AppStatus& App::GetStatus() const
@@ -165,64 +164,97 @@ namespace Tbx
         return _name;
     }
 
-    Ref<EventBus> App::GetEventBus()
+    Ref<EventBus> App::GetEventBus() const
     {
         return _eventBus;
     }
 
-    void App::AddLayer(const Tbx::Ref<Layer>& layer)
-    {
-        _layerManager->AddLayer(layer);
-    }
-
-    void App::RemoveLayer(const std::string& name)
-    {
-        _layerManager->RemoveLayer(name);
-    }
-
-    void App::RemoveLayer(const Tbx::Ref<Layer>& layer)
-    {
-        _layerManager->RemoveLayer(layer);
-    }
-
-    Tbx::Ref<Layer> App::GetLayer(const std::string& name) const
-    {
-        return _layerManager->GetLayer(name);
-    }
-
-    std::vector<Tbx::Ref<Layer>> App::GetLayers() const
-    {
-        return _layerManager->GetLayers();
-    }
-
-    Ref<PluginServer> App::GetPluginServer()
+    Ref<PluginServer> App::GetPluginServer() const
     {
         return _pluginServer;
     }
 
-    Ref<AssetServer> App::GetAssetServer()
+    Ref<AssetServer> App::GetAssetServer() const
     {
         return _assetServer;
     }
 
-    void App::SetSettings(const Settings& settings)
+    void App::AddLayer(Ref<Layer> layer) const
     {
-        _settings = settings;
-        _eventBus->Post(AppSettingsChangedEvent(settings));
+        _layerManager->AddLayer(layer);
     }
 
-    const Settings& App::GetSettings() const
+    void App::RemoveLayer(const std::string& name) const
     {
-        return _settings;
+        _layerManager->RemoveLayer(name);
     }
 
-    void App::AddRuntime(const Ref<IRuntime>& runtime)
+    void App::RemoveLayer(Ref<Layer> layer) const
     {
-        const auto runtimeLayer = _layerManager->GetLayer<RuntimeLayer>();
+        _layerManager->RemoveLayer(layer);
+    }
+
+    Ref<Layer> App::GetLayer(const std::string& name) const
+    {
+        return _layerManager->GetLayer(name);
+    }
+
+    std::vector<Ref<Layer>> App::GetLayers() const
+    {
+        return _layerManager->GetLayers();
+    }
+
+    Uid App::OpenWindow(const std::string& name, const WindowMode& mode, const Size& size) const
+    {
+        auto windowManager = GetWindowManager();
+        return windowManager->OpenWindow(name, mode, size);
+    }
+
+    void App::CloseWindow(const Uid& id) const
+    {
+        auto windowManager = GetWindowManager();
+        windowManager->CloseWindow(id);
+    }
+
+    void App::CloseAllWindows() const
+    {
+        auto windowManager = GetWindowManager();
+        windowManager->CloseAllWindows();
+    }
+
+    std::vector<Ref<IWindow>> App::GetOpenWindows() const
+    {
+        auto windowManager = GetWindowManager();
+        const auto& windows = windowManager->GetAllWindows();
+        return { windows.begin(), windows.end() };
+    }
+
+    Ref<IWindow> App::GetWindow(const Uid& id) const
+    {
+        auto windowManager = GetWindowManager();
+        return windowManager->GetWindow(id);
+    }
+
+    Ref<IWindow> App::GetMainWindow() const
+    {
+        auto windowManager = GetWindowManager();
+        return windowManager->GetMainWindow();
+    }
+
+    Ref<WindowManager> App::GetWindowManager() const
+    {
+        auto windowingLayer = _layerManager->GetLayer<WindowingLayer>();
+        auto windowManager = windowingLayer->GetWindowManager();
+        return windowManager;
+    }
+
+    void App::AddRuntime(Ref<IRuntime> runtime) const
+    {
+        auto runtimeLayer = _layerManager->GetLayer<RuntimeLayer>();
         runtimeLayer->AddRuntime(runtime);
     }
 
-    void App::RemoveRuntime(const Ref<IRuntime>& runtime)
+    void App::RemoveRuntime(Ref<IRuntime> runtime) const
     {
         const auto runtimeLayer = _layerManager->GetLayer<RuntimeLayer>();
         runtimeLayer->RemoveRuntime(runtime);
@@ -234,47 +266,15 @@ namespace Tbx
         return runtimeLayer->GetRuntimes();
     }
 
-    Uid App::OpenWindow(const std::string& name, const WindowMode& mode, const Size& size)
+    void App::OnWindowClosed(const WindowClosedEvent& e)
     {
-        auto windowManager = GetWindowManager();
-        return windowManager->OpenWindow(name, mode, size);
-    }
-
-    void App::CloseWindow(const Uid& id)
-    {
-        auto windowManager = GetWindowManager();
-        windowManager->CloseWindow(id);
-    }
-
-    void App::CloseAllWindows()
-    {
-        auto windowManager = GetWindowManager();
-        windowManager->CloseAllWindows();
-    }
-
-    std::vector<Tbx::Ref<IWindow>> App::GetOpenWindows() const
-    {
-        auto windowManager = GetWindowManager();
-        const auto& windows = windowManager->GetAllWindows();
-        return { windows.begin(), windows.end() };
-    }
-
-    Tbx::Ref<IWindow> App::GetWindow(const Uid& id) const
-    {
-        auto windowManager = GetWindowManager();
-        return windowManager->GetWindow(id);
-    }
-
-    Tbx::Ref<IWindow> App::GetMainWindow() const
-    {
-        auto windowManager = GetWindowManager();
-        return windowManager->GetMainWindow();
-    }
-
-    Tbx::Ref<WindowManager> App::GetWindowManager() const
-    {
-        auto windowingLayer = _layerManager->GetLayer<WindowingLayer>();
-        auto windowManager = windowingLayer->GetWindowManager();
-        return windowManager;
+        // If the window is our main window, set running flag to false which will trigger the app to close
+        const auto window = e.GetWindow();
+        const auto mainWindow = GetMainWindow();
+        if (window && mainWindow && window->GetId() == mainWindow->GetId())
+        {
+            // Stop running and close all windows
+            _status = AppStatus::Closing;
+        }
     }
 }

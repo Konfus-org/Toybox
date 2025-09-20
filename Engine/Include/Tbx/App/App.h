@@ -38,14 +38,7 @@ namespace Tbx
     class EXPORT App : std::enable_shared_from_this<App>
     {
     public:
-        /// <summary>
-        /// Creates a new application with the provided display name.
-        /// </summary>
         explicit(false) App(const std::string_view& name);
-
-        /// <summary>
-        /// Ensures resources created by the application are properly released.
-        /// </summary>
         virtual ~App();
 
         /// <summary>
@@ -81,32 +74,32 @@ namespace Tbx
         /// <summary>
         /// Exposes the event bus used to publish and subscribe to engine events.
         /// </summary>
-        Ref<EventBus> GetEventBus();
+        Ref<EventBus> GetEventBus() const;
 
         /// <summary>
         /// Returns the plugin server powering extensible engine systems.
         /// </summary>
-        Ref<PluginServer> GetPluginServer();
+        Ref<PluginServer> GetPluginServer() const;
 
         /// <summary>
         /// Provides access to the asset server responsible for content streaming.
         /// </summary>
-        Ref<AssetServer> GetAssetServer();
+        Ref<AssetServer> GetAssetServer() const;
 
         /// <summary>
         /// Registers a new layer with the application-managed layer manager.
         /// </summary>
-        void AddLayer(const Ref<Layer>& layer);
+        void AddLayer(Ref<Layer> layer) const;
 
         /// <summary>
         /// Removes a layer by name from the layer manager.
         /// </summary>
-        void RemoveLayer(const std::string& name);
+        void RemoveLayer(const std::string& name) const;
 
         /// <summary>
         /// Removes a specific layer instance from the layer manager.
         /// </summary>
-        void RemoveLayer(const Tbx::Ref<Layer>& layer);
+        void RemoveLayer(Ref<Layer> layer) const;
 
         /// <summary>
         /// Retrieves a layer by name from the layer manager.
@@ -118,23 +111,20 @@ namespace Tbx
         /// </summary>
         std::vector<Ref<Layer>> GetLayers() const;
 
-        // TODO: Get rid of window manager and make the app fully own windows.
-        // They should be behind some methods like layer: OpenNewWindow(name, mode, size=default), GetWindow(id or name), etc..
-
         /// <summary>
         /// Opens a new window with the provided description and returns its unique identifier.
         /// </summary>
-        Uid OpenWindow(const std::string& name, const WindowMode& mode, const Size& size = Size(1920, 1080));
+        Uid OpenWindow(const std::string& name, const WindowMode& mode = WindowMode::Fullscreen, const Size& size = Size(1920, 1080)) const;
 
         /// <summary>
         /// Closes the window associated with the supplied identifier.
         /// </summary>
-        void CloseWindow(const Uid& id);
+        void CloseWindow(const Uid& id) const;
 
         /// <summary>
         /// Closes all open windows owned by the application.
         /// </summary>
-        void CloseAllWindows();
+        void CloseAllWindows() const;
 
         /// <summary>
         /// Returns a collection of currently open windows.
@@ -154,12 +144,12 @@ namespace Tbx
         /// <summary>
         /// Registers a runtime with the application so it participates in updates.
         /// </summary>
-        void AddRuntime(const Ref<IRuntime>& runtime);
+        void AddRuntime(Ref<IRuntime> runtime) const;
 
         /// <summary>
         /// Removes a runtime from the application.
         /// </summary>
-        void RemoveRuntime(const Ref<IRuntime>& runtime);
+        void RemoveRuntime(Ref<IRuntime> runtime) const;
 
         /// <summary>
         /// Provides the runtimes currently registered with the application.
@@ -176,8 +166,7 @@ namespace Tbx
         void Update();
         void Shutdown();
         void OnWindowClosed(const WindowClosedEvent& e);
-
-        Tbx::Ref<WindowManager> GetWindowManager() const;
+        Ref<WindowManager> GetWindowManager() const;
 
     private:
         std::string _name = "App";

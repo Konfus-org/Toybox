@@ -22,16 +22,16 @@ namespace Tbx
     /// </summary>
     template <typename T>
     using ExclusiveRef = std::unique_ptr<T>;
+
+    template <typename T>
+    struct IsRef : std::false_type {};
+
+    template <typename U>
+    struct IsRef<Ref<U>> : std::true_type {};
+
+    template <typename U>
+    struct IsRef<WeakRef<U>> : std::true_type {};
+
+    template <typename U>
+    struct IsRef<ExclusiveRef<U>> : std::true_type {};
 }
-
-template <typename T>
-struct is_smart_ptr : std::false_type {};
-
-template <typename U>
-struct is_smart_ptr<Ref<U>> : std::true_type {};
-
-template <typename U>
-struct is_smart_ptr<WeakRef<U>> : std::true_type {};
-
-template <typename U>
-struct is_smart_ptr<ExclusiveRef<U>> : std::true_type {};
