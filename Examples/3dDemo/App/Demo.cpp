@@ -14,25 +14,18 @@ void Demo::OnAttach()
 
     // Load assets
     auto assetServer = _app.lock()->GetAssetServer();
-    auto& smilyTexAsset = assetServer->GetAsset("Assets/Smily.png");
-    auto& wallTexAsset = assetServer->GetAsset("Assets/Wall.jpg");
-    auto& checkerboardTexAsset = assetServer->GetAsset("Assets/Checkerboard.png");
-    auto& fragmentShaderAsset = assetServer->GetAsset("Assets/fragment.frag");
-    auto& vertexShaderAsset = assetServer->GetAsset("Assets/vertex.vert");
+    auto smilyTex = assetServer->GetAsset<Tbx::Texture>("Assets/Smily.png");
+    auto wallTex = assetServer->GetAsset<Tbx::Texture>("Assets/Wall.jpg");
+    auto checkerTex = assetServer->GetAsset<Tbx::Texture>("Assets/Checkerboard.png");
+    auto fragmentShader = assetServer->GetAsset<Tbx::Shader>("Assets/fragment.frag");
+    auto vertexShader = assetServer->GetAsset<Tbx::Shader>("Assets/vertex.vert");
 
     // Setup testing scene...
     _world = std::make_shared<Tbx::Stage>(_app.lock()->GetEventBus());
     auto worldRoot = _world->GetRoot();
 
     // Setup base material
-    auto vertShader = vertexShaderAsset.Load<Tbx::Shader>();
-    auto fragShader = fragmentShaderAsset->GetData();
-    _simpleTexturedMat = Tbx::Material({vertShader, fragShader});
-
-    // Get textures to use for our material instances
-    auto smilyTex = smilyTexAsset->GetData();
-    auto wallTex = wallTexAsset->GetData();
-    auto checkerTex = checkerboardTexAsset->GetData();
+    _simpleTexturedMat = Tbx::Material({ *vertexShader, *fragmentShader });
 
     // Create room
     {
@@ -121,9 +114,9 @@ void Demo::OnUpdate()
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_A) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_LEFT))
                     camMoveDir += Tbx::Quaternion::GetRight(camTransform.Rotation);
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_E) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_RIGHT_BUMPER))
-                    camMoveDir += Tbx::WorldSpace::Up;
+                    camMoveDir += Tbx::Vector3::Up;
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_Q) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_LEFT_BUMPER))
-                    camMoveDir += Tbx::WorldSpace::Down;
+                    camMoveDir += Tbx::Vector3::Down;
             }
             // Get controller axis style
             {
@@ -195,8 +188,8 @@ void Demo::OnUpdate()
             _camPitch = std::clamp(_camPitch, -89.0f, 89.0f);
 
             // Build rotation
-            Tbx::Quaternion qPitch = Tbx::Quaternion::FromAxisAngle(Tbx::WorldSpace::Right, _camPitch);
-            Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::WorldSpace::Up, _camYaw);
+            Tbx::Quaternion qPitch = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3::Right, _camPitch);
+            Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3::Up, _camYaw);
 
             // Combine (usually yaw * pitch for FPS)
             camTransform.Rotation = Tbx::Quaternion::Normalize(qYaw * qPitch);
@@ -210,7 +203,7 @@ void Demo::OnUpdate()
         const float smilyRotateSpeed = 90.0f;
         auto& smilyTransform = _smily->GetBlock<Tbx::Transform>();
         float angle = Tbx::Math::PI * deltaTime * smilyRotateSpeed;
-        Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::WorldSpace::Up, angle);
+        Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3::Up, angle);
         smilyTransform.Rotation = Tbx::Quaternion::Normalize(smilyTransform.Rotation * qYaw);
 
         // Bob over time
