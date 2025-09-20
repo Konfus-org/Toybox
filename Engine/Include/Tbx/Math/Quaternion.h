@@ -10,12 +10,9 @@ namespace Tbx
     /// </summary>
     struct EXPORT Quaternion : public IStringConvertible
     {
-    public:
         Quaternion() = default;
-
         Quaternion(float x, float y, float z, float w)
             : X(x), Y(y), Z(z), W(w) {}
-
         explicit(false) Quaternion(const Vector3& euler) 
         { 
             const auto& q = FromEuler(euler); 

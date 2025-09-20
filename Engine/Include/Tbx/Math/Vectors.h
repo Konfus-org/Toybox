@@ -14,7 +14,6 @@ namespace Tbx
     /// </summary>
     struct EXPORT Vector3 : public IStringConvertible
     {
-    public:
         Vector3() = default;
         explicit(false) Vector3(float all) : X(all), Y(all), Z(all) {}
         explicit(false) Vector3(const Vector2& vector);
@@ -74,7 +73,6 @@ namespace Tbx
     /// </summary>
     struct EXPORT Vector2 : public IStringConvertible
     {
-    public:
         Vector2() = default;
         explicit(false) Vector2(float all) : X(all), Y(all) {}
         Vector2(float x, float y) : X(x), Y(y) {}
@@ -130,7 +128,6 @@ namespace Tbx
     /// </summary>
     struct EXPORT Vector2I : public IStringConvertible
     {
-    public:
         Vector2I() = default;
         explicit(false) Vector2I(int all) : X(all), Y(all) {}
         explicit(false) Vector2I(const Vector2& vector) : X(static_cast<int>(vector.X)), Y(static_cast<int>(vector.Y)) {}

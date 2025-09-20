@@ -3,7 +3,7 @@
 
 namespace Tbx
 {
-    Uid Uid::Invalid = Uid(static_cast<uint64>(-1));
+    Uid Uid::Invalid = Uid(-1);
 
     uint64 Uid::GetNextId()
     {

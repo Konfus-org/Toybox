@@ -82,7 +82,6 @@ namespace Tbx
         static bool IsEqual(const Mat4x4& lhs, const Mat4x4& rhs);
 
         static Mat4x4 Zero;
-
         static Mat4x4 Identity;
 
         /// <summary>

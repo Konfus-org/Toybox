@@ -1,6 +1,6 @@
 #pragma once
-#include "Tbx/Core/StringConvertible.h"
 #include "Tbx/DllExport.h"
+#include "Tbx/Core/StringConvertible.h"
 #include "Tbx/Math/Int.h"
 #include <string>
 
@@ -8,7 +8,6 @@ namespace Tbx
 {
     struct EXPORT Uid : public IStringConvertible
     {
-    public:
         /// <summary>
         /// Will generate a new UID
         /// </summary>
@@ -17,15 +16,13 @@ namespace Tbx
         explicit(false) Uid(uint id) : Value(static_cast<uint64>(id)) {}
         explicit(false) Uid(int id) : Value(static_cast<uint64>(id)) {}
 
-        std::string ToString() const override { return std::to_string(Value); }
-
         explicit(false) operator uint64() const { return Value; }
 
+        std::string ToString() const override { return std::to_string(Value); }
         static uint64 GetNextId();
 
         static Uid Invalid;
-
-        uint64 Value = 0;
+        uint64 Value = Invalid;
     };
 }
 
