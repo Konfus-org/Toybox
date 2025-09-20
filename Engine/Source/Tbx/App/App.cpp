@@ -76,11 +76,11 @@ namespace Tbx
         auto log = std::make_shared<LogLayer>(_pluginServer->GetPlugin<ILoggerFactory>());
         auto windowingLayer = std::make_shared<WindowingLayer>(_name, _pluginServer->GetPlugin<IWindowFactory>(), _eventBus);
         auto runtime = std::make_shared<RuntimeLayer>(self);
-        _layerManager->AddLayer(log);
-        _layerManager->AddLayer(input);
-        _layerManager->AddLayer(windowingLayer);
-        _layerManager->AddLayer(runtime);
-        _layerManager->AddLayer(rendering);
+        AddLayer(log);
+        AddLayer(input);
+        AddLayer(windowingLayer);
+        AddLayer(runtime);
+        AddLayer(rendering);
 
         _eventBus->Subscribe(this, &App::OnWindowClosed);
 
@@ -116,6 +116,7 @@ namespace Tbx
 
         OnUpdate();
 
+        TBX_ASSERT(_layerManager, "Layer manager must exist before updating layers.");
         _layerManager->UpdateLayers();
 
         if (_status != AppStatus::Running) return;
@@ -145,14 +146,8 @@ namespace Tbx
     void App::OnWindowClosed(const WindowClosedEvent& e)
     {
         // If the window is our main window, set running flag to false which will trigger the app to close
-        auto window = e.GetWindow();
-        const auto windowManager = GetWindowManager();
-        if (!windowManager)
-        {
-            return;
-        }
-
-        auto mainWindow = windowManager->GetMainWindow();
+        const auto window = e.GetWindow();
+        const auto mainWindow = GetMainWindow();
         if (window && mainWindow && window->GetId() == mainWindow->GetId())
         {
             // Stop running and close all windows
@@ -175,20 +170,29 @@ namespace Tbx
         return _eventBus;
     }
 
-    Ref<LayerManager> App::GetLayerManager()
+    void App::AddLayer(const Tbx::Ref<Layer>& layer)
     {
-        return _layerManager;
+        _layerManager->AddLayer(layer);
     }
 
-    Ref<WindowManager> App::GetWindowManager()
+    void App::RemoveLayer(const std::string& name)
     {
-        if (!_layerManager)
-        {
-            return nullptr;
-        }
+        _layerManager->RemoveLayer(name);
+    }
 
-        const auto windowingLayer = _layerManager->GetLayer<WindowingLayer>();
-        return windowingLayer ? windowingLayer->GetWindowManager() : nullptr;
+    void App::RemoveLayer(const Tbx::Ref<Layer>& layer)
+    {
+        _layerManager->RemoveLayer(layer);
+    }
+
+    Tbx::Ref<Layer> App::GetLayer(const std::string& name) const
+    {
+        return _layerManager->GetLayer(name);
+    }
+
+    std::vector<Tbx::Ref<Layer>> App::GetLayers() const
+    {
+        return _layerManager->GetLayers();
     }
 
     Ref<PluginServer> App::GetPluginServer()
@@ -204,10 +208,7 @@ namespace Tbx
     void App::SetSettings(const Settings& settings)
     {
         _settings = settings;
-        if (_eventBus)
-        {
-            _eventBus->Post(AppSettingsChangedEvent(settings));
-        }
+        _eventBus->Post(AppSettingsChangedEvent(settings));
     }
 
     const Settings& App::GetSettings() const
@@ -217,38 +218,63 @@ namespace Tbx
 
     void App::AddRuntime(const Ref<IRuntime>& runtime)
     {
-        if (!runtime)
-        {
-            return;
-        }
-
-        const auto runtimeLayer = _layerManager ? _layerManager->GetLayer<RuntimeLayer>() : nullptr;
-        TBX_ASSERT(runtimeLayer, "Runtime layer must exist before adding runtimes");
+        const auto runtimeLayer = _layerManager->GetLayer<RuntimeLayer>();
         runtimeLayer->AddRuntime(runtime);
     }
 
     void App::RemoveRuntime(const Ref<IRuntime>& runtime)
     {
-        if (!runtime)
-        {
-            return;
-        }
-
-        const auto runtimeLayer = _layerManager ? _layerManager->GetLayer<RuntimeLayer>() : nullptr;
-        if (runtimeLayer)
-        {
-            runtimeLayer->RemoveRuntime(runtime);
-        }
+        const auto runtimeLayer = _layerManager->GetLayer<RuntimeLayer>();
+        runtimeLayer->RemoveRuntime(runtime);
     }
 
     std::vector<Ref<IRuntime>> App::GetRuntimes() const
     {
-        const auto runtimeLayer = _layerManager ? _layerManager->GetLayer<RuntimeLayer>() : nullptr;
-        if (runtimeLayer)
-        {
-            return runtimeLayer->GetRuntimes();
-        }
+        const auto runtimeLayer = _layerManager->GetLayer<RuntimeLayer>();
+        return runtimeLayer->GetRuntimes();
+    }
 
-        return {};
+    Uid App::OpenWindow(const std::string& name, const WindowMode& mode, const Size& size)
+    {
+        auto windowManager = GetWindowManager();
+        return windowManager->OpenWindow(name, mode, size);
+    }
+
+    void App::CloseWindow(const Uid& id)
+    {
+        auto windowManager = GetWindowManager();
+        windowManager->CloseWindow(id);
+    }
+
+    void App::CloseAllWindows()
+    {
+        auto windowManager = GetWindowManager();
+        windowManager->CloseAllWindows();
+    }
+
+    std::vector<Tbx::Ref<IWindow>> App::GetOpenWindows() const
+    {
+        auto windowManager = GetWindowManager();
+        const auto& windows = windowManager->GetAllWindows();
+        return { windows.begin(), windows.end() };
+    }
+
+    Tbx::Ref<IWindow> App::GetWindow(const Uid& id) const
+    {
+        auto windowManager = GetWindowManager();
+        return windowManager->GetWindow(id);
+    }
+
+    Tbx::Ref<IWindow> App::GetMainWindow() const
+    {
+        auto windowManager = GetWindowManager();
+        return windowManager->GetMainWindow();
+    }
+
+    Tbx::Ref<WindowManager> App::GetWindowManager() const
+    {
+        auto windowingLayer = _layerManager->GetLayer<WindowingLayer>();
+        auto windowManager = windowingLayer->GetWindowManager();
+        return windowManager;
     }
 }
