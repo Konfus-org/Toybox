@@ -1,7 +1,5 @@
 #pragma once
-
-#include "Tbx/TypeAliases/Int.h"
-
+#include "Tbx/Math/Int.h"
 #include <cstdint>
 
 namespace Tbx::Memory

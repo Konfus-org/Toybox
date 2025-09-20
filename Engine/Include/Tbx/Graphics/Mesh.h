@@ -1,30 +1,30 @@
 #pragma once
 #include "Tbx/Graphics/Vertex.h"
 #include "Tbx/Graphics/Buffers.h"
-#include "Tbx/Ids/UID.h"
+#include "Tbx/Ids/UsesUid.h"
 #include "Tbx/Math/Int.h"
 
 namespace Tbx
 {
-    struct Mesh
+    struct EXPORT Mesh : public UsesUid
     {
     public:
         /// <summary>
         /// Defaults to a quad mesh.
         /// </summary>
-        EXPORT Mesh();
-        EXPORT Mesh(const Mesh& mesh);
-        EXPORT Mesh(const std::initializer_list<Vertex>& vertices, const std::initializer_list<uint32>& indices);
-        EXPORT Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32>& indices);
+        Mesh();
+        Mesh(const Mesh& mesh);
+        Mesh(const std::initializer_list<Vertex>& vertices, const std::initializer_list<uint32>& indices);
+        Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32>& indices);
 
-        EXPORT const VertexBuffer& GetVertexBuffer() const;
-        EXPORT const std::vector<uint32>& GetIndexBuffer() const;
+        const VertexBuffer& GetVertexBuffer() const;
+        const std::vector<uint32>& GetIndexBuffer() const;
 
-        EXPORT static Mesh MakeTriangle();
-        EXPORT static Mesh MakeQuad();
+        static Mesh MakeTriangle();
+        static Mesh MakeQuad();
 
-        EXPORT inline static Mesh Quad = Mesh::MakeQuad();
-        EXPORT inline static Mesh Triangle = Mesh::MakeTriangle();
+        static Mesh Quad;
+        static Mesh Triangle;
 
     private:
         VertexBuffer VertexVectorToBuffer(const std::vector<Vertex>& vertices) const;

@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Ids/Uid.h"
+#include "Tbx/Ids/UsesUid.h"
 #include "Tbx/Memory/Refs.h"
 #include <memory>
 #include <string>
@@ -21,7 +21,7 @@ namespace Tbx
         /// <summary>
         /// A default, invalid toy handle
         /// </summary>
-        ToyHandle() : UsesUid(Consts::Invalid::Uid)
+        ToyHandle() : UsesUid(Uid::Invalid)
         {
         }
 

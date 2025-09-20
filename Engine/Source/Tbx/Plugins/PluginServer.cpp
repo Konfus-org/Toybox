@@ -238,7 +238,7 @@ namespace Tbx
 				{
 					if (ArePluginDependenciesSatisfied(*it, loadedNames, loadedTypes))
 					{
-						LoadPlugin(*it, _eventBus, loadedNames, loadedTypes, _loadedPlugins);
+						LoadPlugin(*it, app, _eventBus, loadedNames, loadedTypes, _loadedPlugins);
 						it = bucket.erase(it);
 						progress = true;
 					}

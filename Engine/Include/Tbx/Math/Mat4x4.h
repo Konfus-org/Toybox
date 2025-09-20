@@ -81,19 +81,8 @@ namespace Tbx
 
         static bool IsEqual(const Mat4x4& lhs, float rhs);
 
-        inline static const Mat4x4 Zero = Mat4x4({
-            0.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f
-        });
-
-        inline static const Mat4x4 Identity = Mat4x4({
-            { 1.0f, 0.0f, 0.0f, 0.0f },
-            { 0.0f, 1.0f, 0.0f, 0.0f },
-            { 0.0f, 0.0f, 1.0f, 0.0f },
-            { 0.0f, 0.0f, 0.0f, 1.0f }
-        });
+        static Mat4x4 Zero;
+        static Mat4x4 Identity;
 
         /// <summary>
         /// The matrix values, stored in a flat array in row major order.

@@ -8,6 +8,20 @@
 
 namespace Tbx
 {
+    Mat4x4 Mat4x4::Zero = Mat4x4({
+        0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f
+    });
+
+    Mat4x4 Mat4x4::Identity = Mat4x4({
+        { 1.0f, 0.0f, 0.0f, 0.0f },
+        { 0.0f, 1.0f, 0.0f, 0.0f },
+        { 0.0f, 0.0f, 1.0f, 0.0f },
+        { 0.0f, 0.0f, 0.0f, 1.0f }
+    });
+
     static Mat4x4 GlmMat4ToTbxMat4x4(const glm::mat4& glmMat)
     {
         std::array<float, 16> arr;

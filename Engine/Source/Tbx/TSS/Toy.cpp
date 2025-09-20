@@ -45,7 +45,7 @@ namespace Tbx
     {
         for (const auto& child : _children)
         {
-            if (child->GetHandle().Id == handle.Id)
+            if (child->GetHandle().GetId() == handle.GetId())
             {
                 return child;
             }

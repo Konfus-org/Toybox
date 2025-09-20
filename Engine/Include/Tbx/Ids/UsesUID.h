@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Ids/UID.h"
+#include "Tbx/Ids/Uid.h"
 
 namespace Tbx
 {

@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/Core/StringConvertible.h"
-#include "Tbx/Ids/UsesUID.h"
+#include "Tbx/Ids/UsesUid.h"
 #include "Tbx/Callbacks/CallbackFunction.h"
 
 #define TBX_BIND_FN(fn) [this](auto&&... args) { return this->fn(std::forward<decltype(args)>(args)...); }

@@ -6,6 +6,8 @@
 
 namespace Tbx
 {
+    Quaternion Quaternion::Identity = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
+
     Vector3 Quaternion::GetForward(const Quaternion& rot)
     {
         const auto glmQuat = glm::quat(rot.W, rot.X, rot.Y, rot.Z);
