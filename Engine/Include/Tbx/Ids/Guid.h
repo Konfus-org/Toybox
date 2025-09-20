@@ -1,6 +1,6 @@
 #pragma once
-#include "Tbx/Core/StringConvertible.h"
 #include "Tbx/DllExport.h"
+#include "Tbx/Core/StringConvertible.h"
 #include <string>
 #include <string_view>
 #include <utility>

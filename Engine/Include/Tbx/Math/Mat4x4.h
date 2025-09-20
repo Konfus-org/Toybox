@@ -79,7 +79,7 @@ namespace Tbx
         static Mat4x4 Multiply(float lhs, const Mat4x4& rhs);
         static Mat4x4 Multiply(const Mat4x4& lhs, float rhs);
 
-        static bool IsEqual(const Mat4x4& lhs, float rhs);
+        static bool IsEqual(const Mat4x4& lhs, const Mat4x4& rhs);
 
         static Mat4x4 Zero;
         static Mat4x4 Identity;

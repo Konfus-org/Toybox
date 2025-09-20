@@ -7,6 +7,7 @@
 #include <format>
 #include <memory>
 #include <queue>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -136,7 +137,13 @@ namespace Tbx
         template <typename... Args>
         static std::string Format(const std::string& fmt_str, Args&&... args)
         {
-            return std::format(fmt_str, NormalizeFormatArg(std::forward<Args>(args))...);
+            auto normalizedArgs = std::make_tuple(NormalizeFormatArg(std::forward<Args>(args))...);
+            return std::apply(
+                [&](auto&... values)
+                {
+                    return std::vformat(fmt_str, std::make_format_args(values...));
+                },
+                normalizedArgs);
         }
 
         static std::queue<std::pair<LogLevel, std::string>> _logQueue;
