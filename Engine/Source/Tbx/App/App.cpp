@@ -68,7 +68,6 @@ namespace Tbx
         _eventBus = std::make_shared<EventBus>();
         _pluginServer = std::make_shared<PluginServer>(workingDirectory, _eventBus, self);
         _assetServer = std::make_shared<AssetServer>(workingDirectory, _pluginServer->GetPlugins<IAssetLoader>());
-        _layerManager = std::make_shared<LayerManager>();
 
         // Init required layers
         auto rendering = std::make_shared<RenderingLayer>(_pluginServer->GetPlugin<IRendererFactory>(), _eventBus);
@@ -76,11 +75,20 @@ namespace Tbx
         auto log = std::make_shared<LogLayer>(_pluginServer->GetPlugin<ILoggerFactory>());
         auto windowingLayer = std::make_shared<WindowingLayer>(_name, _pluginServer->GetPlugin<IWindowFactory>(), _eventBus);
         auto runtime = std::make_shared<RuntimeLayer>(self);
-        _layerManager->AddLayer(log);
-        _layerManager->AddLayer(input);
-        _layerManager->AddLayer(windowingLayer);
-        _layerManager->AddLayer(runtime);
-        _layerManager->AddLayer(rendering);
+        const bool logLayerAdded = AddLayer(log);
+        TBX_ASSERT(logLayerAdded, "Failed to add the log layer. A layer with the same name already exists.");
+
+        const bool inputLayerAdded = AddLayer(input);
+        TBX_ASSERT(inputLayerAdded, "Failed to add the input layer. A layer with the same name already exists.");
+
+        const bool windowingLayerAdded = AddLayer(windowingLayer);
+        TBX_ASSERT(windowingLayerAdded, "Failed to add the windowing layer. A layer with the same name already exists.");
+
+        const bool runtimeLayerAdded = AddLayer(runtime);
+        TBX_ASSERT(runtimeLayerAdded, "Failed to add the runtime layer. A layer with the same name already exists.");
+
+        const bool renderingLayerAdded = AddLayer(rendering);
+        TBX_ASSERT(renderingLayerAdded, "Failed to add the rendering layer. A layer with the same name already exists.");
 
         _eventBus->Subscribe(this, &App::OnWindowClosed);
 
@@ -116,7 +124,7 @@ namespace Tbx
 
         OnUpdate();
 
-        _layerManager->UpdateLayers();
+        _layers.Update();
 
         if (_status != AppStatus::Running) return;
 
@@ -145,14 +153,8 @@ namespace Tbx
     void App::OnWindowClosed(const WindowClosedEvent& e)
     {
         // If the window is our main window, set running flag to false which will trigger the app to close
-        auto window = e.GetWindow();
-        const auto windowManager = GetWindowManager();
-        if (!windowManager)
-        {
-            return;
-        }
-
-        auto mainWindow = windowManager->GetMainWindow();
+        const auto window = e.GetWindow();
+        const auto mainWindow = GetMainWindow();
         if (window && mainWindow && window->GetId() == mainWindow->GetId())
         {
             // Stop running and close all windows
@@ -175,20 +177,61 @@ namespace Tbx
         return _eventBus;
     }
 
-    Tbx::Ref<LayerManager> App::GetLayerManager()
+    bool App::AddLayer(const Tbx::Ref<Layer>& layer)
     {
-        return _layerManager;
-    }
-
-    Tbx::Ref<WindowManager> App::GetWindowManager()
-    {
-        if (!_layerManager)
+        if (!layer)
         {
-            return nullptr;
+            return false;
         }
 
-        const auto windowingLayer = _layerManager->GetLayer<WindowingLayer>();
-        return windowingLayer ? windowingLayer->GetWindowManager() : nullptr;
+        const auto existingLayer = _layers.GetLayer(layer->GetName());
+        if (existingLayer)
+        {
+            TBX_ASSERT(false, "Layer names must be unique. A layer named {} is already registered.", layer->GetName());
+            return false;
+        }
+
+        _layers.Push(layer);
+        return true;
+    }
+
+    bool App::RemoveLayer(const std::string& name)
+    {
+        auto layer = _layers.GetLayer(name);
+        if (!layer)
+        {
+            return false;
+        }
+
+        _layers.Remove(name);
+        return true;
+    }
+
+    bool App::RemoveLayer(const Tbx::Ref<Layer>& layer)
+    {
+        if (!layer)
+        {
+            return false;
+        }
+
+        auto existingLayer = _layers.GetLayer(layer->GetName());
+        if (!existingLayer)
+        {
+            return false;
+        }
+
+        _layers.Remove(layer);
+        return true;
+    }
+
+    Tbx::Ref<Layer> App::GetLayer(const std::string& name) const
+    {
+        return _layers.GetLayer(name);
+    }
+
+    std::vector<Tbx::Ref<Layer>> App::GetLayers() const
+    {
+        return _layers.GetLayers();
     }
 
     Tbx::Ref<PluginServer> App::GetPluginServer()
@@ -222,7 +265,7 @@ namespace Tbx
             return;
         }
 
-        const auto runtimeLayer = _layerManager ? _layerManager->GetLayer<RuntimeLayer>() : nullptr;
+        const auto runtimeLayer = _layers.GetLayer<RuntimeLayer>();
         TBX_ASSERT(runtimeLayer, "Runtime layer must exist before adding runtimes");
         runtimeLayer->AddRuntime(runtime);
     }
@@ -234,7 +277,7 @@ namespace Tbx
             return;
         }
 
-        const auto runtimeLayer = _layerManager ? _layerManager->GetLayer<RuntimeLayer>() : nullptr;
+        const auto runtimeLayer = _layers.GetLayer<RuntimeLayer>();
         if (runtimeLayer)
         {
             runtimeLayer->RemoveRuntime(runtime);
@@ -243,12 +286,66 @@ namespace Tbx
 
     std::vector<Tbx::Ref<IRuntime>> App::GetRuntimes() const
     {
-        const auto runtimeLayer = _layerManager ? _layerManager->GetLayer<RuntimeLayer>() : nullptr;
+        const auto runtimeLayer = _layers.GetLayer<RuntimeLayer>();
         if (runtimeLayer)
         {
             return runtimeLayer->GetRuntimes();
         }
 
         return {};
+    }
+
+    Uid App::OpenWindow(const std::string& name, const WindowMode& mode, const Size& size)
+    {
+        const auto windowManager = GetWindowManager();
+        return windowManager ? windowManager->OpenWindow(name, mode, size) : Uid::Invalid;
+    }
+
+    void App::CloseWindow(const Uid& id)
+    {
+        const auto windowManager = GetWindowManager();
+        if (windowManager)
+        {
+            windowManager->CloseWindow(id);
+        }
+    }
+
+    void App::CloseAllWindows()
+    {
+        const auto windowManager = GetWindowManager();
+        if (windowManager)
+        {
+            windowManager->CloseAllWindows();
+        }
+    }
+
+    std::vector<Tbx::Ref<IWindow>> App::GetOpenWindows() const
+    {
+        const auto windowManager = GetWindowManager();
+        if (!windowManager)
+        {
+            return {};
+        }
+
+        const auto& windows = windowManager->GetAllWindows();
+        return { windows.begin(), windows.end() };
+    }
+
+    Tbx::Ref<IWindow> App::GetWindow(const Uid& id) const
+    {
+        const auto windowManager = GetWindowManager();
+        return windowManager ? windowManager->GetWindow(id) : nullptr;
+    }
+
+    Tbx::Ref<IWindow> App::GetMainWindow() const
+    {
+        const auto windowManager = GetWindowManager();
+        return windowManager ? windowManager->GetMainWindow() : nullptr;
+    }
+
+    Tbx::Ref<WindowManager> App::GetWindowManager() const
+    {
+        const auto windowingLayer = _layers.GetLayer<WindowingLayer>();
+        return windowingLayer ? windowingLayer->GetWindowManager() : nullptr;
     }
 }
