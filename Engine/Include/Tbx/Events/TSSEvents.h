@@ -13,10 +13,10 @@ namespace Tbx
     class StageOpenedEvent : public Event
     {
     public:
-        EXPORT explicit StageOpenedEvent(Tbx::Ref<Stage> opened)
+        EXPORT explicit StageOpenedEvent(Ref<Stage> opened)
             : _opened(opened) {}
 
-        EXPORT const Tbx::Ref<Stage> GetStage() const { return _opened; }
+        EXPORT const Ref<Stage> GetStage() const { return _opened; }
 
         EXPORT std::string ToString() const final
         {
@@ -24,7 +24,7 @@ namespace Tbx
         }
 
     private:
-        Tbx::Ref<Stage> _opened = {};
+        Ref<Stage> _opened = {};
     };
 
     /// <summary>
@@ -34,10 +34,10 @@ namespace Tbx
     class StageClosedEvent : public Event
     {
     public:
-        EXPORT explicit StageClosedEvent(Tbx::Ref<Stage> closed)
+        EXPORT explicit StageClosedEvent(Ref<Stage> closed)
             : _closed(closed) {}
 
-        EXPORT const Tbx::Ref<Stage> GetStage() const { return _closed; }
+        EXPORT const Ref<Stage> GetStage() const { return _closed; }
 
         EXPORT std::string ToString() const final
         {
@@ -45,6 +45,6 @@ namespace Tbx
         }
 
     private:
-        Tbx::Ref<Stage> _closed = {};
+        Ref<Stage> _closed = {};
     };
 }

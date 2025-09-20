@@ -28,10 +28,10 @@ template <typename T>
 struct is_smart_ptr : std::false_type {};
 
 template <typename U>
-struct is_smart_ptr<Tbx::Ref<U>> : std::true_type {};
+struct is_smart_ptr<Ref<U>> : std::true_type {};
 
 template <typename U>
-struct is_smart_ptr<Tbx::WeakRef<U>> : std::true_type {};
+struct is_smart_ptr<WeakRef<U>> : std::true_type {};
 
 template <typename U>
-struct is_smart_ptr<Tbx::ExclusiveRef<U>> : std::true_type {};
+struct is_smart_ptr<ExclusiveRef<U>> : std::true_type {};

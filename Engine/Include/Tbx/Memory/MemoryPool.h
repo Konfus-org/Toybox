@@ -41,7 +41,7 @@ namespace Tbx
         }
 
     private:
-        Tbx::Ref<char[]> _data = nullptr;
+        Ref<char[]> _data = nullptr;
         uint64 _elementSize = 0;
         uint64 _poolSize = 0;
     };

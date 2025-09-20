@@ -4,13 +4,13 @@
 
 namespace Tbx
 {
-    Stage::Stage(Tbx::Ref<EventBus> eventBus)
+    Stage::Stage(Ref<EventBus> eventBus)
         : _root(std::make_shared<Toy>("Root"))
         , _eventBus(eventBus)
     {
     }
 
-    Tbx::Ref<Toy> Stage::GetRoot() const
+    Ref<Toy> Stage::GetRoot() const
     {
         return _root;
     }

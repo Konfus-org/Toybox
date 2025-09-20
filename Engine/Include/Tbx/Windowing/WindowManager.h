@@ -11,15 +11,15 @@ namespace Tbx
     {
     public:
         EXPORT WindowManager(
-            Tbx::Ref<IWindowFactory> windowFactory,
-            Tbx::Ref<EventBus> eventBus);
+            Ref<IWindowFactory> windowFactory,
+            Ref<EventBus> eventBus);
         EXPORT ~WindowManager();
 
         EXPORT void UpdateWindows();
 
-        EXPORT Tbx::Ref<IWindow> GetMainWindow() const;
-        EXPORT const std::vector<Tbx::Ref<IWindow>>& GetAllWindows() const;
-        EXPORT Tbx::Ref<IWindow> GetWindow(const Uid& id) const;
+        EXPORT Ref<IWindow> GetMainWindow() const;
+        EXPORT const std::vector<Ref<IWindow>>& GetAllWindows() const;
+        EXPORT Ref<IWindow> GetWindow(const Uid& id) const;
 
         EXPORT Uid OpenWindow(const std::string& name, const WindowMode& mode, const Size& size = Size(1920, 1080));
 
@@ -27,8 +27,8 @@ namespace Tbx
         EXPORT void CloseAllWindows();
 
     private:
-        Tbx::Ref<IWindowFactory> _windowFactory = {};
-        Tbx::Ref<EventBus> _eventBus = {};
+        Ref<IWindowFactory> _windowFactory = {};
+        Ref<EventBus> _eventBus = {};
         Uid _mainWindowId = Uid::Invalid;
         WindowStack _stack = {};
     };

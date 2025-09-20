@@ -35,6 +35,6 @@ namespace Tbx
     {
     public:
         virtual ~IWindowFactory() = default;
-        virtual Tbx::Ref<IWindow> Create(const std::string& title, const Size& size, const WindowMode mode) = 0;
+        virtual Ref<IWindow> Create(const std::string& title, const Size& size, const WindowMode mode) = 0;
     };
 }

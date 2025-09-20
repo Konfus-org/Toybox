@@ -16,13 +16,13 @@ namespace Tbx
         /// <summary>
         /// Creates a new instance of <see cref="Stage"/> with a root toy.
         /// </summary>
-        EXPORT Stage(Tbx::Ref<EventBus> eventBus);
+        EXPORT Stage(Ref<EventBus> eventBus);
 
         /// <summary>
         /// Gets the root toy of the hierarchy.
         /// </summary>
         /// <returns>The root toy.</returns>
-        EXPORT Tbx::Ref<Toy> GetRoot() const;
+        EXPORT Ref<Toy> GetRoot() const;
 
         /// <summary>
         /// Updates the toy hierarchy.
@@ -40,7 +40,7 @@ namespace Tbx
         EXPORT void Close();
 
     private:
-        Tbx::Ref<Toy> _root = nullptr;
-        Tbx::Ref<EventBus> _eventBus = nullptr;
+        Ref<Toy> _root = nullptr;
+        Ref<EventBus> _eventBus = nullptr;
     };
 }

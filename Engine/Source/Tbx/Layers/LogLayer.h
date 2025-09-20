@@ -11,14 +11,14 @@ namespace Tbx
     class LogLayer : public Layer
     {
     public:
-        LogLayer(Tbx::Ref<ILoggerFactory> loggerFactory);
+        LogLayer(Ref<ILoggerFactory> loggerFactory);
 
         void OnAttach() override;
         void OnDetach() override;
         void OnUpdate() override;
 
     private:
-        Tbx::Ref<ILogger> _logger;
+        Ref<ILogger> _logger;
     };
 }
 

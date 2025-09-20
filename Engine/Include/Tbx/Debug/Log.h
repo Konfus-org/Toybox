@@ -19,7 +19,7 @@ namespace Tbx
         /// <summary>
         /// Opens the log.
         /// </summary>
-        EXPORT static void Initialize(Tbx::Ref<ILogger> logger = nullptr);
+        EXPORT static void Initialize(Ref<ILogger> logger = nullptr);
 
         /// <summary>
         /// Closes the log.
@@ -147,7 +147,7 @@ namespace Tbx
         }
 
         static std::queue<std::pair<LogLevel, std::string>> _logQueue;
-        static Tbx::Ref<ILogger> _logger;
+        static Ref<ILogger> _logger;
         static std::string _logFilePath;
         static bool _isOpen;
     };

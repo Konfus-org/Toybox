@@ -7,8 +7,8 @@
 namespace Tbx
 {
     RenderingLayer::RenderingLayer(
-        Tbx::Ref<IRendererFactory> renderFactory,
-        Tbx::Ref<EventBus> eventBus) : Layer("Rendering")
+        Ref<IRendererFactory> renderFactory,
+        Ref<EventBus> eventBus) : Layer("Rendering")
     {
         _renderFactory = renderFactory;
         _eventBus = eventBus;
@@ -31,7 +31,7 @@ namespace Tbx
         {
             
             // Gather all boxes from the current world
-            const Tbx::Ref<Toy> spaceRoot = stage->GetRoot();
+            const Ref<Toy> spaceRoot = stage->GetRoot();
 
             if (_firstFrame) // TODO: We need to do this any time we add a new renderer or toy...
             {
@@ -76,7 +76,7 @@ namespace Tbx
         }
     }
 
-    Tbx::Ref<IRenderer> RenderingLayer::GetRenderer(const Tbx::Ref<IWindow>& window)
+    Ref<IRenderer> RenderingLayer::GetRenderer(const Ref<IWindow>& window)
     {
         auto it = std::find(_windows.begin(), _windows.end(), window);
         if (it == _windows.end())

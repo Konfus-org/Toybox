@@ -103,11 +103,11 @@ namespace Tbx
 	/// </summary>
 	static bool LoadPlugin(
 		const PluginMeta& info,
-		Tbx::WeakRef<App> app,
-		Tbx::Ref<EventBus> eventBus,
+		WeakRef<App> app,
+		Ref<EventBus> eventBus,
 		std::unordered_set<std::string>& loadedNames,
 		std::unordered_set<std::string>& loadedTypes,
-		std::vector<Tbx::Ref<LoadedPlugin>>& outLoaded)
+		std::vector<Ref<LoadedPlugin>>& outLoaded)
 	{
 		auto plugin = std::make_shared<LoadedPlugin>(info, app);
 		if (!plugin->IsValid())
@@ -142,8 +142,8 @@ namespace Tbx
 
 	PluginServer::PluginServer(
 		const std::string& pathToPlugins,
-		Tbx::Ref<EventBus> eventBus,
-		Tbx::WeakRef<Tbx::App> app)
+		Ref<EventBus> eventBus,
+		WeakRef<Tbx::App> app)
 	{
 		_eventBus = eventBus;
 		LoadPlugins(pathToPlugins, app);
@@ -154,12 +154,12 @@ namespace Tbx
 		UnloadPlugins();
 	}
 
-	void PluginServer::AddPlugin(const Tbx::Ref<LoadedPlugin>& plugin)
+	void PluginServer::AddPlugin(const Ref<LoadedPlugin>& plugin)
 	{
 		_loadedPlugins.push_back(plugin);
 	}
 
-	const std::vector<Tbx::Ref<LoadedPlugin>>& PluginServer::GetPlugins()
+	const std::vector<Ref<LoadedPlugin>>& PluginServer::GetPlugins()
 	{
 		return _loadedPlugins;
 	}

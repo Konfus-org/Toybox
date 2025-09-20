@@ -8,7 +8,7 @@ namespace Tbx
     class PluginLoadedEvent : public Event
     {
     public:
-        EXPORT PluginLoadedEvent(Tbx::Ref<LoadedPlugin> loadedPlugin)
+        EXPORT PluginLoadedEvent(Ref<LoadedPlugin> loadedPlugin)
             : _loadedPlugin(loadedPlugin) {}
 
         EXPORT std::string ToString() const final
@@ -16,12 +16,12 @@ namespace Tbx
             return "Plugin Loaded Event";
         }
 
-        EXPORT Tbx::Ref<LoadedPlugin> GetLoadedPlugin() 
+        EXPORT Ref<LoadedPlugin> GetLoadedPlugin() 
         {
             return _loadedPlugin; 
         }
 
     private:
-        Tbx::Ref<LoadedPlugin> _loadedPlugin;
+        Ref<LoadedPlugin> _loadedPlugin;
     };
 }

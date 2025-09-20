@@ -15,22 +15,22 @@ namespace Tbx
     class RuntimeLayer : public Layer
     {
     public:
-        explicit RuntimeLayer(Tbx::WeakRef<App> app);
+        explicit RuntimeLayer(WeakRef<App> app);
 
         void OnAttach() override;
         void OnDetach() override;
         void OnUpdate() override;
 
-        void AddRuntime(const Tbx::Ref<IRuntime>& runtime);
-        void RemoveRuntime(const Tbx::Ref<IRuntime>& runtime);
-        std::vector<Tbx::Ref<IRuntime>> GetRuntimes() const;
+        void AddRuntime(const Ref<IRuntime>& runtime);
+        void RemoveRuntime(const Ref<IRuntime>& runtime);
+        std::vector<Ref<IRuntime>> GetRuntimes() const;
 
     private:
-        void AttachRuntime(const Tbx::Ref<IRuntime>& runtime);
-        void DetachRuntime(const Tbx::Ref<IRuntime>& runtime);
+        void AttachRuntime(const Ref<IRuntime>& runtime);
+        void DetachRuntime(const Ref<IRuntime>& runtime);
 
-        Tbx::WeakRef<App> _app;
-        std::vector<Tbx::Ref<IRuntime>> _runtimes;
+        WeakRef<App> _app;
+        std::vector<Ref<IRuntime>> _runtimes;
         bool _isAttached = false;
     };
 }

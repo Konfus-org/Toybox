@@ -8,13 +8,13 @@ namespace Tbx
     class InputLayer : public Layer
     {
     public:
-        InputLayer(Tbx::Ref<IInputHandler> inputHandler);
+        InputLayer(Ref<IInputHandler> inputHandler);
 
         void OnAttach() final;
         void OnDetach() final;
         void OnUpdate() final;
 
     private:
-        Tbx::Ref<IInputHandler> _inputHandler;
+        Ref<IInputHandler> _inputHandler;
     };
 }

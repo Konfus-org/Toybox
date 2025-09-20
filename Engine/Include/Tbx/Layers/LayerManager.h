@@ -18,16 +18,16 @@ namespace Tbx
         EXPORT void UpdateLayers();
         EXPORT void ClearLayers();
 
-        EXPORT void AddLayer(const Tbx::Ref<Layer>& layer);
+        EXPORT void AddLayer(const Ref<Layer>& layer);
         EXPORT void RemoveLayer(Tbx::uint index);
         EXPORT void RemoveLayer(const std::string& name);
-        EXPORT void RemoveLayer(const Tbx::Ref<Layer>& layer);
+        EXPORT void RemoveLayer(const Ref<Layer>& layer);
 
-        EXPORT Tbx::Ref<Layer> GetLayer(Tbx::uint index) const;
-        EXPORT Tbx::Ref<Layer> GetLayer(const std::string& name) const;
+        EXPORT Ref<Layer> GetLayer(Tbx::uint index) const;
+        EXPORT Ref<Layer> GetLayer(const std::string& name) const;
 
         template <typename T>
-        EXPORT Tbx::Ref<T> GetLayer() const
+        EXPORT Ref<T> GetLayer() const
         {
             for (auto layer : _stack)
             {
@@ -41,7 +41,7 @@ namespace Tbx
         }
 
         template <typename T>
-        EXPORT std::vector<Tbx::Ref<T>> GetLayers() const
+        EXPORT std::vector<Ref<T>> GetLayers() const
         {
             std::vector<std::shared_ptr<T>> layers = {};
             for (auto layer : _stack)

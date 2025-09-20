@@ -20,13 +20,13 @@ namespace Tbx
     {
     public:
         EXPORT RenderingLayer(
-            Tbx::Ref<IRendererFactory> renderFactory,
-            Tbx::Ref<EventBus> eventBus);
+            Ref<IRendererFactory> renderFactory,
+            Ref<EventBus> eventBus);
 
         /// <summary>
         /// Gets the renderer used by a given window.
         /// </summary>
-        EXPORT Tbx::Ref<IRenderer> GetRenderer(const Tbx::Ref<IWindow>& window);
+        EXPORT Ref<IRenderer> GetRenderer(const Ref<IWindow>& window);
 
     protected:
         void OnUpdate() override;
@@ -39,11 +39,11 @@ namespace Tbx
 
     private:
         // TODO: listen for the open/close stage event and add/remove open stages here
-        std::vector<Tbx::Ref<Stage>> _openStages = {};
-        std::vector<Tbx::Ref<IWindow>> _windows = {};
-        std::vector<Tbx::Ref<IRenderer>> _renderers = {};
-        Tbx::Ref<IRendererFactory> _renderFactory = {};
-        Tbx::Ref<EventBus> _eventBus = {};
+        std::vector<Ref<Stage>> _openStages = {};
+        std::vector<Ref<IWindow>> _windows = {};
+        std::vector<Ref<IRenderer>> _renderers = {};
+        Ref<IRendererFactory> _renderFactory = {};
+        Ref<EventBus> _eventBus = {};
         Tbx::RgbaColor _clearColor = {};
         bool _firstFrame = true;
     };

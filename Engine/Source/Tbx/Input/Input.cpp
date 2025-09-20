@@ -4,12 +4,9 @@
 
 namespace Tbx
 {
-    Tbx::Ref<IInputHandler> Input::_inputHandler = {};
+    Ref<IInputHandler> Input::_inputHandler = {};
 
-    // TODO: Input CANNOT be static, it should be owned by the app.
-    // We can enable static like usage or make a better way.
-
-    void Input::Initialize(const Tbx::Ref<IInputHandler>& inputHandler)
+    void Input::Initialize(const Ref<IInputHandler>& inputHandler)
     {
         TBX_ASSERT(inputHandler, "Input handler was null!");
 

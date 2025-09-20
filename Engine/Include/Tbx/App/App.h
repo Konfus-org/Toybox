@@ -45,22 +45,22 @@ namespace Tbx
         const AppStatus& GetStatus() const;
         const std::string& GetName() const;
 
-        Tbx::Ref<EventBus> GetEventBus();
+        Ref<EventBus> GetEventBus();
 
         // TODO: hide behind some methods AddLayer<LayerType>(args...), RemoveLayer(name), GetLayer(name), GetLayers<Type>(), etc...
         // TODO: ensure each layer has a unique name.
-        Tbx::Ref<LayerManager> GetLayerManager();
+        Ref<LayerManager> GetLayerManager();
 
         // TODO: Get rid of window manager and make the app fully own windows.
         // They should be behind some methods like layer: OpenNewWindow(name, mode, size=default), GetWindow(id or name), etc..
-        Tbx::Ref<WindowManager> GetWindowManager();
+        Ref<WindowManager> GetWindowManager();
 
-        Tbx::Ref<PluginServer> GetPluginServer();
-        Tbx::Ref<AssetServer> GetAssetServer();
+        Ref<PluginServer> GetPluginServer();
+        Ref<AssetServer> GetAssetServer();
 
-        void AddRuntime(const Tbx::Ref<IRuntime>& runtime);
-        void RemoveRuntime(const Tbx::Ref<IRuntime>& runtime);
-        std::vector<Tbx::Ref<IRuntime>> GetRuntimes() const;
+        void AddRuntime(const Ref<IRuntime>& runtime);
+        void RemoveRuntime(const Ref<IRuntime>& runtime);
+        std::vector<Ref<IRuntime>> GetRuntimes() const;
 
     protected:
         virtual void OnLaunch() {};
@@ -77,10 +77,10 @@ namespace Tbx
         std::string _name = "App";
         AppStatus _status = AppStatus::None;
         Settings _settings = {};
-        Tbx::Ref<EventBus> _eventBus = nullptr;
-        Tbx::Ref<LayerManager> _layerManager = nullptr;
-        Tbx::Ref<PluginServer> _pluginServer = nullptr;
-        Tbx::Ref<AssetServer> _assetServer = nullptr;
+        Ref<EventBus> _eventBus = nullptr;
+        Ref<LayerManager> _layerManager = nullptr;
+        Ref<PluginServer> _pluginServer = nullptr;
+        Ref<AssetServer> _assetServer = nullptr;
 
     };
 }

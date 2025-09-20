@@ -27,7 +27,7 @@ namespace Tbx
         /// If the plugin is not of the requested type, nullptr is returned.
         /// </summary>
         template <typename T>
-        EXPORT Tbx::Ref<T> GetAs()
+        EXPORT Ref<T> GetAs()
         {
             // Try to cast the plugin to the requested type
             if (const auto& castedPlug = std::dynamic_pointer_cast<T>(_plugin)) 
@@ -40,7 +40,7 @@ namespace Tbx
         /// <summary>
         /// Gets the loaded plugin.
         /// </summary>
-        EXPORT Tbx::Ref<Plugin> Get()
+        EXPORT Ref<Plugin> Get()
         {
             return _plugin;
         }
@@ -51,6 +51,6 @@ namespace Tbx
 
         PluginMeta _pluginInfo = {};
         SharedLibrary _library = {};
-        Tbx::Ref<Plugin> _plugin = nullptr;
+        Ref<Plugin> _plugin = nullptr;
     };
 }
