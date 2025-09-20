@@ -3,9 +3,30 @@
 Toybox is a simple, light-weight, plugin based, open source game engine that is currently in development.
 There isn't much here yet but, hopefully, soon there will be!
 
-## How to build
+## Repository Structure
 
-Toybox now uses [CMake](https://cmake.org/) to generate project files for different build environments.
+- `Engine/`: Core engine source, including ECS, math, logging, windowing, graphics, and systems code.
+- `Launcher/`: Entry points and launcher utilities for running the engine.
+- `Examples/`: Sample projects demonstrating engine functionality.
+- `Plugins/`: Runtime-discoverable plugins that extend the engine at runtime.
+- `Dependencies/`: Third-party libraries consumed by Toybox.
+- `CMakeLists.txt` and `CMakePresets.json`: Top-level build configuration.
+
+## Getting Started
+
+Toybox uses [CMake](https://cmake.org/) to generate project files for different build environments.
+
+```bash
+git clone https://github.com/<your-org>/Toybox.git
+cd Toybox
+
+# Ensure all submodules are present
+git submodule update --init --recursive
+```
+
+If you are updating an existing clone, run `git pull origin work` followed by `git submodule update --init --recursive`.
+
+## How to build
 
 ### Prerequisites
 
@@ -22,13 +43,13 @@ The repository provides a CMake preset that generates Visual Studio files in the
 
 ```bash
 # Generate VS project in "Generated" folder
-cmake --preset tbx
+cmake --preset tbx-vs
 
 # Compile Toybox
-cmake --build --preset tbx
+cmake --build --preset tbx-vs
 
 # Run tests
-ctest --preset tbx
+ctest --preset tbx-vs
 ```
 
 #### Other platforms
@@ -44,7 +65,15 @@ cmake --build build
 ctest --test-dir build
 ```
 
-Compiled binaries are placed in `Build/bin`, and libraries in `Build/lib`. Open the generated project with your preferred IDE or run the executables directly.
+Compiled binaries are placed in `Build/bin`, and libraries in `Build/lib`. Open the generated project with your preferred IDE or run the executables directly. Please ensure changes build cleanly and tests pass on the platforms you touch (Windows, macOS, and Linux).
+
+## Coding Guidelines
+
+- Target modern C++20 without compiler extensions or C++ attributes unless required for platform compatibility.
+- Keep interfaces in headers and implementation details in source files, preferring `#pragma once`.
+- Use descriptive names (avoid catch-all names like `Util`) and follow SOLID principles where practical.
+- Maintain existing formatting conventions and keep builds free of warnings.
+- Add automated tests when introducing new functionality.
 
 ## What's here so far?
 
