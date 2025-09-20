@@ -4,7 +4,7 @@
 
 namespace Tbx
 {
-    InputLayer::InputLayer(Tbx::Ref<IInputHandler> inputHandler) : Layer("Input")
+    InputLayer::InputLayer(Ref<IInputHandler> inputHandler) : Layer("Input")
     {
         _inputHandler = inputHandler;
     }

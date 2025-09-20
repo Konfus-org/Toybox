@@ -3,7 +3,7 @@
 
 namespace Tbx
 {
-    WindowingLayer::WindowingLayer(const std::string& appName, Tbx::Ref<IWindowFactory> windowFactory, Tbx::Ref<EventBus> eventBus) 
+    WindowingLayer::WindowingLayer(const std::string& appName, Ref<IWindowFactory> windowFactory, Ref<EventBus> eventBus) 
         : Layer("Windowing")
         , _windowManager(std::make_shared<WindowManager>(windowFactory, eventBus))
         , _appName(appName)
@@ -29,7 +29,7 @@ namespace Tbx
         _windowManager->UpdateWindows();
     }
 
-    Tbx::Ref<WindowManager> WindowingLayer::GetWindowManager() const
+    Ref<WindowManager> WindowingLayer::GetWindowManager() const
     {
         return _windowManager;
     }

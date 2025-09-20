@@ -69,7 +69,7 @@ namespace Tbx
         const auto loadPluginFunc = reinterpret_cast<PluginLoadFunc>(loadFuncSymbol);
         const auto unloadPluginFunc = reinterpret_cast<PluginUnloadFunc>(unloadFuncSymbol);
         auto* loadedPlugin = loadPluginFunc(app);
-        Tbx::Ref<Plugin> sharedLoadedPlugin(loadedPlugin, [unloadPluginFunc](Plugin* pluginToUnload)
+        Ref<Plugin> sharedLoadedPlugin(loadedPlugin, [unloadPluginFunc](Plugin* pluginToUnload)
         {
             unloadPluginFunc(pluginToUnload);
         });

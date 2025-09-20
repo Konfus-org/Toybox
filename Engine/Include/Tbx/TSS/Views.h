@@ -7,8 +7,8 @@
 
 namespace Tbx
 {
-    using StageViewIterator = typename std::vector<Tbx::Ref<Toy>>::iterator;
-    using ConstStageViewIterator = typename std::vector<Tbx::Ref<Toy>>::const_iterator;
+    using StageViewIterator = typename std::vector<Ref<Toy>>::iterator;
+    using ConstStageViewIterator = typename std::vector<Ref<Toy>>::const_iterator;
 
     /// <summary>
     /// Provides iteration over toys that contain data of the specified block types.
@@ -22,7 +22,7 @@ namespace Tbx
         /// Creates a view rooted at the given toy.
         /// </summary>
         /// <param name="root">Root toy to search from.</param>
-        explicit(false) StageView(const Tbx::Ref<Toy>& root)
+        explicit(false) StageView(const Ref<Toy>& root)
         {
             if (root)
             {
@@ -54,7 +54,7 @@ namespace Tbx
         /// - With no Ts, always true (all toys).
         /// - With Ts..., toy must have at least one of the specified blocks.
         /// </summary>
-        static bool Matches(const Tbx::Ref<Toy>& toy)
+        static bool Matches(const Ref<Toy>& toy)
         {
             if constexpr (sizeof...(Ts) == 0)
             {
@@ -66,7 +66,7 @@ namespace Tbx
             }
         }
 
-        void BuildViewVector(const Tbx::Ref<Toy>& toy)
+        void BuildViewVector(const Ref<Toy>& toy)
         {
             if (Matches(toy))
             {
@@ -78,7 +78,7 @@ namespace Tbx
             }
         }
 
-        std::vector<Tbx::Ref<Toy>> _viewVector = {};
+        std::vector<Ref<Toy>> _viewVector = {};
     };
 
     /// <summary>

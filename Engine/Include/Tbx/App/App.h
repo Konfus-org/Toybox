@@ -81,22 +81,22 @@ namespace Tbx
         /// <summary>
         /// Exposes the event bus used to publish and subscribe to engine events.
         /// </summary>
-        Tbx::Ref<EventBus> GetEventBus();
+        Ref<EventBus> GetEventBus();
 
         /// <summary>
         /// Returns the plugin server powering extensible engine systems.
         /// </summary>
-        Tbx::Ref<PluginServer> GetPluginServer();
+        Ref<PluginServer> GetPluginServer();
 
         /// <summary>
         /// Provides access to the asset server responsible for content streaming.
         /// </summary>
-        Tbx::Ref<AssetServer> GetAssetServer();
+        Ref<AssetServer> GetAssetServer();
 
         /// <summary>
         /// Registers a new layer with the application-managed layer manager.
         /// </summary>
-        void AddLayer(const Tbx::Ref<Layer>& layer);
+        void AddLayer(const Ref<Layer>& layer);
 
         /// <summary>
         /// Removes a layer by name from the layer manager.
@@ -116,7 +116,7 @@ namespace Tbx
         /// <summary>
         /// Returns the set of layers currently managed by the application.
         /// </summary>
-        std::vector<Tbx::Ref<Layer>> GetLayers() const;
+        std::vector<Ref<Layer>> GetLayers() const;
 
         // TODO: Get rid of window manager and make the app fully own windows.
         // They should be behind some methods like layer: OpenNewWindow(name, mode, size=default), GetWindow(id or name), etc..
@@ -139,32 +139,32 @@ namespace Tbx
         /// <summary>
         /// Returns a collection of currently open windows.
         /// </summary>
-        std::vector<Tbx::Ref<IWindow>> GetOpenWindows() const;
+        std::vector<Ref<IWindow>> GetOpenWindows() const;
 
         /// <summary>
         /// Retrieves a specific window by its identifier.
         /// </summary>
-        Tbx::Ref<IWindow> GetWindow(const Uid& id) const;
+        Ref<IWindow> GetWindow(const Uid& id) const;
 
         /// <summary>
         /// Returns the main window used by the application.
         /// </summary>
-        Tbx::Ref<IWindow> GetMainWindow() const;
+        Ref<IWindow> GetMainWindow() const;
 
         /// <summary>
         /// Registers a runtime with the application so it participates in updates.
         /// </summary>
-        void AddRuntime(const Tbx::Ref<IRuntime>& runtime);
+        void AddRuntime(const Ref<IRuntime>& runtime);
 
         /// <summary>
         /// Removes a runtime from the application.
         /// </summary>
-        void RemoveRuntime(const Tbx::Ref<IRuntime>& runtime);
+        void RemoveRuntime(const Ref<IRuntime>& runtime);
 
         /// <summary>
         /// Provides the runtimes currently registered with the application.
         /// </summary>
-        std::vector<Tbx::Ref<IRuntime>> GetRuntimes() const;
+        std::vector<Ref<IRuntime>> GetRuntimes() const;
 
     protected:
         virtual void OnLaunch() {};
@@ -183,10 +183,10 @@ namespace Tbx
         std::string _name = "App";
         AppStatus _status = AppStatus::None;
         Settings _settings = {};
-        Tbx::Ref<EventBus> _eventBus = nullptr;
-        Tbx::Ref<LayerManager> _layerManager = nullptr;
-        Tbx::Ref<PluginServer> _pluginServer = nullptr;
-        Tbx::Ref<AssetServer> _assetServer = nullptr;
+        Ref<EventBus> _eventBus = nullptr;
+        Ref<LayerManager> _layerManager = nullptr;
+        Ref<PluginServer> _pluginServer = nullptr;
+        Ref<AssetServer> _assetServer = nullptr;
 
     };
 }

@@ -15,12 +15,12 @@ namespace Tbx
     class RenderingLayer : public Layer
     {
     public:
-        EXPORT RenderingLayer(Tbx::Ref<IRendererFactory> renderFactory, Tbx::Ref<EventBus> eventBus);
+        EXPORT RenderingLayer(Ref<IRendererFactory> renderFactory, Ref<EventBus> eventBus);
 
         /// <summary>
         /// Gets the renderer used by a given window.
         /// </summary>
-        EXPORT Tbx::Ref<IRenderer> GetRenderer(const Tbx::Ref<IWindow>& window);
+        EXPORT Ref<IRenderer> GetRenderer(const Ref<IWindow>& window);
 
     protected:
         void OnUpdate() override;

@@ -16,7 +16,7 @@ namespace Tbx
         /// Initializes the global input handler that backs all static queries.
         /// Must be called once before any other Input methods are used.
         /// </summary>
-        EXPORT static void Initialize(const Tbx::Ref<IInputHandler>& inputHandler);
+        EXPORT static void Initialize(const Ref<IInputHandler>& inputHandler);
         /// <summary>
         /// Polls the currently configured input handler for fresh state.
         /// </summary>
@@ -84,7 +84,7 @@ namespace Tbx
         static bool EnsureHandler();
 
     private:
-        static Tbx::Ref<IInputHandler> _inputHandler;
+        static Ref<IInputHandler> _inputHandler;
     };
 }
 

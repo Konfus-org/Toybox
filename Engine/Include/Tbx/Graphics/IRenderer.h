@@ -23,7 +23,7 @@ namespace Tbx
         /// <summary>
         /// Initializes the renderer.
         /// </summary>
-        virtual void Initialize(const Tbx::Ref<IRenderSurface>& surface) = 0;
+        virtual void Initialize(const Ref<IRenderSurface>& surface) = 0;
 
         /// <summary>
         /// Draws a frame.
@@ -89,6 +89,6 @@ namespace Tbx
     {
     public:
         virtual ~IRendererFactory() = default;
-        virtual Tbx::Ref<IRenderer> Create(Tbx::Ref<IRenderSurface> surface) = 0;
+        virtual Ref<IRenderer> Create(Ref<IRenderSurface> surface) = 0;
     };
 }

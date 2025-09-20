@@ -28,7 +28,7 @@ namespace Tbx
         FrameBuffer BuildRenderBuffer(FullStageViewView view);
 
     private:
-        void AddToyUploadCommandsToBuffer(const Tbx::Ref<Toy>& toy, FrameBuffer& buffer);
-        void AddToyRenderCommandsToBuffer(const Tbx::Ref<Toy>& toy, FrameBuffer& buffer);
+        void AddToyUploadCommandsToBuffer(const Ref<Toy>& toy, FrameBuffer& buffer);
+        void AddToyRenderCommandsToBuffer(const Ref<Toy>& toy, FrameBuffer& buffer);
     };
 }

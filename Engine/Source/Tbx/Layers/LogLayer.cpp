@@ -7,7 +7,7 @@
 
 namespace Tbx
 {
-    LogLayer::LogLayer(Tbx::Ref<ILoggerFactory> loggerFactory) 
+    LogLayer::LogLayer(Ref<ILoggerFactory> loggerFactory) 
         : Layer("Logging")
     {
 #ifdef TBX_DEBUG

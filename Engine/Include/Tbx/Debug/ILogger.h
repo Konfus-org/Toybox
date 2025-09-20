@@ -24,6 +24,6 @@ namespace Tbx
     {
     public:
         virtual ~ILoggerFactory() = default;
-        virtual Tbx::Ref<ILogger> Create(const std::string& name, const std::string filePath = "") = 0;
+        virtual Ref<ILogger> Create(const std::string& name, const std::string filePath = "") = 0;
     };
 }

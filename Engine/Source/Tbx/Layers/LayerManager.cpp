@@ -14,7 +14,7 @@ namespace Tbx
         }
     }
 
-    Tbx::Ref<Layer> LayerManager::GetLayer(Tbx::uint index) const
+    Ref<Layer> LayerManager::GetLayer(Tbx::uint index) const
     {
         if (index >= _stack.GetCount())
         {
@@ -24,7 +24,7 @@ namespace Tbx
         return _stack[index];
     }
 
-    Tbx::Ref<Layer> LayerManager::GetLayer(const std::string& name) const
+    Ref<Layer> LayerManager::GetLayer(const std::string& name) const
     {
         for (auto& layer : _stack)
         {
@@ -36,9 +36,9 @@ namespace Tbx
         return nullptr;
     }
 
-    std::vector<Tbx::Ref<Layer>> LayerManager::GetLayers() const
+    std::vector<Ref<Layer>> LayerManager::GetLayers() const
     {
-        std::vector<Tbx::Ref<Layer>> layers = {};
+        std::vector<Ref<Layer>> layers = {};
         for (auto& layer : _stack)
         {
             if (layer)
@@ -50,7 +50,7 @@ namespace Tbx
         return layers;
     }
 
-    void LayerManager::AddLayer(const Tbx::Ref<Layer>& layer)
+    void LayerManager::AddLayer(const Ref<Layer>& layer)
     {
         if (!layer)
         {
@@ -92,7 +92,7 @@ namespace Tbx
         _stack.Remove(layer);
     }
 
-    void LayerManager::RemoveLayer(const Tbx::Ref<Layer>& layer)
+    void LayerManager::RemoveLayer(const Ref<Layer>& layer)
     {
         if (!layer)
         {

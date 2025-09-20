@@ -61,51 +61,51 @@ namespace Tbx
         /// Creates a child on this toy with the given name.
         /// </summary>
         /// <param name="child">The child toy to add.</param>
-        EXPORT Tbx::Ref<Toy> EmplaceChild(const std::string& name);
+        EXPORT Ref<Toy> EmplaceChild(const std::string& name);
 
         /// <summary>
         /// Adds a child to this toy and sets the child's parent.
         /// </summary>
         /// <param name="child">The child toy to add.</param>
-        EXPORT Tbx::Ref<Toy> AddChild(const Tbx::Ref<Toy>& child);
+        EXPORT Ref<Toy> AddChild(const Ref<Toy>& child);
 
         /// <summary>
         /// Removes a child from this toy and clears its parent.
         /// </summary>
         /// <param name="child">The child toy to remove.</param>
-        EXPORT void RemoveChild(const Tbx::Ref<Toy>& child);
+        EXPORT void RemoveChild(const Ref<Toy>& child);
 
         /// <summary>
         /// Retrieves a direct child matching the given handle.
         /// </summary>
         /// <param name="handle">Handle identifying the child.</param>
         /// <returns>The child toy if found; otherwise, <c>nullptr</c>.</returns>
-        EXPORT Tbx::Ref<Toy> GetChild(const ToyHandle& handle) const;
+        EXPORT Ref<Toy> GetChild(const ToyHandle& handle) const;
 
         /// <summary>
         /// Finds the first direct child with the specified name.
         /// </summary>
         /// <param name="name">Name of the child to find.</param>
         /// <returns>The child toy if found; otherwise, <c>nullptr</c>.</returns>
-        EXPORT Tbx::Ref<Toy> FindChild(std::string_view name) const;
+        EXPORT Ref<Toy> FindChild(std::string_view name) const;
 
         /// <summary>
         /// Returns a const reference to the list of children.
         /// </summary>
         /// <returns>The list of child toys.</returns>
-        EXPORT const std::vector<Tbx::Ref<Toy>>& GetChildren() const;
+        EXPORT const std::vector<Ref<Toy>>& GetChildren() const;
 
         /// <summary>
         /// Sets the parent for this toy.
         /// </summary>
         /// <param name="parent">Shared pointer to the parent toy.</param>
-        EXPORT void SetParent(const Tbx::Ref<Toy>& parent);
+        EXPORT void SetParent(const Ref<Toy>& parent);
 
         /// <summary>
         /// Gets the parent toy.
         /// </summary>
         /// <returns>Shared pointer to the parent toy.</returns>
-        EXPORT Tbx::Ref<Toy> GetParent() const;
+        EXPORT Ref<Toy> GetParent() const;
 
         /// <summary>
         /// Gets the name of this toy.
@@ -200,8 +200,8 @@ namespace Tbx
     private:
         bool _enabled = true;
         ToyHandle _handle = {};
-        Tbx::WeakRef<Toy> _parent = {};
-        std::vector<Tbx::Ref<Toy>> _children = {};
+        WeakRef<Toy> _parent = {};
+        std::vector<Ref<Toy>> _children = {};
         std::unordered_map<std::type_index, std::any> _blocks = {};
     };
 }

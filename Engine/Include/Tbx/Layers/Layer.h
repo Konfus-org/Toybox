@@ -20,8 +20,8 @@ namespace Tbx
 
         EXPORT std::string GetName() const;
 
-        EXPORT void AttachTo(std::vector<Tbx::Ref<Layer>>& layers);
-        EXPORT void DetachFrom(std::vector<Tbx::Ref<Layer>>& layers);
+        EXPORT void AttachTo(std::vector<Ref<Layer>>& layers);
+        EXPORT void DetachFrom(std::vector<Ref<Layer>>& layers);
 
         EXPORT void Update();
 

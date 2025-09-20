@@ -12,18 +12,18 @@ namespace Tbx
     class EXPORT WindowActionEvent : public Event
     {
     public:
-        explicit WindowActionEvent(Tbx::Ref<IWindow> window) : _window(std::move(window)) {}
+        explicit WindowActionEvent(Ref<IWindow> window) : _window(std::move(window)) {}
 
-        Tbx::Ref<IWindow> GetWindow() const { return _window; }
+        Ref<IWindow> GetWindow() const { return _window; }
 
     private:
-        Tbx::Ref<IWindow> _window = nullptr;
+        Ref<IWindow> _window = nullptr;
     };
 
     class EXPORT WindowFocusedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowFocusedEvent(Tbx::Ref<IWindow> window)
+        explicit WindowFocusedEvent(Ref<IWindow> window)
             : WindowActionEvent(std::move(window)) {}
 
         std::string ToString() const final
@@ -35,7 +35,7 @@ namespace Tbx
     class EXPORT WindowOpenedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowOpenedEvent(Tbx::Ref<IWindow> window)
+        explicit WindowOpenedEvent(Ref<IWindow> window)
             : WindowActionEvent(std::move(window)) {}
 
         std::string ToString() const final
@@ -47,7 +47,7 @@ namespace Tbx
     class EXPORT WindowClosedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowClosedEvent(Tbx::Ref<IWindow> window)
+        explicit WindowClosedEvent(Ref<IWindow> window)
             : WindowActionEvent(std::move(window)) {}
 
         std::string ToString() const final

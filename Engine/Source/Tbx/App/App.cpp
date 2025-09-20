@@ -165,47 +165,42 @@ namespace Tbx
         return _name;
     }
 
-    Tbx::Ref<EventBus> App::GetEventBus()
+    Ref<EventBus> App::GetEventBus()
     {
         return _eventBus;
     }
 
     void App::AddLayer(const Tbx::Ref<Layer>& layer)
     {
-        TBX_ASSERT(_layerManager, "Layer manager must exist before adding layers.");
         _layerManager->AddLayer(layer);
     }
 
     void App::RemoveLayer(const std::string& name)
     {
-        TBX_ASSERT(_layerManager, "Layer manager must exist before removing layers.");
         _layerManager->RemoveLayer(name);
     }
 
     void App::RemoveLayer(const Tbx::Ref<Layer>& layer)
     {
-        TBX_ASSERT(_layerManager, "Layer manager must exist before removing layers.");
         _layerManager->RemoveLayer(layer);
     }
 
     Tbx::Ref<Layer> App::GetLayer(const std::string& name) const
     {
-        TBX_ASSERT(_layerManager, "Layer manager must exist before querying layers.");
         return _layerManager->GetLayer(name);
     }
 
     std::vector<Tbx::Ref<Layer>> App::GetLayers() const
     {
-        TBX_ASSERT(_layerManager, "Layer manager must exist before querying layers.");
         return _layerManager->GetLayers();
     }
 
-    Tbx::Ref<PluginServer> App::GetPluginServer()
+    Ref<PluginServer> App::GetPluginServer()
     {
         return _pluginServer;
     }
 
-    Tbx::Ref<AssetServer> App::GetAssetServer()
+    Ref<AssetServer> App::GetAssetServer()
     {
         return _assetServer;
     }
@@ -213,10 +208,7 @@ namespace Tbx
     void App::SetSettings(const Settings& settings)
     {
         _settings = settings;
-        if (_eventBus)
-        {
-            _eventBus->Post(AppSettingsChangedEvent(settings));
-        }
+        _eventBus->Post(AppSettingsChangedEvent(settings));
     }
 
     const Settings& App::GetSettings() const
@@ -224,37 +216,21 @@ namespace Tbx
         return _settings;
     }
 
-    void App::AddRuntime(const Tbx::Ref<IRuntime>& runtime)
+    void App::AddRuntime(const Ref<IRuntime>& runtime)
     {
-        if (!runtime)
-        {
-            return;
-        }
-
-        TBX_ASSERT(_layerManager, "Layer manager must exist before adding runtimes.");
         const auto runtimeLayer = _layerManager->GetLayer<RuntimeLayer>();
-        TBX_ASSERT(runtimeLayer, "Runtime layer must exist before adding runtimes");
         runtimeLayer->AddRuntime(runtime);
     }
 
-    void App::RemoveRuntime(const Tbx::Ref<IRuntime>& runtime)
+    void App::RemoveRuntime(const Ref<IRuntime>& runtime)
     {
-        if (!runtime)
-        {
-            return;
-        }
-
-        TBX_ASSERT(_layerManager, "Layer manager must exist before removing runtimes.");
         const auto runtimeLayer = _layerManager->GetLayer<RuntimeLayer>();
-        TBX_ASSERT(runtimeLayer, "Runtime layer must exist before removing runtimes.");
         runtimeLayer->RemoveRuntime(runtime);
     }
 
-    std::vector<Tbx::Ref<IRuntime>> App::GetRuntimes() const
+    std::vector<Ref<IRuntime>> App::GetRuntimes() const
     {
-        TBX_ASSERT(_layerManager, "Layer manager must exist before querying runtimes.");
         const auto runtimeLayer = _layerManager->GetLayer<RuntimeLayer>();
-        TBX_ASSERT(runtimeLayer, "Runtime layer must exist before querying runtimes.");
         return runtimeLayer->GetRuntimes();
     }
 
@@ -297,11 +273,8 @@ namespace Tbx
 
     Tbx::Ref<WindowManager> App::GetWindowManager() const
     {
-        TBX_ASSERT(_layerManager, "Layer manager must exist before querying window manager.");
         auto windowingLayer = _layerManager->GetLayer<WindowingLayer>();
-        TBX_ASSERT(windowingLayer, "Windowing layer must be registered before accessing window manager.");
         auto windowManager = windowingLayer->GetWindowManager();
-        TBX_ASSERT(windowManager, "Window manager must exist before it can be used.");
         return windowManager;
     }
 }

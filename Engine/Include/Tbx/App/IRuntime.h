@@ -15,8 +15,8 @@ namespace Tbx
     public:
         virtual ~IRuntime() = default;
 
-        virtual void OnAttach(Tbx::WeakRef<App> app) {}
-        virtual void OnDetach(Tbx::WeakRef<App> app) {}
-        virtual void OnUpdate(Tbx::WeakRef<App> app) {}
+        virtual void OnAttach(WeakRef<App> app) {}
+        virtual void OnDetach(WeakRef<App> app) {}
+        virtual void OnUpdate(WeakRef<App> app) {}
     };
 }

@@ -44,7 +44,7 @@ namespace Tbx
         /// <summary>
         /// Loader responsible for producing the in-memory representation of the asset.
         /// </summary>
-        Tbx::Ref<IAssetLoader> Loader = nullptr;
+        Ref<IAssetLoader> Loader = nullptr;
         /// <summary>
         /// Tracks the last known loading state for debugging and diagnostics.
         /// Stored atomically so background release callbacks can safely update it.
@@ -60,7 +60,7 @@ namespace Tbx
     public:
         EXPORT AssetServer(
             const std::string& assetsFolderPath,
-            const std::vector<Tbx::Ref<IAssetLoader>>& loaders)
+            const std::vector<Ref<IAssetLoader>>& loaders)
             : _assetDirectory(std::filesystem::absolute(assetsFolderPath)),
               _loaders(loaders)
         {
@@ -101,7 +101,7 @@ namespace Tbx
         /// Returns nullptr when no loader is available for the supplied path or loading fails.
         /// </summary>
         template <typename TData>
-        EXPORT Tbx::Ref<TData> AddAsset(std::string path)
+        EXPORT Ref<TData> AddAsset(std::string path)
         {
             std::lock_guard lock(_mutex);
 
@@ -134,7 +134,7 @@ namespace Tbx
         /// If the asset was never seen before this call returns nullptr.
         /// </summary>
         template <typename TData>
-        EXPORT Tbx::Ref<TData> GetAsset(std::string path) const
+        EXPORT Ref<TData> GetAsset(std::string path) const
         {
             std::lock_guard lock(_mutex);
 
@@ -152,11 +152,11 @@ namespace Tbx
         /// Collects all loaded assets for the requested type.
         /// </summary>
         template <typename TData>
-        EXPORT std::vector<Tbx::Ref<TData>> GetLoadedAssets() const
+        EXPORT std::vector<Ref<TData>> GetLoadedAssets() const
         {
             std::lock_guard lock(_mutex);
 
-            std::vector<Tbx::Ref<TData>> loadedAssets = {};
+            std::vector<Ref<TData>> loadedAssets = {};
             auto cacheIt = _assetCache.begin();
             while (cacheIt != _assetCache.end())
             {
@@ -196,7 +196,7 @@ namespace Tbx
         /// If the asset is already cached, the cached value is reused.
         /// </summary>
         template <typename TData>
-        Tbx::Ref<TData> LoadAssetData(const Tbx::Ref<AssetRecord>& record) const
+        Ref<TData> LoadAssetData(const Ref<AssetRecord>& record) const
         {
             auto loader = std::dynamic_pointer_cast<AssetLoader<TData>>(record->Loader);
             if (!loader)
@@ -225,8 +225,8 @@ namespace Tbx
             try
             {
                 auto loadedData = loader->Load(record->FilePath);
-                Tbx::WeakRef<AssetRecord> recordRef = record;
-                auto sharedData = Tbx::Ref<TData>(
+                WeakRef<AssetRecord> recordRef = record;
+                auto sharedData = Ref<TData>(
                     new TData(std::move(loadedData)),
                     [recordRef](TData* data)
                     {
@@ -255,7 +255,7 @@ namespace Tbx
         /// Attempts to locate a loader that can handle the specified file path.
         /// Returns nullptr if none of the registered loaders can load the asset.
         /// </summary>
-        Tbx::Ref<IAssetLoader> FindLoaderFor(const std::filesystem::path& filePath) const
+        Ref<IAssetLoader> FindLoaderFor(const std::filesystem::path& filePath) const
         {
             for (const auto& loader : _loaders)
             {
@@ -322,15 +322,15 @@ namespace Tbx
 
         mutable std::mutex _mutex = {};
         std::filesystem::path _assetDirectory = {};
-        std::vector<Tbx::Ref<IAssetLoader>> _loaders = {};
+        std::vector<Ref<IAssetLoader>> _loaders = {};
         /// <summary>
         /// Tracks every discovered asset keyed by the normalized relative path.
         /// </summary>
-        mutable std::unordered_map<std::string, Tbx::Ref<AssetRecord>> _assetRecords = {};
+        mutable std::unordered_map<std::string, Ref<AssetRecord>> _assetRecords = {};
         /// <summary>
         /// Stores cached runtime data so it can be reused while the caller keeps it alive.
         /// </summary>
-        mutable std::unordered_map<std::string, Tbx::WeakRef<void>> _assetCache = {};
+        mutable std::unordered_map<std::string, WeakRef<void>> _assetCache = {};
 
         // TODO: memory pools for each asset type that allocates a target amount of memory and keeps track of the available memory, when its full it'll clear out old stuff
         // AKA things at the beginning of the pool and are not in use (which is known via a shared pointer ref count) and start writing there.

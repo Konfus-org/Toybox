@@ -26,7 +26,7 @@ namespace Tbx
         /// <summary>
         /// Calculates a bounding sphere for a toy using its transform block if present.
         /// </summary>
-        BoundingSphere(const Tbx::Ref<Toy>& toy)
+        BoundingSphere(const Ref<Toy>& toy)
         {
             Vector3 position = Vector3::Zero;
             Vector3 scale = Vector3::One;

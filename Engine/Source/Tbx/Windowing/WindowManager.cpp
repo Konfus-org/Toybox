@@ -6,8 +6,8 @@
 namespace Tbx
 {
     WindowManager::WindowManager(
-        Tbx::Ref<IWindowFactory> windowFactory, 
-        Tbx::Ref<EventBus> eventBus)
+        Ref<IWindowFactory> windowFactory, 
+        Ref<EventBus> eventBus)
     {
         _windowFactory = windowFactory;
         TBX_ASSERT(_windowFactory, "Window manager given invalid window factory!");
@@ -37,24 +37,24 @@ namespace Tbx
         }
     }
 
-    const std::vector<Tbx::Ref<IWindow>>& WindowManager::GetAllWindows() const
+    const std::vector<Ref<IWindow>>& WindowManager::GetAllWindows() const
     {
         return _stack.GetAll();
     }
 
-    Tbx::Ref<IWindow> WindowManager::GetMainWindow() const
+    Ref<IWindow> WindowManager::GetMainWindow() const
     {
         return GetWindow(_mainWindowId);
     }
 
-    Tbx::Ref<IWindow> WindowManager::GetWindow(const Uid& id) const
+    Ref<IWindow> WindowManager::GetWindow(const Uid& id) const
     {
         return _stack.Get(id);
     }
 
     Uid WindowManager::OpenWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
-        Tbx::Ref<IWindow> window = _windowFactory->Create(name, size, mode);
+        Ref<IWindow> window = _windowFactory->Create(name, size, mode);
         TBX_ASSERT(window, "Failed to create window!");
         if (_mainWindowId == Uid::Invalid)
         {
