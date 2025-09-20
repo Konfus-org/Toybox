@@ -36,6 +36,20 @@ namespace Tbx
         return nullptr;
     }
 
+    std::vector<Tbx::Ref<Layer>> LayerManager::GetLayers() const
+    {
+        std::vector<Tbx::Ref<Layer>> layers = {};
+        for (auto& layer : _stack)
+        {
+            if (layer)
+            {
+                layers.push_back(layer);
+            }
+        }
+
+        return layers;
+    }
+
     void LayerManager::AddLayer(const Tbx::Ref<Layer>& layer)
     {
         _stack.Push(layer);

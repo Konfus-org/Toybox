@@ -25,6 +25,7 @@ namespace Tbx
 
         EXPORT Tbx::Ref<Layer> GetLayer(Tbx::uint index) const;
         EXPORT Tbx::Ref<Layer> GetLayer(const std::string& name) const;
+        EXPORT std::vector<Tbx::Ref<Layer>> GetLayers() const;
 
         template <typename T>
         EXPORT Tbx::Ref<T> GetLayer() const

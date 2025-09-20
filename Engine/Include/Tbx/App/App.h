@@ -4,10 +4,15 @@
 #include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/WindowEvents.h"
-#include "Tbx/Windowing/WindowManager.h"
-#include "Tbx/Layers/LayerManager.h"
+#include "Tbx/Layers/Layer.h"
+#include "Tbx/Layers/LayerStack.h"
 #include "Tbx/Plugins/PluginServer.h"
 #include "Tbx/Memory/Refs.h"
+#include "Tbx/Math/Int.h"
+#include "Tbx/Math/Size.h"
+#include "Tbx/Ids/Uid.h"
+#include "Tbx/Windowing/IWindow.h"
+#include "Tbx/Windowing/WindowManager.h"
 #include <memory>
 #include <vector>
 
@@ -47,13 +52,22 @@ namespace Tbx
 
         Tbx::Ref<EventBus> GetEventBus();
 
-        // TODO: hide behind some methods AddLayer<LayerType>(args...), RemoveLayer(name), GetLayer(name), GetLayers<Type>(), etc...
-        // TODO: ensure each layer has a unique name.
-        Tbx::Ref<LayerManager> GetLayerManager();
-
         // TODO: Get rid of window manager and make the app fully own windows.
         // They should be behind some methods like layer: OpenNewWindow(name, mode, size=default), GetWindow(id or name), etc..
-        Tbx::Ref<WindowManager> GetWindowManager();
+        Uid OpenWindow(const std::string& name, const WindowMode& mode, const Size& size = Size(1920, 1080));
+        void CloseWindow(const Uid& id);
+        void CloseAllWindows();
+        std::vector<Tbx::Ref<IWindow>> GetOpenWindows() const;
+        Tbx::Ref<IWindow> GetWindow(const Uid& id) const;
+        Tbx::Ref<IWindow> GetMainWindow() const;
+
+        bool AddLayer(const Tbx::Ref<Layer>& layer);
+
+        bool RemoveLayer(const std::string& name);
+        bool RemoveLayer(const Tbx::Ref<Layer>& layer);
+
+        Tbx::Ref<Layer> GetLayer(const std::string& name) const;
+        std::vector<Tbx::Ref<Layer>> GetLayers() const;
 
         Tbx::Ref<PluginServer> GetPluginServer();
         Tbx::Ref<AssetServer> GetAssetServer();
@@ -73,12 +87,14 @@ namespace Tbx
         void Shutdown();
         void OnWindowClosed(const WindowClosedEvent& e);
 
+        Tbx::Ref<WindowManager> GetWindowManager() const;
+
     private:
         std::string _name = "App";
         AppStatus _status = AppStatus::None;
         Settings _settings = {};
         Tbx::Ref<EventBus> _eventBus = nullptr;
-        Tbx::Ref<LayerManager> _layerManager = nullptr;
+        LayerStack _layers = {};
         Tbx::Ref<PluginServer> _pluginServer = nullptr;
         Tbx::Ref<AssetServer> _assetServer = nullptr;
 
