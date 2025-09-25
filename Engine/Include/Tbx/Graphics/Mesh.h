@@ -1,47 +1,30 @@
 #pragma once
 #include "Tbx/Graphics/Vertex.h"
-#include "Tbx/Graphics/Buffers.h"
-#include "Tbx/Ids/UsesUid.h"
 #include "Tbx/Math/Int.h"
+#include "Tbx/Ids/Uid.h"
 
 namespace Tbx
 {
-    struct EXPORT Mesh : public UsesUid
+    struct TBX_EXPORT Mesh
     {
-    public:
-        /// <summary>
-        /// Defaults to a quad mesh.
-        /// </summary>
-        Mesh();
-        Mesh(const Mesh& mesh);
-        Mesh(const std::initializer_list<Vertex>& vertices, const std::initializer_list<uint32>& indices);
-        Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32>& indices);
-
-        const VertexBuffer& GetVertexBuffer() const;
-        const std::vector<uint32>& GetIndexBuffer() const;
-
-        static Mesh MakeTriangle();
-        static Mesh MakeQuad();
-
         static Mesh Quad;
         static Mesh Triangle;
 
-    private:
-        VertexBuffer VertexVectorToBuffer(const std::vector<Vertex>& vertices) const;
-
-    private:
-        std::vector<uint32> _indexBuffer;
-        VertexBuffer _vertexBuffer;
+        VertexBuffer VertexBuffer = {};
+        std::vector<uint32> IndexBuffer = {};
+        Uid Id = Uid::Generate();
     };
 
     /// <summary>
     /// Essentially a pointer to a mesh.
     /// </summary>
-    struct MeshInstance
+    struct TBX_EXPORT MeshInstance
     {
-        Uid InstanceId = Uid::GetNextId();
         Uid MeshId = Uid::Invalid;
+        Uid InstanceId = Uid::Generate();
     };
 
+    static Mesh MakeTriangle();
+    static Mesh MakeQuad();
 }
 

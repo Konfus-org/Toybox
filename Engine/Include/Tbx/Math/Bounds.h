@@ -5,7 +5,7 @@
 
 namespace Tbx
 {
-    struct EXPORT Bounds : public IPrintable
+    struct TBX_EXPORT Bounds : public IPrintable
     {
     public:
         Bounds(float left, float right, float top, float bottom) 

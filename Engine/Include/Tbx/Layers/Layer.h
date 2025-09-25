@@ -1,8 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Memory/Refs.h"
+#include "Tbx/Ids/Uid.h"
 #include <string>
-#include <memory>
 #include <vector>
 
 namespace Tbx
@@ -11,26 +10,25 @@ namespace Tbx
     /// An application layer. Used to cleanly add and seperate functionality.
     /// Some examples are a graphics layer, windowing layer, input layer, etc...
     /// </summary>
-    class Layer : std::enable_shared_from_this<Layer>
+    class TBX_EXPORT Layer
     {
     public:
-        EXPORT explicit(false) Layer(const std::string& name)
-            : _name(name) {}
-        EXPORT virtual ~Layer();
+        explicit(false) Layer(const std::string& name)
+            : Name(name) {}
+        virtual ~Layer();
 
-        EXPORT std::string GetName() const;
+        void AttachTo(std::vector<Layer>& layers);
+        void DetachFrom(std::vector<Layer>& layers);
 
-        EXPORT void AttachTo(std::vector<Ref<Layer>>& layers);
-        EXPORT void DetachFrom(std::vector<Ref<Layer>>& layers);
+        void Update();
 
-        EXPORT void Update();
+    public:
+        std::string Name = "";
+        Uid Id = Uid::Generate();
 
     protected:
-        EXPORT virtual void OnAttach() {}
-        EXPORT virtual void OnDetach() {}
-        EXPORT virtual void OnUpdate() {}
-
-    private:
-        std::string _name = "";
+        virtual void OnAttach() {}
+        virtual void OnDetach() {}
+        virtual void OnUpdate() {}
     };
 }

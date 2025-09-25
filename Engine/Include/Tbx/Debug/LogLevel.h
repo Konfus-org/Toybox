@@ -3,7 +3,7 @@
 
 namespace Tbx
 {
-    enum class EXPORT LogLevel
+    enum class TBX_EXPORT LogLevel
     {
         Trace = 0,
         Debug = 1,

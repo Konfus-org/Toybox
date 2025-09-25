@@ -4,7 +4,7 @@
 
 namespace Tbx
 {
-    class EXPORT IInputHandler
+    class TBX_EXPORT IInputHandler
     {
     public:
         virtual ~IInputHandler() = default;

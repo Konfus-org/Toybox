@@ -4,7 +4,7 @@
 
 namespace Tbx
 {
-    class EXPORT IPrintable
+    class TBX_EXPORT IPrintable
     {
     public:
         virtual ~IPrintable() = default;

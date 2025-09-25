@@ -4,7 +4,7 @@
 
 namespace Tbx
 {
-	struct EXPORT Text
+	struct TBX_EXPORT Text
 	{
 		std::string Value = "";
 		std::string Font = "";

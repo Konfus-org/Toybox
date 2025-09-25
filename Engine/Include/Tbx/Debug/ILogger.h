@@ -2,11 +2,10 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Memory/Refs.h"
 #include <string>
-#include <memory>
 
 namespace Tbx
 {
-    class EXPORT ILogger
+    class TBX_EXPORT ILogger
     {
     public:
         virtual ~ILogger() = default;
@@ -20,7 +19,7 @@ namespace Tbx
         virtual std::string GetName() = 0;
     };
 
-    class EXPORT ILoggerFactory
+    class TBX_EXPORT ILoggerFactory
     {
     public:
         virtual ~ILoggerFactory() = default;

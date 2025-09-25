@@ -1,18 +1,17 @@
 #include "Tbx/PCH.h"
-#include "Tbx/App/App.h"
-#include "Tbx/Graphics/FrameBufferBuilder.h"
-#include "Tbx/Graphics/Buffers.h"
+#include "Tbx/Graphics/RenderCommand.h"
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Graphics/Camera.h"
 #include "Tbx/Math/Transform.h"
 #include "Tbx/Graphics/Frustum.h"
 #include "Tbx/Graphics/Sphere.h"
+#include "Tbx/Debug/Debugging.h"
 
 namespace Tbx
 {
-    FrameBuffer FrameBufferBuilder::BuildUploadBuffer(StageView<MaterialInstance, Mesh, Model> view)
+    RenderCommandBuffer RenderCommandBufferBuilder::BuildUploadBuffer(StageView<MaterialInstance, Mesh, Model> view)
     {
-        FrameBuffer buffer = {};
+        RenderCommandBuffer buffer = {};
 
         for (const auto& toy : view)
         {
@@ -22,24 +21,24 @@ namespace Tbx
         return buffer;
     }
 
-    FrameBuffer FrameBufferBuilder::BuildRenderBuffer(FullStageViewView view)
+    RenderCommandBuffer RenderCommandBufferBuilder::BuildRenderBuffer(FullStageViewView view)
     {
         // Build view frustums from cameras
         auto frustums = std::vector<Frustum>();
         for (const auto& toy : view)
         {
-            if (!toy->HasBlock<Camera>())
+            if (!toy->Blocks.Contains<Camera>())
             {
                 continue;
             }
 
-            auto& camera = toy->GetBlock<Camera>();
+            auto& camera = toy->Blocks.Get<Camera>();
 
             Vector3 camPos = Vector3::Zero;
             Quaternion camRot = Quaternion::Identity;
-            if (toy->HasBlock<Transform>())
+            if (toy->Blocks.Contains<Transform>())
             {
-                const auto& camTransform = toy->GetBlock<Transform>();
+                const auto& camTransform = toy->Blocks.Get<Transform>();
                 camPos = camTransform.Position;
                 camRot = camTransform.Rotation;
             }
@@ -52,10 +51,10 @@ namespace Tbx
         if (frustums.empty()) return {};
 
         // Iterate through toys and skip those completely outside the view frustum
-        FrameBuffer buffer = {};
+        RenderCommandBuffer buffer = {};
         for (const auto& toy : view)
         {
-            if (!toy->HasBlock<Camera>())
+            if (!toy->Blocks.Contains<Camera>())
             {
                 const auto sphere = BoundingSphere(toy);
 
@@ -79,22 +78,22 @@ namespace Tbx
         return buffer;
     }
 
-    void FrameBufferBuilder::AddToyUploadCommandsToBuffer(const Ref<Toy>& toy, FrameBuffer& buffer)
+    void RenderCommandBufferBuilder::AddToyUploadCommandsToBuffer(const Ref<Toy>& toy, RenderCommandBuffer& buffer)
     {
         // Preprocess materials to upload textures and shaders to GPU
-        if (toy->HasBlock<MaterialInstance>())
+        if (toy->Blocks.Contains<MaterialInstance>())
         {
-            const auto& material = toy->GetBlock<MaterialInstance>();
+            const auto& material = toy->Blocks.Get<MaterialInstance>();
 
             // Check if we already added this material
             auto newMaterialToUpload = true;
-            const auto& existingUploadMatCmds = buffer.GetCommands();
+            const auto& existingUploadMatCmds = buffer.Commands;
             for (const auto& cmd : existingUploadMatCmds)
             {
-                if (cmd.GetType() != DrawCommandType::UploadMaterial) continue;
+                if (cmd.Type != RenderCommandType::UploadMaterial) continue;
 
-                const auto& materialToUpload = std::any_cast<const MaterialInstance&>(cmd.GetPayload());
-                if (materialToUpload.GetId() == material)
+                const auto& materialToUpload = std::any_cast<const MaterialInstance&>(cmd.Payload);
+                if (materialToUpload.Id == material.Id)
                 {
                     newMaterialToUpload = false;
                     break;
@@ -103,86 +102,86 @@ namespace Tbx
             if (newMaterialToUpload)
             {
                 // New material, add to buffer
-                buffer.Emplace(DrawCommandType::UploadMaterial, material);
+                buffer.Commands.emplace_back(RenderCommandType::UploadMaterial, material);
             }
         }
 
         // Preprocess models to upload mesh and its material data (shaders and textures) to GPU
-        if (toy->HasBlock<Model>())
+        if (toy->Blocks.Contains<Model>())
         {
-            const auto& model = toy->GetBlock<Model>();
-            buffer.Emplace(DrawCommandType::UploadMaterial, model.GetMaterial());
-            buffer.Emplace(DrawCommandType::UploadMesh, model.GetMesh());
+            const auto& model = toy->Blocks.Get<Model>();
+            buffer.Commands.emplace_back(RenderCommandType::UploadMaterial, model.GetMaterial());
+            buffer.Commands.emplace_back(RenderCommandType::UploadMesh, model.GetMesh());
         }
 
         // Preprocess meshes to upload the mesh data
-        if (toy->HasBlock<Mesh>())
+        if (toy->Blocks.Contains<Mesh>())
         {
-            const auto& mesh = toy->GetBlock<Mesh>();
-            buffer.Emplace(DrawCommandType::UploadMesh, mesh);
+            const auto& mesh = toy->Blocks.Get<Mesh>();
+            buffer.Commands.emplace_back(RenderCommandType::UploadMesh, mesh);
         }
     }
 
-    void FrameBufferBuilder::AddToyRenderCommandsToBuffer(const Ref<Toy>& toy, FrameBuffer& buffer)
+    void RenderCommandBufferBuilder::AddToyRenderCommandsToBuffer(const Ref<Toy>& toy, RenderCommandBuffer& buffer)
     {
         // NOTE: Order matters here!!!
         
         // Material block, should be a material instance
-        if (toy->HasBlock<Material>())
+        if (toy->Blocks.Contains<Material>())
         {
             TBX_ASSERT(false, "A toy shouldn't use a material directly! Toys should use material instances!");
             return;
         }
         
         // Material block, upload the material data
-        if (toy->HasBlock<MaterialInstance>())
+        if (toy->Blocks.Contains<MaterialInstance>())
         {
-            const auto& material = toy->GetBlock<MaterialInstance>();
-            buffer.Emplace(DrawCommandType::SetMaterial, material);
+            const auto& material = toy->Blocks.Get<MaterialInstance>();
+            buffer.Commands.emplace_back(RenderCommandType::SetMaterial, material);
         }
 
         // Transform block, upload the transform data
-        if (toy->HasBlock<Transform>())
+        if (toy->Blocks.Contains<Transform>())
         {
-            const auto& transform = toy->GetBlock<Transform>();
+            const auto& transform = toy->Blocks.Get<Transform>();
             const auto transformMatrix = Mat4x4::FromTRS(transform.Position, transform.Rotation, transform.Scale);
-            buffer.Emplace(DrawCommandType::SetUniform, ShaderUniform("TransformUniform", transformMatrix, ShaderUniformDataType::Mat4));
+            buffer.Commands.emplace_back(RenderCommandType::SetUniform, ShaderUniform("TransformUniform", transformMatrix));
         }
 
         // Camera block, upload the camera data
-        if (toy->HasBlock<Camera>())
+        if (toy->Blocks.Contains<Camera>())
         {
-            auto& camera = toy->GetBlock<Camera>();
+            auto& camera = toy->Blocks.Get<Camera>();
 
-            if (toy->HasBlock<Transform>())
+            if (toy->Blocks.Contains<Transform>())
             {
                 // Use the transform block's position and rotation
-                const auto& cameraTransform = toy->GetBlock<Transform>();
+                const auto& cameraTransform = toy->Blocks.Get<Transform>();
                 const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(cameraTransform.Position, cameraTransform.Rotation, camera.GetProjectionMatrix());
-                buffer.Emplace(DrawCommandType::SetUniform, ShaderUniform("ViewProjectionUniform", viewProjMatrix, ShaderUniformDataType::Mat4));
+                buffer.Commands.emplace_back(RenderCommandType::SetUniform, ShaderUniform("ViewProjectionUniform", viewProjMatrix));
             }
             else
             {
                 // No transform block, use default camera position and rotation
                 const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(
                     Vector3::Zero, Quaternion::Identity, camera.GetProjectionMatrix());
-                buffer.Emplace(DrawCommandType::SetUniform, ShaderUniform("ViewProjectionUniform", viewProjMatrix, ShaderUniformDataType::Mat4));
+                buffer.Commands.emplace_back(RenderCommandType::SetUniform, ShaderUniform("ViewProjectionUniform", viewProjMatrix));
             }
         }
 
         // Model block, upload model data
-        if (toy->HasBlock<Model>())
+        if (toy->Blocks.Contains<Model>())
         {
-            const auto& model = toy->GetBlock<Model>();
-            buffer.Emplace(DrawCommandType::SetMaterial, model.GetMaterial());
-            buffer.Emplace(DrawCommandType::DrawMesh, model.GetMesh());
+            const auto& model = toy->Blocks.Get<Model>();
+            buffer.Commands.emplace_back(RenderCommandType::SetMaterial, model.GetMaterial());
+            buffer.Commands.emplace_back(RenderCommandType::DrawMesh, model.GetMesh());
         }
         
         // Mesh block, upload the mesh data
-        if (toy->HasBlock<Mesh>())
+        if (toy->Blocks.Contains<Mesh>())
         {
-            const auto& mesh = toy->GetBlock<Mesh>();
-            buffer.Emplace(DrawCommandType::DrawMesh, mesh);
+            const auto& mesh = toy->Blocks.Get<Mesh>();
+            buffer.Commands.emplace_back(RenderCommandType::DrawMesh, mesh);
         }
     }
 }

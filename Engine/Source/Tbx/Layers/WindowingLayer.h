@@ -1,9 +1,7 @@
 #pragma once
 #include "Tbx/Layers/Layer.h"
-#include "Tbx/Math/Size.h"
 #include "Tbx/Windowing/WindowManager.h"
 #include "Tbx/Memory/Refs.h"
-#include <memory>
 #include <string>
 
 namespace Tbx
@@ -13,14 +11,11 @@ namespace Tbx
     public:
         WindowingLayer(
             const std::string& appName,
-            Ref<IWindowFactory> windowFactory,
-            Ref<EventBus> eventBus);
+            Ref<WindowManager> windowManager);
 
         void OnAttach() override;
         void OnDetach() override;
         void OnUpdate() override;
-
-        Ref<WindowManager> GetWindowManager() const;
 
     private:
         std::string _appName = "Toybox";

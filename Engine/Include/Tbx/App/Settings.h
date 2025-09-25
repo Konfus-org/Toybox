@@ -9,11 +9,11 @@ namespace Tbx
     /// <summary>
     /// Configures runtime behaviour for the core application such as display resolution and rendering backend.
     /// </summary>
-    struct EXPORT Settings
+    struct TBX_EXPORT Settings
     {
         bool VSyncEnabled = true;
         GraphicsApi Api = GraphicsApi::OpenGL;
-        Size Resolution = Size(800, 600);
+        Size Resolution = { static_cast<uint>(800), static_cast<uint>(600) };
         RgbaColor ClearColor = RgbaColor(0.0f, 0.0f, 0.05f, 1.0f);
     };
 }

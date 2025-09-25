@@ -1,13 +1,13 @@
 #pragma once
 #include <Tbx/App/App.h>
-#include <Tbx/TSS/Toy.h>
-#include <Tbx/TSS/Stage.h>
+#include <Tbx/Stages/Toy.h>
+#include <Tbx/Stages/Stage.h>
 #include "Tbx/Memory/Refs.h"
 #include <Tbx/Graphics/Material.h>
 #include <Tbx/Layers/Layer.h>
 #include <Tbx/Plugins/Plugin.h>
 
-class Demo : public Tbx::Layer, public Tbx::Plugin
+class Demo : public Tbx::Layer, public Tbx::Plugin<Demo>
 {
 public:
     Demo(const Tbx::WeakRef<Tbx::App>& app)
@@ -34,6 +34,4 @@ private:
     Tbx::Material _simpleTexturedMat = {};
     Tbx::WeakRef<Tbx::App> _app = {};
 };
-
-TBX_REGISTER_PLUGIN(Demo);
 

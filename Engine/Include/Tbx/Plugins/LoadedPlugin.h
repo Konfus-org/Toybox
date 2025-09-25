@@ -10,24 +10,24 @@ namespace Tbx
 {
     class App;
 
-    class LoadedPlugin
+    class TBX_EXPORT LoadedPlugin
     {
     public:
-        EXPORT explicit(true) LoadedPlugin(const PluginMeta& pluginInfo, std::weak_ptr<App> app);
-        EXPORT ~LoadedPlugin();
+        explicit(true) LoadedPlugin(const PluginMeta& pluginInfo, std::weak_ptr<App> app);
+        ~LoadedPlugin();
 
-        EXPORT LoadedPlugin(const LoadedPlugin&) = delete;
-        EXPORT LoadedPlugin& operator= (const LoadedPlugin&) = delete;
+        LoadedPlugin(const LoadedPlugin&) = delete;
+        LoadedPlugin& operator= (const LoadedPlugin&) = delete;
 
-        EXPORT bool IsValid() const;
-        EXPORT const PluginMeta& GetMeta() const;
+        bool IsValid() const;
+        const PluginMeta& GetMeta() const;
 
         /// <summary>
         /// Attempts to get the loaded plugin as the requested type.
         /// If the plugin is not of the requested type, nullptr is returned.
         /// </summary>
         template <typename T>
-        EXPORT Ref<T> GetAs()
+        Ref<T> GetAs()
         {
             // Try to cast the plugin to the requested type
             if (const auto& castedPlug = std::dynamic_pointer_cast<T>(_plugin)) 
@@ -40,7 +40,7 @@ namespace Tbx
         /// <summary>
         /// Gets the loaded plugin.
         /// </summary>
-        EXPORT Ref<Plugin> Get()
+        Ref<Plugin> Get()
         {
             return _plugin;
         }

@@ -20,7 +20,7 @@ namespace Tbx
     /// <summary>
     /// Represents the lifecycle state of an asset tracked by the server.
     /// </summary>
-    enum class AssetStatus
+    enum class TBX_EXPORT AssetStatus
     {
         Unloaded,
         Loading,
@@ -31,7 +31,7 @@ namespace Tbx
     /// <summary>
     /// Metadata about an asset on disk, including the loader to use for creating runtime data.
     /// </summary>
-    struct AssetRecord
+    struct TBX_EXPORT AssetRecord
     {
         /// <summary>
         /// Normalized asset path used as the lookup key and for diagnostic messages.
@@ -55,10 +55,10 @@ namespace Tbx
     /// <summary>
     /// Central coordinator for discovering, loading, and caching assets backed by registered loaders.
     /// </summary>
-    class AssetServer
+    class TBX_EXPORT AssetServer
     {
     public:
-        EXPORT AssetServer(
+        AssetServer(
             const std::string& assetsFolderPath,
             const std::vector<Ref<IAssetLoader>>& loaders)
             : _assetDirectory(std::filesystem::absolute(assetsFolderPath)),
@@ -101,7 +101,7 @@ namespace Tbx
         /// Returns nullptr when no loader is available for the supplied path or loading fails.
         /// </summary>
         template <typename TData>
-        EXPORT Ref<TData> AddAsset(std::string path)
+        Ref<TData> AddAsset(std::string path)
         {
             std::lock_guard lock(_mutex);
 
@@ -134,7 +134,7 @@ namespace Tbx
         /// If the asset was never seen before this call returns nullptr.
         /// </summary>
         template <typename TData>
-        EXPORT Ref<TData> GetAsset(std::string path) const
+        Ref<TData> GetAsset(std::string path) const
         {
             std::lock_guard lock(_mutex);
 
@@ -152,7 +152,7 @@ namespace Tbx
         /// Collects all loaded assets for the requested type.
         /// </summary>
         template <typename TData>
-        EXPORT std::vector<Ref<TData>> GetLoadedAssets() const
+        std::vector<Ref<TData>> GetLoadedAssets() const
         {
             std::lock_guard lock(_mutex);
 

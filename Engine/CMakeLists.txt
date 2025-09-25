@@ -41,5 +41,9 @@ target_compile_definitions(Engine PUBLIC
   TBX_WORKING_ROOT_DIR="$<TARGET_FILE_DIR:Engine>"
 )
 
+target_compile_definitions(Engine PRIVATE
+  COMPILING_TOYBOX=1
+)
+
 # Namespaced alias for consumers
 add_library(Tbx::Engine ALIAS Engine)

@@ -2,8 +2,6 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Layers/Layer.h"
 #include "Tbx/Math/Int.h"
-#include "Tbx/Memory/Refs.h"
-#include <memory>
 #include <vector>
 
 namespace Tbx
@@ -11,43 +9,50 @@ namespace Tbx
     /// <summary>
     /// Container that stores layers in registration order and assists with lifecycle notifications.
     /// </summary>
-    class LayerStack
+    class TBX_EXPORT LayerStack
     {
     public:
-        EXPORT ~LayerStack();
+        ~LayerStack();
 
         /// <summary>
         /// Operator to allow indexing into the layer stack.
         /// </summary>
-        EXPORT Ref<Layer> operator[](int index) const { return _layers[index]; }
+        const Layer& operator[](int index) const { return _layers[index]; }
 
         /// <summary>
         /// Clear the layer stack.
         /// </summary>
-        EXPORT void Clear();
+        void Clear();
 
         /// <summary>
-        /// Push a layer onto the top of the stack.
+        /// Adds a layer onto the top of the stack.
         /// </summary>
-        EXPORT void Push(const Ref<Layer>& layer);
+        template <typename TLayer, typename... TArgs>
+        Uid Push(TArgs&&... args)
+        {
+            static_assert(std::is_base_of<Layer, TLayer>::value, "TLayer must be a subclass of Layer");
+            auto layer = TLayer(std::forward<TArgs>(args)...);
+            layer.AttachTo(_layers);
+            return layer.Id;
+        }
 
         /// <summary>
         /// Removes a layer from the stack.
         /// </summary>
-        EXPORT void Remove(const Ref<Layer>& layer);
+        void Remove(const Uid& layer);
 
         /// <summary>
         /// Returns the number of layers currently registered in the stack.
         /// </summary>
-        EXPORT uint GetCount() const { return static_cast<uint>(_layers.size()); }
+        uint GetSize() const { return static_cast<uint>(_layers.size()); }
 
-        EXPORT std::vector<Ref<Layer>>::iterator begin() { return _layers.begin(); }
-        EXPORT std::vector<Ref<Layer>>::iterator end() { return _layers.end(); }
-        EXPORT std::vector<Ref<Layer>>::const_iterator begin() const { return _layers.begin(); }
-        EXPORT std::vector<Ref<Layer>>::const_iterator end() const { return _layers.end(); }
+        std::vector<Layer>::iterator begin() { return _layers.begin(); }
+        std::vector<Layer>::iterator end() { return _layers.end(); }
+        std::vector<Layer>::const_iterator begin() const { return _layers.begin(); }
+        std::vector<Layer>::const_iterator end() const { return _layers.end(); }
 
     private:
-        std::vector<Ref<Layer>> _layers;
+        std::vector<Layer> _layers;
     };
 }
 

@@ -60,9 +60,6 @@ target_compile_definitions(tbx_config INTERFACE
 
   # Options
   $<$<BOOL:${TBX_VERB_LOGGING}>:TBX_VERBOSE_LOGGING=1>
-
-  # Static
-  COMPILING_TOYBOX=1
 )
 
 # Dependencies

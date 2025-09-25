@@ -7,23 +7,23 @@
 
 namespace Tbx
 {
-    struct PluginMeta : public IPrintable
+    struct TBX_EXPORT PluginMeta : public IPrintable
     {
     public:
-        EXPORT PluginMeta() = default;
-        EXPORT PluginMeta(const std::string& pathToPluginFolder, const std::string& pluginFileName);
+        PluginMeta() = default;
+        PluginMeta(const std::string& pathToPluginFolder, const std::string& pluginFileName);
 
-        EXPORT bool IsValid() const { return !(_name.empty() || _version.empty() || _lib.empty()); }
-        EXPORT const std::string& GetName() const { return _name; }
-        EXPORT const std::string& GetAuthor() const { return _author; }
-        EXPORT const std::string& GetVersion() const { return _version; }
-        EXPORT const std::string& GetDescription() const { return _description; }
-        EXPORT const std::string& GetLib() const { return _lib; }
-        EXPORT const std::string GetPathToLib() const { return FileSystem::GetWorkingDirectory() + "/" + GetLib(); }
-        EXPORT const std::vector<std::string>& GetImplementedTypes() const { return _implementedTypes; }
-        EXPORT const std::vector<std::string>& GetDependencies() const { return _dependencies; }
+        bool IsValid() const { return !(_name.empty() || _version.empty() || _lib.empty()); }
+        const std::string& GetName() const { return _name; }
+        const std::string& GetAuthor() const { return _author; }
+        const std::string& GetVersion() const { return _version; }
+        const std::string& GetDescription() const { return _description; }
+        const std::string& GetLib() const { return _lib; }
+        std::string GetPathToLib() const { return FileSystem::GetWorkingDirectory() + "/" + GetLib(); }
+        const std::vector<std::string>& GetImplementedTypes() const { return _implementedTypes; }
+        const std::vector<std::string>& GetDependencies() const { return _dependencies; }
 
-        EXPORT std::string ToString() const override;
+        std::string ToString() const override;
 
     private:
         void Load(const std::string& pathToPluginFile);

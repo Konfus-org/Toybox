@@ -9,7 +9,7 @@
 
 namespace Tbx
 {
-    class PluginServer
+    class TBX_EXPORT PluginServer
     {
     public:
         PluginServer(
@@ -22,31 +22,13 @@ namespace Tbx
         /// Registers a plugin
         /// </summary>
         /// <param name="plugin"></param>
-        EXPORT void AddPlugin(const Ref<LoadedPlugin>& plugin);
-
-        /// <summary>
-        /// Gets the first plugin of a type.
-        /// </summary>
-        template <typename TPlugin>
-        EXPORT Ref<TPlugin> GetPlugin()
-        {
-            const auto& loadedPlugins = GetPlugins();
-
-            for (const auto& loadedPlug : loadedPlugins)
-            {
-                Ref<TPlugin> plugImpl = loadedPlug->GetAs<TPlugin>();
-                if (!plugImpl) continue;
-                return plugImpl;
-            }
-
-            return {};
-        }
+        void AddPlugin(const Ref<LoadedPlugin>& plugin);
 
         /// <summary>
         /// Gets plugins of the specified type.
         /// </summary>
         template <typename TPlugin>
-        EXPORT std::vector<Ref<TPlugin>> GetPlugins()
+        std::vector<Ref<TPlugin>> GetPlugins()
         {
             auto plugins = std::vector<Ref<TPlugin>>();
             const auto& loadedPlugins = GetPlugins();
@@ -64,12 +46,12 @@ namespace Tbx
         /// <summary>
         /// Gets all loaded plugins.
         /// </summary>
-        EXPORT const std::vector<Ref<LoadedPlugin>>& GetPlugins();
+        const std::vector<Ref<LoadedPlugin>>& GetPlugins();
 
     private:
         std::vector<PluginMeta> SearchDirectoryForInfos(const std::string& pathToPlugins);
-        EXPORT void LoadPlugins(const std::string& pathToPlugins, std::weak_ptr<Tbx::App> app);
-        EXPORT void UnloadPlugins();
+        void LoadPlugins(const std::string& pathToPlugins, std::weak_ptr<Tbx::App> app);
+        void UnloadPlugins();
 
     private:
         std::string _pathToLoadedPlugins = "";

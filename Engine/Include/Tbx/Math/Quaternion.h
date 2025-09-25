@@ -8,7 +8,7 @@ namespace Tbx
     /// <summary>
     /// Represents a rotation. X, Y, Z, W are stored as radians.
     /// </summary>
-    struct EXPORT Quaternion : public IPrintable
+    struct TBX_EXPORT Quaternion : public IPrintable
     {
         Quaternion() = default;
         Quaternion(float x, float y, float z, float w)

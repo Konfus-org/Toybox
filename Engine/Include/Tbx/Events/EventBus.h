@@ -7,14 +7,10 @@
 #include "Tbx/Memory/Refs.h"
 #include "Tbx/Memory/Hashing.h"
 #include <unordered_map>
-#include <typeindex>
-#include <vector>
 #include <mutex>
 #include <atomic>
 #include <memory>
 #include <queue>
-#include <cstdint>
-#include <cstddef>
 #include <functional>
 #include <type_traits>
 
@@ -41,13 +37,13 @@ namespace Tbx
     /// ALL events on ALL event busses will be suppressed during the lifetime of this class.
     /// Use with care.
     /// </summary>
-    class EventSuppressor
+    class TBX_EXPORT EventSuppressor
     {
     public:
-        EXPORT EventSuppressor();
-        EXPORT ~EventSuppressor();
+        EventSuppressor();
+        ~EventSuppressor();
 
-        EXPORT static bool IsSuppressing();
+        static bool IsSuppressing();
 
     private:
         static void Suppress();
@@ -59,14 +55,14 @@ namespace Tbx
     /// <summary>
     /// A class that manages event subscriptions and sends events to subscribers.
     /// </summary>
-    class EventBus
+    class TBX_EXPORT EventBus
     {
     public:
         /// <summary>
         /// Sets a method to be called when an event is fired.
         /// </summary>
         template <class TEvent>
-        EXPORT void Subscribe(EventHandlerFunction<TEvent> callback)
+        void Subscribe(EventHandlerFunction<TEvent> callback)
         {
             static_assert(std::is_base_of_v<Event, std::decay_t<TEvent>>, "TEvent must derive from Event");
 
@@ -89,7 +85,7 @@ namespace Tbx
         /// Sets a method to be called when an event is fired.
         /// </summary>
         template <class TEvent>
-        EXPORT void Subscribe(ConstEventHandlerFunction<TEvent> callback)
+        void Subscribe(ConstEventHandlerFunction<TEvent> callback)
         {
             static_assert(std::is_base_of_v<Event, std::decay_t<TEvent>>, "TEvent must derive from Event");
 
@@ -112,7 +108,7 @@ namespace Tbx
         /// Sets a method to be called when an event is fired.
         /// </summary>
         template <typename TSubscriber, class TEvent>
-        EXPORT void Subscribe(TSubscriber* instance, ClassEventHandlerFunction<TSubscriber, TEvent> callback)
+        void Subscribe(TSubscriber* instance, ClassEventHandlerFunction<TSubscriber, TEvent> callback)
         {
             static_assert(std::is_base_of_v<Event, std::decay_t<TEvent>>, "TEvent must derive from Event");
 
@@ -135,7 +131,7 @@ namespace Tbx
         /// Sets a method to be called when an event is fired.
         /// </summary>
         template <typename TSubscriber, class TEvent>
-        EXPORT void Subscribe(TSubscriber* instance, ClassConstEventHandlerFunction<TSubscriber, TEvent> callback)
+        void Subscribe(TSubscriber* instance, ClassConstEventHandlerFunction<TSubscriber, TEvent> callback)
         {
             static_assert(std::is_base_of_v<Event, std::decay_t<TEvent>>, "TEvent must derive from Event");
 
@@ -158,7 +154,7 @@ namespace Tbx
         /// Removes the method associated with the given function from the list of callbacks for an event.
         /// </summary>
         template <class TEvent>
-        EXPORT void Unsubscribe(EventHandlerFunction<TEvent> callback)
+        void Unsubscribe(EventHandlerFunction<TEvent> callback)
         {
             static_assert(std::is_base_of_v<Event, std::decay_t<TEvent>>, "TEvent must derive from Event");
 
@@ -185,7 +181,7 @@ namespace Tbx
         }
 
         template <class TEvent>
-        EXPORT void Unsubscribe(ConstEventHandlerFunction<TEvent> callback)
+        void Unsubscribe(ConstEventHandlerFunction<TEvent> callback)
         {
             static_assert(std::is_base_of_v<Event, std::decay_t<TEvent>>, "TEvent must derive from Event");
 
@@ -212,7 +208,7 @@ namespace Tbx
         }
 
         template <typename TSubscriber, class TEvent>
-        EXPORT void Unsubscribe(TSubscriber* instance, ClassEventHandlerFunction<TSubscriber, TEvent> callback)
+        void Unsubscribe(TSubscriber* instance, ClassEventHandlerFunction<TSubscriber, TEvent> callback)
         {
             static_assert(std::is_base_of_v<Event, std::decay_t<TEvent>>, "TEvent must derive from Event");
 
@@ -239,7 +235,7 @@ namespace Tbx
         }
 
         template <typename TSubscriber, class TEvent>
-        EXPORT void Unsubscribe(TSubscriber* instance, ClassConstEventHandlerFunction<TSubscriber, TEvent> callback)
+        void Unsubscribe(TSubscriber* instance, ClassConstEventHandlerFunction<TSubscriber, TEvent> callback)
         {
             static_assert(std::is_base_of_v<Event, std::decay_t<TEvent>>, "TEvent must derive from Event");
 
@@ -270,7 +266,7 @@ namespace Tbx
         /// Returns true if the event was marked as handled, false otherwise.
         /// </summary>
         template <class TEvent>
-        EXPORT bool Send(TEvent&& event)
+        bool Send(TEvent&& event)
         {
             static_assert(std::is_base_of_v<Event, std::decay_t<TEvent>>, "TEvent must derive from Event");
 
@@ -306,7 +302,7 @@ namespace Tbx
         /// Posts an event that will be processed and relayed to subscribers the next update.
         /// </summary>
         template <class TEvent>
-        EXPORT void Post(TEvent&& event)
+        void Post(TEvent&& event)
         {
             static_assert(std::is_base_of_v<Event, std::decay_t<TEvent>>, "TEvent must derive from Event");
 
@@ -320,11 +316,11 @@ namespace Tbx
         /// <summary>
         /// Processes all queued events.
         /// </summary>
-        EXPORT void ProcessQueue();
+        void ProcessQueue();
 
     private:
         template <class TEvent>
-        EXPORT Tbx::uint64 GetEventHash() const
+        Tbx::uint64 GetEventHash() const
         {
             const auto& eventInfo = typeid(TEvent);
             const auto hash = eventInfo.hash_code();
@@ -332,7 +328,7 @@ namespace Tbx
         }
 
         template <class TEvent>
-        EXPORT Tbx::uint64 GetCallbackHash(EventHandlerFunction<TEvent> callback) const
+        Tbx::uint64 GetCallbackHash(EventHandlerFunction<TEvent> callback) const
         {
             const auto& callbackInfo = typeid(EventHandlerFunction<TEvent>);
             const auto typeHash = static_cast<Tbx::uint64>(callbackInfo.hash_code());
@@ -341,7 +337,7 @@ namespace Tbx
         }
 
         template <class TEvent>
-        EXPORT Tbx::uint64 GetCallbackHash(ConstEventHandlerFunction<TEvent> callback) const
+        Tbx::uint64 GetCallbackHash(ConstEventHandlerFunction<TEvent> callback) const
         {
             const auto& callbackInfo = typeid(ConstEventHandlerFunction<TEvent>);
             const auto typeHash = static_cast<Tbx::uint64>(callbackInfo.hash_code());
@@ -350,7 +346,7 @@ namespace Tbx
         }
 
         template <class TEvent, typename TSubscriber>
-        EXPORT Tbx::uint64 GetCallbackHash(TSubscriber* instance, ClassEventHandlerFunction<TSubscriber, TEvent> callback) const
+        Tbx::uint64 GetCallbackHash(TSubscriber* instance, ClassEventHandlerFunction<TSubscriber, TEvent> callback) const
         {
             const auto& callbackInfo = typeid(ClassEventHandlerFunction<TSubscriber, TEvent>);
             const auto typeHash = static_cast<Tbx::uint64>(callbackInfo.hash_code());
@@ -360,7 +356,7 @@ namespace Tbx
         }
 
         template <class TEvent, typename TSubscriber>
-        EXPORT Tbx::uint64 GetCallbackHash(TSubscriber* instance, ClassConstEventHandlerFunction<TSubscriber, TEvent> callback) const
+        Tbx::uint64 GetCallbackHash(TSubscriber* instance, ClassConstEventHandlerFunction<TSubscriber, TEvent> callback) const
         {
             const auto& callbackInfo = typeid(ClassConstEventHandlerFunction<TSubscriber, TEvent>);
             const auto typeHash = static_cast<Tbx::uint64>(callbackInfo.hash_code());
@@ -389,10 +385,6 @@ namespace Tbx
         }
 
         Tbx::uint64 GetEventHash(const Event& event) const;
-        /// <summary>
-        /// Removes the next queued event while transferring ownership to the caller.
-        /// Returns nullptr when the queue is empty.
-        /// </summary>
         std::unique_ptr<Event> PopNextEventInQueue();
 
         std::unordered_map<Tbx::uint64, std::unordered_map<Tbx::uint64, EventCallback>> _subscribers = {};

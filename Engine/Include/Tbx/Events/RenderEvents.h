@@ -5,7 +5,7 @@
 
 namespace Tbx
 {
-    class EXPORT RenderedFrameEvent : public Event
+    class TBX_EXPORT RenderedFrameEvent : public Event
     {
     public:
         std::string ToString() const final

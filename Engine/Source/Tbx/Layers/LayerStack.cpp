@@ -1,5 +1,6 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Layers/LayerStack.h"
+
 namespace Tbx
 {
     LayerStack::~LayerStack()
@@ -9,30 +10,15 @@ namespace Tbx
 
     void LayerStack::Clear()
     {
-        for (auto& layer : std::ranges::reverse_view(_layers))
-        {
-            layer.reset();
-        }
         _layers.clear();
     }
 
-    void LayerStack::Push(const Ref<Layer>& layer)
+    void LayerStack::Remove(const Uid& layer)
     {
-        if (!layer)
+        auto it = std::find_if(_layers.begin(), _layers.end(), [layer](const Layer& l) { return l.Id == layer; });
+        if (it!= _layers.end())
         {
-            return;
+            (*it).DetachFrom(_layers);
         }
-
-        layer->AttachTo(_layers);
-    }
-
-    void LayerStack::Remove(const Ref<Layer>& layer)
-    {
-        if (!layer)
-        {
-            return;
-        }
-
-        layer->DetachFrom(_layers);
     }
 }

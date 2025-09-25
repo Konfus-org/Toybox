@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Events/Event.h"
-#include "Tbx/TSS/Stage.h"
+#include "Tbx/Stages/Stage.h"
 #include "Tbx/Memory/Refs.h"
 
 namespace Tbx
@@ -10,15 +10,15 @@ namespace Tbx
     /// Occurs when boxes are opened.
     /// This happens when boxes have been loaded.
     /// </summary>
-    class StageOpenedEvent : public Event
+    class TBX_EXPORT StageOpenedEvent : public Event
     {
     public:
-        EXPORT explicit StageOpenedEvent(Ref<Stage> opened)
+        explicit StageOpenedEvent(Ref<Stage> opened)
             : _opened(opened) {}
 
-        EXPORT const Ref<Stage> GetStage() const { return _opened; }
+        Ref<Stage> GetStage() const { return _opened; }
 
-        EXPORT std::string ToString() const final
+        std::string ToString() const final
         {
             return "Opened Boxes Request";
         }
@@ -31,15 +31,15 @@ namespace Tbx
     /// Occurs when boxes are opened.
     /// This happens when boxes have been loaded.
     /// </summary>
-    class StageClosedEvent : public Event
+    class TBX_EXPORT StageClosedEvent : public Event
     {
     public:
-        EXPORT explicit StageClosedEvent(Ref<Stage> closed)
+        explicit StageClosedEvent(Ref<Stage> closed)
             : _closed(closed) {}
 
-        EXPORT const Ref<Stage> GetStage() const { return _closed; }
+        Ref<Stage> GetStage() const { return _closed; }
 
-        EXPORT std::string ToString() const final
+        std::string ToString() const final
         {
             return "Opened Boxes Request";
         }

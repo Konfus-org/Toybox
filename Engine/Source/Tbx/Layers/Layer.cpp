@@ -8,24 +8,25 @@ namespace Tbx
         OnDetach();
     }
 
-    std::string Layer::GetName() const
+    void Layer::AttachTo(std::vector<Layer>& layers)
     {
-        return _name;
-    }
-
-    void Layer::AttachTo(std::vector<Ref<Layer>>& layers)
-    {
-        layers.push_back(shared_from_this());
+        layers.push_back(*this);
         OnAttach();
     }
 
-    void Layer::DetachFrom(std::vector<Ref<Layer>>& layers)
+    void Layer::DetachFrom(std::vector<Layer>& layers)
     {
-        auto it = std::find(layers.begin(), layers.end(), shared_from_this());
-        if (it != layers.end())
+        // Find the layer with the same id
+        for (auto it = layers.begin(); it != layers.end(); ++it)
         {
-            layers.erase(it);
+            if (it->Id == Id)
+            {
+                // Then remove it
+                layers.erase(it);
+                break;
+            }
         }
+
         OnDetach();
     }
 

@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/TSS/Toy.h"
+#include "Tbx/Stages/Toy.h"
 #include "Tbx/Memory/Refs.h"
 #include <memory>
 #include <vector>
@@ -62,7 +62,7 @@ namespace Tbx
             }
             else
             {
-                return (toy->template HasBlock<Ts>() || ...); // any-of
+                return (toy->Blocks.template Contains<Ts>() || ...); // any-of
             }
         }
 
@@ -72,7 +72,7 @@ namespace Tbx
             {
                 _viewVector.push_back(toy);
             }
-            for (const auto& child : toy->GetChildren())
+            for (const auto& child : toy->Children)
             {
                 BuildViewVector(child);
             }

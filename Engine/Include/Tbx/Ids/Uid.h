@@ -6,23 +6,18 @@
 
 namespace Tbx
 {
-    struct EXPORT Uid : public IPrintable
+    struct TBX_EXPORT Uid : public IPrintable
     {
-        /// <summary>
-        /// Will generate a new UID
-        /// </summary>
-        Uid() : Value(GetNextId()) {}
-        explicit(false) Uid(uint64 id) : Value(id) {}
-        explicit(false) Uid(uint id) : Value(static_cast<uint64>(id)) {}
-        explicit(false) Uid(int id) : Value(static_cast<uint64>(id)) {}
+        Uid() = default;
+        Uid(uint64 value) : Value(value) {}
+
+        std::string ToString() const override { return std::to_string(Value); }
+        static Uid Generate();
 
         explicit(false) operator uint64() const { return Value; }
 
-        std::string ToString() const override { return std::to_string(Value); }
-        static uint64 GetNextId();
-
         static Uid Invalid;
-        uint64 Value = Invalid;
+        uint64 Value = -1;
     };
 }
 
@@ -30,7 +25,7 @@ namespace Tbx
 namespace std
 {
     template <>
-    struct hash<Tbx::Uid>
+    struct TBX_EXPORT hash<Tbx::Uid>
     {
         std::size_t operator()(const Tbx::Uid& uid) const
         {
@@ -43,7 +38,7 @@ namespace std
 namespace std
 {
     template <>
-    struct equal_to<Tbx::Uid>
+    struct TBX_EXPORT equal_to<Tbx::Uid>
     {
         bool operator()(const Tbx::Uid& lhs, const Tbx::Uid& rhs) const
         {

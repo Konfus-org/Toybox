@@ -2,10 +2,10 @@
 
 namespace Tbx
 {
-    enum class GraphicsApi
+    enum class TBX_EXPORT GraphicsApi
     {
         None,
-        //Vulkan,
+        Vulkan,
         OpenGL
     };
 }

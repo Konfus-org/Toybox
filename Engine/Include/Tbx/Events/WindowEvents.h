@@ -1,29 +1,27 @@
 #pragma once
-#include "Tbx/Windowing/IWindow.h"
+#include "Tbx/Windowing/Window.h"
 #include "Tbx/Events/Event.h"
 #include "Tbx/DllExport.h"
-#include "Tbx/Math/Size.h"
 #include "Tbx/Memory/Refs.h"
 #include <string>
-#include <memory>
 
 namespace Tbx
 {
-    class EXPORT WindowActionEvent : public Event
+    class TBX_EXPORT WindowActionEvent : public Event
     {
     public:
-        explicit WindowActionEvent(Ref<IWindow> window) : _window(std::move(window)) {}
+        explicit WindowActionEvent(Ref<Window> window) : _window(std::move(window)) {}
 
-        Ref<IWindow> GetWindow() const { return _window; }
+        Ref<Window> GetWindow() const { return _window; }
 
     private:
-        Ref<IWindow> _window = nullptr;
+        Ref<Window> _window = nullptr;
     };
 
-    class EXPORT WindowFocusedEvent : public WindowActionEvent
+    class TBX_EXPORT WindowFocusedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowFocusedEvent(Ref<IWindow> window)
+        explicit WindowFocusedEvent(Ref<Window> window)
             : WindowActionEvent(std::move(window)) {}
 
         std::string ToString() const final
@@ -32,10 +30,10 @@ namespace Tbx
         }
     };
 
-    class EXPORT WindowOpenedEvent : public WindowActionEvent
+    class TBX_EXPORT WindowOpenedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowOpenedEvent(Ref<IWindow> window)
+        explicit WindowOpenedEvent(Ref<Window> window)
             : WindowActionEvent(std::move(window)) {}
 
         std::string ToString() const final
@@ -44,15 +42,27 @@ namespace Tbx
         }
     };
 
-    class EXPORT WindowClosedEvent : public WindowActionEvent
+    class TBX_EXPORT WindowClosedEvent : public WindowActionEvent
     {
     public:
-        explicit WindowClosedEvent(Ref<IWindow> window)
+        explicit WindowClosedEvent(Ref<Window> window)
             : WindowActionEvent(std::move(window)) {}
 
         std::string ToString() const final
         {
             return "Window Closed Event";
+        }
+    };
+
+    class TBX_EXPORT WindowResizedEvent : public WindowActionEvent
+    {
+    public:
+        explicit WindowResizedEvent(Ref<Window> window)
+            : WindowActionEvent(std::move(window)) {}
+
+        std::string ToString() const final
+        {
+            return "Window Resized Event";
         }
     };
 }

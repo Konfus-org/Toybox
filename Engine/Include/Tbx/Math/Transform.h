@@ -1,7 +1,6 @@
 #pragma once
 #include "Tbx/Debug/IPrintable.h"
 #include "Tbx/DllExport.h"
-#include "Tbx/Math/Constants.h"
 #include "Tbx/Math/Quaternion.h"
 
 namespace Tbx
@@ -10,7 +9,7 @@ namespace Tbx
     /// A transform is a combination of position, rotation, and scale.
     /// It is used to represent the position, rotation, and scale of an object in 3D space.
     /// </summary>
-    struct EXPORT Transform : public IPrintable
+    struct TBX_EXPORT Transform : public IPrintable
     {
         Transform() = default;
         Transform(const Vector3& position, const Quaternion& rotation, const Vector3& scale)

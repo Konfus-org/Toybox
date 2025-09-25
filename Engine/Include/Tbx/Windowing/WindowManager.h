@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/Windowing/IWindow.h"
+#include "Tbx/Windowing/Window.h"
 #include "Tbx/Windowing/WindowStack.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Memory/Refs.h"
@@ -7,24 +7,24 @@
 
 namespace Tbx
 {
-    class WindowManager
+    class TBX_EXPORT WindowManager
     {
     public:
-        EXPORT WindowManager(
+        WindowManager(
             Ref<IWindowFactory> windowFactory,
             Ref<EventBus> eventBus);
-        EXPORT ~WindowManager();
+        ~WindowManager();
 
-        EXPORT void UpdateWindows();
+        void UpdateWindows();
 
-        EXPORT Ref<IWindow> GetMainWindow() const;
-        EXPORT const std::vector<Ref<IWindow>>& GetAllWindows() const;
-        EXPORT Ref<IWindow> GetWindow(const Uid& id) const;
+        Ref<Window> GetMainWindow() const;
+        const std::vector<Ref<Window>>& GetAllWindows() const;
+        Ref<Window> GetWindow(const Uid& id) const;
 
-        EXPORT Uid OpenWindow(const std::string& name, const WindowMode& mode, const Size& size = Size(1920, 1080));
+        Uid OpenWindow(const std::string& name, const WindowMode& mode, const Size& size = Size(1920, 1080));
 
-        EXPORT void CloseWindow(const Uid& id);
-        EXPORT void CloseAllWindows();
+        void CloseWindow(const Uid& id);
+        void CloseAllWindows();
 
     private:
         Ref<IWindowFactory> _windowFactory = {};

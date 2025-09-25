@@ -23,10 +23,8 @@ target_link_libraries(Launcher PUBLIC
   Tbx::Engine
 )
 
-# Propagate these defines to dependents
-target_compile_definitions(Launcher PUBLIC
-  GLM_FORCE_LEFT_HANDED
-  GLM_DEPTH_ZERO_TO_ONE
+target_compile_definitions(Launcher PRIVATE
+  COMPILING_TOYBOX=1
 )
 
 # Namespaced alias for consumers

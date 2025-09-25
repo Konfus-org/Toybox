@@ -1,8 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/TSS/Toy.h"
+#include "Tbx/Stages/Toy.h"
 #include "Tbx/Math/Transform.h"
-#include "Tbx/Math/Constants.h"
 #include "Tbx/Memory/Refs.h"
 #include <algorithm>
 #include <memory>
@@ -12,7 +11,7 @@ namespace Tbx
     /// <summary>
     /// A sphere represented by a center point and radius.
     /// </summary>
-    struct EXPORT Sphere
+    struct TBX_EXPORT Sphere
     {
         Vector3 Center = Vector3::Zero;
         float Radius = 0.0f;
@@ -21,7 +20,7 @@ namespace Tbx
     /// <summary>
     /// Simple bounding volume represented by a center point and radius.
     /// </summary>
-    struct EXPORT BoundingSphere : public Sphere
+    struct TBX_EXPORT BoundingSphere : public Sphere
     {
         /// <summary>
         /// Calculates a bounding sphere for a toy using its transform block if present.
@@ -31,9 +30,9 @@ namespace Tbx
             Vector3 position = Vector3::Zero;
             Vector3 scale = Vector3::One;
 
-            if (toy->HasBlock<Transform>())
+            if (toy->Blocks.Contains<Transform>())
             {
-                const auto& transform = toy->GetBlock<Transform>();
+                const auto& transform = toy->Blocks.Get<Transform>();
                 position = transform.Position;
                 scale = transform.Scale;
             }

@@ -15,9 +15,9 @@ namespace Tbx
         _logger = loggerFactory->Create("Tbx");
 #else
         // Open log file in non-debug
-        const auto& currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        _logFilePath = std::format("Logs\\{}.log", currentTime);
-        _logger = loggerFactory->Create("Tbx", _logFilePath);
+        const auto currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        const auto logFilePath = std::format("Logs\\{}.log", currentTime);
+        _logger = loggerFactory->Create("Tbx", logFilePath);
 #endif
     }
 

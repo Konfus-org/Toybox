@@ -1,5 +1,4 @@
 #pragma once
-#include "Tbx/DllExport.h"
 #include "Tbx/Debug/Debugging.h"
 #include <string>
 #include <filesystem>
@@ -10,12 +9,12 @@
 
 namespace Tbx::FileSystem
 {
-    EXPORT inline std::string GetWorkingDirectory()
+    inline std::string GetWorkingDirectory()
     {
         return TBX_WORKING_ROOT_DIR;
     }
 
-    EXPORT inline std::string GetRelativePath(const std::filesystem::path& absolutePath)
+    inline std::string GetRelativePath(const std::filesystem::path& absolutePath)
     {
         std::error_code ec;
         auto relative = std::filesystem::relative(absolutePath, GetWorkingDirectory(), ec);
@@ -28,7 +27,7 @@ namespace Tbx::FileSystem
         return relative.generic_string();
     }
 
-    EXPORT inline std::string NormalizePath(const std::filesystem::path& path)
+    inline std::string NormalizePath(const std::filesystem::path& path)
     {
         auto normalized = path.generic_string();
         std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char ch)

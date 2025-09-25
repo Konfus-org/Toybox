@@ -54,7 +54,7 @@ namespace Tbx
     {
 #if defined(TBX_PLATFORM_WINDOWS)
 #ifdef TBX_VERBOSE_LOGGING
-        // Initialize symbol handling
+        // CalculateOffsetAndStride symbol handling
         if (!SymInitialize(GetCurrentProcess(), nullptr, true))
         {
             TBX_TRACE_ERROR("SymInitialize failed");

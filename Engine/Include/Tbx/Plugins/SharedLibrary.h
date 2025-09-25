@@ -16,17 +16,15 @@ namespace Tbx
     #error Unsupported platform
 #endif
 
-    class SharedLibrary 
+    class TBX_EXPORT SharedLibrary
     {
     public:
-        EXPORT bool Load(const std::string& path);
-        EXPORT void Unload();
-
-        EXPORT bool IsValid();
-
-        EXPORT std::string GetPath() const { return _path; }
-        EXPORT Symbol GetSymbol(const std::string& symbolName);
-        EXPORT void ListSymbols();
+        bool Load(const std::string& path);
+        void Unload();
+        bool IsValid();
+        std::string GetPath() const { return _path; }
+        Symbol GetSymbol(const std::string& symbolName);
+        void ListSymbols();
 
     private:
         std::string _path = "";

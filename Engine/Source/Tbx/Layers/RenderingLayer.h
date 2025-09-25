@@ -3,7 +3,6 @@
 #include "Tbx/Layers/Layer.h"
 #include "Tbx/Graphics/IRenderer.h"
 #include "Tbx/Graphics/Rendering.h"
-#include "Tbx/Windowing/IWindow.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Memory/Refs.h"
 
@@ -15,12 +14,7 @@ namespace Tbx
     class RenderingLayer : public Layer
     {
     public:
-        EXPORT RenderingLayer(Ref<IRendererFactory> renderFactory, Ref<EventBus> eventBus);
-
-        /// <summary>
-        /// Gets the renderer used by a given window.
-        /// </summary>
-        EXPORT Ref<IRenderer> GetRenderer(const Ref<IWindow>& window);
+        TBX_EXPORT RenderingLayer(Ref<IRendererFactory> renderFactory, Ref<EventBus> eventBus);
 
     protected:
         void OnUpdate() override;

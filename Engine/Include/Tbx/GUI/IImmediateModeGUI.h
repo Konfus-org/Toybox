@@ -5,7 +5,7 @@
 namespace Tbx
 {
     // TODO: create a plugin for this!
-    class IImmediateGui
+    class EXPORT IImmediateGui
     {
     public:
         virtual ~IImmediateGui() = default;

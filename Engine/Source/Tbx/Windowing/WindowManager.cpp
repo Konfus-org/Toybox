@@ -27,7 +27,7 @@ namespace Tbx
             window->Update();
             if (window->IsClosed())
             {
-                _stack.Remove(window->GetId());
+                _stack.Remove(window->Id);
                 _eventBus->Post(WindowClosedEvent(window));
             }
             if (window->IsFocused())
@@ -37,28 +37,28 @@ namespace Tbx
         }
     }
 
-    const std::vector<Ref<IWindow>>& WindowManager::GetAllWindows() const
+    const std::vector<Ref<Window>>& WindowManager::GetAllWindows() const
     {
         return _stack.GetAll();
     }
 
-    Ref<IWindow> WindowManager::GetMainWindow() const
+    Ref<Window> WindowManager::GetMainWindow() const
     {
         return GetWindow(_mainWindowId);
     }
 
-    Ref<IWindow> WindowManager::GetWindow(const Uid& id) const
+    Ref<Window> WindowManager::GetWindow(const Uid& id) const
     {
         return _stack.Get(id);
     }
 
     Uid WindowManager::OpenWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
-        Ref<IWindow> window = _windowFactory->Create(name, size, mode);
+        Ref<Window> window = _windowFactory->Create(name, size, mode);
         TBX_ASSERT(window, "Failed to create window!");
         if (_mainWindowId == Uid::Invalid)
         {
-            _mainWindowId = window->GetId();
+            _mainWindowId = window->Id;
         }
         
         _stack.Push(window);
@@ -66,7 +66,7 @@ namespace Tbx
         window->Focus();
         _eventBus->Post(WindowOpenedEvent(window));
 
-        return window->GetId();
+        return window->Id;
     }
 
     void WindowManager::CloseWindow(const Uid& id)

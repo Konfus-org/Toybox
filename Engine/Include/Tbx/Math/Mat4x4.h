@@ -12,32 +12,12 @@ namespace Tbx
     /// A 4x4 matrix to store data. Most often used for rendering.
     /// This matrix stores data in column major order.
     /// </summary>
-    struct EXPORT Mat4x4 : public IPrintable
+    struct TBX_EXPORT Mat4x4 : public IPrintable
     {
-    public:
-        /// <summary>
-        /// Creates a new default 4x4 matrix. The default value is the identity matrix.
-        /// </summary>
         Mat4x4();
-
-        /// <summary>
-        /// Creates a new matrix with the given data, the data must be passed in column major order.
-        /// </summary>
         explicit(false) Mat4x4(const std::array<float, 16>& data) : Values(data) {}
-
-        /// <summary>
-        /// Creates a new matrix with the given data, the data must be passed in column major order.
-        /// </summary>
         explicit(false) Mat4x4(const std::initializer_list<float>& data);
-
-        /// <summary>
-        /// Creates a new matrix with the given data represent an upright 4x4 matrix.
-        /// </summary>
         explicit(false) Mat4x4(const std::initializer_list<std::initializer_list<float>>& data);
-
-        /// <summary>
-        /// Creates a new matrix with the given data represent an upright 4x4 matrix.
-        /// </summary>
         explicit(false) Mat4x4(const std::array<std::array<float, 4>, 4>& data);
 
         friend Mat4x4 operator * (float lhs, const Mat4x4& rhs) { return Multiply(lhs, rhs); }
@@ -49,10 +29,8 @@ namespace Tbx
 
         float& operator[](int index) { return Values[index]; }
         const float& operator[](int index) const { return Values[index]; }
-
         float& operator()(int row, int col) { return Values[row * 4 + col]; }
         const float& operator()(int row, int col) const { return Values[row * 4 + col];}
-
         explicit(false) operator std::array<float, 16>() const { return Values; }
 
         std::string ToString() const override;

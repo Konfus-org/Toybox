@@ -10,11 +10,6 @@ namespace Tbx
         _rendering = std::make_unique<Rendering>(renderFactory, eventBus);
     }
 
-    Ref<IRenderer> RenderingLayer::GetRenderer(const Ref<IWindow>& window)
-    {
-        return _rendering->GetRenderer(window);
-    }
-
     void RenderingLayer::OnUpdate()
     {
         _rendering->Update();

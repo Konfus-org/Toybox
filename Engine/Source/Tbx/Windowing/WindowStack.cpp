@@ -9,31 +9,31 @@ namespace Tbx
         Clear();
     }
 
-    void WindowStack::Push(Ref<IWindow> window)
+    void WindowStack::Push(Ref<Window> window)
     {
         _windows.push_back(window);
     }
 
     bool WindowStack::Contains(const Uid& id) const
     {
-        auto window = std::find_if(_windows.begin(), _windows.end(), [id](Ref<IWindow> window)
+        auto window = std::find_if(_windows.begin(), _windows.end(), [id](Ref<Window> window)
         {
-            return window->GetId() == id;
+            return window->Id == id;
         });
         return window != _windows.end();
     }
 
-    Ref<IWindow> WindowStack::Get(const Uid& id) const
+    Ref<Window> WindowStack::Get(const Uid& id) const
     {
-        auto window = std::find_if(_windows.begin(), _windows.end(), [id](Ref<IWindow> window)
+        auto window = std::find_if(_windows.begin(), _windows.end(), [id](Ref<Window> window)
         {
-            return window->GetId() == id;
+            return window->Id == id;
         });
         TBX_ASSERT(window != _windows.end(), "Window with the id {} does not exist!", id.ToString());
         return *window;
     }
 
-    const std::vector<Ref<IWindow>>& WindowStack::GetAll() const
+    const std::vector<Ref<Window>>& WindowStack::GetAll() const
     {
         return _windows;
     }
@@ -42,9 +42,9 @@ namespace Tbx
     {
         if (_windows.empty()) return;
 
-        auto window = std::find_if(_windows.begin(), _windows.end(), [id](Ref<IWindow> window)
+        auto window = std::find_if(_windows.begin(), _windows.end(), [id](Ref<Window> window)
         {
-            return window->GetId() == id;
+            return window->Id == id;
         });
         TBX_ASSERT(window != _windows.end(), "Window with the id {} does not exist!", id.ToString());
         _windows.erase(window);

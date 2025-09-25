@@ -4,7 +4,7 @@
 
 namespace Tbx
 {
-    class EXPORT AppInitializedEvent : public Event
+    class TBX_EXPORT AppInitializedEvent : public Event
     {
     public:
         std::string ToString() const override
@@ -13,7 +13,7 @@ namespace Tbx
         }
     };
 
-    class EXPORT AppExitingEvent : public Event
+    class TBX_EXPORT AppExitingEvent : public Event
     {
     public:
         std::string ToString() const override
@@ -22,7 +22,7 @@ namespace Tbx
         }
     };
 
-    class EXPORT AppUpdatedEvent : public Event
+    class TBX_EXPORT AppUpdatedEvent : public Event
     {
     public:
         std::string ToString() const override
@@ -31,7 +31,7 @@ namespace Tbx
         }
     };
 
-    class EXPORT AppSettingsChangedEvent : public Event
+    class TBX_EXPORT AppSettingsChangedEvent : public Event
     {
     public:
         explicit AppSettingsChangedEvent(const Settings& settings)

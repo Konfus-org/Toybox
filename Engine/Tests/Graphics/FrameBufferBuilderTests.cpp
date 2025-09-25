@@ -32,20 +32,20 @@ namespace Tbx::Tests::Graphics
         auto& matInstanceC = toyC->EmplaceBlock<MaterialInstance>(materialB, textureB);
 
         // Act
-        FrameBufferBuilder builder;
-        FrameBuffer buffer = builder.BuildUploadBuffer(root);
+        RenderCommandBufferBuilder builder;
+        RenderCommandBuffer buffer = builder.BuildUploadBuffer(root);
 
         // Assert
         std::vector<Uid> uploadedMaterials;
         std::vector<Uid> uploadedMeshes;
         for (const auto& cmd : buffer.GetCommands())
         {
-            if (cmd.GetType() == DrawCommandType::UploadMaterial)
+            if (cmd.GetType() == RenderCommandType::UploadMaterial)
             {
                 const auto& mat = std::any_cast<const MaterialInstance&>(cmd.GetPayload());
                 uploadedMaterials.push_back(mat.GetId());
             }
-            if (cmd.GetType() == DrawCommandType::UploadMesh)
+            if (cmd.GetType() == RenderCommandType::UploadMesh)
             {
                 const auto& mesh = std::any_cast<const Mesh&>(cmd.GetPayload());
                 uploadedMeshes.push_back(mesh.GetId());
@@ -69,8 +69,8 @@ namespace Tbx::Tests::Graphics
         auto toy = std::make_shared<Toy>();
 
         // Act
-        FrameBufferBuilder builder;
-        FrameBuffer buffer = builder.BuildRenderBuffer(toy);
+        RenderCommandBufferBuilder builder;
+        RenderCommandBuffer buffer = builder.BuildRenderBuffer(toy);
 
         // Assert
         EXPECT_TRUE(buffer.GetCommands().empty());
@@ -96,30 +96,30 @@ namespace Tbx::Tests::Graphics
             .SetPosition({ 0.0f, 0.0f, 5.0f });
 
         // Act
-        FrameBufferBuilder builder;
-        FrameBuffer buffer = builder.BuildRenderBuffer(root);
+        RenderCommandBufferBuilder builder;
+        RenderCommandBuffer buffer = builder.BuildRenderBuffer(root);
 
         // Assert
         const auto& cmds = buffer.GetCommands();
         ASSERT_EQ(cmds.size(), 5);
 
         const auto& cmd0Uniform = std::any_cast<const ShaderUniform&>(cmds[0].GetPayload());
-        EXPECT_EQ(cmds[0].GetType(), DrawCommandType::SetUniform);
+        EXPECT_EQ(cmds[0].GetType(), RenderCommandType::SetUniform);
         EXPECT_STREQ(cmd0Uniform.Name.c_str(), "TransformUniform");
 
         const auto& cmd1Uniform = std::any_cast<const ShaderUniform&>(cmds[1].GetPayload());
-        EXPECT_EQ(cmds[1].GetType(), DrawCommandType::SetUniform);
+        EXPECT_EQ(cmds[1].GetType(), RenderCommandType::SetUniform);
         EXPECT_STREQ(cmd1Uniform.Name.c_str(), "ViewProjectionUniform");
 
-        EXPECT_EQ(cmds[2].GetType(), DrawCommandType::SetMaterial);
+        EXPECT_EQ(cmds[2].GetType(), RenderCommandType::SetMaterial);
         const auto& cmd2Material = std::any_cast<const MaterialInstance&>(cmds[2].GetPayload());
         EXPECT_EQ(cmd2Material.GetId(), matInstance.GetId());
 
         const auto& cmd3Uniform = std::any_cast<const ShaderUniform&>(cmds[3].GetPayload());
-        EXPECT_EQ(cmds[3].GetType(), DrawCommandType::SetUniform);
+        EXPECT_EQ(cmds[3].GetType(), RenderCommandType::SetUniform);
         EXPECT_STREQ(cmd3Uniform.Name.c_str(), "TransformUniform");
 
-        EXPECT_EQ(cmds[4].GetType(), DrawCommandType::DrawMesh);
+        EXPECT_EQ(cmds[4].GetType(), RenderCommandType::DrawMesh);
         const auto& cmd4Mesh = std::any_cast<const Mesh&>(cmds[4].GetPayload());
         EXPECT_EQ(cmd4Mesh.GetId(), mesh.GetId());
 

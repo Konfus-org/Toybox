@@ -5,7 +5,7 @@
 
 namespace Tbx
 {
-    class EXPORT KeyEvent : public Event
+    class TBX_EXPORT KeyEvent : public Event
     {
     public:
         explicit KeyEvent(int keyCode) : _keyCode(keyCode) {}
@@ -16,7 +16,7 @@ namespace Tbx
         int _keyCode;
     };
 
-    class EXPORT KeyPressedEvent : public KeyEvent
+    class TBX_EXPORT KeyPressedEvent : public KeyEvent
     {
     public:
         using KeyEvent::KeyEvent;
@@ -27,7 +27,7 @@ namespace Tbx
         }
     };
 
-    class EXPORT KeyReleasedEvent : public KeyEvent
+    class TBX_EXPORT KeyReleasedEvent : public KeyEvent
     {
     public:
         using KeyEvent::KeyEvent;
@@ -38,7 +38,7 @@ namespace Tbx
         }
     };
 
-    class EXPORT KeyHeldEvent : public KeyEvent
+    class TBX_EXPORT KeyHeldEvent : public KeyEvent
     {
     public:
         KeyHeldEvent(int keyCode, float timeHeld) :
@@ -59,7 +59,7 @@ namespace Tbx
         float _timeHeld;
     };
 
-    class EXPORT KeyRepeatedEvent : public KeyEvent
+    class TBX_EXPORT KeyRepeatedEvent : public KeyEvent
     {
     public:
         KeyRepeatedEvent(int keyCode, int repeatCount) :
@@ -80,11 +80,11 @@ namespace Tbx
         int _repeatCount;
     };
 
-    class EXPORT MouseEvent : public Event
+    class TBX_EXPORT MouseEvent : public Event
     {
     };
 
-    class EXPORT MouseMovedEvent : public MouseEvent
+    class TBX_EXPORT MouseMovedEvent : public MouseEvent
     {
     public:
         MouseMovedEvent(float x, float y) : _xPos(x), _yPos(y) {}
@@ -104,7 +104,7 @@ namespace Tbx
         float _yPos;
     };
 
-    class EXPORT MouseScrolledEvent : public MouseEvent
+    class TBX_EXPORT MouseScrolledEvent : public MouseEvent
     {
     public:
         MouseScrolledEvent(float x, float y) : _xScroll(x), _yScroll(y) {}
@@ -124,7 +124,7 @@ namespace Tbx
         float _yScroll;
     };
 
-    class EXPORT MouseButtonPressedEvent : public MouseEvent
+    class TBX_EXPORT MouseButtonPressedEvent : public MouseEvent
     {
     public:
         explicit MouseButtonPressedEvent(int button) : _button(button) {}
@@ -143,7 +143,7 @@ namespace Tbx
         int _button;
     };
 
-    class EXPORT MouseButtonReleasedEvent : public MouseEvent
+    class TBX_EXPORT MouseButtonReleasedEvent : public MouseEvent
     {
     public:
         explicit MouseButtonReleasedEvent(int button) : _button(button) {}

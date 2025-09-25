@@ -1,5 +1,5 @@
 #include "Tbx/PCH.h"
-#include "Tbx/TSS/Stage.h"
+#include "Tbx/Stages/Stage.h"
 #include "Tbx/Events/TSSEvents.h"
 
 namespace Tbx

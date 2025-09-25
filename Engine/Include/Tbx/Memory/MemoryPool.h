@@ -10,14 +10,14 @@ namespace Tbx
     /// <summary>
     /// A simple struct used to reserve a block of continuous memory.
     /// </summary>
-    struct MemoryPool
+    struct EXPORT MemoryPool
     {
     public:
-        EXPORT MemoryPool(const uint64& elementSize, const uint64& poolSize)
-            : _data(std::make_shared<char[]>(elementSize * poolSize)), _elementSize(elementSize), _poolSize(poolSize) { }
+        MemoryPool(const uint64& elementSize, const uint64& poolSize)
+            : _data(std::make_unique<char[]>(elementSize * poolSize)), _elementSize(elementSize), _poolSize(poolSize) { }
 
         template<typename T>
-        EXPORT T* Get(uint64 index) const
+        T* Get(uint64 index) const
         {
             if (index >= _poolSize)
             {
@@ -29,7 +29,7 @@ namespace Tbx
         }
 
         template<typename T>
-        EXPORT void Set(uint64 index, const T& value) const
+        void Set(uint64 index, const T& value) const
         {
             if (index >= _poolSize)
             {
@@ -41,7 +41,7 @@ namespace Tbx
         }
 
     private:
-        Ref<char[]> _data = nullptr;
+        ExclusiveRef<char[]> _data = nullptr;
         uint64 _elementSize = 0;
         uint64 _poolSize = 0;
     };

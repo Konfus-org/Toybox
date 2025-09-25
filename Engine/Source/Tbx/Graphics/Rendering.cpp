@@ -1,8 +1,9 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Graphics/Rendering.h"
-#include "Tbx/Graphics/FrameBufferBuilder.h"
+#include "Tbx/Events/RenderEvents.h"
+#include "Tbx/Graphics/RenderCommand.h"
+#include "Tbx/Graphics/Viewport.h"
 #include <algorithm>
-#include <cstddef>
 #include <iterator>
 
 namespace Tbx
@@ -16,6 +17,7 @@ namespace Tbx
 
         _eventBus->Subscribe(this, &Rendering::OnWindowOpened);
         _eventBus->Subscribe(this, &Rendering::OnWindowClosed);
+        _eventBus->Subscribe(this, &Rendering::OnWindowResized);
         _eventBus->Subscribe(this, &Rendering::OnAppSettingsChanged);
         _eventBus->Subscribe(this, &Rendering::OnStageOpened);
         _eventBus->Subscribe(this, &Rendering::OnStageClosed);
@@ -40,7 +42,7 @@ namespace Tbx
         DrawFrame();
     }
 
-    Tbx::Ref<IRenderer> Rendering::GetRenderer(const Tbx::Ref<IWindow>& window) const
+    Tbx::Ref<IRenderer> Rendering::GetRenderer(const Tbx::Ref<Window>& window) const
     {
         if (!window)
         {
@@ -60,31 +62,10 @@ namespace Tbx
 
     void Rendering::DrawFrame()
     {
-        FlushPendingUploads();
-        FrameBuffer renderBuffer = {};
+        ProcessPendingUploads();
 
-        for (const auto& stage : _openStages)
-        {
-            if (!stage)
-            {
-                continue;
-            }
-
-            const auto spaceRoot = stage->GetRoot();
-            if (!spaceRoot)
-            {
-                continue;
-            }
-
-            FrameBufferBuilder builder;
-            const auto stageRenderBuffer = builder.BuildRenderBuffer(spaceRoot);
-            for (const auto& command : stageRenderBuffer)
-            {
-                renderBuffer.Add(command);
-            }
-        }
-
-        FlushRenderBuffer(renderBuffer);
+        
+        ProcessOpenStages();
     }
 
     void Rendering::QueueStageUpload(const Tbx::Ref<Stage>& stage)
@@ -101,14 +82,15 @@ namespace Tbx
         }
     }
 
-    void Rendering::FlushPendingUploads()
+    void Rendering::ProcessPendingUploads()
     {
         if (_pendingUploadStages.empty())
         {
             return;
         }
 
-        FrameBuffer uploadBuffer = {};
+        RenderCommandBufferBuilder builder = {};
+        RenderCommandBuffer uploadBuffer = {};
         for (const auto& stage : _pendingUploadStages)
         {
             if (!stage)
@@ -122,15 +104,14 @@ namespace Tbx
                 continue;
             }
 
-            FrameBufferBuilder builder;
             const auto stageUploadBuffer = builder.BuildUploadBuffer(spaceRoot);
-            for (const auto& command : stageUploadBuffer)
+            for (const auto& command : stageUploadBuffer.Commands)
             {
-                uploadBuffer.Add(command);
+                uploadBuffer.Commands.push_back(command);
             }
         }
 
-        if (!uploadBuffer.GetCommands().empty())
+        if (!uploadBuffer.Commands.empty())
         {
             for (const auto& renderer : _renderers)
             {
@@ -147,8 +128,31 @@ namespace Tbx
         _pendingUploadStages.clear();
     }
 
-    void Rendering::FlushRenderBuffer(const FrameBuffer& renderBuffer)
+    void Rendering::ProcessOpenStages()
     {
+        RenderCommandBufferBuilder builder = {};
+        RenderCommandBuffer renderBuffer = {};
+        for (const auto& stage : _openStages)
+        {
+            if (!stage)
+            {
+                continue;
+            }
+
+            const auto spaceRoot = stage->GetRoot();
+            if (!spaceRoot)
+            {
+                continue;
+            }
+
+            const auto stageRenderBuffer = builder.BuildRenderBuffer(spaceRoot);
+            for (const auto& command : stageRenderBuffer.Commands)
+            {
+                renderBuffer.Commands.push_back(command);
+            }
+        }
+        renderBuffer.Commands.emplace_back(RenderCommandType::Clear, _clearColor);
+
         for (size_t rendererIndex = 0; rendererIndex < _renderers.size(); ++rendererIndex)
         {
             const auto& renderer = _renderers[rendererIndex];
@@ -158,22 +162,12 @@ namespace Tbx
                 continue;
             }
 
-            renderer->SetViewport({ {0, 0}, rendererWindow->GetSize() });
-            renderer->Clear(_clearColor);
             renderer->Process(renderBuffer);
         }
 
         if (_eventBus)
         {
             _eventBus->Send(RenderedFrameEvent());
-        }
-
-        for (const auto& window : _windows)
-        {
-            if (window)
-            {
-                window->SwapBuffers();
-            }
         }
     }
 
@@ -222,36 +216,54 @@ namespace Tbx
             return;
         }
 
-        TBX_ASSERT(_rendererFactory, "Render factory plugin was unloaded! Cannot create new renderer");
-        if (!_rendererFactory)
-        {
-            return;
-        }
-
-        auto newRenderer = _rendererFactory->Create(newWindow);
+        auto newRenderer = _rendererFactory->Create();
         _windows.push_back(newWindow);
         _renderers.push_back(newRenderer);
         for (const auto& stage : _openStages)
         {
             QueueStageUpload(stage);
         }
+
+        // Init viewport size
+        RenderCommandBuffer renderBuffer = {};
+        renderBuffer.Commands.emplace_back(RenderCommandType::SetViewport, Viewport({0, 0}, newWindow->GetSize()));
+        newRenderer->Process(renderBuffer);
     }
 
     void Rendering::OnWindowClosed(const WindowClosedEvent& e)
     {
-        auto window = e.GetWindow();
-        auto it = std::find(_windows.begin(), _windows.end(), window);
-        if (it == _windows.end())
+        auto closedWindow = e.GetWindow();
+        const auto renderer = GetRenderer(closedWindow);
+        if (!renderer)
         {
             return;
         }
 
-        const auto index = static_cast<size_t>(std::distance(_windows.begin(), it));
-        _windows.erase(_windows.begin() + static_cast<std::ptrdiff_t>(index));
-        if (index < _renderers.size())
+        const auto it = std::find(_windows.begin(), _windows.end(), closedWindow);
+        if (it != _windows.end())
         {
-            _renderers.erase(_renderers.begin() + static_cast<std::ptrdiff_t>(index));
+            _windows.erase(it);
         }
+
+        const auto rendererIt = std::find(_renderers.begin(), _renderers.end(), renderer);
+        if (rendererIt != _renderers.end())
+        {
+            _renderers.erase(rendererIt);
+        }
+    }
+
+    void Rendering::OnWindowResized(const WindowResizedEvent& e)
+    {
+        const auto resizedWindow = e.GetWindow();
+        const auto renderer = GetRenderer(resizedWindow);
+        if (!renderer)
+        {
+            return;
+        }
+
+        RenderCommandBuffer renderBuffer = {};
+        renderBuffer.Commands.emplace_back(RenderCommandType::SetViewport, Viewport({ 0, 0 }, resizedWindow->GetSize()));
+        renderer->Process(renderBuffer);
     }
 
     void Rendering::OnAppSettingsChanged(const AppSettingsChangedEvent& e)

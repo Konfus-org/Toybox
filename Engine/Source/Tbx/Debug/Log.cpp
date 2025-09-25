@@ -11,8 +11,22 @@ namespace Tbx
 
     void Log::Initialize(Ref<ILogger> logger)
     {
-        _isOpen = true;
+        if (_isOpen)
+        {
+            return;
+        }
+
         _logger = logger;
+#ifdef TBX_DEBUG
+        // No log file in debug
+        _logger->Open("Tbx", "");
+#else
+        // Open log file in non-debug
+        const auto currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        const auto logFilePath = std::format("Logs\\{}.log", currentTime);
+        _logger->Open("Tbx", logFilePath);
+#endif
+        _isOpen = true;
     }
 
     void Log::Shutdown()

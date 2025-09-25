@@ -2,12 +2,12 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Debug/IPrintable.h"
 #include <string>
+#include <format>
 
 namespace Tbx
 {
-    struct EXPORT RgbaColor : public IPrintable
+    struct TBX_EXPORT RgbaColor : public IPrintable
     {
-    public:
         /// <summary>
         /// Default constructor, initializes the color to black (0, 0, 0, 1)
         /// </summary>

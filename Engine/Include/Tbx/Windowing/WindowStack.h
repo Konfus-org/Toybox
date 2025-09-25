@@ -1,44 +1,44 @@
 #pragma once
-#include "Tbx/Windowing/IWindow.h"
+#include "Tbx/Windowing/Window.h"
 #include "Tbx/Memory/Refs.h"
 #include <vector>
 
 namespace Tbx
 {
-    class WindowStack
+    class TBX_EXPORT WindowStack
     {
     public:
-        EXPORT ~WindowStack();
+        ~WindowStack();
 
         /// <summary>
         /// Operator to allow indexing into the window stack.
         /// </summary>
-        EXPORT Ref<IWindow> operator[](int index) const { return _windows[index]; }
+        Ref<Window> operator[](int index) const { return _windows[index]; }
 
         /// <summary>
         /// Adds an existing window to the stack
         /// </summary>
         /// <param name="window"></param>
-        EXPORT void Push(Ref<IWindow> window);
+        void Push(Ref<Window> window);
 
-        EXPORT bool Contains(const Uid& id) const;
-        EXPORT Ref<IWindow> Get(const Uid& id) const;
-        EXPORT const std::vector<Ref<IWindow>>& GetAll() const;
+        bool Contains(const Uid& id) const;
+        Ref<Window> Get(const Uid& id) const;
+        const std::vector<Ref<Window>>& GetAll() const;
 
-        EXPORT void Remove(const Uid& id);
-        EXPORT void Clear();
+        void Remove(const Uid& id);
+        void Clear();
 
-        EXPORT std::vector<Ref<IWindow>>::iterator begin() { return _windows.begin(); }
-        EXPORT std::vector<Ref<IWindow>>::iterator end() { return _windows.end(); }
-        EXPORT std::vector<Ref<IWindow>>::reverse_iterator rbegin() { return _windows.rbegin(); }
-        EXPORT std::vector<Ref<IWindow>>::reverse_iterator rend() { return _windows.rend(); }
+        std::vector<Ref<Window>>::iterator begin() { return _windows.begin(); }
+        std::vector<Ref<Window>>::iterator end() { return _windows.end(); }
+        std::vector<Ref<Window>>::reverse_iterator rbegin() { return _windows.rbegin(); }
+        std::vector<Ref<Window>>::reverse_iterator rend() { return _windows.rend(); }
 
-        EXPORT std::vector<Ref<IWindow>>::const_iterator begin() const { return _windows.begin(); }
-        EXPORT std::vector<Ref<IWindow>>::const_iterator end() const { return _windows.end(); }
-        EXPORT std::vector<Ref<IWindow>>::const_reverse_iterator rbegin() const { return _windows.rbegin(); }
-        EXPORT std::vector<Ref<IWindow>>::const_reverse_iterator rend() const { return _windows.rend(); }
+        std::vector<Ref<Window>>::const_iterator begin() const { return _windows.begin(); }
+        std::vector<Ref<Window>>::const_iterator end() const { return _windows.end(); }
+        std::vector<Ref<Window>>::const_reverse_iterator rbegin() const { return _windows.rbegin(); }
+        std::vector<Ref<Window>>::const_reverse_iterator rend() const { return _windows.rend(); }
 
     private:
-        std::vector<Ref<IWindow>> _windows = {};
+        std::vector<Ref<Window>> _windows = {};
     };
 }

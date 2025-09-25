@@ -4,9 +4,6 @@
 
 namespace Tbx
 {
-    using PluginLoadFunc = Plugin*(*)(std::weak_ptr<App>);
-    using PluginUnloadFunc = void(*)(Plugin*);
-
     LoadedPlugin::LoadedPlugin(const PluginMeta& pluginInfo, std::weak_ptr<App> app)
     {
         _pluginInfo = pluginInfo;
@@ -42,7 +39,7 @@ namespace Tbx
         }
 
         // Get load plugin function from library
-        const auto loadFuncSymbol = _library.GetSymbol("Load");
+        const auto loadFuncSymbol = _library.GetSymbol(TBX_LOAD_PLUGIN_FN_NAME);
         if (!loadFuncSymbol)
         {
             TBX_TRACE_ERROR("Failed to load library because no load library function was found in: {0}, is it calling TBX_REGISTER_PLUGIN?", pluginFullPath);
@@ -50,7 +47,7 @@ namespace Tbx
             return;
         }
 
-        const auto unloadFuncSymbol = _library.GetSymbol("Unload");
+        const auto unloadFuncSymbol = _library.GetSymbol(TBX_UNLOAD_PLUGIN_FN_NAME);
         if (!unloadFuncSymbol)
         {
             TBX_TRACE_ERROR("No unload library function found in: {0}, is it calling TBX_REGISTER_PLUGIN?", pluginFullPath);
@@ -66,17 +63,14 @@ namespace Tbx
         // reinterpret_cast instead which is the correct way to cast the
         // symbol returned from the dynamic library loader to a function
         // pointer.
-        const auto loadPluginFunc = reinterpret_cast<PluginLoadFunc>(loadFuncSymbol);
-        const auto unloadPluginFunc = reinterpret_cast<PluginUnloadFunc>(unloadFuncSymbol);
+        const auto loadPluginFunc = reinterpret_cast<PluginLoadFn>(loadFuncSymbol);
+        const auto unloadPluginFunc = reinterpret_cast<PluginUnloadFn>(unloadFuncSymbol);
         auto* loadedPlugin = loadPluginFunc(app);
         Ref<Plugin> sharedLoadedPlugin(loadedPlugin, [unloadPluginFunc](Plugin* pluginToUnload)
         {
             unloadPluginFunc(pluginToUnload);
         });
-
-        // Set and init plugin
         _plugin = sharedLoadedPlugin;
-        _plugin->OnLoad();
 
 #ifdef TBX_DEBUG
         _library.ListSymbols();
@@ -87,7 +81,6 @@ namespace Tbx
     {
         if (_plugin != nullptr)
         {
-            _plugin->OnUnload();
             _plugin.reset();
         }
 
