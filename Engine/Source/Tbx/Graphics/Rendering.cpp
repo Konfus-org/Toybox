@@ -1,7 +1,7 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Graphics/Rendering.h"
 #include "Tbx/Events/RenderEvents.h"
-#include "Tbx/Graphics/RenderCommand.h"
+#include "Tbx/Graphics/RenderCommands.h"
 #include "Tbx/Graphics/Viewport.h"
 #include <algorithm>
 #include <iterator>

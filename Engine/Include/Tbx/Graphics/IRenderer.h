@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/Graphics/RenderCommand.h"
+#include "Tbx/Graphics/RenderCommands.h"
 #include "Tbx/Graphics/GraphicsApi.h"
 #include "Tbx/Memory/Refs.h"
 
@@ -29,6 +29,7 @@ namespace Tbx
     class TBX_EXPORT IOpenGlRenderer : public IRenderer
     {
     public:
+        IOpenGlRenderer() = default;
         virtual ~IOpenGlRenderer() = default;
 
         GraphicsApi GetApi() override
@@ -37,7 +38,7 @@ namespace Tbx
         }
     };
 
-    class TBX_EXPORT IVulkanRenderer : IRenderer
+    class TBX_EXPORT IVulkanRenderer : public IRenderer
     {
     public:
         virtual ~IVulkanRenderer() = default;

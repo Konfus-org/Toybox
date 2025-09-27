@@ -21,7 +21,7 @@ namespace Tbx
         virtual TData Load(const std::filesystem::path& filepath) = 0;
     };
 
-    class TBX_EXPORT ITextureLoader : AssetLoader<Texture>
+    class TBX_EXPORT ITextureLoader : public AssetLoader<Texture>
     {
         Texture Load(const std::filesystem::path& filepath) final
         {
@@ -32,7 +32,7 @@ namespace Tbx
         virtual Texture LoadTexture(const std::filesystem::path& filepath) = 0;
     };
 
-    class TBX_EXPORT IShaderLoader : AssetLoader<Shader>
+    class TBX_EXPORT IShaderLoader : public AssetLoader<Shader>
     {
         Shader Load(const std::filesystem::path& filepath) final
         {
@@ -43,7 +43,7 @@ namespace Tbx
         virtual Shader LoadShader(const std::filesystem::path& filepath) = 0;
     };
 
-    class TBX_EXPORT IModelLoader : AssetLoader<Model>
+    class TBX_EXPORT IModelLoader : public AssetLoader<Model>
     {
         Model Load(const std::filesystem::path& filepath) final
         {
@@ -54,7 +54,7 @@ namespace Tbx
         virtual Model LoadModel(const std::filesystem::path& filepath) = 0;
     };
 
-    class TBX_EXPORT ITextLoader : AssetLoader<Text>
+    class TBX_EXPORT ITextLoader : public AssetLoader<Text>
     {
         Text Load(const std::filesystem::path& filepath) final
         {

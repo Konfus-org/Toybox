@@ -7,11 +7,20 @@
     #define TBX_WORKING_ROOT_DIR "./"
 #endif
 
+#ifndef TBX_ASSET_DIR
+    #define TBX_ASSET_DIR "/Assets"
+#endif
+
 namespace Tbx::FileSystem
 {
     inline std::string GetWorkingDirectory()
     {
         return TBX_WORKING_ROOT_DIR;
+    }
+
+    inline std::string GetAssetDirectory()
+    {
+        return TBX_WORKING_ROOT_DIR "/" TBX_ASSET_DIR;
     }
 
     inline std::string GetRelativePath(const std::filesystem::path& absolutePath)

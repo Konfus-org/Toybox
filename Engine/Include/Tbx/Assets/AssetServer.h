@@ -61,8 +61,8 @@ namespace Tbx
         AssetServer(
             const std::string& assetsFolderPath,
             const std::vector<Ref<IAssetLoader>>& loaders)
-            : _assetDirectory(std::filesystem::absolute(assetsFolderPath)),
-              _loaders(loaders)
+            : _assetDirectory(std::filesystem::absolute(assetsFolderPath))
+            , _loaders(loaders)
         {
             try
             {
@@ -101,9 +101,9 @@ namespace Tbx
         /// Returns nullptr when no loader is available for the supplied path or loading fails.
         /// </summary>
         template <typename TData>
-        Ref<TData> AddAsset(std::string path)
+        Ref<TData> RegisterAsset(const std::string& path)
         {
-            std::lock_guard lock(_mutex);
+            std::scoped_lock lock(_mutex);
 
             const auto absolutePath = ResolvePath(path);
             const auto normalizedPath = NormalizeKey(absolutePath);
@@ -113,7 +113,7 @@ namespace Tbx
                 auto loader = FindLoaderFor(absolutePath);
                 if (!loader)
                 {
-                    TBX_TRACE_WARNING("AssetServer: unable to register {} because no loader accepted the file", path);
+                    TBX_ASSERT(false, "AssetServer: Unable to register {} because no loader accepted the file", path);
                     return nullptr;
                 }
 
@@ -122,7 +122,7 @@ namespace Tbx
                 record->FilePath = absolutePath;
                 record->Loader = loader;
 
-                auto emplaceResult = _assetRecords.emplace(normalizedPath, std::move(record));
+                auto& emplaceResult = _assetRecords.emplace(normalizedPath, std::move(record));
                 recordIt = emplaceResult.first;
             }
 
@@ -134,14 +134,15 @@ namespace Tbx
         /// If the asset was never seen before this call returns nullptr.
         /// </summary>
         template <typename TData>
-        Ref<TData> GetAsset(std::string path) const
+        Ref<TData> GetAsset(const std::string& path) const
         {
-            std::lock_guard lock(_mutex);
+            std::scoped_lock lock(_mutex);
 
             const auto normalizedPath = NormalizeKey(path);
             auto recordIt = _assetRecords.find(normalizedPath);
             if (recordIt == _assetRecords.end())
             {
+                TBX_ASSERT(false, "AssetServer: Failed to find the asset at the path {}", path);
                 return nullptr;
             }
 
@@ -154,7 +155,7 @@ namespace Tbx
         template <typename TData>
         std::vector<Ref<TData>> GetLoadedAssets() const
         {
-            std::lock_guard lock(_mutex);
+            std::scoped_lock lock(_mutex);
 
             std::vector<Ref<TData>> loadedAssets = {};
             auto cacheIt = _assetCache.begin();
@@ -320,17 +321,12 @@ namespace Tbx
             return FileSystem::NormalizePath(relativeString);
         }
 
+    private:
         mutable std::mutex _mutex = {};
+        mutable std::unordered_map<std::string, Ref<AssetRecord>> _assetRecords = {};
+        mutable std::unordered_map<std::string, WeakRef<void>> _assetCache = {};
         std::filesystem::path _assetDirectory = {};
         std::vector<Ref<IAssetLoader>> _loaders = {};
-        /// <summary>
-        /// Tracks every discovered asset keyed by the normalized relative path.
-        /// </summary>
-        mutable std::unordered_map<std::string, Ref<AssetRecord>> _assetRecords = {};
-        /// <summary>
-        /// Stores cached runtime data so it can be reused while the caller keeps it alive.
-        /// </summary>
-        mutable std::unordered_map<std::string, WeakRef<void>> _assetCache = {};
 
         // TODO: memory pools for each asset type that allocates a target amount of memory and keeps track of the available memory, when its full it'll clear out old stuff
         // AKA things at the beginning of the pool and are not in use (which is known via a shared pointer ref count) and start writing there.

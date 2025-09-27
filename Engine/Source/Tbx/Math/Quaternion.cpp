@@ -6,7 +6,7 @@
 
 namespace Tbx
 {
-    Quaternion Quaternion::Identity = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
+    TBX_EXPORT Quaternion Quaternion::Identity = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
 
     Vector3 Quaternion::GetForward(const Quaternion& rot)
     {

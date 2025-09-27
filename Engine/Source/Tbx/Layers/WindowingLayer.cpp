@@ -5,9 +5,10 @@ namespace Tbx
 {
     WindowingLayer::WindowingLayer(
         const std::string& appName,
-        Ref<WindowManager> windowManager)
+        Ref<IWindowFactory> windowFactory,
+        Ref<EventBus> eventBus)
         : Layer("Windowing")
-        , _windowManager(windowManager)
+        , _windowManager(std::make_unique<WindowManager>(windowFactory, eventBus))
         , _appName(appName)
     {
     }

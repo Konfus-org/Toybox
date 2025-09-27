@@ -10,11 +10,22 @@
     },
     {
       "name": "tbx-vs",
-      "displayName": "Toybox",
+      "displayName": "Toybox-VS2022",
+      "inherits": "vs2022-x64-base"
+    },
+    {
+      "name": "tbx-vs-clean",
+      "displayName": "Toybox-Clean",
       "inherits": "vs2022-x64-base"
     }
   ],
   "buildPresets": [
-    { "name": "tbx-vs", "configurePreset": "tbx-vs" }
+    { "name": "tbx-vs", "configurePreset": "tbx-vs" },
+    {
+      "name": "tbx-vs-clean",
+      "displayName": "Clean (VS/MSBuild)",
+      "configurePreset": "tbx-vs-clean",
+      "nativeToolOptions": [ "/t:Clean" ]
+    }
   ]
 }

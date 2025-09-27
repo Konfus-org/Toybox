@@ -14,7 +14,7 @@ namespace Tbx
         std::string ToString() const override { return std::to_string(Value); }
         static Uid Generate();
 
-        explicit(false) operator uint64() const { return Value; }
+        operator uint64() const { return Value; }
 
         static Uid Invalid;
         uint64 Value = -1;

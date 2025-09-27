@@ -6,78 +6,98 @@
 #include <Tbx/Graphics/Camera.h>
 #include <Tbx/Graphics/Mesh.h>
 #include <Tbx/Math/Transform.h>
+#include <Tbx/Math/Trig.h>
+#include <Tbx/Events/TSSEvents.h>
 #include <Tbx/Time/DeltaTime.h>
+#include <vector>
 
-void Demo::OnAttach()
+Demo::Demo(const Tbx::WeakRef<Tbx::App>& app)
+    : Runtime("3d Demo Runtime")
+    , _app(app)
 {
-    TBX_TRACE("Test scene attached!");
+}
+
+void Demo::OnStart()
+{
+    TBX_TRACE("Demo started!");
 
     // Load assets
-    auto assetServer = _app.lock()->GetAssetServer();
-    auto smilyTex = assetServer->GetAsset<Tbx::Texture>("Assets/Smily.png");
-    auto wallTex = assetServer->GetAsset<Tbx::Texture>("Assets/Wall.jpg");
-    auto checkerTex = assetServer->GetAsset<Tbx::Texture>("Assets/Checkerboard.png");
-    auto fragmentShader = assetServer->GetAsset<Tbx::Shader>("Assets/fragment.frag");
-    auto vertexShader = assetServer->GetAsset<Tbx::Shader>("Assets/vertex.vert");
+    const auto& assetServer = _app.lock()->GetAssetServer();
+    auto smilyTex = assetServer.GetAsset<Tbx::Texture>("Assets/Smily.png");
+    auto wallTex = assetServer.GetAsset<Tbx::Texture>("Assets/Wall.jpg");
+    auto checkerTex = assetServer.GetAsset<Tbx::Texture>("Assets/Checkerboard.png");
+    auto fragmentShader = assetServer.GetAsset<Tbx::Shader>("Assets/fragment.frag");
+    auto vertexShader = assetServer.GetAsset<Tbx::Shader>("Assets/vertex.vert");
 
     // Setup testing scene...
-    _world = std::make_shared<Tbx::Stage>(_app.lock()->GetEventBus());
+    _world = std::make_shared<Tbx::Stage>();
     auto worldRoot = _world->GetRoot();
 
     // Setup base material
-    _simpleTexturedMat = Tbx::Material({ *vertexShader, *fragmentShader });
+    auto matShaders = { vertexShader, fragmentShader };
+    _simpleTexturedMat = std::make_shared<Tbx::Material>(matShaders);
 
     // Create room
     {
-        auto floor = worldRoot->EmplaceChild("Floor");
-        floor->EmplaceBlock<Tbx::Mesh>();
-        floor->EmplaceBlock<Tbx::MaterialInstance>(_simpleTexturedMat, checkerTex);
-        floor->EmplaceBlock<Tbx::Transform>()
+        auto floor = std::make_shared<Tbx::Toy>("Floor");
+        floor->Blocks.Add<Tbx::Mesh>();
+        floor->Blocks.Add<Tbx::MaterialInstance>(_simpleTexturedMat, checkerTex);
+        floor->Blocks.Add<Tbx::Transform>()
             .SetPosition({ 0, -25, 100 })
             .SetRotation(Tbx::Quaternion::FromEuler({ 90, 0, 0 }))
             .SetScale({ 50 });
+        _world->GetRoot()->Children.push_back(floor);
 
-        auto wallBack = worldRoot->EmplaceChild("Wall Back");
-        wallBack->EmplaceBlock<Tbx::Mesh>();
-        wallBack->EmplaceBlock<Tbx::MaterialInstance>(_simpleTexturedMat, wallTex);
-        wallBack->EmplaceBlock<Tbx::Transform>()
+        auto wallBack = std::make_shared<Tbx::Toy>("Wall Back");
+        wallBack->Blocks.Add<Tbx::Mesh>();
+        wallBack->Blocks.Add<Tbx::MaterialInstance>(_simpleTexturedMat, wallTex);
+        wallBack->Blocks.Add<Tbx::Transform>()
             .SetPosition({ 0, 0, 125 })
             .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))
             .SetScale({ 50 });
+        _world->GetRoot()->Children.push_back(wallBack);
 
-        auto wallRight = worldRoot->EmplaceChild("Wall Right");
-        wallRight->EmplaceBlock<Tbx::Mesh>();
-        wallRight->EmplaceBlock<Tbx::MaterialInstance>(_simpleTexturedMat, wallTex);
-        wallRight->EmplaceBlock<Tbx::Transform>()
+        auto wallRight = std::make_shared<Tbx::Toy>("Wall Right");
+        wallRight->Blocks.Add<Tbx::Mesh>();
+        wallRight->Blocks.Add<Tbx::MaterialInstance>(_simpleTexturedMat, wallTex);
+        wallRight->Blocks.Add<Tbx::Transform>()
             .SetPosition({ 25, 0, 100 })
             .SetRotation(Tbx::Quaternion::FromEuler({ 0, -90, 0 }))
             .SetScale({ 50 });
+        _world->GetRoot()->Children.push_back(wallRight);
     }
 
     // Create smily
     {
-        auto smily = worldRoot->EmplaceChild("Smily");
-        smily->EmplaceBlock<Tbx::Mesh>();
-        smily->EmplaceBlock<Tbx::MaterialInstance>(_simpleTexturedMat, smilyTex);
-        smily->EmplaceBlock<Tbx::Transform>()
+        auto smily = std::make_shared<Tbx::Toy>("Smily");
+        smily->Blocks.Add<Tbx::Mesh>();
+        smily->Blocks.Add<Tbx::MaterialInstance>(_simpleTexturedMat, smilyTex);
+        smily->Blocks.Add<Tbx::Transform>()
             .SetPosition({ 0, 0, 100 })
             .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))
             .SetScale({ 10 });
         _smily = smily;
+        _world->GetRoot()->Children.push_back(_smily);
     }
 
     // Create camera
     {
-        auto fpsCam = worldRoot->EmplaceChild("Camera");
-        fpsCam->EmplaceBlock<Tbx::Camera>();
-        fpsCam->EmplaceBlock<Tbx::Transform>();
+        auto fpsCam = std::make_shared<Tbx::Toy>("Camera");
+        fpsCam->Blocks.Add<Tbx::Camera>();
+        fpsCam->Blocks.Add<Tbx::Transform>();
         _fpsCam = fpsCam;
+        _world->GetRoot()->Children.push_back(_fpsCam);
     }
+
+    // TODO: Figure out a better way than just needing to know you have to send this event...
+    // Perhaps a stage manager/director?
+    _app.lock()->GetEventBus()
+        .Post(Tbx::StageOpenedEvent(_world));
 }
 
-void Demo::OnDetach()
+void Demo::OnShutdown()
 {
-    TBX_TRACE("Test scene detached!");
+    TBX_TRACE("Demo shutdown!");
 }
 
 void Demo::OnUpdate()
@@ -87,7 +107,7 @@ void Demo::OnUpdate()
 
     // Camera movement
     {
-        auto& camTransform = _fpsCam->GetBlock<Tbx::Transform>();
+        auto& camTransform = _fpsCam->Blocks.Get<Tbx::Transform>();
 
         // Determine movement speed
         const float camMoveSpeed = 10.0f;
@@ -201,7 +221,7 @@ void Demo::OnUpdate()
     {
         // rotate over time
         const float smilyRotateSpeed = 90.0f;
-        auto& smilyTransform = _smily->GetBlock<Tbx::Transform>();
+        auto& smilyTransform = _smily->Blocks.Get<Tbx::Transform>();
         float angle = Tbx::Math::PI * deltaTime * smilyRotateSpeed;
         Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3::Up, angle);
         smilyTransform.Rotation = Tbx::Quaternion::Normalize(smilyTransform.Rotation * qYaw);

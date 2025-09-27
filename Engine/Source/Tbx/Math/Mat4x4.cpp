@@ -9,14 +9,14 @@
 
 namespace Tbx
 {
-    Mat4x4 Mat4x4::Zero = Mat4x4({
+    TBX_EXPORT Mat4x4 Mat4x4::Zero = Mat4x4({
         0.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 0.0f, 0.0f, 0.0f
     });
 
-    Mat4x4 Mat4x4::Identity = Mat4x4({
+    TBX_EXPORT Mat4x4 Mat4x4::Identity = Mat4x4({
         { 1.0f, 0.0f, 0.0f, 0.0f },
         { 0.0f, 1.0f, 0.0f, 0.0f },
         { 0.0f, 0.0f, 1.0f, 0.0f },

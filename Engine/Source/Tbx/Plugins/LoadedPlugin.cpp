@@ -28,9 +28,9 @@ namespace Tbx
     void LoadedPlugin::Load(std::weak_ptr<App> app)
     {
         // Don't load static plugins
-        if (_pluginInfo.GetLib().find(".lib") != std::string::npos) return;
+        if (_pluginInfo.IsStatic) return;
 
-        const std::string& pluginFullPath = _pluginInfo.GetPathToLib();
+        const std::string& pluginFullPath = _pluginInfo.Path;
         _library.Load(pluginFullPath);
         if (!_library.IsValid())
         {

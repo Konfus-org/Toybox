@@ -6,6 +6,8 @@
 
 namespace Tbx
 {
+    using Block = std::any;
+
     struct TBX_EXPORT BlockCollection
     {
         /// <summary>
@@ -63,6 +65,6 @@ namespace Tbx
         }
 
     private:
-        std::unordered_map<std::type_index, std::any> _blocks = {};
+        std::unordered_map<std::type_index, Block> _blocks = {};
     };
 }

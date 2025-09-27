@@ -13,7 +13,7 @@ namespace Tbx
         Quaternion() = default;
         Quaternion(float x, float y, float z, float w)
             : X(x), Y(y), Z(z), W(w) {}
-        explicit(false) Quaternion(const Vector3& euler) 
+        Quaternion(const Vector3& euler) 
         { 
             const auto& q = FromEuler(euler); 
             X = q.X; Y = q.Y; Z = q.Z; W = q.W; 

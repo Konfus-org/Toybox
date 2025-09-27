@@ -23,9 +23,5 @@ target_link_libraries(Launcher PUBLIC
   Tbx::Engine
 )
 
-target_compile_definitions(Launcher PRIVATE
-  COMPILING_TOYBOX=1
-)
-
 # Namespaced alias for consumers
 add_library(Tbx::Launcher ALIAS Launcher)

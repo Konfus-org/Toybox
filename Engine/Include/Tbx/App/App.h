@@ -4,20 +4,19 @@
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Layers/LayerStack.h"
-#include "Tbx/Plugins/PluginServer.h"
 #include "Tbx/Memory/Refs.h"
-#include "Tbx/Ids/Uid.h"
-#include "Tbx/Windowing/WindowManager.h"
+#include "Tbx/Plugins/PluginServer.h"
 #include <memory>
+#include <vector>
 
 namespace Tbx
 {
     /// <summary>
     /// High level lifecycle states the application can transition through while running.
     /// </summary>
-    enum class AppStatus
+    enum class TBX_EXPORT AppStatus
     {
-        None = 0,
+        None,
         Initializing,
         Running,
         Reloading,
@@ -29,11 +28,16 @@ namespace Tbx
     /// <summary>
     /// Coordinates engine services, manages layers, and drives the lifetime of a Toybox application instance.
     /// </summary>
-    class TBX_EXPORT App : std::enable_shared_from_this<App>
+    class TBX_EXPORT App : public std::enable_shared_from_this<App>
     {
     public:
-        explicit(false) App(const std::string_view& name);
+        App(const std::string_view& name);
         virtual ~App();
+
+        App(const App&) = delete;
+        App& operator=(const App&) = delete;
+        App(App&&) noexcept = default;
+        App& operator=(App&&) noexcept = default;
 
         /// <summary>
         /// Starts the application run loop and executes until shutdown is requested.
@@ -45,59 +49,25 @@ namespace Tbx
         /// </summary>
         void Close();
 
-        /// <summary>
-        /// Applies the provided settings to the running application instance.
-        /// </summary>
-        void SetSettings(const Settings& settings);
-
-        /// <summary>
-        /// Retrieves the current application settings.
-        /// </summary>
-        const Settings& GetSettings() const;
-
-        /// <summary>
-        /// Returns the status associated with the application's lifecycle.
-        /// </summary>
+        EventBus& GetEventBus() const;
+        PluginServer& GetPluginServer() const;
+        AssetServer& GetAssetServer() const;
         const AppStatus& GetStatus() const;
-
-        /// <summary>
-        /// Provides the name used to identify the application instance.
-        /// </summary>
         const std::string& GetName() const;
 
-        /// <summary>
-        /// Exposes the event bus used to publish and subscribe to engine events.
-        /// </summary>
-        Ref<EventBus> GetEventBus() const;
+        void SetSettings(const Settings& settings);
+        const Settings& GetSettings() const;
 
-        /// <summary>
-        /// Provides access to the asset server responsible for content streaming.
-        /// </summary>
-        Ref<WindowManager> GetWindowManager() const;
-
-        /// <summary>
-        /// Returns the plugin server powering extensible engine systems.
-        /// </summary>
-        Ref<PluginServer> GetPluginServer() const;
-
-        /// <summary>
-        /// Provides access to the asset server responsible for content streaming.
-        /// </summary>
-        Ref<AssetServer> GetAssetServer() const;
-
-        /// <summary>
-        /// Registers a new layer with the application-managed layer manager.
-        /// </summary>
         template <typename TLayer, typename... TArgs>
         Uid AddLayer(TArgs&&... args)
         {
-            return _layerStack.Push<TLayer>(std::forward<TArgs>(args)...);
+            const auto& newLayerId = _layerStack.Push<TLayer>(std::forward<TArgs>(args)...);
+            const auto& layerName = _layerStack.Get(newLayerId).Name;
+            return newLayerId;
         }
-
-        /// <summary>
-        /// Removes a specific layer instance from the layer manager.
-        /// </summary>
-        void RemoveLayer(const Uid& layer);
+        bool HasLayer(const Uid& layerId) const;
+        Layer& GetLayer(const Uid& layerId);
+        void RemoveLayer(const Uid& layerId);
 
     protected:
         virtual void OnLaunch() {};
@@ -108,6 +78,7 @@ namespace Tbx
         void Initialize();
         void Update();
         void Shutdown();
+        void OnWindowOpened(const WindowOpenedEvent& e);
         void OnWindowClosed(const WindowClosedEvent& e);
 
     private:
@@ -115,9 +86,10 @@ namespace Tbx
         AppStatus _status = AppStatus::None;
         Settings _settings = {};
         LayerStack _layerStack = {};
+        Uid _mainWindowId = Uid::Invalid;
+
         Ref<EventBus> _eventBus = nullptr;
-        Ref<WindowManager> _windowManager = nullptr;
-        Ref<PluginServer> _pluginServer = nullptr;
-        Ref<AssetServer> _assetServer = nullptr;
+        ExclusiveRef<PluginServer> _pluginServer = nullptr;
+        ExclusiveRef<AssetServer> _assetServer = nullptr;
     };
 }

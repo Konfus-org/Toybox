@@ -8,4 +8,12 @@ namespace Tbx
         Vulkan,
         OpenGL
     };
+
+    using ProcAddress = void*;
+
+    class TBX_EXPORT IGLProcAddressProvider
+    {
+        virtual ~IGLProcAddressProvider() = default;
+        virtual ProcAddress Provide() = 0;
+    };
 }

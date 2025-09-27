@@ -1,5 +1,6 @@
 #include "Tbx/PCH.h"
 #include "Tbx/App/App.h"
+#include "Tbx/App/Runtime.h"
 #include "Tbx/Layers/LogLayer.h"
 #include "Tbx/Layers/InputLayer.h"
 #include "Tbx/Layers/RenderingLayer.h"
@@ -64,23 +65,27 @@ namespace Tbx
         _status = AppStatus::Initializing;
 
         auto workingDirectory = FileSystem::GetWorkingDirectory();
-        //std::filesystem::path cwd = std::filesystem::current_path();
         TBX_TRACE_INFO("Current working directory is: {}", workingDirectory);
+        auto assetDirectory = FileSystem::GetAssetDirectory();
+        TBX_TRACE_INFO("Current asset directory is: {}", assetDirectory);
 
         // Init required systems
-        auto self = shared_from_this();
         _eventBus = std::make_shared<EventBus>();
-        _pluginServer = std::make_shared<PluginServer>(workingDirectory, _eventBus, self);
 
-        // Load plugin driven systems
+#ifdef TBX_SHARED_LIB
+        auto self = shared_from_this();
+        _pluginServer = std::make_unique<PluginServer>(workingDirectory, _eventBus, self);
+
+        // Try to init plugin driven systems
+        // The order in which they are added is the order they are updated
         {
             auto windowFactoryPlugs = _pluginServer->GetPlugins<IWindowFactory>();
             if (!windowFactoryPlugs.empty())
             {
                 TBX_ASSERT(windowFactoryPlugs.size() == 1, "Only one window factory is allowed!");
                 auto windowFactory = windowFactoryPlugs.front();
-                _windowManager = std::make_shared<WindowManager>(windowFactory, _eventBus);
-                AddLayer<WindowingLayer>(_name, _windowManager);
+                const auto& appName = _name;
+                AddLayer<WindowingLayer>(appName, windowFactory, _eventBus);
             }
 
             auto rendererFactoryPlugs = _pluginServer->GetPlugins<IRendererFactory>();
@@ -91,14 +96,6 @@ namespace Tbx
                 AddLayer<RenderingLayer>(rendererFactory, _eventBus);
             }
 
-            auto loggerFactoryPlugs = _pluginServer->GetPlugins<ILoggerFactory>();
-            if (!loggerFactoryPlugs.empty())
-            {
-                TBX_ASSERT(loggerFactoryPlugs.size() == 1, "Only one logger factory is allowed!");
-                auto loggerFactory = loggerFactoryPlugs.front();
-                AddLayer<LogLayer>(loggerFactory);
-            }
-
             auto inputHandlerPlugs = _pluginServer->GetPlugins<IInputHandler>();
             if (!inputHandlerPlugs.empty())
             {
@@ -107,15 +104,38 @@ namespace Tbx
                 AddLayer<InputLayer>(inputHandler);
             }
 
+            auto loggerFactoryPlugs = _pluginServer->GetPlugins<ILoggerFactory>();
+            if (!loggerFactoryPlugs.empty())
+            {
+                TBX_ASSERT(loggerFactoryPlugs.size() == 1, "Only one logger factory is allowed!");
+                auto loggerFactory = loggerFactoryPlugs.front();
+                AddLayer<LogLayer>(loggerFactory);
+            }
+
             auto assetLoaderPlugs = _pluginServer->GetPlugins<IAssetLoader>();
-            _assetServer = std::make_shared<AssetServer>(workingDirectory, assetLoaderPlugs);
+            _assetServer = std::make_unique<AssetServer>(assetDirectory, assetLoaderPlugs);
         }
+#else
+        TBX_TRACE_WARNING(
+            "Toybox has been build as a static library, plugins will not be automagically loaded!"
+            "You must ensure you link to any wanted plugins in your library and register/setup them in a inheritor of App in its 'OnLaunch' method.");
+#endif
 
         // Sub to window closing so we can listen for main window closed to init app shutdown
+        _eventBus->Subscribe(this, &App::OnWindowOpened);
         _eventBus->Subscribe(this, &App::OnWindowClosed);
 
         // For app inheritors to hook into launch
         OnLaunch();
+
+        // Finally, initialize any runtimes
+        for (const auto& layer : _layerStack)
+        {
+            if (auto runtimePtr = dynamic_cast<Runtime*>(layer.get()))
+            {
+                runtimePtr->Initialize();
+            }
+        }
     }
 
     void App::Update()
@@ -146,9 +166,9 @@ namespace Tbx
         // For app inheritors to hook into update
         OnUpdate();
 
-        for (auto layer : _layerStack)
+        for (const auto& layer : _layerStack)
         {
-            layer.Update();
+            layer->Update();
         }
 
         _eventBus->Post(AppUpdatedEvent());
@@ -168,6 +188,7 @@ namespace Tbx
 
         AppExitingEvent exitEvent;
         _eventBus->Send(exitEvent);
+        _eventBus->Unsubscribe(this, &App::OnWindowOpened);
         _eventBus->Unsubscribe(this, &App::OnWindowClosed);
 
         if (isRestarting)
@@ -184,17 +205,6 @@ namespace Tbx
         }
     }
 
-    void App::SetSettings(const Settings& settings)
-    {
-        _settings = settings;
-        _eventBus->Post(AppSettingsChangedEvent(settings));
-    }
-
-    const Settings& App::GetSettings() const
-    {
-        return _settings;
-    }
-
     const AppStatus& App::GetStatus() const
     {
         return _status;
@@ -205,38 +215,61 @@ namespace Tbx
         return _name;
     }
 
-    Ref<EventBus> App::GetEventBus() const
+    EventBus& App::GetEventBus() const
     {
-        return _eventBus;
+        return *_eventBus.get();
     }
 
-    Ref<WindowManager> App::GetWindowManager() const
+    PluginServer& App::GetPluginServer() const
     {
-        TBX_ASSERT(_windowManager, "Window manager not initialized! Is this app headless?");
-        return _windowManager;
+        return *_pluginServer.get();
     }
 
-    Ref<PluginServer> App::GetPluginServer() const
+    AssetServer& App::GetAssetServer() const
     {
-        return _pluginServer;
+        return *_assetServer.get();
     }
 
-    Ref<AssetServer> App::GetAssetServer() const
+    void App::SetSettings(const Settings& settings)
     {
-        return _assetServer;
+        _settings = settings;
+        _eventBus->Post(AppSettingsChangedEvent(settings));
+    }
+
+    const Settings& App::GetSettings() const
+    {
+        return _settings;
+    }
+    
+    bool App::HasLayer(const Uid& layerId) const
+    {
+        return _layerStack.Contains(layerId);
+    }
+
+    Layer& App::GetLayer(const Uid& layerId)
+    {
+        return _layerStack.Get(layerId);
     }
 
     void App::RemoveLayer(const Uid& layer)
     {
+        auto layerName = _layerStack.Get(layer).Name;
         _layerStack.Remove(layer);
+    }
+
+    void App::OnWindowOpened(const WindowOpenedEvent& e)
+    {
+        if (_mainWindowId == Uid::Invalid)
+        {
+            _mainWindowId = e.GetWindow()->Id;
+        }
     }
 
     void App::OnWindowClosed(const WindowClosedEvent& e)
     {
         // If the window is our main window, set running flag to false which will trigger the app to close
         const auto window = e.GetWindow();
-        const auto mainWindow = _windowManager->GetMainWindow();
-        if (window && mainWindow && window->Id == mainWindow->Id)
+        if (window->Id == _mainWindowId)
         {
             // Stop running and close all windows
             _status = AppStatus::Closing;

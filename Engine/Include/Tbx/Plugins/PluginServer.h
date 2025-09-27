@@ -18,35 +18,45 @@ namespace Tbx
             WeakRef<Tbx::App> app);
         ~PluginServer();
 
+        PluginServer(const PluginServer&) = delete;
+        PluginServer& operator=(const PluginServer&) = delete;
+        PluginServer(PluginServer&&) noexcept = default;
+        PluginServer& operator=(PluginServer&&) noexcept = default;
+        
         /// <summary>
         /// Registers a plugin
         /// </summary>
         /// <param name="plugin"></param>
-        void AddPlugin(const Ref<LoadedPlugin>& plugin);
+        void RegisterPlugin(ExclusiveRef<LoadedPlugin> plugin);
 
         /// <summary>
         /// Gets plugins of the specified type.
         /// </summary>
         template <typename TPlugin>
-        std::vector<Ref<TPlugin>> GetPlugins()
+        std::vector<Ref<TPlugin>> GetPlugins() const
         {
-            auto plugins = std::vector<Ref<TPlugin>>();
-            const auto& loadedPlugins = GetPlugins();
+            std::vector<Ref<TPlugin>> result;
+            result.reserve(_loadedPlugins.size());
 
-            for (const auto& loadedPlug : loadedPlugins)
+            for (const auto& owned : _loadedPlugins)
             {
-                Ref<TPlugin> plugImpl = loadedPlug->GetAs<TPlugin>();
-                if (!plugImpl) continue;
-                plugins.push_back(plugImpl);
+                // Assuming LoadedPlugin::Get() returns Ref<Plugin> (std::shared_ptr<Plugin>)
+                Ref<Plugin> base = owned->Get();
+                if (!base) continue;
+
+                if (auto casted = std::dynamic_pointer_cast<TPlugin>(base))
+                {
+                    result.push_back(casted);
+                }
             }
 
-            return plugins;
+            return result;
         }
 
         /// <summary>
         /// Gets all loaded plugins.
         /// </summary>
-        const std::vector<Ref<LoadedPlugin>>& GetPlugins();
+        std::vector<Ref<Plugin>> GetPlugins() const;
 
     private:
         std::vector<PluginMeta> SearchDirectoryForInfos(const std::string& pathToPlugins);
@@ -55,7 +65,7 @@ namespace Tbx
 
     private:
         std::string _pathToLoadedPlugins = "";
-        std::vector<Ref<LoadedPlugin>> _loadedPlugins = {};
+        std::vector<ExclusiveRef<LoadedPlugin>> _loadedPlugins = {};
         Ref<EventBus> _eventBus = nullptr;
     };
 }

@@ -2,6 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Layers/Layer.h"
 #include "Tbx/Math/Int.h"
+#include "Tbx/Memory/Refs.h"
 #include <vector>
 
 namespace Tbx
@@ -12,47 +13,41 @@ namespace Tbx
     class TBX_EXPORT LayerStack
     {
     public:
+        LayerStack() = default;
         ~LayerStack();
 
-        /// <summary>
-        /// Operator to allow indexing into the layer stack.
-        /// </summary>
-        const Layer& operator[](int index) const { return _layers[index]; }
+        LayerStack(const LayerStack&) = delete;
+        LayerStack& operator=(const LayerStack&) = delete;
+        LayerStack(LayerStack&&) noexcept = default;
+        LayerStack& operator=(LayerStack&&) noexcept = default;
 
-        /// <summary>
-        /// Clear the layer stack.
-        /// </summary>
+        bool Contains(const Uid& layerId) const;
+        Layer& Get(const Uid& layerId);
+        const std::vector<ExclusiveRef<Layer>>& GetAll() const;
+        void Remove(const Uid& layerId);
         void Clear();
+        uint Count() const { return static_cast<uint>(_layers.size()); }
 
-        /// <summary>
-        /// Adds a layer onto the top of the stack.
-        /// </summary>
         template <typename TLayer, typename... TArgs>
+        requires std::is_base_of_v<Layer, TLayer>
         Uid Push(TArgs&&... args)
         {
-            static_assert(std::is_base_of<Layer, TLayer>::value, "TLayer must be a subclass of Layer");
-            auto layer = TLayer(std::forward<TArgs>(args)...);
-            layer.AttachTo(_layers);
-            return layer.Id;
+            auto layer = std::make_unique<TLayer>(std::forward<TArgs>(args)...);
+            const auto& layerId = layer->Id;
+            layer->OnAttach();
+            _layers.push_back(std::move(layer));
+            return layerId;
         }
 
-        /// <summary>
-        /// Removes a layer from the stack.
-        /// </summary>
-        void Remove(const Uid& layer);
+        auto begin() { return _layers.begin(); }
+        auto end() { return _layers.end(); }
+        auto begin() const { return _layers.begin(); }
+        auto end() const { return _layers.end(); }
 
-        /// <summary>
-        /// Returns the number of layers currently registered in the stack.
-        /// </summary>
-        uint GetSize() const { return static_cast<uint>(_layers.size()); }
-
-        std::vector<Layer>::iterator begin() { return _layers.begin(); }
-        std::vector<Layer>::iterator end() { return _layers.end(); }
-        std::vector<Layer>::const_iterator begin() const { return _layers.begin(); }
-        std::vector<Layer>::const_iterator end() const { return _layers.end(); }
+        const Layer& operator[](int index) const { return *_layers[index]; }
 
     private:
-        std::vector<Layer> _layers;
+        std::vector<ExclusiveRef<Layer>> _layers = {};
     };
 }
 

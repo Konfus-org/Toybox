@@ -11,7 +11,8 @@ namespace Tbx
     public:
         WindowingLayer(
             const std::string& appName,
-            Ref<WindowManager> windowManager);
+            Ref<IWindowFactory> windowFactory,
+            Ref<EventBus> eventBus);
 
         void OnAttach() override;
         void OnDetach() override;
@@ -19,7 +20,7 @@ namespace Tbx
 
     private:
         std::string _appName = "Toybox";
-        Ref<WindowManager> _windowManager = nullptr;
+        ExclusiveRef<WindowManager> _windowManager = nullptr;
     };
 }
 

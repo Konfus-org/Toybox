@@ -1,5 +1,4 @@
 #include "Tbx/Launcher/Launcher.h"
-#include "Tbx/App/App.h"
 
 namespace Tbx::Launcher
 {
@@ -10,12 +9,12 @@ namespace Tbx::Launcher
         while (running)
         {
             // Creating and run an app with the given name
-            auto app = App(name);
-            app.Run();
+            auto app = std::make_shared<App>(name);
+            app->Run();
 
             // After we've closed check if the app is asking for a reload
             // or if we should fully shutdown
-            auto status = app.GetStatus();
+            status = app->GetStatus();
             running =
                 status != AppStatus::Error &&
                 status != AppStatus::Closed;

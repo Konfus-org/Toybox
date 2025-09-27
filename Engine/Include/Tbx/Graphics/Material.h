@@ -13,7 +13,13 @@ namespace Tbx
     /// </summary>
     struct TBX_EXPORT Material
     {
-        std::vector<Shader> Shaders = {};
+        Material() = default;
+        Material(Ref<Shader> shader)
+            : Shaders({shader}) {}
+        Material(std::vector<Ref<Shader>> shaders)
+            : Shaders(shaders) {}
+
+        std::vector<Ref<Shader>> Shaders = {};
         Uid Id = Uid::Generate();
     };
 
@@ -22,8 +28,18 @@ namespace Tbx
     /// </summary>
     struct TBX_EXPORT MaterialInstance
     {
+        MaterialInstance() = default;
+        MaterialInstance(Ref<Material> material)
+            : Material(material) {}
+        MaterialInstance(Ref<Material> material, Ref<Texture> texture)
+            : Material(material)
+            , Textures({texture}) {}
+        MaterialInstance(Ref<Material> material, std::vector<Ref<Texture>> textures)
+            : Material(material)
+            , Textures(textures) {}
+
         Ref<Material> Material = nullptr;
-        std::vector<Texture> Textures = { Texture() }; // default to one small white texture
+        std::vector<Ref<Texture>> Textures = { std::make_shared<Texture>() }; // default to one small white texture
         Uid Id = Uid::Generate();
     };
 }

@@ -3,7 +3,6 @@
 #include "Tbx/Ids/Uid.h"
 #include "Tbx/Memory/Refs.h"
 #include "Tbx/Stages/Blocks.h"
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -21,7 +20,7 @@ namespace Tbx
     /// <summary>
     /// Represents a toy in a hierarchy with arbitrary typed blocks.
     /// </summary>
-    class TBX_EXPORT Toy : public std::enable_shared_from_this<Toy>
+    class TBX_EXPORT Toy
     {
     public:
         /// <summary>

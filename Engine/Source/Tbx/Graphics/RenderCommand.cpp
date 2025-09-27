@@ -1,5 +1,5 @@
 #include "Tbx/PCH.h"
-#include "Tbx/Graphics/RenderCommand.h"
+#include "Tbx/Graphics/RenderCommands.h"
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Graphics/Camera.h"
 #include "Tbx/Math/Transform.h"

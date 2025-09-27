@@ -4,7 +4,7 @@
 
 namespace Tbx
 {
-    Bounds Bounds::Identity = Bounds(-1.0f, 1.0f, -1.0f, 1.0f);
+    TBX_EXPORT Bounds Bounds::Identity = Bounds(-1.0f, 1.0f, -1.0f, 1.0f);
 
     std::string Bounds::ToString() const { return std::format("[Left: {}, Right: {}, Top: {}, Bottom: {}]", Left, Right, Top, Bottom); }
 

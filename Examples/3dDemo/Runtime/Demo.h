@@ -1,24 +1,19 @@
 #pragma once
 #include <Tbx/App/App.h>
+#include <Tbx/App/Runtime.h>
 #include <Tbx/Stages/Toy.h>
 #include <Tbx/Stages/Stage.h>
 #include "Tbx/Memory/Refs.h"
 #include <Tbx/Graphics/Material.h>
-#include <Tbx/Layers/Layer.h>
-#include <Tbx/Plugins/Plugin.h>
 
-class Demo : public Tbx::Layer, public Tbx::Plugin<Demo>
+class Demo : public Tbx::Runtime
 {
 public:
-    Demo(const Tbx::WeakRef<Tbx::App>& app)
-        : Layer("3d Demo")
-        , _app(app)
-    {
-    }
+    Demo(const Tbx::WeakRef<Tbx::App>& app);
 
-    void OnAttach() override;
-    void OnDetach() override;
-    void OnUpdate() override;
+    void OnStart() final;
+    void OnShutdown() final;
+    void OnUpdate() final;
 
 private:
     Tbx::Ref<Tbx::Stage> _world = nullptr;
@@ -31,7 +26,8 @@ private:
     float _camPitch = 0.0f;
     float _camYaw = 0.0f;
 
-    Tbx::Material _simpleTexturedMat = {};
+    Tbx::Ref<Tbx::Material> _simpleTexturedMat = {};
     Tbx::WeakRef<Tbx::App> _app = {};
 };
 
+TBX_REGISTER_RUNTIME(Demo);

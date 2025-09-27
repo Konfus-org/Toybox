@@ -3,7 +3,7 @@
 
 namespace Tbx
 {
-    Uid Uid::Invalid = Uid(-1);
+    TBX_EXPORT Uid Uid::Invalid = Uid(-1);
 
     Uid Uid::Generate()
     {

@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/Events/Event.h"
-#include "Tbx/Plugins/LoadedPlugin.h"
+#include "Tbx/Plugins/Plugin.h"
 #include "Tbx/Memory/Refs.h"
 
 namespace Tbx
@@ -8,7 +8,7 @@ namespace Tbx
     class TBX_EXPORT PluginLoadedEvent : public Event
     {
     public:
-        PluginLoadedEvent(Ref<LoadedPlugin> loadedPlugin)
+        PluginLoadedEvent(Ref<Plugin> loadedPlugin)
             : _loadedPlugin(loadedPlugin) {}
 
         std::string ToString() const final
@@ -16,12 +16,12 @@ namespace Tbx
             return "Plugin Loaded Event";
         }
 
-        Ref<LoadedPlugin> GetLoadedPlugin() 
+        Ref<Plugin> GetLoadedPlugin() 
         {
             return _loadedPlugin; 
         }
 
     private:
-        Ref<LoadedPlugin> _loadedPlugin;
+        Ref<Plugin> _loadedPlugin;
     };
 }

@@ -10,8 +10,7 @@ set_target_properties(3dDemoLauncher PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQ
 
 # Links
 target_link_libraries(3dDemoLauncher PRIVATE
-  Tbx::Examples::3dDemo
-  Tbx::Engine
+  Tbx::Examples::3dDemoRuntime
   Tbx::Launcher
 )
 

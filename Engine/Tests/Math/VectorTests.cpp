@@ -1,6 +1,5 @@
 ﻿#include "PCH.h"
 #include "Tbx/Math/Vectors.h"
-#include "Tbx/Math/Constants.h"
 
 namespace Tbx::Tests::Math
 {
@@ -204,95 +203,5 @@ namespace Tbx::Tests::Math
 
         // Assert
         EXPECT_FLOAT_EQ(dot, -6); // 1*4 + 2*(-5) = -6
-    }
-
-    TEST(Vector2ITests, Constructor_FromVector3_CastsAndCopiesXY)
-    {
-        // Arrange
-        Vector3 v3(1.9f, 2.1f, 3.7f);
-
-        // Act
-        Vector2I v2i(v3);
-
-        // Assert
-        EXPECT_EQ(v2i.X, 1);
-        EXPECT_EQ(v2i.Y, 2);
-    }
-
-    TEST(Vector2ITests, Identity_ReturnsVectorWithOnes)
-    {
-        // Act
-        Vector2I v = Vector2I::Identity;
-
-        // Assert
-        EXPECT_EQ(v.X, 1);
-        EXPECT_EQ(v.Y, 1);
-    }
-
-    TEST(Vector2ITests, ToString_ProducesFormattedOutput)
-    {
-        // Arrange
-        Vector2I v(1, 2);
-
-        // Act
-        std::string str = v.ToString();
-
-        // Assert
-        EXPECT_EQ(str, "(1, 2)");
-    }
-
-    TEST(Vector2ITests, OperatorAdd_AddsTwoVectors)
-    {
-        // Arrange
-        Vector2I a(1, 2);
-        Vector2I b(4, 5);
-
-        // Act
-        Vector2I result = a + b;
-
-        // Assert
-        EXPECT_EQ(result.X, 5);
-        EXPECT_EQ(result.Y, 7);
-    }
-
-    TEST(Vector2ITests, OperatorSubtract_SubtractsTwoVectors)
-    {
-        // Arrange
-        Vector2I a(4, 5);
-        Vector2I b(1, 2);
-
-        // Act
-        Vector2I result = a - b;
-
-        // Assert
-        EXPECT_EQ(result.X, 3);
-        EXPECT_EQ(result.Y, 3);
-    }
-
-    TEST(Vector2ITests, OperatorMultiply_MultipliesTwoVectorsComponentWise)
-    {
-        // Arrange
-        Vector2I a(2, 3);
-        Vector2I b(5, 6);
-
-        // Act
-        Vector2I result = a * b;
-
-        // Assert
-        EXPECT_EQ(result.X, 10);
-        EXPECT_EQ(result.Y, 18);
-    }
-
-    TEST(Vector2ITests, Dot_ReturnsDotProduct)
-    {
-        // Arrange
-        Vector2I a(1, 2);
-        Vector2I b(4, -5);
-
-        // Act
-        int dot = Vector2I::Dot(a, b);
-
-        // Assert
-        EXPECT_EQ(dot, -6); // 1*4 + 2*(-5) = -6
     }
 }

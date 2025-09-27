@@ -27,7 +27,7 @@ namespace Tbx
         /// If the plugin is not of the requested type, nullptr is returned.
         /// </summary>
         template <typename T>
-        Ref<T> GetAs()
+        Ref<T> GetAs() const
         {
             // Try to cast the plugin to the requested type
             if (const auto& castedPlug = std::dynamic_pointer_cast<T>(_plugin)) 
@@ -40,7 +40,7 @@ namespace Tbx
         /// <summary>
         /// Gets the loaded plugin.
         /// </summary>
-        Ref<Plugin> Get()
+        Ref<Plugin> Get() const
         {
             return _plugin;
         }

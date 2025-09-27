@@ -1,12 +1,14 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Stages/Stage.h"
-#include "Tbx/Events/TSSEvents.h"
 
 namespace Tbx
 {
-    Stage::Stage(Ref<EventBus> eventBus)
+    Stage::Stage()
         : _root(std::make_shared<Toy>("Root"))
-        , _eventBus(eventBus)
+    {
+    }
+
+    Stage::~Stage()
     {
     }
 
@@ -18,15 +20,5 @@ namespace Tbx
     void Stage::Update()
     {
         _root->Update();
-    }
-
-    void Stage::Open()
-    {
-        _eventBus->Post(StageOpenedEvent(shared_from_this()));
-    }
-
-    void Stage::Close()
-    {
-        _eventBus->Post(StageClosedEvent(shared_from_this()));
     }
 }

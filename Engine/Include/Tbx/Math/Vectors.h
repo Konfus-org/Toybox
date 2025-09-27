@@ -5,8 +5,8 @@
 namespace Tbx
 {
     // Forward declarations
-    struct Vector2;
-    struct Vector3;
+    struct TBX_EXPORT Vector2;
+    struct TBX_EXPORT Vector3;
 
     /// <summary>
     /// Represents a position, scale, or direction in 3d space. X, Y, Z are stored as euler angles.
