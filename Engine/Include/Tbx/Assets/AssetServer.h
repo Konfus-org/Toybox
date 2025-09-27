@@ -1,16 +1,13 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Assets/AssetLoaders.h"
-#include "Tbx/Files/Paths.h"
 #include "Tbx/Debug/Debugging.h"
 #include "Tbx/Memory/Refs.h"
-#include <atomic>
 #include <exception>
 #include <filesystem>
 #include <memory>
 #include <mutex>
 #include <string>
-#include <system_error>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -49,7 +46,7 @@ namespace Tbx
         /// Tracks the last known loading state for debugging and diagnostics.
         /// Stored atomically so background release callbacks can safely update it.
         /// </summary>
-        std::atomic<AssetStatus> Status = AssetStatus::Unloaded;
+        AssetStatus Status = AssetStatus::Unloaded;
     };
 
     /// <summary>
@@ -60,41 +57,7 @@ namespace Tbx
     public:
         AssetServer(
             const std::string& assetsFolderPath,
-            const std::vector<Ref<IAssetLoader>>& loaders)
-            : _assetDirectory(std::filesystem::absolute(assetsFolderPath))
-            , _loaders(loaders)
-        {
-            try
-            {
-                const auto options = std::filesystem::directory_options::skip_permission_denied;
-                for (const auto& entry : std::filesystem::recursive_directory_iterator(_assetDirectory, options))
-                {
-                    if (!entry.is_regular_file())
-                    {
-                        continue;
-                    }
-
-                    const auto normalizedPath = NormalizeKey(entry.path());
-                    auto loader = FindLoaderFor(entry.path());
-                    if (!loader)
-                    {
-                        TBX_TRACE_WARNING("AssetServer: no loader registered for {}", entry.path().string());
-                        continue;
-                    }
-
-                    auto record = std::make_shared<AssetRecord>();
-                    record->Name = normalizedPath;
-                    record->FilePath = entry.path();
-                    record->Loader = loader;
-
-                    _assetRecords.emplace(normalizedPath, std::move(record));
-                }
-            }
-            catch (const std::filesystem::filesystem_error& fsError)
-            {
-                TBX_ASSERT(false, "AssetServer: error while scanning {}: {}", assetsFolderPath, fsError.what());
-            }
-        }
+            const std::vector<Ref<IAssetLoader>>& loaders);
 
         /// <summary>
         /// Registers the asset if it is not tracked already and returns the loaded data.
@@ -122,7 +85,7 @@ namespace Tbx
                 record->FilePath = absolutePath;
                 record->Loader = loader;
 
-                auto& emplaceResult = _assetRecords.emplace(normalizedPath, std::move(record));
+                auto& emplaceResult = _assetRecords.try_emplace(normalizedPath, std::move(record));
                 recordIt = emplaceResult.first;
             }
 
@@ -178,12 +141,12 @@ namespace Tbx
                 auto cached = cacheIt->second.lock();
                 if (!cached)
                 {
-                    record->Status.store(AssetStatus::Unloaded);
+                    record->Status = AssetStatus::Unloaded;
                     cacheIt = _assetCache.erase(cacheIt);
                     continue;
                 }
 
-                record->Status.store(AssetStatus::Loaded);
+                record->Status = AssetStatus::Loaded;
                 loadedAssets.push_back(std::static_pointer_cast<TData>(cached));
                 ++cacheIt;
             }
@@ -197,13 +160,13 @@ namespace Tbx
         /// If the asset is already cached, the cached value is reused.
         /// </summary>
         template <typename TData>
-        Ref<TData> LoadAssetData(const Ref<AssetRecord>& record) const
+        Ref<TData> LoadAssetData(const ExclusiveRef<AssetRecord>& record) const
         {
             auto loader = std::dynamic_pointer_cast<AssetLoader<TData>>(record->Loader);
             if (!loader)
             {
                 TBX_TRACE_ERROR("AssetServer: loader mismatch when requesting {}", record->Name);
-                record->Status.store(AssetStatus::Failed);
+                record->Status = AssetStatus::Failed;
                 return nullptr;
             }
 
@@ -213,40 +176,36 @@ namespace Tbx
                 auto cached = cacheIt->second.lock();
                 if (cached)
                 {
-                    record->Status.store(AssetStatus::Loaded);
+                    record->Status = AssetStatus::Loaded;
                     return std::static_pointer_cast<TData>(cached);
                 }
 
-                record->Status.store(AssetStatus::Unloaded);
+                record->Status = AssetStatus::Unloaded;
                 _assetCache.erase(cacheIt);
             }
 
-            record->Status.store(AssetStatus::Loading);
+            record->Status = AssetStatus::Loading;
 
             try
             {
                 auto loadedData = loader->Load(record->FilePath);
-                WeakRef<AssetRecord> recordRef = record;
                 auto sharedData = Ref<TData>(
                     new TData(std::move(loadedData)),
-                    [recordRef](TData* data)
+                    [&record](TData* data)
                     {
-                        if (auto lockedRecord = recordRef.lock())
-                        {
-                            lockedRecord->Status.store(AssetStatus::Unloaded);
-                        }
-
+                        // Mark asset as unloaded when our pointer is deleted!
+                        record->Status = AssetStatus::Unloaded;
                         delete data;
                     });
 
                 _assetCache[record->Name] = sharedData;
 
-                record->Status.store(AssetStatus::Loaded);
+                record->Status = AssetStatus::Loaded;
                 return sharedData;
             }
             catch (const std::exception& loadError)
             {
-                record->Status.store(AssetStatus::Failed);
+                record->Status = AssetStatus::Failed;
                 TBX_TRACE_ERROR("AssetServer: failed to load {}: {}", record->FilePath.string(), loadError.what());
                 return nullptr;
             }
@@ -256,74 +215,21 @@ namespace Tbx
         /// Attempts to locate a loader that can handle the specified file path.
         /// Returns nullptr if none of the registered loaders can load the asset.
         /// </summary>
-        Ref<IAssetLoader> FindLoaderFor(const std::filesystem::path& filePath) const
-        {
-            for (const auto& loader : _loaders)
-            {
-                if (!loader)
-                {
-                    continue;
-                }
-
-                if (loader->CanLoad(filePath))
-                {
-                    return loader;
-                }
-            }
-
-            return nullptr;
-        }
+        Ref<IAssetLoader> FindLoaderFor(const std::filesystem::path& filePath) const;
 
         /// <summary>
         /// Resolves a potentially relative path to the on-disk location of an asset.
         /// </summary>
-        std::filesystem::path ResolvePath(const std::filesystem::path& path) const
-        {
-            if (path.is_absolute())
-            {
-                return path;
-            }
-
-            auto combined = _assetDirectory / path;
-            if (std::filesystem::exists(combined))
-            {
-                return combined;
-            }
-
-            return std::filesystem::absolute(path);
-        }
+        std::filesystem::path ResolvePath(const std::filesystem::path& path) const;
 
         /// <summary>
         /// Normalizes the provided path so it can be used as a key in the asset maps.
         /// </summary>
-        std::string NormalizeKey(const std::filesystem::path& path) const
-        {
-            auto absolutePath = path;
-            if (!absolutePath.is_absolute())
-            {
-                absolutePath = _assetDirectory / absolutePath;
-            }
-
-            std::error_code canonicalError;
-            absolutePath = std::filesystem::weakly_canonical(absolutePath, canonicalError);
-            if (canonicalError)
-            {
-                absolutePath = absolutePath.lexically_normal();
-            }
-
-            auto relativePath = absolutePath.lexically_relative(_assetDirectory);
-            auto relativeString = relativePath.generic_string();
-            if (relativeString.empty() || relativeString.rfind("..", 0) == 0)
-            {
-                relativeString = FileSystem::GetRelativePath(absolutePath);
-            }
-
-            return FileSystem::NormalizePath(relativeString);
-        }
+        std::string NormalizeKey(const std::filesystem::path& path) const;
 
     private:
         mutable std::mutex _mutex = {};
-        mutable std::unordered_map<std::string, Ref<AssetRecord>> _assetRecords = {};
+        mutable std::unordered_map<std::string, ExclusiveRef<AssetRecord>> _assetRecords = {};
         mutable std::unordered_map<std::string, WeakRef<void>> _assetCache = {};
         std::filesystem::path _assetDirectory = {};
         std::vector<Ref<IAssetLoader>> _loaders = {};

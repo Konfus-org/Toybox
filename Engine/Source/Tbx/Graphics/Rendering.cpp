@@ -63,8 +63,6 @@ namespace Tbx
     void Rendering::DrawFrame()
     {
         ProcessPendingUploads();
-
-        
         ProcessOpenStages();
     }
 
@@ -132,6 +130,7 @@ namespace Tbx
     {
         RenderCommandBufferBuilder builder = {};
         RenderCommandBuffer renderBuffer = {};
+        renderBuffer.Commands.emplace_back(RenderCommandType::Clear, _clearColor);
         for (const auto& stage : _openStages)
         {
             if (!stage)
@@ -151,7 +150,6 @@ namespace Tbx
                 renderBuffer.Commands.push_back(command);
             }
         }
-        renderBuffer.Commands.emplace_back(RenderCommandType::Clear, _clearColor);
 
         for (size_t rendererIndex = 0; rendererIndex < _renderers.size(); ++rendererIndex)
         {
@@ -226,7 +224,8 @@ namespace Tbx
 
         // Init viewport size
         RenderCommandBuffer renderBuffer = {};
-        renderBuffer.Commands.emplace_back(RenderCommandType::SetViewport, Viewport({0, 0}, newWindow->GetSize()));
+        auto newViewport = Viewport({ 0, 0 }, newWindow->GetSize());
+        renderBuffer.Commands.emplace_back(RenderCommandType::SetViewport, newViewport);
         newRenderer->Process(renderBuffer);
     }
 

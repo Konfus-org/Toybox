@@ -117,21 +117,22 @@ namespace Tbx
 		const PluginMeta& info,
 		WeakRef<App> app,
 		Ref<EventBus> eventBus,
-		std::unordered_set<std::string>& loadedNames,
+		std::unordered_set<std::string>& outLoadedPluginNames,
 		std::vector<ExclusiveRef<LoadedPlugin>>& outLoaded)
 	{
-		auto plugin = std::make_unique<LoadedPlugin>(info, app);
-		if (!plugin || !plugin->IsValid())
+		auto loadedPlugin = std::make_unique<LoadedPlugin>(info, app);
+		if (!loadedPlugin || !loadedPlugin->IsValid())
 		{
 			TBX_ASSERT(false, "Failed to load plugin: {0}", info.Name);
 			return false;
 		}
 
-		loadedNames.insert(plugin->GetMeta().Name);
-		eventBus->Post(PluginLoadedEvent(plugin->Get()));
+		auto plugin = loadedPlugin->Get();
+		eventBus->Post(PluginLoadedEvent(plugin));
 		ReportPluginInfo(info);
 
-		outLoaded.push_back(std::move(plugin));
+		outLoadedPluginNames.insert(loadedPlugin->GetMeta().Name);
+		outLoaded.push_back(std::move(loadedPlugin));
 
 		return true;
 	}

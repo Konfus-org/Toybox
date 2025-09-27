@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/Color.h"
+#include "Tbx/Debug/Debugging.h"
 #include "Tbx/Math/Vectors.h"
 #include "Tbx/Math/Int.h"
 #include <vector>
@@ -8,7 +9,40 @@
 
 namespace Tbx
 {
+    ///////////// VERTEX DATA //////////////////
+
     using VertexData = std::variant<int, float, Vector2, Vector3, RgbaColor>;
+
+    inline int32 GetVertexDataSize(const VertexData& data)
+    {
+        if (std::holds_alternative<Tbx::Vector2>(data))
+        {
+            return 2;
+        }
+        else if (std::holds_alternative<Tbx::Vector3>(data))
+        {
+            return 3;
+        }
+        else if (std::holds_alternative<Tbx::RgbaColor>(data))
+        {
+            return 4;
+        }
+        else if (std::holds_alternative<float>(data))
+        {
+            return 1;
+        }
+        else if (std::holds_alternative<int>(data))
+        {
+            return 1;
+        }
+        else
+        {
+            TBX_ASSERT(false, "Could not convert to OpenGL type from vertex data, given unknown data type!");
+            return 0;
+        }
+    }
+
+    ///////////// VERTEX //////////////////
 
     struct TBX_EXPORT Vertex
     {
@@ -22,41 +56,9 @@ namespace Tbx
         RgbaColor Color   = { 1.0f, 1.0f, 1.0f, 1.0f };
     };
 
-    struct TBX_EXPORT VertexBufferAttribute
-    {
-        VertexData Type = -1;
-        uint32 Size = 0;
-        uint32 Offset = 0;
-        bool Normalized = false;
-    };
+    ///////////// VERTEX BUFFER //////////////////
 
-    struct TBX_EXPORT VertexBufferLayout
-    {
-        VertexBufferLayout() = default;
-        VertexBufferLayout(std::vector<VertexData> layout)
-        {
-            auto elements = std::vector<VertexBufferAttribute>();
-
-            uint32 offset = 0;
-            for (auto& type : layout)
-            {
-                VertexBufferAttribute element = {};
-                element.Type = type;
-                element.Size = sizeof(type);
-                element.Offset = offset;
-                element.Normalized = false;
-                offset += element.Size;
-                elements.push_back(element);
-            }
-            Stride = offset;
-            Elements = elements;
-        }
-
-        std::vector<VertexBufferAttribute> Elements = {};
-        uint32 Stride = 0;
-    };
-
-    inline std::vector<float> ConvertVertexVectorToFloatVector(const std::vector<Vertex>& vertices)
+    inline std::vector<float> FlattenVertexVector(const std::vector<Vertex>& vertices)
     {
         const auto numberOfVertices = vertices.size();
         auto meshPoints = std::vector<float>(numberOfVertices * 12);
@@ -81,8 +83,8 @@ namespace Tbx
             meshPoints[positionToPlace + 9] = normal.Z;
 
             const auto& textCoord = vertex.UV;
-            meshPoints[positionToPlace + 10] = (float)textCoord.X;
-            meshPoints[positionToPlace + 11] = (float)textCoord.Y;
+            meshPoints[positionToPlace + 10] = textCoord.X;
+            meshPoints[positionToPlace + 11] = textCoord.Y;
 
             positionToPlace += 12;
         }
@@ -90,25 +92,46 @@ namespace Tbx
         return meshPoints;
     }
 
+    struct TBX_EXPORT VertexBufferAttribute
+    {
+        VertexData Type = 0;
+        uint32 Size = 0;
+        uint32 Offset = 0;
+        bool Normalized = false;
+    };
+
+    struct TBX_EXPORT VertexBufferLayout
+    {
+        VertexBufferLayout() = default;
+        VertexBufferLayout(const std::vector<VertexData>& layout)
+        {
+            auto elements = std::vector<VertexBufferAttribute>();
+            uint32 offset = 0;
+            for (const auto& type : layout)
+            {
+                VertexBufferAttribute element = {};
+                element.Type = type;
+                element.Size = GetVertexDataSize(type);
+                element.Offset = offset;
+                element.Normalized = false;
+                offset += element.Size;
+                elements.push_back(element);
+            }
+            Stride = offset;
+            Elements = elements;
+        }
+
+        std::vector<VertexBufferAttribute> Elements = {};
+        uint32 Stride = 0;
+    };
+
     struct TBX_EXPORT VertexBuffer
     {
         VertexBuffer() = default;
-        VertexBuffer(const std::vector<Vertex>& vertices)
-            : Vertices(ConvertVertexVectorToFloatVector(vertices)) {}
-        VertexBuffer(const std::vector<Vertex>& vertices, VertexBufferLayout layout)
-            : Vertices(ConvertVertexVectorToFloatVector(vertices)), Layout(layout) {}
+        VertexBuffer(const std::vector<Vertex>& vertices, const VertexBufferLayout& layout)
+            : Vertices(FlattenVertexVector(vertices)), Layout(layout) {}
 
         std::vector<float> Vertices = {};
-        VertexBufferLayout Layout =
-        {{
-            // Pos
-            Vector3(),
-            // Vert Color
-            RgbaColor(),
-            // Normal
-            Vector3(),
-            // Tex Coord
-            Vector2(),
-        }};
+        VertexBufferLayout Layout = {};
     };
 }

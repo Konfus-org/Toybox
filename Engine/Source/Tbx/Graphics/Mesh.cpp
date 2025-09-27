@@ -6,48 +6,116 @@ namespace Tbx
     Mesh Mesh::Quad = MakeQuad();
     Mesh Mesh::Triangle = MakeTriangle();
 
+    Mesh::Mesh()
+    {
+        const auto& quad = Quad;
+        Vertices = quad.Vertices;
+        Indices = quad.Indices;
+    }
+
+    Mesh::Mesh(const VertexBuffer& vertBuff, const IndexBuffer& indexBuff)
+        : Vertices(vertBuff), Indices(indexBuff)
+    {
+    }
+
     Mesh MakeTriangle()
     {
-        const auto& meshVerts = 
+        const auto& triangleMeshVerts = 
         {
-            Tbx::Vertex(Vector3(-0.5f, -0.5f, 0.0f)),
-            Tbx::Vertex(Vector3(0.5f, -0.5f, 0.0f)),
-            Tbx::Vertex(Vector3(0.0f, 0.5f, 0.0f))
+            Tbx::Vertex
+            {
+                Vector3(-0.5f, -0.5f, 0.0f),        // Position
+                Vector3(0.0f, 0.0f, 0.0f),          // Normal
+                Vector2(0, 0),                      // Texture coordinates
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)   // Color
+            },
+            Tbx::Vertex
+            {
+                Vector3(0.5f, -0.5f, 0.0f),         // Position
+                Vector3(0.0f, 0.0f, 0.0f),          // Normal
+                Vector2(0, 0),                      // Texture coordinates
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)   // Color
+            },
+            Tbx::Vertex
+            {
+                Vector3(0.0f, 0.5f, 0.0f),          // Position
+                Vector3(0.0f, 0.0f, 0.0f),          // Normal
+                Vector2(0, 0),                      // Texture coordinates
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)   // Color
+            }
         };
-        const std::vector<uint32>& meshIndices = { 0, 1, 2 };
-        const auto& mesh = Mesh(VertexBuffer(meshVerts), meshIndices);
-        return mesh;
+
+        const IndexBuffer indexBuffer = { 0, 1, 2 };
+        const VertexBuffer vertexBuffer =
+        {
+            triangleMeshVerts,
+            {{
+                // Pos
+                Vector3(),
+                // Vert Color
+                RgbaColor(),
+                // Normal
+                Vector3(),
+                // Tex Coord
+                Vector2(),
+
+            }}
+        };
+
+        return { vertexBuffer, indexBuffer };
     }
 
     Mesh MakeQuad()
     {
         const std::vector<Vertex> quadMeshVerts =
         {
-            Vertex(
+            Vertex
+            {
                 Vector3(-0.5f, -0.5f, 0.0f),        // Position
                 Vector3(0.0f, 0.0f, 0.0f),          // Normal
                 Vector2(0, 0),                      // Texture coordinates
-                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)), // Color
-
-            Vertex(
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)   // Color
+            },
+            Vertex
+            {
                 Vector3(0.5f, -0.5f, 0.0f),         // Position
                 Vector3(0.0f, 0.0f, 0.0f),          // Normal
                 Vector2(1, 0),                      // Texture coordinates
-                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)), // Color
-
-            Vertex(
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)   // Color
+            },
+            Vertex
+            {
                 Vector3(0.5f, 0.5f, 0.0f),		    // Position
                 Vector3(0.0f, 0.0f, 0.0f),          // Normal
                 Vector2(1, 1),                      // Texture coordinates
-                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)), // Color
-
-            Vertex(
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)   // Color
+            },
+            Vertex
+            {
                 Vector3(-0.5f, 0.5f, 0.0f),        // Position
                 Vector3(0.0f, 0.0f, 0.0f),         // Normal
                 Vector2(0, 1),                     // Texture coordinates
-                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)) // Color
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)  // Color
+            } 
         };
-        const std::vector<uint32> squareMeshIndices = { 0, 1, 2, 2, 3, 0 };
-        return Mesh(VertexBuffer(quadMeshVerts), squareMeshIndices);
+
+        const IndexBuffer indexBuffer = { 0, 1, 2, 2, 3, 0 };
+        const VertexBuffer vertexBuffer =
+        {
+            quadMeshVerts,
+            {{
+                // Pos
+                Vector3(),
+                // Vert Color
+                RgbaColor(),
+                // Normal
+                Vector3(),
+                // Tex Coord
+                Vector2(),
+
+            }}
+        };
+
+        return { vertexBuffer, indexBuffer };
     }
 }

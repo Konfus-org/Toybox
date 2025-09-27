@@ -7,7 +7,6 @@
 #include "Tbx/Memory/Refs.h"
 #include "Tbx/Plugins/PluginServer.h"
 #include <memory>
-#include <vector>
 
 namespace Tbx
 {

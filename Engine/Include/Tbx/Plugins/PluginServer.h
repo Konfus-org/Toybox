@@ -40,7 +40,6 @@ namespace Tbx
 
             for (const auto& owned : _loadedPlugins)
             {
-                // Assuming LoadedPlugin::Get() returns Ref<Plugin> (std::shared_ptr<Plugin>)
                 Ref<Plugin> base = owned->Get();
                 if (!base) continue;
 

@@ -23,11 +23,11 @@ void Demo::OnStart()
 
     // Load assets
     const auto& assetServer = _app.lock()->GetAssetServer();
-    auto smilyTex = assetServer.GetAsset<Tbx::Texture>("Assets/Smily.png");
-    auto wallTex = assetServer.GetAsset<Tbx::Texture>("Assets/Wall.jpg");
-    auto checkerTex = assetServer.GetAsset<Tbx::Texture>("Assets/Checkerboard.png");
-    auto fragmentShader = assetServer.GetAsset<Tbx::Shader>("Assets/fragment.frag");
-    auto vertexShader = assetServer.GetAsset<Tbx::Shader>("Assets/vertex.vert");
+    auto smilyTex = assetServer.GetAsset<Tbx::Texture>("Smily.png");
+    auto wallTex = assetServer.GetAsset<Tbx::Texture>("Wall.jpg");
+    auto checkerTex = assetServer.GetAsset<Tbx::Texture>("Checkerboard.png");
+    auto fragmentShader = assetServer.GetAsset<Tbx::Shader>("fragment.frag");
+    auto vertexShader = assetServer.GetAsset<Tbx::Shader>("vertex.vert");
 
     // Setup testing scene...
     _world = std::make_shared<Tbx::Stage>();

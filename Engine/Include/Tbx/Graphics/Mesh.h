@@ -5,13 +5,21 @@
 
 namespace Tbx
 {
+    using IndexBuffer = std::vector<uint32>;
+
     struct TBX_EXPORT Mesh
     {
+        /// <summary>
+        /// Defaults to a quad.
+        /// </summary>
+        Mesh();
+        Mesh(const VertexBuffer& vertBuff, const IndexBuffer& indexBuff);
+
         static Mesh Quad;
         static Mesh Triangle;
 
-        VertexBuffer VertexBuffer = {};
-        std::vector<uint32> IndexBuffer = {};
+        VertexBuffer Vertices = {};
+        IndexBuffer Indices = {};
         Uid Id = Uid::Generate();
     };
 
