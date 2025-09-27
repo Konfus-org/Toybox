@@ -15,7 +15,7 @@ namespace Tbx
             Ref<EventBus> eventBus);
         ~WindowManager();
 
-        void UpdateWindows();
+        void UpdateWindows() const;
 
         Ref<Window> GetMainWindow() const;
         const std::vector<Ref<Window>>& GetAllWindows() const;

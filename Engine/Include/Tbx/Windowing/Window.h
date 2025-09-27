@@ -2,6 +2,7 @@
 #include "Tbx/Ids/Uid.h"
 #include "Tbx/Memory/Refs.h"
 #include "Tbx/Math/Size.h"
+#include "Tbx/Events/EventBus.h"
 #include <any>
 
 namespace Tbx
@@ -50,6 +51,10 @@ namespace Tbx
     {
     public:
         virtual ~IWindowFactory() = default;
-        virtual Ref<Window> Create(const std::string& title, const Size& size, const WindowMode mode) = 0;
+        virtual Ref<Window> Create(
+            const std::string& title,
+            const Size& size,
+            const WindowMode& mode,
+            Ref<EventBus> eventBus) = 0;
     };
 }

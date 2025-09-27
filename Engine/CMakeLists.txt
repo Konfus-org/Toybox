@@ -1,5 +1,9 @@
 add_library(Engine SHARED)
 
+if (CMAKE_CXX_FLAGS MATCHES "-fno-rtti")
+    message(FATAL_ERROR "RTTI must be enabled for Toybox")
+endif()
+
 # Options
 option(TBX_BUILD_SHARED "Build as a shared library" ON)
 option(TBX_VERB_LOGGING "Enable verbose logging" OFF)

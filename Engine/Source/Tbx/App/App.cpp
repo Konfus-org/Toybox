@@ -13,6 +13,8 @@
 
 namespace Tbx
 {
+    struct RTTITest { virtual ~RTTITest() = default; };
+
     App::App(const std::string_view& name)
     {
         _name = name;
@@ -62,12 +64,21 @@ namespace Tbx
     
     void App::Initialize()
     {
+        RTTITest t = {};
+        const std::type_info& ti = typeid(t);
+        if (ti != typeid(RTTITest))
+        {
+            TBX_ASSERT(ti != typeid(RTTITest), "RTTI is disabled! Toybox requires RTTI to function properly!");
+            _status = AppStatus::Error;
+            return;
+        }
+
         _status = AppStatus::Initializing;
 
         auto workingDirectory = FileSystem::GetWorkingDirectory();
         TBX_TRACE_INFO("Current working directory is: {}", workingDirectory);
         auto assetDirectory = FileSystem::GetAssetDirectory();
-        TBX_TRACE_INFO("Current asset directory is: {}", assetDirectory);
+        TBX_TRACE_INFO("Current asset directory is: {}\n", assetDirectory);
 
         // Init required systems
         _eventBus = std::make_shared<EventBus>();

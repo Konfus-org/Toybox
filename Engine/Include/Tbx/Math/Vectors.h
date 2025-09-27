@@ -14,8 +14,8 @@ namespace Tbx
     struct TBX_EXPORT Vector3 : public IPrintable
     {
         Vector3() = default;
-        explicit(false) Vector3(float all) : X(all), Y(all), Z(all) {}
-        explicit(false) Vector3(const Vector2& vector);
+        Vector3(float all) : X(all), Y(all), Z(all) {}
+        Vector3(const Vector2& vector);
         Vector3(float x, float y, float z) : X(x), Y(y), Z(z) {}
 
         friend Vector3 operator + (const Vector3& lhs, const Vector3& rhs) { return Add(lhs, rhs); }

@@ -13,7 +13,7 @@ namespace Tbx
 
     using VertexData = std::variant<int, float, Vector2, Vector3, RgbaColor>;
 
-    inline int32 GetVertexDataSize(const VertexData& data)
+    inline int32 GetVertexDataCount(const VertexData& data)
     {
         if (std::holds_alternative<Tbx::Vector2>(data))
         {
@@ -34,6 +34,35 @@ namespace Tbx
         else if (std::holds_alternative<int>(data))
         {
             return 1;
+        }
+        else
+        {
+            TBX_ASSERT(false, "Could not convert to OpenGL type from vertex data, given unknown data type!");
+            return 0;
+        }
+    }
+
+    inline int32 GetVertexDataSize(const VertexData& data)
+    {
+        if (std::holds_alternative<Tbx::Vector2>(data))
+        {
+            return 4 * 2;
+        }
+        else if (std::holds_alternative<Tbx::Vector3>(data))
+        {
+            return 4 * 3;
+        }
+        else if (std::holds_alternative<Tbx::RgbaColor>(data))
+        {
+            return 4 * 4;
+        }
+        else if (std::holds_alternative<float>(data))
+        {
+            return 4;
+        }
+        else if (std::holds_alternative<int>(data))
+        {
+            return 4;
         }
         else
         {
@@ -66,6 +95,11 @@ namespace Tbx
 
         for (const auto& vertex : vertices)
         {
+            //layout(location = 0) in vec3 InPosition;
+            //layout(location = 1) in vec4 InVertColor;
+            //layout(location = 2) in vec3 InNormal; // TODO: implement normals!
+            //layout(location = 3) in vec2 InTextureCoord;
+
             const auto& position = vertex.Position;
             meshPoints[positionToPlace] = position.X;
             meshPoints[positionToPlace + 1] = position.Y;
@@ -96,10 +130,15 @@ namespace Tbx
     {
         VertexData Type = 0;
         uint32 Size = 0;
+        uint32 Count = 0;
         uint32 Offset = 0;
         bool Normalized = false;
     };
 
+    /// <summary>
+    /// Used to describe the layout of a vertex buffer.
+    /// I.e. does a vertex have position and color? Other properties?
+    /// </summary>
     struct TBX_EXPORT VertexBufferLayout
     {
         VertexBufferLayout() = default;
@@ -112,6 +151,7 @@ namespace Tbx
                 VertexBufferAttribute element = {};
                 element.Type = type;
                 element.Size = GetVertexDataSize(type);
+                element.Count = GetVertexDataCount(type);
                 element.Offset = offset;
                 element.Normalized = false;
                 offset += element.Size;

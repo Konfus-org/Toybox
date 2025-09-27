@@ -1,6 +1,5 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Windowing/WindowManager.h"
-#include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Debug/Debugging.h"
 
 namespace Tbx
@@ -20,20 +19,11 @@ namespace Tbx
         CloseAllWindows();
     }
 
-    void WindowManager::UpdateWindows()
+    void WindowManager::UpdateWindows() const
     {
-        for (auto& window : _stack)
+        for (const auto& window : _stack)
         {
             window->Update();
-            if (window->IsClosed())
-            {
-                _stack.Remove(window->Id);
-                _eventBus->Post(WindowClosedEvent(window));
-            }
-            if (window->IsFocused())
-            {
-                _eventBus->Post(WindowFocusedEvent(window));
-            }
         }
     }
 
@@ -54,7 +44,7 @@ namespace Tbx
 
     Uid WindowManager::OpenWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
-        Ref<Window> window = _windowFactory->Create(name, size, mode);
+        Ref<Window> window = _windowFactory->Create(name, size, mode, _eventBus);
         TBX_ASSERT(window, "Failed to create window!");
         if (_mainWindowId == Uid::Invalid)
         {
@@ -64,7 +54,6 @@ namespace Tbx
         _stack.Push(window);
         window->Open();
         window->Focus();
-        _eventBus->Post(WindowOpenedEvent(window));
 
         return window->Id;
     }

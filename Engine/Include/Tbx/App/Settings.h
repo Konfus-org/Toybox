@@ -11,7 +11,7 @@ namespace Tbx
     /// </summary>
     struct TBX_EXPORT Settings
     {
-        bool VSyncEnabled = true;
+        bool VSyncEnabled = false;
         GraphicsApi Api = GraphicsApi::OpenGL;
         Size Resolution = { static_cast<uint>(800), static_cast<uint>(600) };
         RgbaColor ClearColor = RgbaColor(0.0f, 0.0f, 0.05f, 1.0f);

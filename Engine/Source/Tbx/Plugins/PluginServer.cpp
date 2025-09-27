@@ -86,7 +86,7 @@ namespace Tbx
 		TBX_TRACE_INFO("{0}:", pluginName);
 		TBX_TRACE_INFO("    - Version: {0}", pluginVersion);
 		TBX_TRACE_INFO("    - Author: {0}", pluginAuthor);
-		TBX_TRACE_INFO("    - Description: {0}", pluginDescription);
+		TBX_TRACE_INFO("    - Description: {0}\n", pluginDescription);
 	}
 
 	static PluginMeta LoadPluginMeta(const std::filesystem::path& pathToMeta)
@@ -219,16 +219,20 @@ namespace Tbx
 	void PluginServer::LoadPlugins(const std::string& pathToPlugins, std::weak_ptr<Tbx::App> app)
 	{
 		// 1) Discover
+		TBX_TRACE_INFO("Discovering plugins....");
 		auto infos = SearchDirectoryForInfos(pathToPlugins);
 
 		// 2.) Sort
 		std::stable_sort(infos.begin(), infos.end(), SortKey);
 
 		// 3) Load 
+		TBX_TRACE_INFO("Loading plugins:\n");
 		auto loadedNames = std::unordered_set<std::string>();
+		uint pluginsSuccessfullyLoaded = 0;
+		uint pluginsUnsuccessfullyLoaded = 0;
 		while (!infos.empty())
 		{
-			bool progress = false;
+			bool resolvedDeps = false;
 
 			// Iterate and grab everything that’s ready this round
 			for (auto it = infos.begin(); it != infos.end(); )
@@ -237,26 +241,31 @@ namespace Tbx
 				{
 					LoadPlugin(*it, app, _eventBus, loadedNames, _loadedPlugins);
 					it = infos.erase(it);
-					progress = true;
+					pluginsSuccessfullyLoaded++;
+					resolvedDeps = true;
 				}
 				else
 				{
 					++it;
+					pluginsUnsuccessfullyLoaded++;
 				}
 			}
 
-			if (!progress)
+			if (!resolvedDeps)
 			{
+				TBX_ASSERT(false, "Unable to resolve some plugin dependencies!");
 				ReportUnresolvedPluginDependencies(infos, loadedNames);
-				TBX_ASSERT(false, "Unable to resolve plugin dependencies!");
 				break;
 			}
 		}
+
+		TBX_TRACE_INFO("Successfully loaded {} plugins!", pluginsSuccessfullyLoaded);
+		TBX_TRACE_INFO("Failed to load {} plugins!\n", pluginsUnsuccessfullyLoaded);
 	}
 
 	void PluginServer::UnloadPlugins()
 	{
-		TBX_TRACE_INFO("Unloading plugins...");
+		TBX_TRACE_INFO("Unloading plugins...\n");
 
 		// Clear refs to loaded plugins.. 
 		// this will cause them to unload themselves

@@ -131,6 +131,7 @@ namespace Tbx
         RenderCommandBufferBuilder builder = {};
         RenderCommandBuffer renderBuffer = {};
         renderBuffer.Commands.emplace_back(RenderCommandType::Clear, _clearColor);
+
         for (const auto& stage : _openStages)
         {
             if (!stage)

@@ -48,9 +48,13 @@ namespace Tbx
         /// </summary>
         void Close();
 
+        // TODO: hide behind methods such as App::SendEvent, App::PostEvent, App::SubscribeToEvent
         EventBus& GetEventBus() const;
+        // TODO: hide behind methods such as App::GetPlugins<>, App::GetPlugins, App::AddPlugin<>
         PluginServer& GetPluginServer() const;
+        // TODO: hide behind methods such as App::LoadAsset<>, App::GetLoadedAssets, App::AddAsset
         AssetServer& GetAssetServer() const;
+
         const AppStatus& GetStatus() const;
         const std::string& GetName() const;
 
