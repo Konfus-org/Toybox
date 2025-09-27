@@ -140,18 +140,10 @@ namespace Tbx
             buffer.Commands.emplace_back(RenderCommandType::SetMaterial, material);
         }
 
-        // Transform block, upload the transform data
-        if (toy->Blocks.Contains<Transform>())
-        {
-            const auto& transform = toy->Blocks.Get<Transform>();
-            const auto transformMatrix = Mat4x4::FromTRS(transform.Position, transform.Rotation, transform.Scale);
-            buffer.Commands.emplace_back(RenderCommandType::SetUniform, ShaderUniform("TransformUniform", transformMatrix));
-        }
-
         // Camera block, upload the camera data
         if (toy->Blocks.Contains<Camera>())
         {
-            auto& camera = toy->Blocks.Get<Camera>();
+            const auto& camera = toy->Blocks.Get<Camera>();
 
             if (toy->Blocks.Contains<Transform>())
             {
@@ -167,6 +159,13 @@ namespace Tbx
                     Vector3::Zero, Quaternion::Identity, camera.GetProjectionMatrix());
                 buffer.Commands.emplace_back(RenderCommandType::SetUniform, ShaderUniform("ViewProjectionUniform", viewProjMatrix));
             }
+        }
+        // Transform block, upload the transform data
+        else if (toy->Blocks.Contains<Transform>())
+        {
+            const auto& transform = toy->Blocks.Get<Transform>();
+            const auto transformMatrix = Mat4x4::FromTRS(transform.Position, transform.Rotation, transform.Scale);
+            buffer.Commands.emplace_back(RenderCommandType::SetUniform, ShaderUniform("TransformUniform", transformMatrix));
         }
 
         // Model block, upload model data

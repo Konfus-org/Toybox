@@ -13,7 +13,7 @@ namespace Tbx
     /// </summary>
     struct TBX_EXPORT ToyHandle
     {
-        std::string Name = "Invalid";
+        std::string Name = "";
         Uid Id = Uid::Generate();
     };
 
@@ -23,6 +23,11 @@ namespace Tbx
     class TBX_EXPORT Toy
     {
     public:
+        /// <summary>
+        /// Creates a toy with the given name.
+        /// </summary>
+        Toy() = default;
+
         /// <summary>
         /// Creates a toy with the given name.
         /// </summary>

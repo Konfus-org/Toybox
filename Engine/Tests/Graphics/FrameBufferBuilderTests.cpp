@@ -13,22 +13,25 @@ namespace Tbx::Tests::Graphics
     TEST(FrameBufferBuilderTests, BuildUploadBuffer_UploadsMaterialsAndMeshes)
     {
         // Arrange
-        Material materialA = {};
-        Texture textureA = {};
-        Material materialB = {};
-        Texture textureB = {};
+        Ref<Material> materialA = std::make_shared<Material>();
+        Ref<Texture> textureA = std::make_shared<Texture>();
+        Ref<Material> materialB = std::make_shared<Material>();
+        Ref<Texture> textureB = std::make_shared<Texture>();
 
         auto root = std::make_shared<Toy>();
-        auto toyA = root->Children.emplace_back("ToyA");
-        auto toyB = root->Children.emplace_back("ToyB");
-        auto toyC = root->Children.emplace_back("ToyC");
+        auto toyA = std::make_shared<Toy>("ToyA");
+        auto toyB = std::make_shared<Toy>("ToyB");
+        auto toyC = std::make_shared<Toy>("ToyC");
+        root->Children.push_back(toyA);
+        root->Children.push_back(toyB);
+        root->Children.push_back(toyC);
 
         auto& meshA = toyA->Blocks.Add<Mesh>();
         auto& meshB = toyB->Blocks.Add<Mesh>();
         auto& meshC = toyC->Blocks.Add<Mesh>();
-        auto& matInstanceA = toyA->Blocks.Add<MaterialInstance>(materialA, std::vector<Tbx::Texture>({ textureA }));
-        auto& matInstanceB = toyB->Blocks.Add<MaterialInstance>(materialA, std::vector<Tbx::Texture>({ textureB }));
-        auto& matInstanceC = toyC->Blocks.Add<MaterialInstance>(materialB, std::vector<Tbx::Texture>({ textureB }));
+        auto& matInstanceA = toyA->Blocks.Add<MaterialInstance>(materialA, textureA);
+        auto& matInstanceB = toyB->Blocks.Add<MaterialInstance>(materialA, textureB);
+        auto& matInstanceC = toyC->Blocks.Add<MaterialInstance>(materialB, textureB);
 
         // Act
         RenderCommandBufferBuilder builder;
@@ -78,21 +81,21 @@ namespace Tbx::Tests::Graphics
     TEST(FrameBufferBuilderTests, BuildRenderBuffer_WithCamera_ProducesExpectedCommandsInCorrectOrder)
     {
         // Arrange
-        Material material = {};
-        Texture texture = {};
-        auto root = std::make_shared<Toy>();
+        Ref<Material> material = std::make_shared<Material>();
+        Ref<Texture> texture = std::make_shared<Texture>();
 
-        // Camera setup
-        auto camToy = root->Children.emplace_back("CameraToy");
+        auto root = std::make_shared<Toy>();
+        auto camToy = std::make_shared<Toy>("CameraToy");
         camToy->Blocks.Add<Camera>();
         camToy->Blocks.Add<Transform>();
 
-        // Visible toy setup
-        auto visibleToy = root->Children.emplace_back("VisibleToy");
-        auto& matInstance = visibleToy->Blocks.Add<MaterialInstance>(material, texture);
-        auto& mesh = visibleToy->Blocks.Add<Mesh>();
-        visibleToy->Blocks.Add<Transform>()
-            .SetPosition({ 0.0f, 0.0f, 5.0f });
+        auto visibleToy = std::make_shared<Toy>("VisibleToy");
+        const auto& matInstance = visibleToy->Blocks.Add<MaterialInstance>(material, texture);
+        const auto& mesh = visibleToy->Blocks.Add<Mesh>();
+        visibleToy->Blocks.Add<Transform>().SetPosition({ 0.0f, 0.0f, 5.0f });
+
+        root->Children.push_back(visibleToy);
+        root->Children.push_back(camToy);
 
         // Act
         RenderCommandBufferBuilder builder;
@@ -100,27 +103,23 @@ namespace Tbx::Tests::Graphics
 
         // Assert
         const auto& cmds = buffer.Commands;
-        ASSERT_EQ(cmds.size(), 5);
+        ASSERT_EQ(cmds.size(), 4);
 
-        const auto& cmd0Uniform = std::any_cast<const ShaderUniform&>(cmds[0].Payload);
-        EXPECT_EQ(cmds[0].Type, RenderCommandType::SetUniform);
-        EXPECT_STREQ(cmd0Uniform.Name.c_str(), "TransformUniform");
+        EXPECT_EQ(cmds[0].Type, RenderCommandType::SetMaterial);
+        const auto& cmd0Material = std::any_cast<const MaterialInstance&>(cmds[0].Payload);
+        EXPECT_EQ(cmd0Material.Id, matInstance.Id);
 
-        const auto& cmd1Uniform = std::any_cast<const ShaderUniform&>(cmds[1].Payload);
         EXPECT_EQ(cmds[1].Type, RenderCommandType::SetUniform);
-        EXPECT_STREQ(cmd1Uniform.Name.c_str(), "ViewProjectionUniform");
+        const auto& cmd1Uniform = std::any_cast<const ShaderUniform&>(cmds[1].Payload);
+        EXPECT_STREQ(cmd1Uniform.Name.c_str(), "TransformUniform");
 
-        EXPECT_EQ(cmds[2].Type, RenderCommandType::SetMaterial);
-        const auto& cmd2Material = std::any_cast<const MaterialInstance&>(cmds[2].Payload);
-        EXPECT_EQ(cmd2Material.Id, matInstance.Id);
+        EXPECT_EQ(cmds[2].Type, RenderCommandType::DrawMesh);
+        const auto& cmd2Mesh = std::any_cast<const Mesh&>(cmds[2].Payload);
+        EXPECT_EQ(cmd2Mesh.Id, mesh.Id);
 
-        const auto& cmd3Uniform = std::any_cast<const ShaderUniform&>(cmds[3].Payload);
         EXPECT_EQ(cmds[3].Type, RenderCommandType::SetUniform);
-        EXPECT_STREQ(cmd3Uniform.Name.c_str(), "TransformUniform");
-
-        EXPECT_EQ(cmds[4].Type, RenderCommandType::DrawMesh);
-        const auto& cmd4Mesh = std::any_cast<const Mesh&>(cmds[4].Payload);
-        EXPECT_EQ(cmd4Mesh.Id, mesh.Id);
+        const auto& cmd3Uniform = std::any_cast<const ShaderUniform&>(cmds[3].Payload);
+        EXPECT_STREQ(cmd3Uniform.Name.c_str(), "ViewProjectionUniform");
     }
 }
 
