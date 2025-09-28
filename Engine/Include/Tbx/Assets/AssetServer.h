@@ -85,7 +85,7 @@ namespace Tbx
                 record->FilePath = absolutePath;
                 record->Loader = loader;
 
-                auto& emplaceResult = _assetRecords.try_emplace(normalizedPath, std::move(record));
+                const auto& emplaceResult = _assetRecords.try_emplace(normalizedPath, std::move(record));
                 recordIt = emplaceResult.first;
             }
 
