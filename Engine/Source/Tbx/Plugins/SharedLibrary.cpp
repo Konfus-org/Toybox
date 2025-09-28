@@ -53,7 +53,7 @@ namespace Tbx
     void SharedLibrary::ListSymbols()
     {
 #if defined(TBX_PLATFORM_WINDOWS)
-#ifdef TBX_VERBOSE_LOGGING
+    #ifdef TBX_VERBOSE_LOGGING
         // CalculateOffsetAndStride symbol handling
         if (!SymInitialize(GetCurrentProcess(), nullptr, true))
         {
@@ -80,9 +80,11 @@ namespace Tbx
 
         // Clean up
         SymCleanup(GetCurrentProcess());
-#endif // TBX_VERBOSE_LOGGING
+    #endif
 #elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_MACOS)
+    #ifdef TBX_VERBOSE_LOGGING
         TBX_ASSERT(false, "DynamicLibrary::ListSymbols is not implemented for this platform!");
+    #endif
 #endif
     }
 

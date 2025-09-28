@@ -97,7 +97,7 @@ namespace Tbx
 		meta.Name = metaData["name"][0];
 #ifdef TBX_PLATFORM_WINDOWS
 		meta.Path = pathToMeta.parent_path().string() + "/" + pathToMeta.filename().stem().string() + ".dll";
-#elif
+#else
 		meta.Path = pathToMeta.parent_path().string() + "/" + pathToMeta.filename().stem().string() + ".so";
 #endif
 		meta.Author = metaData["author"][0];

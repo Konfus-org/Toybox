@@ -44,6 +44,7 @@ namespace Tbx
         static void Suppress();
         static void Unsuppress();
 
+    private:
         static std::atomic_int _suppressCount;
     };
 
@@ -124,14 +125,11 @@ namespace Tbx
         void ProcessQueue();
 
     private:
-        // Helper to add a subscriber in a single place.
         void AddSubscriber(uint64 eventKey, uint64 callbackKey, std::function<void(Event&)> callable);
-
-        // Helper to remove a subscriber in a single place. Emits assert if not found.
         void RemoveSubscriber(uint64 eventKey, uint64 callbackKey, const std::type_info& eventType);
-
-        // Runtime (non-template) event dispatch. Returns whether the event was handled.
         void SendEvent(Event& event);
+        ExclusiveRef<Event> PopNextEventInQueue();
+        uint64 GetEventHash(const Event& event) const;
 
         template <class TEvent>
         uint64 GetEventHash() const
@@ -141,10 +139,6 @@ namespace Tbx
             return static_cast<uint64>(hash);
         }
 
-        // runtime version (by instance)
-        uint64 GetEventHash(const Event& event) const;
-
-        // Function pointer hashing (free functions)
         template <class TEvent>
         uint64 GetCallbackHash(EventHandlerFunction<TEvent> callback) const
         {
@@ -154,7 +148,6 @@ namespace Tbx
             return Memory::CombineHashes(typeHash, callbackHash);
         }
 
-        // Member function pointer hashing
         template <class TEvent, typename TSubscriber>
         Tbx::uint64 GetCallbackHash(TSubscriber* instance, ClassEventHandlerFunction<TSubscriber, TEvent> callback) const
         {
@@ -164,9 +157,7 @@ namespace Tbx
             return Memory::CombineHashes(Memory::CombineHashes(typeHash, instanceHash), callbackHash);
         }
 
-        // Pop next event from queue (caller must hold lock if needed). Returns nullptr if none.
-        ExclusiveRef<Event> PopNextEventInQueue();
-
+    private:
         mutable std::mutex _mutex = {};
         std::unordered_map<uint64, std::unordered_map<uint64, EventCallback>> _subscribers = {};
         std::queue<ExclusiveRef<Event>> _eventQueue = {};
