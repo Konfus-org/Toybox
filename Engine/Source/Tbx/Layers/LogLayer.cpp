@@ -7,7 +7,7 @@
 
 namespace Tbx
 {
-    LogLayer::LogLayer(Ref<ILoggerFactory> loggerFactory) 
+    LogLayer::LogLayer(Ref<ILoggerFactory> loggerFactory)
         : Layer("Logging")
     {
 #ifdef TBX_DEBUG
@@ -29,11 +29,11 @@ namespace Tbx
     void LogLayer::OnDetach()
     {
         // Then we can shutdown the log
-        Log::Shutdown();
+        //Log::Shutdown(); We don't need to call this here, as it will be called by the Application
     }
 
     void LogLayer::OnUpdate()
     {
-        Log::WriteQueued();
+        Log::ProcessQueue();
     }
 }

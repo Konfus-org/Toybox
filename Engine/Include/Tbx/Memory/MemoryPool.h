@@ -2,6 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Math/Int.h"
 #include "Tbx/Memory/Refs.h"
+#include "Tbx/Debug/Debugging.h"
 #include <memory>
 #include <cstring>
 
@@ -10,7 +11,7 @@ namespace Tbx
     /// <summary>
     /// A simple struct used to reserve a block of continuous memory.
     /// </summary>
-    struct EXPORT MemoryPool
+    struct TBX_EXPORT MemoryPool
     {
     public:
         MemoryPool(const uint64& elementSize, const uint64& poolSize)
@@ -21,7 +22,7 @@ namespace Tbx
         {
             if (index >= _poolSize)
             {
-                TBX_ASSERT(false, "Index out of bounds!");
+                TBX_ASSERT(false, "MemoryPool: Index out of bounds!");
                 return nullptr;
             }
             void* data = _data.get() + index * _elementSize;
@@ -33,7 +34,7 @@ namespace Tbx
         {
             if (index >= _poolSize)
             {
-                TBX_ASSERT(false, "Index out of bounds!");
+                TBX_ASSERT(false, "MemoryPool: Index out of bounds!");
                 return;
             }
             void* data = _data.get() + index * _elementSize;

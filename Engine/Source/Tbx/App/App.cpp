@@ -68,7 +68,7 @@ namespace Tbx
         const std::type_info& ti = typeid(t);
         if (ti != typeid(RTTITest))
         {
-            TBX_ASSERT(ti != typeid(RTTITest), "RTTI is disabled! Toybox requires RTTI to function properly!");
+            TBX_ASSERT(ti != typeid(RTTITest), "App: RTTI is disabled! Toybox requires RTTI to function properly!");
             _status = AppStatus::Error;
             return;
         }
@@ -76,9 +76,9 @@ namespace Tbx
         _status = AppStatus::Initializing;
 
         auto workingDirectory = FileSystem::GetWorkingDirectory();
-        TBX_TRACE_INFO("Current working directory is: {}", workingDirectory);
+        TBX_TRACE_INFO("App: Current working directory is: {}", workingDirectory);
         auto assetDirectory = FileSystem::GetAssetDirectory();
-        TBX_TRACE_INFO("Current asset directory is: {}\n", assetDirectory);
+        TBX_TRACE_INFO("App: Current asset directory is: {}\n", assetDirectory);
 
         // Init required systems
         _eventBus = std::make_shared<EventBus>();
@@ -93,7 +93,7 @@ namespace Tbx
             auto windowFactoryPlugs = _pluginServer->GetPlugins<IWindowFactory>();
             if (!windowFactoryPlugs.empty())
             {
-                TBX_ASSERT(windowFactoryPlugs.size() == 1, "Only one window factory is allowed!");
+                TBX_ASSERT(windowFactoryPlugs.size() == 1, "App: Only one window factory is allowed!");
                 auto windowFactory = windowFactoryPlugs.front();
                 const auto& appName = _name;
                 AddLayer<WindowingLayer>(appName, windowFactory, _eventBus);
@@ -102,7 +102,7 @@ namespace Tbx
             auto rendererFactoryPlugs = _pluginServer->GetPlugins<IRendererFactory>();
             if (!rendererFactoryPlugs.empty())
             {
-                TBX_ASSERT(rendererFactoryPlugs.size() == 1, "Only one renderer factory is allowed!");
+                TBX_ASSERT(rendererFactoryPlugs.size() == 1, "App: Only one renderer factory is allowed!");
                 auto rendererFactory = rendererFactoryPlugs.front();
                 AddLayer<RenderingLayer>(rendererFactory, _eventBus);
             }
@@ -110,7 +110,7 @@ namespace Tbx
             auto inputHandlerPlugs = _pluginServer->GetPlugins<IInputHandler>();
             if (!inputHandlerPlugs.empty())
             {
-                TBX_ASSERT(inputHandlerPlugs.size() == 1, "Only one input handler is allowed!");
+                TBX_ASSERT(inputHandlerPlugs.size() == 1, "App: Only one input handler is allowed!");
                 auto inputHandler = inputHandlerPlugs.front();
                 AddLayer<InputLayer>(inputHandler);
             }
@@ -118,7 +118,7 @@ namespace Tbx
             auto loggerFactoryPlugs = _pluginServer->GetPlugins<ILoggerFactory>();
             if (!loggerFactoryPlugs.empty())
             {
-                TBX_ASSERT(loggerFactoryPlugs.size() == 1, "Only one logger factory is allowed!");
+                TBX_ASSERT(loggerFactoryPlugs.size() == 1, "App: Only one logger factory is allowed!");
                 auto loggerFactory = loggerFactoryPlugs.front();
                 AddLayer<LogLayer>(loggerFactory);
             }
@@ -128,8 +128,8 @@ namespace Tbx
         }
 #else
         TBX_TRACE_WARNING(
-            "Toybox has been build as a static library, plugins will not be automagically loaded!"
-            "You must ensure you link to any wanted plugins in your library and register/setup them in a inheritor of App in its 'OnLaunch' method.");
+            "App: Toybox has been build as a static library, plugins will not be automagically loaded!"
+            "You must ensure you link to any wanted plugins in your library and register/setup them in a inheritor of App in its 'OnLaunch' method.\n");
 #endif
 
         // Sub to window closing so we can listen for main window closed to init app shutdown
@@ -160,7 +160,7 @@ namespace Tbx
         if (Input::IsKeyDown(TBX_KEY_F4) &&
             (Input::IsKeyDown(TBX_KEY_LEFT_ALT) || Input::IsKeyDown(TBX_KEY_RIGHT_ALT)))
         {
-            TBX_TRACE("Closing app...");
+            TBX_TRACE_INFO("App: Closing...\n");
             _status = AppStatus::Closing;
             return;
         }
@@ -168,7 +168,9 @@ namespace Tbx
         // Shortcut to restart/reload app
         if (Input::IsKeyDown(TBX_KEY_F2))
         {
-            TBX_TRACE("Reloading app...");
+			// TODO: App slowly eats up more memory every restart, we need to track down why and fix it!
+            // There is a leak somewhere...
+            TBX_TRACE_INFO("App: Reloading...\n");
             _status = AppStatus::Reloading;
             return;
         }
@@ -188,7 +190,7 @@ namespace Tbx
 
     void App::Shutdown()
     {
-        TBX_TRACE_INFO("Shutting down...");
+        TBX_TRACE_INFO("App: Shutting down...");
 
         auto hadError = _status == AppStatus::Error;
         auto isRestarting = _status == AppStatus::Reloading;
@@ -201,6 +203,13 @@ namespace Tbx
         _eventBus->Send(exitEvent);
         _eventBus->Unsubscribe(this, &App::OnWindowOpened);
         _eventBus->Unsubscribe(this, &App::OnWindowClosed);
+
+        // Shutdown app layers and unload assets
+        _layerStack.Clear();
+        _assetServer.reset();
+
+        // Finally reset plugin server which will unload all plugins
+        _pluginServer.reset();
 
         if (isRestarting)
         {

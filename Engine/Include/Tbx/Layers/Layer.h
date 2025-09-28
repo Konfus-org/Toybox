@@ -14,6 +14,7 @@ namespace Tbx
     public:
         explicit(false) Layer(const std::string& name)
             : Name(name) {}
+        virtual ~Layer() = default;
 
         virtual void OnAttach() {}
         virtual void OnDetach() {}

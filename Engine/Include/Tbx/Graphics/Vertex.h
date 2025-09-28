@@ -37,7 +37,7 @@ namespace Tbx
         }
         else
         {
-            TBX_ASSERT(false, "Could not convert to OpenGL type from vertex data, given unknown data type!");
+            TBX_ASSERT(false, "Vertex: Could not convert to OpenGL type from vertex data, given unknown data type!");
             return 0;
         }
     }
@@ -66,7 +66,7 @@ namespace Tbx
         }
         else
         {
-            TBX_ASSERT(false, "Could not convert to OpenGL type from vertex data, given unknown data type!");
+            TBX_ASSERT(false, "Vertex: Could not convert to OpenGL type from vertex data, given unknown data type!");
             return 0;
         }
     }

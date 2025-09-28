@@ -129,7 +129,7 @@ namespace Tbx
         // Material block, should be a material instance
         if (toy->Blocks.Contains<Material>())
         {
-            TBX_ASSERT(false, "A toy shouldn't use a material directly! Toys should use material instances!");
+            TBX_ASSERT(false, "RenderCommandBufferBuilder: A toy shouldn't use a material directly! Toys should use material instances!");
             return;
         }
         

@@ -15,15 +15,20 @@ namespace Tbx
     class TBX_EXPORT Plugin
     {
     public:
+        Plugin(WeakRef<App> app) : _app(app) {}
         virtual ~Plugin() = default;
-        virtual void OnLoad() {}
-        virtual void OnUnload() {}
+
+        Ref<App> GetApp() const { return _app.lock(); }
+
+    private:
+        WeakRef<App> _app = {};
     };
 
     // C-linkage factory function names the host will look up.
     using PluginLoadFn = Plugin*(*)(WeakRef<App> app);
     using PluginUnloadFn = void (*)(Plugin* plugin);
 }
+
 
 #define TBX_LOAD_PLUGIN_FN_NAME "Load"
 #define TBX_UNLOAD_PLUGIN_FN_NAME "Unload"
@@ -40,14 +45,12 @@ namespace Tbx
 /// Is required for TBX to be able to load the plugin.
 /// </summary>
 #define TBX_REGISTER_PLUGIN(pluginType) \
-    extern "C" TBX_PLUGIN_API pluginType* Load(Tbx::WeakRef<Tbx::App> app)\
+    TBX_PLUGIN_API pluginType* Load(Tbx::WeakRef<Tbx::App> app)\
     {\
         auto plugin = new pluginType(app);\
-        plugin->OnLoad();\
         return plugin;\
     }\
-    extern "C" TBX_PLUGIN_API void Unload(pluginType* pluginToUnload)\
+    TBX_PLUGIN_API void Unload(pluginType* pluginToUnload)\
     {\
-        pluginToUnload->OnUnload();\
         delete pluginToUnload;\
     }

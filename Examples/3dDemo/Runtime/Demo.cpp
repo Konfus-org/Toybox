@@ -17,9 +17,14 @@ Demo::Demo(const Tbx::WeakRef<Tbx::App>& app)
 {
 }
 
+Demo::~Demo()
+{
+	TBX_TRACE_INFO("Demo: unloaded!\n");
+}
+
 void Demo::OnStart()
 {
-    TBX_TRACE("Demo started!");
+    TBX_TRACE_INFO("Demo: started!\n");
 
     // Load assets
     const auto& assetServer = _app.lock()->GetAssetServer();
@@ -97,7 +102,7 @@ void Demo::OnStart()
 
 void Demo::OnShutdown()
 {
-    TBX_TRACE("Demo shutdown!");
+    TBX_TRACE("Demo: shutdown!\n");
 }
 
 void Demo::OnUpdate()

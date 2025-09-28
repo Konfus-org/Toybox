@@ -8,7 +8,7 @@ namespace Tbx
     /// <summary>
     /// Bridges engine logging facilities into the layer system so loggers live alongside other services.
     /// </summary>
-    class LogLayer : public Layer
+    class LogLayer final : public Layer
     {
     public:
         LogLayer(Ref<ILoggerFactory> loggerFactory);

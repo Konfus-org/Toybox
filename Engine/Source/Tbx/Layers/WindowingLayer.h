@@ -6,7 +6,7 @@
 
 namespace Tbx
 {
-    class WindowingLayer : public Layer
+    class WindowingLayer final : public Layer
     {
     public:
         WindowingLayer(

@@ -5,16 +5,16 @@
 
 namespace Tbx
 {
-    class InputLayer : public Layer
+    class InputLayer final : public Layer
     {
     public:
         InputLayer(Ref<IInputHandler> inputHandler);
 
-        void OnAttach() final;
-        void OnDetach() final;
-        void OnUpdate() final;
+        void OnAttach() override;
+        void OnDetach() override;
+        void OnUpdate() override;
 
     private:
-        Ref<IInputHandler> _inputHandler;
+        Ref<IInputHandler> _inputHandler = nullptr;
     };
 }

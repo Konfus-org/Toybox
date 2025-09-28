@@ -6,14 +6,15 @@
 #include "Tbx/Memory/Refs.h"
 #include <Tbx/Graphics/Material.h>
 
-class Demo : public Tbx::Runtime
+class Demo final : public Tbx::Runtime
 {
 public:
     Demo(const Tbx::WeakRef<Tbx::App>& app);
+    ~Demo();
 
-    void OnStart() final;
-    void OnShutdown() final;
-    void OnUpdate() final;
+    void OnStart() override;
+    void OnShutdown() override;
+    void OnUpdate() override;
 
 private:
     Tbx::Ref<Tbx::Stage> _world = nullptr;
@@ -30,4 +31,12 @@ private:
     Tbx::WeakRef<Tbx::App> _app = {};
 };
 
-TBX_REGISTER_RUNTIME(Demo);
+class DemoLoader : public Tbx::Plugin {
+public: DemoLoader(Tbx::WeakRef<Tbx::App> app) : Tbx::Plugin(app) {
+    app.lock()->AddLayer<Demo>(app);
+}
+}; extern "C" __declspec(dllexport) DemoLoader* Load(Tbx::WeakRef<Tbx::App> app) {
+    auto plugin = new DemoLoader(app); return plugin;
+} extern "C" __declspec(dllexport) void Unload(DemoLoader* pluginToUnload) {
+    delete pluginToUnload;
+};

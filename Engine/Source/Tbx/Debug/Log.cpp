@@ -4,6 +4,8 @@
 
 namespace Tbx
 {
+    // TODO: The log should be a static plugin that can be replaced by the user if they want.
+
     std::queue<std::pair<LogLevel, std::string>> Log::_logQueue = {};
     Ref<ILogger> Log::_logger = nullptr;
     std::string Log::_logFilePath = "";
@@ -31,7 +33,7 @@ namespace Tbx
 
     void Log::Shutdown()
     {
-        WriteQueued();
+        ProcessQueue();
         _logger = nullptr;
         _isOpen = false;
     }
@@ -48,11 +50,11 @@ namespace Tbx
         {
             // Attempt to process immediately... 
             // but if the log hasn't been opened yet for whatever reason we have to wait for the next update
-            WriteQueued();
+            ProcessQueue();
         }
     }
 
-    void Log::WriteQueued()
+    void Log::ProcessQueue()
     {
         while (!_logQueue.empty())
         {

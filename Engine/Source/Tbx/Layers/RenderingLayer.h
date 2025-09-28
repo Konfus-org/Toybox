@@ -11,10 +11,12 @@ namespace Tbx
     /// <summary>
     /// The application's rendering layer that connects the high-level layer system to the rendering subsystem.
     /// </summary>
-    class RenderingLayer : public Layer
+    class RenderingLayer final : public Layer
     {
     public:
-        TBX_EXPORT RenderingLayer(Ref<IRendererFactory> renderFactory, Ref<EventBus> eventBus);
+        TBX_EXPORT RenderingLayer(
+            Ref<IRendererFactory> renderFactory,
+            Ref<EventBus> eventBus);
 
     protected:
         void OnUpdate() override;

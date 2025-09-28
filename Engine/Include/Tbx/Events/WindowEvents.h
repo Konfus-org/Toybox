@@ -18,49 +18,49 @@ namespace Tbx
         Ref<Window> _window = nullptr;
     };
 
-    class TBX_EXPORT WindowFocusedEvent : public WindowActionEvent
+    class TBX_EXPORT WindowFocusedEvent final : public WindowActionEvent
     {
     public:
         explicit WindowFocusedEvent(Ref<Window> window)
             : WindowActionEvent(std::move(window)) {}
 
-        std::string ToString() const final
+        std::string ToString() const override
         {
             return "Window Focused Event";
         }
     };
 
-    class TBX_EXPORT WindowOpenedEvent : public WindowActionEvent
+    class TBX_EXPORT WindowOpenedEvent final : public WindowActionEvent
     {
     public:
         explicit WindowOpenedEvent(Ref<Window> window)
             : WindowActionEvent(std::move(window)) {}
 
-        std::string ToString() const final
+        std::string ToString() const override
         {
             return "Window Opened Event";
         }
     };
 
-    class TBX_EXPORT WindowClosedEvent : public WindowActionEvent
+    class TBX_EXPORT WindowClosedEvent final : public WindowActionEvent
     {
     public:
         explicit WindowClosedEvent(Ref<Window> window)
             : WindowActionEvent(std::move(window)) {}
 
-        std::string ToString() const final
+        std::string ToString() const override
         {
             return "Window Closed Event";
         }
     };
 
-    class TBX_EXPORT WindowResizedEvent : public WindowActionEvent
+    class TBX_EXPORT WindowResizedEvent final : public WindowActionEvent
     {
     public:
         explicit WindowResizedEvent(Ref<Window> window)
             : WindowActionEvent(std::move(window)) {}
 
-        std::string ToString() const final
+        std::string ToString() const override
         {
             return "Window Resized Event";
         }

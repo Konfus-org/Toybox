@@ -39,13 +39,13 @@ namespace Tbx
 	/// Register a runtime
 	/// </summary>
 	#define TBX_REGISTER_RUNTIME(runtimeType) \
-		class runtimeType##RuntimeLoader : public Tbx::Plugin\
+		class runtimeType##Loader : public Tbx::Plugin\
 		{\
 		public:\
-			runtimeType##RuntimeLoader(Tbx::WeakRef<Tbx::App> app)\
+			runtimeType##Loader(Tbx::WeakRef<Tbx::App> app) : Tbx::Plugin(app)\
 			{\
 				app.lock()->AddLayer<runtimeType>(app);\
 			}\
 		};\
-		TBX_REGISTER_PLUGIN(runtimeType##RuntimeLoader)
+		TBX_REGISTER_PLUGIN(runtimeType##Loader)
 }

@@ -38,7 +38,7 @@ namespace Tbx
         /// <summary>
         /// Write all queued messages to the log.
         /// </summary>
-        static void WriteQueued();
+        static void ProcessQueue();
 
         /// <summary>
         /// Returns the path to the log file if we are logging to a file.

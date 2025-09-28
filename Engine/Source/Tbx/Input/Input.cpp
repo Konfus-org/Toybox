@@ -8,14 +8,7 @@ namespace Tbx
 
     void Input::Initialize(const Ref<IInputHandler>& inputHandler)
     {
-        TBX_ASSERT(inputHandler, "Input handler was null!");
-
-        if (_inputHandler)
-        {
-            TBX_ASSERT(false, "Input was already initialized!");
-            return;
-        }
-
+        TBX_ASSERT(inputHandler, "Input: handler was null!");
         _inputHandler = inputHandler;
     }
 
@@ -23,7 +16,7 @@ namespace Tbx
     {
         if (!_inputHandler)
         {
-            TBX_ASSERT(false, "Input was never initialized!");
+            TBX_ASSERT(false, "Input: was never initialized!");
             return;
         }
 
@@ -32,7 +25,10 @@ namespace Tbx
 
     bool Input::EnsureHandler()
     {
-        TBX_ASSERT(_inputHandler, "Input has not been initialized yet! Did you call Input::Initialize?");
+		if (!_inputHandler)
+        {
+            TBX_TRACE_WARNING("Input: has not been initialized yet! Did you call Input::Initialize?");
+        }
         return static_cast<bool>(_inputHandler);
     }
 

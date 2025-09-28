@@ -8,8 +8,8 @@ namespace Tbx
         Ref<IWindowFactory> windowFactory,
         Ref<EventBus> eventBus)
         : Layer("Windowing")
-        , _windowManager(std::make_unique<WindowManager>(windowFactory, eventBus))
         , _appName(appName)
+        , _windowManager(std::make_unique<WindowManager>(windowFactory, eventBus))
     {
     }
 
@@ -17,7 +17,7 @@ namespace Tbx
     {
 #ifdef TBX_DEBUG
         _windowManager->OpenWindow(_appName, WindowMode::Windowed, Size(1920, 1080));
-#elif
+#else
         _windowManager->OpenWindow(_appName, WindowMode::Fullscreen);
 #endif
     }

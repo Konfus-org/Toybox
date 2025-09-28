@@ -4,20 +4,16 @@
 #include "Tbx/Plugins/SharedLibrary.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Memory/Refs.h"
-#include <memory>
 
 namespace Tbx
 {
     class App;
 
-    class TBX_EXPORT LoadedPlugin
+    class TBX_EXPORT PluginServerRecord
     {
     public:
-        explicit(true) LoadedPlugin(const PluginMeta& pluginInfo, std::weak_ptr<App> app);
-        ~LoadedPlugin();
-
-        LoadedPlugin(const LoadedPlugin&) = delete;
-        LoadedPlugin& operator= (const LoadedPlugin&) = delete;
+        explicit(true) PluginServerRecord(const PluginMeta& pluginInfo, std::weak_ptr<App> app);
+        ~PluginServerRecord();
 
         bool IsValid() const;
         const PluginMeta& GetMeta() const;

@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Plugins/LoadedPlugin.h"
+#include "Tbx/Plugins/PluginServerRecord.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Memory/Refs.h"
 #include <memory>
@@ -9,6 +9,9 @@
 
 namespace Tbx
 {
+    /// <summary>
+    /// The PluginServer is responsible for loading, keeping track of, and unloading plugins, as well as providing a way to access them.
+    /// </summary>
     class TBX_EXPORT PluginServer
     {
     public:
@@ -26,8 +29,7 @@ namespace Tbx
         /// <summary>
         /// Registers a plugin
         /// </summary>
-        /// <param name="plugin"></param>
-        void RegisterPlugin(ExclusiveRef<LoadedPlugin> plugin);
+        void RegisterPlugin(ExclusiveRef<PluginServerRecord> plugin);
 
         /// <summary>
         /// Gets plugins of the specified type.
@@ -36,9 +38,9 @@ namespace Tbx
         std::vector<Ref<TPlugin>> GetPlugins() const
         {
             std::vector<Ref<TPlugin>> result;
-            result.reserve(_loadedPlugins.size());
+            result.reserve(_pluginRecords.size());
 
-            for (const auto& owned : _loadedPlugins)
+            for (const auto& owned : _pluginRecords)
             {
                 Ref<Plugin> base = owned->Get();
                 if (!base) continue;
@@ -62,9 +64,11 @@ namespace Tbx
         void LoadPlugins(const std::string& pathToPlugins, std::weak_ptr<Tbx::App> app);
         void UnloadPlugins();
 
+        void RemoveBackPlugin(std::vector<Tbx::ExclusiveRef<Tbx::PluginServerRecord>>& nonLoggerPlugs);
+
     private:
         std::string _pathToLoadedPlugins = "";
-        std::vector<ExclusiveRef<LoadedPlugin>> _loadedPlugins = {};
+        std::vector<ExclusiveRef<PluginServerRecord>> _pluginRecords = {};
         Ref<EventBus> _eventBus = nullptr;
     };
 }

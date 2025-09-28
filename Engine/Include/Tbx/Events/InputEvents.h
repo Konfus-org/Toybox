@@ -16,36 +16,36 @@ namespace Tbx
         int _keyCode;
     };
 
-    class TBX_EXPORT KeyPressedEvent : public KeyEvent
+    class TBX_EXPORT KeyPressedEvent final : public KeyEvent
     {
     public:
         using KeyEvent::KeyEvent;
 
-        std::string ToString() const final
+        std::string ToString() const override
         {
             return "Key Pressed Event";
         }
     };
 
-    class TBX_EXPORT KeyReleasedEvent : public KeyEvent
+    class TBX_EXPORT KeyReleasedEvent final : public KeyEvent
     {
     public:
         using KeyEvent::KeyEvent;
 
-        std::string ToString() const final
+        std::string ToString() const override
         {
             return "Key Released Event";
         }
     };
 
-    class TBX_EXPORT KeyHeldEvent : public KeyEvent
+    class TBX_EXPORT KeyHeldEvent final : public KeyEvent
     {
     public:
         KeyHeldEvent(int keyCode, float timeHeld) :
             KeyEvent(keyCode), _timeHeld(timeHeld) {
         }
 
-        std::string ToString() const final
+        std::string ToString() const override
         {
             return "Key Held Event";
         }
@@ -59,14 +59,14 @@ namespace Tbx
         float _timeHeld;
     };
 
-    class TBX_EXPORT KeyRepeatedEvent : public KeyEvent
+    class TBX_EXPORT KeyRepeatedEvent final : public KeyEvent
     {
     public:
         KeyRepeatedEvent(int keyCode, int repeatCount) :
             KeyEvent(keyCode), _repeatCount(repeatCount) {
         }
 
-        std::string ToString() const final
+        std::string ToString() const override
         {
             return "Key Repeated Event";
         }
@@ -80,16 +80,12 @@ namespace Tbx
         int _repeatCount;
     };
 
-    class TBX_EXPORT MouseEvent : public Event
-    {
-    };
-
-    class TBX_EXPORT MouseMovedEvent : public MouseEvent
+    class TBX_EXPORT MouseMovedEvent final : public Event
     {
     public:
         MouseMovedEvent(float x, float y) : _xPos(x), _yPos(y) {}
 
-        std::string ToString() const final
+        std::string ToString() const override
         {
             return "Mouse Moved Event";
         }
@@ -104,12 +100,12 @@ namespace Tbx
         float _yPos;
     };
 
-    class TBX_EXPORT MouseScrolledEvent : public MouseEvent
+    class TBX_EXPORT MouseScrolledEvent final : public Event
     {
     public:
         MouseScrolledEvent(float x, float y) : _xScroll(x), _yScroll(y) {}
 
-        std::string ToString() const final
+        std::string ToString() const override
         {
             return "Mouse Scrolled Event";
         }
@@ -124,12 +120,12 @@ namespace Tbx
         float _yScroll;
     };
 
-    class TBX_EXPORT MouseButtonPressedEvent : public MouseEvent
+    class TBX_EXPORT MouseButtonPressedEvent final : public Event
     {
     public:
         explicit MouseButtonPressedEvent(int button) : _button(button) {}
 
-        std::string ToString() const final
+        std::string ToString() const override
         {
             return "Mouse Button Pressed Event";
         }
@@ -143,12 +139,12 @@ namespace Tbx
         int _button;
     };
 
-    class TBX_EXPORT MouseButtonReleasedEvent : public MouseEvent
+    class TBX_EXPORT MouseButtonReleasedEvent final : public Event
     {
     public:
         explicit MouseButtonReleasedEvent(int button) : _button(button) {}
 
-        std::string ToString() const final
+        std::string ToString() const override
         {
             return "Mouse Button Released Event";
         }

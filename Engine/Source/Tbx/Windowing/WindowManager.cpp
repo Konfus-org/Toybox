@@ -5,7 +5,7 @@
 namespace Tbx
 {
     WindowManager::WindowManager(
-        Ref<IWindowFactory> windowFactory, 
+        Ref<IWindowFactory> windowFactory,
         Ref<EventBus> eventBus)
     {
         _windowFactory = windowFactory;

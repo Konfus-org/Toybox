@@ -8,12 +8,12 @@
 
 namespace Tbx
 {
-    Rendering::Rendering(Tbx::Ref<IRendererFactory> rendererFactory, Tbx::Ref<EventBus> eventBus)
+    Rendering::Rendering(Ref<IRendererFactory> rendererFactory, Ref<EventBus> eventBus)
         : _rendererFactory(rendererFactory)
         , _eventBus(eventBus)
     {
-        TBX_ASSERT(_rendererFactory, "Rendering requires a valid renderer factory instance.");
-        TBX_ASSERT(_eventBus, "Rendering requires a valid event bus instance.");
+        TBX_ASSERT(_rendererFactory, "Rendering: requires a valid renderer factory instance.");
+        TBX_ASSERT(_eventBus, "Rendering: requires a valid event bus instance.");
 
         _eventBus->Subscribe(this, &Rendering::OnWindowOpened);
         _eventBus->Subscribe(this, &Rendering::OnWindowClosed);
@@ -42,7 +42,7 @@ namespace Tbx
         DrawFrame();
     }
 
-    Tbx::Ref<IRenderer> Rendering::GetRenderer(const Tbx::Ref<Window>& window) const
+    Ref<IRenderer> Rendering::GetRenderer(const Ref<Window>& window) const
     {
         if (!window)
         {
@@ -52,7 +52,7 @@ namespace Tbx
         auto it = std::find(_windows.begin(), _windows.end(), window);
         if (it == _windows.end())
         {
-            TBX_ASSERT(false, "No renderer found for window");
+            TBX_ASSERT(false, "Rendering: No renderer found for window");
             return nullptr;
         }
 
@@ -66,7 +66,7 @@ namespace Tbx
         ProcessOpenStages();
     }
 
-    void Rendering::QueueStageUpload(const Tbx::Ref<Stage>& stage)
+    void Rendering::QueueStageUpload(const Ref<Stage>& stage)
     {
         if (!stage)
         {
@@ -170,7 +170,7 @@ namespace Tbx
         }
     }
 
-    void Rendering::AddStage(const Tbx::Ref<Stage>& stage)
+    void Rendering::AddStage(const Ref<Stage>& stage)
     {
         if (!stage)
         {
@@ -187,7 +187,7 @@ namespace Tbx
         QueueStageUpload(stage);
     }
 
-    void Rendering::RemoveStage(const Tbx::Ref<Stage>& stage)
+    void Rendering::RemoveStage(const Ref<Stage>& stage)
     {
         if (!stage)
         {

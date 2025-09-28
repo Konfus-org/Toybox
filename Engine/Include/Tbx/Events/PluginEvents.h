@@ -5,13 +5,13 @@
 
 namespace Tbx
 {
-    class TBX_EXPORT PluginLoadedEvent : public Event
+    class TBX_EXPORT PluginLoadedEvent final : public Event
     {
     public:
         PluginLoadedEvent(Ref<Plugin> loadedPlugin)
             : _loadedPlugin(loadedPlugin) {}
 
-        std::string ToString() const final
+        std::string ToString() const override
         {
             return "Plugin Loaded Event";
         }
