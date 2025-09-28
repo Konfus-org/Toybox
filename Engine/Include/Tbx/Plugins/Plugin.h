@@ -35,22 +35,27 @@ namespace Tbx
 
 // Cross-platform export for the *factories* only:
 #if defined(TBX_PLATFORM_WINDOWS)
-    #define TBX_PLUGIN_API extern "C" __declspec(dllexport)
+    #define TBX_PLUGIN_EXPORT extern "C" __declspec(dllexport)
 #else
-    #define TBX_PLUGIN_API extern "C" __attribute__((visibility("default")))
+    #define TBX_PLUGIN_EXPORT extern "C" __attribute__((visibility("default")))
 #endif
 
 /// <summary>
 /// Macro to register a plugin to the TBX plugin system.
 /// Is required for TBX to be able to load the plugin.
+/// Example usage:
+/// class MyPlugin : public Tbx::Plugin { ... };
+/// TBX_REGISTER_PLUGIN(MyPlugin)
 /// </summary>
 #define TBX_REGISTER_PLUGIN(pluginType) \
-    TBX_PLUGIN_API pluginType* Load(Tbx::WeakRef<Tbx::App> app)\
+    TBX_PLUGIN_EXPORT pluginType* Load(Tbx::WeakRef<Tbx::App> app)\
     {\
         auto plugin = new pluginType(app);\
         return plugin;\
     }\
-    TBX_PLUGIN_API void Unload(pluginType* pluginToUnload)\
+    TBX_PLUGIN_EXPORT void Unload(pluginType* pluginToUnload)\
     {\
         delete pluginToUnload;\
     }
+
+// This is here to fix a linux warning about EOF new line missing
