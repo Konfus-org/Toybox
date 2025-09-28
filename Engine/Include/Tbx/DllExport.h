@@ -18,4 +18,6 @@
     #else
         #define TBX_EXPORT
     #endif
+#else
+    #define TBX_EXPORT
 #endif
