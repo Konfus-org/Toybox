@@ -37,7 +37,7 @@ namespace Tbx
 #if defined(TBX_PLATFORM_WINDOWS)
     #define TBX_PLUGIN_EXPORT extern "C" __declspec(dllexport)
 #else
-    #define TBX_PLUGIN_EXPORT extern "C" __attribute__((visibility("default")))
+    #define TBX_PLUGIN_EXPORT extern "C"
 #endif
 
 /// <summary>
