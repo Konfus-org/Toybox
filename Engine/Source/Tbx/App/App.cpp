@@ -82,6 +82,7 @@ namespace Tbx
 
         // Init required systems
         _eventBus = std::make_shared<EventBus>();
+        _eventListener.Bind(_eventBus);
 
 #ifdef TBX_SHARED_LIB
         auto self = shared_from_this();
@@ -133,8 +134,8 @@ namespace Tbx
 #endif
 
         // Sub to window closing so we can listen for main window closed to init app shutdown
-        _eventBus->Subscribe(this, &App::OnWindowOpened);
-        _eventBus->Subscribe(this, &App::OnWindowClosed);
+        _eventListener.Listen<WindowOpenedEvent>(this, &App::OnWindowOpened);
+        _eventListener.Listen<WindowClosedEvent>(this, &App::OnWindowClosed);
 
         // For app inheritors to hook into launch
         OnLaunch();
@@ -201,8 +202,7 @@ namespace Tbx
 
         AppExitingEvent exitEvent;
         _eventBus->Send(exitEvent);
-        _eventBus->Unsubscribe(this, &App::OnWindowOpened);
-        _eventBus->Unsubscribe(this, &App::OnWindowClosed);
+        _eventListener.StopListening();
 
         // Shutdown app layers and unload assets
         _layerStack.Clear();

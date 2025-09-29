@@ -5,6 +5,7 @@
 #include "Tbx/Stages/Stage.h"
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Events/EventBus.h"
+#include "Tbx/Events/EventListener.h"
 #include "Tbx/Events/TSSEvents.h"
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Memory/Refs.h"
@@ -55,6 +56,7 @@ namespace Tbx
         std::vector<Ref<Stage>> _pendingUploadStages = {};
         Ref<IRendererFactory> _rendererFactory = {};
         Ref<EventBus> _eventBus = {};
+        EventListener _eventListener = {};
         RgbaColor _clearColor = {};
     };
 }

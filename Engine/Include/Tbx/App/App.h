@@ -2,6 +2,7 @@
 #include "Tbx/App/Settings.h"
 #include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/EventBus.h"
+#include "Tbx/Events/EventListener.h"
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Layers/LayerStack.h"
 #include "Tbx/Memory/Refs.h"
@@ -92,6 +93,7 @@ namespace Tbx
         Uid _mainWindowId = Uid::Invalid;
 
         Ref<EventBus> _eventBus = nullptr;
+        EventListener _eventListener = {};
         ExclusiveRef<PluginServer> _pluginServer = nullptr;
         ExclusiveRef<AssetServer> _assetServer = nullptr;
     };
