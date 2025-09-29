@@ -12,24 +12,70 @@
 
 namespace Tbx
 {
+    /// <summary>
+    /// Represents a free-function callback that handles an event instance.
+    /// </summary>
+    /// <typeparam name="TEvent">The event type handled by the callback.</typeparam>
     template <class TEvent>
     using EventHandlerFunction = void(*)(TEvent&);
 
+    /// <summary>
+    /// Represents a member function callback that handles an event instance.
+    /// </summary>
+    /// <typeparam name="T">The subscriber type that owns the member function.</typeparam>
+    /// <typeparam name="TEvent">The event type handled by the callback.</typeparam>
     template <typename T, class TEvent>
     using ClassEventHandlerFunction = void(T::*)(TEvent&);
 
     class TBX_EXPORT EventListener
     {
     public:
+        /// <summary>
+        /// Creates an unbound listener.
+        /// </summary>
         EventListener() = default;
+
+        /// <summary>
+        /// Creates a listener bound to the supplied event bus.
+        /// </summary>
+        /// <param name="bus">The event bus that will service subscriptions.</param>
         explicit EventListener(const Ref<EventBus>& bus);
+
+        /// <summary>
+        /// Creates a listener bound to the supplied event bus reference.
+        /// </summary>
+        /// <param name="bus">A weak reference to the event bus that will service subscriptions.</param>
         explicit EventListener(const WeakRef<EventBus>& bus);
+
+        /// <summary>
+        /// Unsubscribes the listener from all events and releases the bus reference.
+        /// </summary>
         ~EventListener();
 
+        /// <summary>
+        /// Binds the listener to the specified event bus.
+        /// </summary>
+        /// <param name="bus">The event bus providing subscription services.</param>
         void Bind(const Ref<EventBus>& bus);
+
+        /// <summary>
+        /// Binds the listener to the specified event bus via a weak reference.
+        /// </summary>
+        /// <param name="bus">The weak reference to the event bus providing subscription services.</param>
         void Bind(const WeakRef<EventBus>& bus);
+
+        /// <summary>
+        /// Unbinds the listener from its current event bus without cancelling subscriptions.
+        /// </summary>
         void Unbind();
 
+        /// <summary>
+        /// Subscribes an instance method to receive events of the given type.
+        /// </summary>
+        /// <typeparam name="TSubscriber">The type of the subscribing instance.</typeparam>
+        /// <typeparam name="TEvent">The event type to listen for.</typeparam>
+        /// <param name="instance">The object instance whose member function should handle events.</param>
+        /// <param name="callback">The member function invoked for each event.</param>
         template <typename TSubscriber, class TEvent>
         requires std::is_base_of_v<Event, std::decay_t<TEvent>>
         void Listen(TSubscriber* instance, ClassEventHandlerFunction<TSubscriber, TEvent> callback)
@@ -41,6 +87,12 @@ namespace Tbx
             });
         }
 
+        /// <summary>
+        /// Subscribes a callable to receive events of the given type.
+        /// </summary>
+        /// <typeparam name="TEvent">The event type to listen for.</typeparam>
+        /// <typeparam name="TCallable">The callable type to invoke for each event.</typeparam>
+        /// <param name="callable">The callable invoked with the event reference.</param>
         template <class TEvent, typename TCallable>
         requires std::is_base_of_v<Event, std::decay_t<TEvent>> &&
                  std::is_invocable_r_v<void, TCallable, TEvent&>
@@ -58,6 +110,11 @@ namespace Tbx
             TrackToken(token);
         }
 
+        /// <summary>
+        /// Subscribes a free-function callback to receive events of the given type.
+        /// </summary>
+        /// <typeparam name="TEvent">The event type to listen for.</typeparam>
+        /// <param name="callback">The function pointer invoked for each event.</param>
         template <class TEvent>
         requires std::is_base_of_v<Event, std::decay_t<TEvent>>
         void Listen(EventHandlerFunction<TEvent> callback)
@@ -69,12 +126,28 @@ namespace Tbx
             });
         }
 
+        /// <summary>
+        /// Cancels all active subscriptions held by this listener.
+        /// </summary>
         void StopListening();
 
+        /// <summary>
+        /// Determines whether the listener is bound to an event bus.
+        /// </summary>
+        /// <returns><c>true</c> when a bus is bound; otherwise, <c>false</c>.</returns>
         bool IsBound() const;
 
     private:
+        /// <summary>
+        /// Tracks an issued subscription token for later cleanup.
+        /// </summary>
+        /// <param name="token">The token returned during subscription.</param>
         void TrackToken(const Uid& token);
+
+        /// <summary>
+        /// Locks the weak event bus reference into a strong reference.
+        /// </summary>
+        /// <returns>A strong reference to the event bus, or an empty reference if the bus expired.</returns>
         Ref<EventBus> LockBus() const;
 
     private:
