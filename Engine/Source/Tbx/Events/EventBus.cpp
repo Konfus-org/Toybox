@@ -60,34 +60,44 @@ namespace Tbx
         }
     }
 
-    void EventBus::AddSubscriber(uint64 eventKey, uint64 callbackKey, std::function<void(Event&)> callable)
+    void EventBus::AddSubscriber(EventHash eventKey, const Uid& token, EventCallback callable)
     {
         std::scoped_lock lock(_mutex);
-        if (!_subscribers.contains(eventKey))
-        {
-            _subscribers[eventKey] = {};
-        }
-        _subscribers[eventKey][callbackKey] = std::move(callable);
+        auto& callbacks = _subscribers[eventKey];
+        callbacks[token] = std::move(callable);
+        _subscriptionIndex[token] = eventKey;
     }
 
-    void EventBus::RemoveSubscriber(uint64 eventKey, uint64 callbackKey, const std::type_info& eventType)
+    void EventBus::RemoveSubscriber(const Uid& token)
     {
         std::scoped_lock lock(_mutex);
-        if (_subscribers.contains(eventKey) == false)
+        auto tokenIt = _subscriptionIndex.find(token);
+        if (tokenIt == _subscriptionIndex.end())
         {
             return;
         }
 
-        auto& callbacks = _subscribers[eventKey];
-        if (callbacks.erase(callbackKey) == 0)
+        const auto eventKey = tokenIt->second;
+        auto eventIt = _subscribers.find(eventKey);
+        if (eventIt == _subscribers.end())
         {
-            TBX_ASSERT(false, "EventBus: Failed to unsubscribe from event. Callback not found! Event: {}", eventType.name());
+            _subscriptionIndex.erase(tokenIt);
+            return;
         }
 
+        auto& callbacks = eventIt->second;
+        callbacks.erase(token);
         if (callbacks.empty())
         {
-            _subscribers.erase(eventKey);
+            _subscribers.erase(eventIt);
         }
+
+        _subscriptionIndex.erase(tokenIt);
+    }
+
+    void EventBus::Unsubscribe(const Uid& token)
+    {
+        RemoveSubscriber(token);
     }
 
     void EventBus::SendEvent(Event& event)
@@ -103,7 +113,7 @@ namespace Tbx
         const auto hashCode = GetEventHash(event);
 
         // copy callbacks out under lock to avoid holding lock while calling subscribers
-        std::unordered_map<Tbx::uint64, EventCallback> callbacks;
+        std::unordered_map<Uid, EventCallback> callbacks;
         {
             std::scoped_lock lock(_mutex);
             auto it = _subscribers.find(hashCode);
@@ -126,14 +136,14 @@ namespace Tbx
         }
     }
 
-    Tbx::uint64 EventBus::GetEventHash(const Event& event) const
+    EventBus::EventHash EventBus::GetEventHash(const Event& event) const
     {
         const auto& eventInfo = typeid(event);
         const auto hash = eventInfo.hash_code();
-        return static_cast<Tbx::uint64>(hash);
+        return static_cast<EventHash>(hash);
     }
 
-    std::unique_ptr<Event> EventBus::PopNextEventInQueue()
+    ExclusiveRef<Event> EventBus::PopNextEventInQueue()
     {
         std::scoped_lock lock(_mutex);
         if (_eventQueue.empty()) return nullptr;

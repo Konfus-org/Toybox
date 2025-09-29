@@ -1,5 +1,6 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Ids/Uid.h"
+#include <atomic>
 
 namespace Tbx
 {
@@ -7,11 +8,9 @@ namespace Tbx
 
     Uid Uid::Generate()
     {
-        static uint64 _nextId = 0;
+        static std::atomic<uint64> nextId = 0;
 
-        auto next = _nextId;
-        _nextId++;
-
+        auto next = nextId.fetch_add(1, std::memory_order_relaxed);
         return Uid(next);
     }
 }

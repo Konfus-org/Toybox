@@ -11,26 +11,20 @@ namespace Tbx
     Rendering::Rendering(Ref<IRendererFactory> rendererFactory, Ref<EventBus> eventBus)
         : _rendererFactory(rendererFactory)
         , _eventBus(eventBus)
+        , _eventListener(eventBus)
     {
         TBX_ASSERT(_rendererFactory, "Rendering: requires a valid renderer factory instance.");
         TBX_ASSERT(_eventBus, "Rendering: requires a valid event bus instance.");
 
-        _eventBus->Subscribe(this, &Rendering::OnWindowOpened);
-        _eventBus->Subscribe(this, &Rendering::OnWindowClosed);
-        _eventBus->Subscribe(this, &Rendering::OnWindowResized);
-        _eventBus->Subscribe(this, &Rendering::OnAppSettingsChanged);
-        _eventBus->Subscribe(this, &Rendering::OnStageOpened);
-        _eventBus->Subscribe(this, &Rendering::OnStageClosed);
+        _eventListener.Listen<WindowOpenedEvent>(this, &Rendering::OnWindowOpened);
+        _eventListener.Listen<WindowClosedEvent>(this, &Rendering::OnWindowClosed);
+        _eventListener.Listen<WindowResizedEvent>(this, &Rendering::OnWindowResized);
+        _eventListener.Listen<AppSettingsChangedEvent>(this, &Rendering::OnAppSettingsChanged);
+        _eventListener.Listen<StageOpenedEvent>(this, &Rendering::OnStageOpened);
+        _eventListener.Listen<StageClosedEvent>(this, &Rendering::OnStageClosed);
     }
 
-    Rendering::~Rendering()
-    {
-        _eventBus->Unsubscribe(this, &Rendering::OnWindowOpened);
-        _eventBus->Unsubscribe(this, &Rendering::OnWindowClosed);
-        _eventBus->Unsubscribe(this, &Rendering::OnAppSettingsChanged);
-        _eventBus->Unsubscribe(this, &Rendering::OnStageOpened);
-        _eventBus->Unsubscribe(this, &Rendering::OnStageClosed);
-    }
+    Rendering::~Rendering() = default;
 
     void Rendering::Update()
     {
