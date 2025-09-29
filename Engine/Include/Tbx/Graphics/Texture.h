@@ -28,7 +28,7 @@ namespace Tbx
 
     struct TBX_EXPORT Texture
     {
-        Size Size = { 1, 1 };
+        Size Resolution = { 1, 1 };
         TextureWrap Wrap = TextureWrap::Repeat;
         TextureFilter Filter = TextureFilter::Nearest;
         TextureFormat Format = TextureFormat::RGB;
