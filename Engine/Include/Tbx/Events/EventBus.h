@@ -48,6 +48,7 @@ namespace Tbx
         static std::atomic_int _suppressCount;
     };
 
+	// TODO: Use a subscription token system so subscription can be managed more easily via the lifetime of the token.
     class TBX_EXPORT EventBus
     {
     public:
