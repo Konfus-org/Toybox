@@ -70,7 +70,7 @@ namespace Tbx
         template <class TEvent, typename TCallable>
         requires std::is_base_of_v<Event, std::decay_t<TEvent>> &&
                  std::is_invocable_r_v<void, TCallable, TEvent&>
-        void Listen(TCallable&& callable)
+        Uid Listen(TCallable&& callable)
         {
             auto bus = LockBus();
             TBX_ASSERT(bus, "EventListener: Cannot listen without a bound event bus.");
@@ -82,6 +82,7 @@ namespace Tbx
 
             const auto token = bus->Subscribe<TEvent>(std::move(callback));
             TrackToken(token);
+            return token;
         }
 
         /// <summary>
@@ -93,13 +94,15 @@ namespace Tbx
         /// <param name="callback">The member function invoked for each event.</param>
         template <typename TSubscriber, class TEvent>
         requires std::is_base_of_v<Event, std::decay_t<TEvent>>
-        void Listen(TSubscriber* instance, ClassEventHandlerFunction<TSubscriber, TEvent> callback)
+        Uid Listen(TSubscriber* instance, ClassEventHandlerFunction<TSubscriber, TEvent> callback)
         {
             TBX_ASSERT(instance != nullptr, "EventListener: Cannot subscribe with a null instance.");
-            Listen<TEvent>([instance, callback](TEvent& event)
+            const auto token = Listen<TEvent>([instance, callback](TEvent& event)
             {
                 std::invoke(callback, instance, event);
             });
+            return token;
+
         }
 
         /// <summary>
@@ -109,14 +112,21 @@ namespace Tbx
         /// <param name="callback">The function pointer invoked for each event.</param>
         template <class TEvent>
         requires std::is_base_of_v<Event, std::decay_t<TEvent>>
-        void Listen(EventHandlerFunction<TEvent> callback)
+        Uid Listen(EventHandlerFunction<TEvent> callback)
         {
             TBX_ASSERT(callback != nullptr, "EventListener: Cannot subscribe a null callback.");
-            Listen<TEvent>([callback](TEvent& event)
+            const auto token = Listen<TEvent>([callback](TEvent& event)
             {
                 callback(event);
             });
+            return token;
         }
+
+        /// <summary>
+        /// Unsubscribes the listener from the specified event type.
+        /// </summary>
+        /// <param name="token"></param>
+        void StopListening(const Uid& token);
 
     private:
         /// <summary>

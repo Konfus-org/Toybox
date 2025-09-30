@@ -8,8 +8,13 @@ namespace Tbx
     {
     }
 
-    void Runtime::Initialize()
+    void Runtime::Initialize(
+        Ref<AssetServer> assetServer,
+        Ref<EventBus> eventBus)
     {
+        _assetServer = assetServer;
+        _eventBus = eventBus;
+
         // Hook for inheriting runtimes
         OnStart();
     }
@@ -28,5 +33,15 @@ namespace Tbx
     void Runtime::OnDetach()
     {
         Shutdown();
+    }
+
+    AssetServer& Runtime::GetAssetServer() const
+    {
+        return *_assetServer;
+    }
+
+    EventBus& Runtime::GetEventBus() const
+    {
+        return *_eventBus;
     }
 }

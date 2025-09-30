@@ -8,7 +8,7 @@ namespace Tbx
     class TBX_EXPORT PluginLoadedEvent final : public Event
     {
     public:
-        PluginLoadedEvent(Ref<Plugin> loadedPlugin)
+        PluginLoadedEvent(Ref<IPlugin> loadedPlugin)
             : _loadedPlugin(loadedPlugin) {}
 
         std::string ToString() const override
@@ -16,12 +16,33 @@ namespace Tbx
             return "Plugin Loaded Event";
         }
 
-        Ref<Plugin> GetLoadedPlugin() 
+        Ref<IPlugin> GetLoadedPlugin() 
         {
             return _loadedPlugin; 
         }
 
     private:
-        Ref<Plugin> _loadedPlugin;
+        Ref<IPlugin> _loadedPlugin;
+    };
+
+    class TBX_EXPORT PluginUnloadedEvent final : public Event
+    {
+    public:
+        PluginUnloadedEvent(Ref<IPlugin> unloadedPlugin)
+            : _unloadedPlugin(unloadedPlugin) {
+        }
+
+        std::string ToString() const override
+        {
+            return "Plugin Loaded Event";
+        }
+
+        Ref<IPlugin> GetUnloadedPlugin()
+        {
+            return _unloadedPlugin;
+        }
+
+    private:
+        Ref<IPlugin> _unloadedPlugin;
     };
 }

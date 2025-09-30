@@ -126,7 +126,7 @@ namespace Tbx
         {
             TBX_TRACE_VERBOSE("Event Bus: Posting the event \"{}\"", event.ToString());
             std::scoped_lock lock(_mutex);
-            _eventQueue.emplace(std::make_unique<std::decay_t<TEvent>>(std::move(event)));
+            _eventQueue.emplace(MakeExclusive<std::decay_t<TEvent>>(std::move(event)));
         }
 
         /// <summary>

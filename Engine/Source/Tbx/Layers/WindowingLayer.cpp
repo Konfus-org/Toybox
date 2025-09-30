@@ -9,7 +9,7 @@ namespace Tbx
         Ref<EventBus> eventBus)
         : Layer("Windowing")
         , _appName(appName)
-        , _windowManager(std::make_unique<WindowManager>(windowFactory, eventBus))
+        , _windowManager(MakeExclusive<WindowManager>(windowFactory, eventBus))
     {
     }
 

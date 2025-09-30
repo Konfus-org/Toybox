@@ -4,22 +4,44 @@
 
 namespace Tbx
 {
-    class TBX_EXPORT AppInitializedEvent : public Event
+    class App;
+
+    class TBX_EXPORT AppLaunchedEvent : public Event
     {
     public:
+        AppLaunchedEvent(App* app)
+        {
+			_app = app;
+        }
+
         std::string ToString() const override
         {
             return "App Initialized Event";
         }
+
+        App& GetApp() const { return *_app; }
+
+    private:
+        App* _app = nullptr;
     };
 
-    class TBX_EXPORT AppExitingEvent : public Event
+    class TBX_EXPORT AppClosedEvent : public Event
     {
     public:
+        AppClosedEvent(App* app)
+        {
+            _app = app;
+        }
+
         std::string ToString() const override
         {
-            return "App Exiting Event";
+            return "App Closed Event";
         }
+
+        App& GetApp() const { return *_app; }
+
+    private:
+        App* _app = nullptr;
     };
 
     class TBX_EXPORT AppUpdatedEvent : public Event
@@ -45,7 +67,7 @@ namespace Tbx
         }
 
     private:
-        Settings _settings;
+        Settings _settings = {};
     };
 }
 

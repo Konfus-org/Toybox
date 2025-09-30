@@ -1,6 +1,9 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Debug/Log.h"
-#include <iostream>
+#include "Tbx/Debug/Asserts.h"
+#ifndef TBX_DEBUG
+#include "Tbx/Files/Paths.h"
+#endif
 
 namespace Tbx
 {
@@ -24,9 +27,10 @@ namespace Tbx
         // No log file in debug
         _logger->Open("Tbx", "");
 #else
+		// TODO: delete old log files! Only keep the last 10 or so...
         // Open log file in non-debug
         const auto currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        const auto logFilePath = std::format("Logs\\{}.log", currentTime);
+        const auto logFilePath = std::format(FileSystem::GetLogsDirectory() "\\{}.log", currentTime);
         _logger->Open("Tbx", logFilePath);
 #endif
         _isOpen = true;
@@ -50,7 +54,7 @@ namespace Tbx
         if (_isOpen)
         {
             // Attempt to process immediately... 
-            // but if the log hasn't been opened yet for whatever reason we have to wait for the next update
+			// but if the log hasn't been opened yet for whatever reason we have to wait for either the next write or a flush call.
             Flush();
         }
     }
@@ -72,32 +76,7 @@ namespace Tbx
             }
             else
             {
-                // Fallback to std::out
-                switch (lvl)
-                {
-                    using enum LogLevel;
-                    case Trace:
-                        std::cout << "Tbx::Trace: " << msg << std::endl;
-                        break;
-                    case Debug:
-                        std::cout << "Tbx::Debug: " << msg << std::endl;
-                        break;
-                    case Info:
-                        std::cout << "Tbx::Info: " << msg << std::endl;
-                        break;
-                    case Warn:
-                        std::cout << "Tbx::Warn: " << msg << std::endl;
-                        break;
-                    case Error:
-                        std::cout << "Tbx::Error: " << msg << std::endl;
-                        break;
-                    case Critical:
-                        std::cout << "Tbx::Critical: " << msg << std::endl;
-                        break;
-                    default:
-                        std::cout << "Tbx::LEVEL_NOT_DEFINED : " << msg << std::endl;
-                        break;
-                }
+                TBX_ASSERT(false, "Log: No logger instance available to write log message!");
             }
         }
     }

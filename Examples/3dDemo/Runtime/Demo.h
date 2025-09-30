@@ -9,7 +9,7 @@
 class Demo final : public Tbx::Runtime
 {
 public:
-    Demo(const Tbx::WeakRef<Tbx::App>& app);
+    Demo();
     ~Demo();
 
     void OnStart() override;
@@ -31,12 +31,4 @@ private:
     Tbx::WeakRef<Tbx::App> _app = {};
 };
 
-class DemoLoader : public Tbx::Plugin {
-public: DemoLoader(Tbx::WeakRef<Tbx::App> app) : Tbx::Plugin(app) {
-    app.lock()->AddLayer<Demo>(app);
-}
-}; extern "C" __declspec(dllexport) DemoLoader* Load(Tbx::WeakRef<Tbx::App> app) {
-    auto plugin = new DemoLoader(app); return plugin;
-} extern "C" __declspec(dllexport) void Unload(DemoLoader* pluginToUnload) {
-    delete pluginToUnload;
-};
+TBX_REGISTER_RUNTIME(Demo);

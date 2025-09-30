@@ -53,7 +53,7 @@ namespace Tbx
             }
             else
             {
-				TBX_ASSERT(false, "EventListener: Encountered an invalid subscription token during unbind.");
+                TBX_ASSERT(false, "EventListener: Encountered an invalid subscription token during unbind.");
             }
         }
 
@@ -65,11 +65,33 @@ namespace Tbx
         return !_bus.expired();
     }
 
+    void EventListener::StopListening(const Uid& token)
+    {
+        if (token == Uid::Invalid)
+        {
+            TBX_ASSERT(false, "EventListener: Cannot stop listening with an invalid subscription token.");
+            return;
+        }
+
+        {
+            std::scoped_lock lock(_mutex);
+            _activeTokens.erase(token);
+        }
+
+        auto bus = LockBus();
+        if (!bus)
+        {
+            return;
+        }
+
+        bus->Unsubscribe(token);
+    }
+
     void EventListener::TrackToken(const Uid& token)
     {
         if (token == Uid::Invalid)
         {
-			TBX_ASSERT(false, "EventListener: Cannot track an invalid subscription token.");
+            TBX_ASSERT(false, "EventListener: Cannot track an invalid subscription token.");
             return;
         }
 

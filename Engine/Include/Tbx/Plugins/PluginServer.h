@@ -9,6 +9,49 @@
 
 namespace Tbx
 {
+    struct PluginStack
+    {
+        PluginStack() = default;
+        PluginStack(const std::vector<Ref<IPlugin>>& plugins)
+            : _plugins(plugins) {}
+
+        std::vector<Ref<IPlugin>> All() const { return _plugins; }
+        void Push(Ref<IPlugin> plugin) { _plugins.push_back(plugin); }
+		void Clear() { _plugins.clear(); }
+        uint32 Count() const { return _plugins.size(); }
+
+        /// <summary>
+        /// Gets plugins of the specified type.
+        /// </summary>
+        template <typename TPlugin>
+        std::vector<Ref<TPlugin>> OfType() const
+        {
+            std::vector<Ref<TPlugin>> result;
+            result.reserve(_plugins.size());
+
+            for (const auto& plug : _plugins)
+            {
+                if (auto casted = std::dynamic_pointer_cast<TPlugin>(plug))
+                {
+                    result.push_back(casted);
+                }
+            }
+
+            return result;
+        }
+
+        auto begin() { return _plugins.begin(); }
+        auto end() { return _plugins.end(); }
+        auto begin() const { return _plugins.begin(); }
+        auto end() const { return _plugins.end(); }
+
+        const IPlugin& operator[](int index) const { return *_plugins[index]; }
+
+    private:
+        std::vector<Ref<IPlugin>> _plugins = {};
+    };
+
+
     /// <summary>
     /// The PluginServer is responsible for loading, keeping track of, and unloading plugins, as well as providing a way to access them.
     /// </summary>
@@ -17,8 +60,7 @@ namespace Tbx
     public:
         PluginServer(
             const std::string& pathToPlugins,
-            Ref<EventBus> eventBus,
-            WeakRef<Tbx::App> app);
+            Ref<EventBus> eventBus);
         ~PluginServer();
 
         PluginServer(const PluginServer&) = delete;
@@ -32,36 +74,13 @@ namespace Tbx
         void RegisterPlugin(ExclusiveRef<PluginServerRecord> plugin);
 
         /// <summary>
-        /// Gets plugins of the specified type.
-        /// </summary>
-        template <typename TPlugin>
-        std::vector<Ref<TPlugin>> GetPlugins() const
-        {
-            std::vector<Ref<TPlugin>> result;
-            result.reserve(_pluginRecords.size());
-
-            for (const auto& owned : _pluginRecords)
-            {
-                Ref<Plugin> base = owned->Get();
-                if (!base) continue;
-
-                if (auto casted = std::dynamic_pointer_cast<TPlugin>(base))
-                {
-                    result.push_back(casted);
-                }
-            }
-
-            return result;
-        }
-
-        /// <summary>
         /// Gets all loaded plugins.
         /// </summary>
-        std::vector<Ref<Plugin>> GetPlugins() const;
+        PluginStack GetPlugins() const;
 
     private:
         std::vector<PluginMeta> SearchDirectoryForInfos(const std::string& pathToPlugins);
-        void LoadPlugins(const std::string& pathToPlugins, std::weak_ptr<Tbx::App> app);
+        void LoadPlugins(const std::string& pathToPlugins);
         void UnloadPlugins();
 
         void RemoveBackPlugin(std::vector<Tbx::ExclusiveRef<Tbx::PluginServerRecord>>& nonLoggerPlugs);

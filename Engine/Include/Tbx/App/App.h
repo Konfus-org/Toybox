@@ -1,13 +1,11 @@
 #pragma once
 #include "Tbx/App/Settings.h"
-#include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/EventListener.h"
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Layers/LayerStack.h"
 #include "Tbx/Memory/Refs.h"
 #include "Tbx/Plugins/PluginServer.h"
-#include <memory>
 
 namespace Tbx
 {
@@ -28,16 +26,14 @@ namespace Tbx
     /// <summary>
     /// Coordinates engine services, manages layers, and drives the lifetime of a Toybox application instance.
     /// </summary>
-    class TBX_EXPORT App : public std::enable_shared_from_this<App>
+    class TBX_EXPORT App
     {
     public:
-        App(const std::string_view& name);
+        App(const std::string_view& name,
+            const Settings& settings,
+            const PluginStack& plugins,
+            Ref<EventBus> eventBus);
         virtual ~App();
-
-        App(const App&) = delete;
-        App& operator=(const App&) = delete;
-        App(App&&) noexcept = default;
-        App& operator=(App&&) noexcept = default;
 
         /// <summary>
         /// Starts the application run loop and executes until shutdown is requested.
@@ -48,13 +44,6 @@ namespace Tbx
         /// Requests that the application terminate after the current frame.
         /// </summary>
         void Close();
-
-        // TODO: hide behind methods such as App::SendEvent, App::PostEvent, App::SubscribeToEvent
-        Ref<EventBus> GetEventBus() const;
-        // TODO: hide behind methods such as App::GetPlugins<>, App::GetPlugins, App::AddPlugin<>
-        PluginServer& GetPluginServer() const;
-        // TODO: hide behind methods such as App::LoadAsset<>, App::GetLoadedAssets, App::AddAsset
-        AssetServer& GetAssetServer() const;
 
         const AppStatus& GetStatus() const;
         const std::string& GetName() const;
@@ -91,10 +80,8 @@ namespace Tbx
         Settings _settings = {};
         LayerStack _layerStack = {};
         Uid _mainWindowId = Uid::Invalid;
-
-        EventListener _eventListener = {};
         Ref<EventBus> _eventBus = nullptr;
-        ExclusiveRef<PluginServer> _pluginServer = nullptr;
-        ExclusiveRef<AssetServer> _assetServer = nullptr;
+        EventListener _eventListener = {};
+        PluginStack _plugins = {};
     };
 }

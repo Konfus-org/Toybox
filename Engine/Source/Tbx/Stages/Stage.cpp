@@ -4,7 +4,7 @@
 namespace Tbx
 {
     Stage::Stage()
-        : _root(std::make_shared<Toy>("Root"))
+        : _root(MakeRef<Toy>("Root"))
     {
     }
 

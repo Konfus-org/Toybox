@@ -11,6 +11,14 @@
     #define TBX_ASSET_DIR "/Assets"
 #endif
 
+#ifndef TBX_LOG_DIR
+    #define TBX_LOG_DIR "/Logs"
+#endif
+
+#ifndef TBX_PLUGIN_DIR
+    #define TBX_PLUGIN_DIR "/"
+#endif
+
 namespace Tbx::FileSystem
 {
     inline std::string GetWorkingDirectory()
@@ -18,9 +26,19 @@ namespace Tbx::FileSystem
         return TBX_WORKING_ROOT_DIR;
     }
 
+    inline std::string GetPluginDirectory()
+    {
+        return TBX_WORKING_ROOT_DIR "/" TBX_PLUGIN_DIR;
+    }
+
     inline std::string GetAssetDirectory()
     {
         return TBX_WORKING_ROOT_DIR "/" TBX_ASSET_DIR;
+    }
+
+    inline std::string GetLogsDirectory()
+    {
+        return TBX_WORKING_ROOT_DIR "/" TBX_LOG_DIR;
     }
 
     inline std::string GetRelativePath(const std::filesystem::path& absolutePath)

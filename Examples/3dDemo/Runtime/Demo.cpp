@@ -11,10 +11,9 @@
 #include <Tbx/Time/DeltaTime.h>
 #include <vector>
 
-Demo::Demo(const Tbx::WeakRef<Tbx::App>& app)
-    : Runtime("3d Demo Runtime")
-    , _app(app)
+Demo::Demo() : Runtime("3d Demo Runtime")
 {
+    TBX_TRACE_INFO("Demo: loaded!\n");
 }
 
 Demo::~Demo()
@@ -27,7 +26,7 @@ void Demo::OnStart()
     TBX_TRACE_INFO("Demo: started!\n");
 
     // Load assets
-    const auto& assetServer = _app.lock()->GetAssetServer();
+    const auto& assetServer = GetAssetServer();
     auto smilyTex = assetServer.GetAsset<Tbx::Texture>("Smily.png");
     auto wallTex = assetServer.GetAsset<Tbx::Texture>("Wall.jpg");
     auto checkerTex = assetServer.GetAsset<Tbx::Texture>("Checkerboard.png");
@@ -35,12 +34,12 @@ void Demo::OnStart()
     auto vertexShader = assetServer.GetAsset<Tbx::Shader>("vertex.vert");
 
     // Setup testing scene...
-    _world = std::make_shared<Tbx::Stage>();
+    _world = Tbx::MakeRef<Tbx::Stage>();
     auto worldRoot = _world->GetRoot();
 
     // Setup base material
     auto matShaders = { vertexShader, fragmentShader };
-    _simpleTexturedMat = std::make_shared<Tbx::Material>(matShaders);
+    _simpleTexturedMat = Tbx::MakeRef<Tbx::Material>(matShaders);
 
     // Create room
     {
@@ -96,7 +95,7 @@ void Demo::OnStart()
 
     // TODO: Figure out a better way than just needing to know you have to send this event...
     // Perhaps a stage manager/director?
-    _app.lock()->GetEventBus()->Post(Tbx::StageOpenedEvent(_world));
+    GetEventBus().Post(Tbx::StageOpenedEvent(_world));
 }
 
 void Demo::OnShutdown()

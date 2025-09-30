@@ -28,7 +28,7 @@ namespace Tbx
                     continue;
                 }
 
-                auto record = std::make_unique<AssetRecord>();
+                auto record = MakeExclusive<AssetRecord>();
                 record->Name = normalizedPath;
                 record->FilePath = entry.path();
                 record->Loader = loader;

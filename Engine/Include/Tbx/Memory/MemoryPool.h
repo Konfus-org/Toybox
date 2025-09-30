@@ -2,7 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Math/Int.h"
 #include "Tbx/Memory/Refs.h"
-#include "Tbx/Debug/Debugging.h"
+#include "Tbx/Debug/Asserts.h"
 #include <memory>
 #include <cstring>
 
@@ -15,7 +15,7 @@ namespace Tbx
     {
     public:
         MemoryPool(const uint64& elementSize, const uint64& poolSize)
-            : _data(std::make_unique<char[]>(elementSize * poolSize)), _elementSize(elementSize), _poolSize(poolSize) { }
+            : _data(MakeExclusive<char[]>(elementSize * poolSize)), _elementSize(elementSize), _poolSize(poolSize) { }
 
         template<typename T>
         T* Get(uint64 index) const

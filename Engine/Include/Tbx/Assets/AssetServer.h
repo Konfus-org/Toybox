@@ -80,7 +80,7 @@ namespace Tbx
                     return nullptr;
                 }
 
-                auto record = std::make_shared<AssetRecord>();
+                auto record = MakeRef<AssetRecord>();
                 record->Name = normalizedPath;
                 record->FilePath = absolutePath;
                 record->Loader = loader;

@@ -1,10 +1,10 @@
 #include "Tbx/PCH.h"
 #include "Tbx/App/App.h"
 #include "Tbx/App/Runtime.h"
-#include "Tbx/Layers/LogLayer.h"
 #include "Tbx/Layers/InputLayer.h"
 #include "Tbx/Layers/RenderingLayer.h"
 #include "Tbx/Layers/WindowingLayer.h"
+#include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Input/Input.h"
 #include "Tbx/Input/InputCodes.h"
@@ -13,9 +13,13 @@
 
 namespace Tbx
 {
-    App::App(const std::string_view& name)
+    App::App(const std::string_view& name, const Settings& settings, const PluginStack& plugins, Ref<EventBus> eventBus)
+        : _name(name)
+        , _settings(settings)
+        , _eventBus(eventBus)
+        , _eventListener(eventBus)
+        , _plugins(plugins)
     {
-        _name = name;
     }
 
     App::~App()
@@ -69,18 +73,13 @@ namespace Tbx
         auto assetDirectory = FileSystem::GetAssetDirectory();
         TBX_TRACE_INFO("App: Current asset directory is: {}\n", assetDirectory);
 
-        // Init required systems
-        _eventBus = std::make_shared<EventBus>();
-        _eventListener.Bind(_eventBus);
+        // Broadcast initial settings
+        _eventBus->Send(AppSettingsChangedEvent(_settings));
 
-#ifdef TBX_SHARED_LIB
-        auto self = shared_from_this();
-        _pluginServer = std::make_unique<PluginServer>(workingDirectory, _eventBus, self);
-
-        // Try to init plugin driven systems
+        // Init core plugin driven systems (if we have the plugins for them)
         // The order in which they are added is the order they are updated
         {
-            auto windowFactoryPlugs = _pluginServer->GetPlugins<IWindowFactory>();
+            auto windowFactoryPlugs = _plugins.OfType<IWindowFactory>();
             if (!windowFactoryPlugs.empty())
             {
                 TBX_ASSERT(windowFactoryPlugs.size() == 1, "App: Only one window factory is allowed!");
@@ -89,7 +88,7 @@ namespace Tbx
                 AddLayer<WindowingLayer>(appName, windowFactory, _eventBus);
             }
 
-            auto rendererFactoryPlugs = _pluginServer->GetPlugins<IRendererFactory>();
+            auto rendererFactoryPlugs = _plugins.OfType<IRendererFactory>();
             if (!rendererFactoryPlugs.empty())
             {
                 TBX_ASSERT(rendererFactoryPlugs.size() == 1, "App: Only one renderer factory is allowed!");
@@ -97,44 +96,31 @@ namespace Tbx
                 AddLayer<RenderingLayer>(rendererFactory, _eventBus);
             }
 
-            auto inputHandlerPlugs = _pluginServer->GetPlugins<IInputHandler>();
+            auto inputHandlerPlugs = _plugins.OfType<IInputHandler>();
             if (!inputHandlerPlugs.empty())
             {
                 TBX_ASSERT(inputHandlerPlugs.size() == 1, "App: Only one input handler is allowed!");
                 auto inputHandler = inputHandlerPlugs.front();
                 AddLayer<InputLayer>(inputHandler);
             }
-
-            auto loggerFactoryPlugs = _pluginServer->GetPlugins<ILogger>();
-            if (!loggerFactoryPlugs.empty())
-            {
-                TBX_ASSERT(loggerFactoryPlugs.size() == 1, "App: Only one logger is allowed!");
-                auto loggerFactory = loggerFactoryPlugs.front();
-                AddLayer<LogLayer>(loggerFactory);
-            }
-
-            auto assetLoaderPlugs = _pluginServer->GetPlugins<IAssetLoader>();
-            _assetServer = std::make_unique<AssetServer>(assetDirectory, assetLoaderPlugs);
         }
-#else
-        TBX_TRACE_WARNING(
-            "App: Toybox has been build as a static library, plugins will not be automagically loaded!"
-            "You must ensure you link to any wanted plugins in your library and register/setup them in a inheritor of App in its 'OnLaunch' method.\n");
-#endif
 
         // Sub to window closing so we can listen for main window closed to init app shutdown
         _eventListener.Listen(this, &App::OnWindowOpened);
         _eventListener.Listen(this, &App::OnWindowClosed);
 
-        // For app inheritors to hook into launch
+        // Allow other systems to hook into launch
         OnLaunch();
+        _eventBus->Send(AppLaunchedEvent(this));
 
         // Finally, initialize any runtimes
+        auto assetLoaderPlugs = _plugins.OfType<IAssetLoader>();
+        auto assetServer = MakeRef<AssetServer>(assetDirectory, assetLoaderPlugs);
         for (const auto& layer : _layerStack)
         {
-            if (auto runtimePtr = dynamic_cast<Runtime*>(layer.get()))
+            if (Runtime* runtime = dynamic_cast<Runtime*>(layer.get()))
             {
-                runtimePtr->Initialize();
+                runtime->Initialize(assetServer, _eventBus);
             }
         }
     }
@@ -158,7 +144,7 @@ namespace Tbx
         // Shortcut to restart/reload app
         if (Input::IsKeyDown(TBX_KEY_F2))
         {
-			// TODO: App slowly eats up more memory every restart, we need to track down why and fix it!
+            // TODO: App slowly eats up more memory every restart, we need to track down why and fix it!
             // There is a leak somewhere...
             TBX_TRACE_INFO("App: Reloading...\n");
             _status = AppStatus::Reloading;
@@ -166,14 +152,13 @@ namespace Tbx
         }
 #endif
 
-        // For app inheritors to hook into update
-        OnUpdate();
-
         for (const auto& layer : _layerStack)
         {
             layer->Update();
         }
 
+        // Allow other systems to hook into update
+        OnUpdate();
         _eventBus->Post(AppUpdatedEvent());
         _eventBus->Flush();
     }
@@ -186,19 +171,10 @@ namespace Tbx
         auto isRestarting = _status == AppStatus::Reloading;
         _status = AppStatus::Closing;
 
-        // For app inheritors to hook into shutdown
+        // Allow other systems to hook into shutdown
         OnShutdown();
-
-        AppExitingEvent exitEvent;
-        _eventBus->Post(exitEvent);
-		_eventBus->Flush();
-
-        // Shutdown app layers and unload assets
-        _layerStack.Clear();
-        _assetServer.reset();
-
-        // Finally reset plugin server which will unload all plugins
-        _pluginServer.reset();
+        _eventBus->Post(AppClosedEvent(this));
+        _eventBus->Flush();
 
         if (isRestarting)
         {
@@ -222,21 +198,6 @@ namespace Tbx
     const std::string& App::GetName() const
     {
         return _name;
-    }
-
-    Ref<EventBus> App::GetEventBus() const
-    {
-        return _eventBus;
-    }
-
-    PluginServer& App::GetPluginServer() const
-    {
-        return *_pluginServer.get();
-    }
-
-    AssetServer& App::GetAssetServer() const
-    {
-        return *_assetServer.get();
     }
 
     void App::SetSettings(const Settings& settings)

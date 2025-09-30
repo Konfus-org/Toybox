@@ -2,6 +2,7 @@
 #include "Tbx/Plugins/Plugin.h"
 #include "Tbx/Plugins/PluginMeta.h"
 #include "Tbx/Plugins/SharedLibrary.h"
+#include "Tbx/Events/EventBus.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Memory/Refs.h"
 
@@ -12,7 +13,7 @@ namespace Tbx
     class TBX_EXPORT PluginServerRecord
     {
     public:
-        explicit(true) PluginServerRecord(const PluginMeta& pluginInfo, std::weak_ptr<App> app);
+        explicit(true) PluginServerRecord(const PluginMeta& pluginInfo, Ref<EventBus> eventBus);
         ~PluginServerRecord();
 
         bool IsValid() const;
@@ -36,17 +37,17 @@ namespace Tbx
         /// <summary>
         /// Gets the loaded plugin.
         /// </summary>
-        Ref<Plugin> Get() const
+        Ref<IPlugin> Get() const
         {
             return _plugin;
         }
 
     private:
-        void Load(std::weak_ptr<App> app);
+        void Load(Ref<EventBus> eventBus);
         void Unload();
 
         PluginMeta _pluginInfo = {};
         SharedLibrary _library = {};
-        Ref<Plugin> _plugin = nullptr;
+        Ref<IPlugin> _plugin = nullptr;
     };
 }

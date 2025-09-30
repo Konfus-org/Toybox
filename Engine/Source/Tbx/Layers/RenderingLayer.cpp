@@ -7,7 +7,7 @@ namespace Tbx
     RenderingLayer::RenderingLayer(Ref<IRendererFactory> renderFactory, Ref<EventBus> eventBus)
         : Layer("Rendering")
     {
-        _rendering = std::make_unique<Rendering>(renderFactory, eventBus);
+        _rendering = MakeExclusive<Rendering>(renderFactory, eventBus);
     }
 
     void RenderingLayer::OnUpdate()

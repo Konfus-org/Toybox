@@ -5,6 +5,8 @@ if (CMAKE_CXX_FLAGS MATCHES "-fno-rtti")
 endif()
 
 # Options
+option(TBX_PLUGINS_DIR "Plugin directory" "")
+option(TBX_ASSETS_DIR "Asset directory" "Assets")
 option(TBX_BUILD_SHARED "Build as a shared library" ON)
 option(TBX_VERB_LOGGING "Enable verbose logging" OFF)
 
@@ -49,7 +51,8 @@ target_compile_definitions(Engine PUBLIC
 
   # Dirs
   TBX_WORKING_ROOT_DIR="$<TARGET_FILE_DIR:Engine>"
-  TBX_ASSET_DIR="Assets"
+  TBX_ASSETS_DIR="${TBX_ASSETS_DIR}"
+  TBX_PLUGINS_DIR="${TBX_PLUGINS_DIR}"
 
   # Options
   $<$<BOOL:${TBX_BUILD_SHARED}>:TBX_SHARED_LIB=1>

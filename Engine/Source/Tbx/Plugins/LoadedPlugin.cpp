@@ -4,10 +4,10 @@
 
 namespace Tbx
 {
-    PluginServerRecord::PluginServerRecord(const PluginMeta& pluginInfo, std::weak_ptr<App> app)
+    PluginServerRecord::PluginServerRecord(const PluginMeta& pluginInfo, Ref<EventBus> eventBus)
     {
         _pluginInfo = pluginInfo;
-        Load(app);
+        Load(eventBus);
     }
 
     PluginServerRecord::~PluginServerRecord()
@@ -25,7 +25,7 @@ namespace Tbx
         return _pluginInfo;
     }
 
-    void PluginServerRecord::Load(std::weak_ptr<App> app)
+    void PluginServerRecord::Load(Ref<EventBus> eventBus)
     {
         // Don't load static plugins
         if (_pluginInfo.IsStatic) return;
@@ -64,8 +64,8 @@ namespace Tbx
         // reinterpret_cast instead which is the correct way to cast the
         // symbol returned from the dynamic library loader to a function
         // pointer.
-        auto* loadedPlugin = loadPluginFunc(app);
-        Ref<Plugin> sharedLoadedPlugin(loadedPlugin, [unloadPluginFunc](Plugin* pluginToUnload)
+        auto* loadedPlugin = loadPluginFunc(eventBus);
+        Ref<IPlugin> sharedLoadedPlugin(loadedPlugin, [unloadPluginFunc](IPlugin* pluginToUnload)
         {
             unloadPluginFunc(pluginToUnload);
         });

@@ -13,15 +13,15 @@ namespace Tbx::Tests::Graphics
     TEST(FrameBufferBuilderTests, BuildUploadBuffer_UploadsMaterialsAndMeshes)
     {
         // Arrange
-        Ref<Material> materialA = std::make_shared<Material>();
-        Ref<Texture> textureA = std::make_shared<Texture>();
-        Ref<Material> materialB = std::make_shared<Material>();
-        Ref<Texture> textureB = std::make_shared<Texture>();
+        Ref<Material> materialA = MakeRef<Material>();
+        Ref<Texture> textureA = MakeRef<Texture>();
+        Ref<Material> materialB = MakeRef<Material>();
+        Ref<Texture> textureB = MakeRef<Texture>();
 
-        auto root = std::make_shared<Toy>();
-        auto toyA = std::make_shared<Toy>("ToyA");
-        auto toyB = std::make_shared<Toy>("ToyB");
-        auto toyC = std::make_shared<Toy>("ToyC");
+        auto root = MakeRef<Toy>();
+        auto toyA = MakeRef<Toy>("ToyA");
+        auto toyB = MakeRef<Toy>("ToyB");
+        auto toyC = MakeRef<Toy>("ToyC");
         root->Children.push_back(toyA);
         root->Children.push_back(toyB);
         root->Children.push_back(toyC);
@@ -68,7 +68,7 @@ namespace Tbx::Tests::Graphics
     TEST(FrameBufferBuilderTests, BuildRenderBuffer_NoCamera_ReturnsEmptyBuffer)
     {
         // Arrange
-        auto toy = std::make_shared<Toy>();
+        auto toy = MakeRef<Toy>();
 
         // Act
         RenderCommandBufferBuilder builder;
@@ -81,15 +81,15 @@ namespace Tbx::Tests::Graphics
     TEST(FrameBufferBuilderTests, BuildRenderBuffer_WithCamera_ProducesExpectedCommandsInCorrectOrder)
     {
         // Arrange
-        Ref<Material> material = std::make_shared<Material>();
-        Ref<Texture> texture = std::make_shared<Texture>();
+        Ref<Material> material = MakeRef<Material>();
+        Ref<Texture> texture = MakeRef<Texture>();
 
-        auto root = std::make_shared<Toy>();
-        auto camToy = std::make_shared<Toy>("CameraToy");
+        auto root = MakeRef<Toy>();
+        auto camToy = MakeRef<Toy>("CameraToy");
         camToy->Blocks.Add<Camera>();
         camToy->Blocks.Add<Transform>();
 
-        auto visibleToy = std::make_shared<Toy>("VisibleToy");
+        auto visibleToy = MakeRef<Toy>("VisibleToy");
         const auto& matInstance = visibleToy->Blocks.Add<MaterialInstance>(material, texture);
         const auto& mesh = visibleToy->Blocks.Add<Mesh>();
         visibleToy->Blocks.Add<Transform>().SetPosition({ 0.0f, 0.0f, 5.0f });

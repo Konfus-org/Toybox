@@ -39,7 +39,7 @@ namespace Tbx
             , Textures(textures) {}
 
         Ref<Material> Material = nullptr;
-        std::vector<Ref<Texture>> Textures = { std::make_shared<Texture>() }; // default to one small white texture
+        std::vector<Ref<Texture>> Textures = { MakeRef<Texture>() }; // default to one small white texture
         Uid Id = Uid::Generate();
     };
 }

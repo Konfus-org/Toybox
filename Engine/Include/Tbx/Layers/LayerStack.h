@@ -32,7 +32,7 @@ namespace Tbx
         requires std::is_base_of_v<Layer, TLayer>
         Uid Push(TArgs&&... args)
         {
-            auto layer = std::make_unique<TLayer>(std::forward<TArgs>(args)...);
+            auto layer = MakeExclusive<TLayer>(std::forward<TArgs>(args)...);
             const auto& layerId = layer->Id;
             layer->OnAttach();
             _layers.push_back(std::move(layer));
