@@ -39,7 +39,7 @@ namespace Tbx::Tests::Math
 
         // Assert
         // Expected quaternion for 90° around X axis is (x=sin(θ/2), y=0, z=0, w=cos(θ/2))
-        float radians = Tbx::Math::DegreesToRadians(90.0f);
+        float radians = DegreesToRadians(90.0f);
         float halfAngle = radians * 0.5f;
         float expectedX = std::sin(halfAngle);
         float expectedW = std::cos(halfAngle);
@@ -60,7 +60,7 @@ namespace Tbx::Tests::Math
 
         // Assert
         // Expected: x = 0, y = sin(θ/2), z = 0, w = cos(θ/2)
-        float radians = Tbx::Math::DegreesToRadians(90.0f);
+        float radians = DegreesToRadians(90.0f);
         float halfAngle = radians * 0.5f;
         float expectedY = std::sin(halfAngle);
         float expectedW = std::cos(halfAngle);
@@ -81,7 +81,7 @@ namespace Tbx::Tests::Math
 
         // Assert
         // Expected: x = 0, y = 0, z = sin(θ/2), w = cos(θ/2)
-        float radians = Tbx::Math::DegreesToRadians(90.0f);
+        float radians = DegreesToRadians(90.0f);
         float halfAngle = radians * 0.5f;
         float expectedZ = std::sin(halfAngle);
         float expectedW = std::cos(halfAngle);

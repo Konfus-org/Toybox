@@ -79,7 +79,7 @@ namespace Tbx::Tests::Graphics
         float aspect = 1.78f;
         float zNear = 0.1f;
         float zFar = 100.0f;
-        auto expected = Mat4x4::PerspectiveProjection(Math::DegreesToRadians(fov), aspect, zNear, zFar);
+        auto expected = Mat4x4::PerspectiveProjection(DegreesToRadians(fov), aspect, zNear, zFar);
 
         // Act
         camera.SetPerspective(fov, aspect, zNear, zFar);

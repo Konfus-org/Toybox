@@ -67,7 +67,7 @@ namespace Tbx::Tests::Math
     TEST(BoundsTests, FromPerspectiveProjection_ProducesCorrectBounds)
     {
         // Arrange
-        float fov = Tbx::Math::DegreesToRadians(90.0f); // π/2 radians
+        float fov = DegreesToRadians(90.0f); // π/2 radians
         float aspect = 1.0f;
         float zNear = 1.0f;
 

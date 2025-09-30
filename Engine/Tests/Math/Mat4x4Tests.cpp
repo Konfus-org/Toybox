@@ -298,7 +298,7 @@ namespace Tbx::Tests::Math
     TEST(Mat4x4Tests, PerspectiveProjection_ProducesExpectedMatrix)
     {
         // Arrange
-        float fov = Tbx::Math::DegreesToRadians(60.0f);
+        float fov = DegreesToRadians(60.0f);
         float aspect = 16.0f / 9.0f;
         float zNear = 0.1f;
         float zFar = 100.0f;
