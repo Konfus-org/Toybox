@@ -34,7 +34,7 @@ namespace Tbx
 
     //////////// Event Coordinator ///////////////
 
-    void EventBus::ProcessQueue()
+    void EventBus::Flush()
     {
         // Pull all queued events out under lock to minimize lock-hold time while dispatching.
         std::queue<ExclusiveRef<Event>> localQueue;
@@ -136,7 +136,7 @@ namespace Tbx
         }
     }
 
-    EventBus::EventHash EventBus::GetEventHash(const Event& event) const
+    EventHash EventBus::GetEventHash(const Event& event) const
     {
         const auto& eventInfo = typeid(event);
         const auto hash = eventInfo.hash_code();

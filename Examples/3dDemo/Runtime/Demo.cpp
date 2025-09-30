@@ -19,7 +19,7 @@ Demo::Demo(const Tbx::WeakRef<Tbx::App>& app)
 
 Demo::~Demo()
 {
-	TBX_TRACE_INFO("Demo: unloaded!\n");
+    TBX_TRACE_INFO("Demo: unloaded!\n");
 }
 
 void Demo::OnStart()
@@ -96,8 +96,7 @@ void Demo::OnStart()
 
     // TODO: Figure out a better way than just needing to know you have to send this event...
     // Perhaps a stage manager/director?
-    _app.lock()->GetEventBus()
-        .Post(Tbx::StageOpenedEvent(_world));
+    _app.lock()->GetEventBus()->Post(Tbx::StageOpenedEvent(_world));
 }
 
 void Demo::OnShutdown()

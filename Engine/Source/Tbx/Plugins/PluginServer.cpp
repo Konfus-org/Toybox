@@ -276,7 +276,7 @@ namespace Tbx
 		auto nonLoggerPlugs = std::vector<ExclusiveRef<PluginServerRecord>>();
 		for (auto& pluginRecord : _pluginRecords)
 		{
-			if (!pluginRecord->GetAs<ILoggerFactory>())
+			if (!pluginRecord->GetAs<ILogger>())
 			{
 				nonLoggerPlugs.push_back(std::move(pluginRecord));
 			}
@@ -290,7 +290,7 @@ namespace Tbx
 				continue;
 			}
 
-			if (pluginRecord->GetAs<ILoggerFactory>())
+			if (pluginRecord->GetAs<ILogger>())
 			{
 				loggerPlugs.push_back(std::move(pluginRecord));
 			}
@@ -309,7 +309,7 @@ namespace Tbx
 
 		// Flush log queue and shutdown logging system
 		// TODO: Find a better way to do this cleanly and not have logging tied to the plug system!
-		Log::ProcessQueue();
+		Log::Flush();
 		Log::Shutdown();
 
 		// Clear remaining logger plugs

@@ -38,13 +38,13 @@ namespace Tbx
         /// <summary>
         /// Write all queued messages to the log.
         /// </summary>
-        static void ProcessQueue();
+        static void Flush();
 
         /// <summary>
         /// Returns the path to the log file if we are logging to a file.
         /// If not returns an empty string.
         /// </summary>
-        static std::string GetFolderPath();
+        static std::string GetFilePath();
 
         /// <summary>
         /// Writes a trace level msg to the log.

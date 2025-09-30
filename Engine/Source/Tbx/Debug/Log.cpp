@@ -19,6 +19,7 @@ namespace Tbx
         }
 
         _logger = logger;
+
 #ifdef TBX_DEBUG
         // No log file in debug
         _logger->Open("Tbx", "");
@@ -33,7 +34,7 @@ namespace Tbx
 
     void Log::Shutdown()
     {
-        ProcessQueue();
+        Flush();
         _logger = nullptr;
         _isOpen = false;
     }
@@ -50,11 +51,11 @@ namespace Tbx
         {
             // Attempt to process immediately... 
             // but if the log hasn't been opened yet for whatever reason we have to wait for the next update
-            ProcessQueue();
+            Flush();
         }
     }
 
-    void Log::ProcessQueue()
+    void Log::Flush()
     {
         while (!_logQueue.empty())
         {
@@ -101,7 +102,7 @@ namespace Tbx
         }
     }
 
-    std::string Log::GetFolderPath()
+    std::string Log::GetFilePath()
     {
         return _logFilePath;
     }

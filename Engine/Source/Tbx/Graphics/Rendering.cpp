@@ -16,12 +16,12 @@ namespace Tbx
         TBX_ASSERT(_rendererFactory, "Rendering: requires a valid renderer factory instance.");
         TBX_ASSERT(_eventBus, "Rendering: requires a valid event bus instance.");
 
-        _eventListener.Listen<WindowOpenedEvent>(this, &Rendering::OnWindowOpened);
-        _eventListener.Listen<WindowClosedEvent>(this, &Rendering::OnWindowClosed);
-        _eventListener.Listen<WindowResizedEvent>(this, &Rendering::OnWindowResized);
-        _eventListener.Listen<AppSettingsChangedEvent>(this, &Rendering::OnAppSettingsChanged);
-        _eventListener.Listen<StageOpenedEvent>(this, &Rendering::OnStageOpened);
-        _eventListener.Listen<StageClosedEvent>(this, &Rendering::OnStageClosed);
+        _eventListener.Listen(this, &Rendering::OnWindowOpened);
+        _eventListener.Listen(this, &Rendering::OnWindowClosed);
+        _eventListener.Listen(this, &Rendering::OnWindowResized);
+        _eventListener.Listen(this, &Rendering::OnAppSettingsChanged);
+        _eventListener.Listen(this, &Rendering::OnStageOpened);
+        _eventListener.Listen(this, &Rendering::OnStageClosed);
     }
 
     Rendering::~Rendering() = default;

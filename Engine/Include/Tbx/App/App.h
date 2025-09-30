@@ -50,7 +50,7 @@ namespace Tbx
         void Close();
 
         // TODO: hide behind methods such as App::SendEvent, App::PostEvent, App::SubscribeToEvent
-        EventBus& GetEventBus() const;
+        Ref<EventBus> GetEventBus() const;
         // TODO: hide behind methods such as App::GetPlugins<>, App::GetPlugins, App::AddPlugin<>
         PluginServer& GetPluginServer() const;
         // TODO: hide behind methods such as App::LoadAsset<>, App::GetLoadedAssets, App::AddAsset
@@ -92,8 +92,8 @@ namespace Tbx
         LayerStack _layerStack = {};
         Uid _mainWindowId = Uid::Invalid;
 
-        Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};
+        Ref<EventBus> _eventBus = nullptr;
         ExclusiveRef<PluginServer> _pluginServer = nullptr;
         ExclusiveRef<AssetServer> _assetServer = nullptr;
     };

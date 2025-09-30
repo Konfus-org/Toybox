@@ -11,7 +11,7 @@ namespace Tbx
     class LogLayer final : public Layer
     {
     public:
-        LogLayer(Ref<ILoggerFactory> loggerFactory);
+        LogLayer(Ref<ILogger> logger);
 
         void OnAttach() override;
         void OnDetach() override;

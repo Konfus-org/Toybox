@@ -13,8 +13,6 @@
 
 namespace Tbx
 {
-    struct RTTITest { virtual ~RTTITest() = default; };
-
     App::App(const std::string_view& name)
     {
         _name = name;
@@ -64,15 +62,6 @@ namespace Tbx
     
     void App::Initialize()
     {
-        RTTITest t = {};
-        const std::type_info& ti = typeid(t);
-        if (ti != typeid(RTTITest))
-        {
-            TBX_ASSERT(ti != typeid(RTTITest), "App: RTTI is disabled! Toybox requires RTTI to function properly!");
-            _status = AppStatus::Error;
-            return;
-        }
-
         _status = AppStatus::Initializing;
 
         auto workingDirectory = FileSystem::GetWorkingDirectory();
@@ -116,10 +105,10 @@ namespace Tbx
                 AddLayer<InputLayer>(inputHandler);
             }
 
-            auto loggerFactoryPlugs = _pluginServer->GetPlugins<ILoggerFactory>();
+            auto loggerFactoryPlugs = _pluginServer->GetPlugins<ILogger>();
             if (!loggerFactoryPlugs.empty())
             {
-                TBX_ASSERT(loggerFactoryPlugs.size() == 1, "App: Only one logger factory is allowed!");
+                TBX_ASSERT(loggerFactoryPlugs.size() == 1, "App: Only one logger is allowed!");
                 auto loggerFactory = loggerFactoryPlugs.front();
                 AddLayer<LogLayer>(loggerFactory);
             }
@@ -134,8 +123,8 @@ namespace Tbx
 #endif
 
         // Sub to window closing so we can listen for main window closed to init app shutdown
-        _eventListener.Listen<WindowOpenedEvent>(this, &App::OnWindowOpened);
-        _eventListener.Listen<WindowClosedEvent>(this, &App::OnWindowClosed);
+        _eventListener.Listen(this, &App::OnWindowOpened);
+        _eventListener.Listen(this, &App::OnWindowClosed);
 
         // For app inheritors to hook into launch
         OnLaunch();
@@ -186,7 +175,7 @@ namespace Tbx
         }
 
         _eventBus->Post(AppUpdatedEvent());
-        _eventBus->ProcessQueue();
+        _eventBus->Flush();
     }
 
     void App::Shutdown()
@@ -201,8 +190,8 @@ namespace Tbx
         OnShutdown();
 
         AppExitingEvent exitEvent;
-        _eventBus->Send(exitEvent);
-        _eventListener.StopListening();
+        _eventBus->Post(exitEvent);
+		_eventBus->Flush();
 
         // Shutdown app layers and unload assets
         _layerStack.Clear();
@@ -235,9 +224,9 @@ namespace Tbx
         return _name;
     }
 
-    EventBus& App::GetEventBus() const
+    Ref<EventBus> App::GetEventBus() const
     {
-        return *_eventBus.get();
+        return _eventBus;
     }
 
     PluginServer& App::GetPluginServer() const

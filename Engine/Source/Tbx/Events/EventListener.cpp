@@ -4,29 +4,22 @@
 
 namespace Tbx
 {
-    EventListener::EventListener(const Ref<EventBus>& bus)
-    {
-        Bind(bus);
-    }
-
-    EventListener::EventListener(const WeakRef<EventBus>& bus)
+    EventListener::EventListener(WeakRef<EventBus> bus)
     {
         Bind(bus);
     }
 
     EventListener::~EventListener()
     {
-        StopListening();
+        Unbind();
     }
 
-    void EventListener::Bind(const Ref<EventBus>& bus)
+    void EventListener::Bind(WeakRef<EventBus> bus)
     {
-        TBX_ASSERT(bus, "EventListener: Cannot bind to a null event bus reference.");
-        Bind(WeakRef<EventBus>(bus));
-    }
+        TBX_ASSERT(bus.lock(), "EventListener: Cannot bind to a null event bus reference.");
 
-    void EventListener::Bind(const WeakRef<EventBus>& bus)
-    {
+        Unbind();
+
         auto current = _bus.lock();
         auto next = bus.lock();
         if (current && next && current == next)
@@ -34,17 +27,10 @@ namespace Tbx
             return;
         }
 
-        StopListening();
         _bus = bus;
     }
 
     void EventListener::Unbind()
-    {
-        StopListening();
-        _bus.reset();
-    }
-
-    void EventListener::StopListening()
     {
         std::vector<Uid> tokens;
         {
@@ -65,7 +51,13 @@ namespace Tbx
             {
                 bus->Unsubscribe(token);
             }
+            else
+            {
+				TBX_ASSERT(false, "EventListener: Encountered an invalid subscription token during unbind.");
+            }
         }
+
+        _bus.reset();
     }
 
     bool EventListener::IsBound() const
@@ -77,6 +69,7 @@ namespace Tbx
     {
         if (token == Uid::Invalid)
         {
+			TBX_ASSERT(false, "EventListener: Cannot track an invalid subscription token.");
             return;
         }
 

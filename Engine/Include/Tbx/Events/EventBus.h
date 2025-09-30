@@ -20,6 +20,8 @@ namespace Tbx
     /// </summary>
     using EventCallback = std::function<void(Event&)>;
 
+    using EventHash = uint64;
+
     /// <summary>
     /// ALL events on ALL event busses will be suppressed during the lifetime of this class.
     /// Use with care.
@@ -58,6 +60,9 @@ namespace Tbx
         static std::atomic_int _suppressCount;
     };
 
+    /// <summary>
+    /// Represents a bus for dispatching and receiving events.
+    /// </summary>
     class TBX_EXPORT EventBus
     {
     public:
@@ -71,8 +76,6 @@ namespace Tbx
         /// </summary>
         ~EventBus() = default;
 
-        using EventHash = uint64;
-
         /// <summary>
         /// Registers a callback for the specified event type.
         /// </summary>
@@ -81,7 +84,7 @@ namespace Tbx
         /// <returns>A unique subscription token that can later be supplied to <see cref="Unsubscribe"/>.</returns>
         template <class TEvent>
         requires std::is_base_of_v<Event, std::decay_t<TEvent>>
-        Uid Subscribe(EventCallback callback)
+        Uid Subscribe(const EventCallback& callback)
         {
             TBX_ASSERT(callback, "EventBus: Cannot subscribe an empty callback.");
 
@@ -129,7 +132,7 @@ namespace Tbx
         /// <summary>
         /// Processes all queued events, dispatching each to the relevant subscribers.
         /// </summary>
-        void ProcessQueue();
+        void Flush();
 
     private:
         /// <summary>

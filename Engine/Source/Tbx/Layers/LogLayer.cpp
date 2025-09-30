@@ -7,18 +7,10 @@
 
 namespace Tbx
 {
-    LogLayer::LogLayer(Ref<ILoggerFactory> loggerFactory)
+    LogLayer::LogLayer(Ref<ILogger> logger)
         : Layer("Logging")
+       , _logger(logger)
     {
-#ifdef TBX_DEBUG
-        // No log file in debug
-        _logger = loggerFactory->Create("Tbx");
-#else
-        // Open log file in non-debug
-        const auto currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        const auto logFilePath = std::format("Logs\\{}.log", currentTime);
-        _logger = loggerFactory->Create("Tbx", logFilePath);
-#endif
     }
 
     void LogLayer::OnAttach()
@@ -34,6 +26,6 @@ namespace Tbx
 
     void LogLayer::OnUpdate()
     {
-        Log::ProcessQueue();
+        Log::Flush();
     }
 }
