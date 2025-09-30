@@ -27,7 +27,7 @@ namespace Tbx
         // No log file in debug
         _logger->Open("Tbx", "");
 #else
-		// TODO: delete old log files! Only keep the last 10 or so...
+        // TODO: delete old log files! Only keep the last 10 or so...
         // Open log file in non-debug
         const auto currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         const auto logFilePath = std::format(FileSystem::GetLogsDirectory() "\\{}.log", currentTime);
@@ -54,7 +54,7 @@ namespace Tbx
         if (_isOpen)
         {
             // Attempt to process immediately... 
-			// but if the log hasn't been opened yet for whatever reason we have to wait for either the next write or a flush call.
+            // but if the log hasn't been opened yet for whatever reason we have to wait for either the next write or a flush call.
             Flush();
         }
     }
@@ -74,7 +74,7 @@ namespace Tbx
                 _logger->Write((int)lvl, msg);
                 continue;
             }
-            else
+            else if (_isOpen)
             {
                 TBX_ASSERT(false, "Log: No logger instance available to write log message!");
             }

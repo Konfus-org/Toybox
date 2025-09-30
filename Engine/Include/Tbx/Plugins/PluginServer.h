@@ -17,7 +17,7 @@ namespace Tbx
 
         std::vector<Ref<IPlugin>> All() const { return _plugins; }
         void Push(Ref<IPlugin> plugin) { _plugins.push_back(plugin); }
-		void Clear() { _plugins.clear(); }
+        void Clear() { _plugins.clear(); }
         uint32 Count() const { return _plugins.size(); }
 
         /// <summary>

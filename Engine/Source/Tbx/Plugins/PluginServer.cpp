@@ -256,6 +256,8 @@ namespace Tbx
 
         TBX_TRACE_INFO("PluginServer: Successfully loaded {} plugins!", pluginsSuccessfullyLoaded);
         TBX_TRACE_INFO("PluginServer: Failed to load {} plugins!\n", pluginsUnsuccessfullyLoaded);
+
+        _eventBus->Post(PluginsLoadedEvent(GetPlugins()));
     }
 
     void PluginServer::UnloadPlugins()
@@ -267,20 +269,28 @@ namespace Tbx
         {
             RemoveBackPlugin(_pluginRecords);
         }
+
+        _eventBus->Send(PluginsUnloadedEvent(GetPlugins()));
     }
 
-    void PluginServer::RemoveBackPlugin(std::vector<Tbx::ExclusiveRef<Tbx::PluginServerRecord>>& nonLoggerPlugs)
+    void PluginServer::RemoveBackPlugin(std::vector<Tbx::ExclusiveRef<Tbx::PluginServerRecord>>& plugs)
     {
-        auto pluginRecord = std::move(nonLoggerPlugs.back());
-        TBX_TRACE_INFO("PluginServer: Unloading plugin: {}", pluginRecord->GetMeta().Name);
+        TBX_TRACE_INFO("PluginServer: Unloading plugin: {}", plugs.back()->GetMeta().Name);
+        auto pluginRecord = std::move(plugs.back());
 
-        nonLoggerPlugs.pop_back();
         auto plugin = pluginRecord->Get();
+        _eventBus->Send(PluginUnloadedEvent(plugin));
+        plugs.pop_back();
 
         // We have two refs above, one from the get call and one from the record.
         // If there are more than two refs, something outside the plugin server is still holding a ref and shouldn't be...
         // This asserts because it can cause crashes or undefined behavior if a plugin is unloaded while still in use and we are reloading.
-        if (plugin.use_count() > 2)
+        auto expectedUseCount = 2;
+        if (pluginRecord->GetAs<ILogger>())
+        {
+            expectedUseCount = 3; // Logger plugins have one extra ref from the Log system
+        }
+        if (plugin.use_count() > expectedUseCount)
         {
             TBX_ASSERT(false, "{} Plugin is still in use! Ensure all references are released before shutting down!", pluginRecord->GetMeta().Name);
         }

@@ -1,30 +1,48 @@
 #include "Tbx/Launcher/Launcher.h"
 #include "Tbx/Files/Paths.h"
+#include "Tbx/Events/PluginEvents.h"
+
 
 namespace Tbx::Launcher
 {
     AppStatus Launch(
         const std::string& name,
         const Settings& settings,
-		const std::vector<std::string>& args) // TODO: deal with args (just one to start --headless)
+        const std::vector<std::string>& args) // TODO: deal with args (just one to start --headless)
     {
         auto status = AppStatus::None;
         auto running = true;
 
+        // Main runtime loop, will reload the app if requested
         while (running)
         {
-			// Setup required systems for the app
+            // Setup required systems for the app
             auto eventBus = MakeRef<EventBus>();
             auto pluginServer = PluginServer(FileSystem::GetPluginDirectory(), eventBus);
-			auto discoveredPlugins = pluginServer.GetPlugins();
+            auto discoveredPlugins = pluginServer.GetPlugins();
 
             // Init logging
-            Log::Initialize(discoveredPlugins.OfType<ILogger>().front());
+            auto logListener = EventListener(eventBus);
+            logListener.Listen<PluginLoadedEvent>([](const PluginLoadedEvent& e)
+            {
+                if (auto loggerPlug = std::dynamic_pointer_cast<ILogger>(e.GetLoadedPlugin()))
+                {
+                    Log::Initialize(loggerPlug);
+                }
+            });
+            logListener.Listen<PluginUnloadedEvent>([](const PluginUnloadedEvent& e)
+            {
+                // TODO: fix - log isn't shutdown in time before logger is unloaded, causing exceptions
+                if (std::dynamic_pointer_cast<ILogger>(e.GetUnloadedPlugin()))
+                {
+                    Log::Shutdown();
+                }
+            });
 
             // Create the app
             auto app = App(name, settings, discoveredPlugins, eventBus);
 
-			// Run the app, this will block until the app closes
+            // Run the app, this will block until the app closes
             app.Run();
 
             // After we've closed check if the app is asking for a reload
@@ -33,9 +51,6 @@ namespace Tbx::Launcher
             running =
                 status != AppStatus::Error &&
                 status != AppStatus::Closed;
-
-			// Shutdown logging
-            Log::Shutdown();
         }
 
         return status;
