@@ -52,7 +52,7 @@ namespace Tbx
             // If suppressed globally, skip processing of queued events as well.
             if (EventSuppressor::IsSuppressing())
             {
-                TBX_TRACE("EventBus: Queued event \"{}\" suppressed", evt->ToString());
+                TBX_TRACE_WARNING("EventBus: Queued event \"{}\" suppressed", evt->ToString());
                 continue;
             }
 

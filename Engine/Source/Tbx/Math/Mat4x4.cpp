@@ -177,7 +177,7 @@ namespace Tbx
     {
         const auto glmVec = glm::vec3(axis.X, axis.Y, axis.Z);
         const glm::mat4 glmMat = glm::make_mat4(matrix.Values.data());
-        const glm::mat4 result = glm::rotate(glmMat, Math::DegreesToRadians(angle), glmVec);
+        const glm::mat4 result = glm::rotate(glmMat, DegreesToRadians(angle), glmVec);
         return GlmMat4ToTbxMat4x4(result);
     }
 

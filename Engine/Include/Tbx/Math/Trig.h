@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 
-namespace Tbx::Math
+namespace Tbx
 {
     inline const float PI = 3.14159265358979323846264338327950288f;
 

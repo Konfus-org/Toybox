@@ -82,10 +82,10 @@ namespace Tbx
         const auto& pluginAuthor = info.Author;
         const auto& pluginDescription = info.Description;
 
-        TBX_TRACE_INFO("{0}:", pluginName);
+        TBX_TRACE_INFO("- Loaded {0}:", pluginName);
         TBX_TRACE_INFO("    - Version: {0}", pluginVersion);
         TBX_TRACE_INFO("    - Author: {0}", pluginAuthor);
-        TBX_TRACE_INFO("    - Description: {0}\n", pluginDescription);
+        TBX_TRACE_INFO("    - Description: {0}", pluginDescription);
     }
 
     static PluginMeta LoadPluginMeta(const std::filesystem::path& pathToMeta)
@@ -221,7 +221,7 @@ namespace Tbx
         std::stable_sort(infos.begin(), infos.end(), SortKey);
 
         // 3) Load 
-        TBX_TRACE_INFO("PluginServer: Loading plugins:\n");
+        TBX_TRACE_INFO("PluginServer: Loading plugins:");
         auto loadedNames = std::unordered_set<std::string>();
         uint pluginsSuccessfullyLoaded = 0;
         uint pluginsUnsuccessfullyLoaded = 0;
@@ -262,7 +262,16 @@ namespace Tbx
 
     void PluginServer::UnloadPlugins()
     {
-        TBX_TRACE_INFO("PluginServer: Unloading plugins...\n");
+        TBX_TRACE_INFO("PluginServer: Unloading plugins...");
+
+        // Ensure ILogger implementations are unloaded after all other plugins.
+        std::stable_partition(
+            _pluginRecords.begin(),
+            _pluginRecords.end(),
+            [](const ExclusiveRef<PluginServerRecord>& record)
+            {
+                return record->GetAs<ILogger>() != nullptr;
+            });
 
         // Clear remaining logger plugs
         while (!_pluginRecords.empty())
@@ -275,8 +284,9 @@ namespace Tbx
 
     void PluginServer::RemoveBackPlugin(std::vector<Tbx::ExclusiveRef<Tbx::PluginServerRecord>>& plugs)
     {
-        TBX_TRACE_INFO("PluginServer: Unloading plugin: {}", plugs.back()->GetMeta().Name);
-        auto pluginRecord = std::move(plugs.back());
+        auto& plug = plugs.back();
+        TBX_TRACE_INFO("PluginServer: Unloading {}", plug->GetMeta().Name);
+        auto pluginRecord = std::move(plug);
 
         auto plugin = pluginRecord->Get();
         _eventBus->Send(PluginUnloadedEvent(plugin));

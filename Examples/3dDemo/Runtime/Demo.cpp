@@ -100,7 +100,7 @@ void Demo::OnStart()
 
 void Demo::OnShutdown()
 {
-    TBX_TRACE("Demo: shutdown!\n");
+    TBX_TRACE_INFO("Demo: shutdown!\n");
 }
 
 void Demo::OnUpdate()
@@ -217,7 +217,6 @@ void Demo::OnUpdate()
             // Combine (usually yaw * pitch for FPS)
             camTransform.Rotation = Tbx::Quaternion::Normalize(qYaw * qPitch);
         }
-
     }
 
     // Smily movement
@@ -225,7 +224,7 @@ void Demo::OnUpdate()
         // rotate over time
         const float smilyRotateSpeed = 90.0f;
         auto& smilyTransform = _smily->Blocks.Get<Tbx::Transform>();
-        float angle = Tbx::Math::PI * deltaTime * smilyRotateSpeed;
+        float angle = Tbx::PI * deltaTime * smilyRotateSpeed;
         Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3::Up, angle);
         smilyTransform.Rotation = Tbx::Quaternion::Normalize(smilyTransform.Rotation * qYaw);
 

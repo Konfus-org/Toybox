@@ -31,7 +31,7 @@ namespace Tbx
         _zFar = zFar;
         _aspect = aspect;
         _fov = fov;
-        _projectionMatrix = Mat4x4::PerspectiveProjection(Math::DegreesToRadians(fov), aspect, zNear, zFar);
+        _projectionMatrix = Mat4x4::PerspectiveProjection(DegreesToRadians(fov), aspect, zNear, zFar);
     }
 
     void Camera::SetAspect(float aspect)

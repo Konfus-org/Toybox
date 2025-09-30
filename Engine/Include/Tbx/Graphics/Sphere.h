@@ -38,7 +38,7 @@ namespace Tbx
             }
 
             Center = position;
-            Radius = std::max({ std::abs(scale.X), std::abs(scale.Y), std::abs(scale.Z) }) * 0.5f;
+            Radius = std::max({ std::abs(scale.X), std::abs(scale.Y), std::abs(scale.Z) }) * 0.75f;
         }
     };
 }

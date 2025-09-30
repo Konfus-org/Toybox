@@ -29,8 +29,7 @@ namespace Tbx
     {
     public:
         PluginUnloadedEvent(Ref<IPlugin> unloadedPlugin)
-            : _unloadedPlugin(unloadedPlugin) {
-        }
+            : _unloadedPlugin(unloadedPlugin) {}
 
         std::string ToString() const override
         {
@@ -50,8 +49,7 @@ namespace Tbx
     {
     public:
         PluginsUnloadedEvent(PluginStack unloadedPlugins)
-            : _unloadedPlugins(unloadedPlugins) {
-        }
+            : _unloadedPlugins(unloadedPlugins) {}
 
         std::string ToString() const override
         {
@@ -71,8 +69,7 @@ namespace Tbx
     {
     public:
         PluginsLoadedEvent(PluginStack loadedPlugins)
-            : _loadedPlugins(loadedPlugins) {
-        }
+            : _loadedPlugins(loadedPlugins) {}
 
         std::string ToString() const override
         {

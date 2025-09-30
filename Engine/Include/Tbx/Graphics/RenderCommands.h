@@ -48,7 +48,7 @@ namespace Tbx
         /// <summary>
         /// Sets render resolution.
         /// </summary>
-        SetResolution
+        SetResolution,
     };
 
     /// <summary>

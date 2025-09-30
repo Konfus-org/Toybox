@@ -10,6 +10,7 @@ namespace Tbx::Launcher
         const Settings& settings,
         const std::vector<std::string>& args) // TODO: deal with args (just one to start --headless)
     {
+        auto logListener = EventListener();
         auto status = AppStatus::None;
         auto running = true;
 
@@ -22,7 +23,7 @@ namespace Tbx::Launcher
             auto discoveredPlugins = pluginServer.GetPlugins();
 
             // Init logging
-            auto logListener = EventListener(eventBus);
+            logListener.Bind(eventBus);
             logListener.Listen<PluginLoadedEvent>([](const PluginLoadedEvent& e)
             {
                 if (auto loggerPlug = std::dynamic_pointer_cast<ILogger>(e.GetLoadedPlugin()))

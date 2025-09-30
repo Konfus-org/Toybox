@@ -7,7 +7,7 @@
 /// If a log is created and listening the msg will be written to a log file in release, a console in debug.
 /// This is a good method to use to add debug info to the log to track down bugs.
 /// </summary>
-#define TBX_TRACE(...) Tbx::Log::Trace(__VA_ARGS__)
+//#define TBX_TRACE(...) Tbx::Log::Trace(__VA_ARGS__)
 
 /// <summary>
 /// Writes a debug level msg to the log.

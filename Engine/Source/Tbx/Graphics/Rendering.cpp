@@ -3,6 +3,7 @@
 #include "Tbx/Events/RenderEvents.h"
 #include "Tbx/Graphics/RenderCommands.h"
 #include "Tbx/Graphics/Viewport.h"
+#include "Tbx/Graphics/Camera.h"
 #include <algorithm>
 #include <iterator>
 
@@ -146,7 +147,7 @@ namespace Tbx
             }
         }
 
-        for (size_t rendererIndex = 0; rendererIndex < _renderers.size(); ++rendererIndex)
+        for (uint32 rendererIndex = 0; rendererIndex < _renderers.size(); ++rendererIndex)
         {
             const auto& renderer = _renderers[rendererIndex];
             const auto& rendererWindow = _windows[rendererIndex];
@@ -253,6 +254,16 @@ namespace Tbx
         if (!renderer)
         {
             return;
+        }
+
+        for (const auto& stage : _openStages)
+        {
+            auto cameraView = StageView<Camera>(stage->GetRoot());
+            for (const auto& toy : cameraView)
+            {
+                auto& camera = toy->Blocks.Get<Camera>();
+                camera.SetAspect(CalculateAspectRatioFromSize(resizedWindow->GetSize()));
+			}
         }
 
         RenderCommandBuffer renderBuffer = {};
