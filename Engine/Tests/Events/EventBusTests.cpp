@@ -104,6 +104,7 @@ namespace Tbx::Tests::Events
             EventSuppressor suppressor;
             bus.Post(DummyEvent("Suppressed"));
             bus.Send(DummyEvent("Suppressed"));
+            bus.Flush();
         }
 
         bus.Flush();
