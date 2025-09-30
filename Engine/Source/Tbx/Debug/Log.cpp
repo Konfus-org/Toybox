@@ -30,7 +30,7 @@ namespace Tbx
         // TODO: delete old log files! Only keep the last 10 or so...
         // Open log file in non-debug
         const auto currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        const auto logFilePath = std::format(FileSystem::GetLogsDirectory() "\\{}.log", currentTime);
+        const auto logFilePath = std::format("{}/{}.log", FileSystem::GetLogsDirectory(), currentTime);
         _logger->Open("Tbx", logFilePath);
 #endif
         _isOpen = true;
