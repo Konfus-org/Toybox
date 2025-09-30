@@ -30,15 +30,15 @@ namespace Tbx
     {
         MaterialInstance() = default;
         MaterialInstance(Ref<Material> material)
-            : Material(material) {}
+            : InstanceOf(material) {}
         MaterialInstance(Ref<Material> material, Ref<Texture> texture)
-            : Material(material)
+            : InstanceOf(material)
             , Textures({texture}) {}
         MaterialInstance(Ref<Material> material, std::vector<Ref<Texture>> textures)
-            : Material(material)
+            : InstanceOf(material)
             , Textures(textures) {}
 
-        Ref<Material> Material = nullptr;
+        Ref<Material> InstanceOf = nullptr;
         std::vector<Ref<Texture>> Textures = { MakeRef<Texture>() }; // default to one small white texture
         Uid Id = Uid::Generate();
     };
