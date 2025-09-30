@@ -1,25 +1,28 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/TypeAliases/Int.h"
+#include "Tbx/Math/Int.h"
+#include "Tbx/Memory/Refs.h"
+#include "Tbx/Debug/Asserts.h"
 #include <memory>
+#include <cstring>
 
 namespace Tbx
 {
     /// <summary>
     /// A simple struct used to reserve a block of continuous memory.
     /// </summary>
-    struct MemoryPool
+    struct TBX_EXPORT MemoryPool
     {
     public:
-        EXPORT MemoryPool(const uint64& elementSize, const uint64& poolSize)
-            : _data(std::make_shared<char[]>(elementSize * poolSize)), _elementSize(elementSize), _poolSize(poolSize) { }
+        MemoryPool(const uint64& elementSize, const uint64& poolSize)
+            : _data(MakeExclusive<char[]>(elementSize * poolSize)), _elementSize(elementSize), _poolSize(poolSize) { }
 
         template<typename T>
-        EXPORT T* Get(uint64 index) const
+        T* Get(uint64 index) const
         {
             if (index >= _poolSize)
             {
-                TBX_ASSERT(false, "Index out of bounds!");
+                TBX_ASSERT(false, "MemoryPool: Index out of bounds!");
                 return nullptr;
             }
             void* data = _data.get() + index * _elementSize;
@@ -27,19 +30,19 @@ namespace Tbx
         }
 
         template<typename T>
-        EXPORT void Set(uint64 index, const T& value) const
+        void Set(uint64 index, const T& value) const
         {
             if (index >= _poolSize)
             {
-                TBX_ASSERT(false, "Index out of bounds!");
+                TBX_ASSERT(false, "MemoryPool: Index out of bounds!");
                 return;
             }
             void* data = _data.get() + index * _elementSize;
-            memcpy(data, &value, _elementSize);
+            std::memcpy(data, &value, _elementSize);
         }
 
     private:
-        std::shared_ptr<char[]> _data = nullptr;
+        ExclusiveRef<char[]> _data = nullptr;
         uint64 _elementSize = 0;
         uint64 _poolSize = 0;
     };

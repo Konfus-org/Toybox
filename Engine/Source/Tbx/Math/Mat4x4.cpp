@@ -1,14 +1,28 @@
 #include "Tbx/PCH.h"
-#include "Tbx/Math/Constants.h"
 #include "Tbx/Math/Mat4x4.h"
 #include "Tbx/Math/Trig.h"
-#include "Tbx/TypeAliases/Int.h"
+#include "Tbx/Math/Int.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <cmath>
 
 namespace Tbx
 {
+    TBX_EXPORT Mat4x4 Mat4x4::Zero = Mat4x4({
+        0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f
+    });
+
+    TBX_EXPORT Mat4x4 Mat4x4::Identity = Mat4x4({
+        { 1.0f, 0.0f, 0.0f, 0.0f },
+        { 0.0f, 1.0f, 0.0f, 0.0f },
+        { 0.0f, 0.0f, 1.0f, 0.0f },
+        { 0.0f, 0.0f, 0.0f, 1.0f }
+    });
+
     static Mat4x4 GlmMat4ToTbxMat4x4(const glm::mat4& glmMat)
     {
         std::array<float, 16> arr;
@@ -18,7 +32,7 @@ namespace Tbx
 
     Mat4x4::Mat4x4()
     {
-        Values = Constants::Mat4x4::Identity;
+        Values = Mat4x4::Identity;
     }
 
     Mat4x4::Mat4x4(const std::initializer_list<float>& data)
@@ -163,7 +177,7 @@ namespace Tbx
     {
         const auto glmVec = glm::vec3(axis.X, axis.Y, axis.Z);
         const glm::mat4 glmMat = glm::make_mat4(matrix.Values.data());
-        const glm::mat4 result = glm::rotate(glmMat, Math::DegreesToRadians(angle), glmVec);
+        const glm::mat4 result = glm::rotate(glmMat, DegreesToRadians(angle), glmVec);
         return GlmMat4ToTbxMat4x4(result);
     }
 
@@ -219,10 +233,18 @@ namespace Tbx
         return GlmMat4ToTbxMat4x4(result);
     }
 
-    bool Mat4x4::IsEqual(const Mat4x4& lhs, float rhs)
+    bool Mat4x4::IsEqual(const Mat4x4& lhs, const Mat4x4& rhs)
     {
-        const glm::mat4 lhsMat = glm::make_mat4(lhs.Values.data());
-        const glm::mat4 rhsMat = glm::make_mat4(lhs.Values.data());
-        return lhsMat == rhsMat;
+        constexpr float epsilon = 1e-5f;
+
+        for (size_t index = 0; index < lhs.Values.size(); ++index)
+        {
+            if (std::abs(lhs.Values[index] - rhs.Values[index]) > epsilon)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

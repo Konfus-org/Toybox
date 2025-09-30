@@ -1,52 +1,53 @@
 #pragma once
+#include "Tbx/DllExport.h"
 #include "Tbx/Layers/Layer.h"
-#include "Tbx/TypeAliases/Int.h"
-#include <memory>
+#include "Tbx/Math/Int.h"
+#include "Tbx/Memory/Refs.h"
 #include <vector>
 
-namespace Tbx 
+namespace Tbx
 {
-	class SharedLayerStack
-	{
-	public:
-		EXPORT ~SharedLayerStack();
+    /// <summary>
+    /// Container that stores layers in registration order and assists with lifecycle notifications.
+    /// </summary>
+    class TBX_EXPORT LayerStack
+    {
+    public:
+        LayerStack() = default;
+        ~LayerStack();
 
-		EXPORT void Clear();
-		EXPORT void Push(const std::shared_ptr<Layer>& layer);
-		EXPORT void Pop(const std::shared_ptr<Layer>& layer);
+        LayerStack(const LayerStack&) = delete;
+        LayerStack& operator=(const LayerStack&) = delete;
+        LayerStack(LayerStack&&) noexcept = default;
+        LayerStack& operator=(LayerStack&&) noexcept = default;
 
-		EXPORT std::vector<std::shared_ptr<Layer>>::iterator begin() { return _layers.begin(); }
-		EXPORT std::vector<std::shared_ptr<Layer>>::iterator end() { return _layers.end(); }
-		EXPORT std::vector<std::shared_ptr<Layer>>::reverse_iterator rbegin() { return _layers.rbegin(); }
-		EXPORT std::vector<std::shared_ptr<Layer>>::reverse_iterator rend() { return _layers.rend(); }
+        bool Contains(const Uid& layerId) const;
+        Layer& Get(const Uid& layerId);
+        const std::vector<ExclusiveRef<Layer>>& GetAll() const;
+        void Remove(const Uid& layerId);
+        void Clear();
+        uint Count() const { return static_cast<uint>(_layers.size()); }
 
-		EXPORT std::vector<std::shared_ptr<Layer>>::const_iterator begin() const { return _layers.begin(); }
-		EXPORT std::vector<std::shared_ptr<Layer>>::const_iterator end() const { return _layers.end(); }
-		EXPORT std::vector<std::shared_ptr<Layer>>::const_reverse_iterator rbegin() const { return _layers.rbegin(); }
-		EXPORT std::vector<std::shared_ptr<Layer>>::const_reverse_iterator rend() const { return _layers.rend(); }
+        template <typename TLayer, typename... TArgs>
+        requires std::is_base_of_v<Layer, TLayer>
+        Uid Push(TArgs&&... args)
+        {
+            auto layer = MakeExclusive<TLayer>(std::forward<TArgs>(args)...);
+            const auto& layerId = layer->Id;
+            layer->OnAttach();
+            _layers.push_back(std::move(layer));
+            return layerId;
+        }
 
-	private:
-		std::vector<std::shared_ptr<Layer>> _layers;
-	};
+        auto begin() { return _layers.begin(); }
+        auto end() { return _layers.end(); }
+        auto begin() const { return _layers.begin(); }
+        auto end() const { return _layers.end(); }
 
-	class WeakLayerStack
-	{
-	public:
-		EXPORT void Clear();
-		EXPORT void Push(const std::weak_ptr<Layer>& layer);
-		EXPORT void Pop(const std::weak_ptr<Layer>& layer);
+        const Layer& operator[](int index) const { return *_layers[index]; }
 
-		EXPORT std::vector<std::weak_ptr<Layer>>::iterator begin() { return _layers.begin(); }
-		EXPORT std::vector<std::weak_ptr<Layer>>::iterator end() { return _layers.end(); }
-		EXPORT std::vector<std::weak_ptr<Layer>>::reverse_iterator rbegin() { return _layers.rbegin(); }
-		EXPORT std::vector<std::weak_ptr<Layer>>::reverse_iterator rend() { return _layers.rend(); }
-
-		EXPORT std::vector<std::weak_ptr<Layer>>::const_iterator begin() const { return _layers.begin(); }
-		EXPORT std::vector<std::weak_ptr<Layer>>::const_iterator end() const { return _layers.end(); }
-		EXPORT std::vector<std::weak_ptr<Layer>>::const_reverse_iterator rbegin() const { return _layers.rbegin(); }
-		EXPORT std::vector<std::weak_ptr<Layer>>::const_reverse_iterator rend() const { return _layers.rend(); }
-
-	private:
-		std::vector<std::weak_ptr<Layer>> _layers;
-	};
+    private:
+        std::vector<ExclusiveRef<Layer>> _layers = {};
+    };
 }
+

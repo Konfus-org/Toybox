@@ -1,79 +1,132 @@
 #include "Tbx/PCH.h"
 #include "Tbx/App/App.h"
-#include "Tbx/Layers/LogLayer.h"
+#include "Tbx/App/Runtime.h"
 #include "Tbx/Layers/InputLayer.h"
-#include "Tbx/Layers/WorldLayer.h"
-#include "Tbx/Layers/EventCoordinatorLayer.h"
 #include "Tbx/Layers/RenderingLayer.h"
-#include "Tbx/Events/EventCoordinator.h"
+#include "Tbx/Layers/WindowingLayer.h"
+#include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Input/Input.h"
+#include "Tbx/Input/InputCodes.h"
 #include "Tbx/Time/DeltaTime.h"
+#include "Tbx/Files/Paths.h"
 
 namespace Tbx
 {
-    App* App::_instance = nullptr;
-
-    App::App(const std::string_view& name)
+    App::App(const std::string_view& name, const Settings& settings, const PluginStack& plugins, Ref<EventBus> eventBus)
+        : _name(name)
+        , _settings(settings)
+        , _eventBus(eventBus)
+        , _eventListener(eventBus)
+        , _plugins(plugins)
     {
-        _name = name;
     }
 
     App::~App()
     {
-        if (_status == AppStatus::Running) 
+        // If we haven't closed yet
+        if (_status != AppStatus::Closed &&
+            _status != AppStatus::Error)
         {
-            Close();
+            Shutdown();
         }
     }
 
-    App* App::GetInstance()
+    void App::Run()
     {
-        return _instance;
+        try
+        {
+            Initialize();
+
+            _status = AppStatus::Running;
+            while (_status == AppStatus::Running)
+            {
+                Update();
+            }
+
+            Shutdown();
+        }
+        catch (const std::exception& ex)
+        {
+            _status = AppStatus::Error;
+            TBX_ASSERT(false, ex.what());
+        }
+
+        if (_status != AppStatus::Reloading &&
+            _status != AppStatus::Error)
+        {
+            _status = AppStatus::Closed;
+        }
     }
 
-    void App::OnLoad()
+    void App::Close()
     {
-        // Do nothing by default
-    }
-
-    void App::OnUnload()
-    {
-        // Do nothing by default
+        _status = AppStatus::Closing;
     }
     
-    void App::Launch()
+    void App::Initialize()
     {
-        TBX_ASSERT(_instance == nullptr, "There is an existing instance still running!");
-
-        // Where are we?
-        std::filesystem::path cwd = std::filesystem::current_path();
-        TBX_TRACE_INFO("Current working directory is: {}", cwd.string());
-
-        _instance = this;
         _status = AppStatus::Initializing;
 
-        EventCoordinator::Subscribe(this, &App::OnWindowClosed);
+        auto workingDirectory = FileSystem::GetWorkingDirectory();
+        TBX_TRACE_INFO("App: Current working directory is: {}", workingDirectory);
+        auto assetDirectory = FileSystem::GetAssetDirectory();
+        TBX_TRACE_INFO("App: Current asset directory is: {}\n", assetDirectory);
 
-        // Add default layers (order is important as they will be updated and destroyed in reverse order)
-        EmplaceLayer<EventCoordinatorLayer>();
-        EmplaceLayer<RenderingLayer>();
-        EmplaceLayer<WorldLayer>();
-        EmplaceLayer<InputLayer>();
+        // Broadcast initial settings
+        _eventBus->Send(AppSettingsChangedEvent(_settings));
 
-        // Open a main window
-        OpenNewWindow(_name, WindowMode::Windowed, Size(1920, 1080));
+        // Init core plugin driven systems (if we have the plugins for them)
+        // The order in which they are added is the order they are updated
+        {
+            auto windowFactoryPlugs = _plugins.OfType<IWindowFactory>();
+            if (!windowFactoryPlugs.empty())
+            {
+                TBX_ASSERT(windowFactoryPlugs.size() == 1, "App: Only one window factory is allowed!");
+                auto windowFactory = windowFactoryPlugs.front();
+                const auto& appName = _name;
+                AddLayer<WindowingLayer>(appName, windowFactory, _eventBus);
+            }
 
+            auto rendererFactoryPlugs = _plugins.OfType<IRendererFactory>();
+            if (!rendererFactoryPlugs.empty())
+            {
+                TBX_ASSERT(rendererFactoryPlugs.size() == 1, "App: Only one renderer factory is allowed!");
+                auto rendererFactory = rendererFactoryPlugs.front();
+                AddLayer<RenderingLayer>(rendererFactory, _eventBus);
+            }
+
+            auto inputHandlerPlugs = _plugins.OfType<IInputHandler>();
+            if (!inputHandlerPlugs.empty())
+            {
+                TBX_ASSERT(inputHandlerPlugs.size() == 1, "App: Only one input handler is allowed!");
+                auto inputHandler = inputHandlerPlugs.front();
+                AddLayer<InputLayer>(inputHandler);
+            }
+        }
+
+        // Sub to window closing so we can listen for main window closed to init app shutdown
+        _eventListener.Listen(this, &App::OnWindowOpened);
+        _eventListener.Listen(this, &App::OnWindowClosed);
+
+        // Allow other systems to hook into launch
         OnLaunch();
+        _eventBus->Send(AppLaunchedEvent(this));
 
-        _status = AppStatus::Running;
+        // Finally, initialize any runtimes
+        auto assetLoaderPlugs = _plugins.OfType<IAssetLoader>();
+        auto assetServer = MakeRef<AssetServer>(assetDirectory, assetLoaderPlugs);
+        for (const auto& layer : _layerStack)
+        {
+            if (Runtime* runtime = dynamic_cast<Runtime*>(layer.get()))
+            {
+                runtime->Initialize(assetServer, _eventBus);
+            }
+        }
     }
 
     void App::Update()
     {
-        if (_status != AppStatus::Running) return;
-
-        // Update delta time
         Time::DeltaTime::Update();
 
 #ifndef TBX_RELEASE
@@ -83,113 +136,58 @@ namespace Tbx
         if (Input::IsKeyDown(TBX_KEY_F4) &&
             (Input::IsKeyDown(TBX_KEY_LEFT_ALT) || Input::IsKeyDown(TBX_KEY_RIGHT_ALT)))
         {
-            _status = AppStatus::Exiting;
+            TBX_TRACE_INFO("App: Closing...\n");
+            _status = AppStatus::Closing;
             return;
         }
 
         // Shortcut to restart/reload app
         if (Input::IsKeyDown(TBX_KEY_F2))
         {
+            // TODO: App slowly eats up more memory every restart, we need to track down why and fix it!
+            // There is a leak somewhere...
+            TBX_TRACE_INFO("App: Reloading...\n");
             _status = AppStatus::Reloading;
             return;
         }
 #endif
 
-        // Call on update for app inheritors
+        for (const auto& layer : _layerStack)
+        {
+            layer->Update();
+        }
+
+        // Allow other systems to hook into update
         OnUpdate();
-
-        // Update windows
-        for (const auto& window : _windowStack)
-        {
-            window->Update();
-            if (_status != AppStatus::Running) return;
-        }
-
-        // Update layers
-        for (const auto& layer : _sharedLayerStack)
-        {
-            layer->OnUpdate();
-            if (_status != AppStatus::Running) return;
-        }
-        for (const auto& layer : _weakLayerStack)
-        {
-            const auto layerPtr = layer.lock();
-            if (layer.expired() || layerPtr == nullptr) continue;
-            layerPtr->OnUpdate();
-            if (_status != AppStatus::Running) return;
-        }
-
-        if (_status != AppStatus::Running) return;
-
-        // Send update event
-        AppUpdatedEvent updateEvent;
-        EventCoordinator::Send(updateEvent);
+        _eventBus->Post(AppUpdatedEvent());
+        _eventBus->Flush();
     }
 
-    void App::Close()
+    void App::Shutdown()
     {
-        TBX_TRACE_INFO("Shutting down...");
+        TBX_TRACE_INFO("App: Shutting down...");
 
+        auto hadError = _status == AppStatus::Error;
         auto isRestarting = _status == AppStatus::Reloading;
-        _status = AppStatus::Exiting;
+        _status = AppStatus::Closing;
 
+        // Allow other systems to hook into shutdown
         OnShutdown();
+        _eventBus->Post(AppClosedEvent(this));
+        _eventBus->Flush();
 
-        // Unsub to window events and shutdown events
-        EventCoordinator::Unsubscribe(this, &App::OnWindowClosed);
-
-        // Clear windows
-        _windowStack.Clear();
-
-        // Clear layers
-        _sharedLayerStack.Clear();
-        _weakLayerStack.Clear();
-
-        // Clear out our instance
-        _instance = nullptr;
-
-        // Set status to closed or reloading if we are reloading
-        _status = isRestarting
-            ? AppStatus::Reloading
-            : AppStatus::Closed;
-    }
-
-    const std::vector<std::shared_ptr<IWindow>>& App::GetWindows()
-    {
-        return _windowStack.GetAll();
-    }
-
-    std::shared_ptr<IWindow> App::GetWindow(Uid id)
-    {
-        return _windowStack.Get(id);
-    }
-
-    Uid App::OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size)
-    {
-        auto newWindowId = _windowStack.Emplace(name, size, mode);
-        const auto& openWindows = _windowStack.GetAll();
-        if (openWindows.size() == 1)
+        if (isRestarting)
         {
-            _mainWindowId = newWindowId;
+            _status = AppStatus::Reloading;
         }
-        return newWindowId;
-    }
-
-    void App::PushLayer(const std::weak_ptr<Layer>& layer)
-    {
-        _weakLayerStack.Push(layer);
-    }
-
-    void App::OnWindowClosed(const WindowClosedEvent& e)
-    {
-        // If the window is our main window, set running flag to false which will trigger the app to close
-        if (e.GetWindowId() == _mainWindowId)
+        else if (hadError)
         {
-            // Stop running and close all windows
-            _status = AppStatus::Exiting;
+            _status = AppStatus::Error;
         }
-
-        _windowStack.Remove(e.GetWindowId());
+        else
+        {
+            _status = AppStatus::Closed;
+        }
     }
 
     const AppStatus& App::GetStatus() const
@@ -202,21 +200,49 @@ namespace Tbx
         return _name;
     }
 
-    std::weak_ptr<IWindow> App::GetMainWindow() const
+    void App::SetSettings(const Settings& settings)
     {
-        auto mainWindow = _windowStack.Get(_mainWindowId);
-        return mainWindow;
+        _settings = settings;
+        _eventBus->Post(AppSettingsChangedEvent(settings));
     }
 
-    void App::SetGraphicsSettings(const GraphicsSettings& settings)
+    const Settings& App::GetSettings() const
     {
-        _graphicsSettings = settings;
-        auto graphicsSettingsChangedEvent = AppGraphicsSettingsChangedEvent(settings);
-        EventCoordinator::Send(graphicsSettingsChangedEvent);
+        return _settings;
+    }
+    
+    bool App::HasLayer(const Uid& layerId) const
+    {
+        return _layerStack.Contains(layerId);
     }
 
-    const GraphicsSettings& App::GetGraphicsSettings() const
+    Layer& App::GetLayer(const Uid& layerId)
     {
-        return _graphicsSettings;
+        return _layerStack.Get(layerId);
+    }
+
+    void App::RemoveLayer(const Uid& layer)
+    {
+        auto layerName = _layerStack.Get(layer).Name;
+        _layerStack.Remove(layer);
+    }
+
+    void App::OnWindowOpened(const WindowOpenedEvent& e)
+    {
+        if (_mainWindowId == Uid::Invalid)
+        {
+            _mainWindowId = e.GetWindow()->Id;
+        }
+    }
+
+    void App::OnWindowClosed(const WindowClosedEvent& e)
+    {
+        // If the window is our main window, set running flag to false which will trigger the app to close
+        const auto window = e.GetWindow();
+        if (window->Id == _mainWindowId)
+        {
+            // Stop running and close all windows
+            _status = AppStatus::Closing;
+        }
     }
 }

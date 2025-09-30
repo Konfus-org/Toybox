@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Tbx/Debug/IPrintable.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Math/Vectors.h"
 
@@ -7,15 +8,12 @@ namespace Tbx
     /// <summary>
     /// Represents a rotation. X, Y, Z, W are stored as radians.
     /// </summary>
-    struct EXPORT Quaternion
+    struct TBX_EXPORT Quaternion : public IPrintable
     {
-    public:
         Quaternion() = default;
-
         Quaternion(float x, float y, float z, float w)
             : X(x), Y(y), Z(z), W(w) {}
-
-        explicit(false) Quaternion(const Vector3& euler) 
+        Quaternion(const Vector3& euler) 
         { 
             const auto& q = FromEuler(euler); 
             X = q.X; Y = q.Y; Z = q.Z; W = q.W; 
@@ -27,7 +25,7 @@ namespace Tbx
         friend Vector3 operator * (const Quaternion& lhs, const Vector3& rhs) { return Multiply(lhs, rhs); }
         friend Vector3 operator * (const Vector3& lhs, const Quaternion& rhs) { return Multiply(lhs, rhs); }
 
-        std::string ToString() const;
+        std::string ToString() const override;
 
         static Quaternion Normalize(const Quaternion& quaternion);
         static Quaternion Add(const Quaternion& lhs, const Quaternion& rhs);
@@ -55,6 +53,8 @@ namespace Tbx
         static Vector3 ToEuler(const Quaternion& quaternion);
 
         static bool IsEqualOrEquivalent(const Quaternion& lhs, const Quaternion& rhs, float epsilon = 1e-5f);
+
+        static Quaternion Identity;
 
         float X = 0;
         float Y = 0;

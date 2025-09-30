@@ -6,6 +6,8 @@
 
 namespace Tbx
 {
+    TBX_EXPORT Quaternion Quaternion::Identity = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
+
     Vector3 Quaternion::GetForward(const Quaternion& rot)
     {
         const auto glmQuat = glm::quat(rot.W, rot.X, rot.Y, rot.Z);
@@ -33,13 +35,13 @@ namespace Tbx
     Quaternion Quaternion::FromAxisAngle(const Vector3& axis, float angle)
     {
         glm::vec3 glmAxis = glm::normalize(glm::vec3(axis.X, axis.Y, axis.Z)); // Normalize the axis
-        glm::quat result = glm::angleAxis(Math::DegreesToRadians(angle), glmAxis); // Convert angle to radians
+        glm::quat result = glm::angleAxis(DegreesToRadians(angle), glmAxis); // Convert angle to radians
         return { result.x, result.y, result.z, result.w };
     }
 
     Quaternion Quaternion::FromEuler(float x, float y, float z)
     {
-        const auto result = glm::quat(glm::vec3(Math::DegreesToRadians(x), Math::DegreesToRadians(y), Math::DegreesToRadians(z)));
+        const auto result = glm::quat(glm::vec3(DegreesToRadians(x), DegreesToRadians(y), DegreesToRadians(z)));
         return {result.x, result.y, -result.z, result.w};
     }
 

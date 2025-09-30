@@ -4,14 +4,14 @@
 
 namespace Tbx
 {
-    bool InputLayer::IsOverlay()
+    InputLayer::InputLayer(Ref<IInputHandler> inputHandler) : Layer("Input")
     {
-        return false;
+        _inputHandler = inputHandler;
     }
 
     void InputLayer::OnAttach()
     {
-        Input::Initialize();
+        Input::Initialize(_inputHandler);
     }
 
     void InputLayer::OnDetach()

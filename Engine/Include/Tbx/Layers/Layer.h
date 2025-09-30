@@ -1,5 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
+#include "Tbx/Ids/Uid.h"
 #include <string>
 
 namespace Tbx
@@ -8,20 +9,27 @@ namespace Tbx
     /// An application layer. Used to cleanly add and seperate functionality.
     /// Some examples are a graphics layer, windowing layer, input layer, etc...
     /// </summary>
-    class Layer
+    class TBX_EXPORT Layer
     {
     public:
-        EXPORT explicit(false) Layer(const std::string& name);
-        EXPORT virtual ~Layer() = default;
+        explicit(false) Layer(const std::string& name)
+            : Name(name) {}
+        virtual ~Layer() = default;
 
-        EXPORT virtual bool IsOverlay() = 0;
-        EXPORT virtual void OnAttach() = 0;
-        EXPORT virtual void OnDetach() = 0;
-        EXPORT virtual void OnUpdate() = 0;
+        virtual void OnAttach() {}
+        virtual void OnDetach() {}
 
-        EXPORT std::string GetName() const;
+        void Update();
+        void FixedUpdate();
+        void LateUpdate();
 
-    private:
-        std::string _name;
+    protected:
+        virtual void OnUpdate() {}
+        virtual void OnFixedUpdate() {}
+        virtual void OnLateUpdate() {}
+
+    public:
+        std::string Name = "";
+        Uid Id = Uid::Generate();
     };
 }

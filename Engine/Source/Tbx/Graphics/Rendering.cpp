@@ -1,134 +1,289 @@
 #include "Tbx/PCH.h"
-#include "Tbx/App/App.h"
-#include "Tbx/TBS/World.h"
 #include "Tbx/Graphics/Rendering.h"
-#include "Tbx/Graphics/IRenderer.h"
-#include "Tbx/Graphics/FrameBufferBuilder.h"
-#include "Tbx/Events/EventCoordinator.h"
 #include "Tbx/Events/RenderEvents.h"
-#include "Tbx/PluginAPI/PluginServer.h"
+#include "Tbx/Graphics/RenderCommands.h"
+#include "Tbx/Graphics/Viewport.h"
+#include "Tbx/Graphics/Camera.h"
+#include <algorithm>
+#include <iterator>
 
 namespace Tbx
 {
-    std::weak_ptr<IRendererFactoryPlugin> Rendering::_renderFactory = {};
-    std::map<Uid, std::shared_ptr<IRenderer>> Rendering::_renderers = {};
-    bool Rendering::_firstFrame = true;
-
-    void Rendering::Initialize()
+    Rendering::Rendering(Ref<IRendererFactory> rendererFactory, Ref<EventBus> eventBus)
+        : _rendererFactory(rendererFactory)
+        , _eventBus(eventBus)
+        , _eventListener(eventBus)
     {
-        EventCoordinator::Subscribe<WindowOpenedEvent>(&Rendering::OnWindowOpened);
-        EventCoordinator::Subscribe<WindowClosedEvent>(&Rendering::OnWindowClosed);
-        EventCoordinator::Subscribe<WindowResizedEvent>(&Rendering::OnWindowResized);
+        TBX_ASSERT(_rendererFactory, "Rendering: requires a valid renderer factory instance.");
+        TBX_ASSERT(_eventBus, "Rendering: requires a valid event bus instance.");
 
-        _renderFactory = PluginServer::Get<IRendererFactoryPlugin>();
+        _eventListener.Listen(this, &Rendering::OnWindowOpened);
+        _eventListener.Listen(this, &Rendering::OnWindowClosed);
+        _eventListener.Listen(this, &Rendering::OnWindowResized);
+        _eventListener.Listen(this, &Rendering::OnAppSettingsChanged);
+        _eventListener.Listen(this, &Rendering::OnStageOpened);
+        _eventListener.Listen(this, &Rendering::OnStageClosed);
     }
 
-    void Rendering::Shutdown()
+    Rendering::~Rendering() = default;
+
+    void Rendering::Update()
     {
-        EventCoordinator::Unsubscribe<WindowOpenedEvent>(&Rendering::OnWindowOpened);
-        EventCoordinator::Unsubscribe<WindowClosedEvent>(&Rendering::OnWindowClosed);
-        EventCoordinator::Unsubscribe<WindowResizedEvent>(&Rendering::OnWindowResized);
+        if (_renderers.empty() || _openStages.empty())
+        {
+            return;
+        }
+
+        DrawFrame();
+    }
+
+    Ref<IRenderer> Rendering::GetRenderer(const Ref<Window>& window) const
+    {
+        if (!window)
+        {
+            return nullptr;
+        }
+
+        auto it = std::find(_windows.begin(), _windows.end(), window);
+        if (it == _windows.end())
+        {
+            TBX_ASSERT(false, "Rendering: No renderer found for window");
+            return nullptr;
+        }
+
+        const auto index = static_cast<size_t>(std::distance(_windows.begin(), it));
+        return index < _renderers.size() ? _renderers[index] : nullptr;
     }
 
     void Rendering::DrawFrame()
     {
-        // Gather all boxes from the current world
-        const auto worldRoot = World::GetInstance()->GetRoot();
+        ProcessPendingUploads();
+        ProcessOpenStages();
+    }
 
-        if (_firstFrame)
+    void Rendering::QueueStageUpload(const Ref<Stage>& stage)
+    {
+        if (!stage)
         {
-            // Pre-process the opened box using the frame buffer builder
-            FrameBufferBuilder builder;
-            const auto buffer = builder.BuildUploadBuffer(worldRoot);
-
-            // Send buffer to renderers for each window
-            const auto& windows = App::GetInstance()->GetWindows();
-            for (const auto& window : windows)
-            {
-                auto winId = window->GetId();
-                if (!_renderers.contains(winId)) continue;
-
-                _renderers[winId]->Flush();
-                _renderers[winId]->Process(buffer);
-            }
-
-            // Flip first frame flag to off
-            _firstFrame = false;
+            return;
         }
 
-        // Build a frame buffer of render commands for the world
-        FrameBufferBuilder builder;
-        const auto buffer = builder.BuildRenderBuffer(worldRoot);
-
-        // Send buffer to renderers for each window
-        auto windows = App::GetInstance()->GetWindows();
-        for (const auto& window : windows)
+        const auto it = std::find(_pendingUploadStages.begin(), _pendingUploadStages.end(), stage);
+        if (it == _pendingUploadStages.end())
         {
-            auto winId = window->GetId();
-            if (!_renderers.contains(winId)) continue;
-
-            auto renderer = _renderers[winId];
-            renderer->Clear(App::GetInstance()->GetGraphicsSettings().ClearColor);
-            renderer->Process(buffer);
-        }
-
-        // Send our frame rendered event so anything can hook into our rendering and do post work...
-        RenderedFrameEvent evt;
-        EventCoordinator::Send(evt);
-
-        // Swap the buffers for each window after a frame is rendered
-        for (const auto& window : windows)
-        {
-            window->SwapBuffers();
+            _pendingUploadStages.push_back(stage);
         }
     }
 
-    std::shared_ptr<IRenderer> Rendering::GetRenderer(Uid window)
+    void Rendering::ProcessPendingUploads()
     {
-        if (!_renderers.contains(window))
+        if (_pendingUploadStages.empty())
         {
-            TBX_ASSERT(false, "No renderer found for window ID: {0}", window.Value);
-            return nullptr;
+            return;
         }
 
-        return _renderers[window];
+        RenderCommandBufferBuilder builder = {};
+        RenderCommandBuffer uploadBuffer = {};
+        for (const auto& stage : _pendingUploadStages)
+        {
+            if (!stage)
+            {
+                continue;
+            }
+
+            const auto spaceRoot = stage->GetRoot();
+            if (!spaceRoot)
+            {
+                continue;
+            }
+
+            const auto stageUploadBuffer = builder.BuildUploadBuffer(spaceRoot);
+            for (const auto& command : stageUploadBuffer.Commands)
+            {
+                uploadBuffer.Commands.push_back(command);
+            }
+        }
+
+        if (!uploadBuffer.Commands.empty())
+        {
+            for (const auto& renderer : _renderers)
+            {
+                if (!renderer)
+                {
+                    continue;
+                }
+
+                renderer->Flush();
+                renderer->Process(uploadBuffer);
+            }
+        }
+
+        _pendingUploadStages.clear();
+    }
+
+    void Rendering::ProcessOpenStages()
+    {
+        RenderCommandBufferBuilder builder = {};
+        RenderCommandBuffer renderBuffer = {};
+        renderBuffer.Commands.emplace_back(RenderCommandType::Clear, _clearColor);
+
+        for (const auto& stage : _openStages)
+        {
+            if (!stage)
+            {
+                continue;
+            }
+
+            const auto spaceRoot = stage->GetRoot();
+            if (!spaceRoot)
+            {
+                continue;
+            }
+
+            const auto stageRenderBuffer = builder.BuildRenderBuffer(spaceRoot);
+            for (const auto& command : stageRenderBuffer.Commands)
+            {
+                renderBuffer.Commands.push_back(command);
+            }
+        }
+
+        for (uint32 rendererIndex = 0; rendererIndex < _renderers.size(); ++rendererIndex)
+        {
+            const auto& renderer = _renderers[rendererIndex];
+            const auto& rendererWindow = _windows[rendererIndex];
+            if (!renderer || !rendererWindow)
+            {
+                continue;
+            }
+
+            renderer->Process(renderBuffer);
+        }
+
+        if (_eventBus)
+        {
+            _eventBus->Send(RenderedFrameEvent());
+        }
+    }
+
+    void Rendering::AddStage(const Ref<Stage>& stage)
+    {
+        if (!stage)
+        {
+            return;
+        }
+
+        const auto it = std::find(_openStages.begin(), _openStages.end(), stage);
+        if (it != _openStages.end())
+        {
+            return;
+        }
+
+        _openStages.push_back(stage);
+        QueueStageUpload(stage);
+    }
+
+    void Rendering::RemoveStage(const Ref<Stage>& stage)
+    {
+        if (!stage)
+        {
+            return;
+        }
+
+        auto it = std::find(_openStages.begin(), _openStages.end(), stage);
+        if (it != _openStages.end())
+        {
+            _openStages.erase(it);
+        }
+
+        auto pending = std::find(_pendingUploadStages.begin(), _pendingUploadStages.end(), stage);
+        if (pending != _pendingUploadStages.end())
+        {
+            _pendingUploadStages.erase(pending);
+        }
     }
 
     void Rendering::OnWindowOpened(const WindowOpenedEvent& e)
     {
-        auto newWinId = e.GetWindowId();
-        auto newWindow = App::GetInstance()->GetWindow(newWinId);
-        if (_renderFactory.expired() || !_renderFactory.lock())
+        auto newWindow = e.GetWindow();
+        if (!newWindow)
         {
-            TBX_ASSERT(false, "Render factory plugin was unloaded! Cannot create new renderer");
             return;
         }
 
-        auto newRenderer = _renderFactory.lock()->Create(newWindow);
-        _renderers[newWinId] = newRenderer;
+        auto newRenderer = _rendererFactory->Create();
+        _windows.push_back(newWindow);
+        _renderers.push_back(newRenderer);
+        for (const auto& stage : _openStages)
+        {
+            QueueStageUpload(stage);
+        }
+
+        // Init viewport size
+        RenderCommandBuffer renderBuffer = {};
+        auto newViewport = Viewport({ 0, 0 }, newWindow->GetSize());
+        renderBuffer.Commands.emplace_back(RenderCommandType::SetViewport, newViewport);
+        newRenderer->Process(renderBuffer);
     }
 
     void Rendering::OnWindowClosed(const WindowClosedEvent& e)
     {
-        auto windowId = e.GetWindowId();
-        if (_renderers.contains(windowId))
+        auto closedWindow = e.GetWindow();
+        const auto renderer = GetRenderer(closedWindow);
+        if (!renderer)
         {
-            TBX_ASSERT(_renderers[windowId] != nullptr, "Renderer should not be null");
-            _renderers.erase(windowId);
+            return;
+        }
+
+        const auto it = std::find(_windows.begin(), _windows.end(), closedWindow);
+        if (it != _windows.end())
+        {
+            _windows.erase(it);
+        }
+
+        const auto rendererIt = std::find(_renderers.begin(), _renderers.end(), renderer);
+        if (rendererIt != _renderers.end())
+        {
+            _renderers.erase(rendererIt);
         }
     }
 
     void Rendering::OnWindowResized(const WindowResizedEvent& e)
     {
-        auto windowId = e.GetWindowId();
-
-        // Update viewports
-        if (_renderers.contains(windowId))
+        const auto resizedWindow = e.GetWindow();
+        const auto renderer = GetRenderer(resizedWindow);
+        if (!renderer)
         {
-            const auto& newSize = e.GetNewSize();
-            auto renderer = _renderers[windowId];
-            TBX_ASSERT(renderer != nullptr, "Renderer should not be null");
-            renderer->SetViewport({{0, 0}, newSize});
+            return;
         }
+
+        for (const auto& stage : _openStages)
+        {
+            auto cameraView = StageView<Camera>(stage->GetRoot());
+            for (const auto& toy : cameraView)
+            {
+                auto& camera = toy->Blocks.Get<Camera>();
+                camera.SetAspect(CalculateAspectRatioFromSize(resizedWindow->GetSize()));
+			}
+        }
+
+        RenderCommandBuffer renderBuffer = {};
+        renderBuffer.Commands.emplace_back(RenderCommandType::SetViewport, Viewport({ 0, 0 }, resizedWindow->GetSize()));
+        renderer->Process(renderBuffer);
+    }
+
+    void Rendering::OnAppSettingsChanged(const AppSettingsChangedEvent& e)
+    {
+        _clearColor = e.GetNewSettings().ClearColor;
+    }
+
+    void Rendering::OnStageOpened(const StageOpenedEvent& e)
+    {
+        AddStage(e.GetStage());
+    }
+
+    void Rendering::OnStageClosed(const StageClosedEvent& e)
+    {
+        RemoveStage(e.GetStage());
     }
 }
+

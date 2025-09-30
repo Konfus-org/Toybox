@@ -1,45 +1,63 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Ids/UID.h"
 #include "Tbx/Graphics/IRenderer.h"
-#include "Tbx/Graphics/IRenderSurface.h"
+#include "Tbx/Windowing/Window.h"
+#include "Tbx/Stages/Stage.h"
+#include "Tbx/Events/AppEvents.h"
+#include "Tbx/Events/EventBus.h"
+#include "Tbx/Events/EventListener.h"
+#include "Tbx/Events/TSSEvents.h"
 #include "Tbx/Events/WindowEvents.h"
-#include "Tbx/Events/WorldEvents.h"
-#include "Tbx/PluginAPI/PluginInterfaces.h"
-#include <map>
+#include "Tbx/Memory/Refs.h"
+#include "Tbx/Graphics/Color.h"
+#include <vector>
 
 namespace Tbx
 {
-    class Rendering
+    /// <summary>
+    /// Coordinates render targets, windows, and stage composition for a frame.
+    /// </summary>
+    class TBX_EXPORT Rendering
     {
     public:
-        /// <summary>
-        /// Initializes the rendering system.
-        /// </summary>
-        EXPORT static void Initialize();
+        Rendering(Ref<IRendererFactory> rendererFactory, Ref<EventBus> eventBus);
+        ~Rendering();
 
         /// <summary>
-        /// Shuts down the rendering system.
+        /// Drives the rendering pipeline for all open stages and windows.
         /// </summary>
-        EXPORT static void Shutdown();
+        void Update();
 
         /// <summary>
-        /// Draws a frame for each window.
+        /// Retrieves the renderer associated with the provided window.
         /// </summary>
-        EXPORT static void DrawFrame();
-
-        /// <summary>
-        /// Gets the renderer used by a given window.
-        /// </summary>
-        EXPORT static std::shared_ptr<IRenderer> GetRenderer(Uid window);
+        Ref<IRenderer> GetRenderer(const Ref<Window>& window) const;
 
     private:
-        static void OnWindowOpened(const WindowOpenedEvent& e);
-        static void OnWindowClosed(const WindowClosedEvent& e);
-        static void OnWindowResized(const WindowResizedEvent& e);
+        void DrawFrame();
+        void ProcessPendingUploads();
+        void ProcessOpenStages();
 
-        static std::map<Uid, std::shared_ptr<IRenderer>> _renderers;
-        static std::weak_ptr<IRendererFactoryPlugin> _renderFactory;
-        static bool _firstFrame;
+        void QueueStageUpload(const Ref<Stage>& stage);
+        void AddStage(const Ref<Stage>& stage);
+        void RemoveStage(const Ref<Stage>& stage);
+
+        void OnWindowOpened(const WindowOpenedEvent& e);
+        void OnWindowClosed(const WindowClosedEvent& e);
+        void OnWindowResized(const WindowResizedEvent& e);
+        void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
+        void OnStageOpened(const StageOpenedEvent& e);
+        void OnStageClosed(const StageClosedEvent& e);
+
+    private:
+        std::vector<Ref<Stage>> _openStages = {};
+        std::vector<Ref<Window>> _windows = {};
+        std::vector<Ref<IRenderer>> _renderers = {};
+        std::vector<Ref<Stage>> _pendingUploadStages = {};
+        Ref<IRendererFactory> _rendererFactory = {};
+        Ref<EventBus> _eventBus = {};
+        EventListener _eventListener = {};
+        RgbaColor _clearColor = {};
     };
 }
+

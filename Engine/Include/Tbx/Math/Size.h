@@ -1,21 +1,17 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/TypeAliases/Int.h"
-#include <string>
+#include "Tbx/Math/Int.h"
 
 namespace Tbx
 {
-    struct EXPORT Size
+    struct TBX_EXPORT Size
     {
-    public:
-        Size() = default;
-        Size(uint width, uint height) : Width(width), Height(height) {}
-        Size(int width, int height) : Width(width), Height(height) {}
-
-        std::string ToString() const;
-        float GetAspectRatio() const;
-
         uint Width = 0;
         uint Height = 0;
     };
+
+    inline float CalculateAspectRatioFromSize(Size size)
+    {
+        return static_cast<float>(size.Width) / static_cast<float>(size.Height);
+    }
 }

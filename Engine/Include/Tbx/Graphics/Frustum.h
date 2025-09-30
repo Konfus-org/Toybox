@@ -8,7 +8,7 @@
 
 namespace Tbx
 {
-    class EXPORT Frustum
+    class TBX_EXPORT Frustum
     {
     public:
         Frustum() = default;

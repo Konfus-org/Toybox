@@ -4,6 +4,8 @@
 
 namespace Tbx
 {
+    TBX_EXPORT Bounds Bounds::Identity = Bounds(-1.0f, 1.0f, -1.0f, 1.0f);
+
     std::string Bounds::ToString() const { return std::format("[Left: {}, Right: {}, Top: {}, Bottom: {}]", Left, Right, Top, Bottom); }
 
     Bounds Bounds::FromOrthographicProjection(float size, float aspect)
@@ -21,7 +23,7 @@ namespace Tbx
 
     Bounds Bounds::FromPerspectiveProjection(float fov, float aspectRatio, float zNear)
     {
-        float scale = Math::Tan(fov * 0.5f * zNear);
+        float scale = Tan(fov * 0.5f * zNear);
 
         const float left = aspectRatio * -scale;
         const float right = -left;

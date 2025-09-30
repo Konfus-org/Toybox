@@ -1,7 +1,6 @@
 #include "PCH.h"
 #include "Tbx/Graphics/Camera.h"
 #include "Tbx/Math/Trig.h"
-#include "Tbx/Math/Constants.h"
 
 namespace Tbx::Tests::Graphics
 {
@@ -80,7 +79,7 @@ namespace Tbx::Tests::Graphics
         float aspect = 1.78f;
         float zNear = 0.1f;
         float zFar = 100.0f;
-        auto expected = Mat4x4::PerspectiveProjection(Math::DegreesToRadians(fov), aspect, zNear, zFar);
+        auto expected = Mat4x4::PerspectiveProjection(DegreesToRadians(fov), aspect, zNear, zFar);
 
         // Act
         camera.SetPerspective(fov, aspect, zNear, zFar);
@@ -112,21 +111,21 @@ namespace Tbx::Tests::Graphics
     {
         // Arrange
         Vector3 camPosition(0, 0, 0);
-        Quaternion camRotation = Constants::Quaternion::Identity;
-        Mat4x4 expected = Constants::Mat4x4::Identity;
+        Quaternion camRotation = Quaternion::Identity;
+        Mat4x4 expected = Mat4x4::Identity;
 
         // Act
         Mat4x4 result = Camera::CalculateViewMatrix(camPosition, camRotation);
 
         // Assert
-        ASSERT_EQ(result, Constants::Mat4x4::Identity);
+        ASSERT_EQ(result, Mat4x4::Identity);
     }
 
     TEST(CameraTests, CalculateViewMatrix_TranslationOnly)
     {
         // Arrange
         Vector3 position(1.0f, 2.0f, 3.0f);
-        Quaternion rotation = Constants::Quaternion::Identity;
+        Quaternion rotation = Quaternion::Identity;
 
         // Act
         Mat4x4 result = Camera::CalculateViewMatrix(position, rotation);
@@ -146,13 +145,13 @@ namespace Tbx::Tests::Graphics
     {
         // Arrange
         Vector3 camPosition(0, 0, 0);
-        Quaternion camRotation = Constants::Quaternion::Identity;
-        Mat4x4 projection = Constants::Mat4x4::Identity;
+        Quaternion camRotation = Quaternion::Identity;
+        Mat4x4 projection = Mat4x4::Identity;
 
         // Act
         Mat4x4 result = Camera::CalculateViewProjectionMatrix(camPosition, camRotation, projection);
 
         // Assert
-        ASSERT_EQ(result.ToString(), Constants::Mat4x4::Identity.ToString());
+        ASSERT_EQ(result.ToString(), Mat4x4::Identity.ToString());
     }
 }

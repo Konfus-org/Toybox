@@ -1,29 +1,18 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Layers/RenderingLayer.h"
-#include "Tbx/Graphics/Rendering.h"
-#include "Tbx/App/App.h"
-#include "Tbx/Events/EventCoordinator.h"
-#include "Tbx/Events/RenderEvents.h"
+#include <memory>
 
 namespace Tbx
 {
-    bool RenderingLayer::IsOverlay()
+    RenderingLayer::RenderingLayer(Ref<IRendererFactory> renderFactory, Ref<EventBus> eventBus)
+        : Layer("Rendering")
     {
-        return false;
-    }
-
-    void RenderingLayer::OnAttach()
-    {
-        Rendering::Initialize();
-    }
-
-    void RenderingLayer::OnDetach()
-    {
-        Rendering::Shutdown();
+        _rendering = MakeExclusive<Rendering>(renderFactory, eventBus);
     }
 
     void RenderingLayer::OnUpdate()
     {
-        Rendering::DrawFrame();
+        _rendering->Update();
     }
 }
+

@@ -1,155 +1,164 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Input/Input.h"
-#include "Tbx/App/App.h"
-#include "Tbx/PluginAPI/PluginServer.h"
-#include "Tbx/Events/InputEvents.h"
-#include "Tbx/Events/EventCoordinator.h"
 #include "Tbx/Debug/Debugging.h"
 
 namespace Tbx
 {
-    std::weak_ptr<IInputHandlerPlugin> Input::_inputHandler = {};
+    Ref<IInputHandler> Input::_inputHandler = {};
 
-    void Input::Initialize()
+    void Input::Initialize(const Ref<IInputHandler>& inputHandler)
     {
-        _inputHandler = PluginServer::Get<IInputHandlerPlugin>();
-        TBX_VALIDATE_WEAK_PTR(_inputHandler, "Input handler plugin not found!");
+        TBX_ASSERT(inputHandler, "Input: handler was null!");
+        _inputHandler = inputHandler;
     }
 
     void Input::Shutdown()
     {
+        if (!_inputHandler)
+        {
+            TBX_ASSERT(false, "Input: was never initialized!");
+            return;
+        }
+
         _inputHandler.reset();
+    }
+
+    bool Input::EnsureHandler()
+    {
+		if (!_inputHandler)
+        {
+            TBX_TRACE_WARNING("Input: has not been initialized yet! Did you call Input::Initialize?");
+        }
+        return static_cast<bool>(_inputHandler);
     }
 
     void Input::Update()
     {
-        if (_inputHandler.expired() || !_inputHandler.lock())
+        if (!EnsureHandler())
         {
-            TBX_TRACE_WARNING("Input handler plugin not found cannot update input states!");
             return;
         }
 
-        _inputHandler.lock()->Update();
+        _inputHandler->Update();
     }
 
     bool Input::IsGamepadButtonDown(const int playerIndex, const int button)
     {
-        if (_inputHandler.expired() || !_inputHandler.lock())
+        if (!EnsureHandler())
         {
-            TBX_TRACE_WARNING("Input handler plugin not found cannot check gamepad button state!");
             return false;
         }
 
-        return _inputHandler.lock()->IsGamepadButtonDown(playerIndex, button);
+        return _inputHandler->IsGamepadButtonDown(playerIndex, button);
     }
 
     bool Input::IsGamepadButtonUp(const int playerIndex, const int button)
     {
-        if (_inputHandler.expired() || !_inputHandler.lock())
+        if (!EnsureHandler())
         {
-            TBX_TRACE_WARNING("Input handler plugin not found cannot check gamepad button state!");
             return false;
         }
-        return _inputHandler.lock()->IsGamepadButtonUp(playerIndex, button);
+
+        return _inputHandler->IsGamepadButtonUp(playerIndex, button);
     }
 
     bool Input::IsGamepadButtonHeld(const int playerIndex, const int button)
     {
-        if (_inputHandler.expired() || !_inputHandler.lock())
+        if (!EnsureHandler())
         {
-            TBX_TRACE_WARNING("Input handler plugin not found cannot check gamepad button state!");
             return false;
         }
-        return _inputHandler.lock()->IsGamepadButtonHeld(playerIndex, button);
+
+        return _inputHandler->IsGamepadButtonHeld(playerIndex, button);
     }
 
     float Input::GetGamepadAxis(const int playerIndex, const int axis)
     {
-        if (_inputHandler.expired() || !_inputHandler.lock())
+        if (!EnsureHandler())
         {
-            TBX_TRACE_WARNING("Input handler plugin not found cannot check gamepad button state!");
-            return false;
+            return 0.0f;
         }
-        return _inputHandler.lock()->GetGamepadAxis(playerIndex, axis);
+
+        return _inputHandler->GetGamepadAxis(playerIndex, axis);
     }
 
     bool Input::IsKeyDown(const int inputCode)
     {
-        if (_inputHandler.expired() || !_inputHandler.lock())
+        if (!EnsureHandler())
         {
-            TBX_TRACE_WARNING("Input handler plugin not found cannot check key state!");
             return false;
         }
-        return _inputHandler.lock()->IsKeyDown(inputCode);
+
+        return _inputHandler->IsKeyDown(inputCode);
     }
 
     bool Input::IsKeyUp(const int inputCode)
     {
-        if (_inputHandler.expired() || !_inputHandler.lock())
+        if (!EnsureHandler())
         {
-            TBX_TRACE_WARNING("Input handler plugin not found cannot check key state!");
             return false;
         }
-        return _inputHandler.lock()->IsKeyUp(inputCode);
+
+        return _inputHandler->IsKeyUp(inputCode);
     }
 
     bool Input::IsKeyHeld(const int inputCode)
     {
-        if (_inputHandler.expired() || !_inputHandler.lock())
+        if (!EnsureHandler())
         {
-            TBX_TRACE_WARNING("Input handler plugin not found cannot check key state!");
             return false;
         }
-        return _inputHandler.lock()->IsKeyHeld(inputCode);
+
+        return _inputHandler->IsKeyHeld(inputCode);
     }
 
     bool Input::IsMouseButtonDown(const int button)
     {
-        if (_inputHandler.expired() || !_inputHandler.lock())
+        if (!EnsureHandler())
         {
-            TBX_TRACE_WARNING("Input handler plugin not found cannot check mouse button state!");
             return false;
         }
-        return _inputHandler.lock()->IsMouseButtonDown(button);
+
+        return _inputHandler->IsMouseButtonDown(button);
     }
 
     bool Input::IsMouseButtonUp(const int button)
     {
-        if (_inputHandler.expired() || !_inputHandler.lock())
+        if (!EnsureHandler())
         {
-            TBX_TRACE_WARNING("Input handler plugin not found cannot check mouse button state!");
             return false;
         }
-        return _inputHandler.lock()->IsMouseButtonUp(button);
+
+        return _inputHandler->IsMouseButtonUp(button);
     }
 
     bool Input::IsMouseButtonHeld(const int button)
     {
-        if (_inputHandler.expired() || !_inputHandler.lock())
+        if (!EnsureHandler())
         {
-            TBX_TRACE_WARNING("Input handler plugin not found cannot check mouse button state!");
             return false;
         }
-        return _inputHandler.lock()->IsMouseButtonHeld(button);
+
+        return _inputHandler->IsMouseButtonHeld(button);
     }
 
     Vector2 Input::GetMousePosition()
     {
-        if (_inputHandler.expired() || !_inputHandler.lock())
+        if (!EnsureHandler())
         {
-            TBX_TRACE_WARNING("Input handler plugin not found cannot get mouse position!");
-            return false;
+            return {};
         }
-        return _inputHandler.lock()->GetMousePosition();
+
+        return _inputHandler->GetMousePosition();
     }
 
     Vector2 Input::GetMouseDelta()
     {
-        if (_inputHandler.expired() || !_inputHandler.lock())
+        if (!EnsureHandler())
         {
-            TBX_TRACE_WARNING("Input handler plugin not found cannot get mouse delta!");
-            return false;
+            return {};
         }
-        return _inputHandler.lock()->GetMouseDelta();
+
+        return _inputHandler->GetMouseDelta();
     }
 }

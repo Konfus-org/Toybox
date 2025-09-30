@@ -1,17 +1,18 @@
 #pragma once
 #include "Tbx/DllExport.h"
 
-namespace Tbx::Math
+namespace Tbx
 {
-    EXPORT float DegreesToRadians(float degrees);
-    EXPORT float RadiansToDegrees(float radians);
+    // TODO: Pull static 'Add, Multiply, Divide, etc..' functions from various math classes and implement them here!
+    inline const float PI = 3.14159265358979323846264338327950288f;
 
-    EXPORT float Cos(float x);
-    EXPORT float Sin(float x);
-    EXPORT float Tan(float x);
-    EXPORT float ACos(float x);
-    EXPORT float ASin(float x);
-    EXPORT float ATan(float x);
+    TBX_EXPORT float DegreesToRadians(float degrees);
+    TBX_EXPORT float RadiansToDegrees(float radians);
 
-    EXPORT float Dot(float a, float b);
+    TBX_EXPORT float Cos(float x);
+    TBX_EXPORT float Sin(float x);
+    TBX_EXPORT float Tan(float x);
+    TBX_EXPORT float ACos(float x);
+    TBX_EXPORT float ASin(float x);
+    TBX_EXPORT float ATan(float x);
 }

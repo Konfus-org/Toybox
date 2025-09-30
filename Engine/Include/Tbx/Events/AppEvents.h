@@ -1,60 +1,73 @@
 #pragma once
-#include "Tbx/Graphics/GraphicsSettings.h"
+#include "Tbx/App/Settings.h"
 #include "Tbx/Events/Event.h"
 
 namespace Tbx
 {
-    class EXPORT AppEvent : public Event
-    {
-    public:
-        int GetCategorization() const override
-        {
-            return static_cast<int>(EventCategory::Application);
-        }
-    };
+    class App;
 
-    class EXPORT AppInitializedEvent : public AppEvent
+    class TBX_EXPORT AppLaunchedEvent : public Event
     {
     public:
+        AppLaunchedEvent(App* app)
+        {
+			_app = app;
+        }
+
         std::string ToString() const override
         {
             return "App Initialized Event";
         }
-    };
 
-    class EXPORT AppGraphicsSettingsChangedEvent : public AppEvent
-    {
-    public:
-        explicit AppGraphicsSettingsChangedEvent(const GraphicsSettings& settings)
-            : _settings(settings) {}
-
-        const GraphicsSettings& GetNewSettings() const { return _settings; }
-
-        std::string ToString() const override
-        {
-            return "Set App Graphics Settings Event";
-        }
+        App& GetApp() const { return *_app; }
 
     private:
-        GraphicsSettings _settings;
+        App* _app = nullptr;
     };
 
-    class EXPORT AppShutdownEvent : public AppEvent
+    class TBX_EXPORT AppClosedEvent : public Event
     {
     public:
+        AppClosedEvent(App* app)
+        {
+            _app = app;
+        }
+
         std::string ToString() const override
         {
-            return "App Started Event";
+            return "App Closed Event";
         }
+
+        App& GetApp() const { return *_app; }
+
+    private:
+        App* _app = nullptr;
     };
 
-    class EXPORT AppUpdatedEvent : public AppEvent
+    class TBX_EXPORT AppUpdatedEvent : public Event
     {
     public:
         std::string ToString() const override
         {
             return "App Update Event";
         }
+    };
+
+    class TBX_EXPORT AppSettingsChangedEvent : public Event
+    {
+    public:
+        explicit AppSettingsChangedEvent(const Settings& settings)
+            : _settings(settings) {}
+
+        const Settings& GetNewSettings() const { return _settings; }
+
+        std::string ToString() const override
+        {
+            return "App Settings Changed Event";
+        }
+
+    private:
+        Settings _settings = {};
     };
 }
 

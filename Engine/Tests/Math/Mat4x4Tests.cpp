@@ -2,14 +2,13 @@
 #include <cmath>
 #include "Tbx/Math/Mat4x4.h"
 #include "Tbx/Math/Trig.h"
-#include "Tbx/Math/Constants.h"
 
 namespace Tbx::Tests::Math
 {
     TEST(Mat4x4Tests, ToString_ProducesReadableOutput)
     {
         // Arrange
-        Mat4x4 m = Constants::Mat4x4::Identity;
+        Mat4x4 m = Mat4x4::Identity;
 
         // Act
         std::string str = m.ToString();
@@ -20,7 +19,7 @@ namespace Tbx::Tests::Math
     }
     TEST(Mat4x4Tests, OnConstruct_EqualToIdentity)
     {
-        EXPECT_EQ(Mat4x4().ToString(), Constants::Mat4x4::Identity.ToString());
+        EXPECT_EQ(Mat4x4().ToString(), Mat4x4::Identity.ToString());
     }
 
     TEST(Mat4x4Tests, Add_ProducesExpectedResult)
@@ -95,7 +94,7 @@ namespace Tbx::Tests::Math
            13,14,15,16 
         };
 
-        Mat4x4 b = Constants::Mat4x4::Identity;
+        Mat4x4 b = Mat4x4::Identity;
 
         // Act
         Mat4x4 expected = a;
@@ -109,7 +108,7 @@ namespace Tbx::Tests::Math
     TEST(Mat4x4Tests, MultiplyScalarLeft_ScalesAllElements)
     {
         // Arrange
-        Mat4x4 m = Constants::Mat4x4::Identity;
+        Mat4x4 m = Mat4x4::Identity;
 
         // Act
         Mat4x4 result = 2.0f * m;
@@ -124,7 +123,7 @@ namespace Tbx::Tests::Math
     TEST(Mat4x4Tests, MultiplyScalarRight_ScalesAllElements)
     {
         // Arrange
-        Mat4x4 m = Constants::Mat4x4::Identity;
+        Mat4x4 m = Mat4x4::Identity;
 
         // Act
         Mat4x4 result = m * 3.0f;
@@ -139,7 +138,7 @@ namespace Tbx::Tests::Math
     TEST(Mat4x4Tests, Zero_ReturnsAllZeroMatrix)
     {
         // Arrange & Act
-        Mat4x4 zero = Constants::Mat4x4::Zero;
+        Mat4x4 zero = Mat4x4::Zero;
 
         // Assert
         for (int row = 0; row < 4; ++row)
@@ -150,7 +149,7 @@ namespace Tbx::Tests::Math
     TEST(Mat4x4Tests, Identity_ReturnsIdentityMatrix)
     {
         // Arrange & Act
-        Mat4x4 identity = Constants::Mat4x4::Identity;
+        Mat4x4 identity = Mat4x4::Identity;
 
         // Assert
         for (int row = 0; row < 4; ++row)
@@ -299,7 +298,7 @@ namespace Tbx::Tests::Math
     TEST(Mat4x4Tests, PerspectiveProjection_ProducesExpectedMatrix)
     {
         // Arrange
-        float fov = Tbx::Math::DegreesToRadians(60.0f);
+        float fov = DegreesToRadians(60.0f);
         float aspect = 16.0f / 9.0f;
         float zNear = 0.1f;
         float zFar = 100.0f;

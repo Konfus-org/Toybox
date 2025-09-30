@@ -12,9 +12,6 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/Build/lib")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/Build/lib")
 set(CMAKE_PDB_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/Build/pdb")
 
-# Options
-option(TBX_VERB_LOGGING "Enable verbose logging" OFF)
-
 # Enable testing
 enable_testing()
 
@@ -42,29 +39,6 @@ foreach(_var
   set(${_var_name} "${${_var}}" CACHE STRING "" FORCE)
 endforeach()
 
-# Tbx Configs
-add_library(tbx_config INTERFACE)
-target_compile_definitions(tbx_config INTERFACE
-  # Platform
-  $<$<PLATFORM_ID:Windows>:_CRT_SECURE_NO_WARNINGS>
-  $<$<PLATFORM_ID:Windows>:TBX_PLATFORM_WINDOWS=1;WIN32_LEAN_AND_MEAN;NOMINMAX>
-  $<$<PLATFORM_ID:Darwin>:TBX_PLATFORM_MACOS=1>
-  $<$<PLATFORM_ID:Linux>:TBX_PLATFORM_LINUX=1>
-
-  # Build
-  $<$<CONFIG:Debug>:TBX_DEBUG=1>
-  $<$<CONFIG:Debug>:TBX_ASSERTS_ENABLED=1>
-  $<$<CONFIG:Release>:TBX_RELEASE=1>
-  $<$<CONFIG:ReleaseAssert>:TBX_RELEASE=1>
-  $<$<CONFIG:ReleaseAssert>:TBX_ASSERTS_ENABLED=1>
-
-  # Options
-  $<$<BOOL:${TBX_VERB_LOGGING}>:TBX_VERBOSE_LOGGING=1>
-
-  # Static
-  COMPILING_TOYBOX=1
-)
-
 # Dependencies
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
 set(SDL_TESTS OFF CACHE BOOL "" FORCE)
@@ -90,13 +64,13 @@ set_property(TARGET glad PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_subdirectory(Engine)
 add_subdirectory(Engine/Tests)
 add_subdirectory(Launcher)
-target_link_libraries(Engine PUBLIC tbx_config)
-target_link_libraries(Tests PRIVATE tbx_config)
-target_link_libraries(Launcher PUBLIC tbx_config)
+target_link_libraries(Engine)
+target_link_libraries(Tests)
+target_link_libraries(Launcher)
 
 # Examples
-add_subdirectory(Examples/SimpleGame/Game)
-add_subdirectory(Examples/SimpleGame/Launcher)
+add_subdirectory(Examples/3dDemo/Runtime)
+add_subdirectory(Examples/3dDemo/Launcher)
 
 # Plugins:
 add_subdirectory(Plugins/Toybox-ImGui-DebugUI-Plugin)
@@ -119,8 +93,8 @@ if(MSVC)
     set_property(TARGET SDL3Windowing PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET SpdLogging PROPERTY FOLDER "Toybox/Plugins")
     
-    set_property(TARGET SimpleGame PROPERTY FOLDER "Toybox/Examples")
-    set_property(TARGET SGLauncher PROPERTY FOLDER "Toybox/Examples")
+    set_property(TARGET 3dDemoRuntime PROPERTY FOLDER "Toybox/Examples")
+    set_property(TARGET 3dDemoLauncher PROPERTY FOLDER "Toybox/Examples")
 
     set_property(TARGET glad PROPERTY FOLDER "Dependencies")
     set_property(TARGET glm PROPERTY FOLDER "Dependencies")

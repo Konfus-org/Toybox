@@ -1,49 +1,44 @@
 #pragma once
-#include "Tbx/Windowing/IWindow.h"
-#include "Tbx/Events/WindowEvents.h"
-#include "Tbx/PluginAPI/PluginInterfaces.h"
-#include <map>
+#include "Tbx/Windowing/Window.h"
+#include "Tbx/Memory/Refs.h"
 #include <vector>
 
 namespace Tbx
 {
-    class WindowStack
+    class TBX_EXPORT WindowStack
     {
     public:
-        EXPORT WindowStack();
-        EXPORT ~WindowStack();
+        ~WindowStack();
+
+        /// <summary>
+        /// Operator to allow indexing into the window stack.
+        /// </summary>
+        Ref<Window> operator[](int index) const { return _windows[index]; }
 
         /// <summary>
         /// Adds an existing window to the stack
         /// </summary>
         /// <param name="window"></param>
-        EXPORT void Push(std::shared_ptr<IWindow> window);
+        void Push(Ref<Window> window);
 
-        /// <summary>
-        /// Adds a new window to the sack and and opens it.
-        /// </summary>
-        /// <returns>The id of the newly created and opened window</returns>
-        EXPORT Uid Emplace(const std::string& name, const Size& size, const WindowMode& mode);
+        bool Contains(const Uid& id) const;
+        Ref<Window> Get(const Uid& id) const;
+        const std::vector<Ref<Window>>& GetAll() const;
 
-        EXPORT bool Contains(const Uid& id) const;
-        EXPORT std::shared_ptr<IWindow> Get(const Uid& id) const;
-        EXPORT const std::vector<std::shared_ptr<IWindow>>& GetAll();
+        void Remove(const Uid& id);
+        void Clear();
 
-        EXPORT void Remove(const Uid& id);
-        EXPORT void Clear();
+        std::vector<Ref<Window>>::iterator begin() { return _windows.begin(); }
+        std::vector<Ref<Window>>::iterator end() { return _windows.end(); }
+        std::vector<Ref<Window>>::reverse_iterator rbegin() { return _windows.rbegin(); }
+        std::vector<Ref<Window>>::reverse_iterator rend() { return _windows.rend(); }
 
-        EXPORT std::vector<std::shared_ptr<IWindow>>::iterator begin() { return _windows.begin(); }
-        EXPORT std::vector<std::shared_ptr<IWindow>>::iterator end() { return _windows.end(); }
-        EXPORT std::vector<std::shared_ptr<IWindow>>::reverse_iterator rbegin() { return _windows.rbegin(); }
-        EXPORT std::vector<std::shared_ptr<IWindow>>::reverse_iterator rend() { return _windows.rend(); }
-
-        EXPORT std::vector<std::shared_ptr<IWindow>>::const_iterator begin() const { return _windows.begin(); }
-        EXPORT std::vector<std::shared_ptr<IWindow>>::const_iterator end() const { return _windows.end(); }
-        EXPORT std::vector<std::shared_ptr<IWindow>>::const_reverse_iterator rbegin() const { return _windows.rbegin(); }
-        EXPORT std::vector<std::shared_ptr<IWindow>>::const_reverse_iterator rend() const { return _windows.rend(); }
+        std::vector<Ref<Window>>::const_iterator begin() const { return _windows.begin(); }
+        std::vector<Ref<Window>>::const_iterator end() const { return _windows.end(); }
+        std::vector<Ref<Window>>::const_reverse_iterator rbegin() const { return _windows.rbegin(); }
+        std::vector<Ref<Window>>::const_reverse_iterator rend() const { return _windows.rend(); }
 
     private:
-        std::weak_ptr<IWindowFactoryPlugin> _windowFactory = {};
-        std::vector<std::shared_ptr<IWindow>> _windows = {};
+        std::vector<Ref<Window>> _windows = {};
     };
 }

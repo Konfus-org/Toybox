@@ -2,7 +2,6 @@
 #include <cmath>
 #include "Tbx/Math/Quaternion.h"
 #include "Tbx/Math/Trig.h"
-#include "Tbx/Math/Constants.h"
 
 namespace Tbx::Tests::Math
 {
@@ -40,7 +39,7 @@ namespace Tbx::Tests::Math
 
         // Assert
         // Expected quaternion for 90° around X axis is (x=sin(θ/2), y=0, z=0, w=cos(θ/2))
-        float radians = Tbx::Math::DegreesToRadians(90.0f);
+        float radians = DegreesToRadians(90.0f);
         float halfAngle = radians * 0.5f;
         float expectedX = std::sin(halfAngle);
         float expectedW = std::cos(halfAngle);
@@ -61,7 +60,7 @@ namespace Tbx::Tests::Math
 
         // Assert
         // Expected: x = 0, y = sin(θ/2), z = 0, w = cos(θ/2)
-        float radians = Tbx::Math::DegreesToRadians(90.0f);
+        float radians = DegreesToRadians(90.0f);
         float halfAngle = radians * 0.5f;
         float expectedY = std::sin(halfAngle);
         float expectedW = std::cos(halfAngle);
@@ -82,7 +81,7 @@ namespace Tbx::Tests::Math
 
         // Assert
         // Expected: x = 0, y = 0, z = sin(θ/2), w = cos(θ/2)
-        float radians = Tbx::Math::DegreesToRadians(90.0f);
+        float radians = DegreesToRadians(90.0f);
         float halfAngle = radians * 0.5f;
         float expectedZ = std::sin(halfAngle);
         float expectedW = std::cos(halfAngle);
@@ -302,7 +301,7 @@ namespace Tbx::Tests::Math
     TEST(QuaternionTests, IdentityStaticMethod_ReturnsIdentityQuaternion)
     {
         // Arrange & Act
-        Quaternion identity = Constants::Quaternion::Identity;
+        Quaternion identity = Quaternion::Identity;
 
         // Assert
         EXPECT_NEAR(identity.X, 0.0f, 1e-6f);

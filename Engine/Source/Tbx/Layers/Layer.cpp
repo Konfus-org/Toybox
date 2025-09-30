@@ -1,15 +1,20 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Layers/Layer.h"
 
-namespace Tbx 
+namespace Tbx
 {
-	Layer::Layer(const std::string& name)
-	{
-		_name = name;
-	}
+    void Layer::Update()
+    {
+        OnUpdate();
+    }
 
-	std::string Layer::GetName() const
-	{
-		return _name;
-	}
+    void Layer::FixedUpdate()
+    {
+        OnFixedUpdate();
+    }
+
+    void Layer::LateUpdate()
+    {
+        OnLateUpdate();
+    }
 }

@@ -2,7 +2,7 @@
 #include "Tbx/Math/Trig.h"
 #include <glm/glm.hpp>
 
-namespace Tbx::Math
+namespace Tbx
 {
     float DegreesToRadians(float degrees)
     {

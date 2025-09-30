@@ -1,35 +1,50 @@
 #pragma once
+#include "Tbx/Debug/IPrintable.h"
 #include "Tbx/Debug/LogLevel.h"
 #include "Tbx/Debug/ILogger.h"
 #include "Tbx/DllExport.h"
+#include "Tbx/Memory/Refs.h"
 #include <format>
-#include <memory>
+#include <queue>
+#include <tuple>
+#include <type_traits>
+#include <utility>
 
 namespace Tbx
 {
-    class Log
+    class TBX_EXPORT Log
     {
     public:
         /// <summary>
         /// Opens the log.
         /// </summary>
-        EXPORT static void Open(const std::string& name);
-
-        /// <summary>
-        /// Is the logger open and ready to log?
-        /// </summary>
-        EXPORT static bool IsOpen();
+        static void Initialize(Ref<ILogger> logger = nullptr);
 
         /// <summary>
         /// Closes the log.
         /// </summary>
-        EXPORT static void Close();
+        static void Shutdown();
+
+        /// <summary>
+        /// Is the logger open and ready to log?
+        /// </summary>
+        static bool IsOpen();
+
+        /// <summary>
+        /// Write a message to the log.
+        /// </summary>
+        static void Write(LogLevel lvl, const std::string& msg);
+
+        /// <summary>
+        /// Write all queued messages to the log.
+        /// </summary>
+        static void Flush();
 
         /// <summary>
         /// Returns the path to the log file if we are logging to a file.
         /// If not returns an empty string.
         /// </summary>
-        EXPORT static std::string GetFolderPath();
+        static std::string GetFilePath();
 
         /// <summary>
         /// Writes a trace level msg to the log.
@@ -37,9 +52,9 @@ namespace Tbx
         /// This is a good method to use to trace calls, ex: "MyCoolMethod called".
         /// </summary>
         template<typename... Args>
-        EXPORT static void Trace(const std::string& fmt_str, Args&&... args)
+        static void Trace(const std::string& fmt_str, Args&&... args)
         {
-            auto msg = std::vformat(fmt_str, std::make_format_args(args...));
+            auto msg = Format(fmt_str, std::forward<Args>(args)...);
             Write(LogLevel::Trace, msg);
         }
 
@@ -49,9 +64,9 @@ namespace Tbx
         /// This is a good method to use to log info to the log that we want to track during runtime. Ex: window resize, layers attached, shutdown triggered, etc...
         /// </summary>
         template<typename... Args>
-        EXPORT static void Info(const std::string& fmt_str, Args&&... args)
+        static void Info(const std::string& fmt_str, Args&&... args)
         {
-            auto msg = std::vformat(fmt_str, std::make_format_args(args...));
+            auto msg = Format(fmt_str, std::forward<Args>(args)...);
             Write(LogLevel::Info, msg);
         }
 
@@ -61,9 +76,9 @@ namespace Tbx
         /// This is a good method to use to log info that is intended to be used to track down a bug with the intention to be removed once the bug is solved.
         /// </summary>
         template<typename... Args>
-        EXPORT static void Debug(const std::string& fmt_str, Args&&... args)
+        static void Debug(const std::string& fmt_str, Args&&... args)
         {
-            auto msg = std::vformat(fmt_str, std::make_format_args(args...));
+            auto msg = Format(fmt_str, std::forward<Args>(args)...);
             Write(LogLevel::Debug, msg);
         }
 
@@ -74,9 +89,9 @@ namespace Tbx
         /// I.e. errors we can recover from.
         /// </summary>
         template<typename... Args>
-        EXPORT static void Warn(const std::string& fmt_str, Args&&... args)
+        static void Warn(const std::string& fmt_str, Args&&... args)
         {
-            auto msg = std::vformat(fmt_str, std::make_format_args(args...));
+            auto msg = Format(fmt_str, std::forward<Args>(args)...);
             Write(LogLevel::Warn, msg);
         }
 
@@ -86,9 +101,9 @@ namespace Tbx
         /// This is a good method to use to log errors that will likely cause issues during runtime.
         /// </summary>
         template<typename... Args>
-        EXPORT static void Error(const std::string& fmt_str, Args&&... args)
+        static void Error(const std::string& fmt_str, Args&&... args)
         {
-            auto msg = std::vformat(fmt_str, std::make_format_args(args...));
+            auto msg = Format(fmt_str, std::forward<Args>(args)...);
             Write(LogLevel::Error, msg);
         }
 
@@ -98,16 +113,40 @@ namespace Tbx
         /// This is a good method to use if the app is in a state where it cannot continue i.e. unrecoverable errors.
         /// </summary>
         template<typename... Args>
-        EXPORT static void Critical(const std::string& fmt_str, Args&&... args)
+        static void Critical(const std::string& fmt_str, Args&&... args)
         {
-            auto msg = std::vformat(fmt_str, std::make_format_args(args...));
+            auto msg = Format(fmt_str, std::forward<Args>(args)...);
             Write(LogLevel::Critical, msg);
         }
 
     private:
-        EXPORT static void Write(LogLevel lvl, const std::string& msg);
+        template <typename T>
+        static auto NormalizeFormatArg(T&& value)
+        {
+            if constexpr (std::is_base_of_v<IPrintable, std::decay_t<T>>)
+            {
+                return std::string(value.ToString());
+            }
+            else
+            {
+                return std::forward<T>(value);
+            }
+        }
 
-        static std::shared_ptr<ILogger> _logger;
+        template <typename... Args>
+        static std::string Format(const std::string& fmt_str, Args&&... args)
+        {
+            auto normalizedArgs = std::make_tuple(NormalizeFormatArg(std::forward<Args>(args))...);
+            return std::apply(
+                [&](auto&... values)
+                {
+                    return std::vformat(fmt_str, std::make_format_args(values...));
+                },
+                normalizedArgs);
+        }
+
+        static std::queue<std::pair<LogLevel, std::string>> _logQueue;
+        static Ref<ILogger> _logger;
         static std::string _logFilePath;
         static bool _isOpen;
     };

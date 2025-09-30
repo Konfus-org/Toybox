@@ -1,6 +1,5 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Math/Constants.h"
 #include "Tbx/Math/Mat4x4.h"
 #include "Tbx/Math/Vectors.h"
 #include "Tbx/Math/Quaternion.h"
@@ -8,30 +7,33 @@
 
 namespace Tbx
 {
-    class Camera
+    /// <summary>
+    /// Maintains projection parameters and helper math routines for 3D camera transforms.
+    /// </summary>
+    class TBX_EXPORT Camera
     {
     public:
-        EXPORT Camera();
+        Camera();
 
-        EXPORT void SetOrthagraphic(float size, float aspect, float zNear, float zFar);
-        EXPORT void SetPerspective(float fov, float aspect, float zNear, float zFar);
-        EXPORT void SetAspect(float aspect);
+        void SetOrthagraphic(float size, float aspect, float zNear, float zFar);
+        void SetPerspective(float fov, float aspect, float zNear, float zFar);
+        void SetAspect(float aspect);
 
-        EXPORT bool IsPerspective() const { return _isPerspective; }
-        EXPORT bool IsOrthagraphic() const { return !_isPerspective; }
+        bool IsPerspective() const { return _isPerspective; }
+        bool IsOrthagraphic() const { return !_isPerspective; }
 
-        EXPORT float GetAspect() const { return _aspect; }
-        EXPORT float GetFov() const { return _fov; }
-        EXPORT float GetZNear() const { return _zNear; }
-        EXPORT float GetZFar() const { return _zFar; }
-        EXPORT const Mat4x4& GetProjectionMatrix() const { return _projectionMatrix; }
+        float GetAspect() const { return _aspect; }
+        float GetFov() const { return _fov; }
+        float GetZNear() const { return _zNear; }
+        float GetZFar() const { return _zFar; }
+        const Mat4x4& GetProjectionMatrix() const { return _projectionMatrix; }
 
-        EXPORT static Frustum CalculateFrustum(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& projectionMatrix);
-        EXPORT static Mat4x4 CalculateViewMatrix(const Vector3& camPosition, const Quaternion& camRotation);
-        EXPORT static Mat4x4 CalculateViewProjectionMatrix(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& projectionMatrix);
+        static Frustum CalculateFrustum(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& projectionMatrix);
+        static Mat4x4 CalculateViewMatrix(const Vector3& camPosition, const Quaternion& camRotation);
+        static Mat4x4 CalculateViewProjectionMatrix(const Vector3& camPosition, const Quaternion& camRotation, const Mat4x4& projectionMatrix);
 
     private:
-        Mat4x4 _projectionMatrix = Constants::Mat4x4::Identity;
+        Mat4x4 _projectionMatrix = Mat4x4::Identity;
 
         bool _isPerspective = true;
         float _zNear = 0.1f;

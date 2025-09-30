@@ -1,19 +1,28 @@
 #pragma once
+#include "Tbx/DllExport.h"
 #include "Tbx/Layers/Layer.h"
-
-#include <atomic>
-#include <thread>
+#include "Tbx/Graphics/IRenderer.h"
+#include "Tbx/Graphics/Rendering.h"
+#include "Tbx/Events/EventBus.h"
+#include "Tbx/Memory/Refs.h"
 
 namespace Tbx
 {
-    class RenderingLayer : public Layer
+    /// <summary>
+    /// The application's rendering layer that connects the high-level layer system to the rendering subsystem.
+    /// </summary>
+    class RenderingLayer final : public Layer
     {
     public:
-        RenderingLayer() : Layer("Rendering") {}
+        TBX_EXPORT RenderingLayer(
+            Ref<IRendererFactory> renderFactory,
+            Ref<EventBus> eventBus);
 
-        bool IsOverlay() final;
-        void OnAttach() final;
-        void OnDetach() final;
-        void OnUpdate() final;
+    protected:
+        void OnUpdate() override;
+
+    private:
+        Tbx::ExclusiveRef<Rendering> _rendering = nullptr;
     };
 }
+

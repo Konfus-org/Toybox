@@ -1,84 +1,87 @@
 #pragma once
-#include "Tbx/Layers/LayerStack.h"
+#include "Tbx/App/Settings.h"
+#include "Tbx/Events/EventBus.h"
+#include "Tbx/Events/EventListener.h"
 #include "Tbx/Events/WindowEvents.h"
-#include "Tbx/Windowing/WindowStack.h"
-#include "Tbx/PluginAPI/PluginInterfaces.h"
-#include "Tbx/Graphics/GraphicsSettings.h"
+#include "Tbx/Layers/LayerStack.h"
+#include "Tbx/Memory/Refs.h"
+#include "Tbx/Plugins/PluginServer.h"
 
 namespace Tbx
 {
-    enum class AppStatus
+    /// <summary>
+    /// High level lifecycle states the application can transition through while running.
+    /// </summary>
+    enum class TBX_EXPORT AppStatus
     {
-        None = 0,
+        None,
         Initializing,
         Running,
         Reloading,
-        Exiting,
+        Closing,
         Closed,
         Error
     };
 
-    class App : public IPlugin
+    /// <summary>
+    /// Coordinates engine services, manages layers, and drives the lifetime of a Toybox application instance.
+    /// </summary>
+    class TBX_EXPORT App
     {
     public:
-
-        EXPORT explicit(false) App(const std::string_view& name);
-        EXPORT ~App() override;
-
-        EXPORT static App* GetInstance();
-
-        EXPORT void OnLoad() override;
-        EXPORT void OnUnload() override;
-
-        EXPORT void Launch();
-        EXPORT void Update();
-        EXPORT void Close();
-
-        EXPORT virtual void OnLaunch() = 0;
-        EXPORT virtual void OnUpdate() = 0;
-        EXPORT virtual void OnShutdown() = 0;
-
-        EXPORT std::shared_ptr<IWindow> GetWindow(Uid id);
-        EXPORT const std::vector<std::shared_ptr<IWindow>>& GetWindows();
-        EXPORT Uid OpenNewWindow(const std::string& name, const WindowMode& mode, const Size& size);
+        App(const std::string_view& name,
+            const Settings& settings,
+            const PluginStack& plugins,
+            Ref<EventBus> eventBus);
+        virtual ~App();
 
         /// <summary>
-        /// Emplaces a layer into the app.
-        /// The app owns this layer and it is destroyed when the app is destroyed.
+        /// Starts the application run loop and executes until shutdown is requested.
         /// </summary>
-        template <typename T, typename... Args>
-        EXPORT void EmplaceLayer(Args&&... args)
+        void Run();
+
+        /// <summary>
+        /// Requests that the application terminate after the current frame.
+        /// </summary>
+        void Close();
+
+        const AppStatus& GetStatus() const;
+        const std::string& GetName() const;
+
+        void SetSettings(const Settings& settings);
+        const Settings& GetSettings() const;
+
+        template <typename TLayer, typename... TArgs>
+        Uid AddLayer(TArgs&&... args)
         {
-            auto layer = std::make_shared<T>(std::forward<Args>(args)...);
-            _sharedLayerStack.Push(layer);
+            const auto& newLayerId = _layerStack.Push<TLayer>(std::forward<TArgs>(args)...);
+            const auto& layerName = _layerStack.Get(newLayerId).Name;
+            return newLayerId;
         }
+        bool HasLayer(const Uid& layerId) const;
+        Layer& GetLayer(const Uid& layerId);
+        void RemoveLayer(const Uid& layerId);
 
-        /// <summary>
-        /// Pushes a layer to the app that the app DOES NOT OWN.
-        /// It must be kept alive by whomever pushed it.
-        /// </summary>
-        EXPORT void PushLayer(const std::weak_ptr<Layer>& layer);
-
-        EXPORT const AppStatus& GetStatus() const;
-        EXPORT const std::string& GetName() const;
-        EXPORT std::weak_ptr<IWindow> GetMainWindow() const;
-
-        EXPORT void SetGraphicsSettings(const GraphicsSettings& settings);
-        EXPORT const GraphicsSettings& GetGraphicsSettings() const;
+    protected:
+        virtual void OnLaunch() {};
+        virtual void OnUpdate() {};
+        virtual void OnShutdown() {};
 
     private:
+        void Initialize();
+        void Update();
+        void Shutdown();
+        void OnWindowOpened(const WindowOpenedEvent& e);
         void OnWindowClosed(const WindowClosedEvent& e);
 
-        static App* _instance;
-
-        std::string _name = "App";
+    private:
+        std::string _name = "";
         AppStatus _status = AppStatus::None;
-        GraphicsSettings _graphicsSettings = {};
-
-        SharedLayerStack _sharedLayerStack = {};
-        WeakLayerStack _weakLayerStack = {};
-        WindowStack _windowStack = {};
-
-        Uid _mainWindowId = Invalid::Uid;
+        Settings _settings = {};
+        LayerStack _layerStack = {};
+        Uid _mainWindowId = Uid::Invalid;
+        Ref<EventBus> _eventBus = nullptr;
+        EventListener _eventListener = {};
+        PluginStack _plugins = {};
     };
 }

@@ -1,53 +1,38 @@
 #pragma once
 #include "Tbx/Graphics/Vertex.h"
-#include "Tbx/Graphics/Buffers.h"
-#include "Tbx/Ids/UsesUID.h"
-#include "Tbx/TypeAliases/Int.h"
+#include "Tbx/Math/Int.h"
+#include "Tbx/Ids/Uid.h"
 
 namespace Tbx
 {
-    struct Mesh : public UsesUid
+    using IndexBuffer = std::vector<uint32>;
+
+    struct TBX_EXPORT Mesh
     {
-    public:
         /// <summary>
-        /// Defaults to a quad mesh.
+        /// Defaults to a quad.
         /// </summary>
-        EXPORT Mesh();
-        EXPORT Mesh(const Mesh& mesh);
-        EXPORT Mesh(const std::initializer_list<Vertex>& vertices, const std::initializer_list<uint32>& indices);
-        EXPORT Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32>& indices);
+        Mesh();
+        Mesh(const VertexBuffer& vertBuff, const IndexBuffer& indexBuff);
 
-        EXPORT const VertexBuffer& GetVertexBuffer() const;
-        EXPORT const std::vector<uint32>& GetIndexBuffer() const;
+        static Mesh Quad;
+        static Mesh Triangle;
 
-        EXPORT static Mesh MakeTriangle();
-        EXPORT static Mesh MakeQuad();
-
-    private:
-        VertexBuffer VertexVectorToBuffer(const std::vector<Vertex>& vertices) const;
-
-        std::vector<uint32> _indexBuffer;
-        VertexBuffer _vertexBuffer;
+        VertexBuffer Vertices = {};
+        IndexBuffer Indices = {};
+        Uid Id = Uid::Generate();
     };
 
     /// <summary>
     /// Essentially a pointer to a mesh.
     /// </summary>
-    struct MeshInstance : public UsesUid
+    struct TBX_EXPORT MeshInstance
     {
-    public:
-        EXPORT MeshInstance(const Mesh& mesh);
-
-        EXPORT const Mesh& GetMesh() const;
-
-    private:
-        const Mesh& _mesh;
+        Uid MeshId = Uid::Invalid;
+        Uid InstanceId = Uid::Generate();
     };
 
-    namespace Primitives
-    {
-        EXPORT inline const Mesh& Quad = Mesh::MakeQuad();
-        EXPORT inline const Mesh& Triangle = Mesh::MakeTriangle();
-    }
+    static Mesh MakeTriangle();
+    static Mesh MakeQuad();
 }
 

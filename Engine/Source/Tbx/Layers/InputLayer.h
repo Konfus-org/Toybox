@@ -1,17 +1,20 @@
 #pragma once
 #include "Tbx/Layers/Layer.h"
-#include "Tbx/Events/WindowEvents.h"
+#include "Tbx/Input/IInputHandler.h"
+#include "Tbx/Memory/Refs.h"
 
 namespace Tbx
 {
-    class InputLayer : public Layer
+    class InputLayer final : public Layer
     {
     public:
-        InputLayer() : Layer("Input") {}
+        InputLayer(Ref<IInputHandler> inputHandler);
 
-        bool IsOverlay() final;
-        void OnAttach() final;
-        void OnDetach() final;
-        void OnUpdate() final;
+        void OnAttach() override;
+        void OnDetach() override;
+        void OnUpdate() override;
+
+    private:
+        Ref<IInputHandler> _inputHandler = nullptr;
     };
 }
