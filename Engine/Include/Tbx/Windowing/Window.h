@@ -4,6 +4,7 @@
 #include "Tbx/Math/Size.h"
 #include "Tbx/Events/EventBus.h"
 #include <any>
+#include <functional>
 
 namespace Tbx
 {
@@ -45,6 +46,22 @@ namespace Tbx
 
     public:
         Uid Id = Uid::Generate();
+    };
+
+    struct WindowRefHasher
+    {
+        size_t operator()(const Ref<Window>& window) const noexcept
+        {
+            return std::hash<const Window*>()(window.get());
+        }
+    };
+
+    struct WindowRefEqual
+    {
+        bool operator()(const Ref<Window>& lhs, const Ref<Window>& rhs) const noexcept
+        {
+            return lhs.get() == rhs.get();
+        }
     };
 
     class TBX_EXPORT IWindowFactory

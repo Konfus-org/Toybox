@@ -11,7 +11,6 @@
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Memory/Refs.h"
 #include "Tbx/Graphics/Color.h"
-#include <functional>
 #include <unordered_map>
 #include <vector>
 
@@ -21,22 +20,6 @@ namespace Tbx
     {
         Ref<IGraphicsConfig> Config = nullptr;
         Ref<IRenderer> Renderer = nullptr;
-    };
-
-    struct WindowRefHasher
-    {
-        size_t operator()(const Ref<Window>& window) const noexcept
-        {
-            return std::hash<const Window*>()(window.get());
-        }
-    };
-
-    struct WindowRefEqual
-    {
-        bool operator()(const Ref<Window>& lhs, const Ref<Window>& rhs) const noexcept
-        {
-            return lhs.get() == rhs.get();
-        }
     };
 
     using WindowBindingMap = std::unordered_map<Ref<Window>, RenderingContext, WindowRefHasher, WindowRefEqual>;
