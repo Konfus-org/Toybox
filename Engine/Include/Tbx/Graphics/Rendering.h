@@ -11,6 +11,7 @@
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Memory/Refs.h"
 #include "Tbx/Graphics/Color.h"
+#include <functional>
 #include <unordered_map>
 #include <vector>
 
@@ -18,12 +19,27 @@ namespace Tbx
 {
     struct RenderingContext
     {
-        Ref<Window> Window = nullptr;
         Ref<IGraphicsConfig> Config = nullptr;
         Ref<IRenderer> Renderer = nullptr;
     };
 
-    using WindowBindingMap = std::unordered_map<Window*, RenderingContext>;
+    struct WindowRefHasher
+    {
+        size_t operator()(const Ref<Window>& window) const noexcept
+        {
+            return std::hash<const Window*>()(window.get());
+        }
+    };
+
+    struct WindowRefEqual
+    {
+        bool operator()(const Ref<Window>& lhs, const Ref<Window>& rhs) const noexcept
+        {
+            return lhs.get() == rhs.get();
+        }
+    };
+
+    using WindowBindingMap = std::unordered_map<Ref<Window>, RenderingContext, WindowRefHasher, WindowRefEqual>;
 
     /// <summary>
     /// Coordinates render targets, windows, and stage composition for a frame.
@@ -63,17 +79,15 @@ namespace Tbx
         void OnStageClosed(const StageClosedEvent& e);
 
         Ref<IRenderer> CreateRenderer(GraphicsApi api);
-        Ref<IGraphicsConfig> GetConfig(const Ref<Window>& window, GraphicsApi api);
+        Ref<IGraphicsConfig> CreateConfig(const Ref<Window>& window, GraphicsApi api);
         void RecreateRenderersForCurrentApi();
 
     private:
         std::vector<Ref<Stage>> _openStages = {};
         WindowBindingMap _windowBindings = {};
         std::vector<Ref<Stage>> _pendingUploadStages = {};
-        std::vector<Ref<IRendererFactory>> _rendererFactories = {};
-        std::vector<Ref<IGraphicsConfigProvider>> _graphicsConfigProviders = {};
-        std::unordered_map<GraphicsApi, Ref<IRendererFactory>> _rendererFactoryCache = {};
-        std::unordered_map<GraphicsApi, Ref<IGraphicsConfigProvider>> _configProviderCache = {};
+        std::unordered_map<GraphicsApi, std::vector<Ref<IRendererFactory>>> _renderFactories = {};
+        std::unordered_map<GraphicsApi, std::vector<Ref<IGraphicsConfigProvider>>> _configProviders = {};
         Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};
         GraphicsApi _graphicsApi = GraphicsApi::OpenGL;
