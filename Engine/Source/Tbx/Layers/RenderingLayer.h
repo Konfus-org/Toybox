@@ -18,7 +18,7 @@ namespace Tbx
     public:
         TBX_EXPORT RenderingLayer(
             const std::vector<Ref<IRendererFactory>>& renderFactories,
-            const std::vector<Ref<IGraphicsContextProvider>>& graphicsContextProviders,
+            const std::vector<Ref<IGraphicsConfigProvider>>& graphicsContextProviders,
             Ref<EventBus> eventBus);
 
     protected:

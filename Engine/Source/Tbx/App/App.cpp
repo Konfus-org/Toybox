@@ -90,7 +90,7 @@ namespace Tbx
             }
 
             auto rendererFactoryPlugs = _plugins.OfType<IRendererFactory>();
-            auto graphicsContextProviders = _plugins.OfType<IGraphicsContextProvider>();
+            auto graphicsContextProviders = _plugins.OfType<IGraphicsConfigProvider>();
 
             if (!rendererFactoryPlugs.empty())
             {

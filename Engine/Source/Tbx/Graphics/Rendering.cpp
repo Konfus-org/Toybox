@@ -13,7 +13,7 @@ namespace Tbx
 {
     Rendering::Rendering(
         const std::vector<Ref<IRendererFactory>>& rendererFactories,
-        const std::vector<Ref<IGraphicsContextProvider>>& graphicsContextProviders,
+        const std::vector<Ref<IGraphicsConfigProvider>>& graphicsContextProviders,
         Ref<EventBus> eventBus)
         : _eventBus(eventBus)
         , _eventListener(eventBus)
@@ -87,7 +87,7 @@ namespace Tbx
         auto it = std::find_if(_windowBindings.begin(), _windowBindings.end(),
             [&window](const RenderingContext& binding)
             {
-                return binding.Window == window;
+                return binding.BoundWindow == window;
             });
         if (it == _windowBindings.end())
         {
@@ -200,7 +200,7 @@ namespace Tbx
         for (auto& binding : _windowBindings)
         {
             const auto& renderer = binding.Renderer;
-            const auto& rendererWindow = binding.Window;
+            const auto& rendererWindow = binding.BoundWindow;
             const auto& config = binding.Config;
             if (!renderer || !rendererWindow)
             {
@@ -311,7 +311,7 @@ namespace Tbx
         auto it = std::find_if(_windowBindings.begin(), _windowBindings.end(),
             [&closedWindow](const RenderingContext& binding)
             {
-                return binding.Window == closedWindow;
+                return binding.BoundWindow == closedWindow;
             });
         if (it != _windowBindings.end())
         {
@@ -332,7 +332,7 @@ namespace Tbx
         auto bindingIt = std::find_if(_windowBindings.begin(), _windowBindings.end(),
             [&resizedWindow](const RenderingContext& binding)
             {
-                return binding.Window == resizedWindow;
+                return binding.BoundWindow == resizedWindow;
             });
         if (bindingIt != _windowBindings.end())
         {
@@ -394,7 +394,7 @@ namespace Tbx
 
         for (const auto& binding : _windowBindings)
         {
-            const auto& window = binding.Window;
+            const auto& window = binding.BoundWindow;
             if (!window)
             {
                 newBindings.push_back({ nullptr, nullptr, nullptr });

@@ -44,10 +44,10 @@ namespace Tbx
     /// <summary>
     /// Creates graphics contexts for a given window and graphics API.
     /// </summary>
-    class TBX_EXPORT IGraphicsContextProvider
+    class TBX_EXPORT IGraphicsConfigProvider
     {
     public:
-        virtual ~IGraphicsContextProvider() = default;
+        virtual ~IGraphicsConfigProvider() = default;
 
         /// <summary>
         /// Creates a graphics context for the provided window using the requested API.

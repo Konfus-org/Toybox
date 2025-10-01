@@ -18,7 +18,7 @@ namespace Tbx
 {
     struct RenderingContext
     {
-        Ref<Window> Window = nullptr;
+        Ref<Window> BoundWindow = nullptr;
         Ref<IGraphicsConfig> Config = nullptr;
         Ref<IRenderer> Renderer = nullptr;
     };
@@ -31,7 +31,7 @@ namespace Tbx
     public:
         Rendering(
             const std::vector<Ref<IRendererFactory>>& rendererFactories,
-            const std::vector<Ref<IGraphicsContextProvider>>& graphicsContextProviders,
+            const std::vector<Ref<IGraphicsConfigProvider>>& graphicsContextProviders,
             Ref<EventBus> eventBus);
         ~Rendering();
 
@@ -70,7 +70,7 @@ namespace Tbx
         std::vector<RenderingContext> _windowBindings = {};
         std::vector<Ref<Stage>> _pendingUploadStages = {};
         std::unordered_map<GraphicsApi, std::vector<Ref<IRendererFactory>>> _rendererFactoryCache = {};
-        std::unordered_map<GraphicsApi, std::vector<Ref<IGraphicsContextProvider>>> _contextProviderCache = {};
+        std::unordered_map<GraphicsApi, std::vector<Ref<IGraphicsConfigProvider>>> _contextProviderCache = {};
         Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};
         GraphicsApi _graphicsApi = GraphicsApi::OpenGL;
