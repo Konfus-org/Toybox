@@ -16,6 +16,13 @@
 
 namespace Tbx
 {
+    struct RenderingContext
+    {
+        Ref<Window> Window = nullptr;
+        Ref<IGraphicsConfig> Config = nullptr;
+        Ref<IRenderer> Renderer = nullptr;
+    };
+
     /// <summary>
     /// Coordinates render targets, windows, and stage composition for a frame.
     /// </summary>
@@ -54,25 +61,16 @@ namespace Tbx
         void OnStageOpened(const StageOpenedEvent& e);
         void OnStageClosed(const StageClosedEvent& e);
 
-        struct WindowBinding
-        {
-            Ref<Window> Window = nullptr;
-            Ref<IGraphicsContext> Context = nullptr;
-            Ref<IRenderer> Renderer = nullptr;
-        };
-
         Ref<IRenderer> CreateRenderer(GraphicsApi api);
-        Ref<IGraphicsContext> CreateContext(const Ref<Window>& window, GraphicsApi api);
+        Ref<IGraphicsConfig> CreateContext(const Ref<Window>& window, GraphicsApi api);
         void RecreateRenderersForCurrentApi();
 
     private:
         std::vector<Ref<Stage>> _openStages = {};
-        std::vector<WindowBinding> _windowBindings = {};
+        std::vector<RenderingContext> _windowBindings = {};
         std::vector<Ref<Stage>> _pendingUploadStages = {};
-        std::vector<Ref<IRendererFactory>> _rendererFactories = {};
-        std::vector<Ref<IGraphicsContextProvider>> _graphicsContextProviders = {};
-        std::unordered_map<GraphicsApi, Ref<IRendererFactory>> _rendererFactoryCache = {};
-        std::unordered_map<GraphicsApi, Ref<IGraphicsContextProvider>> _contextProviderCache = {};
+        std::unordered_map<GraphicsApi, std::vector<Ref<IRendererFactory>>> _rendererFactoryCache = {};
+        std::unordered_map<GraphicsApi, std::vector<Ref<IGraphicsContextProvider>>> _contextProviderCache = {};
         Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};
         GraphicsApi _graphicsApi = GraphicsApi::OpenGL;

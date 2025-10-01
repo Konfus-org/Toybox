@@ -10,10 +10,10 @@ namespace Tbx
     /// <summary>
     /// Represents a graphics context responsible for bootstrapping and managing a rendering API.
     /// </summary>
-    class TBX_EXPORT IGraphicsContext
+    class TBX_EXPORT IGraphicsConfig
     {
     public:
-        virtual ~IGraphicsContext() = default;
+        virtual ~IGraphicsConfig() = default;
 
         /// <summary>
         /// Initializes the underlying graphics backend and prepares the context for use.
@@ -52,6 +52,6 @@ namespace Tbx
         /// <summary>
         /// Creates a graphics context for the provided window using the requested API.
         /// </summary>
-        virtual Ref<IGraphicsContext> Create(const Ref<Window>& window, GraphicsApi api) = 0;
+        virtual Ref<IGraphicsConfig> Create(const Ref<Window>& window, GraphicsApi api) = 0;
     };
 }
