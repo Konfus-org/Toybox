@@ -4,22 +4,51 @@
 #include "Tbx/Graphics/RenderCommands.h"
 #include "Tbx/Graphics/Viewport.h"
 #include "Tbx/Graphics/Camera.h"
+#include "Tbx/Math/Size.h"
 #include <algorithm>
+#include <cstddef>
 #include <iterator>
+#include <utility>
 
 namespace Tbx
 {
-    Rendering::Rendering(Ref<IRendererFactory> rendererFactory, Ref<EventBus> eventBus)
-        : _rendererFactory(rendererFactory)
-        , _eventBus(eventBus)
+    Rendering::Rendering(
+        const std::vector<Ref<IRendererFactory>>& rendererFactories,
+        const std::vector<Ref<IGraphicsConfigProvider>>& graphicsContextProviders,
+        Ref<EventBus> eventBus)
+        : _eventBus(eventBus)
         , _eventListener(eventBus)
     {
-        TBX_ASSERT(_rendererFactory, "Rendering: requires a valid renderer factory instance.");
+        TBX_ASSERT(!rendererFactories.empty(), "Rendering: requires at least one renderer factory instance.");
+        TBX_ASSERT(!graphicsContextProviders.empty(), "Rendering: requires at least one graphics context provider instance.");
         TBX_ASSERT(_eventBus, "Rendering: requires a valid event bus instance.");
+
+        auto& unclassifiedFactories = _renderFactories[GraphicsApi::None];
+        unclassifiedFactories.reserve(rendererFactories.size());
+        for (const auto& factory : rendererFactories)
+        {
+            if (!factory)
+            {
+                continue;
+            }
+
+            unclassifiedFactories.push_back(factory);
+        }
+
+        auto& unclassifiedProviders = _configProviders[GraphicsApi::None];
+        unclassifiedProviders.reserve(graphicsContextProviders.size());
+        for (const auto& provider : graphicsContextProviders)
+        {
+            if (!provider)
+            {
+                continue;
+            }
+
+            unclassifiedProviders.push_back(provider);
+        }
 
         _eventListener.Listen(this, &Rendering::OnWindowOpened);
         _eventListener.Listen(this, &Rendering::OnWindowClosed);
-        _eventListener.Listen(this, &Rendering::OnWindowResized);
         _eventListener.Listen(this, &Rendering::OnAppSettingsChanged);
         _eventListener.Listen(this, &Rendering::OnStageOpened);
         _eventListener.Listen(this, &Rendering::OnStageClosed);
@@ -29,7 +58,7 @@ namespace Tbx
 
     void Rendering::Update()
     {
-        if (_renderers.empty() || _openStages.empty())
+        if (_windowBindings.empty() || _openStages.empty())
         {
             return;
         }
@@ -44,15 +73,14 @@ namespace Tbx
             return nullptr;
         }
 
-        auto it = std::find(_windows.begin(), _windows.end(), window);
-        if (it == _windows.end())
+        auto it = _windowBindings.find(window);
+        if (it == _windowBindings.end())
         {
             TBX_ASSERT(false, "Rendering: No renderer found for window");
             return nullptr;
         }
 
-        const auto index = static_cast<size_t>(std::distance(_windows.begin(), it));
-        return index < _renderers.size() ? _renderers[index] : nullptr;
+        return it->second.Renderer;
     }
 
     void Rendering::DrawFrame()
@@ -106,11 +134,19 @@ namespace Tbx
 
         if (!uploadBuffer.Commands.empty())
         {
-            for (const auto& renderer : _renderers)
+            for (auto& bindingEntry : _windowBindings)
             {
+                auto& binding = bindingEntry.second;
+                const auto& renderer = binding.Renderer;
                 if (!renderer)
                 {
                     continue;
+                }
+
+                const auto& config = binding.Config;
+                if (config)
+                {
+                    config->MakeCurrent();
                 }
 
                 renderer->Flush();
@@ -123,40 +159,57 @@ namespace Tbx
 
     void Rendering::ProcessOpenStages()
     {
-        RenderCommandBufferBuilder builder = {};
-        RenderCommandBuffer renderBuffer = {};
-        renderBuffer.Commands.emplace_back(RenderCommandType::Clear, _clearColor);
-
-        for (const auto& stage : _openStages)
+        for (auto& bindingEntry : _windowBindings)
         {
-            if (!stage)
-            {
-                continue;
-            }
-
-            const auto spaceRoot = stage->GetRoot();
-            if (!spaceRoot)
-            {
-                continue;
-            }
-
-            const auto stageRenderBuffer = builder.BuildRenderBuffer(spaceRoot);
-            for (const auto& command : stageRenderBuffer.Commands)
-            {
-                renderBuffer.Commands.push_back(command);
-            }
-        }
-
-        for (uint32 rendererIndex = 0; rendererIndex < _renderers.size(); ++rendererIndex)
-        {
-            const auto& renderer = _renderers[rendererIndex];
-            const auto& rendererWindow = _windows[rendererIndex];
+            auto& binding = bindingEntry.second;
+            const auto& rendererWindow = bindingEntry.first;
+            const auto& renderer = binding.Renderer;
+            const auto& config = binding.Config;
             if (!renderer || !rendererWindow)
             {
                 continue;
             }
 
+            RenderCommandBufferBuilder builder = {};
+            RenderCommandBuffer renderBuffer = {};
+            renderBuffer.Commands.emplace_back(RenderCommandType::Clear, _clearColor);
+
+            const auto windowSize = rendererWindow->GetSize();
+            renderBuffer.Commands.emplace_back(RenderCommandType::SetViewport, Viewport({ 0, 0 }, windowSize));
+
+            const auto aspectRatio = CalculateAspectRatioFromSize(windowSize);
+
+            for (const auto& stage : _openStages)
+            {
+                if (!stage)
+                {
+                    continue;
+                }
+
+                const auto spaceRoot = stage->GetRoot();
+                if (!spaceRoot)
+                {
+                    continue;
+                }
+
+                const auto stageRenderBuffer = builder.BuildRenderBuffer(spaceRoot, aspectRatio);
+                for (const auto& command : stageRenderBuffer.Commands)
+                {
+                    renderBuffer.Commands.push_back(command);
+                }
+            }
+
+            if (config)
+            {
+                config->MakeCurrent();
+            }
+
             renderer->Process(renderBuffer);
+
+            if (config)
+            {
+                config->SwapBuffers();
+            }
         }
 
         if (_eventBus)
@@ -210,70 +263,193 @@ namespace Tbx
             return;
         }
 
-        auto newRenderer = _rendererFactory->Create();
-        _windows.push_back(newWindow);
-        _renderers.push_back(newRenderer);
+        auto newConfig = CreateConfig(newWindow, _graphicsApi);
+        auto newRenderer = CreateRenderer(_graphicsApi);
+
+        _windowBindings.emplace(newWindow, RenderingContext{ newConfig, newRenderer });
         for (const auto& stage : _openStages)
         {
             QueueStageUpload(stage);
         }
-
-        // Init viewport size
-        RenderCommandBuffer renderBuffer = {};
-        auto newViewport = Viewport({ 0, 0 }, newWindow->GetSize());
-        renderBuffer.Commands.emplace_back(RenderCommandType::SetViewport, newViewport);
-        newRenderer->Process(renderBuffer);
     }
 
     void Rendering::OnWindowClosed(const WindowClosedEvent& e)
     {
         auto closedWindow = e.GetWindow();
-        const auto renderer = GetRenderer(closedWindow);
-        if (!renderer)
+        if (!closedWindow)
         {
             return;
         }
 
-        const auto it = std::find(_windows.begin(), _windows.end(), closedWindow);
-        if (it != _windows.end())
+        _windowBindings.erase(closedWindow);
+    }
+
+    void Rendering::RecreateRenderersForCurrentApi()
+    {
+        WindowBindingMap newBindings = {};
+        newBindings.reserve(_windowBindings.size());
+
+        for (const auto& bindingEntry : _windowBindings)
         {
-            _windows.erase(it);
+            const auto& window = bindingEntry.first;
+            if (!window)
+            {
+                continue;
+            }
+
+            auto config = CreateConfig(window, _graphicsApi);
+            TBX_ASSERT(config, "Rendering: Unable to recreate graphics config for window.");
+            auto renderer = CreateRenderer(_graphicsApi);
+            TBX_ASSERT(renderer, "Rendering: Unable to recreate renderer for window.");
+
+            newBindings.emplace(window, RenderingContext{ config, renderer });
         }
 
-        const auto rendererIt = std::find(_renderers.begin(), _renderers.end(), renderer);
-        if (rendererIt != _renderers.end())
+        _windowBindings = std::move(newBindings);
+
+        _pendingUploadStages.clear();
+        for (const auto& stage : _openStages)
         {
-            _renderers.erase(rendererIt);
+            QueueStageUpload(stage);
         }
     }
 
-    void Rendering::OnWindowResized(const WindowResizedEvent& e)
+    Ref<IRenderer> Rendering::CreateRenderer(GraphicsApi api)
     {
-        const auto resizedWindow = e.GetWindow();
-        const auto renderer = GetRenderer(resizedWindow);
-        if (!renderer)
+        auto tryFactories = [&](GraphicsApi bucketApi) -> Ref<IRenderer>
         {
-            return;
-        }
-
-        for (const auto& stage : _openStages)
-        {
-            auto cameraView = StageView<Camera>(stage->GetRoot());
-            for (const auto& toy : cameraView)
+            auto& factories = _renderFactories[bucketApi];
+            for (auto it = factories.begin(); it != factories.end();)
             {
-                auto& camera = toy->Blocks.Get<Camera>();
-                camera.SetAspect(CalculateAspectRatioFromSize(resizedWindow->GetSize()));
-			}
+                Ref<IRendererFactory> factory = *it;
+                if (!factory)
+                {
+                    it = factories.erase(it);
+                    continue;
+                }
+
+                auto renderer = factory->Create();
+                if (!renderer)
+                {
+                    ++it;
+                    continue;
+                }
+
+                const auto rendererApi = renderer->GetApi();
+                if (rendererApi != api)
+                {
+                    _renderFactories[rendererApi].push_back(factory);
+                    it = factories.erase(it);
+                    continue;
+                }
+
+                if (bucketApi != api)
+                {
+                    factories.erase(it);
+                    _renderFactories[api].push_back(factory);
+                }
+
+                return renderer;
+            }
+
+            return nullptr;
+        };
+
+        if (auto renderer = tryFactories(api))
+        {
+            return renderer;
         }
 
-        RenderCommandBuffer renderBuffer = {};
-        renderBuffer.Commands.emplace_back(RenderCommandType::SetViewport, Viewport({ 0, 0 }, resizedWindow->GetSize()));
-        renderer->Process(renderBuffer);
+        if (auto renderer = tryFactories(GraphicsApi::None))
+        {
+            return renderer;
+        }
+
+        if (auto renderer = tryFactories(api))
+        {
+            return renderer;
+        }
+
+        TBX_ASSERT(false, "Rendering: Unable to locate a renderer factory for requested graphics API.");
+        return nullptr;
+    }
+
+    Ref<IGraphicsConfig> Rendering::CreateConfig(const Ref<Window>& window, GraphicsApi api)
+    {
+        if (!window)
+        {
+            return nullptr;
+        }
+
+        auto tryProviders = [&](GraphicsApi bucketApi) -> Ref<IGraphicsConfig>
+        {
+            auto& providers = _configProviders[bucketApi];
+            for (auto it = providers.begin(); it != providers.end();)
+            {
+                Ref<IGraphicsConfigProvider> provider = *it;
+                if (!provider)
+                {
+                    it = providers.erase(it);
+                    continue;
+                }
+
+                auto config = provider->Get(window, api);
+                if (!config)
+                {
+                    ++it;
+                    continue;
+                }
+
+                const auto configApi = config->GetApi();
+                if (configApi != api)
+                {
+                    _configProviders[configApi].push_back(provider);
+                    it = providers.erase(it);
+                    continue;
+                }
+
+                if (bucketApi != api)
+                {
+                    providers.erase(it);
+                    _configProviders[api].push_back(provider);
+                }
+
+                return config;
+            }
+
+            return nullptr;
+        };
+
+        if (auto config = tryProviders(api))
+        {
+            return config;
+        }
+
+        if (auto config = tryProviders(GraphicsApi::None))
+        {
+            return config;
+        }
+
+        if (auto config = tryProviders(api))
+        {
+            return config;
+        }
+
+        TBX_ASSERT(false, "Rendering: Unable to locate a graphics context provider for requested graphics API.");
+        return nullptr;
     }
 
     void Rendering::OnAppSettingsChanged(const AppSettingsChangedEvent& e)
     {
-        _clearColor = e.GetNewSettings().ClearColor;
+        const auto& newSettings = e.GetNewSettings();
+        _clearColor = newSettings.ClearColor;
+        const auto previousApi = _graphicsApi;
+        _graphicsApi = newSettings.Api;
+
+        if (previousApi != _graphicsApi)
+        {
+            RecreateRenderersForCurrentApi();
+        }
     }
 
     void Rendering::OnStageOpened(const StageOpenedEvent& e)

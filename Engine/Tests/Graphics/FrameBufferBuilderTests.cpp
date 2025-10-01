@@ -72,7 +72,7 @@ namespace Tbx::Tests::Graphics
 
         // Act
         RenderCommandBufferBuilder builder;
-        RenderCommandBuffer buffer = builder.BuildRenderBuffer(toy);
+        RenderCommandBuffer buffer = builder.BuildRenderBuffer(toy, 1.0f);
 
         // Assert
         EXPECT_TRUE(buffer.Commands.empty());
@@ -99,7 +99,7 @@ namespace Tbx::Tests::Graphics
 
         // Act
         RenderCommandBufferBuilder builder;
-        RenderCommandBuffer buffer = builder.BuildRenderBuffer(root);
+        RenderCommandBuffer buffer = builder.BuildRenderBuffer(root, 1.0f);
 
         // Assert
         const auto& cmds = buffer.Commands;

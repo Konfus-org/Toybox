@@ -1,6 +1,7 @@
 #include "Tbx/PCH.h"
 #include "Tbx/App/App.h"
 #include "Tbx/App/Runtime.h"
+#include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Layers/InputLayer.h"
 #include "Tbx/Layers/RenderingLayer.h"
 #include "Tbx/Layers/WindowingLayer.h"
@@ -89,11 +90,11 @@ namespace Tbx
             }
 
             auto rendererFactoryPlugs = _plugins.OfType<IRendererFactory>();
+            auto graphicsContextProviders = _plugins.OfType<IGraphicsConfigProvider>();
+
             if (!rendererFactoryPlugs.empty())
             {
-                TBX_ASSERT(rendererFactoryPlugs.size() == 1, "App: Only one renderer factory is allowed!");
-                auto rendererFactory = rendererFactoryPlugs.front();
-                AddLayer<RenderingLayer>(rendererFactory, _eventBus);
+                AddLayer<RenderingLayer>(rendererFactoryPlugs, graphicsContextProviders, _eventBus);
             }
 
             auto inputHandlerPlugs = _plugins.OfType<IInputHandler>();

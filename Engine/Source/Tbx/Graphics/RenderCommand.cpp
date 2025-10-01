@@ -21,7 +21,7 @@ namespace Tbx
         return buffer;
     }
 
-    RenderCommandBuffer RenderCommandBufferBuilder::BuildRenderBuffer(FullStageViewView view)
+    RenderCommandBuffer RenderCommandBufferBuilder::BuildRenderBuffer(FullStageViewView view, float aspectRatio)
     {
         // Build view frustums from cameras
         auto frustums = std::vector<Frustum>();
@@ -33,6 +33,12 @@ namespace Tbx
             }
 
             auto& camera = toy->Blocks.Get<Camera>();
+
+            TBX_ASSERT(aspectRatio > 0.0f, "RenderCommandBufferBuilder: aspect ratio must be positive.");
+            if (aspectRatio > 0.0f)
+            {
+                camera.SetAspect(aspectRatio);
+            }
 
             Vector3 camPos = Vector3::Zero;
             Quaternion camRot = Quaternion::Identity;
