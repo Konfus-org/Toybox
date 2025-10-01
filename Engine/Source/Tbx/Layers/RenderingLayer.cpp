@@ -4,10 +4,13 @@
 
 namespace Tbx
 {
-    RenderingLayer::RenderingLayer(Ref<IRendererFactory> renderFactory, Ref<EventBus> eventBus)
+    RenderingLayer::RenderingLayer(
+        const std::vector<Ref<IRendererFactory>>& renderFactories,
+        const std::vector<Ref<IGraphicsContextProvider>>& graphicsContextProviders,
+        Ref<EventBus> eventBus)
         : Layer("Rendering")
     {
-        _rendering = MakeExclusive<Rendering>(renderFactory, eventBus);
+        _rendering = MakeExclusive<Rendering>(renderFactories, graphicsContextProviders, eventBus);
     }
 
     void RenderingLayer::OnUpdate()

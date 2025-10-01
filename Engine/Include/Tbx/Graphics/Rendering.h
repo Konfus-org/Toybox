@@ -1,5 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
+#include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Graphics/IRenderer.h"
 #include "Tbx/Windowing/Window.h"
 #include "Tbx/Stages/Stage.h"
@@ -10,6 +11,7 @@
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Memory/Refs.h"
 #include "Tbx/Graphics/Color.h"
+#include <unordered_map>
 #include <vector>
 
 namespace Tbx
@@ -20,7 +22,10 @@ namespace Tbx
     class TBX_EXPORT Rendering
     {
     public:
-        Rendering(Ref<IRendererFactory> rendererFactory, Ref<EventBus> eventBus);
+        Rendering(
+            const std::vector<Ref<IRendererFactory>>& rendererFactories,
+            const std::vector<Ref<IGraphicsContextProvider>>& graphicsContextProviders,
+            Ref<EventBus> eventBus);
         ~Rendering();
 
         /// <summary>
@@ -49,14 +54,28 @@ namespace Tbx
         void OnStageOpened(const StageOpenedEvent& e);
         void OnStageClosed(const StageClosedEvent& e);
 
+        struct WindowBinding
+        {
+            Ref<Window> Window = nullptr;
+            Ref<IGraphicsContext> Context = nullptr;
+            Ref<IRenderer> Renderer = nullptr;
+        };
+
+        Ref<IRenderer> CreateRenderer(GraphicsApi api);
+        Ref<IGraphicsContext> CreateContext(const Ref<Window>& window, GraphicsApi api);
+        void RecreateRenderersForCurrentApi();
+
     private:
         std::vector<Ref<Stage>> _openStages = {};
-        std::vector<Ref<Window>> _windows = {};
-        std::vector<Ref<IRenderer>> _renderers = {};
+        std::vector<WindowBinding> _windowBindings = {};
         std::vector<Ref<Stage>> _pendingUploadStages = {};
-        Ref<IRendererFactory> _rendererFactory = {};
-        Ref<EventBus> _eventBus = {};
+        std::vector<Ref<IRendererFactory>> _rendererFactories = {};
+        std::vector<Ref<IGraphicsContextProvider>> _graphicsContextProviders = {};
+        std::unordered_map<GraphicsApi, Ref<IRendererFactory>> _rendererFactoryCache = {};
+        std::unordered_map<GraphicsApi, Ref<IGraphicsContextProvider>> _contextProviderCache = {};
+        Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};
+        GraphicsApi _graphicsApi = GraphicsApi::OpenGL;
         RgbaColor _clearColor = {};
     };
 }

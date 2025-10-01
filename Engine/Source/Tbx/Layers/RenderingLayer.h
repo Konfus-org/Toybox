@@ -2,9 +2,11 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Layers/Layer.h"
 #include "Tbx/Graphics/IRenderer.h"
+#include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Graphics/Rendering.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Memory/Refs.h"
+#include <vector>
 
 namespace Tbx
 {
@@ -15,7 +17,8 @@ namespace Tbx
     {
     public:
         TBX_EXPORT RenderingLayer(
-            Ref<IRendererFactory> renderFactory,
+            const std::vector<Ref<IRendererFactory>>& renderFactories,
+            const std::vector<Ref<IGraphicsContextProvider>>& graphicsContextProviders,
             Ref<EventBus> eventBus);
 
     protected:
