@@ -2,6 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/GraphicsApi.h"
 #include "Tbx/Memory/Refs.h"
+#include <vector>
 
 namespace Tbx
 {
@@ -40,8 +41,13 @@ namespace Tbx
         virtual ~IGraphicsConfigProvider() = default;
 
         /// <summary>
+        /// Lists the graphics APIs supported by this provider.
+        /// </summary>
+        virtual std::vector<GraphicsApi> GetSupportedApis() const = 0;
+
+        /// <summary>
         /// Retrieves a graphics context for the provided window using the requested API.
         /// </summary>
-        virtual Ref<IGraphicsConfig> Get(const Ref<Window>& window, GraphicsApi api) = 0;
+        virtual Ref<IGraphicsConfig> Provide(const Ref<Window>& window, GraphicsApi api) = 0;
     };
 }

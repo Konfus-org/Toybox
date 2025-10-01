@@ -2,7 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Layers/Layer.h"
 #include "Tbx/Graphics/IRenderer.h"
-#include "Tbx/Graphics/GraphicsContext.h"
+#include "Tbx/Graphics/GraphicsConfig.h"
 #include "Tbx/Graphics/Rendering.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Memory/Refs.h"

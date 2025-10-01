@@ -23,8 +23,6 @@ namespace Tbx
         TBX_ASSERT(!graphicsContextProviders.empty(), "Rendering: requires at least one graphics context provider instance.");
         TBX_ASSERT(_eventBus, "Rendering: requires a valid event bus instance.");
 
-        auto& unclassifiedFactories = _renderFactories[GraphicsApi::None];
-        unclassifiedFactories.reserve(rendererFactories.size());
         for (const auto& factory : rendererFactories)
         {
             if (!factory)
@@ -32,11 +30,26 @@ namespace Tbx
                 continue;
             }
 
-            unclassifiedFactories.push_back(factory);
+            const auto supportedApis = factory->GetSupportedApis();
+            if (supportedApis.empty())
+            {
+                TBX_ASSERT(false, "Rendering: Renderer factory must advertise at least one supported graphics API.");
+                continue;
+            }
+
+            for (const auto supportedApi : supportedApis)
+            {
+                auto& factoryBucket = _renderFactories[supportedApi];
+                const auto alreadyRegistered = std::find(factoryBucket.begin(), factoryBucket.end(), factory);
+                if (alreadyRegistered != factoryBucket.end())
+                {
+                    continue;
+                }
+
+                factoryBucket.push_back(factory);
+            }
         }
 
-        auto& unclassifiedProviders = _configProviders[GraphicsApi::None];
-        unclassifiedProviders.reserve(graphicsContextProviders.size());
         for (const auto& provider : graphicsContextProviders)
         {
             if (!provider)
@@ -44,7 +57,24 @@ namespace Tbx
                 continue;
             }
 
-            unclassifiedProviders.push_back(provider);
+            const auto supportedApis = provider->GetSupportedApis();
+            if (supportedApis.empty())
+            {
+                TBX_ASSERT(false, "Rendering: Graphics config provider must advertise at least one supported graphics API.");
+                continue;
+            }
+
+            for (const auto supportedApi : supportedApis)
+            {
+                auto& providerBucket = _configProviders[supportedApi];
+                const auto alreadyRegistered = std::find(providerBucket.begin(), providerBucket.end(), provider);
+                if (alreadyRegistered != providerBucket.end())
+                {
+                    continue;
+                }
+
+                providerBucket.push_back(provider);
+            }
         }
 
         _eventListener.Listen(this, &Rendering::OnWindowOpened);
@@ -316,57 +346,31 @@ namespace Tbx
 
     Ref<IRenderer> Rendering::CreateRenderer(GraphicsApi api)
     {
-        auto tryFactories = [&](GraphicsApi bucketApi) -> Ref<IRenderer>
+        auto& factories = _renderFactories[api];
+        for (auto it = factories.begin(); it != factories.end();)
         {
-            auto& factories = _renderFactories[bucketApi];
-            for (auto it = factories.begin(); it != factories.end();)
+            Ref<IRendererFactory> factory = *it;
+            if (!factory)
             {
-                Ref<IRendererFactory> factory = *it;
-                if (!factory)
-                {
-                    it = factories.erase(it);
-                    continue;
-                }
-
-                auto renderer = factory->Create();
-                if (!renderer)
-                {
-                    ++it;
-                    continue;
-                }
-
-                const auto rendererApi = renderer->GetApi();
-                if (rendererApi != api)
-                {
-                    _renderFactories[rendererApi].push_back(factory);
-                    it = factories.erase(it);
-                    continue;
-                }
-
-                if (bucketApi != api)
-                {
-                    factories.erase(it);
-                    _renderFactories[api].push_back(factory);
-                }
-
-                return renderer;
+                it = factories.erase(it);
+                continue;
             }
 
-            return nullptr;
-        };
+            auto renderer = factory->Create(api);
+            if (!renderer)
+            {
+                ++it;
+                continue;
+            }
 
-        if (auto renderer = tryFactories(api))
-        {
-            return renderer;
-        }
+            const auto rendererApi = renderer->GetApi();
+            if (rendererApi != api)
+            {
+                TBX_ASSERT(false, "Rendering: Renderer factory produced mismatched API.");
+                it = factories.erase(it);
+                continue;
+            }
 
-        if (auto renderer = tryFactories(GraphicsApi::None))
-        {
-            return renderer;
-        }
-
-        if (auto renderer = tryFactories(api))
-        {
             return renderer;
         }
 
@@ -381,57 +385,31 @@ namespace Tbx
             return nullptr;
         }
 
-        auto tryProviders = [&](GraphicsApi bucketApi) -> Ref<IGraphicsConfig>
+        auto& providers = _configProviders[api];
+        for (auto it = providers.begin(); it != providers.end();)
         {
-            auto& providers = _configProviders[bucketApi];
-            for (auto it = providers.begin(); it != providers.end();)
+            Ref<IGraphicsConfigProvider> provider = *it;
+            if (!provider)
             {
-                Ref<IGraphicsConfigProvider> provider = *it;
-                if (!provider)
-                {
-                    it = providers.erase(it);
-                    continue;
-                }
-
-                auto config = provider->Get(window, api);
-                if (!config)
-                {
-                    ++it;
-                    continue;
-                }
-
-                const auto configApi = config->GetApi();
-                if (configApi != api)
-                {
-                    _configProviders[configApi].push_back(provider);
-                    it = providers.erase(it);
-                    continue;
-                }
-
-                if (bucketApi != api)
-                {
-                    providers.erase(it);
-                    _configProviders[api].push_back(provider);
-                }
-
-                return config;
+                it = providers.erase(it);
+                continue;
             }
 
-            return nullptr;
-        };
+            auto config = provider->Provide(window, api);
+            if (!config)
+            {
+                ++it;
+                continue;
+            }
 
-        if (auto config = tryProviders(api))
-        {
-            return config;
-        }
+            const auto configApi = config->GetApi();
+            if (configApi != api)
+            {
+                TBX_ASSERT(false, "Rendering: Graphics config provider produced mismatched API.");
+                it = providers.erase(it);
+                continue;
+            }
 
-        if (auto config = tryProviders(GraphicsApi::None))
-        {
-            return config;
-        }
-
-        if (auto config = tryProviders(api))
-        {
             return config;
         }
 
