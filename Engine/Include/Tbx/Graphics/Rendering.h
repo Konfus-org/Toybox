@@ -22,7 +22,7 @@ namespace Tbx
         Ref<IRenderer> Renderer = nullptr;
     };
 
-    using WindowBindingMap = std::unordered_map<Ref<Window>, RenderingContext, WindowRefHasher, WindowRefEqual>;
+    using WindowBindingMap = std::unordered_map<Ref<Window>, RenderingContext, RefHasher<Window>, RefEqual<Window>>;
 
     /// <summary>
     /// Coordinates render targets, windows, and stage composition for a frame.
