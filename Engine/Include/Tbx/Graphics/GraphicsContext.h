@@ -16,16 +16,6 @@ namespace Tbx
         virtual ~IGraphicsConfig() = default;
 
         /// <summary>
-        /// Initializes the underlying graphics backend and prepares the context for use.
-        /// </summary>
-        virtual void Initialize() = 0;
-
-        /// <summary>
-        /// Releases the resources owned by the context.
-        /// </summary>
-        virtual void Shutdown() = 0;
-
-        /// <summary>
         /// Makes the context active on the current thread.
         /// </summary>
         virtual void MakeCurrent() = 0;
