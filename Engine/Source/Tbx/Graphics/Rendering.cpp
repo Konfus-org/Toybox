@@ -84,18 +84,14 @@ namespace Tbx
             return nullptr;
         }
 
-        auto it = std::find_if(_windowBindings.begin(), _windowBindings.end(),
-            [&window](const RenderingContext& binding)
-            {
-                return binding.BoundWindow == window;
-            });
-        if (it == _windowBindings.end())
+        const auto* binding = FindBinding(window);
+        if (!binding)
         {
             TBX_ASSERT(false, "Rendering: No renderer found for window");
             return nullptr;
         }
 
-        return it->Renderer;
+        return binding->Renderer;
     }
 
     void Rendering::DrawFrame()
@@ -149,7 +145,7 @@ namespace Tbx
 
         if (!uploadBuffer.Commands.empty())
         {
-            for (auto& binding : _windowBindings)
+            for (auto& [windowPtr, binding] : _windowBindings)
             {
                 const auto& renderer = binding.Renderer;
                 if (!renderer)
@@ -197,7 +193,7 @@ namespace Tbx
             }
         }
 
-        for (auto& binding : _windowBindings)
+        for (auto& [windowPtr, binding] : _windowBindings)
         {
             const auto& renderer = binding.Renderer;
             const auto& rendererWindow = binding.BoundWindow;
@@ -292,7 +288,7 @@ namespace Tbx
             newConfig->SwapBuffers();
         }
 
-        _windowBindings.push_back({ newWindow, newConfig, newRenderer });
+        _windowBindings[newWindow.get()] = { newWindow, newConfig, newRenderer };
         for (const auto& stage : _openStages)
         {
             QueueStageUpload(stage);
@@ -302,21 +298,12 @@ namespace Tbx
     void Rendering::OnWindowClosed(const WindowClosedEvent& e)
     {
         auto closedWindow = e.GetWindow();
-        const auto renderer = GetRenderer(closedWindow);
-        if (!renderer)
+        if (!closedWindow)
         {
             return;
         }
 
-        auto it = std::find_if(_windowBindings.begin(), _windowBindings.end(),
-            [&closedWindow](const RenderingContext& binding)
-            {
-                return binding.BoundWindow == closedWindow;
-            });
-        if (it != _windowBindings.end())
-        {
-            _windowBindings.erase(it);
-        }
+        _windowBindings.erase(closedWindow.get());
     }
 
     void Rendering::OnWindowResized(const WindowResizedEvent& e)
@@ -329,14 +316,9 @@ namespace Tbx
         }
 
         Ref<IGraphicsConfig> config = nullptr;
-        auto bindingIt = std::find_if(_windowBindings.begin(), _windowBindings.end(),
-            [&resizedWindow](const RenderingContext& binding)
-            {
-                return binding.BoundWindow == resizedWindow;
-            });
-        if (bindingIt != _windowBindings.end())
+        if (const auto* binding = FindBinding(resizedWindow))
         {
-            config = bindingIt->Config;
+            config = binding->Config;
         }
 
         for (const auto& stage : _openStages)
@@ -389,15 +371,14 @@ namespace Tbx
             it = _contextProviderCache.erase(it);
         }
 
-        std::vector<RenderingContext> newBindings = {};
+        std::unordered_map<Window*, RenderingContext> newBindings = {};
         newBindings.reserve(_windowBindings.size());
 
-        for (const auto& binding : _windowBindings)
+        for (const auto& [windowPtr, binding] : _windowBindings)
         {
             const auto& window = binding.BoundWindow;
             if (!window)
             {
-                newBindings.push_back({ nullptr, nullptr, nullptr });
                 continue;
             }
 
@@ -421,7 +402,7 @@ namespace Tbx
                 context->SwapBuffers();
             }
 
-            newBindings.push_back({ window, context, renderer });
+            newBindings.emplace(windowPtr, RenderingContext{ window, context, renderer });
         }
 
         _windowBindings = std::move(newBindings);
@@ -569,6 +550,38 @@ namespace Tbx
     void Rendering::OnStageClosed(const StageClosedEvent& e)
     {
         RemoveStage(e.GetStage());
+    }
+
+    RenderingContext* Rendering::FindBinding(const Ref<Window>& window)
+    {
+        if (!window)
+        {
+            return nullptr;
+        }
+
+        auto it = _windowBindings.find(window.get());
+        if (it == _windowBindings.end())
+        {
+            return nullptr;
+        }
+
+        return &it->second;
+    }
+
+    const RenderingContext* Rendering::FindBinding(const Ref<Window>& window) const
+    {
+        if (!window)
+        {
+            return nullptr;
+        }
+
+        auto it = _windowBindings.find(window.get());
+        if (it == _windowBindings.end())
+        {
+            return nullptr;
+        }
+
+        return &it->second;
     }
 }
 

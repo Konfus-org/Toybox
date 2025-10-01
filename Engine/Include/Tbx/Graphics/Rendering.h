@@ -65,9 +65,12 @@ namespace Tbx
         Ref<IGraphicsConfig> CreateContext(const Ref<Window>& window, GraphicsApi api);
         void RecreateRenderersForCurrentApi();
 
+        RenderingContext* FindBinding(const Ref<Window>& window);
+        const RenderingContext* FindBinding(const Ref<Window>& window) const;
+
     private:
         std::vector<Ref<Stage>> _openStages = {};
-        std::vector<RenderingContext> _windowBindings = {};
+        std::unordered_map<Window*, RenderingContext> _windowBindings = {};
         std::vector<Ref<Stage>> _pendingUploadStages = {};
         std::unordered_map<GraphicsApi, std::vector<Ref<IRendererFactory>>> _rendererFactoryCache = {};
         std::unordered_map<GraphicsApi, std::vector<Ref<IGraphicsConfigProvider>>> _contextProviderCache = {};
