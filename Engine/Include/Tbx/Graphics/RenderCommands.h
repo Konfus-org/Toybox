@@ -72,7 +72,7 @@ namespace Tbx
     {
     public:
         RenderCommandBuffer BuildUploadBuffer(StageView<MaterialInstance, Mesh, Model> view);
-        RenderCommandBuffer BuildRenderBuffer(FullStageViewView view);
+        RenderCommandBuffer BuildRenderBuffer(FullStageViewView view, float aspectRatio);
 
     private:
         void AddToyUploadCommandsToBuffer(const Ref<Toy>& toy, RenderCommandBuffer& buffer);

@@ -73,13 +73,12 @@ namespace Tbx
 
         void OnWindowOpened(const WindowOpenedEvent& e);
         void OnWindowClosed(const WindowClosedEvent& e);
-        void OnWindowResized(const WindowResizedEvent& e);
         void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
         void OnStageOpened(const StageOpenedEvent& e);
         void OnStageClosed(const StageClosedEvent& e);
 
         Ref<IRenderer> CreateRenderer(GraphicsApi api);
-        Ref<IGraphicsConfig> CreateContext(const Ref<Window>& window, GraphicsApi api);
+        Ref<IGraphicsConfig> GetConfig(const Ref<Window>& window, GraphicsApi api);
         void RecreateRenderersForCurrentApi();
 
         RenderingContext* FindBinding(const Ref<Window>& window);

@@ -4,6 +4,7 @@
 #include "Tbx/Graphics/RenderCommands.h"
 #include "Tbx/Graphics/Viewport.h"
 #include "Tbx/Graphics/Camera.h"
+#include "Tbx/Math/Size.h"
 #include <algorithm>
 #include <cstddef>
 #include <iterator>
@@ -59,7 +60,6 @@ namespace Tbx
 
         _eventListener.Listen(this, &Rendering::OnWindowOpened);
         _eventListener.Listen(this, &Rendering::OnWindowClosed);
-        _eventListener.Listen(this, &Rendering::OnWindowResized);
         _eventListener.Listen(this, &Rendering::OnAppSettingsChanged);
         _eventListener.Listen(this, &Rendering::OnStageOpened);
         _eventListener.Listen(this, &Rendering::OnStageClosed);
@@ -169,30 +169,6 @@ namespace Tbx
 
     void Rendering::ProcessOpenStages()
     {
-        RenderCommandBufferBuilder builder = {};
-        RenderCommandBuffer renderBuffer = {};
-        renderBuffer.Commands.emplace_back(RenderCommandType::Clear, _clearColor);
-
-        for (const auto& stage : _openStages)
-        {
-            if (!stage)
-            {
-                continue;
-            }
-
-            const auto spaceRoot = stage->GetRoot();
-            if (!spaceRoot)
-            {
-                continue;
-            }
-
-            const auto stageRenderBuffer = builder.BuildRenderBuffer(spaceRoot);
-            for (const auto& command : stageRenderBuffer.Commands)
-            {
-                renderBuffer.Commands.push_back(command);
-            }
-        }
-
         for (auto& [windowRef, binding] : _windowBindings)
         {
             const auto& renderer = binding.Renderer;
@@ -201,6 +177,35 @@ namespace Tbx
             if (!renderer || !rendererWindow)
             {
                 continue;
+            }
+
+            RenderCommandBufferBuilder builder = {};
+            RenderCommandBuffer renderBuffer = {};
+            renderBuffer.Commands.emplace_back(RenderCommandType::Clear, _clearColor);
+
+            const auto windowSize = rendererWindow->GetSize();
+            renderBuffer.Commands.emplace_back(RenderCommandType::SetViewport, Viewport({ 0, 0 }, windowSize));
+
+            const auto aspectRatio = CalculateAspectRatioFromSize(windowSize);
+
+            for (const auto& stage : _openStages)
+            {
+                if (!stage)
+                {
+                    continue;
+                }
+
+                const auto spaceRoot = stage->GetRoot();
+                if (!spaceRoot)
+                {
+                    continue;
+                }
+
+                const auto stageRenderBuffer = builder.BuildRenderBuffer(spaceRoot, aspectRatio);
+                for (const auto& command : stageRenderBuffer.Commands)
+                {
+                    renderBuffer.Commands.push_back(command);
+                }
             }
 
             if (config)
@@ -267,26 +272,8 @@ namespace Tbx
             return;
         }
 
-        auto newConfig = CreateContext(newWindow, _graphicsApi);
+        auto newConfig = GetConfig(newWindow, _graphicsApi);
         auto newRenderer = CreateRenderer(_graphicsApi);
-
-        if (newConfig)
-        {
-            newConfig->MakeCurrent();
-        }
-
-        if (newRenderer)
-        {
-            RenderCommandBuffer renderBuffer = {};
-            auto newViewport = Viewport({ 0, 0 }, newWindow->GetSize());
-            renderBuffer.Commands.emplace_back(RenderCommandType::SetViewport, newViewport);
-            newRenderer->Process(renderBuffer);
-        }
-
-        if (newConfig)
-        {
-            newConfig->SwapBuffers();
-        }
 
         _windowBindings[newWindow] = { newConfig, newRenderer };
         for (const auto& stage : _openStages)
@@ -304,47 +291,6 @@ namespace Tbx
         }
 
         _windowBindings.erase(closedWindow);
-    }
-
-    void Rendering::OnWindowResized(const WindowResizedEvent& e)
-    {
-        const auto resizedWindow = e.GetWindow();
-        const auto renderer = GetRenderer(resizedWindow);
-        if (!renderer)
-        {
-            return;
-        }
-
-        Ref<IGraphicsConfig> config = nullptr;
-        if (const auto* binding = FindBinding(resizedWindow))
-        {
-            config = binding->Config;
-        }
-
-        for (const auto& stage : _openStages)
-        {
-            auto cameraView = StageView<Camera>(stage->GetRoot());
-            for (const auto& toy : cameraView)
-            {
-                auto& camera = toy->Blocks.Get<Camera>();
-                camera.SetAspect(CalculateAspectRatioFromSize(resizedWindow->GetSize()));
-            }
-        }
-
-        RenderCommandBuffer renderBuffer = {};
-        renderBuffer.Commands.emplace_back(RenderCommandType::SetViewport, Viewport({ 0, 0 }, resizedWindow->GetSize()));
-
-        if (config)
-        {
-            config->MakeCurrent();
-        }
-
-        renderer->Process(renderBuffer);
-
-        if (config)
-        {
-            config->SwapBuffers();
-        }
     }
 
     void Rendering::RecreateRenderersForCurrentApi()
@@ -382,27 +328,10 @@ namespace Tbx
                 continue;
             }
 
-            auto context = CreateContext(window, _graphicsApi);
+            auto config = GetConfig(window, _graphicsApi);
             auto renderer = CreateRenderer(_graphicsApi);
 
-            if (context)
-            {
-                context->MakeCurrent();
-            }
-
-            if (renderer)
-            {
-                RenderCommandBuffer renderBuffer = {};
-                renderBuffer.Commands.emplace_back(RenderCommandType::SetViewport, Viewport({ 0, 0 }, window->GetSize()));
-                renderer->Process(renderBuffer);
-            }
-
-            if (context)
-            {
-                context->SwapBuffers();
-            }
-
-            newBindings.emplace(windowRef, RenderingContext{ context, renderer });
+            newBindings.emplace(windowRef, RenderingContext{ config, renderer });
         }
 
         _windowBindings = std::move(newBindings);
@@ -469,7 +398,7 @@ namespace Tbx
         return nullptr;
     }
 
-    Ref<IGraphicsConfig> Rendering::CreateContext(const Ref<Window>& window, GraphicsApi api)
+    Ref<IGraphicsConfig> Rendering::GetConfig(const Ref<Window>& window, GraphicsApi api)
     {
         if (!window)
         {
@@ -486,10 +415,10 @@ namespace Tbx
                     continue;
                 }
 
-                auto context = cachedProvider->Create(window, api);
-                if (context && context->GetApi() == api)
+                auto config = cachedProvider->Create(window, api);
+                if (config && config->GetApi() == api)
                 {
-                    return context;
+                    return config;
                 }
             }
         }
@@ -504,13 +433,13 @@ namespace Tbx
                     continue;
                 }
 
-                auto context = provider->Create(window, api);
-                if (!context)
+                auto config = provider->Create(window, api);
+                if (!config)
                 {
                     continue;
                 }
 
-                if (context->GetApi() != api)
+                if (config->GetApi() != api)
                 {
                     continue;
                 }
@@ -521,7 +450,7 @@ namespace Tbx
                     cache.push_back(provider);
                 }
 
-                return context;
+                return config;
             }
         }
 
