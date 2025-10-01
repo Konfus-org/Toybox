@@ -18,10 +18,27 @@ namespace Tbx
 {
     struct RenderingContext
     {
-        Ref<Window> BoundWindow = nullptr;
         Ref<IGraphicsConfig> Config = nullptr;
         Ref<IRenderer> Renderer = nullptr;
     };
+
+    struct WindowRefHash
+    {
+        size_t operator()(const Ref<Window>& window) const noexcept
+        {
+            return std::hash<Window*>{}(window.get());
+        }
+    };
+
+    struct WindowRefEqual
+    {
+        bool operator()(const Ref<Window>& lhs, const Ref<Window>& rhs) const noexcept
+        {
+            return lhs.get() == rhs.get();
+        }
+    };
+
+    using WindowBindingMap = std::unordered_map<Ref<Window>, RenderingContext, WindowRefHash, WindowRefEqual>;
 
     /// <summary>
     /// Coordinates render targets, windows, and stage composition for a frame.
@@ -70,7 +87,7 @@ namespace Tbx
 
     private:
         std::vector<Ref<Stage>> _openStages = {};
-        std::unordered_map<Window*, RenderingContext> _windowBindings = {};
+        WindowBindingMap _windowBindings = {};
         std::vector<Ref<Stage>> _pendingUploadStages = {};
         std::unordered_map<GraphicsApi, std::vector<Ref<IRendererFactory>>> _rendererFactoryCache = {};
         std::unordered_map<GraphicsApi, std::vector<Ref<IGraphicsConfigProvider>>> _contextProviderCache = {};

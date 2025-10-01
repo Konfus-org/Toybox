@@ -145,7 +145,7 @@ namespace Tbx
 
         if (!uploadBuffer.Commands.empty())
         {
-            for (auto& [windowPtr, binding] : _windowBindings)
+            for (auto& [windowRef, binding] : _windowBindings)
             {
                 const auto& renderer = binding.Renderer;
                 if (!renderer)
@@ -193,10 +193,10 @@ namespace Tbx
             }
         }
 
-        for (auto& [windowPtr, binding] : _windowBindings)
+        for (auto& [windowRef, binding] : _windowBindings)
         {
             const auto& renderer = binding.Renderer;
-            const auto& rendererWindow = binding.BoundWindow;
+            const auto& rendererWindow = windowRef;
             const auto& config = binding.Config;
             if (!renderer || !rendererWindow)
             {
@@ -288,7 +288,7 @@ namespace Tbx
             newConfig->SwapBuffers();
         }
 
-        _windowBindings[newWindow.get()] = { newWindow, newConfig, newRenderer };
+        _windowBindings[newWindow] = { newConfig, newRenderer };
         for (const auto& stage : _openStages)
         {
             QueueStageUpload(stage);
@@ -303,7 +303,7 @@ namespace Tbx
             return;
         }
 
-        _windowBindings.erase(closedWindow.get());
+        _windowBindings.erase(closedWindow);
     }
 
     void Rendering::OnWindowResized(const WindowResizedEvent& e)
@@ -371,12 +371,12 @@ namespace Tbx
             it = _contextProviderCache.erase(it);
         }
 
-        std::unordered_map<Window*, RenderingContext> newBindings = {};
+        WindowBindingMap newBindings = {};
         newBindings.reserve(_windowBindings.size());
 
-        for (const auto& [windowPtr, binding] : _windowBindings)
+        for (const auto& [windowRef, binding] : _windowBindings)
         {
-            const auto& window = binding.BoundWindow;
+            const auto& window = windowRef;
             if (!window)
             {
                 continue;
@@ -402,7 +402,7 @@ namespace Tbx
                 context->SwapBuffers();
             }
 
-            newBindings.emplace(windowPtr, RenderingContext{ window, context, renderer });
+            newBindings.emplace(windowRef, RenderingContext{ context, renderer });
         }
 
         _windowBindings = std::move(newBindings);
@@ -559,7 +559,7 @@ namespace Tbx
             return nullptr;
         }
 
-        auto it = _windowBindings.find(window.get());
+        auto it = _windowBindings.find(window);
         if (it == _windowBindings.end())
         {
             return nullptr;
@@ -575,7 +575,7 @@ namespace Tbx
             return nullptr;
         }
 
-        auto it = _windowBindings.find(window.get());
+        auto it = _windowBindings.find(window);
         if (it == _windowBindings.end())
         {
             return nullptr;
