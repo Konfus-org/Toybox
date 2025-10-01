@@ -34,6 +34,7 @@ namespace Tbx
 
             auto& camera = toy->Blocks.Get<Camera>();
 
+            TBX_ASSERT(aspectRatio > 0.0f, "RenderCommandBufferBuilder: aspect ratio must be positive.");
             if (aspectRatio > 0.0f)
             {
                 camera.SetAspect(aspectRatio);

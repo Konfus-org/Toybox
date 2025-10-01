@@ -40,8 +40,8 @@ namespace Tbx
         virtual ~IGraphicsConfigProvider() = default;
 
         /// <summary>
-        /// Creates a graphics context for the provided window using the requested API.
+        /// Retrieves a graphics context for the provided window using the requested API.
         /// </summary>
-        virtual Ref<IGraphicsConfig> Create(const Ref<Window>& window, GraphicsApi api) = 0;
+        virtual Ref<IGraphicsConfig> Get(const Ref<Window>& window, GraphicsApi api) = 0;
     };
 }

@@ -18,27 +18,12 @@ namespace Tbx
 {
     struct RenderingContext
     {
+        Ref<Window> Window = nullptr;
         Ref<IGraphicsConfig> Config = nullptr;
         Ref<IRenderer> Renderer = nullptr;
     };
 
-    struct WindowRefHash
-    {
-        size_t operator()(const Ref<Window>& window) const noexcept
-        {
-            return std::hash<Window*>{}(window.get());
-        }
-    };
-
-    struct WindowRefEqual
-    {
-        bool operator()(const Ref<Window>& lhs, const Ref<Window>& rhs) const noexcept
-        {
-            return lhs.get() == rhs.get();
-        }
-    };
-
-    using WindowBindingMap = std::unordered_map<Ref<Window>, RenderingContext, WindowRefHash, WindowRefEqual>;
+    using WindowBindingMap = std::unordered_map<Window*, RenderingContext>;
 
     /// <summary>
     /// Coordinates render targets, windows, and stage composition for a frame.
@@ -81,15 +66,14 @@ namespace Tbx
         Ref<IGraphicsConfig> GetConfig(const Ref<Window>& window, GraphicsApi api);
         void RecreateRenderersForCurrentApi();
 
-        RenderingContext* FindBinding(const Ref<Window>& window);
-        const RenderingContext* FindBinding(const Ref<Window>& window) const;
-
     private:
         std::vector<Ref<Stage>> _openStages = {};
         WindowBindingMap _windowBindings = {};
         std::vector<Ref<Stage>> _pendingUploadStages = {};
-        std::unordered_map<GraphicsApi, std::vector<Ref<IRendererFactory>>> _rendererFactoryCache = {};
-        std::unordered_map<GraphicsApi, std::vector<Ref<IGraphicsConfigProvider>>> _contextProviderCache = {};
+        std::vector<Ref<IRendererFactory>> _rendererFactories = {};
+        std::vector<Ref<IGraphicsConfigProvider>> _graphicsConfigProviders = {};
+        std::unordered_map<GraphicsApi, Ref<IRendererFactory>> _rendererFactoryCache = {};
+        std::unordered_map<GraphicsApi, Ref<IGraphicsConfigProvider>> _configProviderCache = {};
         Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};
         GraphicsApi _graphicsApi = GraphicsApi::OpenGL;
