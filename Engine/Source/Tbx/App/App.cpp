@@ -105,6 +105,9 @@ namespace Tbx
             {
                 TBX_ASSERT(inputHandlerPlugs.size() == 1, "App: Only one input handler is allowed!");
                 auto inputHandler = inputHandlerPlugs.front();
+
+                // TODO remove layers from app and move to runtimes
+                // Then move the existing layers to static plugins and add update logic to plugs...
                 AddLayer<InputLayer>(inputHandler);
             }
         }
@@ -116,12 +119,12 @@ namespace Tbx
         // Finally, initialize any runtimes
         auto assetLoaderPlugs = _plugins.OfType<IAssetLoader>();
         auto assetServer = MakeRef<AssetServer>(assetDirectory, assetLoaderPlugs);
-        for (const auto& layer : _layerStack)
+        auto runtimeLoaders = _plugins.OfType<IRuntimeLoader>();
+        for (const auto& runtimeLoader : runtimeLoaders)
         {
-            if (Runtime* runtime = dynamic_cast<Runtime*>(layer.get()))
-            {
-                runtime->Initialize(assetServer, _eventBus);
-            }
+            auto runtime = runtimeLoader->Load(assetServer, _eventBus);
+
+            // TODO: push runtime back into a list of runtimes!
         }
     }
 

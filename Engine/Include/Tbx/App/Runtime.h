@@ -1,7 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/App/App.h"
-#include "Tbx/Layers/Layer.h"
 #include "Tbx/Plugins/Plugin.h"
 #include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/EventBus.h"
@@ -13,32 +12,46 @@ namespace Tbx
     /// <summary>
     /// This is a layer added at runtime via the plugin system via a runtime loader.
     /// </summary>
-    class TBX_EXPORT Runtime : public Layer
+    class TBX_EXPORT Runtime
     {
     public:
-        Runtime(const std::string& name);
-
-        /// <summary>
-        /// Starts a runtime.
-        /// Should be called after important systems are initialized so the runtime can utilize them.
-        /// </summary>
-        void Initialize(
+        Runtime(
+            const std::string& name,
             Ref<AssetServer> assetServer,
             Ref<EventBus> eventBus);
+
+        /// <summary>
+        /// Inits a runtime.
+        /// Should be called after important systems are initialized so the runtime can utilize them.
+        /// </summary>
+        void Initialize();
+
+        /// <summary>
+        /// Updates the runtime.
+        /// </summary>
+        void Update();
 
         /// <summary>
         /// Shuts down a runtime.
         /// </summary>
         void Shutdown();
 
-        // This occurs BEFORE our app has been fully initialized. So we don't want to do anything here... 
-        // overriding to hide it from inheritors
-        void OnAttach() final;
-
-        // Shutdown makes more sense so we will override this to hide from inheritors, it will just call on shutdown.
-        void OnDetach() final;
-
     protected:
+        /// <summary>
+        /// Called when the owning app is started.
+        /// </summary>
+        virtual void OnStart() {}
+
+        /// <summary>
+        /// Called when the owning app is updated.
+        /// </summary>
+        virtual void OnUpdate() {}
+
+        /// <summary>
+        /// Called when the owning app is shutting down.
+        /// </summary>
+        virtual void OnShutdown() {}
+
         // TODO: hide behind protected accessors
         // Ex: GetAsset<>, GetAssets<>, AddAsset, RemoveAsset, etc...
         AssetServer& GetAssetServer() const;
@@ -46,32 +59,33 @@ namespace Tbx
         // Ex: PostEvent<>, SendEvent<>, SubscribeToEvent<>, UnsubscribeFromEvent<>, etc...
         EventBus& GetEventBus() const;
 
-        virtual void OnStart() {}
-        virtual void OnShutdown() {}
-
     private:
         Ref<AssetServer> _assetServer = nullptr;
         Ref<EventBus> _eventBus = nullptr;
+        std::string _name = "";
+    };
+
+    class IRuntimeLoader : public IPlugin
+    {
+    public:
+        virtual Tbx::Ref<Runtime> Load(
+            Ref<AssetServer> assetServer,
+            Ref<EventBus> eventBus) = 0;
     };
 
     template <class TRuntime>
     requires std::is_base_of_v<Runtime, TRuntime>
-    class RuntimeLoader : public IPlugin
+    class RuntimeLoader : public IRuntimeLoader
     {
     public:
-        RuntimeLoader(Ref<EventBus> eventBus)
-            : _listener(eventBus)
-        {
-            auto addRuntime = [this](const AppLaunchedEvent& e)
-            {
-                e.GetApp().AddLayer<TRuntime>();
-                _listener.Unbind();
-            };
-            _listener.Listen<AppLaunchedEvent>(addRuntime);
-        }
+        RuntimeLoader(Ref<EventBus> eventBus) {}
 
-    private:
-        EventListener _listener = {};
+        Tbx::Ref<Runtime> Load(
+            Ref<AssetServer> assetServer,
+            Ref<EventBus> eventBus) override
+        {
+            return MakeRef<Runtime>(assetServer, eventBus);
+        }
     };
 
     /// <summary>

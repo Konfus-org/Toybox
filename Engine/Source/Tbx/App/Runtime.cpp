@@ -3,36 +3,32 @@
 
 namespace Tbx
 {
-    Runtime::Runtime(const std::string& name)
-        : Layer(name)
+    Runtime::Runtime(
+        const std::string& name,
+        Ref<AssetServer> assetServer,
+        Ref<EventBus> eventBus)
+        : _name(name)
+        , _assetServer(assetServer)
+        , _eventBus(eventBus)
     {
     }
 
-    void Runtime::Initialize(
-        Ref<AssetServer> assetServer,
-        Ref<EventBus> eventBus)
+    void Runtime::Initialize()
     {
-        _assetServer = assetServer;
-        _eventBus = eventBus;
-
         // Hook for inheriting runtimes
         OnStart();
+    }
+
+    void Runtime::Update()
+    {
+        // Hook for inheriting runtimes
+        OnUpdate();
     }
 
     void Runtime::Shutdown()
     {
         // Hook for inheriting runtimes
         OnShutdown();
-    }
-
-    void Runtime::OnAttach()
-    {
-        // Do nothing on attach...
-    }
-
-    void Runtime::OnDetach()
-    {
-        Shutdown();
     }
 
     AssetServer& Runtime::GetAssetServer() const
