@@ -2,6 +2,7 @@
 #include "Tbx/Graphics/RenderCommands.h"
 #include "Tbx/Graphics/GraphicsApi.h"
 #include "Tbx/Memory/Refs.h"
+#include <vector>
 
 namespace Tbx
 {
@@ -26,33 +27,11 @@ namespace Tbx
         virtual GraphicsApi GetApi() = 0;
     };
 
-    class TBX_EXPORT IOpenGlRenderer : public IRenderer
-    {
-    public:
-        IOpenGlRenderer() = default;
-        virtual ~IOpenGlRenderer() = default;
-
-        GraphicsApi GetApi() override
-        {
-            return GraphicsApi::OpenGL;
-        }
-    };
-
-    class TBX_EXPORT IVulkanRenderer : public IRenderer
-    {
-    public:
-        virtual ~IVulkanRenderer() = default;
-
-        GraphicsApi GetApi() override
-        {
-            return GraphicsApi::Vulkan;
-        }
-    };
-
     class TBX_EXPORT IRendererFactory
     {
     public:
         virtual ~IRendererFactory() = default;
-        virtual Ref<IRenderer> Create() = 0;
+        virtual std::vector<GraphicsApi> GetSupportedApis() const = 0;
+        virtual Ref<IRenderer> Create(GraphicsApi api) = 0;
     };
 }

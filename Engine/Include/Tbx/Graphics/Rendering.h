@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Graphics/GraphicsContext.h"
+#include "Tbx/Graphics/GraphicsConfig.h"
 #include "Tbx/Graphics/IRenderer.h"
 #include "Tbx/Windowing/Window.h"
 #include "Tbx/Stages/Stage.h"

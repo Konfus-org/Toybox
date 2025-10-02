@@ -1,7 +1,7 @@
 #include "Tbx/PCH.h"
 #include "Tbx/App/App.h"
 #include "Tbx/App/Runtime.h"
-#include "Tbx/Graphics/GraphicsContext.h"
+#include "Tbx/Graphics/GraphicsConfig.h"
 #include "Tbx/Layers/InputLayer.h"
 #include "Tbx/Layers/RenderingLayer.h"
 #include "Tbx/Layers/WindowingLayer.h"
