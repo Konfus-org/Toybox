@@ -11,6 +11,6 @@ namespace Tbx::Launcher
     /// </summary>
     AppStatus Launch(
         const std::string& name,
-        const Settings& settings = {},
+        const AppSettings& settings = {},
         const std::vector<std::string>& args = {});
 }

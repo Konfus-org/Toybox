@@ -1,20 +1,17 @@
 #include "Tbx/PCH.h"
-#include "Tbx/Graphics/Rendering.h"
+#include "Tbx/Graphics/RenderingPipeline.h"
 #include "Tbx/Events/RenderEvents.h"
 #include "Tbx/Graphics/RenderCommands.h"
 #include "Tbx/Graphics/Viewport.h"
-#include "Tbx/Graphics/Camera.h"
 #include "Tbx/Math/Size.h"
 #include <algorithm>
-#include <cstddef>
-#include <iterator>
 #include <utility>
 
 namespace Tbx
 {
-    Rendering::Rendering(
+    RenderingPipeline::RenderingPipeline(
         const std::vector<Ref<IRendererFactory>>& rendererFactories,
-        const std::vector<Ref<IGraphicsConfigProvider>>& graphicsContextProviders,
+        const std::vector<Ref<IGraphicsContextProvider>>& graphicsContextProviders,
         Ref<EventBus> eventBus)
         : _eventBus(eventBus)
         , _eventListener(eventBus)
@@ -60,7 +57,7 @@ namespace Tbx
             const auto supportedApis = provider->GetSupportedApis();
             if (supportedApis.empty())
             {
-                TBX_ASSERT(false, "Rendering: Graphics config provider must advertise at least one supported graphics API.");
+                TBX_ASSERT(false, "Rendering: Graphics context provider must advertise at least one supported graphics API.");
                 continue;
             }
 
@@ -77,16 +74,16 @@ namespace Tbx
             }
         }
 
-        _eventListener.Listen(this, &Rendering::OnWindowOpened);
-        _eventListener.Listen(this, &Rendering::OnWindowClosed);
-        _eventListener.Listen(this, &Rendering::OnAppSettingsChanged);
-        _eventListener.Listen(this, &Rendering::OnStageOpened);
-        _eventListener.Listen(this, &Rendering::OnStageClosed);
+        _eventListener.Listen(this, &RenderingPipeline::OnWindowOpened);
+        _eventListener.Listen(this, &RenderingPipeline::OnWindowClosed);
+        _eventListener.Listen(this, &RenderingPipeline::OnAppSettingsChanged);
+        _eventListener.Listen(this, &RenderingPipeline::OnStageOpened);
+        _eventListener.Listen(this, &RenderingPipeline::OnStageClosed);
     }
 
-    Rendering::~Rendering() = default;
+    RenderingPipeline::~RenderingPipeline() = default;
 
-    void Rendering::Update()
+    void RenderingPipeline::Update()
     {
         if (_windowBindings.empty() || _openStages.empty())
         {
@@ -96,7 +93,7 @@ namespace Tbx
         DrawFrame();
     }
 
-    Ref<IRenderer> Rendering::GetRenderer(const Ref<Window>& window) const
+    Ref<IRenderer> RenderingPipeline::GetRenderer(const Ref<Window>& window) const
     {
         if (!window)
         {
@@ -110,16 +107,16 @@ namespace Tbx
             return nullptr;
         }
 
-        return it->second.Renderer;
+        return it->second;
     }
 
-    void Rendering::DrawFrame()
+    void RenderingPipeline::DrawFrame()
     {
         ProcessPendingUploads();
         ProcessOpenStages();
     }
 
-    void Rendering::QueueStageUpload(const Ref<Stage>& stage)
+    void RenderingPipeline::QueueStageUpload(const Ref<Stage>& stage)
     {
         if (!stage)
         {
@@ -133,7 +130,7 @@ namespace Tbx
         }
     }
 
-    void Rendering::ProcessPendingUploads()
+    void RenderingPipeline::ProcessPendingUploads()
     {
         if (_pendingUploadStages.empty())
         {
@@ -164,21 +161,8 @@ namespace Tbx
 
         if (!uploadBuffer.Commands.empty())
         {
-            for (auto& bindingEntry : _windowBindings)
+            for (auto& [window, renderer] : _windowBindings)
             {
-                auto& binding = bindingEntry.second;
-                const auto& renderer = binding.Renderer;
-                if (!renderer)
-                {
-                    continue;
-                }
-
-                const auto& config = binding.Config;
-                if (config)
-                {
-                    config->MakeCurrent();
-                }
-
                 renderer->Flush();
                 renderer->Process(uploadBuffer);
             }
@@ -187,27 +171,17 @@ namespace Tbx
         _pendingUploadStages.clear();
     }
 
-    void Rendering::ProcessOpenStages()
+    void RenderingPipeline::ProcessOpenStages()
     {
-        for (auto& bindingEntry : _windowBindings)
+        for (auto& [window, renderer] : _windowBindings)
         {
-            auto& binding = bindingEntry.second;
-            const auto& rendererWindow = bindingEntry.first;
-            const auto& renderer = binding.Renderer;
-            const auto& config = binding.Config;
-            if (!renderer || !rendererWindow)
-            {
-                continue;
-            }
-
             RenderCommandBufferBuilder builder = {};
             RenderCommandBuffer renderBuffer = {};
-            renderBuffer.Commands.emplace_back(RenderCommandType::Clear, _clearColor);
 
-            const auto windowSize = rendererWindow->GetSize();
-            renderBuffer.Commands.emplace_back(RenderCommandType::SetViewport, Viewport({ 0, 0 }, windowSize));
-
+            const auto windowSize = window->GetSize();
             const auto aspectRatio = CalculateAspectRatioFromSize(windowSize);
+            renderBuffer.Commands.emplace_back(RenderCommandType::SetViewport, Viewport({ 0, 0 }, windowSize));
+            renderBuffer.Commands.emplace_back(RenderCommandType::Clear, _clearColor);
 
             for (const auto& stage : _openStages)
             {
@@ -229,17 +203,7 @@ namespace Tbx
                 }
             }
 
-            if (config)
-            {
-                config->MakeCurrent();
-            }
-
             renderer->Process(renderBuffer);
-
-            if (config)
-            {
-                config->SwapBuffers();
-            }
         }
 
         if (_eventBus)
@@ -248,7 +212,7 @@ namespace Tbx
         }
     }
 
-    void Rendering::AddStage(const Ref<Stage>& stage)
+    void RenderingPipeline::AddStage(const Ref<Stage>& stage)
     {
         if (!stage)
         {
@@ -265,7 +229,7 @@ namespace Tbx
         QueueStageUpload(stage);
     }
 
-    void Rendering::RemoveStage(const Ref<Stage>& stage)
+    void RenderingPipeline::RemoveStage(const Ref<Stage>& stage)
     {
         if (!stage)
         {
@@ -285,7 +249,7 @@ namespace Tbx
         }
     }
 
-    void Rendering::OnWindowOpened(const WindowOpenedEvent& e)
+    void RenderingPipeline::OnWindowOpened(const WindowOpenedEvent& e)
     {
         auto newWindow = e.GetWindow();
         if (!newWindow)
@@ -293,17 +257,17 @@ namespace Tbx
             return;
         }
 
-        auto newConfig = CreateConfig(newWindow, _graphicsApi);
-        auto newRenderer = CreateRenderer(_graphicsApi);
+        auto newConfig = CreateContext(newWindow, _currGraphicsApi);
+        auto newRenderer = CreateRenderer(newConfig);
 
-        _windowBindings.emplace(newWindow, RenderingContext{ newConfig, newRenderer });
+        _windowBindings.emplace(newWindow, newRenderer);
         for (const auto& stage : _openStages)
         {
             QueueStageUpload(stage);
         }
     }
 
-    void Rendering::OnWindowClosed(const WindowClosedEvent& e)
+    void RenderingPipeline::OnWindowClosed(const WindowClosedEvent& e)
     {
         auto closedWindow = e.GetWindow();
         if (!closedWindow)
@@ -314,9 +278,9 @@ namespace Tbx
         _windowBindings.erase(closedWindow);
     }
 
-    void Rendering::RecreateRenderersForCurrentApi()
+    void RenderingPipeline::RecreateRenderersForCurrentApi()
     {
-        WindowBindingMap newBindings = {};
+        WindowRendererBindingMap newBindings = {};
         newBindings.reserve(_windowBindings.size());
 
         for (const auto& bindingEntry : _windowBindings)
@@ -327,26 +291,26 @@ namespace Tbx
                 continue;
             }
 
-            auto config = CreateConfig(window, _graphicsApi);
-            TBX_ASSERT(config, "Rendering: Unable to recreate graphics config for window.");
-            auto renderer = CreateRenderer(_graphicsApi);
+            auto context = CreateContext(window, _currGraphicsApi);
+            TBX_ASSERT(context, "Rendering: Unable to recreate graphics context for window.");
+            auto renderer = CreateRenderer(context);
             TBX_ASSERT(renderer, "Rendering: Unable to recreate renderer for window.");
 
-            newBindings.emplace(window, RenderingContext{ config, renderer });
+            newBindings.emplace(window, renderer);
         }
 
         _windowBindings = std::move(newBindings);
-
         _pendingUploadStages.clear();
+
         for (const auto& stage : _openStages)
         {
             QueueStageUpload(stage);
         }
     }
 
-    Ref<IRenderer> Rendering::CreateRenderer(GraphicsApi api)
+    Ref<IRenderer> RenderingPipeline::CreateRenderer(Ref<IGraphicsContext> context)
     {
-        auto& factories = _renderFactories[api];
+        auto& factories = _renderFactories[context->GetApi()];
         for (auto it = factories.begin(); it != factories.end();)
         {
             Ref<IRendererFactory> factory = *it;
@@ -356,7 +320,7 @@ namespace Tbx
                 continue;
             }
 
-            auto renderer = factory->Create(api);
+            auto renderer = factory->Create(context);
             if (!renderer)
             {
                 ++it;
@@ -364,7 +328,7 @@ namespace Tbx
             }
 
             const auto rendererApi = renderer->GetApi();
-            if (rendererApi != api)
+            if (rendererApi != context->GetApi())
             {
                 TBX_ASSERT(false, "Rendering: Renderer factory produced mismatched API.");
                 it = factories.erase(it);
@@ -378,7 +342,7 @@ namespace Tbx
         return nullptr;
     }
 
-    Ref<IGraphicsConfig> Rendering::CreateConfig(const Ref<Window>& window, GraphicsApi api)
+    Ref<IGraphicsContext> RenderingPipeline::CreateContext(Ref<Window> window, GraphicsApi api)
     {
         if (!window)
         {
@@ -388,7 +352,7 @@ namespace Tbx
         auto& providers = _configProviders[api];
         for (auto it = providers.begin(); it != providers.end();)
         {
-            Ref<IGraphicsConfigProvider> provider = *it;
+            Ref<IGraphicsContextProvider> provider = *it;
             if (!provider)
             {
                 it = providers.erase(it);
@@ -405,7 +369,7 @@ namespace Tbx
             const auto configApi = config->GetApi();
             if (configApi != api)
             {
-                TBX_ASSERT(false, "Rendering: Graphics config provider produced mismatched API.");
+                TBX_ASSERT(false, "Rendering: Graphics context provider produced mismatched API.");
                 it = providers.erase(it);
                 continue;
             }
@@ -417,25 +381,25 @@ namespace Tbx
         return nullptr;
     }
 
-    void Rendering::OnAppSettingsChanged(const AppSettingsChangedEvent& e)
+    void RenderingPipeline::OnAppSettingsChanged(const AppSettingsChangedEvent& e)
     {
         const auto& newSettings = e.GetNewSettings();
         _clearColor = newSettings.ClearColor;
-        const auto previousApi = _graphicsApi;
-        _graphicsApi = newSettings.Api;
+        const auto previousApi = _currGraphicsApi;
+        _currGraphicsApi = newSettings.Api;
 
-        if (previousApi != _graphicsApi)
+        if (previousApi != _currGraphicsApi)
         {
             RecreateRenderersForCurrentApi();
         }
     }
 
-    void Rendering::OnStageOpened(const StageOpenedEvent& e)
+    void RenderingPipeline::OnStageOpened(const StageOpenedEvent& e)
     {
         AddStage(e.GetStage());
     }
 
-    void Rendering::OnStageClosed(const StageClosedEvent& e)
+    void RenderingPipeline::OnStageClosed(const StageClosedEvent& e)
     {
         RemoveStage(e.GetStage());
     }

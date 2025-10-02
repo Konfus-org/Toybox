@@ -30,7 +30,7 @@ namespace Tbx
     {
     public:
         App(const std::string_view& name,
-            const Settings& settings,
+            const AppSettings& settings,
             const PluginStack& plugins,
             Ref<EventBus> eventBus);
         virtual ~App();
@@ -48,8 +48,8 @@ namespace Tbx
         const AppStatus& GetStatus() const;
         const std::string& GetName() const;
 
-        void SetSettings(const Settings& settings);
-        const Settings& GetSettings() const;
+        void SetSettings(const AppSettings& settings);
+        const AppSettings& GetSettings() const;
 
         template <typename TLayer, typename... TArgs>
         Uid AddLayer(TArgs&&... args)
@@ -77,7 +77,7 @@ namespace Tbx
     private:
         std::string _name = "";
         AppStatus _status = AppStatus::None;
-        Settings _settings = {};
+        AppSettings _settings = {};
         LayerStack _layerStack = {};
         Uid _mainWindowId = Uid::Invalid;
         Ref<EventBus> _eventBus = nullptr;

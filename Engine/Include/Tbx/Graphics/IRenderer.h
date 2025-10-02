@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/Graphics/RenderCommands.h"
-#include "Tbx/Graphics/GraphicsApi.h"
+#include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Memory/Refs.h"
 #include <vector>
 
@@ -24,7 +24,7 @@ namespace Tbx
         /// <summary>
         /// Gets the graphics Api the renderer uses.
         /// </summary>
-        virtual GraphicsApi GetApi() = 0;
+        virtual GraphicsApi GetApi() const = 0;
     };
 
     class TBX_EXPORT IRendererFactory
@@ -32,6 +32,6 @@ namespace Tbx
     public:
         virtual ~IRendererFactory() = default;
         virtual std::vector<GraphicsApi> GetSupportedApis() const = 0;
-        virtual Ref<IRenderer> Create(GraphicsApi api) = 0;
+        virtual Ref<IRenderer> Create(Ref<IGraphicsContext> context) = 0;
     };
 }

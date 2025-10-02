@@ -56,10 +56,10 @@ namespace Tbx
     class TBX_EXPORT AppSettingsChangedEvent : public Event
     {
     public:
-        explicit AppSettingsChangedEvent(const Settings& settings)
+        explicit AppSettingsChangedEvent(const AppSettings& settings)
             : _settings(settings) {}
 
-        const Settings& GetNewSettings() const { return _settings; }
+        const AppSettings& GetNewSettings() const { return _settings; }
 
         std::string ToString() const override
         {
@@ -67,7 +67,7 @@ namespace Tbx
         }
 
     private:
-        Settings _settings = {};
+        AppSettings _settings = {};
     };
 }
 

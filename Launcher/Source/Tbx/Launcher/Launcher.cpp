@@ -7,7 +7,7 @@ namespace Tbx::Launcher
 {
     AppStatus Launch(
         const std::string& name,
-        const Settings& settings,
+        const AppSettings& settings,
         const std::vector<std::string>& args) // TODO: deal with args (just one to start --headless)
     {
         auto logListener = EventListener();

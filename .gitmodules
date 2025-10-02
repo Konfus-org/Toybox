@@ -40,3 +40,6 @@
 [submodule "Dependencies/SDL"]
 	path = Dependencies/SDL
 	url = https://github.com/Konfus-org/SDL.git
+[submodule "Plugins/Toybox-SDL-GraphicsContexts-Plugin"]
+	path = Plugins/Toybox-SDL-GraphicsContexts-Plugin
+	url = https://github.com/konfus-org/Toybox-SDL-GraphicsContexts-Plugin.git

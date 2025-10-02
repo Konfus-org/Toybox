@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/Color.h"
-#include "Tbx/Graphics/GraphicsApi.h"
+#include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Math/Size.h"
 
 namespace Tbx
@@ -9,7 +9,7 @@ namespace Tbx
     /// <summary>
     /// Configures runtime behaviour for the core application such as display resolution and rendering backend.
     /// </summary>
-    struct TBX_EXPORT Settings
+    struct TBX_EXPORT AppSettings
     {
         bool VSyncEnabled = false;
         GraphicsApi Api = GraphicsApi::OpenGL;

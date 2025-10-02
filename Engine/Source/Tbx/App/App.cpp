@@ -1,7 +1,7 @@
 #include "Tbx/PCH.h"
 #include "Tbx/App/App.h"
 #include "Tbx/App/Runtime.h"
-#include "Tbx/Graphics/GraphicsConfig.h"
+#include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Layers/InputLayer.h"
 #include "Tbx/Layers/RenderingLayer.h"
 #include "Tbx/Layers/WindowingLayer.h"
@@ -14,7 +14,7 @@
 
 namespace Tbx
 {
-    App::App(const std::string_view& name, const Settings& settings, const PluginStack& plugins, Ref<EventBus> eventBus)
+    App::App(const std::string_view& name, const AppSettings& settings, const PluginStack& plugins, Ref<EventBus> eventBus)
         : _name(name)
         , _settings(settings)
         , _eventBus(eventBus)
@@ -74,6 +74,10 @@ namespace Tbx
         auto assetDirectory = FileSystem::GetAssetDirectory();
         TBX_TRACE_INFO("App: Current asset directory is: {}\n", assetDirectory);
 
+        // Sub to window closing so we can listen for main window closed to init app shutdown
+        _eventListener.Listen(this, &App::OnWindowOpened);
+        _eventListener.Listen(this, &App::OnWindowClosed);
+
         // Broadcast initial settings
         _eventBus->Send(AppSettingsChangedEvent(_settings));
 
@@ -90,8 +94,7 @@ namespace Tbx
             }
 
             auto rendererFactoryPlugs = _plugins.OfType<IRendererFactory>();
-            auto graphicsContextProviders = _plugins.OfType<IGraphicsConfigProvider>();
-
+            auto graphicsContextProviders = _plugins.OfType<IGraphicsContextProvider>();
             if (!rendererFactoryPlugs.empty())
             {
                 AddLayer<RenderingLayer>(rendererFactoryPlugs, graphicsContextProviders, _eventBus);
@@ -105,10 +108,6 @@ namespace Tbx
                 AddLayer<InputLayer>(inputHandler);
             }
         }
-
-        // Sub to window closing so we can listen for main window closed to init app shutdown
-        _eventListener.Listen(this, &App::OnWindowOpened);
-        _eventListener.Listen(this, &App::OnWindowClosed);
 
         // Allow other systems to hook into launch
         OnLaunch();
@@ -201,13 +200,13 @@ namespace Tbx
         return _name;
     }
 
-    void App::SetSettings(const Settings& settings)
+    void App::SetSettings(const AppSettings& settings)
     {
         _settings = settings;
         _eventBus->Post(AppSettingsChangedEvent(settings));
     }
 
-    const Settings& App::GetSettings() const
+    const AppSettings& App::GetSettings() const
     {
         return _settings;
     }

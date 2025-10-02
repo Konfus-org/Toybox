@@ -1,4 +1,5 @@
 #pragma once
+#include "Tbx/Debug/Log.h"
 
 #ifdef TBX_ASSERTS_ENABLED
     /// <summary>

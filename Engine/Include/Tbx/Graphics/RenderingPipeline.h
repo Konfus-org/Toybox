@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Graphics/GraphicsConfig.h"
+#include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Graphics/IRenderer.h"
 #include "Tbx/Windowing/Window.h"
 #include "Tbx/Stages/Stage.h"
@@ -16,25 +16,20 @@
 
 namespace Tbx
 {
-    struct RenderingContext
-    {
-        Ref<IGraphicsConfig> Config = nullptr;
-        Ref<IRenderer> Renderer = nullptr;
-    };
-
-    using WindowBindingMap = std::unordered_map<Ref<Window>, RenderingContext, RefHasher<Window>, RefEqual<Window>>;
+    using WindowRendererBindingMap =
+        std::unordered_map<Ref<Window>, Ref<IRenderer>, RefHasher<Window>, RefEqual<Window>>;
 
     /// <summary>
     /// Coordinates render targets, windows, and stage composition for a frame.
     /// </summary>
-    class TBX_EXPORT Rendering
+    class TBX_EXPORT RenderingPipeline
     {
     public:
-        Rendering(
+        RenderingPipeline(
             const std::vector<Ref<IRendererFactory>>& rendererFactories,
-            const std::vector<Ref<IGraphicsConfigProvider>>& graphicsContextProviders,
+            const std::vector<Ref<IGraphicsContextProvider>>& graphicsContextProviders,
             Ref<EventBus> eventBus);
-        ~Rendering();
+        ~RenderingPipeline();
 
         /// <summary>
         /// Drives the rendering pipeline for all open stages and windows.
@@ -61,19 +56,22 @@ namespace Tbx
         void OnStageOpened(const StageOpenedEvent& e);
         void OnStageClosed(const StageClosedEvent& e);
 
-        Ref<IRenderer> CreateRenderer(GraphicsApi api);
-        Ref<IGraphicsConfig> CreateConfig(const Ref<Window>& window, GraphicsApi api);
+        Ref<IRenderer> CreateRenderer(Ref<IGraphicsContext> context);
+        Ref<IGraphicsContext> CreateContext(Ref<Window> window, GraphicsApi api);
         void RecreateRenderersForCurrentApi();
 
     private:
         std::vector<Ref<Stage>> _openStages = {};
-        WindowBindingMap _windowBindings = {};
         std::vector<Ref<Stage>> _pendingUploadStages = {};
+
+        WindowRendererBindingMap _windowBindings = {};
         std::unordered_map<GraphicsApi, std::vector<Ref<IRendererFactory>>> _renderFactories = {};
-        std::unordered_map<GraphicsApi, std::vector<Ref<IGraphicsConfigProvider>>> _configProviders = {};
+        std::unordered_map<GraphicsApi, std::vector<Ref<IGraphicsContextProvider>>> _configProviders = {};
+
         Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};
-        GraphicsApi _graphicsApi = GraphicsApi::OpenGL;
+
+        GraphicsApi _currGraphicsApi = GraphicsApi::OpenGL;
         RgbaColor _clearColor = {};
     };
 }

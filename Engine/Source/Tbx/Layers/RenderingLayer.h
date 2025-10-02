@@ -2,8 +2,8 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Layers/Layer.h"
 #include "Tbx/Graphics/IRenderer.h"
-#include "Tbx/Graphics/GraphicsConfig.h"
-#include "Tbx/Graphics/Rendering.h"
+#include "Tbx/Graphics/GraphicsContext.h"
+#include "Tbx/Graphics/RenderingPipeline.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Memory/Refs.h"
 #include <vector>
@@ -18,14 +18,14 @@ namespace Tbx
     public:
         TBX_EXPORT RenderingLayer(
             const std::vector<Ref<IRendererFactory>>& renderFactories,
-            const std::vector<Ref<IGraphicsConfigProvider>>& graphicsContextProviders,
+            const std::vector<Ref<IGraphicsContextProvider>>& graphicsContextProviders,
             Ref<EventBus> eventBus);
 
     protected:
         void OnUpdate() override;
 
     private:
-        Tbx::ExclusiveRef<Rendering> _rendering = nullptr;
+        Tbx::ExclusiveRef<RenderingPipeline> _rendering = nullptr;
     };
 }
 
