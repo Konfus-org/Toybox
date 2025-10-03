@@ -3,6 +3,10 @@
 Toybox is a simple, light-weight, plugin based, open source game engine that is currently in development.
 There isn't much here yet but, hopefully, soon there will be!
 
+## What's here so far?
+
+Honestly, not much yet. There is a simple ECS system dubbed TBS (Toy Box System), a plugin system that will find and load plugins at runtime, a math library (which is a thin wrapper around GLM), logging and asserts, a windowing system made using SDL, some graphics primitives, and a simple renderer and input system. I plan to add all the things a game engine needs! Physics, audio, networking, a UI system, editor and more!
+
 ## Repository Structure
 
 - `Engine/`: Core engine source, including ECS, math, logging, windowing, graphics, and systems code.
@@ -67,7 +71,9 @@ ctest --test-dir build
 
 Compiled binaries are placed in `Build/bin`, and libraries in `Build/lib`. Open the generated project with your preferred IDE or run the executables directly. Please ensure changes build cleanly and tests pass on the platforms you touch (Windows, macOS, and Linux).
 
-## Coding Guidelines
+## Contributing
+
+### Coding Guidelines
 
 - Target modern C++20 without compiler extensions or C++ attributes unless required for platform compatibility.
 - Keep interfaces in headers and implementation details in source files, preferring `#pragma once`.
@@ -75,11 +81,6 @@ Compiled binaries are placed in `Build/bin`, and libraries in `Build/lib`. Open 
 - Maintain existing formatting conventions and keep builds free of warnings.
 - Add automated tests when introducing new functionality.
 
-## What's here so far?
-
-Honestly, not much yet. There is a simple ECS system dubbed TBS (Toy Box System), a plugin system that will find and load plugins at runtime, a math library (which is a thin wrapper around GLM), logging and asserts, a windowing system made using SDL, some graphics primitives, and a simple renderer and input system. I plan to add all the things a game engine needs! Physics, audio, networking, a UI system, editor and more!
-
-## Contributing
-
+### Merging and Approval: 
 Make a fork with your desired changes then create a pull request to merge it back into the main repo.
-I will review, offer comments, and approve if all comments are addressed.
+A Toybox team member, will review, offer comments, and approve if all comments are addressed.
