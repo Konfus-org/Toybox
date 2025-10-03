@@ -12,19 +12,18 @@ namespace Tbx
     /// <summary>
     /// This is a layer added at runtime via the plugin system via a runtime loader.
     /// </summary>
-    class TBX_EXPORT Runtime
+    class TBX_EXPORT Runtime : public Plugin
     {
     public:
         Runtime(
             const std::string& name,
-            Ref<AssetServer> assetServer,
             Ref<EventBus> eventBus);
 
         /// <summary>
         /// Inits a runtime.
         /// Should be called after important systems are initialized so the runtime can utilize them.
         /// </summary>
-        void Initialize();
+        void Initialize(Ref<AssetServer> assetServer);
 
         /// <summary>
         /// Updates the runtime.
@@ -61,44 +60,12 @@ namespace Tbx
 
     private:
         Ref<AssetServer> _assetServer = nullptr;
-        Ref<EventBus> _eventBus = nullptr;
         std::string _name = "";
-    };
-
-    class IRuntimeLoader : public IPlugin
-    {
-    public:
-        virtual Tbx::Ref<Runtime> Load(
-            Ref<AssetServer> assetServer,
-            Ref<EventBus> eventBus) = 0;
-    };
-
-    template <class TRuntime>
-    requires std::is_base_of_v<Runtime, TRuntime>
-    class RuntimeLoader : public IRuntimeLoader
-    {
-    public:
-        RuntimeLoader(Ref<EventBus> eventBus) {}
-
-        Tbx::Ref<Runtime> Load(
-            Ref<AssetServer> assetServer,
-            Ref<EventBus> eventBus) override
-        {
-            return MakeRef<Runtime>(assetServer, eventBus);
-        }
     };
 
     /// <summary>
     /// Register a runtime
     /// </summary>
     #define TBX_REGISTER_RUNTIME(runtimeType) \
-        class runtimeType##Loader : public ::Tbx::RuntimeLoader< runtimeType > \
-        { \
-        public: \
-            explicit runtimeType##Loader(::Tbx::Ref<::Tbx::EventBus> eventBus) \
-                : ::Tbx::RuntimeLoader< runtimeType >(eventBus) \
-            { \
-            } \
-        }; \
-        TBX_REGISTER_PLUGIN(runtimeType##Loader)
+        TBX_REGISTER_PLUGIN(runtimeType)
 }

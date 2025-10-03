@@ -1,16 +1,15 @@
 #include "Tbx/Launcher/Launcher.h"
 #include "Tbx/Files/Paths.h"
-#include "Tbx/Events/PluginEvents.h"
-
+#include "Tbx/Debug/Debugging.h"
+#include "Tbx/Debug/ILogger.h"
+#include "Tbx/Debug/Log.h"
+#include "Tbx/Plugins/PluginFinder.h"
+#include <utility>
 
 namespace Tbx::Launcher
 {
-    AppStatus Launch(
-        const std::string& name,
-        const AppSettings& settings,
-        const std::vector<std::string>& args) // TODO: deal with args (just one to start --headless)
+    AppStatus Launch(const AppConfig& config)
     {
-        auto logListener = EventListener();
         auto status = AppStatus::None;
         auto running = true;
 
@@ -19,39 +18,40 @@ namespace Tbx::Launcher
         {
             // Setup required systems for the app
             auto eventBus = MakeRef<EventBus>();
-            auto pluginServer = PluginServer(FileSystem::GetPluginDirectory(), eventBus);
-            auto discoveredPlugins = pluginServer.GetPlugins();
+            auto pluginMetas = PluginFinder(FileSystem::GetPluginDirectory(), config.Plugins).Result();
+            auto pluginCache = PluginLoader(std::move(pluginMetas), eventBus).Results();
 
-            // Init logging
-            logListener.Bind(eventBus);
-            logListener.Listen<PluginLoadedEvent>([](const PluginLoadedEvent& e)
+            Ref<ILogger> loggerPlugin = nullptr;
             {
-                if (auto loggerPlug = std::dynamic_pointer_cast<ILogger>(e.GetLoadedPlugin()))
+                auto loggerPlugins = pluginCache.OfType<ILogger>();
+                if (!loggerPlugins.empty())
                 {
-                    Log::Initialize(loggerPlug);
+                    TBX_ASSERT(loggerPlugins.size() == 1, "Launcher: Only one logger plugin is allowed!");
+                    loggerPlugin = loggerPlugins.front();
+                    Log::Initialize(loggerPlugin);
                 }
-            });
-            logListener.Listen<PluginUnloadedEvent>([](const PluginUnloadedEvent& e)
-            {
-                // TODO: fix - log isn't shutdown in time before logger is unloaded, causing exceptions
-                if (std::dynamic_pointer_cast<ILogger>(e.GetUnloadedPlugin()))
-                {
-                    Log::Shutdown();
-                }
-            });
+            }
 
             // Create the app
-            auto app = App(name, settings, discoveredPlugins, eventBus);
+            {
+                auto app = App(config.Name, config.Settings, std::move(pluginCache), eventBus);
 
-            // Run the app, this will block until the app closes
-            app.Run();
+                // Run the app, this will block until the app closes
+                app.Run();
 
-            // After we've closed check if the app is asking for a reload
-            // or if we should fully shutdown
-            status = app.GetStatus();
-            running =
-                status != AppStatus::Error &&
-                status != AppStatus::Closed;
+                // After we've closed check if the app is asking for a reload
+                // or if we should fully shutdown
+                status = app.GetStatus();
+                running =
+                    status != AppStatus::Error &&
+                    status != AppStatus::Closed;
+
+                if (loggerPlugin != nullptr)
+                {
+                    Log::Shutdown();
+                    loggerPlugin.reset();
+                }
+            }
         }
 
         return status;

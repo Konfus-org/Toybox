@@ -1,4 +1,5 @@
 #pragma once
+#include "Tbx/Collections/Queryable.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Layers/Layer.h"
 #include "Tbx/Math/Int.h"
@@ -10,7 +11,7 @@ namespace Tbx
     /// <summary>
     /// Container that stores layers in registration order and assists with lifecycle notifications.
     /// </summary>
-    class TBX_EXPORT LayerStack
+    class TBX_EXPORT LayerStack : public Queryable<ExclusiveRef<Layer>>
     {
     public:
         LayerStack() = default;
@@ -21,12 +22,7 @@ namespace Tbx
         LayerStack(LayerStack&&) noexcept = default;
         LayerStack& operator=(LayerStack&&) noexcept = default;
 
-        bool Contains(const Uid& layerId) const;
-        Layer& Get(const Uid& layerId);
-        const std::vector<ExclusiveRef<Layer>>& GetAll() const;
         void Remove(const Uid& layerId);
-        void Clear();
-        uint Count() const { return static_cast<uint>(_layers.size()); }
 
         template <typename TLayer, typename... TArgs>
         requires std::is_base_of_v<Layer, TLayer>
@@ -35,19 +31,9 @@ namespace Tbx
             auto layer = MakeExclusive<TLayer>(std::forward<TArgs>(args)...);
             const auto& layerId = layer->Id;
             layer->OnAttach();
-            _layers.push_back(std::move(layer));
+            this->MutableItems().push_back(std::move(layer));
             return layerId;
         }
-
-        auto begin() { return _layers.begin(); }
-        auto end() { return _layers.end(); }
-        auto begin() const { return _layers.begin(); }
-        auto end() const { return _layers.end(); }
-
-        const Layer& operator[](int index) const { return *_layers[index]; }
-
-    private:
-        std::vector<ExclusiveRef<Layer>> _layers = {};
     };
 }
 

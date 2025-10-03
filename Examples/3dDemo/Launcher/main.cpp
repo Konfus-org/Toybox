@@ -14,7 +14,10 @@ int main()
         "SDL3Windowing",
         "SpdLogging"
     };*/
-    auto status = Tbx::Launcher::Launch("3d Demo");
+    auto config = Tbx::Launcher::AppConfig();
+    config.Name = "3d Demo";
+
+    auto status = Tbx::Launcher::Launch(config);
     if (status == Tbx::AppStatus::Error)
     {
         return EXIT_FAILURE;

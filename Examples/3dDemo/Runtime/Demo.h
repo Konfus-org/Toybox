@@ -9,7 +9,7 @@
 class Demo final : public Tbx::Runtime
 {
 public:
-    Demo(Tbx::Ref<Tbx::AssetServer> assetServer, Tbx::Ref<Tbx::EventBus> eventBus);
+    Demo(Tbx::Ref<Tbx::EventBus> eventBus);
     ~Demo();
 
     void OnStart() override;
