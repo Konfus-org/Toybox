@@ -12,8 +12,8 @@ namespace Tbx
 {
     struct PluginCollectionData
     {
-        std::vector<Ref<Plugin>> plugins;
-        Ref<EventBus> eventBus = nullptr;
+        std::vector<Ref<Plugin>> Plugins;
+        Ref<EventBus> EventBus = nullptr;
     };
 
     class TBX_EXPORT PluginCollection

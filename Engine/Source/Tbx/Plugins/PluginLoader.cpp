@@ -87,12 +87,6 @@ namespace Tbx
             std::unordered_set<std::string>& loadedNames,
             std::vector<Ref<Plugin>>& outLoaded)
         {
-            if (info.IsStatic)
-            {
-                TBX_TRACE_ERROR("PluginLoader: Static plugins are not supported for '{}'", info.Name);
-                return false;
-            }
-
             SharedLibrary library;
             if (!library.Load(info.Path))
             {
@@ -130,14 +124,6 @@ namespace Tbx
                 return false;
             }
 
-            pluginInstance->Initialize(info, library);
-            if (!pluginInstance->IsInitialized())
-            {
-                TBX_TRACE_ERROR("PluginLoader: Plugin '{}' failed to initialize", info.Name);
-                unloadPluginFunc(pluginInstance);
-                return false;
-            }
-
             Ref<Plugin> plugin(pluginInstance, [unloadPluginFunc](Plugin* pluginToUnload)
             {
                 if (pluginToUnload == nullptr)
@@ -148,17 +134,21 @@ namespace Tbx
                 unloadPluginFunc(pluginToUnload);
             });
 
+            plugin->Bind(plugin);
+            plugin->Initialize(info, std::move(library), eventBus);
+            if (!plugin->IsInitialized())
+            {
+                TBX_TRACE_ERROR("PluginLoader: Plugin '{}' failed to initialize", info.Name);
+                plugin.reset();
+                return false;
+            }
+
 #ifdef TBX_VERBOSE_LOGGING
-            if (plugin->HasLibrary())
+            if (plugin->GetLibrary().IsValid())
             {
                 plugin->GetLibrary().ListSymbols();
             }
 #endif
-
-            if (eventBus != nullptr)
-            {
-                eventBus->Post(PluginLoadedEvent(plugin));
-            }
 
             ReportPluginInfo(info);
             loadedNames.insert(info.Name);
@@ -182,8 +172,8 @@ namespace Tbx
     PluginCollection::PluginCollection(std::vector<Ref<Plugin>> plugins, Ref<EventBus> eventBus)
         : _data(std::make_shared<PluginCollectionData>())
     {
-        _data->plugins = std::move(plugins);
-        _data->eventBus = std::move(eventBus);
+        _data->Plugins = std::move(plugins);
+        _data->EventBus = std::move(eventBus);
     }
 
     PluginCollection::~PluginCollection()
@@ -198,14 +188,14 @@ namespace Tbx
             return;
         }
 
-        auto& plugins = _data->plugins;
+        auto& plugins = _data->Plugins;
         if (plugins.empty())
         {
             return;
         }
 
         std::vector<Ref<Plugin>> pluginSnapshot;
-        if (_data->eventBus != nullptr)
+        if (_data->EventBus != nullptr)
         {
             pluginSnapshot.reserve(plugins.size());
             for (const auto& plugin : plugins)
@@ -249,15 +239,11 @@ namespace Tbx
                     plugin->GetMeta().Name);
             }
 
-            if (_data->eventBus != nullptr)
-            {
-                _data->eventBus->Send(PluginUnloadedEvent(plugin));
-            }
         }
 
-        if (_data->eventBus != nullptr)
+        if (_data->EventBus != nullptr)
         {
-            _data->eventBus->Send(PluginsUnloadedEvent(pluginSnapshot));
+            _data->EventBus->Send(PluginsUnloadedEvent(pluginSnapshot));
         }
     }
 
@@ -315,7 +301,7 @@ namespace Tbx
             return empty;
         }
 
-        return _data->plugins;
+        return _data->Plugins;
     }
 
     PluginLoader::PluginLoader(

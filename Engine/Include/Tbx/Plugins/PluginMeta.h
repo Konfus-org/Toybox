@@ -14,7 +14,6 @@ namespace Tbx
         std::string Version = "";
         std::string Description = "";
         std::vector<std::string> Dependencies = {};
-        bool IsStatic = false;
 
         std::string ToString() const override;
     };

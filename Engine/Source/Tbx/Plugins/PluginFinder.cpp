@@ -26,7 +26,6 @@ namespace Tbx
             meta.Version = metaData["version"][0];
             meta.Description = metaData["description"][0];
             meta.Dependencies = metaData["dependencies"];
-            meta.IsStatic = false;
 
             return meta;
         }

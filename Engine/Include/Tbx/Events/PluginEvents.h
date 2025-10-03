@@ -1,6 +1,8 @@
 #pragma once
 #include "Tbx/Events/Event.h"
 #include "Tbx/Memory/Refs.h"
+#include "Tbx/Plugins/PluginMeta.h"
+#include <utility>
 #include <vector>
 
 namespace Tbx
@@ -10,41 +12,55 @@ namespace Tbx
     class TBX_EXPORT PluginLoadedEvent final : public Event
     {
     public:
-        PluginLoadedEvent(Ref<Plugin> loadedPlugin)
-            : _loadedPlugin(loadedPlugin) {}
+        PluginLoadedEvent(PluginMeta meta, WeakRef<Plugin> plugin)
+            : _meta(std::move(meta))
+            , _plugin(std::move(plugin)) {}
 
         std::string ToString() const override
         {
             return "Plugin Loaded Event";
         }
 
-        Ref<Plugin> GetLoadedPlugin() const
+        const PluginMeta& GetMeta() const
         {
-            return _loadedPlugin;
+            return _meta;
+        }
+
+        WeakRef<Plugin> GetPlugin() const
+        {
+            return _plugin;
         }
 
     private:
-        Ref<Plugin> _loadedPlugin = nullptr;
+        PluginMeta _meta = {};
+        WeakRef<Plugin> _plugin = {};
     };
 
     class TBX_EXPORT PluginUnloadedEvent final : public Event
     {
     public:
-        PluginUnloadedEvent(Ref<Plugin> unloadedPlugin)
-            : _unloadedPlugin(unloadedPlugin) {}
+        PluginUnloadedEvent(PluginMeta meta, WeakRef<Plugin> plugin)
+            : _meta(std::move(meta))
+            , _plugin(std::move(plugin)) {}
 
         std::string ToString() const override
         {
             return "Plugin Loaded Event";
         }
 
-        Ref<Plugin> GetUnloadedPlugin() const
+        const PluginMeta& GetMeta() const
         {
-            return _unloadedPlugin;
+            return _meta;
+        }
+
+        WeakRef<Plugin> GetPlugin() const
+        {
+            return _plugin;
         }
 
     private:
-        Ref<Plugin> _unloadedPlugin = nullptr;
+        PluginMeta _meta = {};
+        WeakRef<Plugin> _plugin = {};
     };
 
     class TBX_EXPORT PluginsUnloadedEvent final : public Event
