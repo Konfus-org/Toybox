@@ -1,10 +1,12 @@
 #pragma once
 #include "Tbx/Events/Event.h"
-#include "Tbx/Plugins/Plugin.h"
 #include "Tbx/Memory/Refs.h"
+#include <vector>
 
 namespace Tbx
 {
+    class IPlugin;
+
     class TBX_EXPORT PluginLoadedEvent final : public Event
     {
     public:
@@ -48,7 +50,7 @@ namespace Tbx
     class TBX_EXPORT PluginsUnloadedEvent final : public Event
     {
     public:
-        PluginsUnloadedEvent(PluginStack unloadedPlugins)
+        PluginsUnloadedEvent(const std::vector<Ref<IPlugin>>& unloadedPlugins)
             : _unloadedPlugins(unloadedPlugins) {}
 
         std::string ToString() const override
@@ -56,19 +58,19 @@ namespace Tbx
             return "Plugin Loaded Event";
         }
 
-        PluginStack GetUnloadedPlugins() const
+        const std::vector<Ref<IPlugin>>& GetUnloadedPlugins() const
         {
             return _unloadedPlugins;
         }
 
     private:
-        PluginStack _unloadedPlugins = {};
+        std::vector<Ref<IPlugin>> _unloadedPlugins = {};
     };
 
     class TBX_EXPORT PluginsLoadedEvent final : public Event
     {
     public:
-        PluginsLoadedEvent(PluginStack loadedPlugins)
+        PluginsLoadedEvent(const std::vector<Ref<IPlugin>>& loadedPlugins)
             : _loadedPlugins(loadedPlugins) {}
 
         std::string ToString() const override
@@ -76,12 +78,12 @@ namespace Tbx
             return "Plugin Loaded Event";
         }
 
-        PluginStack GetLoadedPlugins() const
+        const std::vector<Ref<IPlugin>>& GetLoadedPlugins() const
         {
             return _loadedPlugins;
         }
 
     private:
-        PluginStack _loadedPlugins = {};
+        std::vector<Ref<IPlugin>> _loadedPlugins = {};
     };
 }

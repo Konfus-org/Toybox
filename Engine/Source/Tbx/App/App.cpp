@@ -14,12 +14,12 @@
 
 namespace Tbx
 {
-    App::App(const std::string_view& name, const AppSettings& settings, const PluginStack& plugins, Ref<EventBus> eventBus)
+    App::App(const std::string_view& name, const AppSettings& settings, PluginCollection&& plugins, Ref<EventBus> eventBus)
         : _name(name)
         , _settings(settings)
         , _eventBus(eventBus)
         , _eventListener(eventBus)
-        , _plugins(plugins)
+        , _plugins(std::move(plugins))
     {
     }
 

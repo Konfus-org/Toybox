@@ -78,7 +78,7 @@ namespace Tbx
     class RuntimeLoader : public IRuntimeLoader
     {
     public:
-        RuntimeLoader(Ref<EventBus> eventBus) {}
+        RuntimeLoader(Ref<EventBus>) {}
 
         Tbx::Ref<Runtime> Load(
             Ref<AssetServer> assetServer,
@@ -95,7 +95,8 @@ namespace Tbx
         class runtimeType##Loader : public ::Tbx::RuntimeLoader< runtimeType > \
         { \
         public: \
-            explicit runtimeType##Loader(::Tbx::Ref<::Tbx::EventBus> eventBus) \
+            explicit runtimeType##Loader(\
+                ::Tbx::Ref<::Tbx::EventBus> eventBus) \
                 : ::Tbx::RuntimeLoader< runtimeType >(eventBus) \
             { \
             } \

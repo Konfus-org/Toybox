@@ -1,6 +1,8 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Events/EventBus.h"
+#include "Tbx/Plugins/PluginMeta.h"
+#include "Tbx/Plugins/SharedLibrary.h"
 #include "Tbx/Memory/Refs.h"
 
 namespace Tbx
@@ -16,8 +18,45 @@ namespace Tbx
         virtual ~IPlugin() = default;
     };
 
+    class TBX_EXPORT LoadedPlugin
+    {
+    public:
+        LoadedPlugin(
+            const PluginMeta& pluginInfo,
+            Ref<EventBus> eventBus);
+        ~LoadedPlugin();
+
+        bool IsValid() const noexcept;
+        const PluginMeta& GetMeta() const noexcept;
+
+        template <typename T>
+        Ref<T> GetAs() const
+        {
+            if (const auto& castedPlug = std::dynamic_pointer_cast<T>(_plugin))
+            {
+                return castedPlug;
+            }
+
+            return nullptr;
+        }
+
+        Ref<IPlugin> Get() const noexcept
+        {
+            return _plugin;
+        }
+
+    private:
+        void Load(Ref<EventBus> eventBus);
+        void Unload() noexcept;
+
+        PluginMeta _pluginInfo = {};
+        SharedLibrary _library = {};
+        Ref<IPlugin> _plugin = nullptr;
+    };
+
     // C-linkage factory function names the host will look up.
-    using PluginLoadFn = IPlugin*(*)(Ref<EventBus> eventBus);
+    using PluginLoadFn = IPlugin* (*)(
+        Ref<EventBus> eventBus);
     using PluginUnloadFn = void (*)(IPlugin* plugin);
 
     #define TBX_LOAD_PLUGIN_FN_NAME "Load"
@@ -38,7 +77,8 @@ namespace Tbx
     /// TBX_REGISTER_PLUGIN(MyPlugin)
     /// </summary>
     #define TBX_REGISTER_PLUGIN(pluginType) \
-        TBX_PLUGIN_EXPORT pluginType* Load(::Tbx::Ref<::Tbx::EventBus> eventBus)\
+        TBX_PLUGIN_EXPORT pluginType* Load(\
+            ::Tbx::Ref<::Tbx::EventBus> eventBus)\
         {\
             auto plugin = new pluginType(eventBus);\
             return plugin;\
@@ -47,4 +87,5 @@ namespace Tbx
         {\
             delete pluginToUnload;\
         }
+
 }

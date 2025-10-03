@@ -5,7 +5,7 @@
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Layers/LayerStack.h"
 #include "Tbx/Memory/Refs.h"
-#include "Tbx/Plugins/PluginServer.h"
+#include "Tbx/Plugins/PluginLoader.h"
 
 namespace Tbx
 {
@@ -31,7 +31,7 @@ namespace Tbx
     public:
         App(const std::string_view& name,
             const AppSettings& settings,
-            const PluginStack& plugins,
+            PluginCollection&& plugins,
             Ref<EventBus> eventBus);
         virtual ~App();
 
@@ -82,6 +82,6 @@ namespace Tbx
         Uid _mainWindowId = Uid::Invalid;
         Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};
-        PluginStack _plugins = {};
+        PluginCollection _plugins = {};
     };
 }
