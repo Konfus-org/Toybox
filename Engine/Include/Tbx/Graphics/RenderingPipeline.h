@@ -43,10 +43,9 @@ namespace Tbx
 
     private:
         void DrawFrame();
-        void ProcessPendingUploads();
-        void ProcessOpenStages();
+        void ProcessStageUploads();
+        void ProcessStageRenders();
 
-        void QueueStageUpload(const Ref<Stage>& stage);
         void AddStage(const Ref<Stage>& stage);
         void RemoveStage(const Ref<Stage>& stage);
 
@@ -62,8 +61,6 @@ namespace Tbx
 
     private:
         std::vector<Ref<Stage>> _openStages = {};
-        std::vector<Ref<Stage>> _pendingUploadStages = {};
-
         WindowRendererBindingMap _windowBindings = {};
         std::unordered_map<GraphicsApi, std::vector<Ref<IRendererFactory>>> _renderFactories = {};
         std::unordered_map<GraphicsApi, std::vector<Ref<IGraphicsContextProvider>>> _configProviders = {};
@@ -71,7 +68,7 @@ namespace Tbx
         Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};
 
-        GraphicsApi _currGraphicsApi = GraphicsApi::OpenGL;
+        GraphicsApi _currGraphicsApi = GraphicsApi::None;
         RgbaColor _clearColor = {};
     };
 }

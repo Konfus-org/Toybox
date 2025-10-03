@@ -112,34 +112,15 @@ namespace Tbx
 
     void RenderingPipeline::DrawFrame()
     {
-        ProcessPendingUploads();
-        ProcessOpenStages();
+        ProcessStageUploads();
+        ProcessStageRenders();
     }
 
-    void RenderingPipeline::QueueStageUpload(const Ref<Stage>& stage)
+    void RenderingPipeline::ProcessStageUploads()
     {
-        if (!stage)
-        {
-            return;
-        }
-
-        const auto it = std::find(_pendingUploadStages.begin(), _pendingUploadStages.end(), stage);
-        if (it == _pendingUploadStages.end())
-        {
-            _pendingUploadStages.push_back(stage);
-        }
-    }
-
-    void RenderingPipeline::ProcessPendingUploads()
-    {
-        if (_pendingUploadStages.empty())
-        {
-            return;
-        }
-
         RenderCommandBufferBuilder builder = {};
         RenderCommandBuffer uploadBuffer = {};
-        for (const auto& stage : _pendingUploadStages)
+        for (const auto& stage : _openStages)
         {
             if (!stage)
             {
@@ -167,11 +148,9 @@ namespace Tbx
                 renderer->Process(uploadBuffer);
             }
         }
-
-        _pendingUploadStages.clear();
     }
 
-    void RenderingPipeline::ProcessOpenStages()
+    void RenderingPipeline::ProcessStageRenders()
     {
         for (auto& [window, renderer] : _windowBindings)
         {
@@ -226,7 +205,6 @@ namespace Tbx
         }
 
         _openStages.push_back(stage);
-        QueueStageUpload(stage);
     }
 
     void RenderingPipeline::RemoveStage(const Ref<Stage>& stage)
@@ -241,41 +219,6 @@ namespace Tbx
         {
             _openStages.erase(it);
         }
-
-        auto pending = std::find(_pendingUploadStages.begin(), _pendingUploadStages.end(), stage);
-        if (pending != _pendingUploadStages.end())
-        {
-            _pendingUploadStages.erase(pending);
-        }
-    }
-
-    void RenderingPipeline::OnWindowOpened(const WindowOpenedEvent& e)
-    {
-        auto newWindow = e.GetWindow();
-        if (!newWindow)
-        {
-            return;
-        }
-
-        auto newConfig = CreateContext(newWindow, _currGraphicsApi);
-        auto newRenderer = CreateRenderer(newConfig);
-
-        _windowBindings.emplace(newWindow, newRenderer);
-        for (const auto& stage : _openStages)
-        {
-            QueueStageUpload(stage);
-        }
-    }
-
-    void RenderingPipeline::OnWindowClosed(const WindowClosedEvent& e)
-    {
-        auto closedWindow = e.GetWindow();
-        if (!closedWindow)
-        {
-            return;
-        }
-
-        _windowBindings.erase(closedWindow);
     }
 
     void RenderingPipeline::RecreateRenderersForCurrentApi()
@@ -300,12 +243,6 @@ namespace Tbx
         }
 
         _windowBindings = std::move(newBindings);
-        _pendingUploadStages.clear();
-
-        for (const auto& stage : _openStages)
-        {
-            QueueStageUpload(stage);
-        }
     }
 
     Ref<IRenderer> RenderingPipeline::CreateRenderer(Ref<IGraphicsContext> context)
@@ -379,6 +316,33 @@ namespace Tbx
 
         TBX_ASSERT(false, "Rendering: Unable to locate a graphics context provider for requested graphics API.");
         return nullptr;
+    }
+
+    void RenderingPipeline::OnWindowOpened(const WindowOpenedEvent& e)
+    {
+        auto newWindow = e.GetWindow();
+        if (!newWindow || _currGraphicsApi == GraphicsApi::None)
+        {
+            TBX_ASSERT(_currGraphicsApi != GraphicsApi::None, "Rendering: Invalid graphics API on window open, ensure the api is set before a window is opened!");
+            TBX_ASSERT(newWindow, "Rendering: Invalid window open event, ensure a valid window is passed!");
+            return;
+        }
+
+        auto newConfig = CreateContext(newWindow, _currGraphicsApi);
+        auto newRenderer = CreateRenderer(newConfig);
+
+        _windowBindings.emplace(newWindow, newRenderer);
+    }
+
+    void RenderingPipeline::OnWindowClosed(const WindowClosedEvent& e)
+    {
+        auto closedWindow = e.GetWindow();
+        if (!closedWindow)
+        {
+            return;
+        }
+
+        _windowBindings.erase(closedWindow);
     }
 
     void RenderingPipeline::OnAppSettingsChanged(const AppSettingsChangedEvent& e)

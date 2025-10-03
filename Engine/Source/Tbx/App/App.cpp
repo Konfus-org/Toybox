@@ -78,9 +78,6 @@ namespace Tbx
         _eventListener.Listen(this, &App::OnWindowOpened);
         _eventListener.Listen(this, &App::OnWindowClosed);
 
-        // Broadcast initial settings
-        _eventBus->Send(AppSettingsChangedEvent(_settings));
-
         // Init core plugin driven systems (if we have the plugins for them)
         // The order in which they are added is the order they are updated
         {
@@ -116,7 +113,7 @@ namespace Tbx
         OnLaunch();
         _eventBus->Send(AppLaunchedEvent(this));
 
-        // Finally, initialize any runtimes
+        // Initialize any runtimes
         auto assetLoaderPlugs = _plugins.OfType<IAssetLoader>();
         auto assetServer = MakeRef<AssetServer>(assetDirectory, assetLoaderPlugs);
         auto runtimeLoaders = _plugins.OfType<IRuntimeLoader>();
@@ -126,6 +123,9 @@ namespace Tbx
 
             // TODO: push runtime back into a list of runtimes!
         }
+
+        // Broadcast initial settings
+        _eventBus->Send(AppSettingsChangedEvent(_settings));
     }
 
     void App::Update()
