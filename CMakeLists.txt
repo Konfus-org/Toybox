@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
 project(Toybox LANGUAGES C CXX)
 
-# Set global C++ standard
+# Set global language standards
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -59,6 +63,16 @@ add_subdirectory(Dependencies/stbimg)
 add_subdirectory(Dependencies/imgui)
 set_property(TARGET imgui PROPERTY POSITION_INDEPENDENT_CODE ON)
 set_property(TARGET glad PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+if(MSVC)
+    # Enforce standards-conforming mode and treat warnings as errors to surface
+    # problematic code paths during compilation when using MSVC.
+    add_compile_options(
+        "$<$<COMPILE_LANGUAGE:CXX>:/permissive->"
+        "$<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:/Za>"
+        "$<$<COMPILE_LANGUAGE:CXX>:/WX>"
+    )
+endif()
 
 # Core projects
 add_subdirectory(Engine)
