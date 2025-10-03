@@ -6,32 +6,32 @@
 #include <unordered_set>
 #include <utility>
 
-namespace
-{
-    Tbx::PluginMeta LoadPluginMeta(const std::filesystem::path& pathToMeta)
-    {
-        auto metaData = Tbx::PluginMetaReader::Read(pathToMeta.string());
-        if (metaData.empty()) return {};
-
-        auto meta = Tbx::PluginMeta();
-        meta.Name = metaData["name"][0];
-#ifdef TBX_PLATFORM_WINDOWS
-        meta.Path = pathToMeta.parent_path().string() + "/" + pathToMeta.filename().stem().string() + ".dll";
-#else
-        meta.Path = pathToMeta.parent_path().string() + "/" + pathToMeta.filename().stem().string() + ".so";
-#endif
-        meta.Author = metaData["author"][0];
-        meta.Version = metaData["version"][0];
-        meta.Description = metaData["description"][0];
-        meta.Dependencies = metaData["dependencies"];
-        meta.IsStatic = false;
-
-        return meta;
-    }
-}
-
 namespace Tbx
 {
+    namespace PluginFinderDetail
+    {
+        PluginMeta LoadPluginMeta(const std::filesystem::path& pathToMeta)
+        {
+            auto metaData = PluginMetaReader::Read(pathToMeta.string());
+            if (metaData.empty()) return {};
+
+            auto meta = PluginMeta();
+            meta.Name = metaData["name"][0];
+#ifdef TBX_PLATFORM_WINDOWS
+            meta.Path = pathToMeta.parent_path().string() + "/" + pathToMeta.filename().stem().string() + ".dll";
+#else
+            meta.Path = pathToMeta.parent_path().string() + "/" + pathToMeta.filename().stem().string() + ".so";
+#endif
+            meta.Author = metaData["author"][0];
+            meta.Version = metaData["version"][0];
+            meta.Description = metaData["description"][0];
+            meta.Dependencies = metaData["dependencies"];
+            meta.IsStatic = false;
+
+            return meta;
+        }
+    }
+
     PluginFinder::PluginFinder(
         std::string searchDirectory,
         std::vector<std::string> requestedPlugins)
@@ -87,7 +87,7 @@ namespace Tbx
                 continue;
             }
 
-            auto plugInfo = LoadPluginMeta(entry.path());
+            auto plugInfo = PluginFinderDetail::LoadPluginMeta(entry.path());
             const bool pluginInfoValid = !plugInfo.Name.empty();
             TBX_ASSERT(pluginInfoValid, "PluginFinder: Invalid plugin info at: {0}!", entry.path().string());
             if (!pluginInfoValid)

@@ -4,60 +4,43 @@
 #include "Tbx/Plugins/PluginMeta.h"
 #include "Tbx/Plugins/SharedLibrary.h"
 #include "Tbx/Memory/Refs.h"
+#include <cstddef>
 
 namespace Tbx
 {
-    /// <summary>
-    /// Anything in the tbx lib that is intented to be a plugin should inherit from this interface!
-    /// Plugins defined inside plugin libraries can also directly inherit from this if they only need to hook into things on load/unload.
-    /// Otherwise its recommended to implement one of the TBX interfaces that inherit from this directly (defined below this interface in PluginInterfaces.h).
-    /// </summary>
-    class TBX_EXPORT IPlugin
-    {
-    public:
-        virtual ~IPlugin() = default;
-    };
+    using PluginLoadFn = void* (*)(
+        Ref<EventBus> eventBus);
+    using PluginUnloadFn = void (*)(void* plugin);
 
-    class TBX_EXPORT LoadedPlugin
+    class TBX_EXPORT Plugin
     {
     public:
-        LoadedPlugin(
+        Plugin(
             const PluginMeta& pluginInfo,
             Ref<EventBus> eventBus);
-        ~LoadedPlugin();
+        ~Plugin();
 
-        bool IsValid() const noexcept;
-        const PluginMeta& GetMeta() const noexcept;
+        bool IsValid() const;
+        const PluginMeta& GetMeta() const;
+        SharedLibrary& GetLibrary();
+        size_t UseCount() const;
 
         template <typename T>
-        Ref<T> GetAs() const
+        Ref<T> As() const
         {
-            if (const auto& castedPlug = std::dynamic_pointer_cast<T>(_plugin))
-            {
-                return castedPlug;
-            }
-
-            return nullptr;
+            return std::static_pointer_cast<T>(_instance);
         }
 
-        Ref<IPlugin> Get() const noexcept
-        {
-            return _plugin;
-        }
+        Ref<void> Instance() const;
 
     private:
         void Load(Ref<EventBus> eventBus);
-        void Unload() noexcept;
+        void Unload();
 
         PluginMeta _pluginInfo = {};
         SharedLibrary _library = {};
-        Ref<IPlugin> _plugin = nullptr;
+        Ref<void> _instance = nullptr;
     };
-
-    // C-linkage factory function names the host will look up.
-    using PluginLoadFn = IPlugin* (*)(
-        Ref<EventBus> eventBus);
-    using PluginUnloadFn = void (*)(IPlugin* plugin);
 
     #define TBX_LOAD_PLUGIN_FN_NAME "Load"
     #define TBX_UNLOAD_PLUGIN_FN_NAME "Unload"
@@ -73,7 +56,7 @@ namespace Tbx
     /// Macro to register a plugin to the TBX plugin system.
     /// Is required for TBX to be able to load the plugin.
     /// Example usage:
-    /// class MyPlugin : public Tbx::IPlugin { ... };
+    /// class MyPlugin { ... };
     /// TBX_REGISTER_PLUGIN(MyPlugin)
     /// </summary>
     #define TBX_REGISTER_PLUGIN(pluginType) \

@@ -65,7 +65,7 @@ namespace Tbx
         std::string _name = "";
     };
 
-    class IRuntimeLoader : public IPlugin
+    class IRuntimeLoader
     {
     public:
         virtual Tbx::Ref<Runtime> Load(

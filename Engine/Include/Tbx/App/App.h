@@ -31,7 +31,7 @@ namespace Tbx
     public:
         App(const std::string_view& name,
             const AppSettings& settings,
-            PluginCollection&& plugins,
+            const PluginCollection& plugins,
             Ref<EventBus> eventBus);
         virtual ~App();
 

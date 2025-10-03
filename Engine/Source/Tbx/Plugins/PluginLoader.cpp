@@ -8,244 +8,248 @@
 #include <unordered_set>
 #include <utility>
 
-namespace
-{
-    bool ArePluginDependenciesSatisfied(
-        const Tbx::PluginMeta& info,
-        const std::unordered_set<std::string>& loadedNames)
-    {
-        for (const auto& dep : info.Dependencies)
-        {
-            if (dep == "All")
-            {
-                continue;
-            }
-            if (loadedNames.contains(dep))
-            {
-                continue;
-            }
-            return false;
-        }
-        return true;
-    }
-
-    void ReportUnresolvedPluginDependencies(
-        const std::vector<Tbx::PluginMeta>& remaining,
-        const std::unordered_set<std::string>& loadedNames)
-    {
-        std::ostringstream oss = {};
-        oss << "Unresolved plugin dependencies:\n";
-        for (const auto& pi : remaining)
-        {
-            std::vector<std::string> missing;
-            for (const auto& dep : pi.Dependencies)
-            {
-                if (!loadedNames.contains(dep) && dep != "All")
-                {
-                    missing.push_back(dep);
-                }
-            }
-            oss << "  - " << pi.Name;
-            if (!missing.empty())
-            {
-                oss << " (missing: ";
-                for (size_t i = 0; i < missing.size(); ++i)
-                {
-                    if (i) oss << ", ";
-                    oss << missing[i];
-                }
-                oss << ")";
-            }
-            oss << "\n";
-        }
-        TBX_TRACE_ERROR("PluginLoader: {}", oss.str());
-    }
-
-    void ReportPluginInfo(const Tbx::PluginMeta& info)
-    {
-        const auto& pluginName = info.Name;
-        const auto& pluginVersion = info.Version;
-        const auto& pluginAuthor = info.Author;
-        const auto& pluginDescription = info.Description;
-
-        TBX_TRACE_INFO("- Loaded {0}:", pluginName);
-        TBX_TRACE_INFO("    - Version: {0}", pluginVersion);
-        TBX_TRACE_INFO("    - Author: {0}", pluginAuthor);
-        TBX_TRACE_INFO("    - Description: {0}", pluginDescription);
-    }
-
-    std::vector<Tbx::Ref<Tbx::IPlugin>> CollectPluginRefs(
-        const std::vector<Tbx::ExclusiveRef<Tbx::LoadedPlugin>>& records)
-    {
-        std::vector<Ref<IPlugin>> plugins = {};
-        plugins.reserve(records.size());
-
-        for (const auto& record : records)
-        {
-            if (record != nullptr)
-            {
-                plugins.push_back(record->Get());
-            }
-        }
-
-        return plugins;
-    }
-
-    bool LoadPlugin(
-        const Tbx::PluginMeta& info,
-        Tbx::Ref<Tbx::EventBus> eventBus,
-        std::unordered_set<std::string>& outLoadedPluginNames,
-        std::vector<Tbx::ExclusiveRef<Tbx::LoadedPlugin>>& outLoaded)
-    {
-        auto loadedPlugin = Tbx::MakeExclusive<Tbx::LoadedPlugin>(info, eventBus);
-        if (!loadedPlugin || !loadedPlugin->IsValid())
-        {
-            TBX_ASSERT(false, "PluginLoader: Failed to load plugin: {0}", info.Name);
-            return false;
-        }
-
-        const auto plugin = loadedPlugin->Get();
-        if (eventBus != nullptr)
-        {
-            eventBus->Post(Tbx::PluginLoadedEvent(plugin));
-        }
-        ReportPluginInfo(info);
-
-        outLoadedPluginNames.insert(loadedPlugin->GetMeta().Name);
-        outLoaded.push_back(std::move(loadedPlugin));
-
-        return true;
-    }
-
-    bool SortKey(const Tbx::PluginMeta& a, const Tbx::PluginMeta& b)
-    {
-        const auto da = a.Dependencies.size();
-        const auto db = b.Dependencies.size();
-        if (da != db) return da < db;
-        return a.Name < b.Name;
-    }
-}
-
 namespace Tbx
 {
-    PluginCollection::PluginCollection(
-        std::vector<ExclusiveRef<LoadedPlugin>> plugins,
-        Ref<EventBus> eventBus) noexcept
-        : _plugins(std::move(plugins))
-        , _eventBus(std::move(eventBus))
+    namespace PluginLoaderDetail
     {
+        bool ArePluginDependenciesSatisfied(
+            const PluginMeta& info,
+            const std::unordered_set<std::string>& loadedNames)
+        {
+            for (const auto& dep : info.Dependencies)
+            {
+                if (dep == "All")
+                {
+                    continue;
+                }
+
+                if (loadedNames.contains(dep))
+                {
+                    continue;
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
+        void ReportUnresolvedPluginDependencies(
+            const std::vector<PluginMeta>& remaining,
+            const std::unordered_set<std::string>& loadedNames)
+        {
+            std::ostringstream oss = {};
+            oss << "Unresolved plugin dependencies:\n";
+
+            for (const auto& info : remaining)
+            {
+                std::vector<std::string> missing;
+                for (const auto& dep : info.Dependencies)
+                {
+                    if (!loadedNames.contains(dep) && dep != "All")
+                    {
+                        missing.push_back(dep);
+                    }
+                }
+
+                oss << "  - " << info.Name;
+                if (!missing.empty())
+                {
+                    oss << " (missing: ";
+                    for (size_t i = 0; i < missing.size(); ++i)
+                    {
+                        if (i != 0)
+                        {
+                            oss << ", ";
+                        }
+                        oss << missing[i];
+                    }
+                    oss << ")";
+                }
+                oss << "\n";
+            }
+
+            TBX_TRACE_ERROR("PluginLoader: {}", oss.str());
+        }
+
+        void ReportPluginInfo(const PluginMeta& info)
+        {
+            TBX_TRACE_INFO("- Loaded {}:", info.Name);
+            TBX_TRACE_INFO("    - Version: {}", info.Version);
+            TBX_TRACE_INFO("    - Author: {}", info.Author);
+            TBX_TRACE_INFO("    - Description: {}", info.Description);
+        }
+
+        bool LoadPlugin(
+            const PluginMeta& info,
+            Ref<EventBus> eventBus,
+            std::unordered_set<std::string>& loadedNames,
+            std::vector<Ref<Plugin>>& outLoaded)
+        {
+            auto plugin = MakeRef<Plugin>(info, eventBus);
+            if (plugin == nullptr || !plugin->IsValid())
+            {
+                TBX_ASSERT(false, "PluginLoader: Failed to load plugin: {}", info.Name);
+                return false;
+            }
+
+            if (eventBus != nullptr)
+            {
+                eventBus->Post(PluginLoadedEvent(plugin));
+            }
+
+            ReportPluginInfo(info);
+            loadedNames.insert(info.Name);
+            outLoaded.push_back(std::move(plugin));
+            return true;
+        }
+
+        bool SortKey(const PluginMeta& a, const PluginMeta& b)
+        {
+            const auto dependenciesA = a.Dependencies.size();
+            const auto dependenciesB = b.Dependencies.size();
+            if (dependenciesA != dependenciesB)
+            {
+                return dependenciesA < dependenciesB;
+            }
+
+            return a.Name < b.Name;
+        }
+    }
+
+    PluginCollection::PluginCollection(std::vector<Ref<Plugin>> plugins, Ref<EventBus> eventBus)
+        : _data(std::make_shared<PluginCollectionData>())
+    {
+        _data->plugins = std::move(plugins);
+        _data->eventBus = std::move(eventBus);
     }
 
     PluginCollection::~PluginCollection()
     {
-        if (_plugins.empty())
+        if (_data == nullptr)
         {
             return;
         }
 
-        std::vector<Ref<IPlugin>> pluginsView;
-        if (_eventBus != nullptr)
+        if (!_data.unique())
         {
-            pluginsView.reserve(_plugins.size());
-            for (const auto& record : _plugins)
+            return;
+        }
+
+        auto& plugins = _data->plugins;
+        if (plugins.empty())
+        {
+            return;
+        }
+
+        std::vector<Ref<Plugin>> pluginSnapshot;
+        if (_data->eventBus != nullptr)
+        {
+            pluginSnapshot.reserve(plugins.size());
+            for (const auto& plugin : plugins)
             {
-                if (record != nullptr)
+                if (plugin != nullptr)
                 {
-                    pluginsView.push_back(record->Get());
+                    pluginSnapshot.push_back(plugin);
                 }
             }
         }
 
         std::stable_partition(
-            _plugins.begin(),
-            _plugins.end(),
-            [](const ExclusiveRef<LoadedPlugin>& record)
+            plugins.begin(),
+            plugins.end(),
+            [](const Ref<Plugin>& plugin)
             {
-                return record != nullptr && record->GetAs<ILogger>() != nullptr;
+                return plugin != nullptr && plugin->As<ILogger>() != nullptr;
             });
 
-        while (!_plugins.empty())
+        while (!plugins.empty())
         {
-            auto pluginRecord = std::move(_plugins.back());
-            _plugins.pop_back();
+            auto plugin = std::move(plugins.back());
+            plugins.pop_back();
 
-            if (pluginRecord == nullptr)
+            if (plugin == nullptr)
             {
                 continue;
             }
 
-            TBX_TRACE_INFO("PluginCollection: Releasing {}", pluginRecord->GetMeta().Name);
-            auto plugin = pluginRecord->Get();
-            if (_eventBus != nullptr)
-            {
-                _eventBus->Send(PluginUnloadedEvent(plugin));
-            }
-
-            auto expectedUseCount = 2;
-            if (pluginRecord->GetAs<ILogger>())
-            {
-                expectedUseCount = 3;
-            }
-            if (plugin.use_count() > expectedUseCount)
+            TBX_TRACE_INFO("PluginCollection: Releasing {}", plugin->GetMeta().Name);
+            if (plugin->UseCount() > 1)
             {
                 TBX_ASSERT(
                     false,
                     "{} Plugin is still in use! Ensure all references are released before shutting down!",
-                    pluginRecord->GetMeta().Name);
+                    plugin->GetMeta().Name);
+            }
+
+            if (_data->eventBus != nullptr)
+            {
+                _data->eventBus->Send(PluginUnloadedEvent(plugin));
             }
         }
 
-        if (_eventBus != nullptr)
+        if (_data->eventBus != nullptr)
         {
-            _eventBus->Send(PluginsUnloadedEvent(pluginsView));
+            _data->eventBus->Send(PluginsUnloadedEvent(pluginSnapshot));
         }
     }
 
-    bool PluginCollection::Empty() const noexcept
+    bool PluginCollection::Empty() const
     {
-        return _plugins.empty();
+        return Items().empty();
     }
 
-    uint32 PluginCollection::Count() const noexcept
+    uint32 PluginCollection::Count() const
     {
-        return static_cast<uint32>(_plugins.size());
+        return static_cast<uint32>(Items().size());
     }
 
-    std::vector<Ref<IPlugin>> PluginCollection::All() const
+    std::vector<Ref<Plugin>> PluginCollection::All() const
     {
-        std::vector<Ref<IPlugin>> result;
-        result.reserve(_plugins.size());
+        std::vector<Ref<Plugin>> result;
+        const auto& plugins = Items();
+        result.reserve(plugins.size());
 
-        for (const auto& record : _plugins)
+        for (const auto& plugin : plugins)
         {
-            if (record != nullptr)
+            if (plugin != nullptr)
             {
-                result.push_back(record->Get());
+                result.push_back(plugin);
             }
         }
 
         return result;
     }
 
-    Ref<IPlugin> PluginCollection::OfName(const std::string& pluginName) const
+    Ref<Plugin> PluginCollection::OfName(const std::string& pluginName) const
     {
+        const auto& plugins = Items();
         const auto it = std::find_if(
-            _plugins.begin(),
-            _plugins.end(),
-            [&pluginName](const ExclusiveRef<LoadedPlugin>& record)
+            plugins.begin(),
+            plugins.end(),
+            [&pluginName](const Ref<Plugin>& plugin)
             {
-                return record != nullptr && record->GetMeta().Name == pluginName;
+                return plugin != nullptr && plugin->GetMeta().Name == pluginName;
             });
 
-        if (it != _plugins.end())
+        if (it != plugins.end())
         {
-            return (*it)->Get();
+            return *it;
         }
 
         return nullptr;
     }
 
-    //////////// PLUGIN MANAGER //////////////////
+    const std::vector<Ref<Plugin>>& PluginCollection::Items() const
+    {
+        static const std::vector<Ref<Plugin>> empty = {};
+        if (_data == nullptr)
+        {
+            return empty;
+        }
+
+        return _data->plugins;
+    }
 
     PluginLoader::PluginLoader(
         std::vector<PluginMeta> pluginMetas,
@@ -262,30 +266,34 @@ namespace Tbx
 
     void PluginLoader::LoadPlugins(std::vector<PluginMeta> pluginMetas)
     {
+        using namespace PluginLoaderDetail;
+
         std::stable_sort(pluginMetas.begin(), pluginMetas.end(), SortKey);
 
         TBX_TRACE_INFO("PluginLoader: Loading plugins:");
         auto loadedNames = std::unordered_set<std::string>();
-        uint pluginsSuccessfullyLoaded = 0;
-        uint pluginsUnsuccessfullyLoaded = 0;
+        uint32 successfullyLoaded = 0;
+        uint32 unsuccessfullyLoaded = 0;
+
         while (!pluginMetas.empty())
         {
-            bool resolvedDeps = false;
+            bool resolvedDependencies = false;
 
-            for (auto it = pluginMetas.begin(); it != pluginMetas.end(); )
+            for (auto it = pluginMetas.begin(); it != pluginMetas.end();)
             {
                 if (ArePluginDependenciesSatisfied(*it, loadedNames))
                 {
                     if (LoadPlugin(*it, _eventBus, loadedNames, _plugins))
                     {
-                        pluginsSuccessfullyLoaded++;
+                        ++successfullyLoaded;
                     }
                     else
                     {
-                        pluginsUnsuccessfullyLoaded++;
+                        ++unsuccessfullyLoaded;
                     }
+
                     it = pluginMetas.erase(it);
-                    resolvedDeps = true;
+                    resolvedDependencies = true;
                 }
                 else
                 {
@@ -293,7 +301,7 @@ namespace Tbx
                 }
             }
 
-            if (!resolvedDeps)
+            if (!resolvedDependencies)
             {
                 TBX_ASSERT(false, "PluginLoader: Unable to resolve some plugin dependencies!");
                 ReportUnresolvedPluginDependencies(pluginMetas, loadedNames);
@@ -301,12 +309,12 @@ namespace Tbx
             }
         }
 
-        TBX_TRACE_INFO("PluginLoader: Successfully loaded {} plugins!", pluginsSuccessfullyLoaded);
-        TBX_TRACE_INFO("PluginLoader: Failed to load {} plugins!\n", pluginsUnsuccessfullyLoaded);
+        TBX_TRACE_INFO("PluginLoader: Successfully loaded {} plugins!", successfullyLoaded);
+        TBX_TRACE_INFO("PluginLoader: Failed to load {} plugins!\n", unsuccessfullyLoaded);
 
         if (_eventBus != nullptr)
         {
-            _eventBus->Post(PluginsLoadedEvent(CollectPluginRefs(_plugins)));
+            _eventBus->Post(PluginsLoadedEvent(_plugins));
         }
     }
 }

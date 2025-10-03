@@ -3,43 +3,51 @@
 #include "Tbx/Plugins/Plugin.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Memory/Refs.h"
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace Tbx
 {
+    struct PluginCollectionData
+    {
+        std::vector<Ref<Plugin>> plugins;
+        Ref<EventBus> eventBus = nullptr;
+    };
+
     class TBX_EXPORT PluginCollection
     {
     public:
         PluginCollection() = default;
-        PluginCollection(std::vector<ExclusiveRef<LoadedPlugin>> plugins, Ref<EventBus> eventBus) noexcept;
+        PluginCollection(std::vector<Ref<Plugin>> plugins, Ref<EventBus> eventBus);
         ~PluginCollection();
 
-        PluginCollection(const PluginCollection&) = delete;
-        PluginCollection& operator=(const PluginCollection&) = delete;
-        PluginCollection(PluginCollection&&) noexcept = default;
-        PluginCollection& operator=(PluginCollection&&) noexcept = default;
+        PluginCollection(const PluginCollection&) = default;
+        PluginCollection& operator=(const PluginCollection&) = default;
+        PluginCollection(PluginCollection&&) = default;
+        PluginCollection& operator=(PluginCollection&&) = default;
 
-        bool Empty() const noexcept;
-        uint32 Count() const noexcept;
+        bool Empty() const;
+        uint32 Count() const;
 
-        std::vector<Ref<IPlugin>> All() const;
+        std::vector<Ref<Plugin>> All() const;
 
         template <typename TPlugin>
         std::vector<Ref<TPlugin>> OfType() const
         {
             std::vector<Ref<TPlugin>> result;
-            result.reserve(_plugins.size());
+            const auto& plugins = Items();
+            result.reserve(plugins.size());
 
-            for (const auto& record : _plugins)
+            for (const auto& plugin : plugins)
             {
-                if (record == nullptr)
+                if (plugin == nullptr)
                 {
                     continue;
                 }
 
-                if (auto casted = record->GetAs<TPlugin>())
+                if (auto casted = plugin->As<TPlugin>())
                 {
                     result.push_back(std::move(casted));
                 }
@@ -48,14 +56,15 @@ namespace Tbx
             return result;
         }
 
-        Ref<IPlugin> OfName(const std::string& pluginName) const;
+        Ref<Plugin> OfName(const std::string& pluginName) const;
 
-        auto begin() const noexcept { return _plugins.begin(); }
-        auto end() const noexcept { return _plugins.end(); }
+        auto begin() const { return Items().begin(); }
+        auto end() const { return Items().end(); }
 
     private:
-        std::vector<ExclusiveRef<LoadedPlugin>> _plugins;
-        Ref<EventBus> _eventBus = nullptr;
+        const std::vector<Ref<Plugin>>& Items() const;
+
+        std::shared_ptr<PluginCollectionData> _data = nullptr;
     };
 
 
@@ -84,7 +93,7 @@ namespace Tbx
         void LoadPlugins(std::vector<PluginMeta> pluginMetas);
 
     private:
-        std::vector<ExclusiveRef<LoadedPlugin>> _plugins;
+        std::vector<Ref<Plugin>> _plugins;
         Ref<EventBus> _eventBus = nullptr;
     };
 }

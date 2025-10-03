@@ -4,7 +4,7 @@
 
 namespace Tbx
 {
-    LoadedPlugin::LoadedPlugin(
+    Plugin::Plugin(
         const PluginMeta& pluginInfo,
         Ref<EventBus> eventBus)
         : _pluginInfo(pluginInfo)
@@ -12,25 +12,42 @@ namespace Tbx
         Load(eventBus);
     }
 
-    LoadedPlugin::~LoadedPlugin()
+    Plugin::~Plugin()
     {
         Unload();
     }
 
-    bool LoadedPlugin::IsValid() const noexcept
+    bool Plugin::IsValid() const
     {
-        return _plugin != nullptr;
+        return _instance != nullptr || _pluginInfo.IsStatic;
     }
 
-    const PluginMeta& LoadedPlugin::GetMeta() const noexcept
+    const PluginMeta& Plugin::GetMeta() const
     {
         return _pluginInfo;
     }
 
-    void LoadedPlugin::Load(Ref<EventBus> eventBus)
+    SharedLibrary& Plugin::GetLibrary()
     {
-        // Don't load static plugins
-        if (_pluginInfo.IsStatic) return;
+        return _library;
+    }
+
+    size_t Plugin::UseCount() const
+    {
+        return _instance.use_count();
+    }
+
+    Ref<void> Plugin::Instance() const
+    {
+        return _instance;
+    }
+
+    void Plugin::Load(Ref<EventBus> eventBus)
+    {
+        if (_pluginInfo.IsStatic)
+        {
+            return;
+        }
 
         const std::string& pluginFullPath = _pluginInfo.Path;
         _library.Load(pluginFullPath);
@@ -40,7 +57,6 @@ namespace Tbx
             return;
         }
 
-        // Get load and unload plugin functions from library
         const auto loadFuncSymbol = _library.GetSymbol(TBX_LOAD_PLUGIN_FN_NAME);
         const auto unloadFuncSymbol = _library.GetSymbol(TBX_UNLOAD_PLUGIN_FN_NAME);
         const auto loadPluginFunc = reinterpret_cast<PluginLoadFn>(loadFuncSymbol);
@@ -54,31 +70,40 @@ namespace Tbx
         if (!unloadPluginFunc)
         {
             TBX_TRACE_ERROR("Plugin: No unload library function found in: {0}, is it calling TBX_REGISTER_PLUGIN?", pluginFullPath);
-            // Since we already loaded the library we must unload it here to
-            // avoid leaking the library handle and associated resources.
             _library.Unload();
             return;
         }
 
         auto* loadedPlugin = loadPluginFunc(eventBus);
-        Ref<IPlugin> sharedLoadedPlugin(loadedPlugin, [unloadPluginFunc](IPlugin* pluginToUnload)
+        if (loadedPlugin == nullptr)
+        {
+            TBX_TRACE_ERROR("Plugin: Load function returned nullptr for {0}", pluginFullPath);
+            _library.Unload();
+            return;
+        }
+
+        Ref<void> sharedLoadedPlugin(loadedPlugin, [unloadPluginFunc](void* pluginToUnload)
         {
             unloadPluginFunc(pluginToUnload);
         });
-        _plugin = sharedLoadedPlugin;
+        _instance = sharedLoadedPlugin;
 
 #ifdef TBX_DEBUG
         _library.ListSymbols();
 #endif
     }
 
-    void LoadedPlugin::Unload() noexcept
+    void Plugin::Unload()
     {
-        if (_plugin != nullptr)
+        if (_instance != nullptr)
         {
-            _plugin.reset();
+            _instance.reset();
         }
 
-        _library.Unload();
+        if (_library.IsValid())
+        {
+            _library.Unload();
+        }
+
     }
 }

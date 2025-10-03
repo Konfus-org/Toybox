@@ -5,12 +5,12 @@
 
 namespace Tbx
 {
-    class IPlugin;
+    class Plugin;
 
     class TBX_EXPORT PluginLoadedEvent final : public Event
     {
     public:
-        PluginLoadedEvent(Ref<IPlugin> loadedPlugin)
+        PluginLoadedEvent(Ref<Plugin> loadedPlugin)
             : _loadedPlugin(loadedPlugin) {}
 
         std::string ToString() const override
@@ -18,19 +18,19 @@ namespace Tbx
             return "Plugin Loaded Event";
         }
 
-        Ref<IPlugin> GetLoadedPlugin() const
+        Ref<Plugin> GetLoadedPlugin() const
         {
-            return _loadedPlugin; 
+            return _loadedPlugin;
         }
 
     private:
-        Ref<IPlugin> _loadedPlugin = nullptr;
+        Ref<Plugin> _loadedPlugin = nullptr;
     };
 
     class TBX_EXPORT PluginUnloadedEvent final : public Event
     {
     public:
-        PluginUnloadedEvent(Ref<IPlugin> unloadedPlugin)
+        PluginUnloadedEvent(Ref<Plugin> unloadedPlugin)
             : _unloadedPlugin(unloadedPlugin) {}
 
         std::string ToString() const override
@@ -38,19 +38,19 @@ namespace Tbx
             return "Plugin Loaded Event";
         }
 
-        Ref<IPlugin> GetUnloadedPlugin() const
+        Ref<Plugin> GetUnloadedPlugin() const
         {
             return _unloadedPlugin;
         }
 
     private:
-        Ref<IPlugin> _unloadedPlugin = nullptr;
+        Ref<Plugin> _unloadedPlugin = nullptr;
     };
 
     class TBX_EXPORT PluginsUnloadedEvent final : public Event
     {
     public:
-        PluginsUnloadedEvent(const std::vector<Ref<IPlugin>>& unloadedPlugins)
+        PluginsUnloadedEvent(const std::vector<Ref<Plugin>>& unloadedPlugins)
             : _unloadedPlugins(unloadedPlugins) {}
 
         std::string ToString() const override
@@ -58,19 +58,19 @@ namespace Tbx
             return "Plugin Loaded Event";
         }
 
-        const std::vector<Ref<IPlugin>>& GetUnloadedPlugins() const
+        const std::vector<Ref<Plugin>>& GetUnloadedPlugins() const
         {
             return _unloadedPlugins;
         }
 
     private:
-        std::vector<Ref<IPlugin>> _unloadedPlugins = {};
+        std::vector<Ref<Plugin>> _unloadedPlugins = {};
     };
 
     class TBX_EXPORT PluginsLoadedEvent final : public Event
     {
     public:
-        PluginsLoadedEvent(const std::vector<Ref<IPlugin>>& loadedPlugins)
+        PluginsLoadedEvent(const std::vector<Ref<Plugin>>& loadedPlugins)
             : _loadedPlugins(loadedPlugins) {}
 
         std::string ToString() const override
@@ -78,12 +78,12 @@ namespace Tbx
             return "Plugin Loaded Event";
         }
 
-        const std::vector<Ref<IPlugin>>& GetLoadedPlugins() const
+        const std::vector<Ref<Plugin>>& GetLoadedPlugins() const
         {
             return _loadedPlugins;
         }
 
     private:
-        std::vector<Ref<IPlugin>> _loadedPlugins = {};
+        std::vector<Ref<Plugin>> _loadedPlugins = {};
     };
 }

@@ -18,14 +18,8 @@ namespace Tbx::Launcher
         {
             // Setup required systems for the app
             auto eventBus = MakeRef<EventBus>();
-            auto pluginMetas = PluginFinder(
-                FileSystem::GetPluginDirectory(),
-                config.Plugins)
-                                      .Result();
-            auto pluginLoader = PluginLoader(
-                std::move(pluginMetas),
-                eventBus);
-            auto pluginCollection = pluginLoader.Results();
+            auto pluginMetas = PluginFinder(FileSystem::GetPluginDirectory(), config.Plugins).Result();
+            auto pluginCollection = PluginLoader(std::move(pluginMetas), eventBus).Results();
 
             Ref<ILogger> loggerPlugin = nullptr;
             {
@@ -39,22 +33,23 @@ namespace Tbx::Launcher
             }
 
             // Create the app
-            auto app = App(config.Name, config.Settings, std::move(pluginCollection), eventBus);
+            {
+                auto app = App(config.Name, config.Settings, pluginCollection, eventBus);
 
-            // Run the app, this will block until the app closes
-            app.Run();
+                // Run the app, this will block until the app closes
+                app.Run();
 
-            // After we've closed check if the app is asking for a reload
-            // or if we should fully shutdown
-            status = app.GetStatus();
-            running =
-                status != AppStatus::Error &&
-                status != AppStatus::Closed;
+                // After we've closed check if the app is asking for a reload
+                // or if we should fully shutdown
+                status = app.GetStatus();
+                running =
+                    status != AppStatus::Error &&
+                    status != AppStatus::Closed;
+            }
 
             if (loggerPlugin != nullptr)
             {
                 Log::Shutdown();
-                loggerPlugin.reset();
             }
         }
 
