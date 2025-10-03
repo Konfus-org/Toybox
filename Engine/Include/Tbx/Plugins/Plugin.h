@@ -4,42 +4,42 @@
 #include "Tbx/Plugins/PluginMeta.h"
 #include "Tbx/Plugins/SharedLibrary.h"
 #include "Tbx/Memory/Refs.h"
-#include <cstddef>
 
 namespace Tbx
 {
-    using PluginLoadFn = void* (*)(
+    class Plugin;
+
+    using PluginLoadFn = Plugin* (*)(
         Ref<EventBus> eventBus);
-    using PluginUnloadFn = void (*)(void* plugin);
+    using PluginUnloadFn = void (*)(Plugin* plugin);
 
     class TBX_EXPORT Plugin
     {
     public:
-        Plugin(
-            const PluginMeta& pluginInfo,
-            Ref<EventBus> eventBus);
-        ~Plugin();
+        Plugin() = default;
+        virtual ~Plugin();
 
-        bool IsValid() const;
+        Plugin(const Plugin&) = delete;
+        Plugin& operator=(const Plugin&) = delete;
+        Plugin(Plugin&&) = delete;
+        Plugin& operator=(Plugin&&) = delete;
+
+        bool IsInitialized() const;
+        bool IsStatic() const;
+        bool HasLibrary() const;
+
         const PluginMeta& GetMeta() const;
         SharedLibrary& GetLibrary();
-        size_t UseCount() const;
+        const SharedLibrary& GetLibrary() const;
 
-        template <typename T>
-        Ref<T> As() const
-        {
-            return std::static_pointer_cast<T>(_instance);
-        }
-
-        Ref<void> Instance() const;
+        void Initialize(const PluginMeta& pluginInfo);
+        void Initialize(const PluginMeta& pluginInfo, const SharedLibrary& library);
 
     private:
-        void Load(Ref<EventBus> eventBus);
-        void Unload();
-
         PluginMeta _pluginInfo = {};
         SharedLibrary _library = {};
-        Ref<void> _instance = nullptr;
+        bool _isInitialized = false;
+        bool _ownsLibrary = false;
     };
 
     #define TBX_LOAD_PLUGIN_FN_NAME "Load"

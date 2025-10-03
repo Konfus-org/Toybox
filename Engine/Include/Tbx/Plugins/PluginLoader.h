@@ -47,7 +47,7 @@ namespace Tbx
                     continue;
                 }
 
-                if (auto casted = plugin->As<TPlugin>())
+                if (auto casted = std::dynamic_pointer_cast<TPlugin>(plugin))
                 {
                     result.push_back(std::move(casted));
                 }

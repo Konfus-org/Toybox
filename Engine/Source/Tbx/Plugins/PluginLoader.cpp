@@ -4,6 +4,7 @@
 #include "Tbx/Debug/Debugging.h"
 #include "Tbx/Debug/ILogger.h"
 #include <algorithm>
+#include <memory>
 #include <sstream>
 #include <unordered_set>
 #include <utility>
@@ -86,12 +87,73 @@ namespace Tbx
             std::unordered_set<std::string>& loadedNames,
             std::vector<Ref<Plugin>>& outLoaded)
         {
-            auto plugin = MakeRef<Plugin>(info, eventBus);
-            if (plugin == nullptr || !plugin->IsValid())
+            if (info.IsStatic)
             {
-                TBX_ASSERT(false, "PluginLoader: Failed to load plugin: {}", info.Name);
+                TBX_TRACE_ERROR("PluginLoader: Static plugins are not supported for '{}'", info.Name);
                 return false;
             }
+
+            SharedLibrary library;
+            if (!library.Load(info.Path))
+            {
+                TBX_TRACE_ERROR("PluginLoader: Failed to load library at '{}'", info.Path);
+                return false;
+            }
+
+            const auto loadFuncSymbol = library.GetSymbol(TBX_LOAD_PLUGIN_FN_NAME);
+            const auto unloadFuncSymbol = library.GetSymbol(TBX_UNLOAD_PLUGIN_FN_NAME);
+            const auto loadPluginFunc = reinterpret_cast<PluginLoadFn>(loadFuncSymbol);
+            const auto unloadPluginFunc = reinterpret_cast<PluginUnloadFn>(unloadFuncSymbol);
+            if (loadPluginFunc == nullptr)
+            {
+                TBX_TRACE_ERROR(
+                    "PluginLoader: Missing load function in '{}'. Did it call TBX_REGISTER_PLUGIN?",
+                    info.Name);
+                library.Unload();
+                return false;
+            }
+
+            if (unloadPluginFunc == nullptr)
+            {
+                TBX_TRACE_ERROR(
+                    "PluginLoader: Missing unload function in '{}'. Did it call TBX_REGISTER_PLUGIN?",
+                    info.Name);
+                library.Unload();
+                return false;
+            }
+
+            Plugin* pluginInstance = loadPluginFunc(eventBus);
+            if (pluginInstance == nullptr)
+            {
+                TBX_TRACE_ERROR("PluginLoader: Load returned nullptr for '{}'", info.Name);
+                library.Unload();
+                return false;
+            }
+
+            pluginInstance->Initialize(info, library);
+            if (!pluginInstance->IsInitialized())
+            {
+                TBX_TRACE_ERROR("PluginLoader: Plugin '{}' failed to initialize", info.Name);
+                unloadPluginFunc(pluginInstance);
+                return false;
+            }
+
+            Ref<Plugin> plugin(pluginInstance, [unloadPluginFunc](Plugin* pluginToUnload)
+            {
+                if (pluginToUnload == nullptr)
+                {
+                    return;
+                }
+
+                unloadPluginFunc(pluginToUnload);
+            });
+
+#ifdef TBX_VERBOSE_LOGGING
+            if (plugin->HasLibrary())
+            {
+                plugin->GetLibrary().ListSymbols();
+            }
+#endif
 
             if (eventBus != nullptr)
             {
@@ -160,7 +222,12 @@ namespace Tbx
             plugins.end(),
             [](const Ref<Plugin>& plugin)
             {
-                return plugin != nullptr && plugin->As<ILogger>() != nullptr;
+                if (plugin == nullptr)
+                {
+                    return false;
+                }
+
+                return std::dynamic_pointer_cast<ILogger>(plugin) != nullptr;
             });
 
         while (!plugins.empty())
@@ -174,7 +241,7 @@ namespace Tbx
             }
 
             TBX_TRACE_INFO("PluginCollection: Releasing {}", plugin->GetMeta().Name);
-            if (plugin->UseCount() > 1)
+            if (plugin.use_count() > 1)
             {
                 TBX_ASSERT(
                     false,
