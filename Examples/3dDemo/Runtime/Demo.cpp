@@ -11,8 +11,8 @@
 #include <Tbx/Time/DeltaTime.h>
 #include <vector>
 
-Demo::Demo(Tbx::Ref<Tbx::AssetServer> assetServer, Tbx::Ref<Tbx::EventBus> eventBus)
-    : Runtime("3d Demo Runtime", assetServer, eventBus)
+Demo::Demo(Tbx::Ref<Tbx::EventBus> eventBus)
+    : Runtime("3d Demo Runtime", eventBus)
 {
     TBX_TRACE_INFO("Demo: loaded!\n");
 }

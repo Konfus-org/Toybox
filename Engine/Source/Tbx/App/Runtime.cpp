@@ -5,16 +5,15 @@ namespace Tbx
 {
     Runtime::Runtime(
         const std::string& name,
-        Ref<AssetServer> assetServer,
         Ref<EventBus> eventBus)
-        : _name(name)
-        , _assetServer(assetServer)
-        , _eventBus(eventBus)
+        : Plugin(std::move(eventBus))
+        , _name(name)
     {
     }
 
-    void Runtime::Initialize()
+    void Runtime::Initialize(Ref<AssetServer> assetServer)
     {
+        _assetServer = std::move(assetServer);
         // Hook for inheriting runtimes
         OnStart();
     }
@@ -33,11 +32,14 @@ namespace Tbx
 
     AssetServer& Runtime::GetAssetServer() const
     {
+        TBX_ASSERT(_assetServer != nullptr, "Runtime: Asset server is not available");
         return *_assetServer;
     }
 
     EventBus& Runtime::GetEventBus() const
     {
-        return *_eventBus;
+        auto eventBus = Plugin::GetEventBus();
+        TBX_ASSERT(eventBus != nullptr, "Runtime: Event bus is not available");
+        return *eventBus;
     }
 }

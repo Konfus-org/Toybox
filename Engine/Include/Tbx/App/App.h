@@ -5,7 +5,7 @@
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Layers/LayerStack.h"
 #include "Tbx/Memory/Refs.h"
-#include "Tbx/Plugins/PluginServer.h"
+#include "Tbx/Plugins/PluginLoader.h"
 
 namespace Tbx
 {
@@ -31,7 +31,7 @@ namespace Tbx
     public:
         App(const std::string_view& name,
             const AppSettings& settings,
-            const PluginStack& plugins,
+            PluginCache plugins,
             Ref<EventBus> eventBus);
         virtual ~App();
 
@@ -54,9 +54,7 @@ namespace Tbx
         template <typename TLayer, typename... TArgs>
         Uid AddLayer(TArgs&&... args)
         {
-            const auto& newLayerId = _layerStack.Push<TLayer>(std::forward<TArgs>(args)...);
-            const auto& layerName = _layerStack.Get(newLayerId).Name;
-            return newLayerId;
+            return _layerStack.Push<TLayer>(std::forward<TArgs>(args)...);
         }
         bool HasLayer(const Uid& layerId) const;
         Layer& GetLayer(const Uid& layerId);
@@ -82,6 +80,6 @@ namespace Tbx
         Uid _mainWindowId = Uid::Invalid;
         Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};
-        PluginStack _plugins = {};
+        PluginCache _plugins = {};
     };
 }

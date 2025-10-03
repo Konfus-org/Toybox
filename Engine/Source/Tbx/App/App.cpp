@@ -11,15 +11,16 @@
 #include "Tbx/Input/InputCodes.h"
 #include "Tbx/Time/DeltaTime.h"
 #include "Tbx/Files/Paths.h"
+#include <stdexcept>
 
 namespace Tbx
 {
-    App::App(const std::string_view& name, const AppSettings& settings, const PluginStack& plugins, Ref<EventBus> eventBus)
+    App::App(const std::string_view& name, const AppSettings& settings, PluginCache plugins, Ref<EventBus> eventBus)
         : _name(name)
         , _settings(settings)
         , _eventBus(eventBus)
         , _eventListener(eventBus)
-        , _plugins(plugins)
+        , _plugins(std::move(plugins))
     {
     }
 
@@ -119,12 +120,10 @@ namespace Tbx
         // Finally, initialize any runtimes
         auto assetLoaderPlugs = _plugins.OfType<IAssetLoader>();
         auto assetServer = MakeRef<AssetServer>(assetDirectory, assetLoaderPlugs);
-        auto runtimeLoaders = _plugins.OfType<IRuntimeLoader>();
-        for (const auto& runtimeLoader : runtimeLoaders)
+        auto runtimes = _plugins.OfType<Runtime>();
+        for (const auto& runtime : runtimes)
         {
-            auto runtime = runtimeLoader->Load(assetServer, _eventBus);
-
-            // TODO: push runtime back into a list of runtimes!
+            runtime->Initialize(assetServer);
         }
     }
 
@@ -213,20 +212,31 @@ namespace Tbx
     {
         return _settings;
     }
-    
+
     bool App::HasLayer(const Uid& layerId) const
     {
-        return _layerStack.Contains(layerId);
+        return _layerStack.Any([&](const ExclusiveRef<Layer>& layer)
+        {
+            return layer != nullptr && layer->Id == layerId;
+        });
     }
 
     Layer& App::GetLayer(const Uid& layerId)
     {
-        return _layerStack.Get(layerId);
+        for (const auto& layer : _layerStack)
+        {
+            if (layer != nullptr && layer->Id == layerId)
+            {
+                return *layer;
+            }
+        }
+
+        TBX_ASSERT(false, "App: Requested layer does not exist");
+        throw std::runtime_error("App: Requested layer does not exist");
     }
 
     void App::RemoveLayer(const Uid& layer)
     {
-        auto layerName = _layerStack.Get(layer).Name;
         _layerStack.Remove(layer);
     }
 
