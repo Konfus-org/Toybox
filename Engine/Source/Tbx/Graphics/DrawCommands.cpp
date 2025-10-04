@@ -1,19 +1,20 @@
 #include "Tbx/PCH.h"
-#include "Tbx/Graphics/RenderCommands.h"
+#include "Tbx/Graphics/DrawCommands.h"
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Graphics/Camera.h"
 #include "Tbx/Stages/Views.h"
 #include "Tbx/Math/Transform.h"
 #include "Tbx/Graphics/Frustum.h"
 #include "Tbx/Graphics/Sphere.h"
+#include "Tbx/Graphics/Model.h"
 
 namespace Tbx
 {
     DrawCommandBuffer DrawCommandBufferBuilder::Build(std::vector<Ref<Stage>> stages, Size viewportSize, RgbaColor clearColor)
     {
         DrawCommandBuffer buffer = {};
-        buffer.Commands.emplace_back(RenderCommandType::SetViewport, Viewport({ 0, 0 }, viewportSize));
-        buffer.Commands.emplace_back(RenderCommandType::Clear, clearColor);
+        buffer.Commands.emplace_back(DrawCommandType::SetViewport, DrawCommandPayload(Viewport({ 0, 0 }, viewportSize)));
+        buffer.Commands.emplace_back(DrawCommandType::Clear, DrawCommandPayload(clearColor));
         auto aspectRatio = CalculateAspectRatioFromSize(viewportSize);
 
         for (const auto& stage : stages)
@@ -84,59 +85,59 @@ namespace Tbx
                     if (!inFrustum) continue;
                 }
 
-                AddToyUploadCommandsToBuffer(toy, buffer);
-                AddToyRenderCommandsToBuffer(toy, buffer);
+                AddToyDrawCommandsToBuffer(toy, buffer);
             }
         }
 
         return buffer;
     }
 
-    void DrawCommandBufferBuilder::AddToyUploadCommandsToBuffer(const Ref<Toy>& toy, DrawCommandBuffer& buffer)
-    {
-        // Preprocess materials to upload textures and shaders to GPU
-        if (toy->Blocks.Contains<MaterialInstance>())
-        {
-            const auto& material = toy->Blocks.Get<MaterialInstance>();
+    // TODO: Implement the uploads somewhere else when the scene opens, and then cleanup when the scene closes!
+    //void DrawCommandBufferBuilder::AddToyUploadCommandsToBuffer(const Ref<Toy>& toy, DrawCommandBuffer& buffer)
+    //{
+    //    // Preprocess materials to upload textures and shaders to GPU
+    //    if (toy->Blocks.Contains<MaterialInstance>())
+    //    {
+    //        const auto& material = toy->Blocks.Get<MaterialInstance>();
 
-            // Check if we already added this material
-            auto newMaterialToUpload = true;
-            const auto& existingUploadMatCmds = buffer.Commands;
-            for (const auto& cmd : existingUploadMatCmds)
-            {
-                if (cmd.Type != RenderCommandType::UploadMaterial) continue;
+    //        // Check if we already added this material
+    //        auto newMaterialToUpload = true;
+    //        const auto& existingUploadMatCmds = buffer.Commands;
+    //        for (const auto& cmd : existingUploadMatCmds)
+    //        {
+    //            if (cmd.Type != DrawCommandType::UploadMaterial) continue;
 
-                const auto& materialToUpload = std::any_cast<const MaterialInstance&>(cmd.Payload);
-                if (materialToUpload.Id == material.Id)
-                {
-                    newMaterialToUpload = false;
-                    break;
-                }
-            }
-            if (newMaterialToUpload)
-            {
-                // New material, add to buffer
-                buffer.Commands.emplace_back(RenderCommandType::UploadMaterial, material);
-            }
-        }
+    //            const auto& materialToUpload = std::any_cast<const MaterialInstance&>(cmd.Payload);
+    //            if (materialToUpload.Id == material.Id)
+    //            {
+    //                newMaterialToUpload = false;
+    //                break;
+    //            }
+    //        }
+    //        if (newMaterialToUpload)
+    //        {
+    //            // New material, add to buffer
+    //            buffer.Commands.emplace_back(DrawCommandType::UploadMaterial, material);
+    //        }
+    //    }
 
-        // Preprocess models to upload mesh and its material data (shaders and textures) to GPU
-        if (toy->Blocks.Contains<Model>())
-        {
-            const auto& model = toy->Blocks.Get<Model>();
-            buffer.Commands.emplace_back(RenderCommandType::UploadMaterial, model.GetMaterial());
-            buffer.Commands.emplace_back(RenderCommandType::UploadMesh, model.GetMesh());
-        }
+    //    // Preprocess models to upload mesh and its material data (shaders and textures) to GPU
+    //    if (toy->Blocks.Contains<Model>())
+    //    {
+    //        const auto& model = toy->Blocks.Get<Model>();
+    //        buffer.Commands.emplace_back(RenderCommandType::UploadMaterial, model.GetMaterial());
+    //        buffer.Commands.emplace_back(RenderCommandType::UploadMesh, model.GetMesh());
+    //    }
 
-        // Preprocess meshes to upload the mesh data
-        if (toy->Blocks.Contains<Mesh>())
-        {
-            const auto& mesh = toy->Blocks.Get<Mesh>();
-            buffer.Commands.emplace_back(RenderCommandType::UploadMesh, mesh);
-        }
-    }
+    //    // Preprocess meshes to upload the mesh data
+    //    if (toy->Blocks.Contains<Mesh>())
+    //    {
+    //        const auto& mesh = toy->Blocks.Get<Mesh>();
+    //        buffer.Commands.emplace_back(RenderCommandType::UploadMesh, mesh);
+    //    }
+    //}
 
-    void DrawCommandBufferBuilder::AddToyRenderCommandsToBuffer(const Ref<Toy>& toy, DrawCommandBuffer& buffer)
+    void DrawCommandBufferBuilder::AddToyDrawCommandsToBuffer(const Ref<Toy>& toy, DrawCommandBuffer& buffer)
     {
         // NOTE: Order matters here!!!
         
@@ -151,7 +152,7 @@ namespace Tbx
         if (toy->Blocks.Contains<MaterialInstance>())
         {
             const auto& material = toy->Blocks.Get<MaterialInstance>();
-            buffer.Commands.emplace_back(RenderCommandType::SetMaterial, material);
+            buffer.Commands.emplace_back(DrawCommandType::SetMaterial, material);
         }
 
         // Camera block, upload the camera data
@@ -164,14 +165,14 @@ namespace Tbx
                 // Use the transform block's position and rotation
                 const auto& cameraTransform = toy->Blocks.Get<Transform>();
                 const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(cameraTransform.Position, cameraTransform.Rotation, camera.GetProjectionMatrix());
-                buffer.Commands.emplace_back(RenderCommandType::SetUniform, ShaderUniform("ViewProjectionUniform", viewProjMatrix));
+                buffer.Commands.emplace_back(DrawCommandType::SetUniform, ShaderUniform("ViewProjectionUniform", viewProjMatrix));
             }
             else
             {
                 // No transform block, use default camera position and rotation
                 const auto viewProjMatrix = Camera::CalculateViewProjectionMatrix(
                     Vector3::Zero, Quaternion::Identity, camera.GetProjectionMatrix());
-                buffer.Commands.emplace_back(RenderCommandType::SetUniform, ShaderUniform("ViewProjectionUniform", viewProjMatrix));
+                buffer.Commands.emplace_back(DrawCommandType::SetUniform, ShaderUniform("ViewProjectionUniform", viewProjMatrix));
             }
         }
         // Transform block, upload the transform data
@@ -179,22 +180,22 @@ namespace Tbx
         {
             const auto& transform = toy->Blocks.Get<Transform>();
             const auto transformMatrix = Mat4x4::FromTRS(transform.Position, transform.Rotation, transform.Scale);
-            buffer.Commands.emplace_back(RenderCommandType::SetUniform, ShaderUniform("TransformUniform", transformMatrix));
+            buffer.Commands.emplace_back(DrawCommandType::SetUniform, ShaderUniform("TransformUniform", transformMatrix));
         }
 
         // Model block, upload model data
         if (toy->Blocks.Contains<Model>())
         {
             const auto& model = toy->Blocks.Get<Model>();
-            buffer.Commands.emplace_back(RenderCommandType::SetMaterial, model.GetMaterial());
-            buffer.Commands.emplace_back(RenderCommandType::DrawMesh, model.GetMesh());
+            buffer.Commands.emplace_back(DrawCommandType::SetMaterial, model.GetMaterial());
+            buffer.Commands.emplace_back(DrawCommandType::DrawMesh, model.GetMesh());
         }
         
         // Mesh block, upload the mesh data
         if (toy->Blocks.Contains<Mesh>())
         {
             const auto& mesh = toy->Blocks.Get<Mesh>();
-            buffer.Commands.emplace_back(RenderCommandType::DrawMesh, mesh);
+            buffer.Commands.emplace_back(DrawCommandType::DrawMesh, mesh);
         }
     }
 }

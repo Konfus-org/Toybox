@@ -1,9 +1,9 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Collections/LayerStack.h"
-#include "Tbx/Graphics/IRenderer.h"
+#include "Tbx/Graphics/Renderer.h"
 #include "Tbx/Graphics/GraphicsContext.h"
-#include "Tbx/Graphics/RenderingPipeline.h"
+#include "Tbx/Graphics/GraphicsPipeline.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Memory/Refs.h"
 #include <vector>
@@ -25,7 +25,7 @@ namespace Tbx
         void OnUpdate() override;
 
     private:
-        Tbx::ExclusiveRef<RenderingPipeline> _rendering = nullptr;
+        Tbx::ExclusiveRef<GraphicsPipeline> _pipeline = nullptr;
     };
 }
 

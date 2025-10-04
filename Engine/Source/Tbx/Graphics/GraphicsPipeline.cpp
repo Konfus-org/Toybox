@@ -1,18 +1,15 @@
 #include "Tbx/PCH.h"
-#include "Tbx/Graphics/RenderingPipeline.h"
+#include "Tbx/Graphics/GraphicsPipeline.h"
 #include "Tbx/Events/RenderEvents.h"
-#include "Tbx/Graphics/RenderCommands.h"
-#include "Tbx/Graphics/Viewport.h"
-#include "Tbx/Math/Size.h"
 #include <algorithm>
 #include <utility>
 
 namespace Tbx
 {
-    RenderingPipeline::RenderingPipeline(
+    GraphicsPipeline::GraphicsPipeline(
         const std::vector<Ref<IRendererFactory>>& rendererFactories,
         const std::vector<Ref<IGraphicsContextProvider>>& graphicsContextProviders,
-        const std::vector<Ref<IShaderCompiler>>& shaderCompilers,
+        //const std::vector<Ref<IShaderCompiler>>& shaderCompilers,
         Ref<EventBus> eventBus)
         : _eventBus(eventBus)
         , _eventListener(eventBus)
@@ -46,11 +43,11 @@ namespace Tbx
             }
             for (const auto supportedApi : supportedApis)
             {
-                _configProviders[supportedApi] = provider;
+                _contextProviders[supportedApi] = provider;
             }
         }
 
-        for (const auto& compiler : shaderCompilers)
+        /*for (const auto& compiler : shaderCompilers)
         {
             const auto supportedLangs = compiler->GetSupportedLanguages();
             if (supportedLangs.empty())
@@ -62,18 +59,18 @@ namespace Tbx
             {
                 _shaderCompilers[supportedLang] = compiler;
             }
-        }
+        }*/
 
-        _eventListener.Listen(this, &RenderingPipeline::OnWindowOpened);
-        _eventListener.Listen(this, &RenderingPipeline::OnWindowClosed);
-        _eventListener.Listen(this, &RenderingPipeline::OnAppSettingsChanged);
-        _eventListener.Listen(this, &RenderingPipeline::OnStageOpened);
-        _eventListener.Listen(this, &RenderingPipeline::OnStageClosed);
+        _eventListener.Listen(this, &GraphicsPipeline::OnWindowOpened);
+        _eventListener.Listen(this, &GraphicsPipeline::OnWindowClosed);
+        _eventListener.Listen(this, &GraphicsPipeline::OnAppSettingsChanged);
+        _eventListener.Listen(this, &GraphicsPipeline::OnStageOpened);
+        _eventListener.Listen(this, &GraphicsPipeline::OnStageClosed);
     }
 
-    RenderingPipeline::~RenderingPipeline() = default;
+    GraphicsPipeline::~GraphicsPipeline() = default;
 
-    void RenderingPipeline::Update()
+    void GraphicsPipeline::Update()
     {
         if (_windowBindings.empty() || _openStages.empty())
         {
@@ -83,7 +80,7 @@ namespace Tbx
         DrawFrame();
     }
 
-    Ref<IRenderer> RenderingPipeline::GetRenderer(const Ref<Window>& window) const
+    Ref<IRenderer> GraphicsPipeline::GetRenderer(const Ref<Window>& window) const
     {
         if (!window)
         {
@@ -100,12 +97,12 @@ namespace Tbx
         return it->second;
     }
 
-    void RenderingPipeline::DrawFrame()
+    void GraphicsPipeline::DrawFrame()
     {
         RenderOpenStages();
     }
 
-    void RenderingPipeline::RenderOpenStages()
+    void GraphicsPipeline::RenderOpenStages()
     {
         for (auto& [window, renderer] : _windowBindings)
         {
@@ -121,43 +118,40 @@ namespace Tbx
         }
     }
 
-    void RenderingPipeline::CacheShaders(const std::vector<Ref<Material>>& materials)
+    void GraphicsPipeline::CacheShaders(const std::vector<Ref<Shader>>& shaders)
     {
-        for (auto material : materials)
+        for (auto shader : shaders)
         {
-            if (_shaderCache.contains(material->Id))
+            if (_shaderCache.contains(shader->Id))
             {
                 continue;
             }
 
-            for (auto shader : material->Shaders)
+            auto compilersEntry = _shaderCompilers.find(shader->Lang);
+            if (compilersEntry == _shaderCompilers.end())
             {
-                auto compilersEntry = _shaderCompilers.find(shader->Lang);
-                if (compilersEntry == _shaderCompilers.end())
-                {
-                    TBX_ASSERT(false, "Rendering: No shader compiler found for language.");
-                    continue;
-                }
-
-                auto compiler = compilersEntry->second;
-                compiler->Compile(shader);
-
-                auto uploader = _graphicsUploader[_currGraphicsApi];
-                auto handle = uploader->UploadShader(shader);
-                _shaderCache[material->Id].push_back(handle);
+                TBX_ASSERT(false, "Rendering: No shader compiler found for language.");
+                continue;
             }
+
+            auto compiler = compilersEntry->second;
+            compiler->Compile(shader);
+
+            auto uploader = _graphicsUploader[_currGraphicsApi];
+            auto handle = uploader->UploadShader(shader);
+            _shaderCache[shader->Id] = handle;
         }
     }
 
-    void RenderingPipeline::CacheTextures(const std::vector<Ref<Texture>>& textures)
+    void GraphicsPipeline::CacheTextures(const std::vector<Ref<Texture>>& textures)
     {
     }
 
-    void RenderingPipeline::CacheMeshes(const std::vector<Ref<Mesh>>& meshes)
+    void GraphicsPipeline::CacheMeshes(const std::vector<Ref<Mesh>>& meshes)
     {
     }
 
-    void RenderingPipeline::AddStage(const Ref<Stage>& stage)
+    void GraphicsPipeline::AddStage(const Ref<Stage>& stage)
     {
         if (!stage)
         {
@@ -173,7 +167,7 @@ namespace Tbx
         _openStages.push_back(stage);
     }
 
-    void RenderingPipeline::RemoveStage(const Ref<Stage>& stage)
+    void GraphicsPipeline::RemoveStage(const Ref<Stage>& stage)
     {
         if (!stage)
         {
@@ -187,7 +181,7 @@ namespace Tbx
         }
     }
 
-    void RenderingPipeline::RecreateRenderersForCurrentApi()
+    void GraphicsPipeline::RecreateRenderersForCurrentApi()
     {
         std::unordered_map<Ref<Window>, Ref<IRenderer>> newBindings = {};
         newBindings.reserve(_windowBindings.size());
@@ -211,7 +205,7 @@ namespace Tbx
         _windowBindings = std::move(newBindings);
     }
 
-    Ref<IRenderer> RenderingPipeline::CreateRenderer(Ref<IGraphicsContext> context)
+    Ref<IRenderer> GraphicsPipeline::CreateRenderer(Ref<IGraphicsContext> context)
     {
         auto& factory = _renderFactories[context->GetApi()];
         auto renderer = factory->Create(context);
@@ -230,9 +224,9 @@ namespace Tbx
         return renderer;
     }
 
-    Ref<IGraphicsContext> RenderingPipeline::CreateContext(Ref<Window> window, GraphicsApi api)
+    Ref<IGraphicsContext> GraphicsPipeline::CreateContext(Ref<Window> window, GraphicsApi api)
     {
-        auto& provider = _configProviders[api];
+        auto& provider = _contextProviders[api];
         auto config = provider->Provide(window, api);
         if (!config)
         {
@@ -249,7 +243,7 @@ namespace Tbx
         return config;
     }
 
-    void RenderingPipeline::OnWindowOpened(const WindowOpenedEvent& e)
+    void GraphicsPipeline::OnWindowOpened(const WindowOpenedEvent& e)
     {
         auto newWindow = e.GetWindow();
         if (!newWindow || _currGraphicsApi == GraphicsApi::None)
@@ -265,7 +259,7 @@ namespace Tbx
         _windowBindings.emplace(newWindow, newRenderer);
     }
 
-    void RenderingPipeline::OnWindowClosed(const WindowClosedEvent& e)
+    void GraphicsPipeline::OnWindowClosed(const WindowClosedEvent& e)
     {
         auto closedWindow = e.GetWindow();
         if (!closedWindow)
@@ -276,7 +270,7 @@ namespace Tbx
         _windowBindings.erase(closedWindow);
     }
 
-    void RenderingPipeline::OnAppSettingsChanged(const AppSettingsChangedEvent& e)
+    void GraphicsPipeline::OnAppSettingsChanged(const AppSettingsChangedEvent& e)
     {
         const auto& newSettings = e.GetNewSettings();
         _clearColor = newSettings.ClearColor;
@@ -289,12 +283,12 @@ namespace Tbx
         }
     }
 
-    void RenderingPipeline::OnStageOpened(const StageOpenedEvent& e)
+    void GraphicsPipeline::OnStageOpened(const StageOpenedEvent& e)
     {
         AddStage(e.GetStage());
     }
 
-    void RenderingPipeline::OnStageClosed(const StageClosedEvent& e)
+    void GraphicsPipeline::OnStageClosed(const StageClosedEvent& e)
     {
         RemoveStage(e.GetStage());
     }

@@ -1,22 +1,14 @@
 #pragma once
 #include "Tbx/DllExport.h"
+#include "Tbx/Graphics/GraphicsApi.h"
+#include "Tbx/Graphics/GraphicsPipe.h"
 #include "Tbx/Memory/Refs.h"
-#include <vector>
 
 namespace Tbx
 {
     class Window;
 
     using ProcAddressFunPtr = void*;
-
-    enum class TBX_EXPORT GraphicsApi
-    {
-        None,
-        Vulkan,
-        OpenGL,
-        Metal,
-        Custom
-    };
 
     /// <summary>
     /// Represents a graphics context responsible for bootstrapping and managing a rendering API.
@@ -57,15 +49,10 @@ namespace Tbx
     /// <summary>
     /// Creates graphics contexts for a given window and graphics API.
     /// </summary>
-    class TBX_EXPORT IGraphicsContextProvider
+    class TBX_EXPORT IGraphicsContextProvider : public IGraphicsPipe
     {
     public:
         virtual ~IGraphicsContextProvider() = default;
-
-        /// <summary>
-        /// Lists the graphics APIs supported by this provider.
-        /// </summary>
-        virtual std::vector<GraphicsApi> GetSupportedApis() const = 0;
 
         /// <summary>
         /// Retrieves a graphics context for the provided window using the requested API.

@@ -10,12 +10,12 @@ namespace Tbx
         Ref<EventBus> eventBus)
         : Layer("Rendering")
     {
-        _rendering = MakeExclusive<RenderingPipeline>(renderFactories, graphicsContextProviders, eventBus);
+        _pipeline = MakeExclusive<GraphicsPipeline>(renderFactories, graphicsContextProviders, eventBus);
     }
 
     void RenderingLayer::OnUpdate()
     {
-        _rendering->Update();
+        _pipeline->Update();
     }
 }
 

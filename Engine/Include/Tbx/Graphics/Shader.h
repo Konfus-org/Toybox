@@ -2,6 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/Color.h"
 #include "Tbx/Math/Mat4x4.h"
+#include "Tbx/Ids/Uid.h"
 #include <string>
 #include <variant>
 

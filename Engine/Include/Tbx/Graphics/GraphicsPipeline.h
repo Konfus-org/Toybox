@@ -3,14 +3,14 @@
 #include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Graphics/GraphicsUploader.h"
 #include "Tbx/Graphics/Renderer.h"
-#include "Tbx/Graphics/Color.h"
+#include "Tbx/Graphics/Material.h"
 #include "Tbx/Windowing/Window.h"
 #include "Tbx/Stages/Stage.h"
-#include "Tbx/Events/AppEvents.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/EventListener.h"
 #include "Tbx/Events/StageEvents.h"
 #include "Tbx/Events/WindowEvents.h"
+#include "Tbx/Events/AppEvents.h"
 #include "Tbx/Memory/Refs.h"
 #include <unordered_map>
 #include <vector>
@@ -20,15 +20,15 @@ namespace Tbx
     /// <summary>
     /// Coordinates render targets, windows, and stage composition for a frame.
     /// </summary>
-    class TBX_EXPORT RenderingPipeline
+    class TBX_EXPORT GraphicsPipeline
     {
     public:
-        RenderingPipeline(
+        GraphicsPipeline(
             const std::vector<Ref<IRendererFactory>>& rendererFactories,
             const std::vector<Ref<IGraphicsContextProvider>>& graphicsContextProviders,
-            const std::vector<Ref<IShaderCompiler>>& shaderCompilers,
+            //const std::vector<Ref<IShaderCompiler>>& shaderCompilers,
             Ref<EventBus> eventBus);
-        ~RenderingPipeline();
+        ~GraphicsPipeline();
 
         /// <summary>
         /// Drives the rendering pipeline for all open stages and windows.
@@ -51,7 +51,7 @@ namespace Tbx
         Ref<IGraphicsContext> CreateContext(Ref<Window> window, GraphicsApi api);
         void RecreateRenderersForCurrentApi();
 
-        void CacheShaders(const std::vector<Ref<Material>>& materials);
+        void CacheShaders(const std::vector<Ref<Shader>>& shaders);
         void CacheTextures(const std::vector<Ref<Texture>>& textures);
         void CacheMeshes(const std::vector<Ref<Mesh>>& meshes);
 
@@ -63,14 +63,16 @@ namespace Tbx
 
     private:
         std::vector<Ref<Stage>> _openStages = {};
+
+        // TODO: Instead of renderer per window we may want something else... perhaps only one renderer is needed? Or perhaps a renderer per camera?
         std::unordered_map<Ref<Window>, Ref<IRenderer>> _windowBindings = {};
 
         std::unordered_map<GraphicsApi, Ref<IRendererFactory>> _renderFactories = {};
+        std::unordered_map<GraphicsApi, Ref<IGraphicsContextProvider>> _contextProviders = {};
         std::unordered_map<GraphicsApi, Ref<IGraphicsUploader>> _graphicsUploader = {};
-        std::unordered_map<GraphicsApi, Ref<IGraphicsContextProvider>> _configProviders = {};
         std::unordered_map<ShaderLang, Ref<IShaderCompiler>> _shaderCompilers = {};
 
-        std::unordered_map<Uid, std::vector<Ref<GraphicsHandle>>> _shaderCache = {};
+        std::unordered_map<Uid, Ref<GraphicsHandle>> _shaderCache = {};
         std::unordered_map<Uid, Ref<GraphicsHandle>> _textureCache = {};
         std::unordered_map<Uid, Ref<GraphicsHandle>> _meshCache = {};
 

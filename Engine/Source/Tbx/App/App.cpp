@@ -88,7 +88,7 @@ namespace Tbx
                 TBX_ASSERT(windowFactoryPlugs.size() == 1, "App: Only one window factory is allowed!");
                 auto windowFactory = windowFactoryPlugs.front();
                 const auto& appName = _name;
-                AddLayer<WindowingLayer>(appName, windowFactory, Dispatcher);
+                Layers.Add<WindowingLayer>(appName, windowFactory, Dispatcher);
             }
 
             auto rendererFactoryPlugs = Plugins.OfType<IRendererFactory>();
@@ -96,7 +96,7 @@ namespace Tbx
             auto shaderCompilers = Plugins.OfType<IShaderCompiler>();
             if (!rendererFactoryPlugs.empty())
             {
-                AddLayer<RenderingLayer>(rendererFactoryPlugs, graphicsContextProviders, shaderCompilers, Dispatcher);
+                Layers.Add<RenderingLayer>(rendererFactoryPlugs, graphicsContextProviders, /*shaderCompilers,*/ Dispatcher);
             }
 
             auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
@@ -107,7 +107,7 @@ namespace Tbx
 
                 // TODO remove layers from app and move to runtimes
                 // Then move the existing layers to static plugins and add update logic to plugs...
-                AddLayer<InputLayer>(inputHandler);
+                Layers.Add<InputLayer>(inputHandler);
             }
         }
 
@@ -188,59 +188,6 @@ namespace Tbx
         {
             Status = AppStatus::Closed;
         }
-    }
-
-    const AppStatus& App::GetStatus() const
-    {
-        return Status;
-    }
-
-    const std::string& App::GetName() const
-    {
-        return _name;
-    }
-
-    void App::SetSettings(const AppSettings& settings)
-    {
-        Settings = settings;
-        _eventBus->Post(AppSettingsChangedEvent(settings));
-    }
-
-    const AppSettings& App::GetSettings() const
-    {
-        return Settings;
-    }
-
-    bool App::HasLayer(const Uid& layerId) const
-    {
-        return Layers.Any([&layerId](const Ref<Layer>& layer)
-        {
-            return layer != nullptr && layer->Id == layerId;
-        });
-    }
-
-    Layer& App::GetLayer(const Uid& layerId)
-    {
-        for (const auto& layer : Layers)
-        {
-            if (layer != nullptr && layer->Id == layerId)
-            {
-                return *layer;
-            }
-        }
-
-        TBX_ASSERT(false, "App: Requested layer does not exist");
-        throw std::runtime_error("App: Requested layer does not exist");
-    }
-
-    void App::RemoveLayer(const Uid& layer)
-    {
-        Layers.Remove(layer);
-    }
-
-    const PluginContainer& App::GetPlugins() const
-    {
-        return Plugins;
     }
 
     void App::OnWindowOpened(const WindowOpenedEvent& e)

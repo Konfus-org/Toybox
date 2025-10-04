@@ -45,7 +45,7 @@ namespace Tbx
 
         template <typename TLayer, typename... TArgs>
         requires std::is_base_of_v<Layer, TLayer>
-        Uid Push(TArgs&&... args)
+        Uid Add(TArgs&&... args)
         {
             auto layer = MakeExclusive<TLayer>(std::forward<TArgs>(args)...);
             const auto& layerId = layer->Id;
