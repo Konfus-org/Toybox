@@ -1,6 +1,7 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Graphics/GraphicsPipeline.h"
 #include "Tbx/Debug/Log.h"
+#include "Tbx/Debug/Tracers.h"
 #include "Tbx/Graphics/Material.h"
 #include "Tbx/Graphics/Mesh.h"
 #include "Tbx/Graphics/Shader.h"
@@ -16,65 +17,63 @@
 #include <algorithm>
 #include <array>
 #include <optional>
+#include <functional>
 #include <type_traits>
 #include <utility>
 
 namespace Tbx
 {
-    namespace
+    template <typename Collection, typename KeyGetter, typename Creator>
+    static bool TryCacheResource(GraphicsRenderer& renderer, const Collection& values, KeyGetter&& keyGetter, Creator&& creator)
     {
-        template <typename Collection, typename KeyGetter, typename Creator>
-        bool CacheResourceSet(GraphicsRenderer& renderer, const Collection& values, KeyGetter&& keyGetter, Creator&& creator)
+        if (!renderer.ResourceFactory)
         {
-            if (!renderer.ResourceFactory)
-            {
-                return false;
-            }
-
-            bool success = true;
-            for (const auto& value : values)
-            {
-                using ValueType = std::decay_t<decltype(value)>;
-
-                if constexpr (IsRef<ValueType>::value)
-                {
-                    if (!value)
-                    {
-                        continue;
-                    }
-                }
-                else if constexpr (std::is_pointer_v<ValueType>)
-                {
-                    if (value == nullptr)
-                    {
-                        continue;
-                    }
-                }
-
-                const Uid resourceId = keyGetter(value);
-                if (resourceId == Uid::Invalid)
-                {
-                    success = false;
-                    continue;
-                }
-
-                if (renderer.ResourceCache.contains(resourceId))
-                {
-                    continue;
-                }
-
-                auto resource = creator(value);
-                if (!resource)
-                {
-                    success = false;
-                    continue;
-                }
-
-                renderer.ResourceCache.emplace(resourceId, std::move(resource));
-            }
-
-            return success;
+            return false;
         }
+
+        bool success = true;
+        for (const auto& value : values)
+        {
+            using ValueType = std::decay_t<decltype(value)>;
+
+            if constexpr (IsRef<ValueType>::value)
+            {
+                if (!value)
+                {
+                    continue;
+                }
+            }
+            else if constexpr (std::is_pointer_v<ValueType>)
+            {
+                if (value == nullptr)
+                {
+                    continue;
+                }
+            }
+
+            const Uid resourceId = keyGetter(value);
+            if (resourceId == Uid::Invalid)
+            {
+                success = false;
+                continue;
+            }
+
+            if (renderer.ResourceCache.contains(resourceId))
+            {
+                continue;
+            }
+
+            auto resource = creator(value);
+            if (!resource)
+            {
+                success = false;
+                continue;
+            }
+
+            renderer.ResourceCache.emplace(resourceId, std::move(resource));
+        }
+
+        return success;
     }
 
     GraphicsPipeline::GraphicsPipeline(
@@ -166,28 +165,17 @@ namespace Tbx
 
     void GraphicsPipeline::DrawFrame()
     {
-        if (_currGraphicsApi == GraphicsApi::None)
+        GraphicsRenderer* renderer = nullptr;
+        if (!TryGetRenderer(_currGraphicsApi, renderer) || renderer == nullptr)
         {
             return;
         }
 
-        if (!_renderers.contains(_currGraphicsApi))
-        {
-            return;
-        }
-
-        RenderOpenStages();
+        RenderOpenStages(*renderer);
     }
 
-    void GraphicsPipeline::RenderOpenStages()
+    void GraphicsPipeline::RenderOpenStages(GraphicsRenderer& renderer)
     {
-        auto rendererIt = _renderers.find(_currGraphicsApi);
-        if (rendererIt == _renderers.end())
-        {
-            return;
-        }
-
-        auto& renderer = rendererIt->second;
         for (const auto& display : _openDisplays)
         {
             if (!display.Surface || !display.Context)
@@ -296,7 +284,7 @@ namespace Tbx
                         CacheMeshes(meshesToCache);
                     }
 
-                    std::optional<GraphicsScope> materialScope;
+                    [[maybe_unused]] std::optional<GraphicsScope> materialScope;
                     if (material)
                     {
                         auto materialIt = renderer.ResourceCache.find(material->Id);
@@ -306,7 +294,7 @@ namespace Tbx
                         }
                     }
 
-                    std::optional<GraphicsScope> meshScope;
+                    [[maybe_unused]] std::optional<GraphicsScope> meshScope;
                     if (mesh)
                     {
                         auto meshIt = renderer.ResourceCache.find(mesh->Id);
@@ -315,9 +303,6 @@ namespace Tbx
                             meshScope.emplace(meshIt->second);
                         }
                     }
-
-                    (void)materialScope;
-                    (void)meshScope;
                 }
             }
 
@@ -377,19 +362,8 @@ namespace Tbx
             display.Context = nullptr;
         }
 
-        if (_currGraphicsApi == GraphicsApi::None)
-        {
-            return;
-        }
-
-        auto rendererIt = _renderers.find(_currGraphicsApi);
-        if (rendererIt == _renderers.end())
-        {
-            return;
-        }
-
-        auto& renderer = rendererIt->second;
-        if (!renderer.ContextProvider)
+        GraphicsRenderer* renderer = nullptr;
+        if (!TryGetRenderer(_currGraphicsApi, renderer) || renderer == nullptr || !renderer->ContextProvider)
         {
             return;
         }
@@ -401,17 +375,17 @@ namespace Tbx
                 continue;
             }
 
-            display.Context = renderer.ContextProvider->Provide(display.Surface, _currGraphicsApi);
+            display.Context = renderer->ContextProvider->Provide(display.Surface, _currGraphicsApi);
             TBX_ASSERT(display.Context, "Rendering: Failed to recreate a graphics context for an open window.");
             if (!display.Context)
             {
-                Log::Error("Rendering: Unable to provide a graphics context for api {} during renderer recreation.", static_cast<int>(_currGraphicsApi));
+                TBX_TRACE_ERROR("Rendering: Unable to provide a graphics context for api {} during renderer recreation.", static_cast<int>(_currGraphicsApi));
                 continue;
             }
 
-            if (renderer.ApiManager)
+            if (renderer->ApiManager)
             {
-                renderer.ApiManager->Initialize(display.Context, _currGraphicsApi);
+                renderer->ApiManager->Initialize(display.Context, _currGraphicsApi);
             }
         }
     }
@@ -423,14 +397,8 @@ namespace Tbx
             return;
         }
 
-        auto rendererIt = _renderers.find(_currGraphicsApi);
-        if (rendererIt == _renderers.end())
-        {
-            return;
-        }
-
-        auto& renderer = rendererIt->second;
-        if (!renderer.ShaderCompiler)
+        GraphicsRenderer* renderer = nullptr;
+        if (!TryGetRenderer(_currGraphicsApi, renderer) || renderer == nullptr || !renderer->ShaderCompiler)
         {
             return;
         }
@@ -442,7 +410,7 @@ namespace Tbx
                 continue;
             }
 
-            renderer.ShaderCompiler->Compile(shader, _currGraphicsApi);
+            renderer->ShaderCompiler->Compile(shader, _currGraphicsApi);
         }
     }
 
@@ -453,41 +421,27 @@ namespace Tbx
             return;
         }
 
-        auto rendererIt = _renderers.find(_currGraphicsApi);
-        if (rendererIt == _renderers.end())
+        GraphicsRenderer* renderer = nullptr;
+        if (!TryGetRenderer(_currGraphicsApi, renderer) || renderer == nullptr)
         {
             return;
         }
 
-        auto& renderer = rendererIt->second;
-
-        struct ShaderProgramDesc
-        {
-            Uid Id = Uid::Invalid;
-            const std::vector<Ref<Shader>>* Program = nullptr;
-        };
-
-        const ShaderProgramDesc programDesc{ cacheId, &shaders };
-        const bool success = CacheResourceSet(
-            renderer,
-            std::array<ShaderProgramDesc, 1>{ programDesc },
-            [](const ShaderProgramDesc& desc)
+        const bool success = TryCacheResource(
+            *renderer,
+            std::array<std::reference_wrapper<const std::vector<Ref<Shader>>>, 1>{ std::cref(shaders) },
+            [cacheId](const auto&)
             {
-                return desc.Id;
+                return cacheId;
             },
-            [&renderer](const ShaderProgramDesc& desc)
+            [renderer](const auto& program)
             {
-                if (!desc.Program)
-                {
-                    return Ref<GraphicsResource>{};
-                }
-
-                return renderer.ResourceFactory->Create(*desc.Program);
+                return renderer->ResourceFactory->Create(program.get());
             });
 
         if (!success)
         {
-            Log::Error(
+            TBX_TRACE_ERROR(
                 "Rendering: Failed to cache shader program {} for graphics api {}.",
                 static_cast<uint64>(cacheId),
                 static_cast<int>(_currGraphicsApi));
@@ -502,29 +456,27 @@ namespace Tbx
             return;
         }
 
-        auto rendererIt = _renderers.find(_currGraphicsApi);
-        if (rendererIt == _renderers.end())
+        GraphicsRenderer* renderer = nullptr;
+        if (!TryGetRenderer(_currGraphicsApi, renderer) || renderer == nullptr)
         {
             return;
         }
 
-        auto& renderer = rendererIt->second;
-
-        const bool success = CacheResourceSet(
-            renderer,
+        const bool success = TryCacheResource(
+            *renderer,
             textures,
             [](const Ref<Texture>& texture)
             {
                 return texture->Id;
             },
-            [&renderer](const Ref<Texture>& texture)
+            [renderer](const Ref<Texture>& texture)
             {
-                return renderer.ResourceFactory->Create(texture);
+                return renderer->ResourceFactory->Create(texture);
             });
 
         if (!success)
         {
-            Log::Error(
+            TBX_TRACE_ERROR(
                 "Rendering: Failed to cache one or more textures for graphics api {}.",
                 static_cast<int>(_currGraphicsApi));
             TBX_ASSERT(success, "Rendering: Unable to cache textures for active graphics api.");
@@ -538,29 +490,27 @@ namespace Tbx
             return;
         }
 
-        auto rendererIt = _renderers.find(_currGraphicsApi);
-        if (rendererIt == _renderers.end())
+        GraphicsRenderer* renderer = nullptr;
+        if (!TryGetRenderer(_currGraphicsApi, renderer) || renderer == nullptr)
         {
             return;
         }
 
-        auto& renderer = rendererIt->second;
-
-        const bool success = CacheResourceSet(
-            renderer,
+        const bool success = TryCacheResource(
+            *renderer,
             meshes,
             [](const Ref<Mesh>& mesh)
             {
                 return mesh->Id;
             },
-            [&renderer](const Ref<Mesh>& mesh)
+            [renderer](const Ref<Mesh>& mesh)
             {
-                return renderer.ResourceFactory->Create(mesh);
+                return renderer->ResourceFactory->Create(mesh);
             });
 
         if (!success)
         {
-            Log::Error(
+            TBX_TRACE_ERROR(
                 "Rendering: Failed to cache one or more meshes for graphics api {}.",
                 static_cast<int>(_currGraphicsApi));
             TBX_ASSERT(success, "Rendering: Unable to cache meshes for active graphics api.");
@@ -583,25 +533,14 @@ namespace Tbx
     void GraphicsPipeline::OnWindowOpened(const WindowOpenedEvent& e)
     {
         auto newWindow = e.GetWindow();
-        if (_currGraphicsApi == GraphicsApi::None)
-        {
-            return;
-        }
-
         if (!newWindow)
         {
             TBX_ASSERT(newWindow, "Rendering: Invalid window open event, ensure a valid window is passed!");
             return;
         }
 
-        auto rendererIt = _renderers.find(_currGraphicsApi);
-        if (rendererIt == _renderers.end())
-        {
-            return;
-        }
-
-        auto& renderer = rendererIt->second;
-        if (!renderer.ContextProvider)
+        GraphicsRenderer* renderer = nullptr;
+        if (!TryGetRenderer(_currGraphicsApi, renderer) || renderer == nullptr || !renderer->ContextProvider)
         {
             return;
         }
@@ -611,16 +550,16 @@ namespace Tbx
             return display.Surface == newWindow;
         });
 
-        auto context = renderer.ContextProvider->Provide(newWindow, _currGraphicsApi);
+        auto context = renderer->ContextProvider->Provide(newWindow, _currGraphicsApi);
         TBX_ASSERT(context, "Rendering: Failed to create a graphics context for the opened window.");
         if (!context)
         {
             return;
         }
 
-        if (renderer.ApiManager)
+        if (renderer->ApiManager)
         {
-            renderer.ApiManager->Initialize(context, _currGraphicsApi);
+            renderer->ApiManager->Initialize(context, _currGraphicsApi);
         }
 
         if (displayIt != _openDisplays.end())
@@ -653,10 +592,10 @@ namespace Tbx
 
         if (_openDisplays.empty())
         {
-            auto rendererIt = _renderers.find(_currGraphicsApi);
-            if (rendererIt != _renderers.end() && rendererIt->second.ApiManager)
+            GraphicsRenderer* renderer = nullptr;
+            if (TryGetRenderer(_currGraphicsApi, renderer) && renderer != nullptr && renderer->ApiManager)
             {
-                rendererIt->second.ApiManager->Shutdown();
+                renderer->ApiManager->Shutdown();
             }
         }
     }
@@ -669,6 +608,25 @@ namespace Tbx
     void GraphicsPipeline::OnStageClosed(const StageClosedEvent& e)
     {
         RemoveStage(e.GetStage());
+    }
+
+    bool GraphicsPipeline::TryGetRenderer(GraphicsApi api, GraphicsRenderer*& renderer)
+    {
+        if (api == GraphicsApi::None)
+        {
+            renderer = nullptr;
+            return false;
+        }
+
+        auto rendererIt = _renderers.find(api);
+        if (rendererIt == _renderers.end())
+        {
+            renderer = nullptr;
+            return false;
+        }
+
+        renderer = &rendererIt->second;
+        return true;
     }
 }
 

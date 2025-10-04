@@ -52,7 +52,7 @@ namespace Tbx
     private:
         void DrawFrame();
 
-        void RenderOpenStages();
+        void RenderOpenStages(GraphicsRenderer& renderer);
         void AddStage(const Ref<Stage>& stage);
         void RemoveStage(const Ref<Stage>& stage);
 
@@ -62,6 +62,8 @@ namespace Tbx
         void CacheShaders(Uid cacheId, const std::vector<Ref<Shader>>& shaders);
         void CacheTextures(const std::vector<Ref<Texture>>& textures);
         void CacheMeshes(const std::vector<Ref<Mesh>>& meshes);
+
+        bool TryGetRenderer(GraphicsApi api, GraphicsRenderer*& renderer);
 
         void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
         void OnWindowOpened(const WindowOpenedEvent& e);
