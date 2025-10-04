@@ -10,6 +10,7 @@
 #include "Tbx/Memory/Refs.h"
 #include "Tbx/Stages/Stage.h"
 #include <algorithm>
+#include <type_traits>
 #include <utility>
 
 namespace Tbx
@@ -28,14 +29,60 @@ namespace Tbx
         TBX_ASSERT(!shaderCompilers.empty(), "Rendering: requires at least one shader compiler instance.");
         TBX_ASSERT(_eventBus, "Rendering: requires a valid event bus instance.");
 
-        for (auto manager : apiManagers)
+        auto findSupporting = [](const auto& providers, GraphicsApi api)
         {
-            auto supportedApis = manager->GetSupportedApis();
+            using ProviderType = typename std::decay_t<decltype(providers)>::value_type::element_type;
+            Ref<ProviderType> result = nullptr;
+            auto it = std::find_if(providers.begin(), providers.end(), [api](const auto& candidate)
+            {
+                if (!candidate)
+                {
+                    return false;
+                }
+
+                const auto supportedApis = candidate->GetSupportedApis();
+                return std::find(supportedApis.begin(), supportedApis.end(), api) != supportedApis.end();
+            });
+
+            if (it != providers.end())
+            {
+                result = *it;
+            }
+
+            return result;
+        };
+
+        for (const auto& manager : apiManagers)
+        {
+            if (!manager)
+            {
+                continue;
+            }
+
+            const auto supportedApis = manager->GetSupportedApis();
             for (auto supportedApi : supportedApis)
             {
-                // Setup the renderers for each api using resource factories
-                // context providers and shader compilers that support 
-                // The 'supportedApi'
+                if (_renderers.contains(supportedApi))
+                {
+                    continue;
+                }
+
+                auto resourceFactory = findSupporting(resourceFactories, supportedApi);
+                auto contextProvider = findSupporting(contextProviders, supportedApi);
+                auto shaderCompiler = findSupporting(shaderCompilers, supportedApi);
+
+                if (!resourceFactory || !contextProvider || !shaderCompiler)
+                {
+                    continue;
+                }
+
+                GraphicsRenderer renderer = {};
+                renderer.ApiManager = manager;
+                renderer.ResourceFactory = resourceFactory;
+                renderer.ContextProvider = contextProvider;
+                renderer.ShaderCompiler = shaderCompiler;
+
+                _renderers.emplace(supportedApi, std::move(renderer));
             }
         }
 
@@ -62,6 +109,12 @@ namespace Tbx
     {
         for (const auto& display : _openDisplays)
         {
+            if (!display.Surface || !display.Context)
+            {
+                continue;
+            }
+
+            display.Context->MakeCurrent();
             auto aspectRatio = CalculateAspectRatioFromSize(display.Surface->GetSize());
 
             // TODO: Break this out into something that is more performant and testable...
@@ -135,6 +188,8 @@ namespace Tbx
                     }
                 }
             }
+
+            display.Context->SwapBuffers();
         }
 
         if (_eventBus)
@@ -175,7 +230,207 @@ namespace Tbx
 
     void GraphicsPipeline::RecreateRenderersForCurrentApi()
     {
-        // TODO: Implement
+        for (auto& [api, renderer] : _renderers)
+        {
+            if (renderer.ApiManager)
+            {
+                renderer.ApiManager->Shutdown();
+            }
+
+            renderer.ResourceCache.clear();
+        }
+
+        for (auto& display : _openDisplays)
+        {
+            display.Context = nullptr;
+        }
+
+        if (_currGraphicsApi == GraphicsApi::None)
+        {
+            return;
+        }
+
+        auto rendererIt = _renderers.find(_currGraphicsApi);
+        if (rendererIt == _renderers.end())
+        {
+            return;
+        }
+
+        auto& renderer = rendererIt->second;
+        if (!renderer.ContextProvider)
+        {
+            return;
+        }
+
+        for (auto& display : _openDisplays)
+        {
+            if (!display.Surface)
+            {
+                continue;
+            }
+
+            display.Context = renderer.ContextProvider->Provide(display.Surface, _currGraphicsApi);
+            if (display.Context && renderer.ApiManager)
+            {
+                renderer.ApiManager->Initialize(display.Context, _currGraphicsApi);
+            }
+        }
+    }
+
+    void GraphicsPipeline::CompileShaders(const std::vector<Ref<Shader>>& shaders)
+    {
+        if (shaders.empty())
+        {
+            return;
+        }
+
+        auto rendererIt = _renderers.find(_currGraphicsApi);
+        if (rendererIt == _renderers.end())
+        {
+            return;
+        }
+
+        auto& renderer = rendererIt->second;
+        if (!renderer.ShaderCompiler)
+        {
+            return;
+        }
+
+        for (const auto& shader : shaders)
+        {
+            if (!shader)
+            {
+                continue;
+            }
+
+            renderer.ShaderCompiler->Compile(shader, _currGraphicsApi);
+        }
+    }
+
+    void GraphicsPipeline::CacheShaders(const std::vector<Ref<Shader>>& shaders)
+    {
+        if (shaders.empty())
+        {
+            return;
+        }
+
+        auto rendererIt = _renderers.find(_currGraphicsApi);
+        if (rendererIt == _renderers.end())
+        {
+            return;
+        }
+
+        auto& renderer = rendererIt->second;
+        if (!renderer.ResourceFactory)
+        {
+            return;
+        }
+
+        for (const auto& shader : shaders)
+        {
+            if (!shader)
+            {
+                continue;
+            }
+
+            if (renderer.ResourceCache.contains(shader->Id))
+            {
+                continue;
+            }
+
+            auto resource = renderer.ResourceFactory->Create(std::vector<Ref<Shader>>{ shader });
+            if (!resource)
+            {
+                continue;
+            }
+
+            resource->RenderId = shader->Id;
+            renderer.ResourceCache.emplace(shader->Id, std::move(resource));
+        }
+    }
+
+    void GraphicsPipeline::CacheTextures(const std::vector<Ref<Texture>>& textures)
+    {
+        if (textures.empty())
+        {
+            return;
+        }
+
+        auto rendererIt = _renderers.find(_currGraphicsApi);
+        if (rendererIt == _renderers.end())
+        {
+            return;
+        }
+
+        auto& renderer = rendererIt->second;
+        if (!renderer.ResourceFactory)
+        {
+            return;
+        }
+
+        for (const auto& texture : textures)
+        {
+            if (!texture)
+            {
+                continue;
+            }
+
+            if (renderer.ResourceCache.contains(texture->Id))
+            {
+                continue;
+            }
+
+            auto resource = renderer.ResourceFactory->Create(texture);
+            if (!resource)
+            {
+                continue;
+            }
+
+            resource->RenderId = texture->Id;
+            renderer.ResourceCache.emplace(texture->Id, std::move(resource));
+        }
+    }
+
+    void GraphicsPipeline::CacheMeshes(const std::vector<Ref<Mesh>>& meshes)
+    {
+        if (meshes.empty())
+        {
+            return;
+        }
+
+        auto rendererIt = _renderers.find(_currGraphicsApi);
+        if (rendererIt == _renderers.end())
+        {
+            return;
+        }
+
+        auto& renderer = rendererIt->second;
+        if (!renderer.ResourceFactory)
+        {
+            return;
+        }
+
+        for (const auto& mesh : meshes)
+        {
+            if (!mesh)
+            {
+                continue;
+            }
+
+            if (renderer.ResourceCache.contains(mesh->Id))
+            {
+                continue;
+            }
+
+            auto resource = renderer.ResourceFactory->Create(mesh);
+            if (!resource)
+            {
+                continue;
+            }
+
+            resource->RenderId = mesh->Id;
+            renderer.ResourceCache.emplace(mesh->Id, std::move(resource));
+        }
     }
 
     void GraphicsPipeline::OnAppSettingsChanged(const AppSettingsChangedEvent& e)
@@ -200,12 +455,71 @@ namespace Tbx
             TBX_ASSERT(newWindow, "Rendering: Invalid window open event, ensure a valid window is passed!");
             return;
         }
+        auto rendererIt = _renderers.find(_currGraphicsApi);
+        if (rendererIt == _renderers.end())
+        {
+            return;
+        }
 
+        auto& renderer = rendererIt->second;
+        if (!renderer.ContextProvider)
+        {
+            return;
+        }
+
+        auto displayIt = std::find_if(_openDisplays.begin(), _openDisplays.end(), [newWindow](const GraphicsDisplay& display)
+        {
+            return display.Surface == newWindow;
+        });
+
+        auto context = renderer.ContextProvider->Provide(newWindow, _currGraphicsApi);
+        TBX_ASSERT(context, "Rendering: Failed to create a graphics context for the opened window.");
+        if (!context)
+        {
+            return;
+        }
+
+        if (renderer.ApiManager)
+        {
+            renderer.ApiManager->Initialize(context, _currGraphicsApi);
+        }
+
+        if (displayIt != _openDisplays.end())
+        {
+            displayIt->Context = context;
+        }
+        else
+        {
+            _openDisplays.push_back({ newWindow, context });
+        }
     }
 
     void GraphicsPipeline::OnWindowClosed(const WindowClosedEvent& e)
     {
         auto closedWindow = e.GetWindow();
+        if (!closedWindow)
+        {
+            return;
+        }
+
+        auto displayIt = std::find_if(_openDisplays.begin(), _openDisplays.end(), [closedWindow](const GraphicsDisplay& display)
+        {
+            return display.Surface == closedWindow;
+        });
+
+        if (displayIt != _openDisplays.end())
+        {
+            _openDisplays.erase(displayIt);
+        }
+
+        if (_openDisplays.empty())
+        {
+            auto rendererIt = _renderers.find(_currGraphicsApi);
+            if (rendererIt != _renderers.end() && rendererIt->second.ApiManager)
+            {
+                rendererIt->second.ApiManager->Shutdown();
+            }
+        }
     }
 
     void GraphicsPipeline::OnStageOpened(const StageOpenedEvent& e)
