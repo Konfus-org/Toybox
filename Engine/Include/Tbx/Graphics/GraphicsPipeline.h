@@ -59,7 +59,7 @@ namespace Tbx
         void RecreateRenderersForCurrentApi();
 
         void CompileShaders(const std::vector<Ref<Shader>>& shaders);
-        void CacheShaders(const std::vector<Ref<Shader>>& shaders);
+        void CacheShaders(Uid cacheId, const std::vector<Ref<Shader>>& shaders);
         void CacheTextures(const std::vector<Ref<Texture>>& textures);
         void CacheMeshes(const std::vector<Ref<Mesh>>& meshes);
 
