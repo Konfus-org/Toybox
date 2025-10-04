@@ -15,67 +15,11 @@
 #include "Tbx/Memory/Refs.h"
 #include "Tbx/Stages/Stage.h"
 #include <algorithm>
-#include <array>
-#include <optional>
-#include <functional>
 #include <type_traits>
 #include <utility>
 
 namespace Tbx
 {
-    template <typename Collection, typename KeyGetter, typename Creator>
-    static bool TryCacheResource(GraphicsRenderer& renderer, const Collection& values, KeyGetter&& keyGetter, Creator&& creator)
-    {
-        if (!renderer.ResourceFactory)
-        {
-            return false;
-        }
-
-        bool success = true;
-        for (const auto& value : values)
-        {
-            using ValueType = std::decay_t<decltype(value)>;
-
-            if constexpr (IsRef<ValueType>::value)
-            {
-                if (!value)
-                {
-                    continue;
-                }
-            }
-            else if constexpr (std::is_pointer_v<ValueType>)
-            {
-                if (value == nullptr)
-                {
-                    continue;
-                }
-            }
-
-            const Uid resourceId = keyGetter(value);
-            if (resourceId == Uid::Invalid)
-            {
-                success = false;
-                continue;
-            }
-
-            if (renderer.ResourceCache.contains(resourceId))
-            {
-                continue;
-            }
-
-            auto resource = creator(value);
-            if (!resource)
-            {
-                success = false;
-                continue;
-            }
-
-            renderer.ResourceCache.emplace(resourceId, std::move(resource));
-        }
-
-        return success;
-    }
-
     GraphicsPipeline::GraphicsPipeline(
         const std::vector<Ref<IManageGraphicsApis>>& apiManagers,
         const std::vector<Ref<IGraphicsResourceFactory>>& resourceFactories,
@@ -137,13 +81,13 @@ namespace Tbx
                     continue;
                 }
 
-                GraphicsRenderer renderer = {};
-                renderer.ApiManager = manager;
-                renderer.ResourceFactory = resourceFactory;
-                renderer.ContextProvider = contextProvider;
-                renderer.ShaderCompiler = shaderCompiler;
+                auto renderer = MakeRef<GraphicsRenderer>();
+                renderer->ApiManager = manager;
+                renderer->ResourceFactory = resourceFactory;
+                renderer->ContextProvider = contextProvider;
+                renderer->ShaderCompiler = shaderCompiler;
 
-                _renderers.emplace(supportedApi, std::move(renderer));
+                _renderers.emplace(supportedApi, renderer);
             }
         }
 
@@ -165,16 +109,16 @@ namespace Tbx
 
     void GraphicsPipeline::DrawFrame()
     {
-        GraphicsRenderer* renderer = nullptr;
-        if (!TryGetRenderer(_currGraphicsApi, renderer) || renderer == nullptr)
+        Ref<GraphicsRenderer> renderer = nullptr;
+        if (!TryGetRenderer(_currGraphicsApi, renderer) || !renderer)
         {
             return;
         }
 
-        RenderOpenStages(*renderer);
+        RenderOpenStages(renderer);
     }
 
-    void GraphicsPipeline::RenderOpenStages(GraphicsRenderer& renderer)
+    void GraphicsPipeline::RenderOpenStages(const Ref<GraphicsRenderer>& renderer)
     {
         for (const auto& display : _openDisplays)
         {
@@ -256,52 +200,68 @@ namespace Tbx
                         if (!inFrustum) continue;
                     }
 
-                    const Material* material = toy->Blocks.Contains<Material>() ? &toy->Blocks.Get<Material>() : nullptr;
-                    const MaterialInstance* materialInstance =
-                        toy->Blocks.Contains<MaterialInstance>() ? &toy->Blocks.Get<MaterialInstance>() : nullptr;
-                    const Mesh* mesh = toy->Blocks.Contains<Mesh>() ? &toy->Blocks.Get<Mesh>() : nullptr;
+                    const bool hasMaterial = toy->Blocks.Contains<Material>();
+                    const bool hasMaterialInstance = toy->Blocks.Contains<MaterialInstance>();
+                    const bool hasMesh = toy->Blocks.Contains<Mesh>();
 
-                    if (!material && !materialInstance && !mesh)
+                    if (!hasMaterial && !hasMaterialInstance && !hasMesh)
                     {
                         continue;
                     }
 
-                    if (material && !renderer.ResourceCache.contains(material->Id))
+                    Ref<GraphicsResource> materialResource = nullptr;
+                    if (hasMaterial)
                     {
-                        CompileShaders(material->Shaders);
-                        CacheShaders(material->Id, material->Shaders);
-                    }
-
-                    if (materialInstance)
-                    {
-                        CacheTextures(materialInstance->Textures);
-                    }
-
-                    if (mesh && !renderer.ResourceCache.contains(mesh->Id))
-                    {
-                        std::vector<Ref<Mesh>> meshesToCache;
-                        meshesToCache.push_back(MakeRef<Mesh>(*mesh));
-                        CacheMeshes(meshesToCache);
-                    }
-
-                    [[maybe_unused]] std::optional<GraphicsScope> materialScope;
-                    if (material)
-                    {
-                        auto materialIt = renderer.ResourceCache.find(material->Id);
-                        if (materialIt != renderer.ResourceCache.end() && materialIt->second)
+                        const auto& material = toy->Blocks.Get<Material>();
+                        if (!renderer->ResourceCache.contains(material.Id))
                         {
-                            materialScope.emplace(materialIt->second);
+                            CompileShaders(renderer, material.Shaders);
+                            CacheShaders(renderer, material);
+                        }
+
+                        auto materialIt = renderer->ResourceCache.find(material.Id);
+                        if (materialIt != renderer->ResourceCache.end())
+                        {
+                            materialResource = materialIt->second;
                         }
                     }
 
-                    [[maybe_unused]] std::optional<GraphicsScope> meshScope;
-                    if (mesh)
+                    if (hasMaterialInstance)
                     {
-                        auto meshIt = renderer.ResourceCache.find(mesh->Id);
-                        if (meshIt != renderer.ResourceCache.end() && meshIt->second)
+                        const auto& materialInstance = toy->Blocks.Get<MaterialInstance>();
+                        CacheTextures(renderer, materialInstance.Textures);
+                    }
+
+                    Ref<GraphicsResource> meshResource = nullptr;
+                    if (hasMesh)
+                    {
+                        const auto& mesh = toy->Blocks.Get<Mesh>();
+                        if (!renderer->ResourceCache.contains(mesh.Id))
                         {
-                            meshScope.emplace(meshIt->second);
+                            std::vector<Ref<Mesh>> meshesToCache;
+                            meshesToCache.push_back(MakeRef<Mesh>(mesh));
+                            CacheMeshes(renderer, meshesToCache);
                         }
+
+                        auto meshIt = renderer->ResourceCache.find(mesh.Id);
+                        if (meshIt != renderer->ResourceCache.end())
+                        {
+                            meshResource = meshIt->second;
+                        }
+                    }
+
+                    if (materialResource && meshResource)
+                    {
+                        GraphicsScope materialScope(materialResource);
+                        GraphicsScope meshScope(meshResource);
+                    }
+                    else if (materialResource)
+                    {
+                        GraphicsScope materialScope(materialResource);
+                    }
+                    else if (meshResource)
+                    {
+                        GraphicsScope meshScope(meshResource);
                     }
                 }
             }
@@ -349,12 +309,15 @@ namespace Tbx
     {
         for (auto& [api, renderer] : _renderers)
         {
-            if (renderer.ApiManager)
+            if (renderer && renderer->ApiManager)
             {
-                renderer.ApiManager->Shutdown();
+                renderer->ApiManager->Shutdown();
             }
 
-            renderer.ResourceCache.clear();
+            if (renderer)
+            {
+                renderer->ResourceCache.clear();
+            }
         }
 
         for (auto& display : _openDisplays)
@@ -362,8 +325,8 @@ namespace Tbx
             display.Context = nullptr;
         }
 
-        GraphicsRenderer* renderer = nullptr;
-        if (!TryGetRenderer(_currGraphicsApi, renderer) || renderer == nullptr || !renderer->ContextProvider)
+        Ref<GraphicsRenderer> renderer = nullptr;
+        if (!TryGetRenderer(_currGraphicsApi, renderer) || !renderer || !renderer->ContextProvider)
         {
             return;
         }
@@ -379,7 +342,6 @@ namespace Tbx
             TBX_ASSERT(display.Context, "Rendering: Failed to recreate a graphics context for an open window.");
             if (!display.Context)
             {
-                TBX_TRACE_ERROR("Rendering: Unable to provide a graphics context for api {} during renderer recreation.", static_cast<int>(_currGraphicsApi));
                 continue;
             }
 
@@ -390,15 +352,9 @@ namespace Tbx
         }
     }
 
-    void GraphicsPipeline::CompileShaders(const std::vector<Ref<Shader>>& shaders)
+    void GraphicsPipeline::CompileShaders(const Ref<GraphicsRenderer>& renderer, const std::vector<Ref<Shader>>& shaders)
     {
-        if (shaders.empty())
-        {
-            return;
-        }
-
-        GraphicsRenderer* renderer = nullptr;
-        if (!TryGetRenderer(_currGraphicsApi, renderer) || renderer == nullptr || !renderer->ShaderCompiler)
+        if (!renderer || !renderer->ShaderCompiler || shaders.empty())
         {
             return;
         }
@@ -414,106 +370,100 @@ namespace Tbx
         }
     }
 
-    void GraphicsPipeline::CacheShaders(Uid cacheId, const std::vector<Ref<Shader>>& shaders)
+    void GraphicsPipeline::CacheShaders(const Ref<GraphicsRenderer>& renderer, const Material& material)
     {
-        if (cacheId == Uid::Invalid || shaders.empty())
+        if (!renderer || !renderer->ResourceFactory || material.Id == Uid::Invalid)
         {
             return;
         }
 
-        GraphicsRenderer* renderer = nullptr;
-        if (!TryGetRenderer(_currGraphicsApi, renderer) || renderer == nullptr)
+        if (renderer->ResourceCache.contains(material.Id))
         {
             return;
         }
 
-        const bool success = TryCacheResource(
-            *renderer,
-            std::array<std::reference_wrapper<const std::vector<Ref<Shader>>>, 1>{ std::cref(shaders) },
-            [cacheId](const auto&)
-            {
-                return cacheId;
-            },
-            [renderer](const auto& program)
-            {
-                return renderer->ResourceFactory->Create(program.get());
-            });
-
-        if (!success)
+        std::vector<Ref<Shader>> program = {};
+        program.reserve(material.Shaders.size());
+        for (const auto& shader : material.Shaders)
         {
-            TBX_TRACE_ERROR(
-                "Rendering: Failed to cache shader program {} for graphics api {}.",
-                static_cast<uint64>(cacheId),
-                static_cast<int>(_currGraphicsApi));
-            TBX_ASSERT(success, "Rendering: Unable to cache shader program for active graphics api.");
+            if (shader)
+            {
+                program.push_back(shader);
+            }
+        }
+
+        if (program.empty())
+        {
+            return;
+        }
+
+        auto resource = renderer->ResourceFactory->Create(program);
+        TBX_ASSERT(resource, "Rendering: Unable to cache shader program for active graphics api.");
+        if (!resource)
+        {
+            return;
+        }
+
+        renderer->ResourceCache.emplace(material.Id, resource);
+    }
+
+    void GraphicsPipeline::CacheTextures(const Ref<GraphicsRenderer>& renderer, const std::vector<Ref<Texture>>& textures)
+    {
+        if (!renderer || !renderer->ResourceFactory || textures.empty())
+        {
+            return;
+        }
+
+        for (const auto& texture : textures)
+        {
+            if (!texture || texture->Id == Uid::Invalid)
+            {
+                continue;
+            }
+
+            if (renderer->ResourceCache.contains(texture->Id))
+            {
+                continue;
+            }
+
+            auto resource = renderer->ResourceFactory->Create(texture);
+            TBX_ASSERT(resource, "Rendering: Unable to cache textures for active graphics api.");
+            if (!resource)
+            {
+                continue;
+            }
+
+            renderer->ResourceCache.emplace(texture->Id, resource);
         }
     }
 
-    void GraphicsPipeline::CacheTextures(const std::vector<Ref<Texture>>& textures)
+    void GraphicsPipeline::CacheMeshes(const Ref<GraphicsRenderer>& renderer, const std::vector<Ref<Mesh>>& meshes)
     {
-        if (textures.empty())
+        if (!renderer || !renderer->ResourceFactory || meshes.empty())
         {
             return;
         }
 
-        GraphicsRenderer* renderer = nullptr;
-        if (!TryGetRenderer(_currGraphicsApi, renderer) || renderer == nullptr)
+        for (const auto& mesh : meshes)
         {
-            return;
-        }
-
-        const bool success = TryCacheResource(
-            *renderer,
-            textures,
-            [](const Ref<Texture>& texture)
+            if (!mesh || mesh->Id == Uid::Invalid)
             {
-                return texture->Id;
-            },
-            [renderer](const Ref<Texture>& texture)
+                continue;
+            }
+
+            if (renderer->ResourceCache.contains(mesh->Id))
             {
-                return renderer->ResourceFactory->Create(texture);
-            });
+                continue;
+            }
 
-        if (!success)
-        {
-            TBX_TRACE_ERROR(
-                "Rendering: Failed to cache one or more textures for graphics api {}.",
-                static_cast<int>(_currGraphicsApi));
-            TBX_ASSERT(success, "Rendering: Unable to cache textures for active graphics api.");
-        }
-    }
-
-    void GraphicsPipeline::CacheMeshes(const std::vector<Ref<Mesh>>& meshes)
-    {
-        if (meshes.empty())
-        {
-            return;
-        }
-
-        GraphicsRenderer* renderer = nullptr;
-        if (!TryGetRenderer(_currGraphicsApi, renderer) || renderer == nullptr)
-        {
-            return;
-        }
-
-        const bool success = TryCacheResource(
-            *renderer,
-            meshes,
-            [](const Ref<Mesh>& mesh)
+            auto resource = renderer->ResourceFactory->Create(mesh);
+            TBX_ASSERT(resource, "Rendering: Unable to cache meshes for active graphics api.");
+            if (!resource)
             {
-                return mesh->Id;
-            },
-            [renderer](const Ref<Mesh>& mesh)
-            {
-                return renderer->ResourceFactory->Create(mesh);
-            });
+                continue;
+            }
 
-        if (!success)
-        {
-            TBX_TRACE_ERROR(
-                "Rendering: Failed to cache one or more meshes for graphics api {}.",
-                static_cast<int>(_currGraphicsApi));
-            TBX_ASSERT(success, "Rendering: Unable to cache meshes for active graphics api.");
+            renderer->ResourceCache.emplace(mesh->Id, resource);
         }
     }
 
@@ -539,8 +489,8 @@ namespace Tbx
             return;
         }
 
-        GraphicsRenderer* renderer = nullptr;
-        if (!TryGetRenderer(_currGraphicsApi, renderer) || renderer == nullptr || !renderer->ContextProvider)
+        Ref<GraphicsRenderer> renderer = nullptr;
+        if (!TryGetRenderer(_currGraphicsApi, renderer) || !renderer || !renderer->ContextProvider)
         {
             return;
         }
@@ -592,8 +542,8 @@ namespace Tbx
 
         if (_openDisplays.empty())
         {
-            GraphicsRenderer* renderer = nullptr;
-            if (TryGetRenderer(_currGraphicsApi, renderer) && renderer != nullptr && renderer->ApiManager)
+            Ref<GraphicsRenderer> renderer = nullptr;
+            if (TryGetRenderer(_currGraphicsApi, renderer) && renderer && renderer->ApiManager)
             {
                 renderer->ApiManager->Shutdown();
             }
@@ -610,7 +560,7 @@ namespace Tbx
         RemoveStage(e.GetStage());
     }
 
-    bool GraphicsPipeline::TryGetRenderer(GraphicsApi api, GraphicsRenderer*& renderer)
+    bool GraphicsPipeline::TryGetRenderer(GraphicsApi api, Ref<GraphicsRenderer>& renderer)
     {
         if (api == GraphicsApi::None)
         {
@@ -625,8 +575,8 @@ namespace Tbx
             return false;
         }
 
-        renderer = &rendererIt->second;
-        return true;
+        renderer = rendererIt->second;
+        return renderer != nullptr;
     }
 }
 

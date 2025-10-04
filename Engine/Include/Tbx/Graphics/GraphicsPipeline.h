@@ -2,6 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Graphics/GraphicsResource.h"
+#include "Tbx/Graphics/Material.h"
 #include "Tbx/Windowing/Window.h"
 #include "Tbx/Stages/Stage.h"
 #include "Tbx/Events/EventBus.h"
@@ -52,18 +53,18 @@ namespace Tbx
     private:
         void DrawFrame();
 
-        void RenderOpenStages(GraphicsRenderer& renderer);
+        void RenderOpenStages(const Ref<GraphicsRenderer>& renderer);
         void AddStage(const Ref<Stage>& stage);
         void RemoveStage(const Ref<Stage>& stage);
 
         void RecreateRenderersForCurrentApi();
 
-        void CompileShaders(const std::vector<Ref<Shader>>& shaders);
-        void CacheShaders(Uid cacheId, const std::vector<Ref<Shader>>& shaders);
-        void CacheTextures(const std::vector<Ref<Texture>>& textures);
-        void CacheMeshes(const std::vector<Ref<Mesh>>& meshes);
+        void CompileShaders(const Ref<GraphicsRenderer>& renderer, const std::vector<Ref<Shader>>& shaders);
+        void CacheShaders(const Ref<GraphicsRenderer>& renderer, const Material& material);
+        void CacheTextures(const Ref<GraphicsRenderer>& renderer, const std::vector<Ref<Texture>>& textures);
+        void CacheMeshes(const Ref<GraphicsRenderer>& renderer, const std::vector<Ref<Mesh>>& meshes);
 
-        bool TryGetRenderer(GraphicsApi api, GraphicsRenderer*& renderer);
+        bool TryGetRenderer(GraphicsApi api, Ref<GraphicsRenderer>& renderer);
 
         void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
         void OnWindowOpened(const WindowOpenedEvent& e);
@@ -74,7 +75,7 @@ namespace Tbx
     private:
         std::vector<Ref<Stage>> _openStages = {};
         std::vector<GraphicsDisplay> _openDisplays = {};
-        std::unordered_map<GraphicsApi, GraphicsRenderer> _renderers = {};
+        std::unordered_map<GraphicsApi, Ref<GraphicsRenderer>> _renderers = {};
 
         Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};
