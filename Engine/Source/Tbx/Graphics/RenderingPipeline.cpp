@@ -149,6 +149,14 @@ namespace Tbx
         }
     }
 
+    void RenderingPipeline::CacheTextures(const std::vector<Ref<Texture>>& textures)
+    {
+    }
+
+    void RenderingPipeline::CacheMeshes(const std::vector<Ref<Mesh>>& meshes)
+    {
+    }
+
     void RenderingPipeline::AddStage(const Ref<Stage>& stage)
     {
         if (!stage)

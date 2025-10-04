@@ -27,11 +27,6 @@ namespace Tbx
         RGBA
     };
 
-    struct TBX_EXPORT UploadedTexture
-    {
-        Uid RenderId = Uid::Invalid;
-    };
-
     struct TBX_EXPORT Texture
     {
         Size Resolution = { 1, 1 };
