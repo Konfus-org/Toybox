@@ -1,8 +1,6 @@
 #pragma once
 #include "Tbx/Collections/Iterable.h"
 #include "Tbx/Memory/Refs.h"
-#include <algorithm>
-#include <memory>
 #include <type_traits>
 #include <vector>
 
@@ -12,12 +10,10 @@ namespace Tbx
     class Queryable : public Iterable<TItem>
     {
     public:
-        using Iterable<TItem>::Iterable;
-        using typename Iterable<TItem>::Container;
-
-        bool Any() const
+        Queryable() = default;
+        explicit Queryable(const std::vector<TItem>& items)
+            : Iterable<TItem>(items)
         {
-            return !this->Empty();
         }
 
         template <typename TPredicate>
@@ -35,9 +31,9 @@ namespace Tbx
         }
 
         template <typename TPredicate>
-        Container Where(TPredicate predicate) const
+        std::vector<TItem&> Where(TPredicate predicate) const
         {
-            Container result;
+            std::vector<TItem> result = {};
             const auto& items = this->All();
             result.reserve(items.size());
 
@@ -53,7 +49,7 @@ namespace Tbx
         }
 
         template <typename TPredicate>
-        TItem First(TPredicate predicate) const
+        const TItem& First(TPredicate predicate) const
         {
             const auto& items = this->All();
             const auto it = std::find_if(items.begin(), items.end(), predicate);
@@ -62,80 +58,66 @@ namespace Tbx
                 return *it;
             }
 
-            return TItem{};
-        }
-
-        TItem First() const
-        {
-            const auto& items = this->All();
-            if (!items.empty())
-            {
-                return items.front();
-            }
-
-            return TItem{};
+            return {};
         }
 
         template <typename TDerived>
         auto OfType() const
         {
-            return OfTypeImpl<TDerived>(std::integral_constant<bool, std::is_pointer_v<TItem>>{});
-        }
-
-    private:
-        template <typename TDerived>
-        auto OfTypeImpl(std::true_type) const
-        {
-            using ResultType = TDerived*;
-            std::vector<ResultType> result;
             const auto& items = this->All();
-            result.reserve(items.size());
 
-            for (auto item : items)
+            if constexpr (std::is_pointer<TItem>::value)
             {
-                if (auto casted = dynamic_cast<ResultType>(item))
+                std::vector<TDerived*> result = {};
+                for (auto p : items)
                 {
-                    result.push_back(casted);
+                    if (auto q = dynamic_cast<TDerived*>(p))
+                    {
+                        result.push_back(q);
+                    }
                 }
+                return result;
             }
-
-            return result;
-        }
-
-        template <typename TDerived>
-        auto OfTypeImpl(std::false_type) const
-        {
-            return OfTypeRef<TDerived>(std::integral_constant<bool, IsRef<TItem>::value>{});
-        }
-
-        template <typename TDerived>
-        auto OfTypeRef(std::true_type) const
-        {
-            std::vector<Ref<TDerived>> result;
-            const auto& items = this->All();
-            result.reserve(items.size());
-
-            for (const auto& item : items)
+            else if constexpr (IsExclusiveRef<TItem>::value)
             {
-                if (item == nullptr)
+                std::vector<TDerived*> result = {};
+                for (auto& item : items)
                 {
-                    continue;
+                    if (TDerived* casted = dynamic_cast<TDerived*>(item.get()))
+                    {
+                        result.push_back(casted);
+                    }
                 }
-
-                if (auto casted = std::dynamic_pointer_cast<TDerived>(item))
-                {
-                    result.push_back(std::move(casted));
-                }
+                return result;
             }
-
-            return result;
-        }
-
-        template <typename TDerived>
-        auto OfTypeRef(std::false_type) const
-        {
-            static_assert(sizeof(TDerived) == 0, "Queryable::OfType requires pointer or ref types");
-            return std::vector<TDerived>{};
+            else if constexpr (IsWeakRef<TItem>::value)
+            {
+                std::vector<WeakRef<TDerived>> result = {};
+                for (auto& item : items)
+                {
+                    if (Ref<TDerived> casted = std::dynamic_pointer_cast<TDerived>(item.lock()))
+                    {
+                        result.push_back(WeakRef<TDerived>(casted));
+                    }
+                }
+                return result;
+            }
+            else if constexpr (IsRef<TItem>::value)
+            {
+                std::vector<Ref<TDerived>> result = {};
+                for (auto& item : items)
+                {
+                    if (Ref<TDerived> casted = std::dynamic_pointer_cast<TDerived>(item))
+                    {
+                        result.push_back(casted);
+                    }
+                }
+                return result;
+            }
+            else
+            {
+                static_assert(!sizeof(TItem), "Queryable::OfType requires pointer, Ref, WeakRef, or ExclusiveRef items");
+            }
         }
     };
 }

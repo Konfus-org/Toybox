@@ -1,15 +1,9 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Plugins/Plugin.h"
-#include "Tbx/Events/PluginEvents.h"
-#include "Tbx/Debug/Debugging.h"
+#include "Tbx/Debug/Tracers.h"
 
 namespace Tbx
 {
-    Plugin::Plugin(Ref<EventBus> eventBus)
-        : _eventBus(std::move(eventBus))
-    {
-    }
-
     Plugin::~Plugin()
     {
         if (_library != nullptr && _library->IsValid())
@@ -21,27 +15,22 @@ namespace Tbx
         _library.reset();
     }
 
-    bool Plugin::IsBound() const
-    {
-        return _isBound;
-    }
-
-    void Plugin::Bind(const PluginMeta& pluginInfo, ExclusiveRef<SharedLibrary> library, WeakRef<Plugin> self)
+    void Plugin::Bind(const PluginMeta& pluginInfo, ExclusiveRef<SharedLibrary> library)
     {
         if (_isBound)
         {
-            TBX_TRACE_WARN("Plugin: '{}' is already bound. Plugins cannot be rebound.", _pluginInfo.Name);
+            TBX_TRACE_WARNING("Plugin: '{}' is already bound. Plugins cannot be rebound.", _pluginInfo.Name);
             return;
         }
 
         _pluginInfo = pluginInfo;
         _library = std::move(library);
         _isBound = true;
+    }
 
-        if (_eventBus != nullptr)
-        {
-            _eventBus->Post(PluginLoadedEvent(_pluginInfo, std::move(self)));
-        }
+    bool Plugin::IsBound() const
+    {
+        return _isBound;
     }
 
     const PluginMeta& Plugin::GetMeta() const
@@ -64,14 +53,8 @@ namespace Tbx
         _library->ListSymbols();
     }
 
-    Ref<EventBus> Plugin::GetEventBus() const
-    {
-        return _eventBus;
-    }
-
-    StaticPlugin::StaticPlugin(const PluginMeta& pluginInfo, Ref<EventBus> eventBus)
+    StaticPlugin::StaticPlugin(const PluginMeta& pluginInfo)
         : _pluginInfo(pluginInfo)
-        , _eventBus(std::move(eventBus))
     {
     }
 

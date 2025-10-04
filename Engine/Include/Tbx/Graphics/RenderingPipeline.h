@@ -1,24 +1,22 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/GraphicsContext.h"
-#include "Tbx/Graphics/IRenderer.h"
+#include "Tbx/Graphics/GraphicsUploader.h"
+#include "Tbx/Graphics/Renderer.h"
+#include "Tbx/Graphics/Color.h"
 #include "Tbx/Windowing/Window.h"
 #include "Tbx/Stages/Stage.h"
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/EventListener.h"
-#include "Tbx/Events/TSSEvents.h"
+#include "Tbx/Events/StageEvents.h"
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Memory/Refs.h"
-#include "Tbx/Graphics/Color.h"
 #include <unordered_map>
 #include <vector>
 
 namespace Tbx
 {
-    using WindowRendererBindingMap =
-        std::unordered_map<Ref<Window>, Ref<IRenderer>, RefHasher<Window>, RefEqual<Window>>;
-
     /// <summary>
     /// Coordinates render targets, windows, and stage composition for a frame.
     /// </summary>
@@ -28,6 +26,7 @@ namespace Tbx
         RenderingPipeline(
             const std::vector<Ref<IRendererFactory>>& rendererFactories,
             const std::vector<Ref<IGraphicsContextProvider>>& graphicsContextProviders,
+            const std::vector<Ref<IShaderCompiler>>& shaderCompilers,
             Ref<EventBus> eventBus);
         ~RenderingPipeline();
 
@@ -43,11 +42,18 @@ namespace Tbx
 
     private:
         void DrawFrame();
-        void ProcessStageUploads();
-        void ProcessStageRenders();
 
+        void RenderOpenStages();
         void AddStage(const Ref<Stage>& stage);
         void RemoveStage(const Ref<Stage>& stage);
+
+        Ref<IRenderer> CreateRenderer(Ref<IGraphicsContext> context);
+        Ref<IGraphicsContext> CreateContext(Ref<Window> window, GraphicsApi api);
+        void RecreateRenderersForCurrentApi();
+
+        void CacheShaders(const std::vector<Ref<Material>>& materials);
+        void CacheTextures(const std::vector<Ref<Texture>>& textures);
+        void CacheMeshes(const std::vector<Ref<Mesh>>& meshes);
 
         void OnWindowOpened(const WindowOpenedEvent& e);
         void OnWindowClosed(const WindowClosedEvent& e);
@@ -55,15 +61,18 @@ namespace Tbx
         void OnStageOpened(const StageOpenedEvent& e);
         void OnStageClosed(const StageClosedEvent& e);
 
-        Ref<IRenderer> CreateRenderer(Ref<IGraphicsContext> context);
-        Ref<IGraphicsContext> CreateContext(Ref<Window> window, GraphicsApi api);
-        void RecreateRenderersForCurrentApi();
-
     private:
         std::vector<Ref<Stage>> _openStages = {};
-        WindowRendererBindingMap _windowBindings = {};
-        std::unordered_map<GraphicsApi, std::vector<Ref<IRendererFactory>>> _renderFactories = {};
-        std::unordered_map<GraphicsApi, std::vector<Ref<IGraphicsContextProvider>>> _configProviders = {};
+        std::unordered_map<Ref<Window>, Ref<IRenderer>> _windowBindings = {};
+
+        std::unordered_map<GraphicsApi, Ref<IRendererFactory>> _renderFactories = {};
+        std::unordered_map<GraphicsApi, Ref<IGraphicsUploader>> _graphicsUploader = {};
+        std::unordered_map<GraphicsApi, Ref<IGraphicsContextProvider>> _configProviders = {};
+        std::unordered_map<ShaderLang, Ref<IShaderCompiler>> _shaderCompilers = {};
+
+        std::unordered_map<Uid, std::vector<Ref<GraphicsHandle>>> _shaderCache = {};
+        std::unordered_map<Uid, Ref<GraphicsHandle>> _textureCache = {};
+        std::unordered_map<Uid, Ref<GraphicsHandle>> _meshCache = {};
 
         Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};

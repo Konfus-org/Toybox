@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Debug/Debugging.h"
+#include "Tbx/Debug/Asserts.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Ids/Uid.h"
 #include "Tbx/Memory/Refs.h"

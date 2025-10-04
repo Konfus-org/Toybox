@@ -1,7 +1,7 @@
 #pragma once
-#include <algorithm>
+#include "Tbx/Math/Int.h"
 #include <functional>
-#include <utility>
+#include <algorithm>
 #include <vector>
 
 namespace Tbx
@@ -10,16 +10,20 @@ namespace Tbx
     class Iterable
     {
     public:
-        using Container = std::vector<TItem>;
-        using iterator = typename Container::iterator;
-        using const_iterator = typename Container::const_iterator;
-        using reverse_iterator = typename Container::reverse_iterator;
-        using const_reverse_iterator = typename Container::const_reverse_iterator;
+        using iterator = typename std::vector<TItem>::iterator;
+        using const_iterator = typename std::vector<TItem>::const_iterator;
+        using reverse_iterator = typename std::vector<TItem>::reverse_iterator;
+        using const_reverse_iterator = typename std::vector<TItem>::const_reverse_iterator;
 
         Iterable() = default;
-        explicit Iterable(Container items)
-            : _items(std::move(items))
+        explicit Iterable(const std::vector<TItem>& items)
+            : _items(items)
         {
+        }
+
+        bool Any() const
+        {
+            return !Empty();
         }
 
         bool Empty() const
@@ -27,20 +31,31 @@ namespace Tbx
             return _items.empty();
         }
 
-        size_t Count() const
+        uint64 Count() const
         {
             return _items.size();
         }
 
-        const Container& All() const
+        std::vector<TItem>& All()
         {
             return _items;
         }
 
-        template <typename TKeySelector, typename TCompare = std::less<>>
-        Container OrderBy(TKeySelector selector, TCompare compare = {}) const
+        const std::vector<TItem>& All() const
         {
-            Container ordered = _items;
+            return _items;
+        }
+
+
+        const TItem& First() const
+        {
+            return _items.front();
+        }
+
+        template <typename TKeySelector, typename TCompare = std::less<>>
+        std::vector<TItem> OrderBy(TKeySelector selector, TCompare compare = {}) const
+        {
+            std::vector<TItem> ordered = _items;
             std::sort(
                 ordered.begin(),
                 ordered.end(),
@@ -82,9 +97,9 @@ namespace Tbx
         }
 
         template <typename TPredicate>
-        size_t RemoveAll(TPredicate predicate)
+        uint64 RemoveAll(TPredicate predicate)
         {
-            size_t removed = 0;
+            uint64 removed = 0;
             auto it = _items.begin();
             while (it != _items.end())
             {
@@ -162,17 +177,17 @@ namespace Tbx
         }
 
     protected:
-        Container& MutableItems()
+        std::vector<TItem>& MutableItems()
         {
             return _items;
         }
 
-        const Container& Items() const
+        const std::vector<TItem>& Items() const
         {
             return _items;
         }
 
     private:
-        Container _items = {};
+        std::vector<TItem> _items = {};
     };
 }

@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/Color.h"
-#include "Tbx/Debug/Debugging.h"
+#include "Tbx/Debug/Asserts.h"
 #include "Tbx/Math/Vectors.h"
 #include "Tbx/Math/Int.h"
 #include <vector>

@@ -1,5 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
+#include "Tbx/Stages/Stage.h"
 #include "Tbx/Stages/Toy.h"
 #include "Tbx/Memory/Refs.h"
 #include <memory>
@@ -18,6 +19,7 @@ namespace Tbx
     class StageView
     {
     public:
+
         /// <summary>
         /// Creates a view rooted at the given toy.
         /// </summary>
@@ -28,6 +30,15 @@ namespace Tbx
             {
                 BuildViewVector(root);
             }
+        }
+
+        /// <summary>
+        /// Creates a view of the stage.
+        /// </summary>
+        /// <param name="root">Root toy to search from.</param>
+        explicit(false) StageView(const Ref<Stage>& stage)
+        {
+            StageView(stage->GetRoot());
         }
 
         /// <summary>Returns an iterator to the first toy in the view.</summary>
@@ -84,5 +95,5 @@ namespace Tbx
     /// <summary>
     /// A view that includes all toys in the hierarchy.
     /// </summary>
-    using FullStageViewView = StageView<>;
+    using FullStageView = StageView<>;
 }

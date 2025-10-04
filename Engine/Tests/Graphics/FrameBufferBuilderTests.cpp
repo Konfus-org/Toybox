@@ -34,8 +34,8 @@ namespace Tbx::Tests::Graphics
         auto& matInstanceC = toyC->Blocks.Add<MaterialInstance>(materialB, textureB);
 
         // Act
-        RenderCommandBufferBuilder builder;
-        RenderCommandBuffer buffer = builder.BuildUploadBuffer(root);
+        DrawCommandBufferBuilder builder;
+        DrawCommandBuffer buffer = builder.BuildUploadBuffer(root);
 
         // Assert
         std::vector<Uid> uploadedMaterials;
@@ -71,8 +71,8 @@ namespace Tbx::Tests::Graphics
         auto toy = MakeRef<Toy>();
 
         // Act
-        RenderCommandBufferBuilder builder;
-        RenderCommandBuffer buffer = builder.BuildRenderBuffer(toy, 1.0f);
+        DrawCommandBufferBuilder builder;
+        DrawCommandBuffer buffer = builder.Build(toy, 1.0f);
 
         // Assert
         EXPECT_TRUE(buffer.Commands.empty());
@@ -98,8 +98,8 @@ namespace Tbx::Tests::Graphics
         root->Children.push_back(camToy);
 
         // Act
-        RenderCommandBufferBuilder builder;
-        RenderCommandBuffer buffer = builder.BuildRenderBuffer(root, 1.0f);
+        DrawCommandBufferBuilder builder;
+        DrawCommandBuffer buffer = builder.Build(root, 1.0f);
 
         // Assert
         const auto& cmds = buffer.Commands;

@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Assets/AssetLoaders.h"
-#include "Tbx/Debug/Debugging.h"
+#include "Tbx/Debug/Tracers.h"
 #include "Tbx/Memory/Refs.h"
 #include <exception>
 #include <filesystem>
@@ -61,10 +61,9 @@ namespace Tbx
 
         /// <summary>
         /// Registers the asset if it is not tracked already and returns the loaded data.
-        /// Returns nullptr when no loader is available for the supplied path or loading fails.
         /// </summary>
         template <typename TData>
-        Ref<TData> RegisterAsset(const std::string& path)
+        void Register(const std::string& path)
         {
             std::scoped_lock lock(_mutex);
 
@@ -77,7 +76,7 @@ namespace Tbx
                 if (!loader)
                 {
                     TBX_ASSERT(false, "AssetServer: Unable to register {} because no loader accepted the file", path);
-                    return nullptr;
+                    return;
                 }
 
                 auto record = MakeRef<AssetRecord>();
@@ -88,8 +87,6 @@ namespace Tbx
                 const auto& emplaceResult = _assetRecords.try_emplace(normalizedPath, std::move(record));
                 recordIt = emplaceResult.first;
             }
-
-            return LoadAssetData<TData>(recordIt->second);
         }
 
         /// <summary>
@@ -97,7 +94,7 @@ namespace Tbx
         /// If the asset was never seen before this call returns nullptr.
         /// </summary>
         template <typename TData>
-        Ref<TData> GetAsset(const std::string& path) const
+        Ref<TData> Get(const std::string& path) const
         {
             std::scoped_lock lock(_mutex);
 
@@ -109,14 +106,14 @@ namespace Tbx
                 return nullptr;
             }
 
-            return LoadAssetData<TData>(recordIt->second);
+            return LoadData<TData>(recordIt->second);
         }
 
         /// <summary>
         /// Collects all loaded assets for the requested type.
         /// </summary>
         template <typename TData>
-        std::vector<Ref<TData>> GetLoadedAssets() const
+        std::vector<Ref<TData>> All() const
         {
             std::scoped_lock lock(_mutex);
 
@@ -160,7 +157,7 @@ namespace Tbx
         /// If the asset is already cached, the cached value is reused.
         /// </summary>
         template <typename TData>
-        Ref<TData> LoadAssetData(const ExclusiveRef<AssetRecord>& record) const
+        Ref<TData> LoadData(const ExclusiveRef<AssetRecord>& record) const
         {
             auto loader = std::dynamic_pointer_cast<AssetLoader<TData>>(record->Loader);
             if (!loader)

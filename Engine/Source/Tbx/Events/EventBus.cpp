@@ -34,6 +34,11 @@ namespace Tbx
 
     //////////// Event Coordinator ///////////////
 
+    EventBus::~EventBus()
+    {
+        Flush();
+    }
+
     void EventBus::Flush()
     {
         // Pull all queued events out under lock to minimize lock-hold time while dispatching.

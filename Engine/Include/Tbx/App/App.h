@@ -1,10 +1,10 @@
 #pragma once
 #include "Tbx/App/Settings.h"
+#include "Tbx/Memory/Refs.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/EventListener.h"
 #include "Tbx/Events/WindowEvents.h"
-#include "Tbx/Layers/LayerStack.h"
-#include "Tbx/Memory/Refs.h"
+#include "Tbx/Collections/LayerStack.h"
 #include "Tbx/Plugins/PluginLoader.h"
 
 namespace Tbx
@@ -31,7 +31,7 @@ namespace Tbx
     public:
         App(const std::string_view& name,
             const AppSettings& settings,
-            PluginCache plugins,
+            const PluginContainer& plugins,
             Ref<EventBus> eventBus);
         virtual ~App();
 
@@ -45,21 +45,6 @@ namespace Tbx
         /// </summary>
         void Close();
 
-        const AppStatus& GetStatus() const;
-        const std::string& GetName() const;
-
-        void SetSettings(const AppSettings& settings);
-        const AppSettings& GetSettings() const;
-
-        template <typename TLayer, typename... TArgs>
-        Uid AddLayer(TArgs&&... args)
-        {
-            return _layerStack.Push<TLayer>(std::forward<TArgs>(args)...);
-        }
-        bool HasLayer(const Uid& layerId) const;
-        Layer& GetLayer(const Uid& layerId);
-        void RemoveLayer(const Uid& layerId);
-
     protected:
         virtual void OnLaunch() {};
         virtual void OnUpdate() {};
@@ -72,14 +57,16 @@ namespace Tbx
         void OnWindowOpened(const WindowOpenedEvent& e);
         void OnWindowClosed(const WindowClosedEvent& e);
 
+    public:
+        AppStatus Status = AppStatus::None;
+        AppSettings Settings = {};
+        LayerStack Layers = {};
+        PluginContainer Plugins = {};
+        Ref<EventBus> Dispatcher = nullptr;
+
     private:
         std::string _name = "";
-        AppStatus _status = AppStatus::None;
-        AppSettings _settings = {};
-        LayerStack _layerStack = {};
         Uid _mainWindowId = Uid::Invalid;
-        Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};
-        PluginCache _plugins = {};
     };
 }

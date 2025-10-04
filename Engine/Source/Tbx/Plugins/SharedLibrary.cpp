@@ -1,6 +1,6 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Plugins/SharedLibrary.h"
-#include "Tbx/Debug/Debugging.h"
+#include "Tbx/Debug/Tracers.h"
 
 #if defined(TBX_PLATFORM_WINDOWS)
 #include <DbgHelp.h>

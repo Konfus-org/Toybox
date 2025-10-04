@@ -12,6 +12,7 @@ namespace Tbx
     RenderingPipeline::RenderingPipeline(
         const std::vector<Ref<IRendererFactory>>& rendererFactories,
         const std::vector<Ref<IGraphicsContextProvider>>& graphicsContextProviders,
+        const std::vector<Ref<IShaderCompiler>>& shaderCompilers,
         Ref<EventBus> eventBus)
         : _eventBus(eventBus)
         , _eventListener(eventBus)
@@ -22,11 +23,6 @@ namespace Tbx
 
         for (const auto& factory : rendererFactories)
         {
-            if (!factory)
-            {
-                continue;
-            }
-
             const auto supportedApis = factory->GetSupportedApis();
             if (supportedApis.empty())
             {
@@ -36,41 +32,35 @@ namespace Tbx
 
             for (const auto supportedApi : supportedApis)
             {
-                auto& factoryBucket = _renderFactories[supportedApi];
-                const auto alreadyRegistered = std::find(factoryBucket.begin(), factoryBucket.end(), factory);
-                if (alreadyRegistered != factoryBucket.end())
-                {
-                    continue;
-                }
-
-                factoryBucket.push_back(factory);
+                _renderFactories[supportedApi] = factory;
             }
         }
 
         for (const auto& provider : graphicsContextProviders)
         {
-            if (!provider)
-            {
-                continue;
-            }
-
             const auto supportedApis = provider->GetSupportedApis();
             if (supportedApis.empty())
             {
                 TBX_ASSERT(false, "Rendering: Graphics context provider must advertise at least one supported graphics API.");
                 continue;
             }
-
             for (const auto supportedApi : supportedApis)
             {
-                auto& providerBucket = _configProviders[supportedApi];
-                const auto alreadyRegistered = std::find(providerBucket.begin(), providerBucket.end(), provider);
-                if (alreadyRegistered != providerBucket.end())
-                {
-                    continue;
-                }
+                _configProviders[supportedApi] = provider;
+            }
+        }
 
-                providerBucket.push_back(provider);
+        for (const auto& compiler : shaderCompilers)
+        {
+            const auto supportedLangs = compiler->GetSupportedLanguages();
+            if (supportedLangs.empty())
+            {
+                TBX_ASSERT(false, "Rendering: Shader compiler must advertise at least one supported language.");
+                continue;
+            }
+            for (const auto supportedLang : supportedLangs)
+            {
+                _shaderCompilers[supportedLang] = compiler;
             }
         }
 
@@ -112,82 +102,50 @@ namespace Tbx
 
     void RenderingPipeline::DrawFrame()
     {
-        ProcessStageUploads();
-        ProcessStageRenders();
+        RenderOpenStages();
     }
 
-    void RenderingPipeline::ProcessStageUploads()
-    {
-        RenderCommandBufferBuilder builder = {};
-        RenderCommandBuffer uploadBuffer = {};
-        for (const auto& stage : _openStages)
-        {
-            if (!stage)
-            {
-                continue;
-            }
-
-            const auto spaceRoot = stage->GetRoot();
-            if (!spaceRoot)
-            {
-                continue;
-            }
-
-            const auto stageUploadBuffer = builder.BuildUploadBuffer(spaceRoot);
-            for (const auto& command : stageUploadBuffer.Commands)
-            {
-                uploadBuffer.Commands.push_back(command);
-            }
-        }
-
-        if (!uploadBuffer.Commands.empty())
-        {
-            for (auto& [window, renderer] : _windowBindings)
-            {
-                renderer->Flush();
-                renderer->Process(uploadBuffer);
-            }
-        }
-    }
-
-    void RenderingPipeline::ProcessStageRenders()
+    void RenderingPipeline::RenderOpenStages()
     {
         for (auto& [window, renderer] : _windowBindings)
         {
-            RenderCommandBufferBuilder builder = {};
-            RenderCommandBuffer renderBuffer = {};
-
-            const auto windowSize = window->GetSize();
-            const auto aspectRatio = CalculateAspectRatioFromSize(windowSize);
-            renderBuffer.Commands.emplace_back(RenderCommandType::SetViewport, Viewport({ 0, 0 }, windowSize));
-            renderBuffer.Commands.emplace_back(RenderCommandType::Clear, _clearColor);
-
-            for (const auto& stage : _openStages)
-            {
-                if (!stage)
-                {
-                    continue;
-                }
-
-                const auto spaceRoot = stage->GetRoot();
-                if (!spaceRoot)
-                {
-                    continue;
-                }
-
-                const auto stageRenderBuffer = builder.BuildRenderBuffer(spaceRoot, aspectRatio);
-                for (const auto& command : stageRenderBuffer.Commands)
-                {
-                    renderBuffer.Commands.push_back(command);
-                }
-            }
-
-            renderer->Process(renderBuffer);
+            DrawCommandBufferBuilder builder = {};
+            const auto rendBuffer = builder.Build(_openStages, window->GetSize(), _clearColor);
+            renderer->Flush();
+            renderer->Draw(rendBuffer);
         }
 
         if (_eventBus)
         {
             _eventBus->Send(RenderedFrameEvent());
+        }
+    }
+
+    void RenderingPipeline::CacheShaders(const std::vector<Ref<Material>>& materials)
+    {
+        for (auto material : materials)
+        {
+            if (_shaderCache.contains(material->Id))
+            {
+                continue;
+            }
+
+            for (auto shader : material->Shaders)
+            {
+                auto compilersEntry = _shaderCompilers.find(shader->Lang);
+                if (compilersEntry == _shaderCompilers.end())
+                {
+                    TBX_ASSERT(false, "Rendering: No shader compiler found for language.");
+                    continue;
+                }
+
+                auto compiler = compilersEntry->second;
+                compiler->Compile(shader);
+
+                auto uploader = _graphicsUploader[_currGraphicsApi];
+                auto handle = uploader->UploadShader(shader);
+                _shaderCache[material->Id].push_back(handle);
+            }
         }
     }
 
@@ -223,7 +181,7 @@ namespace Tbx
 
     void RenderingPipeline::RecreateRenderersForCurrentApi()
     {
-        WindowRendererBindingMap newBindings = {};
+        std::unordered_map<Ref<Window>, Ref<IRenderer>> newBindings = {};
         newBindings.reserve(_windowBindings.size());
 
         for (const auto& bindingEntry : _windowBindings)
@@ -247,75 +205,40 @@ namespace Tbx
 
     Ref<IRenderer> RenderingPipeline::CreateRenderer(Ref<IGraphicsContext> context)
     {
-        auto& factories = _renderFactories[context->GetApi()];
-        for (auto it = factories.begin(); it != factories.end();)
+        auto& factory = _renderFactories[context->GetApi()];
+        auto renderer = factory->Create(context);
+        if (!renderer)
         {
-            Ref<IRendererFactory> factory = *it;
-            if (!factory)
-            {
-                it = factories.erase(it);
-                continue;
-            }
-
-            auto renderer = factory->Create(context);
-            if (!renderer)
-            {
-                ++it;
-                continue;
-            }
-
-            const auto rendererApi = renderer->GetApi();
-            if (rendererApi != context->GetApi())
-            {
-                TBX_ASSERT(false, "Rendering: Renderer factory produced mismatched API.");
-                it = factories.erase(it);
-                continue;
-            }
-
-            return renderer;
+            TBX_ASSERT(false, "Rendering: Failed to create renderer for graphics API.");
+            return nullptr;
+        }
+        const auto rendererApi = renderer->GetApi();
+        if (rendererApi != context->GetApi())
+        {
+            TBX_ASSERT(false, "Rendering: Renderer factory produced mismatched API.");
+            return nullptr;
         }
 
-        TBX_ASSERT(false, "Rendering: Unable to locate a renderer factory for requested graphics API.");
-        return nullptr;
+        return renderer;
     }
 
     Ref<IGraphicsContext> RenderingPipeline::CreateContext(Ref<Window> window, GraphicsApi api)
     {
-        if (!window)
+        auto& provider = _configProviders[api];
+        auto config = provider->Provide(window, api);
+        if (!config)
         {
+            TBX_ASSERT(false, "Rendering: Failed to create graphics context for window and selected api.");
+            return nullptr;
+        }
+        const auto configApi = config->GetApi();
+        if (configApi != api)
+        {
+            TBX_ASSERT(false, "Rendering: Graphics context provider produced mismatched API.");
             return nullptr;
         }
 
-        auto& providers = _configProviders[api];
-        for (auto it = providers.begin(); it != providers.end();)
-        {
-            Ref<IGraphicsContextProvider> provider = *it;
-            if (!provider)
-            {
-                it = providers.erase(it);
-                continue;
-            }
-
-            auto config = provider->Provide(window, api);
-            if (!config)
-            {
-                ++it;
-                continue;
-            }
-
-            const auto configApi = config->GetApi();
-            if (configApi != api)
-            {
-                TBX_ASSERT(false, "Rendering: Graphics context provider produced mismatched API.");
-                it = providers.erase(it);
-                continue;
-            }
-
-            return config;
-        }
-
-        TBX_ASSERT(false, "Rendering: Unable to locate a graphics context provider for requested graphics API.");
-        return nullptr;
+        return config;
     }
 
     void RenderingPipeline::OnWindowOpened(const WindowOpenedEvent& e)
@@ -350,7 +273,7 @@ namespace Tbx
         const auto& newSettings = e.GetNewSettings();
         _clearColor = newSettings.ClearColor;
         const auto previousApi = _currGraphicsApi;
-        _currGraphicsApi = newSettings.Api;
+        _currGraphicsApi = newSettings.RenderingApi;
 
         if (previousApi != _currGraphicsApi)
         {

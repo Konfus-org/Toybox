@@ -2,8 +2,8 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Graphics/Texture.h"
-#include "Tbx/Ids/Uid.h"
 #include "Tbx/Memory/Refs.h"
+#include "Tbx/Ids/Uid.h"
 #include <vector>
 
 namespace Tbx
@@ -30,16 +30,16 @@ namespace Tbx
     {
         MaterialInstance() = default;
         MaterialInstance(Ref<Material> material)
-            : InstanceOf(material) {}
+            : MaterialId(material->Id) {}
         MaterialInstance(Ref<Material> material, Ref<Texture> texture)
-            : InstanceOf(material)
+            : MaterialId(material->Id)
             , Textures({texture}) {}
         MaterialInstance(Ref<Material> material, std::vector<Ref<Texture>> textures)
-            : InstanceOf(material)
+            : MaterialId(material->Id)
             , Textures(textures) {}
 
-        Ref<Material> InstanceOf = nullptr;
+        Uid MaterialId = Uid::Invalid;
         std::vector<Ref<Texture>> Textures = { MakeRef<Texture>() }; // default to one small white texture
-        Uid Id = Uid::Generate();
+        Uid InstanceId = Uid::Generate();
     };
 }

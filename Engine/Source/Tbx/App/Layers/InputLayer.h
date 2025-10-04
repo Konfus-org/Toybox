@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/Layers/Layer.h"
+#include "Tbx/Collections/LayerStack.h"
 #include "Tbx/Input/IInputHandler.h"
 #include "Tbx/Memory/Refs.h"
 

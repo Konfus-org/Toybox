@@ -10,7 +10,7 @@ namespace Tbx
     class TBX_EXPORT Plugin
     {
     public:
-        Plugin(Ref<EventBus> eventBus);
+        Plugin() = default;
         virtual ~Plugin();
 
         Plugin(const Plugin&) = delete;
@@ -18,25 +18,32 @@ namespace Tbx
         Plugin(Plugin&&) = delete;
         Plugin& operator=(Plugin&&) = delete;
 
+        /// <summary>
+        /// Binds a plugin to its info and library so when its deleted it will automatically take care of unloading these things ensuring these are always in sync and 
+        /// removing the issue where when the plugin and library was seperated we could still have a plugin in memory but the library was unloaded.
+        /// </summary>
+        void Bind(const PluginMeta& pluginInfo, ExclusiveRef<SharedLibrary> library);
         bool IsBound() const;
-        void Bind(const PluginMeta& pluginInfo, ExclusiveRef<SharedLibrary> library, WeakRef<Plugin> self);
 
         const PluginMeta& GetMeta() const;
         const SharedLibrary* GetLibrary() const;
+
+        /// <summary>
+        /// Lists the plugins loaded libraries symbols.
+        /// Useful for debugging.
+        /// </summary>
         void ListSymbols() const;
-        Ref<EventBus> GetEventBus() const;
 
     private:
         PluginMeta _pluginInfo = {};
         ExclusiveRef<SharedLibrary> _library = nullptr;
         bool _isBound = false;
-        Ref<EventBus> _eventBus = nullptr;
     };
 
     class TBX_EXPORT StaticPlugin
     {
     public:
-        StaticPlugin(const PluginMeta& pluginInfo, Ref<EventBus> eventBus);
+        StaticPlugin(const PluginMeta& pluginInfo);
         virtual ~StaticPlugin();
 
         StaticPlugin(const StaticPlugin&) = delete;
@@ -45,7 +52,6 @@ namespace Tbx
         StaticPlugin& operator=(StaticPlugin&&) = delete;
 
         const PluginMeta& GetMeta() const;
-
         Ref<EventBus> GetEventBus() const;
 
     private:
@@ -53,8 +59,7 @@ namespace Tbx
         Ref<EventBus> _eventBus = nullptr;
     };
 
-    using PluginLoadFn = Plugin* (*)(
-        Ref<EventBus> eventBus);
+    using PluginLoadFn = Plugin* (*)(Ref<EventBus> eventBus);
     using PluginUnloadFn = void (*)(Plugin* plugin);
 
     #define TBX_LOAD_PLUGIN_FN_NAME "Load"

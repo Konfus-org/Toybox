@@ -1,7 +1,8 @@
 #pragma once
-#include "Tbx/Debug/Debugging.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Events/Event.h"
+#include "Tbx/Debug/Asserts.h"
+#include "Tbx/Debug/Tracers.h"
 #include "Tbx/Ids/Uid.h"
 #include "Tbx/Math/Int.h"
 #include "Tbx/Memory/Refs.h"
@@ -11,7 +12,6 @@
 #include <atomic>
 #include <mutex>
 #include <type_traits>
-#include <utility>
 
 namespace Tbx
 {
@@ -74,7 +74,7 @@ namespace Tbx
         /// <summary>
         /// Destroys the event bus.
         /// </summary>
-        ~EventBus() = default;
+        ~EventBus();
 
         /// <summary>
         /// Registers a callback for the specified event type.

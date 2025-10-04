@@ -1,6 +1,6 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Plugins/PluginMetaReader.h"
-#include "Tbx/Debug/Debugging.h"
+#include "Tbx/Debug/Tracers.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <map>

@@ -7,12 +7,11 @@
 #include <Tbx/Graphics/Mesh.h>
 #include <Tbx/Math/Transform.h>
 #include <Tbx/Math/Trig.h>
-#include <Tbx/Events/TSSEvents.h>
 #include <Tbx/Time/DeltaTime.h>
+#include <Tbx/Events/StageEvents.h>
 #include <vector>
 
 Demo::Demo(Tbx::Ref<Tbx::EventBus> eventBus)
-    : Runtime("3d Demo Runtime", eventBus)
 {
     TBX_TRACE_INFO("Demo: loaded!\n");
 }
@@ -27,16 +26,15 @@ void Demo::OnStart()
     TBX_TRACE_INFO("Demo: started!\n");
 
     // Load assets
-    const auto& assetServer = GetAssetServer();
-    auto smilyTex = assetServer.GetAsset<Tbx::Texture>("Smily.png");
-    auto wallTex = assetServer.GetAsset<Tbx::Texture>("Wall.jpg");
-    auto checkerTex = assetServer.GetAsset<Tbx::Texture>("Checkerboard.png");
-    auto fragmentShader = assetServer.GetAsset<Tbx::Shader>("fragment.frag");
-    auto vertexShader = assetServer.GetAsset<Tbx::Shader>("vertex.vert");
+    auto smilyTex = Assets->Get<Tbx::Texture>("Smily.png");
+    auto wallTex = Assets->Get<Tbx::Texture>("Wall.jpg");
+    auto checkerTex = Assets->Get<Tbx::Texture>("Checkerboard.png");
+    auto fragmentShader = Assets->Get<Tbx::Shader>("fragment.frag");
+    auto vertexShader = Assets->Get<Tbx::Shader>("vertex.vert");
 
     // Setup testing scene...
-    _world = Tbx::MakeRef<Tbx::Stage>();
-    auto worldRoot = _world->GetRoot();
+    _stage = Tbx::MakeRef<Tbx::Stage>();
+    auto worldRoot = _stage->GetRoot();
 
     // Setup base material
     auto matShaders = { vertexShader, fragmentShader };
@@ -51,7 +49,7 @@ void Demo::OnStart()
             .SetPosition({ 0, -25, 100 })
             .SetRotation(Tbx::Quaternion::FromEuler({ 90, 0, 0 }))
             .SetScale({ 50 });
-        _world->GetRoot()->Children.push_back(floor);
+        _stage->GetRoot()->Children.push_back(floor);
 
         auto wallBack = std::make_shared<Tbx::Toy>("Wall Back");
         wallBack->Blocks.Add<Tbx::Mesh>();
@@ -60,7 +58,7 @@ void Demo::OnStart()
             .SetPosition({ 0, 0, 125 })
             .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))
             .SetScale({ 50 });
-        _world->GetRoot()->Children.push_back(wallBack);
+        _stage->GetRoot()->Children.push_back(wallBack);
 
         auto wallRight = std::make_shared<Tbx::Toy>("Wall Right");
         wallRight->Blocks.Add<Tbx::Mesh>();
@@ -69,7 +67,7 @@ void Demo::OnStart()
             .SetPosition({ 25, 0, 100 })
             .SetRotation(Tbx::Quaternion::FromEuler({ 0, -90, 0 }))
             .SetScale({ 50 });
-        _world->GetRoot()->Children.push_back(wallRight);
+        _stage->GetRoot()->Children.push_back(wallRight);
     }
 
     // Create smily
@@ -82,7 +80,7 @@ void Demo::OnStart()
             .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))
             .SetScale({ 10 });
         _smily = smily;
-        _world->GetRoot()->Children.push_back(_smily);
+        _stage->GetRoot()->Children.push_back(_smily);
     }
 
     // Create camera
@@ -91,12 +89,12 @@ void Demo::OnStart()
         fpsCam->Blocks.Add<Tbx::Camera>();
         fpsCam->Blocks.Add<Tbx::Transform>();
         _fpsCam = fpsCam;
-        _world->GetRoot()->Children.push_back(_fpsCam);
+        _stage->GetRoot()->Children.push_back(_fpsCam);
     }
 
     // TODO: Figure out a better way than just needing to know you have to send this event...
     // Perhaps a stage manager/director?
-    GetEventBus().Post(Tbx::StageOpenedEvent(_world));
+    Dispatcher->Post(Tbx::StageOpenedEvent(_stage));
 }
 
 void Demo::OnShutdown()
@@ -106,7 +104,7 @@ void Demo::OnShutdown()
 
 void Demo::OnUpdate()
 {
-    auto worldRoot = _world->GetRoot();
+    auto worldRoot = _stage->GetRoot();
     const auto& deltaTime = Tbx::Time::DeltaTime::InSeconds();
 
     // Camera movement

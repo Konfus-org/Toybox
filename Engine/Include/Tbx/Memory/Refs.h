@@ -41,66 +41,15 @@ namespace Tbx
     template <typename U>
     struct IsRef<Ref<U>> : std::true_type {};
 
+    template <typename T>
+    struct IsWeakRef : std::false_type {};
+
     template <typename U>
-    struct IsRef<WeakRef<U>> : std::true_type {};
+    struct IsWeakRef<WeakRef<U>> : std::true_type {};
+
+    template <typename T>
+    struct IsExclusiveRef : std::false_type {};
 
     template <typename U>
-    struct IsRef<ExclusiveRef<U>> : std::true_type {};
-
-    template <typename T>
-    struct RefHasher
-    {
-        size_t operator()(const Ref<T>& ref) const noexcept
-        {
-            return std::hash<const T*>()(ref.get());
-        }
-    };
-
-    template <typename T>
-    struct RefEqual
-    {
-        bool operator()(const Ref<T>& lhs, const Ref<T>& rhs) const noexcept
-        {
-            return lhs.get() == rhs.get();
-        }
-    };
-
-    template <typename T>
-    struct ExclusiveRefHasher
-    {
-        size_t operator()(const ExclusiveRef<T>& ref) const noexcept
-        {
-            return std::hash<const T*>()(ref.get());
-        }
-    };
-
-    template <typename T>
-    struct ExclusiveRefEqual
-    {
-        bool operator()(const ExclusiveRef<T>& lhs, const ExclusiveRef<T>& rhs) const noexcept
-        {
-            return lhs.get() == rhs.get();
-        }
-    };
-
-    template <typename T>
-    struct WeakRefHasher
-    {
-        size_t operator()(const WeakRef<T>& ref) const noexcept
-        {
-            auto locked = ref.lock();
-            return std::hash<const T*>()(locked.get());
-        }
-    };
-
-    template <typename T>
-    struct WeakRefEqual
-    {
-        bool operator()(const WeakRef<T>& lhs, const WeakRef<T>& rhs) const noexcept
-        {
-            auto lhsLocked = lhs.lock();
-            auto rhsLocked = rhs.lock();
-            return lhsLocked.get() == rhsLocked.get();
-        }
-    };
+    struct IsExclusiveRef<ExclusiveRef<U>> : std::true_type {};
 }

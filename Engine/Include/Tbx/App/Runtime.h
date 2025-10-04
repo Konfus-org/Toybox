@@ -1,38 +1,19 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/App/App.h"
 #include "Tbx/Plugins/Plugin.h"
 #include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/EventListener.h"
-#include "Tbx/Events/AppEvents.h"
 
 namespace Tbx
 {
-    /// <summary>
-    /// This is a layer added at runtime via the plugin system via a runtime loader.
-    /// </summary>
-    class TBX_EXPORT Runtime : public Plugin
+    class IRuntime
     {
     public:
-        Runtime(
-            const std::string& name,
-            Ref<EventBus> eventBus);
+        virtual ~IRuntime() {}
 
-        /// <summary>
-        /// Inits a runtime.
-        /// Should be called after important systems are initialized so the runtime can utilize them.
-        /// </summary>
-        void Initialize(Ref<AssetServer> assetServer);
-
-        /// <summary>
-        /// Updates the runtime.
-        /// </summary>
+        void Initialize(Ref<AssetServer> assetServer, Ref<EventBus> eventBus);
         void Update();
-
-        /// <summary>
-        /// Shuts down a runtime.
-        /// </summary>
         void Shutdown();
 
     protected:
@@ -51,16 +32,24 @@ namespace Tbx
         /// </summary>
         virtual void OnShutdown() {}
 
-        // TODO: hide behind protected accessors
-        // Ex: GetAsset<>, GetAssets<>, AddAsset, RemoveAsset, etc...
-        AssetServer& GetAssetServer() const;
-        // TODO: hide behind protected accessors
-        // Ex: PostEvent<>, SendEvent<>, SubscribeToEvent<>, UnsubscribeFromEvent<>, etc...
-        EventBus& GetEventBus() const;
+    protected:
+        Ref<AssetServer> Assets = nullptr;
+        Ref<EventBus> Dispatcher = nullptr;
+        EventListener Listener = {};
+    };
 
-    private:
-        Ref<AssetServer> _assetServer = nullptr;
-        std::string _name = "";
+    /// <summary>
+    /// This is a layer added at runtime via the plugin system via a runtime loader.
+    /// </summary>
+    class TBX_EXPORT StaticRuntime : public StaticPlugin, public IRuntime
+    {
+    };
+
+    /// <summary>
+    /// This is a layer added at runtime via the plugin system via a runtime loader.
+    /// </summary>
+    class TBX_EXPORT Runtime : public Plugin, public IRuntime
+    {
     };
 
     /// <summary>

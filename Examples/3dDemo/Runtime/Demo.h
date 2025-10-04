@@ -17,7 +17,7 @@ public:
     void OnUpdate() override;
 
 private:
-    Tbx::Ref<Tbx::Stage> _world = nullptr;
+    Tbx::Ref<Tbx::Stage> _stage = nullptr;
     Tbx::Ref<Tbx::Toy> _fpsCam = nullptr;
     Tbx::Ref<Tbx::Toy> _smily = nullptr;
 

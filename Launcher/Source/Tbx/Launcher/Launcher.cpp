@@ -1,6 +1,6 @@
 #include "Tbx/Launcher/Launcher.h"
 #include "Tbx/Files/Paths.h"
-#include "Tbx/Debug/Debugging.h"
+#include "Tbx/Debug/Tracers.h"
 #include "Tbx/Debug/ILogger.h"
 #include "Tbx/Debug/Log.h"
 #include "Tbx/Plugins/PluginFinder.h"
@@ -45,13 +45,9 @@ namespace Tbx::Launcher
                 running =
                     status != AppStatus::Error &&
                     status != AppStatus::Closed;
-
-                if (loggerPlugin != nullptr)
-                {
-                    Log::Shutdown();
-                    loggerPlugin.reset();
-                }
             }
+
+            Log::Shutdown();
         }
 
         return status;

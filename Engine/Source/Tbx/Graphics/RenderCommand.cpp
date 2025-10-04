@@ -2,89 +2,97 @@
 #include "Tbx/Graphics/RenderCommands.h"
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Graphics/Camera.h"
+#include "Tbx/Stages/Views.h"
 #include "Tbx/Math/Transform.h"
 #include "Tbx/Graphics/Frustum.h"
 #include "Tbx/Graphics/Sphere.h"
-#include "Tbx/Debug/Debugging.h"
 
 namespace Tbx
 {
-    RenderCommandBuffer RenderCommandBufferBuilder::BuildUploadBuffer(StageView<MaterialInstance, Mesh, Model> view)
+    DrawCommandBuffer DrawCommandBufferBuilder::Build(std::vector<Ref<Stage>> stages, Size viewportSize, RgbaColor clearColor)
     {
-        RenderCommandBuffer buffer = {};
+        DrawCommandBuffer buffer = {};
+        buffer.Commands.emplace_back(RenderCommandType::SetViewport, Viewport({ 0, 0 }, viewportSize));
+        buffer.Commands.emplace_back(RenderCommandType::Clear, clearColor);
+        auto aspectRatio = CalculateAspectRatioFromSize(viewportSize);
 
-        for (const auto& toy : view)
+        for (const auto& stage : stages)
         {
-            AddToyUploadCommandsToBuffer(toy, buffer);
-        }
-
-        return buffer;
-    }
-
-    RenderCommandBuffer RenderCommandBufferBuilder::BuildRenderBuffer(FullStageViewView view, float aspectRatio)
-    {
-        // Build view frustums from cameras
-        auto frustums = std::vector<Frustum>();
-        for (const auto& toy : view)
-        {
-            if (!toy->Blocks.Contains<Camera>())
+            if (!stage)
             {
                 continue;
             }
 
-            auto& camera = toy->Blocks.Get<Camera>();
-
-            TBX_ASSERT(aspectRatio > 0.0f, "RenderCommandBufferBuilder: aspect ratio must be positive.");
-            if (aspectRatio > 0.0f)
+            const auto spaceRoot = stage->GetRoot();
+            if (!spaceRoot)
             {
-                camera.SetAspect(aspectRatio);
+                continue;
             }
 
-            Vector3 camPos = Vector3::Zero;
-            Quaternion camRot = Quaternion::Identity;
-            if (toy->Blocks.Contains<Transform>())
+            // Build view frustums from cameras
+            auto frustums = std::vector<Frustum>();
+            auto stageView = FullStageView(stage);
+            for (const auto& toy : stageView)
             {
-                const auto& camTransform = toy->Blocks.Get<Transform>();
-                camPos = camTransform.Position;
-                camRot = camTransform.Rotation;
-            }
-
-            // Extract the planes that make up the camera frustum
-            frustums.push_back(Camera::CalculateFrustum(camPos, camRot, camera.GetProjectionMatrix()));
-        }
-
-        // If no camera is available, we have no view frustum and nothing to draw
-        if (frustums.empty()) return {};
-
-        // Iterate through toys and skip those completely outside the view frustum
-        RenderCommandBuffer buffer = {};
-        for (const auto& toy : view)
-        {
-            if (!toy->Blocks.Contains<Camera>())
-            {
-                const auto sphere = BoundingSphere(toy);
-
-                // Check if the sphere is in at least one of our frustums
-                bool inFrustum = false;
-                for (const auto& frustum : frustums)
+                if (!toy->Blocks.Contains<Camera>())
                 {
-                    if (frustum.Intersects(sphere))
-                    {
-                        inFrustum = true;
-                        break;
-                    }
+                    continue;
                 }
 
-                // Skip toy if it's outside the view frustum
-                if (!inFrustum) continue;
+                auto& camera = toy->Blocks.Get<Camera>();
+                TBX_ASSERT(aspectRatio > 0.0f, "RenderCommandBufferBuilder: aspect ratio must be positive.");
+                if (aspectRatio > 0.0f)
+                {
+                    camera.SetAspect(aspectRatio);
+                }
+
+                Vector3 camPos = Vector3::Zero;
+                Quaternion camRot = Quaternion::Identity;
+                if (toy->Blocks.Contains<Transform>())
+                {
+                    const auto& camTransform = toy->Blocks.Get<Transform>();
+                    camPos = camTransform.Position;
+                    camRot = camTransform.Rotation;
+                }
+
+                // Extract the planes that make up the camera frustum
+                frustums.push_back(Camera::CalculateFrustum(camPos, camRot, camera.GetProjectionMatrix()));
             }
-            AddToyRenderCommandsToBuffer(toy, buffer);
+
+            // If no camera is available, we have no view frustum and nothing to draw
+            if (frustums.empty()) return {};
+
+            // Iterate through toys and skip those completely outside the view frustum
+            for (const auto& toy : stageView)
+            {
+                if (!toy->Blocks.Contains<Camera>())
+                {
+                    const auto sphere = BoundingSphere(toy);
+
+                    // Check if the sphere is in at least one of our frustums
+                    bool inFrustum = false;
+                    for (const auto& frustum : frustums)
+                    {
+                        if (frustum.Intersects(sphere))
+                        {
+                            inFrustum = true;
+                            break;
+                        }
+                    }
+
+                    // Skip toy if it's outside the view frustum
+                    if (!inFrustum) continue;
+                }
+
+                AddToyUploadCommandsToBuffer(toy, buffer);
+                AddToyRenderCommandsToBuffer(toy, buffer);
+            }
         }
 
         return buffer;
     }
 
-    void RenderCommandBufferBuilder::AddToyUploadCommandsToBuffer(const Ref<Toy>& toy, RenderCommandBuffer& buffer)
+    void DrawCommandBufferBuilder::AddToyUploadCommandsToBuffer(const Ref<Toy>& toy, DrawCommandBuffer& buffer)
     {
         // Preprocess materials to upload textures and shaders to GPU
         if (toy->Blocks.Contains<MaterialInstance>())
@@ -128,7 +136,7 @@ namespace Tbx
         }
     }
 
-    void RenderCommandBufferBuilder::AddToyRenderCommandsToBuffer(const Ref<Toy>& toy, RenderCommandBuffer& buffer)
+    void DrawCommandBufferBuilder::AddToyRenderCommandsToBuffer(const Ref<Toy>& toy, DrawCommandBuffer& buffer)
     {
         // NOTE: Order matters here!!!
         

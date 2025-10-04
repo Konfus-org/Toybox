@@ -1,6 +1,6 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Input/Input.h"
-#include "Tbx/Debug/Debugging.h"
+#include "Tbx/Debug/Tracers.h"
 
 namespace Tbx
 {

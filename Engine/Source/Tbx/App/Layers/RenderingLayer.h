@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Layers/Layer.h"
+#include "Tbx/Collections/LayerStack.h"
 #include "Tbx/Graphics/IRenderer.h"
 #include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Graphics/RenderingPipeline.h"

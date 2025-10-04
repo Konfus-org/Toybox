@@ -3,7 +3,7 @@
 
 int main()
 {
-	// TODO: Allow client to define plugins to like so...
+    // TODO: Allow client to define plugins to like so...
     /*auto appPlugins =
     {
         "3dDemoRuntime",
@@ -16,6 +16,7 @@ int main()
     };*/
     auto config = Tbx::Launcher::AppConfig();
     config.Name = "3d Demo";
+    config.Settings.RenderingApi = Tbx::GraphicsApi::OpenGL;
 
     auto status = Tbx::Launcher::Launch(config);
     if (status == Tbx::AppStatus::Error)

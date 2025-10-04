@@ -1,11 +1,26 @@
 #include "Tbx/PCH.h"
-#include "Tbx/Layers/LayerStack.h"
+#include "Tbx/Collections/LayerStack.h"
 
 namespace Tbx
 {
+    void Layer::Update()
+    {
+        OnUpdate();
+    }
+
+    void Layer::FixedUpdate()
+    {
+        OnFixedUpdate();
+    }
+
+    void Layer::LateUpdate()
+    {
+        OnLateUpdate();
+    }
+
     LayerStack::~LayerStack()
     {
-        this->RemoveAll([](const ExclusiveRef<Layer>& layer)
+        this->RemoveAll([](const Ref<Layer>& layer)
         {
             if (layer != nullptr)
             {
@@ -17,7 +32,7 @@ namespace Tbx
 
     void LayerStack::Remove(const Uid& layerId)
     {
-        this->Remove([&](const ExclusiveRef<Layer>& layer)
+        Queryable<Ref<Layer>>::Remove([&layerId](const Ref<Layer>& layer)
         {
             if (layer == nullptr)
             {

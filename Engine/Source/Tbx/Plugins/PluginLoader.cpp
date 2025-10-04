@@ -1,7 +1,7 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Plugins/PluginLoader.h"
 #include "Tbx/Events/PluginEvents.h"
-#include "Tbx/Debug/Debugging.h"
+#include "Tbx/Debug/Tracers.h"
 #include "Tbx/Debug/ILogger.h"
 #include "Tbx/Memory/Refs.h"
 #include <algorithm>
@@ -133,7 +133,7 @@ namespace Tbx
             unloadPluginFunc(pluginToUnload);
         });
 
-        plugin->Bind(info, std::move(library), WeakRef<Plugin>(plugin));
+        plugin->Bind(info, std::move(library));
         if (!plugin->IsBound())
         {
             TBX_TRACE_ERROR("PluginLoader: Plugin '{}' failed to initialize", info.Name);
@@ -163,12 +163,12 @@ namespace Tbx
         return a.Name < b.Name;
     }
 
-    PluginCache::PluginCache(std::vector<Ref<Plugin>> plugins)
-        : Queryable<Ref<Plugin>>(std::move(plugins))
+    PluginContainer::PluginContainer(const std::vector<Ref<Plugin>>& plugins)
+        : Queryable<Ref<Plugin>>(plugins)
     {
     }
 
-    PluginCache::~PluginCache()
+    PluginContainer::~PluginContainer()
     {
         auto& plugins = this->MutableItems();
         if (plugins.empty())
@@ -184,11 +184,6 @@ namespace Tbx
             if (plugin == nullptr)
             {
                 continue;
-            }
-
-            if (eventBus == nullptr)
-            {
-                eventBus = plugin->GetEventBus();
             }
 
             pluginSnapshot.push_back(plugin);
@@ -225,25 +220,10 @@ namespace Tbx
                     "{} Plugin is still in use! Ensure all references are released before shutting down!",
                     plugin->GetMeta().Name);
             }
-
-        }
-
-        if (eventBus != nullptr)
-        {
-            for (const auto& plugin : pluginSnapshot)
-            {
-                if (plugin != nullptr)
-                {
-                    eventBus->Post(
-                        PluginUnloadedEvent(plugin->GetMeta(), WeakRef<Plugin>(plugin)));
-                }
-            }
-
-            eventBus->Send(PluginsUnloadedEvent(pluginSnapshot));
         }
     }
 
-    Ref<Plugin> PluginCache::OfName(const std::string& pluginName) const
+    Ref<Plugin> PluginContainer::OfName(const std::string& pluginName) const
     {
         const auto& plugins = this->All();
         const auto it = std::find_if(
@@ -270,9 +250,9 @@ namespace Tbx
         LoadPlugins(std::move(pluginMetas));
     }
 
-    PluginCache PluginLoader::Results()
+    PluginContainer PluginLoader::Results()
     {
-        return PluginCache(std::move(_plugins));
+        return PluginContainer(std::move(_plugins));
     }
 
     void PluginLoader::LoadPlugins(std::vector<PluginMeta> pluginMetas)

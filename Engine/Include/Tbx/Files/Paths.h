@@ -1,5 +1,5 @@
 #pragma once
-#include "Tbx/Debug/Debugging.h"
+#include "Tbx/Debug/Tracers.h"
 #include <string>
 #include <filesystem>
 

@@ -16,6 +16,9 @@
 #include <ranges>
 #include <filesystem>
 
+#include "Tbx/Debug/Asserts.h"
+#include "Tbx/Debug/Tracers.h"
+
 #ifdef TBX_PLATFORM_WINDOWS
     #ifndef WIN32_LEAN_AND_MEAN
         #define WIN32_LEAN_AND_MEAN

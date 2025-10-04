@@ -5,22 +5,16 @@
 #include "Tbx/Plugins/Plugin.h"
 #include "Tbx/Memory/Refs.h"
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace Tbx
 {
-    class TBX_EXPORT PluginCache : public Queryable<Ref<Plugin>>
+    class TBX_EXPORT PluginContainer : public Queryable<Ref<Plugin>>
     {
     public:
-        PluginCache() = default;
-        explicit PluginCache(std::vector<Ref<Plugin>> plugins);
-        ~PluginCache();
-
-        PluginCache(const PluginCache&) = delete;
-        PluginCache& operator=(const PluginCache&) = delete;
-        PluginCache(PluginCache&&) noexcept = default;
-        PluginCache& operator=(PluginCache&&) noexcept = default;
+        PluginContainer() = default;
+        PluginContainer(const std::vector<Ref<Plugin>>& plugins);
+        ~PluginContainer();
 
         Ref<Plugin> OfName(const std::string& pluginName) const;
     };
@@ -45,7 +39,7 @@ namespace Tbx
         /// <summary>
         /// Produces the loaded plugin collection, transferring ownership to the caller.
         /// </summary>
-        PluginCache Results();
+        PluginContainer Results();
 
     private:
         void LoadPlugins(std::vector<PluginMeta> pluginMetas);

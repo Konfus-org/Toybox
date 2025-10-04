@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Math/Size.h"
+#include "Tbx/Ids/Uid.h"
 #include <vector>
 
 namespace Tbx
@@ -26,6 +27,11 @@ namespace Tbx
         RGBA
     };
 
+    struct TBX_EXPORT UploadedTexture
+    {
+        Uid RenderId = Uid::Invalid;
+    };
+
     struct TBX_EXPORT Texture
     {
         Size Resolution = { 1, 1 };
@@ -33,5 +39,6 @@ namespace Tbx
         TextureFilter Filter = TextureFilter::Nearest;
         TextureFormat Format = TextureFormat::RGB;
         std::vector<Pixel> Pixels = { 255, 255, 255 };
+        Uid Id = Uid::Generate();
     };
 }

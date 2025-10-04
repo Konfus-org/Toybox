@@ -1,7 +1,7 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Plugins/PluginFinder.h"
 #include "Tbx/Plugins/PluginMetaReader.h"
-#include "Tbx/Debug/Debugging.h"
+#include "Tbx/Debug/Tracers.h"
 #include <filesystem>
 #include <unordered_set>
 #include <utility>

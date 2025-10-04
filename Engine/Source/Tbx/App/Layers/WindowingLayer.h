@@ -1,7 +1,8 @@
 #pragma once
-#include "Tbx/Layers/Layer.h"
+#include "Tbx/Collections/LayerStack.h"
 #include "Tbx/Windowing/WindowManager.h"
 #include "Tbx/Memory/Refs.h"
+#include "Tbx/Events/EventListener.h"
 #include <string>
 
 namespace Tbx
@@ -21,6 +22,7 @@ namespace Tbx
     private:
         std::string _appName = "Toybox";
         ExclusiveRef<WindowManager> _windowManager = nullptr;
+        EventListener _eventListener = {};
     };
 }
 
