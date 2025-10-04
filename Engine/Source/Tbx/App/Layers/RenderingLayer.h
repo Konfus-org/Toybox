@@ -1,7 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Collections/LayerStack.h"
-#include "Tbx/Graphics/Renderer.h"
 #include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Graphics/GraphicsPipeline.h"
 #include "Tbx/Events/EventBus.h"
@@ -17,8 +16,10 @@ namespace Tbx
     {
     public:
         TBX_EXPORT RenderingLayer(
-            const std::vector<Ref<IRendererFactory>>& renderFactories,
-            const std::vector<Ref<IGraphicsContextProvider>>& graphicsContextProviders,
+            const std::vector<Ref<IManageGraphicsApis>>& apiManagers,
+            const std::vector<Ref<IGraphicsResourceFactory>>& resourceFactories,
+            const std::vector<Ref<IGraphicsContextProvider>>& contextProviders,
+            const std::vector<Ref<IShaderCompiler>>& shaderCompilers,
             Ref<EventBus> eventBus);
 
     protected:

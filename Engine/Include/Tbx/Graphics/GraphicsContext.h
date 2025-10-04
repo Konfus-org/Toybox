@@ -1,7 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/GraphicsApi.h"
-#include "Tbx/Graphics/GraphicsPipe.h"
 #include "Tbx/Memory/Refs.h"
 
 namespace Tbx
@@ -39,17 +38,12 @@ namespace Tbx
         /// </summary>
         /// <param name="interval"></param>
         virtual void SetSwapInterval(int interval) = 0;
-
-        /// <summary>
-        /// Returns the graphics API supported by this context.
-        /// </summary>
-        virtual GraphicsApi GetApi() const = 0;
     };
 
     /// <summary>
     /// Creates graphics contexts for a given window and graphics API.
     /// </summary>
-    class TBX_EXPORT IGraphicsContextProvider : public IGraphicsPipe
+    class TBX_EXPORT IGraphicsContextProvider : public IUseGraphicsApis
     {
     public:
         virtual ~IGraphicsContextProvider() = default;

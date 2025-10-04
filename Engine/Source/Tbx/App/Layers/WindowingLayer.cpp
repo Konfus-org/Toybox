@@ -23,11 +23,6 @@ namespace Tbx
         });
     }
 
-    void WindowingLayer::OnAttach()
-    {
-        // Do nothing on attach...
-    }
-
     void WindowingLayer::OnDetach()
     {
         _windowManager->CloseAllWindows();

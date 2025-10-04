@@ -1,9 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/GraphicsContext.h"
-#include "Tbx/Graphics/GraphicsUploader.h"
-#include "Tbx/Graphics/Renderer.h"
-#include "Tbx/Graphics/Material.h"
+#include "Tbx/Graphics/GraphicsResource.h"
 #include "Tbx/Windowing/Window.h"
 #include "Tbx/Stages/Stage.h"
 #include "Tbx/Events/EventBus.h"
@@ -17,6 +15,21 @@
 
 namespace Tbx
 {
+    struct GraphicsDisplay
+    {
+        Ref<Window> Surface = nullptr;
+        Ref<IGraphicsContext> Context = nullptr;
+    };
+
+    struct GraphicsRenderer
+    {
+        Ref<IManageGraphicsApis> ApiManager = nullptr;
+        Ref<IGraphicsContextProvider> ContextProvider = nullptr;
+        Ref<IGraphicsResourceFactory> ResourceFactory = nullptr;
+        Ref<IShaderCompiler> ShaderCompiler = nullptr;
+        std::unordered_map<Uid, Ref<GraphicsResource>> ResourceCache = {};
+    };
+
     /// <summary>
     /// Coordinates render targets, windows, and stage composition for a frame.
     /// </summary>
@@ -24,9 +37,10 @@ namespace Tbx
     {
     public:
         GraphicsPipeline(
-            const std::vector<Ref<IRendererFactory>>& rendererFactories,
-            const std::vector<Ref<IGraphicsContextProvider>>& graphicsContextProviders,
-            //const std::vector<Ref<IShaderCompiler>>& shaderCompilers,
+            const std::vector<Ref<IManageGraphicsApis>>& apiManagers,
+            const std::vector<Ref<IGraphicsResourceFactory>>& resourceFactories,
+            const std::vector<Ref<IGraphicsContextProvider>>& contextProviders,
+            const std::vector<Ref<IShaderCompiler>>& shaderCompilers,
             Ref<EventBus> eventBus);
         ~GraphicsPipeline();
 
@@ -35,11 +49,6 @@ namespace Tbx
         /// </summary>
         void Update();
 
-        /// <summary>
-        /// Retrieves the renderer associated with the provided window.
-        /// </summary>
-        Ref<IRenderer> GetRenderer(const Ref<Window>& window) const;
-
     private:
         void DrawFrame();
 
@@ -47,34 +56,23 @@ namespace Tbx
         void AddStage(const Ref<Stage>& stage);
         void RemoveStage(const Ref<Stage>& stage);
 
-        Ref<IRenderer> CreateRenderer(Ref<IGraphicsContext> context);
-        Ref<IGraphicsContext> CreateContext(Ref<Window> window, GraphicsApi api);
         void RecreateRenderersForCurrentApi();
 
+        void CompileShaders(const std::vector<Ref<Shader>>& shaders);
         void CacheShaders(const std::vector<Ref<Shader>>& shaders);
         void CacheTextures(const std::vector<Ref<Texture>>& textures);
         void CacheMeshes(const std::vector<Ref<Mesh>>& meshes);
 
+        void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
         void OnWindowOpened(const WindowOpenedEvent& e);
         void OnWindowClosed(const WindowClosedEvent& e);
-        void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
         void OnStageOpened(const StageOpenedEvent& e);
         void OnStageClosed(const StageClosedEvent& e);
 
     private:
         std::vector<Ref<Stage>> _openStages = {};
-
-        // TODO: Instead of renderer per window we may want something else... perhaps only one renderer is needed? Or perhaps a renderer per camera?
-        std::unordered_map<Ref<Window>, Ref<IRenderer>> _windowBindings = {};
-
-        std::unordered_map<GraphicsApi, Ref<IRendererFactory>> _renderFactories = {};
-        std::unordered_map<GraphicsApi, Ref<IGraphicsContextProvider>> _contextProviders = {};
-        std::unordered_map<GraphicsApi, Ref<IGraphicsUploader>> _graphicsUploader = {};
-        std::unordered_map<ShaderLang, Ref<IShaderCompiler>> _shaderCompilers = {};
-
-        std::unordered_map<Uid, Ref<GraphicsHandle>> _shaderCache = {};
-        std::unordered_map<Uid, Ref<GraphicsHandle>> _textureCache = {};
-        std::unordered_map<Uid, Ref<GraphicsHandle>> _meshCache = {};
+        std::vector<GraphicsDisplay> _openDisplays = {};
+        std::unordered_map<GraphicsApi, GraphicsRenderer> _renderers = {};
 
         Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};

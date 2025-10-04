@@ -91,12 +91,13 @@ namespace Tbx
                 Layers.Add<WindowingLayer>(appName, windowFactory, Dispatcher);
             }
 
-            auto rendererFactoryPlugs = Plugins.OfType<IRendererFactory>();
+            auto apiManagers = Plugins.OfType<IManageGraphicsApis>();
+            auto rendererFactoryPlugs = Plugins.OfType<IGraphicsResourceFactory>();
             auto graphicsContextProviders = Plugins.OfType<IGraphicsContextProvider>();
             auto shaderCompilers = Plugins.OfType<IShaderCompiler>();
-            if (!rendererFactoryPlugs.empty())
+            if (!apiManagers.empty())
             {
-                Layers.Add<RenderingLayer>(rendererFactoryPlugs, graphicsContextProviders, /*shaderCompilers,*/ Dispatcher);
+                Layers.Add<RenderingLayer>(apiManagers, rendererFactoryPlugs, graphicsContextProviders, shaderCompilers, Dispatcher);
             }
 
             auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();

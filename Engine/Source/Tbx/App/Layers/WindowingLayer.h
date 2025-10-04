@@ -15,7 +15,6 @@ namespace Tbx
             Ref<IWindowFactory> windowFactory,
             Ref<EventBus> eventBus);
 
-        void OnAttach() override;
         void OnDetach() override;
         void OnUpdate() override;
 
