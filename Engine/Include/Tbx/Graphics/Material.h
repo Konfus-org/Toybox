@@ -11,12 +11,12 @@ namespace Tbx
     /// <summary>
     ///  A material is a collection of shaders
     /// </summary>
-    struct TBX_EXPORT Material
+    struct TBX_EXPORT ShaderProgram
     {
-        Material() = default;
-        Material(Ref<Shader> shader)
+        ShaderProgram() = default;
+        ShaderProgram(Ref<Shader> shader)
             : Shaders({shader}) {}
-        Material(std::vector<Ref<Shader>> shaders)
+        ShaderProgram(std::vector<Ref<Shader>> shaders)
             : Shaders(shaders) {}
 
         std::vector<Ref<Shader>> Shaders = {};
@@ -26,19 +26,19 @@ namespace Tbx
     /// <summary>
     /// A material instance is a material at runtime, it represents a material with different params and textures.
     /// </summary>
-    struct TBX_EXPORT MaterialInstance
+    struct TBX_EXPORT Material
     {
-        MaterialInstance() = default;
-        MaterialInstance(Ref<Material> material)
-            : MaterialId(material->Id) {}
-        MaterialInstance(Ref<Material> material, Ref<Texture> texture)
-            : MaterialId(material->Id)
+        Material() = default;
+        Material(Ref<ShaderProgram> shaders)
+            : ShaderProgram(shaders) {}
+        Material(Ref<ShaderProgram> shaders, Ref<Texture> texture)
+            : ShaderProgram(shaders)
             , Textures({texture}) {}
-        MaterialInstance(Ref<Material> material, std::vector<Ref<Texture>> textures)
-            : MaterialId(material->Id)
+        Material(Ref<ShaderProgram> shaders, std::vector<Ref<Texture>> textures)
+            : ShaderProgram(shaders)
             , Textures(textures) {}
 
-        Uid MaterialId = Uid::Invalid;
+        Ref<ShaderProgram> ShaderProgram = nullptr;
         std::vector<Ref<Texture>> Textures = { MakeRef<Texture>() }; // default to one small white texture
         Uid InstanceId = Uid::Generate();
     };

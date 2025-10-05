@@ -10,12 +10,11 @@ namespace Tbx
     using ProcAddressFunPtr = void*;
 
     /// <summary>
-    /// Represents a graphics context responsible for bootstrapping and managing a rendering API.
+    /// Represents a graphics context responsible for managing a windows rendering.
     /// </summary>
     class TBX_EXPORT IGraphicsContext
     {
     public:
-
         virtual ~IGraphicsContext() = default;
 
         /// <summary>
@@ -36,8 +35,27 @@ namespace Tbx
         /// <summary>
         /// Sets the swap interval for the context.
         /// </summary>
-        /// <param name="interval"></param>
         virtual void SetSwapInterval(int interval) = 0;
+
+        /// <summary>
+        /// Sets the viewport for the context.
+        /// </summary>
+        virtual void SetViewport(const Viewport& viewport) = 0;
+
+        /// <summary>
+        /// Sets the resolution for the context.
+        /// </summary>
+        virtual void SetResolution(const Size& resolution) = 0;
+
+        /// <summary>
+        /// Sets the clear color for the context.
+        /// </summary>
+        virtual void SetClearColor(const RgbaColor& color) = 0;
+
+        /// <summary>
+        /// Clears the contexts surface with the current clear color.
+        /// </summary>
+        virtual void Clear() = 0;
     };
 
     /// <summary>
@@ -49,7 +67,7 @@ namespace Tbx
         virtual ~IGraphicsContextProvider() = default;
 
         /// <summary>
-        /// Retrieves a graphics context for the provided window using the requested API.
+        /// Provides a graphics context for the provided window using the requested API.
         /// </summary>
         virtual Ref<IGraphicsContext> Provide(Ref<Window> window, GraphicsApi api) = 0;
     };

@@ -1,9 +1,7 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Graphics/GraphicsPipeline.h"
-#include "Tbx/Debug/Log.h"
-#include "Tbx/Debug/Tracers.h"
-#include "Tbx/Graphics/Material.h"
-#include "Tbx/Graphics/Mesh.h"
+#include "Tbx/Debug/Asserts.h"
+#include "Tbx/Graphics/Model.h"
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Graphics/Texture.h"
 #include "Tbx/Graphics/Camera.h"
@@ -110,7 +108,7 @@ namespace Tbx
     void GraphicsPipeline::DrawFrame()
     {
         Ref<GraphicsRenderer> renderer = nullptr;
-        if (!TryGetRenderer(_currGraphicsApi, renderer) || !renderer)
+        if (!TryGetRenderer(_currApi, renderer) || !renderer)
         {
             return;
         }
@@ -128,6 +126,11 @@ namespace Tbx
             }
 
             display.Context->MakeCurrent();
+            display.Context->SetViewport({ {0, 0}, display.Surface->GetSize() });
+            display.Context->SetResolution(display.Surface->GetSize());
+            display.Context->SetClearColor(_clearColor);
+            display.Context->Clear();
+
             auto aspectRatio = CalculateAspectRatioFromSize(display.Surface->GetSize());
 
             // TODO: Break this out into something that is more performant and testable...
@@ -148,6 +151,9 @@ namespace Tbx
                 // Build view frustums from cameras
                 auto frustums = std::vector<Frustum>();
                 auto stageView = FullStageView(stage);
+
+                // TODO: Sort into render buckets based on shader program... 
+                // if a thing doesn't have a mesh and material or a model (mesh and material bundled) then it doesn't get added to the renderBuckets.
                 for (const auto& toy : stageView)
                 {
                     if (!toy->Blocks.Contains<Camera>())
@@ -178,91 +184,25 @@ namespace Tbx
                 // If no camera is available, we have no view frustum and nothing to draw
                 if (frustums.empty()) continue;
 
-                // Iterate through toys and skip those completely outside the view frustum
+                // TODO: Replace this with iterating over render buckets and culling what isn't in view
+                // For each shader program in our buck set it active via a scope while we iterate the buckets contents
+                // For each mesh set it active via a scope inside our bucket iteration
+                // For each material grab its textures, set their slot based on index and then active them.
+                // For each model do the above for its mesh and material
                 for (const auto& toy : stageView)
                 {
-                    if (!toy->Blocks.Contains<Camera>())
+                    // Cull things that aren't in view
+                    int retFlag;
+                    ShouldCull(toy, frustums, retFlag);
+                    if (retFlag == 3) continue;
+
+                    // Materials themselves aren't allowed
                     {
-                        const auto sphere = BoundingSphere(toy);
-
-                        // Check if the sphere is in at least one of our frustums
-                        bool inFrustum = false;
-                        for (const auto& frustum : frustums)
-                        {
-                            if (frustum.Intersects(sphere))
-                            {
-                                inFrustum = true;
-                                break;
-                            }
-                        }
-
-                        // Skip toy if it's outside the view frustum
-                        if (!inFrustum) continue;
+                        const bool hasShaderProgram = toy->Blocks.Contains<ShaderProgram>();
+                        TBX_ASSERT(!hasShaderProgram, "Toys should only use materials, not shader programs!");
+                        if (hasShaderProgram) continue;
                     }
 
-                    const bool hasMaterial = toy->Blocks.Contains<Material>();
-                    const bool hasMaterialInstance = toy->Blocks.Contains<MaterialInstance>();
-                    const bool hasMesh = toy->Blocks.Contains<Mesh>();
-
-                    if (!hasMaterial && !hasMaterialInstance && !hasMesh)
-                    {
-                        continue;
-                    }
-
-                    Ref<GraphicsResource> materialResource = nullptr;
-                    if (hasMaterial)
-                    {
-                        const auto& material = toy->Blocks.Get<Material>();
-                        if (!renderer->ResourceCache.contains(material.Id))
-                        {
-                            CompileShaders(renderer, material.Shaders);
-                            CacheShaders(renderer, material);
-                        }
-
-                        auto materialIt = renderer->ResourceCache.find(material.Id);
-                        if (materialIt != renderer->ResourceCache.end())
-                        {
-                            materialResource = materialIt->second;
-                        }
-                    }
-
-                    if (hasMaterialInstance)
-                    {
-                        const auto& materialInstance = toy->Blocks.Get<MaterialInstance>();
-                        CacheTextures(renderer, materialInstance.Textures);
-                    }
-
-                    Ref<GraphicsResource> meshResource = nullptr;
-                    if (hasMesh)
-                    {
-                        const auto& mesh = toy->Blocks.Get<Mesh>();
-                        if (!renderer->ResourceCache.contains(mesh.Id))
-                        {
-                            std::vector<Ref<Mesh>> meshesToCache;
-                            meshesToCache.push_back(MakeRef<Mesh>(mesh));
-                            CacheMeshes(renderer, meshesToCache);
-                        }
-
-                        auto meshIt = renderer->ResourceCache.find(mesh.Id);
-                        if (meshIt != renderer->ResourceCache.end())
-                        {
-                            meshResource = meshIt->second;
-                        }
-                    }
-
-                    if (materialResource && meshResource)
-                    {
-                        GraphicsScope materialScope(materialResource);
-                        GraphicsScope meshScope(meshResource);
-                    }
-                    else if (materialResource)
-                    {
-                        GraphicsScope materialScope(materialResource);
-                    }
-                    else if (meshResource)
-                    {
-                        GraphicsScope meshScope(meshResource);
-                    }
                 }
             }
 
@@ -273,6 +213,26 @@ namespace Tbx
         {
             _eventBus->Send(RenderedFrameEvent());
         }
+    }
+
+    bool GraphicsPipeline::ShouldCull(const Tbx::Ref<Tbx::Toy>& toy, std::vector<Tbx::Frustum>& frustums)
+    {
+        if (!toy->Blocks.Contains<Camera>())
+        {
+            const auto sphere = BoundingSphere(toy);
+
+            // Check if the sphere is in at least one of our frustums
+            bool inFrustum = false;
+            for (const auto& frustum : frustums)
+            {
+                if (!frustum.Intersects(sphere)) continue;
+
+                return false;
+                break;
+            }
+        }
+
+        return true;
     }
 
     void GraphicsPipeline::AddStage(const Ref<Stage>& stage)
@@ -326,7 +286,7 @@ namespace Tbx
         }
 
         Ref<GraphicsRenderer> renderer = nullptr;
-        if (!TryGetRenderer(_currGraphicsApi, renderer) || !renderer || !renderer->ContextProvider)
+        if (!TryGetRenderer(_currApi, renderer) || !renderer || !renderer->ContextProvider)
         {
             return;
         }
@@ -338,7 +298,7 @@ namespace Tbx
                 continue;
             }
 
-            display.Context = renderer->ContextProvider->Provide(display.Surface, _currGraphicsApi);
+            display.Context = renderer->ContextProvider->Provide(display.Surface, _currApi);
             TBX_ASSERT(display.Context, "Rendering: Failed to recreate a graphics context for an open window.");
             if (!display.Context)
             {
@@ -347,7 +307,7 @@ namespace Tbx
 
             if (renderer->ApiManager)
             {
-                renderer->ApiManager->Initialize(display.Context, _currGraphicsApi);
+                renderer->ApiManager->Initialize(display.Context, _currApi);
             }
         }
     }
@@ -366,7 +326,7 @@ namespace Tbx
                 continue;
             }
 
-            renderer->ShaderCompiler->Compile(shader, _currGraphicsApi);
+            renderer->ShaderCompiler->Compile(shader, _currApi);
         }
     }
 
@@ -470,12 +430,11 @@ namespace Tbx
     void GraphicsPipeline::OnAppSettingsChanged(const AppSettingsChangedEvent& e)
     {
         const auto& newSettings = e.GetNewSettings();
+        _resolution = newSettings.Resolution;
         _clearColor = newSettings.ClearColor;
-        const auto previousApi = _currGraphicsApi;
-        _currGraphicsApi = newSettings.RenderingApi;
-
-        if (previousApi != _currGraphicsApi)
+        if (_currApi != newSettings.RenderingApi)
         {
+            _currApi = newSettings.RenderingApi;
             RecreateRenderersForCurrentApi();
         }
     }
@@ -490,7 +449,7 @@ namespace Tbx
         }
 
         Ref<GraphicsRenderer> renderer = nullptr;
-        if (!TryGetRenderer(_currGraphicsApi, renderer) || !renderer || !renderer->ContextProvider)
+        if (!TryGetRenderer(_currApi, renderer) || !renderer || !renderer->ContextProvider)
         {
             return;
         }
@@ -500,7 +459,7 @@ namespace Tbx
             return display.Surface == newWindow;
         });
 
-        auto context = renderer->ContextProvider->Provide(newWindow, _currGraphicsApi);
+        auto context = renderer->ContextProvider->Provide(newWindow, _currApi);
         TBX_ASSERT(context, "Rendering: Failed to create a graphics context for the opened window.");
         if (!context)
         {
@@ -509,7 +468,7 @@ namespace Tbx
 
         if (renderer->ApiManager)
         {
-            renderer->ApiManager->Initialize(context, _currGraphicsApi);
+            renderer->ApiManager->Initialize(context, _currApi);
         }
 
         if (displayIt != _openDisplays.end())
@@ -543,7 +502,7 @@ namespace Tbx
         if (_openDisplays.empty())
         {
             Ref<GraphicsRenderer> renderer = nullptr;
-            if (TryGetRenderer(_currGraphicsApi, renderer) && renderer && renderer->ApiManager)
+            if (TryGetRenderer(_currApi, renderer) && renderer && renderer->ApiManager)
             {
                 renderer->ApiManager->Shutdown();
             }

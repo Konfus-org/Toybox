@@ -2,6 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Graphics/GraphicsResource.h"
+#include "Tbx/Graphics/Frustum.h"
 #include "Tbx/Graphics/Material.h"
 #include "Tbx/Windowing/Window.h"
 #include "Tbx/Stages/Stage.h"
@@ -54,17 +55,17 @@ namespace Tbx
         void DrawFrame();
 
         void RenderOpenStages(const Ref<GraphicsRenderer>& renderer);
+        bool ShouldCull(const Ref<Toy>& toy, std::vector<Frustum>& frustums);
         void AddStage(const Ref<Stage>& stage);
         void RemoveStage(const Ref<Stage>& stage);
 
+        bool TryGetRenderer(GraphicsApi api, Ref<GraphicsRenderer>& renderer);
         void RecreateRenderersForCurrentApi();
 
         void CompileShaders(const Ref<GraphicsRenderer>& renderer, const std::vector<Ref<Shader>>& shaders);
         void CacheShaders(const Ref<GraphicsRenderer>& renderer, const Material& material);
         void CacheTextures(const Ref<GraphicsRenderer>& renderer, const std::vector<Ref<Texture>>& textures);
         void CacheMeshes(const Ref<GraphicsRenderer>& renderer, const std::vector<Ref<Mesh>>& meshes);
-
-        bool TryGetRenderer(GraphicsApi api, Ref<GraphicsRenderer>& renderer);
 
         void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
         void OnWindowOpened(const WindowOpenedEvent& e);
@@ -80,8 +81,9 @@ namespace Tbx
         Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};
 
-        GraphicsApi _currGraphicsApi = GraphicsApi::None;
+        GraphicsApi _currApi = GraphicsApi::None;
         RgbaColor _clearColor = {};
+        Size _resolution = {};
     };
 }
 
