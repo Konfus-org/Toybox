@@ -23,17 +23,31 @@ namespace Tbx
         Ref<IGraphicsContext> Context = nullptr;
     };
 
+    struct GraphicsResourceCache
+    {
+        std::unordered_map<Uid, Ref<ShaderResource>> Shaders = {};
+        std::unordered_map<Uid, Ref<TextureResource>> Textures = {};
+        std::unordered_map<Uid, Ref<MeshResource>> Meshes = {};
+
+        void Clear()
+        {
+            Shaders.clear();
+            Textures.clear();
+            Meshes.clear();
+        }
+    };
+
     struct GraphicsRenderer
     {
         Ref<IManageGraphicsApis> ApiManager = nullptr;
         Ref<IGraphicsContextProvider> ContextProvider = nullptr;
         Ref<IGraphicsResourceFactory> ResourceFactory = nullptr;
         Ref<IShaderCompiler> ShaderCompiler = nullptr;
-        std::unordered_map<Uid, Ref<GraphicsResource>> ResourceCache = {};
+        GraphicsResourceCache ResourceCache = {};
     };
 
     /// <summary>
-    /// Coordinates render targets, windows, and stage composition for a frame.
+    /// Coordinates render targets, windows, stage composition, and render resource caching for a frame.
     /// </summary>
     class TBX_EXPORT GraphicsPipeline
     {
@@ -54,8 +68,15 @@ namespace Tbx
     private:
         void DrawFrame();
 
+        /// <summary>
+        /// Iterates active displays and stages to prepare resources before presenting each surface.
+        /// </summary>
         void RenderOpenStages(const Ref<GraphicsRenderer>& renderer);
-        bool ShouldCull(const Ref<Toy>& toy, std::vector<Frustum>& frustums);
+
+        /// <summary>
+        /// Checks whether a toy lies outside all active view frustums and should be skipped.
+        /// </summary>
+        bool ShouldCull(const Ref<Toy>& toy, const std::vector<Frustum>& frustums);
         void AddStage(const Ref<Stage>& stage);
         void RemoveStage(const Ref<Stage>& stage);
 
