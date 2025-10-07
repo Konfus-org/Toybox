@@ -1,5 +1,4 @@
 #pragma once
-#include "Tbx/Graphics/GraphicsApi.h"
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Graphics/Texture.h"
 #include "Tbx/Graphics/Mesh.h"
@@ -58,12 +57,4 @@ namespace Tbx
         Ref<GraphicsResource> _resource;
     };
 
-    class TBX_EXPORT IGraphicsResourceFactory : public IUseGraphicsApis
-    {
-    public:
-        virtual ~IGraphicsResourceFactory() = default;
-        virtual Ref<ShaderResource> Create(std::vector<Ref<Shader>> shaderProgram) = 0;
-        virtual Ref<TextureResource> Create(Ref<Texture> texture) = 0;
-        virtual Ref<MeshResource> Create(Ref<Mesh> mesh) = 0;
-    };
 }
