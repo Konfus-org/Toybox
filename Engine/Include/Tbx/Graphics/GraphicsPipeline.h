@@ -18,13 +18,13 @@
 
 namespace Tbx
 {
-    struct GraphicsDisplay
+    struct TBX_EXPORT GraphicsDisplay
     {
         Ref<Window> Surface = nullptr;
         Ref<IGraphicsContext> Context = nullptr;
     };
 
-    struct GraphicsResourceCache
+    struct TBX_EXPORT GraphicsResourceCache
     {
         std::unordered_map<Uid, Ref<ShaderResource>> Shaders = {};
         std::unordered_map<Uid, Ref<TextureResource>> Textures = {};
@@ -38,7 +38,7 @@ namespace Tbx
         }
     };
 
-    struct GraphicsRenderer
+    struct TBX_EXPORT GraphicsRenderer
     {
         Ref<IGraphicsBackend> Backend = nullptr;
         Ref<IGraphicsContextProvider> ContextProvider = nullptr;
@@ -77,7 +77,10 @@ namespace Tbx
         void AddStage(const Ref<Stage>& stage);
         void RemoveStage(const Ref<Stage>& stage);
 
-        GraphicsRenderer* TryGetRenderer(GraphicsApi api);
+        void InitializeRenderers(
+            const std::vector<Tbx::Ref<Tbx::IGraphicsBackend>>& backends,
+            const std::vector<Tbx::Ref<Tbx::IGraphicsContextProvider>>& contextProviders);
+        bool TryGetRenderer(GraphicsApi api, GraphicsRenderer& outRenderer);
         void RecreateRenderersForCurrentApi();
 
         void CompileShaders(const std::vector<Ref<Shader>>& shaders);
