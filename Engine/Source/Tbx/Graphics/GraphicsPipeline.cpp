@@ -485,7 +485,7 @@ namespace Tbx
         {
             if (renderer.Backend)
             {
-                renderer.Backend->Shutdown();
+                renderer.Backend->SetContext(nullptr);
             }
 
             renderer.Cache.Clear();
@@ -518,7 +518,7 @@ namespace Tbx
                 continue;
             }
 
-            renderer->Backend->Initialize(context);
+            renderer->Backend->SetContext(context);
             display.Context = context;
         }
     }
@@ -724,7 +724,7 @@ namespace Tbx
             return;
         }
 
-        renderer->Backend->Initialize(context);
+        renderer->Backend->SetContext(context);
 
         if (displayIt != _openDisplays.end())
         {
@@ -759,7 +759,7 @@ namespace Tbx
             GraphicsRenderer* renderer = nullptr;
             if (TryGetRenderer(_activeGraphicsApi, renderer) && renderer && renderer->Backend)
             {
-                renderer->Backend->Shutdown();
+                renderer->Backend->SetContext(nullptr);
                 renderer->Cache.Clear();
             }
         }

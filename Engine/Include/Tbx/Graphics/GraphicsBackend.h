@@ -30,14 +30,9 @@ namespace Tbx
         virtual GraphicsApi GetApi() const = 0;
 
         /// <summary>
-        /// Performs API specific initialization for the provided context.
+        /// Sets the graphics context used for rendering operations.
         /// </summary>
-        virtual void Initialize(Ref<IGraphicsContext> context) = 0;
-
-        /// <summary>
-        /// Shuts down the backend and releases API resources.
-        /// </summary>
-        virtual void Shutdown() = 0;
+        virtual void SetContext(Ref<IGraphicsContext> context) = 0;
 
         /// <summary>
         /// Begins drawing to the active render target using the provided viewport.
