@@ -1,5 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
+#include "Tbx/Graphics/GraphicsBackend.h"
 #include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Graphics/GraphicsResource.h"
 #include "Tbx/Graphics/Frustum.h"
@@ -39,11 +40,9 @@ namespace Tbx
 
     struct GraphicsRenderer
     {
-        Ref<IManageGraphicsApis> ApiManager = nullptr;
+        Ref<IGraphicsBackend> Backend = nullptr;
         Ref<IGraphicsContextProvider> ContextProvider = nullptr;
-        Ref<IGraphicsResourceFactory> ResourceFactory = nullptr;
-        Ref<IShaderCompiler> ShaderCompiler = nullptr;
-        GraphicsResourceCache ResourceCache = {};
+        GraphicsResourceCache Cache = {};
     };
 
     /// <summary>
@@ -53,10 +52,8 @@ namespace Tbx
     {
     public:
         GraphicsPipeline(
-            const std::vector<Ref<IManageGraphicsApis>>& apiManagers,
-            const std::vector<Ref<IGraphicsResourceFactory>>& resourceFactories,
+            const std::vector<Ref<IGraphicsBackend>>& backends,
             const std::vector<Ref<IGraphicsContextProvider>>& contextProviders,
-            const std::vector<Ref<IShaderCompiler>>& shaderCompilers,
             Ref<EventBus> eventBus);
         ~GraphicsPipeline();
 
@@ -71,7 +68,7 @@ namespace Tbx
         /// <summary>
         /// Iterates active displays and stages to prepare resources before presenting each surface.
         /// </summary>
-        void RenderOpenStages(const Ref<GraphicsRenderer>& renderer);
+        void RenderOpenStages(GraphicsRenderer& renderer);
 
         /// <summary>
         /// Checks whether a toy lies outside all active view frustums and should be skipped.
@@ -80,13 +77,13 @@ namespace Tbx
         void AddStage(const Ref<Stage>& stage);
         void RemoveStage(const Ref<Stage>& stage);
 
-        bool TryGetRenderer(GraphicsApi api, Ref<GraphicsRenderer>& renderer);
+        GraphicsRenderer* TryGetRenderer(GraphicsApi api);
         void RecreateRenderersForCurrentApi();
 
-        void CompileShaders(const Ref<GraphicsRenderer>& renderer, const std::vector<Ref<Shader>>& shaders);
-        void CacheShaders(const Ref<GraphicsRenderer>& renderer, const Material& material);
-        void CacheTextures(const Ref<GraphicsRenderer>& renderer, const std::vector<Ref<Texture>>& textures);
-        void CacheMeshes(const Ref<GraphicsRenderer>& renderer, const std::vector<Ref<Mesh>>& meshes);
+        void CompileShaders(const std::vector<Ref<Shader>>& shaders);
+        void CacheShaders(GraphicsRenderer& renderer, const Material& material);
+        void CacheTextures(GraphicsRenderer& renderer, const std::vector<Ref<Texture>>& textures);
+        void CacheMeshes(GraphicsRenderer& renderer, const std::vector<Ref<Mesh>>& meshes);
 
         void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
         void OnWindowOpened(const WindowOpenedEvent& e);
@@ -97,14 +94,13 @@ namespace Tbx
     private:
         std::vector<Ref<Stage>> _openStages = {};
         std::vector<GraphicsDisplay> _openDisplays = {};
-        std::unordered_map<GraphicsApi, Ref<GraphicsRenderer>> _renderers = {};
+        std::unordered_map<GraphicsApi, GraphicsRenderer> _renderers = {};
 
         Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};
 
-        GraphicsApi _currApi = GraphicsApi::None;
+        GraphicsApi _activeGraphicsApi = GraphicsApi::None;
         RgbaColor _clearColor = {};
-        Size _resolution = {};
     };
 }
 
