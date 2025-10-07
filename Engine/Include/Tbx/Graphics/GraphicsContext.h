@@ -7,21 +7,23 @@ namespace Tbx
 {
     class Window;
 
-    using ProcAddressFunPtr = void*;
+    /// <summary>
+    /// Represents the available vertical sync modes for a graphics context swap chain.
+    /// </summary>
+    enum class VsyncMode
+    {
+        Off,
+        On,
+        Adaptive
+    };
 
     /// <summary>
-    /// Represents a graphics context responsible for bootstrapping and managing a rendering API.
+    /// Represents a graphics context responsible for managing a windows rendering.
     /// </summary>
     class TBX_EXPORT IGraphicsContext
     {
     public:
-
         virtual ~IGraphicsContext() = default;
-
-        /// <summary>
-        /// Gets the function pointer used to load graphics functions at runtime;
-        /// </summary>
-        virtual ProcAddressFunPtr GetProcAddressLoader() = 0;
 
         /// <summary>
         /// Makes the context active on the current thread.
@@ -31,26 +33,31 @@ namespace Tbx
         /// <summary>
         /// Presents the rendered contents to the screen.
         /// </summary>
-        virtual void SwapBuffers() = 0;
+        virtual void Present() = 0;
 
         /// <summary>
-        /// Sets the swap interval for the context.
+        /// Sets the vsync mode for the context.
         /// </summary>
-        /// <param name="interval"></param>
-        virtual void SetSwapInterval(int interval) = 0;
+        virtual void SetVsync(VsyncMode mode) = 0;
+
     };
 
     /// <summary>
     /// Creates graphics contexts for a given window and graphics API.
     /// </summary>
-    class TBX_EXPORT IGraphicsContextProvider : public IUseGraphicsApis
+    class TBX_EXPORT IGraphicsContextProvider
     {
     public:
         virtual ~IGraphicsContextProvider() = default;
 
         /// <summary>
-        /// Retrieves a graphics context for the provided window using the requested API.
+        /// Identifies the graphics API handled by this provider.
         /// </summary>
-        virtual Ref<IGraphicsContext> Provide(Ref<Window> window, GraphicsApi api) = 0;
+        virtual GraphicsApi GetApi() const = 0;
+
+        /// <summary>
+        /// Provides a graphics context for the provided window using the provider's API.
+        /// </summary>
+        virtual Ref<IGraphicsContext> Provide(Ref<Window> window) = 0;
     };
 }

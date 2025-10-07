@@ -1,7 +1,10 @@
 #pragma once
 #include "Tbx/DllExport.h"
+#include "Tbx/Graphics/GraphicsBackend.h"
 #include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Graphics/GraphicsResource.h"
+#include "Tbx/Graphics/Frustum.h"
+#include "Tbx/Graphics/Material.h"
 #include "Tbx/Windowing/Window.h"
 #include "Tbx/Stages/Stage.h"
 #include "Tbx/Events/EventBus.h"
@@ -15,32 +18,42 @@
 
 namespace Tbx
 {
-    struct GraphicsDisplay
+    struct TBX_EXPORT GraphicsDisplay
     {
         Ref<Window> Surface = nullptr;
         Ref<IGraphicsContext> Context = nullptr;
     };
 
-    struct GraphicsRenderer
+    struct TBX_EXPORT GraphicsResourceCache
     {
-        Ref<IManageGraphicsApis> ApiManager = nullptr;
+        std::unordered_map<Uid, Ref<ShaderResource>> Shaders = {};
+        std::unordered_map<Uid, Ref<TextureResource>> Textures = {};
+        std::unordered_map<Uid, Ref<MeshResource>> Meshes = {};
+
+        void Clear()
+        {
+            Shaders.clear();
+            Textures.clear();
+            Meshes.clear();
+        }
+    };
+
+    struct TBX_EXPORT GraphicsRenderer
+    {
+        Ref<IGraphicsBackend> Backend = nullptr;
         Ref<IGraphicsContextProvider> ContextProvider = nullptr;
-        Ref<IGraphicsResourceFactory> ResourceFactory = nullptr;
-        Ref<IShaderCompiler> ShaderCompiler = nullptr;
-        std::unordered_map<Uid, Ref<GraphicsResource>> ResourceCache = {};
+        GraphicsResourceCache Cache = {};
     };
 
     /// <summary>
-    /// Coordinates render targets, windows, and stage composition for a frame.
+    /// Coordinates render targets, windows, stage composition, and render resource caching for a frame.
     /// </summary>
     class TBX_EXPORT GraphicsPipeline
     {
     public:
         GraphicsPipeline(
-            const std::vector<Ref<IManageGraphicsApis>>& apiManagers,
-            const std::vector<Ref<IGraphicsResourceFactory>>& resourceFactories,
+            const std::vector<Ref<IGraphicsBackend>>& backends,
             const std::vector<Ref<IGraphicsContextProvider>>& contextProviders,
-            const std::vector<Ref<IShaderCompiler>>& shaderCompilers,
             Ref<EventBus> eventBus);
         ~GraphicsPipeline();
 
@@ -52,16 +65,28 @@ namespace Tbx
     private:
         void DrawFrame();
 
-        void RenderOpenStages();
+        /// <summary>
+        /// Iterates active displays and stages to prepare resources before presenting each surface.
+        /// </summary>
+        void RenderOpenStages(GraphicsRenderer& renderer);
+
+        /// <summary>
+        /// Checks whether a toy lies outside all active view frustums and should be skipped.
+        /// </summary>
+        bool ShouldCull(const Ref<Toy>& toy, const std::vector<Frustum>& frustums);
         void AddStage(const Ref<Stage>& stage);
         void RemoveStage(const Ref<Stage>& stage);
 
+        void InitializeRenderers(
+            const std::vector<Tbx::Ref<Tbx::IGraphicsBackend>>& backends,
+            const std::vector<Tbx::Ref<Tbx::IGraphicsContextProvider>>& contextProviders);
+        bool TryGetRenderer(GraphicsApi api, GraphicsRenderer& outRenderer);
         void RecreateRenderersForCurrentApi();
 
         void CompileShaders(const std::vector<Ref<Shader>>& shaders);
-        void CacheShaders(const std::vector<Ref<Shader>>& shaders);
-        void CacheTextures(const std::vector<Ref<Texture>>& textures);
-        void CacheMeshes(const std::vector<Ref<Mesh>>& meshes);
+        void CacheShaders(GraphicsRenderer& renderer, const Material& material);
+        void CacheTextures(GraphicsRenderer& renderer, const std::vector<Ref<Texture>>& textures);
+        void CacheMeshes(GraphicsRenderer& renderer, const std::vector<Ref<Mesh>>& meshes);
 
         void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
         void OnWindowOpened(const WindowOpenedEvent& e);
@@ -77,7 +102,7 @@ namespace Tbx
         Ref<EventBus> _eventBus = nullptr;
         EventListener _eventListener = {};
 
-        GraphicsApi _currGraphicsApi = GraphicsApi::None;
+        GraphicsApi _activeGraphicsApi = GraphicsApi::None;
         RgbaColor _clearColor = {};
     };
 }

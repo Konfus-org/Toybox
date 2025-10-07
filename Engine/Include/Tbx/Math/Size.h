@@ -8,10 +8,10 @@ namespace Tbx
     {
         uint Width = 0;
         uint Height = 0;
-    };
 
-    inline float CalculateAspectRatioFromSize(Size size)
-    {
-        return static_cast<float>(size.Width) / static_cast<float>(size.Height);
-    }
+        float GetAspectRatio() const
+        {
+            return static_cast<float>(Width) / static_cast<float>(Height);
+        }
+    };
 }

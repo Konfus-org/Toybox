@@ -1,6 +1,5 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include "Tbx/Graphics/GraphicsApi.h"
 #include "Tbx/Graphics/Color.h"
 #include "Tbx/Math/Mat4x4.h"
 #include "Tbx/Ids/Uid.h"
@@ -45,7 +44,7 @@ namespace Tbx
     /// <summary>
     /// Compiles a shader.
     /// </summary>
-    class TBX_EXPORT IShaderCompiler : public IUseGraphicsApis
+    class TBX_EXPORT IShaderCompiler
     {
     public:
         virtual ~IShaderCompiler() = default;
@@ -54,6 +53,6 @@ namespace Tbx
         /// Compiles a shader.
         /// Returns true on success and false on failure.
         /// </summary>
-        virtual bool Compile(Ref<Shader> shader, GraphicsApi targetApi) = 0;
+        virtual bool Compile(Ref<Shader> shader) = 0;
     };
 }

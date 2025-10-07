@@ -4,6 +4,7 @@
 #include "Tbx/App/Layers/InputLayer.h"
 #include "Tbx/App/Layers/RenderingLayer.h"
 #include "Tbx/App/Layers/WindowingLayer.h"
+#include "Tbx/Graphics/GraphicsBackend.h"
 #include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/AppEvents.h"
@@ -11,6 +12,7 @@
 #include "Tbx/Input/InputCodes.h"
 #include "Tbx/Time/DeltaTime.h"
 #include "Tbx/Files/Paths.h"
+#include <vector>
 #include <stdexcept>
 
 namespace Tbx
@@ -91,14 +93,9 @@ namespace Tbx
                 Layers.Add<WindowingLayer>(appName, windowFactory, Dispatcher);
             }
 
-            auto apiManagers = Plugins.OfType<IManageGraphicsApis>();
-            auto rendererFactoryPlugs = Plugins.OfType<IGraphicsResourceFactory>();
-            auto graphicsContextProviders = Plugins.OfType<IGraphicsContextProvider>();
-            auto shaderCompilers = Plugins.OfType<IShaderCompiler>();
-            if (!apiManagers.empty())
-            {
-                Layers.Add<RenderingLayer>(apiManagers, rendererFactoryPlugs, graphicsContextProviders, shaderCompilers, Dispatcher);
-            }
+            auto graphicsBackends = Plugins.OfType<IGraphicsBackend>();
+            auto contextProviders = Plugins.OfType<IGraphicsContextProvider>();
+            Layers.Add<RenderingLayer>(graphicsBackends, contextProviders, Dispatcher);
 
             auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
             if (!inputHandlerPlugs.empty())

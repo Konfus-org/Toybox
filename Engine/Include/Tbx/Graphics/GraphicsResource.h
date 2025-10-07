@@ -1,5 +1,4 @@
 #pragma once
-#include "Tbx/Graphics/GraphicsApi.h"
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Graphics/Texture.h"
 #include "Tbx/Graphics/Mesh.h"
@@ -23,25 +22,39 @@ namespace Tbx
         Uid RenderId = Uid::Invalid;
     };
 
+    class TBX_EXPORT ShaderResource : public GraphicsResource
+    {
+    public:
+        virtual ~ShaderResource() = default;
+        virtual void Upload(const ShaderUniform& uniform) = 0;
+    };
+
+    class TBX_EXPORT TextureResource : public GraphicsResource
+    {
+    public:
+        virtual ~TextureResource() = default;
+        virtual void SetSlot(uint32 slot) = 0;
+    };
+
+    class TBX_EXPORT MeshResource : public GraphicsResource
+    {
+    public:
+        virtual ~MeshResource() = default;
+        virtual void SetVertexBuffer(const VertexBuffer& vbuff) = 0;
+        virtual void SetIndexBuffer(const IndexBuffer& ibuff) = 0;
+    };
+
     /// <summary>
     /// A RAII wrapper for GraphicsResource that automatically calls Activate() and Release() on construction and destruction.
     /// </summary>
-    class TBX_EXPORT GraphicsScope
+    class TBX_EXPORT UseGraphicsResourceScope
     {
     public:
-        GraphicsScope(Ref<GraphicsResource> resource) : _resource(resource) { _resource->Activate(); }
-        ~GraphicsScope() { _resource->Release(); }
+        UseGraphicsResourceScope(Ref<GraphicsResource> resource) : _resource(resource) { _resource->Activate(); }
+        ~UseGraphicsResourceScope() { _resource->Release(); }
 
     private:
         Ref<GraphicsResource> _resource;
     };
 
-    class TBX_EXPORT IGraphicsResourceFactory : public IUseGraphicsApis
-    {
-    public:
-        virtual ~IGraphicsResourceFactory() = default;
-        virtual Ref<GraphicsResource> Create(std::vector<Ref<Shader>> shaderProgram) = 0;
-        virtual Ref<GraphicsResource> Create(Ref<Texture> texture) = 0;
-        virtual Ref<GraphicsResource> Create(Ref<Mesh> mesh) = 0;
-    };
 }
