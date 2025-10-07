@@ -77,8 +77,7 @@ namespace Tbx
         void AddStage(const Ref<Stage>& stage);
         void RemoveStage(const Ref<Stage>& stage);
 
-        bool TryGetRenderer(GraphicsApi api, GraphicsRenderer*& renderer);
-        bool TryGetRenderer(GraphicsApi api, const GraphicsRenderer*& renderer) const;
+        GraphicsRenderer* TryGetRenderer(GraphicsApi api);
         void RecreateRenderersForCurrentApi();
 
         void CompileShaders(const std::vector<Ref<Shader>>& shaders);

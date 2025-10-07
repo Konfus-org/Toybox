@@ -218,8 +218,8 @@ namespace Tbx
 
     void GraphicsPipeline::DrawFrame()
     {
-        GraphicsRenderer* renderer = nullptr;
-        if (!TryGetRenderer(_activeGraphicsApi, renderer) || !renderer || !renderer->Backend)
+        GraphicsRenderer* renderer = TryGetRenderer(_activeGraphicsApi);
+        if (!renderer || !renderer->Backend)
         {
             return;
         }
@@ -496,8 +496,8 @@ namespace Tbx
             display.Context = nullptr;
         }
 
-        GraphicsRenderer* renderer = nullptr;
-        if (!TryGetRenderer(_activeGraphicsApi, renderer) || !renderer || !renderer->Backend || !renderer->ContextProvider)
+        GraphicsRenderer* renderer = TryGetRenderer(_activeGraphicsApi);
+        if (!renderer || !renderer->Backend || !renderer->ContextProvider)
         {
             return;
         }
@@ -530,7 +530,7 @@ namespace Tbx
             return;
         }
 
-        auto* renderer = FindRenderer(_activeGraphicsApi);
+        auto* renderer = TryGetRenderer(_activeGraphicsApi);
         if (!renderer || !renderer->Backend)
         {
             return;
@@ -666,8 +666,8 @@ namespace Tbx
         _clearColor = newSettings.ClearColor;
         auto desiredApi = newSettings.RenderingApi;
 
-        const GraphicsRenderer* desiredRenderer = nullptr;
-        const bool rendererAvailable = TryGetRenderer(desiredApi, desiredRenderer) && desiredRenderer && desiredRenderer->Backend && desiredRenderer->ContextProvider;
+        const GraphicsRenderer* desiredRenderer = TryGetRenderer(desiredApi);
+        const bool rendererAvailable = desiredRenderer && desiredRenderer->Backend && desiredRenderer->ContextProvider;
         if (!rendererAvailable)
         {
             GraphicsApi fallbackApi = GraphicsApi::None;
@@ -701,8 +701,8 @@ namespace Tbx
             return;
         }
 
-        GraphicsRenderer* renderer = nullptr;
-        if (!TryGetRenderer(_activeGraphicsApi, renderer) || !renderer || !renderer->Backend)
+        GraphicsRenderer* renderer = TryGetRenderer(_activeGraphicsApi);
+        if (!renderer || !renderer->Backend)
         {
             return;
         }
@@ -756,8 +756,8 @@ namespace Tbx
 
         if (_openDisplays.empty())
         {
-            GraphicsRenderer* renderer = nullptr;
-            if (TryGetRenderer(_activeGraphicsApi, renderer) && renderer && renderer->Backend)
+            GraphicsRenderer* renderer = TryGetRenderer(_activeGraphicsApi);
+            if (renderer && renderer->Backend)
             {
                 renderer->Backend->SetContext(nullptr);
                 renderer->Cache.Clear();
@@ -775,40 +775,20 @@ namespace Tbx
         RemoveStage(e.GetStage());
     }
 
-    bool GraphicsPipeline::TryGetRenderer(GraphicsApi api, GraphicsRenderer*& renderer)
+    GraphicsRenderer* GraphicsPipeline::TryGetRenderer(GraphicsApi api)
     {
-        renderer = nullptr;
         if (api == GraphicsApi::None)
         {
-            return false;
+            return nullptr;
         }
 
         auto rendererIt = _renderers.find(api);
         if (rendererIt == _renderers.end())
         {
-            return false;
+            return nullptr;
         }
 
-        renderer = &rendererIt->second;
-        return true;
-    }
-
-    bool GraphicsPipeline::TryGetRenderer(GraphicsApi api, const GraphicsRenderer*& renderer) const
-    {
-        renderer = nullptr;
-        if (api == GraphicsApi::None)
-        {
-            return false;
-        }
-
-        auto rendererIt = _renderers.find(api);
-        if (rendererIt == _renderers.end())
-        {
-            return false;
-        }
-
-        renderer = &rendererIt->second;
-        return true;
+        return &rendererIt->second;
     }
 }
 
