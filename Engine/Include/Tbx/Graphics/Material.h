@@ -9,7 +9,7 @@
 namespace Tbx
 {
     /// <summary>
-    ///  A material is a collection of shaders
+    /// A collection of shaders.
     /// </summary>
     struct TBX_EXPORT ShaderProgram
     {
@@ -24,7 +24,7 @@ namespace Tbx
     };
 
     /// <summary>
-    /// A material instance is a material at runtime, it represents a material with different params and textures.
+    /// A shader program with textures.
     /// </summary>
     struct TBX_EXPORT Material
     {
@@ -40,6 +40,6 @@ namespace Tbx
 
         Ref<ShaderProgram> ShaderProgram = nullptr;
         std::vector<Ref<Texture>> Textures = { MakeRef<Texture>() }; // default to one small white texture
-        Uid InstanceId = Uid::Generate();
+        Uid Id = Uid::Generate();
     };
 }

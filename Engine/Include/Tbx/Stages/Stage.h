@@ -5,6 +5,9 @@
 
 namespace Tbx
 {
+    // TODO: we should have a pool of 'Toy' objects to avoid creating and destroying them every frame
+    // and make them continuous in memory so they be speedy!
+
     /// <summary>
     /// Represents a collection of toys.
     /// </summary>

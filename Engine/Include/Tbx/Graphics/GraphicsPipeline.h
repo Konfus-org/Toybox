@@ -26,8 +26,13 @@ namespace Tbx
 
     struct TBX_EXPORT GraphicsResourceCache
     {
+        // Shader id to shader GPU resource
         std::unordered_map<Uid, Ref<ShaderResource>> Shaders = {};
+        // Shader program id to shader program GPU resource
+        std::unordered_map<Uid, Ref<ShaderProgramResource>> ShaderPrograms = {};
+        // Texture id to texture GPU resource
         std::unordered_map<Uid, Ref<TextureResource>> Textures = {};
+        // Mesh id to mesh GPU resource
         std::unordered_map<Uid, Ref<MeshResource>> Meshes = {};
 
         void Clear()
@@ -55,7 +60,6 @@ namespace Tbx
             const std::vector<Ref<IGraphicsBackend>>& backends,
             const std::vector<Ref<IGraphicsContextProvider>>& contextProviders,
             Ref<EventBus> eventBus);
-        ~GraphicsPipeline();
 
         /// <summary>
         /// Drives the rendering pipeline for all open stages and windows.
@@ -83,10 +87,9 @@ namespace Tbx
         bool TryGetRenderer(GraphicsApi api, GraphicsRenderer& outRenderer);
         void RecreateRenderersForCurrentApi();
 
-        void CompileShaders(const std::vector<Ref<Shader>>& shaders);
-        void CacheShaders(GraphicsRenderer& renderer, const Material& material);
-        void CacheTextures(GraphicsRenderer& renderer, const std::vector<Ref<Texture>>& textures);
-        void CacheMeshes(GraphicsRenderer& renderer, const std::vector<Ref<Mesh>>& meshes);
+        void CacheShaders(const ShaderProgram& shaders);
+        void CacheMaterial(const Material& shaders);
+        void CacheMesh(const Mesh& mesh);
 
         void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
         void OnWindowOpened(const WindowOpenedEvent& e);

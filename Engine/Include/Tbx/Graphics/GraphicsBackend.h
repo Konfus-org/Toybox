@@ -2,20 +2,17 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/Color.h"
 #include "Tbx/Graphics/GraphicsApi.h"
+#include "Tbx/Graphics/GraphicsContext.h"
+#include "Tbx/Graphics/GraphicsResource.h"
 #include "Tbx/Graphics/Viewport.h"
+#include "Tbx/Graphics/Shader.h"
+#include "Tbx/Graphics/Texture.h"
+#include "Tbx/Graphics/Mesh.h"
 #include "Tbx/Memory/Refs.h"
 #include <vector>
 
 namespace Tbx
 {
-    class IGraphicsContext;
-    struct Shader;
-    struct Texture;
-    struct Mesh;
-    class ShaderResource;
-    class TextureResource;
-    class MeshResource;
-
     /// <summary>
     /// Represents a concrete graphics API implementation responsible for managing device resources.
     /// </summary>
@@ -37,31 +34,34 @@ namespace Tbx
         /// <summary>
         /// Begins drawing to the active render target using the provided viewport.
         /// </summary>
-        virtual void BeginDraw(const Viewport& viewport) = 0;
+        virtual void BeginDraw(
+            const RgbaColor& clearColor,
+            const Viewport& viewport) = 0;
 
         /// <summary>
         /// Finalizes drawing for the active render target and applies the provided clear color.
         /// </summary>
-        virtual void EndDraw(const RgbaColor& clearColor) = 0;
-
-        /// <summary>
-        /// Creates a shader program resource ready for rendering.
-        /// </summary>
-        virtual Ref<ShaderResource> CreateResource(const std::vector<Ref<Shader>>& shaderProgram) = 0;
+        virtual void EndDraw() = 0;
 
         /// <summary>
         /// Creates a GPU texture resource for the provided texture asset.
         /// </summary>
-        virtual Ref<TextureResource> CreateResource(const Ref<Texture>& texture) = 0;
+        virtual Ref<TextureResource> UploadTexture(const Texture& texture) = 0;
 
         /// <summary>
         /// Creates a GPU mesh resource for the provided mesh asset.
         /// </summary>
-        virtual Ref<MeshResource> CreateResource(const Ref<Mesh>& mesh) = 0;
+        virtual Ref<MeshResource> UploadMesh(const Mesh& mesh) = 0;
 
         /// <summary>
-        /// Compiles the provided shaders so they are ready for GPU upload.
+        /// Creates a shader program resource ready for rendering.
         /// </summary>
-        virtual void CompileShaders(const std::vector<Ref<Shader>>& shaders) = 0;
+        virtual Ref<ShaderProgramResource> CreateShaderProgram(
+            const std::vector<Ref<ShaderResource>>& shadersToLink) = 0;
+
+        /// <summary>
+        /// Compiles the provided shader and uploads them to the gpu.
+        /// </summary>
+        virtual Ref<ShaderResource> CompileShader(const Shader& shader) = 0;
     };
 }

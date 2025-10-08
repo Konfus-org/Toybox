@@ -26,6 +26,12 @@ namespace Tbx
     {
     public:
         virtual ~ShaderResource() = default;
+    };
+
+    class TBX_EXPORT ShaderProgramResource : public GraphicsResource
+    {
+    public:
+        virtual ~ShaderProgramResource() = default;
         virtual void Upload(const ShaderUniform& uniform) = 0;
     };
 

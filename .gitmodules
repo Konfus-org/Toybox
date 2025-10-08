@@ -6,14 +6,6 @@
 	path = Plugins/Toybox-ImGui-DebugUI-Plugin
 	url = https://github.com/Konfus-org/Toybox-ImGui-DebugUI-Plugin.git
 	branch = main
-[submodule "Plugins/Toybox-SDL-Input-Plugin"]
-	path = Plugins/Toybox-SDL-Input-Plugin
-	url = https://github.com/Konfus-org/Toybox-SDL-Input-Plugin.git
-	branch = main
-[submodule "Plugins/Toybox-SDL-Windowing-Plugin"]
-	path = Plugins/Toybox-SDL-Windowing-Plugin
-	url = https://github.com/Konfus-org/Toybox-SDL-Windowing-Plugin.git
-	branch = main
 [submodule "Plugins/Toybox-JIMS-AssetLoader-Plugin"]
 	path = Plugins/Toybox-JIMS-AssetLoader-Plugin
 	url = https://github.com/Konfus-org/Toybox-JIMS-AssetLoader-Plugin.git
@@ -40,6 +32,6 @@
 [submodule "Dependencies/SDL"]
 	path = Dependencies/SDL
 	url = https://github.com/Konfus-org/SDL.git
-[submodule "Plugins/Toybox-SDL-GraphicsContexts-Plugin"]
-	path = Plugins/Toybox-SDL-GraphicsContexts-Plugin
-	url = https://github.com/konfus-org/Toybox-SDL-GraphicsContexts-Plugin.git
+[submodule "Plugins/Toybox-SDL-Plugins"]
+	path = Plugins/Toybox-SDL-Plugins
+	url = https://github.com/konfus-org/Toybox-SDL-Plugins.git
