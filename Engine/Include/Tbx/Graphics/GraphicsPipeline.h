@@ -84,12 +84,12 @@ namespace Tbx
         void InitializeRenderers(
             const std::vector<Tbx::Ref<Tbx::IGraphicsBackend>>& backends,
             const std::vector<Tbx::Ref<Tbx::IGraphicsContextProvider>>& contextProviders);
-        bool TryGetRenderer(GraphicsApi api, GraphicsRenderer& outRenderer);
+        GraphicsRenderer* GetRenderer(GraphicsApi api);
         void RecreateRenderersForCurrentApi();
 
-        void CacheShaders(const ShaderProgram& shaders);
-        void CacheMaterial(const Material& shaders);
-        void CacheMesh(const Mesh& mesh);
+        void CacheShaders(GraphicsRenderer& renderer, const ShaderProgram& shaders);
+        void CacheMaterial(GraphicsRenderer& renderer, const Material& shaders);
+        void CacheMesh(GraphicsRenderer& renderer, const Mesh& mesh);
 
         void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
         void OnWindowOpened(const WindowOpenedEvent& e);

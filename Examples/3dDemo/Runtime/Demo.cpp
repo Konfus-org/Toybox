@@ -38,13 +38,13 @@ void Demo::OnStart()
 
     // Setup base material
     auto matShaders = { vertexShader, fragmentShader };
-    _simpleTexturedMat = Tbx::MakeRef<Tbx::Material>(matShaders);
+    //_simpleTexturedMat = Tbx::MakeRef<Tbx::Material>(matShaders, checkerTex);
 
     // Create room
     {
         auto floor = std::make_shared<Tbx::Toy>("Floor");
         floor->Blocks.Add<Tbx::Mesh>();
-        floor->Blocks.Add<Tbx::MaterialInstance>(_simpleTexturedMat, checkerTex);
+        floor->Blocks.Add<Tbx::Material>(matShaders, checkerTex);
         floor->Blocks.Add<Tbx::Transform>()
             .SetPosition({ 0, -25, 100 })
             .SetRotation(Tbx::Quaternion::FromEuler({ 90, 0, 0 }))
@@ -53,7 +53,7 @@ void Demo::OnStart()
 
         auto wallBack = std::make_shared<Tbx::Toy>("Wall Back");
         wallBack->Blocks.Add<Tbx::Mesh>();
-        wallBack->Blocks.Add<Tbx::MaterialInstance>(_simpleTexturedMat, wallTex);
+        wallBack->Blocks.Add<Tbx::Material>(matShaders, checkerTex);
         wallBack->Blocks.Add<Tbx::Transform>()
             .SetPosition({ 0, 0, 125 })
             .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))
@@ -62,7 +62,7 @@ void Demo::OnStart()
 
         auto wallRight = std::make_shared<Tbx::Toy>("Wall Right");
         wallRight->Blocks.Add<Tbx::Mesh>();
-        wallRight->Blocks.Add<Tbx::MaterialInstance>(_simpleTexturedMat, wallTex);
+        wallRight->Blocks.Add<Tbx::Material>(matShaders, checkerTex);
         wallRight->Blocks.Add<Tbx::Transform>()
             .SetPosition({ 25, 0, 100 })
             .SetRotation(Tbx::Quaternion::FromEuler({ 0, -90, 0 }))
@@ -74,7 +74,7 @@ void Demo::OnStart()
     {
         auto smily = std::make_shared<Tbx::Toy>("Smily");
         smily->Blocks.Add<Tbx::Mesh>();
-        smily->Blocks.Add<Tbx::MaterialInstance>(_simpleTexturedMat, smilyTex);
+        smily->Blocks.Add<Tbx::Material>(matShaders, checkerTex);
         smily->Blocks.Add<Tbx::Transform>()
             .SetPosition({ 0, 0, 100 })
             .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))

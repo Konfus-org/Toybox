@@ -76,12 +76,12 @@ namespace Tbx
             }
 
             const auto& materialBlock = entry->Blocks.Get<Material>();
-            if (!materialBlock.ShaderProgram)
+            if (materialBlock.ShaderProgram.Id != Uid::Invalid)
             {
                 continue;
             }
 
-            const auto shaderProgramId = materialBlock.ShaderProgram->Id;
+            const auto shaderProgramId = materialBlock.ShaderProgram.Id;
             buckets[shaderProgramId].push_back(entry);
         }
 
@@ -206,21 +206,20 @@ namespace Tbx
         }
     }
 
-    bool GraphicsPipeline::TryGetRenderer(GraphicsApi api, GraphicsRenderer& outRenderer)
+    GraphicsRenderer* GraphicsPipeline::GetRenderer(GraphicsApi api)
     {
         if (api == GraphicsApi::None)
         {
-            return false;
+            return nullptr;
         }
 
         auto rendererIt = _renderers.find(api);
         if (rendererIt == _renderers.end())
         {
-            return false;
+            return nullptr;
         }
 
-        outRenderer = rendererIt->second;
-        return true;
+        return &rendererIt->second;
     }
 
     void GraphicsPipeline::Update()
@@ -230,13 +229,13 @@ namespace Tbx
 
     void GraphicsPipeline::DrawFrame()
     {
-        GraphicsRenderer renderer;
-        if (!TryGetRenderer(_activeGraphicsApi, renderer))
+        auto* renderer = GetRenderer(_activeGraphicsApi);
+        if (!renderer)
         {
             return;
         }
 
-        RenderOpenStages(renderer);
+        RenderOpenStages(*renderer);
     }
 
     void GraphicsPipeline::RenderOpenStages(GraphicsRenderer& renderer)
@@ -298,8 +297,8 @@ namespace Tbx
                             if (entity->Blocks.Contains<Mesh>() &&
                                 entity->Blocks.Contains<Material>())
                             {
-                                CacheMaterial(entity->Blocks.Get<Material>());
-                                CacheMesh(entity->Blocks.Get<Mesh>());
+                                CacheMaterial(renderer, entity->Blocks.Get<Material>());
+                                CacheMesh(renderer, entity->Blocks.Get<Mesh>());
                             }
 
                             // Passed culling was cached, add to visible entities
@@ -466,11 +465,6 @@ namespace Tbx
     {
         for (auto& [api, renderer] : _renderers)
         {
-            if (renderer.Backend)
-            {
-                renderer.Backend->SetContext(nullptr);
-            }
-
             renderer.Cache.Clear();
         }
 
@@ -479,13 +473,11 @@ namespace Tbx
             display.Context = nullptr;
         }
 
-        GraphicsRenderer renderer;
-        if (!TryGetRenderer(_activeGraphicsApi, renderer))
+        auto* renderer = GetRenderer(_activeGraphicsApi);
+        if (!renderer)
         {
             return;
         }
-
-        renderer.Cache.Clear();
 
         for (auto& display : _openDisplays)
         {
@@ -494,26 +486,20 @@ namespace Tbx
                 continue;
             }
 
-            auto context = renderer.ContextProvider->Provide(display.Surface);
+            auto context = renderer->ContextProvider->Provide(display.Surface);
             TBX_ASSERT(context, "Rendering: Failed to recreate a graphics context for an open window.");
             if (!context)
             {
                 continue;
             }
 
-            renderer.Backend->SetContext(context);
+            renderer->Backend->SetContext(context);
             display.Context = context;
         }
     }
 
-    void GraphicsPipeline::CacheShaders(const ShaderProgram& shaderProgram)
+    void GraphicsPipeline::CacheShaders(GraphicsRenderer& renderer, const ShaderProgram& shaderProgram)
     {
-        GraphicsRenderer renderer;
-        if (!TryGetRenderer(_activeGraphicsApi, renderer))
-        {
-            return;
-        }
-
         for (const auto& shader : shaderProgram.Shaders)
         {
             if (renderer.Cache.Shaders.contains(shader->Id))
@@ -531,14 +517,8 @@ namespace Tbx
         }
     }
 
-    void GraphicsPipeline::CacheMaterial(const Material& material)
+    void GraphicsPipeline::CacheMaterial(GraphicsRenderer& renderer, const Material& material)
     {
-        GraphicsRenderer renderer;
-        if (!TryGetRenderer(_activeGraphicsApi, renderer))
-        {
-            return;
-        }
-
         // Cache material textures
         for (const auto& texture : material.Textures)
         {
@@ -560,15 +540,17 @@ namespace Tbx
 
         // Cache material shader program
         {
-            const auto shaderProgramId = material.ShaderProgram->Id;
+            const auto shaderProgramId = material.ShaderProgram.Id;
             if (renderer.Cache.ShaderPrograms.contains(shaderProgramId))
             {
                 return;
             }
 
-            CacheShaders(material.ShaderProgram->Shaders);
+            const auto& shaders = material.ShaderProgram.Shaders;
+            CacheShaders(renderer, shaders);
+
             std::vector<Ref<ShaderResource>> shaderResources = {};
-            for (const auto& shader : material.ShaderProgram->Shaders)
+            for (const auto& shader : shaders)
             {
                 auto shaderResource = renderer.Cache.Shaders[shader->Id];
                 shaderResources.push_back(shaderResource);
@@ -586,14 +568,8 @@ namespace Tbx
         }
     }
 
-    void GraphicsPipeline::CacheMesh(const Mesh& mesh)
+    void GraphicsPipeline::CacheMesh(GraphicsRenderer& renderer, const Mesh& mesh)
     {
-        GraphicsRenderer renderer;
-        if (!TryGetRenderer(_activeGraphicsApi, renderer))
-        {
-            return;
-        }
-
         if (renderer.Cache.Meshes.contains(mesh.Id))
         {
             return;
@@ -613,16 +589,9 @@ namespace Tbx
     void GraphicsPipeline::OnAppSettingsChanged(const AppSettingsChangedEvent& e)
     {
         const auto& newSettings = e.GetNewSettings();
-        _clearColor = newSettings.ClearColor;
         auto desiredApi = newSettings.RenderingApi;
 
-        GraphicsRenderer desiredRenderer;
-        if (!TryGetRenderer(_activeGraphicsApi, desiredRenderer))
-        {
-            TBX_ASSERT(false, "Rendering: No compatible renderer found for the desired graphics api {}.", static_cast<int>(desiredApi));
-            return;
-        }
-
+        _clearColor = newSettings.ClearColor;
         if (_activeGraphicsApi != desiredApi)
         {
             _activeGraphicsApi = desiredApi;
@@ -639,13 +608,13 @@ namespace Tbx
             return;
         }
 
-        GraphicsRenderer renderer;
-        if (!TryGetRenderer(_activeGraphicsApi, renderer))
+        auto* renderer = GetRenderer(_activeGraphicsApi);
+        if (!renderer)
         {
             return;
         }
 
-        auto context = renderer.ContextProvider->Provide(newWindow);
+        auto context = renderer->ContextProvider->Provide(newWindow);
         TBX_ASSERT(context, "Rendering: Failed to create a graphics context for the opened window.");
         if (!context)
         {

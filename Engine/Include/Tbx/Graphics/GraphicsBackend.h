@@ -26,6 +26,7 @@ namespace Tbx
         /// </summary>
         virtual GraphicsApi GetApi() const = 0;
 
+        // TODO: Not really sure we need this... perhaps we have a draw method that just takes a graphics surface to draw to?
         /// <summary>
         /// Sets the graphics context used for rendering operations.
         /// </summary>

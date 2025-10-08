@@ -41,7 +41,7 @@ namespace Tbx::Launcher
 
                 // After we've closed check if the app is asking for a reload
                 // or if we should fully shutdown
-                status = app.GetStatus();
+                status = app.Status;
                 running =
                     status != AppStatus::Error &&
                     status != AppStatus::Closed;
