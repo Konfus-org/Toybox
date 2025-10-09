@@ -6,72 +6,11 @@
 #include "Tbx/Memory/Refs.h"
 #include <algorithm>
 #include <memory>
-#include <sstream>
 #include <unordered_set>
 #include <utility>
 
 namespace Tbx
 {
-    static bool ArePluginDependenciesSatisfied(
-        const PluginMeta& info,
-        const std::unordered_set<std::string>& loadedNames)
-    {
-        for (const auto& dep : info.Dependencies)
-        {
-            if (dep == "All")
-            {
-                continue;
-            }
-
-            if (loadedNames.contains(dep))
-            {
-                continue;
-            }
-
-            return false;
-        }
-
-        return true;
-    }
-
-    static void ReportUnresolvedPluginDependencies(
-        const std::vector<PluginMeta>& remaining,
-        const std::unordered_set<std::string>& loadedNames)
-    {
-        std::ostringstream oss = {};
-        oss << "Unresolved plugin dependencies:\n";
-
-        for (const auto& info : remaining)
-        {
-            std::vector<std::string> missing;
-            for (const auto& dep : info.Dependencies)
-            {
-                if (!loadedNames.contains(dep) && dep != "All")
-                {
-                    missing.push_back(dep);
-                }
-            }
-
-            oss << "  - " << info.Name;
-            if (!missing.empty())
-            {
-                oss << " (missing: ";
-                for (size_t i = 0; i < missing.size(); ++i)
-                {
-                    if (i != 0)
-                    {
-                        oss << ", ";
-                    }
-                    oss << missing[i];
-                }
-                oss << ")";
-            }
-            oss << "\n";
-        }
-
-        TBX_TRACE_ERROR("PluginLoader: {}", oss.str());
-    }
-
     static void ReportPluginInfo(const PluginMeta& info)
     {
         TBX_TRACE_INFO("- Loaded {}:", info.Name);
@@ -149,18 +88,6 @@ namespace Tbx
         loadedNames.insert(info.Name);
         outLoaded.push_back(std::move(plugin));
         return true;
-    }
-
-    static bool SortKey(const PluginMeta& a, const PluginMeta& b)
-    {
-        const auto dependenciesA = a.Dependencies.size();
-        const auto dependenciesB = b.Dependencies.size();
-        if (dependenciesA != dependenciesB)
-        {
-            return dependenciesA < dependenciesB;
-        }
-
-        return a.Name < b.Name;
     }
 
     PluginContainer::PluginContainer(const std::vector<Ref<Plugin>>& plugins)
@@ -257,44 +184,20 @@ namespace Tbx
 
     void PluginLoader::LoadPlugins(std::vector<PluginMeta> pluginMetas)
     {
-        std::stable_sort(pluginMetas.begin(), pluginMetas.end(), SortKey);
-
         TBX_TRACE_INFO("PluginLoader: Loading plugins:");
         auto loadedNames = std::unordered_set<std::string>();
         uint32 successfullyLoaded = 0;
         uint32 unsuccessfullyLoaded = 0;
 
-        while (!pluginMetas.empty())
+        for (const auto& meta : pluginMetas)
         {
-            bool resolvedDependencies = false;
-
-            for (auto it = pluginMetas.begin(); it != pluginMetas.end();)
+            if (LoadPlugin(meta, _eventBus, loadedNames, _plugins))
             {
-                if (ArePluginDependenciesSatisfied(*it, loadedNames))
-                {
-                    if (LoadPlugin(*it, _eventBus, loadedNames, _plugins))
-                    {
-                        ++successfullyLoaded;
-                    }
-                    else
-                    {
-                        ++unsuccessfullyLoaded;
-                    }
-
-                    it = pluginMetas.erase(it);
-                    resolvedDependencies = true;
-                }
-                else
-                {
-                    ++it;
-                }
+                ++successfullyLoaded;
             }
-
-            if (!resolvedDependencies)
+            else
             {
-                TBX_ASSERT(false, "PluginLoader: Unable to resolve some plugin dependencies!");
-                ReportUnresolvedPluginDependencies(pluginMetas, loadedNames);
-                break;
+                ++unsuccessfullyLoaded;
             }
         }
 

@@ -3,8 +3,11 @@
 #include "Tbx/Plugins/PluginMetaReader.h"
 #include "Tbx/Debug/Tracers.h"
 #include <filesystem>
+#include <functional>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 namespace Tbx
 {
@@ -42,22 +45,77 @@ namespace Tbx
             return;
         }
 
-        std::unordered_set<std::string> requestedNames(_requested.begin(), _requested.end());
-        std::vector<PluginMeta> filtered;
-        filtered.reserve(_requested.size());
-
+        std::unordered_map<std::string, PluginMeta> discoveredByName;
+        discoveredByName.reserve(_discovered.size());
         for (const auto& info : _discovered)
         {
-            if (requestedNames.contains(info.Name))
-            {
-                filtered.push_back(info);
-                requestedNames.erase(info.Name);
-            }
+            discoveredByName.emplace(info.Name, info);
         }
 
-        for (const auto& missing : requestedNames)
+        std::vector<PluginMeta> filtered = {};
+        filtered.reserve(_discovered.size());
+        std::unordered_set<std::string> included = {};
+        included.reserve(_discovered.size());
+        std::unordered_set<std::string> visiting = {};
+        visiting.reserve(_discovered.size());
+
+        std::function<bool(const std::string&, const std::string&)> includePlugin =
+            [&](const std::string& name, const std::string& parent)
+            {
+                if (name == "All")
+                {
+                    return true;
+                }
+
+                if (included.contains(name))
+                {
+                    return true;
+                }
+
+                auto it = discoveredByName.find(name);
+                if (it == discoveredByName.end())
+                {
+                    if (parent.empty())
+                    {
+                        TBX_ASSERT(false, "PluginFinder: Requested plugin '{}' was not discovered.", name);
+                    }
+                    else
+                    {
+                        TBX_ASSERT(
+                            false,
+                            "PluginFinder: Dependency '{}' for plugin '{}' was not discovered.",
+                            name,
+                            parent);
+                    }
+                    return false;
+                }
+
+                if (!visiting.insert(name).second)
+                {
+                    TBX_ASSERT(false, "PluginFinder: Detected cyclic dependency involving '{}'.", name);
+                    return false;
+                }
+
+                bool dependenciesResolved = true;
+                for (const auto& dependency : it->second.Dependencies)
+                {
+                    dependenciesResolved &= includePlugin(dependency, it->second.Name);
+                }
+
+                visiting.erase(name);
+                if (!dependenciesResolved)
+                {
+                    return false;
+                }
+
+                filtered.push_back(it->second);
+                included.insert(name);
+                return true;
+            };
+
+        for (const auto& name : _requested)
         {
-            TBX_TRACE_ERROR("PluginFinder: Requested plugin '{}' was not discovered.", missing);
+            includePlugin(name, std::string());
         }
 
         _discovered = std::move(filtered);
