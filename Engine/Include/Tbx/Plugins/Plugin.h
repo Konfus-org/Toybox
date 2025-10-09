@@ -11,52 +11,23 @@ namespace Tbx
     {
     public:
         Plugin() = default;
-        virtual ~Plugin();
+        virtual ~Plugin() = default;
 
         Plugin(const Plugin&) = delete;
         Plugin& operator=(const Plugin&) = delete;
         Plugin(Plugin&&) = delete;
         Plugin& operator=(Plugin&&) = delete;
 
-        /// <summary>
-        /// Binds a plugin to its info and library so when its deleted it will automatically take care of unloading these things ensuring these are always in sync and 
-        /// removing the issue where when the plugin and library was seperated we could still have a plugin in memory but the library was unloaded.
-        /// </summary>
-        void Bind(const PluginMeta& pluginInfo, ExclusiveRef<SharedLibrary> library);
-        bool IsBound() const;
-
-        const PluginMeta& GetMeta() const;
-        const SharedLibrary* GetLibrary() const;
-
-        /// <summary>
-        /// Lists the plugins loaded libraries symbols.
-        /// Useful for debugging.
-        /// </summary>
-        void ListSymbols() const;
-
-    private:
-        PluginMeta _pluginInfo = {};
-        ExclusiveRef<SharedLibrary> _library = nullptr;
-        bool _isBound = false;
+        PluginMeta Meta = {};
+        ExclusiveRef<SharedLibrary> Library = nullptr;
     };
 
     class TBX_EXPORT StaticPlugin
     {
     public:
-        StaticPlugin(const PluginMeta& pluginInfo);
-        virtual ~StaticPlugin();
-
-        StaticPlugin(const StaticPlugin&) = delete;
-        StaticPlugin& operator=(const StaticPlugin&) = delete;
-        StaticPlugin(StaticPlugin&&) = delete;
-        StaticPlugin& operator=(StaticPlugin&&) = delete;
-
-        const PluginMeta& GetMeta() const;
-        Ref<EventBus> GetEventBus() const;
-
-    private:
-        PluginMeta _pluginInfo = {};
-        Ref<EventBus> _eventBus = nullptr;
+        StaticPlugin() = default;
+        virtual ~StaticPlugin() = default;
+        PluginMeta PluginInfo = {};
     };
 
     using PluginLoadFn = Plugin* (*)(Ref<EventBus> eventBus);
@@ -71,6 +42,11 @@ namespace Tbx
     #else
         #define TBX_PLUGIN_EXPORT extern "C"
     #endif
+
+    static void Delete(Plugin* plugin)
+    {
+        auto library = std::move(plugin->Library);
+    }
 
     /// <summary>
     /// Macro to register a plugin to the TBX plugin system.
@@ -88,7 +64,7 @@ namespace Tbx
         }\
         TBX_PLUGIN_EXPORT void Unload(pluginType* pluginToUnload)\
         {\
+            auto library = std::move(pluginToUnload->Library);\
             delete pluginToUnload;\
         }
-
 }

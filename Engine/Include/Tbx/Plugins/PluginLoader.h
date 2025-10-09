@@ -14,8 +14,6 @@ namespace Tbx
     public:
         PluginContainer() = default;
         PluginContainer(const std::vector<Ref<Plugin>>& plugins);
-        ~PluginContainer();
-
         Ref<Plugin> OfName(const std::string& pluginName) const;
     };
 
@@ -27,14 +25,8 @@ namespace Tbx
     {
     public:
         PluginLoader(
-            std::vector<PluginMeta> plugins,
+            const std::vector<PluginMeta>& pluginMetas,
             Ref<EventBus> eventBus);
-        ~PluginLoader() = default;
-
-        PluginLoader(const PluginLoader&) = delete;
-        PluginLoader& operator=(const PluginLoader&) = delete;
-        PluginLoader(PluginLoader&&) noexcept = default;
-        PluginLoader& operator=(PluginLoader&&) noexcept = default;
 
         /// <summary>
         /// Produces the loaded plugin collection, transferring ownership to the caller.
@@ -42,7 +34,7 @@ namespace Tbx
         PluginContainer Results();
 
     private:
-        void LoadPlugins(std::vector<PluginMeta> pluginMetas);
+        void LoadPlugins(const std::vector<PluginMeta>& pluginMetas);
 
     private:
         std::vector<Ref<Plugin>> _plugins;

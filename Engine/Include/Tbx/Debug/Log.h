@@ -16,19 +16,15 @@ namespace Tbx
     {
     public:
         /// <summary>
-        /// Opens the log.
+        /// Sets a logger and opens it for writing
         /// </summary>
-        static void Initialize(Ref<ILogger> logger = nullptr);
+        static void SetLogger(Ref<ILogger> logger = nullptr);
 
         /// <summary>
         /// Closes the log.
+        /// If we have a logger this clears it and also flushes any queued messages.
         /// </summary>
-        static void Shutdown();
-
-        /// <summary>
-        /// Is the logger open and ready to log?
-        /// </summary>
-        static bool IsOpen();
+        static void Close();
 
         /// <summary>
         /// Write a message to the log.
@@ -148,6 +144,5 @@ namespace Tbx
         static std::queue<std::pair<LogLevel, std::string>> _logQueue;
         static Ref<ILogger> _logger;
         static std::string _logFilePath;
-        static bool _isOpen;
     };
 }

@@ -72,8 +72,9 @@ namespace Tbx
             unloadPluginFunc(pluginToUnload);
         });
 
-        plugin->Bind(info, std::move(library));
-        if (!plugin->IsBound())
+        plugin->Meta = info;
+        plugin->Library = std::move(library);
+        if (!plugin->Library)
         {
             TBX_TRACE_ERROR("PluginLoader: Plugin '{}' failed to initialize", info.Name);
             plugin.reset();
@@ -86,61 +87,13 @@ namespace Tbx
 
         ReportPluginInfo(info);
         loadedNames.insert(info.Name);
-        outLoaded.push_back(std::move(plugin));
+        outLoaded.push_back(plugin);
         return true;
     }
 
     PluginContainer::PluginContainer(const std::vector<Ref<Plugin>>& plugins)
         : Queryable<Ref<Plugin>>(plugins)
     {
-    }
-
-    PluginContainer::~PluginContainer()
-    {
-        auto& plugins = this->MutableItems();
-        if (plugins.empty())
-        {
-            return;
-        }
-
-        std::vector<Ref<Plugin>> pluginSnapshot;
-        pluginSnapshot.reserve(plugins.size());
-        Ref<EventBus> eventBus = nullptr;
-        for (const auto& plugin : plugins)
-        {
-            if (plugin == nullptr)
-            {
-                continue;
-            }
-
-            pluginSnapshot.push_back(plugin);
-        }
-
-        std::stable_partition(
-            plugins.begin(),
-            plugins.end(),
-            [](const Ref<Plugin>& plugin)
-            {
-                if (plugin == nullptr)
-                {
-                    return false;
-                }
-
-                return std::dynamic_pointer_cast<ILogger>(plugin) != nullptr;
-            });
-
-        while (!plugins.empty())
-        {
-            auto plugin = std::move(plugins.back());
-            plugins.pop_back();
-
-            if (plugin == nullptr)
-            {
-                continue;
-            }
-
-            TBX_TRACE_INFO("PluginCache: Releasing {}", plugin->GetMeta().Name);
-        }
     }
 
     Ref<Plugin> PluginContainer::OfName(const std::string& pluginName) const
@@ -151,7 +104,7 @@ namespace Tbx
             plugins.end(),
             [&pluginName](const Ref<Plugin>& plugin)
             {
-                return plugin != nullptr && plugin->GetMeta().Name == pluginName;
+                return plugin != nullptr && plugin->Meta.Name == pluginName;
             });
 
         if (it != plugins.end())
@@ -163,11 +116,11 @@ namespace Tbx
     }
 
     PluginLoader::PluginLoader(
-        std::vector<PluginMeta> pluginMetas,
+        const std::vector<PluginMeta>& pluginMetas,
         Ref<EventBus> eventBus)
         : _eventBus(std::move(eventBus))
     {
-        LoadPlugins(std::move(pluginMetas));
+        LoadPlugins(pluginMetas);
     }
 
     PluginContainer PluginLoader::Results()
@@ -175,7 +128,7 @@ namespace Tbx
         return PluginContainer(std::move(_plugins));
     }
 
-    void PluginLoader::LoadPlugins(std::vector<PluginMeta> pluginMetas)
+    void PluginLoader::LoadPlugins(const std::vector<PluginMeta>& pluginMetas)
     {
         TBX_TRACE_INFO("PluginLoader: Loading plugins:");
         auto loadedNames = std::unordered_set<std::string>();

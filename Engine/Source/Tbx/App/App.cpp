@@ -13,7 +13,6 @@
 #include "Tbx/Time/DeltaTime.h"
 #include "Tbx/Files/Paths.h"
 #include <vector>
-#include <stdexcept>
 
 namespace Tbx
 {
@@ -129,6 +128,7 @@ namespace Tbx
     void App::Update()
     {
         Time::DeltaTime::Update();
+        Log::Flush();
 
         for (const auto& layer : Layers)
         {

@@ -1,6 +1,5 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Debug/Log.h"
-#include "Tbx/Debug/Asserts.h"
 #ifndef TBX_DEBUG
 #include "Tbx/Files/Paths.h"
 #endif
@@ -12,15 +11,9 @@ namespace Tbx
     std::queue<std::pair<LogLevel, std::string>> Log::_logQueue = {};
     Ref<ILogger> Log::_logger = nullptr;
     std::string Log::_logFilePath = "";
-    bool Log::_isOpen = false;
 
-    void Log::Initialize(Ref<ILogger> logger)
+    void Log::SetLogger(Ref<ILogger> logger)
     {
-        if (_isOpen)
-        {
-            return;
-        }
-
         _logger = logger;
 
 #ifdef TBX_DEBUG
@@ -33,30 +26,17 @@ namespace Tbx
         const auto logFilePath = std::format("{}/{}.log", FileSystem::GetLogsDirectory(), currentTime);
         _logger->Open("Tbx", logFilePath);
 #endif
-        _isOpen = true;
     }
 
-    void Log::Shutdown()
+    void Log::Close()
     {
         Flush();
         _logger = nullptr;
-        _isOpen = false;
-    }
-
-    bool Log::IsOpen()
-    {
-        return _isOpen;
     }
 
     void Log::Write(LogLevel lvl, const std::string& msg)
     {
         _logQueue.push({ lvl, msg });
-        if (_isOpen)
-        {
-            // Attempt to process immediately... 
-            // but if the log hasn't been opened yet for whatever reason we have to wait for either the next write or a flush call.
-            Flush();
-        }
     }
 
     void Log::Flush()
@@ -74,9 +54,9 @@ namespace Tbx
                 _logger->Write((int)lvl, msg);
                 continue;
             }
-            else if (_isOpen)
+            else
             {
-                TBX_ASSERT(false, "Log: No logger instance available to write log message!");
+                // TODO: just write to std::out if we aren't using a logger
             }
         }
     }
