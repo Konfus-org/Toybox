@@ -31,6 +31,75 @@ namespace Tbx
         return meta;
     }
 
+    static std::vector<PluginMeta> OrderPluginMetas(const std::vector<PluginMeta>& metas)
+    {
+        if (metas.empty())
+        {
+            return {};
+        }
+
+        std::unordered_map<std::string, const PluginMeta*> metasByName = {};
+        metasByName.reserve(metas.size());
+        for (const auto& meta : metas)
+        {
+            metasByName.emplace(meta.Name, &meta);
+        }
+
+        std::vector<PluginMeta> ordered = {};
+        ordered.reserve(metas.size());
+        std::unordered_set<std::string> visited = {};
+        visited.reserve(metas.size());
+        std::unordered_set<std::string> visiting = {};
+        visiting.reserve(metas.size());
+
+        std::function<void(const PluginMeta&)> visit =
+            [&](const PluginMeta& meta)
+            {
+                if (visited.contains(meta.Name))
+                {
+                    return;
+                }
+
+                if (!visiting.insert(meta.Name).second)
+                {
+                    TBX_ASSERT(false, "PluginFinder: Detected cyclic dependency involving '{}'.", meta.Name);
+                    return;
+                }
+
+                for (const auto& dependencyName : meta.Dependencies)
+                {
+                    if (dependencyName == "All")
+                    {
+                        continue;
+                    }
+
+                    const auto dependencyIt = metasByName.find(dependencyName);
+                    if (dependencyIt == metasByName.end())
+                    {
+                        TBX_ASSERT(
+                            false,
+                            "PluginFinder: Dependency '{}' for plugin '{}' was not discovered.",
+                            dependencyName,
+                            meta.Name);
+                        continue;
+                    }
+
+                    visit(*dependencyIt->second);
+                }
+
+                visiting.erase(meta.Name);
+                visited.insert(meta.Name);
+                ordered.push_back(meta);
+            };
+
+        for (const auto& meta : metas)
+        {
+            visit(meta);
+        }
+
+        return ordered;
+    }
+
     PluginFinder::PluginFinder(
         std::string searchDirectory,
         std::vector<std::string> requestedPlugins)
@@ -41,6 +110,7 @@ namespace Tbx
 
         if (_requested.empty())
         {
+            _discovered = OrderPluginMetas(_discovered);
             TBX_TRACE_INFO("PluginFinder: Found {} plugin definitions", _discovered.size());
             return;
         }
@@ -118,7 +188,7 @@ namespace Tbx
             includePlugin(name, std::string());
         }
 
-        _discovered = std::move(filtered);
+        _discovered = OrderPluginMetas(filtered);
         TBX_TRACE_INFO("PluginFinder: Found {} plugin definitions", _discovered.size());
     }
 
