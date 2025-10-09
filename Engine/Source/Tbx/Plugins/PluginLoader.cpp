@@ -140,13 +140,6 @@ namespace Tbx
             }
 
             TBX_TRACE_INFO("PluginCache: Releasing {}", plugin->GetMeta().Name);
-            if (plugin.use_count() > 1)
-            {
-                TBX_ASSERT(
-                    false,
-                    "{} Plugin is still in use! Ensure all references are released before shutting down!",
-                    plugin->GetMeta().Name);
-            }
         }
     }
 

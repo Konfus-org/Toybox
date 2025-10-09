@@ -28,8 +28,9 @@ target_link_libraries(3dDemoRuntime PRIVATE
   Tbx::Plugin::ImGuiDebugUI
   Tbx::Plugin::JIMSAssetLoader
   Tbx::Plugin::OpenGLRendering
-  Tbx::Plugin::SDL3Input
+  Tbx::Plugin::SDL3OpenGlGraphicsContext
   Tbx::Plugin::SDL3Windowing
+  Tbx::Plugin::SDL3Input
   Tbx::Plugin::SpdLogging
 )
 
