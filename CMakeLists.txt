@@ -81,10 +81,12 @@ add_subdirectory(Plugins/Toybox-Spd-Logging-Plugin)
 
 # Organize everything into folders if using VS
 if(MSVC)
+    # Core
     set_property(TARGET Engine PROPERTY FOLDER "Toybox")
     set_property(TARGET Tests PROPERTY FOLDER "Toybox")
     set_property(TARGET Launcher PROPERTY FOLDER "Toybox")
     
+    # Plugins
     set_property(TARGET ImGuiDebugUI PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET JIMSAssetLoader PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET OpenGLRendering PROPERTY FOLDER "Toybox/Plugins")
@@ -93,9 +95,11 @@ if(MSVC)
     set_property(TARGET SDL3OpenGlGraphicsContext PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET SpdLogging PROPERTY FOLDER "Toybox/Plugins")
     
+    # Examples
     set_property(TARGET 3dDemoRuntime PROPERTY FOLDER "Toybox/Examples")
     set_property(TARGET 3dDemoLauncher PROPERTY FOLDER "Toybox/Examples")
 
+    # Dependencies
     set_property(TARGET glad PROPERTY FOLDER "Dependencies")
     set_property(TARGET glm PROPERTY FOLDER "Dependencies")
     set_property(TARGET gtest PROPERTY FOLDER "Dependencies")
@@ -109,5 +113,7 @@ if(MSVC)
     set_property(TARGET spdlog PROPERTY FOLDER "Dependencies")
     set_property(TARGET stbimg PROPERTY FOLDER "Dependencies")
 
+    # Cmake
     set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMake")
+    set_property(GLOBAL PROPERTY VS_STARTUP_PROJECT 3dDemoLauncher)
 endif()
