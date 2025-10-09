@@ -3,8 +3,11 @@
 #include "Tbx/Plugins/PluginMetaReader.h"
 #include "Tbx/Debug/Tracers.h"
 #include <filesystem>
+#include <functional>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 namespace Tbx
 {
@@ -28,6 +31,75 @@ namespace Tbx
         return meta;
     }
 
+    static std::vector<PluginMeta> OrderPluginMetas(const std::vector<PluginMeta>& metas)
+    {
+        if (metas.empty())
+        {
+            return {};
+        }
+
+        std::unordered_map<std::string, const PluginMeta*> metasByName = {};
+        metasByName.reserve(metas.size());
+        for (const auto& meta : metas)
+        {
+            metasByName.emplace(meta.Name, &meta);
+        }
+
+        std::vector<PluginMeta> ordered = {};
+        ordered.reserve(metas.size());
+        std::unordered_set<std::string> visited = {};
+        visited.reserve(metas.size());
+        std::unordered_set<std::string> visiting = {};
+        visiting.reserve(metas.size());
+
+        std::function<void(const PluginMeta&)> visit =
+            [&](const PluginMeta& meta)
+            {
+                if (visited.contains(meta.Name))
+                {
+                    return;
+                }
+
+                if (!visiting.insert(meta.Name).second)
+                {
+                    TBX_ASSERT(false, "PluginFinder: Detected cyclic dependency involving '{}'.", meta.Name);
+                    return;
+                }
+
+                for (const auto& dependencyName : meta.Dependencies)
+                {
+                    if (dependencyName == "All")
+                    {
+                        continue;
+                    }
+
+                    const auto dependencyIt = metasByName.find(dependencyName);
+                    if (dependencyIt == metasByName.end())
+                    {
+                        TBX_ASSERT(
+                            false,
+                            "PluginFinder: Dependency '{}' for plugin '{}' was not discovered.",
+                            dependencyName,
+                            meta.Name);
+                        continue;
+                    }
+
+                    visit(*dependencyIt->second);
+                }
+
+                visiting.erase(meta.Name);
+                visited.insert(meta.Name);
+                ordered.push_back(meta);
+            };
+
+        for (const auto& meta : metas)
+        {
+            visit(meta);
+        }
+
+        return ordered;
+    }
+
     PluginFinder::PluginFinder(
         std::string searchDirectory,
         std::vector<std::string> requestedPlugins)
@@ -38,29 +110,85 @@ namespace Tbx
 
         if (_requested.empty())
         {
+            _discovered = OrderPluginMetas(_discovered);
             TBX_TRACE_INFO("PluginFinder: Found {} plugin definitions", _discovered.size());
             return;
         }
 
-        std::unordered_set<std::string> requestedNames(_requested.begin(), _requested.end());
-        std::vector<PluginMeta> filtered;
-        filtered.reserve(_requested.size());
-
+        std::unordered_map<std::string, PluginMeta> discoveredByName;
+        discoveredByName.reserve(_discovered.size());
         for (const auto& info : _discovered)
         {
-            if (requestedNames.contains(info.Name))
+            discoveredByName.emplace(info.Name, info);
+        }
+
+        std::vector<PluginMeta> filtered = {};
+        filtered.reserve(_discovered.size());
+        std::unordered_set<std::string> included = {};
+        included.reserve(_discovered.size());
+        std::unordered_set<std::string> visiting = {};
+        visiting.reserve(_discovered.size());
+
+        std::function<bool(const std::string&, const std::string&)> includePlugin =
+            [&](const std::string& name, const std::string& parent)
             {
-                filtered.push_back(info);
-                requestedNames.erase(info.Name);
-            }
-        }
+                if (name == "All")
+                {
+                    return true;
+                }
 
-        for (const auto& missing : requestedNames)
+                if (included.contains(name))
+                {
+                    return true;
+                }
+
+                auto it = discoveredByName.find(name);
+                if (it == discoveredByName.end())
+                {
+                    if (parent.empty())
+                    {
+                        TBX_ASSERT(false, "PluginFinder: Requested plugin '{}' was not discovered.", name);
+                    }
+                    else
+                    {
+                        TBX_ASSERT(
+                            false,
+                            "PluginFinder: Dependency '{}' for plugin '{}' was not discovered.",
+                            name,
+                            parent);
+                    }
+                    return false;
+                }
+
+                if (!visiting.insert(name).second)
+                {
+                    TBX_ASSERT(false, "PluginFinder: Detected cyclic dependency involving '{}'.", name);
+                    return false;
+                }
+
+                bool dependenciesResolved = true;
+                for (const auto& dependency : it->second.Dependencies)
+                {
+                    dependenciesResolved &= includePlugin(dependency, it->second.Name);
+                }
+
+                visiting.erase(name);
+                if (!dependenciesResolved)
+                {
+                    return false;
+                }
+
+                filtered.push_back(it->second);
+                included.insert(name);
+                return true;
+            };
+
+        for (const auto& name : _requested)
         {
-            TBX_TRACE_ERROR("PluginFinder: Requested plugin '{}' was not discovered.", missing);
+            includePlugin(name, std::string());
         }
 
-        _discovered = std::move(filtered);
+        _discovered = OrderPluginMetas(filtered);
         TBX_TRACE_INFO("PluginFinder: Found {} plugin definitions", _discovered.size());
     }
 
