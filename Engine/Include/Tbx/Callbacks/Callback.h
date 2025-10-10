@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/Debug/IPrintable.h"
-#include "Tbx/Ids/UsesUid.h"
+#include "Tbx/Ids/Uid.h"
 #include "Tbx/Callbacks/CallbackFunction.h"
 
 #define TBX_BIND_FN(fn) [this](auto&&... args) { return this->fn(std::forward<decltype(args)>(args)...); }
@@ -13,19 +13,22 @@ namespace Tbx
     /// If passing a classes function you must first bind it to the callback like using TBX_BIND_FN or if the function is static use TBX_BIND_STATIC_FN.
     /// </summary>
     template <typename TArg>
-    class Callback : public UsesUid, public IPrintable
+    class Callback : public IPrintable
     {
     public:
         explicit(false) Callback(CallbackFunction<TArg> func)
-            : _callbackFn(func), _name(func.target_type().name()) {}
+            : _callbackFn(func), Name(func.target_type().name()) {}
 
         void Invoke(TArg& event) const { _callbackFn(event); }
         void operator()(TArg& event) const { Invoke(event); }
 
-        std::string ToString() const override { return _name; }
+        std::string ToString() const override { return Name; }
+
+    public:
+        Uid Id = Uid::Generate();
+        const std::string Name;
 
     private:
         CallbackFunction<TArg> _callbackFn = nullptr;
-        std::string _name = "";
     };
 }

@@ -35,9 +35,7 @@ namespace Tbx
         /// <summary>
         /// Begins drawing to the active render target using the provided viewport.
         /// </summary>
-        virtual void BeginDraw(
-            const RgbaColor& clearColor,
-            const Viewport& viewport) = 0;
+        virtual void BeginDraw(const RgbaColor& clearColor, const Viewport& viewport) = 0;
 
         /// <summary>
         /// Finalizes drawing for the active render target and applies the provided clear color.

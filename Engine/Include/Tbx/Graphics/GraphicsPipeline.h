@@ -66,6 +66,7 @@ namespace Tbx
         GraphicsResourceCache Cache = {};
     };
 
+    // TODO: Convert to a plugin! The pipeline should be customizable by users of Toybox
     /// <summary>
     /// Coordinates render targets, windows, stage composition, and render resource caching for a frame.
     /// </summary>
