@@ -79,6 +79,10 @@ namespace Tbx
         // Init core plugin driven systems (if we have the plugins for them)
         // The order in which they are added is the order they are updated
         {
+            auto graphicsBackends = Plugins.OfType<IGraphicsBackend>();
+            auto contextProviders = Plugins.OfType<IGraphicsContextProvider>();
+            _graphics = GraphicsPipeline(Settings.RenderingApi, graphicsBackends, contextProviders, Dispatcher);
+
             auto windowFactoryPlugs = Plugins.OfType<IWindowFactory>();
             if (!windowFactoryPlugs.empty())
             {
@@ -87,10 +91,6 @@ namespace Tbx
                 const auto& appName = _name;
                 Windowing = WindowManager(windowFactory, Dispatcher);
             }
-
-            auto graphicsBackends = Plugins.OfType<IGraphicsBackend>();
-            auto contextProviders = Plugins.OfType<IGraphicsContextProvider>();
-            _graphics = GraphicsPipeline(Settings.RenderingApi, graphicsBackends, contextProviders, Dispatcher);
 
             auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
             if (!inputHandlerPlugs.empty())
