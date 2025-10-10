@@ -11,7 +11,7 @@ namespace Tbx
     {
     public:
         Queryable() = default;
-        explicit Queryable(const std::vector<TItem>& items)
+        Queryable(const std::vector<TItem>& items)
             : Iterable<TItem>(items)
         {
         }

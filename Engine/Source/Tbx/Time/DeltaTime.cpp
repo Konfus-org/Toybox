@@ -1,7 +1,7 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Time/DeltaTime.h"
 
-namespace Tbx::Time
+namespace Tbx
 {
     float DeltaTime::_valueInSeconds;
     std::chrono::high_resolution_clock::time_point DeltaTime::_lastFrameTime;

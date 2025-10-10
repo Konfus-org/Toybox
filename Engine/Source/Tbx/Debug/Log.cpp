@@ -28,7 +28,7 @@ namespace Tbx
 #endif
     }
 
-    void Log::Close()
+    void Log::ClearLogger()
     {
         Flush();
         _logger = nullptr;

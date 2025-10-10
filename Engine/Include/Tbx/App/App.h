@@ -1,11 +1,13 @@
 #pragma once
 #include "Tbx/App/Settings.h"
-#include "Tbx/Memory/Refs.h"
+#include "Tbx/App/Runtime.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/EventListener.h"
 #include "Tbx/Events/WindowEvents.h"
-#include "Tbx/Collections/LayerStack.h"
-#include "Tbx/Plugins/PluginLoader.h"
+#include "Tbx/Windowing/WindowManager.h"
+#include "Tbx/Graphics/GraphicsPipeline.h"
+#include "Tbx/Collections/Collection.h"
+#include "Tbx/Memory/Refs.h"
 
 namespace Tbx
 {
@@ -31,7 +33,7 @@ namespace Tbx
     public:
         App(const std::string_view& name,
             const AppSettings& settings,
-            const PluginContainer& plugins,
+            const Collection<Ref<Plugin>>& plugins,
             Ref<EventBus> eventBus);
         virtual ~App();
 
@@ -54,19 +56,21 @@ namespace Tbx
         void Initialize();
         void Update();
         void Shutdown();
-        void OnWindowOpened(const WindowOpenedEvent& e);
         void OnWindowClosed(const WindowClosedEvent& e);
 
     public:
         AppStatus Status = AppStatus::None;
         AppSettings Settings = {};
-        LayerStack Layers = {};
-        PluginContainer Plugins = {};
+        WindowManager Windowing = {};
+        Collection<Ref<Plugin>> Plugins = {};
+        Collection<Ref<Runtime>> Runtimes = {};
+
+        // TODO: Make a proper dispatcher and the bus will live seperately
         Ref<EventBus> Dispatcher = nullptr;
 
     private:
         std::string _name = "";
-        Uid _mainWindowId = Uid::Invalid;
+        GraphicsPipeline _graphics;
         EventListener _eventListener = {};
     };
 }

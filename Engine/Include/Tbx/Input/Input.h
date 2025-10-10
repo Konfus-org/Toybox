@@ -16,7 +16,7 @@ namespace Tbx
         /// Initializes the global input handler that backs all static queries.
         /// Must be called once before any other Input methods are used.
         /// </summary>
-        static void Initialize(const Ref<IInputHandler>& inputHandler);
+        static void SetHandler(const Ref<IInputHandler>& inputHandler);
 
         /// <summary>
         /// Polls the currently configured input handler for fresh state.
@@ -26,7 +26,7 @@ namespace Tbx
         /// <summary>
         /// Releases the active input handler and returns the system to an uninitialized state.
         /// </summary>
-        static void Shutdown();
+        static void ClearHandler();
 
         /// <summary>
         /// Returns whether a gamepad button was pressed during the current frame.

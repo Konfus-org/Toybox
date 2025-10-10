@@ -21,10 +21,9 @@ namespace Tbx
         static void SetLogger(Ref<ILogger> logger = nullptr);
 
         /// <summary>
-        /// Closes the log.
         /// If we have a logger this clears it and also flushes any queued messages.
         /// </summary>
-        static void Close();
+        static void ClearLogger();
 
         /// <summary>
         /// Write a message to the log.

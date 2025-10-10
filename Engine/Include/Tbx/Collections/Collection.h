@@ -8,6 +8,10 @@ namespace Tbx
     {
     public:
         Collection() = default;
+        Collection(const std::vector<TItem>& items)
+            : Queryable<TItem>(items)
+        {
+        }
 
         template <typename... TArgs>
         void Emplace(TArgs&&... args)

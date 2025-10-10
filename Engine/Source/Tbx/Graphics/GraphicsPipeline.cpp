@@ -15,123 +15,22 @@
 #include "Tbx/Stages/Stage.h"
 #include <algorithm>
 #include <string>
-#include <type_traits>
 #include <unordered_map>
 #include <utility>
 
 namespace Tbx
 {
-    ///////////// HELPERS/UTILS //////////////////
-
     const std::string TRANSFORM_UNIFORM_NAME = "TransformUniform";
     const std::string VIEW_PROJECTION_UNIFORM_NAME = "ViewProjectionUniform";
 
-    using RenderBucket = std::vector<Ref<Toy>>;
-    using RenderBuckets = std::unordered_map<Uid, RenderBucket>;
-
-    /// <summary>
-    /// Attempts to gather mesh and material information for a toy so it can be rendered.
-    /// </summary>
-    static bool TryGetRenderableEntry(const Ref<Toy>& toy, Ref<Toy>& outEntry)
-    {
-        if (!toy)
-        {
-            return false;
-        }
-
-        if (toy->Blocks.Contains<Model>())
-        {
-            const auto& model = toy->Blocks.Get<Model>();
-            outEntry = toy;
-            return true;
-        }
-
-        if (toy->Blocks.Contains<Mesh>() && toy->Blocks.Contains<Material>())
-        {
-            outEntry = toy;
-            return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Collects renderable toys into buckets keyed by shader program, ensuring resources are prepared per program.
-    /// </summary>
-    static RenderBuckets BuildRenderBuckets(const FullStageView& stageView)
-    {
-        RenderBuckets buckets = {};
-
-        for (const auto& toy : stageView)
-        {
-            Ref<Toy> entry = nullptr;
-            if (!TryGetRenderableEntry(toy, entry))
-            {
-                continue;
-            }
-
-            if (!entry->Blocks.Contains<Material>())
-            {
-                continue;
-            }
-
-            const auto& materialBlock = entry->Blocks.Get<Material>();
-            if (materialBlock.ShaderProgram.Id != Uid::Invalid)
-            {
-                continue;
-            }
-
-            const auto shaderProgramId = materialBlock.ShaderProgram.Id;
-            buckets[shaderProgramId].push_back(entry);
-        }
-
-        return buckets;
-    }
-
-    /// <summary>
-    /// Builds view frustums for every active camera, updating their aspect ratio to match the current display.
-    /// </summary>
-    static std::vector<Frustum> BuildCameraFrustums(const FullStageView& stageView, float aspectRatio)
-    {
-        std::vector<Frustum> frustums = {};
-
-        for (const auto& toy : stageView)
-        {
-            if (!toy || !toy->Blocks.Contains<Camera>())
-            {
-                continue;
-            }
-
-            auto& camera = toy->Blocks.Get<Camera>();
-            TBX_ASSERT(aspectRatio > 0.0f, "GraphicsPipeline: aspect ratio must be positive.");
-            if (aspectRatio > 0.0f)
-            {
-                camera.SetAspect(aspectRatio);
-            }
-
-            Vector3 camPos = Vector3::Zero;
-            Quaternion camRot = Quaternion::Identity;
-            if (toy->Blocks.Contains<Transform>())
-            {
-                const auto& camTransform = toy->Blocks.Get<Transform>();
-                camPos = camTransform.Position;
-                camRot = camTransform.Rotation;
-            }
-
-            frustums.push_back(Camera::CalculateFrustum(camPos, camRot, camera.GetProjectionMatrix()));
-        }
-
-        return frustums;
-    }
-
-    ///////////// GRAPHICS PIPELINE //////////////////
-
     GraphicsPipeline::GraphicsPipeline(
+        GraphicsApi startingApi,
         const std::vector<Ref<IGraphicsBackend>>& backends,
         const std::vector<Ref<IGraphicsContextProvider>>& contextProviders,
         Ref<EventBus> eventBus)
         : _eventBus(eventBus)
         , _eventListener(eventBus)
+        , _activeGraphicsApi(startingApi)
     {
         TBX_ASSERT(!backends.empty(), "Rendering: requires at least one graphics backend instance.");
         TBX_ASSERT(_eventBus, "Rendering: requires a valid event bus instance.");
@@ -238,15 +137,64 @@ namespace Tbx
         RenderOpenStages(*renderer);
     }
 
+    StageRenderData GraphicsPipeline::PrepareStageForRendering(GraphicsRenderer& renderer, const FullStageView& stageView, float aspectRatio)
+    {
+        StageRenderData renderData = {};
+
+        for (const auto& toy : stageView)
+        {
+            auto& toyBlocks = toy->Blocks;
+            if (toyBlocks.Contains<Camera>())
+            {
+                auto& camera = toyBlocks.Get<Camera>();
+                TBX_ASSERT(aspectRatio > 0.0f, "GraphicsPipeline: aspect ratio must be positive.");
+                if (aspectRatio > 0.0f)
+                {
+                    camera.SetAspect(aspectRatio);
+                }
+
+                Vector3 camPos = Vector3::Zero;
+                Quaternion camRot = Quaternion::Identity;
+                if (toyBlocks.Contains<Transform>())
+                {
+                    const auto& camTransform = toyBlocks.Get<Transform>();
+                    camPos = camTransform.Position;
+                    camRot = camTransform.Rotation;
+                }
+
+                renderData.Cameras.emplace_back(
+                    Camera::CalculateViewProjectionMatrix(camPos, camRot, camera.GetProjectionMatrix()),
+                    Camera::CalculateFrustum(camPos, camRot, camera.GetProjectionMatrix()));
+            }
+            if (toyBlocks.Contains<Model>() && toyBlocks.Contains<Material>() ||
+                toyBlocks.Contains<Model>() && toyBlocks.Contains<Mesh>())
+            {
+                TBX_ASSERT(false, "You can have a mesh and material, or a model. Not both!");
+            }
+            else if (toyBlocks.Contains<Model>())
+            {
+                const auto& model = toyBlocks.Get<Model>();
+                CacheMaterial(renderer, model.Material);
+                CacheMesh(renderer, model.Mesh);
+                renderData.Buckets[model.Material.ShaderProgram.Id].push_back(toy);
+            }
+            else if (toyBlocks.Contains<Material>() && toyBlocks.Contains<Mesh>())
+            {
+                const auto& mesh = toyBlocks.Get<Mesh>();
+                const auto& material = toyBlocks.Get<Material>();
+                CacheMaterial(renderer, material);
+                CacheMesh(renderer, mesh);
+                renderData.Buckets[material.ShaderProgram.Id].push_back(toy);
+            }
+        }
+
+        return renderData;
+    }
+
     void GraphicsPipeline::RenderOpenStages(GraphicsRenderer& renderer)
     {
         for (const auto& display : _openDisplays)
         {
-            if (!display.Surface || !display.Context)
-            {
-                continue;
-            }
-
             // Start drawing
             auto aspectRatio = display.Surface->GetSize().GetAspectRatio();
             auto viewport = Viewport({0, 0}, display.Surface->GetSize());
@@ -258,120 +206,35 @@ namespace Tbx
             // Draw
             for (const auto& stage : _openStages)
             {
-                auto stageView = FullStageView(stage->GetRoot());
-
                 // Cameras define the visible region for this stage.
-                auto frustums = BuildCameraFrustums(stageView, aspectRatio);
-                if (frustums.empty())
-                {
-                    continue;
-                }
-
-                // Group renderable toys so that shader, mesh, and texture caching happens per program.
-                auto renderBuckets = BuildRenderBuckets(stageView);
-                if (renderBuckets.empty())
-                {
-                    continue;
-                }
+                auto renderData = PrepareStageForRendering(renderer, FullStageView(stage->GetRoot()), aspectRatio);
 
                 // Render things per bucket
-                for (const auto& [shaderProgramId, bucket] : renderBuckets)
+                for (const auto& [shaderProgramId, bucket] : renderData.Buckets)
                 {
-                    if (bucket.empty())
-                    {
-                        continue;
-                    }
-
-                    // Cull what isn't visiable and cache what isn't cached yet.
-                    std::vector<Ref<Toy>> visibleEntities = {};
-                    {
-                        for (const auto& entity : bucket)
-                        {
-                            // Skip objects outside every camera frustum before we touch GPU caches.
-                            if (ShouldCull(entity, frustums))
-                            {
-                                continue;
-                            }
-
-                            // Cache resources for this entity
-                            if (entity->Blocks.Contains<Mesh>() &&
-                                entity->Blocks.Contains<Material>())
-                            {
-                                CacheMaterial(renderer, entity->Blocks.Get<Material>());
-                                CacheMesh(renderer, entity->Blocks.Get<Mesh>());
-                            }
-
-                            // Passed culling was cached, add to visible entities
-                            visibleEntities.push_back(entity);
-                        }
-                        if (visibleEntities.empty())
-                        {
-                            continue;
-                        }
-                    }
-
                     // Bind to the active shader
                     const auto shaderResource = renderer.Cache.ShaderPrograms[shaderProgramId];
                     UseGraphicsResourceScope shaderScope(shaderResource);
 
                     // Draw entities
-                    for (const auto& entityPtr : visibleEntities)
+                    for (const auto& camera : renderData.Cameras)
                     {
-                        const auto& entity = *entityPtr;
+                        ShaderUniform transformUniform = {};
+                        transformUniform.Name = VIEW_PROJECTION_UNIFORM_NAME;
+                        transformUniform.Data = camera.ViewProjection;
+                        shaderResource->Upload(transformUniform);
 
-                        // Upload camera uniforms
-                        if (entity.Blocks.Contains<Camera>())
+                        for (const auto& entityPtr : bucket)
                         {
-                            const auto& camera = entity.Blocks.Get<Camera>();
-
-                            Vector3 camPos = Vector3::Zero;
-                            Quaternion camRot = Quaternion::Identity;
-                            if (entity.Blocks.Contains<Transform>())
+                            // Skip objects outside every camera frustum before we touch GPU caches.
+                            if (ShouldCull(entityPtr, camera.Frustum))
                             {
-                                const auto& camTransform = entity.Blocks.Get<Transform>();
-                                camPos = camTransform.Position;
-                                camRot = camTransform.Rotation;
+                                continue;
                             }
 
-                            auto viewProjMatrix = camera.CalculateViewProjectionMatrix(camPos, camRot, camera.GetProjectionMatrix());
-                            ShaderUniform transformUniform = {};
-                            transformUniform.Name = VIEW_PROJECTION_UNIFORM_NAME;
-                            transformUniform.Data = viewProjMatrix;
-                            shaderResource->Upload(transformUniform);
-                        }
+                            const auto& entity = *entityPtr;
 
-                        // TODO: make material instances that share the same shader program and textures then we can bind to it once per bucket
-                        // Use the the entities material for drawing
-                        std::vector<Ref<TextureResource>> texturesToBind = {};
-                        {
-                            const auto& material = entity.Blocks.Get<Material>();
-                            texturesToBind.reserve(material.Textures.size());
-                            for (size_t textureIndex = 0; textureIndex < material.Textures.size(); ++textureIndex)
-                            {
-                                const auto& texture = material.Textures[textureIndex];
-                                if (!texture)
-                                {
-                                    continue;
-                                }
-
-                                const auto textureResource = renderer.Cache.Textures[texture->Id];
-                                textureResource->SetSlot(static_cast<uint32>(textureIndex));
-                                texturesToBind.push_back(textureResource);
-                            }
-
-                            std::vector<UseGraphicsResourceScope> textureScopes = {};
-                            textureScopes.reserve(texturesToBind.size());
-                            for (const auto& textureResource : texturesToBind)
-                            {
-                                textureScopes.emplace_back(textureResource);
-                            }
-                        }
-
-                        // Bind to the entities mesh and upload its transform info
-                        const auto& mesh = entity.Blocks.Get<Mesh>();
-                        const auto meshResource = renderer.Cache.Meshes[mesh.Id];
-                        UseGraphicsResourceScope meshScope(meshResource);
-                        {
+                            // Upload entities transform
                             Mat4x4 transformMatrix = Mat4x4::Identity;
                             if (entity.Blocks.Contains<Transform>())
                             {
@@ -382,6 +245,30 @@ namespace Tbx
                             transformUniform.Name = TRANSFORM_UNIFORM_NAME;
                             transformUniform.Data = transformMatrix;
                             shaderResource->Upload(transformUniform);
+
+                            // TODO: make material instances that share the same shader program and textures then we can bind to it once per bucket
+                            // Use the the entities textures
+                            std::vector<UseGraphicsResourceScope> textureScopes = {};
+                            const auto& material = entity.Blocks.Get<Material>();
+                            textureScopes.reserve(material.Textures.size());
+                            for (size_t textureIndex = 0; textureIndex < material.Textures.size(); textureIndex++)
+                            {
+                                const auto& texture = material.Textures[textureIndex];
+                                if (!texture)
+                                {
+                                    continue;
+                                }
+
+                                const auto textureResource = renderer.Cache.Textures[texture->Id];
+                                textureResource->SetSlot(static_cast<uint32>(textureIndex));
+                                textureScopes.emplace_back(textureResource);
+                            }
+
+                            // Draw the entities mesh
+                            const auto& mesh = entity.Blocks.Get<Mesh>();
+                            const auto meshResource = renderer.Cache.Meshes[mesh.Id];
+                            UseGraphicsResourceScope meshScope(meshResource);
+                            meshResource->Draw();
                         }
                     }
                 }
@@ -396,7 +283,7 @@ namespace Tbx
         _eventBus->Send(RenderedFrameEvent());
     }
 
-    bool GraphicsPipeline::ShouldCull(const Ref<Toy>& toy, const std::vector<Frustum>& frustums)
+    bool GraphicsPipeline::ShouldCull(const Ref<Toy>& toy, const Frustum& frustum)
     {
         if (!toy)
         {
@@ -414,18 +301,10 @@ namespace Tbx
             return false;
         }
 
-        if (frustums.empty())
-        {
-            return true;
-        }
-
         const auto sphere = BoundingSphere(toy);
-        for (const auto& frustum : frustums)
+        if (frustum.Intersects(sphere))
         {
-            if (frustum.Intersects(sphere))
-            {
-                return false;
-            }
+            return false;
         }
 
         return true;
@@ -534,7 +413,6 @@ namespace Tbx
                 continue;
             }
 
-            resource->RenderId = texture->Id;
             renderer.Cache.Textures.emplace(texture->Id, resource);
         }
 
@@ -563,7 +441,6 @@ namespace Tbx
                 return;
             }
 
-            resource->RenderId = shaderProgramId;
             renderer.Cache.ShaderPrograms.emplace(shaderProgramId, resource);
         }
     }
@@ -582,7 +459,6 @@ namespace Tbx
             return;
         }
 
-        resource->RenderId = mesh.Id;
         renderer.Cache.Meshes.emplace(mesh.Id, resource);
     }
 

@@ -1,6 +1,5 @@
 #pragma once
 #include "Tbx/Graphics/Shader.h"
-#include "Tbx/Graphics/Texture.h"
 #include "Tbx/Graphics/Mesh.h"
 #include "Tbx/Memory/Refs.h"
 #include "Tbx/Ids/Uid.h"
@@ -48,6 +47,7 @@ namespace Tbx
         virtual ~MeshResource() = default;
         virtual void SetVertexBuffer(const VertexBuffer& vbuff) = 0;
         virtual void SetIndexBuffer(const IndexBuffer& ibuff) = 0;
+        virtual void Draw() = 0;
     };
 
     /// <summary>

@@ -4,7 +4,6 @@
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Ids/Uid.h"
 #include "Tbx/Memory/Refs.h"
-#include <mutex>
 #include <type_traits>
 #include <unordered_set>
 
@@ -144,7 +143,6 @@ namespace Tbx
     private:
         WeakRef<EventBus> _bus = {};
         std::unordered_set<Uid> _activeTokens = {};
-        mutable std::mutex _mutex = {};
     };
 }
 

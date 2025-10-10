@@ -16,7 +16,7 @@ namespace Tbx
         using const_reverse_iterator = typename std::vector<TItem>::const_reverse_iterator;
 
         Iterable() = default;
-        explicit Iterable(const std::vector<TItem>& items)
+        Iterable(const std::vector<TItem>& items)
             : _items(items)
         {
         }

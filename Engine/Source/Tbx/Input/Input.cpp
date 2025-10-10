@@ -6,28 +6,22 @@ namespace Tbx
 {
     Ref<IInputHandler> Input::_inputHandler = {};
 
-    void Input::Initialize(const Ref<IInputHandler>& inputHandler)
+    void Input::SetHandler(const Ref<IInputHandler>& inputHandler)
     {
         TBX_ASSERT(inputHandler, "Input: handler was null!");
         _inputHandler = inputHandler;
     }
 
-    void Input::Shutdown()
+    void Input::ClearHandler()
     {
-        if (!_inputHandler)
-        {
-            TBX_ASSERT(false, "Input: was never initialized!");
-            return;
-        }
-
         _inputHandler.reset();
     }
 
     bool Input::EnsureHandler()
     {
-		if (!_inputHandler)
+        if (!_inputHandler)
         {
-            TBX_TRACE_WARNING("Input: has not been initialized yet! Did you call Input::Initialize?");
+            TBX_TRACE_WARNING("Input: no handler has been set!");
         }
         return static_cast<bool>(_inputHandler);
     }

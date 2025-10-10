@@ -10,12 +10,13 @@ namespace Tbx
     class TBX_EXPORT WindowManager
     {
     public:
+        WindowManager() = default;
         WindowManager(
             Ref<IWindowFactory> windowFactory,
             Ref<EventBus> eventBus);
         ~WindowManager();
 
-        void UpdateWindows() const;
+        void Update() const;
 
         Ref<Window> GetMainWindow() const;
         const std::vector<Ref<Window>>& GetAllWindows() const;

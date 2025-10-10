@@ -19,7 +19,7 @@ namespace Tbx
         CloseAllWindows();
     }
 
-    void WindowManager::UpdateWindows() const
+    void WindowManager::Update() const
     {
         for (const auto& window : _stack)
         {

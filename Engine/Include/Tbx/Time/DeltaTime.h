@@ -2,7 +2,7 @@
 #include "Tbx/DllExport.h"
 #include <chrono>
 
-namespace Tbx::Time
+namespace Tbx
 {
     class TBX_EXPORT DeltaTime
     {

@@ -1,9 +1,6 @@
 #include "Tbx/PCH.h"
 #include "Tbx/App/App.h"
 #include "Tbx/App/Runtime.h"
-#include "Tbx/App/Layers/InputLayer.h"
-#include "Tbx/App/Layers/RenderingLayer.h"
-#include "Tbx/App/Layers/WindowingLayer.h"
 #include "Tbx/Graphics/GraphicsBackend.h"
 #include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Assets/AssetServer.h"
@@ -16,12 +13,12 @@
 
 namespace Tbx
 {
-    App::App(const std::string_view& name, const AppSettings& settings, const PluginContainer& plugins, Ref<EventBus> eventBus)
+    App::App(const std::string_view& name, const AppSettings& settings, const Collection<Ref<Plugin>>& plugins, Ref<EventBus> eventBus)
         : _name(name)
         , Settings(settings)
         , Dispatcher(eventBus)
-        , _eventListener(eventBus)
         , Plugins(plugins)
+        , _eventListener(eventBus)
     {
     }
 
@@ -77,7 +74,6 @@ namespace Tbx
         TBX_TRACE_INFO("App: Current asset directory is: {}\n", assetDirectory);
 
         // Sub to window closing so we can listen for main window closed to init app shutdown
-        _eventListener.Listen(this, &App::OnWindowOpened);
         _eventListener.Listen(this, &App::OnWindowClosed);
 
         // Init core plugin driven systems (if we have the plugins for them)
@@ -89,22 +85,19 @@ namespace Tbx
                 TBX_ASSERT(windowFactoryPlugs.size() == 1, "App: Only one window factory is allowed!");
                 auto windowFactory = windowFactoryPlugs.front();
                 const auto& appName = _name;
-                Layers.Add<WindowingLayer>(appName, windowFactory, Dispatcher);
+                Windowing = WindowManager(windowFactory, Dispatcher);
             }
 
             auto graphicsBackends = Plugins.OfType<IGraphicsBackend>();
             auto contextProviders = Plugins.OfType<IGraphicsContextProvider>();
-            Layers.Add<RenderingLayer>(graphicsBackends, contextProviders, Dispatcher);
+            _graphics = GraphicsPipeline(Settings.RenderingApi, graphicsBackends, contextProviders, Dispatcher);
 
             auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
             if (!inputHandlerPlugs.empty())
             {
                 TBX_ASSERT(inputHandlerPlugs.size() == 1, "App: Only one input handler is allowed!");
                 auto inputHandler = inputHandlerPlugs.front();
-
-                // TODO remove layers from app and move to runtimes
-                // Then move the existing layers to static plugins and add update logic to plugs...
-                Layers.Add<InputLayer>(inputHandler);
+                Input::SetHandler(inputHandler);
             }
         }
 
@@ -118,21 +111,33 @@ namespace Tbx
         for (const auto& runtime : runtimes)
         {
             runtime->Initialize(assetServer, Dispatcher);
+            Runtimes.Add(runtime);
         }
 
         // Broadcast app launched events
         Dispatcher->Send(AppSettingsChangedEvent(Settings));
         Dispatcher->Send(AppLaunchedEvent(this));
+
+        // Open main window
+#ifdef TBX_DEBUG
+        Windowing.OpenWindow(_name, WindowMode::Windowed, Size(1920, 1080));
+#else
+        Windowing.OpenWindow(_name, WindowMode::Fullscreen);
+#endif
     }
 
     void App::Update()
     {
-        Time::DeltaTime::Update();
-        Log::Flush();
+        // Update core systems
+        _graphics.Update();
+        Windowing.Update();
+        DeltaTime::Update();
+        Input::Update();
 
-        for (const auto& layer : Layers)
+        // Update runtimes
+        for (const auto& runtime : Runtimes)
         {
-            layer->Update();
+            runtime->Update();
         }
 
         // Allow other systems to hook into update
@@ -159,6 +164,9 @@ namespace Tbx
             Status = AppStatus::Reloading;
         }
 #endif
+
+        // Flush to log at the end of every frame
+        Log::Flush();
     }
 
     void App::Shutdown()
@@ -168,6 +176,10 @@ namespace Tbx
         auto hadError = Status == AppStatus::Error;
         auto isRestarting = Status == AppStatus::Reloading;
         Status = AppStatus::Closing;
+
+        // Stop listening to input
+        Windowing.CloseAllWindows();
+        Input::ClearHandler();
 
         // Allow other systems to hook into shutdown
         OnShutdown();
@@ -188,19 +200,11 @@ namespace Tbx
         }
     }
 
-    void App::OnWindowOpened(const WindowOpenedEvent& e)
-    {
-        if (_mainWindowId == Uid::Invalid)
-        {
-            _mainWindowId = e.GetWindow()->Id;
-        }
-    }
-
     void App::OnWindowClosed(const WindowClosedEvent& e)
     {
         // If the window is our main window, set running flag to false which will trigger the app to close
         const auto window = e.GetWindow();
-        if (window->Id == _mainWindowId)
+        if (window->Id == Windowing.GetMainWindow()->Id)
         {
             // Stop running and close all windows
             Status = AppStatus::Closing;

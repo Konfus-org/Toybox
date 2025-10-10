@@ -3,6 +3,7 @@
 #include "Tbx/Debug/ILogger.h"
 #include "Tbx/Debug/Log.h"
 #include "Tbx/Plugins/PluginFinder.h"
+#include "Tbx/Plugins/PluginLoader.h"
 
 namespace Tbx::Launcher
 {
@@ -22,7 +23,7 @@ namespace Tbx::Launcher
             // Create and run the app
             {
                 // Load plugins
-                PluginContainer plugins;
+                Collection<Ref<Plugin>> plugins;
                 {
                     auto pluginMetas = PluginFinder(FileSystem::GetPluginDirectory(), config.Plugins).Result();
                     plugins = PluginLoader(pluginMetas, eventBus).Results();
@@ -53,7 +54,7 @@ namespace Tbx::Launcher
             }
 
             // Last thing we do is close the log
-            Log::Close();
+            Log::ClearLogger();
         }
 
         return status;

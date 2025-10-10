@@ -91,30 +91,6 @@ namespace Tbx
         return true;
     }
 
-    PluginContainer::PluginContainer(const std::vector<Ref<Plugin>>& plugins)
-        : Queryable<Ref<Plugin>>(plugins)
-    {
-    }
-
-    Ref<Plugin> PluginContainer::OfName(const std::string& pluginName) const
-    {
-        const auto& plugins = this->All();
-        const auto it = std::find_if(
-            plugins.begin(),
-            plugins.end(),
-            [&pluginName](const Ref<Plugin>& plugin)
-            {
-                return plugin != nullptr && plugin->Meta.Name == pluginName;
-            });
-
-        if (it != plugins.end())
-        {
-            return *it;
-        }
-
-        return nullptr;
-    }
-
     PluginLoader::PluginLoader(
         const std::vector<PluginMeta>& pluginMetas,
         Ref<EventBus> eventBus)
@@ -123,9 +99,9 @@ namespace Tbx
         LoadPlugins(pluginMetas);
     }
 
-    PluginContainer PluginLoader::Results()
+    Collection<Ref<Plugin>> PluginLoader::Results()
     {
-        return PluginContainer(std::move(_plugins));
+        return Collection<Ref<Plugin>>(std::move(_plugins));
     }
 
     void PluginLoader::LoadPlugins(const std::vector<PluginMeta>& pluginMetas)

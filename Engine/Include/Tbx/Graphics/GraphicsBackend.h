@@ -3,7 +3,7 @@
 #include "Tbx/Graphics/Color.h"
 #include "Tbx/Graphics/GraphicsApi.h"
 #include "Tbx/Graphics/GraphicsContext.h"
-#include "Tbx/Graphics/GraphicsResource.h"
+#include "Tbx/Graphics/GraphicsResources.h"
 #include "Tbx/Graphics/Viewport.h"
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Graphics/Texture.h"

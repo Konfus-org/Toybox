@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/Events/EventBus.h"
-#include "Tbx/Collections/Queryable.h"
+#include "Tbx/Collections/Collection.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Plugins/Plugin.h"
 #include "Tbx/Memory/Refs.h"
@@ -9,15 +9,6 @@
 
 namespace Tbx
 {
-    class TBX_EXPORT PluginContainer : public Queryable<Ref<Plugin>>
-    {
-    public:
-        PluginContainer() = default;
-        PluginContainer(const std::vector<Ref<Plugin>>& plugins);
-        Ref<Plugin> OfName(const std::string& pluginName) const;
-    };
-
-
     /// <summary>
     /// Responsible for loading plugins described by metadata and providing access to them.
     /// </summary>
@@ -31,7 +22,7 @@ namespace Tbx
         /// <summary>
         /// Produces the loaded plugin collection, transferring ownership to the caller.
         /// </summary>
-        PluginContainer Results();
+        Collection<Ref<Plugin>> Results();
 
     private:
         void LoadPlugins(const std::vector<PluginMeta>& pluginMetas);

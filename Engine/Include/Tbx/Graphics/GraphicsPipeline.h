@@ -2,11 +2,12 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Graphics/GraphicsBackend.h"
 #include "Tbx/Graphics/GraphicsContext.h"
-#include "Tbx/Graphics/GraphicsResource.h"
+#include "Tbx/Graphics/GraphicsResources.h"
 #include "Tbx/Graphics/Frustum.h"
 #include "Tbx/Graphics/Material.h"
 #include "Tbx/Windowing/Window.h"
 #include "Tbx/Stages/Stage.h"
+#include "Tbx/Stages/Views.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/EventListener.h"
 #include "Tbx/Events/StageEvents.h"
@@ -18,6 +19,21 @@
 
 namespace Tbx
 {
+    using RenderBucket = std::vector<Ref<Toy>>;
+    using RenderBuckets = std::unordered_map<Uid, RenderBucket>;
+
+    struct CameraData
+    {
+        Mat4x4 ViewProjection;
+        Frustum Frustum;
+    };
+
+    struct StageRenderData
+    {
+        RenderBuckets Buckets = {};
+        std::vector<CameraData> Cameras = {};
+    };
+
     struct TBX_EXPORT GraphicsDisplay
     {
         Ref<Window> Surface = nullptr;
@@ -56,28 +72,21 @@ namespace Tbx
     class TBX_EXPORT GraphicsPipeline
     {
     public:
+        GraphicsPipeline() = default;
         GraphicsPipeline(
+            GraphicsApi startingApi,
             const std::vector<Ref<IGraphicsBackend>>& backends,
             const std::vector<Ref<IGraphicsContextProvider>>& contextProviders,
             Ref<EventBus> eventBus);
 
-        /// <summary>
-        /// Drives the rendering pipeline for all open stages and windows.
-        /// </summary>
         void Update();
 
     private:
         void DrawFrame();
-
-        /// <summary>
-        /// Iterates active displays and stages to prepare resources before presenting each surface.
-        /// </summary>
+        StageRenderData PrepareStageForRendering(GraphicsRenderer& renderer, const FullStageView& stageView, float aspectRatio);
         void RenderOpenStages(GraphicsRenderer& renderer);
 
-        /// <summary>
-        /// Checks whether a toy lies outside all active view frustums and should be skipped.
-        /// </summary>
-        bool ShouldCull(const Ref<Toy>& toy, const std::vector<Frustum>& frustums);
+        bool ShouldCull(const Ref<Toy>& toy, const Frustum& frustum);
         void AddStage(const Ref<Stage>& stage);
         void RemoveStage(const Ref<Stage>& stage);
 

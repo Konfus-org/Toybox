@@ -4,6 +4,7 @@
 #include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/EventListener.h"
+#include "Tbx/Collections/LayerStack.h"
 
 namespace Tbx
 {
@@ -35,6 +36,7 @@ namespace Tbx
     protected:
         Ref<AssetServer> Assets = nullptr;
         Ref<EventBus> Dispatcher = nullptr;
+        LayerStack Layers = {};
         EventListener Listener = {};
     };
 
