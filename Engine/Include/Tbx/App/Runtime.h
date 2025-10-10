@@ -8,6 +8,9 @@
 
 namespace Tbx
 {
+    /// <summary>
+    /// A way to add logic that hooks into an apps lifetime.
+    /// </summary>
     class IRuntime
     {
     public:
@@ -40,16 +43,10 @@ namespace Tbx
         EventListener Listener = {};
     };
 
-    /// <summary>
-    /// This is a layer added at runtime via the plugin system via a runtime loader.
-    /// </summary>
     class TBX_EXPORT StaticRuntime : public StaticPlugin, public IRuntime
     {
     };
 
-    /// <summary>
-    /// This is a layer added at runtime via the plugin system via a runtime loader.
-    /// </summary>
     class TBX_EXPORT Runtime : public Plugin, public IRuntime
     {
     };

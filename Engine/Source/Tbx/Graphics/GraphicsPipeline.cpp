@@ -467,12 +467,19 @@ namespace Tbx
         const auto& newSettings = e.GetNewSettings();
         auto desiredApi = newSettings.RenderingApi;
 
-        _clearColor = newSettings.ClearColor;
         if (_activeGraphicsApi != desiredApi)
         {
             _activeGraphicsApi = desiredApi;
             RecreateRenderersForCurrentApi();
         }
+
+        _vsync = newSettings.Vsync;
+        for (auto& display : _openDisplays)
+        {
+            display.Context->SetVsync(newSettings.Vsync);
+        }
+
+        _clearColor = newSettings.ClearColor;
     }
 
     void GraphicsPipeline::OnWindowOpened(const WindowOpenedEvent& e)
@@ -497,6 +504,7 @@ namespace Tbx
             return;
         }
 
+        context->SetVsync(_vsync);
         _openDisplays.emplace_back(newWindow, context);
     }
 

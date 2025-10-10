@@ -79,6 +79,12 @@ namespace Tbx
             const std::vector<Ref<IGraphicsContextProvider>>& contextProviders,
             Ref<EventBus> eventBus);
 
+        GraphicsPipeline(const GraphicsPipeline&) = delete;
+        GraphicsPipeline& operator=(const GraphicsPipeline&) = delete;
+
+        GraphicsPipeline(GraphicsPipeline&&) = default;
+        GraphicsPipeline& operator=(GraphicsPipeline&&) = default;
+
         void Update();
 
     private:
@@ -115,6 +121,7 @@ namespace Tbx
         EventListener _eventListener = {};
 
         GraphicsApi _activeGraphicsApi = GraphicsApi::None;
+        VsyncMode _vsync = VsyncMode::Adaptive;
         RgbaColor _clearColor = {};
     };
 }

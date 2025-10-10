@@ -34,6 +34,7 @@ namespace Tbx
     {
         std::vector<Uid> tokens;
         {
+            std::scoped_lock lock(_mutex);
             tokens.assign(_activeTokens.begin(), _activeTokens.end());
             _activeTokens.clear();
         }
@@ -72,7 +73,10 @@ namespace Tbx
             return;
         }
 
-        _activeTokens.erase(token);
+        {
+            std::scoped_lock lock(_mutex);
+            _activeTokens.erase(token);
+        }
 
         auto bus = LockBus();
         if (!bus)
@@ -91,6 +95,7 @@ namespace Tbx
             return;
         }
 
+        std::scoped_lock lock(_mutex);
         _activeTokens.insert(token);
     }
 
@@ -99,4 +104,3 @@ namespace Tbx
         return _bus.lock();
     }
 }
-

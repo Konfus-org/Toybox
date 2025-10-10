@@ -20,6 +20,23 @@ namespace Tbx
         , Plugins(plugins)
         , _eventListener(eventBus)
     {
+        // Create core plugin driven systems
+        Graphics = GraphicsManager(Settings.RenderingApi, Plugins.OfType<IGraphicsBackend>(), Plugins.OfType<IGraphicsContextProvider>(), Dispatcher);
+        auto windowFactoryPlugs = Plugins.OfType<IWindowFactory>();
+        if (!windowFactoryPlugs.empty())
+        {
+            TBX_ASSERT(windowFactoryPlugs.size() == 1, "App: Only one window factory is allowed!");
+            auto windowFactory = windowFactoryPlugs.front();
+            const auto& appName = _name;
+            Windowing = WindowManager(windowFactory, Dispatcher);
+        }
+        auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
+        if (!inputHandlerPlugs.empty())
+        {
+            TBX_ASSERT(inputHandlerPlugs.size() == 1, "App: Only one input handler is allowed!");
+            auto inputHandler = inputHandlerPlugs.front();
+            Input::SetHandler(inputHandler);
+        }
     }
 
     App::~App()
@@ -76,35 +93,10 @@ namespace Tbx
         // Sub to window closing so we can listen for main window closed to init app shutdown
         _eventListener.Listen(this, &App::OnWindowClosed);
 
-        // Init core plugin driven systems (if we have the plugins for them)
-        // The order in which they are added is the order they are updated
-        {
-            auto graphicsBackends = Plugins.OfType<IGraphicsBackend>();
-            auto contextProviders = Plugins.OfType<IGraphicsContextProvider>();
-            _graphics = GraphicsPipeline(Settings.RenderingApi, graphicsBackends, contextProviders, Dispatcher);
-
-            auto windowFactoryPlugs = Plugins.OfType<IWindowFactory>();
-            if (!windowFactoryPlugs.empty())
-            {
-                TBX_ASSERT(windowFactoryPlugs.size() == 1, "App: Only one window factory is allowed!");
-                auto windowFactory = windowFactoryPlugs.front();
-                const auto& appName = _name;
-                Windowing = WindowManager(windowFactory, Dispatcher);
-            }
-
-            auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
-            if (!inputHandlerPlugs.empty())
-            {
-                TBX_ASSERT(inputHandlerPlugs.size() == 1, "App: Only one input handler is allowed!");
-                auto inputHandler = inputHandlerPlugs.front();
-                Input::SetHandler(inputHandler);
-            }
-        }
-
         // Allow other systems to hook into launch
         OnLaunch();
 
-        // Bind runtimes to this app
+        // Init runtimes
         auto assetLoaderPlugs = Plugins.OfType<IAssetLoader>();
         auto assetServer = MakeRef<AssetServer>(assetDirectory, assetLoaderPlugs);
         auto runtimes = Plugins.OfType<Runtime>();
@@ -129,10 +121,10 @@ namespace Tbx
     void App::Update()
     {
         // Update core systems
-        _graphics.Update();
-        Windowing.Update();
         DeltaTime::Update();
         Input::Update();
+        Windowing.Update();
+        Graphics.Update();
 
         // Update runtimes
         for (const auto& runtime : Runtimes)
@@ -162,6 +154,15 @@ namespace Tbx
             // There is a leak somewhere...
             TBX_TRACE_INFO("App: Reloading...\n");
             Status = AppStatus::Reloading;
+        }
+        // Shortcut to report things like framerate and memory consumption
+        else if (Input::IsKeyDown(TBX_KEY_F4))
+        {
+            // TODO: App slowly eats up more memory every restart, we need to track down why and fix it!
+            // There is a leak somewhere...
+            TBX_TRACE_INFO("App: Reporting...\n");
+
+            // TODO: Generate frame report!
         }
 #endif
 

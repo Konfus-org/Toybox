@@ -8,16 +8,6 @@ namespace Tbx
     class Window;
 
     /// <summary>
-    /// Represents the available vertical sync modes for a graphics context swap chain.
-    /// </summary>
-    enum class VsyncMode
-    {
-        Off,
-        On,
-        Adaptive
-    };
-
-    /// <summary>
     /// Represents a graphics context responsible for managing a windows rendering.
     /// </summary>
     class TBX_EXPORT IGraphicsContext

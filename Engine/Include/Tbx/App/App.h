@@ -5,7 +5,7 @@
 #include "Tbx/Events/EventListener.h"
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Windowing/WindowManager.h"
-#include "Tbx/Graphics/GraphicsPipeline.h"
+#include "Tbx/Graphics/GraphicsManager.h"
 #include "Tbx/Collections/Collection.h"
 #include "Tbx/Memory/Refs.h"
 
@@ -62,15 +62,16 @@ namespace Tbx
         AppStatus Status = AppStatus::None;
         AppSettings Settings = {};
         WindowManager Windowing = {};
+        GraphicsManager Graphics = {};
         Collection<Ref<Plugin>> Plugins = {};
         Collection<Ref<Runtime>> Runtimes = {};
 
-        // TODO: Make a proper dispatcher and the bus will live seperately
+        // TODO: Make a proper dispatcher and the bus will live seperately and just keep track of subscriptions...
+        // it won't deal with dispatching or posting or anything like that.
         Ref<EventBus> Dispatcher = nullptr;
 
     private:
         std::string _name = "";
-        GraphicsPipeline _graphics;
         EventListener _eventListener = {};
     };
 }
