@@ -106,6 +106,7 @@ namespace Tbx
         void CacheMaterial(GraphicsRenderer& renderer, const Material& shaders);
         void CacheMesh(GraphicsRenderer& renderer, const Mesh& mesh);
 
+        // TODO: Move some of this to the graphics manager!
         void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
         void OnWindowOpened(const WindowOpenedEvent& e);
         void OnWindowClosed(const WindowClosedEvent& e);
