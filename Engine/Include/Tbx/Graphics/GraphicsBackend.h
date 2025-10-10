@@ -33,6 +33,11 @@ namespace Tbx
         virtual void SetContext(Ref<IGraphicsContext> context) = 0;
 
         /// <summary>
+        /// Enables or disables depth testing for subsequent draw calls.
+        /// </summary>
+        virtual void EnableDepthTesting(bool enabled) = 0;
+
+        /// <summary>
         /// Begins drawing to the active render target using the provided viewport.
         /// </summary>
         virtual void BeginDraw(const RgbaColor& clearColor, const Viewport& viewport) = 0;

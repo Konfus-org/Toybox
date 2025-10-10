@@ -3,17 +3,15 @@
 #include "Tbx/Graphics/GraphicsBackend.h"
 #include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Graphics/GraphicsResources.h"
+#include "Tbx/Graphics/RenderPass.h"
 #include "Tbx/Graphics/Frustum.h"
 #include "Tbx/Graphics/Material.h"
 #include "Tbx/Windowing/Window.h"
 #include "Tbx/Stages/Stage.h"
 #include "Tbx/Stages/Views.h"
-#include "Tbx/Events/EventBus.h"
-#include "Tbx/Events/EventListener.h"
-#include "Tbx/Events/StageEvents.h"
-#include "Tbx/Events/WindowEvents.h"
-#include "Tbx/Events/AppEvents.h"
 #include "Tbx/Memory/Refs.h"
+#include <cstddef>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -30,7 +28,7 @@ namespace Tbx
 
     struct StageRenderData
     {
-        RenderBuckets Buckets = {};
+        std::vector<RenderBuckets> PassBuckets = {};
         std::vector<CameraData> Cameras = {};
     };
 
@@ -74,11 +72,7 @@ namespace Tbx
     {
     public:
         GraphicsPipeline() = default;
-        GraphicsPipeline(
-            GraphicsApi startingApi,
-            const std::vector<Ref<IGraphicsBackend>>& backends,
-            const std::vector<Ref<IGraphicsContextProvider>>& contextProviders,
-            Ref<EventBus> eventBus);
+        explicit GraphicsPipeline(std::vector<RenderPassDescriptor> passes = {});
 
         GraphicsPipeline(const GraphicsPipeline&) = delete;
         GraphicsPipeline& operator=(const GraphicsPipeline&) = delete;
@@ -86,45 +80,26 @@ namespace Tbx
         GraphicsPipeline(GraphicsPipeline&&) = default;
         GraphicsPipeline& operator=(GraphicsPipeline&&) = default;
 
-        void Update();
+        void SetRenderPasses(std::vector<RenderPassDescriptor> passes);
+        const std::vector<RenderPassDescriptor>& GetRenderPasses() const { return _renderPasses; }
+
+        void SetRenderer(GraphicsRenderer* renderer);
+        void Render(const GraphicsDisplay& display, const std::vector<Ref<Stage>>& stages, const RgbaColor& clearColor);
 
     private:
-        void DrawFrame();
-        StageRenderData PrepareStageForRendering(GraphicsRenderer& renderer, const FullStageView& stageView, float aspectRatio);
-        void RenderOpenStages(GraphicsRenderer& renderer);
+        StageRenderData PrepareStageForRendering(const FullStageView& stageView, float aspectRatio);
 
         bool ShouldCull(const Ref<Toy>& toy, const Frustum& frustum);
-        void AddStage(const Ref<Stage>& stage);
-        void RemoveStage(const Ref<Stage>& stage);
 
-        void InitializeRenderers(
-            const std::vector<Tbx::Ref<Tbx::IGraphicsBackend>>& backends,
-            const std::vector<Tbx::Ref<Tbx::IGraphicsContextProvider>>& contextProviders);
-        GraphicsRenderer* GetRenderer(GraphicsApi api);
-        void RecreateRenderersForCurrentApi();
+        void CacheShaders(const ShaderProgram& shaders);
+        void CacheMaterial(const Material& shaders);
+        void CacheMesh(const Mesh& mesh);
 
-        void CacheShaders(GraphicsRenderer& renderer, const ShaderProgram& shaders);
-        void CacheMaterial(GraphicsRenderer& renderer, const Material& shaders);
-        void CacheMesh(GraphicsRenderer& renderer, const Mesh& mesh);
-
-        // TODO: Move some of this to the graphics manager!
-        void OnAppSettingsChanged(const AppSettingsChangedEvent& e);
-        void OnWindowOpened(const WindowOpenedEvent& e);
-        void OnWindowClosed(const WindowClosedEvent& e);
-        void OnStageOpened(const StageOpenedEvent& e);
-        void OnStageClosed(const StageClosedEvent& e);
+        size_t ResolveRenderPassIndex(const Material& material) const;
 
     private:
-        std::vector<Ref<Stage>> _openStages = {};
-        std::vector<GraphicsDisplay> _openDisplays = {};
-        std::unordered_map<GraphicsApi, GraphicsRenderer> _renderers = {};
-
-        Ref<EventBus> _eventBus = nullptr;
-        EventListener _eventListener = {};
-
-        GraphicsApi _activeGraphicsApi = GraphicsApi::None;
-        VsyncMode _vsync = VsyncMode::Adaptive;
-        RgbaColor _clearColor = {};
+        std::vector<RenderPassDescriptor> _renderPasses = {};
+        GraphicsRenderer* _renderer = nullptr;
     };
 }
 
