@@ -9,7 +9,7 @@ namespace Tbx
 
     using RenderPassFilter = std::function<bool(const Material&)>;
 
-    struct TBX_EXPORT RenderPassDescriptor
+    struct TBX_EXPORT RenderPass
     {
         std::string Name = {};
         bool DepthTestEnabled = true;

@@ -19,14 +19,14 @@ namespace Tbx
         static void SetHandler(const Ref<IInputHandler>& inputHandler);
 
         /// <summary>
-        /// Polls the currently configured input handler for fresh state.
-        /// </summary>
-        static void Update();
-
-        /// <summary>
         /// Releases the active input handler and returns the system to an uninitialized state.
         /// </summary>
         static void ClearHandler();
+
+        /// <summary>
+        /// Polls the currently configured input handler for fresh state.
+        /// </summary>
+        static void Update();
 
         /// <summary>
         /// Returns whether a gamepad button was pressed during the current frame.

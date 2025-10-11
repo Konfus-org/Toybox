@@ -26,6 +26,8 @@ namespace Tbx
         /// </summary>
         virtual void OnStart() {}
 
+        // TODO: Need a fixed and late update!
+
         /// <summary>
         /// Called when the owning app is updated.
         /// </summary>

@@ -1,14 +1,13 @@
 #pragma once
 #include "Tbx/Graphics/GraphicsPipeline.h"
+#include "Tbx/Graphics/RenderPass.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/EventListener.h"
 #include "Tbx/Events/StageEvents.h"
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Events/AppEvents.h"
-#include "Tbx/Events/RenderEvents.h"
-#include <vector>
 #include <unordered_map>
-#include <utility>
+#include <vector>
 
 namespace Tbx
 {
@@ -22,10 +21,8 @@ namespace Tbx
             const std::vector<Ref<IGraphicsContextProvider>>& contextProviders,
             Ref<EventBus> eventBus);
 
-        void Update();
-
-        void SetRenderPasses(std::vector<RenderPassDescriptor> passes);
-        const std::vector<RenderPassDescriptor>& GetRenderPasses() const;
+        void SetRenderPasses(const std::vector<RenderPass>& passes);
+        void Render();
 
     private:
         void InitializeRenderers(
@@ -40,12 +37,13 @@ namespace Tbx
         void OnStageOpened(const StageOpenedEvent& e);
         void OnStageClosed(const StageClosedEvent& e);
 
-        static std::vector<RenderPassDescriptor> CreateDefaultRenderPasses();
+        static std::vector<RenderPass> CreateDefaultRenderPasses();
 
     private:
-        ExclusiveRef<GraphicsPipeline> _pipeline = nullptr;
-        Ref<EventBus> _eventBus = nullptr;
+        GraphicsPipeline _pipeline = {};
+
         EventListener _eventListener = {};
+        Ref<EventBus> _eventBus = nullptr;
 
         std::vector<Ref<Stage>> _openStages = {};
         std::vector<GraphicsDisplay> _openDisplays = {};
