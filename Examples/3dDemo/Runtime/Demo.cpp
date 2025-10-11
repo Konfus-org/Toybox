@@ -116,8 +116,8 @@ void Demo::OnUpdate()
         // Camera rotation
         {
             const float camRotateSpeedDegPerSec = 180.0f; // for keys / gamepad (keep with deltaTime)
-            const float mouseSensitivityDegPerPx = 0.15f; // tune to taste
-            const float mouseSmoothingRate = 25.0f;       // higher == snappier response, lower == smoother
+            const float mouseSensitivityDegPerPx = 0.25f; // tune to taste
+            const float mouseSmoothingRate = 10.0f;       // higher == snappier response, lower == smoother
 
             // Arrow and gamepad btn style
             {

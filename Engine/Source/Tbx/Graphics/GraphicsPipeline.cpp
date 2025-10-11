@@ -51,8 +51,8 @@ namespace Tbx
             }
         }
 
-        renderer.Backend->EndDraw();
         display.Context->Present();
+        renderer.Backend->EndDraw();
     }
 
     void GraphicsPipeline::RenderStage(uint32 passIndex, Tbx::GraphicsRenderer& renderer, Tbx::StageRenderData& renderData)

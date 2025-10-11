@@ -33,7 +33,7 @@ namespace Tbx
             return;
         }
 
-        _inputHandler->Update();
+        _inputHandler->RefreshInputStates();
     }
 
     bool Input::IsGamepadButtonDown(const int playerIndex, const int button)

@@ -9,7 +9,7 @@ namespace Tbx
     public:
         virtual ~IInputHandler() = default;
 
-        virtual void Update() = 0;
+        virtual void RefreshInputStates() = 0;
 
         virtual bool IsGamepadButtonDown(int playerIndex, int button) const = 0;
         virtual bool IsGamepadButtonUp(int playerIndex, int button) const = 0;
