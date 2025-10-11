@@ -22,6 +22,7 @@ namespace Tbx
             Ref<EventBus> eventBus);
 
         void SetRenderPasses(const std::vector<RenderPass>& passes);
+        const std::vector<RenderPass>& GetRenderPasses() const;
         void Render();
 
     private:

@@ -57,7 +57,6 @@ namespace Tbx
         void Update();
         void Shutdown();
         void OnWindowClosed(const WindowClosedEvent& e);
-        void DumpFrameReport() const;
 
     public:
         // TODO: Make a proper dispatcher and the bus will live seperately and just keep track of subscriptions...
@@ -73,5 +72,10 @@ namespace Tbx
     private:
         std::string _name = "";
         EventListener _eventListener = {};
+
+        // TODO: move this elsewhere! Perhaps a plugin?
+        void DumpFrameReport() const;
+        bool _captureDebugData = false;
+        int _frameCount = 0;
     };
 }

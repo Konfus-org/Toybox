@@ -58,7 +58,12 @@ namespace Tbx
             return;
         }
 
-        _pipeline.SetRenderPasses(passes);
+        _pipeline.RenderPasses = passes;
+    }
+
+    const std::vector<RenderPass>& GraphicsManager::GetRenderPasses() const
+    {
+        return _pipeline.RenderPasses;
     }
 
     void GraphicsManager::InitializeRenderers(

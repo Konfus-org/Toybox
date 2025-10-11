@@ -70,7 +70,6 @@ namespace Tbx
     public:
         GraphicsPipeline() = default;
         explicit GraphicsPipeline(std::vector<RenderPass> passes);
-        void SetRenderPasses(const std::vector<RenderPass>& passes);
         void Render(GraphicsRenderer& renderer, const GraphicsDisplay& display, const std::vector<Ref<Stage>>& stages, const RgbaColor& clearColor);
 
     private:
@@ -83,8 +82,8 @@ namespace Tbx
         bool ShouldCull(const Ref<Toy>& toy, const Frustum& frustum);
         size_t ResolveRenderPassIndex(const Material& material) const;
 
-    private:
-        std::vector<RenderPass> _renderPasses = {};
+    public:
+        std::vector<RenderPass> RenderPasses = {};
     };
 }
 

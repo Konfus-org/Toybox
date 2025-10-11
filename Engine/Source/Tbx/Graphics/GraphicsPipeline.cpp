@@ -14,50 +14,16 @@
 #include "Tbx/Stages/Stage.h"
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 
 namespace Tbx
 {
-    namespace
-    {
-        const std::string TRANSFORM_UNIFORM_NAME = "TransformUniform";
-        const std::string VIEW_PROJECTION_UNIFORM_NAME = "ViewProjectionUniform";
-    }
+    const std::string TRANSFORM_UNIFORM_NAME = "TransformUniform";
+    const std::string VIEW_PROJECTION_UNIFORM_NAME = "ViewProjectionUniform";
 
     GraphicsPipeline::GraphicsPipeline(std::vector<RenderPass> passes)
     {
-        SetRenderPasses(passes);
-    }
-
-    void GraphicsPipeline::SetRenderPasses(const std::vector<RenderPass>& passes)
-    {
-        std::vector<RenderPass> filtered = {};
-        std::unordered_set<std::string> uniqueNames = {};
-        uniqueNames.reserve(passes.size());
-
-        for (auto& pass : passes)
-        {
-            if (pass.Name.empty())
-            {
-                continue;
-            }
-
-            if (!uniqueNames.emplace(pass.Name).second)
-            {
-                continue;
-            }
-
-            filtered.push_back(std::move(pass));
-        }
-
-        if (filtered.empty())
-        {
-            TBX_ASSERT(false, "GraphicsPipeline: At least one render pass must be provided.");
-            return;
-        }
-
-        _renderPasses = std::move(filtered);
+        RenderPasses = passes;
     }
 
     void GraphicsPipeline::Render(
@@ -79,7 +45,7 @@ namespace Tbx
         {
             auto renderData = PrepareStageForRendering(renderer, FullStageView(stage->GetRoot()), aspectRatio);
 
-            for (uint32 passIndex = 0; passIndex < _renderPasses.size(); ++passIndex)
+            for (uint32 passIndex = 0; passIndex < RenderPasses.size(); ++passIndex)
             {
                 RenderStage(passIndex, renderer, renderData);
             }
@@ -91,7 +57,7 @@ namespace Tbx
 
     void GraphicsPipeline::RenderStage(uint32 passIndex, Tbx::GraphicsRenderer& renderer, Tbx::StageRenderData& renderData)
     {
-        const auto& pass = _renderPasses[passIndex];
+        const auto& pass = RenderPasses[passIndex];
         renderer.Backend->EnableDepthTesting(pass.DepthTestEnabled);
 
         const auto& buckets = renderData.PassBuckets[passIndex];
@@ -181,7 +147,7 @@ namespace Tbx
         float aspectRatio)
     {
         StageRenderData renderData = {};
-        renderData.PassBuckets.resize(_renderPasses.size());
+        renderData.PassBuckets.resize(RenderPasses.size());
 
         for (const auto& toy : stageView)
         {
@@ -356,17 +322,17 @@ namespace Tbx
 
     size_t GraphicsPipeline::ResolveRenderPassIndex(const Material& material) const
     {
-        TBX_ASSERT(!_renderPasses.empty(), "GraphicsPipeline: Render passes must be configured before drawing.");
-        if (_renderPasses.empty())
+        TBX_ASSERT(!RenderPasses.empty(), "GraphicsPipeline: Render passes must be configured before drawing.");
+        if (RenderPasses.empty())
         {
             return 0;
         }
 
         size_t fallbackIndex = 0;
         bool hasFallback = false;
-        for (size_t i = 0; i < _renderPasses.size(); ++i)
+        for (size_t i = 0; i < RenderPasses.size(); ++i)
         {
-            const auto& pass = _renderPasses[i];
+            const auto& pass = RenderPasses[i];
             if (!pass.Filter)
             {
                 if (!hasFallback)

@@ -156,7 +156,7 @@ namespace Tbx
             // Shortcut to report things like framerate and memory consumption
             else if (Input::IsKeyDown(TBX_KEY_F4))
             {
-                TBX_TRACE_INFO("App: Reporting...\n");
+                TBX_TRACE_INFO("App: Gather data...\n");
                 DumpFrameReport();
             }
         }
@@ -196,16 +196,16 @@ namespace Tbx
 
         const uint64 pluginCount = Plugins.Count();
         const uint64 runtimeCount = Runtimes.Count();
-        const size_t renderPassCount = Graphics.GetRenderPasses().size();
+        const uint32 renderPassCount = Graphics.GetRenderPasses().size();
 
         const auto vsyncToString = [](VsyncMode mode) -> std::string_view
         {
             switch (mode)
             {
-            case VsyncMode::Off: return "Off";
-            case VsyncMode::On: return "On";
-            case VsyncMode::Adaptive: return "Adaptive";
-            default: return "Unknown";
+                case VsyncMode::Off: return "Off";
+                case VsyncMode::On: return "On";
+                case VsyncMode::Adaptive: return "Adaptive";
+                default: return "Unknown";
             }
         };
 
@@ -213,12 +213,12 @@ namespace Tbx
         {
             switch (api)
             {
-            case GraphicsApi::None: return "None";
-            case GraphicsApi::Vulkan: return "Vulkan";
-            case GraphicsApi::OpenGL: return "OpenGL";
-            case GraphicsApi::Metal: return "Metal";
-            case GraphicsApi::Custom: return "Custom";
-            default: return "Unknown";
+                case GraphicsApi::None: return "None";
+                case GraphicsApi::Vulkan: return "Vulkan";
+                case GraphicsApi::OpenGL: return "OpenGL";
+                case GraphicsApi::Metal: return "Metal";
+                case GraphicsApi::Custom: return "Custom";
+                default: return "Unknown";
             }
         };
 
