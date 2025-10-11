@@ -57,6 +57,7 @@ namespace Tbx
         void Update();
         void Shutdown();
         void OnWindowClosed(const WindowClosedEvent& e);
+        void DumpFrameReport() const;
 
     public:
         // TODO: Make a proper dispatcher and the bus will live seperately and just keep track of subscriptions...
