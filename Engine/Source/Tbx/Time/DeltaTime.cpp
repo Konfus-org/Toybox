@@ -3,16 +3,6 @@
 
 namespace Tbx
 {
-    float DeltaTime::InSeconds() const
-    {
-        return Seconds;
-    }
-
-    float DeltaTime::InMilliseconds() const
-    {
-        return Seconds * 1000.0f;
-    }
-
     DeltaClock::DeltaClock()
         : _lastFrameTime()
         , _hasLastFrameTime(false)

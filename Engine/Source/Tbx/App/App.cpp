@@ -118,7 +118,7 @@ namespace Tbx
 
             // 2. Fixed update runtimes
             constexpr float fixedUpdateInterval = 1.0f / 50.0f;
-            _fixedUpdateAccumulator += _frameDeltaTime.InSeconds();
+            _fixedUpdateAccumulator += _frameDeltaTime.Seconds;
             const DeltaTime fixedDelta(fixedUpdateInterval);
 
             while (_fixedUpdateAccumulator >= fixedUpdateInterval)
@@ -193,8 +193,8 @@ namespace Tbx
 
     void App::DumpFrameReport() const
     {
-        const float deltaSeconds = _frameDeltaTime.InSeconds();
-        const float deltaMilliseconds = _frameDeltaTime.InMilliseconds();
+        const float deltaSeconds = _frameDeltaTime.Seconds;
+        const float deltaMilliseconds = _frameDeltaTime.Milliseconds;
         const float fps = deltaSeconds > std::numeric_limits<float>::epsilon()
             ? 1.0f / deltaSeconds
             : 0.0f;

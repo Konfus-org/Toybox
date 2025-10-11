@@ -11,20 +11,18 @@ namespace Tbx
     {
         explicit DeltaTime(float seconds = 0.0f)
             : Seconds(seconds)
+            , Milliseconds(seconds * 1000.0f)
         {
         }
 
-        /// <summary>
-        /// Returns the delta time in seconds.
-        /// </summary>
-        float InSeconds() const;
-
-        /// <summary>
-        /// Returns the delta time in milliseconds.
-        /// </summary>
-        float InMilliseconds() const;
+        void SetSeconds(float seconds)
+        {
+            Seconds = seconds;
+            Milliseconds = seconds * 1000.0f;
+        }
 
         float Seconds = 0.0f;
+        float Milliseconds = 0.0f;
     };
 
     /// <summary>

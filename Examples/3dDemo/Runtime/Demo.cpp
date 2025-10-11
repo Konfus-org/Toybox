@@ -105,7 +105,7 @@ void Demo::OnShutdown()
 void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
 {
     auto worldRoot = _stage->GetRoot();
-    const float deltaTimeSeconds = deltaTime.InSeconds();
+    const float deltaTimeSeconds = deltaTime.Seconds;
 
     // Camera movement
     {
