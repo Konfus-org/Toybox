@@ -25,13 +25,13 @@ namespace Tbx
             : _state(std::make_shared<PoolState>())
         {
             TBX_ASSERT(capacity > 0, "MemoryPool: capacity must be greater than zero");
-            _state->capacity = capacity;
-            _state->data = MakeExclusive<char[]>(sizeof(TObject) * capacity);
-            _state->states.assign(capacity, false);
-            _state->freeList.reserve(capacity);
+            _state->Capacity = capacity;
+            _state->Data = MakeExclusive<char[]>(sizeof(TObject) * capacity);
+            _state->States.assign(capacity, false);
+            _state->FreeList.reserve(capacity);
             for (uint64 index = capacity; index > 0; --index)
             {
-                _state->freeList.push_back(index - 1);
+                _state->FreeList.push_back(index - 1);
             }
         }
 
@@ -48,26 +48,26 @@ namespace Tbx
                 return Ref<TObject>();
             }
 
-            TBX_ASSERT(!state->freeList.empty(), "MemoryPool: pool exhausted");
-            if (state->freeList.empty())
+            TBX_ASSERT(!state->FreeList.empty(), "MemoryPool: pool exhausted");
+            if (state->FreeList.empty())
             {
                 return Ref<TObject>();
             }
 
-            const uint64 index = state->freeList.back();
-            state->freeList.pop_back();
+            const uint64 index = state->FreeList.back();
+            state->FreeList.pop_back();
 
             TObject* instance = nullptr;
 
             try
             {
-                void* location = state->data.get() + index * sizeof(TObject);
+                void* location = state->Data.get() + index * sizeof(TObject);
                 instance = ::new (location) TObject(std::forward<TArgs>(args)...);
-                state->states[index] = true;
+                state->States[index] = true;
             }
             catch (...)
             {
-                state->freeList.push_back(index);
+                state->FreeList.push_back(index);
                 throw;
             }
 
@@ -79,7 +79,7 @@ namespace Tbx
                 }
 
                 std::destroy_at(pointer);
-                release(state, index);
+                Release(state, index);
             };
 
             return Ref<TObject>(instance, deleter);
@@ -90,7 +90,7 @@ namespace Tbx
         /// </summary>
         bool IsFull() const
         {
-            return _state == nullptr || _state->freeList.empty();
+            return _state == nullptr || _state->FreeList.empty();
         }
 
         /// <summary>
@@ -98,7 +98,7 @@ namespace Tbx
         /// </summary>
         uint64 Capacity() const
         {
-            return _state != nullptr ? _state->capacity : 0;
+            return _state != nullptr ? _state->Capacity : 0;
         }
 
         /// <summary>
@@ -111,19 +111,19 @@ namespace Tbx
                 return 0;
             }
 
-            return _state->capacity - static_cast<uint64>(_state->freeList.size());
+            return _state->Capacity - static_cast<uint64>(_state->FreeList.size());
         }
 
     private:
         struct PoolState
         {
-            ExclusiveRef<char[]> data = nullptr;
-            uint64 capacity = 0;
-            std::vector<uint64> freeList;
-            std::vector<bool> states;
+            ExclusiveRef<char[]> Data = nullptr;
+            uint64 Capacity = 0;
+            std::vector<uint64> FreeList;
+            std::vector<bool> States;
         };
 
-        static void release(const std::shared_ptr<PoolState>& state, uint64 index)
+        static void Release(const std::shared_ptr<PoolState>& state, uint64 index)
         {
             TBX_ASSERT(state != nullptr, "MemoryPool: pool state expired");
             if (state == nullptr)
@@ -131,15 +131,15 @@ namespace Tbx
                 return;
             }
 
-            TBX_ASSERT(index < state->capacity, "MemoryPool: index out of bounds");
-            if (index >= state->capacity)
+            TBX_ASSERT(index < state->Capacity, "MemoryPool: index out of bounds");
+            if (index >= state->Capacity)
             {
                 return;
             }
 
-            TBX_ASSERT(state->states[index], "MemoryPool: double free detected");
-            state->states[index] = false;
-            state->freeList.push_back(index);
+            TBX_ASSERT(state->States[index], "MemoryPool: double free detected");
+            state->States[index] = false;
+            state->FreeList.push_back(index);
         }
 
         std::shared_ptr<PoolState> _state;
