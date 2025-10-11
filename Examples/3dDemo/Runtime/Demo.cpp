@@ -102,10 +102,10 @@ void Demo::OnShutdown()
     TBX_TRACE_INFO("Demo: shutdown!\n");
 }
 
-void Demo::OnUpdate()
+void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
 {
     auto worldRoot = _stage->GetRoot();
-    const auto& deltaTime = Tbx::DeltaTime::InSeconds();
+    const float deltaTimeSeconds = deltaTime.InSeconds();
 
     // Camera movement
     {
@@ -160,7 +160,7 @@ void Demo::OnUpdate()
             // Apply movement if any
             if (!camMoveDir.IsNearlyZero())
             {
-                camTransform.Position += camMoveDir.Normalize() * camSpeed * deltaTime;
+                camTransform.Position += camMoveDir.Normalize() * camSpeed * deltaTimeSeconds;
             }
         }
 
@@ -172,13 +172,13 @@ void Demo::OnUpdate()
             // Arrow and gamepad btn style
             {
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_LEFT) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_WEST))
-                    _camYaw -= camRotateSpeedDegPerSec * deltaTime;
+                    _camYaw -= camRotateSpeedDegPerSec * deltaTimeSeconds;
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_RIGHT) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_EAST))
-                    _camYaw += camRotateSpeedDegPerSec * deltaTime;
+                    _camYaw += camRotateSpeedDegPerSec * deltaTimeSeconds;
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_UP) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_NORTH))
-                    _camPitch += camRotateSpeedDegPerSec * deltaTime;
+                    _camPitch += camRotateSpeedDegPerSec * deltaTimeSeconds;
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_DOWN) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_SOUTH))
-                    _camPitch -= camRotateSpeedDegPerSec * deltaTime;
+                    _camPitch -= camRotateSpeedDegPerSec * deltaTimeSeconds;
             }
             // Mouse and gamepad axis style
             {
@@ -202,8 +202,8 @@ void Demo::OnUpdate()
                     rightStickYAxisValue > TBX_GAMEPAD_AXIS_DEADZONE  ||
                     rightStickYAxisValue < -TBX_GAMEPAD_AXIS_DEADZONE)
                 {
-                    _camYaw += rightStickXAxisValue * camRotateSpeedDegPerSec * deltaTime;
-                    _camPitch += rightStickYAxisValue * camRotateSpeedDegPerSec * deltaTime;
+                    _camYaw += rightStickXAxisValue * camRotateSpeedDegPerSec * deltaTimeSeconds;
+                    _camPitch += rightStickYAxisValue * camRotateSpeedDegPerSec * deltaTimeSeconds;
                 }
             }
 
@@ -224,14 +224,14 @@ void Demo::OnUpdate()
         // rotate over time
         const float smilyRotateSpeed = 90.0f;
         auto& smilyTransform = _smily->Blocks.Get<Tbx::Transform>();
-        float angle = Tbx::PI * deltaTime * smilyRotateSpeed;
+        float angle = Tbx::PI * deltaTimeSeconds * smilyRotateSpeed;
         Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3::Up, angle);
         smilyTransform.Rotation = Tbx::Quaternion::Normalize(smilyTransform.Rotation * qYaw);
 
         // Bob over time
         const float smilyBobFrequency = 2;
         const float smilyBobScale = 1;
-        _smilyBobTime += deltaTime * smilyBobFrequency;
+        _smilyBobTime += deltaTimeSeconds * smilyBobFrequency;
         _smilyBobAmplitude = std::sin(_smilyBobTime);
         smilyTransform.Position.Y = (_smilyBobAmplitude * smilyBobScale);
     }

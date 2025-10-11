@@ -3,37 +3,40 @@
 
 namespace Tbx
 {
-    float DeltaTime::_valueInSeconds;
-    std::chrono::high_resolution_clock::time_point DeltaTime::_lastFrameTime;
-
-    float DeltaTime::InSeconds()
+    float DeltaTime::InSeconds() const
     {
-        return _valueInSeconds;
+        return Seconds;
     }
 
-    float DeltaTime::InMilliseconds()
+    float DeltaTime::InMilliseconds() const
     {
-        return _valueInSeconds * 1000.0f;
+        return Seconds * 1000.0f;
     }
 
-    void DeltaTime::Update()
+    DeltaClock::DeltaClock()
+        : _lastFrameTime()
+        , _hasLastFrameTime(false)
     {
-        auto currentTime = std::chrono::high_resolution_clock::now();
+    }
 
-        if (_lastFrameTime.time_since_epoch().count() == 0)
+    DeltaTime DeltaClock::Tick()
+    {
+        const auto currentTime = std::chrono::high_resolution_clock::now();
+
+        if (!_hasLastFrameTime)
         {
+            _hasLastFrameTime = true;
             _lastFrameTime = currentTime;
-            _valueInSeconds = 0.0f;
-            return;
+            return DeltaTime{};
         }
 
-        auto timeSinceLastFrame = std::chrono::duration_cast<std::chrono::duration<float>>(currentTime - _lastFrameTime).count();
-        _valueInSeconds = timeSinceLastFrame;
+        const auto deltaSeconds = std::chrono::duration_cast<std::chrono::duration<float>>(currentTime - _lastFrameTime).count();
         _lastFrameTime = currentTime;
+        return DeltaTime(deltaSeconds);
     }
 
-    void DeltaTime::Set(float seconds)
+    void DeltaClock::Reset()
     {
-        _valueInSeconds = seconds;
+        _hasLastFrameTime = false;
     }
 }

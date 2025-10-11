@@ -73,6 +73,7 @@ namespace Tbx
     void App::Initialize()
     {
         Status = AppStatus::Initializing;
+        _deltaClock.Reset();
 
         auto workingDirectory = FileSystem::GetWorkingDirectory();
         TBX_TRACE_INFO("App: Current working directory is: {}", workingDirectory);
@@ -112,33 +113,29 @@ namespace Tbx
         // Runtime loop
         {
             // 1. Update delta and input
-            DeltaTime::Update();
+            _frameDeltaTime = _deltaClock.Tick();
             Input::Update();
 
             // 2. Fixed update runtimes
             constexpr float fixedUpdateInterval = 1.0f / 50.0f;
-            const float frameDelta = DeltaTime::InSeconds();
-            _fixedUpdateAccumulator += frameDelta;
+            _fixedUpdateAccumulator += _frameDeltaTime.InSeconds();
+            const DeltaTime fixedDelta(fixedUpdateInterval);
 
             while (_fixedUpdateAccumulator >= fixedUpdateInterval)
             {
-                DeltaTime::Set(fixedUpdateInterval);
-
                 for (const auto& runtime : Runtimes)
                 {
-                    runtime->FixedUpdate();
+                    runtime->FixedUpdate(fixedDelta);
                 }
 
-                OnFixedUpdate();
+                OnFixedUpdate(fixedDelta);
                 _fixedUpdateAccumulator -= fixedUpdateInterval;
             }
-
-            DeltaTime::Set(frameDelta);
 
             // 3. Update runtimes
             for (const auto& runtime : Runtimes)
             {
-                runtime->Update();
+                runtime->Update(_frameDeltaTime);
             }
 
             // 4. Render graphics
@@ -148,15 +145,15 @@ namespace Tbx
             Windowing.Update();
 
             // 6. Allow other systems to hook into update
-            OnUpdate();
+            OnUpdate(_frameDeltaTime);
 
             // 7. Late update runtimes
             for (const auto& runtime : Runtimes)
             {
-                runtime->LateUpdate();
+                runtime->LateUpdate(_frameDeltaTime);
             }
 
-            OnLateUpdate();
+            OnLateUpdate(_frameDeltaTime);
             Dispatcher->Post(AppUpdatedEvent());
             Dispatcher->Flush();
         }
@@ -196,8 +193,8 @@ namespace Tbx
 
     void App::DumpFrameReport() const
     {
-        const float deltaSeconds = DeltaTime::InSeconds();
-        const float deltaMilliseconds = DeltaTime::InMilliseconds();
+        const float deltaSeconds = _frameDeltaTime.InSeconds();
+        const float deltaMilliseconds = _frameDeltaTime.InMilliseconds();
         const float fps = deltaSeconds > std::numeric_limits<float>::epsilon()
             ? 1.0f / deltaSeconds
             : 0.0f;
