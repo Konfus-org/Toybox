@@ -166,18 +166,19 @@ void Demo::OnUpdate()
 
         // Camera rotation
         {
-            const float camRotateSpeed = 180.0f;
+            const float camRotateSpeedDegPerSec = 180.0f; // for keys / gamepad (keep with deltaTime)
+            const float mouseSensitivityDegPerPx = 0.15f; // tune to taste
 
             // Arrow and gamepad btn style
             {
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_LEFT) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_WEST))
-                    _camYaw -= camRotateSpeed * deltaTime;
+                    _camYaw -= camRotateSpeedDegPerSec * deltaTime;
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_RIGHT) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_EAST))
-                    _camYaw += camRotateSpeed * deltaTime;
+                    _camYaw += camRotateSpeedDegPerSec * deltaTime;
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_UP) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_NORTH))
-                    _camPitch += camRotateSpeed * deltaTime;
+                    _camPitch += camRotateSpeedDegPerSec * deltaTime;
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_DOWN) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_SOUTH))
-                    _camPitch -= camRotateSpeed * deltaTime;
+                    _camPitch -= camRotateSpeedDegPerSec * deltaTime;
             }
             // Mouse and gamepad axis style
             {
@@ -186,11 +187,11 @@ void Demo::OnUpdate()
                 {
                     if (mouseDelta.X != 0)
                     {
-                        _camYaw += mouseDelta.X * (camRotateSpeed / 5) * deltaTime;
+                        _camYaw += mouseDelta.X;
                     }
                     if (mouseDelta.Y != 0)
                     {
-                        _camPitch -= mouseDelta.Y * (camRotateSpeed / 5) * deltaTime;
+                        _camPitch -= mouseDelta.Y;
                     }
                 }
 
@@ -201,8 +202,8 @@ void Demo::OnUpdate()
                     rightStickYAxisValue > TBX_GAMEPAD_AXIS_DEADZONE  ||
                     rightStickYAxisValue < -TBX_GAMEPAD_AXIS_DEADZONE)
                 {
-                    _camYaw += rightStickXAxisValue * camRotateSpeed * deltaTime;
-                    _camPitch += rightStickYAxisValue * camRotateSpeed * deltaTime;
+                    _camYaw += rightStickXAxisValue * camRotateSpeedDegPerSec * deltaTime;
+                    _camPitch += rightStickYAxisValue * camRotateSpeedDegPerSec * deltaTime;
                 }
             }
 

@@ -10,8 +10,6 @@
 #include "Tbx/Stages/Stage.h"
 #include "Tbx/Stages/Views.h"
 #include "Tbx/Memory/Refs.h"
-#include <cstddef>
-#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -64,7 +62,6 @@ namespace Tbx
         GraphicsResourceCache Cache = {};
     };
 
-    // TODO: Convert to a plugin! The pipeline should be customizable by users of Toybox
     /// <summary>
     /// Coordinates render targets, windows, stage composition, and render resource caching for a frame.
     /// </summary>
@@ -72,34 +69,22 @@ namespace Tbx
     {
     public:
         GraphicsPipeline() = default;
-        explicit GraphicsPipeline(std::vector<RenderPassDescriptor> passes = {});
-
-        GraphicsPipeline(const GraphicsPipeline&) = delete;
-        GraphicsPipeline& operator=(const GraphicsPipeline&) = delete;
-
-        GraphicsPipeline(GraphicsPipeline&&) = default;
-        GraphicsPipeline& operator=(GraphicsPipeline&&) = default;
-
-        void SetRenderPasses(std::vector<RenderPassDescriptor> passes);
-        const std::vector<RenderPassDescriptor>& GetRenderPasses() const { return _renderPasses; }
-
-        void SetRenderer(GraphicsRenderer* renderer);
-        void Render(const GraphicsDisplay& display, const std::vector<Ref<Stage>>& stages, const RgbaColor& clearColor);
+        explicit GraphicsPipeline(std::vector<RenderPass> passes);
+        void SetRenderPasses(const std::vector<RenderPass>& passes);
+        void Render(GraphicsRenderer& renderer, const GraphicsDisplay& display, const std::vector<Ref<Stage>>& stages, const RgbaColor& clearColor);
 
     private:
-        StageRenderData PrepareStageForRendering(const FullStageView& stageView, float aspectRatio);
-
+        StageRenderData PrepareStageForRendering(GraphicsRenderer& renderer, const FullStageView& stageView, float aspectRatio);
+        void RenderStage(uint32 passIndex, Tbx::GraphicsRenderer& renderer, Tbx::StageRenderData& renderData);
+        void RenderCameraView(const Tbx::RenderBucket& bucket, const Tbx::CameraData& camera, const Tbx::Ref<Tbx::ShaderProgramResource>& shaderResource, Tbx::GraphicsRenderer& renderer);
+        void CacheShaders(GraphicsRenderer& renderer, const ShaderProgram& shaders);
+        void CacheMaterial(GraphicsRenderer& renderer, const Material& shaders);
+        void CacheMesh(GraphicsRenderer& renderer, const Mesh& mesh);
         bool ShouldCull(const Ref<Toy>& toy, const Frustum& frustum);
-
-        void CacheShaders(const ShaderProgram& shaders);
-        void CacheMaterial(const Material& shaders);
-        void CacheMesh(const Mesh& mesh);
-
         size_t ResolveRenderPassIndex(const Material& material) const;
 
     private:
-        std::vector<RenderPassDescriptor> _renderPasses = {};
-        GraphicsRenderer* _renderer = nullptr;
+        std::vector<RenderPass> _renderPasses = {};
     };
 }
 

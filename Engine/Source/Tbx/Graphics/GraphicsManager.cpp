@@ -1,7 +1,7 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Graphics/GraphicsManager.h"
+#include "Tbx/Events/RenderEvents.h"
 #include "Tbx/Debug/Asserts.h"
-#include "Tbx/Windowing/Window.h"
 #include <algorithm>
 #include <string_view>
 #include <utility>
@@ -24,7 +24,7 @@ namespace Tbx
         InitializeRenderers(backends, contextProviders);
         TBX_ASSERT(!_renderers.empty(), "GraphicsManager: No compatible renderer implementations were provided for the available graphics APIs.");
 
-        _pipeline = MakeExclusive<GraphicsPipeline>(CreateDefaultRenderPasses());
+        _pipeline = GraphicsPipeline(CreateDefaultRenderPasses());
         RecreateRenderersForCurrentApi();
 
         _eventListener.Listen(this, &GraphicsManager::OnWindowOpened);
@@ -34,34 +34,23 @@ namespace Tbx
         _eventListener.Listen(this, &GraphicsManager::OnStageClosed);
     }
 
-    void GraphicsManager::Update()
+    void GraphicsManager::Render()
     {
-        if (!_pipeline)
-        {
-            return;
-        }
-
         auto* renderer = GetRenderer(_activeGraphicsApi);
         if (!renderer)
         {
             return;
         }
 
-        _pipeline->SetRenderer(renderer);
-
         for (const auto& display : _openDisplays)
         {
-            TBX_ASSERT(display.Surface && display.Context, "GraphicsManager: Display is missing a surface or context.");
-            _pipeline->Render(display, _openStages, _clearColor);
+            _pipeline.Render(*renderer, display, _openStages, _clearColor);
         }
 
-        if (_eventBus)
-        {
-            _eventBus->Send(RenderedFrameEvent());
-        }
+        _eventBus->Send(RenderedFrameEvent());
     }
 
-    void GraphicsManager::SetRenderPasses(std::vector<RenderPassDescriptor> passes)
+    void GraphicsManager::SetRenderPasses(const std::vector<RenderPass>& passes)
     {
         if (passes.empty())
         {
@@ -69,12 +58,7 @@ namespace Tbx
             return;
         }
 
-        _pipeline->SetRenderPasses(std::move(passes));
-    }
-
-    const std::vector<RenderPassDescriptor>& GraphicsManager::GetRenderPasses() const
-    {
-        return _pipeline->GetRenderPasses();
+        _pipeline.SetRenderPasses(passes);
     }
 
     void GraphicsManager::InitializeRenderers(
@@ -83,17 +67,7 @@ namespace Tbx
     {
         for (const auto& backend : backends)
         {
-            if (!backend)
-            {
-                continue;
-            }
-
             const auto api = backend->GetApi();
-            if (api == GraphicsApi::None)
-            {
-                continue;
-            }
-
             auto& renderer = _renderers[api];
             if (!renderer.Backend)
             {
@@ -103,17 +77,7 @@ namespace Tbx
 
         for (const auto& provider : contextProviders)
         {
-            if (!provider)
-            {
-                continue;
-            }
-
             const auto api = provider->GetApi();
-            if (api == GraphicsApi::None)
-            {
-                continue;
-            }
-
             auto rendererIt = _renderers.find(api);
             if (rendererIt == _renderers.end())
             {
@@ -129,7 +93,7 @@ namespace Tbx
 
         for (auto it = _renderers.begin(); it != _renderers.end();)
         {
-            auto& renderer = it->second;
+            const auto& renderer = it->second;
             if (!renderer.Backend || !renderer.ContextProvider)
             {
                 it = _renderers.erase(it);
@@ -141,17 +105,11 @@ namespace Tbx
 
     GraphicsRenderer* GraphicsManager::GetRenderer(GraphicsApi api)
     {
-        if (api == GraphicsApi::None)
-        {
-            return nullptr;
-        }
-
         auto rendererIt = _renderers.find(api);
         if (rendererIt == _renderers.end())
         {
             return nullptr;
         }
-
         return &rendererIt->second;
     }
 
@@ -170,11 +128,8 @@ namespace Tbx
         auto* renderer = GetRenderer(_activeGraphicsApi);
         if (!renderer)
         {
-            _pipeline->SetRenderer(nullptr);
             return;
         }
-
-        _pipeline->SetRenderer(renderer);
 
         for (auto& display : _openDisplays)
         {
@@ -198,11 +153,10 @@ namespace Tbx
     void GraphicsManager::OnAppSettingsChanged(const AppSettingsChangedEvent& e)
     {
         const auto& newSettings = e.GetNewSettings();
-        auto desiredApi = newSettings.RenderingApi;
 
-        if (_activeGraphicsApi != desiredApi)
+        if (_activeGraphicsApi != newSettings.RenderingApi)
         {
-            _activeGraphicsApi = desiredApi;
+            _activeGraphicsApi = newSettings.RenderingApi;
             RecreateRenderersForCurrentApi();
         }
 
@@ -223,7 +177,7 @@ namespace Tbx
         auto newWindow = e.GetWindow();
         if (!newWindow)
         {
-            TBX_ASSERT(newWindow, "GraphicsManager: Invalid window open event, ensure a valid window is passed!");
+            TBX_ASSERT(false, "GraphicsManager: Invalid window open event, ensure a valid window is passed!");
             return;
         }
 
@@ -234,18 +188,14 @@ namespace Tbx
         }
 
         auto context = renderer->ContextProvider->Provide(newWindow);
-        TBX_ASSERT(context, "GraphicsManager: Failed to create a graphics context for the opened window.");
         if (!context)
         {
+            TBX_ASSERT(false, "GraphicsManager: Failed to create a graphics context for the opened window.");
             return;
         }
 
         context->SetVsync(_vsync);
-
-        GraphicsDisplay display = {};
-        display.Surface = newWindow;
-        display.Context = context;
-        _openDisplays.push_back(std::move(display));
+        _openDisplays.emplace_back(newWindow, context);
     }
 
     void GraphicsManager::OnWindowClosed(const WindowClosedEvent& e)
@@ -265,20 +215,11 @@ namespace Tbx
         {
             _openDisplays.erase(displayIt);
         }
-        else
-        {
-            TBX_ASSERT(false, "GraphicsManager: A renderer could not be found for the window that was closed!");
-        }
     }
 
     void GraphicsManager::OnStageOpened(const StageOpenedEvent& e)
     {
         auto stage = e.GetStage();
-        if (!stage)
-        {
-            return;
-        }
-
         auto it = std::find(_openStages.begin(), _openStages.end(), stage);
         if (it == _openStages.end())
         {
@@ -289,11 +230,6 @@ namespace Tbx
     void GraphicsManager::OnStageClosed(const StageClosedEvent& e)
     {
         auto stage = e.GetStage();
-        if (!stage)
-        {
-            return;
-        }
-
         auto it = std::find(_openStages.begin(), _openStages.end(), stage);
         if (it != _openStages.end())
         {
@@ -301,15 +237,15 @@ namespace Tbx
         }
     }
 
-    std::vector<RenderPassDescriptor> GraphicsManager::CreateDefaultRenderPasses()
+    std::vector<RenderPass> GraphicsManager::CreateDefaultRenderPasses()
     {
         constexpr std::string_view OpaquePassName = "Opaque";
         constexpr std::string_view TransparentPassName = "Transparent";
 
-        std::vector<RenderPassDescriptor> passes = {};
+        std::vector<RenderPass> passes = {};
         passes.reserve(2);
 
-        RenderPassDescriptor opaque = {};
+        RenderPass opaque = {};
         opaque.Name = std::string(OpaquePassName);
         opaque.DepthTestEnabled = true;
         opaque.Filter = [](const Material& material)
@@ -326,7 +262,7 @@ namespace Tbx
         };
         passes.push_back(std::move(opaque));
 
-        RenderPassDescriptor transparent = {};
+        RenderPass transparent = {};
         transparent.Name = std::string(TransparentPassName);
         transparent.DepthTestEnabled = false;
         transparent.Filter = [](const Material& material)

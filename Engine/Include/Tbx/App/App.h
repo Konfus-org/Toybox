@@ -60,16 +60,15 @@ namespace Tbx
         void DumpFrameReport() const;
 
     public:
+        // TODO: Make a proper dispatcher and the bus will live seperately and just keep track of subscriptions...
+        // it won't deal with dispatching or posting or anything like that.
+        Ref<EventBus> Dispatcher = nullptr;
+        Collection<Ref<Plugin>> Plugins = {};
+        Collection<Ref<Runtime>> Runtimes = {};
         AppStatus Status = AppStatus::None;
         AppSettings Settings = {};
         WindowManager Windowing = {};
         GraphicsManager Graphics = {};
-        Collection<Ref<Plugin>> Plugins = {};
-        Collection<Ref<Runtime>> Runtimes = {};
-
-        // TODO: Make a proper dispatcher and the bus will live seperately and just keep track of subscriptions...
-        // it won't deal with dispatching or posting or anything like that.
-        Ref<EventBus> Dispatcher = nullptr;
 
     private:
         std::string _name = "";
