@@ -5,6 +5,7 @@
 #include <Tbx/Stages/Stage.h>
 #include "Tbx/Memory/Refs.h"
 #include <Tbx/Graphics/Material.h>
+#include <Tbx/Math/Vectors.h>
 
 class Demo final : public Tbx::Runtime
 {
@@ -26,6 +27,7 @@ private:
 
     float _camPitch = 0.0f;
     float _camYaw = 0.0f;
+    Tbx::Vector2 _camLookVelocity = Tbx::Vector2::Zero;
 
     Tbx::Ref<Tbx::Material> _simpleTexturedMat = {};
     Tbx::WeakRef<Tbx::App> _app = {};

@@ -9,6 +9,8 @@
 #include <Tbx/Math/Trig.h>
 #include <Tbx/Time/DeltaTime.h>
 #include <Tbx/Events/StageEvents.h>
+#include <algorithm>
+#include <cmath>
 #include <vector>
 
 Demo::Demo(Tbx::Ref<Tbx::EventBus> eventBus)
@@ -111,6 +113,75 @@ void Demo::OnUpdate()
     {
         auto& camTransform = _fpsCam->Blocks.Get<Tbx::Transform>();
 
+        // Camera rotation
+        {
+            const float camRotateSpeedDegPerSec = 180.0f; // for keys / gamepad (keep with deltaTime)
+            const float mouseSensitivityDegPerPx = 0.15f; // tune to taste
+            const float mouseSmoothingRate = 25.0f;       // higher == snappier response, lower == smoother
+
+            // Arrow and gamepad btn style
+            {
+                if (Tbx::Input::IsKeyHeld(TBX_KEY_LEFT) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_WEST))
+                    _camYaw -= camRotateSpeedDegPerSec * deltaTime;
+                if (Tbx::Input::IsKeyHeld(TBX_KEY_RIGHT) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_EAST))
+                    _camYaw += camRotateSpeedDegPerSec * deltaTime;
+                if (Tbx::Input::IsKeyHeld(TBX_KEY_UP) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_NORTH))
+                    _camPitch += camRotateSpeedDegPerSec * deltaTime;
+                if (Tbx::Input::IsKeyHeld(TBX_KEY_DOWN) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_SOUTH))
+                    _camPitch -= camRotateSpeedDegPerSec * deltaTime;
+            }
+            // Mouse and gamepad axis style
+            {
+                auto mouseDelta = Tbx::Input::GetMouseDelta();
+                if (Tbx::Input::IsMouseButtonHeld(TBX_MOUSE_BUTTON_RIGHT))
+                {
+                    const Tbx::Vector2 targetLookDelta =
+                        Tbx::Vector2(mouseDelta.X * mouseSensitivityDegPerPx,
+                                     mouseDelta.Y * mouseSensitivityDegPerPx);
+
+                    const float smoothingFactor = std::clamp(deltaTime * mouseSmoothingRate, 0.0f, 1.0f);
+                    _camLookVelocity += (targetLookDelta - _camLookVelocity) * smoothingFactor;
+
+                    _camYaw += _camLookVelocity.X;
+                    _camPitch -= _camLookVelocity.Y;
+                }
+                else
+                {
+                    _camLookVelocity = Tbx::Vector2::Zero;
+                }
+
+                auto rightStickXAxisValue = Tbx::Input::GetGamepadAxis(0, TBX_GAMEPAD_AXIS_RIGHT_X);
+                auto rightStickYAxisValue = -Tbx::Input::GetGamepadAxis(0, TBX_GAMEPAD_AXIS_RIGHT_Y);
+                if (rightStickXAxisValue > TBX_GAMEPAD_AXIS_DEADZONE  ||
+                    rightStickXAxisValue < -TBX_GAMEPAD_AXIS_DEADZONE ||
+                    rightStickYAxisValue > TBX_GAMEPAD_AXIS_DEADZONE  ||
+                    rightStickYAxisValue < -TBX_GAMEPAD_AXIS_DEADZONE)
+                {
+                    _camYaw += rightStickXAxisValue * camRotateSpeedDegPerSec * deltaTime;
+                    _camPitch += rightStickYAxisValue * camRotateSpeedDegPerSec * deltaTime;
+                }
+            }
+
+            // Clamp pitch to avoid flipping
+            _camPitch = std::clamp(_camPitch, -89.0f, 89.0f);
+            _camYaw = std::fmod(_camYaw, 360.0f);
+            if (_camYaw > 180.0f)
+            {
+                _camYaw -= 360.0f;
+            }
+            else if (_camYaw < -180.0f)
+            {
+                _camYaw += 360.0f;
+            }
+
+            // Build rotation
+            Tbx::Quaternion qPitch = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3::Right, _camPitch);
+            Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3::Up, _camYaw);
+
+            // Combine (usually yaw * pitch for FPS)
+            camTransform.Rotation = Tbx::Quaternion::Normalize(qYaw * qPitch);
+        }
+
         // Determine movement speed
         const float camMoveSpeed = 10.0f;
         float camSpeed = camMoveSpeed;
@@ -162,60 +233,6 @@ void Demo::OnUpdate()
             {
                 camTransform.Position += camMoveDir.Normalize() * camSpeed * deltaTime;
             }
-        }
-
-        // Camera rotation
-        {
-            const float camRotateSpeedDegPerSec = 180.0f; // for keys / gamepad (keep with deltaTime)
-            const float mouseSensitivityDegPerPx = 0.15f; // tune to taste
-
-            // Arrow and gamepad btn style
-            {
-                if (Tbx::Input::IsKeyHeld(TBX_KEY_LEFT) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_WEST))
-                    _camYaw -= camRotateSpeedDegPerSec * deltaTime;
-                if (Tbx::Input::IsKeyHeld(TBX_KEY_RIGHT) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_EAST))
-                    _camYaw += camRotateSpeedDegPerSec * deltaTime;
-                if (Tbx::Input::IsKeyHeld(TBX_KEY_UP) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_NORTH))
-                    _camPitch += camRotateSpeedDegPerSec * deltaTime;
-                if (Tbx::Input::IsKeyHeld(TBX_KEY_DOWN) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_SOUTH))
-                    _camPitch -= camRotateSpeedDegPerSec * deltaTime;
-            }
-            // Mouse and gamepad axis style
-            {
-                auto mouseDelta = Tbx::Input::GetMouseDelta();
-                if (Tbx::Input::IsMouseButtonHeld(TBX_MOUSE_BUTTON_RIGHT))
-                {
-                    if (mouseDelta.X != 0)
-                    {
-                        _camYaw += mouseDelta.X;
-                    }
-                    if (mouseDelta.Y != 0)
-                    {
-                        _camPitch -= mouseDelta.Y;
-                    }
-                }
-
-                auto rightStickXAxisValue = Tbx::Input::GetGamepadAxis(0, TBX_GAMEPAD_AXIS_RIGHT_X);
-                auto rightStickYAxisValue = -Tbx::Input::GetGamepadAxis(0, TBX_GAMEPAD_AXIS_RIGHT_Y);
-                if (rightStickXAxisValue > TBX_GAMEPAD_AXIS_DEADZONE  ||
-                    rightStickXAxisValue < -TBX_GAMEPAD_AXIS_DEADZONE ||
-                    rightStickYAxisValue > TBX_GAMEPAD_AXIS_DEADZONE  ||
-                    rightStickYAxisValue < -TBX_GAMEPAD_AXIS_DEADZONE)
-                {
-                    _camYaw += rightStickXAxisValue * camRotateSpeedDegPerSec * deltaTime;
-                    _camPitch += rightStickYAxisValue * camRotateSpeedDegPerSec * deltaTime;
-                }
-            }
-
-            // Clamp pitch to avoid flipping
-            _camPitch = std::clamp(_camPitch, -89.0f, 89.0f);
-
-            // Build rotation
-            Tbx::Quaternion qPitch = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3::Right, _camPitch);
-            Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3::Up, _camYaw);
-
-            // Combine (usually yaw * pitch for FPS)
-            camTransform.Rotation = Tbx::Quaternion::Normalize(qYaw * qPitch);
         }
     }
 
