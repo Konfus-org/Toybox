@@ -31,4 +31,9 @@ namespace Tbx
         _valueInSeconds = timeSinceLastFrame;
         _lastFrameTime = currentTime;
     }
+
+    void DeltaTime::Set(float seconds)
+    {
+        _valueInSeconds = seconds;
+    }
 }

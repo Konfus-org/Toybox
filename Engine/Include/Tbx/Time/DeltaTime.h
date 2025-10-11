@@ -23,6 +23,12 @@ namespace Tbx
         /// </summary>
         static void Update();
 
+        /// <summary>
+        /// Overrides the stored delta time value.
+        /// Intended for sub-step updates that require a fixed timestep.
+        /// </summary>
+        static void Set(float seconds);
+
     private:
         static float _valueInSeconds;
         static std::chrono::high_resolution_clock::time_point _lastFrameTime;

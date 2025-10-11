@@ -117,10 +117,13 @@ namespace Tbx
 
             // 2. Fixed update runtimes
             constexpr float fixedUpdateInterval = 1.0f / 50.0f;
-            _fixedUpdateAccumulator += DeltaTime::InSeconds();
+            const float frameDelta = DeltaTime::InSeconds();
+            _fixedUpdateAccumulator += frameDelta;
 
             while (_fixedUpdateAccumulator >= fixedUpdateInterval)
             {
+                DeltaTime::Set(fixedUpdateInterval);
+
                 for (const auto& runtime : Runtimes)
                 {
                     runtime->FixedUpdate();
@@ -129,6 +132,8 @@ namespace Tbx
                 OnFixedUpdate();
                 _fixedUpdateAccumulator -= fixedUpdateInterval;
             }
+
+            DeltaTime::Set(frameDelta);
 
             // 3. Update runtimes
             for (const auto& runtime : Runtimes)
