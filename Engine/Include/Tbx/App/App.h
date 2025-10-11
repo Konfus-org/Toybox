@@ -49,7 +49,9 @@ namespace Tbx
 
     protected:
         virtual void OnLaunch() {};
+        virtual void OnFixedUpdate() {};
         virtual void OnUpdate() {};
+        virtual void OnLateUpdate() {};
         virtual void OnShutdown() {};
 
     private:
@@ -72,6 +74,7 @@ namespace Tbx
     private:
         std::string _name = "";
         EventListener _eventListener = {};
+        float _fixedUpdateAccumulator = 0.0f;
 
         // TODO: move this elsewhere! Perhaps a plugin?
         void DumpFrameReport() const;

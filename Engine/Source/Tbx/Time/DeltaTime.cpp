@@ -19,6 +19,14 @@ namespace Tbx
     void DeltaTime::Update()
     {
         auto currentTime = std::chrono::high_resolution_clock::now();
+
+        if (_lastFrameTime.time_since_epoch().count() == 0)
+        {
+            _lastFrameTime = currentTime;
+            _valueInSeconds = 0.0f;
+            return;
+        }
+
         auto timeSinceLastFrame = std::chrono::duration_cast<std::chrono::duration<float>>(currentTime - _lastFrameTime).count();
         _valueInSeconds = timeSinceLastFrame;
         _lastFrameTime = currentTime;

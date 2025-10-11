@@ -17,7 +17,9 @@ namespace Tbx
         virtual ~IRuntime() {}
 
         void Initialize(Ref<AssetServer> assetServer, Ref<EventBus> eventBus);
+        void FixedUpdate();
         void Update();
+        void LateUpdate();
         void Shutdown();
 
     protected:
@@ -26,12 +28,20 @@ namespace Tbx
         /// </summary>
         virtual void OnStart() {}
 
-        // TODO: Need a fixed and late update!
+        /// <summary>
+        /// Called before the main update loop. Intended for fixed timestep logic.
+        /// </summary>
+        virtual void OnFixedUpdate() {}
 
         /// <summary>
         /// Called when the owning app is updated.
         /// </summary>
         virtual void OnUpdate() {}
+
+        /// <summary>
+        /// Called after the main update loop. Intended for late frame work.
+        /// </summary>
+        virtual void OnLateUpdate() {}
 
         /// <summary>
         /// Called when the owning app is shutting down.

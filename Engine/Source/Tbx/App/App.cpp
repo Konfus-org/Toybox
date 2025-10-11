@@ -115,20 +115,43 @@ namespace Tbx
             DeltaTime::Update();
             Input::Update();
 
-            // 2. Update runtimes
+            // 2. Fixed update runtimes
+            constexpr float fixedUpdateInterval = 1.0f / 50.0f;
+            _fixedUpdateAccumulator += DeltaTime::InSeconds();
+
+            while (_fixedUpdateAccumulator >= fixedUpdateInterval)
+            {
+                for (const auto& runtime : Runtimes)
+                {
+                    runtime->FixedUpdate();
+                }
+
+                OnFixedUpdate();
+                _fixedUpdateAccumulator -= fixedUpdateInterval;
+            }
+
+            // 3. Update runtimes
             for (const auto& runtime : Runtimes)
             {
                 runtime->Update();
             }
 
-            // 3. Render graphics
+            // 4. Render graphics
             Graphics.Render();
 
-            // 4. Update windows
+            // 5. Update windows
             Windowing.Update();
 
-            // 5. Allow other systems to hook into update
+            // 6. Allow other systems to hook into update
             OnUpdate();
+
+            // 7. Late update runtimes
+            for (const auto& runtime : Runtimes)
+            {
+                runtime->LateUpdate();
+            }
+
+            OnLateUpdate();
             Dispatcher->Post(AppUpdatedEvent());
             Dispatcher->Flush();
         }
