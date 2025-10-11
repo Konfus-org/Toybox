@@ -57,6 +57,7 @@ namespace Tbx
         void Update();
         void Shutdown();
         void OnWindowClosed(const WindowClosedEvent& e);
+        void DumpFrameReport() const;
 
     public:
         AppStatus Status = AppStatus::None;

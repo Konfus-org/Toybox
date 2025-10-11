@@ -9,6 +9,8 @@
 #include "Tbx/Input/InputCodes.h"
 #include "Tbx/Time/DeltaTime.h"
 #include "Tbx/Files/Paths.h"
+#include <limits>
+#include <string_view>
 #include <vector>
 
 namespace Tbx
@@ -161,13 +163,94 @@ namespace Tbx
             // TODO: App slowly eats up more memory every restart, we need to track down why and fix it!
             // There is a leak somewhere...
             TBX_TRACE_INFO("App: Reporting...\n");
-
-            // TODO: Generate frame report!
+            DumpFrameReport();
         }
 #endif
 
         // Flush to log at the end of every frame
         Log::Flush();
+    }
+
+    void App::DumpFrameReport() const
+    {
+        const float deltaSeconds = DeltaTime::InSeconds();
+        const float deltaMilliseconds = DeltaTime::InMilliseconds();
+        const float fps = deltaSeconds > std::numeric_limits<float>::epsilon()
+            ? 1.0f / deltaSeconds
+            : 0.0f;
+
+        const auto& windows = Windowing.GetAllWindows();
+        const size_t windowCount = windows.size();
+
+        std::string mainWindowTitle = "None";
+        uint mainWindowWidth = 0u;
+        uint mainWindowHeight = 0u;
+        float mainWindowAspectRatio = 0.0f;
+
+        if (const auto mainWindow = Windowing.GetMainWindow())
+        {
+            mainWindowTitle = mainWindow->GetTitle();
+            const auto& size = mainWindow->GetSize();
+            mainWindowWidth = size.Width;
+            mainWindowHeight = size.Height;
+            if (mainWindowHeight != 0u)
+            {
+                mainWindowAspectRatio = static_cast<float>(mainWindowWidth) / static_cast<float>(mainWindowHeight);
+            }
+        }
+
+        const uint64 pluginCount = Plugins.Count();
+        const uint64 runtimeCount = Runtimes.Count();
+        const size_t renderPassCount = Graphics.GetRenderPasses().size();
+
+        const auto vsyncToString = [](VsyncMode mode) -> std::string_view
+        {
+            switch (mode)
+            {
+            case VsyncMode::Off: return "Off";
+            case VsyncMode::On: return "On";
+            case VsyncMode::Adaptive: return "Adaptive";
+            default: return "Unknown";
+            }
+        };
+
+        const auto graphicsApiToString = [](GraphicsApi api) -> std::string_view
+        {
+            switch (api)
+            {
+            case GraphicsApi::None: return "None";
+            case GraphicsApi::Vulkan: return "Vulkan";
+            case GraphicsApi::OpenGL: return "OpenGL";
+            case GraphicsApi::Metal: return "Metal";
+            case GraphicsApi::Custom: return "Custom";
+            default: return "Unknown";
+            }
+        };
+
+        TBX_TRACE_INFO(
+            "App: Frame Report\n"
+            "\tFrame time: {:.3f} ms ({:.3f} s)\n"
+            "\tFPS: {:.2f}\n"
+            "\tOpen windows: {}\n"
+            "\tMain window: {} ({}x{}, aspect {:.2f})\n"
+            "\tRender passes: {}\n"
+            "\tPlugins: {}\n"
+            "\tRuntimes: {}\n"
+            "\tGraphics API: {}\n"
+            "\tVSync: {}\n",
+            deltaMilliseconds,
+            deltaSeconds,
+            fps,
+            windowCount,
+            mainWindowTitle,
+            mainWindowWidth,
+            mainWindowHeight,
+            mainWindowAspectRatio,
+            renderPassCount,
+            pluginCount,
+            runtimeCount,
+            graphicsApiToString(Settings.RenderingApi),
+            vsyncToString(Settings.Vsync));
     }
 
     void App::Shutdown()
