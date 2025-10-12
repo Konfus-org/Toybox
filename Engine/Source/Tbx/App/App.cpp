@@ -79,6 +79,7 @@ namespace Tbx
     {
         Status = AppStatus::Initializing;
         Clock.Reset();
+        _frameCount = 0;
 
         auto workingDirectory = FileSystem::GetWorkingDirectory();
         TBX_TRACE_INFO("App: Current working directory is: {}", workingDirectory);
@@ -120,6 +121,7 @@ namespace Tbx
             // 1. Update delta and input
             Clock.Tick();
             const auto frameDelta = Clock.GetDeltaTime();
+            _frameCount++;
             Input::Update();
 
             // 2. Fixed update
@@ -223,9 +225,14 @@ namespace Tbx
             systemTimeStream << '.' << std::setw(3) << std::setfill('0') << systemTimeSubSecond.count();
             systemTimeString = systemTimeStream.str();
         }
-        const float fps = deltaSeconds > std::numeric_limits<float>::epsilon()
+        const float epsilon = std::numeric_limits<float>::epsilon();
+        const float instantaneousFps = deltaSeconds > epsilon
             ? 1.0f / deltaSeconds
             : 0.0f;
+        const int measuredFrames = _frameCount > 0 ? _frameCount - 1 : 0;
+        const float averageFps = (accumulatedSeconds > epsilon && measuredFrames > 0)
+            ? static_cast<float>(measuredFrames) / accumulatedSeconds
+            : instantaneousFps;
 
         const auto& windows = Windowing.GetAllWindows();
         const size_t windowCount = windows.size();
@@ -278,7 +285,8 @@ namespace Tbx
         TBX_TRACE_INFO(
             "App: Frame Report\n"
             "\tFrame time: {:.3f} ms ({:.3f} s)\n"
-            "\tFPS: {:.2f}\n"
+            "\tFPS (instant): {:.2f}\n"
+            "\tFPS (average): {:.2f}\n"
             "\tClock delta: {:.3f} ms ({:.3f} s)\n"
             "\tClock runtime: {:.3f} ms ({:.3f} s)\n"
             "\tClock system time: {} ({} ms since epoch)\n"
@@ -291,7 +299,8 @@ namespace Tbx
             "\tVSync: {}\n",
             deltaMilliseconds,
             deltaSeconds,
-            fps,
+            instantaneousFps,
+            averageFps,
             clockDeltaMilliseconds,
             clockDeltaSeconds,
             accumulatedMilliseconds,
