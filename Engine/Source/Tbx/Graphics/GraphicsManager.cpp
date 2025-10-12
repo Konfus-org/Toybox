@@ -252,7 +252,6 @@ namespace Tbx
 
         RenderPass opaque = {};
         opaque.Name = std::string(OpaquePassName);
-        opaque.DepthTestEnabled = true;
         opaque.Filter = [](const Material& material)
         {
             const auto hasAlpha = std::any_of(
@@ -265,11 +264,11 @@ namespace Tbx
 
             return !hasAlpha;
         };
+        opaque.Draw = RenderPass::CreateDefaultDraw(true);
         passes.push_back(std::move(opaque));
 
         RenderPass transparent = {};
         transparent.Name = std::string(TransparentPassName);
-        transparent.DepthTestEnabled = false;
         transparent.Filter = [](const Material& material)
         {
             return std::any_of(
@@ -280,6 +279,7 @@ namespace Tbx
                     return texture && texture->Format == TextureFormat::RGBA;
                 });
         };
+        transparent.Draw = RenderPass::CreateDefaultDraw(false);
         passes.push_back(std::move(transparent));
 
         return passes;
