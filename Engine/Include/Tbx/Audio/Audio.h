@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Ids/Uid.h"
+#include "Tbx/Memory/Refs.h"
 #include <cstdint>
 #include <vector>
 
@@ -40,30 +41,24 @@ namespace Tbx
         Audio() = default;
         Audio(SampleData data, AudioFormat format);
 
-        /// <summary>
-        /// Requests that the audio begin playing.
-        /// </summary>
-        void Play();
-
-        /// <summary>
-        /// Stops the audio from playing.
-        /// </summary>
-        void Stop();
-
-        /// <summary>
-        /// Determines whether playback has been requested for this audio instance.
-        /// </summary>
-        bool IsPlaying() const;
-
     public:
-        Uid Id = Uid::Generate();
         SampleData Data = {};
         AudioFormat Format = {};
+        Uid Id = Uid::Generate();
+    };
+
+    class TBX_EXPORT AudioSource
+    {
+    public:
+        AudioSource() = default;
+        AudioSource(Ref<Audio> audio) : Audio(audio) {}
+
+    public:
+        Ref<Audio> Audio;
+        bool Playing = false;
+        bool Looping = false;
+        float Volume = 1.0f;
         float Pitch = 1.0f;
         float PlaybackSpeed = 1.0f;
-        bool Loop = false;
-
-    private:
-        bool _isPlaying = false;
     };
 }

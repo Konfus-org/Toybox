@@ -77,7 +77,6 @@ add_subdirectory(Plugins/Toybox-ImGui-ImmediateUI-Plugin)
 add_subdirectory(Plugins/Toybox-JIMS-AssetLoader-Plugin)
 add_subdirectory(Plugins/Toybox-OpenGL-Rendering-Plugin)
 add_subdirectory(Plugins/Toybox-SDL-Plugins)
-add_subdirectory(Plugins/Toybox-SDL-Audio-Plugin)
 add_subdirectory(Plugins/Toybox-Spd-Logging-Plugin)
 
 # Organize everything into folders if using VS

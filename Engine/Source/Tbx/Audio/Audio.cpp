@@ -8,20 +8,4 @@ namespace Tbx
         , Format(std::move(format))
     {
     }
-
-    void Audio::Play()
-    {
-        _isPlaying = true;
-    }
-
-    void Audio::Stop()
-    {
-        _isPlaying = false;
-    }
-
-    bool Audio::IsPlaying() const
-    {
-        return _isPlaying;
-    }
-
 }

@@ -83,7 +83,7 @@ namespace Tbx
             return;
         }
 
-        StageView<Audio> view(stage->Root);
+        StageView<AudioSource> view(stage->Root);
         for (const auto& toy : view)
         {
             if (!toy)
@@ -91,18 +91,19 @@ namespace Tbx
                 continue;
             }
 
-            Ref<Audio> audioBlock;
-            if (!toy->Blocks.TryGet<Audio>(audioBlock) || !audioBlock)
+            Ref<AudioSource> audioBlock;
+            if (!toy->Blocks.TryGet<AudioSource>(audioBlock) || !audioBlock)
             {
                 continue;
             }
 
-            auto& audio = *audioBlock;
-            _mixer->SetLooping(audio, audio.Loop);
-            if (audio.IsPlaying())
+            auto& source = *audioBlock;
+            auto& audio = *audioBlock->Audio;
+            _mixer->SetLooping(audio, source.Looping);
+            if (source.Playing)
             {
-                _mixer->SetPitch(audio, audio.Pitch);
-                _mixer->SetPlaybackSpeed(audio, audio.PlaybackSpeed);
+                _mixer->SetPitch(audio, source.Pitch);
+                _mixer->SetPlaybackSpeed(audio, source.PlaybackSpeed);
                 _mixer->Play(audio);
             }
             else
