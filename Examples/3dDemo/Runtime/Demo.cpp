@@ -110,7 +110,7 @@ void Demo::OnStart()
 
     // TODO: Figure out a better way than just needing to know you have to send this event...
     // Perhaps a stage manager/director?
-    Dispatcher->Post(Tbx::StageOpenedEvent(_stage));
+    Carrier.Post(Tbx::StageOpenedEvent(_stage));
 }
 
 void Demo::OnShutdown()

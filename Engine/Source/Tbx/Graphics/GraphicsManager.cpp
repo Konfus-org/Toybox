@@ -1,5 +1,6 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Graphics/GraphicsManager.h"
+#include "Tbx/Events/EventCarrier.h"
 #include "Tbx/Events/RenderEvents.h"
 #include "Tbx/Debug/Asserts.h"
 #include <algorithm>
@@ -14,12 +15,12 @@ namespace Tbx
         const std::vector<Ref<IGraphicsBackend>>& backends,
         const std::vector<Ref<IGraphicsContextProvider>>& contextProviders,
         Ref<EventBus> eventBus)
-        : _eventBus(eventBus)
-        , _eventListener(eventBus)
+        : _eventListener(eventBus)
+        , _carrier(eventBus)
         , _activeGraphicsApi(startingApi)
     {
         TBX_ASSERT(!backends.empty(), "GraphicsManager: requires at least one graphics backend instance.");
-        TBX_ASSERT(_eventBus, "GraphicsManager: requires a valid event bus instance.");
+        TBX_ASSERT(eventBus, "GraphicsManager: requires a valid event bus instance.");
 
         InitializeRenderers(backends, contextProviders);
         TBX_ASSERT(!_renderers.empty(), "GraphicsManager: No compatible renderer implementations were provided for the available graphics APIs.");
@@ -27,11 +28,26 @@ namespace Tbx
         _pipeline = GraphicsPipeline(CreateDefaultRenderPasses());
         RecreateRenderersForCurrentApi();
 
-        _eventListener.Listen(this, &GraphicsManager::OnWindowOpened);
-        _eventListener.Listen(this, &GraphicsManager::OnWindowClosed);
-        _eventListener.Listen(this, &GraphicsManager::OnAppSettingsChanged);
-        _eventListener.Listen(this, &GraphicsManager::OnStageOpened);
-        _eventListener.Listen(this, &GraphicsManager::OnStageClosed);
+        _eventListener.Listen<WindowOpenedEvent>([this](WindowOpenedEvent& event)
+            {
+                OnWindowOpened(event);
+            });
+        _eventListener.Listen<WindowClosedEvent>([this](WindowClosedEvent& event)
+            {
+                OnWindowClosed(event);
+            });
+        _eventListener.Listen<AppSettingsChangedEvent>([this](AppSettingsChangedEvent& event)
+            {
+                OnAppSettingsChanged(event);
+            });
+        _eventListener.Listen<StageOpenedEvent>([this](StageOpenedEvent& event)
+            {
+                OnStageOpened(event);
+            });
+        _eventListener.Listen<StageClosedEvent>([this](StageClosedEvent& event)
+            {
+                OnStageClosed(event);
+            });
     }
 
     void GraphicsManager::Render()
@@ -47,7 +63,7 @@ namespace Tbx
             _pipeline.Draw(*renderer, display, _openStages, _clearColor);
         }
 
-        _eventBus->Send(RenderedFrameEvent());
+        _carrier.Send(RenderedFrameEvent());
     }
 
     void GraphicsManager::SetRenderPasses(const std::vector<RenderPass>& passes)

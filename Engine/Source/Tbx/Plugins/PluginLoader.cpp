@@ -1,5 +1,6 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Plugins/PluginLoader.h"
+#include "Tbx/Events/EventCarrier.h"
 #include "Tbx/Events/PluginEvents.h"
 #include "Tbx/Debug/Tracers.h"
 #include "Tbx/Debug/ILogger.h"
@@ -94,7 +95,7 @@ namespace Tbx
     PluginLoader::PluginLoader(
         const std::vector<PluginMeta>& pluginMetas,
         Ref<EventBus> eventBus)
-        : _eventBus(std::move(eventBus))
+        : _eventBus(eventBus)
     {
         LoadPlugins(pluginMetas);
     }
@@ -128,7 +129,8 @@ namespace Tbx
 
         if (_eventBus != nullptr)
         {
-            _eventBus->Post(PluginsLoadedEvent(_plugins));
+            EventCarrier carrier(_eventBus);
+            carrier.Post(PluginsLoadedEvent(_plugins));
         }
     }
 }

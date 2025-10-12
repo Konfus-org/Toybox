@@ -1,7 +1,11 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Events/EventBus.h"
+#include "Tbx/Debug/Asserts.h"
+#include "Tbx/Debug/Tracers.h"
+#include "Tbx/Events/EventSync.h"
+#include <unordered_map>
 
-namespace Tbx 
+namespace Tbx
 {
     //////////// Event Suppressor ///////////////
 
@@ -36,16 +40,21 @@ namespace Tbx
 
     EventBus::~EventBus()
     {
-        Flush();
+        EventSync sync;
+        while (!EventQueue.empty())
+        {
+            EventQueue.pop();
+        }
+        Subscriptions.clear();
+        SubscriptionIndex.clear();
     }
 
     void EventBus::Flush()
     {
-        // Pull all queued events out under lock to minimize lock-hold time while dispatching.
         std::queue<ExclusiveRef<Event>> localQueue;
         {
-            std::scoped_lock lock(_mutex);
-            localQueue.swap(_eventQueue);
+            EventSync sync;
+            localQueue.swap(EventQueue);
         }
 
         while (!localQueue.empty())
@@ -61,100 +70,30 @@ namespace Tbx
                 continue;
             }
 
-            SendEvent(*evt);
-        }
-    }
+            std::unordered_map<Uid, EventCallback> callbacks;
+            const auto hashCode = Memory::Hash(*evt);
 
-    void EventBus::AddSubscriber(EventHash eventKey, const Uid& token, EventCallback callable)
-    {
-        std::scoped_lock lock(_mutex);
-        auto& callbacks = _subscribers[eventKey];
-        callbacks[token] = std::move(callable);
-        _subscriptionIndex[token] = eventKey;
-    }
-
-    void EventBus::RemoveSubscriber(const Uid& token)
-    {
-        std::scoped_lock lock(_mutex);
-        auto tokenIt = _subscriptionIndex.find(token);
-        if (tokenIt == _subscriptionIndex.end())
-        {
-            return;
-        }
-
-        const auto eventKey = tokenIt->second;
-        auto eventIt = _subscribers.find(eventKey);
-        if (eventIt == _subscribers.end())
-        {
-            _subscriptionIndex.erase(tokenIt);
-            return;
-        }
-
-        auto& callbacks = eventIt->second;
-        callbacks.erase(token);
-        if (callbacks.empty())
-        {
-            _subscribers.erase(eventIt);
-        }
-
-        _subscriptionIndex.erase(tokenIt);
-    }
-
-    void EventBus::Unsubscribe(const Uid& token)
-    {
-        RemoveSubscriber(token);
-    }
-
-    void EventBus::SendEvent(Event& event)
-    {
-        TBX_TRACE_VERBOSE("EventBus: Dispatching the event \"{}\"", event.ToString());
-
-        if (EventSuppressor::IsSuppressing())
-        {
-            TBX_TRACE_WARNING("EventBus: The event \"{}\" is suppressed", event.ToString());
-            return;
-        }
-
-        const auto hashCode = GetEventHash(event);
-
-        // copy callbacks out under lock to avoid holding lock while calling subscribers
-        std::unordered_map<Uid, EventCallback> callbacks;
-        {
-            std::scoped_lock lock(_mutex);
-            auto it = _subscribers.find(hashCode);
-            if (it == _subscribers.end())
             {
-                return;
-            }
-            callbacks = it->second; // copy
-        }
+                EventSync sync;
+                auto it = Subscriptions.find(hashCode);
+                if (it == Subscriptions.end())
+                {
+                    continue;
+                }
 
-        for (auto& [id, cb] : callbacks)
-        {
-            // check suppress again in case a subscriber suppressed events
-            if (EventSuppressor::IsSuppressing())
+                callbacks = it->second;
+            }
+
+            for (auto& [id, cb] : callbacks)
             {
-                TBX_TRACE_WARNING("EventBus: The event \"{}\" is suppressed during dispatch", event.ToString());
-                return;
+                if (EventSuppressor::IsSuppressing())
+                {
+                    TBX_TRACE_WARNING("EventBus: The event \"{}\" is suppressed during flush", evt->ToString());
+                    break;
+                }
+
+                cb(*evt);
             }
-            cb(event);
         }
-    }
-
-    EventHash EventBus::GetEventHash(const Event& event) const
-    {
-        const auto& eventInfo = typeid(event);
-        const auto hash = eventInfo.hash_code();
-        return static_cast<EventHash>(hash);
-    }
-
-    ExclusiveRef<Event> EventBus::PopNextEventInQueue()
-    {
-        std::scoped_lock lock(_mutex);
-        if (_eventQueue.empty()) return nullptr;
-
-        auto evt = std::move(_eventQueue.front());
-        _eventQueue.pop();
-        return evt;
     }
 }

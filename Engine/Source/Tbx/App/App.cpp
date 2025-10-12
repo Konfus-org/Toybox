@@ -20,15 +20,26 @@
 
 namespace Tbx
 {
-    App::App(const std::string_view& name, const AppSettings& settings, const Collection<Ref<Plugin>>& plugins, Ref<EventBus> eventBus)
-        : Dispatcher(eventBus)
+    App::App(
+        const std::string_view& name,
+        const AppSettings& settings,
+        const Collection<Ref<Plugin>>& plugins,
+        Ref<EventBus> eventBus)
+        : Bus(eventBus)
         , Plugins(plugins)
         , Settings(settings)
-        , Windowing(Plugins.OfType<IWindowFactory>().front(), Dispatcher)
-        , Graphics(Settings.RenderingApi, Plugins.OfType<IGraphicsBackend>(), Plugins.OfType<IGraphicsContextProvider>(), Dispatcher)
+        , _carrier(Bus)
+        , Windowing(Plugins.OfType<IWindowFactory>().front(), Bus)
+        , Graphics(
+            Settings.RenderingApi,
+            Plugins.OfType<IGraphicsBackend>(),
+            Plugins.OfType<IGraphicsContextProvider>(),
+            Bus)
         , _name(name)
-        , _eventListener(eventBus)
+        , _listener(Bus)
     {
+        TBX_ASSERT(Bus, "App: Requires a valid event bus instance.");
+
         auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
         Input::SetHandler(inputHandlerPlugs.front());
     }
@@ -87,7 +98,10 @@ namespace Tbx
         TBX_TRACE_INFO("App: Current asset directory is: {}\n", assetDirectory);
 
         // 1. Sub to window closing so we can listen for main window closed to init app shutdown
-        _eventListener.Listen(this, &App::OnWindowClosed);
+        _listener.Listen<WindowClosedEvent>([this](WindowClosedEvent& event)
+            {
+                OnWindowClosed(event);
+            });
 
         // 2. Allow other systems to hook into launch
         OnLaunch();
@@ -98,13 +112,13 @@ namespace Tbx
         auto runtimes = Plugins.OfType<Runtime>();
         for (const auto& runtime : runtimes)
         {
-            runtime->Initialize(assetServer, Dispatcher);
+            runtime->Initialize(assetServer, Bus);
             Runtimes.Add(runtime);
         }
 
         // 4. Broadcast app launched events
-        Dispatcher->Send(AppSettingsChangedEvent(Settings));
-        Dispatcher->Send(AppLaunchedEvent(this));
+        _carrier.Send(AppSettingsChangedEvent(Settings));
+        _carrier.Send(AppLaunchedEvent(this));
 
         // 5. Open main window
 #ifdef TBX_DEBUG
@@ -160,8 +174,8 @@ namespace Tbx
             Windowing.Update();
 
             // 7. Dispatch events
-            Dispatcher->Post(AppUpdatedEvent());
-            Dispatcher->Flush();
+            _carrier.Post(AppUpdatedEvent());
+            Bus->Flush();
         }
 
 #ifndef TBX_RELEASE
@@ -333,8 +347,8 @@ namespace Tbx
 
         // Allow other systems to hook into shutdown
         OnShutdown();
-        Dispatcher->Post(AppClosedEvent(this));
-        Dispatcher->Flush();
+        _carrier.Post(AppClosedEvent(this));
+        Bus->Flush();
 
         if (isRestarting)
         {

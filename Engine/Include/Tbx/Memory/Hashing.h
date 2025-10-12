@@ -1,8 +1,29 @@
 #pragma once
 #include "Tbx/Math/Int.h"
+#include <typeinfo>
 
 namespace Tbx::Memory
 {
+    template <typename TValue>
+    inline constexpr uint64 Hash();
+
+    inline constexpr uint64 Hash(const std::type_info& info)
+    {
+        return static_cast<uint64>(info.hash_code());
+    }
+
+    template <typename TValue>
+    inline constexpr uint64 Hash()
+    {
+        return Hash(typeid(TValue));
+    }
+
+    template <typename TValue>
+    inline uint64 Hash(const TValue& value)
+    {
+        return Hash(typeid(value));
+    }
+
     /// <summary>
     /// Combines two 64-bit hash values into a single, well-distributed hash.
     /// </summary>

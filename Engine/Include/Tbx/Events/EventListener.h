@@ -2,11 +2,13 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Debug/Asserts.h"
 #include "Tbx/Events/EventBus.h"
+#include "Tbx/Events/EventSync.h"
 #include "Tbx/Ids/Uid.h"
 #include "Tbx/Memory/Refs.h"
 #include <mutex>
 #include <type_traits>
 #include <unordered_set>
+#include "Tbx/Memory/Hashing.h"
 
 namespace Tbx
 {
@@ -17,43 +19,21 @@ namespace Tbx
     template <class TEvent>
     using EventHandlerFunction = void(*)(TEvent&);
 
-    /// <summary>
-    /// Represents a member function callback that handles an event instance.
-    /// </summary>
-    /// <typeparam name="T">The subscriber type that owns the member function.</typeparam>
-    /// <typeparam name="TEvent">The event type handled by the callback.</typeparam>
-    template <typename T, class TEvent>
-    using ClassEventHandlerFunction = void(T::*)(TEvent&);
-
     class TBX_EXPORT EventListener
     {
     public:
         EventListener() = default;
-        EventListener(WeakRef<EventBus> bus);
+        EventListener(Ref<EventBus> bus);
+        EventListener(const EventListener& other);
+        EventListener& operator=(const EventListener& other);
+        EventListener(EventListener&& other) noexcept;
+        EventListener& operator=(EventListener&& other) noexcept;
         ~EventListener();
 
-        // TODO: If we want listeners to be moveable, we can't support instance based subscriptions...
-        /*EventListener(const EventListener&) = delete;
-        EventListener& operator=(const EventListener&) = delete;
-
-        EventListener(EventListener&& other) noexcept
-        {
-            TransferFrom(std::move(other));
-        }
-        EventListener& operator=(EventListener&& other) noexcept
-        {
-            if (this != &other)
-            {
-                Unbind();
-                TransferFrom(std::move(other));
-            }
-            return *this;
-        }*/
-
         /// <summary>
-        /// Binds the listener to the specified event bus via a weak reference.
+        /// Binds the listener to the specified event bus.
         /// </summary>
-        void Bind(WeakRef<EventBus> bus);
+        void Bind(Ref<EventBus> bus);
 
         /// <summary>
         /// Cancels all active subscriptions held by this listener.
@@ -80,25 +60,18 @@ namespace Tbx
                     std::invoke(fn, static_cast<TEvent&>(event));
                 };
 
-            const auto token = bus->Subscribe<TEvent>(std::move(callback));
+            const auto eventKey = Memory::Hash<std::decay_t<TEvent>>();
+            const auto token = Uid::Generate();
+
+            {
+                EventSync sync;
+                auto& callbacks = bus->Subscriptions[eventKey];
+                callbacks[token] = std::move(callback);
+                bus->SubscriptionIndex[token] = eventKey;
+            }
+
             TrackToken(token);
             return token;
-        }
-
-        /// <summary>
-        /// Subscribes an instance method to receive events of the given type.
-        /// </summary>
-        template <typename TSubscriber, class TEvent>
-        requires std::is_base_of_v<Event, std::decay_t<TEvent>>
-        Uid Listen(TSubscriber* instance, ClassEventHandlerFunction<TSubscriber, TEvent> callback)
-        {
-            TBX_ASSERT(instance != nullptr, "EventListener: Cannot subscribe with a null instance.");
-            const auto token = Listen<TEvent>([instance, callback](TEvent& event)
-                {
-                    std::invoke(callback, instance, event);
-                });
-            return token;
-
         }
 
         /// <summary>
@@ -123,17 +96,13 @@ namespace Tbx
         void StopListening(const Uid& token);
 
     private:
-        void TransferFrom(EventListener&& other) noexcept
-        {
-            Bind(other._bus);
-            _activeTokens = std::move(other._activeTokens);
-            other._activeTokens.clear();
-        }
+        static void Transfer(EventListener& from, EventListener& to) noexcept;
         void TrackToken(const Uid& token);
         Ref<EventBus> LockBus() const;
+        void ReleaseSubscriptions();
 
     private:
-        WeakRef<EventBus> _bus = {};
+        Ref<EventBus> _bus = nullptr;
         std::unordered_set<Uid> _activeTokens = {};
         mutable std::mutex _mutex = {};
     };
