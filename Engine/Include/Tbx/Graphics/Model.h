@@ -12,5 +12,15 @@ namespace Tbx
     {
         Mesh Mesh;
         Material Material;
+        Uid Id = Uid::Generate();
+    };
+
+    /// <summary>
+    /// References a shared model by identifier.
+    /// </summary>
+    struct TBX_EXPORT ModelInstance
+    {
+        Uid ModelId = Uid::Invalid;
+        Uid InstanceId = Uid::Generate();
     };
 }

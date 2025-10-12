@@ -44,4 +44,13 @@ namespace Tbx
         bool Transparent = false;
         Uid Id = Uid::Generate();
     };
+
+    /// <summary>
+    /// References a shared material by identifier.
+    /// </summary>
+    struct TBX_EXPORT MaterialInstance
+    {
+        Uid MaterialId = Uid::Invalid;
+        Uid InstanceId = Uid::Generate();
+    };
 }
