@@ -43,7 +43,7 @@ namespace Tbx
 
         for (const auto& stage : stages)
         {
-            auto renderData = PrepareStageForDrawing(renderer, FullStageView(stage->GetRoot()), aspectRatio);
+            auto renderData = PrepareStageForDrawing(renderer, FullStageView(stage->Root), aspectRatio);
 
             for (auto& pass : RenderPasses)
             {

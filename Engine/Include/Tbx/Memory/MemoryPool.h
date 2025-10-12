@@ -19,6 +19,12 @@ namespace Tbx
 
     struct MemoryChunk
     {
+        MemoryChunk() = default;
+        MemoryChunk(const MemoryChunk&) = delete;
+        MemoryChunk& operator=(const MemoryChunk&) = delete;
+        MemoryChunk(MemoryChunk&&) noexcept = default;
+        MemoryChunk& operator=(MemoryChunk&&) noexcept = default;
+
         ExclusiveRef<char[]> Data = nullptr;
         uint64 Capacity = 0;
         std::vector<bool> States;
@@ -26,6 +32,12 @@ namespace Tbx
 
     struct MemoryState
     {
+        MemoryState() = default;
+        MemoryState(const MemoryState&) = delete;
+        MemoryState& operator=(const MemoryState&) = delete;
+        MemoryState(MemoryState&&) noexcept = default;
+        MemoryState& operator=(MemoryState&&) noexcept = default;
+
         uint64 Capacity = 0;
         uint64 Count = 0;
         std::vector<MemoryChunk> Chunks;
