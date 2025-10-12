@@ -13,10 +13,22 @@ namespace Tbx
         OnStart();
     }
 
-    void IRuntime::Update()
+    void IRuntime::FixedUpdate(const DeltaTime& deltaTime)
     {
         // Hook for inheriting runtimes
-        OnUpdate();
+        OnFixedUpdate(deltaTime);
+    }
+
+    void IRuntime::Update(const DeltaTime& deltaTime)
+    {
+        // Hook for inheriting runtimes
+        OnUpdate(deltaTime);
+    }
+
+    void IRuntime::LateUpdate(const DeltaTime& deltaTime)
+    {
+        // Hook for inheriting runtimes
+        OnLateUpdate(deltaTime);
     }
 
     void IRuntime::Shutdown()

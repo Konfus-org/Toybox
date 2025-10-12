@@ -6,13 +6,23 @@
 namespace Tbx
 {
     struct Material;
+    struct StageRenderData;
+    struct GraphicsRenderer;
+    class GraphicsPipeline;
+
+    struct RenderPass;
 
     using RenderPassFilter = std::function<bool(const Material&)>;
+    using RenderPassDraw = std::function<void(
+        GraphicsPipeline& pipeline,
+        GraphicsRenderer& renderer,
+        StageRenderData& renderData,
+        const RenderPass& pass)>;
 
     struct TBX_EXPORT RenderPass
     {
         std::string Name = {};
-        bool DepthTestEnabled = true;
         RenderPassFilter Filter = nullptr;
+        RenderPassDraw Draw = nullptr;
     };
 }

@@ -15,7 +15,7 @@ public:
 
     void OnStart() override;
     void OnShutdown() override;
-    void OnUpdate() override;
+    void OnUpdate(const Tbx::DeltaTime& deltaTime) override;
 
 private:
     Tbx::Ref<Tbx::Stage> _stage = nullptr;
@@ -24,6 +24,7 @@ private:
 
     float _smilyBobTime = 0.0f;
     float _smilyBobAmplitude = 0.0f;
+    float _smilyBaseHeight = 0.0f;
 
     float _camPitch = 0.0f;
     float _camYaw = 0.0f;

@@ -25,7 +25,7 @@ set_target_properties(3dDemoRuntime PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQU
 # Link libs
 target_link_libraries(3dDemoRuntime PRIVATE
   Tbx::Engine
-  Tbx::Plugin::ImGuiDebugUI
+  Tbx::Plugin::ImGuiImmediateUI
   Tbx::Plugin::JIMSAssetLoader
   Tbx::Plugin::OpenGLRendering
   Tbx::Plugin::SDL3OpenGlGraphicsContext

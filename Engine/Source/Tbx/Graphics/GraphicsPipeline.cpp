@@ -26,7 +26,7 @@ namespace Tbx
         RenderPasses = passes;
     }
 
-    void GraphicsPipeline::Render(
+    void GraphicsPipeline::Process(
         GraphicsRenderer& renderer,
         const GraphicsDisplay& display, 
         const std::vector<Ref<Stage>>& stages,
@@ -43,11 +43,18 @@ namespace Tbx
 
         for (const auto& stage : stages)
         {
-            auto renderData = PrepareStageForRendering(renderer, FullStageView(stage->Root), aspectRatio);
+            auto renderData = PrepareStageForDrawing(renderer, FullStageView(stage->Root), aspectRatio);
 
-            for (uint32 passIndex = 0; passIndex < RenderPasses.size(); ++passIndex)
+            for (auto& pass : RenderPasses)
             {
-                RenderStage(passIndex, renderer, renderData);
+                if (pass.Draw)
+                {
+                    pass.Draw(*this, renderer, renderData, pass);
+                }
+                else
+                {
+                    DrawStage(pass, renderer, renderData);
+                }
             }
         }
 
@@ -55,10 +62,10 @@ namespace Tbx
         renderer.Backend->EndDraw();
     }
 
-    void GraphicsPipeline::RenderStage(uint32 passIndex, Tbx::GraphicsRenderer& renderer, Tbx::StageRenderData& renderData)
+    void GraphicsPipeline::DrawStage(const RenderPass& pass, Tbx::GraphicsRenderer& renderer, Tbx::StageRenderData& renderData)
     {
-        const auto& pass = RenderPasses[passIndex];
-        renderer.Backend->EnableDepthTesting(pass.DepthTestEnabled);
+        const auto passIndex = static_cast<size_t>(&pass - RenderPasses.data());
+        TBX_ASSERT(passIndex < RenderPasses.size(), "GraphicsPipeline: Render pass is not part of the pipeline.");
 
         const auto& buckets = renderData.PassBuckets[passIndex];
         for (const auto& [shaderProgramId, bucket] : buckets)
@@ -141,7 +148,7 @@ namespace Tbx
         }
     }
 
-    StageRenderData GraphicsPipeline::PrepareStageForRendering(
+    StageRenderData GraphicsPipeline::PrepareStageForDrawing(
         GraphicsRenderer& renderer,
         const FullStageView& stageView,
         float aspectRatio)
