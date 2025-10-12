@@ -2,12 +2,10 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Stages/Toy.h"
 #include "Tbx/Memory/Refs.h"
+#include <utility>
 
 namespace Tbx
 {
-    // TODO: we should have a pool of 'Toy' objects to avoid creating and destroying them every frame
-    // and make them continuous in memory so they be speedy!
-
     /// <summary>
     /// Represents a collection of toys.
     /// </summary>
@@ -15,23 +13,29 @@ namespace Tbx
     {
     public:
         /// <summary>
-        /// Creates a new instance of <see cref="Stage"/> with a root toy.
+        /// Creates a shared stage instance.
         /// </summary>
-        Stage();
-        ~Stage();
+        static Ref<Stage> Make();
 
-        /// <summary>
-        /// Gets the root toy of the hierarchy.
-        /// </summary>
-        /// <returns>The root toy.</returns>
-        Ref<Toy> GetRoot() const;
+        virtual ~Stage();
 
         /// <summary>
         /// Updates the toy hierarchy.
         /// </summary>
         void Update();
 
-    private:
-        Ref<Toy> _root = nullptr;
+        /// <summary>
+        /// Constructs a toy instance backed by the shared memory pool.
+        /// </summary>
+        template <typename TToy = Toy, typename... Args>
+        Ref<TToy> Add(Args&&... args)
+        {
+            return Toy::Make<TToy>(std::forward<Args>(args)...);
+        }
+
+        const Ref<Toy> Root;
+
+    protected:
+        Stage();
     };
 }
