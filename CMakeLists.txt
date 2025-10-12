@@ -73,7 +73,7 @@ add_subdirectory(Examples/3dDemo/Runtime)
 add_subdirectory(Examples/3dDemo/Launcher)
 
 # Plugins:
-add_subdirectory(Plugins/Toybox-ImGui-DebugUI-Plugin)
+add_subdirectory(Plugins/Toybox-ImGui-ImmediateUI-Plugin)
 add_subdirectory(Plugins/Toybox-JIMS-AssetLoader-Plugin)
 add_subdirectory(Plugins/Toybox-OpenGL-Rendering-Plugin)
 add_subdirectory(Plugins/Toybox-SDL-Plugins)
@@ -87,7 +87,7 @@ if(MSVC)
     set_property(TARGET Launcher PROPERTY FOLDER "Toybox")
     
     # Plugins
-    set_property(TARGET ImGuiDebugUI PROPERTY FOLDER "Toybox/Plugins")
+    set_property(TARGET ImGuiImmediateUI PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET JIMSAssetLoader PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET OpenGLRendering PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET SDL3Input PROPERTY FOLDER "Toybox/Plugins")
