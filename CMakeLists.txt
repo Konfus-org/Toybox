@@ -73,7 +73,7 @@ add_subdirectory(Examples/3dDemo/Runtime)
 add_subdirectory(Examples/3dDemo/Launcher)
 
 # Plugins:
-add_subdirectory(Plugins/Toybox-ImGui-DebugUI-Plugin)
+add_subdirectory(Plugins/Toybox-ImGui-ImmediateUI-Plugin)
 add_subdirectory(Plugins/Toybox-JIMS-AssetLoader-Plugin)
 add_subdirectory(Plugins/Toybox-OpenGL-Rendering-Plugin)
 add_subdirectory(Plugins/Toybox-SDL-Plugins)
