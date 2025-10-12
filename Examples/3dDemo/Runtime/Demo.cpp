@@ -27,17 +27,24 @@ void Demo::OnStart()
     TBX_TRACE_INFO("Demo: started!\n");
 
     // Load assets
+    auto music = Assets->Get<Tbx::Audio>("Music.wav");
     auto wallTex = Assets->Get<Tbx::Texture>("Wall.jpg");
     auto floorTex = Assets->Get<Tbx::Texture>("Checkerboard.png");
     auto smilyTex = Assets->Get<Tbx::Texture>("Smily.png");
-    auto fragmentShader = Assets->Get<Tbx::Shader>("fragment.frag");
-    auto vertexShader = Assets->Get<Tbx::Shader>("vertex.vert");
+    auto fragmentShader = Assets->Get<Tbx::Shader>("Fragment.frag");
+    auto vertexShader = Assets->Get<Tbx::Shader>("Vertex.vert");
     auto matShaders = { vertexShader, fragmentShader };
 
     // Setup testing scene:
     {
         _stage = Tbx::Stage::Make();
         auto worldRoot = _stage->Root;
+
+        // Add audio
+        auto musicPlayer = _stage->Add("MusicPlayer");
+        auto musicSource = musicPlayer->Add<Tbx::AudioSource>(music);
+        musicSource->Playing = true;
+        musicSource->Looping = true;
 
         // We need to have at least once instance of our mesh and materials to be able to instance them
         // TODO: This is a bit of a hack, but it works for now.
@@ -52,6 +59,8 @@ void Demo::OnStart()
 
         auto smilyMatToy = _stage->Add("SmilyMat");
         auto smilyMatId = smilyMatToy->Add<Tbx::Material>(matShaders, smilyTex)->Id;
+
+        // Add music
 
         // Create room
         {

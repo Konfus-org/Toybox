@@ -1,5 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
+#include "Tbx/Audio/Audio.h"
 #include "Tbx/Graphics/Texture.h"
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Graphics/Model.h"
@@ -64,5 +65,16 @@ namespace Tbx
 
     protected:
         virtual Text LoadText(const std::filesystem::path& filepath) = 0;
+    };
+
+    class TBX_EXPORT IAudioLoader : public AssetLoader<Audio>
+    {
+        Audio Load(const std::filesystem::path& filepath) final
+        {
+            return LoadAudio(filepath);
+        }
+
+    protected:
+        virtual Audio LoadAudio(const std::filesystem::path& filepath) = 0;
     };
 }

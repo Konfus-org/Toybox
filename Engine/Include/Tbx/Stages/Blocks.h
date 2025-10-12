@@ -26,7 +26,6 @@ namespace Tbx
             if (found == pools.end())
             {
                 auto inserted = pools.emplace(typeIndex, MemoryPool<TBlock>(DefaultBlockCapacity));
-                TBX_TRACE_INFO("BlockCollection: allocated pool for %s with capacity %llu", typeid(TBlock).name(), DefaultBlockCapacity);
                 return std::any_cast<MemoryPool<TBlock>&>(inserted.first->second);
             }
 
@@ -38,7 +37,6 @@ namespace Tbx
         {
             auto& pool = GetPool<TBlock>();
             pool.Reserve(additionalCapacity);
-            TBX_TRACE_INFO("BlockCollection: resized pool for %s by %llu (new capacity=%llu)", typeid(TBlock).name(), additionalCapacity, pool.Capacity());
         }
 
     private:

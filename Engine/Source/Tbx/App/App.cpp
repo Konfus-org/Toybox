@@ -3,6 +3,7 @@
 #include "Tbx/App/Runtime.h"
 #include "Tbx/Graphics/GraphicsBackend.h"
 #include "Tbx/Graphics/GraphicsContext.h"
+#include "Tbx/Audio/AudioMixer.h"
 #include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Input/Input.h"
@@ -30,11 +31,8 @@ namespace Tbx
         , Settings(settings)
         , _carrier(Bus)
         , Windowing(Plugins.OfType<IWindowFactory>().front(), Bus)
-        , Graphics(
-            Settings.RenderingApi,
-            Plugins.OfType<IGraphicsBackend>(),
-            Plugins.OfType<IGraphicsContextProvider>(),
-            Bus)
+        , Graphics(Settings.RenderingApi, Plugins.OfType<IGraphicsBackend>(), Plugins.OfType<IGraphicsContextProvider>(), Bus)
+        , Audio(plugins.OfType<IAudioMixer>().front(), Bus)
         , _name(name)
         , _listener(Bus)
     {
@@ -172,6 +170,9 @@ namespace Tbx
 
             // 6. windows
             Windowing.Update();
+          
+            // 7. Update audio
+            Audio.Update();
 
             // 7. Dispatch events
             _carrier.Post(AppUpdatedEvent());

@@ -102,7 +102,7 @@ namespace Tbx
             auto recordIt = _assetRecords.find(normalizedPath);
             if (recordIt == _assetRecords.end())
             {
-                TBX_ASSERT(false, "AssetServer: Failed to find the asset at the path {}", path);
+                TBX_ASSERT(false, "AssetServer: Failed to find the asset at the path {}, does it exist and is a loader registered to handle it?", path);
                 return nullptr;
             }
 

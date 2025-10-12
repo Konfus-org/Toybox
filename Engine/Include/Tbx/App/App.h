@@ -7,6 +7,7 @@
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Windowing/WindowManager.h"
 #include "Tbx/Graphics/GraphicsManager.h"
+#include "Tbx/Audio/AudioManager.h"
 #include "Tbx/Collections/Collection.h"
 #include "Tbx/Memory/Refs.h"
 #include "Tbx/Time/Chronometer.h"
@@ -87,6 +88,7 @@ namespace Tbx
         AppSettings Settings = {};
         WindowManager Windowing = {};
         GraphicsManager Graphics = {};
+        AudioManager Audio = {};
         Chronometer Clock = {};
 
     private:

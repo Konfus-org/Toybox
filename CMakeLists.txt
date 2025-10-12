@@ -93,6 +93,7 @@ if(MSVC)
     set_property(TARGET SDL3Input PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET SDL3Windowing PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET SDL3OpenGlGraphicsContext PROPERTY FOLDER "Toybox/Plugins")
+    set_property(TARGET SDL3Audio PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET SpdLogging PROPERTY FOLDER "Toybox/Plugins")
     
     # Examples
