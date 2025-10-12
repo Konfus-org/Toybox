@@ -30,7 +30,9 @@ namespace Tbx
         template <typename TToy = Toy, typename... Args>
         Ref<TToy> Add(Args&&... args)
         {
-            return Toy::Make<TToy>(std::forward<Args>(args)...);
+            auto toy = Toy::Make<TToy>(std::forward<Args>(args)...);
+            Root->Add(toy);
+            return toy;
         }
 
         const Ref<Toy> Root = nullptr;

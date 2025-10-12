@@ -70,6 +70,15 @@ namespace Tbx
         }
 
         /// <summary>
+        /// Adds a child toy to this toy.
+        /// </summary>
+        Ref<Toy> Add(Ref<Toy> toy)
+        {
+            Children.Add(toy);
+            return toy;
+        }
+
+        /// <summary>
         /// Determines whether this toy contains a block of type <typeparamref name="T"/> or a child toy matching the request.
         /// </summary>
         template <typename T>

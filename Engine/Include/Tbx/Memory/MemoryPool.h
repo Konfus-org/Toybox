@@ -49,7 +49,7 @@ namespace Tbx
     /// When the shared pointer is destroyed the slot is released back to the pool.
     /// </summary>
     template <typename TObject>
-    struct TBX_EXPORT MemoryPool
+    struct MemoryPool
     {
     public:
         /// <summary>

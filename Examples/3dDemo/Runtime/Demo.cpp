@@ -53,7 +53,6 @@ void Demo::OnStart()
             transform->SetRotation(Tbx::Quaternion::FromEuler({ 90, 0, 0 }));
             transform->SetScale({ 50 });
         }
-        _stage->Root->Children.Add(floor);
 
         auto wallBack = _stage->Add("Wall Back");
         wallBack->Add<Tbx::Mesh>();
@@ -64,7 +63,6 @@ void Demo::OnStart()
             transform->SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }));
             transform->SetScale({ 50 });
         }
-        _stage->Root->Children.Add(wallBack);
 
         auto wallRight = _stage->Add("Wall Right");
         wallRight->Add<Tbx::Mesh>();
@@ -75,7 +73,6 @@ void Demo::OnStart()
             transform->SetRotation(Tbx::Quaternion::FromEuler({ 0, -90, 0 }));
             transform->SetScale({ 50 });
         }
-        _stage->Root->Children.Add(wallRight);
     }
 
     // Create smily
@@ -99,15 +96,11 @@ void Demo::OnStart()
         fpsCam->Add<Tbx::Camera>();
         fpsCam->Add<Tbx::Transform>();
         _fpsCam = fpsCam;
-        _stage->Root->Children.Add(_fpsCam);
     }
 
     // TODO: Figure out a better way than just needing to know you have to send this event...
     // Perhaps a stage manager/director?
-    if (Dispatcher)
-    {
-        Dispatcher->Post(Tbx::StageOpenedEvent(_stage));
-    }
+    Dispatcher->Post(Tbx::StageOpenedEvent(_stage));
 }
 
 void Demo::OnShutdown()
