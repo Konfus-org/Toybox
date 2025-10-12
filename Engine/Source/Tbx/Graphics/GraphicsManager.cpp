@@ -264,7 +264,7 @@ namespace Tbx
 
             return !hasAlpha;
         };
-        opaque.Draw = [](GraphicsPipeline& pipeline, GraphicsRenderer& renderer, StageRenderData& renderData, const RenderPass& pass)
+        opaque.Draw = [](GraphicsPipeline& pipeline, GraphicsRenderer& renderer, StageDrawData& renderData, const RenderPass& pass)
         {
             pipeline.DrawStage(pass, renderer, renderData);
         };
@@ -282,7 +282,7 @@ namespace Tbx
                     return texture && texture->Format == TextureFormat::RGBA;
                 });
         };
-        transparent.Draw = [](GraphicsPipeline& pipeline,  GraphicsRenderer& renderer, StageRenderData& renderData, const RenderPass& pass)
+        transparent.Draw = [](GraphicsPipeline& pipeline,  GraphicsRenderer& renderer, StageDrawData& renderData, const RenderPass& pass)
         {
             renderer.Backend->EnableDepthTesting(false);
             pipeline.DrawStage(pass, renderer, renderData);

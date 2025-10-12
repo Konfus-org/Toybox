@@ -20,14 +20,21 @@ namespace Tbx
 
     struct CameraData
     {
-        Mat4x4 ViewProjection;
-        Frustum Frustum;
+        Mat4x4 ViewProj;
+        Frustum Frust;
     };
 
-    struct StageRenderData
+    struct ModelDrawData
+    {
+        const Material* Mat = nullptr;
+        const Mesh* Poly = nullptr;
+    };
+
+    struct StageDrawData
     {
         std::vector<RenderBuckets> PassBuckets = {};
         std::vector<CameraData> Cameras = {};
+        std::unordered_map<Uid, ModelDrawData> Drawables = {};
     };
 
     struct TBX_EXPORT GraphicsDisplay
@@ -71,15 +78,15 @@ namespace Tbx
         GraphicsPipeline() = default;
         explicit GraphicsPipeline(std::vector<RenderPass> passes);
         void Process(GraphicsRenderer& renderer, const GraphicsDisplay& display, const std::vector<Ref<Stage>>& stages, const RgbaColor& clearColor);
-        void DrawStage(const RenderPass& pass, Tbx::GraphicsRenderer& renderer, Tbx::StageRenderData& renderData);
+        void DrawStage(const RenderPass& pass, Tbx::GraphicsRenderer& renderer, Tbx::StageDrawData& renderData);
 
     private:
-        StageRenderData PrepareStageForDrawing(GraphicsRenderer& renderer, const FullStageView& stageView, float aspectRatio);
-        void RenderCameraView(const Tbx::RenderBucket& bucket, const Tbx::CameraData& camera, const Tbx::Ref<Tbx::ShaderProgramResource>& shaderResource, Tbx::GraphicsRenderer& renderer);
+        StageDrawData PrepareStageForDrawing(GraphicsRenderer& renderer, const FullStageView& stageView, float aspectRatio);
+        void RenderCameraView(const Tbx::RenderBucket& bucket, const Tbx::CameraData& camera, const Tbx::Ref<Tbx::ShaderProgramResource>& shaderResource, Tbx::GraphicsRenderer& renderer, const StageDrawData& renderData);
         void CacheShaders(GraphicsRenderer& renderer, const ShaderProgram& shaders);
         void CacheMaterial(GraphicsRenderer& renderer, const Material& shaders);
         void CacheMesh(GraphicsRenderer& renderer, const Mesh& mesh);
-        bool ShouldCull(const Ref<Toy>& toy, const Frustum& frustum);
+        bool ShouldCull(const Ref<Toy>& toy, const Frustum& frustum, const StageDrawData& renderData);
         size_t ResolveRenderPassIndex(const Material& material) const;
 
     public:
