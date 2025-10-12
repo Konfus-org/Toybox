@@ -8,6 +8,7 @@
 #include "Tbx/Graphics/GraphicsManager.h"
 #include "Tbx/Collections/Collection.h"
 #include "Tbx/Memory/Refs.h"
+#include "Tbx/Time/Chronometer.h"
 #include "Tbx/Time/DeltaTime.h"
 
 namespace Tbx
@@ -92,7 +93,7 @@ namespace Tbx
         std::string _name = "";
         EventListener _eventListener = {};
         float _fixedUpdateAccumulator = 0.0f;
-        DeltaClock _deltaClock = {};
+        Chronometer _frameChronometer = {};
         DeltaTime _frameDeltaTime = {};
 
         // TODO: move this elsewhere! Perhaps a plugin?

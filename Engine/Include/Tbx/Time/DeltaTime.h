@@ -1,7 +1,5 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include <chrono>
-
 namespace Tbx
 {
     /// <summary>
@@ -25,27 +23,4 @@ namespace Tbx
         float Milliseconds = 0.0f;
     };
 
-    /// <summary>
-    /// Tracks frame timings and produces <see cref="DeltaTime"/> snapshots.
-    /// </summary>
-    class TBX_EXPORT DeltaClock
-    {
-    public:
-        DeltaClock();
-
-        /// <summary>
-        /// Samples the current clock and returns the elapsed time since the last tick.
-        /// The first tick after construction returns a zero delta.
-        /// </summary>
-        DeltaTime Tick();
-
-        /// <summary>
-        /// Resets the clock so the next tick returns a zero delta.
-        /// </summary>
-        void Reset();
-
-    private:
-        std::chrono::high_resolution_clock::time_point _lastFrameTime;
-        bool _hasLastFrameTime;
-    };
 }

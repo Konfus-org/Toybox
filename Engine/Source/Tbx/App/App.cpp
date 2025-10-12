@@ -7,6 +7,7 @@
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Input/Input.h"
 #include "Tbx/Input/InputCodes.h"
+#include "Tbx/Time/Chronometer.h"
 #include "Tbx/Time/DeltaTime.h"
 #include "Tbx/Files/Paths.h"
 #include <limits>
@@ -73,7 +74,7 @@ namespace Tbx
     void App::Initialize()
     {
         Status = AppStatus::Initializing;
-        _deltaClock.Reset();
+        _frameChronometer.Reset();
 
         auto workingDirectory = FileSystem::GetWorkingDirectory();
         TBX_TRACE_INFO("App: Current working directory is: {}", workingDirectory);
@@ -113,7 +114,8 @@ namespace Tbx
         // Runtime loop
         {
             // 1. Update delta and input
-            _frameDeltaTime = _deltaClock.Tick();
+            const auto frameDuration = _frameChronometer.Tick();
+            _frameDeltaTime.SetSeconds(frameDuration.count());
             Input::Update();
 
             // 2. Fixed update runtimes
