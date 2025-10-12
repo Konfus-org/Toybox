@@ -119,14 +119,13 @@ namespace Tbx
         {
             // 1. Update delta and input
             Clock.Tick();
-            const DeltaTime frameDelta = Clock.GetDeltaTime();
+            const auto frameDelta = Clock.GetDeltaTime();
             Input::Update();
 
-            // 2. Fixed update runtimes
+            // 2. Fixed update
             constexpr float fixedUpdateInterval = 1.0f / 50.0f;
             _fixedUpdateAccumulator += frameDelta.Seconds;
-            const DeltaTime fixedDelta(fixedUpdateInterval);
-
+            const auto fixedDelta = DeltaTime(fixedUpdateInterval);
             while (_fixedUpdateAccumulator >= fixedUpdateInterval)
             {
                 for (const auto& runtime : Runtimes)
@@ -138,29 +137,27 @@ namespace Tbx
                 _fixedUpdateAccumulator -= fixedUpdateInterval;
             }
 
-            // 3. Update runtimes
+            // 3. Update
             for (const auto& runtime : Runtimes)
             {
                 runtime->Update(frameDelta);
             }
-
-            // 4. Render graphics
-            Graphics.Render();
-
-            // 5. Update windows
-            Windowing.Update();
-
-            // 6. Allow other systems to hook into update
             OnUpdate(frameDelta);
 
-            // 7. Late update runtimes
+            // 4. Late update
             for (const auto& runtime : Runtimes)
             {
                 runtime->LateUpdate(frameDelta);
             }
-
             OnLateUpdate(frameDelta);
 
+            // 5. Render
+            Graphics.Render();
+
+            // 6. windows
+            Windowing.Update();
+
+            // 7. Dispatch events
             Dispatcher->Post(AppUpdatedEvent());
             Dispatcher->Flush();
         }
