@@ -8,16 +8,9 @@ namespace Tbx
     /// </summary>
     struct TBX_EXPORT DeltaTime
     {
-        constexpr DeltaTime()
-            : Seconds(0.0f)
-            , Milliseconds(0.0f)
+        static constexpr DeltaTime FromSeconds(float seconds)
         {
-        }
-
-        explicit constexpr DeltaTime(float seconds)
-            : Seconds(seconds)
-            , Milliseconds(seconds * 1000.0f)
-        {
+            return DeltaTime(seconds, seconds * 1000.0f);
         }
 
         static constexpr DeltaTime FromMilliseconds(float milliseconds)
@@ -25,14 +18,7 @@ namespace Tbx
             return DeltaTime(milliseconds / 1000.0f, milliseconds);
         }
 
-        const float Seconds;
-        const float Milliseconds;
-
-    private:
-        constexpr DeltaTime(float seconds, float milliseconds)
-            : Seconds(seconds)
-            , Milliseconds(milliseconds)
-        {
-        }
+        const float Seconds = 0;
+        const float Milliseconds = 0;
     };
 }

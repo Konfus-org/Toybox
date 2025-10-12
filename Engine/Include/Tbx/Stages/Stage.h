@@ -33,7 +33,7 @@ namespace Tbx
             return Toy::Make<TToy>(std::forward<Args>(args)...);
         }
 
-        const Ref<Toy> Root;
+        const Ref<Toy> Root = nullptr;
 
     protected:
         Stage();

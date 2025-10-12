@@ -90,7 +90,7 @@ void Demo::OnStart()
             transform->SetScale({ 10 });
         }
         _smily = smily;
-        _smilyBaseHeight = _smily->Blocks.Get<Tbx::Transform>().Position.Y;
+        _smilyBaseHeight = _smily->Get<Tbx::Transform>()->Position.Y;
     }
 
     // Create camera
@@ -122,7 +122,7 @@ void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
 
     // Camera movement
     {
-        auto camTransform = _fpsCam->Get<Tbx::Transform>();
+        auto& camTransform = *_fpsCam->Get<Tbx::Transform>();
 
         // Camera rotation
         {
@@ -133,13 +133,13 @@ void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
             // Arrow and gamepad btn style
             {
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_LEFT) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_WEST))
-                    _camYaw -= camRotateSpeedDegPerSec * deltaTime;
+                    _camYaw -= camRotateSpeedDegPerSec * deltaTimeSeconds;
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_RIGHT) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_EAST))
-                    _camYaw += camRotateSpeedDegPerSec * deltaTime;
+                    _camYaw += camRotateSpeedDegPerSec * deltaTimeSeconds;
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_UP) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_NORTH))
-                    _camPitch += camRotateSpeedDegPerSec * deltaTime;
+                    _camPitch += camRotateSpeedDegPerSec * deltaTimeSeconds;
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_DOWN) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_SOUTH))
-                    _camPitch -= camRotateSpeedDegPerSec * deltaTime;
+                    _camPitch -= camRotateSpeedDegPerSec * deltaTimeSeconds;
             }
             // Mouse and gamepad axis style
             {
@@ -150,7 +150,7 @@ void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
                         Tbx::Vector2(mouseDelta.X * mouseSensitivityDegPerPx,
                                      mouseDelta.Y * mouseSensitivityDegPerPx);
 
-                    const float smoothingFactor = std::clamp(deltaTime * mouseSmoothingRate, 0.0f, 1.0f);
+                    const float smoothingFactor = std::clamp(deltaTimeSeconds * mouseSmoothingRate, 0.0f, 1.0f);
                     _camLookVelocity += (targetLookDelta - _camLookVelocity) * smoothingFactor;
 
                     _camYaw += _camLookVelocity.X;
@@ -168,8 +168,8 @@ void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
                     rightStickYAxisValue > TBX_GAMEPAD_AXIS_DEADZONE  ||
                     rightStickYAxisValue < -TBX_GAMEPAD_AXIS_DEADZONE)
                 {
-                    _camYaw += rightStickXAxisValue * camRotateSpeedDegPerSec * deltaTime;
-                    _camPitch += rightStickYAxisValue * camRotateSpeedDegPerSec * deltaTime;
+                    _camYaw += rightStickXAxisValue * camRotateSpeedDegPerSec * deltaTimeSeconds;
+                    _camPitch += rightStickYAxisValue * camRotateSpeedDegPerSec * deltaTimeSeconds;
                 }
             }
 
@@ -190,7 +190,7 @@ void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
             Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3::Up, _camYaw);
 
             // Combine (usually yaw * pitch for FPS)
-            camTransform->Rotation = Tbx::Quaternion::Normalize(qYaw * qPitch);
+            camTransform.Rotation = Tbx::Quaternion::Normalize(qYaw * qPitch);
         }
 
         // Determine movement speed
@@ -210,13 +210,13 @@ void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
             // Get WASD/dpad style
             {
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_W) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_UP))
-                    camMoveDir += Tbx::Quaternion::GetForward(camTransform->Rotation);
+                    camMoveDir += Tbx::Quaternion::GetForward(camTransform.Rotation);
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_S) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_DOWN))
-                    camMoveDir -= Tbx::Quaternion::GetForward(camTransform->Rotation);
+                    camMoveDir -= Tbx::Quaternion::GetForward(camTransform.Rotation);
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_D) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_RIGHT))
-                    camMoveDir -= Tbx::Quaternion::GetRight(camTransform->Rotation);
+                    camMoveDir -= Tbx::Quaternion::GetRight(camTransform.Rotation);
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_A) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_LEFT))
-                    camMoveDir += Tbx::Quaternion::GetRight(camTransform->Rotation);
+                    camMoveDir += Tbx::Quaternion::GetRight(camTransform.Rotation);
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_E) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_RIGHT_BUMPER))
                     camMoveDir += Tbx::Vector3::Up;
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_Q) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_LEFT_BUMPER))
@@ -230,12 +230,12 @@ void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
                 if (leftStickXAxisValue > TBX_GAMEPAD_AXIS_DEADZONE  ||
                     leftStickXAxisValue < -TBX_GAMEPAD_AXIS_DEADZONE)
                 {
-                    camMoveDir -= Tbx::Quaternion::GetRight(camTransform->Rotation) * Tbx::Vector3(leftStickXAxisValue, 0, 0).Normalize();
+                    camMoveDir -= Tbx::Quaternion::GetRight(camTransform.Rotation) * Tbx::Vector3(leftStickXAxisValue, 0, 0).Normalize();
                 }
                 if (leftStickYAxisValue > TBX_GAMEPAD_AXIS_DEADZONE ||
                     leftStickYAxisValue < -TBX_GAMEPAD_AXIS_DEADZONE)
                 {
-                    camMoveDir += Tbx::Quaternion::GetForward(camTransform->Rotation) * Tbx::Vector3(0, 0, leftStickYAxisValue).Normalize();
+                    camMoveDir += Tbx::Quaternion::GetForward(camTransform.Rotation) * Tbx::Vector3(0, 0, leftStickYAxisValue).Normalize();
                 }
             }
 
@@ -305,10 +305,10 @@ void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
     {
         // rotate over time
         const float smilyRotateSpeed = 90.0f;
-        auto smilyTransform = _smily->Get<Tbx::Transform>();
-        float angle = Tbx::PI * deltaTime * smilyRotateSpeed;
+        auto& smilyTransform = *_smily->Get<Tbx::Transform>();
+        float angle = Tbx::PI * deltaTimeSeconds * smilyRotateSpeed;
         Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3::Up, angle);
-        smilyTransform->Rotation = Tbx::Quaternion::Normalize(smilyTransform->Rotation * qYaw);
+        smilyTransform.Rotation = Tbx::Quaternion::Normalize(smilyTransform.Rotation * qYaw);
 
         // Bob over time
         const float smilyBobFrequency = 2;

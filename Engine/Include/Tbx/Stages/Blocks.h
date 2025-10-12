@@ -65,14 +65,14 @@ namespace Tbx
         template <typename T, typename... Args>
         Ref<T> Add(Args&&... args)
         {
-            using BlockType = std::remove_cvref_t<T>;
-            const auto typeIndex = std::type_index(typeid(BlockType));
+            const auto& typeId = typeid(T);
+            const auto typeIndex = std::type_index(typeId);
 
-            auto& pool = AcquirePool<BlockType>();
+            auto& pool = AcquirePool<T>();
             if (pool.IsFull())
             {
-                TBX_TRACE_WARNING("BlockCollection: pool for %s is exhausted. Call BlockCollection::Reserve<%s>(additionalCapacity) before adding more instances.", typeid(BlockType).name(), typeid(BlockType).name());
-                return Ref<BlockType>();
+                TBX_TRACE_WARNING("BlockCollection: pool for %s is exhausted. Call BlockCollection::Reserve<%s>(additionalCapacity) before adding more instances.", typeId.name(), typeId.name());
+                return Ref<T>();
             }
 
             auto block = pool.Provide(std::forward<Args>(args)...);
@@ -99,13 +99,30 @@ namespace Tbx
         /// Retrieves stored data of type <typeparamref name="T"/>.
         /// </summary>
         template <typename T>
-        Ref<T> Get()
+        Ref<T> Get() const
         {
-            using BlockType = std::remove_cvref_t<T>;
-            const auto typeIndex = std::type_index(typeid(BlockType));
+            const auto typeIndex = std::type_index(typeid(T));
             auto& block = _blocks.at(typeIndex);
-            auto typed = std::static_pointer_cast<BlockType>(block);
+            auto typed = std::static_pointer_cast<T>(block);
             return typed;
+        }
+
+        /// <summary>
+        /// Attempts to retrieve a shared pointer to the stored block of type <typeparamref name="T"/>.
+        /// </summary>
+        template <typename T>
+        bool TryGet(Ref<T>& block) const
+        {
+            const auto typeIndex = std::type_index(typeid(T));
+            auto iter = _blocks.find(typeIndex);
+            if (iter == _blocks.end())
+            {
+                block = nullptr;
+                return false;
+            }
+
+            block = std::static_pointer_cast<T>(iter->second);
+            return block != nullptr;
         }
 
         /// <summary>
@@ -114,7 +131,7 @@ namespace Tbx
         template <typename T>
         bool Contains() const
         {
-            const auto typeIndex = std::type_index(typeid(std::remove_cvref_t<T>));
+            const auto typeIndex = std::type_index(typeid(T));
             return _blocks.contains(typeIndex);
         }
 
@@ -128,27 +145,7 @@ namespace Tbx
             BlockPoolRegistry::Reserve<BlockType>(additionalCapacity);
         }
 
-        /// <summary>
-        /// Attempts to retrieve a shared pointer to the stored block of type <typeparamref name="T"/>.
-        /// </summary>
-        template <typename T>
-        bool TryGet(Ref<T>& block)
-        {
-            using BlockType = std::remove_cvref_t<T>;
-            const auto typeIndex = std::type_index(typeid(BlockType));
-            auto iter = _blocks.find(typeIndex);
-            if (iter == _blocks.end())
-            {
-                block = nullptr;
-                return false;
-            }
-
-            block = std::static_pointer_cast<BlockType>(iter->second);
-            return block != nullptr;
-        }
-
     private:
         std::unordered_map<std::type_index, Ref<void>> _blocks = {};
     };
 }
-

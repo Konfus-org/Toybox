@@ -11,13 +11,13 @@
 
 namespace Tbx
 {
-    struct MemorySlot
+    struct TBX_EXPORT MemorySlot
     {
         uint64 Chunk = 0;
         uint64 Index = 0;
     };
 
-    struct MemoryChunk
+    struct TBX_EXPORT MemoryChunk
     {
         MemoryChunk() = default;
         MemoryChunk(const MemoryChunk&) = delete;
@@ -30,7 +30,7 @@ namespace Tbx
         std::vector<bool> States;
     };
 
-    struct MemoryState
+    struct TBX_EXPORT MemoryState
     {
         MemoryState() = default;
         MemoryState(const MemoryState&) = delete;

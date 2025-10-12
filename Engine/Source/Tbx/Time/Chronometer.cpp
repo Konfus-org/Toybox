@@ -43,7 +43,7 @@ namespace Tbx
 
     DeltaTime Chronometer::GetDeltaTime() const
     {
-        return DeltaTime(_deltaTime.count());
+        return DeltaTime::FromSeconds(_deltaTime.count());
     }
 
     Chronometer::Seconds Chronometer::GetAccumulatedTime() const

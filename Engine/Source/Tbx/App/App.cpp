@@ -327,11 +327,8 @@ namespace Tbx
 
         // Allow other systems to hook into shutdown
         OnShutdown();
-        Dispatcher.Post(AppClosedEvent(this));
-        if (Bus)
-        {
-            Bus->Flush();
-        }
+        Dispatcher->Post(AppClosedEvent(this));
+        Dispatcher->Flush();
 
         if (isRestarting)
         {

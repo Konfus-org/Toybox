@@ -10,10 +10,11 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
-#include <utility>
 
 namespace Tbx
 {
+    class Toy;
+
     template <typename T>
     inline constexpr bool IsToy = std::is_base_of_v<Toy, typename std::remove_cv<typename std::remove_reference<T>::type>::type>;
 
@@ -50,23 +51,21 @@ namespace Tbx
         /// </summary>
         void Update();
 
-    public:
         /// <summary>
         /// Adds a block of type <typeparamref name="T"/> or constructs a child toy and returns its shared reference.
         /// </summary>
         template <typename T, typename... Args>
         Ref<T> Add(Args&&... args)
         {
-            using RequestedType = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
             if constexpr (IsToy<T>)
             {
-                auto child = Toy::Make<RequestedType>(std::forward<Args>(args)...);
+                auto child = Toy::Make<T>(std::forward<Args>(args)...);
                 Children.Add(child);
                 return child;
             }
             else
             {
-                return Blocks.Add<RequestedType>(std::forward<Args>(args)...);
+                return Blocks.Add<T>(std::forward<Args>(args)...);
             }
         }
 
@@ -76,17 +75,16 @@ namespace Tbx
         template <typename T>
         bool Has() const
         {
-            using RequestedType = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
             if constexpr (IsToy<T>)
             {
                 return Children.Any([](const Ref<Toy>& child)
                 {
-                    return std::dynamic_pointer_cast<RequestedType>(child) != nullptr;
+                    return std::dynamic_pointer_cast<T>(child) != nullptr;
                 });
             }
             else
             {
-                return Blocks.Contains<RequestedType>();
+                return Blocks.Contains<T>();
             }
         }
 
@@ -114,13 +112,12 @@ namespace Tbx
         /// Retrieves the shared reference to the block of type <typeparamref name="T"/> or the matching child toy.
         /// </summary>
         template <typename T>
-        Ref<T> Get()
+        Ref<T> Get() const
         {
-            using RequestedType = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
             if constexpr (IsToy<T>)
             {
-                Ref<RequestedType> child;
-                if (!TryGet<RequestedType>(child))
+                Ref<T> child;
+                if (!TryGet<T>(child))
                 {
                     throw std::out_of_range("Toy::Get: child not found");
                 }
@@ -129,7 +126,7 @@ namespace Tbx
             }
             else
             {
-                return Blocks.Get<RequestedType>();
+                return Blocks.Get<T>();
             }
         }
 
@@ -137,14 +134,13 @@ namespace Tbx
         /// Attempts to retrieve a shared reference to the block of type <typeparamref name="T"/> or the matching child toy if present.
         /// </summary>
         template <typename T>
-        bool TryGet(Ref<T>& item)
+        bool TryGet(Ref<T>& item) const
         {
-            using RequestedType = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
             if constexpr (IsToy<T>)
             {
                 for (const auto& child : Children)
                 {
-                    if (auto casted = std::dynamic_pointer_cast<RequestedType>(child))
+                    if (auto casted = std::dynamic_pointer_cast<T>(child))
                     {
                         item = casted;
                         return true;
@@ -156,25 +152,14 @@ namespace Tbx
             }
             else
             {
-                return Blocks.TryGet<RequestedType>(item);
+                return Blocks.TryGet<T>(item);
             }
-        }
-
-        /// <summary>
-        /// Ensures capacity for additional blocks of type <typeparamref name="T"/> within the shared pool.
-        /// </summary>
-        template <typename T>
-        void ReserveBlocks(uint64 additionalCapacity)
-        {
-            using RequestedType = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
-            static_assert(!IsToy<T>, "Toy::ReserveBlocks cannot reserve capacity for child toys.");
-            Blocks.Reserve<RequestedType>(additionalCapacity);
         }
 
         /// <summary>
         /// Retrieves the shared reference to a child toy with the provided identifier.
         /// </summary>
-        Ref<Toy> Get(const Uid& id)
+        Ref<Toy> Get(const Uid& id) const
         {
             Ref<Toy> child;
             if (!TryGet(id, child))
@@ -203,11 +188,6 @@ namespace Tbx
             return false;
         }
 
-        ToyHandle Handle = {};
-        BlockCollection Blocks = {};
-        Collection<Ref<Toy>> Children = {};
-        bool Enabled = true;
-
     protected:
         /// <summary>
         /// Creates a toy.
@@ -230,12 +210,19 @@ namespace Tbx
         template <typename TToy>
         static MemoryPool<TToy>& AcquirePool()
         {
-            static MemoryPool<TToy> pool(DefaultPoolCapacity);
+            static auto pool = MemoryPool<TToy>(DefaultPoolCapacity);
             return pool;
         }
 
+        // To allow the pool to create new toys, we need to friend it
         template <typename TObject>
         friend struct MemoryPool;
+
+    public:
+        ToyHandle Handle = {};
+        BlockCollection Blocks = {};
+        Collection<Ref<Toy>> Children = {};
+        bool Enabled = true;
     };
 }
 
