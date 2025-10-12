@@ -35,6 +35,15 @@ namespace Tbx
             return toy;
         }
 
+        /// <summary>
+        /// Adds an existing toy to the stage.
+        /// </summary>
+        Ref<Toy> Add(Ref<Toy> toy)
+        {
+            Root->Add(toy);
+            return toy;
+        }
+
         const Ref<Toy> Root = nullptr;
 
     protected:

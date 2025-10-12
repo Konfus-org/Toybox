@@ -45,7 +45,7 @@ void Demo::OnStart()
     // Create room
     {
         auto floor = _stage->Add("Floor");
-        floor->Add<Tbx::Mesh>();
+        floor->Add<Tbx::Model>();
         floor->Add<Tbx::Material>(matShaders, checkerTex);
         if (auto transform = floor->Add<Tbx::Transform>())
         {
