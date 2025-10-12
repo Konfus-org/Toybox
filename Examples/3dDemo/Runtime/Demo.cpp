@@ -82,6 +82,7 @@ void Demo::OnStart()
             .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))
             .SetScale({ 10 });
         _smily = smily;
+        _smilyBaseHeight = _smily->Blocks.Get<Tbx::Transform>().Position.Y;
         _stage->GetRoot()->Children.push_back(_smily);
     }
 
@@ -248,8 +249,9 @@ void Demo::OnUpdate()
         // Bob over time
         const float smilyBobFrequency = 2;
         const float smilyBobScale = 1;
-        _smilyBobTime += deltaTime * smilyBobFrequency;
+        const float smilyBobAngularFrequency = smilyBobFrequency * Tbx::PI * 2.0f;
+        _smilyBobTime += deltaTime * smilyBobAngularFrequency;
         _smilyBobAmplitude = std::sin(_smilyBobTime);
-        smilyTransform.Position.Y = (_smilyBobAmplitude * smilyBobScale);
+        smilyTransform.Position.Y = _smilyBaseHeight + (_smilyBobAmplitude * smilyBobScale);
     }
 }
