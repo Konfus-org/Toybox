@@ -2,7 +2,6 @@
 #include "Tbx/App/Settings.h"
 #include "Tbx/App/Runtime.h"
 #include "Tbx/Events/EventBus.h"
-#include "Tbx/Events/EventDispatcher.h"
 #include "Tbx/Events/EventListener.h"
 #include "Tbx/Events/WindowEvents.h"
 #include "Tbx/Windowing/WindowManager.h"
@@ -80,8 +79,9 @@ namespace Tbx
         void OnWindowClosed(const WindowClosedEvent& e);
 
     public:
-        Ref<EventBus> Bus = nullptr;
-        EventDispatcher Dispatcher = {};
+        // TODO: Make a proper dispatcher and the bus will live seperately and just keep track of subscriptions...
+        // it won't deal with dispatching or posting or anything like that.
+        Ref<EventBus> Dispatcher = nullptr;
         Collection<Ref<Plugin>> Plugins = {};
         Collection<Ref<Runtime>> Runtimes = {};
         AppStatus Status = AppStatus::None;

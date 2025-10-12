@@ -17,12 +17,11 @@
 namespace Tbx
 {
     App::App(const std::string_view& name, const AppSettings& settings, const Collection<Ref<Plugin>>& plugins, Ref<EventBus> eventBus)
-        : Bus(eventBus)
-        , Dispatcher(eventBus)
+        : Dispatcher(eventBus)
         , Plugins(plugins)
         , Settings(settings)
-        , Windowing(Plugins.OfType<IWindowFactory>().front(), Bus)
-        , Graphics(Settings.RenderingApi, Plugins.OfType<IGraphicsBackend>(), Plugins.OfType<IGraphicsContextProvider>(), Bus)
+        , Windowing(Plugins.OfType<IWindowFactory>().front(), Dispatcher)
+        , Graphics(Settings.RenderingApi, Plugins.OfType<IGraphicsBackend>(), Plugins.OfType<IGraphicsContextProvider>(), Dispatcher)
         , _name(name)
         , _eventListener(eventBus)
     {
@@ -94,13 +93,16 @@ namespace Tbx
         auto runtimes = Plugins.OfType<Runtime>();
         for (const auto& runtime : runtimes)
         {
-            runtime->Initialize(assetServer, Bus);
+            runtime->Initialize(assetServer, Dispatcher);
             Runtimes.Add(runtime);
         }
 
         // 4. Broadcast app launched events
-        Dispatcher.Send(AppSettingsChangedEvent(Settings));
-        Dispatcher.Send(AppLaunchedEvent(this));
+        if (Dispatcher)
+        {
+            Dispatcher->Send(AppSettingsChangedEvent(Settings));
+            Dispatcher->Send(AppLaunchedEvent(this));
+        }
 
         // 5. Open main window
 #ifdef TBX_DEBUG
@@ -157,10 +159,11 @@ namespace Tbx
             }
 
             OnLateUpdate(_frameDeltaTime);
-            Dispatcher.Post(AppUpdatedEvent());
-            if (Bus)
+
+            if (Dispatcher)
             {
-                Bus->Flush();
+                Dispatcher->Post(AppUpdatedEvent());
+                Dispatcher->Flush();
             }
         }
 
