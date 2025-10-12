@@ -50,7 +50,7 @@ namespace Tbx
         _eventBus->Send(RenderedFrameEvent());
     }
 
-    void GraphicsManager::SetRenderPasses(std::vector<RenderPass> passes)
+    void GraphicsManager::SetRenderPasses(const std::vector<RenderPass>& passes)
     {
         if (passes.empty())
         {
@@ -58,12 +58,12 @@ namespace Tbx
             return;
         }
 
-        _pipeline.SetRenderPasses(std::move(passes));
+        _pipeline.RenderPasses = passes;
     }
 
     const std::vector<RenderPass>& GraphicsManager::GetRenderPasses() const
     {
-        return _pipeline.GetRenderPasses();
+        return _pipeline.RenderPasses;
     }
 
     void GraphicsManager::InitializeRenderers(
