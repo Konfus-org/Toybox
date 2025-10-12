@@ -10,8 +10,11 @@ namespace Tbx
     /// </summary>
     struct TBX_EXPORT Model
     {
-        Mesh Mesh;
-        Material Material;
+        using MeshType = Mesh;
+        using MaterialType = Material;
+
+        MeshType Mesh;
+        MaterialType Material;
         Uid Id = Uid::Generate();
     };
 

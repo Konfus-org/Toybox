@@ -20,14 +20,19 @@ namespace Tbx
 
     struct CameraData
     {
+        using FrustumType = Frustum;
+
         Mat4x4 ViewProjection;
-        Frustum Frustum;
+        FrustumType Frustum;
     };
 
     struct ModelDrawData
     {
-        const Material* Material = nullptr;
-        const Mesh* Mesh = nullptr;
+        using MaterialPtr = const Material*;
+        using MeshPtr = const Mesh*;
+
+        MaterialPtr Material = nullptr;
+        MeshPtr Mesh = nullptr;
     };
 
     struct StageDrawData

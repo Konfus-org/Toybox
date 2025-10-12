@@ -29,17 +29,19 @@ namespace Tbx
     /// </summary>
     struct TBX_EXPORT Material
     {
+        using ShaderProgramType = ShaderProgram;
+
         Material() = default;
         Material(std::vector<Ref<Shader>> shaders)
-            : ShaderProgram(shaders) {}
+            : ShaderProgram(ShaderProgramType(shaders)) {}
         Material(std::vector<Ref<Shader>> shaders, Ref<Texture> texture)
-            : ShaderProgram(shaders)
+            : ShaderProgram(ShaderProgramType(shaders))
             , Textures({texture}) {}
         Material(std::vector<Ref<Shader>> shaders, std::vector<Ref<Texture>> textures)
-            : ShaderProgram(shaders)
+            : ShaderProgram(ShaderProgramType(shaders))
             , Textures(textures) {}
 
-        ShaderProgram ShaderProgram = {};
+        ShaderProgramType ShaderProgram = {};
         std::vector<Ref<Texture>> Textures = { MakeRef<Texture>() }; // default to one small white texture
         bool Transparent = false;
         Uid Id = Uid::Generate();
