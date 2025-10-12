@@ -102,11 +102,8 @@ namespace Tbx
         }
 
         // 4. Broadcast app launched events
-        if (Dispatcher)
-        {
-            Dispatcher->Send(AppSettingsChangedEvent(Settings));
-            Dispatcher->Send(AppLaunchedEvent(this));
-        }
+        Dispatcher->Send(AppSettingsChangedEvent(Settings));
+        Dispatcher->Send(AppLaunchedEvent(this));
 
         // 5. Open main window
 #ifdef TBX_DEBUG
@@ -164,11 +161,8 @@ namespace Tbx
 
             OnLateUpdate(frameDelta);
 
-            if (Dispatcher)
-            {
-                Dispatcher->Post(AppUpdatedEvent());
-                Dispatcher->Flush();
-            }
+            Dispatcher->Post(AppUpdatedEvent());
+            Dispatcher->Flush();
         }
 
 #ifndef TBX_RELEASE
