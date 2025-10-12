@@ -3,6 +3,7 @@
 #include "Tbx/App/Runtime.h"
 #include "Tbx/Graphics/GraphicsBackend.h"
 #include "Tbx/Graphics/GraphicsContext.h"
+#include "Tbx/Audio/AudioMixer.h"
 #include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Input/Input.h"
@@ -20,12 +21,24 @@
 
 namespace Tbx
 {
+    namespace
+    {
+        AudioManager CreateAudioManager(const Collection<Ref<Plugin>>& plugins, const Ref<EventBus>& eventBus)
+        {
+            auto audioMixers = plugins.OfType<IAudioMixer>();
+            Ref<IAudioMixer> mixer = audioMixers.empty() ? nullptr : audioMixers.front();
+            Ref<EventBus> audioBus = mixer ? eventBus : nullptr;
+            return AudioManager(mixer, audioBus);
+        }
+    }
+
     App::App(const std::string_view& name, const AppSettings& settings, const Collection<Ref<Plugin>>& plugins, Ref<EventBus> eventBus)
         : Dispatcher(eventBus)
         , Plugins(plugins)
         , Settings(settings)
         , Windowing(Plugins.OfType<IWindowFactory>().front(), Dispatcher)
         , Graphics(Settings.RenderingApi, Plugins.OfType<IGraphicsBackend>(), Plugins.OfType<IGraphicsContextProvider>(), Dispatcher)
+        , Audio(CreateAudioManager(plugins, eventBus))
         , _name(name)
         , _eventListener(eventBus)
     {
@@ -158,8 +171,11 @@ namespace Tbx
 
             // 6. windows
             Windowing.Update();
+          
+            // 7. Update audio
+            Audio.Update();
 
-            // 7. Dispatch events
+            // 8. Dispatch events
             Dispatcher->Post(AppUpdatedEvent());
             Dispatcher->Flush();
         }
