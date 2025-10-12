@@ -84,11 +84,13 @@ jobs:
       - name: Create issue for MSVC analysis findings
         if: github.event_name != 'pull_request'
         uses: actions/github-script@v7
+        env:
+          SARIF_PATH: ${{ steps.run-analysis.outputs.sarif }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            const sarifPath = '${{ steps.run-analysis.outputs.sarif }}';
+            const sarifPath = process.env.SARIF_PATH;
             const sarif = JSON.parse(fs.readFileSync(sarifPath, 'utf8'));
             const results = sarif.runs.flatMap(run => run.results ?? []);
 
