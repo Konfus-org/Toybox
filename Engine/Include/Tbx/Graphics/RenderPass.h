@@ -15,22 +15,14 @@ namespace Tbx
     using RenderPassFilter = std::function<bool(const Material&)>;
     using RenderPassDraw = std::function<void(
         GraphicsPipeline& pipeline,
-        const RenderPass& pass,
         GraphicsRenderer& renderer,
-        StageRenderData& renderData)>;
+        StageRenderData& renderData,
+        const RenderPass& pass)>;
 
     struct TBX_EXPORT RenderPass
     {
         std::string Name = {};
         RenderPassFilter Filter = nullptr;
         RenderPassDraw Draw = nullptr;
-
-        static void DefaultDraw(
-            GraphicsPipeline& pipeline,
-            const RenderPass& pass,
-            GraphicsRenderer& renderer,
-            StageRenderData& renderData);
-
-        static RenderPassDraw CreateDefaultDraw(bool enableDepthTesting);
     };
 }

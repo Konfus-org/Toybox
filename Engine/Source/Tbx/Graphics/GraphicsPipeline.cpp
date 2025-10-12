@@ -26,7 +26,7 @@ namespace Tbx
         RenderPasses = passes;
     }
 
-    void GraphicsPipeline::Render(
+    void GraphicsPipeline::Process(
         GraphicsRenderer& renderer,
         const GraphicsDisplay& display, 
         const std::vector<Ref<Stage>>& stages,
@@ -43,17 +43,17 @@ namespace Tbx
 
         for (const auto& stage : stages)
         {
-            auto renderData = PrepareStageForRendering(renderer, FullStageView(stage->GetRoot()), aspectRatio);
+            auto renderData = PrepareStageForDrawing(renderer, FullStageView(stage->GetRoot()), aspectRatio);
 
             for (auto& pass : RenderPasses)
             {
                 if (pass.Draw)
                 {
-                    pass.Draw(*this, pass, renderer, renderData);
+                    pass.Draw(*this, renderer, renderData, pass);
                 }
                 else
                 {
-                    RenderPass::DefaultDraw(*this, pass, renderer, renderData);
+                    DrawStage(pass, renderer, renderData);
                 }
             }
         }
@@ -62,7 +62,7 @@ namespace Tbx
         renderer.Backend->EndDraw();
     }
 
-    void GraphicsPipeline::RenderStage(const RenderPass& pass, Tbx::GraphicsRenderer& renderer, Tbx::StageRenderData& renderData)
+    void GraphicsPipeline::DrawStage(const RenderPass& pass, Tbx::GraphicsRenderer& renderer, Tbx::StageRenderData& renderData)
     {
         const auto passIndex = static_cast<size_t>(&pass - RenderPasses.data());
         TBX_ASSERT(passIndex < RenderPasses.size(), "GraphicsPipeline: Render pass is not part of the pipeline.");
@@ -148,7 +148,7 @@ namespace Tbx
         }
     }
 
-    StageRenderData GraphicsPipeline::PrepareStageForRendering(
+    StageRenderData GraphicsPipeline::PrepareStageForDrawing(
         GraphicsRenderer& renderer,
         const FullStageView& stageView,
         float aspectRatio)
