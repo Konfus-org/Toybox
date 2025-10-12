@@ -90,7 +90,7 @@ void Demo::OnStart()
             transform->SetScale({ 10 });
         }
         _smily = smily;
-        _stage->Root->Children.Add(_smily);
+        _smilyBaseHeight = _smily->Blocks.Get<Tbx::Transform>().Position.Y;
     }
 
     // Create camera
@@ -313,8 +313,9 @@ void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
         // Bob over time
         const float smilyBobFrequency = 2;
         const float smilyBobScale = 1;
-        _smilyBobTime += deltaTimeSeconds * smilyBobFrequency;
+        const float smilyBobAngularFrequency = smilyBobFrequency * Tbx::PI * 2.0f;
+        _smilyBobTime += deltaTimeSeconds * smilyBobAngularFrequency;
         _smilyBobAmplitude = std::sin(_smilyBobTime);
-        smilyTransform->Position.Y = (_smilyBobAmplitude * smilyBobScale);
+        smilyTransform.Position.Y = _smilyBaseHeight + (_smilyBobAmplitude * smilyBobScale);
     }
 }

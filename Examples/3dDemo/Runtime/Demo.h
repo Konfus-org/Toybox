@@ -24,6 +24,7 @@ private:
 
     float _smilyBobTime = 0.0f;
     float _smilyBobAmplitude = 0.0f;
+    float _smilyBaseHeight = 0.0f;
 
     float _camPitch = 0.0f;
     float _camYaw = 0.0f;
