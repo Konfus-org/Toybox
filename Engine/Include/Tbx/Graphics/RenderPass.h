@@ -6,7 +6,7 @@
 namespace Tbx
 {
     struct Material;
-    struct StageRenderData;
+    struct StageDrawData;
     struct GraphicsRenderer;
     class GraphicsPipeline;
 
@@ -16,7 +16,7 @@ namespace Tbx
     using RenderPassDraw = std::function<void(
         GraphicsPipeline& pipeline,
         GraphicsRenderer& renderer,
-        StageRenderData& renderData,
+        StageDrawData& renderData,
         const RenderPass& pass)>;
 
     struct TBX_EXPORT RenderPass

@@ -15,15 +15,15 @@ namespace Tbx
 
     inline int32 GetVertexDataCount(const VertexData& data)
     {
-        if (std::holds_alternative<Tbx::Vector2>(data))
+        if (std::holds_alternative<Vector2>(data))
         {
             return 2;
         }
-        else if (std::holds_alternative<Tbx::Vector3>(data))
+        else if (std::holds_alternative<Vector3>(data))
         {
             return 3;
         }
-        else if (std::holds_alternative<Tbx::RgbaColor>(data))
+        else if (std::holds_alternative<RgbaColor>(data))
         {
             return 4;
         }
@@ -44,15 +44,15 @@ namespace Tbx
 
     inline int32 GetVertexDataSize(const VertexData& data)
     {
-        if (std::holds_alternative<Tbx::Vector2>(data))
+        if (std::holds_alternative<Vector2>(data))
         {
             return 4 * 2;
         }
-        else if (std::holds_alternative<Tbx::Vector3>(data))
+        else if (std::holds_alternative<Vector3>(data))
         {
             return 4 * 3;
         }
-        else if (std::holds_alternative<Tbx::RgbaColor>(data))
+        else if (std::holds_alternative<RgbaColor>(data))
         {
             return 4 * 4;
         }

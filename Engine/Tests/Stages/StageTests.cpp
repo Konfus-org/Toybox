@@ -39,7 +39,6 @@ namespace Tbx::Tests::Stages
         // Arrange
         auto stage = Stage::Make();
         auto child = stage->Add<CountingToy>("Child");
-        stage->Root->Children.Add(child);
 
         // Act
         stage->Update();

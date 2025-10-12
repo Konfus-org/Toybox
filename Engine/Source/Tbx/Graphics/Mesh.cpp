@@ -22,21 +22,21 @@ namespace Tbx
     {
         const auto& triangleMeshVerts = 
         {
-            Tbx::Vertex
+            Vertex
             {
                 Vector3(-0.5f, -0.5f, 0.0f),        // Position
                 Vector3(0.0f, 0.0f, 0.0f),          // Normal
                 Vector2(0, 0),                      // Texture coordinates
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)   // Color
             },
-            Tbx::Vertex
+            Vertex
             {
                 Vector3(0.5f, -0.5f, 0.0f),         // Position
                 Vector3(0.0f, 0.0f, 0.0f),          // Normal
                 Vector2(0, 0),                      // Texture coordinates
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)   // Color
             },
-            Tbx::Vertex
+            Vertex
             {
                 Vector3(0.0f, 0.5f, 0.0f),          // Position
                 Vector3(0.0f, 0.0f, 0.0f),          // Normal

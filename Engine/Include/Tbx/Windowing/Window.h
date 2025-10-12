@@ -38,7 +38,7 @@ namespace Tbx
         virtual void SetTitle(const std::string& title) = 0;
 
         virtual void SetMode(const WindowMode& mode) = 0;
-        virtual Tbx::WindowMode GetMode() = 0;
+        virtual WindowMode GetMode() = 0;
 
         virtual const Size& GetSize() const = 0;
         virtual void SetSize(const Size& size) = 0;

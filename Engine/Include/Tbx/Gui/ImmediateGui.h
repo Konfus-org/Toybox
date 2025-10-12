@@ -4,11 +4,10 @@
 
 namespace Tbx
 {
-    // TODO: create a plugin for this!
-    class EXPORT IImmediateGui
+    class TBX_EXPORT IImmediateGui
     {
     public:
-        virtual ~IImmediateGui() = default;
+        /*virtual ~IImmediateGui() = default;
 
         /// Starts a new ImGui window. Call EndWindow() after rendering elements.
         /// @param title The title of the window.
@@ -54,9 +53,6 @@ namespace Tbx
         virtual void SameLine() = 0;
 
         /// Draws a horizontal separator line.
-        virtual void Separator() = 0;
+        virtual void Separator() = 0;*/
     };
-
-    using DebugGui = IImmediateGui;
-    //using RuntimeGui = IRetainedGui;
 }

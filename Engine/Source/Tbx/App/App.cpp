@@ -92,6 +92,7 @@ namespace Tbx
     {
         Status = AppStatus::Initializing;
         Clock.Reset();
+        _frameCount = 0;
 
         auto workingDirectory = FileSystem::GetWorkingDirectory();
         TBX_TRACE_INFO("App: Current working directory is: {}", workingDirectory);
@@ -132,14 +133,14 @@ namespace Tbx
         {
             // 1. Update delta and input
             Clock.Tick();
-            const DeltaTime frameDelta = Clock.GetDeltaTime();
+            const auto frameDelta = Clock.GetDeltaTime();
+            _frameCount++;
             Input::Update();
 
-            // 2. Fixed update runtimes
+            // 2. Fixed update
             constexpr float fixedUpdateInterval = 1.0f / 50.0f;
             _fixedUpdateAccumulator += frameDelta.Seconds;
-            const DeltaTime fixedDelta(fixedUpdateInterval);
-
+            const auto fixedDelta = DeltaTime(fixedUpdateInterval);
             while (_fixedUpdateAccumulator >= fixedUpdateInterval)
             {
                 for (const auto& runtime : Runtimes)
@@ -151,32 +152,30 @@ namespace Tbx
                 _fixedUpdateAccumulator -= fixedUpdateInterval;
             }
 
-            // 3. Update runtimes
+            // 3. Update
             for (const auto& runtime : Runtimes)
             {
                 runtime->Update(frameDelta);
             }
-
-            // 4. Update audio
-            Audio.Update();
-
-            // 5. Render graphics
-            Graphics.Render();
-
-            // 6. Update windows
-            Windowing.Update();
-
-            // 7. Allow other systems to hook into update
             OnUpdate(frameDelta);
 
-            // 8. Late update runtimes
+            // 4. Late update
             for (const auto& runtime : Runtimes)
             {
                 runtime->LateUpdate(frameDelta);
             }
-
             OnLateUpdate(frameDelta);
 
+            // 5. Render
+            Graphics.Render();
+
+            // 6. windows
+            Windowing.Update();
+          
+            // 7. Update audio
+            Audio.Update();
+
+            // 8. Dispatch events
             Dispatcher->Post(AppUpdatedEvent());
             Dispatcher->Flush();
         }
@@ -242,9 +241,14 @@ namespace Tbx
             systemTimeStream << '.' << std::setw(3) << std::setfill('0') << systemTimeSubSecond.count();
             systemTimeString = systemTimeStream.str();
         }
-        const float fps = deltaSeconds > std::numeric_limits<float>::epsilon()
+        const float epsilon = std::numeric_limits<float>::epsilon();
+        const float instantaneousFps = deltaSeconds > epsilon
             ? 1.0f / deltaSeconds
             : 0.0f;
+        const int measuredFrames = _frameCount > 0 ? _frameCount - 1 : 0;
+        const float averageFps = (accumulatedSeconds > epsilon && measuredFrames > 0)
+            ? static_cast<float>(measuredFrames) / accumulatedSeconds
+            : instantaneousFps;
 
         const auto& windows = Windowing.GetAllWindows();
         const size_t windowCount = windows.size();
@@ -297,7 +301,8 @@ namespace Tbx
         TBX_TRACE_INFO(
             "App: Frame Report\n"
             "\tFrame time: {:.3f} ms ({:.3f} s)\n"
-            "\tFPS: {:.2f}\n"
+            "\tFPS (instant): {:.2f}\n"
+            "\tFPS (average): {:.2f}\n"
             "\tClock delta: {:.3f} ms ({:.3f} s)\n"
             "\tClock runtime: {:.3f} ms ({:.3f} s)\n"
             "\tClock system time: {} ({} ms since epoch)\n"
@@ -310,7 +315,8 @@ namespace Tbx
             "\tVSync: {}\n",
             deltaMilliseconds,
             deltaSeconds,
-            fps,
+            instantaneousFps,
+            averageFps,
             clockDeltaMilliseconds,
             clockDeltaSeconds,
             accumulatedMilliseconds,

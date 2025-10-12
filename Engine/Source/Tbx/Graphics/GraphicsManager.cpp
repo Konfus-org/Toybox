@@ -44,7 +44,7 @@ namespace Tbx
 
         for (const auto& display : _openDisplays)
         {
-            _pipeline.Process(*renderer, display, _openStages, _clearColor);
+            _pipeline.Draw(*renderer, display, _openStages, _clearColor);
         }
 
         _eventBus->Send(RenderedFrameEvent());
@@ -264,9 +264,9 @@ namespace Tbx
 
             return !hasAlpha;
         };
-        opaque.Draw = [](GraphicsPipeline& pipeline, GraphicsRenderer& renderer, StageRenderData& renderData, const RenderPass& pass)
+        opaque.Draw = [](GraphicsPipeline& pipeline, GraphicsRenderer& renderer, StageDrawData& renderData, const RenderPass& pass)
         {
-            pipeline.DrawStage(pass, renderer, renderData);
+            pipeline.Draw(renderer, renderData, pass);
         };
         passes.push_back(std::move(opaque));
 
@@ -282,10 +282,10 @@ namespace Tbx
                     return texture && texture->Format == TextureFormat::RGBA;
                 });
         };
-        transparent.Draw = [](GraphicsPipeline& pipeline,  GraphicsRenderer& renderer, StageRenderData& renderData, const RenderPass& pass)
+        transparent.Draw = [](GraphicsPipeline& pipeline,  GraphicsRenderer& renderer, StageDrawData& renderData, const RenderPass& pass)
         {
             renderer.Backend->EnableDepthTesting(false);
-            pipeline.DrawStage(pass, renderer, renderData);
+            pipeline.Draw(renderer, renderData, pass);
             renderer.Backend->EnableDepthTesting(true);
         };
         passes.push_back(std::move(transparent));

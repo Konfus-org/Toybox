@@ -1,11 +1,9 @@
 #include "PCH.h"
 #include "Tbx/Stages/Stage.h"
 #include "Tbx/Stages/Views.h"
-#include "Tbx/Stages/Blocks.h"
 #include "Tbx/Math/Transform.h"
 #include "Tbx/Graphics/Mesh.h"
-#include "Tbx/Memory/Refs.h"
-#include <gmock/gmock.h>
+#include <gmock/gmock-matchers.h>
 #include <string>
 #include <vector>
 
@@ -18,11 +16,7 @@ namespace Tbx::Tests::Stages
         auto root = stage->Root;
         auto childA = stage->Add("ChildA");
         auto childB = stage->Add("ChildB");
-        auto grandChild = stage->Add("GrandChild");
-
-        childA->Children.Add(grandChild);
-        root->Children.Add(childA);
-        root->Children.Add(childB);
+        auto grandChild = childA->Add("GrandChild");
 
         // Act
         StageView<> view(root);
@@ -47,15 +41,11 @@ namespace Tbx::Tests::Stages
         auto root = stage->Root;
         auto childA = stage->Add("ChildA");
         auto childB = stage->Add("ChildB");
-        auto grandChild = stage->Add("GrandChild");
+        auto grandChild = childA->Add("GrandChild");
 
         childA->Add<Transform>();
         childB->Add<Mesh>();
         grandChild->Add<Mesh>();
-
-        childA->Children.Add(grandChild);
-        root->Children.Add(childA);
-        root->Children.Add(childB);
 
         // Act
         StageView<Mesh> view(root);
@@ -81,9 +71,6 @@ namespace Tbx::Tests::Stages
 
         childA->Add<Transform>();
         childB->Add<Mesh>();
-
-        root->Children.Add(childA);
-        root->Children.Add(childB);
 
         // Act
         StageView<Transform, Mesh> view(root);

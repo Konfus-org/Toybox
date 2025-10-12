@@ -79,6 +79,16 @@ namespace Tbx
         }
 
         /// <summary>
+        /// Adds a new child toy to this toy.
+        /// </summary>
+        Ref<Toy> Add(const std::string name)
+        {
+            auto toy = Toy::Make(name);
+            Children.Add(toy);
+            return toy;
+        }
+
+        /// <summary>
         /// Determines whether this toy contains a block of type <typeparamref name="T"/> or a child toy matching the request.
         /// </summary>
         template <typename T>
