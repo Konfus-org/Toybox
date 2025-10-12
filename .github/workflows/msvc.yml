@@ -30,6 +30,7 @@ env:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   analyze:
@@ -37,6 +38,7 @@ jobs:
       contents: read # for actions/checkout to fetch code
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+      issues: write # required to open issues with analysis findings
     name: Analyze
     runs-on: windows-latest
 
@@ -78,3 +80,50 @@ jobs:
         with:
           name: sarif-file
           path: ${{ steps.run-analysis.outputs.sarif }}
+
+      - name: Create issue for MSVC analysis findings
+        if: github.event_name != 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const sarifPath = '${{ steps.run-analysis.outputs.sarif }}';
+            const sarif = JSON.parse(fs.readFileSync(sarifPath, 'utf8'));
+            const results = sarif.runs.flatMap(run => run.results ?? []);
+
+            if (results.length === 0) {
+              core.info('No MSVC Code Analysis findings detected.');
+              return;
+            }
+
+            const title = `MSVC Code Analysis findings (workflow run ${context.runId})`;
+            const issueSearch = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue "${title}" in:title state:open`
+            });
+
+            if (issueSearch.data.total_count > 0) {
+              core.info('An open issue already exists for this workflow run.');
+              return;
+            }
+
+            const lines = [
+              'MSVC Code Analysis detected the following issues:',
+              '',
+              ...results.slice(0, 20).map(result => {
+                const message = result.message?.text ?? 'No message provided';
+                const rule = result.ruleId ?? 'Unknown rule';
+                const level = result.level ?? 'warning';
+                return `- (${level}) ${message} [${rule}]`;
+              }),
+              '',
+              `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              'View the attached SARIF artifact for the complete list of findings.'
+            ];
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body: lines.join('\n')
+            });
