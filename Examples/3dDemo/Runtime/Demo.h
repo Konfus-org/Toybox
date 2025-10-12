@@ -15,7 +15,7 @@ public:
 
     void OnStart() override;
     void OnShutdown() override;
-    void OnUpdate() override;
+    void OnUpdate(const Tbx::DeltaTime& deltaTime) override;
 
 private:
     Tbx::Ref<Tbx::Stage> _stage = nullptr;

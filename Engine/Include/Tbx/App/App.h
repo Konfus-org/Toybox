@@ -8,6 +8,8 @@
 #include "Tbx/Graphics/GraphicsManager.h"
 #include "Tbx/Collections/Collection.h"
 #include "Tbx/Memory/Refs.h"
+#include "Tbx/Time/Chronometer.h"
+#include "Tbx/Time/DeltaTime.h"
 
 namespace Tbx
 {
@@ -49,7 +51,25 @@ namespace Tbx
 
     protected:
         virtual void OnLaunch() {};
-        virtual void OnUpdate() {};
+
+        /// <summary>
+        /// Called whenever the fixed update loop advances.
+        /// <param name="deltaTime">The fixed timestep applied during this iteration.</param>
+        /// </summary>
+        virtual void OnFixedUpdate(const DeltaTime&) {};
+
+        /// <summary>
+        /// Called during the main update loop.
+        /// <param name="deltaTime">The elapsed time since the previous frame.</param>
+        /// </summary>
+        virtual void OnUpdate(const DeltaTime&) {};
+
+        /// <summary>
+        /// Called after the main update loop for late frame work.
+        /// <param name="deltaTime">The elapsed time since the previous frame.</param>
+        /// </summary>
+        virtual void OnLateUpdate(const DeltaTime&) {};
+
         virtual void OnShutdown() {};
 
     private:
@@ -68,11 +88,12 @@ namespace Tbx
         AppSettings Settings = {};
         WindowManager Windowing = {};
         GraphicsManager Graphics = {};
+        Chronometer Clock = {};
 
     private:
         std::string _name = "";
         EventListener _eventListener = {};
-
+        float _fixedUpdateAccumulator = 0.0f;
         // TODO: move this elsewhere! Perhaps a plugin?
         void DumpFrameReport() const;
         bool _captureDebugData = false;

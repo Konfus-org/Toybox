@@ -7,9 +7,14 @@
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Input/Input.h"
 #include "Tbx/Input/InputCodes.h"
+#include "Tbx/Time/Chronometer.h"
 #include "Tbx/Time/DeltaTime.h"
 #include "Tbx/Files/Paths.h"
+#include <chrono>
+#include <ctime>
+#include <iomanip>
 #include <limits>
+#include <sstream>
 #include <string_view>
 #include <vector>
 
@@ -73,6 +78,7 @@ namespace Tbx
     void App::Initialize()
     {
         Status = AppStatus::Initializing;
+        Clock.Reset();
 
         auto workingDirectory = FileSystem::GetWorkingDirectory();
         TBX_TRACE_INFO("App: Current working directory is: {}", workingDirectory);
@@ -112,23 +118,49 @@ namespace Tbx
         // Runtime loop
         {
             // 1. Update delta and input
-            DeltaTime::Update();
+            Clock.Tick();
+            const DeltaTime frameDelta = Clock.GetDeltaTime();
             Input::Update();
 
-            // 2. Update runtimes
-            for (const auto& runtime : Runtimes)
+            // 2. Fixed update runtimes
+            constexpr float fixedUpdateInterval = 1.0f / 50.0f;
+            _fixedUpdateAccumulator += frameDelta.Seconds;
+            const DeltaTime fixedDelta(fixedUpdateInterval);
+
+            while (_fixedUpdateAccumulator >= fixedUpdateInterval)
             {
-                runtime->Update();
+                for (const auto& runtime : Runtimes)
+                {
+                    runtime->FixedUpdate(fixedDelta);
+                }
+
+                OnFixedUpdate(fixedDelta);
+                _fixedUpdateAccumulator -= fixedUpdateInterval;
             }
 
-            // 3. Render graphics
+            // 3. Update runtimes
+            for (const auto& runtime : Runtimes)
+            {
+                runtime->Update(frameDelta);
+            }
+
+            // 4. Render graphics
             Graphics.Render();
 
-            // 4. Update windows
+            // 5. Update windows
             Windowing.Update();
 
-            // 5. Allow other systems to hook into update
-            OnUpdate();
+            // 6. Allow other systems to hook into update
+            OnUpdate(frameDelta);
+
+            // 7. Late update runtimes
+            for (const auto& runtime : Runtimes)
+            {
+                runtime->LateUpdate(frameDelta);
+            }
+
+            OnLateUpdate(frameDelta);
+
             Dispatcher->Post(AppUpdatedEvent());
             Dispatcher->Flush();
         }
@@ -168,8 +200,32 @@ namespace Tbx
 
     void App::DumpFrameReport() const
     {
-        const float deltaSeconds = DeltaTime::InSeconds();
-        const float deltaMilliseconds = DeltaTime::InMilliseconds();
+        const DeltaTime frameDelta = Clock.GetDeltaTime();
+        const float deltaSeconds = frameDelta.Seconds;
+        const float deltaMilliseconds = frameDelta.Milliseconds;
+        const float clockDeltaSeconds = frameDelta.Seconds;
+        const float clockDeltaMilliseconds = frameDelta.Milliseconds;
+        const auto accumulatedSeconds = Clock.GetAccumulatedTime().count();
+        const auto accumulatedMilliseconds = accumulatedSeconds * 1000.0f;
+        const auto systemTimePoint = Clock.GetSystemTime();
+        const auto systemTimeMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(systemTimePoint.time_since_epoch()).count();
+
+        std::string systemTimeString = "Unavailable";
+        if (systemTimePoint.time_since_epoch() != Chronometer::SystemClock::duration::zero())
+        {
+            const auto systemTimeT = Chronometer::SystemClock::to_time_t(systemTimePoint);
+            std::tm systemTimeTm{};
+#if defined(_WIN32)
+            localtime_s(&systemTimeTm, &systemTimeT);
+#else
+            localtime_r(&systemTimeT, &systemTimeTm);
+#endif
+            std::ostringstream systemTimeStream;
+            systemTimeStream << std::put_time(&systemTimeTm, "%Y-%m-%d %H:%M:%S");
+            const auto systemTimeSubSecond = std::chrono::duration_cast<std::chrono::milliseconds>(systemTimePoint.time_since_epoch() % std::chrono::seconds(1));
+            systemTimeStream << '.' << std::setw(3) << std::setfill('0') << systemTimeSubSecond.count();
+            systemTimeString = systemTimeStream.str();
+        }
         const float fps = deltaSeconds > std::numeric_limits<float>::epsilon()
             ? 1.0f / deltaSeconds
             : 0.0f;
@@ -226,6 +282,9 @@ namespace Tbx
             "App: Frame Report\n"
             "\tFrame time: {:.3f} ms ({:.3f} s)\n"
             "\tFPS: {:.2f}\n"
+            "\tClock delta: {:.3f} ms ({:.3f} s)\n"
+            "\tClock runtime: {:.3f} ms ({:.3f} s)\n"
+            "\tClock system time: {} ({} ms since epoch)\n"
             "\tOpen windows: {}\n"
             "\tMain window: {} ({}x{}, aspect {:.2f})\n"
             "\tRender passes: {}\n"
@@ -236,6 +295,12 @@ namespace Tbx
             deltaMilliseconds,
             deltaSeconds,
             fps,
+            clockDeltaMilliseconds,
+            clockDeltaSeconds,
+            accumulatedMilliseconds,
+            accumulatedSeconds,
+            systemTimeString,
+            systemTimeMilliseconds,
             windowCount,
             mainWindowTitle,
             mainWindowWidth,
@@ -262,8 +327,11 @@ namespace Tbx
 
         // Allow other systems to hook into shutdown
         OnShutdown();
-        Dispatcher->Post(AppClosedEvent(this));
-        Dispatcher->Flush();
+        Dispatcher.Post(AppClosedEvent(this));
+        if (Bus)
+        {
+            Bus->Flush();
+        }
 
         if (isRestarting)
         {
