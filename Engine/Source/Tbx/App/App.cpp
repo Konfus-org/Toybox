@@ -3,6 +3,7 @@
 #include "Tbx/App/Runtime.h"
 #include "Tbx/Graphics/GraphicsBackend.h"
 #include "Tbx/Graphics/GraphicsContext.h"
+#include "Tbx/Audio/AudioMixer.h"
 #include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Input/Input.h"
@@ -31,6 +32,11 @@ namespace Tbx
     {
         auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
         Input::SetHandler(inputHandlerPlugs.front());
+
+        auto audioMixers = Plugins.OfType<IAudioMixer>();
+        Ref<IAudioMixer> mixer = audioMixers.empty() ? nullptr : audioMixers.front();
+        Ref<EventBus> audioBus = mixer ? Dispatcher : nullptr;
+        Audio = AudioManager(mixer, audioBus);
     }
 
     App::~App()
@@ -144,16 +150,19 @@ namespace Tbx
                 runtime->Update(frameDelta);
             }
 
-            // 4. Render graphics
+            // 4. Update audio
+            Audio.Update();
+
+            // 5. Render graphics
             Graphics.Render();
 
-            // 5. Update windows
+            // 6. Update windows
             Windowing.Update();
 
-            // 6. Allow other systems to hook into update
+            // 7. Allow other systems to hook into update
             OnUpdate(frameDelta);
 
-            // 7. Late update runtimes
+            // 8. Late update runtimes
             for (const auto& runtime : Runtimes)
             {
                 runtime->LateUpdate(frameDelta);

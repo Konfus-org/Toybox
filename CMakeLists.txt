@@ -77,6 +77,7 @@ add_subdirectory(Plugins/Toybox-ImGui-ImmediateUI-Plugin)
 add_subdirectory(Plugins/Toybox-JIMS-AssetLoader-Plugin)
 add_subdirectory(Plugins/Toybox-OpenGL-Rendering-Plugin)
 add_subdirectory(Plugins/Toybox-SDL-Plugins)
+add_subdirectory(Plugins/Toybox-SDL-Audio-Plugin)
 add_subdirectory(Plugins/Toybox-Spd-Logging-Plugin)
 
 # Organize everything into folders if using VS
@@ -93,6 +94,7 @@ if(MSVC)
     set_property(TARGET SDL3Input PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET SDL3Windowing PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET SDL3OpenGlGraphicsContext PROPERTY FOLDER "Toybox/Plugins")
+    set_property(TARGET SDL3Audio PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET SpdLogging PROPERTY FOLDER "Toybox/Plugins")
     
     # Examples
