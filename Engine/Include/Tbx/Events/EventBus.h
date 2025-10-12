@@ -15,6 +15,8 @@
 
 namespace Tbx
 {
+    class EventDispatcher;
+
     /// <summary>
     /// Represents a function that consumes an <see cref="Event"/> instance.
     /// </summary>
@@ -133,6 +135,9 @@ namespace Tbx
         /// Processes all queued events, dispatching each to the relevant subscribers.
         /// </summary>
         void Flush();
+
+    private:
+        friend class EventDispatcher;
 
     private:
         /// <summary>

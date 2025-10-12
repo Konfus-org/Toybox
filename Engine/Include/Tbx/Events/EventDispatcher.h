@@ -2,7 +2,9 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Events/EventBus.h"
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
+#include <mutex>
 
 namespace Tbx
 {
@@ -13,7 +15,7 @@ namespace Tbx
     {
     public:
         EventDispatcher() = default;
-        explicit EventDispatcher(Ref<EventBus> eventBus);
+        EventDispatcher(Ref<EventBus> eventBus);
 
         /// <summary>
         /// Associates the dispatcher with an event bus.
@@ -38,11 +40,44 @@ namespace Tbx
                 return false;
             }
 
-            return bus->Send(std::forward<TEvent>(event));
+            TBX_TRACE_VERBOSE("EventDispatcher: Sending the event \"{}\"", event.ToString());
+
+            if (EventSuppressor::IsSuppressing())
+            {
+                TBX_TRACE_WARNING("EventDispatcher: The event \"{}\" is suppressed", event.ToString());
+                return event.IsHandled;
+            }
+
+            const auto hashCode = bus->GetEventHash(event);
+
+            std::unordered_map<Uid, EventCallback> callbacks;
+            {
+                std::scoped_lock lock(bus->_mutex);
+                auto it = bus->_subscribers.find(hashCode);
+                if (it == bus->_subscribers.end())
+                {
+                    return event.IsHandled;
+                }
+
+                callbacks = it->second;
+            }
+
+            for (auto& [id, cb] : callbacks)
+            {
+                if (EventSuppressor::IsSuppressing())
+                {
+                    TBX_TRACE_WARNING("EventDispatcher: The event \"{}\" is suppressed during dispatch", event.ToString());
+                    return event.IsHandled;
+                }
+
+                cb(event);
+            }
+
+            return event.IsHandled;
         }
 
         /// <summary>
-        /// Queues an event for delivery during the next flush.
+        /// Queues an event for delivery during the next call to <see cref="EventBus::Flush"/>.
         /// </summary>
         template <class TEvent>
         requires std::is_base_of_v<Event, std::decay_t<TEvent>>
@@ -54,13 +89,11 @@ namespace Tbx
                 return;
             }
 
-            bus->Post(std::move(event));
-        }
+            TBX_TRACE_VERBOSE("EventDispatcher: Posting the event \"{}\"", event.ToString());
 
-        /// <summary>
-        /// Dispatches any queued events.
-        /// </summary>
-        void Flush();
+            std::scoped_lock lock(bus->_mutex);
+            bus->_eventQueue.emplace(MakeExclusive<std::decay_t<TEvent>>(std::move(event)));
+        }
 
         /// <summary>
         /// Retrieves the bound event bus.

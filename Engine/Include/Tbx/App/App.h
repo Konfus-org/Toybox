@@ -80,7 +80,7 @@ namespace Tbx
         void OnWindowClosed(const WindowClosedEvent& e);
 
     public:
-        Ref<EventBus> EventBus = nullptr;
+        Ref<EventBus> Bus = nullptr;
         EventDispatcher Dispatcher = {};
         Collection<Ref<Plugin>> Plugins = {};
         Collection<Ref<Runtime>> Runtimes = {};

@@ -17,12 +17,12 @@
 namespace Tbx
 {
     App::App(const std::string_view& name, const AppSettings& settings, const Collection<Ref<Plugin>>& plugins, Ref<EventBus> eventBus)
-        : EventBus(eventBus)
+        : Bus(eventBus)
         , Dispatcher(eventBus)
         , Plugins(plugins)
         , Settings(settings)
-        , Windowing(Plugins.OfType<IWindowFactory>().front(), EventBus)
-        , Graphics(Settings.RenderingApi, Plugins.OfType<IGraphicsBackend>(), Plugins.OfType<IGraphicsContextProvider>(), EventBus)
+        , Windowing(Plugins.OfType<IWindowFactory>().front(), Bus)
+        , Graphics(Settings.RenderingApi, Plugins.OfType<IGraphicsBackend>(), Plugins.OfType<IGraphicsContextProvider>(), Bus)
         , _name(name)
         , _eventListener(eventBus)
     {
@@ -94,7 +94,7 @@ namespace Tbx
         auto runtimes = Plugins.OfType<Runtime>();
         for (const auto& runtime : runtimes)
         {
-            runtime->Initialize(assetServer, EventBus);
+            runtime->Initialize(assetServer, Bus);
             Runtimes.Add(runtime);
         }
 
@@ -158,7 +158,10 @@ namespace Tbx
 
             OnLateUpdate(_frameDeltaTime);
             Dispatcher.Post(AppUpdatedEvent());
-            Dispatcher.Flush();
+            if (Bus)
+            {
+                Bus->Flush();
+            }
         }
 
 #ifndef TBX_RELEASE
@@ -291,7 +294,10 @@ namespace Tbx
         // Allow other systems to hook into shutdown
         OnShutdown();
         Dispatcher.Post(AppClosedEvent(this));
-        Dispatcher.Flush();
+        if (Bus)
+        {
+            Bus->Flush();
+        }
 
         if (isRestarting)
         {

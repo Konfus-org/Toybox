@@ -5,7 +5,7 @@ namespace Tbx
 {
     EventDispatcher::EventDispatcher(Ref<EventBus> eventBus)
     {
-        Bind(std::move(eventBus));
+        Bind(eventBus);
     }
 
     void EventDispatcher::Bind(Ref<EventBus> eventBus)
@@ -16,17 +16,6 @@ namespace Tbx
     bool EventDispatcher::IsBound() const
     {
         return !_eventBus.expired();
-    }
-
-    void EventDispatcher::Flush()
-    {
-        auto bus = LockBus();
-        if (bus == nullptr)
-        {
-            return;
-        }
-
-        bus->Flush();
     }
 
     Ref<EventBus> EventDispatcher::GetEventBus() const
