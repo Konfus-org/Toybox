@@ -5,6 +5,7 @@
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/EventListener.h"
 #include "Tbx/Collections/LayerStack.h"
+#include "Tbx/Time/DeltaTime.h"
 
 namespace Tbx
 {
@@ -17,7 +18,9 @@ namespace Tbx
         virtual ~IRuntime() {}
 
         void Initialize(Ref<AssetServer> assetServer, Ref<EventBus> eventBus);
-        void Update();
+        void FixedUpdate(const DeltaTime& deltaTime);
+        void Update(const DeltaTime& deltaTime);
+        void LateUpdate(const DeltaTime& deltaTime);
         void Shutdown();
 
     protected:
@@ -26,12 +29,23 @@ namespace Tbx
         /// </summary>
         virtual void OnStart() {}
 
-        // TODO: Need a fixed and late update!
+        /// <summary>
+        /// Called before the main update loop. Intended for fixed timestep logic.
+        /// <param name="deltaTime">The time step used for this update.</param>
+        /// </summary>
+        virtual void OnFixedUpdate(const DeltaTime&) {}
 
         /// <summary>
         /// Called when the owning app is updated.
+        /// <param name="deltaTime">The elapsed time since the previous frame.</param>
         /// </summary>
-        virtual void OnUpdate() {}
+        virtual void OnUpdate(const DeltaTime&) {}
+
+        /// <summary>
+        /// Called after the main update loop. Intended for late frame work.
+        /// <param name="deltaTime">The elapsed time since the previous frame.</param>
+        /// </summary>
+        virtual void OnLateUpdate(const DeltaTime&) {}
 
         /// <summary>
         /// Called when the owning app is shutting down.
