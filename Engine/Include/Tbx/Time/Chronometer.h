@@ -19,22 +19,7 @@ namespace Tbx
         /// Samples the underlying clock and returns the elapsed time since the previous tick.
         /// The first tick after construction or reset reports zero elapsed time.
         /// </summary>
-        template <typename Duration = Seconds>
-        Duration Tick()
-        {
-            const auto now = Clock::now();
-
-            if (!_hasLastSample)
-            {
-                _hasLastSample = true;
-                _lastSample = now;
-                return Duration::zero();
-            }
-
-            const auto elapsed = now - _lastSample;
-            _lastSample = now;
-            return std::chrono::duration_cast<Duration>(elapsed);
-        }
+        Seconds Tick();
 
         /// <summary>
         /// Clears the stored sample so the next tick reports zero elapsed time.

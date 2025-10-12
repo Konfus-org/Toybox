@@ -6,7 +6,8 @@ namespace Tbx
     void IRuntime::Initialize(Ref<AssetServer> assetServer, Ref<EventBus> eventBus)
     {
         Assets = assetServer;
-        Dispatcher = eventBus;
+        EventBus = eventBus;
+        Dispatcher.Bind(eventBus);
         Listener.Bind(eventBus);
 
         // Hook for inheriting runtimes

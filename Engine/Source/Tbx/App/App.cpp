@@ -17,11 +17,12 @@
 namespace Tbx
 {
     App::App(const std::string_view& name, const AppSettings& settings, const Collection<Ref<Plugin>>& plugins, Ref<EventBus> eventBus)
-        : Dispatcher(eventBus)
+        : EventBus(eventBus)
+        , Dispatcher(eventBus)
         , Plugins(plugins)
         , Settings(settings)
-        , Windowing(Plugins.OfType<IWindowFactory>().front(), Dispatcher)
-        , Graphics(Settings.RenderingApi, Plugins.OfType<IGraphicsBackend>(), Plugins.OfType<IGraphicsContextProvider>(), Dispatcher)
+        , Windowing(Plugins.OfType<IWindowFactory>().front(), EventBus)
+        , Graphics(Settings.RenderingApi, Plugins.OfType<IGraphicsBackend>(), Plugins.OfType<IGraphicsContextProvider>(), EventBus)
         , _name(name)
         , _eventListener(eventBus)
     {
@@ -93,13 +94,13 @@ namespace Tbx
         auto runtimes = Plugins.OfType<Runtime>();
         for (const auto& runtime : runtimes)
         {
-            runtime->Initialize(assetServer, Dispatcher);
+            runtime->Initialize(assetServer, EventBus);
             Runtimes.Add(runtime);
         }
 
         // 4. Broadcast app launched events
-        Dispatcher->Send(AppSettingsChangedEvent(Settings));
-        Dispatcher->Send(AppLaunchedEvent(this));
+        Dispatcher.Send(AppSettingsChangedEvent(Settings));
+        Dispatcher.Send(AppLaunchedEvent(this));
 
         // 5. Open main window
 #ifdef TBX_DEBUG
@@ -156,8 +157,8 @@ namespace Tbx
             }
 
             OnLateUpdate(_frameDeltaTime);
-            Dispatcher->Post(AppUpdatedEvent());
-            Dispatcher->Flush();
+            Dispatcher.Post(AppUpdatedEvent());
+            Dispatcher.Flush();
         }
 
 #ifndef TBX_RELEASE
@@ -289,8 +290,8 @@ namespace Tbx
 
         // Allow other systems to hook into shutdown
         OnShutdown();
-        Dispatcher->Post(AppClosedEvent(this));
-        Dispatcher->Flush();
+        Dispatcher.Post(AppClosedEvent(this));
+        Dispatcher.Flush();
 
         if (isRestarting)
         {
