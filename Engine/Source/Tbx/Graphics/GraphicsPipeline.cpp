@@ -23,7 +23,13 @@ namespace Tbx
 
     GraphicsPipeline::GraphicsPipeline(std::vector<RenderPass> passes)
     {
-        RenderPasses = passes;
+        SetRenderPasses(std::move(passes));
+    }
+
+    void GraphicsPipeline::SetRenderPasses(std::vector<RenderPass> passes)
+    {
+        _renderPasses = std::move(passes);
+        _materialPassCache.clear();
     }
 
     void GraphicsPipeline::Process(
@@ -45,7 +51,7 @@ namespace Tbx
         {
             auto renderData = PrepareStageForDrawing(renderer, FullStageView(stage->Root), aspectRatio);
 
-            for (auto& pass : RenderPasses)
+            for (auto& pass : _renderPasses)
             {
                 if (pass.Draw)
                 {
@@ -64,8 +70,8 @@ namespace Tbx
 
     void GraphicsPipeline::DrawStage(const RenderPass& pass, Tbx::GraphicsRenderer& renderer, Tbx::StageRenderData& renderData)
     {
-        const auto passIndex = static_cast<size_t>(&pass - RenderPasses.data());
-        TBX_ASSERT(passIndex < RenderPasses.size(), "GraphicsPipeline: Render pass is not part of the pipeline.");
+        const auto passIndex = static_cast<size_t>(&pass - _renderPasses.data());
+        TBX_ASSERT(passIndex < _renderPasses.size(), "GraphicsPipeline: Render pass is not part of the pipeline.");
 
         const auto& buckets = renderData.PassBuckets[passIndex];
         for (const auto& [shaderProgramId, bucket] : buckets)
@@ -154,7 +160,7 @@ namespace Tbx
         float aspectRatio)
     {
         StageRenderData renderData = {};
-        renderData.PassBuckets.resize(RenderPasses.size());
+        renderData.PassBuckets.resize(_renderPasses.size());
 
         for (const auto& toy : stageView)
         {
@@ -328,17 +334,23 @@ namespace Tbx
 
     size_t GraphicsPipeline::ResolveRenderPassIndex(const Material& material) const
     {
-        TBX_ASSERT(!RenderPasses.empty(), "GraphicsPipeline: Render passes must be configured before drawing.");
-        if (RenderPasses.empty())
+        TBX_ASSERT(!_renderPasses.empty(), "GraphicsPipeline: Render passes must be configured before drawing.");
+        if (_renderPasses.empty())
         {
             return 0;
         }
 
+        const auto cachedPass = _materialPassCache.find(material.Id);
+        if (cachedPass != _materialPassCache.end())
+        {
+            return cachedPass->second;
+        }
+
         size_t fallbackIndex = 0;
         bool hasFallback = false;
-        for (size_t i = 0; i < RenderPasses.size(); ++i)
+        for (size_t i = 0; i < _renderPasses.size(); ++i)
         {
-            const auto& pass = RenderPasses[i];
+            const auto& pass = _renderPasses[i];
             if (!pass.Filter)
             {
                 if (!hasFallback)
@@ -351,10 +363,13 @@ namespace Tbx
 
             if (pass.Filter(material))
             {
+                _materialPassCache.emplace(material.Id, i);
                 return i;
             }
         }
 
-        return hasFallback ? fallbackIndex : 0;
+        const size_t resolvedIndex = hasFallback ? fallbackIndex : 0;
+        _materialPassCache.emplace(material.Id, resolvedIndex);
+        return resolvedIndex;
     }
 }

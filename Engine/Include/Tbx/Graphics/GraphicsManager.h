@@ -21,7 +21,7 @@ namespace Tbx
             const std::vector<Ref<IGraphicsContextProvider>>& contextProviders,
             Ref<EventBus> eventBus);
 
-        void SetRenderPasses(const std::vector<RenderPass>& passes);
+        void SetRenderPasses(std::vector<RenderPass> passes);
         const std::vector<RenderPass>& GetRenderPasses() const;
         void Render();
 
