@@ -35,8 +35,8 @@ void Demo::OnStart()
     auto vertexShader = Assets->Get<Tbx::Shader>("vertex.vert");
 
     // Setup testing scene...
-    _stage = Tbx::MakeRef<Tbx::Stage>();
-    auto worldRoot = _stage->GetRoot();
+    _stage = Tbx::Stage::Make();
+    auto worldRoot = _stage->Root;
 
     // Setup base material
     auto matShaders = { vertexShader, fragmentShader };
@@ -44,54 +44,62 @@ void Demo::OnStart()
 
     // Create room
     {
-        auto floor = std::make_shared<Tbx::Toy>("Floor");
-        floor->Blocks.Add<Tbx::Mesh>();
-        floor->Blocks.Add<Tbx::Material>(matShaders, checkerTex);
-        floor->Blocks.Add<Tbx::Transform>()
-            .SetPosition({ 0, -25, 100 })
-            .SetRotation(Tbx::Quaternion::FromEuler({ 90, 0, 0 }))
-            .SetScale({ 50 });
-        _stage->GetRoot()->Children.push_back(floor);
+        auto floor = _stage->Add("Floor");
+        floor->Add<Tbx::Mesh>();
+        floor->Add<Tbx::Material>(matShaders, checkerTex);
+        if (auto transform = floor->Add<Tbx::Transform>())
+        {
+            transform->SetPosition({ 0, -25, 100 });
+            transform->SetRotation(Tbx::Quaternion::FromEuler({ 90, 0, 0 }));
+            transform->SetScale({ 50 });
+        }
+        _stage->Root->Children.Add(floor);
 
-        auto wallBack = std::make_shared<Tbx::Toy>("Wall Back");
-        wallBack->Blocks.Add<Tbx::Mesh>();
-        wallBack->Blocks.Add<Tbx::Material>(matShaders, wallTex);
-        wallBack->Blocks.Add<Tbx::Transform>()
-            .SetPosition({ 0, 0, 125 })
-            .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))
-            .SetScale({ 50 });
-        _stage->GetRoot()->Children.push_back(wallBack);
+        auto wallBack = _stage->Add("Wall Back");
+        wallBack->Add<Tbx::Mesh>();
+        wallBack->Add<Tbx::Material>(matShaders, wallTex);
+        if (auto transform = wallBack->Add<Tbx::Transform>())
+        {
+            transform->SetPosition({ 0, 0, 125 });
+            transform->SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }));
+            transform->SetScale({ 50 });
+        }
+        _stage->Root->Children.Add(wallBack);
 
-        auto wallRight = std::make_shared<Tbx::Toy>("Wall Right");
-        wallRight->Blocks.Add<Tbx::Mesh>();
-        wallRight->Blocks.Add<Tbx::Material>(matShaders, wallTex);
-        wallRight->Blocks.Add<Tbx::Transform>()
-            .SetPosition({ 25, 0, 100 })
-            .SetRotation(Tbx::Quaternion::FromEuler({ 0, -90, 0 }))
-            .SetScale({ 50 });
-        _stage->GetRoot()->Children.push_back(wallRight);
+        auto wallRight = _stage->Add("Wall Right");
+        wallRight->Add<Tbx::Mesh>();
+        wallRight->Add<Tbx::Material>(matShaders, wallTex);
+        if (auto transform = wallRight->Add<Tbx::Transform>())
+        {
+            transform->SetPosition({ 25, 0, 100 });
+            transform->SetRotation(Tbx::Quaternion::FromEuler({ 0, -90, 0 }));
+            transform->SetScale({ 50 });
+        }
+        _stage->Root->Children.Add(wallRight);
     }
 
     // Create smily
     {
-        auto smily = std::make_shared<Tbx::Toy>("Smily");
-        smily->Blocks.Add<Tbx::Mesh>();
-        smily->Blocks.Add<Tbx::Material>(matShaders, smilyTex);
-        smily->Blocks.Add<Tbx::Transform>()
-            .SetPosition({ 0, 0, 100 })
-            .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))
-            .SetScale({ 10 });
+        auto smily = _stage->Add("Smily");
+        smily->Add<Tbx::Mesh>();
+        smily->Add<Tbx::Material>(matShaders, smilyTex);
+        if (auto transform = smily->Add<Tbx::Transform>())
+        {
+            transform->SetPosition({ 0, 0, 100 });
+            transform->SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }));
+            transform->SetScale({ 10 });
+        }
         _smily = smily;
-        _stage->GetRoot()->Children.push_back(_smily);
+        _stage->Root->Children.Add(_smily);
     }
 
     // Create camera
     {
-        auto fpsCam = std::make_shared<Tbx::Toy>("Camera");
-        fpsCam->Blocks.Add<Tbx::Camera>();
-        fpsCam->Blocks.Add<Tbx::Transform>();
+        auto fpsCam = _stage->Add("Camera");
+        fpsCam->Add<Tbx::Camera>();
+        fpsCam->Add<Tbx::Transform>();
         _fpsCam = fpsCam;
-        _stage->GetRoot()->Children.push_back(_fpsCam);
+        _stage->Root->Children.Add(_fpsCam);
     }
 
     // TODO: Figure out a better way than just needing to know you have to send this event...
@@ -106,12 +114,12 @@ void Demo::OnShutdown()
 
 void Demo::OnUpdate()
 {
-    auto worldRoot = _stage->GetRoot();
+    auto worldRoot = _stage->Root;
     const auto& deltaTime = Tbx::DeltaTime::InSeconds();
 
     // Camera movement
     {
-        auto& camTransform = _fpsCam->Blocks.Get<Tbx::Transform>();
+        auto camTransform = _fpsCam->Get<Tbx::Transform>();
 
         // Camera rotation
         {
@@ -179,7 +187,7 @@ void Demo::OnUpdate()
             Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3::Up, _camYaw);
 
             // Combine (usually yaw * pitch for FPS)
-            camTransform.Rotation = Tbx::Quaternion::Normalize(qYaw * qPitch);
+            camTransform->Rotation = Tbx::Quaternion::Normalize(qYaw * qPitch);
         }
 
         // Determine movement speed
@@ -199,13 +207,13 @@ void Demo::OnUpdate()
             // Get WASD/dpad style
             {
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_W) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_UP))
-                    camMoveDir += Tbx::Quaternion::GetForward(camTransform.Rotation);
+                    camMoveDir += Tbx::Quaternion::GetForward(camTransform->Rotation);
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_S) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_DOWN))
-                    camMoveDir -= Tbx::Quaternion::GetForward(camTransform.Rotation);
+                    camMoveDir -= Tbx::Quaternion::GetForward(camTransform->Rotation);
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_D) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_RIGHT))
-                    camMoveDir -= Tbx::Quaternion::GetRight(camTransform.Rotation);
+                    camMoveDir -= Tbx::Quaternion::GetRight(camTransform->Rotation);
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_A) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_LEFT))
-                    camMoveDir += Tbx::Quaternion::GetRight(camTransform.Rotation);
+                    camMoveDir += Tbx::Quaternion::GetRight(camTransform->Rotation);
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_E) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_RIGHT_BUMPER))
                     camMoveDir += Tbx::Vector3::Up;
                 if (Tbx::Input::IsKeyHeld(TBX_KEY_Q) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_LEFT_BUMPER))
@@ -219,19 +227,19 @@ void Demo::OnUpdate()
                 if (leftStickXAxisValue > TBX_GAMEPAD_AXIS_DEADZONE  ||
                     leftStickXAxisValue < -TBX_GAMEPAD_AXIS_DEADZONE)
                 {
-                    camMoveDir -= Tbx::Quaternion::GetRight(camTransform.Rotation) * Tbx::Vector3(leftStickXAxisValue, 0, 0).Normalize();
+                    camMoveDir -= Tbx::Quaternion::GetRight(camTransform->Rotation) * Tbx::Vector3(leftStickXAxisValue, 0, 0).Normalize();
                 }
                 if (leftStickYAxisValue > TBX_GAMEPAD_AXIS_DEADZONE ||
                     leftStickYAxisValue < -TBX_GAMEPAD_AXIS_DEADZONE)
                 {
-                    camMoveDir += Tbx::Quaternion::GetForward(camTransform.Rotation) * Tbx::Vector3(0, 0, leftStickYAxisValue).Normalize();
+                    camMoveDir += Tbx::Quaternion::GetForward(camTransform->Rotation) * Tbx::Vector3(0, 0, leftStickYAxisValue).Normalize();
                 }
             }
 
             // Apply movement if any
             if (!camMoveDir.IsNearlyZero())
             {
-                camTransform.Position += camMoveDir.Normalize() * camSpeed * deltaTime;
+                camTransform->Position += camMoveDir.Normalize() * camSpeed * deltaTime;
             }
         }
     }
@@ -240,16 +248,16 @@ void Demo::OnUpdate()
     {
         // rotate over time
         const float smilyRotateSpeed = 90.0f;
-        auto& smilyTransform = _smily->Blocks.Get<Tbx::Transform>();
+        auto smilyTransform = _smily->Get<Tbx::Transform>();
         float angle = Tbx::PI * deltaTime * smilyRotateSpeed;
         Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3::Up, angle);
-        smilyTransform.Rotation = Tbx::Quaternion::Normalize(smilyTransform.Rotation * qYaw);
+        smilyTransform->Rotation = Tbx::Quaternion::Normalize(smilyTransform->Rotation * qYaw);
 
         // Bob over time
         const float smilyBobFrequency = 2;
         const float smilyBobScale = 1;
         _smilyBobTime += deltaTime * smilyBobFrequency;
         _smilyBobAmplitude = std::sin(_smilyBobTime);
-        smilyTransform.Position.Y = (_smilyBobAmplitude * smilyBobScale);
+        smilyTransform->Position.Y = (_smilyBobAmplitude * smilyBobScale);
     }
 }

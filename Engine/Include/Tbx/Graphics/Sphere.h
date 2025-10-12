@@ -30,11 +30,11 @@ namespace Tbx
             Vector3 position = Vector3::Zero;
             Vector3 scale = Vector3::One;
 
-            if (toy->Blocks.Contains<Transform>())
+            if (toy->Has<Transform>())
             {
-                const auto& transform = toy->Blocks.Get<Transform>();
-                position = transform.Position;
-                scale = transform.Scale;
+                const auto transform = toy->Get<Transform>();
+                position = transform->Position;
+                scale = transform->Scale;
             }
 
             Center = position;

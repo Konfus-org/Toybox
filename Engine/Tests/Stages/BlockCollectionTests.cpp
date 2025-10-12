@@ -10,21 +10,22 @@ namespace Tbx::Tests::Stages
     {
         BlockCollection blocks;
 
-        auto& transform = blocks.Add<Transform>();
-        transform.SetPosition({ 1.0f, 2.0f, 3.0f });
+        auto transform = blocks.Add<Transform>();
+        ASSERT_NE(transform, nullptr);
+        transform->SetPosition({ 1.0f, 2.0f, 3.0f });
 
         ASSERT_TRUE(blocks.Contains<Transform>());
 
-        const auto& stored = blocks.Get<Transform>();
-        EXPECT_FLOAT_EQ(stored.Position.X, 1.0f);
-        EXPECT_FLOAT_EQ(stored.Position.Y, 2.0f);
-        EXPECT_FLOAT_EQ(stored.Position.Z, 3.0f);
+        const auto stored = blocks.Get<Transform>();
+        EXPECT_FLOAT_EQ(stored->Position.X, 1.0f);
+        EXPECT_FLOAT_EQ(stored->Position.Y, 2.0f);
+        EXPECT_FLOAT_EQ(stored->Position.Z, 3.0f);
 
-        const BlockCollection& constBlocks = blocks;
-        const auto& constStored = constBlocks.Get<Transform>();
-        EXPECT_FLOAT_EQ(constStored.Position.X, 1.0f);
-        EXPECT_FLOAT_EQ(constStored.Position.Y, 2.0f);
-        EXPECT_FLOAT_EQ(constStored.Position.Z, 3.0f);
+        Ref<Transform> retrieved;
+        ASSERT_TRUE(blocks.TryGet(retrieved));
+        EXPECT_FLOAT_EQ(retrieved->Position.X, 1.0f);
+        EXPECT_FLOAT_EQ(retrieved->Position.Y, 2.0f);
+        EXPECT_FLOAT_EQ(retrieved->Position.Z, 3.0f);
     }
 
     TEST(BlockCollectionTests, Remove_ErasesStoredBlock)
@@ -44,12 +45,17 @@ namespace Tbx::Tests::Stages
     {
         BlockCollection blocks;
 
-        blocks.Add<Transform>().SetPosition({ 1.0f, 0.0f, 0.0f });
-        blocks.Add<Transform>().SetPosition({ 2.0f, 0.0f, 0.0f });
+        auto first = blocks.Add<Transform>();
+        ASSERT_NE(first, nullptr);
+        first->SetPosition({ 1.0f, 0.0f, 0.0f });
 
-        const auto& transform = blocks.Get<Transform>();
-        EXPECT_FLOAT_EQ(transform.Position.X, 2.0f);
-        EXPECT_FLOAT_EQ(transform.Position.Y, 0.0f);
-        EXPECT_FLOAT_EQ(transform.Position.Z, 0.0f);
+        auto second = blocks.Add<Transform>();
+        ASSERT_NE(second, nullptr);
+        second->SetPosition({ 2.0f, 0.0f, 0.0f });
+
+        const auto transform = blocks.Get<Transform>();
+        EXPECT_FLOAT_EQ(transform->Position.X, 2.0f);
+        EXPECT_FLOAT_EQ(transform->Position.Y, 0.0f);
+        EXPECT_FLOAT_EQ(transform->Position.Z, 0.0f);
     }
 }

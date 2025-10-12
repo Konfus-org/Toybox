@@ -43,7 +43,7 @@ namespace Tbx
 
         for (const auto& stage : stages)
         {
-            auto renderData = PrepareStageForRendering(renderer, FullStageView(stage->GetRoot()), aspectRatio);
+            auto renderData = PrepareStageForRendering(renderer, FullStageView(stage->Root), aspectRatio);
 
             for (uint32 passIndex = 0; passIndex < RenderPasses.size(); ++passIndex)
             {
@@ -96,10 +96,10 @@ namespace Tbx
             const auto& entity = *entityPtr;
 
             Mat4x4 transformMatrix = Mat4x4::Identity;
-            if (entity.Blocks.Contains<Transform>())
+            if (entity.Has<Transform>())
             {
-                const auto& transform = entity.Blocks.Get<Transform>();
-                transformMatrix = Mat4x4::FromTRS(transform.Position, transform.Rotation, transform.Scale);
+                const auto transform = entity.Get<Transform>();
+                transformMatrix = Mat4x4::FromTRS(transform->Position, transform->Rotation, transform->Scale);
             }
 
             ShaderUniform transformUniform = {};
@@ -108,11 +108,11 @@ namespace Tbx
             shaderResource->Upload(transformUniform);
 
             std::vector<UseGraphicsResourceScope> textureScopes = {};
-            const auto& material = entity.Blocks.Get<Material>();
-            textureScopes.reserve(material.Textures.size());
-            for (size_t textureIndex = 0; textureIndex < material.Textures.size(); ++textureIndex)
+            const auto material = entity.Get<Material>();
+            textureScopes.reserve(material->Textures.size());
+            for (size_t textureIndex = 0; textureIndex < material->Textures.size(); ++textureIndex)
             {
-                const auto& texture = material.Textures[textureIndex];
+                const auto& texture = material->Textures[textureIndex];
                 if (!texture)
                 {
                     continue;
@@ -129,8 +129,8 @@ namespace Tbx
                 textureScopes.emplace_back(textureResource);
             }
 
-            const auto& mesh = entity.Blocks.Get<Mesh>();
-            const auto meshResourceIt = renderer.Cache.Meshes.find(mesh.Id);
+            const auto mesh = entity.Get<Mesh>();
+            const auto meshResourceIt = renderer.Cache.Meshes.find(mesh->Id);
             if (meshResourceIt == renderer.Cache.Meshes.end() || !meshResourceIt->second)
             {
                 continue;
@@ -151,52 +151,51 @@ namespace Tbx
 
         for (const auto& toy : stageView)
         {
-            auto& toyBlocks = toy->Blocks;
-            if (toyBlocks.Contains<Camera>())
+            if (toy->Has<Camera>())
             {
-                auto& camera = toyBlocks.Get<Camera>();
+                auto camera = toy->Get<Camera>();
                 TBX_ASSERT(aspectRatio > 0.0f, "GraphicsPipeline: aspect ratio must be positive.");
                 if (aspectRatio > 0.0f)
                 {
-                    camera.SetAspect(aspectRatio);
+                    camera->SetAspect(aspectRatio);
                 }
 
                 Vector3 camPos = Vector3::Zero;
                 Quaternion camRot = Quaternion::Identity;
-                if (toyBlocks.Contains<Transform>())
+                if (toy->Has<Transform>())
                 {
-                    const auto& camTransform = toyBlocks.Get<Transform>();
-                    camPos = camTransform.Position;
-                    camRot = camTransform.Rotation;
+                    const auto camTransform = toy->Get<Transform>();
+                    camPos = camTransform->Position;
+                    camRot = camTransform->Rotation;
                 }
 
                 renderData.Cameras.emplace_back(
-                    Camera::CalculateViewProjectionMatrix(camPos, camRot, camera.GetProjectionMatrix()),
-                    Camera::CalculateFrustum(camPos, camRot, camera.GetProjectionMatrix()));
+                    Camera::CalculateViewProjectionMatrix(camPos, camRot, camera->GetProjectionMatrix()),
+                    Camera::CalculateFrustum(camPos, camRot, camera->GetProjectionMatrix()));
             }
-            if (toyBlocks.Contains<Model>() && toyBlocks.Contains<Material>() ||
-                toyBlocks.Contains<Model>() && toyBlocks.Contains<Mesh>())
+            if (toy->Has<Model>() && toy->Has<Material>() ||
+                toy->Has<Model>() && toy->Has<Mesh>())
             {
                 TBX_ASSERT(false, "GraphicsPipeline: You can have a mesh and material, or a model. Not both!");
             }
-            else if (toyBlocks.Contains<Model>())
+            else if (toy->Has<Model>())
             {
-                const auto& model = toyBlocks.Get<Model>();
-                CacheMaterial(renderer, model.Material);
-                CacheMesh(renderer, model.Mesh);
-                const size_t passIndex = ResolveRenderPassIndex(model.Material);
+                const auto model = toy->Get<Model>();
+                CacheMaterial(renderer, model->Material);
+                CacheMesh(renderer, model->Mesh);
+                const size_t passIndex = ResolveRenderPassIndex(model->Material);
                 auto& passBuckets = renderData.PassBuckets[passIndex];
-                passBuckets[model.Material.ShaderProgram.Id].push_back(toy);
+                passBuckets[model->Material.ShaderProgram.Id].push_back(toy);
             }
-            else if (toyBlocks.Contains<Material>() && toyBlocks.Contains<Mesh>())
+            else if (toy->Has<Material>() && toy->Has<Mesh>())
             {
-                const auto& mesh = toyBlocks.Get<Mesh>();
-                const auto& material = toyBlocks.Get<Material>();
-                CacheMaterial(renderer, material);
-                CacheMesh(renderer, mesh);
-                const size_t passIndex = ResolveRenderPassIndex(material);
+                const auto mesh = toy->Get<Mesh>();
+                const auto material = toy->Get<Material>();
+                CacheMaterial(renderer, *material);
+                CacheMesh(renderer, *mesh);
+                const size_t passIndex = ResolveRenderPassIndex(*material);
                 auto& passBuckets = renderData.PassBuckets[passIndex];
-                passBuckets[material.ShaderProgram.Id].push_back(toy);
+                passBuckets[material->ShaderProgram.Id].push_back(toy);
             }
         }
 
@@ -210,15 +209,15 @@ namespace Tbx
             return true;
         }
 
-        if (toy->Blocks.Contains<Camera>())
+        if (toy->Has<Camera>())
         {
             return false;
         }
 
-        if (!toy->Blocks.Contains<Mesh>() ||
-            !toy->Blocks.Contains<Material>())
+        if (!toy->Has<Mesh>() ||
+            !toy->Has<Material>())
         {
-            return false;
+            return true;
         }
 
         if (frustum.Intersects(BoundingSphere(toy)))
