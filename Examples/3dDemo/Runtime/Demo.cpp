@@ -11,7 +11,6 @@
 #include <Tbx/Events/StageEvents.h>
 #include <algorithm>
 #include <cmath>
-#include <vector>
 
 Demo::Demo(Tbx::Ref<Tbx::EventBus> eventBus)
 {
@@ -28,35 +27,28 @@ void Demo::OnStart()
     TBX_TRACE_INFO("Demo: started!\n");
 
     // Load assets
-    auto smilyTex = Assets->Get<Tbx::Texture>("Smily.png");
     auto wallTex = Assets->Get<Tbx::Texture>("Wall.jpg");
-    auto checkerTex = Assets->Get<Tbx::Texture>("Checkerboard.png");
+    auto floorTex = Assets->Get<Tbx::Texture>("Checkerboard.png");
+    auto smilyTex = Assets->Get<Tbx::Texture>("Smily.png");
     auto fragmentShader = Assets->Get<Tbx::Shader>("fragment.frag");
     auto vertexShader = Assets->Get<Tbx::Shader>("vertex.vert");
 
-    // Setup testing scene...
+    // Setup materials & quad to reuse
+    auto matShaders = { vertexShader, fragmentShader };
+    _wallMat = Tbx::MakeRef<Tbx::Material>(matShaders, wallTex);
+    _floorMat = Tbx::MakeRef<Tbx::Material>(matShaders, floorTex);
+    _smilyMat = Tbx::MakeRef<Tbx::Material>(matShaders, smilyTex);
+    _quad = Tbx::MakeRef<Tbx::Mesh>();
+
+    // Setup testing scene:
     _stage = Tbx::Stage::Make();
     auto worldRoot = _stage->Root;
 
-    // Setup base material
-    auto matShaders = { vertexShader, fragmentShader };
-    //_simpleTexturedMat = Tbx::MakeRef<Tbx::Material>(matShaders, checkerTex);
-
     // Create room
     {
-        auto floor = _stage->Add("Floor");
-        floor->Add<Tbx::Model>();
-        floor->Add<Tbx::Material>(matShaders, checkerTex);
-        if (auto transform = floor->Add<Tbx::Transform>())
-        {
-            transform->SetPosition({ 0, -25, 100 });
-            transform->SetRotation(Tbx::Quaternion::FromEuler({ 90, 0, 0 }));
-            transform->SetScale({ 50 });
-        }
-
         auto wallBack = _stage->Add("Wall Back");
-        wallBack->Add<Tbx::Mesh>();
-        wallBack->Add<Tbx::Material>(matShaders, wallTex);
+        wallBack->Add<Tbx::MeshInstance>(_quad->Id);
+        wallBack->Add<Tbx::MaterialInstance>(_wallMat->Id);
         if (auto transform = wallBack->Add<Tbx::Transform>())
         {
             transform->SetPosition({ 0, 0, 125 });
@@ -65,29 +57,37 @@ void Demo::OnStart()
         }
 
         auto wallRight = _stage->Add("Wall Right");
-        wallRight->Add<Tbx::Mesh>();
-        wallRight->Add<Tbx::Material>(matShaders, wallTex);
+        wallRight->Add<Tbx::MeshInstance>(_quad->Id);
+        wallRight->Add<Tbx::MaterialInstance>(_wallMat->Id);
         if (auto transform = wallRight->Add<Tbx::Transform>())
         {
             transform->SetPosition({ 25, 0, 100 });
             transform->SetRotation(Tbx::Quaternion::FromEuler({ 0, -90, 0 }));
             transform->SetScale({ 50 });
         }
+
+        auto floor = _stage->Add("Floor");
+        floor->Add<Tbx::MeshInstance>(_quad->Id);
+        floor->Add<Tbx::MaterialInstance>(_floorMat->Id);
+        if (auto transform = floor->Add<Tbx::Transform>())
+        {
+            transform->SetPosition({ 0, -25, 100 });
+            transform->SetRotation(Tbx::Quaternion::FromEuler({ 90, 0, 0 }));
+            transform->SetScale({ 50 });
+        }
     }
 
     // Create smily
     {
-        auto smily = _stage->Add("Smily");
-        smily->Add<Tbx::Mesh>();
-        smily->Add<Tbx::Material>(matShaders, smilyTex);
-        if (auto transform = smily->Add<Tbx::Transform>())
-        {
-            transform->SetPosition({ 0, 0, 100 });
-            transform->SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }));
-            transform->SetScale({ 10 });
-        }
-        _smily = smily;
-        _smilyBaseHeight = _smily->Get<Tbx::Transform>()->Position.Y;
+        _smilyBaseHeight = 0;
+        _smily = _stage->Add("Smily");
+        _smily->Add<Tbx::MeshInstance>(_quad->Id);
+        _smily->Add<Tbx::MaterialInstance>(_smilyMat->Id);
+        auto& transform = *_smily->Add<Tbx::Transform>();
+        transform
+            .SetPosition({ 0, _smilyBaseHeight, 100 })
+            .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))
+            .SetScale({ 10 });
     }
 
     // Create camera

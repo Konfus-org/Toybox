@@ -1,5 +1,4 @@
 #pragma once
-#include <Tbx/App/App.h>
 #include <Tbx/App/Runtime.h>
 #include <Tbx/Stages/Toy.h>
 #include <Tbx/Stages/Stage.h>
@@ -18,6 +17,11 @@ public:
     void OnUpdate(const Tbx::DeltaTime& deltaTime) override;
 
 private:
+    Tbx::Ref<Tbx::Mesh> _quad = nullptr;
+    Tbx::Ref<Tbx::Material> _wallMat = nullptr;
+    Tbx::Ref<Tbx::Material> _floorMat = nullptr;
+    Tbx::Ref<Tbx::Material> _smilyMat = nullptr;
+
     Tbx::Ref<Tbx::Stage> _stage = nullptr;
     Tbx::Ref<Tbx::Toy> _fpsCam = nullptr;
     Tbx::Ref<Tbx::Toy> _smily = nullptr;
@@ -26,12 +30,9 @@ private:
     float _smilyBobAmplitude = 0.0f;
     float _smilyBaseHeight = 0.0f;
 
+    Tbx::Vector2 _camLookVelocity = Tbx::Vector2::Zero;
     float _camPitch = 0.0f;
     float _camYaw = 0.0f;
-    Tbx::Vector2 _camLookVelocity = Tbx::Vector2::Zero;
-
-    Tbx::Ref<Tbx::Material> _simpleTexturedMat = {};
-    Tbx::WeakRef<Tbx::App> _app = {};
 };
 
 TBX_REGISTER_RUNTIME(Demo);
