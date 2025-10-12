@@ -59,7 +59,7 @@ namespace Tbx::Plugins::SDL
             return true;
         }
 
-        if (!SDL_InitSubSystem(SDL_INIT_AUDIO))
+        if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0)
         {
             TBX_TRACE_ERROR("SDL3AudioPlugin: Failed to initialize SDL audio subsystem: {}", SDL_GetError());
             return false;
