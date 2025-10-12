@@ -71,10 +71,10 @@ namespace Tbx
         GraphicsPipeline() = default;
         explicit GraphicsPipeline(std::vector<RenderPass> passes);
         void Render(GraphicsRenderer& renderer, const GraphicsDisplay& display, const std::vector<Ref<Stage>>& stages, const RgbaColor& clearColor);
+        void RenderStage(const RenderPass& pass, Tbx::GraphicsRenderer& renderer, Tbx::StageRenderData& renderData);
 
     private:
         StageRenderData PrepareStageForRendering(GraphicsRenderer& renderer, const FullStageView& stageView, float aspectRatio);
-        void RenderStage(uint32 passIndex, Tbx::GraphicsRenderer& renderer, Tbx::StageRenderData& renderData);
         void RenderCameraView(const Tbx::RenderBucket& bucket, const Tbx::CameraData& camera, const Tbx::Ref<Tbx::ShaderProgramResource>& shaderResource, Tbx::GraphicsRenderer& renderer);
         void CacheShaders(GraphicsRenderer& renderer, const ShaderProgram& shaders);
         void CacheMaterial(GraphicsRenderer& renderer, const Material& shaders);

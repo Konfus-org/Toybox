@@ -45,9 +45,16 @@ namespace Tbx
         {
             auto renderData = PrepareStageForRendering(renderer, FullStageView(stage->GetRoot()), aspectRatio);
 
-            for (uint32 passIndex = 0; passIndex < RenderPasses.size(); ++passIndex)
+            for (auto& pass : RenderPasses)
             {
-                RenderStage(passIndex, renderer, renderData);
+                if (pass.Draw)
+                {
+                    pass.Draw(*this, pass, renderer, renderData);
+                }
+                else
+                {
+                    RenderPass::DefaultDraw(*this, pass, renderer, renderData);
+                }
             }
         }
 
@@ -55,10 +62,10 @@ namespace Tbx
         renderer.Backend->EndDraw();
     }
 
-    void GraphicsPipeline::RenderStage(uint32 passIndex, Tbx::GraphicsRenderer& renderer, Tbx::StageRenderData& renderData)
+    void GraphicsPipeline::RenderStage(const RenderPass& pass, Tbx::GraphicsRenderer& renderer, Tbx::StageRenderData& renderData)
     {
-        const auto& pass = RenderPasses[passIndex];
-        renderer.Backend->EnableDepthTesting(pass.DepthTestEnabled);
+        const auto passIndex = static_cast<size_t>(&pass - RenderPasses.data());
+        TBX_ASSERT(passIndex < RenderPasses.size(), "GraphicsPipeline: Render pass is not part of the pipeline.");
 
         const auto& buckets = renderData.PassBuckets[passIndex];
         for (const auto& [shaderProgramId, bucket] : buckets)
