@@ -2,13 +2,18 @@
 #include "Tbx/Stages/Stage.h"
 #include "Tbx/Stages/Toy.h"
 #include "Tbx/Memory/Refs.h"
+#include <string>
 
 namespace Tbx::Tests::Stages
 {
     class CountingToy : public Toy
     {
     public:
-        using Toy::Toy;
+        CountingToy() = default;
+        explicit CountingToy(const std::string& name)
+            : Toy(name)
+        {
+        }
 
         void OnUpdate() override
         {
@@ -21,10 +26,10 @@ namespace Tbx::Tests::Stages
     TEST(StageTests, Constructor_CreatesRootToy)
     {
         // Act
-        Stage stage;
+        auto stage = Stage::Make();
 
         // Assert
-        auto root = stage.GetRoot();
+        auto root = stage->Root;
         ASSERT_NE(root, nullptr);
         EXPECT_EQ(root->Handle.Name, "Root");
     }
@@ -32,12 +37,12 @@ namespace Tbx::Tests::Stages
     TEST(StageTests, Update_PropagatesToChildren)
     {
         // Arrange
-        Stage stage;
-        auto child = MakeRef<CountingToy>("Child");
-        stage.GetRoot()->Children.push_back(child);
+        auto stage = Stage::Make();
+        auto child = stage->Add<CountingToy>("Child");
+        stage->Root->Children.Add(child);
 
         // Act
-        stage.Update();
+        stage->Update();
 
         // Assert
         EXPECT_EQ(child->UpdateCount, 1);
@@ -46,13 +51,13 @@ namespace Tbx::Tests::Stages
     TEST(StageTests, Update_SkipsDisabledChildren)
     {
         // Arrange
-        Stage stage;
-        auto child = MakeRef<CountingToy>("Child");
+        auto stage = Stage::Make();
+        auto child = stage->Add<CountingToy>("Child");
         child->Enabled = false;
-        stage.GetRoot()->Children.push_back(child);
+        stage->Root->Children.Add(child);
 
         // Act
-        stage.Update();
+        stage->Update();
 
         // Assert
         EXPECT_EQ(child->UpdateCount, 0);
