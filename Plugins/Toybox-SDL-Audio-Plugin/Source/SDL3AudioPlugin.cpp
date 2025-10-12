@@ -132,9 +132,30 @@ namespace Tbx::Plugins::SDL
         auto it = _playbackInstances.find(audio.Id);
         if (it != _playbackInstances.end())
         {
-            it->second.Pitch = audio.Pitch;
-            it->second.Speed = audio.PlaybackSpeed;
-            ApplyStreamTuning(it->second);
+            auto& instance = it->second;
+            instance.Pitch = audio.Pitch;
+            instance.Speed = audio.PlaybackSpeed;
+            instance.Loop = audio.Loop;
+            ApplyStreamTuning(instance);
+
+            if (instance.Stream && instance.Loop)
+            {
+                const int queued = SDL_GetAudioStreamQueued(instance.Stream);
+                if (queued == 0)
+                {
+                    if (!QueueAudioData(instance.Stream, audio))
+                    {
+                        TBX_TRACE_ERROR("SDL3AudioPlugin: Failed to queue looped audio for asset {}.", audio.Id.ToString());
+                        DestroyPlayback(instance);
+                        _playbackInstances.erase(it);
+                        return;
+                    }
+                }
+                else if (queued < 0)
+                {
+                    TBX_TRACE_WARNING("SDL3AudioPlugin: Failed to query queued audio for asset {}: {}", audio.Id.ToString(), SDL_GetError());
+                }
+            }
             return;
         }
 
@@ -166,32 +187,17 @@ namespace Tbx::Plugins::SDL
             return;
         }
 
-        const auto dataSize = audio.Data.size();
-        if (dataSize > static_cast<size_t>(std::numeric_limits<int>::max()))
-        {
-            TBX_TRACE_ERROR("SDL3AudioPlugin: Audio asset {} is too large to queue for playback.", audio.Id.ToString());
-            SDL_UnbindAudioStream(stream);
-            SDL_DestroyAudioStream(stream);
-            return;
-        }
-
-        if (!SDL_PutAudioStreamData(stream, audio.Data.data(), static_cast<int>(dataSize)))
-        {
-            TBX_TRACE_ERROR("SDL3AudioPlugin: Failed to queue audio data: {}", SDL_GetError());
-            SDL_UnbindAudioStream(stream);
-            SDL_DestroyAudioStream(stream);
-            return;
-        }
-
-        if (!SDL_FlushAudioStream(stream))
-        {
-            TBX_TRACE_WARNING("SDL3AudioPlugin: Failed to flush audio stream: {}", SDL_GetError());
-        }
-
         PlaybackInstance instance = {};
         instance.Stream = stream;
         instance.Pitch = audio.Pitch;
         instance.Speed = audio.PlaybackSpeed;
+        instance.Loop = audio.Loop;
+        if (!QueueAudioData(instance.Stream, audio))
+        {
+            SDL_UnbindAudioStream(stream);
+            SDL_DestroyAudioStream(stream);
+            return;
+        }
         ApplyStreamTuning(instance);
 
         _playbackInstances.emplace(audio.Id, instance);
@@ -231,6 +237,39 @@ namespace Tbx::Plugins::SDL
 
         it->second.Speed = speed;
         ApplyStreamTuning(it->second);
+    }
+
+    void SDL3AudioPlugin::SetLooping(const Audio& audio, bool loop)
+    {
+        auto it = _playbackInstances.find(audio.Id);
+        if (it == _playbackInstances.end())
+        {
+            return;
+        }
+
+        auto& instance = it->second;
+        instance.Loop = loop;
+
+        if (!instance.Stream || !instance.Loop)
+        {
+            return;
+        }
+
+        const int queued = SDL_GetAudioStreamQueued(instance.Stream);
+        if (queued == 0)
+        {
+            if (!QueueAudioData(instance.Stream, audio))
+            {
+                TBX_TRACE_ERROR("SDL3AudioPlugin: Failed to queue looped audio for asset {}.", audio.Id.ToString());
+                DestroyPlayback(instance);
+                _playbackInstances.erase(it);
+                return;
+            }
+        }
+        else if (queued < 0)
+        {
+            TBX_TRACE_WARNING("SDL3AudioPlugin: Failed to query queued audio for asset {}: {}", audio.Id.ToString(), SDL_GetError());
+        }
     }
 
     bool SDL3AudioPlugin::CanLoad(const std::filesystem::path& filepath) const
@@ -289,6 +328,39 @@ namespace Tbx::Plugins::SDL
         {
             TBX_TRACE_WARNING("SDL3AudioPlugin: Failed to adjust audio stream playback ratio: {}", SDL_GetError());
         }
+    }
+
+    bool SDL3AudioPlugin::QueueAudioData(SDL_AudioStream* stream, const Audio& audio)
+    {
+        if (!stream)
+        {
+            return false;
+        }
+
+        if (audio.Data.empty())
+        {
+            return false;
+        }
+
+        const auto dataSize = audio.Data.size();
+        if (dataSize > static_cast<size_t>(std::numeric_limits<int>::max()))
+        {
+            TBX_TRACE_ERROR("SDL3AudioPlugin: Audio asset {} is too large to queue for playback.", audio.Id.ToString());
+            return false;
+        }
+
+        if (!SDL_PutAudioStreamData(stream, audio.Data.data(), static_cast<int>(dataSize)))
+        {
+            TBX_TRACE_ERROR("SDL3AudioPlugin: Failed to queue audio data: {}", SDL_GetError());
+            return false;
+        }
+
+        if (!SDL_FlushAudioStream(stream))
+        {
+            TBX_TRACE_WARNING("SDL3AudioPlugin: Failed to flush audio stream: {}", SDL_GetError());
+        }
+
+        return true;
     }
 
     bool SDL3AudioPlugin::IsSupportedExtension(const std::filesystem::path& path)

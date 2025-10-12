@@ -16,5 +16,6 @@ namespace Tbx
         virtual void Stop(const Audio& audio) = 0;
         virtual void SetPitch(const Audio& audio, float pitch) = 0;
         virtual void SetPlaybackSpeed(const Audio& audio, float speed) = 0;
+        virtual void SetLooping(const Audio& audio, bool loop) = 0;
     };
 }

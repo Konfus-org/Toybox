@@ -61,6 +61,7 @@ namespace Tbx
         AudioFormat Format = {};
         float Pitch = 1.0f;
         float PlaybackSpeed = 1.0f;
+        bool Loop = false;
 
     private:
         bool _isPlaying = false;

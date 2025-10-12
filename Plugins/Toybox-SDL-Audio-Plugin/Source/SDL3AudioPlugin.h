@@ -22,6 +22,7 @@ namespace Tbx::Plugins::SDL
         void Stop(const Audio& audio) override;
         void SetPitch(const Audio& audio, float pitch) override;
         void SetPlaybackSpeed(const Audio& audio, float speed) override;
+        void SetLooping(const Audio& audio, bool loop) override;
 
         // IAudioLoader
         bool CanLoad(const std::filesystem::path& filepath) const override;
@@ -35,12 +36,14 @@ namespace Tbx::Plugins::SDL
             SDL_AudioStream* Stream = nullptr;
             float Pitch = 1.0f;
             float Speed = 1.0f;
+            bool Loop = false;
         };
 
         bool EnsureAudioSubsystem();
         bool EnsureAudioDevice();
         void ApplyStreamTuning(PlaybackInstance& instance) const;
         void DestroyPlayback(PlaybackInstance& instance);
+        bool QueueAudioData(SDL_AudioStream* stream, const Audio& audio);
 
         static bool IsSupportedExtension(const std::filesystem::path& path);
         static AudioFormat ConvertSpecToFormat(const SDL_AudioSpec& spec);

@@ -98,6 +98,7 @@ namespace Tbx
             }
 
             auto& audio = *audioBlock;
+            _mixer->SetLooping(audio, audio.Loop);
             if (audio.IsPlaying())
             {
                 _mixer->SetPitch(audio, audio.Pitch);
