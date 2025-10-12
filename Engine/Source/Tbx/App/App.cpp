@@ -10,7 +10,11 @@
 #include "Tbx/Time/Chronometer.h"
 #include "Tbx/Time/DeltaTime.h"
 #include "Tbx/Files/Paths.h"
+#include <chrono>
+#include <ctime>
+#include <iomanip>
 #include <limits>
+#include <sstream>
 #include <string_view>
 #include <vector>
 
@@ -74,7 +78,7 @@ namespace Tbx
     void App::Initialize()
     {
         Status = AppStatus::Initializing;
-        _frameChronometer.Reset();
+        Clock.Reset();
 
         auto workingDirectory = FileSystem::GetWorkingDirectory();
         TBX_TRACE_INFO("App: Current working directory is: {}", workingDirectory);
@@ -117,8 +121,8 @@ namespace Tbx
         // Runtime loop
         {
             // 1. Update delta and input
-            const auto frameDuration = _frameChronometer.Tick();
-            _frameDeltaTime.SetSeconds(frameDuration.count());
+            Clock.Tick();
+            _frameDeltaTime.SetSeconds(Clock.GetDeltaTime().count());
             Input::Update();
 
             // 2. Fixed update runtimes
@@ -204,6 +208,29 @@ namespace Tbx
     {
         const float deltaSeconds = _frameDeltaTime.Seconds;
         const float deltaMilliseconds = _frameDeltaTime.Milliseconds;
+        const auto clockDeltaSeconds = Clock.GetDeltaTime().count();
+        const auto clockDeltaMilliseconds = clockDeltaSeconds * 1000.0f;
+        const auto accumulatedSeconds = Clock.GetAccumulatedTime().count();
+        const auto accumulatedMilliseconds = accumulatedSeconds * 1000.0f;
+        const auto systemTimePoint = Clock.GetSystemTime();
+        const auto systemTimeMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(systemTimePoint.time_since_epoch()).count();
+
+        std::string systemTimeString = "Unavailable";
+        if (systemTimePoint.time_since_epoch() != Chronometer::SystemClock::duration::zero())
+        {
+            const auto systemTimeT = Chronometer::SystemClock::to_time_t(systemTimePoint);
+            std::tm systemTimeTm{};
+#if defined(_WIN32)
+            localtime_s(&systemTimeTm, &systemTimeT);
+#else
+            localtime_r(&systemTimeT, &systemTimeTm);
+#endif
+            std::ostringstream systemTimeStream;
+            systemTimeStream << std::put_time(&systemTimeTm, "%Y-%m-%d %H:%M:%S");
+            const auto systemTimeSubSecond = std::chrono::duration_cast<std::chrono::milliseconds>(systemTimePoint.time_since_epoch() % std::chrono::seconds(1));
+            systemTimeStream << '.' << std::setw(3) << std::setfill('0') << systemTimeSubSecond.count();
+            systemTimeString = systemTimeStream.str();
+        }
         const float fps = deltaSeconds > std::numeric_limits<float>::epsilon()
             ? 1.0f / deltaSeconds
             : 0.0f;
@@ -260,6 +287,9 @@ namespace Tbx
             "App: Frame Report\n"
             "\tFrame time: {:.3f} ms ({:.3f} s)\n"
             "\tFPS: {:.2f}\n"
+            "\tClock delta: {:.3f} ms ({:.3f} s)\n"
+            "\tClock runtime: {:.3f} ms ({:.3f} s)\n"
+            "\tClock system time: {} ({} ms since epoch)\n"
             "\tOpen windows: {}\n"
             "\tMain window: {} ({}x{}, aspect {:.2f})\n"
             "\tRender passes: {}\n"
@@ -270,6 +300,12 @@ namespace Tbx
             deltaMilliseconds,
             deltaSeconds,
             fps,
+            clockDeltaMilliseconds,
+            clockDeltaSeconds,
+            accumulatedMilliseconds,
+            accumulatedSeconds,
+            systemTimeString,
+            systemTimeMilliseconds,
             windowCount,
             mainWindowTitle,
             mainWindowWidth,

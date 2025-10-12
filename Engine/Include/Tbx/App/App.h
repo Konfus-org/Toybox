@@ -88,12 +88,12 @@ namespace Tbx
         AppSettings Settings = {};
         WindowManager Windowing = {};
         GraphicsManager Graphics = {};
+        Chronometer Clock = {};
 
     private:
         std::string _name = "";
         EventListener _eventListener = {};
         float _fixedUpdateAccumulator = 0.0f;
-        Chronometer _frameChronometer = {};
         DeltaTime _frameDeltaTime = {};
 
         // TODO: move this elsewhere! Perhaps a plugin?

@@ -5,28 +5,54 @@ namespace Tbx
 {
     Chronometer::Chronometer()
         : _lastSample()
+        , _systemTime()
+        , _deltaTime(Seconds::zero())
+        , _accumulatedTime(Seconds::zero())
         , _hasLastSample(false)
     {
     }
 
-    Chronometer::Seconds Chronometer::Tick()
+    void Chronometer::Tick()
     {
         const auto now = Clock::now();
+        _systemTime = SystemClock::now();
 
         if (!_hasLastSample)
         {
             _hasLastSample = true;
             _lastSample = now;
-            return Seconds::zero();
+            _deltaTime = Seconds::zero();
+            return;
         }
 
         const auto elapsed = now - _lastSample;
         _lastSample = now;
-        return std::chrono::duration_cast<Seconds>(elapsed);
+
+        _deltaTime = std::chrono::duration_cast<Seconds>(elapsed);
+        _accumulatedTime += _deltaTime;
     }
 
     void Chronometer::Reset()
     {
         _hasLastSample = false;
+        _deltaTime = Seconds::zero();
+        _accumulatedTime = Seconds::zero();
+        _systemTime = SystemClock::now();
+        _lastSample = Clock::time_point{};
+    }
+
+    Chronometer::Seconds Chronometer::GetDeltaTime() const
+    {
+        return _deltaTime;
+    }
+
+    Chronometer::Seconds Chronometer::GetAccumulatedTime() const
+    {
+        return _accumulatedTime;
+    }
+
+    Chronometer::SystemClock::time_point Chronometer::GetSystemTime() const
+    {
+        return _systemTime;
     }
 }
