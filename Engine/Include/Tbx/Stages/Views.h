@@ -38,7 +38,7 @@ namespace Tbx
         /// <param name="root">Root toy to search from.</param>
         explicit(false) StageView(const Ref<Stage>& stage)
         {
-            StageView(stage->GetRoot());
+            StageView(stage->Root);
         }
 
         /// <summary>Returns an iterator to the first toy in the view.</summary>
@@ -73,7 +73,7 @@ namespace Tbx
             }
             else
             {
-                return (toy->Blocks.template Contains<Ts>() || ...); // any-of
+                return (toy->template Has<Ts>() || ...); // any-of
             }
         }
 

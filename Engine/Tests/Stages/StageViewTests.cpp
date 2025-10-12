@@ -14,15 +14,15 @@ namespace Tbx::Tests::Stages
     TEST(StageViewTests, IteratesAllToysWhenNoFilter)
     {
         // Arrange
-        Stage stage;
-        auto root = stage.GetRoot();
-        auto childA = MakeRef<Toy>("ChildA");
-        auto childB = MakeRef<Toy>("ChildB");
-        auto grandChild = MakeRef<Toy>("GrandChild");
+        auto stage = Stage::Make();
+        auto root = stage->Root;
+        auto childA = stage->Add("ChildA");
+        auto childB = stage->Add("ChildB");
+        auto grandChild = stage->Add("GrandChild");
 
-        childA->Children.push_back(grandChild);
-        root->Children.push_back(childA);
-        root->Children.push_back(childB);
+        childA->Children.Add(grandChild);
+        root->Children.Add(childA);
+        root->Children.Add(childB);
 
         // Act
         StageView<> view(root);
@@ -43,19 +43,19 @@ namespace Tbx::Tests::Stages
     TEST(StageViewTests, FiltersToysByBlockType)
     {
         // Arrange
-        Stage stage;
-        auto root = stage.GetRoot();
-        auto childA = MakeRef<Toy>("ChildA");
-        auto childB = MakeRef<Toy>("ChildB");
-        auto grandChild = MakeRef<Toy>("GrandChild");
+        auto stage = Stage::Make();
+        auto root = stage->Root;
+        auto childA = stage->Add("ChildA");
+        auto childB = stage->Add("ChildB");
+        auto grandChild = stage->Add("GrandChild");
 
-        childA->Blocks.Add<Transform>();
-        childB->Blocks.Add<Mesh>();
-        grandChild->Blocks.Add<Mesh>();
+        childA->Add<Transform>();
+        childB->Add<Mesh>();
+        grandChild->Add<Mesh>();
 
-        childA->Children.push_back(grandChild);
-        root->Children.push_back(childA);
-        root->Children.push_back(childB);
+        childA->Children.Add(grandChild);
+        root->Children.Add(childA);
+        root->Children.Add(childB);
 
         // Act
         StageView<Mesh> view(root);
@@ -74,16 +74,16 @@ namespace Tbx::Tests::Stages
     TEST(StageViewTests, IncludesToysMatchingAnyRequestedBlock)
     {
         // Arrange
-        Stage stage;
-        auto root = stage.GetRoot();
-        auto childA = MakeRef<Toy>("ChildA");
-        auto childB = MakeRef<Toy>("ChildB");
+        auto stage = Stage::Make();
+        auto root = stage->Root;
+        auto childA = stage->Add("ChildA");
+        auto childB = stage->Add("ChildB");
 
-        childA->Blocks.Add<Transform>();
-        childB->Blocks.Add<Mesh>();
+        childA->Add<Transform>();
+        childB->Add<Mesh>();
 
-        root->Children.push_back(childA);
-        root->Children.push_back(childB);
+        root->Children.Add(childA);
+        root->Children.Add(childB);
 
         // Act
         StageView<Transform, Mesh> view(root);

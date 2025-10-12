@@ -3,8 +3,17 @@
 
 namespace Tbx
 {
+    Ref<Stage> Stage::Make()
+    {
+        struct StageEnabler final : Stage
+        {
+        };
+
+        return MakeRef<StageEnabler>();
+    }
+
     Stage::Stage()
-        : _root(MakeRef<Toy>("Root"))
+        : Root(Toy::Make("Root"))
     {
     }
 
@@ -12,13 +21,8 @@ namespace Tbx
     {
     }
 
-    Ref<Toy> Stage::GetRoot() const
-    {
-        return _root;
-    }
-
     void Stage::Update()
     {
-        _root->Update();
+        Root->Update();
     }
 }
