@@ -1,5 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
+#include "Tbx/Time/DeltaTime.h"
 #include <chrono>
 
 namespace Tbx
@@ -30,7 +31,7 @@ namespace Tbx
         /// <summary>
         /// Returns the elapsed time captured during the most recent tick.
         /// </summary>
-        Seconds GetDeltaTime() const;
+        DeltaTime GetDeltaTime() const;
 
         /// <summary>
         /// Returns the accumulated elapsed time since the chronometer was constructed or reset.

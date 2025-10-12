@@ -122,12 +122,12 @@ namespace Tbx
         {
             // 1. Update delta and input
             Clock.Tick();
-            _frameDeltaTime.SetSeconds(Clock.GetDeltaTime().count());
+            const DeltaTime frameDelta = Clock.GetDeltaTime();
             Input::Update();
 
             // 2. Fixed update runtimes
             constexpr float fixedUpdateInterval = 1.0f / 50.0f;
-            _fixedUpdateAccumulator += _frameDeltaTime.Seconds;
+            _fixedUpdateAccumulator += frameDelta.Seconds;
             const DeltaTime fixedDelta(fixedUpdateInterval);
 
             while (_fixedUpdateAccumulator >= fixedUpdateInterval)
@@ -144,7 +144,7 @@ namespace Tbx
             // 3. Update runtimes
             for (const auto& runtime : Runtimes)
             {
-                runtime->Update(_frameDeltaTime);
+                runtime->Update(frameDelta);
             }
 
             // 4. Render graphics
@@ -154,15 +154,15 @@ namespace Tbx
             Windowing.Update();
 
             // 6. Allow other systems to hook into update
-            OnUpdate(_frameDeltaTime);
+            OnUpdate(frameDelta);
 
             // 7. Late update runtimes
             for (const auto& runtime : Runtimes)
             {
-                runtime->LateUpdate(_frameDeltaTime);
+                runtime->LateUpdate(frameDelta);
             }
 
-            OnLateUpdate(_frameDeltaTime);
+            OnLateUpdate(frameDelta);
 
             if (Dispatcher)
             {
@@ -206,10 +206,11 @@ namespace Tbx
 
     void App::DumpFrameReport() const
     {
-        const float deltaSeconds = _frameDeltaTime.Seconds;
-        const float deltaMilliseconds = _frameDeltaTime.Milliseconds;
-        const auto clockDeltaSeconds = Clock.GetDeltaTime().count();
-        const auto clockDeltaMilliseconds = clockDeltaSeconds * 1000.0f;
+        const DeltaTime frameDelta = Clock.GetDeltaTime();
+        const float deltaSeconds = frameDelta.Seconds;
+        const float deltaMilliseconds = frameDelta.Milliseconds;
+        const float clockDeltaSeconds = frameDelta.Seconds;
+        const float clockDeltaMilliseconds = frameDelta.Milliseconds;
         const auto accumulatedSeconds = Clock.GetAccumulatedTime().count();
         const auto accumulatedMilliseconds = accumulatedSeconds * 1000.0f;
         const auto systemTimePoint = Clock.GetSystemTime();

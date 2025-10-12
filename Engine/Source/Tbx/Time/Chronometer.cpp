@@ -41,9 +41,9 @@ namespace Tbx
         _lastSample = Clock::time_point{};
     }
 
-    Chronometer::Seconds Chronometer::GetDeltaTime() const
+    DeltaTime Chronometer::GetDeltaTime() const
     {
-        return _deltaTime;
+        return DeltaTime(_deltaTime.count());
     }
 
     Chronometer::Seconds Chronometer::GetAccumulatedTime() const

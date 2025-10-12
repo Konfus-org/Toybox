@@ -1,5 +1,6 @@
 #pragma once
 #include "Tbx/DllExport.h"
+
 namespace Tbx
 {
     /// <summary>
@@ -7,20 +8,31 @@ namespace Tbx
     /// </summary>
     struct TBX_EXPORT DeltaTime
     {
-        explicit DeltaTime(float seconds = 0.0f)
+        constexpr DeltaTime()
+            : Seconds(0.0f)
+            , Milliseconds(0.0f)
+        {
+        }
+
+        explicit constexpr DeltaTime(float seconds)
             : Seconds(seconds)
             , Milliseconds(seconds * 1000.0f)
         {
         }
 
-        void SetSeconds(float seconds)
+        static constexpr DeltaTime FromMilliseconds(float milliseconds)
         {
-            Seconds = seconds;
-            Milliseconds = seconds * 1000.0f;
+            return DeltaTime(milliseconds / 1000.0f, milliseconds);
         }
 
-        float Seconds = 0.0f;
-        float Milliseconds = 0.0f;
-    };
+        const float Seconds;
+        const float Milliseconds;
 
+    private:
+        constexpr DeltaTime(float seconds, float milliseconds)
+            : Seconds(seconds)
+            , Milliseconds(milliseconds)
+        {
+        }
+    };
 }

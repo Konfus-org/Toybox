@@ -94,8 +94,6 @@ namespace Tbx
         std::string _name = "";
         EventListener _eventListener = {};
         float _fixedUpdateAccumulator = 0.0f;
-        DeltaTime _frameDeltaTime = {};
-
         // TODO: move this elsewhere! Perhaps a plugin?
         void DumpFrameReport() const;
         bool _captureDebugData = false;
