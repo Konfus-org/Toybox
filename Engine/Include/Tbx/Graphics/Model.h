@@ -10,7 +10,17 @@ namespace Tbx
     /// </summary>
     struct TBX_EXPORT Model
     {
-        Mesh Mesh;
-        Material Material;
+        Mesh Poly;
+        Material Mat;
+        Uid Id = Uid::Generate();
+    };
+
+    /// <summary>
+    /// References a shared model by identifier.
+    /// </summary>
+    struct TBX_EXPORT ModelInstance
+    {
+        Uid ModelId = Uid::Invalid;
+        Uid InstanceId = Uid::Generate();
     };
 }
