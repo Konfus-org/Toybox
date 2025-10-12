@@ -21,22 +21,29 @@
 
 namespace Tbx
 {
+    namespace
+    {
+        AudioManager CreateAudioManager(const Collection<Ref<Plugin>>& plugins, const Ref<EventBus>& eventBus)
+        {
+            auto audioMixers = plugins.OfType<IAudioMixer>();
+            Ref<IAudioMixer> mixer = audioMixers.empty() ? nullptr : audioMixers.front();
+            Ref<EventBus> audioBus = mixer ? eventBus : nullptr;
+            return AudioManager(mixer, audioBus);
+        }
+    }
+
     App::App(const std::string_view& name, const AppSettings& settings, const Collection<Ref<Plugin>>& plugins, Ref<EventBus> eventBus)
         : Dispatcher(eventBus)
         , Plugins(plugins)
         , Settings(settings)
         , Windowing(Plugins.OfType<IWindowFactory>().front(), Dispatcher)
         , Graphics(Settings.RenderingApi, Plugins.OfType<IGraphicsBackend>(), Plugins.OfType<IGraphicsContextProvider>(), Dispatcher)
+        , Audio(CreateAudioManager(plugins, eventBus))
         , _name(name)
         , _eventListener(eventBus)
     {
         auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
         Input::SetHandler(inputHandlerPlugs.front());
-
-        auto audioMixers = Plugins.OfType<IAudioMixer>();
-        Ref<IAudioMixer> mixer = audioMixers.empty() ? nullptr : audioMixers.front();
-        Ref<EventBus> audioBus = mixer ? Dispatcher : nullptr;
-        Audio = AudioManager(mixer, audioBus);
     }
 
     App::~App()
