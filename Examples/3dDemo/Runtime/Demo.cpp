@@ -45,6 +45,9 @@ void Demo::OnStart()
         auto musicSource = musicPlayer->Add<Tbx::AudioSource>(music);
         musicSource->Playing = true;
         musicSource->Looping = true;
+        // TODO: fix pitch and playback speed not working
+        //musicSource->PlaybackSpeed = 0.5f;
+        //musicSource->Pitch = 0.4f;
 
         // We need to have at least once instance of our mesh and materials to be able to instance them
         // TODO: This is a bit of a hack, but it works for now.
