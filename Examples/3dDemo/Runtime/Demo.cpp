@@ -32,70 +32,80 @@ void Demo::OnStart()
     auto smilyTex = Assets->Get<Tbx::Texture>("Smily.png");
     auto fragmentShader = Assets->Get<Tbx::Shader>("fragment.frag");
     auto vertexShader = Assets->Get<Tbx::Shader>("vertex.vert");
-
-    // Setup materials & quad to reuse
     auto matShaders = { vertexShader, fragmentShader };
-    _wallMat = Tbx::MakeRef<Tbx::Material>(matShaders, wallTex);
-    _floorMat = Tbx::MakeRef<Tbx::Material>(matShaders, floorTex);
-    _smilyMat = Tbx::MakeRef<Tbx::Material>(matShaders, smilyTex);
-    _quad = Tbx::MakeRef<Tbx::Mesh>();
 
     // Setup testing scene:
-    _stage = Tbx::Stage::Make();
-    auto worldRoot = _stage->Root;
-
-    // Create room
     {
-        auto wallBack = _stage->Add("Wall Back");
-        wallBack->Add<Tbx::MeshInstance>(_quad->Id);
-        wallBack->Add<Tbx::MaterialInstance>(_wallMat->Id);
-        if (auto transform = wallBack->Add<Tbx::Transform>())
+        _stage = Tbx::Stage::Make();
+        auto worldRoot = _stage->Root;
+
+        // We need to have at least once instance of our mesh and materials to be able to instance them
+        // TODO: This is a bit of a hack, but it works for now.
+        auto quadToy = _stage->Add("Quad");
+        auto quadId = quadToy->Add<Tbx::Mesh>()->Id;
+
+        auto wallMatToy = _stage->Add("WallMat");
+        auto wallMatId = wallMatToy->Add<Tbx::Material>(matShaders, wallTex)->Id;
+
+        auto floorMatToy = _stage->Add("FloorMat");
+        auto floorMatId = floorMatToy->Add<Tbx::Material>(matShaders, floorTex)->Id;
+
+        auto smilyMatToy = _stage->Add("SmilyMat");
+        auto smilyMatId = smilyMatToy->Add<Tbx::Material>(matShaders, smilyTex)->Id;
+
+        // Create room
         {
-            transform->SetPosition({ 0, 0, 125 });
-            transform->SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }));
-            transform->SetScale({ 50 });
+            auto wallBack = _stage->Add("Wall Back");
+            wallBack->Add<Tbx::MeshInstance>(quadId);
+            wallBack->Add<Tbx::MaterialInstance>(wallMatId);
+            if (auto transform = wallBack->Add<Tbx::Transform>())
+            {
+                transform->SetPosition({ 0, 0, 125 });
+                transform->SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }));
+                transform->SetScale({ 50 });
+            }
+
+            auto wallRight = _stage->Add("Wall Right");
+            wallRight->Add<Tbx::MeshInstance>(quadId);
+            wallRight->Add<Tbx::MaterialInstance>(wallMatId);
+            if (auto transform = wallRight->Add<Tbx::Transform>())
+            {
+                transform->SetPosition({ 25, 0, 100 });
+                transform->SetRotation(Tbx::Quaternion::FromEuler({ 0, -90, 0 }));
+                transform->SetScale({ 50 });
+            }
+
+            auto floor = _stage->Add("Floor");
+            floor->Add<Tbx::MeshInstance>(quadId);
+            floor->Add<Tbx::MaterialInstance>(floorMatId);
+            if (auto transform = floor->Add<Tbx::Transform>())
+            {
+                transform->SetPosition({ 0, -25, 100 });
+                transform->SetRotation(Tbx::Quaternion::FromEuler({ 90, 0, 0 }));
+                transform->SetScale({ 50 });
+            }
         }
 
-        auto wallRight = _stage->Add("Wall Right");
-        wallRight->Add<Tbx::MeshInstance>(_quad->Id);
-        wallRight->Add<Tbx::MaterialInstance>(_wallMat->Id);
-        if (auto transform = wallRight->Add<Tbx::Transform>())
+        // Create smily
         {
-            transform->SetPosition({ 25, 0, 100 });
-            transform->SetRotation(Tbx::Quaternion::FromEuler({ 0, -90, 0 }));
-            transform->SetScale({ 50 });
+            _smilyBaseHeight = 0;
+            _smily = _stage->Add("Smily");
+            _smily->Add<Tbx::MeshInstance>(quadId);
+            _smily->Add<Tbx::MaterialInstance>(smilyMatId);
+            auto& transform = *_smily->Add<Tbx::Transform>();
+            transform
+                .SetPosition({ 0, _smilyBaseHeight, 100 })
+                .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))
+                .SetScale({ 10 });
         }
 
-        auto floor = _stage->Add("Floor");
-        floor->Add<Tbx::MeshInstance>(_quad->Id);
-        floor->Add<Tbx::MaterialInstance>(_floorMat->Id);
-        if (auto transform = floor->Add<Tbx::Transform>())
+        // Create camera
         {
-            transform->SetPosition({ 0, -25, 100 });
-            transform->SetRotation(Tbx::Quaternion::FromEuler({ 90, 0, 0 }));
-            transform->SetScale({ 50 });
+            auto fpsCam = _stage->Add("Camera");
+            fpsCam->Add<Tbx::Camera>();
+            fpsCam->Add<Tbx::Transform>();
+            _fpsCam = fpsCam;
         }
-    }
-
-    // Create smily
-    {
-        _smilyBaseHeight = 0;
-        _smily = _stage->Add("Smily");
-        _smily->Add<Tbx::MeshInstance>(_quad->Id);
-        _smily->Add<Tbx::MaterialInstance>(_smilyMat->Id);
-        auto& transform = *_smily->Add<Tbx::Transform>();
-        transform
-            .SetPosition({ 0, _smilyBaseHeight, 100 })
-            .SetRotation(Tbx::Quaternion::FromEuler({ 0, 0, 0 }))
-            .SetScale({ 10 });
-    }
-
-    // Create camera
-    {
-        auto fpsCam = _stage->Add("Camera");
-        fpsCam->Add<Tbx::Camera>();
-        fpsCam->Add<Tbx::Transform>();
-        _fpsCam = fpsCam;
     }
 
     // TODO: Figure out a better way than just needing to know you have to send this event...

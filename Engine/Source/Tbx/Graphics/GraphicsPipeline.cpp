@@ -26,139 +26,7 @@ namespace Tbx
         RenderPasses = passes;
     }
 
-    void GraphicsPipeline::Process(
-        GraphicsRenderer& renderer,
-        const GraphicsDisplay& display, 
-        const std::vector<Ref<Stage>>& stages,
-        const RgbaColor& clearColor)
-    {
-        TBX_ASSERT(&renderer, "GraphicsPipeline: No active renderer has been set for the current graphics API.");
-        TBX_ASSERT(display.Surface && display.Context, "GraphicsPipeline: Display is missing a surface or context.");
-
-        auto aspectRatio = display.Surface->GetSize().GetAspectRatio();
-        auto viewport = Viewport({0, 0}, display.Surface->GetSize());
-        display.Context->MakeCurrent();
-        renderer.Backend->SetContext(display.Context);
-        renderer.Backend->BeginDraw(clearColor, viewport);
-
-        for (const auto& stage : stages)
-        {
-            auto renderData = PrepareStageForDrawing(renderer, FullStageView(stage->Root), aspectRatio);
-
-            for (auto& pass : RenderPasses)
-            {
-                if (pass.Draw)
-                {
-                    pass.Draw(*this, renderer, renderData, pass);
-                }
-                else
-                {
-                    DrawStage(pass, renderer, renderData);
-                }
-            }
-        }
-
-        display.Context->Present();
-        renderer.Backend->EndDraw();
-    }
-
-    void GraphicsPipeline::DrawStage(const RenderPass& pass, Tbx::GraphicsRenderer& renderer, Tbx::StageDrawData& renderData)
-    {
-        const auto passIndex = static_cast<size_t>(&pass - RenderPasses.data());
-        TBX_ASSERT(passIndex < RenderPasses.size(), "GraphicsPipeline: Render pass is not part of the pipeline.");
-
-        const auto& buckets = renderData.PassBuckets[passIndex];
-        for (const auto& [shaderProgramId, bucket] : buckets)
-        {
-            const auto shaderResourceIt = renderer.Cache.ShaderPrograms.find(shaderProgramId);
-            if (shaderResourceIt == renderer.Cache.ShaderPrograms.end() || !shaderResourceIt->second)
-            {
-                continue;
-            }
-
-            const auto& shaderResource = shaderResourceIt->second;
-            UseGraphicsResourceScope shaderScope(shaderResource);
-
-            for (const auto& camera : renderData.Cameras)
-            {
-                ShaderUniform viewProjectionUniform = {};
-                viewProjectionUniform.Name = VIEW_PROJECTION_UNIFORM_NAME;
-                viewProjectionUniform.Data = camera.ViewProj;
-                shaderResource->Upload(viewProjectionUniform);
-
-                RenderCameraView(bucket, camera, shaderResource, renderer, renderData);
-            }
-        }
-    }
-
-    void GraphicsPipeline::RenderCameraView(const Tbx::RenderBucket& bucket, const Tbx::CameraData& camera, const Tbx::Ref<Tbx::ShaderProgramResource>& shaderResource, Tbx::GraphicsRenderer& renderer, const StageDrawData& renderData)
-    {
-        for (const auto& entityPtr : bucket)
-        {
-            if (ShouldCull(entityPtr, camera.Frust, renderData))
-            {
-                continue;
-            }
-
-            const auto& entity = *entityPtr;
-
-            Mat4x4 transformMatrix = Mat4x4::Identity;
-            if (entity.Has<Transform>())
-            {
-                const auto transform = entity.Get<Transform>();
-                transformMatrix = Mat4x4::FromTRS(transform->Position, transform->Rotation, transform->Scale);
-            }
-
-            ShaderUniform transformUniform = {};
-            transformUniform.Name = TRANSFORM_UNIFORM_NAME;
-            transformUniform.Data = transformMatrix;
-            shaderResource->Upload(transformUniform);
-
-            const auto drawDataIt = renderData.Drawables.find(entity.Handle.Id);
-            if (drawDataIt == renderData.Drawables.end())
-            {
-                continue;
-            }
-
-            const auto& drawData = drawDataIt->second;
-            if (!drawData.Mat || !drawData.Poly)
-            {
-                continue;
-            }
-
-            std::vector<UseGraphicsResourceScope> textureScopes = {};
-            textureScopes.reserve(drawData.Mat->Textures.size());
-            for (size_t textureIndex = 0; textureIndex < drawData.Mat->Textures.size(); ++textureIndex)
-            {
-                const auto& texture = drawData.Mat->Textures[textureIndex];
-                if (!texture)
-                {
-                    continue;
-                }
-
-                const auto textureResourceIt = renderer.Cache.Textures.find(texture->Id);
-                if (textureResourceIt == renderer.Cache.Textures.end() || !textureResourceIt->second)
-                {
-                    continue;
-                }
-
-                const auto& textureResource = textureResourceIt->second;
-                textureResource->SetSlot(static_cast<uint32>(textureIndex));
-                textureScopes.emplace_back(textureResource);
-            }
-
-            const auto meshResourceIt = renderer.Cache.Meshes.find(drawData.Poly->Id);
-            if (meshResourceIt == renderer.Cache.Meshes.end() || !meshResourceIt->second)
-            {
-                continue;
-            }
-
-            UseGraphicsResourceScope meshScope(meshResourceIt->second);
-            meshResourceIt->second->Draw();
-        }
-    }
-
-    StageDrawData GraphicsPipeline::PrepareStageForDrawing(
+    StageDrawData GraphicsPipeline::Prepare(
         GraphicsRenderer& renderer,
         const FullStageView& stageView,
         float aspectRatio)
@@ -325,6 +193,145 @@ namespace Tbx
         }
 
         return renderData;
+    }
+
+    void GraphicsPipeline::Draw(
+        GraphicsRenderer& renderer,
+        const GraphicsDisplay& display, 
+        const std::vector<Ref<Stage>>& stages,
+        const RgbaColor& clearColor)
+    {
+        TBX_ASSERT(&renderer, "GraphicsPipeline: No active renderer has been set for the current graphics API.");
+        TBX_ASSERT(display.Surface && display.Context, "GraphicsPipeline: Display is missing a surface or context.");
+
+        auto aspectRatio = display.Surface->GetSize().GetAspectRatio();
+        auto viewport = Viewport({0, 0}, display.Surface->GetSize());
+        display.Context->MakeCurrent();
+        renderer.Backend->SetContext(display.Context);
+        renderer.Backend->BeginDraw(clearColor, viewport);
+
+        for (const auto& stage : stages)
+        {
+            auto renderData = Prepare(renderer, FullStageView(stage->Root), aspectRatio);
+            for (auto& pass : RenderPasses)
+            {
+                if (pass.Draw)
+                {
+                    pass.Draw(*this, renderer, renderData, pass);
+                }
+                else
+                {
+                    Draw(renderer, renderData, pass);
+                }
+            }
+        }
+
+        display.Context->Present();
+        renderer.Backend->EndDraw();
+    }
+
+    void GraphicsPipeline::Draw(GraphicsRenderer& renderer, StageDrawData& renderData, const RenderPass& pass)
+    {
+        const auto passIndex = static_cast<size_t>(&pass - RenderPasses.data());
+        if (passIndex >= RenderPasses.size())
+        {
+            TBX_ASSERT(false, "GraphicsPipeline: Render pass is not part of the pipeline.");
+            return;
+        }
+
+        const auto& buckets = renderData.PassBuckets[passIndex];
+        for (const auto& [shaderProgramId, bucket] : buckets)
+        {
+            const auto shaderResourceIt = renderer.Cache.ShaderPrograms.find(shaderProgramId);
+            if (shaderResourceIt == renderer.Cache.ShaderPrograms.end() || !shaderResourceIt->second)
+            {
+                continue;
+            }
+
+            const auto& shaderResource = shaderResourceIt->second;
+            UseGraphicsResourceScope shaderScope(shaderResource);
+
+            for (const auto& camera : renderData.Cameras)
+            {
+                ShaderUniform viewProjectionUniform = {};
+                viewProjectionUniform.Name = VIEW_PROJECTION_UNIFORM_NAME;
+                viewProjectionUniform.Data = camera.ViewProj;
+                shaderResource->Upload(viewProjectionUniform);
+                Draw(renderer, camera, bucket, shaderResource, renderData);
+            }
+        }
+    }
+
+    void GraphicsPipeline::Draw(
+        GraphicsRenderer& renderer,
+        const CameraData& camera,
+        const std::vector<Ref<Toy>>& toys,
+        const Ref<ShaderProgramResource>& shaderResource,
+        const StageDrawData& renderData)
+    {
+        for (const auto& toyPtr : toys)
+        {
+            if (ShouldCull(toyPtr, camera.Frust, renderData))
+            {
+                continue;
+            }
+
+            const auto& toy = *toyPtr;
+
+            Mat4x4 transformMatrix = Mat4x4::Identity;
+            if (toy.Has<Transform>())
+            {
+                const auto transform = toy.Get<Transform>();
+                transformMatrix = Mat4x4::FromTRS(transform->Position, transform->Rotation, transform->Scale);
+            }
+
+            ShaderUniform transformUniform = {};
+            transformUniform.Name = TRANSFORM_UNIFORM_NAME;
+            transformUniform.Data = transformMatrix;
+            shaderResource->Upload(transformUniform);
+
+            const auto drawDataIt = renderData.Drawables.find(toy.Handle.Id);
+            if (drawDataIt == renderData.Drawables.end())
+            {
+                continue;
+            }
+
+            const auto& drawData = drawDataIt->second;
+            if (!drawData.Mat || !drawData.Poly)
+            {
+                continue;
+            }
+
+            std::vector<UseGraphicsResourceScope> textureScopes = {};
+            textureScopes.reserve(drawData.Mat->Textures.size());
+            for (size_t textureIndex = 0; textureIndex < drawData.Mat->Textures.size(); ++textureIndex)
+            {
+                const auto& texture = drawData.Mat->Textures[textureIndex];
+                if (!texture)
+                {
+                    continue;
+                }
+
+                const auto textureResourceIt = renderer.Cache.Textures.find(texture->Id);
+                if (textureResourceIt == renderer.Cache.Textures.end() || !textureResourceIt->second)
+                {
+                    continue;
+                }
+
+                const auto& textureResource = textureResourceIt->second;
+                textureResource->SetSlot(static_cast<uint32>(textureIndex));
+                textureScopes.emplace_back(textureResource);
+            }
+
+            const auto meshResourceIt = renderer.Cache.Meshes.find(drawData.Poly->Id);
+            if (meshResourceIt == renderer.Cache.Meshes.end() || !meshResourceIt->second)
+            {
+                continue;
+            }
+
+            UseGraphicsResourceScope meshScope(meshResourceIt->second);
+            meshResourceIt->second->Draw();
+        }
     }
 
     bool GraphicsPipeline::ShouldCull(const Ref<Toy>& toy, const Frustum& frustum, const StageDrawData& renderData)

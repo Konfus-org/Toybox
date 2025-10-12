@@ -15,8 +15,7 @@
 
 namespace Tbx
 {
-    using RenderBucket = std::vector<Ref<Toy>>;
-    using RenderBuckets = std::unordered_map<Uid, RenderBucket>;
+    using RenderBuckets = std::unordered_map<Uid, std::vector<Ref<Toy>>>;
 
     struct CameraData
     {
@@ -76,17 +75,38 @@ namespace Tbx
     {
     public:
         GraphicsPipeline() = default;
-        explicit GraphicsPipeline(std::vector<RenderPass> passes);
-        void Process(GraphicsRenderer& renderer, const GraphicsDisplay& display, const std::vector<Ref<Stage>>& stages, const RgbaColor& clearColor);
-        void DrawStage(const RenderPass& pass, Tbx::GraphicsRenderer& renderer, Tbx::StageDrawData& renderData);
+        GraphicsPipeline(std::vector<RenderPass> passes);
+
+        /// <summary>
+        /// Prepare a stage for drawing.
+        /// </summary>
+        StageDrawData Prepare(GraphicsRenderer& renderer, const FullStageView& stageView, float aspectRatio);
+
+        /// <summary>
+        /// Clears the display using the given clear color, then draws the given stages to the display.
+        /// </summary>
+        void Draw(GraphicsRenderer& renderer, const GraphicsDisplay& display, const std::vector<Ref<Stage>>& stages, const RgbaColor& clearColor);
+
+        /// <summary>
+        /// Draws the given render data using the given pass.
+        /// Each camera will render the set of toys seperately.
+        /// </summary>
+        void Draw(GraphicsRenderer& renderer, StageDrawData& renderData, const RenderPass& pass);
+
+        /// <summary>
+        /// Draws the given toy from the perspective of the given camera using the given shader.
+        /// </summary>
+        void Draw(GraphicsRenderer& renderer, const CameraData& camera, const std::vector<Ref<Toy>>& toys, const Ref<ShaderProgramResource>& shaderResource, const StageDrawData& renderData);
+
+        /// <summary>
+        /// Determines if the given toy should be culled based on the given frustum and the render data.
+        /// </summary>
+        bool ShouldCull(const Ref<Toy>& toy, const Frustum& frustum, const StageDrawData& renderData);
 
     private:
-        StageDrawData PrepareStageForDrawing(GraphicsRenderer& renderer, const FullStageView& stageView, float aspectRatio);
-        void RenderCameraView(const Tbx::RenderBucket& bucket, const Tbx::CameraData& camera, const Tbx::Ref<Tbx::ShaderProgramResource>& shaderResource, Tbx::GraphicsRenderer& renderer, const StageDrawData& renderData);
         void CacheShaders(GraphicsRenderer& renderer, const ShaderProgram& shaders);
         void CacheMaterial(GraphicsRenderer& renderer, const Material& shaders);
         void CacheMesh(GraphicsRenderer& renderer, const Mesh& mesh);
-        bool ShouldCull(const Ref<Toy>& toy, const Frustum& frustum, const StageDrawData& renderData);
         size_t ResolveRenderPassIndex(const Material& material) const;
 
     public:

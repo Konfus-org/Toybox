@@ -17,11 +17,6 @@ public:
     void OnUpdate(const Tbx::DeltaTime& deltaTime) override;
 
 private:
-    Tbx::Ref<Tbx::Mesh> _quad = nullptr;
-    Tbx::Ref<Tbx::Material> _wallMat = nullptr;
-    Tbx::Ref<Tbx::Material> _floorMat = nullptr;
-    Tbx::Ref<Tbx::Material> _smilyMat = nullptr;
-
     Tbx::Ref<Tbx::Stage> _stage = nullptr;
     Tbx::Ref<Tbx::Toy> _fpsCam = nullptr;
     Tbx::Ref<Tbx::Toy> _smily = nullptr;
