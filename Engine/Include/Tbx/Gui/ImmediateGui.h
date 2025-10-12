@@ -7,7 +7,7 @@ namespace Tbx
     class TBX_EXPORT IImmediateGui
     {
     public:
-        virtual ~IImmediateGui() = default;
+        /*virtual ~IImmediateGui() = default;
 
         /// Starts a new ImGui window. Call EndWindow() after rendering elements.
         /// @param title The title of the window.
@@ -53,6 +53,6 @@ namespace Tbx
         virtual void SameLine() = 0;
 
         /// Draws a horizontal separator line.
-        virtual void Separator() = 0;
+        virtual void Separator() = 0;*/
     };
 }
