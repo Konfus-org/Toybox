@@ -1,30 +1,38 @@
 #pragma once
 #include "Tbx/DllExport.h"
-#include <chrono>
 
 namespace Tbx
 {
-    class TBX_EXPORT DeltaTime
+    /// <summary>
+    /// Represents the elapsed time between two frames.
+    /// </summary>
+    struct TBX_EXPORT DeltaTime
     {
-    public:
-        /// <summary>
-        /// Gets delta time in seconds
-        /// </summary>
-        static float InSeconds();
+        constexpr DeltaTime()
+            : Seconds(0.0f)
+            , Milliseconds(0.0f)
+        {
+        }
 
-        /// <summary>
-        /// Gets delta time in milliseconds
-        /// </summary>
-        static float InMilliseconds();
+        explicit constexpr DeltaTime(float seconds)
+            : Seconds(seconds)
+            , Milliseconds(seconds * 1000.0f)
+        {
+        }
 
-        /// <summary>
-        /// Updates delta time.
-        /// Should be called once per frame!
-        /// </summary>
-        static void Update();
+        static constexpr DeltaTime FromMilliseconds(float milliseconds)
+        {
+            return DeltaTime(milliseconds / 1000.0f, milliseconds);
+        }
+
+        const float Seconds;
+        const float Milliseconds;
 
     private:
-        static float _valueInSeconds;
-        static std::chrono::high_resolution_clock::time_point _lastFrameTime;
+        constexpr DeltaTime(float seconds, float milliseconds)
+            : Seconds(seconds)
+            , Milliseconds(milliseconds)
+        {
+        }
     };
 }
