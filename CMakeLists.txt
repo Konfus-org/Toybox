@@ -87,7 +87,7 @@ if(MSVC)
     set_property(TARGET Launcher PROPERTY FOLDER "Toybox")
     
     # Plugins
-    set_property(TARGET ImGuiDebugUI PROPERTY FOLDER "Toybox/Plugins")
+    set_property(TARGET ImGuiImmediateUI PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET JIMSAssetLoader PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET OpenGLRendering PROPERTY FOLDER "Toybox/Plugins")
     set_property(TARGET SDL3Input PROPERTY FOLDER "Toybox/Plugins")
