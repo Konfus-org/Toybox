@@ -1,6 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Audio/Audio.h"
+#include "Tbx/Math/Vectors.h"
 
 namespace Tbx
 {
@@ -13,6 +14,7 @@ namespace Tbx
         virtual ~IAudioMixer() = default;
 
         virtual void Play(const Audio& audio) = 0;
+        virtual void PlayFromPosition(const Audio& audio, const Vector3& position) = 0;
         virtual void Stop(const Audio& audio) = 0;
         virtual void SetPitch(const Audio& audio, float pitch) = 0;
         virtual void SetPlaybackSpeed(const Audio& audio, float speed) = 0;

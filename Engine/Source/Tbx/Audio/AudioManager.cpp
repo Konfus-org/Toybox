@@ -1,8 +1,12 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Audio/AudioManager.h"
 #include "Tbx/Audio/Audio.h"
+#include "Tbx/Graphics/Camera.h"
 #include "Tbx/Stages/Views.h"
+#include "Tbx/Math/Transform.h"
 #include <algorithm>
+#include <limits>
+#include <vector>
 
 namespace Tbx
 {
@@ -83,7 +87,23 @@ namespace Tbx
             return;
         }
 
-        StageView<AudioSource> view(stage->Root);
+        std::vector<Vector3> cameraPositions = {};
+        auto cameraView = StageView<Camera>(stage->Root);
+        for (const auto& cameraToy : cameraView)
+        {
+            if (!cameraToy)
+            {
+                continue;
+            }
+
+            Ref<Transform> cameraTransform;
+            if (cameraToy->TryGet(cameraTransform) && cameraTransform)
+            {
+                cameraPositions.push_back(cameraTransform->Position);
+            }
+        }
+
+        auto view = StageView<AudioSource>(stage->Root);
         for (const auto& toy : view)
         {
             if (!toy)
@@ -104,7 +124,36 @@ namespace Tbx
             {
                 _mixer->SetPitch(audio, source.Pitch);
                 _mixer->SetPlaybackSpeed(audio, source.PlaybackSpeed);
-                _mixer->Play(audio);
+
+                Ref<Transform> audioTransform;
+                toy->Blocks.TryGet<Transform>(audioTransform);
+                if (audioTransform)
+                {
+                    Vector3 playPosition = audioTransform->Position;
+                    if (!cameraPositions.empty())
+                    {
+                        Vector3 nearestCamera = cameraPositions.front();
+                        float smallestDistanceSquared = std::numeric_limits<float>::max();
+                        for (const auto& cameraPosition : cameraPositions)
+                        {
+                            Vector3 offset = playPosition - cameraPosition;
+                            float distanceSquared = (offset.X * offset.X) + (offset.Y * offset.Y) + (offset.Z * offset.Z);
+                            if (distanceSquared < smallestDistanceSquared)
+                            {
+                                smallestDistanceSquared = distanceSquared;
+                                nearestCamera = cameraPosition;
+                            }
+                        }
+
+                        playPosition -= nearestCamera;
+                    }
+
+                    _mixer->PlayFromPosition(audio, playPosition);
+                }
+                else
+                {
+                    _mixer->Play(audio);
+                }
             }
             else
             {

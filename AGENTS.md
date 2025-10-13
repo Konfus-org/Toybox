@@ -14,20 +14,26 @@ Welcome to the Toybox game engine repository! This document provides high-level 
 
 ## Code Standards
 - Follow modern C++20 practices; avoid compiler extensions (`CMAKE_CXX_EXTENSIONS` is `OFF`).
+- Follow existing styling and conventions
+- Case statements should be indented by 4 spaces (indentation in general should always be 4 spaces) and statements in them should have braces with the break within those braces.
 - Avoid C++ attributes unless they are required for platform integration or third-party interoperability.
-- Avoid friend classes where possible, if its anavoidable or makes for a better api then its fine to use them but try to avoid if possible.
-- Don't use explicit, it make the code overly verbose and hard to read.
-- Try to keep things easy to understand and reason about, don't use magic numbers and comment any assumptions.
-- Defensively program around plugins, they can be unloaded and reloaded at any time so keep that in mind, use TBX_ASSERT to assert when things go wrong, but allow the app to continue and try to recover.
+- Avoid friend classes where possible, if its unavoidable or makes for a better api then its fine to use them but try to avoid if possible.
+- Don't nest structs, classes, usings, or enums. Put them above their required class.
+- Don't use the explicit keyword, it make the code overly verbose and hard to read.
+- Prioritize readability and maintainability.
+- Don't use excessive nesting and super long methods and classes, break things up and add comments to explain things.
+- Use descriptive names and consistent casing: PascalCase for types, camelCase for functions and variables, and SCREAMING_SNAKE_CASE for constants/macros. Avoid catch-all names such as `Util` and strive to apply SOLID design principles where practical.
 - No empty namespaces or detail namespaces, if you want something not exposed put it into a cpp file and make it static.
 - Don't use the 'Tbx::' on structs and classes and methods and such when within the namespace, no empty namespaces, no details namespaces, if you want something not exposed put it into a cpp file and make it static.
+- Try to keep things easy to understand and reason about, don't use magic numbers and comment any assumptions.
+- Defensively program around plugins, they can be unloaded and reloaded at any time so keep that in mind, use TBX_ASSERT to assert when things go wrong, but allow the app to continue and try to recover.
 - Prefer ++ after something instead of before to increment eg int++ instead of ++int.
 - Keep header/source separation clear; place public interfaces in headers and implementation details in source files.
 - Prefer `#pragma once` in headers and minimize unnecessary includes to keep compile times short.
-- Use descriptive names and consistent casing: PascalCase for types, camelCase for functions and variables, and SCREAMING_SNAKE_CASE for constants/macros. Avoid catch-all names such as `Util` and strive to apply SOLID design principles where practical.
 - Ensure newly added code is covered by unit or integration tests when possible, and keep code warnings free.
 - Run formatting or linting tools provided in the repository when available. If none exist, maintain the existing code style in surrounding files.
 - Verify changes on all major platforms we target (Windows, macOS, and Linux) or provide clear reasoning when platform parity is temporarily unavailable.
+- Use windows style line endings
 
 ## Repository Workflow
 1. **Clone or pull the latest changes**
