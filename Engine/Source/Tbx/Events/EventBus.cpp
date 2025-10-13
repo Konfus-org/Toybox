@@ -4,6 +4,8 @@
 #include "Tbx/Debug/Tracers.h"
 #include "Tbx/Events/EventSync.h"
 #include <unordered_map>
+#include <algorithm>
+#include <vector>
 
 namespace Tbx
 {
@@ -42,21 +44,34 @@ namespace Tbx
     bool EventBus::_creatingGlobal = false;
 
     EventBus::EventBus(Ref<EventBus> parent)
-        : Parent(parent != nullptr && !_creatingGlobal
-            ? parent
-            : Global)
     {
+        if (_creatingGlobal)
+        {
+            return;
+        }
+
+        Ref<EventBus> resolvedParent = parent;
+        if (!resolvedParent)
+        {
+            resolvedParent = Global;
+        }
+
+        AttachToParent(resolvedParent.get());
     }
 
     EventBus::~EventBus()
     {
+        EventBus* adoptiveParent = const_cast<EventBus*>(_parent);
+        DetachChildren(adoptiveParent);
+        DetachFromParent();
+
         EventSync sync;
-        while (!EventQueue.empty())
+        while (!_eventQueue.empty())
         {
-            EventQueue.pop();
+            _eventQueue.pop();
         }
-        Subscriptions.clear();
-        SubscriptionIndex.clear();
+        _subscriptions.clear();
+        _subscriptionIndex.clear();
     }
 
     void EventBus::Flush()
@@ -64,7 +79,7 @@ namespace Tbx
         std::queue<ExclusiveRef<Event>> localQueue;
         {
             EventSync sync;
-            localQueue.swap(EventQueue);
+            localQueue.swap(_eventQueue);
         }
 
         while (!localQueue.empty())
@@ -84,9 +99,8 @@ namespace Tbx
                 continue;
             }
 
-            std::unordered_map<Uid, EventCallback> callbacks;
             const auto hashCode = Memory::Hash(*event);
-            CollectCallbacks(hashCode, callbacks);
+            auto callbacks = GetCallbacks(hashCode);
             if (callbacks.empty())
             {
                 continue;
@@ -105,6 +119,76 @@ namespace Tbx
         }
     }
 
+    std::unordered_map<Uid, EventCallback> EventBus::GetCallbacks(EventHash eventKey) const
+    {
+        std::unordered_map<Uid, EventCallback> callbacks;
+        CollectCallbacks(eventKey, callbacks);
+        return callbacks;
+    }
+
+    Uid EventBus::AddSubscription(EventHash eventKey, EventCallback callback)
+    {
+        TBX_ASSERT(callback, "EventBus: Cannot add an empty subscription callback.");
+
+        const auto token = Uid::Generate();
+        {
+            EventSync sync;
+            auto& callbacks = _subscriptions[eventKey];
+            callbacks[token] = std::move(callback);
+            _subscriptionIndex[token] = eventKey;
+        }
+
+        return token;
+    }
+
+    void EventBus::RemoveSubscription(const Uid& token)
+    {
+        if (token == Uid::Invalid)
+        {
+            TBX_ASSERT(false, "EventBus: Cannot remove an invalid subscription token.");
+            return;
+        }
+
+        EventSync sync;
+
+        auto index = _subscriptionIndex.find(token);
+        if (index == _subscriptionIndex.end())
+        {
+            return;
+        }
+
+        const auto eventKey = index->second;
+        auto subscription = _subscriptions.find(eventKey);
+        if (subscription != _subscriptions.end())
+        {
+            auto& callbacks = subscription->second;
+            callbacks.erase(token);
+            if (callbacks.empty())
+            {
+                _subscriptions.erase(subscription);
+            }
+        }
+
+        _subscriptionIndex.erase(index);
+    }
+
+    void EventBus::QueueEvent(ExclusiveRef<Event> event)
+    {
+        if (!event)
+        {
+            return;
+        }
+
+        EventSync sync;
+        _eventQueue.emplace(std::move(event));
+    }
+
+    size_t EventBus::PendingEventCount() const
+    {
+        EventSync sync;
+        return _eventQueue.size();
+    }
+
     Ref<EventBus> EventBus::CreateGlobal()
     {
         _creatingGlobal = true;
@@ -115,22 +199,141 @@ namespace Tbx
 
     void EventBus::CollectCallbacks(EventHash eventKey, std::unordered_map<Uid, EventCallback>& callbacks) const
     {
-        Ref<EventBus> parentCopy = nullptr;
+        std::vector<const EventBus*> decoratorCopies;
 
         {
             EventSync sync;
-            auto it = Subscriptions.find(eventKey);
-            if (it != Subscriptions.end())
+            auto it = _subscriptions.find(eventKey);
+            if (it != _subscriptions.end())
             {
                 callbacks.insert(it->second.begin(), it->second.end());
             }
+            decoratorCopies.reserve(_decorators.size());
+            auto itDecorator = _decorators.begin();
+            while (itDecorator != _decorators.end())
+            {
+                const EventBus* decorator = *itDecorator;
+                if (!decorator)
+                {
+                    itDecorator = _decorators.erase(itDecorator);
+                    continue;
+                }
 
-            parentCopy = Parent;
+                decoratorCopies.emplace_back(decorator);
+                ++itDecorator;
+            }
         }
 
-        if (parentCopy)
+        for (const EventBus* decorator : decoratorCopies)
         {
-            parentCopy->CollectCallbacks(eventKey, callbacks);
+            decorator->CollectCallbacks(eventKey, callbacks);
         }
     }
+
+    void EventBus::AttachToParent(EventBus* parent)
+    {
+        if (!parent)
+        {
+            return;
+        }
+
+        if (_parent == parent)
+        {
+            return;
+        }
+
+        DetachFromParent();
+        _parent = parent;
+        parent->RegisterDecorator(this);
+    }
+
+    void EventBus::DetachFromParent()
+    {
+        const EventBus* parent = _parent;
+        _parent = nullptr;
+
+        if (!parent)
+        {
+            return;
+        }
+
+        parent->UnregisterDecorator(this);
+    }
+
+    void EventBus::DetachChildren(EventBus* adoptiveParent)
+    {
+        std::vector<EventBus*> children;
+
+        {
+            EventSync sync;
+            auto it = _decorators.begin();
+            while (it != _decorators.end())
+            {
+                const EventBus* decorator = *it;
+                if (!decorator)
+                {
+                    it = _decorators.erase(it);
+                    continue;
+                }
+
+                children.emplace_back(const_cast<EventBus*>(decorator));
+                it = _decorators.erase(it);
+            }
+        }
+
+        for (auto* child : children)
+        {
+            if (!child)
+            {
+                continue;
+            }
+
+            EventBus* newParent = adoptiveParent;
+            if (!newParent)
+            {
+                newParent = Global.get();
+            }
+
+            child->AttachToParent(newParent);
+        }
+    }
+
+    void EventBus::RegisterDecorator(const EventBus* decorator) const
+    {
+        if (!decorator)
+        {
+            return;
+        }
+
+        EventSync sync;
+        auto it = _decorators.begin();
+        while (it != _decorators.end())
+        {
+            const EventBus* existing = *it;
+            if (!existing)
+            {
+                it = _decorators.erase(it);
+                continue;
+            }
+
+            if (existing == decorator)
+            {
+                return;
+            }
+
+            ++it;
+        }
+
+        _decorators.emplace_back(decorator);
+    }
+
+    void EventBus::UnregisterDecorator(const EventBus* decorator) const
+    {
+        EventSync sync;
+        _decorators.erase(std::remove_if(_decorators.begin(), _decorators.end(), [decorator](const EventBus* existing)
+        {
+            return existing == nullptr || existing == decorator;
+        }), _decorators.end());
+    }
 }
+
