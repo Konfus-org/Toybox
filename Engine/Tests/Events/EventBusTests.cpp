@@ -1,5 +1,7 @@
 #include "PCH.h"
 #include "Tbx/Events/EventBus.h"
+#include "Tbx/Events/EventCarrier.h"
+#include "Tbx/Events/EventListener.h"
 #include <string>
 #include <vector>
 
@@ -22,19 +24,20 @@ namespace Tbx::Tests::Events
     TEST(EventBusTests, SubscribeAndSend_InvokesCallback)
     {
         // Arrange
-        EventBus bus;
+        auto bus = MakeRef<EventBus>();
+        EventCarrier carrier(bus);
+        EventListener listener(bus);
         bool invoked = false;
 
-        bus.Subscribe<DummyEvent>([&](Event& evt)
+        listener.Listen<DummyEvent>([&](DummyEvent& evt)
         {
             invoked = true;
-            auto& dummy = static_cast<DummyEvent&>(evt);
-            EXPECT_EQ(dummy.ToString(), "Hello");
-            dummy.IsHandled = true;
+            EXPECT_EQ(evt.ToString(), "Hello");
+            evt.IsHandled = true;
         });
 
         // Act
-        const bool handled = bus.Send(DummyEvent("Hello"));
+        const bool handled = carrier.Send(DummyEvent("Hello"));
 
         // Assert
         EXPECT_TRUE(invoked);
@@ -44,17 +47,19 @@ namespace Tbx::Tests::Events
     TEST(EventBusTests, Unsubscribe_RemovesListener)
     {
         // Arrange
-        EventBus bus;
+        auto bus = MakeRef<EventBus>();
+        EventCarrier carrier(bus);
+        EventListener listener(bus);
         bool invoked = false;
 
-        const auto token = bus.Subscribe<DummyEvent>([&](Event&)
+        const auto token = listener.Listen<DummyEvent>([&](DummyEvent&)
         {
             invoked = true;
         });
 
         // Act
-        bus.Unsubscribe(token);
-        const bool handled = bus.Send(DummyEvent("Ignored"));
+        listener.StopListening(token);
+        const bool handled = carrier.Send(DummyEvent("Ignored"));
 
         // Assert
         EXPECT_FALSE(invoked);
@@ -64,22 +69,24 @@ namespace Tbx::Tests::Events
     TEST(EventBusTests, PostAndFlush_DeliversQueuedEventsInOrder)
     {
         // Arrange
-        EventBus bus;
+        auto bus = MakeRef<EventBus>();
+        EventCarrier carrier(bus);
+        EventListener listener(bus);
         std::vector<std::string> messages;
 
-        bus.Subscribe<DummyEvent>([&](Event& evt)
+        listener.Listen<DummyEvent>([&](DummyEvent& evt)
         {
-            auto& dummy = static_cast<DummyEvent&>(evt);
-            messages.push_back(dummy.ToString());
+            messages.push_back(evt.ToString());
         });
 
-        bus.Post(DummyEvent("First"));
-        bus.Post(DummyEvent("Second"));
-        bus.Post(DummyEvent("Third"));
+        carrier.Post(DummyEvent("First"));
+        carrier.Post(DummyEvent("Second"));
+        carrier.Post(DummyEvent("Third"));
 
         // Act
-        bus.Flush();
-        bus.Flush(); // ensure queue is empty after the first flush
+        bus->Flush();
+
+        EXPECT_TRUE(bus->EventQueue.empty());
 
         // Assert
         ASSERT_EQ(messages.size(), 3u);
@@ -91,10 +98,12 @@ namespace Tbx::Tests::Events
     TEST(EventBusTests, Suppressor_PreventsDispatch)
     {
         // Arrange
-        EventBus bus;
+        auto bus = MakeRef<EventBus>();
+        EventCarrier carrier(bus);
+        EventListener listener(bus);
         bool invoked = false;
 
-        bus.Subscribe<DummyEvent>([&](Event&)
+        listener.Listen<DummyEvent>([&](DummyEvent&)
         {
             invoked = true;
         });
@@ -102,14 +111,70 @@ namespace Tbx::Tests::Events
         // Act
         {
             EventSuppressor suppressor;
-            bus.Post(DummyEvent("Suppressed"));
-            bus.Send(DummyEvent("Suppressed"));
-            bus.Flush();
+            carrier.Post(DummyEvent("Suppressed"));
+            carrier.Send(DummyEvent("Suppressed"));
+            bus->Flush();
         }
 
-        bus.Flush();
+        bus->Flush();
 
         // Assert
         EXPECT_FALSE(invoked);
+    }
+
+    TEST(EventBusTests, Global_ReturnsSingletonInstance)
+    {
+        auto first = EventBus::Global();
+        auto second = EventBus::Global();
+
+        ASSERT_TRUE(first);
+        EXPECT_EQ(first.get(), second.get());
+        EXPECT_EQ(first->Parent(), nullptr);
+    }
+
+    TEST(EventBusTests, LocalBusExtendsGlobalSubscriptions)
+    {
+        auto globalBus = EventBus::Global();
+        EventListener globalListener(globalBus);
+        bool invoked = false;
+
+        auto localBus = MakeRef<EventBus>();
+        EXPECT_EQ(localBus->Parent().get(), globalBus.get());
+
+        globalListener.Listen<DummyEvent>([&](DummyEvent& evt)
+        {
+            invoked = true;
+            EXPECT_EQ(evt.ToString(), "Global");
+            evt.IsHandled = true;
+        });
+
+        EventCarrier carrier(localBus);
+        const bool handled = carrier.Send(DummyEvent("Global"));
+
+        EXPECT_TRUE(invoked);
+        EXPECT_TRUE(handled);
+    }
+
+    TEST(EventBusTests, LocalBusFlushDeliversQueuedEventsToGlobalSubscribers)
+    {
+        auto globalBus = EventBus::Global();
+        EventListener globalListener(globalBus);
+        bool invoked = false;
+
+        auto localBus = MakeRef<EventBus>();
+        EXPECT_EQ(localBus->Parent().get(), globalBus.get());
+
+        globalListener.Listen<DummyEvent>([&](DummyEvent& evt)
+        {
+            invoked = true;
+            EXPECT_EQ(evt.ToString(), "Queued");
+        });
+
+        EventCarrier carrier(localBus);
+        carrier.Post(DummyEvent("Queued"));
+
+        localBus->Flush();
+
+        EXPECT_TRUE(invoked);
     }
 }

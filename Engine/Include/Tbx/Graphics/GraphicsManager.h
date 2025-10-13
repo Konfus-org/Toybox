@@ -2,6 +2,7 @@
 #include "Tbx/Graphics/GraphicsPipeline.h"
 #include "Tbx/Graphics/RenderPass.h"
 #include "Tbx/Events/EventBus.h"
+#include "Tbx/Events/EventCarrier.h"
 #include "Tbx/Events/EventListener.h"
 #include "Tbx/Events/StageEvents.h"
 #include "Tbx/Events/WindowEvents.h"
@@ -44,7 +45,7 @@ namespace Tbx
         GraphicsPipeline _pipeline = {};
 
         EventListener _eventListener = {};
-        Ref<EventBus> _eventBus = nullptr;
+        EventCarrier _carrier = {};
 
         std::vector<Ref<Stage>> _openStages = {};
         std::vector<GraphicsDisplay> _openDisplays = {};

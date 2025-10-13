@@ -3,6 +3,7 @@
 #include "Tbx/Plugins/Plugin.h"
 #include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/EventBus.h"
+#include "Tbx/Events/EventCarrier.h"
 #include "Tbx/Events/EventListener.h"
 #include "Tbx/Collections/LayerStack.h"
 #include "Tbx/Time/DeltaTime.h"
@@ -54,7 +55,7 @@ namespace Tbx
 
     protected:
         Ref<AssetServer> Assets = nullptr;
-        Ref<EventBus> Dispatcher = nullptr;
+        EventCarrier Carrier = {};
         LayerStack Layers = {};
         EventListener Listener = {};
     };
