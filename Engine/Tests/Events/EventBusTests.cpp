@@ -10,7 +10,7 @@ namespace Tbx::Tests::Events
     class DummyEvent final : public Event
     {
     public:
-        explicit DummyEvent(std::string message)
+        DummyEvent(std::string message)
             : _message(std::move(message))
         {
         }
@@ -86,7 +86,7 @@ namespace Tbx::Tests::Events
         // Act
         bus->Flush();
 
-        EXPECT_TRUE(bus->EventQueue.empty());
+        EXPECT_EQ(bus->PendingEventCount(), 0u);
 
         // Assert
         ASSERT_EQ(messages.size(), 3u);
@@ -124,57 +124,182 @@ namespace Tbx::Tests::Events
 
     TEST(EventBusTests, Global_ReturnsSingletonInstance)
     {
-        auto first = EventBus::Global();
-        auto second = EventBus::Global();
+        auto first = EventBus::Global;
+        auto second = EventBus::Global;
 
         ASSERT_TRUE(first);
         EXPECT_EQ(first.get(), second.get());
-        EXPECT_EQ(first->Parent(), nullptr);
     }
 
-    TEST(EventBusTests, LocalBusExtendsGlobalSubscriptions)
+    TEST(EventBusTests, ChildBusDoesNotPropagateEventsToParent)
     {
-        auto globalBus = EventBus::Global();
+        auto globalBus = EventBus::Global;
         EventListener globalListener(globalBus);
         bool invoked = false;
 
-        auto localBus = MakeRef<EventBus>();
-        EXPECT_EQ(localBus->Parent().get(), globalBus.get());
+        auto localBus = MakeRef<EventBus>(globalBus);
 
         globalListener.Listen<DummyEvent>([&](DummyEvent& evt)
         {
             invoked = true;
-            EXPECT_EQ(evt.ToString(), "Global");
-            evt.IsHandled = true;
         });
 
         EventCarrier carrier(localBus);
         const bool handled = carrier.Send(DummyEvent("Global"));
 
-        EXPECT_TRUE(invoked);
-        EXPECT_TRUE(handled);
+        EXPECT_FALSE(invoked);
+        EXPECT_FALSE(handled);
     }
 
-    TEST(EventBusTests, LocalBusFlushDeliversQueuedEventsToGlobalSubscribers)
+    TEST(EventBusTests, ParentFlushPropagatesQueuedEventsToChildren)
     {
-        auto globalBus = EventBus::Global();
-        EventListener globalListener(globalBus);
+        auto parentBus = MakeRef<EventBus>();
+        auto childBus = MakeRef<EventBus>(parentBus);
+        EventListener childListener(childBus);
         bool invoked = false;
 
-        auto localBus = MakeRef<EventBus>();
-        EXPECT_EQ(localBus->Parent().get(), globalBus.get());
-
-        globalListener.Listen<DummyEvent>([&](DummyEvent& evt)
+        childListener.Listen<DummyEvent>([&](DummyEvent& evt)
         {
             invoked = true;
             EXPECT_EQ(evt.ToString(), "Queued");
         });
 
-        EventCarrier carrier(localBus);
+        EventCarrier carrier(parentBus);
         carrier.Post(DummyEvent("Queued"));
 
-        localBus->Flush();
+        parentBus->Flush();
+
+        EXPECT_TRUE(invoked);
+    }
+
+    TEST(EventBusTests, ParentPostedEventsRemainOnParentQueue)
+    {
+        auto parentBus = MakeRef<EventBus>();
+        auto childBus = MakeRef<EventBus>(parentBus);
+        EventListener childListener(childBus);
+        bool invoked = false;
+
+        childListener.Listen<DummyEvent>([&](DummyEvent& evt)
+        {
+            invoked = true;
+            EXPECT_EQ(evt.ToString(), "Cascade");
+        });
+
+        EventCarrier carrier(parentBus);
+        carrier.Post(DummyEvent("Cascade"));
+
+        EXPECT_EQ(childBus->PendingEventCount(), 0u);
+
+        childBus->Flush();
+
+        EXPECT_FALSE(invoked);
+
+        parentBus->Flush();
+
+        EXPECT_TRUE(invoked);
+    }
+
+    TEST(EventBusTests, ParentSendPropagatesToChildDecorators)
+    {
+        auto parentBus = MakeRef<EventBus>();
+        auto childBus = MakeRef<EventBus>(parentBus);
+        EventListener childListener(childBus);
+        bool invoked = false;
+
+        childListener.Listen<DummyEvent>([&](DummyEvent& evt)
+        {
+            invoked = true;
+            EXPECT_EQ(evt.ToString(), "Direct");
+            evt.IsHandled = true;
+        });
+
+        EventCarrier carrier(parentBus);
+        const bool handled = carrier.Send(DummyEvent("Direct"));
+
+        EXPECT_TRUE(invoked);
+        EXPECT_TRUE(handled);
+    }
+
+    TEST(EventBusTests, GlobalBusPropagatesEventsToAllChildren)
+    {
+        auto globalBus = EventBus::Global;
+        auto childBus = MakeRef<EventBus>(globalBus);
+        EventListener childListener(childBus);
+        std::vector<std::string> messages;
+
+        childListener.Listen<DummyEvent>([&](DummyEvent& evt)
+        {
+            messages.push_back(evt.ToString());
+            if (evt.ToString() == "GlobalSend")
+            {
+                evt.IsHandled = true;
+            }
+        });
+
+        EventCarrier carrier(globalBus);
+        const bool handled = carrier.Send(DummyEvent("GlobalSend"));
+
+        ASSERT_EQ(messages.size(), 1u);
+        EXPECT_TRUE(handled);
+        EXPECT_EQ(messages[0], "GlobalSend");
+
+        carrier.Post(DummyEvent("GlobalPost"));
+
+        globalBus->Flush();
+
+        ASSERT_EQ(messages.size(), 2u);
+        EXPECT_EQ(messages[1], "GlobalPost");
+    }
+
+    TEST(EventBusTests, ChildBusRemovesItselfOnDestruction)
+    {
+        auto parentBus = MakeRef<EventBus>();
+
+        int invocationCount = 0;
+
+        {
+            auto childBus = MakeRef<EventBus>(parentBus);
+            EventListener childListener(childBus);
+            childListener.Listen<DummyEvent>([&](DummyEvent&)
+            {
+                invocationCount++;
+            });
+
+            EventCarrier carrier(parentBus);
+            carrier.Send(DummyEvent("Scoped"));
+        }
+
+        EventCarrier carrier(parentBus);
+        carrier.Send(DummyEvent("After"));
+        EXPECT_EQ(invocationCount, 1);
+    }
+
+    TEST(EventBusTests, ParentDestructionReparentsChildrenToGrandparent)
+    {
+        Ref<EventBus> childBus = nullptr;
+
+        {
+            auto grandParentBus = MakeRef<EventBus>();
+            auto parentBus = MakeRef<EventBus>(grandParentBus);
+
+            childBus = MakeRef<EventBus>(parentBus);
+        }
+
+        ASSERT_TRUE(childBus);
+        auto globalBus = EventBus::Global;
+
+        bool invoked = false;
+        EventListener listener(childBus);
+        listener.Listen<DummyEvent>([&](DummyEvent& evt)
+        {
+            invoked = true;
+        });
+
+        EventCarrier carrier(globalBus);
+        carrier.Post(DummyEvent("Reparented"));
+        globalBus->Flush();
 
         EXPECT_TRUE(invoked);
     }
 }
+

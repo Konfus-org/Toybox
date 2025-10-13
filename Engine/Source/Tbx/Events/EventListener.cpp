@@ -4,36 +4,6 @@
 
 namespace Tbx
 {
-    static void RemoveSubscription(const Ref<EventBus>& bus, const Uid& token)
-    {
-        if (!bus || token == Uid::Invalid)
-        {
-            return;
-        }
-
-        EventSync sync;
-
-        auto index = bus->SubscriptionIndex.find(token);
-        if (index == bus->SubscriptionIndex.end())
-        {
-            return;
-        }
-
-        const auto eventKey = index->second;
-        auto subscription = bus->Subscriptions.find(eventKey);
-        if (subscription != bus->Subscriptions.end())
-        {
-            auto& callbacks = subscription->second;
-            callbacks.erase(token);
-            if (callbacks.empty())
-            {
-                bus->Subscriptions.erase(subscription);
-            }
-        }
-
-        bus->SubscriptionIndex.erase(index);
-    }
-
     EventListener::EventListener(Ref<EventBus> bus)
     {
         Bind(bus);
@@ -96,7 +66,7 @@ namespace Tbx
                 continue;
             }
 
-            RemoveSubscription(bus, token);
+            bus->RemoveSubscription(token);
         }
     }
 
@@ -126,7 +96,10 @@ namespace Tbx
         }
 
         const auto bus = LockBus();
-        RemoveSubscription(bus, token);
+        if (bus)
+        {
+            bus->RemoveSubscription(token);
+        }
     }
 
     void EventListener::Transfer(EventListener& from, EventListener& to) noexcept

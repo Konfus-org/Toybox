@@ -1,4 +1,5 @@
 #include "Tbx/Launcher/Launcher.h"
+#include "Tbx/Events/EventBus.h"
 #include "Tbx/Files/Paths.h"
 #include "Tbx/Debug/ILogger.h"
 #include "Tbx/Debug/Log.h"

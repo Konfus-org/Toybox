@@ -2,12 +2,11 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Events/Event.h"
 #include "Tbx/Events/EventBus.h"
-#include "Tbx/Events/EventSync.h"
 #include "Tbx/Debug/Asserts.h"
 #include "Tbx/Debug/Tracers.h"
 #include "Tbx/Memory/Refs.h"
+#include <string>
 #include <type_traits>
-#include <unordered_map>
 
 namespace Tbx
 {
@@ -15,7 +14,7 @@ namespace Tbx
     {
     public:
         EventCarrier() = default;
-        explicit EventCarrier(Ref<EventBus> bus);
+        EventCarrier(Ref<EventBus> bus);
         ~EventCarrier() = default;
 
         EventCarrier(const EventCarrier&) = default;
@@ -41,9 +40,8 @@ namespace Tbx
                 return event.IsHandled;
             }
 
-            std::unordered_map<Uid, EventCallback> callbacks;
             const auto hashCode = Memory::Hash(event);
-            _bus->CollectCallbacks(hashCode, callbacks);
+            auto callbacks = _bus->GetCallbacks(hashCode);
             if (callbacks.empty())
             {
                 return event.IsHandled;
@@ -71,6 +69,8 @@ namespace Tbx
         requires std::is_base_of_v<Event, std::decay_t<TEvent>>
         void Post(TEvent event)
         {
+            using EventType = std::decay_t<TEvent>;
+
             TBX_TRACE_VERBOSE("Event Carrier: Posting the event \"{}\"", event.ToString());
 
             TBX_ASSERT(_bus, "EventCarrier: Cannot queue without a valid event bus.");
@@ -79,8 +79,7 @@ namespace Tbx
                 return;
             }
 
-            EventSync sync;
-            _bus->EventQueue.emplace(MakeExclusive<std::decay_t<TEvent>>(std::move(event)));
+            _bus->QueueEvent(MakeExclusive<EventType>(std::move(event)));
         }
 
     private:
