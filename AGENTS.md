@@ -15,6 +15,7 @@ Welcome to the Toybox game engine repository! This document provides high-level 
 ## Code Standards
 - Follow modern C++20 practices; avoid compiler extensions (`CMAKE_CXX_EXTENSIONS` is `OFF`).
 - Avoid C++ attributes unless they are required for platform integration or third-party interoperability.
+- Avoid friend classes where possible, if its anavoidable or makes for a better api then its fine to use them but try to avoid if possible.
 - Don't use explicit, it make the code overly verbose and hard to read.
 - Try to keep things easy to understand and reason about, don't use magic numbers and comment any assumptions.
 - Defensively program around plugins, they can be unloaded and reloaded at any time so keep that in mind, use TBX_ASSERT to assert when things go wrong, but allow the app to continue and try to recover.
