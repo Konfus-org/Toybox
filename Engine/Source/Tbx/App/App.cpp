@@ -3,6 +3,7 @@
 #include "Tbx/App/Runtime.h"
 #include "Tbx/Graphics/GraphicsBackend.h"
 #include "Tbx/Graphics/GraphicsContext.h"
+#include "Tbx/Audio/AudioMixer.h"
 #include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Input/Input.h"
@@ -35,6 +36,7 @@ namespace Tbx
             Plugins.OfType<IGraphicsBackend>(),
             Plugins.OfType<IGraphicsContextProvider>(),
             Bus)
+        , Audio(plugins.OfType<IAudioMixer>().front(), Bus)
         , _name(name)
         , _listener(Bus)
     {
@@ -172,6 +174,9 @@ namespace Tbx
 
             // 6. windows
             Windowing.Update();
+          
+            // 7. Update audio
+            Audio.Update();
 
             // 7. Dispatch events
             _carrier.Post(AppUpdatedEvent());
@@ -239,7 +244,7 @@ namespace Tbx
             systemTimeStream << '.' << std::setw(3) << std::setfill('0') << systemTimeSubSecond.count();
             systemTimeString = systemTimeStream.str();
         }
-        const float epsilon = std::numeric_limits<float>::epsilon();
+        constexpr float epsilon = std::numeric_limits<float>::epsilon();
         const float instantaneousFps = deltaSeconds > epsilon
             ? 1.0f / deltaSeconds
             : 0.0f;

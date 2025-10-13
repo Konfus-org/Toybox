@@ -1,0 +1,16 @@
+{
+    "name": "Template Runtime",
+    "language": "C++",
+    "version": "1.0.0",
+    "author": "Konfus-dev",
+    "description": "Template runtime.",
+    "dependencies": [
+        "SDL3 Windowing",
+        "SDL3 Input",
+        "SDL3 Audio",
+        "Spd Logging",
+        "OpenGL Rendering",
+        "JIMS Asset Loader",
+        "ImGui Immediate UI"
+    ]
+}

@@ -15,6 +15,13 @@ Welcome to the Toybox game engine repository! This document provides high-level 
 ## Code Standards
 - Follow modern C++20 practices; avoid compiler extensions (`CMAKE_CXX_EXTENSIONS` is `OFF`).
 - Avoid C++ attributes unless they are required for platform integration or third-party interoperability.
+- Avoid friend classes where possible, if its anavoidable or makes for a better api then its fine to use them but try to avoid if possible.
+- Don't use explicit, it make the code overly verbose and hard to read.
+- Try to keep things easy to understand and reason about, don't use magic numbers and comment any assumptions.
+- Defensively program around plugins, they can be unloaded and reloaded at any time so keep that in mind, use TBX_ASSERT to assert when things go wrong, but allow the app to continue and try to recover.
+- No empty namespaces or detail namespaces, if you want something not exposed put it into a cpp file and make it static.
+- Don't use the 'Tbx::' on structs and classes and methods and such when within the namespace, no empty namespaces, no details namespaces, if you want something not exposed put it into a cpp file and make it static.
+- Prefer ++ after something instead of before to increment eg int++ instead of ++int.
 - Keep header/source separation clear; place public interfaces in headers and implementation details in source files.
 - Prefer `#pragma once` in headers and minimize unnecessary includes to keep compile times short.
 - Use descriptive names and consistent casing: PascalCase for types, camelCase for functions and variables, and SCREAMING_SNAKE_CASE for constants/macros. Avoid catch-all names such as `Util` and strive to apply SOLID design principles where practical.
@@ -26,8 +33,6 @@ Welcome to the Toybox game engine repository! This document provides high-level 
 1. **Clone or pull the latest changes**
    ```bash
    git clone https://github.com/Konfus-org/Toybox.git
-   # or, from an existing clone
-   git pull origin work
    git submodule update --init --recursive
    ```
 2. **Configure the build** (choose one of the following):

@@ -4,10 +4,11 @@
     "dependencies": [
         "SDL3 Windowing",
         "SDL3 Input",
+        "SDL3 Audio",
         "Spd Logging",
         "OpenGL Rendering",
         "JIMS Asset Loader",
-        "ImGui Debug UI"
+        "ImGui Immediate UI"
     ],
     "type": [
         "App Logic"

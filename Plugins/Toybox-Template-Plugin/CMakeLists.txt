@@ -32,8 +32,7 @@ add_custom_command(TARGET ${LibName} POST_BUILD
   COMMENT "Copying plugin meta file to build dir"
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           "${CMAKE_CURRENT_SOURCE_DIR}/${LibName}.meta"
-          "$<TARGET_FILE_DIR:${LibName}>/${LibName}.meta"
-)
+          "$<TARGET_FILE_DIR:${LibName}>/${LibName}.meta")
 
 # Namespaced alias for consumers
 add_library(Tbx::Plugin::${LibName} ALIAS ${LibName})
