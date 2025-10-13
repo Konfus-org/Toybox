@@ -148,12 +148,9 @@ namespace Tbx
                         playPosition -= nearestCamera;
                     }
 
-                    _mixer->PlayFromPosition(audio, playPosition);
+                    _mixer->SetPosition(audio, playPosition);
                 }
-                else
-                {
-                    _mixer->Play(audio);
-                }
+                _mixer->Play(audio);
             }
             else
             {
