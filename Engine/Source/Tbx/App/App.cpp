@@ -230,7 +230,7 @@ namespace Tbx
             systemTimeStream << '.' << std::setw(3) << std::setfill('0') << systemTimeSubSecond.count();
             systemTimeString = systemTimeStream.str();
         }
-        const float epsilon = std::numeric_limits<float>::epsilon();
+        constexpr float epsilon = std::numeric_limits<float>::epsilon();
         const float instantaneousFps = deltaSeconds > epsilon
             ? 1.0f / deltaSeconds
             : 0.0f;
