@@ -29,7 +29,6 @@ namespace Tbx
         : Bus(eventBus)
         , Plugins(plugins)
         , Settings(settings)
-        , _carrier(Bus)
         , Windowing(Plugins.OfType<IWindowFactory>().front(), Bus)
         , Graphics(
             Settings.RenderingApi,
@@ -38,6 +37,7 @@ namespace Tbx
             Bus)
         , Audio(plugins.OfType<IAudioMixer>().front(), Bus)
         , _name(name)
+        , _carrier(Bus)
         , _listener(Bus)
     {
         TBX_ASSERT(Bus, "App: Requires a valid event bus instance.");

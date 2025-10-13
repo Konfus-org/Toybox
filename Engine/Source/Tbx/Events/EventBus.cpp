@@ -38,15 +38,14 @@ namespace Tbx
 
     //////////// Event Bus ///////////////
 
+    Ref<EventBus> EventBus::Global = CreateGlobal();
     bool EventBus::_creatingGlobal = false;
 
     EventBus::EventBus(Ref<EventBus> parent)
-        : _parent(std::move(parent))
+        : Parent(parent != nullptr && !_creatingGlobal
+            ? parent
+            : Global)
     {
-        if (!_parent && !_creatingGlobal)
-        {
-            _parent = Global();
-        }
     }
 
     EventBus::~EventBus()
@@ -58,17 +57,6 @@ namespace Tbx
         }
         Subscriptions.clear();
         SubscriptionIndex.clear();
-    }
-
-    Ref<EventBus> EventBus::Global()
-    {
-        static Ref<EventBus> global = CreateGlobal();
-        return global;
-    }
-
-    Ref<EventBus> EventBus::Parent() const
-    {
-        return _parent;
     }
 
     void EventBus::Flush()
@@ -137,7 +125,7 @@ namespace Tbx
                 callbacks.insert(it->second.begin(), it->second.end());
             }
 
-            parentCopy = _parent;
+            parentCopy = Parent;
         }
 
         if (parentCopy)

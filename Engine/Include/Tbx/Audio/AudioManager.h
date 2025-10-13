@@ -23,12 +23,12 @@ namespace Tbx
     private:
         void OnStageOpened(const StageOpenedEvent& e);
         void OnStageClosed(const StageClosedEvent& e);
-        void ProcessStage(const Ref<Stage>& stage);
+        void ProcessStage(const Stage* stage);
 
     private:
         Ref<IAudioMixer> _mixer = nullptr;
         EventListener _eventListener = {};
         Ref<EventBus> _eventBus = nullptr;
-        std::vector<Ref<Stage>> _openStages = {};
+        std::vector<const Stage*> _openStages = {};
     };
 }

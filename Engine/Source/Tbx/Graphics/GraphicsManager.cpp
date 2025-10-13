@@ -28,26 +28,26 @@ namespace Tbx
         _pipeline = GraphicsPipeline(CreateDefaultRenderPasses());
         RecreateRenderersForCurrentApi();
 
-        _eventListener.Listen<WindowOpenedEvent>([this](WindowOpenedEvent& event)
-            {
-                OnWindowOpened(event);
-            });
-        _eventListener.Listen<WindowClosedEvent>([this](WindowClosedEvent& event)
-            {
-                OnWindowClosed(event);
-            });
         _eventListener.Listen<AppSettingsChangedEvent>([this](AppSettingsChangedEvent& event)
-            {
-                OnAppSettingsChanged(event);
-            });
+        {
+            OnAppSettingsChanged(event);
+        });
+        _eventListener.Listen<WindowOpenedEvent>([this](WindowOpenedEvent& event)
+        {
+            OnWindowOpened(event);
+        });
+        _eventListener.Listen<WindowClosedEvent>([this](WindowClosedEvent& event)
+        {
+            OnWindowClosed(event);
+        });
         _eventListener.Listen<StageOpenedEvent>([this](StageOpenedEvent& event)
-            {
-                OnStageOpened(event);
-            });
+        {
+            OnStageOpened(event);
+        });
         _eventListener.Listen<StageClosedEvent>([this](StageClosedEvent& event)
-            {
-                OnStageClosed(event);
-            });
+        {
+            OnStageClosed(event);
+        });
     }
 
     void GraphicsManager::Render()

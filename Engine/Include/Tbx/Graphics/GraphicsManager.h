@@ -47,7 +47,7 @@ namespace Tbx
         EventListener _eventListener = {};
         EventCarrier _carrier = {};
 
-        std::vector<Ref<Stage>> _openStages = {};
+        std::vector<const Stage*> _openStages = {};
         std::vector<GraphicsDisplay> _openDisplays = {};
         std::unordered_map<GraphicsApi, GraphicsRenderer> _renderers = {};
 

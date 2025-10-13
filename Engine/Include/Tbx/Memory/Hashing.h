@@ -5,15 +5,15 @@
 namespace Tbx::Memory
 {
     template <typename TValue>
-    inline constexpr uint64 Hash();
+    inline uint64 Hash();
 
-    inline constexpr uint64 Hash(const std::type_info& info)
+    inline uint64 Hash(const std::type_info& info)
     {
         return static_cast<uint64>(info.hash_code());
     }
 
     template <typename TValue>
-    inline constexpr uint64 Hash()
+    inline uint64 Hash()
     {
         return Hash(typeid(TValue));
     }

@@ -70,22 +70,12 @@ namespace Tbx
         /// When no parent is provided, the bus automatically attaches to the global bus.
         /// </summary>
         explicit EventBus(Ref<EventBus> parent = {});
+        ~EventBus(); 
 
-        /// <summary>
-        /// Destroys the event bus.
-        /// </summary>
-        ~EventBus();
-
-        /// <summary>
-        /// Retrieves the shared global event bus instance.
-        /// </summary>
-        static Ref<EventBus> Global();
-
-        /// <summary>
-        /// Gets the parent bus that this instance extends.
-        /// Returns <c>nullptr</c> when this bus is the global root.
-        /// </summary>
-        Ref<EventBus> Parent() const;
+        EventBus(const EventBus&) = delete;
+        EventBus& operator=(const EventBus&) = delete;
+        EventBus(EventBus&&) noexcept = default;
+        EventBus& operator=(EventBus&&) noexcept = default;
 
         /// <summary>
         /// Processes all queued events, dispatching each to the relevant subscribers.
@@ -96,6 +86,17 @@ namespace Tbx
         /// Collects callbacks registered on this bus and its parents for the provided event key.
         /// </summary>
         void CollectCallbacks(EventHash eventKey, std::unordered_map<Uid, EventCallback>& callbacks) const;
+
+        /// <summary>
+        /// Retrieves the shared global event bus instance.
+        /// </summary>
+        static Ref<EventBus> Global;
+
+        /// <summary>
+        /// Gets the parent bus that this instance extends.
+        /// Returns <c>nullptr</c> when this bus is the global root.
+        /// </summary>
+        const Ref<EventBus> Parent = nullptr;
 
         /// <summary>
         /// Public table mapping event types to registered subscribers.
@@ -114,8 +115,6 @@ namespace Tbx
 
     private:
         static Ref<EventBus> CreateGlobal();
-
-        Ref<EventBus> _parent = nullptr;
         static bool _creatingGlobal;
     };
 }

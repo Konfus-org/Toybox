@@ -16,8 +16,8 @@ namespace Tbx
             return;
         }
 
-        _eventListener.Listen(this, &AudioManager::OnStageOpened);
-        _eventListener.Listen(this, &AudioManager::OnStageClosed);
+        _eventListener.Listen<StageOpenedEvent>([this](const StageOpenedEvent& e) { OnStageOpened(e); });
+        _eventListener.Listen<StageClosedEvent>([this](const StageClosedEvent& e) { OnStageClosed(e); });
     }
 
     void AudioManager::Update()
@@ -49,7 +49,7 @@ namespace Tbx
         }
 
         auto exists = std::find_if(_openStages.begin(), _openStages.end(),
-            [&stage](const Ref<Stage>& candidate)
+            [&stage](const Stage* candidate)
             {
                 return candidate == stage;
             });
@@ -70,13 +70,13 @@ namespace Tbx
         }
 
         _openStages.erase(std::remove_if(_openStages.begin(), _openStages.end(),
-            [&stage](const Ref<Stage>& candidate)
+            [&stage](const Stage* candidate)
             {
                 return candidate == stage;
             }), _openStages.end());
     }
 
-    void AudioManager::ProcessStage(const Ref<Stage>& stage)
+    void AudioManager::ProcessStage(const Stage* stage)
     {
         if (!stage || !stage->Root)
         {

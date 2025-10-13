@@ -85,7 +85,7 @@ namespace Tbx
         /// <summary>
         /// Clears the display using the given clear color, then draws the given stages to the display.
         /// </summary>
-        void Draw(GraphicsRenderer& renderer, const GraphicsDisplay& display, const std::vector<Ref<Stage>>& stages, const RgbaColor& clearColor);
+        void Draw(GraphicsRenderer& renderer, const GraphicsDisplay& display, const std::vector<const Stage*>& stages, const RgbaColor& clearColor);
 
         /// <summary>
         /// Draws the given render data using the given pass.
