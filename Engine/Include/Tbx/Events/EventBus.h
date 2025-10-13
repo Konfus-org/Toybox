@@ -112,6 +112,7 @@ namespace Tbx
 
     private:
         void CollectCallbacks(EventHash eventKey, std::unordered_map<Uid, EventCallback>& callbacks) const;
+        void CollectCallbacksLocked(EventHash eventKey, std::unordered_map<Uid, EventCallback>& callbacks) const;
         static Ref<EventBus> CreateGlobal();
         void AttachToParent(EventBus* parent);
         void DetachFromParent();

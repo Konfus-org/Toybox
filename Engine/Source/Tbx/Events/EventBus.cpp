@@ -199,34 +199,30 @@ namespace Tbx
 
     void EventBus::CollectCallbacks(EventHash eventKey, std::unordered_map<Uid, EventCallback>& callbacks) const
     {
-        std::vector<const EventBus*> decoratorCopies;
+        EventSync sync;
+        CollectCallbacksLocked(eventKey, callbacks);
+    }
 
+    void EventBus::CollectCallbacksLocked(EventHash eventKey, std::unordered_map<Uid, EventCallback>& callbacks) const
+    {
+        auto it = _subscriptions.find(eventKey);
+        if (it != _subscriptions.end())
         {
-            EventSync sync;
-            auto it = _subscriptions.find(eventKey);
-            if (it != _subscriptions.end())
-            {
-                callbacks.insert(it->second.begin(), it->second.end());
-            }
-            decoratorCopies.reserve(_decorators.size());
-            auto itDecorator = _decorators.begin();
-            while (itDecorator != _decorators.end())
-            {
-                const EventBus* decorator = *itDecorator;
-                if (!decorator)
-                {
-                    itDecorator = _decorators.erase(itDecorator);
-                    continue;
-                }
-
-                decoratorCopies.emplace_back(decorator);
-                ++itDecorator;
-            }
+            callbacks.insert(it->second.begin(), it->second.end());
         }
 
-        for (const EventBus* decorator : decoratorCopies)
+        auto itDecorator = _decorators.begin();
+        while (itDecorator != _decorators.end())
         {
-            decorator->CollectCallbacks(eventKey, callbacks);
+            const EventBus* decorator = *itDecorator;
+            if (!decorator)
+            {
+                itDecorator = _decorators.erase(itDecorator);
+                continue;
+            }
+
+            decorator->CollectCallbacksLocked(eventKey, callbacks);
+            ++itDecorator;
         }
     }
 
