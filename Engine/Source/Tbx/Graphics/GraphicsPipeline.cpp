@@ -198,7 +198,7 @@ namespace Tbx
     void GraphicsPipeline::Draw(
         GraphicsRenderer& renderer,
         const GraphicsDisplay& display, 
-        const std::vector<Ref<Stage>>& stages,
+        const std::vector<const Stage*>& stages,
         const RgbaColor& clearColor)
     {
         TBX_ASSERT(&renderer, "GraphicsPipeline: No active renderer has been set for the current graphics API.");

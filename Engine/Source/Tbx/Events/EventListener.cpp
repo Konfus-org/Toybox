@@ -4,9 +4,54 @@
 
 namespace Tbx
 {
-    EventListener::EventListener(WeakRef<EventBus> bus)
+    static void RemoveSubscription(const Ref<EventBus>& bus, const Uid& token)
+    {
+        if (!bus || token == Uid::Invalid)
+        {
+            return;
+        }
+
+        EventSync sync;
+
+        auto index = bus->SubscriptionIndex.find(token);
+        if (index == bus->SubscriptionIndex.end())
+        {
+            return;
+        }
+
+        const auto eventKey = index->second;
+        auto subscription = bus->Subscriptions.find(eventKey);
+        if (subscription != bus->Subscriptions.end())
+        {
+            auto& callbacks = subscription->second;
+            callbacks.erase(token);
+            if (callbacks.empty())
+            {
+                bus->Subscriptions.erase(subscription);
+            }
+        }
+
+        bus->SubscriptionIndex.erase(index);
+    }
+
+    EventListener::EventListener(Ref<EventBus> bus)
     {
         Bind(bus);
+    }
+
+    EventListener::EventListener(EventListener&& other) noexcept
+    {
+        Transfer(other, *this);
+    }
+
+    EventListener& EventListener::operator=(EventListener&& other) noexcept
+    {
+        if (this != &other)
+        {
+            ReleaseSubscriptions();
+            Transfer(other, *this);
+        }
+        return *this;
     }
 
     EventListener::~EventListener()
@@ -14,23 +59,21 @@ namespace Tbx
         Unbind();
     }
 
-    void EventListener::Bind(WeakRef<EventBus> bus)
+    void EventListener::Bind(Ref<EventBus> bus)
     {
-        TBX_ASSERT(bus.lock(), "EventListener: Cannot bind to a null event bus reference.");
+        TBX_ASSERT(bus, "EventListener: Cannot bind to a null event bus reference.");
 
-        Unbind();
-
-        auto current = _bus.lock();
-        auto next = bus.lock();
-        if (current && next && current == next)
+        if (_bus == bus)
         {
             return;
         }
 
+        Unbind();
+
         _bus = bus;
     }
 
-    void EventListener::Unbind()
+    void EventListener::ReleaseSubscriptions()
     {
         std::vector<Uid> tokens;
         {
@@ -39,7 +82,7 @@ namespace Tbx
             _activeTokens.clear();
         }
 
-        auto bus = LockBus();
+        const auto bus = LockBus();
         if (!bus)
         {
             return;
@@ -47,22 +90,26 @@ namespace Tbx
 
         for (const auto& token : tokens)
         {
-            if (token != Uid::Invalid)
-            {
-                bus->Unsubscribe(token);
-            }
-            else
+            if (token == Uid::Invalid)
             {
                 TBX_ASSERT(false, "EventListener: Encountered an invalid subscription token during unbind.");
+                continue;
             }
-        }
 
-        _bus.reset();
+            RemoveSubscription(bus, token);
+        }
+    }
+
+    void EventListener::Unbind()
+    {
+        ReleaseSubscriptions();
+
+        _bus = nullptr;
     }
 
     bool EventListener::IsBound() const
     {
-        return !_bus.expired();
+        return _bus != nullptr;
     }
 
     void EventListener::StopListening(const Uid& token)
@@ -78,13 +125,32 @@ namespace Tbx
             _activeTokens.erase(token);
         }
 
-        auto bus = LockBus();
-        if (!bus)
+        const auto bus = LockBus();
+        RemoveSubscription(bus, token);
+    }
+
+    void EventListener::Transfer(EventListener& from, EventListener& to) noexcept
+    {
+        if (&from == &to)
         {
             return;
         }
 
-        bus->Unsubscribe(token);
+        Ref<EventBus> bus;
+        std::unordered_set<Uid> tokens;
+
+        {
+            std::scoped_lock lock(from._mutex);
+            tokens = std::move(from._activeTokens);
+            bus = std::move(from._bus);
+        }
+
+        {
+            std::scoped_lock lock(to._mutex);
+            to._activeTokens = std::move(tokens);
+        }
+
+        to._bus = std::move(bus);
     }
 
     void EventListener::TrackToken(const Uid& token)
@@ -101,6 +167,6 @@ namespace Tbx
 
     Ref<EventBus> EventListener::LockBus() const
     {
-        return _bus.lock();
+        return _bus;
     }
 }

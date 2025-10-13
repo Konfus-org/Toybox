@@ -2,7 +2,6 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Events/Event.h"
 #include "Tbx/Stages/Stage.h"
-#include "Tbx/Memory/Refs.h"
 
 namespace Tbx
 {
@@ -13,10 +12,10 @@ namespace Tbx
     class TBX_EXPORT StageOpenedEvent final : public Event
     {
     public:
-        explicit StageOpenedEvent(Ref<Stage> opened)
+        explicit StageOpenedEvent(const Stage* opened)
             : _opened(opened) {}
 
-        Ref<Stage> GetStage() const { return _opened; }
+        const Stage* GetStage() const { return _opened; }
 
         std::string ToString() const override
         {
@@ -24,7 +23,7 @@ namespace Tbx
         }
 
     private:
-        Ref<Stage> _opened = {};
+        const Stage* _opened = {};
     };
 
     /// <summary>
@@ -34,10 +33,10 @@ namespace Tbx
     class TBX_EXPORT StageClosedEvent final : public Event
     {
     public:
-        explicit StageClosedEvent(Ref<Stage> closed)
+        explicit StageClosedEvent(const Stage* closed)
             : _closed(closed) {}
 
-        Ref<Stage> GetStage() const { return _closed; }
+        const Stage* GetStage() const { return _closed; }
 
         std::string ToString() const override
         {
@@ -45,6 +44,6 @@ namespace Tbx
         }
 
     private:
-        Ref<Stage> _closed = {};
+        const Stage* _closed = {};
     };
 }
