@@ -2,7 +2,6 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Debug/Asserts.h"
 #include "Tbx/Events/EventBus.h"
-#include "Tbx/Events/EventSync.h"
 #include "Tbx/Ids/Uid.h"
 #include "Tbx/Memory/Refs.h"
 #include <mutex>
@@ -61,15 +60,7 @@ namespace Tbx
                 };
 
             const auto eventKey = Memory::Hash<std::decay_t<TEvent>>();
-            const auto token = Uid::Generate();
-
-            {
-                EventSync sync;
-                auto& callbacks = bus->Subscriptions[eventKey];
-                callbacks[token] = std::move(callback);
-                bus->SubscriptionIndex[token] = eventKey;
-            }
-
+            const auto token = bus->AddSubscription(eventKey, std::move(callback));
             TrackToken(token);
             return token;
         }

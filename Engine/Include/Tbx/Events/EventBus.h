@@ -5,10 +5,11 @@
 #include "Tbx/Math/Int.h"
 #include "Tbx/Memory/Hashing.h"
 #include "Tbx/Memory/Refs.h"
-#include <unordered_map>
-#include <queue>
-#include <functional>
 #include <atomic>
+#include <functional>
+#include <queue>
+#include <unordered_map>
+#include <vector>
 
 namespace Tbx
 {
@@ -65,12 +66,9 @@ namespace Tbx
     public:
         using SubscriptionMap = std::unordered_map<EventHash, std::unordered_map<Uid, EventCallback>>;
 
-        /// <summary>
-        /// Creates an event bus that extends the supplied parent bus.
-        /// When no parent is provided, the bus automatically attaches to the global bus.
-        /// </summary>
-        explicit EventBus(Ref<EventBus> parent = {});
-        ~EventBus(); 
+        EventBus(Ref<EventBus> parent = {});
+
+        ~EventBus();
 
         EventBus(const EventBus&) = delete;
         EventBus& operator=(const EventBus&) = delete;
@@ -83,38 +81,52 @@ namespace Tbx
         void Flush();
 
         /// <summary>
-        /// Collects callbacks registered on this bus and its parents for the provided event key.
+        /// Retrieves the callbacks registered for the supplied event key across this bus and its decorators.
         /// </summary>
-        void CollectCallbacks(EventHash eventKey, std::unordered_map<Uid, EventCallback>& callbacks) const;
+        std::unordered_map<Uid, EventCallback> GetCallbacks(EventHash eventKey) const;
+
+        /// <summary>
+        /// Adds a subscription callback for the supplied event key.
+        /// </summary>
+        Uid AddSubscription(EventHash eventKey, EventCallback callback);
+
+        /// <summary>
+        /// Removes the subscription associated with the provided token.
+        /// </summary>
+        void RemoveSubscription(const Uid& token);
+
+        /// <summary>
+        /// Queues an event for dispatch during the next <see cref="Flush"/>.
+        /// </summary>
+        void QueueEvent(ExclusiveRef<Event> event);
+
+        /// <summary>
+        /// Returns the number of pending events waiting to be flushed.
+        /// </summary>
+        size_t PendingEventCount() const;
 
         /// <summary>
         /// Retrieves the shared global event bus instance.
         /// </summary>
         static Ref<EventBus> Global;
 
-        /// <summary>
-        /// Gets the parent bus that this instance extends.
-        /// Returns <c>nullptr</c> when this bus is the global root.
-        /// </summary>
-        const Ref<EventBus> Parent = nullptr;
-
-        /// <summary>
-        /// Public table mapping event types to registered subscribers.
-        /// </summary>
-        SubscriptionMap Subscriptions = {};
-
-        /// <summary>
-        /// Tracks which event type each subscription token belongs to.
-        /// </summary>
-        std::unordered_map<Uid, EventHash> SubscriptionIndex = {};
-
-        /// <summary>
-        /// Queue of events pending dispatch.
-        /// </summary>
-        std::queue<ExclusiveRef<Event>> EventQueue = {};
-
     private:
+        void CollectCallbacks(EventHash eventKey, std::unordered_map<Uid, EventCallback>& callbacks) const;
+        void CollectCallbacksLocked(EventHash eventKey, std::unordered_map<Uid, EventCallback>& callbacks) const;
         static Ref<EventBus> CreateGlobal();
+        void AttachToParent(EventBus* parent);
+        void DetachFromParent();
+        void DetachChildren(EventBus* adoptiveParent);
+        void RegisterDecorator(const EventBus* decorator) const;
+        void UnregisterDecorator(const EventBus* decorator) const;
+
+        const EventBus* _parent = nullptr;
+        mutable std::vector<const EventBus*> _decorators = {};
+        SubscriptionMap _subscriptions = {};
+        std::unordered_map<Uid, EventHash> _subscriptionIndex = {};
+        std::queue<ExclusiveRef<Event>> _eventQueue = {};
+
         static bool _creatingGlobal;
     };
 }
+
