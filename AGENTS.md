@@ -14,6 +14,8 @@ Welcome to the Toybox game engine repository! This document provides high-level 
 
 ## Code Standards
 - Follow modern C++20 practices; avoid compiler extensions (`CMAKE_CXX_EXTENSIONS` is `OFF`).
+- Follow existing Toybox styling and conventions
+- Case statements should be indented by 4 spaces (indentation in general should always be 4 spaces) and statements in them should have braces with the break within those braces.
 - Avoid C++ attributes unless they are required for platform integration or third-party interoperability.
 - Avoid friend classes where possible, if its anavoidable or makes for a better api then its fine to use them but try to avoid if possible.
 - Don't nest structs, classes, usings, or enums. Put them above their required class.
