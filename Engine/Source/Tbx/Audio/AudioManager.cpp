@@ -2,6 +2,7 @@
 #include "Tbx/Audio/AudioManager.h"
 #include "Tbx/Audio/Audio.h"
 #include "Tbx/Stages/Views.h"
+#include "Tbx/Math/Transform.h"
 #include <algorithm>
 
 namespace Tbx
@@ -83,7 +84,7 @@ namespace Tbx
             return;
         }
 
-        StageView<AudioSource> view(stage->Root);
+        auto view = StageView<AudioSource>(stage->Root);
         for (const auto& toy : view)
         {
             if (!toy)
@@ -104,7 +105,11 @@ namespace Tbx
             {
                 _mixer->SetPitch(audio, source.Pitch);
                 _mixer->SetPlaybackSpeed(audio, source.PlaybackSpeed);
-                _mixer->Play(audio);
+
+                Ref<Transform> audioTransform;
+                toy->Blocks.TryGet<Transform>(audioTransform);
+                if (audioTransform) _mixer->PlayFromPosition(audio, audioTransform->Position);
+                else _mixer->Play(audio);
             }
             else
             {

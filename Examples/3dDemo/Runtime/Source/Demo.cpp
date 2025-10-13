@@ -43,10 +43,13 @@ void Demo::OnStart()
         // Add audio
         auto musicPlayer = _stage->Add("MusicPlayer");
         auto musicSource = musicPlayer->Add<Tbx::AudioSource>(music);
+        auto musicTransform = musicPlayer->Add<Tbx::Transform>();
         musicSource->Playing = true;
         musicSource->Looping = true;
         musicSource->PlaybackSpeed = 3;
-        musicSource->Pitch = 0.25f;
+
+        // TODO: audio position isn't relative to the camera automagically it plays relative to the world origin rn...
+        musicTransform->Position = Tbx::Vector3(-10, 0, 0);
 
         // We need to have at least once instance of our mesh and materials to be able to instance them
         // TODO: This is a bit of a hack, but it works for now.
@@ -117,6 +120,8 @@ void Demo::OnStart()
             fpsCam->Add<Tbx::Transform>();
             _fpsCam = fpsCam;
         }
+
+        Carrier.Post(Tbx::StageOpenedEvent(_stage.get()));
     }
 }
 
