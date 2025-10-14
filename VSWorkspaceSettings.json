@@ -1,0 +1,7 @@
+{
+  "CMakeTargetsViewExcludedItems": [
+    "CMakeFolder:Dependencies",
+    "CMakeFolder:Precompile Header File",
+    "CMakeFolder:*.dir"
+  ]
+}
