@@ -1,31 +1,68 @@
 {
   "version": 6,
-  "cmakeMinimumRequired": { "major": 3, "minor": 23 },
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 23
+  },
   "configurePresets": [
     {
       "name": "vs2022-x64-base",
       "displayName": "VS 2022 x64 (base)",
       "generator": "Visual Studio 17 2022",
-      "architecture": { "value": "x64" }
+      "architecture": { "value": "x64" },
+      "binaryDir": "${sourceDir}/build/vs2022-x64",
+      "hidden": true
     },
     {
       "name": "tbx-vs",
-      "displayName": "Toybox-VS2022",
-      "inherits": "vs2022-x64-base"
-    },
-    {
-      "name": "tbx-vs-clean",
-      "displayName": "Toybox-Clean",
-      "inherits": "vs2022-x64-base"
+      "displayName": "Toybox (VS2022)",
+      "inherits": "vs2022-x64-base",
+      "cacheVariables": {
+        "CMAKE_CONFIGURATION_TYPES": "Debug;ReleaseAssert;Release"
+      }
     }
   ],
   "buildPresets": [
-    { "name": "tbx-vs", "configurePreset": "tbx-vs" },
     {
-      "name": "tbx-vs-clean",
-      "displayName": "Clean (VS/MSBuild)",
-      "configurePreset": "tbx-vs-clean",
-      "nativeToolOptions": [ "/t:Clean" ]
+      "name": "tbx-vs-debug",
+      "displayName": "Debug",
+      "configurePreset": "tbx-vs",
+      "configuration": "Debug"
+    },
+    {
+      "name": "tbx-vs-assert",
+      "displayName": "ReleaseAssert",
+      "configurePreset": "tbx-vs",
+      "configuration": "ReleaseAssert"
+    },
+    {
+      "name": "tbx-vs-release",
+      "displayName": "Release",
+      "configurePreset": "tbx-vs",
+      "configuration": "Release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "tbx-test-debug",
+      "displayName": "CTest (Debug)",
+      "configurePreset": "tbx-vs",
+      "configuration": "Debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "tbx-test-assert",
+      "displayName": "CTest (ReleaseAssert)",
+      "configurePreset": "tbx-vs",
+      "configuration": "ReleaseAssert",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "tbx-test-release",
+      "displayName": "CTest (Release)",
+      "configurePreset": "tbx-vs",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
     }
   ]
 }

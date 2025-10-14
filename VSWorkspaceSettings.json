@@ -1,0 +1,5 @@
+{
+  "CMakeTargetsViewExcludedItems": [
+    "CMakeFolder:Dependencies"
+  ]
+}
