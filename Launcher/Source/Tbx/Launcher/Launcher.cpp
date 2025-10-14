@@ -8,6 +8,30 @@
 
 namespace Tbx::Launcher
 {
+    static App CreateApp(const AppConfig& config)
+    {
+        // Load plugins
+        Queryable<Ref<Plugin>> plugins;
+        {
+            auto pluginMetas = PluginFinder(FileSystem::GetPluginDirectory(), config.Plugins).Result();
+            plugins = PluginLoader(pluginMetas, EventBus::Global).Results();
+        }
+
+        // Init logger
+        Ref<ILogger> loggerPlugin = nullptr;
+        {
+            auto loggerPlugins = plugins.OfType<ILogger>();
+            if (!loggerPlugins.Empty())
+            {
+                loggerPlugin = loggerPlugins.First();
+                Log::SetLogger(loggerPlugin);
+            }
+        }
+
+        // Create and run the app, this will block until the app closes
+        return App(config.Name, config.Settings, plugins, EventBus::Global);
+    }
+
     AppStatus Launch(const AppConfig& config)
     {
         auto status = AppStatus::None;
@@ -20,26 +44,8 @@ namespace Tbx::Launcher
         {
             // Create and run the app
             {
-                // Load plugins
-                Queryable<Ref<Plugin>> plugins;
-                {
-                    auto pluginMetas = PluginFinder(FileSystem::GetPluginDirectory(), config.Plugins).Result();
-                    plugins = PluginLoader(pluginMetas, EventBus::Global).Results();
-                }
-
-                // Init logger
-                Ref<ILogger> loggerPlugin = nullptr;
-                {
-                    auto loggerPlugins = plugins.OfType<ILogger>();
-                    if (!loggerPlugins.Empty())
-                    {
-                        loggerPlugin = loggerPlugins.First();
-                        Log::SetLogger(loggerPlugin);
-                    }
-                }
-
                 // Create and run the app, this will block until the app closes
-                auto app = App(config.Name, config.Settings, plugins, EventBus::Global);
+                auto app = CreateApp(config);
                 app.Run();
 
                 // After we've closed check if the app is asking for a reload
@@ -50,7 +56,7 @@ namespace Tbx::Launcher
                     status != AppStatus::Closed;
             }
 
-            // Last thing we do is close the log
+            // Close log after app has closed and been disposed
             Log::ClearLogger();
         }
 

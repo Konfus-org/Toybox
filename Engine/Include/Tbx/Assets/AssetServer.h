@@ -188,7 +188,7 @@ namespace Tbx
             {
                 auto loadedData = loader->Load(record->FilePath);
                 auto sharedData = Ref<TData>(
-                    new TData(std::move(loadedData)),
+                    new TData(loadedData),
                     [&record](TData* data)
                     {
                         // Mark asset as unloaded when our pointer is deleted!

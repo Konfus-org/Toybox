@@ -229,6 +229,50 @@ namespace Tbx
         Log::Flush();
     }
 
+    void App::Shutdown()
+    {
+        TBX_TRACE_INFO("App: Shutting down...");
+
+        auto hadError = Status == AppStatus::Error;
+        auto isRestarting = Status == AppStatus::Reloading;
+        Status = AppStatus::Closing;
+
+        // Cleanup
+        Windowing.CloseAllWindows();
+        Input::ClearHandler();
+        Runtimes = {};
+        Plugins = {};
+
+        // Allow other systems to hook into shutdown
+        OnShutdown();
+        _carrier.Post(AppClosedEvent(this));
+        Bus->Flush();
+
+        if (isRestarting)
+        {
+            Status = AppStatus::Reloading;
+        }
+        else if (hadError)
+        {
+            Status = AppStatus::Error;
+        }
+        else
+        {
+            Status = AppStatus::Closed;
+        }
+    }
+
+    void App::OnWindowClosed(const WindowClosedEvent& e)
+    {
+        // If the window is our main window, set running flag to false which will trigger the app to close
+        const auto window = e.GetWindow();
+        if (window->Id == Windowing.GetMainWindow()->Id)
+        {
+            // Stop running and close all windows
+            Status = AppStatus::Closing;
+        }
+    }
+    
     void App::DumpFrameReport() const
     {
         const DeltaTime frameDelta = Clock.GetDeltaTime();
@@ -351,45 +395,4 @@ namespace Tbx
             vsyncToString(Settings.Vsync));
     }
 
-    void App::Shutdown()
-    {
-        TBX_TRACE_INFO("App: Shutting down...");
-
-        auto hadError = Status == AppStatus::Error;
-        auto isRestarting = Status == AppStatus::Reloading;
-        Status = AppStatus::Closing;
-
-        // Stop listening to input
-        Windowing.CloseAllWindows();
-        Input::ClearHandler();
-
-        // Allow other systems to hook into shutdown
-        OnShutdown();
-        _carrier.Post(AppClosedEvent(this));
-        Bus->Flush();
-
-        if (isRestarting)
-        {
-            Status = AppStatus::Reloading;
-        }
-        else if (hadError)
-        {
-            Status = AppStatus::Error;
-        }
-        else
-        {
-            Status = AppStatus::Closed;
-        }
-    }
-
-    void App::OnWindowClosed(const WindowClosedEvent& e)
-    {
-        // If the window is our main window, set running flag to false which will trigger the app to close
-        const auto window = e.GetWindow();
-        if (window->Id == Windowing.GetMainWindow()->Id)
-        {
-            // Stop running and close all windows
-            Status = AppStatus::Closing;
-        }
-    }
 }
