@@ -5,7 +5,6 @@
 #include "Tbx/Debug/Asserts.h"
 #include "Tbx/Debug/Tracers.h"
 #include "Tbx/Memory/Refs.h"
-#include <string>
 #include <type_traits>
 
 namespace Tbx
@@ -16,11 +15,6 @@ namespace Tbx
         EventCarrier() = default;
         EventCarrier(Ref<EventBus> bus);
         ~EventCarrier() = default;
-
-        EventCarrier(const EventCarrier&) = default;
-        EventCarrier& operator=(const EventCarrier&) = default;
-        EventCarrier(EventCarrier&&) noexcept = default;
-        EventCarrier& operator=(EventCarrier&&) noexcept = default;
 
         /// <summary>
         /// Immediately broadcasts an event to the registered listeners.

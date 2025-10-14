@@ -31,7 +31,7 @@ namespace Tbx
         }
 
         template <typename TPredicate>
-        std::vector<TItem&> Where(TPredicate predicate) const
+        Queryable<TItem&> Where(TPredicate predicate) const
         {
             std::vector<TItem> result = {};
             const auto& items = this->All();
@@ -48,6 +48,17 @@ namespace Tbx
             return result;
         }
 
+        const TItem& First() const
+        {
+            const auto& items = this->All();
+            if (items.size() != 0)
+            {
+                return items.front();
+            }
+
+            return _default;
+        }
+
         template <typename TPredicate>
         const TItem& First(TPredicate predicate) const
         {
@@ -58,7 +69,7 @@ namespace Tbx
                 return *it;
             }
 
-            return {};
+            return _default;
         }
 
         template <typename TDerived>
@@ -76,7 +87,7 @@ namespace Tbx
                         result.push_back(q);
                     }
                 }
-                return result;
+                return Queryable<TDerived*>(result);
             }
             else if constexpr (IsExclusiveRef<TItem>::value)
             {
@@ -88,7 +99,7 @@ namespace Tbx
                         result.push_back(casted);
                     }
                 }
-                return result;
+                return Queryable<TDerived*>(result);
             }
             else if constexpr (IsWeakRef<TItem>::value)
             {
@@ -100,7 +111,7 @@ namespace Tbx
                         result.push_back(WeakRef<TDerived>(casted));
                     }
                 }
-                return result;
+                return Queryable<WeakRef<TDerived>>(result);
             }
             else if constexpr (IsRef<TItem>::value)
             {
@@ -112,12 +123,15 @@ namespace Tbx
                         result.push_back(casted);
                     }
                 }
-                return result;
+                return Queryable<Ref<TDerived>>(result);
             }
             else
             {
                 static_assert(!sizeof(TItem), "Queryable::OfType requires pointer, Ref, WeakRef, or ExclusiveRef items");
             }
         }
+
+        private:
+            TItem _default = {};
     };
 }

@@ -55,7 +55,7 @@ namespace Tbx
     class TBX_EXPORT AssetServer
     {
     public:
-        AssetServer();
+        AssetServer() = default;
         AssetServer(
             const std::string& assetsFolderPath,
             const std::vector<Ref<IAssetLoader>>& loaders);

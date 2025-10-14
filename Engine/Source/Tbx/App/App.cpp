@@ -20,6 +20,24 @@
 
 namespace Tbx
 {
+    static Tbx::AudioManager CreateAudioManager(
+        const Tbx::Queryable<Tbx::Ref<Tbx::Plugin>>& plugins,
+        const Tbx::Ref<Tbx::EventBus>& eventBus)
+    {
+        if (!eventBus)
+        {
+            return {};
+        }
+
+        auto audioMixers = plugins.OfType<Tbx::IAudioMixer>();
+        if (audioMixers.Empty())
+        {
+            return {};
+        }
+
+        return Tbx::AudioManager(audioMixers.First(), eventBus);
+    }
+
     App::App(
         const std::string_view& name,
         const AppSettings& settings,
@@ -28,32 +46,22 @@ namespace Tbx
         : Bus(eventBus)
         , Plugins(plugins)
         , Settings(settings)
+        , Windowing(Plugins.OfType<IWindowFactory>().First(), Bus)
         , Graphics(
             Settings.RenderingApi,
-            Plugins.OfType<IGraphicsBackend>(),
-            Plugins.OfType<IGraphicsContextProvider>(),
+            Plugins.OfType<IGraphicsBackend>().Items(),
+            Plugins.OfType<IGraphicsContextProvider>().Items(),
             Bus)
-        , Assets(FileSystem::GetAssetDirectory(), Plugins.OfType<IAssetLoader>())
+        , Audio(Plugins.OfType<IAudioMixer>().First(), Bus)
+        , Assets(FileSystem::GetAssetDirectory(), Plugins.OfType<IAssetLoader>().Items())
         , _name(name)
         , _carrier(Bus)
         , _listener(Bus)
     {
         TBX_ASSERT(Bus, "App: Requires a valid event bus instance.");
 
-        auto audioMixerPlugs = Plugins.OfType<IAudioMixer>();
-        if (audioMixerPlugs.size() > 0)
-        {
-            Audio = AudioManager(audioMixerPlugs.front(), Bus);
-        }
-
-        auto windowingPlugs = Plugins.OfType<IWindowFactory>();
-        if (windowingPlugs.size() > 0)
-        {
-            Windowing = WindowManager(windowingPlugs.front(), Bus);
-        }
-
         auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
-        Input::SetHandler(inputHandlerPlugs.front());
+        Input::SetHandler(inputHandlerPlugs.First());
     }
 
     App::~App()
@@ -143,7 +151,7 @@ namespace Tbx
             Clock.Tick();
             const auto frameDelta = Clock.GetDeltaTime();
             _frameCount++;
-            Input::Poll();
+            Input::Update();
 
             // 2. Fixed update
             constexpr float fixedUpdateInterval = 1.0f / 50.0f;
@@ -175,7 +183,7 @@ namespace Tbx
             OnLateUpdate(frameDelta);
 
             // 5. Graphics
-            Graphics.Render();
+            Graphics.Update();
 
             // 6. windows
             Windowing.Update();

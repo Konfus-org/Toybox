@@ -4,10 +4,10 @@
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Ids/Uid.h"
 #include "Tbx/Memory/Refs.h"
+#include "Tbx/Memory/Hashing.h"
 #include <mutex>
 #include <type_traits>
 #include <unordered_set>
-#include "Tbx/Memory/Hashing.h"
 
 namespace Tbx
 {
@@ -23,10 +23,6 @@ namespace Tbx
     public:
         EventListener() = default;
         EventListener(Ref<EventBus> bus);
-        EventListener(const EventListener& other) = delete;
-        EventListener& operator=(const EventListener& other) = delete;
-        EventListener(EventListener&& other) noexcept;
-        EventListener& operator=(EventListener&& other) noexcept;
         ~EventListener();
 
         /// <summary>

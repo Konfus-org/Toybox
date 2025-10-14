@@ -50,7 +50,7 @@ namespace Tbx
         });
     }
 
-    void GraphicsManager::Render()
+    void GraphicsManager::Update()
     {
         auto* renderer = GetRenderer(_activeGraphicsApi);
         if (!renderer)

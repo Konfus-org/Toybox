@@ -9,21 +9,6 @@ namespace Tbx
         Bind(bus);
     }
 
-    EventListener::EventListener(EventListener&& other) noexcept
-    {
-        Transfer(other, *this);
-    }
-
-    EventListener& EventListener::operator=(EventListener&& other) noexcept
-    {
-        if (this != &other)
-        {
-            ReleaseSubscriptions();
-            Transfer(other, *this);
-        }
-        return *this;
-    }
-
     EventListener::~EventListener()
     {
         Unbind();

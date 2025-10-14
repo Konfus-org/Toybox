@@ -1,6 +1,6 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Windowing/WindowManager.h"
-#include "Tbx/Debug/Tracers.h"
+#include "Tbx/Debug/Asserts.h"
 
 namespace Tbx
 {
@@ -9,9 +9,8 @@ namespace Tbx
         Ref<EventBus> eventBus)
     {
         _windowFactory = windowFactory;
-        TBX_ASSERT(_windowFactory, "Window manager given invalid window factory!");
         _eventBus = eventBus;
-        TBX_ASSERT(_eventBus, "Window manager given invalid event bus!");
+        TBX_ASSERT(_eventBus, "Window Manager: given invalid event bus!");
     }
 
     WindowManager::~WindowManager()
@@ -44,8 +43,14 @@ namespace Tbx
 
     Uid WindowManager::OpenWindow(const std::string& name, const WindowMode& mode, const Size& size)
     {
+        if (_windowFactory == nullptr)
+        {
+            TBX_ASSERT(false, "Window Manager:  factory not set!");
+            return Uid::Invalid;
+        }
+
         Ref<Window> window = _windowFactory->Create(name, size, mode, _eventBus);
-        TBX_ASSERT(window, "Failed to create window!");
+        TBX_ASSERT(window, "Window Manager: failed to create window!");
         if (_mainWindowId == Uid::Invalid)
         {
             _mainWindowId = window->Id;

@@ -36,16 +36,15 @@ namespace Tbx
             return _items.size();
         }
 
-        std::vector<TItem>& All()
-        {
-            return _items;
-        }
-
         const std::vector<TItem>& All() const
         {
             return _items;
         }
 
+        const std::vector<TItem>& Items() const
+        {
+            return _items;
+        }
 
         const TItem& First() const
         {
@@ -128,11 +127,6 @@ namespace Tbx
 
     protected:
         std::vector<TItem>& MutableItems()
-        {
-            return _items;
-        }
-
-        const std::vector<TItem>& Items() const
         {
             return _items;
         }

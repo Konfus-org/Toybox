@@ -26,7 +26,7 @@ namespace Tbx
         /// <summary>
         /// Polls input for latest state
         /// </summary>
-        static void Poll();
+        static void Update();
 
         /// <summary>
         /// Returns whether a gamepad button was pressed during the current frame.

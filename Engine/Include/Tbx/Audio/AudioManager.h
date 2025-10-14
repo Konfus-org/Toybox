@@ -28,7 +28,6 @@ namespace Tbx
     private:
         Ref<IAudioMixer> _mixer = nullptr;
         EventListener _eventListener = {};
-        Ref<EventBus> _eventBus = nullptr;
         std::vector<const Stage*> _openStages = {};
     };
 }

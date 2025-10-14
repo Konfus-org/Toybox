@@ -13,13 +13,7 @@ namespace Tbx
     AudioManager::AudioManager(Ref<IAudioMixer> mixer, Ref<EventBus> eventBus)
         : _mixer(std::move(mixer))
         , _eventListener(eventBus)
-        , _eventBus(std::move(eventBus))
     {
-        if (!_eventBus)
-        {
-            return;
-        }
-
         _eventListener.Listen<StageOpenedEvent>([this](const StageOpenedEvent& e) { OnStageOpened(e); });
         _eventListener.Listen<StageClosedEvent>([this](const StageClosedEvent& e) { OnStageClosed(e); });
     }

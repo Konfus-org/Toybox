@@ -13,12 +13,10 @@
 
 Demo::Demo(Tbx::Ref<Tbx::EventBus> eventBus)
 {
-    TBX_TRACE_INFO("Demo: loaded!\n");
 }
 
 Demo::~Demo()
 {
-    TBX_TRACE_INFO("Demo: unloaded!\n");
 }
 
 void Demo::OnStart(Tbx::App* owner)

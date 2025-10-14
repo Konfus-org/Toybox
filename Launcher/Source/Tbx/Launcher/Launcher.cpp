@@ -31,10 +31,9 @@ namespace Tbx::Launcher
                 Ref<ILogger> loggerPlugin = nullptr;
                 {
                     auto loggerPlugins = plugins.OfType<ILogger>();
-                    if (!loggerPlugins.empty())
+                    if (!loggerPlugins.Empty())
                     {
-                        TBX_ASSERT(loggerPlugins.size() == 1, "Launcher: Only one logger plugin is allowed!");
-                        loggerPlugin = loggerPlugins.front();
+                        loggerPlugin = loggerPlugins.First();
                         Log::SetLogger(loggerPlugin);
                     }
                 }

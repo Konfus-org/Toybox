@@ -1,7 +1,6 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Files/Paths.h"
-#include <system_error>
 
 namespace Tbx
 {
