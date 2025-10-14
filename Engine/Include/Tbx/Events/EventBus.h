@@ -3,13 +3,13 @@
 #include "Tbx/Events/Event.h"
 #include "Tbx/Ids/Uid.h"
 #include "Tbx/Math/Int.h"
-#include "Tbx/Memory/Hashing.h"
 #include "Tbx/Memory/Refs.h"
 #include <atomic>
 #include <functional>
 #include <queue>
 #include <unordered_map>
 #include <vector>
+#include <mutex>
 
 namespace Tbx
 {
@@ -64,10 +64,7 @@ namespace Tbx
     class TBX_EXPORT EventBus
     {
     public:
-        using SubscriptionMap = std::unordered_map<EventHash, std::unordered_map<Uid, EventCallback>>;
-
         EventBus(Ref<EventBus> parent = {});
-
         ~EventBus();
 
         EventBus(const EventBus&) = delete;
@@ -103,30 +100,32 @@ namespace Tbx
         /// <summary>
         /// Returns the number of pending events waiting to be flushed.
         /// </summary>
-        size_t PendingEventCount() const;
+        uint32 PendingEventCount() const;
 
+    public:
         /// <summary>
         /// Retrieves the shared global event bus instance.
         /// </summary>
         static Ref<EventBus> Global;
 
     private:
+        static Ref<EventBus> CreateGlobal();
         void CollectCallbacks(EventHash eventKey, std::unordered_map<Uid, EventCallback>& callbacks) const;
         void CollectCallbacksLocked(EventHash eventKey, std::unordered_map<Uid, EventCallback>& callbacks) const;
-        static Ref<EventBus> CreateGlobal();
         void AttachToParent(EventBus* parent);
         void DetachFromParent();
         void DetachChildren(EventBus* adoptiveParent);
         void RegisterDecorator(const EventBus* decorator) const;
         void UnregisterDecorator(const EventBus* decorator) const;
 
+    private:
+        static bool _creatingGlobal;
         const EventBus* _parent = nullptr;
         mutable std::vector<const EventBus*> _decorators = {};
-        SubscriptionMap _subscriptions = {};
+        std::unordered_map<EventHash, std::unordered_map<Uid, EventCallback>> _subscriptions = {};
         std::unordered_map<Uid, EventHash> _subscriptionIndex = {};
         std::queue<ExclusiveRef<Event>> _eventQueue = {};
-
-        static bool _creatingGlobal;
+        mutable std::mutex _mutex;
     };
 }
 

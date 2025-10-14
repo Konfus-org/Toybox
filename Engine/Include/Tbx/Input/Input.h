@@ -24,9 +24,9 @@ namespace Tbx
         static void ClearHandler();
 
         /// <summary>
-        /// Polls the currently configured input handler for fresh state.
+        /// Polls input for latest state
         /// </summary>
-        static void Update();
+        static void Poll();
 
         /// <summary>
         /// Returns whether a gamepad button was pressed during the current frame.

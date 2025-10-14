@@ -1,10 +1,9 @@
 #pragma once
 #include "Tbx/Events/EventBus.h"
-#include "Tbx/Collections/Collection.h"
+#include "Tbx/Collections/Queryable.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Plugins/Plugin.h"
 #include "Tbx/Memory/Refs.h"
-#include <string>
 #include <vector>
 
 namespace Tbx
@@ -22,7 +21,7 @@ namespace Tbx
         /// <summary>
         /// Produces the loaded plugin collection, transferring ownership to the caller.
         /// </summary>
-        Collection<Ref<Plugin>> Results();
+        Queryable<Ref<Plugin>> Results();
 
     private:
         void LoadPlugins(const std::vector<PluginMeta>& pluginMetas);

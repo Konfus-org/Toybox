@@ -55,11 +55,11 @@ namespace Tbx
             TBX_ASSERT(bus, "EventListener: Cannot listen without a bound event bus.");
 
             EventCallback callback = [fn = std::forward<TCallable>(callable)](Event& event)
-                {
-                    std::invoke(fn, static_cast<TEvent&>(event));
-                };
+            {
+                std::invoke(fn, static_cast<TEvent&>(event));
+            };
 
-            const auto eventKey = Memory::Hash<std::decay_t<TEvent>>();
+            const auto eventKey = Hash<std::decay_t<TEvent>>();
             const auto token = bus->AddSubscription(eventKey, std::move(callback));
             TrackToken(token);
             return token;
@@ -74,9 +74,9 @@ namespace Tbx
         {
             TBX_ASSERT(callback != nullptr, "EventListener: Cannot subscribe a null callback.");
             const auto token = Listen<TEvent>([callback](TEvent& event)
-                {
-                    callback(event);
-                });
+            {
+                callback(event);
+            });
             return token;
         }
 

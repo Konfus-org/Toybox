@@ -18,16 +18,13 @@ namespace Tbx::Launcher
         // Then when you want to reload rebuild and press F2 in the app window (only available in non-release builds)
         while (running)
         {
-            // Setup event bus
-            auto eventBus = MakeRef<EventBus>();
-
             // Create and run the app
             {
                 // Load plugins
-                Collection<Ref<Plugin>> plugins;
+                Queryable<Ref<Plugin>> plugins;
                 {
                     auto pluginMetas = PluginFinder(FileSystem::GetPluginDirectory(), config.Plugins).Result();
-                    plugins = PluginLoader(pluginMetas, eventBus).Results();
+                    plugins = PluginLoader(pluginMetas, EventBus::Global).Results();
                 }
 
                 // Init logger
@@ -43,7 +40,7 @@ namespace Tbx::Launcher
                 }
 
                 // Create and run the app, this will block until the app closes
-                auto app = App(config.Name, config.Settings, plugins, eventBus);
+                auto app = App(config.Name, config.Settings, plugins, EventBus::Global);
                 app.Run();
 
                 // After we've closed check if the app is asking for a reload

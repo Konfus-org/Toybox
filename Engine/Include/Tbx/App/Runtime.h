@@ -1,34 +1,25 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Plugins/Plugin.h"
-#include "Tbx/Assets/AssetServer.h"
-#include "Tbx/Events/EventBus.h"
-#include "Tbx/Events/EventCarrier.h"
-#include "Tbx/Events/EventListener.h"
 #include "Tbx/Collections/LayerStack.h"
 #include "Tbx/Time/DeltaTime.h"
+#include "Tbx/App/App.h"
 
 namespace Tbx
 {
     /// <summary>
     /// A way to add logic that hooks into an apps lifetime.
+    /// An example use case is game specific logic.
     /// </summary>
     class IRuntime
     {
     public:
         virtual ~IRuntime() {}
 
-        void Initialize(Ref<AssetServer> assetServer, Ref<EventBus> eventBus);
-        void FixedUpdate(const DeltaTime& deltaTime);
-        void Update(const DeltaTime& deltaTime);
-        void LateUpdate(const DeltaTime& deltaTime);
-        void Shutdown();
-
-    protected:
         /// <summary>
         /// Called when the owning app is started.
         /// </summary>
-        virtual void OnStart() {}
+        virtual void OnStart(App* owningApp) {}
 
         /// <summary>
         /// Called before the main update loop. Intended for fixed timestep logic.
@@ -54,10 +45,7 @@ namespace Tbx
         virtual void OnShutdown() {}
 
     protected:
-        Ref<AssetServer> Assets = nullptr;
-        EventCarrier Carrier = {};
         LayerStack Layers = {};
-        EventListener Listener = {};
     };
 
     class TBX_EXPORT StaticRuntime : public StaticPlugin, public IRuntime

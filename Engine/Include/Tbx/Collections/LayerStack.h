@@ -2,7 +2,7 @@
 #include "Tbx/DllExport.h"
 #include "Tbx/Ids/Uid.h"
 #include "Tbx/Memory/Refs.h"
-#include "Tbx/Collections/Queryable.h"
+#include "Tbx/Collections/Collection.h"
 
 namespace Tbx
 {
@@ -38,7 +38,7 @@ namespace Tbx
     /// <summary>
     /// Container that stores layers in registration order and assists with lifecycle notifications.
     /// </summary>
-    class TBX_EXPORT LayerStack : public Queryable<Ref<Layer>>
+    class TBX_EXPORT LayerStack : public Collection<Ref<Layer>>
     {
     public:
         ~LayerStack();

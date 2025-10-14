@@ -26,7 +26,7 @@ namespace Tbx
         return static_cast<bool>(_inputHandler);
     }
 
-    void Input::Update()
+    void Input::Poll()
     {
         if (!EnsureHandler())
         {

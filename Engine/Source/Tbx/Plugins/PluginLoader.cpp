@@ -3,9 +3,7 @@
 #include "Tbx/Events/EventCarrier.h"
 #include "Tbx/Events/PluginEvents.h"
 #include "Tbx/Debug/Tracers.h"
-#include "Tbx/Debug/ILogger.h"
 #include "Tbx/Memory/Refs.h"
-#include <algorithm>
 #include <memory>
 #include <unordered_set>
 #include <utility>
@@ -100,9 +98,9 @@ namespace Tbx
         LoadPlugins(pluginMetas);
     }
 
-    Collection<Ref<Plugin>> PluginLoader::Results()
+    Queryable<Ref<Plugin>> PluginLoader::Results()
     {
-        return Collection<Ref<Plugin>>(std::move(_plugins));
+        return Queryable<Ref<Plugin>>(_plugins);
     }
 
     void PluginLoader::LoadPlugins(const std::vector<PluginMeta>& pluginMetas)

@@ -20,7 +20,7 @@ namespace Tbx
 
     LayerStack::~LayerStack()
     {
-        this->RemoveAll([](const Ref<Layer>& layer)
+        RemoveAll([](const Ref<Layer>& layer)
         {
             if (layer != nullptr)
             {
@@ -32,7 +32,7 @@ namespace Tbx
 
     void LayerStack::Remove(const Uid& layerId)
     {
-        Queryable<Ref<Layer>>::Remove([&layerId](const Ref<Layer>& layer)
+        auto toRemove = First([&layerId](const Ref<Layer>& layer)
         {
             if (layer == nullptr)
             {
@@ -47,5 +47,7 @@ namespace Tbx
             layer->OnDetach();
             return true;
         });
+
+        Collection<Ref<Layer>>::Remove(toRemove);
     }
 }

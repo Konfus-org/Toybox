@@ -3,7 +3,6 @@
 #include <Tbx/Stages/Toy.h>
 #include <Tbx/Stages/Stage.h>
 #include "Tbx/Memory/Refs.h"
-#include <Tbx/Graphics/Material.h>
 #include <Tbx/Math/Vectors.h>
 
 class Demo final : public Tbx::Runtime
@@ -12,7 +11,7 @@ public:
     Demo(Tbx::Ref<Tbx::EventBus> eventBus);
     ~Demo();
 
-    void OnStart() override;
+    void OnStart(Tbx::App* owner) override;
     void OnShutdown() override;
     void OnUpdate(const Tbx::DeltaTime& deltaTime) override;
 

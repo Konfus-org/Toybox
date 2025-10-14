@@ -47,37 +47,21 @@ namespace Tbx
     void AudioManager::OnStageOpened(const StageOpenedEvent& e)
     {
         auto stage = e.GetStage();
-        if (!stage)
+        auto it = std::find(_openStages.begin(), _openStages.end(), stage);
+        if (it == _openStages.end())
         {
-            return;
+            _openStages.push_back(stage);
         }
-
-        auto exists = std::find_if(_openStages.begin(), _openStages.end(),
-            [&stage](const Stage* candidate)
-            {
-                return candidate == stage;
-            });
-        if (exists != _openStages.end())
-        {
-            return;
-        }
-
-        _openStages.push_back(stage);
     }
 
     void AudioManager::OnStageClosed(const StageClosedEvent& e)
     {
         auto stage = e.GetStage();
-        if (!stage)
+        auto it = std::find(_openStages.begin(), _openStages.end(), stage);
+        if (it != _openStages.end())
         {
-            return;
+            _openStages.erase(it);
         }
-
-        _openStages.erase(std::remove_if(_openStages.begin(), _openStages.end(),
-            [&stage](const Stage* candidate)
-            {
-                return candidate == stage;
-            }), _openStages.end());
     }
 
     void AudioManager::ProcessStage(const Stage* stage)

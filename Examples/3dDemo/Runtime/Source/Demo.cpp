@@ -8,7 +8,6 @@
 #include <Tbx/Math/Transform.h>
 #include <Tbx/Math/Trig.h>
 #include <Tbx/Time/DeltaTime.h>
-#include <Tbx/Events/StageEvents.h>
 #include <algorithm>
 #include <cmath>
 
@@ -22,17 +21,18 @@ Demo::~Demo()
     TBX_TRACE_INFO("Demo: unloaded!\n");
 }
 
-void Demo::OnStart()
+void Demo::OnStart(Tbx::App* owner)
 {
     TBX_TRACE_INFO("Demo: started!\n");
 
     // Load assets
-    auto music = Assets->Get<Tbx::Audio>("Music.wav");
-    auto wallTex = Assets->Get<Tbx::Texture>("Wall.jpg");
-    auto floorTex = Assets->Get<Tbx::Texture>("Checkerboard.png");
-    auto smilyTex = Assets->Get<Tbx::Texture>("Smily.png");
-    auto fragmentShader = Assets->Get<Tbx::Shader>("Fragment.frag");
-    auto vertexShader = Assets->Get<Tbx::Shader>("Vertex.vert");
+    const auto& assets = owner->Assets;
+    auto music = assets.Get<Tbx::Audio>("Music.wav");
+    auto wallTex = assets.Get<Tbx::Texture>("Wall.jpg");
+    auto floorTex = assets.Get<Tbx::Texture>("Checkerboard.png");
+    auto smilyTex = assets.Get<Tbx::Texture>("Smily.png");
+    auto fragmentShader = assets.Get<Tbx::Shader>("Fragment.frag");
+    auto vertexShader = assets.Get<Tbx::Shader>("Vertex.vert");
     auto matShaders = { vertexShader, fragmentShader };
 
     // Setup testing scene:
@@ -120,8 +120,6 @@ void Demo::OnStart()
             fpsCam->Add<Tbx::Transform>();
             _fpsCam = fpsCam;
         }
-
-        Carrier.Post(Tbx::StageOpenedEvent(_stage.get()));
     }
 }
 

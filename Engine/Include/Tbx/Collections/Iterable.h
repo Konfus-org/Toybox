@@ -66,56 +66,6 @@ namespace Tbx
             return ordered;
         }
 
-        void Clear()
-        {
-            _items.clear();
-        }
-
-        bool Remove(const TItem& item)
-        {
-            const auto it = std::find(_items.begin(), _items.end(), item);
-            if (it == _items.end())
-            {
-                return false;
-            }
-
-            _items.erase(it);
-            return true;
-        }
-
-        template <typename TPredicate>
-        bool Remove(TPredicate predicate)
-        {
-            const auto it = std::find_if(_items.begin(), _items.end(), predicate);
-            if (it == _items.end())
-            {
-                return false;
-            }
-
-            _items.erase(it);
-            return true;
-        }
-
-        template <typename TPredicate>
-        uint64 RemoveAll(TPredicate predicate)
-        {
-            uint64 removed = 0;
-            auto it = _items.begin();
-            while (it != _items.end())
-            {
-                if (predicate(*it))
-                {
-                    it = _items.erase(it);
-                    ++removed;
-                    continue;
-                }
-
-                ++it;
-            }
-
-            return removed;
-        }
-
         iterator begin()
         {
             return _items.begin();

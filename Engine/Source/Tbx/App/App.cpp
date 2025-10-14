@@ -4,7 +4,6 @@
 #include "Tbx/Graphics/GraphicsBackend.h"
 #include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Audio/AudioMixer.h"
-#include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Input/Input.h"
 #include "Tbx/Input/InputCodes.h"
@@ -24,23 +23,34 @@ namespace Tbx
     App::App(
         const std::string_view& name,
         const AppSettings& settings,
-        const Collection<Ref<Plugin>>& plugins,
+        const Queryable<Ref<Plugin>>& plugins,
         Ref<EventBus> eventBus)
         : Bus(eventBus)
         , Plugins(plugins)
         , Settings(settings)
-        , Windowing(Plugins.OfType<IWindowFactory>().front(), Bus)
         , Graphics(
             Settings.RenderingApi,
             Plugins.OfType<IGraphicsBackend>(),
             Plugins.OfType<IGraphicsContextProvider>(),
             Bus)
-        , Audio(plugins.OfType<IAudioMixer>().front(), Bus)
+        , Assets(FileSystem::GetAssetDirectory(), Plugins.OfType<IAssetLoader>())
         , _name(name)
         , _carrier(Bus)
         , _listener(Bus)
     {
         TBX_ASSERT(Bus, "App: Requires a valid event bus instance.");
+
+        auto audioMixerPlugs = Plugins.OfType<IAudioMixer>();
+        if (audioMixerPlugs.size() > 0)
+        {
+            Audio = AudioManager(audioMixerPlugs.front(), Bus);
+        }
+
+        auto windowingPlugs = Plugins.OfType<IWindowFactory>();
+        if (windowingPlugs.size() > 0)
+        {
+            Windowing = WindowManager(windowingPlugs.front(), Bus);
+        }
 
         auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
         Input::SetHandler(inputHandlerPlugs.front());
@@ -94,29 +104,24 @@ namespace Tbx
         Clock.Reset();
         _frameCount = 0;
 
-        auto workingDirectory = FileSystem::GetWorkingDirectory();
-        TBX_TRACE_INFO("App: Current working directory is: {}", workingDirectory);
-        auto assetDirectory = FileSystem::GetAssetDirectory();
-        TBX_TRACE_INFO("App: Current asset directory is: {}\n", assetDirectory);
-
         // 1. Sub to window closing so we can listen for main window closed to init app shutdown
         _listener.Listen<WindowClosedEvent>([this](WindowClosedEvent& event)
-            {
-                OnWindowClosed(event);
-            });
+        {
+            OnWindowClosed(event);
+        });
 
         // 2. Allow other systems to hook into launch
         OnLaunch();
 
         // 3. Init runtimes
-        auto assetLoaderPlugs = Plugins.OfType<IAssetLoader>();
-        auto assetServer = MakeRef<AssetServer>(assetDirectory, assetLoaderPlugs);
-        auto runtimes = Plugins.OfType<Runtime>();
-        for (const auto& runtime : runtimes)
+        auto runtimePlugs = Plugins.OfType<Runtime>();
+        auto runtimes = std::vector<Ref<Runtime>>();
+        for (const auto& runtime : runtimePlugs)
         {
-            runtime->Initialize(assetServer, Bus);
-            Runtimes.Add(runtime);
+            runtime->OnStart(this);
+            runtimes.push_back(runtime);
         }
+        Runtimes = runtimes;
 
         // 4. Broadcast app launched events
         _carrier.Send(AppSettingsChangedEvent(Settings));
@@ -138,7 +143,7 @@ namespace Tbx
             Clock.Tick();
             const auto frameDelta = Clock.GetDeltaTime();
             _frameCount++;
-            Input::Update();
+            Input::Poll();
 
             // 2. Fixed update
             constexpr float fixedUpdateInterval = 1.0f / 50.0f;
@@ -148,7 +153,7 @@ namespace Tbx
             {
                 for (const auto& runtime : Runtimes)
                 {
-                    runtime->FixedUpdate(fixedDelta);
+                    runtime->OnFixedUpdate(fixedDelta);
                 }
 
                 OnFixedUpdate(fixedDelta);
@@ -158,18 +163,18 @@ namespace Tbx
             // 3. Update
             for (const auto& runtime : Runtimes)
             {
-                runtime->Update(frameDelta);
+                runtime->OnUpdate(frameDelta);
             }
             OnUpdate(frameDelta);
 
             // 4. Late update
             for (const auto& runtime : Runtimes)
             {
-                runtime->LateUpdate(frameDelta);
+                runtime->OnLateUpdate(frameDelta);
             }
             OnLateUpdate(frameDelta);
 
-            // 5. Render
+            // 5. Graphics
             Graphics.Render();
 
             // 6. windows

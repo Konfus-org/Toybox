@@ -1,6 +1,6 @@
 #pragma once
 #include "Tbx/App/Settings.h"
-#include "Tbx/App/Runtime.h"
+#include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Events/EventCarrier.h"
 #include "Tbx/Events/EventListener.h"
@@ -8,13 +8,16 @@
 #include "Tbx/Windowing/WindowManager.h"
 #include "Tbx/Graphics/GraphicsManager.h"
 #include "Tbx/Audio/AudioManager.h"
-#include "Tbx/Collections/Collection.h"
+#include "Tbx/Plugins/Plugin.h"
+#include "Tbx/Collections/Queryable.h"
 #include "Tbx/Memory/Refs.h"
 #include "Tbx/Time/Chronometer.h"
 #include "Tbx/Time/DeltaTime.h"
 
 namespace Tbx
 {
+    class Runtime;
+
     /// <summary>
     /// High level lifecycle states the application can transition through while running.
     /// </summary>
@@ -29,15 +32,12 @@ namespace Tbx
         Error
     };
 
-    /// <summary>
-    /// Coordinates engine services, manages layers, and drives the lifetime of a Toybox application instance.
-    /// </summary>
     class TBX_EXPORT App
     {
     public:
         App(const std::string_view& name,
             const AppSettings& settings,
-            const Collection<Ref<Plugin>>& plugins,
+            const Queryable<Ref<Plugin>>& plugins,
             Ref<EventBus> eventBus);
         virtual ~App();
 
@@ -53,25 +53,9 @@ namespace Tbx
 
     protected:
         virtual void OnLaunch() {};
-
-        /// <summary>
-        /// Called whenever the fixed update loop advances.
-        /// <param name="deltaTime">The fixed timestep applied during this iteration.</param>
-        /// </summary>
         virtual void OnFixedUpdate(const DeltaTime&) {};
-
-        /// <summary>
-        /// Called during the main update loop.
-        /// <param name="deltaTime">The elapsed time since the previous frame.</param>
-        /// </summary>
         virtual void OnUpdate(const DeltaTime&) {};
-
-        /// <summary>
-        /// Called after the main update loop for late frame work.
-        /// <param name="deltaTime">The elapsed time since the previous frame.</param>
-        /// </summary>
         virtual void OnLateUpdate(const DeltaTime&) {};
-
         virtual void OnShutdown() {};
 
     private:
@@ -82,12 +66,13 @@ namespace Tbx
 
     public:
         Ref<EventBus> Bus = nullptr;
-        Collection<Ref<Plugin>> Plugins = {};
-        Collection<Ref<Runtime>> Runtimes = {};
+        Queryable<Ref<Plugin>> Plugins = {};
+        Queryable<Ref<Runtime>> Runtimes = {};
         AppStatus Status = AppStatus::None;
         AppSettings Settings = {};
         WindowManager Windowing = {};
         GraphicsManager Graphics = {};
+        AssetServer Assets = {};
         AudioManager Audio = {};
         Chronometer Clock = {};
 

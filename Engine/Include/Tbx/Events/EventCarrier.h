@@ -40,7 +40,7 @@ namespace Tbx
                 return event.IsHandled;
             }
 
-            const auto hashCode = Memory::Hash(event);
+            const auto hashCode = Hash(event);
             auto callbacks = _bus->GetCallbacks(hashCode);
             if (callbacks.empty())
             {

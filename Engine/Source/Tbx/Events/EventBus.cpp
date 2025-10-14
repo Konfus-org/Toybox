@@ -1,9 +1,9 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Events/EventBus.h"
-#include "Tbx/Events/EventSync.h"
 #include "Tbx/Debug/Tracers.h"
 #include "Tbx/Debug/IPrintable.h"
 #include <Tbx/Memory/Refs.h>
+#include "Tbx/Memory/Hashing.h"
 #include <unordered_map>
 #include <algorithm>
 #include <vector>
@@ -66,7 +66,7 @@ namespace Tbx
         DetachChildren(adoptiveParent);
         DetachFromParent();
 
-        EventSync sync;
+        std::scoped_lock lock(_mutex);
         while (!_eventQueue.empty())
         {
             _eventQueue.pop();
@@ -79,7 +79,7 @@ namespace Tbx
     {
         std::queue<ExclusiveRef<Event>> localQueue;
         {
-            EventSync sync;
+            std::scoped_lock lock(_mutex);
             localQueue.swap(_eventQueue);
         }
 
@@ -100,7 +100,7 @@ namespace Tbx
                 continue;
             }
 
-            const auto hashCode = Memory::Hash(*event);
+            const auto hashCode = Hash(*event);
             auto callbacks = GetCallbacks(hashCode);
             if (callbacks.empty())
             {
@@ -133,7 +133,7 @@ namespace Tbx
 
         const auto token = Uid::Generate();
         {
-            EventSync sync;
+            std::scoped_lock lock(_mutex);
             auto& callbacks = _subscriptions[eventKey];
             callbacks[token] = std::move(callback);
             _subscriptionIndex[token] = eventKey;
@@ -150,7 +150,7 @@ namespace Tbx
             return;
         }
 
-        EventSync sync;
+        std::scoped_lock lock(_mutex);
 
         auto index = _subscriptionIndex.find(token);
         if (index == _subscriptionIndex.end())
@@ -180,13 +180,13 @@ namespace Tbx
             return;
         }
 
-        EventSync sync;
+        std::scoped_lock lock(_mutex);
         _eventQueue.emplace(std::move(event));
     }
 
-    size_t EventBus::PendingEventCount() const
+    uint32 EventBus::PendingEventCount() const
     {
-        EventSync sync;
+        std::scoped_lock lock(_mutex);
         return _eventQueue.size();
     }
 
@@ -200,7 +200,7 @@ namespace Tbx
 
     void EventBus::CollectCallbacks(EventHash eventKey, std::unordered_map<Uid, EventCallback>& callbacks) const
     {
-        EventSync sync;
+        std::scoped_lock lock(_mutex);
         CollectCallbacksLocked(eventKey, callbacks);
     }
 
@@ -260,9 +260,8 @@ namespace Tbx
     void EventBus::DetachChildren(EventBus* adoptiveParent)
     {
         std::vector<EventBus*> children;
-
         {
-            EventSync sync;
+            std::scoped_lock lock(_mutex);
             auto it = _decorators.begin();
             while (it != _decorators.end())
             {
@@ -302,7 +301,7 @@ namespace Tbx
             return;
         }
 
-        EventSync sync;
+        std::scoped_lock lock(_mutex);
         auto it = _decorators.begin();
         while (it != _decorators.end())
         {
@@ -326,7 +325,7 @@ namespace Tbx
 
     void EventBus::UnregisterDecorator(const EventBus* decorator) const
     {
-        EventSync sync;
+        std::scoped_lock lock(_mutex);
         _decorators.erase(std::remove_if(_decorators.begin(), _decorators.end(), [decorator](const EventBus* existing)
         {
             return existing == nullptr || existing == decorator;

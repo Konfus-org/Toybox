@@ -2,7 +2,7 @@
 #include "Tbx/Math/Int.h"
 #include <typeinfo>
 
-namespace Tbx::Memory
+namespace Tbx
 {
     template <typename TValue>
     inline uint64 Hash();
