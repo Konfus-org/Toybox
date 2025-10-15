@@ -221,23 +221,22 @@ namespace Tbx
             Bus->Flush();
         }
 
+        // Shortcut to kill the app
+        if (Input::IsKeyDown(TBX_KEY_F4) &&
+            (Input::IsKeyDown(TBX_KEY_LEFT_ALT) || Input::IsKeyDown(TBX_KEY_RIGHT_ALT)))
+        {
+            TBX_TRACE_INFO("App: Closing...\n");
+            Status = AppStatus::Closing;
+        }
+
 #ifndef TBX_RELEASE
         // Debugging and development stuff:
         {
-            // Shortcut to kill the app
-            if (Input::IsKeyDown(TBX_KEY_F4) &&
-                (Input::IsKeyDown(TBX_KEY_LEFT_ALT) || Input::IsKeyDown(TBX_KEY_RIGHT_ALT)))
-            {
-                TBX_TRACE_INFO("App: Closing...\n");
-                Status = AppStatus::Closing;
-            }
-            // TODO: App slowly eats up more memory every restart meaning we have a leak in our boat! 
-            // We need to track down why and fix it!
             // Shortcut to restart/reload app
-            else if (Input::IsKeyDown(TBX_KEY_F2))
+            if (Input::IsKeyDown(TBX_KEY_F2))
             {
-                // TODO: App slowly eats up more memory every restart, we need to track down why and fix it!
-                // There is a leak somewhere...
+                // TODO: App slowly eats up more memory every restart meaning we have a leak in our boat!
+                // We need to track down why and fix it!
                 TBX_TRACE_INFO("App: Reloading...\n");
                 Status = AppStatus::Reloading;
             }

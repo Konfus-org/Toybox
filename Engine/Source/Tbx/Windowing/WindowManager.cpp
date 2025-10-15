@@ -1,5 +1,7 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Windowing/WindowManager.h"
+#include "Tbx/Input/Input.h"
+#include "Tbx/Input/InputCodes.h"
 #include "Tbx/Debug/Asserts.h"
 
 namespace Tbx
@@ -20,8 +22,26 @@ namespace Tbx
 
     void WindowManager::Update() const
     {
+        bool toggleFullscreen = false;
+        if (Input::IsKeyDown(TBX_KEY_F11))
+        {
+            toggleFullscreen = true;
+        }
+
         for (const auto& window : _stack)
         {
+            if (toggleFullscreen)
+            {
+                const auto windowIsFullscreen = window->GetMode() == WindowMode::Fullscreen;
+                if (windowIsFullscreen)
+                {
+                    window->SetMode(WindowMode::Windowed);
+                }
+                else
+                {
+                    window->SetMode(WindowMode::Fullscreen);
+                }
+            }
             window->Update();
         }
     }
