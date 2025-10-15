@@ -99,29 +99,53 @@ jobs:
               return;
             }
 
-            const title = `MSVC Code Analysis findings (workflow run ${context.runId})`;
-            const issueSearch = await github.rest.search.issuesAndPullRequests({
-              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue "${title}" in:title state:open`
+            const title = 'MSVC Code Analysis findings';
+            const summaryLines = results.slice(0, 20).map(result => {
+              const message = result.message?.text ?? 'No message provided';
+              const rule = result.ruleId ?? 'Unknown rule';
+              const level = result.level ?? 'warning';
+              return `- (${level}) ${message} [${rule}]`;
             });
-
-            if (issueSearch.data.total_count > 0) {
-              core.info('An open issue already exists for this workflow run.');
-              return;
-            }
 
             const lines = [
               'MSVC Code Analysis detected the following issues:',
               '',
-              ...results.slice(0, 20).map(result => {
-                const message = result.message?.text ?? 'No message provided';
-                const rule = result.ruleId ?? 'Unknown rule';
-                const level = result.level ?? 'warning';
-                return `- (${level}) ${message} [${rule}]`;
-              }),
+              ...summaryLines,
               '',
               `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               'View the attached SARIF artifact for the complete list of findings.'
             ];
+
+            const searchQuery = `repo:${context.repo.owner}/${context.repo.repo} is:issue "${title}" in:title state:open`;
+            const issueSearch = await github.rest.search.issuesAndPullRequests({ q: searchQuery });
+            const existingIssue = issueSearch.data.items?.[0];
+
+            if (existingIssue) {
+              core.info(`Updating existing MSVC Code Analysis issue #${existingIssue.number}.`);
+
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                title,
+                body: lines.join('\n')
+              });
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: [
+                  `Updated with findings from workflow run ${context.runId}:`,
+                  '',
+                  ...summaryLines,
+                  '',
+                  `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+                ].join('\n')
+              });
+
+              return;
+            }
 
             await github.rest.issues.create({
               owner: context.repo.owner,
