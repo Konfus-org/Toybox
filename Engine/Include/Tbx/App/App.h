@@ -6,6 +6,7 @@
 #include "Tbx/Events/EventCarrier.h"
 #include "Tbx/Events/EventListener.h"
 #include "Tbx/Events/WindowEvents.h"
+#include "Tbx/Debug/LogManager.h"
 #include "Tbx/Windowing/WindowManager.h"
 #include "Tbx/Graphics/GraphicsManager.h"
 #include "Tbx/Audio/AudioManager.h"
@@ -65,6 +66,7 @@ namespace Tbx
         ExclusiveRef<IGraphicsManager> Graphics = {};
         ExclusiveRef<IAudioManager> Audio = {};
         ExclusiveRef<AssetServer> Assets = {};
+        ExclusiveRef<LogManager> Logging = {};
         AppStatus Status = AppStatus::None;
         AppSettings Settings = {};
         Chronometer Clock = {};

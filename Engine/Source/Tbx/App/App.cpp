@@ -5,6 +5,8 @@
 #include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Audio/AudioMixer.h"
 #include "Tbx/Events/AppEvents.h"
+#include "Tbx/Debug/ILogger.h"
+#include "Tbx/Debug/StdOutLogger.h"
 #include "Tbx/Input/Input.h"
 #include "Tbx/Input/InputCodes.h"
 #include "Tbx/Time/Chronometer.h"
@@ -33,8 +35,6 @@ namespace Tbx
         , _listener(Bus)
     {
         TBX_ASSERT(Bus, "App: Requires a valid event bus instance.");
-        if (IsDebugBuild) TBX_TRACE_INFO("App: Using debug build.\n");
-        else TBX_TRACE_INFO("App: Using release build.\n");
     }
 
     App::~App()
@@ -46,6 +46,7 @@ namespace Tbx
         {
             Shutdown();
         }
+
     }
 
     bool App::IsRunning() const
@@ -95,6 +96,28 @@ namespace Tbx
 
         // 1. Init core systems
         {
+            // Logging
+            auto loggers = Plugins.OfType<ILogger>();
+            if (!loggers.Any())
+            {
+                TBX_TRACE_WARNING("App: No loggers detected, using default stdout logger.");
+                Logging = MakeExclusive<LogManager>(_name, MakeRef<StdOutLogger>(), Bus);
+            }
+            else
+            {
+                if (loggers.Count() != 1) TBX_TRACE_WARNING("App: Multiple logger plugins detected, only one is allowed. Using first detected.");
+                Logging = MakeExclusive<LogManager>(_name, loggers.First(), Bus);
+            }
+
+            if (IsDebugBuild)
+            {
+                TBX_TRACE_INFO("App: Using debug build.\n");
+            }
+            else
+            {
+                TBX_TRACE_INFO("App: Using release build.\n");
+            }
+
             // Windowing
             auto windowFactories = Plugins.OfType<IWindowFactory>();
             if (!windowFactories.Any())
@@ -325,7 +348,7 @@ namespace Tbx
 #endif
 
         // Flush to log at the end of every frame
-        Log::Flush();
+        Logging->Flush();
 
         TBX_TRACE_VERBOSE("App: Ending update!.\n");
     }
@@ -348,6 +371,8 @@ namespace Tbx
         OnShutdown();
         _carrier.Post(AppClosedEvent(this));
         Bus->Flush();
+
+        Logging->Flush();
 
         if (isRestarting)
         {

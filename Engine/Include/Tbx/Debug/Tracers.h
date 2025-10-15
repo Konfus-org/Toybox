@@ -42,7 +42,7 @@
     /// Logs verbose info for debugging IF verbose logging is enabled.
     /// Verbose logging is enabled.
     /// </summary>
-    #define TBX_TRACE_VERBOSE(...) Tbx::Log::Info(__VA_ARGS__)
+    #define TBX_TRACE_VERBOSE(...) Tbx::Log::Verbose(__VA_ARGS__)
 #else
     /// <summary>
     /// Logs verbose info for debugging IF verbose logging is enabled.
