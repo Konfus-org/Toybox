@@ -6,13 +6,19 @@
 #include <Tbx/Graphics/Material.h>
 #include <Tbx/Math/Vectors.h>
 
+namespace Tbx
+{
+    class App;
+    class IInputHandler;
+}
+
 class Demo final : public Tbx::Runtime
 {
 public:
     Demo(Tbx::Ref<Tbx::EventBus> eventBus);
     ~Demo();
 
-    void OnStart() override;
+    void OnStart(Tbx::App* owner) override;
     void OnShutdown() override;
     void OnUpdate(const Tbx::DeltaTime& deltaTime) override;
 
@@ -20,6 +26,7 @@ private:
     Tbx::Ref<Tbx::Stage> _stage = nullptr;
     Tbx::Ref<Tbx::Toy> _fpsCam = nullptr;
     Tbx::Ref<Tbx::Toy> _smily = nullptr;
+    Tbx::IInputHandler* _input = nullptr;
 
     float _smilyBobTime = 0.0f;
     float _smilyBobAmplitude = 0.0f;
