@@ -20,7 +20,7 @@ namespace Tbx
         virtual void CloseAllWindows() = 0;
     };
 
-    class HeadlessWindow final : public Window
+    class TBX_EXPORT HeadlessWindow final : public Window
     {
     public:
         HeadlessWindow() = default;
@@ -35,7 +35,7 @@ namespace Tbx
         const std::string& GetTitle() const override { static std::string title = "Headless"; return title; }
         void SetTitle(const std::string& title) override {}
         void SetMode(const WindowMode& mode) override {}
-        WindowMode GetMode() override { return WindowMode::Windowed; }
+        WindowMode GetMode() const override { return WindowMode::Windowed; }
         const Size& GetSize() const override { static Size size = Size(0, 0); return size; }
         void SetSize(const Size& size) override {}
     };

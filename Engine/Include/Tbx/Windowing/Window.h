@@ -15,7 +15,8 @@ namespace Tbx
         Windowed,
         Fullscreen,
         Borderless,
-        FullscreenBorderless
+        FullscreenBorderless,
+        Minimized
     };
 
     class TBX_EXPORT Window
@@ -37,8 +38,8 @@ namespace Tbx
         virtual const std::string& GetTitle() const = 0;
         virtual void SetTitle(const std::string& title) = 0;
 
+        virtual WindowMode GetMode() const = 0;
         virtual void SetMode(const WindowMode& mode) = 0;
-        virtual WindowMode GetMode() = 0;
 
         virtual const Size& GetSize() const = 0;
         virtual void SetSize(const Size& size) = 0;

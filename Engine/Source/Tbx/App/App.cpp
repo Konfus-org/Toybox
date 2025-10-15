@@ -48,6 +48,13 @@ namespace Tbx
         }
     }
 
+    bool App::IsRunning() const
+    {
+        return Status == AppStatus::Running || 
+            Status == AppStatus::Paused || 
+            Status == AppStatus::Minimized;
+    }
+
     void App::Run()
     {
         try
@@ -55,7 +62,7 @@ namespace Tbx
             Initialize();
 
             Status = AppStatus::Running;
-            while (Status == AppStatus::Running)
+            while (IsRunning())
             {
                 Update();
             }
@@ -158,6 +165,10 @@ namespace Tbx
         {
             OnWindowClosed(event);
         });
+        _listener.Listen<WindowModeChangedEvent>([this](WindowModeChangedEvent& event)
+        {
+            OnWindowModeChanged(event);
+        });
 
         // 3. Allow other systems to hook into launch
         OnLaunch();
@@ -177,11 +188,14 @@ namespace Tbx
         _carrier.Send(AppSettingsChangedEvent(Settings));
 
         // 6. Open main window
-#ifdef TBX_DEBUG
-        Windowing->OpenWindow(_name, WindowMode::Windowed, Size(1920, 1080));
-#else
-        Windowing->OpenWindow(_name, WindowMode::Fullscreen);
-#endif
+        if (IsDebugBuild)
+        {
+            Windowing->OpenWindow(_name, WindowMode::Windowed, Size(1920, 1080));
+        }
+        else
+        {
+            Windowing->OpenWindow(_name, WindowMode::Fullscreen);
+        }
 
         TBX_TRACE_INFO("App: Initialized!.\n");
     }
@@ -190,15 +204,56 @@ namespace Tbx
     {
         TBX_TRACE_VERBOSE("App: Starting update!.\n");
 
-        // Runtime loop
+        // Paused or minimized loop
         {
-            // 1. Update delta and input
+            if (Status == AppStatus::Paused)
+            {
+                Input::Update();
+                Windowing->Update();
+                Audio->Update();
+                Bus->Flush();
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                return;
+            }
+            else if (Status == AppStatus::Minimized)
+            {
+                Windowing->Update();
+                Bus->Flush();
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                return;
+            }
+        }
+
+        // Check for settings changes TODO: find a better way to do this!
+        if (Settings.Vsync != _lastFramesSettings.Vsync ||
+            Settings.RenderingApi != _lastFramesSettings.RenderingApi ||
+            Settings.Resolution.Width != _lastFramesSettings.Resolution.Width ||
+            Settings.Resolution.Height != _lastFramesSettings.Resolution.Height ||
+            Settings.ClearColor.R != _lastFramesSettings.ClearColor.R ||
+            Settings.ClearColor.G != _lastFramesSettings.ClearColor.G ||
+            Settings.ClearColor.B != _lastFramesSettings.ClearColor.B ||
+            Settings.ClearColor.A != _lastFramesSettings.ClearColor.A)
+        {
+            _carrier.Send(AppSettingsChangedEvent(Settings));
+        }
+        _lastFramesSettings = Settings;
+
+        // Check for status changes
+        if (Status != _lastFrameStatus)
+        {
+            _carrier.Send(AppStatusChangedEvent(Status));
+        }
+        _lastFrameStatus = Status;
+
+        // Runtime loop, order is important here!
+        {
+            // Update delta and input
             Clock.Tick();
             const auto frameDelta = Clock.GetDeltaTime();
             _frameCount++;
             Input::Update();
 
-            // 2. Fixed update
+            // Fixed update
             constexpr float fixedUpdateInterval = 1.0f / 50.0f;
             _fixedUpdateAccumulator += frameDelta.Seconds;
             const auto fixedDelta = DeltaTime(fixedUpdateInterval);
@@ -213,46 +268,32 @@ namespace Tbx
                 _fixedUpdateAccumulator -= fixedUpdateInterval;
             }
 
-            // 3. Update
+            // Update
             for (const auto& runtime : Runtimes)
             {
                 runtime->OnUpdate(frameDelta);
             }
             OnUpdate(frameDelta);
 
-            // 4. Late update
+            // Late update
             for (const auto& runtime : Runtimes)
             {
                 runtime->OnLateUpdate(frameDelta);
             }
             OnLateUpdate(frameDelta);
 
-            // 5. Graphics
+            // Graphics
             Graphics->Update();
 
-            // 6. windows
+            // Windows
             Windowing->Update();
           
-            // 7. Update audio
+            // Update audio
             Audio->Update();
 
-            // 7. Dispatch events
+            // Dispatch events
             _carrier.Post(AppUpdatedEvent());
             Bus->Flush();
-
-            // 8. Check for settings changes TODO: find a better way to do this!
-            if (Settings.Vsync != _lastFramesSettings.Vsync ||
-                Settings.RenderingApi != _lastFramesSettings.RenderingApi ||
-                Settings.Resolution.Width != _lastFramesSettings.Resolution.Width ||
-                Settings.Resolution.Height != _lastFramesSettings.Resolution.Height ||
-                Settings.ClearColor.R != _lastFramesSettings.ClearColor.R ||
-                Settings.ClearColor.G != _lastFramesSettings.ClearColor.G || 
-                Settings.ClearColor.B != _lastFramesSettings.ClearColor.B || 
-                Settings.ClearColor.A != _lastFramesSettings.ClearColor.A)
-            {
-                _carrier.Send(AppSettingsChangedEvent(Settings));
-            }
-            _lastFramesSettings = Settings;
         }
 
         // Shortcut to kill the app
@@ -330,6 +371,30 @@ namespace Tbx
         {
             // Stop running and close all windows
             Status = AppStatus::Closing;
+        }
+    }
+
+    void App::OnWindowModeChanged(const WindowModeChangedEvent& e)
+    {
+        bool allWindowsMinimized = true;
+        for (auto window : Windowing->GetAllWindows())
+        {
+            if (window->GetMode() != WindowMode::Minimized)
+            {
+                allWindowsMinimized = false;
+                break;
+            }
+        }
+        if (allWindowsMinimized)
+        {
+            // Minimize the app
+            Status = AppStatus::Minimized;
+            _carrier.Send(AppStatusChangedEvent(Status));
+        }
+        else
+        {
+            Status = _lastFrameStatus;
+            _carrier.Send(AppStatusChangedEvent(Status));
         }
     }
     

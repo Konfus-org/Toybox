@@ -1,5 +1,6 @@
 #pragma once
 #include "Tbx/App/Settings.h"
+#include "Tbx/App/Status.h"
 #include "Tbx/Events/Event.h"
 
 namespace Tbx
@@ -51,6 +52,24 @@ namespace Tbx
         {
             return "App Update Event";
         }
+    };
+
+    class TBX_EXPORT AppStatusChangedEvent : public Event
+    {
+    public:
+        explicit AppStatusChangedEvent(const AppStatus& status)
+            : _status(status) {
+        }
+
+        const AppStatus& GetNewStatus() const { return _status; }
+
+        std::string ToString() const override
+        {
+            return "App Settings Changed Event";
+        }
+
+    private:
+        AppStatus _status = {};
     };
 
     class TBX_EXPORT AppSettingsChangedEvent : public Event

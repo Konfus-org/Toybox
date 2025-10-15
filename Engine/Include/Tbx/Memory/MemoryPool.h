@@ -60,7 +60,7 @@ namespace Tbx
         {
             TBX_ASSERT(capacity > 0, "MemoryPool<{}>: capacity must be greater than zero", typeid(TObject).name());
             Initialize(capacity);
-            TBX_TRACE_INFO("MemoryPool<{}>: allocated {} slots of size {} bytes", typeid(TObject).name(), capacity, sizeof(TObject));
+            TBX_TRACE_INFO("MemoryPool<{}>: allocated {} slots of size {} bytes\n", typeid(TObject).name(), capacity, sizeof(TObject));
         }
 
         /// <summary>
@@ -70,7 +70,7 @@ namespace Tbx
         Ref<TObject> Provide(TArgs&&... args)
         {
             const auto state = _state;
-            TBX_ASSERT(state != nullptr, "MemoryPool<{}>: pool state not initialized");
+            TBX_ASSERT(state != nullptr, "MemoryPool<{}>: pool state not initialized!");
             if (state == nullptr)
             {
                 return Ref<TObject>();
@@ -78,7 +78,7 @@ namespace Tbx
 
             if (state->FreeList.empty())
             {
-                TBX_TRACE_ERROR("MemoryPool<{}>: exhausted pool backing {} objects (capacity={}) for the type ", sizeof(TObject), Capacity());
+                TBX_TRACE_ERROR("MemoryPool<{}>: exhausted pool backing {} objects (capacity={}) for the type!", typeid(TObject).name(), sizeof(TObject), Capacity());
                 return Ref<TObject>();
             }
 
@@ -89,7 +89,7 @@ namespace Tbx
 
             try
             {
-                TBX_ASSERT(slot.Chunk < state->Chunks.size(), "MemoryPool<{}>: chunk index out of bounds", typeid(TObject).name());
+                TBX_ASSERT(slot.Chunk < state->Chunks.size(), "MemoryPool<{}>: chunk index out of bounds!", typeid(TObject).name());
                 if (slot.Chunk >= state->Chunks.size())
                 {
                     state->FreeList.push_back(slot);
@@ -97,7 +97,7 @@ namespace Tbx
                 }
 
                 auto& chunk = state->Chunks[slot.Chunk];
-                TBX_ASSERT(slot.Index < chunk.Capacity, "MemoryPool<{}>: slot index out of bounds", typeid(TObject).name());
+                TBX_ASSERT(slot.Index < chunk.Capacity, "MemoryPool<{}>: slot index out of bounds!", typeid(TObject).name());
                 if (slot.Index >= chunk.Capacity)
                 {
                     state->FreeList.push_back(slot);
@@ -158,7 +158,7 @@ namespace Tbx
         /// </summary>
         void Reserve(uint64 additionalCapacity)
         {
-            TBX_ASSERT(additionalCapacity > 0, "MemoryPool<{}>: additional capacity must be greater than zero", typeid(TObject).name());
+            TBX_ASSERT(additionalCapacity > 0, "MemoryPool<{}>: additional capacity must be greater than zero!", typeid(TObject).name());
             if (additionalCapacity == 0 || _state == nullptr)
             {
                 return;
@@ -166,7 +166,7 @@ namespace Tbx
 
             const auto state = _state;
             AllocateChunk(state, additionalCapacity);
-            TBX_TRACE_INFO("MemoryPool<{}>: reserved {} additional slots (object size={} bytes, new capacity={})", typeid(TObject).name(), additionalCapacity, sizeof(TObject), state->Capacity);
+            TBX_TRACE_INFO("MemoryPool<{}>: reserved {} additional slots (object size={} bytes, new capacity={})\n", typeid(TObject).name(), additionalCapacity, sizeof(TObject), state->Capacity);
         }
 
     private:
@@ -184,26 +184,26 @@ namespace Tbx
 
         static void Release(const Ref<MemoryState>& state, uint64 chunkIndex, uint64 slotIndex)
         {
-            TBX_ASSERT(state != nullptr, "MemoryPool<{}>: pool state expired", typeid(TObject).name());
+            TBX_ASSERT(state != nullptr, "MemoryPool<{}>: pool state expired!", typeid(TObject).name());
             if (state == nullptr)
             {
                 return;
             }
 
-            TBX_ASSERT(chunkIndex < state->Chunks.size(), "MemoryPool<{}>: chunk index out of bounds", typeid(TObject).name());
+            TBX_ASSERT(chunkIndex < state->Chunks.size(), "MemoryPool<{}>: chunk index out of bounds!", typeid(TObject).name());
             if (chunkIndex >= state->Chunks.size())
             {
                 return;
             }
 
             auto& chunk = state->Chunks[chunkIndex];
-            TBX_ASSERT(slotIndex < chunk.Capacity, "MemoryPool<{}>: slot index out of bounds", typeid(TObject).name());
+            TBX_ASSERT(slotIndex < chunk.Capacity, "MemoryPool<{}>: slot index out of bounds!", typeid(TObject).name());
             if (slotIndex >= chunk.Capacity)
             {
                 return;
             }
 
-            TBX_ASSERT(chunk.States[slotIndex], "MemoryPool<{}>: double free detected", typeid(TObject).name());
+            TBX_ASSERT(chunk.States[slotIndex], "MemoryPool<{}>: double free detected!", typeid(TObject).name());
             if (!chunk.States[slotIndex])
             {
                 return;
@@ -211,7 +211,7 @@ namespace Tbx
 
             chunk.States[slotIndex] = false;
             state->FreeList.push_back({chunkIndex, slotIndex});
-            TBX_ASSERT(state->Count > 0, "MemoryPool<{}>: release called on empty pool", typeid(TObject).name());
+            TBX_ASSERT(state->Count > 0, "MemoryPool<{}>: release called on empty pool!", typeid(TObject).name());
             if (state->Count > 0)
             {
                 state->Count--;
@@ -220,7 +220,7 @@ namespace Tbx
 
         static void AllocateChunk(const Ref<MemoryState>& state, uint64 capacity)
         {
-            TBX_ASSERT(state != nullptr, "MemoryPool<{}>: pool state expired", typeid(TObject).name());
+            TBX_ASSERT(state != nullptr, "MemoryPool<{}>: pool state expired!", typeid(TObject).name());
             if (state == nullptr || capacity == 0)
             {
                 return;

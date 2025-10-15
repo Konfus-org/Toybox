@@ -42,6 +42,18 @@ namespace Tbx
         }
     };
 
+    class TBX_EXPORT WindowModeChangedEvent final : public WindowActionEvent
+    {
+    public:
+        explicit WindowModeChangedEvent(const Window* window)
+            : WindowActionEvent(window) {}
+
+        std::string ToString() const override
+        {
+            return "Window Opened Event";
+        }
+    };
+
     class TBX_EXPORT WindowClosedEvent final : public WindowActionEvent
     {
     public:

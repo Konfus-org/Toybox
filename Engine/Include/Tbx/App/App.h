@@ -1,4 +1,5 @@
 #pragma once
+#include "Tbx/App/Status.h"
 #include "Tbx/App/Settings.h"
 #include "Tbx/Assets/AssetServer.h"
 #include "Tbx/Events/EventBus.h"
@@ -18,20 +19,6 @@ namespace Tbx
 {
     class Runtime;
 
-    /// <summary>
-    /// High level lifecycle states the application can transition through while running.
-    /// </summary>
-    enum class TBX_EXPORT AppStatus
-    {
-        None,
-        Initializing,
-        Running,
-        Reloading,
-        Closing,
-        Closed,
-        Error
-    };
-
     class TBX_EXPORT App
     {
     public:
@@ -40,6 +27,11 @@ namespace Tbx
             const Queryable<Ref<Plugin>>& plugins,
             Ref<EventBus> eventBus);
         virtual ~App();
+
+        /// <summary>
+        /// Returns true if the application is currently running.
+        /// </summary>
+        bool IsRunning() const;
 
         /// <summary>
         /// Starts the application run loop and executes until shutdown is requested.
@@ -63,6 +55,7 @@ namespace Tbx
         void Update();
         void Shutdown();
         void OnWindowClosed(const WindowClosedEvent& e);
+        void OnWindowModeChanged(const WindowModeChangedEvent& e);
 
     public:
         Ref<EventBus> Bus = nullptr;
@@ -80,8 +73,11 @@ namespace Tbx
         std::string _name = "";
         EventCarrier _carrier = {};
         EventListener _listener = {};
+        AppStatus _preMinimizeStatus = AppStatus::None;
         AppSettings _lastFramesSettings = {};
+        AppStatus _lastFrameStatus = AppStatus::None;
         float _fixedUpdateAccumulator = 0.0f;
+
         // TODO: move this elsewhere! Perhaps a plugin?
         void DumpFrameReport() const;
         bool _captureDebugData = false;

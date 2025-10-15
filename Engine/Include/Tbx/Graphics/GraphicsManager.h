@@ -12,7 +12,7 @@
 
 namespace Tbx
 {
-    class IGraphicsManager
+    class TBX_EXPORT IGraphicsManager
     {
     public:
         virtual ~IGraphicsManager() = default;
@@ -21,7 +21,7 @@ namespace Tbx
         virtual const std::vector<RenderPass>& GetRenderPasses() const = 0;
     };
 
-    class HeadlessGraphicsManager final : public IGraphicsManager
+    class TBX_EXPORT HeadlessGraphicsManager final : public IGraphicsManager
     {
     public:
         HeadlessGraphicsManager() = default;
@@ -34,7 +34,7 @@ namespace Tbx
         }
     };
 
-    class GraphicsManager final : public IGraphicsManager
+    class TBX_EXPORT GraphicsManager final : public IGraphicsManager
     {
     public:
         GraphicsManager() = default;

@@ -14,6 +14,7 @@ namespace Tbx
         virtual ~IAudioMixer() = default;
 
         virtual void Play(const Audio& audio) = 0;
+        virtual void Pause(const Audio& audio) = 0;
         virtual void Stop(const Audio& audio) = 0;
         virtual void SetPosition(const Audio& audio, const Vector3& position) = 0;
         virtual void SetPitch(const Audio& audio, float pitch) = 0;
