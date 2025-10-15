@@ -106,16 +106,7 @@ namespace Tbx
             else
             {
                 if (inputHandlerPlugs.Count() != 1) TBX_TRACE_WARNING("App: Multiple input handler plugins detected, only one is allowed. Using first detected.");
-                auto pluginInputHandler = inputHandlerPlugs.First();
-                if (!pluginInputHandler)
-                {
-                    TBX_TRACE_WARNING("App: Input handler plugin was invalid, running headless input.");
-                    Input = MakeRef<HeadlessInputHandler>();
-                }
-                else
-                {
-                    Input = pluginInputHandler;
-                }
+                Input = inputHandlerPlugs.First();
             }
 
             // Windowing
@@ -238,7 +229,8 @@ namespace Tbx
             }
         }
 
-        // Check for settings changes TODO: find a better way to do this!
+        // Check for settings changes
+        // TODO: find a better way to do this!
         if (Settings.Vsync != _lastFramesSettings.Vsync ||
             Settings.RenderingApi != _lastFramesSettings.RenderingApi ||
             Settings.Resolution.Width != _lastFramesSettings.Resolution.Width ||
@@ -253,6 +245,7 @@ namespace Tbx
         _lastFramesSettings = Settings;
 
         // Check for status changes
+        // TODO: find a better way to do this!
         if (Status != _lastFrameStatus)
         {
             _carrier.Send(AppStatusChangedEvent(Status));
@@ -355,49 +348,20 @@ namespace Tbx
         auto isRestarting = Status == AppStatus::Reloading;
         Status = AppStatus::Closing;
 
-        // Cleanup
-        if (Windowing)
-        {
-            Windowing->CloseAllWindows();
-            Windowing.reset();
-        }
-
-        if (Graphics)
-        {
-            Graphics.reset();
-        }
-
-        if (Audio)
-        {
-            Audio.reset();
-        }
-
-        if (Assets)
-        {
-            Assets.reset();
-        }
-
-        Input.reset();
-        Runtimes = {};
-        Plugins = {};
-
         // Allow other systems to hook into shutdown
         OnShutdown();
         _carrier.Post(AppClosedEvent(this));
         Bus->Flush();
 
-        if (isRestarting)
-        {
-            Status = AppStatus::Reloading;
-        }
-        else if (hadError)
-        {
-            Status = AppStatus::Error;
-        }
-        else
-        {
-            Status = AppStatus::Closed;
-        }
+        // Cleanup
+        Windowing->CloseAllWindows();
+        Plugins = {};
+        Runtimes = {};
+
+        // Update status
+        if (isRestarting) Status = AppStatus::Reloading;
+        else if (hadError) Status = AppStatus::Error;
+        else Status = AppStatus::Closed;
     }
 
     void App::OnWindowClosed(const WindowClosedEvent& e)

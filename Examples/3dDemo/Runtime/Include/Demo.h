@@ -24,7 +24,7 @@ private:
     Tbx::Ref<Tbx::Stage> _stage = nullptr;
     Tbx::Ref<Tbx::Toy> _fpsCam = nullptr;
     Tbx::Ref<Tbx::Toy> _smily = nullptr;
-    Tbx::IInputHandler* _input = nullptr;
+    Tbx::Ref<Tbx::IInputHandler> _input = nullptr;
 
     float _smilyBobTime = 0.0f;
     float _smilyBobAmplitude = 0.0f;

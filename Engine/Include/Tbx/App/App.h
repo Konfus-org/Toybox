@@ -59,9 +59,9 @@ namespace Tbx
         void OnWindowModeChanged(const WindowModeChangedEvent& e);
 
     public:
-        Ref<EventBus> Bus = nullptr;
         Queryable<Ref<Plugin>> Plugins = {};
         Queryable<Ref<Runtime>> Runtimes = {};
+        Ref<EventBus> Bus = nullptr;
         Ref<IInputHandler> Input = nullptr;
         Ref<IWindowManager> Windowing = {};
         Ref<IGraphicsManager> Graphics = {};
