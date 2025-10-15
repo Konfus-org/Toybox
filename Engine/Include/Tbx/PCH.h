@@ -27,4 +27,6 @@
         #define NOMINMAX
     #endif
     #include <Windows.h>
+#elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_MACOS)
+    #include <dlfcn.h>
 #endif

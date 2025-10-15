@@ -259,7 +259,7 @@ void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
     // Smily movement
     {
         // rotate over time
-        const float smilyRotateSpeed = 90.0f;
+        const float smilyRotateSpeed = 10.0f;
         auto& smilyTransform = *_smily->Get<Tbx::Transform>();
         float angle = Tbx::PI * deltaTimeSeconds * smilyRotateSpeed;
         Tbx::Quaternion qYaw = Tbx::Quaternion::FromAxisAngle(Tbx::Vector3::Up, angle);

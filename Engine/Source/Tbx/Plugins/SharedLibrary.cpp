@@ -15,17 +15,60 @@ namespace Tbx
 
     bool SharedLibrary::Load(const std::string& path)
     {
+        namespace fs = std::filesystem;
+        _path = path;
+
+        fs::path libPath = path;
+
+        // 1. Check file extension by platform
 #if defined(TBX_PLATFORM_WINDOWS)
-        _path = path;
-        _handle = LoadLibraryA(_path.c_str());
-        return _handle != nullptr;
-#elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_MACOS)
-        _path = path;
-        _handle = dlopen(path.c_str(), RTLD_LAZY);
-        return _handle != nullptr;
+        const std::string expectedExt = ".dll";
+#elif defined(TBX_PLATFORM_LINUX)
+        const std::string expectedExt = ".so";
+#elif defined(TBX_PLATFORM_MACOS)
+        const std::string expectedExt = ".dylib";
 #else
-        return false;
+    #error Unsupported platform for SharedLibrary
 #endif
+
+        TBX_ASSERT(libPath.has_extension(), "SharedLibrary: Missing file extension!");
+        if (libPath.extension() != expectedExt)
+        {
+            TBX_ASSERT(false, "SharedLibrary: Failed to load {} Incorrect library extension for platform! Expected the extension {}", path, expectedExt);
+            return false;
+        }
+
+        // 2. Duplicate the library to a temporary unique path to allow for hot reloading of the lib
+        try
+        {
+            fs::path tempDir = fs::temp_directory_path();
+            fs::path tempPath = tempDir / (libPath.filename().stem().string() + "_copy_" + std::to_string(std::time(nullptr)) + libPath.extension().string());
+
+            TBX_TRACE_INFO("SharedLibrary: Duplicating library {} to temporary path {} for hot reloading...", libPath.string(), tempPath.string());
+            fs::copy_file(libPath, tempPath, fs::copy_options::overwrite_existing);
+
+            // 3. Load the duplicate
+#if defined(TBX_PLATFORM_WINDOWS)
+            _handle = LoadLibraryA(tempPath.string().c_str());
+#elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_MACOS)
+            _handle = dlopen(tempPath.string().c_str(), RTLD_LAZY);
+#endif
+
+            _path = tempPath.string();
+
+            if (!_handle)
+            {
+                TBX_ASSERT(false, "SharedLibrary: Failed to load library {}!", tempPath.string());
+                return false;
+            }
+
+            return true;
+        }
+        catch (const std::exception& e)
+        {
+            TBX_ASSERT(false, "SharedLibrary: Failed to load library at {} due to exception:\n{}", path, e.what());
+            return false;
+        }
     }
 
     void SharedLibrary::Unload()
