@@ -1,5 +1,5 @@
-#include "Demo.h"
-#include <Tbx/Input/Input.h>
+#include "Template.h"
+#include <Tbx/Input/IInputHandler.h>
 #include <Tbx/Input/InputCodes.h>
 #include <Tbx/Graphics/Texture.h>
 #include <Tbx/Graphics/Material.h>
@@ -9,6 +9,7 @@
 #include <Tbx/Math/Trig.h>
 #include <Tbx/Time/DeltaTime.h>
 #include <Tbx/Events/StageEvents.h>
+#include <Tbx/Events/EventCarrier.h>
 #include <algorithm>
 #include <cmath>
 
@@ -22,17 +23,26 @@ Demo::~Demo()
     TBX_TRACE_INFO("Demo: unloaded!\n");
 }
 
-void Demo::OnStart()
+void Demo::OnStart(Tbx::App* owner)
 {
     TBX_TRACE_INFO("Demo: started!\n");
 
+    _input = owner != nullptr ? owner->Input.get() : nullptr;
+
+    if (owner == nullptr || owner->Assets == nullptr)
+    {
+        TBX_TRACE_WARNING("Demo: owner or assets missing, unable to initialize scene.\n");
+        return;
+    }
+
     // Load assets
-    auto music = Assets->Get<Tbx::Audio>("Music.wav");
-    auto wallTex = Assets->Get<Tbx::Texture>("Wall.jpg");
-    auto floorTex = Assets->Get<Tbx::Texture>("Checkerboard.png");
-    auto smilyTex = Assets->Get<Tbx::Texture>("Smily.png");
-    auto fragmentShader = Assets->Get<Tbx::Shader>("Fragment.frag");
-    auto vertexShader = Assets->Get<Tbx::Shader>("Vertex.vert");
+    const auto& assets = *owner->Assets;
+    auto music = assets.Get<Tbx::Audio>("Music.wav");
+    auto wallTex = assets.Get<Tbx::Texture>("Wall.jpg");
+    auto floorTex = assets.Get<Tbx::Texture>("Checkerboard.png");
+    auto smilyTex = assets.Get<Tbx::Texture>("Smily.png");
+    auto fragmentShader = assets.Get<Tbx::Shader>("Fragment.frag");
+    auto vertexShader = assets.Get<Tbx::Shader>("Vertex.vert");
     auto matShaders = { vertexShader, fragmentShader };
 
     // Setup testing scene:
@@ -122,12 +132,18 @@ void Demo::OnStart()
 
     // TODO: Figure out a better way than just needing to know you have to send this event...
     // Perhaps a stage manager/director?
-    Dispatcher->Post(Tbx::StageOpenedEvent(_stage));
+    if (owner->Bus != nullptr)
+    {
+        Tbx::EventCarrier carrier(owner->Bus);
+        carrier.Post(Tbx::StageOpenedEvent(_stage));
+    }
 }
 
 void Demo::OnShutdown()
 {
     TBX_TRACE_INFO("Demo: shutdown!\n");
+
+    _input = nullptr;
 }
 
 void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
@@ -135,7 +151,10 @@ void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
     auto worldRoot = _stage->Root;
     const float deltaTimeSeconds = deltaTime.Seconds;
 
+    auto input = _input;
+
     // Camera movement
+    if (input != nullptr)
     {
         auto& camTransform = *_fpsCam->Get<Tbx::Transform>();
 
@@ -147,19 +166,19 @@ void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
 
             // Arrow and gamepad btn style
             {
-                if (Tbx::Input::IsKeyHeld(TBX_KEY_LEFT) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_WEST))
+                if (input->IsKeyHeld(TBX_KEY_LEFT) || input->IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_WEST))
                     _camYaw -= camRotateSpeedDegPerSec * deltaTimeSeconds;
-                if (Tbx::Input::IsKeyHeld(TBX_KEY_RIGHT) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_EAST))
+                if (input->IsKeyHeld(TBX_KEY_RIGHT) || input->IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_EAST))
                     _camYaw += camRotateSpeedDegPerSec * deltaTimeSeconds;
-                if (Tbx::Input::IsKeyHeld(TBX_KEY_UP) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_NORTH))
+                if (input->IsKeyHeld(TBX_KEY_UP) || input->IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_NORTH))
                     _camPitch += camRotateSpeedDegPerSec * deltaTimeSeconds;
-                if (Tbx::Input::IsKeyHeld(TBX_KEY_DOWN) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_SOUTH))
+                if (input->IsKeyHeld(TBX_KEY_DOWN) || input->IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_SOUTH))
                     _camPitch -= camRotateSpeedDegPerSec * deltaTimeSeconds;
             }
             // Mouse and gamepad axis style
             {
-                auto mouseDelta = Tbx::Input::GetMouseDelta();
-                if (Tbx::Input::IsMouseButtonHeld(TBX_MOUSE_BUTTON_RIGHT))
+                auto mouseDelta = input->GetMouseDelta();
+                if (input->IsMouseButtonHeld(TBX_MOUSE_BUTTON_RIGHT))
                 {
                     const Tbx::Vector2 targetLookDelta =
                         Tbx::Vector2(mouseDelta.X * mouseSensitivityDegPerPx,
@@ -176,8 +195,8 @@ void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
                     _camLookVelocity = Tbx::Vector2::Zero;
                 }
 
-                auto rightStickXAxisValue = Tbx::Input::GetGamepadAxis(0, TBX_GAMEPAD_AXIS_RIGHT_X);
-                auto rightStickYAxisValue = -Tbx::Input::GetGamepadAxis(0, TBX_GAMEPAD_AXIS_RIGHT_Y);
+                auto rightStickXAxisValue = input->GetGamepadAxis(0, TBX_GAMEPAD_AXIS_RIGHT_X);
+                auto rightStickYAxisValue = -input->GetGamepadAxis(0, TBX_GAMEPAD_AXIS_RIGHT_Y);
                 if (rightStickXAxisValue > TBX_GAMEPAD_AXIS_DEADZONE  ||
                     rightStickXAxisValue < -TBX_GAMEPAD_AXIS_DEADZONE ||
                     rightStickYAxisValue > TBX_GAMEPAD_AXIS_DEADZONE  ||
@@ -211,9 +230,9 @@ void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
         // Determine movement speed
         const float camMoveSpeed = 10.0f;
         float camSpeed = camMoveSpeed;
-        if (Tbx::Input::IsKeyHeld(TBX_KEY_LEFT_SHIFT) ||
-            Tbx::Input::IsKeyHeld(TBX_KEY_RIGHT_SHIFT) ||
-            Tbx::Input::GetGamepadAxis(0, TBX_GAMEPAD_AXIS_LEFT_TRIGGER) > TBX_GAMEPAD_AXIS_DEADZONE)
+        if (input->IsKeyHeld(TBX_KEY_LEFT_SHIFT) ||
+            input->IsKeyHeld(TBX_KEY_RIGHT_SHIFT) ||
+            input->GetGamepadAxis(0, TBX_GAMEPAD_AXIS_LEFT_TRIGGER) > TBX_GAMEPAD_AXIS_DEADZONE)
         {
             camSpeed *= 5.0f;
         }
@@ -224,23 +243,23 @@ void Demo::OnUpdate(const Tbx::DeltaTime& deltaTime)
 
             // Get WASD/dpad style
             {
-                if (Tbx::Input::IsKeyHeld(TBX_KEY_W) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_UP))
+                if (input->IsKeyHeld(TBX_KEY_W) || input->IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_UP))
                     camMoveDir += Tbx::Quaternion::GetForward(camTransform.Rotation);
-                if (Tbx::Input::IsKeyHeld(TBX_KEY_S) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_DOWN))
+                if (input->IsKeyHeld(TBX_KEY_S) || input->IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_DOWN))
                     camMoveDir -= Tbx::Quaternion::GetForward(camTransform.Rotation);
-                if (Tbx::Input::IsKeyHeld(TBX_KEY_D) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_RIGHT))
+                if (input->IsKeyHeld(TBX_KEY_D) || input->IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_RIGHT))
                     camMoveDir -= Tbx::Quaternion::GetRight(camTransform.Rotation);
-                if (Tbx::Input::IsKeyHeld(TBX_KEY_A) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_LEFT))
+                if (input->IsKeyHeld(TBX_KEY_A) || input->IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_DPAD_LEFT))
                     camMoveDir += Tbx::Quaternion::GetRight(camTransform.Rotation);
-                if (Tbx::Input::IsKeyHeld(TBX_KEY_E) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_RIGHT_BUMPER))
+                if (input->IsKeyHeld(TBX_KEY_E) || input->IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_RIGHT_BUMPER))
                     camMoveDir += Tbx::Vector3::Up;
-                if (Tbx::Input::IsKeyHeld(TBX_KEY_Q) || Tbx::Input::IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_LEFT_BUMPER))
+                if (input->IsKeyHeld(TBX_KEY_Q) || input->IsGamepadButtonHeld(0, TBX_GAMEPAD_BUTTON_LEFT_BUMPER))
                     camMoveDir += Tbx::Vector3::Down;
             }
             // Get controller axis style
             {
-                auto leftStickXAxisValue = Tbx::Input::GetGamepadAxis(0, TBX_GAMEPAD_AXIS_LEFT_X);
-                auto leftStickYAxisValue = -Tbx::Input::GetGamepadAxis(0, TBX_GAMEPAD_AXIS_LEFT_Y);
+                auto leftStickXAxisValue = input->GetGamepadAxis(0, TBX_GAMEPAD_AXIS_LEFT_X);
+                auto leftStickYAxisValue = -input->GetGamepadAxis(0, TBX_GAMEPAD_AXIS_LEFT_Y);
 
                 if (leftStickXAxisValue > TBX_GAMEPAD_AXIS_DEADZONE  ||
                     leftStickXAxisValue < -TBX_GAMEPAD_AXIS_DEADZONE)

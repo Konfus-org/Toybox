@@ -5,6 +5,11 @@
 #include "Tbx/Memory/Refs.h"
 #include <Tbx/Math/Vectors.h>
 
+namespace Tbx
+{
+    class IInputHandler;
+}
+
 class Demo final : public Tbx::Runtime
 {
 public:
@@ -19,6 +24,7 @@ private:
     Tbx::Ref<Tbx::Stage> _stage = nullptr;
     Tbx::Ref<Tbx::Toy> _fpsCam = nullptr;
     Tbx::Ref<Tbx::Toy> _smily = nullptr;
+    Tbx::Ref<Tbx::IInputHandler> _input = nullptr;
 
     float _smilyBobTime = 0.0f;
     float _smilyBobAmplitude = 0.0f;

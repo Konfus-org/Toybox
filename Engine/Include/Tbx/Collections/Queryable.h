@@ -38,7 +38,7 @@ namespace Tbx
         template <typename TPredicate>
         Queryable<TItem&> Where(TPredicate predicate) const
         {
-            std::vector<TItem> result = {};
+            std::vector<TItem&> result = {};
             const auto& items = this->All();
             result.reserve(items.size());
 

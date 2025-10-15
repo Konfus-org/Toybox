@@ -10,6 +10,7 @@
 #include "Tbx/Windowing/WindowManager.h"
 #include "Tbx/Graphics/GraphicsManager.h"
 #include "Tbx/Audio/AudioManager.h"
+#include "Tbx/Input/IInputHandler.h"
 #include "Tbx/Plugins/Plugin.h"
 #include "Tbx/Collections/Queryable.h"
 #include "Tbx/Memory/Refs.h"
@@ -59,14 +60,15 @@ namespace Tbx
         void OnWindowModeChanged(const WindowModeChangedEvent& e);
 
     public:
-        Ref<EventBus> Bus = nullptr;
         Queryable<Ref<Plugin>> Plugins = {};
         Queryable<Ref<Runtime>> Runtimes = {};
-        ExclusiveRef<IWindowManager> Windowing = {};
-        ExclusiveRef<IGraphicsManager> Graphics = {};
-        ExclusiveRef<IAudioManager> Audio = {};
-        ExclusiveRef<AssetServer> Assets = {};
-        ExclusiveRef<LogManager> Logging = {};
+        Ref<EventBus> Bus = nullptr;
+        Ref<LogManager> Logging = {};
+        Ref<IInputHandler> Input = nullptr;
+        Ref<IWindowManager> Windowing = {};
+        Ref<IGraphicsManager> Graphics = {};
+        Ref<IAudioManager> Audio = {};
+        Ref<AssetServer> Assets = {};
         AppStatus Status = AppStatus::None;
         AppSettings Settings = {};
         Chronometer Clock = {};

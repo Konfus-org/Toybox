@@ -3,19 +3,23 @@
 
 int main()
 {
-    // TODO: Allow client to define plugins to like so...
-    /*auto appPlugins =
-    {
-        "3dDemoRuntime",
-        "ImGuiDebugUI",
-        "JIMSAssetLoader",
-        "OpenGLRendering",
-        "SDL3Input",
-        "SDL3Windowing",
-        "SpdLogging"
-    };*/
     auto config = Tbx::Launcher::AppConfig();
     config.Name = "3d Demo";
+    config.Settings.Vsync = Tbx::VsyncMode::On;
+    config.Settings.Resolution = { 720, 480 };
+    config.Settings.RenderingApi = Tbx::GraphicsApi::OpenGL;
+    config.Settings.ClearColor = Tbx::RgbaColor::Red;
+    config.Plugins =
+    {
+        "3d Demo Runtime",
+        "JIMS Asset Loader",
+        "OpenGL Rendering",
+        "SDL3 OpenGl Graphics Context",
+        "SDL3 Windowing",
+        "SDL3 Audio",
+        "SDL3 Input",
+        "Spd Logging"
+    };
     config.Settings.RenderingApi = Tbx::GraphicsApi::OpenGL;
 
     auto status = Tbx::Launcher::Launch(config);

@@ -1,6 +1,9 @@
 {
-    "name": "3d Demo",
-    "lib": "3dDemo.dll",
+    "name": "3d Demo Runtime",
+    "language": "C++",
+    "version": "1.0.0",
+    "author": "Konfus-dev",
+    "description": "Example of a plugin for application logic.",
     "dependencies": [
         "SDL3 Windowing",
         "SDL3 Input",
@@ -9,12 +12,5 @@
         "OpenGL Rendering",
         "JIMS Asset Loader",
         "ImGui Immediate UI"
-    ],
-    "type": [
-        "App Logic"
-    ],
-    "language": "C++",
-    "version": "0.0.1",
-    "author": "Konfus-dev",
-    "description": "Example of a plugin for application logic."
+    ]
 }

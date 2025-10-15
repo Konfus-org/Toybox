@@ -8,6 +8,8 @@
 #include "Tbx/Debug/ILogger.h"
 #include "Tbx/Debug/StdOutLogger.h"
 #include "Tbx/Input/Input.h"
+#include "Tbx/Input/HeadlessInputHandler.h"
+#include "Tbx/Input/IInputHandler.h"
 #include "Tbx/Input/InputCodes.h"
 #include "Tbx/Time/Chronometer.h"
 #include "Tbx/Time/DeltaTime.h"
@@ -93,6 +95,15 @@ namespace Tbx
         Status = AppStatus::Initializing;
         Clock.Reset();
         _frameCount = 0;
+      
+        if (IsDebugBuild)
+        {
+            TBX_TRACE_INFO("App: Using debug build.\n");
+        }
+        else
+        {
+            TBX_TRACE_INFO("App: Using release build.\n");
+        }
 
         // 1. Init core systems
         {
@@ -101,21 +112,25 @@ namespace Tbx
             if (!loggers.Any())
             {
                 TBX_TRACE_WARNING("App: No loggers detected, using default stdout logger.");
-                Logging = MakeExclusive<LogManager>(_name, MakeRef<StdOutLogger>(), Bus);
+                Logging = MakeRef<LogManager>(_name, MakeRef<StdOutLogger>(), Bus);
             }
             else
             {
                 if (loggers.Count() != 1) TBX_TRACE_WARNING("App: Multiple logger plugins detected, only one is allowed. Using first detected.");
-                Logging = MakeExclusive<LogManager>(_name, loggers.First(), Bus);
+                Logging = MakeRef<LogManager>(_name, loggers.First(), Bus);
             }
 
-            if (IsDebugBuild)
+            // Input
+            auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
+            if (!inputHandlerPlugs.Any())
             {
-                TBX_TRACE_INFO("App: Using debug build.\n");
+                TBX_TRACE_WARNING("App: No input handler plugins detected, running headless input.");
+                Input = MakeRef<HeadlessInputHandler>();
             }
             else
             {
-                TBX_TRACE_INFO("App: Using release build.\n");
+                if (inputHandlerPlugs.Count() != 1) TBX_TRACE_WARNING("App: Multiple input handler plugins detected, only one is allowed. Using first detected.");
+                Input = inputHandlerPlugs.First();
             }
 
             // Windowing
@@ -123,12 +138,12 @@ namespace Tbx
             if (!windowFactories.Any())
             {
                 TBX_TRACE_WARNING("App: No window factories detected, running headless windowing.");
-                Windowing = MakeExclusive<HeadlessWindowManager>();
+                Windowing = MakeRef<HeadlessWindowManager>();
             }
             else
             {
                 if (windowFactories.Count() != 1) TBX_TRACE_WARNING("App: Multiple window factory plugins detected, only one is allowed. Using first detected.");
-                Windowing = MakeExclusive<WindowManager>(windowFactories.First(), Bus);
+                Windowing = MakeRef<WindowManager>(windowFactories.First(), Input, Bus);
             }
 
             // Graphics
@@ -137,12 +152,12 @@ namespace Tbx
             if (!graphicsBackends.Any() || !graphicsContextProviders.Any())
             {
                 TBX_TRACE_WARNING("App: Graphics backends and context providers not detected, running headless graphics.");
-                Graphics = MakeExclusive<HeadlessGraphicsManager>();
+                Graphics = MakeRef<HeadlessGraphicsManager>();
                 Settings.RenderingApi = GraphicsApi::None;
             }
             else
             {
-                Graphics = MakeExclusive<GraphicsManager>(
+                Graphics = MakeRef<GraphicsManager>(
                     Settings.RenderingApi,
                     graphicsBackends.Vector(),
                     graphicsContextProviders.Vector(),
@@ -154,24 +169,12 @@ namespace Tbx
             if (!audioMixers.Any())
             {
                 TBX_TRACE_WARNING("App: Audio mixers not detected, running headless audio.");
-                Audio = MakeExclusive<HeadlessAudioManager>();
+                Audio = MakeRef<HeadlessAudioManager>();
             }
             else
             {
                 if (audioMixers.Count() != 1) TBX_TRACE_WARNING("App: Multiple audio mixer plugins detected, only one is allowed. Using first detected.");
-                Audio = MakeExclusive<AudioManager>(audioMixers.First(), Bus);
-            }
-
-            // Input
-            auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
-            if (!inputHandlerPlugs.Any())
-            {
-                TBX_TRACE_WARNING("App: No input handler plugins detected, running headless input.");
-            }
-            else
-            {
-                if (inputHandlerPlugs.Count() != 1) TBX_TRACE_WARNING("App: Multiple input handler plugins detected, only one is allowed. Using first detected.");
-                Input::SetHandler(inputHandlerPlugs.First());
+                Audio = MakeRef<AudioManager>(audioMixers.First(), Bus);
             }
 
             // Assets
@@ -180,7 +183,7 @@ namespace Tbx
             {
                 TBX_TRACE_WARNING("App: No asset loader plugins detected, asset server will be non-functional.");
             }
-            Assets = MakeExclusive<AssetServer>(FileSystem::GetAssetDirectory(), assetLoaders.Vector());
+            Assets = MakeRef<AssetServer>(FileSystem::GetAssetDirectory(), assetLoaders.Vector());
         }
 
         // 2. Sub to window closing so we can listen for main window closed to init app shutdown
@@ -231,7 +234,10 @@ namespace Tbx
         {
             if (Status == AppStatus::Paused)
             {
-                Input::Update();
+                if (Input)
+                {
+                    Input->UpdateInputState();
+                }
                 Windowing->Update();
                 Audio->Update();
                 Bus->Flush();
@@ -247,7 +253,8 @@ namespace Tbx
             }
         }
 
-        // Check for settings changes TODO: find a better way to do this!
+        // Check for settings changes
+        // TODO: find a better way to do this!
         if (Settings.Vsync != _lastFramesSettings.Vsync ||
             Settings.RenderingApi != _lastFramesSettings.RenderingApi ||
             Settings.Resolution.Width != _lastFramesSettings.Resolution.Width ||
@@ -262,6 +269,7 @@ namespace Tbx
         _lastFramesSettings = Settings;
 
         // Check for status changes
+        // TODO: find a better way to do this!
         if (Status != _lastFrameStatus)
         {
             _carrier.Send(AppStatusChangedEvent(Status));
@@ -274,7 +282,10 @@ namespace Tbx
             Clock.Tick();
             const auto frameDelta = Clock.GetDeltaTime();
             _frameCount++;
-            Input::Update();
+            if (Input)
+            {
+                Input->UpdateInputState();
+            }
 
             // Fixed update
             constexpr float fixedUpdateInterval = 1.0f / 50.0f;
@@ -320,8 +331,8 @@ namespace Tbx
         }
 
         // Shortcut to kill the app
-        if (Input::IsKeyDown(TBX_KEY_F4) &&
-            (Input::IsKeyDown(TBX_KEY_LEFT_ALT) || Input::IsKeyDown(TBX_KEY_RIGHT_ALT)))
+        if (Input && Input->IsKeyDown(TBX_KEY_F4) &&
+            (Input->IsKeyDown(TBX_KEY_LEFT_ALT) || Input->IsKeyDown(TBX_KEY_RIGHT_ALT)))
         {
             TBX_TRACE_INFO("App: Closing...\n");
             Status = AppStatus::Closing;
@@ -331,7 +342,7 @@ namespace Tbx
         // Debugging and development stuff:
         {
             // Shortcut to restart/reload app
-            if (Input::IsKeyDown(TBX_KEY_F2))
+            if (Input && Input->IsKeyDown(TBX_KEY_F2))
             {
                 // TODO: App slowly eats up more memory every restart meaning we have a leak in our boat!
                 // We need to track down why and fix it!
@@ -339,7 +350,7 @@ namespace Tbx
                 Status = AppStatus::Reloading;
             }
             // Shortcut to report things like framerate and memory consumption
-            else if (Input::IsKeyDown(TBX_KEY_F4))
+            else if (Input && Input->IsKeyDown(TBX_KEY_F4))
             {
                 TBX_TRACE_INFO("App: Gather data...\n");
                 DumpFrameReport();
@@ -361,35 +372,30 @@ namespace Tbx
         auto isRestarting = Status == AppStatus::Reloading;
         Status = AppStatus::Closing;
 
-        // Cleanup
-        Windowing->CloseAllWindows();
-        Input::ClearHandler();
-        Runtimes = {};
-        Plugins = {};
-
         // Allow other systems to hook into shutdown
         OnShutdown();
         _carrier.Post(AppClosedEvent(this));
         Bus->Flush();
-
         Logging->Flush();
+      
+        // Cleanup
+        Windowing->CloseAllWindows();
+        Plugins = {};
+        Runtimes = {};
 
-        if (isRestarting)
-        {
-            Status = AppStatus::Reloading;
-        }
-        else if (hadError)
-        {
-            Status = AppStatus::Error;
-        }
-        else
-        {
-            Status = AppStatus::Closed;
-        }
+        // Update status
+        if (isRestarting) Status = AppStatus::Reloading;
+        else if (hadError) Status = AppStatus::Error;
+        else Status = AppStatus::Closed;
     }
 
     void App::OnWindowClosed(const WindowClosedEvent& e)
     {
+        if (!Windowing)
+        {
+            return;
+        }
+
         // If the window is our main window, set running flag to false which will trigger the app to close
         const auto window = e.GetWindow();
         if (window->Id == Windowing->GetMainWindow()->Id)
@@ -401,6 +407,11 @@ namespace Tbx
 
     void App::OnWindowModeChanged(const WindowModeChangedEvent& e)
     {
+        if (!Windowing)
+        {
+            return;
+        }
+
         bool allWindowsMinimized = true;
         for (auto window : Windowing->GetAllWindows())
         {
@@ -440,7 +451,7 @@ namespace Tbx
         {
             const auto systemTimeT = Chronometer::SystemClock::to_time_t(systemTimePoint);
             std::tm systemTimeTm{};
-#if defined(_WIN32)
+#if defined(TBX_PLATFORM_WINDOWS)
             localtime_s(&systemTimeTm, &systemTimeT);
 #else
             localtime_r(&systemTimeT, &systemTimeTm);

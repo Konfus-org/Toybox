@@ -1,6 +1,6 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Windowing/WindowManager.h"
-#include "Tbx/Input/Input.h"
+#include "Tbx/Input/IInputHandler.h"
 #include "Tbx/Input/InputCodes.h"
 #include "Tbx/Debug/Asserts.h"
 
@@ -8,9 +8,11 @@ namespace Tbx
 {
     WindowManager::WindowManager(
         Ref<IWindowFactory> windowFactory,
+        Ref<IInputHandler> inputHandler,
         Ref<EventBus> eventBus)
     {
         _windowFactory = windowFactory;
+        _inputHandler = inputHandler;
         _eventBus = eventBus;
         TBX_ASSERT(_eventBus, "Window Manager: given invalid event bus!");
     }
@@ -23,7 +25,7 @@ namespace Tbx
     void WindowManager::Update() const
     {
         bool toggleFullscreen = false;
-        if (Input::IsKeyDown(TBX_KEY_F11))
+        if (_inputHandler && _inputHandler->IsKeyDown(TBX_KEY_F11))
         {
             toggleFullscreen = true;
         }
