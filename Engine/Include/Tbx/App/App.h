@@ -6,6 +6,7 @@
 #include "Tbx/Events/EventCarrier.h"
 #include "Tbx/Events/EventListener.h"
 #include "Tbx/Events/WindowEvents.h"
+#include "Tbx/Debug/LogManager.h"
 #include "Tbx/Windowing/WindowManager.h"
 #include "Tbx/Graphics/GraphicsManager.h"
 #include "Tbx/Audio/AudioManager.h"
@@ -62,6 +63,7 @@ namespace Tbx
         Queryable<Ref<Plugin>> Plugins = {};
         Queryable<Ref<Runtime>> Runtimes = {};
         Ref<EventBus> Bus = nullptr;
+        Ref<LogManager> Logging = {};
         Ref<IInputHandler> Input = nullptr;
         Ref<IWindowManager> Windowing = {};
         Ref<IGraphicsManager> Graphics = {};

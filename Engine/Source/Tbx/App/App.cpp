@@ -5,6 +5,9 @@
 #include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Audio/AudioMixer.h"
 #include "Tbx/Events/AppEvents.h"
+#include "Tbx/Debug/ILogger.h"
+#include "Tbx/Debug/StdOutLogger.h"
+#include "Tbx/Input/Input.h"
 #include "Tbx/Input/HeadlessInputHandler.h"
 #include "Tbx/Input/IInputHandler.h"
 #include "Tbx/Input/InputCodes.h"
@@ -34,8 +37,6 @@ namespace Tbx
         , _listener(Bus)
     {
         TBX_ASSERT(Bus, "App: Requires a valid event bus instance.");
-        if (IsDebugBuild) TBX_TRACE_INFO("App: Using debug build.\n");
-        else TBX_TRACE_INFO("App: Using release build.\n");
     }
 
     App::~App()
@@ -47,6 +48,7 @@ namespace Tbx
         {
             Shutdown();
         }
+
     }
 
     bool App::IsRunning() const
@@ -93,9 +95,31 @@ namespace Tbx
         Status = AppStatus::Initializing;
         Clock.Reset();
         _frameCount = 0;
+      
+        if (IsDebugBuild)
+        {
+            TBX_TRACE_INFO("App: Using debug build.\n");
+        }
+        else
+        {
+            TBX_TRACE_INFO("App: Using release build.\n");
+        }
 
         // 1. Init core systems
         {
+            // Logging
+            auto loggers = Plugins.OfType<ILogger>();
+            if (!loggers.Any())
+            {
+                TBX_TRACE_WARNING("App: No loggers detected, using default stdout logger.");
+                Logging = MakeRef<LogManager>(_name, MakeRef<StdOutLogger>(), Bus);
+            }
+            else
+            {
+                if (loggers.Count() != 1) TBX_TRACE_WARNING("App: Multiple logger plugins detected, only one is allowed. Using first detected.");
+                Logging = MakeRef<LogManager>(_name, loggers.First(), Bus);
+            }
+
             // Input
             auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
             if (!inputHandlerPlugs.Any())
@@ -335,7 +359,7 @@ namespace Tbx
 #endif
 
         // Flush to log at the end of every frame
-        Log::Flush();
+        Logging->Flush();
 
         TBX_TRACE_VERBOSE("App: Ending update!.\n");
     }
@@ -352,7 +376,8 @@ namespace Tbx
         OnShutdown();
         _carrier.Post(AppClosedEvent(this));
         Bus->Flush();
-
+        Logging->Flush();
+      
         // Cleanup
         Windowing->CloseAllWindows();
         Plugins = {};
@@ -426,7 +451,7 @@ namespace Tbx
         {
             const auto systemTimeT = Chronometer::SystemClock::to_time_t(systemTimePoint);
             std::tm systemTimeTm{};
-#if defined(_WIN32)
+#if defined(TBX_PLATFORM_WINDOWS)
             localtime_s(&systemTimeTm, &systemTimeT);
 #else
             localtime_r(&systemTimeT, &systemTimeTm);
