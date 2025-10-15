@@ -86,6 +86,8 @@ namespace Tbx
         _frameCount = 0;
 
         // 1. Init core systems
+
+        // Windowing
         auto windowFactories = Plugins.OfType<IWindowFactory>();
         if (!windowFactories.Any())
         {
@@ -97,7 +99,11 @@ namespace Tbx
             if (windowFactories.Count() != 1) TBX_TRACE_WARNING("App: Multiple window factory plugins detected, only one is allowed. Using first detected.");
             Windowing = MakeExclusive<WindowManager>(windowFactories.First(), Bus);
         }
-        if (!Plugins.OfType<IGraphicsBackend>().Any() || !Plugins.OfType<IGraphicsContextProvider>().Any())
+
+        // Graphics
+        auto graphicsBackends = Plugins.OfType<IGraphicsBackend>();
+        auto graphicsContextProviders = Plugins.OfType<IGraphicsContextProvider>();
+        if (!graphicsBackends.Any() || !graphicsContextProviders.Any())
         {
             TBX_TRACE_WARNING("App: Graphics plugins not detected, running headless graphics.");
             Graphics = MakeExclusive<HeadlessGraphicsManager>();
@@ -107,20 +113,25 @@ namespace Tbx
         {
             Graphics = MakeExclusive<GraphicsManager>(
                 Settings.RenderingApi,
-                Plugins.OfType<IGraphicsBackend>().Items(),
-                Plugins.OfType<IGraphicsContextProvider>().Items(),
+                graphicsContextProviders.Vector(),
+                graphicsContextProviders.Vector(),
                 Bus);
         }
-        if (!Plugins.OfType<IAudioMixer>().Any())
+
+        // Audio
+        auto audioMixers = Plugins.OfType<IAudioMixer>();
+        if (!audioMixers.Any())
         {
             TBX_TRACE_WARNING("App: Audio mixer plugin not detected, running silent audio.");
             Audio = MakeExclusive<HeadlessAudioManager>();
         }
         else
         {
-            if (Plugins.OfType<IAudioMixer>().Count() != 1) TBX_TRACE_WARNING("App: Multiple audio mixer plugins detected, only one is allowed. Using first detected.");
-            Audio = MakeExclusive<AudioManager>(Plugins.OfType<IAudioMixer>().First(), Bus);
+            if (audioMixers.Count() != 1) TBX_TRACE_WARNING("App: Multiple audio mixer plugins detected, only one is allowed. Using first detected.");
+            Audio = MakeExclusive<AudioManager>(audioMixers.First(), Bus);
         }
+
+        // Input
         auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
         if (!inputHandlerPlugs.Any())
         {
@@ -131,11 +142,13 @@ namespace Tbx
             if (inputHandlerPlugs.Count() != 1) TBX_TRACE_WARNING("App: Multiple input handler plugins detected, only one is allowed. Using first detected.");
             Input::SetHandler(inputHandlerPlugs.First());
         }
+
+        // Assets
         if (!Plugins.OfType<IAssetLoader>().Any())
         {
             TBX_TRACE_WARNING("App: No asset loader plugins detected, asset server will be non-functional.");
         }
-        Assets = MakeExclusive<AssetServer>(FileSystem::GetAssetDirectory(), Plugins.OfType<IAssetLoader>().Items());
+        Assets = MakeExclusive<AssetServer>(FileSystem::GetAssetDirectory(), Plugins.OfType<IAssetLoader>().Vector());
 
         // 2. Sub to window closing so we can listen for main window closed to init app shutdown
         _listener.Listen<WindowClosedEvent>([this](WindowClosedEvent& event)
