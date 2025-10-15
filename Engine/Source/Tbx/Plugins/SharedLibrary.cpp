@@ -38,27 +38,30 @@ namespace Tbx
             return false;
         }
 
-        // 2. Duplicate the library to a temporary unique path to allow for hot reloading of the lib
         try
         {
+            _path = path;
+
+#ifdef TBX_DEBUG
+            // Duplicate the library to a temporary unique path to allow for hot reloading of the lib (debug mode only)
             fs::path tempDir = fs::temp_directory_path();
             fs::path tempPath = tempDir / (libPath.filename().stem().string() + "_copy_" + std::to_string(std::time(nullptr)) + libPath.extension().string());
 
             TBX_TRACE_INFO("SharedLibrary: Duplicating library {} to temporary path {} for hot reloading...", libPath.string(), tempPath.string());
             fs::copy_file(libPath, tempPath, fs::copy_options::overwrite_existing);
+            _path = tempPath.string();
+#endif
 
-            // 3. Load the duplicate
+            // Load the lib
 #if defined(TBX_PLATFORM_WINDOWS)
-            _handle = LoadLibraryA(tempPath.string().c_str());
+            _handle = LoadLibraryA(_path.c_str());
 #elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_MACOS)
             _handle = dlopen(tempPath.string().c_str(), RTLD_LAZY);
 #endif
 
-            _path = tempPath.string();
-
             if (!_handle)
             {
-                TBX_ASSERT(false, "SharedLibrary: Failed to load library {}!", tempPath.string());
+                TBX_ASSERT(false, "SharedLibrary: Failed to load library {}!", _path);
                 return false;
             }
 
