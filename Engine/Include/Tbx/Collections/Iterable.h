@@ -41,7 +41,7 @@ namespace Tbx
             return _items;
         }
 
-        const std::vector<TItem>& Items() const
+        const std::vector<TItem>& Vector() const
         {
             return _items;
         }

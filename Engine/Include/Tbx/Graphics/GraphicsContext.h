@@ -48,6 +48,6 @@ namespace Tbx
         /// <summary>
         /// Provides a graphics context for the provided window using the provider's API.
         /// </summary>
-        virtual Ref<IGraphicsContext> Provide(Ref<Window> window) = 0;
+        virtual Ref<IGraphicsContext> Provide(const Window* window) = 0;
     };
 }

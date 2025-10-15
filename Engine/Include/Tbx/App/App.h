@@ -80,6 +80,7 @@ namespace Tbx
         std::string _name = "";
         EventCarrier _carrier = {};
         EventListener _listener = {};
+        AppSettings _lastFramesSettings = {};
         float _fixedUpdateAccumulator = 0.0f;
         // TODO: move this elsewhere! Perhaps a plugin?
         void DumpFrameReport() const;

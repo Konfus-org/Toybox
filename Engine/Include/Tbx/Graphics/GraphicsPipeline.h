@@ -38,7 +38,7 @@ namespace Tbx
 
     struct TBX_EXPORT GraphicsDisplay
     {
-        Ref<Window> Surface = nullptr;
+        const Window* Surface = nullptr;
         Ref<IGraphicsContext> Context = nullptr;
     };
 

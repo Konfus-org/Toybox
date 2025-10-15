@@ -41,6 +41,7 @@ namespace Tbx
     {
         // If we haven't closed yet
         if (Status != AppStatus::Closed &&
+            Status != AppStatus::Reloading &&
             Status != AppStatus::Error)
         {
             Shutdown();
@@ -86,69 +87,71 @@ namespace Tbx
         _frameCount = 0;
 
         // 1. Init core systems
+        {
+            // Windowing
+            auto windowFactories = Plugins.OfType<IWindowFactory>();
+            if (!windowFactories.Any())
+            {
+                TBX_TRACE_WARNING("App: No window factories detected, running headless windowing.");
+                Windowing = MakeExclusive<HeadlessWindowManager>();
+            }
+            else
+            {
+                if (windowFactories.Count() != 1) TBX_TRACE_WARNING("App: Multiple window factory plugins detected, only one is allowed. Using first detected.");
+                Windowing = MakeExclusive<WindowManager>(windowFactories.First(), Bus);
+            }
 
-        // Windowing
-        auto windowFactories = Plugins.OfType<IWindowFactory>();
-        if (!windowFactories.Any())
-        {
-            TBX_TRACE_WARNING("App: No graphics backend plugins detected, running headless windowing.");
-            Windowing = MakeExclusive<HeadlessWindowManager>();
-        }
-        else
-        {
-            if (windowFactories.Count() != 1) TBX_TRACE_WARNING("App: Multiple window factory plugins detected, only one is allowed. Using first detected.");
-            Windowing = MakeExclusive<WindowManager>(windowFactories.First(), Bus);
-        }
+            // Graphics
+            auto graphicsBackends = Plugins.OfType<IGraphicsBackend>();
+            auto graphicsContextProviders = Plugins.OfType<IGraphicsContextProvider>();
+            if (!graphicsBackends.Any() || !graphicsContextProviders.Any())
+            {
+                TBX_TRACE_WARNING("App: Graphics backends and context providers not detected, running headless graphics.");
+                Graphics = MakeExclusive<HeadlessGraphicsManager>();
+                Settings.RenderingApi = GraphicsApi::None;
+            }
+            else
+            {
+                Graphics = MakeExclusive<GraphicsManager>(
+                    Settings.RenderingApi,
+                    graphicsBackends.Vector(),
+                    graphicsContextProviders.Vector(),
+                    Bus);
+            }
 
-        // Graphics
-        auto graphicsBackends = Plugins.OfType<IGraphicsBackend>();
-        auto graphicsContextProviders = Plugins.OfType<IGraphicsContextProvider>();
-        if (!graphicsBackends.Any() || !graphicsContextProviders.Any())
-        {
-            TBX_TRACE_WARNING("App: Graphics plugins not detected, running headless graphics.");
-            Graphics = MakeExclusive<HeadlessGraphicsManager>();
-            Settings.RenderingApi = GraphicsApi::None;
-        }
-        else
-        {
-            Graphics = MakeExclusive<GraphicsManager>(
-                Settings.RenderingApi,
-                graphicsContextProviders.Vector(),
-                graphicsContextProviders.Vector(),
-                Bus);
-        }
+            // Audio
+            auto audioMixers = Plugins.OfType<IAudioMixer>();
+            if (!audioMixers.Any())
+            {
+                TBX_TRACE_WARNING("App: Audio mixers not detected, running headless audio.");
+                Audio = MakeExclusive<HeadlessAudioManager>();
+            }
+            else
+            {
+                if (audioMixers.Count() != 1) TBX_TRACE_WARNING("App: Multiple audio mixer plugins detected, only one is allowed. Using first detected.");
+                Audio = MakeExclusive<AudioManager>(audioMixers.First(), Bus);
+            }
 
-        // Audio
-        auto audioMixers = Plugins.OfType<IAudioMixer>();
-        if (!audioMixers.Any())
-        {
-            TBX_TRACE_WARNING("App: Audio mixer plugin not detected, running silent audio.");
-            Audio = MakeExclusive<HeadlessAudioManager>();
-        }
-        else
-        {
-            if (audioMixers.Count() != 1) TBX_TRACE_WARNING("App: Multiple audio mixer plugins detected, only one is allowed. Using first detected.");
-            Audio = MakeExclusive<AudioManager>(audioMixers.First(), Bus);
-        }
+            // Input
+            auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
+            if (!inputHandlerPlugs.Any())
+            {
+                TBX_TRACE_WARNING("App: No input handler plugins detected, running headless input.");
+            }
+            else
+            {
+                if (inputHandlerPlugs.Count() != 1) TBX_TRACE_WARNING("App: Multiple input handler plugins detected, only one is allowed. Using first detected.");
+                Input::SetHandler(inputHandlerPlugs.First());
+            }
 
-        // Input
-        auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
-        if (!inputHandlerPlugs.Any())
-        {
-            TBX_TRACE_WARNING("App: No input handler plugins detected, running headless input.");
+            // Assets
+            auto assetLoaders = Plugins.OfType<IAssetLoader>();
+            if (!assetLoaders.Any())
+            {
+                TBX_TRACE_WARNING("App: No asset loader plugins detected, asset server will be non-functional.");
+            }
+            Assets = MakeExclusive<AssetServer>(FileSystem::GetAssetDirectory(), assetLoaders.Vector());
         }
-        else
-        {
-            if (inputHandlerPlugs.Count() != 1) TBX_TRACE_WARNING("App: Multiple input handler plugins detected, only one is allowed. Using first detected.");
-            Input::SetHandler(inputHandlerPlugs.First());
-        }
-
-        // Assets
-        if (!Plugins.OfType<IAssetLoader>().Any())
-        {
-            TBX_TRACE_WARNING("App: No asset loader plugins detected, asset server will be non-functional.");
-        }
-        Assets = MakeExclusive<AssetServer>(FileSystem::GetAssetDirectory(), Plugins.OfType<IAssetLoader>().Vector());
 
         // 2. Sub to window closing so we can listen for main window closed to init app shutdown
         _listener.Listen<WindowClosedEvent>([this](WindowClosedEvent& event)
@@ -169,20 +172,24 @@ namespace Tbx
         }
         Runtimes = runtimes;
 
-        // 4. Broadcast app launched events
-        _carrier.Send(AppSettingsChangedEvent(Settings));
+        // 5. Broadcast app launched events
         _carrier.Send(AppLaunchedEvent(this));
+        _carrier.Send(AppSettingsChangedEvent(Settings));
 
-        // 5. Open main window
+        // 6. Open main window
 #ifdef TBX_DEBUG
         Windowing->OpenWindow(_name, WindowMode::Windowed, Size(1920, 1080));
 #else
         Windowing->OpenWindow(_name, WindowMode::Fullscreen);
 #endif
+
+        TBX_TRACE_INFO("App: Initialized!.\n");
     }
 
     void App::Update()
     {
+        TBX_TRACE_VERBOSE("App: Starting update!.\n");
+
         // Runtime loop
         {
             // 1. Update delta and input
@@ -232,6 +239,20 @@ namespace Tbx
             // 7. Dispatch events
             _carrier.Post(AppUpdatedEvent());
             Bus->Flush();
+
+            // 8. Check for settings changes TODO: find a better way to do this!
+            if (Settings.Vsync != _lastFramesSettings.Vsync ||
+                Settings.RenderingApi != _lastFramesSettings.RenderingApi ||
+                Settings.Resolution.Width != _lastFramesSettings.Resolution.Width ||
+                Settings.Resolution.Height != _lastFramesSettings.Resolution.Height ||
+                Settings.ClearColor.R != _lastFramesSettings.ClearColor.R ||
+                Settings.ClearColor.G != _lastFramesSettings.ClearColor.G || 
+                Settings.ClearColor.B != _lastFramesSettings.ClearColor.B || 
+                Settings.ClearColor.A != _lastFramesSettings.ClearColor.A)
+            {
+                _carrier.Send(AppSettingsChangedEvent(Settings));
+            }
+            _lastFramesSettings = Settings;
         }
 
         // Shortcut to kill the app
@@ -264,11 +285,13 @@ namespace Tbx
 
         // Flush to log at the end of every frame
         Log::Flush();
+
+        TBX_TRACE_VERBOSE("App: Ending update!.\n");
     }
 
     void App::Shutdown()
     {
-        TBX_TRACE_INFO("App: Shutting down...");
+        TBX_TRACE_INFO("App: Shutting down...\n");
 
         auto hadError = Status == AppStatus::Error;
         auto isRestarting = Status == AppStatus::Reloading;

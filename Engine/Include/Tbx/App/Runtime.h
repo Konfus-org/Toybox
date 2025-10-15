@@ -7,18 +7,6 @@
 
 namespace Tbx
 {
-#ifdef TBX_DEBUG
-    constexpr bool IsDebugBuild = true;
-#else
-    constexpr bool IsDebugBuild = false;
-#endif
-
-#ifdef TBX_RELEASE
-    constexpr bool IsReleaseBuild = true;
-#else
-    constexpr bool IsReleaseBuild = false;
-#endif
-
     /// <summary>
     /// A way to add logic that hooks into an apps lifetime.
     /// An example use case is game specific logic.
