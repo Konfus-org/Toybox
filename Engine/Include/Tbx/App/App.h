@@ -9,6 +9,7 @@
 #include "Tbx/Windowing/WindowManager.h"
 #include "Tbx/Graphics/GraphicsManager.h"
 #include "Tbx/Audio/AudioManager.h"
+#include "Tbx/Input/IInputHandler.h"
 #include "Tbx/Plugins/Plugin.h"
 #include "Tbx/Collections/Queryable.h"
 #include "Tbx/Memory/Refs.h"
@@ -61,10 +62,11 @@ namespace Tbx
         Ref<EventBus> Bus = nullptr;
         Queryable<Ref<Plugin>> Plugins = {};
         Queryable<Ref<Runtime>> Runtimes = {};
-        ExclusiveRef<IWindowManager> Windowing = {};
-        ExclusiveRef<IGraphicsManager> Graphics = {};
-        ExclusiveRef<IAudioManager> Audio = {};
-        ExclusiveRef<AssetServer> Assets = {};
+        Ref<IInputHandler> Input = nullptr;
+        Ref<IWindowManager> Windowing = {};
+        Ref<IGraphicsManager> Graphics = {};
+        Ref<IAudioManager> Audio = {};
+        Ref<AssetServer> Assets = {};
         AppStatus Status = AppStatus::None;
         AppSettings Settings = {};
         Chronometer Clock = {};

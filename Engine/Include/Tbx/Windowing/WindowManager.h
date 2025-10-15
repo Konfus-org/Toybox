@@ -7,6 +7,8 @@
 
 namespace Tbx
 {
+    class IInputHandler;
+
     class TBX_EXPORT IWindowManager
     {
     public:
@@ -75,6 +77,7 @@ namespace Tbx
         WindowManager() = default;
         WindowManager(
             Ref<IWindowFactory> windowFactory,
+            Ref<IInputHandler> inputHandler,
             Ref<EventBus> eventBus);
         ~WindowManager() override;
 
@@ -91,6 +94,7 @@ namespace Tbx
 
     private:
         Ref<IWindowFactory> _windowFactory = {};
+        Ref<IInputHandler> _inputHandler = nullptr;
         Ref<EventBus> _eventBus = {};
         Uid _mainWindowId = Uid::Invalid;
         WindowStack _stack = {};
