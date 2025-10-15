@@ -16,6 +16,11 @@ namespace Tbx
         {
         }
 
+        bool Any() const
+        {
+            return Iterable<TItem>::Any();
+        }
+
         template <typename TPredicate>
         bool Any(TPredicate predicate) const
         {

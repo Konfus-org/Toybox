@@ -24,7 +24,7 @@ void Demo::OnStart(Tbx::App* owner)
     TBX_TRACE_INFO("Demo: started!\n");
 
     // Load assets
-    const auto& assets = owner->Assets;
+    const auto& assets = *owner->Assets;
     auto music = assets.Get<Tbx::Audio>("Music.wav");
     auto wallTex = assets.Get<Tbx::Texture>("Wall.jpg");
     auto floorTex = assets.Get<Tbx::Texture>("Checkerboard.png");
@@ -46,8 +46,8 @@ void Demo::OnStart(Tbx::App* owner)
         musicSource->Looping = true;
         musicSource->PlaybackSpeed = 3;
 
-        // TODO: audio position isn't relative to the camera automagically it plays relative to the world origin rn...
-        musicTransform->Position = Tbx::Vector3(-10, 0, 0);
+        // TODO: audio position doesn't work yet so its just global audio for now
+        //musicTransform->Position = Tbx::Vector3(-10, 0, 0);
 
         // We need to have at least once instance of our mesh and materials to be able to instance them
         // TODO: This is a bit of a hack, but it works for now.
@@ -62,8 +62,6 @@ void Demo::OnStart(Tbx::App* owner)
 
         auto smilyMatToy = _stage->Add("SmilyMat");
         auto smilyMatId = smilyMatToy->Add<Tbx::Material>(matShaders, smilyTex)->Id;
-
-        // Add music
 
         // Create room
         {

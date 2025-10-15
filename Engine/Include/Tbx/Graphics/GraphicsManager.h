@@ -12,7 +12,29 @@
 
 namespace Tbx
 {
-    class GraphicsManager
+    class IGraphicsManager
+    {
+    public:
+        virtual ~IGraphicsManager() = default;
+        virtual void Update() = 0;
+        virtual void SetRenderPasses(const std::vector<RenderPass>& passes) = 0;
+        virtual const std::vector<RenderPass>& GetRenderPasses() const = 0;
+    };
+
+    class HeadlessGraphicsManager final : public IGraphicsManager
+    {
+    public:
+        HeadlessGraphicsManager() = default;
+        void Update() override {}
+        void SetRenderPasses(const std::vector<RenderPass>& passes) override {}
+        const std::vector<RenderPass>& GetRenderPasses() const override
+        {
+            static std::vector<RenderPass> empty = {};
+            return empty;
+        }
+    };
+
+    class GraphicsManager final : public IGraphicsManager
     {
     public:
         GraphicsManager() = default;
@@ -22,10 +44,10 @@ namespace Tbx
             const std::vector<Ref<IGraphicsContextProvider>>& contextProviders,
             Ref<EventBus> eventBus);
 
-        void Update();
+        void Update() override;
 
-        void SetRenderPasses(const std::vector<RenderPass>& passes);
-        const std::vector<RenderPass>& GetRenderPasses() const;
+        void SetRenderPasses(const std::vector<RenderPass>& passes) override;
+        const std::vector<RenderPass>& GetRenderPasses() const override;
 
     private:
         void InitializeRenderers(

@@ -20,24 +20,6 @@
 
 namespace Tbx
 {
-    static Tbx::AudioManager CreateAudioManager(
-        const Tbx::Queryable<Tbx::Ref<Tbx::Plugin>>& plugins,
-        const Tbx::Ref<Tbx::EventBus>& eventBus)
-    {
-        if (!eventBus)
-        {
-            return {};
-        }
-
-        auto audioMixers = plugins.OfType<Tbx::IAudioMixer>();
-        if (audioMixers.Empty())
-        {
-            return {};
-        }
-
-        return Tbx::AudioManager(audioMixers.First(), eventBus);
-    }
-
     App::App(
         const std::string_view& name,
         const AppSettings& settings,
@@ -46,22 +28,13 @@ namespace Tbx
         : Bus(eventBus)
         , Plugins(plugins)
         , Settings(settings)
-        , Windowing(Plugins.OfType<IWindowFactory>().First(), Bus)
-        , Graphics(
-            Settings.RenderingApi,
-            Plugins.OfType<IGraphicsBackend>().Items(),
-            Plugins.OfType<IGraphicsContextProvider>().Items(),
-            Bus)
-        , Audio(Plugins.OfType<IAudioMixer>().First(), Bus)
-        , Assets(FileSystem::GetAssetDirectory(), Plugins.OfType<IAssetLoader>().Items())
         , _name(name)
         , _carrier(Bus)
         , _listener(Bus)
     {
         TBX_ASSERT(Bus, "App: Requires a valid event bus instance.");
-
-        auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
-        Input::SetHandler(inputHandlerPlugs.First());
+        if (IsDebugBuild) TBX_TRACE_INFO("App: Using debug build.\n");
+        else TBX_TRACE_INFO("App: Using release build.\n");
     }
 
     App::~App()
@@ -112,16 +85,68 @@ namespace Tbx
         Clock.Reset();
         _frameCount = 0;
 
-        // 1. Sub to window closing so we can listen for main window closed to init app shutdown
+        // 1. Init core systems
+        auto windowFactories = Plugins.OfType<IWindowFactory>();
+        if (!windowFactories.Any())
+        {
+            TBX_TRACE_WARNING("App: No graphics backend plugins detected, running headless windowing.");
+            Windowing = MakeExclusive<HeadlessWindowManager>();
+        }
+        else
+        {
+            if (windowFactories.Count() != 1) TBX_TRACE_WARNING("App: Multiple window factory plugins detected, only one is allowed. Using first detected.");
+            Windowing = MakeExclusive<WindowManager>(windowFactories.First(), Bus);
+        }
+        if (!Plugins.OfType<IGraphicsBackend>().Any() || !Plugins.OfType<IGraphicsContextProvider>().Any())
+        {
+            TBX_TRACE_WARNING("App: Graphics plugins not detected, running headless graphics.");
+            Graphics = MakeExclusive<HeadlessGraphicsManager>();
+            Settings.RenderingApi = GraphicsApi::None;
+        }
+        else
+        {
+            Graphics = MakeExclusive<GraphicsManager>(
+                Settings.RenderingApi,
+                Plugins.OfType<IGraphicsBackend>().Items(),
+                Plugins.OfType<IGraphicsContextProvider>().Items(),
+                Bus);
+        }
+        if (!Plugins.OfType<IAudioMixer>().Any())
+        {
+            TBX_TRACE_WARNING("App: Audio mixer plugin not detected, running silent audio.");
+            Audio = MakeExclusive<HeadlessAudioManager>();
+        }
+        else
+        {
+            if (Plugins.OfType<IAudioMixer>().Count() != 1) TBX_TRACE_WARNING("App: Multiple audio mixer plugins detected, only one is allowed. Using first detected.");
+            Audio = MakeExclusive<AudioManager>(Plugins.OfType<IAudioMixer>().First(), Bus);
+        }
+        auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
+        if (!inputHandlerPlugs.Any())
+        {
+            TBX_TRACE_WARNING("App: No input handler plugins detected, running headless input.");
+        }
+        else
+        {
+            if (inputHandlerPlugs.Count() != 1) TBX_TRACE_WARNING("App: Multiple input handler plugins detected, only one is allowed. Using first detected.");
+            Input::SetHandler(inputHandlerPlugs.First());
+        }
+        if (!Plugins.OfType<IAssetLoader>().Any())
+        {
+            TBX_TRACE_WARNING("App: No asset loader plugins detected, asset server will be non-functional.");
+        }
+        Assets = MakeExclusive<AssetServer>(FileSystem::GetAssetDirectory(), Plugins.OfType<IAssetLoader>().Items());
+
+        // 2. Sub to window closing so we can listen for main window closed to init app shutdown
         _listener.Listen<WindowClosedEvent>([this](WindowClosedEvent& event)
         {
             OnWindowClosed(event);
         });
 
-        // 2. Allow other systems to hook into launch
+        // 3. Allow other systems to hook into launch
         OnLaunch();
 
-        // 3. Init runtimes
+        // 4. Init runtimes
         auto runtimePlugs = Plugins.OfType<Runtime>();
         auto runtimes = std::vector<Ref<Runtime>>();
         for (const auto& runtime : runtimePlugs)
@@ -137,9 +162,9 @@ namespace Tbx
 
         // 5. Open main window
 #ifdef TBX_DEBUG
-        Windowing.OpenWindow(_name, WindowMode::Windowed, Size(1920, 1080));
+        Windowing->OpenWindow(_name, WindowMode::Windowed, Size(1920, 1080));
 #else
-        Windowing.OpenWindow(_name, WindowMode::Fullscreen);
+        Windowing->OpenWindow(_name, WindowMode::Fullscreen);
 #endif
     }
 
@@ -183,13 +208,13 @@ namespace Tbx
             OnLateUpdate(frameDelta);
 
             // 5. Graphics
-            Graphics.Update();
+            Graphics->Update();
 
             // 6. windows
-            Windowing.Update();
+            Windowing->Update();
           
             // 7. Update audio
-            Audio.Update();
+            Audio->Update();
 
             // 7. Dispatch events
             _carrier.Post(AppUpdatedEvent());
@@ -238,7 +263,7 @@ namespace Tbx
         Status = AppStatus::Closing;
 
         // Cleanup
-        Windowing.CloseAllWindows();
+        Windowing->CloseAllWindows();
         Input::ClearHandler();
         Runtimes = {};
         Plugins = {};
@@ -266,7 +291,7 @@ namespace Tbx
     {
         // If the window is our main window, set running flag to false which will trigger the app to close
         const auto window = e.GetWindow();
-        if (window->Id == Windowing.GetMainWindow()->Id)
+        if (window->Id == Windowing->GetMainWindow()->Id)
         {
             // Stop running and close all windows
             Status = AppStatus::Closing;
@@ -310,7 +335,7 @@ namespace Tbx
             ? static_cast<float>(measuredFrames) / accumulatedSeconds
             : instantaneousFps;
 
-        const auto& windows = Windowing.GetAllWindows();
+        const auto& windows = Windowing->GetAllWindows();
         const size_t windowCount = windows.size();
 
         std::string mainWindowTitle = "None";
@@ -318,7 +343,7 @@ namespace Tbx
         uint mainWindowHeight = 0u;
         float mainWindowAspectRatio = 0.0f;
 
-        if (const auto mainWindow = Windowing.GetMainWindow())
+        if (const auto mainWindow = Windowing->GetMainWindow())
         {
             mainWindowTitle = mainWindow->GetTitle();
             const auto& size = mainWindow->GetSize();
@@ -332,7 +357,7 @@ namespace Tbx
 
         const uint64 pluginCount = Plugins.Count();
         const uint64 runtimeCount = Runtimes.Count();
-        const uint32 renderPassCount = Graphics.GetRenderPasses().size();
+        const uint32 renderPassCount = Graphics->GetRenderPasses().size();
 
         const auto vsyncToString = [](VsyncMode mode) -> std::string_view
         {

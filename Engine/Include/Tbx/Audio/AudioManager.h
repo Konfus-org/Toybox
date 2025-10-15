@@ -9,16 +9,31 @@
 
 namespace Tbx
 {
+    class IAudioManager
+    {
+    public:
+        virtual ~IAudioManager() = default;
+        virtual void Update() = 0;
+    };
+
+    class HeadlessAudioManager final : public IAudioManager
+    {
+    public:
+        HeadlessAudioManager() = default;
+        void Update() override {}
+    };
+
+
     /// <summary>
     /// Coordinates audio playback by querying stages for active audio blocks and delegating to the mixer.
     /// </summary>
-    class TBX_EXPORT AudioManager
+    class TBX_EXPORT AudioManager final : public IAudioManager
     {
     public:
         AudioManager() = default;
         AudioManager(Ref<IAudioMixer> mixer, Ref<EventBus> eventBus);
 
-        void Update();
+        void Update() override;
 
     private:
         void OnStageOpened(const StageOpenedEvent& e);

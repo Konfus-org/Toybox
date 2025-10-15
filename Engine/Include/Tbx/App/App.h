@@ -68,12 +68,12 @@ namespace Tbx
         Ref<EventBus> Bus = nullptr;
         Queryable<Ref<Plugin>> Plugins = {};
         Queryable<Ref<Runtime>> Runtimes = {};
+        ExclusiveRef<IWindowManager> Windowing = {};
+        ExclusiveRef<IGraphicsManager> Graphics = {};
+        ExclusiveRef<IAudioManager> Audio = {};
+        ExclusiveRef<AssetServer> Assets = {};
         AppStatus Status = AppStatus::None;
         AppSettings Settings = {};
-        WindowManager Windowing = {};
-        GraphicsManager Graphics = {};
-        AssetServer Assets = {};
-        AudioManager Audio = {};
         Chronometer Clock = {};
 
     private:
