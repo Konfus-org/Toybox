@@ -1,6 +1,6 @@
 #pragma once
-#include "Tbx/Debug/LogEvents.h"
 #include "Tbx/DllExport.h"
+#include "Tbx/Events/LogEvents.h"
 #include "Tbx/Events/EventListener.h"
 #include "Tbx/Memory/Refs.h"
 #include <string>
@@ -14,7 +14,6 @@ namespace Tbx
     {
     public:
         LogManager(const std::string& channel, Ref<ILogger> logger, Ref<EventBus> bus);
-        ~LogManager();
 
         Ref<ILogger> GetLogger() const;
         void Flush();

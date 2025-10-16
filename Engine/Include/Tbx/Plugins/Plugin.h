@@ -1,6 +1,8 @@
 #pragma once
 #include "Tbx/DllExport.h"
+#include "Tbx/Debug/Tracers.h"
 #include "Tbx/Events/EventBus.h"
+#include "Tbx/Events/PluginEvents.h"
 #include "Tbx/Plugins/PluginMeta.h"
 #include "Tbx/Plugins/SharedLibrary.h"
 #include "Tbx/Memory/Refs.h"
@@ -64,6 +66,9 @@ namespace Tbx
         }\
         TBX_PLUGIN_EXPORT void Unload(pluginType* pluginToUnload)\
         {\
+            TBX_TRACE_INFO("Plugin: Unloaded {}\n", pluginToUnload->Meta.Name);\
+            ::Tbx::EventBus::Global->QueueEvent(\
+                ::Tbx::MakeExclusive<::Tbx::Event>(::Tbx::PluginUnloadedEvent(pluginToUnload)));\
             auto library = std::move(pluginToUnload->Library);\
             delete pluginToUnload;\
         }

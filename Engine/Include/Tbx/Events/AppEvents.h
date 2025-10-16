@@ -7,86 +7,43 @@ namespace Tbx
 {
     class App;
 
-    class TBX_EXPORT AppLaunchedEvent : public Event
+    struct TBX_EXPORT AppLaunchedEvent : public Event
     {
-    public:
-        AppLaunchedEvent(App* app)
-        {
-			_app = app;
-        }
+        AppLaunchedEvent(const App* app) : LaunchedApp(app) {}
 
-        std::string ToString() const override
-        {
-            return "App Initialized Event";
-        }
-
-        App& GetApp() const { return *_app; }
-
-    private:
-        App* _app = nullptr;
+        const App* LaunchedApp = nullptr;
     };
 
-    class TBX_EXPORT AppClosedEvent : public Event
+    struct TBX_EXPORT AppClosedEvent : public Event
     {
-    public:
-        AppClosedEvent(App* app)
-        {
-            _app = app;
-        }
+        AppClosedEvent(const App* app) : ClosedApp(app) {}
 
-        std::string ToString() const override
-        {
-            return "App Closed Event";
-        }
-
-        App& GetApp() const { return *_app; }
-
-    private:
-        App* _app = nullptr;
+        const App* ClosedApp = nullptr;
     };
 
-    class TBX_EXPORT AppUpdatedEvent : public Event
+    struct TBX_EXPORT AppUpdatedEvent : public Event
     {
-    public:
-        std::string ToString() const override
-        {
-            return "App Update Event";
-        }
+        AppUpdatedEvent(const App* app) : UpdatedApp(app) {}
+
+        const App* UpdatedApp = nullptr;
     };
 
-    class TBX_EXPORT AppStatusChangedEvent : public Event
+    struct TBX_EXPORT AppStatusChangedEvent : public Event
     {
-    public:
-        explicit AppStatusChangedEvent(const AppStatus& status)
-            : _status(status) {
-        }
+        AppStatusChangedEvent(const AppStatus& oldStatus, const AppStatus& newStatus)
+            : OldStatus(oldStatus), NewStatus(newStatus) {}
 
-        const AppStatus& GetNewStatus() const { return _status; }
-
-        std::string ToString() const override
-        {
-            return "App Settings Changed Event";
-        }
-
-    private:
-        AppStatus _status = {};
+        const AppStatus OldStatus = {};
+        const AppStatus NewStatus = {};
     };
 
-    class TBX_EXPORT AppSettingsChangedEvent : public Event
+    struct TBX_EXPORT AppSettingsChangedEvent : public Event
     {
-    public:
-        explicit AppSettingsChangedEvent(const AppSettings& settings)
-            : _settings(settings) {}
+        AppSettingsChangedEvent(const AppSettings& oldSettings, const AppSettings& newSettings) 
+            : OldSettings(oldSettings), NewSettings(newSettings) {}
 
-        const AppSettings& GetNewSettings() const { return _settings; }
-
-        std::string ToString() const override
-        {
-            return "App Settings Changed Event";
-        }
-
-    private:
-        AppSettings _settings = {};
+        const AppSettings OldSettings = {};
+        const AppSettings NewSettings = {};
     };
 }
 

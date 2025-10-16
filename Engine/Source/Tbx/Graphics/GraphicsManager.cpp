@@ -173,7 +173,7 @@ namespace Tbx
 
     void GraphicsManager::OnAppSettingsChanged(const AppSettingsChangedEvent& e)
     {
-        const auto& newSettings = e.GetNewSettings();
+        const auto& newSettings = e.NewSettings;
 
         if (_activeGraphicsApi != newSettings.RenderingApi)
         {
@@ -195,7 +195,7 @@ namespace Tbx
 
     void GraphicsManager::OnWindowOpened(const WindowOpenedEvent& e)
     {
-        auto newWindow = e.GetWindow();
+        auto newWindow = e.AffectedWindow;
         if (!newWindow)
         {
             TBX_ASSERT(false, "GraphicsManager: Invalid window open event, ensure a valid window is passed!");
@@ -221,7 +221,7 @@ namespace Tbx
 
     void GraphicsManager::OnWindowClosed(const WindowClosedEvent& e)
     {
-        auto closedWindow = e.GetWindow();
+        auto closedWindow = e.AffectedWindow;
         if (!closedWindow)
         {
             return;
@@ -240,7 +240,7 @@ namespace Tbx
 
     void GraphicsManager::OnStageOpened(const StageOpenedEvent& e)
     {
-        auto stage = e.GetStage();
+        auto stage = e.OpenedStage;
         auto it = std::find(_openStages.begin(), _openStages.end(), stage);
         if (it == _openStages.end())
         {
@@ -250,7 +250,7 @@ namespace Tbx
 
     void GraphicsManager::OnStageClosed(const StageClosedEvent& e)
     {
-        auto stage = e.GetStage();
+        auto stage = e.ClosedStage;
         auto it = std::find(_openStages.begin(), _openStages.end(), stage);
         if (it != _openStages.end())
         {

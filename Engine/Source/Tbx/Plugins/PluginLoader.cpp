@@ -124,11 +124,5 @@ namespace Tbx
 
         TBX_TRACE_INFO("PluginLoader: Successfully loaded {} plugins!", successfullyLoaded);
         TBX_TRACE_INFO("PluginLoader: Failed to load {} plugins!\n", unsuccessfullyLoaded);
-
-        if (_eventBus != nullptr)
-        {
-            EventCarrier carrier(_eventBus);
-            carrier.Post(PluginsLoadedEvent(_plugins));
-        }
     }
 }

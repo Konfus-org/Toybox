@@ -5,12 +5,15 @@
 
 namespace Tbx
 {
-    class TBX_EXPORT RenderedFrameEvent final : public Event
+    struct TBX_EXPORT RenderBeginDrawEvent final : public Event
     {
-    public:
-        std::string ToString() const override
-        {
-            return "Rendered Frame Event";
-        }
+    };
+
+    struct TBX_EXPORT RenderEndDrawEvent final : public Event
+    {
+    };
+
+    struct TBX_EXPORT RenderedFrameEvent final : public Event
+    {
     };
 }

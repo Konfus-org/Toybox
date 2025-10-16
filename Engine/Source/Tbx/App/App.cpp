@@ -7,7 +7,6 @@
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Debug/ILogger.h"
 #include "Tbx/Debug/StdOutLogger.h"
-#include "Tbx/Input/Input.h"
 #include "Tbx/Input/HeadlessInputHandler.h"
 #include "Tbx/Input/IInputHandler.h"
 #include "Tbx/Input/InputCodes.h"
@@ -211,7 +210,7 @@ namespace Tbx
 
         // 5. Broadcast app launched events
         _carrier.Send(AppLaunchedEvent(this));
-        _carrier.Send(AppSettingsChangedEvent(Settings));
+        _carrier.Send(AppSettingsChangedEvent({}, Settings));
 
         // 6. Open main window
         if (IsDebugBuild)
@@ -264,7 +263,7 @@ namespace Tbx
             Settings.ClearColor.B != _lastFramesSettings.ClearColor.B ||
             Settings.ClearColor.A != _lastFramesSettings.ClearColor.A)
         {
-            _carrier.Send(AppSettingsChangedEvent(Settings));
+            _carrier.Send(AppSettingsChangedEvent(_lastFramesSettings, Settings));
         }
         _lastFramesSettings = Settings;
 
@@ -272,7 +271,7 @@ namespace Tbx
         // TODO: find a better way to do this!
         if (Status != _lastFrameStatus)
         {
-            _carrier.Send(AppStatusChangedEvent(Status));
+            _carrier.Send(AppStatusChangedEvent(_lastFrameStatus, Status));
         }
         _lastFrameStatus = Status;
 
@@ -326,8 +325,11 @@ namespace Tbx
             Audio->Update();
 
             // Dispatch events
-            _carrier.Post(AppUpdatedEvent());
+            _carrier.Post(AppUpdatedEvent(this));
             Bus->Flush();
+
+            // Flush log
+            Logging->Flush();
         }
 
         // Shortcut to kill the app
@@ -358,9 +360,6 @@ namespace Tbx
         }
 #endif
 
-        // Flush to log at the end of every frame
-        Logging->Flush();
-
         TBX_TRACE_VERBOSE("App: Ending update!.\n");
     }
 
@@ -374,14 +373,19 @@ namespace Tbx
 
         // Allow other systems to hook into shutdown
         OnShutdown();
-        _carrier.Post(AppClosedEvent(this));
-        Bus->Flush();
-        Logging->Flush();
-      
+        _carrier.Send(AppClosedEvent(this));
+
+        // Shudown runtimes
+        for (const auto& runtime : Runtimes)
+        {
+            runtime->OnShutdown();
+        }
+
         // Cleanup
-        Windowing->CloseAllWindows();
         Plugins = {};
         Runtimes = {};
+        Logging->Flush();
+        Bus->Flush();
 
         // Update status
         if (isRestarting) Status = AppStatus::Reloading;
@@ -397,7 +401,7 @@ namespace Tbx
         }
 
         // If the window is our main window, set running flag to false which will trigger the app to close
-        const auto window = e.GetWindow();
+        const auto* window = e.AffectedWindow;
         if (window->Id == Windowing->GetMainWindow()->Id)
         {
             // Stop running and close all windows
@@ -425,12 +429,12 @@ namespace Tbx
         {
             // Minimize the app
             Status = AppStatus::Minimized;
-            _carrier.Send(AppStatusChangedEvent(Status));
+            _carrier.Send(AppStatusChangedEvent(_lastFrameStatus, Status));
         }
         else
         {
             Status = _lastFrameStatus;
-            _carrier.Send(AppStatusChangedEvent(Status));
+            _carrier.Send(AppStatusChangedEvent(_lastFrameStatus, Status));
         }
     }
     

@@ -15,70 +15,20 @@
 
 namespace Tbx
 {
-    LogMessageEvent::LogMessageEvent(LogLevel level, const std::string& message)
-        : _level(level)
-        , _message(message)
-    {
-    }
-
-    LogLevel LogMessageEvent::GetLevel() const
-    {
-        return _level;
-    }
-
-    const std::string& LogMessageEvent::GetMessage() const
-    {
-        return _message;
-    }
-
-    std::string LogMessageEvent::TakeMessage()
-    {
-        return std::move(_message);
-    }
-
-    std::string LogMessageEvent::ToString() const
-    {
-        return "Log Message Event";
-    }
-
     LogManager::LogManager(const std::string& channel, Ref<ILogger> logger, Ref<EventBus> bus)
+        : _logger(logger)
+        , _listener(bus)
+        , _channel(channel)
+        , _logFilePath(ResolveLogFilePath(channel))
     {
         TBX_ASSERT(bus != nullptr, "LogManager: Requires a valid event bus.\n");
         TBX_ASSERT(logger != nullptr, "LogManager: Requires a valid logger.\n");
 
-        _logger = logger;
-
-        _listener.Bind(bus);
+        _logger->Open(_channel, _logFilePath);
         _listener.Listen<LogMessageEvent>([this](LogMessageEvent& event)
         {
             OnLogMessageEvent(event);
         });
-
-        _channel = channel;
-        _logFilePath = ResolveLogFilePath(channel);
-
-        if (_logger)
-        {
-            _logger->Open(_channel, _logFilePath);
-        }
-        else
-        {
-            std::printf("Toybox: No logger available to open channel %s.\n", channel.c_str());
-        }
-    }
-
-    LogManager::~LogManager()
-    {
-        const auto logger = _logger;
-        if (logger)
-        {
-            logger->Flush();
-            logger->Close();
-        }
-
-        _logger = nullptr;
-        _logFilePath.clear();
-        _channel.clear();
     }
 
     Ref<ILogger> LogManager::GetLogger() const
@@ -150,7 +100,7 @@ namespace Tbx
 
     void LogManager::OnLogMessageEvent(LogMessageEvent& e)
     {
-        Write(e.GetLevel(), e.TakeMessage());
+        Write(e.Level, e.Message);
         e.IsHandled = true;
     }
 

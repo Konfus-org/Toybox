@@ -26,7 +26,7 @@ namespace Tbx
         requires std::is_base_of_v<Event, std::decay_t<TEvent>>
         bool Send(TEvent&& event)
         {
-            TBX_TRACE_VERBOSE("Event Carrier: Sending the event \"{}\"", event.ToString());
+            TBX_TRACE_VERBOSE("Event Carrier: Sending the event \"{}\"", typeid(event).name());
 
             TBX_ASSERT(_bus, "EventCarrier: Cannot send without a valid event bus.");
             if (!_bus)
@@ -45,7 +45,7 @@ namespace Tbx
             {
                 if (EventSuppressor::IsSuppressing())
                 {
-                    TBX_TRACE_WARNING("EventCarrier: The event \"{}\" is suppressed during send", event.ToString());
+                    TBX_TRACE_WARNING("EventCarrier: The event \"{}\" is suppressed during send", typeid(event).name());
                     return event.IsHandled;
                 }
 

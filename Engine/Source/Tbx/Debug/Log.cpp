@@ -1,6 +1,7 @@
 #include "Tbx/PCH.h"
 #include "Tbx/Debug/Log.h"
 #include "Tbx/Events/EventBus.h"
+#include "Tbx/Events/LogEvents.h"
 #include "Tbx/Memory/Hashing.h"
 #include "Tbx/Memory/Refs.h"
 #include <cstdio>
@@ -8,10 +9,7 @@
 
 namespace Tbx
 {
-    namespace
-    {
-        bool logQueueWarningIssued = false;
-    }
+    static bool logQueueWarningIssued = false;
 
     void Log::Trace(LogLevel level, std::string message)
     {

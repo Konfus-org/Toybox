@@ -96,7 +96,7 @@ namespace Tbx
             // If suppressed globally, skip processing of queued events as well.
             if (EventSuppressor::IsSuppressing())
             {
-                TBX_TRACE_WARNING("EventBus: Queued event \"{}\" suppressed", event->ToString());
+                TBX_TRACE_WARNING("EventBus: Queued event \"{}\" suppressed", typeid(event).name());
                 continue;
             }
 
@@ -111,7 +111,7 @@ namespace Tbx
             {
                 if (EventSuppressor::IsSuppressing())
                 {
-                    TBX_TRACE_WARNING("EventBus: The event \"{}\" is suppressed during flush", event->ToString());
+                    TBX_TRACE_WARNING("EventBus: The event \"{}\" is suppressed during flush", typeid(event).name());
                     break;
                 }
 
