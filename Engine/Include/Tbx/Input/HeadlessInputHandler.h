@@ -9,7 +9,7 @@ namespace Tbx
         HeadlessInputHandler() = default;
         ~HeadlessInputHandler() override = default;
 
-        void UpdateInputState() override;
+        void Update() override;
 
         bool IsGamepadButtonDown(int, int) const override;
         bool IsGamepadButtonUp(int, int) const override;

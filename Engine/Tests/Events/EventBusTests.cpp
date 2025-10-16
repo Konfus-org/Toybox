@@ -7,18 +7,11 @@
 
 namespace Tbx::Tests::Events
 {
-    class DummyEvent final : public Event
+    struct DummyEvent final : public Event
     {
-    public:
-        DummyEvent(std::string message)
-            : _message(std::move(message))
-        {
-        }
+        DummyEvent(std::string message) : Message(message) {}
 
-        std::string ToString() const override { return _message; }
-
-    private:
-        std::string _message;
+        const std::string Message;
     };
 
     TEST(EventBusTests, SubscribeAndSend_InvokesCallback)
@@ -32,7 +25,7 @@ namespace Tbx::Tests::Events
         listener.Listen<DummyEvent>([&](DummyEvent& evt)
         {
             invoked = true;
-            EXPECT_EQ(evt.ToString(), "Hello");
+            EXPECT_EQ(evt.Message, "Hello");
             evt.IsHandled = true;
         });
 
@@ -76,7 +69,7 @@ namespace Tbx::Tests::Events
 
         listener.Listen<DummyEvent>([&](DummyEvent& evt)
         {
-            messages.push_back(evt.ToString());
+            messages.push_back(evt.Message);
         });
 
         carrier.Post(DummyEvent("First"));
@@ -161,7 +154,7 @@ namespace Tbx::Tests::Events
         childListener.Listen<DummyEvent>([&](DummyEvent& evt)
         {
             invoked = true;
-            EXPECT_EQ(evt.ToString(), "Queued");
+            EXPECT_EQ(evt.Message, "Queued");
         });
 
         EventCarrier carrier(parentBus);
@@ -182,7 +175,7 @@ namespace Tbx::Tests::Events
         childListener.Listen<DummyEvent>([&](DummyEvent& evt)
         {
             invoked = true;
-            EXPECT_EQ(evt.ToString(), "Cascade");
+            EXPECT_EQ(evt.Message, "Cascade");
         });
 
         EventCarrier carrier(parentBus);
@@ -209,7 +202,7 @@ namespace Tbx::Tests::Events
         childListener.Listen<DummyEvent>([&](DummyEvent& evt)
         {
             invoked = true;
-            EXPECT_EQ(evt.ToString(), "Direct");
+            EXPECT_EQ(evt.Message, "Direct");
             evt.IsHandled = true;
         });
 
@@ -229,8 +222,8 @@ namespace Tbx::Tests::Events
 
         childListener.Listen<DummyEvent>([&](DummyEvent& evt)
         {
-            messages.push_back(evt.ToString());
-            if (evt.ToString() == "GlobalSend")
+            messages.push_back(evt.Message);
+            if (evt.Message == "GlobalSend")
             {
                 evt.IsHandled = true;
             }

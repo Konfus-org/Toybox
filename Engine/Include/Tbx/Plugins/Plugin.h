@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Debug/Tracers.h"
-#include "Tbx/Events/EventBus.h"
+#include "Tbx/Events/EventCarrier.h"
 #include "Tbx/Events/PluginEvents.h"
 #include "Tbx/Plugins/PluginMeta.h"
 #include "Tbx/Plugins/SharedLibrary.h"
@@ -45,11 +45,6 @@ namespace Tbx
         #define TBX_PLUGIN_EXPORT extern "C"
     #endif
 
-    static void Delete(Plugin* plugin)
-    {
-        auto library = std::move(plugin->Library);
-    }
-
     /// <summary>
     /// Macro to register a plugin to the TBX plugin system.
     /// Is required for TBX to be able to load the plugin.
@@ -66,10 +61,6 @@ namespace Tbx
         }\
         TBX_PLUGIN_EXPORT void Unload(pluginType* pluginToUnload)\
         {\
-            TBX_TRACE_INFO("Plugin: Unloaded {}\n", pluginToUnload->Meta.Name);\
-            ::Tbx::EventBus::Global->QueueEvent(\
-                ::Tbx::MakeExclusive<::Tbx::Event>(::Tbx::PluginUnloadedEvent(pluginToUnload)));\
-            auto library = std::move(pluginToUnload->Library);\
             delete pluginToUnload;\
         }
 }

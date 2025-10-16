@@ -15,7 +15,7 @@ namespace Tbx
         TBX_TRACE_INFO("- Loaded {}:", info.Name);
         TBX_TRACE_INFO("    - Version: {}", info.Version);
         TBX_TRACE_INFO("    - Author: {}", info.Author);
-        TBX_TRACE_INFO("    - Description: {}", info.Description);
+        TBX_TRACE_INFO("    - Description: {}\n", info.Description);
     }
 
     static bool LoadPlugin(
@@ -63,12 +63,11 @@ namespace Tbx
 
         Ref<Plugin> plugin(pluginInstance, [unloadPluginFunc](Plugin* pluginToUnload)
         {
-            if (pluginToUnload == nullptr)
-            {
-                return;
-            }
-
+            auto library = std::move(pluginToUnload->Library);
+            TBX_TRACE_INFO("Plugin: Unloaded {}\n", pluginToUnload->Meta.Name);
+            EventCarrier(EventBus::Global).Send(PluginUnloadedEvent(pluginToUnload));
             unloadPluginFunc(pluginToUnload);
+            library->Unload();
         });
 
         plugin->Meta = info;
@@ -87,6 +86,8 @@ namespace Tbx
         ReportPluginInfo(info);
         loadedNames.insert(info.Name);
         outLoaded.push_back(plugin);
+        EventCarrier().Send(PluginLoadedEvent(plugin));
+
         return true;
     }
 
@@ -105,21 +106,15 @@ namespace Tbx
 
     void PluginLoader::LoadPlugins(const std::vector<PluginMeta>& pluginMetas)
     {
-        TBX_TRACE_INFO("PluginLoader: Loading plugins:");
+        TBX_TRACE_INFO("PluginLoader: Loading plugins...\n");
         auto loadedNames = std::unordered_set<std::string>();
         uint32 successfullyLoaded = 0;
         uint32 unsuccessfullyLoaded = 0;
 
         for (const auto& meta : pluginMetas)
         {
-            if (LoadPlugin(meta, _eventBus, loadedNames, _plugins))
-            {
-                ++successfullyLoaded;
-            }
-            else
-            {
-                ++unsuccessfullyLoaded;
-            }
+            if (LoadPlugin(meta, _eventBus, loadedNames, _plugins)) successfullyLoaded++;
+            else unsuccessfullyLoaded++;
         }
 
         TBX_TRACE_INFO("PluginLoader: Successfully loaded {} plugins!", successfullyLoaded);

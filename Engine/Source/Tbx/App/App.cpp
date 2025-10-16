@@ -6,7 +6,6 @@
 #include "Tbx/Audio/AudioMixer.h"
 #include "Tbx/Events/AppEvents.h"
 #include "Tbx/Debug/Log.h"
-#include "Tbx/Input/Input.h"
 #include "Tbx/Input/HeadlessInputHandler.h"
 #include "Tbx/Input/IInputHandler.h"
 #include "Tbx/Input/InputCodes.h"
@@ -29,16 +28,18 @@ namespace Tbx
         const std::string_view& name,
         const AppSettings& settings,
         const Queryable<Ref<Plugin>>& plugins,
+        const Queryable<Ref<Runtime>>& runtimes,
         Ref<EventBus> eventBus)
         : Bus(eventBus)
         , Plugins(plugins)
+        , Runtimes(runtimes)
         , Settings(settings)
         , _name(name)
         , _carrier(Bus)
         , _listener(Bus)
     {
         TBX_ASSERT(Bus, "App: Requires a valid event bus instance.");
-        TBX_ASSERT(_instance, "App: Existing singleton was replaced, unexpected behavior may occur.");
+        TBX_ASSERT(!_instance, "App: Existing singleton was replaced, unexpected behavior may occur.");
         _instance = this;
     }
 
@@ -205,14 +206,10 @@ namespace Tbx
         OnLaunch();
 
         // 4. Init runtimes
-        auto runtimePlugs = Plugins.OfType<Runtime>();
-        auto runtimes = std::vector<Ref<Runtime>>();
-        for (const auto& runtime : runtimePlugs)
+        for (const auto& runtime : Runtimes)
         {
             runtime->OnStart(this);
-            runtimes.push_back(runtime);
         }
-        Runtimes = runtimes;
 
         // 5. Broadcast app launched events
         _carrier.Send(AppLaunchedEvent(this));
@@ -239,7 +236,7 @@ namespace Tbx
         {
             if (Status == AppStatus::Paused)
             {
-                Input->UpdateInputState();
+                Input->Update();
                 Windowing->Update();
                 Audio->Update();
                 Bus->Flush();
@@ -284,7 +281,7 @@ namespace Tbx
             Clock.Tick();
             const auto frameDelta = Clock.GetDeltaTime();
             _frameCount++;
-            Input->UpdateInputState();
+            Input->Update();
 
             // Fixed update
             constexpr float fixedUpdateInterval = 1.0f / 50.0f;
@@ -327,9 +324,6 @@ namespace Tbx
             // Dispatch events
             _carrier.Post(AppUpdatedEvent(this));
             Bus->Flush();
-
-            // Flush log
-            Logging->Flush();
         }
 
         // Shortcut to kill the app
@@ -382,8 +376,8 @@ namespace Tbx
         }
 
         // Cleanup
-        Plugins = {};
         Runtimes = {};
+        Plugins = {};
         Bus->Flush();
 
         // Update status

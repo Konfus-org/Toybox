@@ -16,7 +16,6 @@
 #include "Tbx/Time/Chronometer.h"
 #include "Tbx/Time/DeltaTime.h"
 #include <string>
-#include <string_view>
 
 namespace Tbx
 {
@@ -28,6 +27,7 @@ namespace Tbx
         App(const std::string_view& name,
             const AppSettings& settings,
             const Queryable<Ref<Plugin>>& plugins,
+            const Queryable<Ref<Runtime>>& runtimes,
             Ref<EventBus> eventBus);
         virtual ~App();
 

@@ -36,21 +36,40 @@ namespace Tbx
         }
 
         template <typename TPredicate>
-        Queryable<TItem&> Where(TPredicate predicate) const
+        auto Where(TPredicate predicate) const
         {
-            std::vector<TItem&> result = {};
             const auto& items = this->All();
-            result.reserve(items.size());
 
-            for (const auto& item : items)
+            if constexpr (IsExclusiveRef<TItem>::value)
             {
-                if (predicate(item))
-                {
-                    result.push_back(item);
-                }
-            }
+                std::vector<TItem&> result = {};
+                result.reserve(items.size());
 
-            return result;
+                for (const auto& item : items)
+                {
+                    if (predicate(item))
+                    {
+                        result.push_back(item);
+                    }
+                }
+
+                return Queryable<TItem&>(result);
+            }
+            else
+            {
+                std::vector<TItem> result = {};
+                result.reserve(items.size());
+
+                for (const auto& item : items)
+                {
+                    if (predicate(item))
+                    {
+                        result.push_back(item);
+                    }
+                }
+
+                return Queryable<TItem>(result);
+            }
         }
 
         const TItem& First() const

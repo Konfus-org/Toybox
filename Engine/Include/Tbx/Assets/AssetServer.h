@@ -114,7 +114,7 @@ namespace Tbx
         /// Collects all loaded assets for the requested type.
         /// </summary>
         template <typename TData>
-        std::vector<Ref<TData>> All() const
+        std::vector<Ref<TData>> Loaded() const
         {
             std::scoped_lock lock(_mutex);
 
@@ -152,6 +152,16 @@ namespace Tbx
             return loadedAssets;
         }
 
+        /// <summary>
+        /// Clears the asset server of all tracked assets and cached data.
+        /// </summary>
+        void Clear()
+        {
+            std::scoped_lock lock(_mutex);
+            _assetCache.clear();
+            _assetRecords.clear();
+        }
+
     private:
         /// <summary>
         /// Ensures the asset data associated with the provided record is loaded and returns it.
@@ -177,9 +187,6 @@ namespace Tbx
                     record->Status = AssetStatus::Loaded;
                     return std::static_pointer_cast<TData>(cached);
                 }
-
-                record->Status = AssetStatus::Unloaded;
-                _assetCache.erase(cacheIt);
             }
 
             record->Status = AssetStatus::Loading;
@@ -189,15 +196,15 @@ namespace Tbx
                 auto loadedData = loader->Load(record->FilePath);
                 auto sharedData = Ref<TData>(
                     new TData(loadedData),
-                    [&record](TData* data)
+                    [this, &record](TData* data)
                     {
-                        // Mark asset as unloaded when our pointer is deleted!
+                        auto cacheIt = _assetCache.find(record->Name);
+                        if (cacheIt != _assetCache.end()) _assetCache.erase(cacheIt);
                         record->Status = AssetStatus::Unloaded;
                         delete data;
                     });
 
                 _assetCache[record->Name] = sharedData;
-
                 record->Status = AssetStatus::Loaded;
                 return sharedData;
             }

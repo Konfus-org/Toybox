@@ -3,7 +3,7 @@
 
 namespace Tbx
 {
-    void HeadlessInputHandler::UpdateInputState()
+    void HeadlessInputHandler::Update()
     {
     }
 
