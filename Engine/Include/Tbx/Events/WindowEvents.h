@@ -7,74 +7,35 @@
 
 namespace Tbx
 {
-    class TBX_EXPORT WindowActionEvent : public Event
+    struct TBX_EXPORT WindowActionEvent : public Event
     {
-    public:
-        explicit WindowActionEvent(const Window* window) : _window(window) {}
+        explicit WindowActionEvent(const Window* window) : AffectedWindow(window) {}
 
-        const Window* GetWindow() const { return _window; }
-
-    private:
-        const Window* _window = nullptr;
+        const Window* AffectedWindow = nullptr;
     };
 
-    class TBX_EXPORT WindowFocusedEvent final : public WindowActionEvent
+    struct TBX_EXPORT WindowFocusedEvent final : public WindowActionEvent
     {
-    public:
-        explicit WindowFocusedEvent(const Window* window)
-            : WindowActionEvent(window) {}
-
-        std::string ToString() const override
-        {
-            return "Window Focused Event";
-        }
+        using WindowActionEvent::WindowActionEvent;
     };
 
-    class TBX_EXPORT WindowOpenedEvent final : public WindowActionEvent
+    struct TBX_EXPORT WindowOpenedEvent final : public WindowActionEvent
     {
-    public:
-        explicit WindowOpenedEvent(const Window* window)
-            : WindowActionEvent(window) {}
-
-        std::string ToString() const override
-        {
-            return "Window Opened Event";
-        }
+        using WindowActionEvent::WindowActionEvent;
     };
 
-    class TBX_EXPORT WindowModeChangedEvent final : public WindowActionEvent
+    struct TBX_EXPORT WindowModeChangedEvent final : public WindowActionEvent
     {
-    public:
-        explicit WindowModeChangedEvent(const Window* window)
-            : WindowActionEvent(window) {}
-
-        std::string ToString() const override
-        {
-            return "Window Opened Event";
-        }
+        using WindowActionEvent::WindowActionEvent;
     };
 
-    class TBX_EXPORT WindowClosedEvent final : public WindowActionEvent
+    struct TBX_EXPORT WindowClosedEvent final : public WindowActionEvent
     {
-    public:
-        explicit WindowClosedEvent(const Window* window)
-            : WindowActionEvent(window) {}
-
-        std::string ToString() const override
-        {
-            return "Window Closed Event";
-        }
+        using WindowActionEvent::WindowActionEvent;
     };
 
-    class TBX_EXPORT WindowResizedEvent final : public WindowActionEvent
+    struct TBX_EXPORT WindowResizedEvent final : public WindowActionEvent
     {
-    public:
-        explicit WindowResizedEvent(const Window* window)
-            : WindowActionEvent(window) {}
-
-        std::string ToString() const override
-        {
-            return "Window Resized Event";
-        }
+        using WindowActionEvent::WindowActionEvent;
     };
 }

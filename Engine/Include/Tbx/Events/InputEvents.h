@@ -5,156 +5,61 @@
 
 namespace Tbx
 {
-    class TBX_EXPORT KeyEvent : public Event
+    struct TBX_EXPORT KeyEvent : public Event
     {
-    public:
-        explicit KeyEvent(int keyCode) : _keyCode(keyCode) {}
-
-        int GetKeyCode() const { return _keyCode; }
-
-    private:
-        int _keyCode;
+        explicit KeyEvent(int keyCode) : KeyCode(keyCode) {}
+        const int KeyCode;
     };
 
-    class TBX_EXPORT KeyPressedEvent final : public KeyEvent
+    struct TBX_EXPORT KeyPressedEvent final : public KeyEvent
     {
-    public:
-        using KeyEvent::KeyEvent;
-
-        std::string ToString() const override
-        {
-            return "Key Pressed Event";
-        }
     };
 
-    class TBX_EXPORT KeyReleasedEvent final : public KeyEvent
+    struct TBX_EXPORT KeyReleasedEvent final : public KeyEvent
     {
-    public:
-        using KeyEvent::KeyEvent;
-
-        std::string ToString() const override
-        {
-            return "Key Released Event";
-        }
     };
 
-    class TBX_EXPORT KeyHeldEvent final : public KeyEvent
+    struct TBX_EXPORT KeyHeldEvent final : public KeyEvent
     {
-    public:
-        KeyHeldEvent(int keyCode, float timeHeld) :
-            KeyEvent(keyCode), _timeHeld(timeHeld) {
-        }
-
-        std::string ToString() const override
-        {
-            return "Key Held Event";
-        }
-
-        float GetTimeHeld() const
-        {
-            return _timeHeld;
-        }
-
-    private:
-        float _timeHeld;
+        const float TimeHeld;
     };
 
-    class TBX_EXPORT KeyRepeatedEvent final : public KeyEvent
+    struct TBX_EXPORT KeyRepeatedEvent final : public KeyEvent
     {
-    public:
-        KeyRepeatedEvent(int keyCode, int repeatCount) :
-            KeyEvent(keyCode), _repeatCount(repeatCount) {
-        }
-
-        std::string ToString() const override
-        {
-            return "Key Repeated Event";
-        }
-
-        int GetRepeatCount() const
-        {
-            return _repeatCount;
-        }
-
-    private:
-        int _repeatCount;
+        const int RepeatCount;
     };
 
-    class TBX_EXPORT MouseMovedEvent final : public Event
+    struct TBX_EXPORT MouseMovedEvent final : public Event
     {
-    public:
-        MouseMovedEvent(float x, float y) : _xPos(x), _yPos(y) {}
+        MouseMovedEvent(float x, float y) 
+            : XPos(x), YPos(y) {}
 
-        std::string ToString() const override
-        {
-            return "Mouse Moved Event";
-        }
-
-        Vector2 GetPosition() const
-        {
-            return Vector2(_xPos, _yPos);
-        }
-
-    private:
-        float _xPos;
-        float _yPos;
+        const float XPos;
+        const float YPos;
     };
 
-    class TBX_EXPORT MouseScrolledEvent final : public Event
+    struct TBX_EXPORT MouseScrolledEvent final : public Event
     {
-    public:
-        MouseScrolledEvent(float x, float y) : _xScroll(x), _yScroll(y) {}
+        MouseScrolledEvent(float xScroll, float yScroll) 
+            : XScroll(xScroll), YScroll(yScroll) {}
 
-        std::string ToString() const override
-        {
-            return "Mouse Scrolled Event";
-        }
-
-        Vector2 GetScrollDir() const
-        {
-            return Vector2(_xScroll, _yScroll);
-        }
-
-    private:
-        float _xScroll;
-        float _yScroll;
+        const float XScroll;
+        const float YScroll;
     };
 
-    class TBX_EXPORT MouseButtonPressedEvent final : public Event
+    struct TBX_EXPORT MouseButtonPressedEvent final : public Event
     {
-    public:
-        explicit MouseButtonPressedEvent(int button) : _button(button) {}
+        MouseButtonPressedEvent(int button) 
+            : Button(button) {}
 
-        std::string ToString() const override
-        {
-            return "Mouse Button Pressed Event";
-        }
-
-        int GetButtonPressed() const
-        {
-            return _button;
-        }
-
-    private:
-        int _button;
+        const int Button;
     };
 
-    class TBX_EXPORT MouseButtonReleasedEvent final : public Event
+    struct TBX_EXPORT MouseButtonReleasedEvent final : public Event
     {
-    public:
-        explicit MouseButtonReleasedEvent(int button) : _button(button) {}
+        MouseButtonReleasedEvent(int button) 
+            : Button(button) {}
 
-        std::string ToString() const override
-        {
-            return "Mouse Button Released Event";
-        }
-
-        int GetButtonReleased() const
-        {
-            return _button;
-        }
-
-    private:
-        int _button;
+        const int Button;
     };
 }

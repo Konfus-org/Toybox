@@ -152,7 +152,7 @@ namespace Tbx
 
     void AudioManager::OnAppStatusChangedEvent(const AppStatusChangedEvent& e)
     {
-        switch (e.GetNewStatus())
+        switch (e.NewStatus)
         {
             case AppStatus::Running:
                 State = _preMinimizeState;
@@ -173,7 +173,7 @@ namespace Tbx
 
     void AudioManager::OnStageOpened(const StageOpenedEvent& e)
     {
-        auto stage = e.GetStage();
+        auto stage = e.OpenedStage;
         auto it = std::find(_openStages.begin(), _openStages.end(), stage);
         if (it == _openStages.end())
         {
@@ -183,12 +183,11 @@ namespace Tbx
 
     void AudioManager::OnStageClosed(const StageClosedEvent& e)
     {
-        auto stage = e.GetStage();
+        auto stage = e.ClosedStage;
         auto it = std::find(_openStages.begin(), _openStages.end(), stage);
         if (it != _openStages.end())
         {
             _openStages.erase(it);
         }
     }
-
 }

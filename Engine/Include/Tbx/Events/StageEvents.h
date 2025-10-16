@@ -9,41 +9,23 @@ namespace Tbx
     /// Occurs when boxes are opened.
     /// This happens when boxes have been loaded.
     /// </summary>
-    class TBX_EXPORT StageOpenedEvent final : public Event
+    struct TBX_EXPORT StageOpenedEvent final : public Event
     {
-    public:
-        explicit StageOpenedEvent(const Stage* opened)
-            : _opened(opened) {}
+        StageOpenedEvent(const Stage* stage) 
+            : OpenedStage(stage) {}
 
-        const Stage* GetStage() const { return _opened; }
-
-        std::string ToString() const override
-        {
-            return "Opened Boxes Request";
-        }
-
-    private:
-        const Stage* _opened = {};
+        const Stage* OpenedStage = {};
     };
 
     /// <summary>
     /// Occurs when boxes are opened.
     /// This happens when boxes have been loaded.
     /// </summary>
-    class TBX_EXPORT StageClosedEvent final : public Event
+    struct TBX_EXPORT StageClosedEvent final : public Event
     {
-    public:
-        explicit StageClosedEvent(const Stage* closed)
-            : _closed(closed) {}
+        StageClosedEvent(const Stage* stage) 
+            : ClosedStage(stage) {}
 
-        const Stage* GetStage() const { return _closed; }
-
-        std::string ToString() const override
-        {
-            return "Opened Boxes Request";
-        }
-
-    private:
-        const Stage* _closed = {};
+        const Stage* ClosedStage = {};
     };
 }

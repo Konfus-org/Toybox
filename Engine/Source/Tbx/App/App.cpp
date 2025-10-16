@@ -38,12 +38,7 @@ namespace Tbx
         , _listener(Bus)
     {
         TBX_ASSERT(Bus, "App: Requires a valid event bus instance.");
-
-        if (_instance && _instance != this)
-        {
-            TBX_ASSERT(false, "App: Existing singleton was replaced, unexpected behavior may occur.");
-        }
-
+        TBX_ASSERT(_instance, "App: Existing singleton was replaced, unexpected behavior may occur.");
         _instance = this;
     }
 
@@ -221,7 +216,7 @@ namespace Tbx
 
         // 5. Broadcast app launched events
         _carrier.Send(AppLaunchedEvent(this));
-        _carrier.Send(AppSettingsChangedEvent(Settings));
+        _carrier.Send(AppSettingsChangedEvent({}, Settings));
 
         // 6. Open main window
         if (IsDebugBuild)
@@ -244,10 +239,7 @@ namespace Tbx
         {
             if (Status == AppStatus::Paused)
             {
-                if (Input)
-                {
-                    Input->UpdateInputState();
-                }
+                Input->UpdateInputState();
                 Windowing->Update();
                 Audio->Update();
                 Bus->Flush();
@@ -274,7 +266,7 @@ namespace Tbx
             Settings.ClearColor.B != _lastFramesSettings.ClearColor.B ||
             Settings.ClearColor.A != _lastFramesSettings.ClearColor.A)
         {
-            _carrier.Send(AppSettingsChangedEvent(Settings));
+            _carrier.Send(AppSettingsChangedEvent(_lastFramesSettings, Settings));
         }
         _lastFramesSettings = Settings;
 
@@ -282,7 +274,7 @@ namespace Tbx
         // TODO: find a better way to do this!
         if (Status != _lastFrameStatus)
         {
-            _carrier.Send(AppStatusChangedEvent(Status));
+            _carrier.Send(AppStatusChangedEvent(_lastFrameStatus, Status));
         }
         _lastFrameStatus = Status;
 
@@ -292,10 +284,7 @@ namespace Tbx
             Clock.Tick();
             const auto frameDelta = Clock.GetDeltaTime();
             _frameCount++;
-            if (Input)
-            {
-                Input->UpdateInputState();
-            }
+            Input->UpdateInputState();
 
             // Fixed update
             constexpr float fixedUpdateInterval = 1.0f / 50.0f;
@@ -336,12 +325,15 @@ namespace Tbx
             Audio->Update();
 
             // Dispatch events
-            _carrier.Post(AppUpdatedEvent());
+            _carrier.Post(AppUpdatedEvent(this));
             Bus->Flush();
+
+            // Flush log
+            Logging->Flush();
         }
 
         // Shortcut to kill the app
-        if (Input && Input->IsKeyDown(TBX_KEY_F4) &&
+        if (Input->IsKeyDown(TBX_KEY_F4) &&
             (Input->IsKeyDown(TBX_KEY_LEFT_ALT) || Input->IsKeyDown(TBX_KEY_RIGHT_ALT)))
         {
             TBX_TRACE_INFO("App: Closing...\n");
@@ -352,7 +344,7 @@ namespace Tbx
         // Debugging and development stuff:
         {
             // Shortcut to restart/reload app
-            if (Input && Input->IsKeyDown(TBX_KEY_F2))
+            if (Input->IsKeyDown(TBX_KEY_F2))
             {
                 // TODO: App slowly eats up more memory every restart meaning we have a leak in our boat!
                 // We need to track down why and fix it!
@@ -360,7 +352,7 @@ namespace Tbx
                 Status = AppStatus::Reloading;
             }
             // Shortcut to report things like framerate and memory consumption
-            else if (Input && Input->IsKeyDown(TBX_KEY_F4))
+            else if (Input->IsKeyDown(TBX_KEY_F4))
             {
                 TBX_TRACE_INFO("App: Gather data...\n");
                 DumpFrameReport();
@@ -381,13 +373,18 @@ namespace Tbx
 
         // Allow other systems to hook into shutdown
         OnShutdown();
-        _carrier.Post(AppClosedEvent(this));
-        Bus->Flush();
-      
+        _carrier.Send(AppClosedEvent(this));
+
+        // Shudown runtimes
+        for (const auto& runtime : Runtimes)
+        {
+            runtime->OnShutdown();
+        }
+
         // Cleanup
-        Windowing->CloseAllWindows();
         Plugins = {};
         Runtimes = {};
+        Bus->Flush();
 
         // Update status
         if (isRestarting) Status = AppStatus::Reloading;
@@ -397,13 +394,8 @@ namespace Tbx
 
     void App::OnWindowClosed(const WindowClosedEvent& e)
     {
-        if (!Windowing)
-        {
-            return;
-        }
-
         // If the window is our main window, set running flag to false which will trigger the app to close
-        const auto window = e.GetWindow();
+        const auto* window = e.AffectedWindow;
         if (window->Id == Windowing->GetMainWindow()->Id)
         {
             // Stop running and close all windows
@@ -413,11 +405,6 @@ namespace Tbx
 
     void App::OnWindowModeChanged(const WindowModeChangedEvent& e)
     {
-        if (!Windowing)
-        {
-            return;
-        }
-
         bool allWindowsMinimized = true;
         for (auto window : Windowing->GetAllWindows())
         {
@@ -431,12 +418,12 @@ namespace Tbx
         {
             // Minimize the app
             Status = AppStatus::Minimized;
-            _carrier.Send(AppStatusChangedEvent(Status));
+            _carrier.Send(AppStatusChangedEvent(_lastFrameStatus, Status));
         }
         else
         {
             Status = _lastFrameStatus;
-            _carrier.Send(AppStatusChangedEvent(Status));
+            _carrier.Send(AppStatusChangedEvent(_lastFrameStatus, Status));
         }
     }
     
@@ -561,5 +548,4 @@ namespace Tbx
             graphicsApiToString(Settings.RenderingApi),
             vsyncToString(Settings.Vsync));
     }
-
 }
