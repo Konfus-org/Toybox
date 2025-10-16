@@ -5,8 +5,7 @@
 #include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Audio/AudioMixer.h"
 #include "Tbx/Events/AppEvents.h"
-#include "Tbx/Debug/ILogger.h"
-#include "Tbx/Debug/StdOutLogger.h"
+#include "Tbx/Debug/Log.h"
 #include "Tbx/Input/Input.h"
 #include "Tbx/Input/HeadlessInputHandler.h"
 #include "Tbx/Input/IInputHandler.h"
@@ -24,6 +23,8 @@
 
 namespace Tbx
 {
+    App* App::_instance = nullptr;
+
     App::App(
         const std::string_view& name,
         const AppSettings& settings,
@@ -37,6 +38,13 @@ namespace Tbx
         , _listener(Bus)
     {
         TBX_ASSERT(Bus, "App: Requires a valid event bus instance.");
+
+        if (_instance && _instance != this)
+        {
+            TBX_ASSERT(false, "App: Existing singleton was replaced, unexpected behavior may occur.");
+        }
+
+        _instance = this;
     }
 
     App::~App()
@@ -49,6 +57,21 @@ namespace Tbx
             Shutdown();
         }
 
+        if (_instance == this)
+        {
+            _instance = nullptr;
+        }
+
+    }
+
+    const std::string& App::GetName() const
+    {
+        return _name;
+    }
+
+    App* App::GetInstance()
+    {
+        return _instance;
     }
 
     bool App::IsRunning() const
@@ -107,19 +130,6 @@ namespace Tbx
 
         // 1. Init core systems
         {
-            // Logging
-            auto loggers = Plugins.OfType<ILogger>();
-            if (!loggers.Any())
-            {
-                TBX_TRACE_WARNING("App: No loggers detected, using default stdout logger.");
-                Logging = MakeRef<LogManager>(_name, MakeRef<StdOutLogger>(), Bus);
-            }
-            else
-            {
-                if (loggers.Count() != 1) TBX_TRACE_WARNING("App: Multiple logger plugins detected, only one is allowed. Using first detected.");
-                Logging = MakeRef<LogManager>(_name, loggers.First(), Bus);
-            }
-
             // Input
             auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
             if (!inputHandlerPlugs.Any())
@@ -358,9 +368,6 @@ namespace Tbx
         }
 #endif
 
-        // Flush to log at the end of every frame
-        Logging->Flush();
-
         TBX_TRACE_VERBOSE("App: Ending update!.\n");
     }
 
@@ -376,7 +383,6 @@ namespace Tbx
         OnShutdown();
         _carrier.Post(AppClosedEvent(this));
         Bus->Flush();
-        Logging->Flush();
       
         // Cleanup
         Windowing->CloseAllWindows();

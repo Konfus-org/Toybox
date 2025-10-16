@@ -6,7 +6,6 @@
 #include "Tbx/Events/EventCarrier.h"
 #include "Tbx/Events/EventListener.h"
 #include "Tbx/Events/WindowEvents.h"
-#include "Tbx/Debug/LogManager.h"
 #include "Tbx/Windowing/WindowManager.h"
 #include "Tbx/Graphics/GraphicsManager.h"
 #include "Tbx/Audio/AudioManager.h"
@@ -16,6 +15,8 @@
 #include "Tbx/Memory/Refs.h"
 #include "Tbx/Time/Chronometer.h"
 #include "Tbx/Time/DeltaTime.h"
+#include <string>
+#include <string_view>
 
 namespace Tbx
 {
@@ -30,6 +31,8 @@ namespace Tbx
             Ref<EventBus> eventBus);
         virtual ~App();
 
+        static App* GetInstance();
+
         /// <summary>
         /// Returns true if the application is currently running.
         /// </summary>
@@ -39,6 +42,8 @@ namespace Tbx
         /// Starts the application run loop and executes until shutdown is requested.
         /// </summary>
         void Run();
+
+        const std::string& GetName() const;
 
         /// <summary>
         /// Requests that the application terminate after the current frame.
@@ -63,7 +68,6 @@ namespace Tbx
         Queryable<Ref<Plugin>> Plugins = {};
         Queryable<Ref<Runtime>> Runtimes = {};
         Ref<EventBus> Bus = nullptr;
-        Ref<LogManager> Logging = {};
         Ref<IInputHandler> Input = nullptr;
         Ref<IWindowManager> Windowing = {};
         Ref<IGraphicsManager> Graphics = {};
@@ -86,5 +90,7 @@ namespace Tbx
         void DumpFrameReport() const;
         bool _captureDebugData = false;
         int _frameCount = 0;
+
+        static App* _instance;
     };
 }
