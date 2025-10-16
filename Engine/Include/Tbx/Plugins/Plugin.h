@@ -24,6 +24,26 @@ namespace Tbx
         ExclusiveRef<SharedLibrary> Library = nullptr;
     };
 
+    class IHoldPluginRef
+    {
+    public:
+        virtual ~IHoldPluginRef() = default;
+
+    public:
+        Ref<Plugin> Plug = nullptr;
+    };
+
+    // TODO: we need some concept of a factory plugin that can create something, that something needs to be an IFactoryPluginResult that keeps a ref to the plugin that created it.
+    // So the plugin won't be unloaded while something it created is still alive.
+    class TBX_EXPORT FactoryPlugin : public Plugin
+    {
+    public:
+        FactoryPlugin() = default;
+        virtual ~FactoryPlugin() = default;
+
+        virtual Ref<IHoldPluginRef> Create() = 0;
+    };
+
     class TBX_EXPORT StaticPlugin
     {
     public:

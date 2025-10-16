@@ -378,6 +378,7 @@ namespace Tbx
         // Cleanup
         Runtimes = {};
         Plugins = {};
+        Assets = nullptr;
         Bus->Flush();
 
         // Update status

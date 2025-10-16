@@ -114,7 +114,7 @@ namespace Tbx
         /// Collects all loaded assets for the requested type.
         /// </summary>
         template <typename TData>
-        std::vector<Ref<TData>> Loaded() const
+        std::vector<Ref<TData>> GetLoaded() const
         {
             std::scoped_lock lock(_mutex);
 

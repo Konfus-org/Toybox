@@ -19,8 +19,9 @@ namespace Tbx
     class TBX_EXPORT SharedLibrary
     {
     public:
-        bool Load(const std::string& path);
-        void Unload();
+        SharedLibrary(const std::string& path);
+        ~SharedLibrary();
+
         bool IsValid();
         std::string GetPath() const { return _path; }
         Symbol GetSymbol(const std::string& symbolName);

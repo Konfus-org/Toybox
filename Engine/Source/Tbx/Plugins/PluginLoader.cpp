@@ -24,8 +24,8 @@ namespace Tbx
         std::unordered_set<std::string>& loadedNames,
         std::vector<Ref<Plugin>>& outLoaded)
     {
-        auto library = MakeExclusive<SharedLibrary>();
-        if (!library->Load(info.Path))
+        auto library = MakeExclusive<SharedLibrary>(info.Path);
+        if (!library->IsValid())
         {
             TBX_TRACE_ERROR("PluginLoader: Failed to load library at '{}'", info.Path);
             return false;
@@ -40,7 +40,7 @@ namespace Tbx
             TBX_TRACE_ERROR(
                 "PluginLoader: Missing load function in '{}'. Did it call TBX_REGISTER_PLUGIN?",
                 info.Name);
-            library->Unload();
+            library.reset();
             return false;
         }
 
@@ -49,7 +49,7 @@ namespace Tbx
             TBX_TRACE_ERROR(
                 "PluginLoader: Missing unload function in '{}'. Did it call TBX_REGISTER_PLUGIN?",
                 info.Name);
-            library->Unload();
+            library.reset();
             return false;
         }
 
@@ -57,7 +57,7 @@ namespace Tbx
         if (pluginInstance == nullptr)
         {
             TBX_TRACE_ERROR("PluginLoader: Load returned nullptr for '{}'", info.Name);
-            library->Unload();
+            library.reset();
             return false;
         }
 
@@ -67,7 +67,6 @@ namespace Tbx
             TBX_TRACE_INFO("Plugin: Unloaded {}\n", pluginToUnload->Meta.Name);
             EventCarrier(EventBus::Global).Send(PluginUnloadedEvent(pluginToUnload));
             unloadPluginFunc(pluginToUnload);
-            library->Unload();
         });
 
         plugin->Meta = info;

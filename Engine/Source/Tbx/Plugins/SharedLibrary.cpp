@@ -13,12 +13,11 @@ namespace Tbx
         return _handle != nullptr;
     }
 
-    bool SharedLibrary::Load(const std::string& path)
+    SharedLibrary::SharedLibrary(const std::string& path)
     {
-        namespace fs = std::filesystem;
         _path = path;
 
-        fs::path libPath = path;
+        std::filesystem::path libPath = path;
 
         // 1. Check file extension by platform
 #if defined(TBX_PLATFORM_WINDOWS)
@@ -35,7 +34,7 @@ namespace Tbx
         if (libPath.extension() != expectedExt)
         {
             TBX_ASSERT(false, "SharedLibrary: Failed to load {} Incorrect library extension for platform! Expected the extension {}", path, expectedExt);
-            return false;
+            return;
         }
 
         try
@@ -44,11 +43,11 @@ namespace Tbx
 
 #ifdef TBX_DEBUG
             // Duplicate the library to a temporary unique path to allow for hot reloading of the lib (debug mode only)
-            fs::path tempDir = fs::temp_directory_path();
-            fs::path tempPath = tempDir / (libPath.filename().stem().string() + "_copy_" + std::to_string(std::time(nullptr)) + libPath.extension().string());
+            std::filesystem::path tempDir = std::filesystem::temp_directory_path();
+            std::filesystem::path tempPath = tempDir / (libPath.filename().stem().string() + "_copy_" + std::to_string(std::time(nullptr)) + libPath.extension().string());
 
             TBX_TRACE_INFO("SharedLibrary: Duplicating library {} to temporary path {} for hot reloading...", libPath.string(), tempPath.string());
-            fs::copy_file(libPath, tempPath, fs::copy_options::overwrite_existing);
+            std::filesystem::copy_file(libPath, tempPath, std::filesystem::copy_options::overwrite_existing);
             _path = tempPath.string();
 #endif
 
@@ -62,19 +61,16 @@ namespace Tbx
             if (!_handle)
             {
                 TBX_ASSERT(false, "SharedLibrary: Failed to load library {}!", _path);
-                return false;
+                return;
             }
-
-            return true;
         }
         catch (const std::exception& e)
         {
             TBX_ASSERT(false, "SharedLibrary: Failed to load library at {} due to exception:\n{}", path, e.what());
-            return false;
         }
     }
 
-    void SharedLibrary::Unload()
+    SharedLibrary::~SharedLibrary()
     {
 #if defined(TBX_PLATFORM_WINDOWS)
         FreeLibrary(_handle);
