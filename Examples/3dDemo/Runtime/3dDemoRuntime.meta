@@ -10,7 +10,7 @@
         "SDL3 Audio",
         "Spd Logging",
         "OpenGL Rendering",
-        "JIMS Asset Loader",
+        "TIMS Asset Loader",
         "ImGui Immediate UI"
     ]
 }

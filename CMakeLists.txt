@@ -20,13 +20,13 @@ set(CMAKE_PDB_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/Build/pdb"
 # Global configs
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;ReleaseAssert" CACHE STRING "" FORCE)
 
-# if(MSVC)
-#     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-#     add_compile_options(/MP)
-# else()
-#     set(BUILD_SHARED_LIBS ON)
-#     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--as-needed")
-# endif()
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    add_compile_options(/MP)
+else()
+    set(BUILD_SHARED_LIBS ON)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--as-needed")
+endif()
 
 # Provide flag variables for the custom "ReleaseAssert" configuration.
 foreach(_var
@@ -60,7 +60,7 @@ add_subdirectory(Examples/3dDemo/Launcher)
 # Plugins:
 set(CMAKE_FOLDER "Plugins")
 add_subdirectory(Plugins/Toybox-ImGui-ImmediateUI-Plugin)
-add_subdirectory(Plugins/Toybox-JIMS-AssetLoader-Plugin)
+add_subdirectory(Plugins/Toybox-TIMS-AssetLoader-Plugin)
 add_subdirectory(Plugins/Toybox-OpenGL-Rendering-Plugin)
 add_subdirectory(Plugins/Toybox-SDL-Plugins)
 add_subdirectory(Plugins/Toybox-Spd-Logging-Plugin)

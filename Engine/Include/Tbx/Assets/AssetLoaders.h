@@ -20,61 +20,61 @@ namespace Tbx
     class TBX_EXPORT AssetLoader : virtual public IAssetLoader
     {
     public:
-        virtual TData Load(const std::filesystem::path& filepath) = 0;
+        virtual Ref<TData> Load(const std::filesystem::path& filepath) = 0;
     };
 
     class TBX_EXPORT ITextureLoader : public AssetLoader<Texture>
     {
-        Texture Load(const std::filesystem::path& filepath) final
+        Ref<Texture> Load(const std::filesystem::path& filepath) final
         {
             return LoadTexture(filepath);
         }
 
     protected:
-        virtual Texture LoadTexture(const std::filesystem::path& filepath) = 0;
+        virtual Ref<Texture> LoadTexture(const std::filesystem::path& filepath) = 0;
     };
 
     class TBX_EXPORT IShaderLoader : public AssetLoader<Shader>
     {
-        Shader Load(const std::filesystem::path& filepath) final
+        Ref<Shader> Load(const std::filesystem::path& filepath) final
         {
             return LoadShader(filepath);
         }
 
     protected:
-        virtual Shader LoadShader(const std::filesystem::path& filepath) = 0;
+        virtual Ref<Shader> LoadShader(const std::filesystem::path& filepath) = 0;
     };
 
     class TBX_EXPORT IModelLoader : public AssetLoader<Model>
     {
-        Model Load(const std::filesystem::path& filepath) final
+        Ref<Model> Load(const std::filesystem::path& filepath) final
         {
             return LoadModel(filepath);
         }
 
     protected:
-        virtual Model LoadModel(const std::filesystem::path& filepath) = 0;
+        virtual Ref<Model> LoadModel(const std::filesystem::path& filepath) = 0;
     };
 
     class TBX_EXPORT ITextLoader : public AssetLoader<Text>
     {
-        Text Load(const std::filesystem::path& filepath) final
+        Ref<Text> Load(const std::filesystem::path& filepath) final
         {
             return LoadText(filepath);
         }
 
     protected:
-        virtual Text LoadText(const std::filesystem::path& filepath) = 0;
+        virtual Ref<Text> LoadText(const std::filesystem::path& filepath) = 0;
     };
 
     class TBX_EXPORT IAudioLoader : public AssetLoader<Audio>
     {
-        Audio Load(const std::filesystem::path& filepath) final
+        Ref<Audio> Load(const std::filesystem::path& filepath) final
         {
             return LoadAudio(filepath);
         }
 
     protected:
-        virtual Audio LoadAudio(const std::filesystem::path& filepath) = 0;
+        virtual Ref<Audio> LoadAudio(const std::filesystem::path& filepath) = 0;
     };
 }

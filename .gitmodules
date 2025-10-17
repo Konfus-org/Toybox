@@ -3,7 +3,7 @@
 	url = https://github.com/Konfus-org/Toybox-Spd-Logging-Plugin.git
 	branch = main
 [submodule "Plugins/Toybox-JIMS-AssetLoader-Plugin"]
-	path = Plugins/Toybox-JIMS-AssetLoader-Plugin
+	path = Plugins/Toybox-TIMS-AssetLoader-Plugin
 	url = https://github.com/Konfus-org/Toybox-JIMS-AssetLoader-Plugin.git
 	branch = main
 [submodule "Plugins/Toybox-OpenGL-Rendering-Plugin"]

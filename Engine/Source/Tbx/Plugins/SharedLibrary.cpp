@@ -72,6 +72,8 @@ namespace Tbx
 
     SharedLibrary::~SharedLibrary()
     {
+        TBX_TRACE_INFO("SharedLibrary: Unloading library {}", _path);
+
 #if defined(TBX_PLATFORM_WINDOWS)
         FreeLibrary(_handle);
 #elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_MACOS)

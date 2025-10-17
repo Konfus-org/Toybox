@@ -24,24 +24,35 @@ namespace Tbx
         ExclusiveRef<SharedLibrary> Library = nullptr;
     };
 
-    class IHoldPluginRef
+    class TBX_EXPORT IProductOfPluginFactory
     {
     public:
-        virtual ~IHoldPluginRef() = default;
+        virtual ~IProductOfPluginFactory() = default;
 
     public:
-        Ref<Plugin> Plug = nullptr;
+        Ref<Plugin> Owner = nullptr;
     };
 
-    // TODO: we need some concept of a factory plugin that can create something, that something needs to be an IFactoryPluginResult that keeps a ref to the plugin that created it.
-    // So the plugin won't be unloaded while something it created is still alive.
-    class TBX_EXPORT FactoryPlugin : public Plugin
+    template <typename TProduct>
+    requires std::is_base_of_v<IProductOfPluginFactory, TProduct>
+    class FactoryPlugin : public Plugin, public std::enable_shared_from_this<FactoryPlugin<TProduct>>
     {
     public:
         FactoryPlugin() = default;
-        virtual ~FactoryPlugin() = default;
 
-        virtual Ref<IHoldPluginRef> Create() = 0;
+        // Create a new instance. The factory ensures plugin ownership is injected.
+        template <typename... Args>
+        Ref<TProduct> Produce(Args&&... args)
+        {
+            auto product = Ref<TProduct>(new TProduct(std::forward<Args>(args)...), [&](TProduct* prodToDelete) { Destroy(prodToDelete); });
+            product->Owner = this->shared_from_this();
+            return product;
+        }
+
+        void Destroy(TProduct* product)
+        {
+            delete product;
+        }
     };
 
     class TBX_EXPORT StaticPlugin

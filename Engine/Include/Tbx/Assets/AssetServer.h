@@ -42,11 +42,6 @@ namespace Tbx
         /// Loader responsible for producing the in-memory representation of the asset.
         /// </summary>
         Ref<IAssetLoader> Loader = nullptr;
-        /// <summary>
-        /// Tracks the last known loading state for debugging and diagnostics.
-        /// Stored atomically so background release callbacks can safely update it.
-        /// </summary>
-        AssetStatus Status = AssetStatus::Unloaded;
     };
 
     /// <summary>
@@ -132,21 +127,19 @@ namespace Tbx
                 const auto& record = recordIt->second;
                 if (!std::dynamic_pointer_cast<AssetLoader<TData>>(record->Loader))
                 {
-                    ++cacheIt;
+                    cacheIt++;
                     continue;
                 }
 
-                auto cached = cacheIt->second.lock();
+                auto cached = cacheIt->second;
                 if (!cached)
                 {
-                    record->Status = AssetStatus::Unloaded;
                     cacheIt = _assetCache.erase(cacheIt);
                     continue;
                 }
 
-                record->Status = AssetStatus::Loaded;
                 loadedAssets.push_back(std::static_pointer_cast<TData>(cached));
-                ++cacheIt;
+                cacheIt++;
             }
 
             return loadedAssets;
@@ -170,47 +163,27 @@ namespace Tbx
         template <typename TData>
         Ref<TData> LoadData(const ExclusiveRef<AssetRecord>& record) const
         {
-            auto loader = std::dynamic_pointer_cast<AssetLoader<TData>>(record->Loader);
+            Ref<AssetLoader<TData>> loader = std::dynamic_pointer_cast<AssetLoader<TData>>(record->Loader);
             if (!loader)
             {
                 TBX_TRACE_ERROR("AssetServer: loader mismatch when requesting {}", record->Name);
-                record->Status = AssetStatus::Failed;
                 return nullptr;
             }
 
-            auto cacheIt = _assetCache.find(record->Name);
-            if (cacheIt != _assetCache.end())
+            if (_assetCache.contains(record->Name))
             {
-                auto cached = cacheIt->second.lock();
-                if (cached)
-                {
-                    record->Status = AssetStatus::Loaded;
-                    return std::static_pointer_cast<TData>(cached);
-                }
+                auto cached = _assetCache[record->Name];
+                return std::static_pointer_cast<TData>(cached);
             }
-
-            record->Status = AssetStatus::Loading;
 
             try
             {
-                auto loadedData = loader->Load(record->FilePath);
-                auto sharedData = Ref<TData>(
-                    new TData(loadedData),
-                    [this, &record](TData* data)
-                    {
-                        auto cacheIt = _assetCache.find(record->Name);
-                        if (cacheIt != _assetCache.end()) _assetCache.erase(cacheIt);
-                        record->Status = AssetStatus::Unloaded;
-                        delete data;
-                    });
-
-                _assetCache[record->Name] = sharedData;
-                record->Status = AssetStatus::Loaded;
-                return sharedData;
+                Ref<TData> loadedData = loader->Load(record->FilePath);
+                _assetCache[record->Name] = loadedData;
+                return loadedData;
             }
             catch (const std::exception& loadError)
             {
-                record->Status = AssetStatus::Failed;
                 TBX_TRACE_ERROR("AssetServer: failed to load {}: {}", record->FilePath.string(), loadError.what());
                 return nullptr;
             }
@@ -235,7 +208,7 @@ namespace Tbx
     private:
         mutable std::mutex _mutex = {};
         mutable std::unordered_map<std::string, ExclusiveRef<AssetRecord>> _assetRecords = {};
-        mutable std::unordered_map<std::string, WeakRef<void>> _assetCache = {};
+        mutable std::unordered_map<std::string, Ref<void>> _assetCache = {};
         std::filesystem::path _assetDirectory = {};
         std::vector<Ref<IAssetLoader>> _loaders = {};
 
