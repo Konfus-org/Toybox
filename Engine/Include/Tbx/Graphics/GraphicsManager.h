@@ -70,9 +70,9 @@ namespace Tbx
         EventListener _eventListener = {};
         EventCarrier _carrier = {};
 
-        std::vector<const Stage*> _openStages = {};
-        std::vector<GraphicsDisplay> _openDisplays = {};
         std::unordered_map<GraphicsApi, GraphicsRenderer> _renderers = {};
+        std::vector<GraphicsDisplay> _openDisplays = {};
+        std::vector<const Stage*> _openStages = {};
 
         GraphicsApi _activeGraphicsApi = GraphicsApi::None;
         VsyncMode _vsync = VsyncMode::Adaptive;

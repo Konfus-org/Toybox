@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/DllExport.h"
 #include "Tbx/Debug/Tracers.h"
-#include "Tbx/Events/EventBus.h"
+#include "Tbx/Events/EventCarrier.h"
 #include "Tbx/Events/PluginEvents.h"
 #include "Tbx/Plugins/PluginMeta.h"
 #include "Tbx/Plugins/SharedLibrary.h"
@@ -14,14 +14,44 @@ namespace Tbx
     public:
         Plugin() = default;
         virtual ~Plugin() = default;
+    };
 
-        Plugin(const Plugin&) = delete;
-        Plugin& operator=(const Plugin&) = delete;
-        Plugin(Plugin&&) = delete;
-        Plugin& operator=(Plugin&&) = delete;
+    struct LoadedPlugin
+    {
+        Ref<Plugin> Instance;
+        ExclusiveRef<SharedLibrary> Library;
+        PluginMeta Meta;
+    };
 
-        PluginMeta Meta = {};
-        ExclusiveRef<SharedLibrary> Library = nullptr;
+    class TBX_EXPORT IProductOfPluginFactory
+    {
+    public:
+        virtual ~IProductOfPluginFactory() = default;
+
+    public:
+        Ref<Plugin> Owner = nullptr;
+    };
+
+    template <typename TProduct>
+    requires std::is_base_of_v<IProductOfPluginFactory, TProduct>
+    class FactoryPlugin : public Plugin, public std::enable_shared_from_this<FactoryPlugin<TProduct>>
+    {
+    public:
+        FactoryPlugin() = default;
+
+        // Create a new instance. The factory ensures plugin ownership is injected.
+        template <typename... Args>
+        Ref<TProduct> Create(Args&&... args)
+        {
+            auto product = Ref<TProduct>(new TProduct(std::forward<Args>(args)...), [&](TProduct* prodToDelete) { Destroy(prodToDelete); });
+            product->Owner = this->shared_from_this();
+            return product;
+        }
+
+        void Destroy(TProduct* product)
+        {
+            delete product;
+        }
     };
 
     class TBX_EXPORT StaticPlugin
@@ -45,11 +75,6 @@ namespace Tbx
         #define TBX_PLUGIN_EXPORT extern "C"
     #endif
 
-    static void Delete(Plugin* plugin)
-    {
-        auto library = std::move(plugin->Library);
-    }
-
     /// <summary>
     /// Macro to register a plugin to the TBX plugin system.
     /// Is required for TBX to be able to load the plugin.
@@ -66,10 +91,6 @@ namespace Tbx
         }\
         TBX_PLUGIN_EXPORT void Unload(pluginType* pluginToUnload)\
         {\
-            TBX_TRACE_INFO("Plugin: Unloaded {}\n", pluginToUnload->Meta.Name);\
-            ::Tbx::EventBus::Global->QueueEvent(\
-                ::Tbx::MakeExclusive<::Tbx::Event>(::Tbx::PluginUnloadedEvent(pluginToUnload)));\
-            auto library = std::move(pluginToUnload->Library);\
             delete pluginToUnload;\
         }
 }

@@ -10,7 +10,12 @@
       "displayName": "VS 2022 x64 (base)",
       "generator": "Visual Studio 17 2022",
       "architecture": { "value": "x64" },
-      "binaryDir": "${sourceDir}/build/vs2022-x64",
+      "binaryDir": "${sourceDir}/_vs2022",
+      "cacheVariables": {
+        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/_build/bin/$<CONFIG>",
+        "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/_build/lib/$<CONFIG>",
+        "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/_build/lib/$<CONFIG>"
+      },
       "hidden": true
     },
     {
@@ -18,7 +23,7 @@
       "displayName": "Toybox (VS2022)",
       "inherits": "vs2022-x64-base",
       "cacheVariables": {
-        "CMAKE_CONFIGURATION_TYPES": "Debug;ReleaseAssert;Release"
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release"
       }
     }
   ],
@@ -28,12 +33,6 @@
       "displayName": "Debug",
       "configurePreset": "tbx-vs",
       "configuration": "Debug"
-    },
-    {
-      "name": "tbx-vs-assert",
-      "displayName": "ReleaseAssert",
-      "configurePreset": "tbx-vs",
-      "configuration": "ReleaseAssert"
     },
     {
       "name": "tbx-vs-release",
@@ -48,13 +47,6 @@
       "displayName": "CTest (Debug)",
       "configurePreset": "tbx-vs",
       "configuration": "Debug",
-      "output": { "outputOnFailure": true }
-    },
-    {
-      "name": "tbx-test-assert",
-      "displayName": "CTest (ReleaseAssert)",
-      "configurePreset": "tbx-vs",
-      "configuration": "ReleaseAssert",
       "output": { "outputOnFailure": true }
     },
     {

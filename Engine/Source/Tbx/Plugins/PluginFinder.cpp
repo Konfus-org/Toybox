@@ -111,7 +111,7 @@ namespace Tbx
         if (_requested.empty())
         {
             _discovered = OrderPluginMetas(_discovered);
-            TBX_TRACE_INFO("PluginFinder: Found {} plugin definitions", _discovered.size());
+            TBX_TRACE_INFO("PluginFinder: Found {} plugin definitions\n", _discovered.size());
             return;
         }
 
@@ -189,7 +189,7 @@ namespace Tbx
         }
 
         _discovered = OrderPluginMetas(filtered);
-        TBX_TRACE_INFO("PluginFinder: Found {} plugin definitions", _discovered.size());
+        TBX_TRACE_INFO("PluginFinder: Found {} plugin definitions\n", _discovered.size());
     }
 
     std::vector<PluginMeta> PluginFinder::Discover(const std::string& searchDirectory) const

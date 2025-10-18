@@ -15,22 +15,23 @@ namespace Tbx
         TBX_TRACE_INFO("- Loaded {}:", info.Name);
         TBX_TRACE_INFO("    - Version: {}", info.Version);
         TBX_TRACE_INFO("    - Author: {}", info.Author);
-        TBX_TRACE_INFO("    - Description: {}", info.Description);
+        TBX_TRACE_INFO("    - Description: {}\n", info.Description);
     }
 
     static bool LoadPlugin(
         const PluginMeta& info,
         Ref<EventBus> eventBus,
         std::unordered_set<std::string>& loadedNames,
-        std::vector<Ref<Plugin>>& outLoaded)
+        std::vector<LoadedPlugin>& outLoaded)
     {
-        auto library = MakeExclusive<SharedLibrary>();
-        if (!library->Load(info.Path))
+        auto library = MakeExclusive<SharedLibrary>(info.Path);
+        if (!library->IsValid())
         {
             TBX_TRACE_ERROR("PluginLoader: Failed to load library at '{}'", info.Path);
             return false;
         }
 
+        const auto pluginName = info.Name;
         const auto loadFuncSymbol = library->GetSymbol(TBX_LOAD_PLUGIN_FN_NAME);
         const auto unloadFuncSymbol = library->GetSymbol(TBX_UNLOAD_PLUGIN_FN_NAME);
         const auto loadPluginFunc = reinterpret_cast<PluginLoadFn>(loadFuncSymbol);
@@ -40,7 +41,7 @@ namespace Tbx
             TBX_TRACE_ERROR(
                 "PluginLoader: Missing load function in '{}'. Did it call TBX_REGISTER_PLUGIN?",
                 info.Name);
-            library->Unload();
+            library.reset();
             return false;
         }
 
@@ -48,45 +49,36 @@ namespace Tbx
         {
             TBX_TRACE_ERROR(
                 "PluginLoader: Missing unload function in '{}'. Did it call TBX_REGISTER_PLUGIN?",
-                info.Name);
-            library->Unload();
+                pluginName);
+            library.reset();
             return false;
         }
 
         Plugin* pluginInstance = loadPluginFunc(eventBus);
         if (pluginInstance == nullptr)
         {
-            TBX_TRACE_ERROR("PluginLoader: Load returned nullptr for '{}'", info.Name);
-            library->Unload();
+            TBX_TRACE_ERROR("PluginLoader: Load returned nullptr for '{}'", pluginName);
+            library.reset();
             return false;
         }
 
-        Ref<Plugin> plugin(pluginInstance, [unloadPluginFunc](Plugin* pluginToUnload)
+        auto plugin = Ref<Plugin>(pluginInstance, [unloadPluginFunc, pluginName](Plugin* pluginToUnload)
         {
-            if (pluginToUnload == nullptr)
-            {
-                return;
-            }
-
+            TBX_TRACE_INFO("Plugin: Unloaded {}\n", pluginName);
+            EventCarrier(EventBus::Global).Send(PluginDestroyedEvent(pluginToUnload));
             unloadPluginFunc(pluginToUnload);
         });
-
-        plugin->Meta = info;
-        plugin->Library = std::move(library);
-        if (!plugin->Library)
-        {
-            TBX_TRACE_ERROR("PluginLoader: Plugin '{}' failed to initialize", info.Name);
-            plugin.reset();
-            return false;
-        }
 
 #ifdef TBX_VERBOSE_LOGGING
         plugin->ListSymbols();
 #endif
 
         ReportPluginInfo(info);
-        loadedNames.insert(info.Name);
-        outLoaded.push_back(plugin);
+        loadedNames.insert(pluginName);
+        outLoaded.emplace_back(plugin, std::move(library), info);
+
+        PluginServer.Register(plugin);
+
         return true;
     }
 
@@ -98,28 +90,22 @@ namespace Tbx
         LoadPlugins(pluginMetas);
     }
 
-    Queryable<Ref<Plugin>> PluginLoader::Results()
+    Queryable<LoadedPlugin> PluginLoader::Results()
     {
-        return Queryable<Ref<Plugin>>(_plugins);
+        return Queryable<LoadedPlugin>(_plugins);
     }
 
     void PluginLoader::LoadPlugins(const std::vector<PluginMeta>& pluginMetas)
     {
-        TBX_TRACE_INFO("PluginLoader: Loading plugins:");
+        TBX_TRACE_INFO("PluginLoader: Loading plugins...\n");
         auto loadedNames = std::unordered_set<std::string>();
         uint32 successfullyLoaded = 0;
         uint32 unsuccessfullyLoaded = 0;
 
         for (const auto& meta : pluginMetas)
         {
-            if (LoadPlugin(meta, _eventBus, loadedNames, _plugins))
-            {
-                ++successfullyLoaded;
-            }
-            else
-            {
-                ++unsuccessfullyLoaded;
-            }
+            if (LoadPlugin(meta, _eventBus, loadedNames, _plugins)) successfullyLoaded++;
+            else unsuccessfullyLoaded++;
         }
 
         TBX_TRACE_INFO("PluginLoader: Successfully loaded {} plugins!", successfullyLoaded);

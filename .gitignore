@@ -67,3 +67,4 @@ Makefile
 *.cmake
 *.dir
 /x64
+/_vs2022

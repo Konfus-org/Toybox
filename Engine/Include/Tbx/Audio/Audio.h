@@ -29,14 +29,13 @@ namespace Tbx
         int Channels = 0;
     };
 
+    using SampleData = std::vector<std::uint8_t>;
+
     /// <summary>
     /// Represents raw audio data that can be attached to toys and scheduled for playback.
     /// </summary>
     class TBX_EXPORT Audio
     {
-    public:
-        using SampleData = std::vector<std::uint8_t>;
-
     public:
         Audio() = default;
         Audio(SampleData data, AudioFormat format);

@@ -5,8 +5,7 @@
 #include "Tbx/Graphics/GraphicsContext.h"
 #include "Tbx/Audio/AudioMixer.h"
 #include "Tbx/Events/AppEvents.h"
-#include "Tbx/Debug/ILogger.h"
-#include "Tbx/Debug/StdOutLogger.h"
+#include "Tbx/Debug/Log.h"
 #include "Tbx/Input/HeadlessInputHandler.h"
 #include "Tbx/Input/IInputHandler.h"
 #include "Tbx/Input/InputCodes.h"
@@ -23,19 +22,25 @@
 
 namespace Tbx
 {
+    App* App::_instance = nullptr;
+
     App::App(
         const std::string_view& name,
         const AppSettings& settings,
         const Queryable<Ref<Plugin>>& plugins,
+        const Queryable<Ref<Runtime>>& runtimes,
         Ref<EventBus> eventBus)
         : Bus(eventBus)
         , Plugins(plugins)
+        , Runtimes(runtimes)
         , Settings(settings)
         , _name(name)
         , _carrier(Bus)
         , _listener(Bus)
     {
         TBX_ASSERT(Bus, "App: Requires a valid event bus instance.");
+        TBX_ASSERT(!_instance, "App: Existing singleton was replaced, unexpected behavior may occur.");
+        _instance = this;
     }
 
     App::~App()
@@ -48,6 +53,21 @@ namespace Tbx
             Shutdown();
         }
 
+        if (_instance == this)
+        {
+            _instance = nullptr;
+        }
+
+    }
+
+    const std::string& App::GetName() const
+    {
+        return _name;
+    }
+
+    App* App::GetInstance()
+    {
+        return _instance;
     }
 
     bool App::IsRunning() const
@@ -106,19 +126,6 @@ namespace Tbx
 
         // 1. Init core systems
         {
-            // Logging
-            auto loggers = Plugins.OfType<ILogger>();
-            if (!loggers.Any())
-            {
-                TBX_TRACE_WARNING("App: No loggers detected, using default stdout logger.");
-                Logging = MakeRef<LogManager>(_name, MakeRef<StdOutLogger>(), Bus);
-            }
-            else
-            {
-                if (loggers.Count() != 1) TBX_TRACE_WARNING("App: Multiple logger plugins detected, only one is allowed. Using first detected.");
-                Logging = MakeRef<LogManager>(_name, loggers.First(), Bus);
-            }
-
             // Input
             auto inputHandlerPlugs = Plugins.OfType<IInputHandler>();
             if (!inputHandlerPlugs.Any())
@@ -199,14 +206,10 @@ namespace Tbx
         OnLaunch();
 
         // 4. Init runtimes
-        auto runtimePlugs = Plugins.OfType<Runtime>();
-        auto runtimes = std::vector<Ref<Runtime>>();
-        for (const auto& runtime : runtimePlugs)
+        for (const auto& runtime : Runtimes)
         {
             runtime->OnStart(this);
-            runtimes.push_back(runtime);
         }
-        Runtimes = runtimes;
 
         // 5. Broadcast app launched events
         _carrier.Send(AppLaunchedEvent(this));
@@ -233,10 +236,7 @@ namespace Tbx
         {
             if (Status == AppStatus::Paused)
             {
-                if (Input)
-                {
-                    Input->UpdateInputState();
-                }
+                Input->Update();
                 Windowing->Update();
                 Audio->Update();
                 Bus->Flush();
@@ -281,10 +281,7 @@ namespace Tbx
             Clock.Tick();
             const auto frameDelta = Clock.GetDeltaTime();
             _frameCount++;
-            if (Input)
-            {
-                Input->UpdateInputState();
-            }
+            Input->Update();
 
             // Fixed update
             constexpr float fixedUpdateInterval = 1.0f / 50.0f;
@@ -327,13 +324,10 @@ namespace Tbx
             // Dispatch events
             _carrier.Post(AppUpdatedEvent(this));
             Bus->Flush();
-
-            // Flush log
-            Logging->Flush();
         }
 
         // Shortcut to kill the app
-        if (Input && Input->IsKeyDown(TBX_KEY_F4) &&
+        if (Input->IsKeyDown(TBX_KEY_F4) &&
             (Input->IsKeyDown(TBX_KEY_LEFT_ALT) || Input->IsKeyDown(TBX_KEY_RIGHT_ALT)))
         {
             TBX_TRACE_INFO("App: Closing...\n");
@@ -344,7 +338,7 @@ namespace Tbx
         // Debugging and development stuff:
         {
             // Shortcut to restart/reload app
-            if (Input && Input->IsKeyDown(TBX_KEY_F2))
+            if (Input->IsKeyDown(TBX_KEY_F2))
             {
                 // TODO: App slowly eats up more memory every restart meaning we have a leak in our boat!
                 // We need to track down why and fix it!
@@ -352,7 +346,7 @@ namespace Tbx
                 Status = AppStatus::Reloading;
             }
             // Shortcut to report things like framerate and memory consumption
-            else if (Input && Input->IsKeyDown(TBX_KEY_F4))
+            else if (Input->IsKeyDown(TBX_KEY_F4))
             {
                 TBX_TRACE_INFO("App: Gather data...\n");
                 DumpFrameReport();
@@ -382,9 +376,9 @@ namespace Tbx
         }
 
         // Cleanup
-        Plugins = {};
         Runtimes = {};
-        Logging->Flush();
+        Plugins = {};
+        Assets = nullptr;
         Bus->Flush();
 
         // Update status
@@ -395,11 +389,6 @@ namespace Tbx
 
     void App::OnWindowClosed(const WindowClosedEvent& e)
     {
-        if (!Windowing)
-        {
-            return;
-        }
-
         // If the window is our main window, set running flag to false which will trigger the app to close
         const auto* window = e.AffectedWindow;
         if (window->Id == Windowing->GetMainWindow()->Id)
@@ -411,11 +400,6 @@ namespace Tbx
 
     void App::OnWindowModeChanged(const WindowModeChangedEvent& e)
     {
-        if (!Windowing)
-        {
-            return;
-        }
-
         bool allWindowsMinimized = true;
         for (auto window : Windowing->GetAllWindows())
         {
@@ -559,5 +543,4 @@ namespace Tbx
             graphicsApiToString(Settings.RenderingApi),
             vsyncToString(Settings.Vsync));
     }
-
 }

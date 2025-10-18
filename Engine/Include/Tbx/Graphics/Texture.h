@@ -29,6 +29,21 @@ namespace Tbx
 
     struct TBX_EXPORT Texture
     {
+        Texture() = default;
+        Texture(
+            const Size& resolution,
+            TextureWrap wrap,
+            TextureFilter filter,
+            TextureFormat format,
+            const std::vector<Pixel>& pixels)
+            : Resolution(resolution)
+            , Wrap(wrap)
+            , Filter(filter)
+            , Format(format)
+            , Pixels(pixels)
+        {
+        }
+
         Size Resolution = { 1, 1 };
         TextureWrap Wrap = TextureWrap::Repeat;
         TextureFilter Filter = TextureFilter::Nearest;

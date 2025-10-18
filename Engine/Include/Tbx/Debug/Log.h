@@ -14,6 +14,8 @@ namespace Tbx
     class TBX_EXPORT Log
     {
     public:
+        static void Flush();
+
         static void Trace(LogLevel level, std::string message);
 
         template <typename... Args>

@@ -56,6 +56,12 @@ namespace Tbx
     {
     };
 
+    struct TBX_EXPORT LoadedRuntime
+    {
+        Ref<Runtime> Instance = nullptr;
+        PluginMeta Meta = {};
+    };
+
     /// <summary>
     /// Register a runtime
     /// </summary>

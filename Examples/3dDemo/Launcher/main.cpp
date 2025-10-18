@@ -12,7 +12,7 @@ int main()
     config.Plugins =
     {
         "3d Demo Runtime",
-        "JIMS Asset Loader",
+        "TIMS Asset Loader",
         "OpenGL Rendering",
         "SDL3 OpenGl Graphics Context",
         "SDL3 Windowing",
