@@ -28,7 +28,7 @@ namespace Tbx
         void ListSymbols();
 
     private:
-        std::string _path = "";
+        std::string _path;
         LibHandle _handle = nullptr;
     };
 }

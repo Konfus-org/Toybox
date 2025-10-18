@@ -22,7 +22,7 @@ namespace Tbx
         const PluginMeta& info,
         Ref<EventBus> eventBus,
         std::unordered_set<std::string>& loadedNames,
-        std::vector<Ref<Plugin>>& outLoaded)
+        std::vector<LoadedPlugin>& outLoaded)
     {
         auto library = MakeExclusive<SharedLibrary>(info.Path);
         if (!library->IsValid())
@@ -31,6 +31,7 @@ namespace Tbx
             return false;
         }
 
+        const auto pluginName = info.Name;
         const auto loadFuncSymbol = library->GetSymbol(TBX_LOAD_PLUGIN_FN_NAME);
         const auto unloadFuncSymbol = library->GetSymbol(TBX_UNLOAD_PLUGIN_FN_NAME);
         const auto loadPluginFunc = reinterpret_cast<PluginLoadFn>(loadFuncSymbol);
@@ -48,7 +49,7 @@ namespace Tbx
         {
             TBX_TRACE_ERROR(
                 "PluginLoader: Missing unload function in '{}'. Did it call TBX_REGISTER_PLUGIN?",
-                info.Name);
+                pluginName);
             library.reset();
             return false;
         }
@@ -56,36 +57,27 @@ namespace Tbx
         Plugin* pluginInstance = loadPluginFunc(eventBus);
         if (pluginInstance == nullptr)
         {
-            TBX_TRACE_ERROR("PluginLoader: Load returned nullptr for '{}'", info.Name);
+            TBX_TRACE_ERROR("PluginLoader: Load returned nullptr for '{}'", pluginName);
             library.reset();
             return false;
         }
 
-        Ref<Plugin> plugin(pluginInstance, [unloadPluginFunc](Plugin* pluginToUnload)
+        auto plugin = Ref<Plugin>(pluginInstance, [unloadPluginFunc, pluginName](Plugin* pluginToUnload)
         {
-            auto library = std::move(pluginToUnload->Library);
-            TBX_TRACE_INFO("Plugin: Unloaded {}\n", pluginToUnload->Meta.Name);
-            EventCarrier(EventBus::Global).Send(PluginUnloadedEvent(pluginToUnload));
+            TBX_TRACE_INFO("Plugin: Unloaded {}\n", pluginName);
+            EventCarrier(EventBus::Global).Send(PluginDestroyedEvent(pluginToUnload));
             unloadPluginFunc(pluginToUnload);
         });
-
-        plugin->Meta = info;
-        plugin->Library = std::move(library);
-        if (!plugin->Library)
-        {
-            TBX_TRACE_ERROR("PluginLoader: Plugin '{}' failed to initialize", info.Name);
-            plugin.reset();
-            return false;
-        }
 
 #ifdef TBX_VERBOSE_LOGGING
         plugin->ListSymbols();
 #endif
 
         ReportPluginInfo(info);
-        loadedNames.insert(info.Name);
-        outLoaded.push_back(plugin);
-        EventCarrier().Send(PluginLoadedEvent(plugin));
+        loadedNames.insert(pluginName);
+        outLoaded.emplace_back(plugin, std::move(library), info);
+
+        PluginServer.Register(plugin);
 
         return true;
     }
@@ -98,9 +90,9 @@ namespace Tbx
         LoadPlugins(pluginMetas);
     }
 
-    Queryable<Ref<Plugin>> PluginLoader::Results()
+    Queryable<LoadedPlugin> PluginLoader::Results()
     {
-        return Queryable<Ref<Plugin>>(_plugins);
+        return Queryable<LoadedPlugin>(_plugins);
     }
 
     void PluginLoader::LoadPlugins(const std::vector<PluginMeta>& pluginMetas)

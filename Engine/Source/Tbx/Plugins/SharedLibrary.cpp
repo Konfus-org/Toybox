@@ -44,7 +44,7 @@ namespace Tbx
 #ifdef TBX_DEBUG
             // Duplicate the library to a temporary unique path to allow for hot reloading of the lib (debug mode only)
             std::filesystem::path tempDir = std::filesystem::temp_directory_path();
-            std::filesystem::path tempPath = tempDir / (libPath.filename().stem().string() + "_copy_" + std::to_string(std::time(nullptr)) + libPath.extension().string());
+            std::filesystem::path tempPath = tempDir / (libPath.filename().stem().string() + "_hot_reload_copy" + libPath.extension().string());
 
             TBX_TRACE_INFO("SharedLibrary: Duplicating library {} to temporary path {} for hot reloading...", libPath.string(), tempPath.string());
             std::filesystem::copy_file(libPath, tempPath, std::filesystem::copy_options::overwrite_existing);
@@ -72,15 +72,18 @@ namespace Tbx
 
     SharedLibrary::~SharedLibrary()
     {
-        TBX_TRACE_INFO("SharedLibrary: Unloading library {}", _path);
+        if (IsValid())
+        {
+            TBX_TRACE_INFO("SharedLibrary: Unloading library {}", _path);
 
 #if defined(TBX_PLATFORM_WINDOWS)
-        FreeLibrary(_handle);
+            FreeLibrary(_handle);
 #elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_MACOS)
-        if (_handle)
-            dlclose(_handle);
+            if (_handle)
+                dlclose(_handle);
 #endif
-        _handle = nullptr;
+            _handle = nullptr;
+        }
     }
 
     Symbol SharedLibrary::GetSymbol(const std::string& name)

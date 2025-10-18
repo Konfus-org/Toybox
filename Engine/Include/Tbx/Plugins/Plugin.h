@@ -14,14 +14,13 @@ namespace Tbx
     public:
         Plugin() = default;
         virtual ~Plugin() = default;
+    };
 
-        Plugin(const Plugin&) = delete;
-        Plugin& operator=(const Plugin&) = delete;
-        Plugin(Plugin&&) = delete;
-        Plugin& operator=(Plugin&&) = delete;
-
-        PluginMeta Meta = {};
-        ExclusiveRef<SharedLibrary> Library = nullptr;
+    struct LoadedPlugin
+    {
+        Ref<Plugin> Instance;
+        ExclusiveRef<SharedLibrary> Library;
+        PluginMeta Meta;
     };
 
     class TBX_EXPORT IProductOfPluginFactory
@@ -42,7 +41,7 @@ namespace Tbx
 
         // Create a new instance. The factory ensures plugin ownership is injected.
         template <typename... Args>
-        Ref<TProduct> Produce(Args&&... args)
+        Ref<TProduct> Create(Args&&... args)
         {
             auto product = Ref<TProduct>(new TProduct(std::forward<Args>(args)...), [&](TProduct* prodToDelete) { Destroy(prodToDelete); });
             product->Owner = this->shared_from_this();
