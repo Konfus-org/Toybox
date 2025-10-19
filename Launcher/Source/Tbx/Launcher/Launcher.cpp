@@ -10,19 +10,19 @@ namespace Tbx::Launcher
     static App CreateApp(const AppConfig& config)
     {
         // Load plugins and runtimes
-        Queryable<LoadedPlugin> loadedPlugins;
+        Queryable<Ref<Plugin>> loadedPlugins;
         {
             auto pluginMetas = PluginFinder(FileSystem::GetPluginDirectory(), config.Plugins).Result();
             loadedPlugins = PluginLoader(pluginMetas, EventBus::Global).Results();
         }
 
         // Get runtimes and separate them from the rest of the plugins
-        auto runtimes = loadedPlugins
-            .Select([](const LoadedPlugin& lp) { return lp.Instance; })
-            .OfType<Runtime>();
+        auto runtimes = loadedPlugins.OfType<Runtime>();
         auto plugins = loadedPlugins
-            .Select([](const LoadedPlugin& lp) { return lp.Instance; })
-            .Where([&](const Ref<Plugin>& p) { return !runtimes.Any([&p](const Ref<Runtime>& r) { return r.get() == p.get(); }); });
+            .Where([&](const Ref<Plugin>& plugin)
+            {
+                return !runtimes.Any([&](const Ref<Runtime>& runtime) { return runtime.get() == plugin.get(); });
+            });
 
         return App(config.Name, config.Settings, plugins, runtimes, EventBus::Global);
     }

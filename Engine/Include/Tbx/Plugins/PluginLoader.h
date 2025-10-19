@@ -19,15 +19,15 @@ namespace Tbx
             Ref<EventBus> eventBus);
 
         /// <summary>
-        /// Produces the loaded plugin collection, transferring ownership to the caller.
+        /// Produces the loaded plugin collection.
         /// </summary>
-        Queryable<LoadedPlugin> Results();
+        Queryable<Ref<Plugin>> Results();
 
     private:
         void LoadPlugins(const std::vector<PluginMeta>& pluginMetas);
 
     private:
-        std::vector<LoadedPlugin> _plugins;
+        std::vector<Ref<Plugin>> _plugins;
         Ref<EventBus> _eventBus = nullptr;
     };
 }
