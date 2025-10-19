@@ -42,9 +42,5 @@ add_subdirectory(Examples/3dDemo/Launcher)
 
 # Plugins:
 set(CMAKE_FOLDER "Plugins")
-add_subdirectory(Plugins/Toybox-ImGui-ImmediateUI-Plugin)
-add_subdirectory(Plugins/Toybox-TIMS-AssetLoader-Plugin)
-add_subdirectory(Plugins/Toybox-OpenGL-Rendering-Plugin)
-add_subdirectory(Plugins/Toybox-SDL-Plugins)
-add_subdirectory(Plugins/Toybox-Spd-Logging-Plugin)
+add_subdirectory(Plugins)
 unset(CMAKE_FOLDER)

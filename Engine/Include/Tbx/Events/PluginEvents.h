@@ -1,7 +1,7 @@
 #pragma once
 #include "Tbx/Events/Event.h"
+#include "Tbx/Plugins/PluginMeta.h"
 #include "Tbx/Memory/Refs.h"
-#include "Tbx/Plugins/Plugin.h"
 
 namespace Tbx
 {

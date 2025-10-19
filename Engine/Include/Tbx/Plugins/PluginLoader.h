@@ -1,8 +1,8 @@
 #pragma once
-#include "Tbx/Events/EventBus.h"
-#include "Tbx/Collections/Queryable.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Plugins/Plugin.h"
+#include "Tbx/Events/EventBus.h"
+#include "Tbx/Collections/Queryable.h"
 #include "Tbx/Memory/Refs.h"
 #include <vector>
 

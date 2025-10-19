@@ -17,7 +17,7 @@ namespace Tbx
     };
 
     template<typename TData>
-    class TBX_EXPORT AssetLoader : virtual public IAssetLoader
+    class TBX_EXPORT AssetLoader : public IAssetLoader
     {
     public:
         virtual Ref<TData> Load(const std::filesystem::path& filepath) = 0;

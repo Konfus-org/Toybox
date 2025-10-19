@@ -1,6 +1,6 @@
 #pragma once
-#include "Tbx/Debug/IPrintable.h"
 #include "Tbx/DllExport.h"
+#include "Tbx/Debug/IPrintable.h"
 #include <string>
 #include <vector>
 

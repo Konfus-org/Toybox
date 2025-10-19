@@ -1,0 +1,5 @@
+add_subdirectory(Toybox-ImGui-ImmediateUI-Plugin)
+add_subdirectory(Toybox-TIMS-AssetLoader-Plugins)
+add_subdirectory(Toybox-OpenGL-Rendering-Plugin)
+add_subdirectory(Toybox-Spd-Logging-Plugin)
+add_subdirectory(Toybox-SDL-Plugins)

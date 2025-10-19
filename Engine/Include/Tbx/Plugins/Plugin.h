@@ -16,13 +16,6 @@ namespace Tbx
         virtual ~Plugin() = default;
     };
 
-    struct LoadedPlugin
-    {
-        WeakRef<Plugin> Instance = {};
-        ExclusiveRef<SharedLibrary> Library = nullptr;
-        PluginMeta Meta = {};
-    };
-
     class TBX_EXPORT IProductOfPluginFactory
     {
     public:

@@ -4,7 +4,7 @@
 #include "Tbx/Events/PluginEvents.h"
 #include "Tbx/Debug/Tracers.h"
 #include "Tbx/Memory/Refs.h"
-#include "Tbx/Plugins/PluginLibraryManager.h"
+#include "Tbx/Plugins/PluginManager.h"
 #include <memory>
 #include <unordered_set>
 #include <utility>
@@ -74,10 +74,10 @@ namespace Tbx
         plugin->ListSymbols();
 #endif
 
-        ReportPluginInfo(info);
         loadedNames.insert(pluginName);
-        PluginLibraryManager::Register(plugin, std::move(library), info);
         outLoaded.push_back(plugin);
+        ReportPluginInfo(info);
+        PluginManager::Register(plugin, info, library);
 
         return true;
     }

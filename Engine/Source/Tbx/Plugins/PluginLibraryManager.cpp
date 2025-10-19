@@ -1,5 +1,5 @@
 #include "Tbx/PCH.h"
-#include "Tbx/Plugins/PluginLibraryManager.h"
+#include "Tbx/Plugins/PluginManager.h"
 #include "Tbx/Debug/Asserts.h"
 #include "Tbx/Debug/Tracers.h"
 #include "Tbx/Events/EventBus.h"
@@ -11,6 +11,13 @@
 
 namespace Tbx
 {
+    struct LoadedPlugin
+    {
+        WeakRef<Plugin> Instance = {};
+        ExclusiveRef<SharedLibrary> Library = nullptr;
+        PluginMeta Meta = {};
+    };
+
     struct PluginLibraryState
     {
         std::unordered_map<const Plugin*, LoadedPlugin> Plugins = {};
@@ -40,21 +47,15 @@ namespace Tbx
         return true;
     }
 
-    void PluginLibraryManager::Register(const Ref<Plugin>& plugin, ExclusiveRef<SharedLibrary>&& library, const PluginMeta& meta)
+    void PluginManager::Register(const Ref<Plugin>& plugin, const PluginMeta& meta, ExclusiveRef<SharedLibrary>& library)
     {
         EnsureInitialized();
 
         TBX_ASSERT(plugin, "PluginLibraryManager: Cannot register a null plugin instance.");
-        if (!plugin)
-        {
-            return;
-        }
+        if (!plugin) return;
 
         TBX_ASSERT(library != nullptr, "PluginLibraryManager: Cannot register a plugin without its library.");
-        if (!library)
-        {
-            return;
-        }
+        if (!library) return;
 
         const auto pluginPtr = plugin.get();
         auto weakPlugin = WeakRef<Plugin>(plugin);
@@ -74,44 +75,20 @@ namespace Tbx
             shouldDispatchLoaded = inserted;
         }
 
-        auto bus = EventBus::Global;
-        if (!bus)
-        {
-            TBX_TRACE_WARNING("PluginLibraryManager: Missing event bus during registration of '{}'.", meta.Name);
-            return;
-        }
-
-        if (shouldDispatchLoaded)
-        {
-            EventCarrier(bus).Send(PluginLoadedEvent(weakPlugin, meta));
-        }
-        else
-        {
-            TBX_TRACE_VERBOSE("PluginLibraryManager: Duplicate registration detected for '{}'.", meta.Name);
-        }
+        if (shouldDispatchLoaded) EventCarrier(EventBus::Global).Send(PluginLoadedEvent(weakPlugin, meta));
+        else TBX_TRACE_VERBOSE("PluginLibraryManager: Duplicate registration detected for '{}'.", meta.Name);
     }
 
-    void PluginLibraryManager::EnsureInitialized()
+    void PluginManager::EnsureInitialized()
     {
-        if (State.Initialized)
-        {
-            return;
-        }
+        if (State.Initialized) return;
 
-        auto bus = EventBus::Global;
-        TBX_ASSERT(bus, "PluginLibraryManager: Missing global event bus.");
-        if (!bus)
-        {
-            return;
-        }
-
-        State.Listener.Bind(bus);
-        State.Listener.Listen<PluginDestroyedEvent>(&PluginLibraryManager::HandleDestroyed);
-
+        State.Listener.Bind(EventBus::Global);
+        State.Listener.Listen<PluginDestroyedEvent>(&PluginManager::HandleDestroyed);
         State.Initialized = true;
     }
 
-    void PluginLibraryManager::HandleDestroyed(PluginDestroyedEvent& event)
+    void PluginManager::HandleDestroyed(PluginDestroyedEvent& event)
     {
         LoadedPlugin unloaded = {};
         if (!RemovePlugin(event.Plugin, unloaded))
@@ -120,17 +97,10 @@ namespace Tbx
             return;
         }
 
-        auto bus = EventBus::Global;
-        if (!bus)
-        {
-            TBX_TRACE_WARNING("PluginLibraryManager: Missing event bus while unloading plugin '{}'.", unloaded.Meta.Name);
-            return;
-        }
-
-        EventCarrier(bus).Send(PluginUnloadedEvent(unloaded.Instance, unloaded.Meta));
+        EventCarrier(EventBus::Global).Send(PluginUnloadedEvent(unloaded.Instance, unloaded.Meta));
     }
 
-    void PluginLibraryManager::Unregister(const Plugin* plugin)
+    void PluginManager::Unregister(const Plugin* plugin)
     {
         EnsureInitialized();
         if (!plugin)
@@ -146,15 +116,7 @@ namespace Tbx
             return;
         }
 
-        TBX_TRACE_WARNING("PluginLibraryManager: Manually unregistering plugin '{}'; ensure no dangling references remain.", unloaded.Meta.Name);
-
-        auto bus = EventBus::Global;
-        if (!bus)
-        {
-            TBX_TRACE_WARNING("PluginLibraryManager: Missing event bus while manually unloading plugin '{}'.", unloaded.Meta.Name);
-            return;
-        }
-
-        EventCarrier(bus).Send(PluginUnloadedEvent(unloaded.Instance, unloaded.Meta));
+        TBX_ASSERT(unloaded.Instance.lock().use_count() != 1, "PluginLibraryManager: Dangling references detected from manually unregistering plugin '{}'; .", unloaded.Meta.Name);
+        EventCarrier(EventBus::Global).Send(PluginUnloadedEvent(unloaded.Instance, unloaded.Meta));
     }
 }
