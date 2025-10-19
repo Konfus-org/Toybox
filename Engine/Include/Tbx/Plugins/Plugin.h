@@ -18,9 +18,9 @@ namespace Tbx
 
     struct LoadedPlugin
     {
-        Ref<Plugin> Instance;
-        ExclusiveRef<SharedLibrary> Library;
-        PluginMeta Meta;
+        WeakRef<Plugin> Instance = {};
+        ExclusiveRef<SharedLibrary> Library = nullptr;
+        PluginMeta Meta = {};
     };
 
     class TBX_EXPORT IProductOfPluginFactory

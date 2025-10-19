@@ -4,6 +4,7 @@
 #include "Tbx/Events/PluginEvents.h"
 #include "Tbx/Debug/Tracers.h"
 #include "Tbx/Memory/Refs.h"
+#include "Tbx/Plugins/PluginLibraryManager.h"
 #include <memory>
 #include <unordered_set>
 #include <utility>
@@ -22,7 +23,7 @@ namespace Tbx
         const PluginMeta& info,
         Ref<EventBus> eventBus,
         std::unordered_set<std::string>& loadedNames,
-        std::vector<LoadedPlugin>& outLoaded)
+        std::vector<Ref<Plugin>>& outLoaded)
     {
         auto library = MakeExclusive<SharedLibrary>(info.Path);
         if (!library->IsValid())
@@ -75,9 +76,8 @@ namespace Tbx
 
         ReportPluginInfo(info);
         loadedNames.insert(pluginName);
-        outLoaded.emplace_back(plugin, std::move(library), info);
-
-        PluginServer.Register(plugin);
+        PluginLibraryManager::Register(plugin, std::move(library), info);
+        outLoaded.push_back(plugin);
 
         return true;
     }
@@ -90,9 +90,9 @@ namespace Tbx
         LoadPlugins(pluginMetas);
     }
 
-    Queryable<LoadedPlugin> PluginLoader::Results()
+    Queryable<Ref<Plugin>> PluginLoader::Results()
     {
-        return Queryable<LoadedPlugin>(_plugins);
+        return Queryable<Ref<Plugin>>(_plugins);
     }
 
     void PluginLoader::LoadPlugins(const std::vector<PluginMeta>& pluginMetas)
