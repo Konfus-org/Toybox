@@ -9,15 +9,17 @@
 
 namespace Tbx
 {
+    // TODO: Create specific asset types, eg TextureAsset, ShaderAsset, ModelAsset, TextAsset, AudioAsset
+    // Then we don't need to template AssetLoader and can have common asset metadata (status, last modified, etc)
     class TBX_EXPORT IAssetLoader
     {
     public:
-        virtual ~IAssetLoader() = default;
+        virtual ~IAssetLoader();
         virtual bool CanLoad(const std::filesystem::path& filepath) const = 0;
     };
 
     template<typename TData>
-    class TBX_EXPORT AssetLoader : public IAssetLoader
+    class AssetLoader : public IAssetLoader
     {
     public:
         virtual Ref<TData> Load(const std::filesystem::path& filepath) = 0;

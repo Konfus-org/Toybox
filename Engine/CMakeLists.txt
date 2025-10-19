@@ -16,7 +16,7 @@ target_precompile_headers(Engine PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Include/Tb
 # Sources
 file(GLOB_RECURSE INCL CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Include/*.*")
 file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.*")
-target_sources(Engine PRIVATE ${SRCS} ${INCL})
+target_sources(Engine PRIVATE ${SRCS} ${INCL} "Source/Tbx/Assets/AssetLoaders.cpp")
 
 # Expose include dirs to dependents (build & install time)
 target_include_directories(Engine

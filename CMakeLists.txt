@@ -20,6 +20,7 @@ if(MSVC)
   set_property(GLOBAL PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
   add_compile_options(/ZI)
   add_compile_options(/MP)
+  add_compile_options(/GR)
   add_link_options(/INCREMENTAL)
 endif()
 

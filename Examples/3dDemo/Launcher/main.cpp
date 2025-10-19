@@ -9,7 +9,7 @@ int main()
     config.Settings.Resolution = { 720, 480 };
     config.Settings.RenderingApi = Tbx::GraphicsApi::OpenGL;
     config.Settings.ClearColor = Tbx::RgbaColor::Red;
-    config.Plugins =
+    /*config.Plugins =
     {
         "3d Demo Runtime",
         "TIMS Asset Loader",
@@ -19,7 +19,7 @@ int main()
         "SDL3 Audio",
         "SDL3 Input",
         "Spd Logging"
-    };
+    };*/
     config.Settings.RenderingApi = Tbx::GraphicsApi::OpenGL;
 
     auto status = Tbx::Launcher::Launch(config);
