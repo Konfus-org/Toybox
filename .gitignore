@@ -68,3 +68,4 @@ Makefile
 *.dir
 /x64
 /_vs2022
+/_build
