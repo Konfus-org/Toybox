@@ -5,78 +5,107 @@
 #include "Tbx/Graphics/Shader.h"
 #include "Tbx/Graphics/Model.h"
 #include "Tbx/Graphics/Text.h"
+#include "Tbx/Ids/Guid.h"
+#include "Tbx/Memory/Refs.h"
 #include <filesystem>
+#include <string>
 
 namespace Tbx
 {
-    // TODO: Create specific asset types, eg TextureAsset, ShaderAsset, ModelAsset, TextAsset, AudioAsset
-    // Then we don't need to template AssetLoader and can have common asset metadata (status, last modified, etc)
+    struct TBX_EXPORT Asset
+    {
+        virtual ~Asset() = default;
+
+        Guid Id = Guid::Invalid;
+        std::string Name = "";
+        std::filesystem::path FilePath = {};
+    };
+
+    struct TBX_EXPORT TextureAsset : public Asset
+    {
+        Ref<Texture> Data = nullptr;
+    };
+
+    struct TBX_EXPORT ShaderAsset : public Asset
+    {
+        Ref<Shader> Data = nullptr;
+    };
+
+    struct TBX_EXPORT ModelAsset : public Asset
+    {
+        Ref<Model> Data = nullptr;
+    };
+
+    struct TBX_EXPORT TextAsset : public Asset
+    {
+        Ref<Text> Data = nullptr;
+    };
+
+    struct TBX_EXPORT AudioAsset : public Asset
+    {
+        Ref<Audio> Data = nullptr;
+    };
+
     class TBX_EXPORT IAssetLoader
     {
     public:
-        virtual ~IAssetLoader();
+        virtual ~IAssetLoader() = default;
         virtual bool CanLoad(const std::filesystem::path& filepath) const = 0;
+        virtual Ref<Asset> Load(const std::filesystem::path& filepath) = 0;
     };
 
-    template<typename TData>
-    class AssetLoader : public IAssetLoader
+    class TBX_EXPORT ITextureLoader : public IAssetLoader
     {
-    public:
-        virtual Ref<TData> Load(const std::filesystem::path& filepath) = 0;
-    };
-
-    class TBX_EXPORT ITextureLoader : public AssetLoader<Texture>
-    {
-        Ref<Texture> Load(const std::filesystem::path& filepath) final
+        Ref<Asset> Load(const std::filesystem::path& filepath) final
         {
             return LoadTexture(filepath);
         }
 
     protected:
-        virtual Ref<Texture> LoadTexture(const std::filesystem::path& filepath) = 0;
+        virtual Ref<TextureAsset> LoadTexture(const std::filesystem::path& filepath) = 0;
     };
 
-    class TBX_EXPORT IShaderLoader : public AssetLoader<Shader>
+    class TBX_EXPORT IShaderLoader : public IAssetLoader
     {
-        Ref<Shader> Load(const std::filesystem::path& filepath) final
+        Ref<Asset> Load(const std::filesystem::path& filepath) final
         {
             return LoadShader(filepath);
         }
 
     protected:
-        virtual Ref<Shader> LoadShader(const std::filesystem::path& filepath) = 0;
+        virtual Ref<ShaderAsset> LoadShader(const std::filesystem::path& filepath) = 0;
     };
 
-    class TBX_EXPORT IModelLoader : public AssetLoader<Model>
+    class TBX_EXPORT IModelLoader : public IAssetLoader
     {
-        Ref<Model> Load(const std::filesystem::path& filepath) final
+        Ref<Asset> Load(const std::filesystem::path& filepath) final
         {
             return LoadModel(filepath);
         }
 
     protected:
-        virtual Ref<Model> LoadModel(const std::filesystem::path& filepath) = 0;
+        virtual Ref<ModelAsset> LoadModel(const std::filesystem::path& filepath) = 0;
     };
 
-    class TBX_EXPORT ITextLoader : public AssetLoader<Text>
+    class TBX_EXPORT ITextLoader : public IAssetLoader
     {
-        Ref<Text> Load(const std::filesystem::path& filepath) final
+        Ref<Asset> Load(const std::filesystem::path& filepath) final
         {
             return LoadText(filepath);
         }
 
     protected:
-        virtual Ref<Text> LoadText(const std::filesystem::path& filepath) = 0;
+        virtual Ref<TextAsset> LoadText(const std::filesystem::path& filepath) = 0;
     };
 
-    class TBX_EXPORT IAudioLoader : public AssetLoader<Audio>
+    class TBX_EXPORT IAudioLoader : public IAssetLoader
     {
-        Ref<Audio> Load(const std::filesystem::path& filepath) final
+        Ref<Asset> Load(const std::filesystem::path& filepath) final
         {
             return LoadAudio(filepath);
         }
 
     protected:
-        virtual Ref<Audio> LoadAudio(const std::filesystem::path& filepath) = 0;
+        virtual Ref<AudioAsset> LoadAudio(const std::filesystem::path& filepath) = 0;
     };
 }
