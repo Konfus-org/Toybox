@@ -16,12 +16,12 @@ set(CMAKE_PDB_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/Build/pdb" CACHE PATH "Where
 
 # Global configs
 if(MSVC)
-  # Requires CMP0091 to be set to NEW (default for CMake >= 3.15)
   set_property(GLOBAL PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-  add_compile_options(/ZI)
-  add_compile_options(/MP)
-  add_compile_options(/GR)
-  add_link_options(/INCREMENTAL)
+  add_compile_options("/ZI")
+  add_compile_options("/MP")
+  add_compile_options("/GR")
+  add_compile_options("/ZI")
+  add_link_options("/INCREMENTAL")
 endif()
 
 # Core projects
