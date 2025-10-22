@@ -21,7 +21,7 @@ namespace Tbx
     class TBX_EXPORT IAudioManager
     {
     public:
-        virtual ~IAudioManager() = default;
+        virtual ~IAudioManager();
         virtual void Update() = 0;
 
     public:
@@ -31,7 +31,7 @@ namespace Tbx
     class TBX_EXPORT HeadlessAudioManager final : public IAudioManager
     {
     public:
-        HeadlessAudioManager() = default;
+        HeadlessAudioManager();
         void Update() override {}
     };
 
@@ -41,7 +41,7 @@ namespace Tbx
     class TBX_EXPORT AudioManager final : public IAudioManager
     {
     public:
-        AudioManager() = default;
+        AudioManager();
         AudioManager(Ref<IAudioMixer> mixer, Ref<EventBus> eventBus);
 
         void Update() override;

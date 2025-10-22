@@ -11,7 +11,7 @@ namespace Tbx
     class TBX_EXPORT IAudioMixer
     {
     public:
-        virtual ~IAudioMixer() = default;
+        virtual ~IAudioMixer();
 
         virtual void Play(const Audio& audio) = 0;
         virtual void Pause(const Audio& audio) = 0;

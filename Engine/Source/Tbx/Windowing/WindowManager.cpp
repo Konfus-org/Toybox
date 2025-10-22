@@ -6,6 +6,8 @@
 
 namespace Tbx
 {
+    WindowManager::WindowManager() = default;
+
     WindowManager::WindowManager(
         Ref<IWindowFactory> windowFactory,
         Ref<IInputHandler> inputHandler,
