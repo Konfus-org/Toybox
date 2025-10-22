@@ -14,7 +14,7 @@ namespace Tbx
 {
     struct TBX_EXPORT Asset
     {
-        virtual ~Asset() = default;
+        virtual ~Asset();
 
         Guid Id = Guid::Invalid;
         std::string Name = "";
@@ -49,7 +49,7 @@ namespace Tbx
     class TBX_EXPORT IAssetLoader
     {
     public:
-        virtual ~IAssetLoader() = default;
+        virtual ~IAssetLoader();
         virtual bool CanLoad(const std::filesystem::path& filepath) const = 0;
         virtual Ref<Asset> Load(const std::filesystem::path& filepath) = 0;
     };

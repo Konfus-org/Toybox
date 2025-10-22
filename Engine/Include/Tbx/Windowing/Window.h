@@ -22,7 +22,7 @@ namespace Tbx
     class TBX_EXPORT Window
     {
     public:
-        virtual ~Window() = default;
+        virtual ~Window();
 
         virtual void Open() = 0;
         virtual void Close() = 0;
@@ -51,7 +51,7 @@ namespace Tbx
     class TBX_EXPORT IWindowFactory
     {
     public:
-        virtual ~IWindowFactory() = default;
+        virtual ~IWindowFactory();
         virtual Ref<Window> Create(
             const std::string& title,
             const Size& size,

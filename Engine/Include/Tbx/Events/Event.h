@@ -13,7 +13,7 @@ namespace Tbx
     struct TBX_EXPORT Event
     {
     public:
-        virtual ~Event() = default;
+        virtual ~Event();
         
         /// <summary>
         /// Mark the event as handled. 

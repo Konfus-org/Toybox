@@ -12,14 +12,14 @@ namespace Tbx
     class TBX_EXPORT Plugin
     {
     public:
-        Plugin() = default;
-        virtual ~Plugin() = default;
+        Plugin();
+        virtual ~Plugin();
     };
 
     class TBX_EXPORT IProductOfPluginFactory
     {
     public:
-        virtual ~IProductOfPluginFactory() = default;
+        virtual ~IProductOfPluginFactory();
 
     public:
         Ref<Plugin> Owner = nullptr;
@@ -50,8 +50,8 @@ namespace Tbx
     class TBX_EXPORT StaticPlugin
     {
     public:
-        StaticPlugin() = default;
-        virtual ~StaticPlugin() = default;
+        StaticPlugin();
+        virtual ~StaticPlugin();
         PluginMeta PluginInfo = {};
     };
 

@@ -14,7 +14,7 @@ namespace Tbx
     class IRuntime
     {
     public:
-        virtual ~IRuntime() {}
+        virtual ~IRuntime();
 
         /// <summary>
         /// Called when the owning app is started.
