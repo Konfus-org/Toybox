@@ -16,9 +16,6 @@
 
 namespace Tbx
 {
-    template <typename T>
-    concept AssetType = std::is_base_of_v<Asset, T>;
-
     /// <summary>
     /// Central coordinator for discovering, loading, and caching assets backed by registered loaders.
     /// </summary>
@@ -34,7 +31,7 @@ namespace Tbx
         /// Registers the asset if it is not tracked already and returns the loaded data.
         /// </summary>
         template <typename TData>
-        void Register(const std::string& path) requires AssetType<TData>
+        void Register(const std::string& path)
         {
             std::scoped_lock lock(_mutex);
 
@@ -54,7 +51,6 @@ namespace Tbx
             if (!FindLoaderForType(std::type_index(typeid(TData)), absolutePath))
             {
                 TBX_ASSERT(false, "AssetServer: Unable to register {} because no loader accepted the file", path);
-                return;
             }
         }
 
@@ -63,7 +59,7 @@ namespace Tbx
         /// If the asset was never seen before this call returns nullptr.
         /// </summary>
         template <typename TData>
-        Ref<TData> Get(const std::string& path) const requires AssetType<TData>
+        Ref<TData> Get(const std::string& path) const
         {
             std::scoped_lock lock(_mutex);
 
@@ -77,7 +73,7 @@ namespace Tbx
         /// Collects all loaded assets for the requested type.
         /// </summary>
         template <typename TData>
-        std::vector<Ref<TData>> GetLoaded() const requires AssetType<TData>
+        std::vector<Ref<TData>> GetLoaded() const
         {
             std::scoped_lock lock(_mutex);
 
@@ -114,21 +110,15 @@ namespace Tbx
         }
 
     private:
-        /// <summary>
-        /// Ensures the asset data associated with the provided path is loaded and returns it.
-        /// If the asset is already cached, the cached value is reused.
-        /// </summary>
         template <typename TData>
-        Ref<TData> LoadData(const std::string& assetName, const std::filesystem::path& filePath) const requires AssetType<TData>
+        Ref<TData> LoadData(const std::string& assetName, const std::filesystem::path& filePath) const
         {
             auto cacheIt = _loadedAssets.find(assetName);
             if (cacheIt != _loadedAssets.end())
             {
-                auto cached = cacheIt->second.lock();
-                if (cached)
+                if (auto cached = cacheIt->second.lock())
                 {
-                    auto typedCached = std::dynamic_pointer_cast<TData>(cached);
-                    if (typedCached)
+                    if (auto typedCached = std::static_pointer_cast<TData>(cached))
                     {
                         return typedCached;
                     }
@@ -139,14 +129,14 @@ namespace Tbx
 
             try
             {
-                auto loader = FindLoaderForType(std::type_index(typeid(TData)), filePath);
+                auto loader = FindLoaderForType<TData>(filePath);
                 if (!loader)
                 {
                     TBX_TRACE_ERROR("AssetServer: no loader registered for {}", assetName);
                     return nullptr;
                 }
 
-                Ref<Asset> loadedData = loader->Load(filePath);
+                auto loadedData = std::any_cast<Ref<TData>>(loader->Load(filePath));
                 if (!loadedData)
                 {
                     _loadedAssets.erase(assetName);
@@ -160,13 +150,6 @@ namespace Tbx
                     return nullptr;
                 }
 
-                if (typed->Id == Guid::Invalid)
-                {
-                    typed->Id = Guid::Generate();
-                }
-                typed->Name = assetName;
-                typed->FilePath = filePath;
-
                 _loadedAssets[assetName] = typed;
                 return typed;
             }
@@ -178,32 +161,41 @@ namespace Tbx
             }
         }
 
-        /// <summary>
-        /// Attempts to locate a loader that can handle the specified file path.
-        /// Returns nullptr if none of the registered loaders can load the asset.
-        /// </summary>
-        Ref<IAssetLoader> FindLoaderFor(const std::filesystem::path& filePath) const;
+        template <typename TData>
+        Ref<IAssetLoader> FindLoaderForType(const std::filesystem::path& filePath) const
+        {
+            auto loaderIt = _loadersByType.find(typeid(TData));
+            if (loaderIt == _loadersByType.end())
+            {
+                return nullptr;
+            }
 
-        Ref<IAssetLoader> FindLoaderForType(std::type_index assetType, const std::filesystem::path& filePath) const;
+            for (const auto& loader : loaderIt->second)
+            {
+                if (!loader)
+                {
+                    continue;
+                }
 
-        void BuildLoaderLookup();
+                if (loader->CanLoad(filePath))
+                {
+                    return loader;
+                }
+            }
 
-        /// <summary>
-        /// Resolves a potentially relative path to the on-disk location of an asset.
-        /// </summary>
+            return nullptr;
+        }
+
+        void BuildLoaderLookup(const std::vector<Ref<IAssetLoader>>& loaders);
         std::filesystem::path ResolvePath(const std::filesystem::path& path) const;
-
-        /// <summary>
-        /// Normalizes the provided path so it can be used as a key in the asset maps.
-        /// </summary>
         std::string NormalizeKey(const std::filesystem::path& path) const;
 
     private:
         mutable std::mutex _mutex = {};
-        mutable std::unordered_map<std::string, WeakRef<Asset>> _loadedAssets = {};
         std::filesystem::path _assetDirectory = {};
-        std::vector<Ref<IAssetLoader>> _loaders = {};
+        mutable std::unordered_map<std::string, WeakRef<void>> _loadedAssets = {};
         std::unordered_map<std::type_index, std::vector<Ref<IAssetLoader>>> _loadersByType = {};
+
         // TODO: memory pools for each asset type that allocates a target amount of memory and keeps track of the available memory, when its full it'll clear out old stuff
         // AKA things at the beginning of the pool and are not in use (which is known via a shared pointer ref count) and start writing there.
     };
