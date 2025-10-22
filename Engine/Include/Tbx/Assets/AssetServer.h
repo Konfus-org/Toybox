@@ -9,10 +9,10 @@
 #include <mutex>
 #include <string>
 #include <type_traits>
-#include <typeindex>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <typeindex>
 
 namespace Tbx
 {
@@ -38,17 +38,12 @@ namespace Tbx
             const auto absolutePath = ResolvePath(path);
             const auto normalizedPath = NormalizeKey(absolutePath);
 
-            auto cachedIt = _loadedAssets.find(normalizedPath);
-            if (cachedIt != _loadedAssets.end())
+            if (IsAssetLoaded<TData>(normalizedPath))
             {
-                auto cached = cachedIt->second.lock();
-                if (cached && std::dynamic_pointer_cast<TData>(cached))
-                {
-                    return;
-                }
+                return;
             }
 
-            if (!FindLoaderForType(std::type_index(typeid(TData)), absolutePath))
+            if (!FindLoaderForType<TData>(absolutePath))
             {
                 TBX_ASSERT(false, "AssetServer: Unable to register {} because no loader accepted the file", path);
             }
@@ -107,24 +102,56 @@ namespace Tbx
         {
             std::scoped_lock lock(_mutex);
             _loadedAssets.clear();
+            _assetTypes.clear();
         }
 
     private:
+        template <typename TData>
+        bool IsAssetLoaded(const std::string& normalizedPath) const
+        {
+            auto cachedIt = _loadedAssets.find(normalizedPath);
+            if (cachedIt == _loadedAssets.end())
+            {
+                return false;
+            }
+
+            auto cached = cachedIt->second.lock();
+            if (!cached)
+            {
+                _loadedAssets.erase(cachedIt);
+                _assetTypes.erase(normalizedPath);
+                return false;
+            }
+
+            auto typeIt = _assetTypes.find(normalizedPath);
+            if (typeIt == _assetTypes.end())
+            {
+                return false;
+            }
+
+            return typeIt->second == std::type_index(typeid(TData));
+        }
+
         template <typename TData>
         Ref<TData> LoadData(const std::string& assetName, const std::filesystem::path& filePath) const
         {
             auto cacheIt = _loadedAssets.find(assetName);
             if (cacheIt != _loadedAssets.end())
             {
-                if (auto cached = cacheIt->second.lock())
+                auto cached = cacheIt->second.lock();
+                if (!cached)
                 {
-                    if (auto typedCached = std::static_pointer_cast<TData>(cached))
+                    _loadedAssets.erase(cacheIt);
+                    _assetTypes.erase(assetName);
+                }
+                else
+                {
+                    auto typeIt = _assetTypes.find(assetName);
+                    if (typeIt != _assetTypes.end() && typeIt->second == std::type_index(typeid(TData)))
                     {
-                        return typedCached;
+                        return std::static_pointer_cast<TData>(cached);
                     }
                 }
-
-                _loadedAssets.erase(cacheIt);
             }
 
             try
@@ -136,27 +163,22 @@ namespace Tbx
                     return nullptr;
                 }
 
-                auto loadedData = std::any_cast<Ref<TData>>(loader->Load(filePath));
-                if (!loadedData)
-                {
-                    _loadedAssets.erase(assetName);
-                    return nullptr;
-                }
-
-                auto typed = std::dynamic_pointer_cast<TData>(loadedData);
+                auto loadedAsset = loader->Load(filePath);
+                auto typed = loadedAsset.GetData<TData>();
                 if (!typed)
                 {
                     TBX_TRACE_ERROR("AssetServer: loader returned unexpected type for {}", assetName);
                     return nullptr;
                 }
-
                 _loadedAssets[assetName] = typed;
+                _assetTypes[assetName] = std::type_index(typeid(TData));
                 return typed;
             }
             catch (const std::exception& loadError)
             {
                 TBX_TRACE_ERROR("AssetServer: failed to load {}: {}", filePath.string(), loadError.what());
                 _loadedAssets.erase(assetName);
+                _assetTypes.erase(assetName);
                 return nullptr;
             }
         }
@@ -164,20 +186,14 @@ namespace Tbx
         template <typename TData>
         Ref<IAssetLoader> FindLoaderForType(const std::filesystem::path& filePath) const
         {
-            auto loaderIt = _loadersByType.find(typeid(TData));
-            if (loaderIt == _loadersByType.end())
-            {
-                return nullptr;
-            }
-
-            for (const auto& loader : loaderIt->second)
+            for (const auto& loader : _loaders)
             {
                 if (!loader)
                 {
                     continue;
                 }
 
-                if (loader->CanLoad(filePath))
+                if (loader->CanLoad(std::type_index(typeid(TData)), filePath))
                 {
                     return loader;
                 }
@@ -194,7 +210,8 @@ namespace Tbx
         mutable std::mutex _mutex = {};
         std::filesystem::path _assetDirectory = {};
         mutable std::unordered_map<std::string, WeakRef<void>> _loadedAssets = {};
-        std::unordered_map<std::type_index, std::vector<Ref<IAssetLoader>>> _loadersByType = {};
+        mutable std::unordered_map<std::string, std::type_index> _assetTypes = {};
+        std::vector<Ref<IAssetLoader>> _loaders = {};
 
         // TODO: memory pools for each asset type that allocates a target amount of memory and keeps track of the available memory, when its full it'll clear out old stuff
         // AKA things at the beginning of the pool and are not in use (which is known via a shared pointer ref count) and start writing there.
