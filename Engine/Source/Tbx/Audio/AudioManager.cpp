@@ -10,6 +10,8 @@
 
 namespace Tbx
 {
+    AudioManager::AudioManager() = default;
+
     AudioManager::AudioManager(Ref<IAudioMixer> mixer, Ref<EventBus> eventBus)
         : _mixer(mixer)
         , _eventListener(eventBus)

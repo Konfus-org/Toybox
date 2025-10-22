@@ -7,7 +7,7 @@ namespace Tbx
     class TBX_EXPORT IInputHandler
     {
     public:
-        virtual ~IInputHandler() = default;
+        virtual ~IInputHandler();
 
         /// <summary>
         /// Updates the states of connected input devices.

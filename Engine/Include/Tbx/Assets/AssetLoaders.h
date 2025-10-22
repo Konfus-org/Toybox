@@ -17,7 +17,7 @@ namespace Tbx
     class TBX_EXPORT IAssetLoader
     {
     public:
-        virtual ~IAssetLoader() = default;
+        virtual ~IAssetLoader();
         virtual bool CanLoad(const std::filesystem::path& filepath) const = 0;
         virtual Asset Load(const std::filesystem::path& filepath) = 0;
     };

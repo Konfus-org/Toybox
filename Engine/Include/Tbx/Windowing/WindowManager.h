@@ -12,7 +12,7 @@ namespace Tbx
     class TBX_EXPORT IWindowManager
     {
     public:
-        virtual ~IWindowManager() = default;
+        virtual ~IWindowManager();
         virtual void Update() const = 0;
         virtual Ref<Window> GetMainWindow() const = 0;
         virtual const std::vector<Ref<Window>>& GetAllWindows() const = 0;
@@ -25,7 +25,7 @@ namespace Tbx
     class TBX_EXPORT HeadlessWindow final : public Window
     {
     public:
-        HeadlessWindow() = default;
+        HeadlessWindow();
         void Open() override {}
         void Close() override {}
         void Update() override {}
@@ -45,7 +45,7 @@ namespace Tbx
     class TBX_EXPORT HeadlessWindowManager final : public IWindowManager
     {
     public:
-        HeadlessWindowManager() = default;
+        HeadlessWindowManager();
         void Update() const override {}
         void CloseWindow(const Uid& id) override {}
         void CloseAllWindows() override {}
@@ -74,7 +74,7 @@ namespace Tbx
     class TBX_EXPORT WindowManager final : public IWindowManager
     {
     public:
-        WindowManager() = default;
+        WindowManager();
         WindowManager(
             Ref<IWindowFactory> windowFactory,
             Ref<IInputHandler> inputHandler,

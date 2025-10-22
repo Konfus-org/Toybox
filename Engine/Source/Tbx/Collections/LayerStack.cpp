@@ -3,6 +3,8 @@
 
 namespace Tbx
 {
+    Layer::~Layer() = default;
+
     void Layer::Update()
     {
         OnUpdate();

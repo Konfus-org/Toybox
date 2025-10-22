@@ -52,7 +52,7 @@ namespace Tbx
     class TBX_EXPORT IShaderCompiler
     {
     public:
-        virtual ~IShaderCompiler() = default;
+        virtual ~IShaderCompiler();
 
         /// <summary>
         /// Compiles a shader.
