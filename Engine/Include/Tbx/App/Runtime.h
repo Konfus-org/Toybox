@@ -11,7 +11,7 @@ namespace Tbx
     /// A way to add logic that hooks into an apps lifetime.
     /// An example use case is game specific logic.
     /// </summary>
-    class IRuntime
+    class TBX_EXPORT IRuntime
     {
     public:
         virtual ~IRuntime();
