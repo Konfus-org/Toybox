@@ -171,7 +171,7 @@ namespace Tbx
                     return nullptr;
                 }
                 _loadedAssets[assetName] = typed;
-                _assetTypes[assetName] = std::type_index(typeid(TData));
+                _assetTypes.insert_or_assign(assetName, std::type_index(typeid(TData)));
                 return typed;
             }
             catch (const std::exception& loadError)
