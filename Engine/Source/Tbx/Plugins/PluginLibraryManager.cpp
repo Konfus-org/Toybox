@@ -91,9 +91,9 @@ namespace Tbx
     void PluginManager::HandleDestroyed(PluginDestroyedEvent& event)
     {
         LoadedPlugin unloaded = {};
-        if (!RemovePlugin(event.plugin, unloaded))
+        if (!RemovePlugin(event.DestroyedPlugin, unloaded))
         {
-            TBX_TRACE_WARNING("PluginLibraryManager: Received destruction for untracked plugin at {}.", static_cast<const void*>(event.plugin));
+            TBX_TRACE_WARNING("PluginLibraryManager: Received destruction for untracked plugin at {}.", static_cast<const void*>(event.DestroyedPlugin));
             return;
         }
 

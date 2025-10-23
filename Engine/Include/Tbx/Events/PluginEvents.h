@@ -10,26 +10,26 @@ namespace Tbx
     struct TBX_EXPORT PluginLoadedEvent final : public Event
     {
         PluginLoadedEvent(const WeakRef<Plugin>& pluginRef, const PluginMeta& meta)
-            : plugin(pluginRef), Meta(meta) {}
+            : LoadedPlugin(pluginRef), LoadedMeta(meta) {}
 
-        WeakRef<Plugin> plugin = {};
-        PluginMeta Meta = {};
+        WeakRef<Plugin> LoadedPlugin = {};
+        PluginMeta LoadedMeta = {};
     };
 
     struct TBX_EXPORT PluginUnloadedEvent final : public Event
     {
         PluginUnloadedEvent(const WeakRef<Plugin>& pluginRef, const PluginMeta& meta)
-            : plugin(pluginRef), Meta(meta) {}
+            : UnloadedPlugin(pluginRef), UnloadedMeta(meta) {}
 
-        WeakRef<Plugin> plugin = {};
-        PluginMeta Meta = {};
+        WeakRef<Plugin> UnloadedPlugin = {};
+        PluginMeta UnloadedMeta = {};
     };
 
     struct TBX_EXPORT PluginDestroyedEvent final : public Event
     {
         PluginDestroyedEvent(const Plugin* pluginPtr)
-            : plugin(pluginPtr) {}
+            : DestroyedPlugin(pluginPtr) {}
 
-        const Plugin* plugin = {};
+        const Plugin* DestroyedPlugin = {};
     };
 }
