@@ -1,4 +1,4 @@
-#pragma
+#pragma once
 #include "SDLGLGraphicsContext.h"
 #include "Tbx/Plugins/Plugin.h"
 #include "Tbx/Graphics/GraphicsContext.h"
@@ -7,7 +7,7 @@
 namespace Tbx::Plugins::SDLGraphicsContext
 {
     class SDLOpenGlGraphicsContextsProviderPlugin final
-        : public FactoryPlugin<SDLGLGraphicsContext>
+        : public Plugin
         , public IGraphicsContextProvider
     {
     public:

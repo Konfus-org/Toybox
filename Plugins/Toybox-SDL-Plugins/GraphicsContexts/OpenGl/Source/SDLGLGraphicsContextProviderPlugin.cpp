@@ -1,10 +1,11 @@
 #include "Tbx/Debug/Asserts.h"
 #include "SDLGLGraphicsContextProviderPlugin.h"
 #include "SDLGLGraphicsContext.h"
+#include "Tbx/Memory/Refs.h"
 
 namespace Tbx::Plugins::SDLGraphicsContext
 {
-   Ref<Tbx::IGraphicsContext> SDLOpenGlGraphicsContextsProviderPlugin::Provide(const Window* window)
+    Ref<Tbx::IGraphicsContext> SDLOpenGlGraphicsContextsProviderPlugin::Provide(const Window* window)
     {
         if (!window)
         {
@@ -12,7 +13,7 @@ namespace Tbx::Plugins::SDLGraphicsContext
             return nullptr;
         }
         auto* sdlWindow = std::any_cast<SDL_Window*>(window->GetNativeWindow());
-        return Create(sdlWindow);
+        return MakeRef<SDLGLGraphicsContext>(sdlWindow);
     }
 
     GraphicsApi SDLOpenGlGraphicsContextsProviderPlugin::GetApi() const

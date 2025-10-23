@@ -16,37 +16,6 @@ namespace Tbx
         virtual ~Plugin();
     };
 
-    class TBX_EXPORT IProductOfPluginFactory
-    {
-    public:
-        virtual ~IProductOfPluginFactory();
-
-    public:
-        Ref<Plugin> Owner = nullptr;
-    };
-
-    template <typename TProduct>
-    requires std::is_base_of_v<IProductOfPluginFactory, TProduct>
-    class FactoryPlugin : public Plugin, public std::enable_shared_from_this<FactoryPlugin<TProduct>>
-    {
-    public:
-        FactoryPlugin() = default;
-
-        // Create a new instance. The factory ensures plugin ownership is injected.
-        template <typename... Args>
-        Ref<TProduct> Create(Args&&... args)
-        {
-            auto product = Ref<TProduct>(new TProduct(std::forward<Args>(args)...), [&](TProduct* prodToDelete) { Destroy(prodToDelete); });
-            product->Owner = this->shared_from_this();
-            return product;
-        }
-
-        void Destroy(TProduct* product)
-        {
-            delete product;
-        }
-    };
-
     class TBX_EXPORT StaticPlugin
     {
     public:
@@ -61,7 +30,7 @@ namespace Tbx
     #define TBX_LOAD_PLUGIN_FN_NAME "Load"
     #define TBX_UNLOAD_PLUGIN_FN_NAME "Unload"
 
-    // Cross-platform export for the *factories* only:
+    // Cross-platform export for plugins:
     #if defined(TBX_PLATFORM_WINDOWS)
         #define TBX_PLUGIN_EXPORT extern "C" __declspec(dllexport)
     #else

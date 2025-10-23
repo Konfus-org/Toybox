@@ -1,4 +1,4 @@
-#pragma 
+#pragma once
 #include "SDLWindow.h"
 #include "Tbx/Plugins/Plugin.h"
 #include "Tbx/Events/AppEvents.h"
@@ -7,7 +7,7 @@
 namespace Tbx::Plugins::SDLWindowing
 {
     class SDLWindowFactoryPlugin final
-        : public FactoryPlugin<SDLWindow>
+        : public Plugin
         , public IWindowFactory
     {
     public:

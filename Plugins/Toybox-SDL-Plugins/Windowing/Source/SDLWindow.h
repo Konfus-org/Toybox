@@ -6,7 +6,7 @@
 
 namespace Tbx::Plugins::SDLWindowing
 {
-    class SDLWindow : public Window, public IProductOfPluginFactory
+    class SDLWindow : public Window
     {
     public:
         SDLWindow(bool useOpenGl, Ref<EventBus> eventBus);

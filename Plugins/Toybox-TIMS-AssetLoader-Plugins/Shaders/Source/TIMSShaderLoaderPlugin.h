@@ -4,13 +4,13 @@
 
 namespace Tbx::Plugins::TIMS
 {
-    struct TIMSShader : public Shader, public IProductOfPluginFactory
+    struct TIMSShader : public Shader
     {
         using Shader::Shader;
     };
 
     class TIMSShaderLoaderPlugin final
-        : public FactoryPlugin<TIMSShader>
+        : public Plugin
         , public IShaderLoader
     {
     public:
