@@ -8,7 +8,7 @@
 
 namespace Tbx::Plugins::SDL3Audio
 {
-    struct SDLAudio : public Audio, public IProductOfPluginFactory
+    struct SDLAudio : public Audio
     {
         using Audio::Audio;
     };
@@ -48,7 +48,7 @@ namespace Tbx::Plugins::SDL3Audio
     };
 
     class SDL3AudioPlugin final
-        : public FactoryPlugin<SDLAudio>
+        : public Plugin
         , public IAudioLoader
         , public IAudioMixer
     {

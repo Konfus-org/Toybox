@@ -1,5 +1,6 @@
 #include "TIMSShaderLoaderPlugin.h"
 #include "Tbx/Debug/Asserts.h"
+#include "Tbx/Memory/Refs.h"
 #include <stb_image.h>
 #include <fstream>
 #include <sstream>
@@ -57,7 +58,7 @@ namespace Tbx::Plugins::TIMS
         }
 
         // Create tbx in memory shader and return it
-        auto shader = Create(shaderSource, shaderType);
+        auto shader = MakeRef<TIMSShader>(shaderSource, shaderType);
         return shader;
     }
 }

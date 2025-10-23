@@ -5,7 +5,7 @@
 
 namespace Tbx::Plugins::SDLGraphicsContext
 {
-    class SDLGLGraphicsContext final : public IGraphicsContext, public IProductOfPluginFactory
+    class SDLGLGraphicsContext final : public IGraphicsContext
     {
     public:
         SDLGLGraphicsContext(SDL_Window* window);

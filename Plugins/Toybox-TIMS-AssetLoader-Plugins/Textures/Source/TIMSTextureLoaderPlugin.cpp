@@ -1,5 +1,6 @@
 #include "TIMSTextureLoaderPlugin.h"
 #include "Tbx/Debug/Asserts.h"
+#include "Tbx/Memory/Refs.h"
 #include <stb_image.h>
 #include <cstring>
 
@@ -34,7 +35,7 @@ namespace Tbx::Plugins::TIMS
         std::memcpy(pixelData.data(), data, dataSize);
 
         // Create tbx in memory texture and return it
-        auto texture = Create(
+        auto texture = MakeRef<TIMSTexture>(
             Size(width, height),
             TextureWrap::Repeat,
             TextureFilter::Nearest,

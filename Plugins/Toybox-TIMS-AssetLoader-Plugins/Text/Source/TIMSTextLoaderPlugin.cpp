@@ -1,5 +1,6 @@
 #include "TIMSTextLoaderPlugin.h"
 #include "Tbx/Debug/Asserts.h"
+#include "Tbx/Memory/Refs.h"
 #include <stb_image.h>
 #include <fstream>
 #include <sstream>
@@ -28,6 +29,6 @@ namespace Tbx::Plugins::TIMS
         contents << file.rdbuf();
         file.close();
 
-        return FactoryPlugin<TIMSText>::Create(contents.str(), "None", 12);
+        return MakeRef<TIMSText>(contents.str(), "None", 12);
     }
 }

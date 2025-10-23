@@ -4,13 +4,13 @@
 
 namespace Tbx::Plugins::TIMS
 {
-    struct TIMSTexture : public Texture, public IProductOfPluginFactory
+    struct TIMSTexture : public Texture
     {
         using Texture::Texture;
     };
 
     class TIMSTextureLoaderPlugin final
-        : public FactoryPlugin<TIMSTexture>
+        : public Plugin
         , public ITextureLoader
     {
     public:

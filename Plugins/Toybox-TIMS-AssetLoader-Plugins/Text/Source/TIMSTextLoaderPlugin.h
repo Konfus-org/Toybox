@@ -4,13 +4,13 @@
 
 namespace Tbx::Plugins::TIMS
 {
-    struct TIMSText : public Text, public IProductOfPluginFactory
+    struct TIMSText : public Text
     {
         using Text::Text;
     };
 
     class TIMSTextLoaderPlugin final
-        : public FactoryPlugin<TIMSText>
+        : public Plugin
         , public ITextLoader
     {
     public:
