@@ -55,7 +55,7 @@ namespace Tbx
 #if defined(TBX_PLATFORM_WINDOWS)
             _handle = LoadLibraryA(_path.c_str());
 #elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_MACOS)
-            _handle = dlopen(tempPath.string().c_str(), RTLD_LAZY);
+            _handle = dlopen(_path.c_str(), RTLD_LAZY);
 #endif
 
             if (!_handle)
