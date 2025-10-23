@@ -1,0 +1,7 @@
+{
+    "name": "SDL3 Audio",
+    "language": "C++",
+    "version": "1.0.0",
+    "author": "Toybox",
+    "description": "Provides SDL3-based audio playback and asset loading for Toybox."
+}

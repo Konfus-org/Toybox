@@ -59,7 +59,7 @@ namespace Tbx
 
     static void OnPluginLoaded(const PluginLoadedEvent& e)
     {
-        auto plugin = e.Plugin;
+        auto plugin = e.LoadedPlugin;
         if (auto logger = std::dynamic_pointer_cast<ILogger>(plugin.lock()))
             State.Logger = logger;
         else
