@@ -1,7 +1,0 @@
-{
-    "name": "SDL3 OpenGl Graphics Context",
-    "language": "C++",
-    "version": "0.0.1",
-    "author": "Konfus-dev",
-    "description": "Plugin to handle opengl graphics context via the SDL library."
-}

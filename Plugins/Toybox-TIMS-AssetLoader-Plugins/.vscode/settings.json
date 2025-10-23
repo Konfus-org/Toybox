@@ -1,8 +1,0 @@
-{
-    "files.associations": {
-        "xlocinfo": "cpp",
-        "xstring": "cpp",
-        "xutility": "cpp",
-        "sstream": "cpp"
-    }
-}

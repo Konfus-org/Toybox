@@ -1,7 +1,0 @@
-{
-    "name": "TIMS Shader Asset Loader",
-    "language": "C++",
-    "version": "0.0.5",
-    "author": "Konfus-dev",
-    "description": "Plugin to handle loading shader files."
-}

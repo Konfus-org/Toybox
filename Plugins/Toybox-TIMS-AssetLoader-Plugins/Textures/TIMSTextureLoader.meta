@@ -1,7 +1,0 @@
-{
-    "name": "TIMS Texture Loader",
-    "language": "C++",
-    "version": "0.0.5",
-    "author": "Konfus-dev",
-    "description": "Plugin to handle loading all most basic types supported by Toybox via the assimp, stbimg, and nlohmann_json. TIMS stands for Text, Image, Model, Shader. TODO: still need to implement model loading..."
-}
