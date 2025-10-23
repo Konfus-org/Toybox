@@ -6,6 +6,7 @@
 #include "Tbx/Plugins/PluginMeta.h"
 #include "Tbx/Plugins/SharedLibrary.h"
 #include "Tbx/Memory/Refs.h"
+#include <cstring>
 
 namespace Tbx
 {

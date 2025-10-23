@@ -28,6 +28,8 @@ namespace Tbx
         {
         }
 
+        ~Asset();
+
         template <typename TAsset>
         Asset(const Ref<TAsset>& data)
             : _type(typeid(TAsset))
@@ -74,7 +76,7 @@ namespace Tbx
     public:
         bool CanLoad(std::type_index type, const std::filesystem::path& filepath) const final
         {
-            return type == std::type_index(typeid(Texture)) && CanLoadTexture(filepath);
+            return type == std::type_index(typeid(Texture)) && CanLoad(filepath);
         }
 
         Asset Load(const std::filesystem::path& filepath) final
@@ -83,7 +85,7 @@ namespace Tbx
         }
 
     protected:
-        virtual bool CanLoadTexture(const std::filesystem::path& filepath) const = 0;
+        virtual bool CanLoad(const std::filesystem::path& filepath) const = 0;
         virtual Ref<Texture> LoadTexture(const std::filesystem::path& filepath) = 0;
     };
 
@@ -92,7 +94,7 @@ namespace Tbx
     public:
         bool CanLoad(std::type_index type, const std::filesystem::path& filepath) const final
         {
-            return type == std::type_index(typeid(Shader)) && CanLoadShader(filepath);
+            return type == std::type_index(typeid(Shader)) && CanLoad(filepath);
         }
 
         Asset Load(const std::filesystem::path& filepath) final
@@ -101,7 +103,7 @@ namespace Tbx
         }
 
     protected:
-        virtual bool CanLoadShader(const std::filesystem::path& filepath) const = 0;
+        virtual bool CanLoad(const std::filesystem::path& filepath) const = 0;
         virtual Ref<Shader> LoadShader(const std::filesystem::path& filepath) = 0;
     };
 
@@ -110,7 +112,7 @@ namespace Tbx
     public:
         bool CanLoad(std::type_index type, const std::filesystem::path& filepath) const final
         {
-            return type == std::type_index(typeid(Model)) && CanLoadModel(filepath);
+            return type == std::type_index(typeid(Model)) && CanLoad(filepath);
         }
 
         Asset Load(const std::filesystem::path& filepath) final
@@ -119,7 +121,7 @@ namespace Tbx
         }
 
     protected:
-        virtual bool CanLoadModel(const std::filesystem::path& filepath) const = 0;
+        virtual bool CanLoad(const std::filesystem::path& filepath) const = 0;
         virtual Ref<Model> LoadModel(const std::filesystem::path& filepath) = 0;
     };
 
@@ -128,7 +130,7 @@ namespace Tbx
     public:
         bool CanLoad(std::type_index type, const std::filesystem::path& filepath) const final
         {
-            return type == std::type_index(typeid(Text)) && CanLoadText(filepath);
+            return type == std::type_index(typeid(Text)) && CanLoad(filepath);
         }
 
         Asset Load(const std::filesystem::path& filepath) final
@@ -137,7 +139,7 @@ namespace Tbx
         }
 
     protected:
-        virtual bool CanLoadText(const std::filesystem::path& filepath) const = 0;
+        virtual bool CanLoad(const std::filesystem::path& filepath) const = 0;
         virtual Ref<Text> LoadText(const std::filesystem::path& filepath) = 0;
     };
 
@@ -146,7 +148,7 @@ namespace Tbx
     public:
         bool CanLoad(std::type_index type, const std::filesystem::path& filepath) const final
         {
-            return type == std::type_index(typeid(Audio)) && CanLoadAudio(filepath);
+            return type == std::type_index(typeid(Audio)) && CanLoad(filepath);
         }
 
         Asset Load(const std::filesystem::path& filepath) final
@@ -155,7 +157,7 @@ namespace Tbx
         }
 
     protected:
-        virtual bool CanLoadAudio(const std::filesystem::path& filepath) const = 0;
+        virtual bool CanLoad(const std::filesystem::path& filepath) const = 0;
         virtual Ref<Audio> LoadAudio(const std::filesystem::path& filepath) = 0;
     };
 }

@@ -164,7 +164,7 @@ namespace Tbx
                 }
 
                 auto loadedAsset = loader->Load(filePath);
-                auto typed = loadedAsset.GetData<TData>();
+                auto typed = loadedAsset.template GetData<TData>();
                 if (!typed)
                 {
                     TBX_TRACE_ERROR("AssetServer: loader returned unexpected type for {}", assetName);

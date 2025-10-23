@@ -50,10 +50,10 @@ namespace Tbx
     {
     public:
         AudioSource() = default;
-        AudioSource(Ref<Audio> audio) : Audio(audio) {}
+        AudioSource(Ref<Audio> clip) : audio(clip) {}
 
     public:
-        Ref<Audio> Audio;
+        Ref<Audio> audio;
         bool Playing = false;
         bool Looping = false;
         float Volume = 1.0f;

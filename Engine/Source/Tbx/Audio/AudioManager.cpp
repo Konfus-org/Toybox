@@ -95,22 +95,22 @@ namespace Tbx
 
             if (State == AudioState::Paused)
             {
-                _mixer->Pause(*audioBlock->Audio);
+                _mixer->Pause(*audioBlock->audio);
                 continue;
             }
             else if (State == AudioState::Stopped)
             {
-                _mixer->Stop(*audioBlock->Audio);
+                _mixer->Stop(*audioBlock->audio);
                 continue;
             }
             else if (State == AudioState::Muted)
             {
-                _mixer->SetVolume(*audioBlock->Audio, 0.0f);
+                _mixer->SetVolume(*audioBlock->audio, 0.0f);
                 continue;
             }
 
             auto& source = *audioBlock;
-            auto& audio = *audioBlock->Audio;
+            auto& audio = *audioBlock->audio;
             if (source.Playing)
             {
                 _mixer->SetLooping(audio, source.Looping);
