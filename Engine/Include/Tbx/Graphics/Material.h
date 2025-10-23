@@ -4,7 +4,6 @@
 #include "Tbx/Graphics/Texture.h"
 #include "Tbx/Memory/Refs.h"
 #include "Tbx/Ids/Uid.h"
-#include <string>
 #include <vector>
 
 namespace Tbx
@@ -41,7 +40,6 @@ namespace Tbx
 
         ShaderProgram Shaders = {};
         std::vector<Ref<Texture>> Textures = { MakeRef<Texture>() }; // default to one small white texture
-        bool Transparent = false;
         Uid Id = Uid::Generate();
     };
 

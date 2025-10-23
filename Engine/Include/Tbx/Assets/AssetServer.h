@@ -8,7 +8,6 @@
 #include <memory>
 #include <mutex>
 #include <string>
-#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -164,14 +163,14 @@ namespace Tbx
                 }
 
                 auto loadedAsset = loader->Load(filePath);
-                auto typed = loadedAsset.GetData<TData>();
+                auto typed = loadedAsset.template GetData<TData>();
                 if (!typed)
                 {
                     TBX_TRACE_ERROR("AssetServer: loader returned unexpected type for {}", assetName);
                     return nullptr;
                 }
                 _loadedAssets[assetName] = typed;
-                _assetTypes[assetName] = std::type_index(typeid(TData));
+                _assetTypes.insert_or_assign(assetName, std::type_index(typeid(TData)));
                 return typed;
             }
             catch (const std::exception& loadError)

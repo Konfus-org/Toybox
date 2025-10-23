@@ -1,0 +1,528 @@
+diff --git a/Engine/Include/Tbx/Assets/AssetServer.h b/Engine/Include/Tbx/Assets/AssetServer.h
+index 463b22720dde19a866ddaae9d71627d4cb06a0e7..9a3a17fce73799ccd0b5ba9ed7542b21a3193e4e 100644
+--- a/Engine/Include/Tbx/Assets/AssetServer.h
++++ b/Engine/Include/Tbx/Assets/AssetServer.h
+@@ -142,58 +142,58 @@ namespace Tbx
+                 if (!cached)
+                 {
+                     _loadedAssets.erase(cacheIt);
+                     _assetTypes.erase(assetName);
+                 }
+                 else
+                 {
+                     auto typeIt = _assetTypes.find(assetName);
+                     if (typeIt != _assetTypes.end() && typeIt->second == std::type_index(typeid(TData)))
+                     {
+                         return std::static_pointer_cast<TData>(cached);
+                     }
+                 }
+             }
+ 
+             try
+             {
+                 auto loader = FindLoaderForType<TData>(filePath);
+                 if (!loader)
+                 {
+                     TBX_TRACE_ERROR("AssetServer: no loader registered for {}", assetName);
+                     return nullptr;
+                 }
+ 
+                 auto loadedAsset = loader->Load(filePath);
+-                auto typed = loadedAsset.GetData<TData>();
++                auto typed = loadedAsset.template GetData<TData>();
+                 if (!typed)
+                 {
+                     TBX_TRACE_ERROR("AssetServer: loader returned unexpected type for {}", assetName);
+                     return nullptr;
+                 }
+                 _loadedAssets[assetName] = typed;
+-                _assetTypes[assetName] = std::type_index(typeid(TData));
++                _assetTypes.insert_or_assign(assetName, std::type_index(typeid(TData)));
+                 return typed;
+             }
+             catch (const std::exception& loadError)
+             {
+                 TBX_TRACE_ERROR("AssetServer: failed to load {}: {}", filePath.string(), loadError.what());
+                 _loadedAssets.erase(assetName);
+                 _assetTypes.erase(assetName);
+                 return nullptr;
+             }
+         }
+ 
+         template <typename TData>
+         Ref<IAssetLoader> FindLoaderForType(const std::filesystem::path& filePath) const
+         {
+             for (const auto& loader : _loaders)
+             {
+                 if (!loader)
+                 {
+                     continue;
+                 }
+ 
+                 if (loader->CanLoad(std::type_index(typeid(TData)), filePath))
+                 {
+                     return loader;
+                 }
+diff --git a/Engine/Include/Tbx/Audio/Audio.h b/Engine/Include/Tbx/Audio/Audio.h
+index be0042f3cbac95c1b9a40c0ff916d84da8cd9c9d..3dbaa1b1631263dbeedf1f483e79f614828d4e26 100644
+--- a/Engine/Include/Tbx/Audio/Audio.h
++++ b/Engine/Include/Tbx/Audio/Audio.h
+@@ -28,36 +28,36 @@ namespace Tbx
+         int SampleRate = 0;
+         int Channels = 0;
+     };
+ 
+     using SampleData = std::vector<std::uint8_t>;
+ 
+     /// <summary>
+     /// Represents raw audio data that can be attached to toys and scheduled for playback.
+     /// </summary>
+     class TBX_EXPORT Audio
+     {
+     public:
+         Audio() = default;
+         Audio(SampleData data, AudioFormat format);
+ 
+     public:
+         SampleData Data = {};
+         AudioFormat Format = {};
+         Uid Id = Uid::Generate();
+     };
+ 
+     class TBX_EXPORT AudioSource
+     {
+     public:
+         AudioSource() = default;
+-        AudioSource(Ref<Audio> audio) : Audio(audio) {}
++        AudioSource(Ref<Audio> clip) : Clip(clip) {}
+ 
+     public:
+-        Ref<Audio> Audio;
++        Ref<Audio> Clip;
+         bool Playing = false;
+         bool Looping = false;
+         float Volume = 1.0f;
+         float Pitch = 1.0f;
+         float PlaybackSpeed = 1.0f;
+     };
+ }
+diff --git a/Engine/Include/Tbx/Events/PluginEvents.h b/Engine/Include/Tbx/Events/PluginEvents.h
+index 8c168ef1a78625fdb7a4726a9bc7af518d522919..f2a3e885c07745d0e942afdb8aa1a86d91b21b7d 100644
+--- a/Engine/Include/Tbx/Events/PluginEvents.h
++++ b/Engine/Include/Tbx/Events/PluginEvents.h
+@@ -1,35 +1,35 @@
+ #pragma once
+ #include "Tbx/Events/Event.h"
+ #include "Tbx/Plugins/PluginMeta.h"
+ #include "Tbx/Memory/Refs.h"
+ 
+ namespace Tbx
+ {
+     class Plugin;
+ 
+     struct TBX_EXPORT PluginLoadedEvent final : public Event
+     {
+-        PluginLoadedEvent(const WeakRef<Plugin>& plugin, const PluginMeta& meta)
+-            : Plugin(plugin), Meta(meta) {}
+-
+-        WeakRef<Plugin> Plugin = {};
+-        PluginMeta Meta = {};
++        PluginLoadedEvent(const WeakRef<Plugin>& pluginRef, const PluginMeta& meta)
++            : LoadedPlugin(pluginRef), LoadedMeta(meta) {}
++
++        WeakRef<Plugin> LoadedPlugin = {};
++        PluginMeta LoadedMeta = {};
+     };
+ 
+     struct TBX_EXPORT PluginUnloadedEvent final : public Event
+     {
+-        PluginUnloadedEvent(const WeakRef<Plugin>& plugin, const PluginMeta& meta)
+-            : Plugin(plugin), Meta(meta) {}
+-
+-        WeakRef<Plugin> Plugin = {};
+-        PluginMeta Meta = {};
++        PluginUnloadedEvent(const WeakRef<Plugin>& pluginRef, const PluginMeta& meta)
++            : UnloadedPlugin(pluginRef), UnloadedMeta(meta) {}
++
++        WeakRef<Plugin> UnloadedPlugin = {};
++        PluginMeta UnloadedMeta = {};
+     };
+ 
+     struct TBX_EXPORT PluginDestroyedEvent final : public Event
+     {
+-        PluginDestroyedEvent(const Plugin* plugin)
+-            : Plugin(plugin) {}
+-
+-        const Plugin* Plugin = {};
++        PluginDestroyedEvent(const Plugin* pluginPtr)
++            : DestroyedPlugin(pluginPtr) {}
++
++        const Plugin* DestroyedPlugin = {};
+     };
+ }
+diff --git a/Engine/Include/Tbx/Plugins/Plugin.h b/Engine/Include/Tbx/Plugins/Plugin.h
+index 535078dfbf873909ba0fd1dcd67d718b9e4c0183..1aa4d6507ee1230b75d2934866964f775be621d4 100644
+--- a/Engine/Include/Tbx/Plugins/Plugin.h
++++ b/Engine/Include/Tbx/Plugins/Plugin.h
+@@ -1,33 +1,34 @@
+ #pragma once
+-#include "Tbx/DllExport.h"
+-#include "Tbx/Debug/Tracers.h"
+-#include "Tbx/Events/EventCarrier.h"
+-#include "Tbx/Events/PluginEvents.h"
+-#include "Tbx/Plugins/PluginMeta.h"
+-#include "Tbx/Plugins/SharedLibrary.h"
+-#include "Tbx/Memory/Refs.h"
++#include "Tbx/DllExport.h"
++#include "Tbx/Debug/Tracers.h"
++#include "Tbx/Events/EventCarrier.h"
++#include "Tbx/Events/PluginEvents.h"
++#include "Tbx/Plugins/PluginMeta.h"
++#include "Tbx/Plugins/SharedLibrary.h"
++#include "Tbx/Memory/Refs.h"
++#include <cstring>
+ 
+ namespace Tbx
+ {
+     class TBX_EXPORT Plugin
+     {
+     public:
+         Plugin();
+         virtual ~Plugin();
+     };
+ 
+     class TBX_EXPORT IProductOfPluginFactory
+     {
+     public:
+         virtual ~IProductOfPluginFactory();
+ 
+     public:
+         Ref<Plugin> Owner = nullptr;
+     };
+ 
+     template <typename TProduct>
+     requires std::is_base_of_v<IProductOfPluginFactory, TProduct>
+     class FactoryPlugin : public Plugin, public std::enable_shared_from_this<FactoryPlugin<TProduct>>
+     {
+     public:
+         FactoryPlugin() = default;
+diff --git a/Engine/Source/Tbx/App/App.cpp b/Engine/Source/Tbx/App/App.cpp
+index 8da6e4d58728c3c9bc8b072deb1e06839444bd9f..ad4c74fc62f8db5820e208e5a399083902b747e5 100644
+--- a/Engine/Source/Tbx/App/App.cpp
++++ b/Engine/Source/Tbx/App/App.cpp
+@@ -1,43 +1,44 @@
+ #include "Tbx/PCH.h"
+ #include "Tbx/App/App.h"
+ #include "Tbx/App/Runtime.h"
+ #include "Tbx/Graphics/GraphicsBackend.h"
+ #include "Tbx/Graphics/GraphicsContext.h"
+ #include "Tbx/Audio/AudioMixer.h"
+ #include "Tbx/Events/AppEvents.h"
+ #include "Tbx/Debug/Log.h"
+ #include "Tbx/Input/HeadlessInputHandler.h"
+ #include "Tbx/Input/IInputHandler.h"
+ #include "Tbx/Input/InputCodes.h"
+ #include "Tbx/Time/Chronometer.h"
+ #include "Tbx/Time/DeltaTime.h"
+ #include "Tbx/Files/Paths.h"
+ #include <chrono>
+ #include <ctime>
+ #include <iomanip>
+ #include <limits>
++#include <thread>
+ #include <sstream>
+ #include <string_view>
+ #include <vector>
+ 
+ namespace Tbx
+ {
+     App* App::_instance = nullptr;
+ 
+     App::App(
+         const std::string_view& name,
+         const AppSettings& settings,
+         const Queryable<Ref<Plugin>>& plugins,
+         const Queryable<Ref<Runtime>>& runtimes,
+         Ref<EventBus> eventBus)
+         : Bus(eventBus)
+         , Plugins(plugins)
+         , Runtimes(runtimes)
+         , Settings(settings)
+         , _name(name)
+         , _carrier(Bus)
+         , _listener(Bus)
+     {
+         TBX_ASSERT(Bus, "App: Requires a valid event bus instance.");
+         TBX_ASSERT(!_instance, "App: Existing singleton was replaced, unexpected behavior may occur.");
+         _instance = this;
+@@ -1,7 +0,0 @@
+-#include "Tbx/PCH.h"
+-#include "Tbx/Assets/AssetLoaders.h"
+-
+-namespace Tbx
+-{
+-    Asset::~Asset() = default;
+-}
+diff --git a/Engine/Source/Tbx/Audio/AudioManager.cpp b/Engine/Source/Tbx/Audio/AudioManager.cpp
+index ed1038ddd29761a191d8b50ac43181820604d797..83debd8ebb3da941fa9ed7f4035439803a48d5dc 100644
+--- a/Engine/Source/Tbx/Audio/AudioManager.cpp
++++ b/Engine/Source/Tbx/Audio/AudioManager.cpp
+@@ -73,66 +73,66 @@ namespace Tbx
+             }
+ 
+             Ref<Transform> cameraTransform;
+             if (cameraToy->TryGet(cameraTransform) && cameraTransform)
+             {
+                 cameraPositions.push_back(cameraTransform->Position);
+             }
+         }
+ 
+         auto view = StageView<AudioSource>(stage->Root);
+         for (const auto& toy : view)
+         {
+             if (!toy)
+             {
+                 continue;
+             }
+ 
+             Ref<AudioSource> audioBlock;
+             if (!toy->Blocks.TryGet<AudioSource>(audioBlock) || !audioBlock)
+             {
+                 continue;
+             }
+ 
+             if (State == AudioState::Paused)
+             {
+-                _mixer->Pause(*audioBlock->Audio);
++                _mixer->Pause(*audioBlock->Clip);
+                 continue;
+             }
+             else if (State == AudioState::Stopped)
+             {
+-                _mixer->Stop(*audioBlock->Audio);
++                _mixer->Stop(*audioBlock->Clip);
+                 continue;
+             }
+             else if (State == AudioState::Muted)
+             {
+-                _mixer->SetVolume(*audioBlock->Audio, 0.0f);
++                _mixer->SetVolume(*audioBlock->Clip, 0.0f);
+                 continue;
+             }
+ 
+             auto& source = *audioBlock;
+-            auto& audio = *audioBlock->Audio;
++            auto& audio = *audioBlock->Clip;
+             if (source.Playing)
+             {
+                 _mixer->SetLooping(audio, source.Looping);
+                 _mixer->SetVolume(audio, source.Volume);
+                 _mixer->SetPitch(audio, source.Pitch);
+                 _mixer->SetPlaybackSpeed(audio, source.PlaybackSpeed);
+ 
+                 Ref<Transform> audioTransform;
+                 toy->Blocks.TryGet<Transform>(audioTransform);
+                 if (audioTransform)
+                 {
+                     Vector3 playPosition = audioTransform->Position;
+                     if (!cameraPositions.empty())
+                     {
+                         Vector3 nearestCamera = cameraPositions.front();
+                         float smallestDistanceSquared = std::numeric_limits<float>::max();
+                         for (const auto& cameraPosition : cameraPositions)
+                         {
+                             Vector3 offset = playPosition - cameraPosition;
+                             float distanceSquared = (offset.X * offset.X) + (offset.Y * offset.Y) + (offset.Z * offset.Z);
+                             if (distanceSquared < smallestDistanceSquared)
+                             {
+                                 smallestDistanceSquared = distanceSquared;
+                                 nearestCamera = cameraPosition;
+                             }
+diff --git a/Engine/Source/Tbx/Debug/Log.cpp b/Engine/Source/Tbx/Debug/Log.cpp
+index 6f8ae8d28be8107e5c8ea631653b7cf0a24318ee..c81be86f62cdb2d6e66abb995f7038f8623f0742 100644
+--- a/Engine/Source/Tbx/Debug/Log.cpp
++++ b/Engine/Source/Tbx/Debug/Log.cpp
+@@ -37,51 +37,51 @@ namespace Tbx
+ 
+     static void FlushQueuedMessages()
+     {
+         if (State.Standby || State.Queue.empty()) return;
+ 
+         for (auto& entry : State.Queue)
+         {
+             State.Logger->Write(static_cast<int>(entry.Level), entry.Text);
+         }
+         State.Logger->Flush();
+         State.Queue.clear();
+     }
+ 
+     static void ResetState()
+     {
+         State.Logger = nullptr;
+         State.Queue.clear();
+         State.Name = "";
+         State.Standby = true;
+         State.ShuttingDown = false;
+         State.PluginCount = 0;
+     }
+ 
+     static void OnPluginLoaded(const PluginLoadedEvent& e)
+     {
+-        auto plugin = e.Plugin;
++        auto plugin = e.LoadedPlugin;
+         if (auto logger = std::dynamic_pointer_cast<ILogger>(plugin.lock()))
+             State.Logger = logger;
+         else
+             State.PluginCount++;
+     }
+ 
+     static void OnPluginUnloaded(PluginUnloadedEvent&)
+     {
+         if (State.PluginCount > 0) State.PluginCount--;
+         else if (State.ShuttingDown) ResetState();
+     }
+ 
+     static void OnAppLaunched(const AppLaunchedEvent& e)
+     {
+         if (!State.Standby)
+         {
+             TBX_ASSERT(false, "Log: Received app launch while logger state was already active, resetting state.");
+             ResetState();
+         }
+ 
+         State.Name = e.LaunchedApp->GetName();
+         if (State.Name.empty()) State.Name = "Tbx";
+ 
+         State.Standby = false;
+         if (State.Logger) State.Logger->Open(State.Name, "");
+diff --git a/Engine/Source/Tbx/Plugins/PluginManager.cpp b/Engine/Source/Tbx/Plugins/PluginManager.cpp
+index 37f39460fd9deca1df2ee43f864c3ed884439bfc..2a5d4a1dfbad4f9455596214074a05e361de9540 100644
+--- a/Engine/Source/Tbx/Plugins/PluginManager.cpp
++++ b/Engine/Source/Tbx/Plugins/PluginManager.cpp
+@@ -69,53 +69,53 @@ namespace Tbx
+                 TBX_TRACE_WARNING("PluginManager: Plugin '{}' registered multiple times; refreshing metadata.", meta.Name);
+             }
+ 
+             it->second.Instance = weakPlugin;
+             it->second.Meta = meta;
+             it->second.Library = std::move(library);
+             shouldDispatchLoaded = inserted;
+         }
+ 
+         if (shouldDispatchLoaded) EventCarrier(EventBus::Global).Send(PluginLoadedEvent(weakPlugin, meta));
+         else TBX_TRACE_VERBOSE("PluginManager: Duplicate registration detected for '{}'.", meta.Name);
+     }
+ 
+     void PluginManager::EnsureInitialized()
+     {
+         if (State.Initialized) return;
+ 
+         State.Listener.Bind(EventBus::Global);
+         State.Listener.Listen<PluginDestroyedEvent>(&PluginManager::HandleDestroyed);
+         State.Initialized = true;
+     }
+ 
+     void PluginManager::HandleDestroyed(PluginDestroyedEvent& event)
+     {
+         LoadedPlugin unloaded = {};
+-        if (!RemovePlugin(event.Plugin, unloaded))
++        if (!RemovePlugin(event.DestroyedPlugin, unloaded))
+         {
+-            TBX_TRACE_WARNING("PluginManager: Received destruction for untracked plugin at {}.", static_cast<const void*>(event.Plugin));
++            TBX_TRACE_WARNING("PluginManager: Received destruction for untracked plugin at {}.", static_cast<const void*>(event.DestroyedPlugin));
+             return;
+         }
+ 
+         EventCarrier(EventBus::Global).Send(PluginUnloadedEvent(unloaded.Instance, unloaded.Meta));
+     }
+ 
+     void PluginManager::Unregister(const Plugin* plugin)
+     {
+         EnsureInitialized();
+         if (!plugin)
+         {
+             TBX_TRACE_WARNING("PluginManager: Ignoring manual unregister for null plugin pointer.");
+             return;
+         }
+ 
+         LoadedPlugin unloaded = {};
+         if (!RemovePlugin(plugin, unloaded))
+         {
+             TBX_TRACE_WARNING("PluginManager: Manual unregister requested for untracked plugin at {}.", static_cast<const void*>(plugin));
+             return;
+         }
+ 
+         TBX_ASSERT(unloaded.Instance.lock().use_count() != 1, "PluginManager: Dangling references detected from manually unregistering plugin '{}'; .", unloaded.Meta.Name);
+         EventCarrier(EventBus::Global).Send(PluginUnloadedEvent(unloaded.Instance, unloaded.Meta));
+     }
+diff --git a/Engine/Source/Tbx/Plugins/SharedLibrary.cpp b/Engine/Source/Tbx/Plugins/SharedLibrary.cpp
+index 82aa16c32992a6fbeb4416fae4a3964d002b89b0..72f16b0fad5869180a3931eb34ef6df6fc2a2005 100644
+--- a/Engine/Source/Tbx/Plugins/SharedLibrary.cpp
++++ b/Engine/Source/Tbx/Plugins/SharedLibrary.cpp
+@@ -33,51 +33,51 @@ namespace Tbx
+         TBX_ASSERT(libPath.has_extension(), "SharedLibrary: Missing file extension!");
+         if (libPath.extension() != expectedExt)
+         {
+             TBX_ASSERT(false, "SharedLibrary: Failed to load {} Incorrect library extension for platform! Expected the extension {}", path, expectedExt);
+             return;
+         }
+ 
+         try
+         {
+             _path = path;
+ 
+ #ifdef TBX_DEBUG
+             // Duplicate the library to a temporary unique path to allow for hot reloading of the lib (debug mode only)
+             std::filesystem::path tempDir = std::filesystem::temp_directory_path();
+             std::filesystem::path tempPath = tempDir / (libPath.filename().stem().string() + "_hot_reload_copy" + libPath.extension().string());
+ 
+             TBX_TRACE_INFO("SharedLibrary: Duplicating library {} to temporary path {} for hot reloading...", libPath.string(), tempPath.string());
+             std::filesystem::copy_file(libPath, tempPath, std::filesystem::copy_options::overwrite_existing);
+             _path = tempPath.string();
+ #endif
+ 
+             // Load the lib
+ #if defined(TBX_PLATFORM_WINDOWS)
+             _handle = LoadLibraryA(_path.c_str());
+ #elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_MACOS)
+-            _handle = dlopen(tempPath.string().c_str(), RTLD_LAZY);
++            _handle = dlopen(_path.c_str(), RTLD_LAZY);
+ #endif
+ 
+             if (!_handle)
+             {
+                 TBX_ASSERT(false, "SharedLibrary: Failed to load library {}!", _path);
+                 return;
+             }
+         }
+         catch (const std::exception& e)
+         {
+             TBX_ASSERT(false, "SharedLibrary: Failed to load library at {} due to exception:\n{}", path, e.what());
+         }
+     }
+ 
+     SharedLibrary::~SharedLibrary()
+     {
+         if (IsValid())
+         {
+             TBX_TRACE_INFO("SharedLibrary: Unloading library {}", _path);
+ 
+ #if defined(TBX_PLATFORM_WINDOWS)
+             FreeLibrary(_handle);
+ #elif defined(TBX_PLATFORM_LINUX) || defined(TBX_PLATFORM_MACOS)
+             if (_handle)
+                 dlclose(_handle);
+diff --git a/Plugins/Toybox-SDL-Plugins b/Plugins/Toybox-SDL-Plugins
+index 4383f22f2182fca2cad629735d4283f0d471d967..844f50530fffefd4903e229cc8f2155ce667efa0 160000
+--- a/Plugins/Toybox-SDL-Plugins
++++ b/Plugins/Toybox-SDL-Plugins
+@@ -1 +1 @@
+-Subproject commit 4383f22f2182fca2cad629735d4283f0d471d967
++Subproject commit 844f50530fffefd4903e229cc8f2155ce667efa0
+diff --git a/Plugins/Toybox-TIMS-AssetLoader-Plugins b/Plugins/Toybox-TIMS-AssetLoader-Plugins
+index 7c7f43b138712459a7aa17eb1d863f43fef8b2b1..75ea4da309de4824f853ea26bfd28020963ead4c 160000
+--- a/Plugins/Toybox-TIMS-AssetLoader-Plugins
++++ b/Plugins/Toybox-TIMS-AssetLoader-Plugins
+@@ -1 +1 @@
+-Subproject commit 7c7f43b138712459a7aa17eb1d863f43fef8b2b1
++Subproject commit 75ea4da309de4824f853ea26bfd28020963ead4c
