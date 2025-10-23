@@ -28,8 +28,6 @@ namespace Tbx
         {
         }
 
-        ~Asset();
-
         template <typename TAsset>
         Asset(const Ref<TAsset>& data)
             : _type(typeid(TAsset))
