@@ -41,6 +41,7 @@
 *.user
 *.sln
 packages/
+_vsproj/
 
 # Testing
 Testing/
@@ -50,6 +51,9 @@ Build/
 Generated/
 bin/
 obj/
+_build/
+x64/
+*.tlog
 compileData.scor
 compileData.scor.gbl
 compileData.scor.t0000
@@ -62,8 +66,6 @@ cmake_install.cmake
 install_manifest.txt
 CTestTestfile.cmake
 Makefile
-*.tlog
 *.recipe
 *.cmake
 *.dir
-/x64

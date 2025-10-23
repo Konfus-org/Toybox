@@ -1,8 +1,8 @@
 #pragma once
-#include "Tbx/Events/EventBus.h"
-#include "Tbx/Collections/Queryable.h"
 #include "Tbx/DllExport.h"
 #include "Tbx/Plugins/Plugin.h"
+#include "Tbx/Events/EventBus.h"
+#include "Tbx/Collections/Queryable.h"
 #include "Tbx/Memory/Refs.h"
 #include <vector>
 
@@ -19,7 +19,7 @@ namespace Tbx
             Ref<EventBus> eventBus);
 
         /// <summary>
-        /// Produces the loaded plugin collection, transferring ownership to the caller.
+        /// Produces the loaded plugin collection.
         /// </summary>
         Queryable<Ref<Plugin>> Results();
 

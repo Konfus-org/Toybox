@@ -15,7 +15,7 @@ namespace Tbx
     class TBX_EXPORT IGraphicsManager
     {
     public:
-        virtual ~IGraphicsManager() = default;
+        virtual ~IGraphicsManager();
         virtual void Update() = 0;
         virtual void SetRenderPasses(const std::vector<RenderPass>& passes) = 0;
         virtual const std::vector<RenderPass>& GetRenderPasses() const = 0;
@@ -24,7 +24,7 @@ namespace Tbx
     class TBX_EXPORT HeadlessGraphicsManager final : public IGraphicsManager
     {
     public:
-        HeadlessGraphicsManager() = default;
+        HeadlessGraphicsManager();
         void Update() override {}
         void SetRenderPasses(const std::vector<RenderPass>& passes) override {}
         const std::vector<RenderPass>& GetRenderPasses() const override
@@ -37,7 +37,7 @@ namespace Tbx
     class TBX_EXPORT GraphicsManager final : public IGraphicsManager
     {
     public:
-        GraphicsManager() = default;
+        GraphicsManager();
         GraphicsManager(
             GraphicsApi startingApi,
             const std::vector<Ref<IGraphicsBackend>>& backends,
@@ -70,9 +70,9 @@ namespace Tbx
         EventListener _eventListener = {};
         EventCarrier _carrier = {};
 
-        std::vector<const Stage*> _openStages = {};
-        std::vector<GraphicsDisplay> _openDisplays = {};
         std::unordered_map<GraphicsApi, GraphicsRenderer> _renderers = {};
+        std::vector<GraphicsDisplay> _openDisplays = {};
+        std::vector<const Stage*> _openStages = {};
 
         GraphicsApi _activeGraphicsApi = GraphicsApi::None;
         VsyncMode _vsync = VsyncMode::Adaptive;

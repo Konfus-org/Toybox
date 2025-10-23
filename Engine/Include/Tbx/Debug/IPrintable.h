@@ -7,7 +7,7 @@ namespace Tbx
     class TBX_EXPORT IPrintable
     {
     public:
-        virtual ~IPrintable() = default;
+        virtual ~IPrintable();
         virtual std::string ToString() const = 0;
         explicit(false) operator std::string() const { return ToString(); }
     };

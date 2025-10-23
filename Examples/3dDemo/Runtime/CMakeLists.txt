@@ -27,7 +27,9 @@ set_target_properties(${LibName} PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRE
 target_link_libraries(${LibName} PRIVATE
   Tbx::Engine
   Tbx::Plugin::ImGuiImmediateUI
-  Tbx::Plugin::JIMSAssetLoader
+  Tbx::Plugin::TIMSShaderLoader
+  Tbx::Plugin::TIMSTextureLoader
+  Tbx::Plugin::TIMSTextLoader
   Tbx::Plugin::OpenGLRendering
   Tbx::Plugin::SDL3OpenGlGraphicsContext
   Tbx::Plugin::SDL3Windowing

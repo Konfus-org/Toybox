@@ -2,9 +2,9 @@
 	path = Plugins/Toybox-Spd-Logging-Plugin
 	url = https://github.com/Konfus-org/Toybox-Spd-Logging-Plugin.git
 	branch = main
-[submodule "Plugins/Toybox-JIMS-AssetLoader-Plugin"]
-	path = Plugins/Toybox-JIMS-AssetLoader-Plugin
-	url = https://github.com/Konfus-org/Toybox-JIMS-AssetLoader-Plugin.git
+[submodule "Plugins/Toybox-TIMS-AssetLoader-Plugins"]
+	path = Plugins/Toybox-TIMS-AssetLoader-Plugins
+	url = https://github.com/Konfus-org/Toybox-TIMS-AssetLoader-Plugins.git
 	branch = main
 [submodule "Plugins/Toybox-OpenGL-Rendering-Plugin"]
 	path = Plugins/Toybox-OpenGL-Rendering-Plugin

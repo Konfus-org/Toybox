@@ -10,6 +10,8 @@
 
 namespace Tbx
 {
+    GraphicsManager::GraphicsManager() = default;
+
     GraphicsManager::GraphicsManager(
         GraphicsApi startingApi,
         const std::vector<Ref<IGraphicsBackend>>& backends,

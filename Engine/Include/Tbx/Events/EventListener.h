@@ -89,7 +89,7 @@ namespace Tbx
         void ReleaseSubscriptions();
 
     private:
-        Ref<EventBus> _bus = nullptr;
+        Ref<EventBus> _bus = EventBus::Global;
         std::unordered_set<Uid> _activeTokens = {};
         mutable std::mutex _mutex = {};
     };

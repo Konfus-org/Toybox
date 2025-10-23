@@ -6,57 +6,24 @@ namespace Tbx
 {
     AssetServer::AssetServer(const std::string& assetsFolderPath, const std::vector<Ref<IAssetLoader>>& loaders)
         : _assetDirectory(std::filesystem::absolute(assetsFolderPath))
-        , _loaders(loaders)
     {
-        try
-        {
-            // TODO: recurse dirs
-            const auto options = std::filesystem::directory_options::skip_permission_denied;
-            for (const auto& entry : std::filesystem::recursive_directory_iterator(_assetDirectory, options))
-            {
-                if (!entry.is_regular_file())
-                {
-                    continue;
-                }
-
-                const auto normalizedPath = NormalizeKey(entry.path());
-                auto loader = FindLoaderFor(entry.path());
-                if (!loader)
-                {
-                    TBX_TRACE_WARNING("AssetServer: no loader registered for {}", entry.path().string());
-                    continue;
-                }
-
-                auto record = MakeExclusive<AssetRecord>();
-                record->Name = normalizedPath;
-                record->FilePath = entry.path();
-                record->Loader = loader;
-
-                _assetRecords.try_emplace(normalizedPath, std::move(record));
-            }
-        }
-        catch (const std::filesystem::filesystem_error& fsError)
-        {
-            TBX_ASSERT(false, "AssetServer: error while scanning {}: {}", assetsFolderPath, fsError.what());
-        }
+        BuildLoaderLookup(loaders);
     }
 
-    Ref<IAssetLoader> AssetServer::FindLoaderFor(const std::filesystem::path& filePath) const
+    void AssetServer::BuildLoaderLookup(const std::vector<Ref<IAssetLoader>>& loaders)
     {
-        for (const auto& loader : _loaders)
+        _loaders.clear();
+        _loaders.reserve(loaders.size());
+
+        for (const auto& loader : loaders)
         {
             if (!loader)
             {
                 continue;
             }
 
-            if (loader->CanLoad(filePath))
-            {
-                return loader;
-            }
+            _loaders.push_back(loader);
         }
-
-        return nullptr;
     }
 
     std::filesystem::path AssetServer::ResolvePath(const std::filesystem::path& path) const

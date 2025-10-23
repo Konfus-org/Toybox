@@ -11,44 +11,10 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <typeindex>
 
 namespace Tbx
 {
-    /// <summary>
-    /// Represents the lifecycle state of an asset tracked by the server.
-    /// </summary>
-    enum class TBX_EXPORT AssetStatus
-    {
-        Unloaded,
-        Loading,
-        Loaded,
-        Failed
-    };
-
-    /// <summary>
-    /// Metadata about an asset on disk, including the loader to use for creating runtime data.
-    /// </summary>
-    struct TBX_EXPORT AssetRecord
-    {
-        /// <summary>
-        /// Normalized asset path used as the lookup key and for diagnostic messages.
-        /// </summary>
-        std::string Name = "";
-        /// <summary>
-        /// Absolute path to the asset on disk so the loader can read it later.
-        /// </summary>
-        std::filesystem::path FilePath = {};
-        /// <summary>
-        /// Loader responsible for producing the in-memory representation of the asset.
-        /// </summary>
-        Ref<IAssetLoader> Loader = nullptr;
-        /// <summary>
-        /// Tracks the last known loading state for debugging and diagnostics.
-        /// Stored atomically so background release callbacks can safely update it.
-        /// </summary>
-        AssetStatus Status = AssetStatus::Unloaded;
-    };
-
     /// <summary>
     /// Central coordinator for discovering, loading, and caching assets backed by registered loaders.
     /// </summary>
@@ -70,23 +36,15 @@ namespace Tbx
 
             const auto absolutePath = ResolvePath(path);
             const auto normalizedPath = NormalizeKey(absolutePath);
-            auto recordIt = _assetRecords.find(normalizedPath);
-            if (recordIt == _assetRecords.end())
+
+            if (IsAssetLoaded<TData>(normalizedPath))
             {
-                auto loader = FindLoaderFor(absolutePath);
-                if (!loader)
-                {
-                    TBX_ASSERT(false, "AssetServer: Unable to register {} because no loader accepted the file", path);
-                    return;
-                }
+                return;
+            }
 
-                auto record = MakeRef<AssetRecord>();
-                record->Name = normalizedPath;
-                record->FilePath = absolutePath;
-                record->Loader = loader;
-
-                const auto& emplaceResult = _assetRecords.try_emplace(normalizedPath, std::move(record));
-                recordIt = emplaceResult.first;
+            if (!FindLoaderForType<TData>(absolutePath))
+            {
+                TBX_ASSERT(false, "AssetServer: Unable to register {} because no loader accepted the file", path);
             }
         }
 
@@ -99,137 +57,159 @@ namespace Tbx
         {
             std::scoped_lock lock(_mutex);
 
-            const auto normalizedPath = NormalizeKey(path);
-            auto recordIt = _assetRecords.find(normalizedPath);
-            if (recordIt == _assetRecords.end())
-            {
-                TBX_ASSERT(false, "AssetServer: Failed to find the asset at the path {}, does it exist and is a loader registered to handle it?", path);
-                return nullptr;
-            }
+            const auto absolutePath = ResolvePath(path);
+            const auto normalizedPath = NormalizeKey(absolutePath);
 
-            return LoadData<TData>(recordIt->second);
+            return LoadData<TData>(normalizedPath, absolutePath);
         }
 
         /// <summary>
         /// Collects all loaded assets for the requested type.
         /// </summary>
         template <typename TData>
-        std::vector<Ref<TData>> All() const
+        std::vector<Ref<TData>> GetLoaded() const
         {
             std::scoped_lock lock(_mutex);
 
             std::vector<Ref<TData>> loadedAssets = {};
-            auto cacheIt = _assetCache.begin();
-            while (cacheIt != _assetCache.end())
+            auto cacheIt = _loadedAssets.begin();
+            while (cacheIt != _loadedAssets.end())
             {
-                auto recordIt = _assetRecords.find(cacheIt->first);
-                if (recordIt == _assetRecords.end())
-                {
-                    cacheIt = _assetCache.erase(cacheIt);
-                    continue;
-                }
-
-                const auto& record = recordIt->second;
-                if (!std::dynamic_pointer_cast<AssetLoader<TData>>(record->Loader))
-                {
-                    ++cacheIt;
-                    continue;
-                }
-
                 auto cached = cacheIt->second.lock();
                 if (!cached)
                 {
-                    record->Status = AssetStatus::Unloaded;
-                    cacheIt = _assetCache.erase(cacheIt);
+                    cacheIt = _loadedAssets.erase(cacheIt);
                     continue;
                 }
 
-                record->Status = AssetStatus::Loaded;
-                loadedAssets.push_back(std::static_pointer_cast<TData>(cached));
-                ++cacheIt;
+                auto typed = std::dynamic_pointer_cast<TData>(cached);
+                if (typed)
+                {
+                    loadedAssets.push_back(typed);
+                }
+
+                cacheIt++;
             }
 
             return loadedAssets;
         }
 
-    private:
         /// <summary>
-        /// Ensures the asset data associated with the provided record is loaded and returns it.
-        /// If the asset is already cached, the cached value is reused.
+        /// Clears the asset server of all tracked assets and cached data.
         /// </summary>
-        template <typename TData>
-        Ref<TData> LoadData(const ExclusiveRef<AssetRecord>& record) const
+        void Clear()
         {
-            auto loader = std::dynamic_pointer_cast<AssetLoader<TData>>(record->Loader);
-            if (!loader)
+            std::scoped_lock lock(_mutex);
+            _loadedAssets.clear();
+            _assetTypes.clear();
+        }
+
+    private:
+        template <typename TData>
+        bool IsAssetLoaded(const std::string& normalizedPath) const
+        {
+            auto cachedIt = _loadedAssets.find(normalizedPath);
+            if (cachedIt == _loadedAssets.end())
             {
-                TBX_TRACE_ERROR("AssetServer: loader mismatch when requesting {}", record->Name);
-                record->Status = AssetStatus::Failed;
-                return nullptr;
+                return false;
             }
 
-            auto cacheIt = _assetCache.find(record->Name);
-            if (cacheIt != _assetCache.end())
+            auto cached = cachedIt->second.lock();
+            if (!cached)
+            {
+                _loadedAssets.erase(cachedIt);
+                _assetTypes.erase(normalizedPath);
+                return false;
+            }
+
+            auto typeIt = _assetTypes.find(normalizedPath);
+            if (typeIt == _assetTypes.end())
+            {
+                return false;
+            }
+
+            return typeIt->second == std::type_index(typeid(TData));
+        }
+
+        template <typename TData>
+        Ref<TData> LoadData(const std::string& assetName, const std::filesystem::path& filePath) const
+        {
+            auto cacheIt = _loadedAssets.find(assetName);
+            if (cacheIt != _loadedAssets.end())
             {
                 auto cached = cacheIt->second.lock();
-                if (cached)
+                if (!cached)
                 {
-                    record->Status = AssetStatus::Loaded;
-                    return std::static_pointer_cast<TData>(cached);
+                    _loadedAssets.erase(cacheIt);
+                    _assetTypes.erase(assetName);
                 }
-
-                record->Status = AssetStatus::Unloaded;
-                _assetCache.erase(cacheIt);
+                else
+                {
+                    auto typeIt = _assetTypes.find(assetName);
+                    if (typeIt != _assetTypes.end() && typeIt->second == std::type_index(typeid(TData)))
+                    {
+                        return std::static_pointer_cast<TData>(cached);
+                    }
+                }
             }
-
-            record->Status = AssetStatus::Loading;
 
             try
             {
-                auto loadedData = loader->Load(record->FilePath);
-                auto sharedData = Ref<TData>(
-                    new TData(loadedData),
-                    [&record](TData* data)
-                    {
-                        // Mark asset as unloaded when our pointer is deleted!
-                        record->Status = AssetStatus::Unloaded;
-                        delete data;
-                    });
+                auto loader = FindLoaderForType<TData>(filePath);
+                if (!loader)
+                {
+                    TBX_TRACE_ERROR("AssetServer: no loader registered for {}", assetName);
+                    return nullptr;
+                }
 
-                _assetCache[record->Name] = sharedData;
-
-                record->Status = AssetStatus::Loaded;
-                return sharedData;
+                auto loadedAsset = loader->Load(filePath);
+                auto typed = loadedAsset.template GetData<TData>();
+                if (!typed)
+                {
+                    TBX_TRACE_ERROR("AssetServer: loader returned unexpected type for {}", assetName);
+                    return nullptr;
+                }
+                _loadedAssets[assetName] = typed;
+                _assetTypes.insert_or_assign(assetName, std::type_index(typeid(TData)));
+                return typed;
             }
             catch (const std::exception& loadError)
             {
-                record->Status = AssetStatus::Failed;
-                TBX_TRACE_ERROR("AssetServer: failed to load {}: {}", record->FilePath.string(), loadError.what());
+                TBX_TRACE_ERROR("AssetServer: failed to load {}: {}", filePath.string(), loadError.what());
+                _loadedAssets.erase(assetName);
+                _assetTypes.erase(assetName);
                 return nullptr;
             }
         }
 
-        /// <summary>
-        /// Attempts to locate a loader that can handle the specified file path.
-        /// Returns nullptr if none of the registered loaders can load the asset.
-        /// </summary>
-        Ref<IAssetLoader> FindLoaderFor(const std::filesystem::path& filePath) const;
+        template <typename TData>
+        Ref<IAssetLoader> FindLoaderForType(const std::filesystem::path& filePath) const
+        {
+            for (const auto& loader : _loaders)
+            {
+                if (!loader)
+                {
+                    continue;
+                }
 
-        /// <summary>
-        /// Resolves a potentially relative path to the on-disk location of an asset.
-        /// </summary>
+                if (loader->CanLoad(std::type_index(typeid(TData)), filePath))
+                {
+                    return loader;
+                }
+            }
+
+            return nullptr;
+        }
+
+        void BuildLoaderLookup(const std::vector<Ref<IAssetLoader>>& loaders);
         std::filesystem::path ResolvePath(const std::filesystem::path& path) const;
-
-        /// <summary>
-        /// Normalizes the provided path so it can be used as a key in the asset maps.
-        /// </summary>
         std::string NormalizeKey(const std::filesystem::path& path) const;
 
     private:
         mutable std::mutex _mutex = {};
-        mutable std::unordered_map<std::string, ExclusiveRef<AssetRecord>> _assetRecords = {};
-        mutable std::unordered_map<std::string, WeakRef<void>> _assetCache = {};
         std::filesystem::path _assetDirectory = {};
+        mutable std::unordered_map<std::string, WeakRef<void>> _loadedAssets = {};
+        mutable std::unordered_map<std::string, std::type_index> _assetTypes = {};
         std::vector<Ref<IAssetLoader>> _loaders = {};
 
         // TODO: memory pools for each asset type that allocates a target amount of memory and keeps track of the available memory, when its full it'll clear out old stuff

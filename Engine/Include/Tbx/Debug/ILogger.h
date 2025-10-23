@@ -8,7 +8,7 @@ namespace Tbx
     class TBX_EXPORT ILogger
     {
     public:
-        virtual ~ILogger() = default;
+        virtual ~ILogger();
 
         virtual void Open(const std::string& name, const std::string& filepath) = 0;
         virtual void Close() = 0;

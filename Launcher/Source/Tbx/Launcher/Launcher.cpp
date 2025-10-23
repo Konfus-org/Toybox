@@ -1,6 +1,7 @@
 #include "Tbx/Launcher/Launcher.h"
 #include "Tbx/Events/EventBus.h"
 #include "Tbx/Files/Paths.h"
+#include "Tbx/App/Runtime.h"
 #include "Tbx/Plugins/PluginFinder.h"
 #include "Tbx/Plugins/PluginLoader.h"
 
@@ -8,14 +9,22 @@ namespace Tbx::Launcher
 {
     static App CreateApp(const AppConfig& config)
     {
-        // Load plugins
-        Queryable<Ref<Plugin>> plugins;
+        // Load plugins and runtimes
+        Queryable<Ref<Plugin>> loadedPlugins;
         {
             auto pluginMetas = PluginFinder(FileSystem::GetPluginDirectory(), config.Plugins).Result();
-            plugins = PluginLoader(pluginMetas, EventBus::Global).Results();
+            loadedPlugins = PluginLoader(pluginMetas, EventBus::Global).Results();
         }
 
-        return App(config.Name, config.Settings, plugins, EventBus::Global);
+        // Get runtimes and separate them from the rest of the plugins
+        auto runtimes = loadedPlugins.OfType<Runtime>();
+        auto plugins = loadedPlugins
+            .Where([&](const Ref<Plugin>& plugin)
+            {
+                return !runtimes.Any([&](const Ref<Runtime>& runtime) { return runtime.get() == plugin.get(); });
+            });
+
+        return App(config.Name, config.Settings, plugins, runtimes, EventBus::Global);
     }
 
     AppStatus Launch(const AppConfig& config)

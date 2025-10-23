@@ -13,7 +13,7 @@ namespace Tbx
     class TBX_EXPORT IGraphicsContext
     {
     public:
-        virtual ~IGraphicsContext() = default;
+        virtual ~IGraphicsContext();
 
         /// <summary>
         /// Makes the context active on the current thread.
@@ -38,7 +38,7 @@ namespace Tbx
     class TBX_EXPORT IGraphicsContextProvider
     {
     public:
-        virtual ~IGraphicsContextProvider() = default;
+        virtual ~IGraphicsContextProvider();
 
         /// <summary>
         /// Identifies the graphics API handled by this provider.

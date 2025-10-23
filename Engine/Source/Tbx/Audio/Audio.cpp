@@ -4,8 +4,8 @@
 namespace Tbx
 {
     Audio::Audio(SampleData data, AudioFormat format)
-        : Data(std::move(data))
-        , Format(std::move(format))
+        : Data(data)
+        , Format(format)
     {
     }
 }

@@ -37,6 +37,10 @@ namespace Tbx
     /// </summary>
     struct TBX_EXPORT Shader
     {
+        Shader() = default;
+        Shader(const std::string& source, ShaderType type)
+            : Source(source), Type(type) {}
+
         std::string Source = "";
         ShaderType Type = ShaderType::None;
         Uid Id = Uid::Generate();
@@ -48,7 +52,7 @@ namespace Tbx
     class TBX_EXPORT IShaderCompiler
     {
     public:
-        virtual ~IShaderCompiler() = default;
+        virtual ~IShaderCompiler();
 
         /// <summary>
         /// Compiles a shader.

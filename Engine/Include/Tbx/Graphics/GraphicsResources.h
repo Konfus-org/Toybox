@@ -13,7 +13,7 @@ namespace Tbx
     class TBX_EXPORT GraphicsResource
     {
     public:
-        virtual ~GraphicsResource() = default;
+        virtual ~GraphicsResource();
         virtual void Activate() = 0;
         virtual void Release() = 0;
 
@@ -24,27 +24,27 @@ namespace Tbx
     class TBX_EXPORT ShaderResource : public GraphicsResource
     {
     public:
-        virtual ~ShaderResource() = default;
+        virtual ~ShaderResource();
     };
 
     class TBX_EXPORT ShaderProgramResource : public GraphicsResource
     {
     public:
-        virtual ~ShaderProgramResource() = default;
+        virtual ~ShaderProgramResource();
         virtual void Upload(const ShaderUniform& uniform) = 0;
     };
 
     class TBX_EXPORT TextureResource : public GraphicsResource
     {
     public:
-        virtual ~TextureResource() = default;
+        virtual ~TextureResource();
         virtual void SetSlot(uint32 slot) = 0;
     };
 
     class TBX_EXPORT MeshResource : public GraphicsResource
     {
     public:
-        virtual ~MeshResource() = default;
+        virtual ~MeshResource();
         virtual void SetVertexBuffer(const VertexBuffer& vbuff) = 0;
         virtual void SetIndexBuffer(const IndexBuffer& ibuff) = 0;
         virtual void Draw() = 0;

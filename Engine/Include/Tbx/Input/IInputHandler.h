@@ -7,13 +7,13 @@ namespace Tbx
     class TBX_EXPORT IInputHandler
     {
     public:
-        virtual ~IInputHandler() = default;
+        virtual ~IInputHandler();
 
         /// <summary>
         /// Updates the states of connected input devices.
         /// Should be called once per frame.
         /// </summary>
-        virtual void UpdateInputState() = 0;
+        virtual void Update() = 0;
 
         virtual bool IsGamepadButtonDown(int playerIndex, int button) const = 0;
         virtual bool IsGamepadButtonUp(int playerIndex, int button) const = 0;

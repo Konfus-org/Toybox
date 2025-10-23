@@ -1,9 +1,7 @@
 #pragma once
 #include "Tbx/Events/Event.h"
-#include "Tbx/Memory/Refs.h"
 #include "Tbx/Plugins/PluginMeta.h"
-#include <utility>
-#include <vector>
+#include "Tbx/Memory/Refs.h"
 
 namespace Tbx
 {
@@ -11,17 +9,27 @@ namespace Tbx
 
     struct TBX_EXPORT PluginLoadedEvent final : public Event
     {
-        PluginLoadedEvent(WeakRef<Plugin> plugin)
-            : Plugin(plugin) {}
+        PluginLoadedEvent(const WeakRef<Plugin>& plugin, const PluginMeta& meta)
+            : LoadedPlugin(plugin), LoadedMeta(meta) {}
 
-        const WeakRef<Plugin> Plugin = {};
+        WeakRef<Plugin> LoadedPlugin = {};
+        PluginMeta LoadedMeta = {};
     };
 
     struct TBX_EXPORT PluginUnloadedEvent final : public Event
     {
-        PluginUnloadedEvent(const Plugin* plugin)
-            : Plugin(plugin) {}
+        PluginUnloadedEvent(const WeakRef<Plugin>& plugin, const PluginMeta& meta)
+            : UnloadedPlugin(plugin), UnloadedMeta(meta) {}
 
-        const Plugin* Plugin = {};
+        WeakRef<Plugin> UnloadedPlugin = {};
+        PluginMeta UnloadedMeta = {};
+    };
+
+    struct TBX_EXPORT PluginDestroyedEvent final : public Event
+    {
+        PluginDestroyedEvent(const Plugin* plugin)
+            : DestroyedPlugin(plugin) {}
+
+        const Plugin* DestroyedPlugin = {};
     };
 }

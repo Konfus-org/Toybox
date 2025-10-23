@@ -3,14 +3,5 @@
     "language": "C++",
     "version": "1.0.0",
     "author": "Konfus-dev",
-    "description": "Example of a plugin for application logic.",
-    "dependencies": [
-        "SDL3 Windowing",
-        "SDL3 Input",
-        "SDL3 Audio",
-        "Spd Logging",
-        "OpenGL Rendering",
-        "JIMS Asset Loader",
-        "ImGui Immediate UI"
-    ]
+    "description": "Example of a plugin for application logic."
 }

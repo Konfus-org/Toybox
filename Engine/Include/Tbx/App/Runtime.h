@@ -11,10 +11,10 @@ namespace Tbx
     /// A way to add logic that hooks into an apps lifetime.
     /// An example use case is game specific logic.
     /// </summary>
-    class IRuntime
+    class TBX_EXPORT IRuntime
     {
     public:
-        virtual ~IRuntime() {}
+        virtual ~IRuntime();
 
         /// <summary>
         /// Called when the owning app is started.
@@ -54,6 +54,12 @@ namespace Tbx
 
     class TBX_EXPORT Runtime : public Plugin, public IRuntime
     {
+    };
+
+    struct TBX_EXPORT LoadedRuntime
+    {
+        Ref<Runtime> Instance = nullptr;
+        PluginMeta Meta = {};
     };
 
     /// <summary>

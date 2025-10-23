@@ -19,7 +19,7 @@ namespace Tbx
     class TBX_EXPORT IGraphicsBackend
     {
     public:
-        virtual ~IGraphicsBackend() = default;
+        virtual ~IGraphicsBackend();
 
         /// <summary>
         /// Identifies the graphics API handled by this backend.

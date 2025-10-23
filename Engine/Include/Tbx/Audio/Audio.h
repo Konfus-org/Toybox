@@ -29,14 +29,13 @@ namespace Tbx
         int Channels = 0;
     };
 
+    using SampleData = std::vector<std::uint8_t>;
+
     /// <summary>
     /// Represents raw audio data that can be attached to toys and scheduled for playback.
     /// </summary>
     class TBX_EXPORT Audio
     {
-    public:
-        using SampleData = std::vector<std::uint8_t>;
-
     public:
         Audio() = default;
         Audio(SampleData data, AudioFormat format);
@@ -51,10 +50,10 @@ namespace Tbx
     {
     public:
         AudioSource() = default;
-        AudioSource(Ref<Audio> audio) : Audio(audio) {}
+        AudioSource(Ref<Audio> clip) : Clip(clip) {}
 
     public:
-        Ref<Audio> Audio;
+        Ref<Audio> Clip;
         bool Playing = false;
         bool Looping = false;
         float Volume = 1.0f;

@@ -5,6 +5,7 @@
 #include "Tbx/Debug/Asserts.h"
 #include "Tbx/Debug/Tracers.h"
 #include "Tbx/Memory/Refs.h"
+#include "Tbx/Memory/Hashing.h"
 #include <type_traits>
 
 namespace Tbx
@@ -77,7 +78,7 @@ namespace Tbx
         }
 
     private:
-        Ref<EventBus> _bus = nullptr;
+        Ref<EventBus> _bus = EventBus::Global;
     };
 }
 
