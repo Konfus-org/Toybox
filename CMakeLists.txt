@@ -34,11 +34,10 @@ add_subdirectory(engine/tests)
 set(CMAKE_FOLDER "3rd Party")
 add_subdirectory(thirdparty)
 
-# Examples
-# TODO add examples
+add_subdirectory(plugins)
 
-# Plugins (required)
-# TODO add plugins
-#set(CMAKE_FOLDER "Plugins")
-#add_subdirectory(plugins)
+set(CMAKE_FOLDER "Examples")
+add_subdirectory(examples/plugin_example)
 unset(CMAKE_FOLDER)
+
+# Plugins (future)

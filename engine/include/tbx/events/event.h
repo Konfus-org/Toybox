@@ -1,14 +1,11 @@
 #pragma once
-#include "tbx/ids/uuid.h"
+#include "tbx/messages/message.h"
 
 namespace tbx
 {
-    class Event
+    class Event : public Message
     {
     public:
-        virtual ~Event() = default;
-
-        Uuid id = Uuid::generate();
-        bool is_handled = false;
+        ~Event() override = default;
     };
 }

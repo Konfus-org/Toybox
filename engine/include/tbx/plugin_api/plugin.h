@@ -1,8 +1,8 @@
 #pragma once
 #include "tbx/application_context.h"
 #include "tbx/time/delta_time.h"
-#include "tbx/events/event.h"
-#include "tbx/commands/command.h"
+#include "tbx/messages/message.h"
+#include "tbx/dispatch/dispatcher.h"
 
 namespace tbx
 {
@@ -25,7 +25,7 @@ namespace tbx
         virtual ~Plugin() = default;
 
         // Called when the plugin is attached to the host
-        virtual void on_attach(const ApplicationContext& context) = 0;
+        virtual void on_attach(const ApplicationContext& context, MessageDispatcher& dispatcher) = 0;
 
         // Called before the plugin is detached from the host
         virtual void on_detach() = 0;
@@ -33,10 +33,7 @@ namespace tbx
         // Per-frame update with delta timing
         virtual void on_update(const DeltaTime& dt) = 0;
 
-        // Broadcast or targeted events from the host
-        virtual void on_event(const Event& evt) = 0;
-
-        // Console or programmatic commands routed to the plugin
-        virtual void on_command(const Command& cmd) = 0;
+        // Unified message entry point
+        virtual void on_message(const Message& msg) = 0;
     };
 }
