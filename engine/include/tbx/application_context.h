@@ -6,6 +6,6 @@ namespace tbx
     struct ApplicationContext
     {
         Application* instance = nullptr;
-        ApplicationDescription description = {};
+        AppDescription description = {};
     };
 }

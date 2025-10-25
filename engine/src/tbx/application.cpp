@@ -1,11 +1,17 @@
 #include "tbx/application.h"
-#include "application.h"
+#include "tbx/plugin_api/plugin.h"
 
 namespace tbx
 {
-    Application::Application(const ApplicationDescription & desc)
+    Application::Application(const AppDescription& desc)
     {
-        // TODO: setup app
+        _desc = desc;
+        initialize();
+    }
+
+    Application::~Application()
+    {
+        shutdown();
     }
 
     int Application::run()
