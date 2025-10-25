@@ -1,18 +1,18 @@
-[submodule "Dependencies/nlohmann_json"]
-	path = Dependencies/nlohmann_json
+[submodule "thirdparty/nlohmann_json"]
+	path = thirdparty/nlohmann_json
 	url = https://github.com/Konfus-org/json.git
-[submodule "Dependencies/imgui"]
-	path = Dependencies/imgui
+[submodule "thirdparty/imgui"]
+	path = thirdparty/imgui
 	url = https://github.com/Konfus-org/imgui.git
-[submodule "Dependencies/glm"]
-	path = Dependencies/glm
+[submodule "thirdparty/glm"]
+	path = thirdparty/glm
 	url = https://github.com/Konfus-org/glm.git
-[submodule "Dependencies/spdlog"]
-	path = Dependencies/spdlog
+[submodule "thirdparty/spdlog"]
+	path = thirdparty/spdlog
 	url = https://github.com/Konfus-org/spdlog.git
-[submodule "Dependencies/googletest"]
-	path = Dependencies/googletest
+[submodule "thirdparty/googletest"]
+	path = thirdparty/googletest
 	url = https://github.com/Konfus-org/googletest.git
-[submodule "Dependencies/SDL"]
-	path = Dependencies/SDL
+[submodule "thirdparty/SDL"]
+	path = thirdparty/SDL
 	url = https://github.com/Konfus-org/SDL.git

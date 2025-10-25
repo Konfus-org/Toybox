@@ -1,7 +1,0 @@
-{
-    "name": "3d Demo Runtime",
-    "language": "C++",
-    "version": "1.0.0",
-    "author": "Konfus-dev",
-    "description": "Example of a plugin for application logic."
-}
