@@ -20,6 +20,7 @@ namespace tbx
     int Application::run()
     {
         DeltaTimer timer;
+        DispatcherScope scope(&_dispatcher);
         while (!_should_exit)
         {
             // Process messages posted in previous frame

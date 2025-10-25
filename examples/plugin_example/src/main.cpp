@@ -2,7 +2,7 @@
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/application.h"
 #include "tbx/logging/log_macros.h"
-#include "tbx/commands/log_command.h"
+#include "tbx/dispatch/dispatcher_context.h"
 #include <chrono>
 #include <iostream>
 
@@ -16,6 +16,7 @@ int main()
     desc.requested_plugins = {"Example.SpdLogger"};
 
     tbx::Application app(desc);
+    tbx::DispatcherScope scope(&app.dispatcher());
 
     spdlog::info("Type a message and press Enter to log. Type 'quit' to exit.");
     std::string line;
@@ -27,10 +28,10 @@ int main()
         if (line == "quit" || line == "exit")
             break;
 
-        TBX_TRACE_INFO(app.get_dispatcher(), line);
+        TBX_TRACE_INFO(line);
         if (line == "assert")
         {
-            TBX_ASSERT(app.get_dispatcher(), false, "User triggered assert");
+            TBX_ASSERT(false, "User triggered assert");
         }
     }
     app.request_exit();
