@@ -7,14 +7,14 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace tbx::plugin_api
+namespace tbx
 {
     /// <summary>
     /// Appends the provided string to the list if it is not already present, ignoring case.
     /// </summary>
     static void append_if_unique_case_insensitive(std::vector<std::string>& values, const std::string& value)
     {
-        std::string needle = strings::to_lower(value);
+        std::string needle = to_lower(value);
         for (const std::string& existing : values)
         {
             if (strings::to_lower(existing) == needle)
@@ -33,7 +33,7 @@ namespace tbx::plugin_api
         std::vector<std::string> values;
         if (node.is_string())
         {
-            append_if_unique_case_insensitive(values, strings::trim(node.get<std::string>()));
+            append_if_unique_case_insensitive(values, trim(node.get<std::string>()));
             return values;
         }
         if (node.is_array())
@@ -44,7 +44,7 @@ namespace tbx::plugin_api
                 {
                     continue;
                 }
-                append_if_unique_case_insensitive(values, strings::trim(item.get<std::string>()));
+                append_if_unique_case_insensitive(values, trim(item.get<std::string>()));
             }
         }
         return values;
@@ -92,7 +92,7 @@ namespace tbx::plugin_api
     {
         std::vector<size_t> matches;
         std::unordered_set<size_t> unique;
-        std::string needle = strings::to_lower(strings::trim(token));
+        std::string needle = to_lower(trim(token));
         auto id_it = by_id.find(needle);
         if (id_it != by_id.end())
         {
@@ -123,7 +123,7 @@ namespace tbx::plugin_api
     {
         if (node.is_string())
         {
-            return strings::trim(node.get<std::string>());
+            return trim(node.get<std::string>());
         }
         if (node.is_array())
         {
@@ -133,7 +133,7 @@ namespace tbx::plugin_api
                 {
                     continue;
                 }
-                std::string value = strings::trim(item.get<std::string>());
+                std::string value = trim(item.get<std::string>());
                 if (!value.empty())
                 {
                     return value;
@@ -174,7 +174,7 @@ namespace tbx::plugin_api
     /// </summary>
     static bool is_logger_type(const std::string& type)
     {
-        std::string lower = strings::to_lower(type);
+        std::string lower = to_lower(type);
         return lower.find("logger") != std::string::npos;
     }
 
@@ -205,12 +205,12 @@ namespace tbx::plugin_api
         auto description_it = data.find("description");
         if (description_it != data.end() && description_it->is_string())
         {
-            meta.description = strings::trim(description_it->get<std::string>());
+            meta.description = trim(description_it->get<std::string>());
         }
         auto module_it = data.find("module");
         if (module_it != data.end() && module_it->is_string())
         {
-            std::filesystem::path module_path = strings::trim(module_it->get<std::string>());
+            std::filesystem::path module_path = trim(module_it->get<std::string>());
             if (!module_path.empty())
             {
                 if (module_path.is_absolute() || meta.root_directory.empty())
@@ -233,7 +233,7 @@ namespace tbx::plugin_api
     /// <summary>
     /// Parses plugin metadata from raw JSON text.
     /// </summary>
-    PluginMeta parse_plugin_meta_text(const std::string& manifest_text, const std::filesystem::path& manifest_path)
+    PluginMeta parse_plugin_meta(const std::string& manifest_text, const std::filesystem::path& manifest_path)
     {
         nlohmann::json data = nlohmann::json::parse(manifest_text, nullptr, true, true);
         return parse_plugin_meta_data(data, manifest_path);
@@ -264,10 +264,10 @@ namespace tbx::plugin_api
         for (size_t index = 0; index < plugins.size(); index += 1)
         {
             const PluginMeta& meta = plugins[index];
-            by_id.emplace(strings::to_lower(meta.id), index);
+            by_id.emplace(to_lower(meta.id), index);
             if (!meta.type.empty())
             {
-                by_type[strings::to_lower(meta.type)].push_back(index);
+                by_type[to_lower(meta.type)].push_back(index);
             }
         }
 

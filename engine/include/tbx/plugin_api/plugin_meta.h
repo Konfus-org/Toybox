@@ -3,75 +3,55 @@
 #include <string>
 #include <vector>
 
-namespace tbx::plugin_api
+namespace tbx
 {
-    /// <summary>
-    /// Describes the metadata discovered for a plugin before it is loaded.
-    /// </summary>
+    // Describes the metadata discovered for a plugin before it is loaded.
     struct PluginMeta
     {
-        /// <summary>
-        /// Unique identifier for the plugin used to resolve dependencies.
-        /// </summary>
+        // Unique identifier for the plugin used to resolve dependencies.
         std::string id;
-        /// <summary>
-        /// Human-readable name for diagnostic output.
-        /// </summary>
+
+        // Human-readable name for diagnostic output.
         std::string name;
-        /// <summary>
-        /// Semantic version string reported by the plugin.
-        /// </summary>
+
+        // Semantic version string reported by the plugin.
         std::string version;
-        /// <summary>
-        /// Exported entry point used to create the plugin instance.
-        /// </summary>
+
+        // Exported entry point used to create the plugin instance.
         std::string entry_point;
-        /// <summary>
-        /// Optional descriptive text explaining the plugin purpose.
-        /// </summary>
+
+        // Optional descriptive text explaining the plugin purpose.
         std::string description;
-        /// <summary>
-        /// Primary classification for the plugin such as renderer or logger.
-        /// </summary>
+
+        // Primary classification for the plugin such as renderer or logger.
         std::string type;
-        /// <summary>
-        /// Hard dependencies that must be satisfied before loading this plugin.
-        /// </summary>
+        
+        // Hard dependencies that must be satisfied before loading this plugin.
         std::vector<std::string> hard_dependencies;
-        /// <summary>
-        /// Optional dependencies used to improve load ordering when available.
-        /// </summary>
+
+        // Optional dependencies used to improve load ordering when available.
         std::vector<std::string> soft_dependencies;
-        /// <summary>
-        /// Path to the manifest file that produced this metadata.
-        /// </summary>
+
+        // Path to the manifest file that produced this metadata.
         std::filesystem::path manifest_path;
-        /// <summary>
-        /// Directory containing the manifest and plugin module.
-        /// </summary>
+
+        // Directory containing the manifest and plugin module.
         std::filesystem::path root_directory;
-        /// <summary>
-        /// Full path to the plugin module that should be loaded.
-        /// </summary>
+        
+        // Full path to the plugin module that should be loaded.
         std::filesystem::path module_path;
     };
 
-    /// <summary>
-    /// Parses a plugin manifest from disk and returns the populated metadata.
-    /// </summary>
+    // Parses a plugin manifest from disk and returns the populated metadata.
     PluginMeta parse_plugin_meta(const std::filesystem::path& manifest_path);
-    /// <summary>
-    /// Parses plugin metadata from raw manifest text, primarily for testing.
-    /// </summary>
-    PluginMeta parse_plugin_meta_text(const std::string& manifest_text, const std::filesystem::path& manifest_path);
 
-    /// <summary>
-    /// Orders plugins for loading while respecting dependencies and logger priority.
-    /// </summary>
+    // Parses plugin metadata from raw manifest text.
+    PluginMeta parse_plugin_meta(const std::string& manifest_text, const std::filesystem::path& manifest_path);
+
+    // Orders plugins for loading while respecting dependencies and logger priority.
     std::vector<PluginMeta> resolve_plugin_load_order(const std::vector<PluginMeta>& plugins);
-    /// <summary>
-    /// Produces the unload order by reversing the computed load order.
-    /// </summary>
+    
+    // Produces the unload order by reversing the computed load order.
     std::vector<PluginMeta> resolve_plugin_unload_order(const std::vector<PluginMeta>& plugins);
 }
 

@@ -2,12 +2,12 @@
 #include <algorithm>
 #include <cctype>
 
-namespace tbx::strings
+namespace tbx
 {
     /// <summary>
     /// Removes leading and trailing whitespace characters from the input string.
     /// </summary>
-    std::string trim(const std::string& value)
+    std::string trim_string(const std::string& value)
     {
         size_t begin = 0;
         size_t end = value.size();
@@ -25,7 +25,7 @@ namespace tbx::strings
     /// <summary>
     /// Converts every character in the input string to lowercase.
     /// </summary>
-    std::string to_lower(const std::string& value)
+    std::string to_lower_case_string(const std::string& value)
     {
         std::string lower = value;
         std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char ch)

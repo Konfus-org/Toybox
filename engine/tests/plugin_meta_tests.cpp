@@ -24,8 +24,8 @@ namespace tbx::tests::plugin_api
             })JSON";
         const std::filesystem::path manifest_path = "/virtual/plugin_api/example/logger/plugin.meta";
 
-        ::tbx::plugin_api::PluginMeta meta =
-            ::tbx::plugin_api::parse_plugin_meta_text(manifest_text, manifest_path);
+        ::tbx::PluginMeta meta =
+            ::tbx::parse_plugin_meta(manifest_text, manifest_path);
 
         EXPECT_EQ(meta.id, "Example.Logger");
         EXPECT_EQ(meta.name, "Example Logger");
@@ -56,8 +56,8 @@ namespace tbx::tests::plugin_api
             })JSON";
         const std::filesystem::path manifest_path = "/virtual/plugin_api/example/without_type/plugin.meta";
 
-        ::tbx::plugin_api::PluginMeta meta =
-            ::tbx::plugin_api::parse_plugin_meta_text(manifest_text, manifest_path);
+        ::tbx::PluginMeta meta =
+            ::tbx::parse_plugin_meta(manifest_text, manifest_path);
 
         EXPECT_EQ(meta.type, "plugin");
     }
@@ -77,8 +77,8 @@ namespace tbx::tests::plugin_api
             })JSON";
         const std::filesystem::path manifest_path = "/virtual/plugin_api/example/relative_module/plugin.meta";
 
-        ::tbx::plugin_api::PluginMeta meta =
-            ::tbx::plugin_api::parse_plugin_meta_text(manifest_text, manifest_path);
+        ::tbx::PluginMeta meta =
+            ::tbx::parse_plugin_meta(manifest_text, manifest_path);
 
         EXPECT_EQ(meta.module_path, manifest_path.parent_path() / "modules/example_renderer.so");
     }
@@ -88,20 +88,20 @@ namespace tbx::tests::plugin_api
     /// </summary>
     TEST(plugin_meta_load_order_test, prioritizes_logger_and_respects_dependencies)
     {
-        ::tbx::plugin_api::PluginMeta logger;
+        ::tbx::PluginMeta logger;
         logger.id = "Logging.Core";
         logger.name = "Logging";
         logger.version = "1.0.0";
         logger.entry_point = "LoggingEntry";
         logger.type = "logger";
 
-        ::tbx::plugin_api::PluginMeta metrics;
+        ::tbx::PluginMeta metrics;
         metrics.id = "Metrics.Plugin";
         metrics.name = "Metrics";
         metrics.version = "1.0.0";
         metrics.entry_point = "MetricsEntry";
         metrics.type = "metrics";
-        ::tbx::plugin_api::PluginMeta renderer;
+        ::tbx::PluginMeta renderer;
         renderer.id = "Renderer.Plugin";
         renderer.name = "Renderer";
         renderer.version = "2.0.0";
@@ -109,7 +109,7 @@ namespace tbx::tests::plugin_api
         renderer.type = "renderer";
         renderer.hard_dependencies.push_back("Metrics.Plugin");
 
-        ::tbx::plugin_api::PluginMeta gameplay;
+        ::tbx::PluginMeta gameplay;
         gameplay.id = "Gameplay.Plugin";
         gameplay.name = "Gameplay";
         gameplay.version = "3.0.0";
@@ -118,13 +118,13 @@ namespace tbx::tests::plugin_api
         gameplay.soft_dependencies.push_back("metrics");
         gameplay.soft_dependencies.push_back("logger");
 
-        std::vector<::tbx::plugin_api::PluginMeta> unordered = {gameplay, renderer, metrics, logger};
+        std::vector<::tbx::PluginMeta> unordered = {gameplay, renderer, metrics, logger};
 
-        std::vector<::tbx::plugin_api::PluginMeta> load_order = ::tbx::plugin_api::resolve_plugin_load_order(unordered);
+        std::vector<::tbx::PluginMeta> load_order = ::tbx::resolve_plugin_load_order(unordered);
         ASSERT_EQ(load_order.size(), 4u);
         EXPECT_EQ(load_order[0].id, "Logging.Core");
 
-        auto find_plugin = [](const std::vector<::tbx::plugin_api::PluginMeta>& plugins, const std::string& id)
+        auto find_plugin = [](const std::vector<::tbx::PluginMeta>& plugins, const std::string& id)
         {
             for (size_t index = 0; index < plugins.size(); index += 1)
             {
@@ -146,7 +146,7 @@ namespace tbx::tests::plugin_api
         EXPECT_LT(metrics_index, gameplay_index);
         EXPECT_LT(logger_index, gameplay_index);
 
-        std::vector<::tbx::plugin_api::PluginMeta> unload_order = ::tbx::plugin_api::resolve_plugin_unload_order(unordered);
+        std::vector<::tbx::PluginMeta> unload_order = ::tbx::resolve_plugin_unload_order(unordered);
         ASSERT_EQ(unload_order.size(), load_order.size());
         for (size_t index = 0; index < load_order.size(); index += 1)
         {
