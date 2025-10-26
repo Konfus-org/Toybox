@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/commands/log_command.h"
-#include "tbx/dispatch/dispatcher.h"
-#include "tbx/dispatch/dispatcher_context.h"
+#include "tbx/messages/commands/log_command.h"
+#include "tbx/messages/dispatcher.h"
+#include "tbx/messages/dispatcher_context.h"
 #include <iostream>
 #include <sstream>
 
@@ -32,7 +32,7 @@ namespace tbx
                   << message << std::endl;
     }
 
-    inline void submit_log(MessageDispatcher& dispatcher, LogLevel level, const char* file, int line, const std::string& message)
+    inline void submit_log(IMessageDispatcher& dispatcher, LogLevel level, const char* file, int line, const std::string& message)
     {
         LogMessageCommand cmd;
         cmd.level = level;
@@ -49,7 +49,7 @@ namespace tbx
     // Convenience: uses the thread-local current dispatcher if one is set.
     inline void submit_log(LogLevel level, const char* file, int line, const std::string& message)
     {
-        if (MessageDispatcher* d = current_dispatcher())
+        if (IMessageDispatcher* d = current_dispatcher())
         {
             submit_log(*d, level, file, line, message);
         }

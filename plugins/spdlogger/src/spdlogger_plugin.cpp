@@ -2,7 +2,7 @@
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/application_context.h"
 #include "tbx/time/delta_time.h"
-#include "tbx/commands/log_command.h"
+#include "tbx/messages/commands/log_command.h"
 #include <spdlog/spdlog.h>
 
 namespace tbx::plugins::spdlogger
@@ -10,7 +10,7 @@ namespace tbx::plugins::spdlogger
     class SpdLoggerPlugin final : public ::tbx::Plugin
     {
     public:
-        void on_attach(const ::tbx::ApplicationContext&, ::tbx::MessageDispatcher&) override
+        void on_attach(const ::tbx::ApplicationContext&, ::tbx::IMessageDispatcher&) override
         {
             spdlog::info("SpdLoggerPlugin attached");
         }

@@ -2,7 +2,7 @@
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/application.h"
 #include "tbx/logging/log_macros.h"
-#include "tbx/dispatch/dispatcher_context.h"
+#include "tbx/messages/dispatcher_context.h"
 #include <chrono>
 #include <iostream>
 
@@ -13,10 +13,10 @@ int main()
     // Use the Application to load and run the plugin from the plugins directory
     tbx::AppDescription desc;
     desc.name = "PluginExample";
-    desc.requested_plugins = {"Example.SpdLogger"};
+    desc.requested_plugins = {"Logging.SpdLogger"};
 
     tbx::Application app(desc);
-    tbx::DispatcherScope scope(&app.dispatcher());
+    tbx::DispatcherScope scope(&app.get_dispatcher());
 
     spdlog::info("Type a message and press Enter to log. Type 'quit' to exit.");
     std::string line;

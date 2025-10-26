@@ -3,8 +3,8 @@
 
 namespace tbx
 {
-    // Base command type for high-frequency dispatch.
-    // Concrete commands derive from this and carry their own data.
+    // Base class for all commands.
+    // A command is a message that should be acted on.
     class Command : public Message
     {
     public:

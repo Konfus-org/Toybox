@@ -1,9 +1,7 @@
 #pragma once
 #include "tbx/memory/smart_pointers.h"
 #include "tbx/plugin_api/plugin_loader.h"
-#include "tbx/events/event.h"
-#include "tbx/commands/command.h"
-#include "tbx/dispatch/dispatcher.h"
+#include "tbx/messages/coordinator.h"
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -21,6 +19,10 @@ namespace tbx
         std::vector<std::string> requested_plugins = {};
     };
 
+    // Host application coordinating plugin lifecycle and message dispatching.
+    // Thread-safety: The application and coordinator are intended to be used
+    // on a single thread (the main loop). No internal synchronization is
+    // provided.
     class Application
     {
     public:
@@ -32,9 +34,9 @@ namespace tbx
         // Request exit from the main loop
         void request_exit();
 
-        // Access message dispatcher
-        MessageDispatcher& get_dispatcher() { return _dispatcher; }
-        const MessageDispatcher& get_dispatcher() const { return _dispatcher; }
+        // Access message dispatcher interface
+        IMessageDispatcher& get_dispatcher() { return _dispatcher; }
+        const IMessageDispatcher& get_dispatcher() const { return _dispatcher; }
 
     private:
         void initialize();
@@ -43,8 +45,10 @@ namespace tbx
 
     private:
         AppDescription _desc = {};
+        // Loaded plugins (owning their instances and module handles).
         std::vector<LoadedPlugin> _loaded = {};
-        MessageDispatcher _dispatcher;
+        // Concrete coordinator implementing dispatch + processing.
+        MessageCoordinator _dispatcher;
         bool _should_exit = false;
     };
 }

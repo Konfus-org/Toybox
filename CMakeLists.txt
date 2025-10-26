@@ -27,17 +27,17 @@ endif()
 
 # Engine projects
 add_subdirectory(engine)
+
+set(CMAKE_FOLDER "Tests")
 add_subdirectory(engine/tests)
-# TODO add launcher
 
 # Dependencies
 set(CMAKE_FOLDER "3rd Party")
 add_subdirectory(thirdparty)
 
-add_subdirectory(plugins)
-
 set(CMAKE_FOLDER "Examples")
 add_subdirectory(examples/plugin_example)
 unset(CMAKE_FOLDER)
 
-# Plugins (future)
+set(CMAKE_FOLDER "Plugins")
+add_subdirectory(plugins)

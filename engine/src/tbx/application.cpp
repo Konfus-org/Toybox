@@ -2,6 +2,7 @@
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/time/delta_time.h"
+#include "tbx/messages/dispatcher_context.h"
 
 namespace tbx
 {
@@ -20,7 +21,7 @@ namespace tbx
     int Application::run()
     {
         DeltaTimer timer;
-        DispatcherScope scope(&_dispatcher);
+        DispatcherScope scope(&get_dispatcher());
         while (!_should_exit)
         {
             // Process messages posted in previous frame
@@ -56,17 +57,11 @@ namespace tbx
         ApplicationContext ctx{};
         ctx.instance = this;
         ctx.description = _desc;
-
         for (auto& p : _loaded)
         {
             if (p.instance)
             {
-                Plugin* target = p.instance.get();
-                _dispatcher.add_handler([target](const Message& msg)
-                {
-                    if (!msg.is_handled)
-                        target->on_message(msg);
-                });
+                _dispatcher.add_handler(*p.instance);
                 p.instance->on_attach(ctx, _dispatcher);
             }
         }
