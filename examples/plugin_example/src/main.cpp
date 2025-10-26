@@ -1,5 +1,4 @@
 #include "tbx/plugin_api/plugin_loader.h"
-#include "tbx/plugin_api/plugin.h"
 #include "tbx/application.h"
 #include "tbx/logging/log_macros.h"
 #include "tbx/messages/dispatcher_context.h"
@@ -18,7 +17,6 @@ int main()
     tbx::Application app(desc);
     tbx::DispatcherScope scope(&app.get_dispatcher());
 
-    spdlog::info("Type a message and press Enter to log. Type 'quit' to exit.");
     std::string line;
     while (true)
     {

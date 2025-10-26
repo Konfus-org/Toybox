@@ -1,7 +1,13 @@
 #include "tbx/messages/coordinator.h"
+#include "tbx/memory/smart_pointers.h"
 
 namespace tbx
 {
+    Uuid MessageCoordinator::add_handler(IMessageHandler* handler)
+    {
+        return add_handler(*handler);
+    }
+
     Uuid MessageCoordinator::add_handler(IMessageHandler& handler)
     {
         Uuid id = Uuid::generate();
@@ -11,7 +17,7 @@ namespace tbx
 
     void MessageCoordinator::remove_handler(const Uuid& token)
     {
-        std::vector<std::pair<Uuid, Handler>> next;
+        std::vector<std::pair<Uuid, IMessageHandler*>> next;
         next.reserve(_handlers.size());
         for (auto& entry : _handlers)
         {

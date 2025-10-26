@@ -23,7 +23,7 @@ endif()
 # Sources
 file(GLOB_RECURSE INCL CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.*")
 file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
-target_sources(Engine PRIVATE ${SRCS} ${INCL})
+target_sources(Engine PRIVATE ${SRCS} ${INCL} "include/tbx/messages/commands/app_commands.h")
 
 # Expose include dirs to dependents (build & install time)
 target_include_directories(Engine

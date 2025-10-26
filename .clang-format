@@ -8,7 +8,6 @@ AlignConsecutiveAssignments: true
 AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
-BreakBeforeBraces: Google
 IncludeBlocks: Merge
 SortIncludes: true
 ReflowComments: true

@@ -1,12 +1,13 @@
 #include "tbx/application.h"
+#include "tbx/logging/log_macros.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/time/delta_time.h"
 #include "tbx/messages/dispatcher_context.h"
+#include "tbx/messages/commands/app_commands.h"
 
 namespace tbx
 {
-
     Application::Application(const AppDescription& desc)
     {
         _desc = desc;
@@ -21,24 +22,20 @@ namespace tbx
     int Application::run()
     {
         DeltaTimer timer;
-        DispatcherScope scope(&get_dispatcher());
+        DispatcherScope scope(&_msg_coordinator);
         while (!_should_exit)
         {
-            // Process messages posted in previous frame
-            _dispatcher.process();
-            DeltaTime dt = timer.tick();
-            for (auto& p : _loaded)
-            {
-                if (p.instance)
-                    p.instance->on_update(dt);
-            }
+            update(timer);
         }
         return 0;
     }
 
-    void Application::request_exit()
+    void Application::on_message(const Message& msg)
     {
-        _should_exit = true;
+        if (msg.is<ExitApplicationCommand>())
+        {
+            _should_exit = true;
+        }
     }
 
     void Application::initialize()
@@ -54,21 +51,44 @@ namespace tbx
         }
 
         // Attach all plugins with a basic context
-        ApplicationContext ctx{};
-        ctx.instance = this;
-        ctx.description = _desc;
+        ApplicationContext ctx =
+        {
+            .instance = this,
+            .description = _desc
+        };
+
+        _msg_coordinator.add_handler(this);
+        
         for (auto& p : _loaded)
         {
             if (p.instance)
             {
-                _dispatcher.add_handler(*p.instance);
-                p.instance->on_attach(ctx, _dispatcher);
+                _msg_coordinator.add_handler(*p.instance);
+                p.instance->on_attach(ctx, _msg_coordinator);
             }
         }
     }
 
-    void Application::update()
+    void Application::update(DeltaTimer timer)
     {
+        // Process messages posted in previous frame
+        _msg_coordinator.process();
+
+        // Update delta time
+        DeltaTime dt = timer.tick();
+
+        // Update all loaded plugins
+        for (auto& p : _loaded)
+        {
+            if (p.instance)
+            {
+                p.instance->on_update(dt);
+            }
+            else
+            {
+                TBX_TRACE_WARNING("Plugin {} is null at runtime!", p.meta.id);
+            }
+        }
     }
 
     void Application::shutdown()
@@ -79,6 +99,6 @@ namespace tbx
                 p.instance->on_detach();
         }
         _loaded.clear();
-        _dispatcher.clear();
+        _msg_coordinator.clear();
     }
 }

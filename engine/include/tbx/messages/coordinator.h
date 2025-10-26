@@ -1,8 +1,8 @@
 #pragma once
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/handler.h"
+#include "tbx/memory/smart_pointers.h"
 #include "tbx/ids/uuid.h"
-#include "tbx/memory/memory.h"
 #include <utility>
 #include <vector>
 
@@ -17,6 +17,7 @@ namespace tbx
     {
     public:
         // Subscription management
+        Uuid add_handler(IMessageHandler* handler);
         Uuid add_handler(IMessageHandler& handler);
         void remove_handler(const Uuid& token);
         void clear();
