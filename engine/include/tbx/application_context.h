@@ -1,8 +1,10 @@
 #pragma once
-#include "tbx/application.h"
+#include "tbx/app_description.h"
 
 namespace tbx
 {
+    class Application;
+
     struct ApplicationContext
     {
         Application* instance = nullptr;

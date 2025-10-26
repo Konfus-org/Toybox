@@ -114,7 +114,6 @@ namespace tbx
 
             LoadedPlugin lp{};
             lp.meta = meta;
-            lp.is_dynamic = true;
             lp.library = std::move(lib);
             lp.instance.reset(raw);
             loaded.push_back(std::move(lp));

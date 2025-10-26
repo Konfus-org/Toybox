@@ -30,14 +30,6 @@ namespace tbx
         return 0;
     }
 
-    void Application::on_message(const Message& msg)
-    {
-        if (msg.is<ExitApplicationCommand>())
-        {
-            _should_exit = true;
-        }
-    }
-
     void Application::initialize()
     {
         // Load dynamic plugins based on description
@@ -57,13 +49,19 @@ namespace tbx
             .description = _desc
         };
 
-        _msg_coordinator.add_handler(this);
-        
+        _msg_coordinator.add_handler([this](const Message& msg)
+        {
+            handle_message(msg);
+        });
         for (auto& p : _loaded)
         {
             if (p.instance)
             {
-                _msg_coordinator.add_handler(*p.instance);
+                _msg_coordinator.add_handler([plugin = p.instance.get()](const Message& msg)
+                {
+                    if (plugin)
+                        plugin->on_message(msg);
+                });
                 p.instance->on_attach(ctx, _msg_coordinator);
             }
         }
@@ -100,5 +98,13 @@ namespace tbx
         }
         _loaded.clear();
         _msg_coordinator.clear();
+    }
+
+    void Application::handle_message(const Message& msg)
+    {
+        if (msg.is<ExitApplicationCommand>())
+        {
+            _should_exit = true;
+        }
     }
 }

@@ -1,21 +1,15 @@
-#include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/application.h"
 #include "tbx/logging/log_macros.h"
-#include "tbx/messages/dispatcher_context.h"
-#include <chrono>
 #include <iostream>
 
 int main()
 {
-    using namespace std::chrono_literals;
-
     // Use the Application to load and run the plugin from the plugins directory
     tbx::AppDescription desc;
     desc.name = "PluginExample";
     desc.requested_plugins = {"Logging.SpdLogger"};
 
     tbx::Application app(desc);
-    tbx::DispatcherScope scope(&app.get_dispatcher());
 
     std::string line;
     while (true)
@@ -32,6 +26,5 @@ int main()
             TBX_ASSERT(false, "User triggered assert");
         }
     }
-    app.request_exit();
     return 0;
 }
