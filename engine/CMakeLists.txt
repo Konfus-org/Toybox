@@ -73,3 +73,5 @@ target_compile_definitions(Engine PUBLIC
 target_compile_definitions(Engine PRIVATE
   TBX_EXPORTING_SYMBOLS=1
 )
+
+add_library(Tbx::Engine ALIAS Engine)

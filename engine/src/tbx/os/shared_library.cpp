@@ -1,5 +1,5 @@
 #include "tbx/os/shared_library.h"
-
+#include <stdexcept>
 #if defined(TBX_PLATFORM_WINDOWS)
     #define NOMINMAX 1
     #include <windows.h>
@@ -7,11 +7,10 @@
     #include <dlfcn.h>
 #endif
 
-#include <stdexcept>
 
 namespace tbx
 {
-    static inline std::string make_load_error_message(const std::filesystem::path& p)
+    static std::string make_load_error_message(const std::filesystem::path& p)
     {
     #if defined(TBX_PLATFORM_WINDOWS)
         (void)p;
@@ -80,10 +79,10 @@ namespace tbx
         if (!_handle)
             return nullptr;
     #if defined(TBX_PLATFORM_WINDOWS)
-        FARPROC p = ::GetProcAddress(_handle, name);
+        FARPROC p = GetProcAddress(static_cast<HMODULE>(_handle), name);
         return reinterpret_cast<void*>(p);
     #else
-        return ::dlsym(_handle, name);
+        return dlsym(_handle, name);
     #endif
     }
 
@@ -97,9 +96,9 @@ namespace tbx
         if (_handle)
         {
         #if defined(TBX_PLATFORM_WINDOWS)
-            ::FreeLibrary(_handle);
+            FreeLibrary(static_cast<HMODULE>(_handle));
         #else
-            ::dlclose(_handle);
+            dlclose(_handle);
         #endif
             _handle = nullptr;
         }

@@ -1,0 +1,12 @@
+{
+    "id": "Runtime.Example",
+    "name": "Example",
+    "version": "1.0.0",
+    "entryPoint": "CreateExampleRuntime",
+    "type": "runtime",
+    "module": "PluginExampleRuntime",
+    "hard_dependencies": [
+        "Logging.SpdLogging"
+    ]
+}
+

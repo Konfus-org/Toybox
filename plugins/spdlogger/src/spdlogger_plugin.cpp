@@ -20,7 +20,10 @@ namespace tbx::plugins::spdlogger
             spdlog::info("SpdLoggerPlugin detached");
         }
 
-        void on_update(const tbx::DeltaTime&) override {}
+        void on_update(const tbx::DeltaTime&) override
+        {
+        }
+
         void on_message(const tbx::Message& msg) override
         {
             const auto* log = dynamic_cast<const tbx::LogMessageCommand*>(&msg);
@@ -38,4 +41,4 @@ namespace tbx::plugins::spdlogger
     };
 }
 
-TBX_REGISTER_PLUGIN(CreateSpdLoggerPlugin, ::tbx::plugins::spdlogger::SpdLoggerPlugin)
+TBX_REGISTER_PLUGIN(CreateSpdLoggerPlugin, ::tbx::plugins::spdlogger::SpdLoggerPlugin);

@@ -1,3 +1,5 @@
+set(CMAKE_FOLDER "Tests")
+
 add_executable(Tests)
 
 # PCH

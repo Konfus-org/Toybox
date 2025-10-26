@@ -68,13 +68,16 @@ namespace tbx
                 const std::string name = p.filename().string();
                 if (p.extension() == ".meta" || to_lower_case_string(name) == "plugin.meta")
                 {
-                    try {
+                    try
+                    {
                         PluginMeta m = parse_plugin_meta(p);
                         if (req.empty() || id_in_requests(m.id, req))
                         {
                             metas.push_back(std::move(m));
                         }
-                    } catch (...) {
+                    }
+                    catch (...)
+                    {
                         // ignore malformed manifests in this pass
                     }
                 }

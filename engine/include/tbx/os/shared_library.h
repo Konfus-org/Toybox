@@ -40,19 +40,9 @@ namespace tbx
     private:
         void unload();
         void* get_symbol_raw(const char* name) const;
-
-    private:
-#if defined(TBX_PLATFORM_WINDOWS)
-        // Avoid windows.h in headers: forward declare HMODULE
-        struct HINSTANCE__;
-        using HMODULE = HINSTANCE__*;
-        using NativeLibHandle = HMODULE;
-#else
-        using NativeLibHandle = void*; // dlopen handle
-#endif
     
     private:
-        NativeLibHandle _handle = nullptr;
+        void* _handle = nullptr;
         std::filesystem::path _path;
     };
 }

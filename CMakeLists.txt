@@ -28,16 +28,9 @@ endif()
 # Engine projects
 add_subdirectory(engine)
 
-set(CMAKE_FOLDER "Tests")
 add_subdirectory(engine/tests)
 
-# Dependencies
-set(CMAKE_FOLDER "3rd Party")
 add_subdirectory(thirdparty)
-
-set(CMAKE_FOLDER "Examples")
-add_subdirectory(examples/plugin_example)
-unset(CMAKE_FOLDER)
-
-set(CMAKE_FOLDER "Plugins")
+add_subdirectory(examples)
 add_subdirectory(plugins)
+unset(CMAKE_FOLDER)

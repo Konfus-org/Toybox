@@ -21,8 +21,8 @@ namespace tbx
 
     int Application::run()
     {
-        DeltaTimer timer;
         DispatcherScope scope(&_msg_coordinator);
+        DeltaTimer timer;
         while (!_should_exit)
         {
             update(timer);
@@ -32,6 +32,9 @@ namespace tbx
 
     void Application::initialize()
     {
+        // Set dispatcher scope
+        DispatcherScope scope(&_msg_coordinator);
+
         // Load dynamic plugins based on description
         if (!_desc.plugins_directory.empty())
         {
