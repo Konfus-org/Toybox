@@ -3,21 +3,16 @@
 
 namespace tbx
 {
-    Uuid MessageCoordinator::add_handler(IMessageHandler* handler)
-    {
-        return add_handler(*handler);
-    }
-
-    Uuid MessageCoordinator::add_handler(IMessageHandler& handler)
+    Uuid MessageCoordinator::add_handler(MessageHandler handler)
     {
         Uuid id = Uuid::generate();
-        _handlers.emplace_back(id, &handler);
+        _handlers.emplace_back(id, std::move(handler));
         return id;
     }
 
     void MessageCoordinator::remove_handler(const Uuid& token)
     {
-        std::vector<std::pair<Uuid, IMessageHandler*>> next;
+        std::vector<std::pair<Uuid, MessageHandler>> next;
         next.reserve(_handlers.size());
         for (auto& entry : _handlers)
         {
@@ -43,7 +38,7 @@ namespace tbx
             if (msg.is_handled)
                 break;
             if (entry.second)
-                entry.second->on_message(msg);
+                entry.second(msg);
         }
     }
 

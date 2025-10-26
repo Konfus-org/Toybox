@@ -9,7 +9,7 @@
 namespace tbx
 {
     // Concrete coordinator that:
-    //  - Tracks subscribers (IMessageHandler*) and delivers messages via send()
+    //  - Tracks subscribers (MessageHandler callbacks) and delivers messages via send()
     //  - Owns a queue of copies for deferred delivery via post()/process()
     // This type implements both the dispatch interface (for producers)
     // and the processor interface (for the engine/application loop).
@@ -17,8 +17,7 @@ namespace tbx
     {
     public:
         // Subscription management
-        Uuid add_handler(IMessageHandler* handler);
-        Uuid add_handler(IMessageHandler& handler);
+        Uuid add_handler(MessageHandler handler);
         void remove_handler(const Uuid& token);
         void clear();
 
@@ -31,7 +30,7 @@ namespace tbx
         void process() override;
 
     private:
-        std::vector<std::pair<Uuid, IMessageHandler*>> _handlers;
+        std::vector<std::pair<Uuid, MessageHandler>> _handlers;
         std::vector<Scope<Message>> _pending;
         std::vector<Scope<Message>> _processing;
     };

@@ -1,42 +1,30 @@
 #pragma once
-#include "tbx/plugin_api/plugin_loader.h"
+#include "tbx/app_description.h"
 #include "tbx/messages/coordinator.h"
-#include <filesystem>
-#include <string>
+#include "tbx/plugin_api/loaded_plugin.h"
+#include "tbx/time/delta_time.h"
 #include <vector>
 
 namespace tbx
 {
-    class Plugin;
-
-    struct AppDescription
-    {
-        std::string name = "";
-        std::filesystem::path working_root = "";
-        std::filesystem::path assets_directory = "";
-        std::filesystem::path plugins_directory = "";
-        std::vector<std::string> requested_plugins = {};
-    };
-
     // Host application coordinating plugin lifecycle and message dispatching.
     // Thread-safety: The application and coordinator are intended to be used
     // on a single thread (the main loop). No internal synchronization is
     // provided.
-    class Application : public IMessageHandler
+    class Application
     {
     public:
         Application(const AppDescription& desc);
-        ~Application() override;
+        ~Application();
 
         // Starts the application main loop. Returns process exit code.
         int run();
-
-        void on_message(const Message& msg) override;
 
     private:
         void initialize();
         void update(DeltaTimer timer);
         void shutdown();
+        void handle_message(const Message& msg);
 
     private:
         AppDescription _desc = {};

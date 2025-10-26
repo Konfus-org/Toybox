@@ -2,7 +2,7 @@
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/application_context.h"
 #include "tbx/time/delta_time.h"
-#include "tbx/messages/commands/log_command.h"
+#include "tbx/messages/commands/log_commands.h"
 #include <spdlog/spdlog.h>
 
 namespace tbx::plugins::spdlogger

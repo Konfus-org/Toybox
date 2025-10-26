@@ -10,11 +10,10 @@ namespace tbx::tests::plugin_loader
     class TestDynamicPlugin : public ::tbx::Plugin
     {
     public:
-        void on_attach(const ::tbx::ApplicationContext&) override {}
+        void on_attach(const ::tbx::ApplicationContext&, ::tbx::IMessageDispatcher&) override {}
         void on_detach() override {}
         void on_update(const ::tbx::DeltaTime&) override {}
-        void on_event(const ::tbx::Event&) override {}
-        void on_command(const ::tbx::Command&) override {}
+        void on_message(const ::tbx::Message&) override {}
     };
     TBX_REGISTER_PLUGIN(CreateTestDynamicPlugin, TestDynamicPlugin)
 

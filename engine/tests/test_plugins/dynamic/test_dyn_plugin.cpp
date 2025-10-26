@@ -4,10 +4,12 @@
 class TestDynamicPlugin : public ::tbx::Plugin
 {
 public:
-    void on_attach(const ::tbx::ApplicationContext&, ::tbx::MessageDispatcher&) override {}
+    void on_attach(const ::tbx::ApplicationContext&, ::tbx::IMessageDispatcher&) override {}
     void on_detach() override {}
     void on_update(const ::tbx::DeltaTime&) override {}
     void on_message(const ::tbx::Message&) override {}
 };
 
-TBX_DEFINE_DYNAMIC_PLUGIN(CreateTestDynamicPlugin, TestDynamicPlugin)
+#ifndef TBX_TEST_DYN_PLUGIN_PATH
+TBX_REGISTER_PLUGIN(CreateTestDynamicPlugin, TestDynamicPlugin)
+#endif

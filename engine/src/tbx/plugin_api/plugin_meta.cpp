@@ -264,10 +264,10 @@ namespace tbx
         for (size_t index = 0; index < plugins.size(); index += 1)
         {
             const PluginMeta& meta = plugins[index];
-            by_id.emplace(to_lower(meta.id), index);
+            by_id.emplace(to_lower_case_string(meta.id), index);
             if (!meta.type.empty())
             {
-                by_type[to_lower(meta.type)].push_back(index);
+                by_type[to_lower_case_string(meta.type)].push_back(index);
             }
         }
 

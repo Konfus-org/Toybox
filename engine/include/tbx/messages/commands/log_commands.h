@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/commands/command.h"
+#include "tbx/messages/commands/command.h"
 #include <string>
 
 namespace tbx
