@@ -1,20 +1,13 @@
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/strings/string_utils.h"
+#include <deque>
 #include <fstream>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace tbx
 {
     using CreatePluginFn = Plugin* (*)();
-
-    static std::string to_lower_copy(const std::string& s)
-    {
-        return to_lower_case_string(s);
-    }
-
-    static bool id_in_requests(const std::string& id, const std::unordered_set<std::string>& requests_lower)
-    {
-        return requests_lower.find(to_lower_case_string(id)) != requests_lower.end();
-    }
 
     static std::filesystem::path resolve_module_path(const PluginMeta& meta)
     {
@@ -55,10 +48,10 @@ namespace tbx
         const std::vector<std::string>& requested_ids)
     {
         std::vector<LoadedPlugin> loaded;
-        std::unordered_set<std::string> req;
-        for (const auto& id : requested_ids) req.insert(to_lower_copy(id));
 
-        std::vector<PluginMeta> metas;
+        std::vector<PluginMeta> discovered;
+        // The first pass walks every manifest to build an index before we know
+        // which plugins will ultimately be requested.
         if (std::filesystem::exists(directory))
         {
             for (auto& entry : std::filesystem::recursive_directory_iterator(directory))
@@ -71,10 +64,7 @@ namespace tbx
                     try
                     {
                         PluginMeta m = parse_plugin_meta(p);
-                        if (req.empty() || id_in_requests(m.id, req))
-                        {
-                            metas.push_back(std::move(m));
-                        }
+                        discovered.push_back(std::move(m));
                     }
                     catch (...)
                     {
@@ -84,9 +74,106 @@ namespace tbx
             }
         }
 
-        if (metas.empty())
+        if (discovered.empty())
         {
             return loaded;
+        }
+
+        std::vector<PluginMeta> metas;
+        if (requested_ids.empty())
+        {
+            metas = std::move(discovered);
+        }
+        else
+        {
+            // Build lookup tables keyed by plugin id and by plugin type so we
+            // can resolve dependencies expressed as either kind of token.
+            std::unordered_map<std::string, size_t> by_id;
+            std::unordered_map<std::string, std::vector<size_t>> by_type;
+            by_id.reserve(discovered.size());
+            by_type.reserve(discovered.size());
+            for (size_t index = 0; index < discovered.size(); ++index)
+            {
+                const PluginMeta& meta = discovered[index];
+                by_id.emplace(to_lower_case_string(meta.id), index);
+                if (!meta.type.empty())
+                {
+                    by_type[to_lower_case_string(meta.type)].push_back(index);
+                }
+            }
+
+            // Track the index of every manifest that we have chosen to load.
+            std::unordered_set<size_t> selected;
+            std::deque<size_t> pending;
+
+            auto enqueue_index = [&](size_t index) {
+                if (selected.insert(index).second)
+                {
+                    pending.push_back(index);
+                }
+            };
+
+            auto enqueue_dependency_token = [&](const std::string& token) {
+                std::string needle = to_lower_case_string(trim_string(token));
+                if (needle.empty())
+                {
+                    return;
+                }
+
+                auto id_it = by_id.find(needle);
+                if (id_it != by_id.end())
+                {
+                    enqueue_index(id_it->second);
+                }
+
+                auto type_it = by_type.find(needle);
+                if (type_it != by_type.end())
+                {
+                    for (size_t candidate : type_it->second)
+                    {
+                        enqueue_index(candidate);
+                    }
+                }
+            };
+
+            for (const std::string& requested : requested_ids)
+            {
+                std::string needle = to_lower_case_string(trim_string(requested));
+                auto it = by_id.find(needle);
+                if (it != by_id.end())
+                {
+                    enqueue_index(it->second);
+                }
+            }
+
+            while (!pending.empty())
+            {
+                size_t index = pending.front();
+                pending.pop_front();
+                const PluginMeta& meta = discovered[index];
+                // Hard dependencies are mandatory. Their tokens can be ids or
+                // types, so resolve each one through the lookup tables.
+                for (const std::string& dependency : meta.hard_dependencies)
+                {
+                    enqueue_dependency_token(dependency);
+                }
+                // Soft dependencies are optional hints; if they exist we try
+                // to load them as well so the plugin can take advantage of the
+                // additional functionality.
+                for (const std::string& dependency : meta.soft_dependencies)
+                {
+                    enqueue_dependency_token(dependency);
+                }
+            }
+
+            metas.reserve(selected.size());
+            for (size_t index = 0; index < discovered.size(); ++index)
+            {
+                if (selected.find(index) != selected.end())
+                {
+                    metas.push_back(discovered[index]);
+                }
+            }
         }
 
         std::vector<PluginMeta> ordered = resolve_plugin_load_order(metas);
