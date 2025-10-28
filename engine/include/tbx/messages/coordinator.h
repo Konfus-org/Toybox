@@ -3,6 +3,7 @@
 #include "tbx/messages/handler.h"
 #include "tbx/memory/smart_pointers.h"
 #include "tbx/ids/uuid.h"
+#include <chrono>
 #include <utility>
 #include <vector>
 
@@ -22,16 +23,30 @@ namespace tbx
         void clear();
 
         // IMessageDispatcher
-        void send(const Message& msg) const override;
+        MessageResult send(const Message& msg, const MessageConfiguration& config = {}) const override;
         // Copies the message for deferred processing
-        void post(const Message& msg) override;
+        MessageResult post(const Message& msg, const MessageConfiguration& config = {}) override;
 
         // IMessageProcessor
         void process() override;
 
     private:
+        struct QueuedMessage
+        {
+            Scope<Message> message;
+            MessageConfiguration config;
+            MessageResult result;
+            std::size_t remaining_ticks = 0;
+            bool has_tick_delay = false;
+            bool has_time_delay = false;
+            std::chrono::steady_clock::time_point ready_time{};
+        };
+
+        MessageResult dispatch(Message& msg, const MessageConfiguration& config, MessageResult result) const;
+        void finalize_callbacks(const Message& msg, const MessageConfiguration& config, MessageResult& result, MessageStatus status) const;
+
         std::vector<std::pair<Uuid, MessageHandler>> _handlers;
-        std::vector<Scope<Message>> _pending;
-        std::vector<Scope<Message>> _processing;
+        std::vector<QueuedMessage> _pending;
+        std::vector<QueuedMessage> _processing;
     };
 }

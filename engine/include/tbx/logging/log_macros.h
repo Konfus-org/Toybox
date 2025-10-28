@@ -6,10 +6,10 @@
 #define TBX_TRACE_ERROR_EX(CmdDispatcherRef, ...)     ::tbx::submit_formatted((CmdDispatcherRef), ::tbx::LogLevel::Error, __FILE__, __LINE__, __VA_ARGS__)
 #define TBX_TRACE_CRITICAL_EX(CmdDispatcherRef, ...)  ::tbx::submit_formatted((CmdDispatcherRef), ::tbx::LogLevel::Critical, __FILE__, __LINE__, __VA_ARGS__)
 
-#define TBX_TRACE_INFO(msg, ...)      ::tbx::submit_formatted(::tbx::LogLevel::Info, __FILE__, __LINE__, msg, __VA_ARGS__)
-#define TBX_TRACE_WARNING(msg, ...)   ::tbx::submit_formatted(::tbx::LogLevel::Warning, __FILE__, __LINE__, msg, __VA_ARGS__)
-#define TBX_TRACE_ERROR(msg, ...)     ::tbx::submit_formatted(::tbx::LogLevel::Error, __FILE__, __LINE__, msg, __VA_ARGS__)
-#define TBX_TRACE_CRITICAL(msg, ...)  ::tbx::submit_formatted(::tbx::LogLevel::Critical, __FILE__, __LINE__, msg, __VA_ARGS__)
+#define TBX_TRACE_INFO(msg, ...)      ::tbx::submit_formatted(::tbx::LogLevel::Info, __FILE__, __LINE__, msg __VA_OPT__(,) __VA_ARGS__)
+#define TBX_TRACE_WARNING(msg, ...)   ::tbx::submit_formatted(::tbx::LogLevel::Warning, __FILE__, __LINE__, msg __VA_OPT__(,) __VA_ARGS__)
+#define TBX_TRACE_ERROR(msg, ...)     ::tbx::submit_formatted(::tbx::LogLevel::Error, __FILE__, __LINE__, msg __VA_OPT__(,) __VA_ARGS__)
+#define TBX_TRACE_CRITICAL(msg, ...)  ::tbx::submit_formatted(::tbx::LogLevel::Critical, __FILE__, __LINE__, msg __VA_OPT__(,) __VA_ARGS__)
 
 #ifdef TBX_ASSERTS_ENABLED
     // Asserts that a condition is true, if it isn't this method will write a critical level msg to the log.

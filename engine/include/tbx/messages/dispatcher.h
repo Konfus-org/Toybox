@@ -1,5 +1,6 @@
 #pragma once
-#include "tbx/messages/message.h"
+#include "tbx/messages/message_configuration.h"
+#include "tbx/messages/message_result.h"
 #include <type_traits>
 
 namespace tbx
@@ -12,9 +13,9 @@ namespace tbx
     public:
         virtual ~IMessageDispatcher() = default;
         // Immediately send message on the stack.
-        virtual void send(const Message& msg) const = 0;
+        virtual MessageResult send(const Message& msg, const MessageConfiguration& config = {}) const = 0;
         // Copies the message for deferred processing on the next process() tick.
-        virtual void post(const Message& msg) = 0;
+        virtual MessageResult post(const Message& msg, const MessageConfiguration& config = {}) = 0;
     };
 
     // Interface for components that advance queued work and deliver
