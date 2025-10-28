@@ -2,7 +2,7 @@
 
 namespace tbx
 {
-    static thread_local IMessageDispatcher* global_dispatcher = nullptr;
+    static IMessageDispatcher* global_dispatcher = nullptr;
 
     IMessageDispatcher* current_dispatcher()
     {

@@ -15,8 +15,7 @@
         "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/_build/lib/$<CONFIG>",
         "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/_build/lib/$<CONFIG>",
         "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/_build/pdb/$<CONFIG>",
-        "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
-        "TBX_BUILD_SHARED": false
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release"
       },
       "hidden": true
     },
@@ -35,8 +34,7 @@
         "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/_build/lib/$<CONFIG>",
         "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/_build/lib/$<CONFIG>",
         "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/_build/pdb/$<CONFIG>",
-        "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
-        "TBX_BUILD_SHARED": false
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release"
       },
       "hidden": true
     },

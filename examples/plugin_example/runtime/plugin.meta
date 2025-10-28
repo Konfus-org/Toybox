@@ -6,7 +6,7 @@
     "type": "runtime",
     "module": "PluginExampleRuntime",
     "hard_dependencies": [
-        "Logging.SpdLogging"
+        "Logging.SpdLogger"
     ]
 }
 

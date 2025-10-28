@@ -25,11 +25,9 @@ if(MSVC)
   add_link_options("/INCREMENTAL")
 endif()
 
-# Engine projects
+# Libs and projects
 add_subdirectory(engine)
-
 add_subdirectory(engine/tests)
-
 add_subdirectory(thirdparty)
 add_subdirectory(examples)
 add_subdirectory(plugins)

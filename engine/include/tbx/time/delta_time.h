@@ -23,4 +23,9 @@ namespace tbx
     private:
         std::chrono::steady_clock::time_point _last;
     };
+
+    inline std::string to_string(const DeltaTime& dt)
+    {
+        return std::to_string(dt.seconds) + "s";
+    }
 }

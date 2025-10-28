@@ -7,7 +7,7 @@ int main()
     {
         .name = "PluginExample",
         .plugins_directory = "./",
-        .requested_plugins = {"ExampleRuntimePlugin"}
+        .requested_plugins = {"Runtime.Example"}
     };
     auto app = tbx::Application(desc);
 

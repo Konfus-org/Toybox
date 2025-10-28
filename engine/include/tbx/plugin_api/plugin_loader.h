@@ -3,7 +3,6 @@
 #include "tbx/plugin_api/plugin.h"
 #include <filesystem>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 namespace tbx

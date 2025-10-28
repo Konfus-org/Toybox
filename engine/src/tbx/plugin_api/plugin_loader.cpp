@@ -1,5 +1,6 @@
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/strings/string_utils.h"
+#include "tbx/logging/log_macros.h"
 #include <deque>
 #include <fstream>
 #include <unordered_map>
@@ -7,7 +8,7 @@
 
 namespace tbx
 {
-    using CreatePluginFn = Plugin* (*)();
+    using CreatePluginFn = Plugin*(*)();
 
     static std::filesystem::path resolve_module_path(const PluginMeta& meta)
     {
@@ -27,17 +28,17 @@ namespace tbx
         // If no extension, add platform-specific extension and unix lib prefix
         if (module.extension().empty())
         {
-        #if defined(TBX_PLATFORM_WINDOWS)
+#if defined(TBX_PLATFORM_WINDOWS)
             module += ".dll";
-        #elif defined(TBX_PLATFORM_MACOS)
+#elif defined(TBX_PLATFORM_MACOS)
             if (module.filename().string().rfind("lib", 0) != 0)
                 module = module.parent_path() / (std::string("lib") + module.filename().string());
             module += ".dylib";
-        #else
+#else
             if (module.filename().string().rfind("lib", 0) != 0)
                 module = module.parent_path() / (std::string("lib") + module.filename().string());
             module += ".so";
-        #endif
+#endif
         }
 
         return module;
@@ -68,7 +69,7 @@ namespace tbx
                     }
                     catch (...)
                     {
-                        // ignore malformed manifests in this pass
+                        TBX_TRACE_WARNING("Plugin {} is unable to be loaded!", entry.path().string());
                     }
                 }
             }
@@ -193,16 +194,18 @@ namespace tbx
             CreatePluginFn create = lib->get_symbol<CreatePluginFn>(meta.entry_point.c_str());
             if (!create)
             {
-                throw std::runtime_error("Entry point not found in plugin module: " + meta.entry_point);
+                TBX_TRACE_WARNING("Entry point not found in plugin module: {}", meta.entry_point);
+                continue;
             }
 
             Plugin* raw = create();
             if (!raw)
             {
-                throw std::runtime_error("Plugin factory returned null for: " + meta.id);
+                TBX_TRACE_WARNING("Plugin factory returned null for: {}", meta.id);
+                continue;
             }
 
-            LoadedPlugin lp{};
+            LoadedPlugin lp;
             lp.meta = meta;
             lp.library = std::move(lib);
             lp.instance.reset(raw);

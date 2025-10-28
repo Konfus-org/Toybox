@@ -198,10 +198,9 @@ namespace tbx
         {
             meta.type = "plugin";
         }
-        assign_string_list(data, "hardDependencies", meta.hard_dependencies);
         assign_string_list(data, "dependencies", meta.hard_dependencies);
-        assign_string_list(data, "softDependencies", meta.soft_dependencies);
-        assign_string_list(data, "softDepends", meta.soft_dependencies);
+        assign_string_list(data, "hard_dependencies", meta.hard_dependencies);
+        assign_string_list(data, "soft_dependencies", meta.soft_dependencies);
         auto description_it = data.find("description");
         if (description_it != data.end() && description_it->is_string())
         {

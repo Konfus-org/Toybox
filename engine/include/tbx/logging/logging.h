@@ -4,7 +4,6 @@
 #include "tbx/messages/dispatcher_context.h"
 #include <format>
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -36,7 +35,7 @@ namespace tbx
                   << message << std::endl;
     }
 
-    inline void submit_log(IMessageDispatcher& dispatcher, LogLevel level, const char* file, int line, const std::string& message)
+    inline void submit_log(const IMessageDispatcher& dispatcher, LogLevel level, const char* file, int line, const std::string& message)
     {
         LogMessageCommand cmd;
         cmd.level = level;
@@ -63,6 +62,7 @@ namespace tbx
             std_log(level, file, line, message, true);
         }
     }
+
     inline std::string format_log_message(const std::string& message)
     {
         return message;
@@ -78,24 +78,23 @@ namespace tbx
         return message ? std::string(message) : std::string();
     }
 
-    template <typename... Args>
-        requires (sizeof...(Args) > 0)
-    inline std::string format_log_message(std::string_view fmt, Args&&... args)
+    template <typename... Args> requires (sizeof...(Args) > 0)
+    std::string format_log_message(std::string_view fmt, Args&&... args)
     {
-        return std::vformat(fmt, std::make_format_args(std::forward<Args>(args)...));
+        // Pass arguments as lvalues to avoid binding rvalues to non-const references
+        // inside std::make_format_args on some standard library implementations.
+        return std::vformat(fmt, std::make_format_args(args...));
     }
 
     template <typename... Args>
-    inline void submit_formatted(IMessageDispatcher& dispatcher, LogLevel level, const char* file, int line, Args&&... args)
+    void submit_formatted(LogLevel level, const char* file, int line, std::string_view fmt, Args&&... args)
     {
-        ::tbx::submit_log(dispatcher, level, file, line,
-            format_log_message(std::forward<Args>(args)...));
+        submit_log(level, file, line, format_log_message(fmt, std::forward<Args>(args)...));
     }
 
     template <typename... Args>
-    inline void submit_formatted(LogLevel level, const char* file, int line, Args&&... args)
+    void submit_formatted(IMessageDispatcher& dispatcher, LogLevel level, const char* file, int line, std::string_view fmt, Args&&... args)
     {
-        ::tbx::submit_log(level, file, line,
-            format_log_message(std::forward<Args>(args)...));
+        submit_log(dispatcher, level, file, line, format_log_message(fmt, std::forward<Args>(args)...));
     }
 }

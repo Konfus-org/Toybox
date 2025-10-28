@@ -1,5 +1,6 @@
 #include "tbx/application.h"
 #include "tbx/logging/log_macros.h"
+#include "tbx/memory/casting.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/time/delta_time.h"
@@ -105,7 +106,7 @@ namespace tbx
 
     void Application::handle_message(const Message& msg)
     {
-        if (msg.is<ExitApplicationCommand>())
+        if (is<ExitApplicationCommand>(&msg))
         {
             _should_exit = true;
         }

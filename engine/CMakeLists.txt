@@ -1,12 +1,18 @@
+message(STATUS "")
+message(STATUS "Configuring Toybox:")
+
 if (CMAKE_CXX_FLAGS MATCHES "-fno-rtti")
     message(FATAL_ERROR "RTTI must be enabled for Toybox")
 endif()
 
 # Options
-option(TBX_PLUGINS_DIR "Plugin directory" "")
-option(TBX_ASSETS_DIR "Asset directory" "Assets")
 option(TBX_BUILD_SHARED "Build as a shared library" ON)
 option(TBX_VERB_LOGGING "Enable verbose logging" OFF)
+
+# Tell user what options were set#
+message(STATUS "Options:")
+message(STATUS "   TBX_BUILD_SHARED: ${TBX_BUILD_SHARED}")
+message(STATUS "   TBX_VERB_LOGGING: ${TBX_VERB_LOGGING}")
 
 # Library type
 if(TBX_BUILD_SHARED)
@@ -23,7 +29,7 @@ endif()
 # Sources
 file(GLOB_RECURSE INCL CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.*")
 file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
-target_sources(Engine PRIVATE ${SRCS} ${INCL} "include/tbx/messages/commands/app_commands.h")
+target_sources(Engine PRIVATE ${SRCS} ${INCL} "include/tbx/messages/commands/app_commands.h" "include/tbx/tbx_api.h" "include/tbx/memory/casting.h")
 
 # Expose include dirs to dependents (build & install time)
 target_include_directories(Engine
@@ -43,11 +49,6 @@ target_link_libraries(Engine PRIVATE
     glm
     nlohmann_json
 )
-if(WIN32)
-  target_link_libraries(Engine PUBLIC DbgHelp)
-elseif(UNIX AND NOT APPLE)
-  target_link_libraries(Engine PRIVATE dl)
-endif()
 
 # Defines
 target_compile_definitions(Engine PUBLIC
@@ -75,3 +76,4 @@ target_compile_definitions(Engine PRIVATE
 )
 
 add_library(Tbx::Engine ALIAS Engine)
+message(STATUS "")
