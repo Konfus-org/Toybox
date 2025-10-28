@@ -15,6 +15,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/Build/lib" CACHE PATH "W
 set(CMAKE_PDB_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/Build/pdb" CACHE PATH "Where to place PDBs")
 
 # Global configs
+enable_testing()
 if(MSVC)
   set_property(GLOBAL PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
   add_compile_options("/ZI")
@@ -24,24 +25,10 @@ if(MSVC)
   add_link_options("/INCREMENTAL")
 endif()
 
-# Core projects
-add_subdirectory(Engine)
-add_subdirectory(Engine/Tests)
-add_subdirectory(Launcher)
-target_link_libraries(Engine)
-target_link_libraries(Tests)
-target_link_libraries(Launcher)
-
-# Dependencies
-set(CMAKE_FOLDER "3rd Party")
-add_subdirectory(Dependencies)
-
-# Examples
-set(CMAKE_FOLDER "Examples")
-add_subdirectory(Examples/3dDemo/Runtime)
-add_subdirectory(Examples/3dDemo/Launcher)
-
-# Plugins:
-set(CMAKE_FOLDER "Plugins")
-add_subdirectory(Plugins)
+# Libs and projects
+add_subdirectory(engine)
+add_subdirectory(engine/tests)
+add_subdirectory(thirdparty)
+add_subdirectory(examples)
+add_subdirectory(plugins)
 unset(CMAKE_FOLDER)

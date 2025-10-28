@@ -1,38 +1,18 @@
-[submodule "Engine/Plugins/Toybox-Spd-Logging-Plugin"]
-	path = Plugins/Toybox-Spd-Logging-Plugin
-	url = https://github.com/Konfus-org/Toybox-Spd-Logging-Plugin.git
-	branch = main
-[submodule "Plugins/Toybox-TIMS-AssetLoader-Plugins"]
-	path = Plugins/Toybox-TIMS-AssetLoader-Plugins
-	url = https://github.com/Konfus-org/Toybox-TIMS-AssetLoader-Plugins.git
-	branch = main
-[submodule "Plugins/Toybox-OpenGL-Rendering-Plugin"]
-	path = Plugins/Toybox-OpenGL-Rendering-Plugin
-	url = https://github.com/Konfus-org/Toybox-OpenGL-Rendering-Plugin.git
-	branch = main
-[submodule "Plugins/Toybox-SDL-Plugins"]
-	path = Plugins/Toybox-SDL-Plugins
-	url = https://github.com/konfus-org/Toybox-SDL-Plugins.git
-	branch = main
-[submodule "Plugins/Toybox-ImGui-ImmidiateUI-Plugin"]
-	path = Plugins/Toybox-ImGui-ImmediateUI-Plugin
-	url = https://github.com/Konfus-org/Toybox-ImGui-ImmidiateUI-Plugin.git
-	branch = main
-[submodule "Dependencies/nlohmann_json"]
-	path = Dependencies/nlohmann_json
+[submodule "thirdparty/nlohmann_json"]
+	path = thirdparty/nlohmann_json
 	url = https://github.com/Konfus-org/json.git
-[submodule "Dependencies/imgui"]
-	path = Dependencies/imgui
+[submodule "thirdparty/imgui"]
+	path = thirdparty/imgui
 	url = https://github.com/Konfus-org/imgui.git
-[submodule "Dependencies/glm"]
-	path = Dependencies/glm
+[submodule "thirdparty/glm"]
+	path = thirdparty/glm
 	url = https://github.com/Konfus-org/glm.git
-[submodule "Dependencies/spdlog"]
-	path = Dependencies/spdlog
+[submodule "thirdparty/spdlog"]
+	path = thirdparty/spdlog
 	url = https://github.com/Konfus-org/spdlog.git
-[submodule "Dependencies/googletest"]
-	path = Dependencies/googletest
+[submodule "thirdparty/googletest"]
+	path = thirdparty/googletest
 	url = https://github.com/Konfus-org/googletest.git
-[submodule "Dependencies/SDL"]
-	path = Dependencies/SDL
+[submodule "thirdparty/SDL"]
+	path = thirdparty/SDL
 	url = https://github.com/Konfus-org/SDL.git
