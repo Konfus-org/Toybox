@@ -2,45 +2,76 @@
 
 namespace tbx
 {
+    namespace
+    {
+        std::chrono::steady_clock::time_point compute_ready_time(const TimeSpan& span, std::chrono::steady_clock::time_point now, bool& enable_time)
+        {
+            if (span.is_zero())
+            {
+                enable_time = false;
+                return now;
+            }
+
+            enable_time = true;
+            return now + span.to_duration();
+        }
+
+        std::chrono::steady_clock::time_point compute_ready_time(std::chrono::steady_clock::duration duration, std::chrono::steady_clock::time_point now, bool& enable_time)
+        {
+            if (duration <= std::chrono::steady_clock::duration::zero())
+            {
+                enable_time = false;
+                return now;
+            }
+
+            enable_time = true;
+            return now + duration;
+        }
+    }
+
     Timer::Timer()
     {
         reset();
     }
 
-    void Timer::set_ticks(std::size_t ticks)
+    Timer::Timer(std::size_t ticks, std::chrono::steady_clock::time_point ready_time, bool enable_ticks, bool enable_time)
     {
-        _use_ticks = ticks > 0;
-        _remaining_ticks = ticks;
-        _time_up_notified = false;
+        reset();
+        configure_ticks(ticks, enable_ticks);
+        configure_ready_time(ready_time, enable_time);
     }
 
-    void Timer::set_time(const TimeSpan& delay, std::chrono::steady_clock::time_point now)
+    Timer Timer::for_ticks(std::size_t ticks)
     {
-        if (delay.is_zero())
-        {
-            _use_time = false;
-            _ready_time = now;
-            _time_up_notified = false;
-            return;
-        }
-
-        set_time(delay.to_duration(), now);
+        return Timer(ticks, std::chrono::steady_clock::time_point{}, ticks > 0, false);
     }
 
-    void Timer::set_time(std::chrono::steady_clock::duration duration, std::chrono::steady_clock::time_point now)
+    Timer Timer::for_time_span(const TimeSpan& delay, std::chrono::steady_clock::time_point now)
     {
-        if (duration <= std::chrono::steady_clock::duration::zero())
-        {
-            _use_time = false;
-            _ready_time = now;
-        }
-        else
-        {
-            _use_time = true;
-            _ready_time = now + duration;
-        }
+        bool use_time = false;
+        auto ready = compute_ready_time(delay, now, use_time);
+        return Timer(0, ready, false, use_time);
+    }
 
-        _time_up_notified = false;
+    Timer Timer::for_duration(std::chrono::steady_clock::duration duration, std::chrono::steady_clock::time_point now)
+    {
+        bool use_time = false;
+        auto ready = compute_ready_time(duration, now, use_time);
+        return Timer(0, ready, false, use_time);
+    }
+
+    Timer Timer::for_ticks_and_span(std::size_t ticks, const TimeSpan& delay, std::chrono::steady_clock::time_point now)
+    {
+        bool use_time = false;
+        auto ready = compute_ready_time(delay, now, use_time);
+        return Timer(ticks, ready, ticks > 0, use_time);
+    }
+
+    Timer Timer::for_ticks_and_duration(std::size_t ticks, std::chrono::steady_clock::duration duration, std::chrono::steady_clock::time_point now)
+    {
+        bool use_time = false;
+        auto ready = compute_ready_time(duration, now, use_time);
+        return Timer(ticks, ready, ticks > 0, use_time);
     }
 
     void Timer::reset()
@@ -56,7 +87,7 @@ namespace tbx
 
     bool Timer::tick()
     {
-        if (token().is_cancelled())
+        if (get_token().is_cancelled())
         {
             fire_cancel();
             return false;
@@ -82,9 +113,9 @@ namespace tbx
         return true;
     }
 
-    bool Timer::is_ready(std::chrono::steady_clock::time_point now) const
+    bool Timer::is_time_up(std::chrono::steady_clock::time_point now) const
     {
-        if (token().is_cancelled())
+        if (get_token().is_cancelled())
         {
             fire_cancel();
             return false;
@@ -114,9 +145,29 @@ namespace tbx
         fire_cancel();
     }
 
-    CancellationToken Timer::token() const
+    CancellationToken Timer::get_token() const
     {
         return _cancellation.token();
+    }
+
+    void Timer::configure_ticks(std::size_t ticks, bool enable_ticks)
+    {
+        _use_ticks = enable_ticks && ticks > 0;
+        _remaining_ticks = _use_ticks ? ticks : 0;
+        if (!_use_ticks)
+        {
+            _time_up_notified = false;
+        }
+    }
+
+    void Timer::configure_ready_time(std::chrono::steady_clock::time_point ready_time, bool enable_time)
+    {
+        _use_time = enable_time;
+        _ready_time = enable_time ? ready_time : std::chrono::steady_clock::time_point{};
+        if (!enable_time)
+        {
+            _time_up_notified = false;
+        }
     }
 
     void Timer::fire_cancel() const

@@ -36,13 +36,23 @@ namespace tbx
 
     void MessageCoordinator::dispatch(Message& msg, const MessageConfiguration& config, MessageResult& result) const
     {
-        MessageResult* previous_result = msg.result;
-        msg.result = &result;
+        MessageResult* previous_result = msg.get_result();
+        msg.set_result(result);
         struct ResultGuard
         {
             Message& target;
             MessageResult* previous;
-            ~ResultGuard() { target.result = previous; }
+            ~ResultGuard()
+            {
+                if (previous)
+                {
+                    target.set_result(*previous);
+                }
+                else
+                {
+                    target.clear_result();
+                }
+            }
         } guard{msg, previous_result};
 
         if (config.cancellation_token && config.cancellation_token.is_cancelled())
@@ -55,7 +65,10 @@ namespace tbx
         for (const auto& entry : _handlers)
         {
             if (msg.is_handled)
+            {
                 break;
+            }
+
             if (entry.second)
             {
                 handler_invoked = true;
@@ -84,18 +97,18 @@ namespace tbx
     {
         if (status == MessageStatus::Failed)
         {
-            if (!result.is_failed())
+            if (result.get_status() != MessageStatus::Failed)
             {
                 if (failure_reason)
                 {
-                    result.set_failure(*failure_reason);
+                    result.set_status(MessageStatus::Failed, *failure_reason);
                 }
                 else
                 {
-                    result.set_failure("Message processing failed.");
+                    result.set_status(MessageStatus::Failed, "Message processing failed.");
                 }
             }
-            else if (failure_reason && result.why().empty())
+            else if (failure_reason && result.get_message().empty())
             {
                 result.set_status(MessageStatus::Failed, *failure_reason);
             }
@@ -111,25 +124,41 @@ namespace tbx
 
         switch (status)
         {
-        case MessageStatus::Handled:
-            if (config.on_handled)
-                config.on_handled(msg);
-            break;
-        case MessageStatus::Cancelled:
-            if (config.on_cancelled)
-                config.on_cancelled(msg);
-            break;
-        case MessageStatus::Failed:
-            if (config.on_failure)
-                config.on_failure(msg);
-            break;
-        case MessageStatus::Processed:
-        case MessageStatus::InProgress:
-            break;
+            case MessageStatus::Handled:
+            {
+                if (config.on_handled)
+                {
+                    config.on_handled(msg);
+                }
+                break;
+            }
+            case MessageStatus::Cancelled:
+            {
+                if (config.on_cancelled)
+                {
+                    config.on_cancelled(msg);
+                }
+                break;
+            }
+            case MessageStatus::Failed:
+            {
+                if (config.on_failure)
+                {
+                    config.on_failure(msg);
+                }
+                break;
+            }
+            case MessageStatus::Processed:
+            case MessageStatus::InProgress:
+            {
+                break;
+            }
         }
 
         if (config.on_processed)
+        {
             config.on_processed(msg);
+        }
     }
 
     MessageResult MessageCoordinator::send(const Message& msg, const MessageConfiguration& config) const
@@ -143,13 +172,13 @@ namespace tbx
         catch (const std::exception& ex)
         {
             std::string reason = ex.what();
-            result.set_failure(reason);
+            result.set_status(MessageStatus::Failed, reason);
             finalize_callbacks(msg, config, result, MessageStatus::Failed, &reason);
         }
         catch (...)
         {
             std::string reason = "Unknown exception during message dispatch.";
-            result.set_failure(reason);
+            result.set_status(MessageStatus::Failed, reason);
             finalize_callbacks(msg, config, result, MessageStatus::Failed, &reason);
         }
         return result;
@@ -170,21 +199,27 @@ namespace tbx
             queued.message = make_scope<Copy>(msg);
             if (queued.message)
             {
-                queued.message->result = nullptr;
+                queued.message->clear_result();
             }
             queued.config = config;
             queued.result = result;
 
-            queued.timer.reset();
-            if (config.delay_ticks)
-            {
-                queued.timer.set_ticks(*config.delay_ticks);
-            }
-
             const auto now = std::chrono::steady_clock::now();
-            if (config.delay_time)
+            if (config.delay_ticks && config.delay_time)
             {
-                queued.timer.set_time(*config.delay_time, now);
+                queued.timer = Timer::for_ticks_and_span(*config.delay_ticks, *config.delay_time, now);
+            }
+            else if (config.delay_ticks)
+            {
+                queued.timer = Timer::for_ticks(*config.delay_ticks);
+            }
+            else if (config.delay_time)
+            {
+                queued.timer = Timer::for_time_span(*config.delay_time, now);
+            }
+            else
+            {
+                queued.timer.reset();
             }
 
             _pending.emplace_back(std::move(queued));
@@ -192,13 +227,13 @@ namespace tbx
         catch (const std::exception& ex)
         {
             std::string reason = ex.what();
-            result.set_failure(reason);
+            result.set_status(MessageStatus::Failed, reason);
             finalize_callbacks(msg, config, result, MessageStatus::Failed, &reason);
         }
         catch (...)
         {
             std::string reason = "Unknown exception while queuing message.";
-            result.set_failure(reason);
+            result.set_status(MessageStatus::Failed, reason);
             finalize_callbacks(msg, config, result, MessageStatus::Failed, &reason);
         }
 
@@ -218,10 +253,17 @@ namespace tbx
 
             if (entry.config.cancellation_token && entry.config.cancellation_token.is_cancelled())
             {
-                MessageResult* previous_result = entry.message->result;
-                entry.message->result = &entry.result;
+                MessageResult* previous_result = entry.message->get_result();
+                entry.message->set_result(entry.result);
                 finalize_callbacks(*entry.message, entry.config, entry.result, MessageStatus::Cancelled);
-                entry.message->result = previous_result;
+                if (previous_result)
+                {
+                    entry.message->set_result(*previous_result);
+                }
+                else
+                {
+                    entry.message->clear_result();
+                }
                 continue;
             }
 
@@ -231,13 +273,28 @@ namespace tbx
                 continue;
             }
 
-            if (!entry.timer.is_ready(now))
+            if (!entry.timer.is_time_up(now))
             {
                 _pending.emplace_back(std::move(entry));
                 continue;
             }
 
-            dispatch(*entry.message, entry.config, entry.result);
+            try
+            {
+                dispatch(*entry.message, entry.config, entry.result);
+            }
+            catch (const std::exception& ex)
+            {
+                std::string reason = ex.what();
+                entry.result.set_status(MessageStatus::Failed, reason);
+                finalize_callbacks(*entry.message, entry.config, entry.result, MessageStatus::Failed, &reason);
+            }
+            catch (...)
+            {
+                std::string reason = "Unknown exception during message dispatch.";
+                entry.result.set_status(MessageStatus::Failed, reason);
+                finalize_callbacks(*entry.message, entry.config, entry.result, MessageStatus::Failed, &reason);
+            }
         }
 
         _processing.clear();

@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/core/cancellation_token.h"
+#include "tbx/state/cancellation_token.h"
 #include "tbx/messages/message.h"
 #include "tbx/time/time_span.h"
 #include <cstddef>
@@ -8,6 +8,7 @@
 
 namespace tbx
 {
+    // Message dispatch options stored by value; not thread-safe.
     struct MessageConfiguration
     {
         using Callback = std::function<void(const Message&)>;

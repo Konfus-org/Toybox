@@ -6,7 +6,7 @@ namespace tbx
 {
     class CancellationToken;
 
-    /// \brief Produces cancellation tokens that share a single atomic flag.
+    // Thread-safe source that owns the shared atomic flag backing associated tokens.
     class CancellationSource
     {
     public:
@@ -20,7 +20,7 @@ namespace tbx
         std::shared_ptr<std::atomic<bool>> _state;
     };
 
-    /// \brief Lightweight handle that observes cancellation requests from a CancellationSource.
+    // Lightweight, thread-safe observer for a CancellationSource-owned flag.
     class CancellationToken
     {
     public:

@@ -5,11 +5,11 @@ namespace tbx
     MessageResult::MessageResult()
         : _status(std::make_shared<MessageStatus>(MessageStatus::InProgress)),
           _payload(std::make_shared<MessageResultPayloadStorage>()),
-          _reason(std::make_shared<std::string>())
+          _message(std::make_shared<std::string>())
     {
     }
 
-    MessageStatus MessageResult::status() const
+    MessageStatus MessageResult::get_status() const
     {
         if (!_status)
         {
@@ -23,34 +23,22 @@ namespace tbx
     {
         ensure_status();
         *_status = status;
-        if (status != MessageStatus::Failed)
-        {
-            clear_reason();
-        }
     }
 
-    void MessageResult::set_status(MessageStatus status, std::string reason)
+    void MessageResult::set_status(MessageStatus status, std::string status_message)
     {
         set_status(status);
-        if (status == MessageStatus::Failed)
+        if (!_message || _message->empty())
         {
-            ensure_reason();
-            *_reason = std::move(reason);
+            ensure_message();
+            *_message = std::move(status_message);
         }
     }
 
-    const std::string& MessageResult::why() const
+    const std::string& MessageResult::get_message() const
     {
-        ensure_reason();
-        return *_reason;
-    }
-
-    void MessageResult::clear_reason()
-    {
-        if (_reason)
-        {
-            _reason->clear();
-        }
+        ensure_message();
+        return *_message;
     }
 
     bool MessageResult::has_payload() const
@@ -95,12 +83,12 @@ namespace tbx
         return _payload->type;
     }
 
-    void MessageResult::ensure_reason() const
+    void MessageResult::ensure_message() const
     {
-        if (!_reason)
+        if (!_message)
         {
             auto mutable_self = const_cast<MessageResult*>(this);
-            mutable_self->_reason = std::make_shared<std::string>();
+            mutable_self->_message = std::make_shared<std::string>();
         }
     }
 }

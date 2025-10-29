@@ -25,31 +25,18 @@ namespace tbx
 
     class MessageCoordinator;
 
-    /// \brief Captures the lifecycle and optional payload produced by a dispatched message.
+    // Captures lifecycle state and optional payload shared across message copies.
+    // Thread-safe for concurrent reads thanks to shared_ptr-managed state.
     class MessageResult
     {
     public:
         MessageResult();
 
-        MessageStatus status() const;
+        MessageStatus get_status() const;
         void set_status(MessageStatus status);
-        void set_status(MessageStatus status, std::string reason);
-        void set_failure(std::string reason) { set_status(MessageStatus::Failed, std::move(reason)); }
+        void set_status(MessageStatus status, std::string status_message);
 
-        bool is_in_progress() const { return status() == MessageStatus::InProgress; }
-        bool is_cancelled() const { return status() == MessageStatus::Cancelled; }
-        bool is_failed() const { return status() == MessageStatus::Failed; }
-        bool is_handled() const { return status() == MessageStatus::Handled; }
-        bool is_processed() const
-        {
-            MessageStatus s = status();
-            return s == MessageStatus::Processed || s == MessageStatus::Handled;
-        }
-        bool succeeded() const { return is_processed(); }
-        explicit operator bool() const { return succeeded(); }
-
-        const std::string& why() const;
-        void clear_reason();
+        const std::string& get_message() const;
 
         bool has_payload() const;
         void reset_payload();
@@ -125,11 +112,11 @@ namespace tbx
         void ensure_status();
         MessageResultPayloadStorage& ensure_payload();
         const std::type_info* payload_type() const;
-        void ensure_reason() const;
+        void ensure_message() const;
 
         std::shared_ptr<MessageStatus> _status;
         std::shared_ptr<MessageResultPayloadStorage> _payload;
-        std::shared_ptr<std::string> _reason;
+        std::shared_ptr<std::string> _message;
 
         friend class MessageCoordinator;
     };

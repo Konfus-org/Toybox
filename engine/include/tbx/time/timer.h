@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/core/cancellation_token.h"
+#include "tbx/state/cancellation_token.h"
 #include "tbx/time/time_span.h"
 #include <chrono>
 #include <cstddef>
@@ -8,8 +8,7 @@
 
 namespace tbx
 {
-    /// \brief Utility that tracks either tick-based or time-based countdowns and notifies callers
-    /// when progress is made, the delay elapses, or cancellation occurs.
+    // Thread-safe countdown utility that owns callbacks and cancellation state.
     class Timer
     {
     public:
@@ -17,10 +16,13 @@ namespace tbx
         using Callback = std::function<void()>;
 
         Timer();
+        Timer(std::size_t ticks, std::chrono::steady_clock::time_point ready_time, bool enable_ticks, bool enable_time);
 
-        void set_ticks(std::size_t ticks);
-        void set_time(const TimeSpan& delay, std::chrono::steady_clock::time_point now);
-        void set_time(std::chrono::steady_clock::duration duration, std::chrono::steady_clock::time_point now);
+        static Timer for_ticks(std::size_t ticks);
+        static Timer for_time_span(const TimeSpan& delay, std::chrono::steady_clock::time_point now);
+        static Timer for_duration(std::chrono::steady_clock::duration duration, std::chrono::steady_clock::time_point now);
+        static Timer for_ticks_and_span(std::size_t ticks, const TimeSpan& delay, std::chrono::steady_clock::time_point now);
+        static Timer for_ticks_and_duration(std::size_t ticks, std::chrono::steady_clock::duration duration, std::chrono::steady_clock::time_point now);
 
         void set_tick_callback(TickCallback callback) { _on_tick = std::move(callback); }
         void set_time_up_callback(Callback callback) { _on_time_up = std::move(callback); }
@@ -29,12 +31,14 @@ namespace tbx
         void reset();
 
         bool tick();
-        [[nodiscard]] bool is_ready(std::chrono::steady_clock::time_point now) const;
+        bool is_time_up(std::chrono::steady_clock::time_point now) const;
 
         void cancel();
-        [[nodiscard]] CancellationToken token() const;
+        CancellationToken get_token() const;
 
     private:
+        void configure_ticks(std::size_t ticks, bool enable_ticks);
+        void configure_ready_time(std::chrono::steady_clock::time_point ready_time, bool enable_time);
         void fire_cancel() const;
         void fire_time_up() const;
 

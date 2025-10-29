@@ -4,9 +4,10 @@
 #include "tbx/messages/handler.h"
 #include "tbx/messages/message_configuration.h"
 #include "tbx/messages/message_result.h"
-#include "tbx/core/cancellation_token.h"
+#include "tbx/state/cancellation_token.h"
 #include <atomic>
 #include <chrono>
+#include <stdexcept>
 #include <string>
 #include <thread>
 
@@ -49,9 +50,29 @@ namespace tbx::tests::messages
         msg.value = 42;
         auto result = d.send(msg, config);
         EXPECT_EQ(count.load(), 1);
-        EXPECT_TRUE(result.is_handled());
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Handled);
         EXPECT_TRUE(handled_callback);
         EXPECT_TRUE(processed_callback);
+    }
+
+    TEST(dispatcher_send_no_handlers, returns_processed_without_callbacks)
+    {
+        ::tbx::MessageCoordinator d;
+
+        bool processed_callback = false;
+
+        ::tbx::MessageConfiguration config;
+        config.on_processed = [&](const ::tbx::Message&)
+        {
+            processed_callback = true;
+        };
+
+        ::tbx::Message msg;
+        auto result = d.send(msg, config);
+
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Processed);
+        EXPECT_TRUE(processed_callback);
+        EXPECT_TRUE(result.get_message().empty());
     }
 
     TEST(dispatcher_send_failure, triggers_failure_when_unhandled)
@@ -81,11 +102,41 @@ namespace tbx::tests::messages
         auto result = d.send(msg, config);
 
         EXPECT_EQ(count.load(), 1);
-        EXPECT_EQ(result.status(), ::tbx::MessageStatus::Failed);
-        EXPECT_FALSE(result);
-        EXPECT_FALSE(result.why().empty());
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Failed);
+        EXPECT_FALSE(result.get_message().empty());
         EXPECT_TRUE(failure_callback);
         EXPECT_TRUE(processed_callback);
+    }
+
+    TEST(dispatcher_send_exception, returns_failure_on_throw)
+    {
+        ::tbx::MessageCoordinator d;
+
+        d.add_handler([](const ::tbx::Message&)
+        {
+            throw std::runtime_error("send failure");
+        });
+
+        bool failure_callback = false;
+        bool processed_callback = false;
+
+        ::tbx::MessageConfiguration config;
+        config.on_failure = [&](const ::tbx::Message&)
+        {
+            failure_callback = true;
+        };
+        config.on_processed = [&](const ::tbx::Message&)
+        {
+            processed_callback = true;
+        };
+
+        ::tbx::Message msg;
+        auto result = d.send(msg, config);
+
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Failed);
+        EXPECT_TRUE(failure_callback);
+        EXPECT_TRUE(processed_callback);
+        EXPECT_FALSE(result.get_message().empty());
     }
 
     TEST(dispatcher_post, processes_on_next_update)
@@ -104,11 +155,11 @@ namespace tbx::tests::messages
 
         // Not processed yet
         EXPECT_EQ(count.load(), 0);
-        EXPECT_TRUE(result.is_in_progress());
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::InProgress);
 
         d.process();
         EXPECT_EQ(count.load(), 1);
-        EXPECT_TRUE(result.is_handled());
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Handled);
     }
 
     TEST(dispatcher_remove, removes_handler_by_uuid)
@@ -131,9 +182,8 @@ namespace tbx::tests::messages
         auto result = d.send(msg);
 
         EXPECT_EQ(count.load(), 1);
-        EXPECT_EQ(result.status(), ::tbx::MessageStatus::Failed);
-        EXPECT_FALSE(result);
-        EXPECT_FALSE(result.why().empty());
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Failed);
+        EXPECT_FALSE(result.get_message().empty());
         (void)keep_id; // silence unused warning
     }
 
@@ -154,14 +204,81 @@ namespace tbx::tests::messages
         ::tbx::Message msg;
         auto result = d.post(msg, config);
 
-        EXPECT_TRUE(result.is_in_progress());
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::InProgress);
         d.process();
-        EXPECT_TRUE(result.is_in_progress());
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::InProgress);
         EXPECT_EQ(count.load(), 0);
 
         d.process();
-        EXPECT_TRUE(result.is_handled());
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Handled);
         EXPECT_EQ(count.load(), 1);
+    }
+
+    TEST(dispatcher_post_combined_delay, waits_for_tick_and_timespan)
+    {
+        using namespace std::chrono_literals;
+
+        ::tbx::MessageCoordinator d;
+        std::atomic<int> count{0};
+
+        d.add_handler([&](const ::tbx::Message& msg)
+        {
+            count.fetch_add(1);
+            const_cast<::tbx::Message&>(msg).is_handled = true;
+        });
+
+        ::tbx::MessageConfiguration config;
+        config.delay_ticks = 1;
+        ::tbx::TimeSpan span;
+        span.milliseconds = 5;
+        config.delay_time = span;
+
+        ::tbx::Message msg;
+        auto result = d.post(msg, config);
+
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::InProgress);
+        d.process();
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::InProgress);
+        EXPECT_EQ(count.load(), 0);
+
+        std::this_thread::sleep_for(6ms);
+
+        d.process();
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Handled);
+        EXPECT_EQ(count.load(), 1);
+    }
+
+    TEST(dispatcher_post_exception, returns_failure_on_throw)
+    {
+        ::tbx::MessageCoordinator d;
+
+        d.add_handler([](const ::tbx::Message&)
+        {
+            throw std::runtime_error("post failure");
+        });
+
+        bool failure_callback = false;
+        bool processed_callback = false;
+
+        ::tbx::MessageConfiguration config;
+        config.on_failure = [&](const ::tbx::Message&)
+        {
+            failure_callback = true;
+        };
+        config.on_processed = [&](const ::tbx::Message&)
+        {
+            processed_callback = true;
+        };
+
+        ::tbx::Message msg;
+        auto result = d.post(msg, config);
+
+        d.process();
+
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Failed);
+        EXPECT_TRUE(failure_callback);
+        EXPECT_TRUE(processed_callback);
+        EXPECT_FALSE(result.get_message().empty());
     }
 
     TEST(dispatcher_post_time_delay, delays_processing_by_timespan)
@@ -185,15 +302,15 @@ namespace tbx::tests::messages
         ::tbx::Message msg;
         auto result = d.post(msg, config);
 
-        EXPECT_TRUE(result.is_in_progress());
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::InProgress);
         d.process();
-        EXPECT_TRUE(result.is_in_progress());
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::InProgress);
         EXPECT_EQ(count.load(), 0);
 
         std::this_thread::sleep_for(6ms);
 
         d.process();
-        EXPECT_TRUE(result.is_handled());
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Handled);
         EXPECT_EQ(count.load(), 1);
     }
 
@@ -230,7 +347,7 @@ namespace tbx::tests::messages
         source.cancel();
         d.process();
 
-        EXPECT_TRUE(result.is_cancelled());
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Cancelled);
         EXPECT_TRUE(cancelled_callback);
         EXPECT_TRUE(processed_callback);
         EXPECT_EQ(count.load(), 0);
@@ -262,7 +379,7 @@ namespace tbx::tests::messages
         ::tbx::Message msg;
         auto result = d.send(msg, config);
 
-        EXPECT_TRUE(result.is_cancelled());
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Cancelled);
         EXPECT_TRUE(cancelled_callback);
         EXPECT_EQ(count.load(), 0);
     }
@@ -275,14 +392,15 @@ namespace tbx::tests::messages
         {
             auto& mutable_msg = const_cast<::tbx::Message&>(message);
             mutable_msg.is_handled = true;
-            ASSERT_NE(mutable_msg.result, nullptr);
-            mutable_msg.result->set_payload<int>(123);
+            auto* result_ptr = mutable_msg.get_result();
+            ASSERT_NE(result_ptr, nullptr);
+            result_ptr->set_payload<int>(123);
         });
 
         ::tbx::Message msg;
         auto result = d.send(msg);
 
-        EXPECT_TRUE(result.is_handled());
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Handled);
         EXPECT_TRUE(result.has_payload());
         auto value = result.try_get_payload<int>();
         ASSERT_NE(value, nullptr);
@@ -299,19 +417,20 @@ namespace tbx::tests::messages
         {
             auto& mutable_msg = const_cast<::tbx::Message&>(message);
             mutable_msg.is_handled = true;
-            ASSERT_NE(mutable_msg.result, nullptr);
-            mutable_msg.result->set_payload<std::string>("ready");
+            auto* result_ptr = mutable_msg.get_result();
+            ASSERT_NE(result_ptr, nullptr);
+            result_ptr->set_payload<std::string>("ready");
         });
 
         ::tbx::Message msg;
         auto result = d.post(msg);
 
-        EXPECT_TRUE(result.is_in_progress());
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::InProgress);
         EXPECT_FALSE(result.has_payload());
 
         d.process();
 
-        EXPECT_TRUE(result.is_handled());
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Handled);
         EXPECT_TRUE(result.has_payload());
         EXPECT_EQ(result.payload_or<std::string>(""), "ready");
     }

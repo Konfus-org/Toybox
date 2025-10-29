@@ -19,9 +19,9 @@ namespace tbx
         Timer timer;
     };
 
-    // Concrete coordinator that:
+    // Concrete coordinator that (not thread-safe; callers serialize access):
     //  - Tracks subscribers (MessageHandler callbacks) and delivers messages via send()
-    //  - Owns a queue of copies for deferred delivery via post()/process()
+    //  - Owns queue storage for deferred delivery via post()/process()
     // This type implements both the dispatch interface (for producers)
     // and the processor interface (for the engine/application loop).
     class MessageCoordinator : public IMessageDispatcher, public IMessageProcessor
