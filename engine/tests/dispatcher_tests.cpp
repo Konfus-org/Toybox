@@ -173,7 +173,9 @@ namespace tbx::tests::messages
         });
 
         ::tbx::MessageConfiguration config;
-        config.delay_time = 5ms;
+        ::tbx::Timer::Time delay;
+        delay.milliseconds = 5;
+        config.delay_time = delay;
 
         ::tbx::Message msg;
         auto result = d.post(msg, config);

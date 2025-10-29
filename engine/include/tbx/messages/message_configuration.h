@@ -1,7 +1,8 @@
 #pragma once
 #include "tbx/messages/cancellation_token.h"
 #include "tbx/messages/message.h"
-#include <chrono>
+#include "tbx/time/timer.h"
+#include <cstddef>
 #include <functional>
 #include <optional>
 
@@ -17,7 +18,7 @@ namespace tbx
         Callback on_processed;
 
         std::optional<std::size_t> delay_ticks;
-        std::optional<std::chrono::steady_clock::duration> delay_time;
+        std::optional<Timer::Time> delay_time;
 
         CancellationToken cancellation_token;
     };

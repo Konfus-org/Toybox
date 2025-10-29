@@ -3,12 +3,21 @@
 #include "tbx/messages/handler.h"
 #include "tbx/memory/smart_pointers.h"
 #include "tbx/ids/uuid.h"
+#include "tbx/time/timer.h"
 #include <chrono>
 #include <utility>
 #include <vector>
 
 namespace tbx
 {
+    struct QueuedMessage
+    {
+        Scope<Message> message;
+        MessageConfiguration config;
+        MessageResult result;
+        Timer timer;
+    };
+
     // Concrete coordinator that:
     //  - Tracks subscribers (MessageHandler callbacks) and delivers messages via send()
     //  - Owns a queue of copies for deferred delivery via post()/process()
@@ -31,17 +40,6 @@ namespace tbx
         void process() override;
 
     private:
-        struct QueuedMessage
-        {
-            Scope<Message> message;
-            MessageConfiguration config;
-            MessageResult result;
-            std::size_t remaining_ticks = 0;
-            bool has_tick_delay = false;
-            bool has_time_delay = false;
-            std::chrono::steady_clock::time_point ready_time{};
-        };
-
         MessageResult dispatch(Message& msg, const MessageConfiguration& config, MessageResult result) const;
         void finalize_callbacks(const Message& msg, const MessageConfiguration& config, MessageResult& result, MessageStatus status) const;
 

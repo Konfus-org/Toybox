@@ -98,7 +98,10 @@ namespace tbx
 
     MessageResult MessageCoordinator::post(const Message& msg, const MessageConfiguration& config)
     {
-        struct Copy final : Message { Copy(const Message& m) { *static_cast<Message*>(this) = m; } };
+        struct Copy final : Message
+        {
+            explicit Copy(const Message& m) { *static_cast<Message*>(this) = m; }
+        };
 
         MessageResult result;
 
@@ -106,15 +109,17 @@ namespace tbx
         queued.message = make_scope<Copy>(msg);
         queued.config = config;
         queued.result = result;
+
+        queued.timer.reset();
         if (config.delay_ticks)
         {
-            queued.has_tick_delay = true;
-            queued.remaining_ticks = *config.delay_ticks;
+            queued.timer.set_ticks(*config.delay_ticks);
         }
+
+        const auto now = std::chrono::steady_clock::now();
         if (config.delay_time)
         {
-            queued.has_time_delay = true;
-            queued.ready_time = std::chrono::steady_clock::now() + *config.delay_time;
+            queued.timer.set_time(*config.delay_time, now);
         }
 
         _pending.emplace_back(std::move(queued));
@@ -138,14 +143,13 @@ namespace tbx
                 continue;
             }
 
-            if (entry.has_tick_delay && entry.remaining_ticks > 0)
+            if (entry.timer.consume_tick())
             {
-                --entry.remaining_ticks;
                 _pending.emplace_back(std::move(entry));
                 continue;
             }
 
-            if (entry.has_time_delay && now < entry.ready_time)
+            if (!entry.timer.is_ready(now))
             {
                 _pending.emplace_back(std::move(entry));
                 continue;
