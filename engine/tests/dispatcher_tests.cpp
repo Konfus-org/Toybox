@@ -2,8 +2,6 @@
 #include "tbx/messages/coordinator.h"
 #include "tbx/messages/message.h"
 #include "tbx/messages/handler.h"
-#include "tbx/messages/message_configuration.h"
-#include "tbx/messages/message_result.h"
 #include "tbx/state/cancellation_token.h"
 #include <atomic>
 #include <chrono>
@@ -33,22 +31,20 @@ namespace tbx::tests::messages
             count.fetch_add(1);
         });
 
+        TestMessage msg;
+        msg.value = 42;
         bool handled_callback = false;
         bool processed_callback = false;
-
-        ::tbx::MessageConfiguration config;
-        config.on_handled = [&](const ::tbx::Message&)
+        msg.on_handled = [&](const ::tbx::Message&)
         {
             handled_callback = true;
         };
-        config.on_processed = [&](const ::tbx::Message&)
+        msg.on_processed = [&](const ::tbx::Message&)
         {
             processed_callback = true;
         };
 
-        TestMessage msg;
-        msg.value = 42;
-        auto result = d.send(msg, config);
+        auto result = d.send(msg);
         EXPECT_EQ(count.load(), 1);
         EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Handled);
         EXPECT_TRUE(handled_callback);
@@ -59,16 +55,14 @@ namespace tbx::tests::messages
     {
         ::tbx::MessageCoordinator d;
 
+        ::tbx::Message msg;
         bool processed_callback = false;
-
-        ::tbx::MessageConfiguration config;
-        config.on_processed = [&](const ::tbx::Message&)
+        msg.on_processed = [&](const ::tbx::Message&)
         {
             processed_callback = true;
         };
 
-        ::tbx::Message msg;
-        auto result = d.send(msg, config);
+        auto result = d.send(msg);
 
         EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Processed);
         EXPECT_TRUE(processed_callback);
@@ -85,21 +79,19 @@ namespace tbx::tests::messages
             count.fetch_add(1);
         });
 
+        ::tbx::Message msg;
         bool failure_callback = false;
         bool processed_callback = false;
-
-        ::tbx::MessageConfiguration config;
-        config.on_failure = [&](const ::tbx::Message&)
+        msg.on_failure = [&](const ::tbx::Message&)
         {
             failure_callback = true;
         };
-        config.on_processed = [&](const ::tbx::Message&)
+        msg.on_processed = [&](const ::tbx::Message&)
         {
             processed_callback = true;
         };
 
-        ::tbx::Message msg;
-        auto result = d.send(msg, config);
+        auto result = d.send(msg);
 
         EXPECT_EQ(count.load(), 1);
         EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Failed);
@@ -117,21 +109,19 @@ namespace tbx::tests::messages
             throw std::runtime_error("send failure");
         });
 
+        ::tbx::Message msg;
         bool failure_callback = false;
         bool processed_callback = false;
-
-        ::tbx::MessageConfiguration config;
-        config.on_failure = [&](const ::tbx::Message&)
+        msg.on_failure = [&](const ::tbx::Message&)
         {
             failure_callback = true;
         };
-        config.on_processed = [&](const ::tbx::Message&)
+        msg.on_processed = [&](const ::tbx::Message&)
         {
             processed_callback = true;
         };
 
-        ::tbx::Message msg;
-        auto result = d.send(msg, config);
+        auto result = d.send(msg);
 
         EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Failed);
         EXPECT_TRUE(failure_callback);
@@ -143,25 +133,23 @@ namespace tbx::tests::messages
     {
         ::tbx::MessageCoordinator d;
 
-        ::tbx::MessageConfiguration config;
-        config.delay_ticks = 1;
-
         ::tbx::Message msg;
+        msg.delay_ticks = 1;
 #ifdef TBX_ASSERTS_ENABLED
-        EXPECT_DEBUG_DEATH(d.send(msg, config), ".*");
+        EXPECT_DEBUG_DEATH(d.send(msg), ".*");
 #else
         bool failure_callback = false;
         bool processed_callback = false;
-        config.on_failure = [&](const ::tbx::Message&)
+        msg.on_failure = [&](const ::tbx::Message&)
         {
             failure_callback = true;
         };
-        config.on_processed = [&](const ::tbx::Message&)
+        msg.on_processed = [&](const ::tbx::Message&)
         {
             processed_callback = true;
         };
 
-        auto result = d.send(msg, config);
+        auto result = d.send(msg);
 
         EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Failed);
         EXPECT_TRUE(failure_callback);
@@ -229,11 +217,9 @@ namespace tbx::tests::messages
             const_cast<::tbx::Message&>(msg).is_handled = true;
         });
 
-        ::tbx::MessageConfiguration config;
-        config.delay_ticks = 1;
-
         ::tbx::Message msg;
-        auto result = d.post(msg, config);
+        msg.delay_ticks = 1;
+        auto result = d.post(msg);
 
         EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::InProgress);
         d.process();
@@ -258,28 +244,26 @@ namespace tbx::tests::messages
             const_cast<::tbx::Message&>(msg).is_handled = true;
         });
 
-        ::tbx::MessageConfiguration config;
-        config.delay_ticks = 1;
+        ::tbx::Message msg;
+        msg.delay_ticks = 1;
         ::tbx::TimeSpan span;
         span.milliseconds = 5;
-        config.delay_time = span;
-
-        ::tbx::Message msg;
+        msg.delay_time = span;
 #ifdef TBX_ASSERTS_ENABLED
-        EXPECT_DEBUG_DEATH(d.post(msg, config), ".*");
+        EXPECT_DEBUG_DEATH(d.post(msg), ".*");
 #else
         bool failure_callback = false;
         bool processed_callback = false;
-        config.on_failure = [&](const ::tbx::Message&)
+        msg.on_failure = [&](const ::tbx::Message&)
         {
             failure_callback = true;
         };
-        config.on_processed = [&](const ::tbx::Message&)
+        msg.on_processed = [&](const ::tbx::Message&)
         {
             processed_callback = true;
         };
 
-        auto result = d.post(msg, config);
+        auto result = d.post(msg);
 
         EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Failed);
         EXPECT_TRUE(failure_callback);
@@ -299,21 +283,18 @@ namespace tbx::tests::messages
             throw std::runtime_error("post failure");
         });
 
+        ::tbx::Message msg;
         bool failure_callback = false;
         bool processed_callback = false;
-
-        ::tbx::MessageConfiguration config;
-        config.on_failure = [&](const ::tbx::Message&)
+        msg.on_failure = [&](const ::tbx::Message&)
         {
             failure_callback = true;
         };
-        config.on_processed = [&](const ::tbx::Message&)
+        msg.on_processed = [&](const ::tbx::Message&)
         {
             processed_callback = true;
         };
-
-        ::tbx::Message msg;
-        auto result = d.post(msg, config);
+        auto result = d.post(msg);
 
         d.process();
 
@@ -336,13 +317,11 @@ namespace tbx::tests::messages
             const_cast<::tbx::Message&>(msg).is_handled = true;
         });
 
-        ::tbx::MessageConfiguration config;
+        ::tbx::Message msg;
         ::tbx::TimeSpan delay;
         delay.milliseconds = 5;
-        config.delay_time = delay;
-
-        ::tbx::Message msg;
-        auto result = d.post(msg, config);
+        msg.delay_time = delay;
+        auto result = d.post(msg);
 
         EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::InProgress);
         d.process();
@@ -369,22 +348,19 @@ namespace tbx::tests::messages
         ::tbx::CancellationSource source;
         auto token = source.token();
 
+        ::tbx::Message msg;
+        msg.cancellation_token = token;
         bool cancelled_callback = false;
         bool processed_callback = false;
-
-        ::tbx::MessageConfiguration config;
-        config.on_cancelled = [&](const ::tbx::Message&)
+        msg.on_cancelled = [&](const ::tbx::Message&)
         {
             cancelled_callback = true;
         };
-        config.on_processed = [&](const ::tbx::Message&)
+        msg.on_processed = [&](const ::tbx::Message&)
         {
             processed_callback = true;
         };
-
-        ::tbx::Message msg;
-        msg.cancellation_token = token;
-        auto result = d.post(msg, config);
+        auto result = d.post(msg);
 
         source.cancel();
         d.process();
@@ -409,17 +385,15 @@ namespace tbx::tests::messages
         auto token = source.token();
         source.cancel();
 
+        ::tbx::Message msg;
+        msg.cancellation_token = token;
         bool cancelled_callback = false;
-
-        ::tbx::MessageConfiguration config;
-        config.on_cancelled = [&](const ::tbx::Message&)
+        msg.on_cancelled = [&](const ::tbx::Message&)
         {
             cancelled_callback = true;
         };
 
-        ::tbx::Message msg;
-        msg.cancellation_token = token;
-        auto result = d.send(msg, config);
+        auto result = d.send(msg);
 
         EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Cancelled);
         EXPECT_TRUE(cancelled_callback);

@@ -8,7 +8,7 @@
 
 namespace tbx
 {
-    enum class MessageStatus
+    enum class ResultStatus
     {
         InProgress,
         Handled,
@@ -17,24 +17,22 @@ namespace tbx
         Failed
     };
 
-    struct MessageResultPayloadStorage
+    struct ResultPayloadStorage
     {
         std::shared_ptr<void> data;
         const std::type_info* type = nullptr;
     };
 
-    class MessageCoordinator;
-
     // Captures lifecycle state and optional payload shared across message copies.
     // Thread-safe for concurrent reads thanks to shared_ptr-managed state.
-    class MessageResult
+    class Result
     {
     public:
-        MessageResult();
+        Result();
 
-        MessageStatus get_status() const;
-        void set_status(MessageStatus status);
-        void set_status(MessageStatus status, std::string status_message);
+        ResultStatus get_status() const;
+        void set_status(ResultStatus status);
+        void set_status(ResultStatus status, std::string status_message);
 
         const std::string& get_message() const;
 
@@ -44,7 +42,7 @@ namespace tbx
         template <typename T>
         void set_payload(T value)
         {
-            MessageResultPayloadStorage& storage = ensure_payload();
+            ResultPayloadStorage& storage = ensure_payload();
             storage.data = std::make_shared<T>(std::move(value));
             storage.type = &typeid(T);
         }
@@ -110,15 +108,13 @@ namespace tbx
 
     private:
         void ensure_status();
-        MessageResultPayloadStorage& ensure_payload();
+        ResultPayloadStorage& ensure_payload();
         const std::type_info* payload_type() const;
         void ensure_message() const;
 
-        std::shared_ptr<MessageStatus> _status;
-        std::shared_ptr<MessageResultPayloadStorage> _payload;
+        std::shared_ptr<ResultStatus> _status;
+        std::shared_ptr<ResultPayloadStorage> _payload;
         std::shared_ptr<std::string> _message;
-
-        friend class MessageCoordinator;
     };
 }
 

@@ -1,31 +1,31 @@
-#include "tbx/messages/message_result.h"
+#include "tbx/state/result.h"
 
 namespace tbx
 {
-    MessageResult::MessageResult()
-        : _status(std::make_shared<MessageStatus>(MessageStatus::InProgress)),
-          _payload(std::make_shared<MessageResultPayloadStorage>()),
+    Result::Result()
+        : _status(std::make_shared<ResultStatus>(ResultStatus::InProgress)),
+          _payload(std::make_shared<ResultPayloadStorage>()),
           _message(std::make_shared<std::string>())
     {
     }
 
-    MessageStatus MessageResult::get_status() const
+    ResultStatus Result::get_status() const
     {
         if (!_status)
         {
-            return MessageStatus::InProgress;
+            return ResultStatus::InProgress;
         }
 
         return *_status;
     }
 
-    void MessageResult::set_status(MessageStatus status)
+    void Result::set_status(ResultStatus status)
     {
         ensure_status();
         *_status = status;
     }
 
-    void MessageResult::set_status(MessageStatus status, std::string status_message)
+    void Result::set_status(ResultStatus status, std::string status_message)
     {
         set_status(status);
         if (!_message || _message->empty())
@@ -35,18 +35,18 @@ namespace tbx
         }
     }
 
-    const std::string& MessageResult::get_message() const
+    const std::string& Result::get_message() const
     {
         ensure_message();
         return *_message;
     }
 
-    bool MessageResult::has_payload() const
+    bool Result::has_payload() const
     {
         return _payload && _payload->data != nullptr;
     }
 
-    void MessageResult::reset_payload()
+    void Result::reset_payload()
     {
         if (_payload)
         {
@@ -55,25 +55,25 @@ namespace tbx
         }
     }
 
-    void MessageResult::ensure_status()
+    void Result::ensure_status()
     {
         if (!_status)
         {
-            _status = std::make_shared<MessageStatus>(MessageStatus::InProgress);
+            _status = std::make_shared<ResultStatus>(ResultStatus::InProgress);
         }
     }
 
-    MessageResultPayloadStorage& MessageResult::ensure_payload()
+    ResultPayloadStorage& Result::ensure_payload()
     {
         if (!_payload)
         {
-            _payload = std::make_shared<MessageResultPayloadStorage>();
+            _payload = std::make_shared<ResultPayloadStorage>();
         }
 
         return *_payload;
     }
 
-    const std::type_info* MessageResult::payload_type() const
+    const std::type_info* Result::payload_type() const
     {
         if (!_payload)
         {
@@ -83,11 +83,11 @@ namespace tbx
         return _payload->type;
     }
 
-    void MessageResult::ensure_message() const
+    void Result::ensure_message() const
     {
         if (!_message)
         {
-            auto mutable_self = const_cast<MessageResult*>(this);
+            auto mutable_self = const_cast<Result*>(this);
             mutable_self->_message = std::make_shared<std::string>();
         }
     }

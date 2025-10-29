@@ -14,8 +14,7 @@ namespace tbx
     struct QueuedMessage
     {
         Scope<Message> message;
-        MessageConfiguration config;
-        MessageResult result;
+        Result result;
         Timer timer;
     };
 
@@ -33,16 +32,16 @@ namespace tbx
         void clear();
 
         // IMessageDispatcher
-        MessageResult send(const Message& msg, const MessageConfiguration& config = {}) const override;
+        Result send(const Message& msg) const override;
         // Copies the message for deferred processing
-        MessageResult post(const Message& msg, const MessageConfiguration& config = {}) override;
+        Result post(const Message& msg) override;
 
         // IMessageProcessor
         void process() override;
 
     private:
-        void dispatch(Message& msg, const MessageConfiguration& config, MessageResult& result) const;
-        void finalize_callbacks(const Message& msg, const MessageConfiguration& config, MessageResult& result, MessageStatus status, const std::string* failure_reason = nullptr) const;
+        void dispatch(Message& msg, Result& result) const;
+        void finalize_callbacks(const Message& msg, Result& result, ResultStatus status, const std::string* failure_reason = nullptr) const;
 
         std::vector<std::pair<Uuid, MessageHandler>> _handlers;
         std::vector<QueuedMessage> _pending;

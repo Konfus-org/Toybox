@@ -35,7 +35,7 @@ namespace tbx
         _processing.clear();
     }
 
-    void MessageCoordinator::dispatch(Message& msg, const MessageConfiguration& config, MessageResult& result) const
+    void MessageCoordinator::dispatch(Message& msg, Result& result) const
     {
         MessageResult* previous_result = msg.get_result();
         msg.set_result(result);
@@ -58,7 +58,7 @@ namespace tbx
 
         if (msg.cancellation_token && msg.cancellation_token.is_cancelled())
         {
-            finalize_callbacks(msg, config, result, MessageStatus::Cancelled);
+            finalize_callbacks(msg, result, ResultStatus::Cancelled);
             return;
         }
 
@@ -77,45 +77,45 @@ namespace tbx
             }
         }
 
-        MessageStatus status = MessageStatus::Processed;
+        ResultStatus status = ResultStatus::Processed;
         const std::string* failure_reason = nullptr;
         std::string reason_storage;
         if (msg.is_handled)
         {
-            status = MessageStatus::Handled;
+            status = ResultStatus::Handled;
         }
         else if (handler_invoked)
         {
-            status = MessageStatus::Failed;
+            status = ResultStatus::Failed;
             reason_storage = "Message handlers executed but did not mark the message as handled.";
             failure_reason = &reason_storage;
         }
 
-        finalize_callbacks(msg, config, result, status, failure_reason);
+        finalize_callbacks(msg, result, status, failure_reason);
     }
 
-    void MessageCoordinator::finalize_callbacks(const Message& msg, const MessageConfiguration& config, MessageResult& result, MessageStatus status, const std::string* failure_reason) const
+    void MessageCoordinator::finalize_callbacks(const Message& msg, Result& result, ResultStatus status, const std::string* failure_reason) const
     {
-        if (status == MessageStatus::Failed)
+        if (status == ResultStatus::Failed)
         {
-            if (result.get_status() != MessageStatus::Failed)
+            if (result.get_status() != ResultStatus::Failed)
             {
                 if (failure_reason)
                 {
-                    result.set_status(MessageStatus::Failed, *failure_reason);
+                    result.set_status(ResultStatus::Failed, *failure_reason);
                 }
                 else
                 {
-                    result.set_status(MessageStatus::Failed, "Message processing failed.");
+                    result.set_status(ResultStatus::Failed, "Message processing failed.");
                 }
             }
             else if (failure_reason && result.get_message().empty())
             {
-                result.set_status(MessageStatus::Failed, *failure_reason);
+                result.set_status(ResultStatus::Failed, *failure_reason);
             }
             else
             {
-                result.set_status(MessageStatus::Failed);
+                result.set_status(ResultStatus::Failed);
             }
         }
         else
@@ -125,89 +125,89 @@ namespace tbx
 
         switch (status)
         {
-            case MessageStatus::Handled:
+            case ResultStatus::Handled:
             {
-                if (config.on_handled)
+                if (msg.on_handled)
                 {
-                    config.on_handled(msg);
+                    msg.on_handled(msg);
                 }
                 break;
             }
-            case MessageStatus::Cancelled:
+            case ResultStatus::Cancelled:
             {
-                if (config.on_cancelled)
+                if (msg.on_cancelled)
                 {
-                    config.on_cancelled(msg);
+                    msg.on_cancelled(msg);
                 }
                 break;
             }
-            case MessageStatus::Failed:
+            case ResultStatus::Failed:
             {
-                if (config.on_failure)
+                if (msg.on_failure)
                 {
-                    config.on_failure(msg);
+                    msg.on_failure(msg);
                 }
                 break;
             }
-            case MessageStatus::Processed:
-            case MessageStatus::InProgress:
+            case ResultStatus::Processed:
+            case ResultStatus::InProgress:
             {
                 break;
             }
         }
 
-        if (config.on_processed)
+        if (msg.on_processed)
         {
-            config.on_processed(msg);
+            msg.on_processed(msg);
         }
     }
 
-    MessageResult MessageCoordinator::send(const Message& msg, const MessageConfiguration& config) const
+    Result MessageCoordinator::send(const Message& msg) const
     {
-        MessageResult result;
-        if (config.has_delay())
+        Result result;
+        if (msg.has_delay())
         {
             std::string reason = "send() does not support delayed delivery.";
-            result.set_status(MessageStatus::Failed, reason);
-            finalize_callbacks(msg, config, result, MessageStatus::Failed, &reason);
-            TBX_ASSERT(false, "MessageConfiguration delays are incompatible with send().");
+            result.set_status(ResultStatus::Failed, reason);
+            finalize_callbacks(msg, result, ResultStatus::Failed, &reason);
+            TBX_ASSERT(false, "Message delays are incompatible with send().");
             return result;
         }
         try
         {
             Message& mutable_msg = const_cast<Message&>(msg);
-            dispatch(mutable_msg, config, result);
+            dispatch(mutable_msg, result);
         }
         catch (const std::exception& ex)
         {
             std::string reason = ex.what();
-            result.set_status(MessageStatus::Failed, reason);
-            finalize_callbacks(msg, config, result, MessageStatus::Failed, &reason);
+            result.set_status(ResultStatus::Failed, reason);
+            finalize_callbacks(msg, result, ResultStatus::Failed, &reason);
         }
         catch (...)
         {
             std::string reason = "Unknown exception during message dispatch.";
-            result.set_status(MessageStatus::Failed, reason);
-            finalize_callbacks(msg, config, result, MessageStatus::Failed, &reason);
+            result.set_status(ResultStatus::Failed, reason);
+            finalize_callbacks(msg, result, ResultStatus::Failed, &reason);
         }
         return result;
     }
 
-    MessageResult MessageCoordinator::post(const Message& msg, const MessageConfiguration& config)
+    Result MessageCoordinator::post(const Message& msg)
     {
         struct Copy final : Message
         {
             explicit Copy(const Message& m) { *static_cast<Message*>(this) = m; }
         };
 
-        MessageResult result;
+        Result result;
 
-        if (config.delay_ticks && config.delay_time)
+        if (msg.delay_ticks && msg.delay_time)
         {
-            std::string reason = "MessageConfiguration cannot specify both tick and time delays.";
-            result.set_status(MessageStatus::Failed, reason);
-            finalize_callbacks(msg, config, result, MessageStatus::Failed, &reason);
-            TBX_ASSERT(false, "MessageConfiguration cannot specify both tick and time delays.");
+            std::string reason = "Message cannot specify both tick and time delays.";
+            result.set_status(ResultStatus::Failed, reason);
+            finalize_callbacks(msg, result, ResultStatus::Failed, &reason);
+            TBX_ASSERT(false, "Message cannot specify both tick and time delays.");
             return result;
         }
 
@@ -219,17 +219,16 @@ namespace tbx
             {
                 queued.message->clear_result();
             }
-            queued.config = config;
             queued.result = result;
 
             const auto now = std::chrono::steady_clock::now();
-            if (config.delay_ticks)
+            if (msg.delay_ticks)
             {
-                queued.timer = Timer::for_ticks(*config.delay_ticks);
+                queued.timer = Timer::for_ticks(*msg.delay_ticks);
             }
-            else if (config.delay_time)
+            else if (msg.delay_time)
             {
-                queued.timer = Timer::for_time_span(*config.delay_time, now);
+                queued.timer = Timer::for_time_span(*msg.delay_time, now);
             }
             else
             {
@@ -241,14 +240,14 @@ namespace tbx
         catch (const std::exception& ex)
         {
             std::string reason = ex.what();
-            result.set_status(MessageStatus::Failed, reason);
-            finalize_callbacks(msg, config, result, MessageStatus::Failed, &reason);
+            result.set_status(ResultStatus::Failed, reason);
+            finalize_callbacks(msg, result, ResultStatus::Failed, &reason);
         }
         catch (...)
         {
             std::string reason = "Unknown exception while queuing message.";
-            result.set_status(MessageStatus::Failed, reason);
-            finalize_callbacks(msg, config, result, MessageStatus::Failed, &reason);
+            result.set_status(ResultStatus::Failed, reason);
+            finalize_callbacks(msg, result, ResultStatus::Failed, &reason);
         }
 
         return result;
@@ -269,7 +268,7 @@ namespace tbx
             {
                 MessageResult* previous_result = entry.message->get_result();
                 entry.message->set_result(entry.result);
-                finalize_callbacks(*entry.message, entry.config, entry.result, MessageStatus::Cancelled);
+                finalize_callbacks(*entry.message, entry.result, ResultStatus::Cancelled);
                 if (previous_result)
                 {
                     entry.message->set_result(*previous_result);
@@ -295,19 +294,19 @@ namespace tbx
 
             try
             {
-                dispatch(*entry.message, entry.config, entry.result);
+                dispatch(*entry.message, entry.result);
             }
             catch (const std::exception& ex)
             {
                 std::string reason = ex.what();
-                entry.result.set_status(MessageStatus::Failed, reason);
-                finalize_callbacks(*entry.message, entry.config, entry.result, MessageStatus::Failed, &reason);
+                entry.result.set_status(ResultStatus::Failed, reason);
+                finalize_callbacks(*entry.message, entry.result, ResultStatus::Failed, &reason);
             }
             catch (...)
             {
                 std::string reason = "Unknown exception during message dispatch.";
-                entry.result.set_status(MessageStatus::Failed, reason);
-                finalize_callbacks(*entry.message, entry.config, entry.result, MessageStatus::Failed, &reason);
+                entry.result.set_status(ResultStatus::Failed, reason);
+                finalize_callbacks(*entry.message, entry.result, ResultStatus::Failed, &reason);
             }
         }
 
