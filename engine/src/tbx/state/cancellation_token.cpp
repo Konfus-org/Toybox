@@ -1,11 +1,10 @@
 #include "tbx/state/cancellation_token.h"
-#include <memory>
 #include <utility>
 
 namespace tbx
 {
     CancellationSource::CancellationSource()
-        : _state(std::make_shared<std::atomic<bool>>(false))
+        : _state(make_ref<std::atomic<bool>>(false))
     {
     }
 
@@ -27,7 +26,7 @@ namespace tbx
         return _state && _state->load(std::memory_order_acquire);
     }
 
-    CancellationToken::CancellationToken(std::shared_ptr<std::atomic<bool>> state)
+    CancellationToken::CancellationToken(Ref<std::atomic<bool>> state)
         : _state(std::move(state))
     {
     }

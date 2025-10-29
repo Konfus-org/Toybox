@@ -1,10 +1,57 @@
 #pragma once
 #include "tbx/logging/logging.h"
+#include <source_location>
 
-#define TBX_TRACE_INFO_EX(CmdDispatcherRef, ...)      ::tbx::submit_formatted((CmdDispatcherRef), ::tbx::LogLevel::Info, __FILE__, __LINE__, __VA_ARGS__)
-#define TBX_TRACE_WARNING_EX(CmdDispatcherRef, ...)   ::tbx::submit_formatted((CmdDispatcherRef), ::tbx::LogLevel::Warning, __FILE__, __LINE__, __VA_ARGS__)
-#define TBX_TRACE_ERROR_EX(CmdDispatcherRef, ...)     ::tbx::submit_formatted((CmdDispatcherRef), ::tbx::LogLevel::Error, __FILE__, __LINE__, __VA_ARGS__)
-#define TBX_TRACE_CRITICAL_EX(CmdDispatcherRef, ...)  ::tbx::submit_formatted((CmdDispatcherRef), ::tbx::LogLevel::Critical, __FILE__, __LINE__, __VA_ARGS__)
+namespace tbx
+{
+    template <typename... Args>
+    inline void trace_info(IMessageDispatcher& dispatcher, std::string_view fmt, Args&&... args)
+    {
+        trace_info(dispatcher, std::source_location::current(), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    inline void trace_info(IMessageDispatcher& dispatcher, const std::source_location& loc, std::string_view fmt, Args&&... args)
+    {
+        submit_formatted(dispatcher, LogLevel::Info, loc.file_name(), static_cast<int>(loc.line()), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    inline void trace_warning(IMessageDispatcher& dispatcher, std::string_view fmt, Args&&... args)
+    {
+        trace_warning(dispatcher, std::source_location::current(), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    inline void trace_warning(IMessageDispatcher& dispatcher, const std::source_location& loc, std::string_view fmt, Args&&... args)
+    {
+        submit_formatted(dispatcher, LogLevel::Warning, loc.file_name(), static_cast<int>(loc.line()), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    inline void trace_error(IMessageDispatcher& dispatcher, std::string_view fmt, Args&&... args)
+    {
+        trace_error(dispatcher, std::source_location::current(), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    inline void trace_error(IMessageDispatcher& dispatcher, const std::source_location& loc, std::string_view fmt, Args&&... args)
+    {
+        submit_formatted(dispatcher, LogLevel::Error, loc.file_name(), static_cast<int>(loc.line()), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    inline void trace_critical(IMessageDispatcher& dispatcher, std::string_view fmt, Args&&... args)
+    {
+        trace_critical(dispatcher, std::source_location::current(), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    inline void trace_critical(IMessageDispatcher& dispatcher, const std::source_location& loc, std::string_view fmt, Args&&... args)
+    {
+        submit_formatted(dispatcher, LogLevel::Critical, loc.file_name(), static_cast<int>(loc.line()), fmt, std::forward<Args>(args)...);
+    }
+}
 
 #define TBX_TRACE_INFO(msg, ...)      ::tbx::submit_formatted(::tbx::LogLevel::Info, __FILE__, __LINE__, msg __VA_OPT__(,) __VA_ARGS__)
 #define TBX_TRACE_WARNING(msg, ...)   ::tbx::submit_formatted(::tbx::LogLevel::Warning, __FILE__, __LINE__, msg __VA_OPT__(,) __VA_ARGS__)

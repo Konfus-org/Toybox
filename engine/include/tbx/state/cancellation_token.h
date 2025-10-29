@@ -1,6 +1,6 @@
 #pragma once
+#include "tbx/memory/smart_pointers.h"
 #include <atomic>
-#include <memory>
 
 namespace tbx
 {
@@ -17,7 +17,7 @@ namespace tbx
         bool is_cancelled() const;
 
     private:
-        std::shared_ptr<std::atomic<bool>> _state;
+        Ref<std::atomic<bool>> _state;
     };
 
     // Lightweight, thread-safe observer for a CancellationSource-owned flag.
@@ -30,9 +30,9 @@ namespace tbx
         explicit operator bool() const { return static_cast<bool>(_state); }
 
     private:
-        explicit CancellationToken(std::shared_ptr<std::atomic<bool>> state);
+        explicit CancellationToken(Ref<std::atomic<bool>> state);
 
-        std::shared_ptr<std::atomic<bool>> _state;
+        Ref<std::atomic<bool>> _state;
 
         friend class CancellationSource;
     };

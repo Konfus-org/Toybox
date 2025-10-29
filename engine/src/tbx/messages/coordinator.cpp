@@ -1,4 +1,5 @@
 #include "tbx/messages/coordinator.h"
+#include "tbx/logging/log_macros.h"
 #include "tbx/memory/smart_pointers.h"
 #include <chrono>
 #include <exception>
@@ -55,7 +56,7 @@ namespace tbx
             }
         } guard{msg, previous_result};
 
-        if (config.cancellation_token && config.cancellation_token.is_cancelled())
+        if (msg.cancellation_token && msg.cancellation_token.is_cancelled())
         {
             finalize_callbacks(msg, config, result, MessageStatus::Cancelled);
             return;
@@ -164,6 +165,14 @@ namespace tbx
     MessageResult MessageCoordinator::send(const Message& msg, const MessageConfiguration& config) const
     {
         MessageResult result;
+        if (config.has_delay())
+        {
+            std::string reason = "send() does not support delayed delivery.";
+            result.set_status(MessageStatus::Failed, reason);
+            finalize_callbacks(msg, config, result, MessageStatus::Failed, &reason);
+            TBX_ASSERT(false, "MessageConfiguration delays are incompatible with send().");
+            return result;
+        }
         try
         {
             Message& mutable_msg = const_cast<Message&>(msg);
@@ -193,6 +202,15 @@ namespace tbx
 
         MessageResult result;
 
+        if (config.delay_ticks && config.delay_time)
+        {
+            std::string reason = "MessageConfiguration cannot specify both tick and time delays.";
+            result.set_status(MessageStatus::Failed, reason);
+            finalize_callbacks(msg, config, result, MessageStatus::Failed, &reason);
+            TBX_ASSERT(false, "MessageConfiguration cannot specify both tick and time delays.");
+            return result;
+        }
+
         try
         {
             QueuedMessage queued;
@@ -205,11 +223,7 @@ namespace tbx
             queued.result = result;
 
             const auto now = std::chrono::steady_clock::now();
-            if (config.delay_ticks && config.delay_time)
-            {
-                queued.timer = Timer::for_ticks_and_span(*config.delay_ticks, *config.delay_time, now);
-            }
-            else if (config.delay_ticks)
+            if (config.delay_ticks)
             {
                 queued.timer = Timer::for_ticks(*config.delay_ticks);
             }
@@ -251,7 +265,7 @@ namespace tbx
             if (!entry.message)
                 continue;
 
-            if (entry.config.cancellation_token && entry.config.cancellation_token.is_cancelled())
+            if (entry.message->cancellation_token && entry.message->cancellation_token.is_cancelled())
             {
                 MessageResult* previous_result = entry.message->get_result();
                 entry.message->set_result(entry.result);

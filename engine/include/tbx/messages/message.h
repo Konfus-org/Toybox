@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/ids/uuid.h"
+#include "tbx/state/cancellation_token.h"
 #include <functional>
 #include <optional>
 
@@ -14,6 +15,8 @@ namespace tbx
 
         Uuid id = Uuid::generate();
         bool is_handled = false;
+
+        CancellationToken cancellation_token;
 
         // Non-owning result handle managed by the coordinator; not thread-safe.
         void set_result(MessageResult& value)

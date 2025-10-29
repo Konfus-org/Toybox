@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/state/cancellation_token.h"
 #include "tbx/messages/message.h"
 #include "tbx/time/time_span.h"
 #include <cstddef>
@@ -21,6 +20,8 @@ namespace tbx
         std::optional<std::size_t> delay_ticks;
         std::optional<TimeSpan> delay_time;
 
-        CancellationToken cancellation_token;
+        bool has_delay() const { return delay_ticks.has_value() || delay_time.has_value(); }
+        bool has_ticks_delay() const { return delay_ticks.has_value(); }
+        bool has_time_delay() const { return delay_time.has_value(); }
     };
 }

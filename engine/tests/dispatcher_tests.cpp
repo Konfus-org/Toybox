@@ -139,6 +139,37 @@ namespace tbx::tests::messages
         EXPECT_FALSE(result.get_message().empty());
     }
 
+    TEST(dispatcher_send_with_delay, returns_failure_for_incompatible_config)
+    {
+        ::tbx::MessageCoordinator d;
+
+        ::tbx::MessageConfiguration config;
+        config.delay_ticks = 1;
+
+        ::tbx::Message msg;
+#ifdef TBX_ASSERTS_ENABLED
+        EXPECT_DEBUG_DEATH(d.send(msg, config), ".*");
+#else
+        bool failure_callback = false;
+        bool processed_callback = false;
+        config.on_failure = [&](const ::tbx::Message&)
+        {
+            failure_callback = true;
+        };
+        config.on_processed = [&](const ::tbx::Message&)
+        {
+            processed_callback = true;
+        };
+
+        auto result = d.send(msg, config);
+
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Failed);
+        EXPECT_TRUE(failure_callback);
+        EXPECT_TRUE(processed_callback);
+        EXPECT_FALSE(result.get_message().empty());
+#endif
+    }
+
     TEST(dispatcher_post, processes_on_next_update)
     {
         ::tbx::MessageCoordinator d;
@@ -214,7 +245,7 @@ namespace tbx::tests::messages
         EXPECT_EQ(count.load(), 1);
     }
 
-    TEST(dispatcher_post_combined_delay, waits_for_tick_and_timespan)
+    TEST(dispatcher_post_combined_delay, fails_when_both_delays_requested)
     {
         using namespace std::chrono_literals;
 
@@ -234,18 +265,29 @@ namespace tbx::tests::messages
         config.delay_time = span;
 
         ::tbx::Message msg;
+#ifdef TBX_ASSERTS_ENABLED
+        EXPECT_DEBUG_DEATH(d.post(msg, config), ".*");
+#else
+        bool failure_callback = false;
+        bool processed_callback = false;
+        config.on_failure = [&](const ::tbx::Message&)
+        {
+            failure_callback = true;
+        };
+        config.on_processed = [&](const ::tbx::Message&)
+        {
+            processed_callback = true;
+        };
+
         auto result = d.post(msg, config);
 
-        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::InProgress);
+        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Failed);
+        EXPECT_TRUE(failure_callback);
+        EXPECT_TRUE(processed_callback);
+        EXPECT_FALSE(result.get_message().empty());
         d.process();
-        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::InProgress);
         EXPECT_EQ(count.load(), 0);
-
-        std::this_thread::sleep_for(6ms);
-
-        d.process();
-        EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Handled);
-        EXPECT_EQ(count.load(), 1);
+#endif
     }
 
     TEST(dispatcher_post_exception, returns_failure_on_throw)
@@ -331,7 +373,6 @@ namespace tbx::tests::messages
         bool processed_callback = false;
 
         ::tbx::MessageConfiguration config;
-        config.cancellation_token = token;
         config.on_cancelled = [&](const ::tbx::Message&)
         {
             cancelled_callback = true;
@@ -342,6 +383,7 @@ namespace tbx::tests::messages
         };
 
         ::tbx::Message msg;
+        msg.cancellation_token = token;
         auto result = d.post(msg, config);
 
         source.cancel();
@@ -370,13 +412,13 @@ namespace tbx::tests::messages
         bool cancelled_callback = false;
 
         ::tbx::MessageConfiguration config;
-        config.cancellation_token = token;
         config.on_cancelled = [&](const ::tbx::Message&)
         {
             cancelled_callback = true;
         };
 
         ::tbx::Message msg;
+        msg.cancellation_token = token;
         auto result = d.send(msg, config);
 
         EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Cancelled);
