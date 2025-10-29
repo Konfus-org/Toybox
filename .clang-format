@@ -15,3 +15,5 @@ SpacesBeforeTrailingComments: 1
 SpaceAfterCStyleCast: false
 SpaceAfterLogicalNot: false
 NamespaceIndentation: None
+IndentCaseLabels: true
+AllowShortCaseLabelsOnASingleLine: false

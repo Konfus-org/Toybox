@@ -4,6 +4,7 @@
 #include "tbx/messages/dispatcher_context.h"
 #include <format>
 #include <iostream>
+#include <source_location>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -96,5 +97,53 @@ namespace tbx
     void submit_formatted(IMessageDispatcher& dispatcher, LogLevel level, const char* file, int line, std::string_view fmt, Args&&... args)
     {
         submit_log(dispatcher, level, file, line, format_log_message(fmt, std::forward<Args>(args)...));
+    }
+
+    template <typename... Args>
+    inline void trace_info(IMessageDispatcher& dispatcher, std::string_view fmt, Args&&... args)
+    {
+        trace_info(dispatcher, std::source_location::current(), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    inline void trace_info(IMessageDispatcher& dispatcher, const std::source_location& loc, std::string_view fmt, Args&&... args)
+    {
+        submit_formatted(dispatcher, LogLevel::Info, loc.file_name(), static_cast<int>(loc.line()), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    inline void trace_warning(IMessageDispatcher& dispatcher, std::string_view fmt, Args&&... args)
+    {
+        trace_warning(dispatcher, std::source_location::current(), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    inline void trace_warning(IMessageDispatcher& dispatcher, const std::source_location& loc, std::string_view fmt, Args&&... args)
+    {
+        submit_formatted(dispatcher, LogLevel::Warning, loc.file_name(), static_cast<int>(loc.line()), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    inline void trace_error(IMessageDispatcher& dispatcher, std::string_view fmt, Args&&... args)
+    {
+        trace_error(dispatcher, std::source_location::current(), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    inline void trace_error(IMessageDispatcher& dispatcher, const std::source_location& loc, std::string_view fmt, Args&&... args)
+    {
+        submit_formatted(dispatcher, LogLevel::Error, loc.file_name(), static_cast<int>(loc.line()), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    inline void trace_critical(IMessageDispatcher& dispatcher, std::string_view fmt, Args&&... args)
+    {
+        trace_critical(dispatcher, std::source_location::current(), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    inline void trace_critical(IMessageDispatcher& dispatcher, const std::source_location& loc, std::string_view fmt, Args&&... args)
+    {
+        submit_formatted(dispatcher, LogLevel::Critical, loc.file_name(), static_cast<int>(loc.line()), fmt, std::forward<Args>(args)...);
     }
 }
