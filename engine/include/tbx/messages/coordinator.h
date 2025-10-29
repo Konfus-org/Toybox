@@ -40,7 +40,7 @@ namespace tbx
         void process() override;
 
     private:
-        MessageResult dispatch(Message& msg, const MessageConfiguration& config, MessageResult result) const;
+        void dispatch(Message& msg, const MessageConfiguration& config, MessageResult& result) const;
         void finalize_callbacks(const Message& msg, const MessageConfiguration& config, MessageResult& result, MessageStatus status) const;
 
         std::vector<std::pair<Uuid, MessageHandler>> _handlers;

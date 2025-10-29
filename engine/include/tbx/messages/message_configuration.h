@@ -18,7 +18,7 @@ namespace tbx
         Callback on_processed;
 
         std::optional<std::size_t> delay_ticks;
-        std::optional<Timer::Time> delay_time;
+        std::optional<TimerDelay> delay_time;
 
         CancellationToken cancellation_token;
     };

@@ -1,35 +1,69 @@
 #include "tbx/messages/message_result.h"
 #include <memory>
-#include <utility>
 
 namespace tbx
 {
-    struct MessageResult::State
-    {
-        MessageStatus status = MessageStatus::InProgress;
-    };
-
     MessageResult::MessageResult()
-        : _state(std::make_shared<State>())
+        : _status(std::make_shared<MessageStatus>(MessageStatus::InProgress)),
+          _storage(std::make_shared<MessageResultValueStorage>())
     {
-    }
-
-    MessageResult::MessageResult(std::shared_ptr<State> state)
-        : _state(std::move(state))
-    {
-        if (!_state)
-        {
-            _state = std::make_shared<State>();
-        }
     }
 
     MessageStatus MessageResult::status() const
     {
-        return _state->status;
+        if (!_status)
+        {
+            return MessageStatus::InProgress;
+        }
+
+        return *_status;
+    }
+
+    bool MessageResult::has_value() const
+    {
+        return _storage && _storage->data != nullptr;
+    }
+
+    void MessageResult::reset_value()
+    {
+        if (_storage)
+        {
+            _storage->data.reset();
+            _storage->type = nullptr;
+        }
     }
 
     void MessageResult::set_status(MessageStatus status)
     {
-        _state->status = status;
+        ensure_status();
+        *_status = status;
+    }
+
+    void MessageResult::ensure_status()
+    {
+        if (!_status)
+        {
+            _status = std::make_shared<MessageStatus>(MessageStatus::InProgress);
+        }
+    }
+
+    MessageResultValueStorage& MessageResult::ensure_storage()
+    {
+        if (!_storage)
+        {
+            _storage = std::make_shared<MessageResultValueStorage>();
+        }
+
+        return *_storage;
+    }
+
+    const std::type_info* MessageResult::value_type() const
+    {
+        if (!_storage)
+        {
+            return nullptr;
+        }
+
+        return _storage->type;
     }
 }

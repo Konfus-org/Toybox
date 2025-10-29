@@ -32,12 +32,16 @@ namespace tbx
         _processing.clear();
     }
 
-    MessageResult MessageCoordinator::dispatch(Message& msg, const MessageConfiguration& config, MessageResult result) const
+    void MessageCoordinator::dispatch(Message& msg, const MessageConfiguration& config, MessageResult& result) const
     {
+        MessageResult* previous_result = msg.result;
+        msg.result = &result;
+
         if (config.cancellation_token && config.cancellation_token.is_cancelled())
         {
             finalize_callbacks(msg, config, result, MessageStatus::Cancelled);
-            return result;
+            msg.result = previous_result;
+            return;
         }
 
         bool handler_invoked = false;
@@ -59,7 +63,7 @@ namespace tbx
             status = MessageStatus::Failed;
 
         finalize_callbacks(msg, config, result, status);
-        return result;
+        msg.result = previous_result;
     }
 
     void MessageCoordinator::finalize_callbacks(const Message& msg, const MessageConfiguration& config, MessageResult& result, MessageStatus status) const
@@ -93,7 +97,8 @@ namespace tbx
     {
         MessageResult result;
         Message& mutable_msg = const_cast<Message&>(msg);
-        return dispatch(mutable_msg, config, result);
+        dispatch(mutable_msg, config, result);
+        return result;
     }
 
     MessageResult MessageCoordinator::post(const Message& msg, const MessageConfiguration& config)
@@ -107,6 +112,10 @@ namespace tbx
 
         QueuedMessage queued;
         queued.message = make_scope<Copy>(msg);
+        if (queued.message)
+        {
+            queued.message->result = nullptr;
+        }
         queued.config = config;
         queued.result = result;
 
@@ -139,7 +148,10 @@ namespace tbx
 
             if (entry.config.cancellation_token && entry.config.cancellation_token.is_cancelled())
             {
+                MessageResult* previous_result = entry.message->result;
+                entry.message->result = &entry.result;
                 finalize_callbacks(*entry.message, entry.config, entry.result, MessageStatus::Cancelled);
+                entry.message->result = previous_result;
                 continue;
             }
 
@@ -155,7 +167,7 @@ namespace tbx
                 continue;
             }
 
-            entry.result = dispatch(*entry.message, entry.config, std::move(entry.result));
+            dispatch(*entry.message, entry.config, entry.result);
         }
 
         _processing.clear();

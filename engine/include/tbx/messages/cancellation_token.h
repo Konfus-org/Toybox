@@ -1,9 +1,9 @@
 #pragma once
+#include <atomic>
 #include <memory>
 
 namespace tbx
 {
-    struct CancellationState;
     class CancellationToken;
 
     class CancellationSource
@@ -16,7 +16,7 @@ namespace tbx
         bool is_cancelled() const;
 
     private:
-        std::shared_ptr<CancellationState> _state;
+        std::shared_ptr<std::atomic<bool>> _state;
     };
 
     class CancellationToken
@@ -28,9 +28,9 @@ namespace tbx
         explicit operator bool() const { return static_cast<bool>(_state); }
 
     private:
-        explicit CancellationToken(std::shared_ptr<CancellationState> state);
+        explicit CancellationToken(std::shared_ptr<std::atomic<bool>> state);
 
-        std::shared_ptr<CancellationState> _state;
+        std::shared_ptr<std::atomic<bool>> _state;
 
         friend class CancellationSource;
     };

@@ -2,7 +2,7 @@
 
 namespace tbx
 {
-    std::chrono::steady_clock::duration Timer::Time::to_duration() const
+    std::chrono::steady_clock::duration TimerDelay::to_duration() const
     {
         std::chrono::steady_clock::duration duration{};
 
@@ -19,7 +19,7 @@ namespace tbx
         return duration;
     }
 
-    bool Timer::Time::is_zero() const
+    bool TimerDelay::is_zero() const
     {
         return milliseconds == 0 && seconds == 0 && minutes == 0 && hours == 0 && days == 0;
     }
@@ -30,16 +30,16 @@ namespace tbx
         _remaining_ticks = ticks;
     }
 
-    void Timer::set_time(const Time& time, std::chrono::steady_clock::time_point now)
+    void Timer::set_time(const TimerDelay& delay, std::chrono::steady_clock::time_point now)
     {
-        if (time.is_zero())
+        if (delay.is_zero())
         {
             _use_time = false;
             _ready_time = now;
             return;
         }
 
-        set_time(time.to_duration(), now);
+        set_time(delay.to_duration(), now);
     }
 
     void Timer::set_time(std::chrono::steady_clock::duration duration, std::chrono::steady_clock::time_point now)
@@ -77,21 +77,6 @@ namespace tbx
 
         --_remaining_ticks;
         return true;
-    }
-
-    bool Timer::has_delay() const
-    {
-        return _use_ticks || _use_time;
-    }
-
-    bool Timer::has_ticks() const
-    {
-        return _use_ticks;
-    }
-
-    bool Timer::has_time() const
-    {
-        return _use_time;
     }
 
     bool Timer::is_ready(std::chrono::steady_clock::time_point now) const

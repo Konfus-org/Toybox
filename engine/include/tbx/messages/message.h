@@ -3,6 +3,8 @@
 
 namespace tbx
 {
+    class MessageResult;
+
     // Base polymorphic message type for dispatching.
     struct Message
     {
@@ -10,6 +12,7 @@ namespace tbx
 
         Uuid id = Uuid::generate();
         bool is_handled = false;
+        MessageResult* result = nullptr;
     };
 }
 

@@ -7,6 +7,7 @@
 #include "tbx/messages/cancellation_token.h"
 #include <atomic>
 #include <chrono>
+#include <string>
 #include <thread>
 
 namespace tbx::tests::messages
@@ -173,7 +174,7 @@ namespace tbx::tests::messages
         });
 
         ::tbx::MessageConfiguration config;
-        ::tbx::Timer::Time delay;
+        ::tbx::TimerDelay delay;
         delay.milliseconds = 5;
         config.delay_time = delay;
 
@@ -260,5 +261,54 @@ namespace tbx::tests::messages
         EXPECT_TRUE(result.is_cancelled());
         EXPECT_TRUE(cancelled_callback);
         EXPECT_EQ(count.load(), 0);
+    }
+
+    TEST(dispatcher_result_value, handler_populates_result_payload)
+    {
+        ::tbx::MessageCoordinator d;
+
+        d.add_handler([](const ::tbx::Message& message)
+        {
+            auto& mutable_msg = const_cast<::tbx::Message&>(message);
+            mutable_msg.is_handled = true;
+            ASSERT_NE(mutable_msg.result, nullptr);
+            mutable_msg.result->set_value<int>(123);
+        });
+
+        ::tbx::Message msg;
+        auto result = d.send(msg);
+
+        EXPECT_TRUE(result.is_handled());
+        EXPECT_TRUE(result.has_value());
+        auto value = result.try_get<int>();
+        ASSERT_NE(value, nullptr);
+        EXPECT_EQ(*value, 123);
+        EXPECT_EQ(result.value_or<int>(0), 123);
+        EXPECT_EQ(result.try_get<float>(), nullptr);
+    }
+
+    TEST(dispatcher_post_result_value, queued_handler_updates_payload)
+    {
+        ::tbx::MessageCoordinator d;
+
+        d.add_handler([](const ::tbx::Message& message)
+        {
+            auto& mutable_msg = const_cast<::tbx::Message&>(message);
+            mutable_msg.is_handled = true;
+            ASSERT_NE(mutable_msg.result, nullptr);
+            mutable_msg.result->set_value<std::string>("ready");
+        });
+
+        ::tbx::Message msg;
+        auto result = d.post(msg);
+
+        EXPECT_TRUE(result.is_in_progress());
+        EXPECT_FALSE(result.has_value());
+
+        d.process();
+
+        EXPECT_TRUE(result.is_handled());
+        EXPECT_TRUE(result.has_value());
+        EXPECT_EQ(result.value_or<std::string>(""), "ready");
     }
 }

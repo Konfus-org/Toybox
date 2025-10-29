@@ -1,5 +1,7 @@
 #pragma once
 #include <memory>
+#include <typeinfo>
+#include <utility>
 
 namespace tbx
 {
@@ -12,6 +14,11 @@ namespace tbx
         Failed
     };
 
+    struct MessageResultValueStorage
+    {
+        std::shared_ptr<void> data;
+        const std::type_info* type = nullptr;
+    };
     class MessageCoordinator;
 
     class MessageResult
@@ -30,14 +37,56 @@ namespace tbx
             return s == MessageStatus::Processed || s == MessageStatus::Handled;
         }
 
+        bool has_value() const;
+        void reset_value();
+
+        template <typename T>
+        void set_value(T value)
+        {
+            MessageResultValueStorage& storage = ensure_storage();
+            storage.data = std::make_shared<T>(std::move(value));
+            storage.type = &typeid(T);
+        }
+
+        template <typename T>
+        T* try_get()
+        {
+            if (!_storage || !_storage->data)
+                return nullptr;
+            if (value_type() != &typeid(T))
+                return nullptr;
+            return std::static_pointer_cast<T>(_storage->data).get();
+        }
+
+        template <typename T>
+        const T* try_get() const
+        {
+            if (!_storage || !_storage->data)
+                return nullptr;
+            if (value_type() != &typeid(T))
+                return nullptr;
+            return std::static_pointer_cast<T>(_storage->data).get();
+        }
+
+        template <typename T>
+        T value_or(T fallback) const
+        {
+            const T* value = try_get<T>();
+            if (value)
+            {
+                return *value;
+            }
+            return fallback;
+        }
+
     private:
-        struct State;
-
-        explicit MessageResult(std::shared_ptr<State> state);
-
         void set_status(MessageStatus status);
+        void ensure_status();
+        MessageResultValueStorage& ensure_storage();
+        const std::type_info* value_type() const;
 
-        std::shared_ptr<State> _state;
+        std::shared_ptr<MessageStatus> _status;
+        std::shared_ptr<MessageResultValueStorage> _storage;
 
         friend class MessageCoordinator;
     };
