@@ -1,4 +1,16 @@
-BasedOnStyle: Microsoft
+# Format Style Options - Created with Clang Power Tools
+---
+BasedOnStyle: WebKit
+AccessModifierOffset: -1
+AlignConsecutiveMacros: Consecutive
+AlignConsecutiveDeclarations: Consecutive
+AlignEscapedNewlines: DontAlign
+AllowShortCaseLabelsOnASingleLine: true
+AlwaysBreakTemplateDeclarations: Yes
+BreakBeforeBraces: Allman
+ColumnLimit: 160
+IndentCaseLabels: true
+IndentPPDirectives: BeforeHash
 IndentWidth: 4
 ColumnLimit: 100
 DerivePointerAlignment: false
@@ -14,6 +26,8 @@ ReflowComments: true
 SpacesBeforeTrailingComments: 1
 SpaceAfterCStyleCast: false
 SpaceAfterLogicalNot: false
-NamespaceIndentation: None
 IndentCaseLabels: true
 AllowShortCaseLabelsOnASingleLine: false
+NamespaceIndentation: All
+Standard: c++20
+TabWidth: 4
