@@ -1,4 +1,4 @@
-#include "tbx/messages/cancellation_token.h"
+#include "tbx/core/cancellation_token.h"
 #include <memory>
 #include <utility>
 

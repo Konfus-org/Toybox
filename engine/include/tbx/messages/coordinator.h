@@ -5,6 +5,7 @@
 #include "tbx/ids/uuid.h"
 #include "tbx/time/timer.h"
 #include <chrono>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -41,7 +42,7 @@ namespace tbx
 
     private:
         void dispatch(Message& msg, const MessageConfiguration& config, MessageResult& result) const;
-        void finalize_callbacks(const Message& msg, const MessageConfiguration& config, MessageResult& result, MessageStatus status) const;
+        void finalize_callbacks(const Message& msg, const MessageConfiguration& config, MessageResult& result, MessageStatus status, const std::string* failure_reason = nullptr) const;
 
         std::vector<std::pair<Uuid, MessageHandler>> _handlers;
         std::vector<QueuedMessage> _pending;

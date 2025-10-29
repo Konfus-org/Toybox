@@ -4,7 +4,7 @@
 #include "tbx/messages/handler.h"
 #include "tbx/messages/message_configuration.h"
 #include "tbx/messages/message_result.h"
-#include "tbx/messages/cancellation_token.h"
+#include "tbx/core/cancellation_token.h"
 #include <atomic>
 #include <chrono>
 #include <string>
@@ -82,6 +82,8 @@ namespace tbx::tests::messages
 
         EXPECT_EQ(count.load(), 1);
         EXPECT_EQ(result.status(), ::tbx::MessageStatus::Failed);
+        EXPECT_FALSE(result);
+        EXPECT_FALSE(result.why().empty());
         EXPECT_TRUE(failure_callback);
         EXPECT_TRUE(processed_callback);
     }
@@ -130,6 +132,8 @@ namespace tbx::tests::messages
 
         EXPECT_EQ(count.load(), 1);
         EXPECT_EQ(result.status(), ::tbx::MessageStatus::Failed);
+        EXPECT_FALSE(result);
+        EXPECT_FALSE(result.why().empty());
         (void)keep_id; // silence unused warning
     }
 
@@ -174,7 +178,7 @@ namespace tbx::tests::messages
         });
 
         ::tbx::MessageConfiguration config;
-        ::tbx::TimerDelay delay;
+        ::tbx::TimeSpan delay;
         delay.milliseconds = 5;
         config.delay_time = delay;
 
@@ -272,19 +276,19 @@ namespace tbx::tests::messages
             auto& mutable_msg = const_cast<::tbx::Message&>(message);
             mutable_msg.is_handled = true;
             ASSERT_NE(mutable_msg.result, nullptr);
-            mutable_msg.result->set_value<int>(123);
+            mutable_msg.result->set_payload<int>(123);
         });
 
         ::tbx::Message msg;
         auto result = d.send(msg);
 
         EXPECT_TRUE(result.is_handled());
-        EXPECT_TRUE(result.has_value());
-        auto value = result.try_get<int>();
+        EXPECT_TRUE(result.has_payload());
+        auto value = result.try_get_payload<int>();
         ASSERT_NE(value, nullptr);
         EXPECT_EQ(*value, 123);
-        EXPECT_EQ(result.value_or<int>(0), 123);
-        EXPECT_EQ(result.try_get<float>(), nullptr);
+        EXPECT_EQ(result.payload_or<int>(0), 123);
+        EXPECT_EQ(result.try_get_payload<float>(), nullptr);
     }
 
     TEST(dispatcher_post_result_value, queued_handler_updates_payload)
@@ -296,19 +300,19 @@ namespace tbx::tests::messages
             auto& mutable_msg = const_cast<::tbx::Message&>(message);
             mutable_msg.is_handled = true;
             ASSERT_NE(mutable_msg.result, nullptr);
-            mutable_msg.result->set_value<std::string>("ready");
+            mutable_msg.result->set_payload<std::string>("ready");
         });
 
         ::tbx::Message msg;
         auto result = d.post(msg);
 
         EXPECT_TRUE(result.is_in_progress());
-        EXPECT_FALSE(result.has_value());
+        EXPECT_FALSE(result.has_payload());
 
         d.process();
 
         EXPECT_TRUE(result.is_handled());
-        EXPECT_TRUE(result.has_value());
-        EXPECT_EQ(result.value_or<std::string>(""), "ready");
+        EXPECT_TRUE(result.has_payload());
+        EXPECT_EQ(result.payload_or<std::string>(""), "ready");
     }
 }
