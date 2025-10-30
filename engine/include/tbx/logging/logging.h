@@ -15,12 +15,31 @@ namespace tbx
     {
         switch (lvl)
         {
-            case LogLevel::Info: return "INFO";
-            case LogLevel::Warning: return "WARN";
-            case LogLevel::Error: return "ERROR";
-            case LogLevel::Critical: return "CRITICAL";
+            case LogLevel::Info:
+                return "INFO";
+            case LogLevel::Warning:
+                return "WARN";
+            case LogLevel::Error:
+                return "ERROR";
+            case LogLevel::Critical:
+                return "CRITICAL";
         }
         return "UNKNOWN";
+    }
+
+    inline std::string format_log_message(const std::string& message)
+    {
+        return message;
+    }
+
+    inline std::string format_log_message(std::string_view message)
+    {
+        return std::string(message);
+    }
+
+    inline std::string format_log_message(const char* message)
+    {
+        return message ? std::string(message) : std::string();
     }
 
     inline void std_log(LogLevel level, const char* file, int line, const std::string& message, bool warn_if_first = false)
@@ -37,8 +56,8 @@ namespace tbx
     inline void submit_log(const IMessageDispatcher& dispatcher, LogLevel level, const char* file, int line, const std::string& message)
     {
         const LogMessageCommand cmd = { .level = level, .message = message, .file = file ? std::string(file) : std::string(), .line = line };
-        dispatcher.send(cmd);
-        if (!cmd.is_handled)
+        auto result = dispatcher.send(cmd);
+        if (!result || !cmd.is_handled)
         {
             std_log(level, file, line, message, true);
         }
@@ -57,12 +76,6 @@ namespace tbx
             std_log(level, file, line, message, true);
         }
     }
-
-    inline std::string format_log_message(const std::string& message) { return message; }
-
-    inline std::string format_log_message(std::string_view message) { return std::string(message); }
-
-    inline std::string format_log_message(const char* message) { return message ? std::string(message) : std::string(); }
 
     template <typename... Args>
         requires(sizeof...(Args) > 0)
@@ -86,50 +99,51 @@ namespace tbx
     }
 
     template <typename... Args>
-    inline void trace_info(IMessageDispatcher& dispatcher, std::string_view fmt, Args&&... args)
-    {
-        trace_info(dispatcher, std::source_location::current(), fmt, std::forward<Args>(args)...);
-    }
-
-    template <typename... Args>
-    inline void trace_info(IMessageDispatcher& dispatcher, const std::source_location& loc, std::string_view fmt, Args&&... args)
+    void trace_info(IMessageDispatcher& dispatcher, const std::source_location& loc, std::string_view fmt, Args&&... args)
     {
         submit_formatted(dispatcher, LogLevel::Info, loc.file_name(), static_cast<int>(loc.line()), fmt, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
-    inline void trace_warning(IMessageDispatcher& dispatcher, std::string_view fmt, Args&&... args)
-    {
-        trace_warning(dispatcher, std::source_location::current(), fmt, std::forward<Args>(args)...);
-    }
-
-    template <typename... Args>
-    inline void trace_warning(IMessageDispatcher& dispatcher, const std::source_location& loc, std::string_view fmt, Args&&... args)
+    void trace_warning(IMessageDispatcher& dispatcher, const std::source_location& loc, std::string_view fmt, Args&&... args)
     {
         submit_formatted(dispatcher, LogLevel::Warning, loc.file_name(), static_cast<int>(loc.line()), fmt, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
-    inline void trace_error(IMessageDispatcher& dispatcher, std::string_view fmt, Args&&... args)
-    {
-        trace_error(dispatcher, std::source_location::current(), fmt, std::forward<Args>(args)...);
-    }
-
-    template <typename... Args>
-    inline void trace_error(IMessageDispatcher& dispatcher, const std::source_location& loc, std::string_view fmt, Args&&... args)
+    void trace_error(IMessageDispatcher& dispatcher, const std::source_location& loc, std::string_view fmt, Args&&... args)
     {
         submit_formatted(dispatcher, LogLevel::Error, loc.file_name(), static_cast<int>(loc.line()), fmt, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
-    inline void trace_critical(IMessageDispatcher& dispatcher, std::string_view fmt, Args&&... args)
+    void trace_critical(IMessageDispatcher& dispatcher, const std::source_location& loc, std::string_view fmt, Args&&... args)
+    {
+        submit_formatted(dispatcher, LogLevel::Critical, loc.file_name(), static_cast<int>(loc.line()), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    void trace_info(IMessageDispatcher& dispatcher, std::string_view fmt, Args&&... args)
+    {
+        trace_info(dispatcher, std::source_location::current(), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    void trace_warning(IMessageDispatcher& dispatcher, std::string_view fmt, Args&&... args)
+    {
+        trace_warning(dispatcher, std::source_location::current(), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    void trace_error(IMessageDispatcher& dispatcher, std::string_view fmt, Args&&... args)
+    {
+        trace_error(dispatcher, std::source_location::current(), fmt, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    void trace_critical(IMessageDispatcher& dispatcher, std::string_view fmt, Args&&... args)
     {
         trace_critical(dispatcher, std::source_location::current(), fmt, std::forward<Args>(args)...);
     }
 
-    template <typename... Args>
-    inline void trace_critical(IMessageDispatcher& dispatcher, const std::source_location& loc, std::string_view fmt, Args&&... args)
-    {
-        submit_formatted(dispatcher, LogLevel::Critical, loc.file_name(), static_cast<int>(loc.line()), fmt, std::forward<Args>(args)...);
-    }
 }

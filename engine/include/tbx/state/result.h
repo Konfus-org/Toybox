@@ -27,7 +27,7 @@ namespace tbx
     // Thread-safe for concurrent reads thanks to shared_ptr-managed state.
     class Result
     {
-    public:
+       public:
         Result();
 
         ResultStatus get_status() const;
@@ -95,18 +95,12 @@ namespace tbx
             return *payload;
         }
 
-        template <typename T>
-        T payload_or(T fallback) const
+        operator bool() const
         {
-            const T* value = try_get_payload<T>();
-            if (value)
-            {
-                return *value;
-            }
-            return fallback;
+            return get_status() != ResultStatus::Failed;
         }
 
-    private:
+       private:
         void ensure_status();
         ResultPayloadStorage& ensure_payload();
         const std::type_info* payload_type() const;
@@ -117,4 +111,3 @@ namespace tbx
         std::shared_ptr<std::string> _message;
     };
 }
-
