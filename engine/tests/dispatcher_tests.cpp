@@ -421,7 +421,6 @@ namespace tbx::tests::messages
         auto value = result.try_get_payload<int>();
         ASSERT_NE(value, nullptr);
         EXPECT_EQ(*value, 123);
-        EXPECT_EQ(result.payload_or<int>(0), 123);
         EXPECT_EQ(result.try_get_payload<float>(), nullptr);
     }
 
@@ -448,6 +447,8 @@ namespace tbx::tests::messages
 
         EXPECT_EQ(result.get_status(), ::tbx::MessageStatus::Handled);
         EXPECT_TRUE(result.has_payload());
-        EXPECT_EQ(result.payload_or<std::string>(""), "ready");
+        const auto* final_value = result.try_get_payload<std::string>();
+        ASSERT_NE(final_value, nullptr);
+        EXPECT_EQ(*final_value, "ready");
     }
 }
