@@ -13,12 +13,21 @@ namespace tbx
     #define TBX_PLUGIN_EXPORT extern "C"
 #endif
 
+    class Plugin;
+
+    // Function signature used to destroy plugin instances exported from modules.
+    using DestroyPluginFn = void (*)(Plugin*);
+
 // Helper to register a dynamic plugin factory symbol inside a plugin module.
 // Example: TBX_REGISTER_PLUGIN(CreateMyPlugin, MyPluginType)
-#define TBX_REGISTER_PLUGIN(EntryName, PluginType) \
-    TBX_PLUGIN_EXPORT ::tbx::Plugin* EntryName() \
-    { \
-        return new PluginType(); \
+#define TBX_REGISTER_PLUGIN(EntryName, PluginType)                           \
+    TBX_PLUGIN_EXPORT ::tbx::Plugin* EntryName()                            \
+    {                                                                       \
+        return new PluginType();                                            \
+    }                                                                       \
+    TBX_PLUGIN_EXPORT void EntryName##_Destroy(::tbx::Plugin* plugin)       \
+    {                                                                       \
+        delete plugin;                                                      \
     }
 
     // A hot-reloadable piece of modular logic loaded at runtime.

@@ -69,7 +69,9 @@ namespace tbx
                     }
                     catch (...)
                     {
-                        TBX_TRACE_WARNING("Plugin {} is unable to be loaded!", entry.path().string());
+                        const std::string manifest_path = entry.path().string();
+                        TBX_TRACE_WARNING(
+                            "Plugin {} is unable to be loaded!", manifest_path.c_str());
                     }
                 }
             }
@@ -194,21 +196,30 @@ namespace tbx
             CreatePluginFn create = lib->get_symbol<CreatePluginFn>(meta.entry_point.c_str());
             if (!create)
             {
-                TBX_TRACE_WARNING("Entry point not found in plugin module: {}", meta.entry_point);
+                TBX_TRACE_WARNING(
+                    "Entry point not found in plugin module: {}", meta.entry_point.c_str());
                 continue;
+            }
+
+            std::string destroy_name = meta.entry_point + "_Destroy";
+            DestroyPluginFn destroy = lib->get_symbol<DestroyPluginFn>(destroy_name.c_str());
+            if (!destroy)
+            {
+                TBX_TRACE_WARNING(
+                    "Destroy entry point not found in plugin module: {}", destroy_name.c_str());
             }
 
             Plugin* raw = create();
             if (!raw)
             {
-                TBX_TRACE_WARNING("Plugin factory returned null for: {}", meta.id);
+                TBX_TRACE_WARNING("Plugin factory returned null for: {}", meta.id.c_str());
                 continue;
             }
 
             LoadedPlugin lp;
             lp.meta = meta;
             lp.library = std::move(lib);
-            lp.instance.reset(raw);
+            lp.instance = PluginInstance(raw, PluginDeleter{ destroy });
             loaded.push_back(std::move(lp));
         }
         return loaded;
