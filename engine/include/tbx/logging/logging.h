@@ -7,6 +7,7 @@
 #include <source_location>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 
 namespace tbx
@@ -48,7 +49,12 @@ namespace tbx
     {
         // Pass arguments as lvalues to avoid binding rvalues to non-const references
         // inside std::make_format_args on some standard library implementations.
-        return std::vformat(fmt, std::make_format_args(std::forward<Args>(args)...));
+        auto arguments = std::make_tuple(std::forward<Args>(args)...);
+        return std::apply(
+            [&](auto&... tuple_args) {
+                return std::vformat(fmt, std::make_format_args(tuple_args...));
+            },
+            arguments);
     }
 
     inline void cout(

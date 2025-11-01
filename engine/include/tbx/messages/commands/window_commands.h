@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/messages/commands/command.h"
-#include "tbx/windowing/window.h"
+#include "tbx/os/window.h"
 #include <utility>
 
 namespace tbx

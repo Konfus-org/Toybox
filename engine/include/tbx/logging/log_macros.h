@@ -32,7 +32,7 @@
     {                                                                                              \
         if (!(cond))                                                                               \
         {                                                                                          \
-            ::tbx::submit_formatted(                                                               \
+            ::tbx::trace(                                                                          \
                 (CmdDispatcherRef),                                                                \
                 ::tbx::LogLevel::Critical,                                                         \
                 __FILE__,                                                                          \
@@ -47,7 +47,7 @@
     {                                                                                              \
         if (!(cond))                                                                               \
         {                                                                                          \
-            ::tbx::submit_formatted(::tbx::LogLevel::Critical, __FILE__, __LINE__, __VA_ARGS__);   \
+            ::tbx::trace(::tbx::LogLevel::Critical, __FILE__, __LINE__, __VA_ARGS__);              \
             TBX_DEBUG_BREAK();                                                                     \
         }                                                                                          \
     } while (0)

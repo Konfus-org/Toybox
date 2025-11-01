@@ -162,21 +162,21 @@ namespace tbx::plugins::sdlwindowing
         void on_message(const Message& msg) override
         {
             CreateWindowCommand* create = nullptr;
-            if (try_as(msg, &create))
+            if (try_as(msg, create))
             {
                 handle_create_window(*create);
                 return;
             }
 
             QueryWindowDescriptionCommand* query = nullptr;
-            if (try_as(msg, &query))
+            if (try_as(msg, query))
             {
                 handle_query_description(*query);
                 return;
             }
 
             ApplyWindowDescriptionCommand* apply = nullptr;
-            if (try_as(msg, &apply))
+            if (try_as(msg, apply))
             {
                 handle_apply_description(*apply);
             }
