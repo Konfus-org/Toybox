@@ -55,7 +55,11 @@ namespace tbx
 
     inline void submit_log(const IMessageDispatcher& dispatcher, LogLevel level, const char* file, int line, const std::string& message)
     {
-        const LogMessageCommand cmd = { .level = level, .message = message, .file = file ? std::string(file) : std::string(), .line = line };
+        LogMessageCommand cmd;
+        cmd.level = level;
+        cmd.message = message;
+        cmd.file = file ? std::string(file) : std::string();
+        cmd.line = line;
         auto result = dispatcher.send(cmd);
         if (!result || !cmd.is_handled)
         {
