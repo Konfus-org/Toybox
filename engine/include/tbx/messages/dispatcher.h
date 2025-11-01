@@ -1,7 +1,6 @@
 #pragma once
 #include "tbx/messages/message.h"
 #include "tbx/state/result.h"
-#include <type_traits>
 
 namespace tbx
 {
@@ -10,7 +9,7 @@ namespace tbx
     // surface for producers to send immediately or queue for later.
     class IMessageDispatcher
     {
-    public:
+       public:
         virtual ~IMessageDispatcher() = default;
         // Immediately send message on the stack.
         virtual Result send(const Message& msg) const = 0;
@@ -22,7 +21,7 @@ namespace tbx
     // posted messages. Typically driven once per frame/tick.
     class IMessageProcessor
     {
-    public:
+       public:
         virtual ~IMessageProcessor() = default;
 
         // processes all posted messages.

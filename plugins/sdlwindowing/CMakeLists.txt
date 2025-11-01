@@ -4,7 +4,7 @@ add_library(SdlWindowingPlugin SHARED
 
 target_link_libraries(SdlWindowingPlugin PRIVATE
     Engine
-    SDL3::SDL3
+    SDL3::SDL3-shared
 )
 
 add_custom_command(TARGET SdlWindowingPlugin POST_BUILD

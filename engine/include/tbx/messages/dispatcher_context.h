@@ -19,9 +19,15 @@ namespace tbx
     // dispatcher outlives the scope where it is set.
     class DispatcherScope
     {
-    public:
+       public:
+        DispatcherScope(IMessageDispatcher& dispatcher)
+            : _prev(set_current_dispatcher(&dispatcher))
+        {
+        }
         DispatcherScope(IMessageDispatcher* dispatcher)
-            : _prev(set_current_dispatcher(dispatcher)) {}
+            : _prev(set_current_dispatcher(dispatcher))
+        {
+        }
 
         ~DispatcherScope()
         {
@@ -31,7 +37,7 @@ namespace tbx
         DispatcherScope(const DispatcherScope&) = delete;
         DispatcherScope& operator=(const DispatcherScope&) = delete;
 
-    private:
+       private:
         IMessageDispatcher* _prev = nullptr;
     };
 }

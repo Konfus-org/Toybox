@@ -1,10 +1,13 @@
-#include "tbx/windowing/window.h"
+#include "tbx/os/window.h"
 #include "tbx/messages/commands/window_commands.h"
 #include "tbx/state/result.h"
 
 namespace tbx
 {
-    Window::Window(IMessageDispatcher& dispatcher, WindowImpl implementation, const WindowDescription& description)
+    Window::Window(
+        IMessageDispatcher& dispatcher,
+        WindowImpl implementation,
+        const WindowDescription& description)
         : _dispatcher(&dispatcher)
         , _implementation(implementation)
         , _description(description)

@@ -2,8 +2,8 @@
 #include "tbx/memory/casting.h"
 #include "tbx/memory/smart_pointers.h"
 #include "tbx/messages/commands/window_commands.h"
+#include "tbx/os/window.h"
 #include "tbx/plugin_api/plugin.h"
-#include "tbx/windowing/window.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <string>
@@ -27,7 +27,8 @@ namespace tbx::plugins::sdlwindowing
         return fallback;
     }
 
-    static WindowDescription read_window_description(SDL_Window* window, const WindowDescription& fallback)
+    static WindowDescription
+    read_window_description(SDL_Window* window, const WindowDescription& fallback)
     {
         WindowDescription description = fallback;
 
@@ -76,7 +77,8 @@ namespace tbx::plugins::sdlwindowing
 
         if (description.size.width > 0 && description.size.height > 0)
         {
-            succeeded = SDL_SetWindowSize(window, description.size.width, description.size.height) && succeeded;
+            succeeded = SDL_SetWindowSize(window, description.size.width, description.size.height)
+                && succeeded;
         }
 
         succeeded = SDL_SetWindowTitle(window, description.title.c_str()) && succeeded;
@@ -92,7 +94,10 @@ namespace tbx::plugins::sdlwindowing
 
     struct SdlWindowRecord
     {
-        SdlWindowRecord(IMessageDispatcher& dispatcher, SDL_Window* native_window, const WindowDescription& description)
+        SdlWindowRecord(
+            IMessageDispatcher& dispatcher,
+            SDL_Window* native_window,
+            const WindowDescription& description)
             : window(dispatcher, static_cast<void*>(native_window), description)
             , description(description)
             , native(native_window)
@@ -106,7 +111,7 @@ namespace tbx::plugins::sdlwindowing
 
     class SdlWindowingPlugin final : public Plugin
     {
-    public:
+       public:
         void on_attach(const ApplicationContext&, IMessageDispatcher& dispatcher) override
         {
             _dispatcher = &dispatcher;
@@ -115,7 +120,8 @@ namespace tbx::plugins::sdlwindowing
             {
                 if (SDL_InitSubSystem(SDL_INIT_VIDEO) < 0)
                 {
-                    TBX_TRACE_ERROR("Failed to initialize SDL video subsystem. See SDL logs for details.");
+                    TBX_TRACE_ERROR(
+                        "Failed to initialize SDL video subsystem. See SDL logs for details.");
                     return;
                 }
 
@@ -176,7 +182,7 @@ namespace tbx::plugins::sdlwindowing
             }
         }
 
-    private:
+       private:
         void handle_create_window(CreateWindowCommand& command)
         {
             Result* result = command.get_result();
@@ -213,7 +219,11 @@ namespace tbx::plugins::sdlwindowing
                 flags |= SDL_WINDOW_FULLSCREEN;
             }
 
-            SDL_Window* native = SDL_CreateWindow(requested.title.c_str(), requested.size.width, requested.size.height, flags);
+            SDL_Window* native = SDL_CreateWindow(
+                requested.title.c_str(),
+                requested.size.width,
+                requested.size.height,
+                flags);
             if (!native)
             {
                 TBX_TRACE_ERROR("Failed to create SDL window. See SDL logs for details.");
@@ -224,7 +234,9 @@ namespace tbx::plugins::sdlwindowing
 
             if (!apply_window_description(native, requested))
             {
-                TBX_TRACE_WARNING("SDL window created but initial description could not be fully applied. See SDL logs for details.");
+                TBX_TRACE_WARNING(
+                    "SDL window created but initial description could not be fully applied. See "
+                    "SDL logs for details.");
             }
 
             const WindowDescription description = read_window_description(native, requested);
@@ -270,7 +282,8 @@ namespace tbx::plugins::sdlwindowing
                 return;
             }
 
-            const WindowDescription description = read_window_description(record->native, record->description);
+            const WindowDescription description
+                = read_window_description(record->native, record->description);
             record->description = description;
             if (result)
             {
@@ -307,7 +320,8 @@ namespace tbx::plugins::sdlwindowing
                 return;
             }
 
-            const WindowDescription refreshed = read_window_description(record->native, command.description);
+            const WindowDescription refreshed
+                = read_window_description(record->native, command.description);
             record->description = refreshed;
             if (result)
             {
@@ -320,9 +334,11 @@ namespace tbx::plugins::sdlwindowing
 
         SdlWindowRecord* find_record(const Window& window) const
         {
-            auto it = std::find_if(_windows.begin(), _windows.end(), [&window](const Scope<SdlWindowRecord>& record) {
-                return &record->window == &window;
-            });
+            auto it = std::find_if(
+                _windows.begin(),
+                _windows.end(),
+                [&window](const Scope<SdlWindowRecord>& record)
+                { return &record->window == &window; });
             if (it == _windows.end())
             {
                 return nullptr;
@@ -337,4 +353,3 @@ namespace tbx::plugins::sdlwindowing
 
     TBX_REGISTER_PLUGIN(CreateSdlWindowingPlugin, SdlWindowingPlugin);
 }
-

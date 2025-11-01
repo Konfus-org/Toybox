@@ -3,9 +3,8 @@
 AccessModifierOffset: -1
 AlignConsecutiveMacros: None
 AlignConsecutiveDeclarations: None
-AlignAfterOpenBracket: BlockIndent
-BinPackParameters: false
-AlignEscapedNewlines: DontAlign
+AlignAfterOpenBracket: AlwaysBreak
+AllowAllArgumentsOnNextLine: false
 AlignConsecutiveAssignments: false
 AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: false
@@ -14,6 +13,8 @@ AllowShortCaseLabelsOnASingleLine: false
 AllowAllParametersOfDeclarationOnNextLine: false
 AlwaysBreakTemplateDeclarations: Yes
 BasedOnStyle: WebKit
+BinPackArguments: false
+BinPackParameters: false
 BreakBeforeBraces: Allman
 ColumnLimit: 100
 DerivePointerAlignment: false

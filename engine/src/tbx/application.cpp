@@ -1,11 +1,11 @@
 #include "tbx/application.h"
 #include "tbx/logging/log_macros.h"
 #include "tbx/memory/casting.h"
+#include "tbx/messages/commands/app_commands.h"
+#include "tbx/messages/dispatcher_context.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/time/delta_time.h"
-#include "tbx/messages/dispatcher_context.h"
-#include "tbx/messages/commands/app_commands.h"
 
 namespace tbx
 {
@@ -22,8 +22,7 @@ namespace tbx
 
     int Application::run()
     {
-        DispatcherScope scope(&_msg_coordinator);
-        DeltaTimer timer;
+        DeltaTimer timer = {};
         while (!_should_exit)
         {
             update(timer);
@@ -34,12 +33,13 @@ namespace tbx
     void Application::initialize()
     {
         // Set dispatcher scope
-        DispatcherScope scope(&_msg_coordinator);
+        DispatcherScope scope(_msg_coordinator);
 
         // Load dynamic plugins based on description
         if (!_desc.plugins_directory.empty())
         {
-            std::vector<LoadedPlugin> loaded = load_plugins(_desc.plugins_directory, _desc.requested_plugins);
+            std::vector<LoadedPlugin> loaded
+                = load_plugins(_desc.plugins_directory, _desc.requested_plugins);
             for (auto& lp : loaded)
             {
                 _loaded.push_back(std::move(lp));
@@ -47,25 +47,19 @@ namespace tbx
         }
 
         // Attach all plugins with a basic context
-        ApplicationContext ctx =
-        {
-            .instance = this,
-            .description = _desc
-        };
+        ApplicationContext ctx = { .instance = this, .description = _desc };
 
-        _msg_coordinator.add_handler([this](const Message& msg)
-        {
-            handle_message(msg);
-        });
+        _msg_coordinator.add_handler([this](const Message& msg) { handle_message(msg); });
         for (auto& p : _loaded)
         {
             if (p.instance)
             {
-                _msg_coordinator.add_handler([plugin = p.instance.get()](const Message& msg)
-                {
-                    if (plugin)
-                        plugin->on_message(msg);
-                });
+                _msg_coordinator.add_handler(
+                    [plugin = p.instance.get()](const Message& msg)
+                    {
+                        if (plugin)
+                            plugin->on_message(msg);
+                    });
                 p.instance->on_attach(ctx, _msg_coordinator);
             }
         }
@@ -73,6 +67,8 @@ namespace tbx
 
     void Application::update(DeltaTimer timer)
     {
+        DispatcherScope scope(_msg_coordinator);
+
         // Process messages posted in previous frame
         _msg_coordinator.process();
 
