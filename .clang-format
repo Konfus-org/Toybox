@@ -1,34 +1,70 @@
 # Format Style Options - Created with Clang Power Tools
 ---
 AccessModifierOffset: -1
-AlignConsecutiveMacros: None
-AlignConsecutiveDeclarations: None
 AlignAfterOpenBracket: AlwaysBreak
-AllowAllArgumentsOnNextLine: false
 AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: None
+AlignConsecutiveMacros: None
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
-AllowShortCaseLabelsOnASingleLine: false
-AllowAllParametersOfDeclarationOnNextLine: false
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakAfterReturnType: None
+AlwaysBreakBeforeMultilineStrings: true
 AlwaysBreakTemplateDeclarations: Yes
-BasedOnStyle: WebKit
+BasedOnStyle: Microsoft
 BinPackArguments: false
 BinPackParameters: false
+BraceWrapping: 
+  AfterCaseLabel: true
+  AfterClass: true
+  AfterControlStatement: true
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterObjCDeclaration: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: true
+  BeforeCatch: true
+  BeforeElse: true
+  IndentBraces: true
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+  BeforeLambdaBody: true
+  BeforeWhile: true
+BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeBraces: Allman
+BreakBeforeInheritanceComma: true
+BreakInheritanceList: BeforeComma
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeComma
+BreakStringLiterals: true
 ColumnLimit: 100
+ConstructorInitializerIndentWidth : 4
+ContinuationIndentWidth: 4
 DerivePointerAlignment: false
+EmptyLineBeforeAccessModifier: Always
+FixNamespaceComments: false
+IncludeBlocks: Merge
 IndentCaseLabels: true
 IndentPPDirectives: BeforeHash
 IndentWidth: 4
+IndentWrappedFunctionNames: true
+NamespaceIndentation: All
+PenaltyReturnTypeOnItsOwnLine: 1000000000
 PointerAlignment: Left
-UseTab: Never
-IncludeBlocks: Merge
-SortIncludes: true
 ReflowComments: true
-SpacesBeforeTrailingComments: 1
+SortIncludes: true
 SpaceAfterCStyleCast: false
 SpaceAfterLogicalNot: false
-NamespaceIndentation: All
+SpacesBeforeTrailingComments: 1
 Standard: c++20
 TabWidth: 4
+UseTab: Never
+...

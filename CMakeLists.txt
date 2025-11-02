@@ -18,10 +18,10 @@ set(CMAKE_PDB_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/Build/pdb" CACHE PATH "Where
 enable_testing()
 if(MSVC)
   set_property(GLOBAL PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+  add_compile_options("/Zc:preprocessor")
   add_compile_options("/ZI")
   add_compile_options("/MP")
   add_compile_options("/GR")
-  add_compile_options("/ZI")
   add_link_options("/INCREMENTAL")
 endif()
 

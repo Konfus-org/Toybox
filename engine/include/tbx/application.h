@@ -11,22 +11,22 @@ namespace tbx
     // Thread-safety: The application and coordinator are intended to be used
     // on a single thread (the main loop). No internal synchronization is
     // provided.
-    class Application
+    class TBX_API Application
     {
-    public:
+       public:
         Application(const AppDescription& desc);
         ~Application();
 
         // Starts the application main loop. Returns process exit code.
         int run();
 
-    private:
+       private:
         void initialize();
         void update(DeltaTimer timer);
         void shutdown();
         void handle_message(const Message& msg);
 
-    private:
+       private:
         AppDescription _desc = {};
         std::vector<LoadedPlugin> _loaded = {};
         MessageCoordinator _msg_coordinator;

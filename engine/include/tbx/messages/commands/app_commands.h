@@ -1,9 +1,10 @@
 #pragma once
 #include "tbx/messages/commands/command.h"
+#include "tbx/tbx_api.h"
 
 namespace tbx
 {
-    class ExitApplicationCommand : public Command
+    class TBX_API ExitApplicationCommand : public Command
     {
     };
 }

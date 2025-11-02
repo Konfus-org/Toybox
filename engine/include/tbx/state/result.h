@@ -1,14 +1,13 @@
 #pragma once
-
+#include "tbx/tbx_api.h"
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <typeinfo>
 #include <utility>
 
 namespace tbx
 {
-    enum class ResultStatus
+    enum class TBX_API ResultStatus
     {
         InProgress,
         Handled,
@@ -17,7 +16,7 @@ namespace tbx
         Failed
     };
 
-    struct ResultPayloadStorage
+    struct TBX_API ResultPayloadStorage
     {
         std::shared_ptr<void> data;
         const std::type_info* type = nullptr;
@@ -25,7 +24,7 @@ namespace tbx
 
     // Captures lifecycle state and optional payload shared across message copies.
     // Thread-safe for concurrent reads thanks to shared_ptr-managed state.
-    class Result
+    class TBX_API Result
     {
        public:
         Result();

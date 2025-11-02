@@ -1,11 +1,12 @@
 #pragma once
+#include "tbx/tbx_api.h"
 #include <filesystem>
 #include <string>
 #include <vector>
 
 namespace tbx
 {
-    struct AppDescription
+    struct TBX_API AppDescription
     {
         std::string name = "";
         std::filesystem::path working_root = "";

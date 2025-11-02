@@ -3,9 +3,9 @@
 namespace tbx
 {
     Result::Result()
-        : _status(std::make_shared<ResultStatus>(ResultStatus::InProgress)),
-          _payload(std::make_shared<ResultPayloadStorage>()),
-          _message(std::make_shared<std::string>())
+        : _status(std::make_shared<ResultStatus>(ResultStatus::InProgress))
+        , _payload(std::make_shared<ResultPayloadStorage>())
+        , _message(std::make_shared<std::string>())
     {
     }
 
@@ -92,4 +92,3 @@ namespace tbx
         }
     }
 }
-

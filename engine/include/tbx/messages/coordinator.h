@@ -3,6 +3,7 @@
 #include "tbx/memory/smart_pointers.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/handler.h"
+#include "tbx/tbx_api.h"
 #include "tbx/time/timer.h"
 #include <string>
 #include <utility>
@@ -10,7 +11,7 @@
 
 namespace tbx
 {
-    struct QueuedMessage
+    struct TBX_API QueuedMessage
     {
         Scope<Message> message;
         Result result;
@@ -22,7 +23,7 @@ namespace tbx
     //  - Owns queue storage for deferred delivery via post()/process()
     // This type implements both the dispatch interface (for producers)
     // and the processor interface (for the engine/application loop).
-    class MessageCoordinator : public IMessageDispatcher, public IMessageProcessor
+    class TBX_API MessageCoordinator : public IMessageDispatcher, public IMessageProcessor
     {
        public:
         Uuid add_handler(MessageHandler handler);

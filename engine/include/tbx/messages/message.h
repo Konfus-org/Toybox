@@ -3,7 +3,6 @@
 #include "tbx/state/cancellation_token.h"
 #include "tbx/state/result.h"
 #include "tbx/time/time_span.h"
-#include <cstddef>
 #include <functional>
 #include <optional>
 
@@ -13,7 +12,7 @@ namespace tbx
     using MessageResult = Result;
 
     // Base polymorphic message type for dispatching.
-    struct Message
+    struct TBX_API Message
     {
         using Callback = std::function<void(const Message&)>;
 
@@ -68,8 +67,7 @@ namespace tbx
             return result_ref ? &result_ref->get() : nullptr;
         }
 
-    private:
+       private:
         std::optional<std::reference_wrapper<MessageResult>> result_ref;
     };
 }
-

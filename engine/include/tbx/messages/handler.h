@@ -6,4 +6,3 @@ namespace tbx
 {
     using MessageHandler = std::function<void(const Message&)>;
 }
-

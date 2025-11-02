@@ -3,10 +3,11 @@
 #include "tbx/os/shared_library.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_meta.h"
+#include "tbx/tbx_api.h"
 
 namespace tbx
 {
-    struct PluginDeleter
+    struct TBX_API PluginDeleter
     {
         DestroyPluginFn destroy = nullptr;
 
@@ -30,7 +31,7 @@ namespace tbx
 
     using PluginInstance = Scope<Plugin, PluginDeleter>;
 
-    struct LoadedPlugin
+    struct TBX_API LoadedPlugin
     {
         PluginMeta meta;
         Scope<SharedLibrary> library; // only set for dynamic plugins

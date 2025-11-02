@@ -10,7 +10,7 @@ namespace tbx
 
     // Constructs a Scope<T>, forwarding constructor arguments.
     template <typename T, typename... Args>
-    inline Scope<T> make_scope(Args&&... args)
+    Scope<T> make_scope(Args&&... args)
     {
         return std::make_unique<T>(std::forward<Args>(args)...);
     }
@@ -25,16 +25,15 @@ namespace tbx
 
     // Constructs a Ref<T>, forwarding constructor arguments.
     template <typename T, typename... Args>
-    inline Ref<T> make_ref(Args&&... args)
+    Ref<T> make_ref(Args&&... args)
     {
         return std::make_shared<T>(std::forward<Args>(args)...);
     }
 
     // Wraps a raw pointer with a Ref<T> that uses a custom deleter.
     template <typename T, typename TDeleter>
-    inline Ref<T> make_ref(T* pointer, TDeleter&& deleter)
+    Ref<T> make_ref(T* pointer, TDeleter&& deleter)
     {
         return Ref<T>(pointer, std::forward<TDeleter>(deleter));
     }
 }
-

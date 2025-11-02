@@ -1,17 +1,18 @@
 #pragma once
+#include "tbx/tbx_api.h"
 #include <chrono>
 
 namespace tbx
 {
-    struct DeltaTime
+    struct TBX_API DeltaTime
     {
         double seconds = 0.0;
         double milliseconds = 0.0;
     };
 
-    class DeltaTimer
+    class TBX_API DeltaTimer
     {
-    public:
+       public:
         DeltaTimer();
 
         // Resets internal state and starts timing from now
@@ -20,7 +21,7 @@ namespace tbx
         // Advances the timer and returns the time since the previous tick
         DeltaTime tick();
 
-    private:
+       private:
         std::chrono::steady_clock::time_point _last;
     };
 

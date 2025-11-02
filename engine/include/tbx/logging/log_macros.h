@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/logging/logging.h"
+
 #define TBX_TRACE_INFO(msg, ...)                                                                   \
     ::tbx::trace(::tbx::LogLevel::Info, __FILE__, __LINE__, msg __VA_OPT__(, ) __VA_ARGS__)
 #define TBX_TRACE_WARNING(msg, ...)                                                                \

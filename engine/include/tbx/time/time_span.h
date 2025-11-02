@@ -1,12 +1,12 @@
 #pragma once
-
+#include "tbx/tbx_api.h"
 #include <chrono>
 #include <cstdint>
 
 namespace tbx
 {
     // Value-type duration helper; thread-safe due to copy semantics.
-    struct TimeSpan
+    struct TBX_API TimeSpan
     {
         std::int64_t milliseconds = 0;
         std::int64_t seconds = 0;
@@ -18,4 +18,3 @@ namespace tbx
         bool is_zero() const;
     };
 }
-

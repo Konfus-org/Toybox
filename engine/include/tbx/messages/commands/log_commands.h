@@ -1,10 +1,11 @@
 #pragma once
 #include "tbx/messages/commands/command.h"
+#include "tbx/tbx_api.h"
 #include <string>
 
 namespace tbx
 {
-    enum class LogLevel
+    enum class TBX_API LogLevel
     {
         Info,
         Warning,
@@ -12,7 +13,7 @@ namespace tbx
         Critical
     };
 
-    struct LogMessageCommand : public Command
+    struct TBX_API LogMessageCommand : public Command
     {
         LogLevel level = LogLevel::Info;
         std::string message;
@@ -20,4 +21,3 @@ namespace tbx
         int line = 0;
     };
 }
-

@@ -1,13 +1,14 @@
 #pragma once
 #include "tbx/messages/message.h"
 #include "tbx/state/result.h"
+#include "tbx/tbx_api.h"
 
 namespace tbx
 {
     // Interface for components that can dispatch messages to the system.
     // Implementations decide how messages are routed; this is a minimal
     // surface for producers to send immediately or queue for later.
-    class IMessageDispatcher
+    class TBX_API IMessageDispatcher
     {
        public:
         virtual ~IMessageDispatcher() = default;
@@ -19,7 +20,7 @@ namespace tbx
 
     // Interface for components that advance queued work and deliver
     // posted messages. Typically driven once per frame/tick.
-    class IMessageProcessor
+    class TBX_API IMessageProcessor
     {
        public:
         virtual ~IMessageProcessor() = default;

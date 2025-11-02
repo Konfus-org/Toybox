@@ -1,14 +1,15 @@
 #pragma once
 #include "tbx/messages/commands/command.h"
 #include "tbx/os/window.h"
+#include "tbx/tbx_api.h"
 #include <utility>
 
 namespace tbx
 {
     // Command requesting a new platform window.
-    class CreateWindowCommand : public Command
+    class TBX_API CreateWindowCommand : public Command
     {
-    public:
+       public:
         CreateWindowCommand() = default;
         CreateWindowCommand(WindowDescription desc)
             : description(std::move(desc))
@@ -19,9 +20,9 @@ namespace tbx
     };
 
     // Command requesting the latest window state from the platform backend.
-    class QueryWindowDescriptionCommand : public Command
+    class TBX_API QueryWindowDescriptionCommand : public Command
     {
-    public:
+       public:
         QueryWindowDescriptionCommand() = default;
         QueryWindowDescriptionCommand(Window& window_ref)
             : window(&window_ref)
@@ -32,9 +33,9 @@ namespace tbx
     };
 
     // Command requesting the platform backend to apply a new description.
-    class ApplyWindowDescriptionCommand : public Command
+    class TBX_API ApplyWindowDescriptionCommand : public Command
     {
-    public:
+       public:
         ApplyWindowDescriptionCommand() = default;
         ApplyWindowDescriptionCommand(Window& window_ref, WindowDescription desc)
             : window(&window_ref)

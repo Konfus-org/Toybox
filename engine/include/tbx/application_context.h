@@ -5,7 +5,7 @@ namespace tbx
 {
     class Application;
 
-    struct ApplicationContext
+    struct TBX_API ApplicationContext
     {
         Application* instance = nullptr;
         AppDescription description = {};

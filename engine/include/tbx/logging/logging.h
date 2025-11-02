@@ -51,9 +51,8 @@ namespace tbx
         // inside std::make_format_args on some standard library implementations.
         auto arguments = std::make_tuple(std::forward<Args>(args)...);
         return std::apply(
-            [&](auto&... tuple_args) {
-                return std::vformat(fmt, std::make_format_args(tuple_args...));
-            },
+            [&](auto&... tuple_args)
+            { return std::vformat(fmt, std::make_format_args(tuple_args...)); },
             arguments);
     }
 

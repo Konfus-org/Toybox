@@ -2,31 +2,36 @@
 #include "tbx/ids/uuid.h"
 #include "tbx/math/size.h"
 #include "tbx/messages/dispatcher.h"
+#include "tbx/tbx_api.h"
 #include <string>
 
 namespace tbx
 {
-    enum class WindowMode
+    enum class TBX_API WindowMode
     {
         Windowed,
         Borderless,
         Fullscreen
     };
 
-    struct WindowDescription
+    struct TBX_API WindowDescription
     {
-        math::Size size = {1280, 720};
+        math::Size size = { 1280, 720 };
         WindowMode mode = WindowMode::Windowed;
         std::string title = "Toybox";
     };
 
     using WindowImpl = void*;
 
-    // Window is a lightweight wrapper around a platform specific implementation managed through messages.
-    class Window
+    // Window is a lightweight wrapper around a platform specific implementation managed through
+    // messages.
+    class TBX_API Window
     {
-    public:
-        Window(IMessageDispatcher& dispatcher, WindowImpl implementation, const WindowDescription& description);
+       public:
+        Window(
+            IMessageDispatcher& dispatcher,
+            WindowImpl implementation,
+            const WindowDescription& description);
 
         const Uuid& get_id() const;
         const WindowDescription& get_description();
@@ -34,7 +39,7 @@ namespace tbx
 
         WindowImpl get_implementation() const;
 
-    private:
+       private:
         void apply_description_update(const WindowDescription& description);
         void set_implementation(WindowImpl implementation);
 

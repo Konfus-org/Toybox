@@ -8,7 +8,7 @@ namespace tbx
 {
 // Export decoration for dynamic plugin entry points defined by plugins.
 #if defined(TBX_PLATFORM_WINDOWS)
-    #define TBX_PLUGIN_EXPORT extern "C" __declspec(dllimport)
+    #define TBX_PLUGIN_EXPORT extern "C" __declspec(dllexport)
 #else
     #define TBX_PLUGIN_EXPORT extern "C"
 #endif
@@ -20,14 +20,14 @@ namespace tbx
 
 // Helper to register a dynamic plugin factory symbol inside a plugin module.
 // Example: TBX_REGISTER_PLUGIN(CreateMyPlugin, MyPluginType)
-#define TBX_REGISTER_PLUGIN(EntryName, PluginType)                           \
-    TBX_PLUGIN_EXPORT ::tbx::Plugin* EntryName()                            \
-    {                                                                       \
-        return new PluginType();                                            \
-    }                                                                       \
-    TBX_PLUGIN_EXPORT void EntryName##_Destroy(::tbx::Plugin* plugin)       \
-    {                                                                       \
-        delete plugin;                                                      \
+#define TBX_REGISTER_PLUGIN(EntryName, PluginType)                                                 \
+    TBX_PLUGIN_EXPORT ::tbx::Plugin* EntryName()                                                   \
+    {                                                                                              \
+        return new PluginType();                                                                   \
+    }                                                                                              \
+    TBX_PLUGIN_EXPORT void EntryName##_Destroy(::tbx::Plugin* plugin)                              \
+    {                                                                                              \
+        delete plugin;                                                                             \
     }
 
     // A hot-reloadable piece of modular logic loaded at runtime.
@@ -36,7 +36,7 @@ namespace tbx
     // Thread-safety: All callbacks are expected to be invoked on the thread
     // driving the application loop; plugins should internally synchronize if
     // they share state across threads.
-    class Plugin
+    class TBX_API Plugin
     {
        public:
         virtual ~Plugin() = default;
@@ -44,8 +44,9 @@ namespace tbx
         // Called when the plugin is attached to the host.
         // The dispatcher interface allows sending or posting messages; the
         // plugin must not retain references past its own lifetime.
-        virtual void on_attach(const ApplicationContext& context, IMessageDispatcher& dispatcher)
-            = 0;
+        virtual void on_attach(
+            const ApplicationContext& context,
+            IMessageDispatcher& dispatcher) = 0;
 
         // Called before the plugin is detached from the host
         virtual void on_detach() = 0;

@@ -1,15 +1,15 @@
 ﻿#pragma once
+#include "tbx/tbx_api.h"
 #include <filesystem>
-#include <string>
 #include <type_traits>
 
 namespace tbx
 {
     // RAII wrapper that loads a shared library on construction
     // and unloads it on destruction. Non-copyable, movable.
-    class SharedLibrary
+    class TBX_API SharedLibrary
     {
-    public:
+       public:
         SharedLibrary() = default;
         SharedLibrary(const std::filesystem::path& path);
         ~SharedLibrary();
@@ -19,7 +19,7 @@ namespace tbx
         SharedLibrary(SharedLibrary&& other);
         SharedLibrary& operator=(SharedLibrary&& other);
 
-    public:
+       public:
         // Whether or not the shared lib is valid and loaded.
         bool is_valid() const;
 
@@ -35,13 +35,16 @@ namespace tbx
             return reinterpret_cast<T>(get_symbol_raw(name));
         }
 
-        const std::filesystem::path& get_path() const { return _path; }
+        const std::filesystem::path& get_path() const
+        {
+            return _path;
+        }
 
-    private:
+       private:
         void unload();
         void* get_symbol_raw(const char* name) const;
-    
-    private:
+
+       private:
         void* _handle = nullptr;
         std::filesystem::path _path;
     };
