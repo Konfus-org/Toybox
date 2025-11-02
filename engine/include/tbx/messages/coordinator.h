@@ -16,6 +16,13 @@ namespace tbx
         Scope<Message> message;
         Result result;
         Timer timer;
+
+        QueuedMessage() = default;
+        QueuedMessage(const QueuedMessage&) = delete;
+        QueuedMessage& operator=(const QueuedMessage&) = delete;
+        QueuedMessage(QueuedMessage&&) noexcept = default;
+        QueuedMessage& operator=(QueuedMessage&&) noexcept = default;
+        ~QueuedMessage() = default;
     };
 
     // Concrete coordinator that (not thread-safe; callers serialize access):
@@ -26,6 +33,13 @@ namespace tbx
     class TBX_API MessageCoordinator : public IMessageDispatcher, public IMessageProcessor
     {
        public:
+        MessageCoordinator() = default;
+        MessageCoordinator(const MessageCoordinator&) = delete;
+        MessageCoordinator& operator=(const MessageCoordinator&) = delete;
+        MessageCoordinator(MessageCoordinator&&) noexcept = default;
+        MessageCoordinator& operator=(MessageCoordinator&&) noexcept = default;
+        ~MessageCoordinator() = default;
+
         Uuid add_handler(MessageHandler handler);
         void remove_handler(const Uuid& token);
         void clear();
