@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "tbx/messages/coordinator.h"
+#include "tbx/messages/dispatcher_context.h"
 #include "tbx/messages/message.h"
 #include "tbx/messages/handler.h"
 #include "tbx/state/cancellation_token.h"
@@ -451,4 +452,5 @@ namespace tbx::tests::messages
         ASSERT_NE(final_value, nullptr);
         EXPECT_EQ(*final_value, "ready");
     }
+
 }

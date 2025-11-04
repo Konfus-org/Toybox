@@ -32,8 +32,13 @@ namespace tbx
 
     void Application::initialize()
     {
-        // Set dispatcher scope
-        DispatcherScope scope(_msg_coordinator);
+        _context.instance = this;
+        _context.description = _desc;
+        _context.services = &_services;
+        _context.dispatcher = &_msg_coordinator;
+
+        // Set application scope
+        AppScope scope(_context);
 
         // Load dynamic plugins based on description
         if (!_desc.plugins_directory.empty())
@@ -46,9 +51,6 @@ namespace tbx
             }
         }
 
-        // Attach all plugins with a basic context
-        ApplicationContext ctx = { .instance = this, .description = _desc };
-
         _msg_coordinator.add_handler([this](const Message& msg) { handle_message(msg); });
         for (auto& p : _loaded)
         {
@@ -60,14 +62,14 @@ namespace tbx
                         if (plugin)
                             plugin->on_message(msg);
                     });
-                p.instance->on_attach(ctx, _msg_coordinator);
+                p.instance->on_attach(_context, _msg_coordinator);
             }
         }
     }
 
     void Application::update(DeltaTimer timer)
     {
-        DispatcherScope scope(_msg_coordinator);
+        AppScope scope(_context);
 
         // Process messages posted in previous frame
         _msg_coordinator.process();
@@ -98,6 +100,7 @@ namespace tbx
         }
         _loaded.clear();
         _msg_coordinator.clear();
+        _services.clear();
     }
 
     void Application::handle_message(const Message& msg)

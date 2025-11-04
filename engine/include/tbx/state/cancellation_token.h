@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/memory/smart_pointers.h"
+#include "tbx/tbx_api.h"
 #include <atomic>
 
 namespace tbx

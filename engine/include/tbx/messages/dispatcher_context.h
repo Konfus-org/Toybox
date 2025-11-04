@@ -1,44 +1,33 @@
 #pragma once
-#include "tbx/messages/dispatcher.h"
+#include "tbx/application_context.h"
 #include "tbx/tbx_api.h"
 
 namespace tbx
 {
-    // Returns the thread-local current dispatcher interface (may be nullptr).
-    // Thread-safety: value is thread-local; separate threads have separate
-    // implicit dispatcher contexts.
-    IMessageDispatcher* TBX_API current_dispatcher();
-
-    // Sets the thread-local current dispatcher interface, returns previous value.
-    // Ownership: this does not take ownership; callers must ensure the
-    // dispatcher outlives the scope where it is set.
-    IMessageDispatcher* TBX_API set_current_dispatcher(IMessageDispatcher* dispatcher);
-
-    // RAII helper that sets the current thread-local dispatcher for the lifetime of the scope,
-    // restoring the previous value when destroyed.
-    // Ownership: this does not take ownership; callers must ensure the
-    // dispatcher outlives the scope where it is set.
-    class TBX_API DispatcherScope
+    // RAII helper that sets the current thread-local application context for the lifetime of the
+    // scope, restoring the previous value when destroyed. Ownership: this does not take ownership;
+    // callers must ensure the context outlives the scope where it is set.
+    class TBX_API AppScope
     {
        public:
-        DispatcherScope(IMessageDispatcher& dispatcher)
-            : _prev(set_current_dispatcher(&dispatcher))
+        explicit AppScope(const ApplicationContext& context)
+            : AppScope(&context)
         {
         }
-        DispatcherScope(IMessageDispatcher* dispatcher)
-            : _prev(set_current_dispatcher(dispatcher))
+        explicit AppScope(const ApplicationContext* context)
+            : _prev_context(set_current_application_context(context))
         {
         }
 
-        ~DispatcherScope()
+        ~AppScope()
         {
-            set_current_dispatcher(_prev);
+            set_current_application_context(_prev_context);
         }
 
-        DispatcherScope(const DispatcherScope&) = delete;
-        DispatcherScope& operator=(const DispatcherScope&) = delete;
+        AppScope(const AppScope&) = delete;
+        AppScope& operator=(const AppScope&) = delete;
 
        private:
-        IMessageDispatcher* _prev = nullptr;
+        const ApplicationContext* _prev_context = nullptr;
     };
 }
