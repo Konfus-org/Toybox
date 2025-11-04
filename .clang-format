@@ -56,6 +56,7 @@ IndentCaseLabels: true
 IndentPPDirectives: BeforeHash
 IndentWidth: 4
 IndentWrappedFunctionNames: true
+IndentAccessModifiers: false
 NamespaceIndentation: All
 PenaltyReturnTypeOnItsOwnLine: 1000000000
 PointerAlignment: Left

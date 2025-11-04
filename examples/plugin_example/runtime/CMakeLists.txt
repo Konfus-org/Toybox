@@ -9,6 +9,7 @@ target_include_directories(PluginExampleRuntime PRIVATE
 target_link_libraries(PluginExampleRuntime PRIVATE
     Tbx::Engine
     Tbx::Plugins::SpdLoggerPlugin
+    Tbx::Plugins::SdlWindowingPlugin
 )
 
 # Copy manifest next to the built library

@@ -21,7 +21,7 @@ namespace tbx::plugins::spdlogger
             spdlog::info("SpdLoggerPlugin detached");
         }
 
-        void on_update(const DeltaTime&) override { }
+        void on_update(const DeltaTime&) override {}
 
         void on_message(const Message& msg) override
         {
@@ -32,16 +32,16 @@ namespace tbx::plugins::spdlogger
             switch (log->level)
             {
                 case LogLevel::Info:
-                    spdlog::info("{}:{} - {}", log->file, log->line, log->message);
+                    spdlog::info("[{}:{}] {}", log->file, log->line, log->message);
                     break;
                 case LogLevel::Warning:
-                    spdlog::warn("{}:{} - {}", log->file, log->line, log->message);
+                    spdlog::warn("[{}:{}] {}", log->file, log->line, log->message);
                     break;
                 case LogLevel::Error:
-                    spdlog::error("{}:{} - {}", log->file, log->line, log->message);
+                    spdlog::error("[{}:{}] {}", log->file, log->line, log->message);
                     break;
                 case LogLevel::Critical:
-                    spdlog::critical("{}:{} - {}", log->file, log->line, log->message);
+                    spdlog::critical("[{}:{}] {}", log->file, log->line, log->message);
                     break;
             }
             const_cast<Message&>(msg).is_handled = true;

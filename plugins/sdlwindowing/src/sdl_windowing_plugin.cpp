@@ -27,8 +27,9 @@ namespace tbx::plugins::sdlwindowing
         return fallback;
     }
 
-    static WindowDescription
-    read_window_description(SDL_Window* window, const WindowDescription& fallback)
+    static WindowDescription read_window_description(
+        SDL_Window* window,
+        const WindowDescription& fallback)
     {
         WindowDescription description = fallback;
 
@@ -78,7 +79,7 @@ namespace tbx::plugins::sdlwindowing
         if (description.size.width > 0 && description.size.height > 0)
         {
             succeeded = SDL_SetWindowSize(window, description.size.width, description.size.height)
-                && succeeded;
+                        && succeeded;
         }
 
         succeeded = SDL_SetWindowTitle(window, description.title.c_str()) && succeeded;
@@ -116,18 +117,15 @@ namespace tbx::plugins::sdlwindowing
         {
             _dispatcher = &dispatcher;
 
-            if ((SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO) != SDL_INIT_VIDEO)
+            if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
             {
-                if (SDL_InitSubSystem(SDL_INIT_VIDEO) < 0)
-                {
-                    TBX_TRACE_ERROR(
-                        "Failed to initialize SDL video subsystem. See SDL logs for details.");
-                    return;
-                }
-
-                _owns_video = true;
-                TBX_TRACE_INFO("SDL windowing initialized the video subsystem.");
+                TBX_TRACE_ERROR(
+                    "Failed to initialize SDL video subsystem. See SDL logs for details.");
+                return;
             }
+
+            auto windowCommand = CreateWindowCommand(WindowDescription());
+            handle_create_window(windowCommand);
         }
 
         void on_detach() override
@@ -142,22 +140,12 @@ namespace tbx::plugins::sdlwindowing
             }
             _windows.clear();
 
-            if (_owns_video)
-            {
-                SDL_QuitSubSystem(SDL_INIT_VIDEO);
-                _owns_video = false;
-            }
+            SDL_QuitSubSystem(SDL_INIT_VIDEO);
 
             _dispatcher = nullptr;
         }
 
-        void on_update(const DeltaTime&) override
-        {
-            if (SDL_WasInit(SDL_INIT_VIDEO))
-            {
-                SDL_PumpEvents();
-            }
-        }
+        void on_update(const DeltaTime&) override {}
 
         void on_message(const Message& msg) override
         {
@@ -282,8 +270,8 @@ namespace tbx::plugins::sdlwindowing
                 return;
             }
 
-            const WindowDescription description
-                = read_window_description(record->native, record->description);
+            const WindowDescription description =
+                read_window_description(record->native, record->description);
             record->description = description;
             if (result)
             {
@@ -320,8 +308,8 @@ namespace tbx::plugins::sdlwindowing
                 return;
             }
 
-            const WindowDescription refreshed
-                = read_window_description(record->native, command.description);
+            const WindowDescription refreshed =
+                read_window_description(record->native, command.description);
             record->description = refreshed;
             if (result)
             {
@@ -348,7 +336,6 @@ namespace tbx::plugins::sdlwindowing
 
         std::vector<Scope<SdlWindowRecord>> _windows = {};
         IMessageDispatcher* _dispatcher = nullptr;
-        bool _owns_video = false;
     };
 
     TBX_REGISTER_PLUGIN(CreateSdlWindowingPlugin, SdlWindowingPlugin);

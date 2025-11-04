@@ -6,7 +6,7 @@ namespace tbx::plugins::sdladapter
 {
     class SdlAdapterPlugin final : public Plugin
     {
-    public:
+       public:
         void on_attach(const ApplicationContext&, IMessageDispatcher&) override
         {
             if (_initialized)
@@ -21,14 +21,18 @@ namespace tbx::plugins::sdladapter
             {
                 _initialized = true;
                 _owns_sdl = false;
-                TBX_TRACE_WARNING("SDL events subsystem already initialized; adapter will not manage shutdown.");
+                TBX_TRACE_WARNING(
+                    "SDL events subsystem already initialized; adapter will not manage shutdown.");
                 return;
             }
 
             if (SDL_InitSubSystem(mask) < 0)
             {
-                TBX_TRACE_ERROR("Failed to initialize SDL events subsystem. See SDL logs for details.");
-                TBX_ASSERT(false, "SDL adapter failed to initialize events subsystem. See SDL logs for details.");
+                TBX_TRACE_ERROR(
+                    "Failed to initialize SDL events subsystem. See SDL logs for details.");
+                TBX_ASSERT(
+                    false,
+                    "SDL adapter failed to initialize events subsystem. See SDL logs for details.");
                 _initialized = false;
                 _owns_sdl = false;
                 return;
@@ -54,20 +58,24 @@ namespace tbx::plugins::sdladapter
 
         void on_update(const DeltaTime&) override
         {
+            SDL_PumpEvents();
         }
 
-        void on_message(const Message&) override
-        {
-        }
+        void on_message(const Message&) override {}
 
-    private:
-        static void log_sdl_output(void* userdata, int category, SDL_LogPriority priority, const char* message)
+       private:
+        static void log_sdl_output(
+            void* userdata,
+            int category,
+            SDL_LogPriority priority,
+            const char* message)
         {
             auto* plugin = static_cast<SdlAdapterPlugin*>(userdata);
 
             if (priority >= SDL_LOG_PRIORITY_ERROR)
             {
-                const char* text = (message && *message) ? message : "SDL reported an error without details.";
+                const char* text =
+                    (message && *message) ? message : "SDL reported an error without details.";
                 if (priority == SDL_LOG_PRIORITY_CRITICAL)
                 {
                     TBX_TRACE_ERROR("SDL critical (category {}): {}", category, text);
@@ -80,7 +88,11 @@ namespace tbx::plugins::sdladapter
 
             if (plugin && plugin->_previous_log_callback)
             {
-                plugin->_previous_log_callback(plugin->_previous_log_userdata, category, priority, message);
+                plugin->_previous_log_callback(
+                    plugin->_previous_log_userdata,
+                    category,
+                    priority,
+                    message);
             }
         }
 
@@ -118,4 +130,3 @@ namespace tbx::plugins::sdladapter
 
     TBX_REGISTER_PLUGIN(CreateSdlAdapterPlugin, SdlAdapterPlugin);
 }
-

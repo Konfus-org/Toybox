@@ -26,7 +26,6 @@ namespace tbx
         void shutdown();
         void handle_message(const Message& msg);
 
-       private:
         AppDescription _desc = {};
         std::vector<LoadedPlugin> _loaded = {};
         MessageCoordinator _msg_coordinator;

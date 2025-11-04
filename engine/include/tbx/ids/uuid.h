@@ -11,14 +11,14 @@ namespace tbx
         static Uuid generate();
 
         // Returns true if this UUID is non-zero (not the all-zero value)
-        bool is_valid() const noexcept;
+        bool is_valid() const;
 
-        friend bool operator==(const Uuid& a, const Uuid& b) noexcept
+        friend bool operator==(const Uuid& a, const Uuid& b)
         {
             return a.bytes == b.bytes;
         }
 
-        friend bool operator!=(const Uuid& a, const Uuid& b) noexcept
+        friend bool operator!=(const Uuid& a, const Uuid& b)
         {
             return !(a == b);
         }
@@ -28,6 +28,6 @@ namespace tbx
 
     struct UuidHash
     {
-        std::size_t operator()(const Uuid& id) const noexcept;
+        std::size_t operator()(const Uuid& id) const;
     };
 }

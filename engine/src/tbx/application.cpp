@@ -38,8 +38,8 @@ namespace tbx
         // Load dynamic plugins based on description
         if (!_desc.plugins_directory.empty())
         {
-            std::vector<LoadedPlugin> loaded
-                = load_plugins(_desc.plugins_directory, _desc.requested_plugins);
+            std::vector<LoadedPlugin> loaded =
+                load_plugins(_desc.plugins_directory, _desc.requested_plugins);
             for (auto& lp : loaded)
             {
                 _loaded.push_back(std::move(lp));
@@ -47,7 +47,7 @@ namespace tbx
         }
 
         // Attach all plugins with a basic context
-        ApplicationContext ctx = { .instance = this, .description = _desc };
+        ApplicationContext ctx = {.instance = this, .description = _desc};
 
         _msg_coordinator.add_handler([this](const Message& msg) { handle_message(msg); });
         for (auto& p : _loaded)

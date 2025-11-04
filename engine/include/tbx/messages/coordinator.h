@@ -13,16 +13,17 @@ namespace tbx
 {
     struct TBX_API QueuedMessage
     {
+        QueuedMessage() = default;
+        ~QueuedMessage() = default;
+
+        QueuedMessage(const QueuedMessage&) = delete;
+        QueuedMessage& operator=(const QueuedMessage&) = delete;
+        QueuedMessage(QueuedMessage&&) = default;
+        QueuedMessage& operator=(QueuedMessage&&) = default;
+
         Scope<Message> message;
         Result result;
         Timer timer;
-
-        QueuedMessage() = default;
-        QueuedMessage(const QueuedMessage&) = delete;
-        QueuedMessage& operator=(const QueuedMessage&) = delete;
-        QueuedMessage(QueuedMessage&&) noexcept = default;
-        QueuedMessage& operator=(QueuedMessage&&) noexcept = default;
-        ~QueuedMessage() = default;
     };
 
     // Concrete coordinator that (not thread-safe; callers serialize access):
@@ -30,15 +31,18 @@ namespace tbx
     //  - Owns queue storage for deferred delivery via post()/process()
     // This type implements both the dispatch interface (for producers)
     // and the processor interface (for the engine/application loop).
-    class TBX_API MessageCoordinator : public IMessageDispatcher, public IMessageProcessor
+    class TBX_API MessageCoordinator final
+        : public IMessageDispatcher
+        , public IMessageProcessor
     {
        public:
         MessageCoordinator() = default;
+        ~MessageCoordinator() override = default;
+
         MessageCoordinator(const MessageCoordinator&) = delete;
         MessageCoordinator& operator=(const MessageCoordinator&) = delete;
-        MessageCoordinator(MessageCoordinator&&) noexcept = default;
+        MessageCoordinator(MessageCoordinator&&) = default;
         MessageCoordinator& operator=(MessageCoordinator&&) noexcept = default;
-        ~MessageCoordinator() = default;
 
         Uuid add_handler(MessageHandler handler);
         void remove_handler(const Uuid& token);
