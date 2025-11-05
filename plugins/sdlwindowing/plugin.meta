@@ -1,9 +1,0 @@
-{
-    "id": "Windowing.SDL",
-    "name": "SDL Windowing",
-    "version": "1.0.0",
-    "entryPoint": "CreateSdlWindowingPlugin",
-    "type": "windowing",
-    "module": "SdlWindowingPlugin",
-    "dependencies": ["System.SDL"]
-}

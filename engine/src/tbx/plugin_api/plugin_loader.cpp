@@ -1,6 +1,7 @@
 #include "tbx/plugin_api/plugin_loader.h"
+#include "tbx/plugin_api/plugin.h"
 #include "tbx/strings/string_utils.h"
-#include "tbx/logging/log_macros.h"
+#include "tbx/debug/log_macros.h"
 #include <deque>
 #include <fstream>
 #include <unordered_map>
@@ -8,8 +9,6 @@
 
 namespace tbx
 {
-    using CreatePluginFn = Plugin*(*)();
-
     static std::filesystem::path resolve_module_path(const PluginMeta& meta)
     {
         std::filesystem::path module = meta.module_path;
@@ -156,14 +155,7 @@ namespace tbx
                 const PluginMeta& meta = discovered[index];
                 // Hard dependencies are mandatory. Their tokens can be ids or
                 // types, so resolve each one through the lookup tables.
-                for (const std::string& dependency : meta.hard_dependencies)
-                {
-                    enqueue_dependency_token(dependency);
-                }
-                // Soft dependencies are optional hints; if they exist we try
-                // to load them as well so the plugin can take advantage of the
-                // additional functionality.
-                for (const std::string& dependency : meta.soft_dependencies)
+                for (const std::string& dependency : meta.dependencies)
                 {
                     enqueue_dependency_token(dependency);
                 }
@@ -190,26 +182,47 @@ namespace tbx
         std::vector<LoadedPlugin> loaded;
         for (const PluginMeta& meta : metas)
         {
-            const std::filesystem::path module_path = resolve_module_path(meta);
-            auto lib = make_scope<SharedLibrary>(module_path);
+            Plugin* raw = nullptr;
+            DestroyPluginFn destroy = nullptr;
+            Scope<SharedLibrary> lib;
 
-            CreatePluginFn create = lib->get_symbol<CreatePluginFn>(meta.entry_point.c_str());
-            if (!create)
+            if (meta.linkage == PluginLinkage::Static)
             {
-                TBX_TRACE_WARNING(
-                    "Entry point not found in plugin module: {}", meta.entry_point.c_str());
-                continue;
+                auto entry = PluginRegistry::instance().find_static_plugin_entry(meta.entry_point);
+                if (!entry || !entry->create)
+                {
+                    TBX_TRACE_WARNING(
+                        "Static plugin entry point not registered: {}", meta.entry_point.c_str());
+                    continue;
+                }
+
+                destroy = entry->destroy;
+                raw = entry->create();
+            }
+            else
+            {
+                const std::filesystem::path module_path = resolve_module_path(meta);
+                lib = make_scope<SharedLibrary>(module_path);
+
+                CreatePluginFn create = lib->get_symbol<CreatePluginFn>(meta.entry_point.c_str());
+                if (!create)
+                {
+                    TBX_TRACE_WARNING(
+                        "Entry point not found in plugin module: {}", meta.entry_point.c_str());
+                    continue;
+                }
+
+                std::string destroy_name = meta.entry_point + "_Destroy";
+                destroy = lib->get_symbol<DestroyPluginFn>(destroy_name.c_str());
+                if (!destroy)
+                {
+                    TBX_TRACE_WARNING(
+                        "Destroy entry point not found in plugin module: {}", destroy_name.c_str());
+                }
+
+                raw = create();
             }
 
-            std::string destroy_name = meta.entry_point + "_Destroy";
-            DestroyPluginFn destroy = lib->get_symbol<DestroyPluginFn>(destroy_name.c_str());
-            if (!destroy)
-            {
-                TBX_TRACE_WARNING(
-                    "Destroy entry point not found in plugin module: {}", destroy_name.c_str());
-            }
-
-            Plugin* raw = create();
             if (!raw)
             {
                 TBX_TRACE_WARNING("Plugin factory returned null for: {}", meta.id.c_str());

@@ -1,53 +1,44 @@
-#include "tbx/application_context.h"
-#include "tbx/logging/log_macros.h"
+#include "tbx/examples/runtime_plugin.h"
+#include "tbx/debug/log_macros.h"
 #include "tbx/messages/commands/app_commands.h"
-#include "tbx/plugin_api/plugin.h"
-#include "tbx/plugin_api/plugin_loader.h"
-#include "tbx/time/delta_time.h"
 #include <iostream>
 
 namespace tbx::examples
 {
-    class ExampleRuntimePlugin final : public Plugin
+    void ExampleRuntimePlugin::on_attach(const ApplicationContext&)
     {
-       public:
-        void on_attach(const ApplicationContext&, IMessageDispatcher& dispatcher) override
+        TBX_TRACE_INFO(
+            "Welcome to the plugin example! "
+            "This plugin just loads a logger and will parrot whatever you type, with two "
+            "exceptions. "
+            "Those being: 'quit' or 'exit' to kill the app and 'assert' to throw an "
+            "assertion.");
+    }
+
+    void ExampleRuntimePlugin::on_detach()
+    {
+    }
+
+    void ExampleRuntimePlugin::on_update(const DeltaTime& dt)
+    {
+        std::string line;
+        std::cout << "> ";
+
+        // if (!std::getline(std::cin, line)) return;
+        if (line == "quit" || line == "exit")
         {
-            _dispatcher = &dispatcher;
-            TBX_TRACE_INFO(
-                "Welcome to the plugin example! "
-                "This plugin just loads a logger and will parrot whatever you type, with two "
-                "exceptions. "
-                "Those being: 'quit' or 'exit' to kill the app and 'assert' to throw an "
-                "assertion.");
+            send_message(ExitApplicationCommand());
+            return;
         }
 
-        void on_detach() override {}
-
-        void on_update(const DeltaTime& dt) override
+        TBX_TRACE_INFO(to_string(dt) + " " + line);
+        if (line == "assert")
         {
-            std::string line;
-            std::cout << "> ";
-
-            // if (!std::getline(std::cin, line)) return;
-            if (line == "quit" || line == "exit")
-            {
-                _dispatcher->send(ExitApplicationCommand());
-                return;
-            }
-
-            TBX_TRACE_INFO(to_string(dt) + " " + line);
-            if (line == "assert")
-            {
-                TBX_ASSERT(false, "User triggered assert");
-            }
+            TBX_ASSERT(false, "User triggered assert");
         }
+    }
 
-        void on_message(const Message& msg) override {}
-
-       private:
-        const IMessageDispatcher* _dispatcher = nullptr;
-    };
+    void ExampleRuntimePlugin::on_message(const Message&)
+    {
+    }
 }
-
-TBX_REGISTER_PLUGIN(CreateExampleRuntime, tbx::examples::ExampleRuntimePlugin);

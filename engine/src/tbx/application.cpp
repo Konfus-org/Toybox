@@ -1,5 +1,5 @@
 #include "tbx/application.h"
-#include "tbx/logging/log_macros.h"
+#include "tbx/debug/log_macros.h"
 #include "tbx/memory/casting.h"
 #include "tbx/messages/commands/app_commands.h"
 #include "tbx/messages/dispatcher_context.h"
@@ -28,6 +28,21 @@ namespace tbx
             update(timer);
         }
         return 0;
+    }
+
+    const AppDescription& Application::get_description() const noexcept
+    {
+        return _desc;
+    }
+
+    MessageCoordinator& Application::get_dispatcher() noexcept
+    {
+        return _msg_coordinator;
+    }
+
+    const MessageCoordinator& Application::get_dispatcher() const noexcept
+    {
+        return _msg_coordinator;
     }
 
     void Application::initialize()
@@ -60,7 +75,8 @@ namespace tbx
                         if (plugin)
                             plugin->on_message(msg);
                     });
-                p.instance->on_attach(ctx, _msg_coordinator);
+                p.instance->set_host(this);
+                p.instance->on_attach(ctx);
             }
         }
     }
@@ -94,7 +110,10 @@ namespace tbx
         for (auto& p : _loaded)
         {
             if (p.instance)
+            {
                 p.instance->on_detach();
+                p.instance->set_host(nullptr);
+            }
         }
         _loaded.clear();
         _msg_coordinator.clear();

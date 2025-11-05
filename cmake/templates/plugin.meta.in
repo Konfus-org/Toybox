@@ -1,0 +1,11 @@
+{
+    "id": "@TBX_PLUGIN_ID@",
+    "name": "@TBX_PLUGIN_NAME@",
+    "version": "@TBX_PLUGIN_VERSION@",
+    "entryPoint": "@TBX_PLUGIN_ENTRY@",
+@PLUGIN_DESCRIPTION_ENTRY@
+    "type": "@TBX_PLUGIN_TYPE@",
+    "module": "@module_name@",
+@PLUGIN_DEPENDENCIES_BLOCK@
+    "static": @PLUGIN_STATIC_VALUE@
+}

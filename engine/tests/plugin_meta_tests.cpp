@@ -18,9 +18,9 @@ namespace tbx::tests::plugin_api
                 "entryPoint": "ExampleEntry",
                 "description": " Example description ",
                 "type": "logger",
-                "hardDependencies": ["Core.Renderer"],
-                "softDependencies": ["Metrics.Service"],
-                "module": "bin/logger.so"
+                "dependencies": ["Core.Renderer"],
+                "module": "bin/logger.so",
+                "static": true
             })JSON";
         const std::filesystem::path manifest_path = "/virtual/plugin_api/example/logger/plugin.meta";
 
@@ -33,13 +33,12 @@ namespace tbx::tests::plugin_api
         EXPECT_EQ(meta.entry_point, "ExampleEntry");
         EXPECT_EQ(meta.description, "Example description");
         EXPECT_EQ(meta.type, "logger");
-        ASSERT_EQ(meta.hard_dependencies.size(), 1u);
-        EXPECT_EQ(meta.hard_dependencies[0], "Core.Renderer");
-        ASSERT_EQ(meta.soft_dependencies.size(), 1u);
-        EXPECT_EQ(meta.soft_dependencies[0], "Metrics.Service");
+        ASSERT_EQ(meta.dependencies.size(), 1u);
+        EXPECT_EQ(meta.dependencies[0], "Core.Renderer");
         EXPECT_EQ(meta.root_directory, manifest_path.parent_path());
         EXPECT_EQ(meta.manifest_path, manifest_path);
         EXPECT_EQ(meta.module_path, manifest_path.parent_path() / "bin/logger.so");
+        EXPECT_EQ(meta.linkage, ::tbx::PluginLinkage::Static);
     }
 
     /// <summary>
@@ -107,7 +106,7 @@ namespace tbx::tests::plugin_api
         renderer.version = "2.0.0";
         renderer.entry_point = "RendererEntry";
         renderer.type = "renderer";
-        renderer.hard_dependencies.push_back("Metrics.Plugin");
+        renderer.dependencies.push_back("Metrics.Plugin");
 
         ::tbx::PluginMeta gameplay;
         gameplay.id = "Gameplay.Plugin";
@@ -115,8 +114,8 @@ namespace tbx::tests::plugin_api
         gameplay.version = "3.0.0";
         gameplay.entry_point = "GameplayEntry";
         gameplay.type = "gameplay";
-        gameplay.soft_dependencies.push_back("metrics");
-        gameplay.soft_dependencies.push_back("logger");
+        gameplay.dependencies.push_back("metrics");
+        gameplay.dependencies.push_back("logger");
 
         std::vector<::tbx::PluginMeta> unordered = {gameplay, renderer, metrics, logger};
 

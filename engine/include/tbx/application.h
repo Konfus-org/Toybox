@@ -14,11 +14,15 @@ namespace tbx
     class TBX_API Application
     {
        public:
-        Application(const AppDescription& desc);
+       Application(const AppDescription& desc);
         ~Application();
 
         // Starts the application main loop. Returns process exit code.
         int run();
+
+        const AppDescription& get_description() const noexcept;
+        MessageCoordinator& get_dispatcher() noexcept;
+        const MessageCoordinator& get_dispatcher() const noexcept;
 
        private:
         void initialize();

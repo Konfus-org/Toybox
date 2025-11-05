@@ -198,11 +198,11 @@ namespace tbx
         {
             meta.type = "plugin";
         }
-        assign_string_list(data, "dependencies", meta.hard_dependencies);
-        assign_string_list(data, "hard_dependencies", meta.hard_dependencies);
-        assign_string_list(data, "hardDependencies", meta.hard_dependencies);
-        assign_string_list(data, "soft_dependencies", meta.soft_dependencies);
-        assign_string_list(data, "softDependencies", meta.soft_dependencies);
+        assign_string_list(data, "dependencies", meta.dependencies);
+        if (auto static_it = data.find("static"); static_it != data.end() && static_it->is_boolean())
+        {
+            meta.linkage = static_it->get<bool>() ? PluginLinkage::Static : PluginLinkage::Dynamic;
+        }
         auto description_it = data.find("description");
         if (description_it != data.end() && description_it->is_string())
         {
@@ -277,24 +277,13 @@ namespace tbx
         {
             const PluginMeta& meta = plugins[index];
             std::unordered_set<size_t> unique;
-            for (const std::string& token : meta.hard_dependencies)
+            for (const std::string& token : meta.dependencies)
             {
                 std::vector<size_t> matches = resolve_dependency(token, index, by_id, by_type);
                 if (matches.empty())
                 {
                     throw std::runtime_error(std::string("Failed to resolve hard dependency '") + token + "' for plugin '" + meta.id + "'");
                 }
-                for (size_t candidate : matches)
-                {
-                    if (unique.insert(candidate).second)
-                    {
-                        resolved_dependencies[index].push_back(candidate);
-                    }
-                }
-            }
-            for (const std::string& token : meta.soft_dependencies)
-            {
-                std::vector<size_t> matches = resolve_dependency(token, index, by_id, by_type);
                 for (size_t candidate : matches)
                 {
                     if (unique.insert(candidate).second)

@@ -1,0 +1,4 @@
+#include "tbx/plugin_api/plugin.h"
+#include "@PLUGIN_HEADER@"
+
+@REGISTER_MACRO@(@ENTRY_NAME@, @PLUGIN_CLASS@);

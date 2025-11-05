@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/plugin_api/plugin_linkage.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
 #include <string>
@@ -28,10 +29,9 @@ namespace tbx
         std::string type;
 
         // Hard dependencies that must be satisfied before loading this plugin.
-        std::vector<std::string> hard_dependencies;
+        std::vector<std::string> dependencies;
 
-        // Optional dependencies used to improve load ordering when available.
-        std::vector<std::string> soft_dependencies;
+        PluginLinkage linkage = PluginLinkage::Dynamic;
 
         // Path to the manifest file that produced this metadata.
         std::filesystem::path manifest_path;

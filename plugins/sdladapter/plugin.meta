@@ -1,8 +1,0 @@
-{
-    "id": "System.SDL",
-    "name": "SDL Adapter",
-    "version": "1.0.0",
-    "entryPoint": "CreateSdlAdapterPlugin",
-    "type": "system",
-    "module": "SdlAdapterPlugin"
-}

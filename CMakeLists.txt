@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.26)
 project(Toybox LANGUAGES C CXX)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(TbxPlugins)
+
 # Set global C++ standard
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,6 +32,6 @@ endif()
 add_subdirectory(engine)
 add_subdirectory(engine/tests)
 add_subdirectory(thirdparty)
-add_subdirectory(examples)
 add_subdirectory(plugins)
+add_subdirectory(examples)
 unset(CMAKE_FOLDER)
