@@ -1,11 +1,17 @@
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/debug/log_macros.h"
 #include "tbx/plugin_api/plugin.h"
+#include "tbx/plugin_api/plugin_registry.h"
 #include "tbx/strings/string_utils.h"
 #include <deque>
 #include <fstream>
+#include <optional>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
+
+#define LOAD_STATIC_PLUGIN(plugin_name) ::tbx::PluginRegistry::instance().find_plugin(plugin_name)
 
 namespace tbx
 {
@@ -18,10 +24,10 @@ namespace tbx
             module = meta.root_directory;
         }
 
-        // If module is a directory, use entry_point as base name.
+        // If module is a directory, use plugin name as base name.
         if (std::filesystem::is_directory(module))
         {
-            module /= meta.entry_point; // base name fallback
+            module /= meta.name; // base name fallback
         }
 
         // If no extension, add platform-specific extension and unix lib prefix
@@ -43,11 +49,70 @@ namespace tbx
         return module;
     }
 
-    std::vector<LoadedPlugin*> load_plugins(
+    static std::optional<LoadedPlugin> load_plugin(const PluginMeta& meta)
+    {
+        LoadedPlugin loaded;
+        loaded.meta = meta;
+
+        if (meta.linkage == PluginLinkage::Static)
+        {
+            Plugin* plug = LOAD_STATIC_PLUGIN(meta.name);
+            if (!plug)
+            {
+                TBX_TRACE_WARNING(
+                    "Static plugin not registered: {}",
+                    meta.name.c_str());
+                return std::nullopt;
+            }
+
+            PluginInstance instance(plug, PluginDeleter([](Plugin*) {}));
+            loaded.instance = std::move(instance);
+            return loaded;
+        }
+
+        const std::filesystem::path module_path = resolve_module_path(meta);
+        Scope<SharedLibrary> lib = make_scope<SharedLibrary>(module_path);
+
+        const std::string create_symbol = "create_" + meta.name;
+        CreatePluginFn create = lib->get_symbol<CreatePluginFn>(create_symbol.c_str());
+        if (!create)
+        {
+            TBX_TRACE_WARNING(
+                "Entry point not found in plugin module: {}",
+                create_symbol.c_str());
+            return std::nullopt;
+        }
+
+        const std::string destroy_symbol = "destroy_" + meta.name;
+        DestroyPluginFn destroy = lib->get_symbol<DestroyPluginFn>(destroy_symbol.c_str());
+        if (!destroy)
+        {
+            TBX_TRACE_WARNING(
+                "Destroy entry point not found in plugin module: {}",
+                destroy_symbol.c_str());
+            return std::nullopt;
+        }
+
+        Plugin* plugin_instance = create();
+        if (!plugin_instance)
+        {
+            TBX_TRACE_WARNING(
+                "Plugin factory returned null for: {}",
+                meta.name.c_str());
+            return std::nullopt;
+        }
+
+        PluginInstance instance(plugin_instance, PluginDeleter(destroy));
+        loaded.instance = std::move(instance);
+        loaded.library = std::move(lib);
+        return loaded;
+    }
+
+    std::vector<LoadedPlugin> load_plugins(
         const std::filesystem::path& directory,
         const std::vector<std::string>& requested_ids)
     {
-        std::vector<LoadedPlugin*> loaded;
+        std::vector<LoadedPlugin> loaded;
 
         std::vector<PluginMeta> discovered;
         // The first pass walks every manifest to build an index before we know
@@ -92,14 +157,14 @@ namespace tbx
         {
             // Build lookup tables keyed by plugin id and by plugin type so we
             // can resolve dependencies expressed as either kind of token.
-            std::unordered_map<std::string, size_t> by_id;
+            std::unordered_map<std::string, size_t> by_name_lookup;
             std::unordered_map<std::string, std::vector<size_t>> by_type;
-            by_id.reserve(discovered.size());
+            by_name_lookup.reserve(discovered.size());
             by_type.reserve(discovered.size());
             for (size_t index = 0; index < discovered.size(); ++index)
             {
                 const PluginMeta& meta = discovered[index];
-                by_id.emplace(to_lower_case_string(meta.id), index);
+                by_name_lookup.emplace(to_lower_case_string(meta.name), index);
                 if (!meta.type.empty())
                 {
                     by_type[to_lower_case_string(meta.type)].push_back(index);
@@ -126,8 +191,8 @@ namespace tbx
                     return;
                 }
 
-                auto id_it = by_id.find(needle);
-                if (id_it != by_id.end())
+                auto id_it = by_name_lookup.find(needle);
+                if (id_it != by_name_lookup.end())
                 {
                     enqueue_index(id_it->second);
                 }
@@ -145,8 +210,8 @@ namespace tbx
             for (const std::string& requested : requested_ids)
             {
                 std::string needle = to_lower_case_string(trim_string(requested));
-                auto it = by_id.find(needle);
-                if (it != by_id.end())
+                auto it = by_name_lookup.find(needle);
+                if (it != by_name_lookup.end())
                 {
                     enqueue_index(it->second);
                 }
@@ -177,58 +242,21 @@ namespace tbx
 
         std::vector<PluginMeta> ordered = resolve_plugin_load_order(metas);
         auto from_mem = load_plugins(ordered);
-        for (auto* lp : from_mem)
-            loaded.push_back(lp);
+        for (auto& lp : from_mem)
+            loaded.push_back(std::move(lp));
         return loaded;
     }
 
-    std::vector<LoadedPlugin*> load_plugins(const std::vector<PluginMeta>& metas)
+    std::vector<LoadedPlugin> load_plugins(const std::vector<PluginMeta>& metas)
     {
-        std::vector<LoadedPlugin*> loaded;
+        std::vector<LoadedPlugin> loaded;
         for (const PluginMeta& meta : metas)
         {
-            Scope<SharedLibrary> lib;
-
-            if (meta.linkage == PluginLinkage::Static)
-            {
-                auto entry = PluginRegistry::instance().lookup_plugin(meta.entry_point);
-                if (!entry)
-                {
-                    TBX_TRACE_WARNING(
-                        "Static plugin entry point not registered: {}",
-                        meta.entry_point.c_str());
-                    continue;
-                }
-                // Supply runtime metadata and return the registered object
-                entry->meta = meta;
-                loaded.push_back(entry);
+            auto plugin = load_plugin(meta);
+            if (!plugin)
                 continue;
-            }
-            else
-            {
-                const std::filesystem::path module_path = resolve_module_path(meta);
-                lib = make_scope<SharedLibrary>(module_path);
 
-                CreatePluginFn create = lib->get_symbol<CreatePluginFn>(meta.entry_point.c_str());
-                if (!create)
-                {
-                    TBX_TRACE_WARNING(
-                        "Entry point not found in plugin module: {}",
-                        meta.entry_point.c_str());
-                    continue;
-                }
-
-                LoadedPlugin* lp = create();
-                if (!lp)
-                {
-                    TBX_TRACE_WARNING("Plugin factory returned null for: {}", meta.id.c_str());
-                    continue;
-                }
-                lp->meta = meta;
-                lp->library = std::move(lib);
-                loaded.push_back(lp);
-                continue;
-            }
+            loaded.push_back(std::move(*plugin));
         }
         return loaded;
     }

@@ -7,7 +7,7 @@ int main()
     {
         .name = "PluginExample",
         .plugins_directory = "./",
-        .requested_plugins = {"Runtime.Example", "Windowing.SDL"}
+        .requested_plugins = {"ExampleRuntimePlugin", "SdlWindowingPlugin"}
     };
     auto app = tbx::Application(desc);
 

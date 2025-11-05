@@ -16,9 +16,7 @@ tbx_register_plugin(
     TARGET SdlWindowingPlugin
     CLASS tbx::plugins::sdlwindowing::SdlWindowingPlugin
     HEADER "tbx/plugins/sdlwindowing/sdl_windowing_plugin.h"
-    ENTRY CreateSdlWindowingPlugin
-    ID "Windowing.SDL"
-    NAME "SDL Windowing"
+    NAME SdlWindowingPlugin
     VERSION "1.0.0"
     TYPE "windowing"
 )

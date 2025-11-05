@@ -16,9 +16,7 @@ tbx_register_plugin(
     TARGET PluginExampleRuntime
     CLASS tbx::examples::ExampleRuntimePlugin
     HEADER "tbx/examples/runtime_plugin.h"
-    ENTRY CreateExampleRuntime
-    ID "Runtime.Example"
-    NAME "Example"
+    NAME ExampleRuntimePlugin
     VERSION "1.0.0"
     TYPE "runtime"
 )

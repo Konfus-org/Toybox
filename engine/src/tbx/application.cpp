@@ -54,11 +54,11 @@ namespace tbx
         // Load plugins based on description
         if (!_desc.plugins_directory.empty())
         {
-            std::vector<LoadedPlugin*> loaded =
+            std::vector<LoadedPlugin> loaded =
                 load_plugins(_desc.plugins_directory, _desc.requested_plugins);
-            for (auto* lp : loaded)
+            for (auto& lp : loaded)
             {
-                _loaded.push_back(lp);
+                _loaded.push_back(std::move(lp));
             }
         }
 
@@ -66,17 +66,17 @@ namespace tbx
         ApplicationContext ctx = {.instance = this, .description = _desc};
 
         _msg_coordinator.add_handler([this](const Message& msg) { handle_message(msg); });
-        for (auto* p : _loaded)
+        for (auto& p : _loaded)
         {
-            if (p && p->instance)
+            if (p.instance)
             {
                 _msg_coordinator.add_handler(
-                    [plugin = p->instance.get()](const Message& msg)
+                    [plugin = p.instance.get()](const Message& msg)
                     {
                         if (plugin)
                             plugin->on_message(msg);
                     });
-                p->instance->on_attach(ctx);
+                p.instance->on_attach(ctx);
             }
         }
     }
@@ -92,35 +92,26 @@ namespace tbx
         DeltaTime dt = timer.tick();
 
         // Update all loaded plugins
-        for (auto* p : _loaded)
+        for (auto& p : _loaded)
         {
-            if (p && p->instance)
+            if (p.instance)
             {
-                p->instance->on_update(dt);
+                p.instance->on_update(dt);
             }
             else
             {
-                TBX_TRACE_WARNING("Plugin {} is null at runtime!", p ? p->meta.id : std::string("<null>"));
+                TBX_TRACE_WARNING("Plugin {} is null at runtime!", p.meta.name);
             }
         }
     }
 
     void Application::shutdown()
     {
-        for (auto* p : _loaded)
+        for (auto& p : _loaded)
         {
-            if (p && p->instance)
+            if (p.instance)
             {
-                p->instance->on_detach();
-            }
-        }
-        // Unregister and destroy plugins
-        for (auto* p : _loaded)
-        {
-            if (p)
-            {
-                PluginRegistry::instance().unregister_plugin(p);
-                delete p;
+                p.instance->on_detach();
             }
         }
         _loaded.clear();

@@ -11,5 +11,5 @@ public:
 };
 
 #ifndef TBX_TEST_DYN_PLUGIN_PATH
-TBX_REGISTER_PLUGIN(CreateTestDynamicPlugin, TestDynamicPlugin)
+TBX_REGISTER_PLUGIN(TestDynamicPlugin, TestDynamicPlugin)
 #endif

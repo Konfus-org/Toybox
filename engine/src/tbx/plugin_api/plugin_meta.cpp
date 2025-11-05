@@ -88,13 +88,17 @@ namespace tbx
     /// <summary>
     /// Resolves dependency tokens against plugin identifiers and type tags.
     /// </summary>
-    static std::vector<size_t> resolve_dependency(const std::string& token, size_t self_index, const std::unordered_map<std::string, size_t>& by_id, const std::unordered_map<std::string, std::vector<size_t>>& by_type)
+    static std::vector<size_t> resolve_dependency(
+        const std::string& token,
+        size_t self_index,
+        const std::unordered_map<std::string, size_t>& by_name,
+        const std::unordered_map<std::string, std::vector<size_t>>& by_type)
     {
         std::vector<size_t> matches;
         std::unordered_set<size_t> unique;
         std::string needle = to_lower_case_string(trim_string(token));
-        auto id_it = by_id.find(needle);
-        if (id_it != by_id.end())
+        auto id_it = by_name.find(needle);
+        if (id_it != by_name.end())
         {
             if (id_it->second != self_index)
             {
@@ -189,10 +193,8 @@ namespace tbx
         {
             meta.root_directory = manifest_path.parent_path();
         }
-        meta.id = require_string(data, "id");
         meta.name = require_string(data, "name");
         meta.version = require_string(data, "version");
-        meta.entry_point = require_string(data, "entryPoint");
         meta.type = parse_type(data);
         if (meta.type.empty())
         {
@@ -260,12 +262,12 @@ namespace tbx
     /// </summary>
     std::vector<PluginMeta> resolve_plugin_load_order(const std::vector<PluginMeta>& plugins)
     {
-        std::unordered_map<std::string, size_t> by_id;
+        std::unordered_map<std::string, size_t> by_name;
         std::unordered_map<std::string, std::vector<size_t>> by_type;
         for (size_t index = 0; index < plugins.size(); index += 1)
         {
             const PluginMeta& meta = plugins[index];
-            by_id.emplace(to_lower_case_string(meta.id), index);
+            by_name.emplace(to_lower_case_string(meta.name), index);
             if (!meta.type.empty())
             {
                 by_type[to_lower_case_string(meta.type)].push_back(index);
@@ -279,10 +281,12 @@ namespace tbx
             std::unordered_set<size_t> unique;
             for (const std::string& token : meta.dependencies)
             {
-                std::vector<size_t> matches = resolve_dependency(token, index, by_id, by_type);
+                std::vector<size_t> matches = resolve_dependency(token, index, by_name, by_type);
                 if (matches.empty())
                 {
-                    throw std::runtime_error(std::string("Failed to resolve hard dependency '") + token + "' for plugin '" + meta.id + "'");
+                    throw std::runtime_error(
+                        std::string("Failed to resolve hard dependency '") + token + "' for plugin '" +
+                        meta.name + "'");
                 }
                 for (size_t candidate : matches)
                 {
