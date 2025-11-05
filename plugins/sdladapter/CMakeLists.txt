@@ -15,9 +15,7 @@ tbx_register_plugin(
     TARGET SdlAdapterPlugin
     CLASS tbx::plugins::sdladapter::SdlAdapterPlugin
     HEADER "tbx/plugins/sdladapter/sdl_adapter_plugin.h"
-    ENTRY CreateSdlAdapterPlugin
-    ID "System.SDL"
-    NAME "SDL Adapter"
+    NAME SdlAdapterPlugin
     VERSION "1.0.0"
     TYPE "system"
 )

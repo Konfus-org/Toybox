@@ -15,9 +15,7 @@ tbx_register_plugin(
     TARGET SpdLoggerPlugin
     CLASS tbx::plugins::spdlogger::SpdLoggerPlugin
     HEADER "tbx/plugins/spdlogger/spdlogger_plugin.h"
-    ENTRY CreateSpdLoggerPlugin
-    ID "Logging.SpdLogger"
-    NAME "SpdLogger"
+    NAME SpdLoggerPlugin
     VERSION "1.0.0"
     TYPE "logger"
 )

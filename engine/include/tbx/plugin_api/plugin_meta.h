@@ -10,17 +10,11 @@ namespace tbx
     // Describes the metadata discovered for a plugin before it is loaded.
     struct TBX_API PluginMeta
     {
-        // Unique identifier for the plugin used to resolve dependencies.
-        std::string id;
-
-        // Human-readable name for diagnostic output.
+        // Unique identifier for the plugin used to resolve dependencies and lookup.
         std::string name;
 
         // Semantic version string reported by the plugin.
         std::string version;
-
-        // Exported entry point used to create the plugin instance.
-        std::string entry_point;
 
         // Optional descriptive text explaining the plugin purpose.
         std::string description;

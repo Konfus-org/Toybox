@@ -42,10 +42,10 @@ function(tbx_collect_plugin_dependencies target out_var)
                 set(candidate ${alias_target})
             endif()
 
-            get_target_property(dep_ids ${candidate} TBX_PLUGIN_IDS)
-            if(dep_ids)
-                foreach(dep_id IN LISTS dep_ids)
-                    list(APPEND result ${dep_id})
+            get_target_property(dep_names ${candidate} TBX_PLUGIN_NAME_LIST)
+            if(dep_names)
+                foreach(dep_name IN LISTS dep_names)
+                    list(APPEND result ${dep_name})
                 endforeach()
             endif()
         endif()
@@ -55,7 +55,6 @@ function(tbx_collect_plugin_dependencies target out_var)
     set(${out_var} "${result}" PARENT_SCOPE)
 endfunction()
 
-function(tbx_register_plugin)
 #
 # tbx_register_plugin
 # --------------------
@@ -64,9 +63,7 @@ function(tbx_register_plugin)
 #   TARGET        - CMake target exporting the plugin entry point (required).
 #   CLASS         - Fully qualified plugin class name (required).
 #   HEADER        - Header that declares the plugin class (required).
-#   ENTRY         - Entry point symbol exported by the plugin (required).
-#   ID            - Unique identifier used for dependency resolution (required).
-#   NAME          - Human-readable plugin name (required).
+#   NAME          - Unique plugin identifier used for registration (required).
 #   VERSION       - Semantic version string (required).
 #   TYPE          - Optional plugin classification, defaults to "plugin".
 #   DESCRIPTION   - Optional descriptive text.
@@ -74,8 +71,9 @@ function(tbx_register_plugin)
 #   DEPENDENCIES  - Additional dependency identifiers to record.
 #   STATIC        - Flag indicating the plugin is statically linked.
 #
+function(tbx_register_plugin)
     set(options STATIC)
-    set(one_value_args TARGET CLASS HEADER ENTRY ID NAME VERSION TYPE DESCRIPTION MODULE)
+    set(one_value_args TARGET CLASS HEADER NAME VERSION TYPE DESCRIPTION MODULE)
     set(multi_value_args DEPENDENCIES)
     cmake_parse_arguments(TBX_PLUGIN "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
@@ -88,17 +86,16 @@ function(tbx_register_plugin)
     if(NOT TBX_PLUGIN_HEADER)
         message(FATAL_ERROR "tbx_register_plugin: HEADER is required")
     endif()
-    if(NOT TBX_PLUGIN_ENTRY)
-        message(FATAL_ERROR "tbx_register_plugin: ENTRY is required")
-    endif()
-    if(NOT TBX_PLUGIN_ID)
-        message(FATAL_ERROR "tbx_register_plugin: ID is required")
-    endif()
     if(NOT TBX_PLUGIN_NAME)
         message(FATAL_ERROR "tbx_register_plugin: NAME is required")
     endif()
     if(NOT TBX_PLUGIN_VERSION)
         message(FATAL_ERROR "tbx_register_plugin: VERSION is required")
+    endif()
+
+    string(REGEX MATCH "[^A-Za-z0-9_]" invalid_chars "${TBX_PLUGIN_NAME}")
+    if(invalid_chars)
+        message(FATAL_ERROR "tbx_register_plugin: NAME '${TBX_PLUGIN_NAME}' must be a valid identifier containing only letters, numbers, or underscores")
     endif()
 
     if(NOT TARGET ${TBX_PLUGIN_TARGET})
@@ -118,14 +115,14 @@ function(tbx_register_plugin)
 
     # Track plugin identifiers on the target so downstream consumers inherit
     # dependency metadata when linking against this plugin library.
-    get_target_property(existing_ids ${TBX_PLUGIN_TARGET} TBX_PLUGIN_IDS)
-    if(existing_ids)
-        list(APPEND existing_ids ${TBX_PLUGIN_ID})
-        list(REMOVE_DUPLICATES existing_ids)
+    get_target_property(existing_names ${TBX_PLUGIN_TARGET} TBX_PLUGIN_NAME_LIST)
+    if(existing_names)
+        list(APPEND existing_names ${TBX_PLUGIN_NAME})
+        list(REMOVE_DUPLICATES existing_names)
     else()
-        set(existing_ids ${TBX_PLUGIN_ID})
+        set(existing_names ${TBX_PLUGIN_NAME})
     endif()
-    set_property(TARGET ${TBX_PLUGIN_TARGET} PROPERTY TBX_PLUGIN_IDS "${existing_ids}")
+    set_property(TARGET ${TBX_PLUGIN_TARGET} PROPERTY TBX_PLUGIN_NAME_LIST "${existing_names}")
 
     # Merge explicitly declared dependencies with those inferred from linked
     # plugin targets. The explicit list always wins in case of duplicates.
@@ -145,11 +142,11 @@ function(tbx_register_plugin)
     set(generated_dir ${CMAKE_CURRENT_BINARY_DIR}/tbx_generated/${TBX_PLUGIN_TARGET})
     file(MAKE_DIRECTORY ${generated_dir})
 
-    set(registration_output ${generated_dir}/${TBX_PLUGIN_ENTRY}_registration.cpp)
+    set(registration_output ${generated_dir}/${TBX_PLUGIN_NAME}_registration.cpp)
     set(registration_template "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/templates/plugin_registration.cpp.in")
 
     set(REGISTER_MACRO ${register_macro})
-    set(ENTRY_NAME ${TBX_PLUGIN_ENTRY})
+    set(PLUGIN_NAME_TOKEN ${TBX_PLUGIN_NAME})
     set(PLUGIN_CLASS ${TBX_PLUGIN_CLASS})
     set(PLUGIN_HEADER ${TBX_PLUGIN_HEADER})
 
@@ -171,7 +168,7 @@ function(tbx_register_plugin)
     endforeach()
 
     set(meta_template "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/templates/plugin.meta.in")
-    set(meta_output ${generated_dir}/${TBX_PLUGIN_ENTRY}.meta)
+    set(meta_output ${generated_dir}/${TBX_PLUGIN_NAME}.meta)
 
     if(TBX_PLUGIN_DESCRIPTION)
         set(PLUGIN_DESCRIPTION_ENTRY "    \"description\": \"${TBX_PLUGIN_DESCRIPTION}\",\n")
@@ -196,5 +193,5 @@ function(tbx_register_plugin)
     add_custom_command(TARGET ${TBX_PLUGIN_TARGET} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 ${meta_output}
-                $<TARGET_FILE_DIR:${TBX_PLUGIN_TARGET}>/${TBX_PLUGIN_ENTRY}.meta)
+                $<TARGET_FILE_DIR:${TBX_PLUGIN_TARGET}>/${TBX_PLUGIN_NAME}.meta)
 endfunction()
