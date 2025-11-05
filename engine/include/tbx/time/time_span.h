@@ -17,4 +17,9 @@ namespace tbx
         std::chrono::steady_clock::duration to_duration() const;
         bool is_zero() const;
     };
+
+    inline std::string to_string(const TimeSpan& span)
+    {
+        return std::to_string(span.milliseconds) + " milliseconds";
+    }
 }

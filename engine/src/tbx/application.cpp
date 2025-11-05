@@ -5,13 +5,14 @@
 #include "tbx/messages/dispatcher_context.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
+#include "tbx/plugin_api/plugin_registry.h"
 #include "tbx/time/delta_time.h"
 
 namespace tbx
 {
     Application::Application(const AppDescription& desc)
+        : _desc(desc)
     {
-        _desc = desc;
         initialize();
     }
 
@@ -35,14 +36,14 @@ namespace tbx
         return _desc;
     }
 
-    MessageCoordinator& Application::get_dispatcher() noexcept
+    IMessageDispatcher& Application::get_dispatcher() noexcept
     {
-        return _msg_coordinator;
+        return static_cast<IMessageDispatcher&>(_msg_coordinator);
     }
 
-    const MessageCoordinator& Application::get_dispatcher() const noexcept
+    const IMessageDispatcher& Application::get_dispatcher() const noexcept
     {
-        return _msg_coordinator;
+        return static_cast<const IMessageDispatcher&>(_msg_coordinator);
     }
 
     void Application::initialize()
@@ -50,14 +51,14 @@ namespace tbx
         // Set dispatcher scope
         DispatcherScope scope(_msg_coordinator);
 
-        // Load dynamic plugins based on description
+        // Load plugins based on description
         if (!_desc.plugins_directory.empty())
         {
-            std::vector<LoadedPlugin> loaded =
+            std::vector<LoadedPlugin*> loaded =
                 load_plugins(_desc.plugins_directory, _desc.requested_plugins);
-            for (auto& lp : loaded)
+            for (auto* lp : loaded)
             {
-                _loaded.push_back(std::move(lp));
+                _loaded.push_back(lp);
             }
         }
 
@@ -65,18 +66,17 @@ namespace tbx
         ApplicationContext ctx = {.instance = this, .description = _desc};
 
         _msg_coordinator.add_handler([this](const Message& msg) { handle_message(msg); });
-        for (auto& p : _loaded)
+        for (auto* p : _loaded)
         {
-            if (p.instance)
+            if (p && p->instance)
             {
                 _msg_coordinator.add_handler(
-                    [plugin = p.instance.get()](const Message& msg)
+                    [plugin = p->instance.get()](const Message& msg)
                     {
                         if (plugin)
                             plugin->on_message(msg);
                     });
-                p.instance->set_host(this);
-                p.instance->on_attach(ctx);
+                p->instance->on_attach(ctx);
             }
         }
     }
@@ -92,27 +92,35 @@ namespace tbx
         DeltaTime dt = timer.tick();
 
         // Update all loaded plugins
-        for (auto& p : _loaded)
+        for (auto* p : _loaded)
         {
-            if (p.instance)
+            if (p && p->instance)
             {
-                p.instance->on_update(dt);
+                p->instance->on_update(dt);
             }
             else
             {
-                TBX_TRACE_WARNING("Plugin {} is null at runtime!", p.meta.id);
+                TBX_TRACE_WARNING("Plugin {} is null at runtime!", p ? p->meta.id : std::string("<null>"));
             }
         }
     }
 
     void Application::shutdown()
     {
-        for (auto& p : _loaded)
+        for (auto* p : _loaded)
         {
-            if (p.instance)
+            if (p && p->instance)
             {
-                p.instance->on_detach();
-                p.instance->set_host(nullptr);
+                p->instance->on_detach();
+            }
+        }
+        // Unregister and destroy plugins
+        for (auto* p : _loaded)
+        {
+            if (p)
+            {
+                PluginRegistry::instance().unregister_plugin(p);
+                delete p;
             }
         }
         _loaded.clear();

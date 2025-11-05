@@ -1,56 +1,35 @@
 #pragma once
 #include "tbx/tbx_api.h"
 #include <mutex>
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 namespace tbx
 {
-    class Plugin;
+    struct Plugin;
 
-    using CreatePluginFn = Plugin*(*)();
-    using DestroyPluginFn = void (*)(Plugin*);
-
-    struct StaticPluginEntry
-    {
-        CreatePluginFn create = nullptr;
-        DestroyPluginFn destroy = nullptr;
-    };
-
+    // Global registry tracking plugin entry points and live instances.
+    // Ownership: Does not own LoadedPlugin instances; callers manage lifetimes.
+    // Thread-safety: Not thread-safe; access must be serialized on the main thread.
     class TBX_API PluginRegistry
     {
        public:
-        static PluginRegistry& instance();
+        static PluginRegistry& get_instance();
 
         // Registers a plugin instance. Must be called from the main thread. The
-        // registry does not take ownership of the plugin pointer and expects the
+        // registry does not take ownership of the pointer and expects the
         // caller to manage its lifetime.
-        void register_plugin(const std::string& entry_point, Plugin* plugin);
+        void register_plugin(Plugin* plugin);
 
         // Unregisters a plugin instance. Must be called from the main thread.
-        // The registry does not delete the plugin pointer.
+        // The registry does not delete the pointer.
         void unregister_plugin(Plugin* plugin);
 
-        std::vector<Plugin*> get_active_plugins() const;
+        // Returns a list of all currently registered plugins.
+        std::vector<Plugin*> get_registered_plugins() const;
 
-        void register_static_plugin_entry(
-            std::string entry_point,
-            CreatePluginFn create,
-            DestroyPluginFn destroy);
-
-        void unregister_static_plugin_entry(const std::string& entry_point);
-
-        std::optional<StaticPluginEntry> find_static_plugin_entry(const std::string& entry_point) const;
-
-       private:
-        PluginRegistry() = default;
-        PluginRegistry(const PluginRegistry&) = delete;
-        PluginRegistry& operator=(const PluginRegistry&) = delete;
-
-        mutable std::mutex _mutex;
-        std::unordered_map<Plugin*, std::string> _plugins;
-        std::unordered_map<std::string, StaticPluginEntry> _static_entries;
+      private:
+        std::vector<Plugin*> _plugins;
     };
 }

@@ -25,6 +25,8 @@ namespace tbx
 
     // Window is a lightweight wrapper around a platform specific implementation managed through
     // messages.
+    // Ownership: Does not own the underlying platform window; stores an opaque handle.
+    // Thread-safety: Not thread-safe; expected to be used on the main/UI thread.
     class TBX_API Window
     {
        public:

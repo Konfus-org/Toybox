@@ -8,21 +8,22 @@
 namespace tbx
 {
     // Host application coordinating plugin lifecycle and message dispatching.
-    // Thread-safety: The application and coordinator are intended to be used
-    // on a single thread (the main loop). No internal synchronization is
-    // provided.
+    // Ownership: Owns loaded plugins and the message coordinator; callers do
+    // not own any references returned by getters beyond their lifetimes.
+    // Thread-safety: Intended for use on a single thread (the main loop).
+    // No internal synchronization is provided.
     class TBX_API Application
     {
        public:
-       Application(const AppDescription& desc);
+        Application(const AppDescription& desc);
         ~Application();
 
         // Starts the application main loop. Returns process exit code.
         int run();
 
         const AppDescription& get_description() const noexcept;
-        MessageCoordinator& get_dispatcher() noexcept;
-        const MessageCoordinator& get_dispatcher() const noexcept;
+        IMessageDispatcher& get_dispatcher() noexcept;
+        const IMessageDispatcher& get_dispatcher() const noexcept;
 
        private:
         void initialize();
@@ -30,8 +31,8 @@ namespace tbx
         void shutdown();
         void handle_message(const Message& msg);
 
-        AppDescription _desc = {};
-        std::vector<LoadedPlugin> _loaded = {};
+        const AppDescription _desc;
+        std::vector<LoadedPlugin*> _loaded = {};
         MessageCoordinator _msg_coordinator;
         bool _should_exit = false;
     };

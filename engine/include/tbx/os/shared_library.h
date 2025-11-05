@@ -7,6 +7,9 @@ namespace tbx
 {
     // RAII wrapper that loads a shared library on construction
     // and unloads it on destruction. Non-copyable, movable.
+    // Ownership: Owns the OS library handle while alive.
+    // Thread-safety: Not thread-safe; use from one thread per instance unless
+    // externally synchronized.
     class TBX_API SharedLibrary
     {
        public:

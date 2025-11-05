@@ -23,7 +23,11 @@ namespace tbx
     };
 
     // Captures lifecycle state and optional payload shared across message copies.
-    // Thread-safe for concurrent reads thanks to shared_ptr-managed state.
+    // Ownership: Result shares state via shared_ptr; copies refer to the same
+    // underlying status/message/payload storage.
+    // Thread-safety: Read access from multiple threads is safe. Mutating APIs
+    // (e.g., set_status/set_payload/reset_payload) require external
+    // synchronization if accessed from multiple threads.
     class TBX_API Result
     {
        public:

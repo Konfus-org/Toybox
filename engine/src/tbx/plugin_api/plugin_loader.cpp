@@ -1,7 +1,7 @@
 #include "tbx/plugin_api/plugin_loader.h"
+#include "tbx/debug/log_macros.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/strings/string_utils.h"
-#include "tbx/debug/log_macros.h"
 #include <deque>
 #include <fstream>
 #include <unordered_map>
@@ -43,11 +43,11 @@ namespace tbx
         return module;
     }
 
-    std::vector<LoadedPlugin> load_plugins(
+    std::vector<LoadedPlugin*> load_plugins(
         const std::filesystem::path& directory,
         const std::vector<std::string>& requested_ids)
     {
-        std::vector<LoadedPlugin> loaded;
+        std::vector<LoadedPlugin*> loaded;
 
         std::vector<PluginMeta> discovered;
         // The first pass walks every manifest to build an index before we know
@@ -56,7 +56,8 @@ namespace tbx
         {
             for (auto& entry : std::filesystem::recursive_directory_iterator(directory))
             {
-                if (!entry.is_regular_file()) continue;
+                if (!entry.is_regular_file())
+                    continue;
                 auto p = entry.path();
                 const std::string name = p.filename().string();
                 if (p.extension() == ".meta" || to_lower_case_string(name) == "plugin.meta")
@@ -70,7 +71,8 @@ namespace tbx
                     {
                         const std::string manifest_path = entry.path().string();
                         TBX_TRACE_WARNING(
-                            "Plugin {} is unable to be loaded!", manifest_path.c_str());
+                            "Plugin {} is unable to be loaded!",
+                            manifest_path.c_str());
                     }
                 }
             }
@@ -108,14 +110,16 @@ namespace tbx
             std::unordered_set<size_t> selected;
             std::deque<size_t> pending;
 
-            auto enqueue_index = [&](size_t index) {
+            auto enqueue_index = [&](size_t index)
+            {
                 if (selected.insert(index).second)
                 {
                     pending.push_back(index);
                 }
             };
 
-            auto enqueue_dependency_token = [&](const std::string& token) {
+            auto enqueue_dependency_token = [&](const std::string& token)
+            {
                 std::string needle = to_lower_case_string(trim_string(token));
                 if (needle.empty())
                 {
@@ -173,31 +177,32 @@ namespace tbx
 
         std::vector<PluginMeta> ordered = resolve_plugin_load_order(metas);
         auto from_mem = load_plugins(ordered);
-        for (auto& lp : from_mem) loaded.push_back(std::move(lp));
+        for (auto* lp : from_mem)
+            loaded.push_back(lp);
         return loaded;
     }
 
-    std::vector<LoadedPlugin> load_plugins(const std::vector<PluginMeta>& metas)
+    std::vector<LoadedPlugin*> load_plugins(const std::vector<PluginMeta>& metas)
     {
-        std::vector<LoadedPlugin> loaded;
+        std::vector<LoadedPlugin*> loaded;
         for (const PluginMeta& meta : metas)
         {
-            Plugin* raw = nullptr;
-            DestroyPluginFn destroy = nullptr;
             Scope<SharedLibrary> lib;
 
             if (meta.linkage == PluginLinkage::Static)
             {
-                auto entry = PluginRegistry::instance().find_static_plugin_entry(meta.entry_point);
-                if (!entry || !entry->create)
+                auto entry = PluginRegistry::instance().lookup_plugin(meta.entry_point);
+                if (!entry)
                 {
                     TBX_TRACE_WARNING(
-                        "Static plugin entry point not registered: {}", meta.entry_point.c_str());
+                        "Static plugin entry point not registered: {}",
+                        meta.entry_point.c_str());
                     continue;
                 }
-
-                destroy = entry->destroy;
-                raw = entry->create();
+                // Supply runtime metadata and return the registered object
+                entry->meta = meta;
+                loaded.push_back(entry);
+                continue;
             }
             else
             {
@@ -208,32 +213,22 @@ namespace tbx
                 if (!create)
                 {
                     TBX_TRACE_WARNING(
-                        "Entry point not found in plugin module: {}", meta.entry_point.c_str());
+                        "Entry point not found in plugin module: {}",
+                        meta.entry_point.c_str());
                     continue;
                 }
 
-                std::string destroy_name = meta.entry_point + "_Destroy";
-                destroy = lib->get_symbol<DestroyPluginFn>(destroy_name.c_str());
-                if (!destroy)
+                LoadedPlugin* lp = create();
+                if (!lp)
                 {
-                    TBX_TRACE_WARNING(
-                        "Destroy entry point not found in plugin module: {}", destroy_name.c_str());
+                    TBX_TRACE_WARNING("Plugin factory returned null for: {}", meta.id.c_str());
+                    continue;
                 }
-
-                raw = create();
-            }
-
-            if (!raw)
-            {
-                TBX_TRACE_WARNING("Plugin factory returned null for: {}", meta.id.c_str());
+                lp->meta = meta;
+                lp->library = std::move(lib);
+                loaded.push_back(lp);
                 continue;
             }
-
-            LoadedPlugin lp;
-            lp.meta = meta;
-            lp.library = std::move(lib);
-            lp.instance = PluginInstance(raw, PluginDeleter{ destroy });
-            loaded.push_back(std::move(lp));
         }
         return loaded;
     }

@@ -4,7 +4,10 @@
 
 namespace tbx
 {
-    // Unique ownership (non-copyable) smart pointer.
+    // Unique ownership (non-copyable) smart pointer wrapper alias.
+    // Ownership: sole owner of the pointee.
+    // Thread-safety: Same as std::unique_ptr — not thread-safe for concurrent
+    // access without external synchronization.
     template <typename T, typename TDeleter = std::default_delete<T>>
     using Scope = std::unique_ptr<T, TDeleter>;
 
@@ -15,11 +18,13 @@ namespace tbx
         return std::make_unique<T>(std::forward<Args>(args)...);
     }
 
-    // Shared ownership smart pointer.
+    // Shared ownership smart pointer alias.
+    // Thread-safety: Reference count operations are thread-safe, but access to
+    // the managed object requires external synchronization when shared.
     template <typename T>
     using Ref = std::shared_ptr<T>;
 
-    // Weak non-owning reference to a shared object.
+    // Weak non-owning reference alias to a shared object.
     template <typename T>
     using WeakRef = std::weak_ptr<T>;
 

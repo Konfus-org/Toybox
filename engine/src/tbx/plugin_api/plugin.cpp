@@ -16,37 +16,8 @@ namespace tbx
         return _dispatcher->send(msg);
     }
 
-    IMessageDispatcher* Plugin::dispatcher() const noexcept
+    void Plugin::on_attach(const ApplicationContext& context)
     {
-        return _dispatcher;
-    }
-
-    void Plugin::set_host(Application* application) noexcept
-    {
-        _dispatcher = application ? &application->get_dispatcher() : nullptr;
-    }
-
-    StaticPluginRegistration::StaticPluginRegistration(
-        const char* entry_point,
-        CreatePluginFn create,
-        DestroyPluginFn destroy)
-        : _entry_point(entry_point ? entry_point : "")
-    {
-        if (_entry_point.empty())
-        {
-            return;
-        }
-
-        PluginRegistry::instance().register_static_plugin_entry(_entry_point, create, destroy);
-    }
-
-    StaticPluginRegistration::~StaticPluginRegistration()
-    {
-        if (_entry_point.empty())
-        {
-            return;
-        }
-
-        PluginRegistry::instance().unregister_static_plugin_entry(_entry_point);
+        _dispatcher = &context.instance->get_dispatcher();
     }
 }

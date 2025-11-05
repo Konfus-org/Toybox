@@ -8,11 +8,17 @@
 namespace tbx
 {
     // Scans 'directory' for manifests (*.meta or plugin.meta), filters by requested IDs,
-    // resolves load order, loads dynamic plugins, and returns ownership to the caller.
-    TBX_API std::vector<LoadedPlugin> load_plugins(
+    // resolves load order, loads plugins, and returns pointers to loaded plugins.
+    // Ownership: The caller owns the returned LoadedPlugin* objects and is
+    // responsible for deleting them when done.
+    // Thread-safety: Not thread-safe; call from the main thread.
+    TBX_API std::vector<LoadedPlugin*> load_plugins(
         const std::filesystem::path& directory,
         const std::vector<std::string>& requested_ids);
 
     // Loads plugins from already-parsed metadata, without any filesystem IO.
-    TBX_API std::vector<LoadedPlugin> load_plugins(const std::vector<PluginMeta>& metas);
+    // Ownership: The caller owns the returned LoadedPlugin* objects and is
+    // responsible for deleting them when done.
+    // Thread-safety: Not thread-safe; call from the main thread.
+    TBX_API std::vector<LoadedPlugin*> load_plugins(const std::vector<PluginMeta>& metas);
 }

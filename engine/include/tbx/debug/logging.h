@@ -12,6 +12,11 @@
 
 namespace tbx
 {
+    // Logging helpers that dispatch log messages through the current message
+    // dispatcher when available, or write to stdout as a fallback.
+    // Ownership: Non-owning; callers manage dispatcher and message lifetimes.
+    // Thread-safety: Not inherently thread-safe; intended for use on the main
+    // thread unless the dispatcher implementation provides concurrency.
     inline const char* to_string(LogLevel lvl)
     {
         switch (lvl)

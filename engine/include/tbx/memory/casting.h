@@ -2,6 +2,10 @@
 
 namespace tbx
 {
+    // Utility helpers for safe downcasting using dynamic_cast.
+    // Ownership: Non-owning; all functions operate on caller-managed pointers.
+    // Thread-safety: Thread-safe as long as the pointed-to objects are not
+    // concurrently mutated in ways that affect RTTI.
     template <typename TTo, typename TFrom>
     bool is(const TFrom* ptr)
     {
