@@ -11,7 +11,8 @@ namespace tbx
     {
         Windowed,
         Borderless,
-        Fullscreen
+        Fullscreen,
+        Minimized
     };
 
     struct TBX_API WindowDescription
@@ -19,9 +20,8 @@ namespace tbx
         math::Size size = {1280, 720};
         WindowMode mode = WindowMode::Windowed;
         std::string title = "Toybox";
+        Uuid id = Uuid::generate();
     };
-
-    using WindowImpl = void*;
 
     // Window is a lightweight wrapper around a platform specific implementation managed through
     // messages.
@@ -30,24 +30,31 @@ namespace tbx
     class TBX_API Window
     {
       public:
+        using WindowImpl = void*;
+
         Window(
             IMessageDispatcher& dispatcher,
-            WindowImpl implementation,
-            const WindowDescription& description);
+            const WindowDescription& description,
+            bool open_on_creation = true);
+        ~Window();
 
-        const Uuid& get_id() const;
         const WindowDescription& get_description();
         void set_description(const WindowDescription& description);
+        bool is_open();
+        void open();
+        void close();
 
-        WindowImpl get_implementation() const;
+        template <typename T>
+        WindowImpl get_implementation() const
+        {
+            return static_cast<T>(_implementation);
+        }
 
       private:
         void apply_description_update(const WindowDescription& description);
-        void set_implementation(WindowImpl implementation);
 
         IMessageDispatcher* _dispatcher = nullptr;
         WindowImpl _implementation = nullptr;
         WindowDescription _description = {};
-        Uuid _id = Uuid::generate();
     };
 }

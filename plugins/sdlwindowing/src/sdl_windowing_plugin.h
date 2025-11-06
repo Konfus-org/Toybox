@@ -32,8 +32,10 @@ namespace tbx::plugins::sdlwindowing
 
       private:
         void handle_create_window(CreateWindowCommand& command);
+        void handle_open_window(OpenWindowCommand& command) const;
         void handle_query_description(QueryWindowDescriptionCommand& command) const;
         void handle_apply_description(ApplyWindowDescriptionCommand& command) const;
+        void handle_close_window(CloseWindowCommand& command);
         static void set_failure(Result* result, std::string_view reason);
         SdlWindowRecord* find_record(const Window& window) const;
 

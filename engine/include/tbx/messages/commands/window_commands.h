@@ -9,13 +9,29 @@ namespace tbx
     // Command requesting a new platform window.
     class TBX_API CreateWindowCommand : public Command
     {
-       public:
+      public:
         CreateWindowCommand() = default;
-        CreateWindowCommand(WindowDescription desc)
+        explicit CreateWindowCommand(WindowDescription desc)
             : description(std::move(desc))
         {
         }
 
+        WindowDescription description = {};
+    };
+
+    // Command emitted when a window is considered open.
+    class TBX_API OpenWindowCommand : public Command
+    {
+      public:
+        OpenWindowCommand() = default;
+        OpenWindowCommand(Window* window_ptr, WindowDescription desc)
+            : window(window_ptr)
+            , description(std::move(desc))
+        {
+        }
+
+        // Non-owning pointer to the window that was opened.
+        Window* window = nullptr;
         WindowDescription description = {};
     };
 
@@ -24,11 +40,12 @@ namespace tbx
     {
        public:
         QueryWindowDescriptionCommand() = default;
-        QueryWindowDescriptionCommand(Window& window_ref)
-            : window(&window_ref)
+        explicit QueryWindowDescriptionCommand(Window* window_ptr)
+            : window(window_ptr)
         {
         }
 
+        // Non-owning pointer to the window being queried.
         Window* window = nullptr;
     };
 
@@ -37,13 +54,28 @@ namespace tbx
     {
        public:
         ApplyWindowDescriptionCommand() = default;
-        ApplyWindowDescriptionCommand(Window& window_ref, WindowDescription desc)
-            : window(&window_ref)
+        ApplyWindowDescriptionCommand(Window* window_ptr, WindowDescription desc)
+            : window(window_ptr)
             , description(std::move(desc))
         {
         }
 
+        // Non-owning pointer to the window to be updated.
         Window* window = nullptr;
         WindowDescription description = {};
+    };
+
+    // Command requesting the platform backend to close a window.
+    class TBX_API CloseWindowCommand : public Command
+    {
+       public:
+        CloseWindowCommand() = default;
+        explicit CloseWindowCommand(Window* window_ptr)
+            : window(window_ptr)
+        {
+        }
+
+        // Non-owning pointer to the window being closed.
+        Window* window = nullptr;
     };
 }

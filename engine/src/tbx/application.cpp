@@ -1,8 +1,9 @@
 #include "tbx/application.h"
-#include "tbx/debug/log_macros.h"
+#include "tbx/debug/macros.h"
 #include "tbx/memory/casting.h"
 #include "tbx/messages/commands/app_commands.h"
 #include "tbx/messages/dispatcher_context.h"
+#include "tbx/messages/events/app_events.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/plugin_api/plugin_registry.h"
@@ -79,6 +80,9 @@ namespace tbx
                 p.instance->on_attach(ctx);
             }
         }
+
+        auto initialized = ApplicationInitializedEvent(this, _desc);
+        _msg_coordinator.send(initialized);
     }
 
     void Application::update(DeltaTimer timer)
@@ -90,6 +94,9 @@ namespace tbx
 
         // Update delta time
         DeltaTime dt = timer.tick();
+
+        ApplicationUpdateBeginEvent begin_update(this, dt);
+        _msg_coordinator.send(begin_update);
 
         // Update all loaded plugins
         for (auto& p : _loaded)
@@ -103,10 +110,18 @@ namespace tbx
                 TBX_TRACE_WARNING("Plugin {} is null at runtime!", p.meta.name);
             }
         }
+
+        ApplicationUpdateEndEvent end_update(this, dt);
+        _msg_coordinator.send(end_update);
     }
 
     void Application::shutdown()
     {
+        DispatcherScope scope(_msg_coordinator);
+
+        ApplicationShutdownEvent shutdown_event(this);
+        _msg_coordinator.send(shutdown_event);
+
         for (auto& p : _loaded)
         {
             if (p.instance)

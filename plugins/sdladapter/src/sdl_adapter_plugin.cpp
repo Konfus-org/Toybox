@@ -1,5 +1,5 @@
 #include "sdl_adapter_plugin.h"
-#include "tbx/debug/log_macros.h"
+#include "tbx/debug/macros.h"
 #include <SDL3/SDL.h>
 
 namespace tbx::plugins::sdladapter

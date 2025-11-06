@@ -1,7 +1,8 @@
 #include "sdl_windowing_plugin.h"
 #include "tbx/application.h"
-#include "tbx/debug/log_macros.h"
+#include "tbx/debug/macros.h"
 #include "tbx/memory/casting.h"
+#include "tbx/messages/events/window_events.h"
 #include <algorithm>
 #include <string>
 #include <utility>
@@ -15,6 +16,10 @@ namespace tbx::plugins::sdlwindowing
     static WindowMode resolve_window_mode(SDL_Window* window, WindowMode fallback)
     {
         const Uint32 flags = SDL_GetWindowFlags(window);
+        if ((flags & SDL_WINDOW_MINIMIZED) == SDL_WINDOW_MINIMIZED)
+        {
+            return WindowMode::Minimized;
+        }
         if ((flags & SDL_WINDOW_FULLSCREEN) == SDL_WINDOW_FULLSCREEN)
         {
             return WindowMode::Fullscreen;
@@ -50,22 +55,35 @@ namespace tbx::plugins::sdlwindowing
 
     static bool apply_window_mode(SDL_Window* window, WindowMode mode)
     {
+        bool success = true;
+        const bool is_minimized =
+            (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED) == SDL_WINDOW_MINIMIZED;
+        if (mode != WindowMode::Minimized && is_minimized)
+        {
+            success = SDL_RestoreWindow(window);
+        }
+
         switch (mode)
         {
             case WindowMode::Windowed:
             {
                 const bool fullscreen_cleared = SDL_SetWindowFullscreen(window, false);
                 const bool bordered = SDL_SetWindowBordered(window, true);
-                return fullscreen_cleared && bordered;
+                return success && fullscreen_cleared && bordered;
             }
             case WindowMode::Borderless:
             {
                 const bool fullscreen_cleared = SDL_SetWindowFullscreen(window, false);
                 const bool borderless = SDL_SetWindowBordered(window, false);
-                return fullscreen_cleared && borderless;
+                return success && fullscreen_cleared && borderless;
             }
             case WindowMode::Fullscreen:
-                return SDL_SetWindowFullscreen(window, true);
+            {
+                const bool fullscreen = SDL_SetWindowFullscreen(window, true);
+                return success && fullscreen;
+            }
+            case WindowMode::Minimized:
+                return SDL_MinimizeWindow(window);
         }
 
         return false;
@@ -86,7 +104,10 @@ namespace tbx::plugins::sdlwindowing
 
         if (succeeded)
         {
-            SDL_ShowWindow(window);
+            if (description.mode != WindowMode::Minimized)
+            {
+                SDL_ShowWindow(window);
+            }
         }
 
         return succeeded;
@@ -126,10 +147,20 @@ namespace tbx::plugins::sdlwindowing
     {
         for (const auto& record : _windows)
         {
-            if (record->native)
+            if (record && record->native)
             {
                 SDL_DestroyWindow(record->native);
                 record->native = nullptr;
+            }
+
+            if (record)
+            {
+                if (record->window.is_open())
+                {
+                    WindowClosedEvent closed(&record->window);
+                    get_dispatcher().send(closed);
+                }
+                record->window.mark_closed();
             }
         }
         _windows.clear();
@@ -141,21 +172,33 @@ namespace tbx::plugins::sdlwindowing
 
     void SdlWindowingPlugin::on_message(const Message& msg)
     {
-        if (auto* create = as<CreateWindowCommand>(const_cast<Message*>(&msg)))
+        if (auto* create = as<CreateWindowCommand>(&msg))
         {
             handle_create_window(*create);
             return;
         }
 
-        if (auto* query = as<QueryWindowDescriptionCommand>(const_cast<Message*>(&msg)))
+        if (auto* open = as<OpenWindowCommand>(&msg))
+        {
+            handle_open_window(*open);
+            return;
+        }
+
+        if (auto* query = as<QueryWindowDescriptionCommand>(&msg))
         {
             handle_query_description(*query);
             return;
         }
 
-        if (auto* apply = as<ApplyWindowDescriptionCommand>(const_cast<Message*>(&msg)))
+        if (auto* apply = as<ApplyWindowDescriptionCommand>(&msg))
         {
             handle_apply_description(*apply);
+            return;
+        }
+
+        if (auto* close = as<CloseWindowCommand>(&msg))
+        {
+            handle_close_window(*close);
         }
     }
 
@@ -283,6 +326,7 @@ namespace tbx::plugins::sdlwindowing
             return;
         }
 
+        const WindowMode previous_mode = record->description.mode;
         if (!apply_window_description(record->native, command.description))
         {
             set_failure(result, "Failed to apply SDL window description.");
@@ -296,6 +340,87 @@ namespace tbx::plugins::sdlwindowing
         if (result)
         {
             result->set_payload(refreshed);
+            result->set_status(ResultStatus::Handled);
+        }
+
+        if (command.window && previous_mode != refreshed.mode)
+        {
+            WindowModeChangedEvent mode_changed(
+                command.window,
+                previous_mode,
+                refreshed.mode,
+                refreshed);
+            get_dispatcher().send(mode_changed);
+        }
+
+        command.is_handled = true;
+    }
+
+    void SdlWindowingPlugin::handle_open_window(OpenWindowCommand& command) const
+    {
+        Result* result = command.get_result();
+
+        if (!command.window)
+        {
+            set_failure(result, "Open missing window reference.");
+            command.is_handled = true;
+            return;
+        }
+
+        WindowOpenedEvent event(command.window, command.description);
+        get_dispatcher().send(event);
+
+        if (result)
+        {
+            result->reset_payload();
+            result->set_status(ResultStatus::Handled);
+        }
+
+        command.is_handled = true;
+    }
+
+    void SdlWindowingPlugin::handle_close_window(CloseWindowCommand& command)
+    {
+        Result* result = command.get_result();
+
+        if (!command.window)
+        {
+            set_failure(result, "Close missing window reference.");
+            command.is_handled = true;
+            return;
+        }
+
+        auto it = std::find_if(
+            _windows.begin(),
+            _windows.end(),
+            [&command](const Scope<SdlWindowRecord>& record)
+            { return record && &record->window == command.window; });
+        if (it == _windows.end())
+        {
+            set_failure(result, "Window is not managed by SDL windowing.");
+            command.is_handled = true;
+            return;
+        }
+
+        SdlWindowRecord* record = it->get();
+        if (record->native)
+        {
+            SDL_DestroyWindow(record->native);
+            record->native = nullptr;
+        }
+
+        if (command.window)
+        {
+            WindowClosedEvent closed(command.window);
+            get_dispatcher().send(closed);
+        }
+
+        record->window.mark_closed();
+        _windows.erase(it);
+
+        if (result)
+        {
+            result->reset_payload();
             result->set_status(ResultStatus::Handled);
         }
 

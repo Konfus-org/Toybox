@@ -77,6 +77,17 @@ namespace tbx
         }
 
         template <typename T>
+        const T& get_payload() const
+        {
+            const T* payload = try_get_payload<T>();
+            if (!payload)
+            {
+                throw std::bad_cast();
+            }
+            return *payload;
+        }
+
+        template <typename T>
         T& get_payload()
         {
             T* payload = try_get_payload<T>();

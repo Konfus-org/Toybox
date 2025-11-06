@@ -1,5 +1,5 @@
 #include "runtime_plugin.h"
-#include "tbx/debug/log_macros.h"
+#include "tbx/debug/macros.h"
 #include "tbx/messages/commands/app_commands.h"
 #include <iostream>
 
