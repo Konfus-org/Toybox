@@ -36,9 +36,9 @@ namespace tbx
         virtual void on_message(const Message& msg) = 0;
 
       protected:
-        IMessageDispatcher* dispatcher() const
+        IMessageDispatcher& get_dispatcher() const
         {
-            return _dispatcher;
+            return *_dispatcher;
         }
 
       private:

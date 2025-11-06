@@ -2,98 +2,101 @@
 #include "tbx/application.h"
 #include "tbx/debug/log_macros.h"
 #include "tbx/memory/casting.h"
-#include <SDL3/SDL.h>
 #include <algorithm>
 #include <string>
 #include <utility>
 
 namespace tbx::plugins::sdlwindowing
 {
-    namespace
+    // --------------------------------
+    // SDL windowing helpers
+    // --------------------------------
+
+    static WindowMode resolve_window_mode(SDL_Window* window, WindowMode fallback)
     {
-        WindowMode resolve_window_mode(SDL_Window* window, WindowMode fallback)
+        const Uint32 flags = SDL_GetWindowFlags(window);
+        if ((flags & SDL_WINDOW_FULLSCREEN) == SDL_WINDOW_FULLSCREEN)
         {
-            const Uint32 flags = SDL_GetWindowFlags(window);
-            if ((flags & SDL_WINDOW_FULLSCREEN) == SDL_WINDOW_FULLSCREEN)
-            {
-                return WindowMode::Fullscreen;
-            }
-            if ((flags & SDL_WINDOW_BORDERLESS) == SDL_WINDOW_BORDERLESS)
-            {
-                return WindowMode::Borderless;
-            }
-            return fallback;
+            return WindowMode::Fullscreen;
         }
-
-        WindowDescription read_window_description(
-            SDL_Window* window,
-            const WindowDescription& fallback)
+        if ((flags & SDL_WINDOW_BORDERLESS) == SDL_WINDOW_BORDERLESS)
         {
-            WindowDescription description = fallback;
-
-            int width = description.size.width;
-            int height = description.size.height;
-            SDL_GetWindowSize(window, &width, &height);
-            description.size.width = width;
-            description.size.height = height;
-
-            description.mode = resolve_window_mode(window, description.mode);
-
-            if (const char* title = SDL_GetWindowTitle(window); title)
-            {
-                description.title = title;
-            }
-
-            return description;
+            return WindowMode::Borderless;
         }
-
-        bool apply_window_mode(SDL_Window* window, WindowMode mode)
-        {
-            switch (mode)
-            {
-                case WindowMode::Windowed:
-                {
-                    const bool fullscreen_cleared = SDL_SetWindowFullscreen(window, false);
-                    const bool bordered = SDL_SetWindowBordered(window, true);
-                    return fullscreen_cleared && bordered;
-                }
-                case WindowMode::Borderless:
-                {
-                    const bool fullscreen_cleared = SDL_SetWindowFullscreen(window, false);
-                    const bool borderless = SDL_SetWindowBordered(window, false);
-                    return fullscreen_cleared && borderless;
-                }
-                case WindowMode::Fullscreen:
-                    return SDL_SetWindowFullscreen(window, true);
-            }
-
-            return false;
-        }
-
-        bool apply_window_description(SDL_Window* window, const WindowDescription& description)
-        {
-            bool succeeded = true;
-
-            if (description.size.width > 0 && description.size.height > 0)
-            {
-                succeeded =
-                    SDL_SetWindowSize(window, description.size.width, description.size.height)
-                    && succeeded;
-            }
-
-            succeeded = SDL_SetWindowTitle(window, description.title.c_str()) && succeeded;
-            succeeded = apply_window_mode(window, description.mode) && succeeded;
-
-            if (succeeded)
-            {
-                SDL_ShowWindow(window);
-            }
-
-            return succeeded;
-        }
+        return fallback;
     }
 
-    SdlWindowingPlugin::SdlWindowRecord::SdlWindowRecord(
+    static WindowDescription read_window_description(
+        SDL_Window* window,
+        const WindowDescription& fallback)
+    {
+        WindowDescription description = fallback;
+
+        int width = description.size.width;
+        int height = description.size.height;
+        SDL_GetWindowSize(window, &width, &height);
+        description.size.width = width;
+        description.size.height = height;
+
+        description.mode = resolve_window_mode(window, description.mode);
+
+        if (const char* title = SDL_GetWindowTitle(window); title)
+        {
+            description.title = title;
+        }
+
+        return description;
+    }
+
+    static bool apply_window_mode(SDL_Window* window, WindowMode mode)
+    {
+        switch (mode)
+        {
+            case WindowMode::Windowed:
+            {
+                const bool fullscreen_cleared = SDL_SetWindowFullscreen(window, false);
+                const bool bordered = SDL_SetWindowBordered(window, true);
+                return fullscreen_cleared && bordered;
+            }
+            case WindowMode::Borderless:
+            {
+                const bool fullscreen_cleared = SDL_SetWindowFullscreen(window, false);
+                const bool borderless = SDL_SetWindowBordered(window, false);
+                return fullscreen_cleared && borderless;
+            }
+            case WindowMode::Fullscreen:
+                return SDL_SetWindowFullscreen(window, true);
+        }
+
+        return false;
+    }
+
+    static bool apply_window_description(SDL_Window* window, const WindowDescription& description)
+    {
+        bool succeeded = true;
+
+        if (description.size.width > 0 && description.size.height > 0)
+        {
+            succeeded = SDL_SetWindowSize(window, description.size.width, description.size.height)
+                        && succeeded;
+        }
+
+        succeeded = SDL_SetWindowTitle(window, description.title.c_str()) && succeeded;
+        succeeded = apply_window_mode(window, description.mode) && succeeded;
+
+        if (succeeded)
+        {
+            SDL_ShowWindow(window);
+        }
+
+        return succeeded;
+    }
+
+    // --------------------------------
+    // SdlWindowRecord implementation
+    // --------------------------------
+
+    SdlWindowRecord::SdlWindowRecord(
         IMessageDispatcher& dispatcher,
         SDL_Window* native_window,
         const WindowDescription& description)
@@ -103,9 +106,13 @@ namespace tbx::plugins::sdlwindowing
     {
     }
 
+    // --------------------------------
+    // SdlWindowingPlugin implementation
+    // --------------------------------
+
     void SdlWindowingPlugin::on_attach(const ApplicationContext&)
     {
-        if (SDL_InitSubSystem(SDL_INIT_VIDEO) < 0)
+        if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
         {
             TBX_TRACE_ERROR("Failed to initialize SDL video subsystem. See SDL logs for details.");
             return;
@@ -117,7 +124,7 @@ namespace tbx::plugins::sdlwindowing
 
     void SdlWindowingPlugin::on_detach()
     {
-        for (auto& record : _windows)
+        for (const auto& record : _windows)
         {
             if (record->native)
             {
@@ -155,14 +162,6 @@ namespace tbx::plugins::sdlwindowing
     void SdlWindowingPlugin::handle_create_window(CreateWindowCommand& command)
     {
         Result* result = command.get_result();
-
-        IMessageDispatcher* dispatcher_ptr = dispatcher();
-        if (!dispatcher_ptr)
-        {
-            set_failure(result, "Window dispatcher is not available.");
-            command.is_handled = true;
-            return;
-        }
 
         if ((SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO) != SDL_INIT_VIDEO)
         {
@@ -211,7 +210,7 @@ namespace tbx::plugins::sdlwindowing
 
         const WindowDescription description = read_window_description(native, requested);
 
-        auto record = tbx::make_scope<SdlWindowRecord>(*dispatcher_ptr, native, description);
+        auto record = make_scope<SdlWindowRecord>(get_dispatcher(), native, description);
 
         if (result)
         {
@@ -234,7 +233,7 @@ namespace tbx::plugins::sdlwindowing
         result->set_status(ResultStatus::Failed, std::string(reason));
     }
 
-    void SdlWindowingPlugin::handle_query_description(QueryWindowDescriptionCommand& command)
+    void SdlWindowingPlugin::handle_query_description(QueryWindowDescriptionCommand& command) const
     {
         Result* result = command.get_result();
 
@@ -265,7 +264,7 @@ namespace tbx::plugins::sdlwindowing
         command.is_handled = true;
     }
 
-    void SdlWindowingPlugin::handle_apply_description(ApplyWindowDescriptionCommand& command)
+    void SdlWindowingPlugin::handle_apply_description(ApplyWindowDescriptionCommand& command) const
     {
         Result* result = command.get_result();
 
@@ -303,7 +302,7 @@ namespace tbx::plugins::sdlwindowing
         command.is_handled = true;
     }
 
-    SdlWindowingPlugin::SdlWindowRecord* SdlWindowingPlugin::find_record(const Window& window) const
+    SdlWindowRecord* SdlWindowingPlugin::find_record(const Window& window) const
     {
         auto it = std::find_if(
             _windows.begin(),
