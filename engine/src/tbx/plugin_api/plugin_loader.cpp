@@ -1,17 +1,12 @@
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/debug/log_macros.h"
-#include "tbx/plugin_api/plugin.h"
-#include "tbx/plugin_api/plugin_registry.h"
-#include "tbx/strings/string_utils.h"
+#include "tbx/strings/mods.h"
 #include <deque>
-#include <fstream>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
-
-#define LOAD_STATIC_PLUGIN(plugin_name) ::tbx::PluginRegistry::instance().find_plugin(plugin_name)
 
 namespace tbx
 {
@@ -56,16 +51,14 @@ namespace tbx
 
         if (meta.linkage == PluginLinkage::Static)
         {
-            Plugin* plug = LOAD_STATIC_PLUGIN(meta.name);
+            Plugin* plug = PluginRegistry::get_instance().find_plugin(meta.name);
             if (!plug)
             {
-                TBX_TRACE_WARNING(
-                    "Static plugin not registered: {}",
-                    meta.name.c_str());
+                TBX_TRACE_WARNING("Static plugin not registered: {}", meta.name.c_str());
                 return std::nullopt;
             }
 
-            PluginInstance instance(plug, PluginDeleter([](Plugin*) {}));
+            auto instance = PluginInstance(plug, [](Plugin*) {});
             loaded.instance = std::move(instance);
             return loaded;
         }
@@ -77,9 +70,7 @@ namespace tbx
         CreatePluginFn create = lib->get_symbol<CreatePluginFn>(create_symbol.c_str());
         if (!create)
         {
-            TBX_TRACE_WARNING(
-                "Entry point not found in plugin module: {}",
-                create_symbol.c_str());
+            TBX_TRACE_WARNING("Entry point not found in plugin module: {}", create_symbol.c_str());
             return std::nullopt;
         }
 
@@ -96,9 +87,7 @@ namespace tbx
         Plugin* plugin_instance = create();
         if (!plugin_instance)
         {
-            TBX_TRACE_WARNING(
-                "Plugin factory returned null for: {}",
-                meta.name.c_str());
+            TBX_TRACE_WARNING("Plugin factory returned null for: {}", meta.name.c_str());
             return std::nullopt;
         }
 

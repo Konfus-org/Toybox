@@ -1,10 +1,8 @@
-add_library(SdlAdapterPlugin SHARED
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/sdl_adapter_plugin.cpp
-)
+add_library(SdlAdapterPlugin SHARED)
 
-target_include_directories(SdlAdapterPlugin PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
+target_sources(SdlAdapterPlugin PRIVATE ${SRCS})
+target_include_directories(SdlAdapterPlugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_link_libraries(SdlAdapterPlugin PRIVATE
     Engine
@@ -14,8 +12,8 @@ target_link_libraries(SdlAdapterPlugin PRIVATE
 tbx_register_plugin(
     TARGET SdlAdapterPlugin
     CLASS tbx::plugins::sdladapter::SdlAdapterPlugin
-    HEADER "tbx/plugins/sdladapter/sdl_adapter_plugin.h"
-    NAME SdlAdapterPlugin
+    HEADER "sdl_adapter_plugin.h"
+    NAME "SdlAdapterPlugin"
     VERSION "1.0.0"
     TYPE "system"
 )

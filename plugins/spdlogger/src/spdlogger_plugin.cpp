@@ -1,4 +1,4 @@
-#include "tbx/plugins/spdlogger/spdlogger_plugin.h"
+#include "spdlogger_plugin.h"
 #include "tbx/memory/casting.h"
 #include "tbx/messages/commands/log_commands.h"
 #include <spdlog/spdlog.h>
@@ -15,9 +15,7 @@ namespace tbx::plugins::spdlogger
         spdlog::info("SpdLoggerPlugin detached");
     }
 
-    void SpdLoggerPlugin::on_update(const DeltaTime&)
-    {
-    }
+    void SpdLoggerPlugin::on_update(const DeltaTime&) {}
 
     void SpdLoggerPlugin::on_message(const Message& msg)
     {

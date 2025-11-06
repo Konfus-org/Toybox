@@ -1,5 +1,5 @@
 #include "tbx/plugin_api/plugin_meta.h"
-#include "tbx/strings/string_utils.h"
+#include "tbx/strings/mods.h"
 #include <deque>
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -12,7 +12,9 @@ namespace tbx
     /// <summary>
     /// Appends the provided string to the list if it is not already present, ignoring case.
     /// </summary>
-    static void append_if_unique_case_insensitive(std::vector<std::string>& values, const std::string& value)
+    static void append_if_unique_case_insensitive(
+        std::vector<std::string>& values,
+        const std::string& value)
     {
         std::string needle = to_lower_case_string(value);
         for (const std::string& existing : values)
@@ -53,7 +55,10 @@ namespace tbx
     /// <summary>
     /// Merges parsed string data identified by the key into the destination collection.
     /// </summary>
-    static void assign_string_list(const nlohmann::json& data, const char* key, std::vector<std::string>& destination)
+    static void assign_string_list(
+        const nlohmann::json& data,
+        const char* key,
+        std::vector<std::string>& destination)
     {
         auto it = data.find(key);
         if (it == data.end())
@@ -75,7 +80,8 @@ namespace tbx
         auto it = data.find(key);
         if (it == data.end() || !it->is_string())
         {
-            throw std::runtime_error(std::string("Plugin metadata is missing required field: ") + key);
+            throw std::runtime_error(
+                std::string("Plugin metadata is missing required field: ") + key);
         }
         std::string value = trim_string(it->get<std::string>());
         if (value.empty())
@@ -185,7 +191,9 @@ namespace tbx
     /// <summary>
     /// Converts manifest JSON data into a populated PluginMeta structure.
     /// </summary>
-    static PluginMeta parse_plugin_meta_data(const nlohmann::json& data, const std::filesystem::path& manifest_path)
+    static PluginMeta parse_plugin_meta_data(
+        const nlohmann::json& data,
+        const std::filesystem::path& manifest_path)
     {
         PluginMeta meta;
         meta.manifest_path = manifest_path;
@@ -201,7 +209,8 @@ namespace tbx
             meta.type = "plugin";
         }
         assign_string_list(data, "dependencies", meta.dependencies);
-        if (auto static_it = data.find("static"); static_it != data.end() && static_it->is_boolean())
+        if (auto static_it = data.find("static");
+            static_it != data.end() && static_it->is_boolean())
         {
             meta.linkage = static_it->get<bool>() ? PluginLinkage::Static : PluginLinkage::Dynamic;
         }
@@ -236,7 +245,9 @@ namespace tbx
     /// <summary>
     /// Parses plugin metadata from raw JSON text.
     /// </summary>
-    PluginMeta parse_plugin_meta(const std::string& manifest_text, const std::filesystem::path& manifest_path)
+    PluginMeta parse_plugin_meta(
+        const std::string& manifest_text,
+        const std::filesystem::path& manifest_path)
     {
         nlohmann::json data = nlohmann::json::parse(manifest_text, nullptr, true, true);
         return parse_plugin_meta_data(data, manifest_path);
@@ -250,7 +261,8 @@ namespace tbx
         std::ifstream stream(manifest_path);
         if (!stream.is_open())
         {
-            throw std::runtime_error(std::string("Unable to open plugin manifest: ") + manifest_path.string());
+            throw std::runtime_error(
+                std::string("Unable to open plugin manifest: ") + manifest_path.string());
         }
 
         nlohmann::json data = nlohmann::json::parse(stream, nullptr, true, true);
@@ -285,8 +297,8 @@ namespace tbx
                 if (matches.empty())
                 {
                     throw std::runtime_error(
-                        std::string("Failed to resolve hard dependency '") + token + "' for plugin '" +
-                        meta.name + "'");
+                        std::string("Failed to resolve hard dependency '") + token
+                        + "' for plugin '" + meta.name + "'");
                 }
                 for (size_t candidate : matches)
                 {
@@ -382,4 +394,3 @@ namespace tbx
         return unload_order;
     }
 }
-

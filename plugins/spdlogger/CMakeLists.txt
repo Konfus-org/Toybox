@@ -1,10 +1,8 @@
-add_library(SpdLoggerPlugin SHARED
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/spdlogger_plugin.cpp
-)
+add_library(SpdLoggerPlugin SHARED)
 
-target_include_directories(SpdLoggerPlugin PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
+target_sources(SpdLoggerPlugin PRIVATE ${SRCS})
+target_include_directories(SpdLoggerPlugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_link_libraries(SpdLoggerPlugin PRIVATE
     Engine
@@ -14,8 +12,8 @@ target_link_libraries(SpdLoggerPlugin PRIVATE
 tbx_register_plugin(
     TARGET SpdLoggerPlugin
     CLASS tbx::plugins::spdlogger::SpdLoggerPlugin
-    HEADER "tbx/plugins/spdlogger/spdlogger_plugin.h"
-    NAME SpdLoggerPlugin
+    HEADER "spdlogger_plugin.h"
+    NAME "SpdLoggerPlugin"
     VERSION "1.0.0"
     TYPE "logger"
 )

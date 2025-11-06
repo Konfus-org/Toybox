@@ -6,21 +6,15 @@
 
 namespace tbx
 {
-    struct Plugin;
-
-    using CreatePluginFn = Plugin* (*)();
-    using DestroyPluginFn = void (*)(Plugin*);
+    class Plugin;
 
     // Global registry tracking plugin names and live instances.
     // Ownership: Does not own LoadedPlugin instances; callers manage lifetimes.
     // Thread-safety: Not thread-safe; access must be serialized on the main thread.
     class TBX_API PluginRegistry
     {
-       public:
-        static PluginRegistry& instance();
-
-        // Legacy accessor preserved for compatibility.
-        static PluginRegistry& get_instance() { return instance(); }
+      public:
+        static PluginRegistry& get_instance();
 
         // Registers a plugin instance. Must be called from the main thread. The
         // registry does not take ownership of the pointer and expects the
@@ -29,7 +23,7 @@ namespace tbx
 
         // Unregisters a plugin instance. Must be called from the main thread.
         // The registry does not delete the pointer.
-        void unregister_plugin(const std::string& name, Plugin* plugin);
+        void unregister_plugin(const std::string& name);
 
         // Removes a plugin instance by pointer when the name is unknown.
         void unregister_plugin(Plugin* plugin);

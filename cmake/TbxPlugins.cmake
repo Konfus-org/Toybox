@@ -1,6 +1,5 @@
 include_guard(GLOBAL)
 
-#
 # tbx_collect_plugin_dependencies
 # -------------------------------
 # Harvests plugin identifiers from the LINK_LIBRARIES and
@@ -8,7 +7,6 @@ include_guard(GLOBAL)
 # tbx_register_plugin to automatically populate the dependency
 # list in the generated manifest. Only targets that previously
 # called tbx_register_plugin contribute identifiers.
-#
 function(tbx_collect_plugin_dependencies target out_var)
     if(NOT TARGET ${target})
         message(FATAL_ERROR "tbx_collect_plugin_dependencies: target '${target}' does not exist")
@@ -55,7 +53,6 @@ function(tbx_collect_plugin_dependencies target out_var)
     set(${out_var} "${result}" PARENT_SCOPE)
 endfunction()
 
-#
 # tbx_register_plugin
 # --------------------
 # Generates the registration source and manifest for a plugin.
@@ -70,7 +67,6 @@ endfunction()
 #   MODULE        - Optional override for module/manifest output directory.
 #   DEPENDENCIES  - Additional dependency identifiers to record.
 #   STATIC        - Flag indicating the plugin is statically linked.
-#
 function(tbx_register_plugin)
     set(options STATIC)
     set(one_value_args TARGET CLASS HEADER NAME VERSION TYPE DESCRIPTION MODULE)
@@ -139,7 +135,7 @@ function(tbx_register_plugin)
     endif()
 
     # Emit generated sources alongside other build artifacts for the target.
-    set(generated_dir ${CMAKE_CURRENT_BINARY_DIR}/tbx_generated/${TBX_PLUGIN_TARGET})
+    set(generated_dir ${CMAKE_CURRENT_BINARY_DIR}/generated/)
     file(MAKE_DIRECTORY ${generated_dir})
 
     set(registration_output ${generated_dir}/${TBX_PLUGIN_NAME}_registration.cpp)
@@ -148,7 +144,62 @@ function(tbx_register_plugin)
     set(REGISTER_MACRO ${register_macro})
     set(PLUGIN_NAME_TOKEN ${TBX_PLUGIN_NAME})
     set(PLUGIN_CLASS ${TBX_PLUGIN_CLASS})
-    set(PLUGIN_HEADER ${TBX_PLUGIN_HEADER})
+
+    # Resolve the plugin header to an absolute path so we can add its directory to
+    # the include search paths, keeping generated sources consistent with the rest
+    # of the plugin code that typically uses short relative includes.
+    set(header_input "${TBX_PLUGIN_HEADER}")
+    set(resolved_header "")
+
+    if(IS_ABSOLUTE "${header_input}")
+        set(resolved_header "${header_input}")
+    else()
+        if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${header_input}")
+            set(resolved_header "${CMAKE_CURRENT_SOURCE_DIR}/${header_input}")
+        endif()
+
+        if(NOT resolved_header)
+            get_target_property(plugin_sources ${TBX_PLUGIN_TARGET} SOURCES)
+            if(plugin_sources AND NOT plugin_sources STREQUAL "plugin_sources-NOTFOUND")
+                foreach(source_path IN LISTS plugin_sources)
+                    if(source_path MATCHES "^\\$<")
+                        continue()
+                    endif()
+
+                    get_filename_component(source_name "${source_path}" NAME)
+                    if(source_name STREQUAL "${header_input}")
+                        set(resolved_header "${source_path}")
+                        break()
+                    endif()
+                endforeach()
+            endif()
+        endif()
+
+        if(NOT resolved_header)
+            set(resolved_header "${CMAKE_CURRENT_SOURCE_DIR}/${header_input}")
+        endif()
+    endif()
+
+    if(NOT EXISTS "${resolved_header}")
+        message(
+            FATAL_ERROR
+            "tbx_register_plugin: HEADER '${TBX_PLUGIN_HEADER}' could not be resolved for target '${TBX_PLUGIN_TARGET}'"
+        )
+    endif()
+
+    get_filename_component(header_dir "${resolved_header}" DIRECTORY)
+    if(header_dir)
+        target_include_directories(${TBX_PLUGIN_TARGET} PRIVATE "${header_dir}")
+    endif()
+
+    set(header_include "${header_input}")
+    if(IS_ABSOLUTE "${header_include}")
+        string(REPLACE "\\" "/" header_include "${resolved_header}")
+    else()
+        string(REPLACE "\\" "/" header_include "${header_include}")
+    endif()
+
+    set(PLUGIN_HEADER ${header_include})
 
     # Instantiate the registration source that wires the plugin into the
     # runtime registry.

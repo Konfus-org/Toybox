@@ -5,13 +5,9 @@
 #include "tbx/plugin_api/plugin_registry.h"
 #include "tbx/time/delta_time.h"
 #include <functional>
-#include <string>
 
 namespace tbx
 {
-    using PluginDeleter = std::function<void(Plugin*)>;
-    using PluginInstance = Scope<Plugin, PluginDeleter>;
-
     // A hot-reloadable piece of modular logic loaded at runtime.
     // Ownership: Plugins are owned by the loader/coordinator host and must
     // outlive their subscription in the message system.
@@ -20,7 +16,7 @@ namespace tbx
     // they share state across threads.
     class TBX_API Plugin
     {
-       public:
+      public:
         virtual ~Plugin() = default;
 
         Result send_message(const Message& msg) const;
@@ -39,10 +35,13 @@ namespace tbx
         // Unified message entry point for dispatch callbacks
         virtual void on_message(const Message& msg) = 0;
 
-       protected:
-        IMessageDispatcher* dispatcher() const { return _dispatcher; }
+      protected:
+        IMessageDispatcher* dispatcher() const
+        {
+            return _dispatcher;
+        }
 
-       private:
+      private:
         // Does not own the dispatcher reference.
         // Comes from the application context on attach.
         IMessageDispatcher* _dispatcher = nullptr;
@@ -63,38 +62,23 @@ namespace tbx
     TBX_PLUGIN_EXPORT ::tbx::Plugin* create_##PluginName()                                         \
     {                                                                                              \
         ::tbx::Plugin* plugin = new PluginType();                                                  \
-        ::tbx::PluginRegistry::instance().register_plugin(#PluginName, plugin);                    \
+        ::tbx::PluginRegistry::get_instance().register_plugin(#PluginName, plugin);                \
         return plugin;                                                                             \
     }                                                                                              \
     TBX_PLUGIN_EXPORT void destroy_##PluginName(::tbx::Plugin* plugin)                             \
     {                                                                                              \
-        ::tbx::PluginRegistry::instance().unregister_plugin(#PluginName, plugin);                  \
+        ::tbx::PluginRegistry::get_instance().unregister_plugin(#PluginName);                      \
         delete plugin;                                                                             \
     }
 
 #define TBX_REGISTER_STATIC_PLUGIN(PluginName, PluginType)                                         \
     static PluginType PluginName##_global_instance = {};                                           \
-    static bool PluginName##_global_registered = []()                                              \
+    static bool PluginName##_registered = []()                                                     \
     {                                                                                              \
-        ::tbx::PluginRegistry::instance().register_plugin(#PluginName, &PluginName##_global_instance); \
+        ::tbx::PluginRegistry::get_instance().register_plugin(                                     \
+            #PluginName,                                                                           \
+            &PluginName##_global_instance);                                                        \
         return true;                                                                               \
-    }();                                                                                           \
-    TBX_STATIC_PLUGIN_EXPORT ::tbx::Plugin* create_##PluginName()                                  \
-    {                                                                                              \
-        if (!PluginName##_global_registered)                                                       \
-        {                                                                                          \
-            ::tbx::PluginRegistry::instance().register_plugin(#PluginName, &PluginName##_global_instance); \
-            PluginName##_global_registered = true;                                                 \
-        }                                                                                          \
-        return &PluginName##_global_instance;                                                      \
-    }                                                                                              \
-    TBX_STATIC_PLUGIN_EXPORT void destroy_##PluginName(::tbx::Plugin* plugin)                      \
-    {                                                                                              \
-        if (plugin == &PluginName##_global_instance && PluginName##_global_registered)             \
-        {                                                                                          \
-            ::tbx::PluginRegistry::instance().unregister_plugin(#PluginName, plugin);              \
-            PluginName##_global_registered = false;                                                \
-        }                                                                                          \
-    }
+    }();
 
 }

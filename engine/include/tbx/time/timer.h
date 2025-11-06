@@ -9,31 +9,31 @@
 namespace tbx
 {
     // Thread-safe countdown utility that owns callbacks and cancellation state.
-    class TBX_API Timer
+    class Timer
     {
        public:
         using TickCallback = std::function<void(std::size_t)>;
         using Callback = std::function<void()>;
 
-        Timer();
-        Timer(
+        TBX_API Timer();
+        TBX_API Timer(
             std::size_t ticks,
             std::chrono::steady_clock::time_point ready_time,
             bool enable_ticks,
             bool enable_time);
 
-        static Timer for_ticks(std::size_t ticks);
-        static Timer for_time_span(
+        TBX_API static Timer for_ticks(std::size_t ticks);
+        TBX_API static Timer for_time_span(
             const TimeSpan& delay,
             std::chrono::steady_clock::time_point now);
-        static Timer for_duration(
+        TBX_API static Timer for_duration(
             std::chrono::steady_clock::duration duration,
             std::chrono::steady_clock::time_point now);
-        static Timer for_ticks_and_span(
+        TBX_API static Timer for_ticks_and_span(
             std::size_t ticks,
             const TimeSpan& delay,
             std::chrono::steady_clock::time_point now);
-        static Timer for_ticks_and_duration(
+        TBX_API static Timer for_ticks_and_duration(
             std::size_t ticks,
             std::chrono::steady_clock::duration duration,
             std::chrono::steady_clock::time_point now);
@@ -51,13 +51,13 @@ namespace tbx
             _on_cancel = std::move(callback);
         }
 
-        void reset();
+        TBX_API void reset();
 
-        bool tick();
-        bool is_time_up(std::chrono::steady_clock::time_point now) const;
+        TBX_API bool tick();
+        TBX_API bool is_time_up(std::chrono::steady_clock::time_point now) const;
 
-        void cancel();
-        CancellationToken get_token() const;
+        TBX_API void cancel();
+        TBX_API CancellationToken get_token() const;
 
        private:
         void configure_ticks(std::size_t ticks, bool enable_ticks);

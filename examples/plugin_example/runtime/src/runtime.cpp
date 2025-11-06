@@ -1,4 +1,4 @@
-#include "tbx/examples/runtime_plugin.h"
+#include "runtime_plugin.h"
 #include "tbx/debug/log_macros.h"
 #include "tbx/messages/commands/app_commands.h"
 #include <iostream>
@@ -12,15 +12,9 @@ namespace tbx::examples
             "This plugin just loads a logger and a window");
     }
 
-    void ExampleRuntimePlugin::on_detach()
-    {
-    }
+    void ExampleRuntimePlugin::on_detach() {}
 
-    void ExampleRuntimePlugin::on_update(const DeltaTime& dt)
-    {
-    }
+    void ExampleRuntimePlugin::on_update(const DeltaTime& dt) {}
 
-    void ExampleRuntimePlugin::on_message(const Message&)
-    {
-    }
+    void ExampleRuntimePlugin::on_message(const Message&) {}
 }

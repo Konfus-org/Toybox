@@ -1,4 +1,4 @@
-#include "tbx/strings/string_utils.h"
+#include "tbx/strings/mods.h"
 #include <algorithm>
 #include <cctype>
 
@@ -28,11 +28,10 @@ namespace tbx
     std::string to_lower_case_string(const std::string& value)
     {
         std::string lower = value;
-        std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char ch)
-        {
-            return static_cast<char>(std::tolower(ch));
-        });
+        std::ranges::transform(
+            lower,
+            lower.begin(),
+            [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
         return lower;
     }
 }
-

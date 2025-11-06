@@ -1,4 +1,4 @@
-#include "tbx/plugins/sdlwindowing/sdl_windowing_plugin.h"
+#include "sdl_windowing_plugin.h"
 #include "tbx/application.h"
 #include "tbx/debug/log_macros.h"
 #include "tbx/memory/casting.h"
@@ -25,7 +25,9 @@ namespace tbx::plugins::sdlwindowing
             return fallback;
         }
 
-        WindowDescription read_window_description(SDL_Window* window, const WindowDescription& fallback)
+        WindowDescription read_window_description(
+            SDL_Window* window,
+            const WindowDescription& fallback)
         {
             WindowDescription description = fallback;
 
@@ -74,8 +76,9 @@ namespace tbx::plugins::sdlwindowing
 
             if (description.size.width > 0 && description.size.height > 0)
             {
-                succeeded = SDL_SetWindowSize(window, description.size.width, description.size.height)
-                            && succeeded;
+                succeeded =
+                    SDL_SetWindowSize(window, description.size.width, description.size.height)
+                    && succeeded;
             }
 
             succeeded = SDL_SetWindowTitle(window, description.title.c_str()) && succeeded;
@@ -127,9 +130,7 @@ namespace tbx::plugins::sdlwindowing
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
     }
 
-    void SdlWindowingPlugin::on_update(const DeltaTime&)
-    {
-    }
+    void SdlWindowingPlugin::on_update(const DeltaTime&) {}
 
     void SdlWindowingPlugin::on_message(const Message& msg)
     {
@@ -204,7 +205,8 @@ namespace tbx::plugins::sdlwindowing
         if (!apply_window_description(native, requested))
         {
             TBX_TRACE_WARNING(
-                "SDL window created but initial description could not be fully applied. See SDL logs for details.");
+                "SDL window created but initial description could not be fully applied. See SDL "
+                "logs for details.");
         }
 
         const WindowDescription description = read_window_description(native, requested);
@@ -306,8 +308,7 @@ namespace tbx::plugins::sdlwindowing
         auto it = std::find_if(
             _windows.begin(),
             _windows.end(),
-            [&window](const Scope<SdlWindowRecord>& record)
-            { return &record->window == &window; });
+            [&window](const Scope<SdlWindowRecord>& record) { return &record->window == &window; });
         if (it == _windows.end())
         {
             return nullptr;
