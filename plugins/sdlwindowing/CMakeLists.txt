@@ -1,15 +1,22 @@
-add_library(SdlWindowingPlugin SHARED
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/sdl_windowing_plugin.cpp
-)
+add_library(SdlWindowingPlugin SHARED)
+
+file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
+target_sources(SdlWindowingPlugin PRIVATE ${SRCS})
+target_include_directories(SdlWindowingPlugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_link_libraries(SdlWindowingPlugin PRIVATE
     Engine
     SDL3::SDL3-shared
+    Tbx::Plugins::SdlAdapterPlugin
 )
 
-add_custom_command(TARGET SdlWindowingPlugin POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${CMAKE_CURRENT_SOURCE_DIR}/plugin.meta
-            $<TARGET_FILE_DIR:SdlWindowingPlugin>/SdlWindowingPlugin.meta)
+tbx_register_plugin(
+    TARGET SdlWindowingPlugin
+    CLASS tbx::plugins::sdlwindowing::SdlWindowingPlugin
+    HEADER "sdl_windowing_plugin.h"
+    NAME "SdlWindowingPlugin"
+    VERSION "1.0.0"
+    TYPE "windowing"
+)
 
 add_library(Tbx::Plugins::SdlWindowingPlugin ALIAS SdlWindowingPlugin)

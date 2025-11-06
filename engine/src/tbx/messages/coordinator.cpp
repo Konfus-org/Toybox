@@ -1,5 +1,5 @@
 #include "tbx/messages/coordinator.h"
-#include "tbx/logging/log_macros.h"
+#include "tbx/debug/log_macros.h"
 #include "tbx/memory/smart_pointers.h"
 #include <chrono>
 #include <exception>

@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/plugin_api/plugin_linkage.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
 #include <string>
@@ -9,17 +10,11 @@ namespace tbx
     // Describes the metadata discovered for a plugin before it is loaded.
     struct TBX_API PluginMeta
     {
-        // Unique identifier for the plugin used to resolve dependencies.
-        std::string id;
-
-        // Human-readable name for diagnostic output.
+        // Unique identifier for the plugin used to resolve dependencies and lookup.
         std::string name;
 
         // Semantic version string reported by the plugin.
         std::string version;
-
-        // Exported entry point used to create the plugin instance.
-        std::string entry_point;
 
         // Optional descriptive text explaining the plugin purpose.
         std::string description;
@@ -28,10 +23,9 @@ namespace tbx
         std::string type;
 
         // Hard dependencies that must be satisfied before loading this plugin.
-        std::vector<std::string> hard_dependencies;
+        std::vector<std::string> dependencies;
 
-        // Optional dependencies used to improve load ordering when available.
-        std::vector<std::string> soft_dependencies;
+        PluginLinkage linkage = PluginLinkage::Dynamic;
 
         // Path to the manifest file that produced this metadata.
         std::filesystem::path manifest_path;

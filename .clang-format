@@ -1,6 +1,6 @@
 # Format Style Options - Created with Clang Power Tools
 ---
-AccessModifierOffset: -1
+AccessModifierOffset: -2
 AlignAfterOpenBracket: AlwaysBreak
 AlignConsecutiveAssignments: false
 AlignConsecutiveDeclarations: None

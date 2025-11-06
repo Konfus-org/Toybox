@@ -2,7 +2,7 @@ message(STATUS "")
 message(STATUS "Configuring Toybox:")
 
 if (CMAKE_CXX_FLAGS MATCHES "-fno-rtti")
-    message(FATAL_ERROR "RTTI must be enabled for Toybox")
+    message(FATAL_ERROR "Tbx: RTTI must be enabled for Toybox")
 endif()
 
 # Options
@@ -10,7 +10,7 @@ option(TBX_BUILD_SHARED "Build as a shared library" ON)
 option(TBX_VERB_LOGGING "Enable verbose logging" OFF)
 
 # Tell user what options were set#
-message(STATUS "Options:")
+message(STATUS "Tbx Options:")
 message(STATUS "   TBX_BUILD_SHARED: ${TBX_BUILD_SHARED}")
 message(STATUS "   TBX_VERB_LOGGING: ${TBX_VERB_LOGGING}")
 
@@ -29,7 +29,7 @@ endif()
 # Sources
 file(GLOB_RECURSE INCL CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.*")
 file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
-target_sources(Engine PRIVATE ${SRCS} ${INCL} "include/tbx/messages/commands/app_commands.h" "include/tbx/tbx_api.h" "include/tbx/memory/casting.h")
+target_sources(Engine PRIVATE ${SRCS} ${INCL})
 
 # Expose include dirs to dependents (build & install time)
 target_include_directories(Engine
@@ -46,7 +46,6 @@ set_target_properties(Engine PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED YE
 
 # Link deps
 target_link_libraries(Engine PRIVATE
-    glm
     nlohmann_json
 )
 

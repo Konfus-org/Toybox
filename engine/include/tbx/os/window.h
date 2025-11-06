@@ -16,7 +16,7 @@ namespace tbx
 
     struct TBX_API WindowDescription
     {
-        math::Size size = { 1280, 720 };
+        math::Size size = {1280, 720};
         WindowMode mode = WindowMode::Windowed;
         std::string title = "Toybox";
     };
@@ -25,9 +25,11 @@ namespace tbx
 
     // Window is a lightweight wrapper around a platform specific implementation managed through
     // messages.
+    // Ownership: Does not own the underlying platform window; stores an opaque handle.
+    // Thread-safety: Not thread-safe; expected to be used on the main/UI thread.
     class TBX_API Window
     {
-       public:
+      public:
         Window(
             IMessageDispatcher& dispatcher,
             WindowImpl implementation,
@@ -39,7 +41,7 @@ namespace tbx
 
         WindowImpl get_implementation() const;
 
-       private:
+      private:
         void apply_description_update(const WindowDescription& description);
         void set_implementation(WindowImpl implementation);
 

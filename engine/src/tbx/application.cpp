@@ -1,17 +1,18 @@
 #include "tbx/application.h"
-#include "tbx/logging/log_macros.h"
+#include "tbx/debug/log_macros.h"
 #include "tbx/memory/casting.h"
 #include "tbx/messages/commands/app_commands.h"
 #include "tbx/messages/dispatcher_context.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
+#include "tbx/plugin_api/plugin_registry.h"
 #include "tbx/time/delta_time.h"
 
 namespace tbx
 {
     Application::Application(const AppDescription& desc)
+        : _desc(desc)
     {
-        _desc = desc;
         initialize();
     }
 
@@ -30,12 +31,27 @@ namespace tbx
         return 0;
     }
 
+    const AppDescription& Application::get_description() const noexcept
+    {
+        return _desc;
+    }
+
+    IMessageDispatcher& Application::get_dispatcher() noexcept
+    {
+        return static_cast<IMessageDispatcher&>(_msg_coordinator);
+    }
+
+    const IMessageDispatcher& Application::get_dispatcher() const noexcept
+    {
+        return static_cast<const IMessageDispatcher&>(_msg_coordinator);
+    }
+
     void Application::initialize()
     {
         // Set dispatcher scope
         DispatcherScope scope(_msg_coordinator);
 
-        // Load dynamic plugins based on description
+        // Load plugins based on description
         if (!_desc.plugins_directory.empty())
         {
             std::vector<LoadedPlugin> loaded =
@@ -60,7 +76,7 @@ namespace tbx
                         if (plugin)
                             plugin->on_message(msg);
                     });
-                p.instance->on_attach(ctx, _msg_coordinator);
+                p.instance->on_attach(ctx);
             }
         }
     }
@@ -84,7 +100,7 @@ namespace tbx
             }
             else
             {
-                TBX_TRACE_WARNING("Plugin {} is null at runtime!", p.meta.id);
+                TBX_TRACE_WARNING("Plugin {} is null at runtime!", p.meta.name);
             }
         }
     }
@@ -94,7 +110,9 @@ namespace tbx
         for (auto& p : _loaded)
         {
             if (p.instance)
+            {
                 p.instance->on_detach();
+            }
         }
         _loaded.clear();
         _msg_coordinator.clear();

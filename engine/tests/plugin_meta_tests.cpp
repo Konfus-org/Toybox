@@ -12,34 +12,29 @@ namespace tbx::tests::plugin_api
     TEST(plugin_meta_parse_test, populates_expected_fields)
     {
         constexpr const char* manifest_text = R"JSON({
-                "id": "Example.Logger",
-                "name": "Example Logger",
+                "name": "Example.Logger",
                 "version": "1.2.3",
-                "entryPoint": "ExampleEntry",
                 "description": " Example description ",
                 "type": "logger",
-                "hardDependencies": ["Core.Renderer"],
-                "softDependencies": ["Metrics.Service"],
-                "module": "bin/logger.so"
+                "dependencies": ["Core.Renderer"],
+                "module": "bin/logger.so",
+                "static": true
             })JSON";
         const std::filesystem::path manifest_path = "/virtual/plugin_api/example/logger/plugin.meta";
 
         ::tbx::PluginMeta meta =
             ::tbx::parse_plugin_meta(manifest_text, manifest_path);
 
-        EXPECT_EQ(meta.id, "Example.Logger");
-        EXPECT_EQ(meta.name, "Example Logger");
+        EXPECT_EQ(meta.name, "Example.Logger");
         EXPECT_EQ(meta.version, "1.2.3");
-        EXPECT_EQ(meta.entry_point, "ExampleEntry");
         EXPECT_EQ(meta.description, "Example description");
         EXPECT_EQ(meta.type, "logger");
-        ASSERT_EQ(meta.hard_dependencies.size(), 1u);
-        EXPECT_EQ(meta.hard_dependencies[0], "Core.Renderer");
-        ASSERT_EQ(meta.soft_dependencies.size(), 1u);
-        EXPECT_EQ(meta.soft_dependencies[0], "Metrics.Service");
+        ASSERT_EQ(meta.dependencies.size(), 1u);
+        EXPECT_EQ(meta.dependencies[0], "Core.Renderer");
         EXPECT_EQ(meta.root_directory, manifest_path.parent_path());
         EXPECT_EQ(meta.manifest_path, manifest_path);
         EXPECT_EQ(meta.module_path, manifest_path.parent_path() / "bin/logger.so");
+        EXPECT_EQ(meta.linkage, ::tbx::PluginLinkage::Static);
     }
 
     /// <summary>
@@ -48,10 +43,8 @@ namespace tbx::tests::plugin_api
     TEST(plugin_meta_parse_test, defaults_missing_type_to_plugin)
     {
         constexpr const char* manifest_text = R"JSON({
-                "id": "Example.WithoutType",
-                "name": "Example Without Type",
+                "name": "Example.WithoutType",
                 "version": "0.1.0",
-                "entryPoint": "ExampleEntry",
                 "description": "No explicit type set."
             })JSON";
         const std::filesystem::path manifest_path = "/virtual/plugin_api/example/without_type/plugin.meta";
@@ -68,10 +61,8 @@ namespace tbx::tests::plugin_api
     TEST(plugin_meta_parse_test, resolves_relative_module_paths)
     {
         constexpr const char* manifest_text = R"JSON({
-                "id": "Example.RelativeModule",
-                "name": "Example Relative Module",
+                "name": "Example.RelativeModule",
                 "version": "5.4.3",
-                "entryPoint": "ExampleEntry",
                 "type": "renderer",
                 "module": "modules/example_renderer.so"
             })JSON";
@@ -89,46 +80,38 @@ namespace tbx::tests::plugin_api
     TEST(plugin_meta_load_order_test, prioritizes_logger_and_respects_dependencies)
     {
         ::tbx::PluginMeta logger;
-        logger.id = "Logging.Core";
-        logger.name = "Logging";
+        logger.name = "Logging.Core";
         logger.version = "1.0.0";
-        logger.entry_point = "LoggingEntry";
         logger.type = "logger";
 
         ::tbx::PluginMeta metrics;
-        metrics.id = "Metrics.Plugin";
-        metrics.name = "Metrics";
+        metrics.name = "Metrics.Plugin";
         metrics.version = "1.0.0";
-        metrics.entry_point = "MetricsEntry";
         metrics.type = "metrics";
         ::tbx::PluginMeta renderer;
-        renderer.id = "Renderer.Plugin";
-        renderer.name = "Renderer";
+        renderer.name = "Renderer.Plugin";
         renderer.version = "2.0.0";
-        renderer.entry_point = "RendererEntry";
         renderer.type = "renderer";
-        renderer.hard_dependencies.push_back("Metrics.Plugin");
+        renderer.dependencies.push_back("Metrics.Plugin");
 
         ::tbx::PluginMeta gameplay;
-        gameplay.id = "Gameplay.Plugin";
-        gameplay.name = "Gameplay";
+        gameplay.name = "Gameplay.Plugin";
         gameplay.version = "3.0.0";
-        gameplay.entry_point = "GameplayEntry";
         gameplay.type = "gameplay";
-        gameplay.soft_dependencies.push_back("metrics");
-        gameplay.soft_dependencies.push_back("logger");
+        gameplay.dependencies.push_back("metrics");
+        gameplay.dependencies.push_back("logger");
 
         std::vector<::tbx::PluginMeta> unordered = {gameplay, renderer, metrics, logger};
 
         std::vector<::tbx::PluginMeta> load_order = ::tbx::resolve_plugin_load_order(unordered);
         ASSERT_EQ(load_order.size(), 4u);
-        EXPECT_EQ(load_order[0].id, "Logging.Core");
+        EXPECT_EQ(load_order[0].name, "Logging.Core");
 
         auto find_plugin = [](const std::vector<::tbx::PluginMeta>& plugins, const std::string& id)
         {
             for (size_t index = 0; index < plugins.size(); index += 1)
             {
-                if (plugins[index].id == id)
+                if (plugins[index].name == id)
                 {
                     return index;
                 }
@@ -150,7 +133,7 @@ namespace tbx::tests::plugin_api
         ASSERT_EQ(unload_order.size(), load_order.size());
         for (size_t index = 0; index < load_order.size(); index += 1)
         {
-            EXPECT_EQ(unload_order[index].id, load_order[load_order.size() - 1 - index].id);
+            EXPECT_EQ(unload_order[index].name, load_order[load_order.size() - 1 - index].name);
         }
     }
 }

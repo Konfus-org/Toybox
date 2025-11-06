@@ -31,6 +31,9 @@ namespace tbx
     //  - Owns queue storage for deferred delivery via post()/process()
     // This type implements both the dispatch interface (for producers)
     // and the processor interface (for the engine/application loop).
+    // Ownership: Owns enqueued message copies until delivery; stores handlers by value.
+    // Thread-safety: All API methods are expected to be called from the same thread
+    // (typically the host application's main loop).
     class TBX_API MessageCoordinator final
         : public IMessageDispatcher
         , public IMessageProcessor

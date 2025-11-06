@@ -1,9 +1,0 @@
-{
-    "id": "Logging.SpdLogger",
-    "name": "SpdLogger",
-    "version": "1.0.0",
-    "entryPoint": "CreateSpdLoggerPlugin",
-    "type": "logger",
-    "module": "SpdLoggerPlugin"
-}
-

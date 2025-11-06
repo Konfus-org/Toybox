@@ -1,5 +1,5 @@
 #include "tbx/plugin_api/plugin_meta.h"
-#include "tbx/strings/string_utils.h"
+#include "tbx/strings/mods.h"
 #include <deque>
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -12,7 +12,9 @@ namespace tbx
     /// <summary>
     /// Appends the provided string to the list if it is not already present, ignoring case.
     /// </summary>
-    static void append_if_unique_case_insensitive(std::vector<std::string>& values, const std::string& value)
+    static void append_if_unique_case_insensitive(
+        std::vector<std::string>& values,
+        const std::string& value)
     {
         std::string needle = to_lower_case_string(value);
         for (const std::string& existing : values)
@@ -53,7 +55,10 @@ namespace tbx
     /// <summary>
     /// Merges parsed string data identified by the key into the destination collection.
     /// </summary>
-    static void assign_string_list(const nlohmann::json& data, const char* key, std::vector<std::string>& destination)
+    static void assign_string_list(
+        const nlohmann::json& data,
+        const char* key,
+        std::vector<std::string>& destination)
     {
         auto it = data.find(key);
         if (it == data.end())
@@ -75,7 +80,8 @@ namespace tbx
         auto it = data.find(key);
         if (it == data.end() || !it->is_string())
         {
-            throw std::runtime_error(std::string("Plugin metadata is missing required field: ") + key);
+            throw std::runtime_error(
+                std::string("Plugin metadata is missing required field: ") + key);
         }
         std::string value = trim_string(it->get<std::string>());
         if (value.empty())
@@ -88,13 +94,17 @@ namespace tbx
     /// <summary>
     /// Resolves dependency tokens against plugin identifiers and type tags.
     /// </summary>
-    static std::vector<size_t> resolve_dependency(const std::string& token, size_t self_index, const std::unordered_map<std::string, size_t>& by_id, const std::unordered_map<std::string, std::vector<size_t>>& by_type)
+    static std::vector<size_t> resolve_dependency(
+        const std::string& token,
+        size_t self_index,
+        const std::unordered_map<std::string, size_t>& by_name,
+        const std::unordered_map<std::string, std::vector<size_t>>& by_type)
     {
         std::vector<size_t> matches;
         std::unordered_set<size_t> unique;
         std::string needle = to_lower_case_string(trim_string(token));
-        auto id_it = by_id.find(needle);
-        if (id_it != by_id.end())
+        auto id_it = by_name.find(needle);
+        if (id_it != by_name.end())
         {
             if (id_it->second != self_index)
             {
@@ -181,7 +191,9 @@ namespace tbx
     /// <summary>
     /// Converts manifest JSON data into a populated PluginMeta structure.
     /// </summary>
-    static PluginMeta parse_plugin_meta_data(const nlohmann::json& data, const std::filesystem::path& manifest_path)
+    static PluginMeta parse_plugin_meta_data(
+        const nlohmann::json& data,
+        const std::filesystem::path& manifest_path)
     {
         PluginMeta meta;
         meta.manifest_path = manifest_path;
@@ -189,20 +201,19 @@ namespace tbx
         {
             meta.root_directory = manifest_path.parent_path();
         }
-        meta.id = require_string(data, "id");
         meta.name = require_string(data, "name");
         meta.version = require_string(data, "version");
-        meta.entry_point = require_string(data, "entryPoint");
         meta.type = parse_type(data);
         if (meta.type.empty())
         {
             meta.type = "plugin";
         }
-        assign_string_list(data, "dependencies", meta.hard_dependencies);
-        assign_string_list(data, "hard_dependencies", meta.hard_dependencies);
-        assign_string_list(data, "hardDependencies", meta.hard_dependencies);
-        assign_string_list(data, "soft_dependencies", meta.soft_dependencies);
-        assign_string_list(data, "softDependencies", meta.soft_dependencies);
+        assign_string_list(data, "dependencies", meta.dependencies);
+        if (auto static_it = data.find("static");
+            static_it != data.end() && static_it->is_boolean())
+        {
+            meta.linkage = static_it->get<bool>() ? PluginLinkage::Static : PluginLinkage::Dynamic;
+        }
         auto description_it = data.find("description");
         if (description_it != data.end() && description_it->is_string())
         {
@@ -234,7 +245,9 @@ namespace tbx
     /// <summary>
     /// Parses plugin metadata from raw JSON text.
     /// </summary>
-    PluginMeta parse_plugin_meta(const std::string& manifest_text, const std::filesystem::path& manifest_path)
+    PluginMeta parse_plugin_meta(
+        const std::string& manifest_text,
+        const std::filesystem::path& manifest_path)
     {
         nlohmann::json data = nlohmann::json::parse(manifest_text, nullptr, true, true);
         return parse_plugin_meta_data(data, manifest_path);
@@ -248,7 +261,8 @@ namespace tbx
         std::ifstream stream(manifest_path);
         if (!stream.is_open())
         {
-            throw std::runtime_error(std::string("Unable to open plugin manifest: ") + manifest_path.string());
+            throw std::runtime_error(
+                std::string("Unable to open plugin manifest: ") + manifest_path.string());
         }
 
         nlohmann::json data = nlohmann::json::parse(stream, nullptr, true, true);
@@ -260,12 +274,12 @@ namespace tbx
     /// </summary>
     std::vector<PluginMeta> resolve_plugin_load_order(const std::vector<PluginMeta>& plugins)
     {
-        std::unordered_map<std::string, size_t> by_id;
+        std::unordered_map<std::string, size_t> by_name;
         std::unordered_map<std::string, std::vector<size_t>> by_type;
         for (size_t index = 0; index < plugins.size(); index += 1)
         {
             const PluginMeta& meta = plugins[index];
-            by_id.emplace(to_lower_case_string(meta.id), index);
+            by_name.emplace(to_lower_case_string(meta.name), index);
             if (!meta.type.empty())
             {
                 by_type[to_lower_case_string(meta.type)].push_back(index);
@@ -277,24 +291,15 @@ namespace tbx
         {
             const PluginMeta& meta = plugins[index];
             std::unordered_set<size_t> unique;
-            for (const std::string& token : meta.hard_dependencies)
+            for (const std::string& token : meta.dependencies)
             {
-                std::vector<size_t> matches = resolve_dependency(token, index, by_id, by_type);
+                std::vector<size_t> matches = resolve_dependency(token, index, by_name, by_type);
                 if (matches.empty())
                 {
-                    throw std::runtime_error(std::string("Failed to resolve hard dependency '") + token + "' for plugin '" + meta.id + "'");
+                    throw std::runtime_error(
+                        std::string("Failed to resolve hard dependency '") + token
+                        + "' for plugin '" + meta.name + "'");
                 }
-                for (size_t candidate : matches)
-                {
-                    if (unique.insert(candidate).second)
-                    {
-                        resolved_dependencies[index].push_back(candidate);
-                    }
-                }
-            }
-            for (const std::string& token : meta.soft_dependencies)
-            {
-                std::vector<size_t> matches = resolve_dependency(token, index, by_id, by_type);
                 for (size_t candidate : matches)
                 {
                     if (unique.insert(candidate).second)
@@ -389,4 +394,3 @@ namespace tbx
         return unload_order;
     }
 }
-

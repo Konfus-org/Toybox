@@ -10,12 +10,12 @@ namespace tbx::tests::plugin_loader
     class TestDynamicPlugin : public ::tbx::Plugin
     {
     public:
-        void on_attach(const ::tbx::ApplicationContext&, ::tbx::IMessageDispatcher&) override {}
+        void on_attach(const ::tbx::ApplicationContext&) override {}
         void on_detach() override {}
         void on_update(const ::tbx::DeltaTime&) override {}
         void on_message(const ::tbx::Message&) override {}
     };
-    TBX_REGISTER_PLUGIN(CreateTestDynamicPlugin, TestDynamicPlugin)
+    TBX_REGISTER_PLUGIN(TestDynamicPlugin, TestDynamicPlugin)
 
     // Dynamic plugin test: load directly from in-memory PluginMeta, no IO.
     TEST(plugin_loader_dynamic, loads_dynamic_plugin_from_manifest)
@@ -25,10 +25,8 @@ namespace tbx::tests::plugin_loader
         const std::string module_path = module_path_raw.generic_string();
 
         ::tbx::PluginMeta meta;
-        meta.id = "Test.Dynamic.Plugin";
-        meta.name = "Dynamic Plugin";
+        meta.name = "TestDynamicPlugin";
         meta.version = "1.0.0";
-        meta.entry_point = "CreateTestDynamicPlugin";
         meta.type = "plugin";
         meta.module_path = module_path;
 
