@@ -38,7 +38,7 @@ namespace tbx
         : public IMessageDispatcher
         , public IMessageProcessor
     {
-       public:
+      public:
         MessageCoordinator() = default;
         ~MessageCoordinator() override = default;
 
@@ -51,12 +51,12 @@ namespace tbx
         void remove_handler(const Uuid& token);
         void clear();
 
-        Result send(const Message& msg) const override;
+        Result send(Message& msg) const override;
         Result post(const Message& msg) override;
 
         void process() override;
 
-       private:
+      private:
         void dispatch(Message& msg, Result& result) const;
         void finalize_callbacks(
             const Message& msg,

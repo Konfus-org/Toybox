@@ -15,7 +15,7 @@ namespace tbx::plugins::sdlwindowing
 
     static WindowMode resolve_window_mode(SDL_Window* window, WindowMode fallback)
     {
-        const Uint32 flags = SDL_GetWindowFlags(window);
+        auto flags = SDL_GetWindowFlags(window);
         if ((flags & SDL_WINDOW_MINIMIZED) == SDL_WINDOW_MINIMIZED)
         {
             return WindowMode::Minimized;
@@ -121,7 +121,7 @@ namespace tbx::plugins::sdlwindowing
         IMessageDispatcher& dispatcher,
         SDL_Window* native_window,
         const WindowDescription& description)
-        : window(dispatcher, static_cast<void*>(native_window), description)
+        : window(dispatcher, description)
         , description(description)
         , native(native_window)
     {
@@ -139,6 +139,7 @@ namespace tbx::plugins::sdlwindowing
             return;
         }
 
+        // TESTING CODE:
         auto window_command = CreateWindowCommand(WindowDescription());
         handle_create_window(window_command);
     }
@@ -160,7 +161,6 @@ namespace tbx::plugins::sdlwindowing
                     WindowClosedEvent closed(&record->window);
                     get_dispatcher().send(closed);
                 }
-                record->window.mark_closed();
             }
         }
         _windows.clear();
@@ -170,7 +170,7 @@ namespace tbx::plugins::sdlwindowing
 
     void SdlWindowingPlugin::on_update(const DeltaTime&) {}
 
-    void SdlWindowingPlugin::on_message(const Message& msg)
+    void SdlWindowingPlugin::on_message(Message& msg)
     {
         if (auto* create = as<CreateWindowCommand>(&msg))
         {
@@ -267,11 +267,6 @@ namespace tbx::plugins::sdlwindowing
 
     void SdlWindowingPlugin::set_failure(Result* result, std::string_view reason)
     {
-        if (!result)
-        {
-            return;
-        }
-
         result->reset_payload();
         result->set_status(ResultStatus::Failed, std::string(reason));
     }
@@ -345,12 +340,8 @@ namespace tbx::plugins::sdlwindowing
 
         if (command.window && previous_mode != refreshed.mode)
         {
-            WindowModeChangedEvent mode_changed(
-                command.window,
-                previous_mode,
-                refreshed.mode,
-                refreshed);
-            get_dispatcher().send(mode_changed);
+            WindowModeChangedEvent mode_changed(command.window, previous_mode, refreshed.mode);
+            send_message(mode_changed);
         }
 
         command.is_handled = true;
@@ -368,7 +359,7 @@ namespace tbx::plugins::sdlwindowing
         }
 
         WindowOpenedEvent event(command.window, command.description);
-        get_dispatcher().send(event);
+        send_message(event);
 
         if (result)
         {
@@ -390,11 +381,12 @@ namespace tbx::plugins::sdlwindowing
             return;
         }
 
-        auto it = std::find_if(
-            _windows.begin(),
-            _windows.end(),
+        auto it = std::ranges::find_if(
+            _windows,
             [&command](const Scope<SdlWindowRecord>& record)
-            { return record && &record->window == command.window; });
+            {
+                return record && &record->window == command.window;
+            });
         if (it == _windows.end())
         {
             set_failure(result, "Window is not managed by SDL windowing.");
@@ -412,10 +404,9 @@ namespace tbx::plugins::sdlwindowing
         if (command.window)
         {
             WindowClosedEvent closed(command.window);
-            get_dispatcher().send(closed);
+            send_message(closed);
         }
 
-        record->window.mark_closed();
         _windows.erase(it);
 
         if (result)
@@ -429,10 +420,12 @@ namespace tbx::plugins::sdlwindowing
 
     SdlWindowRecord* SdlWindowingPlugin::find_record(const Window& window) const
     {
-        auto it = std::find_if(
-            _windows.begin(),
-            _windows.end(),
-            [&window](const Scope<SdlWindowRecord>& record) { return &record->window == &window; });
+        auto it = std::ranges::find_if(
+            _windows,
+            [&window](const Scope<SdlWindowRecord>& record)
+            {
+                return &record->window == &window;
+            });
         if (it == _windows.end())
         {
             return nullptr;

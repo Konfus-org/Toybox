@@ -7,11 +7,7 @@ namespace tbx
     class TBX_API WindowOpenedEvent : public Event
     {
       public:
-        WindowOpenedEvent(Window* window_ptr, const WindowDescription& desc)
-            : window(window_ptr)
-            , description(desc)
-        {
-        }
+        WindowOpenedEvent(Window* window_ptr, WindowDescription desc);
 
         // Non-owning pointer to the window that opened.
         Window* window = nullptr;
@@ -21,16 +17,7 @@ namespace tbx
     class TBX_API WindowModeChangedEvent : public Event
     {
       public:
-        WindowModeChangedEvent(
-            Window* window_ptr,
-            WindowMode previous,
-            WindowMode current)
-            : window(window_ptr)
-            , previous_mode(previous)
-            , current_mode(current)
-            , description(desc)
-        {
-        }
+        WindowModeChangedEvent(Window* window_ptr, WindowMode previous, WindowMode current);
 
         // Non-owning pointer to the window whose mode changed.
         Window* window = nullptr;
@@ -41,10 +28,7 @@ namespace tbx
     class TBX_API WindowClosedEvent : public Event
     {
       public:
-        explicit WindowClosedEvent(Window* window_ptr)
-            : window(window_ptr)
-        {
-        }
+        explicit WindowClosedEvent(Window* window_ptr);
 
         // Non-owning pointer to the window that closed.
         Window* window = nullptr;

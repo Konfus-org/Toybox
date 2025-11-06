@@ -11,8 +11,8 @@
 
 namespace tbx
 {
-    Application::Application(const AppDescription& desc)
-        : _desc(desc)
+    Application::Application(AppDescription desc)
+        : _desc(std::move(desc))
     {
         initialize();
     }
@@ -32,17 +32,17 @@ namespace tbx
         return 0;
     }
 
-    const AppDescription& Application::get_description() const noexcept
+    const AppDescription& Application::get_description() const
     {
         return _desc;
     }
 
-    IMessageDispatcher& Application::get_dispatcher() noexcept
+    IMessageDispatcher& Application::get_dispatcher()
     {
         return static_cast<IMessageDispatcher&>(_msg_coordinator);
     }
 
-    const IMessageDispatcher& Application::get_dispatcher() const noexcept
+    const IMessageDispatcher& Application::get_dispatcher() const
     {
         return static_cast<const IMessageDispatcher&>(_msg_coordinator);
     }
@@ -66,16 +66,19 @@ namespace tbx
         // Attach all plugins with a basic context
         ApplicationContext ctx = {.instance = this, .description = _desc};
 
-        _msg_coordinator.add_handler([this](const Message& msg) { handle_message(msg); });
+        _msg_coordinator.add_handler(
+            [this](Message& msg)
+            {
+                handle_message(msg);
+            });
         for (auto& p : _loaded)
         {
             if (p.instance)
             {
                 _msg_coordinator.add_handler(
-                    [plugin = p.instance.get()](const Message& msg)
+                    [plugin = p.instance.get()](Message& msg)
                     {
-                        if (plugin)
-                            plugin->on_message(msg);
+                        plugin->on_message(msg);
                     });
                 p.instance->on_attach(ctx);
             }

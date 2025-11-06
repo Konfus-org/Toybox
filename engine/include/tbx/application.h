@@ -14,18 +14,18 @@ namespace tbx
     // No internal synchronization is provided.
     class TBX_API Application
     {
-       public:
-        Application(const AppDescription& desc);
+      public:
+        Application(AppDescription desc);
         ~Application();
 
         // Starts the application main loop. Returns process exit code.
         int run();
 
-        const AppDescription& get_description() const noexcept;
-        IMessageDispatcher& get_dispatcher() noexcept;
-        const IMessageDispatcher& get_dispatcher() const noexcept;
+        const AppDescription& get_description() const;
+        IMessageDispatcher& get_dispatcher();
+        const IMessageDispatcher& get_dispatcher() const;
 
-       private:
+      private:
         void initialize();
         void update(DeltaTimer timer);
         void shutdown();

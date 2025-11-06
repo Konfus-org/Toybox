@@ -16,5 +16,5 @@ namespace tbx::examples
 
     void ExampleRuntimePlugin::on_update(const DeltaTime& dt) {}
 
-    void ExampleRuntimePlugin::on_message(const Message&) {}
+    void ExampleRuntimePlugin::on_message(Message&) {}
 }

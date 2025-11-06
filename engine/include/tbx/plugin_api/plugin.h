@@ -19,7 +19,7 @@ namespace tbx
       public:
         virtual ~Plugin() = default;
 
-        Result send_message(const Message& msg) const;
+        Result send_message(Message& msg) const;
 
         // Called when the plugin is attached to the host.
         // The dispatcher interface allows sending or posting messages; the
@@ -33,7 +33,7 @@ namespace tbx
         virtual void on_update(const DeltaTime& dt) = 0;
 
         // Unified message entry point for dispatch callbacks
-        virtual void on_message(const Message& msg) = 0;
+        virtual void on_message(Message& msg) = 0;
 
       protected:
         IMessageDispatcher& get_dispatcher() const

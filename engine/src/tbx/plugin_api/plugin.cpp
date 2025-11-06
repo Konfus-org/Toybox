@@ -4,7 +4,7 @@
 
 namespace tbx
 {
-    Result Plugin::send_message(const Message& msg) const
+    Result Plugin::send_message(Message& msg) const
     {
         if (!_dispatcher)
         {

@@ -2,7 +2,6 @@
 #include "tbx/messages/commands/command.h"
 #include "tbx/os/window.h"
 #include "tbx/tbx_api.h"
-#include <utility>
 
 namespace tbx
 {
@@ -11,10 +10,7 @@ namespace tbx
     {
       public:
         CreateWindowCommand() = default;
-        explicit CreateWindowCommand(WindowDescription desc)
-            : description(std::move(desc))
-        {
-        }
+        explicit CreateWindowCommand(WindowDescription desc);
 
         WindowDescription description = {};
     };
@@ -24,11 +20,7 @@ namespace tbx
     {
       public:
         OpenWindowCommand() = default;
-        OpenWindowCommand(Window* window_ptr, WindowDescription desc)
-            : window(window_ptr)
-            , description(std::move(desc))
-        {
-        }
+        OpenWindowCommand(Window* window_ptr, WindowDescription desc);
 
         // Non-owning pointer to the window that was opened.
         Window* window = nullptr;
@@ -40,10 +32,7 @@ namespace tbx
     {
        public:
         QueryWindowDescriptionCommand() = default;
-        explicit QueryWindowDescriptionCommand(Window* window_ptr)
-            : window(window_ptr)
-        {
-        }
+        explicit QueryWindowDescriptionCommand(Window* window_ptr);
 
         // Non-owning pointer to the window being queried.
         Window* window = nullptr;
@@ -54,11 +43,7 @@ namespace tbx
     {
        public:
         ApplyWindowDescriptionCommand() = default;
-        ApplyWindowDescriptionCommand(Window* window_ptr, WindowDescription desc)
-            : window(window_ptr)
-            , description(std::move(desc))
-        {
-        }
+        ApplyWindowDescriptionCommand(Window* window_ptr, WindowDescription desc);
 
         // Non-owning pointer to the window to be updated.
         Window* window = nullptr;
@@ -70,10 +55,7 @@ namespace tbx
     {
        public:
         CloseWindowCommand() = default;
-        explicit CloseWindowCommand(Window* window_ptr)
-            : window(window_ptr)
-        {
-        }
+        explicit CloseWindowCommand(Window* window_ptr);
 
         // Non-owning pointer to the window being closed.
         Window* window = nullptr;

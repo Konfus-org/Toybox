@@ -8,7 +8,7 @@ namespace tbx
     // A command is a message that should be acted on.
     class TBX_API Command : public Message
     {
-       public:
-        ~Command() override = default;
+      public:
+        ~Command() override;
     };
 }

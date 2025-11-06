@@ -9,5 +9,5 @@ namespace tbx
     // Thread-safety: Invoked on the coordinator's calling thread; handlers
     // should avoid blocking and must manage their own synchronization if
     // touching shared state.
-    using MessageHandler = std::function<void(const Message&)>;
+    using MessageHandler = std::function<void(Message&)>;
 }

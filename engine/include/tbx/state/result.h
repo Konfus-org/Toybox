@@ -30,7 +30,7 @@ namespace tbx
     // synchronization if accessed from multiple threads.
     class TBX_API Result
     {
-       public:
+      public:
         Result();
 
         ResultStatus get_status() const;
@@ -77,17 +77,6 @@ namespace tbx
         }
 
         template <typename T>
-        const T& get_payload() const
-        {
-            const T* payload = try_get_payload<T>();
-            if (!payload)
-            {
-                throw std::bad_cast();
-            }
-            return *payload;
-        }
-
-        template <typename T>
         T& get_payload()
         {
             T* payload = try_get_payload<T>();
@@ -114,7 +103,7 @@ namespace tbx
             return get_status() != ResultStatus::Failed;
         }
 
-       private:
+      private:
         void ensure_status();
         ResultPayloadStorage& ensure_payload();
         const std::type_info* payload_type() const;

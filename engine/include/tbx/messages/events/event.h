@@ -8,7 +8,7 @@ namespace tbx
     // Events are a fire and forget message, think of them like notifications.
     class TBX_API Event : public Message
     {
-       public:
-        ~Event() override = default;
+      public:
+        ~Event() override;
     };
 }

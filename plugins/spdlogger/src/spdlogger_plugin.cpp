@@ -17,7 +17,7 @@ namespace tbx::plugins::spdlogger
 
     void SpdLoggerPlugin::on_update(const DeltaTime&) {}
 
-    void SpdLoggerPlugin::on_message(const Message& msg)
+    void SpdLoggerPlugin::on_message(Message& msg)
     {
         const auto* log = as<LogMessageCommand>(&msg);
         if (!log)

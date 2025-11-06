@@ -5,7 +5,7 @@ target_sources(SdlAdapterPlugin PRIVATE ${SRCS})
 target_include_directories(SdlAdapterPlugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_link_libraries(SdlAdapterPlugin PRIVATE
-    Engine
+    Tbx::Engine
     SDL3::SDL3
 )
 

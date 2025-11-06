@@ -94,7 +94,11 @@ namespace tbx
         finalize_callbacks(msg, result, status, failure_reason);
     }
 
-    void MessageCoordinator::finalize_callbacks(const Message& msg, Result& result, ResultStatus status, const std::string* failure_reason) const
+    void MessageCoordinator::finalize_callbacks(
+        const Message& msg,
+        Result& result,
+        ResultStatus status,
+        const std::string* failure_reason) const
     {
         if (status == ResultStatus::Failed)
         {
@@ -162,7 +166,7 @@ namespace tbx
         }
     }
 
-    Result MessageCoordinator::send(const Message& msg) const
+    Result MessageCoordinator::send(Message& msg) const
     {
         Result result;
         if (msg.has_delay())
@@ -197,7 +201,10 @@ namespace tbx
     {
         struct Copy final : Message
         {
-            explicit Copy(const Message& m) { *static_cast<Message*>(this) = m; }
+            explicit Copy(const Message& m)
+            {
+                *static_cast<Message*>(this) = m;
+            }
         };
 
         Result result;
@@ -264,7 +271,8 @@ namespace tbx
             if (!entry.message)
                 continue;
 
-            if (entry.message->cancellation_token && entry.message->cancellation_token.is_cancelled())
+            if (entry.message->cancellation_token
+                && entry.message->cancellation_token.is_cancelled())
             {
                 MessageResult* previous_result = entry.message->get_result();
                 entry.message->set_result(entry.result);

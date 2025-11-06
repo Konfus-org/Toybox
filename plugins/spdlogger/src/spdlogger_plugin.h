@@ -9,6 +9,6 @@ namespace tbx::plugins::spdlogger
         void on_attach(const ApplicationContext& context) override;
         void on_detach() override;
         void on_update(const DeltaTime& dt) override;
-        void on_message(const Message& msg) override;
+        void on_message(Message& msg) override;
     };
 }

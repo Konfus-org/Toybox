@@ -23,7 +23,7 @@ namespace tbx
     {
         using Callback = std::function<void(const Message&)>;
 
-        virtual ~Message() = default;
+        virtual ~Message();
 
         Uuid id = Uuid::generate();
         bool is_handled = false;
@@ -75,7 +75,7 @@ namespace tbx
             return result_ref ? &result_ref->get() : nullptr;
         }
 
-       private:
+      private:
         std::optional<std::reference_wrapper<MessageResult>> result_ref;
     };
 }

@@ -13,12 +13,14 @@ namespace tbx
     // engine's main thread.
     class TBX_API IMessageDispatcher
     {
-       public:
+      public:
         virtual ~IMessageDispatcher() = default;
+
         // Immediately sends a message by reference.
         // Ownership: non-owning; the caller keeps ownership of `msg`.
         // Thread-safety: see class notes.
-        virtual Result send(const Message& msg) const = 0;
+        virtual Result send(Message& msg) const = 0;
+
         // Enqueues a copy of the message for deferred processing.
         // Ownership: copies `msg` internally until delivered.
         // Thread-safety: see class notes.
@@ -31,7 +33,7 @@ namespace tbx
     // usage unless documented otherwise by an implementation.
     class TBX_API IMessageProcessor
     {
-       public:
+      public:
         virtual ~IMessageProcessor() = default;
 
         // processes all posted messages.

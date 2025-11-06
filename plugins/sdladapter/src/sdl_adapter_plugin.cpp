@@ -57,7 +57,7 @@ namespace tbx::plugins::sdladapter
         SDL_PumpEvents();
     }
 
-    void SdlAdapterPlugin::on_message(const Message&) {}
+    void SdlAdapterPlugin::on_message(Message&) {}
 
     void SdlAdapterPlugin::install_error_hook()
     {
