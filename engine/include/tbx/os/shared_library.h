@@ -13,7 +13,6 @@ namespace tbx
     class TBX_API SharedLibrary
     {
        public:
-        SharedLibrary() = default;
         SharedLibrary(const std::filesystem::path& path);
         ~SharedLibrary();
 

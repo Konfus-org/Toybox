@@ -25,7 +25,7 @@ namespace tbx::plugins::sdlwindowing
     class SdlWindowingPlugin final : public Plugin
     {
       public:
-        void on_attach(const ApplicationContext& context) override;
+        void on_attach(Application& host) override;
         void on_detach() override;
         void on_update(const DeltaTime& dt) override;
         void on_message(Message& msg) override;

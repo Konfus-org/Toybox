@@ -131,7 +131,7 @@ namespace tbx::plugins::sdlwindowing
     // SdlWindowingPlugin implementation
     // --------------------------------
 
-    void SdlWindowingPlugin::on_attach(const ApplicationContext&)
+    void SdlWindowingPlugin::on_attach(Application&)
     {
         if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
         {

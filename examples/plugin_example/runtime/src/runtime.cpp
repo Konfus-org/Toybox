@@ -5,7 +5,7 @@
 
 namespace tbx::examples
 {
-    void ExampleRuntimePlugin::on_attach(const ApplicationContext&)
+    void ExampleRuntimePlugin::on_attach(Application&)
     {
         TBX_TRACE_INFO(
             "Welcome to the plugin example! "

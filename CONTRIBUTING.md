@@ -11,6 +11,7 @@ Read the code of conduct [here](CODE_OF_CONDUCT.md)
 - Document every public API with purpose, ownership/lifetime expectations, and thread-safety notes.
 - Prefer Toybox smart handles (`Ref`, `WeakRef`, `Scope`) over raw owning pointers; raw pointers should remain non-owning and clearly documented.
 - We build with C++23 but stick to a conservative, C-like subset. Avoid `noexcept` and attribute annotations, and only adopt modern features when they clearly improve safety or clarity.
+- Prefer copy-style initialization (`int value = {};`, `auto widget = Widget(args);`) instead of brace-only or direct-call syntax (`int value{};`, `auto widget(Widget(args));`) for readability.
 - Keep headers lean by defining non-trivial logic in `.cpp` files and add tests when introducing new functionality.
 
 See `AGENT.md` for the complete contributor standards used by Codex agents.

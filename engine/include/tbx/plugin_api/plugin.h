@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/application_context.h"
+#include "tbx/application.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/message.h"
 #include "tbx/plugin_api/plugin_registry.h"
@@ -8,43 +8,60 @@
 
 namespace tbx
 {
-    // A hot-reloadable piece of modular logic loaded at runtime.
-    // Ownership: Plugins are owned by the loader/coordinator host and must
-    // outlive their subscription in the message system.
-    // Thread-safety: All callbacks are expected to be invoked on the thread
-    // driving the application loop; plugins should internally synchronize if
-    // they share state across threads.
+    // Base type for runtime-loadable plugins. The host owns plugin lifetimes and
+    // guarantees that callbacks occur on the main thread unless documented otherwise.
     class TBX_API Plugin
     {
       public:
-        virtual ~Plugin() = default;
+        Plugin();
+        virtual ~Plugin();
+        Plugin(const Plugin&) = delete;
+        Plugin& operator=(const Plugin&) = delete;
+        Plugin(Plugin&&) = default;
+        Plugin& operator=(Plugin&&) = default;
 
+        // Initializes the plugin, wiring it to the given host and dispatcher.
+        // Must be called exactly once before any other interaction.
+        void attach(Application& host);
+
+        // Shuts the plugin down and clears host/dispatcher references.
+        void detach();
+
+        // Ticks the plugin for the given frame delta.
+        void update(const DeltaTime& dt);
+
+        // Invokes the plugin's message entry point.
+        void receive_message(Message& msg);
+
+        // Helper to synchronously send a message via the host dispatcher.
         Result send_message(Message& msg) const;
 
-        // Called when the plugin is attached to the host.
-        // The dispatcher interface allows sending or posting messages; the
-        // plugin must not retain references past its own lifetime.
-        virtual void on_attach(const ApplicationContext& context);
-
-        // Called before the plugin is detached from the host
-        virtual void on_detach() = 0;
-
-        // Per-frame update with delta timing
-        virtual void on_update(const DeltaTime& dt) = 0;
-
-        // Unified message entry point for dispatch callbacks
-        virtual void on_message(Message& msg) = 0;
+        // Helper to post a message for deferred processing via the dispatcher.
+        Result post_message(Message& msg) const;
 
       protected:
-        IMessageDispatcher& get_dispatcher() const
-        {
-            return *_dispatcher;
-        }
+        // Called when the plugin is attached to the host.
+        // The plugin must not retain references that outlive its own lifetime.
+        virtual void on_attach(Application& host) = 0;
+
+        // Called before the plugin is detached from the host.
+        virtual void on_detach() = 0;
+
+        // Per-frame update with delta timing.
+        virtual void on_update(const DeltaTime& dt) = 0;
+
+        // Unified message entry point for dispatch callbacks.
+        virtual void on_message(Message& msg) = 0;
+
+        // Non-owning dispatcher reference provided by the host.
+        IMessageDispatcher& get_dispatcher() const;
+
+        // Non-owning reference to the host Application.
+        Application& get_host() const;
 
       private:
-        // Does not own the dispatcher reference.
-        // Comes from the application context on attach.
         IMessageDispatcher* _dispatcher = nullptr;
+        Application* _host = nullptr;
     };
 
     using CreatePluginFn = Plugin* (*)();

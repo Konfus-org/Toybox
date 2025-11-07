@@ -63,9 +63,6 @@ namespace tbx
             }
         }
 
-        // Attach all plugins with a basic context
-        ApplicationContext ctx = {.instance = this, .description = _desc};
-
         _msg_coordinator.add_handler(
             [this](Message& msg)
             {
@@ -78,9 +75,9 @@ namespace tbx
                 _msg_coordinator.add_handler(
                     [plugin = p.instance.get()](Message& msg)
                     {
-                        plugin->on_message(msg);
+                        plugin->receive_message(msg);
                     });
-                p.instance->on_attach(ctx);
+                p.instance->attach(*this);
             }
         }
 
@@ -106,7 +103,7 @@ namespace tbx
         {
             if (p.instance)
             {
-                p.instance->on_update(dt);
+                p.instance->update(dt);
             }
             else
             {
@@ -129,7 +126,7 @@ namespace tbx
         {
             if (p.instance)
             {
-                p.instance->on_detach();
+                p.instance->detach();
             }
         }
         _loaded.clear();

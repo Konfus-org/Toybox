@@ -29,12 +29,3 @@ target_link_libraries(Tests PRIVATE
 # Add tests
 add_test(NAME EngineTests COMMAND $<TARGET_FILE:Tests>)
 
-# Build a small dynamic plugin used by tests
-add_library(TestDynPlugin SHARED
-    ${CMAKE_CURRENT_SOURCE_DIR}/test_plugins/dynamic/test_dyn_plugin.cpp
-)
-target_link_libraries(TestDynPlugin PRIVATE Engine)
-
-# Pass the built path of the dynamic test plugin to the tests
-target_compile_definitions(Tests PRIVATE TBX_TEST_DYN_PLUGIN_PATH="$<TARGET_FILE:TestDynPlugin>")
-add_dependencies(Tests TestDynPlugin)

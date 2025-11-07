@@ -4,7 +4,7 @@
 
 namespace tbx::plugins::sdladapter
 {
-    void SdlAdapterPlugin::on_attach(const ApplicationContext&)
+    void SdlAdapterPlugin::on_attach(Application&)
     {
         if (_initialized)
         {
