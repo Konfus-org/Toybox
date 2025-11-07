@@ -5,7 +5,7 @@ target_sources(PluginExampleRuntime PRIVATE ${SRCS})
 target_include_directories(PluginExampleRuntime PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_link_libraries(PluginExampleRuntime PRIVATE
-    Tbx::Engine
+    Tbx::Core
     Tbx::Plugins::SpdConsoleLoggerPlugin
     Tbx::Plugins::SdlWindowingPlugin
 )

@@ -9,7 +9,7 @@ Honestly, not much yet. There is a simple ECS system dubbed TBS (Toy Box System)
 
 ## Repository Structure
 
-- `engine/`: Core engine source (ECS, math, logging, windowing, graphics, systems).
+- `core/`: Core engine source (ECS, math, logging, windowing, graphics, systems).
 - `examples/`: Sample projects demonstrating engine functionality.
 - `plugins/`: Runtime-discoverable plugins that extend the engine.
 - `thirdparty/`: Vendored dependencies.

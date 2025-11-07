@@ -3,7 +3,6 @@
 #include "tbx/messages/commands/window_commands.h"
 #include "tbx/os/window.h"
 #include "tbx/plugin_api/plugin.h"
-#include "tbx/state/result.h"
 #include <SDL3/SDL.h>
 #include <string_view>
 #include <vector>
@@ -36,7 +35,7 @@ namespace tbx::plugins::sdlwindowing
         void handle_query_description(QueryWindowDescriptionCommand& command) const;
         void handle_apply_description(ApplyWindowDescriptionCommand& command) const;
         void handle_close_window(CloseWindowCommand& command);
-        static void set_failure(Result* result, std::string_view reason);
+        static void set_failure(Message& message, std::string_view reason);
         SdlWindowRecord* find_record(const Window& window) const;
 
         std::vector<Scope<SdlWindowRecord>> _windows;

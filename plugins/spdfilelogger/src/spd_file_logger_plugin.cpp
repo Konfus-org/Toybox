@@ -70,7 +70,7 @@ namespace tbx::plugins::spdfilelogger
                 break;
         }
 
-        msg.is_handled = true;
+        msg.state = MessageState::Handled;
         _logger->flush();
     }
 }

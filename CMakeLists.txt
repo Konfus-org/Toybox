@@ -29,8 +29,8 @@ if(MSVC)
 endif()
 
 # Libs and projects
-add_subdirectory(engine)
-add_subdirectory(engine/tests)
+add_subdirectory(core)
+add_subdirectory(core/tests)
 add_subdirectory(thirdparty)
 add_subdirectory(plugins)
 add_subdirectory(examples)
