@@ -76,4 +76,4 @@ Artifacts land in `cmake/build/bin/<Config>` with matching `lib` and `pdb` direc
 
 ## Contributing
 
-Look to the contributing documentation [here](README.md)
+Look to the contributing documentation [here](CONTRIBUTING.md)
