@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/state/cancellation_token.h"
+#include "tbx/messages/cancellation_token.h"
 #include "tbx/tbx_api.h"
 #include "tbx/time/time_span.h"
 #include <chrono>
@@ -11,7 +11,7 @@ namespace tbx
     // Thread-safe countdown utility that owns callbacks and cancellation state.
     class TBX_API Timer
     {
-       public:
+      public:
         using TickCallback = std::function<void(std::size_t)>;
         using Callback = std::function<void()>;
 
@@ -59,7 +59,7 @@ namespace tbx
         void cancel();
         CancellationToken get_token() const;
 
-       private:
+      private:
         void configure_ticks(std::size_t ticks, bool enable_ticks);
         void configure_ready_time(
             std::chrono::steady_clock::time_point ready_time,
@@ -69,7 +69,7 @@ namespace tbx
 
         std::size_t _remaining_ticks = 0;
         bool _use_ticks = false;
-        
+
         std::chrono::steady_clock::time_point _ready_time = {};
         bool _use_time = false;
 

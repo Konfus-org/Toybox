@@ -1,9 +1,9 @@
 #include "spd_file_logger_plugin.h"
 #include "tbx/file_system/string_path_operations.h"
 #include "tbx/logs/log_operations.h"
-#include "tbx/memory/casting.h"
-#include "tbx/memory/smart_pointers.h"
 #include "tbx/messages/commands/log_commands.h"
+#include "tbx/tsl/casting.h"
+#include "tbx/tsl/smart_pointers.h"
 #include <filesystem>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -29,7 +29,7 @@ namespace tbx::plugins::spdfilelogger
         auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
             tbx::logs::calculate_log_path(_log_directory, _log_filename_base, 0).string(),
             true);
-        _logger = make_ref<spdlog::logger>("SpdFileLogger", sink);
+        _logger = tbx::make_ref<spdlog::logger>("SpdFileLogger", sink);
         _logger->info("SpdFileLoggerPlugin attached");
     }
 
@@ -47,7 +47,7 @@ namespace tbx::plugins::spdfilelogger
 
     void SpdFileLoggerPlugin::on_message(Message& msg)
     {
-        const auto* log = as<LogMessageCommand>(&msg);
+        const auto* log = tbx::as<LogMessageCommand>(&msg);
         if (!log || !_logger)
         {
             return;

@@ -1,8 +1,9 @@
 #include "sdl_windowing_plugin.h"
 #include "tbx/application.h"
 #include "tbx/debug/macros.h"
-#include "tbx/memory/casting.h"
 #include "tbx/messages/events/window_events.h"
+#include "tbx/tsl/casting.h"
+#include "tbx/tsl/smart_pointers.h"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -174,31 +175,31 @@ namespace tbx::plugins::sdlwindowing
 
     void SdlWindowingPlugin::on_message(Message& msg)
     {
-        if (auto* create = as<CreateWindowCommand>(&msg))
+        if (auto* create = tbx::as<CreateWindowCommand>(&msg))
         {
             handle_create_window(*create);
             return;
         }
 
-        if (auto* open = as<OpenWindowCommand>(&msg))
+        if (auto* open = tbx::as<OpenWindowCommand>(&msg))
         {
             handle_open_window(*open);
             return;
         }
 
-        if (auto* query = as<QueryWindowDescriptionCommand>(&msg))
+        if (auto* query = tbx::as<QueryWindowDescriptionCommand>(&msg))
         {
             handle_query_description(*query);
             return;
         }
 
-        if (auto* apply = as<ApplyWindowDescriptionCommand>(&msg))
+        if (auto* apply = tbx::as<ApplyWindowDescriptionCommand>(&msg))
         {
             handle_apply_description(*apply);
             return;
         }
 
-        if (auto* close = as<CloseWindowCommand>(&msg))
+        if (auto* close = tbx::as<CloseWindowCommand>(&msg))
         {
             handle_close_window(*close);
         }
@@ -254,7 +255,7 @@ namespace tbx::plugins::sdlwindowing
 
         const WindowDescription description = read_window_description(native, requested);
 
-        auto record = make_scope<SdlWindowRecord>(get_dispatcher(), native, description);
+        auto record = tbx::make_scope<SdlWindowRecord>(get_dispatcher(), native, description);
 
         command.payload.data = std::make_shared<Window*>(&record->window);
         command.payload.type = &typeid(Window*);
@@ -292,7 +293,7 @@ namespace tbx::plugins::sdlwindowing
         const WindowDescription description =
             read_window_description(record->native, record->description);
         record->description = description;
-        command.payload.data = make_ref<WindowDescription>(description);
+        command.payload.data = tbx::make_ref<WindowDescription>(description);
         command.payload.type = &typeid(WindowDescription);
 
         command.state = MessageState::Handled;
@@ -367,7 +368,7 @@ namespace tbx::plugins::sdlwindowing
 
         auto it = std::ranges::find_if(
             _windows,
-            [&command](const Scope<SdlWindowRecord>& record)
+            [&command](const tbx::Scope<SdlWindowRecord>& record)
             {
                 return record && &record->window == command.window;
             });
@@ -403,7 +404,7 @@ namespace tbx::plugins::sdlwindowing
     {
         auto it = std::ranges::find_if(
             _windows,
-            [&window](const Scope<SdlWindowRecord>& record)
+            [&window](const tbx::Scope<SdlWindowRecord>& record)
             {
                 return &record->window == &window;
             });

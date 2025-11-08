@@ -1,8 +1,8 @@
 #pragma once
-#include "tbx/memory/smart_pointers.h"
 #include "tbx/messages/commands/window_commands.h"
 #include "tbx/os/window.h"
 #include "tbx/plugin_api/plugin.h"
+#include "tbx/tsl/smart_pointers.h"
 #include <SDL3/SDL.h>
 #include <string_view>
 #include <vector>
@@ -38,6 +38,6 @@ namespace tbx::plugins::sdlwindowing
         static void set_failure(Message& message, std::string_view reason);
         SdlWindowRecord* find_record(const Window& window) const;
 
-        std::vector<Scope<SdlWindowRecord>> _windows;
+        std::vector<tbx::Scope<SdlWindowRecord>> _windows;
     };
 }

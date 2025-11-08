@@ -15,6 +15,17 @@ Honestly, not much yet. There is a simple ECS system dubbed TBS (Toy Box System)
 - `thirdparty/`: Vendored dependencies.
 - `cmake/`, `CMakeLists.txt`, `CMakePresets.json`: Build configuration and presets.
 
+## Toybox Standard Library (TSL)
+
+Toybox ships with a small header-only standard library that provides consistent building blocks across the engine and plugins:
+
+- `tsl/string.h` exposes `tbx::String` plus helpers like `get_trimmed` and `get_lower_case`.
+- `tsl/list.h` and `tsl/array.h` add lightweight container wrappers with familiar C-style semantics and a `std_vec()`/`std_array()` escape hatch when raw access is needed.
+- `tsl/smart_pointers.h` defines `tbx::Scope`, `tbx::Ref`, and `tbx::WeakRef` for deterministic ownership, aligned with the engine coding guidelines.
+- `tsl/casting.h` extends the casting helpers (`is`, `as`, `try_as`) to work with raw pointers, smart pointers, and `tbx::Any`.
+
+These headers live under `tsl/include/tsl` and are reused throughout the engine/tests/plugins. Prefer them over the raw STL types when adding new code so behaviour stays predictable across platforms.
+
 ## Getting Started
 
 Toybox uses [CMake](https://cmake.org/) to generate project files for different build environments.
@@ -72,7 +83,7 @@ ctest --preset tbx-test-ninja-debug
 ctest --preset tbx-test-ninja-release
 ```
 
-Artifacts land in `cmake/build/bin/<Config>` with matching `lib` and `pdb` directories. Ensure the configuration you touched builds and passes tests before sending changes.
+Artifacts land in `cmake/build/bin/<Config>` with matching `lib` and `pdb` directories.
 
 ## Contributing
 

@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/memory/smart_pointers.h"
 #include "tbx/plugin_api/plugin.h"
+#include "tbx/tsl/smart_pointers.h"
 #include <filesystem>
 #include <string>
 
@@ -20,7 +20,7 @@ namespace tbx::plugins::spdfilelogger
         void on_message(Message& msg) override;
 
        private:
-        Ref<spdlog::logger> _logger;
+        tbx::Ref<spdlog::logger> _logger;
         std::filesystem::path _log_directory;
         std::string _log_filename_base;
     };

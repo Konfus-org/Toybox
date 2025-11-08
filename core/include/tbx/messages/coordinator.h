@@ -1,10 +1,10 @@
 #pragma once
 #include "tbx/ids/uuid.h"
-#include "tbx/memory/smart_pointers.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/handler.h"
 #include "tbx/tbx_api.h"
 #include "tbx/time/timer.h"
+#include "tbx/tsl/smart_pointers.h"
 #include <chrono>
 #include <mutex>
 #include <utility>
@@ -22,7 +22,7 @@ namespace tbx
         QueuedMessage(QueuedMessage&&) = default;
         QueuedMessage& operator=(QueuedMessage&&) = default;
 
-        Scope<Message> message;
+        tbx::Scope<Message> message;
         Result result;
         Timer timer;
         std::chrono::steady_clock::time_point timeout_deadline;

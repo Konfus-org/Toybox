@@ -1,8 +1,9 @@
 #pragma once
-#include "tbx/ids/uuid.h"
-#include "tbx/state/cancellation_token.h"
-#include "tbx/state/result.h"
+#include "tbx/messages/cancellation_token.h"
+#include "tbx/messages/result.h"
 #include "tbx/time/time_span.h"
+#include "tbx/tsl/uuid.h"
+#include "tbx/tsl/variant.h"
 #include <any>
 #include <functional>
 
@@ -45,11 +46,11 @@ namespace tbx
         virtual ~Message();
 
         MessageState state = MessageState::InProgress;
-        std::any payload = nullptr;
+        Variant payload = {};
         Result result = {};
         TimeSpan timeout = {};
         TimeSpan delay_in_seconds = {};
-        std::size_t delay_in_ticks = 0;
+        uint64 delay_in_ticks = 0;
         CancellationToken cancellation_token = {};
         MessageCallbacks callbacks = {};
         Uuid id = Uuid::generate();

@@ -16,11 +16,11 @@ target_sources(Tests PRIVATE ${TEST_SOURCES})
 target_include_directories(Tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # C++20
-set_target_properties(Engine PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+set_target_properties(Tests PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 
 # Links
 target_link_libraries(Tests PRIVATE
-    Engine
+    Core
     gtest
     gtest_main
     gmock

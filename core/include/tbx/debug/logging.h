@@ -17,21 +17,6 @@ namespace tbx
     // Ownership: Non-owning; callers manage dispatcher and message lifetimes.
     // Thread-safety: Not inherently thread-safe; intended for use on the main
     // thread unless the dispatcher implementation provides concurrency.
-    inline const char* to_string(LogLevel lvl)
-    {
-        switch (lvl)
-        {
-            case LogLevel::Info:
-                return "INFO";
-            case LogLevel::Warning:
-                return "WARN";
-            case LogLevel::Error:
-                return "ERROR";
-            case LogLevel::Critical:
-                return "CRITICAL";
-        }
-        return "UNKNOWN";
-    }
 
     inline std::string format_log_message(const std::string& message)
     {
@@ -47,6 +32,22 @@ namespace tbx
     {
         return message ? std::string(message) : std::string();
     }
+    
+    TBX_API std::filesystem::path calculate_log_path(
+        const std::filesystem::path& directory,
+        std::string_view base_name,
+        int index);
+
+    TBX_API void rotate_logs(
+        const std::filesystem::path& directory,
+        std::string_view base_name,
+        int max_history,
+        IFilesystemOps& ops);
+
+    TBX_API void rotate_logs(
+        const std::filesystem::path& directory,
+        std::string_view base_name,
+        int max_history = 10);
 
     template <typename... Args>
         requires(sizeof...(Args) > 0)

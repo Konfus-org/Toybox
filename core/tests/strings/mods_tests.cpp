@@ -1,14 +1,21 @@
 #include "gtest/gtest.h"
-#include "tbx/strings/mods.h"
+#include "tbx/tsl/string.h"
 
 TEST(StringModsTests, TrimStringRemovesWhitespace)
 {
-    EXPECT_EQ("content", tbx::trim_string("\t  content  \n"));
-    EXPECT_EQ("", tbx::trim_string("   "));
+    const std::string trimmed_full = tbx::get_trimmed("\t  content  \n").std_string();
+    EXPECT_EQ("content", trimmed_full);
+
+    const std::string trimmed_empty = tbx::get_trimmed("   ").std_string();
+    EXPECT_EQ("", trimmed_empty);
 }
 
 TEST(StringModsTests, ToLowerCaseStringConvertsAllCharacters)
 {
-    EXPECT_EQ("hello world 123", tbx::to_lower_case_string("Hello World 123"));
-    EXPECT_EQ("mixed_case_value", tbx::to_lower_case_string("Mixed_Case_Value"));
+    const std::string lowered = tbx::get_lower_case("Hello World 123").std_string();
+    EXPECT_EQ("hello world 123", lowered);
+
+    const std::string lowered_mixed =
+        tbx::get_lower_case("Mixed_Case_Value").std_string();
+    EXPECT_EQ("mixed_case_value", lowered_mixed);
 }

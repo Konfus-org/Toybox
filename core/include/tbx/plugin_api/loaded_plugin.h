@@ -1,8 +1,8 @@
 #pragma once
-#include "tbx/memory/smart_pointers.h"
 #include "tbx/os/shared_library.h"
 #include "tbx/plugin_api/plugin_meta.h"
 #include "tbx/tbx_api.h"
+#include "tbx/tsl/smart_pointers.h"
 #include <functional>
 
 namespace tbx
@@ -10,7 +10,7 @@ namespace tbx
     class Plugin; // Forward declaration to avoid circular dependency
 
     using PluginDeleter = std::function<void(Plugin*)>;
-    using PluginInstance = Scope<Plugin, PluginDeleter>;
+    using PluginInstance = tbx::Scope<Plugin, PluginDeleter>;
 
     // Represents an owned plugin instance along with its loading metadata
     // and (optionally) the dynamic library used to load it.
@@ -20,7 +20,7 @@ namespace tbx
     struct TBX_API LoadedPlugin
     {
         PluginMeta meta;
-        Scope<SharedLibrary> library; // only set for dynamic plugins
+        tbx::Scope<SharedLibrary> library; // only set for dynamic plugins
         PluginInstance instance;
     };
 }

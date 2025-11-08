@@ -1,8 +1,8 @@
 #pragma once
-#include "tbx/ids/uuid.h"
-#include "tbx/math/size.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/tbx_api.h"
+#include "tbx/tsl/size.h"
+#include "tbx/tsl/uuid.h"
 #include <string>
 
 namespace tbx
@@ -17,7 +17,7 @@ namespace tbx
 
     struct TBX_API WindowDescription
     {
-        math::Size size = {1280, 720};
+        Size size = {1280, 720};
         WindowMode mode = WindowMode::Windowed;
         std::string title = "Toybox";
         Uuid id = Uuid::generate();

@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/messages/message.h"
-#include "tbx/state/result.h"
+#include "tbx/messages/result.h"
 #include "tbx/tbx_api.h"
 
 namespace tbx

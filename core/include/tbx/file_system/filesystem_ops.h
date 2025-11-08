@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace tbx::files
+namespace tbx
 {
     struct TBX_API DirectoryEntry
     {
