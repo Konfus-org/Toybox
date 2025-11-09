@@ -3,7 +3,7 @@
 #include "tbx/messages/coordinator.h"
 #include "tbx/plugin_api/loaded_plugin.h"
 #include "tbx/time/delta_time.h"
-#include <vector>
+#include "tbx/tsl/list.h"
 
 namespace tbx
 {
@@ -32,7 +32,7 @@ namespace tbx
         void handle_message(const Message& msg);
 
         const AppDescription _desc;
-        std::vector<LoadedPlugin> _loaded = {};
+        List<LoadedPlugin> _loaded = {};
         MessageCoordinator _msg_coordinator;
         bool _should_exit = false;
     };

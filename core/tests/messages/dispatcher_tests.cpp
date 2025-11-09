@@ -2,7 +2,8 @@
 #include "tbx/messages/coordinator.h"
 #include "tbx/messages/message.h"
 #include "tbx/messages/handler.h"
-#include "tbx/state/cancellation_token.h"
+#include "tbx/messages/cancellation_token.h"
+#include "tbx/tsl/casting.h"
 #include "tbx/time/time_span.h"
 #include <atomic>
 #include <chrono>
@@ -71,7 +72,7 @@ namespace tbx::tests::messages
         EXPECT_EQ(msg.state, ::tbx::MessageState::Processed);
         EXPECT_TRUE(result.succeeded());
         EXPECT_TRUE(processed_callback);
-        EXPECT_TRUE(result.get_message().empty());
+        EXPECT_TRUE(result.get_report().is_empty());
     }
 
     TEST(dispatcher_send_failure, triggers_failure_when_unhandled)
@@ -101,7 +102,7 @@ namespace tbx::tests::messages
         EXPECT_EQ(count.load(), 1);
         EXPECT_EQ(msg.state, ::tbx::MessageState::Failed);
         EXPECT_FALSE(result.succeeded());
-        EXPECT_FALSE(result.get_message().empty());
+        EXPECT_FALSE(result.get_report().is_empty());
         EXPECT_TRUE(failure_callback);
         EXPECT_TRUE(processed_callback);
     }
@@ -133,7 +134,7 @@ namespace tbx::tests::messages
         EXPECT_FALSE(result.succeeded());
         EXPECT_TRUE(failure_callback);
         EXPECT_TRUE(processed_callback);
-        EXPECT_FALSE(result.get_message().empty());
+        EXPECT_FALSE(result.get_report().is_empty());
     }
 
     TEST(dispatcher_send_with_delay, returns_failure_for_incompatible_config)
@@ -162,7 +163,7 @@ namespace tbx::tests::messages
         EXPECT_FALSE(result.succeeded());
         EXPECT_TRUE(failure_callback);
         EXPECT_TRUE(processed_callback);
-        EXPECT_FALSE(result.get_message().empty());
+        EXPECT_FALSE(result.get_report().is_empty());
 #endif
     }
 
@@ -183,7 +184,7 @@ namespace tbx::tests::messages
         // Not processed yet
         EXPECT_EQ(count.load(), 0);
         EXPECT_FALSE(result.succeeded());
-        EXPECT_TRUE(result.get_message().empty());
+        EXPECT_TRUE(result.get_report().is_empty());
 
         d.process();
         EXPECT_EQ(count.load(), 1);
@@ -212,7 +213,7 @@ namespace tbx::tests::messages
         EXPECT_EQ(count.load(), 1);
         EXPECT_EQ(msg.state, ::tbx::MessageState::Failed);
         EXPECT_FALSE(result.succeeded());
-        EXPECT_FALSE(result.get_message().empty());
+        EXPECT_FALSE(result.get_report().is_empty());
         (void)keep_id; // silence unused warning
     }
 
@@ -232,7 +233,7 @@ namespace tbx::tests::messages
         auto result = d.post(msg);
 
         EXPECT_FALSE(result.succeeded());
-        EXPECT_TRUE(result.get_message().empty());
+        EXPECT_TRUE(result.get_report().is_empty());
         d.process();
         EXPECT_FALSE(result.succeeded());
         EXPECT_EQ(count.load(), 0);
@@ -280,7 +281,7 @@ namespace tbx::tests::messages
         EXPECT_FALSE(result.succeeded());
         EXPECT_TRUE(failure_callback);
         EXPECT_TRUE(processed_callback);
-        EXPECT_FALSE(result.get_message().empty());
+        EXPECT_FALSE(result.get_report().is_empty());
         d.process();
         EXPECT_EQ(count.load(), 0);
 #endif
@@ -314,7 +315,7 @@ namespace tbx::tests::messages
         EXPECT_FALSE(result.succeeded());
         EXPECT_TRUE(failure_callback);
         EXPECT_TRUE(processed_callback);
-        EXPECT_FALSE(result.get_message().empty());
+        EXPECT_FALSE(result.get_report().is_empty());
     }
 
     TEST(dispatcher_post_time_delay, delays_processing_by_timespan)
@@ -359,7 +360,7 @@ namespace tbx::tests::messages
         });
 
         ::tbx::CancellationSource source;
-        auto token = source.token();
+        auto token = source.get_token();
 
         ::tbx::Message msg;
         msg.cancellation_token = token;
@@ -379,7 +380,7 @@ namespace tbx::tests::messages
         d.process();
 
         EXPECT_FALSE(result.succeeded());
-        EXPECT_FALSE(result.get_message().empty());
+        EXPECT_FALSE(result.get_report().is_empty());
         EXPECT_TRUE(cancelled_callback);
         EXPECT_TRUE(processed_callback);
         EXPECT_EQ(count.load(), 0);
@@ -396,7 +397,7 @@ namespace tbx::tests::messages
         });
 
         ::tbx::CancellationSource source;
-        auto token = source.token();
+        auto token = source.get_token();
         source.cancel();
 
         ::tbx::Message msg;
@@ -423,8 +424,7 @@ namespace tbx::tests::messages
         {
             auto& mutable_msg = const_cast<::tbx::Message&>(message);
             mutable_msg.state = ::tbx::MessageState::Handled;
-            mutable_msg.payload.data = std::make_shared<int>(123);
-            mutable_msg.payload.type = &typeid(int);
+            mutable_msg.payload = 123;
         });
 
         ::tbx::Message msg;
@@ -432,12 +432,10 @@ namespace tbx::tests::messages
 
         EXPECT_EQ(msg.state, ::tbx::MessageState::Handled);
         EXPECT_TRUE(result.succeeded());
-        EXPECT_TRUE(msg.payload.data);
-        EXPECT_EQ(msg.payload.type, &typeid(int));
-        auto* value = static_cast<int*>(msg.payload.data.get());
-        ASSERT_NE(value, nullptr);
-        EXPECT_EQ(*value, 123);
-        EXPECT_NE(msg.payload.type, &typeid(float));
+        EXPECT_TRUE(msg.payload.has_value());
+        EXPECT_TRUE(tbx::is<int>(msg.payload));
+        EXPECT_EQ(msg.payload.get_value<int>(), 123);
+        EXPECT_FALSE(tbx::is<float>(msg.payload));
     }
 
     TEST(dispatcher_post_result_value, queued_handler_updates_payload)
@@ -448,24 +446,21 @@ namespace tbx::tests::messages
         {
             auto& mutable_msg = const_cast<::tbx::Message&>(message);
             mutable_msg.state = ::tbx::MessageState::Handled;
-            mutable_msg.payload.data = std::make_shared<std::string>("ready");
-            mutable_msg.payload.type = &typeid(std::string);
+            mutable_msg.payload = std::string("ready");
         });
 
         ::tbx::Message msg;
         auto result = d.post(msg);
 
         EXPECT_FALSE(result.succeeded());
-        EXPECT_FALSE(msg.payload.data);
+        EXPECT_FALSE(msg.payload.has_value());
 
         d.process();
 
         EXPECT_TRUE(result.succeeded());
-        EXPECT_TRUE(msg.payload.data);
-        EXPECT_EQ(msg.payload.type, &typeid(std::string));
-        const auto* final_value = static_cast<const std::string*>(msg.payload.data.get());
-        ASSERT_NE(final_value, nullptr);
-        EXPECT_EQ(*final_value, "ready");
+        EXPECT_TRUE(msg.payload.has_value());
+        EXPECT_TRUE(tbx::is<std::string>(msg.payload));
+        EXPECT_EQ(msg.payload.get_value<std::string>(), "ready");
     }
 
     TEST(dispatcher_send_timeout, marks_result_as_timed_out)
@@ -512,13 +507,13 @@ namespace tbx::tests::messages
 
         auto result = d.post(msg);
         EXPECT_FALSE(result.succeeded());
-        EXPECT_TRUE(result.get_message().empty());
+        EXPECT_TRUE(result.get_report().is_empty());
 
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
         d.process();
 
         EXPECT_FALSE(result.succeeded());
-        EXPECT_FALSE(result.get_message().empty());
+        EXPECT_FALSE(result.get_report().is_empty());
         EXPECT_TRUE(timeout_callback);
     }
 }

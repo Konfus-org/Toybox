@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <memory>
 #include <string>
-#include <typeinfo>
 #include <utility>
 
 namespace tbx::plugins::sdlwindowing
@@ -255,10 +254,9 @@ namespace tbx::plugins::sdlwindowing
 
         const WindowDescription description = read_window_description(native, requested);
 
-        auto record = tbx::make_scope<SdlWindowRecord>(get_dispatcher(), native, description);
+        tbx::Scope<SdlWindowRecord> record(get_dispatcher(), native, description);
 
-        command.payload.data = std::make_shared<Window*>(&record->window);
-        command.payload.type = &typeid(Window*);
+        command.payload = &record->window;
 
         _windows.push_back(std::move(record));
         command.state = MessageState::Handled;
@@ -266,10 +264,8 @@ namespace tbx::plugins::sdlwindowing
 
     void SdlWindowingPlugin::set_failure(Message& message, std::string_view reason)
     {
-        message.payload.data.reset();
-        message.payload.type = nullptr;
-        message.result.set_success(false);
-        message.result.set_message(reason.empty() ? std::string() : std::string(reason));
+        message.payload.reset();
+        message.result.flag_failure(reason.empty() ? std::string() : std::string(reason));
         message.state = MessageState::Failed;
     }
 
@@ -293,8 +289,7 @@ namespace tbx::plugins::sdlwindowing
         const WindowDescription description =
             read_window_description(record->native, record->description);
         record->description = description;
-        command.payload.data = tbx::make_ref<WindowDescription>(description);
-        command.payload.type = &typeid(WindowDescription);
+        command.payload = description;
 
         command.state = MessageState::Handled;
     }
@@ -327,8 +322,7 @@ namespace tbx::plugins::sdlwindowing
         const WindowDescription refreshed =
             read_window_description(record->native, command.description);
         record->description = refreshed;
-        command.payload.data = std::make_shared<WindowDescription>(refreshed);
-        command.payload.type = &typeid(WindowDescription);
+        command.payload = refreshed;
 
         if (command.window && previous_mode != refreshed.mode)
         {
@@ -351,8 +345,7 @@ namespace tbx::plugins::sdlwindowing
         WindowOpenedEvent event(command.window, command.description);
         send_message(event);
 
-        command.payload.data.reset();
-        command.payload.type = nullptr;
+        command.payload.reset();
 
         command.state = MessageState::Handled;
     }
@@ -394,8 +387,7 @@ namespace tbx::plugins::sdlwindowing
 
         _windows.erase(it);
 
-        command.payload.data.reset();
-        command.payload.type = nullptr;
+        command.payload.reset();
 
         command.state = MessageState::Handled;
     }

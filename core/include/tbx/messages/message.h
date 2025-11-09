@@ -4,7 +4,6 @@
 #include "tbx/time/time_span.h"
 #include "tbx/tsl/uuid.h"
 #include "tbx/tsl/variant.h"
-#include <any>
 #include <functional>
 
 namespace tbx

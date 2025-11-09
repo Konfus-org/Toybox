@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/file_system/filesystem_ops.h"
 #include "tbx/messages/commands/log_commands.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/dispatcher_context.h"
@@ -33,22 +34,6 @@ namespace tbx
         return message ? std::string(message) : std::string();
     }
     
-    TBX_API std::filesystem::path calculate_log_path(
-        const std::filesystem::path& directory,
-        std::string_view base_name,
-        int index);
-
-    TBX_API void rotate_logs(
-        const std::filesystem::path& directory,
-        std::string_view base_name,
-        int max_history,
-        IFilesystemOps& ops);
-
-    TBX_API void rotate_logs(
-        const std::filesystem::path& directory,
-        std::string_view base_name,
-        int max_history = 10);
-
     template <typename... Args>
         requires(sizeof...(Args) > 0)
     std::string format_log_message(std::string_view fmt, Args&&... args)
@@ -226,4 +211,20 @@ namespace tbx
             fmt,
             std::forward<Args>(args)...);
     }
+
+    TBX_API std::filesystem::path calculate_log_path(
+        const std::filesystem::path& directory,
+        std::string_view base_name,
+        int index);
+
+    TBX_API void rotate_logs(
+        const std::filesystem::path& directory,
+        std::string_view base_name,
+        int max_history,
+        IFilesystemOps& ops);
+
+    TBX_API void rotate_logs(
+        const std::filesystem::path& directory,
+        std::string_view base_name,
+        int max_history = 10);
 }

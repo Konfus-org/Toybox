@@ -1,14 +1,14 @@
 #pragma once
-#include "tbx/ids/uuid.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/handler.h"
 #include "tbx/tbx_api.h"
 #include "tbx/time/timer.h"
+#include "tbx/tsl/list.h"
 #include "tbx/tsl/smart_pointers.h"
+#include "tbx/tsl/uuid.h"
 #include <chrono>
 #include <mutex>
 #include <utility>
-#include <vector>
 
 namespace tbx
 {
@@ -26,6 +26,7 @@ namespace tbx
         Result result;
         Timer timer;
         std::chrono::steady_clock::time_point timeout_deadline;
+        Message* original = nullptr;
     };
 
     // Thread-safe message coordinator handling synchronous dispatch and deferred processing.
@@ -55,8 +56,8 @@ namespace tbx
       private:
         void dispatch(Message& msg, std::chrono::steady_clock::time_point deadline = {}) const;
 
-        std::vector<std::pair<Uuid, MessageHandler>> _handlers;
-        std::vector<QueuedMessage> _pending;
+        List<std::pair<Uuid, MessageHandler>> _handlers;
+        List<QueuedMessage> _pending;
 
         mutable std::mutex _handlers_mutex;
         mutable std::mutex _queue_mutex;

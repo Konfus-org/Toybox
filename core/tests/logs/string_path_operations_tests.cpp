@@ -1,13 +1,13 @@
 #include "gtest/gtest.h"
 #include "tbx/file_system/filesystem_ops.h"
 #include "tbx/file_system/string_path_operations.h"
-#include "tbx/logs/log_operations.h"
+#include "tbx/debug/logging.h"
 #include <filesystem>
 #include <unordered_set>
 
 namespace
 {
-    class FakeOps : public tbx::files::IFilesystemOps
+    class FakeOps : public tbx::IFilesystemOps
     {
       public:
         explicit FakeOps(std::initializer_list<std::string> files)
@@ -28,7 +28,7 @@ namespace
             return false;
         }
 
-        std::vector<tbx::files::DirectoryEntry>
+        std::vector<tbx::DirectoryEntry>
             recursive_directory_entries(const std::filesystem::path&) const override
         {
             return {};
@@ -72,7 +72,7 @@ namespace
 
 TEST(LogStringPathOperationsTests, CalculatesLogPath)
 {
-    using tbx::logs::calculate_log_path;
+    using tbx::calculate_log_path;
 
     const auto active =
         calculate_log_path(std::filesystem::path("logs"), "AppName", 0).generic_string();
@@ -85,8 +85,8 @@ TEST(LogStringPathOperationsTests, CalculatesLogPath)
 
 TEST(LogStringPathOperationsTests, RotatesLogsUsingCustomOps)
 {
-    using tbx::logs::calculate_log_path;
-    using tbx::logs::rotate_logs;
+    using tbx::calculate_log_path;
+    using tbx::rotate_logs;
 
     FakeOps ops({
         calculate_log_path("logs", "App", 0).generic_string(),

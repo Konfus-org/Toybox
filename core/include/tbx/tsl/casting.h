@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/tsl/any.h"
 #include "tbx/tsl/smart_pointers.h"
+#include "tbx/tsl/variant.h"
 
 namespace tbx
 {
@@ -19,7 +19,7 @@ namespace tbx
     template <typename TTo>
     bool is(const Variant& value)
     {
-        return value.get_type() == typeid(TTo);
+        return value.has_value() && value.get_type() == typeid(TTo);
     }
 
     template <typename TTo, typename TFrom>
@@ -75,7 +75,7 @@ namespace tbx
         {
             return Ref<TTo>(ref, derived);
         }
-        return nullptr;
+        return {};
     }
 
     template <typename TTo, typename TFrom>
@@ -127,9 +127,15 @@ namespace tbx
     }
 
     template <typename TTo>
-    bool try_as(Variant& value, TTo* out)
+    bool try_as(Variant& value, TTo*& out)
     {
-        out = as<TTo>(value);
-        return out != nullptr;
+        if (is<TTo>(value))
+        {
+            out = &value.get_value<TTo>();
+            return true;
+        }
+
+        out = nullptr;
+        return false;
     }
 }

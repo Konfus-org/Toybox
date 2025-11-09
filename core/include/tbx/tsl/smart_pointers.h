@@ -1,51 +1,80 @@
 #pragma once
 #include "tbx/tsl/int.h"
 #include <memory>
+#include <type_traits>
 #include <utility>
 
 namespace tbx
 {
-    /// Minimal unique-ownership pointer.
-    /// This means the pointer has a single owner, and the storage is freed when the owner is
-    /// destroyed.
-    template <typename T, typename TDeleter = std::default_delete<T>>
+    /// Provides the default deletion strategy for `Scope` when no custom deleter is supplied.
+    /// Ownership: Deletes the owned pointer using `delete` when invoked.
+    /// Thread-safety: Stateless and thread-safe.
+    template <typename TValue>
+    struct DefaultScopeDeleter
+    {
+        void operator()(TValue* value) const
+        {
+            delete value;
+        }
+    };
+
+    /// Unique-ownership pointer wrapper for Toybox APIs.
+    /// Ownership: Owns the managed pointer and releases it on destruction unless `release` is called.
+    /// Thread-safety: Not thread-safe; callers must synchronize externally when sharing instances.
+    template <typename T, typename TDeleter = DefaultScopeDeleter<T>>
     class Scope
     {
       public:
         Scope() = default;
-        Scope(T* ptr)
+
+        explicit Scope(T* ptr)
             : _storage(ptr)
         {
         }
+
         Scope(T* ptr, TDeleter deleter)
             : _storage(ptr, std::move(deleter))
+        {
+        }
+
+        template <typename... TArgs>
+            requires(sizeof...(TArgs) > 0 && std::is_constructible_v<T, TArgs...>)
+        explicit Scope(TArgs&&... args)
+            : _storage(new T(std::forward<TArgs>(args)...))
         {
         }
 
         Scope(const Scope&) = delete;
         Scope& operator=(const Scope&) = delete;
 
-        Scope(Scope&& other) noexcept = default;
-        Scope& operator=(Scope&& other) noexcept = default;
+        Scope(Scope&&) noexcept = default;
+        Scope& operator=(Scope&&) noexcept = default;
 
         ~Scope() = default;
 
-        /// Releases ownership without deleting the pointer.
         T* release()
         {
             return _storage.release();
         }
 
-        /// Deletes the currently held pointer and adopts a new one.
         void reset(T* ptr = nullptr)
         {
             _storage.reset(ptr);
         }
 
-        /// Returns the managed pointer.
+        T* get() const
+        {
+            return _storage.get();
+        }
+
         T* get_raw() const
         {
             return _storage.get();
+        }
+
+        void swap(Scope& other)
+        {
+            _storage.swap(other._storage);
         }
 
         T& operator*() const
@@ -58,7 +87,7 @@ namespace tbx
             return _storage.get();
         }
 
-        operator bool() const
+        explicit operator bool() const
         {
             return static_cast<bool>(_storage);
         }
@@ -67,25 +96,41 @@ namespace tbx
         std::unique_ptr<T, TDeleter> _storage;
     };
 
-    /// Shared ownership pointer.
-    /// This means the pointer can have multiple owners, and the storage is freed when the last
-    /// owner is destroyed.
+    /// Shared-ownership pointer wrapper for Toybox APIs.
+    /// Ownership: Shares ownership across copies; storage is destroyed when the last `Ref` releases it.
+    /// Thread-safety: Reference counting is thread-safe, but access to the underlying object is not synchronized.
     template <typename T>
     class Ref
     {
       public:
         Ref() = default;
-        Ref(T* ptr)
+
+        explicit Ref(T* ptr)
             : _storage(ptr)
         {
         }
-        Ref(const T& value)
-            : _storage(std::make_shared<T>(value))
-        {
-        }
+
         template <typename TDeleter>
         Ref(T* ptr, TDeleter deleter)
             : _storage(ptr, std::move(deleter))
+        {
+        }
+
+        template <typename... TArgs>
+            requires(sizeof...(TArgs) > 0 && std::is_constructible_v<T, TArgs...>)
+        explicit Ref(TArgs&&... args)
+            : _storage(std::make_shared<T>(std::forward<TArgs>(args)...))
+        {
+        }
+
+        Ref(const Ref&) = default;
+        Ref(Ref&&) noexcept = default;
+        Ref& operator=(const Ref&) = default;
+        Ref& operator=(Ref&&) noexcept = default;
+
+        template <typename TOther>
+        Ref(const Ref<TOther>& other, T* alias)
+            : _storage(other._storage, alias)
         {
         }
 
@@ -99,6 +144,11 @@ namespace tbx
             _storage.reset();
         }
 
+        T* get() const
+        {
+            return _storage.get();
+        }
+
         T* get_raw() const
         {
             return _storage.get();
@@ -114,31 +164,47 @@ namespace tbx
             return _storage.get();
         }
 
-        operator bool()
+        explicit operator bool() const
         {
             return static_cast<bool>(_storage);
         }
 
       private:
+        explicit Ref(std::shared_ptr<T> storage)
+            : _storage(std::move(storage))
+        {
+        }
+
         std::shared_ptr<T> _storage;
+
+        template <typename>
+        friend class Ref;
+
+        template <typename>
+        friend class WeakRef;
     };
 
-    /// Non-owning observer for Ref-managed storage.
-    /// This means the pointer does not own the storage, and the storage may be freed while this is
-    /// alive.
+    /// Non-owning view of storage managed by `Ref` instances.
+    /// Ownership: Does not own the pointed-to object; callers must call `lock` to obtain a `Ref` before use.
+    /// Thread-safety: Thread-safe for observing lifetime; returned `Ref` shares the same considerations as `Ref` itself.
     template <typename T>
     class WeakRef
     {
       public:
         WeakRef() = default;
+        WeakRef(const WeakRef&) = default;
+        WeakRef(WeakRef&&) noexcept = default;
+        WeakRef& operator=(const WeakRef&) = default;
+        WeakRef& operator=(WeakRef&&) noexcept = default;
+
         WeakRef(const Ref<T>& reference)
-            : _storage(reference.std_ptr())
+            : _storage(reference._storage)
         {
         }
 
         WeakRef& operator=(const Ref<T>& reference)
         {
-            _storage = reference.std_ptr();
+            _storage = reference._storage;
             return *this;
         }
 
@@ -159,10 +225,11 @@ namespace tbx
 
         T* get_raw() const
         {
-            return _storage.lock()->get_raw();
+            std::shared_ptr<T> shared = _storage.lock();
+            return shared ? shared.get() : nullptr;
         }
 
-        operator bool() const
+        explicit operator bool() const
         {
             return is_valid();
         }

@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "tbx/state/cancellation_token.h"
+#include "tbx/messages/cancellation_token.h"
 
 namespace tbx::tests::state
 {

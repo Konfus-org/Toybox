@@ -1,7 +1,7 @@
 #include "tbx/os/window.h"
 #include "tbx/debug/macros.h"
 #include "tbx/messages/commands/window_commands.h"
-#include "tbx/state/result.h"
+#include "tbx/messages/result.h"
 #include "tbx/tsl/casting.h"
 
 namespace tbx
@@ -37,8 +37,11 @@ namespace tbx
             "Command was not handled! Ensure a listener is created and registered!");
         if (result)
         {
-            const auto updated = tbx::as<WindowDescription>(command.payload);
-            apply_description_update(*updated);
+            WindowDescription* updated = nullptr;
+            if (tbx::try_as(command.payload, updated) && updated != nullptr)
+            {
+                apply_description_update(*updated);
+            }
         }
     }
 
@@ -59,7 +62,11 @@ namespace tbx
             "Command was not handled! Ensure a listener is created and registered!");
         if (result)
         {
-            _implementation = tbx::as<WindowImpl>(command.payload);
+            WindowImpl* impl = nullptr;
+            if (tbx::try_as(command.payload, impl) && impl != nullptr)
+            {
+                _implementation = *impl;
+            }
         }
     }
 

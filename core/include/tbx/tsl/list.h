@@ -1,24 +1,24 @@
 #pragma once
 #include "tbx/tsl/int.h"
 #include <initializer_list>
-#include <iterator>
-#include <list>
-#include <memory>
-#include <stdexcept>
 #include <utility>
+#include <vector>
 
 namespace tbx
 {
     template <typename T>
-    struct List
+    class List
     {
-        using Storage = std::list<T>;
+      public:
+        using Storage = std::vector<T>;
+        using value_type = T;
+        using size_type = typename Storage::size_type;
         using iterator = typename Storage::iterator;
         using const_iterator = typename Storage::const_iterator;
 
         List() = default;
-        List(uint initial_count)
-            : _storage(initial_count)
+        explicit List(uint initial_count)
+            : _storage(static_cast<size_type>(initial_count))
         {
         }
         List(std::initializer_list<T> init)
@@ -29,6 +29,7 @@ namespace tbx
         List(const List&) = default;
         List(List&&) noexcept = default;
         ~List() = default;
+
         List& operator=(const List&) = default;
         List& operator=(List&&) noexcept = default;
 
@@ -45,6 +46,16 @@ namespace tbx
         void clear()
         {
             _storage.clear();
+        }
+
+        void reserve(uint capacity)
+        {
+            _storage.reserve(static_cast<size_type>(capacity));
+        }
+
+        uint get_capacity() const
+        {
+            return static_cast<uint>(_storage.capacity());
         }
 
         void push_back(const T& value)
@@ -73,12 +84,12 @@ namespace tbx
 
         T* get_raw()
         {
-            return _storage.empty() ? nullptr : std::addressof(_storage.front());
+            return _storage.empty() ? nullptr : _storage.data();
         }
 
         const T* get_raw() const
         {
-            return _storage.empty() ? nullptr : std::addressof(_storage.front());
+            return _storage.empty() ? nullptr : _storage.data();
         }
 
         T& front()
@@ -121,34 +132,52 @@ namespace tbx
             return _storage.end();
         }
 
+        const_iterator cbegin() const
+        {
+            return _storage.cbegin();
+        }
+
+        const_iterator cend() const
+        {
+            return _storage.cend();
+        }
+
         T& operator[](uint index)
         {
-            return element_at(index);
+            return _storage[static_cast<size_type>(index)];
         }
 
         const T& operator[](uint index) const
         {
-            return element_at(index);
+            return _storage[static_cast<size_type>(index)];
+        }
+
+        T& at(uint index)
+        {
+            return _storage.at(static_cast<size_type>(index));
+        }
+
+        const T& at(uint index) const
+        {
+            return _storage.at(static_cast<size_type>(index));
+        }
+
+        Storage& std_vector()
+        {
+            return _storage;
+        }
+
+        const Storage& std_vector() const
+        {
+            return _storage;
+        }
+
+        void swap(List& other)
+        {
+            _storage.swap(other._storage);
         }
 
       private:
-        T& element_at(uint index)
-        {
-            return const_cast<T&>(std::as_const(*this).element_at(index));
-        }
-
-        const T& element_at(uint index) const
-        {
-            if (index >= get_count())
-            {
-                throw std::out_of_range("tbx::List index out of range");
-            }
-
-            auto it = _storage.begin();
-            std::advance(it, index);
-            return *it;
-        }
-
         Storage _storage;
     };
 }

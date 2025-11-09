@@ -10,16 +10,21 @@
 
 namespace tbx
 {
+    static std::string copy_string(const tbx::String& value)
+    {
+        return std::string(value.get_raw(), value.get_raw() + value.get_length());
+    }
+
     static std::string trim_copy(const std::string& text)
     {
-        tbx::String trimmed = tbx::get_trimmed(text.c_str());
-        return trimmed.std_string();
+        const tbx::String trimmed = tbx::get_trimmed(text.c_str());
+        return copy_string(trimmed);
     }
 
     static std::string lower_copy(const std::string& text)
     {
-        tbx::String lowered = tbx::get_lower_case(text.c_str());
-        return lowered.std_string();
+        const tbx::String lowered = tbx::get_lower_case(text.c_str());
+        return copy_string(lowered);
     }
 
     /// <summary>

@@ -35,6 +35,6 @@ namespace tbx
         void ensure_message() const;
 
         Ref<bool> _success;
-        Ref<std::string> _report;
+        Ref<String> _report;
     };
 }

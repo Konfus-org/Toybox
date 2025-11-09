@@ -1,7 +1,7 @@
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/debug/macros.h"
 #include "tbx/messages/dispatcher.h"
-#include "tbx/state/result.h"
+#include "tbx/messages/result.h"
 #include <string>
 #include <string_view>
 
@@ -10,8 +10,7 @@ namespace tbx
     static Result dispatcher_missing_result(std::string_view action)
     {
         Result result;
-        result.set_success(
-            false,
+        result.flag_failure(
             "Plugin cannot " + std::string(action)
                 + " because it is not attached to a dispatcher.");
         return result;

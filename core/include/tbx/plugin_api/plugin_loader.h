@@ -15,7 +15,7 @@ namespace tbx
     TBX_API std::vector<LoadedPlugin> load_plugins(
         const std::filesystem::path& directory,
         const std::vector<std::string>& requested_ids,
-        files::IFilesystemOps& file_ops);
+        IFilesystemOps& file_ops);
 
     TBX_API std::vector<LoadedPlugin> load_plugins(
         const std::filesystem::path& directory,
@@ -26,7 +26,7 @@ namespace tbx
     // Thread-safety: Not thread-safe; call from the main thread.
     TBX_API std::vector<LoadedPlugin> load_plugins(
         const std::vector<PluginMeta>& metas,
-        files::IFilesystemOps& file_ops);
+        IFilesystemOps& file_ops);
 
     TBX_API std::vector<LoadedPlugin> load_plugins(const std::vector<PluginMeta>& metas);
 }

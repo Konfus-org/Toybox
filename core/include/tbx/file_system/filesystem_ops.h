@@ -1,5 +1,4 @@
 #pragma once
-#pragma once
 #include "tbx/tbx_api.h"
 #include <filesystem>
 #include <string>
@@ -28,5 +27,5 @@ namespace tbx
         virtual bool copy(const std::filesystem::path& from, const std::filesystem::path& to) = 0;
     };
 
-    IFilesystemOps& get_default_filesystem_ops();
+    TBX_API IFilesystemOps& get_default_filesystem_ops();
 }
