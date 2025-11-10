@@ -2,7 +2,6 @@
 #include "tbx/tbx_api.h"
 #include <any>
 #include <type_traits>
-#include <typeinfo>
 #include <utility>
 
 namespace tbx
@@ -37,14 +36,16 @@ namespace tbx
             return !has_value();
         }
 
-        const std::type_info& get_type() const
-        {
-            return has_value() ? _storage.type() : typeid(void);
-        }
-
         void reset()
         {
             _storage.reset();
+        }
+
+        template <typename TValue>
+        bool is() const
+        {
+            using TValueNoRef = std::remove_cv_t<std::remove_reference_t<TValue>>;
+            return std::any_cast<TValueNoRef>(&_storage) != nullptr;
         }
 
         template <typename TValue>

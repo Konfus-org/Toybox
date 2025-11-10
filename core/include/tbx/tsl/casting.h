@@ -19,7 +19,7 @@ namespace tbx
     template <typename TTo>
     bool is(const Variant& value)
     {
-        return value.has_value() && value.get_type() == typeid(TTo);
+        return value.has_value() && value.is<TTo>();
     }
 
     template <typename TTo, typename TFrom>
