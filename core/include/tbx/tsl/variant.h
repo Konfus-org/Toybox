@@ -12,65 +12,39 @@ namespace tbx
     class TBX_API Variant
     {
       public:
-        Variant()
-        {
-        }
+        Variant();
 
         template <typename TValue, typename = std::enable_if_t<!std::is_same_v<std::decay_t<TValue>, Variant>>>
-        Variant(TValue&& value)
-        {
-            _storage = std::forward<TValue>(value);
-        }
+        Variant(TValue&& value);
 
-        Variant(const Variant&) = default;
-        Variant(Variant&&) noexcept = default;
-        ~Variant() = default;
+        Variant(const Variant&);
+        Variant(Variant&&) noexcept;
+        ~Variant();
 
-        bool has_value() const
-        {
-            return _storage.has_value();
-        }
+        bool has_value() const;
 
-        bool is_empty() const
-        {
-            return !has_value();
-        }
+        bool is_empty() const;
 
-        void reset()
-        {
-            _storage.reset();
-        }
+        void reset();
 
         template <typename TValue>
-        bool is() const
-        {
-            using TValueNoRef = std::remove_cv_t<std::remove_reference_t<TValue>>;
-            return std::any_cast<TValueNoRef>(&_storage) != nullptr;
-        }
+        bool is() const;
 
         template <typename TValue>
-        TValue& get_value()
-        {
-            return std::any_cast<TValue&>(_storage);
-        }
+        TValue& get_value();
 
         template <typename TValue>
-        const TValue& get_value() const
-        {
-            return std::any_cast<const TValue&>(_storage);
-        }
+        const TValue& get_value() const;
 
-        Variant& operator=(const Variant&) = default;
-        Variant& operator=(Variant&&) noexcept = default;
+        Variant& operator=(const Variant&);
+        Variant& operator=(Variant&&) noexcept;
 
         template <typename TValue, typename = std::enable_if_t<!std::is_same_v<std::decay_t<TValue>, Variant>>>
-        Variant& operator=(TValue&& value)
-        {
-            _storage = std::forward<TValue>(value);
-            return *this;
-        }
+        Variant& operator=(TValue&& value);
 
       private:
         std::any _storage;
     };
 }
+
+#include "tbx/tsl/detail/variant.inl"
