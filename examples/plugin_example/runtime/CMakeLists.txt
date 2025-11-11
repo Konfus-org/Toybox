@@ -8,6 +8,7 @@ target_link_libraries(PluginExampleRuntime PRIVATE
     Tbx::Core
     Tbx::Plugins::SpdConsoleLoggerPlugin
     Tbx::Plugins::SdlWindowingPlugin
+    Tbx::Plugins::TbxStdWrappers
 )
 
 tbx_register_plugin(
