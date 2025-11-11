@@ -1,5 +1,6 @@
 #include "tbx/tsl/uuid.h"
 #include <random>
+#include <string>
 
 namespace tbx
 {
@@ -39,6 +40,16 @@ namespace tbx
         return false;
     }
 
+    bool operator==(const Uuid& a, const Uuid& b)
+    {
+        return a.bytes == b.bytes;
+    }
+
+    bool operator!=(const Uuid& a, const Uuid& b)
+    {
+        return !(a == b);
+    }
+
     uint64 UuidHash::operator()(const Uuid& id) const
     {
         // Combine two 64-bit halves
@@ -48,5 +59,26 @@ namespace tbx
         for (int i = 8; i < 16; ++i)
             b = (b << 8) | id.bytes[static_cast<uint>(i)];
         return a ^ (b + 0x9e3779b97f4a7c15ull + (a << 6) + (a >> 2));
+    }
+
+    std::string to_string(const Uuid& id)
+    {
+        static const char* hex = "0123456789abcdef";
+        std::string s;
+        s.reserve(36);
+
+        for (uint i = 0; i < static_cast<uint>(id.bytes.size()); ++i)
+        {
+            if (i == 4 || i == 6 || i == 8 || i == 10)
+            {
+                s.push_back('-');
+            }
+
+            unsigned char byte = id.bytes[i];
+            s.push_back(hex[(byte >> 4) & 0x0F]);
+            s.push_back(hex[byte & 0x0F]);
+        }
+
+        return s;
     }
 }

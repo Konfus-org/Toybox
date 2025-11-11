@@ -5,40 +5,42 @@
 
 namespace tbx
 {
-    /// Owning wrapper around std::string that stays implicitly compatible with char*.
-    struct TBX_API String
+    /// Owning wrapper around engine strings that stays implicitly compatible with char*.
+    class TBX_API String
     {
-        using Storage = std::string;
-
+      public:
         String();
         String(const char* text);
         String(const char* text, uint length);
-        explicit String(const std::string& text);
-        explicit String(std::string text);
         String(const String& other) = default;
         String(String&& other) noexcept = default;
         ~String() = default;
 
-        std::string std_string() const;
+        String& operator=(const String& other) = default;
+        String& operator=(String&& other) noexcept = default;
+        String& operator=(const char* text);
         const char* get_raw() const;
         char* get_raw();
 
         bool is_empty() const;
         uint get_length() const;
-
-        String& operator=(const String& other) = default;
-        String& operator=(String&& other) noexcept = default;
+        void clear();
 
         operator const char*() const;
         operator char*();
-        bool operator==(const String& lhs, const String& rhs) const;
-        bool operator!=(const String& lhs, const String& rhs) const;
-        String operator+(const String& lhs, const String& rhs) const;
-        String operator+(const String& lhs, const char* rhs) const;
-        String operator+(const char* lhs, const String& rhs) const;
+
+        friend bool operator==(const String& lhs, const String& rhs);
+        friend bool operator!=(const String& lhs, const String& rhs);
+        friend bool operator==(const String& lhs, const char* rhs);
+        friend bool operator==(const char* lhs, const String& rhs);
+        friend bool operator!=(const String& lhs, const char* rhs);
+        friend bool operator!=(const char* lhs, const String& rhs);
+        friend String operator+(const String& lhs, const String& rhs);
+        friend String operator+(const String& lhs, const char* rhs);
+        friend String operator+(const char* lhs, const String& rhs);
 
       private:
-        Storage _storage;
+        std::string _storage;
     };
 
     /// Removes leading and trailing whitespace from the provided string.

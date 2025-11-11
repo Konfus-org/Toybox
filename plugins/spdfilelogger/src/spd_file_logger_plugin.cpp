@@ -1,6 +1,6 @@
 #include "spd_file_logger_plugin.h"
 #include "tbx/file_system/string_path_operations.h"
-#include "tbx/logs/log_operations.h"
+#include "tbx/debug/logging.h"
 #include "tbx/messages/commands/log_commands.h"
 #include "tbx/tsl/casting.h"
 #include "tbx/tsl/smart_pointers.h"
@@ -23,13 +23,13 @@ namespace tbx::plugins::spdfilelogger
         std::error_code ec;
         std::filesystem::create_directories(_log_directory, ec);
 
-        _log_filename_base = tbx::files::sanitize_for_file_name_usage(desc.name);
-        tbx::logs::rotate_logs(_log_directory, _log_filename_base);
+        _log_filename_base = tbx::sanitize_string_for_file_name_usage(desc.name);
+        tbx::rotate_logs(_log_directory, _log_filename_base);
 
         auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
-            tbx::logs::calculate_log_path(_log_directory, _log_filename_base, 0).string(),
+            tbx::calculate_log_path(_log_directory, _log_filename_base, 0).string(),
             true);
-        _logger = tbx::make_ref<spdlog::logger>("SpdFileLogger", sink);
+        _logger = tbx::Ref<spdlog::logger>("SpdFileLogger", sink);
         _logger->info("SpdFileLoggerPlugin attached");
     }
 
@@ -53,7 +53,7 @@ namespace tbx::plugins::spdfilelogger
             return;
         }
 
-        const auto filename = tbx::files::filename_only(log->file);
+        const auto filename = tbx::get_filename_from_string_path(log->file);
         switch (log->level)
         {
             case LogLevel::Info:

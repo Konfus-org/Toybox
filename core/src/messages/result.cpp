@@ -3,31 +3,32 @@
 namespace tbx
 {
     Result::Result()
-        : _success(Ref<bool>())
-        , _report(Ref<String>())
+        : _success(Ref<bool>(false))
+        , _report(Ref<String>(String()))
     {
     }
 
     bool Result::succeeded() const
     {
-        if (!_success)
-        {
-            return false;
-        }
-
-        return *_success;
+        return _success && *_success;
     }
 
     void Result::flag_success(std::string message) const
     {
+        auto mutable_self = const_cast<Result*>(this);
+        mutable_self->ensure_success();
+        mutable_self->ensure_message();
         *_success = true;
-        *_report = std::move(message);
+        *_report = String(message.c_str(), static_cast<uint>(message.size()));
     }
 
     void Result::flag_failure(std::string message) const
     {
+        auto mutable_self = const_cast<Result*>(this);
+        mutable_self->ensure_success();
+        mutable_self->ensure_message();
         *_success = false;
-        *_report = std::move(message);
+        *_report = String(message.c_str(), static_cast<uint>(message.size()));
     }
 
     const String& Result::get_report() const
@@ -40,7 +41,7 @@ namespace tbx
     {
         if (!_success)
         {
-            _success = Ref(false);
+            _success = Ref<bool>(false);
         }
     }
 
@@ -49,7 +50,7 @@ namespace tbx
         if (!_report)
         {
             auto mutable_self = const_cast<Result*>(this);
-            mutable_self->_report = Ref<std::string>();
+            mutable_self->_report = Ref<String>(String());
         }
     }
 }

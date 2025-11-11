@@ -1,5 +1,4 @@
 #pragma once
-#include "casting.h"
 #include "tbx/tbx_api.h"
 #include <any>
 #include <type_traits>
@@ -7,62 +6,45 @@
 
 namespace tbx
 {
+    /// Type-erased value container built atop `std::any`.
+    /// Ownership: Stores a copy of the assigned value within the variant instance.
+    /// Thread-safety: Not thread-safe; callers must serialize access when sharing instances.
     class TBX_API Variant
     {
       public:
-        Variant() = default;
-        template <typename TValue>
-        Variant(void* value)
-            : _storage(std::forward<TValue>(value))
-        {
-        }
-        Variant(const Variant&) = default;
-        Variant(Variant&&) noexcept = default;
+        Variant();
 
-        bool has_value() const
-        {
-            return _storage.has_value();
-        }
+        template <typename TValue, typename = std::enable_if_t<!std::is_same_v<std::decay_t<TValue>, Variant>>>
+        Variant(TValue&& value);
 
-        const std::type_info& get_type() const
-        {
-            return _storage.type();
-        }
+        Variant(const Variant&);
+        Variant(Variant&&) noexcept;
+        ~Variant();
 
-        void reset()
-        {
-            _storage.reset();
-        }
+        bool has_value() const;
+
+        bool is_empty() const;
+
+        void reset();
 
         template <typename TValue>
-        TValue& get_value()
-        {
-            auto* ptr = try_as<TValue>();
-            if (ptr == nullptr)
-            {
-                throw std::bad_cast();
-            }
-            return *ptr;
-        }
+        bool is() const;
 
         template <typename TValue>
-        const TValue& get_value() const
-        {
-            auto* ptr = try_as<TValue>();
-            return *ptr;
-        }
-
-        Variant& operator=(const Variant&) = default;
-        Variant& operator=(Variant&&) noexcept = default;
+        TValue& get_value();
 
         template <typename TValue>
-        Variant& operator=(TValue&& value)
-        {
-            _storage = std::forward<TValue>(value);
-            return *this;
-        }
+        const TValue& get_value() const;
+
+        Variant& operator=(const Variant&);
+        Variant& operator=(Variant&&) noexcept;
+
+        template <typename TValue, typename = std::enable_if_t<!std::is_same_v<std::decay_t<TValue>, Variant>>>
+        Variant& operator=(TValue&& value);
 
       private:
         std::any _storage;
     };
 }
+
+#include "tbx/tsl/detail/variant.inl"

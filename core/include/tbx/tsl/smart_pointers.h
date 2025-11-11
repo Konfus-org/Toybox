@@ -1,173 +1,147 @@
 #pragma once
 #include "tbx/tsl/int.h"
 #include <memory>
+#include <type_traits>
 #include <utility>
 
 namespace tbx
 {
-    /// Minimal unique-ownership pointer.
-    /// This means the pointer has a single owner, and the storage is freed when the owner is
-    /// destroyed.
-    template <typename T, typename TDeleter = std::default_delete<T>>
+    /// Provides the default deletion strategy for `Scope` when no custom deleter is supplied.
+    /// Ownership: Deletes the owned pointer using `delete` when invoked.
+    /// Thread-safety: Stateless and thread-safe.
+    template <typename TValue>
+    struct DefaultScopeDeleter
+    {
+        void operator()(TValue* value) const;
+    };
+
+    /// Unique-ownership pointer wrapper for Toybox APIs.
+    /// Ownership: Owns the managed pointer and releases it on destruction unless `release` is called.
+    /// Thread-safety: Not thread-safe; callers must synchronize externally when sharing instances.
+    template <typename T, typename TDeleter = DefaultScopeDeleter<T>>
     class Scope
     {
       public:
-        Scope() = default;
-        Scope(T* ptr)
-            : _storage(ptr)
-        {
-        }
-        Scope(T* ptr, TDeleter deleter)
-            : _storage(ptr, std::move(deleter))
-        {
-        }
+        Scope();
+
+        explicit Scope(T* ptr);
+
+        Scope(T* ptr, TDeleter deleter);
+
+        template <typename... TArgs>
+            requires(sizeof...(TArgs) > 0 && std::is_constructible_v<T, TArgs...>)
+        explicit Scope(TArgs&&... args);
 
         Scope(const Scope&) = delete;
         Scope& operator=(const Scope&) = delete;
 
-        Scope(Scope&& other) noexcept = default;
-        Scope& operator=(Scope&& other) noexcept = default;
+        Scope(Scope&&) noexcept;
+        Scope& operator=(Scope&&) noexcept;
 
-        ~Scope() = default;
+        ~Scope();
 
-        /// Releases ownership without deleting the pointer.
-        T* release()
-        {
-            return _storage.release();
-        }
+        T* release();
 
-        /// Deletes the currently held pointer and adopts a new one.
-        void reset(T* ptr = nullptr)
-        {
-            _storage.reset(ptr);
-        }
+        void reset(T* ptr = nullptr);
 
-        /// Returns the managed pointer.
-        T* get_raw() const
-        {
-            return _storage.get();
-        }
+        T* get() const;
 
-        T& operator*() const
-        {
-            return *_storage;
-        }
+        T* get_raw() const;
 
-        T* operator->() const
-        {
-            return _storage.get();
-        }
+        void swap(Scope& other);
 
-        operator bool() const
-        {
-            return static_cast<bool>(_storage);
-        }
+        T& operator*() const;
+
+        T* operator->() const;
+
+        explicit operator bool() const;
 
       private:
         std::unique_ptr<T, TDeleter> _storage;
     };
 
-    /// Shared ownership pointer.
-    /// This means the pointer can have multiple owners, and the storage is freed when the last
-    /// owner is destroyed.
+    /// Shared-ownership pointer wrapper for Toybox APIs.
+    /// Ownership: Shares ownership across copies; storage is destroyed when the last `Ref` releases it.
+    /// Thread-safety: Reference counting is thread-safe, but access to the underlying object is not synchronized.
     template <typename T>
     class Ref
     {
       public:
-        Ref() = default;
-        Ref(T* ptr)
-            : _storage(ptr)
-        {
-        }
-        Ref(const T& value)
-            : _storage(std::make_shared<T>(value))
-        {
-        }
+        Ref();
+
+        explicit Ref(T* ptr);
+
         template <typename TDeleter>
-        Ref(T* ptr, TDeleter deleter)
-            : _storage(ptr, std::move(deleter))
-        {
-        }
+        Ref(T* ptr, TDeleter deleter);
 
-        uint64 get_use_count() const
-        {
-            return static_cast<uint64>(_storage.use_count());
-        }
+        template <typename... TArgs>
+            requires(sizeof...(TArgs) > 0 && std::is_constructible_v<T, TArgs...>)
+        explicit Ref(TArgs&&... args);
 
-        void reset()
-        {
-            _storage.reset();
-        }
+        Ref(const Ref&);
+        Ref(Ref&&) noexcept;
+        Ref& operator=(const Ref&);
+        Ref& operator=(Ref&&) noexcept;
 
-        T* get_raw() const
-        {
-            return _storage.get();
-        }
+        template <typename TOther>
+        Ref(const Ref<TOther>& other, T* alias);
 
-        T& operator*() const
-        {
-            return *_storage;
-        }
+        uint64 get_use_count() const;
 
-        T* operator->() const
-        {
-            return _storage.get();
-        }
+        void reset();
 
-        operator bool()
-        {
-            return static_cast<bool>(_storage);
-        }
+        T* get() const;
+
+        T* get_raw() const;
+
+        T& operator*() const;
+
+        T* operator->() const;
+
+        explicit operator bool() const;
 
       private:
+        explicit Ref(std::shared_ptr<T> storage);
+
         std::shared_ptr<T> _storage;
+
+        template <typename>
+        friend class Ref;
+
+        template <typename>
+        friend class WeakRef;
     };
 
-    /// Non-owning observer for Ref-managed storage.
-    /// This means the pointer does not own the storage, and the storage may be freed while this is
-    /// alive.
+    /// Non-owning view of storage managed by `Ref` instances.
+    /// Ownership: Does not own the pointed-to object; callers must call `lock` to obtain a `Ref` before use.
+    /// Thread-safety: Thread-safe for observing lifetime; returned `Ref` shares the same considerations as `Ref` itself.
     template <typename T>
     class WeakRef
     {
       public:
-        WeakRef() = default;
-        WeakRef(const Ref<T>& reference)
-            : _storage(reference.std_ptr())
-        {
-        }
+        WeakRef();
+        WeakRef(const WeakRef&);
+        WeakRef(WeakRef&&) noexcept;
+        WeakRef& operator=(const WeakRef&);
+        WeakRef& operator=(WeakRef&&) noexcept;
 
-        WeakRef& operator=(const Ref<T>& reference)
-        {
-            _storage = reference.std_ptr();
-            return *this;
-        }
+        WeakRef(const Ref<T>& reference);
 
-        bool is_valid() const
-        {
-            return !_storage.expired();
-        }
+        WeakRef& operator=(const Ref<T>& reference);
 
-        void reset()
-        {
-            _storage.reset();
-        }
+        bool is_valid() const;
 
-        Ref<T> lock() const
-        {
-            return Ref<T>(_storage.lock());
-        }
+        void reset();
 
-        T* get_raw() const
-        {
-            return _storage.lock()->get_raw();
-        }
+        Ref<T> lock() const;
 
-        operator bool() const
-        {
-            return is_valid();
-        }
+        T* get_raw() const;
+
+        explicit operator bool() const;
 
       private:
         std::weak_ptr<T> _storage;
     };
 }
+
+#include "tbx/tsl/detail/smart_pointers.inl"

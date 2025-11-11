@@ -12,7 +12,7 @@ namespace tbx::plugins::spdconsolelogger
         if (!_logger)
         {
             auto sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-            _logger = tbx::make_ref<spdlog::logger>("SpdConsoleLogger", sink);
+            _logger = tbx::Ref<spdlog::logger>("SpdConsoleLogger", sink);
         }
 
         _logger->info("SpdConsoleLoggerPlugin attached");
@@ -38,7 +38,7 @@ namespace tbx::plugins::spdconsolelogger
             return;
         }
 
-        const auto filename = tbx::files::filename_only(log->file);
+        const auto filename = tbx::get_filename_from_string_path(log->file);
         switch (log->level)
         {
             case LogLevel::Info:

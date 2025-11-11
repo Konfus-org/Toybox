@@ -4,7 +4,7 @@
 namespace tbx
 {
     CancellationSource::CancellationSource()
-        : _state(tbx::make_ref<std::atomic<bool>>(false))
+        : _state(tbx::Ref<std::atomic<bool>>(false))
     {
     }
 

@@ -29,7 +29,7 @@ namespace
         return meta;
     }
 
-    class ManifestFilesystemOps : public ::tbx::files::IFilesystemOps
+    class ManifestFilesystemOps : public ::tbx::IFilesystemOps
     {
       public:
         void add_directory(std::string path)
@@ -53,16 +53,16 @@ namespace
             return directories.contains(path.generic_string());
         }
 
-        std::vector<::tbx::files::DirectoryEntry>
+        std::vector<::tbx::DirectoryEntry>
             recursive_directory_entries(const std::filesystem::path& root) const override
         {
-            std::vector<::tbx::files::DirectoryEntry> entries;
+            std::vector<::tbx::DirectoryEntry> entries;
             const std::string prefix = root.generic_string();
             for (const auto& [file_path, _] : files)
             {
                 if (file_path.rfind(prefix, 0) == 0)
                 {
-                    ::tbx::files::DirectoryEntry entry;
+                    ::tbx::DirectoryEntry entry;
                     entry.path = file_path;
                     entry.is_regular_file = true;
                     entries.push_back(entry);

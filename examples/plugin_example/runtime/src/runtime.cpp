@@ -1,15 +1,17 @@
 #include "runtime_plugin.h"
 #include "tbx/debug/macros.h"
-#include "tbx/messages/commands/app_commands.h"
-#include <iostream>
+#include "tbx/tsl/string.h"
 
 namespace tbx::examples
 {
     void ExampleRuntimePlugin::on_attach(Application&)
     {
-        TBX_TRACE_INFO(
-            "Welcome to the plugin example! "
-            "This plugin just loads a logger and a window");
+        tbx::String greeting = tbx::String(
+            "   Welcome to the plugin example! "
+            "This plugin just loads a logger and a window.   ");
+        tbx::String message = tbx::get_trimmed(greeting);
+
+        TBX_TRACE_INFO("%s", message.get_raw());
     }
 
     void ExampleRuntimePlugin::on_detach() {}

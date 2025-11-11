@@ -6,11 +6,12 @@
 
 namespace tbx
 {
-    std::string sanitize_for_file_name_usage(const std::string_view value)
+    std::string sanitize_string_for_file_name_usage(const std::string_view value)
     {
         std::string result;
         result.reserve(value.size());
 
+        char previous = '\0';
         for (unsigned char ch : value)
         {
             if (std::isalnum(ch) != 0 || ch == '-' || ch == '_')
@@ -19,8 +20,13 @@ namespace tbx
             }
             else
             {
-                result.push_back('_');
+                if (!(ch == '\\' && previous == '\\'))
+                {
+                    result.push_back('_');
+                }
             }
+
+            previous = static_cast<char>(ch);
         }
 
         if (result.empty())
@@ -31,7 +37,7 @@ namespace tbx
         return result;
     }
 
-    std::string filename_only(const std::string_view path)
+    std::string get_filename_from_string_path(const std::string_view path)
     {
         if (path.empty())
         {

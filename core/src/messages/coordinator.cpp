@@ -18,6 +18,18 @@ namespace tbx
         msg.result = Result();
     }
 
+    static void synchronize_original(QueuedMessage& queued)
+    {
+        if (!queued.original || !queued.message)
+        {
+            return;
+        }
+
+        queued.original->state = queued.message->state;
+        queued.original->payload = queued.message->payload;
+        queued.original->result = queued.message->result;
+    }
+
     static void update_result_for_state(
         const Message& msg,
         const MessageState state,
@@ -38,8 +50,8 @@ namespace tbx
                 std::string resolved = message;
                 if (resolved.empty())
                 {
-                    const std::string& current = msg.result.get_message();
-                    if (current.empty())
+                    const String& current = msg.result.get_report();
+                    if (current.is_empty())
                     {
                         if (state == MessageState::Failed)
                         {
@@ -57,22 +69,22 @@ namespace tbx
                 }
 
                 msg.result.flag_failure(resolved);
-                const std::string& text = msg.result.get_message();
-                if (!text.empty())
+                const String& text = msg.result.get_report();
+                if (!text.is_empty())
                 {
                     if (state == MessageState::Failed)
                     {
                         TBX_TRACE_ERROR(
                             "Message {} failed: {}",
                             to_string(msg.id).c_str(),
-                            text.c_str());
+                            text.get_raw());
                     }
                     else if (state == MessageState::TimedOut)
                     {
                         TBX_TRACE_WARNING(
                             "Message {} timed out: {}",
                             to_string(msg.id).c_str(),
-                            text.c_str());
+                            text.get_raw());
                     }
                 }
                 break;
@@ -197,8 +209,8 @@ namespace tbx
     void MessageCoordinator::remove_handler(const Uuid& token)
     {
         std::lock_guard lock(_handlers_mutex);
-        std::vector<std::pair<Uuid, MessageHandler>> next;
-        next.reserve(_handlers.size());
+        List<std::pair<Uuid, MessageHandler>> next;
+        next.reserve(_handlers.get_count());
         for (auto& entry : _handlers)
         {
             if (entry.first != token)
@@ -221,7 +233,7 @@ namespace tbx
     void MessageCoordinator::dispatch(Message& msg, std::chrono::steady_clock::time_point deadline)
         const
     {
-        std::vector<std::pair<Uuid, MessageHandler>> handlers_snapshot;
+        List<std::pair<Uuid, MessageHandler>> handlers_snapshot;
         {
             std::lock_guard lock(_handlers_mutex);
             handlers_snapshot = _handlers;
@@ -284,11 +296,21 @@ namespace tbx
             {
                 return;
             }
+
+            if (msg.timeout && std::chrono::steady_clock::now() >= deadline)
+            {
+                apply_state(msg, MessageState::TimedOut, "Message timed out during dispatch.");
+                return;
+            }
         }
 
         if (msg.state == MessageState::InProgress)
         {
-            if (handler_invoked)
+            if (msg.timeout && std::chrono::steady_clock::now() >= deadline)
+            {
+                apply_state(msg, MessageState::TimedOut, "Message timed out during dispatch.");
+            }
+            else if (handler_invoked)
             {
                 apply_state(
                     msg,
@@ -305,7 +327,7 @@ namespace tbx
     Result MessageCoordinator::send(Message& msg) const
     {
         reset_message(msg);
-        if (!msg.delay_in_ticks || !msg.delay_in_seconds)
+        if (msg.delay_in_ticks || msg.delay_in_seconds)
         {
             std::string reason = "send() does not support delayed delivery.";
             apply_state(msg, MessageState::Failed, reason);
@@ -357,13 +379,17 @@ namespace tbx
         try
         {
             QueuedMessage queued;
-            queued.message = tbx::make_scope<Copy>(msg);
+            queued.message = Scope<Message>(new Copy(msg));
             if (queued.message)
             {
                 reset_message(*queued.message);
                 queued.result = queued.message->result;
                 result = queued.result;
+                mutable_msg.result = queued.result;
+                mutable_msg.state = MessageState::InProgress;
             }
+
+            queued.original = &mutable_msg;
 
             const auto now = std::chrono::steady_clock::now();
             if (msg.delay_in_ticks)
@@ -408,7 +434,7 @@ namespace tbx
     {
         const auto now = std::chrono::steady_clock::now();
 
-        std::vector<QueuedMessage> processing;
+        List<QueuedMessage> processing;
         {
             std::lock_guard<std::mutex> lock(_queue_mutex);
             processing.swap(_pending);
@@ -423,6 +449,7 @@ namespace tbx
 
             if (cancel_if_requested(*entry.message))
             {
+                synchronize_original(entry);
                 continue;
             }
 
@@ -432,6 +459,7 @@ namespace tbx
                     *entry.message,
                     MessageState::TimedOut,
                     "Message timed out before delivery.");
+                synchronize_original(entry);
                 continue;
             }
 
@@ -452,10 +480,12 @@ namespace tbx
             try
             {
                 dispatch(*entry.message, entry.timeout_deadline);
+                synchronize_original(entry);
             }
             catch (const std::exception& ex)
             {
                 apply_state(*entry.message, MessageState::Failed, ex.what());
+                synchronize_original(entry);
             }
             catch (...)
             {
@@ -463,6 +493,7 @@ namespace tbx
                     *entry.message,
                     MessageState::Failed,
                     "Unknown exception during message dispatch.");
+                synchronize_original(entry);
             }
         }
     }

@@ -55,8 +55,7 @@ namespace tbx
         // Load plugins based on description
         if (!_desc.plugins_directory.empty())
         {
-            std::vector<LoadedPlugin> loaded =
-                load_plugins(_desc.plugins_directory, _desc.requested_plugins);
+            auto loaded = load_plugins(_desc.plugins_directory, _desc.requested_plugins);
             for (auto& lp : loaded)
             {
                 _loaded.push_back(std::move(lp));
