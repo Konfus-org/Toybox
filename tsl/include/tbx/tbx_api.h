@@ -1,7 +1,5 @@
 #pragma once
 
-#pragma once
-
 #ifdef TBX_PLATFORM_WINDOWS
     #ifdef TBX_SHARED_LIB
         #ifdef TBX_EXPORTING_SYMBOLS
