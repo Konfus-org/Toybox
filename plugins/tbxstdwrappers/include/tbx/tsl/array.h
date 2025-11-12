@@ -46,4 +46,4 @@ namespace tbx
     };
 }
 
-#include "tbx/tsl/detail/array.inl"
+#include "tbx/tsl/array.inl"

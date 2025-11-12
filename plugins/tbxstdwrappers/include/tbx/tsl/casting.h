@@ -59,4 +59,4 @@ namespace tbx
     bool try_as(Variant& value, TTo*& out);
 }
 
-#include "tbx/tsl/detail/casting.inl"
+#include "tbx/tsl/casting.inl"
