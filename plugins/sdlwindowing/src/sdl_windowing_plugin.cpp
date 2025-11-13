@@ -1,5 +1,5 @@
 #include "sdl_windowing_plugin.h"
-#include "tbx/application.h"
+#include "tbx/app/application.h"
 #include "tbx/debug/macros.h"
 #include "tbx/messages/events/window_events.h"
 #include "tbx/tsl/casting.h"

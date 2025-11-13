@@ -9,22 +9,29 @@ Honestly, not much yet. There is a simple ECS system dubbed TBS (Toy Box System)
 
 ## Repository Structure
 
-- `core/`: Core engine source (ECS, math, logging, windowing, graphics, systems).
+- `modules/`: First-class engine modules. `app/` hosts the runtime loop and timers, `messaging/` powers the dispatcher, `debugging/` implements logging and trace helpers, `os/` wraps platform concepts such as windows and shared libraries, `plugin_api/` exposes the plugin contract, and `std/` contains the Toybox standard utilities.
 - `examples/`: Sample projects demonstrating engine functionality.
 - `plugins/`: Runtime-discoverable plugins that extend the engine.
 - `thirdparty/`: Vendored dependencies.
 - `cmake/`, `CMakeLists.txt`, `CMakePresets.json`: Build configuration and presets.
 
+## Modules vs Plugins
+
+Toybox now distinguishes between *modules* and *plugins*.
+
+- **Modules** ship as part of the engine and live under `modules/`. They define the core behaviour (messaging, windowing, debugging, etc.) that every Toybox application relies on. Replacing a module requires rebuilding the engine because the modules are compiled directly into the host binaries.
+- **Plugins** reside in `plugins/` and follow the dynamic plugin contract. They are designed to be swapped, extended, or omitted without recompiling the engine. At runtime the application can selectively load plugins that implement optional features such as SDL integration or logging backends.
+
 ## Toybox Standard Library (TSL)
 
-Toybox ships with a small header-only standard library that provides consistent building blocks across the engine and plugins:
+Toybox ships with a small standard library module that provides consistent building blocks across the engine and plugins:
 
-- `tsl/string.h` exposes `tbx::String` plus helpers like `get_trimmed` and `get_lower_case`.
-- `tsl/list.h` and `tsl/array.h` add lightweight container wrappers with familiar C-style semantics and a `std_vec()`/`std_array()` escape hatch when raw access is needed.
-- `tsl/smart_pointers.h` defines `tbx::Scope`, `tbx::Ref`, and `tbx::WeakRef` for deterministic ownership, aligned with the engine coding guidelines.
-- `tsl/casting.h` extends the casting helpers (`is`, `as`, `try_as`) to work with raw pointers, smart pointers, and `tbx::Any`.
+- `tbx/tsl/string.h` exposes `tbx::String` plus helpers like `get_trimmed` and `get_lower_case`.
+- `tbx/tsl/list.h` and `tbx/tsl/array.h` add lightweight container wrappers with familiar C-style semantics and a `std_vec()`/`std_array()` escape hatch when raw access is needed.
+- `tbx/tsl/smart_pointers.h` defines `tbx::Scope`, `tbx::Ref`, and `tbx::WeakRef` for deterministic ownership, aligned with the engine coding guidelines.
+- `tbx/tsl/casting.h` extends the casting helpers (`is`, `as`, `try_as`) to work with raw pointers, smart pointers, and `tbx::Any`.
 
-These headers live under `tsl/include/tsl` and are reused throughout the engine/tests/plugins. Prefer them over the raw STL types when adding new code so behaviour stays predictable across platforms.
+These headers live under `modules/std/include/tbx/tsl` and are reused throughout the engine/tests/plugins. Prefer them over the raw STL types when adding new code so behaviour stays predictable across platforms.
 
 ## Getting Started
 
