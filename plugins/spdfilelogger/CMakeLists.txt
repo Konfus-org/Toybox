@@ -5,7 +5,7 @@ target_sources(SpdFileLoggerPlugin PRIVATE ${SRCS})
 target_include_directories(SpdFileLoggerPlugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_link_libraries(SpdFileLoggerPlugin PRIVATE
-    Tbx::Core
+    Tbx::App
     spdlog::spdlog
 )
 

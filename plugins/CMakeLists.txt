@@ -6,7 +6,6 @@ add_subdirectory(spdconsolelogger)
 add_subdirectory(spdfilelogger)
 add_subdirectory(sdladapter)
 add_subdirectory(sdlwindowing)
-add_subdirectory(tbxstdwrappers)
 
 unset(CMAKE_FOLDER)
 

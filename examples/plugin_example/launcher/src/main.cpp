@@ -1,4 +1,4 @@
-#include "tbx/application.h"
+#include "tbx/app/application.h"
 
 int main()
 {
