@@ -48,8 +48,6 @@ target_link_libraries(App
         Tbx::Debugging
         Tbx::Time
         Tbx::Std
-    PRIVATE
-        Tbx::Os
 )
 
 target_compile_definitions(App PRIVATE
