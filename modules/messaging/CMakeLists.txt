@@ -13,13 +13,13 @@ target_include_directories(Messaging
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${CMAKE_SOURCE_DIR}/modules/debugging/include
 )
 
 target_link_libraries(Messaging
     PUBLIC
         Tbx::Time
         Tbx::Std
+        Tbx::Debugging
 )
 
 target_compile_definitions(Messaging PRIVATE TBX_EXPORTING_SYMBOLS=1)
