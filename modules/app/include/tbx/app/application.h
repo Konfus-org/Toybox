@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/app/app_description.h"
-#include "tbx/messages/coordinator.h"
+#include "tbx/app/app_message_coordinator.h"
 #include "tbx/plugin_api/loaded_plugin.h"
 #include "tbx/time/delta_time.h"
 #include "tbx/std/list.h"
@@ -22,8 +22,16 @@ namespace tbx
         int run();
 
         const AppDescription& get_description() const;
-        IMessageDispatcher& get_dispatcher();
-        const IMessageDispatcher& get_dispatcher() const;
+
+        IMessageDispatcher& get_dispatcher()
+        {
+            return static_cast<IMessageDispatcher&>(_msg_coordinator);
+        }
+
+        const IMessageDispatcher& get_dispatcher() const
+        {
+            return static_cast<const IMessageDispatcher&>(_msg_coordinator);
+        }
 
       private:
         void initialize();
@@ -33,7 +41,7 @@ namespace tbx
 
         const AppDescription _desc;
         List<LoadedPlugin> _loaded = {};
-        MessageCoordinator _msg_coordinator;
+        AppMessageCoordinator _msg_coordinator;
         bool _should_exit = false;
     };
 }

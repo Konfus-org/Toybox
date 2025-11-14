@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/messages/events/event.h"
+#include "tbx/messages/event.h"
 #include "tbx/messages/window_description.h"
 
 namespace tbx

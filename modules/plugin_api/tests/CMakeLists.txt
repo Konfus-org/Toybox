@@ -34,9 +34,9 @@ set_target_properties(TbxPluginApiTests PROPERTIES CXX_STANDARD 20 CXX_STANDARD_
 
 target_link_libraries(TbxPluginApiTests PRIVATE
 
-    Tbx::PluginApi
-
     Tbx::App
+
+    Tbx::PluginApi
 
     gtest
 

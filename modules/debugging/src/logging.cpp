@@ -1,4 +1,4 @@
-#include "tbx/debug/logging.h"
+#include "tbx/debugging/logging.h"
 #include "tbx/file_system/filesystem_ops.h"
 #include "tbx/file_system/string_path_operations.h"
 #include <filesystem>
