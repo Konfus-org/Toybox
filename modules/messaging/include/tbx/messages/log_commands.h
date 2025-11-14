@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/debug/log_level.h"
-#include "tbx/messages/commands/command.h"
+#include "tbx/messages/log_level.h"
+#include "tbx/messages/command.h"
 #include "tbx/tbx_api.h"
 #include <string>
 

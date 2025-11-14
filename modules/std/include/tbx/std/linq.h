@@ -59,4 +59,4 @@ namespace tbx::linq
     bool contains(const Range& range, const TValue& needle);
 }
 
-#include "../../../src/linq.inl"
+#include "../../../src/std/linq.inl"

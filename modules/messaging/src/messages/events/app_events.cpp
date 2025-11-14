@@ -1,4 +1,4 @@
-#include "tbx/messages/events/app_events.h"
+#include "tbx/app/app_events.h"
 
 namespace tbx
 {

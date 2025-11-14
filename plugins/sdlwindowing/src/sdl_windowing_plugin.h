@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/messages/commands/window_commands.h"
+#include "tbx/app/window_commands.h"
 #include "tbx/app/window.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/std/smart_pointers.h"

@@ -46,4 +46,4 @@ namespace tbx
     };
 }
 
-#include "../../../src/array.inl"
+#include "../../../src/std/array.inl"

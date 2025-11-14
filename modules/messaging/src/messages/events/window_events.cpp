@@ -1,4 +1,4 @@
-#include "tbx/messages/events/window_events.h"
+#include "tbx/app/window_events.h"
 #include <utility>
 
 namespace tbx

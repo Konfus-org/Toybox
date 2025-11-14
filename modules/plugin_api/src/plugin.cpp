@@ -1,6 +1,6 @@
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/app/application.h"
-#include "tbx/debug/macros.h"
+#include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/result.h"
 #include <string>

@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/file_system/filesystem_ops.h"
-#include "tbx/messages/commands/log_commands.h"
+#include "tbx/messages/log_commands.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/dispatcher_context.h"
 #include <format>

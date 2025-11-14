@@ -1,4 +1,4 @@
-#include "tbx/messages/commands/command.h"
+#include "tbx/messages/command.h"
 
 namespace tbx
 {

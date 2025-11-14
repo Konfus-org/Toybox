@@ -1,4 +1,4 @@
-#include "tbx/messages/commands/window_commands.h"
+#include "tbx/app/window_commands.h"
 #include <utility>
 
 namespace tbx

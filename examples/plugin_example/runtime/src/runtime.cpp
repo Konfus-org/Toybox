@@ -1,5 +1,5 @@
 #include "runtime_plugin.h"
-#include "tbx/debug/macros.h"
+#include "tbx/debugging/macros.h"
 #include "tbx/std/string.h"
 
 namespace tbx::examples

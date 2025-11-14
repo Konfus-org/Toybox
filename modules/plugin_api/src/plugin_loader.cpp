@@ -1,5 +1,5 @@
 #include "tbx/plugin_api/plugin_loader.h"
-#include "tbx/debug/macros.h"
+#include "tbx/debugging/macros.h"
 #include "tbx/file_system/filesystem_ops.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_registry.h"
