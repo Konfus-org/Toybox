@@ -14,4 +14,9 @@ target_include_directories(Math
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-add_library(Tbx::Math ALIAS Math)
+target_link_libraries(Math
+    PUBLIC 
+        glm
+)
+
+add_library(Tbx::Math ALIAS Math) 

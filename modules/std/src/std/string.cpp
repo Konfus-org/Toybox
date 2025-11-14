@@ -1,4 +1,5 @@
 #include "tbx/std/string.h"
+#include "tbx/std/int.h"
 #include <algorithm>
 #include <cctype>
 #include <cstring>
