@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/plugin_api/plugin.h"
-#include "tbx/tsl/smart_pointers.h"
+#include "tbx/std/smart_pointers.h"
 #include <filesystem>
 #include <string>
 

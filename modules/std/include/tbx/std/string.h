@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/tbx_api.h"
-#include "tbx/tsl/int.h"
+#include "tbx/std/int.h"
 #include <string>
 
 namespace tbx

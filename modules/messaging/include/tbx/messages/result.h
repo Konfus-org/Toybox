@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/tbx_api.h"
-#include "tbx/tsl/smart_pointers.h"
-#include "tbx/tsl/string.h"
+#include "tbx/std/smart_pointers.h"
+#include "tbx/std/string.h"
 #include <string>
 
 namespace tbx

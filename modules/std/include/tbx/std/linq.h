@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/tsl/list.h"
-#include "tbx/tsl/int.h"
+#include "tbx/std/list.h"
+#include "tbx/std/int.h"
 #include <cstddef>
 #include <functional>
 #include <ranges>
@@ -59,4 +59,4 @@ namespace tbx::linq
     bool contains(const Range& range, const TValue& needle);
 }
 
-#include "tbx/tsl/detail/linq.inl"
+#include "../../../src/linq.inl"

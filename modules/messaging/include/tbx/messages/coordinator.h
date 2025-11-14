@@ -3,9 +3,9 @@
 #include "tbx/messages/handler.h"
 #include "tbx/tbx_api.h"
 #include "tbx/time/timer.h"
-#include "tbx/tsl/list.h"
-#include "tbx/tsl/smart_pointers.h"
-#include "tbx/tsl/uuid.h"
+#include "tbx/std/list.h"
+#include "tbx/std/smart_pointers.h"
+#include "tbx/std/uuid.h"
 #include <chrono>
 #include <mutex>
 #include <utility>

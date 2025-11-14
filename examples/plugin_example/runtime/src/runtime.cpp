@@ -1,6 +1,6 @@
 #include "runtime_plugin.h"
 #include "tbx/debug/macros.h"
-#include "tbx/tsl/string.h"
+#include "tbx/std/string.h"
 
 namespace tbx::examples
 {

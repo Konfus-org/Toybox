@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/tsl/int.h"
+#include "tbx/std/int.h"
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -144,4 +144,4 @@ namespace tbx
     };
 }
 
-#include "tbx/tsl/detail/smart_pointers.inl"
+#include "../../../src/smart_pointers.inl"

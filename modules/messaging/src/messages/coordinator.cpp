@@ -1,6 +1,6 @@
 #include "tbx/messages/coordinator.h"
 #include "tbx/debug/macros.h"
-#include "tbx/tsl/smart_pointers.h"
+#include "tbx/std/smart_pointers.h"
 #include <chrono>
 #include <exception>
 #include <string>

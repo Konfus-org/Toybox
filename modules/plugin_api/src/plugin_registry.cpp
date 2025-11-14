@@ -1,5 +1,5 @@
 #include "tbx/plugin_api/plugin_registry.h"
-#include "tbx/tsl/string.h"
+#include "tbx/std/string.h"
 #include <algorithm>
 
 static std::string tbx_copy_string(const tbx::String& value)

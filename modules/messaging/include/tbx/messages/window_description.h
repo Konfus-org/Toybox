@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/tbx_api.h"
-#include "tbx/tsl/size.h"
-#include "tbx/tsl/uuid.h"
+#include "tbx/std/size.h"
+#include "tbx/std/uuid.h"
 #include <string>
 
 namespace tbx

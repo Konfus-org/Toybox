@@ -26,12 +26,12 @@ Toybox now distinguishes between *modules* and *plugins*.
 
 Toybox ships with a small standard library module that provides consistent building blocks across the engine and plugins:
 
-- `tbx/tsl/string.h` exposes `tbx::String` plus helpers like `get_trimmed` and `get_lower_case`.
-- `tbx/tsl/list.h` and `tbx/tsl/array.h` add lightweight container wrappers with familiar C-style semantics and a `std_vec()`/`std_array()` escape hatch when raw access is needed.
-- `tbx/tsl/smart_pointers.h` defines `tbx::Scope`, `tbx::Ref`, and `tbx::WeakRef` for deterministic ownership, aligned with the engine coding guidelines.
-- `tbx/tsl/casting.h` extends the casting helpers (`is`, `as`, `try_as`) to work with raw pointers, smart pointers, and `tbx::Any`.
+- `tbx/std/string.h` exposes `tbx::String` plus helpers like `get_trimmed` and `get_lower_case`.
+- `tbx/std/list.h` and `tbx/std/array.h` add lightweight container wrappers with familiar C-style semantics and a `std_vec()`/`std_array()` escape hatch when raw access is needed.
+- `tbx/std/smart_pointers.h` defines `tbx::Scope`, `tbx::Ref`, and `tbx::WeakRef` for deterministic ownership, aligned with the engine coding guidelines.
+- `tbx/std/casting.h` extends the casting helpers (`is`, `as`, `try_as`) to work with raw pointers, smart pointers, and `tbx::Any`.
 
-These headers live under `modules/std/include/tbx/tsl` and are reused throughout the engine/tests/plugins. Prefer them over the raw STL types when adding new code so behaviour stays predictable across platforms.
+These headers live under `modules/std/include/tbx/std` and are reused throughout the engine/tests/plugins. Prefer them over the raw STL types when adding new code so behaviour stays predictable across platforms.
 
 ## Getting Started
 

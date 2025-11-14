@@ -2,8 +2,8 @@
 #include "tbx/app/application.h"
 #include "tbx/debug/macros.h"
 #include "tbx/messages/events/window_events.h"
-#include "tbx/tsl/casting.h"
-#include "tbx/tsl/smart_pointers.h"
+#include "tbx/std/casting.h"
+#include "tbx/std/smart_pointers.h"
 #include <algorithm>
 #include <memory>
 #include <string>
