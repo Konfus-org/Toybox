@@ -19,7 +19,6 @@ target_link_libraries(PluginApi
     PUBLIC
         Tbx::Messaging
         Tbx::Std
-        Tbx::Os
     PRIVATE
         nlohmann_json
 )

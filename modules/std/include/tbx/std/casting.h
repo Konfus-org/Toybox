@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/tsl/smart_pointers.h"
-#include "tbx/tsl/variant.h"
+#include "tbx/std/smart_pointers.h"
+#include "tbx/std/variant.h"
 
 namespace tbx
 {
@@ -59,4 +59,4 @@ namespace tbx
     bool try_as(Variant& value, TTo*& out);
 }
 
-#include "tbx/tsl/casting.inl"
+#include "../../../src/casting.inl"

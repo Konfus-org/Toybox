@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include "tbx/tsl/string.h"
+#include "tbx/std/string.h"
 
 TEST(StringModsTests, TrimStringRemovesWhitespace)
 {

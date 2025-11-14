@@ -1,8 +1,8 @@
 #pragma once
 #include "tbx/messages/commands/window_commands.h"
-#include "tbx/os/window.h"
+#include "tbx/app/window.h"
 #include "tbx/plugin_api/plugin.h"
-#include "tbx/tsl/smart_pointers.h"
+#include "tbx/std/smart_pointers.h"
 #include <SDL3/SDL.h>
 #include <string_view>
 #include <vector>

@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/tsl/int.h"
+#include "tbx/std/int.h"
 #include <initializer_list>
 #include <utility>
 #include <vector>
@@ -89,4 +89,4 @@ namespace tbx
     };
 }
 
-#include "tbx/tsl/detail/list.inl"
+#include "../../../src/list.inl"

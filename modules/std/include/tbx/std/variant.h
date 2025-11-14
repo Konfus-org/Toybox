@@ -47,4 +47,4 @@ namespace tbx
     };
 }
 
-#include "tbx/tsl/detail/variant.inl"
+#include "../../../src/variant.inl"

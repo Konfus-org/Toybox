@@ -4,17 +4,19 @@ set(STD_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/filesystem_ops.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/string.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/string_path_operations.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tsl/uuid.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/uuid.cpp
 )
 
 set(STD_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/tbx/tbx_api.h
 )
 
-file(GLOB TSL_HEADERS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/tbx/tsl/*.h" "${CMAKE_CURRENT_SOURCE_DIR}/include/tbx/tsl/*.inl" "${CMAKE_CURRENT_SOURCE_DIR}/include/tbx/tsl/detail/*.inl")
-file(GLOB FILE_SYSTEM_HEADERS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/tbx/file_system/*.h")
+file(GLOB STD_PUBLIC_HEADERS CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/tbx/std/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/tbx/std/*.inl"
+)
 
-list(APPEND STD_HEADERS ${TSL_HEADERS} ${FILE_SYSTEM_HEADERS})
+list(APPEND STD_HEADERS ${STD_PUBLIC_HEADERS})
 
 target_sources(Std PRIVATE ${STD_SOURCES} ${STD_HEADERS})
 

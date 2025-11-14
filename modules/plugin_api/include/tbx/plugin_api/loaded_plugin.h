@@ -1,8 +1,8 @@
 #pragma once
-#include "tbx/os/shared_library.h"
+#include "tbx/plugin_api/shared_library.h"
 #include "tbx/plugin_api/plugin_meta.h"
 #include "tbx/tbx_api.h"
-#include "tbx/tsl/smart_pointers.h"
+#include "tbx/std/smart_pointers.h"
 #include <functional>
 
 namespace tbx

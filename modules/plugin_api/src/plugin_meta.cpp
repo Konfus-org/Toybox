@@ -1,5 +1,5 @@
 #include "tbx/plugin_api/plugin_meta.h"
-#include "tbx/tsl/string.h"
+#include "tbx/std/string.h"
 #include <deque>
 #include <fstream>
 #include <nlohmann/json.hpp>

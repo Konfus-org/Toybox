@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/tsl/int.h"
+#include "tbx/std/int.h"
 #include <array>
 #include <cstddef>
 #include <initializer_list>
@@ -46,4 +46,4 @@ namespace tbx
     };
 }
 
-#include "tbx/tsl/array.inl"
+#include "../../../src/array.inl"

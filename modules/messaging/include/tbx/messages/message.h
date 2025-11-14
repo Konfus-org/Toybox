@@ -2,8 +2,8 @@
 #include "tbx/messages/cancellation_token.h"
 #include "tbx/messages/result.h"
 #include "tbx/time/time_span.h"
-#include "tbx/tsl/uuid.h"
-#include "tbx/tsl/variant.h"
+#include "tbx/std/uuid.h"
+#include "tbx/std/variant.h"
 #include <functional>
 
 namespace tbx

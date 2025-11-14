@@ -1,4 +1,4 @@
-#include "tbx/tsl/string.h"
+#include "tbx/std/string.h"
 #include <algorithm>
 #include <cctype>
 #include <cstring>

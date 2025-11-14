@@ -3,8 +3,8 @@
 #include "tbx/file_system/filesystem_ops.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_registry.h"
-#include "tbx/tsl/smart_pointers.h"
-#include "tbx/tsl/string.h"
+#include "tbx/std/smart_pointers.h"
+#include "tbx/std/string.h"
 #include <deque>
 #include <filesystem>
 #include <optional>
