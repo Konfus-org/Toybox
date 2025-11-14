@@ -1,19 +1,17 @@
-add_library(Math INTERFACE)
+tbx_add_module(Math)
+
+file(GLOB_RECURSE INCL CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.*")
+file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
+target_sources(Math PRIVATE ${SRCS} ${INCL})
 
 target_include_directories(Math
-    INTERFACE
+    PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
-        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/thirdparty/glm>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/modules/app/include>
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
-
-target_compile_definitions(Math
-    INTERFACE
-        GLM_ENABLE_EXPERIMENTAL=1
-        GLM_FORCE_LEFT_HANDED=1
-        GLM_DEPTH_ZERO_TO_ONE=1
-)
-
-tbx_apply_common_definitions(Math)
 
 add_library(Tbx::Math ALIAS Math)

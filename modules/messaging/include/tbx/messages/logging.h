@@ -77,8 +77,7 @@ namespace tbx
         cmd.file = file ? std::string(file) : std::string();
         cmd.line = line;
         auto result = dispatcher.send(cmd);
-        (void)result;
-        if (cmd.state != MessageState::Handled)
+        if (!result)
         {
             cout(level, file, line, message, true);
         }

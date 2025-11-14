@@ -3,6 +3,7 @@ project(Toybox LANGUAGES C CXX)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(TbxPlugins)
+include(TbxModules)
 
 # Set global C++ standard
 set(CMAKE_CXX_STANDARD 23)

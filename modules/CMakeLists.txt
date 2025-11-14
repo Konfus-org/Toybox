@@ -1,14 +1,35 @@
 option(TBX_BUILD_SHARED "Build as a shared library" ON)
 option(TBX_VERB_LOGGING "Enable verbose logging" OFF)
 
-function(tbx_apply_common_definitions target)
-    get_target_property(_tbx_target_type ${target} TYPE)
-    if(_tbx_target_type STREQUAL "INTERFACE_LIBRARY")
-        set(_tbx_definition_scope INTERFACE)
+message(STATUS "")
+message(STATUS "Configuring Toybox Modules:")
+
+if (CMAKE_CXX_FLAGS MATCHES "-fno-rtti")
+    message(FATAL_ERROR "Tbx: RTTI must be enabled for Toybox")
+endif()
+
+message(STATUS "Tbx Options:")
+message(STATUS "   TBX_BUILD_SHARED: ${TBX_BUILD_SHARED}")
+message(STATUS "   TBX_VERB_LOGGING: ${TBX_VERB_LOGGING}")
+
+function(tbx_add_module target)
+    if(TBX_BUILD_SHARED)
+      add_library(${target} SHARED)
     else()
-        set(_tbx_definition_scope PUBLIC)
+      add_library(${target} STATIC)
     endif()
-    target_compile_definitions(${target} ${_tbx_definition_scope}
+
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/include/tbx/PCH.h")
+      target_precompile_headers(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/tbx/PCH.h")
+    endif()
+
+    get_target_property(_tbx_target_type ${target} TYPE)
+    set_target_properties(${target} PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+
+    target_compile_definitions(${target} PRIVATE
+      TBX_EXPORTING_SYMBOLS=1
+    )
+    target_compile_definitions(${target} PUBLIC
         $<$<BOOL:${TBX_BUILD_SHARED}>:TBX_SHARED_LIB=1>
         $<$<BOOL:${TBX_VERB_LOGGING}>:TBX_VERBOSE_LOGGING=1>
         $<$<PLATFORM_ID:Windows>:TBX_PLATFORM_WINDOWS=1;WIN32_LEAN_AND_MEAN=1;NOMINMAX=1;_CRT_SECURE_NO_WARNINGS=1>
@@ -20,26 +41,23 @@ function(tbx_apply_common_definitions target)
     )
 endfunction()
 
-function(tbx_add_optional_subdirectory directory)
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${directory}")
-        add_subdirectory(${directory})
-    else()
-        message(WARNING "Skipping optional Toybox module '${directory}' because the directory is missing.")
-    endif()
-endfunction()
+set(CMAKE_FOLDER "Modules")
 
-tbx_add_optional_subdirectory(std)
-tbx_add_optional_subdirectory(std/tests)
-tbx_add_optional_subdirectory(math)
-tbx_add_optional_subdirectory(time)
-tbx_add_optional_subdirectory(time/tests)
-tbx_add_optional_subdirectory(messaging)
-tbx_add_optional_subdirectory(messaging/tests)
-tbx_add_optional_subdirectory(debugging)
-tbx_add_optional_subdirectory(debugging/tests)
-tbx_add_optional_subdirectory(os)
-tbx_add_optional_subdirectory(os/tests)
-tbx_add_optional_subdirectory(plugin_api)
-tbx_add_optional_subdirectory(plugin_api/tests)
-tbx_add_optional_subdirectory(app)
-tbx_add_optional_subdirectory(app/tests)
+add_subdirectory(std)
+add_subdirectory(math)
+add_subdirectory(time)
+add_subdirectory(messaging)
+add_subdirectory(plugin_api)
+add_subdirectory(app)
+
+set(CMAKE_FOLDER "Tests")
+
+add_subdirectory(std/tests)
+add_subdirectory(time/tests)
+add_subdirectory(messaging/tests)
+add_subdirectory(plugin_api/tests)
+add_subdirectory(app/tests)
+
+unset(CMAKE_FOLDER)
+
+message(STATUS "")

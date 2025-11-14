@@ -28,21 +28,6 @@
     #define TBX_DEBUG_BREAK()
 #endif
 
-#define TBX_ASSERT_EX(CmdDispatcherRef, cond, ...)                                                 \
-    do                                                                                             \
-    {                                                                                              \
-        if (!(cond))                                                                               \
-        {                                                                                          \
-            ::tbx::trace(                                                                          \
-                (CmdDispatcherRef),                                                                \
-                ::tbx::LogLevel::Critical,                                                         \
-                __FILE__,                                                                          \
-                __LINE__,                                                                          \
-                __VA_ARGS__);                                                                      \
-            TBX_DEBUG_BREAK();                                                                     \
-        }                                                                                          \
-    } while (0)
-
 #define TBX_ASSERT(cond, ...)                                                                      \
     do                                                                                             \
     {                                                                                              \
