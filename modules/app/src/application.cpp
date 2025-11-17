@@ -1,8 +1,8 @@
 #include "tbx/app/application.h"
-#include "tbx/debug/macros.h"
-#include "tbx/messages/commands/app_commands.h"
+#include "tbx/debugging/macros.h"
+#include "tbx/app/app_commands.h"
 #include "tbx/messages/dispatcher_context.h"
-#include "tbx/messages/events/app_events.h"
+#include "tbx/app/app_events.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/plugin_api/plugin_registry.h"
@@ -35,16 +35,6 @@ namespace tbx
     const AppDescription& Application::get_description() const
     {
         return _desc;
-    }
-
-    IMessageDispatcher& Application::get_dispatcher()
-    {
-        return static_cast<IMessageDispatcher&>(_msg_coordinator);
-    }
-
-    const IMessageDispatcher& Application::get_dispatcher() const
-    {
-        return static_cast<const IMessageDispatcher&>(_msg_coordinator);
     }
 
     void Application::initialize()

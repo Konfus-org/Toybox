@@ -6,6 +6,7 @@ target_include_directories(SpdConsoleLoggerPlugin PRIVATE ${CMAKE_CURRENT_SOURCE
 
 target_link_libraries(SpdConsoleLoggerPlugin PRIVATE
     Tbx::App
+    Tbx::FileSystem
     spdlog::spdlog
 )
 

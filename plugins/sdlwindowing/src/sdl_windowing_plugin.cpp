@@ -1,7 +1,7 @@
 #include "sdl_windowing_plugin.h"
 #include "tbx/app/application.h"
-#include "tbx/debug/macros.h"
-#include "tbx/messages/events/window_events.h"
+#include "tbx/debugging/macros.h"
+#include "tbx/app/window_events.h"
 #include "tbx/std/casting.h"
 #include "tbx/std/smart_pointers.h"
 #include <algorithm>

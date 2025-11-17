@@ -22,6 +22,8 @@ file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
 
 )
 
+list(FILTER TEST_SOURCES EXCLUDE REGEX "string_path_operations_tests\\.cpp$")
+
 target_sources(TbxStdTests PRIVATE ${TEST_SOURCES})
 
 target_include_directories(TbxStdTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")

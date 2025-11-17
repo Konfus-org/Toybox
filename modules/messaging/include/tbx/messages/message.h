@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/messages/cancellation_token.h"
+#include "tbx/time/cancellation_token.h"
 #include "tbx/messages/result.h"
 #include "tbx/time/time_span.h"
 #include "tbx/std/uuid.h"
