@@ -32,7 +32,7 @@ namespace Tbx
         Uid InstanceId = Uid::Generate();
     };
 
-    static Mesh MakeTriangle();
-    static Mesh MakeQuad();
+    Mesh MakeTriangle();
+    Mesh MakeQuad();
 }
 
