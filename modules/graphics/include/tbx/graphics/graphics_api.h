@@ -1,7 +1,7 @@
 #pragma once
-#include "Tbx/DllExport.h"
+#include "tbx/tbx_api.h"
 
-namespace Tbx
+namespace tbx
 {
     /// <summary>
     /// Represents the available vertical sync modes for a graphics context swap chain.
@@ -16,7 +16,7 @@ namespace Tbx
     /// <summary>
     /// Represents the available graphics APIs.
     /// </summary>
-    enum class TBX_EXPORT GraphicsApi
+    enum class TBX_API GraphicsApi
     {
         None,
         Vulkan,

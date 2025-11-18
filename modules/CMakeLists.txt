@@ -21,6 +21,7 @@ add_subdirectory(math)
 add_subdirectory(time)
 add_subdirectory(messaging)
 add_subdirectory(plugin_api)
+add_subdirectory(graphics)
 add_subdirectory(app)
 
 set(CMAKE_FOLDER "Tests")

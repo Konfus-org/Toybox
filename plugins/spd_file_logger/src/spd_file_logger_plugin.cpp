@@ -1,6 +1,7 @@
 #include "spd_file_logger_plugin.h"
-#include "tbx/file_system/string_path_operations.h"
+#include "tbx/app/application.h"
 #include "tbx/debugging/logging.h"
+#include "tbx/file_system/string_path_operations.h"
 #include "tbx/messages/log_commands.h"
 #include "tbx/std/casting.h"
 #include "tbx/std/smart_pointers.h"
