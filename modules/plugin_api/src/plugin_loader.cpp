@@ -6,119 +6,114 @@
 #include "tbx/std/smart_pointers.h"
 #include "tbx/std/string.h"
 #include <deque>
-#include <filesystem>
 #include <optional>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
 #include <utility>
-
-static std::string tbx_copy_string(const tbx::String& value)
-{
-    return std::string(value.get_raw(), value.get_raw() + value.get_length());
-}
-
-static std::filesystem::path tbx_resolve_module_path(
-    const tbx::PluginMeta& meta,
-    tbx::IFilesystemOps& file_ops)
-{
-    std::filesystem::path module = meta.module_path;
-
-    if (module.empty())
-    {
-        module = meta.root_directory;
-    }
-
-    if (!module.empty() && file_ops.is_directory(module))
-    {
-        module /= meta.name;
-    }
-
-    if (module.extension().empty())
-    {
-#if defined(TBX_PLATFORM_WINDOWS)
-        module += ".dll";
-#elif defined(TBX_PLATFORM_MACOS)
-        if (module.filename().string().rfind("lib", 0) != 0)
-        {
-            module = module.parent_path() / (std::string("lib") + module.filename().string());
-        }
-        module += ".dylib";
-#else
-        if (module.filename().string().rfind("lib", 0) != 0)
-        {
-            module = module.parent_path() / (std::string("lib") + module.filename().string());
-        }
-        module += ".so";
-#endif
-    }
-
-    return module;
-}
-
-static std::optional<tbx::LoadedPlugin> tbx_load_plugin_internal(
-    const tbx::PluginMeta& meta,
-    tbx::IFilesystemOps& file_ops)
-{
-    tbx::LoadedPlugin loaded;
-    loaded.meta = meta;
-
-    if (meta.linkage == tbx::PluginLinkage::Static)
-    {
-        tbx::Plugin* plug = tbx::PluginRegistry::get_instance().find_plugin(meta.name);
-        if (!plug)
-        {
-            TBX_TRACE_WARNING("Static plugin not registered: {}", meta.name.c_str());
-            return std::nullopt;
-        }
-
-        tbx::PluginInstance instance(
-            plug,
-            [](tbx::Plugin*)
-            {
-            });
-        loaded.instance = std::move(instance);
-        return loaded;
-    }
-
-    const std::filesystem::path module_path = tbx_resolve_module_path(meta, file_ops);
-    tbx::Scope<tbx::SharedLibrary> lib(module_path);
-
-    const std::string create_symbol = "create_" + meta.name;
-    tbx::CreatePluginFn create = lib->get_symbol<tbx::CreatePluginFn>(create_symbol.c_str());
-    if (!create)
-    {
-        TBX_TRACE_WARNING(
-            "Entry point not found in plugin module: {}",
-            create_symbol.c_str());
-        return std::nullopt;
-    }
-
-    const std::string destroy_symbol = "destroy_" + meta.name;
-    tbx::DestroyPluginFn destroy = lib->get_symbol<tbx::DestroyPluginFn>(destroy_symbol.c_str());
-    if (!destroy)
-    {
-        TBX_TRACE_WARNING(
-            "Destroy entry point not found in plugin module: {}",
-            destroy_symbol.c_str());
-        return std::nullopt;
-    }
-
-    tbx::Plugin* plugin_instance = create();
-    if (!plugin_instance)
-    {
-        TBX_TRACE_WARNING("Plugin factory returned null for: {}", meta.name.c_str());
-        return std::nullopt;
-    }
-
-    tbx::PluginInstance instance(plugin_instance, destroy);
-    loaded.instance = std::move(instance);
-    loaded.library = std::move(lib);
-    return loaded;
-}
 
 namespace tbx
 {
+    static String copy_string(const String& value)
+    {
+        return std::string(value.get_raw(), value.get_raw() + value.get_length());
+    }
+
+    static String resolve_module_path(
+        const PluginMeta& meta,
+        IFilesystemOps& file_ops)
+    {
+        std::filesystem::path modulePath = meta.module_path;
+
+        if (modulePath.empty())
+        {
+            modulePath = meta.root_directory;
+        }
+
+        if (!modulePath.empty() && file_ops.is_directory(modulePath))
+        {
+            modulePath /= meta.name;
+        }
+
+        if (modulePath.extension().empty())
+        {
+#if defined(TBX_PLATFORM_WINDOWS)
+            modulePath += ".dll";
+#elif defined(TBX_PLATFORM_MACOS)
+            if (module.filename().string().rfind("lib", 0) != 0)
+            {
+                modulePath = modulePath.parent_path() / (std::string("lib") + module.filename().string());
+            }
+            modulePath += ".dylib";
+#else
+            if (modulePath.filename().string().rfind("lib", 0) != 0)
+            {
+                modulePath = modulePath.parent_path() / (std::string("lib") + module.filename().string());
+            }
+            modulePath += ".so";
+#endif
+        }
+
+        return modulePath.string();
+    }
+
+    static std::optional<LoadedPlugin> load_plugin_internal(
+        const PluginMeta& meta,
+        IFilesystemOps& file_ops)
+    {
+        LoadedPlugin loaded;
+        loaded.meta = meta;
+
+        if (meta.linkage == PluginLinkage::Static)
+        {
+            Plugin* plug = PluginRegistry::get_instance().find_plugin(meta.name);
+            if (!plug)
+            {
+                TBX_TRACE_WARNING("Static plugin not registered: {}", meta.name.c_str());
+                return std::nullopt;
+            }
+
+            PluginInstance instance(
+                plug,
+                [](Plugin*)
+                {
+                });
+            loaded.instance = std::move(instance);
+            return loaded;
+        }
+
+        const String module_path = tbx_resolve_module_path(meta, file_ops);
+        auto lib = Scope<SharedLibrary>(module_path);
+
+        const std::string create_symbol = "create_" + meta.name;
+        CreatePluginFn create = lib->get_symbol<CreatePluginFn>(create_symbol.c_str());
+        if (!create)
+        {
+            TBX_TRACE_WARNING(
+                "Entry point not found in plugin module: {}",
+                create_symbol.c_str());
+            return std::nullopt;
+        }
+
+        const std::string destroy_symbol = "destroy_" + meta.name;
+        DestroyPluginFn destroy = lib->get_symbol<DestroyPluginFn>(destroy_symbol.c_str());
+        if (!destroy)
+        {
+            TBX_TRACE_WARNING(
+                "Destroy entry point not found in plugin module: {}",
+                destroy_symbol.c_str());
+            return std::nullopt;
+        }
+
+        Plugin* plugin_instance = create();
+        if (!plugin_instance)
+        {
+            TBX_TRACE_WARNING("Plugin factory returned null for: {}", meta.name.c_str());
+            return std::nullopt;
+        }
+
+        auto instance = PluginInstance(plugin_instance, destroy);
+        loaded.instance = std::move(instance);
+        loaded.library = std::move(lib);
+        return loaded;
+    }
 
     std::vector<LoadedPlugin> load_plugins(
         const std::filesystem::path& directory,
@@ -139,7 +134,7 @@ namespace tbx
 
                 auto p = entry.path;
                 const std::string name = p.filename().string();
-                const tbx::String lowered_string = tbx::get_lower_case(name.c_str());
+                const String lowered_string = get_lower_case(name.c_str());
                 const std::string lowered_name = tbx_copy_string(lowered_string);
                 if (p.extension() == ".meta" || lowered_name == "plugin.meta")
                 {
@@ -167,27 +162,27 @@ namespace tbx
             return loaded;
         }
 
-        std::vector<PluginMeta> metas;
+        List<PluginMeta> metas;
         if (requested_ids.empty())
         {
             metas = std::move(discovered);
         }
         else
         {
-            std::unordered_map<std::string, size_t> by_name_lookup;
-            std::unordered_map<std::string, std::vector<size_t>> by_type;
+            Dictionary<std::string, size_t> by_name_lookup;
+            Dictionary<std::string, std::vector<size_t>> by_type;
             by_name_lookup.reserve(discovered.size());
             by_type.reserve(discovered.size());
             for (size_t index = 0; index < discovered.size(); ++index)
             {
                 const PluginMeta& meta = discovered[index];
-                const tbx::String lowered_name_string = tbx::get_lower_case(meta.name.c_str());
-                const std::string lowered_name = tbx_copy_string(lowered_name_string);
+                const String lowered_name_string = get_lower_case(meta.name.c_str());
+                const std::string lowered_name = copy_string(lowered_name_string);
                 by_name_lookup.emplace(lowered_name, index);
                 if (!meta.type.empty())
                 {
-                    const tbx::String lowered_type_string = tbx::get_lower_case(meta.type.c_str());
-                    const std::string lowered_type = tbx_copy_string(lowered_type_string);
+                    const String lowered_type_string = get_lower_case(meta.type.c_str());
+                    const String lowered_type = copy_string(lowered_type_string);
                     by_type[lowered_type].push_back(index);
                 }
             }
@@ -205,9 +200,9 @@ namespace tbx
 
             auto enqueue_dependency_token = [&](const std::string& token)
             {
-                const tbx::String trimmed_string = tbx::get_trimmed(token.c_str());
-                const std::string trimmed = tbx_copy_string(trimmed_string);
-                const tbx::String lowered = tbx::get_lower_case(trimmed.c_str());
+                const String trimmed_string = get_trimmed(token.c_str());
+                const String trimmed = copy_string(trimmed_string);
+                const String lowered = get_lower_case(trimmed.c_str());
                 std::string needle = tbx_copy_string(lowered);
                 if (needle.empty())
                 {

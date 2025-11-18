@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/std/string.h"
 #include "tbx/tbx_api.h"
 #include <chrono>
 #include <cstdint>
@@ -36,7 +37,7 @@ namespace tbx
         }
     };
 
-    inline std::string to_string(const TimeSpan& span)
+    inline String to_string(const TimeSpan& span)
     {
         return std::to_string(span.milliseconds) + " milliseconds";
     }

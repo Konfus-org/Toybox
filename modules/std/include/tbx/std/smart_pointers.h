@@ -12,7 +12,10 @@ namespace tbx
     template <typename TValue>
     struct DefaultScopeDeleter
     {
-        void operator()(TValue* value) const;
+        void operator()(TValue* value) const
+        {
+            delete value;
+        }
     };
 
     /// Unique-ownership pointer wrapper for Toybox APIs.
@@ -22,39 +25,72 @@ namespace tbx
     class Scope
     {
       public:
-        Scope();
+        Scope() = default;
 
-        explicit Scope(T* ptr);
+        explicit Scope(T* ptr)
+            : _storage(ptr)
+        {
+        }
 
-        Scope(T* ptr, TDeleter deleter);
+        Scope(T* ptr, TDeleter deleter)
+            : _storage(ptr, std::move(deleter))
+        {
+        }
 
         template <typename... TArgs>
             requires(sizeof...(TArgs) > 0 && std::is_constructible_v<T, TArgs...>)
-        explicit Scope(TArgs&&... args);
+        explicit Scope(TArgs&&... args)
+            : _storage(new T(std::forward<TArgs>(args)...))
+        {
+        }
 
         Scope(const Scope&) = delete;
         Scope& operator=(const Scope&) = delete;
 
-        Scope(Scope&&) noexcept;
-        Scope& operator=(Scope&&) noexcept;
+        Scope(Scope&&) noexcept = default;
+        Scope& operator=(Scope&&) noexcept = default;
 
-        ~Scope();
+        ~Scope() = default;
 
-        T* release();
+        T* release()
+        {
+            return _storage.release();
+        }
 
-        void reset(T* ptr = nullptr);
+        void reset(T* ptr = nullptr)
+        {
+            _storage.reset(ptr);
+        }
 
-        T* get() const;
+        T* get() const
+        {
+            return _storage.get();
+        }
 
-        T* get_raw() const;
+        T* get_raw() const
+        {
+            return _storage.get();
+        }
 
-        void swap(Scope& other);
+        void swap(Scope& other)
+        {
+            _storage.swap(other._storage);
+        }
 
-        T& operator*() const;
+        T& operator*() const
+        {
+            return *_storage;
+        }
 
-        T* operator->() const;
+        T* operator->() const
+        {
+            return _storage.get();
+        }
 
-        explicit operator bool() const;
+        explicit operator bool() const
+        {
+            return static_cast<bool>(_storage);
+        }
 
       private:
         std::unique_ptr<T, TDeleter> _storage;
@@ -67,41 +103,77 @@ namespace tbx
     class Ref
     {
       public:
-        Ref();
+        Ref() = default;
 
-        explicit Ref(T* ptr);
+        explicit Ref(T* ptr)
+            : _storage(ptr)
+        {
+        }
 
         template <typename TDeleter>
-        Ref(T* ptr, TDeleter deleter);
+        Ref(T* ptr, TDeleter deleter)
+            : _storage(ptr, std::move(deleter))
+        {
+        }
 
         template <typename... TArgs>
             requires(sizeof...(TArgs) > 0 && std::is_constructible_v<T, TArgs...>)
-        explicit Ref(TArgs&&... args);
+        explicit Ref(TArgs&&... args)
+            : _storage(std::make_shared<T>(std::forward<TArgs>(args)...))
+        {
+        }
 
-        Ref(const Ref&);
-        Ref(Ref&&) noexcept;
-        Ref& operator=(const Ref&);
-        Ref& operator=(Ref&&) noexcept;
+        Ref(const Ref&) = default;
+        Ref(Ref&&) noexcept = default;
+        Ref& operator=(const Ref&) = default;
+        Ref& operator=(Ref&&) noexcept = default;
 
         template <typename TOther>
-        Ref(const Ref<TOther>& other, T* alias);
+        Ref(const Ref<TOther>& other, T* alias)
+            : _storage(other._storage, alias)
+        {
+        }
 
-        uint64 get_use_count() const;
+        uint64 get_use_count() const
+        {
+            return static_cast<uint64>(_storage.use_count());
+        }
 
-        void reset();
+        void reset()
+        {
+            _storage.reset();
+        }
 
-        T* get() const;
+        T* get() const
+        {
+            return _storage.get();
+        }
 
-        T* get_raw() const;
+        T* get_raw() const
+        {
+            return _storage.get();
+        }
 
-        T& operator*() const;
+        T& operator*() const
+        {
+            return *_storage;
+        }
 
-        T* operator->() const;
+        T* operator->() const
+        {
+            return _storage.get();
+        }
 
-        explicit operator bool() const;
+        explicit operator bool() const
+        {
+            return static_cast<bool>(_storage);
+        }
 
       private:
-        explicit Ref(std::shared_ptr<T> storage);
+        explicit Ref(std::shared_ptr<T> storage)
+            : _storage(std::move(storage))
+        {
+        }
 
         std::shared_ptr<T> _storage;
 
@@ -119,29 +191,50 @@ namespace tbx
     class WeakRef
     {
       public:
-        WeakRef();
-        WeakRef(const WeakRef&);
-        WeakRef(WeakRef&&) noexcept;
-        WeakRef& operator=(const WeakRef&);
-        WeakRef& operator=(WeakRef&&) noexcept;
+        WeakRef() = default;
+        WeakRef(const WeakRef&) = default;
+        WeakRef(WeakRef&&) noexcept = default;
+        WeakRef& operator=(const WeakRef&) = default;
+        WeakRef& operator=(WeakRef&&) noexcept = default;
 
-        WeakRef(const Ref<T>& reference);
+        WeakRef(const Ref<T>& reference)
+            : _storage(reference._storage)
+        {
+        }
 
-        WeakRef& operator=(const Ref<T>& reference);
+        WeakRef& operator=(const Ref<T>& reference)
+        {
+            _storage = reference._storage;
+            return *this;
+        }
 
-        bool is_valid() const;
+        bool is_valid() const
+        {
+            return !_storage.expired();
+        }
 
-        void reset();
+        void reset()
+        {
+            _storage.reset();
+        }
 
-        Ref<T> lock() const;
+        Ref<T> lock() const
+        {
+            return Ref<T>(_storage.lock());
+        }
 
-        T* get_raw() const;
+        T* get_raw() const
+        {
+            std::shared_ptr<T> shared = _storage.lock();
+            return shared ? shared.get() : nullptr;
+        }
 
-        explicit operator bool() const;
+        explicit operator bool() const
+        {
+            return is_valid();
+        }
 
       private:
         std::weak_ptr<T> _storage;
     };
 }
-
-#include "../../../src/std/smart_pointers.inl"

@@ -6,7 +6,7 @@
 
 namespace tbx
 {
-    std::string sanitize_string_for_file_name_usage(const std::string_view value)
+    String sanitize_string_for_file_name_usage(const std::string_view value)
     {
         std::string result;
         result.reserve(value.size());
@@ -37,7 +37,7 @@ namespace tbx
         return result;
     }
 
-    std::string get_filename_from_string_path(const std::string_view path)
+    String get_filename_from_string_path(const std::string_view path)
     {
         if (path.empty())
         {

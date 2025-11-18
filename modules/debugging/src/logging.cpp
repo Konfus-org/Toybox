@@ -1,6 +1,7 @@
 #include "tbx/debugging/logging.h"
 #include "tbx/file_system/filesystem_ops.h"
 #include "tbx/file_system/string_path_operations.h"
+#include "tbx/std/string.h"
 #include <filesystem>
 #include <string>
 
@@ -11,14 +12,16 @@ namespace tbx
         std::string_view base_name,
         int index)
     {
-        std::string sanitized = tbx::sanitize_string_for_file_name_usage(base_name);
+        const String sanitized = sanitize_string_for_file_name_usage(base_name);
 
         if (index <= 0)
         {
-            return directory / (sanitized + ".log");
+            const String target = sanitized + ".log";
+            return directory / target.get_raw();
         }
 
-        return directory / (sanitized + "_" + std::to_string(index) + ".log");
+        const String target = sanitized + "_" + String(std::to_string(index)) + ".log";
+        return directory / target.get_raw();
     }
 
     std::filesystem::path calculate_log_path(

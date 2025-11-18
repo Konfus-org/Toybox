@@ -4,12 +4,12 @@
 #include "tbx/messages/handler.h"
 #include "tbx/time/cancellation_token.h"
 #include "tbx/std/casting.h"
+#include "tbx/std/string.h"
 #include "tbx/time/time_span.h"
 #include <atomic>
 #include <chrono>
 #include <memory>
 #include <stdexcept>
-#include <string>
 #include <typeinfo>
 #include <thread>
 
@@ -446,7 +446,7 @@ namespace tbx::tests::app
         {
             auto& mutable_msg = const_cast<::tbx::Message&>(message);
             mutable_msg.state = ::tbx::MessageState::Handled;
-            mutable_msg.payload = std::string("ready");
+            mutable_msg.payload = tbx::String("ready");
         });
 
         ::tbx::Message msg;
@@ -459,8 +459,8 @@ namespace tbx::tests::app
 
         EXPECT_TRUE(result.succeeded());
         EXPECT_TRUE(msg.payload.has_value());
-        EXPECT_TRUE(tbx::is<std::string>(msg.payload));
-        EXPECT_EQ(msg.payload.get_value<std::string>(), "ready");
+        EXPECT_TRUE(tbx::is<tbx::String>(msg.payload));
+        EXPECT_EQ(msg.payload.get_value<tbx::String>(), "ready");
     }
 
     TEST(dispatcher_send_timeout, marks_result_as_timed_out)

@@ -3,6 +3,7 @@
 #include "tbx/messages/log_commands.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/dispatcher_context.h"
+#include "tbx/std/string.h"
 #include <format>
 #include <iostream>
 #include <source_location>
@@ -19,39 +20,40 @@ namespace tbx
     // Thread-safety: Not inherently thread-safe; intended for use on the main
     // thread unless the dispatcher implementation provides concurrency.
 
-    inline std::string format_log_message(const std::string& message)
+    inline String format_log_message(const String& message)
     {
         return message;
     }
 
-    inline std::string format_log_message(std::string_view message)
+    inline String format_log_message(std::string_view message)
     {
-        return std::string(message);
+        return String(message.data(), static_cast<uint>(message.size()));
     }
 
-    inline std::string format_log_message(const char* message)
+    inline String format_log_message(const char* message)
     {
-        return message ? std::string(message) : std::string();
+        return message ? String(message) : String();
     }
     
     template <typename... Args>
         requires(sizeof...(Args) > 0)
-    std::string format_log_message(std::string_view fmt, Args&&... args)
+    String format_log_message(std::string_view fmt, Args&&... args)
     {
         // Pass arguments as lvalues to avoid binding rvalues to non-const references
         // inside std::make_format_args on some standard library implementations.
         auto arguments = std::make_tuple(std::forward<Args>(args)...);
-        return std::apply(
+        std::string formatted = std::apply(
             [&](auto&... tuple_args)
             { return std::vformat(fmt, std::make_format_args(tuple_args...)); },
             arguments);
+        return formatted;
     }
 
     inline void cout(
         LogLevel level,
         const char* file,
         int line,
-        const std::string& message,
+        const String& message,
         bool warn_if_first = false)
     {
         static bool warned = false;
@@ -61,7 +63,7 @@ namespace tbx
             warned = true;
         }
         std::cout << '[' << to_string(level) << "] " << (file ? file : "<unknown>") << ':' << line
-                  << " - " << message << "\n";
+                  << " - " << message.get_raw() << "\n";
     }
 
     inline void trace(
@@ -69,12 +71,12 @@ namespace tbx
         LogLevel level,
         const char* file,
         int line,
-        const std::string& message)
+        const String& message)
     {
         LogMessageCommand cmd;
         cmd.level = level;
         cmd.message = message;
-        cmd.file = file ? std::string(file) : std::string();
+        cmd.file = file ? String(file) : String();
         cmd.line = line;
         auto result = dispatcher.send(cmd);
         if (!result)
@@ -84,7 +86,7 @@ namespace tbx
     }
 
     // Convenience: uses the thread-local current dispatcher if one is set.
-    inline void trace(LogLevel level, const char* file, int line, const std::string& message)
+    inline void trace(LogLevel level, const char* file, int line, const String& message)
     {
         if (IMessageDispatcher* d = current_dispatcher())
         {

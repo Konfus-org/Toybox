@@ -14,36 +14,69 @@ namespace tbx
         using iterator = typename Storage::iterator;
         using const_iterator = typename Storage::const_iterator;
 
-        Array();
+        Array() = default;
         Array(const Array&) = default;
         Array(Array&&) noexcept = default;
         ~Array() = default;
-        Array(std::initializer_list<T> init);
+        Array(std::initializer_list<T> init)
+        {
+            auto src = init.begin();
+            size_t index = 0;
+            while (src != init.end() && index < Size)
+            {
+                _storage[index++] = *src++;
+            }
+        }
 
-        static constexpr uint get_count();
+        static constexpr uint get_count()
+        {
+            return static_cast<uint>(Size);
+        }
 
-        T* get_raw();
+        T* get_raw()
+        {
+            return _storage.data();
+        }
 
-        const T* get_raw() const;
+        const T* get_raw() const
+        {
+            return _storage.data();
+        }
 
-        iterator begin();
+        iterator begin()
+        {
+            return _storage.begin();
+        }
 
-        iterator end();
+        iterator end()
+        {
+            return _storage.end();
+        }
 
-        const_iterator begin() const;
+        const_iterator begin() const
+        {
+            return _storage.begin();
+        }
 
-        const_iterator end() const;
+        const_iterator end() const
+        {
+            return _storage.end();
+        }
 
         Array& operator=(const Array&) = default;
         Array& operator=(Array&&) noexcept = default;
 
-        T& operator[](uint index);
+        T& operator[](uint index)
+        {
+            return _storage[index];
+        }
 
-        const T& operator[](uint index) const;
+        const T& operator[](uint index) const
+        {
+            return _storage[index];
+        }
 
       private:
         Storage _storage = {};
     };
 }
-
-#include "../../../src/std/array.inl"

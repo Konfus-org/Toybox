@@ -1,9 +1,9 @@
 #include "tbx/app/app_message_coordinator.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/std/smart_pointers.h"
+#include "tbx/std/string.h"
 #include <chrono>
 #include <exception>
-#include <string>
 #include <string_view>
 
 namespace tbx
@@ -33,7 +33,7 @@ namespace tbx
     static void update_result_for_state(
         const Message& msg,
         const MessageState state,
-        const std::string& message)
+        const String& message)
     {
         switch (state)
         {
@@ -47,8 +47,8 @@ namespace tbx
             case MessageState::Failed:
             case MessageState::TimedOut:
             {
-                std::string resolved = message;
-                if (resolved.empty())
+                String resolved = message;
+                if (resolved.is_empty())
                 {
                     const String& current = msg.result.get_report();
                     if (current.is_empty())
@@ -91,13 +91,13 @@ namespace tbx
             }
             case MessageState::InProgress:
             {
-                if (!message.empty())
+                if (!message.is_empty())
                 {
                     msg.result.flag_failure(message);
                 }
                 else
                 {
-                    msg.result.flag_failure(std::string());
+                    msg.result.flag_failure(String());
                 }
                 break;
             }
@@ -149,9 +149,9 @@ namespace tbx
         }
     }
 
-    static void apply_state(Message& msg, MessageState state, const std::string& reason)
+    static void apply_state(Message& msg, MessageState state, const String& reason)
     {
-        if (msg.state == state && reason.empty())
+        if (msg.state == state && reason.is_empty())
         {
             return;
         }
@@ -168,7 +168,7 @@ namespace tbx
             return;
         }
 
-        update_result_for_state(msg, msg.state, std::string());
+        update_result_for_state(msg, msg.state, String());
         dispatch_state_callbacks(msg, msg.state);
     }
 
@@ -184,8 +184,9 @@ namespace tbx
             return true;
         }
 
-        std::string resolved =
-            reason.empty() ? std::string("Message was cancelled.") : std::string(reason);
+        String resolved =
+            reason.empty() ? String("Message was cancelled.")
+                           : String(reason.data(), static_cast<uint>(reason.size()));
         apply_state(msg, MessageState::Cancelled, resolved);
 
         return true;
@@ -319,7 +320,7 @@ namespace tbx
             }
             else
             {
-                apply_state(msg, MessageState::Processed, std::string());
+                apply_state(msg, MessageState::Processed, String());
             }
         }
     }
@@ -329,7 +330,7 @@ namespace tbx
         reset_message(msg);
         if (msg.delay_in_ticks || msg.delay_in_seconds)
         {
-            std::string reason = "send() does not support delayed delivery.";
+            String reason = "send() does not support delayed delivery.";
             apply_state(msg, MessageState::Failed, reason);
             TBX_ASSERT(false, "Message delays are incompatible with send().");
             return msg.result;
@@ -369,7 +370,7 @@ namespace tbx
 
         if (msg.delay_in_ticks && msg.delay_in_seconds)
         {
-            std::string reason = "Message cannot specify both tick and time delays.";
+            String reason = "Message cannot specify both tick and time delays.";
             apply_state(mutable_msg, MessageState::Failed, reason);
             TBX_ASSERT(false, "Message cannot specify both tick and time delays.");
             return mutable_msg.result;

@@ -13,22 +13,22 @@ namespace tbx
         return _success && *_success;
     }
 
-    void Result::flag_success(std::string message) const
+    void Result::flag_success(String message) const
     {
         auto mutable_self = const_cast<Result*>(this);
         mutable_self->ensure_success();
         mutable_self->ensure_message();
         *_success = true;
-        *_report = String(message.c_str(), static_cast<uint>(message.size()));
+        *_report = std::move(message);
     }
 
-    void Result::flag_failure(std::string message) const
+    void Result::flag_failure(String message) const
     {
         auto mutable_self = const_cast<Result*>(this);
         mutable_self->ensure_success();
         mutable_self->ensure_message();
         *_success = false;
-        *_report = String(message.c_str(), static_cast<uint>(message.size()));
+        *_report = std::move(message);
     }
 
     const String& Result::get_report() const

@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/std/string.h"
 #include "tbx/tbx_api.h"
 #include <chrono>
 
@@ -30,7 +31,7 @@ namespace tbx
         std::chrono::steady_clock::time_point _last;
     };
 
-    inline std::string to_string(const DeltaTime& dt)
+    inline String to_string(const DeltaTime& dt)
     {
         return std::to_string(dt.seconds) + "s";
     }

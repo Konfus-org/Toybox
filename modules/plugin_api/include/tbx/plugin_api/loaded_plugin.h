@@ -10,7 +10,7 @@ namespace tbx
     class Plugin; // Forward declaration to avoid circular dependency
 
     using PluginDeleter = std::function<void(Plugin*)>;
-    using PluginInstance = tbx::Scope<Plugin, PluginDeleter>;
+    using PluginInstance = Scope<Plugin, PluginDeleter>;
 
     // Represents an owned plugin instance along with its loading metadata
     // and (optionally) the dynamic library used to load it.
@@ -20,7 +20,7 @@ namespace tbx
     struct TBX_API LoadedPlugin
     {
         PluginMeta meta;
-        tbx::Scope<SharedLibrary> library; // only set for dynamic plugins
+        Scope<SharedLibrary> library; // only set for dynamic plugins
         PluginInstance instance;
     };
 }

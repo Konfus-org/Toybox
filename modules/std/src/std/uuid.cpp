@@ -11,10 +11,10 @@ namespace tbx
         // Fill with random bytes
         std::random_device rd;
         std::mt19937_64 gen(rd());
-        for (uint i = 0; i < static_cast<uint>(id.bytes.size()); i += 8)
+        for (uint i = 0; i < id.bytes.get_count(); i += 8)
         {
             const auto r = gen();
-            const uint remaining = static_cast<uint>(id.bytes.size()) - i;
+            const uint remaining = id.bytes.get_count() - i;
             const uint count = remaining < 8 ? remaining : 8;
             for (uint j = 0; j < count; ++j)
             {
@@ -61,13 +61,13 @@ namespace tbx
         return a ^ (b + 0x9e3779b97f4a7c15ull + (a << 6) + (a >> 2));
     }
 
-    std::string to_string(const Uuid& id)
+    String to_string(const Uuid& id)
     {
         static const char* hex = "0123456789abcdef";
         std::string s;
         s.reserve(36);
 
-        for (uint i = 0; i < static_cast<uint>(id.bytes.size()); ++i)
+        for (uint i = 0; i < id.bytes.get_count(); ++i)
         {
             if (i == 4 || i == 6 || i == 8 || i == 10)
             {

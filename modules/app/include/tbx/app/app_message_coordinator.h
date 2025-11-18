@@ -26,7 +26,7 @@ namespace tbx
         AppQueuedMessage(AppQueuedMessage&&) = default;
         AppQueuedMessage& operator=(AppQueuedMessage&&) = default;
 
-        tbx::Scope<Message> message;
+        Scope<Message> message;
         Result result;
         Timer timer;
         std::chrono::steady_clock::time_point timeout_deadline;

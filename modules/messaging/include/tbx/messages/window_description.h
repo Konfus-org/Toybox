@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/std/string.h"
 #include "tbx/tbx_api.h"
 #include "tbx/std/size.h"
 #include "tbx/std/uuid.h"
@@ -25,7 +26,7 @@ namespace tbx
     {
         Size size = {1280, 720};
         WindowMode mode = WindowMode::Windowed;
-        std::string title = "Toybox";
+        String title = "Toybox";
         Uuid id = Uuid::generate();
     };
 }

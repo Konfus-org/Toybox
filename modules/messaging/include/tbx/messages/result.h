@@ -18,9 +18,9 @@ namespace tbx
         bool succeeded() const;
 
         // Marks the result as a success. Report is optional.
-        void flag_success(std::string report = "") const;
+        void flag_success(String report = "") const;
         // Marks the result as a failure. A report is required on failure.
-        void flag_failure(std::string report) const;
+        void flag_failure(String report) const;
 
         // Returns the report associated with the result.
         const String& get_report() const;

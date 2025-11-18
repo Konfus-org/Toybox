@@ -6,10 +6,10 @@ namespace tbx::examples
 {
     void ExampleRuntimePlugin::on_attach(Application&)
     {
-        tbx::String greeting = tbx::String(
+        String greeting = String(
             "   Welcome to the plugin example! "
             "This plugin just loads a logger and a window.   ");
-        tbx::String message = tbx::get_trimmed(greeting);
+        String message = get_trimmed(greeting);
 
         TBX_TRACE_INFO("%s", message.get_raw());
     }

@@ -4,6 +4,7 @@
 #include <cctype>
 #include <cstring>
 #include <string>
+#include <utility>
 
 static uint tbx_calculate_length(const char* text)
 {
@@ -59,9 +60,31 @@ namespace tbx
     {
     }
 
+    String::String(const std::string& other)
+        : _storage(other)
+    {
+    }
+
+    String::String(std::string&& other) noexcept
+        : _storage(std::move(other))
+    {
+    }
+
     String& String::operator=(const char* text)
     {
         _storage = text ? text : "";
+        return *this;
+    }
+
+    String& String::operator=(const std::string& other)
+    {
+        _storage = other;
+        return *this;
+    }
+
+    String& String::operator=(std::string&& other) noexcept
+    {
+        _storage = std::move(other);
         return *this;
     }
 
@@ -98,6 +121,11 @@ namespace tbx
     String::operator char*()
     {
         return get_raw();
+    }
+
+    String::operator std::string() const
+    {
+        return _storage;
     }
 
     bool operator==(const String& lhs, const String& rhs)
