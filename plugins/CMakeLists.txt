@@ -5,10 +5,10 @@ message(STATUS "Configuring Toybox Plugins:")
 
 set(CMAKE_FOLDER "Plugins")
 
-add_subdirectory(spdconsolelogger)
-add_subdirectory(spdfilelogger)
-add_subdirectory(sdladapter)
-add_subdirectory(sdlwindowing)
+add_subdirectory(spd_console_logger)
+add_subdirectory(spd_file_logger)
+add_subdirectory(sdl_adapter)
+add_subdirectory(sdl_windowing)
 
 unset(CMAKE_FOLDER)
 message(STATUS "")
