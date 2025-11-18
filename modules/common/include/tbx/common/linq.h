@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/std/list.h"
 #include "tbx/std/int.h"
+#include "tbx/std/list.h"
 #include <cstddef>
 #include <functional>
 #include <ranges>
@@ -14,7 +14,7 @@ namespace tbx::linq
     using Decayed = std::decay_t<TResult>;
 
     template <std::ranges::range Range>
-    inline void reserve_if_possible(List<std::ranges::range_value_t<Range>>& values, const Range& range)
+    inline void reserve(List<std::ranges::range_value_t<Range>>& values, const Range& range)
     {
         if constexpr (std::ranges::sized_range<Range>)
         {
@@ -34,16 +34,11 @@ namespace tbx::linq
         return result;
     }
 
-    template <std::ranges::input_range Range>
-    inline List<std::ranges::range_value_t<Range>> to_vector(const Range& range)
-    {
-        return to_list(range);
-    }
-
     template <std::ranges::input_range Range, typename Projection>
     inline auto select(const Range& range, Projection&& projection)
     {
-        using Result = Decayed<std::invoke_result_t<Projection&, std::ranges::range_reference_t<Range>>>;
+        using Result =
+            Decayed<std::invoke_result_t<Projection&, std::ranges::range_reference_t<Range>>>;
         List<Result> result;
         reserve_if_possible(result, range);
         for (auto&& value : range)

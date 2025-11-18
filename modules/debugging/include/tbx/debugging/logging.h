@@ -1,8 +1,8 @@
 #pragma once
 #include "tbx/file_system/filesystem_ops.h"
-#include "tbx/messages/log_commands.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/dispatcher_context.h"
+#include "tbx/messages/log_commands.h"
 #include "tbx/std/string.h"
 #include <format>
 #include <iostream>
@@ -14,12 +14,6 @@
 
 namespace tbx
 {
-    // Logging helpers that dispatch log messages through the current message
-    // dispatcher when available, or write to stdout as a fallback.
-    // Ownership: Non-owning; callers manage dispatcher and message lifetimes.
-    // Thread-safety: Not inherently thread-safe; intended for use on the main
-    // thread unless the dispatcher implementation provides concurrency.
-
     inline String format_log_message(const String& message)
     {
         return message;
@@ -34,7 +28,7 @@ namespace tbx
     {
         return message ? String(message) : String();
     }
-    
+
     template <typename... Args>
         requires(sizeof...(Args) > 0)
     String format_log_message(std::string_view fmt, Args&&... args)
@@ -44,7 +38,9 @@ namespace tbx
         auto arguments = std::make_tuple(std::forward<Args>(args)...);
         std::string formatted = std::apply(
             [&](auto&... tuple_args)
-            { return std::vformat(fmt, std::make_format_args(tuple_args...)); },
+            {
+                return std::vformat(fmt, std::make_format_args(tuple_args...));
+            },
             arguments);
         return formatted;
     }
