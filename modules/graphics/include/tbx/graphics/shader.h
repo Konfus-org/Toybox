@@ -1,15 +1,15 @@
 #pragma once
 #include "tbx/graphics/color.h"
 #include "tbx/math/math.h"
-#include "tbx/std/smart_pointers.h"
-#include "tbx/std/uuid.h"
+#include "tbx/common/smart_pointers.h"
+#include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
 #include <string>
 #include <variant>
 
 namespace tbx
 {
-    using UniformData = std::variant<bool, int, float, math::vec2, math::vec3, RgbaColor, math::mat4>;
+    using UniformData = std::variant<bool, int, float, vec2, vec3, RgbaColor, mat4>;
 
     /// <summary>
     /// A uniform variable that can be uploaded to a shader.

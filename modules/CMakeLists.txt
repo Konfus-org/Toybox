@@ -14,7 +14,7 @@ message(STATUS "   TBX_VERB_LOGGING: ${TBX_VERB_LOGGING}")
 
 set(CMAKE_FOLDER "Modules")
 
-add_subdirectory(std)
+add_subdirectory(common)
 add_subdirectory(file_system)
 add_subdirectory(debugging)
 add_subdirectory(math)
@@ -26,7 +26,7 @@ add_subdirectory(app)
 
 set(CMAKE_FOLDER "Tests")
 
-add_subdirectory(std/tests)
+add_subdirectory(common/tests)
 add_subdirectory(file_system/tests)
 add_subdirectory(time/tests)
 add_subdirectory(messaging/tests)

@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/mesh.h"
-#include "tbx/std/uuid.h"
+#include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
 
 namespace tbx

@@ -1,9 +1,9 @@
 #pragma once
 #include "tbx/plugin_api/plugin_linkage.h"
-#include "tbx/std/list.h"
-#include "tbx/std/string.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
+#include <string>
+#include <vector>
 
 namespace tbx
 {
@@ -11,19 +11,19 @@ namespace tbx
     struct TBX_API PluginMeta
     {
         // Unique identifier for the plugin used to resolve dependencies and lookup.
-        String name;
+        std::string name;
 
         // Semantic version string reported by the plugin.
-        String version;
+        std::string version;
 
         // Optional descriptive text explaining the plugin purpose.
-        String description;
+        std::string description;
 
         // Primary classification for the plugin such as renderer or logger.
-        String type;
+        std::string type;
 
         // Hard dependencies that must be satisfied before loading this plugin.
-        List<String> dependencies;
+        std::vector<std::string> dependencies;
 
         PluginLinkage linkage = PluginLinkage::Dynamic;
 
@@ -42,12 +42,14 @@ namespace tbx
 
     // Parses plugin metadata from raw manifest text.
     PluginMeta TBX_API parse_plugin_meta(
-        const String& manifest_text,
+        const std::string& manifest_text,
         const std::filesystem::path& manifest_path);
 
     // Orders plugins for loading while respecting dependencies and logger priority.
-    List<PluginMeta> TBX_API resolve_plugin_load_order(const List<PluginMeta>& plugins);
+    std::vector<PluginMeta> TBX_API resolve_plugin_load_order(
+        const std::vector<PluginMeta>& plugins);
 
     // Produces the unload order by reversing the computed load order.
-    List<PluginMeta> TBX_API resolve_plugin_unload_order(const List<PluginMeta>& plugins);
+    std::vector<PluginMeta> TBX_API resolve_plugin_unload_order(
+        const std::vector<PluginMeta>& plugins);
 }

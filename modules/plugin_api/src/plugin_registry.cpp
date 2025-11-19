@@ -1,11 +1,7 @@
 #include "tbx/plugin_api/plugin_registry.h"
-#include "tbx/std/string.h"
+#include "tbx/common/string_extensions.h"
 #include <algorithm>
-
-static std::string tbx_copy_string(const tbx::String& value)
-{
-    return std::string(value.get_raw(), value.get_raw() + value.get_length());
-}
+#include <string>
 
 namespace tbx
 {
@@ -20,16 +16,13 @@ namespace tbx
         if (std::ranges::find(_plugins, plugin) == _plugins.end())
         {
             _plugins.push_back(plugin);
-            const tbx::String lowered_string = tbx::get_lower_case(name.c_str());
-            const std::string lowered = tbx_copy_string(lowered_string);
-            _plugins_by_name[lowered] = plugin;
+            _plugins_by_name[to_lower_case_string(name)] = plugin;
         }
     }
 
     void PluginRegistry::unregister_plugin(const std::string& name)
     {
-        const tbx::String lowered_string = tbx::get_lower_case(name.c_str());
-        const std::string lowered = tbx_copy_string(lowered_string);
+        const std::string lowered = to_lower_case_string(name);
         auto p = _plugins_by_name.at(lowered);
         _plugins_by_name.erase(lowered);
         std::erase(_plugins, p);
@@ -63,8 +56,7 @@ namespace tbx
             return nullptr;
         }
 
-        const tbx::String lowered_string = tbx::get_lower_case(name.c_str());
-        const std::string key = tbx_copy_string(lowered_string);
+        const std::string key = to_lower_case_string(name);
         const auto it = _plugins_by_name.find(key);
         if (it == _plugins_by_name.end())
         {

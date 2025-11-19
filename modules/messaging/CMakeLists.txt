@@ -16,7 +16,6 @@ target_include_directories(Messaging
 
 target_link_libraries(Messaging
     PUBLIC
-        Tbx::Std
         Tbx::Time
         Tbx::Math
 )

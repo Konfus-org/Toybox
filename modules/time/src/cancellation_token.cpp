@@ -4,7 +4,7 @@
 namespace tbx
 {
     CancellationSource::CancellationSource()
-        : _state(tbx::Ref<std::atomic<bool>>(false))
+        : _state(Ref<std::atomic<bool>>(false))
     {
     }
 
@@ -26,7 +26,7 @@ namespace tbx
         return _state && _state->load(std::memory_order_acquire);
     }
 
-    CancellationToken::CancellationToken(tbx::Ref<std::atomic<bool>> state)
+    CancellationToken::CancellationToken(Ref<std::atomic<bool>> state)
         : _state(std::move(state))
     {
     }

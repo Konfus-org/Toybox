@@ -107,7 +107,7 @@ namespace tbx::tests::plugin_loader
 {
     TEST(plugin_loader, loads_static_plugin_from_meta_list)
     {
-        auto loaded = ::tbx::load_plugins(std::vector<::tbx::PluginMeta>{make_static_meta()});
+        auto loaded = load_plugins(std::vector<PluginMeta>{make_static_meta()});
         ASSERT_EQ(loaded.size(), 1u);
         EXPECT_NE(loaded[0].instance.get(), nullptr);
     }
@@ -126,7 +126,7 @@ namespace tbx::tests::plugin_loader
                 "static": true
             })");
 
-        auto loaded = ::tbx::load_plugins(std::filesystem::path("virtual"), {}, ops);
+        auto loaded = load_plugins(std::filesystem::path("virtual"), {}, ops);
         ASSERT_EQ(loaded.size(), 1u);
         EXPECT_NE(loaded[0].instance.get(), nullptr);
     }

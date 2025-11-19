@@ -4,7 +4,7 @@ namespace tbx
 {
     Result::Result()
         : _success(Ref<bool>(false))
-        , _report(Ref<String>(String()))
+        , _report(Ref<std::string>(std::string()))
     {
     }
 
@@ -13,7 +13,7 @@ namespace tbx
         return _success && *_success;
     }
 
-    void Result::flag_success(String message) const
+    void Result::flag_success(std::string message) const
     {
         auto mutable_self = const_cast<Result*>(this);
         mutable_self->ensure_success();
@@ -22,7 +22,7 @@ namespace tbx
         *_report = std::move(message);
     }
 
-    void Result::flag_failure(String message) const
+    void Result::flag_failure(std::string message) const
     {
         auto mutable_self = const_cast<Result*>(this);
         mutable_self->ensure_success();
@@ -31,7 +31,7 @@ namespace tbx
         *_report = std::move(message);
     }
 
-    const String& Result::get_report() const
+    const std::string& Result::get_report() const
     {
         ensure_message();
         return *_report;
@@ -50,7 +50,7 @@ namespace tbx
         if (!_report)
         {
             auto mutable_self = const_cast<Result*>(this);
-            mutable_self->_report = Ref<String>(String());
+            mutable_self->_report = Ref<std::string>(std::string());
         }
     }
 }

@@ -1,8 +1,8 @@
 #pragma once
 #include "tbx/graphics/shader.h"
 #include "tbx/graphics/texture.h"
-#include "tbx/std/smart_pointers.h"
-#include "tbx/std/uuid.h"
+#include "tbx/common/smart_pointers.h"
+#include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
 #include <utility>
 #include <vector>

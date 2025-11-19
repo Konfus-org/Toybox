@@ -1,9 +1,9 @@
 #pragma once
-#include "tbx/std/array.h"
-#include "tbx/std/string.h"
-#include "tbx/std/int.h"
+#include "tbx/common/int.h"
 #include "tbx/tbx_api.h"
+#include <array>
 #include <cstdint>
+#include <string>
 
 namespace tbx
 {
@@ -12,7 +12,7 @@ namespace tbx
         static Uuid generate();
         bool is_valid() const;
 
-        Array<std::uint8_t, 16> bytes = {};
+        std::array<std::uint8_t, 16> bytes = {};
     };
 
     TBX_API bool operator==(const Uuid& a, const Uuid& b);
@@ -23,5 +23,5 @@ namespace tbx
         uint64 operator()(const Uuid& id) const;
     };
 
-    TBX_API String to_string(const Uuid& id);
+    TBX_API std::string to_string(const Uuid& id);
 }

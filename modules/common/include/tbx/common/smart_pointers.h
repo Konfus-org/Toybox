@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/std/int.h"
+#include "tbx/common/int.h"
 #include <memory>
 #include <type_traits>
 #include <utility>

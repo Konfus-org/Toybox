@@ -1,9 +1,8 @@
 #include "tbx/app/app_message_coordinator.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/std/smart_pointers.h"
-#include "tbx/std/string.h"
 #include <chrono>
 #include <exception>
+#include <string>
 #include <string_view>
 
 namespace tbx
@@ -33,7 +32,7 @@ namespace tbx
     static void update_result_for_state(
         const Message& msg,
         const MessageState state,
-        const String& message)
+        const std::string& message)
     {
         switch (state)
         {
@@ -47,11 +46,11 @@ namespace tbx
             case MessageState::Failed:
             case MessageState::TimedOut:
             {
-                String resolved = message;
-                if (resolved.is_empty())
+                std::string resolved = message;
+                if (resolved.empty())
                 {
-                    const String& current = msg.result.get_report();
-                    if (current.is_empty())
+                    const std::string& current = msg.result.get_report();
+                    if (current.empty())
                     {
                         if (state == MessageState::Failed)
                         {
@@ -69,35 +68,35 @@ namespace tbx
                 }
 
                 msg.result.flag_failure(resolved);
-                const String& text = msg.result.get_report();
-                if (!text.is_empty())
+                const std::string& text = msg.result.get_report();
+                if (!text.empty())
                 {
                     if (state == MessageState::Failed)
                     {
                         TBX_TRACE_ERROR(
                             "Message {} failed: {}",
                             to_string(msg.id).c_str(),
-                            text.get_raw());
+                            text.c_str());
                     }
                     else if (state == MessageState::TimedOut)
                     {
                         TBX_TRACE_WARNING(
                             "Message {} timed out: {}",
                             to_string(msg.id).c_str(),
-                            text.get_raw());
+                            text.c_str());
                     }
                 }
                 break;
             }
             case MessageState::InProgress:
             {
-                if (!message.is_empty())
+                if (!message.empty())
                 {
                     msg.result.flag_failure(message);
                 }
                 else
                 {
-                    msg.result.flag_failure(String());
+                    msg.result.flag_failure(std::string());
                 }
                 break;
             }
@@ -149,9 +148,9 @@ namespace tbx
         }
     }
 
-    static void apply_state(Message& msg, MessageState state, const String& reason)
+    static void apply_state(Message& msg, MessageState state, const std::string& reason)
     {
-        if (msg.state == state && reason.is_empty())
+        if (msg.state == state && reason.empty())
         {
             return;
         }
@@ -168,7 +167,7 @@ namespace tbx
             return;
         }
 
-        update_result_for_state(msg, msg.state, String());
+        update_result_for_state(msg, msg.state, std::string());
         dispatch_state_callbacks(msg, msg.state);
     }
 
@@ -184,9 +183,8 @@ namespace tbx
             return true;
         }
 
-        String resolved =
-            reason.empty() ? String("Message was cancelled.")
-                           : String(reason.data(), static_cast<uint>(reason.size()));
+        std::string resolved = reason.empty() ? std::string("Message was cancelled.")
+                                              : std::string(reason);
         apply_state(msg, MessageState::Cancelled, resolved);
 
         return true;
@@ -210,8 +208,8 @@ namespace tbx
     void AppMessageCoordinator::remove_handler(const Uuid& token)
     {
         std::lock_guard lock(_handlers_mutex);
-        List<std::pair<Uuid, MessageHandler>> next;
-        next.reserve(_handlers.get_count());
+        std::vector<std::pair<Uuid, MessageHandler>> next;
+        next.reserve(_handlers.size());
         for (auto& entry : _handlers)
         {
             if (entry.first != token)
@@ -234,7 +232,7 @@ namespace tbx
     void AppMessageCoordinator::dispatch(Message& msg, std::chrono::steady_clock::time_point deadline)
         const
     {
-        List<std::pair<Uuid, MessageHandler>> handlers_snapshot;
+        std::vector<std::pair<Uuid, MessageHandler>> handlers_snapshot;
         {
             std::lock_guard lock(_handlers_mutex);
             handlers_snapshot = _handlers;
@@ -320,7 +318,7 @@ namespace tbx
             }
             else
             {
-                apply_state(msg, MessageState::Processed, String());
+                apply_state(msg, MessageState::Processed, std::string());
             }
         }
     }
@@ -330,7 +328,7 @@ namespace tbx
         reset_message(msg);
         if (msg.delay_in_ticks || msg.delay_in_seconds)
         {
-            String reason = "send() does not support delayed delivery.";
+            std::string reason = "send() does not support delayed delivery.";
             apply_state(msg, MessageState::Failed, reason);
             TBX_ASSERT(false, "Message delays are incompatible with send().");
             return msg.result;
@@ -370,7 +368,7 @@ namespace tbx
 
         if (msg.delay_in_ticks && msg.delay_in_seconds)
         {
-            String reason = "Message cannot specify both tick and time delays.";
+            std::string reason = "Message cannot specify both tick and time delays.";
             apply_state(mutable_msg, MessageState::Failed, reason);
             TBX_ASSERT(false, "Message cannot specify both tick and time delays.");
             return mutable_msg.result;
@@ -435,7 +433,7 @@ namespace tbx
     {
         const auto now = std::chrono::steady_clock::now();
 
-        List<AppQueuedMessage> processing;
+        std::vector<AppQueuedMessage> processing;
         {
             std::lock_guard<std::mutex> lock(_queue_mutex);
             processing.swap(_pending);

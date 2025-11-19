@@ -2,8 +2,8 @@
 #include "tbx/app/application.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/app/window_events.h"
-#include "tbx/std/casting.h"
-#include "tbx/std/smart_pointers.h"
+#include "tbx/common/casting.h"
+#include "tbx/common/smart_pointers.h"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -174,31 +174,31 @@ namespace tbx::plugins::sdlwindowing
 
     void SdlWindowingPlugin::on_message(Message& msg)
     {
-        if (auto* create = tbx::as<CreateWindowCommand>(&msg))
+        if (auto* create = as<CreateWindowCommand>(&msg))
         {
             handle_create_window(*create);
             return;
         }
 
-        if (auto* open = tbx::as<OpenWindowCommand>(&msg))
+        if (auto* open = as<OpenWindowCommand>(&msg))
         {
             handle_open_window(*open);
             return;
         }
 
-        if (auto* query = tbx::as<QueryWindowDescriptionCommand>(&msg))
+        if (auto* query = as<QueryWindowDescriptionCommand>(&msg))
         {
             handle_query_description(*query);
             return;
         }
 
-        if (auto* apply = tbx::as<ApplyWindowDescriptionCommand>(&msg))
+        if (auto* apply = as<ApplyWindowDescriptionCommand>(&msg))
         {
             handle_apply_description(*apply);
             return;
         }
 
-        if (auto* close = tbx::as<CloseWindowCommand>(&msg))
+        if (auto* close = as<CloseWindowCommand>(&msg))
         {
             handle_close_window(*close);
         }
@@ -254,7 +254,7 @@ namespace tbx::plugins::sdlwindowing
 
         const WindowDescription description = read_window_description(native, requested);
 
-        tbx::Scope<SdlWindowRecord> record(get_dispatcher(), native, description);
+        Scope<SdlWindowRecord> record(get_dispatcher(), native, description);
 
         command.payload = &record->window;
 
@@ -361,7 +361,7 @@ namespace tbx::plugins::sdlwindowing
 
         auto it = std::ranges::find_if(
             _windows,
-            [&command](const tbx::Scope<SdlWindowRecord>& record)
+            [&command](const Scope<SdlWindowRecord>& record)
             {
                 return record && &record->window == command.window;
             });
@@ -396,7 +396,7 @@ namespace tbx::plugins::sdlwindowing
     {
         auto it = std::ranges::find_if(
             _windows,
-            [&window](const tbx::Scope<SdlWindowRecord>& record)
+            [&window](const Scope<SdlWindowRecord>& record)
             {
                 return &record->window == &window;
             });

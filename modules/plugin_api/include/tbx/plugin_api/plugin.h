@@ -67,6 +67,7 @@ namespace tbx
 
     using CreatePluginFn = Plugin* (*)();
     using DestroyPluginFn = void (*)(Plugin*);
+}
 
 #if defined(TBX_PLATFORM_WINDOWS)
     #define TBX_PLUGIN_EXPORT extern "C" __declspec(dllexport)
@@ -98,5 +99,3 @@ namespace tbx
             &PluginName##_global_instance);                                                        \
         return true;                                                                               \
     }();
-
-}

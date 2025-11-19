@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/tbx_api.h"
-#include "tbx/std/smart_pointers.h"
+#include "tbx/common/smart_pointers.h"
 #include <atomic>
 
 namespace tbx
@@ -39,9 +39,9 @@ namespace tbx
         }
 
       private:
-        explicit CancellationToken(tbx::Ref<std::atomic<bool>> state);
+        explicit CancellationToken(Ref<std::atomic<bool>> state);
 
-        tbx::Ref<std::atomic<bool>> _state;
+        Ref<std::atomic<bool>> _state;
 
         friend class CancellationSource;
     };

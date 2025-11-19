@@ -7,7 +7,7 @@
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/plugin_api/plugin_registry.h"
 #include "tbx/time/delta_time.h"
-#include "tbx/std/casting.h"
+#include "tbx/common/casting.h"
 
 namespace tbx
 {
@@ -124,7 +124,7 @@ namespace tbx
 
     void Application::handle_message(const Message& msg)
     {
-        if (tbx::is<ExitApplicationCommand>(&msg))
+        if (is<ExitApplicationCommand>(&msg))
         {
             _should_exit = true;
         }

@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/std/smart_pointers.h"
-#include "tbx/std/variant.h"
+#include "tbx/common/smart_pointers.h"
+#include <any>
 
 namespace tbx
 {
@@ -14,12 +14,6 @@ namespace tbx
     inline bool is(const Ref<TFrom>& ref)
     {
         return is<TTo>(ref.get());
-    }
-
-    template <typename TTo>
-    inline bool is(const Variant& value)
-    {
-        return value.has_value() && value.is<TTo>();
     }
 
     template <typename TTo, typename TFrom>
@@ -44,28 +38,6 @@ namespace tbx
     inline const TTo* as(const TFrom& ptr)
     {
         return as<TTo>(&ptr);
-    }
-
-    template <typename TTo>
-    inline TTo* as(Variant& value)
-    {
-        if (is<TTo>(value))
-        {
-            return &value.get_value<TTo>();
-        }
-        return nullptr;
-    }
-
-    template <typename TTo>
-    inline TTo& as(Variant& value)
-    {
-        return value.get_value<TTo>();
-    }
-
-    template <typename TTo>
-    inline const TTo& as(const Variant& value)
-    {
-        return value.get_value<TTo>();
     }
 
     template <typename TTo, typename TFrom>
@@ -127,11 +99,35 @@ namespace tbx
     }
 
     template <typename TTo>
-    inline bool try_as(Variant& value, TTo*& out)
+    inline bool is(const std::any& value)
     {
-        if (is<TTo>(value))
+        return value.has_value() && value.type() == typeid(TTo);
+    }
+
+    template <typename TTo>
+    inline TTo* as(std::any& value)
+    {
+        return std::any_cast<TTo>(&value);
+    }
+
+    template <typename TTo>
+    inline TTo& as(std::any& value)
+    {
+        return std::any_cast<TTo&>(value);
+    }
+
+    template <typename TTo>
+    inline const TTo& as(const std::any& value)
+    {
+        return std::any_cast<const TTo&>(value);
+    }
+
+    template <typename TTo>
+    inline bool try_as(std::any& value, TTo*& out)
+    {
+        if (auto* converted = std::any_cast<TTo>(&value))
         {
-            out = &value.get_value<TTo>();
+            out = converted;
             return true;
         }
 
