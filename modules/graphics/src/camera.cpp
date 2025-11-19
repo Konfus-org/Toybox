@@ -69,29 +69,29 @@ namespace tbx
 
 namespace tbx
 {
-    math::mat4 get_camera_view_matrix(const math::vec3& camera_position, const math::quat& camera_rotation)
+    mat4 get_camera_view_matrix(const vec3& camera_position, const quat& camera_rotation)
     {
-        const math::mat4 rotation_matrix = math::mat4_cast(camera_rotation);
-        const math::mat4 inverse_rotation_matrix = math::inverse(rotation_matrix);
-        const math::mat4 translation_matrix = math::translate(math::mat4(1.0f), -camera_position);
+        const mat4 rotation_matrix = math::mat4_cast(camera_rotation);
+        const mat4 inverse_rotation_matrix = math::inverse(rotation_matrix);
+        const mat4 translation_matrix = math::translate(mat4(1.0f), -camera_position);
         return inverse_rotation_matrix * translation_matrix;
     }
 
-    math::mat4 get_camera_view_projection_matrix(
-        const math::vec3& camera_position,
-        const math::quat& camera_rotation,
-        const math::mat4& projection_matrix)
+    mat4 get_camera_view_projection_matrix(
+        const vec3& camera_position,
+        const quat& camera_rotation,
+        const mat4& projection_matrix)
     {
-        const math::mat4 view_matrix = get_camera_view_matrix(camera_position, camera_rotation);
+        const mat4 view_matrix = get_camera_view_matrix(camera_position, camera_rotation);
         return projection_matrix * view_matrix;
     }
 
     Frustum get_camera_frustum(
-        const math::vec3& camera_position,
-        const math::quat& camera_rotation,
-        const math::mat4& projection_matrix)
+        const vec3& camera_position,
+        const quat& camera_rotation,
+        const mat4& projection_matrix)
     {
-        const math::mat4 view_projection =
+        const mat4 view_projection =
             get_camera_view_projection_matrix(camera_position, camera_rotation, projection_matrix);
         return Frustum(view_projection);
     }

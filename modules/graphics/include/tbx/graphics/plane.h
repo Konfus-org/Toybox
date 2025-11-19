@@ -8,7 +8,7 @@ namespace tbx
 {
     struct TBX_API Plane
     {
-        math::vec3 normal = math::vec3(0.0f);
+        vec3 normal = vec3(0.0f);
         float distance = 0.0f;
 
         void normalize()

@@ -15,7 +15,6 @@ target_include_directories(App
 
 target_link_libraries(App
     PUBLIC
-        Tbx::Std
         Tbx::Time
         Tbx::Math
         Tbx::Messaging

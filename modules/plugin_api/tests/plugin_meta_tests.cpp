@@ -22,8 +22,8 @@ namespace tbx::tests::plugin_api
             })JSON";
         const std::filesystem::path manifest_path = "/virtual/plugin_api/example/logger/plugin.meta";
 
-        ::tbx::PluginMeta meta =
-            ::tbx::parse_plugin_meta(manifest_text, manifest_path);
+        PluginMeta meta =
+            parse_plugin_meta(manifest_text, manifest_path);
 
         EXPECT_EQ(meta.name, "Example.Logger");
         EXPECT_EQ(meta.version, "1.2.3");
@@ -34,7 +34,7 @@ namespace tbx::tests::plugin_api
         EXPECT_EQ(meta.root_directory, manifest_path.parent_path());
         EXPECT_EQ(meta.manifest_path, manifest_path);
         EXPECT_EQ(meta.module_path, manifest_path.parent_path() / "bin/logger.so");
-        EXPECT_EQ(meta.linkage, ::tbx::PluginLinkage::Static);
+        EXPECT_EQ(meta.linkage, PluginLinkage::Static);
     }
 
     /// <summary>
@@ -49,8 +49,8 @@ namespace tbx::tests::plugin_api
             })JSON";
         const std::filesystem::path manifest_path = "/virtual/plugin_api/example/without_type/plugin.meta";
 
-        ::tbx::PluginMeta meta =
-            ::tbx::parse_plugin_meta(manifest_text, manifest_path);
+        PluginMeta meta =
+            parse_plugin_meta(manifest_text, manifest_path);
 
         EXPECT_EQ(meta.type, "plugin");
     }
@@ -68,8 +68,8 @@ namespace tbx::tests::plugin_api
             })JSON";
         const std::filesystem::path manifest_path = "/virtual/plugin_api/example/relative_module/plugin.meta";
 
-        ::tbx::PluginMeta meta =
-            ::tbx::parse_plugin_meta(manifest_text, manifest_path);
+        PluginMeta meta =
+            parse_plugin_meta(manifest_text, manifest_path);
 
         EXPECT_EQ(meta.module_path, manifest_path.parent_path() / "modules/example_renderer.so");
     }
@@ -79,35 +79,35 @@ namespace tbx::tests::plugin_api
     /// </summary>
     TEST(plugin_meta_load_order_test, prioritizes_logger_and_respects_dependencies)
     {
-        ::tbx::PluginMeta logger;
+        PluginMeta logger;
         logger.name = "Logging.Core";
         logger.version = "1.0.0";
         logger.type = "logger";
 
-        ::tbx::PluginMeta metrics;
+        PluginMeta metrics;
         metrics.name = "Metrics.Plugin";
         metrics.version = "1.0.0";
         metrics.type = "metrics";
-        ::tbx::PluginMeta renderer;
+        PluginMeta renderer;
         renderer.name = "Renderer.Plugin";
         renderer.version = "2.0.0";
         renderer.type = "renderer";
         renderer.dependencies.push_back("Metrics.Plugin");
 
-        ::tbx::PluginMeta gameplay;
+        PluginMeta gameplay;
         gameplay.name = "Gameplay.Plugin";
         gameplay.version = "3.0.0";
         gameplay.type = "gameplay";
         gameplay.dependencies.push_back("metrics");
         gameplay.dependencies.push_back("logger");
 
-        std::vector<::tbx::PluginMeta> unordered = {gameplay, renderer, metrics, logger};
+        std::vector<PluginMeta> unordered = {gameplay, renderer, metrics, logger};
 
-        std::vector<::tbx::PluginMeta> load_order = ::tbx::resolve_plugin_load_order(unordered);
+        std::vector<PluginMeta> load_order = resolve_plugin_load_order(unordered);
         ASSERT_EQ(load_order.size(), 4u);
         EXPECT_EQ(load_order[0].name, "Logging.Core");
 
-        auto find_plugin = [](const std::vector<::tbx::PluginMeta>& plugins, const std::string& id)
+        auto find_plugin = [](const std::vector<PluginMeta>& plugins, const std::string& id)
         {
             for (size_t index = 0; index < plugins.size(); index += 1)
             {
@@ -129,7 +129,7 @@ namespace tbx::tests::plugin_api
         EXPECT_LT(metrics_index, gameplay_index);
         EXPECT_LT(logger_index, gameplay_index);
 
-        std::vector<::tbx::PluginMeta> unload_order = ::tbx::resolve_plugin_unload_order(unordered);
+        std::vector<PluginMeta> unload_order = resolve_plugin_unload_order(unordered);
         ASSERT_EQ(unload_order.size(), load_order.size());
         for (size_t index = 0; index < load_order.size(); index += 1)
         {

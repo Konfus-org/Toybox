@@ -2,7 +2,7 @@
 #include "tbx/plugin_api/shared_library.h"
 #include "tbx/plugin_api/plugin_meta.h"
 #include "tbx/tbx_api.h"
-#include "tbx/std/smart_pointers.h"
+#include "tbx/common/smart_pointers.h"
 #include <functional>
 
 namespace tbx

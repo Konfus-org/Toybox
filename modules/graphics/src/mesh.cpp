@@ -3,12 +3,9 @@
 
 namespace tbx
 {
-    Mesh Mesh::quad = make_quad();
-    Mesh Mesh::triangle = make_triangle();
-
     Mesh::Mesh()
     {
-        const Mesh& default_quad = Mesh::quad;
+        Mesh default_quad = make_quad();
         vertices = default_quad.vertices;
         indices = default_quad.indices;
     }
@@ -25,23 +22,23 @@ namespace tbx
         {
             Vertex
             {
-                math::vec3(-0.5f, -0.5f, 0.0f),
-                math::vec3(0.0f, 0.0f, 0.0f),
-                math::vec2(0.0f, 0.0f),
+                vec3(-0.5f, -0.5f, 0.0f),
+                vec3(0.0f, 0.0f, 0.0f),
+                vec2(0.0f, 0.0f),
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)
             },
             Vertex
             {
-                math::vec3(0.5f, -0.5f, 0.0f),
-                math::vec3(0.0f, 0.0f, 0.0f),
-                math::vec2(0.0f, 0.0f),
+                vec3(0.5f, -0.5f, 0.0f),
+                vec3(0.0f, 0.0f, 0.0f),
+                vec2(0.0f, 0.0f),
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)
             },
             Vertex
             {
-                math::vec3(0.0f, 0.5f, 0.0f),
-                math::vec3(0.0f, 0.0f, 0.0f),
-                math::vec2(0.0f, 0.0f),
+                vec3(0.0f, 0.5f, 0.0f),
+                vec3(0.0f, 0.0f, 0.0f),
+                vec2(0.0f, 0.0f),
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)
             }
         };
@@ -51,10 +48,10 @@ namespace tbx
         {
             triangle_mesh_vertices,
             {{
-                math::vec3(0.0f),
+                vec3(0.0f),
                 RgbaColor(),
-                math::vec3(0.0f),
-                math::vec2(0.0f),
+                vec3(0.0f),
+                vec2(0.0f),
             }}
         };
 
@@ -67,30 +64,30 @@ namespace tbx
         {
             Vertex
             {
-                math::vec3(-0.5f, -0.5f, 0.0f),
-                math::vec3(0.0f, 0.0f, 0.0f),
-                math::vec2(0.0f, 0.0f),
+                vec3(-0.5f, -0.5f, 0.0f),
+                vec3(0.0f, 0.0f, 0.0f),
+                vec2(0.0f, 0.0f),
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)
             },
             Vertex
             {
-                math::vec3(0.5f, -0.5f, 0.0f),
-                math::vec3(0.0f, 0.0f, 0.0f),
-                math::vec2(1.0f, 0.0f),
+                vec3(0.5f, -0.5f, 0.0f),
+                vec3(0.0f, 0.0f, 0.0f),
+                vec2(1.0f, 0.0f),
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)
             },
             Vertex
             {
-                math::vec3(0.5f, 0.5f, 0.0f),
-                math::vec3(0.0f, 0.0f, 0.0f),
-                math::vec2(1.0f, 1.0f),
+                vec3(0.5f, 0.5f, 0.0f),
+                vec3(0.0f, 0.0f, 0.0f),
+                vec2(1.0f, 1.0f),
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)
             },
             Vertex
             {
-                math::vec3(-0.5f, 0.5f, 0.0f),
-                math::vec3(0.0f, 0.0f, 0.0f),
-                math::vec2(0.0f, 1.0f),
+                vec3(-0.5f, 0.5f, 0.0f),
+                vec3(0.0f, 0.0f, 0.0f),
+                vec2(0.0f, 1.0f),
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)
             }
         };
@@ -100,10 +97,10 @@ namespace tbx
         {
             quad_mesh_vertices,
             {{
-                math::vec3(0.0f),
+                vec3(0.0f),
                 RgbaColor(),
-                math::vec3(0.0f),
-                math::vec2(0.0f),
+                vec3(0.0f),
+                vec2(0.0f),
             }}
         };
 

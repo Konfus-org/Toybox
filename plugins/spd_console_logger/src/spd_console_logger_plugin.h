@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/plugin_api/plugin.h"
-#include "tbx/std/smart_pointers.h"
+#include "tbx/common/smart_pointers.h"
 #include <spdlog/logger.h>
 
 namespace tbx::plugins::spdconsolelogger
@@ -14,6 +14,6 @@ namespace tbx::plugins::spdconsolelogger
         void on_message(Message& msg) override;
 
       private:
-        tbx::Ref<spdlog::logger> _logger;
+        Ref<spdlog::logger> _logger;
     };
 }

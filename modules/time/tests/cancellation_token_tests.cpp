@@ -5,14 +5,14 @@ namespace tbx::tests::time
 {
     TEST(cancellation_token, default_is_not_cancelled)
     {
-        ::tbx::CancellationToken token;
+        CancellationToken token;
         EXPECT_FALSE(token);
         EXPECT_FALSE(token.is_cancelled());
     }
 
     TEST(cancellation_token, reflects_source_cancellation)
     {
-        ::tbx::CancellationSource source;
+        CancellationSource source;
         auto token = source.get_token();
 
         EXPECT_TRUE(token);
@@ -26,7 +26,7 @@ namespace tbx::tests::time
 
     TEST(cancellation_token, shares_state_between_tokens)
     {
-        ::tbx::CancellationSource source;
+        CancellationSource source;
         auto first = source.get_token();
         auto second = source.get_token();
 

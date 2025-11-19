@@ -11,7 +11,7 @@ namespace tbx
     {
     public:
         Frustum() = default;
-        explicit Frustum(const math::mat4& view_projection)
+        explicit Frustum(const mat4& view_projection)
         {
             extract_planes(view_projection);
         }
@@ -30,18 +30,18 @@ namespace tbx
         }
 
     private:
-        void extract_planes(const math::mat4& view_projection)
+        void extract_planes(const mat4& view_projection)
         {
-            const math::mat4& m = view_projection;
+            const mat4& m = view_projection;
 
             _planes =
             {
-                Plane{ math::vec3(m[0][3] + m[0][0], m[1][3] + m[1][0], m[2][3] + m[2][0]), m[3][3] + m[3][0] }, // Left
-                Plane{ math::vec3(m[0][3] - m[0][0], m[1][3] - m[1][0], m[2][3] - m[2][0]), m[3][3] - m[3][0] }, // Right
-                Plane{ math::vec3(m[0][3] + m[0][1], m[1][3] + m[1][1], m[2][3] + m[2][1]), m[3][3] + m[3][1] }, // Bottom
-                Plane{ math::vec3(m[0][3] - m[0][1], m[1][3] - m[1][1], m[2][3] - m[2][1]), m[3][3] - m[3][1] }, // Top
-                Plane{ math::vec3(m[0][3] + m[0][2], m[1][3] + m[1][2], m[2][3] + m[2][2]), m[3][3] + m[3][2] }, // Near
-                Plane{ math::vec3(m[0][3] - m[0][2], m[1][3] - m[1][2], m[2][3] - m[2][2]), m[3][3] - m[3][2] }  // Far
+                Plane{ vec3(m[0][3] + m[0][0], m[1][3] + m[1][0], m[2][3] + m[2][0]), m[3][3] + m[3][0] }, // Left
+                Plane{ vec3(m[0][3] - m[0][0], m[1][3] - m[1][0], m[2][3] - m[2][0]), m[3][3] - m[3][0] }, // Right
+                Plane{ vec3(m[0][3] + m[0][1], m[1][3] + m[1][1], m[2][3] + m[2][1]), m[3][3] + m[3][1] }, // Bottom
+                Plane{ vec3(m[0][3] - m[0][1], m[1][3] - m[1][1], m[2][3] - m[2][1]), m[3][3] - m[3][1] }, // Top
+                Plane{ vec3(m[0][3] + m[0][2], m[1][3] + m[1][2], m[2][3] + m[2][2]), m[3][3] + m[3][2] }, // Near
+                Plane{ vec3(m[0][3] - m[0][2], m[1][3] - m[1][2], m[2][3] - m[2][2]), m[3][3] - m[3][2] }  // Far
             };
 
             for (auto& plane : _planes)

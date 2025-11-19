@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/graphics/vertex.h"
-#include "tbx/std/int.h"
-#include "tbx/std/uuid.h"
+#include "tbx/common/int.h"
+#include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
 #include <vector>
 
@@ -16,9 +16,6 @@ namespace tbx
         /// </summary>
         Mesh();
         Mesh(const VertexBuffer& vertBuff, const IndexBuffer& indexBuff);
-
-        static Mesh quad;
-        static Mesh triangle;
 
         VertexBuffer vertices = {};
         IndexBuffer indices = {};

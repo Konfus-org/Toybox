@@ -2,8 +2,8 @@
 #include "tbx/time/cancellation_token.h"
 #include "tbx/messages/result.h"
 #include "tbx/time/time_span.h"
-#include "tbx/std/uuid.h"
-#include "tbx/std/variant.h"
+#include "tbx/common/uuid.h"
+#include <any>
 #include <functional>
 
 namespace tbx
@@ -45,7 +45,7 @@ namespace tbx
         virtual ~Message();
 
         MessageState state = MessageState::InProgress;
-        Variant payload = {};
+        std::any payload = {};
         Result result = {};
         TimeSpan timeout = {};
         TimeSpan delay_in_seconds = {};

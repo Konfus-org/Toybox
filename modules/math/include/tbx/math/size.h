@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/tbx_api.h"
-#include "tbx/std/int.h"
+#include "tbx/common/int.h"
 #include <cstdint>
 
 namespace tbx

@@ -1,5 +1,5 @@
 #include "tbx/plugin_api/plugin_meta.h"
-#include "tbx/std/string.h"
+#include "tbx/common/string_extensions.h"
 #include <deque>
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -10,23 +10,6 @@
 
 namespace tbx
 {
-    static std::string copy_string(const tbx::String& value)
-    {
-        return std::string(value.get_raw(), value.get_raw() + value.get_length());
-    }
-
-    static std::string trim_copy(const std::string& text)
-    {
-        const tbx::String trimmed = tbx::get_trimmed(text.c_str());
-        return copy_string(trimmed);
-    }
-
-    static std::string lower_copy(const std::string& text)
-    {
-        const tbx::String lowered = tbx::get_lower_case(text.c_str());
-        return copy_string(lowered);
-    }
-
     /// <summary>
     /// Appends the provided string to the list if it is not already present, ignoring case.
     /// </summary>
@@ -34,10 +17,10 @@ namespace tbx
         std::vector<std::string>& values,
         const std::string& value)
     {
-        std::string needle = lower_copy(value);
+        std::string needle = to_lower_case_string(value);
         for (const std::string& existing : values)
         {
-            if (lower_copy(existing) == needle)
+            if (to_lower_case_string(existing) == needle)
             {
                 return;
             }
@@ -53,7 +36,7 @@ namespace tbx
         std::vector<std::string> values;
         if (node.is_string())
         {
-            append_if_unique_case_insensitive(values, trim_copy(node.get<std::string>()));
+            append_if_unique_case_insensitive(values, trim_string(node.get<std::string>()));
             return values;
         }
         if (node.is_array())
@@ -64,7 +47,7 @@ namespace tbx
                 {
                     continue;
                 }
-                append_if_unique_case_insensitive(values, trim_copy(item.get<std::string>()));
+                append_if_unique_case_insensitive(values, trim_string(item.get<std::string>()));
             }
         }
         return values;
@@ -101,7 +84,7 @@ namespace tbx
             throw std::runtime_error(
                 std::string("Plugin metadata is missing required field: ") + key);
         }
-        std::string value = trim_copy(it->get<std::string>());
+        std::string value = trim_string(it->get<std::string>());
         if (value.empty())
         {
             throw std::runtime_error(std::string("Plugin metadata field is empty: ") + key);
@@ -120,7 +103,7 @@ namespace tbx
     {
         std::vector<size_t> matches;
         std::unordered_set<size_t> unique;
-        std::string needle = lower_copy(trim_copy(token));
+        std::string needle = to_lower_case_string(trim_string(token));
         auto id_it = by_name.find(needle);
         if (id_it != by_name.end())
         {
@@ -151,7 +134,7 @@ namespace tbx
     {
         if (node.is_string())
         {
-            return trim_copy(node.get<std::string>());
+            return trim_string(node.get<std::string>());
         }
         if (node.is_array())
         {
@@ -161,7 +144,7 @@ namespace tbx
                 {
                     continue;
                 }
-                std::string value = trim_copy(item.get<std::string>());
+                std::string value = trim_string(item.get<std::string>());
                 if (!value.empty())
                 {
                     return value;
@@ -202,7 +185,7 @@ namespace tbx
     /// </summary>
     static bool is_logger_type(const std::string& type)
     {
-        std::string lower = lower_copy(type);
+        std::string lower = to_lower_case_string(type);
         return lower.find("logger") != std::string::npos;
     }
 
@@ -235,12 +218,12 @@ namespace tbx
         auto description_it = data.find("description");
         if (description_it != data.end() && description_it->is_string())
         {
-            meta.description = trim_copy(description_it->get<std::string>());
+            meta.description = trim_string(description_it->get<std::string>());
         }
         auto module_it = data.find("module");
         if (module_it != data.end() && module_it->is_string())
         {
-            std::filesystem::path module_path = trim_copy(module_it->get<std::string>());
+            std::filesystem::path module_path = trim_string(module_it->get<std::string>());
             if (!module_path.empty())
             {
                 if (module_path.is_absolute() || meta.root_directory.empty())
@@ -297,10 +280,10 @@ namespace tbx
         for (size_t index = 0; index < plugins.size(); index += 1)
         {
             const PluginMeta& meta = plugins[index];
-            by_name.emplace(lower_copy(meta.name), index);
+            by_name.emplace(to_lower_case_string(meta.name), index);
             if (!meta.type.empty())
             {
-                by_type[lower_copy(meta.type)].push_back(index);
+                by_type[to_lower_case_string(meta.type)].push_back(index);
             }
         }
 

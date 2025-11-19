@@ -15,7 +15,6 @@ target_include_directories(Time
 
 target_link_libraries(Time
     PUBLIC
-        Tbx::Std
 )
 
 add_library(Tbx::Time ALIAS Time)

@@ -1,12 +1,12 @@
 #pragma once
-#include "tbx/std/int.h"
-#include "tbx/std/list.h"
+#include "tbx/common/int.h"
 #include <cstddef>
 #include <functional>
 #include <ranges>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace tbx::linq
 {
@@ -14,7 +14,9 @@ namespace tbx::linq
     using Decayed = std::decay_t<TResult>;
 
     template <std::ranges::range Range>
-    inline void reserve(List<std::ranges::range_value_t<Range>>& values, const Range& range)
+    inline void reserve_if_possible(
+        std::vector<std::ranges::range_value_t<Range>>& values,
+        const Range& range)
     {
         if constexpr (std::ranges::sized_range<Range>)
         {
@@ -23,9 +25,9 @@ namespace tbx::linq
     }
 
     template <std::ranges::input_range Range>
-    inline List<std::ranges::range_value_t<Range>> to_list(const Range& range)
+    inline std::vector<std::ranges::range_value_t<Range>> to_list(const Range& range)
     {
-        List<std::ranges::range_value_t<Range>> result;
+        std::vector<std::ranges::range_value_t<Range>> result;
         reserve_if_possible(result, range);
         for (auto&& value : range)
         {
@@ -39,7 +41,7 @@ namespace tbx::linq
     {
         using Result =
             Decayed<std::invoke_result_t<Projection&, std::ranges::range_reference_t<Range>>>;
-        List<Result> result;
+        std::vector<Result> result;
         reserve_if_possible(result, range);
         for (auto&& value : range)
         {
@@ -49,9 +51,11 @@ namespace tbx::linq
     }
 
     template <std::ranges::input_range Range, typename Predicate>
-    inline List<std::ranges::range_value_t<Range>> where(const Range& range, Predicate&& predicate)
+    inline std::vector<std::ranges::range_value_t<Range>> where(
+        const Range& range,
+        Predicate&& predicate)
     {
-        List<std::ranges::range_value_t<Range>> result;
+        std::vector<std::ranges::range_value_t<Range>> result;
         for (auto&& value : range)
         {
             if (std::invoke(predicate, value))
@@ -70,7 +74,7 @@ namespace tbx::linq
         {
             return static_cast<Value>(value);
         }
-        throw std::out_of_range("tbx::linq::first: range is empty");
+        throw std::out_of_range("linq::first: range is empty");
     }
 
     template <std::ranges::input_range Range, typename Predicate>
@@ -84,7 +88,7 @@ namespace tbx::linq
                 return static_cast<Value>(value);
             }
         }
-        throw std::out_of_range("tbx::linq::first: predicate did not match any item");
+        throw std::out_of_range("linq::first: predicate did not match any item");
     }
 
     template <std::ranges::input_range Range, typename TValue>

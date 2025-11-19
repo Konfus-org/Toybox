@@ -1,8 +1,8 @@
 #include "spd_console_logger_plugin.h"
 #include "tbx/file_system/string_path_operations.h"
 #include "tbx/messages/log_commands.h"
-#include "tbx/std/casting.h"
-#include "tbx/std/smart_pointers.h"
+#include "tbx/common/casting.h"
+#include "tbx/common/smart_pointers.h"
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace tbx::plugins::spdconsolelogger
@@ -12,7 +12,7 @@ namespace tbx::plugins::spdconsolelogger
         if (!_logger)
         {
             auto sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-            _logger = tbx::Ref<spdlog::logger>("SpdConsoleLogger", sink);
+            _logger = Ref<spdlog::logger>("SpdConsoleLogger", sink);
         }
 
         _logger->info("SpdConsoleLoggerPlugin attached");
@@ -32,13 +32,13 @@ namespace tbx::plugins::spdconsolelogger
 
     void SpdConsoleLoggerPlugin::on_message(Message& msg)
     {
-        const auto* log = tbx::as<LogMessageCommand>(&msg);
+        const auto* log = as<LogMessageCommand>(&msg);
         if (!log || !_logger)
         {
             return;
         }
 
-        const auto filename = tbx::get_filename_from_string_path(log->file);
+        const auto filename = get_filename_from_string_path(log->file);
         switch (log->level)
         {
             case LogLevel::Info:

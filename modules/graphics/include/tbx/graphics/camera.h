@@ -42,13 +42,13 @@ namespace tbx
         {
             return _z_far;
         }
-        const math::mat4& get_projection_matrix() const
+        const mat4& get_projection_matrix() const
         {
             return _projection_matrix;
         }
 
       private:
-        math::mat4 _projection_matrix = math::mat4(1.0f);
+        mat4 _projection_matrix = mat4(1.0f);
 
         bool _is_perspective = true;
         float _z_near = 0.1f;
@@ -58,14 +58,14 @@ namespace tbx
     };
 
     Frustum get_camera_frustum(
-        const math::vec3& camera_position,
-        const math::quat& camera_rotation,
-        const math::mat4& projection_matrix);
+        const vec3& camera_position,
+        const quat& camera_rotation,
+        const mat4& projection_matrix);
 
-    math::mat4 get_camera_view_matrix(const math::vec3& camera_position, const math::quat& camera_rotation);
+    mat4 get_camera_view_matrix(const vec3& camera_position, const quat& camera_rotation);
 
-    math::mat4 get_camera_view_projection_matrix(
-        const math::vec3& camera_position,
-        const math::quat& camera_rotation,
-        const math::mat4& projection_matrix);
+    mat4 get_camera_view_projection_matrix(
+        const vec3& camera_position,
+        const quat& camera_rotation,
+        const mat4& projection_matrix);
 }

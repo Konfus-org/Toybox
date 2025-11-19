@@ -9,7 +9,7 @@ namespace tbx
     /// </summary>
     struct TBX_API Sphere
     {
-        math::vec3 center = math::vec3(0.0f);
+        vec3 center = vec3(0.0f);
         float radius = 0.0f;
     };
 }

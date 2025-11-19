@@ -2,7 +2,7 @@
 #include "tbx/app/window_commands.h"
 #include "tbx/app/window.h"
 #include "tbx/plugin_api/plugin.h"
-#include "tbx/std/smart_pointers.h"
+#include "tbx/common/smart_pointers.h"
 #include <SDL3/SDL.h>
 #include <string_view>
 #include <vector>
@@ -38,6 +38,6 @@ namespace tbx::plugins::sdlwindowing
         static void set_failure(Message& message, std::string_view reason);
         SdlWindowRecord* find_record(const Window& window) const;
 
-        std::vector<tbx::Scope<SdlWindowRecord>> _windows;
+        std::vector<Scope<SdlWindowRecord>> _windows;
     };
 }

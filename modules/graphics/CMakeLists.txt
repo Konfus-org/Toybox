@@ -15,7 +15,6 @@ target_include_directories(Graphics
 
 target_link_libraries(Graphics
     PUBLIC
-        Tbx::Std
         Tbx::Debugging
         glm
 )

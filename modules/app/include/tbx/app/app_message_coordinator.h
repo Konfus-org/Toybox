@@ -3,9 +3,9 @@
 #include "tbx/messages/handler.h"
 #include "tbx/time/timer.h"
 #include "tbx/tbx_api.h"
-#include "tbx/std/list.h"
-#include "tbx/std/smart_pointers.h"
-#include "tbx/std/uuid.h"
+#include "tbx/common/smart_pointers.h"
+#include "tbx/common/uuid.h"
+#include <vector>
 #include <chrono>
 #include <mutex>
 #include <utility>
@@ -62,8 +62,8 @@ namespace tbx
       private:
         void dispatch(Message& msg, std::chrono::steady_clock::time_point deadline = {}) const;
 
-        List<std::pair<Uuid, MessageHandler>> _handlers;
-        List<AppQueuedMessage> _pending;
+        std::vector<std::pair<Uuid, MessageHandler>> _handlers;
+        std::vector<AppQueuedMessage> _pending;
 
         mutable std::mutex _handlers_mutex;
         mutable std::mutex _queue_mutex;

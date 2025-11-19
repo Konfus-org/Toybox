@@ -17,7 +17,6 @@ target_include_directories(PluginApi
 target_link_libraries(PluginApi
     PUBLIC
         Tbx::Messaging
-        Tbx::Std
         Tbx::FileSystem
         Tbx::Debugging
     PRIVATE

@@ -22,10 +22,10 @@ namespace tbx
             return !ec && dir;
         }
 
-        List<DirectoryEntry> recursive_directory_entries(
+        std::vector<DirectoryEntry> recursive_directory_entries(
             const std::filesystem::path& root) const override
         {
-            List<DirectoryEntry> entries;
+            std::vector<DirectoryEntry> entries;
             std::error_code ec;
             for (std::filesystem::recursive_directory_iterator it(root, ec), end; it != end && !ec;
                  ++it)
@@ -39,7 +39,7 @@ namespace tbx
             return entries;
         }
 
-        bool read_text_file(const std::filesystem::path& path, String& out) const override
+        bool read_text_file(const std::filesystem::path& path, std::string& out) const override
         {
             std::ifstream stream(path, std::ios::in | std::ios::binary);
             if (!stream.is_open())
