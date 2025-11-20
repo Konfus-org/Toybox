@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/time/cancellation_token.h"
-#include "tbx/time/time_span.h"
+#include "tbx/messages/cancellation_token.h"
 #include "tbx/tbx_api.h"
+#include "tbx/time/time_span.h"
 #include <chrono>
 #include <cstddef>
 #include <functional>

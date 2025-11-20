@@ -40,17 +40,17 @@ namespace tbx
         /// Alpha/Transparency value (0-1)
         /// </summary>
         float a = 1;
-
-        static RgbaColor white;
-        static RgbaColor black;
-        static RgbaColor red;
-        static RgbaColor green;
-        static RgbaColor blue;
-        static RgbaColor yellow;
-        static RgbaColor cyan;
-        static RgbaColor magenta;
-        static RgbaColor grey;
-        static RgbaColor light_grey;
-        static RgbaColor dark_grey;
     };
+
+    static RgbaColor white;
+    static RgbaColor black;
+    static RgbaColor red;
+    static RgbaColor green;
+    static RgbaColor blue;
+    static RgbaColor yellow;
+    static RgbaColor cyan;
+    static RgbaColor magenta;
+    static RgbaColor grey;
+    static RgbaColor light_grey;
+    static RgbaColor dark_grey;
 }

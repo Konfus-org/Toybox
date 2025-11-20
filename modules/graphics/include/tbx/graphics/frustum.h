@@ -11,7 +11,7 @@ namespace tbx
     {
     public:
         Frustum() = default;
-        explicit Frustum(const mat4& view_projection)
+        Frustum(const mat4& view_projection)
         {
             extract_planes(view_projection);
         }

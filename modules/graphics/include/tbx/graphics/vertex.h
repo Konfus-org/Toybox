@@ -95,11 +95,6 @@ namespace tbx
 
         for (const auto& vertex : vertices)
         {
-            //layout(location = 0) in vec3 InPosition;
-            //layout(location = 1) in vec4 InVertColor;
-            //layout(location = 2) in vec3 InNormal; // TODO: implement normals!
-            //layout(location = 3) in vec2 InTextureCoord;
-
             const auto& position = vertex.position;
             mesh_points[write_index] = position.x;
             mesh_points[write_index + 1] = position.y;

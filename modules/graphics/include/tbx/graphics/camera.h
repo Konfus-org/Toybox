@@ -21,6 +21,7 @@ namespace tbx
         {
             return _is_perspective;
         }
+
         bool is_orthographic() const
         {
             return !_is_perspective;
@@ -30,18 +31,22 @@ namespace tbx
         {
             return _aspect;
         }
+
         float get_fov() const
         {
             return _fov;
         }
+
         float get_z_near() const
         {
             return _z_near;
         }
+
         float get_z_far() const
         {
             return _z_far;
         }
+
         const mat4& get_projection_matrix() const
         {
             return _projection_matrix;

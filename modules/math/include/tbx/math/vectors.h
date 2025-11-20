@@ -1,5 +1,8 @@
 #pragma once
+#include "tbx/debugging/printable.h"
+#include "tbx/tbx_api.h"
 #include <glm/glm.hpp>
+#include <string>
 
 namespace tbx
 {
