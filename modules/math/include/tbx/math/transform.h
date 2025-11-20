@@ -5,10 +5,10 @@
 
 namespace tbx 
 {
-    struct TBX_API transform
+    struct TBX_API Transform
     {
-        transform() = default;
-        transform(const vec3& position, const quat& rotation, const vec3& scale)
+        Transform() = default;
+        Transform(const vec3& position, const quat& rotation, const vec3& scale)
             : Position(position), Rotation(rotation), Scale(scale) {}
 
         vec3 position = vec3::zero;

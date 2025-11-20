@@ -5,13 +5,11 @@
 
 namespace tbx
 {
-    struct TBX_API Bounds : public IPrintable
+    struct TBX_API Bounds
     {
     public:
         Bounds() = default;
         Bounds(float left, float right, float top, float bottom) : Left(left), Right(right), Top(top), Bottom(bottom) {}
-
-        std::string ToString() const override;
 
         static Bounds FromOrthographicProjection(float size, float aspect);
         static Bounds FromPerspectiveProjection(float fov, float aspectRatio, float zNear);
@@ -23,4 +21,6 @@ namespace tbx
         float Top = 0.0f;
         float Bottom = 0.0f;
     };
+
+    std::string to_string(const Bounds& bounds);
 }

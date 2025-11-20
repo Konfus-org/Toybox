@@ -3,5 +3,5 @@
 
 namespace tbx
 {
-    using quat = glm::quat;
+    using Quat = glm::quat;
 }

@@ -3,7 +3,7 @@
 
 namespace tbx
 {
-    using mat2 = glm::mat2;
-    using mat3 = glm::mat3;
-    using mat4 = glm::mat4;
+    using Mat2 = glm::mat2;
+    using Mat3 = glm::mat3;
+    using Mat4 = glm::mat4;
 }
