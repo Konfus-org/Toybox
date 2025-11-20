@@ -9,8 +9,8 @@ Honestly, not much yet. There is a simple ECS system dubbed TBS (Toy Box System)
 
 ## Repository Structure
 
-- `modules/`: First-class engine modules. `app/` hosts the runtime loop and timers, `messaging/` powers the dispatcher, `debugging/` implements logging and trace helpers, `os/` wraps platform concepts such as windows and shared libraries, `plugin_api/` exposes the plugin contract, and `std/` contains the Toybox standard utilities.
 - `examples/`: Sample projects demonstrating engine functionality.
+- `modules/`: First-class logic that is directly linked to and compiled into the engine.
 - `plugins/`: Runtime-discoverable plugins that extend the engine.
 - `thirdparty/`: Vendored dependencies.
 - `cmake/`, `CMakeLists.txt`, `CMakePresets.json`: Build configuration and presets.
@@ -90,5 +90,6 @@ In regards to AI usage:
 See `AGENT.md` for the AI contributor standards used by AI agents which are allowed and used in this project. We recongnize the potential of AI tools to assist in development and encourage their responsible use.
 However, AI code is used with great care and scrutiny and is never blindly accepted, if you use AI to contribute you should fully understand what the code it gives you is doing and be ready to explain and defend its existance.
 All AI-generated code must be reviewed and approved by a human before being merged and any AI-generated code must follow the same standards as human-written code.
+
 
 
