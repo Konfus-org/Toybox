@@ -83,9 +83,12 @@ Artifacts land in `cmake/build/bin/<Config>` with matching `lib` and `pdb` direc
 
 ## Contributing and AI Usage
 
-Look to the contributing documentation [here](CONTRIBUTING.md)
-In regards to AI usage: 
+Look to the contributing documentation [here](CONTRIBUTING.md).
+
+In regards to AI usage:
+
 See `AGENT.md` for the AI contributor standards used by AI agents which are allowed and used in this project. We recongnize the potential of AI tools to assist in development and encourage their responsible use.
 However, AI code is used with great care and scrutiny and is never blindly accepted, if you use AI to contribute you should fully understand what the code it gives you is doing and be ready to explain and defend its existance.
 All AI-generated code must be reviewed and approved by a human before being merged and any AI-generated code must follow the same standards as human-written code.
+
 
