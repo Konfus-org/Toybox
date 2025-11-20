@@ -14,7 +14,8 @@ Read the code of conduct [here](CODE_OF_CONDUCT.md)
 - Prefer copy-style initialization (`int value = {};`, `auto widget = Widget(args);`) instead of brace-only or direct-call syntax (`int value{};`, `auto widget(Widget(args));`) for readability.
 - Keep headers lean by defining non-trivial logic in `.cpp` files and add tests when introducing new functionality.
 
-See `AGENT.md` for the complete contributor standards used by Codex agents.
+See `AGENT.md` for the AI contributor standards used by AI agents which are allowed and used in this project.
+However, AI code is used with GREAT care and scrutiny. All AI-generated code must be reviewed and approved by a human before being merged and any AI-generated code must follow the same standards as human-written code.
 
 ### Merging and Approval: 
 Make a fork with your desired changes then create a pull request to merge it back into the main repo.

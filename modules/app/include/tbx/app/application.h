@@ -28,11 +28,6 @@ namespace tbx
             return static_cast<IMessageDispatcher&>(_msg_coordinator);
         }
 
-        const IMessageDispatcher& get_dispatcher() const
-        {
-            return static_cast<const IMessageDispatcher&>(_msg_coordinator);
-        }
-
       private:
         void initialize();
         void update(DeltaTimer timer);

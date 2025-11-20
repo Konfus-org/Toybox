@@ -15,6 +15,7 @@ target_include_directories(Debugging
 
 target_link_libraries(Debugging
     PUBLIC
+        Tbx::Common
         Tbx::Messaging
         Tbx::FileSystem
 )

@@ -28,11 +28,4 @@ function(tbx_add_module target_name)
             CXX_EXTENSIONS NO
             POSITION_INDEPENDENT_CODE ON
     )
-
-    if(NOT target_name STREQUAL "Common")
-        target_link_libraries(${target_name}
-            PUBLIC
-                Tbx::Common
-        )
-    endif()
 endfunction()

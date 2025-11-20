@@ -17,20 +17,18 @@ Honestly, not much yet. There is a simple ECS system dubbed TBS (Toy Box System)
 
 ## Modules vs Plugins
 
-Toybox now distinguishes between *modules* and *plugins*.
+Toybox has two central concepts, *modules* and *plugins*.
 
 - **Modules** ship as part of the engine and live under `modules/`. They define the core behaviour (messaging, windowing, debugging, etc.) that every Toybox application relies on. Replacing a module requires rebuilding the engine because the modules are compiled directly into the host binaries.
 - **Plugins** reside in `plugins/` and follow the dynamic plugin contract. They are designed to be swapped, extended, or omitted without recompiling the engine. At runtime the application can selectively load plugins that implement optional features such as SDL integration or logging backends.
 
 ## Getting Started
 
-Toybox uses [CMake](https://cmake.org/) to generate project files for different build environments.
+Clone the repository and its submodules:
 
 ```bash
-git clone https://github.com/<your-org>/Toybox.git
+git clone https://github.com/Konfus-org/Toybox.git
 cd Toybox
-
-# Ensure all submodules are present
 git submodule update --init --recursive
 ```
 
@@ -39,6 +37,8 @@ If you are updating an existing clone, run `git pull origin work` followed by `g
 ## How to build
 
 ### Prerequisites
+
+Toybox uses [CMake](https://cmake.org/) to generate project files for different build environments and some dependencies require [Python](https://www.python.org/downloads/).
 
 1. Install [CMake](https://cmake.org/download/).
 2. Install [Python](https://www.python.org/downloads/).
@@ -81,6 +81,10 @@ ctest --preset tbx-test-ninja-release
 
 Artifacts land in `cmake/build/bin/<Config>` with matching `lib` and `pdb` directories.
 
-## Contributing
+## Contributing and AI Usage
 
 Look to the contributing documentation [here](CONTRIBUTING.md)
+In regards to AI usage: 
+See `AGENT.md` for the AI contributor standards used by AI agents which are allowed and used in this project. We recongnize the potential of AI tools to assist in development and encourage their responsible use.
+However, AI code is used with great care and scrutiny and is never blindly accepted, if you use AI to contribute you should fully understand what the code it gives you is doing and be ready to explain and defend its existance.
+All AI-generated code must be reviewed and approved by a human before being merged and any AI-generated code must follow the same standards as human-written code.
