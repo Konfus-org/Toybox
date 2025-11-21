@@ -2,31 +2,26 @@
 #include "tbx/math/trig.h"
 #include <format>
 
-namespace Tbx
+namespace tbx
 {
-    TBX_API Bounds Bounds::Identity = Bounds(-1.0f, 1.0f, -1.0f, 1.0f);
-
-    std::string Bounds::ToString() const
-    {
-        return std::format("[Left: {}, Right: {}, Top: {}, Bottom: {}]", Left, Right, Top, Bottom);
-    }
+    Bounds Bounds::Identity = Bounds(-1.0f, 1.0f, -1.0f, 1.0f);
 
     Bounds Bounds::FromOrthographicProjection(float size, float aspect)
     {
-        float halfWidth = size * aspect;
-        float halfHeight = size;
+        const float half_width = size * aspect;
+        const float half_height = size;
 
-        float left = -halfWidth;
-        float right = halfWidth;
-        float top = halfHeight;
-        float bottom = -halfHeight;
+        const float left = -half_width;
+        const float right = half_width;
+        const float top = half_height;
+        const float bottom = -half_height;
 
         return { left, right, top, bottom };
     }
 
     Bounds Bounds::FromPerspectiveProjection(float fov, float aspectRatio, float zNear)
     {
-        float scale = Tan(fov * 0.5f) * zNear;
+        const float scale = tan(fov * 0.5f) * zNear;
 
         const float left = aspectRatio * -scale;
         const float right = -left;
@@ -34,5 +29,10 @@ namespace Tbx
         const float bottom = -top;
 
         return { left, right, top, bottom };
+    }
+
+    std::string to_string(const Bounds& bounds)
+    {
+        return std::format("[Left: {}, Right: {}, Top: {}, Bottom: {}]", bounds.Left, bounds.Right, bounds.Top, bounds.Bottom);
     }
 }

@@ -35,6 +35,7 @@ set_target_properties(TbxTimeTests PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUI
 target_link_libraries(TbxTimeTests PRIVATE
 
     Tbx::Time
+    Tbx::Messaging
 
     gtest
 

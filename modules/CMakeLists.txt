@@ -28,9 +28,11 @@ set(CMAKE_FOLDER "Tests")
 
 add_subdirectory(common/tests)
 add_subdirectory(file_system/tests)
+add_subdirectory(math/tests)
 add_subdirectory(time/tests)
 add_subdirectory(messaging/tests)
 add_subdirectory(plugin_api/tests)
+add_subdirectory(graphics/tests)
 add_subdirectory(app/tests)
 
 unset(CMAKE_FOLDER)
