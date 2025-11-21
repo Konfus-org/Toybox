@@ -19,15 +19,16 @@ namespace tbx
     };
 
     /// Unique-ownership pointer wrapper for Toybox APIs.
-    /// Ownership: Owns the managed pointer and releases it on destruction unless `release` is called.
-    /// Thread-safety: Not thread-safe; callers must synchronize externally when sharing instances.
+    /// Ownership: Owns the managed pointer and releases it on destruction unless `release` is
+    /// called. Thread-safety: Not thread-safe; callers must synchronize externally when sharing
+    /// instances.
     template <typename T, typename TDeleter = DefaultScopeDeleter<T>>
     class Scope
     {
       public:
         Scope() = default;
 
-        explicit Scope(T* ptr)
+        Scope(T* ptr)
             : _storage(ptr)
         {
         }
@@ -39,7 +40,7 @@ namespace tbx
 
         template <typename... TArgs>
             requires(sizeof...(TArgs) > 0 && std::is_constructible_v<T, TArgs...>)
-        explicit Scope(TArgs&&... args)
+        Scope(TArgs&&... args)
             : _storage(new T(std::forward<TArgs>(args)...))
         {
         }
@@ -87,25 +88,26 @@ namespace tbx
             return _storage.get();
         }
 
-        explicit operator bool() const
+        operator bool() const
         {
             return static_cast<bool>(_storage);
         }
 
       private:
-        std::unique_ptr<T, TDeleter> _storage;
+        std::unique_ptr<T, TDeleter> _storage = nullptr;
     };
 
     /// Shared-ownership pointer wrapper for Toybox APIs.
-    /// Ownership: Shares ownership across copies; storage is destroyed when the last `Ref` releases it.
-    /// Thread-safety: Reference counting is thread-safe, but access to the underlying object is not synchronized.
+    /// Ownership: Shares ownership across copies; storage is destroyed when the last `Ref` releases
+    /// it. Thread-safety: Reference counting is thread-safe, but access to the underlying object is
+    /// not synchronized.
     template <typename T>
     class Ref
     {
       public:
         Ref() = default;
 
-        explicit Ref(T* ptr)
+        Ref(T* ptr)
             : _storage(ptr)
         {
         }
@@ -164,18 +166,18 @@ namespace tbx
             return _storage.get();
         }
 
-        explicit operator bool() const
+        operator bool() const
         {
             return static_cast<bool>(_storage);
         }
 
       private:
-        explicit Ref(std::shared_ptr<T> storage)
+        Ref(std::shared_ptr<T> storage)
             : _storage(std::move(storage))
         {
         }
 
-        std::shared_ptr<T> _storage;
+        std::shared_ptr<T> _storage = nullptr;
 
         template <typename>
         friend class Ref;
@@ -185,8 +187,9 @@ namespace tbx
     };
 
     /// Non-owning view of storage managed by `Ref` instances.
-    /// Ownership: Does not own the pointed-to object; callers must call `lock` to obtain a `Ref` before use.
-    /// Thread-safety: Thread-safe for observing lifetime; returned `Ref` shares the same considerations as `Ref` itself.
+    /// Ownership: Does not own the pointed-to object; callers must call `lock` to obtain a `Ref`
+    /// before use. Thread-safety: Thread-safe for observing lifetime; returned `Ref` shares the
+    /// same considerations as `Ref` itself.
     template <typename T>
     class WeakRef
     {

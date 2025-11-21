@@ -21,6 +21,23 @@ function(tbx_add_module target_name)
         add_library(${target_name} STATIC)
     endif()
 
+    if(WIN32)
+        target_compile_definitions(${target_name}
+            PUBLIC
+                TBX_PLATFORM_WINDOWS
+        )
+    elseif(APPLE)
+        target_compile_definitions(${target_name}
+            PUBLIC
+                TBX_PLATFORM_MACOS
+        )
+    elseif(UNIX)
+        target_compile_definitions(${target_name}
+            PUBLIC
+                TBX_PLATFORM_LINUX
+        )
+    endif()
+
     set_target_properties(${target_name}
         PROPERTIES
             CXX_STANDARD 23
