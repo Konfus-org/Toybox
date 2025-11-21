@@ -37,6 +37,11 @@ namespace tbx
         {
         }
 
+        explicit Scope(std::nullptr_t)
+            : _storage(nullptr)
+        {
+        }
+
         template <typename... TArgs, typename = std::enable_if_t<(sizeof...(TArgs) > 0)>>
         explicit Scope(TArgs&&... args)
             : _storage(new T(std::forward<TArgs>(args)...))
@@ -112,6 +117,11 @@ namespace tbx
         template <typename TDeleter>
         Ref(T* ptr, TDeleter deleter)
             : _storage(ptr, std::move(deleter))
+        {
+        }
+
+        explicit Ref(std::nullptr_t)
+            : _storage(nullptr)
         {
         }
 
