@@ -37,8 +37,7 @@ namespace tbx
         {
         }
 
-        template <typename... TArgs>
-            requires(sizeof...(TArgs) > 0 && std::is_constructible_v<T, TArgs...>)
+        template <typename... TArgs, typename = std::enable_if_t<(sizeof...(TArgs) > 0)>>
         explicit Scope(TArgs&&... args)
             : _storage(new T(std::forward<TArgs>(args)...))
         {
@@ -116,8 +115,7 @@ namespace tbx
         {
         }
 
-        template <typename... TArgs>
-            requires(sizeof...(TArgs) > 0 && std::is_constructible_v<T, TArgs...>)
+        template <typename... TArgs, typename = std::enable_if_t<(sizeof...(TArgs) > 0)>>
         explicit Ref(TArgs&&... args)
             : _storage(std::make_shared<T>(std::forward<TArgs>(args)...))
         {
