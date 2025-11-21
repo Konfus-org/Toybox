@@ -5,10 +5,10 @@
 
 namespace tbx
 {
-    class CancellationToken;
-
     // Creates and manages cancellation tokens backed by a shared atomic flag.
-    // Ownership: Owns the shared flag and returns lightweight token copies referencing it.
+    // Purpose: Allows producers to propagate cancellation to consumers listening via tokens.
+    // Ownership: CancellationSource owns the shared flag and hands out lightweight token views
+    // that share it; callers must ensure tokens are discarded before the source is destroyed.
     // Thread-safety: All member functions are thread-safe; multiple threads may request tokens
     // and cancel them concurrently.
     class TBX_API CancellationSource
@@ -25,7 +25,9 @@ namespace tbx
     };
 
     // Lightweight, thread-safe observer that reports whether its originating source cancelled.
-    // Ownership: Non-owning view of a CancellationSource-managed flag.
+    // Purpose: Enables consumers to check for cancellation signaled by a paired source.
+    // Ownership: Non-owning view of a CancellationSource-managed flag; remains valid while the
+    // source outlives the token.
     // Thread-safety: All member functions are thread-safe and may be called concurrently.
     class TBX_API CancellationToken
     {

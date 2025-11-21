@@ -16,7 +16,7 @@ target_include_directories(FileSystem
 
 target_link_libraries(FileSystem
     PUBLIC
-        Common
+        Tbx::Common
 )
 
 add_library(Tbx::FileSystem ALIAS FileSystem)
