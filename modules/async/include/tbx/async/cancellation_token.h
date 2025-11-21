@@ -5,6 +5,8 @@
 
 namespace tbx
 {
+    class CancellationToken;
+
     // Creates and manages cancellation tokens backed by a shared atomic flag.
     // Purpose: Allows producers to propagate cancellation to consumers listening via tokens.
     // Ownership: CancellationSource owns the shared flag and hands out lightweight token views
