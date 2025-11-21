@@ -1,18 +1,15 @@
-source:
+modules:
   - changed-files:
-      - any-glob-to-any-file: 'Engine/**'
+      - any-glob-to-any-file: 'modules/**'
 examples:
   - changed-files:
-      - any-glob-to-any-file: 'Examples/**'
-launcher:
-  - changed-files:
-      - any-glob-to-any-file: 'Launcher/**'
+      - any-glob-to-any-file: 'examples/**'
 plugins:
   - changed-files:
-      - any-glob-to-any-file: 'Plugins/**'
+      - any-glob-to-any-file: 'plugins/**'
 dependencies:
   - changed-files:
-      - any-glob-to-any-file: 'Dependencies/**'
+      - any-glob-to-any-file: 'thirdparty/**'
 build system:
   - changed-files:
       - any-glob-to-any-file:
