@@ -7,7 +7,6 @@ namespace tbx
 
     TBX_API float degrees_to_radians(float degrees);
     TBX_API float radians_to_degrees(float radians);
-
     TBX_API float cos(float x);
     TBX_API float sin(float x);
     TBX_API float tan(float x);

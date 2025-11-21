@@ -10,8 +10,16 @@ namespace tbx
 
         std::string sanitized;
         sanitized.reserve(value.size());
-        for (const unsigned char ch : value)
+        for (size_t index = 0; index < value.size(); ++index)
         {
+            const unsigned char ch = static_cast<unsigned char>(value[index]);
+            if (ch == '\\' && index + 1 < value.size() && value[index + 1] == '\\')
+            {
+                sanitized.push_back(replacement);
+                ++index;
+                continue;
+            }
+
             if (ch < 32 || invalid.find(static_cast<char>(ch)) != std::string_view::npos)
             {
                 sanitized.push_back(replacement);

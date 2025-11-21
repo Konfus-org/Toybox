@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/color.h"
-#include "tbx/math/math.h"
+#include "tbx/math/vectors.h"
 #include "tbx/common/int.h"
 #include "tbx/tbx_api.h"
 #include <variant>
@@ -11,15 +11,15 @@ namespace tbx
 {
     ///////////// VERTEX DATA //////////////////
 
-    using VertexData = std::variant<int, float, vec2, vec3, RgbaColor>;
+    using VertexData = std::variant<int, float, Vec2, Vec3, RgbaColor>;
 
     inline int32 get_vertex_data_count(const VertexData& data)
     {
-        if (std::holds_alternative<vec2>(data))
+        if (std::holds_alternative<Vec2>(data))
         {
             return 2;
         }
-        else if (std::holds_alternative<vec3>(data))
+        else if (std::holds_alternative<Vec3>(data))
         {
             return 3;
         }
@@ -44,11 +44,11 @@ namespace tbx
 
     inline int32 get_vertex_data_size(const VertexData& data)
     {
-        if (std::holds_alternative<vec2>(data))
+        if (std::holds_alternative<Vec2>(data))
         {
             return 4 * 2;
         }
-        else if (std::holds_alternative<vec3>(data))
+        else if (std::holds_alternative<Vec3>(data))
         {
             return 4 * 3;
         }
@@ -76,11 +76,11 @@ namespace tbx
     struct TBX_API Vertex
     {
         // (x, y, z) in 3D space
-        vec3 position = vec3(0.0f);
+        Vec3 position = Vec3(0.0f);
         // (nx, ny, nz) for lighting
-        vec3 normal = vec3(0.0f);
+        Vec3 normal = Vec3(0.0f);
         // Texture coordinate for texture mapping
-        vec2 uv = vec2(0.0f);
+        Vec2 uv = Vec2(0.0f);
         // (r, g, b, a) for color
         RgbaColor color = { 1.0f, 1.0f, 1.0f, 1.0f };
     };

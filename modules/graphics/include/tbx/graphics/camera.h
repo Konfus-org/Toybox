@@ -1,6 +1,8 @@
 #pragma once
 #include "tbx/graphics/frustum.h"
-#include "tbx/math/math.h"
+#include "tbx/math/matrices.h"
+#include "tbx/math/quaternions.h"
+#include "tbx/math/vectors.h"
 #include "tbx/tbx_api.h"
 
 namespace tbx
@@ -47,13 +49,13 @@ namespace tbx
             return _z_far;
         }
 
-        const mat4& get_projection_matrix() const
+        const Mat4& get_projection_matrix() const
         {
             return _projection_matrix;
         }
 
       private:
-        mat4 _projection_matrix = mat4(1.0f);
+        Mat4 _projection_matrix = Mat4(1.0f);
 
         bool _is_perspective = true;
         float _z_near = 0.1f;
@@ -63,14 +65,14 @@ namespace tbx
     };
 
     Frustum get_camera_frustum(
-        const vec3& camera_position,
-        const quat& camera_rotation,
-        const mat4& projection_matrix);
+        const Vec3& camera_position,
+        const Quat& camera_rotation,
+        const Mat4& projection_matrix);
 
-    mat4 get_camera_view_matrix(const vec3& camera_position, const quat& camera_rotation);
+    Mat4 get_camera_view_matrix(const Vec3& camera_position, const Quat& camera_rotation);
 
-    mat4 get_camera_view_projection_matrix(
-        const vec3& camera_position,
-        const quat& camera_rotation,
-        const mat4& projection_matrix);
+    Mat4 get_camera_view_projection_matrix(
+        const Vec3& camera_position,
+        const Quat& camera_rotation,
+        const Mat4& projection_matrix);
 }

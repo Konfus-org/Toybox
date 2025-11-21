@@ -1,11 +1,6 @@
 #include "tbx/graphics/camera.h"
 #include "tbx/graphics/frustum.h"
-#include "tbx/math/math.h"
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/ext/matrix_clip_space.hpp>
-#include <glm/ext/matrix_transform.hpp>
-#include <glm/gtc/matrix_inverse.hpp>
-#include <glm/gtx/quaternion.hpp>
+#include "tbx/math/matrices.h"
 #include <numbers>
 
 namespace
@@ -36,7 +31,7 @@ namespace tbx
         _z_far = z_far;
         _fov = size;
         _aspect = aspect;
-        _projection_matrix = math::ortho(left, right, bottom, top, z_near, z_far);
+        _projection_matrix = ortho_projection(left, right, bottom, top, z_near, z_far);
     }
 
     void Camera::set_perspective(float fov, float aspect, float z_near, float z_far)
@@ -46,7 +41,7 @@ namespace tbx
         _z_far = z_far;
         _aspect = aspect;
         _fov = fov;
-        _projection_matrix = math::perspective(degrees_to_radians(fov), aspect, z_near, z_far);
+        _projection_matrix = perspective_projection(degrees_to_radians(fov), aspect, z_near, z_far);
     }
 
     void Camera::set_aspect(float aspect)
@@ -69,29 +64,29 @@ namespace tbx
 
 namespace tbx
 {
-    mat4 get_camera_view_matrix(const vec3& camera_position, const quat& camera_rotation)
+    Mat4 get_camera_view_matrix(const Vec3& camera_position, const Quat& camera_rotation)
     {
-        const mat4 rotation_matrix = math::mat4_cast(camera_rotation);
-        const mat4 inverse_rotation_matrix = math::inverse(rotation_matrix);
-        const mat4 translation_matrix = math::translate(mat4(1.0f), -camera_position);
+        const Mat4 rotation_matrix = mat4_cast(camera_rotation);
+        const Mat4 inverse_rotation_matrix = inverse(rotation_matrix);
+        const Mat4 translation_matrix = translate(Mat4(1.0f), -camera_position);
         return inverse_rotation_matrix * translation_matrix;
     }
 
-    mat4 get_camera_view_projection_matrix(
-        const vec3& camera_position,
-        const quat& camera_rotation,
-        const mat4& projection_matrix)
+    Mat4 get_camera_view_projection_matrix(
+        const Vec3& camera_position,
+        const Quat& camera_rotation,
+        const Mat4& projection_matrix)
     {
-        const mat4 view_matrix = get_camera_view_matrix(camera_position, camera_rotation);
+        const Mat4 view_matrix = get_camera_view_matrix(camera_position, camera_rotation);
         return projection_matrix * view_matrix;
     }
 
     Frustum get_camera_frustum(
-        const vec3& camera_position,
-        const quat& camera_rotation,
-        const mat4& projection_matrix)
+        const Vec3& camera_position,
+        const Quat& camera_rotation,
+        const Mat4& projection_matrix)
     {
-        const mat4 view_projection =
+        const Mat4 view_projection =
             get_camera_view_projection_matrix(camera_position, camera_rotation, projection_matrix);
         return Frustum(view_projection);
     }

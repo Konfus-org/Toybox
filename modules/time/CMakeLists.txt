@@ -8,6 +8,7 @@ target_include_directories(Time
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/modules/messaging/include>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -15,6 +16,7 @@ target_include_directories(Time
 
 target_link_libraries(Time
     PUBLIC
+        Common
 )
 
 add_library(Tbx::Time ALIAS Time)

@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/math/math.h"
+#include "tbx/math/vectors.h"
 #include "tbx/tbx_api.h"
 
 namespace tbx
@@ -9,7 +9,7 @@ namespace tbx
     /// </summary>
     struct TBX_API Sphere
     {
-        vec3 center = vec3(0.0f);
+        Vec3 center = Vec3(0.0f);
         float radius = 0.0f;
     };
 }
