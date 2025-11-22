@@ -123,7 +123,7 @@ namespace tbx::plugins::sdlwindowing
         IMessageDispatcher& dispatcher,
         SDL_Window* native_window,
         const WindowDescription& description)
-        : window(dispatcher, description)
+        : window(dispatcher, description, false)
         , description(description)
         , native(native_window)
     {
@@ -256,7 +256,7 @@ namespace tbx::plugins::sdlwindowing
 
         Scope<SdlWindowRecord> record(get_dispatcher(), native, description);
 
-        command.payload = &record->window;
+        command.payload = static_cast<Window::WindowImpl>(record->native);
 
         _windows.push_back(std::move(record));
         command.state = MessageState::Handled;

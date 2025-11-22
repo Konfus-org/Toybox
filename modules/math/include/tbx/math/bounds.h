@@ -47,5 +47,5 @@ namespace tbx
     /// Ownership: returns a string by value; the caller owns the result.
     /// Thread Safety: stateless; safe to call concurrently.
     /// </summary>
-    std::string to_string(const Bounds& bounds);
+    TBX_API std::string to_string(const Bounds& bounds);
 }

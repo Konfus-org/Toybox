@@ -1,7 +1,7 @@
 #include "pch.h"
-#include "tbx/messages/cancellation_token.h"
+#include "tbx/async/cancellation_token.h"
 
-namespace tbx::tests::time
+namespace tbx::tests::async
 {
     TEST(cancellation_token, default_is_not_cancelled)
     {
