@@ -123,7 +123,7 @@ namespace tbx::plugins::sdlwindowing
         IMessageDispatcher& dispatcher,
         SDL_Window* native_window,
         const WindowDescription& description)
-        : window(dispatcher, description)
+        : window(dispatcher, description, false)
         , description(description)
         , native(native_window)
     {
