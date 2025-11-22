@@ -64,14 +64,29 @@ namespace tbx
         float _aspect = 1.78f;
     };
 
-    Frustum get_camera_frustum(
+    /// <summary>
+    /// Computes the camera view frustum for the given transform and projection.
+    /// Ownership: Returns a value type; caller owns the result.
+    /// Thread-safety: Not thread-safe; use from the rendering thread.
+    /// </summary>
+    TBX_API Frustum get_camera_frustum(
         const Vec3& camera_position,
         const Quat& camera_rotation,
         const Mat4& projection_matrix);
 
-    Mat4 get_camera_view_matrix(const Vec3& camera_position, const Quat& camera_rotation);
+    /// <summary>
+    /// Builds a view matrix from camera position and orientation.
+    /// Ownership: Returns a value type; caller owns the result.
+    /// Thread-safety: Not thread-safe; use from the rendering thread.
+    /// </summary>
+    TBX_API Mat4 get_camera_view_matrix(const Vec3& camera_position, const Quat& camera_rotation);
 
-    Mat4 get_camera_view_projection_matrix(
+    /// <summary>
+    /// Combines view and projection transforms for a camera.
+    /// Ownership: Returns a value type; caller owns the result.
+    /// Thread-safety: Not thread-safe; use from the rendering thread.
+    /// </summary>
+    TBX_API Mat4 get_camera_view_projection_matrix(
         const Vec3& camera_position,
         const Quat& camera_rotation,
         const Mat4& projection_matrix);

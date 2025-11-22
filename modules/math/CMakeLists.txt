@@ -17,7 +17,7 @@ target_include_directories(Math
 target_link_libraries(Math
     PUBLIC
         glm
-        Common
+        Tbx::Common
 )
 
 add_library(Tbx::Math ALIAS Math) 
