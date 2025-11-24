@@ -61,10 +61,9 @@ namespace tbx
 
             if (command.payload.has_value())
             {
-                WindowImpl implementation = nullptr;
-                if (try_as(command.payload, implementation) && implementation != nullptr)
+                if (auto* implementation = std::any_cast<WindowImpl>(&command.payload))
                 {
-                    _implementation = implementation;
+                    _implementation = *implementation;
                 }
             }
 
