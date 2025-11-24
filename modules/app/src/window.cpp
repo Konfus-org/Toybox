@@ -36,7 +36,7 @@ namespace tbx
 
         if (is_open())
         {
-            ApplyWindowDescriptionCommand apply(this, description);
+            auto apply = ApplyWindowDescriptionCommand(this, description);
             _dispatcher->send(apply);
 
             WindowDescription* updated = nullptr;
@@ -56,18 +56,19 @@ namespace tbx
     {
         if (!is_open())
         {
-            CreateWindowCommand command(_description);
-            _dispatcher->send(command);
+            auto create_command = CreateWindowCommand(_description);
+            _dispatcher->send(create_command);
 
-            if (command.payload.has_value())
+            if (create_command.payload.has_value())
             {
-                if (auto* implementation = std::any_cast<WindowImpl>(&command.payload))
+                WindowImpl* implementation = nullptr;
+                if (try_as(create_command.payload, implementation) && implementation != nullptr)
                 {
                     _implementation = *implementation;
                 }
             }
 
-            OpenWindowCommand open_command(this, _description);
+            auto open_command = OpenWindowCommand(this, _description);
             _dispatcher->send(open_command);
         }
     }
@@ -76,7 +77,7 @@ namespace tbx
     {
         if (is_open())
         {
-            CloseWindowCommand command(this);
+            auto command = CloseWindowCommand(this);
             _dispatcher->send(command);
         }
 
