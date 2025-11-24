@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/common/uuid.h"
-#include "tbx/messages/cancellation_token.h"
+#include "tbx/async/cancellation_token.h"
 #include "tbx/messages/result.h"
 #include "tbx/time/time_span.h"
 #include <any>

@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/messages/cancellation_token.h"
+#include "tbx/async/cancellation_token.h"
 #include "tbx/tbx_api.h"
 #include "tbx/time/time_span.h"
 #include <chrono>

@@ -1,14 +1,13 @@
 #pragma once
-#include "tbx/plugin_api/shared_library.h"
+#include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_meta.h"
+#include "tbx/plugin_api/shared_library.h"
 #include "tbx/tbx_api.h"
 #include "tbx/common/smart_pointers.h"
 #include <functional>
 
 namespace tbx
 {
-    class Plugin; // Forward declaration to avoid circular dependency
-
     using PluginDeleter = std::function<void(Plugin*)>;
     using PluginInstance = Scope<Plugin, PluginDeleter>;
 
