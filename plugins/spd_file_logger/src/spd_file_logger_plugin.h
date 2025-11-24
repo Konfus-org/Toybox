@@ -1,13 +1,9 @@
 #pragma once
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/common/smart_pointers.h"
+#include <spdlog/logger.h>
 #include <filesystem>
 #include <string>
-
-namespace spdlog
-{
-    class logger;
-}
 
 namespace tbx::plugins::spdfilelogger
 {
