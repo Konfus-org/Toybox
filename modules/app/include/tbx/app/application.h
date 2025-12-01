@@ -34,9 +34,9 @@ namespace tbx
         void shutdown();
         void handle_message(const Message& msg);
 
-        const AppDescription _desc;
+        AppDescription _desc;
         std::vector<LoadedPlugin> _loaded = {};
-        AppMessageCoordinator _msg_coordinator;
+        AppMessageCoordinator _msg_coordinator = {};
         bool _should_exit = false;
     };
 }

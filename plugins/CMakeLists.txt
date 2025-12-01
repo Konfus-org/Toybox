@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 message(STATUS "")
 message(STATUS "Configuring Toybox Plugins:")
 
-set(CMAKE_FOLDER "Plugins")
+set(CMAKE_FOLDER "plugins")
 
 add_subdirectory(spd_console_logger)
 add_subdirectory(spd_file_logger)

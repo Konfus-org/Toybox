@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/common/uuid.h"
 #include "tbx/async/cancellation_token.h"
+#include "tbx/common/uuid.h"
 #include "tbx/messages/result.h"
 #include "tbx/time/time_span.h"
 #include <any>
@@ -45,13 +45,30 @@ namespace tbx
         virtual ~Message();
 
         MessageState state = MessageState::InProgress;
-        std::any payload = {};
         Result result = {};
         TimeSpan timeout = {};
         TimeSpan delay_in_seconds = {};
         uint64 delay_in_ticks = 0;
         CancellationToken cancellation_token = {};
         MessageCallbacks callbacks = {};
-        Uuid id = Uuid::generate();
+        bool require_handling = false;
+        uuid id = uuid::generate();
+    };
+
+    // Simple event message with no response.
+    struct TBX_API Event : public Message
+    {
+        Event() = default;
+        virtual ~Event() = default;
+    };
+
+    // Request message with a typed response.
+    template <typename T>
+    struct Request : public Message
+    {
+        Request() = default;
+        virtual ~Request() = default;
+
+        T result = {};
     };
 }

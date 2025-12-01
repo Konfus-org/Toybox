@@ -6,6 +6,7 @@ target_include_directories(PluginExampleRuntime PRIVATE ${CMAKE_CURRENT_SOURCE_D
 
 target_link_libraries(PluginExampleRuntime PRIVATE
     Tbx::App
+    Tbx::ECS
     Tbx::Plugins::SpdConsoleLoggerPlugin
     Tbx::Plugins::SdlWindowingPlugin
 )

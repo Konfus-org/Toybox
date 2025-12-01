@@ -1,13 +1,13 @@
 #include "tbx/app/application.h"
-#include "tbx/debugging/macros.h"
-#include "tbx/app/app_commands.h"
-#include "tbx/messages/dispatcher_context.h"
 #include "tbx/app/app_events.h"
+#include "tbx/app/app_requests.h"
+#include "tbx/common/casting.h"
+#include "tbx/debugging/macros.h"
+#include "tbx/messages/dispatcher.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/plugin_api/plugin_registry.h"
 #include "tbx/time/delta_time.h"
-#include "tbx/common/casting.h"
 
 namespace tbx
 {
@@ -40,38 +40,39 @@ namespace tbx
     void Application::initialize()
     {
         // Set dispatcher scope
-        DispatcherScope scope(_msg_coordinator);
-
-        // Load plugins based on description
-        if (!_desc.plugins_directory.empty())
+        auto scope = DispatcherScope(_msg_coordinator);
         {
-            auto loaded = load_plugins(_desc.plugins_directory, _desc.requested_plugins);
-            for (auto& lp : loaded)
+            // Load plugins based on description
+            if (!_desc.plugins_directory.empty())
             {
-                _loaded.push_back(std::move(lp));
+                auto loaded = load_plugins(_desc.plugins_directory, _desc.requested_plugins);
+                for (auto& lp : loaded)
+                {
+                    _loaded.push_back(std::move(lp));
+                }
             }
-        }
 
-        _msg_coordinator.add_handler(
-            [this](Message& msg)
+            _msg_coordinator.add_handler(
+                [this](Message& msg)
+                {
+                    handle_message(msg);
+                });
+            for (auto& p : _loaded)
             {
-                handle_message(msg);
-            });
-        for (auto& p : _loaded)
-        {
-            if (p.instance)
-            {
-                _msg_coordinator.add_handler(
-                    [plugin = p.instance.get()](Message& msg)
-                    {
-                        plugin->receive_message(msg);
-                    });
-                p.instance->attach(*this);
+                if (p.instance)
+                {
+                    _msg_coordinator.add_handler(
+                        [plugin = p.instance.get()](Message& msg)
+                        {
+                            plugin->receive_message(msg);
+                        });
+                    p.instance->attach(*this);
+                }
             }
-        }
 
-        auto initialized = ApplicationInitializedEvent(this, _desc);
-        _msg_coordinator.send(initialized);
+            auto initialized = ApplicationInitializedEvent(this, _desc);
+            _msg_coordinator.send(initialized);
+        }
     }
 
     void Application::update(DeltaTimer timer)
@@ -124,7 +125,7 @@ namespace tbx
 
     void Application::handle_message(const Message& msg)
     {
-        if (is<ExitApplicationCommand>(&msg))
+        if (is<ExitApplicationRequest>(&msg))
         {
             _should_exit = true;
         }

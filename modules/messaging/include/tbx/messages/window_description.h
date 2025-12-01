@@ -26,6 +26,6 @@ namespace tbx
         Size size = {1280, 720};
         WindowMode mode = WindowMode::Windowed;
         std::string title = "Toybox";
-        Uuid id = Uuid::generate();
+        uuid id = uuid::generate();
     };
 }

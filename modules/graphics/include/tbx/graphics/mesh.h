@@ -19,7 +19,7 @@ namespace tbx
 
         VertexBuffer vertices = {};
         IndexBuffer indices = {};
-        Uuid id = Uuid::generate();
+        uuid id = uuid::generate();
     };
 
     /// <summary>
@@ -27,8 +27,8 @@ namespace tbx
     /// </summary>
     struct TBX_API MeshInstance
     {
-        Uuid mesh_id = {};
-        Uuid instance_id = Uuid::generate();
+        uuid mesh_id = {};
+        uuid instance_id = uuid::generate();
     };
 
     Mesh make_triangle();

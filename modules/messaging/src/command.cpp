@@ -1,7 +1,7 @@
-#include "tbx/messages/command.h"
+#include "tbx/messages/request.h"
 
 namespace tbx
 {
-    Command::Command() = default;
-    Command::~Command() = default;
+    Request::Request() = default;
+    Request::~Request() = default;
 }

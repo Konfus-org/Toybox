@@ -21,7 +21,7 @@ namespace tbx
         return directory / (sanitized + "_" + std::to_string(index) + ".log");
     }
 
-    std::filesystem::path calculate_log_path(
+    std::filesystem::path get_log_file_path(
         const std::filesystem::path& directory,
         std::string_view base_name,
         int index)

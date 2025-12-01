@@ -1,8 +1,7 @@
 #pragma once
+#include "tbx/debugging/log_requests.h"
 #include "tbx/file_system/filesystem_ops.h"
 #include "tbx/messages/dispatcher.h"
-#include "tbx/messages/dispatcher_context.h"
-#include "tbx/messages/log_commands.h"
 #include <format>
 #include <iostream>
 #include <source_location>
@@ -68,7 +67,7 @@ namespace tbx
         int line,
         const std::string& message)
     {
-        LogMessageCommand cmd;
+        LogMessageRequest cmd;
         cmd.level = level;
         cmd.message = message;
         cmd.file = file ? std::string(file) : std::string();
@@ -208,7 +207,7 @@ namespace tbx
             std::forward<Args>(args)...);
     }
 
-    TBX_API std::filesystem::path calculate_log_path(
+    TBX_API std::filesystem::path get_log_file_path(
         const std::filesystem::path& directory,
         std::string_view base_name,
         int index);

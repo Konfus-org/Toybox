@@ -1,8 +1,8 @@
 #include "spd_console_logger_plugin.h"
-#include "tbx/file_system/string_path_operations.h"
-#include "tbx/messages/log_commands.h"
 #include "tbx/common/casting.h"
 #include "tbx/common/smart_pointers.h"
+#include "tbx/file_system/string_path_operations.h"
+#include "tbx/messages/log_commands.h"
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace tbx::plugins::spdconsolelogger
@@ -32,7 +32,7 @@ namespace tbx::plugins::spdconsolelogger
 
     void SpdConsoleLoggerPlugin::on_message(Message& msg)
     {
-        const auto* log = as<LogMessageCommand>(&msg);
+        const auto* log = as<LogMessageRequest>(&msg);
         if (!log || !_logger)
         {
             return;
@@ -55,7 +55,6 @@ namespace tbx::plugins::spdconsolelogger
                 break;
         }
 
-        msg.state = MessageState::Handled;
         _logger->flush();
     }
 }

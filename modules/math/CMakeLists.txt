@@ -8,7 +8,6 @@ target_include_directories(Math
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
-        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/modules/app/include>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/src

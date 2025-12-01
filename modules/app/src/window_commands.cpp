@@ -1,25 +1,25 @@
-#include "tbx/app/window_commands.h"
+#include "tbx/app/window_requests.h"
 #include <utility>
 
 namespace tbx
 {
-    CreateWindowCommand::CreateWindowCommand(WindowDescription desc)
+    CreateWindowRequest::CreateWindowRequest(WindowDescription desc)
         : description(std::move(desc))
     {
     }
 
-    OpenWindowCommand::OpenWindowCommand(Window* window_ptr, WindowDescription desc)
+    OpenWindowRequest::OpenWindowRequest(Window* window_ptr, WindowDescription desc)
         : window(window_ptr)
         , description(std::move(desc))
     {
     }
 
-    QueryWindowDescriptionCommand::QueryWindowDescriptionCommand(Window* window_ptr)
+    QueryWindowDescriptionRequest::QueryWindowDescriptionRequest(Window* window_ptr)
         : window(window_ptr)
     {
     }
 
-    ApplyWindowDescriptionCommand::ApplyWindowDescriptionCommand(
+    ApplyWindowDescriptionRequest::ApplyWindowDescriptionRequest(
         Window* window_ptr,
         WindowDescription desc)
         : window(window_ptr)
@@ -27,7 +27,7 @@ namespace tbx
     {
     }
 
-    CloseWindowCommand::CloseWindowCommand(Window* window_ptr)
+    CloseWindowRequest::CloseWindowRequest(Window* window_ptr)
         : window(window_ptr)
     {
     }

@@ -1,8 +1,8 @@
 #pragma once
-#include "tbx/app/window_commands.h"
 #include "tbx/app/window.h"
-#include "tbx/plugin_api/plugin.h"
+#include "tbx/app/window_requests.h"
 #include "tbx/common/smart_pointers.h"
+#include "tbx/plugin_api/plugin.h"
 #include <SDL3/SDL.h>
 #include <string_view>
 #include <vector>
@@ -11,14 +11,8 @@ namespace tbx::plugins::sdlwindowing
 {
     struct SdlWindowRecord
     {
-        SdlWindowRecord(
-            IMessageDispatcher& dispatcher,
-            SDL_Window* native_window,
-            const WindowDescription& description);
-
-        Window window;
-        WindowDescription description = {};
-        SDL_Window* native = nullptr;
+        SDL_Window* window = nullptr;
+        uuid id = {};
     };
 
     class SdlWindowingPlugin final : public Plugin
@@ -30,14 +24,15 @@ namespace tbx::plugins::sdlwindowing
         void on_message(Message& msg) override;
 
       private:
-        void handle_create_window(CreateWindowCommand& command);
-        void handle_open_window(OpenWindowCommand& command) const;
-        void handle_query_description(QueryWindowDescriptionCommand& command) const;
-        void handle_apply_description(ApplyWindowDescriptionCommand& command) const;
-        void handle_close_window(CloseWindowCommand& command);
+        void handle_create_window(CreateWindowRequest& request);
+        void handle_open_window(OpenWindowRequest& request) const;
+        void handle_query_description(QueryWindowDescriptionRequest& request) const;
+        void handle_apply_description(ApplyWindowDescriptionRequest& request) const;
+        void handle_close_window(CloseWindowRequest& request);
         static void set_failure(Message& message, std::string_view reason);
-        SdlWindowRecord* find_record(const Window& window) const;
+        SdlWindowRecord find_record(const SDL_Window* window) const;
+        SdlWindowRecord find_record(const uuid& id) const;
 
-        std::vector<Scope<SdlWindowRecord>> _windows;
+        std::vector<SdlWindowRecord> _windows;
     };
 }

@@ -1,20 +1,16 @@
 set(CMAKE_FOLDER "Tests")
-
 add_executable(TbxFileSystemTests)
 
+file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
+)
+
 target_precompile_headers(TbxFileSystemTests PRIVATE "pch.h")
-
-set(TEST_SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/string_path_operations_tests.cpp"
-)
-
 target_sources(TbxFileSystemTests PRIVATE ${TEST_SOURCES})
-
-target_include_directories(TbxFileSystemTests PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}"
-)
-
-set_target_properties(TbxFileSystemTests PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+target_include_directories(TbxFileSystemTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 target_link_libraries(TbxFileSystemTests PRIVATE
     Tbx::FileSystem

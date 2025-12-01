@@ -15,6 +15,11 @@ namespace tbx
         std::array<std::uint8_t, 16> bytes = {};
     };
 
+    namespace invalid
+    {
+        inline Uuid uuid = Uuid();
+    }
+
     TBX_API bool operator==(const Uuid& a, const Uuid& b);
     TBX_API bool operator!=(const Uuid& a, const Uuid& b);
 

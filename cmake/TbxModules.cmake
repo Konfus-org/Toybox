@@ -37,12 +37,4 @@ function(tbx_add_module target_name)
                 TBX_PLATFORM_LINUX
         )
     endif()
-
-    set_target_properties(${target_name}
-        PROPERTIES
-            CXX_STANDARD 23
-            CXX_STANDARD_REQUIRED YES
-            CXX_EXTENSIONS NO
-            POSITION_INDEPENDENT_CODE ON
-    )
 endfunction()

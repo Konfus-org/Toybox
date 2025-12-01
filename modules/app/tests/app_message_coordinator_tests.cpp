@@ -197,11 +197,11 @@ namespace tbx::tests::app
         AppMessageCoordinator d;
         std::atomic<int> count{0};
 
-        Uuid keep_id = d.add_handler([&](const Message&)
+        uuid keep_id = d.add_handler([&](const Message&)
         {
             count.fetch_add(1);
         });
-        Uuid drop_id = d.add_handler([&](const Message&)
+        uuid drop_id = d.add_handler([&](const Message&)
         {
             count.fetch_add(100);
         });

@@ -11,7 +11,6 @@ target_include_directories(PluginApi
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${CMAKE_SOURCE_DIR}/modules/app/include
 )
 
 target_link_libraries(PluginApi

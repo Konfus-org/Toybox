@@ -1,14 +1,14 @@
 #pragma once
-#include "tbx/messages/dispatcher.h"
-#include "tbx/messages/handler.h"
-#include "tbx/time/timer.h"
-#include "tbx/tbx_api.h"
 #include "tbx/common/smart_pointers.h"
 #include "tbx/common/uuid.h"
-#include <vector>
+#include "tbx/messages/dispatcher.h"
+#include "tbx/messages/handler.h"
+#include "tbx/tbx_api.h"
+#include "tbx/time/timer.h"
 #include <chrono>
 #include <mutex>
 #include <utility>
+#include <vector>
 
 namespace tbx
 {
@@ -30,7 +30,6 @@ namespace tbx
         Result result;
         Timer timer;
         std::chrono::steady_clock::time_point timeout_deadline;
-        Message* original = nullptr;
     };
 
     // Thread-safe message coordinator handling synchronous dispatch and deferred processing for
@@ -50,19 +49,19 @@ namespace tbx
         AppMessageCoordinator(AppMessageCoordinator&&) = delete;
         AppMessageCoordinator& operator=(AppMessageCoordinator&&) noexcept = delete;
 
-        Uuid add_handler(MessageHandler handler);
-        void remove_handler(const Uuid& token);
+        uuid add_handler(MessageHandler handler);
+        void remove_handler(const uuid& token);
         void clear();
 
         Result send(Message& msg) const override;
-        Result post(const Message& msg) override;
+        Result post(Message& msg) override;
 
         void process() override;
 
       private:
         void dispatch(Message& msg, std::chrono::steady_clock::time_point deadline = {}) const;
 
-        std::vector<std::pair<Uuid, MessageHandler>> _handlers;
+        std::vector<std::pair<uuid, MessageHandler>> _handlers;
         std::vector<AppQueuedMessage> _pending;
 
         mutable std::mutex _handlers_mutex;

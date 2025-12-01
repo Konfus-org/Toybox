@@ -16,3 +16,6 @@
 [submodule "thirdparty/SDL"]
 	path = thirdparty/SDL
 	url = https://github.com/Konfus-org/SDL.git
+[submodule "thirdparty/entt"]
+	path = thirdparty/entt
+	url = https://github.com/Konfus-org/entt.git

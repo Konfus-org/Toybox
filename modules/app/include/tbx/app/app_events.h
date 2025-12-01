@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/app/app_description.h"
-#include "tbx/messages/event.h"
+#include "tbx/messages/message.h"
 #include "tbx/time/delta_time.h"
 
 namespace tbx

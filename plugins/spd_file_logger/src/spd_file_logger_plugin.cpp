@@ -1,10 +1,10 @@
 #include "spd_file_logger_plugin.h"
 #include "tbx/app/application.h"
+#include "tbx/common/casting.h"
+#include "tbx/common/smart_pointers.h"
 #include "tbx/debugging/logging.h"
 #include "tbx/file_system/string_path_operations.h"
 #include "tbx/messages/log_commands.h"
-#include "tbx/common/casting.h"
-#include "tbx/common/smart_pointers.h"
 #include <filesystem>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -28,7 +28,7 @@ namespace tbx::plugins::spdfilelogger
         rotate_logs(_log_directory, _log_filename_base);
 
         auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
-            calculate_log_path(_log_directory, _log_filename_base, 0).string(),
+            get_log_file_path(_log_directory, _log_filename_base, 0).string(),
             true);
         _logger = Ref<spdlog::logger>("SpdFileLogger", sink);
         _logger->info("SpdFileLoggerPlugin attached");
@@ -48,7 +48,7 @@ namespace tbx::plugins::spdfilelogger
 
     void SpdFileLoggerPlugin::on_message(Message& msg)
     {
-        const auto* log = as<LogMessageCommand>(&msg);
+        const auto* log = as<LogMessageRequest>(&msg);
         if (!log || !_logger)
         {
             return;
@@ -71,7 +71,6 @@ namespace tbx::plugins::spdfilelogger
                 break;
         }
 
-        msg.state = MessageState::Handled;
         _logger->flush();
     }
 }

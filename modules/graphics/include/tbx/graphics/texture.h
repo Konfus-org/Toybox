@@ -49,6 +49,6 @@ namespace tbx
         TextureFilter filter = TextureFilter::Nearest;
         TextureFormat format = TextureFormat::RGB;
         std::vector<Pixel> pixels = { 255, 255, 255 };
-        Uuid id = Uuid::generate();
+        uuid id = uuid::generate();
     };
 }

@@ -1,9 +1,9 @@
 #include "sdl_windowing_plugin.h"
 #include "tbx/app/application.h"
-#include "tbx/debugging/macros.h"
 #include "tbx/app/window_events.h"
 #include "tbx/common/casting.h"
 #include "tbx/common/smart_pointers.h"
+#include "tbx/debugging/macros.h"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -33,18 +33,16 @@ namespace tbx::plugins::sdlwindowing
         return fallback;
     }
 
-    static WindowDescription read_window_description(
-        SDL_Window* window,
-        const WindowDescription& fallback)
+    static WindowDescription read_window_description(SDL_Window* window)
     {
-        WindowDescription description = fallback;
+        WindowDescription description = {};
 
         int width = description.size.width;
         int height = description.size.height;
         SDL_GetWindowSize(window, &width, &height);
+
         description.size.width = width;
         description.size.height = height;
-
         description.mode = resolve_window_mode(window, description.mode);
 
         if (const char* title = SDL_GetWindowTitle(window); title)
@@ -116,20 +114,6 @@ namespace tbx::plugins::sdlwindowing
     }
 
     // --------------------------------
-    // SdlWindowRecord implementation
-    // --------------------------------
-
-    SdlWindowRecord::SdlWindowRecord(
-        IMessageDispatcher& dispatcher,
-        SDL_Window* native_window,
-        const WindowDescription& description)
-        : window(dispatcher, description, false)
-        , description(description)
-        , native(native_window)
-    {
-    }
-
-    // --------------------------------
     // SdlWindowingPlugin implementation
     // --------------------------------
 
@@ -140,270 +124,240 @@ namespace tbx::plugins::sdlwindowing
             TBX_TRACE_ERROR("Failed to initialize SDL video subsystem. See SDL logs for details.");
             return;
         }
-
-        // TESTING CODE:
-        auto window_command = CreateWindowCommand(WindowDescription());
-        handle_create_window(window_command);
     }
 
     void SdlWindowingPlugin::on_detach()
     {
-        for (const auto& record : _windows)
-        {
-            if (record && record->native)
-            {
-                SDL_DestroyWindow(record->native);
-                record->native = nullptr;
-            }
-
-            if (record)
-            {
-                if (record->window.is_open())
-                {
-                    WindowClosedEvent closed(&record->window);
-                    get_dispatcher().send(closed);
-                }
-            }
-        }
         _windows.clear();
-
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
     }
 
-    void SdlWindowingPlugin::on_update(const DeltaTime&) {}
+    void SdlWindowingPlugin::on_update(const DeltaTime&)
+    {
+        SDL_Event event;
+        if (SDL_PollEvent(&event))
+        {
+            if (event.type == SDL_EventType::SDL_EVENT_WINDOW_CLOSE_REQUESTED)
+            {
+                auto* window = SDL_GetWindowFromID(event.window.windowID);
+                /* find_record(window);
+                 auto closed_event = WindowClosedEvent(it->get()->window);*/
+            }
+            else if (event.type == SDL_EventType::SDL_EVENT_QUIT)
+            {
+                _windows.clear();
+            }
+        }
+    }
 
     void SdlWindowingPlugin::on_message(Message& msg)
     {
-        if (auto* create = as<CreateWindowCommand>(&msg))
+        if (auto* create = as<CreateWindowRequest>(&msg))
         {
             handle_create_window(*create);
             return;
         }
 
-        if (auto* open = as<OpenWindowCommand>(&msg))
+        if (auto* open = as<OpenWindowRequest>(&msg))
         {
             handle_open_window(*open);
             return;
         }
 
-        if (auto* query = as<QueryWindowDescriptionCommand>(&msg))
+        if (auto* query = as<QueryWindowDescriptionRequest>(&msg))
         {
             handle_query_description(*query);
             return;
         }
 
-        if (auto* apply = as<ApplyWindowDescriptionCommand>(&msg))
+        if (auto* apply = as<ApplyWindowDescriptionRequest>(&msg))
         {
             handle_apply_description(*apply);
             return;
         }
 
-        if (auto* close = as<CloseWindowCommand>(&msg))
+        if (auto* close = as<CloseWindowRequest>(&msg))
         {
             handle_close_window(*close);
         }
     }
 
-    void SdlWindowingPlugin::handle_create_window(CreateWindowCommand& command)
+    void SdlWindowingPlugin::handle_create_window(CreateWindowRequest& request)
     {
-
         if ((SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO) != SDL_INIT_VIDEO)
         {
-            set_failure(command, "SDL video subsystem is not initialized.");
-            command.state = MessageState::Handled;
+            set_failure(request, "SDL video subsystem is not initialized.");
+            request.state = MessageState::Handled;
             return;
         }
 
-        const WindowDescription& requested = command.description;
-        if (requested.size.width <= 0 || requested.size.height <= 0)
+        const WindowDescription& requestedDesc = request.description;
+        if (requestedDesc.size.width <= 0 || requestedDesc.size.height <= 0)
         {
-            set_failure(command, "Window dimensions must be positive.");
-            command.state = MessageState::Handled;
+            set_failure(request, "Window dimensions must be positive.");
+            request.state = MessageState::Handled;
             return;
         }
 
         Uint32 flags = SDL_WINDOW_RESIZABLE;
-        if (requested.mode == WindowMode::Borderless)
+        if (requestedDesc.mode == WindowMode::Borderless)
         {
             flags |= SDL_WINDOW_BORDERLESS;
         }
-        else if (requested.mode == WindowMode::Fullscreen)
+        else if (requestedDesc.mode == WindowMode::Fullscreen)
         {
             flags |= SDL_WINDOW_FULLSCREEN;
         }
 
         SDL_Window* native = SDL_CreateWindow(
-            requested.title.c_str(),
-            requested.size.width,
-            requested.size.height,
+            requestedDesc.title.c_str(),
+            requestedDesc.size.width,
+            requestedDesc.size.height,
             flags);
         if (!native)
         {
             TBX_TRACE_ERROR("Failed to create SDL window. See SDL logs for details.");
-            set_failure(command, "Failed to create SDL window.");
-            command.state = MessageState::Handled;
+            set_failure(request, "Failed to create SDL window.");
+            request.state = MessageState::Handled;
             return;
         }
 
-        if (!apply_window_description(native, requested))
+        if (!apply_window_description(native, requestedDesc))
         {
             TBX_TRACE_WARNING(
                 "SDL window created but initial description could not be fully applied. See SDL "
                 "logs for details.");
         }
 
-        const WindowDescription description = read_window_description(native, requested);
-
-        Scope<SdlWindowRecord> record(get_dispatcher(), native, description);
-
-        command.payload = static_cast<Window::WindowImpl>(record->native);
-
-        _windows.push_back(std::move(record));
-        command.state = MessageState::Handled;
+        _windows.emplace_back(native, requestedDesc.id);
+        request.payload = native;
+        request.state = MessageState::Handled;
     }
 
-    void SdlWindowingPlugin::set_failure(Message& message, std::string_view reason)
+    void SdlWindowingPlugin::handle_query_description(QueryWindowDescriptionRequest& request) const
     {
-        message.payload.reset();
-        message.result.flag_failure(reason.empty() ? std::string() : std::string(reason));
-        message.state = MessageState::Failed;
+        if (!request.window)
+        {
+            set_failure(request, "Query missing window reference.");
+            request.state = MessageState::Handled;
+            return;
+        }
+
+        SdlWindowRecord record = find_record(request.window->get_description().id);
+        const WindowDescription description = read_window_description(record.window);
+
+        request.payload = description;
+        request.state = MessageState::Handled;
     }
 
-    void SdlWindowingPlugin::handle_query_description(QueryWindowDescriptionCommand& command) const
+    void SdlWindowingPlugin::handle_apply_description(ApplyWindowDescriptionRequest& request) const
     {
-        if (!command.window)
+        if (!request.window)
         {
-            set_failure(command, "Query missing window reference.");
-            command.state = MessageState::Handled;
+            set_failure(request, "Apply missing window reference.");
+            request.state = MessageState::Handled;
             return;
         }
 
-        SdlWindowRecord* record = find_record(*command.window);
-        if (!record)
+        SdlWindowRecord record = find_record(request.window->get_description().id);
+        const WindowMode previous_mode = request.window->get_description().mode;
+        if (!apply_window_description(record.window, request.description))
         {
-            set_failure(command, "Window is not managed by SDL windowing.");
-            command.state = MessageState::Handled;
+            set_failure(request, "Failed to apply SDL window description.");
+            request.state = MessageState::Handled;
             return;
         }
 
-        const WindowDescription description =
-            read_window_description(record->native, record->description);
-        record->description = description;
-        command.payload = description;
-
-        command.state = MessageState::Handled;
-    }
-
-    void SdlWindowingPlugin::handle_apply_description(ApplyWindowDescriptionCommand& command) const
-    {
-        if (!command.window)
+        const WindowDescription refreshed = read_window_description(record.window);
+        request.payload = refreshed;
+        if (request.window && previous_mode != refreshed.mode)
         {
-            set_failure(command, "Apply missing window reference.");
-            command.state = MessageState::Handled;
-            return;
-        }
-
-        SdlWindowRecord* record = find_record(*command.window);
-        if (!record)
-        {
-            set_failure(command, "Window is not managed by SDL windowing.");
-            command.state = MessageState::Handled;
-            return;
-        }
-
-        const WindowMode previous_mode = record->description.mode;
-        if (!apply_window_description(record->native, command.description))
-        {
-            set_failure(command, "Failed to apply SDL window description.");
-            command.state = MessageState::Handled;
-            return;
-        }
-
-        const WindowDescription refreshed =
-            read_window_description(record->native, command.description);
-        record->description = refreshed;
-        command.payload = refreshed;
-
-        if (command.window && previous_mode != refreshed.mode)
-        {
-            WindowModeChangedEvent mode_changed(command.window, previous_mode, refreshed.mode);
+            auto mode_changed = WindowModeChangedEvent(previous_mode, refreshed.mode);
             send_message(mode_changed);
         }
 
-        command.state = MessageState::Handled;
+        request.state = MessageState::Handled;
     }
 
-    void SdlWindowingPlugin::handle_open_window(OpenWindowCommand& command) const
+    void SdlWindowingPlugin::handle_open_window(OpenWindowRequest& request) const
     {
-        if (!command.window)
+        if (!request.window)
         {
-            set_failure(command, "Open missing window reference.");
-            command.state = MessageState::Handled;
+            set_failure(request, "Open missing window reference.");
+            request.state = MessageState::Handled;
             return;
         }
 
-        WindowOpenedEvent event(command.window, command.description);
-        send_message(event);
-
-        command.payload.reset();
-
-        command.state = MessageState::Handled;
+        request.state = MessageState::Handled;
     }
 
-    void SdlWindowingPlugin::handle_close_window(CloseWindowCommand& command)
+    void SdlWindowingPlugin::handle_close_window(CloseWindowRequest& request)
     {
-        if (!command.window)
+        if (!request.window)
         {
-            set_failure(command, "Close missing window reference.");
-            command.state = MessageState::Handled;
+            set_failure(request, "Close missing window reference.");
             return;
         }
 
         auto it = std::ranges::find_if(
             _windows,
-            [&command](const Scope<SdlWindowRecord>& record)
+            [&request](const Scope<SdlWindowRecord>& record)
             {
-                return record && &record->window == command.window;
+                return record->id == request.window->get_description().id;
             });
         if (it == _windows.end())
         {
-            set_failure(command, "Window is not managed by SDL windowing.");
-            command.state = MessageState::Handled;
+            set_failure(request, "Window is not managed by SDL windowing.");
             return;
         }
 
-        SdlWindowRecord* record = it->get();
-        if (record->native)
+        const SdlWindowRecord& record = *it;
+        if (record.window)
         {
-            SDL_DestroyWindow(record->native);
-            record->native = nullptr;
-        }
-
-        if (command.window)
-        {
-            WindowClosedEvent closed(command.window);
-            send_message(closed);
+            SDL_DestroyWindow(record.window);
         }
 
         _windows.erase(it);
-
-        command.payload.reset();
-
-        command.state = MessageState::Handled;
+        request.payload.reset();
+        request.state = MessageState::Handled;
     }
 
-    SdlWindowRecord* SdlWindowingPlugin::find_record(const Window& window) const
+    void SdlWindowingPlugin::set_failure(Message& message, std::string_view reason)
+    {
+        message.result.flag_failure(reason.empty() ? std::string() : std::string(reason));
+        message.state = MessageState::Failed;
+    }
+
+    SdlWindowRecord SdlWindowingPlugin::find_record(const SDL_Window* window) const
     {
         auto it = std::ranges::find_if(
             _windows,
             [&window](const Scope<SdlWindowRecord>& record)
             {
-                return &record->window == &window;
+                return record->window == window;
             });
         if (it == _windows.end())
         {
-            return nullptr;
+            TBX_ASSERT(false, "No SDL window record found for the given window.");
+            return {};
         }
-        return it->get();
+        return *it;
+    }
+
+    SdlWindowRecord SdlWindowingPlugin::find_record(const uuid& id) const
+    {
+        auto it = std::ranges::find_if(
+            _windows,
+            [&id](const Scope<SdlWindowRecord>& record)
+            {
+                return record->id == id;
+            });
+        if (it == _windows.end())
+        {
+            TBX_ASSERT(false, "No SDL window record found for the given ID.");
+            return {};
+        }
+
+        return *it;
     }
 }

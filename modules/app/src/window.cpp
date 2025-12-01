@@ -1,7 +1,8 @@
 #include "tbx/app/window.h"
-#include "tbx/app/window_commands.h"
 #include "tbx/app/window_events.h"
+#include "tbx/app/window_requests.h"
 #include "tbx/common/casting.h"
+#include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
 #include <any>
 
@@ -36,7 +37,7 @@ namespace tbx
 
         if (is_open())
         {
-            auto apply = ApplyWindowDescriptionCommand(this, description);
+            auto apply = ApplyWindowDescriptionRequest(this, description);
             _dispatcher->send(apply);
 
             WindowDescription* updated = nullptr;
@@ -56,20 +57,27 @@ namespace tbx
     {
         if (!is_open())
         {
-            auto create_command = CreateWindowCommand(_description);
-            _dispatcher->send(create_command);
+            auto create_Request = CreateWindowRequest(_description);
+            _dispatcher->send(create_Request);
 
-            if (create_command.payload.has_value())
+            TBX_ASSERT(create_Request.state == MessageState::Handled, "Failed to create window!");
+
+            if (create_Request.payload.has_value())
             {
                 WindowImpl* implementation = nullptr;
-                if (try_as(create_command.payload, implementation) && implementation != nullptr)
+                if (try_as(create_Request.payload, implementation) && implementation != nullptr)
                 {
                     _implementation = *implementation;
                 }
             }
 
-            auto open_command = OpenWindowCommand(this, _description);
-            _dispatcher->send(open_command);
+            auto open_Request = OpenWindowRequest(this, _description);
+            _dispatcher->send(open_Request);
+
+            TBX_ASSERT(open_Request.state == MessageState::Handled, "Failed to open window!");
+
+            auto event = WindowOpenedEvent(this);
+            _dispatcher->send(event);
         }
     }
 
@@ -77,8 +85,13 @@ namespace tbx
     {
         if (is_open())
         {
-            auto command = CloseWindowCommand(this);
-            _dispatcher->send(command);
+            auto close_Request = CloseWindowRequest(this);
+            _dispatcher->send(close_Request);
+
+            TBX_ASSERT(close_Request.state == MessageState::Handled, "Failed to close window!");
+
+            auto closed = WindowClosedEvent(this);
+            _dispatcher->send(closed);
         }
 
         _implementation = nullptr;
