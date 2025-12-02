@@ -1,10 +1,9 @@
 #include "spd_file_logger_plugin.h"
 #include "tbx/app/application.h"
-#include "tbx/common/casting.h"
 #include "tbx/common/smart_pointers.h"
 #include "tbx/debugging/logging.h"
 #include "tbx/file_system/string_path_operations.h"
-#include "tbx/messages/log_commands.h"
+#include "tbx/debugging/log_requests.h"
 #include <filesystem>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -48,8 +47,13 @@ namespace tbx::plugins::spdfilelogger
 
     void SpdFileLoggerPlugin::on_message(Message& msg)
     {
-        const auto* log = as<LogMessageRequest>(&msg);
-        if (!log || !_logger)
+        if (!_logger)
+        {
+            return;
+        }
+
+        const auto* log = dynamic_cast<LogMessageRequest*>(&msg);
+        if (!log)
         {
             return;
         }

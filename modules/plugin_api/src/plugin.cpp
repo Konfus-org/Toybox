@@ -1,5 +1,4 @@
 #include "tbx/plugin_api/plugin.h"
-#include "tbx/app/application.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/result.h"
@@ -23,7 +22,7 @@ namespace tbx
     void Plugin::attach(Application& host)
     {
         _host = &host;
-        _dispatcher = &host.get_dispatcher();
+        _dispatcher = current_dispatcher();
         on_attach(host);
     }
 

@@ -191,18 +191,18 @@ namespace tbx
     AppMessageCoordinator::AppMessageCoordinator() = default;
     AppMessageCoordinator::~AppMessageCoordinator() = default;
 
-    uuid AppMessageCoordinator::add_handler(MessageHandler handler)
+    Uuid AppMessageCoordinator::add_handler(MessageHandler handler)
     {
         std::lock_guard lock(_handlers_mutex);
-        uuid id = uuid::generate();
+        Uuid id = Uuid::generate();
         _handlers.emplace_back(id, std::move(handler));
         return id;
     }
 
-    void AppMessageCoordinator::remove_handler(const uuid& token)
+    void AppMessageCoordinator::remove_handler(const Uuid& token)
     {
         std::lock_guard lock(_handlers_mutex);
-        std::vector<std::pair<uuid, MessageHandler>> next;
+        std::vector<std::pair<Uuid, MessageHandler>> next;
         next.reserve(_handlers.size());
         for (auto& entry : _handlers)
         {
@@ -234,7 +234,7 @@ namespace tbx
                 "Message should not specify both tick and time delays! Taking ticks.");
         }
 
-        std::vector<std::pair<uuid, MessageHandler>> handlers_snapshot;
+        std::vector<std::pair<Uuid, MessageHandler>> handlers_snapshot;
         {
             std::lock_guard lock(_handlers_mutex);
             handlers_snapshot = _handlers;
@@ -357,19 +357,18 @@ namespace tbx
         return msg.result;
     }
 
-    Result AppMessageCoordinator::post(Message& msg)
+    Result AppMessageCoordinator::post(const Message& msg)
     {
         Result result = {};
 
+        AppQueuedMessage queued = {};
         try
         {
-            AppQueuedMessage queued = {};
             queued.message = Scope<Message>(msg);
             if (queued.message)
             {
                 result = queued.result;
-                msg.result = queued.result;
-                msg.state = MessageState::InProgress;
+                queued.message->state = MessageState::InProgress;
             }
 
             const auto now = std::chrono::steady_clock::now();
@@ -388,13 +387,22 @@ namespace tbx
         }
         catch (const std::exception& ex)
         {
-            apply_state(msg, MessageState::Failed, ex.what());
-            return msg.result;
+            if (queued.message)
+            {
+                apply_state(*queued.message, MessageState::Failed, ex.what());
+            }
+            return queued.message ? queued.message->result : result;
         }
         catch (...)
         {
-            apply_state(msg, MessageState::Failed, "Unknown exception while queuing message.");
-            return msg.result;
+            if (queued.message)
+            {
+                apply_state(
+                    *queued.message,
+                    MessageState::Failed,
+                    "Unknown exception while queuing message.");
+            }
+            return queued.message ? queued.message->result : result;
         }
 
         return result;

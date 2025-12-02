@@ -8,13 +8,22 @@ namespace tbx
     {
     }
 
-    WindowModeChangedEvent::WindowModeChangedEvent(WindowMode previous, WindowMode current),
-        previous_mode(previous), current_mode(current)
+    WindowModeChangedEvent::WindowModeChangedEvent(WindowMode previous, WindowMode current)
+        : previous(previous)
+        , current(current)
     {
     }
 
     WindowClosedEvent::WindowClosedEvent(Window* window_ptr)
         : window(window_ptr)
+    {
+    }
+
+    WindowDescriptionChangedEvent::WindowDescriptionChangedEvent(
+        WindowDescription prev,
+        WindowDescription curr)
+        : previous(std::move(prev))
+        , current(std::move(curr))
     {
     }
 }

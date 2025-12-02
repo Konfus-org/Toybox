@@ -1,29 +1,12 @@
 #pragma once
-#include "tbx/common/uuid.h"
 #include "tbx/ecs/requests.h"
-#include <string>
-#include <vector>
+#include "tbx/ecs/toy_types.h"
+#include "tbx/messages/dispatcher.h"
+#include <typeinfo>
 
 namespace tbx
 {
-    using Sticker = std::string;
-    using Block = std::any;
-
-    struct Toy
-    {
-        std::string name = "";
-        std::vector<Sticker> stickers = {};
-        uuid parent = invalid::uuid;
-        uuid id = uuid::generate();
-    };
-
-    namespace invalid
-    {
-        inline Block block = std::any();
-        inline Toy toy = Toy("INVALID", {}, invalid::uuid, invalid::uuid);
-    }
-
-    bool is_valid(const Toy& t)
+    inline bool is_valid(const Toy& t)
     {
         if (!t.id.is_valid())
             return false;
@@ -34,7 +17,7 @@ namespace tbx
         return request.result;
     }
 
-    std::vector<Block> full_view(const Toy& t)
+    inline std::vector<Block> full_view(const Toy& t)
     {
         auto* dispatcher = current_dispatcher();
         auto request = ToyViewRequest(t.id);
@@ -46,7 +29,8 @@ namespace tbx
     std::vector<Block> view(const Toy& t)
     {
         auto* dispatcher = current_dispatcher();
-        auto request = ToyViewRequest(t.id, {typeid(Ts)...});
+        std::vector<const std::type_info*> filters = { &typeid(Ts)... };
+        auto request = ToyViewRequest(t.id, filters);
         dispatcher->send(request);
         return request.result;
     }
@@ -54,7 +38,7 @@ namespace tbx
     template <typename T>
     T& get_block(const Toy& t)
     {
-        auto blocks = view(t);
+        auto blocks = view<T>(t);
         for (auto& b : blocks)
         {
             if (b.type() == typeid(T))
@@ -68,7 +52,7 @@ namespace tbx
     template <typename T>
     bool has_block(const Toy& t)
     {
-        auto blocks = view(t);
+        auto blocks = view<T>(t);
         for (auto& b : blocks)
         {
             if (b.type() == typeid(T))

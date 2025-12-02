@@ -3,12 +3,7 @@
 
 namespace tbx
 {
-    CreateWindowRequest::CreateWindowRequest(WindowDescription desc)
-        : description(std::move(desc))
-    {
-    }
-
-    OpenWindowRequest::OpenWindowRequest(Window* window_ptr, WindowDescription desc)
+    CreateWindowRequest::CreateWindowRequest(Window* window_ptr, WindowDescription desc)
         : window(window_ptr)
         , description(std::move(desc))
     {
@@ -24,11 +19,6 @@ namespace tbx
         WindowDescription desc)
         : window(window_ptr)
         , description(std::move(desc))
-    {
-    }
-
-    CloseWindowRequest::CloseWindowRequest(Window* window_ptr)
-        : window(window_ptr)
     {
     }
 }

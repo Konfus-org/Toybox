@@ -1,4 +1,4 @@
-#include "tbx/messages/dispatcher_context.h"
+#include "tbx/messages/dispatcher.h"
 
 namespace tbx
 {

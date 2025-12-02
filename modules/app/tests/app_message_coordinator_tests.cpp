@@ -3,7 +3,6 @@
 #include "tbx/messages/message.h"
 #include "tbx/messages/handler.h"
 #include "tbx/async/cancellation_token.h"
-#include "tbx/common/casting.h"
 #include "tbx/time/time_span.h"
 #include <any>
 #include <atomic>
@@ -197,11 +196,11 @@ namespace tbx::tests::app
         AppMessageCoordinator d;
         std::atomic<int> count{0};
 
-        uuid keep_id = d.add_handler([&](const Message&)
+        Uuid keep_id = d.add_handler([&](const Message&)
         {
             count.fetch_add(1);
         });
-        uuid drop_id = d.add_handler([&](const Message&)
+        Uuid drop_id = d.add_handler([&](const Message&)
         {
             count.fetch_add(100);
         });
@@ -434,9 +433,9 @@ namespace tbx::tests::app
         EXPECT_EQ(msg.state, MessageState::Handled);
         EXPECT_TRUE(result.succeeded());
         EXPECT_TRUE(msg.payload.has_value());
-        EXPECT_TRUE(is<int>(msg.payload));
+        EXPECT_NE(std::any_cast<int>(&msg.payload), nullptr);
         EXPECT_EQ(std::any_cast<int>(msg.payload), 123);
-        EXPECT_FALSE(is<float>(msg.payload));
+        EXPECT_EQ(std::any_cast<float>(&msg.payload), nullptr);
     }
 
     TEST(dispatcher_post_result_value, queued_handler_updates_payload)
@@ -460,7 +459,7 @@ namespace tbx::tests::app
 
         EXPECT_TRUE(result.succeeded());
         EXPECT_TRUE(msg.payload.has_value());
-        EXPECT_TRUE(is<std::string>(msg.payload));
+        EXPECT_NE(std::any_cast<std::string>(&msg.payload), nullptr);
         EXPECT_EQ(std::any_cast<const std::string&>(msg.payload), "ready");
     }
 

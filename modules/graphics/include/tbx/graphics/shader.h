@@ -44,7 +44,7 @@ namespace tbx
 
         std::string source = "";
         ShaderType type = ShaderType::None;
-        uuid id = uuid::generate();
+        Uuid id = Uuid::generate();
     };
 
     /// <summary>

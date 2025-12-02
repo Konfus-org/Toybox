@@ -49,19 +49,19 @@ namespace tbx
         AppMessageCoordinator(AppMessageCoordinator&&) = delete;
         AppMessageCoordinator& operator=(AppMessageCoordinator&&) noexcept = delete;
 
-        uuid add_handler(MessageHandler handler);
-        void remove_handler(const uuid& token);
+        Uuid add_handler(MessageHandler handler);
+        void remove_handler(const Uuid& token);
         void clear();
 
         Result send(Message& msg) const override;
-        Result post(Message& msg) override;
+        Result post(const Message& msg) override;
 
         void process() override;
 
       private:
         void dispatch(Message& msg, std::chrono::steady_clock::time_point deadline = {}) const;
 
-        std::vector<std::pair<uuid, MessageHandler>> _handlers;
+        std::vector<std::pair<Uuid, MessageHandler>> _handlers;
         std::vector<AppQueuedMessage> _pending;
 
         mutable std::mutex _handlers_mutex;

@@ -3,13 +3,14 @@
 #include "tbx/ecs/requests.h"
 #include "tbx/ecs/toy.h"
 #include "tbx/messages/dispatcher.h"
+#include <typeinfo>
 
 namespace tbx
 {
     struct Stage
     {
         std::string name = "Default Stage";
-        uuid id = uuid::generate();
+        Uuid id = Uuid::generate();
     };
 
     std::vector<Toy> full_view(const Stage& stage)
@@ -24,12 +25,13 @@ namespace tbx
     std::vector<Toy> view(const Stage& stage)
     {
         auto* dispatcher = current_dispatcher();
-        auto request = StageViewRequest(stage.id, {typeid(Ts)...});
+        std::vector<const std::type_info*> filters = { &typeid(Ts)... };
+        auto request = StageViewRequest(stage.id, filters);
         dispatcher->send(request);
-        return result;
+        return request.result;
     }
 
-    Toy get_toy(const Stage& stage, const uuid& toy_id)
+    Toy get_toy(const Stage& stage, const Uuid& toy_id)
     {
         auto toys = view(stage);
         for (auto& t : toys)
@@ -50,7 +52,7 @@ namespace tbx
         return request.result;
     }
 
-    void remove_toy(Stage& stage, const uuid& toy_id)
+    void remove_toy(Stage& stage, const Uuid& toy_id)
     {
         auto* dispatcher = current_dispatcher();
         auto request = RemoveToyFromStageRequest(stage.id, toy_id);

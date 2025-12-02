@@ -1,9 +1,9 @@
 #include "tbx/app/application.h"
 #include "tbx/app/app_events.h"
 #include "tbx/app/app_requests.h"
-#include "tbx/common/casting.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
+#include "tbx/messages/handler.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/plugin_api/plugin_registry.h"
@@ -55,7 +55,7 @@ namespace tbx
             _msg_coordinator.add_handler(
                 [this](Message& msg)
                 {
-                    handle_message(msg);
+                    on_message(msg);
                 });
             for (auto& p : _loaded)
             {
@@ -123,11 +123,13 @@ namespace tbx
         _msg_coordinator.clear();
     }
 
-    void Application::handle_message(const Message& msg)
+    void Application::on_message(const Message& msg)
     {
-        if (is<ExitApplicationRequest>(&msg))
-        {
-            _should_exit = true;
-        }
+        tbx::handle_message<ExitApplicationRequest>(
+            msg,
+            [this](const ExitApplicationRequest&)
+            {
+                _should_exit = true;
+            });
     }
 }
