@@ -21,7 +21,7 @@ namespace tbx
             : shaders(std::move(shaders)) {}
 
         std::vector<Ref<Shader>> shaders = {};
-        uuid id = uuid::generate();
+        Uuid id = Uuid::generate();
     };
 
     /// <summary>
@@ -41,7 +41,7 @@ namespace tbx
 
         ShaderProgram shader_program = {};
         std::vector<Ref<Texture>> textures = {};
-        uuid id = uuid::generate();
+        Uuid id = Uuid::generate();
     };
 
     /// <summary>
@@ -49,7 +49,7 @@ namespace tbx
     /// </summary>
     struct TBX_API MaterialInstance
     {
-        uuid material_id = {};
-        uuid instance_id = uuid::generate();
+        Uuid material_id = {};
+        Uuid instance_id = Uuid::generate();
     };
 }

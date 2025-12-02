@@ -11,18 +11,11 @@ namespace tbx
     struct TBX_API CreateWindowRequest : public Request<std::any>
     {
         CreateWindowRequest() = default;
-        CreateWindowRequest(WindowDescription desc);
+        CreateWindowRequest(Window* window_ptr, WindowDescription desc);
 
-        WindowDescription description = {};
-    };
-
-    struct TBX_API WindowOpenedEvent : public Event
-    {
-        WindowOpenedEvent() = default;
-        WindowOpenedEvent(Window* window_ptr);
-
-        // Non-owning pointer to the window that was opened.
+        // Non-owning pointer to the window being created.
         Window* window = nullptr;
+        WindowDescription description = {};
     };
 
     struct TBX_API QueryWindowDescriptionRequest : public Request<WindowDescription>
@@ -34,22 +27,14 @@ namespace tbx
         Window* window = nullptr;
     };
 
-    struct TBX_API WindowDescriptionChangedEvent : public Event
+    struct TBX_API ApplyWindowDescriptionRequest : public Request<WindowDescription>
     {
-        WindowDescriptionChangedEvent() = default;
-        WindowDescriptionChangedEvent(WindowDescription prev, WindowDescription curr);
+        ApplyWindowDescriptionRequest() = default;
+        ApplyWindowDescriptionRequest(Window* window_ptr, WindowDescription desc);
 
         // Non-owning pointer to the window to be updated.
-        WindowDescription previous = {};
-        WindowDescription current = {};
-    };
-
-    struct TBX_API WindowClosedEvent : public Event
-    {
-        WindowClosedEvent() = default;
-        WindowClosedEvent(Window* window_ptr);
-
-        // Non-owning pointer to the window being closed.
         Window* window = nullptr;
+        WindowDescription description = {};
     };
+
 }

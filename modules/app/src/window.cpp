@@ -1,10 +1,10 @@
 #include "tbx/app/window.h"
 #include "tbx/app/window_events.h"
 #include "tbx/app/window_requests.h"
-#include "tbx/common/casting.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
 #include <any>
+#include <utility>
 
 namespace tbx
 {
@@ -33,51 +33,49 @@ namespace tbx
 
     void Window::set_description(const WindowDescription& description)
     {
+        WindowDescription previous_description = _description;
         _description = description;
 
         if (is_open())
         {
-            auto apply = ApplyWindowDescriptionRequest(this, description);
-            _dispatcher->send(apply);
-
-            WindowDescription* updated = nullptr;
-            if (try_as(apply.payload, updated) && updated != nullptr)
-            {
-                _description = *updated;
-            }
+            auto apply_request = ApplyWindowDescriptionRequest(this, _description);
+            _dispatcher->send(apply_request);
         }
+
+        auto changed_event = WindowDescriptionChangedEvent(std::move(previous_description), _description);
+        _dispatcher->send(changed_event);
     }
 
     bool Window::is_open() const
     {
-        return _implementation != nullptr;
+        return _is_open;
     }
 
     void Window::open()
     {
         if (!is_open())
         {
-            auto create_Request = CreateWindowRequest(_description);
-            _dispatcher->send(create_Request);
+            auto create_request = CreateWindowRequest(this, _description);
+            _dispatcher->send(create_request);
 
-            TBX_ASSERT(create_Request.state == MessageState::Handled, "Failed to create window!");
+            TBX_ASSERT(create_request.state == MessageState::Handled, "Failed to create window!");
 
-            if (create_Request.payload.has_value())
+            bool created = create_request.state == MessageState::Handled;
+            if (created)
             {
-                WindowImpl* implementation = nullptr;
-                if (try_as(create_Request.payload, implementation) && implementation != nullptr)
+                if (auto* success = std::any_cast<bool>(&create_request.result))
                 {
-                    _implementation = *implementation;
+                    created = *success;
                 }
             }
 
-            auto open_Request = OpenWindowRequest(this, _description);
-            _dispatcher->send(open_Request);
+            if (created)
+            {
+                _is_open = true;
 
-            TBX_ASSERT(open_Request.state == MessageState::Handled, "Failed to open window!");
-
-            auto event = WindowOpenedEvent(this);
-            _dispatcher->send(event);
+                auto event = WindowOpenedEvent(this);
+                _dispatcher->send(event);
+            }
         }
     }
 
@@ -85,15 +83,10 @@ namespace tbx
     {
         if (is_open())
         {
-            auto close_Request = CloseWindowRequest(this);
-            _dispatcher->send(close_Request);
-
-            TBX_ASSERT(close_Request.state == MessageState::Handled, "Failed to close window!");
-
             auto closed = WindowClosedEvent(this);
             _dispatcher->send(closed);
-        }
 
-        _implementation = nullptr;
+            _is_open = false;
+        }
     }
 }

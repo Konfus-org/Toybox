@@ -32,7 +32,7 @@ namespace tbx
         void initialize();
         void update(DeltaTimer timer);
         void shutdown();
-        void handle_message(const Message& msg);
+        void on_message(const Message& msg);
 
         AppDescription _desc;
         std::vector<LoadedPlugin> _loaded = {};

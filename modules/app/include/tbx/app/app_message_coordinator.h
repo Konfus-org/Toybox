@@ -14,11 +14,13 @@ namespace tbx
 {
     // Internal storage wrapper used by AppMessageCoordinator to track queued messages before
     // dispatch.
-    // Ownership: Owns a Scope<Message> clone and result metadata until processing completes.
+    // Ownership: Holds an owning Scope of a copied Message alongside a non-owning pointer to the
+    // original message for synchronization. The queued message copy owns its callbacks and shared
+    // result, while the source pointer must outlive processing when provided.
     // Thread-safety: Not thread-safe; synchronized externally by AppMessageCoordinator.
     struct TBX_API AppQueuedMessage
     {
-        AppQueuedMessage() = default;
+        AppQueuedMessage(const Message& source, Timer queue_timer, std::chrono::steady_clock::time_point deadline);
         ~AppQueuedMessage() = default;
 
         AppQueuedMessage(const AppQueuedMessage&) = delete;
@@ -26,15 +28,16 @@ namespace tbx
         AppQueuedMessage(AppQueuedMessage&&) = default;
         AppQueuedMessage& operator=(AppQueuedMessage&&) = default;
 
+        Message* source = nullptr;
         Scope<Message> message;
-        Result result;
         Timer timer;
         std::chrono::steady_clock::time_point timeout_deadline;
     };
 
     // Thread-safe message coordinator handling synchronous dispatch and deferred processing for
     // the application module.
-    // Ownership: Owns enqueued message copies until delivery; stores handlers by value.
+    // Ownership: Stores handlers by value and owns queued message copies while synchronizing state
+    // and results back to the caller-provided messages when they remain alive.
     // Thread-safety: Coordinates access to handlers and pending messages with internal mutexes.
     class TBX_API AppMessageCoordinator final
         : public IMessageDispatcher
@@ -49,19 +52,19 @@ namespace tbx
         AppMessageCoordinator(AppMessageCoordinator&&) = delete;
         AppMessageCoordinator& operator=(AppMessageCoordinator&&) noexcept = delete;
 
-        uuid add_handler(MessageHandler handler);
-        void remove_handler(const uuid& token);
+        Uuid add_handler(MessageHandler handler);
+        void remove_handler(const Uuid& token);
         void clear();
 
         Result send(Message& msg) const override;
-        Result post(Message& msg) override;
+        Result post(const Message& msg) override;
 
         void process() override;
 
       private:
         void dispatch(Message& msg, std::chrono::steady_clock::time_point deadline = {}) const;
 
-        std::vector<std::pair<uuid, MessageHandler>> _handlers;
+        std::vector<std::pair<Uuid, MessageHandler>> _handlers;
         std::vector<AppQueuedMessage> _pending;
 
         mutable std::mutex _handlers_mutex;

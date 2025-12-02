@@ -45,6 +45,7 @@ namespace tbx
         virtual ~Message();
 
         MessageState state = MessageState::InProgress;
+        std::any payload = {};
         Result result = {};
         TimeSpan timeout = {};
         TimeSpan delay_in_seconds = {};
@@ -52,7 +53,7 @@ namespace tbx
         CancellationToken cancellation_token = {};
         MessageCallbacks callbacks = {};
         bool require_handling = false;
-        uuid id = uuid::generate();
+        Uuid id = Uuid::generate();
     };
 
     // Simple event message with no response.
@@ -70,5 +71,13 @@ namespace tbx
         virtual ~Request() = default;
 
         T result = {};
+    };
+
+    // Void specialization to allow requests without a result payload.
+    template <>
+    struct Request<void> : public Message
+    {
+        Request() = default;
+        virtual ~Request() = default;
     };
 }

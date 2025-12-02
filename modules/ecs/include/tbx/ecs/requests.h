@@ -1,35 +1,37 @@
 #pragma once
+#include "tbx/ecs/toy_types.h"
 #include "tbx/messages/message.h"
 #include <any>
+#include <typeinfo>
 #include <vector>
 
 namespace tbx
 {
-    struct Toy;
-
     struct StageRequest
     {
-        const uuid stage_id;
+        const Uuid stage_id;
     };
 
     struct StageViewRequest
         : public Request<std::vector<Toy>>
         , StageRequest
     {
-        StageViewRequest(const uuid& id, const std::vector<type_info>& filter = {})
+        StageViewRequest(
+            const Uuid& id,
+            const std::vector<const std::type_info*>& filter = {})
             : StageRequest(id)
             , block_type_filter(filter)
         {
         }
 
-        std::vector<std::type_info> block_type_filter = {};
+        std::vector<const std::type_info*> block_type_filter = {};
     };
 
     struct AddToyToStageRequest
         : public Request<Toy>
         , StageRequest
     {
-        AddToyToStageRequest(const uuid& stage_id, const std::string& name)
+        AddToyToStageRequest(const Uuid& stage_id, const std::string& name)
             : StageRequest(stage_id)
             , toy_name(name)
         {
@@ -42,38 +44,40 @@ namespace tbx
         : public Request<void>
         , StageRequest
     {
-        RemoveToyFromStageRequest(const uuid& stage_id, const uuid& toy_id)
+        RemoveToyFromStageRequest(const Uuid& stage_id, const Uuid& toy_id)
             : StageRequest(stage_id)
             , toy_id(toy_id)
         {
         }
 
-        const uuid toy_id;
+        const Uuid toy_id;
     };
 
     struct ToyRequest
     {
-        const uuid toy_id;
+        const Uuid toy_id;
     };
 
     struct ToyViewRequest
         : public Request<std::vector<std::any>>
         , ToyRequest
     {
-        ToyViewRequest(const uuid& toy_id, const std::vector<type_info>& filter = {})
+        ToyViewRequest(
+            const Uuid& toy_id,
+            const std::vector<const std::type_info*>& filter = {})
             : ToyRequest(toy_id)
             , block_type_filter(filter)
         {
         }
 
-        std::vector<std::type_info> block_type_filter = {};
+        std::vector<const std::type_info*> block_type_filter = {};
     };
 
     struct IsToyValidRequest
         : public Request<bool>
         , public ToyRequest
     {
-        IsToyValidRequest(const uuid& toy_id)
+        IsToyValidRequest(const Uuid& toy_id)
             : ToyRequest(toy_id)
         {
         }
@@ -83,7 +87,7 @@ namespace tbx
         : public Request<std::any>
         , public ToyRequest
     {
-        AddBlockToToyRequest(const uuid& toy_id, const std::any& block)
+        AddBlockToToyRequest(const Uuid& toy_id, const std::any& block)
             : ToyRequest(toy_id)
             , block_data(block)
         {
@@ -96,7 +100,7 @@ namespace tbx
         : public Request<bool>
         , public ToyRequest
     {
-        RemoveBlockFromToyRequest(const uuid& toy_id, const std::type_info& block)
+        RemoveBlockFromToyRequest(const Uuid& toy_id, const std::type_info& block)
             : ToyRequest(toy_id)
             , block_type(block)
         {
@@ -105,3 +109,4 @@ namespace tbx
         const std::type_info& block_type;
     };
 }
+

@@ -13,7 +13,7 @@ namespace tbx
     {
         Mesh mesh;
         Material material;
-        uuid id = uuid::generate();
+        Uuid id = Uuid::generate();
     };
 
     /// <summary>
@@ -21,7 +21,7 @@ namespace tbx
     /// </summary>
     struct TBX_API ModelInstance
     {
-        uuid model_id = {};
-        uuid instance_id = uuid::generate();
+        Uuid model_id = {};
+        Uuid instance_id = Uuid::generate();
     };
 }
