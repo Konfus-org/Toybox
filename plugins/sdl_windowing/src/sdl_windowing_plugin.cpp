@@ -1,11 +1,9 @@
 #include "sdl_windowing_plugin.h"
 #include "tbx/app/application.h"
 #include "tbx/app/window_events.h"
-#include "tbx/common/casting.h"
-#include "tbx/common/smart_pointers.h"
 #include "tbx/debugging/macros.h"
+#include "tbx/messages/handler.h"
 #include <algorithm>
-#include <memory>
 #include <string>
 #include <utility>
 
@@ -128,6 +126,13 @@ namespace tbx::plugins::sdlwindowing
 
     void SdlWindowingPlugin::on_detach()
     {
+        for (auto& record : _windows)
+        {
+            if (record.sdl_window)
+            {
+                SDL_DestroyWindow(record.sdl_window);
+            }
+        }
         _windows.clear();
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
     }
@@ -140,11 +145,21 @@ namespace tbx::plugins::sdlwindowing
             if (event.type == SDL_EventType::SDL_EVENT_WINDOW_CLOSE_REQUESTED)
             {
                 auto* window = SDL_GetWindowFromID(event.window.windowID);
-                /* find_record(window);
-                 auto closed_event = WindowClosedEvent(it->get()->window);*/
+                SdlWindowRecord* record = find_record(window);
+                if (record && record->tbx_window)
+                {
+                    record->tbx_window->close();
+                }
             }
             else if (event.type == SDL_EventType::SDL_EVENT_QUIT)
             {
+                for (auto& record : _windows)
+                {
+                    if (record.sdl_window)
+                    {
+                        SDL_DestroyWindow(record.sdl_window);
+                    }
+                }
                 _windows.clear();
             }
         }
@@ -152,38 +167,53 @@ namespace tbx::plugins::sdlwindowing
 
     void SdlWindowingPlugin::on_message(Message& msg)
     {
-        if (auto* create = as<CreateWindowRequest>(&msg))
+        if (handle_message<CreateWindowRequest>(
+                msg,
+                [this](CreateWindowRequest& request)
+                {
+                    handle_create_window(request);
+                }))
         {
-            handle_create_window(*create);
             return;
         }
 
-        if (auto* open = as<OpenWindowRequest>(&msg))
+        if (handle_message<QueryWindowDescriptionRequest>(
+                msg,
+                [this](QueryWindowDescriptionRequest& request)
+                {
+                    handle_query_description(request);
+                }))
         {
-            handle_open_window(*open);
             return;
         }
 
-        if (auto* query = as<QueryWindowDescriptionRequest>(&msg))
+        if (handle_message<ApplyWindowDescriptionRequest>(
+                msg,
+                [this](ApplyWindowDescriptionRequest& request)
+                {
+                    handle_apply_description(request);
+                }))
         {
-            handle_query_description(*query);
             return;
         }
 
-        if (auto* apply = as<ApplyWindowDescriptionRequest>(&msg))
-        {
-            handle_apply_description(*apply);
-            return;
-        }
-
-        if (auto* close = as<CloseWindowRequest>(&msg))
-        {
-            handle_close_window(*close);
-        }
+        handle_message<WindowClosedEvent>(
+            msg,
+            [this](WindowClosedEvent& event)
+            {
+                handle_window_closed(event);
+            });
     }
 
     void SdlWindowingPlugin::handle_create_window(CreateWindowRequest& request)
     {
+        if (!request.window)
+        {
+            set_failure(request, "Create missing window reference.");
+            request.state = MessageState::Handled;
+            return;
+        }
+
         if ((SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO) != SDL_INIT_VIDEO)
         {
             set_failure(request, "SDL video subsystem is not initialized.");
@@ -229,7 +259,10 @@ namespace tbx::plugins::sdlwindowing
                 "logs for details.");
         }
 
-        _windows.emplace_back(native, requestedDesc.id);
+        _windows.emplace_back();
+        _windows.back().sdl_window = native;
+        _windows.back().tbx_window = request.window;
+
         request.payload = native;
         request.state = MessageState::Handled;
     }
@@ -243,8 +276,15 @@ namespace tbx::plugins::sdlwindowing
             return;
         }
 
-        SdlWindowRecord record = find_record(request.window->get_description().id);
-        const WindowDescription description = read_window_description(record.window);
+        const SdlWindowRecord* record = find_record(request.window);
+        if (!record)
+        {
+            set_failure(request, "Window is not managed by SDL windowing.");
+            request.state = MessageState::Handled;
+            return;
+        }
+
+        const WindowDescription description = read_window_description(record->sdl_window);
 
         request.payload = description;
         request.state = MessageState::Handled;
@@ -259,16 +299,22 @@ namespace tbx::plugins::sdlwindowing
             return;
         }
 
-        SdlWindowRecord record = find_record(request.window->get_description().id);
+        const SdlWindowRecord* record = find_record(request.window);
+        if (!record)
+        {
+            set_failure(request, "Window is not managed by SDL windowing.");
+            request.state = MessageState::Handled;
+            return;
+        }
         const WindowMode previous_mode = request.window->get_description().mode;
-        if (!apply_window_description(record.window, request.description))
+        if (!apply_window_description(record->sdl_window, request.description))
         {
             set_failure(request, "Failed to apply SDL window description.");
             request.state = MessageState::Handled;
             return;
         }
 
-        const WindowDescription refreshed = read_window_description(record.window);
+        const WindowDescription refreshed = read_window_description(record->sdl_window);
         request.payload = refreshed;
         if (request.window && previous_mode != refreshed.mode)
         {
@@ -279,47 +325,31 @@ namespace tbx::plugins::sdlwindowing
         request.state = MessageState::Handled;
     }
 
-    void SdlWindowingPlugin::handle_open_window(OpenWindowRequest& request) const
+    void SdlWindowingPlugin::handle_window_closed(WindowClosedEvent& event)
     {
-        if (!request.window)
+        if (!event.window)
         {
-            set_failure(request, "Open missing window reference.");
-            request.state = MessageState::Handled;
-            return;
-        }
-
-        request.state = MessageState::Handled;
-    }
-
-    void SdlWindowingPlugin::handle_close_window(CloseWindowRequest& request)
-    {
-        if (!request.window)
-        {
-            set_failure(request, "Close missing window reference.");
             return;
         }
 
         auto it = std::ranges::find_if(
             _windows,
-            [&request](const Scope<SdlWindowRecord>& record)
+            [&event](const SdlWindowRecord& record)
             {
-                return record->id == request.window->get_description().id;
+                return record.tbx_window == event.window;
             });
         if (it == _windows.end())
         {
-            set_failure(request, "Window is not managed by SDL windowing.");
             return;
         }
 
-        const SdlWindowRecord& record = *it;
-        if (record.window)
+        if (it->sdl_window)
         {
-            SDL_DestroyWindow(record.window);
+            SDL_DestroyWindow(it->sdl_window);
         }
 
         _windows.erase(it);
-        request.payload.reset();
-        request.state = MessageState::Handled;
+        event.state = MessageState::Handled;
     }
 
     void SdlWindowingPlugin::set_failure(Message& message, std::string_view reason)
@@ -328,36 +358,67 @@ namespace tbx::plugins::sdlwindowing
         message.state = MessageState::Failed;
     }
 
-    SdlWindowRecord SdlWindowingPlugin::find_record(const SDL_Window* window) const
+    SdlWindowRecord* SdlWindowingPlugin::find_record(const SDL_Window* window)
     {
         auto it = std::ranges::find_if(
             _windows,
-            [&window](const Scope<SdlWindowRecord>& record)
+            [&window](const SdlWindowRecord& record)
             {
-                return record->window == window;
+                return record.sdl_window == window;
             });
         if (it == _windows.end())
         {
-            TBX_ASSERT(false, "No SDL window record found for the given window.");
-            return {};
+            return nullptr;
         }
-        return *it;
+
+        return &(*it);
     }
 
-    SdlWindowRecord SdlWindowingPlugin::find_record(const uuid& id) const
+    SdlWindowRecord* SdlWindowingPlugin::find_record(const Window* window)
     {
         auto it = std::ranges::find_if(
             _windows,
-            [&id](const Scope<SdlWindowRecord>& record)
+            [&window](const SdlWindowRecord& record)
             {
-                return record->id == id;
+                return record.tbx_window == window;
             });
         if (it == _windows.end())
         {
-            TBX_ASSERT(false, "No SDL window record found for the given ID.");
-            return {};
+            return nullptr;
         }
 
-        return *it;
+        return &(*it);
+    }
+
+    const SdlWindowRecord* SdlWindowingPlugin::find_record(const SDL_Window* window) const
+    {
+        auto it = std::ranges::find_if(
+            _windows,
+            [&window](const SdlWindowRecord& record)
+            {
+                return record.sdl_window == window;
+            });
+        if (it == _windows.end())
+        {
+            return nullptr;
+        }
+
+        return &(*it);
+    }
+
+    const SdlWindowRecord* SdlWindowingPlugin::find_record(const Window* window) const
+    {
+        auto it = std::ranges::find_if(
+            _windows,
+            [&window](const SdlWindowRecord& record)
+            {
+                return record.tbx_window == window;
+            });
+        if (it == _windows.end())
+        {
+            return nullptr;
+        }
+
+        return &(*it);
     }
 }

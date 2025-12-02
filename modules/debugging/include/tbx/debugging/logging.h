@@ -82,7 +82,7 @@ namespace tbx
     // Convenience: uses the thread-local current dispatcher if one is set.
     inline void trace(LogLevel level, const char* file, int line, const std::string& message)
     {
-        if (IMessageDispatcher* d = current_dispatcher())
+        if (IMessageDispatcher* d = get_global_dispatcher())
         {
             trace(*d, level, file, line, message);
         }

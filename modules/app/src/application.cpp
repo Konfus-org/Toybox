@@ -1,9 +1,9 @@
 #include "tbx/app/application.h"
 #include "tbx/app/app_events.h"
 #include "tbx/app/app_requests.h"
-#include "tbx/common/casting.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
+#include "tbx/messages/handler.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/plugin_api/plugin_registry.h"
@@ -40,7 +40,7 @@ namespace tbx
     void Application::initialize()
     {
         // Set dispatcher scope
-        auto scope = DispatcherScope(_msg_coordinator);
+        auto scope = GlobalDispatcherScope(_msg_coordinator);
         {
             // Load plugins based on description
             if (!_desc.plugins_directory.empty())
@@ -55,7 +55,7 @@ namespace tbx
             _msg_coordinator.add_handler(
                 [this](Message& msg)
                 {
-                    handle_message(msg);
+                    on_message(msg);
                 });
             for (auto& p : _loaded)
             {
@@ -77,7 +77,7 @@ namespace tbx
 
     void Application::update(DeltaTimer timer)
     {
-        DispatcherScope scope(_msg_coordinator);
+        GlobalDispatcherScope scope(_msg_coordinator);
 
         // Process messages posted in previous frame
         _msg_coordinator.process();
@@ -107,7 +107,7 @@ namespace tbx
 
     void Application::shutdown()
     {
-        DispatcherScope scope(_msg_coordinator);
+        GlobalDispatcherScope scope(_msg_coordinator);
 
         ApplicationShutdownEvent shutdown_event(this);
         _msg_coordinator.send(shutdown_event);
@@ -123,11 +123,13 @@ namespace tbx
         _msg_coordinator.clear();
     }
 
-    void Application::handle_message(const Message& msg)
+    void Application::on_message(const Message& msg)
     {
-        if (is<ExitApplicationRequest>(&msg))
-        {
-            _should_exit = true;
-        }
+        handle_message<ExitApplicationRequest>(
+            msg,
+            [this](const ExitApplicationRequest&)
+            {
+                _should_exit = true;
+            });
     }
 }

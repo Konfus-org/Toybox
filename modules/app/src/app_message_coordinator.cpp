@@ -4,6 +4,7 @@
 #include <exception>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace tbx
 {
@@ -165,6 +166,25 @@ namespace tbx
         dispatch_state_callbacks(msg, msg.state);
     }
 
+    // ----------------------
+    // AppQueuedMessage
+    // ----------------------
+
+    AppQueuedMessage::AppQueuedMessage(
+        const Message& source,
+        Timer queue_timer,
+        std::chrono::steady_clock::time_point deadline)
+        : message(Scope<Message>(source))
+        , timer(std::move(queue_timer))
+        , timeout_deadline(deadline)
+    {
+        if (message)
+        {
+            message->result = source.result;
+            message->state = MessageState::InProgress;
+        }
+    }
+
     static bool cancel_if_requested(Message& msg, const std::string_view reason = "")
     {
         if (!msg.cancellation_token || !msg.cancellation_token.is_cancelled())
@@ -191,18 +211,22 @@ namespace tbx
     AppMessageCoordinator::AppMessageCoordinator() = default;
     AppMessageCoordinator::~AppMessageCoordinator() = default;
 
-    uuid AppMessageCoordinator::add_handler(MessageHandler handler)
+    // ----------------------
+    // Handler Management
+    // ----------------------
+
+    Uuid AppMessageCoordinator::add_handler(MessageHandler handler)
     {
         std::lock_guard lock(_handlers_mutex);
-        uuid id = uuid::generate();
+        Uuid id = Uuid::generate();
         _handlers.emplace_back(id, std::move(handler));
         return id;
     }
 
-    void AppMessageCoordinator::remove_handler(const uuid& token)
+    void AppMessageCoordinator::remove_handler(const Uuid& token)
     {
         std::lock_guard lock(_handlers_mutex);
-        std::vector<std::pair<uuid, MessageHandler>> next;
+        std::vector<std::pair<Uuid, MessageHandler>> next;
         next.reserve(_handlers.size());
         for (auto& entry : _handlers)
         {
@@ -223,18 +247,31 @@ namespace tbx
         _pending.clear();
     }
 
+    // ----------------------
+    // Immediate Dispatching
+    // ----------------------
+
     void AppMessageCoordinator::dispatch(
         Message& msg,
         std::chrono::steady_clock::time_point deadline) const
     {
+        const bool immediate_dispatch = deadline == std::chrono::steady_clock::time_point();
+
         if (msg.delay_in_ticks && msg.delay_in_seconds)
         {
-            TBX_ASSERT(
-                false,
-                "Message should not specify both tick and time delays! Taking ticks.");
+            TBX_TRACE_WARNING(
+                "Message {} specified both tick and time delays; using ticks.",
+                to_string(msg.id).c_str());
         }
 
-        std::vector<std::pair<uuid, MessageHandler>> handlers_snapshot;
+        if (immediate_dispatch && (msg.delay_in_ticks || msg.delay_in_seconds))
+        {
+            TBX_TRACE_WARNING(
+                "Message {} requested a delay but was sent; dispatching immediately.",
+                to_string(msg.id).c_str());
+        }
+
+        std::vector<std::pair<Uuid, MessageHandler>> handlers_snapshot;
         {
             std::lock_guard lock(_handlers_mutex);
             handlers_snapshot = _handlers;
@@ -325,6 +362,13 @@ namespace tbx
             {
                 apply_state(msg, MessageState::TimedOut, "Message timed out during dispatch.");
             }
+            else if (msg.require_handling)
+            {
+                apply_state(
+                    msg,
+                    MessageState::Failed,
+                    "Message required handling but no handlers completed it.");
+            }
             else
             {
                 apply_state(msg, MessageState::Processed, std::string());
@@ -357,48 +401,72 @@ namespace tbx
         return msg.result;
     }
 
-    Result AppMessageCoordinator::post(Message& msg)
+    // ----------------------
+    // Queued Posting
+    // ----------------------
+
+    Result AppMessageCoordinator::post(const Message& msg)
     {
-        Result result = {};
+        Result result = msg.result;
+        Message& mutable_msg = const_cast<Message&>(msg);
 
         try
         {
-            AppQueuedMessage queued = {};
-            queued.message = Scope<Message>(msg);
-            if (queued.message)
+            const auto now = std::chrono::steady_clock::now();
+            if (msg.delay_in_ticks && msg.delay_in_seconds)
             {
-                result = queued.result;
-                msg.result = queued.result;
-                msg.state = MessageState::InProgress;
+                TBX_TRACE_WARNING(
+                    "Message {} specified both tick and time delays; using ticks.",
+                    to_string(msg.id).c_str());
+
+                if (mutable_msg.callbacks.on_processed)
+                {
+                    mutable_msg.callbacks.on_processed(mutable_msg);
+                }
             }
 
-            const auto now = std::chrono::steady_clock::now();
+            Timer timer = {};
             if (msg.delay_in_ticks)
-                queued.timer = Timer::for_ticks(msg.delay_in_ticks);
+                timer = Timer::for_ticks(msg.delay_in_ticks);
             else if (msg.delay_in_seconds)
-                queued.timer = Timer::for_time_span(msg.delay_in_seconds, now);
+                timer = Timer::for_time_span(msg.delay_in_seconds, now);
             else
-                queued.timer.reset();
+                timer.reset();
 
+            std::chrono::steady_clock::time_point timeout_deadline = {};
             if (msg.timeout && !msg.timeout.is_zero())
-                queued.timeout_deadline = now + msg.timeout.to_duration();
+                timeout_deadline = now + msg.timeout.to_duration();
+
+            AppQueuedMessage queued(msg, timer, timeout_deadline);
+            if (queued.message)
+            {
+                result = queued.message->result;
+                mutable_msg.result = queued.message->result;
+            }
 
             auto lock = std::lock_guard<std::mutex>(_queue_mutex);
             _pending.emplace_back(std::move(queued));
         }
         catch (const std::exception& ex)
         {
-            apply_state(msg, MessageState::Failed, ex.what());
-            return msg.result;
+            apply_state(mutable_msg, MessageState::Failed, ex.what());
+            return mutable_msg.result;
         }
         catch (...)
         {
-            apply_state(msg, MessageState::Failed, "Unknown exception while queuing message.");
-            return msg.result;
+            apply_state(
+                mutable_msg,
+                MessageState::Failed,
+                "Unknown exception while queuing message.");
+            return mutable_msg.result;
         }
 
         return result;
     }
+
+    // ----------------------
+    // Queued Processing
+    // ----------------------
 
     void AppMessageCoordinator::process()
     {
@@ -447,7 +515,13 @@ namespace tbx
 
             try
             {
-                dispatch(*entry.message, entry.timeout_deadline);
+                auto deadline = entry.timeout_deadline;
+                if (deadline == std::chrono::steady_clock::time_point())
+                {
+                    deadline = std::chrono::steady_clock::now();
+                }
+
+                dispatch(*entry.message, deadline);
             }
             catch (const std::exception& ex)
             {

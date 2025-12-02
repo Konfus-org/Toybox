@@ -21,7 +21,7 @@ namespace tbx::examples
             stage.name.c_str(),
             to_string(stage.id).c_str());
 
-        auto& toy = add_toy(stage, "test");
+        auto toy = add_toy(stage, "test");
     }
 
     void ExampleRuntimePlugin::on_detach() {}

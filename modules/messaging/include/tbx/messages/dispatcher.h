@@ -43,41 +43,43 @@ namespace tbx
     // Returns the current global dispatcher pointer (may be nullptr).
     // Ownership: non-owning. The setter retains ownership and must ensure the
     // dispatcher outlives its use through this API.
-    // Thread-safety: Not thread-safe. Intended for use on a single thread
-    // (usually the application's main loop) where the dispatcher is swapped
-    // in and out via DispatcherScope.
-    TBX_API IMessageDispatcher* current_dispatcher();
+    // Thread-safety: Thread-safe. Uses an atomic pointer to read the global
+    // dispatcher without additional synchronization.
+    TBX_API IMessageDispatcher* get_global_dispatcher();
 
     // Sets the current dispatcher, returning the previous value.
     // Ownership: non-owning. The caller retains ownership and must ensure the
     // dispatcher outlives all use through this API.
-    // Thread-safety: Not thread-safe; see current_dispatcher.
-    TBX_API IMessageDispatcher* set_current_dispatcher(IMessageDispatcher* dispatcher);
+    // Thread-safety: Thread-safe. Uses an atomic pointer to exchange the
+    // dispatcher value for the process.
+    TBX_API IMessageDispatcher* set_global_dispatcher(IMessageDispatcher* dispatcher);
 
-    // RAII helper that sets the current thread-local dispatcher for the lifetime of the scope,
+    // RAII helper that sets the current global dispatcher for the lifetime of the scope,
     // restoring the previous value when destroyed.
     // Ownership: non-owning. The caller retains ownership and must ensure the
     // dispatcher outlives the scope where it is set.
-    // Thread-safety: Not thread-safe; intended for single-threaded usage.
-    class TBX_API DispatcherScope
+    // Thread-safety: Thread-safe for setting and restoring the global
+    // dispatcher pointer. The dispatcher instance itself must remain valid for
+    // the lifetime of the scope.
+    class TBX_API GlobalDispatcherScope
     {
       public:
-        DispatcherScope(IMessageDispatcher& dispatcher)
-            : _prev(set_current_dispatcher(&dispatcher))
+        GlobalDispatcherScope(IMessageDispatcher& dispatcher)
+            : _prev(set_global_dispatcher(&dispatcher))
         {
         }
-        DispatcherScope(IMessageDispatcher* dispatcher)
-            : _prev(set_current_dispatcher(dispatcher))
+        GlobalDispatcherScope(IMessageDispatcher* dispatcher)
+            : _prev(set_global_dispatcher(dispatcher))
         {
         }
 
-        ~DispatcherScope()
+        ~GlobalDispatcherScope()
         {
-            set_current_dispatcher(_prev);
+            set_global_dispatcher(_prev);
         }
 
-        DispatcherScope(const DispatcherScope&) = delete;
-        DispatcherScope& operator=(const DispatcherScope&) = delete;
+        GlobalDispatcherScope(const GlobalDispatcherScope&) = delete;
+        GlobalDispatcherScope& operator=(const GlobalDispatcherScope&) = delete;
 
       private:
         IMessageDispatcher* _prev = nullptr;

@@ -7,13 +7,11 @@ namespace tbx
 {
     // Window is a lightweight wrapper around a platform specific implementation managed through
     // messages.
-    // Ownership: Does not own the underlying platform window; stores an opaque handle.
+    // Ownership: Does not own the underlying platform window; keeps no platform state locally.
     // Thread-safety: Not thread-safe; expected to be used on the main/UI thread.
     class TBX_API Window
     {
       public:
-        using WindowImpl = void*;
-
         Window(
             IMessageDispatcher& dispatcher,
             const WindowDescription& description,
@@ -26,17 +24,9 @@ namespace tbx
         void open();
         void close();
 
-        template <typename T>
-        WindowImpl get_implementation() const
-        {
-            return static_cast<T>(_implementation);
-        }
-
       private:
-        void apply_description_update(const WindowDescription& description);
-
         IMessageDispatcher* _dispatcher = nullptr;
-        WindowImpl _implementation = nullptr;
+        bool _is_open = false;
         WindowDescription _description = {};
     };
 }

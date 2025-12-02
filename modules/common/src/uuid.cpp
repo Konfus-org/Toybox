@@ -4,9 +4,9 @@
 
 namespace tbx
 {
-    uuid uuid::generate()
+    Uuid Uuid::generate()
     {
-        uuid id = {};
+        Uuid id = {};
 
         // Fill with random bytes
         std::random_device rd;
@@ -30,7 +30,7 @@ namespace tbx
         return id;
     }
 
-    bool uuid::is_valid() const
+    bool Uuid::is_valid() const
     {
         for (std::uint8_t b : bytes)
         {
@@ -40,17 +40,17 @@ namespace tbx
         return false;
     }
 
-    bool operator==(const uuid& a, const uuid& b)
+    bool operator==(const Uuid& a, const Uuid& b)
     {
         return a.bytes == b.bytes;
     }
 
-    bool operator!=(const uuid& a, const uuid& b)
+    bool operator!=(const Uuid& a, const Uuid& b)
     {
         return !(a == b);
     }
 
-    uint64 UuidHash::operator()(const uuid& id) const
+    uint64 UuidHash::operator()(const Uuid& id) const
     {
         // Combine two 64-bit halves
         std::uint64_t a = 0, b = 0;
@@ -61,7 +61,7 @@ namespace tbx
         return a ^ (b + 0x9e3779b97f4a7c15ull + (a << 6) + (a >> 2));
     }
 
-    std::string to_string(const uuid& id)
+    std::string to_string(const Uuid& id)
     {
         static const char* hex = "0123456789abcdef";
         std::string s;
