@@ -66,7 +66,7 @@ namespace tbx
     template <typename T>
     T& add_block(const Toy& t)
     {
-        auto request = AddBlockToToyRequest(t.id, typeid(T));
+        auto request = AddBlockToToyRequest(t.id, std::any(T()));
         auto* dispatcher = current_dispatcher();
         dispatcher->send(request);
         return std::any_cast<T&>(request.result);
