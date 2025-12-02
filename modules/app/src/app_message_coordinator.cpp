@@ -227,11 +227,28 @@ namespace tbx
         Message& msg,
         std::chrono::steady_clock::time_point deadline) const
     {
+        const bool immediate_dispatch = deadline == std::chrono::steady_clock::time_point();
+
         if (msg.delay_in_ticks && msg.delay_in_seconds)
         {
-            TBX_ASSERT(
-                false,
-                "Message should not specify both tick and time delays! Taking ticks.");
+            const std::string reason =
+                "Message should not specify both tick and time delays! Taking ticks.";
+            if (immediate_dispatch)
+            {
+                apply_state(msg, MessageState::Failed, reason);
+                return;
+            }
+
+            TBX_ASSERT(false, reason.c_str());
+        }
+
+        if (immediate_dispatch && (msg.delay_in_ticks || msg.delay_in_seconds))
+        {
+            apply_state(
+                msg,
+                MessageState::Failed,
+                "Delayed messages must be posted instead of sent.");
+            return;
         }
 
         std::vector<std::pair<Uuid, MessageHandler>> handlers_snapshot;
@@ -327,7 +344,17 @@ namespace tbx
             }
             else
             {
-                apply_state(msg, MessageState::Processed, std::string());
+                if (!handlers_snapshot.empty())
+                {
+                    apply_state(
+                        msg,
+                        MessageState::Failed,
+                        "Message was not handled by any registered handlers.");
+                }
+                else
+                {
+                    apply_state(msg, MessageState::Processed, std::string());
+                }
             }
         }
     }
@@ -359,19 +386,28 @@ namespace tbx
 
     Result AppMessageCoordinator::post(const Message& msg)
     {
-        Result result = {};
+        Result result = msg.result;
 
         AppQueuedMessage queued = {};
         try
         {
-            queued.message = Scope<Message>(msg);
+            queued.message = const_cast<Message*>(&msg);
+
             if (queued.message)
             {
-                result = queued.result;
                 queued.message->state = MessageState::InProgress;
             }
 
             const auto now = std::chrono::steady_clock::now();
+            if (msg.delay_in_ticks && msg.delay_in_seconds)
+            {
+                apply_state(
+                    *queued.message,
+                    MessageState::Failed,
+                    "Message should not specify both tick and time delays! Taking ticks.");
+                return result;
+            }
+
             if (msg.delay_in_ticks)
                 queued.timer = Timer::for_ticks(msg.delay_in_ticks);
             else if (msg.delay_in_seconds)
@@ -455,7 +491,13 @@ namespace tbx
 
             try
             {
-                dispatch(*entry.message, entry.timeout_deadline);
+                auto deadline = entry.timeout_deadline;
+                if (deadline == std::chrono::steady_clock::time_point())
+                {
+                    deadline = std::chrono::steady_clock::now();
+                }
+
+                dispatch(*entry.message, deadline);
             }
             catch (const std::exception& ex)
             {
