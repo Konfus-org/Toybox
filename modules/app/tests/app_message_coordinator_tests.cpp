@@ -324,7 +324,7 @@ namespace tbx::tests::app
 
         d.process();
 
-        EXPECT_EQ(msg.state, MessageState::Failed);
+        EXPECT_EQ(msg.state, MessageState::InProgress);
         EXPECT_FALSE(result.succeeded());
         EXPECT_TRUE(failure_callback);
         EXPECT_TRUE(processed_callback);
@@ -463,6 +463,13 @@ namespace tbx::tests::app
         });
 
         Message msg;
+        std::string processed_payload;
+        msg.callbacks.on_processed = [&](const Message& processed)
+        {
+            EXPECT_TRUE(processed.payload.has_value());
+            const std::string* value = std::any_cast<std::string>(&processed.payload);
+            processed_payload = value ? *value : std::string();
+        };
         auto result = d.post(msg);
 
         EXPECT_FALSE(result.succeeded());
@@ -471,9 +478,8 @@ namespace tbx::tests::app
         d.process();
 
         EXPECT_TRUE(result.succeeded());
-        EXPECT_TRUE(msg.payload.has_value());
-        EXPECT_NE(std::any_cast<std::string>(&msg.payload), nullptr);
-        EXPECT_EQ(std::any_cast<const std::string&>(msg.payload), "ready");
+        EXPECT_FALSE(msg.payload.has_value());
+        EXPECT_EQ(processed_payload, "ready");
     }
 
     TEST(dispatcher_send_timeout, marks_result_as_timed_out)

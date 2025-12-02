@@ -14,9 +14,9 @@ namespace tbx
 {
     // Internal storage wrapper used by AppMessageCoordinator to track queued messages before
     // dispatch.
-    // Ownership: Holds an owning Scope of a copied Message alongside a non-owning pointer to the
-    // original message for synchronization. The queued message copy owns its callbacks and shared
-    // result, while the source pointer must outlive processing when provided.
+    // Ownership: Holds an owning Scope of a copied Message. The queued message owns its callbacks
+    // and shared result; callers retain ownership of their original messages and observe outcomes
+    // through shared Result instances and callbacks.
     // Thread-safety: Not thread-safe; synchronized externally by AppMessageCoordinator.
     struct TBX_API AppQueuedMessage
     {
@@ -28,7 +28,6 @@ namespace tbx
         AppQueuedMessage(AppQueuedMessage&&) = default;
         AppQueuedMessage& operator=(AppQueuedMessage&&) = default;
 
-        Message* source = nullptr;
         Scope<Message> message;
         Timer timer;
         std::chrono::steady_clock::time_point timeout_deadline;
@@ -36,8 +35,8 @@ namespace tbx
 
     // Thread-safe message coordinator handling synchronous dispatch and deferred processing for
     // the application module.
-    // Ownership: Stores handlers by value and owns queued message copies while synchronizing state
-    // and results back to the caller-provided messages when they remain alive.
+    // Ownership: Stores handlers by value and owns queued message copies, sharing Result state with
+    // callers through the returned Result and any shared Message instances provided by callers.
     // Thread-safety: Coordinates access to handlers and pending messages with internal mutexes.
     class TBX_API AppMessageCoordinator final
         : public IMessageDispatcher

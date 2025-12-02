@@ -166,16 +166,6 @@ namespace tbx
         dispatch_state_callbacks(msg, msg.state);
     }
 
-    static void synchronize_source_message(AppQueuedMessage& queued)
-    {
-        if (queued.source && queued.message)
-        {
-            queued.source->state = queued.message->state;
-            queued.source->payload = queued.message->payload;
-            queued.source->result = queued.message->result;
-        }
-    }
-
     // ----------------------
     // AppQueuedMessage
     // ----------------------
@@ -184,8 +174,7 @@ namespace tbx
         const Message& source,
         Timer queue_timer,
         std::chrono::steady_clock::time_point deadline)
-        : source(const_cast<Message*>(&source))
-        , message(Scope<Message>(source))
+        : message(Scope<Message>(source))
         , timer(std::move(queue_timer))
         , timeout_deadline(deadline)
     {
@@ -193,12 +182,6 @@ namespace tbx
         {
             message->result = source.result;
             message->state = MessageState::InProgress;
-        }
-
-        if (this->source)
-        {
-            this->source->state = MessageState::InProgress;
-            this->source->result = source.result;
         }
     }
 
@@ -504,7 +487,6 @@ namespace tbx
 
             if (cancel_if_requested(*entry.message))
             {
-                synchronize_source_message(entry);
                 continue;
             }
 
@@ -514,7 +496,6 @@ namespace tbx
                     *entry.message,
                     MessageState::TimedOut,
                     "Message timed out before delivery.");
-                synchronize_source_message(entry);
                 continue;
             }
 
@@ -541,12 +522,10 @@ namespace tbx
                 }
 
                 dispatch(*entry.message, deadline);
-                synchronize_source_message(entry);
             }
             catch (const std::exception& ex)
             {
                 apply_state(*entry.message, MessageState::Failed, ex.what());
-                synchronize_source_message(entry);
             }
             catch (...)
             {
@@ -554,7 +533,6 @@ namespace tbx
                     *entry.message,
                     MessageState::Failed,
                     "Unknown exception during message dispatch.");
-                synchronize_source_message(entry);
             }
         }
     }
