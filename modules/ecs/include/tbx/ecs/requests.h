@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/ecs/toy_types.h"
+#include "tbx/ecs/toy_description.h"
 #include "tbx/messages/message.h"
 #include <any>
 #include <typeinfo>
@@ -13,7 +13,7 @@ namespace tbx
     };
 
     struct StageViewRequest
-        : public Request<std::vector<Toy>>
+        : public Request<std::vector<ToyDescription>>
         , StageRequest
     {
         StageViewRequest(
@@ -28,7 +28,7 @@ namespace tbx
     };
 
     struct AddToyToStageRequest
-        : public Request<Toy>
+        : public Request<ToyDescription>
         , StageRequest
     {
         AddToyToStageRequest(const Uuid& stage_id, const std::string& name)
@@ -81,6 +81,23 @@ namespace tbx
             : ToyRequest(toy_id)
         {
         }
+    };
+
+    struct GetToyBlockRequest
+        : public Request<std::any>
+        , public ToyRequest
+    {
+        // Purpose: Retrieves a block instance of the requested type from a toy.
+        // Ownership: The block is owned by the toy; callers receive a reference wrapped in the
+        // returned std::any value.
+        // Thread-safety: Not thread-safe. Calls are expected on the toy-owning thread.
+        GetToyBlockRequest(const Uuid& toy_id, const std::type_info& requested_type)
+            : ToyRequest(toy_id)
+            , block_type(requested_type)
+        {
+        }
+
+        const std::type_info& block_type;
     };
 
     struct AddBlockToToyRequest
