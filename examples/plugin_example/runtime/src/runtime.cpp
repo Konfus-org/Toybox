@@ -1,4 +1,5 @@
 #include "runtime_plugin.h"
+#include "tbx/app/application.h"
 #include "tbx/common/string_extensions.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/stage.h"
@@ -14,14 +15,17 @@ namespace tbx::examples
         TBX_TRACE_INFO("{}", message.c_str());
 
         // Example ECS usage
-        auto stage = Stage();
-        stage.name = "Example Stage";
+        auto stage = Stage(context.get_dispatcher(), "Example Stage");
         TBX_TRACE_INFO(
             "Created stage '{}' with ID {}",
-            stage.name.c_str(),
-            to_string(stage.id).c_str());
+            stage.get_name().c_str(),
+            to_string(stage.get_id()).c_str());
 
-        auto toy = add_toy(stage, "test");
+        auto toy = stage.add_toy("test");
+        TBX_TRACE_INFO(
+            "Added toy '{}' with ID {}",
+            toy.get_name().c_str(),
+            to_string(toy.get_id()).c_str());
     }
 
     void ExampleRuntimePlugin::on_detach() {}
