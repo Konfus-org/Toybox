@@ -9,7 +9,7 @@ namespace tbx
     // Toy is a lightweight handle for interacting with ECS toys.
     // Ownership: Does not own ECS state; holds a non-owning dispatcher pointer and local
     // description copy for identification only.
-    // Thread-safety: Not thread-safe. Calls are expected from the same thread that owns the toy.
+    // Thread-safety: Thread-safe through the dispatcher.
     class Toy
     {
       public:
@@ -24,38 +24,38 @@ namespace tbx
 
         // Returns the display name of this toy.
         // Ownership: Returns a non-owning reference valid for the lifetime of the toy handle.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         const std::string& get_name() const;
 
         // Returns the stickers associated with this toy.
         // Ownership: Non-owning reference to internal container; do not store beyond the toy
         // lifetime.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         const std::vector<Sticker>& get_stickers() const;
 
         // Returns the identifier for the parent toy.
         // Ownership: Value reference; caller does not take ownership.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         const Uuid& get_parent() const;
 
         // Returns the toy identifier used by ECS messages.
         // Ownership: Value reference; caller does not take ownership.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         const Uuid& get_id() const;
 
         // Checks whether the toy exists in the ECS store.
         // Ownership: No ownership transfer; returns the current validity state.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         bool is_valid() const;
 
         // Retrieves all blocks associated with the toy.
         // Ownership: Returns a copy of the blocks owned by the caller.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         std::vector<Block> get_full_view() const;
 
         // Retrieves blocks filtered by the requested component types.
         // Ownership: Returns a copy of the blocks owned by the caller.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         template <typename... Ts>
         std::vector<Block> get_view() const
         {
@@ -68,7 +68,7 @@ namespace tbx
         // Retrieves a specific block instance from the toy.
         // Ownership: Returns a reference to a block owned by the toy; the caller must respect the
         // toy's lifetime.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         template <typename T>
         T& get_block() const
         {
@@ -84,7 +84,7 @@ namespace tbx
 
         // Determines whether the toy has a block of the requested type.
         // Ownership: No ownership transfer.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         template <typename T>
         bool has_block() const
         {
@@ -96,7 +96,7 @@ namespace tbx
         // Adds a new block instance to the toy.
         // Ownership: The toy owns the stored block; the caller receives a reference to the
         // toy-managed instance.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         template <typename T>
         T& add_block()
         {
@@ -107,7 +107,7 @@ namespace tbx
 
         // Removes a block type from the toy.
         // Ownership: No ownership transfer.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         template <typename T>
         void remove_block()
         {

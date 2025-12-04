@@ -11,7 +11,7 @@ namespace tbx
     // Stage is a lightweight handle for managing the contents of an ECS stage.
     // Ownership: Does not own ECS data; stores a non-owning dispatcher pointer and identifiers
     // used to address the stage.
-    // Thread-safety: Not thread-safe. Intended for use on the thread owning the stage.
+    // Thread-safety: Thread-safe through the dispatcher.
     class Stage
     {
       public:
@@ -22,24 +22,24 @@ namespace tbx
 
         // Returns the display name assigned to this stage.
         // Ownership: Non-owning reference valid for the lifetime of the stage wrapper.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         const std::string& get_name() const;
 
         // Returns the identifier used to reference this stage in ECS messages.
         // Ownership: Non-owning reference; caller does not assume ownership.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         const Uuid& get_id() const;
 
         // Retrieves all toys currently contained in the stage.
         // Ownership: Returns toy handles using the stage dispatcher; caller owns the returned
         // collection.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         std::vector<Toy> get_full_view() const;
 
         // Retrieves toys whose blocks match the requested component filters.
         // Ownership: Returns toy handles using the stage dispatcher; caller owns the returned
         // collection.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         template <typename... Ts>
         std::vector<Toy> get_view() const
         {
@@ -52,23 +52,23 @@ namespace tbx
         // Retrieves a specific toy by identifier if present in the stage.
         // Ownership: Returns a toy handle using the stage dispatcher. Returns an invalid toy if
         // not found.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         Toy get_toy(const Uuid& toy_id) const;
 
         // Indicates whether the stage currently contains the requested toy identifier.
         // Ownership: No ownership transfer; returns a boolean describing containment.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         bool has_toy(const Uuid& toy_id) const;
 
         // Adds a toy to the stage.
         // Ownership: Returns a toy handle using the stage dispatcher. The stage retains ownership
         // of ECS state.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         Toy add_toy(const std::string& name);
 
         // Removes the specified toy from the stage.
         // Ownership: No ownership transfer.
-        // Thread-safety: Not thread-safe.
+        // Thread-safety: Thread-safe through the dispatcher.
         void remove_toy(const Uuid& toy_id);
 
     private:
