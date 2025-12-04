@@ -1,3 +1,5 @@
-set(CMAKE_FOLDER "examples")
 
-add_subdirectory(plugin_example)
+add_subdirectory(3dDemo/Runtime)
+add_subdirectory(3dDemo/Launcher)
+add_subdirectory(Template/Runtime)
+add_subdirectory(Template/Launcher)

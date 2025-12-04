@@ -1,15 +1,15 @@
-modules:
+core:
   - changed-files:
-      - any-glob-to-any-file: 'modules/**'
+      - any-glob-to-any-file: 'Core/**'
 examples:
   - changed-files:
-      - any-glob-to-any-file: 'examples/**'
+      - any-glob-to-any-file: 'Examples/**'
 plugins:
   - changed-files:
-      - any-glob-to-any-file: 'plugins/**'
+      - any-glob-to-any-file: 'Plugins/**'
 dependencies:
   - changed-files:
-      - any-glob-to-any-file: 'thirdparty/**'
+      - any-glob-to-any-file: 'ThirdParty/**'
 build system:
   - changed-files:
       - any-glob-to-any-file:

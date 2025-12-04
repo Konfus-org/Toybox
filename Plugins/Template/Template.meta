@@ -1,0 +1,7 @@
+{
+    "name": "Template",
+    "language": "C++",
+    "version": "1.0.0",
+    "author": "Konfus-dev",
+    "description": "A template plugin used to easily copy and make new plugins."
+}

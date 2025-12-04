@@ -1,21 +1,23 @@
-[submodule "thirdparty/nlohmann_json"]
-	path = thirdparty/nlohmann_json
+[submodule "ThirdParty/nlohmann_json"]
+	path = ThirdParty/nlohmann_json
 	url = https://github.com/Konfus-org/json.git
-[submodule "thirdparty/imgui"]
-	path = thirdparty/imgui
+	branch = main
+[submodule "ThirdParty/imgui"]
+	path = ThirdParty/imgui
 	url = https://github.com/Konfus-org/imgui.git
-[submodule "thirdparty/glm"]
-	path = thirdparty/glm
+	branch = main
+[submodule "ThirdParty/glm"]
+	path = ThirdParty/glm
 	url = https://github.com/Konfus-org/glm.git
-[submodule "thirdparty/spdlog"]
-	path = thirdparty/spdlog
+	branch = main
+[submodule "ThirdParty/spdlog"]
+	path = ThirdParty/spdlog
 	url = https://github.com/Konfus-org/spdlog.git
-[submodule "thirdparty/googletest"]
-	path = thirdparty/googletest
+	branch = main
+[submodule "ThirdParty/googletest"]
+	path = ThirdParty/googletest
 	url = https://github.com/Konfus-org/googletest.git
-[submodule "thirdparty/SDL"]
-	path = thirdparty/SDL
+[submodule "ThirdParty/SDL"]
+	path = ThirdParty/SDL
 	url = https://github.com/Konfus-org/SDL.git
-[submodule "thirdparty/entt"]
-	path = thirdparty/entt
-	url = https://github.com/Konfus-org/entt.git
+	branch = main

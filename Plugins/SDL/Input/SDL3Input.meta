@@ -1,0 +1,7 @@
+{
+    "name": "SDL3 Input",
+    "language": "C++",
+    "version": "0.0.1",
+    "author": "Konfus-dev",
+    "description": "Plugin to handle all inputs supported by Toybox via the SDL library."
+}
