@@ -3,6 +3,7 @@
 #include "tbx/ecs/requests.h"
 #include "tbx/ecs/toy.h"
 #include "tbx/messages/dispatcher.h"
+#include "tbx/tbx_api.h"
 #include <typeinfo>
 #include <vector>
 
@@ -12,7 +13,7 @@ namespace tbx
     // Ownership: Does not own ECS data; stores a non-owning dispatcher pointer and identifiers
     // used to address the stage.
     // Thread-safety: Thread-safe through the dispatcher.
-    class Stage
+    class TBX_API Stage
     {
       public:
         Stage(

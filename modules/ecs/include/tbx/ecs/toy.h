@@ -2,6 +2,7 @@
 #include "tbx/ecs/requests.h"
 #include "tbx/ecs/toy_description.h"
 #include "tbx/messages/dispatcher.h"
+#include "tbx/tbx_api.h"
 #include <functional>
 #include <typeinfo>
 
@@ -11,7 +12,7 @@ namespace tbx
     // Ownership: Does not own ECS state; holds a non-owning dispatcher pointer and local
     // description copy for identification only.
     // Thread-safety: Thread-safe through the dispatcher.
-    class Toy
+    class TBX_API Toy
     {
       public:
         Toy(IMessageDispatcher& dispatcher, const ToyDescription& description);
