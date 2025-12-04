@@ -1,4 +1,5 @@
 #include "runtime_plugin.h"
+#include "tbx/app/application.h"
 #include "tbx/common/string_extensions.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/stage.h"
