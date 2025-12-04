@@ -16,9 +16,7 @@ namespace tbx
         : public Request<std::vector<ToyDescription>>
         , StageRequest
     {
-        StageViewRequest(
-            const Uuid& id,
-            const std::vector<const std::type_info*>& filter = {})
+        StageViewRequest(const Uuid& id, const std::vector<const std::type_info*>& filter = {})
             : StageRequest(id)
             , block_type_filter(filter)
         {
@@ -62,9 +60,7 @@ namespace tbx
         : public Request<std::vector<std::any>>
         , ToyRequest
     {
-        ToyViewRequest(
-            const Uuid& toy_id,
-            const std::vector<const std::type_info*>& filter = {})
+        ToyViewRequest(const Uuid& toy_id, const std::vector<const std::type_info*>& filter = {})
             : ToyRequest(toy_id)
             , block_type_filter(filter)
         {
@@ -126,4 +122,3 @@ namespace tbx
         const std::type_info& block_type;
     };
 }
-

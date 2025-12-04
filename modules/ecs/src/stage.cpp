@@ -23,7 +23,7 @@ namespace tbx
     {
         auto request = StageViewRequest(_id);
         _dispatcher->send(request);
-        return CreateToys(request.result);
+        return create_toys(request.result);
     }
 
     Toy Stage::get_toy(const Uuid& toy_id) const
@@ -67,7 +67,7 @@ namespace tbx
         _dispatcher->send(request);
     }
 
-    std::vector<Toy> Stage::CreateToys(const std::vector<ToyDescription>& descriptions) const
+    std::vector<Toy> Stage::create_toys(const std::vector<ToyDescription>& descriptions) const
     {
         std::vector<Toy> toys = {};
         toys.reserve(descriptions.size());

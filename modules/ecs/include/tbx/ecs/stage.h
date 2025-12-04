@@ -47,7 +47,7 @@ namespace tbx
             std::vector<const std::type_info*> filters = { &typeid(Ts)... };
             auto request = StageViewRequest(_id, filters);
             _dispatcher->send(request);
-            return CreateToys(request.result);
+            return create_toys(request.result);
         }
 
         // Retrieves a specific toy by identifier if present in the stage.
@@ -73,7 +73,7 @@ namespace tbx
         void remove_toy(const Uuid& toy_id);
 
     private:
-        std::vector<Toy> CreateToys(const std::vector<ToyDescription>& descriptions) const;
+        std::vector<Toy> create_toys(const std::vector<ToyDescription>& descriptions) const;
 
         IMessageDispatcher* _dispatcher = nullptr;
         std::string _name = "Default Stage";

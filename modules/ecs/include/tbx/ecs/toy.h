@@ -16,9 +16,7 @@ namespace tbx
     {
       public:
         Toy(IMessageDispatcher& dispatcher, const ToyDescription& description);
-
-        Toy(
-            IMessageDispatcher& dispatcher,
+        Toy(IMessageDispatcher& dispatcher,
             const std::string& name,
             const std::vector<Sticker>& stickers,
             const Uuid& parent,
@@ -61,7 +59,7 @@ namespace tbx
         template <typename... Ts>
         std::vector<Block> get_view() const
         {
-            std::vector<const std::type_info*> filters = { &typeid(Ts)... };
+            std::vector<const std::type_info*> filters = {&typeid(Ts)...};
             auto request = ToyViewRequest(_description.id, filters);
             _dispatcher->send(request);
             return request.result;
@@ -76,7 +74,7 @@ namespace tbx
         {
             auto request = GetToyBlockRequest(_description.id, typeid(T));
             _dispatcher->send(request);
-            return ResolveBlockResult<T>(request.result);
+            return resolve_block_result<T>(request.result);
         }
 
         // Determines whether the toy has a block of the requested type.
@@ -87,7 +85,7 @@ namespace tbx
         {
             auto request = GetToyBlockRequest(_description.id, typeid(T));
             _dispatcher->send(request);
-            return HasBlockInResult<T>(request.result);
+            return has_block_in_result<T>(request.result);
         }
 
         // Adds a new block instance to the toy.
@@ -99,7 +97,7 @@ namespace tbx
         {
             auto request = AddBlockToToyRequest(_description.id, std::any(T()));
             _dispatcher->send(request);
-            return ResolveBlockResult<T>(request.result);
+            return resolve_block_result<T>(request.result);
         }
 
         // Removes a block type from the toy.
@@ -113,21 +111,18 @@ namespace tbx
         }
 
       private:
-        IMessageDispatcher* _dispatcher = nullptr;
-        ToyDescription _description = {};
-
         template <typename T>
-        bool HasBlockInResult(const std::any& result) const
+        bool has_block_in_result(const std::any& result) const
         {
             return result.has_value()
-                && (result.type() == typeid(T)
-                    || result.type() == typeid(std::reference_wrapper<T>));
+                   && (result.type() == typeid(T)
+                       || result.type() == typeid(std::reference_wrapper<T>));
         }
 
         template <typename T>
-        T& ResolveBlockResult(std::any& result) const
+        T& resolve_block_result(std::any& result) const
         {
-            if (HasBlockInResult<T>(result))
+            if (has_block_in_result<T>(result))
             {
                 if (auto reference = std::any_cast<std::reference_wrapper<T>>(&result))
                 {
@@ -143,6 +138,9 @@ namespace tbx
             static T empty_block = {};
             return empty_block;
         }
+
+        IMessageDispatcher* _dispatcher = nullptr;
+        ToyDescription _description = {};
     };
 
 }
