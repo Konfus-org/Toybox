@@ -17,7 +17,6 @@ namespace tbx
     struct ToyDescription
     {
         ToyDescription() = default;
-
         ToyDescription(
             const std::string& display_name,
             const std::vector<Sticker>& display_stickers,
@@ -39,6 +38,7 @@ namespace tbx
     namespace invalid
     {
         inline Block block = std::any();
-        inline ToyDescription toy_description = ToyDescription("INVALID", {}, invalid::uuid, invalid::uuid);
+        inline ToyDescription toy_description =
+            ToyDescription("INVALID", {}, invalid::uuid, invalid::uuid);
     }
 }
