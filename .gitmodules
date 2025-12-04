@@ -21,18 +21,23 @@
 [submodule "Dependencies/nlohmann_json"]
 	path = Dependencies/nlohmann_json
 	url = https://github.com/Konfus-org/json.git
+	branch = main
 [submodule "Dependencies/imgui"]
 	path = Dependencies/imgui
 	url = https://github.com/Konfus-org/imgui.git
+	branch = main
 [submodule "Dependencies/glm"]
 	path = Dependencies/glm
 	url = https://github.com/Konfus-org/glm.git
+	branch = main
 [submodule "Dependencies/spdlog"]
 	path = Dependencies/spdlog
 	url = https://github.com/Konfus-org/spdlog.git
+	branch = main
 [submodule "Dependencies/googletest"]
 	path = Dependencies/googletest
 	url = https://github.com/Konfus-org/googletest.git
 [submodule "Dependencies/SDL"]
 	path = Dependencies/SDL
 	url = https://github.com/Konfus-org/SDL.git
+	branch = main
