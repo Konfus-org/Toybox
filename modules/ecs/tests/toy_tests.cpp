@@ -1,5 +1,3 @@
-#include "pch.h"
-#include "tbx/ecs/stage.h"
 #include "tbx/ecs/toy.h"
 #include <any>
 #include <functional>
@@ -55,7 +53,7 @@ namespace tbx::tests::ecs
         const Uuid stage_id = Uuid::generate();
         Stage stage(dispatcher, "Arena", stage_id);
 
-        ToyDescription toy_description = ToyDescription("Player", {}, invalid::uuid, Uuid::generate());
+        const Uuid toy_id = Uuid::generate();
         bool full_view_called = false;
         bool filtered_view_called = false;
         bool validity_checked = false;
@@ -75,13 +73,14 @@ namespace tbx::tests::ecs
                 EXPECT_EQ(*request.block_type_filter[0], typeid(TestBlock));
             }
 
-            request.result = { toy_description };
+            request.result = { toy_id };
         });
 
         dispatcher.SetHandler<IsToyValidRequest>([&](IsToyValidRequest& request)
         {
             validity_checked = true;
-            EXPECT_EQ(request.toy_id, toy_description.id);
+            EXPECT_EQ(request.toy_id, toy_id);
+            EXPECT_EQ(request.stage_id, stage_id);
             request.result = true;
         });
 
@@ -92,27 +91,27 @@ namespace tbx::tests::ecs
         ASSERT_TRUE(full_view_called);
         ASSERT_EQ(filtered_toys.size(), 1u);
         ASSERT_EQ(full_toys.size(), 1u);
-        EXPECT_EQ(filtered_toys[0].get_id(), toy_description.id);
-        EXPECT_EQ(full_toys[0].get_id(), toy_description.id);
+        EXPECT_EQ(filtered_toys[0].get_id(), toy_id);
+        EXPECT_EQ(full_toys[0].get_id(), toy_id);
         EXPECT_TRUE(filtered_toys[0].is_valid());
         EXPECT_TRUE(full_toys[0].is_valid());
         EXPECT_TRUE(validity_checked);
     }
 
-    TEST(StageTests, AddAndRemoveToyUseDispatcherHandlers)
+    TEST(StageTests, MakeAndRemoveToyUseDispatcherHandlers)
     {
         RecordingDispatcher dispatcher = {};
         const Uuid stage_id = Uuid::generate();
         Stage stage(dispatcher, "Arena", stage_id);
 
-        bool add_called = false;
+        bool make_called = false;
         const Uuid created_toy_id = Uuid::generate();
-        dispatcher.SetHandler<AddToyToStageRequest>([&](AddToyToStageRequest& request)
+        dispatcher.SetHandler<MakeToyRequest>([&](MakeToyRequest& request)
         {
-            add_called = true;
+            make_called = true;
             EXPECT_EQ(request.stage_id, stage_id);
-            EXPECT_EQ(request.toy_name, "NewToy");
-            request.result = ToyDescription("NewToy", {}, invalid::uuid, created_toy_id);
+            EXPECT_EQ(request.toy_id, created_toy_id);
+            request.result = request.toy_id;
         });
 
         bool remove_called = false;
@@ -123,9 +122,9 @@ namespace tbx::tests::ecs
             EXPECT_EQ(request.toy_id, created_toy_id);
         });
 
-        Toy created = stage.add_toy("NewToy");
+        Toy created = stage.make_toy(created_toy_id);
 
-        ASSERT_TRUE(add_called);
+        ASSERT_TRUE(make_called);
         EXPECT_EQ(created.get_id(), created_toy_id);
 
         stage.remove_toy(created_toy_id);
@@ -135,8 +134,9 @@ namespace tbx::tests::ecs
     TEST(ToyTests, BlockHelpersUseDispatcherResults)
     {
         RecordingDispatcher dispatcher = {};
+        const Uuid stage_id = Uuid::generate();
         const Uuid toy_id = Uuid::generate();
-        Toy toy(dispatcher, ToyDescription("Player", {}, invalid::uuid, toy_id));
+        Toy toy(dispatcher, stage_id, toy_id);
 
         TestBlock stored_block = {};
 
@@ -144,6 +144,9 @@ namespace tbx::tests::ecs
         bool filtered_view_called = false;
         dispatcher.SetHandler<ToyViewRequest>([&](ToyViewRequest& request)
         {
+            EXPECT_EQ(request.stage_id, stage_id);
+            EXPECT_EQ(request.toy_id, toy_id);
+
             if (request.block_type_filter.empty())
             {
                 full_view_called = true;
@@ -159,10 +162,11 @@ namespace tbx::tests::ecs
         });
 
         bool add_block_called = false;
-        dispatcher.SetHandler<AddBlockToToyRequest>([&](AddBlockToToyRequest& request)
+        dispatcher.SetHandler<AddBlockToToyRequest<TestBlock>>([&](AddBlockToToyRequest<TestBlock>& request)
         {
             add_block_called = true;
             EXPECT_EQ(request.toy_id, toy_id);
+            EXPECT_EQ(request.stage_id, stage_id);
             ASSERT_EQ(request.block_data.type(), typeid(TestBlock));
             stored_block = std::any_cast<TestBlock>(request.block_data);
             stored_block.value = 42;
@@ -170,20 +174,23 @@ namespace tbx::tests::ecs
         });
 
         bool get_block_called = false;
-        dispatcher.SetHandler<GetToyBlockRequest>([&](GetToyBlockRequest& request)
+        dispatcher.SetHandler<GetToyBlockRequest<TestBlock>>([&](GetToyBlockRequest<TestBlock>& request)
         {
             get_block_called = true;
             EXPECT_EQ(request.toy_id, toy_id);
-            EXPECT_EQ(request.block_type, typeid(TestBlock));
+            EXPECT_EQ(request.stage_id, stage_id);
+            EXPECT_EQ(request.GetBlockType(), typeid(TestBlock));
             request.result = std::ref(stored_block);
         });
 
         bool remove_block_called = false;
-        dispatcher.SetHandler<RemoveBlockFromToyRequest>([&](RemoveBlockFromToyRequest& request)
+        dispatcher.SetHandler<RemoveBlockFromToyRequest<TestBlock>>(
+            [&](RemoveBlockFromToyRequest<TestBlock>& request)
         {
             remove_block_called = true;
             EXPECT_EQ(request.toy_id, toy_id);
-            EXPECT_EQ(request.block_type, typeid(TestBlock));
+            EXPECT_EQ(request.stage_id, stage_id);
+            EXPECT_EQ(request.GetBlockType(), typeid(TestBlock));
         });
 
         TestBlock& added_block = toy.add_block<TestBlock>();

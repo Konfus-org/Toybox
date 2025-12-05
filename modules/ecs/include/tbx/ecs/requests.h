@@ -1,19 +1,43 @@
 #pragma once
-#include "tbx/ecs/toy_description.h"
+#include "tbx/common/uuid.h"
+#include "tbx/ecs/block.h"
 #include "tbx/messages/message.h"
-#include <any>
 #include <typeinfo>
 #include <vector>
 
 namespace tbx
 {
+    struct TypedBlockMessageBase
+    {
+        // Purpose: Allows typed ECS block messages to expose their payload type at runtime.
+        // Ownership: Non-owning. Implementations only expose type metadata and hold no resources.
+        // Thread-safety: Read-only; safe for concurrent inspection.
+        virtual ~TypedBlockMessageBase() = default;
+
+        virtual const std::type_info& GetBlockType() const = 0;
+    };
+
+    template <typename T>
+    struct TypedBlockMessage : public virtual TypedBlockMessageBase
+    {
+        // Purpose: CRTP helper to tag block messages with their payload type.
+        // Ownership: Non-owning. Provides only compile-time and runtime type metadata.
+        // Thread-safety: Read-only; safe for concurrent inspection.
+        using payload_type = T;
+
+        const std::type_info& GetBlockType() const override
+        {
+            return typeid(T);
+        }
+    };
+
     struct StageRequest
     {
         const Uuid stage_id;
     };
 
     struct StageViewRequest
-        : public Request<std::vector<ToyDescription>>
+        : public Request<std::vector<Uuid>>
         , StageRequest
     {
         StageViewRequest(
@@ -27,17 +51,17 @@ namespace tbx
         std::vector<const std::type_info*> block_type_filter = {};
     };
 
-    struct AddToyToStageRequest
-        : public Request<ToyDescription>
+    struct MakeToyRequest
+        : public Request<Uuid>
         , StageRequest
     {
-        AddToyToStageRequest(const Uuid& stage_id, const std::string& name)
+        MakeToyRequest(const Uuid& stage_id, const Uuid& toy)
             : StageRequest(stage_id)
-            , toy_name(name)
+            , toy_id(toy)
         {
         }
 
-        const std::string toy_name;
+        const Uuid toy_id;
     };
 
     struct RemoveToyFromStageRequest
@@ -53,19 +77,27 @@ namespace tbx
         const Uuid toy_id;
     };
 
-    struct ToyRequest
+    struct StageToyRequest
+        : StageRequest
     {
+        StageToyRequest(const Uuid& stage, const Uuid& toy)
+            : StageRequest(stage)
+            , toy_id(toy)
+        {
+        }
+
         const Uuid toy_id;
     };
 
     struct ToyViewRequest
-        : public Request<std::vector<std::any>>
-        , ToyRequest
+        : public Request<std::vector<Block>>
+        , StageToyRequest
     {
         ToyViewRequest(
+            const Uuid& stage_id,
             const Uuid& toy_id,
             const std::vector<const std::type_info*>& filter = {})
-            : ToyRequest(toy_id)
+            : StageToyRequest(stage_id, toy_id)
             , block_type_filter(filter)
         {
         }
@@ -75,55 +107,84 @@ namespace tbx
 
     struct IsToyValidRequest
         : public Request<bool>
-        , public ToyRequest
+        , public StageToyRequest
     {
-        IsToyValidRequest(const Uuid& toy_id)
-            : ToyRequest(toy_id)
+        IsToyValidRequest(const Uuid& stage_id, const Uuid& toy_id)
+            : StageToyRequest(stage_id, toy_id)
         {
         }
     };
 
+    struct GetToyBlockRequestBase
+        : public Request<Block>
+        , public StageToyRequest
+        , public virtual TypedBlockMessageBase
+    {
+        GetToyBlockRequestBase(const Uuid& stage_id, const Uuid& toy_id)
+            : StageToyRequest(stage_id, toy_id)
+        {
+        }
+    };
+
+    template <typename T>
     struct GetToyBlockRequest
-        : public Request<std::any>
-        , public ToyRequest
+        : public GetToyBlockRequestBase
+        , public TypedBlockMessage<T>
     {
         // Purpose: Retrieves a block instance of the requested type from a toy.
-        // Ownership: The block is owned by the toy; callers receive a reference wrapped in the
-        // returned std::any value.
+        // Ownership: The block is owned by the toy; callers receive a non-owning pointer to the
+        // stored std::any value wrapping the block instance.
         // Thread-safety: Not thread-safe. Calls are expected on the toy-owning thread.
-        GetToyBlockRequest(const Uuid& toy_id, const std::type_info& requested_type)
-            : ToyRequest(toy_id)
-            , block_type(requested_type)
+        GetToyBlockRequest(const Uuid& stage_id, const Uuid& toy_id)
+            : GetToyBlockRequestBase(stage_id, toy_id)
         {
         }
-
-        const std::type_info& block_type;
     };
 
-    struct AddBlockToToyRequest
-        : public Request<std::any>
-        , public ToyRequest
+    struct AddBlockToToyRequestBase
+        : public Request<Block>
+        , public StageToyRequest
+        , public virtual TypedBlockMessageBase
     {
-        AddBlockToToyRequest(const Uuid& toy_id, const std::any& block)
-            : ToyRequest(toy_id)
+        AddBlockToToyRequestBase(const Uuid& stage_id, const Uuid& toy_id, const Block& block)
+            : StageToyRequest(stage_id, toy_id)
             , block_data(block)
         {
         }
 
-        const std::any block_data;
+        const Block block_data;
     };
 
-    struct RemoveBlockFromToyRequest
-        : public Request<bool>
-        , public ToyRequest
+    template <typename T>
+    struct AddBlockToToyRequest
+        : public AddBlockToToyRequestBase
+        , public TypedBlockMessage<T>
     {
-        RemoveBlockFromToyRequest(const Uuid& toy_id, const std::type_info& block)
-            : ToyRequest(toy_id)
-            , block_type(block)
+        AddBlockToToyRequest(const Uuid& stage_id, const Uuid& toy_id, const T& block = T())
+            : AddBlockToToyRequestBase(stage_id, toy_id, std::any(block))
         {
         }
+    };
 
-        const std::type_info& block_type;
+    struct RemoveBlockFromToyRequestBase
+        : public Request<bool>
+        , public StageToyRequest
+        , public virtual TypedBlockMessageBase
+    {
+        RemoveBlockFromToyRequestBase(const Uuid& stage_id, const Uuid& toy_id)
+            : StageToyRequest(stage_id, toy_id)
+        {
+        }
+    };
+
+    template <typename T>
+    struct RemoveBlockFromToyRequest
+        : public RemoveBlockFromToyRequestBase
+        , public TypedBlockMessage<T>
+    {
+        RemoveBlockFromToyRequest(const Uuid& stage_id, const Uuid& toy_id)
+            : RemoveBlockFromToyRequestBase(stage_id, toy_id)
+        {
+        }
     };
 }
-

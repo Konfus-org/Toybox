@@ -1,49 +1,32 @@
 #pragma once
 #include "tbx/ecs/requests.h"
-#include "tbx/ecs/toy_description.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/tbx_api.h"
+#include <any>
 #include <functional>
 #include <typeinfo>
+#include <vector>
 
 namespace tbx
 {
     // Toy is a lightweight handle for interacting with ECS toys.
-    // Ownership: Does not own ECS state; holds a non-owning dispatcher pointer and local
-    // description copy for identification only.
+    // Ownership: Does not own ECS state; holds a non-owning dispatcher pointer and identifies the
+    // target stage and toy ids for message routing.
     // Thread-safety: Thread-safe through the dispatcher.
     class TBX_API Toy
     {
       public:
-        Toy(IMessageDispatcher& dispatcher, const ToyDescription& description);
-
-        Toy(
-            IMessageDispatcher& dispatcher,
-            const std::string& name,
-            const std::vector<Sticker>& stickers,
-            const Uuid& parent,
-            const Uuid& id = Uuid::generate());
-
-        // Returns the display name of this toy.
-        // Ownership: Returns a non-owning reference valid for the lifetime of the toy handle.
-        // Thread-safety: Thread-safe through the dispatcher.
-        const std::string& get_name() const;
-
-        // Returns the stickers associated with this toy.
-        // Ownership: Non-owning reference to internal container; do not store beyond the toy
-        // lifetime.
-        // Thread-safety: Thread-safe through the dispatcher.
-        const std::vector<Sticker>& get_stickers() const;
-
-        // Returns the identifier for the parent toy.
-        // Ownership: Value reference; caller does not take ownership.
-        // Thread-safety: Thread-safe through the dispatcher.
-        const Uuid& get_parent() const;
+        Toy(IMessageDispatcher& dispatcher, const Uuid& stage_id, const Uuid& id);
 
         // Returns the toy identifier used by ECS messages.
         // Ownership: Value reference; caller does not take ownership.
         // Thread-safety: Thread-safe through the dispatcher.
         const Uuid& get_id() const;
+
+        // Returns the stage identifier that owns this toy.
+        // Ownership: Value reference; caller does not take ownership.
+        // Thread-safety: Thread-safe through the dispatcher.
+        const Uuid& get_stage_id() const;
 
         // Checks whether the toy exists in the ECS store.
         // Ownership: No ownership transfer; returns the current validity state.
@@ -62,7 +45,7 @@ namespace tbx
         std::vector<Block> get_view() const
         {
             std::vector<const std::type_info*> filters = { &typeid(Ts)... };
-            auto request = ToyViewRequest(_description.id, filters);
+            auto request = ToyViewRequest(_stage_id, _id, filters);
             _dispatcher->send(request);
             return request.result;
         }
@@ -74,9 +57,9 @@ namespace tbx
         template <typename T>
         T& get_block() const
         {
-            auto request = GetToyBlockRequest(_description.id, typeid(T));
+            auto request = GetToyBlockRequest<T>(_stage_id, _id);
             _dispatcher->send(request);
-            return ResolveBlockResult<T>(request.result);
+            return resolve_block_result<T>(request.result);
         }
 
         // Determines whether the toy has a block of the requested type.
@@ -85,9 +68,9 @@ namespace tbx
         template <typename T>
         bool has_block() const
         {
-            auto request = GetToyBlockRequest(_description.id, typeid(T));
+            auto request = GetToyBlockRequest<T>(_stage_id, _id);
             _dispatcher->send(request);
-            return HasBlockInResult<T>(request.result);
+            return has_block_in_result<T>(request.result);
         }
 
         // Adds a new block instance to the toy.
@@ -97,9 +80,9 @@ namespace tbx
         template <typename T>
         T& add_block()
         {
-            auto request = AddBlockToToyRequest(_description.id, std::any(T()));
+            auto request = AddBlockToToyRequest<T>(_stage_id, _id);
             _dispatcher->send(request);
-            return ResolveBlockResult<T>(request.result);
+            return resolve_block_result<T>(request.result);
         }
 
         // Removes a block type from the toy.
@@ -108,35 +91,68 @@ namespace tbx
         template <typename T>
         void remove_block()
         {
-            auto request = RemoveBlockFromToyRequest(_description.id, typeid(T));
+            auto request = RemoveBlockFromToyRequest<T>(_stage_id, _id);
             _dispatcher->send(request);
         }
 
       private:
         IMessageDispatcher* _dispatcher = nullptr;
-        ToyDescription _description = {};
+        Uuid _stage_id = invalid::uuid;
+        Uuid _id = invalid::uuid;
 
         template <typename T>
-        bool HasBlockInResult(const std::any& result) const
+        bool has_block_in_result(const std::any& result) const
         {
-            return result.has_value()
-                && (result.type() == typeid(T)
-                    || result.type() == typeid(std::reference_wrapper<T>));
+            if (result.type() == typeid(T))
+            {
+                return true;
+            }
+
+            if (result.type() == typeid(T*))
+            {
+                return std::any_cast<T*>(&result) != nullptr;
+            }
+
+            if (result.type() == typeid(void*))
+            {
+                auto block_handle = std::any_cast<void*>(&result);
+                if (!block_handle)
+                {
+                    return false;
+                }
+
+                auto block_any = static_cast<std::any*>(*block_handle);
+                return block_any && block_any->has_value() && (block_any->type() == typeid(T));
+            }
+
+            return false;
         }
 
         template <typename T>
-        T& ResolveBlockResult(std::any& result) const
+        T& resolve_block_result(std::any& result) const
         {
-            if (HasBlockInResult<T>(result))
+            if (has_block_in_result<T>(result))
             {
-                if (auto reference = std::any_cast<std::reference_wrapper<T>>(&result))
-                {
-                    return reference->get();
-                }
-
                 if (auto block = std::any_cast<T>(&result))
                 {
                     return *block;
+                }
+
+                if (auto block_pointer = std::any_cast<T*>(&result))
+                {
+                    return *block_pointer;
+                }
+
+                if (auto block_handle = std::any_cast<void*>(&result))
+                {
+                    auto block_any = static_cast<std::any*>(*block_handle);
+                    if (block_any)
+                    {
+                        if (auto resolved_block = std::any_cast<T>(block_any))
+                        {
+                            return *resolved_block;
+                        }
+                    }
                 }
             }
 

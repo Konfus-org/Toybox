@@ -23,7 +23,7 @@ namespace tbx
     {
         auto request = StageViewRequest(_id);
         _dispatcher->send(request);
-        return CreateToys(request.result);
+        return create_toys(request.result);
     }
 
     Toy Stage::get_toy(const Uuid& toy_id) const
@@ -37,7 +37,7 @@ namespace tbx
             }
         }
 
-        return Toy(*_dispatcher, invalid::toy_description);
+        return Toy(*_dispatcher, _id, invalid::uuid);
     }
 
     bool Stage::has_toy(const Uuid& toy_id) const
@@ -54,11 +54,11 @@ namespace tbx
         return false;
     }
 
-    Toy Stage::add_toy(const std::string& name)
+    Toy Stage::make_toy(const Uuid& toy_id)
     {
-        auto request = AddToyToStageRequest(_id, name);
+        auto request = MakeToyRequest(_id, toy_id);
         _dispatcher->send(request);
-        return Toy(*_dispatcher, request.result);
+        return Toy(*_dispatcher, _id, request.result);
     }
 
     void Stage::remove_toy(const Uuid& toy_id)
@@ -67,13 +67,13 @@ namespace tbx
         _dispatcher->send(request);
     }
 
-    std::vector<Toy> Stage::CreateToys(const std::vector<ToyDescription>& descriptions) const
+    std::vector<Toy> Stage::create_toys(const std::vector<Uuid>& toy_ids) const
     {
         std::vector<Toy> toys = {};
-        toys.reserve(descriptions.size());
-        for (const auto& description : descriptions)
+        toys.reserve(toy_ids.size());
+        for (const auto& toy_id : toy_ids)
         {
-            toys.emplace_back(*_dispatcher, description);
+            toys.emplace_back(*_dispatcher, _id, toy_id);
         }
 
         return toys;

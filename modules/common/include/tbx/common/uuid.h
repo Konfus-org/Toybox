@@ -1,7 +1,6 @@
 #pragma once
 #include "tbx/common/int.h"
 #include "tbx/tbx_api.h"
-#include <array>
 #include <cstdint>
 #include <string>
 
@@ -12,7 +11,7 @@ namespace tbx
         static Uuid generate();
         bool is_valid() const;
 
-        std::array<std::uint8_t, 16> bytes = {};
+        std::uint64_t value = 0U;
     };
 
     namespace invalid

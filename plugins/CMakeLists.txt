@@ -9,6 +9,7 @@ add_subdirectory(spd_console_logger)
 add_subdirectory(spd_file_logger)
 add_subdirectory(sdl_adapter)
 add_subdirectory(sdl_windowing)
+add_subdirectory(entt_ecs)
 
 unset(CMAKE_FOLDER)
 message(STATUS "")
