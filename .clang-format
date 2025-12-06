@@ -5,12 +5,15 @@ AlignAfterOpenBracket: AlwaysBreak
 AlignConsecutiveAssignments: false
 AlignConsecutiveDeclarations: None
 AlignConsecutiveMacros: None
+AlignTrailingComments: false
 AllowAllArgumentsOnNextLine: false
+AllowAllConstructorInitializersOnNextLine: true
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: Empty
 AllowShortCaseLabelsOnASingleLine: false
-AllowShortFunctionsOnASingleLine: Empty
 AllowShortLambdasOnASingleLine: None
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 AlwaysBreakAfterDefinitionReturnType: None
@@ -33,7 +36,7 @@ BraceWrapping:
   AfterExternBlock: true
   BeforeCatch: true
   BeforeElse: true
-  IndentBraces: true
+  IndentBraces: false
   SplitEmptyFunction: true
   SplitEmptyRecord: true
   SplitEmptyNamespace: true
@@ -43,21 +46,25 @@ BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeBraces: Allman
 BreakBeforeInheritanceComma: true
 BreakInheritanceList: BeforeComma
+BreakBeforeConceptDeclarations: false
 BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeComma
 BreakStringLiterals: true
 ColumnLimit: 100
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
 ConstructorInitializerIndentWidth : 4
 ContinuationIndentWidth: 4
+Cpp11BracedListStyle: true
 DerivePointerAlignment: false
 EmptyLineBeforeAccessModifier: Always
 FixNamespaceComments: false
 IncludeBlocks: Merge
+IndentCaseBlocks: true
 IndentCaseLabels: true
 IndentPPDirectives: BeforeHash
 IndentWidth: 4
 IndentWrappedFunctionNames: true
-IndentAccessModifiers: false
+LineEnding: CRLF
 NamespaceIndentation: All
 PenaltyReturnTypeOnItsOwnLine: 1000000000
 PointerAlignment: Left
@@ -65,8 +72,27 @@ ReflowComments: true
 SortIncludes: true
 SpaceAfterCStyleCast: false
 SpaceAfterLogicalNot: false
+SpaceAfterTemplateKeyword: true
+SpaceAroundPointerQualifiers: Default
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCaseColon: true
+SpaceBeforeCpp11BracedList: true
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeSquareBrackets: false
+SpaceInEmptyBlock: false
+SpaceInEmptyParentheses: false
 SpacesBeforeTrailingComments: 1
+SpacesInAngles: false
+SpacesInContainerLiterals: false
+SpacesInCStyleCastParentheses: false
+SpacesInConditionalStatement: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
 Standard: c++20
 TabWidth: 4
+UseCRLF: true
 UseTab: Never
 ...

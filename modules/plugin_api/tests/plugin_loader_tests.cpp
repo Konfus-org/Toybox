@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace
+namespace tbx::tests::plugin_loader
 {
     class TestStaticPlugin : public ::tbx::Plugin
     {
@@ -14,7 +14,7 @@ namespace
         void on_attach(::tbx::Application&) override {}
         void on_detach() override {}
         void on_update(const ::tbx::DeltaTime&) override {}
-        void on_message(::tbx::Message&) override {}
+        void on_recieve_message(::tbx::Message&) override {}
     };
 
     TBX_REGISTER_STATIC_PLUGIN(TestStaticPlugin, TestStaticPlugin)
@@ -101,10 +101,7 @@ namespace
         std::unordered_set<std::string> directories;
         std::unordered_map<std::string, std::string> files;
     };
-}
-
-namespace tbx::tests::plugin_loader
-{
+    
     TEST(plugin_loader, loads_static_plugin_from_meta_list)
     {
         auto loaded = load_plugins(std::vector<PluginMeta>{make_static_meta()});

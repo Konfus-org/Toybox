@@ -1,4 +1,4 @@
-set(CMAKE_FOLDER "Tests")
+set(CMAKE_FOLDER "tests")
 
 add_executable(TbxPluginApiTests)
 
@@ -22,4 +22,4 @@ target_link_libraries(TbxPluginApiTests PRIVATE
 )
 
 add_test(NAME TbxPluginApiTests COMMAND $<TARGET_FILE:TbxPluginApiTests>)
-set(CMAKE_FOLDER "")
+unset(CMAKE_FOLDER)

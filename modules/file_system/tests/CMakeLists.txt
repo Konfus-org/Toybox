@@ -1,4 +1,4 @@
-set(CMAKE_FOLDER "Tests")
+set(CMAKE_FOLDER "tests")
 add_executable(TbxFileSystemTests)
 
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS

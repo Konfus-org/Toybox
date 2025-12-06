@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/async/cancellation_token.h"
+#include "tbx/common/function_traits.h"
 #include "tbx/common/uuid.h"
 #include "tbx/messages/result.h"
 #include "tbx/time/time_span.h"
@@ -80,4 +81,61 @@ namespace tbx
         Request() = default;
         virtual ~Request() = default;
     };
+
+    // Subscriber callback invoked by the message coordinator during dispatch.
+    // Ownership: non-owning. The coordinator stores a copy of the callable.
+    // Thread-safety: Invoked on the coordinator's calling thread; handlers
+    // should avoid blocking and must manage their own synchronization if
+    // touching shared state.
+    using MessageHandler = std::function<void(Message&)>;
+
+    // Helper for invoking a handler only when the message matches the expected type.
+    // Ownership: Non-owning; the callback is invoked directly and not retained beyond
+    // the call. Captured resources must outlive the invocation.
+    // Thread-safety: Matches the caller's context. No synchronization is applied.
+    template <typename THandler>
+    bool on_message(const Message& message, THandler&& handler)
+    {
+        // This all allows us to call on_message with lambdas like:
+        //  on_message(msg, [](const MyMessageType& m) { ... }); instead of
+        // on_message<MyMessageType>(msg, [](const MyMessageType& m) { ... });
+        using Handler = std::decay_t<THandler>;
+        using MemberPtr = decltype(&Handler::operator());
+        using Arg = typename FunctionTraits<MemberPtr>::ArgType;
+        using MessageType = std::remove_cv_t<std::remove_reference_t<Arg>>;
+
+        if (const auto* typed = dynamic_cast<const MessageType*>(&message))
+        {
+            // Arg is e.g. "const MyMessageType&" or "MyMessageType&"
+            handler(static_cast<Arg>(*typed));
+            return true;
+        }
+
+        return false;
+    }
+
+    // Helper for invoking a handler only when the message matches the expected type.
+    // Ownership: Non-owning; the callback is invoked directly and not retained beyond
+    // the call. Captured resources must outlive the invocation.
+    // Thread-safety: Matches the caller's context. No synchronization is applied.
+    template <typename THandler>
+    bool on_message(Message& message, THandler&& handler)
+    {
+        // This all allows us to call on_message with lambdas like:
+        //  on_message(msg, [](const MyMessageType& m) { ... }); instead of
+        // on_message<MyMessageType>(msg, [](const MyMessageType& m) { ... });
+        using Handler = std::decay_t<THandler>;
+        using MemberPtr = decltype(&Handler::operator());
+        using Arg = typename FunctionTraits<MemberPtr>::ArgType;
+        using MessageType = std::remove_cv_t<std::remove_reference_t<Arg>>;
+
+        if (auto* typed = dynamic_cast<MessageType*>(&message))
+        {
+            // Arg is e.g. "const MyMessageType&" or "MyMessageType&"
+            handler(static_cast<Arg>(*typed));
+            return true;
+        }
+
+        return false;
+    }
 }

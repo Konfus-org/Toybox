@@ -40,7 +40,7 @@ namespace tbx
 
     void Plugin::receive_message(Message& msg)
     {
-        on_message(msg);
+        on_recieve_message(msg);
     }
 
     Result Plugin::send_message(Message& msg) const

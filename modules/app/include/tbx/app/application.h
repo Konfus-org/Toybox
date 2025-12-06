@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/app/app_description.h"
 #include "tbx/app/app_message_coordinator.h"
+#include "tbx/app/window.h"
 #include "tbx/plugin_api/loaded_plugin.h"
 #include "tbx/time/delta_time.h"
 #include <vector>
@@ -22,21 +23,23 @@ namespace tbx
         int run();
 
         const AppDescription& get_description() const;
-
-        IMessageDispatcher& get_dispatcher()
-        {
-            return static_cast<IMessageDispatcher&>(_msg_coordinator);
-        }
+        IMessageDispatcher& get_dispatcher();
 
       private:
         void initialize();
         void update(DeltaTimer timer);
         void shutdown();
-        void on_message(const Message& msg);
+        void recieve_message(const Message& msg);
 
         AppDescription _desc;
         std::vector<LoadedPlugin> _loaded = {};
         AppMessageCoordinator _msg_coordinator = {};
+        Window _main_window = {
+            _msg_coordinator,
+            _desc.name.empty() ? "Toybox Application" : _desc.name,
+            {1280, 720},
+            WindowMode::Windowed,
+            false};
         bool _should_exit = false;
     };
 }

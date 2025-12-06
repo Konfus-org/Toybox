@@ -4,19 +4,53 @@
 
 namespace tbx::plugins::sdladapter
 {
+    static void sdl_log_callback(
+        void* userdata,
+        int category,
+        SDL_LogPriority priority,
+        const char* message)
+    {
+        if (priority >= SDL_LOG_PRIORITY_ERROR)
+        {
+            const char* text =
+                (message && *message) ? message : "SDL reported an error without details.";
+            if (priority == SDL_LOG_PRIORITY_CRITICAL)
+                TBX_TRACE_ERROR("SDL critical (category {}): {}", category, text);
+            else
+                TBX_TRACE_ERROR("SDL error (category {}): {}", category, text);
+        }
+        else if (priority == SDL_LOG_PRIORITY_WARN)
+        {
+            const char* text =
+                (message && *message) ? message : "SDL reported a warning without details.";
+            TBX_TRACE_WARNING("SDL warning (category {}): {}", category, text);
+        }
+        else if (priority == SDL_LOG_PRIORITY_INFO)
+        {
+            const char* text =
+                (message && *message) ? message : "SDL reported an info message without details.";
+            TBX_TRACE_INFO("SDL info (category {}): {}", category, text);
+        }
+        else
+        {
+            const char* text =
+                (message && *message) ? message : "SDL reported a debug message without details.";
+            TBX_TRACE_INFO("SDL debug (category {}): {}", category, text);
+        }
+    }
+
     void SdlAdapterPlugin::on_attach(Application&)
     {
-        if (_initialized)
-        {
-            return;
-        }
-
-        install_error_hook();
+        SDL_SetLogOutputFunction(
+            [](void* userdata, int category, SDL_LogPriority priority, const char* message)
+            {
+                sdl_log_callback(userdata, category, priority, message);
+            },
+            this);
 
         const Uint32 mask = SDL_INIT_EVENTS;
         if ((SDL_WasInit(mask) & mask) == mask)
         {
-            _initialized = true;
             _owns_sdl = false;
             TBX_TRACE_WARNING(
                 "SDL events subsystem already initialized; adapter will not manage shutdown.");
@@ -25,90 +59,26 @@ namespace tbx::plugins::sdladapter
 
         if (!SDL_InitSubSystem(mask))
         {
+            _owns_sdl = false;
             TBX_TRACE_ERROR("Failed to initialize SDL events subsystem. See SDL logs for details.");
             TBX_ASSERT(
                 false,
                 "SDL adapter failed to initialize events subsystem. See SDL logs for details.");
-            _initialized = false;
-            _owns_sdl = false;
             return;
         }
 
-        _initialized = true;
-        _owns_sdl = true;
         TBX_TRACE_INFO("SDL adapter initialized the events subsystem.");
     }
 
     void SdlAdapterPlugin::on_detach()
     {
-        if (_initialized && _owns_sdl)
-        {
+        if (_owns_sdl)
             SDL_QuitSubSystem(SDL_INIT_EVENTS);
-        }
-
-        _initialized = false;
         _owns_sdl = false;
-
-        remove_error_hook();
     }
 
     void SdlAdapterPlugin::on_update(const DeltaTime&)
     {
         SDL_PumpEvents();
-    }
-
-    void SdlAdapterPlugin::on_message(Message&) {}
-
-    void SdlAdapterPlugin::install_error_hook()
-    {
-        if (_log_hook_installed)
-        {
-            return;
-        }
-
-        SDL_GetLogOutputFunction(&_previous_log_callback, &_previous_log_userdata);
-        SDL_SetLogOutputFunction(
-            [](void* userdata, int category, SDL_LogPriority priority, const char* message)
-            {
-                auto* plugin = static_cast<SdlAdapterPlugin*>(userdata);
-
-                if (priority >= SDL_LOG_PRIORITY_ERROR)
-                {
-                    const char* text =
-                        (message && *message) ? message : "SDL reported an error without details.";
-                    if (priority == SDL_LOG_PRIORITY_CRITICAL)
-                    {
-                        TBX_TRACE_ERROR("SDL critical (category {}): {}", category, text);
-                    }
-                    else
-                    {
-                        TBX_TRACE_ERROR("SDL error (category {}): {}", category, text);
-                    }
-                }
-
-                if (plugin && plugin->_previous_log_callback)
-                {
-                    plugin->_previous_log_callback(
-                        plugin->_previous_log_userdata,
-                        category,
-                        priority,
-                        message);
-                }
-            },
-            this);
-        _log_hook_installed = true;
-    }
-
-    void SdlAdapterPlugin::remove_error_hook()
-    {
-        if (!_log_hook_installed)
-        {
-            return;
-        }
-
-        SDL_SetLogOutputFunction(_previous_log_callback, _previous_log_userdata);
-        _previous_log_callback = nullptr;
-        _previous_log_userdata = nullptr;
-        _log_hook_installed = false;
     }
 }

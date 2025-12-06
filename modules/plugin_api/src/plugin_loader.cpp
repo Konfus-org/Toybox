@@ -16,9 +16,7 @@
 
 namespace tbx
 {
-    static std::string resolve_module_path(
-        const PluginMeta& meta,
-        IFilesystemOps& file_ops)
+    static std::string resolve_module_path(const PluginMeta& meta, IFilesystemOps& file_ops)
     {
         std::filesystem::path modulePath = meta.module_path;
 
@@ -39,13 +37,15 @@ namespace tbx
 #elif defined(TBX_PLATFORM_MACOS)
             if (modulePath.filename().string().rfind("lib", 0) != 0)
             {
-                modulePath = modulePath.parent_path() / (std::string("lib") + modulePath.filename().string());
+                modulePath = modulePath.parent_path()
+                             / (std::string("lib") + modulePath.filename().string());
             }
             modulePath += ".dylib";
 #else
             if (modulePath.filename().string().rfind("lib", 0) != 0)
             {
-                modulePath = modulePath.parent_path() / (std::string("lib") + modulePath.filename().string());
+                modulePath = modulePath.parent_path()
+                             / (std::string("lib") + modulePath.filename().string());
             }
             modulePath += ".so";
 #endif
@@ -54,9 +54,7 @@ namespace tbx
         return modulePath.string();
     }
 
-    static std::optional<LoadedPlugin> load_plugin_internal(
-        const PluginMeta& meta,
-        IFilesystemOps& file_ops)
+    static LoadedPlugin load_plugin_internal(const PluginMeta& meta, IFilesystemOps& file_ops)
     {
         LoadedPlugin loaded;
         loaded.meta = meta;
@@ -67,7 +65,7 @@ namespace tbx
             if (!plug)
             {
                 TBX_TRACE_WARNING("Static plugin not registered: {}", meta.name.c_str());
-                return std::nullopt;
+                return {};
             }
 
             PluginInstance instance(
@@ -86,10 +84,8 @@ namespace tbx
         CreatePluginFn create = lib->get_symbol<CreatePluginFn>(create_symbol.c_str());
         if (!create)
         {
-            TBX_TRACE_WARNING(
-                "Entry point not found in plugin module: {}",
-                create_symbol.c_str());
-            return std::nullopt;
+            TBX_TRACE_WARNING("Entry point not found in plugin module: {}", create_symbol.c_str());
+            return {};
         }
 
         const std::string destroy_symbol = "destroy_" + meta.name;
@@ -99,19 +95,22 @@ namespace tbx
             TBX_TRACE_WARNING(
                 "Destroy entry point not found in plugin module: {}",
                 destroy_symbol.c_str());
-            return std::nullopt;
+            return {};
         }
 
         Plugin* plugin_instance = create();
         if (!plugin_instance)
         {
             TBX_TRACE_WARNING("Plugin factory returned null for: {}", meta.name.c_str());
-            return std::nullopt;
+            return {};
         }
 
         auto instance = PluginInstance(plugin_instance, destroy);
         loaded.instance = std::move(instance);
         loaded.library = std::move(lib);
+
+        TBX_TRACE_INFO("Loaded plugin: {}", to_string(loaded));
+
         return loaded;
     }
 
@@ -146,7 +145,7 @@ namespace tbx
                         }
 
                         PluginMeta m = parse_plugin_meta(manifest_data, p);
-                        discovered.push_back(std::move(m));
+                        discovered.push_back(m);
                     }
                     catch (...)
                     {
@@ -164,7 +163,7 @@ namespace tbx
         std::vector<PluginMeta> metas;
         if (requested_ids.empty())
         {
-            metas = std::move(discovered);
+            metas = discovered;
         }
         else
         {
@@ -245,9 +244,10 @@ namespace tbx
         metas = resolve_plugin_load_order(metas);
         for (const PluginMeta& meta : metas)
         {
-            if (auto instance = load_plugin_internal(meta, file_ops))
+            LoadedPlugin plug = load_plugin_internal(meta, file_ops);
+            if (plug.instance)
             {
-                loaded.push_back(std::move(*instance));
+                loaded.push_back(std::move(plug));
             }
         }
         return loaded;
@@ -267,9 +267,10 @@ namespace tbx
         std::vector<LoadedPlugin> loaded;
         for (const PluginMeta& meta : metas)
         {
-            if (auto instance = load_plugin_internal(meta, file_ops))
+            auto plug = load_plugin_internal(meta, file_ops);
+            if (plug.instance)
             {
-                loaded.push_back(std::move(*instance));
+                loaded.push_back(std::move(plug));
             }
         }
         return loaded;

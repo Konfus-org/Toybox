@@ -3,12 +3,11 @@
 int main()
 {
     // Use the Application to load and run the plugin from the plugins directory
-    tbx::AppDescription desc =
-    {
+    tbx::AppDescription desc = {
         .name = "PluginExample",
+        .logs_directory = "./logs",
         .plugins_directory = "./",
-        .requested_plugins = {"ExampleRuntimePlugin", "SdlWindowingPlugin"}
-    };
+        .requested_plugins = {"ExampleRuntimePlugin"}};
     auto app = tbx::Application(desc);
 
     // Run the application main loop
