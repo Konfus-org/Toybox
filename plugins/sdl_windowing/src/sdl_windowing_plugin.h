@@ -1,7 +1,5 @@
 #pragma once
 #include "tbx/app/window.h"
-#include "tbx/app/window_requests.h"
-#include "tbx/app/window_events.h"
 #include "tbx/plugin_api/plugin.h"
 #include <SDL3/SDL.h>
 #include <string_view>
@@ -21,19 +19,20 @@ namespace tbx::plugins::sdlwindowing
         void on_attach(Application& host) override;
         void on_detach() override;
         void on_update(const DeltaTime& dt) override;
-        void on_message(Message& msg) override;
+        void on_recieve_message(Message& msg) override;
 
       private:
-        void handle_create_window(CreateWindowRequest& request);
-        void handle_query_description(QueryWindowDescriptionRequest& request) const;
-        void handle_apply_description(ApplyWindowDescriptionRequest& request) const;
-        void handle_window_closed(WindowClosedEvent& event);
-        static void set_failure(Message& message, std::string_view reason);
-        SdlWindowRecord* find_record(const SDL_Window* window);
-        SdlWindowRecord* find_record(const Window* window);
-        const SdlWindowRecord* find_record(const SDL_Window* window) const;
-        const SdlWindowRecord* find_record(const Window* window) const;
+        void on_window_is_open_changed(PropertyChangedEvent<Window, bool>& event);
+        void on_window_size_changed(PropertyChangedEvent<Window, Size>& event);
+        void on_window_mode_changed(PropertyChangedEvent<Window, WindowMode>& event);
+        void on_window_title_changed(PropertyChangedEvent<Window, std::string>& event);
+        SdlWindowRecord find_record(std::function<bool(const SdlWindowRecord&)> condition);
+        SdlWindowRecord find_record(const SDL_Window* sdl_window);
+        SdlWindowRecord find_record(const Window* tbx_window);
+        SdlWindowRecord& add_record(SDL_Window* sdl_window, Window* tbx_window);
+        void remove_record(const SdlWindowRecord& record);
 
+      private:
         std::vector<SdlWindowRecord> _windows;
     };
 }

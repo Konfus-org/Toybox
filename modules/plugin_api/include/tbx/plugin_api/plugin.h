@@ -46,13 +46,13 @@ namespace tbx
         virtual void on_attach(Application& host) = 0;
 
         // Called before the plugin is detached from the host.
-        virtual void on_detach() = 0;
+        virtual void on_detach() {}
 
         // Per-frame update with delta timing.
-        virtual void on_update(const DeltaTime& dt) = 0;
+        virtual void on_update(const DeltaTime& dt) {}
 
         // Unified message entry point for dispatch callbacks.
-        virtual void on_message(Message& msg) = 0;
+        virtual void on_recieve_message(Message& msg) {}
 
         // Non-owning dispatcher reference provided by the host.
         IMessageDispatcher& get_dispatcher() const;

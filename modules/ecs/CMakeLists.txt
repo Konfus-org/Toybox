@@ -17,6 +17,7 @@ target_link_libraries(ECS
     PUBLIC
         Tbx::Common
         Tbx::Messaging
+        EnTT::EnTT
 )
 
 add_library(Tbx::ECS ALIAS ECS)

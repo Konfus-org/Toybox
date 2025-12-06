@@ -1,8 +1,7 @@
 #include "pch.h"
 #include "tbx/app/app_message_coordinator.h"
-#include "tbx/messages/message.h"
-#include "tbx/messages/handler.h"
 #include "tbx/async/cancellation_token.h"
+#include "tbx/messages/message.h"
 #include "tbx/time/time_span.h"
 #include <any>
 #include <atomic>
@@ -25,15 +24,17 @@ namespace tbx::tests::app
         AppMessageCoordinator d;
         std::atomic<int> count{0};
 
-        d.add_handler([&](const Message& msg)
-        {
-            count.fetch_add(1);
-            const_cast<Message&>(msg).state = MessageState::Handled;
-        });
-        d.add_handler([&](const Message& msg)
-        {
-            count.fetch_add(1);
-        });
+        d.add_handler(
+            [&](const Message& msg)
+            {
+                count.fetch_add(1);
+                const_cast<Message&>(msg).state = MessageState::Handled;
+            });
+        d.add_handler(
+            [&](const Message& msg)
+            {
+                count.fetch_add(1);
+            });
 
         TestMessage msg;
         msg.value = 42;
@@ -107,10 +108,11 @@ namespace tbx::tests::app
         AppMessageCoordinator d;
         std::atomic<int> count{0};
 
-        d.add_handler([&](const Message&)
-        {
-            count.fetch_add(1);
-        });
+        d.add_handler(
+            [&](const Message&)
+            {
+                count.fetch_add(1);
+            });
 
         Message msg;
         bool failure_callback = false;
@@ -140,10 +142,11 @@ namespace tbx::tests::app
     {
         AppMessageCoordinator d;
 
-        d.add_handler([](const Message&)
-        {
-            throw std::runtime_error("send failure");
-        });
+        d.add_handler(
+            [](const Message&)
+            {
+                throw std::runtime_error("send failure");
+            });
 
         Message msg;
         bool failure_callback = false;
@@ -191,11 +194,12 @@ namespace tbx::tests::app
         AppMessageCoordinator d;
         std::atomic<int> count{0};
 
-        d.add_handler([&](const Message& msg)
-        {
-            count.fetch_add(1);
-            const_cast<Message&>(msg).state = MessageState::Handled;
-        });
+        d.add_handler(
+            [&](const Message& msg)
+            {
+                count.fetch_add(1);
+                const_cast<Message&>(msg).state = MessageState::Handled;
+            });
 
         Message msg;
         auto result = d.post(msg);
@@ -215,14 +219,16 @@ namespace tbx::tests::app
         AppMessageCoordinator d;
         std::atomic<int> count{0};
 
-        Uuid keep_id = d.add_handler([&](const Message&)
-        {
-            count.fetch_add(1);
-        });
-        Uuid drop_id = d.add_handler([&](const Message&)
-        {
-            count.fetch_add(100);
-        });
+        Uuid keep_id = d.add_handler(
+            [&](const Message&)
+            {
+                count.fetch_add(1);
+            });
+        Uuid drop_id = d.add_handler(
+            [&](const Message&)
+            {
+                count.fetch_add(100);
+            });
 
         d.remove_handler(drop_id);
 
@@ -241,11 +247,12 @@ namespace tbx::tests::app
         AppMessageCoordinator d;
         std::atomic<int> count{0};
 
-        d.add_handler([&](const Message& msg)
-        {
-            count.fetch_add(1);
-            const_cast<Message&>(msg).state = MessageState::Handled;
-        });
+        d.add_handler(
+            [&](const Message& msg)
+            {
+                count.fetch_add(1);
+                const_cast<Message&>(msg).state = MessageState::Handled;
+            });
 
         Message msg;
         msg.delay_in_ticks = static_cast<std::size_t>(1);
@@ -269,11 +276,12 @@ namespace tbx::tests::app
         AppMessageCoordinator d;
         std::atomic<int> count{0};
 
-        d.add_handler([&](const Message& msg)
-        {
-            count.fetch_add(1);
-            const_cast<Message&>(msg).state = MessageState::Handled;
-        });
+        d.add_handler(
+            [&](const Message& msg)
+            {
+                count.fetch_add(1);
+                const_cast<Message&>(msg).state = MessageState::Handled;
+            });
 
         Message msg;
         msg.delay_in_ticks = static_cast<std::size_t>(1);
@@ -304,10 +312,11 @@ namespace tbx::tests::app
     {
         AppMessageCoordinator d;
 
-        d.add_handler([](const Message&)
-        {
-            throw std::runtime_error("post failure");
-        });
+        d.add_handler(
+            [](const Message&)
+            {
+                throw std::runtime_error("post failure");
+            });
 
         Message msg;
         bool failure_callback = false;
@@ -338,11 +347,12 @@ namespace tbx::tests::app
         AppMessageCoordinator d;
         std::atomic<int> count{0};
 
-        d.add_handler([&](const Message& msg)
-        {
-            count.fetch_add(1);
-            const_cast<Message&>(msg).state = MessageState::Handled;
-        });
+        d.add_handler(
+            [&](const Message& msg)
+            {
+                count.fetch_add(1);
+                const_cast<Message&>(msg).state = MessageState::Handled;
+            });
 
         Message msg;
         TimeSpan delay;
@@ -367,10 +377,11 @@ namespace tbx::tests::app
         AppMessageCoordinator d;
         std::atomic<int> count{0};
 
-        d.add_handler([&](const Message&)
-        {
-            count.fetch_add(1);
-        });
+        d.add_handler(
+            [&](const Message&)
+            {
+                count.fetch_add(1);
+            });
 
         CancellationSource source;
         auto token = source.get_token();
@@ -404,10 +415,11 @@ namespace tbx::tests::app
         AppMessageCoordinator d;
         std::atomic<int> count{0};
 
-        d.add_handler([&](const Message&)
-        {
-            count.fetch_add(1);
-        });
+        d.add_handler(
+            [&](const Message&)
+            {
+                count.fetch_add(1);
+            });
 
         CancellationSource source;
         auto token = source.get_token();
@@ -433,12 +445,13 @@ namespace tbx::tests::app
     {
         AppMessageCoordinator d;
 
-        d.add_handler([](const Message& message)
-        {
-            auto& mutable_msg = const_cast<Message&>(message);
-            mutable_msg.state = MessageState::Handled;
-            mutable_msg.payload = 123;
-        });
+        d.add_handler(
+            [](const Message& message)
+            {
+                auto& mutable_msg = const_cast<Message&>(message);
+                mutable_msg.state = MessageState::Handled;
+                mutable_msg.payload = 123;
+            });
 
         Message msg;
         auto result = d.send(msg);
@@ -455,12 +468,13 @@ namespace tbx::tests::app
     {
         AppMessageCoordinator d;
 
-        d.add_handler([](const Message& message)
-        {
-            auto& mutable_msg = const_cast<Message&>(message);
-            mutable_msg.state = MessageState::Handled;
-            mutable_msg.payload = std::string("ready");
-        });
+        d.add_handler(
+            [](const Message& message)
+            {
+                auto& mutable_msg = const_cast<Message&>(message);
+                mutable_msg.state = MessageState::Handled;
+                mutable_msg.payload = std::string("ready");
+            });
 
         Message msg;
         std::string processed_payload;
@@ -485,10 +499,11 @@ namespace tbx::tests::app
     TEST(dispatcher_send_timeout, marks_result_as_timed_out)
     {
         AppMessageCoordinator d;
-        d.add_handler([](const Message&)
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
-        });
+        d.add_handler(
+            [](const Message&)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            });
 
         Message msg;
         TimeSpan timeout;
@@ -509,7 +524,10 @@ namespace tbx::tests::app
     TEST(dispatcher_post_timeout, cancels_message_before_delivery)
     {
         AppMessageCoordinator d;
-        d.add_handler([](const Message&) {});
+        d.add_handler(
+            [](const Message&)
+            {
+            });
 
         Message msg;
         TimeSpan delay;

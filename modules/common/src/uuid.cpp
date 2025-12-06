@@ -26,17 +26,52 @@ namespace tbx
         return value != 0U;
     }
 
-    bool operator==(const Uuid& a, const Uuid& b)
+    Uuid::operator bool() const
     {
-        return a.value == b.value;
+        return is_valid();
     }
 
-    bool operator!=(const Uuid& a, const Uuid& b)
+    bool Uuid::operator!() const
     {
-        return !(a == b);
+        return !is_valid();
     }
 
-    uint64 UuidHash::operator()(const Uuid& id) const
+    bool Uuid::operator<(const Uuid& other) const
+    {
+        return value < other.value;
+    }
+
+    bool Uuid::operator>(const Uuid& other) const
+    {
+        return value > other.value;
+    }
+
+    bool Uuid::operator<=(const Uuid& other) const
+    {
+        return value <= other.value;
+    }
+
+    bool Uuid::operator>=(const Uuid& other) const
+    {
+        return value >= other.value;
+    }
+
+    Uuid::operator uint32() const
+    {
+        return value;
+    }
+
+    bool Uuid::operator==(const Uuid& other) const
+    {
+        return value == other.value;
+    }
+
+    bool Uuid::operator!=(const Uuid& other) const
+    {
+        return !(value == other.value);
+    }
+
+    uint32 UuidHash::operator()(const Uuid& id) const
     {
         return id.value;
     }

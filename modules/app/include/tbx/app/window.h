@@ -1,32 +1,43 @@
 #pragma once
+#include "tbx/math/size.h"
 #include "tbx/messages/dispatcher.h"
-#include "tbx/messages/window_description.h"
+#include "tbx/messages/observable.h"
 #include "tbx/tbx_api.h"
+#include <string>
 
 namespace tbx
 {
+    // Enumerates the presentation modes that a window can be configured for.
+    // Ownership: Represents value semantics only; no ownership concerns.
+    // Thread-safety: Immutable enum used freely across threads.
+    enum class TBX_API WindowMode
+    {
+        Windowed,
+        Borderless,
+        Fullscreen,
+        Minimized
+    };
+
     // Window is a lightweight wrapper around a platform specific implementation managed through
     // messages.
     // Ownership: Does not own the underlying platform window; keeps no platform state locally.
-    // Thread-safety: Not thread-safe; expected to be used on the main/UI thread.
+    // Thread-safety: Thread-safe though message dispatcher.
     class TBX_API Window
     {
       public:
         Window(
             IMessageDispatcher& dispatcher,
-            const WindowDescription& description,
+            std::string title = "Toybox",
+            Size size = {1280, 720},
+            WindowMode mode = WindowMode::Windowed,
             bool open_on_creation = true);
         ~Window();
 
-        const WindowDescription& get_description();
-        void set_description(const WindowDescription& description);
-        bool is_open() const;
-        void open();
-        void close();
+        Observable<Window, std::string> title;
+        Observable<Window, Size> size;
+        Observable<Window, WindowMode> mode;
+        Observable<Window, bool> is_open;
 
-      private:
-        IMessageDispatcher* _dispatcher = nullptr;
-        bool _is_open = false;
-        WindowDescription _description = {};
+        Uuid id = Uuid::generate();
     };
 }

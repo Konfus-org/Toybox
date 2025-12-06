@@ -2,7 +2,6 @@
 #include "tbx/common/smart_pointers.h"
 #include "tbx/common/uuid.h"
 #include "tbx/messages/dispatcher.h"
-#include "tbx/messages/handler.h"
 #include "tbx/tbx_api.h"
 #include "tbx/time/timer.h"
 #include <chrono>

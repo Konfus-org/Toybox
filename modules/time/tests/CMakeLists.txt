@@ -1,4 +1,4 @@
-set(CMAKE_FOLDER "Tests")
+set(CMAKE_FOLDER "tests")
 add_executable(TbxTimeTests)
 
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
@@ -21,4 +21,4 @@ target_link_libraries(TbxTimeTests PRIVATE
 )
 
 add_test(NAME TbxTimeTests COMMAND $<TARGET_FILE:TbxTimeTests>)
-set(CMAKE_FOLDER "")
+unset(CMAKE_FOLDER)

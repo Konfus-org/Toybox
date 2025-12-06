@@ -3,7 +3,6 @@
 #include "tbx/app/app_requests.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
-#include "tbx/messages/handler.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/plugin_api/plugin_registry.h"
@@ -12,7 +11,7 @@
 namespace tbx
 {
     Application::Application(AppDescription desc)
-        : _desc(std::move(desc))
+        : _desc(desc)
     {
         initialize();
     }
@@ -24,7 +23,8 @@ namespace tbx
 
     int Application::run()
     {
-        DeltaTimer timer = {};
+        auto timer = DeltaTimer();
+        _main_window.is_open = true;
         while (!_should_exit)
         {
             update(timer);
@@ -35,6 +35,11 @@ namespace tbx
     const AppDescription& Application::get_description() const
     {
         return _desc;
+    }
+
+    IMessageDispatcher& Application::get_dispatcher()
+    {
+        return static_cast<IMessageDispatcher&>(_msg_coordinator);
     }
 
     void Application::initialize()
@@ -55,7 +60,7 @@ namespace tbx
             _msg_coordinator.add_handler(
                 [this](Message& msg)
                 {
-                    on_message(msg);
+                    recieve_message(msg);
                 });
             for (auto& p : _loaded)
             {
@@ -123,13 +128,21 @@ namespace tbx
         _msg_coordinator.clear();
     }
 
-    void Application::on_message(const Message& msg)
+    void Application::recieve_message(const Message& msg)
     {
-        handle_message<ExitApplicationRequest>(
+        on_message(
             msg,
-            [this](const ExitApplicationRequest&)
+            [this](const ExitApplicationRequest& r)
             {
                 _should_exit = true;
+            });
+        on_property_changed(
+            msg,
+            &Window::is_open,
+            [this](const PropertyChangedEvent<Window, bool>& e)
+            {
+                if (e.owner == &_main_window && !e.current)
+                    _should_exit = true;
             });
     }
 }

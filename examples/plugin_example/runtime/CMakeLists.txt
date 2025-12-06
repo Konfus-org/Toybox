@@ -8,13 +8,14 @@ target_link_libraries(PluginExampleRuntime PRIVATE
     Tbx::App
     Tbx::ECS
     Tbx::Plugins::SpdConsoleLoggerPlugin
+    Tbx::Plugins::SpdFileLoggerPlugin
     Tbx::Plugins::SdlWindowingPlugin
 )
 
 tbx_register_plugin(
     TARGET PluginExampleRuntime
     CLASS tbx::examples::ExampleRuntimePlugin
-    HEADER "runtime_plugin.h"
+    HEADER "runtime.h"
     NAME "ExampleRuntimePlugin"
     VERSION "1.0.0"
     TYPE "runtime"

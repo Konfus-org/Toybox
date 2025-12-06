@@ -21,4 +21,4 @@ add_subdirectory(spdlog)
 add_subdirectory(SDL)
 add_subdirectory(imgui)
 
-set(CMAKE_FOLDER "")
+unset(CMAKE_FOLDER)

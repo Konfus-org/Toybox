@@ -1,2 +1,3 @@
-#include "tbx/ecs/stage.h"
-#include "tbx/ecs/toy.h"
+#include "tbx/ecs/entity.h"
+#include "tbx/ecs/registry.h"
+#include "tbx/ecs/toys.h"

@@ -26,7 +26,7 @@ add_subdirectory(plugin_api)
 add_subdirectory(graphics)
 add_subdirectory(app)
 
-set(CMAKE_FOLDER "Tests")
+set(CMAKE_FOLDER "tests")
 
 add_subdirectory(common/tests)
 add_subdirectory(file_system/tests)

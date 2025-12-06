@@ -12,8 +12,7 @@ namespace tbx::plugins::spdfilelogger
        public:
         void on_attach(Application& host) override;
         void on_detach() override;
-        void on_update(const DeltaTime& dt) override;
-        void on_message(Message& msg) override;
+        void on_recieve_message(Message& msg) override;
 
        private:
         Ref<spdlog::logger> _logger;
