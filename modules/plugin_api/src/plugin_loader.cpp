@@ -2,12 +2,11 @@
 #include "tbx/common/smart_pointers.h"
 #include "tbx/common/string_extensions.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/file_system/filesystem_ops.h"
+#include "tbx/file_system/filesystem.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_registry.h"
 #include <algorithm>
 #include <deque>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -16,45 +15,47 @@
 
 namespace tbx
 {
-    static std::string resolve_module_path(const PluginMeta& meta, IFilesystemOps& file_ops)
+    static FilePath resolve_module_path(const PluginMeta& meta, IFileSystem& file_ops)
     {
-        std::filesystem::path modulePath = meta.module_path;
+        FilePath module_path = meta.module_path;
 
-        if (modulePath.empty())
+        if (module_path.empty())
         {
-            modulePath = meta.root_directory;
+            module_path = meta.root_directory;
         }
 
-        if (!modulePath.empty() && file_ops.is_directory(modulePath))
+        if (file_ops.get_file_type(module_path) == FilePathType::Directory)
         {
-            modulePath /= meta.name;
+            module_path = module_path.append(meta.name);
         }
 
-        if (modulePath.extension().empty())
+        if (module_path.get_extension().empty())
         {
 #if defined(TBX_PLATFORM_WINDOWS)
-            modulePath += ".dll";
+            module_path = module_path.replace_extension(".dll");
 #elif defined(TBX_PLATFORM_MACOS)
-            if (modulePath.filename().string().rfind("lib", 0) != 0)
+            const String file_name = module_path.filename_string();
+            if (!file_name.starts_with("lib"))
             {
-                modulePath = modulePath.parent_path()
-                             / (std::string("lib") + modulePath.filename().string());
+                module_path =
+                    module_path.parent_path().append(std::string("lib") + file_name.std_str());
             }
-            modulePath += ".dylib";
+            module_path = module_path.replace_extension(".dylib");
 #else
-            if (modulePath.filename().string().rfind("lib", 0) != 0)
+            const String file_name = module_path.filename_string();
+            if (!file_name.starts_with("lib"))
             {
-                modulePath = modulePath.parent_path()
-                             / (std::string("lib") + modulePath.filename().string());
+                module_path =
+                    module_path.parent_path().append(std::string("lib") + file_name.std_str());
             }
-            modulePath += ".so";
+            module_path = module_path.replace_extension(".so");
 #endif
         }
 
-        return modulePath.string();
+        return module_path;
     }
 
-    static LoadedPlugin load_plugin_internal(const PluginMeta& meta, IFilesystemOps& file_ops)
+    static LoadedPlugin load_plugin_internal(const PluginMeta& meta, IFileSystem& file_ops)
     {
         LoadedPlugin loaded;
         loaded.meta = meta;
@@ -77,7 +78,7 @@ namespace tbx
             return loaded;
         }
 
-        const std::string module_path = resolve_module_path(meta, file_ops);
+        const FilePath module_path = resolve_module_path(meta, file_ops);
         auto lib = Scope<SharedLibrary>(module_path);
 
         const std::string create_symbol = "create_" + meta.name;
@@ -115,41 +116,42 @@ namespace tbx
     }
 
     std::vector<LoadedPlugin> load_plugins(
-        const std::filesystem::path& directory,
+        const FilePath& directory,
         const std::vector<std::string>& requested_ids,
-        IFilesystemOps& file_ops)
+        IFileSystem& file_ops)
     {
         std::vector<LoadedPlugin> loaded;
 
         std::vector<PluginMeta> discovered;
         if (file_ops.exists(directory))
         {
-            for (const auto& entry : file_ops.recursive_directory_entries(directory))
+            for (const auto& entry : file_ops.read_directory(directory))
             {
-                if (!entry.is_regular_file)
+                if (file_ops.get_file_type(entry) != FilePathType::Regular)
                 {
                     continue;
                 }
 
-                auto p = entry.path;
-                const std::string name = p.filename().string();
+                const String name = entry.filename_string();
                 const std::string lowered_name = to_lower_case_string(name);
-                if (p.extension() == ".meta" || lowered_name == "plugin.meta")
+                if (entry.get_extension() == ".meta" || lowered_name == "plugin.meta")
                 {
                     try
                     {
                         std::string manifest_data;
-                        if (!file_ops.read_text_file(p, manifest_data))
+                        if (!file_ops.read_file(entry, manifest_data, FileDataFormat::Utf8Text))
                         {
                             continue;
                         }
 
-                        PluginMeta m = parse_plugin_meta(manifest_data, p);
+                        PluginMeta m = parse_plugin_meta(manifest_data, entry);
                         discovered.push_back(m);
                     }
                     catch (...)
                     {
-                        TBX_TRACE_WARNING("Plugin {} is unable to be loaded!", p.string().c_str());
+                        TBX_TRACE_WARNING(
+                            "Plugin {} is unable to be loaded!",
+                            entry.std_path().string().c_str());
                     }
                 }
             }
@@ -250,21 +252,16 @@ namespace tbx
                 loaded.push_back(std::move(plug));
             }
         }
+
         return loaded;
     }
 
     std::vector<LoadedPlugin> load_plugins(
-        const std::filesystem::path& directory,
-        const std::vector<std::string>& requested_ids)
-    {
-        return load_plugins(directory, requested_ids, get_default_filesystem_ops());
-    }
-
-    std::vector<LoadedPlugin> load_plugins(
         const std::vector<PluginMeta>& metas,
-        IFilesystemOps& file_ops)
+        IFileSystem& file_ops)
     {
         std::vector<LoadedPlugin> loaded;
+
         for (const PluginMeta& meta : metas)
         {
             auto plug = load_plugin_internal(meta, file_ops);
@@ -273,11 +270,7 @@ namespace tbx
                 loaded.push_back(std::move(plug));
             }
         }
-        return loaded;
-    }
 
-    std::vector<LoadedPlugin> load_plugins(const std::vector<PluginMeta>& metas)
-    {
-        return load_plugins(metas, get_default_filesystem_ops());
+        return loaded;
     }
 }

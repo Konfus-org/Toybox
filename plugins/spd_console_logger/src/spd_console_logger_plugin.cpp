@@ -1,7 +1,7 @@
 #include "spd_console_logger_plugin.h"
 #include "tbx/common/smart_pointers.h"
 #include "tbx/debugging/log_requests.h"
-#include "tbx/file_system/string_path_operations.h"
+#include "tbx/file_system/filepath.h"
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace tbx::plugins::spdconsolelogger
@@ -14,7 +14,6 @@ namespace tbx::plugins::spdconsolelogger
 
     void SpdConsoleLoggerPlugin::on_detach()
     {
-        _logger->info("SpdConsoleLoggerPlugin detached");
         _logger->flush();
         _logger.reset();
     }
@@ -25,19 +24,19 @@ namespace tbx::plugins::spdconsolelogger
             msg,
             [this](LogMessageRequest& log)
             {
-                const auto filename = get_filename_from_string_path(log.file);
+                const auto filename = FilePath(log.file).filename_string();
                 switch (log.level)
                 {
-                    case LogLevel::Info :
+                    case LogLevel::Info:
                         _logger->info("[{}:{}] {}", filename, log.line, log.message);
                         break;
-                    case LogLevel::Warning :
+                    case LogLevel::Warning:
                         _logger->warn("[{}:{}] {}", filename, log.line, log.message);
                         break;
-                    case LogLevel::Error :
+                    case LogLevel::Error:
                         _logger->error("[{}:{}] {}", filename, log.line, log.message);
                         break;
-                    case LogLevel::Critical :
+                    case LogLevel::Critical:
                         _logger->critical("[{}:{}] {}", filename, log.line, log.message);
                         break;
                 }

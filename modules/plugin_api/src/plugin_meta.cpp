@@ -1,6 +1,7 @@
 #include "tbx/plugin_api/plugin_meta.h"
 #include "tbx/common/string_extensions.h"
 #include <deque>
+#include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
@@ -194,7 +195,7 @@ namespace tbx
     /// </summary>
     static PluginMeta parse_plugin_meta_data(
         const nlohmann::json& data,
-        const std::filesystem::path& manifest_path)
+        const FilePath& manifest_path)
     {
         PluginMeta meta;
         meta.manifest_path = manifest_path;
@@ -228,11 +229,12 @@ namespace tbx
             {
                 if (module_path.is_absolute() || meta.root_directory.empty())
                 {
-                    meta.module_path = module_path;
+                    meta.module_path = FilePath(module_path);
                 }
                 else
                 {
-                    meta.module_path = meta.root_directory / module_path;
+                    module_path = meta.root_directory.std_path() / module_path;
+                    meta.module_path = FilePath(module_path);
                 }
             }
         }
@@ -248,7 +250,7 @@ namespace tbx
     /// </summary>
     PluginMeta parse_plugin_meta(
         const std::string& manifest_text,
-        const std::filesystem::path& manifest_path)
+        const FilePath& manifest_path)
     {
         nlohmann::json data = nlohmann::json::parse(manifest_text, nullptr, true, true);
         return parse_plugin_meta_data(data, manifest_path);
@@ -257,13 +259,13 @@ namespace tbx
     /// <summary>
     /// Opens the manifest on disk and parses plugin metadata.
     /// </summary>
-    PluginMeta parse_plugin_meta(const std::filesystem::path& manifest_path)
+    PluginMeta parse_plugin_meta(const FilePath& manifest_path)
     {
-        std::ifstream stream(manifest_path);
+        std::ifstream stream(manifest_path.std_path());
         if (!stream.is_open())
         {
             throw std::runtime_error(
-                std::string("Unable to open plugin manifest: ") + manifest_path.string());
+                std::string("Unable to open plugin manifest: ") + manifest_path.std_path().string());
         }
 
         nlohmann::json data = nlohmann::json::parse(stream, nullptr, true, true);

@@ -1,7 +1,7 @@
 #pragma once
+#include "tbx/file_system/filepath.h"
 #include "tbx/plugin_api/plugin_linkage.h"
 #include "tbx/tbx_api.h"
-#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -28,22 +28,22 @@ namespace tbx
         PluginLinkage linkage = PluginLinkage::Dynamic;
 
         // Path to the manifest file that produced this metadata.
-        std::filesystem::path manifest_path;
+        FilePath manifest_path;
 
         // Directory containing the manifest and plugin module.
-        std::filesystem::path root_directory;
+        FilePath root_directory;
 
         // Full path to the plugin module that should be loaded.
-        std::filesystem::path module_path;
+        FilePath module_path;
     };
 
     // Parses a plugin manifest from disk and returns the populated metadata.
-    PluginMeta TBX_API parse_plugin_meta(const std::filesystem::path& manifest_path);
+    PluginMeta TBX_API parse_plugin_meta(const FilePath& manifest_path);
 
     // Parses plugin metadata from raw manifest text.
     PluginMeta TBX_API parse_plugin_meta(
         const std::string& manifest_text,
-        const std::filesystem::path& manifest_path);
+        const FilePath& manifest_path);
 
     // Orders plugins for loading while respecting dependencies and logger priority.
     std::vector<PluginMeta> TBX_API resolve_plugin_load_order(

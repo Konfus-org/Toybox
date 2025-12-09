@@ -8,9 +8,17 @@ namespace tbx
 {
     struct TBX_API LogMessageRequest : public Request<void>
     {
+        LogMessageRequest(LogLevel lvl, const String& msg, const FilePath& file_path, uint line_num)
+            : level(lvl)
+            , message(msg)
+            , file(file_path)
+            , line(line_num)
+        {
+        }
+
         LogLevel level = LogLevel::Info;
-        std::string message;
-        std::string file;
-        int line = 0;
+        String message;
+        FilePath file;
+        uint line = 0;
     };
 }

@@ -4,9 +4,17 @@
 
 namespace tbx
 {
-    Bounds Bounds::Identity = Bounds(-1.0f, 1.0f, -1.0f, 1.0f);
+    Bounds::Bounds() = default;
 
-    Bounds Bounds::FromOrthographicProjection(float size, float aspect)
+    Bounds::Bounds(float l, float r, float t, float b)
+        : left(l)
+        , right(r)
+        , top(t)
+        , bottom(b)
+    {
+    }
+
+    Bounds Bounds::from_orthographic_projection(float size, float aspect)
     {
         const float half_width = size * aspect;
         const float half_height = size;
@@ -16,10 +24,10 @@ namespace tbx
         const float top = half_height;
         const float bottom = -half_height;
 
-        return { left, right, top, bottom };
+        return {left, right, top, bottom};
     }
 
-    Bounds Bounds::FromPerspectiveProjection(float fov, float aspectRatio, float zNear)
+    Bounds Bounds::from_perspective_projection(float fov, float aspectRatio, float zNear)
     {
         const float scale = tan(fov * 0.5f) * zNear;
 
@@ -28,11 +36,16 @@ namespace tbx
         const float top = scale;
         const float bottom = -top;
 
-        return { left, right, top, bottom };
+        return {left, right, top, bottom};
     }
 
     std::string to_string(const Bounds& bounds)
     {
-        return std::format("[Left: {}, Right: {}, Top: {}, Bottom: {}]", bounds.Left, bounds.Right, bounds.Top, bounds.Bottom);
+        return std::format(
+            "[Left: {}, Right: {}, Top: {}, Bottom: {}]",
+            bounds.left,
+            bounds.right,
+            bounds.top,
+            bounds.bottom);
     }
 }

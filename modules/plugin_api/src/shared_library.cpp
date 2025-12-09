@@ -13,12 +13,12 @@ namespace tbx
 {
     namespace
     {
-        static void* tbx_load_library(const std::filesystem::path& path)
+        static void* tbx_load_library(const FilePath& path)
         {
 #if defined(TBX_PLATFORM_WINDOWS)
-            return static_cast<void*>(::LoadLibraryW(path.wstring().c_str()));
+            return static_cast<void*>(::LoadLibraryW(path.std_path().wstring().c_str()));
 #else
-            return dlopen(path.string().c_str(), RTLD_NOW);
+            return dlopen(path.std_path().string().c_str(), RTLD_NOW);
 #endif
         }
 
@@ -36,7 +36,7 @@ namespace tbx
         }
     }
 
-    SharedLibrary::SharedLibrary(const std::filesystem::path& path)
+    SharedLibrary::SharedLibrary(const FilePath& path)
         : _handle(tbx_load_library(path))
         , _path(path)
     {
@@ -52,7 +52,7 @@ namespace tbx
         , _path(std::move(other._path))
     {
         other._handle = nullptr;
-        other._path.clear();
+        other._path = FilePath();
     }
 
     SharedLibrary& SharedLibrary::operator=(SharedLibrary&& other)
@@ -63,7 +63,7 @@ namespace tbx
             _handle = other._handle;
             _path = std::move(other._path);
             other._handle = nullptr;
-            other._path.clear();
+            other._path = FilePath();
         }
         return *this;
     }

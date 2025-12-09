@@ -1,13 +1,18 @@
 #pragma once
+#include "tbx/common/smart_pointers.h"
 #include "tbx/messages/message.h"
 #include "tbx/messages/result.h"
 #include "tbx/tbx_api.h"
+#include <concepts>
+#include <future>
+#include <type_traits>
+#include <utility>
 
 namespace tbx
 {
     // Interface for components that can dispatch messages to the system.
-    // Ownership: does not take ownership of messages; `send` reads the
-    // message by reference, `post` copies it for deferred processing.
+    // Ownership: Constructed messages are owned by the dispatcher while executing.
+    // `post` takes ownership of a queued copy; `send` uses a stack instance.
     // Thread-safety: Implementations may define their own guarantees. Unless
     // documented otherwise by the concrete type, calls are expected from the
     // engine's main thread.
@@ -16,15 +21,52 @@ namespace tbx
       public:
         virtual ~IMessageDispatcher() = default;
 
-        // Immediately sends a message by reference.
-        // Ownership: non-owning; the caller keeps ownership of `msg`.
-        // Thread-safety: see class notes.
-        virtual Result send(Message& msg) const = 0;
+        // Immediately sends an existing message instance.
+        // Ownership: caller retains ownership; dispatcher operates on the provided object.
+        template <typename TMessage>
+            requires std::derived_from<TMessage, Message>
+        Result send(TMessage& msg) const
+        {
+            return send_impl(static_cast<Message&>(msg));
+        }
 
-        // Enqueues a copy of the message for deferred processing.
-        // Ownership: copies `msg` internally until delivered.
+        // Immediately constructs and sends a message.
+        // Ownership: message is constructed in-place for the dispatch.
         // Thread-safety: see class notes.
-        virtual Result post(const Message& msg) = 0;
+        template <typename TMessage, typename... TArgs>
+            requires(std::derived_from<TMessage, Message> && (sizeof...(TArgs) > 0)
+                     && std::is_constructible_v<TMessage, TArgs...>)
+        Result send(TArgs&&... args) const
+        {
+            TMessage msg(std::forward<TArgs>(args)...);
+            return send_impl(msg);
+        }
+
+        // Enqueues an existing message instance for deferred processing.
+        // Ownership: copies the message for queued delivery.
+        // Thread-safety: see class notes.
+        template <typename TMessage>
+            requires std::derived_from<TMessage, Message>
+        std::future<Result> post(const TMessage& msg) const
+        {
+            return post_impl(Scope<Message>(new TMessage(msg)));
+        }
+
+        // Enqueues a constructed message for deferred processing.
+        // Ownership: takes ownership of the queued copy until delivery.
+        // Returns a future that becomes ready once processing completes.
+        // Thread-safety: see class notes.
+        template <typename TMessage, typename... TArgs>
+            requires(std::derived_from<TMessage, Message> && (sizeof...(TArgs) > 0)
+                     && std::is_constructible_v<TMessage, TArgs...>)
+        std::future<Result> post(TArgs&&... args) const
+        {
+            return post_impl(Scope<Message>(new TMessage(std::forward<TArgs>(args)...)));
+        }
+
+      protected:
+        virtual Result send_impl(Message& msg) const = 0;
+        virtual std::future<Result> post_impl(Scope<Message> msg) const = 0;
     };
 
     // Interface for components that advance queued work and deliver

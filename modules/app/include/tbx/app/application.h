@@ -1,7 +1,8 @@
 #pragma once
 #include "tbx/app/app_description.h"
 #include "tbx/app/app_message_coordinator.h"
-#include "tbx/app/window.h"
+#include "tbx/file_system/filesystem.h"
+#include "tbx/graphics/window.h"
 #include "tbx/plugin_api/loaded_plugin.h"
 #include "tbx/time/delta_time.h"
 #include <vector>
@@ -24,6 +25,7 @@ namespace tbx
 
         const AppDescription& get_description() const;
         IMessageDispatcher& get_dispatcher();
+        IFileSystem& get_filesystem();
 
       private:
         void initialize();
@@ -32,6 +34,7 @@ namespace tbx
         void recieve_message(const Message& msg);
 
         AppDescription _desc;
+        FileSystem _filesystem;
         std::vector<LoadedPlugin> _loaded = {};
         AppMessageCoordinator _msg_coordinator = {};
         Window _main_window = {

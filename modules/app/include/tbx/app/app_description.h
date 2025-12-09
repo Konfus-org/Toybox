@@ -1,6 +1,6 @@
 #pragma once
+#include "tbx/file_system/filepath.h"
 #include "tbx/tbx_api.h"
-#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -16,17 +16,17 @@ namespace tbx
         const std::string name = "";
 
         // Absolute or relative base directory used to resolve other paths.
-        const std::string working_root = "";
+        const FilePath working_root = {};
 
-        // Location of runtime assets. May be relative to working_root.
-        const std::string assets_directory = "";
+        // Location of runtime assets. Relative to working root.
+        const FilePath assets_directory = {};
 
-        // Directory where runtime logs should be stored.
+        // Directory where runtime logs should be stored relative to working root.
         // May be empty to fall back to the working root.
-        const std::string logs_directory = "";
+        const FilePath logs_directory = {};
 
-        // Directory searched for plugin binaries and manifests.
-        const std::string plugins_directory = "";
+        // Directory searched for plugin binaries and manifests, relative to working root.
+        const FilePath plugins_directory = {};
 
         // Ordered list of plugin identifiers requested for loading.
         const std::vector<std::string> requested_plugins = {};

@@ -9,7 +9,6 @@ namespace tbx::tests::messaging
 
         EXPECT_EQ(message.state, MessageState::InProgress);
         EXPECT_TRUE(message.payload.has_value() == false);
-        EXPECT_EQ(message.delay_in_ticks, 0u);
         EXPECT_EQ(message.id, message.id);
     }
 }

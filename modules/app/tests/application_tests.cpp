@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "tbx/app/app_description.h"
-#include <filesystem>
+#include "tbx/file_system/filepath.h"
 #include <string>
 #include <vector>
 
@@ -22,17 +22,17 @@ namespace tbx::tests::app
     {
         AppDescription description = AppDescription{
             "Toybox.Editor",
-            std::filesystem::path("/workspace").string(),
-            std::filesystem::path("assets").string(),
-            std::filesystem::path("logs").string(),
-            std::filesystem::path("plugins").string(),
+            FilePath("/workspace"),
+            FilePath("assets"),
+            FilePath("logs"),
+            FilePath("plugins"),
             std::vector<std::string>{"Tbx.Logger", "Tbx.Renderer"}};
 
         EXPECT_EQ(description.name, "Toybox.Editor");
-        EXPECT_EQ(description.working_root, std::filesystem::path("/workspace"));
-        EXPECT_EQ(description.assets_directory, std::filesystem::path("assets"));
-        EXPECT_EQ(description.logs_directory, std::filesystem::path("logs"));
-        EXPECT_EQ(description.plugins_directory, std::filesystem::path("plugins"));
+        EXPECT_EQ(description.working_root, FilePath("/workspace"));
+        EXPECT_EQ(description.assets_directory, FilePath("assets"));
+        EXPECT_EQ(description.logs_directory, FilePath("logs"));
+        EXPECT_EQ(description.plugins_directory, FilePath("plugins"));
         ASSERT_EQ(description.requested_plugins.size(), 2u);
         EXPECT_EQ(description.requested_plugins[0], "Tbx.Logger");
         EXPECT_EQ(description.requested_plugins[1], "Tbx.Renderer");

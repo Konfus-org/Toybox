@@ -11,31 +11,26 @@ namespace tbx
     struct TBX_API Transform
     {
       public:
-        Transform() = default;
+        Transform();
 
         // Initializes the transform with explicit position, rotation, and scale values.
         // Ownership: stores provided values by copy.
         // Thread Safety: not thread-safe; synchronize external access if shared.
-        Transform(const Vec3& position, const Quat& rotation, const Vec3& scale)
-            : Position(position)
-            , Rotation(rotation)
-            , Scale(scale)
-        {
-        }
+        Transform(const Vec3& position, const Quat& rotation, const Vec3& scale);
 
         // World-space translation component for the transform.
         // Ownership: stored by value inside the transform.
         // Thread Safety: synchronize external access when sharing instances.
-        Vec3 Position = Vec3(0.0f);
+        Vec3 position = Vec3(0.0f);
 
         // World-space rotation component for the transform.
         // Ownership: stored by value inside the transform.
         // Thread Safety: synchronize external access when sharing instances.
-        Quat Rotation = Quat(1.0f, 0.0f, 0.0f, 0.0f);
+        Quat rotation = Quat(1.0f, 0.0f, 0.0f, 0.0f);
 
         // World-space scale component for the transform.
         // Ownership: stored by value inside the transform.
         // Thread Safety: synchronize external access when sharing instances.
-        Vec3 Scale = Vec3(1.0f);
+        Vec3 scale = Vec3(1.0f);
     };
 }

@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace tbx::linq
+namespace tbx
 {
     template <typename TResult>
     using Decayed = std::decay_t<TResult>;

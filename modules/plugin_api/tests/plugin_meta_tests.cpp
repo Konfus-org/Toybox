@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "tbx/plugin_api/plugin_meta.h"
-#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -20,7 +19,7 @@ namespace tbx::tests::plugin_api
                 "module": "bin/logger.so",
                 "static": true
             })JSON";
-        const std::filesystem::path manifest_path = "/virtual/plugin_api/example/logger/plugin.meta";
+        const FilePath manifest_path = FilePath("/virtual/plugin_api/example/logger/plugin.meta");
 
         PluginMeta meta =
             parse_plugin_meta(manifest_text, manifest_path);
@@ -33,7 +32,7 @@ namespace tbx::tests::plugin_api
         EXPECT_EQ(meta.dependencies[0], "Core.Renderer");
         EXPECT_EQ(meta.root_directory, manifest_path.parent_path());
         EXPECT_EQ(meta.manifest_path, manifest_path);
-        EXPECT_EQ(meta.module_path, manifest_path.parent_path() / "bin/logger.so");
+        EXPECT_EQ(meta.module_path, FilePath(manifest_path.parent_path().std_path() / "bin/logger.so"));
         EXPECT_EQ(meta.linkage, PluginLinkage::Static);
     }
 
@@ -47,7 +46,7 @@ namespace tbx::tests::plugin_api
                 "version": "0.1.0",
                 "description": "No explicit type set."
             })JSON";
-        const std::filesystem::path manifest_path = "/virtual/plugin_api/example/without_type/plugin.meta";
+        const FilePath manifest_path = FilePath("/virtual/plugin_api/example/without_type/plugin.meta");
 
         PluginMeta meta =
             parse_plugin_meta(manifest_text, manifest_path);
@@ -66,12 +65,14 @@ namespace tbx::tests::plugin_api
                 "type": "renderer",
                 "module": "modules/example_renderer.so"
             })JSON";
-        const std::filesystem::path manifest_path = "/virtual/plugin_api/example/relative_module/plugin.meta";
+        const FilePath manifest_path = FilePath("/virtual/plugin_api/example/relative_module/plugin.meta");
 
         PluginMeta meta =
             parse_plugin_meta(manifest_text, manifest_path);
 
-        EXPECT_EQ(meta.module_path, manifest_path.parent_path() / "modules/example_renderer.so");
+        EXPECT_EQ(
+            meta.module_path,
+            FilePath(manifest_path.parent_path().std_path() / "modules/example_renderer.so"));
     }
 
     /// <summary>

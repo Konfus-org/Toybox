@@ -11,140 +11,106 @@ namespace tbx
         {
             return start_time + span.to_duration();
         }
+
+        TimeSpan to_time_span(
+            std::chrono::steady_clock::duration duration,
+            TimeUnit unit,
+            bool clamp_to_zero = true)
+        {
+            if (clamp_to_zero && duration < std::chrono::steady_clock::duration::zero())
+            {
+                duration = std::chrono::steady_clock::duration::zero();
+            }
+
+            switch (unit)
+            {
+                case TimeUnit::Ticks:
+                    return {static_cast<uint64>(duration.count()), TimeUnit::Ticks};
+                case TimeUnit::Milliseconds:
+                    return {
+                        static_cast<uint64>(
+                            std::chrono::duration_cast<std::chrono::milliseconds>(duration)
+                                .count()),
+                        TimeUnit::Milliseconds};
+                case TimeUnit::Seconds:
+                    return {
+                        static_cast<uint64>(
+                            std::chrono::duration_cast<std::chrono::seconds>(duration).count()),
+                        TimeUnit::Seconds};
+                case TimeUnit::Minutes:
+                    return {
+                        static_cast<uint64>(
+                            std::chrono::duration_cast<std::chrono::minutes>(duration).count()),
+                        TimeUnit::Minutes};
+                case TimeUnit::Hours:
+                    return {
+                        static_cast<uint64>(
+                            std::chrono::duration_cast<std::chrono::hours>(duration).count()),
+                        TimeUnit::Hours};
+                case TimeUnit::Days:
+                default:
+                    return {
+                        static_cast<uint64>(
+                            std::chrono::duration_cast<std::chrono::hours>(duration).count() / 24),
+                        TimeUnit::Days};
+            }
+        }
     }
 
-    Timer::Timer()
+    Timer::Timer(
+        const TimeSpan& time,
+        std::chrono::steady_clock::time_point start_time,
+        CancellationSource cancellation_source)
+        : time(time)
+        , time_left(time)
+        , cancellation_source(std::move(cancellation_source))
     {
-        reset();
-    }
-
-    Timer Timer::for_ticks(std::size_t ticks)
-    {
-        Timer timer;
-        timer._mode = Mode::Ticks;
-        timer._remaining_ticks = ticks;
-        timer._has_deadline = false;
-        timer._time_up_signaled = false;
-        return timer;
-    }
-
-    Timer Timer::for_time_span(const TimeSpan& span, std::chrono::steady_clock::time_point start_time)
-    {
-        Timer timer;
-        timer._mode = Mode::Time;
-        timer._has_deadline = !span.is_zero();
-        timer._deadline = compute_deadline(span, start_time);
-        timer._time_up_signaled = false;
-        return timer;
+        _has_deadline = !time.is_zero();
+        _deadline = compute_deadline(time, start_time);
+        _time_up_signaled = false;
+        _cancel_signaled = false;
     }
 
     void Timer::reset()
     {
-        _cancellation_source = CancellationSource();
-        _mode = Mode::None;
-        _remaining_ticks = 0;
+        cancellation_source = CancellationSource();
+        time = {};
+        time_left = {};
         _deadline = {};
         _has_deadline = false;
         _time_up_signaled = false;
+        _cancel_signaled = false;
     }
 
-    void Timer::set_tick_callback(std::function<void(std::size_t remaining)> callback)
+    bool Timer::is_time_up() const
     {
-        _tick_callback = std::move(callback);
+        return _time_up_signaled || time_left.value == 0;
     }
 
-    void Timer::set_time_up_callback(std::function<void()> callback)
+    bool Timer::tick(std::chrono::steady_clock::time_point now)
     {
-        _time_up_callback = std::move(callback);
-    }
+        update_time_left(now, true);
 
-    void Timer::set_cancel_callback(std::function<void()> callback)
-    {
-        _cancel_callback = std::move(callback);
-    }
-
-    bool Timer::tick()
-    {
         if (is_cancelled())
         {
             return false;
         }
 
-        if (_mode != Mode::Ticks)
+        if (time_left.value == 0)
         {
             return false;
         }
 
-        if (_remaining_ticks == 0)
+        if (tick_callback)
         {
-            mark_time_up();
-            return false;
-        }
-
-        --_remaining_ticks;
-        if (_tick_callback)
-        {
-            _tick_callback(_remaining_ticks);
+            auto remaining = time_left.to_duration();
+            const auto remaining_ticks = remaining > std::chrono::steady_clock::duration::zero()
+                                             ? static_cast<std::size_t>(remaining.count())
+                                             : std::size_t(0);
+            tick_callback(remaining_ticks);
         }
 
         return true;
-    }
-
-    bool Timer::is_time_up(std::chrono::steady_clock::time_point now)
-    {
-        if (is_cancelled())
-        {
-            return false;
-        }
-
-        if (_mode == Mode::Ticks)
-        {
-            if (_remaining_ticks == 0)
-            {
-                mark_time_up();
-                return true;
-            }
-            return false;
-        }
-
-        if (_mode == Mode::Time)
-        {
-            if (!_has_deadline)
-            {
-                mark_time_up();
-                return true;
-            }
-
-            if (now >= _deadline)
-            {
-                mark_time_up();
-                return true;
-            }
-
-            return false;
-        }
-
-        mark_time_up();
-        return true;
-    }
-
-    void Timer::cancel()
-    {
-        if (_cancellation_source.is_cancelled())
-        {
-            return;
-        }
-
-        _cancellation_source.cancel();
-        if (_cancel_callback)
-        {
-            _cancel_callback();
-        }
-    }
-
-    CancellationToken Timer::get_token() const
-    {
-        return _cancellation_source.get_token();
     }
 
     void Timer::mark_time_up()
@@ -155,14 +121,45 @@ namespace tbx
         }
 
         _time_up_signaled = true;
-        if (_time_up_callback)
+        if (time_up_callback)
         {
-            _time_up_callback();
+            time_up_callback();
         }
     }
 
     bool Timer::is_cancelled() const
     {
-        return _cancellation_source.is_cancelled();
+        return cancellation_source.is_cancelled();
+    }
+
+    void Timer::update_time_left(std::chrono::steady_clock::time_point now, bool signal_on_zero)
+    {
+        if (is_cancelled())
+        {
+            if (!_cancel_signaled && cancel_callback)
+            {
+                cancel_callback();
+            }
+            _cancel_signaled = true;
+            time_left = {0, time.unit};
+            return;
+        }
+
+        if (!_has_deadline)
+        {
+            time_left = {0, time.unit};
+            if (signal_on_zero)
+            {
+                mark_time_up();
+            }
+            return;
+        }
+
+        auto remaining = _deadline - now;
+        time_left = to_time_span(remaining, time.unit);
+        if (time_left.value == 0 && signal_on_zero)
+        {
+            mark_time_up();
+        }
     }
 }

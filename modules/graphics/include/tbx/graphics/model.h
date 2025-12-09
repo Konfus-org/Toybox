@@ -6,9 +6,7 @@
 
 namespace tbx
 {
-    /// <summary>
-    /// A model is just a mesh and a material
-    /// </summary>
+    // A model is just a mesh and a material
     struct TBX_API Model
     {
         Mesh mesh;
@@ -16,9 +14,7 @@ namespace tbx
         Uuid id = Uuid::generate();
     };
 
-    /// <summary>
-    /// References a shared model by identifier.
-    /// </summary>
+    // References a shared model by identifier.
     struct TBX_API ModelInstance
     {
         Uuid model_id = {};

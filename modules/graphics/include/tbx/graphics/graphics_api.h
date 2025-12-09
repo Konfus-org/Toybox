@@ -3,9 +3,7 @@
 
 namespace tbx
 {
-    /// <summary>
-    /// Represents the available vertical sync modes for a graphics context swap chain.
-    /// </summary>
+    // Represents the available vertical sync modes for a graphics context swap chain.
     enum class VsyncMode
     {
         Off,
@@ -13,9 +11,7 @@ namespace tbx
         Adaptive
     };
 
-    /// <summary>
-    /// Represents the available graphics APIs.
-    /// </summary>
+    // Represents the available graphics APIs.
     enum class TBX_API GraphicsApi
     {
         None,

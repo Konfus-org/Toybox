@@ -24,13 +24,14 @@ namespace tbx
     class Toy
     {
       public:
-        Toy(Registry& reg, const EntityHandle& handle)
+        Toy() = default;
+        Toy(EcsRegistry& reg, const EntityHandle& handle)
             : _registry(&reg)
             , _handle(handle)
         {
         }
 
-        Toy(Registry& reg, const ToyDescription& desc)
+        Toy(EcsRegistry& reg, const ToyDescription& desc)
             : _registry(&reg)
             , _handle(reg.create())
         {
@@ -52,7 +53,7 @@ namespace tbx
             return _registry->get<ToyDescription>(_handle);
         }
 
-        Registry& get_registry() const
+        EcsRegistry& get_registry() const
         {
             return *_registry;
         }
@@ -61,6 +62,12 @@ namespace tbx
         T& add_block(const T& b)
         {
             return _registry->emplace<T>(_handle, b);
+        }
+
+        template <typename T, typename... Args>
+        T& add_block(Args&&... args)
+        {
+            return _registry->emplace<T>(_handle, std::forward<Args>(args)...);
         }
 
         template <typename T>
@@ -82,7 +89,7 @@ namespace tbx
         }
 
       private:
-        Registry* _registry;
+        EcsRegistry* _registry;
         EntityHandle _handle;
     };
 
@@ -129,14 +136,28 @@ namespace tbx
             return _name;
         }
 
-        Registry& get_registry()
+        EcsRegistry& get_registry()
         {
             return _registry;
         }
 
-        const Registry& get_registry() const
+        const EcsRegistry& get_registry() const
         {
             return _registry;
+        }
+
+        Toy add_toy(
+            const std::string& name,
+            const std::string& tag = "",
+            const std::string& layer = "",
+            const Uuid& parent = invalid::uuid)
+        {
+            ToyDescription desc = {};
+            desc.name = name;
+            desc.tag = tag;
+            desc.layer = layer;
+            desc.parent = parent;
+            return Toy(_registry, desc);
         }
 
         Toy add_toy(const ToyDescription& desc)
@@ -153,23 +174,25 @@ namespace tbx
         {
             std::vector<Toy> toys = {};
             auto view = _registry.view<ToyDescription>();
-            for (EntityHandle entity : view)
-            {
+            for (auto entity : view)
                 toys.emplace_back(_registry, entity);
-            }
             return toys;
         }
 
         template <typename... Block>
-        auto view_of_type() const
+        std::vector<Toy> view_with_type()
         {
-            return _registry.view<Block...>();
+            std::vector<Toy> toys = {};
+            auto view = _registry.view<Block...>();
+            for (auto entity : view)
+                toys.emplace_back(_registry, entity);
+            return toys;
         }
 
       private:
         std::string _name = "";
         Uuid _id = invalid::uuid;
-        Registry _registry = {};
+        EcsRegistry _registry = {};
     };
 
     inline std::string to_string(const Toy& t)

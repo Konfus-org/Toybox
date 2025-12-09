@@ -1,9 +1,13 @@
 #pragma once
+#include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/message.h"
 #include "tbx/plugin_api/plugin_registry.h"
 #include "tbx/time/delta_time.h"
 #include <functional>
+#include <future>
+#include <string_view>
+#include <utility>
 
 namespace tbx
 {
@@ -34,11 +38,35 @@ namespace tbx
         // Invokes the plugin's message entry point.
         void receive_message(Message& msg);
 
-        // Helper to synchronously send a message via the host dispatcher.
-        Result send_message(Message& msg) const;
+        // Helper to synchronously send a constructed message via the host dispatcher.
+        template <typename TMessage, typename... TArgs>
+            requires std::derived_from<TMessage, Message>
+        Result send_message(TArgs&&... args) const
+        {
+            if (!_dispatcher)
+            {
+                TBX_ASSERT(_dispatcher, "Plugins must be attached before sending messages.");
+                return dispatcher_missing_result("send a message");
+            }
 
-        // Helper to post a message for deferred processing via the dispatcher.
-        Result post_message(Message& msg) const;
+            return _dispatcher->send<TMessage>(std::forward<TArgs>(args)...);
+        }
+
+        // Helper to post a constructed message for deferred processing via the dispatcher.
+        template <typename TMessage, typename... TArgs>
+            requires std::derived_from<TMessage, Message>
+        std::future<Result> post_message(TArgs&&... args) const
+        {
+            if (!_dispatcher)
+            {
+                TBX_ASSERT(_dispatcher, "Plugins must be attached before posting messages.");
+                std::promise<Result> p = {};
+                p.set_value(dispatcher_missing_result("post a message"));
+                return p.get_future();
+            }
+
+            return _dispatcher->post<TMessage>(std::forward<TArgs>(args)...);
+        }
 
       protected:
         // Called when the plugin is attached to the host.
@@ -61,6 +89,8 @@ namespace tbx
         Application& get_host() const;
 
       private:
+        static Result dispatcher_missing_result(std::string_view action);
+
         IMessageDispatcher* _dispatcher = nullptr;
         Application* _host = nullptr;
     };

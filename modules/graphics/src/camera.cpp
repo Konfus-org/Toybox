@@ -1,19 +1,13 @@
 #include "tbx/graphics/camera.h"
 #include "tbx/graphics/frustum.h"
 #include "tbx/math/matrices.h"
+#include "tbx/math/trig.h"
 #include <numbers>
-
-namespace
-{
-    constexpr float degrees_to_radians(float degrees)
-    {
-        return degrees * (std::numbers::pi_v<float> / 180.0f);
-    }
-}
 
 namespace tbx
 {
-    Camera::Camera()
+    Camera::Camera(const RenderSurface& surface)
+        : _target_surface(surface)
     {
         set_perspective(_fov, _aspect, _z_near, _z_far);
     }
@@ -47,18 +41,12 @@ namespace tbx
     void Camera::set_aspect(float aspect)
     {
         if (_aspect == aspect)
-        {
             return;
-        }
 
         if (_is_perspective)
-        {
             set_perspective(_fov, aspect, _z_near, _z_far);
-        }
         else
-        {
             set_orthographic(_fov, aspect, _z_near, _z_far);
-        }
     }
 }
 

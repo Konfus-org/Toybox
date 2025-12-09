@@ -3,9 +3,9 @@
 #include "tbx/common/function_traits.h"
 #include "tbx/common/uuid.h"
 #include "tbx/messages/result.h"
-#include "tbx/time/time_span.h"
 #include <any>
 #include <functional>
+#include <type_traits>
 
 namespace tbx
 {
@@ -48,9 +48,6 @@ namespace tbx
         MessageState state = MessageState::InProgress;
         std::any payload = {};
         Result result = {};
-        TimeSpan timeout = {};
-        TimeSpan delay_in_seconds = {};
-        uint64 delay_in_ticks = 0;
         CancellationToken cancellation_token = {};
         MessageCallbacks callbacks = {};
         bool require_handling = false;

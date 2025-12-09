@@ -2,26 +2,54 @@
 
 namespace tbx
 {
-    std::chrono::steady_clock::duration TimeSpan::to_duration() const
+    TimeSpan::operator bool() const
     {
-        std::chrono::steady_clock::duration duration{};
+        return value != 0;
+    }
 
-        duration += std::chrono::milliseconds(milliseconds);
-        duration += std::chrono::seconds(seconds);
-        duration += std::chrono::minutes(minutes);
-        duration += std::chrono::hours(hours);
+    TimeSpan::operator std::chrono::steady_clock::duration() const
+    {
+        return to_duration();
+    }
 
-        if (days != 0)
-        {
-            duration += std::chrono::hours(days * 24);
-        }
-
-        return duration;
+    TimeSpan::operator int() const
+    {
+        return static_cast<int>(value);
     }
 
     bool TimeSpan::is_zero() const
     {
-        return milliseconds == 0 && seconds == 0 && minutes == 0 && hours == 0 && days == 0;
+        return value == 0;
+    }
+
+    std::chrono::steady_clock::duration TimeSpan::to_duration() const
+    {
+        std::chrono::steady_clock::duration duration = {};
+
+        switch (unit)
+        {
+            case TimeUnit::Ticks:
+                duration = std::chrono::steady_clock::duration(value);
+                break;
+            case TimeUnit::Milliseconds:
+                duration = std::chrono::milliseconds(value);
+                break;
+            case TimeUnit::Seconds:
+                duration = std::chrono::seconds(value);
+                break;
+            case TimeUnit::Minutes:
+                duration = std::chrono::minutes(value);
+                break;
+            case TimeUnit::Hours:
+                duration = std::chrono::hours(value);
+                break;
+            case TimeUnit::Days:
+                duration = std::chrono::hours(value * 24);
+                break;
+            default:
+                break;
+        }
+
+        return duration;
     }
 }
-

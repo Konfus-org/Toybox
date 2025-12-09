@@ -1,8 +1,7 @@
 #include "pch.h"
-#include "tbx/file_system/filesystem_ops.h"
+#include "tbx/file_system/filesystem.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
-#include <filesystem>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -29,7 +28,7 @@ namespace tbx::tests::plugin_loader
         return meta;
     }
 
-    class ManifestFilesystemOps : public ::tbx::IFilesystemOps
+    class ManifestFilesystemOps : public ::tbx::IFileSystem
     {
       public:
         void add_directory(std::string path)
@@ -42,69 +41,96 @@ namespace tbx::tests::plugin_loader
             files.emplace(std::move(path), std::move(data));
         }
 
-        bool exists(const std::filesystem::path& path) const override
+        FilePath get_working_directory() const override { return working_directory; }
+
+        FilePath get_plugins_directory() const override { return plugins_directory; }
+
+        FilePath get_logs_directory() const override { return logs_directory; }
+
+        FilePath get_assets_directory() const override { return assets_directory; }
+
+        FilePath resolve_relative_path(const FilePath& path) const override
         {
-            const auto key = path.generic_string();
+            if (path.std_path().is_absolute() || working_directory.empty())
+                return path;
+            return FilePath(working_directory.std_path() / path.std_path());
+        }
+
+        bool exists(const FilePath& path) const override
+        {
+            const auto key = resolve_relative_path(path).std_path().generic_string();
             return directories.contains(key) || files.contains(key);
         }
 
-        bool is_directory(const std::filesystem::path& path) const override
+        FilePathType get_file_type(const FilePath& path) const override
         {
-            return directories.contains(path.generic_string());
+            const auto key = resolve_relative_path(path).std_path().generic_string();
+            if (directories.contains(key))
+                return FilePathType::Directory;
+            if (files.contains(key))
+                return FilePathType::Regular;
+            return FilePathType::None;
         }
 
-        std::vector<::tbx::DirectoryEntry>
-            recursive_directory_entries(const std::filesystem::path& root) const override
+        std::vector<FilePath> read_directory(const FilePath& root) const override
         {
-            std::vector<::tbx::DirectoryEntry> entries;
-            const std::string prefix = root.generic_string();
+            std::vector<FilePath> entries;
+            const std::string prefix = resolve_relative_path(root).std_path().generic_string();
+            for (const auto& dir : directories)
+            {
+                if (dir.rfind(prefix, 0) == 0)
+                    entries.emplace_back(dir);
+            }
             for (const auto& [file_path, _] : files)
             {
                 if (file_path.rfind(prefix, 0) == 0)
-                {
-                    ::tbx::DirectoryEntry entry;
-                    entry.path = file_path;
-                    entry.is_regular_file = true;
-                    entries.push_back(entry);
-                }
+                    entries.emplace_back(file_path);
             }
             return entries;
         }
 
-        bool read_text_file(const std::filesystem::path& path, std::string& out) const override
+        bool create_directory(const FilePath&) override { return true; }
+
+        bool create_file(const FilePath& path) override
         {
-            const auto key = path.generic_string();
+            files[resolve_relative_path(path).std_path().generic_string()] = "";
+            return true;
+        }
+
+        bool read_file(const FilePath& path, std::string& out, FileDataFormat) const override
+        {
+            const auto key = resolve_relative_path(path).std_path().generic_string();
             auto it = files.find(key);
             if (it == files.end())
-            {
                 return false;
-            }
             out = it->second;
             return true;
         }
 
-        bool remove(const std::filesystem::path&) override
+        bool write_file(const FilePath& path, std::string_view data, FileDataFormat) override
         {
+            files[resolve_relative_path(path).std_path().generic_string()] = std::string(data);
             return true;
         }
 
-        bool rename(const std::filesystem::path&, const std::filesystem::path&) override
-        {
-            return true;
-        }
+        bool remove(const FilePath&) override { return true; }
 
-        bool copy(const std::filesystem::path&, const std::filesystem::path&) override
-        {
-            return true;
-        }
+        bool rename(const FilePath&, const FilePath&) override { return true; }
+
+        bool copy(const FilePath&, const FilePath&) override { return true; }
 
         std::unordered_set<std::string> directories;
         std::unordered_map<std::string, std::string> files;
+        FilePath working_directory;
+        FilePath plugins_directory;
+        FilePath logs_directory;
+        FilePath assets_directory;
     };
     
     TEST(plugin_loader, loads_static_plugin_from_meta_list)
     {
-        auto loaded = load_plugins(std::vector<PluginMeta>{make_static_meta()});
+        ManifestFilesystemOps ops;
+        auto loaded = load_plugins(std::vector<PluginMeta>{make_static_meta()}, ops);
         ASSERT_EQ(loaded.size(), 1u);
         EXPECT_NE(loaded[0].instance.get(), nullptr);
     }
@@ -123,7 +149,7 @@ namespace tbx::tests::plugin_loader
                 "static": true
             })");
 
-        auto loaded = load_plugins(std::filesystem::path("virtual"), {}, ops);
+        auto loaded = load_plugins(FilePath("virtual"), {}, ops);
         ASSERT_EQ(loaded.size(), 1u);
         EXPECT_NE(loaded[0].instance.get(), nullptr);
     }

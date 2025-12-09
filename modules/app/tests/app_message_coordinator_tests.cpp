@@ -2,15 +2,12 @@
 #include "tbx/app/app_message_coordinator.h"
 #include "tbx/async/cancellation_token.h"
 #include "tbx/messages/message.h"
-#include "tbx/time/time_span.h"
 #include <any>
 #include <atomic>
 #include <chrono>
-#include <memory>
+#include <future>
 #include <stdexcept>
 #include <string>
-#include <thread>
-#include <typeinfo>
 
 namespace tbx::tests::app
 {
@@ -23,11 +20,14 @@ namespace tbx::tests::app
     {
         AppMessageCoordinator d;
         std::atomic<int> count{0};
+        int received_value = 0;
 
         d.add_handler(
             [&](const Message& msg)
             {
                 count.fetch_add(1);
+                const auto* typed = dynamic_cast<const TestMessage*>(&msg);
+                received_value = typed ? typed->value : -1;
                 const_cast<Message&>(msg).state = MessageState::Handled;
             });
         d.add_handler(
@@ -51,7 +51,7 @@ namespace tbx::tests::app
 
         auto result = d.send(msg);
         EXPECT_EQ(count.load(), 1);
-        EXPECT_EQ(msg.state, MessageState::Handled);
+        EXPECT_EQ(received_value, 42);
         EXPECT_TRUE(result.succeeded());
         EXPECT_TRUE(handled_callback);
         EXPECT_TRUE(processed_callback);
@@ -70,7 +70,6 @@ namespace tbx::tests::app
 
         auto result = d.send(msg);
 
-        EXPECT_EQ(msg.state, MessageState::Processed);
         EXPECT_TRUE(result.succeeded());
         EXPECT_TRUE(processed_callback);
         EXPECT_TRUE(result.get_report().empty());
@@ -96,7 +95,6 @@ namespace tbx::tests::app
 
         auto result = d.send(msg);
 
-        EXPECT_EQ(msg.state, MessageState::Failed);
         EXPECT_FALSE(result.succeeded());
         EXPECT_FALSE(result.get_report().empty());
         EXPECT_TRUE(failure_callback);
@@ -131,7 +129,6 @@ namespace tbx::tests::app
         auto result = d.send(msg);
 
         EXPECT_EQ(count.load(), 1);
-        EXPECT_EQ(msg.state, MessageState::Failed);
         EXPECT_FALSE(result.succeeded());
         EXPECT_FALSE(result.get_report().empty());
         EXPECT_TRUE(failure_callback);
@@ -162,31 +159,10 @@ namespace tbx::tests::app
 
         auto result = d.send(msg);
 
-        EXPECT_EQ(msg.state, MessageState::Failed);
         EXPECT_FALSE(result.succeeded());
         EXPECT_TRUE(failure_callback);
         EXPECT_TRUE(processed_callback);
         EXPECT_FALSE(result.get_report().empty());
-    }
-
-    TEST(dispatcher_send_with_delay, returns_failure_for_incompatible_config)
-    {
-        AppMessageCoordinator d;
-
-        Message msg;
-        msg.delay_in_ticks = static_cast<std::size_t>(1);
-        bool processed_callback = false;
-        msg.callbacks.on_processed = [&](const Message&)
-        {
-            processed_callback = true;
-        };
-
-        auto result = d.send(msg);
-
-        EXPECT_EQ(msg.state, MessageState::Processed);
-        EXPECT_TRUE(result.succeeded());
-        EXPECT_TRUE(result.get_report().empty());
-        EXPECT_TRUE(processed_callback);
     }
 
     TEST(dispatcher_post, processes_on_next_update)
@@ -202,16 +178,41 @@ namespace tbx::tests::app
             });
 
         Message msg;
-        auto result = d.post(msg);
+        auto future = d.post(msg);
 
         // Not processed yet
         EXPECT_EQ(count.load(), 0);
-        EXPECT_FALSE(result.succeeded());
-        EXPECT_TRUE(result.get_report().empty());
+        EXPECT_EQ(future.wait_for(std::chrono::milliseconds(0)), std::future_status::timeout);
 
         d.process();
         EXPECT_EQ(count.load(), 1);
+        auto result = future.get();
         EXPECT_TRUE(result.succeeded());
+    }
+
+    TEST(dispatcher_post_preserves_type, keeps_derived_message_data)
+    {
+        AppMessageCoordinator d;
+        int received_value = -1;
+
+        d.add_handler(
+            [&](const Message& msg)
+            {
+                const auto* typed = dynamic_cast<const TestMessage*>(&msg);
+                ASSERT_NE(typed, nullptr);
+                received_value = typed->value;
+                const_cast<Message&>(msg).state = MessageState::Handled;
+            });
+
+        TestMessage msg;
+        msg.value = 123;
+        auto future = d.post(msg);
+
+        d.process();
+
+        auto result = future.get();
+        EXPECT_TRUE(result.succeeded());
+        EXPECT_EQ(received_value, 123);
     }
 
     TEST(dispatcher_remove, removes_handler_by_uuid)
@@ -236,76 +237,9 @@ namespace tbx::tests::app
         auto result = d.send(msg);
 
         EXPECT_EQ(count.load(), 1);
-        EXPECT_EQ(msg.state, MessageState::Processed);
         EXPECT_TRUE(result.succeeded());
         EXPECT_TRUE(result.get_report().empty());
         (void)keep_id; // silence unused warning
-    }
-
-    TEST(dispatcher_post_tick_delay, delays_processing_by_ticks)
-    {
-        AppMessageCoordinator d;
-        std::atomic<int> count{0};
-
-        d.add_handler(
-            [&](const Message& msg)
-            {
-                count.fetch_add(1);
-                const_cast<Message&>(msg).state = MessageState::Handled;
-            });
-
-        Message msg;
-        msg.delay_in_ticks = static_cast<std::size_t>(1);
-        auto result = d.post(msg);
-
-        EXPECT_FALSE(result.succeeded());
-        EXPECT_TRUE(result.get_report().empty());
-        d.process();
-        EXPECT_FALSE(result.succeeded());
-        EXPECT_EQ(count.load(), 0);
-
-        d.process();
-        EXPECT_TRUE(result.succeeded());
-        EXPECT_EQ(count.load(), 1);
-    }
-
-    TEST(dispatcher_post_combined_delay, fails_when_both_delays_requested)
-    {
-        using namespace std::chrono_literals;
-
-        AppMessageCoordinator d;
-        std::atomic<int> count{0};
-
-        d.add_handler(
-            [&](const Message& msg)
-            {
-                count.fetch_add(1);
-                const_cast<Message&>(msg).state = MessageState::Handled;
-            });
-
-        Message msg;
-        msg.delay_in_ticks = static_cast<std::size_t>(1);
-        TimeSpan span;
-        span.milliseconds = 5;
-        msg.delay_in_seconds = span;
-        bool processed_callback = false;
-        msg.callbacks.on_processed = [&](const Message&)
-        {
-            processed_callback = true;
-        };
-
-        auto result = d.post(msg);
-
-        EXPECT_FALSE(result.succeeded());
-        EXPECT_TRUE(result.get_report().empty());
-        EXPECT_TRUE(processed_callback);
-        d.process();
-        EXPECT_FALSE(result.succeeded());
-        EXPECT_EQ(count.load(), 0);
-
-        d.process();
-        EXPECT_TRUE(result.succeeded());
-        EXPECT_EQ(count.load(), 1);
     }
 
     TEST(dispatcher_post_exception, returns_failure_on_throw)
@@ -329,47 +263,15 @@ namespace tbx::tests::app
         {
             processed_callback = true;
         };
-        auto result = d.post(msg);
+        auto future = d.post(msg);
 
         d.process();
 
-        EXPECT_EQ(msg.state, MessageState::InProgress);
+        auto result = future.get();
         EXPECT_FALSE(result.succeeded());
         EXPECT_TRUE(failure_callback);
         EXPECT_TRUE(processed_callback);
         EXPECT_FALSE(result.get_report().empty());
-    }
-
-    TEST(dispatcher_post_time_delay, delays_processing_by_timespan)
-    {
-        using namespace std::chrono_literals;
-
-        AppMessageCoordinator d;
-        std::atomic<int> count{0};
-
-        d.add_handler(
-            [&](const Message& msg)
-            {
-                count.fetch_add(1);
-                const_cast<Message&>(msg).state = MessageState::Handled;
-            });
-
-        Message msg;
-        TimeSpan delay;
-        delay.milliseconds = 5;
-        msg.delay_in_seconds = delay;
-        auto result = d.post(msg);
-
-        EXPECT_FALSE(result.succeeded());
-        d.process();
-        EXPECT_FALSE(result.succeeded());
-        EXPECT_EQ(count.load(), 0);
-
-        std::this_thread::sleep_for(6ms);
-
-        d.process();
-        EXPECT_TRUE(result.succeeded());
-        EXPECT_EQ(count.load(), 1);
     }
 
     TEST(dispatcher_post_cancellation, cancels_before_processing)
@@ -398,11 +300,12 @@ namespace tbx::tests::app
         {
             processed_callback = true;
         };
-        auto result = d.post(msg);
+        auto future = d.post(msg);
 
         source.cancel();
         d.process();
 
+        auto result = future.get();
         EXPECT_FALSE(result.succeeded());
         EXPECT_FALSE(result.get_report().empty());
         EXPECT_TRUE(cancelled_callback);
@@ -435,7 +338,6 @@ namespace tbx::tests::app
 
         auto result = d.send(msg);
 
-        EXPECT_EQ(msg.state, MessageState::Cancelled);
         EXPECT_FALSE(result.succeeded());
         EXPECT_TRUE(cancelled_callback);
         EXPECT_EQ(count.load(), 0);
@@ -454,14 +356,16 @@ namespace tbx::tests::app
             });
 
         Message msg;
+        int payload_value = 0;
+        msg.callbacks.on_processed = [&](const Message& processed)
+        {
+            payload_value = std::any_cast<int>(processed.payload);
+        };
+
         auto result = d.send(msg);
 
-        EXPECT_EQ(msg.state, MessageState::Handled);
         EXPECT_TRUE(result.succeeded());
-        EXPECT_TRUE(msg.payload.has_value());
-        EXPECT_NE(std::any_cast<int>(&msg.payload), nullptr);
-        EXPECT_EQ(std::any_cast<int>(msg.payload), 123);
-        EXPECT_EQ(std::any_cast<float>(&msg.payload), nullptr);
+        EXPECT_EQ(payload_value, 123);
     }
 
     TEST(dispatcher_post_result_value, queued_handler_updates_payload)
@@ -484,73 +388,17 @@ namespace tbx::tests::app
             const std::string* value = std::any_cast<std::string>(&processed.payload);
             processed_payload = value ? *value : std::string();
         };
-        auto result = d.post(msg);
+        auto future = d.post(msg);
 
-        EXPECT_FALSE(result.succeeded());
+        EXPECT_EQ(future.wait_for(std::chrono::milliseconds(0)), std::future_status::timeout);
         EXPECT_FALSE(msg.payload.has_value());
 
         d.process();
 
+        auto result = future.get();
         EXPECT_TRUE(result.succeeded());
         EXPECT_FALSE(msg.payload.has_value());
         EXPECT_EQ(processed_payload, "ready");
     }
 
-    TEST(dispatcher_send_timeout, marks_result_as_timed_out)
-    {
-        AppMessageCoordinator d;
-        d.add_handler(
-            [](const Message&)
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            });
-
-        Message msg;
-        TimeSpan timeout;
-        timeout.milliseconds = 1;
-        msg.timeout = timeout;
-        bool timeout_callback = false;
-        msg.callbacks.on_timeout = [&](const Message&)
-        {
-            timeout_callback = true;
-        };
-
-        auto result = d.send(msg);
-        EXPECT_EQ(msg.state, MessageState::TimedOut);
-        EXPECT_FALSE(result.succeeded());
-        EXPECT_TRUE(timeout_callback);
-    }
-
-    TEST(dispatcher_post_timeout, cancels_message_before_delivery)
-    {
-        AppMessageCoordinator d;
-        d.add_handler(
-            [](const Message&)
-            {
-            });
-
-        Message msg;
-        TimeSpan delay;
-        delay.milliseconds = 50;
-        msg.delay_in_seconds = delay;
-        TimeSpan timeout;
-        timeout.milliseconds = 1;
-        msg.timeout = timeout;
-        bool timeout_callback = false;
-        msg.callbacks.on_timeout = [&](const Message&)
-        {
-            timeout_callback = true;
-        };
-
-        auto result = d.post(msg);
-        EXPECT_FALSE(result.succeeded());
-        EXPECT_TRUE(result.get_report().empty());
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
-        d.process();
-
-        EXPECT_FALSE(result.succeeded());
-        EXPECT_FALSE(result.get_report().empty());
-        EXPECT_TRUE(timeout_callback);
-    }
 }

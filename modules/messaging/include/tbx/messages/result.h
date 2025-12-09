@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/tbx_api.h"
 #include "tbx/common/smart_pointers.h"
+#include "tbx/tbx_api.h"
 #include <string>
 
 namespace tbx
@@ -30,9 +30,6 @@ namespace tbx
         }
 
       private:
-        void ensure_success();
-        void ensure_message() const;
-
         Ref<bool> _success;
         Ref<std::string> _report;
     };
