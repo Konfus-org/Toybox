@@ -3,8 +3,24 @@ cmake_minimum_required(VERSION 4.1.0)
 project(Toybox LANGUAGES C CXX)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-include(TbxPlugins)
-include(TbxModules)
+add_subdirectory(plugins)
+add_subdirectory(examples)
+unset(CMAKE_FOLDER)
+
+add_custom_target(Tests
+    DEPENDS
+        TbxCommonTests
+        TbxFileSystemTests
+        TbxMathTests
+        TbxAsyncTests
+        TbxTimeTests
+        TbxMessagingTests
+        TbxPluginApiTests
+        TbxECSTests
+        TbxGraphicsTests
+        TbxAppTests
+)
+
 
 # Set global C++ standard
 set(CMAKE_CXX_STANDARD 23)

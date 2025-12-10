@@ -46,8 +46,7 @@ namespace tbx
 
                 msg.result.flag_failure(resolved);
                 const std::string& text = msg.result.get_report();
-                const auto* dispatcher = ::tbx::get_global_dispatcher();
-                if (!text.empty() && dispatcher != nullptr)
+                if (!text.empty())
                 {
                     const String message_id(msg.id);
                     if (state == MessageState::Failed)
