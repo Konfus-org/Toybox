@@ -11,7 +11,7 @@ namespace tbx
         return registry;
     }
 
-    void PluginRegistry::register_plugin(const std::string& name, Plugin* plugin)
+    void PluginRegistry::register_plugin(const String& name, Plugin* plugin)
     {
         if (std::ranges::find(_plugins, plugin) == _plugins.end())
         {
@@ -20,9 +20,9 @@ namespace tbx
         }
     }
 
-    void PluginRegistry::unregister_plugin(const std::string& name)
+    void PluginRegistry::unregister_plugin(const String& name)
     {
-        const std::string lowered = to_lower_case_string(name);
+        const String lowered = to_lower_case_string(name);
         auto p = _plugins_by_name.at(lowered);
         _plugins_by_name.erase(lowered);
         std::erase(_plugins, p);
@@ -44,19 +44,19 @@ namespace tbx
         }
     }
 
-    std::vector<Plugin*> PluginRegistry::get_registered_plugins() const
+    List<Plugin*> PluginRegistry::get_registered_plugins() const
     {
         return _plugins;
     }
 
-    Plugin* PluginRegistry::find_plugin(const std::string& name) const
+    Plugin* PluginRegistry::find_plugin(const String& name) const
     {
         if (name.empty())
         {
             return nullptr;
         }
 
-        const std::string key = to_lower_case_string(name);
+        const String key = to_lower_case_string(name);
         const auto it = _plugins_by_name.find(key);
         if (it == _plugins_by_name.end())
         {

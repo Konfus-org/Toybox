@@ -18,7 +18,7 @@ namespace tbx
     {
         FilePath() = default;
         FilePath(const char* value);
-        FilePath(std::string_view value);
+        FilePath(String_view value);
         FilePath(const String& value);
         FilePath(std::filesystem::path value);
 
@@ -30,7 +30,7 @@ namespace tbx
         String filename_string() const;
         FilePath set_extension(const String& extension) const;
         FilePath replace_extension(const String& extension) const;
-        FilePath append(std::string_view component) const;
+        FilePath append(String_view component) const;
 
         const std::filesystem::path& std_path() const;
 
@@ -40,7 +40,7 @@ namespace tbx
 
       private:
         static std::filesystem::path sanitize_path(const std::filesystem::path& path);
-        static std::string sanitize_component(std::string_view name);
+        static String sanitize_component(String_view name);
         std::filesystem::path _path;
     };
 }

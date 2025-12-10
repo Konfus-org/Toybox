@@ -36,7 +36,7 @@ namespace tbx
         TimeUnit unit = TimeUnit::Milliseconds;
     };
 
-    inline std::string to_string(const TimeSpan& span)
+    inline String to_string(const TimeSpan& span)
     {
         switch (span.unit)
         {

@@ -92,7 +92,7 @@ namespace tbx
     }
 
 
-    std::string to_string(const Uuid& id)
+    String to_string(const Uuid& id)
     {
         std::ostringstream stream = {};
         stream << std::hex << id.value;

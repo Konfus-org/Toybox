@@ -26,13 +26,13 @@ namespace tbx
     {
         Window(
             IMessageDispatcher& dispatcher,
-            std::string title = "Toybox",
+            String title = "Toybox",
             Size size = {1280, 720},
             WindowMode mode = WindowMode::Windowed,
             bool open_on_creation = true);
         ~Window();
 
-        Observable<Window, std::string> title;
+        Observable<Window, String> title;
         Observable<Window, Size> size;
         Observable<Window, WindowMode> mode;
         Observable<Window, bool> is_open;

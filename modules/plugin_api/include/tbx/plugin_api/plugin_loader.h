@@ -12,15 +12,13 @@ namespace tbx
     // resolves load order, loads plugins, and returns pointers to loaded plugins.
     // Ownership: The caller owns the returned LoadedPlugin objects.
     // Thread-safety: Not thread-safe; call from the main thread.
-    TBX_API std::vector<LoadedPlugin> load_plugins(
+    TBX_API List<LoadedPlugin> load_plugins(
         const FilePath& directory,
-        const std::vector<std::string>& requested_ids,
+        const List<String>& requested_ids,
         IFileSystem& file_ops);
 
     // Loads plugins from already-parsed metadata, without any filesystem IO.
     // Ownership: The caller owns the returned LoadedPlugin objects.
     // Thread-safety: Not thread-safe; call from the main thread.
-    TBX_API std::vector<LoadedPlugin> load_plugins(
-        const std::vector<PluginMeta>& metas,
-        IFileSystem& file_ops);
+    TBX_API List<LoadedPlugin> load_plugins(const List<PluginMeta>& metas, IFileSystem& file_ops);
 }

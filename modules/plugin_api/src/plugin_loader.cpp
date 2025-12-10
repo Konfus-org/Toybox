@@ -38,7 +38,7 @@ namespace tbx
             if (!file_name.starts_with("lib"))
             {
                 module_path =
-                    module_path.parent_path().append(std::string("lib") + file_name.std_str());
+                    module_path.parent_path().append(String("lib") + file_name.std_str());
             }
             module_path = module_path.set_extension(".dylib");
 #else
@@ -46,7 +46,7 @@ namespace tbx
             if (!file_name.starts_with("lib"))
             {
                 module_path =
-                    module_path.parent_path().append(std::string("lib") + file_name.std_str());
+                    module_path.parent_path().append(String("lib") + file_name.std_str());
             }
             module_path = module_path.set_extension(".so");
 #endif
@@ -81,7 +81,7 @@ namespace tbx
         const FilePath module_path = resolve_module_path(meta, file_ops);
         auto lib = Scope<SharedLibrary>(module_path);
 
-        const std::string create_symbol = "create_" + meta.name;
+        const String create_symbol = "create_" + meta.name;
         CreatePluginFn create = lib->get_symbol<CreatePluginFn>(create_symbol.c_str());
         if (!create)
         {
@@ -89,7 +89,7 @@ namespace tbx
             return {};
         }
 
-        const std::string destroy_symbol = "destroy_" + meta.name;
+        const String destroy_symbol = "destroy_" + meta.name;
         DestroyPluginFn destroy = lib->get_symbol<DestroyPluginFn>(destroy_symbol.c_str());
         if (!destroy)
         {
@@ -115,14 +115,14 @@ namespace tbx
         return loaded;
     }
 
-    std::vector<LoadedPlugin> load_plugins(
+    List<LoadedPlugin> load_plugins(
         const FilePath& directory,
-        const std::vector<std::string>& requested_ids,
+        const List<String>& requested_ids,
         IFileSystem& file_ops)
     {
-        std::vector<LoadedPlugin> loaded;
+        List<LoadedPlugin> loaded;
 
-        std::vector<PluginMeta> discovered;
+        List<PluginMeta> discovered;
         if (file_ops.exists(directory))
         {
             for (const auto& entry : file_ops.read_directory(directory))
@@ -133,12 +133,12 @@ namespace tbx
                 }
 
                 const String name = entry.filename_string();
-                const std::string lowered_name = to_lower_case_string(name);
+                const String lowered_name = to_lower_case_string(name);
                 if (entry.get_extension().std_str() == ".meta" || lowered_name == "plugin.meta")
                 {
                     try
                     {
-                        std::string manifest_data;
+                        String manifest_data;
                         if (!file_ops.read_file(entry, manifest_data, FileDataFormat::Utf8Text))
                         {
                             continue;
@@ -162,25 +162,25 @@ namespace tbx
             return loaded;
         }
 
-        std::vector<PluginMeta> metas;
+        List<PluginMeta> metas;
         if (requested_ids.empty())
         {
             metas = discovered;
         }
         else
         {
-            std::unordered_map<std::string, size_t> by_name_lookup;
-            std::unordered_map<std::string, std::vector<size_t>> by_type;
+            std::unordered_map<String, size_t> by_name_lookup;
+            std::unordered_map<String, List<size_t>> by_type;
             by_name_lookup.reserve(discovered.size());
             by_type.reserve(discovered.size());
             for (size_t index = 0; index < discovered.size(); ++index)
             {
                 const PluginMeta& meta = discovered[index];
-                const std::string lowered_name = to_lower_case_string(meta.name);
+                const String lowered_name = to_lower_case_string(meta.name);
                 by_name_lookup.emplace(lowered_name, index);
                 if (!meta.type.empty())
                 {
-                    const std::string lowered_type = to_lower_case_string(meta.type);
+                    const String lowered_type = to_lower_case_string(meta.type);
                     by_type[lowered_type].push_back(index);
                 }
             }
@@ -196,10 +196,10 @@ namespace tbx
                 }
             };
 
-            auto enqueue_dependency_token = [&](const std::string& token)
+            auto enqueue_dependency_token = [&](const String& token)
             {
-                const std::string trimmed = trim_string(token);
-                const std::string needle = to_lower_case_string(trimmed);
+                const String trimmed = trim_string(token);
+                const String needle = to_lower_case_string(trimmed);
                 if (needle.empty())
                 {
                     return;
@@ -221,7 +221,7 @@ namespace tbx
                 }
             };
 
-            for (const std::string& requested : requested_ids)
+            for (const String& requested : requested_ids)
             {
                 enqueue_dependency_token(requested);
             }
@@ -231,7 +231,7 @@ namespace tbx
                 size_t index = pending.front();
                 pending.pop_front();
                 metas.push_back(discovered[index]);
-                for (const std::string& dependency : discovered[index].dependencies)
+                for (const String& dependency : discovered[index].dependencies)
                 {
                     enqueue_dependency_token(dependency);
                 }
@@ -256,11 +256,10 @@ namespace tbx
         return loaded;
     }
 
-    std::vector<LoadedPlugin> load_plugins(
-        const std::vector<PluginMeta>& metas,
+    List<LoadedPlugin> load_plugins(const List<PluginMeta>& metas,
         IFileSystem& file_ops)
     {
-        std::vector<LoadedPlugin> loaded;
+        List<LoadedPlugin> loaded;
 
         for (const PluginMeta& meta : metas)
         {

@@ -19,7 +19,7 @@ namespace tbx
     static FilePath choose_directory(
         const FilePath& working_directory,
         const FilePath& candidate,
-        std::string_view folder_name)
+        String_view folder_name)
     {
         if (!candidate.empty())
             return resolve_with_working(working_directory, candidate);
@@ -101,9 +101,9 @@ namespace tbx
         return FilePathType::Other;
     }
 
-    std::vector<FilePath> FileSystem::read_directory(const FilePath& root) const
+    List<FilePath> FileSystem::read_directory(const FilePath& root) const
     {
-        std::vector<FilePath> entries;
+        List<FilePath> entries;
         const FilePath resolved_root = resolve_relative_path(root);
         std::error_code ec;
         for (std::filesystem::recursive_directory_iterator it(resolved_root.std_path(), ec), end;
@@ -136,7 +136,7 @@ namespace tbx
         return stream.is_open();
     }
 
-    bool FileSystem::read_file(const FilePath& path, std::string& out, FileDataFormat format) const
+    bool FileSystem::read_file(const FilePath& path, String& out, FileDataFormat format) const
     {
         const FilePath resolved = resolve_relative_path(path);
         const bool binary = format == FileDataFormat::Binary;
@@ -148,7 +148,7 @@ namespace tbx
         if (!stream.is_open())
             return false;
 
-        std::string contents(
+        String contents(
             (std::istreambuf_iterator<char>(stream)),
             std::istreambuf_iterator<char>());
 
@@ -166,7 +166,7 @@ namespace tbx
         return true;
     }
 
-    bool FileSystem::write_file(const FilePath& path, std::string_view data, FileDataFormat format)
+    bool FileSystem::write_file(const FilePath& path, String_view data, FileDataFormat format)
     {
         const FilePath resolved = resolve_relative_path(path);
         const bool binary = format == FileDataFormat::Binary;

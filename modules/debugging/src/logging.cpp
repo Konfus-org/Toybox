@@ -5,7 +5,7 @@
 
 namespace tbx
 {
-    static String sanitize_log_base_name(std::string_view base_name)
+    static String sanitize_log_base_name(String_view base_name)
     {
         return FilePath(base_name).filename_string();
     }
@@ -15,14 +15,14 @@ namespace tbx
         const String& sanitized_base_name,
         int index)
     {
-        const std::string stem = sanitized_base_name.std_str();
+        const String stem = sanitized_base_name.std_str();
         return index <= 0 ? directory.append(stem + ".log")
                           : directory.append(stem + "_" + std::to_string(index) + ".log");
     }
 
     FilePath get_log_file_path(
         const FilePath& directory,
-        std::string_view base_name,
+        String_view base_name,
         int index,
         IFileSystem& ops)
     {
@@ -32,7 +32,7 @@ namespace tbx
 
     void rotate_logs(
         const FilePath& directory,
-        std::string_view base_name,
+        String_view base_name,
         int max_history,
         IFileSystem& ops)
     {
@@ -59,24 +59,24 @@ namespace tbx
         }
     }
 
-    std::string format_log_message(const std::string& message)
+    String format_log_message(const String& message)
     {
         return message;
     }
 
-    std::string format_log_message(std::string_view message)
+    String format_log_message(String_view message)
     {
-        return std::string(message);
+        return String(message);
     }
 
-    std::string format_log_message(const char* message)
+    String format_log_message(const char* message)
     {
         if (message == nullptr)
         {
-            return std::string();
+            return String();
         }
 
-        return std::string(message);
+        return String(message);
     }
 
     void post_log_msg(
@@ -84,7 +84,7 @@ namespace tbx
         LogLevel level,
         const char* file,
         int line,
-        const std::string& message)
+        const String& message)
     {
         dispatcher.post<LogMessageRequest>(level, message, file, line);
     }

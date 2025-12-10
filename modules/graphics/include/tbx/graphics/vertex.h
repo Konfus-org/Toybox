@@ -93,10 +93,10 @@ namespace tbx
 
     ///////////// VERTEX BUFFER //////////////////
 
-    inline std::vector<float> flatten_vertex_vector(const std::vector<Vertex>& vertices)
+    inline List<float> flatten_vertex_vector(const List<Vertex>& vertices)
     {
         const auto vertex_count = vertices.size();
-        auto mesh_points = std::vector<float>(vertex_count * 12);
+        auto mesh_points = List<float>(vertex_count * 12);
         int write_index = 0;
 
         for (const auto& vertex : vertices)
@@ -141,9 +141,9 @@ namespace tbx
     struct TBX_API VertexBufferLayout
     {
         VertexBufferLayout() = default;
-        VertexBufferLayout(const std::vector<VertexData>& layout)
+        VertexBufferLayout(const List<VertexData>& layout)
         {
-            auto attributes = std::vector<VertexBufferAttribute>();
+            auto attributes = List<VertexBufferAttribute>();
             uint32 current_offset = 0;
             for (const auto& value : layout)
             {
@@ -160,20 +160,20 @@ namespace tbx
             elements = attributes;
         }
 
-        std::vector<VertexBufferAttribute> elements = {};
+        List<VertexBufferAttribute> elements = {};
         uint32 stride = 0;
     };
 
     struct TBX_API VertexBuffer
     {
         VertexBuffer() = default;
-        VertexBuffer(const std::vector<Vertex>& vertices, const VertexBufferLayout& layout)
+        VertexBuffer(const List<Vertex>& vertices, const VertexBufferLayout& layout)
             : vertices(flatten_vertex_vector(vertices))
             , layout(layout)
         {
         }
 
-        std::vector<float> vertices = {};
+        List<float> vertices = {};
         VertexBufferLayout layout = {};
     };
 }

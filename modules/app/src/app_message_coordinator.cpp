@@ -15,7 +15,7 @@ namespace tbx
     static void update_result_for_state(
         const Message& msg,
         const MessageState state,
-        const std::string& message)
+        const String& message)
     {
         switch (state)
         {
@@ -29,10 +29,10 @@ namespace tbx
             case MessageState::Failed:
             case MessageState::TimedOut:
             {
-                std::string resolved = message;
+                String resolved = message;
                 if (resolved.empty())
                 {
-                    const std::string& current = msg.result.get_report();
+                    const String& current = msg.result.get_report();
                     if (current.empty())
                     {
                         if (state == MessageState::Failed)
@@ -45,7 +45,7 @@ namespace tbx
                 }
 
                 msg.result.flag_failure(resolved);
-                const std::string& text = msg.result.get_report();
+                const String& text = msg.result.get_report();
                 if (!text.empty())
                 {
                     const String message_id(msg.id);
@@ -67,7 +67,7 @@ namespace tbx
                 if (!message.empty())
                     msg.result.flag_failure(message);
                 else
-                    msg.result.flag_failure(std::string());
+                    msg.result.flag_failure(String());
                 break;
             }
             default:
@@ -122,7 +122,7 @@ namespace tbx
             msg.callbacks.on_processed(msg);
     }
 
-    static void apply_state(Message& msg, MessageState state, const std::string& reason)
+    static void apply_state(Message& msg, MessageState state, const String& reason)
     {
         if (msg.state == state && reason.empty())
             return;
@@ -137,11 +137,11 @@ namespace tbx
         if (msg.state == previous_state)
             return;
 
-        update_result_for_state(msg, msg.state, std::string());
+        update_result_for_state(msg, msg.state, String());
         dispatch_state_callbacks(msg, msg.state);
     }
 
-    static bool cancel_if_requested(Message& msg, const std::string_view reason = "")
+    static bool cancel_if_requested(Message& msg, const String_view reason = "")
     {
         if (!msg.cancellation_token || !msg.cancellation_token.is_cancelled())
             return false;
@@ -149,8 +149,8 @@ namespace tbx
         if (msg.state == MessageState::Cancelled)
             return true;
 
-        std::string resolved =
-            reason.empty() ? std::string("Message was cancelled.") : std::string(reason);
+        String resolved =
+            reason.empty() ? String("Message was cancelled.") : String(reason);
         apply_state(msg, MessageState::Cancelled, resolved);
 
         return true;
@@ -177,7 +177,7 @@ namespace tbx
     void AppMessageCoordinator::remove_handler(const Uuid& token)
     {
         std::lock_guard lock(_handlers_mutex);
-        std::vector<std::pair<Uuid, MessageHandler>> next;
+        List<std::pair<Uuid, MessageHandler>> next;
         next.reserve(_handlers.size());
         for (auto& entry : _handlers)
         {
@@ -205,7 +205,7 @@ namespace tbx
     {
         try
         {
-            std::vector<std::pair<Uuid, MessageHandler>> handlers_snapshot;
+            List<std::pair<Uuid, MessageHandler>> handlers_snapshot;
             {
                 std::lock_guard lock(_handlers_mutex);
                 handlers_snapshot = _handlers;
@@ -253,7 +253,7 @@ namespace tbx
                         "Message required handling but no handlers completed it.");
                 }
                 else
-                    apply_state(msg, MessageState::Processed, std::string());
+                    apply_state(msg, MessageState::Processed, String());
             }
         }
         catch (const std::exception& ex)
@@ -287,7 +287,7 @@ namespace tbx
 
     void AppMessageCoordinator::process()
     {
-        std::vector<QueuedMessage> processing;
+        List<QueuedMessage> processing;
         {
             std::lock_guard<std::mutex> lock(_queue_mutex);
             processing.swap(_pending);

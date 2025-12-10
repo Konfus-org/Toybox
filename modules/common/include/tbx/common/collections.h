@@ -934,10 +934,10 @@ namespace tbx
     class List : public Linqable<List<TValue, TAllocator>>
     {
     public:
-        using iterator = typename std::vector<TValue, TAllocator>::iterator;
-        using const_iterator = typename std::vector<TValue, TAllocator>::const_iterator;
+        using iterator = typename List<TValue, TAllocator>::iterator;
+        using const_iterator = typename List<TValue, TAllocator>::const_iterator;
 
-        /// Wraps std::vector with LINQ-style helpers.
+        /// Wraps List with LINQ-style helpers.
         /// Purpose: exposes dynamic contiguous storage with the linqable surface while presenting a
         /// consistent C#-like API.
         /// Ownership: owns stored values.
@@ -1053,7 +1053,7 @@ namespace tbx
             }
         }
 
-        std::vector<TValue, TAllocator> _storage;
+        List<TValue, TAllocator> _storage;
 
         auto& get_storage()
         {

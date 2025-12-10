@@ -4,7 +4,7 @@ namespace tbx
 {
     Result::Result()
         : _success(Ref<bool>(false))
-        , _report(Ref<std::string>(std::string()))
+        , _report(Ref<String>(String()))
     {
     }
 
@@ -13,19 +13,19 @@ namespace tbx
         return _success && *_success;
     }
 
-    void Result::flag_success(std::string message) const
+    void Result::flag_success(String message) const
     {
         *_success = true;
         *_report = std::move(message);
     }
 
-    void Result::flag_failure(std::string message) const
+    void Result::flag_failure(String message) const
     {
         *_success = false;
         *_report = std::move(message);
     }
 
-    const std::string& Result::get_report() const
+    const String& Result::get_report() const
     {
         return *_report;
     }

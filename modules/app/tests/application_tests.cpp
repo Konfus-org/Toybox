@@ -26,7 +26,7 @@ namespace tbx::tests::app
             FilePath("assets"),
             FilePath("logs"),
             FilePath("plugins"),
-            std::vector<std::string>{"Tbx.Logger", "Tbx.Renderer"}};
+            List<String>{"Tbx.Logger", "Tbx.Renderer"}};
 
         EXPECT_EQ(description.name, "Toybox.Editor");
         EXPECT_EQ(description.working_root, FilePath("/workspace"));

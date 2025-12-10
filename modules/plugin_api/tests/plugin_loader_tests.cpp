@@ -31,12 +31,12 @@ namespace tbx::tests::plugin_loader
     class ManifestFilesystemOps : public ::tbx::IFileSystem
     {
       public:
-        void add_directory(std::string path)
+        void add_directory(String path)
         {
             directories.insert(std::move(path));
         }
 
-        void add_file(std::string path, std::string data)
+        void add_file(String path, String data)
         {
             files.emplace(std::move(path), std::move(data));
         }
@@ -72,10 +72,10 @@ namespace tbx::tests::plugin_loader
             return FilePathType::None;
         }
 
-        std::vector<FilePath> read_directory(const FilePath& root) const override
+        List<FilePath> read_directory(const FilePath& root) const override
         {
-            std::vector<FilePath> entries;
-            const std::string prefix = resolve_relative_path(root).std_path().generic_string();
+            List<FilePath> entries;
+            const String prefix = resolve_relative_path(root).std_path().generic_string();
             for (const auto& dir : directories)
             {
                 if (dir.rfind(prefix, 0) == 0)
@@ -97,7 +97,7 @@ namespace tbx::tests::plugin_loader
             return true;
         }
 
-        bool read_file(const FilePath& path, std::string& out, FileDataFormat) const override
+        bool read_file(const FilePath& path, String& out, FileDataFormat) const override
         {
             const auto key = resolve_relative_path(path).std_path().generic_string();
             auto it = files.find(key);
@@ -107,9 +107,9 @@ namespace tbx::tests::plugin_loader
             return true;
         }
 
-        bool write_file(const FilePath& path, std::string_view data, FileDataFormat) override
+        bool write_file(const FilePath& path, String_view data, FileDataFormat) override
         {
-            files[resolve_relative_path(path).std_path().generic_string()] = std::string(data);
+            files[resolve_relative_path(path).std_path().generic_string()] = String(data);
             return true;
         }
 
@@ -119,8 +119,8 @@ namespace tbx::tests::plugin_loader
 
         bool copy(const FilePath&, const FilePath&) override { return true; }
 
-        std::unordered_set<std::string> directories;
-        std::unordered_map<std::string, std::string> files;
+        std::unordered_set<String> directories;
+        std::unordered_map<String, String> files;
         FilePath working_directory;
         FilePath plugins_directory;
         FilePath logs_directory;
@@ -130,7 +130,7 @@ namespace tbx::tests::plugin_loader
     TEST(plugin_loader, loads_static_plugin_from_meta_list)
     {
         ManifestFilesystemOps ops;
-        auto loaded = load_plugins(std::vector<PluginMeta>{make_static_meta()}, ops);
+        auto loaded = load_plugins(List<PluginMeta>{make_static_meta()}, ops);
         ASSERT_EQ(loaded.size(), 1u);
         EXPECT_NE(loaded[0].instance.get(), nullptr);
     }

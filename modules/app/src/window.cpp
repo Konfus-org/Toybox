@@ -8,7 +8,7 @@ namespace tbx
 {
     Window::Window(
         IMessageDispatcher& dispatcher,
-        std::string title,
+        String title,
         Size size,
         WindowMode mode,
         bool open_on_creation)

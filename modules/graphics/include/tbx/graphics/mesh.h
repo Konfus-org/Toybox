@@ -7,7 +7,7 @@
 
 namespace tbx
 {
-    using IndexBuffer = std::vector<uint32>;
+    using IndexBuffer = List<uint32>;
 
     struct TBX_API Mesh
     {

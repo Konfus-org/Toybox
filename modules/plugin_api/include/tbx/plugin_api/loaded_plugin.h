@@ -23,7 +23,7 @@ namespace tbx
         PluginInstance instance;
     };
 
-    inline std::string to_string(const LoadedPlugin& plugin)
+    inline String to_string(const LoadedPlugin& plugin)
     {
         return "Name=" + plugin.meta.name + ", Version=" + plugin.meta.version;
     }

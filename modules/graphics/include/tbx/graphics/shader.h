@@ -15,7 +15,7 @@ namespace tbx
     // A uniform variable that can be uploaded to a shader.
     struct TBX_API ShaderUniform
     {
-        std::string name = "";
+        String name = "";
         UniformData data = 0;
     };
 
@@ -33,10 +33,10 @@ namespace tbx
     struct TBX_API Shader
     {
         Shader() = default;
-        Shader(const std::string& source, ShaderType type)
+        Shader(const String& source, ShaderType type)
             : source(source), type(type) {}
 
-        std::string source = "";
+        String source = "";
         ShaderType type = ShaderType::None;
         Uuid id = Uuid::generate();
     };

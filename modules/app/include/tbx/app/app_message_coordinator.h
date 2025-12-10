@@ -46,8 +46,8 @@ namespace tbx
         std::future<Result> post_impl(Scope<Message> msg) const override;
         void dispatch(Message& msg) const;
 
-        std::vector<std::pair<Uuid, MessageHandler>> _handlers;
-        mutable std::vector<QueuedMessage> _pending;
+        List<std::pair<Uuid, MessageHandler>> _handlers;
+        mutable List<QueuedMessage> _pending;
 
         mutable std::mutex _handlers_mutex;
         mutable std::mutex _queue_mutex;

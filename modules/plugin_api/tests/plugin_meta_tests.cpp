@@ -102,13 +102,13 @@ namespace tbx::tests::plugin_api
         gameplay.dependencies.push_back("metrics");
         gameplay.dependencies.push_back("logger");
 
-        std::vector<PluginMeta> unordered = {gameplay, renderer, metrics, logger};
+        List<PluginMeta> unordered = {gameplay, renderer, metrics, logger};
 
-        std::vector<PluginMeta> load_order = resolve_plugin_load_order(unordered);
+        List<PluginMeta> load_order = resolve_plugin_load_order(unordered);
         ASSERT_EQ(load_order.size(), 4u);
         EXPECT_EQ(load_order[0].name, "Logging.Core");
 
-        auto find_plugin = [](const std::vector<PluginMeta>& plugins, const std::string& id)
+        auto find_plugin = [](const List<PluginMeta>& plugins, const String& id)
         {
             for (size_t index = 0; index < plugins.size(); index += 1)
             {
@@ -130,7 +130,7 @@ namespace tbx::tests::plugin_api
         EXPECT_LT(metrics_index, gameplay_index);
         EXPECT_LT(logger_index, gameplay_index);
 
-        std::vector<PluginMeta> unload_order = resolve_plugin_unload_order(unordered);
+        List<PluginMeta> unload_order = resolve_plugin_unload_order(unordered);
         ASSERT_EQ(unload_order.size(), load_order.size());
         for (size_t index = 0; index < load_order.size(); index += 1)
         {

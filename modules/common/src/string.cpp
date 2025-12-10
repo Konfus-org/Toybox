@@ -10,12 +10,12 @@ namespace tbx
     {
     }
 
-    String::String(std::string value)
+    String::String(String value)
         : _value(std::move(value))
     {
     }
 
-    String::String(std::string_view value)
+    String::String(String_view value)
         : _value(value)
     {
     }
@@ -27,7 +27,7 @@ namespace tbx
 
     String String::remove_whitespace() const
     {
-        std::string cleaned = _value;
+        String cleaned = _value;
         cleaned.erase(
             std::remove_if(
                 cleaned.begin(),
@@ -47,7 +47,7 @@ namespace tbx
 
     String String::to_upper() const
     {
-        std::string upper = _value;
+        String upper = _value;
         std::transform(
             upper.begin(),
             upper.end(),
@@ -59,19 +59,19 @@ namespace tbx
         return String(std::move(upper));
     }
 
-    bool String::starts_with(std::string_view prefix) const
+    bool String::starts_with(String_view prefix) const
     {
         return _value.starts_with(prefix);
     }
 
-    bool String::ends_with(std::string_view suffix) const
+    bool String::ends_with(String_view suffix) const
     {
         return _value.ends_with(suffix);
     }
 
-    bool String::contains(std::string_view needle) const
+    bool String::contains(String_view needle) const
     {
-        return _value.find(needle) != std::string::npos;
+        return _value.find(needle) != String::npos;
     }
 
     bool String::empty() const
@@ -89,12 +89,12 @@ namespace tbx
         return std::filesystem::path(_value);
     }
 
-    const std::string& String::std_str() const
+    const String& String::std_str() const
     {
         return _value;
     }
 
-    std::string& String::std_str()
+    String& String::std_str()
     {
         return _value;
     }
@@ -104,12 +104,12 @@ namespace tbx
         return _value.c_str();
     }
 
-    String::operator std::string_view() const
+    String::operator String_view() const
     {
         return _value;
     }
 
-    String::operator const std::string&() const
+    String::operator const String&() const
     {
         return _value;
     }

@@ -1,4 +1,6 @@
 #pragma once
+#include "tbx/common/collections.h"
+#include "tbx/common/string.h"
 #include "tbx/file_system/filepath.h"
 #include "tbx/tbx_api.h"
 #include <string>
@@ -13,7 +15,7 @@ namespace tbx
     struct TBX_API AppDescription
     {
         // Human-readable application name used in logs, manifests, and window names.
-        const std::string name = "";
+        const String name = "";
 
         // Absolute or relative base directory used to resolve other paths.
         const FilePath working_root = {};
@@ -29,6 +31,6 @@ namespace tbx
         const FilePath plugins_directory = {};
 
         // Ordered list of plugin identifiers requested for loading.
-        const std::vector<std::string> requested_plugins = {};
+        const List<String> requested_plugins = {};
     };
 }

@@ -24,7 +24,7 @@ namespace tbx::tests::math
     {
         Bounds bounds(-2.0f, 2.0f, 1.5f, -1.5f);
 
-        std::string str = to_string(bounds);
+        String str = to_string(bounds);
 
         EXPECT_EQ(str, "[Left: -2, Right: 2, Top: 1.5, Bottom: -1.5]");
     }

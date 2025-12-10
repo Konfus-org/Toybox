@@ -17,10 +17,10 @@ namespace tbx
         ShaderProgram() = default;
         explicit ShaderProgram(Ref<Shader> shader)
             : shaders({ shader }) {}
-        explicit ShaderProgram(std::vector<Ref<Shader>> shaders)
+        explicit ShaderProgram(List<Ref<Shader>> shaders)
             : shaders(std::move(shaders)) {}
 
-        std::vector<Ref<Shader>> shaders = {};
+        List<Ref<Shader>> shaders = {};
         Uuid id = Uuid::generate();
     };
 
@@ -30,17 +30,17 @@ namespace tbx
     struct TBX_API Material
     {
         Material() = default;
-        Material(std::vector<Ref<Shader>> shaders)
+        Material(List<Ref<Shader>> shaders)
             : shader_program(ShaderProgram(std::move(shaders))) {}
-        Material(std::vector<Ref<Shader>> shaders, Ref<Texture> texture)
+        Material(List<Ref<Shader>> shaders, Ref<Texture> texture)
             : shader_program(ShaderProgram(std::move(shaders)))
             , textures({ texture }) {}
-        Material(std::vector<Ref<Shader>> shaders, std::vector<Ref<Texture>> textures)
+        Material(List<Ref<Shader>> shaders, List<Ref<Texture>> textures)
             : shader_program(ShaderProgram(std::move(shaders)))
             , textures(std::move(textures)) {}
 
         ShaderProgram shader_program = {};
-        std::vector<Ref<Texture>> textures = {};
+        List<Ref<Texture>> textures = {};
         Uuid id = Uuid::generate();
     };
 

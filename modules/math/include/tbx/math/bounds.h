@@ -36,5 +36,5 @@ namespace tbx
     // Converts bounds into a descriptive string for debugging.
     // Ownership: returns a string by value; the caller owns the result.
     // Thread Safety: stateless; safe to call concurrently.
-    TBX_API std::string to_string(const Bounds& bounds);
+    TBX_API String to_string(const Bounds& bounds);
 }

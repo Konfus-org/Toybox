@@ -10,9 +10,9 @@ namespace tbx
     // Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
     struct ToyDescription
     {
-        std::string name = "";
-        std::string tag = "";
-        std::string layer = "";
+        String name = "";
+        String tag = "";
+        String layer = "";
         Uuid parent = invalid::uuid;
     };
 
@@ -119,7 +119,7 @@ namespace tbx
     class Stage
     {
       public:
-        Stage(std::string name)
+        Stage(String name)
             : _name(name)
             , _id(Uuid::generate())
             , _registry()
@@ -131,7 +131,7 @@ namespace tbx
             return _id;
         }
 
-        std::string get_name() const
+        String get_name() const
         {
             return _name;
         }
@@ -147,9 +147,9 @@ namespace tbx
         }
 
         Toy add_toy(
-            const std::string& name,
-            const std::string& tag = "",
-            const std::string& layer = "",
+            const String& name,
+            const String& tag = "",
+            const String& layer = "",
             const Uuid& parent = invalid::uuid)
         {
             ToyDescription desc = {};
@@ -170,9 +170,9 @@ namespace tbx
             return Toy(_registry, static_cast<EntityHandle>(id.value));
         }
 
-        std::vector<Toy> view_all_toys()
+        List<Toy> view_all_toys()
         {
-            std::vector<Toy> toys = {};
+            List<Toy> toys = {};
             auto view = _registry.view<ToyDescription>();
             for (auto entity : view)
                 toys.emplace_back(_registry, entity);
@@ -180,9 +180,9 @@ namespace tbx
         }
 
         template <typename... Block>
-        std::vector<Toy> view_with_type()
+        List<Toy> view_with_type()
         {
-            std::vector<Toy> toys = {};
+            List<Toy> toys = {};
             auto view = _registry.view<Block...>();
             for (auto entity : view)
                 toys.emplace_back(_registry, entity);
@@ -190,19 +190,19 @@ namespace tbx
         }
 
       private:
-        std::string _name = "";
+        String _name = "";
         Uuid _id = invalid::uuid;
         EcsRegistry _registry = {};
     };
 
-    inline std::string to_string(const Toy& t)
+    inline String to_string(const Toy& t)
     {
         const auto& desc = t.get_description();
         return "Toy(ID: " + to_string(t.get_id()) + ", Name: " + desc.name + ", Tag: " + desc.tag
                + ", Layer: " + desc.layer + ")";
     }
 
-    inline std::string to_string(const Stage& s)
+    inline String to_string(const Stage& s)
     {
         return "Stage(ID: " + to_string(s.get_id()) + ", Name: " + s.get_name() + ")";
     }

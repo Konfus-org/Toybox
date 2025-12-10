@@ -10,18 +10,18 @@
 
 namespace tbx
 {
-    // Lightweight wrapper around std::string providing common string utilities.
+    // Lightweight wrapper around String providing common string utilities.
     struct TBX_API String
     {
         String() = default;
         String(const char* value);
-        String(std::string value);
-        String(std::string_view value);
+        String(String value);
+        String(String_view value);
         template <typename TValue>
         String(TValue&& value)
         {
-            if constexpr (std::is_convertible_v<TValue, std::string>)
-                _value = std::string(std::forward<TValue>(value));
+            if constexpr (std::is_convertible_v<TValue, String>)
+                _value = String(std::forward<TValue>(value));
             else
             {
                 std::ostringstream stream;
@@ -30,7 +30,7 @@ namespace tbx
             }
         }
 
-        // Creates a String from any type convertible to std::string or streamable via operator<<.
+        // Creates a String from any type convertible to String or streamable via operator<<.
         template <typename TValue>
         static String from(TValue&& value)
         {
@@ -50,13 +50,13 @@ namespace tbx
         String to_upper() const;
 
         // True if the string starts with the provided prefix.
-        bool starts_with(std::string_view prefix) const;
+        bool starts_with(String_view prefix) const;
 
         // True if the string ends with the provided suffix.
-        bool ends_with(std::string_view suffix) const;
+        bool ends_with(String_view suffix) const;
 
         // True if the string contains the provided substring.
-        bool contains(std::string_view needle) const;
+        bool contains(String_view needle) const;
 
         // True if the string is empty.
         bool empty() const;
@@ -67,18 +67,18 @@ namespace tbx
         // Converts the underlying string into a std::filesystem::path.
         std::filesystem::path to_filepath() const;
 
-        // Access to the underlying std::string.
-        const std::string& std_str() const;
-        std::string& std_str();
+        // Access to the underlying String.
+        const String& std_str() const;
+        String& std_str();
 
         // Access to the underlying C-string pointer.
         const char* c_str() const;
 
-        // Implicit conversion to std::string_view.
-        operator std::string_view() const;
+        // Implicit conversion to String_view.
+        operator String_view() const;
 
-        // Implicit conversion to const std::string&.
-        operator const std::string&() const;
+        // Implicit conversion to const String&.
+        operator const String&() const;
 
         // Implicit conversion to char*.
         operator const char*() const;
@@ -89,8 +89,8 @@ namespace tbx
         bool operator==(const String& other) const;
         bool operator!=(const String& other) const;
 
-        using iterator = std::string::iterator;
-        using const_iterator = std::string::const_iterator;
+        using iterator = String::iterator;
+        using const_iterator = String::const_iterator;
 
         iterator begin();
         const_iterator begin() const;
@@ -100,6 +100,6 @@ namespace tbx
         const_iterator cend() const;
 
       private:
-        std::string _value;
+        String _value;
     };
 }

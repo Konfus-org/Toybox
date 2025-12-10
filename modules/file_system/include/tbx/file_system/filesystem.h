@@ -25,16 +25,19 @@ namespace tbx
 
         virtual FilePath resolve_relative_path(const FilePath& path) const = 0;
         virtual bool exists(const FilePath& path) const = 0;
-        virtual FilePathType get_file_type(const FilePath& path) const = 0;
-        virtual std::vector<FilePath> read_directory(const FilePath& root) const = 0;
+
+        virtual List<FilePath> read_directory(const FilePath& root) const = 0;
         virtual bool create_directory(const FilePath& path) = 0;
+
+        virtual FilePathType get_file_type(const FilePath& path) const = 0;
         virtual bool create_file(const FilePath& path) = 0;
-        virtual bool read_file(const FilePath& path, std::string& out, FileDataFormat format)
+        virtual bool read_file(const FilePath& path, String& out, FileDataFormat outFormat)
             const = 0;
         virtual bool write_file(
             const FilePath& path,
-            std::string_view data,
-            FileDataFormat format) = 0;
+            const String& data,
+            const FileDataFormat format) = 0;
+
         virtual bool remove(const FilePath& path) = 0;
         virtual bool rename(const FilePath& from, const FilePath& to) = 0;
         virtual bool copy(const FilePath& from, const FilePath& to) = 0;
@@ -57,13 +60,11 @@ namespace tbx
         FilePath resolve_relative_path(const FilePath& path) const override;
         bool exists(const FilePath& path) const override;
         FilePathType get_file_type(const FilePath& path) const override;
-        std::vector<FilePath> read_directory(const FilePath& root) const override;
+        List<FilePath> read_directory(const FilePath& root) const override;
         bool create_directory(const FilePath& path) override;
         bool create_file(const FilePath& path) override;
-        bool read_file(const FilePath& path, std::string& out, FileDataFormat format)
-            const override;
-        bool write_file(const FilePath& path, std::string_view data, FileDataFormat format)
-            override;
+        bool read_file(const FilePath& path, String& out, FileDataFormat format) const override;
+        bool write_file(const FilePath& path, String_view data, FileDataFormat format) override;
         bool remove(const FilePath& path) override;
         bool rename(const FilePath& from, const FilePath& to) override;
         bool copy(const FilePath& from, const FilePath& to) override;

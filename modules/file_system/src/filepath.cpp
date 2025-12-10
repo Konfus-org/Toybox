@@ -12,7 +12,7 @@ namespace tbx
     {
     }
 
-    FilePath::FilePath(std::string_view value)
+    FilePath::FilePath(String_view value)
         : _path(sanitize_path(std::filesystem::path(value)))
     {
     }
@@ -81,7 +81,7 @@ namespace tbx
         return set_extension(extension);
     }
 
-    FilePath FilePath::append(std::string_view component) const
+    FilePath FilePath::append(String_view component) const
     {
         FilePath combined(_path);
         combined._path /= sanitize_component(component);
@@ -109,17 +109,17 @@ namespace tbx
         return _path;
     }
 
-    std::string FilePath::sanitize_component(std::string_view name)
+    String FilePath::sanitize_component(String_view name)
     {
         if (name.empty())
             return "unnamed";
 
-        constexpr std::string_view unsupported = "<>:\"/\\|?*";
-        std::string sanitized;
+        constexpr String_view unsupported = "<>:\"/\\|?*";
+        String sanitized;
         sanitized.reserve(name.size());
         for (char c : name)
         {
-            const bool invalid = unsupported.find(c) != std::string_view::npos;
+            const bool invalid = unsupported.find(c) != String_view::npos;
             sanitized.push_back(invalid ? '_' : c);
         }
         return sanitized;

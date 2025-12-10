@@ -19,23 +19,23 @@ namespace tbx
         // Registers a plugin instance. Must be called from the main thread. The
         // registry does not take ownership of the pointer and expects the
         // caller to manage its lifetime.
-        void register_plugin(const std::string& name, Plugin* plugin);
+        void register_plugin(const String& name, Plugin* plugin);
 
         // Unregisters a plugin instance. Must be called from the main thread.
         // The registry does not delete the pointer.
-        void unregister_plugin(const std::string& name);
+        void unregister_plugin(const String& name);
 
         // Removes a plugin instance by pointer when the name is unknown.
         void unregister_plugin(Plugin* plugin);
 
         // Returns a list of all currently registered plugins.
-        std::vector<Plugin*> get_registered_plugins() const;
+        List<Plugin*> get_registered_plugins() const;
 
         // Locates a plugin instance by name.
-        Plugin* find_plugin(const std::string& name) const;
+        Plugin* find_plugin(const String& name) const;
 
       private:
-        std::vector<Plugin*> _plugins;
-        std::unordered_map<std::string, Plugin*> _plugins_by_name;
+        List<Plugin*> _plugins;
+        std::unordered_map<String, Plugin*> _plugins_by_name;
     };
 }

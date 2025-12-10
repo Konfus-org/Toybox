@@ -35,7 +35,7 @@ namespace tbx
             TextureWrap wrap,
             TextureFilter filter,
             TextureFormat format,
-            const std::vector<Pixel>& pixels)
+            const List<Pixel>& pixels)
             : resolution(resolution)
             , wrap(wrap)
             , filter(filter)
@@ -48,7 +48,7 @@ namespace tbx
         TextureWrap wrap = TextureWrap::Repeat;
         TextureFilter filter = TextureFilter::Nearest;
         TextureFormat format = TextureFormat::RGB;
-        std::vector<Pixel> pixels = { 255, 255, 255 };
+        List<Pixel> pixels = { 255, 255, 255 };
         Uuid id = Uuid::generate();
     };
 }

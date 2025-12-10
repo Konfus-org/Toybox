@@ -61,7 +61,7 @@ namespace tbx::tests::common
         EXPECT_EQ(array[0], 1);
         EXPECT_EQ(array[1], 2);
 
-        List<std::pair<int, std::string>> entries = {{1, "one"}, {2, "two"}};
+        List<std::pair<int, String>> entries = {{1, "one"}, {2, "two"}};
         auto map = entries.to_hash_map();
 
         EXPECT_EQ(map.get_count(), 2U);
@@ -78,7 +78,7 @@ namespace tbx::tests::common
 
     TEST(CollectionsTests, CollectionsSupportAddEmplaceAndConcatenation)
     {
-        HashMap<int, std::string> map;
+        HashMap<int, String> map;
         EXPECT_TRUE(map.add(1, "one"));
         EXPECT_FALSE(map.add(1, "duplicate"));
         EXPECT_TRUE(map.emplace(2, "two"));
@@ -86,7 +86,7 @@ namespace tbx::tests::common
         EXPECT_TRUE(map.remove(1));
         EXPECT_FALSE(map.remove(3));
 
-        HashMap<int, std::string> other_map;
+        HashMap<int, String> other_map;
         other_map.add(3, "three");
         auto combined_map = map + other_map;
 

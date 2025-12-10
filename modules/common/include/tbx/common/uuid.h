@@ -45,5 +45,5 @@ namespace tbx
 
     // Streams the hexadecimal representation of the UUID to the provided output stream.
     TBX_API std::ostream& operator<<(std::ostream& stream, const Uuid& id);
-    TBX_API std::string to_string(const Uuid& id);
+    TBX_API String to_string(const Uuid& id);
 }

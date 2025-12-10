@@ -4,7 +4,7 @@
 
 namespace tbx
 {
-    std::string trim_string(std::string_view text)
+    String trim_string(String_view text)
     {
         auto begin = text.begin();
         auto end = text.end();
@@ -21,12 +21,12 @@ namespace tbx
             }
             end = last;
         }
-        return std::string(begin, end);
+        return String(begin, end);
     }
 
-    std::string to_lower_case_string(std::string_view text)
+    String to_lower_case_string(String_view text)
     {
-        std::string lowered(text);
+        String lowered(text);
         std::transform(
             lowered.begin(),
             lowered.end(),

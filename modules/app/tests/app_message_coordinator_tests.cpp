@@ -334,16 +334,16 @@ namespace tbx::tests::app
             {
                 auto& mutable_msg = const_cast<Message&>(message);
                 mutable_msg.state = MessageState::Handled;
-                mutable_msg.payload = std::string("ready");
+                mutable_msg.payload = String("ready");
             });
 
         Message msg;
-        std::string processed_payload;
+        String processed_payload;
         msg.callbacks.on_processed = [&](const Message& processed)
         {
             EXPECT_TRUE(processed.payload.has_value());
-            const std::string* value = std::any_cast<std::string>(&processed.payload);
-            processed_payload = value ? *value : std::string();
+            const String* value = std::any_cast<String>(&processed.payload);
+            processed_payload = value ? *value : String();
         };
         auto future = d.post(msg);
 

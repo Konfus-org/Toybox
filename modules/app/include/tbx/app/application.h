@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/app/app_description.h"
 #include "tbx/app/app_message_coordinator.h"
+#include "tbx/common/collections.h"
 #include "tbx/file_system/filesystem.h"
 #include "tbx/graphics/window.h"
 #include "tbx/plugin_api/loaded_plugin.h"
@@ -35,7 +36,7 @@ namespace tbx
 
         AppDescription _desc;
         FileSystem _filesystem;
-        std::vector<LoadedPlugin> _loaded = {};
+        List<LoadedPlugin> _loaded = {};
         AppMessageCoordinator _msg_coordinator = {};
         Window _main_window = {
             _msg_coordinator,

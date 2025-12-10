@@ -18,7 +18,7 @@ namespace tbx
 
     Mesh make_triangle()
     {
-        const std::vector<Vertex> triangle_mesh_vertices =
+        const List<Vertex> triangle_mesh_vertices =
         {
             Vertex
             {
@@ -60,7 +60,7 @@ namespace tbx
 
     Mesh make_quad()
     {
-        const std::vector<Vertex> quad_mesh_vertices =
+        const List<Vertex> quad_mesh_vertices =
         {
             Vertex
             {

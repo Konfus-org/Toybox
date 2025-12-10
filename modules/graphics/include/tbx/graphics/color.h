@@ -20,7 +20,7 @@ namespace tbx
         {
         }
 
-        std::string to_string() const
+        String to_string() const
         {
             return std::format("R: {}, G: {}, B: {}, A: {}", r, g, b, a);
         }

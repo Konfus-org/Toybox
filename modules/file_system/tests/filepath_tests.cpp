@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <fstream>
 
-static std::filesystem::path make_unique_path(const std::string& token)
+static std::filesystem::path make_unique_path(const String& token)
 {
     const auto timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
     auto base = std::filesystem::temp_directory_path() / (token + "_");

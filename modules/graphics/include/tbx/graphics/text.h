@@ -7,11 +7,11 @@ namespace tbx
     struct TBX_API Text
     {
         Text() = default;
-        Text(const std::string& value, const std::string& font, int size)
+        Text(const String& value, const String& font, int size)
             : value(value), font(font), size(size) {}
 
-        std::string value = "";
-        std::string font = "";
+        String value = "";
+        String font = "";
         int size = 12;
     };
 }

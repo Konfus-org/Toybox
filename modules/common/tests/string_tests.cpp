@@ -94,7 +94,7 @@ namespace tbx::tests::common
     TEST(StringTests, SupportsIteration)
     {
         String value("abc");
-        std::string collected;
+        String collected;
 
         for (char c : value)
         {

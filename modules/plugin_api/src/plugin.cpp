@@ -7,11 +7,11 @@
 
 namespace tbx
 {
-    Result Plugin::dispatcher_missing_result(std::string_view action)
+    Result Plugin::dispatcher_missing_result(String_view action)
     {
         Result result;
         result.flag_failure(
-            "Plugin cannot " + std::string(action)
+            "Plugin cannot " + String(action)
             + " because it is not attached to a dispatcher.");
         return result;
     }
