@@ -5,7 +5,6 @@
 #include <format>
 #include <source_location>
 #include <string>
-#include <string_view>
 #include <tuple>
 #include <utility>
 
@@ -13,23 +12,22 @@ namespace tbx
 {
     TBX_API FilePath get_log_file_path(
         const FilePath& directory,
-        String_view base_name,
+        const String& base_name,
         int index,
         IFileSystem& ops);
 
     TBX_API void rotate_logs(
         const FilePath& directory,
-        String_view base_name,
+        const String& base_name,
         int max_history,
         IFileSystem& ops);
 
     TBX_API String format_log_message(const String& message);
-    TBX_API String format_log_message(String_view message);
     TBX_API String format_log_message(const char* message);
 
     template <typename... Args>
         requires(sizeof...(Args) > 0)
-    String format_log_message(String_view fmt, Args&&... args)
+    String format_log_message(const String& fmt, Args&&... args)
     {
         // Pass arguments as lvalues to avoid binding rvalues to non-const references
         // inside std::make_format_args on some standard library implementations.
@@ -37,7 +35,7 @@ namespace tbx
         String formatted = std::apply(
             [&](auto&... tuple_args)
             {
-                return std::vformat(fmt, std::make_format_args(tuple_args...));
+                return std::vformat(fmt.std_str(), std::make_format_args(tuple_args...));
             },
             arguments);
         return formatted;
@@ -56,7 +54,7 @@ namespace tbx
         LogLevel level,
         const char* file,
         int line,
-        String_view fmt,
+        const String& fmt,
         Args&&... args)
     {
         post_log_msg(

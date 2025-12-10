@@ -355,7 +355,7 @@ namespace tbx::tests::app
         auto result = future.get();
         EXPECT_TRUE(result.succeeded());
         EXPECT_FALSE(msg.payload.has_value());
-        EXPECT_EQ(processed_payload, "ready");
+        EXPECT_EQ(processed_payload.std_str(), "ready");
     }
 
 }

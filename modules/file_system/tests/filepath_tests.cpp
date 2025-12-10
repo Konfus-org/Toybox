@@ -1,13 +1,14 @@
 #include "gtest/gtest.h"
 #include "tbx/file_system/filepath.h"
+#include "tbx/common/string.h"
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 
-static std::filesystem::path make_unique_path(const String& token)
+static std::filesystem::path make_unique_path(const tbx::String& token)
 {
     const auto timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
-    auto base = std::filesystem::temp_directory_path() / (token + "_");
+    auto base = std::filesystem::temp_directory_path() / (token.std_str() + "_");
     return base / std::to_string(timestamp);
 }
 

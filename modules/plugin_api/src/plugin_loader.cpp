@@ -1,14 +1,12 @@
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/common/smart_pointers.h"
-#include "tbx/common/string_extensions.h"
+#include "tbx/common/string.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/file_system/filesystem.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_registry.h"
 #include <algorithm>
 #include <deque>
-#include <string>
-#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -81,7 +79,7 @@ namespace tbx
         const FilePath module_path = resolve_module_path(meta, file_ops);
         auto lib = Scope<SharedLibrary>(module_path);
 
-        const String create_symbol = "create_" + meta.name;
+        const String create_symbol = String("create_") + meta.name;
         CreatePluginFn create = lib->get_symbol<CreatePluginFn>(create_symbol.c_str());
         if (!create)
         {
@@ -89,7 +87,7 @@ namespace tbx
             return {};
         }
 
-        const String destroy_symbol = "destroy_" + meta.name;
+        const String destroy_symbol = String("destroy_") + meta.name;
         DestroyPluginFn destroy = lib->get_symbol<DestroyPluginFn>(destroy_symbol.c_str());
         if (!destroy)
         {
@@ -110,7 +108,7 @@ namespace tbx
         loaded.instance = std::move(instance);
         loaded.library = std::move(lib);
 
-        TBX_TRACE_INFO("Loaded plugin: {}", to_string(loaded));
+        TBX_TRACE_INFO("Loaded plugin: {}", String(loaded));
 
         return loaded;
     }
@@ -133,8 +131,8 @@ namespace tbx
                 }
 
                 const String name = entry.filename_string();
-                const String lowered_name = to_lower_case_string(name);
-                if (entry.get_extension().std_str() == ".meta" || lowered_name == "plugin.meta")
+                const String lowered_name = name.to_lower();
+                if (entry.get_extension().std_str() == ".meta" || lowered_name == String("plugin.meta"))
                 {
                     try
                     {
@@ -176,11 +174,11 @@ namespace tbx
             for (size_t index = 0; index < discovered.size(); ++index)
             {
                 const PluginMeta& meta = discovered[index];
-                const String lowered_name = to_lower_case_string(meta.name);
+                const String lowered_name = meta.name.to_lower();
                 by_name_lookup.emplace(lowered_name, index);
                 if (!meta.type.empty())
                 {
-                    const String lowered_type = to_lower_case_string(meta.type);
+                    const String lowered_type = meta.type.to_lower();
                     by_type[lowered_type].push_back(index);
                 }
             }
@@ -198,8 +196,8 @@ namespace tbx
 
             auto enqueue_dependency_token = [&](const String& token)
             {
-                const String trimmed = trim_string(token);
-                const String needle = to_lower_case_string(trimmed);
+                const String trimmed = token.trim();
+                const String needle = trimmed.to_lower();
                 if (needle.empty())
                 {
                     return;

@@ -1,7 +1,7 @@
 #include "PCH.h"
-#include <cmath>
 #include "tbx/math/bounds.h"
 #include "tbx/math/trig.h"
+#include <cmath>
 
 namespace tbx::tests::math
 {
@@ -26,7 +26,7 @@ namespace tbx::tests::math
 
         String str = to_string(bounds);
 
-        EXPECT_EQ(str, "[Left: -2, Right: 2, Top: 1.5, Bottom: -1.5]");
+        EXPECT_EQ(str.std_str(), "[Left: -2, Right: 2, Top: 1.5, Bottom: -1.5]");
     }
 
     TEST(BoundsTests, FromOrthographicProjection_CreatesCorrectBounds)

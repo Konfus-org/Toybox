@@ -1,8 +1,8 @@
 #pragma once
+#include "tbx/common/collections.h"
 #include "tbx/math/size.h"
 #include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
-#include <vector>
 
 namespace tbx
 {

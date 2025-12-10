@@ -727,6 +727,15 @@ namespace tbx
             return _storage.erase(key) > 0U;
         }
 
+        /// Removes the entry referenced by the provided iterator.
+        /// Purpose: supports erase-while-iterating patterns common in associative containers.
+        /// Ownership: releases the removed entry.
+        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        iterator erase(iterator position)
+        {
+            return _storage.erase(position);
+        }
+
         /// Clears all entries.
         /// Purpose: resets the container to an empty state.
         /// Ownership: retains ownership of storage.
@@ -743,6 +752,33 @@ namespace tbx
         uint get_count() const
         {
             return static_cast<uint>(_storage.size());
+        }
+
+        /// Reserves buckets for the provided number of elements.
+        /// Purpose: avoids rehash churn when the expected size is known.
+        /// Ownership: retains ownership of storage.
+        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        void reserve(size_t count)
+        {
+            _storage.reserve(count);
+        }
+
+        /// Finds an iterator to the provided key or end when missing.
+        /// Purpose: compatibility wrapper for associative-style lookups.
+        /// Ownership: does not modify or transfer ownership.
+        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        iterator find(const TKey& key)
+        {
+            return _storage.find(key);
+        }
+
+        /// Finds a const iterator to the provided key or end when missing.
+        /// Purpose: compatibility wrapper for associative-style lookups.
+        /// Ownership: does not modify or transfer ownership.
+        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        const_iterator find(const TKey& key) const
+        {
+            return _storage.find(key);
         }
 
         /// Retrieves a mutable reference to the value for the provided key, inserting a default if
@@ -864,6 +900,15 @@ namespace tbx
             return _storage.emplace(std::forward<TArgs>(args)...).second;
         }
 
+        /// Inserts a value if it is not already present.
+        /// Purpose: compatibility wrapper mirroring std::unordered_set insert semantics.
+        /// Ownership: moves or copies the provided value into owned storage.
+        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        std::pair<iterator, bool> insert(const TValue& value)
+        {
+            return _storage.insert(value);
+        }
+
         /// Removes a value when present.
         /// Purpose: supplies predictable removal semantics consistent with C# collections.
         /// Ownership: releases the removed element.
@@ -934,8 +979,10 @@ namespace tbx
     class List : public Linqable<List<TValue, TAllocator>>
     {
     public:
-        using iterator = typename List<TValue, TAllocator>::iterator;
-        using const_iterator = typename List<TValue, TAllocator>::const_iterator;
+        using iterator = typename std::vector<TValue, TAllocator>::iterator;
+        using const_iterator = typename std::vector<TValue, TAllocator>::const_iterator;
+        using reverse_iterator = typename std::vector<TValue, TAllocator>::reverse_iterator;
+        using const_reverse_iterator = typename std::vector<TValue, TAllocator>::const_reverse_iterator;
 
         /// Wraps List with LINQ-style helpers.
         /// Purpose: exposes dynamic contiguous storage with the linqable surface while presenting a
@@ -953,6 +1000,51 @@ namespace tbx
         {
         }
 
+        /// Initializes the list with a fixed number of default-constructed elements.
+        /// Purpose: mirrors common vector sizing patterns for deterministic capacities.
+        /// Ownership: constructs owned elements in-place.
+        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        explicit List(size_t count)
+            : _storage(count)
+        {
+        }
+
+        /// Initializes the list with a fixed number of copies of the provided value.
+        /// Purpose: mirrors common vector sizing patterns for deterministic contents.
+        /// Ownership: copies the provided value into owned storage.
+        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        List(size_t count, const TValue& value)
+            : _storage(count, value)
+        {
+        }
+
+        /// True if the list contains no elements.
+        /// Purpose: mirrors the emptiness checks found on STL containers.
+        /// Ownership: does not modify or transfer ownership.
+        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        bool empty() const
+        {
+            return _storage.empty();
+        }
+
+        /// Returns the number of stored elements.
+        /// Purpose: exposes the container size with a familiar name alongside get_count.
+        /// Ownership: does not modify or transfer ownership.
+        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        size_t size() const
+        {
+            return _storage.size();
+        }
+
+        /// Reserves storage for the provided number of elements.
+        /// Purpose: allows callers to preallocate capacity prior to bulk inserts.
+        /// Ownership: retains ownership of the allocated storage.
+        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        void reserve(size_t count)
+        {
+            _storage.reserve(count);
+        }
+
         /// Adds a value to the end of the list.
         /// Purpose: mirrors C# List Add semantics.
         /// Ownership: copies the provided value into owned storage.
@@ -961,6 +1053,24 @@ namespace tbx
         {
             _storage.push_back(value);
             return true;
+        }
+
+        /// Appends a value to the end of the list.
+        /// Purpose: compatibility wrapper for push_back usage in STL-like code paths.
+        /// Ownership: copies the provided value into owned storage.
+        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        void push_back(const TValue& value)
+        {
+            add(value);
+        }
+
+        /// Appends a value to the end of the list using move semantics.
+        /// Purpose: compatibility wrapper for push_back usage in STL-like code paths.
+        /// Ownership: moves the provided value into owned storage.
+        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        void push_back(TValue&& value)
+        {
+            _storage.push_back(std::move(value));
         }
 
         /// Emplaces a value at the end of the list.
@@ -981,6 +1091,24 @@ namespace tbx
         void clear()
         {
             _storage.clear();
+        }
+
+        /// Exchanges contents with another list.
+        /// Purpose: mirrors std::vector swap semantics for efficient queue rotation.
+        /// Ownership: swaps owned storage between the two lists.
+        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        void swap(List<TValue, TAllocator>& other)
+        {
+            _storage.swap(other._storage);
+        }
+
+        /// Erases the element at the provided iterator.
+        /// Purpose: mirrors vector erase semantics for compatibility with standard algorithms.
+        /// Ownership: releases the removed element.
+        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        iterator erase(iterator position)
+        {
+            return _storage.erase(position);
         }
 
         /// Retrieves the number of stored items.
@@ -1028,6 +1156,66 @@ namespace tbx
             return get_at(index);
         }
 
+        iterator begin()
+        {
+            return _storage.begin();
+        }
+
+        const_iterator begin() const
+        {
+            return _storage.begin();
+        }
+
+        const_iterator cbegin() const
+        {
+            return _storage.cbegin();
+        }
+
+        iterator end()
+        {
+            return _storage.end();
+        }
+
+        const_iterator end() const
+        {
+            return _storage.end();
+        }
+
+        const_iterator cend() const
+        {
+            return _storage.cend();
+        }
+
+        reverse_iterator rbegin()
+        {
+            return _storage.rbegin();
+        }
+
+        const_reverse_iterator rbegin() const
+        {
+            return _storage.rbegin();
+        }
+
+        const_reverse_iterator crbegin() const
+        {
+            return _storage.crbegin();
+        }
+
+        reverse_iterator rend()
+        {
+            return _storage.rend();
+        }
+
+        const_reverse_iterator rend() const
+        {
+            return _storage.rend();
+        }
+
+        const_reverse_iterator crend() const
+        {
+            return _storage.crend();
+        }
+
         /// Combines two lists into a single concatenated collection.
         /// Purpose: supports C#-style additive composition by appending items from both inputs.
         /// Ownership: the returned list owns copied values; inputs retain ownership of their
@@ -1053,7 +1241,7 @@ namespace tbx
             }
         }
 
-        List<TValue, TAllocator> _storage;
+        std::vector<TValue, TAllocator> _storage;
 
         auto& get_storage()
         {

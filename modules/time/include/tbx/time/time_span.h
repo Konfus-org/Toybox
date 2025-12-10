@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/common/int.h"
+#include "tbx/common/string.h"
 #include "tbx/tbx_api.h"
 #include <chrono>
 #include <cstdint>
@@ -31,26 +32,26 @@ namespace tbx
         // Implicit conversion to total value.
         operator int() const;
 
+        operator String() const
+        {
+            switch (unit)
+            {
+                case TimeUnit::Milliseconds:
+                    return std::to_string(value) + " ms";
+                case TimeUnit::Seconds:
+                    return std::to_string(value) + " s";
+                case TimeUnit::Minutes:
+                    return std::to_string(value) + " min";
+                case TimeUnit::Hours:
+                    return std::to_string(value) + " h";
+                case TimeUnit::Days:
+                    return std::to_string(value) + " d";
+                default:
+                    return std::to_string(value) + " (unknown unit)";
+            }
+        }
+
         uint64 value = 0;
         TimeUnit unit = TimeUnit::Milliseconds;
     };
-
-    inline String to_string(const TimeSpan& span)
-    {
-        switch (span.unit)
-        {
-            case TimeUnit::Milliseconds:
-                return std::to_string(span.value) + " ms";
-            case TimeUnit::Seconds:
-                return std::to_string(span.value) + " s";
-            case TimeUnit::Minutes:
-                return std::to_string(span.value) + " min";
-            case TimeUnit::Hours:
-                return std::to_string(span.value) + " h";
-            case TimeUnit::Days:
-                return std::to_string(span.value) + " d";
-            default:
-                return std::to_string(span.value) + " (unknown unit)";
-        }
-    }
 }

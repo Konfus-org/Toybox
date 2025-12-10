@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "tbx/common/collections.h"
+#include "tbx/common/string.h"
 #include <numeric>
 #include <string>
 
@@ -65,8 +66,8 @@ namespace tbx::tests::common
         auto map = entries.to_hash_map();
 
         EXPECT_EQ(map.get_count(), 2U);
-        EXPECT_EQ(map.get_at(1), "one");
-        EXPECT_EQ(map[2], "two");
+        EXPECT_EQ(map.get_at(1).std_str(), "one");
+        EXPECT_EQ(map[2].std_str(), "two");
 
         List<int> duplicate_values = {4, 4, 5};
         auto set = duplicate_values.to_hash_set();
@@ -91,8 +92,8 @@ namespace tbx::tests::common
         auto combined_map = map + other_map;
 
         EXPECT_EQ(combined_map.get_count(), 2U);
-        EXPECT_EQ(combined_map.get_at(2), "two");
-        EXPECT_EQ(combined_map.get_at(3), "three");
+        EXPECT_EQ(combined_map.get_at(2).std_str(), "two");
+        EXPECT_EQ(combined_map.get_at(3).std_str(), "three");
 
         HashSet<int> first_set = {1, 2};
         EXPECT_TRUE(first_set.add(3));

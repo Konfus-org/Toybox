@@ -2,7 +2,6 @@
 #include "tbx/graphics/window.h"
 #include "tbx/plugin_api/plugin.h"
 #include <SDL3/SDL.h>
-#include <string_view>
 #include <vector>
 
 namespace tbx::plugins::sdlwindowing
@@ -25,7 +24,7 @@ namespace tbx::plugins::sdlwindowing
         void on_window_is_open_changed(PropertyChangedEvent<Window, bool>& event);
         void on_window_size_changed(PropertyChangedEvent<Window, Size>& event);
         void on_window_mode_changed(PropertyChangedEvent<Window, WindowMode>& event);
-        void on_window_title_changed(PropertyChangedEvent<Window, std::string>& event);
+        void on_window_title_changed(PropertyChangedEvent<Window, String>& event);
         SdlWindowRecord find_record(std::function<bool(const SdlWindowRecord&)> condition);
         SdlWindowRecord find_record(const SDL_Window* sdl_window);
         SdlWindowRecord find_record(const Window* tbx_window);

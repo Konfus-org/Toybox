@@ -26,7 +26,7 @@ namespace tbx::plugins::spdfilelogger
             _log_directory = FilePath(std::filesystem::current_path());
         }
 
-        _log_filename_base = FilePath(std::filesystem::path(desc.name)).filename_string().std_str();
+        _log_filename_base = FilePath(std::filesystem::path(desc.name.std_str())).filename_string();
         rotate_logs(_log_directory, _log_filename_base, 10, fs);
 
         auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(

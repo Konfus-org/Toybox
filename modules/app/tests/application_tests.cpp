@@ -28,13 +28,13 @@ namespace tbx::tests::app
             FilePath("plugins"),
             List<String>{"Tbx.Logger", "Tbx.Renderer"}};
 
-        EXPECT_EQ(description.name, "Toybox.Editor");
+        EXPECT_EQ(description.name.std_str(), "Toybox.Editor");
         EXPECT_EQ(description.working_root, FilePath("/workspace"));
         EXPECT_EQ(description.assets_directory, FilePath("assets"));
         EXPECT_EQ(description.logs_directory, FilePath("logs"));
         EXPECT_EQ(description.plugins_directory, FilePath("plugins"));
         ASSERT_EQ(description.requested_plugins.size(), 2u);
-        EXPECT_EQ(description.requested_plugins[0], "Tbx.Logger");
-        EXPECT_EQ(description.requested_plugins[1], "Tbx.Renderer");
+        EXPECT_EQ(description.requested_plugins[0].std_str(), "Tbx.Logger");
+        EXPECT_EQ(description.requested_plugins[1].std_str(), "Tbx.Renderer");
     }
 }

@@ -1,9 +1,9 @@
 #pragma once
+#include "tbx/common/collections.h"
+#include "tbx/common/string.h"
 #include "tbx/file_system/filepath.h"
 #include "tbx/plugin_api/plugin_linkage.h"
 #include "tbx/tbx_api.h"
-#include <string>
-#include <vector>
 
 namespace tbx
 {

@@ -1,7 +1,6 @@
 #include "tbx/plugin_api/plugin_registry.h"
-#include "tbx/common/string_extensions.h"
+#include "tbx/common/string.h"
 #include <algorithm>
-#include <string>
 
 namespace tbx
 {
@@ -16,21 +15,34 @@ namespace tbx
         if (std::ranges::find(_plugins, plugin) == _plugins.end())
         {
             _plugins.push_back(plugin);
-            _plugins_by_name[to_lower_case_string(name)] = plugin;
+            _plugins_by_name[name.to_lower()] = plugin;
         }
     }
 
     void PluginRegistry::unregister_plugin(const String& name)
     {
-        const String lowered = to_lower_case_string(name);
-        auto p = _plugins_by_name.at(lowered);
-        _plugins_by_name.erase(lowered);
-        std::erase(_plugins, p);
+        const String lowered = name.to_lower();
+        auto it = _plugins_by_name.find(lowered);
+        if (it == _plugins_by_name.end())
+        {
+            return;
+        }
+
+        auto list_it = std::ranges::find(_plugins, it->second);
+        if (list_it != _plugins.end())
+        {
+            _plugins.erase(list_it);
+        }
+        _plugins_by_name.remove(lowered);
     }
 
     void PluginRegistry::unregister_plugin(Plugin* plugin)
     {
-        std::erase(_plugins, plugin);
+        auto list_it = std::ranges::find(_plugins, plugin);
+        if (list_it != _plugins.end())
+        {
+            _plugins.erase(list_it);
+        }
         for (auto map_it = _plugins_by_name.begin(); map_it != _plugins_by_name.end();)
         {
             if (map_it->second == plugin)
@@ -56,7 +68,7 @@ namespace tbx
             return nullptr;
         }
 
-        const String key = to_lower_case_string(name);
+        const String key = name.to_lower();
         const auto it = _plugins_by_name.find(key);
         if (it == _plugins_by_name.end())
         {

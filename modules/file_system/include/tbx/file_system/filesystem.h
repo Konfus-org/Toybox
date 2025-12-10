@@ -1,9 +1,7 @@
 #pragma once
+#include "tbx/common/collections.h"
 #include "tbx/file_system/filepath.h"
 #include "tbx/tbx_api.h"
-#include <string>
-#include <string_view>
-#include <vector>
 
 namespace tbx
 {
@@ -64,7 +62,7 @@ namespace tbx
         bool create_directory(const FilePath& path) override;
         bool create_file(const FilePath& path) override;
         bool read_file(const FilePath& path, String& out, FileDataFormat format) const override;
-        bool write_file(const FilePath& path, String_view data, FileDataFormat format) override;
+        bool write_file(const FilePath& path, const String& data, FileDataFormat format) override;
         bool remove(const FilePath& path) override;
         bool rename(const FilePath& from, const FilePath& to) override;
         bool copy(const FilePath& from, const FilePath& to) override;

@@ -3,7 +3,6 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/observable.h"
 #include <algorithm>
-#include <string>
 #include <utility>
 
 namespace tbx::plugins::sdlwindowing
@@ -131,7 +130,7 @@ namespace tbx::plugins::sdlwindowing
         if (on_property_changed(
                 msg,
                 &Window::title,
-                [this](PropertyChangedEvent<Window, std::string>& event)
+                [this](PropertyChangedEvent<Window, String>& event)
                 {
                     on_window_title_changed(event);
                 }))
@@ -154,7 +153,7 @@ namespace tbx::plugins::sdlwindowing
         {
             Window* window = event.owner;
 
-            std::string& title = window->title;
+            String& title = window->title;
             Size& size = window->size;
             const WindowMode& mode = window->mode;
 
@@ -218,7 +217,7 @@ namespace tbx::plugins::sdlwindowing
     }
 
     void SdlWindowingPlugin::on_window_title_changed(
-        PropertyChangedEvent<Window, std::string>& event)
+        PropertyChangedEvent<Window, String>& event)
     {
         SdlWindowRecord record = find_record(event.owner);
         if (record.sdl_window)

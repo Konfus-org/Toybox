@@ -24,12 +24,12 @@ namespace tbx::tests::plugin_api
         PluginMeta meta =
             parse_plugin_meta(manifest_text, manifest_path);
 
-        EXPECT_EQ(meta.name, "Example.Logger");
-        EXPECT_EQ(meta.version, "1.2.3");
-        EXPECT_EQ(meta.description, "Example description");
-        EXPECT_EQ(meta.type, "logger");
+        EXPECT_EQ(meta.name.std_str(), "Example.Logger");
+        EXPECT_EQ(meta.version.std_str(), "1.2.3");
+        EXPECT_EQ(meta.description.std_str(), "Example description");
+        EXPECT_EQ(meta.type.std_str(), "logger");
         ASSERT_EQ(meta.dependencies.size(), 1u);
-        EXPECT_EQ(meta.dependencies[0], "Core.Renderer");
+        EXPECT_EQ(meta.dependencies[0].std_str(), "Core.Renderer");
         EXPECT_EQ(meta.root_directory, manifest_path.parent_path());
         EXPECT_EQ(meta.manifest_path, manifest_path);
         EXPECT_EQ(meta.module_path, FilePath(manifest_path.parent_path().std_path() / "bin/logger.so"));
@@ -51,7 +51,7 @@ namespace tbx::tests::plugin_api
         PluginMeta meta =
             parse_plugin_meta(manifest_text, manifest_path);
 
-        EXPECT_EQ(meta.type, "plugin");
+        EXPECT_EQ(meta.type.std_str(), "plugin");
     }
 
     /// <summary>
@@ -106,7 +106,7 @@ namespace tbx::tests::plugin_api
 
         List<PluginMeta> load_order = resolve_plugin_load_order(unordered);
         ASSERT_EQ(load_order.size(), 4u);
-        EXPECT_EQ(load_order[0].name, "Logging.Core");
+        EXPECT_EQ(load_order[0].name.std_str(), "Logging.Core");
 
         auto find_plugin = [](const List<PluginMeta>& plugins, const String& id)
         {

@@ -101,7 +101,7 @@ namespace tbx::tests::common
             collected.push_back(c);
         }
 
-        EXPECT_EQ(collected, "abc");
+        EXPECT_EQ(collected.std_str(), "abc");
     }
 
     TEST(StringTests, SupportsConcatenationAndEquality)

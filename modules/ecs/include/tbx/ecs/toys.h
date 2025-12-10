@@ -1,4 +1,6 @@
 #pragma once
+#include "tbx/common/collections.h"
+#include "tbx/common/string.h"
 #include "tbx/common/uuid.h"
 #include "tbx/ecs/entity.h"
 #include "tbx/ecs/registry.h"
@@ -88,6 +90,13 @@ namespace tbx
             return _registry->view<Block...>();
         }
 
+        operator String() const
+        {
+            const auto& desc = get_description();
+            return String("Toy(ID: ") + to_string(get_id()) + ", Name: " + desc.name + ", Tag: "
+                   + desc.tag + ", Layer: " + desc.layer + ")";
+        }
+
       private:
         EcsRegistry* _registry;
         EntityHandle _handle;
@@ -146,6 +155,11 @@ namespace tbx
             return _registry;
         }
 
+        operator String() const
+        {
+            return String("Stage(ID: ") + to_string(get_id()) + ", Name: " + get_name() + ")";
+        }
+
         Toy add_toy(
             const String& name,
             const String& tag = "",
@@ -175,7 +189,7 @@ namespace tbx
             List<Toy> toys = {};
             auto view = _registry.view<ToyDescription>();
             for (auto entity : view)
-                toys.emplace_back(_registry, entity);
+                toys.emplace(_registry, entity);
             return toys;
         }
 
@@ -185,7 +199,7 @@ namespace tbx
             List<Toy> toys = {};
             auto view = _registry.view<Block...>();
             for (auto entity : view)
-                toys.emplace_back(_registry, entity);
+                toys.emplace(_registry, entity);
             return toys;
         }
 
@@ -195,15 +209,4 @@ namespace tbx
         EcsRegistry _registry = {};
     };
 
-    inline String to_string(const Toy& t)
-    {
-        const auto& desc = t.get_description();
-        return "Toy(ID: " + to_string(t.get_id()) + ", Name: " + desc.name + ", Tag: " + desc.tag
-               + ", Layer: " + desc.layer + ")";
-    }
-
-    inline String to_string(const Stage& s)
-    {
-        return "Stage(ID: " + to_string(s.get_id()) + ", Name: " + s.get_name() + ")";
-    }
 }

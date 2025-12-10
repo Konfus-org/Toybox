@@ -1,17 +1,16 @@
 #include "tbx/plugin_api/plugin.h"
+#include "tbx/common/string.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/result.h"
-#include <string>
-#include <string_view>
 
 namespace tbx
 {
-    Result Plugin::dispatcher_missing_result(String_view action)
+    Result Plugin::dispatcher_missing_result(const String& action)
     {
         Result result;
         result.flag_failure(
-            "Plugin cannot " + String(action)
+            String("Plugin cannot ") + String(action)
             + " because it is not attached to a dispatcher.");
         return result;
     }
