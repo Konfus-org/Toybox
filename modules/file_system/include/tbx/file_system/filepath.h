@@ -28,7 +28,8 @@ namespace tbx
         FilePath parent_path() const;
         FilePath filename() const;
         String filename_string() const;
-        FilePath replace_extension(std::string_view extension) const;
+        FilePath set_extension(const String& extension) const;
+        FilePath replace_extension(const String& extension) const;
         FilePath append(std::string_view component) const;
 
         const std::filesystem::path& std_path() const;

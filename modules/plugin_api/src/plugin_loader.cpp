@@ -32,7 +32,7 @@ namespace tbx
         if (module_path.get_extension().empty())
         {
 #if defined(TBX_PLATFORM_WINDOWS)
-            module_path = module_path.replace_extension(".dll");
+            module_path = module_path.set_extension(".dll");
 #elif defined(TBX_PLATFORM_MACOS)
             const String file_name = module_path.filename_string();
             if (!file_name.starts_with("lib"))
@@ -40,7 +40,7 @@ namespace tbx
                 module_path =
                     module_path.parent_path().append(std::string("lib") + file_name.std_str());
             }
-            module_path = module_path.replace_extension(".dylib");
+            module_path = module_path.set_extension(".dylib");
 #else
             const String file_name = module_path.filename_string();
             if (!file_name.starts_with("lib"))
@@ -48,7 +48,7 @@ namespace tbx
                 module_path =
                     module_path.parent_path().append(std::string("lib") + file_name.std_str());
             }
-            module_path = module_path.replace_extension(".so");
+            module_path = module_path.set_extension(".so");
 #endif
         }
 
@@ -134,7 +134,7 @@ namespace tbx
 
                 const String name = entry.filename_string();
                 const std::string lowered_name = to_lower_case_string(name);
-                if (entry.get_extension() == ".meta" || lowered_name == "plugin.meta")
+                if (entry.get_extension().std_str() == ".meta" || lowered_name == "plugin.meta")
                 {
                     try
                     {

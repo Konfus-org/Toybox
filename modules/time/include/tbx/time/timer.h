@@ -22,6 +22,9 @@ namespace tbx
             std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now(),
             CancellationSource cancellation_source = CancellationSource());
 
+        Timer& operator=(const Timer& other);
+        Timer& operator=(Timer&& other);
+
         void reset();
 
         bool tick(std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now());

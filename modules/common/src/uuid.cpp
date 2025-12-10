@@ -1,4 +1,5 @@
 #include "tbx/common/uuid.h"
+#include "tbx/common/string.h"
 #include <random>
 #include <sstream>
 #include <string>
@@ -61,6 +62,13 @@ namespace tbx
         return value;
     }
 
+    Uuid::operator String() const
+    {
+        std::ostringstream stream = {};
+        stream << std::hex << value;
+        return String(stream.str());
+    }
+
     bool Uuid::operator==(const Uuid& other) const
     {
         return value == other.value;
@@ -75,6 +83,14 @@ namespace tbx
     {
         return id.value;
     }
+    std::ostream& operator<<(std::ostream& stream, const Uuid& id)
+    {
+        std::ios_base::fmtflags previous_flags = stream.flags();
+        stream << std::hex << id.value;
+        stream.flags(previous_flags);
+        return stream;
+    }
+
 
     std::string to_string(const Uuid& id)
     {

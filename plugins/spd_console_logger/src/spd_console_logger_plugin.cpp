@@ -24,20 +24,20 @@ namespace tbx::plugins::spdconsolelogger
             msg,
             [this](LogMessageRequest& log)
             {
-                const auto filename = FilePath(log.file).filename_string();
+                const auto filename = FilePath(log.file).filename_string().std_str();
                 switch (log.level)
                 {
                     case LogLevel::Info:
-                        _logger->info("[{}:{}] {}", filename, log.line, log.message);
+                        _logger->info("[{}:{}] {}", filename, log.line, log.message.std_str());
                         break;
                     case LogLevel::Warning:
-                        _logger->warn("[{}:{}] {}", filename, log.line, log.message);
+                        _logger->warn("[{}:{}] {}", filename, log.line, log.message.std_str());
                         break;
                     case LogLevel::Error:
-                        _logger->error("[{}:{}] {}", filename, log.line, log.message);
+                        _logger->error("[{}:{}] {}", filename, log.line, log.message.std_str());
                         break;
                     case LogLevel::Critical:
-                        _logger->critical("[{}:{}] {}", filename, log.line, log.message);
+                        _logger->critical("[{}:{}] {}", filename, log.line, log.message.std_str());
                         break;
                 }
                 _logger->flush();

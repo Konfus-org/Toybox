@@ -6,6 +6,12 @@
 
 namespace tbx
 {
+    Camera::Camera()
+        : _target_surface()
+    {
+        set_perspective(_fov, _aspect, _z_near, _z_far);
+    }
+
     Camera::Camera(const RenderSurface& surface)
         : _target_surface(surface)
     {
@@ -47,6 +53,46 @@ namespace tbx
             set_perspective(_fov, aspect, _z_near, _z_far);
         else
             set_orthographic(_fov, aspect, _z_near, _z_far);
+    }
+
+    bool Camera::is_perspective() const
+    {
+        return _is_perspective;
+    }
+
+    bool Camera::is_orthographic() const
+    {
+        return !_is_perspective;
+    }
+
+    float Camera::get_aspect() const
+    {
+        return _aspect;
+    }
+
+    float Camera::get_fov() const
+    {
+        return _fov;
+    }
+
+    float Camera::get_z_near() const
+    {
+        return _z_near;
+    }
+
+    float Camera::get_z_far() const
+    {
+        return _z_far;
+    }
+
+    const Mat4& Camera::get_projection_matrix() const
+    {
+        return _projection_matrix;
+    }
+
+    const RenderSurface& Camera::get_surface()
+    {
+        return _target_surface;
     }
 }
 

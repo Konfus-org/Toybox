@@ -1,4 +1,4 @@
-#pragma once
+#pragma once
 #include "tbx/tbx_api.h"
 #include <string>
 
@@ -25,16 +25,16 @@ namespace tbx
         // Builds bounds for a perspective projection using the provided FOV, aspect ratio, and
         // near plane. Ownership: returns a bounds instance by value; the caller owns the copy.
         // Thread Safety: stateless; safe to call concurrently.
-        static Bounds from_perspective_projection(float fov, float aspectRatio, float zNear);
+        static Bounds from_perspective_projection(float fov, float aspect_ratio, float z_near);
 
         float left = 0.0f;
         float right = 0.0f;
         float top = 0.0f;
         float bottom = 0.0f;
     };
-
-    // Converts bounds into a descriptive string for debugging.
-    // Ownership: returns a string by value; the caller owns the result.
-    // Thread Safety: stateless; safe to call concurrently.
-    TBX_API std::string to_string(const Bounds& bounds);
-}
+
+    // Converts bounds into a descriptive string for debugging.
+    // Ownership: returns a string by value; the caller owns the result.
+    // Thread Safety: stateless; safe to call concurrently.
+    TBX_API std::string to_string(const Bounds& bounds);
+}

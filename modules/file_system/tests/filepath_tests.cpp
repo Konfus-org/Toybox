@@ -1,7 +1,15 @@
 #include "gtest/gtest.h"
 #include "tbx/file_system/filepath.h"
+#include <chrono>
 #include <filesystem>
 #include <fstream>
+
+static std::filesystem::path make_unique_path(const std::string& token)
+{
+    const auto timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
+    auto base = std::filesystem::temp_directory_path() / (token + "_");
+    return base / std::to_string(timestamp);
+}
 
 TEST(FilePathTests, SanitizesUnsupportedPathComponents)
 {
@@ -14,7 +22,7 @@ TEST(FilePathTests, ProvidesFilenameAndParent)
 {
     tbx::FilePath path("dir/sub/file.txt");
 
-    EXPECT_EQ(path.filename_string(), "file.txt");
+    EXPECT_EQ(path.filename_string().std_str(), "file.txt");
     EXPECT_EQ(path.parent_path().std_path(), std::filesystem::path("dir/sub"));
 }
 
@@ -34,22 +42,21 @@ TEST(FilePathTests, ReplacesExtensionsAndHandlesEmptyInput)
     EXPECT_EQ(path.std_path(), std::filesystem::path("unnamed"));
 
     tbx::FilePath ext_path("file.old");
-    auto replaced = ext_path.replace_extension(".txt");
+    auto replaced = ext_path.set_extension(".txt");
 
-    EXPECT_EQ(replaced.filename_string(), "file.txt");
+    EXPECT_EQ(replaced.filename_string().std_str(), "file.txt");
 }
 
 TEST(FilePathTests, ReturnsFileExtension)
 {
     tbx::FilePath path("file.meta");
-    EXPECT_EQ(path.get_extension(), ".meta");
+
+    EXPECT_EQ(path.get_extension().std_str(), ".meta");
 }
 
 TEST(FilePathTests, DetectsFileTypes)
 {
-    auto temp_dir = std::filesystem::temp_directory_path()
-                    / std::filesystem::path("tbx_fp_type_test_%%%%%%");
-    auto unique_dir = std::filesystem::unique_path(temp_dir);
+    auto unique_dir = make_unique_path("tbx_fp_type_test");
     std::filesystem::create_directories(unique_dir);
 
     tbx::FilePath dir_path(unique_dir);
