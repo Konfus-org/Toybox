@@ -1,7 +1,5 @@
 #include "pch.h"
 #include "tbx/time/timer.h"
-#include <chrono>
-#include <thread>
 
 namespace tbx::tests::time
 {
@@ -15,18 +13,15 @@ namespace tbx::tests::time
             time_up = true;
         };
 
-        auto now = std::chrono::steady_clock::now();
-        timer = Timer(TimeSpan {}, now);
+        timer = Timer(TimeSpan {});
 
-        EXPECT_FALSE(timer.tick(now));
+        EXPECT_FALSE(timer.tick(TimeSpan {}));
         EXPECT_TRUE(time_up);
     }
 
     TEST(timer_timespan, waits_for_duration)
     {
-        using namespace std::chrono_literals;
-
-        Timer timer(TimeSpan {}, std::chrono::steady_clock::now());
+        Timer timer(TimeSpan {});
         bool time_up = false;
         timer.time_up_callback = [&]()
         {
@@ -43,18 +38,18 @@ namespace tbx::tests::time
         span.value = 5;
         span.unit = TimeUnit::Milliseconds;
 
-        auto start = std::chrono::steady_clock::now();
-        timer = Timer(span, start);
+        timer = Timer(span);
         timer.time_up_callback = [&]()
         {
             time_up = true;
         };
 
-        EXPECT_TRUE(timer.tick(start));
+        EXPECT_TRUE(timer.tick({1, TimeUnit::Milliseconds}));
         EXPECT_TRUE(tick_called);
-        std::this_thread::sleep_for(6ms);
+        EXPECT_EQ(timer.time_left.value, 4);
         tick_called = false;
-        EXPECT_FALSE(timer.tick(std::chrono::steady_clock::now()));
+
+        EXPECT_FALSE(timer.tick({5, TimeUnit::Milliseconds}));
         EXPECT_FALSE(tick_called);
         EXPECT_TRUE(time_up);
     }
@@ -71,9 +66,9 @@ namespace tbx::tests::time
         EXPECT_FALSE(timer.cancellation_source.is_cancelled());
         timer.cancellation_source.cancel();
         EXPECT_FALSE(cancelled);
-        EXPECT_FALSE(timer.tick());
+        EXPECT_FALSE(timer.tick(TimeSpan {}));
         EXPECT_TRUE(cancelled);
         EXPECT_TRUE(timer.cancellation_source.is_cancelled());
-        EXPECT_FALSE(timer.tick());
+        EXPECT_FALSE(timer.tick(TimeSpan {}));
     }
 }

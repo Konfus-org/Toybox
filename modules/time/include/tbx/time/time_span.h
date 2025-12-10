@@ -9,7 +9,6 @@ namespace tbx
 {
     enum TimeUnit
     {
-        Ticks,
         Milliseconds,
         Seconds,
         Minutes,
@@ -40,8 +39,6 @@ namespace tbx
     {
         switch (span.unit)
         {
-            case TimeUnit::Ticks:
-                return std::to_string(span.value) + " ticks";
             case TimeUnit::Milliseconds:
                 return std::to_string(span.value) + " ms";
             case TimeUnit::Seconds:
