@@ -1,7 +1,6 @@
 #include "tbx/file_system/filesystem.h"
 #include <filesystem>
 #include <fstream>
-#include <string_view>
 #include <system_error>
 #include <utility>
 
@@ -19,7 +18,7 @@ namespace tbx
     static FilePath choose_directory(
         const FilePath& working_directory,
         const FilePath& candidate,
-        String_view folder_name)
+        const String& folder_name)
     {
         if (!candidate.empty())
             return resolve_with_working(working_directory, candidate);
@@ -27,7 +26,7 @@ namespace tbx
         if (working_directory.empty())
             return FilePath(folder_name);
 
-        return FilePath(working_directory.std_path() / folder_name);
+        return FilePath(working_directory.std_path() / folder_name.std_str());
     }
 
     FileSystem::FileSystem(
@@ -110,7 +109,7 @@ namespace tbx
              it != end && !ec;
              ++it)
         {
-            entries.emplace_back(it->path());
+            entries.emplace(it->path());
         }
         return entries;
     }
@@ -155,18 +154,19 @@ namespace tbx
         // Strip UTF-8 BOM for text mode; binary payloads are left untouched.
         if (!binary && contents.size() >= 3)
         {
-            const unsigned char bom0 = static_cast<unsigned char>(contents[0]);
-            const unsigned char bom1 = static_cast<unsigned char>(contents[1]);
-            const unsigned char bom2 = static_cast<unsigned char>(contents[2]);
+            const std::string& storage = contents.std_str();
+            const unsigned char bom0 = static_cast<unsigned char>(storage[0]);
+            const unsigned char bom1 = static_cast<unsigned char>(storage[1]);
+            const unsigned char bom2 = static_cast<unsigned char>(storage[2]);
             if (bom0 == 0xEF && bom1 == 0xBB && bom2 == 0xBF)
                 contents.erase(0, 3);
         }
 
-        out = std::move(contents);
+        out = contents;
         return true;
     }
 
-    bool FileSystem::write_file(const FilePath& path, String_view data, FileDataFormat format)
+    bool FileSystem::write_file(const FilePath& path, const String& data, FileDataFormat format)
     {
         const FilePath resolved = resolve_relative_path(path);
         const bool binary = format == FileDataFormat::Binary;
@@ -178,7 +178,7 @@ namespace tbx
         if (!stream.is_open())
             return false;
 
-        stream.write(data.data(), static_cast<std::streamsize>(data.size()));
+        stream.write(data.c_str(), static_cast<std::streamsize>(data.size()));
         return stream.good();
     }
 

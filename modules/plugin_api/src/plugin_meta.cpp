@@ -1,28 +1,69 @@
 #include "tbx/plugin_api/plugin_meta.h"
 #include "tbx/common/collections.h"
-#include "tbx/common/strings.h"
+#include "tbx/common/string.h"
 #include <deque>
 #include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
-#include <string>
 #include <unordered_map>
 #include <unordered_set>
 
 namespace tbx
 {
+    static String require_string(const nlohmann::json& data, const String& key)
+    {
+        const std::string json_key(key.std_str());
+        auto it = data.find(json_key);
+        if (it == data.end() || !it->is_string())
+        {
+            throw std::runtime_error((String("Required string field '") + key + "'").std_str());
+        }
+        return String(it->get<std::string>()).trim();
+    }
+
+    static String parse_type(const nlohmann::json& data)
+    {
+        auto it = data.find("type");
+        if (it != data.end() && it->is_string())
+        {
+            return String(it->get<std::string>()).trim();
+        }
+        return {};
+    }
+
+    static void assign_string_list(const nlohmann::json& data, const String& key, List<String>& target)
+    {
+        const std::string json_key(key.std_str());
+        auto it = data.find(json_key);
+        if (it == data.end())
+            return;
+
+        if (!it->is_array())
+        {
+            throw std::runtime_error((String("Expected array for field '") + key + "'").std_str());
+        }
+
+        for (const auto& entry : *it)
+        {
+            if (entry.is_string())
+            {
+                target.push_back(String(entry.get<std::string>()).trim());
+            }
+        }
+    }
+
     /// <summary>
     /// Resolves dependency tokens against plugin identifiers and type tags.
     /// </summary>
-    static List<uint> resolve_dependency(
+    static List<size_t> resolve_dependency(
         const String& token,
-        uint self_index,
-        const HashMap<String, uint>& by_name,
-        const HashMap<String, List<uint>>& by_type)
+        size_t self_index,
+        const HashMap<String, size_t>& by_name,
+        const HashMap<String, List<size_t>>& by_type)
     {
-        List<uint> matches;
-        HashSet<uint> unique;
+        List<size_t> matches;
+        HashSet<size_t> unique;
         String needle = token.trim().to_lower();
         auto id_it = by_name.find(needle);
         if (id_it != by_name.end())
@@ -50,8 +91,7 @@ namespace tbx
     /// </summary>
     static bool is_logger_type(const String& type)
     {
-        String lower = to_lower_case_string(type);
-        return lower.find("logger") != String::npos;
+        return type.to_lower().contains("logger");
     }
 
     /// <summary>
@@ -80,14 +120,15 @@ namespace tbx
         auto description_it = data.find("description");
         if (description_it != data.end() && description_it->is_string())
         {
-            meta.description = trim_string(description_it->get<String>());
+            meta.description = String(description_it->get<std::string>()).trim();
         }
         auto module_it = data.find("module");
         if (module_it != data.end() && module_it->is_string())
         {
-            std::filesystem::path module_path = trim_string(module_it->get<String>());
-            if (!module_path.empty())
+            String module_value = String(module_it->get<std::string>()).trim();
+            if (!module_value.empty())
             {
+                std::filesystem::path module_path(module_value.std_str());
                 if (module_path.is_absolute() || meta.root_directory.empty())
                 {
                     meta.module_path = FilePath(module_path);
@@ -123,8 +164,8 @@ namespace tbx
         std::ifstream stream(manifest_path.std_path());
         if (!stream.is_open())
         {
-            TBX_ASSERT(false, "Unable to open plugin manifest: ") + manifest_path.std_path().string());
-            return {};
+            throw std::runtime_error(
+                std::string("Unable to open plugin manifest: ") + manifest_path.std_path().string());
         }
 
         nlohmann::json data = nlohmann::json::parse(stream, nullptr, true, true);
@@ -136,15 +177,15 @@ namespace tbx
     /// </summary>
     List<PluginMeta> resolve_plugin_load_order(const List<PluginMeta>& plugins)
     {
-        std::unordered_map<String, size_t> by_name;
-        std::unordered_map<String, List<size_t>> by_type;
+        HashMap<String, size_t> by_name;
+        HashMap<String, List<size_t>> by_type;
         for (size_t index = 0; index < plugins.size(); index += 1)
         {
             const PluginMeta& meta = plugins[index];
-            by_name.emplace(to_lower_case_string(meta.name), index);
+            by_name.emplace(meta.name.to_lower(), index);
             if (!meta.type.empty())
             {
-                by_type[to_lower_case_string(meta.type)].push_back(index);
+                by_type[meta.type.to_lower()].push_back(index);
             }
         }
 
@@ -152,15 +193,16 @@ namespace tbx
         for (size_t index = 0; index < plugins.size(); index += 1)
         {
             const PluginMeta& meta = plugins[index];
-            std::unordered_set<size_t> unique;
+            HashSet<size_t> unique;
             for (const String& token : meta.dependencies)
             {
                 List<size_t> matches = resolve_dependency(token, index, by_name, by_type);
                 if (matches.empty())
                 {
                     throw std::runtime_error(
-                        String("Failed to resolve hard dependency '") + token + "' for plugin '"
-                        + meta.name + "'");
+                        (String("Failed to resolve hard dependency '") + token + "' for plugin '"
+                         + meta.name + "'")
+                            .std_str());
                 }
                 for (size_t candidate : matches)
                 {

@@ -2,7 +2,6 @@
 #include "tbx/common/string.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
-#include <string_view>
 
 namespace tbx
 {
@@ -18,7 +17,6 @@ namespace tbx
     {
         FilePath() = default;
         FilePath(const char* value);
-        FilePath(String_view value);
         FilePath(const String& value);
         FilePath(std::filesystem::path value);
 
@@ -30,7 +28,7 @@ namespace tbx
         String filename_string() const;
         FilePath set_extension(const String& extension) const;
         FilePath replace_extension(const String& extension) const;
-        FilePath append(String_view component) const;
+        FilePath append(const String& component) const;
 
         const std::filesystem::path& std_path() const;
 
@@ -40,7 +38,7 @@ namespace tbx
 
       private:
         static std::filesystem::path sanitize_path(const std::filesystem::path& path);
-        static String sanitize_component(String_view name);
+        static String sanitize_component(const String& name);
         std::filesystem::path _path;
     };
 }

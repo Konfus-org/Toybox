@@ -78,13 +78,17 @@ namespace tbx::tests::plugin_loader
             const String prefix = resolve_relative_path(root).std_path().generic_string();
             for (const auto& dir : directories)
             {
-                if (dir.rfind(prefix, 0) == 0)
-                    entries.emplace_back(std::filesystem::path(dir));
+                if (dir.starts_with(prefix))
+                {
+                    entries.push_back(std::filesystem::path(dir.std_str()));
+                }
             }
             for (const auto& [file_path, _] : files)
             {
-                if (file_path.rfind(prefix, 0) == 0)
-                    entries.emplace_back(std::filesystem::path(file_path));
+                if (file_path.starts_with(prefix))
+                {
+                    entries.push_back(std::filesystem::path(file_path.std_str()));
+                }
             }
             return entries;
         }
@@ -107,9 +111,9 @@ namespace tbx::tests::plugin_loader
             return true;
         }
 
-        bool write_file(const FilePath& path, String_view data, FileDataFormat) override
+        bool write_file(const FilePath& path, const String& data, FileDataFormat) override
         {
-            files[resolve_relative_path(path).std_path().generic_string()] = String(data);
+            files[resolve_relative_path(path).std_path().generic_string()] = data;
             return true;
         }
 

@@ -21,10 +21,10 @@ namespace tbx
         PluginMeta meta;
         Scope<SharedLibrary> library; // only set for dynamic plugins
         PluginInstance instance;
-    };
 
-    inline String to_string(const LoadedPlugin& plugin)
-    {
-        return "Name=" + plugin.meta.name + ", Version=" + plugin.meta.version;
-    }
+        operator String() const
+        {
+            return String("Name=") + meta.name + ", Version=" + meta.version;
+        }
+    };
 }

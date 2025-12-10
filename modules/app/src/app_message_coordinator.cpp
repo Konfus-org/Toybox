@@ -141,7 +141,7 @@ namespace tbx
         dispatch_state_callbacks(msg, msg.state);
     }
 
-    static bool cancel_if_requested(Message& msg, const String_view reason = "")
+    static bool cancel_if_requested(Message& msg, const String& reason = String())
     {
         if (!msg.cancellation_token || !msg.cancellation_token.is_cancelled())
             return false;
@@ -149,8 +149,7 @@ namespace tbx
         if (msg.state == MessageState::Cancelled)
             return true;
 
-        String resolved =
-            reason.empty() ? String("Message was cancelled.") : String(reason);
+        String resolved = reason.empty() ? String("Message was cancelled.") : reason;
         apply_state(msg, MessageState::Cancelled, resolved);
 
         return true;
@@ -170,7 +169,7 @@ namespace tbx
     {
         std::lock_guard lock(_handlers_mutex);
         Uuid id = Uuid::generate();
-        _handlers.emplace_back(id, std::move(handler));
+        _handlers.emplace(id, std::move(handler));
         return id;
     }
 
@@ -183,7 +182,7 @@ namespace tbx
         {
             if (entry.first != token)
             {
-                next.emplace_back(std::move(entry));
+                next.push_back(std::move(entry));
             }
         }
         _handlers.swap(next);
@@ -280,7 +279,7 @@ namespace tbx
         auto future = completion->get_future();
 
         auto lock = std::lock_guard<std::mutex>(_queue_mutex);
-        _pending.emplace_back(std::move(msg), completion);
+        _pending.emplace(std::move(msg), completion);
 
         return future;
     }

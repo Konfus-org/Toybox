@@ -1,5 +1,4 @@
 #include "tbx/common/string.h"
-#include "tbx/common/string_extensions.h"
 #include <algorithm>
 #include <cctype>
 
@@ -10,39 +9,65 @@ namespace tbx
     {
     }
 
-    String::String(String value)
-        : _value(std::move(value))
+    String::String(const std::string& value)
+        : _value(value)
     {
     }
 
-    String::String(String_view value)
+    String::String(std::string&& value)
         : _value(value)
     {
     }
 
     String String::trim() const
     {
-        return String(trim_string(_value));
+        auto begin = _value.begin();
+        auto end = _value.end();
+        while (begin != end && std::isspace(static_cast<unsigned char>(*begin)) != 0)
+        {
+            ++begin;
+        }
+
+        while (end != begin)
+        {
+            auto last = end - 1;
+            if (std::isspace(static_cast<unsigned char>(*last)) == 0)
+            {
+                break;
+            }
+            end = last;
+        }
+
+        return String(begin, end);
     }
 
     String String::remove_whitespace() const
     {
         String cleaned = _value;
-        cleaned.erase(
+        cleaned._value.erase(
             std::remove_if(
-                cleaned.begin(),
-                cleaned.end(),
+                cleaned._value.begin(),
+                cleaned._value.end(),
                 [](unsigned char ch)
                 {
                     return std::isspace(ch) != 0;
                 }),
-            cleaned.end());
-        return String(std::move(cleaned));
+            cleaned._value.end());
+        return cleaned;
     }
 
     String String::to_lower() const
     {
-        return String(to_lower_case_string(_value));
+        String lowered = _value;
+        std::transform(
+            lowered.begin(),
+            lowered.end(),
+            lowered.begin(),
+            [](unsigned char ch)
+            {
+                return static_cast<char>(std::tolower(ch));
+            });
+        return lowered;
     }
 
     String String::to_upper() const
@@ -56,22 +81,22 @@ namespace tbx
             {
                 return static_cast<char>(std::toupper(ch));
             });
-        return String(std::move(upper));
+        return upper;
     }
 
-    bool String::starts_with(String_view prefix) const
+    bool String::starts_with(const String& prefix) const
     {
-        return _value.starts_with(prefix);
+        return _value.starts_with(prefix._value);
     }
 
-    bool String::ends_with(String_view suffix) const
+    bool String::ends_with(const String& suffix) const
     {
-        return _value.ends_with(suffix);
+        return _value.ends_with(suffix._value);
     }
 
-    bool String::contains(String_view needle) const
+    bool String::contains(const String& needle) const
     {
-        return _value.find(needle) != String::npos;
+        return _value.find(needle._value) != std::string::npos;
     }
 
     bool String::empty() const
@@ -89,14 +114,20 @@ namespace tbx
         return std::filesystem::path(_value);
     }
 
-    const String& String::std_str() const
+    const std::string& String::std_str() const
     {
         return _value;
     }
 
-    String& String::std_str()
+    String& String::erase(size_t position, size_t count)
     {
-        return _value;
+        _value.erase(position, count);
+        return *this;
+    }
+
+    void String::push_back(char value)
+    {
+        _value.push_back(value);
     }
 
     const char* String::c_str() const
@@ -104,12 +135,7 @@ namespace tbx
         return _value.c_str();
     }
 
-    String::operator String_view() const
-    {
-        return _value;
-    }
-
-    String::operator const String&() const
+    String::operator const std::string&() const
     {
         return _value;
     }

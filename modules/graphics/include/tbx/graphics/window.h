@@ -1,9 +1,9 @@
 #pragma once
+#include "tbx/common/string.h"
 #include "tbx/math/size.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/observable.h"
 #include "tbx/tbx_api.h"
-#include <string>
 
 namespace tbx
 {

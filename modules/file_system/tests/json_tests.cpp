@@ -28,9 +28,9 @@ namespace tbx::tests::file_system
         String name;
 
         EXPECT_TRUE(json.try_get_string("name", name));
-        EXPECT_EQ(name, "temp");
+        EXPECT_EQ(name.std_str(), "temp");
 
         const String serialized = json.to_string(2);
-        EXPECT_NE(serialized.find("\"name\""), String::npos);
+        EXPECT_NE(serialized.std_str().find("\"name\""), std::string::npos);
     }
 }

@@ -1,8 +1,7 @@
 #pragma once
+#include "tbx/common/collections.h"
+#include "tbx/common/string.h"
 #include "tbx/tbx_api.h"
-#include <string>
-#include <unordered_map>
-#include <vector>
 
 namespace tbx
 {
@@ -36,6 +35,6 @@ namespace tbx
 
       private:
         List<Plugin*> _plugins;
-        std::unordered_map<String, Plugin*> _plugins_by_name;
+        HashMap<String, Plugin*> _plugins_by_name;
     };
 }

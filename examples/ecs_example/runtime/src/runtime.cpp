@@ -1,11 +1,10 @@
 #include "runtime.h"
 #include "tbx/app/application.h"
-#include "tbx/common/string_extensions.h"
+#include "tbx/common/string.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/toys.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
-#include <string>
 
 namespace tbx::examples
 {
@@ -13,10 +12,10 @@ namespace tbx::examples
 
     void ExampleRuntimePlugin::on_attach(Application& context)
     {
-        std::string greeting =
+        String greeting =
             "Welcome to the ecs example! This plugin just loads a few basic plugins and makes some "
             "entities.";
-        std::string message = trim_string(greeting);
+        String message = greeting.trim();
         TBX_TRACE_INFO("{}", message.c_str());
 
         auto toys_to_make = 5;

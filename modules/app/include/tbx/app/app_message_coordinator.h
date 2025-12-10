@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/common/collections.h"
 #include "tbx/common/smart_pointers.h"
 #include "tbx/common/uuid.h"
 #include "tbx/messages/dispatcher.h"
@@ -7,7 +8,6 @@
 #include <memory>
 #include <mutex>
 #include <utility>
-#include <vector>
 
 namespace tbx
 {

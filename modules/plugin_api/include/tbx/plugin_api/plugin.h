@@ -89,7 +89,7 @@ namespace tbx
         Application& get_host() const;
 
       private:
-        static Result dispatcher_missing_result(String_view action);
+        static Result dispatcher_missing_result(const String& action);
 
         IMessageDispatcher* _dispatcher = nullptr;
         Application* _host = nullptr;

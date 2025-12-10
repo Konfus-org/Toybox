@@ -1,17 +1,16 @@
 #include "runtime.h"
 #include "tbx/app/application.h"
-#include "tbx/common/string_extensions.h"
+#include "tbx/common/string.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/toys.h"
-#include <string>
 
 namespace tbx::examples
 {
     void ExampleRuntimePlugin::on_attach(Application& context)
     {
-        std::string greeting =
+        String greeting =
             "Welcome to the plugin example! This plugin just loads a logger and a window.";
-        std::string message = trim_string(greeting);
+        String message = greeting.trim();
         TBX_TRACE_INFO("{}", message.c_str());
     }
 

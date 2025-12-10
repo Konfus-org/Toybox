@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/common/string.h"
 #include "tbx/tbx_api.h"
 #include <chrono>
 #include <string>
@@ -12,6 +13,11 @@ namespace tbx
     {
         double seconds = 0.0;
         double milliseconds = 0.0;
+
+        operator String() const
+        {
+            return std::to_string(seconds) + "s";
+        }
     };
 
     // Simple per-thread timer to compute DeltaTime.
@@ -31,8 +37,4 @@ namespace tbx
         std::chrono::steady_clock::time_point _last;
     };
 
-    inline String to_string(const DeltaTime& dt)
-    {
-        return std::to_string(dt.seconds) + "s";
-    }
 }

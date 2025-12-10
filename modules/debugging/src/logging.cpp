@@ -1,11 +1,10 @@
 #include "tbx/debugging/logging.h"
 #include "tbx/file_system/filesystem.h"
 #include <string>
-#include <string_view>
 
 namespace tbx
 {
-    static String sanitize_log_base_name(String_view base_name)
+    static String sanitize_log_base_name(const String& base_name)
     {
         return FilePath(base_name).filename_string();
     }
@@ -22,7 +21,7 @@ namespace tbx
 
     FilePath get_log_file_path(
         const FilePath& directory,
-        String_view base_name,
+        const String& base_name,
         int index,
         IFileSystem& ops)
     {
@@ -32,7 +31,7 @@ namespace tbx
 
     void rotate_logs(
         const FilePath& directory,
-        String_view base_name,
+        const String& base_name,
         int max_history,
         IFileSystem& ops)
     {
@@ -62,11 +61,6 @@ namespace tbx
     String format_log_message(const String& message)
     {
         return message;
-    }
-
-    String format_log_message(String_view message)
-    {
-        return String(message);
     }
 
     String format_log_message(const char* message)
