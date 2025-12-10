@@ -2,13 +2,12 @@
 #include "tbx/async/cancellation_token.h"
 #include "tbx/tbx_api.h"
 #include "tbx/time/time_span.h"
-#include <chrono>
 #include <cstddef>
 #include <functional>
 
 namespace tbx
 {
-    // Schedules work using steady-clock deadlines derived from TimeSpan.
+    // Schedules work using accumulated time deltas until the configured TimeSpan expires.
     // Ownership: Callers hold Timer instances by value; registered callbacks are non-owning
     // references whose lifetimes must exceed the timer's. The returned cancellation token
     // references the timer's internal cancellation source and becomes invalid after reset.
@@ -18,20 +17,16 @@ namespace tbx
     {
       public:
         Timer(
-            const TimeSpan& time = {},
-            std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now(),
+            const TimeSpan& time_span = {},
             CancellationSource cancellation_source = CancellationSource());
-
-        Timer& operator=(const Timer& other);
-        Timer& operator=(Timer&& other);
 
         void reset();
 
-        bool tick(std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now());
+        bool tick(const TimeSpan& delta_time);
 
         bool is_time_up() const;
 
-        TimeSpan time = {};
+        TimeSpan time_length = {};
         TimeSpan time_left = {};
         std::function<void(std::size_t)> tick_callback;
         std::function<void()> time_up_callback;
@@ -41,9 +36,8 @@ namespace tbx
       private:
         void mark_time_up();
         bool is_cancelled() const;
-        void update_time_left(std::chrono::steady_clock::time_point now, bool signal_on_zero);
+        void update_time_left(const TimeSpan& delta_time, bool signal_on_zero);
 
-        std::chrono::steady_clock::time_point _deadline = {};
         bool _has_deadline = false;
         bool _time_up_signaled = false;
         bool _cancel_signaled = false;

@@ -28,9 +28,6 @@ namespace tbx
 
         switch (unit)
         {
-            case TimeUnit::Ticks:
-                duration = std::chrono::steady_clock::duration(value);
-                break;
             case TimeUnit::Milliseconds:
                 duration = std::chrono::milliseconds(value);
                 break;
