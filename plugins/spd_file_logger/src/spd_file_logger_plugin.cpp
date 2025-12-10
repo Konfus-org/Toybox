@@ -26,7 +26,7 @@ namespace tbx::plugins::spdfilelogger
             _log_directory = FilePath(std::filesystem::current_path());
         }
 
-        _log_filename_base = FilePath(desc.name).filename_string().std_str();
+        _log_filename_base = FilePath(std::filesystem::path(desc.name)).filename_string().std_str();
         rotate_logs(_log_directory, _log_filename_base, 10, fs);
 
         auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
@@ -48,20 +48,20 @@ namespace tbx::plugins::spdfilelogger
             msg,
             [this](LogMessageRequest& log)
             {
-                const auto filename = FilePath(log.file).filename_string();
+                const auto filename = FilePath(log.file).filename_string().std_str();
                 switch (log.level)
                 {
                     case LogLevel::Info:
-                        _logger->info("[{}:{}] {}", filename, log.line, log.message);
+                        _logger->info("[{}:{}] {}", filename, log.line, log.message.std_str());
                         break;
                     case LogLevel::Warning:
-                        _logger->warn("[{}:{}] {}", filename, log.line, log.message);
+                        _logger->warn("[{}:{}] {}", filename, log.line, log.message.std_str());
                         break;
                     case LogLevel::Error:
-                        _logger->error("[{}:{}] {}", filename, log.line, log.message);
+                        _logger->error("[{}:{}] {}", filename, log.line, log.message.std_str());
                         break;
                     case LogLevel::Critical:
-                        _logger->critical("[{}:{}] {}", filename, log.line, log.message);
+                        _logger->critical("[{}:{}] {}", filename, log.line, log.message.std_str());
                         break;
                 }
             });

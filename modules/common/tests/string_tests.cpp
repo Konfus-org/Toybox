@@ -5,6 +5,17 @@
 
 namespace tbx::tests::common
 {
+    struct StreamableExample
+    {
+        int id = 0;
+
+        friend std::ostream& operator<<(std::ostream& os, const StreamableExample& example)
+        {
+            os << "example-" << example.id;
+            return os;
+        }
+    };
+
     TEST(StringTests, TrimsWhitespaceFromBothEnds)
     {
         String value("  spaced text  ");
@@ -66,18 +77,7 @@ namespace tbx::tests::common
 
     TEST(StringTests, ConstructsFromStreamableType)
     {
-        struct Example
-        {
-            int id = 0;
-
-            friend std::ostream& operator<<(std::ostream& os, const Example& example)
-            {
-                os << "example-" << example.id;
-                return os;
-            }
-        };
-
-        Example instance{42};
+        StreamableExample instance{42};
 
         auto wrapped = String::from(instance);
 

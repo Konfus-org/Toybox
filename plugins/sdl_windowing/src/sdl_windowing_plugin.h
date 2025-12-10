@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/app/window.h"
+#include "tbx/graphics/window.h"
 #include "tbx/plugin_api/plugin.h"
 #include <SDL3/SDL.h>
 #include <string_view>

@@ -1,4 +1,5 @@
 #include "tbx/app/app_message_coordinator.h"
+#include "tbx/common/string.h"
 #include "tbx/debugging/macros.h"
 #include <exception>
 #include <string>
@@ -45,21 +46,19 @@ namespace tbx
 
                 msg.result.flag_failure(resolved);
                 const std::string& text = msg.result.get_report();
-                if (!text.empty())
+                const auto* dispatcher = ::tbx::get_global_dispatcher();
+                if (!text.empty() && dispatcher != nullptr)
                 {
+                    const String message_id(msg.id);
                     if (state == MessageState::Failed)
                     {
                         TBX_TRACE_ERROR(
-                            "Message {} failed: {}",
-                            to_string(msg.id).c_str(),
-                            text.c_str());
+                            "Message {} failed: {}", message_id.std_str(), text);
                     }
                     else if (state == MessageState::TimedOut)
                     {
                         TBX_TRACE_WARNING(
-                            "Message {} timed out: {}",
-                            to_string(msg.id).c_str(),
-                            text.c_str());
+                            "Message {} timed out: {}", message_id.std_str(), text);
                     }
                 }
                 break;
@@ -257,8 +256,6 @@ namespace tbx
                 else
                     apply_state(msg, MessageState::Processed, std::string());
             }
-
-            TBX_ASSERT(msg.result.succeeded(), "Message failed!");
         }
         catch (const std::exception& ex)
         {
@@ -283,21 +280,8 @@ namespace tbx
         auto completion = Ref<std::promise<Result>>(std::promise<Result>());
         auto future = completion->get_future();
 
-        try
-        {
-            auto lock = std::lock_guard<std::mutex>(_queue_mutex);
-            _pending.emplace_back(std::move(msg), completion);
-        }
-        catch (const std::exception& ex)
-        {
-            apply_state(*msg, MessageState::Failed, ex.what());
-            completion->set_value(msg->result);
-        }
-        catch (...)
-        {
-            apply_state(*msg, MessageState::Failed, "Unknown exception while queuing message.");
-            completion->set_value(msg->result);
-        }
+        auto lock = std::lock_guard<std::mutex>(_queue_mutex);
+        _pending.emplace_back(std::move(msg), completion);
 
         return future;
     }

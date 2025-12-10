@@ -69,11 +69,16 @@ namespace tbx
         return String(_path.filename().string());
     }
 
-    FilePath FilePath::replace_extension(std::string_view extension) const
+    FilePath FilePath::set_extension(const String& extension) const
     {
         std::filesystem::path updated = _path;
-        updated.replace_extension(extension);
+        updated.replace_extension(extension.std_str());
         return FilePath(std::move(updated));
+    }
+
+    FilePath FilePath::replace_extension(const String& extension) const
+    {
+        return set_extension(extension);
     }
 
     FilePath FilePath::append(std::string_view component) const

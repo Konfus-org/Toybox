@@ -29,8 +29,7 @@ namespace tbx
                 case TimeUnit::Milliseconds:
                     return {
                         static_cast<uint64>(
-                            std::chrono::duration_cast<std::chrono::milliseconds>(duration)
-                                .count()),
+                            std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()),
                         TimeUnit::Milliseconds};
                 case TimeUnit::Seconds:
                     return {
@@ -55,6 +54,62 @@ namespace tbx
                         TimeUnit::Days};
             }
         }
+    }
+
+    Timer& Timer::operator=(const Timer& other)
+    {
+        if (this == &other)
+        {
+            return *this;
+        }
+
+        const auto current_tick_callback = tick_callback;
+        const auto current_time_up_callback = time_up_callback;
+        const auto current_cancel_callback = cancel_callback;
+
+        time = other.time;
+        time_left = other.time_left;
+        cancellation_source = other.cancellation_source;
+        _deadline = other._deadline;
+        _has_deadline = other._has_deadline;
+        _time_up_signaled = other._time_up_signaled;
+        _cancel_signaled = other._cancel_signaled;
+
+        tick_callback = other.tick_callback ? other.tick_callback : current_tick_callback;
+        time_up_callback = other.time_up_callback ? other.time_up_callback : current_time_up_callback;
+        cancel_callback = other.cancel_callback ? other.cancel_callback : current_cancel_callback;
+
+        return *this;
+    }
+
+    Timer& Timer::operator=(Timer&& other)
+    {
+        if (this == &other)
+        {
+            return *this;
+        }
+
+        auto current_tick_callback = std::move(tick_callback);
+        auto current_time_up_callback = std::move(time_up_callback);
+        auto current_cancel_callback = std::move(cancel_callback);
+
+        time = other.time;
+        time_left = other.time_left;
+        cancellation_source = std::move(other.cancellation_source);
+        _deadline = other._deadline;
+        _has_deadline = other._has_deadline;
+        _time_up_signaled = other._time_up_signaled;
+        _cancel_signaled = other._cancel_signaled;
+
+        tick_callback = other.tick_callback ? std::move(other.tick_callback) : std::move(current_tick_callback);
+        time_up_callback = other.time_up_callback
+                               ? std::move(other.time_up_callback)
+                               : std::move(current_time_up_callback);
+        cancel_callback = other.cancel_callback
+                              ? std::move(other.cancel_callback)
+                              : std::move(current_cancel_callback);
+
+        return *this;
     }
 
     Timer::Timer(
@@ -121,6 +176,7 @@ namespace tbx
         }
 
         _time_up_signaled = true;
+
         if (time_up_callback)
         {
             time_up_callback();
@@ -140,6 +196,7 @@ namespace tbx
             {
                 cancel_callback();
             }
+
             _cancel_signaled = true;
             time_left = {0, time.unit};
             return;
@@ -148,15 +205,18 @@ namespace tbx
         if (!_has_deadline)
         {
             time_left = {0, time.unit};
+
             if (signal_on_zero)
             {
                 mark_time_up();
             }
+
             return;
         }
 
         auto remaining = _deadline - now;
         time_left = to_time_span(remaining, time.unit);
+
         if (time_left.value == 0 && signal_on_zero)
         {
             mark_time_up();

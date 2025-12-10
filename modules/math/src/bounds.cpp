@@ -27,11 +27,11 @@ namespace tbx
         return {left, right, top, bottom};
     }
 
-    Bounds Bounds::from_perspective_projection(float fov, float aspectRatio, float zNear)
+    Bounds Bounds::from_perspective_projection(float fov, float aspect_ratio, float z_near)
     {
-        const float scale = tan(fov * 0.5f) * zNear;
+        const float scale = tan(fov * 0.5f) * z_near;
 
-        const float left = aspectRatio * -scale;
+        const float left = aspect_ratio * -scale;
         const float right = -left;
         const float top = scale;
         const float bottom = -top;

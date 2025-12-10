@@ -79,12 +79,12 @@ namespace tbx::tests::plugin_loader
             for (const auto& dir : directories)
             {
                 if (dir.rfind(prefix, 0) == 0)
-                    entries.emplace_back(dir);
+                    entries.emplace_back(std::filesystem::path(dir));
             }
             for (const auto& [file_path, _] : files)
             {
                 if (file_path.rfind(prefix, 0) == 0)
-                    entries.emplace_back(file_path);
+                    entries.emplace_back(std::filesystem::path(file_path));
             }
             return entries;
         }
