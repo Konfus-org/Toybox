@@ -17,6 +17,8 @@ target_include_directories(FileSystem
 target_link_libraries(FileSystem
     PUBLIC
         Tbx::Common
+    PRIVATE
+        nlohmann_json
 )
 
 add_library(Tbx::FileSystem ALIAS FileSystem)
