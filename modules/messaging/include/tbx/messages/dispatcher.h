@@ -2,7 +2,7 @@
 #include "tbx/common/smart_pointers.h"
 #include "tbx/async/promise.h"
 #include "tbx/messages/message.h"
-#include "tbx/messages/result.h"
+#include "tbx/common/result.h"
 #include "tbx/tbx_api.h"
 #include <concepts>
 #include <type_traits>

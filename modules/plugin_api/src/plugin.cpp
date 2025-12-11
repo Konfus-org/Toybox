@@ -2,7 +2,7 @@
 #include "tbx/common/string.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
-#include "tbx/messages/result.h"
+#include "tbx/common/result.h"
 
 namespace tbx
 {

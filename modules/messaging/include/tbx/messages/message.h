@@ -1,11 +1,12 @@
 #pragma once
 #include "tbx/async/cancellation_token.h"
-#include "tbx/common/function_traits.h"
+#include "tbx/common/functions.h"
+#include "tbx/common/result.h"
 #include "tbx/common/uuid.h"
-#include "tbx/messages/result.h"
 #include <any>
 #include <functional>
 #include <type_traits>
+
 
 namespace tbx
 {
@@ -21,15 +22,13 @@ namespace tbx
 
     struct Message;
 
-    using MessageCallback = std::function<void(const Message&)>;
-
     struct TBX_API MessageCallbacks
     {
-        MessageCallback on_failure;
-        MessageCallback on_cancelled;
-        MessageCallback on_handled;
-        MessageCallback on_processed;
-        MessageCallback on_timeout;
+        Callback<const Message&> on_failure;
+        Callback<const Message&> on_cancelled;
+        Callback<const Message&> on_handled;
+        Callback<const Message&> on_processed;
+        Callback<const Message&> on_timeout;
     };
 
     // Base polymorphic message type for dispatching.
