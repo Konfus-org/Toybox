@@ -16,7 +16,7 @@ namespace tbx
         Processed,
         Cancelled,
         TimedOut,
-        Failed
+        Error
     };
 
     struct Message;

@@ -16,14 +16,24 @@ namespace tbx::tests::common
         }
     };
 
+    struct ImplicitExample
+    {
+        int id = 0;
+
+        operator String()
+        {
+            return std::to_string(id);
+        }
+    };
+
     TEST(StringTests, TrimsWhitespaceFromBothEnds)
     {
         String value("  spaced text  ");
 
         auto trimmed = value.trim();
 
-        EXPECT_EQ(trimmed.std_str(), "spaced text");
-        EXPECT_EQ(value.std_str(), "  spaced text  ");
+        EXPECT_EQ(trimmed, "spaced text");
+        EXPECT_EQ(value, "  spaced text  ");
     }
 
     TEST(StringTests, RemovesAllWhitespace)
@@ -32,7 +42,7 @@ namespace tbx::tests::common
 
         auto collapsed = value.remove_whitespace();
 
-        EXPECT_EQ(collapsed.std_str(), "abcd");
+        EXPECT_EQ(collapsed, "abcd");
     }
 
     TEST(StringTests, ConvertsToLowerAndUpper)
@@ -42,8 +52,8 @@ namespace tbx::tests::common
         auto lower = value.to_lower();
         auto upper = value.to_upper();
 
-        EXPECT_EQ(lower.std_str(), "mixed");
-        EXPECT_EQ(upper.std_str(), "MIXED");
+        EXPECT_EQ(lower, "mixed");
+        EXPECT_EQ(upper, "MIXED");
     }
 
     TEST(StringTests, ChecksPrefixesSuffixesAndContainment)
@@ -66,22 +76,13 @@ namespace tbx::tests::common
         EXPECT_FALSE(text_value.empty());
     }
 
-    TEST(StringTests, ConvertsToFilepath)
-    {
-        String value("folder/file.txt");
-
-        auto path = value.to_filepath();
-
-        EXPECT_EQ(path, std::filesystem::path("folder/file.txt"));
-    }
-
     TEST(StringTests, ConstructsFromStreamableType)
     {
-        StreamableExample instance{42};
+        StreamableExample instance {42};
 
         auto wrapped = String::from(instance);
 
-        EXPECT_EQ(wrapped.std_str(), "example-42");
+        EXPECT_EQ(wrapped, "example-42");
     }
 
     TEST(StringTests, ProvidesCStringAccess)
@@ -101,7 +102,7 @@ namespace tbx::tests::common
             collected.push_back(c);
         }
 
-        EXPECT_EQ(collected.std_str(), "abc");
+        EXPECT_EQ(collected, "abc");
     }
 
     TEST(StringTests, SupportsConcatenationAndEquality)
@@ -111,7 +112,7 @@ namespace tbx::tests::common
 
         auto combined = first + String(" ") + second;
 
-        EXPECT_EQ(combined.std_str(), "hello world");
+        EXPECT_EQ(combined, "hello world");
         EXPECT_TRUE(combined == String("hello world"));
         EXPECT_TRUE(combined != first);
         EXPECT_STREQ(static_cast<const char*>(combined), "hello world");

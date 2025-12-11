@@ -9,11 +9,10 @@ namespace tbx
 
     struct TBX_API ApplicationInitializedEvent : public Event
     {
-        ApplicationInitializedEvent(Application* app_ptr, const AppDescription& app_desc);
+        ApplicationInitializedEvent(Application* app_ptr);
 
         // Non-owning pointer to the application that emitted the event.
         Application* application = nullptr;
-        AppDescription description = {};
     };
 
     struct TBX_API ApplicationShutdownEvent : public Event

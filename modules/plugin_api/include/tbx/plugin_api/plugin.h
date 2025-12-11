@@ -1,11 +1,11 @@
 #pragma once
+#include "tbx/async/promise.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/message.h"
 #include "tbx/plugin_api/plugin_registry.h"
 #include "tbx/time/delta_time.h"
 #include <functional>
-#include <future>
 #include <string_view>
 #include <utility>
 
@@ -55,14 +55,14 @@ namespace tbx
         // Helper to post a constructed message for deferred processing via the dispatcher.
         template <typename TMessage, typename... TArgs>
             requires std::derived_from<TMessage, Message>
-        std::future<Result> post_message(TArgs&&... args) const
+        Promise<Result> post_message(TArgs&&... args) const
         {
             if (!_dispatcher)
             {
                 TBX_ASSERT(_dispatcher, "Plugins must be attached before posting messages.");
-                std::promise<Result> p = {};
-                p.set_value(dispatcher_missing_result("post a message"));
-                return p.get_future();
+                Promise<Result> promise;
+                promise.fulfill(dispatcher_missing_result("post a message"));
+                return promise;
             }
 
             return _dispatcher->post<TMessage>(std::forward<TArgs>(args)...);

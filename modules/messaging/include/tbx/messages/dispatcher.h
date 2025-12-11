@@ -1,10 +1,10 @@
 #pragma once
 #include "tbx/common/smart_pointers.h"
+#include "tbx/async/promise.h"
 #include "tbx/messages/message.h"
 #include "tbx/messages/result.h"
 #include "tbx/tbx_api.h"
 #include <concepts>
-#include <future>
 #include <type_traits>
 #include <utility>
 
@@ -47,7 +47,7 @@ namespace tbx
         // Thread-safety: see class notes.
         template <typename TMessage>
             requires std::derived_from<TMessage, Message>
-        std::future<Result> post(const TMessage& msg) const
+        Promise<Result> post(const TMessage& msg) const
         {
             return post_impl(Scope<Message>(new TMessage(msg)));
         }
@@ -59,14 +59,14 @@ namespace tbx
         template <typename TMessage, typename... TArgs>
             requires(std::derived_from<TMessage, Message> && (sizeof...(TArgs) > 0)
                      && std::is_constructible_v<TMessage, TArgs...>)
-        std::future<Result> post(TArgs&&... args) const
+        Promise<Result> post(TArgs&&... args) const
         {
             return post_impl(Scope<Message>(new TMessage(std::forward<TArgs>(args)...)));
         }
 
       protected:
         virtual Result send_impl(Message& msg) const = 0;
-        virtual std::future<Result> post_impl(Scope<Message> msg) const = 0;
+        virtual Promise<Result> post_impl(Scope<Message> msg) const = 0;
     };
 
     // Interface for components that advance queued work and deliver

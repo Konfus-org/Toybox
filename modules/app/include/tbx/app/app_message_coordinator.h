@@ -1,12 +1,12 @@
 #pragma once
 #include "tbx/common/collections.h"
+#include "tbx/async/lock.h"
+#include "tbx/common/pair.h"
 #include "tbx/common/smart_pointers.h"
 #include "tbx/common/uuid.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/tbx_api.h"
-#include <future>
 #include <memory>
-#include <mutex>
 #include <utility>
 
 namespace tbx
@@ -14,9 +14,9 @@ namespace tbx
     struct QueuedMessage
     {
         Scope<Message> message;
-        Ref<std::promise<Result>> completion;
+        Promise<Result> completion_state;
     };
-    
+
     // Thread-safe message coordinator handling synchronous dispatch and deferred processing for
     // the application module.
     // Ownership: Stores handlers by value, constructs messages per send call, and owns queued
@@ -43,13 +43,10 @@ namespace tbx
 
       private:
         Result send_impl(Message& msg) const override;
-        std::future<Result> post_impl(Scope<Message> msg) const override;
+        Promise<Result> post_impl(Scope<Message> msg) const override;
         void dispatch(Message& msg) const;
 
-        List<std::pair<Uuid, MessageHandler>> _handlers;
-        mutable List<QueuedMessage> _pending;
-
-        mutable std::mutex _handlers_mutex;
-        mutable std::mutex _queue_mutex;
+        ThreadSafe<List<Pair<Uuid, MessageHandler>>> _handlers;
+        ThreadSafe<List<QueuedMessage>> _pending;
     };
 }

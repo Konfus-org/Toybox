@@ -21,9 +21,7 @@ namespace tbx
             CancellationSource cancellation_source = CancellationSource());
 
         void reset();
-
         bool tick(const TimeSpan& delta_time);
-
         bool is_time_up() const;
 
         TimeSpan time_length = {};

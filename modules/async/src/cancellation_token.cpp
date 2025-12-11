@@ -4,35 +4,43 @@
 namespace tbx
 {
     CancellationSource::CancellationSource()
-        : _state(Ref<std::atomic<bool>>(false))
+        : _state(Ref<bool>(false))
     {
     }
 
     CancellationToken CancellationSource::get_token() const
     {
-        return CancellationToken(_state);
+        auto lock = _state.lock();
+        return CancellationToken(lock.get());
     }
 
     void CancellationSource::cancel() const
     {
-        if (_state)
-        {
-            _state->store(true, std::memory_order_release);
-        }
+        auto lock = _state.lock();
+        auto& flag = lock.get();
+        if (flag)
+            *flag = true;
     }
 
     bool CancellationSource::is_cancelled() const
     {
-        return _state && _state->load(std::memory_order_acquire);
+        auto lock = _state.lock();
+        auto& flag = lock.get();
+        return flag && *flag;
     }
 
-    CancellationToken::CancellationToken(Ref<std::atomic<bool>> state)
-        : _state(std::move(state))
+    CancellationToken::CancellationToken(Ref<bool> state)
+        : _state(state)
     {
     }
 
     bool CancellationToken::is_cancelled() const
     {
-        return _state && _state->load(std::memory_order_acquire);
+        return _state && *_state;
+    }
+
+    CancellationToken::operator bool() const
+    {
+        return static_cast<bool>(_state);
     }
 }

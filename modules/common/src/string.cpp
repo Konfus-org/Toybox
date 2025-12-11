@@ -109,16 +109,6 @@ namespace tbx
         return _value.size();
     }
 
-    std::filesystem::path String::to_filepath() const
-    {
-        return std::filesystem::path(_value);
-    }
-
-    const std::string& String::std_str() const
-    {
-        return _value;
-    }
-
     String& String::erase(size_t position, size_t count)
     {
         _value.erase(position, count);

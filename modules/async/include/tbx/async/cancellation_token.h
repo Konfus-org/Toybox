@@ -1,13 +1,13 @@
 #pragma once
+#include "tbx/async/lock.h"
 #include "tbx/common/smart_pointers.h"
 #include "tbx/tbx_api.h"
-#include <atomic>
 
 namespace tbx
 {
     class CancellationToken;
 
-    // Creates and manages cancellation tokens backed by a shared atomic flag.
+    // Creates and manages cancellation tokens backed by a shared flag guarded by ThreadSafe.
     // Purpose: Allows producers to propagate cancellation to consumers listening via tokens.
     // Ownership: CancellationSource owns the shared flag and hands out lightweight token views
     // that share it; callers must ensure tokens are discarded before the source is destroyed.
@@ -23,7 +23,7 @@ namespace tbx
         bool is_cancelled() const;
 
       private:
-        Ref<std::atomic<bool>> _state;
+        ThreadSafe<Ref<bool>> _state;
     };
 
     // Lightweight, thread-safe observer that reports whether its originating source cancelled.
@@ -35,18 +35,11 @@ namespace tbx
     {
       public:
         CancellationToken() = default;
-
+        CancellationToken(Ref<bool> state);
         bool is_cancelled() const;
-        operator bool() const
-        {
-            return static_cast<bool>(_state);
-        }
+        operator bool() const;
 
       private:
-        CancellationToken(Ref<std::atomic<bool>> state);
-
-        Ref<std::atomic<bool>> _state;
-
-        friend class CancellationSource;
+        Ref<bool> _state;
     };
 }

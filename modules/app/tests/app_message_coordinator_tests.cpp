@@ -2,10 +2,9 @@
 #include "tbx/app/app_message_coordinator.h"
 #include "tbx/async/cancellation_token.h"
 #include "tbx/messages/message.h"
+#include "tbx/time/time_span.h"
 #include <any>
 #include <atomic>
-#include <chrono>
-#include <future>
 #include <stdexcept>
 #include <string>
 
@@ -165,11 +164,13 @@ namespace tbx::tests::app
 
         // Not processed yet
         EXPECT_EQ(count.load(), 0);
-        EXPECT_EQ(future.wait_for(std::chrono::milliseconds(0)), std::future_status::timeout);
+        EXPECT_FALSE(future.is_ready());
+        auto interim = future.wait(TimeSpan());
+        EXPECT_FALSE(future.is_ready());
 
         d.process();
         EXPECT_EQ(count.load(), 1);
-        auto result = future.get();
+        auto result = future.wait();
         EXPECT_TRUE(result.succeeded());
     }
 
@@ -194,7 +195,7 @@ namespace tbx::tests::app
 
         d.process();
 
-        auto result = future.get();
+        auto result = future.wait();
         EXPECT_TRUE(result.succeeded());
         EXPECT_EQ(received_value, 123);
     }
@@ -259,7 +260,7 @@ namespace tbx::tests::app
         source.cancel();
         d.process();
 
-        auto result = future.get();
+        auto result = future.wait();
         EXPECT_FALSE(result.succeeded());
         EXPECT_FALSE(result.get_report().empty());
         EXPECT_TRUE(cancelled_callback);
@@ -347,12 +348,14 @@ namespace tbx::tests::app
         };
         auto future = d.post(msg);
 
-        EXPECT_EQ(future.wait_for(std::chrono::milliseconds(0)), std::future_status::timeout);
+        EXPECT_FALSE(future.is_ready());
+        auto interim = future.wait(TimeSpan());
+        EXPECT_FALSE(future.is_ready());
         EXPECT_FALSE(msg.payload.has_value());
 
         d.process();
 
-        auto result = future.get();
+        auto result = future.wait();
         EXPECT_TRUE(result.succeeded());
         EXPECT_FALSE(msg.payload.has_value());
         EXPECT_EQ(processed_payload.std_str(), "ready");

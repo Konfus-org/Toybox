@@ -167,25 +167,26 @@ namespace tbx
 
     Uuid AppMessageCoordinator::add_handler(MessageHandler handler)
     {
-        std::lock_guard lock(_handlers_mutex);
+        auto lock = _handlers.lock();
         Uuid id = Uuid::generate();
-        _handlers.emplace(id, std::move(handler));
+        lock.get().emplace(id, std::move(handler));
         return id;
     }
 
     void AppMessageCoordinator::remove_handler(const Uuid& token)
     {
-        std::lock_guard lock(_handlers_mutex);
-        List<std::pair<Uuid, MessageHandler>> next;
-        next.reserve(_handlers.size());
-        for (auto& entry : _handlers)
+        auto lock = _handlers.lock();
+        auto& handlers = lock.get();
+        List<Pair<Uuid, MessageHandler>> next;
+        next.reserve(handlers.size());
+        for (auto& entry : handlers)
         {
             if (entry.first != token)
             {
                 next.push_back(std::move(entry));
             }
         }
-        _handlers.swap(next);
+        handlers.swap(next);
     }
 
     void AppMessageCoordinator::clear()
@@ -194,29 +195,33 @@ namespace tbx
         process();
 
         // Then clear handlers and pending messages
-        std::lock_guard locka(_handlers_mutex);
-        _handlers.clear();
-        std::lock_guard lockb(_queue_mutex);
-        _pending.clear();
+        {
+            auto lock = _handlers.lock();
+            lock.get().clear();
+        }
+        {
+            auto lock = _pending.lock();
+            lock.get().clear();
+        }
     }
 
     void AppMessageCoordinator::dispatch(Message& msg) const
     {
         try
         {
-            List<std::pair<Uuid, MessageHandler>> handlers_snapshot;
+            List<Pair<Uuid, MessageHandler>> handlers_snapshot;
             {
-                std::lock_guard lock(_handlers_mutex);
-                handlers_snapshot = _handlers;
+                auto lock = _handlers.lock();
+                handlers_snapshot = lock.get();
             }
 
             if (cancel_if_requested(msg))
                 return;
 
             MessageState previous_state = msg.state;
-            for (const auto& [id, handler] : handlers_snapshot)
+            for (const auto& entry : handlers_snapshot)
             {
-                if (!handler)
+                if (!entry.second)
                 {
                     TBX_ASSERT(
                         false,
@@ -226,7 +231,7 @@ namespace tbx
                     continue;
                 }
 
-                handler(msg);
+                entry.second(msg);
 
                 if (msg.state != previous_state)
                 {
@@ -273,23 +278,25 @@ namespace tbx
         return msg.result;
     }
 
-    std::future<Result> AppMessageCoordinator::post_impl(Scope<Message> msg) const
+    Promise<Result> AppMessageCoordinator::post_impl(Scope<Message> msg) const
     {
-        auto completion = Ref<std::promise<Result>>(std::promise<Result>());
-        auto future = completion->get_future();
+    Promise<Result> promise;
+    Promise<Result> future = promise;
 
-        auto lock = std::lock_guard<std::mutex>(_queue_mutex);
-        _pending.emplace(std::move(msg), completion);
+    {
+        auto lock = _pending.lock();
+        lock.get().emplace(std::move(msg), std::move(promise));
+    }
 
-        return future;
+    return future;
     }
 
     void AppMessageCoordinator::process()
     {
         List<QueuedMessage> processing;
         {
-            std::lock_guard<std::mutex> lock(_queue_mutex);
-            processing.swap(_pending);
+            auto lock = _pending.lock();
+            processing.swap(lock.get());
         }
 
         for (auto& entry : processing)
@@ -310,7 +317,10 @@ namespace tbx
                     "Unknown exception during message dispatch.");
             }
 
-            entry.completion->set_value(entry.message->result);
+            if (entry.completion_state)
+            {
+                entry.completion_state.fulfill(entry.message->result);
+            }
         }
     }
 }

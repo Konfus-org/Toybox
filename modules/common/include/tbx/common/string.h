@@ -3,7 +3,6 @@
 #include "tbx/tbx_api.h"
 #include <format>
 #include <functional>
-#include <filesystem>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -76,12 +75,6 @@ namespace tbx
 
         // Returns the number of characters in the string.
         uint32 size() const;
-
-        // Converts the underlying string into a std::filesystem::path.
-        std::filesystem::path to_filepath() const;
-
-        // Access to the underlying String.
-        const std::string& std_str() const;
 
         // Removes a substring starting at the provided position.
         String& erase(size_t position, size_t count = std::string::npos);
