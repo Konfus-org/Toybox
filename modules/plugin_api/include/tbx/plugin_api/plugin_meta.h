@@ -19,9 +19,6 @@ namespace tbx
         // Optional descriptive text explaining the plugin purpose.
         String description;
 
-        // Primary classification for the plugin such as renderer or logger.
-        String type;
-
         // Hard dependencies that must be satisfied before loading this plugin.
         List<String> dependencies;
 
@@ -38,18 +35,12 @@ namespace tbx
     };
 
     // Parses a plugin manifest from disk and returns the populated metadata.
-    PluginMeta TBX_API parse_plugin_meta(const FilePath& manifest_path);
+    // Returns true when the manifest could be parsed successfully.
+    bool TBX_API try_parse_plugin_meta(const FilePath& manifest_path, PluginMeta& out_meta);
 
-    // Parses plugin metadata from raw manifest text.
-    PluginMeta TBX_API parse_plugin_meta(
+    // Parses plugin metadata from raw manifest text. Returns true when parsing succeeds.
+    bool TBX_API try_parse_plugin_meta(
         const String& manifest_text,
-        const FilePath& manifest_path);
-
-    // Orders plugins for loading while respecting dependencies and logger priority.
-    List<PluginMeta> TBX_API resolve_plugin_load_order(
-        const List<PluginMeta>& plugins);
-
-    // Produces the unload order by reversing the computed load order.
-    List<PluginMeta> TBX_API resolve_plugin_unload_order(
-        const List<PluginMeta>& plugins);
+        const FilePath& manifest_path,
+        PluginMeta& out_meta);
 }

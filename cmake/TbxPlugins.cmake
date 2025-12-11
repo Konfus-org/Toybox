@@ -62,14 +62,13 @@ endfunction()
 #   HEADER        - Header that declares the plugin class (required).
 #   NAME          - Unique plugin identifier used for registration (required).
 #   VERSION       - Semantic version string (required).
-#   TYPE          - Optional plugin classification, defaults to "plugin".
 #   DESCRIPTION   - Optional descriptive text.
 #   MODULE        - Optional override for module/manifest output directory.
 #   DEPENDENCIES  - Additional dependency identifiers to record.
 #   STATIC        - Flag indicating the plugin is statically linked.
 function(tbx_register_plugin)
     set(options STATIC)
-    set(one_value_args TARGET CLASS HEADER NAME VERSION TYPE DESCRIPTION MODULE)
+    set(one_value_args TARGET CLASS HEADER NAME VERSION DESCRIPTION MODULE)
     set(multi_value_args DEPENDENCIES)
     cmake_parse_arguments(TBX_PLUGIN "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
@@ -96,10 +95,6 @@ function(tbx_register_plugin)
 
     if(NOT TARGET ${TBX_PLUGIN_TARGET})
         message(FATAL_ERROR "tbx_register_plugin: target '${TBX_PLUGIN_TARGET}' does not exist")
-    endif()
-
-    if(NOT TBX_PLUGIN_TYPE)
-        set(TBX_PLUGIN_TYPE "plugin")
     endif()
 
     set(is_static FALSE)
@@ -133,6 +128,7 @@ function(tbx_register_plugin)
     if(NOT module_name)
         set(module_name ${TBX_PLUGIN_TARGET})
     endif()
+    set(MODULE_NAME ${module_name})
 
     # Emit generated sources alongside other build artifacts for the target.
     set(generated_dir ${CMAKE_CURRENT_BINARY_DIR}/generated/)

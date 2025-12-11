@@ -2,8 +2,7 @@
 #include "tbx/file_system/filesystem.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
-#include <unordered_map>
-#include <unordered_set>
+#include "tbx/common/collections.h"
 
 namespace tbx::tests::plugin_loader
 {
@@ -23,7 +22,6 @@ namespace tbx::tests::plugin_loader
         ::tbx::PluginMeta meta;
         meta.name = "TestStaticPlugin";
         meta.version = "1.0.0";
-        meta.type = "plugin";
         meta.linkage = ::tbx::PluginLinkage::Static;
         return meta;
     }
@@ -41,13 +39,25 @@ namespace tbx::tests::plugin_loader
             files.emplace(std::move(path), std::move(data));
         }
 
-        FilePath get_working_directory() const override { return working_directory; }
+        FilePath get_working_directory() const override
+        {
+            return working_directory;
+        }
 
-        FilePath get_plugins_directory() const override { return plugins_directory; }
+        FilePath get_plugins_directory() const override
+        {
+            return plugins_directory;
+        }
 
-        FilePath get_logs_directory() const override { return logs_directory; }
+        FilePath get_logs_directory() const override
+        {
+            return logs_directory;
+        }
 
-        FilePath get_assets_directory() const override { return assets_directory; }
+        FilePath get_assets_directory() const override
+        {
+            return assets_directory;
+        }
 
         FilePath resolve_relative_path(const FilePath& path) const override
         {
@@ -59,7 +69,7 @@ namespace tbx::tests::plugin_loader
         bool exists(const FilePath& path) const override
         {
             const auto key = resolve_relative_path(path).std_path().generic_string();
-            return directories.contains(key) || files.contains(key);
+            return directories.contains(key) || files.find(key) != files.end();
         }
 
         FilePathType get_file_type(const FilePath& path) const override
@@ -67,7 +77,7 @@ namespace tbx::tests::plugin_loader
             const auto key = resolve_relative_path(path).std_path().generic_string();
             if (directories.contains(key))
                 return FilePathType::Directory;
-            if (files.contains(key))
+            if (files.find(key) != files.end())
                 return FilePathType::Regular;
             return FilePathType::None;
         }
@@ -93,7 +103,10 @@ namespace tbx::tests::plugin_loader
             return entries;
         }
 
-        bool create_directory(const FilePath&) override { return true; }
+        bool create_directory(const FilePath&) override
+        {
+            return true;
+        }
 
         bool create_file(const FilePath& path) override
         {
@@ -117,24 +130,33 @@ namespace tbx::tests::plugin_loader
             return true;
         }
 
-        bool remove(const FilePath&) override { return true; }
+        bool remove(const FilePath&) override
+        {
+            return true;
+        }
 
-        bool rename(const FilePath&, const FilePath&) override { return true; }
+        bool rename(const FilePath&, const FilePath&) override
+        {
+            return true;
+        }
 
-        bool copy(const FilePath&, const FilePath&) override { return true; }
+        bool copy(const FilePath&, const FilePath&) override
+        {
+            return true;
+        }
 
-        std::unordered_set<String> directories;
-        std::unordered_map<String, String> files;
+        HashSet<String> directories;
+        HashMap<String, String> files;
         FilePath working_directory;
         FilePath plugins_directory;
         FilePath logs_directory;
         FilePath assets_directory;
     };
-    
+
     TEST(plugin_loader, loads_static_plugin_from_meta_list)
     {
         ManifestFilesystemOps ops;
-        auto loaded = load_plugins(List<PluginMeta>{make_static_meta()}, ops);
+        auto loaded = load_plugins(List<PluginMeta> {make_static_meta()}, ops);
         ASSERT_EQ(loaded.size(), 1u);
         EXPECT_NE(loaded[0].instance.get(), nullptr);
     }
@@ -149,7 +171,6 @@ namespace tbx::tests::plugin_loader
             R"({
                 "name": "TestStaticPlugin",
                 "version": "1.0.0",
-                "type": "plugin",
                 "static": true
             })");
 
