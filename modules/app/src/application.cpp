@@ -89,7 +89,7 @@ namespace tbx
         }
 
         // Send initialized event
-        _msg_coordinator.send<ApplicationInitializedEvent>(this, _desc);
+        _msg_coordinator.send<ApplicationInitializedEvent>(this);
     }
 
     void Application::update(DeltaTimer timer)

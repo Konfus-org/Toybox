@@ -1,6 +1,7 @@
 #include "tbx/file_system/filepath.h"
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
 
@@ -12,7 +13,7 @@ namespace tbx
     }
 
     FilePath::FilePath(const String& value)
-        : _path(sanitize_path(std::filesystem::path(value.std_str())))
+        : _path(sanitize_path(std::filesystem::path(static_cast<const std::string&>(value))))
     {
     }
 
@@ -66,7 +67,7 @@ namespace tbx
     FilePath FilePath::set_extension(const String& extension) const
     {
         std::filesystem::path updated = _path;
-        updated.replace_extension(extension.std_str());
+        updated.replace_extension(std::filesystem::path(static_cast<const std::string&>(extension)));
         return FilePath(updated);
     }
 
@@ -78,7 +79,8 @@ namespace tbx
     FilePath FilePath::append(const String& component) const
     {
         FilePath combined(_path);
-        combined._path /= sanitize_component(component).std_str();
+        const String sanitized = sanitize_component(component);
+        combined._path /= std::filesystem::path(static_cast<const std::string&>(sanitized));
         combined._path = sanitize_path(combined._path);
         return combined;
     }
@@ -111,9 +113,10 @@ namespace tbx
         const String unsupported = "<>:\"/\\|?*";
         std::string sanitized;
         sanitized.reserve(name.size());
-        for (char c : name.std_str())
+        for (char c : std::string_view(name))
         {
-            const bool invalid = unsupported.std_str().find(c) != std::string::npos;
+            const bool invalid =
+                std::string_view(unsupported).find(c) != std::string_view::npos;
             sanitized.push_back(invalid ? '_' : c);
         }
         return String(sanitized);
@@ -122,7 +125,7 @@ namespace tbx
     std::filesystem::path FilePath::sanitize_path(const std::filesystem::path& path)
     {
         if (path.empty())
-            return std::filesystem::path(sanitize_component("").std_str());
+            return std::filesystem::path(static_cast<const std::string&>(sanitize_component("")));
 
         std::filesystem::path cleaned;
         if (!path.root_name().empty())
@@ -134,12 +137,13 @@ namespace tbx
         bool has_component = false;
         for (const auto& part : path.relative_path())
         {
-            cleaned /= sanitize_component(part.string()).std_str();
+            const String sanitized_part = sanitize_component(part.string());
+            cleaned /= std::filesystem::path(static_cast<const std::string&>(sanitized_part));
             has_component = true;
         }
 
         if (!has_component && cleaned.empty())
-            cleaned = sanitize_component(path.string()).std_str();
+            cleaned = std::filesystem::path(static_cast<const std::string&>(sanitize_component(path.string())));
 
         return cleaned;
     }

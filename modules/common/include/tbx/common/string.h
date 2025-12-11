@@ -1,10 +1,12 @@
 #pragma once
 #include "tbx/common/int.h"
 #include "tbx/tbx_api.h"
+#include <cassert>
 #include <format>
 #include <functional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
@@ -25,20 +27,23 @@ namespace tbx
         template <typename TValue>
         String(TValue&& value)
         {
-            if constexpr (std::is_convertible_v<TValue, String>)
+            if constexpr (std::is_same_v<std::remove_cvref_t<TValue>, String>)
             {
-                const String converted = static_cast<String>(std::forward<TValue>(value));
-                _value = converted.std_str();
+                _value = value._value;
             }
             else if constexpr (std::is_convertible_v<TValue, std::string>)
             {
                 _value = std::string(std::forward<TValue>(value));
             }
-            else
+            else if constexpr (requires(std::ostream& os, TValue v) { os << v; })
             {
                 std::ostringstream stream;
                 stream << std::forward<TValue>(value);
                 _value = stream.str();
+            }
+            else
+            {
+                assert(false && "Unsupported type for String construction.");
             }
         }
 
@@ -96,6 +101,12 @@ namespace tbx
         // Equality checks underlying contents.
         bool operator==(const String& other) const;
         bool operator!=(const String& other) const;
+        bool operator==(const char* other) const;
+        bool operator!=(const char* other) const;
+        bool operator==(const std::string& other) const;
+        bool operator!=(const std::string& other) const;
+        bool operator==(std::string_view other) const;
+        bool operator!=(std::string_view other) const;
 
         using iterator = std::string::iterator;
         using const_iterator = std::string::const_iterator;
@@ -110,6 +121,36 @@ namespace tbx
       private:
         std::string _value;
     };
+
+    inline bool operator==(const char* lhs, const String& rhs)
+    {
+        return rhs == lhs;
+    }
+
+    inline bool operator!=(const char* lhs, const String& rhs)
+    {
+        return !(lhs == rhs);
+    }
+
+    inline bool operator==(const std::string& lhs, const String& rhs)
+    {
+        return rhs == lhs;
+    }
+
+    inline bool operator!=(const std::string& lhs, const String& rhs)
+    {
+        return !(lhs == rhs);
+    }
+
+    inline bool operator==(std::string_view lhs, const String& rhs)
+    {
+        return rhs == lhs;
+    }
+
+    inline bool operator!=(std::string_view lhs, const String& rhs)
+    {
+        return !(lhs == rhs);
+    }
 }
 
 namespace std
@@ -119,7 +160,7 @@ namespace std
     {
         size_t operator()(const tbx::String& value) const
         {
-            return hash<std::string>()(value.std_str());
+            return hash<std::string>()(static_cast<const std::string&>(value));
         }
     };
 
@@ -129,7 +170,7 @@ namespace std
         template <typename FormatContext>
         auto format(const tbx::String& value, FormatContext& ctx) const
         {
-            return formatter<std::string, char>::format(value.std_str(), ctx);
+            return formatter<std::string, char>::format(static_cast<const std::string&>(value), ctx);
         }
     };
 }

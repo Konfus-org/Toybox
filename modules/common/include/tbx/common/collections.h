@@ -508,7 +508,7 @@ namespace tbx
         /// Purpose: matches the C# indexer semantics while using explicit Get prefix.
         /// Ownership: returns a reference to owned storage.
         /// Thread Safety: not thread-safe; callers must synchronize external access.
-        TValue& get_at(uint index)
+        decltype(auto) get_at(uint index)
         {
             return _storage.at(index);
         }
@@ -517,7 +517,7 @@ namespace tbx
         /// Purpose: matches the C# indexer semantics while using explicit Get prefix.
         /// Ownership: returns a reference to owned storage.
         /// Thread Safety: not thread-safe; callers must synchronize external access.
-        const TValue& get_at(uint index) const
+        decltype(auto) get_at(uint index) const
         {
             return _storage.at(index);
         }
@@ -526,7 +526,7 @@ namespace tbx
         /// Purpose: aligns with square bracket usage expectations similar to C# indexers.
         /// Ownership: returns a reference to owned storage.
         /// Thread Safety: not thread-safe; callers must synchronize external access.
-        TValue& operator[](uint index)
+        decltype(auto) operator[](uint index)
         {
             return get_at(index);
         }
@@ -535,7 +535,7 @@ namespace tbx
         /// Purpose: aligns with square bracket usage expectations similar to C# indexers.
         /// Ownership: returns a reference to owned storage.
         /// Thread Safety: not thread-safe; callers must synchronize external access.
-        const TValue& operator[](uint index) const
+        decltype(auto) operator[](uint index) const
         {
             return get_at(index);
         }
@@ -1124,7 +1124,7 @@ namespace tbx
         /// Purpose: matches the C# indexer semantics while using explicit Get prefix.
         /// Ownership: returns a reference to owned storage.
         /// Thread Safety: not thread-safe; callers must synchronize external access.
-        TValue& get_at(uint index)
+        decltype(auto) get_at(uint index)
         {
             return _storage.at(index);
         }
@@ -1133,7 +1133,7 @@ namespace tbx
         /// Purpose: matches the C# indexer semantics while using explicit Get prefix.
         /// Ownership: returns a reference to owned storage.
         /// Thread Safety: not thread-safe; callers must synchronize external access.
-        const TValue& get_at(uint index) const
+        decltype(auto) get_at(uint index) const
         {
             return _storage.at(index);
         }
@@ -1142,7 +1142,7 @@ namespace tbx
         /// Purpose: aligns with square bracket usage expectations similar to C# indexers.
         /// Ownership: returns a reference to owned storage.
         /// Thread Safety: not thread-safe; callers must synchronize external access.
-        TValue& operator[](uint index)
+        decltype(auto) operator[](uint index)
         {
             return get_at(index);
         }
@@ -1151,7 +1151,7 @@ namespace tbx
         /// Purpose: aligns with square bracket usage expectations similar to C# indexers.
         /// Ownership: returns a reference to owned storage.
         /// Thread Safety: not thread-safe; callers must synchronize external access.
-        const TValue& operator[](uint index) const
+        decltype(auto) operator[](uint index) const
         {
             return get_at(index);
         }

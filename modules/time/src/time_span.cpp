@@ -51,7 +51,7 @@ namespace tbx
         return static_cast<int>(value);
     }
 
-    TimeSpan::operator String
+    TimeSpan::operator String() const
     {
         switch (unit)
         {

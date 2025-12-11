@@ -15,6 +15,8 @@ namespace tbx
       public:
         Json();
         Json(const String& data);
+        Json(Json&& other);
+        Json& operator=(Json&& other);
         ~Json();
 
         // Serializes the wrapped JSON value into a string.

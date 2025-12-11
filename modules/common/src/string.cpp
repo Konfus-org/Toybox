@@ -150,6 +150,36 @@ namespace tbx
         return !(*this == other);
     }
 
+    bool String::operator==(const char* other) const
+    {
+        return _value == (other ? other : "");
+    }
+
+    bool String::operator!=(const char* other) const
+    {
+        return !(*this == other);
+    }
+
+    bool String::operator==(const std::string& other) const
+    {
+        return _value == other;
+    }
+
+    bool String::operator!=(const std::string& other) const
+    {
+        return !(*this == other);
+    }
+
+    bool String::operator==(std::string_view other) const
+    {
+        return std::string_view(_value) == other;
+    }
+
+    bool String::operator!=(std::string_view other) const
+    {
+        return !(*this == other);
+    }
+
     String::iterator String::begin()
     {
         return _value.begin();

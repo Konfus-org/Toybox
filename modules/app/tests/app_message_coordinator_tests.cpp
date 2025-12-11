@@ -38,12 +38,7 @@ namespace tbx::tests::app
 
         TestMessage msg;
         msg.value = 42;
-        bool handled_callback = false;
         bool processed_callback = false;
-        msg.callbacks.on_handled = [&](const Message&)
-        {
-            handled_callback = true;
-        };
         msg.callbacks.on_processed = [&](const Message&)
         {
             processed_callback = true;
@@ -53,7 +48,6 @@ namespace tbx::tests::app
         EXPECT_EQ(count.load(), 1);
         EXPECT_EQ(received_value, 42);
         EXPECT_TRUE(result.succeeded());
-        EXPECT_TRUE(handled_callback);
         EXPECT_TRUE(processed_callback);
     }
 
@@ -84,11 +78,11 @@ namespace tbx::tests::app
         Message msg;
         msg.require_handling = true;
 
-        bool failure_callback = false;
+        bool error_callback = false;
         bool processed_callback = false;
-        msg.callbacks.on_failure = [&](const Message&)
+        msg.callbacks.on_error = [&](const Message&)
         {
-            failure_callback = true;
+            error_callback = true;
         };
         msg.callbacks.on_processed = [&](const Message&)
         {
@@ -99,7 +93,7 @@ namespace tbx::tests::app
 
         EXPECT_FALSE(result.succeeded());
         EXPECT_FALSE(result.get_report().empty());
-        EXPECT_TRUE(failure_callback);
+        EXPECT_TRUE(error_callback);
         EXPECT_TRUE(processed_callback);
     }
 
@@ -116,11 +110,11 @@ namespace tbx::tests::app
             });
 
         Message msg;
-        bool failure_callback = false;
+        bool error_callback = false;
         bool processed_callback = false;
-        msg.callbacks.on_failure = [&](const Message&)
+        msg.callbacks.on_error = [&](const Message&)
         {
-            failure_callback = true;
+            error_callback = true;
         };
         msg.callbacks.on_processed = [&](const Message&)
         {
@@ -134,7 +128,7 @@ namespace tbx::tests::app
         EXPECT_EQ(count.load(), 1);
         EXPECT_FALSE(result.succeeded());
         EXPECT_FALSE(result.get_report().empty());
-        EXPECT_TRUE(failure_callback);
+        EXPECT_TRUE(error_callback);
         EXPECT_TRUE(processed_callback);
     }
 
@@ -358,7 +352,7 @@ namespace tbx::tests::app
         auto result = future.wait();
         EXPECT_TRUE(result.succeeded());
         EXPECT_FALSE(msg.payload.has_value());
-        EXPECT_EQ(processed_payload.std_str(), "ready");
+        EXPECT_EQ(processed_payload, "ready");
     }
 
 }

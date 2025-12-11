@@ -119,7 +119,8 @@ namespace tbx
         }
 
         template <typename... TArgs>
-            requires(sizeof...(TArgs) > 0 && std::is_constructible_v<T, TArgs...>)
+            requires(sizeof...(TArgs) > 0 && std::is_constructible_v<T, TArgs...>
+                     && (!std::is_same_v<Ref, std::remove_cvref_t<TArgs>> && ...))
         explicit Ref(TArgs&&... args)
             : _storage(std::make_shared<T>(std::forward<TArgs>(args)...))
         {

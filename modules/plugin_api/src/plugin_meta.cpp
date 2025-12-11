@@ -13,14 +13,12 @@ namespace tbx
     {
         if (!data.try_get_string(key, target))
         {
-            TBX_ASSERT(false, "Required string field missing: {}", key.c_str());
             return false;
         }
 
         target = target.trim();
         if (target.empty())
         {
-            TBX_ASSERT(false, "Required string field was empty: {}", key.c_str());
             return false;
         }
 
@@ -83,7 +81,7 @@ namespace tbx
             module_value = module_value.trim();
             if (!module_value.empty())
             {
-                std::filesystem::path module_path(module_value.std_str());
+                std::filesystem::path module_path(static_cast<const std::string&>(module_value));
                 if (module_path.is_absolute() || meta.root_directory.empty())
                 {
                     meta.module_path = FilePath(module_path);

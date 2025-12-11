@@ -4,39 +4,45 @@
 namespace tbx
 {
     CancellationSource::CancellationSource()
-        : _state(Ref<bool>(false))
+        : _state(new ThreadSafe<bool>(false))
     {
     }
 
     CancellationToken CancellationSource::get_token() const
     {
-        auto lock = _state.lock();
-        return CancellationToken(lock.get());
+        return CancellationToken(_state);
     }
 
     void CancellationSource::cancel() const
     {
-        auto lock = _state.lock();
-        auto& flag = lock.get();
-        if (flag)
-            *flag = true;
+        if (_state)
+        {
+            auto lock = _state->lock();
+            lock.get() = true;
+        }
     }
 
     bool CancellationSource::is_cancelled() const
     {
-        auto lock = _state.lock();
-        auto& flag = lock.get();
-        return flag && *flag;
+        if (!_state)
+            return false;
+
+        auto lock = _state->lock();
+        return lock.get();
     }
 
-    CancellationToken::CancellationToken(Ref<bool> state)
+    CancellationToken::CancellationToken(Ref<ThreadSafe<bool>> state)
         : _state(state)
     {
     }
 
     bool CancellationToken::is_cancelled() const
     {
-        return _state && *_state;
+        if (!_state)
+            return false;
+
+        auto lock = _state->lock();
+        return lock.get();
     }
 
     CancellationToken::operator bool() const

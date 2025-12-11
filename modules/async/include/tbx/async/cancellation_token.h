@@ -23,7 +23,7 @@ namespace tbx
         bool is_cancelled() const;
 
       private:
-        ThreadSafe<Ref<bool>> _state;
+        Ref<ThreadSafe<bool>> _state;
     };
 
     // Lightweight, thread-safe observer that reports whether its originating source cancelled.
@@ -35,11 +35,11 @@ namespace tbx
     {
       public:
         CancellationToken() = default;
-        CancellationToken(Ref<bool> state);
+        CancellationToken(Ref<ThreadSafe<bool>> state);
         bool is_cancelled() const;
         operator bool() const;
 
       private:
-        Ref<bool> _state;
+        Ref<ThreadSafe<bool>> _state;
     };
 }

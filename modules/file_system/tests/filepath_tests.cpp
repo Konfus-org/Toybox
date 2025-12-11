@@ -8,7 +8,7 @@
 static std::filesystem::path make_unique_path(const tbx::String& token)
 {
     const auto timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
-    auto base = std::filesystem::temp_directory_path() / (token.std_str() + "_");
+    auto base = std::filesystem::temp_directory_path() / (std::string(token) + "_");
     return base / std::to_string(timestamp);
 }
 
@@ -23,7 +23,7 @@ TEST(FilePathTests, ProvidesFilenameAndParent)
 {
     tbx::FilePath path("dir/sub/file.txt");
 
-    EXPECT_EQ(path.filename_string().std_str(), "file.txt");
+    EXPECT_EQ(path.filename_string(), "file.txt");
     EXPECT_EQ(path.parent_path().std_path(), std::filesystem::path("dir/sub"));
 }
 
@@ -45,14 +45,14 @@ TEST(FilePathTests, ReplacesExtensionsAndHandlesEmptyInput)
     tbx::FilePath ext_path("file.old");
     auto replaced = ext_path.set_extension(".txt");
 
-    EXPECT_EQ(replaced.filename_string().std_str(), "file.txt");
+    EXPECT_EQ(replaced.filename_string(), "file.txt");
 }
 
 TEST(FilePathTests, ReturnsFileExtension)
 {
     tbx::FilePath path("file.meta");
 
-    EXPECT_EQ(path.get_extension().std_str(), ".meta");
+    EXPECT_EQ(path.get_extension(), ".meta");
 }
 
 TEST(FilePathTests, DetectsFileTypes)

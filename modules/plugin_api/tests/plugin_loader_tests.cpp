@@ -90,14 +90,15 @@ namespace tbx::tests::plugin_loader
             {
                 if (dir.starts_with(prefix))
                 {
-                    entries.push_back(std::filesystem::path(dir.std_str()));
+                    entries.push_back(std::filesystem::path(static_cast<const std::string&>(dir)));
                 }
             }
             for (const auto& [file_path, _] : files)
             {
                 if (file_path.starts_with(prefix))
                 {
-                    entries.push_back(std::filesystem::path(file_path.std_str()));
+                    entries.push_back(
+                        std::filesystem::path(static_cast<const std::string&>(file_path)));
                 }
             }
             return entries;

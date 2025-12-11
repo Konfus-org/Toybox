@@ -14,6 +14,54 @@ namespace tbx
         _cancel_signaled = false;
     }
 
+    Timer& Timer::operator=(const Timer& other)
+    {
+        if (this != &other)
+        {
+            time_length = other.time_length;
+            time_left = other.time_left;
+            cancellation_source = other.cancellation_source;
+            _has_deadline = other._has_deadline;
+            _time_up_signaled = other._time_up_signaled;
+            _cancel_signaled = other._cancel_signaled;
+
+            if (other.tick_callback)
+                tick_callback = other.tick_callback;
+
+            if (other.time_up_callback)
+                time_up_callback = other.time_up_callback;
+
+            if (other.cancel_callback)
+                cancel_callback = other.cancel_callback;
+        }
+
+        return *this;
+    }
+
+    Timer& Timer::operator=(Timer&& other)
+    {
+        if (this != &other)
+        {
+            time_length = other.time_length;
+            time_left = other.time_left;
+            cancellation_source = std::move(other.cancellation_source);
+            _has_deadline = other._has_deadline;
+            _time_up_signaled = other._time_up_signaled;
+            _cancel_signaled = other._cancel_signaled;
+
+            if (other.tick_callback)
+                tick_callback = std::move(other.tick_callback);
+
+            if (other.time_up_callback)
+                time_up_callback = std::move(other.time_up_callback);
+
+            if (other.cancel_callback)
+                cancel_callback = std::move(other.cancel_callback);
+        }
+
+        return *this;
+    }
+
     void Timer::reset()
     {
         cancellation_source = CancellationSource();

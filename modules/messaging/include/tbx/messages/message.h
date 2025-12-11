@@ -12,9 +12,8 @@ namespace tbx
 {
     enum class MessageState
     {
-        InProgress,
+        UnHandled,
         Handled,
-        Processed,
         Cancelled,
         TimedOut,
         Error
@@ -24,9 +23,8 @@ namespace tbx
 
     struct TBX_API MessageCallbacks
     {
-        Callback<const Message&> on_failure;
+        Callback<const Message&> on_error;
         Callback<const Message&> on_cancelled;
-        Callback<const Message&> on_handled;
         Callback<const Message&> on_processed;
         Callback<const Message&> on_timeout;
     };
@@ -44,7 +42,7 @@ namespace tbx
         Message();
         virtual ~Message();
 
-        MessageState state = MessageState::InProgress;
+        MessageState state = MessageState::UnHandled;
         std::any payload = {};
         Result result = {};
         CancellationToken cancellation_token = {};
