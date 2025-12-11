@@ -24,20 +24,37 @@ namespace tbx::plugins::spdconsolelogger
             msg,
             [this](LogMessageRequest& log)
             {
-                const auto filename = FilePath(log.file).filename_string().std_str();
+                const auto filename = static_cast<const std::string&>(
+                    FilePath(log.file).filename_string());
                 switch (log.level)
                 {
                     case LogLevel::Info:
-                        _logger->info("[{}:{}] {}", filename, log.line, log.message.std_str());
+                        _logger->info(
+                            "[{}:{}] {}",
+                            filename,
+                            log.line,
+                            static_cast<const std::string&>(log.message));
                         break;
                     case LogLevel::Warning:
-                        _logger->warn("[{}:{}] {}", filename, log.line, log.message.std_str());
+                        _logger->warn(
+                            "[{}:{}] {}",
+                            filename,
+                            log.line,
+                            static_cast<const std::string&>(log.message));
                         break;
                     case LogLevel::Error:
-                        _logger->error("[{}:{}] {}", filename, log.line, log.message.std_str());
+                        _logger->error(
+                            "[{}:{}] {}",
+                            filename,
+                            log.line,
+                            static_cast<const std::string&>(log.message));
                         break;
                     case LogLevel::Critical:
-                        _logger->critical("[{}:{}] {}", filename, log.line, log.message.std_str());
+                        _logger->critical(
+                            "[{}:{}] {}",
+                            filename,
+                            log.line,
+                            static_cast<const std::string&>(log.message));
                         break;
                 }
                 _logger->flush();

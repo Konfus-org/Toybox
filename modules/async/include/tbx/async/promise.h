@@ -19,7 +19,7 @@ namespace tbx
       public:
         Promise() = default;
 
-        PayLoadResult<TValue> resolve() const
+        PayloadResult<TValue> resolve() const
         {
             return current_result();
         }
@@ -163,7 +163,7 @@ namespace tbx
             if (!on_ready || !payload.has_payload())
                 return;
 
-            on_ready(payload.payload());
+            on_ready(payload.get_payload());
         }
 
         void invoke_on_failure(const PayloadResult<TValue>& payload) const

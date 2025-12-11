@@ -20,6 +20,9 @@ namespace tbx
             const TimeSpan& time_span = {},
             CancellationSource cancellation_source = CancellationSource());
 
+        Timer& operator=(const Timer& other);
+        Timer& operator=(Timer&& other);
+
         void reset();
         bool tick(const TimeSpan& delta_time);
         bool is_time_up() const;

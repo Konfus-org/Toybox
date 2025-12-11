@@ -7,7 +7,7 @@ namespace tbx::tests::messaging
     {
         Message message = {};
 
-        EXPECT_EQ(message.state, MessageState::InProgress);
+        EXPECT_EQ(message.state, MessageState::UnHandled);
         EXPECT_TRUE(message.payload.has_value() == false);
         EXPECT_EQ(message.id, message.id);
     }

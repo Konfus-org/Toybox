@@ -5,6 +5,7 @@
 #include <format>
 #include <source_location>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 
@@ -35,7 +36,9 @@ namespace tbx
         String formatted = std::apply(
             [&](auto&... tuple_args)
             {
-                return std::vformat(fmt.std_str(), std::make_format_args(tuple_args...));
+                return std::vformat(
+                    std::string_view(fmt),
+                    std::make_format_args(tuple_args...));
             },
             arguments);
         return formatted;

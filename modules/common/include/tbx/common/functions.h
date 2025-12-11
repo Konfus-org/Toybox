@@ -3,6 +3,7 @@
 #include "tbx/common/uuid.h"
 #include <functional>
 #include <type_traits>
+#include <utility>
 
 namespace tbx
 {
@@ -22,11 +23,21 @@ namespace tbx
         {
         }
 
-        void reset(CallbackFunction<TArgs...> func, String name = {})
+        Callback& operator=(CallbackFunction<TArgs...> func)
         {
             _callback = std::move(func);
-            _name = std::move(name);
+            _name = {};
             _id = Uuid::generate();
+            return *this;
+        }
+
+        template <typename TCallable>
+        Callback& operator=(TCallable&& callable)
+        {
+            _callback = CallbackFunction<TArgs...>(std::forward<TCallable>(callable));
+            _name = {};
+            _id = Uuid::generate();
+            return *this;
         }
 
         void invoke(TArgs... args) const

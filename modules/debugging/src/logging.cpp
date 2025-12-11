@@ -14,7 +14,7 @@ namespace tbx
         const String& sanitized_base_name,
         int index)
     {
-        const String stem = sanitized_base_name.std_str();
+        const String stem = sanitized_base_name;
         return index <= 0 ? directory.append(stem + ".log")
                           : directory.append(stem + "_" + std::to_string(index) + ".log");
     }

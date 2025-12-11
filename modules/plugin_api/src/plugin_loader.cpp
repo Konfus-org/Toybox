@@ -33,14 +33,14 @@ namespace tbx
             const String file_name = module_path.filename_string();
             if (!file_name.starts_with("lib"))
             {
-                module_path = module_path.parent_path().append(String("lib") + file_name.std_str());
+                module_path = module_path.parent_path().append(String("lib") + file_name);
             }
             module_path = module_path.set_extension(".dylib");
 #else
             const String file_name = module_path.filename_string();
             if (!file_name.starts_with("lib"))
             {
-                module_path = module_path.parent_path().append(String("lib") + file_name.std_str());
+                module_path = module_path.parent_path().append(String("lib") + file_name);
             }
             module_path = module_path.set_extension(".so");
 #endif
@@ -104,7 +104,7 @@ namespace tbx
         loaded.instance = std::move(instance);
         loaded.library = std::move(lib);
 
-        TBX_TRACE_INFO("Loaded plugin: {}", String(loaded));
+        TBX_TRACE_INFO("Loaded plugin: {}", meta.name.c_str());
 
         return loaded;
     }
@@ -209,7 +209,7 @@ namespace tbx
 
                 const String name = entry.filename_string();
                 const String lowered_name = name.to_lower();
-                if (entry.get_extension().std_str() == ".meta"
+                if (entry.get_extension() == ".meta"
                     || lowered_name == String("plugin.meta"))
                 {
                     String manifest_data;

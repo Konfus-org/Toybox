@@ -20,13 +20,13 @@ namespace tbx
         switch (state)
         {
             case MessageState::Handled:
-            case MessageState::Processed:
+            case MessageState::UnHandled:
             {
                 msg.result.flag_success(message);
                 break;
             }
             case MessageState::Cancelled:
-            case MessageState::Failed:
+            case MessageState::Error:
             case MessageState::TimedOut:
             {
                 String resolved = message;
@@ -35,7 +35,7 @@ namespace tbx
                     const String& current = msg.result.get_report();
                     if (current.empty())
                     {
-                        if (state == MessageState::Failed)
+                        if (state == MessageState::Error)
                             resolved = "Message processing failed.";
                         else if (state == MessageState::TimedOut)
                             resolved = "Message processing timed out.";
@@ -49,25 +49,21 @@ namespace tbx
                 if (!text.empty())
                 {
                     const String message_id(msg.id);
-                    if (state == MessageState::Failed)
+                    if (state == MessageState::Error)
                     {
                         TBX_TRACE_ERROR(
-                            "Message {} failed: {}", message_id.std_str(), text);
+                            "Message {} failed: {}",
+                            message_id,
+                            text);
                     }
                     else if (state == MessageState::TimedOut)
                     {
                         TBX_TRACE_WARNING(
-                            "Message {} timed out: {}", message_id.std_str(), text);
+                            "Message {} timed out: {}",
+                            message_id,
+                            text);
                     }
                 }
-                break;
-            }
-            case MessageState::InProgress:
-            {
-                if (!message.empty())
-                    msg.result.flag_failure(message);
-                else
-                    msg.result.flag_failure(String());
                 break;
             }
             default:
@@ -82,22 +78,16 @@ namespace tbx
     {
         switch (state)
         {
-            case MessageState::Handled:
-            {
-                if (msg.callbacks.on_handled)
-                    msg.callbacks.on_handled(msg);
-                break;
-            }
             case MessageState::Cancelled:
             {
                 if (msg.callbacks.on_cancelled)
                     msg.callbacks.on_cancelled(msg);
                 break;
             }
-            case MessageState::Failed:
+            case MessageState::Error:
             {
-                if (msg.callbacks.on_failure)
-                    msg.callbacks.on_failure(msg);
+                if (msg.callbacks.on_error)
+                    msg.callbacks.on_error(msg);
                 break;
             }
             case MessageState::TimedOut:
@@ -106,11 +96,9 @@ namespace tbx
                     msg.callbacks.on_timeout(msg);
                 break;
             }
-            case MessageState::Processed:
-            case MessageState::InProgress:
-            {
+            case MessageState::Handled:
+            case MessageState::UnHandled:
                 break;
-            }
             default:
             {
                 TBX_ASSERT(false, "Cannot process, unknown message state!");
@@ -124,9 +112,6 @@ namespace tbx
 
     static void apply_state(Message& msg, MessageState state, const String& reason)
     {
-        if (msg.state == state && reason.empty())
-            return;
-
         msg.state = state;
         update_result_for_state(msg, state, reason);
         dispatch_state_callbacks(msg, state);
@@ -247,27 +232,27 @@ namespace tbx
                     return;
             }
 
-            if (msg.state == MessageState::InProgress)
+            if (msg.state == MessageState::UnHandled)
             {
                 if (msg.require_handling)
                 {
                     apply_state(
                         msg,
-                        MessageState::Failed,
+                        MessageState::Error,
                         "Message required handling but no handlers completed it.");
                 }
                 else
-                    apply_state(msg, MessageState::Processed, String());
+                    apply_state(msg, MessageState::UnHandled, String());
             }
         }
         catch (const std::exception& ex)
         {
-            apply_state(msg, MessageState::Failed, ex.what());
+            apply_state(msg, MessageState::Error, ex.what());
             TBX_ASSERT(false, "Exception during message dispatch: %s", ex.what());
         }
         catch (...)
         {
-            apply_state(msg, MessageState::Failed, "Unknown exception during message dispatch.");
+            apply_state(msg, MessageState::Error, "Unknown exception during message dispatch.");
             TBX_ASSERT(false, "Unknown exception during message dispatch.");
         }
     }
@@ -280,15 +265,16 @@ namespace tbx
 
     Promise<Result> AppMessageCoordinator::post_impl(Scope<Message> msg) const
     {
-    Promise<Result> promise;
-    Promise<Result> future = promise;
+        Promise<Result> promise;
+        promise.wait(TimeSpan());
+        Promise<Result> future = promise;
 
-    {
-        auto lock = _pending.lock();
-        lock.get().emplace(std::move(msg), std::move(promise));
-    }
+        {
+            auto lock = _pending.lock();
+            lock.get().emplace(std::move(msg), std::move(promise));
+        }
 
-    return future;
+        return future;
     }
 
     void AppMessageCoordinator::process()
@@ -307,20 +293,17 @@ namespace tbx
             }
             catch (const std::exception& ex)
             {
-                apply_state(*entry.message, MessageState::Failed, ex.what());
+                apply_state(*entry.message, MessageState::Error, ex.what());
             }
             catch (...)
             {
                 apply_state(
                     *entry.message,
-                    MessageState::Failed,
+                    MessageState::Error,
                     "Unknown exception during message dispatch.");
             }
 
-            if (entry.completion_state)
-            {
-                entry.completion_state.fulfill(entry.message->result);
-            }
+            entry.completion_state.fulfill(entry.message->result);
         }
     }
 }

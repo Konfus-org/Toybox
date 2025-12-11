@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "tbx/file_system/json.h"
+#include <string_view>
 
 namespace tbx::tests::file_system
 {
@@ -28,10 +29,10 @@ namespace tbx::tests::file_system
         String name;
 
         EXPECT_TRUE(json.try_get_string("name", name));
-        EXPECT_EQ(name.std_str(), "temp");
+        EXPECT_EQ(name, "temp");
 
         const String serialized = json.to_string(2);
-        EXPECT_NE(serialized.std_str().find("\"name\""), std::string::npos);
+        EXPECT_NE(std::string_view(serialized).find("\"name\""), std::string_view::npos);
     }
 
     TEST(JsonTests, ReadsMixedPrimitiveArrays)
@@ -92,9 +93,9 @@ namespace tbx::tests::file_system
 
         String name;
         EXPECT_TRUE(children[0].try_get_string("name", name));
-        EXPECT_EQ(name.std_str(), "first");
+        EXPECT_EQ(name, "first");
         EXPECT_TRUE(children[1].try_get_string("name", name));
-        EXPECT_EQ(name.std_str(), "second");
+        EXPECT_EQ(name, "second");
     }
 
     TEST(JsonTests, ReadsStringArrays)
@@ -107,7 +108,7 @@ namespace tbx::tests::file_system
 
         EXPECT_TRUE(json.try_get_strings("values", values));
         ASSERT_EQ(values.size(), 2u);
-        EXPECT_EQ(values[0].std_str(), "first");
-        EXPECT_EQ(values[1].std_str(), "second");
+        EXPECT_EQ(values[0], "first");
+        EXPECT_EQ(values[1], "second");
     }
 }

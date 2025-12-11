@@ -21,10 +21,41 @@ namespace tbx
         {
         }
 
-        ThreadSafe(const ThreadSafe&) = default;
-        ThreadSafe& operator=(const ThreadSafe&) = default;
-        ThreadSafe(ThreadSafe&&) noexcept = default;
-        ThreadSafe& operator=(ThreadSafe&&) noexcept = default;
+        ThreadSafe(const ThreadSafe& other)
+            : _value()
+            , _mutex()
+        {
+            std::lock_guard<std::mutex> guard(other._mutex);
+            _value = other._value;
+        }
+
+        ThreadSafe& operator=(const ThreadSafe& other)
+        {
+            if (this != &other)
+            {
+                std::scoped_lock<std::mutex, std::mutex> guard(_mutex, other._mutex);
+                _value = other._value;
+            }
+            return *this;
+        }
+
+        ThreadSafe(ThreadSafe&& other)
+            : _value()
+            , _mutex()
+        {
+            std::lock_guard<std::mutex> guard(other._mutex);
+            _value = std::move(other._value);
+        }
+
+        ThreadSafe& operator=(ThreadSafe&& other)
+        {
+            if (this != &other)
+            {
+                std::scoped_lock<std::mutex, std::mutex> guard(_mutex, other._mutex);
+                _value = std::move(other._value);
+            }
+            return *this;
+        }
 
         Lock<TValue> lock() const
         {

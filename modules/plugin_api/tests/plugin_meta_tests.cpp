@@ -23,11 +23,11 @@ namespace tbx::tests::plugin_api
         PluginMeta meta;
         ASSERT_TRUE(try_parse_plugin_meta(manifest_text, manifest_path, meta));
 
-        EXPECT_EQ(meta.name.std_str(), "Example.Logger");
-        EXPECT_EQ(meta.version.std_str(), "1.2.3");
-        EXPECT_EQ(meta.description.std_str(), "Example description");
+        EXPECT_EQ(meta.name, "Example.Logger");
+        EXPECT_EQ(meta.version, "1.2.3");
+        EXPECT_EQ(meta.description, "Example description");
         ASSERT_EQ(meta.dependencies.size(), 1u);
-        EXPECT_EQ(meta.dependencies[0].std_str(), "Core.Renderer");
+        EXPECT_EQ(meta.dependencies[0], "Core.Renderer");
         EXPECT_EQ(meta.root_directory, manifest_path.parent_path());
         EXPECT_EQ(meta.manifest_path, manifest_path);
         EXPECT_EQ(

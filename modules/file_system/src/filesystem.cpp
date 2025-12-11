@@ -26,7 +26,8 @@ namespace tbx
         if (working_directory.empty())
             return FilePath(folder_name);
 
-        return FilePath(working_directory.std_path() / folder_name.std_str());
+        return FilePath(working_directory.std_path()
+            / std::filesystem::path(static_cast<const std::string&>(folder_name)));
     }
 
     FileSystem::FileSystem(
@@ -154,7 +155,7 @@ namespace tbx
         // Strip UTF-8 BOM for text mode; binary payloads are left untouched.
         if (!binary && contents.size() >= 3)
         {
-            const std::string& storage = contents.std_str();
+            const std::string& storage = contents;
             const unsigned char bom0 = static_cast<unsigned char>(storage[0]);
             const unsigned char bom1 = static_cast<unsigned char>(storage[1]);
             const unsigned char bom2 = static_cast<unsigned char>(storage[2]);
