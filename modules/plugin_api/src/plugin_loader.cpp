@@ -1,14 +1,12 @@
 #include "tbx/plugin_api/plugin_loader.h"
+#include "tbx/common/collections.h"
 #include "tbx/common/smart_pointers.h"
 #include "tbx/common/string.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/file_system/filesystem.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_registry.h"
-#include <algorithm>
 #include <deque>
-#include <unordered_map>
-#include <unordered_set>
 #include <utility>
 
 namespace tbx
@@ -35,16 +33,14 @@ namespace tbx
             const String file_name = module_path.filename_string();
             if (!file_name.starts_with("lib"))
             {
-                module_path =
-                    module_path.parent_path().append(String("lib") + file_name.std_str());
+                module_path = module_path.parent_path().append(String("lib") + file_name.std_str());
             }
             module_path = module_path.set_extension(".dylib");
 #else
             const String file_name = module_path.filename_string();
             if (!file_name.starts_with("lib"))
             {
-                module_path =
-                    module_path.parent_path().append(String("lib") + file_name.std_str());
+                module_path = module_path.parent_path().append(String("lib") + file_name.std_str());
             }
             module_path = module_path.set_extension(".so");
 #endif
@@ -113,6 +109,87 @@ namespace tbx
         return loaded;
     }
 
+    static List<PluginMeta> resolve_plugin_load_order(const List<PluginMeta>& plugins)
+    {
+        HashMap<String, size_t> by_name_lookup;
+        by_name_lookup.reserve(plugins.size());
+        for (size_t index = 0; index < plugins.size(); ++index)
+        {
+            by_name_lookup.emplace(plugins[index].name.to_lower(), index);
+        }
+
+        List<List<size_t>> dependencies(plugins.size());
+        for (size_t index = 0; index < plugins.size(); ++index)
+        {
+            HashSet<size_t> unique;
+            for (const String& dependency : plugins[index].dependencies)
+            {
+                const String needle = dependency.trim().to_lower();
+                auto it = by_name_lookup.find(needle);
+                if (it == by_name_lookup.end() || it->second == index)
+                {
+                    TBX_ASSERT(
+                        false,
+                        "Failed to resolve dependency '{}' for '{}'",
+                        dependency.c_str(),
+                        plugins[index].name.c_str());
+                    return {};
+                }
+
+                if (unique.insert(it->second).second)
+                {
+                    dependencies[index].push_back(it->second);
+                }
+            }
+        }
+
+        List<size_t> indegree(plugins.size(), 0);
+        List<List<size_t>> adjacency(plugins.size());
+        for (size_t index = 0; index < plugins.size(); ++index)
+        {
+            for (size_t dependency : dependencies[index])
+            {
+                adjacency[dependency].push_back(index);
+                indegree[index] += 1;
+            }
+        }
+
+        std::deque<size_t> ready;
+        for (size_t index = 0; index < plugins.size(); ++index)
+        {
+            if (indegree[index] == 0)
+            {
+                ready.push_back(index);
+            }
+        }
+
+        List<PluginMeta> ordered;
+        ordered.reserve(plugins.size());
+        while (!ready.empty())
+        {
+            const size_t current = ready.front();
+            ready.pop_front();
+            ordered.push_back(plugins[current]);
+
+            for (size_t dependent : adjacency[current])
+            {
+                indegree[dependent] -= 1;
+                if (indegree[dependent] == 0)
+                {
+                    ready.push_back(dependent);
+                }
+            }
+        }
+
+        if (ordered.size() != plugins.size())
+        {
+            TBX_ASSERT(false, "Plugin dependency cycle detected while resolving load order");
+            return {};
+        }
+
+        return ordered;
+    }
+
     List<LoadedPlugin> load_plugins(
         const FilePath& directory,
         const List<String>& requested_ids,
@@ -132,24 +209,25 @@ namespace tbx
 
                 const String name = entry.filename_string();
                 const String lowered_name = name.to_lower();
-                if (entry.get_extension().std_str() == ".meta" || lowered_name == String("plugin.meta"))
+                if (entry.get_extension().std_str() == ".meta"
+                    || lowered_name == String("plugin.meta"))
                 {
-                    try
-                    {
-                        String manifest_data;
-                        if (!file_ops.read_file(entry, manifest_data, FileDataFormat::Utf8Text))
-                        {
-                            continue;
-                        }
+                    String manifest_data;
+                    if (!file_ops.read_file(entry, manifest_data, FileDataFormat::Utf8Text))
+                        continue;
 
-                        PluginMeta m = parse_plugin_meta(manifest_data, entry);
-                        discovered.push_back(m);
-                    }
-                    catch (...)
+                    PluginMeta manifest_meta;
+                    if (try_parse_plugin_meta(manifest_data, entry, manifest_meta))
                     {
-                        TBX_TRACE_WARNING(
+                        discovered.push_back(manifest_meta);
+                    }
+                    else
+                    {
+                        const String manifest_path = entry.std_path().string();
+                        TBX_ASSERT(
+                            false,
                             "Plugin {} is unable to be loaded!",
-                            entry.std_path().string().c_str());
+                            manifest_path);
                     }
                 }
             }
@@ -167,23 +245,15 @@ namespace tbx
         }
         else
         {
-            std::unordered_map<String, size_t> by_name_lookup;
-            std::unordered_map<String, List<size_t>> by_type;
+            HashMap<String, size_t> by_name_lookup;
             by_name_lookup.reserve(discovered.size());
-            by_type.reserve(discovered.size());
             for (size_t index = 0; index < discovered.size(); ++index)
             {
-                const PluginMeta& meta = discovered[index];
-                const String lowered_name = meta.name.to_lower();
+                const String lowered_name = discovered[index].name.to_lower();
                 by_name_lookup.emplace(lowered_name, index);
-                if (!meta.type.empty())
-                {
-                    const String lowered_type = meta.type.to_lower();
-                    by_type[lowered_type].push_back(index);
-                }
             }
 
-            std::unordered_set<size_t> selected;
+            HashSet<size_t> selected;
             std::deque<size_t> pending;
 
             auto enqueue_index = [&](size_t index)
@@ -208,14 +278,9 @@ namespace tbx
                 {
                     enqueue_index(id_it->second);
                 }
-
-                auto type_it = by_type.find(needle);
-                if (type_it != by_type.end())
+                else
                 {
-                    for (size_t candidate : type_it->second)
-                    {
-                        enqueue_index(candidate);
-                    }
+                    TBX_ASSERT(false, "Requested plugin not found: {}", trimmed.c_str());
                 }
             };
 
@@ -242,6 +307,10 @@ namespace tbx
         }
 
         metas = resolve_plugin_load_order(metas);
+        if (metas.empty())
+        {
+            return loaded;
+        }
         for (const PluginMeta& meta : metas)
         {
             LoadedPlugin plug = load_plugin_internal(meta, file_ops);
@@ -254,8 +323,7 @@ namespace tbx
         return loaded;
     }
 
-    List<LoadedPlugin> load_plugins(const List<PluginMeta>& metas,
-        IFileSystem& file_ops)
+    List<LoadedPlugin> load_plugins(const List<PluginMeta>& metas, IFileSystem& file_ops)
     {
         List<LoadedPlugin> loaded;
 

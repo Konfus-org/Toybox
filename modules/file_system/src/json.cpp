@@ -9,11 +9,20 @@ namespace tbx
         nlohmann::json Data;
     };
 
+    Json::Json()
+        : _data(Scope<Impl>(new Impl()))
+    {
+    }
+
     Json::Json(const String& data)
         : _data(Scope<Impl>(new Impl()))
     {
         _data->Data = nlohmann::json::parse(data, nullptr, true, true);
     }
+
+    Json::Json(Json&& other) = default;
+
+    Json& Json::operator=(Json&& other) = default;
 
     Json::~Json() = default;
 
@@ -54,6 +63,22 @@ namespace tbx
         return true;
     }
 
+    bool Json::try_get_float(const String& key, double& out_value) const
+    {
+        if (!_data->Data.is_object())
+            return false;
+
+        const auto iterator = _data->Data.find(key.c_str());
+        if (iterator == _data->Data.end())
+            return false;
+
+        if (!iterator->is_number())
+            return false;
+
+        out_value = iterator->get<double>();
+        return true;
+    }
+
     bool Json::try_get_string(const String& key, String& out_value) const
     {
         if (!_data->Data.is_object())
@@ -68,5 +93,149 @@ namespace tbx
 
         out_value = String(iterator->get<std::string>());
         return true;
+    }
+
+    bool Json::try_get_strings(const String& key, List<String>& out_values) const
+    {
+        if (!_data->Data.is_object())
+            return false;
+
+        const auto iterator = _data->Data.find(key.c_str());
+        if (iterator == _data->Data.end())
+            return false;
+
+        if (!iterator->is_array())
+            return false;
+
+        bool found = false;
+        for (const auto& entry : *iterator)
+        {
+            if (entry.is_string())
+            {
+                out_values.push_back(String(entry.get<std::string>()));
+                found = true;
+            }
+        }
+
+        return found;
+    }
+
+    bool Json::try_get_ints(const String& key, List<int>& out_values) const
+    {
+        if (!_data->Data.is_object())
+            return false;
+
+        const auto iterator = _data->Data.find(key.c_str());
+        if (iterator == _data->Data.end())
+            return false;
+
+        if (!iterator->is_array())
+            return false;
+
+        bool found = false;
+        for (const auto& entry : *iterator)
+        {
+            if (entry.is_number_integer())
+            {
+                out_values.push_back(entry.get<int>());
+                found = true;
+            }
+        }
+
+        return found;
+    }
+
+    bool Json::try_get_bools(const String& key, List<bool>& out_values) const
+    {
+        if (!_data->Data.is_object())
+            return false;
+
+        const auto iterator = _data->Data.find(key.c_str());
+        if (iterator == _data->Data.end())
+            return false;
+
+        if (!iterator->is_array())
+            return false;
+
+        bool found = false;
+        for (const auto& entry : *iterator)
+        {
+            if (entry.is_boolean())
+            {
+                out_values.push_back(entry.get<bool>());
+                found = true;
+            }
+        }
+
+        return found;
+    }
+
+    bool Json::try_get_floats(const String& key, List<double>& out_values) const
+    {
+        if (!_data->Data.is_object())
+            return false;
+
+        const auto iterator = _data->Data.find(key.c_str());
+        if (iterator == _data->Data.end())
+            return false;
+
+        if (!iterator->is_array())
+            return false;
+
+        bool found = false;
+        for (const auto& entry : *iterator)
+        {
+            if (entry.is_number())
+            {
+                out_values.push_back(entry.get<double>());
+                found = true;
+            }
+        }
+
+        return found;
+    }
+
+    bool Json::try_get_child(const String& key, Json& out_value) const
+    {
+        if (!_data->Data.is_object())
+            return false;
+
+        const auto iterator = _data->Data.find(key.c_str());
+        if (iterator == _data->Data.end())
+            return false;
+
+        if (!iterator->is_object())
+            return false;
+
+        out_value._data = Scope<Impl>(new Impl());
+        out_value._data->Data = *iterator;
+        return true;
+    }
+
+    bool Json::try_get_children(const String& key, List<Json>& out_values) const
+    {
+        if (!_data->Data.is_object())
+            return false;
+
+        const auto iterator = _data->Data.find(key.c_str());
+        if (iterator == _data->Data.end())
+            return false;
+
+        if (!iterator->is_array())
+            return false;
+
+        bool found = false;
+        for (const auto& entry : *iterator)
+        {
+            if (entry.is_object())
+            {
+                Json child;
+                child._data->Data = entry;
+                out_values.push_back(std::move(child));
+                found = true;
+            }
+        }
+
+        return found;
     }
 }
