@@ -20,18 +20,19 @@ namespace tbx::plugins::spdfilelogger
 
         if (!fs.create_directory(_log_directory))
         {
+            auto new_log_dir = fs.get_working_directory();
             TBX_TRACE_ERROR(
-                "SpdFileLoggerPlugin failed to create log directory {}",
-                _log_directory.std_path().string().c_str());
-            _log_directory = FilePath(std::filesystem::current_path());
+                "SpdFileLoggerPlugin failed to create log directory {}, falling back to {}",
+                _log_directory,
+                new_log_dir);
+            _log_directory = new_log_dir;
         }
 
-        _log_filename_base = FilePath(std::filesystem::path(static_cast<const std::string&>(desc.name)))
-                                  .filename_string();
+        _log_filename_base = FilePath(desc.name).get_filename();
         rotate_logs(_log_directory, _log_filename_base, 10, fs);
 
         auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
-            get_log_file_path(_log_directory, _log_filename_base, 0, fs).std_path().string(),
+            String(get_log_file_path(_log_directory, _log_filename_base, 0, fs)).get_cstr(),
             true);
         _logger = Ref<spdlog::logger>("Tbx", sink);
         _logger->info("SpdFileLoggerPlugin attached");
@@ -49,37 +50,28 @@ namespace tbx::plugins::spdfilelogger
             msg,
             [this](LogMessageRequest& log)
             {
-                const auto filename = static_cast<const std::string&>(
-                    FilePath(log.file).filename_string());
+                const String filename = FilePath(log.file).get_filename();
+                const char* filename_cstr = filename.get_cstr();
                 switch (log.level)
                 {
                     case LogLevel::Info:
-                        _logger->info(
-                            "[{}:{}] {}",
-                            filename,
-                            log.line,
-                            static_cast<const std::string&>(log.message));
+                        _logger
+                            ->info("[{}:{}] {}", filename_cstr, log.line, log.message.get_cstr());
                         break;
                     case LogLevel::Warning:
-                        _logger->warn(
-                            "[{}:{}] {}",
-                            filename,
-                            log.line,
-                            static_cast<const std::string&>(log.message));
+                        _logger
+                            ->warn("[{}:{}] {}", filename_cstr, log.line, log.message.get_cstr());
                         break;
                     case LogLevel::Error:
-                        _logger->error(
-                            "[{}:{}] {}",
-                            filename,
-                            log.line,
-                            static_cast<const std::string&>(log.message));
+                        _logger
+                            ->error("[{}:{}] {}", filename_cstr, log.line, log.message.get_cstr());
                         break;
                     case LogLevel::Critical:
                         _logger->critical(
                             "[{}:{}] {}",
-                            filename,
+                            filename_cstr,
                             log.line,
-                            static_cast<const std::string&>(log.message));
+                            log.message.get_cstr());
                         break;
                 }
             });

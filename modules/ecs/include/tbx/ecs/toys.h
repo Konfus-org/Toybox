@@ -93,8 +93,8 @@ namespace tbx
         operator String() const
         {
             const auto& desc = get_description();
-            return String("Toy(ID: ") + to_string(get_id()) + ", Name: " + desc.name + ", Tag: "
-                   + desc.tag + ", Layer: " + desc.layer + ")";
+            return String("Toy(ID: ") + String(static_cast<uint>(_handle)) + ", Name: " + desc.name
+                   + ", Tag: " + desc.tag + ", Layer: " + desc.layer + ")";
         }
 
       private:
@@ -157,7 +157,7 @@ namespace tbx
 
         operator String() const
         {
-            return String("Stage(ID: ") + to_string(get_id()) + ", Name: " + get_name() + ")";
+            return String("Stage(ID: ") + String(get_id().value) + ", Name: " + get_name() + ")";
         }
 
         Toy add_toy(

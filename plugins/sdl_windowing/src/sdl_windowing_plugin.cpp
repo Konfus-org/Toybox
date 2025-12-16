@@ -166,7 +166,7 @@ namespace tbx::plugins::sdlwindowing
                 flags |= SDL_WINDOW_RESIZABLE;
             else if (window->mode == WindowMode::Minimized)
                 flags |= SDL_WINDOW_MINIMIZED;
-            SDL_Window* native = SDL_CreateWindow(title.c_str(), size.width, size.height, flags);
+            SDL_Window* native = SDL_CreateWindow(title.get_cstr(), size.width, size.height, flags);
             if (!native)
             {
                 TBX_TRACE_ERROR("Failed to create SDL window. See logs for details.");
@@ -216,13 +216,12 @@ namespace tbx::plugins::sdlwindowing
         }
     }
 
-    void SdlWindowingPlugin::on_window_title_changed(
-        PropertyChangedEvent<Window, String>& event)
+    void SdlWindowingPlugin::on_window_title_changed(PropertyChangedEvent<Window, String>& event)
     {
         SdlWindowRecord record = find_record(event.owner);
         if (record.sdl_window)
         {
-            SDL_SetWindowTitle(record.sdl_window, event.current.c_str());
+            SDL_SetWindowTitle(record.sdl_window, event.current.get_cstr());
         }
     }
 

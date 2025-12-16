@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/common/int.h"
 #include <array>
 #include <cstddef>
 #include <functional>
@@ -42,18 +43,18 @@ namespace tbx
     template <typename TRange>
     class Linqable
     {
-    public:
+      public:
         /// Provides LINQ-style helper methods for range-like containers.
-        /// Purpose: exposes projection, filtering, and lookup helpers mirroring the C# LINQ surface.
-        /// Ownership: returned collections own their elements; references passed to predicates remain non-owning.
-        /// Thread Safety: not thread-safe; callers must synchronize external access and mutation.
+        /// Purpose: exposes projection, filtering, and lookup helpers mirroring the C# LINQ
+        /// surface. Ownership: returned collections own their elements; references passed to
+        /// predicates remain non-owning. Thread Safety: not thread-safe; callers must synchronize
+        /// external access and mutation.
         template <typename Projection>
         auto select(Projection&& projection) const
         {
             using range_type = decltype(get_range());
             using value_type = range_value<range_type>;
-            using result_value =
-                std::decay_t<std::invoke_result_t<Projection&, const value_type&>>;
+            using result_value = std::decay_t<std::invoke_result_t<Projection&, const value_type&>>;
 
             List<result_value> results;
             reserve_if_possible(results, get_range());
@@ -92,7 +93,8 @@ namespace tbx
         /// Projects the first element from the current range.
         /// Purpose: retrieves the first item, throwing if the range is empty.
         /// Ownership: returns a copy of the stored value.
-        /// Thread Safety: not thread-safe; external synchronization is required for concurrent access.
+        /// Thread Safety: not thread-safe; external synchronization is required for concurrent
+        /// access.
         auto first() const
         {
             for (const auto& value : get_range())
@@ -106,7 +108,8 @@ namespace tbx
         /// Projects the first matching element from the current range.
         /// Purpose: retrieves the first item satisfying the predicate or throws if no match exists.
         /// Ownership: returns a copy of the stored value.
-        /// Thread Safety: not thread-safe; external synchronization is required for concurrent access.
+        /// Thread Safety: not thread-safe; external synchronization is required for concurrent
+        /// access.
         template <typename Predicate>
         auto first(Predicate&& predicate) const
         {
@@ -124,7 +127,8 @@ namespace tbx
         /// Projects the first element or a default value when empty.
         /// Purpose: avoids throwing by returning the provided default when no items are present.
         /// Ownership: returns a copy of either the stored value or the provided default.
-        /// Thread Safety: not thread-safe; external synchronization is required for concurrent access.
+        /// Thread Safety: not thread-safe; external synchronization is required for concurrent
+        /// access.
         template <typename TValue>
         TValue first_or_default(TValue default_value) const
         {
@@ -137,9 +141,10 @@ namespace tbx
         }
 
         /// Projects the first matching element or a default value when no match is found.
-        /// Purpose: avoids throwing by returning the provided default when the predicate does not match.
-        /// Ownership: returns a copy of either the stored value or the provided default.
-        /// Thread Safety: not thread-safe; external synchronization is required for concurrent access.
+        /// Purpose: avoids throwing by returning the provided default when the predicate does not
+        /// match. Ownership: returns a copy of either the stored value or the provided default.
+        /// Thread Safety: not thread-safe; external synchronization is required for concurrent
+        /// access.
         template <typename Predicate, typename TValue>
         TValue first_or_default(Predicate&& predicate, TValue default_value) const
         {
@@ -400,7 +405,7 @@ namespace tbx
             return get_storage().rend();
         }
 
-    protected:
+      protected:
         const TRange& get_range() const
         {
             return *static_cast<const TRange*>(this);
@@ -411,7 +416,7 @@ namespace tbx
             return *static_cast<TRange*>(this);
         }
 
-    private:
+      private:
         template <std::ranges::range TCollection, std::ranges::range Range>
         void reserve_if_possible(TCollection& collection, const Range& range) const
         {
@@ -440,15 +445,14 @@ namespace tbx
     template <typename TValue, std::size_t Size>
     class Array : public Linqable<Array<TValue, Size>>
     {
-    public:
+      public:
         using iterator = typename std::array<TValue, Size>::iterator;
         using const_iterator = typename std::array<TValue, Size>::const_iterator;
 
         /// Wraps std::array with LINQ-style helpers.
-        /// Purpose: exposes fixed-size storage with the linqable surface while offering a consistent
-        /// C#-like mutation API.
-        /// Ownership: owns contained values in-place.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        /// Purpose: exposes fixed-size storage with the linqable surface while offering a
+        /// consistent C#-like mutation API. Ownership: owns contained values in-place. Thread
+        /// Safety: not thread-safe; callers must synchronize external access.
         Array() = default;
 
         /// Initializes the array from an initializer list.
@@ -488,8 +492,8 @@ namespace tbx
 
         /// Clears the tracked items without altering capacity.
         /// Purpose: resets the logical contents while reusing allocated storage.
-        /// Ownership: retains ownership of storage; values beyond the tracked size remain defaulted.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        /// Ownership: retains ownership of storage; values beyond the tracked size remain
+        /// defaulted. Thread Safety: not thread-safe; callers must synchronize external access.
         void clear()
         {
             _size = 0U;
@@ -554,12 +558,12 @@ namespace tbx
             return combined;
         }
 
-    private:
+      private:
         friend class Linqable<Array<TValue, Size>>;
 
         class RangeView
         {
-        public:
+          public:
             RangeView(std::array<TValue, Size>& storage, uint size)
                 : _storage(storage)
                 , _size(size)
@@ -606,14 +610,14 @@ namespace tbx
                 return std::make_reverse_iterator(begin());
             }
 
-        private:
+          private:
             std::array<TValue, Size>& _storage;
             uint _size = 0U;
         };
 
         class ConstRangeView
         {
-        public:
+          public:
             ConstRangeView(const std::array<TValue, Size>& storage, uint size)
                 : _storage(storage)
                 , _size(size)
@@ -640,7 +644,7 @@ namespace tbx
                 return std::make_reverse_iterator(begin());
             }
 
-        private:
+          private:
             const std::array<TValue, Size>& _storage;
             uint _size = 0U;
         };
@@ -671,12 +675,19 @@ namespace tbx
         }
     };
 
-    template <typename TKey, typename TValue, typename THash, typename TKeyEqual, typename TAllocator>
+    template <
+        typename TKey,
+        typename TValue,
+        typename THash,
+        typename TKeyEqual,
+        typename TAllocator>
     class HashMap : public Linqable<HashMap<TKey, TValue, THash, TKeyEqual, TAllocator>>
     {
-    public:
-        using iterator = typename std::unordered_map<TKey, TValue, THash, TKeyEqual, TAllocator>::iterator;
-        using const_iterator = typename std::unordered_map<TKey, TValue, THash, TKeyEqual, TAllocator>::const_iterator;
+      public:
+        using iterator =
+            typename std::unordered_map<TKey, TValue, THash, TKeyEqual, TAllocator>::iterator;
+        using const_iterator =
+            typename std::unordered_map<TKey, TValue, THash, TKeyEqual, TAllocator>::const_iterator;
 
         /// Wraps std::unordered_map with LINQ-style helpers.
         /// Purpose: exposes hash-based key/value storage with the linqable surface while presenting
@@ -833,7 +844,7 @@ namespace tbx
             return combined;
         }
 
-    private:
+      private:
         friend class Linqable<HashMap<TKey, TValue, THash, TKeyEqual, TAllocator>>;
 
         template <typename TIterator>
@@ -861,9 +872,11 @@ namespace tbx
     template <typename TValue, typename THash, typename TKeyEqual, typename TAllocator>
     class HashSet : public Linqable<HashSet<TValue, THash, TKeyEqual, TAllocator>>
     {
-    public:
-        using iterator = typename std::unordered_set<TValue, THash, TKeyEqual, TAllocator>::iterator;
-        using const_iterator = typename std::unordered_set<TValue, THash, TKeyEqual, TAllocator>::const_iterator;
+      public:
+        using iterator =
+            typename std::unordered_set<TValue, THash, TKeyEqual, TAllocator>::iterator;
+        using const_iterator =
+            typename std::unordered_set<TValue, THash, TKeyEqual, TAllocator>::const_iterator;
 
         /// Wraps std::unordered_set with LINQ-style helpers.
         /// Purpose: exposes hash-based unique storage with the linqable surface while providing a
@@ -950,7 +963,7 @@ namespace tbx
             return combined;
         }
 
-    private:
+      private:
         friend class Linqable<HashSet<TValue, THash, TKeyEqual, TAllocator>>;
 
         template <typename TIterator>
@@ -978,11 +991,12 @@ namespace tbx
     template <typename TValue, typename TAllocator>
     class List : public Linqable<List<TValue, TAllocator>>
     {
-    public:
+      public:
         using iterator = typename std::vector<TValue, TAllocator>::iterator;
         using const_iterator = typename std::vector<TValue, TAllocator>::const_iterator;
         using reverse_iterator = typename std::vector<TValue, TAllocator>::reverse_iterator;
-        using const_reverse_iterator = typename std::vector<TValue, TAllocator>::const_reverse_iterator;
+        using const_reverse_iterator =
+            typename std::vector<TValue, TAllocator>::const_reverse_iterator;
 
         /// Wraps List with LINQ-style helpers.
         /// Purpose: exposes dynamic contiguous storage with the linqable surface while presenting a
@@ -1229,7 +1243,7 @@ namespace tbx
             return combined;
         }
 
-    private:
+      private:
         friend class Linqable<List<TValue, TAllocator>>;
 
         template <typename TIterator>

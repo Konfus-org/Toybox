@@ -36,7 +36,7 @@ namespace tbx
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.c_str());
+        const auto iterator = _data->Data.find(key.get_cstr());
         if (iterator == _data->Data.end())
             return false;
 
@@ -52,7 +52,7 @@ namespace tbx
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.c_str());
+        const auto iterator = _data->Data.find(key.get_cstr());
         if (iterator == _data->Data.end())
             return false;
 
@@ -68,7 +68,7 @@ namespace tbx
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.c_str());
+        const auto iterator = _data->Data.find(key.get_cstr());
         if (iterator == _data->Data.end())
             return false;
 
@@ -84,7 +84,7 @@ namespace tbx
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.c_str());
+        const auto iterator = _data->Data.find(key.get_cstr());
         if (iterator == _data->Data.end())
             return false;
 
@@ -100,7 +100,7 @@ namespace tbx
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.c_str());
+        const auto iterator = _data->Data.find(key.get_cstr());
         if (iterator == _data->Data.end())
             return false;
 
@@ -125,7 +125,7 @@ namespace tbx
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.c_str());
+        const auto iterator = _data->Data.find(key.get_cstr());
         if (iterator == _data->Data.end())
             return false;
 
@@ -150,7 +150,7 @@ namespace tbx
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.c_str());
+        const auto iterator = _data->Data.find(key.get_cstr());
         if (iterator == _data->Data.end())
             return false;
 
@@ -175,7 +175,7 @@ namespace tbx
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.c_str());
+        const auto iterator = _data->Data.find(key.get_cstr());
         if (iterator == _data->Data.end())
             return false;
 
@@ -200,7 +200,7 @@ namespace tbx
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.c_str());
+        const auto iterator = _data->Data.find(key.get_cstr());
         if (iterator == _data->Data.end())
             return false;
 
@@ -217,7 +217,7 @@ namespace tbx
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.c_str());
+        const auto iterator = _data->Data.find(key.get_cstr());
         if (iterator == _data->Data.end())
             return false;
 

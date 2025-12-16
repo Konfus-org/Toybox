@@ -26,49 +26,15 @@ namespace tbx
                 break;
             }
             case MessageState::Cancelled:
-            case MessageState::Error:
-            case MessageState::TimedOut:
             {
-                String resolved = message;
-                if (resolved.empty())
-                {
-                    const String& current = msg.result.get_report();
-                    if (current.empty())
-                    {
-                        if (state == MessageState::Error)
-                            resolved = "Message processing failed.";
-                        else if (state == MessageState::TimedOut)
-                            resolved = "Message processing timed out.";
-                        else
-                            resolved = "Message was cancelled.";
-                    }
-                }
-
-                msg.result.flag_failure(resolved);
-                const String& text = msg.result.get_report();
-                if (!text.empty())
-                {
-                    const String message_id(msg.id);
-                    if (state == MessageState::Error)
-                    {
-                        TBX_TRACE_ERROR(
-                            "Message {} failed: {}",
-                            message_id,
-                            text);
-                    }
-                    else if (state == MessageState::TimedOut)
-                    {
-                        TBX_TRACE_WARNING(
-                            "Message {} timed out: {}",
-                            message_id,
-                            text);
-                    }
-                }
+                msg.result.flag_failure(
+                    message.empty() ? String("Message was cancelled.") : message);
                 break;
             }
+            case MessageState::Error:
             default:
             {
-                TBX_ASSERT(false, "Cannot process, unknown message state!");
+                TBX_ASSERT(false, "Failed to process msg, error occured!");
                 break;
             }
         }
@@ -88,12 +54,6 @@ namespace tbx
             {
                 if (msg.callbacks.on_error)
                     msg.callbacks.on_error(msg);
-                break;
-            }
-            case MessageState::TimedOut:
-            {
-                if (msg.callbacks.on_timeout)
-                    msg.callbacks.on_timeout(msg);
                 break;
             }
             case MessageState::Handled:
@@ -167,9 +127,7 @@ namespace tbx
         for (auto& entry : handlers)
         {
             if (entry.first != token)
-            {
                 next.push_back(std::move(entry));
-            }
         }
         handlers.swap(next);
     }
@@ -180,14 +138,10 @@ namespace tbx
         process();
 
         // Then clear handlers and pending messages
-        {
-            auto lock = _handlers.lock();
-            lock.get().clear();
-        }
-        {
-            auto lock = _pending.lock();
-            lock.get().clear();
-        }
+        auto pend_lock = _pending.lock();
+        pend_lock.get().clear();
+        auto hand_lock = _handlers.lock();
+        hand_lock.get().clear();
     }
 
     void AppMessageCoordinator::dispatch(Message& msg) const

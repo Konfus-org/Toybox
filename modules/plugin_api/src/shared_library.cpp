@@ -1,43 +1,42 @@
 #include "tbx/plugin_api/shared_library.h"
 #include <utility>
 #if defined(TBX_PLATFORM_WINDOWS)
-#    if !defined(WIN32_LEAN_AND_MEAN)
-#        define WIN32_LEAN_AND_MEAN 1
-#    endif
-#    include <windows.h>
+    #if !defined(WIN32_LEAN_AND_MEAN)
+        #define WIN32_LEAN_AND_MEAN 1
+    #endif
+    #include <windows.h>
 #else
-#    include <dlfcn.h>
+    #include <dlfcn.h>
 #endif
 
 namespace tbx
 {
-    namespace
+    static void* load_library(const FilePath& path)
     {
-        static void* tbx_load_library(const FilePath& path)
-        {
+        String path_str = path;
+        const auto* c_str_path = path_str.get_cstr();
 #if defined(TBX_PLATFORM_WINDOWS)
-            return static_cast<void*>(::LoadLibraryW(path.std_path().wstring().c_str()));
+        return static_cast<void*>(LoadLibrary(c_str_path));
 #else
-            return dlopen(path.std_path().string().c_str(), RTLD_NOW);
+        return dlopen(path.std_path().string().c_str(), RTLD_NOW);
 #endif
-        }
+    }
 
-        static void tbx_unload_library(void* handle)
+    static void unload_library(void* handle)
+    {
+        if (!handle)
         {
-            if (!handle)
-            {
-                return;
-            }
-#if defined(TBX_PLATFORM_WINDOWS)
-            ::FreeLibrary(static_cast<HMODULE>(handle));
-#else
-            dlclose(handle);
-#endif
+            return;
         }
+#if defined(TBX_PLATFORM_WINDOWS)
+        FreeLibrary(static_cast<HMODULE>(handle));
+#else
+        dlclose(handle);
+#endif
     }
 
     SharedLibrary::SharedLibrary(const FilePath& path)
-        : _handle(tbx_load_library(path))
+        : _handle(load_library(path))
         , _path(path)
     {
     }
@@ -45,27 +44,6 @@ namespace tbx
     SharedLibrary::~SharedLibrary()
     {
         unload();
-    }
-
-    SharedLibrary::SharedLibrary(SharedLibrary&& other)
-        : _handle(other._handle)
-        , _path(std::move(other._path))
-    {
-        other._handle = nullptr;
-        other._path = FilePath();
-    }
-
-    SharedLibrary& SharedLibrary::operator=(SharedLibrary&& other)
-    {
-        if (this != &other)
-        {
-            unload();
-            _handle = other._handle;
-            _path = std::move(other._path);
-            other._handle = nullptr;
-            other._path = FilePath();
-        }
-        return *this;
     }
 
     bool SharedLibrary::is_valid() const
@@ -80,7 +58,7 @@ namespace tbx
 
     void SharedLibrary::unload()
     {
-        tbx_unload_library(_handle);
+        unload_library(_handle);
         _handle = nullptr;
     }
 

@@ -8,48 +8,43 @@ namespace tbx
 {
     static FilePath resolve_with_working(const FilePath& working_directory, const FilePath& path)
     {
-        if (path.empty())
+        if (path.is_empty())
             return FilePath();
-        if (path.std_path().is_absolute() || working_directory.empty())
+        if (path.is_absolute() || working_directory.is_empty())
             return path;
-        return FilePath(working_directory.std_path() / path.std_path());
+        return FilePath(working_directory) + FilePath(path);
     }
 
     static FilePath choose_directory(
         const FilePath& working_directory,
-        const FilePath& candidate,
-        const String& folder_name)
+        const FilePath& candidate_path,
+        const String& default_path)
     {
-        if (!candidate.empty())
-            return resolve_with_working(working_directory, candidate);
-
-        if (working_directory.empty())
-            return FilePath(folder_name);
-
-        return FilePath(working_directory.std_path()
-            / std::filesystem::path(static_cast<const std::string&>(folder_name)));
+        if (!candidate_path.is_empty())
+            return resolve_with_working(working_directory, candidate_path);
+        return FilePath(working_directory) + FilePath(default_path);
     }
 
     FileSystem::FileSystem(
-        FilePath working_directory,
-        FilePath plugins_directory,
-        FilePath logs_directory,
-        FilePath assets_directory)
-        : _working_directory(std::move(working_directory))
-        , _plugins_directory(std::move(plugins_directory))
-        , _logs_directory(std::move(logs_directory))
-        , _assets_directory(std::move(assets_directory))
+        const FilePath& working_directory,
+        const FilePath& plugins_directory,
+        const FilePath& logs_directory,
+        const FilePath& assets_directory)
+        : _working_directory(working_directory)
+        , _plugins_directory(plugins_directory)
+        , _logs_directory(logs_directory)
+        , _assets_directory(assets_directory)
     {
-        if (_working_directory.empty())
+        if (_working_directory.is_empty())
         {
             std::error_code ec;
-            _working_directory = FilePath(std::filesystem::current_path(ec));
+            _working_directory = FilePath(std::filesystem::current_path(ec).string().c_str());
             if (ec)
                 _working_directory = FilePath();
         }
 
         // Default subdirectories always hang off the working directory unless overridden.
-        _plugins_directory = choose_directory(_working_directory, _plugins_directory, "plugins");
+        _plugins_directory = choose_directory(_working_directory, _plugins_directory, "");
         _logs_directory = choose_directory(_working_directory, _logs_directory, "logs");
         _assets_directory = choose_directory(_working_directory, _assets_directory, "assets");
     }
@@ -82,18 +77,19 @@ namespace tbx
     bool FileSystem::exists(const FilePath& path) const
     {
         const FilePath resolved = resolve_relative_path(path);
+        String resolved_str = resolved;
         std::error_code ec;
-        return std::filesystem::exists(resolved.std_path(), ec) && !ec;
+        return std::filesystem::exists(resolved_str.get_cstr(), ec) && !ec;
     }
 
     FilePathType FileSystem::get_file_type(const FilePath& path) const
     {
         const FilePath resolved = resolve_relative_path(path);
+        String resolved_str = resolved;
         std::error_code ec;
-        const auto status = std::filesystem::status(resolved.std_path(), ec);
+        const auto status = std::filesystem::status(resolved_str.get_cstr(), ec);
         if (ec)
             return FilePathType::None;
-
         if (status.type() == std::filesystem::file_type::regular)
             return FilePathType::Regular;
         if (status.type() == std::filesystem::file_type::directory)
@@ -105,12 +101,13 @@ namespace tbx
     {
         List<FilePath> entries;
         const FilePath resolved_root = resolve_relative_path(root);
+        String resolved_str = resolved_root;
         std::error_code ec;
-        for (std::filesystem::recursive_directory_iterator it(resolved_root.std_path(), ec), end;
+        for (std::filesystem::recursive_directory_iterator it(resolved_str.get_cstr(), ec), end;
              it != end && !ec;
              ++it)
         {
-            entries.emplace(it->path());
+            entries.emplace(it->path().string().c_str());
         }
         return entries;
     }
@@ -118,96 +115,104 @@ namespace tbx
     bool FileSystem::create_directory(const FilePath& path)
     {
         const FilePath resolved = resolve_relative_path(path);
+        String resolved_str = resolved;
         std::error_code ec;
-        std::filesystem::create_directories(resolved.std_path(), ec);
+        std::filesystem::create_directories(resolved_str.get_cstr(), ec);
         return !ec;
     }
 
     bool FileSystem::create_file(const FilePath& path)
     {
         const FilePath resolved = resolve_relative_path(path);
+        String resolved_str = resolved;
         std::error_code ec;
-        if (!resolved.std_path().parent_path().empty())
-            std::filesystem::create_directories(resolved.std_path().parent_path(), ec);
+        auto std_path = std::filesystem::path(resolved_str.get_cstr());
+        if (std_path.has_parent_path())
+            std::filesystem::create_directories(std_path.parent_path(), ec);
         if (ec)
             return false;
-
-        std::ofstream stream(resolved.std_path(), std::ios::out | std::ios::trunc);
+        std::ofstream stream(std_path, std::ios::out | std::ios::trunc);
         return stream.is_open();
     }
 
-    bool FileSystem::read_file(const FilePath& path, String& out, FileDataFormat format) const
+    bool FileSystem::read_file(const FilePath& path, FileDataFormat format, String& out) const
     {
         const FilePath resolved = resolve_relative_path(path);
+        String resolved_str = resolved;
         const bool binary = format == FileDataFormat::Binary;
         std::ios_base::openmode mode = std::ios::in;
         if (binary)
             mode |= std::ios::binary;
 
-        std::ifstream stream(resolved.std_path(), mode);
+        auto std_path = std::filesystem::path(resolved_str.get_cstr());
+        auto stream = std::ifstream(std_path, mode);
         if (!stream.is_open())
             return false;
 
-        String contents(
-            (std::istreambuf_iterator<char>(stream)),
-            std::istreambuf_iterator<char>());
+        auto contents =
+            String(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
 
         // Strip UTF-8 BOM for text mode; binary payloads are left untouched.
         if (!binary && contents.size() >= 3)
         {
-            const std::string& storage = contents;
-            const unsigned char bom0 = static_cast<unsigned char>(storage[0]);
-            const unsigned char bom1 = static_cast<unsigned char>(storage[1]);
-            const unsigned char bom2 = static_cast<unsigned char>(storage[2]);
+            const unsigned char bom0 = static_cast<unsigned char>(contents[0]);
+            const unsigned char bom1 = static_cast<unsigned char>(contents[1]);
+            const unsigned char bom2 = static_cast<unsigned char>(contents[2]);
             if (bom0 == 0xEF && bom1 == 0xBB && bom2 == 0xBF)
-                contents.erase(0, 3);
+                contents.remove(0, 3);
         }
 
         out = contents;
         return true;
     }
 
-    bool FileSystem::write_file(const FilePath& path, const String& data, FileDataFormat format)
+    bool FileSystem::write_file(const FilePath& path, FileDataFormat format, const String& data)
     {
         const FilePath resolved = resolve_relative_path(path);
+        String resolved_str = resolved;
         const bool binary = format == FileDataFormat::Binary;
         std::ios_base::openmode mode = std::ios::out | std::ios::trunc;
         if (binary)
             mode |= std::ios::binary;
 
-        std::ofstream stream(resolved.std_path(), mode);
+        auto std_path = std::filesystem::path(resolved_str.get_cstr());
+        std::ofstream stream(std_path, mode);
         if (!stream.is_open())
             return false;
 
-        stream.write(data.c_str(), static_cast<std::streamsize>(data.size()));
+        stream.write(data.get_cstr(), static_cast<std::streamsize>(data.size()));
         return stream.good();
     }
 
     bool FileSystem::remove(const FilePath& path)
     {
         const FilePath resolved = resolve_relative_path(path);
+        String resolved_str = resolved;
         std::error_code ec;
-        std::filesystem::remove(resolved.std_path(), ec);
+        auto std_path = std::filesystem::path(resolved_str.get_cstr());
+        std::filesystem::remove(std_path, ec);
         return !ec;
     }
 
     bool FileSystem::rename(const FilePath& from, const FilePath& to)
     {
-        const FilePath resolved_from = resolve_relative_path(from);
-        const FilePath resolved_to = resolve_relative_path(to);
-        std::error_code ec;
-        std::filesystem::rename(resolved_from.std_path(), resolved_to.std_path(), ec);
-        return !ec;
+        if (!copy(from, to))
+            return false;
+        return remove(from);
     }
 
     bool FileSystem::copy(const FilePath& from, const FilePath& to)
     {
         const FilePath resolved_from = resolve_relative_path(from);
+        String resolved_str_from = resolved_from;
         const FilePath resolved_to = resolve_relative_path(to);
+        String resolved_str_to = resolved_to;
+        auto std_path_from = std::filesystem::path(resolved_str_from.get_cstr());
+        auto std_path_to = std::filesystem::path(resolved_str_to.get_cstr());
         std::error_code ec;
         std::filesystem::copy_file(
-            resolved_from.std_path(),
-            resolved_to.std_path(),
+            std_path_from,
+            std_path_to,
             std::filesystem::copy_options::overwrite_existing,
             ec);
         return !ec;

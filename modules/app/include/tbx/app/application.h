@@ -18,7 +18,7 @@ namespace tbx
     class TBX_API Application
     {
       public:
-        Application(AppDescription desc);
+        Application(const AppDescription& desc);
         ~Application();
 
         // Starts the application main loop. Returns process exit code.
@@ -38,12 +38,7 @@ namespace tbx
         FileSystem _filesystem;
         List<LoadedPlugin> _loaded = {};
         AppMessageCoordinator _msg_coordinator = {};
-        Window _main_window = {
-            _msg_coordinator,
-            _desc.name.empty() ? "Toybox Application" : _desc.name,
-            {1280, 720},
-            WindowMode::Windowed,
-            false};
+        Window _main_window;
         bool _should_exit = false;
     };
 }

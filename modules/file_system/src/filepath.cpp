@@ -13,12 +13,7 @@ namespace tbx
     }
 
     FilePath::FilePath(const String& value)
-        : _path(sanitize_path(std::filesystem::path(static_cast<const std::string&>(value))))
-    {
-    }
-
-    FilePath::FilePath(std::filesystem::path value)
-        : _path(sanitize_path(value))
+        : _path(sanitize_path(std::filesystem::path(value.get_cstr())))
     {
     }
 
@@ -44,31 +39,36 @@ namespace tbx
         return String(_path.extension().string());
     }
 
-    bool FilePath::empty() const
+    bool FilePath::is_empty() const
     {
         return _path.empty();
     }
 
-    FilePath FilePath::parent_path() const
+    bool FilePath::is_absolute() const
     {
-        return FilePath(_path.parent_path());
+        return _path.is_absolute();
     }
 
-    FilePath FilePath::filename() const
+    bool FilePath::is_relative() const
     {
-        return FilePath(_path.filename());
+        return _path.is_relative();
     }
 
-    String FilePath::filename_string() const
+    FilePath FilePath::get_parent_path() const
     {
-        return String(_path.filename().string());
+        return FilePath(_path.parent_path().string().c_str());
+    }
+
+    FilePath FilePath::get_filename() const
+    {
+        return FilePath(_path.filename().string().c_str());
     }
 
     FilePath FilePath::set_extension(const String& extension) const
     {
         std::filesystem::path updated = _path;
-        updated.replace_extension(std::filesystem::path(static_cast<const std::string&>(extension)));
-        return FilePath(updated);
+        updated.replace_extension(std::filesystem::path(extension.get_cstr()));
+        return FilePath(updated.string().c_str());
     }
 
     FilePath FilePath::replace_extension(const String& extension) const
@@ -76,18 +76,18 @@ namespace tbx
         return set_extension(extension);
     }
 
-    FilePath FilePath::append(const String& component) const
+    FilePath FilePath::append(const FilePath& component) const
     {
-        FilePath combined(_path);
-        const String sanitized = sanitize_component(component);
-        combined._path /= std::filesystem::path(static_cast<const std::string&>(sanitized));
-        combined._path = sanitize_path(combined._path);
-        return combined;
+        String component_str = component;
+        return append(component_str);
     }
 
-    const std::filesystem::path& FilePath::std_path() const
+    FilePath FilePath::append(const String& component) const
     {
-        return _path;
+        FilePath combined(_path.string().c_str());
+        combined._path /= std::filesystem::path(component.get_cstr());
+        combined._path = sanitize_path(combined._path);
+        return combined;
     }
 
     bool FilePath::operator==(const FilePath& other) const
@@ -100,51 +100,31 @@ namespace tbx
         return !(*this == other);
     }
 
-    FilePath::operator const std::filesystem::path&() const
+    FilePath FilePath::operator+(const FilePath& other) const
     {
-        return _path;
+        return append(other);
     }
 
-    String FilePath::sanitize_component(const String& name)
+    FilePath& FilePath::operator+=(const FilePath& other)
     {
-        if (name.empty())
-            return "unnamed";
+        String other_str = other;
+        _path /= std::filesystem::path(other_str.get_cstr());
+        return *this;
+    }
 
-        const String unsupported = "<>:\"/\\|?*";
-        std::string sanitized;
-        sanitized.reserve(name.size());
-        for (char c : std::string_view(name))
-        {
-            const bool invalid =
-                std::string_view(unsupported).find(c) != std::string_view::npos;
-            sanitized.push_back(invalid ? '_' : c);
-        }
-        return String(sanitized);
+    FilePath::operator String() const
+    {
+        return String(_path.string());
     }
 
     std::filesystem::path FilePath::sanitize_path(const std::filesystem::path& path)
     {
         if (path.empty())
-            return std::filesystem::path(static_cast<const std::string&>(sanitize_component("")));
+            return "";
 
-        std::filesystem::path cleaned;
-        if (!path.root_name().empty())
-            cleaned = path.root_name();
+        const List<char> unsupported = {'<', '>', '\"', '|', '?', '*'};
+        auto path_str = String(path.string()).remove("./").remove("\\.").replace(unsupported, '_');
 
-        if (!path.root_directory().empty())
-            cleaned /= path.root_directory();
-
-        bool has_component = false;
-        for (const auto& part : path.relative_path())
-        {
-            const String sanitized_part = sanitize_component(part.string());
-            cleaned /= std::filesystem::path(static_cast<const std::string&>(sanitized_part));
-            has_component = true;
-        }
-
-        if (!has_component && cleaned.empty())
-            cleaned = std::filesystem::path(static_cast<const std::string&>(sanitize_component(path.string())));
-
-        return cleaned;
+        return std::filesystem::path(path_str.get_cstr());
     }
 }

@@ -37,6 +37,7 @@ add_subdirectory(plugins)
 add_subdirectory(examples)
 
 # Add tests target to run all tests at once
+set(CMAKE_FOLDER "tests")
 add_custom_target(Tests
     DEPENDS
         TbxCommonTests
@@ -50,3 +51,4 @@ add_custom_target(Tests
         TbxGraphicsTests
         TbxAppTests
 )
+unset(CMAKE_FOLDER)

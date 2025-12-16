@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 namespace tbx
@@ -26,19 +27,31 @@ namespace tbx
     TBX_API String format_log_message(const String& message);
     TBX_API String format_log_message(const char* message);
 
+    template <typename T>
+    auto make_format_argument(T&& value)
+    {
+        if constexpr (std::is_constructible_v<String, std::remove_cvref_t<T>>)
+        {
+            const String string_value = static_cast<String>(std::forward<T>(value));
+            return std::string(string_value.get_cstr());
+        }
+        else
+        {
+            return std::forward<T>(value);
+        }
+    }
+
     template <typename... Args>
         requires(sizeof...(Args) > 0)
     String format_log_message(const String& fmt, Args&&... args)
     {
         // Pass arguments as lvalues to avoid binding rvalues to non-const references
         // inside std::make_format_args on some standard library implementations.
-        auto arguments = std::make_tuple(std::forward<Args>(args)...);
+        auto arguments = std::make_tuple(make_format_argument(std::forward<Args>(args))...);
         String formatted = std::apply(
             [&](auto&... tuple_args)
             {
-                return std::vformat(
-                    std::string_view(fmt),
-                    std::make_format_args(tuple_args...));
+                return std::vformat(std::string_view(fmt), std::make_format_args(tuple_args...));
             },
             arguments);
         return formatted;

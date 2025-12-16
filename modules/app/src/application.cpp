@@ -12,13 +12,19 @@
 
 namespace tbx
 {
-    Application::Application(AppDescription desc)
-        : _desc(std::move(desc))
+    Application::Application(const AppDescription& desc)
+        : _desc(desc)
         , _filesystem(
               _desc.working_root,
               _desc.plugins_directory,
               _desc.logs_directory,
               _desc.assets_directory)
+        , _main_window(
+              _msg_coordinator,
+              desc.name.empty() ? String("Toybox Application") : desc.name,
+              {1280, 720},
+              WindowMode::Windowed,
+              false)
     {
         initialize();
     }
@@ -36,7 +42,9 @@ namespace tbx
         _main_window.is_open = true;
 
         while (!_should_exit)
+        {
             update(timer);
+        }
 
         return 0;
     }
@@ -68,24 +76,19 @@ namespace tbx
             });
 
         // Load plugins
+        auto& fs = get_filesystem();
+        auto loaded = load_plugins(fs.get_plugins_directory(), _desc.requested_plugins, fs);
+        for (auto& lp : loaded)
+            _loaded.push_back(std::move(lp));
+        for (auto& p : _loaded)
         {
-            auto& fs = get_filesystem();
-            if (!_desc.plugins_directory.empty())
-            {
-                auto loaded = load_plugins(fs.get_plugins_directory(), _desc.requested_plugins, fs);
-                for (auto& lp : loaded)
-                    _loaded.push_back(std::move(lp));
-            }
-            for (auto& p : _loaded)
-            {
-                // Register plugin message handler then attach to host
-                _msg_coordinator.add_handler(
-                    [plugin = p.instance.get()](Message& msg)
-                    {
-                        plugin->receive_message(msg);
-                    });
-                p.instance->attach(*this);
-            }
+            // Register plugin message handler then attach to host
+            _msg_coordinator.add_handler(
+                [plugin = p.instance.get()](Message& msg)
+                {
+                    plugin->receive_message(msg);
+                });
+            p.instance->attach(*this);
         }
 
         // Send initialized event
@@ -113,13 +116,14 @@ namespace tbx
     {
         GlobalDispatcherScope scope(_msg_coordinator);
 
+        // Send shutdown event and clear message handlers
         _msg_coordinator.send<ApplicationShutdownEvent>(this);
+        _msg_coordinator.clear();
 
+        // Detach all loaded plugins
         for (auto& p : _loaded)
             p.instance->detach();
-
         _loaded.clear();
-        _msg_coordinator.clear();
     }
 
     void Application::recieve_message(const Message& msg)

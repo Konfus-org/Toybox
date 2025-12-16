@@ -6,7 +6,8 @@ namespace tbx
 {
     static String sanitize_log_base_name(const String& base_name)
     {
-        return FilePath(base_name).filename_string();
+        String sanitized_str = FilePath(base_name).get_filename();
+        return sanitized_str;
     }
 
     static FilePath make_log_path(

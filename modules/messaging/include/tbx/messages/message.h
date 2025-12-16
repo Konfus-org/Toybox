@@ -7,7 +7,6 @@
 #include <functional>
 #include <type_traits>
 
-
 namespace tbx
 {
     enum class MessageState
@@ -15,7 +14,6 @@ namespace tbx
         UnHandled,
         Handled,
         Cancelled,
-        TimedOut,
         Error
     };
 
@@ -42,12 +40,11 @@ namespace tbx
         Message();
         virtual ~Message();
 
+        bool require_handling = false;
         MessageState state = MessageState::UnHandled;
-        std::any payload = {};
         Result result = {};
         CancellationToken cancellation_token = {};
         MessageCallbacks callbacks = {};
-        bool require_handling = false;
         Uuid id = Uuid::generate();
     };
 

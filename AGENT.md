@@ -20,12 +20,14 @@ This document summarizes the coding expectations for anyone contributing through
   2. **Ownership** – who owns returned or stored resources and lifetime notes (e.g., non-owning pointers, reference expectations).
   3. **Thread Safety** – whether callers can use it concurrently, and any required synchronization.
 - Keep doc comments adjacent to declarations; brief inline notes are acceptable for complex implementation details.
+- Summaries should be in /// format.
 
 ## Language & Feature Use
 - The project targets C++23, but stick to a conservative, C-like style unless a modern feature clearly improves safety or clarity. Justify advanced language constructs in code review notes.
 - Avoid `noexcept` and function/variable attributes entirely.
 - Favor plain old data structures and free/static helper functions when possible; resist template metaprogramming unless unavoidable.
 - Prefer copy-style initialization (`int value = {};`, `auto widget = Widget(args);`) over brace-only or direct-call forms (`int value{};`, `auto widget(Widget(args));`) to keep intent obvious.
+- Don't use std library, we want to work towards a stable abi. Use existing tbx wrappers and if one isn't available make it.
 
 ## Memory & Handle Management
 - Prefer Toybox smart handles (`Ref`, `WeakRef`, `Scope`) whenever ownership semantics are needed. Only fall back to raw pointers for non-owning references that are trivially validated elsewhere.

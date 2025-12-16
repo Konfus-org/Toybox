@@ -16,12 +16,13 @@ namespace tbx::examples
             "Welcome to the ecs example! This plugin just loads a few basic plugins and makes some "
             "entities.";
         String message = greeting.trim();
-        TBX_TRACE_INFO("{}", message.c_str());
+        TBX_TRACE_INFO("{}", message);
 
         auto toys_to_make = 5;
         for (int i = 0; i < toys_to_make; i++)
         {
-            auto t = _ex_stage.add_toy(to_string(i));
+            String toy_name = i;
+            auto t = _ex_stage.add_toy(i);
             t.add_block<Transform>();
         }
         auto no_it = _ex_stage.add_toy("should_not_iterate");

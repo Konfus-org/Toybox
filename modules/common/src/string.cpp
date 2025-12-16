@@ -1,5 +1,6 @@
 #include "tbx/common/string.h"
 #include <algorithm>
+#include <array>
 #include <cctype>
 
 namespace tbx
@@ -16,6 +17,16 @@ namespace tbx
 
     String::String(std::string&& value)
         : _value(value)
+    {
+    }
+
+    String::String(int value)
+        : _value(std::to_string(value))
+    {
+    }
+
+    String::String(uint value)
+        : _value(std::to_string(value))
     {
     }
 
@@ -84,6 +95,48 @@ namespace tbx
         return upper;
     }
 
+    String String::replace(char target, char replacement) const
+    {
+        String result = *this;
+        std::replace(result._value.begin(), result._value.end(), target, replacement);
+        return result;
+    }
+
+    String String::replace(const String& target, const String& replacement) const
+    {
+        if (target.empty())
+            return *this;
+
+        String result = *this;
+        auto position = result._value.find(target._value);
+        while (position != std::string::npos)
+        {
+            result._value.replace(position, target._value.size(), replacement._value);
+            position = result._value.find(target._value, position + replacement._value.size());
+        }
+
+        return result;
+    }
+
+    String String::replace(const List<char>& characters, char replacement) const
+    {
+        if (characters.empty())
+            return *this;
+
+        std::array<bool, 256> lookup {};
+        for (unsigned char ch : characters)
+            lookup[ch] = true;
+
+        String result = *this;
+        for (char& ch : result._value)
+        {
+            if (lookup[static_cast<unsigned char>(ch)])
+                ch = replacement;
+        }
+
+        return result;
+    }
+
     bool String::starts_with(const String& prefix) const
     {
         return _value.starts_with(prefix._value);
@@ -109,10 +162,58 @@ namespace tbx
         return _value.size();
     }
 
-    String& String::erase(size_t position, size_t count)
+    String& String::remove(size_t position, size_t count)
     {
         _value.erase(position, count);
         return *this;
+    }
+
+    String String::remove(char target) const
+    {
+        String result = *this;
+        result._value.erase(
+            std::remove(result._value.begin(), result._value.end(), target),
+            result._value.end());
+        return result;
+    }
+
+    String String::remove(const String& target) const
+    {
+        if (target.empty())
+            return *this;
+
+        String result = *this;
+        auto position = result._value.find(target._value);
+        while (position != std::string::npos)
+        {
+            result._value.erase(position, target._value.size());
+            position = result._value.find(target._value, position);
+        }
+
+        return result;
+    }
+
+    String String::remove(const List<char>& characters) const
+    {
+        if (characters.empty())
+            return *this;
+
+        std::array<bool, 256> lookup {};
+        for (unsigned char ch : characters)
+            lookup[ch] = true;
+
+        String result = *this;
+        result._value.erase(
+            std::remove_if(
+                result._value.begin(),
+                result._value.end(),
+                [&lookup](char ch)
+                {
+                    return lookup[static_cast<unsigned char>(ch)];
+                }),
+            result._value.end());
+
+        return result;
     }
 
     void String::push_back(char value)
@@ -120,17 +221,22 @@ namespace tbx
         _value.push_back(value);
     }
 
-    const char* String::c_str() const
+    char* String::get_data()
+    {
+        return _value.data();
+    }
+
+    const char* String::get_cstr() const
     {
         return _value.c_str();
     }
 
-    String::operator const std::string&() const
+    String::operator char*()
     {
-        return _value;
+        return _value.data();
     }
 
-    String::operator const char*() const
+    String::operator const char*()
     {
         return _value.c_str();
     }
@@ -178,6 +284,11 @@ namespace tbx
     bool String::operator!=(std::string_view other) const
     {
         return !(*this == other);
+    }
+
+    char String::operator[](uint index) const
+    {
+        return _value[index];
     }
 
     String::iterator String::begin()

@@ -24,40 +24,30 @@ namespace tbx::plugins::spdconsolelogger
             msg,
             [this](LogMessageRequest& log)
             {
-                const auto filename = static_cast<const std::string&>(
-                    FilePath(log.file).filename_string());
+                const String filename = FilePath(log.file).get_filename();
+                const char* filename_cstr = filename.get_cstr();
                 switch (log.level)
                 {
                     case LogLevel::Info:
-                        _logger->info(
-                            "[{}:{}] {}",
-                            filename,
-                            log.line,
-                            static_cast<const std::string&>(log.message));
+                        _logger
+                            ->info("[{}:{}] {}", filename_cstr, log.line, log.message.get_cstr());
                         break;
                     case LogLevel::Warning:
-                        _logger->warn(
-                            "[{}:{}] {}",
-                            filename,
-                            log.line,
-                            static_cast<const std::string&>(log.message));
+                        _logger
+                            ->warn("[{}:{}] {}", filename_cstr, log.line, log.message.get_cstr());
                         break;
                     case LogLevel::Error:
-                        _logger->error(
-                            "[{}:{}] {}",
-                            filename,
-                            log.line,
-                            static_cast<const std::string&>(log.message));
+                        _logger
+                            ->error("[{}:{}] {}", filename_cstr, log.line, log.message.get_cstr());
                         break;
                     case LogLevel::Critical:
                         _logger->critical(
                             "[{}:{}] {}",
-                            filename,
+                            filename_cstr,
                             log.line,
-                            static_cast<const std::string&>(log.message));
+                            log.message.get_cstr());
                         break;
                 }
-                _logger->flush();
             });
     }
 }

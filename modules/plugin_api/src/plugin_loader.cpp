@@ -15,33 +15,25 @@ namespace tbx
     {
         FilePath module_path = meta.module_path;
 
-        if (module_path.empty())
-        {
+        if (module_path.is_empty())
             module_path = meta.root_directory;
-        }
 
         if (file_ops.get_file_type(module_path) == FilePathType::Directory)
-        {
             module_path = module_path.append(meta.name);
-        }
 
         if (module_path.get_extension().empty())
         {
 #if defined(TBX_PLATFORM_WINDOWS)
             module_path = module_path.set_extension(".dll");
 #elif defined(TBX_PLATFORM_MACOS)
-            const String file_name = module_path.filename_string();
+            const String file_name = module_path.get_filename();
             if (!file_name.starts_with("lib"))
-            {
-                module_path = module_path.parent_path().append(String("lib") + file_name);
-            }
+                module_path = module_path.get_parent_path().append(String("lib") + file_name);
             module_path = module_path.set_extension(".dylib");
 #else
-            const String file_name = module_path.filename_string();
+            const String file_name = module_path.get_filename();
             if (!file_name.starts_with("lib"))
-            {
-                module_path = module_path.parent_path().append(String("lib") + file_name);
-            }
+                module_path = module_path.get_parent_path().append(String("lib") + file_name);
             module_path = module_path.set_extension(".so");
 #endif
         }
@@ -59,7 +51,7 @@ namespace tbx
             Plugin* plug = PluginRegistry::get_instance().find_plugin(meta.name);
             if (!plug)
             {
-                TBX_TRACE_WARNING("Static plugin not registered: {}", meta.name.c_str());
+                TBX_TRACE_WARNING("Static plugin not registered: {}", meta.name);
                 return {};
             }
 
@@ -76,27 +68,25 @@ namespace tbx
         auto lib = Scope<SharedLibrary>(module_path);
 
         const String create_symbol = String("create_") + meta.name;
-        CreatePluginFn create = lib->get_symbol<CreatePluginFn>(create_symbol.c_str());
+        CreatePluginFn create = lib->get_symbol<CreatePluginFn>(create_symbol.get_cstr());
         if (!create)
         {
-            TBX_TRACE_WARNING("Entry point not found in plugin module: {}", create_symbol.c_str());
+            TBX_TRACE_WARNING("Entry point not found in plugin module: {}", create_symbol);
             return {};
         }
 
         const String destroy_symbol = String("destroy_") + meta.name;
-        DestroyPluginFn destroy = lib->get_symbol<DestroyPluginFn>(destroy_symbol.c_str());
+        DestroyPluginFn destroy = lib->get_symbol<DestroyPluginFn>(destroy_symbol.get_cstr());
         if (!destroy)
         {
-            TBX_TRACE_WARNING(
-                "Destroy entry point not found in plugin module: {}",
-                destroy_symbol.c_str());
+            TBX_TRACE_WARNING("Destroy entry point not found in plugin module: {}", destroy_symbol);
             return {};
         }
 
         Plugin* plugin_instance = create();
         if (!plugin_instance)
         {
-            TBX_TRACE_WARNING("Plugin factory returned null for: {}", meta.name.c_str());
+            TBX_TRACE_WARNING("Plugin factory returned null for: {}", meta.name);
             return {};
         }
 
@@ -104,7 +94,7 @@ namespace tbx
         loaded.instance = std::move(instance);
         loaded.library = std::move(lib);
 
-        TBX_TRACE_INFO("Loaded plugin: {}", meta.name.c_str());
+        TBX_TRACE_INFO("Loaded plugin: {}", meta.name);
 
         return loaded;
     }
@@ -131,15 +121,13 @@ namespace tbx
                     TBX_ASSERT(
                         false,
                         "Failed to resolve dependency '{}' for '{}'",
-                        dependency.c_str(),
-                        plugins[index].name.c_str());
+                        dependency,
+                        plugins[index].name);
                     return {};
                 }
 
                 if (unique.insert(it->second).second)
-                {
                     dependencies[index].push_back(it->second);
-                }
             }
         }
 
@@ -158,9 +146,7 @@ namespace tbx
         for (size_t index = 0; index < plugins.size(); ++index)
         {
             if (indegree[index] == 0)
-            {
                 ready.push_back(index);
-            }
         }
 
         List<PluginMeta> ordered;
@@ -203,46 +189,34 @@ namespace tbx
             for (const auto& entry : file_ops.read_directory(directory))
             {
                 if (file_ops.get_file_type(entry) != FilePathType::Regular)
-                {
                     continue;
-                }
 
-                const String name = entry.filename_string();
+                const String name = entry.get_filename();
                 const String lowered_name = name.to_lower();
-                if (entry.get_extension() == ".meta"
-                    || lowered_name == String("plugin.meta"))
+                if (entry.get_extension() == ".meta" || lowered_name == String("plugin.meta"))
                 {
                     String manifest_data;
-                    if (!file_ops.read_file(entry, manifest_data, FileDataFormat::Utf8Text))
+                    if (!file_ops.read_file(entry, FileDataFormat::Utf8Text, manifest_data))
                         continue;
 
                     PluginMeta manifest_meta;
                     if (try_parse_plugin_meta(manifest_data, entry, manifest_meta))
-                    {
                         discovered.push_back(manifest_meta);
-                    }
                     else
                     {
-                        const String manifest_path = entry.std_path().string();
-                        TBX_ASSERT(
-                            false,
-                            "Plugin {} is unable to be loaded!",
-                            manifest_path);
+                        const String manifest_path = entry;
+                        TBX_ASSERT(false, "Plugin {} is unable to be loaded!", manifest_path);
                     }
                 }
             }
         }
 
         if (discovered.empty())
-        {
             return loaded;
-        }
 
         List<PluginMeta> metas;
         if (requested_ids.empty())
-        {
             metas = discovered;
-        }
         else
         {
             HashMap<String, size_t> by_name_lookup;
@@ -269,19 +243,13 @@ namespace tbx
                 const String trimmed = token.trim();
                 const String needle = trimmed.to_lower();
                 if (needle.empty())
-                {
                     return;
-                }
 
                 auto id_it = by_name_lookup.find(needle);
                 if (id_it != by_name_lookup.end())
-                {
                     enqueue_index(id_it->second);
-                }
                 else
-                {
-                    TBX_ASSERT(false, "Requested plugin not found: {}", trimmed.c_str());
-                }
+                    TBX_ASSERT(false, "Requested plugin not found: {}", trimmed);
             };
 
             for (const String& requested : requested_ids)
@@ -302,22 +270,16 @@ namespace tbx
         }
 
         if (metas.empty())
-        {
             return loaded;
-        }
 
         metas = resolve_plugin_load_order(metas);
         if (metas.empty())
-        {
             return loaded;
-        }
         for (const PluginMeta& meta : metas)
         {
             LoadedPlugin plug = load_plugin_internal(meta, file_ops);
             if (plug.instance)
-            {
                 loaded.push_back(std::move(plug));
-            }
         }
 
         return loaded;
@@ -331,9 +293,7 @@ namespace tbx
         {
             auto plug = load_plugin_internal(meta, file_ops);
             if (plug.instance)
-            {
                 loaded.push_back(std::move(plug));
-            }
         }
 
         return loaded;
