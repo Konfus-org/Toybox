@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "tbx/file_system/filepath.h"
+#include "tbx/files/filepath.h"
 #include "tbx/tbx_api.h"
 #include <type_traits>
 

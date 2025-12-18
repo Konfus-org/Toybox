@@ -13,7 +13,6 @@
 
 namespace tbx
 {
-    // Lightweight wrapper around String providing common string utilities.
     struct TBX_API String
     {
         String() = default;

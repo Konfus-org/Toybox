@@ -4,7 +4,7 @@
 #include <SDL3/SDL.h>
 #include <vector>
 
-namespace tbx::plugins::sdlwindowing
+namespace tbx::plugins
 {
     struct SdlWindowRecord
     {
@@ -33,5 +33,6 @@ namespace tbx::plugins::sdlwindowing
 
       private:
         std::vector<SdlWindowRecord> _windows;
+        bool _use_opengl = false;
     };
 }

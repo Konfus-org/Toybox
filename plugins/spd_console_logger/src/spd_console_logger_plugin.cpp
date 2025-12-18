@@ -1,10 +1,10 @@
 #include "spd_console_logger_plugin.h"
 #include "tbx/common/smart_pointers.h"
 #include "tbx/debugging/log_requests.h"
-#include "tbx/file_system/filepath.h"
+#include "tbx/files/filepath.h"
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-namespace tbx::plugins::spdconsolelogger
+namespace tbx::plugins
 {
     void SpdConsoleLoggerPlugin::on_attach(Application&)
     {

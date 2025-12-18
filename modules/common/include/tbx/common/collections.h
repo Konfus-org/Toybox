@@ -1,11 +1,13 @@
 #pragma once
 #include "tbx/common/int.h"
 #include <array>
+#include <concepts>
 #include <cstddef>
 #include <functional>
 #include <initializer_list>
 #include <iterator>
 #include <ranges>
+#include <span>
 #include <stdexcept>
 #include <tuple>
 #include <type_traits>
@@ -16,7 +18,7 @@
 
 namespace tbx
 {
-    template <typename TValue, std::size_t Size>
+    template <typename TValue, uint Size>
     class Array;
 
     template <
@@ -38,25 +40,22 @@ namespace tbx
     class List;
 
     template <typename TRange>
-    using range_value = std::ranges::range_value_t<TRange>;
+    concept LinquableCollection = requires(TRange& range) {
+        { range.get_storage() } -> std::ranges::range;
+        { std::as_const(range).get_storage() } -> std::ranges::range;
+        { range.get_storage().size() } -> std::convertible_to<uint>;
+        { std::as_const(range).get_storage().size() } -> std::convertible_to<uint>;
+    };
 
-    template <typename TRange>
+    template <typename TRange, typename TValue>
+        requires LinquableCollection<TRange>
     class Linqable
     {
       public:
-        /// Provides LINQ-style helper methods for range-like containers.
-        /// Purpose: exposes projection, filtering, and lookup helpers mirroring the C# LINQ
-        /// surface. Ownership: returned collections own their elements; references passed to
-        /// predicates remain non-owning. Thread Safety: not thread-safe; callers must synchronize
-        /// external access and mutation.
         template <typename Projection>
         auto select(Projection&& projection) const
         {
-            using range_type = decltype(get_range());
-            using value_type = range_value<range_type>;
-            using result_value = std::decay_t<std::invoke_result_t<Projection&, const value_type&>>;
-
-            List<result_value> results;
+            List<std::decay_t<std::invoke_result_t<Projection&, const TValue&>>> results;
             reserve_if_possible(results, get_range());
 
             for (const auto& value : get_range())
@@ -67,17 +66,10 @@ namespace tbx
             return results;
         }
 
-        /// Filters the current range using the provided predicate.
-        /// Purpose: returns a new collection containing only elements that satisfy the predicate.
-        /// Ownership: the resulting collection owns its stored values.
-        /// Thread Safety: not thread-safe; synchronize access when iterating concurrently.
         template <typename Predicate>
-        auto where(Predicate&& predicate) const
+        List<TValue> where(Predicate&& predicate) const
         {
-            using range_type = decltype(get_range());
-            using value_type = range_value<range_type>;
-
-            List<value_type> results;
+            List<TValue> results;
 
             for (const auto& value : get_range())
             {
@@ -90,28 +82,18 @@ namespace tbx
             return results;
         }
 
-        /// Projects the first element from the current range.
-        /// Purpose: retrieves the first item, throwing if the range is empty.
-        /// Ownership: returns a copy of the stored value.
-        /// Thread Safety: not thread-safe; external synchronization is required for concurrent
-        /// access.
-        auto first() const
+        TValue first() const
         {
             for (const auto& value : get_range())
             {
                 return value;
             }
 
-            throw std::out_of_range("linq::first: range is empty");
+            throw std::out_of_range("Linqable::first: range is empty");
         }
 
-        /// Projects the first matching element from the current range.
-        /// Purpose: retrieves the first item satisfying the predicate or throws if no match exists.
-        /// Ownership: returns a copy of the stored value.
-        /// Thread Safety: not thread-safe; external synchronization is required for concurrent
-        /// access.
         template <typename Predicate>
-        auto first(Predicate&& predicate) const
+        TValue first(Predicate&& predicate) const
         {
             for (const auto& value : get_range())
             {
@@ -121,14 +103,9 @@ namespace tbx
                 }
             }
 
-            throw std::out_of_range("linq::first: predicate did not match any item");
+            throw std::out_of_range("Linqable::first: predicate did not match any item");
         }
 
-        /// Projects the first element or a default value when empty.
-        /// Purpose: avoids throwing by returning the provided default when no items are present.
-        /// Ownership: returns a copy of either the stored value or the provided default.
-        /// Thread Safety: not thread-safe; external synchronization is required for concurrent
-        /// access.
         template <typename TValue>
         TValue first_or_default(TValue default_value) const
         {
@@ -140,11 +117,6 @@ namespace tbx
             return default_value;
         }
 
-        /// Projects the first matching element or a default value when no match is found.
-        /// Purpose: avoids throwing by returning the provided default when the predicate does not
-        /// match. Ownership: returns a copy of either the stored value or the provided default.
-        /// Thread Safety: not thread-safe; external synchronization is required for concurrent
-        /// access.
         template <typename Predicate, typename TValue>
         TValue first_or_default(Predicate&& predicate, TValue default_value) const
         {
@@ -159,10 +131,6 @@ namespace tbx
             return default_value;
         }
 
-        /// Determines whether any element in the range satisfies the predicate.
-        /// Purpose: evaluates the predicate until a match is found.
-        /// Ownership: does not take ownership of referenced values.
-        /// Thread Safety: not thread-safe; synchronize access for concurrent reads and writes.
         template <typename Predicate>
         bool any(Predicate&& predicate) const
         {
@@ -177,10 +145,6 @@ namespace tbx
             return false;
         }
 
-        /// Determines whether the range contains any elements.
-        /// Purpose: reports whether at least one item exists in the container.
-        /// Ownership: does not take ownership of referenced values.
-        /// Thread Safety: not thread-safe; synchronize access for concurrent reads and writes.
         bool any() const
         {
             for (const auto& value : get_range())
@@ -192,10 +156,6 @@ namespace tbx
             return false;
         }
 
-        /// Determines whether all elements satisfy the predicate.
-        /// Purpose: evaluates the predicate across the entire range.
-        /// Ownership: does not take ownership of referenced values.
-        /// Thread Safety: not thread-safe; synchronize access for concurrent reads and writes.
         template <typename Predicate>
         bool all(Predicate&& predicate) const
         {
@@ -210,27 +170,6 @@ namespace tbx
             return true;
         }
 
-        /// Counts the number of elements.
-        /// Purpose: reports the total size of the range.
-        /// Ownership: does not take ownership of referenced values.
-        /// Thread Safety: not thread-safe; synchronize access for concurrent reads and writes.
-        uint count() const
-        {
-            uint total = 0U;
-
-            for (const auto& value : get_range())
-            {
-                (void)value;
-                ++total;
-            }
-
-            return total;
-        }
-
-        /// Counts the number of elements satisfying the predicate.
-        /// Purpose: reports how many items meet the predicate criteria.
-        /// Ownership: does not take ownership of referenced values.
-        /// Thread Safety: not thread-safe; synchronize access for concurrent reads and writes.
         template <typename Predicate>
         uint count(Predicate&& predicate) const
         {
@@ -247,10 +186,6 @@ namespace tbx
             return total;
         }
 
-        /// Determines whether the range contains the provided value.
-        /// Purpose: checks for equality against each item.
-        /// Ownership: does not take ownership of referenced values.
-        /// Thread Safety: not thread-safe; synchronize access for concurrent reads and writes.
         template <typename TValue>
         bool contains(const TValue& value) const
         {
@@ -263,106 +198,6 @@ namespace tbx
             }
 
             return false;
-        }
-
-        /// Converts the range into a list.
-        /// Purpose: materializes the range into a contiguous List wrapper.
-        /// Ownership: the returned list owns its contents.
-        /// Thread Safety: not thread-safe; synchronize access for concurrent reads and writes.
-        auto to_list() const
-        {
-            using range_type = decltype(get_range());
-            using value_type = range_value<range_type>;
-
-            List<value_type> results;
-            reserve_if_possible(results, get_range());
-
-            for (const auto& value : get_range())
-            {
-                results.emplace(value);
-            }
-
-            return results;
-        }
-
-        /// Converts the range into a fixed-capacity array.
-        /// Purpose: materializes the range into an Array wrapper up to the provided capacity.
-        /// Ownership: the returned array owns copied entries.
-        /// Thread Safety: not thread-safe; synchronize access for concurrent reads or writes.
-        template <std::size_t Size>
-        auto to_array() const
-        {
-            using range_type = decltype(get_range());
-            using value_type = range_value<range_type>;
-
-            Array<value_type, Size> results;
-
-            for (const auto& value : get_range())
-            {
-                if (!results.emplace(value))
-                {
-                    break;
-                }
-            }
-
-            return results;
-        }
-
-        /// Converts the range into a hash-backed map.
-        /// Purpose: materializes the range into a HashMap by treating each entry as a key/value
-        /// pair.
-        /// Ownership: the returned map owns copied keys and values.
-        /// Thread Safety: not thread-safe; synchronize external access for concurrent reads or
-        /// writes.
-        auto to_hash_map() const
-        {
-            using range_type = decltype(get_range());
-            using entry_type = range_value<range_type>;
-            using key_type = std::decay_t<decltype(std::declval<entry_type>().first)>;
-            using value_type = std::decay_t<decltype(std::declval<entry_type>().second)>;
-
-            using allocator_type = std::allocator<std::pair<const key_type, value_type>>;
-            using map_type = HashMap<
-                key_type,
-                value_type,
-                std::hash<key_type>,
-                std::equal_to<key_type>,
-                allocator_type>;
-
-            map_type results;
-
-            for (const auto& entry : get_range())
-            {
-                results.emplace(entry.first, entry.second);
-            }
-
-            return results;
-        }
-
-        /// Converts the range into a hash-backed set.
-        /// Purpose: materializes the range into a HashSet, preserving unique values.
-        /// Ownership: the returned set owns copied entries.
-        /// Thread Safety: not thread-safe; synchronize external access for concurrent reads or
-        /// writes.
-        auto to_hash_set() const
-        {
-            using range_type = decltype(get_range());
-            using value_type = range_value<range_type>;
-
-            using set_type = HashSet<
-                value_type,
-                std::hash<value_type>,
-                std::equal_to<value_type>,
-                std::allocator<value_type>>;
-
-            set_type results;
-
-            for (const auto& value : get_range())
-            {
-                results.emplace(value);
-            }
-
-            return results;
         }
 
         auto begin()
@@ -431,247 +266,90 @@ namespace tbx
             }
         }
 
-        decltype(auto) get_storage()
+        auto get_storage()
         {
             return get_range().get_storage();
         }
 
-        decltype(auto) get_storage() const
+        auto get_storage() const
         {
             return get_range().get_storage();
         }
     };
 
-    template <typename TValue, std::size_t Size>
-    class Array : public Linqable<Array<TValue, Size>>
+    template <typename TValue, uint Size>
+    class Array : public Linqable<Array<TValue, Size>, TValue>
     {
       public:
-        using iterator = typename std::array<TValue, Size>::iterator;
-        using const_iterator = typename std::array<TValue, Size>::const_iterator;
-
-        /// Wraps std::array with LINQ-style helpers.
-        /// Purpose: exposes fixed-size storage with the linqable surface while offering a
-        /// consistent C#-like mutation API. Ownership: owns contained values in-place. Thread
-        /// Safety: not thread-safe; callers must synchronize external access.
         Array() = default;
-
-        /// Initializes the array from an initializer list.
-        /// Purpose: enables aggregate-style creation while tracking the active item count.
-        /// Ownership: copies the provided values into owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         Array(std::initializer_list<TValue> values)
         {
-            add_range(values.begin(), values.end());
-        }
-
-        /// Adds a value to the next available slot when capacity permits.
-        /// Purpose: provides a consistent append-style API resembling C# collection Add.
-        /// Ownership: copies the provided value into owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        bool add(const TValue& value)
-        {
-            return emplace(value);
-        }
-
-        /// Emplaces a value to the next available slot when capacity permits.
-        /// Purpose: constructs the stored value in place to avoid redundant copies.
-        /// Ownership: owns the in-place constructed value.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        template <typename... TArgs>
-        bool emplace(TArgs&&... args)
-        {
-            if (_size >= Size)
+            for (const auto& value : values)
             {
-                return false;
+                add(value);
+            }
+        }
+
+        void add(const TValue& value)
+        {
+            for (uint index = 0; index < _storage.size(); index++)
+            {
+                const auto* item = &storage[index];
+                if (item == nullptr)
+                    storage[index] = value;
             }
 
-            _storage[_size] = TValue(std::forward<TArgs>(args)...);
-            ++_size;
-            return true;
+            throw std::out_of_range("Array::add: array is full!");
         }
 
-        /// Clears the tracked items without altering capacity.
-        /// Purpose: resets the logical contents while reusing allocated storage.
-        /// Ownership: retains ownership of storage; values beyond the tracked size remain
-        /// defaulted. Thread Safety: not thread-safe; callers must synchronize external access.
+        void remove(uint position)
+        {
+            _storage.erase(position);
+        }
+
+        bool remove(const TValue& value)
+        {
+            return _storage.erase(value) > 0U;
+        }
+
         void clear()
         {
-            _size = 0U;
+            _storage.fill(TValue());
         }
 
-        /// Retrieves the number of active items.
-        /// Purpose: reports how many elements participate in iteration and LINQ queries.
-        /// Ownership: does not transfer ownership.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         uint get_count() const
         {
-            return _size;
+            return static_cast<uint>(_storage.size());
         }
 
-        /// Retrieves a reference to the stored value at the provided index.
-        /// Purpose: matches the C# indexer semantics while using explicit Get prefix.
-        /// Ownership: returns a reference to owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        decltype(auto) get_at(uint index)
+        bool is_empty() const
+        {
+            return _storage.empty();
+        }
+
+        TValue& operator[](uint index)
         {
             return _storage.at(index);
         }
 
-        /// Retrieves a const reference to the stored value at the provided index.
-        /// Purpose: matches the C# indexer semantics while using explicit Get prefix.
-        /// Ownership: returns a reference to owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        decltype(auto) get_at(uint index) const
+        const TValue& operator[](uint index) const
         {
             return _storage.at(index);
-        }
-
-        /// Provides array-style access to stored values.
-        /// Purpose: aligns with square bracket usage expectations similar to C# indexers.
-        /// Ownership: returns a reference to owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        decltype(auto) operator[](uint index)
-        {
-            return get_at(index);
-        }
-
-        /// Provides read-only array-style access to stored values.
-        /// Purpose: aligns with square bracket usage expectations similar to C# indexers.
-        /// Ownership: returns a reference to owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        decltype(auto) operator[](uint index) const
-        {
-            return get_at(index);
-        }
-
-        /// Combines two arrays into a single fixed-capacity array.
-        /// Purpose: supports C#-style additive composition by appending values until capacity is
-        /// reached.
-        /// Ownership: the returned array owns copied values; inputs retain ownership of their
-        /// storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        Array<TValue, Size> operator+(const Array<TValue, Size>& other) const
-        {
-            Array<TValue, Size> combined;
-            combined.add_range(this->begin(), this->end());
-            combined.add_range(other.begin(), other.end());
-            return combined;
         }
 
       private:
-        friend class Linqable<Array<TValue, Size>>;
-
-        class RangeView
-        {
-          public:
-            RangeView(std::array<TValue, Size>& storage, uint size)
-                : _storage(storage)
-                , _size(size)
-            {
-            }
-
-            iterator begin()
-            {
-                return _storage.begin();
-            }
-
-            const_iterator begin() const
-            {
-                return _storage.begin();
-            }
-
-            iterator end()
-            {
-                return _storage.begin() + static_cast<ptrdiff_t>(_size);
-            }
-
-            const_iterator end() const
-            {
-                return _storage.begin() + static_cast<ptrdiff_t>(_size);
-            }
-
-            auto rbegin()
-            {
-                return std::make_reverse_iterator(end());
-            }
-
-            auto rbegin() const
-            {
-                return std::make_reverse_iterator(end());
-            }
-
-            auto rend()
-            {
-                return std::make_reverse_iterator(begin());
-            }
-
-            auto rend() const
-            {
-                return std::make_reverse_iterator(begin());
-            }
-
-          private:
-            std::array<TValue, Size>& _storage;
-            uint _size = 0U;
-        };
-
-        class ConstRangeView
-        {
-          public:
-            ConstRangeView(const std::array<TValue, Size>& storage, uint size)
-                : _storage(storage)
-                , _size(size)
-            {
-            }
-
-            const_iterator begin() const
-            {
-                return _storage.begin();
-            }
-
-            const_iterator end() const
-            {
-                return _storage.begin() + static_cast<ptrdiff_t>(_size);
-            }
-
-            auto rbegin() const
-            {
-                return std::make_reverse_iterator(end());
-            }
-
-            auto rend() const
-            {
-                return std::make_reverse_iterator(begin());
-            }
-
-          private:
-            const std::array<TValue, Size>& _storage;
-            uint _size = 0U;
-        };
-
-        template <typename TIterator>
-        void add_range(TIterator begin_iterator, TIterator end_iterator)
-        {
-            for (auto iterator = begin_iterator; iterator != end_iterator; ++iterator)
-            {
-                if (!emplace(*iterator))
-                {
-                    break;
-                }
-            }
-        }
-
+        friend class Linqable<Array<TValue, Size>, TValue>;
         std::array<TValue, Size> _storage = {};
-        uint _size = 0U;
 
-        auto get_storage()
+      private:
+        std::span<TValue> get_storage()
         {
-            return RangeView(_storage, _size);
+            return std::span<TValue>(_storage);
         }
 
-        auto get_storage() const
+        std::span<const TValue> get_storage() const
         {
-            return ConstRangeView(_storage, _size);
+            return std::span<const TValue>(_storage);
         }
     };
 
@@ -681,43 +359,26 @@ namespace tbx
         typename THash,
         typename TKeyEqual,
         typename TAllocator>
-    class HashMap : public Linqable<HashMap<TKey, TValue, THash, TKeyEqual, TAllocator>>
+    class HashMap
+        : public Linqable<
+              HashMap<TKey, TValue, THash, TKeyEqual, TAllocator>,
+              std::pair<const TKey, TValue>>
     {
       public:
-        using iterator =
-            typename std::unordered_map<TKey, TValue, THash, TKeyEqual, TAllocator>::iterator;
-        using const_iterator =
-            typename std::unordered_map<TKey, TValue, THash, TKeyEqual, TAllocator>::const_iterator;
-
-        /// Wraps std::unordered_map with LINQ-style helpers.
-        /// Purpose: exposes hash-based key/value storage with the linqable surface while presenting
-        /// a consistent C#-like API.
-        /// Ownership: owns stored key/value pairs.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         HashMap() = default;
-
-        /// Initializes the map from an initializer list.
-        /// Purpose: supports concise map creation using Add-style semantics.
-        /// Ownership: copies the provided entries into owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         HashMap(std::initializer_list<std::pair<const TKey, TValue>> values)
         {
-            add_range(values.begin(), values.end());
+            for (const auto& entry : values)
+            {
+                add(entry.first, entry.second);
+            }
         }
 
-        /// Adds a key/value pair when the key does not already exist.
-        /// Purpose: mirrors C# Dictionary Add, returning whether insertion succeeded.
-        /// Ownership: copies the provided key and value into owned storage on success.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         bool add(const TKey& key, const TValue& value)
         {
             return _storage.emplace(key, value).second;
         }
 
-        /// Emplaces a key/value pair when the key does not already exist.
-        /// Purpose: constructs the mapped value in-place using forwarded arguments.
-        /// Ownership: owns the emplaced value on success.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         template <typename... TArgs>
         bool emplace(const TKey& key, TArgs&&... args)
         {
@@ -729,368 +390,169 @@ namespace tbx
                 .second;
         }
 
-        /// Removes a key when present.
-        /// Purpose: provides a predictable remove operation mirroring C# collection semantics.
-        /// Ownership: releases the removed entry.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         bool remove(const TKey& key)
         {
             return _storage.erase(key) > 0U;
         }
 
-        /// Removes the entry referenced by the provided iterator.
-        /// Purpose: supports erase-while-iterating patterns common in associative containers.
-        /// Ownership: releases the removed entry.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        iterator erase(iterator position)
-        {
-            return _storage.erase(position);
-        }
-
-        /// Clears all entries.
-        /// Purpose: resets the container to an empty state.
-        /// Ownership: retains ownership of storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         void clear()
         {
             _storage.clear();
         }
 
-        /// Retrieves the number of stored entries.
-        /// Purpose: reports the active item count for sizing and LINQ operations.
-        /// Ownership: does not transfer ownership.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        void reserve(uint count)
+        {
+            _storage.reserve(count);
+        }
+
         uint get_count() const
         {
             return static_cast<uint>(_storage.size());
         }
 
-        /// Reserves buckets for the provided number of elements.
-        /// Purpose: avoids rehash churn when the expected size is known.
-        /// Ownership: retains ownership of storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        void reserve(size_t count)
+        bool is_empty() const
         {
-            _storage.reserve(count);
+            return _storage.empty();
         }
 
-        /// Finds an iterator to the provided key or end when missing.
-        /// Purpose: compatibility wrapper for associative-style lookups.
-        /// Ownership: does not modify or transfer ownership.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        iterator find(const TKey& key)
-        {
-            return _storage.find(key);
-        }
-
-        /// Finds a const iterator to the provided key or end when missing.
-        /// Purpose: compatibility wrapper for associative-style lookups.
-        /// Ownership: does not modify or transfer ownership.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        const_iterator find(const TKey& key) const
-        {
-            return _storage.find(key);
-        }
-
-        /// Retrieves a mutable reference to the value for the provided key, inserting a default if
-        /// necessary.
-        /// Purpose: matches the C# indexer experience while keeping explicit Get naming.
-        /// Ownership: returns a reference to owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        TValue& get_or_add(const TKey& key)
+        TValue& operator[](const TKey& key)
         {
             return _storage[key];
         }
 
-        /// Retrieves a const reference to the value for the provided key, throwing when missing.
-        /// Purpose: provides predictable access semantics aligned with C# Dictionary.
-        /// Ownership: returns a reference to owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        const TValue& get_at(const TKey& key) const
+        const TValue& operator[](const TKey& key) const
         {
             return _storage.at(key);
         }
 
-        /// Provides map-style access to stored values, adding a default when missing.
-        /// Purpose: mirrors the C# indexer pattern using square bracket syntax.
-        /// Ownership: returns a reference to owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        TValue& operator[](const TKey& key)
-        {
-            return get_or_add(key);
-        }
-
-        /// Provides read-only map-style access to stored values.
-        /// Purpose: mirrors the C# indexer pattern using square bracket syntax.
-        /// Ownership: returns a reference to owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        const TValue& operator[](const TKey& key) const
-        {
-            return get_at(key);
-        }
-
-        /// Combines two maps into a single dictionary-style collection.
-        /// Purpose: supports C#-style additive composition by appending entries while preserving
-        /// existing keys.
-        /// Ownership: the returned map owns copied entries; inputs retain ownership of their
-        /// storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        HashMap<TKey, TValue, THash, TKeyEqual, TAllocator> operator+(
-            const HashMap<TKey, TValue, THash, TKeyEqual, TAllocator>& other) const
-        {
-            HashMap<TKey, TValue, THash, TKeyEqual, TAllocator> combined;
-            combined.add_range(this->begin(), this->end());
-            combined.add_range(other.begin(), other.end());
-            return combined;
-        }
-
       private:
-        friend class Linqable<HashMap<TKey, TValue, THash, TKeyEqual, TAllocator>>;
-
-        template <typename TIterator>
-        void add_range(TIterator begin_iterator, TIterator end_iterator)
-        {
-            for (auto iterator = begin_iterator; iterator != end_iterator; ++iterator)
-            {
-                add(iterator->first, iterator->second);
-            }
-        }
-
+        friend class Linqable<
+            HashMap<TKey, TValue, THash, TKeyEqual, TAllocator>,
+            std::pair<const TKey, TValue>>;
         std::unordered_map<TKey, TValue, THash, TKeyEqual, TAllocator> _storage;
 
-        auto& get_storage()
+      private:
+        std::unordered_map<TKey, TValue, THash, TKeyEqual, TAllocator>& get_storage()
         {
             return _storage;
         }
 
-        const auto& get_storage() const
+        const std::unordered_map<TKey, TValue, THash, TKeyEqual, TAllocator>& get_storage() const
         {
             return _storage;
         }
     };
 
     template <typename TValue, typename THash, typename TKeyEqual, typename TAllocator>
-    class HashSet : public Linqable<HashSet<TValue, THash, TKeyEqual, TAllocator>>
+    class HashSet : public Linqable<HashSet<TValue, THash, TKeyEqual, TAllocator>, TValue>
     {
       public:
-        using iterator =
-            typename std::unordered_set<TValue, THash, TKeyEqual, TAllocator>::iterator;
-        using const_iterator =
-            typename std::unordered_set<TValue, THash, TKeyEqual, TAllocator>::const_iterator;
-
-        /// Wraps std::unordered_set with LINQ-style helpers.
-        /// Purpose: exposes hash-based unique storage with the linqable surface while providing a
-        /// consistent C#-like API.
-        /// Ownership: owns stored values.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         HashSet() = default;
-
-        /// Initializes the set from an initializer list.
-        /// Purpose: allows aggregate-style creation while respecting uniqueness.
-        /// Ownership: copies the provided values into owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         HashSet(std::initializer_list<TValue> values)
         {
-            add_range(values.begin(), values.end());
+            for (const auto& value : values)
+            {
+                add(value);
+            }
         }
 
-        /// Adds a value if it is not already present.
-        /// Purpose: mirrors C# HashSet Add semantics by returning insertion success.
-        /// Ownership: copies the provided value into owned storage on success.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         bool add(const TValue& value)
         {
             return _storage.insert(value).second;
         }
 
-        /// Emplaces a value if it is not already present.
-        /// Purpose: constructs the stored value in place to avoid redundant copies.
-        /// Ownership: owns the in-place constructed value on success.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         template <typename... TArgs>
         bool emplace(TArgs&&... args)
         {
             return _storage.emplace(std::forward<TArgs>(args)...).second;
         }
 
-        /// Inserts a value if it is not already present.
-        /// Purpose: compatibility wrapper mirroring std::unordered_set insert semantics.
-        /// Ownership: moves or copies the provided value into owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        std::pair<iterator, bool> insert(const TValue& value)
-        {
-            return _storage.insert(value);
-        }
-
-        /// Removes a value when present.
-        /// Purpose: supplies predictable removal semantics consistent with C# collections.
-        /// Ownership: releases the removed element.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         bool remove(const TValue& value)
         {
             return _storage.erase(value) > 0U;
         }
 
-        /// Clears all elements.
-        /// Purpose: resets the container to an empty state.
-        /// Ownership: retains ownership of storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        void remove(uint position)
+        {
+            _storage.erase(position);
+        }
+
         void clear()
         {
             _storage.clear();
         }
 
-        /// Retrieves the number of stored elements.
-        /// Purpose: reports the active item count for sizing and LINQ operations.
-        /// Ownership: does not transfer ownership.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        void reserve(uint count)
+        {
+            _storage.reserve(count);
+        }
+
         uint get_count() const
         {
             return static_cast<uint>(_storage.size());
         }
 
-        /// Combines two sets into a single collection containing the union of values.
-        /// Purpose: supports C#-style additive composition by appending unique entries.
-        /// Ownership: the returned set owns copied values; inputs retain ownership of their
-        /// storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        HashSet<TValue, THash, TKeyEqual, TAllocator> operator+(
-            const HashSet<TValue, THash, TKeyEqual, TAllocator>& other) const
+        bool is_empty() const
         {
-            HashSet<TValue, THash, TKeyEqual, TAllocator> combined;
-            combined.add_range(this->begin(), this->end());
-            combined.add_range(other.begin(), other.end());
-            return combined;
+            return _storage.empty();
+        }
+
+        TValue& operator[](uint i)
+        {
+            return _storage[i];
+        }
+
+        const TValue& operator[](uint i) const
+        {
+            return _storage.at(i);
         }
 
       private:
-        friend class Linqable<HashSet<TValue, THash, TKeyEqual, TAllocator>>;
-
-        template <typename TIterator>
-        void add_range(TIterator begin_iterator, TIterator end_iterator)
-        {
-            for (auto iterator = begin_iterator; iterator != end_iterator; ++iterator)
-            {
-                add(*iterator);
-            }
-        }
-
+        friend class Linqable<HashSet<TValue, THash, TKeyEqual, TAllocator>, TValue>;
         std::unordered_set<TValue, THash, TKeyEqual, TAllocator> _storage;
 
-        auto& get_storage()
+      private:
+        std::unordered_set<TValue, THash, TKeyEqual, TAllocator>& get_storage()
         {
             return _storage;
         }
 
-        const auto& get_storage() const
+        const std::unordered_set<TValue, THash, TKeyEqual, TAllocator>& get_storage() const
         {
             return _storage;
         }
     };
 
     template <typename TValue, typename TAllocator>
-    class List : public Linqable<List<TValue, TAllocator>>
+    class List : public Linqable<List<TValue, TAllocator>, TValue>
     {
       public:
-        using iterator = typename std::vector<TValue, TAllocator>::iterator;
-        using const_iterator = typename std::vector<TValue, TAllocator>::const_iterator;
-        using reverse_iterator = typename std::vector<TValue, TAllocator>::reverse_iterator;
-        using const_reverse_iterator =
-            typename std::vector<TValue, TAllocator>::const_reverse_iterator;
-
-        /// Wraps List with LINQ-style helpers.
-        /// Purpose: exposes dynamic contiguous storage with the linqable surface while presenting a
-        /// consistent C#-like API.
-        /// Ownership: owns stored values.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         List() = default;
-
-        /// Initializes the list from an initializer list.
-        /// Purpose: enables concise creation mirroring C# collection initializers.
-        /// Ownership: copies the provided values into owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         List(std::initializer_list<TValue> values)
             : _storage(values)
         {
         }
-
-        /// Initializes the list with a fixed number of default-constructed elements.
-        /// Purpose: mirrors common vector sizing patterns for deterministic capacities.
-        /// Ownership: constructs owned elements in-place.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        explicit List(size_t count)
+        List(uint count)
             : _storage(count)
         {
         }
-
-        /// Initializes the list with a fixed number of copies of the provided value.
-        /// Purpose: mirrors common vector sizing patterns for deterministic contents.
-        /// Ownership: copies the provided value into owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        List(size_t count, const TValue& value)
+        List(uint count, const TValue& value)
             : _storage(count, value)
         {
         }
 
-        /// True if the list contains no elements.
-        /// Purpose: mirrors the emptiness checks found on STL containers.
-        /// Ownership: does not modify or transfer ownership.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        bool empty() const
-        {
-            return _storage.empty();
-        }
-
-        /// Returns the number of stored elements.
-        /// Purpose: exposes the container size with a familiar name alongside get_count.
-        /// Ownership: does not modify or transfer ownership.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        size_t size() const
-        {
-            return _storage.size();
-        }
-
-        /// Reserves storage for the provided number of elements.
-        /// Purpose: allows callers to preallocate capacity prior to bulk inserts.
-        /// Ownership: retains ownership of the allocated storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        void reserve(size_t count)
-        {
-            _storage.reserve(count);
-        }
-
-        /// Adds a value to the end of the list.
-        /// Purpose: mirrors C# List Add semantics.
-        /// Ownership: copies the provided value into owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         bool add(const TValue& value)
         {
             _storage.push_back(value);
             return true;
         }
 
-        /// Appends a value to the end of the list.
-        /// Purpose: compatibility wrapper for push_back usage in STL-like code paths.
-        /// Ownership: copies the provided value into owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        void push_back(const TValue& value)
-        {
-            add(value);
-        }
-
-        /// Appends a value to the end of the list using move semantics.
-        /// Purpose: compatibility wrapper for push_back usage in STL-like code paths.
-        /// Ownership: moves the provided value into owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        void push_back(TValue&& value)
+        bool add(TValue&& value)
         {
             _storage.push_back(std::move(value));
+            return true;
         }
 
-        /// Emplaces a value at the end of the list.
-        /// Purpose: constructs the stored value in place to avoid redundant copies.
-        /// Ownership: owns the in-place constructed value.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         template <typename... TArgs>
         bool emplace(TArgs&&... args)
         {
@@ -1098,171 +560,54 @@ namespace tbx
             return true;
         }
 
-        /// Removes all items from the list.
-        /// Purpose: resets the container to an empty state.
-        /// Ownership: retains ownership of storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
+        void remove(const TValue& value) {}
+
+        void remove(uint position)
+        {
+            _storage.erase(position);
+        }
+
         void clear()
         {
             _storage.clear();
         }
 
-        /// Exchanges contents with another list.
-        /// Purpose: mirrors std::vector swap semantics for efficient queue rotation.
-        /// Ownership: swaps owned storage between the two lists.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        void swap(List<TValue, TAllocator>& other)
+        void reserve(uint count)
         {
-            _storage.swap(other._storage);
+            _storage.reserve(count);
         }
 
-        /// Erases the element at the provided iterator.
-        /// Purpose: mirrors vector erase semantics for compatibility with standard algorithms.
-        /// Ownership: releases the removed element.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        iterator erase(iterator position)
+        bool is_empty() const
         {
-            return _storage.erase(position);
+            return _storage.empty();
         }
 
-        /// Retrieves the number of stored items.
-        /// Purpose: reports the active item count for sizing and LINQ operations.
-        /// Ownership: does not transfer ownership.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
         uint get_count() const
         {
             return static_cast<uint>(_storage.size());
         }
 
-        /// Retrieves a reference to the stored value at the provided index.
-        /// Purpose: matches the C# indexer semantics while using explicit Get prefix.
-        /// Ownership: returns a reference to owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        decltype(auto) get_at(uint index)
+        TValue& operator[](uint index)
         {
             return _storage.at(index);
         }
 
-        /// Retrieves a const reference to the stored value at the provided index.
-        /// Purpose: matches the C# indexer semantics while using explicit Get prefix.
-        /// Ownership: returns a reference to owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        decltype(auto) get_at(uint index) const
+        const TValue& operator[](uint index) const
         {
             return _storage.at(index);
-        }
-
-        /// Provides list-style access to stored values.
-        /// Purpose: aligns with square bracket usage expectations similar to C# indexers.
-        /// Ownership: returns a reference to owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        decltype(auto) operator[](uint index)
-        {
-            return get_at(index);
-        }
-
-        /// Provides read-only list-style access to stored values.
-        /// Purpose: aligns with square bracket usage expectations similar to C# indexers.
-        /// Ownership: returns a reference to owned storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        decltype(auto) operator[](uint index) const
-        {
-            return get_at(index);
-        }
-
-        iterator begin()
-        {
-            return _storage.begin();
-        }
-
-        const_iterator begin() const
-        {
-            return _storage.begin();
-        }
-
-        const_iterator cbegin() const
-        {
-            return _storage.cbegin();
-        }
-
-        iterator end()
-        {
-            return _storage.end();
-        }
-
-        const_iterator end() const
-        {
-            return _storage.end();
-        }
-
-        const_iterator cend() const
-        {
-            return _storage.cend();
-        }
-
-        reverse_iterator rbegin()
-        {
-            return _storage.rbegin();
-        }
-
-        const_reverse_iterator rbegin() const
-        {
-            return _storage.rbegin();
-        }
-
-        const_reverse_iterator crbegin() const
-        {
-            return _storage.crbegin();
-        }
-
-        reverse_iterator rend()
-        {
-            return _storage.rend();
-        }
-
-        const_reverse_iterator rend() const
-        {
-            return _storage.rend();
-        }
-
-        const_reverse_iterator crend() const
-        {
-            return _storage.crend();
-        }
-
-        /// Combines two lists into a single concatenated collection.
-        /// Purpose: supports C#-style additive composition by appending items from both inputs.
-        /// Ownership: the returned list owns copied values; inputs retain ownership of their
-        /// storage.
-        /// Thread Safety: not thread-safe; callers must synchronize external access.
-        List<TValue, TAllocator> operator+(const List<TValue, TAllocator>& other) const
-        {
-            List<TValue, TAllocator> combined;
-            combined.add_range(this->begin(), this->end());
-            combined.add_range(other.begin(), other.end());
-            return combined;
         }
 
       private:
-        friend class Linqable<List<TValue, TAllocator>>;
-
-        template <typename TIterator>
-        void add_range(TIterator begin_iterator, TIterator end_iterator)
-        {
-            for (auto iterator = begin_iterator; iterator != end_iterator; ++iterator)
-            {
-                add(*iterator);
-            }
-        }
-
+        friend class Linqable<List<TValue, TAllocator>, TValue>;
         std::vector<TValue, TAllocator> _storage;
 
-        auto& get_storage()
+      private:
+        std::vector<TValue, TAllocator>& get_storage()
         {
             return _storage;
         }
 
-        const auto& get_storage() const
+        const std::vector<TValue, TAllocator>& get_storage() const
         {
             return _storage;
         }

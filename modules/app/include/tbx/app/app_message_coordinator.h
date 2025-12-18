@@ -1,13 +1,11 @@
 #pragma once
-#include "tbx/common/collections.h"
 #include "tbx/async/lock.h"
+#include "tbx/common/collections.h"
 #include "tbx/common/pair.h"
 #include "tbx/common/smart_pointers.h"
 #include "tbx/common/uuid.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/tbx_api.h"
-#include <memory>
-#include <utility>
 
 namespace tbx
 {
@@ -17,11 +15,6 @@ namespace tbx
         Promise<Result> completion_state;
     };
 
-    // Thread-safe message coordinator handling synchronous dispatch and deferred processing for
-    // the application module.
-    // Ownership: Stores handlers by value, constructs messages per send call, and owns queued
-    // message copies for post().
-    // Thread-safety: Coordinates access to handlers and pending messages with internal mutexes.
     class TBX_API AppMessageCoordinator final
         : public IMessageDispatcher
         , public IMessageProcessor

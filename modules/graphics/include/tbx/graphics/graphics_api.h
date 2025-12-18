@@ -17,6 +17,7 @@ namespace tbx
         None,
         Vulkan,
         OpenGL,
+        DirectX,
         Metal,
         Custom
     };

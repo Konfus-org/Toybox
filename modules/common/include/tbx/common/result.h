@@ -5,10 +5,6 @@
 
 namespace tbx
 {
-    // Lightweight shared result that captures success/failure and a human-readable message.
-    // Ownership: Result instances share their underlying state via shared_ptr so copies remain
-    // synchronized.
-    // Thread-safety: safe for concurrent reads; callers must synchronize writes.
     class TBX_API Result
     {
       public:
@@ -19,6 +15,7 @@ namespace tbx
 
         // Marks the result as a success. Report is optional.
         void flag_success(String report = "") const;
+
         // Marks the result as a failure. A report is required on failure.
         void flag_failure(String report) const;
 

@@ -2,7 +2,7 @@
 #include "tbx/app/app_events.h"
 #include "tbx/app/app_requests.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/file_system/filesystem.h"
+#include "tbx/files/filesystem.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
@@ -12,21 +12,33 @@
 
 namespace tbx
 {
+    AppSettings::AppSettings(
+        IMessageDispatcher& dispatcher,
+        bool vsync,
+        GraphicsApi api,
+        Size resolution)
+        : vsync_enabled(&dispatcher, this, &AppSettings::vsync_enabled, vsync)
+        , resolution(&dispatcher, this, &AppSettings::resolution, resolution)
+        , graphics_api(&dispatcher, this, &AppSettings::graphics_api, api)
+    {
+    }
+
     Application::Application(const AppDescription& desc)
-        : _desc(desc)
+        : _name(desc.name)
         , _filesystem(
-              _desc.working_root,
-              _desc.plugins_directory,
-              _desc.logs_directory,
-              _desc.assets_directory)
+              desc.working_root,
+              desc.plugins_directory,
+              desc.logs_directory,
+              desc.assets_directory)
         , _main_window(
               _msg_coordinator,
               desc.name.empty() ? String("Toybox Application") : desc.name,
               {1280, 720},
               WindowMode::Windowed,
               false)
+        , _settings(_msg_coordinator, true, GraphicsApi::OpenGL, {720, 480})
     {
-        initialize();
+        initialize(desc.requested_plugins);
     }
 
     Application::~Application()
@@ -49,9 +61,14 @@ namespace tbx
         return 0;
     }
 
-    const AppDescription& Application::get_description() const
+    const String& Application::get_name() const
     {
-        return _desc;
+        return _name;
+    }
+
+    AppSettings& Application::get_settings()
+    {
+        return _settings;
     }
 
     IMessageDispatcher& Application::get_dispatcher()
@@ -64,7 +81,7 @@ namespace tbx
         return _filesystem;
     }
 
-    void Application::initialize()
+    void Application::initialize(const List<String>& requested_plugins)
     {
         GlobalDispatcherScope scope(_msg_coordinator);
 
@@ -77,9 +94,12 @@ namespace tbx
 
         // Load plugins
         auto& fs = get_filesystem();
-        auto loaded = load_plugins(fs.get_plugins_directory(), _desc.requested_plugins, fs);
-        for (auto& lp : loaded)
-            _loaded.push_back(std::move(lp));
+        auto plug_loader = PluginLoader();
+        _loaded = plug_loader.load_plugins(fs.get_plugins_directory(), requested_plugins, fs);
+        TBX_ASSERT(
+            _loaded.size() == requested_plugins.size(),
+            "Loaded plugins don't match requested plugins!");
+
         for (auto& p : _loaded)
         {
             // Register plugin message handler then attach to host

@@ -65,7 +65,7 @@ namespace tbx
         }
 
         const FilePath module_path = resolve_module_path(meta, file_ops);
-        auto lib = Scope<SharedLibrary>(module_path);
+        Scope<SharedLibrary> lib(module_path);
 
         const String create_symbol = String("create_") + meta.name;
         CreatePluginFn create = lib->get_symbol<CreatePluginFn>(create_symbol.get_cstr());
@@ -90,7 +90,7 @@ namespace tbx
             return {};
         }
 
-        auto instance = PluginInstance(plugin_instance, destroy);
+        PluginInstance instance(plugin_instance, destroy);
         loaded.instance = std::move(instance);
         loaded.library = std::move(lib);
 
@@ -101,21 +101,21 @@ namespace tbx
 
     static List<PluginMeta> resolve_plugin_load_order(const List<PluginMeta>& plugins)
     {
-        HashMap<String, size_t> by_name_lookup;
+        HashMap<String, uint> by_name_lookup;
         by_name_lookup.reserve(plugins.size());
-        for (size_t index = 0; index < plugins.size(); ++index)
+        for (uint index = 0; index < plugins.size(); ++index)
         {
             by_name_lookup.emplace(plugins[index].name.to_lower(), index);
         }
 
-        List<List<size_t>> dependencies(plugins.size());
-        for (size_t index = 0; index < plugins.size(); ++index)
+        List<List<uint>> dependencies(plugins.size());
+        for (uint index = 0; index < plugins.size(); ++index)
         {
-            HashSet<size_t> unique;
+            HashSet<uint> unique;
             for (const String& dependency : plugins[index].dependencies)
             {
                 const String needle = dependency.trim().to_lower();
-                auto it = by_name_lookup.find(needle);
+                HashMap<String, uint>::const_iterator it = by_name_lookup.find(needle);
                 if (it == by_name_lookup.end() || it->second == index)
                 {
                     TBX_ASSERT(
@@ -131,19 +131,19 @@ namespace tbx
             }
         }
 
-        List<size_t> indegree(plugins.size(), 0);
-        List<List<size_t>> adjacency(plugins.size());
-        for (size_t index = 0; index < plugins.size(); ++index)
+        List<uint> indegree(plugins.size(), 0);
+        List<List<uint>> adjacency(plugins.size());
+        for (uint index = 0; index < plugins.size(); ++index)
         {
-            for (size_t dependency : dependencies[index])
+            for (uint dependency : dependencies[index])
             {
                 adjacency[dependency].push_back(index);
                 indegree[index] += 1;
             }
         }
 
-        std::deque<size_t> ready;
-        for (size_t index = 0; index < plugins.size(); ++index)
+        std::deque<uint> ready;
+        for (uint index = 0; index < plugins.size(); ++index)
         {
             if (indegree[index] == 0)
                 ready.push_back(index);
@@ -153,11 +153,11 @@ namespace tbx
         ordered.reserve(plugins.size());
         while (!ready.empty())
         {
-            const size_t current = ready.front();
+            const uint current = ready.front();
             ready.pop_front();
             ordered.push_back(plugins[current]);
 
-            for (size_t dependent : adjacency[current])
+            for (uint dependent : adjacency[current])
             {
                 indegree[dependent] -= 1;
                 if (indegree[dependent] == 0)
@@ -176,7 +176,7 @@ namespace tbx
         return ordered;
     }
 
-    List<LoadedPlugin> load_plugins(
+    List<LoadedPlugin> PluginLoader::load_plugins(
         const FilePath& directory,
         const List<String>& requested_ids,
         IFileSystem& file_ops)
@@ -186,7 +186,7 @@ namespace tbx
         List<PluginMeta> discovered;
         if (file_ops.exists(directory))
         {
-            for (const auto& entry : file_ops.read_directory(directory))
+            for (const FilePath& entry : file_ops.read_directory(directory))
             {
                 if (file_ops.get_file_type(entry) != FilePathType::Regular)
                     continue;
@@ -219,18 +219,18 @@ namespace tbx
             metas = discovered;
         else
         {
-            HashMap<String, size_t> by_name_lookup;
+            HashMap<String, uint> by_name_lookup;
             by_name_lookup.reserve(discovered.size());
-            for (size_t index = 0; index < discovered.size(); ++index)
+            for (uint index = 0; index < discovered.size(); ++index)
             {
                 const String lowered_name = discovered[index].name.to_lower();
                 by_name_lookup.emplace(lowered_name, index);
             }
 
-            HashSet<size_t> selected;
-            std::deque<size_t> pending;
+            HashSet<uint> selected;
+            std::deque<uint> pending;
 
-            auto enqueue_index = [&](size_t index)
+            auto enqueue_index = [&](uint index)
             {
                 if (selected.insert(index).second)
                 {
@@ -245,7 +245,7 @@ namespace tbx
                 if (needle.empty())
                     return;
 
-                auto id_it = by_name_lookup.find(needle);
+                HashMap<String, uint>::iterator id_it = by_name_lookup.find(needle);
                 if (id_it != by_name_lookup.end())
                     enqueue_index(id_it->second);
                 else
@@ -259,7 +259,7 @@ namespace tbx
 
             while (!pending.empty())
             {
-                size_t index = pending.front();
+                uint index = pending.front();
                 pending.pop_front();
                 metas.push_back(discovered[index]);
                 for (const String& dependency : discovered[index].dependencies)
@@ -285,13 +285,15 @@ namespace tbx
         return loaded;
     }
 
-    List<LoadedPlugin> load_plugins(const List<PluginMeta>& metas, IFileSystem& file_ops)
+    List<LoadedPlugin> PluginLoader::load_plugins(
+        const List<PluginMeta>& metas,
+        IFileSystem& file_ops)
     {
         List<LoadedPlugin> loaded;
 
         for (const PluginMeta& meta : metas)
         {
-            auto plug = load_plugin_internal(meta, file_ops);
+            LoadedPlugin plug = load_plugin_internal(meta, file_ops);
             if (plug.instance)
                 loaded.push_back(std::move(plug));
         }

@@ -82,7 +82,8 @@ namespace tbx::tests::graphics
 
         camera.set_perspective(fov, aspect, z_near, z_far);
 
-        const Mat4 expected = perspective_projection(degrees_to_radians(fov), aspect, z_near, z_far);
+        const Mat4 expected =
+            perspective_projection(degrees_to_radians(fov), aspect, z_near, z_far);
 
         EXPECT_TRUE(matrices_close(camera.get_projection_matrix(), expected));
     }
@@ -112,8 +113,10 @@ namespace tbx::tests::graphics
         const Vec3 cam_position(0.0f, 0.0f, 0.0f);
         const Quat cam_rotation = Quat(Vec3(0.0f));
         const Mat4 projection(1.0f);
+        Camera camera;
+        camera.set_orthographic(2.0f, 1.0f, 0.1f, 100.0f);
 
-        const Mat4 result = get_camera_view_projection_matrix(cam_position, cam_rotation, projection);
+        const Mat4 result = camera.get_view_projection_matrix(cam_position, cam_rotation);
 
         EXPECT_TRUE(matrices_close(result, projection));
     }

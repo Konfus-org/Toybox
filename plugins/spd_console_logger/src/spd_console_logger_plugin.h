@@ -3,7 +3,7 @@
 #include "tbx/plugin_api/plugin.h"
 #include <spdlog/logger.h>
 
-namespace tbx::plugins::spdconsolelogger
+namespace tbx::plugins
 {
     class SpdConsoleLoggerPlugin final : public Plugin
     {

@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "tbx/file_system/filesystem.h"
+#include "tbx/files/filesystem.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/common/collections.h"

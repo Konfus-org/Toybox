@@ -6,13 +6,13 @@ target_include_directories(SpdConsoleLoggerPlugin PRIVATE ${CMAKE_CURRENT_SOURCE
 
 target_link_libraries(SpdConsoleLoggerPlugin PRIVATE
     Tbx::App
-    Tbx::FileSystem
+    Tbx::Files
     spdlog::spdlog
 )
 
 tbx_register_plugin(
     TARGET SpdConsoleLoggerPlugin
-    CLASS tbx::plugins::spdconsolelogger::SpdConsoleLoggerPlugin
+    CLASS tbx::plugins::SpdConsoleLoggerPlugin
     HEADER "spd_console_logger_plugin.h"
     NAME "SpdConsoleLoggerPlugin"
     VERSION "1.0.0"

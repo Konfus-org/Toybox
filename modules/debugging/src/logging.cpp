@@ -1,10 +1,12 @@
 #include "tbx/debugging/logging.h"
-#include "tbx/file_system/filesystem.h"
+#include "tbx/files/filesystem.h"
 #include <string>
 
 namespace tbx
 {
-    static String sanitize_log_base_name(const String& base_name)
+    const uint MAX_LOG_HISTORY = 10;
+
+    static String sanitize_path(const String& base_name)
     {
         String sanitized_str = FilePath(base_name).get_filename();
         return sanitized_str;
@@ -20,30 +22,16 @@ namespace tbx
                           : directory.append(stem + "_" + std::to_string(index) + ".log");
     }
 
-    FilePath get_log_file_path(
-        const FilePath& directory,
-        const String& base_name,
-        int index,
-        IFileSystem& ops)
+    FilePath Log::open(IFileSystem& ops)
     {
-        const String sanitized = sanitize_log_base_name(base_name);
-        return make_log_path(ops.resolve_relative_path(directory), sanitized, index);
-    }
+        String sanitized = FilePath("Debug").get_filename();
+        const FilePath root = ops.resolve_relative_path(ops.get_logs_directory());
+        if (!ops.create_directory(root))
+        {
+            return FilePath();
+        }
 
-    void rotate_logs(
-        const FilePath& directory,
-        const String& base_name,
-        int max_history,
-        IFileSystem& ops)
-    {
-        if (max_history <= 0)
-            return;
-
-        const String sanitized = sanitize_log_base_name(base_name);
-        const FilePath root = ops.resolve_relative_path(directory);
-        ops.create_directory(root);
-
-        for (int index = max_history; index >= 1; --index)
+        for (int index = MAX_LOG_HISTORY; index >= 1; index--)
         {
             const auto from = make_log_path(root, sanitized, index - 1);
             const auto to = make_log_path(root, sanitized, index);
@@ -57,14 +45,16 @@ namespace tbx
             if (ops.copy(from, to))
                 ops.remove(from);
         }
+
+        return make_log_path(ops.resolve_relative_path(sanitized), sanitized, 0);
     }
 
-    String format_log_message(const String& message)
+    String Log::format(const String& message)
     {
         return message;
     }
 
-    String format_log_message(const char* message)
+    String Log::format(const char* message)
     {
         if (message == nullptr)
         {
@@ -74,7 +64,7 @@ namespace tbx
         return String(message);
     }
 
-    void post_log_msg(
+    void Log::post(
         const IMessageDispatcher& dispatcher,
         LogLevel level,
         const char* file,

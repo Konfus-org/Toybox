@@ -2,19 +2,23 @@
 #include "tbx/app/app_description.h"
 #include "tbx/app/app_message_coordinator.h"
 #include "tbx/common/collections.h"
-#include "tbx/file_system/filesystem.h"
+#include "tbx/files/filesystem.h"
+#include "tbx/graphics/graphics_api.h"
 #include "tbx/graphics/window.h"
 #include "tbx/plugin_api/loaded_plugin.h"
 #include "tbx/time/delta_time.h"
-#include <vector>
 
 namespace tbx
 {
-    // Host application coordinating plugin lifecycle and message dispatching.
-    // Ownership: Owns loaded plugins and the message coordinator; callers do
-    // not own any references returned by getters beyond their lifetimes.
-    // Thread-safety: Intended for use on a single thread (the main loop).
-    // No internal synchronization is provided.
+    struct TBX_API AppSettings
+    {
+        AppSettings(IMessageDispatcher& dispatcher, bool vsync, GraphicsApi api, Size resolution);
+
+        Observable<AppSettings, bool> vsync_enabled;
+        Observable<AppSettings, GraphicsApi> graphics_api;
+        Observable<AppSettings, Size> resolution;
+    };
+
     class TBX_API Application
     {
       public:
@@ -24,21 +28,24 @@ namespace tbx
         // Starts the application main loop. Returns process exit code.
         int run();
 
-        const AppDescription& get_description() const;
+        const String& get_name() const;
+        AppSettings& get_settings();
         IMessageDispatcher& get_dispatcher();
         IFileSystem& get_filesystem();
 
       private:
-        void initialize();
+        void initialize(const List<String>& requested_plugins);
         void update(DeltaTimer timer);
         void shutdown();
         void recieve_message(const Message& msg);
 
-        AppDescription _desc;
-        FileSystem _filesystem;
-        List<LoadedPlugin> _loaded = {};
-        AppMessageCoordinator _msg_coordinator = {};
-        Window _main_window;
+      private:
         bool _should_exit = false;
+        String _name = "App";
+        AppMessageCoordinator _msg_coordinator = {};
+        List<LoadedPlugin> _loaded = {};
+        AppSettings _settings;
+        Window _main_window;
+        FileSystem _filesystem;
     };
 }

@@ -11,7 +11,6 @@ namespace tbx
     {
         ApplicationInitializedEvent(Application* app_ptr);
 
-        // Non-owning pointer to the application that emitted the event.
         Application* application = nullptr;
     };
 
@@ -19,7 +18,6 @@ namespace tbx
     {
         ApplicationShutdownEvent(Application* app_ptr);
 
-        // Non-owning pointer to the application that emitted the event.
         Application* application = nullptr;
     };
 
@@ -27,7 +25,6 @@ namespace tbx
     {
         ApplicationUpdateBeginEvent(Application* app_ptr, DeltaTime delta);
 
-        // Non-owning pointer to the application that emitted the event.
         Application* application = nullptr;
         DeltaTime delta_time = {};
     };
@@ -36,7 +33,6 @@ namespace tbx
     {
         ApplicationUpdateEndEvent(Application* app_ptr, DeltaTime delta);
 
-        // Non-owning pointer to the application that emitted the event.
         Application* application = nullptr;
         DeltaTime delta_time = {};
     };

@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/common/collections.h"
-#include "tbx/file_system/filepath.h"
+#include "tbx/files/filepath.h"
 #include "tbx/tbx_api.h"
 
 namespace tbx

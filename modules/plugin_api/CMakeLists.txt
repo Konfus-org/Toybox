@@ -16,8 +16,8 @@ target_include_directories(PluginApi
 target_link_libraries(PluginApi
     PUBLIC
         Tbx::Messaging
-        Tbx::FileSystem
         Tbx::Debugging
+        Tbx::Files
     PRIVATE
         nlohmann_json
 )

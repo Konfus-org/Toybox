@@ -4,37 +4,20 @@
 #include "tbx/debugging/log_requests.h"
 #include "tbx/debugging/logging.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/file_system/filepath.h"
+#include "tbx/files/filepath.h"
 #include <filesystem>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <system_error>
 
-namespace tbx::plugins::spdfilelogger
+namespace tbx::plugins
 {
     void SpdFileLoggerPlugin::on_attach(Application& host)
     {
-        const auto& desc = host.get_description();
-        auto& fs = host.get_filesystem();
-        _log_directory = fs.get_logs_directory();
-
-        if (!fs.create_directory(_log_directory))
-        {
-            auto new_log_dir = fs.get_working_directory();
-            TBX_TRACE_ERROR(
-                "SpdFileLoggerPlugin failed to create log directory {}, falling back to {}",
-                _log_directory,
-                new_log_dir);
-            _log_directory = new_log_dir;
-        }
-
-        _log_filename_base = FilePath(desc.name).get_filename();
-        rotate_logs(_log_directory, _log_filename_base, 10, fs);
-
-        auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
-            String(get_log_file_path(_log_directory, _log_filename_base, 0, fs)).get_cstr(),
-            true);
-        _logger = Ref<spdlog::logger>("Tbx", sink);
+        auto path = Log::open(host.get_filesystem());
+        _logger = Ref<spdlog::logger>(
+            "Tbx",
+            std::make_shared<spdlog::sinks::basic_file_sink_mt>(String(path).get_cstr(), true));
         _logger->info("SpdFileLoggerPlugin attached");
     }
 

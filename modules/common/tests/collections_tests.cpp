@@ -53,30 +53,6 @@ namespace tbx::tests::common
         EXPECT_EQ(empty_values.first_or_default(42), 42);
     }
 
-    TEST(CollectionsTests, MaterializationRespectsCapacityAndUniqueness)
-    {
-        List<int> values = {1, 2, 3};
-        auto array = values.to_array<2>();
-
-        EXPECT_EQ(array.get_count(), 2U);
-        EXPECT_EQ(array[0], 1);
-        EXPECT_EQ(array[1], 2);
-
-        List<std::pair<int, String>> entries = {{1, "one"}, {2, "two"}};
-        auto map = entries.to_hash_map();
-
-        EXPECT_EQ(map.get_count(), 2U);
-        EXPECT_EQ(map.get_at(1), "one");
-        EXPECT_EQ(map[2], "two");
-
-        List<int> duplicate_values = {4, 4, 5};
-        auto set = duplicate_values.to_hash_set();
-
-        EXPECT_EQ(set.get_count(), 2U);
-        EXPECT_TRUE(set.contains(4));
-        EXPECT_TRUE(set.contains(5));
-    }
-
     TEST(CollectionsTests, CollectionsSupportAddEmplaceAndConcatenation)
     {
         HashMap<int, String> map;
@@ -89,17 +65,21 @@ namespace tbx::tests::common
 
         HashMap<int, String> other_map;
         other_map.add(3, "three");
-        auto combined_map = map + other_map;
+        HashMap<int, String> combined_map = map;
+        for (const auto& entry : other_map)
+        {
+            combined_map.add(entry.first, entry.second);
+        }
 
         EXPECT_EQ(combined_map.get_count(), 2U);
-        EXPECT_EQ(combined_map.get_at(2), "two");
-        EXPECT_EQ(combined_map.get_at(3), "three");
+        EXPECT_EQ(combined_map[2], "two");
+        EXPECT_EQ(combined_map[3], "three");
 
         HashSet<int> first_set = {1, 2};
         EXPECT_TRUE(first_set.add(3));
         EXPECT_FALSE(first_set.add(3));
         HashSet<int> second_set = {3, 4};
-        auto union_set = first_set + second_set;
+        auto union_set = first_set.union_with(second_set);
 
         EXPECT_EQ(union_set.get_count(), 4U);
         EXPECT_TRUE(union_set.contains(4));
@@ -107,7 +87,11 @@ namespace tbx::tests::common
         List<int> first_list = {1, 2};
         EXPECT_TRUE(first_list.add(3));
         List<int> second_list = {4};
-        auto combined_list = first_list + second_list;
+        List<int> combined_list = first_list;
+        for (const auto& value : second_list)
+        {
+            combined_list.add(value);
+        }
 
         EXPECT_EQ(combined_list.get_count(), 4U);
         EXPECT_EQ(combined_list[3], 4);

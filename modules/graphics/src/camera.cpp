@@ -6,12 +6,15 @@
 
 namespace tbx
 {
-    Camera::Camera()
-        : _target_surface()
-    {
-        set_perspective(_fov, _aspect, _z_near, _z_far);
-    }
-
+    Camera::Camera()
+
+        : _target_surface()
+
+    {
+
+        set_perspective(_fov, _aspect, _z_near, _z_far);
+    }
+
     Camera::Camera(const RenderSurface& surface)
         : _target_surface(surface)
     {
@@ -90,15 +93,7 @@ namespace tbx
         return _projection_matrix;
     }
 
-    const RenderSurface& Camera::get_surface()
-    {
-        return _target_surface;
-    }
-}
-
-namespace tbx
-{
-    Mat4 get_camera_view_matrix(const Vec3& camera_position, const Quat& camera_rotation)
+    Mat4 Camera::get_view_matrix(const Vec3& camera_position, const Quat& camera_rotation)
     {
         const Mat4 rotation_matrix = mat4_cast(camera_rotation);
         const Mat4 inverse_rotation_matrix = inverse(rotation_matrix);
@@ -106,22 +101,22 @@ namespace tbx
         return inverse_rotation_matrix * translation_matrix;
     }
 
-    Mat4 get_camera_view_projection_matrix(
+    Mat4 Camera::get_view_projection_matrix(
         const Vec3& camera_position,
-        const Quat& camera_rotation,
-        const Mat4& projection_matrix)
+        const Quat& camera_rotation)
     {
         const Mat4 view_matrix = get_camera_view_matrix(camera_position, camera_rotation);
-        return projection_matrix * view_matrix;
+        return get_projection_matrix() * view_matrix;
     }
 
-    Frustum get_camera_frustum(
-        const Vec3& camera_position,
-        const Quat& camera_rotation,
-        const Mat4& projection_matrix)
+    Frustum Camera::get_frustum(const Vec3& camera_position, const Quat& camera_rotation)
     {
-        const Mat4 view_projection =
-            get_camera_view_projection_matrix(camera_position, camera_rotation, projection_matrix);
+        const Mat4 view_projection = get_view_projection_matrix(camera_position, camera_rotation);
         return Frustum(view_projection);
+    }
+
+    const RenderSurface& Camera::get_surface()
+    {
+        return _target_surface;
     }
 }

@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/common/string.h"
 #include "tbx/debugging/log_level.h"
-#include "tbx/file_system/filepath.h"
+#include "tbx/files/filepath.h"
 #include "tbx/messages/message.h"
 #include "tbx/tbx_api.h"
 

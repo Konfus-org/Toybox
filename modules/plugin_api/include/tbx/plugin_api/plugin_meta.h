@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/common/collections.h"
 #include "tbx/common/string.h"
-#include "tbx/file_system/filepath.h"
+#include "tbx/files/filesystem.h"
 #include "tbx/plugin_api/plugin_linkage.h"
 #include "tbx/tbx_api.h"
 
@@ -34,13 +34,20 @@ namespace tbx
         FilePath module_path;
     };
 
-    // Parses a plugin manifest from disk and returns the populated metadata.
-    // Returns true when the manifest could be parsed successfully.
-    bool TBX_API try_parse_plugin_meta(const FilePath& manifest_path, PluginMeta& out_meta);
+    class TBX_API PluginMetaParser
+    {
+      public:
+        // Parses a plugin manifest from disk and returns the populated metadata.
+        // Returns true when the manifest could be parsed successfully.
+        bool try_parse_plugin_meta(
+            const IFileSystem& fs,
+            const FilePath& manifest_path,
+            PluginMeta& out_meta);
 
-    // Parses plugin metadata from raw manifest text. Returns true when parsing succeeds.
-    bool TBX_API try_parse_plugin_meta(
-        const String& manifest_text,
-        const FilePath& manifest_path,
-        PluginMeta& out_meta);
+        // Parses plugin metadata from raw manifest text. Returns true when parsing succeeds.
+        bool try_parse_plugin_meta(
+            const String& manifest_text,
+            const FilePath& manifest_path,
+            PluginMeta& out_meta);
+    };
 }

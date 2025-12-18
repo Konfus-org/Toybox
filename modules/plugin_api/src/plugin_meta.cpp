@@ -2,7 +2,7 @@
 #include "tbx/common/collections.h"
 #include "tbx/common/string.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/file_system/json.h"
+#include "tbx/files/json.h"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -92,7 +92,7 @@ namespace tbx
     /// <summary>
     /// Parses plugin metadata from raw JSON text.
     /// </summary>
-    bool try_parse_plugin_meta(
+    bool PluginMetaParser::try_parse_plugin_meta(
         const String& manifest_text,
         const FilePath& manifest_path,
         PluginMeta& out_meta)
@@ -113,7 +113,7 @@ namespace tbx
     /// <summary>
     /// Opens the manifest on disk and parses plugin metadata.
     /// </summary>
-    bool try_parse_plugin_meta(
+    bool PluginMetaParser::try_parse_plugin_meta(
         const IFileSystem& fs,
         const FilePath& manifest_path,
         PluginMeta& out_meta)
