@@ -15,17 +15,23 @@ namespace tbx
     // Represents a 2x2 floating-point matrix compatible with GLM operations.
     // Ownership: value type; callers own any copies created from this alias.
     // Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
-    using Mat2 = glm::mat2;
+    struct Mat2 : glm::mat2
+    {
+    };
 
     // Represents a 3x3 floating-point matrix compatible with GLM operations.
     // Ownership: value type; callers own any copies created from this alias.
     // Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
-    using Mat3 = glm::mat3;
+    struct Mat3 : glm::mat3
+    {
+    };
 
     // Represents a 4x4 floating-point matrix compatible with GLM operations.
     // Ownership: value type; callers own any copies created from this alias.
     // Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
-    using Mat4 = glm::mat4;
+    struct Mat4 : glm::mat4
+    {
+    };
 
     // Builds an orthographic projection matrix with the provided clip-space bounds.
     // Ownership: returns a matrix by value; the caller owns the copy.

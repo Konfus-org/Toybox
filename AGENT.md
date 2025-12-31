@@ -20,7 +20,7 @@ This document summarizes the coding expectations for anyone contributing through
   2. **Ownership** – who owns returned or stored resources and lifetime notes (e.g., non-owning pointers, reference expectations).
   3. **Thread Safety** – whether callers can use it concurrently, and any required synchronization.
 - Keep doc comments adjacent to declarations; brief inline notes are acceptable for complex implementation details.
-- Summaries should be in /// format.
+- Summaries should be in microsofts xml format.
 
 ## Language & Feature Use
 - The project targets C++23, but stick to a conservative, C-like style unless a modern feature clearly improves safety or clarity. Justify advanced language constructs in code review notes.
