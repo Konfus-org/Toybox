@@ -1,0 +1,172 @@
+#include "tbx/app/application.h"
+#include "tbx/app/app_events.h"
+#include "tbx/app/app_requests.h"
+#include "tbx/debugging/macros.h"
+#include "tbx/files/filesystem.h"
+#include "tbx/messages/dispatcher.h"
+#include "tbx/plugin_api/plugin.h"
+#include "tbx/plugin_api/plugin_loader.h"
+#include "tbx/plugin_api/plugin_registry.h"
+#include "tbx/time/delta_time.h"
+#include <utility>
+
+namespace tbx
+{
+    AppSettings::AppSettings(
+        IMessageDispatcher& dispatcher,
+        bool vsync,
+        GraphicsApi api,
+        Size resolution)
+        : vsync_enabled(&dispatcher, this, &AppSettings::vsync_enabled, vsync)
+        , resolution(&dispatcher, this, &AppSettings::resolution, resolution)
+        , graphics_api(&dispatcher, this, &AppSettings::graphics_api, api)
+    {
+    }
+
+    Application::Application(const AppDescription& desc)
+        : _name(desc.name)
+        , _filesystem(
+              desc.working_root,
+              desc.plugins_directory,
+              desc.logs_directory,
+              desc.assets_directory)
+        , _main_window(
+              _msg_coordinator,
+              desc.name.empty() ? String("Toybox Application") : desc.name,
+              {1280, 720},
+              WindowMode::Windowed,
+              false)
+        , _settings(_msg_coordinator, true, GraphicsApi::OpenGL, {720, 480})
+    {
+        initialize(desc.requested_plugins);
+    }
+
+    Application::~Application()
+    {
+        shutdown();
+    }
+
+    int Application::run()
+    {
+        GlobalDispatcherScope scope(_msg_coordinator);
+
+        auto timer = DeltaTimer();
+        _main_window.is_open = true;
+
+        while (!_should_exit)
+        {
+            update(timer);
+        }
+
+        return 0;
+    }
+
+    const String& Application::get_name() const
+    {
+        return _name;
+    }
+
+    AppSettings& Application::get_settings()
+    {
+        return _settings;
+    }
+
+    IMessageDispatcher& Application::get_dispatcher()
+    {
+        return static_cast<IMessageDispatcher&>(_msg_coordinator);
+    }
+
+    IFileSystem& Application::get_filesystem()
+    {
+        return _filesystem;
+    }
+
+    void Application::initialize(const List<String>& requested_plugins)
+    {
+        GlobalDispatcherScope scope(_msg_coordinator);
+
+        // Register internal message handler
+        _msg_coordinator.add_handler(
+            [this](Message& msg)
+            {
+                recieve_message(msg);
+            });
+
+        // Load plugins
+        auto& fs = get_filesystem();
+        auto plug_loader = PluginLoader();
+        _loaded = plug_loader.load_plugins(fs.get_plugins_directory(), requested_plugins, fs);
+        TBX_ASSERT(
+            _loaded.size() == requested_plugins.size(),
+            "Loaded plugins don't match requested plugins!");
+
+        for (auto& p : _loaded)
+        {
+            // Register plugin message handler then attach to host
+            _msg_coordinator.add_handler(
+                [plugin = p.instance.get()](Message& msg)
+                {
+                    plugin->receive_message(msg);
+                });
+            p.instance->attach(*this);
+        }
+
+        // Send initialized event
+        _msg_coordinator.send<ApplicationInitializedEvent>(this);
+    }
+
+    void Application::update(DeltaTimer timer)
+    {
+        // Process messages posted in previous frame
+        _msg_coordinator.process();
+
+        // Update delta time
+        DeltaTime dt = timer.tick();
+
+        _msg_coordinator.send<ApplicationUpdateBeginEvent>(this, dt);
+
+        // Update all loaded plugins
+        for (auto& p : _loaded)
+            p.instance->update(dt);
+
+        _msg_coordinator.send<ApplicationUpdateEndEvent>(this, dt);
+    }
+
+    void Application::shutdown()
+    {
+        GlobalDispatcherScope scope(_msg_coordinator);
+
+        // Send shutdown event and clear message handlers
+        _msg_coordinator.send<ApplicationShutdownEvent>(this);
+        _msg_coordinator.clear();
+
+        // Detach all loaded plugins
+        for (auto& p : _loaded)
+            p.instance->detach();
+        _loaded.clear();
+    }
+
+    void Application::recieve_message(const Message& msg)
+    {
+        if (on_message(
+                msg,
+                [this](const ExitApplicationRequest& r)
+                {
+                    _should_exit = true;
+                }))
+        {
+            return;
+        }
+        if (on_property_changed(
+                msg,
+                &Window::is_open,
+                [this](const PropertyChangedEvent<Window, bool>& e)
+                {
+                    if (e.owner == &_main_window && !e.current)
+                        _should_exit = true;
+                }))
+        {
+            return;
+        }
+    }
+}

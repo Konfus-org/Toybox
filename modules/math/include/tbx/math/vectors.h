@@ -7,79 +7,61 @@ namespace tbx
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
     /// </summary>
-    struct Vec2 : glm::vec2
-    {
-    };
+    using Vec2 = glm::vec2;
 
     /// <summary>
     /// Represents a three-component floating-point vector compatible with GLM operations.
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
     /// </summary>
-    struct Vec3 : glm::vec3
-    {
-    };
+    using Vec3 = glm::vec3;
 
     /// <summary>
     /// Represents a four-component floating-point vector compatible with GLM operations.
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
     /// </summary>
-    struct Vec4 : glm::vec4
-    {
-    };
+    using Vec4 = glm::vec4;
 
     /// <summary>
     /// Represents a two-component signed integer vector compatible with GLM operations.
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
     /// </summary>
-    struct IVec2 : glm::ivec2
-    {
-    };
+    using IVec2 = glm::ivec2;
 
     /// <summary>
     /// Represents a three-component signed integer vector compatible with GLM operations.
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
     /// </summary>
-    struct IVec3 : glm::ivec3
-    {
-    };
+    using IVec3 = glm::ivec3;
 
     /// <summary>
     /// Represents a four-component signed integer vector compatible with GLM operations.
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
     /// </summary>
-    struct IVec4 : glm::ivec4
-    {
-    };
+    using IVec4 = glm::ivec4;
 
     /// <summary>
     /// Represents a two-component unsigned integer vector compatible with GLM operations.
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
     /// </summary>
-    struct UVec2 : glm::uvec2
-    {
-    };
+    using UVec2 = glm::uvec2;
 
     /// <summary>
     /// Represents a three-component unsigned integer vector compatible with GLM operations.
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
     /// </summary>
-    struct UVec3 : glm::uvec3
-    {
-    };
+    using UVec3 = glm::uvec3;
 
     /// <summary>
     /// Represents a four-component unsigned integer vector compatible with GLM operations.
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
     /// </summary>
-    struct UVec4 : glm::uvec4
-    {
-    };
+    using UVec4 = glm::uvec4;
 }
