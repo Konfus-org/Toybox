@@ -8,22 +8,23 @@
 namespace tbx
 {
     template <typename... TArgs>
-    using CallbackFunction = std::function<void(TArgs...)>;
-
-    template <typename... TArgs>
     class Callback
     {
       public:
+        template <typename... TArgs>
+        using Function = std::function<void(TArgs...)>;
+
+      public:
         Callback() = default;
 
-        Callback(CallbackFunction<TArgs...> func, String name = {})
+        Callback(Function<TArgs...> func, String name = {})
             : _callback(std::move(func))
             , _name(std::move(name))
             , _id(Uuid::generate())
         {
         }
 
-        Callback& operator=(CallbackFunction<TArgs...> func)
+        Callback& operator=(Function<TArgs...> func)
         {
             _callback = std::move(func);
             _name = {};
@@ -34,7 +35,7 @@ namespace tbx
         template <typename TCallable>
         Callback& operator=(TCallable&& callable)
         {
-            _callback = CallbackFunction<TArgs...>(std::forward<TCallable>(callable));
+            _callback = Function<TArgs...>(std::forward<TCallable>(callable));
             _name = {};
             _id = Uuid::generate();
             return *this;
@@ -67,7 +68,7 @@ namespace tbx
         }
 
       private:
-        CallbackFunction<TArgs...> _callback = nullptr;
+        Function<TArgs...> _callback = nullptr;
         String _name;
         Uuid _id = Uuid::generate();
     };
