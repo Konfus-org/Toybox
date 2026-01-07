@@ -2,6 +2,7 @@
 #include "tbx/math/bounds.h"
 #include "tbx/math/trig.h"
 #include <cmath>
+#include <string>
 
 namespace tbx::tests::math
 {
@@ -24,7 +25,7 @@ namespace tbx::tests::math
     {
         Bounds bounds(-2.0f, 2.0f, 1.5f, -1.5f);
 
-        String str = to_string(bounds);
+        std::string str = to_string(bounds);
 
         EXPECT_EQ(str, "[Left: -2, Right: 2, Top: 1.5, Bottom: -1.5]");
     }

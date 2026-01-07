@@ -1,18 +1,19 @@
 #pragma once
-#include "tbx/async/lock.h"
-#include "tbx/common/collections.h"
-#include "tbx/common/pair.h"
-#include "tbx/common/smart_pointers.h"
 #include "tbx/common/uuid.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/tbx_api.h"
+#include <future>
+#include <memory>
+#include <mutex>
+#include <utility>
+#include <vector>
 
 namespace tbx
 {
     struct QueuedMessage
     {
-        Scope<Message> message;
-        Promise<Result> completion_state;
+        std::unique_ptr<Message> message;
+        std::promise<Result> completion_state;
     };
 
     class TBX_API AppMessageCoordinator final
@@ -26,7 +27,7 @@ namespace tbx
         AppMessageCoordinator(const AppMessageCoordinator&) = delete;
         AppMessageCoordinator& operator=(const AppMessageCoordinator&) = delete;
         AppMessageCoordinator(AppMessageCoordinator&&) = delete;
-        AppMessageCoordinator& operator=(AppMessageCoordinator&&) noexcept = delete;
+        AppMessageCoordinator& operator=(AppMessageCoordinator&&) = delete;
 
         Uuid add_handler(MessageHandler handler);
         void remove_handler(const Uuid& token);
@@ -36,10 +37,12 @@ namespace tbx
 
       private:
         Result send_impl(Message& msg) const override;
-        Promise<Result> post_impl(Scope<Message> msg) const override;
+        std::shared_future<Result> post_impl(std::unique_ptr<Message> msg) const override;
         void dispatch(Message& msg) const;
 
-        ThreadSafe<List<Pair<Uuid, MessageHandler>>> _handlers;
-        ThreadSafe<List<QueuedMessage>> _pending;
+        mutable std::mutex _handlers_mutex;
+        std::vector<std::pair<Uuid, MessageHandler>> _handlers;
+        mutable std::mutex _pending_mutex;
+        mutable std::vector<QueuedMessage> _pending;
     };
 }

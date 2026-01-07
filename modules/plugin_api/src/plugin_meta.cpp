@@ -1,6 +1,5 @@
 #include "tbx/plugin_api/plugin_meta.h"
-#include "tbx/common/collections.h"
-#include "tbx/common/string.h"
+#include "tbx/common/string_utils.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/files/json.h"
 #include <filesystem>
@@ -9,27 +8,33 @@
 
 namespace tbx
 {
-    static bool try_assign_required_string(const Json& data, const String& key, String& target)
+    static bool try_assign_required_string(
+        const Json& data,
+        const std::string& key,
+        std::string& target)
     {
         if (!data.try_get_string(key, target))
             return false;
 
-        target = target.trim();
+        target = TrimString(target);
         if (target.empty())
             return false;
 
         return true;
     }
 
-    static void assign_string_list(const Json& data, const String& key, List<String>& target)
+    static void assign_string_list(
+        const Json& data,
+        const std::string& key,
+        std::vector<std::string>& target)
     {
-        List<String> values;
+        std::vector<std::string> values;
         if (!data.try_get_strings(key, values))
             return;
 
-        for (String value : values)
+        for (std::string value : values)
         {
-            value = value.trim();
+            value = TrimString(value);
             if (!value.empty())
                 target.push_back(std::move(value));
         }
@@ -40,14 +45,14 @@ namespace tbx
     /// </summary>
     static bool try_parse_plugin_meta_data(
         const Json& data,
-        const FilePath& manifest_path,
+        const std::filesystem::path& manifest_path,
         PluginMeta& out_meta)
     {
         PluginMeta meta;
 
         meta.manifest_path = manifest_path;
-        if (!manifest_path.is_empty())
-            meta.root_directory = manifest_path.get_parent_path();
+        if (!manifest_path.empty())
+            meta.root_directory = manifest_path.parent_path();
 
         assign_string_list(data, "dependencies", meta.dependencies);
 
@@ -61,28 +66,28 @@ namespace tbx
         if (data.try_get_bool("static", is_static))
             meta.linkage = is_static ? PluginLinkage::Static : PluginLinkage::Dynamic;
 
-        String description;
+        std::string description;
         if (data.try_get_string("description", description))
-            meta.description = description.trim();
+            meta.description = TrimString(description);
 
-        String module_value;
+        std::string module_value;
         if (data.try_get_string("module", module_value))
         {
-            module_value = module_value.trim();
+            module_value = TrimString(module_value);
             if (!module_value.empty())
             {
-                auto module_path = FilePath(module_value);
-                if (module_path.is_absolute() || meta.root_directory.is_empty())
-                    meta.module_path = FilePath(module_path);
+                auto module_path = std::filesystem::path(module_value);
+                if (module_path.is_absolute() || meta.root_directory.empty())
+                    meta.module_path = module_path;
                 else
                 {
-                    module_path = meta.root_directory + module_path;
-                    meta.module_path = FilePath(module_path);
+                    module_path = meta.root_directory / module_path;
+                    meta.module_path = module_path;
                 }
             }
         }
 
-        if (meta.module_path.is_empty())
+        if (meta.module_path.empty())
             meta.module_path = meta.root_directory;
 
         out_meta = std::move(meta);
@@ -93,18 +98,18 @@ namespace tbx
     /// Parses plugin metadata from raw JSON text.
     /// </summary>
     bool PluginMetaParser::try_parse_plugin_meta(
-        const String& manifest_text,
-        const FilePath& manifest_path,
+        std::string_view manifest_text,
+        const std::filesystem::path& manifest_path,
         PluginMeta& out_meta)
     {
         try
         {
-            Json data(manifest_text);
+            auto data = Json(std::string(manifest_text));
             return try_parse_plugin_meta_data(data, manifest_path, out_meta);
         }
         catch (...)
         {
-            TBX_ASSERT(false, "Failed to parse plugin manifest: {}", manifest_path);
+            TBX_ASSERT(false, "Failed to parse plugin manifest: {}", manifest_path.string());
         }
 
         return false;
@@ -115,16 +120,16 @@ namespace tbx
     /// </summary>
     bool PluginMetaParser::try_parse_plugin_meta(
         const IFileSystem& fs,
-        const FilePath& manifest_path,
+        const std::filesystem::path& manifest_path,
         PluginMeta& out_meta)
     {
-        String outData = {};
-        if (!fs.read_file(manifest_path, FileDataFormat::Utf8Text, outData))
+        std::string out_data = {};
+        if (!fs.read_file(manifest_path, FileDataFormat::Utf8Text, out_data))
         {
-            TBX_ASSERT(false, "Unable to read plugin manifest: {}", manifest_path);
+            TBX_ASSERT(false, "Unable to read plugin manifest: {}", manifest_path.string());
             return false;
         }
 
-        return try_parse_plugin_meta(outData, manifest_path, out_meta);
+        return try_parse_plugin_meta(out_data, manifest_path, out_meta);
     }
 }

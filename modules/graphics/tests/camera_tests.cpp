@@ -112,11 +112,11 @@ namespace tbx::tests::graphics
     {
         const Vec3 cam_position(0.0f, 0.0f, 0.0f);
         const Quat cam_rotation = Quat(Vec3(0.0f));
-        const Mat4 projection(1.0f);
         Camera camera;
         camera.set_orthographic(2.0f, 1.0f, 0.1f, 100.0f);
 
         const Mat4 result = camera.get_view_projection_matrix(cam_position, cam_rotation);
+        const Mat4 projection = camera.get_projection_matrix();
 
         EXPECT_TRUE(matrices_close(result, projection));
     }

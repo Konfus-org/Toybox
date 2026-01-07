@@ -1,10 +1,10 @@
 #include "tbx/async/cancellation_token.h"
-#include <utility>
+#include <memory>
 
 namespace tbx
 {
     CancellationSource::CancellationSource()
-        : _state(new ThreadSafe<bool>(false))
+        : _state(std::make_shared<std::atomic_bool>(false))
     {
     }
 
@@ -17,8 +17,7 @@ namespace tbx
     {
         if (_state)
         {
-            auto lock = _state->lock();
-            lock.get() = true;
+            _state->store(true);
         }
     }
 
@@ -27,11 +26,10 @@ namespace tbx
         if (!_state)
             return false;
 
-        auto lock = _state->lock();
-        return lock.get();
+        return _state->load();
     }
 
-    CancellationToken::CancellationToken(Ref<ThreadSafe<bool>> state)
+    CancellationToken::CancellationToken(std::shared_ptr<std::atomic_bool> state)
         : _state(state)
     {
     }
@@ -41,8 +39,7 @@ namespace tbx
         if (!_state)
             return false;
 
-        auto lock = _state->lock();
-        return lock.get();
+        return _state->load();
     }
 
     CancellationToken::operator bool() const

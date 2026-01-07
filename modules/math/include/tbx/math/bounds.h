@@ -1,5 +1,3 @@
-#include "tbx/common/string.h"
-
 #include "tbx/tbx_api.h"
 #include <string>
 
@@ -33,7 +31,8 @@ namespace tbx
         float top = 0.0f;
         float bottom = 0.0f;
     };
-
+    TBX_API std::string to_string(const Bounds& bounds);
+}
     // Converts bounds into a descriptive string for debugging.
     // Ownership: returns a string by value; the caller owns the result.
     // Thread Safety: stateless; safe to call concurrently.

@@ -1,9 +1,9 @@
 #pragma once
-#include "tbx/common/int.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/color.h"
 #include "tbx/math/vectors.h"
 #include "tbx/tbx_api.h"
+#include <cstdint>
 #include <variant>
 #include <vector>
 
@@ -13,7 +13,7 @@ namespace tbx
 
     using VertexData = std::variant<int, float, Vec2, Vec3, RgbaColor>;
 
-    inline int32 get_vertex_data_count(const VertexData& data)
+    inline std::int32_t get_vertex_data_count(const VertexData& data)
     {
         if (std::holds_alternative<Vec2>(data))
         {
@@ -45,7 +45,7 @@ namespace tbx
         }
     }
 
-    inline int32 get_vertex_data_size(const VertexData& data)
+    inline std::int32_t get_vertex_data_size(const VertexData& data)
     {
         if (std::holds_alternative<Vec2>(data))
         {
@@ -93,10 +93,10 @@ namespace tbx
 
     ///////////// VERTEX BUFFER //////////////////
 
-    inline List<float> flatten_vertex_vector(const List<Vertex>& vertices)
+    inline std::vector<float> flatten_vertex_vector(const std::vector<Vertex>& vertices)
     {
         const auto vertex_count = vertices.size();
-        auto mesh_points = List<float>(vertex_count * 12);
+        auto mesh_points = std::vector<float>(vertex_count * 12);
         int write_index = 0;
 
         for (const auto& vertex : vertices)
@@ -130,9 +130,9 @@ namespace tbx
     struct TBX_API VertexBufferAttribute
     {
         VertexData type = 0;
-        uint32 size = 0;
-        uint32 count = 0;
-        uint32 offset = 0;
+        std::uint32_t size = 0;
+        std::uint32_t count = 0;
+        std::uint32_t offset = 0;
         bool normalized = false;
     };
 
@@ -141,10 +141,10 @@ namespace tbx
     struct TBX_API VertexBufferLayout
     {
         VertexBufferLayout() = default;
-        VertexBufferLayout(const List<VertexData>& layout)
+        VertexBufferLayout(const std::vector<VertexData>& layout)
         {
-            auto attributes = List<VertexBufferAttribute>();
-            uint32 current_offset = 0;
+            auto attributes = std::vector<VertexBufferAttribute>();
+            std::uint32_t current_offset = 0;
             for (const auto& value : layout)
             {
                 VertexBufferAttribute attribute = {};
@@ -160,20 +160,20 @@ namespace tbx
             elements = attributes;
         }
 
-        List<VertexBufferAttribute> elements = {};
-        uint32 stride = 0;
+        std::vector<VertexBufferAttribute> elements = {};
+        std::uint32_t stride = 0;
     };
 
     struct TBX_API VertexBuffer
     {
         VertexBuffer() = default;
-        VertexBuffer(const List<Vertex>& vertices, const VertexBufferLayout& layout)
+        VertexBuffer(const std::vector<Vertex>& vertices, const VertexBufferLayout& layout)
             : vertices(flatten_vertex_vector(vertices))
             , layout(layout)
         {
         }
 
-        List<float> vertices = {};
+        std::vector<float> vertices = {};
         VertexBufferLayout layout = {};
     };
 }

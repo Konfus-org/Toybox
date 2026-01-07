@@ -1,9 +1,10 @@
 #pragma once
-#include "tbx/common/collections.h"
-#include "tbx/common/string.h"
 #include "tbx/common/uuid.h"
 #include "tbx/ecs/entity.h"
 #include "tbx/ecs/registry.h"
+#include <cstdint>
+#include <string>
+#include <vector>
 
 namespace tbx
 {
@@ -12,9 +13,9 @@ namespace tbx
     // Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
     struct ToyDescription
     {
-        String name = "";
-        String tag = "";
-        String layer = "";
+        std::string name = "";
+        std::string tag = "";
+        std::string layer = "";
         Uuid parent = invalid::uuid;
     };
 
@@ -47,7 +48,7 @@ namespace tbx
 
         Uuid get_id() const
         {
-            return static_cast<uint32>(_handle);
+            return static_cast<std::uint32_t>(_handle);
         }
 
         ToyDescription& get_description() const
@@ -90,11 +91,11 @@ namespace tbx
             return _registry->view<Block...>();
         }
 
-        operator String() const
+        operator std::string() const
         {
             const auto& desc = get_description();
-            return String("Toy(ID: ") + String(static_cast<uint>(_handle)) + ", Name: " + desc.name
-                   + ", Tag: " + desc.tag + ", Layer: " + desc.layer + ")";
+            return std::string("Toy(ID: ") + std::to_string(static_cast<std::uint32_t>(_handle))
+                   + ", Name: " + desc.name + ", Tag: " + desc.tag + ", Layer: " + desc.layer + ")";
         }
 
       private:
@@ -128,7 +129,7 @@ namespace tbx
     class Stage
     {
       public:
-        Stage(String name)
+        Stage(std::string name)
             : _name(name)
             , _id(Uuid::generate())
             , _registry()
@@ -140,7 +141,7 @@ namespace tbx
             return _id;
         }
 
-        String get_name() const
+        std::string get_name() const
         {
             return _name;
         }
@@ -155,15 +156,16 @@ namespace tbx
             return _registry;
         }
 
-        operator String() const
+        operator std::string() const
         {
-            return String("Stage(ID: ") + String(get_id().value) + ", Name: " + get_name() + ")";
+            return std::string("Stage(ID: ") + std::to_string(get_id().value) + ", Name: "
+                   + get_name() + ")";
         }
 
         Toy add_toy(
-            const String& name,
-            const String& tag = "",
-            const String& layer = "",
+            const std::string& name,
+            const std::string& tag = "",
+            const std::string& layer = "",
             const Uuid& parent = invalid::uuid)
         {
             ToyDescription desc = {};
@@ -184,27 +186,27 @@ namespace tbx
             return Toy(_registry, static_cast<EntityHandle>(id.value));
         }
 
-        List<Toy> view_all_toys()
+        std::vector<Toy> view_all_toys()
         {
-            List<Toy> toys = {};
+            std::vector<Toy> toys = {};
             auto view = _registry.view<ToyDescription>();
             for (auto entity : view)
-                toys.emplace(_registry, entity);
+                toys.emplace_back(_registry, entity);
             return toys;
         }
 
         template <typename... Block>
-        List<Toy> view_with_type()
+        std::vector<Toy> view_with_type()
         {
-            List<Toy> toys = {};
+            std::vector<Toy> toys = {};
             auto view = _registry.view<Block...>();
             for (auto entity : view)
-                toys.emplace(_registry, entity);
+                toys.emplace_back(_registry, entity);
             return toys;
         }
 
       private:
-        String _name = "";
+        std::string _name = "";
         Uuid _id = invalid::uuid;
         EcsRegistry _registry = {};
     };

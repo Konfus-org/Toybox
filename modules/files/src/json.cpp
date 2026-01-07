@@ -10,12 +10,12 @@ namespace tbx
     };
 
     Json::Json()
-        : _data(Scope<Impl>(new Impl()))
+        : _data(std::make_unique<Impl>())
     {
     }
 
-    Json::Json(const String& data)
-        : _data(Scope<Impl>(new Impl()))
+    Json::Json(const std::string& data)
+        : _data(std::make_unique<Impl>())
     {
         _data->Data = nlohmann::json::parse(data, nullptr, true, true);
     }
@@ -26,17 +26,17 @@ namespace tbx
 
     Json::~Json() = default;
 
-    String Json::to_string(int indent) const
+    std::string Json::to_string(int indent) const
     {
-        return String(_data->Data.dump(indent));
+        return _data->Data.dump(indent);
     }
 
-    bool Json::try_get_int(const String& key, int& out_value) const
+    bool Json::try_get_int(const std::string& key, int& out_value) const
     {
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.get_cstr());
+        const auto iterator = _data->Data.find(key);
         if (iterator == _data->Data.end())
             return false;
 
@@ -47,12 +47,12 @@ namespace tbx
         return true;
     }
 
-    bool Json::try_get_bool(const String& key, bool& out_value) const
+    bool Json::try_get_bool(const std::string& key, bool& out_value) const
     {
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.get_cstr());
+        const auto iterator = _data->Data.find(key);
         if (iterator == _data->Data.end())
             return false;
 
@@ -63,12 +63,12 @@ namespace tbx
         return true;
     }
 
-    bool Json::try_get_float(const String& key, double& out_value) const
+    bool Json::try_get_float(const std::string& key, double& out_value) const
     {
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.get_cstr());
+        const auto iterator = _data->Data.find(key);
         if (iterator == _data->Data.end())
             return false;
 
@@ -79,28 +79,28 @@ namespace tbx
         return true;
     }
 
-    bool Json::try_get_string(const String& key, String& out_value) const
+    bool Json::try_get_string(const std::string& key, std::string& out_value) const
     {
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.get_cstr());
+        const auto iterator = _data->Data.find(key);
         if (iterator == _data->Data.end())
             return false;
 
         if (!iterator->is_string())
             return false;
 
-        out_value = String(iterator->get<std::string>());
+        out_value = iterator->get<std::string>();
         return true;
     }
 
-    bool Json::try_get_strings(const String& key, List<String>& out_values) const
+    bool Json::try_get_strings(const std::string& key, std::vector<std::string>& out_values) const
     {
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.get_cstr());
+        const auto iterator = _data->Data.find(key);
         if (iterator == _data->Data.end())
             return false;
 
@@ -112,7 +112,7 @@ namespace tbx
         {
             if (entry.is_string())
             {
-                out_values.push_back(String(entry.get<std::string>()));
+                out_values.push_back(entry.get<std::string>());
                 found = true;
             }
         }
@@ -120,12 +120,12 @@ namespace tbx
         return found;
     }
 
-    bool Json::try_get_ints(const String& key, List<int>& out_values) const
+    bool Json::try_get_ints(const std::string& key, std::vector<int>& out_values) const
     {
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.get_cstr());
+        const auto iterator = _data->Data.find(key);
         if (iterator == _data->Data.end())
             return false;
 
@@ -145,12 +145,12 @@ namespace tbx
         return found;
     }
 
-    bool Json::try_get_bools(const String& key, List<bool>& out_values) const
+    bool Json::try_get_bools(const std::string& key, std::vector<bool>& out_values) const
     {
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.get_cstr());
+        const auto iterator = _data->Data.find(key);
         if (iterator == _data->Data.end())
             return false;
 
@@ -170,12 +170,12 @@ namespace tbx
         return found;
     }
 
-    bool Json::try_get_floats(const String& key, List<double>& out_values) const
+    bool Json::try_get_floats(const std::string& key, std::vector<double>& out_values) const
     {
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.get_cstr());
+        const auto iterator = _data->Data.find(key);
         if (iterator == _data->Data.end())
             return false;
 
@@ -195,29 +195,29 @@ namespace tbx
         return found;
     }
 
-    bool Json::try_get_child(const String& key, Json& out_value) const
+    bool Json::try_get_child(const std::string& key, Json& out_value) const
     {
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.get_cstr());
+        const auto iterator = _data->Data.find(key);
         if (iterator == _data->Data.end())
             return false;
 
         if (!iterator->is_object())
             return false;
 
-        out_value._data = Scope<Impl>(new Impl());
+        out_value._data = std::make_unique<Impl>();
         out_value._data->Data = *iterator;
         return true;
     }
 
-    bool Json::try_get_children(const String& key, List<Json>& out_values) const
+    bool Json::try_get_children(const std::string& key, std::vector<Json>& out_values) const
     {
         if (!_data->Data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key.get_cstr());
+        const auto iterator = _data->Data.find(key);
         if (iterator == _data->Data.end())
             return false;
 

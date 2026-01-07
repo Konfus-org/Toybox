@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/async/lock.h"
-#include "tbx/common/smart_pointers.h"
 #include "tbx/tbx_api.h"
+#include <atomic>
+#include <memory>
 
 namespace tbx
 {
@@ -17,18 +17,18 @@ namespace tbx
         bool is_cancelled() const;
 
       private:
-        Ref<ThreadSafe<bool>> _state;
+        std::shared_ptr<std::atomic_bool> _state;
     };
 
     class TBX_API CancellationToken
     {
       public:
         CancellationToken() = default;
-        CancellationToken(Ref<ThreadSafe<bool>> state);
+        CancellationToken(std::shared_ptr<std::atomic_bool> state);
         bool is_cancelled() const;
         operator bool() const;
 
       private:
-        Ref<ThreadSafe<bool>> _state;
+        std::shared_ptr<std::atomic_bool> _state;
     };
 }

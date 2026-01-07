@@ -1,9 +1,9 @@
 #pragma once
 #include "tbx/graphics/shader.h"
 #include "tbx/graphics/texture.h"
-#include "tbx/common/smart_pointers.h"
 #include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -15,12 +15,14 @@ namespace tbx
     struct TBX_API ShaderProgram
     {
         ShaderProgram() = default;
-        explicit ShaderProgram(Ref<Shader> shader)
-            : shaders({ shader }) {}
-        explicit ShaderProgram(List<Ref<Shader>> shaders)
+        explicit ShaderProgram(std::shared_ptr<Shader> shader)
+            : shaders({std::move(shader)})
+        {
+        }
+        explicit ShaderProgram(std::vector<std::shared_ptr<Shader>> shaders)
             : shaders(std::move(shaders)) {}
 
-        List<Ref<Shader>> shaders = {};
+        std::vector<std::shared_ptr<Shader>> shaders = {};
         Uuid id = Uuid::generate();
     };
 
@@ -30,17 +32,23 @@ namespace tbx
     struct TBX_API Material
     {
         Material() = default;
-        Material(List<Ref<Shader>> shaders)
-            : shader_program(ShaderProgram(std::move(shaders))) {}
-        Material(List<Ref<Shader>> shaders, Ref<Texture> texture)
+        Material(std::vector<std::shared_ptr<Shader>> shaders)
             : shader_program(ShaderProgram(std::move(shaders)))
-            , textures({ texture }) {}
-        Material(List<Ref<Shader>> shaders, List<Ref<Texture>> textures)
+        {
+        }
+        Material(std::vector<std::shared_ptr<Shader>> shaders, std::shared_ptr<Texture> texture)
+            : shader_program(ShaderProgram(std::move(shaders)))
+            , textures({std::move(texture)})
+        {
+        }
+        Material(
+            std::vector<std::shared_ptr<Shader>> shaders,
+            std::vector<std::shared_ptr<Texture>> textures)
             : shader_program(ShaderProgram(std::move(shaders)))
             , textures(std::move(textures)) {}
 
         ShaderProgram shader_program = {};
-        List<Ref<Texture>> textures = {};
+        std::vector<std::shared_ptr<Texture>> textures = {};
         Uuid id = Uuid::generate();
     };
 

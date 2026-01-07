@@ -9,7 +9,7 @@ namespace tbx::plugins
 {
     static SDL_Window* CreateSdlWindow(Window* tbx_window, bool use_opengl)
     {
-        String& title = tbx_window->title;
+        std::string& title = tbx_window->title;
         Size& size = tbx_window->size;
         const WindowMode& mode = tbx_window->mode;
 
@@ -24,7 +24,7 @@ namespace tbx::plugins
             flags |= SDL_WINDOW_MINIMIZED;
         if (use_opengl)
             flags |= SDL_WINDOW_OPENGL;
-        SDL_Window* native = SDL_CreateWindow(title.get_cstr(), size.width, size.height, flags);
+        SDL_Window* native = SDL_CreateWindow(title.c_str(), size.width, size.height, flags);
 
         if (!native)
         {
@@ -198,7 +198,7 @@ namespace tbx::plugins
         if (on_property_changed(
                 msg,
                 &Window::title,
-                [this](PropertyChangedEvent<Window, String>& event)
+                [this](PropertyChangedEvent<Window, std::string>& event)
                 {
                     on_window_title_changed(event);
                 }))
@@ -256,12 +256,12 @@ namespace tbx::plugins
             TBX_ASSERT(false, "Unhandled window mode change!");
     }
 
-    void SdlWindowingPlugin::on_window_title_changed(PropertyChangedEvent<Window, String>& event)
+    void SdlWindowingPlugin::on_window_title_changed(PropertyChangedEvent<Window, std::string>& event)
     {
         SdlWindowRecord record = find_record(event.owner);
         if (record.sdl_window)
         {
-            SDL_SetWindowTitle(record.sdl_window, event.current.get_cstr());
+            SDL_SetWindowTitle(record.sdl_window, event.current.c_str());
         }
     }
 

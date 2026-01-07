@@ -1,8 +1,8 @@
 #pragma once
-#include "tbx/common/collections.h"
 #include "tbx/math/size.h"
 #include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
+#include <vector>
 
 namespace tbx
 {
@@ -35,7 +35,7 @@ namespace tbx
             TextureWrap wrap,
             TextureFilter filter,
             TextureFormat format,
-            const List<Pixel>& pixels)
+            const std::vector<Pixel>& pixels)
             : resolution(resolution)
             , wrap(wrap)
             , filter(filter)
@@ -48,7 +48,7 @@ namespace tbx
         TextureWrap wrap = TextureWrap::Repeat;
         TextureFilter filter = TextureFilter::Nearest;
         TextureFormat format = TextureFormat::RGB;
-        List<Pixel> pixels = { 255, 255, 255 };
+        std::vector<Pixel> pixels = { 255, 255, 255 };
         Uuid id = Uuid::generate();
     };
 }

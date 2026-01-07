@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "tbx/plugin_api/plugin_meta.h"
-#include <string>
-#include <vector>
+#include <filesystem>
 
 namespace tbx::tests::plugin_api
 {
@@ -18,10 +17,12 @@ namespace tbx::tests::plugin_api
                 "module": "bin/logger.so",
                 "static": true
             })JSON";
-        const FilePath manifest_path = FilePath("/virtual/plugin_api/example/logger/plugin.meta");
+        const std::filesystem::path manifest_path =
+            "/virtual/plugin_api/example/logger/plugin.meta";
 
         PluginMeta meta;
-        ASSERT_TRUE(try_parse_plugin_meta(manifest_text, manifest_path, meta));
+        PluginMetaParser parser;
+        ASSERT_TRUE(parser.try_parse_plugin_meta(manifest_text, manifest_path, meta));
 
         EXPECT_EQ(meta.name, "Example.Logger");
         EXPECT_EQ(meta.version, "1.2.3");
@@ -32,7 +33,7 @@ namespace tbx::tests::plugin_api
         EXPECT_EQ(meta.manifest_path, manifest_path);
         EXPECT_EQ(
             meta.module_path,
-            FilePath(manifest_path.parent_path().std_path() / "bin/logger.so"));
+            manifest_path.parent_path() / "bin/logger.so");
         EXPECT_EQ(meta.linkage, PluginLinkage::Static);
     }
 
@@ -46,15 +47,16 @@ namespace tbx::tests::plugin_api
                 "version": "5.4.3",
                 "module": "modules/example_renderer.so"
             })JSON";
-        const FilePath manifest_path =
-            FilePath("/virtual/plugin_api/example/relative_module/plugin.meta");
+        const std::filesystem::path manifest_path =
+            "/virtual/plugin_api/example/relative_module/plugin.meta";
 
         PluginMeta meta;
-        ASSERT_TRUE(try_parse_plugin_meta(manifest_text, manifest_path, meta));
+        PluginMetaParser parser;
+        ASSERT_TRUE(parser.try_parse_plugin_meta(manifest_text, manifest_path, meta));
 
         EXPECT_EQ(
             meta.module_path,
-            FilePath(manifest_path.parent_path().std_path() / "modules/example_renderer.so"));
+            manifest_path.parent_path() / "modules/example_renderer.so");
     }
 
     /// <summary>
@@ -67,6 +69,7 @@ namespace tbx::tests::plugin_api
             })JSON";
 
         PluginMeta meta;
-        EXPECT_FALSE(try_parse_plugin_meta(manifest_text, FilePath("/virtual/invalid.meta"), meta));
+        PluginMetaParser parser;
+        EXPECT_FALSE(parser.try_parse_plugin_meta(manifest_text, "/virtual/invalid.meta", meta));
     }
 }

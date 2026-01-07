@@ -4,31 +4,26 @@
 
 namespace tbx
 {
-    const uint MAX_LOG_HISTORY = 10;
+    const int MAX_LOG_HISTORY = 10;
 
-    static String sanitize_path(const String& base_name)
-    {
-        String sanitized_str = FilePath(base_name).get_filename();
-        return sanitized_str;
-    }
-
-    static FilePath make_log_path(
-        const FilePath& directory,
-        const String& sanitized_base_name,
+    static std::filesystem::path make_log_path(
+        const std::filesystem::path& directory,
+        const std::string& sanitized_base_name,
         int index)
     {
-        const String stem = sanitized_base_name;
-        return index <= 0 ? directory.append(stem + ".log")
-                          : directory.append(stem + "_" + std::to_string(index) + ".log");
+        const std::string stem = sanitized_base_name;
+        return index <= 0 ? directory / (stem + ".log")
+                          : directory / (stem + "_" + std::to_string(index) + ".log");
     }
 
-    FilePath Log::open(IFileSystem& ops)
+    std::filesystem::path Log::open(IFileSystem& ops)
     {
-        String sanitized = FilePath("Debug").get_filename();
-        const FilePath root = ops.resolve_relative_path(ops.get_logs_directory());
+        std::string sanitized = std::filesystem::path("Debug").filename().string();
+        const std::filesystem::path root =
+            ops.resolve_relative_path(ops.get_logs_directory());
         if (!ops.create_directory(root))
         {
-            return FilePath();
+            return {};
         }
 
         for (int index = MAX_LOG_HISTORY; index >= 1; index--)
@@ -49,19 +44,19 @@ namespace tbx
         return make_log_path(ops.resolve_relative_path(sanitized), sanitized, 0);
     }
 
-    String Log::format(const String& message)
+    std::string Log::format(std::string_view message)
     {
-        return message;
+        return std::string(message);
     }
 
-    String Log::format(const char* message)
+    std::string Log::format(const char* message)
     {
         if (message == nullptr)
         {
-            return String();
+            return std::string();
         }
 
-        return String(message);
+        return std::string(message);
     }
 
     void Log::post(
@@ -69,7 +64,7 @@ namespace tbx
         LogLevel level,
         const char* file,
         int line,
-        const String& message)
+        const std::string& message)
     {
         dispatcher.post<LogMessageRequest>(level, message, file, line);
     }

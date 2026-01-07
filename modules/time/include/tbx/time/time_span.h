@@ -1,9 +1,7 @@
 #pragma once
 #include "tbx/common/int.h"
-#include "tbx/common/string.h"
 #include "tbx/tbx_api.h"
 #include <chrono>
-#include <cstdint>
 #include <string>
 
 namespace tbx
@@ -25,7 +23,7 @@ namespace tbx
 
         operator bool() const;
         operator int() const;
-        operator String() const;
+        operator std::string() const;
         operator std::chrono::steady_clock::duration() const;
 
         uint64 value = 0;

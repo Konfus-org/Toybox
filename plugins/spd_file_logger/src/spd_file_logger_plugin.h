@@ -1,8 +1,8 @@
 #pragma once
-#include "tbx/common/smart_pointers.h"
-#include "tbx/common/string.h"
-#include "tbx/files/filepath.h"
 #include "tbx/plugin_api/plugin.h"
+#include <filesystem>
+#include <memory>
+#include <string>
 #include <spdlog/logger.h>
 
 namespace tbx::plugins
@@ -15,8 +15,8 @@ namespace tbx::plugins
         void on_recieve_message(Message& msg) override;
 
       private:
-        Ref<spdlog::logger> _logger;
-        FilePath _log_directory;
-        String _log_filename_base;
+        std::shared_ptr<spdlog::logger> _logger;
+        std::filesystem::path _log_directory;
+        std::string _log_filename_base;
     };
 }

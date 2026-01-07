@@ -1,6 +1,6 @@
 ﻿#pragma once
-#include "tbx/files/filepath.h"
 #include "tbx/tbx_api.h"
+#include <filesystem>
 #include <type_traits>
 
 namespace tbx
@@ -13,7 +13,7 @@ namespace tbx
     class TBX_API SharedLibrary
     {
       public:
-        SharedLibrary(const FilePath& path);
+        SharedLibrary(const std::filesystem::path& path);
         ~SharedLibrary();
 
         SharedLibrary(const SharedLibrary&) = delete;
@@ -37,7 +37,7 @@ namespace tbx
             return reinterpret_cast<T>(get_symbol_raw(name));
         }
 
-        const FilePath& get_path() const
+        const std::filesystem::path& get_path() const
         {
             return _path;
         }
@@ -48,6 +48,6 @@ namespace tbx
 
       private:
         void* _handle = nullptr;
-        FilePath _path;
+        std::filesystem::path _path;
     };
 }

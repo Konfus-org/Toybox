@@ -1,10 +1,10 @@
 #pragma once
-#include "tbx/common/smart_pointers.h"
-#include "tbx/async/promise.h"
 #include "tbx/messages/message.h"
 #include "tbx/common/result.h"
 #include "tbx/tbx_api.h"
 #include <concepts>
+#include <future>
+#include <memory>
 #include <type_traits>
 #include <utility>
 
@@ -47,9 +47,9 @@ namespace tbx
         // Thread-safety: see class notes.
         template <typename TMessage>
             requires std::derived_from<TMessage, Message>
-        Promise<Result> post(const TMessage& msg) const
+        std::shared_future<Result> post(const TMessage& msg) const
         {
-            return post_impl(Scope<Message>(new TMessage(msg)));
+            return post_impl(std::make_unique<TMessage>(msg));
         }
 
         // Enqueues a constructed message for deferred processing.
@@ -59,14 +59,14 @@ namespace tbx
         template <typename TMessage, typename... TArgs>
             requires(std::derived_from<TMessage, Message> && (sizeof...(TArgs) > 0)
                      && std::is_constructible_v<TMessage, TArgs...>)
-        Promise<Result> post(TArgs&&... args) const
+        std::shared_future<Result> post(TArgs&&... args) const
         {
-            return post_impl(Scope<Message>(new TMessage(std::forward<TArgs>(args)...)));
+            return post_impl(std::make_unique<TMessage>(std::forward<TArgs>(args)...));
         }
 
       protected:
         virtual Result send_impl(Message& msg) const = 0;
-        virtual Promise<Result> post_impl(Scope<Message> msg) const = 0;
+        virtual std::shared_future<Result> post_impl(std::unique_ptr<Message> msg) const = 0;
     };
 
     // Interface for components that advance queued work and deliver
