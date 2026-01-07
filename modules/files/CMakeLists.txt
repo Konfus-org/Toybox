@@ -4,6 +4,8 @@ file(GLOB_RECURSE FILE_SYSTEM_HEADERS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_
 file(GLOB_RECURSE FILE_SYSTEM_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
 
 target_sources(Files PRIVATE ${FILE_SYSTEM_SOURCES} ${FILE_SYSTEM_HEADERS})
+target_precompile_headers(Files PRIVATE "${PROJECT_SOURCE_DIR}/modules/common/include/tbx/pch.h")
+
 
 target_include_directories(Files
     PUBLIC

@@ -1,8 +1,8 @@
 #pragma once
-#include "tbx/common/collections.h"
-#include "tbx/common/string.h"
-#include "tbx/files/filepath.h"
 #include "tbx/tbx_api.h"
+#include <filesystem>
+#include <string>
+#include <vector>
 
 namespace tbx
 {
@@ -13,22 +13,22 @@ namespace tbx
     struct TBX_API AppDescription
     {
         // Human-readable application name used in logs, manifests, and window names.
-        const String name = "";
+        const std::string name = "";
 
         // Absolute or relative base directory used to resolve other paths.
-        const FilePath working_root = {};
+        const std::filesystem::path working_root = {};
 
         // Location of runtime assets. Relative to working root.
-        const FilePath assets_directory = {};
+        const std::filesystem::path assets_directory = {};
 
         // Directory where runtime logs should be stored relative to working root.
         // May be empty to fall back to the working root.
-        const FilePath logs_directory = {};
+        const std::filesystem::path logs_directory = {};
 
         // Directory searched for plugin binaries and manifests, relative to working root.
-        const FilePath plugins_directory = {};
+        const std::filesystem::path plugins_directory = {};
 
         // Ordered list of plugin identifiers requested for loading.
-        const List<String> requested_plugins = {};
+        const std::vector<std::string> requested_plugins = {};
     };
 }

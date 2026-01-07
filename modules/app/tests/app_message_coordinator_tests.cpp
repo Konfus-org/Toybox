@@ -5,6 +5,8 @@
 #include "tbx/time/time_span.h"
 #include <any>
 #include <atomic>
+#include <chrono>
+#include <future>
 #include <stdexcept>
 #include <string>
 
@@ -158,13 +160,16 @@ namespace tbx::tests::app
 
         // Not processed yet
         EXPECT_EQ(count.load(), 0);
-        EXPECT_FALSE(future.is_ready());
-        auto interim = future.wait(TimeSpan());
-        EXPECT_FALSE(future.is_ready());
+        EXPECT_NE(
+            future.wait_for(std::chrono::steady_clock::duration::zero()),
+            std::future_status::ready);
+        auto interim = future.wait_for(TimeSpan().to_duration());
+        EXPECT_NE(interim, std::future_status::ready);
 
         d.process();
         EXPECT_EQ(count.load(), 1);
-        auto result = future.wait();
+        future.wait();
+        auto result = future.get();
         EXPECT_TRUE(result.succeeded());
     }
 
@@ -189,7 +194,8 @@ namespace tbx::tests::app
 
         d.process();
 
-        auto result = future.wait();
+        future.wait();
+        auto result = future.get();
         EXPECT_TRUE(result.succeeded());
         EXPECT_EQ(received_value, 123);
     }
@@ -254,7 +260,8 @@ namespace tbx::tests::app
         source.cancel();
         d.process();
 
-        auto result = future.wait();
+        future.wait();
+        auto result = future.get();
         EXPECT_FALSE(result.succeeded());
         EXPECT_FALSE(result.get_report().empty());
         EXPECT_TRUE(cancelled_callback);
@@ -299,18 +306,23 @@ namespace tbx::tests::app
         GlobalDispatcherScope dispatcher_scope(d);
 
         d.add_handler(
-            [](const Message& message)
+            [](Message& message)
             {
-                auto& mutable_msg = const_cast<Message&>(message);
-                mutable_msg.state = MessageState::Handled;
-                mutable_msg.payload = 123;
+                on_message(message, [](Request<int>& request)
+                {
+                    request.state = MessageState::Handled;
+                    request.result = 123;
+                });
             });
 
-        Message msg;
+        Request<int> msg;
         int payload_value = 0;
         msg.callbacks.on_processed = [&](const Message& processed)
         {
-            payload_value = std::any_cast<int>(processed.payload);
+            on_message(processed, [&](const Request<int>& request)
+            {
+                payload_value = request.result;
+            });
         };
 
         auto result = d.send(msg);
@@ -325,33 +337,37 @@ namespace tbx::tests::app
         GlobalDispatcherScope dispatcher_scope(d);
 
         d.add_handler(
-            [](const Message& message)
+            [](Message& message)
             {
-                auto& mutable_msg = const_cast<Message&>(message);
-                mutable_msg.state = MessageState::Handled;
-                mutable_msg.payload = String("ready");
+                on_message(message, [](Request<std::string>& request)
+                {
+                    request.state = MessageState::Handled;
+                    request.result = std::string("ready");
+                });
             });
 
-        Message msg;
-        String processed_payload;
+        Request<std::string> msg;
+        std::string processed_payload;
         msg.callbacks.on_processed = [&](const Message& processed)
         {
-            EXPECT_TRUE(processed.payload.has_value());
-            const String* value = std::any_cast<String>(&processed.payload);
-            processed_payload = value ? *value : String();
+            on_message(processed, [&](const Request<std::string>& request)
+            {
+                processed_payload = request.result;
+            });
         };
         auto future = d.post(msg);
 
-        EXPECT_FALSE(future.is_ready());
-        auto interim = future.wait(TimeSpan());
-        EXPECT_FALSE(future.is_ready());
-        EXPECT_FALSE(msg.payload.has_value());
+        EXPECT_NE(
+            future.wait_for(std::chrono::steady_clock::duration::zero()),
+            std::future_status::ready);
+        auto interim = future.wait_for(TimeSpan().to_duration());
+        EXPECT_NE(interim, std::future_status::ready);
 
         d.process();
 
-        auto result = future.wait();
+        future.wait();
+        auto result = future.get();
         EXPECT_TRUE(result.succeeded());
-        EXPECT_FALSE(msg.payload.has_value());
         EXPECT_EQ(processed_payload, "ready");
     }
 

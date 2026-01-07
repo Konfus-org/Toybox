@@ -8,7 +8,6 @@
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/plugin_api/plugin_registry.h"
 #include "tbx/time/delta_time.h"
-#include <utility>
 
 namespace tbx
 {
@@ -32,7 +31,7 @@ namespace tbx
               desc.assets_directory)
         , _main_window(
               _msg_coordinator,
-              desc.name.empty() ? String("Toybox Application") : desc.name,
+              desc.name.empty() ? std::string("Toybox Application") : desc.name,
               {1280, 720},
               WindowMode::Windowed,
               false)
@@ -61,7 +60,7 @@ namespace tbx
         return 0;
     }
 
-    const String& Application::get_name() const
+    const std::string& Application::get_name() const
     {
         return _name;
     }
@@ -81,7 +80,7 @@ namespace tbx
         return _filesystem;
     }
 
-    void Application::initialize(const List<String>& requested_plugins)
+    void Application::initialize(const std::vector<std::string>& requested_plugins)
     {
         GlobalDispatcherScope scope(_msg_coordinator);
 

@@ -2,13 +2,12 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
 #include <any>
-#include <utility>
 
 namespace tbx
 {
     Window::Window(
         IMessageDispatcher& dispatcher,
-        String title,
+        std::string title,
         Size size,
         WindowMode mode,
         bool open_on_creation)

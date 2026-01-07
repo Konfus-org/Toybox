@@ -1,5 +1,6 @@
 #include "tbx/plugin_api/shared_library.h"
-#include <utility>
+#include <filesystem>
+#include <string>
 #if defined(TBX_PLATFORM_WINDOWS)
     #if !defined(WIN32_LEAN_AND_MEAN)
         #define WIN32_LEAN_AND_MEAN 1
@@ -11,14 +12,14 @@
 
 namespace tbx
 {
-    static void* load_library(const FilePath& path)
+    static void* load_library(const std::filesystem::path& path)
     {
-        String path_str = path;
-        const auto* c_str_path = path_str.get_cstr();
+        std::string path_string = path.string();
+        const auto* c_str_path = path_string.c_str();
 #if defined(TBX_PLATFORM_WINDOWS)
         return static_cast<void*>(LoadLibrary(c_str_path));
 #else
-        return dlopen(path.std_path().string().c_str(), RTLD_NOW);
+        return dlopen(c_str_path, RTLD_NOW);
 #endif
     }
 
@@ -35,7 +36,7 @@ namespace tbx
 #endif
     }
 
-    SharedLibrary::SharedLibrary(const FilePath& path)
+    SharedLibrary::SharedLibrary(const std::filesystem::path& path)
         : _handle(load_library(path))
         , _path(path)
     {

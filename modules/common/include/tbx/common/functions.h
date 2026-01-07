@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/common/string.h"
 #include "tbx/common/uuid.h"
 #include <functional>
+#include <string>
 #include <type_traits>
 #include <utility>
 
@@ -11,13 +11,13 @@ namespace tbx
     class Callback
     {
       public:
-        template <typename... TArgs>
-        using Function = std::function<void(TArgs...)>;
+        template <typename... TFunctionArgs>
+        using Function = std::function<void(TFunctionArgs...)>;
 
       public:
         Callback() = default;
 
-        Callback(Function<TArgs...> func, String name = {})
+        Callback(Function<TArgs...> func, std::string name = {})
             : _callback(std::move(func))
             , _name(std::move(name))
             , _id(Uuid::generate())
@@ -57,7 +57,7 @@ namespace tbx
             return static_cast<bool>(_callback);
         }
 
-        const String& name() const
+        const std::string& name() const
         {
             return _name;
         }
@@ -69,7 +69,7 @@ namespace tbx
 
       private:
         Function<TArgs...> _callback = nullptr;
-        String _name;
+        std::string _name;
         Uuid _id = Uuid::generate();
     };
 

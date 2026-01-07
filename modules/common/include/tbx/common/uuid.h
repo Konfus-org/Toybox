@@ -1,11 +1,8 @@
 #pragma once
-#include "tbx/common/int.h"
-#include "tbx/common/string.h"
 #include "tbx/tbx_api.h"
 #include <cstddef>
 #include <cstdint>
 #include <functional>
-#include <ostream>
 #include <string>
 
 namespace tbx
@@ -13,7 +10,7 @@ namespace tbx
     struct TBX_API Uuid
     {
         Uuid() = default;
-        Uuid(uint v)
+        Uuid(std::uint32_t v)
             : value(v)
         {
         }
@@ -22,8 +19,8 @@ namespace tbx
         bool is_valid() const;
 
         operator bool() const;
-        operator uint() const;
-        operator String() const;
+        operator std::uint32_t() const;
+        operator std::string() const;
         bool operator!() const;
         bool operator<(const Uuid& other) const;
         bool operator>(const Uuid& other) const;
@@ -32,7 +29,7 @@ namespace tbx
         bool operator==(const Uuid& other) const;
         bool operator!=(const Uuid& other) const;
 
-        uint value = 0U;
+        std::uint32_t value = 0U;
     };
 
     namespace invalid
@@ -49,7 +46,7 @@ namespace std
     {
         size_t operator()(const tbx::Uuid& value) const
         {
-            return hash<tbx::uint>()(static_cast<const tbx::uint&>(value));
+            return hash<std::uint32_t>()(static_cast<const std::uint32_t&>(value));
         }
     };
 }

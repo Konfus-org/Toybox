@@ -1,15 +1,16 @@
 #pragma once
-#include "tbx/common/smart_pointers.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_meta.h"
 #include "tbx/plugin_api/shared_library.h"
 #include "tbx/tbx_api.h"
 #include <functional>
+#include <memory>
+#include <string>
 
 namespace tbx
 {
     using PluginDeleter = std::function<void(Plugin*)>;
-    using PluginInstance = Scope<Plugin, PluginDeleter>;
+    using PluginInstance = std::unique_ptr<Plugin, PluginDeleter>;
 
     // Represents an owned plugin instance along with its loading metadata
     // and (optionally) the dynamic library used to load it.
@@ -19,12 +20,12 @@ namespace tbx
     struct TBX_API LoadedPlugin
     {
         PluginMeta meta;
-        Scope<SharedLibrary> library; // only set for dynamic plugins
+        std::unique_ptr<SharedLibrary> library; // only set for dynamic plugins
         PluginInstance instance;
 
-        operator String() const
+        operator std::string() const
         {
-            return String("Name=") + meta.name + ", Version=" + meta.version;
+            return "Name=" + meta.name + ", Version=" + meta.version;
         }
     };
 }

@@ -105,7 +105,7 @@ namespace tbx
         const Vec3& camera_position,
         const Quat& camera_rotation)
     {
-        const Mat4 view_matrix = get_camera_view_matrix(camera_position, camera_rotation);
+        const Mat4 view_matrix = get_view_matrix(camera_position, camera_rotation);
         return get_projection_matrix() * view_matrix;
     }
 

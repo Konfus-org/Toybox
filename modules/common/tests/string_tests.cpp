@@ -1,120 +1,64 @@
 #include "pch.h"
-#include "tbx/common/string.h"
-#include <filesystem>
-#include <ostream>
+#include "tbx/common/string_utils.h"
+#include <array>
+#include <string>
 
 namespace tbx::tests::common
 {
-    struct StreamableExample
+    TEST(StringUtilsTests, TrimsWhitespaceFromBothEnds)
     {
-        int id = 0;
+        const std::string value = "  spaced text  ";
 
-        friend std::ostream& operator<<(std::ostream& os, const StreamableExample& example)
-        {
-            os << "example-" << example.id;
-            return os;
-        }
-    };
-
-    struct ImplicitExample
-    {
-        int id = 0;
-
-        operator String()
-        {
-            return std::to_string(id);
-        }
-    };
-
-    TEST(StringTests, TrimsWhitespaceFromBothEnds)
-    {
-        String value("  spaced text  ");
-
-        auto trimmed = value.trim();
+        const auto trimmed = TrimString(value);
 
         EXPECT_EQ(trimmed, "spaced text");
         EXPECT_EQ(value, "  spaced text  ");
     }
 
-    TEST(StringTests, RemovesAllWhitespace)
+    TEST(StringUtilsTests, RemovesAllWhitespace)
     {
-        String value(" a\tb\nc d ");
+        const std::string value = " a\tb\nc d ";
 
-        auto collapsed = value.remove_whitespace();
+        const auto collapsed = RemoveWhitespace(value);
 
         EXPECT_EQ(collapsed, "abcd");
     }
 
-    TEST(StringTests, ConvertsToLowerAndUpper)
+    TEST(StringUtilsTests, ConvertsToLowerAndUpper)
     {
-        String value("MiXeD");
+        const std::string value = "MiXeD";
 
-        auto lower = value.to_lower();
-        auto upper = value.to_upper();
+        const auto lower = ToLower(value);
+        const auto upper = ToUpper(value);
 
         EXPECT_EQ(lower, "mixed");
         EXPECT_EQ(upper, "MIXED");
     }
 
-    TEST(StringTests, ChecksPrefixesSuffixesAndContainment)
+    TEST(StringUtilsTests, ReplacesSubstringsAndCharacters)
     {
-        String value("prefix-body-suffix");
+        const std::string value = "prefix-body-suffix";
 
-        EXPECT_TRUE(value.starts_with("pre"));
-        EXPECT_TRUE(value.contains("body"));
-        EXPECT_TRUE(value.ends_with("suffix"));
-        EXPECT_FALSE(value.contains("missing"));
+        const auto replaced = ReplaceAll(value, "body", "core");
+        EXPECT_EQ(replaced, "prefix-core-suffix");
+
+        const std::array<char, 2> characters = {'<', '>'};
+        const auto swapped = ReplaceCharacters("a<b>c", characters, '_');
+        EXPECT_EQ(swapped, "a_b_c");
     }
 
-    TEST(StringTests, ReportsSizeAndEmptiness)
+    TEST(StringUtilsTests, RemovesSubstringsAndCharacters)
     {
-        String empty_value("");
-        String text_value("abc");
+        const std::string value = "path/./file";
 
-        EXPECT_TRUE(empty_value.empty());
-        EXPECT_EQ(text_value.size(), 3U);
-        EXPECT_FALSE(text_value.empty());
-    }
+        const auto stripped = RemoveAll(value, "./");
+        EXPECT_EQ(stripped, "path/file");
 
-    TEST(StringTests, ConstructsFromStreamableType)
-    {
-        StreamableExample instance {42};
+        const auto removed_char = RemoveCharacter("a-b-c", '-');
+        EXPECT_EQ(removed_char, "abc");
 
-        auto wrapped = String::from(instance);
-
-        EXPECT_EQ(wrapped, "example-42");
-    }
-
-    TEST(StringTests, ProvidesCStringAccess)
-    {
-        String value("hello");
-
-        EXPECT_STREQ(value.c_str(), "hello");
-    }
-
-    TEST(StringTests, SupportsIteration)
-    {
-        String value("abc");
-        String collected;
-
-        for (char c : value)
-        {
-            collected.push_back(c);
-        }
-
-        EXPECT_EQ(collected, "abc");
-    }
-
-    TEST(StringTests, SupportsConcatenationAndEquality)
-    {
-        String first("hello");
-        String second("world");
-
-        auto combined = first + String(" ") + second;
-
-        EXPECT_EQ(combined, "hello world");
-        EXPECT_TRUE(combined == String("hello world"));
-        EXPECT_TRUE(combined != first);
-        EXPECT_STREQ(static_cast<const char*>(combined), "hello world");
+        const std::array<char, 2> vowels = {'a', 'e'};
+        const auto removed_chars = RemoveCharacters("peach", vowels);
+        EXPECT_EQ(removed_chars, "pch");
     }
 }

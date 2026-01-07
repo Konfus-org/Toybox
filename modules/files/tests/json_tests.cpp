@@ -1,12 +1,14 @@
 #include "pch.h"
 #include "tbx/files/json.h"
-#include <string_view>
+#include <string>
+#include <vector>
 
 namespace tbx::tests::file_system
 {
     TEST(JsonTests, ParsesFromString)
     {
-        const String text = "{\n  \"value\": 5,\n  // comment should be ignored\n  \"flag\": true\n}";
+        const std::string text =
+            "{\n  \"value\": 5,\n  // comment should be ignored\n  \"flag\": true\n}";
 
         Json json(text);
 
@@ -22,32 +24,32 @@ namespace tbx::tests::file_system
 
     TEST(JsonTests, SerializesAccessedValues)
     {
-        const String text = "{\n  \"name\": \"temp\"\n}";
+        const std::string text = "{\n  \"name\": \"temp\"\n}";
 
         Json json(text);
 
-        String name;
+        std::string name;
 
         EXPECT_TRUE(json.try_get_string("name", name));
         EXPECT_EQ(name, "temp");
 
-        const String serialized = json.to_string(2);
-        EXPECT_NE(std::string_view(serialized).find("\"name\""), std::string_view::npos);
+        const std::string serialized = json.to_string(2);
+        EXPECT_NE(serialized.find("\"name\""), std::string::npos);
     }
 
     TEST(JsonTests, ReadsMixedPrimitiveArrays)
     {
-        const String text = "{\n"
-                            "  \"ints\": [1, 2, \"skip\"],\n"
-                            "  \"bools\": [true, false, 5],\n"
-                            "  \"floats\": [1.5, 4, \"nope\"]\n"
-                            "}";
+        const std::string text = "{\n"
+                                 "  \"ints\": [1, 2, \"skip\"],\n"
+                                 "  \"bools\": [true, false, 5],\n"
+                                 "  \"floats\": [1.5, 4, \"nope\"]\n"
+                                 "}";
 
         Json json(text);
 
-        List<int> ints;
-        List<bool> bools;
-        List<double> floats;
+        std::vector<int> ints;
+        std::vector<bool> bools;
+        std::vector<double> floats;
 
         EXPECT_TRUE(json.try_get_ints("ints", ints));
         EXPECT_TRUE(json.try_get_bools("bools", bools));
@@ -68,11 +70,12 @@ namespace tbx::tests::file_system
 
     TEST(JsonTests, ReadsNestedObjects)
     {
-        const String text = "{\n"
-                            "  \"child\": { \"value\": 7 },\n"
-                            "  \"children\": [ { \"name\": \"first\" }, 3, { \"name\": \"second\" } ],\n"
-                            "  \"pi\": 3.14\n"
-                            "}";
+        const std::string text =
+            "{\n"
+            "  \"child\": { \"value\": 7 },\n"
+            "  \"children\": [ { \"name\": \"first\" }, 3, { \"name\": \"second\" } ],\n"
+            "  \"pi\": 3.14\n"
+            "}";
 
         Json json(text);
 
@@ -87,11 +90,11 @@ namespace tbx::tests::file_system
         EXPECT_TRUE(json.try_get_float("pi", pi));
         EXPECT_DOUBLE_EQ(pi, 3.14);
 
-        List<Json> children;
+        std::vector<Json> children;
         EXPECT_TRUE(json.try_get_children("children", children));
         ASSERT_EQ(children.size(), 2u);
 
-        String name;
+        std::string name;
         EXPECT_TRUE(children[0].try_get_string("name", name));
         EXPECT_EQ(name, "first");
         EXPECT_TRUE(children[1].try_get_string("name", name));
@@ -100,11 +103,11 @@ namespace tbx::tests::file_system
 
     TEST(JsonTests, ReadsStringArrays)
     {
-        const String text = "{\n  \"values\": [\"first\", 3, \"second\"]\n}";
+        const std::string text = "{\n  \"values\": [\"first\", 3, \"second\"]\n}";
 
         Json json(text);
 
-        List<String> values;
+        std::vector<std::string> values;
 
         EXPECT_TRUE(json.try_get_strings("values", values));
         ASSERT_EQ(values.size(), 2u);

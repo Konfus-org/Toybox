@@ -1,9 +1,8 @@
 #include "tbx/app/app_message_coordinator.h"
-#include "tbx/common/string.h"
 #include "tbx/debugging/macros.h"
 #include <exception>
+#include <mutex>
 #include <string>
-#include <string_view>
 #include <utility>
 
 namespace tbx
@@ -15,7 +14,7 @@ namespace tbx
     static void update_result_for_state(
         const Message& msg,
         const MessageState state,
-        const String& message)
+        const std::string& message)
     {
         switch (state)
         {
@@ -28,10 +27,15 @@ namespace tbx
             case MessageState::Cancelled:
             {
                 msg.result.flag_failure(
-                    message.empty() ? String("Message was cancelled.") : message);
+                    message.empty() ? std::string("Message was cancelled.") : message);
                 break;
             }
             case MessageState::Error:
+            {
+                msg.result.flag_failure(
+                    message.empty() ? std::string("Message processing failed.") : message);
+                break;
+            }
             default:
             {
                 TBX_ASSERT(false, "Failed to process msg, error occured!");
@@ -70,7 +74,7 @@ namespace tbx
             msg.callbacks.on_processed(msg);
     }
 
-    static void apply_state(Message& msg, MessageState state, const String& reason)
+    static void apply_state(Message& msg, MessageState state, const std::string& reason)
     {
         msg.state = state;
         update_result_for_state(msg, state, reason);
@@ -82,11 +86,11 @@ namespace tbx
         if (msg.state == previous_state)
             return;
 
-        update_result_for_state(msg, msg.state, String());
+        update_result_for_state(msg, msg.state, std::string());
         dispatch_state_callbacks(msg, msg.state);
     }
 
-    static bool cancel_if_requested(Message& msg, const String& reason = String())
+    static bool cancel_if_requested(Message& msg, const std::string& reason = std::string())
     {
         if (!msg.cancellation_token || !msg.cancellation_token.is_cancelled())
             return false;
@@ -94,7 +98,7 @@ namespace tbx
         if (msg.state == MessageState::Cancelled)
             return true;
 
-        String resolved = reason.empty() ? String("Message was cancelled.") : reason;
+        std::string resolved = reason.empty() ? std::string("Message was cancelled.") : reason;
         apply_state(msg, MessageState::Cancelled, resolved);
 
         return true;
@@ -112,24 +116,25 @@ namespace tbx
 
     Uuid AppMessageCoordinator::add_handler(MessageHandler handler)
     {
-        auto lock = _handlers.lock();
         Uuid id = Uuid::generate();
-        lock.get().emplace(id, std::move(handler));
+        {
+            std::lock_guard<std::mutex> lock(_handlers_mutex);
+            _handlers.emplace_back(id, std::move(handler));
+        }
         return id;
     }
 
     void AppMessageCoordinator::remove_handler(const Uuid& token)
     {
-        auto lock = _handlers.lock();
-        auto& handlers = lock.get();
-        List<Pair<Uuid, MessageHandler>> next;
-        next.reserve(handlers.size());
-        for (auto& entry : handlers)
+        std::lock_guard<std::mutex> lock(_handlers_mutex);
+        std::vector<std::pair<Uuid, MessageHandler>> next;
+        next.reserve(_handlers.size());
+        for (auto& entry : _handlers)
         {
             if (entry.first != token)
                 next.push_back(std::move(entry));
         }
-        handlers.swap(next);
+        _handlers.swap(next);
     }
 
     void AppMessageCoordinator::clear()
@@ -138,20 +143,24 @@ namespace tbx
         process();
 
         // Then clear handlers and pending messages
-        auto pend_lock = _pending.lock();
-        pend_lock.get().clear();
-        auto hand_lock = _handlers.lock();
-        hand_lock.get().clear();
+        {
+            std::lock_guard<std::mutex> lock(_pending_mutex);
+            _pending.clear();
+        }
+        {
+            std::lock_guard<std::mutex> lock(_handlers_mutex);
+            _handlers.clear();
+        }
     }
 
     void AppMessageCoordinator::dispatch(Message& msg) const
     {
         try
         {
-            List<Pair<Uuid, MessageHandler>> handlers_snapshot;
+            std::vector<std::pair<Uuid, MessageHandler>> handlers_snapshot;
             {
-                auto lock = _handlers.lock();
-                handlers_snapshot = lock.get();
+                std::lock_guard<std::mutex> lock(_handlers_mutex);
+                handlers_snapshot = _handlers;
             }
 
             if (cancel_if_requested(msg))
@@ -196,7 +205,7 @@ namespace tbx
                         "Message required handling but no handlers completed it.");
                 }
                 else
-                    apply_state(msg, MessageState::UnHandled, String());
+                    apply_state(msg, MessageState::UnHandled, std::string());
             }
         }
         catch (const std::exception& ex)
@@ -217,15 +226,15 @@ namespace tbx
         return msg.result;
     }
 
-    Promise<Result> AppMessageCoordinator::post_impl(Scope<Message> msg) const
+    std::shared_future<Result> AppMessageCoordinator::post_impl(
+        std::unique_ptr<Message> msg) const
     {
-        Promise<Result> promise;
-        promise.wait(TimeSpan());
-        Promise<Result> future = promise;
+        std::promise<Result> promise;
+        auto future = promise.get_future().share();
 
         {
-            auto lock = _pending.lock();
-            lock.get().emplace(std::move(msg), std::move(promise));
+            std::lock_guard<std::mutex> lock(_pending_mutex);
+            _pending.emplace_back(QueuedMessage {std::move(msg), std::move(promise)});
         }
 
         return future;
@@ -233,10 +242,10 @@ namespace tbx
 
     void AppMessageCoordinator::process()
     {
-        List<QueuedMessage> processing;
+        std::vector<QueuedMessage> processing;
         {
-            auto lock = _pending.lock();
-            processing.swap(lock.get());
+            std::lock_guard<std::mutex> lock(_pending_mutex);
+            processing.swap(_pending);
         }
 
         for (auto& entry : processing)
@@ -257,7 +266,7 @@ namespace tbx
                     "Unknown exception during message dispatch.");
             }
 
-            entry.completion_state.fulfill(entry.message->result);
+            entry.completion_state.set_value(entry.message->result);
         }
     }
 }
