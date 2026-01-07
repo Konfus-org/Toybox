@@ -1,17 +1,16 @@
 # Toybox Agent Standards
 
-This document summarizes the coding expectations for anyone contributing through the Codex agent workflow. Keep it handy while editing the repo.
-
 ## Formatting & Layout
 - Follow the root `.clang-format` (Allman braces, Microsoft base, 4-space indents, column limit 100, namespace indentation, sorted includes). Run the formatter on any touched file or match its style manually.
-- Preserve Windows-style line endings (CRLF) for all committed files.
+- Use windows style line endings: `CRLF`.
 - Keep `#include` directives contiguous—no blank lines between include statements.
 - Keep namespaces non-empty. If you only need a translation-unit helper, prefer `static` functions or unnamed structs over opening placeholder namespaces.
 - Maintain include hygiene: headers should only include what they use, and source files should provide the heavier dependencies.
 
 ## Naming & API Shape
 - Choose descriptive, self-documenting names; avoid jargon, abbreviations, or `util`-style catch‑all names.
-- Use `Get...`/`Set...` prefixes for accessors and mutators to keep intent explicit.
+- Use `get...`/`set...` prefixes for accessors and mutators to keep intent explicit and question style names for bool returns.
+- methods that have an optional out with a bool return should have a `try` prefix.
 - Prefer concrete verb phrases for commands/events (e.g., `CreateWindowCommand`), mirroring the existing messaging vocabulary.
 
 ## Documentation Expectations
@@ -20,17 +19,15 @@ This document summarizes the coding expectations for anyone contributing through
   2. **Ownership** – who owns returned or stored resources and lifetime notes (e.g., non-owning pointers, reference expectations).
   3. **Thread Safety** – whether callers can use it concurrently, and any required synchronization.
 - Keep doc comments adjacent to declarations; brief inline notes are acceptable for complex implementation details.
-- Summaries should be in /// format.
+- Summaries should be in microsoft xml format.
 
 ## Language & Feature Use
 - The project targets C++23, but stick to a conservative, C-like style unless a modern feature clearly improves safety or clarity. Justify advanced language constructs in code review notes.
-- Avoid `noexcept` and function/variable attributes entirely.
 - Favor plain old data structures and free/static helper functions when possible; resist template metaprogramming unless unavoidable.
 - Prefer copy-style initialization (`int value = {};`, `auto widget = Widget(args);`) over brace-only or direct-call forms (`int value{};`, `auto widget(Widget(args));`) to keep intent obvious.
-- Don't use std library, we want to work towards a stable abi. Use existing tbx wrappers and if one isn't available make it.
 
 ## Memory & Handle Management
-- Prefer Toybox smart handles (`Ref`, `WeakRef`, `Scope`) whenever ownership semantics are needed. Only fall back to raw pointers for non-owning references that are trivially validated elsewhere.
+- Prefer smart pointers whenever ownership semantics are needed. Only fall back to raw pointers for non-owning references that are trivially validated elsewhere.
 - When referencing engine objects without ownership, document the expectation and lifetime contract.
 
 ## Miscellaneous Practices
