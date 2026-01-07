@@ -39,7 +39,7 @@ namespace tbx
         return {left, right, top, bottom};
     }
 
-    String to_string(const Bounds& bounds)
+    std::string to_string(const Bounds& bounds)
     {
         return std::format(
             "[Left: {}, Right: {}, Top: {}, Bottom: {}]",

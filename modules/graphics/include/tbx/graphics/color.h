@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/common/string.h"
 #include "tbx/tbx_api.h"
 #include <format>
+#include <string>
 
 namespace tbx
 {
@@ -20,7 +20,7 @@ namespace tbx
         {
         }
 
-        String to_string() const
+        std::string to_string() const
         {
             return std::format("R: {}, G: {}, B: {}, A: {}", r, g, b, a);
         }

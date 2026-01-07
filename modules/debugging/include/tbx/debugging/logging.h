@@ -2,8 +2,8 @@
 #include "tbx/debugging/log_requests.h"
 #include "tbx/files/filesystem.h"
 #include "tbx/messages/dispatcher.h"
+#include <filesystem>
 #include <format>
-#include <source_location>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -15,7 +15,7 @@ namespace tbx
     class TBX_API Log
     {
       public:
-        static FilePath open(IFileSystem& ops);
+        static std::filesystem::path open(IFileSystem& ops);
 
         template <typename... Args>
         static void write(
@@ -23,7 +23,7 @@ namespace tbx
             LogLevel level,
             const char* file,
             int line,
-            const String& fmt,
+            std::string_view fmt,
             Args&&... args)
         {
             post(dispatcher, level, file, line, format(fmt, std::forward<Args>(args)...));
@@ -35,18 +35,18 @@ namespace tbx
             LogLevel level,
             const char* file,
             int line,
-            const String& message);
+            const std::string& message);
 
-        static String format(const String& message);
-        static String format(const char* message);
+        static std::string format(std::string_view message);
+        static std::string format(const char* message);
 
         template <typename T>
         static auto format(T&& value)
         {
-            if constexpr (std::is_constructible_v<String, std::remove_cvref_t<T>>)
+            if constexpr (std::is_constructible_v<std::string, std::remove_cvref_t<T>>)
             {
-                const String string_value = static_cast<String>(std::forward<T>(value));
-                return std::string(string_value.get_cstr());
+                const std::string string_value = static_cast<std::string>(std::forward<T>(value));
+                return string_value;
             }
             else
                 return std::forward<T>(value);
@@ -54,16 +54,16 @@ namespace tbx
 
         template <typename... Args>
             requires(sizeof...(Args) > 0)
-        static String format(const String& fmt, Args&&... args)
+        static std::string format(std::string_view fmt, Args&&... args)
         {
             // Pass arguments as lvalues to avoid binding rvalues to non-const references
             // inside std::make_format_args on some standard library implementations.
             auto arguments = std::make_tuple(format(std::forward<Args>(args))...);
-            String formatted = std::apply(
+            std::string formatted = std::apply(
                 [&](auto&... tuple_args)
                 {
                     return std::vformat(
-                        std::string_view(fmt),
+                        fmt,
                         std::make_format_args(tuple_args...));
                 },
                 arguments);

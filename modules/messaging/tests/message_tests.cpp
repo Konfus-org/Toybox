@@ -8,7 +8,8 @@ namespace tbx::tests::messaging
         Message message = {};
 
         EXPECT_EQ(message.state, MessageState::UnHandled);
-        EXPECT_TRUE(message.payload.has_value() == false);
+        EXPECT_FALSE(message.require_handling);
+        EXPECT_FALSE(message.result.succeeded());
         EXPECT_EQ(message.id, message.id);
     }
 }

@@ -1,5 +1,5 @@
 #include "tbx/plugin_api/plugin_registry.h"
-#include "tbx/common/string.h"
+#include "tbx/common/string_utils.h"
 #include <algorithm>
 
 namespace tbx
@@ -10,18 +10,18 @@ namespace tbx
         return registry;
     }
 
-    void PluginRegistry::register_plugin(const String& name, Plugin* plugin)
+    void PluginRegistry::register_plugin(const std::string& name, Plugin* plugin)
     {
         if (std::ranges::find(_plugins, plugin) == _plugins.end())
         {
             _plugins.push_back(plugin);
-            _plugins_by_name[name.to_lower()] = plugin;
+            _plugins_by_name[ToLower(name)] = plugin;
         }
     }
 
-    void PluginRegistry::unregister_plugin(const String& name)
+    void PluginRegistry::unregister_plugin(const std::string& name)
     {
-        const String lowered = name.to_lower();
+        const std::string lowered = ToLower(name);
         auto it = _plugins_by_name.find(lowered);
         if (it == _plugins_by_name.end())
         {
@@ -33,7 +33,7 @@ namespace tbx
         {
             _plugins.erase(list_it);
         }
-        _plugins_by_name.remove(lowered);
+        _plugins_by_name.erase(lowered);
     }
 
     void PluginRegistry::unregister_plugin(Plugin* plugin)
@@ -56,19 +56,19 @@ namespace tbx
         }
     }
 
-    List<Plugin*> PluginRegistry::get_registered_plugins() const
+    std::vector<Plugin*> PluginRegistry::get_registered_plugins() const
     {
         return _plugins;
     }
 
-    Plugin* PluginRegistry::find_plugin(const String& name) const
+    Plugin* PluginRegistry::find_plugin(const std::string& name) const
     {
         if (name.empty())
         {
             return nullptr;
         }
 
-        const String key = name.to_lower();
+        const std::string key = ToLower(name);
         const auto it = _plugins_by_name.find(key);
         if (it == _plugins_by_name.end())
         {

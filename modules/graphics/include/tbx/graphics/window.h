@@ -1,9 +1,10 @@
 #pragma once
-#include "tbx/common/string.h"
+#include "tbx/common/uuid.h"
 #include "tbx/math/size.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/observable.h"
 #include "tbx/tbx_api.h"
+#include <string>
 
 namespace tbx
 {
@@ -26,13 +27,13 @@ namespace tbx
     {
         Window(
             IMessageDispatcher& dispatcher,
-            String title = "Toybox",
+            std::string title = "Toybox",
             Size size = {1280, 720},
             WindowMode mode = WindowMode::Windowed,
             bool open_on_creation = true);
         ~Window();
 
-        Observable<Window, String> title;
+        Observable<Window, std::string> title;
         Observable<Window, Size> size;
         Observable<Window, WindowMode> mode;
         Observable<Window, bool> is_open;

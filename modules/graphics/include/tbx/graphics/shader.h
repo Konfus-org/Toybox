@@ -2,9 +2,9 @@
 #include "tbx/graphics/color.h"
 #include "tbx/math/matrices.h"
 #include "tbx/math/vectors.h"
-#include "tbx/common/smart_pointers.h"
 #include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
+#include <memory>
 #include <string>
 #include <variant>
 
@@ -15,7 +15,7 @@ namespace tbx
     // A uniform variable that can be uploaded to a shader.
     struct TBX_API ShaderUniform
     {
-        String name = "";
+        std::string name = "";
         UniformData data = 0;
     };
 
@@ -33,10 +33,13 @@ namespace tbx
     struct TBX_API Shader
     {
         Shader() = default;
-        Shader(const String& source, ShaderType type)
-            : source(source), type(type) {}
+        Shader(const std::string& source, ShaderType type)
+            : source(source)
+            , type(type)
+        {
+        }
 
-        String source = "";
+        std::string source = "";
         ShaderType type = ShaderType::None;
         Uuid id = Uuid::generate();
     };
@@ -49,6 +52,6 @@ namespace tbx
 
         // Compiles a shader.
         // Returns true on success and false on failure.
-        virtual bool compile(Ref<Shader> shader) = 0;
+        virtual bool compile(std::shared_ptr<Shader> shader) = 0;
     };
 }

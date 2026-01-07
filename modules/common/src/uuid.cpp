@@ -1,5 +1,4 @@
 #include "tbx/common/uuid.h"
-#include "tbx/common/string.h"
 #include <random>
 #include <sstream>
 #include <string>
@@ -56,16 +55,16 @@ namespace tbx
         return value >= other.value;
     }
 
-    Uuid::operator uint32() const
+    Uuid::operator std::uint32_t() const
     {
         return value;
     }
 
-    Uuid::operator String() const
+    Uuid::operator std::string() const
     {
         std::ostringstream stream = {};
         stream << std::hex << value;
-        return String(stream.str());
+        return stream.str();
     }
 
     bool Uuid::operator==(const Uuid& other) const

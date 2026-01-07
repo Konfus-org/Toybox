@@ -1,10 +1,22 @@
 #pragma once
-#include "tbx/common/collections.h"
-#include "tbx/files/filepath.h"
 #include "tbx/tbx_api.h"
+#include <filesystem>
+#include <string>
+#include <vector>
 
 namespace tbx
 {
+    /// Purpose: Describes the resolved kind of a filesystem path.
+    /// Ownership: Not applicable; this is a value-type classification.
+    /// Thread Safety: Safe to copy between threads.
+    enum class FilePathType
+    {
+        None,
+        Regular,
+        Directory,
+        Other
+    };
+
     enum class FileDataFormat
     {
         Binary,
@@ -16,60 +28,81 @@ namespace tbx
       public:
         virtual ~IFileSystem() = default;
 
-        virtual FilePath get_working_directory() const = 0;
-        virtual FilePath get_plugins_directory() const = 0;
-        virtual FilePath get_logs_directory() const = 0;
-        virtual FilePath get_assets_directory() const = 0;
+        virtual std::filesystem::path get_working_directory() const = 0;
+        virtual std::filesystem::path get_plugins_directory() const = 0;
+        virtual std::filesystem::path get_logs_directory() const = 0;
+        virtual std::filesystem::path get_assets_directory() const = 0;
 
-        virtual FilePath resolve_relative_path(const FilePath& path) const = 0;
-        virtual bool exists(const FilePath& path) const = 0;
+        virtual std::filesystem::path resolve_relative_path(
+            const std::filesystem::path& path) const = 0;
+        virtual bool exists(const std::filesystem::path& path) const = 0;
 
-        virtual List<FilePath> read_directory(const FilePath& root) const = 0;
-        virtual bool create_directory(const FilePath& path) = 0;
+        virtual std::vector<std::filesystem::path> read_directory(
+            const std::filesystem::path& root) const = 0;
+        virtual bool create_directory(const std::filesystem::path& path) = 0;
 
-        virtual FilePathType get_file_type(const FilePath& path) const = 0;
-        virtual bool create_file(const FilePath& path) = 0;
-        virtual bool read_file(const FilePath& path, FileDataFormat format, String& out) const = 0;
-        virtual bool write_file(
-            const FilePath& path,
+        virtual FilePathType get_file_type(const std::filesystem::path& path) const = 0;
+        virtual bool create_file(const std::filesystem::path& path) = 0;
+        virtual bool read_file(
+            const std::filesystem::path& path,
             FileDataFormat format,
-            const String& data) = 0;
+            std::string& out) const = 0;
+        virtual bool write_file(
+            const std::filesystem::path& path,
+            FileDataFormat format,
+            const std::string& data) = 0;
 
-        virtual bool remove(const FilePath& path) = 0;
-        virtual bool rename(const FilePath& from, const FilePath& to) = 0;
-        virtual bool copy(const FilePath& from, const FilePath& to) = 0;
+        virtual bool remove(const std::filesystem::path& path) = 0;
+        virtual bool rename(
+            const std::filesystem::path& from,
+            const std::filesystem::path& to) = 0;
+        virtual bool copy(
+            const std::filesystem::path& from,
+            const std::filesystem::path& to) = 0;
     };
 
     class TBX_API FileSystem final : public IFileSystem
     {
       public:
         FileSystem(
-            const FilePath& working_directory = {},
-            const FilePath& plugins_directory = {},
-            const FilePath& logs_directory = {},
-            const FilePath& assets_directory = {});
+            const std::filesystem::path& working_directory = {},
+            const std::filesystem::path& plugins_directory = {},
+            const std::filesystem::path& logs_directory = {},
+            const std::filesystem::path& assets_directory = {});
 
-        FilePath get_working_directory() const override;
-        FilePath get_plugins_directory() const override;
-        FilePath get_logs_directory() const override;
-        FilePath get_assets_directory() const override;
+        std::filesystem::path get_working_directory() const override;
+        std::filesystem::path get_plugins_directory() const override;
+        std::filesystem::path get_logs_directory() const override;
+        std::filesystem::path get_assets_directory() const override;
 
-        FilePath resolve_relative_path(const FilePath& path) const override;
-        bool exists(const FilePath& path) const override;
-        FilePathType get_file_type(const FilePath& path) const override;
-        List<FilePath> read_directory(const FilePath& root) const override;
-        bool create_directory(const FilePath& path) override;
-        bool create_file(const FilePath& path) override;
-        bool read_file(const FilePath& path, FileDataFormat format, String& out) const override;
-        bool write_file(const FilePath& path, FileDataFormat format, const String& data) override;
-        bool remove(const FilePath& path) override;
-        bool rename(const FilePath& from, const FilePath& to) override;
-        bool copy(const FilePath& from, const FilePath& to) override;
+        std::filesystem::path resolve_relative_path(
+            const std::filesystem::path& path) const override;
+        bool exists(const std::filesystem::path& path) const override;
+        FilePathType get_file_type(const std::filesystem::path& path) const override;
+        std::vector<std::filesystem::path> read_directory(
+            const std::filesystem::path& root) const override;
+        bool create_directory(const std::filesystem::path& path) override;
+        bool create_file(const std::filesystem::path& path) override;
+        bool read_file(
+            const std::filesystem::path& path,
+            FileDataFormat format,
+            std::string& out) const override;
+        bool write_file(
+            const std::filesystem::path& path,
+            FileDataFormat format,
+            const std::string& data) override;
+        bool remove(const std::filesystem::path& path) override;
+        bool rename(
+            const std::filesystem::path& from,
+            const std::filesystem::path& to) override;
+        bool copy(
+            const std::filesystem::path& from,
+            const std::filesystem::path& to) override;
 
       private:
-        FilePath _working_directory;
-        FilePath _plugins_directory;
-        FilePath _logs_directory;
-        FilePath _assets_directory;
+        std::filesystem::path _working_directory;
+        std::filesystem::path _plugins_directory;
+        std::filesystem::path _logs_directory;
+        std::filesystem::path _assets_directory;
     };
 }
