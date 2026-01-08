@@ -18,6 +18,8 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/cmake/build/lib" CACHE P
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/cmake/build/lib" CACHE PATH "Where to place static libraries")
 set(CMAKE_PDB_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/cmake/build/pdb" CACHE PATH "Where to place PDBs")
 
+set(TBX_PLUGIN_ABI_VERSION 1 CACHE STRING "Plugin ABI version")
+
 # Global configs
 enable_testing()
 

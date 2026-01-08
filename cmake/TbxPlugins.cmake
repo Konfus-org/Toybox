@@ -235,6 +235,8 @@ function(tbx_register_plugin)
         set(PLUGIN_STATIC_VALUE "false")
     endif()
 
+    set(PLUGIN_ABI_VERSION ${TBX_PLUGIN_ABI_VERSION})
+
     configure_file(${meta_template} ${meta_output} @ONLY)
 
     add_custom_command(TARGET ${TBX_PLUGIN_TARGET} POST_BUILD
