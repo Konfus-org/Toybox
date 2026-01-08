@@ -12,6 +12,7 @@ namespace tbx::tests::plugin_api
         constexpr const char* manifest_text = R"JSON({
                 "name": "Example.Logger",
                 "version": "1.2.3",
+                "abi_version": 1,
                 "description": " Example description ",
                 "dependencies": ["Core.Renderer"],
                 "module": "bin/logger.so",
@@ -26,13 +27,14 @@ namespace tbx::tests::plugin_api
 
         EXPECT_EQ(meta.name, "Example.Logger");
         EXPECT_EQ(meta.version, "1.2.3");
+        EXPECT_EQ(meta.abi_version, PluginAbiVersion);
         EXPECT_EQ(meta.description, "Example description");
         ASSERT_EQ(meta.dependencies.size(), 1u);
         EXPECT_EQ(meta.dependencies[0], "Core.Renderer");
         EXPECT_EQ(meta.root_directory, manifest_path.parent_path());
         EXPECT_EQ(meta.manifest_path, manifest_path);
         EXPECT_EQ(
-            meta.module_path,
+            meta.library_path,
             manifest_path.parent_path() / "bin/logger.so");
         EXPECT_EQ(meta.linkage, PluginLinkage::Static);
     }
@@ -55,7 +57,7 @@ namespace tbx::tests::plugin_api
         ASSERT_TRUE(parser.try_parse_plugin_meta(manifest_text, manifest_path, meta));
 
         EXPECT_EQ(
-            meta.module_path,
+            meta.library_path,
             manifest_path.parent_path() / "modules/example_renderer.so");
     }
 

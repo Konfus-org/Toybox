@@ -15,40 +15,53 @@
 
 namespace tbx
 {
-    static std::filesystem::path resolve_module_path(
+    static std::filesystem::path resolve_library_path(
         const PluginMeta& meta,
         IFileSystem& file_ops)
     {
-        std::filesystem::path module_path = meta.module_path;
+        std::filesystem::path library_path = meta.library_path;
 
-        if (module_path.empty())
-            module_path = meta.root_directory;
+        if (library_path.empty())
+            library_path = meta.root_directory;
 
-        if (file_ops.get_file_type(module_path) == FilePathType::Directory)
-            module_path /= meta.name;
+        if (file_ops.get_file_type(library_path) == FilePathType::Directory)
+            library_path /= meta.name;
 
-        if (module_path.extension().string().empty())
+        if (library_path.extension().string().empty())
         {
 #if defined(TBX_PLATFORM_WINDOWS)
-            module_path.replace_extension(".dll");
+            library_path.replace_extension(".dll");
 #elif defined(TBX_PLATFORM_MACOS)
-            const std::string file_name = module_path.filename().string();
+            const std::string file_name = library_path.filename().string();
             if (!file_name.starts_with("lib"))
-                module_path = module_path.parent_path() / ("lib" + file_name);
-            module_path.replace_extension(".dylib");
+                library_path = library_path.parent_path() / ("lib" + file_name);
+            library_path.replace_extension(".dylib");
 #else
-            const std::string file_name = module_path.filename().string();
+            const std::string file_name = library_path.filename().string();
             if (!file_name.starts_with("lib"))
-                module_path = module_path.parent_path() / ("lib" + file_name);
-            module_path.replace_extension(".so");
+                library_path = library_path.parent_path() / ("lib" + file_name);
+            library_path.replace_extension(".so");
 #endif
         }
 
-        return module_path;
+        return library_path;
     }
 
     static LoadedPlugin load_plugin_internal(const PluginMeta& meta, IFileSystem& file_ops)
     {
+        if (meta.abi_version != PluginAbiVersion)
+        {
+            if (get_global_dispatcher())
+            {
+                TBX_TRACE_WARNING(
+                    "Plugin ABI mismatch for {}: expected {}, found {}",
+                    meta.name,
+                    PluginAbiVersion,
+                    meta.abi_version);
+            }
+            return {};
+        }
+
         LoadedPlugin loaded;
         loaded.meta = meta;
 
@@ -70,8 +83,8 @@ namespace tbx
             return loaded;
         }
 
-        const std::filesystem::path module_path = resolve_module_path(meta, file_ops);
-        auto lib = std::make_unique<SharedLibrary>(module_path);
+        const std::filesystem::path library_path = resolve_library_path(meta, file_ops);
+        auto lib = std::make_unique<SharedLibrary>(library_path);
 
         const std::string create_symbol = "create_" + meta.name;
         CreatePluginFn create = lib->get_symbol<CreatePluginFn>(create_symbol.c_str());

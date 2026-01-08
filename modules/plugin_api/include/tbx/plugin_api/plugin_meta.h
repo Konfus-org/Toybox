@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/common/int.h"
 #include "tbx/files/filesystem.h"
 #include "tbx/plugin_api/plugin_linkage.h"
 #include "tbx/tbx_api.h"
@@ -9,6 +10,20 @@
 
 namespace tbx
 {
+    #ifndef TBX_PLUGIN_ABI_VERSION
+        #define TBX_PLUGIN_ABI_VERSION 1
+    #endif
+
+    /// <summary>
+    /// Defines the plugin ABI version enforced by the host.
+    /// </summary>
+    /// <remarks>
+    /// Purpose: Compare manifest ABI versions before loading plugins.
+    /// Ownership: Not applicable.
+    /// Thread Safety: Immutable constant.
+    /// </remarks>
+    inline constexpr uint32 PluginAbiVersion = static_cast<uint32>(TBX_PLUGIN_ABI_VERSION);
+
     // Describes the metadata discovered for a plugin before it is loaded.
     struct TBX_API PluginMeta
     {
@@ -24,6 +39,9 @@ namespace tbx
         // Hard dependencies that must be satisfied before loading this plugin.
         std::vector<std::string> dependencies;
 
+        // ABI version reported by the plugin manifest for compatibility checks.
+        uint32 abi_version = PluginAbiVersion;
+
         PluginLinkage linkage = PluginLinkage::Dynamic;
 
         // Path to the manifest file that produced this metadata.
@@ -32,8 +50,8 @@ namespace tbx
         // Directory containing the manifest and plugin module.
         std::filesystem::path root_directory;
 
-        // Full path to the plugin module that should be loaded.
-        std::filesystem::path module_path;
+        // Full path to the plugin library that should be loaded.
+        std::filesystem::path library_path;
     };
 
     class TBX_API PluginMetaParser

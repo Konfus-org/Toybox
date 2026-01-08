@@ -56,6 +56,15 @@ namespace tbx
 
         assign_string_list(data, "dependencies", meta.dependencies);
 
+        int32 abi_version = 0;
+        if (data.try_get_int("abi_version", abi_version))
+        {
+            if (abi_version <= 0)
+                return false;
+
+            meta.abi_version = static_cast<uint32>(abi_version);
+        }
+
         if (!try_assign_required_string(data, "name", meta.name))
             return false;
 
@@ -76,19 +85,19 @@ namespace tbx
             module_value = TrimString(module_value);
             if (!module_value.empty())
             {
-                auto module_path = std::filesystem::path(module_value);
-                if (module_path.is_absolute() || meta.root_directory.empty())
-                    meta.module_path = module_path;
+                auto library_path = std::filesystem::path(module_value);
+                if (library_path.is_absolute() || meta.root_directory.empty())
+                    meta.library_path = library_path;
                 else
                 {
-                    module_path = meta.root_directory / module_path;
-                    meta.module_path = module_path;
+                    library_path = meta.root_directory / library_path;
+                    meta.library_path = library_path;
                 }
             }
         }
 
-        if (meta.module_path.empty())
-            meta.module_path = meta.root_directory;
+        if (meta.library_path.empty())
+            meta.library_path = meta.root_directory;
 
         out_meta = std::move(meta);
         return true;

@@ -1,6 +1,7 @@
 {
     "name": "@TBX_PLUGIN_NAME@",
     "version": "@TBX_PLUGIN_VERSION@",
+    "abi_version": @PLUGIN_ABI_VERSION@,
 @PLUGIN_DESCRIPTION_ENTRY@
     "module": "@MODULE_NAME@",
 @PLUGIN_DEPENDENCIES_BLOCK@

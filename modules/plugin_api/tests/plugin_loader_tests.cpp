@@ -26,6 +26,7 @@ namespace tbx::tests::plugin_loader
         ::tbx::PluginMeta meta;
         meta.name = "TestStaticPlugin";
         meta.version = "1.0.0";
+        meta.abi_version = ::tbx::PluginAbiVersion;
         meta.linkage = ::tbx::PluginLinkage::Static;
         return meta;
     }
@@ -184,6 +185,7 @@ namespace tbx::tests::plugin_loader
             R"({
                 "name": "TestStaticPlugin",
                 "version": "1.0.0",
+                "abi_version": 1,
                 "static": true
             })");
 
@@ -194,5 +196,27 @@ namespace tbx::tests::plugin_loader
             ops);
         ASSERT_EQ(loaded.size(), 1u);
         EXPECT_NE(loaded[0].instance.get(), nullptr);
+    }
+
+    TEST(plugin_loader, rejects_plugin_with_mismatched_abi_version)
+    {
+        ManifestFilesystemOps ops;
+        ops.add_directory("virtual");
+        ops.add_directory("virtual/logger");
+        ops.add_file(
+            "virtual/logger/logger.meta",
+            R"({
+                "name": "TestStaticPlugin",
+                "version": "1.0.0",
+                "abi_version": 77,
+                "static": true
+            })");
+
+        PluginLoader loader;
+        auto loaded = loader.load_plugins(
+            std::filesystem::path("virtual"),
+            std::vector<std::string> {},
+            ops);
+        EXPECT_TRUE(loaded.empty());
     }
 }
