@@ -10,5 +10,8 @@ namespace tbx::examples
         void on_detach() override;
         void on_update(const DeltaTime& dt) override;
         void on_recieve_message(Message& msg) override;
+
+      private:
+        EntityDirector* _director;
     };
 }

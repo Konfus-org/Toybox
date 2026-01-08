@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/app/app_description.h"
 #include "tbx/app/app_message_coordinator.h"
+#include "tbx/ecs/entities.h"
 #include "tbx/files/filesystem.h"
 #include "tbx/graphics/graphics_api.h"
 #include "tbx/graphics/window.h"
@@ -32,6 +33,7 @@ namespace tbx
         const std::string& get_name() const;
         AppSettings& get_settings();
         IMessageDispatcher& get_dispatcher();
+        EntityDirector& get_director();
         IFileSystem& get_filesystem();
 
       private:
@@ -43,6 +45,7 @@ namespace tbx
       private:
         bool _should_exit = false;
         std::string _name = "App";
+        EntityDirector _ent_director = {};
         AppMessageCoordinator _msg_coordinator = {};
         std::vector<LoadedPlugin> _loaded = {};
         AppSettings _settings;

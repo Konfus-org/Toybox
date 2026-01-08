@@ -1,17 +1,18 @@
 #pragma once
 #include "tbx/common/uuid.h"
-#include "tbx/ecs/entity.h"
 #include "tbx/ecs/registry.h"
-#include <cstdint>
-#include <string>
-#include <vector>
 
 namespace tbx
 {
+    // An entity identifier.
+    // Ownership: value type; callers own any copies created from this alias.
+    // Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
+    using EntityHandle = entt::entity;
+
     // Description data for an entity.
     // Ownership: value type; callers own any copies created from this struct.
     // Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
-    struct ToyDescription
+    struct EntityDescription
     {
         std::string name = "";
         std::string tag = "";
@@ -24,21 +25,21 @@ namespace tbx
     // underlying registry or entity; but can destroy the entity from the registry. Ensure the
     // registry outlives any toys created from it.
     // synchronize access when sharing instances.
-    class Toy
+    class Entity
     {
       public:
-        Toy() = default;
-        Toy(EcsRegistry& reg, const EntityHandle& handle)
+        Entity() = default;
+        Entity(EntityRegistry& reg, const EntityHandle& handle)
             : _registry(&reg)
             , _handle(handle)
         {
         }
 
-        Toy(EcsRegistry& reg, const ToyDescription& desc)
+        Entity(EntityRegistry& reg, const EntityDescription& desc)
             : _registry(&reg)
             , _handle(reg.create())
         {
-            _registry->emplace<ToyDescription>(_handle, desc);
+            _registry->emplace<EntityDescription>(_handle, desc);
         }
 
         void destroy()
@@ -51,42 +52,42 @@ namespace tbx
             return static_cast<std::uint32_t>(_handle);
         }
 
-        ToyDescription& get_description() const
+        EntityDescription& get_description() const
         {
-            return _registry->get<ToyDescription>(_handle);
+            return _registry->get<EntityDescription>(_handle);
         }
 
-        EcsRegistry& get_registry() const
+        EntityRegistry& get_registry() const
         {
             return *_registry;
         }
 
         template <typename T>
-        T& add_block(const T& b)
+        T& add_component(const T& b)
         {
             return _registry->emplace<T>(_handle, b);
         }
 
         template <typename T, typename... Args>
-        T& add_block(Args&&... args)
+        T& add_component(Args&&... args)
         {
             return _registry->emplace<T>(_handle, std::forward<Args>(args)...);
         }
 
         template <typename T>
-        void remove_block()
+        void remove_component()
         {
             _registry->remove<T>(_handle);
         }
 
         template <typename T>
-        T& get_block() const
+        T& get_component() const
         {
             return _registry->get<T>(_handle);
         }
 
         template <typename... Block>
-        auto get_blocks_of_type() const
+        auto get_components() const
         {
             return _registry->view<Block...>();
         }
@@ -99,106 +100,83 @@ namespace tbx
         }
 
       private:
-        EcsRegistry* _registry;
+        EntityRegistry* _registry;
         EntityHandle _handle;
     };
 
-    // A RAII scope for a toy entity.
+    // A RAII scope for an entity.
     // Ownership: value type; callers own any copies created from this class. Owns the underlying
     // toy and destroys it on scope exit. Ensure the registry outlives any toys created from it.
     // Thread Safety: not inherently thread-safe;
-    class ToyScope
+    class EntityScope
     {
       public:
-        ToyScope(Toy& t)
-            : toy(t)
+        EntityScope(Entity& t)
+            : entity(t)
         {
         }
-        ~ToyScope()
+        ~EntityScope()
         {
-            toy.destroy();
+            entity.destroy();
         }
 
-        Toy toy;
+        Entity entity;
     };
 
-    // A stage containing a registry of entities.
+    // Manages entities.
     // Ownership: value type; callers own any copies created from this class. Owns the underlying
-    // registry and its entities. Ensure this outlives any toys created from it.
+    // registry and its entities. Ensure this outlives any entities created from it.
     // Thread Safety: not inherently thread-safe; synchronize access when sharing instances.
-    class Stage
+    class EntityDirector
     {
       public:
-        Stage(std::string name)
-            : _name(name)
-            , _id(Uuid::generate())
-            , _registry()
-        {
-        }
-
-        Uuid get_id() const
-        {
-            return _id;
-        }
-
-        std::string get_name() const
-        {
-            return _name;
-        }
-
-        EcsRegistry& get_registry()
+        EntityRegistry& get_registry()
         {
             return _registry;
         }
 
-        const EcsRegistry& get_registry() const
+        const EntityRegistry& get_registry() const
         {
             return _registry;
         }
 
-        operator std::string() const
-        {
-            return std::string("Stage(ID: ") + std::to_string(get_id().value) + ", Name: "
-                   + get_name() + ")";
-        }
-
-        Toy add_toy(
+        Entity create_entity(
             const std::string& name,
             const std::string& tag = "",
             const std::string& layer = "",
             const Uuid& parent = invalid::uuid)
         {
-            ToyDescription desc = {};
+            EntityDescription desc = {};
             desc.name = name;
             desc.tag = tag;
             desc.layer = layer;
             desc.parent = parent;
-            return Toy(_registry, desc);
+            return Entity(_registry, desc);
         }
 
-        Toy add_toy(const ToyDescription& desc)
+        Entity create_entity(const EntityDescription& desc)
         {
-            return Toy(_registry, desc);
+            return Entity(_registry, desc);
         }
 
-        Toy get_toy(const Uuid& id)
+        Entity get_entity(const Uuid& id)
         {
-            return Toy(_registry, static_cast<EntityHandle>(id.value));
+            return Entity(_registry, static_cast<EntityHandle>(id.value));
         }
 
-        std::vector<Toy> view_all_toys()
+        std::vector<Entity> get_all_entities()
         {
-            std::vector<Toy> toys = {};
-            auto view = _registry.view<ToyDescription>();
+            std::vector<Entity> toys = {};
+            auto view = _registry.view<EntityDescription>();
             for (auto entity : view)
                 toys.emplace_back(_registry, entity);
             return toys;
         }
 
         template <typename... Block>
-        std::vector<Toy> view_with_type()
+        std::vector<Entity> get_entities()
         {
-            std::vector<Toy> toys = {};
+            std::vector<Entity> toys = {};
             auto view = _registry.view<Block...>();
             for (auto entity : view)
                 toys.emplace_back(_registry, entity);
@@ -206,9 +184,11 @@ namespace tbx
         }
 
       private:
-        std::string _name = "";
-        Uuid _id = invalid::uuid;
-        EcsRegistry _registry = {};
+        EntityRegistry _registry = {};
     };
 
+    namespace invalid
+    {
+        inline constexpr EntityHandle entity_handle = entt::null;
+    }
 }

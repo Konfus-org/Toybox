@@ -6,7 +6,7 @@
 
 namespace tbx
 {
-        class TBX_API Json
+    class TBX_API Json
     {
       public:
         Json();

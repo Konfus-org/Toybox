@@ -75,6 +75,11 @@ namespace tbx
         return static_cast<IMessageDispatcher&>(_msg_coordinator);
     }
 
+    EntityDirector& Application::get_director()
+    {
+        return _ent_director;
+    }
+
     IFileSystem& Application::get_filesystem()
     {
         return _filesystem;

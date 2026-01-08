@@ -4,5 +4,7 @@
 namespace tbx
 {
     // A registry managing entities and their components.
-    using EcsRegistry = entt::registry;
+    struct EntityRegistry : entt::registry
+    {
+    };
 }

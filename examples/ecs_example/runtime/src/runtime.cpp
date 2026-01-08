@@ -1,18 +1,17 @@
 #include "runtime.h"
 #include "tbx/app/application.h"
 #include "tbx/common/string_utils.h"
-#include <string>
 #include "tbx/debugging/macros.h"
-#include "tbx/ecs/toys.h"
+#include "tbx/ecs/entities.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
+#include <string>
 
 namespace tbx::examples
 {
-    Stage _ex_stage = Stage("Example Stage");
-
     void ExampleRuntimePlugin::on_attach(Application& context)
     {
+        _director = &context.get_director();
         std::string greeting =
             "Welcome to the ecs example! This plugin just loads a few basic plugins and makes some "
             "entities.";
@@ -22,10 +21,10 @@ namespace tbx::examples
         auto toys_to_make = 5;
         for (int i = 0; i < toys_to_make; i++)
         {
-            auto t = _ex_stage.add_toy(std::to_string(i));
-            t.add_block<Transform>();
+            auto t = _director->create_entity(std::to_string(i));
+            t.add_component<Transform>();
         }
-        auto no_it = _ex_stage.add_toy("should_not_iterate");
+        auto no_it = _director->create_entity("should_not_iterate");
     }
 
     void ExampleRuntimePlugin::on_detach() {}
@@ -33,12 +32,12 @@ namespace tbx::examples
     void ExampleRuntimePlugin::on_update(const DeltaTime& dt)
     {
         // bob all toys in stage with transform up, then down over time
-        for (auto& toy : _ex_stage.view_with_type<Transform>())
+        for (auto& entity : _director->get_entities<Transform>())
         {
-            auto& transform = toy.get_block<Transform>();
+            auto& transform = entity.get_component<Transform>();
             transform.position.y = sin(dt.seconds * 2.0) * 0.5f;
 
-            TBX_TRACE_INFO("Toy {}:", toy.get_description().name);
+            TBX_TRACE_INFO("Toy {}:", entity.get_description().name);
             TBX_TRACE_INFO(
                 "Position: ({}, {}, {})",
                 transform.position.x,
