@@ -5,7 +5,6 @@ file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
 target_sources(Math PRIVATE ${SRCS} ${INCL})
 target_precompile_headers(Math PRIVATE "${PROJECT_SOURCE_DIR}/modules/common/include/tbx/pch.h")
 
-
 target_include_directories(Math
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
