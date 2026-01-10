@@ -7,6 +7,7 @@
 #include <future>
 #include <functional>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
 namespace tbx
@@ -49,6 +50,15 @@ namespace tbx
                 return dispatcher_missing_result("send a message");
             }
 
+            if constexpr (sizeof...(TArgs) == 0)
+            {
+                static_assert(
+                    std::is_default_constructible_v<TMessage>,
+                    "Messages without constructor arguments must be default constructible.");
+                TMessage msg = {};
+                return _dispatcher->send(msg);
+            }
+
             return _dispatcher->send<TMessage>(std::forward<TArgs>(args)...);
         }
 
@@ -63,6 +73,15 @@ namespace tbx
                 std::promise<Result> promise;
                 promise.set_value(dispatcher_missing_result("post a message"));
                 return promise.get_future().share();
+            }
+
+            if constexpr (sizeof...(TArgs) == 0)
+            {
+                static_assert(
+                    std::is_default_constructible_v<TMessage>,
+                    "Messages without constructor arguments must be default constructible.");
+                TMessage msg = {};
+                return _dispatcher->post(msg);
             }
 
             return _dispatcher->post<TMessage>(std::forward<TArgs>(args)...);
