@@ -1,6 +1,5 @@
 #pragma once
 #include "tbx/graphics/frustum.h"
-#include "tbx/graphics/render_surface.h"
 #include "tbx/math/matrices.h"
 #include "tbx/math/quaternions.h"
 #include "tbx/math/vectors.h"
@@ -12,8 +11,6 @@ namespace tbx
     {
       public:
         Camera();
-        Camera(const RenderSurface& surface);
-
         void set_orthographic(float size, float aspect, float z_near, float z_far);
         void set_perspective(float fov, float aspect, float z_near, float z_far);
         void set_aspect(float aspect);
@@ -31,11 +28,8 @@ namespace tbx
         Mat4 get_view_projection_matrix(const Vec3& camera_position, const Quat& camera_rotation);
         const Mat4& get_projection_matrix() const;
 
-        const RenderSurface& get_surface();
-
       private:
         Mat4 _projection_matrix = Mat4(1.0f);
-        RenderSurface _target_surface = {};
         bool _is_perspective = true;
         float _z_near = 0.1f;
         float _z_far = 1000.0f;
