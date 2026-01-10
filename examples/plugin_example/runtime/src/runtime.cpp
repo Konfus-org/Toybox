@@ -11,7 +11,7 @@ namespace tbx::examples
     {
         std::string greeting =
             "Welcome to the plugin example! This plugin just loads a logger and a window.";
-        std::string message = TrimString(greeting);
+        std::string message = trim(greeting);
         TBX_TRACE_INFO("{}", message.c_str());
     }
 

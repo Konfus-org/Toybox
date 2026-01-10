@@ -31,8 +31,6 @@ namespace tbx
         float top = 0.0f;
         float bottom = 0.0f;
     };
+
     TBX_API std::string to_string(const Bounds& bounds);
 }
-
-    TBX_API String to_string(const Bounds& bounds);
-}

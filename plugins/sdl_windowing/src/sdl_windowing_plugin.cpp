@@ -6,7 +6,7 @@
 
 namespace tbx::plugins
 {
-    static void set_opengl_attribute(SDL_GLattr attribute, int value)
+    static void set_opengl_attribute(SDL_GLAttr attribute, int value)
     {
         if (SDL_GL_SetAttribute(attribute, value) != 0)
         {
@@ -315,7 +315,8 @@ namespace tbx::plugins
             TBX_ASSERT(false, "Unhandled window mode change!");
     }
 
-    void SdlWindowingPlugin::on_window_title_changed(PropertyChangedEvent<Window, std::string>& event)
+    void SdlWindowingPlugin::on_window_title_changed(
+        PropertyChangedEvent<Window, std::string>& event)
     {
         SdlWindowRecord record = find_record(event.owner);
         if (record.sdl_window)
@@ -396,7 +397,7 @@ namespace tbx::plugins
     {
         if (record.gl_context)
         {
-            SDL_GL_DeleteContext(record.gl_context);
+            SDL_GL_DestroyContext(record.gl_context);
             record.gl_context = nullptr;
         }
     }

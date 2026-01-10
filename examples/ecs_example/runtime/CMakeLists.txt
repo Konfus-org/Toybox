@@ -10,6 +10,7 @@ target_link_libraries(EcsExampleRuntime PRIVATE
     Tbx::Plugins::SpdConsoleLoggerPlugin
     Tbx::Plugins::SpdFileLoggerPlugin
     Tbx::Plugins::SdlWindowingPlugin
+    Tbx::Plugins::OpenGlRenderingPlugin
 )
 
 tbx_register_plugin(

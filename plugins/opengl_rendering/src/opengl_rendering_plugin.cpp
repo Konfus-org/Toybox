@@ -52,9 +52,7 @@ namespace tbx::plugins::openglrendering
         }
     }
 
-    void OpenGlRenderingPlugin::on_attach(Application&)
-    {
-    }
+    void OpenGlRenderingPlugin::on_attach(Application&) {}
 
     void OpenGlRenderingPlugin::on_update(const DeltaTime&)
     {
@@ -209,15 +207,17 @@ namespace tbx::plugins::openglrendering
 
     void OpenGlRenderingPlugin::draw_models(const Mat4& view_projection)
     {
-        auto& director = get_host().get_director();
-        auto& registry = director.get_registry();
-        auto view = registry.view<Model>();
+        auto& ecs = get_host().get_ecs();
+        auto entities = ecs.get_entities_with<Model>();
 
-        for (auto entity : view)
+        for (auto& entity : entities)
         {
-            const Model& model = view.get<Model>(entity);
-            const Transform* transform = registry.try_get<Transform>(entity);
-            const Mat4 model_matrix = transform ? build_model_matrix(*transform) : Mat4(1.0f);
+            const Model& model = entity.get_component<Model>();
+
+            Mat4 model_matrix = Mat4(1.0f);
+            if (entity.has_component<Transform>())
+                model_matrix = build_model_matrix(entity.get_component<Transform>());
+
             auto mesh = get_mesh(model.mesh);
             auto program = get_shader_program(model.material);
             if (!mesh || !program)
@@ -227,7 +227,7 @@ namespace tbx::plugins::openglrendering
 
             GlResourceScope program_scope(*program);
             ShaderUniform view_projection_uniform = {};
-            view_projection_uniform.name = "u_view_projection";
+            view_projection_uniform.name = "view_projection_uniform";
             view_projection_uniform.data = view_projection;
             program->upload(view_projection_uniform);
 
@@ -262,30 +262,25 @@ namespace tbx::plugins::openglrendering
 
     void OpenGlRenderingPlugin::draw_models_for_cameras(const Size& window_size)
     {
-        auto& director = get_host().get_director();
-        auto& registry = director.get_registry();
-        auto view = registry.view<Camera, Transform>();
+        auto& ecs = get_host().get_ecs();
+        auto entities = ecs.get_entities_with<Camera, Transform>();
 
-        if (view.begin() == view.end())
+        if (entities.begin() == entities.end())
         {
             draw_models(Mat4(1.0f));
             return;
         }
 
         const float aspect = window_size.get_aspect_ratio();
-        for (auto entity : view)
+        for (auto entity : entities)
         {
-            const Camera& camera = view.get<Camera>(entity);
-            const Transform& transform = view.get<Transform>(entity);
-            Camera adjusted_camera = camera;
+            Camera& camera = entity.get_component<Camera>();
+            camera.set_aspect(aspect);
 
-            if (aspect > 0.0f)
-            {
-                adjusted_camera.set_aspect(aspect);
-            }
-
+            const Transform& transform = entity.get_component<Transform>();
             const Mat4 view_projection =
-                adjusted_camera.get_view_projection_matrix(transform.position, transform.rotation);
+                camera.get_view_projection_matrix(transform.position, transform.rotation);
+
             draw_models(view_projection);
         }
     }

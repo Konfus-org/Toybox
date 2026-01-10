@@ -59,39 +59,40 @@ namespace tbx
             return _registry->get<EntityDescription>(_handle);
         }
 
-        EntityRegistry& get_registry() const
+        template <typename TComponent>
+        TComponent& add_component(const TComponent& b)
         {
-            return *_registry;
+            return _registry->emplace<TComponent>(_handle, b);
         }
 
-        template <typename T>
-        T& add_component(const T& b)
+        template <typename TComponent, typename... TArgs>
+        TComponent& add_component(TArgs&&... args)
         {
-            return _registry->emplace<T>(_handle, b);
+            return _registry->emplace<TComponent>(_handle, std::forward<TArgs>(args)...);
         }
 
-        template <typename T, typename... Args>
-        T& add_component(Args&&... args)
-        {
-            return _registry->emplace<T>(_handle, std::forward<Args>(args)...);
-        }
-
-        template <typename T>
+        template <typename TComponent>
         void remove_component()
         {
-            _registry->remove<T>(_handle);
+            _registry->remove<TComponent>(_handle);
         }
 
-        template <typename T>
-        T& get_component() const
+        template <typename TComponent>
+        TComponent& get_component() const
         {
-            return _registry->get<T>(_handle);
+            return _registry->get<TComponent>(_handle);
         }
 
-        template <typename... Block>
+        template <typename... TComponent>
         auto get_components() const
         {
-            return _registry->view<Block...>();
+            return _registry->view<TComponent...>();
+        }
+
+        template <typename TComponent>
+        bool has_component() const
+        {
+            return _registry->all_of<TComponent>(_handle);
         }
 
       private:
@@ -99,8 +100,9 @@ namespace tbx
         EntityHandle _handle;
     };
 
-    /// <summary>Purpose: Formats an entity identifier and description for debugging output.</summary>
-    /// <remarks>Ownership: Returns an owned std::string. Thread Safety: Safe for concurrent use when the entity is not mutated.</remarks>
+    /// <summary>Purpose: Formats an entity identifier and description for debugging
+    /// output.</summary> <remarks>Ownership: Returns an owned std::string. Thread Safety: Safe for
+    /// concurrent use when the entity is not mutated.</remarks>
     TBX_API std::string to_string(const Entity& entity);
 
     // A RAII scope for an entity.
@@ -126,19 +128,9 @@ namespace tbx
     // Ownership: value type; callers own any copies created from this class. Owns the underlying
     // registry and its entities. Ensure this outlives any entities created from it.
     // Thread Safety: not inherently thread-safe; synchronize access when sharing instances.
-    class EntityDirector
+    class ECS
     {
       public:
-        EntityRegistry& get_registry()
-        {
-            return _registry;
-        }
-
-        const EntityRegistry& get_registry() const
-        {
-            return _registry;
-        }
-
         Entity create_entity(
             const std::string& name,
             const std::string& tag = "",
@@ -172,11 +164,11 @@ namespace tbx
             return toys;
         }
 
-        template <typename... Block>
-        std::vector<Entity> get_entities()
+        template <typename... TBlocks>
+        std::vector<Entity> get_entities_with()
         {
             std::vector<Entity> toys = {};
-            auto view = _registry.view<Block...>();
+            auto view = _registry.view<TBlocks...>();
             for (auto entity : view)
                 toys.emplace_back(_registry, entity);
             return toys;

@@ -16,7 +16,7 @@ namespace tbx
         if (!data.try_get_string(key, target))
             return false;
 
-        target = TrimString(target);
+        target = trim(target);
         if (target.empty())
             return false;
 
@@ -34,7 +34,7 @@ namespace tbx
 
         for (std::string value : values)
         {
-            value = TrimString(value);
+            value = trim(value);
             if (!value.empty())
                 target.push_back(std::move(value));
         }
@@ -77,12 +77,12 @@ namespace tbx
 
         std::string description;
         if (data.try_get_string("description", description))
-            meta.description = TrimString(description);
+            meta.description = trim(description);
 
         std::string module_value;
         if (data.try_get_string("module", module_value))
         {
-            module_value = TrimString(module_value);
+            module_value = trim(module_value);
             if (!module_value.empty())
             {
                 auto library_path = std::filesystem::path(module_value);

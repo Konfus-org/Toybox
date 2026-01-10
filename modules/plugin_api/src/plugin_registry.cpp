@@ -15,13 +15,13 @@ namespace tbx
         if (std::ranges::find(_plugins, plugin) == _plugins.end())
         {
             _plugins.push_back(plugin);
-            _plugins_by_name[ToLower(name)] = plugin;
+            _plugins_by_name[to_lower(name)] = plugin;
         }
     }
 
     void PluginRegistry::unregister_plugin(const std::string& name)
     {
-        const std::string lowered = ToLower(name);
+        const std::string lowered = to_lower(name);
         auto it = _plugins_by_name.find(lowered);
         if (it == _plugins_by_name.end())
         {
@@ -68,7 +68,7 @@ namespace tbx
             return nullptr;
         }
 
-        const std::string key = ToLower(name);
+        const std::string key = to_lower(name);
         const auto it = _plugins_by_name.find(key);
         if (it == _plugins_by_name.end())
         {

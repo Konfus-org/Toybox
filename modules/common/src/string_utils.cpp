@@ -1,23 +1,21 @@
-#include "tbx/common/int.h"
 #include "tbx/common/string_utils.h"
+#include "tbx/common/int.h"
 #include <algorithm>
 #include <cctype>
 
 namespace tbx
 {
-    std::string TrimString(std::string_view value)
+    std::string trim(std::string_view value)
     {
         uint64 start = 0;
         uint64 end = static_cast<uint64>(value.size());
 
-        while (start < end
-            && std::isspace(static_cast<unsigned char>(value[start])) != 0)
+        while (start < end && std::isspace(static_cast<unsigned char>(value[start])) != 0)
         {
             ++start;
         }
 
-        while (end > start
-            && std::isspace(static_cast<unsigned char>(value[end - 1])) != 0)
+        while (end > start && std::isspace(static_cast<unsigned char>(value[end - 1])) != 0)
         {
             --end;
         }
@@ -25,7 +23,7 @@ namespace tbx
         return std::string(value.substr(start, end - start));
     }
 
-    std::string RemoveWhitespace(std::string_view value)
+    std::string remove_whitespace(std::string_view value)
     {
         std::string result = {};
         result.reserve(value.size());
@@ -41,7 +39,7 @@ namespace tbx
         return result;
     }
 
-    std::string ToLower(std::string_view value)
+    std::string to_lower(std::string_view value)
     {
         std::string result = std::string(value);
 
@@ -49,12 +47,15 @@ namespace tbx
             result.begin(),
             result.end(),
             result.begin(),
-            [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+            [](unsigned char character)
+            {
+                return static_cast<char>(std::tolower(character));
+            });
 
         return result;
     }
 
-    std::string ToUpper(std::string_view value)
+    std::string to_upper(std::string_view value)
     {
         std::string result = std::string(value);
 
@@ -62,12 +63,15 @@ namespace tbx
             result.begin(),
             result.end(),
             result.begin(),
-            [](unsigned char character) { return static_cast<char>(std::toupper(character)); });
+            [](unsigned char character)
+            {
+                return static_cast<char>(std::toupper(character));
+            });
 
         return result;
     }
 
-    std::string ReplaceAll(
+    std::string replace(
         std::string_view value,
         std::string_view target,
         std::string_view replacement)
@@ -97,10 +101,7 @@ namespace tbx
         return result;
     }
 
-    std::string ReplaceCharacters(
-        std::string_view value,
-        std::span<const char> characters,
-        char replacement)
+    std::string replace(std::string_view value, std::span<const char> characters, char replacement)
     {
         std::string result = {};
         result.reserve(value.size());
@@ -120,12 +121,12 @@ namespace tbx
         return result;
     }
 
-    std::string RemoveAll(std::string_view value, std::string_view target)
+    std::string remove(std::string_view value, std::string_view target)
     {
-        return ReplaceAll(value, target, "");
+        return replace(value, target, "");
     }
 
-    std::string RemoveCharacter(std::string_view value, char target)
+    std::string remove(std::string_view value, char target)
     {
         std::string result = {};
         result.reserve(value.size());
@@ -141,7 +142,7 @@ namespace tbx
         return result;
     }
 
-    std::string RemoveCharacters(std::string_view value, std::span<const char> characters)
+    std::string remove(std::string_view value, std::span<const char> characters)
     {
         std::string result = {};
         result.reserve(value.size());

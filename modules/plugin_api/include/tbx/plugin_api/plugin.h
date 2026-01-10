@@ -4,8 +4,8 @@
 #include "tbx/messages/message.h"
 #include "tbx/plugin_api/plugin_registry.h"
 #include "tbx/time/delta_time.h"
-#include <future>
 #include <functional>
+#include <future>
 #include <string_view>
 #include <type_traits>
 #include <utility>

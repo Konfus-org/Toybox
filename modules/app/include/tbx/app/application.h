@@ -33,7 +33,7 @@ namespace tbx
         const std::string& get_name() const;
         AppSettings& get_settings();
         IMessageDispatcher& get_dispatcher();
-        EntityDirector& get_director();
+        ECS& get_ecs();
         IFileSystem& get_filesystem();
 
       private:
@@ -45,7 +45,7 @@ namespace tbx
       private:
         bool _should_exit = false;
         std::string _name = "App";
-        EntityDirector _ent_director = {};
+        ECS _ecs = {};
         AppMessageCoordinator _msg_coordinator = {};
         std::vector<LoadedPlugin> _loaded = {};
         AppSettings _settings;

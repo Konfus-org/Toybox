@@ -1,63 +1,67 @@
-{
-  "version": 6,
-  "cmakeMinimumRequired": { "major": 4, "minor": 1, "patch": 0 },
-  "configurePresets": [
-    {
-      "name": "base",
-      "cacheVariables": {
-        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/cmake/build/bin/$<CONFIG>",
-        "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/cmake/build/lib/$<CONFIG>",
-        "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/cmake/build/lib/$<CONFIG>",
-        "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/cmake/build/pdb/$<CONFIG>",
-        "CMAKE_CONFIGURATION_TYPES": "Debug;Release"
-      },
-      "hidden": true
-    },
-    {
-      "name": "ninja-base",
-      "displayName": "Ninja (base)",
-      "generator": "Ninja Multi-Config",
-      "binaryDir": "${sourceDir}/cmake/build/ninja",
-      "inherits": "base",
-      "hidden": true
-    },
-    {
-      "name": "vs-base",
-      "binaryDir": "${sourceDir}/cmake/build/vs",
-      "hidden": true
-    },
-    {
-      "name": "tbx-vs-22",
-      "displayName": "Toybox (VS2022)",
-      "generator": "Visual Studio 17 2022",
-      "inherits": "vs-base"
-    },
-    {
-      "name": "tbx-vs-26",
-      "displayName": "Toybox (VS2026)",
-      "generator": "Visual Studio 18 2026",
-      "inherits": "vs-base"
-    },
-    {
-      "name": "tbx-ninja",
-      "displayName": "Toybox (Ninja)",
-      "inherits": "ninja-base"
-    }
-  ],
-  "buildPresets": [
-    { "name": "tbx-vs22-debug", "displayName": "VS22 (Debug)", "configurePreset": "tbx-vs-22", "configuration": "Debug" },
-    { "name": "tbx-vs22-release", "displayName": "VS22 (Release)", "configurePreset": "tbx-vs-22", "configuration": "Release" },
-    { "name": "tbx-vs26-debug", "displayName": "VS26 (Debug)", "configurePreset": "tbx-vs-26", "configuration": "Debug" },
-    { "name": "tbx-vs26-release", "displayName": "VS26 (Release)", "configurePreset": "tbx-vs-26", "configuration": "Release" },
-    { "name": "tbx-ninja-debug", "displayName": "Ninja (Debug)", "configurePreset": "tbx-ninja", "configuration": "Debug" },
-    { "name": "tbx-ninja-release", "displayName": "Ninja (Release)", "configurePreset": "tbx-ninja", "configuration": "Release" }
-  ],
-  "testPresets": [
-    { "name": "tbx-test-vs22-debug", "displayName": "Test VS22 (Debug)", "configurePreset": "tbx-vs-22", "configuration": "Debug", "output": { "outputOnFailure": true } },
-    { "name": "tbx-test-vs22-release", "displayName": "Test VS22 (Release)", "configurePreset": "tbx-vs-22", "configuration": "Release", "output": { "outputOnFailure": true } },
-    { "name": "tbx-test-vs26-debug", "displayName": "Test VS26 (Debug)", "configurePreset": "tbx-vs-26", "configuration": "Debug", "output": { "outputOnFailure": true } },
-    { "name": "tbx-test-vs26-release", "displayName": "Test VS26 (Release)", "configurePreset": "tbx-vs-26", "configuration": "Release", "output": { "outputOnFailure": true } },
-    { "name": "tbx-test-ninja-debug", "displayName": "Test Ninja (Debug)", "configurePreset": "tbx-ninja", "configuration": "Debug", "output": { "outputOnFailure": true } },
-    { "name": "tbx-test-ninja-release", "displayName": "Test Ninja (Release)", "configurePreset": "tbx-ninja", "configuration": "Release", "output": { "outputOnFailure": true } }
-  ]
-}
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 4, "minor": 1, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "cacheVariables": {
+
+        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/cmake/build/bin/$<CONFIG>",
+        "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/cmake/build/lib/$<CONFIG>",
+        "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/cmake/build/lib/$<CONFIG>",
+        "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/cmake/build/pdb/$<CONFIG>",
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release"
+      },
+      "hidden": true
+    },
+    {
+      "name": "ninja-base",
+      "displayName": "Ninja (base)",
+      "generator": "Ninja Multi-Config",
+      "binaryDir": "${sourceDir}/cmake/build/ninja",
+      "inherits": "base",
+      "hidden": true
+    },
+    {
+      "name": "vs-base",
+      "binaryDir": "${sourceDir}/cmake/build/vs",
+      "hidden": true
+    },
+    {
+      "name": "tbx-vs-22",
+      "displayName": "Toybox (VS2022)",
+      "generator": "Visual Studio 17 2022",
+      "inherits": "vs-base"
+    },
+    {
+      "name": "tbx-vs-26",
+      "displayName": "Toybox (VS2026)",
+      "generator": "Visual Studio 18 2026",
+      "inherits": "vs-base"
+    },
+    {
+      "name": "tbx-ninja",
+      "displayName": "Toybox (Ninja)",
+      "inherits": "ninja-base"
+    }
+  ],
+
+  "buildPresets": [
+    { "name": "tbx-vs22-debug", "displayName": "VS22 (Debug)", "configurePreset": "tbx-vs-22", "configuration": "Debug" },
+    { "name": "tbx-vs22-release", "displayName": "VS22 (Release)", "configurePreset": "tbx-vs-22", "configuration": "Release" },
+    { "name": "tbx-vs26-debug", "displayName": "VS26 (Debug)", "configurePreset": "tbx-vs-26", "configuration": "Debug" },
+    { "name": "tbx-vs26-release", "displayName": "VS26 (Release)", "configurePreset": "tbx-vs-26", "configuration": "Release" },
+    { "name": "tbx-ninja-debug", "displayName": "Ninja (Debug)", "configurePreset": "tbx-ninja", "configuration": "Debug" },
+    { "name": "tbx-ninja-release", "displayName": "Ninja (Release)", "configurePreset": "tbx-ninja", "configuration": "Release" }
+  ],
+
+  "testPresets": [
+    { "name": "tbx-test-vs22-debug", "displayName": "Test VS22 (Debug)", "configurePreset": "tbx-vs-22", "configuration": "Debug", "output": { "outputOnFailure": true } },
+    { "name": "tbx-test-vs22-release", "displayName": "Test VS22 (Release)", "configurePreset": "tbx-vs-22", "configuration": "Release", "output": { "outputOnFailure": true } },
+    { "name": "tbx-test-vs26-debug", "displayName": "Test VS26 (Debug)", "configurePreset": "tbx-vs-26", "configuration": "Debug", "output": { "outputOnFailure": true } },
+    { "name": "tbx-test-vs26-release", "displayName": "Test VS26 (Release)", "configurePreset": "tbx-vs-26", "configuration": "Release", "output": { "outputOnFailure": true } },
+    { "name": "tbx-test-ninja-debug", "displayName": "Test Ninja (Debug)", "configurePreset": "tbx-ninja", "configuration": "Debug", "output": { "outputOnFailure": true } },
+    { "name": "tbx-test-ninja-release", "displayName": "Test Ninja (Release)", "configurePreset": "tbx-ninja", "configuration": "Release", "output": { "outputOnFailure": true } }
+  ]
+}
+

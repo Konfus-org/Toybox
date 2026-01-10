@@ -127,7 +127,7 @@ namespace tbx
         const auto plugin_count = static_cast<uint64>(plugins.size());
         for (uint64 index = 0; index < plugin_count; ++index)
         {
-            by_name_lookup.emplace(ToLower(plugins[index].name), index);
+            by_name_lookup.emplace(to_lower(plugins[index].name), index);
         }
 
         std::vector<std::vector<uint64>> dependencies(plugins.size());
@@ -136,7 +136,7 @@ namespace tbx
             std::unordered_set<uint64> unique;
             for (const std::string& dependency : plugins[index].dependencies)
             {
-                const std::string needle = ToLower(TrimString(dependency));
+                const std::string needle = to_lower(trim(dependency));
                 auto it = by_name_lookup.find(needle);
                 if (it == by_name_lookup.end() || it->second == index)
                 {
@@ -215,7 +215,7 @@ namespace tbx
                     continue;
 
                 const std::string name = entry.filename().string();
-                const std::string lowered_name = ToLower(name);
+                const std::string lowered_name = to_lower(name);
                 if (entry.extension() == ".meta" || lowered_name == "plugin.meta")
                 {
                     std::string manifest_data;
@@ -247,7 +247,7 @@ namespace tbx
             const auto discovered_count = static_cast<uint64>(discovered.size());
             for (uint64 index = 0; index < discovered_count; ++index)
             {
-                const std::string lowered_name = ToLower(discovered[index].name);
+                const std::string lowered_name = to_lower(discovered[index].name);
                 by_name_lookup.emplace(lowered_name, index);
             }
 
@@ -264,8 +264,8 @@ namespace tbx
 
             auto enqueue_dependency_token = [&](const std::string& token)
             {
-                const std::string trimmed = TrimString(token);
-                const std::string needle = ToLower(trimmed);
+                const std::string trimmed = trim(token);
+                const std::string needle = to_lower(trimmed);
                 if (needle.empty())
                     return;
 

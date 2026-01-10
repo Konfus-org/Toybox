@@ -12,6 +12,6 @@ namespace tbx::examples
         void on_recieve_message(Message& msg) override;
 
       private:
-        EntityDirector* _director;
+        ECS* _ecs;
     };
 }

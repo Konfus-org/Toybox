@@ -1,7 +1,7 @@
 #pragma once
+#include "tbx/common/uuid.h"
 #include "tbx/graphics/shader.h"
 #include "tbx/graphics/texture.h"
-#include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
 #include <memory>
 #include <utility>
@@ -20,9 +20,14 @@ namespace tbx
         {
         }
         explicit ShaderProgram(std::vector<std::shared_ptr<Shader>> shaders)
-            : shaders(std::move(shaders)) {}
+            : shaders(std::move(shaders))
+        {
+        }
 
-        std::vector<std::shared_ptr<Shader>> shaders = {};
+        std::vector<std::shared_ptr<Shader>> shaders = {
+            std::make_shared<Shader>(Shader::default_frag),
+            std::make_shared<Shader>(Shader::default_vert),
+        };
         Uuid id = Uuid::generate();
     };
 
@@ -44,8 +49,10 @@ namespace tbx
         Material(
             std::vector<std::shared_ptr<Shader>> shaders,
             std::vector<std::shared_ptr<Texture>> textures)
-            : shader_program(ShaderProgram(std::move(shaders)))
-            , textures(std::move(textures)) {}
+            : shader_program(ShaderProgram(shaders))
+            , textures(textures)
+        {
+        }
 
         ShaderProgram shader_program = {};
         std::vector<std::shared_ptr<Texture>> textures = {};

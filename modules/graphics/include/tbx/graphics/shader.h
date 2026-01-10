@@ -1,8 +1,8 @@
 #pragma once
+#include "tbx/common/uuid.h"
 #include "tbx/graphics/color.h"
 #include "tbx/math/matrices.h"
 #include "tbx/math/vectors.h"
-#include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
 #include <memory>
 #include <string>
@@ -42,12 +42,15 @@ namespace tbx
         std::string source = "";
         ShaderType type = ShaderType::None;
         Uuid id = Uuid::generate();
+
+        static const Shader default_vert;
+        static const Shader default_frag;
     };
 
     // Compiles a shader.
     class TBX_API IShaderCompiler
     {
-    public:
+      public:
         virtual ~IShaderCompiler() = default;
 
         // Compiles a shader.
