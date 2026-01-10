@@ -51,22 +51,22 @@ namespace tbx
         return static_cast<int>(value);
     }
 
-    TimeSpan::operator std::string() const
+    std::string to_string(const TimeSpan& time_span)
     {
-        switch (unit)
+        switch (time_span.unit)
         {
             case TimeUnit::Milliseconds:
-                return std::to_string(value) + " ms";
+                return std::to_string(time_span.value) + " ms";
             case TimeUnit::Seconds:
-                return std::to_string(value) + " s";
+                return std::to_string(time_span.value) + " s";
             case TimeUnit::Minutes:
-                return std::to_string(value) + " min";
+                return std::to_string(time_span.value) + " min";
             case TimeUnit::Hours:
-                return std::to_string(value) + " h";
+                return std::to_string(time_span.value) + " h";
             case TimeUnit::Days:
-                return std::to_string(value) + " d";
+                return std::to_string(time_span.value) + " d";
             default:
-                return std::to_string(value) + " (unknown unit)";
+                return std::to_string(time_span.value) + " (unknown unit)";
         }
     }
 }

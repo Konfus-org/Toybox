@@ -88,7 +88,7 @@ namespace tbx
             return false;
 
         if (tick_callback)
-            tick_callback(static_cast<std::size_t>(time_left.value));
+            tick_callback(time_left.value);
 
         return true;
     }

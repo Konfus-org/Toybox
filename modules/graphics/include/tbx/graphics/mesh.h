@@ -1,13 +1,13 @@
 #pragma once
-#include "tbx/graphics/vertex.h"
+#include "tbx/common/int.h"
 #include "tbx/common/uuid.h"
+#include "tbx/graphics/vertex.h"
 #include "tbx/tbx_api.h"
-#include <cstdint>
 #include <vector>
 
 namespace tbx
 {
-    using IndexBuffer = std::vector<std::uint32_t>;
+    using IndexBuffer = std::vector<uint32>;
 
     struct TBX_API Mesh
     {

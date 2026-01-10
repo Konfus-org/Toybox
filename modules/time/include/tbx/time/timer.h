@@ -1,8 +1,8 @@
 #pragma once
 #include "tbx/async/cancellation_token.h"
+#include "tbx/common/int.h"
 #include "tbx/tbx_api.h"
 #include "tbx/time/time_span.h"
-#include <cstddef>
 #include <functional>
 
 namespace tbx
@@ -29,7 +29,7 @@ namespace tbx
 
         TimeSpan time_length = {};
         TimeSpan time_left = {};
-        std::function<void(std::size_t)> tick_callback;
+        std::function<void(uint64)> tick_callback;
         std::function<void()> time_up_callback;
         std::function<void()> cancel_callback;
         CancellationSource cancellation_source;

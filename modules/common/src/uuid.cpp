@@ -55,16 +55,9 @@ namespace tbx
         return value >= other.value;
     }
 
-    Uuid::operator std::uint32_t() const
+    Uuid::operator uint32() const
     {
         return value;
-    }
-
-    Uuid::operator std::string() const
-    {
-        std::ostringstream stream = {};
-        stream << std::hex << value;
-        return stream.str();
     }
 
     bool Uuid::operator==(const Uuid& other) const
@@ -75,6 +68,13 @@ namespace tbx
     bool Uuid::operator!=(const Uuid& other) const
     {
         return !(value == other.value);
+    }
+
+    std::string to_string(const Uuid& value)
+    {
+        std::ostringstream stream = {};
+        stream << std::hex << value.value;
+        return stream.str();
     }
 
 }

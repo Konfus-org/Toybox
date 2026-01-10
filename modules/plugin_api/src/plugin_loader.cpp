@@ -1,4 +1,5 @@
 #include "tbx/plugin_api/plugin_loader.h"
+#include "tbx/common/int.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/files/filesystem.h"
@@ -121,17 +122,18 @@ namespace tbx
     static std::vector<PluginMeta> resolve_plugin_load_order(
         const std::vector<PluginMeta>& plugins)
     {
-        std::unordered_map<std::string, std::size_t> by_name_lookup;
+        std::unordered_map<std::string, uint64> by_name_lookup;
         by_name_lookup.reserve(plugins.size());
-        for (std::size_t index = 0; index < plugins.size(); ++index)
+        const auto plugin_count = static_cast<uint64>(plugins.size());
+        for (uint64 index = 0; index < plugin_count; ++index)
         {
             by_name_lookup.emplace(ToLower(plugins[index].name), index);
         }
 
-        std::vector<std::vector<std::size_t>> dependencies(plugins.size());
-        for (std::size_t index = 0; index < plugins.size(); ++index)
+        std::vector<std::vector<uint64>> dependencies(plugins.size());
+        for (uint64 index = 0; index < plugin_count; ++index)
         {
-            std::unordered_set<std::size_t> unique;
+            std::unordered_set<uint64> unique;
             for (const std::string& dependency : plugins[index].dependencies)
             {
                 const std::string needle = ToLower(TrimString(dependency));
@@ -151,19 +153,19 @@ namespace tbx
             }
         }
 
-        std::vector<std::size_t> indegree(plugins.size(), 0);
-        std::vector<std::vector<std::size_t>> adjacency(plugins.size());
-        for (std::size_t index = 0; index < plugins.size(); ++index)
+        std::vector<uint64> indegree(plugins.size(), 0);
+        std::vector<std::vector<uint64>> adjacency(plugins.size());
+        for (uint64 index = 0; index < plugin_count; ++index)
         {
-            for (std::size_t dependency : dependencies[index])
+            for (uint64 dependency : dependencies[index])
             {
                 adjacency[dependency].push_back(index);
                 indegree[index] += 1;
             }
         }
 
-        std::deque<std::size_t> ready;
-        for (std::size_t index = 0; index < plugins.size(); ++index)
+        std::deque<uint64> ready;
+        for (uint64 index = 0; index < plugin_count; ++index)
         {
             if (indegree[index] == 0)
                 ready.push_back(index);
@@ -173,11 +175,11 @@ namespace tbx
         ordered.reserve(plugins.size());
         while (!ready.empty())
         {
-            const std::size_t current = ready.front();
+            const uint64 current = ready.front();
             ready.pop_front();
             ordered.push_back(plugins[current]);
 
-            for (std::size_t dependent : adjacency[current])
+            for (uint64 dependent : adjacency[current])
             {
                 indegree[dependent] -= 1;
                 if (indegree[dependent] == 0)
@@ -240,18 +242,19 @@ namespace tbx
             metas = discovered;
         else
         {
-            std::unordered_map<std::string, std::size_t> by_name_lookup;
+            std::unordered_map<std::string, uint64> by_name_lookup;
             by_name_lookup.reserve(discovered.size());
-            for (std::size_t index = 0; index < discovered.size(); ++index)
+            const auto discovered_count = static_cast<uint64>(discovered.size());
+            for (uint64 index = 0; index < discovered_count; ++index)
             {
                 const std::string lowered_name = ToLower(discovered[index].name);
                 by_name_lookup.emplace(lowered_name, index);
             }
 
-            std::unordered_set<std::size_t> selected;
-            std::deque<std::size_t> pending;
+            std::unordered_set<uint64> selected;
+            std::deque<uint64> pending;
 
-            auto enqueue_index = [&](std::size_t index)
+            auto enqueue_index = [&](uint64 index)
             {
                 if (selected.insert(index).second)
                 {
@@ -280,7 +283,7 @@ namespace tbx
 
             while (!pending.empty())
             {
-                std::size_t index = pending.front();
+                uint64 index = pending.front();
                 pending.pop_front();
                 metas.push_back(discovered[index]);
                 for (const std::string& dependency : discovered[index].dependencies)

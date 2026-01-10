@@ -1,3 +1,4 @@
+#include "tbx/common/int.h"
 #include "tbx/common/string_utils.h"
 #include <algorithm>
 #include <cctype>
@@ -6,15 +7,17 @@ namespace tbx
 {
     std::string TrimString(std::string_view value)
     {
-        std::size_t start = 0;
-        std::size_t end = value.size();
+        uint64 start = 0;
+        uint64 end = static_cast<uint64>(value.size());
 
-        while (start < end && std::isspace(static_cast<unsigned char>(value[start])) != 0)
+        while (start < end
+            && std::isspace(static_cast<unsigned char>(value[start])) != 0)
         {
             ++start;
         }
 
-        while (end > start && std::isspace(static_cast<unsigned char>(value[end - 1])) != 0)
+        while (end > start
+            && std::isspace(static_cast<unsigned char>(value[end - 1])) != 0)
         {
             --end;
         }
@@ -75,11 +78,11 @@ namespace tbx
         }
 
         std::string result = {};
-        std::size_t search_start = 0;
+        uint64 search_start = 0;
 
-        while (search_start < value.size())
+        while (search_start < static_cast<uint64>(value.size()))
         {
-            std::size_t found = value.find(target, search_start);
+            const auto found = value.find(target, search_start);
             if (found == std::string_view::npos)
             {
                 result.append(value.substr(search_start));
@@ -88,7 +91,7 @@ namespace tbx
 
             result.append(value.substr(search_start, found - search_start));
             result.append(replacement);
-            search_start = found + target.size();
+            search_start = static_cast<uint64>(found + target.size());
         }
 
         return result;

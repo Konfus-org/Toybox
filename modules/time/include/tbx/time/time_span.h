@@ -23,10 +23,13 @@ namespace tbx
 
         operator bool() const;
         operator int() const;
-        operator std::string() const;
         operator std::chrono::steady_clock::duration() const;
 
         uint64 value = 0;
         TimeUnit unit = TimeUnit::Milliseconds;
     };
+
+    /// <summary>Purpose: Formats a TimeSpan value with its unit for display.</summary>
+    /// <remarks>Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for concurrent use.</remarks>
+    TBX_API std::string to_string(const TimeSpan& time_span);
 }

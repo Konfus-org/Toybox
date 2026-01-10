@@ -24,4 +24,9 @@ namespace tbx
         dt.milliseconds = secs * 1000.0;
         return dt;
     }
+
+    std::string to_string(const DeltaTime& delta_time)
+    {
+        return std::to_string(delta_time.seconds) + "s";
+    }
 }
