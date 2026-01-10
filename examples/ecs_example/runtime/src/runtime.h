@@ -1,6 +1,11 @@
 #pragma once
 #include "tbx/plugin_api/plugin.h"
 
+namespace tbx
+{
+    class ECS;
+}
+
 namespace tbx::examples
 {
     class ExampleRuntimePlugin final : public Plugin

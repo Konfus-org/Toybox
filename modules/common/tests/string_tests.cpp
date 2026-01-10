@@ -2,6 +2,7 @@
 #include "tbx/common/string_utils.h"
 #include <array>
 #include <string>
+#include <string_view>
 
 namespace tbx::tests::common
 {
@@ -51,7 +52,7 @@ namespace tbx::tests::common
     {
         const std::string value = "path/./file";
 
-        const auto stripped = remove(value, "./");
+        const auto stripped = remove(value, std::string_view{"./"});
         EXPECT_EQ(stripped, "path/file");
 
         const auto removed_char = remove("a-b-c", '-');
