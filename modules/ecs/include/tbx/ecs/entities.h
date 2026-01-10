@@ -1,6 +1,8 @@
 #pragma once
+#include "tbx/common/int.h"
 #include "tbx/common/uuid.h"
 #include "tbx/ecs/registry.h"
+#include <string>
 
 namespace tbx
 {
@@ -49,7 +51,7 @@ namespace tbx
 
         Uuid get_id() const
         {
-            return static_cast<std::uint32_t>(_handle);
+            return static_cast<uint32>(_handle);
         }
 
         EntityDescription& get_description() const
@@ -92,17 +94,14 @@ namespace tbx
             return _registry->view<Block...>();
         }
 
-        operator std::string() const
-        {
-            const auto& desc = get_description();
-            return std::string("Toy(ID: ") + std::to_string(static_cast<std::uint32_t>(_handle))
-                   + ", Name: " + desc.name + ", Tag: " + desc.tag + ", Layer: " + desc.layer + ")";
-        }
-
       private:
         EntityRegistry* _registry;
         EntityHandle _handle;
     };
+
+    /// <summary>Purpose: Formats an entity identifier and description for debugging output.</summary>
+    /// <remarks>Ownership: Returns an owned std::string. Thread Safety: Safe for concurrent use when the entity is not mutated.</remarks>
+    TBX_API std::string to_string(const Entity& entity);
 
     // A RAII scope for an entity.
     // Ownership: value type; callers own any copies created from this class. Owns the underlying

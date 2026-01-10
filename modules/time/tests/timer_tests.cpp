@@ -28,7 +28,7 @@ namespace tbx::tests::time
             time_up = true;
         };
         bool tick_called = false;
-        timer.tick_callback = [&](std::size_t remaining)
+        timer.tick_callback = [&](uint64 remaining)
         {
             tick_called = true;
             (void)remaining;

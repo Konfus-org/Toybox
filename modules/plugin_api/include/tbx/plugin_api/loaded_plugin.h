@@ -22,10 +22,9 @@ namespace tbx
         PluginMeta meta;
         std::unique_ptr<SharedLibrary> library; // only set for dynamic plugins
         PluginInstance instance;
-
-        operator std::string() const
-        {
-            return "Name=" + meta.name + ", Version=" + meta.version;
-        }
     };
+
+    /// <summary>Purpose: Formats a LoadedPlugin summary string.</summary>
+    /// <remarks>Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for concurrent use.</remarks>
+    TBX_API std::string to_string(const LoadedPlugin& loaded);
 }

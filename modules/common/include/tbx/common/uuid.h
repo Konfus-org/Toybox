@@ -1,7 +1,7 @@
 #pragma once
+#include "tbx/common/int.h"
 #include "tbx/tbx_api.h"
 #include <cstddef>
-#include <cstdint>
 #include <functional>
 #include <string>
 
@@ -10,7 +10,7 @@ namespace tbx
     struct TBX_API Uuid
     {
         Uuid() = default;
-        Uuid(std::uint32_t v)
+        Uuid(uint32 v)
             : value(v)
         {
         }
@@ -19,8 +19,7 @@ namespace tbx
         bool is_valid() const;
 
         operator bool() const;
-        operator std::uint32_t() const;
-        operator std::string() const;
+        operator uint32() const;
         bool operator!() const;
         bool operator<(const Uuid& other) const;
         bool operator>(const Uuid& other) const;
@@ -29,8 +28,12 @@ namespace tbx
         bool operator==(const Uuid& other) const;
         bool operator!=(const Uuid& other) const;
 
-        std::uint32_t value = 0U;
+        uint32 value = 0U;
     };
+
+    /// <summary>Purpose: Formats a UUID value as a hex string.</summary>
+    /// <remarks>Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for concurrent use.</remarks>
+    TBX_API std::string to_string(const Uuid& value);
 
     namespace invalid
     {
@@ -44,9 +47,9 @@ namespace std
     template <>
     struct hash<tbx::Uuid>
     {
-        size_t operator()(const tbx::Uuid& value) const
+        std::size_t operator()(const tbx::Uuid& value) const
         {
-            return hash<std::uint32_t>()(static_cast<const std::uint32_t&>(value));
+            return hash<tbx::uint32>()(static_cast<tbx::uint32>(value));
         }
     };
 }

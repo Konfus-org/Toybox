@@ -12,12 +12,11 @@ namespace tbx
     {
         double seconds = 0.0;
         double milliseconds = 0.0;
-
-        operator std::string() const
-        {
-            return std::to_string(seconds) + "s";
-        }
     };
+
+    /// <summary>Purpose: Formats a DeltaTime as a human-readable string.</summary>
+    /// <remarks>Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for concurrent use.</remarks>
+    TBX_API std::string to_string(const DeltaTime& delta_time);
 
     // Simple per-thread timer to compute DeltaTime.
     // Thread-safety: Not thread-safe; use a separate instance per thread.
