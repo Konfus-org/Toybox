@@ -7,16 +7,6 @@
 namespace tbx
 {
     Camera::Camera()
-
-        : _target_surface()
-
-    {
-
-        set_perspective(_fov, _aspect, _z_near, _z_far);
-    }
-
-    Camera::Camera(const RenderSurface& surface)
-        : _target_surface(surface)
     {
         set_perspective(_fov, _aspect, _z_near, _z_far);
     }
@@ -115,8 +105,4 @@ namespace tbx
         return Frustum(view_projection);
     }
 
-    const RenderSurface& Camera::get_surface()
-    {
-        return _target_surface;
-    }
 }

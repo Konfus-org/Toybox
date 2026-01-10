@@ -1,0 +1,66 @@
+#pragma once
+#include "opengl_mesh.h"
+#include "opengl_resource.h"
+#include "opengl_shader.h"
+#include "opengl_texture.h"
+#include "sdl_windowing_messages.h"
+#include "tbx/common/int.h"
+#include "tbx/graphics/color.h"
+#include "tbx/graphics/material.h"
+#include "tbx/graphics/model.h"
+#include "tbx/graphics/window.h"
+#include "tbx/math/matrices.h"
+#include "tbx/messages/observable.h"
+#include "tbx/plugin_api/plugin.h"
+#include <memory>
+#include <unordered_map>
+
+namespace tbx::plugins::openglrendering
+{
+    /// <summary>OpenGL rendering backend plugin.</summary>
+    /// <remarks>Purpose: Implements GPU resource creation and frame rendering for OpenGL.
+    /// Ownership: Owns OpenGL resources created through this backend.
+    /// Thread Safety: Not thread-safe; call from the render thread.</remarks>
+    class OpenGlRenderingPlugin final : public Plugin
+    {
+      public:
+        /// <summary>Initializes the plugin with the host application.</summary>
+        /// <remarks>Purpose: Stores the host for message dispatch and prepares state.
+        /// Ownership: Does not take ownership of the host.
+        /// Thread Safety: Called on the main thread during plugin attach.</remarks>
+        void on_attach(Application& host) override;
+
+        /// <summary>Handles incoming messages.</summary>
+        /// <remarks>Purpose: Reacts to context readiness notifications.
+        /// Ownership: Does not take ownership of messages.
+        /// Thread Safety: Called on the dispatcher thread (typically main thread).</remarks>
+        void on_recieve_message(Message& msg) override;
+
+        /// <summary>Updates rendering each frame.</summary>
+        /// <remarks>Purpose: Renders all entities with model components using camera data when
+        /// available.
+        /// Ownership: Does not take ownership of any entity data.
+        /// Thread Safety: Called on the main/render thread.</remarks>
+        void on_update(const DeltaTime& dt) override;
+
+      private:
+        void handle_window_ready(WindowContextReadyEvent& event);
+        void handle_window_resized(PropertyChangedEvent<Window, Size>& event);
+        void initialize_opengl() const;
+        void draw_models(const Mat4& view_projection);
+        void draw_models_for_cameras(const Size& window_size);
+        std::shared_ptr<OpenGlMesh> get_mesh(const Mesh& mesh);
+        std::shared_ptr<OpenGlShader> get_shader(const Shader& shader);
+        std::shared_ptr<OpenGlShaderProgram> get_shader_program(const Material& material);
+        std::shared_ptr<OpenGlTexture> get_texture(const Texture& texture);
+
+        bool _is_gl_ready = false;
+        std::unordered_map<Uuid, Size> _window_sizes = {};
+        std::unordered_map<Uuid, std::shared_ptr<OpenGlMesh>> _meshes = {};
+        std::unordered_map<Uuid, std::shared_ptr<OpenGlShader>> _shaders = {};
+        std::unordered_map<Uuid, std::shared_ptr<OpenGlShaderProgram>> _shader_programs = {};
+        std::unordered_map<Uuid, std::shared_ptr<OpenGlTexture>> _textures = {};
+    };
+}
+
+TBX_REGISTER_PLUGIN(OpenGlRenderingPlugin, tbx::plugins::openglrendering::OpenGlRenderingPlugin);
