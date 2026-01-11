@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/common/int.h"
+#include "tbx/graphics/mesh.h"
 #include "tbx/graphics/vertex.h"
 
 namespace tbx::plugins::openglrendering

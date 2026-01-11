@@ -62,5 +62,3 @@ namespace tbx::plugins::openglrendering
         std::unordered_map<Uuid, std::shared_ptr<OpenGlTexture>> _textures = {};
     };
 }
-
-TBX_REGISTER_PLUGIN(OpenGlRenderingPlugin, tbx::plugins::openglrendering::OpenGlRenderingPlugin);

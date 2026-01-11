@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/ecs/entities.h"
 #include "tbx/plugin_api/plugin.h"
 
 namespace tbx::examples

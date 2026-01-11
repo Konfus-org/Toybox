@@ -1,9 +1,8 @@
 #include "runtime.h"
 #include "tbx/app/application.h"
 #include "tbx/common/string_utils.h"
-#include <string>
 #include "tbx/debugging/macros.h"
-#include "tbx/ecs/toys.h"
+#include <string>
 
 namespace tbx::examples
 {
