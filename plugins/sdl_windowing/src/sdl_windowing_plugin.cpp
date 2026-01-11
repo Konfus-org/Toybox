@@ -388,7 +388,6 @@ namespace tbx::plugins
 
         const auto get_proc_address =
             reinterpret_cast<GraphicsProcAddress>(SDL_GL_GetProcAddress);
-
         send_message<WindowContextReadyEvent>(
             tbx_window->id,
             get_proc_address,
