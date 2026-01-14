@@ -25,6 +25,8 @@ function(tbx_collect_plugin_dependencies target out_var)
     if(NOT interface_linked)
         set(interface_linked "")
     endif()
+    
+    target_precompile_headers(${target} PRIVATE "${PROJECT_SOURCE_DIR}/modules/common/include/tbx/pch.h")
 
     # Combine the link interfaces and filter for plugin-aware targets.
     set(all_links ${linked} ${interface_linked})

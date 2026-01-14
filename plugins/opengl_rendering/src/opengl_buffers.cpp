@@ -28,9 +28,7 @@ namespace tbx::plugins::openglrendering
             return GL_INT;
         }
 
-        TBX_ASSERT(
-            false,
-            "OpenGL rendering: could not convert vertex data to OpenGL type.");
+        TBX_ASSERT(false, "OpenGL rendering: could not convert vertex data to OpenGL type.");
         return GL_NONE;
     }
 
@@ -82,8 +80,8 @@ namespace tbx::plugins::openglrendering
         bool normalized) const
     {
         glEnableVertexAttribArray(index);
-        const auto* attribute_offset = reinterpret_cast<const void*>(
-            static_cast<std::uintptr_t>(offset));
+        const auto* attribute_offset =
+            reinterpret_cast<const void*>(static_cast<std::uintptr_t>(offset));
         if (type == GL_INT && !normalized)
         {
             glVertexAttribIPointer(index, size, type, stride, attribute_offset);

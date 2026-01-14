@@ -15,7 +15,7 @@ namespace tbx
         out vec2 tex_coord;
 
         uniform mat4 view_proj_uniform;
-        uniform mat4 transform_uniform;
+        uniform mat4 model_uniform;
         uniform vec4 color_uniform = vec4(1.0, 1.0, 1.0, 1.0);
 
         void main()
@@ -23,7 +23,7 @@ namespace tbx
             color = color_uniform;
             vert_color = in_vert_color;
             tex_coord = in_tex_coord;
-            gl_Position = view_proj_uniform * transform_uniform * vec4(in_position, 1.0);
+            gl_Position = view_proj_uniform * model_uniform * vec4(in_position, 1.0);
         }
     )";
 

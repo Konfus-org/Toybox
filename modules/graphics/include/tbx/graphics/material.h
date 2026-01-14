@@ -53,7 +53,17 @@ namespace tbx
             , textures(textures)
         {
         }
+        Material(
+            RgbaColor rgba_color,
+            std::vector<std::shared_ptr<Shader>> shaders,
+            std::vector<std::shared_ptr<Texture>> textures)
+            : color(rgba_color)
+            , shader_program(ShaderProgram(shaders))
+            , textures(textures)
+        {
+        }
 
+        RgbaColor color = {255, 255, 255, 255};
         ShaderProgram shader_program = {};
         std::vector<std::shared_ptr<Texture>> textures = {};
         Uuid id = Uuid::generate();

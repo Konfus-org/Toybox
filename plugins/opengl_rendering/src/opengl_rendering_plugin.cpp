@@ -232,8 +232,13 @@ namespace tbx::plugins::openglrendering
             program->upload(view_projection_uniform);
 
             ShaderUniform model_uniform = {};
-            model_uniform.name = "u_model";
+            model_uniform.name = "model_uniform";
             model_uniform.data = model_matrix;
+            program->upload(model_uniform);
+
+            ShaderUniform color_uniform = {};
+            model_uniform.name = "color_uniform";
+            model_uniform.data = model.material.color;
             program->upload(model_uniform);
 
             std::vector<GlResourceScope> texture_scopes = {};

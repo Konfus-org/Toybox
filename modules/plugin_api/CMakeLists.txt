@@ -3,13 +3,11 @@ tbx_add_module(PluginApi)
 file(GLOB_RECURSE INCL CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.*")
 file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
 target_sources(PluginApi PRIVATE ${SRCS} ${INCL})
-target_precompile_headers(PluginApi PRIVATE "${PROJECT_SOURCE_DIR}/modules/common/include/tbx/pch.h")
 
 target_compile_definitions(PluginApi
     PUBLIC
         TBX_PLUGIN_ABI_VERSION=${TBX_PLUGIN_ABI_VERSION}
 )
-
 
 target_include_directories(PluginApi
     PUBLIC

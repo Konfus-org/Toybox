@@ -7,7 +7,8 @@ int main()
         .name = "EcsExample",
         .logs_directory = "./logs",
         .plugins_directory = "./",
-        .requested_plugins = {"EcsRuntimeRuntime"}};
+        .requested_plugins = {"EcsRuntimeRuntime"},
+    };
     auto app = tbx::Application(desc);
 
     // Run the application main loop
