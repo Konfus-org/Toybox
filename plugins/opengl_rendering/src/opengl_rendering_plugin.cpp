@@ -52,7 +52,31 @@ namespace tbx::plugins::openglrendering
         }
     }
 
-    void OpenGlRenderingPlugin::on_attach(Application&) {}
+    void OpenGlRenderingPlugin::on_attach(Application& host)
+    {
+        _render_resolution = host.get_settings().resolution.value;
+    }
+
+    void OpenGlRenderingPlugin::on_detach()
+    {
+        if (!_is_gl_ready)
+        {
+            _render_targets.clear();
+            return;
+        }
+
+        for (auto& entry : _render_targets)
+        {
+            const Uuid& window_id = entry.first;
+            const auto result = send_message<WindowMakeCurrentRequest>(window_id);
+            if (!result)
+            {
+                continue;
+            }
+            release_render_target(entry.second);
+        }
+        _render_targets.clear();
+    }
 
     void OpenGlRenderingPlugin::on_update(const DeltaTime&)
     {
@@ -75,6 +99,17 @@ namespace tbx::plugins::openglrendering
                 continue;
             }
 
+            const Size render_resolution = get_effective_resolution(window_size);
+            ensure_render_target(window_id, render_resolution);
+            auto target_it = _render_targets.find(window_id);
+            if (target_it == _render_targets.end() || target_it->second.framebuffer == 0U)
+            {
+                continue;
+            }
+
+            const RenderTarget& target = target_it->second;
+
+            glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(target.framebuffer));
             glEnable(GL_DEPTH_TEST);
             glDepthMask(GL_TRUE);
             glClearDepth(1.0);
@@ -83,10 +118,30 @@ namespace tbx::plugins::openglrendering
             glViewport(
                 0,
                 0,
+                static_cast<GLsizei>(render_resolution.width),
+                static_cast<GLsizei>(render_resolution.height));
+
+            draw_models_for_cameras(render_resolution);
+
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(target.framebuffer));
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+            glBlitFramebuffer(
+                0,
+                0,
+                static_cast<GLint>(render_resolution.width),
+                static_cast<GLint>(render_resolution.height),
+                0,
+                0,
+                static_cast<GLint>(window_size.width),
+                static_cast<GLint>(window_size.height),
+                GL_COLOR_BUFFER_BIT,
+                GL_NEAREST);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glViewport(
+                0,
+                0,
                 static_cast<GLsizei>(window_size.width),
                 static_cast<GLsizei>(window_size.height));
-
-            draw_models_for_cameras(window_size);
 
             glFlush();
 
@@ -118,6 +173,17 @@ namespace tbx::plugins::openglrendering
                 [this](PropertyChangedEvent<Window, Size>& event)
                 {
                     handle_window_resized(event);
+                }))
+        {
+            return;
+        }
+
+        if (on_property_changed(
+                msg,
+                &AppSettings::resolution,
+                [this](PropertyChangedEvent<AppSettings, Size>& event)
+                {
+                    handle_resolution_changed(event);
                 }))
         {
             return;
@@ -167,6 +233,11 @@ namespace tbx::plugins::openglrendering
         }
     }
 
+    void OpenGlRenderingPlugin::handle_resolution_changed(PropertyChangedEvent<AppSettings, Size>& event)
+    {
+        _render_resolution = event.current;
+    }
+
     void OpenGlRenderingPlugin::initialize_opengl() const
     {
         TBX_TRACE_INFO("OpenGL rendering: initializing OpenGL.");
@@ -203,6 +274,122 @@ namespace tbx::plugins::openglrendering
         glEnable(GL_BLEND);
         glDepthFunc(GL_LEQUAL);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    Size OpenGlRenderingPlugin::get_effective_resolution(const Size& window_size) const
+    {
+        Size resolution = _render_resolution;
+        if (resolution.width == 0U || resolution.height == 0U)
+        {
+            resolution = window_size;
+        }
+
+        if (resolution.width == 0U)
+        {
+            resolution.width = 1U;
+        }
+
+        if (resolution.height == 0U)
+        {
+            resolution.height = 1U;
+        }
+
+        return resolution;
+    }
+
+    void OpenGlRenderingPlugin::ensure_render_target(const Uuid& window_id, const Size& resolution)
+    {
+        RenderTarget& target = _render_targets[window_id];
+        if (target.framebuffer != 0U && target.resolution.width == resolution.width
+            && target.resolution.height == resolution.height)
+        {
+            return;
+        }
+
+        release_render_target(target);
+        target.resolution = resolution;
+
+        GLuint framebuffer = 0;
+        glGenFramebuffers(1, &framebuffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+        GLuint color_texture = 0;
+        glGenTextures(1, &color_texture);
+        glBindTexture(GL_TEXTURE_2D, color_texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGBA8,
+            static_cast<GLsizei>(resolution.width),
+            static_cast<GLsizei>(resolution.height),
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            nullptr);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color_texture, 0);
+
+        GLuint depth_buffer = 0;
+        glGenRenderbuffers(1, &depth_buffer);
+        glBindRenderbuffer(GL_RENDERBUFFER, depth_buffer);
+        glRenderbufferStorage(
+            GL_RENDERBUFFER,
+            GL_DEPTH24_STENCIL8,
+            static_cast<GLsizei>(resolution.width),
+            static_cast<GLsizei>(resolution.height));
+        glFramebufferRenderbuffer(
+            GL_FRAMEBUFFER,
+            GL_DEPTH_STENCIL_ATTACHMENT,
+            GL_RENDERBUFFER,
+            depth_buffer);
+
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        {
+            TBX_TRACE_ERROR("OpenGL rendering: failed to build render target framebuffer.");
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glDeleteFramebuffers(1, &framebuffer);
+            glDeleteTextures(1, &color_texture);
+            glDeleteRenderbuffers(1, &depth_buffer);
+            target.resolution = {};
+            return;
+        }
+
+        target.framebuffer = static_cast<uint32>(framebuffer);
+        target.color_texture = static_cast<uint32>(color_texture);
+        target.depth_buffer = static_cast<uint32>(depth_buffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+
+    void OpenGlRenderingPlugin::release_render_target(RenderTarget& target) const
+    {
+        if (target.framebuffer != 0U)
+        {
+            GLuint framebuffer = static_cast<GLuint>(target.framebuffer);
+            glDeleteFramebuffers(1, &framebuffer);
+            target.framebuffer = 0U;
+        }
+
+        if (target.color_texture != 0U)
+        {
+            GLuint color_texture = static_cast<GLuint>(target.color_texture);
+            glDeleteTextures(1, &color_texture);
+            target.color_texture = 0U;
+        }
+
+        if (target.depth_buffer != 0U)
+        {
+            GLuint depth_buffer = static_cast<GLuint>(target.depth_buffer);
+            glDeleteRenderbuffers(1, &depth_buffer);
+            target.depth_buffer = 0U;
+        }
+
+        target.resolution = {};
     }
 
     void OpenGlRenderingPlugin::draw_models(const Mat4& view_projection)
