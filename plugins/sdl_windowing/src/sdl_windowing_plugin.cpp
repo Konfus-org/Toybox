@@ -386,9 +386,11 @@ namespace tbx::plugins
                 SDL_GetError());
         }
 
+        const auto get_proc_address =
+            reinterpret_cast<GraphicsProcAddress>(SDL_GL_GetProcAddress);
         send_message<WindowContextReadyEvent>(
             tbx_window->id,
-            SDL_GL_GetProcAddress,
+            get_proc_address,
             tbx_window->size.value);
         return context;
     }
