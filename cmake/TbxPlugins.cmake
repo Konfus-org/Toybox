@@ -64,11 +64,13 @@ endfunction()
 #   VERSION       - Semantic version string (required).
 #   DESCRIPTION   - Optional descriptive text.
 #   MODULE        - Optional override for module/manifest output directory.
-#   DEPENDENCIES  - Additional dependency identifiers to record.
-#   STATIC        - Flag indicating the plugin is statically linked.
+#   DEPENDENCIES      - Additional dependency identifiers to record.
+#   STATIC            - Flag indicating the plugin is statically linked.
+#   CATEGORY   - Optional update category (default, input, audio, physics, rendering, gameplay).
+#   PRIORITY   - Optional update priority integer (lower updates first).
 function(tbx_register_plugin)
     set(options STATIC)
-    set(one_value_args TARGET CLASS HEADER NAME VERSION DESCRIPTION MODULE)
+    set(one_value_args TARGET CLASS HEADER NAME VERSION DESCRIPTION MODULE CATEGORY PRIORITY)
     set(multi_value_args DEPENDENCIES)
     cmake_parse_arguments(TBX_PLUGIN "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
@@ -102,6 +104,32 @@ function(tbx_register_plugin)
     if(TBX_PLUGIN_STATIC)
         set(is_static TRUE)
         set(register_macro "TBX_REGISTER_STATIC_PLUGIN")
+    endif()
+
+    if(DEFINED TBX_PLUGIN_CATEGORY)
+        set(update_category "${TBX_PLUGIN_CATEGORY}")
+    else()
+        set(update_category "default")
+    endif()
+    string(TOLOWER "${update_category}" update_category)
+
+    set(valid_update_categories default input audio physics rendering gameplay)
+    list(FIND valid_update_categories "${update_category}" update_category_index)
+    if(update_category_index EQUAL -1)
+        message(FATAL_ERROR
+            "tbx_register_plugin: CATEGORY '${TBX_PLUGIN_CATEGORY}' must be one of: default, input, audio, physics, rendering, gameplay")
+    endif()
+
+    if(DEFINED TBX_PLUGIN_PRIORITY)
+        set(update_priority "${TBX_PLUGIN_PRIORITY}")
+    else()
+        set(update_priority 0)
+    endif()
+
+    string(REGEX MATCH "^[0-9]+$" update_priority_is_int "${update_priority}")
+    if(NOT update_priority_is_int)
+        message(FATAL_ERROR
+            "tbx_register_plugin: PRIORITY '${TBX_PLUGIN_PRIORITY}' must be a non-negative integer")
     endif()
 
     # Track plugin identifiers on the target so downstream consumers inherit
@@ -235,6 +263,8 @@ function(tbx_register_plugin)
         set(PLUGIN_STATIC_VALUE "false")
     endif()
 
+    set(PLUGIN_CATEGORY "${update_category}")
+    set(PLUGIN_PRIORITY "${update_priority}")
     set(PLUGIN_ABI_VERSION ${TBX_PLUGIN_ABI_VERSION})
 
     configure_file(${meta_template} ${meta_output} @ONLY)

@@ -19,7 +19,7 @@ tbx_register_plugin(
     HEADER "runtime.h"
     NAME "ExampleRuntimePlugin"
     VERSION "1.0.0"
-    TYPE "runtime"
+    CATEGORY "gameplay"
 )
 
 add_library(Tbx::Examples::EcsExampleRuntime ALIAS EcsExampleRuntime)

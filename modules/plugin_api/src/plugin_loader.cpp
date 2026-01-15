@@ -5,6 +5,7 @@
 #include "tbx/files/filesystem.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_registry.h"
+#include <algorithm>
 #include <deque>
 #include <filesystem>
 #include <memory>
@@ -122,6 +123,20 @@ namespace tbx
     static std::vector<PluginMeta> resolve_plugin_load_order(
         const std::vector<PluginMeta>& plugins)
     {
+        const auto is_before_update_order = [](const PluginMeta& left, const PluginMeta& right)
+        {
+            if (left.category != right.category)
+            {
+                return static_cast<uint32>(left.category) <
+                    static_cast<uint32>(right.category);
+            }
+
+            if (left.priority != right.priority)
+                return left.priority < right.priority;
+
+            return to_lower(left.name) < to_lower(right.name);
+        };
+
         std::unordered_map<std::string, uint64> by_name_lookup;
         by_name_lookup.reserve(plugins.size());
         const auto plugin_count = static_cast<uint64>(plugins.size());
@@ -164,7 +179,8 @@ namespace tbx
             }
         }
 
-        std::deque<uint64> ready;
+        std::vector<uint64> ready;
+        ready.reserve(plugin_count);
         for (uint64 index = 0; index < plugin_count; ++index)
         {
             if (indegree[index] == 0)
@@ -175,8 +191,15 @@ namespace tbx
         ordered.reserve(plugins.size());
         while (!ready.empty())
         {
+            std::sort(
+                ready.begin(),
+                ready.end(),
+                [&](uint64 left, uint64 right)
+                {
+                    return is_before_update_order(plugins[left], plugins[right]);
+                });
             const uint64 current = ready.front();
-            ready.pop_front();
+            ready.erase(ready.begin());
             ordered.push_back(plugins[current]);
 
             for (uint64 dependent : adjacency[current])

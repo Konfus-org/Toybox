@@ -40,6 +40,45 @@ namespace tbx
         }
     }
 
+    static bool try_parse_category(
+        const std::string& category_text,
+        PluginCategory& out_category)
+    {
+        const std::string token = to_lower(trim(category_text));
+        if (token == "default")
+        {
+            out_category = PluginCategory::Default;
+            return true;
+        }
+        if (token == "input")
+        {
+            out_category = PluginCategory::Input;
+            return true;
+        }
+        if (token == "audio")
+        {
+            out_category = PluginCategory::Audio;
+            return true;
+        }
+        if (token == "physics")
+        {
+            out_category = PluginCategory::Physics;
+            return true;
+        }
+        if (token == "rendering")
+        {
+            out_category = PluginCategory::Rendering;
+            return true;
+        }
+        if (token == "gameplay")
+        {
+            out_category = PluginCategory::Gameplay;
+            return true;
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Converts manifest JSON data into a populated PluginMeta structure.
     /// </summary>
@@ -70,6 +109,22 @@ namespace tbx
 
         if (!try_assign_required_string(data, "version", meta.version))
             return false;
+
+        std::string category;
+        if (data.try_get_string("category", category))
+        {
+            if (!try_parse_category(category, meta.category))
+                return false;
+        }
+
+        int32 priority = 0;
+        if (data.try_get_int("priority", priority))
+        {
+            if (priority < 0)
+                return false;
+
+            meta.priority = static_cast<uint32>(priority);
+        }
 
         bool is_static = false;
         if (data.try_get_bool("static", is_static))
