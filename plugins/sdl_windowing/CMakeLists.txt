@@ -16,7 +16,7 @@ tbx_register_plugin(
     HEADER "sdl_windowing_plugin.h"
     NAME "SdlWindowingPlugin"
     VERSION "1.0.0"
-    TYPE "windowing"
+    CATEGORY "input"
 )
 
 add_library(Tbx::Plugins::SdlWindowingPlugin ALIAS SdlWindowingPlugin)

@@ -24,6 +24,24 @@ namespace tbx
     /// </remarks>
     inline constexpr uint32 PluginAbiVersion = static_cast<uint32>(TBX_PLUGIN_ABI_VERSION);
 
+    /// <summary>
+    /// Defines plugin scheduling categories used to order plugin updates.
+    /// </summary>
+    /// <remarks>
+    /// Purpose: Describe broad update phases that the host can use when ordering plugin updates.
+    /// Ownership: Not applicable.
+    /// Thread Safety: Immutable enum values.
+    /// </remarks>
+    enum class PluginCategory : uint32
+    {
+        Default = 0,
+        Input = 100,
+        Audio = 200,
+        Physics = 300,
+        Rendering = 400,
+        Gameplay = 500
+    };
+
     // Describes the metadata discovered for a plugin before it is loaded.
     struct TBX_API PluginMeta
     {
@@ -41,6 +59,12 @@ namespace tbx
 
         // ABI version reported by the plugin manifest for compatibility checks.
         uint32 abi_version = PluginAbiVersion;
+
+        // Broad update phase used when ordering plugin updates.
+        PluginCategory category = PluginCategory::Default;
+
+        // Explicit update priority within the update category (lower values update first).
+        uint32 priority = 0;
 
         PluginLinkage linkage = PluginLinkage::Dynamic;
 

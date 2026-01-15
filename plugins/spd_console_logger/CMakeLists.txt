@@ -16,7 +16,7 @@ tbx_register_plugin(
     HEADER "spd_console_logger_plugin.h"
     NAME "SpdConsoleLoggerPlugin"
     VERSION "1.0.0"
-    TYPE "logger"
+    CATEGORY "default"
 )
 
 add_library(Tbx::Plugins::SpdConsoleLoggerPlugin ALIAS SpdConsoleLoggerPlugin)

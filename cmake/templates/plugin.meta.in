@@ -4,6 +4,8 @@
     "abi_version": @PLUGIN_ABI_VERSION@,
 @PLUGIN_DESCRIPTION_ENTRY@
     "module": "@MODULE_NAME@",
+    "category": "@PLUGIN_CATEGORY@",
+    "priority": @PLUGIN_PRIORITY@,
 @PLUGIN_DEPENDENCIES_BLOCK@
     "static": @PLUGIN_STATIC_VALUE@
 }

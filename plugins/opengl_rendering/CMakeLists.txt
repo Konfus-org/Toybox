@@ -17,7 +17,7 @@ tbx_register_plugin(
     HEADER "opengl_rendering_plugin.h"
     NAME "OpenGlRenderingPlugin"
     VERSION "1.0.0"
-    TYPE "rendering"
+    CATEGORY "rendering"
 )
 
 add_library(Tbx::Plugins::OpenGlRenderingPlugin ALIAS OpenGlRenderingPlugin)

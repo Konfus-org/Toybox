@@ -15,6 +15,8 @@ namespace tbx::tests::plugin_api
                 "abi_version": 1,
                 "description": " Example description ",
                 "dependencies": ["Core.Renderer"],
+                "category": "audio",
+                "priority": 250,
                 "module": "bin/logger.so",
                 "static": true
             })JSON";
@@ -31,6 +33,8 @@ namespace tbx::tests::plugin_api
         EXPECT_EQ(meta.description, "Example description");
         ASSERT_EQ(meta.dependencies.size(), 1u);
         EXPECT_EQ(meta.dependencies[0], "Core.Renderer");
+        EXPECT_EQ(meta.category, PluginCategory::Audio);
+        EXPECT_EQ(meta.priority, 250u);
         EXPECT_EQ(meta.root_directory, manifest_path.parent_path());
         EXPECT_EQ(meta.manifest_path, manifest_path);
         EXPECT_EQ(
