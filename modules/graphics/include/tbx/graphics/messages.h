@@ -21,11 +21,13 @@ namespace tbx
         /// Ownership: Copies the identifier value.
         /// Thread Safety: Safe to construct on any thread; handling is render-thread
         /// only.</remarks>
-        WindowMakeCurrentRequest(const Uuid& window_id)
-            : window(window_id)
-        {
-            require_handling = true;
-        }
+        WindowMakeCurrentRequest(const Uuid& window_id);
+
+        /// <summary>Destroys the request instance.</summary>
+        /// <remarks>Purpose: Cleans up the request data.
+        /// Ownership: No ownership transfer or release.
+        /// Thread Safety: Safe to destroy on any thread.</remarks>
+        ~WindowMakeCurrentRequest() override;
 
         Uuid window = invalid::uuid;
     };
@@ -41,11 +43,13 @@ namespace tbx
         /// Ownership: Copies the identifier value.
         /// Thread Safety: Safe to construct on any thread; handling is render-thread
         /// only.</remarks>
-        WindowPresentRequest(const Uuid& window_id)
-            : window(window_id)
-        {
-            require_handling = true;
-        }
+        WindowPresentRequest(const Uuid& window_id);
+
+        /// <summary>Destroys the present request instance.</summary>
+        /// <remarks>Purpose: Cleans up the request data.
+        /// Ownership: No ownership transfer or release.
+        /// Thread Safety: Safe to destroy on any thread.</remarks>
+        ~WindowPresentRequest() override;
 
         Uuid window = invalid::uuid;
     };
