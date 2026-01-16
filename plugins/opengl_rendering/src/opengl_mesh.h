@@ -11,7 +11,7 @@ namespace tbx::plugins::openglrendering
     /// <remarks>Purpose: Manages a VAO with vertex and index buffers for drawing.
     /// Ownership: Owns the VAO and associated buffers.
     /// Thread Safety: Not thread-safe; use on the render thread.</remarks>
-    class TBX_API OpenGlMesh final : public IGlResource
+    class OpenGlMesh final : public IGlResource
     {
       public:
         /// <summary>Creates an OpenGL mesh resource from CPU mesh data.</summary>

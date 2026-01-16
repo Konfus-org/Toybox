@@ -8,7 +8,6 @@ target_link_libraries(OpenGlRenderingPlugin PRIVATE
     Tbx::App
     Tbx::Graphics
     glad::glad
-    Tbx::Plugins::SdlWindowingPlugin
 )
 
 tbx_register_plugin(

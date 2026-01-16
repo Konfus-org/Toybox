@@ -6,7 +6,7 @@ target_include_directories(SdlAdapterPlugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/
 
 target_link_libraries(SdlAdapterPlugin PRIVATE
     Tbx::App
-    SDL3::SDL3
+    SDL3::SDL3-shared
 )
 
 tbx_register_plugin(

@@ -1,7 +1,7 @@
 #pragma once
+#include "tbx/graphics/messages.h"
 #include "tbx/graphics/window.h"
 #include "tbx/plugin_api/plugin.h"
-#include "sdl_windowing_messages.h"
 #include <SDL3/SDL.h>
 #include <functional>
 #include <string>

@@ -8,7 +8,7 @@ namespace tbx::plugins::openglrendering
     /// <remarks>Purpose: Provides a common contract for binding OpenGL state.
     /// Ownership: Implementations own their underlying OpenGL handles.
     /// Thread Safety: Not thread-safe; use on the render thread.</remarks>
-    class TBX_API IGlResource
+    class IGlResource
     {
       public:
         /// <summary>Destroys the OpenGL resource.</summary>

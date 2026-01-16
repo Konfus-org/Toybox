@@ -129,9 +129,9 @@ function(tbx_register_plugin)
     endif()
 
     string(REGEX MATCH "^[0-9]+$" update_priority_is_int "${update_priority}")
-    if(NOT update_priority_is_int)
+    if(update_priority_is_int STREQUAL "")
         message(FATAL_ERROR
-            "tbx_register_plugin: PRIORITY '${TBX_PLUGIN_PRIORITY}' must be a non-negative integer")
+            "tbx_register_plugin: PRIORITY '${update_priority}' must be a non-negative integer")
     endif()
 
     # Track plugin identifiers on the target so downstream consumers inherit
@@ -160,8 +160,8 @@ function(tbx_register_plugin)
     endif()
     set(MODULE_NAME ${module_name})
 
-    # Emit generated sources alongside other build artifacts for the target.
-    set(generated_dir ${CMAKE_CURRENT_BINARY_DIR}/generated/)
+    # Emit generated sources alongside other project files.
+    set(generated_dir ${CMAKE_CURRENT_SOURCE_DIR}/generated/)
     file(MAKE_DIRECTORY ${generated_dir})
 
     set(registration_output ${generated_dir}/${TBX_PLUGIN_NAME}_registration.cpp)
@@ -205,7 +205,6 @@ function(tbx_register_plugin)
             set(resolved_header "${CMAKE_CURRENT_SOURCE_DIR}/${header_input}")
         endif()
     endif()
-
     if(NOT EXISTS "${resolved_header}")
         message(
             FATAL_ERROR
@@ -224,13 +223,11 @@ function(tbx_register_plugin)
     else()
         string(REPLACE "\\" "/" header_include "${header_include}")
     endif()
-
     set(PLUGIN_HEADER ${header_include})
 
     # Instantiate the registration source that wires the plugin into the
     # runtime registry.
     configure_file(${registration_template} ${registration_output} @ONLY)
-
     target_sources(${TBX_PLUGIN_TARGET} PRIVATE ${registration_output})
 
     # Build dependency JSON array string

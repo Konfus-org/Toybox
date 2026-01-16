@@ -3,10 +3,11 @@
 #include "opengl_resource.h"
 #include "opengl_shader.h"
 #include "opengl_texture.h"
-#include "sdl_windowing_messages.h"
+#include "tbx/app/application.h"
 #include "tbx/common/int.h"
 #include "tbx/graphics/color.h"
 #include "tbx/graphics/material.h"
+#include "tbx/graphics/messages.h"
 #include "tbx/graphics/model.h"
 #include "tbx/graphics/window.h"
 #include "tbx/math/matrices.h"
@@ -58,6 +59,7 @@ namespace tbx::plugins::openglrendering
             Size resolution = {};
         };
 
+      private:
         void handle_window_ready(WindowContextReadyEvent& event);
         void handle_window_resized(PropertyChangedEvent<Window, Size>& event);
         void handle_resolution_changed(PropertyChangedEvent<AppSettings, Size>& event);
@@ -72,9 +74,10 @@ namespace tbx::plugins::openglrendering
         void ensure_render_target(const Uuid& window_id, const Size& resolution);
         void release_render_target(RenderTarget& target) const;
 
+      private:
         bool _is_gl_ready = false;
         std::unordered_map<Uuid, Size> _window_sizes = {};
-        Size _render_resolution = { 1, 1 };
+        Size _render_resolution = {1, 1};
         std::unordered_map<Uuid, RenderTarget> _render_targets = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlMesh>> _meshes = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlShader>> _shaders = {};

@@ -6,8 +6,9 @@ target_include_directories(SdlWindowingPlugin PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
 
 target_link_libraries(SdlWindowingPlugin PRIVATE
     Tbx::App
-    SDL3::SDL3-shared
+    Tbx::Graphics
     Tbx::Plugins::SdlAdapterPlugin
+    SDL3::SDL3-shared
 )
 
 tbx_register_plugin(
