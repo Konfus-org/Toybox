@@ -7,7 +7,8 @@ int main()
         .name = "PluginExample",
         .logs_directory = "./logs",
         .plugins_directory = "./",
-        .requested_plugins = {"ExampleRuntimePlugin"}};
+        .requested_plugins = {"PluginExampleRuntime"},
+    };
     auto app = tbx::Application(desc);
 
     // Run the application main loop

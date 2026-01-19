@@ -100,10 +100,6 @@ namespace tbx
         auto& fs = get_filesystem();
         auto plug_loader = PluginLoader();
         _loaded = plug_loader.load_plugins(fs.get_plugins_directory(), requested_plugins, fs);
-        TBX_ASSERT(
-            _loaded.size() == requested_plugins.size(),
-            "Loaded plugins don't match requested plugins!");
-
         for (auto& p : _loaded)
         {
             // Register plugin message handler then attach to host

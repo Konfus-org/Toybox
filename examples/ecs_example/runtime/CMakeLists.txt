@@ -17,7 +17,7 @@ tbx_register_plugin(
     TARGET EcsExampleRuntime
     CLASS tbx::examples::ExampleRuntimePlugin
     HEADER "runtime.h"
-    NAME "ExampleRuntimePlugin"
+    NAME "EcsExampleRuntime"
     VERSION "1.0.0"
     CATEGORY "gameplay"
 )
