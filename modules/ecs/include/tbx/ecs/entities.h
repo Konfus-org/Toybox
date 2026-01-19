@@ -106,6 +106,13 @@ namespace tbx
     class ECS
     {
       public:
+        ECS() = default;
+        ~ECS();
+
+        void clear();
+
+        bool is_empty();
+
         Entity create_entity(
             const std::string& name,
             const std::string& tag = "",

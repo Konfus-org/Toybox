@@ -140,6 +140,9 @@ namespace tbx
         _msg_coordinator.send<ApplicationShutdownEvent>(this);
         _msg_coordinator.clear();
 
+        // Clear ECS
+        _ecs.clear();
+
         // Detach all loaded plugins
         for (auto& p : _loaded)
             p.instance->detach();

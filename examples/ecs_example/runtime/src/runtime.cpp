@@ -6,7 +6,6 @@
 #include "tbx/graphics/model.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
-#include <string>
 
 namespace tbx::examples
 {

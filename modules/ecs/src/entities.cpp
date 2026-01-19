@@ -2,6 +2,8 @@
 
 namespace tbx
 {
+    //// Entity class implementation ////
+
     Entity::Entity(EntityRegistry& reg, const EntityHandle& handle)
         : _registry(&reg)
         , _handle(handle)
@@ -30,6 +32,8 @@ namespace tbx
         return _registry->get<EntityDescription>(_handle);
     }
 
+    //// EntityScope class implementation ////
+
     EntityScope::EntityScope(Entity& t)
         : entity(t)
     {
@@ -38,6 +42,26 @@ namespace tbx
     EntityScope::~EntityScope()
     {
         entity.destroy();
+    }
+
+    //// ECS class implementation ////
+
+    ECS::~ECS()
+    {
+        clear();
+    }
+
+    void ECS::clear()
+    {
+        if (is_empty())
+            return;
+
+        _registry.clear();
+    }
+
+    bool ECS::is_empty()
+    {
+        return get_all_entities().empty();
     }
 
     Entity ECS::create_entity(
