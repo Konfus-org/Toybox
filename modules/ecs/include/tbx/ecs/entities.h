@@ -31,33 +31,14 @@ namespace tbx
     {
       public:
         Entity() = default;
-        Entity(EntityRegistry& reg, const EntityHandle& handle)
-            : _registry(&reg)
-            , _handle(handle)
-        {
-        }
+        Entity(EntityRegistry& reg, const EntityHandle& handle);
+        Entity(EntityRegistry& reg, const EntityDescription& desc);
 
-        Entity(EntityRegistry& reg, const EntityDescription& desc)
-            : _registry(&reg)
-            , _handle(reg.create())
-        {
-            _registry->emplace<EntityDescription>(_handle, desc);
-        }
+        void destroy();
 
-        void destroy()
-        {
-            _registry->destroy(_handle);
-        }
+        Uuid get_id() const;
 
-        Uuid get_id() const
-        {
-            return static_cast<uint32>(_handle);
-        }
-
-        EntityDescription& get_description() const
-        {
-            return _registry->get<EntityDescription>(_handle);
-        }
+        EntityDescription& get_description() const;
 
         template <typename TComponent>
         TComponent& add_component(const TComponent& b)
@@ -112,14 +93,8 @@ namespace tbx
     class EntityScope
     {
       public:
-        EntityScope(Entity& t)
-            : entity(t)
-        {
-        }
-        ~EntityScope()
-        {
-            entity.destroy();
-        }
+        EntityScope(Entity& t);
+        ~EntityScope();
 
         Entity entity;
     };
@@ -135,34 +110,13 @@ namespace tbx
             const std::string& name,
             const std::string& tag = "",
             const std::string& layer = "",
-            const Uuid& parent = invalid::uuid)
-        {
-            EntityDescription desc = {};
-            desc.name = name;
-            desc.tag = tag;
-            desc.layer = layer;
-            desc.parent = parent;
-            return Entity(_registry, desc);
-        }
+            const Uuid& parent = invalid::uuid);
 
-        Entity create_entity(const EntityDescription& desc)
-        {
-            return Entity(_registry, desc);
-        }
+        Entity create_entity(const EntityDescription& desc);
 
-        Entity get_entity(const Uuid& id)
-        {
-            return Entity(_registry, static_cast<EntityHandle>(id.value));
-        }
+        Entity get_entity(const Uuid& id);
 
-        std::vector<Entity> get_all_entities()
-        {
-            std::vector<Entity> toys = {};
-            auto view = _registry.view<EntityDescription>();
-            for (auto entity : view)
-                toys.emplace_back(_registry, entity);
-            return toys;
-        }
+        std::vector<Entity> get_all_entities();
 
         template <typename... TBlocks>
         std::vector<Entity> get_entities_with()

@@ -1,13 +1,75 @@
 #include "tbx/ecs/entities.h"
-#include <string>
 
 namespace tbx
 {
-    std::string to_string(const Entity& entity)
+    Entity::Entity(EntityRegistry& reg, const EntityHandle& handle)
+        : _registry(&reg)
+        , _handle(handle)
     {
-        const auto& desc = entity.get_description();
-        const auto id_value = static_cast<uint32>(entity.get_id());
-        return std::string("Toy(ID: ") + std::to_string(id_value) + ", Name: " + desc.name
-               + ", Tag: " + desc.tag + ", Layer: " + desc.layer + ")";
+    }
+
+    Entity::Entity(EntityRegistry& reg, const EntityDescription& desc)
+        : _registry(&reg)
+        , _handle(reg.create())
+    {
+        _registry->emplace<EntityDescription>(_handle, desc);
+    }
+
+    void Entity::destroy()
+    {
+        _registry->destroy(_handle);
+    }
+
+    Uuid Entity::get_id() const
+    {
+        return static_cast<uint32>(_handle);
+    }
+
+    EntityDescription& Entity::get_description() const
+    {
+        return _registry->get<EntityDescription>(_handle);
+    }
+
+    EntityScope::EntityScope(Entity& t)
+        : entity(t)
+    {
+    }
+
+    EntityScope::~EntityScope()
+    {
+        entity.destroy();
+    }
+
+    Entity ECS::create_entity(
+        const std::string& name,
+        const std::string& tag,
+        const std::string& layer,
+        const Uuid& parent)
+    {
+        EntityDescription desc = {};
+        desc.name = name;
+        desc.tag = tag;
+        desc.layer = layer;
+        desc.parent = parent;
+        return Entity(_registry, desc);
+    }
+
+    Entity ECS::create_entity(const EntityDescription& desc)
+    {
+        return Entity(_registry, desc);
+    }
+
+    Entity ECS::get_entity(const Uuid& id)
+    {
+        return Entity(_registry, static_cast<EntityHandle>(id.value));
+    }
+
+    std::vector<Entity> ECS::get_all_entities()
+    {
+        std::vector<Entity> toys = {};
+        auto view = _registry.view<EntityDescription>();
+        for (auto entity : view)
+            toys.emplace_back(_registry, entity);
+        return toys;
     }
 }
