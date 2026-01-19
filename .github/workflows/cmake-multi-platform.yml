@@ -64,6 +64,11 @@ jobs:
         fetch-depth: 0
         submodules: recursive
 
+    - name: Set up CMake 4.1.0
+      uses: jwlawson/actions-setup-cmake@v2
+      with:
+        cmake-version: '4.1.0'
+
     - name: Clean build dir (Windows)
       if: runner.os == 'Windows'
       shell: bash
