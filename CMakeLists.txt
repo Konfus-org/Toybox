@@ -18,8 +18,21 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/cmake/build/lib" CACHE P
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/cmake/build/lib" CACHE PATH "Where to place static libraries")
 set(CMAKE_PDB_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/cmake/build/pdb" CACHE PATH "Where to place PDBs")
 
+set(TBX_PLUGIN_ABI_VERSION 1 CACHE STRING "Plugin ABI version")
+
+if(NOT DEFINED TBX_ENABLE_ASSERTS)
+  set(TBX_ENABLE_ASSERTS ON CACHE BOOL "Enable runtime asserts in debug builds")
+endif()
+
+add_compile_definitions(
+  $<$<CONFIG:Debug>:TBX_DEBUG>
+  $<$<CONFIG:Release>:TBX_RELEASE>
+  $<$<AND:$<CONFIG:Debug>,$<BOOL:TBX_ENABLE_ASSERTS>>:TBX_ASSERTS_ENABLED>
+)
+
 # Global configs
 enable_testing()
+
 if(MSVC)
   set_property(GLOBAL PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
   add_compile_options("/Zc:preprocessor")
@@ -34,4 +47,20 @@ add_subdirectory(modules)
 add_subdirectory(thirdparty)
 add_subdirectory(plugins)
 add_subdirectory(examples)
+
+# Add tests target to run all tests at once
+set(CMAKE_FOLDER "tests")
+add_custom_target(Tests
+    DEPENDS
+        TbxCommonTests
+        TbxFileSystemTests
+        TbxMathTests
+        TbxAsyncTests
+        TbxTimeTests
+        TbxMessagingTests
+        TbxPluginApiTests
+        TbxECSTests
+        TbxGraphicsTests
+        TbxAppTests
+)
 unset(CMAKE_FOLDER)

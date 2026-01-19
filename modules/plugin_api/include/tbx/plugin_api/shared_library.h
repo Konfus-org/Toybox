@@ -12,16 +12,16 @@ namespace tbx
     // externally synchronized.
     class TBX_API SharedLibrary
     {
-       public:
+      public:
         SharedLibrary(const std::filesystem::path& path);
         ~SharedLibrary();
 
         SharedLibrary(const SharedLibrary&) = delete;
         SharedLibrary& operator=(const SharedLibrary&) = delete;
-        SharedLibrary(SharedLibrary&& other);
-        SharedLibrary& operator=(SharedLibrary&& other);
+        SharedLibrary(SharedLibrary&& other) = delete;
+        SharedLibrary& operator=(SharedLibrary&& other) = delete;
 
-       public:
+      public:
         // Whether or not the shared lib is valid and loaded.
         bool is_valid() const;
 
@@ -42,11 +42,11 @@ namespace tbx
             return _path;
         }
 
-       private:
+      private:
         void unload();
         void* get_symbol_raw(const char* name) const;
 
-       private:
+      private:
         void* _handle = nullptr;
         std::filesystem::path _path;
     };

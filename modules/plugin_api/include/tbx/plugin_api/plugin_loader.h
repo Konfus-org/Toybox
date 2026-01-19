@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/file_system/filesystem_ops.h"
+#include "tbx/files/filesystem.h"
 #include "tbx/plugin_api/loaded_plugin.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
@@ -8,25 +8,23 @@
 
 namespace tbx
 {
-    // Scans 'directory' for manifests (*.meta or plugin.meta), filters by requested IDs,
-    // resolves load order, loads plugins, and returns pointers to loaded plugins.
-    // Ownership: The caller owns the returned LoadedPlugin objects.
-    // Thread-safety: Not thread-safe; call from the main thread.
-    TBX_API std::vector<LoadedPlugin> load_plugins(
-        const std::filesystem::path& directory,
-        const std::vector<std::string>& requested_ids,
-        IFilesystemOps& file_ops);
+    class TBX_API PluginLoader
+    {
+      public:
+        // Scans 'directory' for manifests (*.meta or plugin.meta), filters by requested IDs,
+        // resolves load order, loads plugins, and returns pointers to loaded plugins.
+        // Ownership: The caller owns the returned LoadedPlugin objects.
+        // Thread-safety: Not thread-safe; call from the main thread.
+        std::vector<LoadedPlugin> load_plugins(
+            const std::filesystem::path& directory,
+            const std::vector<std::string>& requested_ids,
+            IFileSystem& file_ops);
 
-    TBX_API std::vector<LoadedPlugin> load_plugins(
-        const std::filesystem::path& directory,
-        const std::vector<std::string>& requested_ids);
-
-    // Loads plugins from already-parsed metadata, without any filesystem IO.
-    // Ownership: The caller owns the returned LoadedPlugin objects.
-    // Thread-safety: Not thread-safe; call from the main thread.
-    TBX_API std::vector<LoadedPlugin> load_plugins(
-        const std::vector<PluginMeta>& metas,
-        IFilesystemOps& file_ops);
-
-    TBX_API std::vector<LoadedPlugin> load_plugins(const std::vector<PluginMeta>& metas);
+        // Loads plugins from already-parsed metadata, without any filesystem IO.
+        // Ownership: The caller owns the returned LoadedPlugin objects.
+        // Thread-safety: Not thread-safe; call from the main thread.
+        std::vector<LoadedPlugin> load_plugins(
+            const std::vector<PluginMeta>& metas,
+            IFileSystem& file_ops);
+    };
 }

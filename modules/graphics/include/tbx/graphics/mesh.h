@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/graphics/vertex.h"
 #include "tbx/common/int.h"
 #include "tbx/common/uuid.h"
+#include "tbx/graphics/vertex.h"
 #include "tbx/tbx_api.h"
 #include <vector>
 
@@ -11,9 +11,7 @@ namespace tbx
 
     struct TBX_API Mesh
     {
-        /// <summary>
-        /// Defaults to a quad.
-        /// </summary>
+        // Defaults to a quad.
         Mesh();
         Mesh(const VertexBuffer& vertBuff, const IndexBuffer& indexBuff);
 
@@ -22,9 +20,7 @@ namespace tbx
         Uuid id = Uuid::generate();
     };
 
-    /// <summary>
-    /// Essentially a pointer to a mesh.
-    /// </summary>
+    // Essentially a pointer to a mesh.
     struct TBX_API MeshInstance
     {
         Uuid mesh_id = {};

@@ -5,6 +5,7 @@
     {
       "name": "base",
       "cacheVariables": {
+
         "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/cmake/build/bin/$<CONFIG>",
         "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/cmake/build/lib/$<CONFIG>",
         "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/cmake/build/lib/$<CONFIG>",
@@ -44,6 +45,7 @@
       "inherits": "ninja-base"
     }
   ],
+
   "buildPresets": [
     { "name": "tbx-vs22-debug", "displayName": "VS22 (Debug)", "configurePreset": "tbx-vs-22", "configuration": "Debug" },
     { "name": "tbx-vs22-release", "displayName": "VS22 (Release)", "configurePreset": "tbx-vs-22", "configuration": "Release" },
@@ -52,6 +54,7 @@
     { "name": "tbx-ninja-debug", "displayName": "Ninja (Debug)", "configurePreset": "tbx-ninja", "configuration": "Debug" },
     { "name": "tbx-ninja-release", "displayName": "Ninja (Release)", "configurePreset": "tbx-ninja", "configuration": "Release" }
   ],
+
   "testPresets": [
     { "name": "tbx-test-vs22-debug", "displayName": "Test VS22 (Debug)", "configurePreset": "tbx-vs-22", "configuration": "Debug", "output": { "outputOnFailure": true } },
     { "name": "tbx-test-vs22-release", "displayName": "Test VS22 (Release)", "configurePreset": "tbx-vs-22", "configuration": "Release", "output": { "outputOnFailure": true } },
@@ -61,3 +64,4 @@
     { "name": "tbx-test-ninja-release", "displayName": "Test Ninja (Release)", "configurePreset": "tbx-ninja", "configuration": "Release", "output": { "outputOnFailure": true } }
   ]
 }
+

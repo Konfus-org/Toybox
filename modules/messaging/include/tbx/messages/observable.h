@@ -105,8 +105,8 @@ namespace tbx
             if (!_dispatcher)
                 return;
 
-            auto event = PropertyChangedEvent<TOwner, TProp>(_member, owner, previous, current);
-            _dispatcher->send(event);
+            _dispatcher
+                ->send<PropertyChangedEvent<TOwner, TProp>>(_member, owner, previous, current);
         }
 
       private:

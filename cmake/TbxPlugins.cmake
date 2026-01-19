@@ -25,6 +25,8 @@ function(tbx_collect_plugin_dependencies target out_var)
     if(NOT interface_linked)
         set(interface_linked "")
     endif()
+    
+    target_precompile_headers(${target} PRIVATE "${PROJECT_SOURCE_DIR}/modules/common/include/tbx/pch.h")
 
     # Combine the link interfaces and filter for plugin-aware targets.
     set(all_links ${linked} ${interface_linked})
@@ -62,14 +64,15 @@ endfunction()
 #   HEADER        - Header that declares the plugin class (required).
 #   NAME          - Unique plugin identifier used for registration (required).
 #   VERSION       - Semantic version string (required).
-#   TYPE          - Optional plugin classification, defaults to "plugin".
 #   DESCRIPTION   - Optional descriptive text.
 #   MODULE        - Optional override for module/manifest output directory.
-#   DEPENDENCIES  - Additional dependency identifiers to record.
-#   STATIC        - Flag indicating the plugin is statically linked.
+#   DEPENDENCIES      - Additional dependency identifiers to record.
+#   STATIC            - Flag indicating the plugin is statically linked.
+#   CATEGORY   - Optional update category (default, input, audio, physics, rendering, gameplay).
+#   PRIORITY   - Optional update priority integer (lower updates first).
 function(tbx_register_plugin)
     set(options STATIC)
-    set(one_value_args TARGET CLASS HEADER NAME VERSION TYPE DESCRIPTION MODULE)
+    set(one_value_args TARGET CLASS HEADER NAME VERSION DESCRIPTION MODULE CATEGORY PRIORITY)
     set(multi_value_args DEPENDENCIES)
     cmake_parse_arguments(TBX_PLUGIN "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
@@ -98,15 +101,37 @@ function(tbx_register_plugin)
         message(FATAL_ERROR "tbx_register_plugin: target '${TBX_PLUGIN_TARGET}' does not exist")
     endif()
 
-    if(NOT TBX_PLUGIN_TYPE)
-        set(TBX_PLUGIN_TYPE "plugin")
-    endif()
-
     set(is_static FALSE)
     set(register_macro "TBX_REGISTER_PLUGIN")
     if(TBX_PLUGIN_STATIC)
         set(is_static TRUE)
         set(register_macro "TBX_REGISTER_STATIC_PLUGIN")
+    endif()
+
+    if(DEFINED TBX_PLUGIN_CATEGORY)
+        set(update_category "${TBX_PLUGIN_CATEGORY}")
+    else()
+        set(update_category "default")
+    endif()
+    string(TOLOWER "${update_category}" update_category)
+
+    set(valid_update_categories default input audio physics rendering gameplay)
+    list(FIND valid_update_categories "${update_category}" update_category_index)
+    if(update_category_index EQUAL -1)
+        message(FATAL_ERROR
+            "tbx_register_plugin: CATEGORY '${TBX_PLUGIN_CATEGORY}' must be one of: default, input, audio, physics, rendering, gameplay")
+    endif()
+
+    if(DEFINED TBX_PLUGIN_PRIORITY)
+        set(update_priority "${TBX_PLUGIN_PRIORITY}")
+    else()
+        set(update_priority 0)
+    endif()
+
+    string(REGEX MATCH "^[0-9]+$" update_priority_is_int "${update_priority}")
+    if(update_priority_is_int STREQUAL "")
+        message(FATAL_ERROR
+            "tbx_register_plugin: PRIORITY '${update_priority}' must be a non-negative integer")
     endif()
 
     # Track plugin identifiers on the target so downstream consumers inherit
@@ -133,9 +158,10 @@ function(tbx_register_plugin)
     if(NOT module_name)
         set(module_name ${TBX_PLUGIN_TARGET})
     endif()
+    set(MODULE_NAME ${module_name})
 
-    # Emit generated sources alongside other build artifacts for the target.
-    set(generated_dir ${CMAKE_CURRENT_BINARY_DIR}/generated/)
+    # Emit generated sources alongside other project files.
+    set(generated_dir ${CMAKE_CURRENT_SOURCE_DIR}/generated/)
     file(MAKE_DIRECTORY ${generated_dir})
 
     set(registration_output ${generated_dir}/${TBX_PLUGIN_NAME}_registration.cpp)
@@ -179,7 +205,6 @@ function(tbx_register_plugin)
             set(resolved_header "${CMAKE_CURRENT_SOURCE_DIR}/${header_input}")
         endif()
     endif()
-
     if(NOT EXISTS "${resolved_header}")
         message(
             FATAL_ERROR
@@ -198,13 +223,11 @@ function(tbx_register_plugin)
     else()
         string(REPLACE "\\" "/" header_include "${header_include}")
     endif()
-
     set(PLUGIN_HEADER ${header_include})
 
     # Instantiate the registration source that wires the plugin into the
     # runtime registry.
     configure_file(${registration_template} ${registration_output} @ONLY)
-
     target_sources(${TBX_PLUGIN_TARGET} PRIVATE ${registration_output})
 
     # Build dependency JSON array string
@@ -238,6 +261,10 @@ function(tbx_register_plugin)
     else()
         set(PLUGIN_STATIC_VALUE "false")
     endif()
+
+    set(PLUGIN_CATEGORY "${update_category}")
+    set(PLUGIN_PRIORITY "${update_priority}")
+    set(PLUGIN_ABI_VERSION ${TBX_PLUGIN_ABI_VERSION})
 
     configure_file(${meta_template} ${meta_output} @ONLY)
 

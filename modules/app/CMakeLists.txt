@@ -19,7 +19,9 @@ target_link_libraries(App
         Tbx::Math
         Tbx::Messaging
         Tbx::PluginApi
+        Tbx::ECS
         Tbx::Debugging
+        Tbx::Graphics
 )
 
 add_library(Tbx::App ALIAS App)

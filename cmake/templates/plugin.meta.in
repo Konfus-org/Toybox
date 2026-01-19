@@ -1,9 +1,11 @@
 {
     "name": "@TBX_PLUGIN_NAME@",
     "version": "@TBX_PLUGIN_VERSION@",
+    "abi_version": @PLUGIN_ABI_VERSION@,
 @PLUGIN_DESCRIPTION_ENTRY@
-    "type": "@TBX_PLUGIN_TYPE@",
-    "module": "@module_name@",
+    "module": "@MODULE_NAME@",
+    "category": "@PLUGIN_CATEGORY@",
+    "priority": @PLUGIN_PRIORITY@,
 @PLUGIN_DEPENDENCIES_BLOCK@
     "static": @PLUGIN_STATIC_VALUE@
 }

@@ -1,45 +1,55 @@
 #pragma once
 #include "tbx/app/app_description.h"
 #include "tbx/app/app_message_coordinator.h"
-#include "tbx/app/window.h"
+#include "tbx/ecs/entities.h"
+#include "tbx/files/filesystem.h"
+#include "tbx/graphics/graphics_api.h"
+#include "tbx/graphics/window.h"
 #include "tbx/plugin_api/loaded_plugin.h"
 #include "tbx/time/delta_time.h"
+#include <string>
 #include <vector>
 
 namespace tbx
 {
-    // Host application coordinating plugin lifecycle and message dispatching.
-    // Ownership: Owns loaded plugins and the message coordinator; callers do
-    // not own any references returned by getters beyond their lifetimes.
-    // Thread-safety: Intended for use on a single thread (the main loop).
-    // No internal synchronization is provided.
+    struct TBX_API AppSettings
+    {
+        AppSettings(IMessageDispatcher& dispatcher, bool vsync, GraphicsApi api, Size resolution);
+
+        Observable<AppSettings, bool> vsync_enabled;
+        Observable<AppSettings, GraphicsApi> graphics_api;
+        Observable<AppSettings, Size> resolution;
+    };
+
     class TBX_API Application
     {
       public:
-        Application(AppDescription desc);
+        Application(const AppDescription& desc);
         ~Application();
 
         // Starts the application main loop. Returns process exit code.
         int run();
 
-        const AppDescription& get_description() const;
+        const std::string& get_name() const;
+        AppSettings& get_settings();
         IMessageDispatcher& get_dispatcher();
+        ECS& get_ecs();
+        IFileSystem& get_filesystem();
 
       private:
-        void initialize();
+        void initialize(const std::vector<std::string>& requested_plugins);
         void update(DeltaTimer timer);
         void shutdown();
         void recieve_message(const Message& msg);
 
-        AppDescription _desc;
-        std::vector<LoadedPlugin> _loaded = {};
-        AppMessageCoordinator _msg_coordinator = {};
-        Window _main_window = {
-            _msg_coordinator,
-            _desc.name.empty() ? "Toybox Application" : _desc.name,
-            {1280, 720},
-            WindowMode::Windowed,
-            false};
+      private:
         bool _should_exit = false;
+        std::string _name = "App";
+        ECS _ecs = {};
+        AppMessageCoordinator _msg_coordinator = {};
+        std::vector<LoadedPlugin> _loaded = {};
+        AppSettings _settings;
+        Window _main_window;
+        FileSystem _filesystem;
     };
 }

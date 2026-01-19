@@ -17,7 +17,7 @@ target_link_libraries(Debugging
     PUBLIC
         Tbx::Common
         Tbx::Messaging
-        Tbx::FileSystem
+        Tbx::Files
 )
 
 add_library(Tbx::Debugging ALIAS Debugging)

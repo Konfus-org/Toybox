@@ -2,11 +2,8 @@
 
 namespace tbx
 {
-    ApplicationInitializedEvent::ApplicationInitializedEvent(
-        Application* app_ptr,
-        const AppDescription& app_desc)
+    ApplicationInitializedEvent::ApplicationInitializedEvent(Application* app_ptr)
         : application(app_ptr)
-        , description(app_desc)
     {
     }
 

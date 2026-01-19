@@ -15,8 +15,7 @@ namespace tbx
         do
         {
             id.value = generator();
-        }
-        while (id.value == 0U);
+        } while (id.value == 0U);
 
         return id;
     }
@@ -71,15 +70,11 @@ namespace tbx
         return !(value == other.value);
     }
 
-    uint32 UuidHash::operator()(const Uuid& id) const
-    {
-        return id.value;
-    }
-
-    std::string to_string(const Uuid& id)
+    std::string to_string(const Uuid& value)
     {
         std::ostringstream stream = {};
-        stream << std::hex << id.value;
+        stream << std::hex << value.value;
         return stream.str();
     }
+
 }

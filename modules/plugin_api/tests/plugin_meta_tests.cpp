@@ -1,8 +1,6 @@
 #include "pch.h"
 #include "tbx/plugin_api/plugin_meta.h"
 #include <filesystem>
-#include <string>
-#include <vector>
 
 namespace tbx::tests::plugin_api
 {
@@ -14,45 +12,35 @@ namespace tbx::tests::plugin_api
         constexpr const char* manifest_text = R"JSON({
                 "name": "Example.Logger",
                 "version": "1.2.3",
+                "abi_version": 1,
                 "description": " Example description ",
-                "type": "logger",
                 "dependencies": ["Core.Renderer"],
+                "category": "audio",
+                "priority": 250,
                 "module": "bin/logger.so",
                 "static": true
             })JSON";
-        const std::filesystem::path manifest_path = "/virtual/plugin_api/example/logger/plugin.meta";
+        const std::filesystem::path manifest_path =
+            "/virtual/plugin_api/example/logger/plugin.meta";
 
-        PluginMeta meta =
-            parse_plugin_meta(manifest_text, manifest_path);
+        PluginMeta meta;
+        PluginMetaParser parser;
+        ASSERT_TRUE(parser.try_parse_plugin_meta(manifest_text, manifest_path, meta));
 
         EXPECT_EQ(meta.name, "Example.Logger");
         EXPECT_EQ(meta.version, "1.2.3");
+        EXPECT_EQ(meta.abi_version, PluginAbiVersion);
         EXPECT_EQ(meta.description, "Example description");
-        EXPECT_EQ(meta.type, "logger");
         ASSERT_EQ(meta.dependencies.size(), 1u);
         EXPECT_EQ(meta.dependencies[0], "Core.Renderer");
+        EXPECT_EQ(meta.category, PluginCategory::Audio);
+        EXPECT_EQ(meta.priority, 250u);
         EXPECT_EQ(meta.root_directory, manifest_path.parent_path());
         EXPECT_EQ(meta.manifest_path, manifest_path);
-        EXPECT_EQ(meta.module_path, manifest_path.parent_path() / "bin/logger.so");
+        EXPECT_EQ(
+            meta.library_path,
+            manifest_path.parent_path() / "bin/logger.so");
         EXPECT_EQ(meta.linkage, PluginLinkage::Static);
-    }
-
-    /// <summary>
-    /// Confirms the parser assigns the default type when it is absent from the manifest.
-    /// </summary>
-    TEST(plugin_meta_parse_test, defaults_missing_type_to_plugin)
-    {
-        constexpr const char* manifest_text = R"JSON({
-                "name": "Example.WithoutType",
-                "version": "0.1.0",
-                "description": "No explicit type set."
-            })JSON";
-        const std::filesystem::path manifest_path = "/virtual/plugin_api/example/without_type/plugin.meta";
-
-        PluginMeta meta =
-            parse_plugin_meta(manifest_text, manifest_path);
-
-        EXPECT_EQ(meta.type, "plugin");
     }
 
     /// <summary>
@@ -63,78 +51,31 @@ namespace tbx::tests::plugin_api
         constexpr const char* manifest_text = R"JSON({
                 "name": "Example.RelativeModule",
                 "version": "5.4.3",
-                "type": "renderer",
                 "module": "modules/example_renderer.so"
             })JSON";
-        const std::filesystem::path manifest_path = "/virtual/plugin_api/example/relative_module/plugin.meta";
+        const std::filesystem::path manifest_path =
+            "/virtual/plugin_api/example/relative_module/plugin.meta";
 
-        PluginMeta meta =
-            parse_plugin_meta(manifest_text, manifest_path);
+        PluginMeta meta;
+        PluginMetaParser parser;
+        ASSERT_TRUE(parser.try_parse_plugin_meta(manifest_text, manifest_path, meta));
 
-        EXPECT_EQ(meta.module_path, manifest_path.parent_path() / "modules/example_renderer.so");
+        EXPECT_EQ(
+            meta.library_path,
+            manifest_path.parent_path() / "modules/example_renderer.so");
     }
 
     /// <summary>
-    /// Ensures load and unload ordering respects dependencies and logger priority.
+    /// Verifies parsing fails when required fields are missing.
     /// </summary>
-    TEST(plugin_meta_load_order_test, prioritizes_logger_and_respects_dependencies)
+    TEST(plugin_meta_parse_test, fails_without_required_fields)
     {
-        PluginMeta logger;
-        logger.name = "Logging.Core";
-        logger.version = "1.0.0";
-        logger.type = "logger";
+        constexpr const char* manifest_text = R"JSON({
+                "description": "Missing name and version"
+            })JSON";
 
-        PluginMeta metrics;
-        metrics.name = "Metrics.Plugin";
-        metrics.version = "1.0.0";
-        metrics.type = "metrics";
-        PluginMeta renderer;
-        renderer.name = "Renderer.Plugin";
-        renderer.version = "2.0.0";
-        renderer.type = "renderer";
-        renderer.dependencies.push_back("Metrics.Plugin");
-
-        PluginMeta gameplay;
-        gameplay.name = "Gameplay.Plugin";
-        gameplay.version = "3.0.0";
-        gameplay.type = "gameplay";
-        gameplay.dependencies.push_back("metrics");
-        gameplay.dependencies.push_back("logger");
-
-        std::vector<PluginMeta> unordered = {gameplay, renderer, metrics, logger};
-
-        std::vector<PluginMeta> load_order = resolve_plugin_load_order(unordered);
-        ASSERT_EQ(load_order.size(), 4u);
-        EXPECT_EQ(load_order[0].name, "Logging.Core");
-
-        auto find_plugin = [](const std::vector<PluginMeta>& plugins, const std::string& id)
-        {
-            for (size_t index = 0; index < plugins.size(); index += 1)
-            {
-                if (plugins[index].name == id)
-                {
-                    return index;
-                }
-            }
-            return static_cast<size_t>(plugins.size());
-        };
-
-        size_t logger_index = find_plugin(load_order, "Logging.Core");
-        size_t metrics_index = find_plugin(load_order, "Metrics.Plugin");
-        size_t renderer_index = find_plugin(load_order, "Renderer.Plugin");
-        size_t gameplay_index = find_plugin(load_order, "Gameplay.Plugin");
-
-        EXPECT_LT(logger_index, metrics_index);
-        EXPECT_LT(metrics_index, renderer_index);
-        EXPECT_LT(metrics_index, gameplay_index);
-        EXPECT_LT(logger_index, gameplay_index);
-
-        std::vector<PluginMeta> unload_order = resolve_plugin_unload_order(unordered);
-        ASSERT_EQ(unload_order.size(), load_order.size());
-        for (size_t index = 0; index < load_order.size(); index += 1)
-        {
-            EXPECT_EQ(unload_order[index].name, load_order[load_order.size() - 1 - index].name);
-        }
+        PluginMeta meta;
+        PluginMetaParser parser;
+        EXPECT_FALSE(parser.try_parse_plugin_meta(manifest_text, "/virtual/invalid.meta", meta));
     }
 }
-

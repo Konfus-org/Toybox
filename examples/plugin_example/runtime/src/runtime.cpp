@@ -1,8 +1,7 @@
 #include "runtime.h"
 #include "tbx/app/application.h"
-#include "tbx/common/string_extensions.h"
+#include "tbx/common/string_utils.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/ecs/toys.h"
 #include <string>
 
 namespace tbx::examples
@@ -11,7 +10,7 @@ namespace tbx::examples
     {
         std::string greeting =
             "Welcome to the plugin example! This plugin just loads a logger and a window.";
-        std::string message = trim_string(greeting);
+        std::string message = trim(greeting);
         TBX_TRACE_INFO("{}", message.c_str());
     }
 

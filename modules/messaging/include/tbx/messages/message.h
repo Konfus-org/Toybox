@@ -1,35 +1,30 @@
 #pragma once
 #include "tbx/async/cancellation_token.h"
-#include "tbx/common/function_traits.h"
+#include "tbx/common/functions.h"
+#include "tbx/common/result.h"
 #include "tbx/common/uuid.h"
-#include "tbx/messages/result.h"
-#include "tbx/time/time_span.h"
 #include <any>
 #include <functional>
+#include <type_traits>
 
 namespace tbx
 {
     enum class MessageState
     {
-        InProgress,
+        UnHandled,
         Handled,
-        Processed,
         Cancelled,
-        TimedOut,
-        Failed
+        Error
     };
 
     struct Message;
 
-    using MessageCallback = std::function<void(const Message&)>;
-
     struct TBX_API MessageCallbacks
     {
-        MessageCallback on_failure;
-        MessageCallback on_cancelled;
-        MessageCallback on_handled;
-        MessageCallback on_processed;
-        MessageCallback on_timeout;
+        Callback<const Message&> on_error;
+        Callback<const Message&> on_cancelled;
+        Callback<const Message&> on_processed;
+        Callback<const Message&> on_timeout;
     };
 
     // Base polymorphic message type for dispatching.
@@ -45,15 +40,11 @@ namespace tbx
         Message();
         virtual ~Message();
 
-        MessageState state = MessageState::InProgress;
-        std::any payload = {};
+        bool require_handling = false;
+        MessageState state = MessageState::UnHandled;
         Result result = {};
-        TimeSpan timeout = {};
-        TimeSpan delay_in_seconds = {};
-        uint64 delay_in_ticks = 0;
         CancellationToken cancellation_token = {};
         MessageCallbacks callbacks = {};
-        bool require_handling = false;
         Uuid id = Uuid::generate();
     };
 

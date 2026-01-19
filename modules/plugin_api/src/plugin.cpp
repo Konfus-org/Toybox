@@ -1,18 +1,17 @@
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
-#include "tbx/messages/result.h"
+#include "tbx/common/result.h"
 #include <string>
-#include <string_view>
 
 namespace tbx
 {
-    static Result dispatcher_missing_result(std::string_view action)
+    Result Plugin::dispatcher_missing_result(std::string_view action)
     {
         Result result;
         result.flag_failure(
-            "Plugin cannot " + std::string(action)
-                + " because it is not attached to a dispatcher.");
+            std::string("Plugin cannot ") + std::string(action)
+            + " because it is not attached to a dispatcher.");
         return result;
     }
 
@@ -41,26 +40,6 @@ namespace tbx
     void Plugin::receive_message(Message& msg)
     {
         on_recieve_message(msg);
-    }
-
-    Result Plugin::send_message(Message& msg) const
-    {
-        if (!_dispatcher)
-        {
-            return dispatcher_missing_result("send a message");
-        }
-
-        return _dispatcher->send(msg);
-    }
-
-    Result Plugin::post_message(Message& msg) const
-    {
-        if (!_dispatcher)
-        {
-            return dispatcher_missing_result("post a message");
-        }
-
-        return _dispatcher->post(msg);
     }
 
     IMessageDispatcher& Plugin::get_dispatcher() const

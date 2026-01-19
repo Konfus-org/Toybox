@@ -6,7 +6,7 @@ target_include_directories(SdlAdapterPlugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/
 
 target_link_libraries(SdlAdapterPlugin PRIVATE
     Tbx::App
-    SDL3::SDL3
+    SDL3::SDL3-shared
 )
 
 tbx_register_plugin(
@@ -15,7 +15,7 @@ tbx_register_plugin(
     HEADER "sdl_adapter_plugin.h"
     NAME "SdlAdapterPlugin"
     VERSION "1.0.0"
-    TYPE "system"
+    CATEGORY "input"
 )
 
 add_library(Tbx::Plugins::SdlAdapterPlugin ALIAS SdlAdapterPlugin)

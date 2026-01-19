@@ -8,7 +8,11 @@ namespace tbx
     {
         Text() = default;
         Text(const std::string& value, const std::string& font, int size)
-            : value(value), font(font), size(size) {}
+            : value(value)
+            , font(font)
+            , size(size)
+        {
+        }
 
         std::string value = "";
         std::string font = "";

@@ -1,44 +1,35 @@
 #pragma once
+#include "tbx/common/int.h"
 #include "tbx/tbx_api.h"
 #include <chrono>
-#include <cstdint>
 #include <string>
 
 namespace tbx
 {
+    enum TimeUnit
+    {
+        Milliseconds,
+        Seconds,
+        Minutes,
+        Hours,
+        Days
+    };
+
     // Value-type duration helper; thread-safe due to copy semantics.
     struct TBX_API TimeSpan
     {
-        std::int64_t milliseconds = 0;
-        std::int64_t seconds = 0;
-        std::int64_t minutes = 0;
-        std::int64_t hours = 0;
-        std::int64_t days = 0;
-
-        std::chrono::steady_clock::duration to_duration() const;
         bool is_zero() const;
+        std::chrono::steady_clock::duration to_duration() const;
 
-        // Implicit conversion to bool; true if non-zero duration.
-        operator bool() const
-        {
-            return !is_zero();
-        }
+        operator bool() const;
+        operator int() const;
+        operator std::chrono::steady_clock::duration() const;
 
-        // Implicit conversion to std::chrono::steady_clock::duration.
-        operator std::chrono::steady_clock::duration() const
-        {
-            return to_duration();
-        }
-
-        // Implicit conversion to total milliseconds.
-        operator int() const
-        {
-            return milliseconds;
-        }
+        uint64 value = 0;
+        TimeUnit unit = TimeUnit::Milliseconds;
     };
 
-    inline std::string to_string(const TimeSpan& span)
-    {
-        return std::to_string(span.milliseconds) + " milliseconds";
-    }
+    /// <summary>Purpose: Formats a TimeSpan value with its unit for display.</summary>
+    /// <remarks>Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for concurrent use.</remarks>
+    TBX_API std::string to_string(const TimeSpan& time_span);
 }

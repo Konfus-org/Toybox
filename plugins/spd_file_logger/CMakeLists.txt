@@ -6,17 +6,17 @@ target_include_directories(SpdFileLoggerPlugin PRIVATE ${CMAKE_CURRENT_SOURCE_DI
 
 target_link_libraries(SpdFileLoggerPlugin PRIVATE
     Tbx::App
-    Tbx::FileSystem
+    Tbx::Files
     spdlog::spdlog
 )
 
 tbx_register_plugin(
     TARGET SpdFileLoggerPlugin
-    CLASS tbx::plugins::spdfilelogger::SpdFileLoggerPlugin
+    CLASS tbx::plugins::SpdFileLoggerPlugin
     HEADER "spd_file_logger_plugin.h"
     NAME "SpdFileLoggerPlugin"
     VERSION "1.0.0"
-    TYPE "logger"
+    CATEGORY "default"
 )
 
 add_library(Tbx::Plugins::SpdFileLoggerPlugin ALIAS SpdFileLoggerPlugin)

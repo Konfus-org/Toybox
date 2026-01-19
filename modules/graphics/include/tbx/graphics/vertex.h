@@ -1,8 +1,8 @@
 #pragma once
+#include "tbx/common/int.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/color.h"
 #include "tbx/math/vectors.h"
-#include "tbx/common/int.h"
 #include "tbx/tbx_api.h"
 #include <variant>
 #include <vector>
@@ -37,7 +37,7 @@ namespace tbx
         }
         else
         {
-            TBX_ASSERT(false, "Vertex: Could not convert to OpenGL type from vertex data, given unknown data type!");
+            TBX_ASSERT(false, "Could not get vert data count, given unkown type.");
             return 0;
         }
     }
@@ -66,7 +66,7 @@ namespace tbx
         }
         else
         {
-            TBX_ASSERT(false, "Vertex: Could not convert to OpenGL type from vertex data, given unknown data type!");
+            TBX_ASSERT(false, "Could not get vertex data size, given unkown type.");
             return 0;
         }
     }
@@ -82,7 +82,7 @@ namespace tbx
         // Texture coordinate for texture mapping
         Vec2 uv = Vec2(0.0f);
         // (r, g, b, a) for color
-        RgbaColor color = { 1.0f, 1.0f, 1.0f, 1.0f };
+        RgbaColor color = {1.0f, 1.0f, 1.0f, 1.0f};
     };
 
     ///////////// VERTEX BUFFER //////////////////
@@ -130,10 +130,8 @@ namespace tbx
         bool normalized = false;
     };
 
-    /// <summary>
-    /// Used to describe the layout of a vertex buffer.
-    /// I.e. does a vertex have position and color? Other properties?
-    /// </summary>
+    // Used to describe the layout of a vertex buffer.
+    // I.e. does a vertex have position and color? Other properties?
     struct TBX_API VertexBufferLayout
     {
         VertexBufferLayout() = default;
@@ -164,7 +162,10 @@ namespace tbx
     {
         VertexBuffer() = default;
         VertexBuffer(const std::vector<Vertex>& vertices, const VertexBufferLayout& layout)
-            : vertices(flatten_vertex_vector(vertices)), layout(layout) {}
+            : vertices(flatten_vertex_vector(vertices))
+            , layout(layout)
+        {
+        }
 
         std::vector<float> vertices = {};
         VertexBufferLayout layout = {};

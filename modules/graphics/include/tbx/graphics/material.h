@@ -1,9 +1,9 @@
 #pragma once
+#include "tbx/common/uuid.h"
 #include "tbx/graphics/shader.h"
 #include "tbx/graphics/texture.h"
-#include "tbx/common/smart_pointers.h"
-#include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -15,12 +15,19 @@ namespace tbx
     struct TBX_API ShaderProgram
     {
         ShaderProgram() = default;
-        explicit ShaderProgram(Ref<Shader> shader)
-            : shaders({ shader }) {}
-        explicit ShaderProgram(std::vector<Ref<Shader>> shaders)
-            : shaders(std::move(shaders)) {}
+        explicit ShaderProgram(std::shared_ptr<Shader> shader)
+            : shaders({std::move(shader)})
+        {
+        }
+        explicit ShaderProgram(std::vector<std::shared_ptr<Shader>> shaders)
+            : shaders(std::move(shaders))
+        {
+        }
 
-        std::vector<Ref<Shader>> shaders = {};
+        std::vector<std::shared_ptr<Shader>> shaders = {
+            std::make_shared<Shader>(Shader::default_frag),
+            std::make_shared<Shader>(Shader::default_vert),
+        };
         Uuid id = Uuid::generate();
     };
 
@@ -30,17 +37,35 @@ namespace tbx
     struct TBX_API Material
     {
         Material() = default;
-        Material(std::vector<Ref<Shader>> shaders)
-            : shader_program(ShaderProgram(std::move(shaders))) {}
-        Material(std::vector<Ref<Shader>> shaders, Ref<Texture> texture)
+        Material(std::vector<std::shared_ptr<Shader>> shaders)
             : shader_program(ShaderProgram(std::move(shaders)))
-            , textures({ texture }) {}
-        Material(std::vector<Ref<Shader>> shaders, std::vector<Ref<Texture>> textures)
+        {
+        }
+        Material(std::vector<std::shared_ptr<Shader>> shaders, std::shared_ptr<Texture> texture)
             : shader_program(ShaderProgram(std::move(shaders)))
-            , textures(std::move(textures)) {}
+            , textures({std::move(texture)})
+        {
+        }
+        Material(
+            std::vector<std::shared_ptr<Shader>> shaders,
+            std::vector<std::shared_ptr<Texture>> textures)
+            : shader_program(ShaderProgram(shaders))
+            , textures(textures)
+        {
+        }
+        Material(
+            RgbaColor rgba_color,
+            std::vector<std::shared_ptr<Shader>> shaders,
+            std::vector<std::shared_ptr<Texture>> textures)
+            : color(rgba_color)
+            , shader_program(ShaderProgram(shaders))
+            , textures(textures)
+        {
+        }
 
+        RgbaColor color = {255, 255, 255, 255};
         ShaderProgram shader_program = {};
-        std::vector<Ref<Texture>> textures = {};
+        std::vector<std::shared_ptr<Texture>> textures = {};
         Uuid id = Uuid::generate();
     };
 

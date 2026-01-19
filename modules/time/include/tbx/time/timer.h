@@ -1,14 +1,13 @@
 #pragma once
 #include "tbx/async/cancellation_token.h"
+#include "tbx/common/int.h"
 #include "tbx/tbx_api.h"
 #include "tbx/time/time_span.h"
-#include <chrono>
-#include <cstddef>
 #include <functional>
 
 namespace tbx
 {
-    // Schedules work using either tick counts or steady-clock deadlines.
+    // Schedules work using accumulated time deltas until the configured TimeSpan expires.
     // Ownership: Callers hold Timer instances by value; registered callbacks are non-owning
     // references whose lifetimes must exceed the timer's. The returned cancellation token
     // references the timer's internal cancellation source and becomes invalid after reset.
@@ -17,45 +16,31 @@ namespace tbx
     class TBX_API Timer
     {
       public:
-        Timer();
+        Timer(
+            const TimeSpan& time_span = {},
+            CancellationSource cancellation_source = CancellationSource());
 
-        static Timer for_ticks(std::size_t ticks);
-        static Timer for_time_span(
-            const TimeSpan& span,
-            std::chrono::steady_clock::time_point start_time);
+        Timer& operator=(const Timer& other);
+        Timer& operator=(Timer&& other);
 
         void reset();
+        bool tick(const TimeSpan& delta_time);
+        bool is_time_up() const;
 
-        void set_tick_callback(std::function<void(std::size_t remaining)> callback);
-        void set_time_up_callback(std::function<void()> callback);
-        void set_cancel_callback(std::function<void()> callback);
-
-        bool tick();
-        bool is_time_up(std::chrono::steady_clock::time_point now);
-
-        void cancel();
-        CancellationToken get_token() const;
+        TimeSpan time_length = {};
+        TimeSpan time_left = {};
+        std::function<void(uint64)> tick_callback;
+        std::function<void()> time_up_callback;
+        std::function<void()> cancel_callback;
+        CancellationSource cancellation_source;
 
       private:
-        enum class Mode
-        {
-            None,
-            Ticks,
-            Time
-        };
-
         void mark_time_up();
         bool is_cancelled() const;
+        void update_time_left(const TimeSpan& delta_time, bool signal_on_zero);
 
-        CancellationSource _cancellation_source;
-        Mode _mode = Mode::None;
-        std::size_t _remaining_ticks = 0;
-        std::chrono::steady_clock::time_point _deadline = {};
         bool _has_deadline = false;
         bool _time_up_signaled = false;
-
-        std::function<void(std::size_t)> _tick_callback;
-        std::function<void()> _time_up_callback;
-        std::function<void()> _cancel_callback;
+        bool _cancel_signaled = false;
     };
 }

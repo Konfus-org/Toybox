@@ -1,8 +1,7 @@
-#include "tbx/app/window.h"
+#include "tbx/graphics/window.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
 #include <any>
-#include <utility>
 
 namespace tbx
 {

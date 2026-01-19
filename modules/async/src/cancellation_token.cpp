@@ -1,10 +1,10 @@
 #include "tbx/async/cancellation_token.h"
-#include <utility>
+#include <memory>
 
 namespace tbx
 {
     CancellationSource::CancellationSource()
-        : _state(Ref<std::atomic<bool>>(false))
+        : _state(std::make_shared<std::atomic_bool>(false))
     {
     }
 
@@ -17,22 +17,33 @@ namespace tbx
     {
         if (_state)
         {
-            _state->store(true, std::memory_order_release);
+            _state->store(true);
         }
     }
 
     bool CancellationSource::is_cancelled() const
     {
-        return _state && _state->load(std::memory_order_acquire);
+        if (!_state)
+            return false;
+
+        return _state->load();
     }
 
-    CancellationToken::CancellationToken(Ref<std::atomic<bool>> state)
-        : _state(std::move(state))
+    CancellationToken::CancellationToken(std::shared_ptr<std::atomic_bool> state)
+        : _state(state)
     {
     }
 
     bool CancellationToken::is_cancelled() const
     {
-        return _state && _state->load(std::memory_order_acquire);
+        if (!_state)
+            return false;
+
+        return _state->load();
+    }
+
+    CancellationToken::operator bool() const
+    {
+        return static_cast<bool>(_state);
     }
 }

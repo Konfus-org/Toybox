@@ -1,77 +1,71 @@
 #include "tbx/debugging/logging.h"
-#include "tbx/file_system/filesystem_ops.h"
-#include "tbx/file_system/string_path_operations.h"
-#include <filesystem>
+#include "tbx/files/filesystem.h"
 #include <string>
 
 namespace tbx
 {
+    const int MAX_LOG_HISTORY = 10;
+
     static std::filesystem::path make_log_path(
         const std::filesystem::path& directory,
-        std::string_view base_name,
+        const std::string& sanitized_base_name,
         int index)
     {
-        const std::string sanitized = sanitize_string_for_file_name_usage(base_name);
-
-        if (index <= 0)
-        {
-            return directory / (sanitized + ".log");
-        }
-
-        return directory / (sanitized + "_" + std::to_string(index) + ".log");
+        const std::string stem = sanitized_base_name;
+        return index <= 0 ? directory / (stem + ".log")
+                          : directory / (stem + "_" + std::to_string(index) + ".log");
     }
 
-    std::filesystem::path get_log_file_path(
-        const std::filesystem::path& directory,
-        std::string_view base_name,
-        int index)
+    std::filesystem::path Log::open(IFileSystem& ops)
     {
-        return make_log_path(directory, base_name, index);
-    }
-
-    void rotate_logs(
-        const std::filesystem::path& directory,
-        std::string_view base_name,
-        int max_history,
-        IFilesystemOps& ops)
-    {
-        if (max_history <= 0)
+        std::string sanitized = std::filesystem::path("Debug").filename().string();
+        const std::filesystem::path root =
+            ops.resolve_relative_path(ops.get_logs_directory());
+        if (!ops.create_directory(root))
         {
-            return;
+            return {};
         }
 
-        for (int index = max_history; index >= 1; --index)
+        for (int index = MAX_LOG_HISTORY; index >= 1; index--)
         {
-            const auto from = make_log_path(directory, base_name, index - 1);
-            const auto to = make_log_path(directory, base_name, index);
+            const auto from = make_log_path(root, sanitized, index - 1);
+            const auto to = make_log_path(root, sanitized, index);
 
             if (!ops.exists(from))
-            {
                 continue;
-            }
-
             if (ops.exists(to))
-            {
                 ops.remove(to);
-            }
-
             if (ops.rename(from, to))
-            {
                 continue;
-            }
-
             if (ops.copy(from, to))
-            {
                 ops.remove(from);
-            }
         }
+
+        return make_log_path(root, sanitized, 0);
     }
 
-    void rotate_logs(
-        const std::filesystem::path& directory,
-        std::string_view base_name,
-        int max_history)
+    std::string Log::format(std::string_view message)
     {
-        rotate_logs(directory, base_name, max_history, get_default_filesystem_ops());
+        return std::string(message);
+    }
+
+    std::string Log::format(const char* message)
+    {
+        if (message == nullptr)
+        {
+            return std::string();
+        }
+
+        return std::string(message);
+    }
+
+    void Log::post(
+        const IMessageDispatcher& dispatcher,
+        LogLevel level,
+        const char* file,
+        int line,
+        const std::string& message)
+    {
+        dispatcher.post<LogMessageRequest>(level, message, file, line);
     }
 }

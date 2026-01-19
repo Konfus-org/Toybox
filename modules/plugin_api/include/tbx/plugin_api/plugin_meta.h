@@ -1,12 +1,47 @@
 #pragma once
+#include "tbx/common/int.h"
+#include "tbx/files/filesystem.h"
 #include "tbx/plugin_api/plugin_linkage.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace tbx
 {
+    #ifndef TBX_PLUGIN_ABI_VERSION
+        #define TBX_PLUGIN_ABI_VERSION 1
+    #endif
+
+    /// <summary>
+    /// Defines the plugin ABI version enforced by the host.
+    /// </summary>
+    /// <remarks>
+    /// Purpose: Compare manifest ABI versions before loading plugins.
+    /// Ownership: Not applicable.
+    /// Thread Safety: Immutable constant.
+    /// </remarks>
+    inline constexpr uint32 PluginAbiVersion = static_cast<uint32>(TBX_PLUGIN_ABI_VERSION);
+
+    /// <summary>
+    /// Defines plugin scheduling categories used to order plugin updates.
+    /// </summary>
+    /// <remarks>
+    /// Purpose: Describe broad update phases that the host can use when ordering plugin updates.
+    /// Ownership: Not applicable.
+    /// Thread Safety: Immutable enum values.
+    /// </remarks>
+    enum class PluginCategory : uint32
+    {
+        Default = 0,
+        Input = 100,
+        Audio = 200,
+        Physics = 300,
+        Rendering = 400,
+        Gameplay = 500
+    };
+
     // Describes the metadata discovered for a plugin before it is loaded.
     struct TBX_API PluginMeta
     {
@@ -19,11 +54,17 @@ namespace tbx
         // Optional descriptive text explaining the plugin purpose.
         std::string description;
 
-        // Primary classification for the plugin such as renderer or logger.
-        std::string type;
-
         // Hard dependencies that must be satisfied before loading this plugin.
         std::vector<std::string> dependencies;
+
+        // ABI version reported by the plugin manifest for compatibility checks.
+        uint32 abi_version = PluginAbiVersion;
+
+        // Broad update phase used when ordering plugin updates.
+        PluginCategory category = PluginCategory::Default;
+
+        // Explicit update priority within the update category (lower values update first).
+        uint32 priority = 0;
 
         PluginLinkage linkage = PluginLinkage::Dynamic;
 
@@ -33,23 +74,24 @@ namespace tbx
         // Directory containing the manifest and plugin module.
         std::filesystem::path root_directory;
 
-        // Full path to the plugin module that should be loaded.
-        std::filesystem::path module_path;
+        // Full path to the plugin library that should be loaded.
+        std::filesystem::path library_path;
     };
 
-    // Parses a plugin manifest from disk and returns the populated metadata.
-    PluginMeta TBX_API parse_plugin_meta(const std::filesystem::path& manifest_path);
+    class TBX_API PluginMetaParser
+    {
+      public:
+        // Parses a plugin manifest from disk and returns the populated metadata.
+        // Returns true when the manifest could be parsed successfully.
+        bool try_parse_plugin_meta(
+            const IFileSystem& fs,
+            const std::filesystem::path& manifest_path,
+            PluginMeta& out_meta);
 
-    // Parses plugin metadata from raw manifest text.
-    PluginMeta TBX_API parse_plugin_meta(
-        const std::string& manifest_text,
-        const std::filesystem::path& manifest_path);
-
-    // Orders plugins for loading while respecting dependencies and logger priority.
-    std::vector<PluginMeta> TBX_API resolve_plugin_load_order(
-        const std::vector<PluginMeta>& plugins);
-
-    // Produces the unload order by reversing the computed load order.
-    std::vector<PluginMeta> TBX_API resolve_plugin_unload_order(
-        const std::vector<PluginMeta>& plugins);
+        // Parses plugin metadata from raw manifest text. Returns true when parsing succeeds.
+        bool try_parse_plugin_meta(
+            std::string_view manifest_text,
+            const std::filesystem::path& manifest_path,
+            PluginMeta& out_meta);
+    };
 }

@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/math/vectors.h"
 #include "tbx/math/size.h"
+#include "tbx/math/vectors.h"
 #include "tbx/tbx_api.h"
 
 namespace tbx

@@ -20,6 +20,8 @@ function(tbx_add_module target_name)
     else()
         add_library(${target_name} STATIC)
     endif()
+    
+    target_precompile_headers(${target_name} PRIVATE "${PROJECT_SOURCE_DIR}/modules/common/include/tbx/pch.h")
 
     if(WIN32)
         target_compile_definitions(${target_name}
