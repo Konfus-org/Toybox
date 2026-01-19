@@ -41,7 +41,7 @@ namespace tbx
                 ops.remove(from);
         }
 
-        return make_log_path(ops.resolve_relative_path(sanitized), sanitized, 0);
+        return make_log_path(root, sanitized, 0);
     }
 
     std::string Log::format(std::string_view message)
