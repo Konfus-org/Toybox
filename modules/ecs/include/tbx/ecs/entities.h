@@ -14,7 +14,7 @@ namespace tbx
     // Description data for an entity.
     // Ownership: value type; callers own any copies created from this struct.
     // Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
-    struct EntityDescription
+    struct TBX_API EntityDescription
     {
         std::string name = "";
         std::string tag = "";
@@ -27,7 +27,7 @@ namespace tbx
     // underlying registry or entity; but can destroy the entity from the registry. Ensure the
     // registry outlives any toys created from it.
     // synchronize access when sharing instances.
-    class Entity
+    class TBX_API Entity
     {
       public:
         Entity() = default;
@@ -90,7 +90,7 @@ namespace tbx
     // Ownership: value type; callers own any copies created from this class. Owns the underlying
     // toy and destroys it on scope exit. Ensure the registry outlives any toys created from it.
     // Thread Safety: not inherently thread-safe;
-    class EntityScope
+    class TBX_API EntityScope
     {
       public:
         EntityScope(Entity& t);
@@ -103,7 +103,7 @@ namespace tbx
     // Ownership: value type; callers own any copies created from this class. Owns the underlying
     // registry and its entities. Ensure this outlives any entities created from it.
     // Thread Safety: not inherently thread-safe; synchronize access when sharing instances.
-    class ECS
+    class TBX_API ECS
     {
       public:
         ECS() = default;
