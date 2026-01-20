@@ -75,7 +75,7 @@ namespace tbx::plugins::openglrendering
         }
     }
 
-    OpenGlShader::~OpenGlShader()
+    OpenGlShader::~OpenGlShader() noexcept
     {
         if (_shader_id != 0)
         {
@@ -136,7 +136,7 @@ namespace tbx::plugins::openglrendering
         }
     }
 
-    OpenGlShaderProgram::~OpenGlShaderProgram()
+    OpenGlShaderProgram::~OpenGlShaderProgram() noexcept
     {
         if (_program_id != 0)
         {

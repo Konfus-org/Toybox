@@ -3,5 +3,5 @@
 namespace tbx
 {
     Message::Message() = default;
-    Message::~Message() = default;
+    Message::~Message() noexcept = default;
 }

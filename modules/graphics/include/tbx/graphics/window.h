@@ -31,7 +31,7 @@ namespace tbx
             Size size = {1280, 720},
             WindowMode mode = WindowMode::Windowed,
             bool open_on_creation = true);
-        ~Window();
+        ~Window() noexcept;
 
         Observable<Window, std::string> title;
         Observable<Window, Size> size;

@@ -24,7 +24,7 @@ namespace tbx::plugins::openglrendering
         /// <remarks>Purpose: Releases the VAO and buffer resources.
         /// Ownership: Owns the GPU handles being destroyed.
         /// Thread Safety: Destroy on the render thread.</remarks>
-        ~OpenGlMesh() override;
+        ~OpenGlMesh() noexcept override;
 
         /// <summary>Uploads a vertex buffer to the mesh.</summary>
         /// <remarks>Purpose: Updates vertex data for the mesh.

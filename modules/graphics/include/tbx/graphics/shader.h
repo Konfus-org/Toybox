@@ -51,7 +51,7 @@ namespace tbx
     class TBX_API IShaderCompiler
     {
       public:
-        virtual ~IShaderCompiler() = default;
+        virtual ~IShaderCompiler() noexcept = default;
 
         // Compiles a shader.
         // Returns true on success and false on failure.

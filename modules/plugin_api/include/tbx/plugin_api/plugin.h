@@ -20,10 +20,10 @@ namespace tbx
     {
       public:
         Plugin();
-        virtual ~Plugin();
+        virtual ~Plugin() noexcept;
         Plugin(const Plugin&) = delete;
         Plugin& operator=(const Plugin&) = delete;
-        Plugin(Plugin&&) = default;
+        Plugin(Plugin&&) noexcept = default;
         Plugin& operator=(Plugin&&) = default;
 
         // Initializes the plugin, wiring it to the given host and dispatcher.

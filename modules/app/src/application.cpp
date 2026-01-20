@@ -40,7 +40,7 @@ namespace tbx
         initialize(desc.requested_plugins);
     }
 
-    Application::~Application()
+    Application::~Application() noexcept
     {
         shutdown();
     }

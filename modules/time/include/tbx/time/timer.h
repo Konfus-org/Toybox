@@ -19,9 +19,11 @@ namespace tbx
         Timer(
             const TimeSpan& time_span = {},
             CancellationSource cancellation_source = CancellationSource());
+        Timer(Timer&& other) noexcept;
+        ~Timer() noexcept = default;
 
         Timer& operator=(const Timer& other);
-        Timer& operator=(Timer&& other);
+        Timer& operator=(Timer&& other) noexcept;
 
         void reset();
         bool tick(const TimeSpan& delta_time);

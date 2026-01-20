@@ -87,7 +87,7 @@ namespace tbx::plugins::openglrendering
         glGenerateTextureMipmap(_texture_id);
     }
 
-    OpenGlTexture::~OpenGlTexture()
+    OpenGlTexture::~OpenGlTexture() noexcept
     {
         if (_texture_id != 0)
         {

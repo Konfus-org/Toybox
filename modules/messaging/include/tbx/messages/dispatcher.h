@@ -19,7 +19,7 @@ namespace tbx
     class TBX_API IMessageDispatcher
     {
       public:
-        virtual ~IMessageDispatcher() = default;
+        virtual ~IMessageDispatcher() noexcept = default;
 
         // Immediately sends an existing message instance.
         // Ownership: caller retains ownership; dispatcher operates on the provided object.
@@ -76,7 +76,7 @@ namespace tbx
     class TBX_API IMessageProcessor
     {
       public:
-        virtual ~IMessageProcessor() = default;
+        virtual ~IMessageProcessor() noexcept = default;
 
         // processes all posted messages.
         virtual void process() = 0;
@@ -115,7 +115,7 @@ namespace tbx
         {
         }
 
-        ~GlobalDispatcherScope()
+        ~GlobalDispatcherScope() noexcept
         {
             set_global_dispatcher(_prev);
         }

@@ -109,7 +109,7 @@ namespace tbx
     // ----------------------
 
     AppMessageCoordinator::AppMessageCoordinator() = default;
-    AppMessageCoordinator::~AppMessageCoordinator()
+    AppMessageCoordinator::~AppMessageCoordinator() noexcept
     {
         clear();
     }

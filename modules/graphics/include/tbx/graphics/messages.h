@@ -27,7 +27,7 @@ namespace tbx
         /// <remarks>Purpose: Cleans up the request data.
         /// Ownership: No ownership transfer or release.
         /// Thread Safety: Safe to destroy on any thread.</remarks>
-        ~WindowMakeCurrentRequest() override;
+        ~WindowMakeCurrentRequest() noexcept override;
 
         Uuid window = invalid::uuid;
     };
@@ -49,7 +49,7 @@ namespace tbx
         /// <remarks>Purpose: Cleans up the request data.
         /// Ownership: No ownership transfer or release.
         /// Thread Safety: Safe to destroy on any thread.</remarks>
-        ~WindowPresentRequest() override;
+        ~WindowPresentRequest() noexcept override;
 
         Uuid window = invalid::uuid;
     };

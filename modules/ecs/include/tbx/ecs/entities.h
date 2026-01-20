@@ -94,7 +94,7 @@ namespace tbx
     {
       public:
         EntityScope(Entity& t);
-        ~EntityScope();
+        ~EntityScope() noexcept;
 
         Entity entity;
     };
@@ -107,7 +107,7 @@ namespace tbx
     {
       public:
         ECS() = default;
-        ~ECS();
+        ~ECS() noexcept;
 
         void clear();
 

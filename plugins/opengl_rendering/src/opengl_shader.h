@@ -24,7 +24,7 @@ namespace tbx::plugins::openglrendering
         /// <remarks>Purpose: Releases the GPU shader identifier.
         /// Ownership: Owns the GPU handle being destroyed.
         /// Thread Safety: Destroy on the render thread.</remarks>
-        ~OpenGlShader() override;
+        ~OpenGlShader() noexcept override;
 
         /// <summary>Returns the shader stage type.</summary>
         /// <remarks>Purpose: Allows inspection of the shader stage.
@@ -73,7 +73,7 @@ namespace tbx::plugins::openglrendering
         /// <remarks>Purpose: Releases the GPU program identifier.
         /// Ownership: Owns the GPU handle being destroyed.
         /// Thread Safety: Destroy on the render thread.</remarks>
-        ~OpenGlShaderProgram() override;
+        ~OpenGlShaderProgram() noexcept override;
 
         /// <summary>Binds the program for rendering.</summary>
         /// <remarks>Purpose: Binds the program so subsequent draw calls use it.
