@@ -37,7 +37,7 @@ namespace tbx::plugins::openglrendering
         glCreateBuffers(1, &_buffer_id);
     }
 
-    OpenGlVertexBuffer::~OpenGlVertexBuffer()
+    OpenGlVertexBuffer::~OpenGlVertexBuffer() noexcept
     {
         if (_buffer_id != 0)
         {
@@ -118,7 +118,7 @@ namespace tbx::plugins::openglrendering
         glCreateBuffers(1, &_buffer_id);
     }
 
-    OpenGlIndexBuffer::~OpenGlIndexBuffer()
+    OpenGlIndexBuffer::~OpenGlIndexBuffer() noexcept
     {
         if (_buffer_id != 0)
         {

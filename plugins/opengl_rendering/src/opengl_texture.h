@@ -22,7 +22,7 @@ namespace tbx::plugins::openglrendering
         /// <remarks>Purpose: Releases the GPU texture handle.
         /// Ownership: Owns the GPU handle being destroyed.
         /// Thread Safety: Destroy on the render thread.</remarks>
-        ~OpenGlTexture() override;
+        ~OpenGlTexture() noexcept override;
 
         /// <summary>Sets the texture unit slot used for activation.</summary>
         /// <remarks>Purpose: Configures the target texture unit.

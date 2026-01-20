@@ -25,7 +25,7 @@ namespace tbx
     {
       public:
         Application(const AppDescription& desc);
-        ~Application();
+        ~Application() noexcept;
 
         // Starts the application main loop. Returns process exit code.
         int run();

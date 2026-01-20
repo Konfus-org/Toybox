@@ -8,7 +8,7 @@ namespace tbx
         require_handling = true;
     }
 
-    WindowMakeCurrentRequest::~WindowMakeCurrentRequest() = default;
+    WindowMakeCurrentRequest::~WindowMakeCurrentRequest() noexcept = default;
 
     WindowPresentRequest::WindowPresentRequest(const Uuid& window_id)
         : window(window_id)
@@ -16,5 +16,5 @@ namespace tbx
         require_handling = true;
     }
 
-    WindowPresentRequest::~WindowPresentRequest() = default;
+    WindowPresentRequest::~WindowPresentRequest() noexcept = default;
 }

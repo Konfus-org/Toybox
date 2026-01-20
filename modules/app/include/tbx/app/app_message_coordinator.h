@@ -22,7 +22,7 @@ namespace tbx
     {
       public:
         AppMessageCoordinator();
-        ~AppMessageCoordinator() override;
+        ~AppMessageCoordinator() noexcept override;
 
         AppMessageCoordinator(const AppMessageCoordinator&) = delete;
         AppMessageCoordinator& operator=(const AppMessageCoordinator&) = delete;

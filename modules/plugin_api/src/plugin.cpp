@@ -16,7 +16,7 @@ namespace tbx
     }
 
     Plugin::Plugin() = default;
-    Plugin::~Plugin() = default;
+    Plugin::~Plugin() noexcept = default;
 
     void Plugin::attach(Application& host)
     {

@@ -14,7 +14,7 @@ namespace tbx
     {
       public:
         SharedLibrary(const std::filesystem::path& path);
-        ~SharedLibrary();
+        ~SharedLibrary() noexcept;
 
         SharedLibrary(const SharedLibrary&) = delete;
         SharedLibrary& operator=(const SharedLibrary&) = delete;

@@ -12,5 +12,5 @@ namespace tbx
 
     Model& Model::operator=(Model&& other) noexcept = default;
 
-    Model::~Model() = default;
+    Model::~Model() noexcept = default;
 }

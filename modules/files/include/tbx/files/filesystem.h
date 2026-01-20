@@ -26,7 +26,7 @@ namespace tbx
     class TBX_API IFileSystem
     {
       public:
-        virtual ~IFileSystem() = default;
+        virtual ~IFileSystem() noexcept = default;
 
         virtual std::filesystem::path get_working_directory() const = 0;
         virtual std::filesystem::path get_plugins_directory() const = 0;

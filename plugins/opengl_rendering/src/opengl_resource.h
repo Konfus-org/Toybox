@@ -15,7 +15,7 @@ namespace tbx::plugins::openglrendering
         /// <remarks>Purpose: Releases any owned OpenGL handles.
         /// Ownership: The resource owns its OpenGL state and releases it here.
         /// Thread Safety: Destroy on the render thread.</remarks>
-        virtual ~IGlResource() = default;
+        virtual ~IGlResource() noexcept = default;
 
         /// <summary>Binds the OpenGL resource.</summary>
         /// <remarks>Purpose: Makes the resource active for subsequent draw calls.
@@ -51,7 +51,7 @@ namespace tbx::plugins::openglrendering
         /// <remarks>Purpose: Ensures resource state is released.
         /// Ownership: Does not own the resource.
         /// Thread Safety: Use only on the render thread.</remarks>
-        ~GlResourceScope()
+        ~GlResourceScope() noexcept
         {
             if (_resource)
             {

@@ -43,7 +43,7 @@ namespace tbx
         /// <remarks>Purpose: Releases owned mesh/material data.
         /// Ownership: Releases owned data on destruction.
         /// Thread Safety: Safe to destroy on any thread.</remarks>
-        ~Model();
+        ~Model() noexcept;
 
         Mesh mesh;
         Material material;

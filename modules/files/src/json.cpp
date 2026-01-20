@@ -20,11 +20,11 @@ namespace tbx
         _data->Data = nlohmann::json::parse(data, nullptr, true, true);
     }
 
-    Json::Json(Json&& other) = default;
+    Json::Json(Json&& other) noexcept = default;
 
     Json& Json::operator=(Json&& other) = default;
 
-    Json::~Json() = default;
+    Json::~Json() noexcept = default;
 
     std::string Json::to_string(int indent) const
     {

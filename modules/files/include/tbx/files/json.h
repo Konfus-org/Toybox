@@ -11,9 +11,9 @@ namespace tbx
       public:
         Json();
         Json(const std::string& data);
-        Json(Json&& other);
+        Json(Json&& other) noexcept;
         Json& operator=(Json&& other);
-        ~Json();
+        ~Json() noexcept;
 
         // Serializes the wrapped JSON value into a string.
         std::string to_string(int indent = 4) const;

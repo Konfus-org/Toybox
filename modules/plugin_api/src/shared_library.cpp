@@ -42,7 +42,7 @@ namespace tbx
     {
     }
 
-    SharedLibrary::~SharedLibrary()
+    SharedLibrary::~SharedLibrary() noexcept
     {
         unload();
     }

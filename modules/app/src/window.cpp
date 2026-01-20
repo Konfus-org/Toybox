@@ -18,7 +18,7 @@ namespace tbx
     {
     }
 
-    Window::~Window()
+    Window::~Window() noexcept
     {
         is_open = false;
     }

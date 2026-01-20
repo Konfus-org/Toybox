@@ -39,14 +39,14 @@ namespace tbx
     {
     }
 
-    EntityScope::~EntityScope()
+    EntityScope::~EntityScope() noexcept
     {
         entity.destroy();
     }
 
     //// ECS class implementation ////
 
-    ECS::~ECS()
+    ECS::~ECS() noexcept
     {
         clear();
     }

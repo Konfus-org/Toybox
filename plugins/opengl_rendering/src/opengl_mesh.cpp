@@ -11,7 +11,7 @@ namespace tbx::plugins::openglrendering
         set_index_buffer(mesh.indices);
     }
 
-    OpenGlMesh::~OpenGlMesh()
+    OpenGlMesh::~OpenGlMesh() noexcept
     {
         if (_vertex_array_id != 0)
         {

@@ -38,7 +38,7 @@ namespace tbx
     struct TBX_API Message
     {
         Message();
-        virtual ~Message();
+        virtual ~Message() noexcept;
 
         bool require_handling = false;
         MessageState state = MessageState::UnHandled;
@@ -52,7 +52,7 @@ namespace tbx
     struct TBX_API Event : public Message
     {
         Event() = default;
-        virtual ~Event() = default;
+        virtual ~Event() noexcept = default;
     };
 
     // Request message with a typed response.
@@ -60,7 +60,7 @@ namespace tbx
     struct Request : public Message
     {
         Request() = default;
-        virtual ~Request() = default;
+        virtual ~Request() noexcept = default;
 
         T result = {};
     };
@@ -70,7 +70,7 @@ namespace tbx
     struct Request<void> : public Message
     {
         Request() = default;
-        virtual ~Request() = default;
+        virtual ~Request() noexcept = default;
     };
 
     // Subscriber callback invoked by the message coordinator during dispatch.

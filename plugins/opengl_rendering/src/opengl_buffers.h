@@ -22,7 +22,7 @@ namespace tbx::plugins::openglrendering
         /// <remarks>Purpose: Releases the GPU buffer handle.
         /// Ownership: The instance owns the buffer being destroyed.
         /// Thread Safety: Destroy on the render thread.</remarks>
-        ~OpenGlVertexBuffer();
+        ~OpenGlVertexBuffer() noexcept;
 
         /// <summary>Uploads vertex data to the buffer.</summary>
         /// <remarks>Purpose: Copies vertex data into GPU memory.
@@ -82,7 +82,7 @@ namespace tbx::plugins::openglrendering
         /// <remarks>Purpose: Releases the GPU buffer handle.
         /// Ownership: The instance owns the buffer being destroyed.
         /// Thread Safety: Destroy on the render thread.</remarks>
-        ~OpenGlIndexBuffer();
+        ~OpenGlIndexBuffer() noexcept;
 
         /// <summary>Uploads index data to the buffer.</summary>
         /// <remarks>Purpose: Copies index data into GPU memory.
