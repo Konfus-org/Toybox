@@ -14,6 +14,7 @@ namespace tbx::plugins
         SDL_Window* sdl_window = nullptr;
         SDL_GLContext gl_context = nullptr;
         Window* tbx_window = nullptr;
+        WindowMode last_window_mode = WindowMode::Windowed;
     };
 
     class SdlWindowingPlugin final : public Plugin
@@ -33,10 +34,10 @@ namespace tbx::plugins
         void on_window_present(WindowPresentRequest& request);
         SDL_GLContext create_gl_context(SDL_Window* sdl_window, Window* tbx_window);
         void destroy_gl_context(SdlWindowRecord& record);
-        SdlWindowRecord find_record(std::function<bool(const SdlWindowRecord&)> condition);
-        SdlWindowRecord find_record(const SDL_Window* sdl_window);
-        SdlWindowRecord find_record(const Window* tbx_window);
-        SdlWindowRecord find_record(const Uuid& window_id);
+        SdlWindowRecord* try_get_record(std::function<bool(const SdlWindowRecord&)> condition);
+        SdlWindowRecord* try_get_record(const SDL_Window* sdl_window);
+        SdlWindowRecord* try_get_record(const Window* tbx_window);
+        SdlWindowRecord* try_get_record(const Uuid& window_id);
         SdlWindowRecord& add_record(SDL_Window* sdl_window, Window* tbx_window);
         void remove_record(const SdlWindowRecord& record);
 

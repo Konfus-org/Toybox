@@ -30,6 +30,29 @@ namespace tbx::plugins
 #endif
     }
 
+    static WindowMode get_window_mode_from_flags(SDL_Window* sdl_window, WindowMode fallback_mode)
+    {
+        if (!sdl_window)
+        {
+            return fallback_mode;
+        }
+
+        const Uint32 flags = SDL_GetWindowFlags(sdl_window);
+        if ((flags & SDL_WINDOW_FULLSCREEN) != 0)
+        {
+            return WindowMode::Fullscreen;
+        }
+        if ((flags & SDL_WINDOW_MINIMIZED) != 0)
+        {
+            return WindowMode::Minimized;
+        }
+        if ((flags & SDL_WINDOW_BORDERLESS) != 0)
+        {
+            return WindowMode::Borderless;
+        }
+        return WindowMode::Windowed;
+    }
+
     static SDL_Window* create_sdl_window(Window* tbx_window, bool use_opengl)
     {
         std::string& title = tbx_window->title;
@@ -95,10 +118,10 @@ namespace tbx::plugins
                 if (_use_opengl)
                 {
                     auto* window = SDL_GetWindowFromID(event.window.windowID);
-                    SdlWindowRecord record = find_record(window);
-                    if (record.sdl_window && record.gl_context)
+                    SdlWindowRecord* record = try_get_record(window);
+                    if (record && record->sdl_window && record->gl_context)
                     {
-                        SDL_GL_MakeCurrent(record.sdl_window, record.gl_context);
+                        SDL_GL_MakeCurrent(record->sdl_window, record->gl_context);
                     }
                 }
                 break;
@@ -106,42 +129,75 @@ namespace tbx::plugins
             case SDL_EventType::SDL_EVENT_WINDOW_CLOSE_REQUESTED:
             {
                 auto* window = SDL_GetWindowFromID(event.window.windowID);
-                SdlWindowRecord record = find_record(window);
-                record.tbx_window->is_open = false;
+                SdlWindowRecord* record = try_get_record(window);
+                if (record && record->tbx_window)
+                {
+                    record->tbx_window->is_open = false;
+                }
                 break;
             }
             case SDL_EventType::SDL_EVENT_WINDOW_RESIZED:
             {
                 auto* window = SDL_GetWindowFromID(event.window.windowID);
-                SdlWindowRecord record = find_record(window);
-                auto new_size = Size(
-                    static_cast<uint>(event.window.data1),
-                    static_cast<uint>(event.window.data2));
-                record.tbx_window->size = new_size;
+                SdlWindowRecord* record = try_get_record(window);
+                if (record && record->tbx_window)
+                {
+                    auto new_size = Size(
+                        static_cast<uint>(event.window.data1),
+                        static_cast<uint>(event.window.data2));
+                    record->tbx_window->size = new_size;
+                }
                 break;
             }
             case SDL_EventType::SDL_EVENT_WINDOW_MINIMIZED:
             {
                 auto* window = SDL_GetWindowFromID(event.window.windowID);
-                SdlWindowRecord record = find_record(window);
-                if (record.tbx_window)
-                    record.tbx_window->mode = WindowMode::Minimized;
+                SdlWindowRecord* record = try_get_record(window);
+                if (record && record->tbx_window)
+                {
+                    if (record->tbx_window->mode != WindowMode::Minimized)
+                    {
+                        record->last_window_mode = record->tbx_window->mode;
+                    }
+                    record->tbx_window->mode = WindowMode::Minimized;
+                }
                 break;
             }
             case SDL_EventType::SDL_EVENT_WINDOW_RESTORED:
             {
                 auto* window = SDL_GetWindowFromID(event.window.windowID);
-                SdlWindowRecord record = find_record(window);
-                if (record.tbx_window)
-                    record.tbx_window->mode = WindowMode::Fullscreen;
+                SdlWindowRecord* record = try_get_record(window);
+                if (record && record->tbx_window)
+                {
+                    WindowMode target_mode = record->last_window_mode;
+                    if (target_mode == WindowMode::Minimized)
+                    {
+                        target_mode = get_window_mode_from_flags(record->sdl_window, WindowMode::Windowed);
+                    }
+                    if (target_mode == WindowMode::Minimized)
+                    {
+                        target_mode = WindowMode::Windowed;
+                    }
+                    record->last_window_mode = record->tbx_window->mode;
+                    record->tbx_window->mode = target_mode;
+                }
                 break;
             }
             case SDL_EventType::SDL_EVENT_WINDOW_MAXIMIZED:
             {
                 auto* window = SDL_GetWindowFromID(event.window.windowID);
-                SdlWindowRecord record = find_record(window);
-                if (record.tbx_window)
-                    record.tbx_window->mode = WindowMode::Fullscreen;
+                SdlWindowRecord* record = try_get_record(window);
+                if (record && record->tbx_window)
+                {
+                    WindowMode target_mode =
+                        get_window_mode_from_flags(record->sdl_window, record->last_window_mode);
+                    if (target_mode == WindowMode::Minimized)
+                    {
+                        target_mode = WindowMode::Windowed;
+                    }
+                    record->last_window_mode = record->tbx_window->mode;
+                    record->tbx_window->mode = target_mode;
+                }
                 break;
             }
             case SDL_EventType::SDL_EVENT_QUIT:
@@ -266,10 +322,14 @@ namespace tbx::plugins
         // Window is closing
         if (event.current == false)
         {
-            SdlWindowRecord record = find_record(event.owner);
-            destroy_gl_context(record);
-            SDL_DestroyWindow(record.sdl_window);
-            remove_record(record);
+            SdlWindowRecord* record = try_get_record(event.owner);
+            if (!record)
+            {
+                return;
+            }
+            destroy_gl_context(*record);
+            SDL_DestroyWindow(record->sdl_window);
+            remove_record(*record);
         }
         // Window is opening
         else
@@ -286,11 +346,11 @@ namespace tbx::plugins
 
     void SdlWindowingPlugin::on_window_size_changed(PropertyChangedEvent<Window, Size>& event)
     {
-        SdlWindowRecord record = find_record(event.owner);
-        if (record.sdl_window)
+        SdlWindowRecord* record = try_get_record(event.owner);
+        if (record && record->sdl_window)
         {
             SDL_SetWindowSize(
-                record.sdl_window,
+                record->sdl_window,
                 static_cast<int>(event.current.width),
                 static_cast<int>(event.current.height));
         }
@@ -298,18 +358,24 @@ namespace tbx::plugins
 
     void SdlWindowingPlugin::on_window_mode_changed(PropertyChangedEvent<Window, WindowMode>& event)
     {
-        SdlWindowRecord record = find_record(event.owner);
+        SdlWindowRecord* record = try_get_record(event.owner);
+        if (!record || !record->sdl_window)
+        {
+            return;
+        }
+
+        record->last_window_mode = event.previous;
         if (event.current == WindowMode::Borderless)
-            SDL_SetWindowBordered(record.sdl_window, false);
+            SDL_SetWindowBordered(record->sdl_window, false);
         else if (event.current == WindowMode::Fullscreen)
-            SDL_SetWindowFullscreen(record.sdl_window, true);
+            SDL_SetWindowFullscreen(record->sdl_window, true);
         else if (event.current == WindowMode::Minimized)
-            SDL_MinimizeWindow(record.sdl_window);
+            SDL_MinimizeWindow(record->sdl_window);
         else if (event.current == WindowMode::Windowed)
         {
-            SDL_SetWindowBordered(record.sdl_window, true);
-            SDL_SetWindowFullscreen(record.sdl_window, false);
-            SDL_RestoreWindow(record.sdl_window);
+            SDL_SetWindowBordered(record->sdl_window, true);
+            SDL_SetWindowFullscreen(record->sdl_window, false);
+            SDL_RestoreWindow(record->sdl_window);
         }
         else
             TBX_ASSERT(false, "Unhandled window mode change!");
@@ -318,24 +384,24 @@ namespace tbx::plugins
     void SdlWindowingPlugin::on_window_title_changed(
         PropertyChangedEvent<Window, std::string>& event)
     {
-        SdlWindowRecord record = find_record(event.owner);
-        if (record.sdl_window)
+        SdlWindowRecord* record = try_get_record(event.owner);
+        if (record && record->sdl_window)
         {
-            SDL_SetWindowTitle(record.sdl_window, event.current.c_str());
+            SDL_SetWindowTitle(record->sdl_window, event.current.c_str());
         }
     }
 
     void SdlWindowingPlugin::on_window_make_current(WindowMakeCurrentRequest& request)
     {
-        SdlWindowRecord record = find_record(request.window);
-        if (!record.sdl_window || !record.gl_context)
+        SdlWindowRecord* record = try_get_record(request.window);
+        if (!record || !record->sdl_window || !record->gl_context)
         {
             request.state = MessageState::Error;
             request.result.flag_failure("SDL windowing: OpenGL context not available.");
             return;
         }
 
-        if (SDL_GL_MakeCurrent(record.sdl_window, record.gl_context) != 0)
+        if (SDL_GL_MakeCurrent(record->sdl_window, record->gl_context) != 0)
         {
             request.state = MessageState::Error;
             request.result.flag_failure(SDL_GetError());
@@ -348,15 +414,15 @@ namespace tbx::plugins
 
     void SdlWindowingPlugin::on_window_present(WindowPresentRequest& request)
     {
-        SdlWindowRecord record = find_record(request.window);
-        if (!record.sdl_window || !record.gl_context)
+        SdlWindowRecord* record = try_get_record(request.window);
+        if (!record || !record->sdl_window || !record->gl_context)
         {
             request.state = MessageState::Error;
             request.result.flag_failure("SDL windowing: OpenGL context not available.");
             return;
         }
 
-        SDL_GL_SwapWindow(record.sdl_window);
+        SDL_GL_SwapWindow(record->sdl_window);
         request.state = MessageState::Handled;
         request.result.flag_success();
     }
@@ -404,7 +470,7 @@ namespace tbx::plugins
         }
     }
 
-    SdlWindowRecord SdlWindowingPlugin::find_record(
+    SdlWindowRecord* SdlWindowingPlugin::try_get_record(
         std::function<bool(const SdlWindowRecord&)> condition)
     {
         auto it = std::find_if(
@@ -416,32 +482,32 @@ namespace tbx::plugins
             });
         if (it != _windows.end())
         {
-            return *it;
+            return &(*it);
         }
-        return SdlWindowRecord();
+        return nullptr;
     }
 
-    SdlWindowRecord SdlWindowingPlugin::find_record(const SDL_Window* sdl_window)
+    SdlWindowRecord* SdlWindowingPlugin::try_get_record(const SDL_Window* sdl_window)
     {
-        return find_record(
+        return try_get_record(
             [&sdl_window](const SdlWindowRecord& record)
             {
                 return record.sdl_window == sdl_window;
             });
     }
 
-    SdlWindowRecord SdlWindowingPlugin::find_record(const Window* tbx_window)
+    SdlWindowRecord* SdlWindowingPlugin::try_get_record(const Window* tbx_window)
     {
-        return find_record(
+        return try_get_record(
             [&tbx_window](const SdlWindowRecord& record)
             {
                 return record.tbx_window == tbx_window;
             });
     }
 
-    SdlWindowRecord SdlWindowingPlugin::find_record(const Uuid& window_id)
+    SdlWindowRecord* SdlWindowingPlugin::try_get_record(const Uuid& window_id)
     {
-        return find_record(
+        return try_get_record(
             [&window_id](const SdlWindowRecord& record)
             {
                 return record.tbx_window && record.tbx_window->id == window_id;
@@ -453,6 +519,10 @@ namespace tbx::plugins
         _windows.emplace_back();
         _windows.back().sdl_window = sdl_window;
         _windows.back().tbx_window = tbx_window;
+        if (tbx_window)
+        {
+            _windows.back().last_window_mode = tbx_window->mode;
+        }
         return _windows.back();
     }
 
