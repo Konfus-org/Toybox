@@ -85,6 +85,9 @@ namespace tbx::plugins::openglrendering
             return;
         }
 
+        std::vector<Uuid> windows_to_remove = {};
+        windows_to_remove.reserve(_window_sizes.size());
+
         for (const auto& entry : _window_sizes)
         {
             const Uuid window_id = entry.first;
@@ -96,6 +99,7 @@ namespace tbx::plugins::openglrendering
                 TBX_TRACE_ERROR(
                     "OpenGL rendering: failed to make window current: {}",
                     result.get_report());
+                windows_to_remove.push_back(window_id);
                 continue;
             }
 
@@ -153,6 +157,11 @@ namespace tbx::plugins::openglrendering
                     present_result.get_report());
             }
         }
+
+        for (const auto& window_id : windows_to_remove)
+        {
+            remove_window_state(window_id, false);
+        }
     }
 
     void OpenGlRenderingPlugin::on_recieve_message(Message& msg)
@@ -162,6 +171,17 @@ namespace tbx::plugins::openglrendering
                 [this](WindowContextReadyEvent& event)
                 {
                     handle_window_ready(event);
+                }))
+        {
+            return;
+        }
+
+        if (on_property_changed(
+                msg,
+                &Window::is_open,
+                [this](PropertyChangedEvent<Window, bool>& event)
+                {
+                    handle_window_open_changed(event);
                 }))
         {
             return;
@@ -217,6 +237,22 @@ namespace tbx::plugins::openglrendering
 
         event.state = MessageState::Handled;
         event.result.flag_success();
+    }
+
+    void OpenGlRenderingPlugin::handle_window_open_changed(
+        PropertyChangedEvent<Window, bool>& event)
+    {
+        if (!event.owner)
+        {
+            return;
+        }
+
+        if (event.current)
+        {
+            return;
+        }
+
+        remove_window_state(event.owner->id, true);
     }
 
     void OpenGlRenderingPlugin::handle_window_resized(PropertyChangedEvent<Window, Size>& event)
@@ -390,6 +426,31 @@ namespace tbx::plugins::openglrendering
         }
 
         target.resolution = {};
+    }
+
+    void OpenGlRenderingPlugin::remove_window_state(const Uuid& window_id, const bool try_release)
+    {
+        if (try_release && _is_gl_ready)
+        {
+            auto target_it = _render_targets.find(window_id);
+            if (target_it != _render_targets.end())
+            {
+                const auto result = send_message<WindowMakeCurrentRequest>(window_id);
+                if (result)
+                {
+                    release_render_target(target_it->second);
+                }
+                else
+                {
+                    TBX_TRACE_WARNING(
+                        "OpenGL rendering: unable to release render target after window close: {}",
+                        result.get_report());
+                }
+            }
+        }
+
+        _render_targets.erase(window_id);
+        _window_sizes.erase(window_id);
     }
 
     void OpenGlRenderingPlugin::draw_models(const Mat4& view_projection)

@@ -61,6 +61,7 @@ namespace tbx::plugins::openglrendering
 
       private:
         void handle_window_ready(WindowContextReadyEvent& event);
+        void handle_window_open_changed(PropertyChangedEvent<Window, bool>& event);
         void handle_window_resized(PropertyChangedEvent<Window, Size>& event);
         void handle_resolution_changed(PropertyChangedEvent<AppSettings, Size>& event);
         void initialize_opengl() const;
@@ -73,6 +74,7 @@ namespace tbx::plugins::openglrendering
         std::shared_ptr<OpenGlTexture> get_texture(const Texture& texture);
         void ensure_render_target(const Uuid& window_id, const Size& resolution);
         void release_render_target(RenderTarget& target) const;
+        void remove_window_state(const Uuid& window_id, bool try_release);
 
       private:
         bool _is_gl_ready = false;
