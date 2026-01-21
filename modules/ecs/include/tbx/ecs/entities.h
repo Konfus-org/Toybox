@@ -31,8 +31,8 @@ namespace tbx
     {
       public:
         Entity() = default;
-        Entity(EntityRegistry& reg, const EntityHandle& handle);
-        Entity(EntityRegistry& reg, const EntityDescription& desc);
+        Entity(EntityRegistry* reg, const EntityHandle& handle);
+        Entity(EntityRegistry* reg, const EntityDescription& desc);
 
         void destroy();
 
@@ -106,11 +106,10 @@ namespace tbx
     class TBX_API ECS
     {
       public:
-        ECS() = default;
+        ECS();
         ~ECS() noexcept;
 
         void clear();
-
         bool is_empty();
 
         Entity create_entity(
@@ -129,14 +128,14 @@ namespace tbx
         std::vector<Entity> get_entities_with()
         {
             std::vector<Entity> toys = {};
-            auto view = _registry.view<TBlocks...>();
+            auto view = _registry->view<TBlocks...>();
             for (auto entity : view)
-                toys.emplace_back(_registry, entity);
+                toys.emplace_back(_registry.get(), entity);
             return toys;
         }
 
       private:
-        EntityRegistry _registry = {};
+        std::unique_ptr<EntityRegistry> _registry = nullptr;
     };
 
     namespace invalid

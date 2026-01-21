@@ -4,15 +4,15 @@ namespace tbx
 {
     //// Entity class implementation ////
 
-    Entity::Entity(EntityRegistry& reg, const EntityHandle& handle)
-        : _registry(&reg)
+    Entity::Entity(EntityRegistry* reg, const EntityHandle& handle)
+        : _registry(reg)
         , _handle(handle)
     {
     }
 
-    Entity::Entity(EntityRegistry& reg, const EntityDescription& desc)
-        : _registry(&reg)
-        , _handle(reg.create())
+    Entity::Entity(EntityRegistry* reg, const EntityDescription& desc)
+        : _registry(reg)
+        , _handle(reg->create())
     {
         _registry->emplace<EntityDescription>(_handle, desc);
     }
@@ -46,17 +46,20 @@ namespace tbx
 
     //// ECS class implementation ////
 
+    ECS::ECS()
+        : _registry(std::make_unique<EntityRegistry>())
+    {
+    }
+
     ECS::~ECS() noexcept
     {
-        clear();
+        _registry->clear();
     }
 
     void ECS::clear()
     {
-        if (is_empty())
-            return;
-
-        _registry.clear();
+        _registry->clear();
+        _registry = std::make_unique<EntityRegistry>();
     }
 
     bool ECS::is_empty()
@@ -75,25 +78,25 @@ namespace tbx
         desc.tag = tag;
         desc.layer = layer;
         desc.parent = parent;
-        return Entity(_registry, desc);
+        return Entity(_registry.get(), desc);
     }
 
     Entity ECS::create_entity(const EntityDescription& desc)
     {
-        return Entity(_registry, desc);
+        return Entity(_registry.get(), desc);
     }
 
     Entity ECS::get_entity(const Uuid& id)
     {
-        return Entity(_registry, static_cast<EntityHandle>(id.value));
+        return Entity(_registry.get(), static_cast<EntityHandle>(id.value));
     }
 
     std::vector<Entity> ECS::get_all_entities()
     {
         std::vector<Entity> toys = {};
-        auto view = _registry.view<EntityDescription>();
+        auto view = _registry->view<EntityDescription>();
         for (auto entity : view)
-            toys.emplace_back(_registry, entity);
+            toys.emplace_back(_registry.get(), entity);
         return toys;
     }
 }
