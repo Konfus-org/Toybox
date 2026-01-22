@@ -19,6 +19,11 @@ namespace tbx::examples
         std::string message = trim(greeting);
         TBX_TRACE_INFO("{}", message.c_str());
 
+        auto camera_entity = _ecs->create_entity("default_camera");
+        camera_entity.add_component<Camera>();
+        auto& camera_transform = camera_entity.add_component<Transform>();
+        camera_transform.position = Vec3(0.0f, 0.0f, 5.0f);
+
         const auto toys_to_make = 1;
         for (int i = 0; i < toys_to_make; i++)
         {

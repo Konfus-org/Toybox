@@ -59,6 +59,7 @@ namespace tbx::plugins
         Size get_effective_resolution(const Size& window_size) const;
         void draw_models(const Mat4& view_projection);
         void draw_models_for_cameras(const Size& window_size);
+        std::shared_ptr<OpenGlTexture> get_default_texture();
         std::shared_ptr<OpenGlMesh> get_mesh(const Mesh& mesh);
         std::shared_ptr<OpenGlShader> get_shader(const Shader& shader);
         std::shared_ptr<OpenGlShaderProgram> get_shader_program(const Material& material);
@@ -73,5 +74,6 @@ namespace tbx::plugins
         std::unordered_map<Uuid, std::shared_ptr<OpenGlShader>> _shaders = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlShaderProgram>> _shader_programs = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlTexture>> _textures = {};
+        std::shared_ptr<OpenGlTexture> _default_texture = {};
     };
 }

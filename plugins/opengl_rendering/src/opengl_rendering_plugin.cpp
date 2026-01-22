@@ -4,6 +4,7 @@
 #include "tbx/graphics/camera.h"
 #include "tbx/math/matrices.h"
 #include "tbx/math/transform.h"
+#include "tbx/math/trig.h"
 #include <glad/glad.h>
 #ifdef USING_SDL3
     #include <SDL3/SDL.h>
@@ -316,7 +317,7 @@ namespace tbx::plugins
 
             GlResourceScope program_scope(*program);
             ShaderUniform view_projection_uniform = {};
-            view_projection_uniform.name = "view_projection_uniform";
+            view_projection_uniform.name = "view_proj_uniform";
             view_projection_uniform.data = view_projection;
             program->upload(view_projection_uniform);
 
@@ -326,13 +327,29 @@ namespace tbx::plugins
             program->upload(model_uniform);
 
             ShaderUniform color_uniform = {};
-            model_uniform.name = "color_uniform";
-            model_uniform.data = model.material.color;
-            program->upload(model_uniform);
+            color_uniform.name = "color_uniform";
+            color_uniform.data = model.material.color;
+            program->upload(color_uniform);
+
+            ShaderUniform texture_uniform = {};
+            texture_uniform.name = "texture_uniform";
+            texture_uniform.data = 0;
+            program->upload(texture_uniform);
 
             std::vector<GlResourceScope> texture_scopes = {};
-            texture_scopes.reserve(model.material.textures.size());
+            texture_scopes.reserve(model.material.textures.size() + 1);
             uint32 slot = 0;
+            if (model.material.textures.empty())
+            {
+                auto resource = get_default_texture();
+                if (resource)
+                {
+                    resource->set_slot(slot);
+                    texture_scopes.emplace_back(*resource);
+                    slot += 1;
+                }
+            }
+
             for (const auto& texture : model.material.textures)
             {
                 if (!texture)
@@ -361,12 +378,15 @@ namespace tbx::plugins
 
         if (cameras.begin() == cameras.end())
         {
-            glm::mat4 default_view = glm::lookAt(
-                glm::vec3(0.0f, 0.0f, 5.0f), // Camera is at (0,0,5)
-                glm::vec3(0.0f, 0.0f, 0.0f), // Looking at the origin
-                glm::vec3(0.0f, 1.0f, 0.0f) // "Up" is the Y-axis
-            );
-            draw_models(default_view);
+            const float aspect = window_size.get_aspect_ratio();
+            const Mat4 default_view = look_at(
+                Vec3(0.0f, 0.0f, 5.0f),
+                Vec3(0.0f, 0.0f, 0.0f),
+                Vec3(0.0f, 1.0f, 0.0f));
+            const Mat4 default_projection =
+                perspective_projection(degrees_to_radians(60.0f), aspect, 0.1f, 1000.0f);
+            const Mat4 view_projection = default_projection * default_view;
+            draw_models(view_projection);
             return;
         }
 
@@ -437,6 +457,23 @@ namespace tbx::plugins
         auto program = std::make_shared<OpenGlShaderProgram>(shaders);
         _shader_programs.emplace(program_id, program);
         return program;
+    }
+
+    std::shared_ptr<OpenGlTexture> OpenGlRenderingPlugin::get_default_texture()
+    {
+        if (_default_texture)
+        {
+            return _default_texture;
+        }
+
+        Texture default_texture = Texture(
+            Size(1, 1),
+            TextureWrap::Repeat,
+            TextureFilter::Nearest,
+            TextureFormat::RGBA,
+            {255, 255, 255, 255});
+        _default_texture = std::make_shared<OpenGlTexture>(default_texture);
+        return _default_texture;
     }
 
     std::shared_ptr<OpenGlTexture> OpenGlRenderingPlugin::get_texture(const Texture& texture)
