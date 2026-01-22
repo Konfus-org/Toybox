@@ -6,6 +6,17 @@
 
 namespace tbx::plugins
 {
+    static void set_opengl_attribute(SDL_GLAttr attribute, int value)
+    {
+        if (!SDL_GL_SetAttribute(attribute, value))
+        {
+            TBX_TRACE_WARNING(
+                "Failed to set SDL OpenGL attribute {}: {}",
+                static_cast<int>(attribute),
+                SDL_GetError());
+        }
+    }
+
     static WindowMode get_window_mode_from_flags(SDL_Window* sdl_window, WindowMode fallback_mode)
     {
         if (!sdl_window)
@@ -31,10 +42,7 @@ namespace tbx::plugins
 
     static SDL_Window* create_sdl_window(Window* tbx_window, bool use_opengl)
     {
-        std::string& title = tbx_window->title;
-        Size& size = tbx_window->size;
-
-        uint flags = 0;
+        uint flags = use_opengl ? SDL_WINDOW_OPENGL : 0;
         if (tbx_window->mode == WindowMode::Borderless)
             flags |= SDL_WINDOW_BORDERLESS;
         else if (tbx_window->mode == WindowMode::Fullscreen)
@@ -43,12 +51,10 @@ namespace tbx::plugins
             flags |= SDL_WINDOW_RESIZABLE;
         else if (tbx_window->mode == WindowMode::Minimized)
             flags |= SDL_WINDOW_MINIMIZED;
-        if (use_opengl)
-        {
-            flags |= SDL_WINDOW_OPENGL;
-        }
-        SDL_Window* native = SDL_CreateWindow(title.c_str(), size.width, size.height, flags);
 
+        std::string& title = tbx_window->title;
+        Size& size = tbx_window->size;
+        SDL_Window* native = SDL_CreateWindow(title.c_str(), size.width, size.height, flags);
         if (!native)
         {
             TBX_ASSERT(false, "Failed to create SDL window!");
@@ -65,8 +71,22 @@ namespace tbx::plugins
             TBX_TRACE_ERROR("Failed to initialize SDL video subsystem. See SDL logs for details.");
             return;
         }
+        else
+            TBX_TRACE_INFO("Initialized SDL video subsystem.");
 
         _use_opengl = host.get_settings().graphics_api == GraphicsApi::OpenGL;
+        if (_use_opengl)
+        {
+            set_opengl_attribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+            set_opengl_attribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
+            set_opengl_attribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+            set_opengl_attribute(SDL_GL_DEPTH_SIZE, 24);
+            set_opengl_attribute(SDL_GL_STENCIL_SIZE, 8);
+            set_opengl_attribute(SDL_GL_DOUBLEBUFFER, 1);
+#if defined(TBX_DEBUG)
+            set_opengl_attribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
+#endif
+        }
     }
 
     void SdlWindowingPlugin::on_detach()
@@ -96,7 +116,16 @@ namespace tbx::plugins
                     SdlWindowRecord* record = try_get_record(window);
                     if (record && record->sdl_window && record->gl_context)
                     {
-                        SDL_GL_MakeCurrent(record->sdl_window, record->gl_context);
+                        if (SDL_GL_MakeCurrent(record->sdl_window, record->gl_context))
+                            TBX_TRACE_INFO(
+                                "SDL windowing: Made OpenGL context current for window '{}'.",
+                                record->tbx_window ? record->tbx_window->title.value : "<unknown>");
+                        else
+                            TBX_TRACE_ERROR(
+                                "SDL windowing: Failed to make OpenGL context current for window "
+                                "'{}': {}",
+                                record->tbx_window ? record->tbx_window->title.value : "<unknown>",
+                                SDL_GetError());
                     }
                 }
                 break;
@@ -147,7 +176,8 @@ namespace tbx::plugins
                     WindowMode target_mode = record->last_window_mode;
                     if (target_mode == WindowMode::Minimized)
                     {
-                        target_mode = get_window_mode_from_flags(record->sdl_window, WindowMode::Windowed);
+                        target_mode =
+                            get_window_mode_from_flags(record->sdl_window, WindowMode::Windowed);
                     }
                     if (target_mode == WindowMode::Minimized)
                     {
@@ -234,9 +264,7 @@ namespace tbx::plugins
                         SDL_Window* native = create_sdl_window(window, _use_opengl);
                         record.sdl_window = native;
                         if (_use_opengl)
-                        {
                             record.gl_context = create_gl_context(native, window);
-                        }
                     }
                 }))
         {
@@ -376,7 +404,7 @@ namespace tbx::plugins
             return;
         }
 
-        if (SDL_GL_MakeCurrent(record->sdl_window, record->gl_context) != 0)
+        if (_use_opengl && !SDL_GL_MakeCurrent(record->sdl_window, record->gl_context))
         {
             request.state = MessageState::Error;
             request.result.flag_failure(SDL_GetError());
@@ -419,7 +447,7 @@ namespace tbx::plugins
             return nullptr;
         }
 
-        if (SDL_GL_MakeCurrent(sdl_window, context) != 0)
+        if (!SDL_GL_MakeCurrent(sdl_window, context))
         {
             TBX_TRACE_ERROR(
                 "Failed to make SDL OpenGL context current for window '{}': {}",
@@ -427,8 +455,7 @@ namespace tbx::plugins
                 SDL_GetError());
         }
 
-        const auto get_proc_address =
-            reinterpret_cast<GraphicsProcAddress>(SDL_GL_GetProcAddress);
+        const auto get_proc_address = reinterpret_cast<GraphicsProcAddress>(SDL_GL_GetProcAddress);
         send_message<WindowContextReadyEvent>(
             tbx_window->id,
             get_proc_address,

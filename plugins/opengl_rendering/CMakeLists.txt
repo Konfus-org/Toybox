@@ -12,8 +12,9 @@ target_link_libraries(OpenGlRenderingPlugin PRIVATE
 
 if(TARGET SDL3::SDL3-shared)
     target_link_libraries(OpenGlRenderingPlugin PRIVATE
-        Tbx::Plugins::SdlOpenGlAdapterPlugin
+        SDL3::SDL3-shared
     )
+    target_compile_definitions(OpenGlRenderingPlugin PRIVATE USING_SDL3)
 endif()
 
 tbx_register_plugin(

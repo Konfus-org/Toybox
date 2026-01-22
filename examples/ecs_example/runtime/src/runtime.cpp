@@ -38,12 +38,12 @@ namespace tbx::examples
             auto& transform = entity.get_component<Transform>();
             transform.position.y = sin(dt.seconds * 2.0) * 0.5f;
 
-            TBX_TRACE_INFO("Toy {}:", entity.get_description().name);
+            /*TBX_TRACE_INFO("Toy {}:", entity.get_description().name);
             TBX_TRACE_INFO(
                 "Position: ({}, {}, {})",
                 transform.position.x,
                 transform.position.y,
-                transform.position.z);
+                transform.position.z);*/
         }
     }
 

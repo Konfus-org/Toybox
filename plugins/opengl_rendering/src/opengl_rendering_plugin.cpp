@@ -5,6 +5,9 @@
 #include "tbx/math/matrices.h"
 #include "tbx/math/transform.h"
 #include <glad/glad.h>
+#ifdef USING_SDL3
+    #include <SDL3/SDL.h>
+#endif
 #include <vector>
 
 namespace tbx::plugins
@@ -55,15 +58,6 @@ namespace tbx::plugins
     void OpenGlRenderingPlugin::on_attach(Application& host)
     {
         _render_resolution = host.get_settings().resolution.value;
-        if (GLAD_GL_VERSION_1_0)
-        {
-            initialize_opengl();
-            _is_gl_ready = true;
-        }
-        else
-        {
-            TBX_TRACE_WARNING("OpenGL rendering: GL loader not initialized on attach.");
-        }
     }
 
     void OpenGlRenderingPlugin::on_detach()
@@ -101,6 +95,7 @@ namespace tbx::plugins
         {
             const Uuid window_id = entry.first;
             const Size& window_size = entry.second;
+            const Size render_resolution = get_effective_resolution(window_size);
 
             const auto result = send_message<WindowMakeCurrentRequest>(window_id);
             if (!result)
@@ -112,52 +107,19 @@ namespace tbx::plugins
                 continue;
             }
 
-            const Size render_resolution = get_effective_resolution(window_size);
-            ensure_render_target(window_id, render_resolution);
-            auto target_it = _render_targets.find(window_id);
-            if (target_it == _render_targets.end() || target_it->second.framebuffer == 0U)
-            {
-                continue;
-            }
-
-            const RenderTarget& target = target_it->second;
-
-            glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(target.framebuffer));
-            glEnable(GL_DEPTH_TEST);
-            glDepthMask(GL_TRUE);
-            glClearDepth(1.0);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            // 1. Set viewport and clear color first
             glViewport(
                 0,
                 0,
                 static_cast<GLsizei>(render_resolution.width),
                 static_cast<GLsizei>(render_resolution.height));
+            glClearColor(0.1f, 1.0f, 0.1f, 1.0f); // Fixed 255 to 1.0f
 
-            draw_models_for_cameras(render_resolution);
+            // 2. Then perform the clear
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(target.framebuffer));
-            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-            glBlitFramebuffer(
-                0,
-                0,
-                static_cast<GLint>(render_resolution.width),
-                static_cast<GLint>(render_resolution.height),
-                0,
-                0,
-                static_cast<GLint>(window_size.width),
-                static_cast<GLint>(window_size.height),
-                GL_COLOR_BUFFER_BIT,
-                GL_NEAREST);
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glViewport(
-                0,
-                0,
-                static_cast<GLsizei>(window_size.width),
-                static_cast<GLsizei>(window_size.height));
-
+            // 3. Flush and present
             glFlush();
-
             const auto present_result = send_message<WindowPresentRequest>(window_id);
             if (!present_result)
             {
@@ -171,6 +133,78 @@ namespace tbx::plugins
         {
             remove_window_state(window_id, false);
         }
+
+        /*
+                for (const auto& entry : _window_sizes)
+                {
+                    const Uuid window_id = entry.first;
+                    const Size& window_size = entry.second;
+
+                    const auto result = send_message<WindowMakeCurrentRequest>(window_id);
+                    if (!result)
+                    {
+                        TBX_TRACE_ERROR(
+                            "OpenGL rendering: failed to make window current: {}",
+                            result.get_report());
+                        windows_to_remove.push_back(window_id);
+                        continue;
+                    }
+
+                    const Size render_resolution = get_effective_resolution(window_size);
+                    ensure_render_target(window_id, render_resolution);
+                    auto target_it = _render_targets.find(window_id);
+                    if (target_it == _render_targets.end() || target_it->second.framebuffer == 0U)
+                    {
+                        continue;
+                    }
+
+                    const RenderTarget& target = target_it->second;
+
+                    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(target.framebuffer));
+                    glEnable(GL_DEPTH_TEST);
+                    glDepthMask(GL_TRUE);
+                    glClearDepth(1.0);
+                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+                    glViewport(
+                        0,
+                        0,
+                        static_cast<GLsizei>(render_resolution.width),
+                        static_cast<GLsizei>(render_resolution.height));
+
+                    draw_models_for_cameras(render_resolution);
+
+                    glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(target.framebuffer));
+                    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+                    glBlitFramebuffer(
+                        0,
+                        0,
+                        static_cast<GLint>(render_resolution.width),
+                        static_cast<GLint>(render_resolution.height),
+                        0,
+                        0,
+                        static_cast<GLint>(window_size.width),
+                        static_cast<GLint>(window_size.height),
+                        GL_COLOR_BUFFER_BIT,
+                        GL_NEAREST);
+                    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                    glViewport(
+                        0,
+                        0,
+                        static_cast<GLsizei>(window_size.width),
+                        static_cast<GLsizei>(window_size.height));
+
+                    glFlush();
+
+                    const auto present_result = send_message<WindowPresentRequest>(window_id);
+                    if (!present_result)
+                    {
+                        TBX_TRACE_ERROR(
+                            "OpenGL rendering: failed to present window: {}",
+                            present_result.get_report());
+                    }
+                }
+                */
     }
 
     void OpenGlRenderingPlugin::on_recieve_message(Message& msg)
@@ -219,14 +253,26 @@ namespace tbx::plugins
         }
     }
 
-
     void OpenGlRenderingPlugin::handle_window_ready(WindowContextReadyEvent& event)
     {
+        bool loaded = false;
+
+#ifdef USING_SDL3
+        loaded = gladLoadGLLoader(reinterpret_cast<GLADloadproc>(SDL_GL_GetProcAddress));
+#endif
+
+        if (loaded)
+        {
+            initialize_opengl();
+            _is_gl_ready = true;
+        }
+        else
+            TBX_TRACE_WARNING("Failed to load glad!");
+
         if (!_is_gl_ready)
         {
             event.state = MessageState::Error;
-            event.result.flag_failure(
-                "OpenGL rendering: GL loader not initialized.");
+            event.result.flag_failure("OpenGL rendering: GL loader not initialized.");
             return;
         }
 
@@ -266,7 +312,8 @@ namespace tbx::plugins
         }
     }
 
-    void OpenGlRenderingPlugin::handle_resolution_changed(PropertyChangedEvent<AppSettings, Size>& event)
+    void OpenGlRenderingPlugin::handle_resolution_changed(
+        PropertyChangedEvent<AppSettings, Size>& event)
     {
         _render_resolution = event.current;
     }
@@ -363,7 +410,12 @@ namespace tbx::plugins
             GL_RGBA,
             GL_UNSIGNED_BYTE,
             nullptr);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color_texture, 0);
+        glFramebufferTexture2D(
+            GL_FRAMEBUFFER,
+            GL_COLOR_ATTACHMENT0,
+            GL_TEXTURE_2D,
+            color_texture,
+            0);
 
         GLuint depth_buffer = 0;
         glGenRenderbuffers(1, &depth_buffer);
