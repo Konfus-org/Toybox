@@ -5,7 +5,7 @@
 #include <memory>
 #include <vector>
 
-namespace tbx::plugins::openglrendering
+namespace tbx::plugins
 {
     /// <summary>OpenGL implementation of a shader stage resource.</summary>
     /// <remarks>Purpose: Compiles shader source into an OpenGL shader object.

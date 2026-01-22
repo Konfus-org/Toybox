@@ -5,7 +5,7 @@
 #include "tbx/graphics/mesh.h"
 #include "tbx/tbx_api.h"
 
-namespace tbx::plugins::openglrendering
+namespace tbx::plugins
 {
     /// <summary>OpenGL implementation of a mesh resource.</summary>
     /// <remarks>Purpose: Manages a VAO with vertex and index buffers for drawing.

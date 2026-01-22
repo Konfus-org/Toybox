@@ -10,9 +10,15 @@ target_link_libraries(OpenGlRenderingPlugin PRIVATE
     glad::glad
 )
 
+if(TARGET SDL3::SDL3-shared)
+    target_link_libraries(OpenGlRenderingPlugin PRIVATE
+        Tbx::Plugins::SdlOpenGlAdapterPlugin
+    )
+endif()
+
 tbx_register_plugin(
     TARGET OpenGlRenderingPlugin
-    CLASS tbx::plugins::openglrendering::OpenGlRenderingPlugin
+    CLASS tbx::plugins::OpenGlRenderingPlugin
     HEADER "opengl_rendering_plugin.h"
     NAME "OpenGlRenderingPlugin"
     VERSION "1.0.0"

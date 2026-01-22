@@ -6,30 +6,6 @@
 
 namespace tbx::plugins
 {
-    static void set_opengl_attribute(SDL_GLAttr attribute, int value)
-    {
-        if (SDL_GL_SetAttribute(attribute, value) != 0)
-        {
-            TBX_TRACE_WARNING(
-                "Failed to set SDL OpenGL attribute {}: {}",
-                static_cast<int>(attribute),
-                SDL_GetError());
-        }
-    }
-
-    static void configure_opengl_attributes()
-    {
-        set_opengl_attribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-        set_opengl_attribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
-        set_opengl_attribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-        set_opengl_attribute(SDL_GL_DEPTH_SIZE, 24);
-        set_opengl_attribute(SDL_GL_STENCIL_SIZE, 8);
-        set_opengl_attribute(SDL_GL_DOUBLEBUFFER, 1);
-#if defined(TBX_DEBUG)
-        set_opengl_attribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
-#endif
-    }
-
     static WindowMode get_window_mode_from_flags(SDL_Window* sdl_window, WindowMode fallback_mode)
     {
         if (!sdl_window)
@@ -69,7 +45,6 @@ namespace tbx::plugins
             flags |= SDL_WINDOW_MINIMIZED;
         if (use_opengl)
         {
-            configure_opengl_attributes();
             flags |= SDL_WINDOW_OPENGL;
         }
         SDL_Window* native = SDL_CreateWindow(title.c_str(), size.width, size.height, flags);
