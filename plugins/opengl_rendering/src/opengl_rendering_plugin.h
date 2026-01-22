@@ -16,7 +16,7 @@
 #include <memory>
 #include <unordered_map>
 
-namespace tbx::plugins::openglrendering
+namespace tbx::plugins
 {
     /// <summary>OpenGL rendering backend plugin.</summary>
     /// <remarks>Purpose: Implements GPU resource creation and frame rendering for OpenGL.

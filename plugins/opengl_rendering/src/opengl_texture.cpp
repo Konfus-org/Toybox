@@ -2,7 +2,7 @@
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
 
-namespace tbx::plugins::openglrendering
+namespace tbx::plugins
 {
     struct GlTextureFormat
     {

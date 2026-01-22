@@ -3,7 +3,7 @@
 #include <glad/glad.h>
 #include <variant>
 
-namespace tbx::plugins::openglrendering
+namespace tbx::plugins
 {
     static GLenum vertex_type_to_gl_type(const VertexData& type)
     {

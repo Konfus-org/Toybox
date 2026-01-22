@@ -7,7 +7,7 @@
 #include <type_traits>
 #include <variant>
 
-namespace tbx::plugins::openglrendering
+namespace tbx::plugins
 {
     static GLenum to_gl_shader_type(ShaderType type)
     {

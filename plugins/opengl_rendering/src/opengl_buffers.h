@@ -3,7 +3,7 @@
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/vertex.h"
 
-namespace tbx::plugins::openglrendering
+namespace tbx::plugins
 {
     /// <summary>Owns an OpenGL vertex buffer object.</summary>
     /// <remarks>Purpose: Uploads vertex data and configures attribute pointers.

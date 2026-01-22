@@ -2,7 +2,7 @@
 #include "tbx/tbx_api.h"
 #include <utility>
 
-namespace tbx::plugins::openglrendering
+namespace tbx::plugins
 {
     /// <summary>Base interface for OpenGL resources that can be bound/unbound.</summary>
     /// <remarks>Purpose: Provides a common contract for binding OpenGL state.

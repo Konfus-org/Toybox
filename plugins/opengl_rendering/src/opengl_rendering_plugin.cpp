@@ -7,7 +7,7 @@
 #include <glad/glad.h>
 #include <vector>
 
-namespace tbx::plugins::openglrendering
+namespace tbx::plugins
 {
     static Mat4 build_model_matrix(const Transform& transform)
     {
@@ -55,6 +55,15 @@ namespace tbx::plugins::openglrendering
     void OpenGlRenderingPlugin::on_attach(Application& host)
     {
         _render_resolution = host.get_settings().resolution.value;
+        if (GLAD_GL_VERSION_1_0)
+        {
+            initialize_opengl();
+            _is_gl_ready = true;
+        }
+        else
+        {
+            TBX_TRACE_WARNING("OpenGL rendering: GL loader not initialized on attach.");
+        }
     }
 
     void OpenGlRenderingPlugin::on_detach()
@@ -210,27 +219,15 @@ namespace tbx::plugins::openglrendering
         }
     }
 
+
     void OpenGlRenderingPlugin::handle_window_ready(WindowContextReadyEvent& event)
     {
-        if (!event.get_proc_address)
-        {
-            event.state = MessageState::Error;
-            event.result.flag_failure("OpenGL rendering: missing window proc address loader.");
-            return;
-        }
-
         if (!_is_gl_ready)
         {
-            const auto loaded = gladLoadGLLoader(event.get_proc_address);
-            if (!loaded)
-            {
-                event.state = MessageState::Error;
-                event.result.flag_failure("OpenGL rendering: failed to load GL functions.");
-                return;
-            }
-
-            initialize_opengl();
-            _is_gl_ready = true;
+            event.state = MessageState::Error;
+            event.result.flag_failure(
+                "OpenGL rendering: GL loader not initialized.");
+            return;
         }
 
         _window_sizes[event.window] = event.size;

@@ -3,7 +3,7 @@
 #include "tbx/common/int.h"
 #include "tbx/graphics/texture.h"
 
-namespace tbx::plugins::openglrendering
+namespace tbx::plugins
 {
     /// <summary>OpenGL implementation of a texture resource.</summary>
     /// <remarks>Purpose: Wraps an OpenGL texture object and its binding state.
