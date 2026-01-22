@@ -3,6 +3,7 @@
 #include "tbx/common/string_utils.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/entities.h"
+#include "tbx/graphics/camera.h"
 #include "tbx/graphics/model.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
@@ -18,12 +19,15 @@ namespace tbx::examples
         std::string message = trim(greeting);
         TBX_TRACE_INFO("{}", message.c_str());
 
-        auto toys_to_make = 5;
+        const auto toys_to_make = 1;
         for (int i = 0; i < toys_to_make; i++)
         {
-            auto t = _ecs->create_entity(std::to_string(i));
-            t.add_component<Transform>();
-            t.add_component<Model>();
+            auto ent = _ecs->create_entity(std::to_string(i));
+            ent.add_component<Model>();
+
+            auto& transform = ent.add_component<Transform>();
+            transform.position.z = -10;
+            transform.position.y = 0;
         }
         auto no_it = _ecs->create_entity("should_not_iterate");
     }
@@ -35,8 +39,9 @@ namespace tbx::examples
         // bob all toys in stage with transform up, then down over time
         for (auto& entity : _ecs->get_entities_with<Transform>())
         {
-            auto& transform = entity.get_component<Transform>();
-            transform.position.y = sin(dt.seconds * 2.0) * 0.5f;
+            /*auto& transform = entity.get_component<Transform>();
+            transform.position.z = -10;
+            transform.position.y = 5;*/
 
             /*TBX_TRACE_INFO("Toy {}:", entity.get_description().name);
             TBX_TRACE_INFO(

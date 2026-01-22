@@ -60,26 +60,7 @@ namespace tbx::plugins
         _render_resolution = host.get_settings().resolution.value;
     }
 
-    void OpenGlRenderingPlugin::on_detach()
-    {
-        if (!_is_gl_ready)
-        {
-            _render_targets.clear();
-            return;
-        }
-
-        for (auto& entry : _render_targets)
-        {
-            const Uuid& window_id = entry.first;
-            const auto result = send_message<WindowMakeCurrentRequest>(window_id);
-            if (!result)
-            {
-                continue;
-            }
-            release_render_target(entry.second);
-        }
-        _render_targets.clear();
-    }
+    void OpenGlRenderingPlugin::on_detach() {}
 
     void OpenGlRenderingPlugin::on_update(const DeltaTime&)
     {
@@ -113,12 +94,15 @@ namespace tbx::plugins
                 0,
                 static_cast<GLsizei>(render_resolution.width),
                 static_cast<GLsizei>(render_resolution.height));
-            glClearColor(0.1f, 1.0f, 0.1f, 1.0f); // Fixed 255 to 1.0f
+            glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Fixed 255 to 1.0f
 
             // 2. Then perform the clear
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            // 3. Flush and present
+            // 3. Draw scene to framebuffer
+            draw_models_for_cameras(render_resolution);
+
+            // 4. Flush and present
             glFlush();
             const auto present_result = send_message<WindowPresentRequest>(window_id);
             if (!present_result)
@@ -133,78 +117,6 @@ namespace tbx::plugins
         {
             remove_window_state(window_id, false);
         }
-
-        /*
-                for (const auto& entry : _window_sizes)
-                {
-                    const Uuid window_id = entry.first;
-                    const Size& window_size = entry.second;
-
-                    const auto result = send_message<WindowMakeCurrentRequest>(window_id);
-                    if (!result)
-                    {
-                        TBX_TRACE_ERROR(
-                            "OpenGL rendering: failed to make window current: {}",
-                            result.get_report());
-                        windows_to_remove.push_back(window_id);
-                        continue;
-                    }
-
-                    const Size render_resolution = get_effective_resolution(window_size);
-                    ensure_render_target(window_id, render_resolution);
-                    auto target_it = _render_targets.find(window_id);
-                    if (target_it == _render_targets.end() || target_it->second.framebuffer == 0U)
-                    {
-                        continue;
-                    }
-
-                    const RenderTarget& target = target_it->second;
-
-                    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(target.framebuffer));
-                    glEnable(GL_DEPTH_TEST);
-                    glDepthMask(GL_TRUE);
-                    glClearDepth(1.0);
-                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-                    glViewport(
-                        0,
-                        0,
-                        static_cast<GLsizei>(render_resolution.width),
-                        static_cast<GLsizei>(render_resolution.height));
-
-                    draw_models_for_cameras(render_resolution);
-
-                    glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(target.framebuffer));
-                    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-                    glBlitFramebuffer(
-                        0,
-                        0,
-                        static_cast<GLint>(render_resolution.width),
-                        static_cast<GLint>(render_resolution.height),
-                        0,
-                        0,
-                        static_cast<GLint>(window_size.width),
-                        static_cast<GLint>(window_size.height),
-                        GL_COLOR_BUFFER_BIT,
-                        GL_NEAREST);
-                    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                    glViewport(
-                        0,
-                        0,
-                        static_cast<GLsizei>(window_size.width),
-                        static_cast<GLsizei>(window_size.height));
-
-                    glFlush();
-
-                    const auto present_result = send_message<WindowPresentRequest>(window_id);
-                    if (!present_result)
-                    {
-                        TBX_TRACE_ERROR(
-                            "OpenGL rendering: failed to present window: {}",
-                            present_result.get_report());
-                    }
-                }
-                */
     }
 
     void OpenGlRenderingPlugin::on_recieve_message(Message& msg)
@@ -377,128 +289,8 @@ namespace tbx::plugins
         return resolution;
     }
 
-    void OpenGlRenderingPlugin::ensure_render_target(const Uuid& window_id, const Size& resolution)
-    {
-        RenderTarget& target = _render_targets[window_id];
-        if (target.framebuffer != 0U && target.resolution.width == resolution.width
-            && target.resolution.height == resolution.height)
-        {
-            return;
-        }
-
-        release_render_target(target);
-        target.resolution = resolution;
-
-        GLuint framebuffer = 0;
-        glGenFramebuffers(1, &framebuffer);
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-
-        GLuint color_texture = 0;
-        glGenTextures(1, &color_texture);
-        glBindTexture(GL_TEXTURE_2D, color_texture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexImage2D(
-            GL_TEXTURE_2D,
-            0,
-            GL_RGBA8,
-            static_cast<GLsizei>(resolution.width),
-            static_cast<GLsizei>(resolution.height),
-            0,
-            GL_RGBA,
-            GL_UNSIGNED_BYTE,
-            nullptr);
-        glFramebufferTexture2D(
-            GL_FRAMEBUFFER,
-            GL_COLOR_ATTACHMENT0,
-            GL_TEXTURE_2D,
-            color_texture,
-            0);
-
-        GLuint depth_buffer = 0;
-        glGenRenderbuffers(1, &depth_buffer);
-        glBindRenderbuffer(GL_RENDERBUFFER, depth_buffer);
-        glRenderbufferStorage(
-            GL_RENDERBUFFER,
-            GL_DEPTH24_STENCIL8,
-            static_cast<GLsizei>(resolution.width),
-            static_cast<GLsizei>(resolution.height));
-        glFramebufferRenderbuffer(
-            GL_FRAMEBUFFER,
-            GL_DEPTH_STENCIL_ATTACHMENT,
-            GL_RENDERBUFFER,
-            depth_buffer);
-
-        glBindRenderbuffer(GL_RENDERBUFFER, 0);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        {
-            TBX_TRACE_ERROR("OpenGL rendering: failed to build render target framebuffer.");
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glDeleteFramebuffers(1, &framebuffer);
-            glDeleteTextures(1, &color_texture);
-            glDeleteRenderbuffers(1, &depth_buffer);
-            target.resolution = {};
-            return;
-        }
-
-        target.framebuffer = static_cast<uint32>(framebuffer);
-        target.color_texture = static_cast<uint32>(color_texture);
-        target.depth_buffer = static_cast<uint32>(depth_buffer);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    }
-
-    void OpenGlRenderingPlugin::release_render_target(RenderTarget& target) const
-    {
-        if (target.framebuffer != 0U)
-        {
-            GLuint framebuffer = static_cast<GLuint>(target.framebuffer);
-            glDeleteFramebuffers(1, &framebuffer);
-            target.framebuffer = 0U;
-        }
-
-        if (target.color_texture != 0U)
-        {
-            GLuint color_texture = static_cast<GLuint>(target.color_texture);
-            glDeleteTextures(1, &color_texture);
-            target.color_texture = 0U;
-        }
-
-        if (target.depth_buffer != 0U)
-        {
-            GLuint depth_buffer = static_cast<GLuint>(target.depth_buffer);
-            glDeleteRenderbuffers(1, &depth_buffer);
-            target.depth_buffer = 0U;
-        }
-
-        target.resolution = {};
-    }
-
     void OpenGlRenderingPlugin::remove_window_state(const Uuid& window_id, const bool try_release)
     {
-        if (try_release && _is_gl_ready)
-        {
-            auto target_it = _render_targets.find(window_id);
-            if (target_it != _render_targets.end())
-            {
-                const auto result = send_message<WindowMakeCurrentRequest>(window_id);
-                if (result)
-                {
-                    release_render_target(target_it->second);
-                }
-                else
-                {
-                    TBX_TRACE_WARNING(
-                        "OpenGL rendering: unable to release render target after window close: {}",
-                        result.get_report());
-                }
-            }
-        }
-
-        _render_targets.erase(window_id);
         _window_sizes.erase(window_id);
     }
 
@@ -565,21 +357,26 @@ namespace tbx::plugins
     void OpenGlRenderingPlugin::draw_models_for_cameras(const Size& window_size)
     {
         auto& ecs = get_host().get_ecs();
-        auto entities = ecs.get_entities_with<Camera, Transform>();
+        auto cameras = ecs.get_entities_with<Camera, Transform>();
 
-        if (entities.begin() == entities.end())
+        if (cameras.begin() == cameras.end())
         {
-            draw_models(Mat4(1.0f));
+            glm::mat4 default_view = glm::lookAt(
+                glm::vec3(0.0f, 0.0f, 5.0f), // Camera is at (0,0,5)
+                glm::vec3(0.0f, 0.0f, 0.0f), // Looking at the origin
+                glm::vec3(0.0f, 1.0f, 0.0f) // "Up" is the Y-axis
+            );
+            draw_models(default_view);
             return;
         }
 
         const float aspect = window_size.get_aspect_ratio();
-        for (auto entity : entities)
+        for (auto cameraEnt : cameras)
         {
-            Camera& camera = entity.get_component<Camera>();
+            auto& camera = cameraEnt.get_component<Camera>();
             camera.set_aspect(aspect);
 
-            const Transform& transform = entity.get_component<Transform>();
+            const Transform& transform = cameraEnt.get_component<Transform>();
             const Mat4 view_projection =
                 camera.get_view_projection_matrix(transform.position, transform.rotation);
 

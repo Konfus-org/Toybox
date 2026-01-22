@@ -51,15 +51,6 @@ namespace tbx::plugins
         void on_update(const DeltaTime& dt) override;
 
       private:
-        struct RenderTarget
-        {
-            uint32 framebuffer = 0;
-            uint32 color_texture = 0;
-            uint32 depth_buffer = 0;
-            Size resolution = {};
-        };
-
-      private:
         void handle_window_ready(WindowContextReadyEvent& event);
         void handle_window_open_changed(PropertyChangedEvent<Window, bool>& event);
         void handle_window_resized(PropertyChangedEvent<Window, Size>& event);
@@ -72,15 +63,12 @@ namespace tbx::plugins
         std::shared_ptr<OpenGlShader> get_shader(const Shader& shader);
         std::shared_ptr<OpenGlShaderProgram> get_shader_program(const Material& material);
         std::shared_ptr<OpenGlTexture> get_texture(const Texture& texture);
-        void ensure_render_target(const Uuid& window_id, const Size& resolution);
-        void release_render_target(RenderTarget& target) const;
         void remove_window_state(const Uuid& window_id, bool try_release);
 
       private:
         bool _is_gl_ready = false;
         std::unordered_map<Uuid, Size> _window_sizes = {};
         Size _render_resolution = {1, 1};
-        std::unordered_map<Uuid, RenderTarget> _render_targets = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlMesh>> _meshes = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlShader>> _shaders = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlShaderProgram>> _shader_programs = {};
