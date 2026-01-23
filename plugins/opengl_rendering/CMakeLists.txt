@@ -1,6 +1,6 @@
 add_library(OpenGlRenderingPlugin SHARED)
 
-file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
+file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 target_sources(OpenGlRenderingPlugin PRIVATE ${SRCS})
 target_include_directories(OpenGlRenderingPlugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
