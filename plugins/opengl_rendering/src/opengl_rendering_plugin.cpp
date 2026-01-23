@@ -379,10 +379,8 @@ namespace tbx::plugins
         if (cameras.begin() == cameras.end())
         {
             const float aspect = window_size.get_aspect_ratio();
-            const Mat4 default_view = look_at(
-                Vec3(0.0f, 0.0f, 5.0f),
-                Vec3(0.0f, 0.0f, 0.0f),
-                Vec3(0.0f, 1.0f, 0.0f));
+            const Mat4 default_view =
+                look_at(Vec3(0.0f, 0.0f, 5.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));
             const Mat4 default_projection =
                 perspective_projection(degrees_to_radians(60.0f), aspect, 0.1f, 1000.0f);
             const Mat4 view_projection = default_projection * default_view;

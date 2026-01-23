@@ -267,6 +267,9 @@ function(tbx_register_plugin)
     set(PLUGIN_ABI_VERSION ${TBX_PLUGIN_ABI_VERSION})
 
     configure_file(${meta_template} ${meta_output} @ONLY)
+    set_source_files_properties(${meta_output} PROPERTIES HEADER_FILE_ONLY TRUE)
+    target_sources(${TBX_PLUGIN_TARGET} PRIVATE ${meta_output})
+    source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${registration_output} ${meta_output})
 
     add_custom_command(TARGET ${TBX_PLUGIN_TARGET} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different

@@ -35,7 +35,7 @@ namespace tbx
               {1280, 720},
               WindowMode::Windowed,
               false)
-        , _settings(_msg_coordinator, true, GraphicsApi::OpenGL, {720, 480})
+        , _settings(_msg_coordinator, true, GraphicsApi::OpenGL, {0, 0})
     {
         initialize(desc.requested_plugins);
     }

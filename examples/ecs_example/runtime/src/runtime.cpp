@@ -19,22 +19,19 @@ namespace tbx::examples
         std::string message = trim(greeting);
         TBX_TRACE_INFO("{}", message.c_str());
 
-        auto camera_entity = _ecs->create_entity("default_camera");
-        camera_entity.add_component<Camera>();
-        auto& camera_transform = camera_entity.add_component<Transform>();
-        camera_transform.position = Vec3(0.0f, 0.0f, 5.0f);
-
-        const auto toys_to_make = 1;
+        const auto toys_to_make = 5;
+        const auto starting_x = -toys_to_make / 2.0f - 1.5f;
         for (int i = 0; i < toys_to_make; i++)
         {
+            // create and add components
             auto ent = _ecs->create_entity(std::to_string(i));
+            ent.add_component<Transform>();
             ent.add_component<Model>();
 
-            auto& transform = ent.add_component<Transform>();
-            transform.position.z = -10;
-            transform.position.y = 0;
+            // shift on the x axis so they are not all in the same spot
+            auto& transform = ent.get_component<Transform>();
+            transform.position.x = starting_x + (i * 2);
         }
-        auto no_it = _ecs->create_entity("should_not_iterate");
     }
 
     void ExampleRuntimePlugin::on_detach() {}
@@ -42,18 +39,12 @@ namespace tbx::examples
     void ExampleRuntimePlugin::on_update(const DeltaTime& dt)
     {
         // bob all toys in stage with transform up, then down over time
+        float offset = 0;
         for (auto& entity : _ecs->get_entities_with<Transform>())
         {
-            /*auto& transform = entity.get_component<Transform>();
-            transform.position.z = -10;
-            transform.position.y = 5;*/
-
-            /*TBX_TRACE_INFO("Toy {}:", entity.get_description().name);
-            TBX_TRACE_INFO(
-                "Position: ({}, {}, {})",
-                transform.position.x,
-                transform.position.y,
-                transform.position.z);*/
+            auto& transform = entity.get_component<Transform>();
+            transform.position.y = sin(dt.seconds * 2.0 + offset);
+            offset += 0.1f;
         }
     }
 
