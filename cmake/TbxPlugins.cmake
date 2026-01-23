@@ -57,7 +57,8 @@ endfunction()
 
 # tbx_register_plugin
 # --------------------
-# Generates the registration source and manifest for a plugin.
+# Creates the plugin target (if needed) and defers registration until
+# the end of the current directory so link dependencies are available.
 # Parameters:
 #   TARGET        - CMake target exporting the plugin entry point (required).
 #   CLASS         - Fully qualified plugin class name (required).
@@ -71,6 +72,48 @@ endfunction()
 #   CATEGORY   - Optional update category (default, input, audio, physics, rendering, gameplay).
 #   PRIORITY   - Optional update priority integer (lower updates first).
 function(tbx_register_plugin)
+    set(options STATIC)
+    set(one_value_args TARGET CLASS HEADER NAME VERSION DESCRIPTION MODULE CATEGORY PRIORITY)
+    set(multi_value_args DEPENDENCIES)
+    cmake_parse_arguments(TBX_PLUGIN "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+
+    if(NOT TBX_PLUGIN_TARGET)
+        message(FATAL_ERROR "tbx_register_plugin: TARGET is required")
+    endif()
+    if(NOT TBX_PLUGIN_CLASS)
+        message(FATAL_ERROR "tbx_register_plugin: CLASS is required")
+    endif()
+    if(NOT TBX_PLUGIN_HEADER)
+        message(FATAL_ERROR "tbx_register_plugin: HEADER is required")
+    endif()
+    if(NOT TBX_PLUGIN_NAME)
+        message(FATAL_ERROR "tbx_register_plugin: NAME is required")
+    endif()
+    if(NOT TBX_PLUGIN_VERSION)
+        message(FATAL_ERROR "tbx_register_plugin: VERSION is required")
+    endif()
+
+    if(NOT TARGET ${TBX_PLUGIN_TARGET})
+        if(TBX_PLUGIN_STATIC)
+            add_library(${TBX_PLUGIN_TARGET} STATIC)
+        else()
+            add_library(${TBX_PLUGIN_TARGET} SHARED)
+        endif()
+
+        file(GLOB_RECURSE PLUGIN_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+        file(GLOB_RECURSE PLUGIN_HEADERS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
+        target_sources(${TBX_PLUGIN_TARGET} PRIVATE ${PLUGIN_SOURCES} ${PLUGIN_HEADERS})
+        target_include_directories(${TBX_PLUGIN_TARGET} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    endif()
+
+    cmake_language(DEFER CALL tbx_finalize_plugin ${ARGN})
+endfunction()
+
+# tbx_finalize_plugin
+# --------------------
+# Generates the registration source and manifest for a plugin.
+# Parameters:
+function(tbx_finalize_plugin)
     set(options STATIC)
     set(one_value_args TARGET CLASS HEADER NAME VERSION DESCRIPTION MODULE CATEGORY PRIORITY)
     set(multi_value_args DEPENDENCIES)

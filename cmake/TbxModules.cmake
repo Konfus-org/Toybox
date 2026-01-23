@@ -40,3 +40,32 @@ function(tbx_add_module target_name)
         )
     endif()
 endfunction()
+
+
+function(tbx_register_module target_name)
+    if(NOT target_name)
+        message(FATAL_ERROR "tbx_register_module: target name is required")
+    endif()
+
+    if(NOT TARGET ${target_name})
+        message(FATAL_ERROR "tbx_register_module: target '${target_name}' does not exist")
+    endif()
+
+    file(GLOB_RECURSE MODULE_HEADERS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
+    file(GLOB_RECURSE MODULE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+    target_sources(${target_name} PRIVATE ${MODULE_SOURCES} ${MODULE_HEADERS})
+
+    target_include_directories(${target_name}
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:include>
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    set(alias_name "Tbx::${target_name}")
+    if(NOT TARGET ${alias_name})
+        add_library(${alias_name} ALIAS ${target_name})
+    endif()
+endfunction()

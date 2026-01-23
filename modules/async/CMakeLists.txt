@@ -1,21 +1,8 @@
 tbx_add_module(Async)
 
-file(GLOB_RECURSE INCL CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
-file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
-target_sources(Async PRIVATE ${SRCS} ${INCL})
-
-target_include_directories(Async
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
+tbx_register_module(Async)
 
 target_link_libraries(Async
     PUBLIC
         Tbx::Common
 )
-
-add_library(Tbx::Async ALIAS Async)
