@@ -42,6 +42,9 @@ function(tbx_register_module target_name)
     file(GLOB_RECURSE MODULE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
     target_sources(${target_name} PRIVATE ${MODULE_SOURCES} ${MODULE_HEADERS})
 
+    source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/include" PREFIX "include" FILES ${MODULE_HEADERS})
+    source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/src" PREFIX "src" FILES ${MODULE_SOURCES})
+
     target_include_directories(${target_name}
         PUBLIC
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
