@@ -21,7 +21,7 @@ namespace tbx::tests::app
     {
         AppMessageCoordinator d;
         GlobalDispatcherScope dispatcher_scope(d);
-        std::atomic<int> count{0};
+        std::atomic<int> count {0};
         int received_value = 0;
 
         d.add_handler(
@@ -103,7 +103,7 @@ namespace tbx::tests::app
     {
         AppMessageCoordinator d;
         GlobalDispatcherScope dispatcher_scope(d);
-        std::atomic<int> count{0};
+        std::atomic<int> count {0};
 
         d.add_handler(
             [&](const Message&)
@@ -134,19 +134,11 @@ namespace tbx::tests::app
         EXPECT_TRUE(processed_callback);
     }
 
-    TEST(dispatcher_send_exception, returns_failure_on_throw)
-    {
-        AppMessageCoordinator d;
-        GlobalDispatcherScope dispatcher_scope(d);
-
-        GTEST_SKIP() << "dispatcher_send_exception is no longer executed.";
-    }
-
     TEST(dispatcher_post, processes_on_next_update)
     {
         AppMessageCoordinator d;
         GlobalDispatcherScope dispatcher_scope(d);
-        std::atomic<int> count{0};
+        std::atomic<int> count {0};
 
         d.add_handler(
             [&](const Message& msg)
@@ -204,7 +196,7 @@ namespace tbx::tests::app
     {
         AppMessageCoordinator d;
         GlobalDispatcherScope dispatcher_scope(d);
-        std::atomic<int> count{0};
+        std::atomic<int> count {0};
 
         Uuid keep_id = d.add_handler(
             [&](const Message&)
@@ -232,7 +224,7 @@ namespace tbx::tests::app
     {
         AppMessageCoordinator d;
         GlobalDispatcherScope dispatcher_scope(d);
-        std::atomic<int> count{0};
+        std::atomic<int> count {0};
 
         d.add_handler(
             [&](const Message&)
@@ -273,7 +265,7 @@ namespace tbx::tests::app
     {
         AppMessageCoordinator d;
         GlobalDispatcherScope dispatcher_scope(d);
-        std::atomic<int> count{0};
+        std::atomic<int> count {0};
 
         d.add_handler(
             [&](const Message&)
@@ -308,21 +300,25 @@ namespace tbx::tests::app
         d.add_handler(
             [](Message& message)
             {
-                on_message(message, [](Request<int>& request)
-                {
-                    request.state = MessageState::Handled;
-                    request.result = 123;
-                });
+                on_message(
+                    message,
+                    [](Request<int>& request)
+                    {
+                        request.state = MessageState::Handled;
+                        request.result = 123;
+                    });
             });
 
         Request<int> msg;
         int payload_value = 0;
         msg.callbacks.on_processed = [&](const Message& processed)
         {
-            on_message(processed, [&](const Request<int>& request)
-            {
-                payload_value = request.result;
-            });
+            on_message(
+                processed,
+                [&](const Request<int>& request)
+                {
+                    payload_value = request.result;
+                });
         };
 
         auto result = d.send(msg);
@@ -339,21 +335,25 @@ namespace tbx::tests::app
         d.add_handler(
             [](Message& message)
             {
-                on_message(message, [](Request<std::string>& request)
-                {
-                    request.state = MessageState::Handled;
-                    request.result = std::string("ready");
-                });
+                on_message(
+                    message,
+                    [](Request<std::string>& request)
+                    {
+                        request.state = MessageState::Handled;
+                        request.result = std::string("ready");
+                    });
             });
 
         Request<std::string> msg;
         std::string processed_payload;
         msg.callbacks.on_processed = [&](const Message& processed)
         {
-            on_message(processed, [&](const Request<std::string>& request)
-            {
-                processed_payload = request.result;
-            });
+            on_message(
+                processed,
+                [&](const Request<std::string>& request)
+                {
+                    processed_payload = request.result;
+                });
         };
         auto future = d.post(msg);
 
