@@ -57,7 +57,8 @@ endfunction()
 
 # tbx_register_plugin
 # --------------------
-# Generates the registration source and manifest for a plugin.
+# Creates the plugin target (if needed) and defers registration until
+# the end of the current directory so link dependencies are available.
 # Parameters:
 #   TARGET        - CMake target exporting the plugin entry point (required).
 #   CLASS         - Fully qualified plugin class name (required).
@@ -71,6 +72,126 @@ endfunction()
 #   CATEGORY   - Optional update category (default, input, audio, physics, rendering, gameplay).
 #   PRIORITY   - Optional update priority integer (lower updates first).
 function(tbx_register_plugin)
+    set(options STATIC)
+    set(one_value_args TARGET CLASS HEADER NAME VERSION DESCRIPTION MODULE CATEGORY PRIORITY)
+    set(multi_value_args DEPENDENCIES)
+    cmake_parse_arguments(TBX_PLUGIN "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+
+    if(NOT TBX_PLUGIN_TARGET)
+        message(FATAL_ERROR "tbx_register_plugin: TARGET is required")
+    endif()
+    if(NOT TBX_PLUGIN_CLASS)
+        message(FATAL_ERROR "tbx_register_plugin: CLASS is required")
+    endif()
+    if(NOT TBX_PLUGIN_HEADER)
+        message(FATAL_ERROR "tbx_register_plugin: HEADER is required")
+    endif()
+    if(NOT TBX_PLUGIN_NAME)
+        message(FATAL_ERROR "tbx_register_plugin: NAME is required")
+    endif()
+    if(NOT TBX_PLUGIN_VERSION)
+        message(FATAL_ERROR "tbx_register_plugin: VERSION is required")
+    endif()
+
+    if(NOT TARGET ${TBX_PLUGIN_TARGET})
+        if(TBX_PLUGIN_STATIC)
+            add_library(${TBX_PLUGIN_TARGET} STATIC)
+        else()
+            add_library(${TBX_PLUGIN_TARGET} SHARED)
+        endif()
+
+        file(GLOB_RECURSE PLUGIN_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+        file(GLOB_RECURSE PLUGIN_HEADERS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
+        target_sources(${TBX_PLUGIN_TARGET} PRIVATE ${PLUGIN_SOURCES} ${PLUGIN_HEADERS})
+        target_include_directories(${TBX_PLUGIN_TARGET} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+        set(alias_target "Tbx::Plugins::${TBX_PLUGIN_TARGET}")
+        if(NOT TARGET ${alias_target})
+            add_library(${alias_target} ALIAS ${TBX_PLUGIN_TARGET})
+        endif()
+    endif()
+
+    set_property(TARGET ${TBX_PLUGIN_TARGET} PROPERTY TBX_PLUGIN_CLASS "${TBX_PLUGIN_CLASS}")
+    set_property(TARGET ${TBX_PLUGIN_TARGET} PROPERTY TBX_PLUGIN_HEADER "${TBX_PLUGIN_HEADER}")
+    set_property(TARGET ${TBX_PLUGIN_TARGET} PROPERTY TBX_PLUGIN_NAME "${TBX_PLUGIN_NAME}")
+    set_property(TARGET ${TBX_PLUGIN_TARGET} PROPERTY TBX_PLUGIN_VERSION "${TBX_PLUGIN_VERSION}")
+    set_property(TARGET ${TBX_PLUGIN_TARGET} PROPERTY TBX_PLUGIN_STATIC "${TBX_PLUGIN_STATIC}")
+    set_property(TARGET ${TBX_PLUGIN_TARGET} PROPERTY TBX_PLUGIN_DESCRIPTION "${TBX_PLUGIN_DESCRIPTION}")
+    set_property(TARGET ${TBX_PLUGIN_TARGET} PROPERTY TBX_PLUGIN_MODULE "${TBX_PLUGIN_MODULE}")
+    set_property(TARGET ${TBX_PLUGIN_TARGET} PROPERTY TBX_PLUGIN_CATEGORY "${TBX_PLUGIN_CATEGORY}")
+    set_property(TARGET ${TBX_PLUGIN_TARGET} PROPERTY TBX_PLUGIN_PRIORITY "${TBX_PLUGIN_PRIORITY}")
+    set_property(TARGET ${TBX_PLUGIN_TARGET} PROPERTY TBX_PLUGIN_DEPENDENCIES "${TBX_PLUGIN_DEPENDENCIES}")
+
+    set_property(GLOBAL APPEND PROPERTY TBX_DEFERRED_PLUGIN_TARGETS ${TBX_PLUGIN_TARGET})
+    get_property(defer_scheduled GLOBAL PROPERTY TBX_DEFERRED_PLUGIN_LIST_SCHEDULED)
+    if(NOT defer_scheduled)
+        set_property(GLOBAL PROPERTY TBX_DEFERRED_PLUGIN_LIST_SCHEDULED TRUE)
+        cmake_language(DEFER CALL tbx_finalize_plugin_from_target_list)
+    endif()
+endfunction()
+
+function(tbx_finalize_plugin_from_target_list)
+    get_property(targets GLOBAL PROPERTY TBX_DEFERRED_PLUGIN_TARGETS)
+    if(NOT targets)
+        return()
+    endif()
+
+    foreach(target_name IN LISTS targets)
+        tbx_finalize_plugin_from_target(${target_name})
+    endforeach()
+endfunction()
+
+function(tbx_finalize_plugin_from_target target_name)
+    if(NOT TARGET ${target_name})
+        message(FATAL_ERROR "tbx_register_plugin: target '${target_name}' does not exist")
+    endif()
+
+    get_target_property(plugin_class ${target_name} TBX_PLUGIN_CLASS)
+    get_target_property(plugin_header ${target_name} TBX_PLUGIN_HEADER)
+    get_target_property(plugin_name ${target_name} TBX_PLUGIN_NAME)
+    get_target_property(plugin_version ${target_name} TBX_PLUGIN_VERSION)
+    get_target_property(plugin_static ${target_name} TBX_PLUGIN_STATIC)
+    get_target_property(plugin_description ${target_name} TBX_PLUGIN_DESCRIPTION)
+    get_target_property(plugin_module ${target_name} TBX_PLUGIN_MODULE)
+    get_target_property(plugin_category ${target_name} TBX_PLUGIN_CATEGORY)
+    get_target_property(plugin_priority ${target_name} TBX_PLUGIN_PRIORITY)
+    get_target_property(plugin_dependencies ${target_name} TBX_PLUGIN_DEPENDENCIES)
+
+    set(plugin_args
+        TARGET ${target_name}
+        CLASS "${plugin_class}"
+        HEADER "${plugin_header}"
+        NAME "${plugin_name}"
+        VERSION "${plugin_version}"
+    )
+
+    if(plugin_static)
+        list(APPEND plugin_args STATIC)
+    endif()
+    if(plugin_description)
+        list(APPEND plugin_args DESCRIPTION "${plugin_description}")
+    endif()
+    if(plugin_module)
+        list(APPEND plugin_args MODULE "${plugin_module}")
+    endif()
+    if(plugin_category)
+        list(APPEND plugin_args CATEGORY "${plugin_category}")
+    endif()
+    if(plugin_priority)
+        list(APPEND plugin_args PRIORITY "${plugin_priority}")
+    endif()
+    if(plugin_dependencies)
+        list(APPEND plugin_args DEPENDENCIES ${plugin_dependencies})
+    endif()
+
+    tbx_finalize_plugin(${plugin_args})
+endfunction()
+
+# tbx_finalize_plugin
+# --------------------
+# Generates the registration source and manifest for a plugin.
+# Parameters:
+function(tbx_finalize_plugin)
     set(options STATIC)
     set(one_value_args TARGET CLASS HEADER NAME VERSION DESCRIPTION MODULE CATEGORY PRIORITY)
     set(multi_value_args DEPENDENCIES)
