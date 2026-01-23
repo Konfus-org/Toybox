@@ -1,5 +1,3 @@
-tbx_add_module(PluginApi)
-
 tbx_register_module(PluginApi)
 
 target_compile_definitions(PluginApi

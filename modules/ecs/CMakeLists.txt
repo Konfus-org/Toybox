@@ -1,5 +1,3 @@
-tbx_add_module(ECS)
-
 tbx_register_module(ECS)
 
 target_link_libraries(ECS
