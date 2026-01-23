@@ -2,7 +2,7 @@
 #include "tbx/debugging/macros.h"
 #include <SDL3/SDL.h>
 
-namespace tbx::plugins::sdladapter
+namespace tbx::plugins
 {
     static void sdl_log_callback(
         void* userdata,
