@@ -2,7 +2,7 @@
 #include "tbx/plugin_api/plugin.h"
 #include <SDL3/SDL_log.h>
 
-namespace tbx::plugins::sdladapter
+namespace tbx::plugins
 {
     class SdlAdapterPlugin final : public Plugin
     {
