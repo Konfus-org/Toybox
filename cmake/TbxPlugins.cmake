@@ -106,7 +106,39 @@ function(tbx_register_plugin)
         target_include_directories(${TBX_PLUGIN_TARGET} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     endif()
 
-    cmake_language(DEFER CALL tbx_finalize_plugin ${ARGN})
+    set(plugin_args_expanded
+        TARGET "${TBX_PLUGIN_TARGET}"
+        CLASS "${TBX_PLUGIN_CLASS}"
+        HEADER "${TBX_PLUGIN_HEADER}"
+        NAME "${TBX_PLUGIN_NAME}"
+        VERSION "${TBX_PLUGIN_VERSION}"
+    )
+
+    if(TBX_PLUGIN_STATIC)
+        list(APPEND plugin_args_expanded STATIC)
+    endif()
+    if(TBX_PLUGIN_DESCRIPTION)
+        list(APPEND plugin_args_expanded DESCRIPTION "${TBX_PLUGIN_DESCRIPTION}")
+    endif()
+    if(TBX_PLUGIN_MODULE)
+        list(APPEND plugin_args_expanded MODULE "${TBX_PLUGIN_MODULE}")
+    endif()
+    if(TBX_PLUGIN_CATEGORY)
+        list(APPEND plugin_args_expanded CATEGORY "${TBX_PLUGIN_CATEGORY}")
+    endif()
+    if(TBX_PLUGIN_PRIORITY)
+        list(APPEND plugin_args_expanded PRIORITY "${TBX_PLUGIN_PRIORITY}")
+    endif()
+    if(TBX_PLUGIN_DEPENDENCIES)
+        list(APPEND plugin_args_expanded DEPENDENCIES)
+        foreach(dep IN LISTS TBX_PLUGIN_DEPENDENCIES)
+            list(APPEND plugin_args_expanded "${dep}")
+        endforeach()
+    endif()
+
+    string(REPLACE ";" " " plugin_args_command "${plugin_args_expanded}")
+    cmake_language(EVAL CODE
+        "cmake_language(DEFER CALL tbx_finalize_plugin ${plugin_args_command})")
 endfunction()
 
 # tbx_finalize_plugin
