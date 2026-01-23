@@ -104,6 +104,11 @@ function(tbx_register_plugin)
         file(GLOB_RECURSE PLUGIN_HEADERS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
         target_sources(${TBX_PLUGIN_TARGET} PRIVATE ${PLUGIN_SOURCES} ${PLUGIN_HEADERS})
         target_include_directories(${TBX_PLUGIN_TARGET} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+        set(alias_target "Tbx::Plugins::${TBX_PLUGIN_TARGET}")
+        if(NOT TARGET ${alias_target})
+            add_library(${alias_target} ALIAS ${TBX_PLUGIN_TARGET})
+        endif()
     endif()
 
     set_property(TARGET ${TBX_PLUGIN_TARGET} PROPERTY TBX_PLUGIN_CLASS "${TBX_PLUGIN_CLASS}")
