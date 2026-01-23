@@ -9,7 +9,7 @@ tbx_register_plugin(
 
 target_link_libraries(SdlWindowingPlugin PRIVATE
     Tbx::App
-    SDL2::SDL2
+    SDL3::SDL3-shared
 )
 
 add_library(Tbx::Plugins::SdlWindowingPlugin ALIAS SdlWindowingPlugin)
