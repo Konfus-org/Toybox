@@ -16,8 +16,9 @@ message(STATUS "   TBX_VERB_LOGGING: ${TBX_VERB_LOGGING}")
 
 set(CMAKE_FOLDER "modules")
 
-add_subdirectory(assets)
 add_subdirectory(common)
+add_subdirectory(audio)
+add_subdirectory(assets)
 add_subdirectory(files)
 add_subdirectory(debugging)
 add_subdirectory(math)
