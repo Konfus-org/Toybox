@@ -5,6 +5,7 @@
 #include "tbx/graphics/texture.h"
 #include <stb_image.h>
 #include <string>
+#include <vector>
 
 namespace tbx::plugins
 {
@@ -40,12 +41,11 @@ namespace tbx::plugins
 
     void StbImageAssetLoaderPlugin::on_load_texture_request(LoadTextureRequest& request)
     {
-        Texture* asset = nullptr;
-        request.with_asset_read([&asset](Texture* payload)
+        const bool has_payload = request.with_asset_read([](const Texture* payload)
         {
-            asset = payload;
+            return payload != nullptr;
         });
-        if (!asset)
+        if (!has_payload)
         {
             request.state = MessageState::Error;
             request.result.flag_failure("Stb image loader: missing texture payload.");

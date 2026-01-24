@@ -1,26 +1,24 @@
 #include "tbx/assets/texture_assets.h"
 #include "tbx/assets/messages.h"
+#include <memory>
 
 namespace tbx
 {
-    static void destroy_texture_payload(Texture* payload)
-    {
-        delete payload;
-    }
-
-    static std::shared_ptr<Texture> create_texture_payload(
+    static std::unique_ptr<Texture> create_texture_data(
         const std::shared_ptr<Texture>& default_data)
     {
         if (default_data)
         {
-            return std::shared_ptr<Texture>(
-                new Texture(*default_data),
-                &destroy_texture_payload);
+            return std::make_unique<Texture>(*default_data);
         }
 
-        return std::shared_ptr<Texture>(
-            new Texture(),
-            &destroy_texture_payload);
+        return std::make_unique<Texture>();
+    }
+
+    static std::shared_ptr<Asset<Texture>> create_texture_asset(
+        const std::shared_ptr<Texture>& default_data)
+    {
+        return std::make_shared<Asset<Texture>>(create_texture_data(default_data));
     }
 
     AssetPromise<Texture> load_texture_async(
@@ -30,7 +28,7 @@ namespace tbx
         TextureFormat format,
         const std::shared_ptr<Texture>& default_data)
     {
-        auto asset = create_texture_payload(default_data);
+        auto asset = create_texture_asset(default_data);
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -39,7 +37,7 @@ namespace tbx
 
         auto future = dispatcher->post<LoadTextureRequest>(
             asset_path,
-            asset.get(),
+            asset,
             wrap,
             filter,
             format);
@@ -49,14 +47,14 @@ namespace tbx
         return result;
     }
 
-    std::shared_ptr<Texture> load_texture(
+    std::shared_ptr<Asset<Texture>> load_texture(
         const std::filesystem::path& asset_path,
         TextureWrap wrap,
         TextureFilter filter,
         TextureFormat format,
         const std::shared_ptr<Texture>& default_data)
     {
-        auto asset = create_texture_payload(default_data);
+        auto asset = create_texture_asset(default_data);
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -65,7 +63,7 @@ namespace tbx
 
         LoadTextureRequest message(
             asset_path,
-            asset.get(),
+            asset,
             wrap,
             filter,
             format);

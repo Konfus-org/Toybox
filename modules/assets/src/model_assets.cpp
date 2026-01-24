@@ -1,33 +1,31 @@
 #include "tbx/assets/model_assets.h"
 #include "tbx/assets/messages.h"
+#include <memory>
 
 namespace tbx
 {
-    static void destroy_model_payload(Model* payload)
-    {
-        delete payload;
-    }
-
-    static std::shared_ptr<Model> create_model_payload(
+    static std::unique_ptr<Model> create_model_data(
         const std::shared_ptr<Model>& default_data)
     {
         if (default_data)
         {
-            return std::shared_ptr<Model>(
-                new Model(*default_data),
-                &destroy_model_payload);
+            return std::make_unique<Model>(*default_data);
         }
 
-        return std::shared_ptr<Model>(
-            new Model(),
-            &destroy_model_payload);
+        return std::make_unique<Model>();
+    }
+
+    static std::shared_ptr<Asset<Model>> create_model_asset(
+        const std::shared_ptr<Model>& default_data)
+    {
+        return std::make_shared<Asset<Model>>(create_model_data(default_data));
     }
 
     AssetPromise<Model> load_model_async(
         const std::filesystem::path& asset_path,
         const std::shared_ptr<Model>& default_data)
     {
-        auto asset = create_model_payload(default_data);
+        auto asset = create_model_asset(default_data);
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -36,18 +34,18 @@ namespace tbx
 
         auto future = dispatcher->post<LoadModelRequest>(
             asset_path,
-            asset.get());
+            asset);
         AssetPromise<Model> result = {};
         result.asset = asset;
         result.promise = future;
         return result;
     }
 
-    std::shared_ptr<Model> load_model(
+    std::shared_ptr<Asset<Model>> load_model(
         const std::filesystem::path& asset_path,
         const std::shared_ptr<Model>& default_data)
     {
-        auto asset = create_model_payload(default_data);
+        auto asset = create_model_asset(default_data);
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -56,7 +54,7 @@ namespace tbx
 
         LoadModelRequest message(
             asset_path,
-            asset.get());
+            asset);
         dispatcher->send(message);
         return asset;
     }

@@ -1,10 +1,12 @@
 #pragma once
-#include "tbx/messages/message.h"
+#include "tbx/assets/assets.h"
 #include "tbx/graphics/texture.h"
+#include "tbx/messages/message.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
-#include <shared_mutex>
-#include <mutex>
+#include <memory>
+#include <stdexcept>
+#include <utility>
 
 namespace tbx
 {
@@ -16,22 +18,24 @@ namespace tbx
     /// Purpose: Base message requesting that an asset payload be loaded.
     /// </summary>
     /// <remarks>
-    /// Ownership: The asset pointer is non-owning and owned by the caller.
-    /// Thread Safety: Message dispatch follows the dispatcher contract.
+    /// Ownership: The asset wrapper is shared between the caller and the message handler.
+    /// Thread Safety: Payload access should use the provided read/write helpers.
     /// </remarks>
     template <typename TAsset>
     struct LoadAssetRequest : public Request<void>
     {
+      public:
         LoadAssetRequest(
             const std::filesystem::path& asset_path,
-            TAsset* asset_payload)
+            std::shared_ptr<Asset<TAsset>> asset_payload)
             : path(asset_path)
-            , asset(asset_payload)
+            , asset(std::move(asset_payload))
         {
+            if (!asset)
+            {
+                throw std::invalid_argument("LoadAssetRequest requires a valid asset wrapper.");
+            }
         }
-
-        std::filesystem::path path;
-        TAsset* asset = nullptr;
 
         /// <summary>
         /// Purpose: Executes a read operation against the asset payload under a shared lock.
@@ -41,10 +45,9 @@ namespace tbx
         /// Thread Safety: Acquires a shared lock for the duration of the callback.
         /// </remarks>
         template <typename TFunc>
-        void with_asset_read(TFunc&& func) const
+        decltype(auto) with_asset_read(TFunc&& func) const
         {
-            std::shared_lock lock(_asset_mutex);
-            func(asset);
+            return asset->with_read(std::forward<TFunc>(func));
         }
 
         /// <summary>
@@ -55,39 +58,40 @@ namespace tbx
         /// Thread Safety: Acquires an exclusive lock for the duration of the callback.
         /// </remarks>
         template <typename TFunc>
-        void with_asset_write(TFunc&& func)
+        decltype(auto) with_asset_write(TFunc&& func)
         {
-            std::unique_lock lock(_asset_mutex);
-            func(asset);
+            return asset->with_write(std::forward<TFunc>(func));
         }
 
-      private:
-        mutable std::shared_mutex _asset_mutex;
+      public:
+        std::filesystem::path path;
+        std::shared_ptr<Asset<TAsset>> asset;
     };
 
     /// <summary>
     /// Purpose: Message requesting that a texture payload be loaded with specific settings.
     /// </summary>
     /// <remarks>
-    /// Ownership: The texture pointer is non-owning and owned by the caller.
-    /// Thread Safety: Message dispatch follows the dispatcher contract; asset mutations must
-    /// be synchronized through Texture accessors.
+    /// Ownership: The texture asset wrapper is shared between the caller and the message handler.
+    /// Thread Safety: Payload access should use the read/write helpers.
     /// </remarks>
     struct TBX_API LoadTextureRequest : public LoadAssetRequest<Texture>
     {
+      public:
         LoadTextureRequest(
             const std::filesystem::path& asset_path,
-            Texture* asset_payload,
+            std::shared_ptr<Asset<Texture>> asset_payload,
             TextureWrap wrap,
             TextureFilter filter,
             TextureFormat format)
-            : LoadAssetRequest<Texture>(asset_path, asset_payload)
+            : LoadAssetRequest<Texture>(asset_path, std::move(asset_payload))
             , wrap(wrap)
             , filter(filter)
             , format(format)
         {
         }
 
+      public:
         TextureWrap wrap = TextureWrap::Repeat;
         TextureFilter filter = TextureFilter::Nearest;
         TextureFormat format = TextureFormat::RGBA;
