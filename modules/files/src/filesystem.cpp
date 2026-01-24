@@ -14,7 +14,7 @@ namespace tbx
             return {};
         if (path.is_absolute() || working_directory.empty())
             return path;
-        return working_directory / path;
+        return (working_directory / path).lexically_normal();
     }
 
     static std::filesystem::path choose_directory(
@@ -71,8 +71,7 @@ namespace tbx
         return _assets_directory;
     }
 
-    std::filesystem::path FileSystem::resolve_relative_path(
-        const std::filesystem::path& path) const
+    std::filesystem::path FileSystem::resolve_relative_path(const std::filesystem::path& path) const
     {
         return resolve_with_working(_working_directory, path);
     }

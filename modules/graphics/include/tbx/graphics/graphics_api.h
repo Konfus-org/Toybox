@@ -21,4 +21,7 @@ namespace tbx
         Metal,
         Custom
     };
+
+    // Converts a GraphicsApi enum value to its string representation.
+    TBX_API std::string to_string(GraphicsApi api);
 }

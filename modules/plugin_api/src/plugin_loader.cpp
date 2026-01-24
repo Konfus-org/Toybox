@@ -17,9 +17,7 @@
 
 namespace tbx
 {
-    static std::filesystem::path resolve_library_path(
-        const PluginMeta& meta,
-        IFileSystem& file_ops)
+    static std::filesystem::path resolve_library_path(const PluginMeta& meta, IFileSystem& file_ops)
     {
         std::filesystem::path library_path = meta.library_path;
 
@@ -53,14 +51,11 @@ namespace tbx
     {
         if (meta.abi_version != PluginAbiVersion)
         {
-            if (get_global_dispatcher())
-            {
-                TBX_TRACE_WARNING(
-                    "Plugin ABI mismatch for {}: expected {}, found {}",
-                    meta.name,
-                    PluginAbiVersion,
-                    meta.abi_version);
-            }
+            TBX_TRACE_WARNING(
+                "Plugin ABI mismatch for {}: expected {}, found {}",
+                meta.name,
+                PluginAbiVersion,
+                meta.abi_version);
             return {};
         }
 
@@ -115,20 +110,16 @@ namespace tbx
         loaded.instance = std::move(instance);
         loaded.library = std::move(lib);
 
-        TBX_TRACE_INFO("Loaded plugin: {}", meta.name);
-
         return loaded;
     }
 
-    static std::vector<PluginMeta> resolve_plugin_load_order(
-        const std::vector<PluginMeta>& plugins)
+    static std::vector<PluginMeta> resolve_plugin_load_order(const std::vector<PluginMeta>& plugins)
     {
         const auto is_before_update_order = [](const PluginMeta& left, const PluginMeta& right)
         {
             if (left.category != right.category)
             {
-                return static_cast<uint32>(left.category) <
-                    static_cast<uint32>(right.category);
+                return static_cast<uint32>(left.category) < static_cast<uint32>(right.category);
             }
 
             if (left.priority != right.priority)
@@ -251,7 +242,7 @@ namespace tbx
                     else
                     {
                         const std::string manifest_path = entry.string();
-                        TBX_ASSERT(false, "Plugin {} is unable to be loaded!", manifest_path);
+                        TBX_TRACE_WARNING("Plugin {} is unable to be loaded!", manifest_path);
                     }
                 }
             }
@@ -296,7 +287,7 @@ namespace tbx
                 if (id_it != by_name_lookup.end())
                     enqueue_index(id_it->second);
                 else
-                    TBX_ASSERT(false, "Requested plugin not found: {}", trimmed);
+                    TBX_TRACE_WARNING("Requested plugin not found: {}", trimmed);
             };
 
             for (const std::string& requested : requested_ids)
@@ -327,6 +318,8 @@ namespace tbx
             LoadedPlugin plug = load_plugin_internal(meta, file_ops);
             if (plug.instance)
                 loaded.push_back(std::move(plug));
+            else
+                TBX_TRACE_WARNING("Failed to load plugin: {}", meta.name);
         }
 
         return loaded;

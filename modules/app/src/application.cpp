@@ -89,6 +89,13 @@ namespace tbx
     {
         GlobalDispatcherScope scope(_msg_coordinator);
 
+        // Log app settings and configuration
+        TBX_TRACE_INFO("Initializing application: {}", _name);
+        TBX_TRACE_INFO("Working Directory: {}", _filesystem.get_working_directory().string());
+        TBX_TRACE_INFO("Plugins Directory: {}", _filesystem.get_plugins_directory().string());
+        TBX_TRACE_INFO("Logs Directory: {}", _filesystem.get_logs_directory().string());
+        TBX_TRACE_INFO("Assets Directory: {}", _filesystem.get_assets_directory().string());
+
         // Register internal message handler
         _msg_coordinator.add_handler(
             [this](Message& msg)
@@ -100,9 +107,14 @@ namespace tbx
         auto& fs = get_filesystem();
         auto plug_loader = PluginLoader();
         _loaded = plug_loader.load_plugins(fs.get_plugins_directory(), requested_plugins, fs);
+
+        // Log loaded plugins
+        for (auto& p : _loaded)
+            TBX_TRACE_INFO("Loaded plugin: {} v{}", p.meta.name, p.meta.version);
+
+        // Register plugin message handlers then attach them to host
         for (auto& p : _loaded)
         {
-            // Register plugin message handler then attach to host
             _msg_coordinator.add_handler(
                 [plugin = p.instance.get()](Message& msg)
                 {
@@ -136,6 +148,11 @@ namespace tbx
     {
         GlobalDispatcherScope scope(_msg_coordinator);
 
+        // Log shutdown
+        TBX_TRACE_INFO("Shutting down application: {}", _name);
+        for (auto& p : _loaded)
+            TBX_TRACE_INFO("Unloading plugin: {} v{}", p.meta.name, p.meta.version);
+
         // Send shutdown event and clear message handlers
         _msg_coordinator.send<ApplicationShutdownEvent>(this);
         _msg_coordinator.clear();
@@ -143,7 +160,7 @@ namespace tbx
         // Clear ECS
         _ecs.clear();
 
-        // Detach all loaded plugins
+        // Detach and unload all loaded plugins
         for (auto& p : _loaded)
             p.instance->detach();
         _loaded.clear();
