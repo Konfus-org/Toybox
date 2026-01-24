@@ -47,17 +47,30 @@ namespace tbx
 
     int Application::run()
     {
-        GlobalDispatcherScope scope(_msg_coordinator);
-
-        auto timer = DeltaTimer();
-        _main_window.is_open = true;
-
-        while (!_should_exit)
+        try
         {
-            update(timer);
-        }
+            GlobalDispatcherScope scope(_msg_coordinator);
 
-        return 0;
+            auto timer = DeltaTimer();
+            _main_window.is_open = true;
+
+            while (!_should_exit)
+            {
+                update(timer);
+            }
+
+            return 0;
+        }
+        catch (const std::exception& ex)
+        {
+            TBX_TRACE_ERROR("Unhandled exception in application run loop: {}", ex.what());
+            return -1;
+        }
+        catch (...)
+        {
+            TBX_TRACE_ERROR("Unknown unhandled exception in application run loop.");
+            return -1;
+        }
     }
 
     const std::string& Application::get_name() const
@@ -87,44 +100,55 @@ namespace tbx
 
     void Application::initialize(const std::vector<std::string>& requested_plugins)
     {
-        GlobalDispatcherScope scope(_msg_coordinator);
-
-        // Log app settings and configuration
-        TBX_TRACE_INFO("Initializing application: {}", _name);
-        TBX_TRACE_INFO("Working Directory: {}", _filesystem.get_working_directory().string());
-        TBX_TRACE_INFO("Plugins Directory: {}", _filesystem.get_plugins_directory().string());
-        TBX_TRACE_INFO("Logs Directory: {}", _filesystem.get_logs_directory().string());
-        TBX_TRACE_INFO("Assets Directory: {}", _filesystem.get_assets_directory().string());
-
-        // Register internal message handler
-        _msg_coordinator.add_handler(
-            [this](Message& msg)
-            {
-                recieve_message(msg);
-            });
-
-        // Load plugins
-        auto& fs = get_filesystem();
-        auto plug_loader = PluginLoader();
-        _loaded = plug_loader.load_plugins(fs.get_plugins_directory(), requested_plugins, fs);
-
-        // Log loaded plugins
-        for (auto& p : _loaded)
-            TBX_TRACE_INFO("Loaded plugin: {} v{}", p.meta.name, p.meta.version);
-
-        // Register plugin message handlers then attach them to host
-        for (auto& p : _loaded)
+        try
         {
-            _msg_coordinator.add_handler(
-                [plugin = p.instance.get()](Message& msg)
-                {
-                    plugin->receive_message(msg);
-                });
-            p.instance->attach(*this);
-        }
+            GlobalDispatcherScope scope(_msg_coordinator);
 
-        // Send initialized event
-        _msg_coordinator.send<ApplicationInitializedEvent>(this);
+            // Log app settings and configuration
+            TBX_TRACE_INFO("Initializing application: {}", _name);
+            TBX_TRACE_INFO("Working Directory: {}", _filesystem.get_working_directory().string());
+            TBX_TRACE_INFO("Plugins Directory: {}", _filesystem.get_plugins_directory().string());
+            TBX_TRACE_INFO("Logs Directory: {}", _filesystem.get_logs_directory().string());
+            TBX_TRACE_INFO("Assets Directory: {}", _filesystem.get_assets_directory().string());
+
+            // Register internal message handler
+            _msg_coordinator.add_handler(
+                [this](Message& msg)
+                {
+                    recieve_message(msg);
+                });
+
+            // Load plugins
+            auto& fs = get_filesystem();
+            auto plug_loader = PluginLoader();
+            _loaded = plug_loader.load_plugins(fs.get_plugins_directory(), requested_plugins, fs);
+
+            // Log loaded plugins
+            for (auto& p : _loaded)
+                TBX_TRACE_INFO("Loaded plugin: {} v{}", p.meta.name, p.meta.version);
+
+            // Register plugin message handlers then attach them to host
+            for (auto& p : _loaded)
+            {
+                _msg_coordinator.add_handler(
+                    [plugin = p.instance.get()](Message& msg)
+                    {
+                        plugin->receive_message(msg);
+                    });
+                p.instance->attach(*this);
+            }
+
+            // Send initialized event
+            _msg_coordinator.send<ApplicationInitializedEvent>(this);
+        }
+        catch (const std::exception& ex)
+        {
+            TBX_ASSERT(false, "Exception during application initialization: {}", ex.what());
+        }
+        catch (...)
+        {
+            TBX_ASSERT(false, "Unknown exception during application initialization.");
+        }
     }
 
     void Application::update(DeltaTimer timer)
@@ -135,35 +159,48 @@ namespace tbx
         // Update delta time
         DeltaTime dt = timer.tick();
 
+        // Begin update
         _msg_coordinator.send<ApplicationUpdateBeginEvent>(this, dt);
 
         // Update all loaded plugins
         for (auto& p : _loaded)
             p.instance->update(dt);
 
+        // End update
         _msg_coordinator.send<ApplicationUpdateEndEvent>(this, dt);
     }
 
     void Application::shutdown()
     {
-        GlobalDispatcherScope scope(_msg_coordinator);
+        try
+        {
+            GlobalDispatcherScope scope(_msg_coordinator);
 
-        // Log shutdown
-        TBX_TRACE_INFO("Shutting down application: {}", _name);
-        for (auto& p : _loaded)
-            TBX_TRACE_INFO("Unloading plugin: {} v{}", p.meta.name, p.meta.version);
+            // Log shutdown
+            TBX_TRACE_INFO("Shutting down application: {}", _name);
+            for (auto& p : _loaded)
+                TBX_TRACE_INFO("Unloading plugin: {} v{}", p.meta.name, p.meta.version);
 
-        // Send shutdown event and clear message handlers
-        _msg_coordinator.send<ApplicationShutdownEvent>(this);
-        _msg_coordinator.clear();
+            // Send shutdown event and clear message handlers
+            _msg_coordinator.send<ApplicationShutdownEvent>(this);
+            _msg_coordinator.clear();
 
-        // Clear ECS
-        _ecs.clear();
+            // Clear ECS
+            _ecs.clear();
 
-        // Detach and unload all loaded plugins
-        for (auto& p : _loaded)
-            p.instance->detach();
-        _loaded.clear();
+            // Detach and unload all loaded plugins
+            for (auto& p : _loaded)
+                p.instance->detach();
+            _loaded.clear();
+        }
+        catch (const std::exception& ex)
+        {
+            TBX_ASSERT(false, "Exception during application shutdown: {}", ex.what());
+        }
+        catch (...)
+        {
+            TBX_ASSERT(false, "Unknown exception during application shutdown.");
+        }
     }
 
     void Application::recieve_message(const Message& msg)
