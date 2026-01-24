@@ -40,7 +40,11 @@ namespace tbx::plugins
 
     void StbImageAssetLoaderPlugin::on_load_texture_request(LoadTextureRequest& request)
     {
-        Texture* asset = request.asset;
+        Texture* asset = nullptr;
+        request.with_asset_read([&asset](Texture* payload)
+        {
+            asset = payload;
+        });
         if (!asset)
         {
             request.state = MessageState::Error;
@@ -83,18 +87,27 @@ namespace tbx::plugins
         std::vector<Pixel> pixels(raw_data, raw_data + pixel_count);
         stbi_image_free(raw_data);
 
-        const Uuid existing_id = asset->id;
-        Size resolution = {
-            static_cast<uint32>(width),
-            static_cast<uint32>(height) };
-        Texture texture(
-            resolution,
-            request.wrap,
-            request.filter,
-            request.format,
-            pixels);
-        texture.id = existing_id;
-        *asset = texture;
+        request.with_asset_write(
+            [&](Texture* payload)
+            {
+                if (!payload)
+                {
+                    return;
+                }
+
+                const Uuid existing_id = payload->id;
+                Size resolution = {
+                    static_cast<uint32>(width),
+                    static_cast<uint32>(height) };
+                Texture texture(
+                    resolution,
+                    request.wrap,
+                    request.filter,
+                    request.format,
+                    pixels);
+                texture.id = existing_id;
+                *payload = texture;
+            });
         request.state = MessageState::Handled;
         request.result.flag_success();
     }

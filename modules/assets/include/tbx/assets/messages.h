@@ -3,6 +3,8 @@
 #include "tbx/graphics/texture.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
+#include <shared_mutex>
+#include <mutex>
 
 namespace tbx
 {
@@ -18,7 +20,7 @@ namespace tbx
     /// Thread Safety: Message dispatch follows the dispatcher contract.
     /// </remarks>
     template <typename TAsset>
-    struct TBX_API LoadAssetRequest : public Request<void>
+    struct LoadAssetRequest : public Request<void>
     {
         LoadAssetRequest(
             const std::filesystem::path& asset_path,
@@ -30,6 +32,37 @@ namespace tbx
 
         std::filesystem::path path;
         TAsset* asset = nullptr;
+
+        /// <summary>
+        /// Purpose: Executes a read operation against the asset payload under a shared lock.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: The callback receives a non-owning pointer; no ownership transfer occurs.
+        /// Thread Safety: Acquires a shared lock for the duration of the callback.
+        /// </remarks>
+        template <typename TFunc>
+        void with_asset_read(TFunc&& func) const
+        {
+            std::shared_lock lock(_asset_mutex);
+            func(asset);
+        }
+
+        /// <summary>
+        /// Purpose: Executes a write operation against the asset payload under an exclusive lock.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: The callback receives a non-owning pointer; no ownership transfer occurs.
+        /// Thread Safety: Acquires an exclusive lock for the duration of the callback.
+        /// </remarks>
+        template <typename TFunc>
+        void with_asset_write(TFunc&& func)
+        {
+            std::unique_lock lock(_asset_mutex);
+            func(asset);
+        }
+
+      private:
+        mutable std::shared_mutex _asset_mutex;
     };
 
     /// <summary>
