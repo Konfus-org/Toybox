@@ -1,29 +1,8 @@
 #include "tbx/assets/assets.h"
-#include "tbx/assets/messages.h"
 #include <string>
 
 namespace tbx
 {
-    AssetHandle::AssetHandle(const std::filesystem::path& asset_path)
-        : _path(asset_path)
-    {
-    }
-
-    const std::filesystem::path& AssetHandle::get_path() const
-    {
-        return _path;
-    }
-
-    bool AssetHandle::is_ready() const
-    {
-        return _ready.load();
-    }
-
-    void AssetHandle::set_ready(bool ready)
-    {
-        _ready.store(ready);
-    }
-
     Result dispatcher_missing_result(std::string_view action)
     {
         Result result;
@@ -38,24 +17,4 @@ namespace tbx
         return promise.get_future().share();
     }
 
-    void notify_asset_unload(const std::filesystem::path& path)
-    {
-        auto* dispatcher = get_global_dispatcher();
-        if (!dispatcher)
-        {
-            return;
-        }
-
-        UnloadAssetRequest message(path);
-        dispatcher->send(message);
-    }
-
-    void destroy_asset_handle(AssetHandle* asset) noexcept
-    {
-        if (asset)
-        {
-            notify_asset_unload(asset->get_path());
-            delete asset;
-        }
-    }
 }
