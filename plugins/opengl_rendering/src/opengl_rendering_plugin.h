@@ -15,6 +15,7 @@
 #include "tbx/plugin_api/plugin.h"
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace tbx::plugins
 {
@@ -75,5 +76,6 @@ namespace tbx::plugins
         std::unordered_map<Uuid, std::shared_ptr<OpenGlShaderProgram>> _shader_programs = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlTexture>> _textures = {};
         std::shared_ptr<OpenGlTexture> _default_texture = {};
+        std::unordered_set<Uuid> _mesh_entities_missing_material = {};
     };
 }

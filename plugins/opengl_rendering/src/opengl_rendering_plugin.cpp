@@ -298,21 +298,14 @@ namespace tbx::plugins
     void OpenGlRenderingPlugin::draw_models(const Mat4& view_projection)
     {
         auto& ecs = get_host().get_ecs();
-        auto entities = ecs.get_entities_with<Model>();
-
-        for (auto& entity : entities)
+        const auto draw_mesh_with_material =
+            [&](const Mesh& mesh, const Material& material, const Mat4& model_matrix)
         {
-            const Model& model = entity.get_component<Model>();
-
-            Mat4 model_matrix = Mat4(1.0f);
-            if (entity.has_component<Transform>())
-                model_matrix = build_model_matrix(entity.get_component<Transform>());
-
-            auto mesh = get_mesh(model.mesh);
-            auto program = get_shader_program(model.material);
-            if (!mesh || !program)
+            auto mesh_resource = get_mesh(mesh);
+            auto program = get_shader_program(material);
+            if (!mesh_resource || !program)
             {
-                continue;
+                return;
             }
 
             GlResourceScope program_scope(*program);
@@ -328,7 +321,7 @@ namespace tbx::plugins
 
             ShaderUniform color_uniform = {};
             color_uniform.name = "color_uniform";
-            color_uniform.data = model.material.color;
+            color_uniform.data = material.color;
             program->upload(color_uniform);
 
             ShaderUniform texture_uniform = {};
@@ -337,9 +330,9 @@ namespace tbx::plugins
             program->upload(texture_uniform);
 
             std::vector<GlResourceScope> texture_scopes = {};
-            texture_scopes.reserve(model.material.textures.size() + 1);
+            texture_scopes.reserve(material.textures.size() + 1);
             uint32 slot = 0;
-            if (model.material.textures.empty())
+            if (material.textures.empty())
             {
                 auto resource = get_default_texture();
                 if (resource)
@@ -350,7 +343,7 @@ namespace tbx::plugins
                 }
             }
 
-            for (const auto& texture : model.material.textures)
+            for (const auto& texture : material.textures)
             {
                 if (!texture)
                 {
@@ -366,8 +359,63 @@ namespace tbx::plugins
                 slot += 1;
             }
 
-            GlResourceScope mesh_scope(*mesh);
-            mesh->draw();
+            GlResourceScope mesh_scope(*mesh_resource);
+            mesh_resource->draw();
+        };
+
+        auto entities = ecs.get_entities_with<Model>();
+        for (auto& entity : entities)
+        {
+            const Model& model = entity.get_component<Model>();
+
+            Mat4 model_matrix = Mat4(1.0f);
+            if (entity.has_component<Transform>())
+                model_matrix = build_model_matrix(entity.get_component<Transform>());
+
+            draw_mesh_with_material(model.mesh, model.material, model_matrix);
+        }
+
+        static const Material fallback_material = []()
+        {
+            Material material = {};
+            material.color = RgbaColor::magenta;
+            return material;
+        }();
+
+        auto mesh_entities = ecs.get_entities_with<Mesh>();
+        for (auto& entity : mesh_entities)
+        {
+            if (entity.has_component<Model>())
+            {
+                continue;
+            }
+
+            const Mesh& mesh = entity.get_component<Mesh>();
+            Mat4 model_matrix = Mat4(1.0f);
+            if (entity.has_component<Transform>())
+                model_matrix = build_model_matrix(entity.get_component<Transform>());
+
+            const Material* material = nullptr;
+            if (entity.has_component<Material>())
+            {
+                material = &entity.get_component<Material>();
+            }
+            else
+            {
+                const Uuid entity_id = entity.get_id();
+                const bool is_new_warning =
+                    _mesh_entities_missing_material.emplace(entity_id).second;
+                if (is_new_warning)
+                {
+                    TBX_TRACE_WARNING(
+                        "OpenGL rendering: mesh entity {} has no material component; rendering "
+                        "with bright pink.",
+                        to_string(entity_id));
+                }
+                material = &fallback_material;
+            }
+
+            draw_mesh_with_material(mesh, *material, model_matrix);
         }
     }
 
