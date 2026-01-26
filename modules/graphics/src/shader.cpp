@@ -47,7 +47,17 @@ namespace tbx
         }
     )";
 
-    const Shader Shader::default_vert = Shader(default_vertex_shader_source, ShaderType::Vertex);
-    const Shader Shader::default_frag =
-        Shader(default_fragment_shader_source, ShaderType::Fragment);
+    const std::shared_ptr<Shader>& get_standard_vertex_shader()
+    {
+        static const std::shared_ptr<Shader> shader =
+            std::make_shared<Shader>(default_vertex_shader_source, ShaderType::Vertex);
+        return shader;
+    }
+
+    const std::shared_ptr<Shader>& get_standard_fragment_shader()
+    {
+        static const std::shared_ptr<Shader> shader =
+            std::make_shared<Shader>(default_fragment_shader_source, ShaderType::Fragment);
+        return shader;
+    }
 }

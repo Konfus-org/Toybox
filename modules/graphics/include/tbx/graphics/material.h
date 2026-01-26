@@ -25,8 +25,8 @@ namespace tbx
         }
 
         std::vector<std::shared_ptr<Shader>> shaders = {
-            std::make_shared<Shader>(Shader::default_frag),
-            std::make_shared<Shader>(Shader::default_vert),
+            standard_fragment_shader,
+            standard_vertex_shader,
         };
         Uuid id = Uuid::generate();
     };

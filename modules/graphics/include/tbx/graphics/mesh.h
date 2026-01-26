@@ -27,7 +27,7 @@ namespace tbx
         Uuid instance_id = Uuid::generate();
     };
 
-    Mesh make_triangle();
-    Mesh make_quad();
+    TBX_API Mesh make_triangle();
+    TBX_API Mesh make_quad();
 }
 
