@@ -45,19 +45,34 @@ namespace tbx
 
     };
 
+    namespace detail
+    {
+        /// <summary>Purpose: Retrieves the shared default vertex shader instance.</summary>
+        /// <remarks>Ownership: Returns a reference to the shared instance owned by the module.
+        /// Thread Safety: Safe to call concurrently after static initialization.</remarks>
+        TBX_API const std::shared_ptr<Shader>& get_standard_vertex_shader();
+
+        /// <summary>Purpose: Retrieves the shared default fragment shader instance.</summary>
+        /// <remarks>Ownership: Returns a reference to the shared instance owned by the module.
+        /// Thread Safety: Safe to call concurrently after static initialization.</remarks>
+        TBX_API const std::shared_ptr<Shader>& get_standard_fragment_shader();
+    }
+
     /// <summary>Provides the default vertex shader instance.</summary>
     /// <remarks>Purpose: Supplies the shared default vertex shader for new materials.
-    /// Ownership: Returns a shared pointer that participates in shared ownership of the
+    /// Ownership: Returns a reference that participates in shared ownership of the
     /// default shader instance managed by the module.
     /// Thread Safety: Safe to read concurrently.</remarks>
-    extern TBX_API const std::shared_ptr<Shader> standard_vertex_shader;
+    inline const std::shared_ptr<Shader>& standard_vertex_shader =
+        detail::get_standard_vertex_shader();
 
     /// <summary>Provides the default fragment shader instance.</summary>
     /// <remarks>Purpose: Supplies the shared default fragment shader for new materials.
-    /// Ownership: Returns a shared pointer that participates in shared ownership of the
+    /// Ownership: Returns a reference that participates in shared ownership of the
     /// default shader instance managed by the module.
     /// Thread Safety: Safe to read concurrently.</remarks>
-    extern TBX_API const std::shared_ptr<Shader> standard_fragment_shader;
+    inline const std::shared_ptr<Shader>& standard_fragment_shader =
+        detail::get_standard_fragment_shader();
 
     // Compiles a shader.
     class TBX_API IShaderCompiler
