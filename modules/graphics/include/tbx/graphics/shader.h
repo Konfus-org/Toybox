@@ -43,18 +43,24 @@ namespace tbx
         ShaderType type = ShaderType::None;
         Uuid id = Uuid::generate();
 
-        /// <summary>Provides the default vertex shader definition.</summary>
-        /// <remarks>Purpose: Supplies a shared default vertex shader template.
-        /// Ownership: Returns a reference to a static Shader owned by the graphics module.
-        /// Thread Safety: Safe to call concurrently after static initialization.</remarks>
-        static TBX_API const Shader& default_vert();
-
-        /// <summary>Provides the default fragment shader definition.</summary>
-        /// <remarks>Purpose: Supplies a shared default fragment shader template.
-        /// Ownership: Returns a reference to a static Shader owned by the graphics module.
-        /// Thread Safety: Safe to call concurrently after static initialization.</remarks>
-        static TBX_API const Shader& default_frag();
     };
+
+    namespace defaults
+    {
+        /// <summary>Provides the default vertex shader instance.</summary>
+        /// <remarks>Purpose: Supplies the shared default vertex shader for new materials.
+        /// Ownership: Returns a shared pointer that participates in shared ownership of the
+        /// default shader instance managed by the module.
+        /// Thread Safety: Safe to read concurrently.</remarks>
+        extern TBX_API const std::shared_ptr<Shader> vertex_shader;
+
+        /// <summary>Provides the default fragment shader instance.</summary>
+        /// <remarks>Purpose: Supplies the shared default fragment shader for new materials.
+        /// Ownership: Returns a shared pointer that participates in shared ownership of the
+        /// default shader instance managed by the module.
+        /// Thread Safety: Safe to read concurrently.</remarks>
+        extern TBX_API const std::shared_ptr<Shader> fragment_shader;
+    }
 
     // Compiles a shader.
     class TBX_API IShaderCompiler

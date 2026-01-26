@@ -47,16 +47,11 @@ namespace tbx
         }
     )";
 
-    const Shader& Shader::default_vert()
+    namespace defaults
     {
-        static const Shader shader = Shader(default_vertex_shader_source, ShaderType::Vertex);
-        return shader;
-    }
-
-    const Shader& Shader::default_frag()
-    {
-        static const Shader shader =
-            Shader(default_fragment_shader_source, ShaderType::Fragment);
-        return shader;
+        TBX_API const std::shared_ptr<Shader> vertex_shader =
+            std::make_shared<Shader>(default_vertex_shader_source, ShaderType::Vertex);
+        TBX_API const std::shared_ptr<Shader> fragment_shader =
+            std::make_shared<Shader>(default_fragment_shader_source, ShaderType::Fragment);
     }
 }
