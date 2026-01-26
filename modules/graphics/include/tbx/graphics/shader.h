@@ -45,22 +45,19 @@ namespace tbx
 
     };
 
-    namespace defaults
-    {
-        /// <summary>Provides the default vertex shader instance.</summary>
-        /// <remarks>Purpose: Supplies the shared default vertex shader for new materials.
-        /// Ownership: Returns a shared pointer that participates in shared ownership of the
-        /// default shader instance managed by the module.
-        /// Thread Safety: Safe to read concurrently.</remarks>
-        extern TBX_API const std::shared_ptr<Shader> vertex_shader;
+    /// <summary>Provides the default vertex shader instance.</summary>
+    /// <remarks>Purpose: Supplies the shared default vertex shader for new materials.
+    /// Ownership: Returns a shared pointer that participates in shared ownership of the
+    /// default shader instance managed by the module.
+    /// Thread Safety: Safe to read concurrently.</remarks>
+    extern TBX_API const std::shared_ptr<Shader> standard_vertex_shader;
 
-        /// <summary>Provides the default fragment shader instance.</summary>
-        /// <remarks>Purpose: Supplies the shared default fragment shader for new materials.
-        /// Ownership: Returns a shared pointer that participates in shared ownership of the
-        /// default shader instance managed by the module.
-        /// Thread Safety: Safe to read concurrently.</remarks>
-        extern TBX_API const std::shared_ptr<Shader> fragment_shader;
-    }
+    /// <summary>Provides the default fragment shader instance.</summary>
+    /// <remarks>Purpose: Supplies the shared default fragment shader for new materials.
+    /// Ownership: Returns a shared pointer that participates in shared ownership of the
+    /// default shader instance managed by the module.
+    /// Thread Safety: Safe to read concurrently.</remarks>
+    extern TBX_API const std::shared_ptr<Shader> standard_fragment_shader;
 
     // Compiles a shader.
     class TBX_API IShaderCompiler
