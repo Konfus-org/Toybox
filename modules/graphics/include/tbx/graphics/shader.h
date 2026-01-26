@@ -43,8 +43,17 @@ namespace tbx
         ShaderType type = ShaderType::None;
         Uuid id = Uuid::generate();
 
-        static const Shader default_vert;
-        static const Shader default_frag;
+        /// <summary>Provides the default vertex shader definition.</summary>
+        /// <remarks>Purpose: Supplies a shared default vertex shader template.
+        /// Ownership: Returns a reference to a static Shader owned by the graphics module.
+        /// Thread Safety: Safe to call concurrently after static initialization.</remarks>
+        static TBX_API const Shader& default_vert();
+
+        /// <summary>Provides the default fragment shader definition.</summary>
+        /// <remarks>Purpose: Supplies a shared default fragment shader template.
+        /// Ownership: Returns a reference to a static Shader owned by the graphics module.
+        /// Thread Safety: Safe to call concurrently after static initialization.</remarks>
+        static TBX_API const Shader& default_frag();
     };
 
     // Compiles a shader.
