@@ -47,8 +47,7 @@ namespace tbx
         }
     )";
 
-    TBX_API const Shader Shader::default_vert =
-        Shader(default_vertex_shader_source, ShaderType::Vertex);
-    TBX_API const Shader Shader::default_frag =
+    const Shader Shader::default_vert = Shader(default_vertex_shader_source, ShaderType::Vertex);
+    const Shader Shader::default_frag =
         Shader(default_fragment_shader_source, ShaderType::Fragment);
 }

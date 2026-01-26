@@ -43,8 +43,8 @@ namespace tbx
         ShaderType type = ShaderType::None;
         Uuid id = Uuid::generate();
 
-        static TBX_API const Shader default_vert;
-        static TBX_API const Shader default_frag;
+        static const Shader default_vert;
+        static const Shader default_frag;
     };
 
     // Compiles a shader.
