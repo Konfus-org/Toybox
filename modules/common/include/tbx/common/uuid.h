@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <functional>
 #include <string>
-#include <string_view>
 
 namespace tbx
 {
@@ -36,11 +35,6 @@ namespace tbx
     /// <remarks>Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for
     /// concurrent use.</remarks>
     TBX_API std::string to_string(const Uuid& value);
-
-    /// <summary>Purpose: Parses a UUID value from a text representation.</summary>
-    /// <remarks>Ownership: Returns a value-type UUID. Thread Safety: Stateless and safe for
-    /// concurrent use.</remarks>
-    TBX_API Uuid from_string(std::string_view value);
 
     namespace invalid
     {

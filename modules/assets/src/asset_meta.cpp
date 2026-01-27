@@ -23,11 +23,7 @@ namespace tbx
             }
         }
 
-        std::string id_value;
-        if (data.try_get_string("id", id_value))
-        {
-            meta.id = from_string(id_value);
-        }
+        data.try_get_uuid("id", meta.id);
 
         out_meta = std::move(meta);
         return true;

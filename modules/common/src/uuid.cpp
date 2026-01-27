@@ -1,7 +1,4 @@
 #include "tbx/common/uuid.h"
-#include "tbx/common/string_utils.h"
-#include <charconv>
-#include <cctype>
 #include <random>
 #include <sstream>
 #include <string>
@@ -78,41 +75,6 @@ namespace tbx
         std::ostringstream stream = {};
         stream << std::hex << value.value;
         return stream.str();
-    }
-
-    Uuid from_string(std::string_view value)
-    {
-        const std::string trimmed = trim(value);
-        if (trimmed.empty())
-        {
-            return {};
-        }
-        auto start = trimmed.data();
-        auto end = trimmed.data() + trimmed.size();
-        while (start < end && !std::isxdigit(static_cast<unsigned char>(*start)))
-        {
-            start += 1;
-        }
-        if (start == end)
-        {
-            return {};
-        }
-        auto token_end = start;
-        while (token_end < end && std::isxdigit(static_cast<unsigned char>(*token_end)))
-        {
-            token_end += 1;
-        }
-        uint32 parsed = 0U;
-        auto result = std::from_chars(start, token_end, parsed, 16);
-        if (result.ec != std::errc())
-        {
-            return {};
-        }
-        if (parsed == 0U)
-        {
-            return {};
-        }
-        return Uuid(parsed);
     }
 
 }
