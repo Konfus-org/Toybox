@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/assets/asset_handle.h"
 #include "tbx/assets/assets.h"
 #include "tbx/assets/audio_assets.h"
 #include "tbx/assets/model_assets.h"
@@ -229,47 +230,18 @@ namespace tbx
         ~AssetManager() = default;
 
         /// <summary>
-        /// Purpose: Requests an asset by path, streaming it in if needed and bumping the ref count.
+        /// Purpose: Requests an asset by handle, streaming it in if needed and bumping the ref count.
         /// </summary>
         /// <remarks>
         /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        std::shared_ptr<TAsset> request(const std::filesystem::path& asset_path)
-        {
-            const auto normalized = normalize_path(asset_path);
-            auto now = std::chrono::steady_clock::now();
-            std::lock_guard lock(_mutex);
-            auto& entry = get_or_create_registry_entry(normalized);
-            auto& store = get_or_create_store<TAsset>();
-            auto& record = get_or_create_record(store, entry);
-            record.last_access = now;
-            record.ref_count += 1;
-            if (!record.asset)
-            {
-                record.stream_state = AssetStreamState::Loading;
-                auto promise = AssetAsyncLoader<TAsset>::load(normalized.resolved_path);
-                record.asset = std::move(promise.asset);
-                record.pending_load = promise.promise;
-            }
-            update_stream_state(record);
-            return record.asset;
-        }
-
-        /// <summary>
-        /// Purpose: Requests an asset by id, streaming it in if needed and bumping the ref count.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
-        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
-        template <typename TAsset>
-        std::shared_ptr<TAsset> request(Uuid asset_id)
+        std::shared_ptr<TAsset> request(const AssetHandle& handle)
         {
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
-            const AssetRegistryEntry* entry = find_registry_entry_by_id(asset_id);
+            auto* entry = get_or_create_registry_entry(handle);
             if (!entry)
             {
                 return {};
@@ -297,35 +269,7 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        std::shared_ptr<TAsset> get(const std::filesystem::path& asset_path)
-        {
-            const auto normalized = normalize_path(asset_path);
-            auto now = std::chrono::steady_clock::now();
-            std::lock_guard lock(_mutex);
-            auto* store = find_store<TAsset>();
-            if (!store)
-            {
-                return {};
-            }
-            auto iterator = store->records.find(normalized.path_key);
-            if (iterator == store->records.end())
-            {
-                return {};
-            }
-            iterator->second.last_access = now;
-            update_stream_state(iterator->second);
-            return iterator->second.asset;
-        }
-
-        /// <summary>
-        /// Purpose: Returns a tracked asset by id without adjusting the ref count.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
-        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
-        template <typename TAsset>
-        std::shared_ptr<TAsset> get(Uuid asset_id)
+        std::shared_ptr<TAsset> get(const AssetHandle& handle)
         {
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
@@ -334,51 +278,25 @@ namespace tbx
             {
                 return {};
             }
-            auto iterator = find_record_by_id(store->records, asset_id);
-            if (iterator == store->records.end())
+            auto* record = try_find_record(*store, handle);
+            if (!record)
             {
                 return {};
             }
-            iterator->second.last_access = now;
-            update_stream_state(iterator->second);
-            return iterator->second.asset;
+            record->last_access = now;
+            update_stream_state(*record);
+            return record->asset;
         }
 
         /// <summary>
-        /// Purpose: Returns usage metadata for a tracked asset path.
+        /// Purpose: Returns usage metadata for a tracked asset handle.
         /// </summary>
         /// <remarks>
         /// Ownership: Returns caller-owned usage data by value.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        AssetUsage get_usage(const std::filesystem::path& asset_path) const
-        {
-            const auto normalized = normalize_path(asset_path);
-            std::lock_guard lock(_mutex);
-            auto* store = find_store<TAsset>();
-            if (!store)
-            {
-                return {};
-            }
-            auto iterator = store->records.find(normalized.path_key);
-            if (iterator == store->records.end())
-            {
-                return {};
-            }
-            update_stream_state(iterator->second);
-            return build_usage(iterator->second);
-        }
-
-        /// <summary>
-        /// Purpose: Returns usage metadata for a tracked asset id.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns caller-owned usage data by value.
-        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
-        template <typename TAsset>
-        AssetUsage get_usage(Uuid asset_id) const
+        AssetUsage get_usage(const AssetHandle& handle) const
         {
             std::lock_guard lock(_mutex);
             auto* store = find_store<TAsset>();
@@ -386,13 +304,13 @@ namespace tbx
             {
                 return {};
             }
-            auto iterator = find_record_by_id(store->records, asset_id);
-            if (iterator == store->records.end())
+            auto* record = try_find_record(*store, handle);
+            if (!record)
             {
                 return {};
             }
-            update_stream_state(iterator->second);
-            return build_usage(iterator->second);
+            update_stream_state(*record);
+            return build_usage(*record);
         }
 
         /// <summary>
@@ -403,14 +321,17 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        std::shared_ptr<TAsset> stream_in(const std::filesystem::path& asset_path)
+        std::shared_ptr<TAsset> stream_in(const AssetHandle& handle)
         {
-            const auto normalized = normalize_path(asset_path);
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
-            auto& entry = get_or_create_registry_entry(normalized);
+            auto* entry = get_or_create_registry_entry(handle);
+            if (!entry)
+            {
+                return {};
+            }
             auto& store = get_or_create_store<TAsset>();
-            auto& record = get_or_create_record(store, entry);
+            auto& record = get_or_create_record(store, *entry);
             record.last_access = now;
             if (record.asset)
             {
@@ -418,7 +339,7 @@ namespace tbx
                 return record.asset;
             }
             record.stream_state = AssetStreamState::Loading;
-            auto promise = AssetAsyncLoader<TAsset>::load(normalized.resolved_path);
+            auto promise = AssetAsyncLoader<TAsset>::load(entry->resolved_path);
             record.asset = std::move(promise.asset);
             record.pending_load = promise.promise;
             update_stream_state(record);
@@ -433,27 +354,25 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        bool stream_out(const std::filesystem::path& asset_path, bool force = false)
+        bool stream_out(const AssetHandle& handle, bool force = false)
         {
-            const auto normalized = normalize_path(asset_path);
             std::lock_guard lock(_mutex);
             auto* store = find_store<TAsset>();
             if (!store)
             {
                 return false;
             }
-            auto iterator = store->records.find(normalized.path_key);
-            if (iterator == store->records.end())
+            auto* record = try_find_record(*store, handle);
+            if (!record)
             {
                 return false;
             }
-            auto& record = iterator->second;
-            if (!force && (record.ref_count > 0 || record.is_pinned))
+            if (!force && (record->ref_count > 0 || record->is_pinned))
             {
                 return false;
             }
-            record.asset.reset();
-            record.stream_state = AssetStreamState::Unloaded;
+            record->asset.reset();
+            record->stream_state = AssetStreamState::Unloaded;
             return true;
         }
 
@@ -474,16 +393,19 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        bool reload(const std::filesystem::path& asset_path)
+        bool reload(const AssetHandle& handle)
         {
-            const auto normalized = normalize_path(asset_path);
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
-            auto& entry = get_or_create_registry_entry(normalized);
+            auto* entry = get_or_create_registry_entry(handle);
+            if (!entry)
+            {
+                return false;
+            }
             auto& store = get_or_create_store<TAsset>();
-            auto& record = get_or_create_record(store, entry);
+            auto& record = get_or_create_record(store, *entry);
             record.stream_state = AssetStreamState::Loading;
-            auto promise = AssetAsyncLoader<TAsset>::load(normalized.resolved_path);
+            auto promise = AssetAsyncLoader<TAsset>::load(entry->resolved_path);
             record.asset = std::move(promise.asset);
             record.pending_load = promise.promise;
             update_stream_state(record);
@@ -499,29 +421,27 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        void release(const std::filesystem::path& asset_path)
+        void release(const AssetHandle& handle)
         {
-            const auto normalized = normalize_path(asset_path);
             std::lock_guard lock(_mutex);
             auto* store = find_store<TAsset>();
             if (!store)
             {
                 return;
             }
-            auto iterator = store->records.find(normalized.path_key);
-            if (iterator == store->records.end())
+            auto* record = try_find_record(*store, handle);
+            if (!record)
             {
                 return;
             }
-            auto& record = iterator->second;
-            if (record.ref_count > 0)
+            if (record->ref_count > 0)
             {
-                record.ref_count -= 1;
+                record->ref_count -= 1;
             }
-            if (record.ref_count == 0 && !record.is_pinned)
+            if (record->ref_count == 0 && !record->is_pinned)
             {
-                record.asset.reset();
-                record.stream_state = AssetStreamState::Unloaded;
+                record->asset.reset();
+                record->stream_state = AssetStreamState::Unloaded;
             }
         }
 
@@ -533,14 +453,17 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        void set_pinned(const std::filesystem::path& asset_path, bool is_pinned)
+        void set_pinned(const AssetHandle& handle, bool is_pinned)
         {
-            const auto normalized = normalize_path(asset_path);
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
-            auto& entry = get_or_create_registry_entry(normalized);
+            auto* entry = get_or_create_registry_entry(handle);
+            if (!entry)
+            {
+                return;
+            }
             auto& store = get_or_create_store<TAsset>();
-            auto& record = get_or_create_record(store, entry);
+            auto& record = get_or_create_record(store, *entry);
             record.is_pinned = is_pinned;
             record.last_access = now;
         }
@@ -676,6 +599,25 @@ namespace tbx
             return inserted->second;
         }
 
+        AssetRegistryEntry* get_or_create_registry_entry(const AssetHandle& handle)
+        {
+            if (handle.has_id())
+            {
+                auto* existing = const_cast<AssetRegistryEntry*>(
+                    find_registry_entry_by_id(handle.id));
+                if (existing)
+                {
+                    return existing;
+                }
+            }
+            if (!handle.has_path())
+            {
+                return nullptr;
+            }
+            auto normalized = normalize_path(handle.path);
+            return &get_or_create_registry_entry(normalized);
+        }
+
         const AssetRegistryEntry* find_registry_entry_by_id(Uuid asset_id) const
         {
             if (!asset_id)
@@ -784,6 +726,56 @@ namespace tbx
                 return records.end();
             }
             return records.find(iterator->second);
+        }
+
+        template <typename TAsset>
+        AssetRecord<TAsset>* try_find_record(AssetStore<TAsset>& store, const AssetHandle& handle)
+        {
+            if (handle.has_id())
+            {
+                auto iterator = find_record_by_id(store.records, handle.id);
+                if (iterator != store.records.end())
+                {
+                    return &iterator->second;
+                }
+            }
+            if (!handle.has_path())
+            {
+                return nullptr;
+            }
+            auto normalized = normalize_path(handle.path);
+            auto iterator = store.records.find(normalized.path_key);
+            if (iterator == store.records.end())
+            {
+                return nullptr;
+            }
+            return &iterator->second;
+        }
+
+        template <typename TAsset>
+        const AssetRecord<TAsset>* try_find_record(
+            const AssetStore<TAsset>& store,
+            const AssetHandle& handle) const
+        {
+            if (handle.has_id())
+            {
+                auto iterator = find_record_by_id(store.records, handle.id);
+                if (iterator != store.records.end())
+                {
+                    return &iterator->second;
+                }
+            }
+            if (!handle.has_path())
+            {
+                return nullptr;
+            }
+            auto normalized = normalize_path(handle.path);
+            auto iterator = store.records.find(normalized.path_key);
+            if (iterator == store.records.end())
+            {
+                return nullptr;
+            }
+            return &iterator->second;
         }
 
         template <typename TAsset>
