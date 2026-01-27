@@ -22,6 +22,7 @@ target_link_libraries(App
         Tbx::ECS
         Tbx::Debugging
         Tbx::Graphics
+        Tbx::Assets
 )
 
 add_library(Tbx::App ALIAS App)
