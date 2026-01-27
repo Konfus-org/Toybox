@@ -1,17 +1,14 @@
 #pragma once
 #include "tbx/assets/asset_handle.h"
 #include "tbx/assets/asset_loaders.h"
+#include "tbx/assets/asset_meta.h"
 #include "tbx/assets/assets.h"
-#include "tbx/common/string_utils.h"
+#include "tbx/common/int.h"
 #include "tbx/common/uuid.h"
 #include "tbx/files/filesystem.h"
 #include "tbx/tbx_api.h"
-#include <algorithm>
-#include <cctype>
-#include <charconv>
 #include <chrono>
 #include <filesystem>
-#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -44,7 +41,7 @@ namespace tbx
     /// </remarks>
     struct AssetUsage
     {
-        size_t ref_count = 0;
+        uint ref_count = 0U;
         bool is_pinned = false;
         AssetStreamState stream_state = AssetStreamState::Unloaded;
         std::chrono::steady_clock::time_point last_access = {};
@@ -104,7 +101,6 @@ namespace tbx
     {
         std::shared_ptr<TAsset> asset;
         std::string normalized_path;
-        size_t ref_count = 0;
         bool is_pinned = false;
         AssetStreamState stream_state = AssetStreamState::Unloaded;
         std::chrono::steady_clock::time_point last_access = {};
@@ -129,7 +125,7 @@ namespace tbx
             for (auto& entry : records)
             {
                 auto& record = entry.second;
-                if (record.ref_count == 0 && !record.is_pinned && record.asset)
+                if (!record.is_pinned && record.asset && !is_asset_referenced(record))
                 {
                     record.asset.reset();
                     record.stream_state = AssetStreamState::Unloaded;
@@ -163,7 +159,7 @@ namespace tbx
         ~AssetManager() = default;
 
         /// <summary>
-        /// Purpose: Requests an asset by handle, streaming it in if needed and bumping the ref count.
+        /// Purpose: Requests an asset by handle, streaming it in if needed and tracking usage.
         /// </summary>
         /// <remarks>
         /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
@@ -182,7 +178,6 @@ namespace tbx
             auto& store = get_or_create_store<TAsset>();
             auto& record = get_or_create_record(store, *entry);
             record.last_access = now;
-            record.ref_count += 1;
             if (!record.asset)
             {
                 record.stream_state = AssetStreamState::Loading;
@@ -300,7 +295,7 @@ namespace tbx
             {
                 return false;
             }
-            if (!force && (record->ref_count > 0 || record->is_pinned))
+            if (!force && (record->is_pinned || is_asset_referenced(*record)))
             {
                 return false;
             }
@@ -344,38 +339,6 @@ namespace tbx
             update_stream_state(record);
             record.last_access = now;
             return record.asset != nullptr;
-        }
-
-        /// <summary>
-        /// Purpose: Releases a previously requested asset by decrementing its ref count.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Removes the manager-owned asset instance when the ref count reaches zero.
-        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
-        template <typename TAsset>
-        void release(const AssetHandle& handle)
-        {
-            std::lock_guard lock(_mutex);
-            auto* store = find_store<TAsset>();
-            if (!store)
-            {
-                return;
-            }
-            auto* record = try_find_record(*store, handle);
-            if (!record)
-            {
-                return;
-            }
-            if (record->ref_count > 0)
-            {
-                record->ref_count -= 1;
-            }
-            if (record->ref_count == 0 && !record->is_pinned)
-            {
-                record->asset.reset();
-                record->stream_state = AssetStreamState::Unloaded;
-            }
         }
 
         /// <summary>
@@ -449,59 +412,18 @@ namespace tbx
             return Uuid(hashed);
         }
 
-        static Uuid parse_uuid_from_text(const std::string& contents)
-        {
-            const std::string trimmed = trim(contents);
-            if (trimmed.empty())
-            {
-                return {};
-            }
-            auto start = trimmed.data();
-            auto end = trimmed.data() + trimmed.size();
-            while (start < end && !std::isxdigit(static_cast<unsigned char>(*start)))
-            {
-                start += 1;
-            }
-            if (start == end)
-            {
-                return {};
-            }
-            auto token_end = start;
-            while (token_end < end && std::isxdigit(static_cast<unsigned char>(*token_end)))
-            {
-                token_end += 1;
-            }
-            uint32 value = 0U;
-            auto result = std::from_chars(start, token_end, value, 16);
-            if (result.ec != std::errc())
-            {
-                return {};
-            }
-            if (value == 0U)
-            {
-                return {};
-            }
-            return Uuid(value);
-        }
-
         Uuid read_meta_uuid(const std::filesystem::path& asset_path) const
         {
             if (!_file_system)
             {
                 return {};
             }
-            auto meta_path = asset_path;
-            meta_path += ".meta";
-            if (!_file_system->exists(meta_path))
+            AssetMeta meta = {};
+            if (!_meta_reader.try_read(*_file_system, asset_path, meta))
             {
                 return {};
             }
-            std::string contents;
-            if (!_file_system->read_file(meta_path, FileDataFormat::Utf8Text, contents))
-            {
-                return {};
-            }
-            return parse_uuid_from_text(contents);
+            return meta.id;
         }
 
         AssetRegistryEntry& get_or_create_registry_entry(const NormalizedAssetPath& normalized)
@@ -721,7 +643,7 @@ namespace tbx
         static AssetUsage build_usage(const AssetRecord<TAsset>& record)
         {
             AssetUsage usage = {};
-            usage.ref_count = record.ref_count;
+            usage.ref_count = get_reference_count(record);
             usage.is_pinned = record.is_pinned;
             usage.stream_state = record.stream_state;
             usage.last_access = record.last_access;
@@ -748,9 +670,36 @@ namespace tbx
             }
         }
 
+        template <typename TAsset>
+        static bool is_asset_referenced(const AssetRecord<TAsset>& record)
+        {
+            if (!record.asset)
+            {
+                return false;
+            }
+            return record.asset.use_count() > 1;
+        }
+
+        template <typename TAsset>
+        static uint get_reference_count(const AssetRecord<TAsset>& record)
+        {
+            if (!record.asset)
+            {
+                return 0U;
+            }
+            const auto count = record.asset.use_count();
+            if (count <= 1)
+            {
+                return 0U;
+            }
+            // Subtract the manager-owned reference to report external usage.
+            return static_cast<uint>(count - 1);
+        }
+
         mutable std::mutex _mutex;
         IFileSystem* _file_system = nullptr;
         std::filesystem::path _assets_root;
+        AssetMetaReader _meta_reader = {};
         std::unordered_map<Uuid, AssetRegistryEntry> _registry;
         std::unordered_map<Uuid, Uuid> _registry_by_id;
         std::unordered_map<std::type_index, std::unique_ptr<IAssetStore>> _stores;
