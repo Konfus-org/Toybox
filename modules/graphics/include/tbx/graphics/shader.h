@@ -42,8 +42,52 @@ namespace tbx
         std::string source = "";
         ShaderType type = ShaderType::None;
         Uuid id = Uuid::generate();
-
     };
+
+    inline const std::string standard_vertex_shader_source = R"(
+        #version 450 core
+
+        layout(location = 0) in vec3 in_position;
+        layout(location = 1) in vec4 in_vert_color;
+        layout(location = 2) in vec3 in_normal; // TODO: implement normals!
+        layout(location = 3) in vec2 in_tex_coord;
+
+        out vec4 color;
+        out vec4 vert_color;
+        out vec2 tex_coord;
+
+        uniform mat4 view_proj_uniform;
+        uniform mat4 model_uniform;
+        uniform vec4 color_uniform = vec4(1.0, 1.0, 1.0, 1.0);
+
+        void main()
+        {
+            color = color_uniform;
+            vert_color = in_vert_color;
+            tex_coord = in_tex_coord;
+            gl_Position = view_proj_uniform * model_uniform * vec4(in_position, 1.0);
+        }
+    )";
+
+    inline const std::string standard_fragment_shader_source = R"(
+        #version 450 core
+
+        layout(location = 0) out vec4 out_color;
+
+        in vec4 color;
+        in vec4 vert_color;
+        in vec3 normal; // TODO: implement normals!
+        in vec2 tex_coord;
+
+        uniform sampler2D texture_uniform;
+
+        void main()
+        {
+            vec4 texture_color = color;
+            texture_color *= texture(texture_uniform, tex_coord);
+            out_color = texture_color;
+        }
+    )";
 
     /// <summary>Purpose: Retrieves the shared default vertex shader instance.</summary>
     /// <remarks>Ownership: Returns a reference to the shared instance owned by the module.
@@ -60,39 +104,24 @@ namespace tbx
     /// Ownership: Returns a reference that participates in shared ownership of the
     /// default shader instance managed by the module.
     /// Thread Safety: Safe to read concurrently.</remarks>
-    inline const std::shared_ptr<Shader>& standard_vertex_shader =
-        get_standard_vertex_shader();
+    inline const std::shared_ptr<Shader>& standard_vertex_shader = get_standard_vertex_shader();
 
     /// <summary>Provides the default fragment shader instance.</summary>
     /// <remarks>Purpose: Supplies the shared default fragment shader for new materials.
     /// Ownership: Returns a reference that participates in shared ownership of the
     /// default shader instance managed by the module.
     /// Thread Safety: Safe to read concurrently.</remarks>
-    inline const std::shared_ptr<Shader>& standard_fragment_shader =
-        get_standard_fragment_shader();
+    inline const std::shared_ptr<Shader>& standard_fragment_shader = get_standard_fragment_shader();
 
     /// <summary>Purpose: Provides the default vertex shader instance.</summary>
     /// <remarks>Ownership: Returns a reference that participates in shared ownership
     /// of the default shader instance managed by the module.
     /// Thread Safety: Safe to read concurrently.</remarks>
-    inline const std::shared_ptr<Shader>& vert_shader =
-        get_standard_vertex_shader();
+    inline const std::shared_ptr<Shader>& vert_shader = get_standard_vertex_shader();
 
     /// <summary>Purpose: Provides the default fragment shader instance.</summary>
     /// <remarks>Ownership: Returns a reference that participates in shared ownership
     /// of the default shader instance managed by the module.
     /// Thread Safety: Safe to read concurrently.</remarks>
-    inline const std::shared_ptr<Shader>& frag_shader =
-        get_standard_fragment_shader();
-
-    // Compiles a shader.
-    class TBX_API IShaderCompiler
-    {
-      public:
-        virtual ~IShaderCompiler() noexcept = default;
-
-        // Compiles a shader.
-        // Returns true on success and false on failure.
-        virtual bool compile(std::shared_ptr<Shader> shader) = 0;
-    };
+    inline const std::shared_ptr<Shader>& frag_shader = get_standard_fragment_shader();
 }

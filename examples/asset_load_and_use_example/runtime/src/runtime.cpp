@@ -19,10 +19,7 @@ namespace tbx::examples
             TextureWrap::Repeat,
             TextureFilter::Nearest,
             TextureFormat::RGBA);
-        if (texture_asset)
-        {
-            _smily_texture = texture_asset->get();
-        }
+        _smily_texture = texture_asset->get();
 
         Model quad_model = {};
         quad_model.mesh = quad;

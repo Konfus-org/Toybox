@@ -36,7 +36,12 @@ namespace tbx::plugins
 
     void StbImageAssetLoaderPlugin::on_recieve_message(Message& msg)
     {
-        on_message(msg, [this](LoadTextureRequest& request) { on_load_texture_request(request); });
+        on_message(
+            msg,
+            [this](LoadTextureRequest& request)
+            {
+                on_load_texture_request(request);
+            });
     }
 
     void StbImageAssetLoaderPlugin::on_load_texture_request(LoadTextureRequest& request)
@@ -49,10 +54,11 @@ namespace tbx::plugins
             return;
         }
 
-        const bool has_payload = asset->read([](const Texture* payload)
-        {
-            return payload != nullptr;
-        });
+        const bool has_payload = asset->read(
+            [](const Texture* payload)
+            {
+                return payload != nullptr;
+            });
         if (!has_payload)
         {
             request.state = MessageState::Error;
@@ -74,6 +80,7 @@ namespace tbx::plugins
             return;
         }
 
+        stbi_set_flip_vertically_on_load(true);
         const std::filesystem::path resolved = resolve_asset_path(request.path);
         const std::string resolved_string = resolved.string();
         int width = 0;
@@ -89,9 +96,8 @@ namespace tbx::plugins
             return;
         }
 
-        const auto pixel_count = static_cast<size_t>(width)
-            * static_cast<size_t>(height)
-            * static_cast<size_t>(desired_channels);
+        const auto pixel_count = static_cast<size_t>(width) * static_cast<size_t>(height)
+                                 * static_cast<size_t>(desired_channels);
         std::vector<Pixel> pixels(raw_data, raw_data + pixel_count);
         stbi_image_free(raw_data);
 
@@ -104,15 +110,8 @@ namespace tbx::plugins
                 }
 
                 const Uuid existing_id = payload->id;
-                Size resolution = {
-                    static_cast<uint32>(width),
-                    static_cast<uint32>(height) };
-                Texture texture(
-                    resolution,
-                    request.wrap,
-                    request.filter,
-                    request.format,
-                    pixels);
+                Size resolution = {static_cast<uint32>(width), static_cast<uint32>(height)};
+                Texture texture(resolution, request.wrap, request.filter, request.format, pixels);
                 texture.id = existing_id;
                 *payload = texture;
             });

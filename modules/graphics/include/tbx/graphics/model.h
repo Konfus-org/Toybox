@@ -1,7 +1,7 @@
 #pragma once
+#include "tbx/common/uuid.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/mesh.h"
-#include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
 #include <memory>
 
@@ -49,21 +49,5 @@ namespace tbx
         std::shared_ptr<Mesh> mesh = get_quad_mesh();
         std::shared_ptr<Material> material = get_standard_material();
         Uuid id = Uuid::generate();
-    };
-
-    /// <summary>Purpose: Retrieves the shared default model instance.</summary>
-    /// <remarks>Ownership: Returns a shared pointer owned by the module.
-    /// Thread Safety: Safe to call concurrently after static initialization.</remarks>
-    TBX_API const std::shared_ptr<Model>& get_default_model();
-
-    /// <summary>Represents an instance that references shared model data.</summary>
-    struct TBX_API ModelInstance
-    {
-        /// <summary>Purpose: References shared model data for rendering.</summary>
-        /// <remarks>Ownership: Holds a shared reference to the model data.
-        /// Thread Safety: Safe to copy between threads, but model data mutation
-        /// requires external synchronization.</remarks>
-        std::shared_ptr<Model> model = get_default_model();
-        Uuid instance_id = Uuid::generate();
     };
 }
