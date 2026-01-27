@@ -5,7 +5,6 @@
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/model.h"
 #include "tbx/math/transform.h"
-#include <memory>
 
 namespace tbx::examples
 {
@@ -23,8 +22,8 @@ namespace tbx::examples
 
         Model quad_model = {};
         quad_model.mesh = quad;
-        quad_model.material = std::make_shared<Material>();
-        quad_model.material->textures = {_smily_texture};
+        quad_model.material = Material();
+        quad_model.material.textures = {_smily_texture};
 
         auto entity = _ecs->create_entity("SmilyQuad");
         entity.add_component<Transform>();

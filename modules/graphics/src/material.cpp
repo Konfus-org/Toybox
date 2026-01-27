@@ -2,9 +2,9 @@
 
 namespace tbx
 {
-    const std::shared_ptr<Material>& get_standard_material()
+    const ShaderProgram& get_standard_shader_program()
     {
-        static const std::shared_ptr<Material> material = std::make_shared<Material>();
-        return material;
+        static const ShaderProgram program = ShaderProgram();
+        return program;
     }
 }
