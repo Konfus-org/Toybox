@@ -11,17 +11,6 @@
 
 namespace tbx
 {
-    AppSettings::AppSettings(
-        IMessageDispatcher& dispatcher,
-        bool vsync,
-        GraphicsApi api,
-        Size resolution)
-        : vsync_enabled(&dispatcher, this, &AppSettings::vsync_enabled, vsync)
-        , resolution(&dispatcher, this, &AppSettings::resolution, resolution)
-        , graphics_api(&dispatcher, this, &AppSettings::graphics_api, api)
-    {
-    }
-
     Application::Application(const AppDescription& desc)
         : _name(desc.name)
         , _filesystem(
@@ -36,6 +25,7 @@ namespace tbx
               WindowMode::Windowed,
               false)
         , _settings(_msg_coordinator, true, GraphicsApi::OpenGL, {0, 0})
+        , _asset_manager(_filesystem)
     {
         initialize(desc.requested_plugins);
     }
@@ -96,6 +86,11 @@ namespace tbx
     IFileSystem& Application::get_filesystem()
     {
         return _filesystem;
+    }
+
+    AssetManager& Application::get_asset_manager()
+    {
+        return _asset_manager;
     }
 
     void Application::initialize(const std::vector<std::string>& requested_plugins)
@@ -168,62 +163,9 @@ namespace tbx
 
         // End update
         _msg_coordinator.send<ApplicationUpdateEndEvent>(this, dt);
-    }
 
-    void Application::shutdown()
-    {
-        try
-        {
-            GlobalDispatcherScope scope(_msg_coordinator);
-
-            // Log shutdown
-            TBX_TRACE_INFO("Shutting down application: {}", _name);
-            for (auto& p : _loaded)
-                TBX_TRACE_INFO("Unloading plugin: {} v{}", p.meta.name, p.meta.version);
-
-            // Send shutdown event and clear message handlers
-            _msg_coordinator.send<ApplicationShutdownEvent>(this);
-            _msg_coordinator.clear();
-
-            // Clear ECS
-            _ecs.clear();
-
-            // Detach and unload all loaded plugins
-            for (auto& p : _loaded)
-                p.instance->detach();
-            _loaded.clear();
-        }
-        catch (const std::exception& ex)
-        {
-            TBX_ASSERT(false, "Exception during application shutdown: {}", ex.what());
-        }
-        catch (...)
-        {
-            TBX_ASSERT(false, "Unknown exception during application shutdown.");
-        }
-    }
-
-    void Application::recieve_message(const Message& msg)
-    {
-        if (on_message(
-                msg,
-                [this](const ExitApplicationRequest& r)
-                {
-                    _should_exit = true;
-                }))
-        {
-            return;
-        }
-        if (on_property_changed(
-                msg,
-                &Window::is_open,
-                [this](const PropertyChangedEvent<Window, bool>& e)
-                {
-                    if (e.owner == &_main_window && !e.current)
-                        _should_exit = true;
-                }))
-        {
-            return;
-        }
+        ++_update_count;
+        if ((_update_count % 5) == 0)
+            _asset_manager.clean();
     }
 }

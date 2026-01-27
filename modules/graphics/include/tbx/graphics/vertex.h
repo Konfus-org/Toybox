@@ -167,6 +167,26 @@ namespace tbx
         {
         }
 
+        bool empty() const
+        {
+            return vertices.empty();
+        }
+
+        auto begin() const
+        {
+            return vertices.begin();
+        }
+
+        auto end() const
+        {
+            return vertices.end();
+        }
+
+        size_t size() const
+        {
+            return vertices.size();
+        }
+
         std::vector<float> vertices = {};
         VertexBufferLayout layout = {};
     };

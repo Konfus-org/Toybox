@@ -19,6 +19,7 @@ target_link_libraries(Assets
         Tbx::Messaging
         Tbx::Audio
         Tbx::Graphics
+        Tbx::Files
 )
 
 add_library(Tbx::Assets ALIAS Assets)

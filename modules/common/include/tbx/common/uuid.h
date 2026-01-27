@@ -32,7 +32,8 @@ namespace tbx
     };
 
     /// <summary>Purpose: Formats a UUID value as a hex string.</summary>
-    /// <remarks>Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for concurrent use.</remarks>
+    /// <remarks>Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for
+    /// concurrent use.</remarks>
     TBX_API std::string to_string(const Uuid& value);
 
     namespace invalid
