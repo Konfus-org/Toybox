@@ -162,13 +162,13 @@ namespace tbx
     /// Purpose: Stores the runtime state for a single tracked asset.
     /// </summary>
     /// <remarks>
-    /// Ownership: Owns the shared Asset wrapper and load promise.
+    /// Ownership: Owns the shared asset instance and load promise.
     /// Thread Safety: Requires external synchronization by AssetManager.
     /// </remarks>
     template <typename TAsset>
     struct AssetRecord
     {
-        std::shared_ptr<Asset<TAsset>> asset;
+        std::shared_ptr<TAsset> asset;
         std::string normalized_path;
         size_t ref_count = 0;
         bool is_pinned = false;
@@ -208,7 +208,7 @@ namespace tbx
     /// Purpose: Tracks streamed assets by normalized path and maintains usage metadata.
     /// </summary>
     /// <remarks>
-    /// Ownership: Owns shared Asset wrappers for loaded assets and releases them when streamed out.
+    /// Ownership: Owns shared asset instances for loaded assets and releases them when streamed out.
     /// Thread Safety: All public member functions are synchronized internally.
     /// </remarks>
     class TBX_API AssetManager final
@@ -232,11 +232,11 @@ namespace tbx
         /// Purpose: Requests an asset by path, streaming it in if needed and bumping the ref count.
         /// </summary>
         /// <remarks>
-        /// Ownership: Returns a shared Asset wrapper owned jointly by the manager and caller.
+        /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        std::shared_ptr<Asset<TAsset>> request(const std::filesystem::path& asset_path)
+        std::shared_ptr<TAsset> request(const std::filesystem::path& asset_path)
         {
             const auto normalized = normalize_path(asset_path);
             auto now = std::chrono::steady_clock::now();
@@ -261,11 +261,11 @@ namespace tbx
         /// Purpose: Requests an asset by id, streaming it in if needed and bumping the ref count.
         /// </summary>
         /// <remarks>
-        /// Ownership: Returns a shared Asset wrapper owned jointly by the manager and caller.
+        /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        std::shared_ptr<Asset<TAsset>> request(Uuid asset_id)
+        std::shared_ptr<TAsset> request(Uuid asset_id)
         {
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
@@ -293,11 +293,11 @@ namespace tbx
         /// Purpose: Returns a tracked asset without adjusting the ref count.
         /// </summary>
         /// <remarks>
-        /// Ownership: Returns a shared Asset wrapper owned jointly by the manager and caller.
+        /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        std::shared_ptr<Asset<TAsset>> get(const std::filesystem::path& asset_path)
+        std::shared_ptr<TAsset> get(const std::filesystem::path& asset_path)
         {
             const auto normalized = normalize_path(asset_path);
             auto now = std::chrono::steady_clock::now();
@@ -321,11 +321,11 @@ namespace tbx
         /// Purpose: Returns a tracked asset by id without adjusting the ref count.
         /// </summary>
         /// <remarks>
-        /// Ownership: Returns a shared Asset wrapper owned jointly by the manager and caller.
+        /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        std::shared_ptr<Asset<TAsset>> get(Uuid asset_id)
+        std::shared_ptr<TAsset> get(Uuid asset_id)
         {
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
@@ -399,11 +399,11 @@ namespace tbx
         /// Purpose: Streams an asset in without altering the ref count.
         /// </summary>
         /// <remarks>
-        /// Ownership: Returns a shared Asset wrapper owned jointly by the manager and caller.
+        /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        std::shared_ptr<Asset<TAsset>> stream_in(const std::filesystem::path& asset_path)
+        std::shared_ptr<TAsset> stream_in(const std::filesystem::path& asset_path)
         {
             const auto normalized = normalize_path(asset_path);
             auto now = std::chrono::steady_clock::now();
@@ -429,7 +429,7 @@ namespace tbx
         /// Purpose: Streams an asset out if it is unreferenced or forced.
         /// </summary>
         /// <remarks>
-        /// Ownership: Releases the manager-owned Asset wrapper when streaming out.
+        /// Ownership: Releases the manager-owned asset instance when streaming out.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
@@ -461,16 +461,16 @@ namespace tbx
         /// Purpose: Streams out all unreferenced, unpinned assets and reclaims memory.
         /// </summary>
         /// <remarks>
-        /// Ownership: Releases manager-owned Asset wrappers that are safe to evict.
+        /// Ownership: Releases manager-owned asset instances that are safe to evict.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         void clean();
 
         /// <summary>
-        /// Purpose: Reloads a streamed asset and swaps the managed Asset wrapper.
+        /// Purpose: Reloads a streamed asset and swaps the managed asset instance.
         /// </summary>
         /// <remarks>
-        /// Ownership: Replaces the manager-owned Asset wrapper with the newly loaded instance.
+        /// Ownership: Replaces the manager-owned asset instance with the newly loaded instance.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
@@ -495,7 +495,7 @@ namespace tbx
         /// Purpose: Releases a previously requested asset by decrementing its ref count.
         /// </summary>
         /// <remarks>
-        /// Ownership: Removes the manager-owned Asset wrapper when the ref count reaches zero.
+        /// Ownership: Removes the manager-owned asset instance when the ref count reaches zero.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
@@ -529,7 +529,7 @@ namespace tbx
         /// Purpose: Pins or unpins a tracked asset to prevent automatic streaming out.
         /// </summary>
         /// <remarks>
-        /// Ownership: Retains manager ownership while pinned.
+        /// Ownership: Retains manager ownership of the asset instance while pinned.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
