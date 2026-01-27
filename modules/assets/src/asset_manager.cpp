@@ -51,3 +51,4 @@ namespace tbx
             static_cast<void>(get_or_create_registry_entry(normalized));
         }
     }
+}

@@ -125,7 +125,7 @@ namespace tbx
             for (auto& entry : records)
             {
                 auto& record = entry.second;
-                if (!record.is_pinned && record.asset && !is_asset_referenced(record))
+                if (!record.is_pinned && record.asset && record.asset.use_count() <= 1)
                 {
                     record.asset.reset();
                     record.stream_state = AssetStreamState::Unloaded;
@@ -232,7 +232,7 @@ namespace tbx
             {
                 return {};
             }
-            auto* record = try_find_record(*store, handle);
+            auto* record = const_cast<AssetRecord<TAsset>*>(try_find_record(*store, handle));
             if (!record)
             {
                 return {};
