@@ -11,6 +11,17 @@
 
 namespace tbx
 {
+    AppSettings::AppSettings(
+        IMessageDispatcher& dispatcher,
+        bool vsync,
+        GraphicsApi api,
+        Size resolution)
+        : vsync_enabled(&dispatcher, this, &AppSettings::vsync_enabled, vsync)
+        , graphics_api(&dispatcher, this, &AppSettings::graphics_api, api)
+        , resolution(&dispatcher, this, &AppSettings::resolution, resolution)
+    {
+    }
+
     Application::Application(const AppDescription& desc)
         : _name(desc.name)
         , _filesystem(
@@ -168,4 +179,45 @@ namespace tbx
         if ((_update_count % 5) == 0)
             _asset_manager.clean();
     }
+
+    void Application::shutdown()
+    {
+        try
+        {
+            GlobalDispatcherScope scope(_msg_coordinator);
+
+            _msg_coordinator.send<ApplicationShutdownEvent>(this);
+
+            for (auto& plugin : _loaded)
+            {
+                if (plugin.instance)
+                    plugin.instance->detach();
+            }
+
+            _loaded.clear();
+            _msg_coordinator.clear();
+            _main_window.is_open = false;
+            _should_exit = true;
+        }
+        catch (const std::exception& ex)
+        {
+            TBX_ASSERT(false, "Exception during application shutdown: {}", ex.what());
+        }
+        catch (...)
+        {
+            TBX_ASSERT(false, "Unknown exception during application shutdown.");
+        }
+    }
+
+    void Application::recieve_message(Message& msg)
+    {
+        on_message(
+            msg,
+            [this](ExitApplicationRequest& request)
+            {
+                _should_exit = true;
+                request.state = MessageState::Handled;
+            });
+    }
+
 }
