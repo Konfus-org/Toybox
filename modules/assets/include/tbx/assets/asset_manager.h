@@ -1,9 +1,7 @@
 #pragma once
 #include "tbx/assets/asset_handle.h"
+#include "tbx/assets/asset_loaders.h"
 #include "tbx/assets/assets.h"
-#include "tbx/assets/audio_assets.h"
-#include "tbx/assets/model_assets.h"
-#include "tbx/assets/texture_assets.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/common/uuid.h"
 #include "tbx/files/filesystem.h"
@@ -53,71 +51,6 @@ namespace tbx
     };
 
     /// <summary>
-    /// Purpose: Selects the asynchronous loader for a given asset type.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Returns an AssetPromise that shares ownership with the caller.
-    /// Thread Safety: Safe to call concurrently; delegates to thread-safe loaders.
-    /// </remarks>
-    template <typename TAsset>
-    struct AssetAsyncLoader
-    {
-        static AssetPromise<TAsset> load(const std::filesystem::path& asset_path)
-        {
-            static_assert(sizeof(TAsset) == 0, "No async asset loader registered for this type.");
-            return load(asset_path);
-        }
-    };
-
-    /// <summary>
-    /// Purpose: Provides the async loader specialization for Model assets.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Returns an AssetPromise that shares ownership with the caller.
-    /// Thread Safety: Safe to call concurrently.
-    /// </remarks>
-    template <>
-    struct AssetAsyncLoader<Model>
-    {
-        static AssetPromise<Model> load(const std::filesystem::path& asset_path)
-        {
-            return load_model_async(asset_path);
-        }
-    };
-
-    /// <summary>
-    /// Purpose: Provides the async loader specialization for Texture assets.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Returns an AssetPromise that shares ownership with the caller.
-    /// Thread Safety: Safe to call concurrently.
-    /// </remarks>
-    template <>
-    struct AssetAsyncLoader<Texture>
-    {
-        static AssetPromise<Texture> load(const std::filesystem::path& asset_path)
-        {
-            return load_texture_async(asset_path);
-        }
-    };
-
-    /// <summary>
-    /// Purpose: Provides the async loader specialization for AudioClip assets.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Returns an AssetPromise that shares ownership with the caller.
-    /// Thread Safety: Safe to call concurrently.
-    /// </remarks>
-    template <>
-    struct AssetAsyncLoader<AudioClip>
-    {
-        static AssetPromise<AudioClip> load(const std::filesystem::path& asset_path)
-        {
-            return load_audio_async(asset_path);
-        }
-    };
-
-    /// <summary>
     /// Purpose: Holds resolved and normalized asset paths with a hashed key.
     /// </summary>
     /// <remarks>
@@ -153,9 +86,9 @@ namespace tbx
     /// Ownership: Implementations own their tracked asset records.
     /// Thread Safety: Requires external synchronization by AssetManager.
     /// </remarks>
-    struct AssetStoreBase
+    struct IAssetStore
     {
-        virtual ~AssetStoreBase() = default;
+        virtual ~IAssetStore() = default;
         virtual void clean() = 0;
     };
 
@@ -187,7 +120,7 @@ namespace tbx
     /// Thread Safety: Requires external synchronization by AssetManager.
     /// </remarks>
     template <typename TAsset>
-    struct AssetStore final : AssetStoreBase
+    struct AssetStore final : IAssetStore
     {
         std::unordered_map<Uuid, AssetRecord<TAsset>> records;
 
@@ -601,10 +534,10 @@ namespace tbx
 
         AssetRegistryEntry* get_or_create_registry_entry(const AssetHandle& handle)
         {
+            // Prefer resolving by id to avoid path normalization when possible.
             if (handle.has_id())
             {
-                auto* existing = const_cast<AssetRegistryEntry*>(
-                    find_registry_entry_by_id(handle.id));
+                auto* existing = find_registry_entry_by_id(handle.id);
                 if (existing)
                 {
                     return existing;
@@ -616,6 +549,12 @@ namespace tbx
             }
             auto normalized = normalize_path(handle.path);
             return &get_or_create_registry_entry(normalized);
+        }
+
+        AssetRegistryEntry* find_registry_entry_by_id(Uuid asset_id)
+        {
+            return const_cast<AssetRegistryEntry*>(
+                static_cast<const AssetManager*>(this)->find_registry_entry_by_id(asset_id));
         }
 
         const AssetRegistryEntry* find_registry_entry_by_id(Uuid asset_id) const
@@ -814,6 +753,6 @@ namespace tbx
         std::filesystem::path _assets_root;
         std::unordered_map<Uuid, AssetRegistryEntry> _registry;
         std::unordered_map<Uuid, Uuid> _registry_by_id;
-        std::unordered_map<std::type_index, std::unique_ptr<AssetStoreBase>> _stores;
+        std::unordered_map<std::type_index, std::unique_ptr<IAssetStore>> _stores;
     };
 }
