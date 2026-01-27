@@ -2,17 +2,15 @@
 
 namespace tbx
 {
-    const std::shared_ptr<Shader>& get_standard_vertex_shader()
+    const Shader& get_standard_vertex_shader()
     {
-        static const std::shared_ptr<Shader> shader =
-            std::make_shared<Shader>(standard_vertex_shader_source, ShaderType::Vertex);
+        static const Shader shader = Shader(standard_vertex_shader_source, ShaderType::Vertex);
         return shader;
     }
 
-    const std::shared_ptr<Shader>& get_standard_fragment_shader()
+    const Shader& get_standard_fragment_shader()
     {
-        static const std::shared_ptr<Shader> shader =
-            std::make_shared<Shader>(standard_fragment_shader_source, ShaderType::Fragment);
+        static const Shader shader = Shader(standard_fragment_shader_source, ShaderType::Fragment);
         return shader;
     }
 }
