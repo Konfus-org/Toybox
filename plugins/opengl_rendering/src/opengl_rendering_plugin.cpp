@@ -372,7 +372,19 @@ namespace tbx::plugins
             if (entity.has_component<Transform>())
                 model_matrix = build_model_matrix(entity.get_component<Transform>());
 
-            draw_mesh_with_material(model.mesh, model.material, model_matrix);
+            if (!model.mesh)
+            {
+                continue;
+            }
+
+            const std::shared_ptr<Material>& standard_material_ref = get_standard_material();
+            const Material* material = model.material ? model.material.get() : standard_material_ref.get();
+            if (!material)
+            {
+                continue;
+            }
+
+            draw_mesh_with_material(*model.mesh, *material, model_matrix);
         }
 
         static const Material fallback_material = []()

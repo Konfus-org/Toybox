@@ -4,15 +4,15 @@
 
 namespace tbx
 {
-    static std::unique_ptr<Model> create_model_data(
+    static std::shared_ptr<Model> create_model_data(
         const std::shared_ptr<Model>& default_data)
     {
         if (default_data)
         {
-            return std::make_unique<Model>(*default_data);
+            return std::make_shared<Model>(*default_data);
         }
 
-        return std::make_unique<Model>();
+        return std::make_shared<Model>();
     }
 
     static std::shared_ptr<Asset<Model>> create_model_asset(

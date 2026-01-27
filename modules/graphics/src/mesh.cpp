@@ -3,6 +3,18 @@
 
 namespace tbx
 {
+    const std::shared_ptr<Mesh>& get_triangle_mesh()
+    {
+        static const std::shared_ptr<Mesh> mesh = std::make_shared<Mesh>(make_triangle());
+        return mesh;
+    }
+
+    const std::shared_ptr<Mesh>& get_quad_mesh()
+    {
+        static const std::shared_ptr<Mesh> mesh = std::make_shared<Mesh>(make_quad());
+        return mesh;
+    }
+
     Mesh::Mesh()
     {
         Mesh default_quad = make_quad();

@@ -4,15 +4,15 @@
 
 namespace tbx
 {
-    static std::unique_ptr<AudioClip> create_audio_data(
+    static std::shared_ptr<AudioClip> create_audio_data(
         const std::shared_ptr<AudioClip>& default_data)
     {
         if (default_data)
         {
-            return std::make_unique<AudioClip>(*default_data);
+            return std::make_shared<AudioClip>(*default_data);
         }
 
-        return std::make_unique<AudioClip>();
+        return std::make_shared<AudioClip>();
     }
 
     static std::shared_ptr<Asset<AudioClip>> create_audio_asset(

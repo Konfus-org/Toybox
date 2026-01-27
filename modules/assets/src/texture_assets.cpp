@@ -4,15 +4,15 @@
 
 namespace tbx
 {
-    static std::unique_ptr<Texture> create_texture_data(
+    static std::shared_ptr<Texture> create_texture_data(
         const std::shared_ptr<Texture>& default_data)
     {
         if (default_data)
         {
-            return std::make_unique<Texture>(*default_data);
+            return std::make_shared<Texture>(*default_data);
         }
 
-        return std::make_unique<Texture>();
+        return std::make_shared<Texture>();
     }
 
     static std::shared_ptr<Asset<Texture>> create_texture_asset(

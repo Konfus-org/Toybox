@@ -15,7 +15,7 @@ namespace tbx
     /// Purpose: Thread-safe asset wrapper that owns a payload and coordinates access.
     /// </summary>
     /// <remarks>
-    /// Ownership: Owns the payload through a unique pointer and is typically shared via
+    /// Ownership: Owns the payload through a shared pointer and is typically shared via
     /// `std::shared_ptr`.
     /// Thread Safety: Provides shared/exclusive accessors guarded by an internal mutex.
     /// </remarks>
@@ -23,9 +23,29 @@ namespace tbx
     class Asset final
     {
       public:
-        explicit Asset(std::unique_ptr<TAsset> payload)
+        explicit Asset(std::shared_ptr<TAsset> payload)
             : _payload(std::move(payload))
         {
+        }
+
+        /// <summary>Purpose: Returns the shared payload instance.</summary>
+        /// <remarks>
+        /// Ownership: Returns the shared payload instance owned by the Asset.
+        /// Thread Safety: Safe to call concurrently for read-only access.</remarks>
+        std::shared_ptr<const TAsset> get() const
+        {
+            std::shared_lock lock(_mutex);
+            return _payload;
+        }
+
+        /// <summary>Purpose: Returns the shared payload instance.</summary>
+        /// <remarks>
+        /// Ownership: Returns the shared payload instance owned by the Asset.
+        /// Thread Safety: Safe to call concurrently; coordinate writes externally.</remarks>
+        std::shared_ptr<TAsset> get()
+        {
+            std::shared_lock lock(_mutex);
+            return _payload;
         }
 
         template <typename TFunc>
@@ -42,8 +62,26 @@ namespace tbx
             return std::forward<TFunc>(func)(_payload.get());
         }
 
+        /// <summary>Purpose: Converts to a shared pointer aliasing the payload.</summary>
+        /// <remarks>
+        /// Ownership: Shares ownership with the Asset wrapper.
+        /// Thread Safety: Safe to call concurrently for read-only access.</remarks>
+        operator std::shared_ptr<const TAsset>() const
+        {
+            return get();
+        }
+
+        /// <summary>Purpose: Converts to a shared pointer aliasing the payload.</summary>
+        /// <remarks>
+        /// Ownership: Shares ownership with the Asset wrapper.
+        /// Thread Safety: Safe to call concurrently; coordinate writes externally.</remarks>
+        operator std::shared_ptr<TAsset>()
+        {
+            return get();
+        }
+
       private:
-        std::unique_ptr<TAsset> _payload;
+        std::shared_ptr<TAsset> _payload;
         mutable std::shared_mutex _mutex;
     };
 
