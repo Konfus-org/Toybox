@@ -5,6 +5,7 @@
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/model.h"
 #include "tbx/math/transform.h"
+#include <memory>
 
 namespace tbx::examples
 {
@@ -18,22 +19,15 @@ namespace tbx::examples
             TextureWrap::Repeat,
             TextureFilter::Nearest,
             TextureFormat::RGBA);
-        _smily_texture = std::make_shared<Texture>();
         if (texture_asset)
         {
-            texture_asset->read(
-                [&](const Texture* payload)
-                {
-                    if (payload)
-                    {
-                        *_smily_texture = *payload;
-                    }
-                });
+            _smily_texture = texture_asset->get();
         }
 
         Model quad_model = {};
-        quad_model.mesh = make_quad();
-        quad_model.material.textures = {_smily_texture};
+        quad_model.mesh = quad;
+        quad_model.material = std::make_shared<Material>();
+        quad_model.material->textures = {_smily_texture};
 
         auto entity = _ecs->create_entity("SmilyQuad");
         entity.add_component<Transform>();

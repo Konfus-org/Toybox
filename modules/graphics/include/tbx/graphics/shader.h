@@ -71,6 +71,20 @@ namespace tbx
     inline const std::shared_ptr<Shader>& standard_fragment_shader =
         get_standard_fragment_shader();
 
+    /// <summary>Purpose: Provides the default vertex shader instance.</summary>
+    /// <remarks>Ownership: Returns a reference that participates in shared ownership
+    /// of the default shader instance managed by the module.
+    /// Thread Safety: Safe to read concurrently.</remarks>
+    inline const std::shared_ptr<Shader>& vert_shader =
+        get_standard_vertex_shader();
+
+    /// <summary>Purpose: Provides the default fragment shader instance.</summary>
+    /// <remarks>Ownership: Returns a reference that participates in shared ownership
+    /// of the default shader instance managed by the module.
+    /// Thread Safety: Safe to read concurrently.</remarks>
+    inline const std::shared_ptr<Shader>& frag_shader =
+        get_standard_fragment_shader();
+
     // Compiles a shader.
     class TBX_API IShaderCompiler
     {

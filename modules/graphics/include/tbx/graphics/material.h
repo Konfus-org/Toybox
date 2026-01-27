@@ -77,4 +77,16 @@ namespace tbx
         Uuid material_id = {};
         Uuid instance_id = Uuid::generate();
     };
+
+    /// <summary>Purpose: Retrieves the shared default material instance.</summary>
+    /// <remarks>Ownership: Returns a shared pointer owned by the module.
+    /// Thread Safety: Safe to call concurrently after static initialization.</remarks>
+    TBX_API const std::shared_ptr<Material>& get_standard_material();
+
+    /// <summary>Purpose: Provides the shared default material instance.</summary>
+    /// <remarks>Ownership: Returns a reference that participates in shared ownership
+    /// of the default material instance managed by the module.
+    /// Thread Safety: Safe to read concurrently.</remarks>
+    inline const std::shared_ptr<Material>& standard_material =
+        get_standard_material();
 }
