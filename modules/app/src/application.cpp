@@ -98,6 +98,11 @@ namespace tbx
         return _filesystem;
     }
 
+    AssetManager& Application::get_asset_manager()
+    {
+        return _asset_manager;
+    }
+
     void Application::initialize(const std::vector<std::string>& requested_plugins)
     {
         try
