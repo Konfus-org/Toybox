@@ -297,7 +297,7 @@ namespace tbx::plugins
 
     void OpenGlRenderingPlugin::draw_models(const Mat4& view_projection)
     {
-        auto& ecs = get_host().get_ecs();
+        auto& ecs = get_host().get_entity_manager();
         const auto draw_mesh_with_material =
             [&](const Mesh& mesh, const Material& material, const Mat4& model_matrix)
         {
@@ -427,7 +427,7 @@ namespace tbx::plugins
 
     void OpenGlRenderingPlugin::draw_models_for_cameras(const Size& window_size)
     {
-        auto& ecs = get_host().get_ecs();
+        auto& ecs = get_host().get_entity_manager();
         auto cameras = ecs.get_entities_with<Camera, Transform>();
 
         if (cameras.begin() == cameras.end())
