@@ -129,19 +129,10 @@ namespace tbx
             auto plug_loader = PluginLoader();
             _loaded = plug_loader.load_plugins(fs.get_plugins_directory(), requested_plugins, fs);
 
-            // Log loaded plugins
-            for (auto& p : _loaded)
-                TBX_TRACE_INFO("Loaded plugin: {} v{}", p.meta.name, p.meta.version);
-
             // Register plugin message handlers then attach them to host
             for (auto& p : _loaded)
             {
-                p.message_handler_token = _msg_coordinator.add_handler(
-                    [plugin = p.instance.get()](Message& msg)
-                    {
-                        plugin->receive_message(msg);
-                    });
-                p.instance->attach(*this);
+                p.attach(*this, _msg_coordinator);
             }
 
             // Send initialized event
@@ -160,7 +151,7 @@ namespace tbx
     void Application::update(DeltaTimer timer)
     {
         // Process messages posted in previous frame
-        _msg_coordinator.process();
+        _msg_coordinator.process_posts();
 
         // Update delta time
         DeltaTime dt = timer.tick();
@@ -177,7 +168,7 @@ namespace tbx
 
         ++_update_count;
         if ((_update_count % 5) == 0)
-            _asset_manager.clean();
+            _asset_manager.cleanup();
     }
 
     void Application::shutdown()
@@ -190,20 +181,14 @@ namespace tbx
 
             for (auto& plugin : _loaded)
             {
-                if (plugin.message_handler_token.is_valid())
-                {
-                    _msg_coordinator.remove_handler(plugin.message_handler_token);
-                    plugin.message_handler_token = {};
-                }
-
-                plugin.instance->detach();
+                plugin.detach(*this, _msg_coordinator);
             }
 
             // Order matters: reset ECS before unloading plugin list.
             _ecs = {};
             _loaded.clear();
-            _msg_coordinator.process();
-            _msg_coordinator.clear();
+            _msg_coordinator.process_posts();
+            _msg_coordinator.clear_handlers();
             _main_window.is_open = false;
             _should_exit = true;
         }

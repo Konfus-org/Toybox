@@ -10,6 +10,7 @@
 
 namespace tbx
 {
+    class IMessageHandlerRegistrar;
     using PluginDeleter = std::function<void(Plugin*)>;
     // Represents an owned plugin instance along with its loading metadata
     // and (optionally) the dynamic library used to load it.
@@ -40,6 +41,24 @@ namespace tbx
         /// <remarks>Ownership: Does not transfer ownership.
         /// Thread Safety: Not thread-safe.</remarks>
         bool is_valid() const;
+
+        /// <summary>
+        /// Purpose: Attaches the plugin to the host and registers its message handler.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Does not own the host or handler registrar; stores a handler token.
+        /// Thread Safety: Not thread-safe; expected to be used on the main thread.
+        /// </remarks>
+        void attach(Application& host, IMessageHandlerRegistrar& registrar);
+
+        /// <summary>
+        /// Purpose: Detaches the plugin from the host and unregisters its message handler.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Does not own the host or handler remover; clears the handler token.
+        /// Thread Safety: Not thread-safe; expected to be used on the main thread.
+        /// </remarks>
+        void detach(Application& host, IMessageHandlerRegistrar& registrar);
 
         PluginMeta meta;
         std::unique_ptr<SharedLibrary> library; // only set for dynamic plugins

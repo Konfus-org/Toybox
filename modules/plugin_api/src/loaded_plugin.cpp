@@ -1,5 +1,7 @@
 #include "tbx/plugin_api/loaded_plugin.h"
+#include "tbx/app/application.h"
 #include "tbx/debugging/macros.h"
+#include "tbx/messages/dispatcher.h"
 #include <string>
 #include <utility>
 
@@ -32,6 +34,55 @@ namespace tbx
     bool LoadedPlugin::is_valid() const
     {
         return instance != nullptr;
+    }
+
+    void LoadedPlugin::attach(Application& host, IMessageHandlerRegistrar& registrar)
+    {
+        if (!is_valid())
+        {
+            TBX_ASSERT(false, "LoadedPlugin attach requires a valid plugin instance.");
+            return;
+        }
+
+        TBX_ASSERT(
+            !message_handler_token.is_valid(),
+            "LoadedPlugin cannot attach while it still has a registered handler.");
+
+        TBX_TRACE_INFO(
+            "Attaching plugin: {} v{} to app {}",
+            meta.name,
+            meta.version,
+            host.get_name());
+
+        message_handler_token = registrar.add_handler(
+            [plugin = instance.get()](Message& msg)
+            {
+                plugin->receive_message(msg);
+            });
+
+        instance->attach(host);
+    }
+
+    void LoadedPlugin::detach(Application& host, IMessageHandlerRegistrar& registrar)
+    {
+        if (!is_valid())
+        {
+            return;
+        }
+
+        TBX_TRACE_INFO(
+            "Detaching plugin: {} v{} from app {}",
+            meta.name,
+            meta.version,
+            host.get_name());
+
+        if (message_handler_token.is_valid())
+        {
+            registrar.remove_handler(message_handler_token);
+            message_handler_token = {};
+        }
+
+        instance->detach();
     }
 
     std::string to_string(const LoadedPlugin& loaded)

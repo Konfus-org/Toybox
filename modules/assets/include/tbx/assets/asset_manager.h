@@ -86,7 +86,7 @@ namespace tbx
     struct IAssetStore
     {
         virtual ~IAssetStore() = default;
-        virtual void clean() = 0;
+        virtual void cleanup() = 0;
     };
 
     /// <summary>
@@ -120,7 +120,7 @@ namespace tbx
     {
         std::unordered_map<Uuid, AssetRecord<TAsset>> records;
 
-        void clean() override
+        void cleanup() override
         {
             for (auto& entry : records)
             {
@@ -311,7 +311,7 @@ namespace tbx
         /// Ownership: Releases manager-owned asset instances that are safe to evict.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
-        void clean();
+        void cleanup();
 
         /// <summary>
         /// Purpose: Reloads a streamed asset and swaps the managed asset instance.

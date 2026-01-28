@@ -111,7 +111,8 @@ namespace tbx
     AppMessageCoordinator::AppMessageCoordinator() = default;
     AppMessageCoordinator::~AppMessageCoordinator() noexcept
     {
-        clear();
+        process_posts();
+        clear_handlers();
     }
 
     Uuid AppMessageCoordinator::add_handler(MessageHandler handler)
@@ -137,20 +138,10 @@ namespace tbx
         _handlers.swap(next);
     }
 
-    void AppMessageCoordinator::clear()
+    void AppMessageCoordinator::clear_handlers()
     {
-        // First process any pending messages
-        process();
-
-        // Then clear handlers and pending messages
-        {
-            std::lock_guard<std::mutex> lock(_pending_mutex);
-            _pending.clear();
-        }
-        {
-            std::lock_guard<std::mutex> lock(_handlers_mutex);
-            _handlers.clear();
-        }
+        std::lock_guard<std::mutex> lock(_handlers_mutex);
+        _handlers.clear();
     }
 
     void AppMessageCoordinator::dispatch(Message& msg) const
@@ -240,7 +231,7 @@ namespace tbx
         return future;
     }
 
-    void AppMessageCoordinator::process()
+    void AppMessageCoordinator::process_posts()
     {
         std::vector<QueuedMessage> processing;
         {
