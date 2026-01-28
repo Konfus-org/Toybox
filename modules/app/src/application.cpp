@@ -189,6 +189,7 @@ namespace tbx
             _loaded.clear();
             _msg_coordinator.process_posts();
             _msg_coordinator.clear_handlers();
+            _asset_manager.cleanup();
             _main_window.is_open = false;
             _should_exit = true;
         }
