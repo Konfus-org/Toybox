@@ -103,13 +103,14 @@ namespace tbx
     // Ownership: value type; callers own any copies created from this class. Owns the underlying
     // registry and its entities. Ensure this outlives any entities created from it.
     // Thread Safety: not inherently thread-safe; synchronize access when sharing instances.
-    class TBX_API ECS
+    class TBX_API EntityManager
     {
       public:
-        ECS();
-        ~ECS() noexcept;
+        EntityManager();
+        ~EntityManager() noexcept;
 
-        void destroy_all_entities();
+        void destroy(Entity& entity);
+        void destroy_all();
         bool is_empty();
 
         Entity create_entity(

@@ -44,30 +44,35 @@ namespace tbx
         entity.destroy();
     }
 
-    //// ECS class implementation ////
+    //// EntityManager class implementation ////
 
-    ECS::ECS()
+    EntityManager::EntityManager()
         : _registry(std::make_unique<EntityRegistry>())
     {
     }
 
-    ECS::~ECS() noexcept
+    EntityManager::~EntityManager() noexcept
     {
-        destroy_all_entities();
+        destroy_all();
     }
 
-    void ECS::destroy_all_entities()
+    void EntityManager::destroy(Entity& entity)
+    {
+        entity.destroy();
+    }
+
+    void EntityManager::destroy_all()
     {
         _registry->clear();
         _registry = std::make_unique<EntityRegistry>();
     }
 
-    bool ECS::is_empty()
+    bool EntityManager::is_empty()
     {
         return get_all_entities().empty();
     }
 
-    Entity ECS::create_entity(
+    Entity EntityManager::create_entity(
         const std::string& name,
         const std::string& tag,
         const std::string& layer,
@@ -81,17 +86,17 @@ namespace tbx
         return Entity(_registry.get(), desc);
     }
 
-    Entity ECS::create_entity(const EntityDescription& desc)
+    Entity EntityManager::create_entity(const EntityDescription& desc)
     {
         return Entity(_registry.get(), desc);
     }
 
-    Entity ECS::get_entity(const Uuid& id)
+    Entity EntityManager::get_entity(const Uuid& id)
     {
         return Entity(_registry.get(), static_cast<EntityHandle>(id.value));
     }
 
-    std::vector<Entity> ECS::get_all_entities()
+    std::vector<Entity> EntityManager::get_all_entities()
     {
         std::vector<Entity> toys = {};
         auto view = _registry->view<EntityDescription>();

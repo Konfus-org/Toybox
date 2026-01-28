@@ -89,9 +89,9 @@ namespace tbx
         return static_cast<IMessageDispatcher&>(_msg_coordinator);
     }
 
-    ECS& Application::get_ecs()
+    EntityManager& Application::get_entity_manager()
     {
-        return _ecs;
+        return _entity_manager;
     }
 
     IFileSystem& Application::get_filesystem()
@@ -184,8 +184,8 @@ namespace tbx
                 plugin.detach(*this, _name, _msg_coordinator);
             }
 
-            // Order matters: reset ECS before unloading plugin list.
-            _ecs.destroy_all_entities();
+            // Order matters: reset EntityManager before unloading plugin list.
+            _entity_manager.destroy_all();
             _loaded.clear();
             _msg_coordinator.process_posts();
             _msg_coordinator.clear_handlers();

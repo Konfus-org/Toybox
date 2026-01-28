@@ -4,7 +4,7 @@ namespace tbx::tests::ecs
 {
     TEST(ECSTests, CreatesEntityWithDescription)
     {
-        ECS ecs = {};
+        EntityManager ecs = {};
 
         const auto entity = ecs.create_entity("Player", "Hero", "Gameplay");
         const auto& description = entity.get_description();
