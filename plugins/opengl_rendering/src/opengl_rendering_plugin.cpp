@@ -363,30 +363,93 @@ namespace tbx::plugins
             mesh_resource->draw();
         };
 
-        auto entities = ecs.get_entities_with<Model>();
-        for (auto& entity : entities)
-        {
-            const Model& model = entity.get_component<Model>();
-
-            Mat4 model_matrix = Mat4(1.0f);
-            if (entity.has_component<Transform>())
-                model_matrix = build_model_matrix(entity.get_component<Transform>());
-
-            if (model.mesh.vertices.empty() || model.mesh.indices.empty())
-            {
-                continue;
-            }
-
-            const Material& material = model.material;
-            draw_mesh_with_material(model.mesh, material, model_matrix);
-        }
-
         static const Material fallback_material = []()
         {
             Material material = {};
             material.color = RgbaColor::magenta;
             return material;
         }();
+
+        auto entities = ecs.get_entities_with<Model>();
+        for (auto& entity : entities)
+        {
+            const Model& model = entity.get_component<Model>();
+
+            Mat4 entity_matrix = Mat4(1.0f);
+            if (entity.has_component<Transform>())
+                entity_matrix = build_model_matrix(entity.get_component<Transform>());
+
+            const size_t part_count = model.parts.size();
+            if (part_count == 0U)
+            {
+                continue;
+            }
+
+            std::vector<bool> is_child = std::vector<bool>(part_count, false);
+            for (const auto& part : model.parts)
+            {
+                for (const auto child_index : part.children)
+                {
+                    if (child_index < part_count)
+                    {
+                        is_child[child_index] = true;
+                    }
+                }
+            }
+
+            auto draw_part = [&](auto&& self, const uint32 part_index, const Mat4& parent_matrix)
+            {
+                if (part_index >= part_count)
+                {
+                    return;
+                }
+
+                const ModelPart& part = model.parts[part_index];
+                const Mat4 part_matrix = parent_matrix * part.transform;
+
+                if (part.mesh_index < model.meshes.size())
+                {
+                    const Mesh& mesh = model.meshes[part.mesh_index];
+                    if (!mesh.vertices.empty() && !mesh.indices.empty())
+                    {
+                        const Material* material = nullptr;
+                        if (part.material_index < model.materials.size())
+                        {
+                            material = &model.materials[part.material_index];
+                        }
+                        else
+                        {
+                            material = &fallback_material;
+                        }
+
+                        draw_mesh_with_material(mesh, *material, part_matrix);
+                    }
+                }
+
+                for (const auto child_index : part.children)
+                {
+                    self(self, child_index, part_matrix);
+                }
+            };
+
+            bool has_root = false;
+            for (uint32 part_index = 0U; part_index < part_count; ++part_index)
+            {
+                if (!is_child[part_index])
+                {
+                    has_root = true;
+                    draw_part(draw_part, part_index, entity_matrix);
+                }
+            }
+
+            if (!has_root)
+            {
+                for (uint32 part_index = 0U; part_index < part_count; ++part_index)
+                {
+                    draw_part(draw_part, part_index, entity_matrix);
+                }
+            }
+        }
 
         auto mesh_entities = ecs.get_entities_with<Mesh>();
         for (auto& entity : mesh_entities)
