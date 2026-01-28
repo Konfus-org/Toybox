@@ -38,6 +38,7 @@ namespace tbx
     void LoadedPlugin::attach(
         Application& host,
         std::string_view host_name,
+        IMessageDispatcher& dispatcher,
         IMessageHandlerRegistrar& registrar)
     {
         if (!is_valid())
@@ -62,7 +63,7 @@ namespace tbx
                 plugin->receive_message(msg);
             });
 
-        instance->attach(host);
+        instance->attach(host, dispatcher);
     }
 
     void LoadedPlugin::detach(

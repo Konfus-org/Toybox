@@ -26,11 +26,22 @@ namespace tbx
         Plugin(Plugin&&) noexcept = default;
         Plugin& operator=(Plugin&&) = default;
 
-        // Initializes the plugin, wiring it to the given host and dispatcher.
-        // Must be called exactly once before any other interaction.
-        void attach(Application& host);
+        /// <summary>
+        /// Purpose: Initializes the plugin, wiring it to the given host and dispatcher.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Does not own the host or dispatcher references.
+        /// Thread Safety: Not thread-safe; must be called exactly once before use.
+        /// </remarks>
+        void attach(Application& host, IMessageDispatcher& dispatcher);
 
-        // Shuts the plugin down and clears host/dispatcher references.
+        /// <summary>
+        /// Purpose: Shuts the plugin down and clears host/dispatcher references.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Does not own the host or dispatcher references.
+        /// Thread Safety: Not thread-safe; call from the main thread.
+        /// </remarks>
         void detach();
 
         // Ticks the plugin for the given frame delta.

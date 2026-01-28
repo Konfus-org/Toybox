@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 
 namespace tbx
 {
@@ -52,6 +53,7 @@ namespace tbx
         void attach(
             Application& host,
             std::string_view host_name,
+            IMessageDispatcher& dispatcher,
             IMessageHandlerRegistrar& registrar);
 
         /// <summary>

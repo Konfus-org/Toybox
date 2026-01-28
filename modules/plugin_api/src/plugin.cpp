@@ -1,5 +1,4 @@
 #include "tbx/plugin_api/plugin.h"
-#include "tbx/app/application.h"
 #include "tbx/common/result.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
@@ -19,10 +18,10 @@ namespace tbx
     Plugin::Plugin() = default;
     Plugin::~Plugin() noexcept = default;
 
-    void Plugin::attach(Application& host)
+    void Plugin::attach(Application& host, IMessageDispatcher& dispatcher)
     {
         _host = &host;
-        _dispatcher = &host.get_dispatcher();
+        _dispatcher = &dispatcher;
         on_attach(host);
     }
 
