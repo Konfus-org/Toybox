@@ -132,7 +132,7 @@ namespace tbx
             // Register plugin message handlers then attach them to host
             for (auto& p : _loaded)
             {
-                p.attach(*this, _msg_coordinator);
+                p.attach(*this, _name, _msg_coordinator);
             }
 
             // Send initialized event
@@ -181,7 +181,7 @@ namespace tbx
 
             for (auto& plugin : _loaded)
             {
-                plugin.detach(*this, _msg_coordinator);
+                plugin.detach(*this, _name, _msg_coordinator);
             }
 
             // Order matters: reset ECS before unloading plugin list.

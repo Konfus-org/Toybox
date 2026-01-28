@@ -1,5 +1,4 @@
 #include "tbx/plugin_api/loaded_plugin.h"
-#include "tbx/app/application.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
 #include <string>
@@ -36,7 +35,10 @@ namespace tbx
         return instance != nullptr;
     }
 
-    void LoadedPlugin::attach(Application& host, IMessageHandlerRegistrar& registrar)
+    void LoadedPlugin::attach(
+        Application& host,
+        std::string_view host_name,
+        IMessageHandlerRegistrar& registrar)
     {
         if (!is_valid())
         {
@@ -52,7 +54,7 @@ namespace tbx
             "Attaching plugin: {} v{} to app {}",
             meta.name,
             meta.version,
-            host.get_name());
+            host_name);
 
         message_handler_token = registrar.add_handler(
             [plugin = instance.get()](Message& msg)
@@ -63,7 +65,10 @@ namespace tbx
         instance->attach(host);
     }
 
-    void LoadedPlugin::detach(Application& host, IMessageHandlerRegistrar& registrar)
+    void LoadedPlugin::detach(
+        Application& host,
+        std::string_view host_name,
+        IMessageHandlerRegistrar& registrar)
     {
         if (!is_valid())
         {
@@ -74,7 +79,7 @@ namespace tbx
             "Detaching plugin: {} v{} from app {}",
             meta.name,
             meta.version,
-            host.get_name());
+            host_name);
 
         if (message_handler_token.is_valid())
         {

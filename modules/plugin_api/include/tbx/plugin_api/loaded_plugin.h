@@ -49,7 +49,10 @@ namespace tbx
         /// Ownership: Does not own the host or handler registrar; stores a handler token.
         /// Thread Safety: Not thread-safe; expected to be used on the main thread.
         /// </remarks>
-        void attach(Application& host, IMessageHandlerRegistrar& registrar);
+        void attach(
+            Application& host,
+            std::string_view host_name,
+            IMessageHandlerRegistrar& registrar);
 
         /// <summary>
         /// Purpose: Detaches the plugin from the host and unregisters its message handler.
@@ -58,7 +61,10 @@ namespace tbx
         /// Ownership: Does not own the host or handler remover; clears the handler token.
         /// Thread Safety: Not thread-safe; expected to be used on the main thread.
         /// </remarks>
-        void detach(Application& host, IMessageHandlerRegistrar& registrar);
+        void detach(
+            Application& host,
+            std::string_view host_name,
+            IMessageHandlerRegistrar& registrar);
 
         PluginMeta meta;
         std::unique_ptr<SharedLibrary> library; // only set for dynamic plugins
