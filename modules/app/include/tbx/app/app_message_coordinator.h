@@ -18,7 +18,8 @@ namespace tbx
 
     class TBX_API AppMessageCoordinator final
         : public IMessageDispatcher
-        , public IMessageProcessor
+        , public IPostedMessageProcessor
+        , public IMessageHandlerRegistrar
     {
       public:
         AppMessageCoordinator();
@@ -29,11 +30,11 @@ namespace tbx
         AppMessageCoordinator(AppMessageCoordinator&&) = delete;
         AppMessageCoordinator& operator=(AppMessageCoordinator&&) = delete;
 
-        Uuid add_handler(MessageHandler handler);
-        void remove_handler(const Uuid& token);
-        void clear();
+        Uuid add_handler(MessageHandler handler) override;
+        void remove_handler(const Uuid& token) override;
+        void clear_handlers() override;
 
-        void process() override;
+        void process_posts() override;
 
       private:
         Result send_impl(Message& msg) const override;

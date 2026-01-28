@@ -7,9 +7,11 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 
 namespace tbx
 {
+    class IMessageHandlerRegistrar;
     using PluginDeleter = std::function<void(Plugin*)>;
     // Represents an owned plugin instance along with its loading metadata
     // and (optionally) the dynamic library used to load it.
@@ -22,6 +24,10 @@ namespace tbx
         /// <remarks>Ownership: Does not own any plugin resources.
         /// Thread Safety: Not thread-safe.</remarks>
         LoadedPlugin() = default;
+        LoadedPlugin(const LoadedPlugin&) = delete;
+        LoadedPlugin& operator=(const LoadedPlugin&) = delete;
+        LoadedPlugin(LoadedPlugin&&) noexcept = default;
+        LoadedPlugin& operator=(LoadedPlugin&&) noexcept = default;
 
         /// <summary>Purpose: Creates a loaded plugin wrapper and logs the load event.</summary>
         /// <remarks>Ownership: Takes ownership of the plugin instance and library.
@@ -40,6 +46,31 @@ namespace tbx
         /// <remarks>Ownership: Does not transfer ownership.
         /// Thread Safety: Not thread-safe.</remarks>
         bool is_valid() const;
+
+        /// <summary>
+        /// Purpose: Attaches the plugin to the host and registers its message handler.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Does not own the host or handler registrar; stores a handler token.
+        /// Thread Safety: Not thread-safe; expected to be used on the main thread.
+        /// </remarks>
+        void attach(
+            Application& host,
+            std::string_view host_name,
+            IMessageDispatcher& dispatcher,
+            IMessageHandlerRegistrar& registrar);
+
+        /// <summary>
+        /// Purpose: Detaches the plugin from the host and unregisters its message handler.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Does not own the host or handler remover; clears the handler token.
+        /// Thread Safety: Not thread-safe; expected to be used on the main thread.
+        /// </remarks>
+        void detach(
+            Application& host,
+            std::string_view host_name,
+            IMessageHandlerRegistrar& registrar);
 
         PluginMeta meta;
         std::unique_ptr<SharedLibrary> library; // only set for dynamic plugins

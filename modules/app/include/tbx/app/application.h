@@ -63,13 +63,13 @@ namespace tbx
         /// </remarks>
         IMessageDispatcher& get_dispatcher();
         /// <summary>
-        /// Purpose: Returns the application ECS instance.
+        /// Purpose: Returns the application entity manager instance.
         /// </summary>
         /// <remarks>
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
-        ECS& get_ecs();
+        EntityManager& get_entity_manager();
         /// <summary>
         /// Purpose: Returns the application filesystem service.
         /// </summary>
@@ -97,7 +97,7 @@ namespace tbx
       private:
         bool _should_exit = false;
         std::string _name = "App";
-        ECS _ecs = {};
+        EntityManager _entity_manager = {};
         AppMessageCoordinator _msg_coordinator = {};
         std::vector<LoadedPlugin> _loaded = {};
         AppSettings _settings;

@@ -1,9 +1,7 @@
 #include "tbx/plugin_api/plugin.h"
-#include "tbx/app/application.h"
 #include "tbx/common/result.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
-#include "tbx/plugin_api/plugin_registry.h"
 #include <string>
 
 namespace tbx
@@ -20,36 +18,15 @@ namespace tbx
     Plugin::Plugin() = default;
     Plugin::~Plugin() noexcept = default;
 
-    void Plugin::attach(Application& host)
+    void Plugin::attach(Application& host, IMessageDispatcher& dispatcher)
     {
-        const std::string name = PluginRegistry::get_instance().get_registered_name(this);
-        if (!name.empty())
-        {
-            TBX_TRACE_INFO("Attaching plugin: {} to app {}", name, host.get_name());
-        }
-        else
-        {
-            TBX_TRACE_INFO("Attaching plugin instance to app {}", host.get_name());
-        }
-
         _host = &host;
-        _dispatcher = get_global_dispatcher();
+        _dispatcher = &dispatcher;
         on_attach(host);
     }
 
     void Plugin::detach()
     {
-        const std::string name = PluginRegistry::get_instance().get_registered_name(this);
-        const std::string app_name = _host ? _host->get_name() : std::string("Unknown");
-        if (!name.empty())
-        {
-            TBX_TRACE_INFO("Detaching plugin: {} from app {}", name, app_name);
-        }
-        else
-        {
-            TBX_TRACE_INFO("Detaching plugin instance from app {}", app_name);
-        }
-
         on_detach();
         _dispatcher = nullptr;
         _host = nullptr;

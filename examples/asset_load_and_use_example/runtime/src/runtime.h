@@ -58,7 +58,7 @@ namespace tbx::examples
         void on_recieve_message(Message& msg) override;
 
       private:
-        ECS* _ecs = nullptr;
+        EntityManager* _entity_manager = nullptr;
         std::shared_ptr<Texture> _smily_texture = {};
     };
 }

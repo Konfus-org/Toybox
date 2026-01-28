@@ -158,7 +158,7 @@ namespace tbx::tests::app
         auto interim = future.wait_for(TimeSpan().to_duration());
         EXPECT_NE(interim, std::future_status::ready);
 
-        d.process();
+        d.process_posts();
         EXPECT_EQ(count.load(), 1);
         future.wait();
         auto result = future.get();
@@ -184,7 +184,7 @@ namespace tbx::tests::app
         msg.value = 123;
         auto future = d.post(msg);
 
-        d.process();
+        d.process_posts();
 
         future.wait();
         auto result = future.get();
@@ -250,7 +250,7 @@ namespace tbx::tests::app
         auto future = d.post(msg);
 
         source.cancel();
-        d.process();
+        d.process_posts();
 
         future.wait();
         auto result = future.get();
@@ -363,7 +363,7 @@ namespace tbx::tests::app
         auto interim = future.wait_for(TimeSpan().to_duration());
         EXPECT_NE(interim, std::future_status::ready);
 
-        d.process();
+        d.process_posts();
 
         future.wait();
         auto result = future.get();
