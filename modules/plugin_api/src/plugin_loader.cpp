@@ -59,9 +59,6 @@ namespace tbx
             return {};
         }
 
-        LoadedPlugin loaded;
-        loaded.meta = meta;
-
         if (meta.linkage == PluginLinkage::Static)
         {
             Plugin* plug = PluginRegistry::get_instance().find_plugin(meta.name);
@@ -71,13 +68,12 @@ namespace tbx
                 return {};
             }
 
-            PluginInstance instance(
+            auto instance = std::unique_ptr<Plugin, PluginDeleter>(
                 plug,
                 [](Plugin*)
                 {
                 });
-            loaded.instance = std::move(instance);
-            return loaded;
+            return LoadedPlugin(meta, nullptr, std::move(instance));
         }
 
         const std::filesystem::path library_path = resolve_library_path(meta, file_ops);
@@ -106,11 +102,8 @@ namespace tbx
             return {};
         }
 
-        PluginInstance instance(plugin_instance, destroy);
-        loaded.instance = std::move(instance);
-        loaded.library = std::move(lib);
-
-        return loaded;
+        auto instance = std::unique_ptr<Plugin, PluginDeleter>(plugin_instance, destroy);
+        return LoadedPlugin(meta, std::move(lib), std::move(instance));
     }
 
     static std::vector<PluginMeta> resolve_plugin_load_order(const std::vector<PluginMeta>& plugins)
@@ -316,7 +309,7 @@ namespace tbx
         for (const PluginMeta& meta : metas)
         {
             LoadedPlugin plug = load_plugin_internal(meta, file_ops);
-            if (plug.instance)
+            if (plug.is_valid())
                 loaded.push_back(std::move(plug));
             else
                 TBX_TRACE_WARNING("Failed to load plugin: {}", meta.name);
@@ -334,7 +327,7 @@ namespace tbx
         for (const PluginMeta& meta : metas)
         {
             LoadedPlugin plug = load_plugin_internal(meta, file_ops);
-            if (plug.instance)
+            if (plug.is_valid())
                 loaded.push_back(std::move(plug));
         }
 

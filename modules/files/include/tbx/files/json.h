@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
 #include <memory>
 #include <string>
@@ -29,6 +30,9 @@ namespace tbx
 
         // Attempts to retrieve a string value stored at the specified object key.
         bool try_get_string(const std::string& key, std::string& out_value) const;
+
+        // Attempts to retrieve a UUID value stored at the specified object key.
+        bool try_get_uuid(const std::string& key, Uuid& out_value) const;
 
         // Attempts to retrieve a list of string values stored at the specified object key.
         bool try_get_strings(const std::string& key, std::vector<std::string>& out_values) const;

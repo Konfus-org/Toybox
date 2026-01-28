@@ -1,4 +1,7 @@
 #include "tbx/files/json.h"
+#include "tbx/common/string_utils.h"
+#include <charconv>
+#include <cctype>
 #include <nlohmann/json.hpp>
 
 namespace tbx
@@ -93,6 +96,57 @@ namespace tbx
 
         out_value = iterator->get<std::string>();
         return true;
+    }
+
+    static Uuid parse_uuid_text(std::string_view value)
+    {
+        const std::string trimmed = trim(value);
+        if (trimmed.empty())
+        {
+            return {};
+        }
+        auto start = trimmed.data();
+        auto end = trimmed.data() + trimmed.size();
+        while (start < end && !std::isxdigit(static_cast<unsigned char>(*start)))
+        {
+            start += 1;
+        }
+        if (start == end)
+        {
+            return {};
+        }
+        auto token_end = start;
+        while (token_end < end && std::isxdigit(static_cast<unsigned char>(*token_end)))
+        {
+            token_end += 1;
+        }
+        uint32 parsed = 0U;
+        auto result = std::from_chars(start, token_end, parsed, 16);
+        if (result.ec != std::errc())
+        {
+            return {};
+        }
+        if (parsed == 0U)
+        {
+            return {};
+        }
+        return Uuid(parsed);
+    }
+
+    bool Json::try_get_uuid(const std::string& key, Uuid& out_value) const
+    {
+        if (!_data->Data.is_object())
+            return false;
+
+        const auto iterator = _data->Data.find(key);
+        if (iterator == _data->Data.end())
+            return false;
+
+        if (!iterator->is_string())
+            return false;
+
+        out_value = parse_uuid_text(iterator->get<std::string>());
+        return out_value.is_valid();
     }
 
     bool Json::try_get_strings(const std::string& key, std::vector<std::string>& out_values) const

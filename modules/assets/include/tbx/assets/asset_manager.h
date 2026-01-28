@@ -1,15 +1,14 @@
 #pragma once
+#include "tbx/assets/asset_handle.h"
+#include "tbx/assets/asset_loaders.h"
+#include "tbx/assets/asset_meta.h"
 #include "tbx/assets/assets.h"
-#include "tbx/common/string_utils.h"
+#include "tbx/common/int.h"
 #include "tbx/common/uuid.h"
 #include "tbx/files/filesystem.h"
 #include "tbx/tbx_api.h"
-#include <algorithm>
-#include <cctype>
-#include <charconv>
 #include <chrono>
 #include <filesystem>
-#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -42,17 +41,104 @@ namespace tbx
     /// </remarks>
     struct AssetUsage
     {
-        size_t ref_count = 0;
+        uint ref_count = 0U;
         bool is_pinned = false;
         AssetStreamState stream_state = AssetStreamState::Unloaded;
         std::chrono::steady_clock::time_point last_access = {};
     };
 
     /// <summary>
+    /// Purpose: Holds resolved and normalized asset paths with a hashed key.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores path copies owned by the record.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    struct NormalizedAssetPath
+    {
+        std::filesystem::path resolved_path;
+        std::string normalized_path;
+        Uuid path_key = {};
+    };
+
+    /// <summary>
+    /// Purpose: Maps an asset path to its resolved UUID metadata.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores path copies owned by the registry.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    struct AssetRegistryEntry
+    {
+        std::filesystem::path resolved_path;
+        std::string normalized_path;
+        Uuid path_key = {};
+        Uuid id = {};
+    };
+
+    /// <summary>
+    /// Purpose: Defines the interface for per-type asset stores.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Implementations own their tracked asset records.
+    /// Thread Safety: Requires external synchronization by AssetManager.
+    /// </remarks>
+    struct IAssetStore
+    {
+        virtual ~IAssetStore() = default;
+        virtual void clean() = 0;
+    };
+
+    /// <summary>
+    /// Purpose: Stores the runtime state for a single tracked asset.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns the shared asset instance and load promise.
+    /// Thread Safety: Requires external synchronization by AssetManager.
+    /// </remarks>
+    template <typename TAsset>
+    struct AssetRecord
+    {
+        std::shared_ptr<TAsset> asset;
+        std::string normalized_path;
+        bool is_pinned = false;
+        AssetStreamState stream_state = AssetStreamState::Unloaded;
+        std::chrono::steady_clock::time_point last_access = {};
+        Uuid id = {};
+        std::shared_future<Result> pending_load;
+    };
+
+    /// <summary>
+    /// Purpose: Stores tracked assets for a single payload type.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns AssetRecord instances for its asset type.
+    /// Thread Safety: Requires external synchronization by AssetManager.
+    /// </remarks>
+    template <typename TAsset>
+    struct AssetStore final : IAssetStore
+    {
+        std::unordered_map<Uuid, AssetRecord<TAsset>> records;
+
+        void clean() override
+        {
+            for (auto& entry : records)
+            {
+                auto& record = entry.second;
+                if (!record.is_pinned && record.asset && record.asset.use_count() <= 1)
+                {
+                    record.asset.reset();
+                    record.stream_state = AssetStreamState::Unloaded;
+                }
+            }
+        }
+    };
+
+    /// <summary>
     /// Purpose: Tracks streamed assets by normalized path and maintains usage metadata.
     /// </summary>
     /// <remarks>
-    /// Ownership: Owns shared Asset wrappers for loaded assets and releases them when streamed out.
+    /// Ownership: Owns shared asset instances for loaded assets and releases them when streamed out.
     /// Thread Safety: All public member functions are synchronized internally.
     /// </remarks>
     class TBX_API AssetManager final
@@ -73,48 +159,18 @@ namespace tbx
         ~AssetManager() = default;
 
         /// <summary>
-        /// Purpose: Requests an asset by path, streaming it in if needed and bumping the ref count.
+        /// Purpose: Requests an asset by handle, streaming it in if needed and tracking usage.
         /// </summary>
         /// <remarks>
-        /// Ownership: Returns a shared Asset wrapper owned jointly by the manager and caller.
+        /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
-        template <typename TAsset, typename TLoader>
-        std::shared_ptr<Asset<TAsset>> request(
-            const std::filesystem::path& asset_path,
-            TLoader&& loader)
-        {
-            const auto normalized = normalize_path(asset_path);
-            auto now = std::chrono::steady_clock::now();
-            std::lock_guard lock(_mutex);
-            auto& entry = get_or_create_registry_entry(normalized);
-            auto& store = get_or_create_store<TAsset>();
-            auto& record = get_or_create_record(store, entry);
-            record.last_access = now;
-            record.ref_count += 1;
-            if (!record.asset)
-            {
-                record.stream_state = AssetStreamState::Loading;
-                record.asset = std::forward<TLoader>(loader)(normalized.resolved_path);
-                record.stream_state =
-                    record.asset ? AssetStreamState::Loaded : AssetStreamState::Unloaded;
-            }
-            return record.asset;
-        }
-
-        /// <summary>
-        /// Purpose: Requests an asset by id, streaming it in if needed and bumping the ref count.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns a shared Asset wrapper owned jointly by the manager and caller.
-        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
-        template <typename TAsset, typename TLoader>
-        std::shared_ptr<Asset<TAsset>> request(Guid asset_id, TLoader&& loader)
+        template <typename TAsset>
+        std::shared_ptr<TAsset> request(const AssetHandle& handle)
         {
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
-            const AssetRegistryEntry* entry = find_registry_entry_by_id(asset_id);
+            auto* entry = get_or_create_registry_entry(handle);
             if (!entry)
             {
                 return {};
@@ -122,14 +178,14 @@ namespace tbx
             auto& store = get_or_create_store<TAsset>();
             auto& record = get_or_create_record(store, *entry);
             record.last_access = now;
-            record.ref_count += 1;
             if (!record.asset)
             {
                 record.stream_state = AssetStreamState::Loading;
-                record.asset = std::forward<TLoader>(loader)(entry->resolved_path);
-                record.stream_state =
-                    record.asset ? AssetStreamState::Loaded : AssetStreamState::Unloaded;
+                auto promise = AssetAsyncLoader<TAsset>::load(entry->resolved_path);
+                record.asset = std::move(promise.asset);
+                record.pending_load = promise.promise;
             }
+            update_stream_state(record);
             return record.asset;
         }
 
@@ -137,38 +193,11 @@ namespace tbx
         /// Purpose: Returns a tracked asset without adjusting the ref count.
         /// </summary>
         /// <remarks>
-        /// Ownership: Returns a shared Asset wrapper owned jointly by the manager and caller.
+        /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        std::shared_ptr<Asset<TAsset>> get(const std::filesystem::path& asset_path)
-        {
-            const auto normalized = normalize_path(asset_path);
-            auto now = std::chrono::steady_clock::now();
-            std::lock_guard lock(_mutex);
-            auto* store = find_store<TAsset>();
-            if (!store)
-            {
-                return {};
-            }
-            auto iterator = store->records.find(normalized.path_key);
-            if (iterator == store->records.end())
-            {
-                return {};
-            }
-            iterator->second.last_access = now;
-            return iterator->second.asset;
-        }
-
-        /// <summary>
-        /// Purpose: Returns a tracked asset by id without adjusting the ref count.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns a shared Asset wrapper owned jointly by the manager and caller.
-        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
-        template <typename TAsset>
-        std::shared_ptr<Asset<TAsset>> get(Guid asset_id)
+        std::shared_ptr<TAsset> get(const AssetHandle& handle)
         {
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
@@ -177,49 +206,25 @@ namespace tbx
             {
                 return {};
             }
-            auto iterator = find_record_by_id(store->records, asset_id);
-            if (iterator == store->records.end())
+            auto* record = try_find_record(*store, handle);
+            if (!record)
             {
                 return {};
             }
-            iterator->second.last_access = now;
-            return iterator->second.asset;
+            record->last_access = now;
+            update_stream_state(*record);
+            return record->asset;
         }
 
         /// <summary>
-        /// Purpose: Returns usage metadata for a tracked asset path.
+        /// Purpose: Returns usage metadata for a tracked asset handle.
         /// </summary>
         /// <remarks>
         /// Ownership: Returns caller-owned usage data by value.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        AssetUsage get_usage(const std::filesystem::path& asset_path) const
-        {
-            const auto normalized = normalize_path(asset_path);
-            std::lock_guard lock(_mutex);
-            auto* store = find_store<TAsset>();
-            if (!store)
-            {
-                return {};
-            }
-            auto iterator = store->records.find(normalized.path_key);
-            if (iterator == store->records.end())
-            {
-                return {};
-            }
-            return build_usage(iterator->second);
-        }
-
-        /// <summary>
-        /// Purpose: Returns usage metadata for a tracked asset id.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns caller-owned usage data by value.
-        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
-        template <typename TAsset>
-        AssetUsage get_usage(Guid asset_id) const
+        AssetUsage get_usage(const AssetHandle& handle) const
         {
             std::lock_guard lock(_mutex);
             auto* store = find_store<TAsset>();
@@ -227,47 +232,34 @@ namespace tbx
             {
                 return {};
             }
-            auto iterator = find_record_by_id(store->records, asset_id);
-            if (iterator == store->records.end())
+            auto* record = const_cast<AssetRecord<TAsset>*>(try_find_record(*store, handle));
+            if (!record)
             {
                 return {};
             }
-            return build_usage(iterator->second);
-        }
-
-        /// <summary>
-        /// Purpose: Returns the id assigned to an asset path.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns an id owned by the manager.
-        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
-        Guid get_id(const std::filesystem::path& asset_path)
-        {
-            const auto normalized = normalize_path(asset_path);
-            std::lock_guard lock(_mutex);
-            auto& entry = get_or_create_registry_entry(normalized);
-            return entry.id;
+            update_stream_state(*record);
+            return build_usage(*record);
         }
 
         /// <summary>
         /// Purpose: Streams an asset in without altering the ref count.
         /// </summary>
         /// <remarks>
-        /// Ownership: Returns a shared Asset wrapper owned jointly by the manager and caller.
+        /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
-        template <typename TAsset, typename TLoader>
-        std::shared_ptr<Asset<TAsset>> stream_in(
-            const std::filesystem::path& asset_path,
-            TLoader&& loader)
+        template <typename TAsset>
+        std::shared_ptr<TAsset> stream_in(const AssetHandle& handle)
         {
-            const auto normalized = normalize_path(asset_path);
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
-            auto& entry = get_or_create_registry_entry(normalized);
+            auto* entry = get_or_create_registry_entry(handle);
+            if (!entry)
+            {
+                return {};
+            }
             auto& store = get_or_create_store<TAsset>();
-            auto& record = get_or_create_record(store, entry);
+            auto& record = get_or_create_record(store, *entry);
             record.last_access = now;
             if (record.asset)
             {
@@ -275,9 +267,10 @@ namespace tbx
                 return record.asset;
             }
             record.stream_state = AssetStreamState::Loading;
-            record.asset = std::forward<TLoader>(loader)(normalized.resolved_path);
-            record.stream_state =
-                record.asset ? AssetStreamState::Loaded : AssetStreamState::Unloaded;
+            auto promise = AssetAsyncLoader<TAsset>::load(entry->resolved_path);
+            record.asset = std::move(promise.asset);
+            record.pending_load = promise.promise;
+            update_stream_state(record);
             return record.asset;
         }
 
@@ -285,31 +278,29 @@ namespace tbx
         /// Purpose: Streams an asset out if it is unreferenced or forced.
         /// </summary>
         /// <remarks>
-        /// Ownership: Releases the manager-owned Asset wrapper when streaming out.
+        /// Ownership: Releases the manager-owned asset instance when streaming out.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        bool stream_out(const std::filesystem::path& asset_path, bool force = false)
+        bool stream_out(const AssetHandle& handle, bool force = false)
         {
-            const auto normalized = normalize_path(asset_path);
             std::lock_guard lock(_mutex);
             auto* store = find_store<TAsset>();
             if (!store)
             {
                 return false;
             }
-            auto iterator = store->records.find(normalized.path_key);
-            if (iterator == store->records.end())
+            auto* record = try_find_record(*store, handle);
+            if (!record)
             {
                 return false;
             }
-            auto& record = iterator->second;
-            if (!force && (record.ref_count > 0 || record.is_pinned))
+            if (!force && (record->is_pinned || is_asset_referenced(*record)))
             {
                 return false;
             }
-            record.asset.reset();
-            record.stream_state = AssetStreamState::Unloaded;
+            record->asset.reset();
+            record->stream_state = AssetStreamState::Unloaded;
             return true;
         }
 
@@ -317,142 +308,63 @@ namespace tbx
         /// Purpose: Streams out all unreferenced, unpinned assets and reclaims memory.
         /// </summary>
         /// <remarks>
-        /// Ownership: Releases manager-owned Asset wrappers that are safe to evict.
+        /// Ownership: Releases manager-owned asset instances that are safe to evict.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         void clean();
 
         /// <summary>
-        /// Purpose: Reloads a streamed asset and swaps the managed Asset wrapper.
+        /// Purpose: Reloads a streamed asset and swaps the managed asset instance.
         /// </summary>
         /// <remarks>
-        /// Ownership: Replaces the manager-owned Asset wrapper with the newly loaded instance.
-        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
-        template <typename TAsset, typename TLoader>
-        bool reload(const std::filesystem::path& asset_path, TLoader&& loader)
-        {
-            const auto normalized = normalize_path(asset_path);
-            auto now = std::chrono::steady_clock::now();
-            std::lock_guard lock(_mutex);
-            auto& entry = get_or_create_registry_entry(normalized);
-            auto& store = get_or_create_store<TAsset>();
-            auto& record = get_or_create_record(store, entry);
-            record.stream_state = AssetStreamState::Loading;
-            record.asset = std::forward<TLoader>(loader)(normalized.resolved_path);
-            record.stream_state =
-                record.asset ? AssetStreamState::Loaded : AssetStreamState::Unloaded;
-            record.last_access = now;
-            return record.asset != nullptr;
-        }
-
-        /// <summary>
-        /// Purpose: Releases a previously requested asset by decrementing its ref count.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Removes the manager-owned Asset wrapper when the ref count reaches zero.
+        /// Ownership: Replaces the manager-owned asset instance with the newly loaded instance.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        void release(const std::filesystem::path& asset_path)
+        bool reload(const AssetHandle& handle)
         {
-            const auto normalized = normalize_path(asset_path);
+            auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
-            auto* store = find_store<TAsset>();
-            if (!store)
+            auto* entry = get_or_create_registry_entry(handle);
+            if (!entry)
             {
-                return;
+                return false;
             }
-            auto iterator = store->records.find(normalized.path_key);
-            if (iterator == store->records.end())
-            {
-                return;
-            }
-            auto& record = iterator->second;
-            if (record.ref_count > 0)
-            {
-                record.ref_count -= 1;
-            }
-            if (record.ref_count == 0 && !record.is_pinned)
-            {
-                record.asset.reset();
-                record.stream_state = AssetStreamState::Unloaded;
-            }
+            auto& store = get_or_create_store<TAsset>();
+            auto& record = get_or_create_record(store, *entry);
+            record.stream_state = AssetStreamState::Loading;
+            auto promise = AssetAsyncLoader<TAsset>::load(entry->resolved_path);
+            record.asset = std::move(promise.asset);
+            record.pending_load = promise.promise;
+            update_stream_state(record);
+            record.last_access = now;
+            return record.asset != nullptr;
         }
 
         /// <summary>
         /// Purpose: Pins or unpins a tracked asset to prevent automatic streaming out.
         /// </summary>
         /// <remarks>
-        /// Ownership: Retains manager ownership while pinned.
+        /// Ownership: Retains manager ownership of the asset instance while pinned.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        void set_pinned(const std::filesystem::path& asset_path, bool is_pinned)
+        void set_pinned(const AssetHandle& handle, bool is_pinned)
         {
-            const auto normalized = normalize_path(asset_path);
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
-            auto& entry = get_or_create_registry_entry(normalized);
+            auto* entry = get_or_create_registry_entry(handle);
+            if (!entry)
+            {
+                return;
+            }
             auto& store = get_or_create_store<TAsset>();
-            auto& record = get_or_create_record(store, entry);
+            auto& record = get_or_create_record(store, *entry);
             record.is_pinned = is_pinned;
             record.last_access = now;
         }
 
       private:
-        struct NormalizedAssetPath
-        {
-            std::filesystem::path resolved_path;
-            std::string normalized_path;
-            Guid path_key = {};
-        };
-
-        struct AssetRegistryEntry
-        {
-            std::filesystem::path resolved_path;
-            std::string normalized_path;
-            Guid path_key = {};
-            Guid id = {};
-        };
-
-        struct AssetStoreBase
-        {
-            virtual ~AssetStoreBase() = default;
-            virtual void clean() = 0;
-        };
-
-        template <typename TAsset>
-        struct AssetRecord
-        {
-            std::shared_ptr<Asset<TAsset>> asset;
-            std::string normalized_path;
-            size_t ref_count = 0;
-            bool is_pinned = false;
-            AssetStreamState stream_state = AssetStreamState::Unloaded;
-            std::chrono::steady_clock::time_point last_access = {};
-            Guid id = {};
-        };
-
-        template <typename TAsset>
-        struct AssetStore final : AssetStoreBase
-        {
-            std::unordered_map<Guid, AssetRecord<TAsset>> records;
-
-            void clean() override
-            {
-                for (auto& entry : records)
-                {
-                    auto& record = entry.second;
-                    if (record.ref_count == 0 && !record.is_pinned && record.asset)
-                    {
-                        record.asset.reset();
-                        record.stream_state = AssetStreamState::Unloaded;
-                    }
-                }
-            }
-        };
-
         void discover_assets();
 
         NormalizedAssetPath normalize_path(const std::filesystem::path& asset_path) const
@@ -489,7 +401,7 @@ namespace tbx
             return _file_system->resolve_relative_path(root / asset_path);
         }
 
-        static Guid make_path_key(const std::string& normalized_path)
+        static Uuid make_path_key(const std::string& normalized_path)
         {
             auto hasher = std::hash<std::string>();
             auto hashed = static_cast<uint32>(hasher(normalized_path));
@@ -497,71 +409,299 @@ namespace tbx
             {
                 hashed = 1U;
             }
-            return Guid(hashed);
+            return Uuid(hashed);
         }
 
-        static Guid parse_guid_from_text(const std::string& contents)
-        {
-            const std::string trimmed = trim(contents);
-            if (trimmed.empty())
-            {
-                return {};
-            }
-            auto start = trimmed.data();
-            auto end = trimmed.data() + trimmed.size();
-            while (start < end && !std::isxdigit(static_cast<unsigned char>(*start)))
-            {
-                start += 1;
-            }
-            if (start == end)
-            {
-                return {};
-            }
-            auto token_end = start;
-            while (token_end < end && std::isxdigit(static_cast<unsigned char>(*token_end)))
-            {
-                token_end += 1;
-            }
-            uint32 value = 0U;
-            auto result = std::from_chars(start, token_end, value, 16);
-            if (result.ec != std::errc())
-            {
-                return {};
-            }
-            if (value == 0U)
-            {
-                return {};
-            }
-            return Guid(value);
-        }
-
-        Guid read_meta_guid(const std::filesystem::path& asset_path) const
+        Uuid read_meta_uuid(const std::filesystem::path& asset_path) const
         {
             if (!_file_system)
             {
                 return {};
             }
-            auto meta_path = asset_path;
-            meta_path += ".meta";
-            if (!_file_system->exists(meta_path))
+            AssetMeta meta = {};
+            if (!_meta_reader.try_read(*_file_system, asset_path, meta))
             {
                 return {};
             }
-            std::string contents;
-            if (!_file_system->read_file(meta_path, FileDataFormat::Utf8Text, contents))
-            {
-                return {};
-            }
-            return parse_guid_from_text(contents);
+            return meta.id;
         }
 
-        // TODO : Complete the implementation of this function and the class
         AssetRegistryEntry& get_or_create_registry_entry(const NormalizedAssetPath& normalized)
         {
             auto iterator = _registry.find(normalized.path_key);
             if (iterator != _registry.end())
             {
+                return iterator->second;
+            }
+            AssetRegistryEntry entry = {};
+            entry.resolved_path = normalized.resolved_path;
+            entry.normalized_path = normalized.normalized_path;
+            entry.path_key = normalized.path_key;
+            auto desired_id = read_meta_uuid(normalized.resolved_path);
+            if (!desired_id)
+            {
+                desired_id = normalized.path_key;
+            }
+            entry.id = desired_id;
+            auto id_iterator = _registry_by_id.find(entry.id);
+            if (id_iterator != _registry_by_id.end() && id_iterator->second != entry.path_key)
+            {
+                entry.id = normalized.path_key;
+            }
+            _registry_by_id[entry.id] = entry.path_key;
+            auto [inserted, was_inserted] = _registry.emplace(entry.path_key, std::move(entry));
+            static_cast<void>(was_inserted);
+            return inserted->second;
+        }
+
+        AssetRegistryEntry* get_or_create_registry_entry(const AssetHandle& handle)
+        {
+            // Prefer resolving by id to avoid path normalization when possible.
+            if (handle.has_id())
+            {
+                auto* existing = find_registry_entry_by_id(handle.id);
+                if (existing)
+                {
+                    return existing;
+                }
+            }
+            if (!handle.has_path())
+            {
+                return nullptr;
+            }
+            auto normalized = normalize_path(handle.path);
+            return &get_or_create_registry_entry(normalized);
+        }
+
+        AssetRegistryEntry* find_registry_entry_by_id(Uuid asset_id)
+        {
+            return const_cast<AssetRegistryEntry*>(
+                static_cast<const AssetManager*>(this)->find_registry_entry_by_id(asset_id));
+        }
+
+        const AssetRegistryEntry* find_registry_entry_by_id(Uuid asset_id) const
+        {
+            if (!asset_id)
+            {
+                return nullptr;
+            }
+            auto iterator = _registry_by_id.find(asset_id);
+            if (iterator == _registry_by_id.end())
+            {
+                return nullptr;
+            }
+            auto registry_iterator = _registry.find(iterator->second);
+            if (registry_iterator == _registry.end())
+            {
+                return nullptr;
+            }
+            return &registry_iterator->second;
+        }
+
+        template <typename TAsset>
+        AssetStore<TAsset>& get_or_create_store()
+        {
+            auto type_key = std::type_index(typeid(TAsset));
+            auto iterator = _stores.find(type_key);
+            if (iterator != _stores.end())
+            {
+                return *static_cast<AssetStore<TAsset>*>(iterator->second.get());
+            }
+            auto store = std::make_unique<AssetStore<TAsset>>();
+            auto* store_ptr = store.get();
+            _stores.emplace(type_key, std::move(store));
+            return *store_ptr;
+        }
+
+        template <typename TAsset>
+        AssetStore<TAsset>* find_store()
+        {
+            auto type_key = std::type_index(typeid(TAsset));
+            auto iterator = _stores.find(type_key);
+            if (iterator == _stores.end())
+            {
+                return nullptr;
+            }
+            return static_cast<AssetStore<TAsset>*>(iterator->second.get());
+        }
+
+        template <typename TAsset>
+        const AssetStore<TAsset>* find_store() const
+        {
+            auto type_key = std::type_index(typeid(TAsset));
+            auto iterator = _stores.find(type_key);
+            if (iterator == _stores.end())
+            {
+                return nullptr;
+            }
+            return static_cast<const AssetStore<TAsset>*>(iterator->second.get());
+        }
+
+        template <typename TAsset>
+        AssetRecord<TAsset>& get_or_create_record(
+            AssetStore<TAsset>& store,
+            const AssetRegistryEntry& entry)
+        {
+            auto iterator = store.records.find(entry.path_key);
+            if (iterator != store.records.end())
+            {
+                return iterator->second;
+            }
+            AssetRecord<TAsset> record = {};
+            record.normalized_path = entry.normalized_path;
+            record.id = entry.id;
+            auto [inserted, was_inserted] = store.records.emplace(entry.path_key, std::move(record));
+            static_cast<void>(was_inserted);
+            return inserted->second;
+        }
+
+        template <typename TAsset>
+        auto find_record_by_id(std::unordered_map<Uuid, AssetRecord<TAsset>>& records, Uuid asset_id)
+            -> typename std::unordered_map<Uuid, AssetRecord<TAsset>>::iterator
+        {
+            if (!asset_id)
+            {
+                return records.end();
+            }
+            auto iterator = _registry_by_id.find(asset_id);
+            if (iterator == _registry_by_id.end())
+            {
+                return records.end();
+            }
+            return records.find(iterator->second);
+        }
+
+        template <typename TAsset>
+        auto find_record_by_id(
+            const std::unordered_map<Uuid, AssetRecord<TAsset>>& records,
+            Uuid asset_id) const
+            -> typename std::unordered_map<Uuid, AssetRecord<TAsset>>::const_iterator
+        {
+            if (!asset_id)
+            {
+                return records.end();
+            }
+            auto iterator = _registry_by_id.find(asset_id);
+            if (iterator == _registry_by_id.end())
+            {
+                return records.end();
+            }
+            return records.find(iterator->second);
+        }
+
+        template <typename TAsset>
+        AssetRecord<TAsset>* try_find_record(AssetStore<TAsset>& store, const AssetHandle& handle)
+        {
+            if (handle.has_id())
+            {
+                auto iterator = find_record_by_id(store.records, handle.id);
+                if (iterator != store.records.end())
+                {
+                    return &iterator->second;
+                }
+            }
+            if (!handle.has_path())
+            {
+                return nullptr;
+            }
+            auto normalized = normalize_path(handle.path);
+            auto iterator = store.records.find(normalized.path_key);
+            if (iterator == store.records.end())
+            {
+                return nullptr;
+            }
+            return &iterator->second;
+        }
+
+        template <typename TAsset>
+        const AssetRecord<TAsset>* try_find_record(
+            const AssetStore<TAsset>& store,
+            const AssetHandle& handle) const
+        {
+            if (handle.has_id())
+            {
+                auto iterator = find_record_by_id(store.records, handle.id);
+                if (iterator != store.records.end())
+                {
+                    return &iterator->second;
+                }
+            }
+            if (!handle.has_path())
+            {
+                return nullptr;
+            }
+            auto normalized = normalize_path(handle.path);
+            auto iterator = store.records.find(normalized.path_key);
+            if (iterator == store.records.end())
+            {
+                return nullptr;
+            }
+            return &iterator->second;
+        }
+
+        template <typename TAsset>
+        static AssetUsage build_usage(const AssetRecord<TAsset>& record)
+        {
+            AssetUsage usage = {};
+            usage.ref_count = get_reference_count(record);
+            usage.is_pinned = record.is_pinned;
+            usage.stream_state = record.stream_state;
+            usage.last_access = record.last_access;
+            return usage;
+        }
+
+        template <typename TAsset>
+        void update_stream_state(AssetRecord<TAsset>& record) const
+        {
+            if (record.stream_state != AssetStreamState::Loading)
+            {
+                return;
+            }
+            if (!record.pending_load.valid())
+            {
+                return;
+            }
+            using namespace std::chrono_literals;
+            if (record.pending_load.wait_for(0s) == std::future_status::ready)
+            {
+                record.stream_state = record.asset ? AssetStreamState::Loaded
+                                                   : AssetStreamState::Unloaded;
+                record.pending_load = {};
             }
         }
-    }
+
+        template <typename TAsset>
+        static bool is_asset_referenced(const AssetRecord<TAsset>& record)
+        {
+            if (!record.asset)
+            {
+                return false;
+            }
+            return record.asset.use_count() > 1;
+        }
+
+        template <typename TAsset>
+        static uint get_reference_count(const AssetRecord<TAsset>& record)
+        {
+            if (!record.asset)
+            {
+                return 0U;
+            }
+            const auto count = record.asset.use_count();
+            if (count <= 1)
+            {
+                return 0U;
+            }
+            // Subtract the manager-owned reference to report external usage.
+            return static_cast<uint>(count - 1);
+        }
+
+        mutable std::mutex _mutex;
+        IFileSystem* _file_system = nullptr;
+        std::filesystem::path _assets_root;
+        AssetMetaReader _meta_reader = {};
+        std::unordered_map<Uuid, AssetRegistryEntry> _registry;
+        std::unordered_map<Uuid, Uuid> _registry_by_id;
+        std::unordered_map<std::type_index, std::unique_ptr<IAssetStore>> _stores;
+    };
 }
