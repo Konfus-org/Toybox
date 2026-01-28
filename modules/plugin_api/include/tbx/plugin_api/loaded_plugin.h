@@ -24,6 +24,10 @@ namespace tbx
         /// <remarks>Ownership: Does not own any plugin resources.
         /// Thread Safety: Not thread-safe.</remarks>
         LoadedPlugin() = default;
+        LoadedPlugin(const LoadedPlugin&) = delete;
+        LoadedPlugin& operator=(const LoadedPlugin&) = delete;
+        LoadedPlugin(LoadedPlugin&&) noexcept = default;
+        LoadedPlugin& operator=(LoadedPlugin&&) noexcept = default;
 
         /// <summary>Purpose: Creates a loaded plugin wrapper and logs the load event.</summary>
         /// <remarks>Ownership: Takes ownership of the plugin instance and library.
