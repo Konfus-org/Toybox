@@ -185,7 +185,7 @@ namespace tbx
             }
 
             // Order matters: reset ECS before unloading plugin list.
-            _ecs = {};
+            _ecs.destroy_all_entities();
             _loaded.clear();
             _msg_coordinator.process_posts();
             _msg_coordinator.clear_handlers();

@@ -109,7 +109,7 @@ namespace tbx
         ECS();
         ~ECS() noexcept;
 
-        void clear();
+        void destroy_all_entities();
         bool is_empty();
 
         Entity create_entity(

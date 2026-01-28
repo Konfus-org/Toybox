@@ -53,10 +53,10 @@ namespace tbx
 
     ECS::~ECS() noexcept
     {
-        _registry->clear();
+        destroy_all_entities();
     }
 
-    void ECS::clear()
+    void ECS::destroy_all_entities()
     {
         _registry->clear();
         _registry = std::make_unique<EntityRegistry>();
