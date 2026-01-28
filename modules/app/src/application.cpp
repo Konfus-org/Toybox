@@ -190,10 +190,11 @@ namespace tbx
 
             for (auto& plugin : _loaded)
             {
-                if (plugin.instance)
-                    plugin.instance->detach();
+                TBX_TRACE_INFO("Unloading plugin: {} v{}", plugin.meta.name, plugin.meta.version);
+                plugin.instance->detach();
             }
 
+            _ecs = {};
             _loaded.clear();
             _msg_coordinator.clear();
             _main_window.is_open = false;
