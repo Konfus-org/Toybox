@@ -51,6 +51,13 @@ namespace tbx
             : shader_program(ShaderProgram(std::move(shaders)))
         {
         }
+        /// <summary>Purpose: Creates a material with a single texture.</summary>
+        /// <remarks>Ownership: Shares ownership of the texture with the caller.
+        /// Thread Safety: Safe to construct on any thread.</remarks>
+        Material(std::shared_ptr<Texture> texture)
+            : textures({std::move(texture)})
+        {
+        }
         Material(std::vector<Shader> shaders, std::shared_ptr<Texture> texture)
             : shader_program(ShaderProgram(std::move(shaders)))
             , textures({std::move(texture)})

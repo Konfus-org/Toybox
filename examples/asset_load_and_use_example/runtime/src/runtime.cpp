@@ -20,10 +20,7 @@ namespace tbx::examples
             TextureFormat::RGBA);
         _smily_texture = texture_asset;
 
-        Model quad_model = {};
-        quad_model.mesh = quad;
-        quad_model.material = Material();
-        quad_model.material.textures = {_smily_texture};
+        Model quad_model = {quad, _smily_texture};
 
         auto entity = _entity_manager->create_entity("SmilyQuad");
         entity.add_component<Transform>();
