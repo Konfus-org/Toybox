@@ -10,7 +10,7 @@ namespace tbx::examples
 {
     void AssetLoadAndUseExampleRuntimePlugin::on_attach(Application& context)
     {
-        _ecs = &context.get_ecs();
+        _entity_manager = &context.get_entity_manager();
         TBX_TRACE_INFO("AssetLoadAndUseExample: loading Smily texture.");
 
         auto texture_asset = load_texture(
@@ -25,7 +25,7 @@ namespace tbx::examples
         quad_model.material = Material();
         quad_model.material.textures = {_smily_texture};
 
-        auto entity = _ecs->create_entity("SmilyQuad");
+        auto entity = _entity_manager->create_entity("SmilyQuad");
         entity.add_component<Transform>();
         entity.add_component<Model>(quad_model);
     }
@@ -33,7 +33,7 @@ namespace tbx::examples
     void AssetLoadAndUseExampleRuntimePlugin::on_detach()
     {
         _smily_texture.reset();
-        _ecs = nullptr;
+        _entity_manager = nullptr;
     }
 
     void AssetLoadAndUseExampleRuntimePlugin::on_update(const DeltaTime&) {}
