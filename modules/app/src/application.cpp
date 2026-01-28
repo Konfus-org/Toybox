@@ -11,6 +11,17 @@
 
 namespace tbx
 {
+    AppSettings::AppSettings(
+        IMessageDispatcher& dispatcher,
+        bool vsync,
+        GraphicsApi api,
+        Size resolution)
+        : vsync_enabled(&dispatcher, this, &AppSettings::vsync_enabled, vsync)
+        , graphics_api(&dispatcher, this, &AppSettings::graphics_api, api)
+        , resolution(&dispatcher, this, &AppSettings::resolution, resolution)
+    {
+    }
+
     Application::Application(const AppDescription& desc)
         : _name(desc.name)
         , _filesystem(
@@ -125,7 +136,7 @@ namespace tbx
             // Register plugin message handlers then attach them to host
             for (auto& p : _loaded)
             {
-                _msg_coordinator.add_handler(
+                p.message_handler_token = _msg_coordinator.add_handler(
                     [plugin = p.instance.get()](Message& msg)
                     {
                         plugin->receive_message(msg);
@@ -168,4 +179,53 @@ namespace tbx
         if ((_update_count % 5) == 0)
             _asset_manager.clean();
     }
+
+    void Application::shutdown()
+    {
+        try
+        {
+            GlobalDispatcherScope scope(_msg_coordinator);
+
+            _msg_coordinator.send<ApplicationShutdownEvent>(this);
+
+            for (auto& plugin : _loaded)
+            {
+                if (plugin.message_handler_token.is_valid())
+                {
+                    _msg_coordinator.remove_handler(plugin.message_handler_token);
+                    plugin.message_handler_token = {};
+                }
+
+                plugin.instance->detach();
+            }
+
+            // Order matters: reset ECS before unloading plugin list.
+            _ecs = {};
+            _loaded.clear();
+            _msg_coordinator.process();
+            _msg_coordinator.clear();
+            _main_window.is_open = false;
+            _should_exit = true;
+        }
+        catch (const std::exception& ex)
+        {
+            TBX_ASSERT(false, "Exception during application shutdown: {}", ex.what());
+        }
+        catch (...)
+        {
+            TBX_ASSERT(false, "Unknown exception during application shutdown.");
+        }
+    }
+
+    void Application::recieve_message(Message& msg)
+    {
+        on_message(
+            msg,
+            [this](ExitApplicationRequest& request)
+            {
+                _should_exit = true;
+                request.state = MessageState::Handled;
+            });
+    }
+
 }

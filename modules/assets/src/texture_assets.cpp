@@ -15,12 +15,6 @@ namespace tbx
         return std::make_shared<Texture>();
     }
 
-    static std::shared_ptr<Asset<Texture>> create_texture_asset(
-        const std::shared_ptr<Texture>& default_data)
-    {
-        return std::make_shared<Asset<Texture>>(create_texture_data(default_data));
-    }
-
     AssetPromise<Texture> load_texture_async(
         const std::filesystem::path& asset_path,
         TextureWrap wrap,
@@ -28,7 +22,7 @@ namespace tbx
         TextureFormat format,
         const std::shared_ptr<Texture>& default_data)
     {
-        auto asset = create_texture_asset(default_data);
+        auto asset = create_texture_data(default_data);
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -47,14 +41,14 @@ namespace tbx
         return result;
     }
 
-    std::shared_ptr<Asset<Texture>> load_texture(
+    std::shared_ptr<Texture> load_texture(
         const std::filesystem::path& asset_path,
         TextureWrap wrap,
         TextureFilter filter,
         TextureFormat format,
         const std::shared_ptr<Texture>& default_data)
     {
-        auto asset = create_texture_asset(default_data);
+        auto asset = create_texture_data(default_data);
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {

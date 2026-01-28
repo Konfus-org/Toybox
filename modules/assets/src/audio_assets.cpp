@@ -15,17 +15,11 @@ namespace tbx
         return std::make_shared<AudioClip>();
     }
 
-    static std::shared_ptr<Asset<AudioClip>> create_audio_asset(
-        const std::shared_ptr<AudioClip>& default_data)
-    {
-        return std::make_shared<Asset<AudioClip>>(create_audio_data(default_data));
-    }
-
     AssetPromise<AudioClip> load_audio_async(
         const std::filesystem::path& asset_path,
         const std::shared_ptr<AudioClip>& default_data)
     {
-        auto asset = create_audio_asset(default_data);
+        auto asset = create_audio_data(default_data);
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -41,11 +35,11 @@ namespace tbx
         return result;
     }
 
-    std::shared_ptr<Asset<AudioClip>> load_audio(
+    std::shared_ptr<AudioClip> load_audio(
         const std::filesystem::path& asset_path,
         const std::shared_ptr<AudioClip>& default_data)
     {
-        auto asset = create_audio_asset(default_data);
+        auto asset = create_audio_data(default_data);
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {

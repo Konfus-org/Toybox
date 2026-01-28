@@ -15,8 +15,8 @@ namespace tbx
     /// Purpose: Base message requesting that an asset payload be loaded.
     /// </summary>
     /// <remarks>
-    /// Ownership: The asset wrapper pointer is non-owning and owned by the caller.
-    /// Thread Safety: Payload access should use the Asset read/write accessors.
+    /// Ownership: The asset pointer is non-owning and owned by the caller.
+    /// Thread Safety: Payload access requires external synchronization.
     /// </remarks>
     template <typename TAsset>
     struct LoadAssetRequest : public Request<void>
@@ -24,7 +24,7 @@ namespace tbx
       public:
         LoadAssetRequest(
             const std::filesystem::path& asset_path,
-            Asset<TAsset>* asset_payload)
+            TAsset* asset_payload)
             : path(asset_path)
             , asset(asset_payload)
         {
@@ -32,22 +32,22 @@ namespace tbx
 
       public:
         std::filesystem::path path;
-        Asset<TAsset>* asset = nullptr;
+        TAsset* asset = nullptr;
     };
 
     /// <summary>
     /// Purpose: Message requesting that a texture payload be loaded with specific settings.
     /// </summary>
     /// <remarks>
-    /// Ownership: The texture asset wrapper pointer is non-owning and owned by the caller.
-    /// Thread Safety: Payload access should use the Asset read/write accessors.
+    /// Ownership: The texture asset pointer is non-owning and owned by the caller.
+    /// Thread Safety: Payload access requires external synchronization.
     /// </remarks>
     struct TBX_API LoadTextureRequest : public LoadAssetRequest<Texture>
     {
       public:
         LoadTextureRequest(
             const std::filesystem::path& asset_path,
-            Asset<Texture>* asset_payload,
+            Texture* asset_payload,
             TextureWrap wrap,
             TextureFilter filter,
             TextureFormat format)

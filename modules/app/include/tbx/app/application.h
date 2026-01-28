@@ -92,7 +92,7 @@ namespace tbx
         void initialize(const std::vector<std::string>& requested_plugins);
         void update(DeltaTimer timer);
         void shutdown();
-        void recieve_message(const Message& msg);
+        void recieve_message(Message& msg);
 
       private:
         bool _should_exit = false;

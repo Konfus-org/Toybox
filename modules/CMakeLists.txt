@@ -42,6 +42,7 @@ add_subdirectory(plugin_api/tests)
 add_subdirectory(ecs/tests)
 add_subdirectory(graphics/tests)
 add_subdirectory(app/tests)
+add_subdirectory(assets/tests)
 
 unset(CMAKE_FOLDER)
 

@@ -34,6 +34,11 @@ namespace tbx
         // Locates a plugin instance by name.
         Plugin* find_plugin(const std::string& name) const;
 
+        /// <summary>Purpose: Returns the registered name for a plugin instance.</summary>
+        /// <remarks>Ownership: Returns an owned string that may be empty if not registered.
+        /// Thread Safety: Not thread-safe; call from the main thread.</remarks>
+        std::string get_registered_name(const Plugin* plugin) const;
+
       private:
         std::vector<Plugin*> _plugins;
         std::unordered_map<std::string, Plugin*> _plugins_by_name;
