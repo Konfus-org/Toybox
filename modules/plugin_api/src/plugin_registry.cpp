@@ -77,4 +77,22 @@ namespace tbx
 
         return it->second;
     }
+
+    std::string PluginRegistry::get_registered_name(const Plugin* plugin) const
+    {
+        if (!plugin)
+        {
+            return std::string();
+        }
+
+        for (const auto& [name, instance] : _plugins_by_name)
+        {
+            if (instance == plugin)
+            {
+                return name;
+            }
+        }
+
+        return std::string();
+    }
 }
