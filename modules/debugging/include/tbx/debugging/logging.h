@@ -70,4 +70,31 @@ namespace tbx
             return formatted;
         }
     };
+
+    /// <summary>
+    /// Purpose: Returns the registered name for the stdout fallback logger plugin.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Returns a non-owning view of a static string.
+    /// Thread Safety: Immutable constant.
+    /// </remarks>
+    TBX_API std::string_view get_stdout_fallback_logger_name();
+
+    /// <summary>
+    /// Purpose: Returns the description used for the stdout fallback logger plugin.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Returns a non-owning view of a static string.
+    /// Thread Safety: Immutable constant.
+    /// </remarks>
+    TBX_API std::string_view get_stdout_fallback_logger_description();
+
+    /// <summary>
+    /// Purpose: Returns the semantic version for the stdout fallback logger plugin.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Returns a non-owning view of a static string.
+    /// Thread Safety: Immutable constant.
+    /// </remarks>
+    TBX_API std::string_view get_stdout_fallback_logger_version();
 }
