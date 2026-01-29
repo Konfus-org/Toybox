@@ -12,20 +12,127 @@ on:
     paths-ignore:
       - '.github/labeler.yml'
       - '**/*.md'
-      
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  build_pr:
+    if: github.event_name == 'pull_request'
     runs-on: ${{ matrix.os }}
     env:
       SCCACHE_DIR: ${{ github.workspace }}/sccache
 
     strategy:
       # Use fail-fast for pull requests to surface breakage early.
-      fail-fast: ${{ github.event_name == 'pull_request' }}
+      fail-fast: true
+
+      # Run a single fast configuration for pull requests.
+      matrix:
+        include:
+          - os: ubuntu-latest
+            build_type: Release
+            c_compiler: gcc
+            cpp_compiler: g++
+            compiler_launcher: ccache
+
+    steps:
+
+    - name: Set Inputs
+      # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
+      id: strings
+      shell: bash
+      run: |
+        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+    - name: Install Dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y xorg-dev libwayland-dev libxkbcommon-dev ccache
+
+    - name: Set up ccache
+      if: runner.os == 'Linux'
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ccache
+        key: ${{ runner.os }}-ccache-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-ccache-
+
+    - name: Set up sccache
+      if: runner.os == 'Windows'
+      uses: mozilla-actions/sccache@v0.0.5
+
+    - name: Cache sccache
+      if: runner.os == 'Windows'
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.SCCACHE_DIR }}
+        key: ${{ runner.os }}-sccache-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-sccache-
+
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+
+    - name: Set up CMake 4.1.0
+      uses: jwlawson/actions-setup-cmake@v2
+      with:
+        cmake-version: '4.1.0'
+
+    - name: Clean build dir (Windows)
+      if: runner.os == 'Windows'
+      shell: bash
+      run: rm -rf "${{ steps.strings.outputs.build-output-dir }}"
+
+    - name: Clean build dir (Linux)
+      if: runner.os != 'Windows'
+      run: rm -rf ${{ steps.strings.outputs.build-output-dir }}
+
+    # Uncomment and modify as needed when we need to debug repo contents
+    # - name: Debug repo contents
+    #   run: |
+    #     git submodule status || true
+    #     ls -la
+    #     ls -la Plugins || true
+    #     ls -la Plugins/Toybox-OpenGL-Rendering-Plugin || true
+    #     ls -la Plugins/Toybox-SDL-Input-Plugin || true
+
+    - name: Configure CMake
+      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+      run: >
+        cmake -B ${{ steps.strings.outputs.build-output-dir }}
+        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
+        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+        -DCMAKE_CXX_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }}
+        -DCMAKE_C_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }}
+        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        -S ${{ github.workspace }}
+
+    - name: Build
+      # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
+      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
+
+    - name: Test
+      working-directory: ${{ steps.strings.outputs.build-output-dir }}
+      # Execute tests defined by the CMake configuration. Note that --build-config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
+      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
+      run: ctest --build-config ${{ matrix.build_type }} --output-on-failure
+
+  build_full:
+    if: github.event_name != 'pull_request'
+    runs-on: ${{ matrix.os }}
+    env:
+      SCCACHE_DIR: ${{ github.workspace }}/sccache
+
+    strategy:
+      # Use fail-fast for pull requests to surface breakage early.
+      fail-fast: false
 
       # Set up a matrix to run the following 3 configurations:
       # 1. <Windows, Release, latest MSVC compiler toolchain on the default runner image, default generator>
@@ -54,7 +161,7 @@ jobs:
             compiler_launcher: ccache
 
     steps:
-      
+
     - name: Set Inputs
       # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
       id: strings
