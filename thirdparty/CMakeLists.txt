@@ -11,22 +11,13 @@ set(SPDLOG_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(SPDLOG_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(SPDLOG_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 
-# Pull in additional dependencies via FetchContent.
-include(FetchContent)
 # Configure Assimp build options for the engine.
 set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "" FORCE)
-# Fetch Assimp from its upstream repository.
-FetchContent_Declare(assimp
-    GIT_REPOSITORY https://github.com/assimp/assimp.git
-    GIT_TAG v5.4.3
-)
-# Make Assimp available as a CMake target.
-FetchContent_MakeAvailable(assimp)
 
-
+add_subdirectory(assimp)
 add_subdirectory(entt)
 add_subdirectory(glad)
 add_subdirectory(stbimg)
