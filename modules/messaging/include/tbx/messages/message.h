@@ -74,7 +74,8 @@ namespace tbx
     };
 
     /// <summary>
-    /// Purpose: Represents a subscriber callback invoked by the message coordinator during dispatch.
+    /// Purpose: Represents a subscriber callback invoked by the message coordinator during
+    /// dispatch.
     /// </summary>
     /// <remarks>
     /// Ownership: Non-owning. The coordinator stores a copy of the callable.

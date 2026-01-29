@@ -94,8 +94,8 @@ namespace tbx::plugins
         Texture texture(resolution, request.wrap, request.filter, request.format, pixels);
         texture.id = existing_id;
         *asset = texture;
+
         request.state = MessageState::Handled;
-        request.result.flag_success();
     }
 
     std::filesystem::path StbImageAssetLoaderPlugin::resolve_asset_path(

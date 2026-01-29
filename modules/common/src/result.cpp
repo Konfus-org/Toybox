@@ -3,7 +3,7 @@
 namespace tbx
 {
     Result::Result()
-        : _success(std::make_shared<bool>(false))
+        : _success(std::make_shared<bool>(true))
         , _report(std::make_shared<std::string>())
     {
     }

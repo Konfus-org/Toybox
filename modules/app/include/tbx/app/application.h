@@ -63,14 +63,6 @@ namespace tbx
         /// </remarks>
         IMessageDispatcher& get_dispatcher();
         /// <summary>
-        /// Purpose: Returns the application entity manager instance.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns a reference owned by the application.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
-        EntityManager& get_entity_manager();
-        /// <summary>
         /// Purpose: Returns the application filesystem service.
         /// </summary>
         /// <remarks>
@@ -78,6 +70,15 @@ namespace tbx
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
         IFileSystem& get_filesystem();
+
+        /// <summary>
+        /// Purpose: Returns the application entity manager instance.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a reference owned by the application.
+        /// Thread Safety: Not thread-safe; synchronize access externally.
+        /// </remarks>
+        EntityManager& get_entity_manager();
 
         /// <summary>
         /// Purpose: Returns the application-owned asset manager.
