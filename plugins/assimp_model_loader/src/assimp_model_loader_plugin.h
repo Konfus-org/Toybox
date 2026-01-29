@@ -1,12 +1,6 @@
 #pragma once
+#include "tbx/assets/messages.h"
 #include "tbx/plugin_api/plugin.h"
-#include <filesystem>
-
-namespace tbx
-{
-    class IFileSystem;
-    struct LoadModelRequest;
-}
 
 namespace tbx::plugins
 {
@@ -44,7 +38,8 @@ namespace tbx::plugins
         /// </summary>
         /// <remarks>
         /// Ownership: Does not take ownership of messages or asset payloads.
-        /// Thread Safety: Executes on the dispatcher thread; relies on Model payload synchronization.
+        /// Thread Safety: Executes on the dispatcher thread; relies on Model payload
+        /// synchronization.
         /// </remarks>
         void on_recieve_message(Message& msg) override;
 
