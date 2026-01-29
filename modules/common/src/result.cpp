@@ -3,6 +3,7 @@
 namespace tbx
 {
     Result::Result()
+        // Default to success so callers only need to flag failures explicitly.
         : _success(std::make_shared<bool>(true))
         , _report(std::make_shared<std::string>())
     {

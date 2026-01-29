@@ -4,6 +4,11 @@
 
 namespace tbx
 {
+    static constexpr std::string_view StdoutFallbackLoggerName = "StdoutLoggerPlugin";
+    static constexpr std::string_view StdoutFallbackLoggerDescription =
+        "Fallback logger plugin that writes to stdout.";
+    static constexpr std::string_view StdoutFallbackLoggerVersion = "1.0.0";
+
     const int MAX_LOG_HISTORY = 10;
 
     static std::filesystem::path make_log_path(
@@ -67,5 +72,20 @@ namespace tbx
         const std::string& message)
     {
         dispatcher.post<LogMessageRequest>(level, message, file, line);
+    }
+
+    std::string_view get_stdout_fallback_logger_name()
+    {
+        return StdoutFallbackLoggerName;
+    }
+
+    std::string_view get_stdout_fallback_logger_description()
+    {
+        return StdoutFallbackLoggerDescription;
+    }
+
+    std::string_view get_stdout_fallback_logger_version()
+    {
+        return StdoutFallbackLoggerVersion;
     }
 }

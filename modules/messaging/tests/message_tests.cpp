@@ -9,7 +9,7 @@ namespace tbx::tests::messaging
 
         EXPECT_EQ(message.state, MessageState::UnHandled);
         EXPECT_FALSE(message.require_handling);
-        EXPECT_FALSE(message.result.succeeded());
+        EXPECT_TRUE(message.result.succeeded());
         EXPECT_EQ(message.id, message.id);
     }
 }

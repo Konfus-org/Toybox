@@ -1,7 +1,9 @@
 #include "pch.h"
+#include "tbx/debugging/logging.h"
 #include "tbx/files/filesystem.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
+#include <algorithm>
 #include <filesystem>
 #include <string>
 #include <unordered_map>
@@ -171,8 +173,34 @@ namespace tbx::tests::plugin_loader
         ManifestFilesystemOps ops;
         PluginLoader loader;
         auto loaded = loader.load_plugins(std::vector<PluginMeta> {make_static_meta()}, ops);
-        ASSERT_EQ(loaded.size(), 1u);
-        EXPECT_NE(loaded[0].instance.get(), nullptr);
+        const bool has_fallback_logger =
+            ::tbx::PluginRegistry::get_instance().find_plugin(
+                std::string(get_stdout_fallback_logger_name()))
+            != nullptr;
+        const size_t expected_count = has_fallback_logger ? 2u : 1u;
+        ASSERT_EQ(loaded.size(), expected_count);
+        auto found_test = std::find_if(
+            loaded.begin(),
+            loaded.end(),
+            [](const LoadedPlugin& plugin)
+            {
+                return plugin.meta.name == "TestStaticPlugin";
+            });
+        ASSERT_NE(found_test, loaded.end());
+        EXPECT_NE(found_test->instance.get(), nullptr);
+
+        // Fallback logging plugin loads only when the static plugin is registered in this binary.
+        if (has_fallback_logger)
+        {
+            auto found_fallback = std::find_if(
+                loaded.begin(),
+                loaded.end(),
+                [](const LoadedPlugin& plugin)
+                {
+                    return plugin.meta.name == get_stdout_fallback_logger_name();
+                });
+            ASSERT_NE(found_fallback, loaded.end());
+        }
     }
 
     TEST(plugin_loader, scans_manifests_using_custom_filesystem)
@@ -194,8 +222,32 @@ namespace tbx::tests::plugin_loader
             std::filesystem::path("virtual"),
             std::vector<std::string> {},
             ops);
-        ASSERT_EQ(loaded.size(), 1u);
-        EXPECT_NE(loaded[0].instance.get(), nullptr);
+        const bool has_fallback_logger =
+            ::tbx::PluginRegistry::get_instance().find_plugin(
+                std::string(get_stdout_fallback_logger_name()))
+            != nullptr;
+        const size_t expected_count = has_fallback_logger ? 2u : 1u;
+        ASSERT_EQ(loaded.size(), expected_count);
+        auto found_test = std::find_if(
+            loaded.begin(),
+            loaded.end(),
+            [](const LoadedPlugin& plugin)
+            {
+                return plugin.meta.name == "TestStaticPlugin";
+            });
+        ASSERT_NE(found_test, loaded.end());
+        EXPECT_NE(found_test->instance.get(), nullptr);
+        if (has_fallback_logger)
+        {
+            auto found_fallback = std::find_if(
+                loaded.begin(),
+                loaded.end(),
+                [](const LoadedPlugin& plugin)
+                {
+                    return plugin.meta.name == get_stdout_fallback_logger_name();
+                });
+            ASSERT_NE(found_fallback, loaded.end());
+        }
     }
 
     TEST(plugin_loader, rejects_plugin_with_mismatched_abi_version)
@@ -217,6 +269,15 @@ namespace tbx::tests::plugin_loader
             std::filesystem::path("virtual"),
             std::vector<std::string> {},
             ops);
-        EXPECT_TRUE(loaded.empty());
+        const bool has_fallback_logger =
+            ::tbx::PluginRegistry::get_instance().find_plugin(
+                std::string(get_stdout_fallback_logger_name()))
+            != nullptr;
+        const size_t expected_count = has_fallback_logger ? 1u : 0u;
+        ASSERT_EQ(loaded.size(), expected_count);
+        if (has_fallback_logger)
+        {
+            EXPECT_EQ(loaded[0].meta.name, get_stdout_fallback_logger_name());
+        }
     }
 }

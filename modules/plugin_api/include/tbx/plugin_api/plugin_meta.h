@@ -35,6 +35,7 @@ namespace tbx
     enum class PluginCategory : uint32
     {
         Default = 0,
+        Logging = 50,
         Input = 100,
         Audio = 200,
         Physics = 300,
