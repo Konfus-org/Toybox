@@ -22,9 +22,7 @@ namespace tbx
     struct LoadAssetRequest : public Request<void>
     {
       public:
-        LoadAssetRequest(
-            const std::filesystem::path& asset_path,
-            TAsset* asset_payload)
+        LoadAssetRequest(const std::filesystem::path& asset_path, TAsset* asset_payload)
             : path(asset_path)
             , asset(asset_payload)
         {
@@ -64,6 +62,11 @@ namespace tbx
         TextureFormat format = TextureFormat::RGBA;
     };
 
-    using LoadModelRequest = LoadAssetRequest<Model>;
-    using LoadAudioRequest = LoadAssetRequest<AudioClip>;
+    struct TBX_API LoadModelRequest : public LoadAssetRequest<Model>
+    {
+    };
+
+    struct TBX_API LoadAudioRequest : public LoadAssetRequest<AudioClip>
+    {
+    };
 }

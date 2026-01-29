@@ -13,7 +13,8 @@ target_link_libraries(AssetLoadAndUseExampleRuntime PRIVATE
     Tbx::Plugins::SpdFileLoggerPlugin
     Tbx::Plugins::SdlWindowingPlugin
     Tbx::Plugins::OpenGlRenderingPlugin
-    Tbx::Plugins::StbImageAssetLoaderPlugin
+    Tbx::Plugins::StbImageLoaderPlugin
+    Tbx::Plugins::AssimpModelLoaderPlugin
 )
 
 tbx_register_plugin(

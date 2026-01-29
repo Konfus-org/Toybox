@@ -3,8 +3,8 @@
 #include "tbx/assets/messages.h"
 #include "tbx/files/filesystem.h"
 #include "tbx/graphics/material.h"
-#include "tbx/graphics/model.h"
 #include "tbx/graphics/mesh.h"
+#include "tbx/graphics/model.h"
 #include "tbx/graphics/vertex.h"
 #include <assimp/Importer.hpp>
 #include <assimp/material.h>
@@ -87,14 +87,12 @@ namespace tbx::plugins
     // Defines the default vertex layout used when creating mesh buffers.
     static VertexBufferLayout get_default_mesh_layout()
     {
-        return {
-            {
-                Vec3(0.0f),
-                RgbaColor(),
-                Vec3(0.0f),
-                Vec2(0.0f),
-            }
-        };
+        return {{
+            Vec3(0.0f),
+            RgbaColor(),
+            Vec3(0.0f),
+            Vec2(0.0f),
+        }};
     }
 
     // Recursively traverses the Assimp node hierarchy to build model parts.
@@ -121,8 +119,8 @@ namespace tbx::plugins
             part.mesh_index = mesh_index;
             // Clamp material index to available materials.
             const uint32 material_index = (mesh_index < mesh_material_indices.size())
-                ? mesh_material_indices[mesh_index]
-                : 0U;
+                                              ? mesh_material_indices[mesh_index]
+                                              : 0U;
             part.material_index = material_index;
             parts.push_back(part);
 
@@ -213,11 +211,8 @@ namespace tbx::plugins
         const std::filesystem::path resolved = resolve_asset_path(request.path);
         assimp::Importer importer;
         // Configure Assimp post-processing for engine-friendly meshes.
-        const unsigned int flags =
-            aiProcess_Triangulate
-            | aiProcess_GenNormals
-            | aiProcess_JoinIdenticalVertices
-            | aiProcess_FlipUVs;
+        const unsigned int flags = aiProcess_Triangulate | aiProcess_GenNormals
+                                   | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs;
         // Load the scene with Assimp.
         const aiScene* scene = importer.ReadFile(resolved.string(), flags);
         if (!scene || !scene->HasMeshes())
@@ -269,10 +264,9 @@ namespace tbx::plugins
             }
 
             // Clamp material index to available materials.
-            const uint32 material_index =
-                (mesh->mMaterialIndex < materials.size())
-                ? static_cast<uint32>(mesh->mMaterialIndex)
-                : 0U;
+            const uint32 material_index = (mesh->mMaterialIndex < materials.size())
+                                              ? static_cast<uint32>(mesh->mMaterialIndex)
+                                              : 0U;
             mesh_material_indices.push_back(material_index);
             const RgbaColor material_color = materials.at(material_index).color;
 
