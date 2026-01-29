@@ -3,7 +3,8 @@
 namespace tbx
 {
     Result::Result()
-        : _success(std::make_shared<bool>(true))
+        // Default to failure so unhandled messages start with an explicit non-success state.
+        : _success(std::make_shared<bool>(false))
         , _report(std::make_shared<std::string>())
     {
     }
