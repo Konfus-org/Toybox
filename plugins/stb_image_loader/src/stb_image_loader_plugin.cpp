@@ -24,17 +24,17 @@ namespace tbx::plugins
         return message;
     }
 
-    void StbImageAssetLoaderPlugin::on_attach(Application& host)
+    void StbImageLoaderPlugin::on_attach(Application& host)
     {
         _filesystem = &host.get_filesystem();
     }
 
-    void StbImageAssetLoaderPlugin::on_detach()
+    void StbImageLoaderPlugin::on_detach()
     {
         _filesystem = nullptr;
     }
 
-    void StbImageAssetLoaderPlugin::on_recieve_message(Message& msg)
+    void StbImageLoaderPlugin::on_recieve_message(Message& msg)
     {
         auto* request = handle_message<LoadTextureRequest>(msg);
         if (!request)
@@ -45,7 +45,7 @@ namespace tbx::plugins
         on_load_texture_request(*request);
     }
 
-    void StbImageAssetLoaderPlugin::on_load_texture_request(LoadTextureRequest& request)
+    void StbImageLoaderPlugin::on_load_texture_request(LoadTextureRequest& request)
     {
         auto* asset = request.asset;
         if (!asset)
@@ -99,7 +99,7 @@ namespace tbx::plugins
         request.state = MessageState::Handled;
     }
 
-    std::filesystem::path StbImageAssetLoaderPlugin::resolve_asset_path(
+    std::filesystem::path StbImageLoaderPlugin::resolve_asset_path(
         const std::filesystem::path& path) const
     {
         if (path.is_absolute() || !_filesystem)

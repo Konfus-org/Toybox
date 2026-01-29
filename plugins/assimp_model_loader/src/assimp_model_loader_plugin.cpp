@@ -209,7 +209,7 @@ namespace tbx::plugins
 
         // Resolve the file path against the assets directory.
         const std::filesystem::path resolved = resolve_asset_path(request.path);
-        assimp::Importer importer;
+        Assimp::Importer importer;
         // Configure Assimp post-processing for engine-friendly meshes.
         const unsigned int flags = aiProcess_Triangulate | aiProcess_GenNormals
                                    | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs;
