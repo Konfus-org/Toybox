@@ -122,46 +122,27 @@ namespace tbx::plugins
 
     void OpenGlRenderingPlugin::on_recieve_message(Message& msg)
     {
-        if (on_message(
-                msg,
-                [this](WindowContextReadyEvent& event)
-                {
-                    handle_window_ready(event);
-                }))
+        if (auto* ready_event = handle_message<WindowContextReadyEvent>(msg))
         {
+            handle_window_ready(*ready_event);
             return;
         }
 
-        if (on_property_changed(
-                msg,
-                &Window::is_open,
-                [this](PropertyChangedEvent<Window, bool>& event)
-                {
-                    handle_window_open_changed(event);
-                }))
+        if (auto* open_event = handle_property_changed<&Window::is_open>(msg))
         {
+            handle_window_open_changed(*open_event);
             return;
         }
 
-        if (on_property_changed(
-                msg,
-                &Window::size,
-                [this](PropertyChangedEvent<Window, Size>& event)
-                {
-                    handle_window_resized(event);
-                }))
+        if (auto* size_event = handle_property_changed<&Window::size>(msg))
         {
+            handle_window_resized(*size_event);
             return;
         }
 
-        if (on_property_changed(
-                msg,
-                &AppSettings::resolution,
-                [this](PropertyChangedEvent<AppSettings, Size>& event)
-                {
-                    handle_resolution_changed(event);
-                }))
+        if (auto* resolution_event = handle_property_changed<&AppSettings::resolution>(msg))
         {
+            handle_resolution_changed(*resolution_event);
             return;
         }
     }

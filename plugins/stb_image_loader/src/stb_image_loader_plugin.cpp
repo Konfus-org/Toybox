@@ -36,12 +36,13 @@ namespace tbx::plugins
 
     void StbImageAssetLoaderPlugin::on_recieve_message(Message& msg)
     {
-        on_message(
-            msg,
-            [this](LoadTextureRequest& request)
-            {
-                on_load_texture_request(request);
-            });
+        auto* request = handle_message<LoadTextureRequest>(msg);
+        if (!request)
+        {
+            return;
+        }
+
+        on_load_texture_request(*request);
     }
 
     void StbImageAssetLoaderPlugin::on_load_texture_request(LoadTextureRequest& request)

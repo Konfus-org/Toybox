@@ -205,25 +205,17 @@ namespace tbx
 
     void Application::recieve_message(Message& msg)
     {
-        if (on_message(
-                msg,
-                [this](ExitApplicationRequest& r)
-                {
-                    _should_exit = true;
-                    r.state = MessageState::Handled;
-                }))
+        if (auto* exit_request = handle_message<ExitApplicationRequest>(msg))
         {
+            _should_exit = true;
+            exit_request->state = MessageState::Handled;
             return;
         }
-        if (on_property_changed(
-                msg,
-                &Window::is_open,
-                [this](const PropertyChangedEvent<Window, bool>& e)
-                {
-                    if (e.owner == &_main_window && !e.current)
-                        _should_exit = true;
-                }))
+
+        if (auto* open_event = handle_property_changed<&Window::is_open>(msg))
         {
+            if (open_event->owner == &_main_window && !open_event->current)
+                _should_exit = true;
             return;
         }
     }

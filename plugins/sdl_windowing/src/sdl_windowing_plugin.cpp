@@ -222,100 +222,67 @@ namespace tbx::plugins
 
     void SdlWindowingPlugin::on_recieve_message(Message& msg)
     {
-        if (on_message(
-                msg,
-                [this](WindowMakeCurrentRequest& request)
-                {
-                    on_window_make_current(request);
-                }))
+        if (auto* make_current = handle_message<WindowMakeCurrentRequest>(msg))
         {
+            on_window_make_current(*make_current);
             return;
         }
 
-        if (on_message(
-                msg,
-                [this](WindowPresentRequest& request)
-                {
-                    on_window_present(request);
-                }))
+        if (auto* present_request = handle_message<WindowPresentRequest>(msg))
         {
+            on_window_present(*present_request);
             return;
         }
 
         // Graphics api changed
-        if (on_property_changed(
-                msg,
-                &AppSettings::graphics_api,
-                [this](PropertyChangedEvent<AppSettings, GraphicsApi>& event)
-                {
-                    _use_opengl = event.current == GraphicsApi::OpenGL;
-
-                    // Recreate all windows with new graphics api
-                    for (auto& record : _windows)
-                    {
-                        // Destory old SDL window
-                        destroy_gl_context(record);
-                        SDL_DestroyWindow(record.sdl_window);
-                        record.sdl_window = nullptr;
-                        record.gl_context = nullptr;
-
-                        // Create new SDL window
-                        Window* window = record.tbx_window;
-                        SDL_Window* native = create_sdl_window(window, _use_opengl);
-                        record.sdl_window = native;
-                        if (_use_opengl)
-                            record.gl_context = create_gl_context(native, window);
-                    }
-                }))
+        if (auto* graphics_event = handle_property_changed<&AppSettings::graphics_api>(msg))
         {
+            _use_opengl = graphics_event->current == GraphicsApi::OpenGL;
+
+            // Recreate all windows with new graphics api
+            for (auto& record : _windows)
+            {
+                // Destory old SDL window
+                destroy_gl_context(record);
+                SDL_DestroyWindow(record.sdl_window);
+                record.sdl_window = nullptr;
+                record.gl_context = nullptr;
+
+                // Create new SDL window
+                Window* window = record.tbx_window;
+                SDL_Window* native = create_sdl_window(window, _use_opengl);
+                record.sdl_window = native;
+                if (_use_opengl)
+                    record.gl_context = create_gl_context(native, window);
+            }
             return;
         }
 
         // Window closed
-        if (on_property_changed(
-                msg,
-                &Window::is_open,
-                [this](PropertyChangedEvent<Window, bool>& event)
-                {
-                    on_window_is_open_changed(event);
-                }))
+        if (auto* open_event = handle_property_changed<&Window::is_open>(msg))
         {
+            on_window_is_open_changed(*open_event);
             return;
         }
 
         // Window resized
-        if (on_property_changed(
-                msg,
-                &Window::size,
-                [this](PropertyChangedEvent<Window, Size>& event)
-                {
-                    on_window_size_changed(event);
-                }))
+        if (auto* size_event = handle_property_changed<&Window::size>(msg))
         {
+            on_window_size_changed(*size_event);
             return;
         }
 
         // Window mode changed
-        if (on_property_changed(
-                msg,
-                &Window::mode,
-                [this](PropertyChangedEvent<Window, WindowMode>& event)
-                {
-                    on_window_mode_changed(event);
-                }))
+        if (auto* mode_event = handle_property_changed<&Window::mode>(msg))
         {
+            on_window_mode_changed(*mode_event);
             return;
         }
 
         // Window name changed
-        if (on_property_changed(
-                msg,
-                &Window::title,
-                [this](PropertyChangedEvent<Window, std::string>& event)
-                {
-                    on_window_title_changed(event);
-                }))
+        if (auto* title_event = handle_property_changed<&Window::title>(msg))
         {
+            on_window_title_changed(*title_event);
             return;
         }
     }
