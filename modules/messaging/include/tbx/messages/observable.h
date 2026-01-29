@@ -114,39 +114,76 @@ namespace tbx
         Observable<TOwner, TProp> TOwner::* _member = nullptr;
     };
 
-    // Helper to handle property changed events
-    template <typename TOwner, typename TProp, typename Handler>
-    bool on_property_changed(
-        Message& msg,
-        Observable<TOwner, TProp> TOwner::* property,
-        Handler&& handler)
+    /// <summary>
+    /// Purpose: Extracts the owner and property types from an observable member pointer.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Type-only helper; no runtime ownership or storage.
+    /// Thread Safety: Not applicable; compile-time only.
+    /// </remarks>
+    template <auto TMember>
+    struct ObservableMemberTraits;
+
+    /// <summary>
+    /// Purpose: Provides typed information for observable member pointers.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Type-only helper; no runtime ownership or storage.
+    /// Thread Safety: Not applicable; compile-time only.
+    /// </remarks>
+    template <typename TOwner, typename TProp, Observable<TOwner, TProp> TOwner::* TMember>
+    struct ObservableMemberTraits<TMember>
     {
-        if (auto* typed = dynamic_cast<PropertyChangedEvent<TOwner, TProp>*>(&msg))
+        using Owner = TOwner;
+        using Property = TProp;
+        static constexpr Observable<TOwner, TProp> TOwner::* member = TMember;
+    };
+
+    /// <summary>
+    /// Purpose: Attempts to retrieve a property changed event for a specific observable member.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Non-owning; the output pointer borrows from the input message.
+    /// Thread Safety: Matches the caller's context. No synchronization is applied.
+    /// </remarks>
+    template <auto TMember>
+    PropertyChangedEvent<
+        typename ObservableMemberTraits<TMember>::Owner,
+        typename ObservableMemberTraits<TMember>::Property>*
+        handle_property_changed(Message& msg)
+    {
+        using Traits = ObservableMemberTraits<TMember>;
+        auto* typed = handle_message<
+            PropertyChangedEvent<typename Traits::Owner, typename Traits::Property>>(msg);
+        if (!typed || typed->member != Traits::member)
         {
-            if (typed->member == property)
-            {
-                handler(*typed);
-                return true;
-            }
+            return nullptr;
         }
-        return false;
+
+        return typed;
     }
 
-    // Helper to handle property changed events
-    template <typename TOwner, typename TProp, typename Handler>
-    bool on_property_changed(
-        const Message& msg,
-        Observable<TOwner, TProp> TOwner::* property,
-        Handler&& handler)
+    /// <summary>
+    /// Purpose: Attempts to retrieve a property changed event for a specific observable member.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Non-owning; the output pointer borrows from the input message.
+    /// Thread Safety: Matches the caller's context. No synchronization is applied.
+    /// </remarks>
+    template <auto TMember>
+    const PropertyChangedEvent<
+        typename ObservableMemberTraits<TMember>::Owner,
+        typename ObservableMemberTraits<TMember>::Property>*
+        handle_property_changed(const Message& msg)
     {
-        if (const auto* typed = dynamic_cast<const PropertyChangedEvent<TOwner, TProp>*>(&msg))
+        using Traits = ObservableMemberTraits<TMember>;
+        const auto* typed = handle_message<
+            PropertyChangedEvent<typename Traits::Owner, typename Traits::Property>>(msg);
+        if (!typed || typed->member != Traits::member)
         {
-            if (typed->member == property)
-            {
-                handler(*typed);
-                return true;
-            }
+            return nullptr;
         }
-        return false;
+
+        return typed;
     }
 }

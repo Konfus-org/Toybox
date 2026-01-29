@@ -300,25 +300,27 @@ namespace tbx::tests::app
         d.add_handler(
             [](Message& message)
             {
-                on_message(
-                    message,
-                    [](Request<int>& request)
-                    {
-                        request.state = MessageState::Handled;
-                        request.result = 123;
-                    });
+                auto* request = handle_message<Request<int>>(message);
+                if (!request)
+                {
+                    return;
+                }
+
+                request->state = MessageState::Handled;
+                request->result = 123;
             });
 
         Request<int> msg;
         int payload_value = 0;
         msg.callbacks.on_processed = [&](const Message& processed)
         {
-            on_message(
-                processed,
-                [&](const Request<int>& request)
-                {
-                    payload_value = request.result;
-                });
+            auto* request = handle_message<Request<int>>(processed);
+            if (!request)
+            {
+                return;
+            }
+
+            payload_value = request->result;
         };
 
         auto result = d.send(msg);
@@ -335,25 +337,27 @@ namespace tbx::tests::app
         d.add_handler(
             [](Message& message)
             {
-                on_message(
-                    message,
-                    [](Request<std::string>& request)
-                    {
-                        request.state = MessageState::Handled;
-                        request.result = std::string("ready");
-                    });
+                auto* request = handle_message<Request<std::string>>(message);
+                if (!request)
+                {
+                    return;
+                }
+
+                request->state = MessageState::Handled;
+                request->result = std::string("ready");
             });
 
         Request<std::string> msg;
         std::string processed_payload;
         msg.callbacks.on_processed = [&](const Message& processed)
         {
-            on_message(
-                processed,
-                [&](const Request<std::string>& request)
-                {
-                    processed_payload = request.result;
-                });
+            auto* request = handle_message<Request<std::string>>(processed);
+            if (!request)
+            {
+                return;
+            }
+
+            processed_payload = request->result;
         };
         auto future = d.post(msg);
 

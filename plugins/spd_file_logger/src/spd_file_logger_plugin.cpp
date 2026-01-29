@@ -27,34 +27,32 @@ namespace tbx::plugins
 
     void SpdFileLoggerPlugin::on_recieve_message(Message& msg)
     {
-        on_message(
-            msg,
-            [this](LogMessageRequest& log)
-            {
-                const std::string filename = log.file.filename().string();
-                const char* filename_cstr = filename.c_str();
-                switch (log.level)
-                {
-                    case LogLevel::Info:
-                        _logger
-                            ->info("[{}:{}] {}", filename_cstr, log.line, log.message);
-                        break;
-                    case LogLevel::Warning:
-                        _logger
-                            ->warn("[{}:{}] {}", filename_cstr, log.line, log.message);
-                        break;
-                    case LogLevel::Error:
-                        _logger
-                            ->error("[{}:{}] {}", filename_cstr, log.line, log.message);
-                        break;
-                    case LogLevel::Critical:
-                        _logger->critical(
-                            "[{}:{}] {}",
-                            filename_cstr,
-                            log.line,
-                            log.message);
-                        break;
-                }
-            });
+        auto* log = handle_message<LogMessageRequest>(msg);
+        if (!log)
+        {
+            return;
+        }
+
+        const std::string filename = log->file.filename().string();
+        const char* filename_cstr = filename.c_str();
+        switch (log->level)
+        {
+            case LogLevel::Info:
+                _logger->info("[{}:{}] {}", filename_cstr, log->line, log->message);
+                break;
+            case LogLevel::Warning:
+                _logger->warn("[{}:{}] {}", filename_cstr, log->line, log->message);
+                break;
+            case LogLevel::Error:
+                _logger->error("[{}:{}] {}", filename_cstr, log->line, log->message);
+                break;
+            case LogLevel::Critical:
+                _logger->critical(
+                    "[{}:{}] {}",
+                    filename_cstr,
+                    log->line,
+                    log->message);
+                break;
+        }
     }
 }
