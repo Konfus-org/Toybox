@@ -37,7 +37,7 @@ if(MSVC)
   add_compile_options("/Zc:preprocessor")
   add_compile_options("/MP")
   add_compile_options("/GR")
-  add_link_options("/INCREMENTAL")
+  add_link_options("$<$<CONFIG:Debug>:/INCREMENTAL>")
 endif()
 
 # Libs and projects
