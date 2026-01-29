@@ -17,7 +17,7 @@ namespace tbx::plugins
     /// Ownership: Plugin lifetime is owned by the host; it keeps non-owning references to the host.
     /// Thread Safety: Handles asset messages on the dispatcher thread; no internal synchronization.
     /// </remarks>
-    class StbImageAssetLoaderPlugin final : public Plugin
+    class StbImageLoaderPlugin final : public Plugin
     {
       public:
         /// <summary>

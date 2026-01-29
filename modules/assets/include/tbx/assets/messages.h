@@ -62,11 +62,37 @@ namespace tbx
         TextureFormat format = TextureFormat::RGBA;
     };
 
+    /// <summary>
+    /// Purpose: Message requesting that a model payload be loaded.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: The model pointer is non-owning and owned by the caller.
+    /// Thread Safety: Payload access requires external synchronization.
+    /// </remarks>
     struct TBX_API LoadModelRequest : public LoadAssetRequest<Model>
     {
+      public:
+        LoadModelRequest(const std::filesystem::path& asset_path, Model* asset_payload)
+            : LoadAssetRequest<Model>(asset_path, asset_payload)
+        {
+        }
     };
 
+    /// <summary>
+    /// Purpose: Message requesting that an audio clip payload be loaded.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: The audio clip pointer is non-owning and owned by the caller.
+    /// Thread Safety: Payload access requires external synchronization.
+    /// </remarks>
     struct TBX_API LoadAudioRequest : public LoadAssetRequest<AudioClip>
     {
+      public:
+        LoadAudioRequest(
+            const std::filesystem::path& asset_path,
+            AudioClip* asset_payload)
+            : LoadAssetRequest<AudioClip>(asset_path, asset_payload)
+        {
+        }
     };
 }
