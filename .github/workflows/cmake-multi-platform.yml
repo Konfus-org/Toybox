@@ -12,6 +12,10 @@ on:
     paths-ignore:
       - '.github/labeler.yml'
       - '**/*.md'
+      
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
