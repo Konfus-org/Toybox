@@ -1,5 +1,12 @@
 set(CMAKE_FOLDER "third party")
 
+# Silence warnings from third-party libraries to keep engine builds clean.
+if (MSVC)
+    add_compile_options(/W0)
+else()
+    add_compile_options(-w)
+endif()
+
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
 set(SDL_TESTS OFF CACHE BOOL "" FORCE)
 set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)

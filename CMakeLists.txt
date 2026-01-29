@@ -32,6 +32,7 @@ add_compile_definitions(
 
 # Global configs
 enable_testing()
+set(CTEST_TEST_TIMEOUT 120)
 
 if(MSVC)
   add_compile_options("/Zc:preprocessor")

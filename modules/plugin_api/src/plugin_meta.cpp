@@ -50,6 +50,11 @@ namespace tbx
             out_category = PluginCategory::Default;
             return true;
         }
+        if (token == "logging")
+        {
+            out_category = PluginCategory::Logging;
+            return true;
+        }
         if (token == "input")
         {
             out_category = PluginCategory::Input;

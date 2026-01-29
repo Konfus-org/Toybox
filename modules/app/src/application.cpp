@@ -8,6 +8,8 @@
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/plugin_api/plugin_registry.h"
 #include "tbx/time/delta_time.h"
+#include <algorithm>
+#include <iterator>
 
 namespace tbx
 {
@@ -181,12 +183,37 @@ namespace tbx
 
             for (auto& plugin : _loaded)
             {
-                plugin.detach(*this, _name, _msg_coordinator);
+                if (plugin.meta.category != PluginCategory::Logging)
+                {
+                    plugin.detach(*this, _name, _msg_coordinator);
+                }
+            }
+
+            for (auto& plugin : _loaded)
+            {
+                if (plugin.meta.category == PluginCategory::Logging)
+                {
+                    plugin.detach(*this, _name, _msg_coordinator);
+                }
             }
 
             // Order matters: reset EntityManager before unloading plugin list.
             _entity_manager.destroy_all();
+            // Partition and destroy logging plugins after non-logging plugins to keep logging alive.
+            auto logging_start = std::stable_partition(
+                _loaded.begin(),
+                _loaded.end(),
+                [](const LoadedPlugin& plugin)
+                {
+                    return plugin.meta.category != PluginCategory::Logging;
+                });
+
+            std::vector<LoadedPlugin> logging_plugins(
+                std::make_move_iterator(logging_start),
+                std::make_move_iterator(_loaded.end()));
+            _loaded.erase(logging_start, _loaded.end());
             _loaded.clear();
+            logging_plugins.clear();
             _msg_coordinator.process_posts();
             _msg_coordinator.clear_handlers();
             _asset_manager.cleanup();
