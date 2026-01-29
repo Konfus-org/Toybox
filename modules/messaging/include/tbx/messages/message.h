@@ -18,10 +18,10 @@ namespace tbx
 
     struct TBX_API MessageCallbacks
     {
-        Callback<const Message&> on_error;
-        Callback<const Message&> on_cancelled;
-        Callback<const Message&> on_processed;
-        Callback<const Message&> on_timeout;
+        std::function<void(const Message&)> on_error;
+        std::function<void(const Message&)> on_cancelled;
+        std::function<void(const Message&)> on_processed;
+        std::function<void(const Message&)> on_timeout;
     };
 
     // Base polymorphic message type for dispatching.
