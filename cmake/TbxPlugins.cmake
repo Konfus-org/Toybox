@@ -68,7 +68,7 @@ endfunction()
 #   MODULE        - Optional override for module/manifest output directory.
 #   DEPENDENCIES      - Additional dependency identifiers to record.
 #   STATIC            - Flag indicating the plugin is statically linked.
-#   CATEGORY   - Optional update category (default, input, audio, physics, rendering, gameplay).
+    #   CATEGORY   - Optional update category (default, logging, input, audio, physics, rendering, gameplay).
 #   PRIORITY   - Optional update priority integer (lower updates first).
 function(tbx_register_plugin)
     set(options STATIC)
@@ -115,11 +115,11 @@ function(tbx_register_plugin)
     endif()
     string(TOLOWER "${update_category}" update_category)
 
-    set(valid_update_categories default input audio physics rendering gameplay)
+    set(valid_update_categories default logging input audio physics rendering gameplay)
     list(FIND valid_update_categories "${update_category}" update_category_index)
     if(update_category_index EQUAL -1)
         message(FATAL_ERROR
-            "tbx_register_plugin: CATEGORY '${TBX_PLUGIN_CATEGORY}' must be one of: default, input, audio, physics, rendering, gameplay")
+            "tbx_register_plugin: CATEGORY '${TBX_PLUGIN_CATEGORY}' must be one of: default, logging, input, audio, physics, rendering, gameplay")
     endif()
 
     if(DEFINED TBX_PLUGIN_PRIORITY)
