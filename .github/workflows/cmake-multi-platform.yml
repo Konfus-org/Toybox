@@ -63,7 +63,7 @@ jobs:
 
     - name: Set up sccache
       if: runner.os == 'Windows'
-      uses: mozilla-actions/sccache@v0.0.5
+      uses: mozilla-actions/sccache-action@v0.0.4
 
     - name: Cache sccache
       if: runner.os == 'Windows'
@@ -186,7 +186,7 @@ jobs:
 
     - name: Set up sccache
       if: runner.os == 'Windows'
-      uses: mozilla-actions/sccache@v0.0.5
+      uses: mozilla-actions/sccache-action@v0.0.4
 
     - name: Cache sccache
       if: runner.os == 'Windows'
