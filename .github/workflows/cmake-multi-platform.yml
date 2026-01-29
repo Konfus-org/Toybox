@@ -20,6 +20,8 @@ concurrency:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    env:
+      SCCACHE_DIR: ${{ github.workspace }}/sccache
 
     strategy:
       # Use fail-fast for pull requests to surface breakage early.
@@ -37,16 +39,19 @@ jobs:
             build_type: Release
             c_compiler: cl
             cpp_compiler: cl
+            compiler_launcher: sccache
           # Linux build using GCC
           - os: ubuntu-latest
             build_type: Release
             c_compiler: gcc
             cpp_compiler: g++
+            compiler_launcher: ccache
           # Linux build using Clang
           - os: ubuntu-latest
             build_type: Release
             c_compiler: clang
             cpp_compiler: clang++
+            compiler_launcher: ccache
 
     steps:
       
@@ -61,7 +66,29 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y xorg-dev libwayland-dev libxkbcommon-dev
+        sudo apt-get install -y xorg-dev libwayland-dev libxkbcommon-dev ccache
+
+    - name: Set up ccache
+      if: runner.os == 'Linux'
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ccache
+        key: ${{ runner.os }}-ccache-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-ccache-
+
+    - name: Set up sccache
+      if: runner.os == 'Windows'
+      uses: mozilla-actions/sccache@v0.0.5
+
+    - name: Cache sccache
+      if: runner.os == 'Windows'
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.SCCACHE_DIR }}
+        key: ${{ runner.os }}-sccache-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-sccache-
 
     - uses: actions/checkout@v4
       with:
@@ -98,6 +125,8 @@ jobs:
         cmake -B ${{ steps.strings.outputs.build-output-dir }}
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+        -DCMAKE_CXX_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }}
+        -DCMAKE_C_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
         -S ${{ github.workspace }}
 
