@@ -216,8 +216,6 @@ namespace tbx
             // 6. Detach and unload logging plugins
             for (auto& plugin : logging_plugins)
             {
-                if (plugin.meta.category == PluginCategory::Logging)
-                    continue;
                 plugin.detach(*this, _name, _msg_coordinator);
             }
             logging_plugins.clear();
