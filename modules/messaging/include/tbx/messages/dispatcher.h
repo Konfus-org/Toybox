@@ -35,7 +35,7 @@ namespace tbx
             requires std::derived_from<TMessage, Message>
         Result send(TMessage& msg) const
         {
-            return send_impl(static_cast<Message&>(msg));
+            return send(static_cast<Message&>(msg));
         }
 
         /// <summary>
@@ -51,7 +51,7 @@ namespace tbx
         Result send(TArgs&&... args) const
         {
             TMessage msg(std::forward<TArgs>(args)...);
-            return send_impl(msg);
+            return send(msg);
         }
 
         /// <summary>
@@ -65,7 +65,7 @@ namespace tbx
             requires std::derived_from<TMessage, Message>
         std::shared_future<Result> post(const TMessage& msg) const
         {
-            return post_impl(std::make_unique<TMessage>(msg));
+            return post(std::make_unique<TMessage>(msg));
         }
 
         /// <summary>
@@ -81,12 +81,12 @@ namespace tbx
                      && std::is_constructible_v<TMessage, TArgs...>)
         std::shared_future<Result> post(TArgs&&... args) const
         {
-            return post_impl(std::make_unique<TMessage>(std::forward<TArgs>(args)...));
+            return post(std::make_unique<TMessage>(std::forward<TArgs>(args)...));
         }
 
       protected:
-        virtual Result send_impl(Message& msg) const = 0;
-        virtual std::shared_future<Result> post_impl(std::unique_ptr<Message> msg) const = 0;
+        virtual Result send(Message& msg) const = 0;
+        virtual std::shared_future<Result> post(std::unique_ptr<Message> msg) const = 0;
     };
 
     /// <summary>
@@ -132,7 +132,7 @@ namespace tbx
         /// Ownership: The registrar stores the handler by value.
         /// Thread Safety: See class notes.
         /// </remarks>
-        virtual Uuid add_handler(MessageHandler handler) = 0;
+        virtual Uuid register_handler(MessageHandler handler) = 0;
 
         /// <summary>
         /// Purpose: Removes a previously registered handler by token.
@@ -141,7 +141,7 @@ namespace tbx
         /// Ownership: The registrar releases its stored handler for the token.
         /// Thread Safety: See class notes.
         /// </remarks>
-        virtual void remove_handler(const Uuid& token) = 0;
+        virtual void deregister_handler(const Uuid& token) = 0;
 
         /// <summary>
         /// Purpose: Clears all registered handlers.

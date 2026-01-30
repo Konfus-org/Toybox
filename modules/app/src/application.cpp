@@ -130,7 +130,7 @@ namespace tbx
             TBX_TRACE_INFO("Assets Directory: {}", _filesystem.get_assets_directory().string());
 
             // Register internal message handler
-            _msg_coordinator.add_handler(
+            _msg_coordinator.register_handler(
                 [this](Message& msg)
                 {
                     recieve_message(msg);

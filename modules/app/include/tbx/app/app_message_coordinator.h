@@ -30,15 +30,15 @@ namespace tbx
         AppMessageCoordinator(AppMessageCoordinator&&) = delete;
         AppMessageCoordinator& operator=(AppMessageCoordinator&&) = delete;
 
-        Uuid add_handler(MessageHandler handler) override;
-        void remove_handler(const Uuid& token) override;
+        Uuid register_handler(MessageHandler handler) override;
+        void deregister_handler(const Uuid& token) override;
         void clear_handlers() override;
 
         void flush() override;
 
       private:
-        Result send_impl(Message& msg) const override;
-        std::shared_future<Result> post_impl(std::unique_ptr<Message> msg) const override;
+        Result send(Message& msg) const override;
+        std::shared_future<Result> post(std::unique_ptr<Message> msg) const override;
         void dispatch(Message& msg) const;
 
         mutable std::mutex _handlers_mutex;
