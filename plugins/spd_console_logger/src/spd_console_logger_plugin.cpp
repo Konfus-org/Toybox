@@ -5,17 +5,6 @@
 
 namespace tbx::plugins
 {
-    SpdConsoleLoggerPlugin::~SpdConsoleLoggerPlugin() noexcept
-    {
-        _logger->info(
-            "[{}:{}] {}",
-            "spd_console_logger_plugin.cpp",
-            9,
-            "Unloading SpdConsoleLoggerPlugin");
-        _logger->flush();
-        _logger.reset();
-    }
-
     void SpdConsoleLoggerPlugin::on_attach(Application& app)
     {
         auto sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
@@ -24,11 +13,8 @@ namespace tbx::plugins
 
     void SpdConsoleLoggerPlugin::on_detach()
     {
-        _logger->info(
-            "[{}:{}] {}",
-            "spd_console_logger_plugin.cpp",
-            27,
-            "Detaching SpdConsoleLoggerPlugin");
+        _logger->flush();
+        _logger.reset();
     }
 
     void SpdConsoleLoggerPlugin::on_recieve_message(Message& msg)

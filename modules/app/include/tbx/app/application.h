@@ -54,6 +54,7 @@ namespace tbx
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
         AppSettings& get_settings();
+
         /// <summary>
         /// Purpose: Returns the application message dispatcher.
         /// </summary>
@@ -62,6 +63,7 @@ namespace tbx
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
         IMessageDispatcher& get_dispatcher();
+
         /// <summary>
         /// Purpose: Returns the application filesystem service.
         /// </summary>

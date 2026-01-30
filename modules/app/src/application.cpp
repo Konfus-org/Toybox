@@ -213,16 +213,16 @@ namespace tbx
             }
             _loaded.clear();
 
-            // 6. Detach and unload logging plugins
+            // 6. Process any remaining posted messages and clear handlers
+            _msg_coordinator.process_posts();
+            _msg_coordinator.clear_handlers();
+
+            // 6. Detach and unload logging plugins last
             for (auto& plugin : logging_plugins)
             {
                 plugin.detach(*this, _name, _msg_coordinator);
             }
             logging_plugins.clear();
-
-            // 7. Clear message handlers
-            _msg_coordinator.process_posts();
-            _msg_coordinator.clear_handlers();
         }
         catch (const std::exception& ex)
         {
