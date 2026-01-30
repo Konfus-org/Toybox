@@ -111,15 +111,15 @@ jobs:
       run: |
         set -e
         rm -rf "${{ steps.strings.outputs.build-output-dir }}"
-        cmake -B ${{ steps.strings.outputs.build-output-dir }} \
+        cmake -B "${{ steps.strings.outputs.build-output-dir }}" \
           -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
           -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
           -DCMAKE_CXX_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }} \
           -DCMAKE_C_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }} \
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-          -S ${{ github.workspace }}
-        cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
-        cd ${{ steps.strings.outputs.build-output-dir }}
+          -S "${{ github.workspace }}"
+        cmake --build "${{ steps.strings.outputs.build-output-dir }}" --config ${{ matrix.build_type }}
+        cd "${{ steps.strings.outputs.build-output-dir }}"
         ctest --build-config ${{ matrix.build_type }} --output-on-failure
 
     - name: Skip Build (Linux)
@@ -132,16 +132,16 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         set -e
-        rm -rf ${{ steps.strings.outputs.build-output-dir }}
-        cmake -B ${{ steps.strings.outputs.build-output-dir }} \
+        rm -rf "${{ steps.strings.outputs.build-output-dir }}"
+        cmake -B "${{ steps.strings.outputs.build-output-dir }}" \
           -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
           -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
           -DCMAKE_CXX_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }} \
           -DCMAKE_C_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }} \
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-          -S ${{ github.workspace }}
-        cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
-        cd ${{ steps.strings.outputs.build-output-dir }}
+          -S "${{ github.workspace }}"
+        cmake --build "${{ steps.strings.outputs.build-output-dir }}" --config ${{ matrix.build_type }}
+        cd "${{ steps.strings.outputs.build-output-dir }}"
         ctest --build-config ${{ matrix.build_type }} --output-on-failure
 
     - name: Skip Cleanup (Windows)

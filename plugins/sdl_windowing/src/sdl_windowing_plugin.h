@@ -20,7 +20,7 @@ namespace tbx::plugins
     class SdlWindowingPlugin final : public Plugin
     {
       public:
-        void on_attach(Application& host) override;
+        void on_attach(IPluginHost& host) override;
         void on_detach() override;
         void on_update(const DeltaTime& dt) override;
         void on_recieve_message(Message& msg) override;

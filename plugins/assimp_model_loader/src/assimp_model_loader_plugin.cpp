@@ -1,5 +1,4 @@
 #include "assimp_model_loader_plugin.h"
-#include "tbx/app/application.h"
 #include "tbx/assets/messages.h"
 #include "tbx/files/filesystem.h"
 #include "tbx/graphics/material.h"
@@ -157,7 +156,7 @@ namespace tbx::plugins
     }
 
     // Captures a filesystem reference for asset resolution.
-    void AssimpModelLoaderPlugin::on_attach(Application& host)
+    void AssimpModelLoaderPlugin::on_attach(IPluginHost& host)
     {
         _filesystem = &host.get_filesystem();
     }

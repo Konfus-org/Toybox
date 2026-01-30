@@ -39,7 +39,7 @@ namespace tbx::plugins
         }
     }
 
-    void SdlAdapterPlugin::on_attach(Application&)
+    void SdlAdapterPlugin::on_attach(IPluginHost&)
     {
         SDL_SetLogOutputFunction(
             [](void* userdata, int category, SDL_LogPriority priority, const char* message)

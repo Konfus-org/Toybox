@@ -7,6 +7,7 @@
 #include "tbx/graphics/graphics_api.h"
 #include "tbx/graphics/window.h"
 #include "tbx/plugin_api/loaded_plugin.h"
+#include "tbx/plugin_api/plugin_host.h"
 #include "tbx/time/delta_time.h"
 #include <cstddef>
 #include <string>
@@ -23,7 +24,7 @@ namespace tbx
         Observable<AppSettings, Size> resolution;
     };
 
-    class TBX_API Application
+    class TBX_API Application : public IPluginHost
     {
       public:
         Application(const AppDescription& desc);
@@ -45,7 +46,7 @@ namespace tbx
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
-        const std::string& get_name() const;
+        const std::string& get_name() const override;
         /// <summary>
         /// Purpose: Returns the mutable application settings.
         /// </summary>
@@ -53,7 +54,7 @@ namespace tbx
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
-        AppSettings& get_settings();
+        AppSettings& get_settings() override;
 
         /// <summary>
         /// Purpose: Returns the application message dispatcher.
@@ -62,7 +63,25 @@ namespace tbx
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
-        IMessageDispatcher& get_dispatcher();
+        IMessageDispatcher& get_dispatcher() override;
+
+        /// <summary>
+        /// Purpose: Returns the application message handler registrar.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a reference owned by the application.
+        /// Thread Safety: Not thread-safe; synchronize access externally.
+        /// </remarks>
+        IMessageHandlerRegistrar& get_message_registrar() override;
+
+        /// <summary>
+        /// Purpose: Returns the application message queue.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a reference owned by the application.
+        /// Thread Safety: Not thread-safe; synchronize access externally.
+        /// </remarks>
+        IMessageQueue& get_message_queue() override;
 
         /// <summary>
         /// Purpose: Returns the application filesystem service.
@@ -71,7 +90,7 @@ namespace tbx
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
-        IFileSystem& get_filesystem();
+        IFileSystem& get_filesystem() override;
 
         /// <summary>
         /// Purpose: Returns the application entity manager instance.
@@ -80,7 +99,7 @@ namespace tbx
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
-        EntityManager& get_entity_manager();
+        EntityManager& get_entity_manager() override;
 
         /// <summary>
         /// Purpose: Returns the application-owned asset manager.
@@ -89,7 +108,7 @@ namespace tbx
         /// Ownership: The application retains ownership; callers receive a reference.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
-        AssetManager& get_asset_manager();
+        AssetManager& get_asset_manager() override;
 
       private:
         void initialize(const std::vector<std::string>& requested_plugins);

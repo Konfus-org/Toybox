@@ -6,7 +6,7 @@
 
 namespace tbx::examples
 {
-    void ExampleRuntimePlugin::on_attach(Application& context)
+    void ExampleRuntimePlugin::on_attach(IPluginHost& context)
     {
         std::string greeting =
             "Welcome to the plugin example! This plugin just loads a logger and a window.";

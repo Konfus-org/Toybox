@@ -1,5 +1,4 @@
 #include "spd_file_logger_plugin.h"
-#include "tbx/app/application.h"
 #include "tbx/debugging/log_requests.h"
 #include "tbx/debugging/logging.h"
 #include "tbx/debugging/macros.h"
@@ -10,7 +9,7 @@
 
 namespace tbx::plugins
 {
-    void SpdFileLoggerPlugin::on_attach(Application& host)
+    void SpdFileLoggerPlugin::on_attach(IPluginHost& host)
     {
         auto path = Log::open(host.get_filesystem());
         _logger = std::make_shared<spdlog::logger>(

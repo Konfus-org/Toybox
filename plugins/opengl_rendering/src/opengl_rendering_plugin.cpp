@@ -56,7 +56,7 @@ namespace tbx::plugins
         }
     }
 
-    void OpenGlRenderingPlugin::on_attach(Application& host)
+    void OpenGlRenderingPlugin::on_attach(IPluginHost& host)
     {
         _render_resolution = host.get_settings().resolution.value;
     }

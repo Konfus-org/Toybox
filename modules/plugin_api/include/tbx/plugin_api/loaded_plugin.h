@@ -3,15 +3,14 @@
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_meta.h"
 #include "tbx/plugin_api/shared_library.h"
+#include "tbx/plugin_api/plugin_host.h"
 #include "tbx/tbx_api.h"
 #include <functional>
 #include <memory>
 #include <string>
-#include <string_view>
 
 namespace tbx
 {
-    class IMessageHandlerRegistrar;
     using PluginDeleter = std::function<void(Plugin*)>;
     // Represents an owned plugin instance along with its loading metadata
     // and (optionally) the dynamic library used to load it.
@@ -29,13 +28,15 @@ namespace tbx
         LoadedPlugin(LoadedPlugin&&) noexcept = default;
         LoadedPlugin& operator=(LoadedPlugin&&) noexcept = default;
 
-        /// <summary>Purpose: Creates a loaded plugin wrapper and logs the load event.</summary>
+        /// <summary>Purpose: Creates a loaded plugin wrapper and attaches it to the host.</summary>
         /// <remarks>Ownership: Takes ownership of the plugin instance and library.
+        /// The host reference must outlive this LoadedPlugin.
         /// Thread Safety: Not thread-safe.</remarks>
         LoadedPlugin(
             PluginMeta meta_data,
             std::unique_ptr<SharedLibrary> plugin_library,
-            std::unique_ptr<Plugin, PluginDeleter> plugin_instance);
+            std::unique_ptr<Plugin, PluginDeleter> plugin_instance,
+            IPluginHost& host);
 
         /// <summary>Purpose: Releases plugin resources and logs unload details.</summary>
         /// <remarks>Ownership: Frees owned plugin instance/library.
@@ -47,35 +48,13 @@ namespace tbx
         /// Thread Safety: Not thread-safe.</remarks>
         bool is_valid() const;
 
-        /// <summary>
-        /// Purpose: Attaches the plugin to the host and registers its message handler.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Does not own the host or handler registrar; stores a handler token.
-        /// Thread Safety: Not thread-safe; expected to be used on the main thread.
-        /// </remarks>
-        void attach(
-            Application& host,
-            std::string_view host_name,
-            IMessageDispatcher& dispatcher,
-            IMessageHandlerRegistrar& registrar);
-
-        /// <summary>
-        /// Purpose: Detaches the plugin from the host and unregisters its message handler.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Does not own the host or handler remover; clears the handler token.
-        /// Thread Safety: Not thread-safe; expected to be used on the main thread.
-        /// </remarks>
-        void detach(
-            Application& host,
-            std::string_view host_name,
-            IMessageHandlerRegistrar& registrar);
-
         PluginMeta meta;
         std::unique_ptr<SharedLibrary> library; // only set for dynamic plugins
         std::unique_ptr<Plugin, PluginDeleter> instance;
-        Uuid message_handler_token = {}; // Application-owned message handler token.
+
+      private:
+        Uuid message_handler_token = {}; // Host-owned message handler token.
+        IPluginHost* _host = nullptr;
     };
 
     /// <summary>Purpose: Formats a LoadedPlugin summary string.</summary>
