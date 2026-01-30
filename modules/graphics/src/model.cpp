@@ -2,9 +2,24 @@
 
 namespace tbx
 {
-    const std::shared_ptr<Model>& get_default_model()
+    Model::Model()
     {
-        static const std::shared_ptr<Model> model = std::make_shared<Model>();
-        return model;
+        meshes = {quad};
+        materials = {Material()};
+        parts = {ModelPart()};
+    }
+
+    Model::Model(const Mesh& mesh)
+    {
+        meshes = {mesh};
+        materials = {Material()};
+        parts = {ModelPart()};
+    }
+
+    Model::Model(const Mesh& mesh, const Material& material)
+    {
+        meshes = {mesh};
+        materials = {material};
+        parts = {ModelPart()};
     }
 }

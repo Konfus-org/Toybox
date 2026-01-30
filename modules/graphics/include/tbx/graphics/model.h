@@ -36,39 +36,23 @@ namespace tbx
         /// <remarks>Purpose: Initializes the model with a single mesh/material pair and id.
         /// Ownership: Owns the mesh/material/part data by value.
         /// Thread Safety: Safe to construct on any thread.</remarks>
-        Model()
-        {
-            meshes = {Mesh()};
-            materials = {Material()};
-            parts = {ModelPart()};
-        }
+        Model();
 
         /// <summary>Creates a model with a single mesh and default material.</summary>
         /// <remarks>Purpose: Initializes the model with the provided mesh and default material.
         /// Ownership: Owns the mesh/material/part data by value.
         /// Thread Safety: Safe to construct on any thread.</remarks>
-        explicit Model(const Mesh& mesh)
-        {
-            meshes = {mesh};
-            materials = {Material()};
-            parts = {ModelPart()};
-        }
+        Model(const Mesh& mesh);
 
         /// <summary>Creates a model with a single mesh and material.</summary>
         /// <remarks>Purpose: Initializes the model with the provided mesh and material.
         /// Ownership: Owns the mesh/material/part data by value.
         /// Thread Safety: Safe to construct on any thread.</remarks>
-        Model(const Mesh& mesh, const Material& material)
-        {
-            meshes = {mesh};
-            materials = {material};
-            parts = {ModelPart()};
-        }
+        Model(const Mesh& mesh, const Material& material);
 
         std::vector<Mesh> meshes = {};
         std::vector<Material> materials = {};
         std::vector<ModelPart> parts = {};
         Uuid id = Uuid::generate();
     };
-
 }

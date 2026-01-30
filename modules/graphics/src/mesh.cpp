@@ -3,18 +3,6 @@
 
 namespace tbx
 {
-    const Mesh& get_triangle_mesh()
-    {
-        static const Mesh mesh = make_triangle();
-        return mesh;
-    }
-
-    const Mesh& get_quad_mesh()
-    {
-        static const Mesh mesh = make_quad();
-        return mesh;
-    }
-
     Mesh::Mesh()
     {
         Mesh default_quad = make_quad();
@@ -30,92 +18,70 @@ namespace tbx
 
     Mesh make_triangle()
     {
-        const std::vector<Vertex> triangle_mesh_vertices =
-        {
-            Vertex
-            {
+        const std::vector<Vertex> triangle_mesh_vertices = {
+            Vertex {
                 Vec3(-0.5f, -0.5f, 0.0f),
                 Vec3(0.0f, 0.0f, 0.0f),
                 Vec2(0.0f, 0.0f),
-                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)
-            },
-            Vertex
-            {
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)},
+            Vertex {
                 Vec3(0.5f, -0.5f, 0.0f),
                 Vec3(0.0f, 0.0f, 0.0f),
                 Vec2(0.0f, 0.0f),
-                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)
-            },
-            Vertex
-            {
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)},
+            Vertex {
                 Vec3(0.0f, 0.5f, 0.0f),
                 Vec3(0.0f, 0.0f, 0.0f),
                 Vec2(0.0f, 0.0f),
-                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)
-            }
-        };
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)}};
 
-        const IndexBuffer index_buffer = { 0, 1, 2 };
-        const VertexBuffer vertex_buffer =
-        {
+        const IndexBuffer index_buffer = {0, 1, 2};
+        const VertexBuffer vertex_buffer = {
             triangle_mesh_vertices,
             {{
                 Vec3(0.0f),
                 RgbaColor(),
                 Vec3(0.0f),
                 Vec2(0.0f),
-            }}
-        };
+            }}};
 
-        return { vertex_buffer, index_buffer };
+        return {vertex_buffer, index_buffer};
     }
 
     Mesh make_quad()
     {
-        const std::vector<Vertex> quad_mesh_vertices =
-        {
-            Vertex
-            {
+        const std::vector<Vertex> quad_mesh_vertices = {
+            Vertex {
                 Vec3(-0.5f, -0.5f, 0.0f),
                 Vec3(0.0f, 0.0f, 0.0f),
                 Vec2(0.0f, 0.0f),
-                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)
-            },
-            Vertex
-            {
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)},
+            Vertex {
                 Vec3(0.5f, -0.5f, 0.0f),
                 Vec3(0.0f, 0.0f, 0.0f),
                 Vec2(1.0f, 0.0f),
-                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)
-            },
-            Vertex
-            {
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)},
+            Vertex {
                 Vec3(0.5f, 0.5f, 0.0f),
                 Vec3(0.0f, 0.0f, 0.0f),
                 Vec2(1.0f, 1.0f),
-                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)
-            },
-            Vertex
-            {
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)},
+            Vertex {
                 Vec3(-0.5f, 0.5f, 0.0f),
                 Vec3(0.0f, 0.0f, 0.0f),
                 Vec2(0.0f, 1.0f),
-                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)
-            }
-        };
+                RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)}};
 
-        const IndexBuffer index_buffer = { 0, 1, 2, 2, 3, 0 };
-        const VertexBuffer vertex_buffer =
-        {
+        const IndexBuffer index_buffer = {0, 1, 2, 2, 3, 0};
+        const VertexBuffer vertex_buffer = {
             quad_mesh_vertices,
             {{
                 Vec3(0.0f),
                 RgbaColor(),
                 Vec3(0.0f),
                 Vec2(0.0f),
-            }}
-        };
+            }}};
 
-        return { vertex_buffer, index_buffer };
+        return {vertex_buffer, index_buffer};
     }
 }

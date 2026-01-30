@@ -31,16 +31,6 @@ namespace tbx
         Uuid id = Uuid::generate();
     };
 
-    /// <summary>Purpose: Retrieves the shared default shader program instance.</summary>
-    /// <remarks>Ownership: Returns a reference to the default program owned by the module.
-    /// Thread Safety: Safe to call concurrently after static initialization.</remarks>
-    TBX_API const ShaderProgram& get_standard_shader_program();
-
-    /// <summary>Purpose: Provides the shared default shader program instance.</summary>
-    /// <remarks>Ownership: Returns a reference to the default shader program instance.
-    /// Thread Safety: Safe to read concurrently.</remarks>
-    inline const ShaderProgram& standard_shader_program = get_standard_shader_program();
-
     /// <summary>
     /// A shader program with textures.
     /// </summary>
@@ -63,9 +53,7 @@ namespace tbx
             , textures({std::move(texture)})
         {
         }
-        Material(
-            std::vector<Shader> shaders,
-            std::vector<std::shared_ptr<Texture>> textures)
+        Material(std::vector<Shader> shaders, std::vector<std::shared_ptr<Texture>> textures)
             : shader_program(ShaderProgram(shaders))
             , textures(textures)
         {
@@ -81,10 +69,8 @@ namespace tbx
         }
 
         RgbaColor color = {255, 255, 255, 255};
-        ShaderProgram shader_program = get_standard_shader_program();
+        ShaderProgram shader_program = {};
         std::vector<std::shared_ptr<Texture>> textures = {};
         Uuid id = Uuid::generate();
     };
-
-
 }
