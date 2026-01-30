@@ -25,8 +25,7 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently.
         /// </remarks>
         Handle(const char* asset_name)
-            : name(asset_name ? asset_name : "")
-            , id(hash_name(name))
+            : Handle(asset_name ? std::string(asset_name) : std::string())
         {
         }
 
@@ -39,19 +38,6 @@ namespace tbx
         /// </remarks>
         Handle(std::string asset_name)
             : name(std::move(asset_name))
-            , id(hash_name(name))
-        {
-        }
-
-        /// <summary>
-        /// Purpose: Constructs a handle from an asset name.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Copies the provided name into the handle.
-        /// Thread Safety: Safe to call concurrently.
-        /// </remarks>
-        Handle(std::string_view asset_name)
-            : name(asset_name)
             , id(hash_name(name))
         {
         }
