@@ -64,7 +64,7 @@ namespace tbx::plugins
         return native;
     }
 
-    void SdlWindowingPlugin::on_attach(Application& host)
+    void SdlWindowingPlugin::on_attach(IPluginHost& host)
     {
         if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
         {

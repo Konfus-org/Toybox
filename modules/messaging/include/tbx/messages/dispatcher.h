@@ -98,10 +98,10 @@ namespace tbx
     /// Thread Safety: Not required to be thread-safe; expected single-thread usage unless
     /// documented otherwise by an implementation.
     /// </remarks>
-    class TBX_API IPostedMessageProcessor
+    class TBX_API IMessageQueue
     {
       public:
-        virtual ~IPostedMessageProcessor() noexcept = default;
+        virtual ~IMessageQueue() noexcept = default;
 
         /// <summary>
         /// Purpose: Processes all posted messages.
@@ -110,7 +110,7 @@ namespace tbx
         /// Ownership: Does not transfer ownership of queued message storage.
         /// Thread Safety: See class notes.
         /// </remarks>
-        virtual void process_posts() = 0;
+        virtual void flush() = 0;
     };
 
     /// <summary>

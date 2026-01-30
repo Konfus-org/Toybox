@@ -18,7 +18,7 @@ namespace tbx
 
     class TBX_API AppMessageCoordinator final
         : public IMessageDispatcher
-        , public IPostedMessageProcessor
+        , public IMessageQueue
         , public IMessageHandlerRegistrar
     {
       public:
@@ -34,7 +34,7 @@ namespace tbx
         void remove_handler(const Uuid& token) override;
         void clear_handlers() override;
 
-        void process_posts() override;
+        void flush() override;
 
       private:
         Result send_impl(Message& msg) const override;

@@ -10,7 +10,7 @@
 
 namespace tbx::examples
 {
-    void ExampleRuntimePlugin::on_attach(Application& context)
+    void ExampleRuntimePlugin::on_attach(IPluginHost& context)
     {
         _entity_manager = &context.get_entity_manager();
         std::string greeting =

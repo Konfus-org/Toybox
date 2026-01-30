@@ -111,7 +111,7 @@ namespace tbx
     AppMessageCoordinator::AppMessageCoordinator() = default;
     AppMessageCoordinator::~AppMessageCoordinator() noexcept
     {
-        process_posts();
+        flush();
         clear_handlers();
     }
 
@@ -231,7 +231,7 @@ namespace tbx
         return future;
     }
 
-    void AppMessageCoordinator::process_posts()
+    void AppMessageCoordinator::flush()
     {
         std::vector<QueuedMessage> processing;
         {

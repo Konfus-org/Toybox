@@ -13,7 +13,7 @@ namespace tbx::plugins
         SpdFileLoggerPlugin() = default;
         ~SpdFileLoggerPlugin() noexcept override;
 
-        void on_attach(Application& host) override;
+        void on_attach(IPluginHost& host) override;
         void on_detach() override;
         void on_recieve_message(Message& msg) override;
 

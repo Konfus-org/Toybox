@@ -2,6 +2,7 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/message.h"
+#include "tbx/plugin_api/plugin_host.h"
 #include "tbx/plugin_api/plugin_registry.h"
 #include "tbx/time/delta_time.h"
 #include <functional>
@@ -12,8 +13,6 @@
 
 namespace tbx
 {
-    class Application;
-
     // Base type for runtime-loadable plugins. The host owns plugin lifetimes and
     // guarantees that callbacks occur on the main thread unless documented otherwise.
     class TBX_API Plugin
@@ -27,13 +26,13 @@ namespace tbx
         Plugin& operator=(Plugin&&) = default;
 
         /// <summary>
-        /// Purpose: Initializes the plugin, wiring it to the given host and dispatcher.
+        /// Purpose: Initializes the plugin, wiring it to the given host.
         /// </summary>
         /// <remarks>
         /// Ownership: Does not own the host or dispatcher references.
         /// Thread Safety: Not thread-safe; must be called exactly once before use.
         /// </remarks>
-        void attach(Application& host, IMessageDispatcher& dispatcher);
+        void attach(IPluginHost& host);
 
         /// <summary>
         /// Purpose: Shuts the plugin down and clears host/dispatcher references.
@@ -101,7 +100,7 @@ namespace tbx
       protected:
         // Called when the plugin is attached to the host.
         // The plugin must not retain references that outlive its own lifetime.
-        virtual void on_attach(Application& host) = 0;
+        virtual void on_attach(IPluginHost& host) = 0;
 
         // Called before the plugin is detached from the host.
         virtual void on_detach() {}
@@ -115,14 +114,14 @@ namespace tbx
         // Non-owning dispatcher reference provided by the host.
         IMessageDispatcher& get_dispatcher() const;
 
-        // Non-owning reference to the host Application.
-        Application& get_host() const;
+        // Non-owning reference to the host interface.
+        IPluginHost& get_host() const;
 
       private:
         static Result dispatcher_missing_result(std::string_view action);
 
         IMessageDispatcher* _dispatcher = nullptr;
-        Application* _host = nullptr;
+        IPluginHost* _host = nullptr;
     };
 
     using CreatePluginFn = Plugin* (*)();
