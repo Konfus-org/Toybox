@@ -34,9 +34,9 @@ namespace tbx
     }
 
     template <>
-    struct AssetAsyncLoader<TestAsset>
+    struct AssetLoader<TestAsset>
     {
-        static AssetPromise<TestAsset> load(const std::filesystem::path&)
+        static AssetPromise<TestAsset> load_async(const std::filesystem::path&)
         {
             auto& state = get_test_asset_loader_state();
             AssetPromise<TestAsset> promise = {};
@@ -57,6 +57,18 @@ namespace tbx
             promise.promise = state.completion->get_future().share();
             return promise;
         }
+
+        static std::shared_ptr<TestAsset> load(const std::filesystem::path&)
+        {
+            auto& state = get_test_asset_loader_state();
+            if (state.asset)
+            {
+                return state.asset;
+            }
+
+            state.asset = std::make_shared<TestAsset>();
+            return state.asset;
+        }
     };
 }
 
@@ -75,12 +87,12 @@ namespace tbx::tests::assets
         reset_test_asset_loader_state();
         AssetManager manager(file_system);
         AssetHandle path_handle(std::filesystem::path("stone.asset"));
-        auto asset = manager.request<TestAsset>(path_handle);
+        auto asset = manager.load<TestAsset>(path_handle);
 
         ASSERT_NE(asset, nullptr);
         asset->value = 42;
 
-        auto by_path = manager.get<TestAsset>(path_handle);
+        auto by_path = manager.load<TestAsset>(path_handle);
         ASSERT_NE(by_path, nullptr);
         EXPECT_EQ(by_path->value, 42);
 
@@ -101,13 +113,13 @@ namespace tbx::tests::assets
         reset_test_asset_loader_state();
         AssetManager manager(file_system);
         AssetHandle path_handle(std::filesystem::path("ore.asset"));
-        auto asset = manager.request<TestAsset>(path_handle);
+        auto asset = manager.load<TestAsset>(path_handle);
 
         ASSERT_NE(asset, nullptr);
         asset->value = 84;
 
         AssetHandle id_handle(Uuid(0x2fU));
-        auto by_id = manager.get<TestAsset>(id_handle);
+        auto by_id = manager.load<TestAsset>(id_handle);
         ASSERT_NE(by_id, nullptr);
         EXPECT_EQ(by_id->value, 84);
 
@@ -128,16 +140,16 @@ namespace tbx::tests::assets
         reset_test_asset_loader_state();
         AssetManager manager(file_system);
         AssetHandle handle(std::filesystem::path("crate.asset"));
-        auto streamed_in = manager.stream_in<TestAsset>(handle);
+        auto streamed_in = manager.load_async<TestAsset>(handle);
 
-        ASSERT_NE(streamed_in, nullptr);
+        ASSERT_NE(streamed_in.asset, nullptr);
         manager.set_pinned<TestAsset>(handle, true);
-        EXPECT_FALSE(manager.stream_out<TestAsset>(handle));
+        EXPECT_FALSE(manager.unload<TestAsset>(handle));
 
         manager.set_pinned<TestAsset>(handle, false);
-        streamed_in.reset();
+        streamed_in.asset.reset();
 
-        EXPECT_TRUE(manager.stream_out<TestAsset>(handle));
+        EXPECT_TRUE(manager.unload<TestAsset>(handle));
     }
 
     TEST(asset_manager, streams_in_async_and_updates_payload)
@@ -156,10 +168,10 @@ namespace tbx::tests::assets
 
         AssetManager manager(file_system);
         AssetHandle handle(std::filesystem::path("async.asset"));
-        auto streamed_in = manager.stream_in<TestAsset>(handle);
+        auto streamed_in = manager.load_async<TestAsset>(handle);
 
-        ASSERT_NE(streamed_in, nullptr);
-        EXPECT_EQ(streamed_in->value, 0);
+        ASSERT_NE(streamed_in.asset, nullptr);
+        EXPECT_EQ(streamed_in.asset->value, 0);
 
         loader_state.asset->value = 99;
         Result result;
@@ -168,6 +180,6 @@ namespace tbx::tests::assets
 
         AssetUsage usage = manager.get_usage<TestAsset>(handle);
         EXPECT_EQ(usage.stream_state, AssetStreamState::Loaded);
-        EXPECT_EQ(streamed_in->value, 99);
+        EXPECT_EQ(streamed_in.asset->value, 99);
     }
 }

@@ -2,23 +2,30 @@
 #include "tbx/assets/assets.h"
 #include "tbx/assets/audio_assets.h"
 #include "tbx/assets/model_assets.h"
+#include "tbx/assets/shader_assets.h"
 #include "tbx/assets/texture_assets.h"
 
 namespace tbx
 {
     /// <summary>
-    /// Purpose: Selects the asynchronous loader for a given asset type.
+    /// Purpose: Selects the loader endpoints for a given asset type.
     /// </summary>
     /// <remarks>
-    /// Ownership: Returns an AssetPromise that shares ownership with the caller.
+    /// Ownership: Returns AssetPromise or shared asset pointers owned by the caller.
     /// Thread Safety: Safe to call concurrently; delegates to thread-safe loaders.
     /// </remarks>
     template <typename TAsset>
-    struct AssetAsyncLoader
+    struct AssetLoader
     {
-        static AssetPromise<TAsset> load(const std::filesystem::path& asset_path)
+        static AssetPromise<TAsset> load_async(const std::filesystem::path& asset_path)
         {
             static_assert(sizeof(TAsset) == 0, "No async asset loader registered for this type.");
+            return load_async(asset_path);
+        }
+
+        static std::shared_ptr<TAsset> load(const std::filesystem::path& asset_path)
+        {
+            static_assert(sizeof(TAsset) == 0, "No asset loader registered for this type.");
             return load(asset_path);
         }
     };
@@ -31,11 +38,16 @@ namespace tbx
     /// Thread Safety: Safe to call concurrently.
     /// </remarks>
     template <>
-    struct AssetAsyncLoader<Model>
+    struct AssetLoader<Model>
     {
-        static AssetPromise<Model> load(const std::filesystem::path& asset_path)
+        static AssetPromise<Model> load_async(const std::filesystem::path& asset_path)
         {
             return load_model_async(asset_path);
+        }
+
+        static std::shared_ptr<Model> load(const std::filesystem::path& asset_path)
+        {
+            return load_model(asset_path);
         }
     };
 
@@ -47,11 +59,16 @@ namespace tbx
     /// Thread Safety: Safe to call concurrently.
     /// </remarks>
     template <>
-    struct AssetAsyncLoader<Texture>
+    struct AssetLoader<Texture>
     {
-        static AssetPromise<Texture> load(const std::filesystem::path& asset_path)
+        static AssetPromise<Texture> load_async(const std::filesystem::path& asset_path)
         {
             return load_texture_async(asset_path);
+        }
+
+        static std::shared_ptr<Texture> load(const std::filesystem::path& asset_path)
+        {
+            return load_texture(asset_path);
         }
     };
 
@@ -63,11 +80,37 @@ namespace tbx
     /// Thread Safety: Safe to call concurrently.
     /// </remarks>
     template <>
-    struct AssetAsyncLoader<AudioClip>
+    struct AssetLoader<AudioClip>
     {
-        static AssetPromise<AudioClip> load(const std::filesystem::path& asset_path)
+        static AssetPromise<AudioClip> load_async(const std::filesystem::path& asset_path)
         {
             return load_audio_async(asset_path);
+        }
+
+        static std::shared_ptr<AudioClip> load(const std::filesystem::path& asset_path)
+        {
+            return load_audio(asset_path);
+        }
+    };
+
+    /// <summary>
+    /// Purpose: Provides the async loader specialization for ShaderProgram assets.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Returns an AssetPromise that shares ownership with the caller.
+    /// Thread Safety: Safe to call concurrently.
+    /// </remarks>
+    template <>
+    struct AssetLoader<ShaderProgram>
+    {
+        static AssetPromise<ShaderProgram> load_async(const std::filesystem::path& asset_path)
+        {
+            return load_shader_program_async(asset_path);
+        }
+
+        static std::shared_ptr<ShaderProgram> load(const std::filesystem::path& asset_path)
+        {
+            return load_shader_program(asset_path);
         }
     };
 }
