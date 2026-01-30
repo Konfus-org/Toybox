@@ -22,7 +22,7 @@ namespace tbx
         /// Ownership: Copies the provided path into the handle.
         /// Thread Safety: Safe to call concurrently.
         /// </remarks>
-        explicit AssetHandle(std::filesystem::path asset_path)
+        AssetHandle(std::filesystem::path asset_path)
             : path(std::move(asset_path))
         {
         }
@@ -34,7 +34,7 @@ namespace tbx
         /// Ownership: Stores the provided UUID value by copy.
         /// Thread Safety: Safe to call concurrently.
         /// </remarks>
-        explicit AssetHandle(Uuid asset_id)
+        AssetHandle(Uuid asset_id)
             : id(asset_id)
         {
         }

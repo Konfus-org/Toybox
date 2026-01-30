@@ -59,6 +59,5 @@ namespace tbx::examples
 
       private:
         EntityManager* _entity_manager = nullptr;
-        std::shared_ptr<Texture> _smily_texture = {};
     };
 }
