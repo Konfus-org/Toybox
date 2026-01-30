@@ -1,0 +1,165 @@
+name: CMake platform build
+
+on:
+  workflow_call:
+    inputs:
+      use-cache:
+        description: Whether to enable compiler caches during setup.
+        required: true
+        type: boolean
+      matrix-config:
+        description: JSON-encoded matrix configuration.
+        required: true
+        type: string
+      fail-fast:
+        description: Whether to stop early on first failure.
+        required: true
+        type: boolean
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    env:
+      SCCACHE_DIR: ${{ github.workspace }}/sccache
+
+    strategy:
+      fail-fast: ${{ inputs.fail-fast }}
+      matrix: ${{ fromJSON(inputs.matrix-config) }}
+
+    steps:
+
+    - name: Define build output path
+      # Turn repeated input strings (such as the build output directory) into step outputs.
+      id: strings
+      shell: bash
+      run: |
+        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+    - name: Check out repository
+      # Pull repository contents and submodules.
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+
+    - name: Set up CMake 4.1.0
+      # Install the requested CMake version.
+      uses: jwlawson/actions-setup-cmake@v2
+      with:
+        cmake-version: '4.1.0'
+
+    - name: Skip Setup (Windows)
+      # Log why the Windows setup step is skipped.
+      if: runner.os != 'Windows'
+      run: echo "Skipping Windows setup because this is not a Windows runner."
+
+    - name: Setup (Windows)
+      # Prepare the Windows toolchain and cache when enabled.
+      if: runner.os == 'Windows' && inputs.use-cache
+      uses: ./.github/actions/windows-setup
+      with:
+        sccache-dir: ${{ env.SCCACHE_DIR }}
+        cache-key: ${{ runner.os }}-sccache-${{ github.sha }}
+        cache-restore-keys: |
+          ${{ runner.os }}-sccache-
+
+    - name: Setup (Windows, no cache)
+      # Log that Windows builds intentionally skip caches.
+      if: runner.os == 'Windows' && !inputs.use-cache
+      run: echo "Windows setup complete; full builds run without caching."
+
+    - name: Skip Setup (Linux)
+      # Log why the Linux setup step is skipped.
+      if: runner.os != 'Linux'
+      run: echo "Skipping Linux setup because this is not a Linux runner."
+
+    - name: Setup (Linux)
+      # Install Linux dependencies and restore the compiler cache when enabled.
+      if: runner.os == 'Linux' && inputs.use-cache
+      uses: ./.github/actions/linux-setup
+      with:
+        cache-key: ${{ runner.os }}-ccache-${{ github.sha }}
+        cache-restore-keys: |
+          ${{ runner.os }}-ccache-
+
+    - name: Setup (Linux, no cache)
+      # Install Linux dependencies without caching.
+      if: runner.os == 'Linux' && !inputs.use-cache
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y xorg-dev libwayland-dev libxkbcommon-dev
+        echo "Linux setup complete; full builds run without caching."
+
+    # Uncomment and modify as needed when we need to debug repo contents
+    # - name: Debug repo contents
+    #   run: |
+    #     git submodule status || true
+    #     ls -la
+    #     ls -la Plugins || true
+    #     ls -la Plugins/Toybox-OpenGL-Rendering-Plugin || true
+    #     ls -la Plugins/Toybox-SDL-Input-Plugin || true
+
+    - name: Skip Build (Windows)
+      # Log why the Windows build step is skipped.
+      if: runner.os != 'Windows'
+      run: echo "Skipping Windows build because this is not a Windows runner."
+
+    - name: Build (Windows)
+      # Clean and build the Windows configuration, then run tests.
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        set -e
+        rm -rf "${{ steps.strings.outputs.build-output-dir }}"
+        cmake -B ${{ steps.strings.outputs.build-output-dir }} \
+          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }} \
+          -DCMAKE_C_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }} \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -S ${{ github.workspace }}
+        cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
+        cd ${{ steps.strings.outputs.build-output-dir }}
+        ctest --build-config ${{ matrix.build_type }} --output-on-failure
+
+    - name: Skip Build (Linux)
+      # Log why the Linux build step is skipped.
+      if: runner.os != 'Linux'
+      run: echo "Skipping Linux build because this is not a Linux runner."
+
+    - name: Build (Linux)
+      # Clean and build the Linux configuration, then run tests.
+      if: runner.os == 'Linux'
+      run: |
+        set -e
+        rm -rf ${{ steps.strings.outputs.build-output-dir }}
+        cmake -B ${{ steps.strings.outputs.build-output-dir }} \
+          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }} \
+          -DCMAKE_C_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }} \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -S ${{ github.workspace }}
+        cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
+        cd ${{ steps.strings.outputs.build-output-dir }}
+        ctest --build-config ${{ matrix.build_type }} --output-on-failure
+
+    - name: Skip Cleanup (Windows)
+      # Log why the Windows cleanup step is skipped.
+      if: runner.os != 'Windows'
+      run: echo "Skipping Windows cleanup because this is not a Windows runner."
+
+    - name: Cleanup (Windows)
+      # Confirm Windows cleanup is complete.
+      if: runner.os == 'Windows'
+      run: echo "Windows cleanup complete."
+
+    - name: Skip Cleanup (Linux)
+      # Log why the Linux cleanup step is skipped.
+      if: runner.os != 'Linux'
+      run: echo "Skipping Linux cleanup because this is not a Linux runner."
+
+    - name: Cleanup (Linux)
+      # Confirm Linux cleanup is complete.
+      if: runner.os == 'Linux'
+      run: echo "Linux cleanup complete."

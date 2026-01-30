@@ -1,0 +1,27 @@
+name: Linux Setup
+
+description: Prepare Linux builds with dependencies and ccache.
+
+inputs:
+  cache-key:
+    description: Cache key for the ccache cache.
+    required: true
+  cache-restore-keys:
+    description: Restore keys for the ccache cache.
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Install Linux dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y xorg-dev libwayland-dev libxkbcommon-dev ccache
+
+    - name: Linux build cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ccache
+        key: ${{ inputs.cache-key }}
+        restore-keys: ${{ inputs.cache-restore-keys }}
