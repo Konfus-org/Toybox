@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/assets/assets.h"
 #include "tbx/graphics/material.h"
+#include "tbx/graphics/shader.h"
 #include "tbx/graphics/texture.h"
 #include "tbx/messages/message.h"
 #include "tbx/tbx_api.h"
@@ -11,6 +12,8 @@ namespace tbx
     struct Texture;
     struct Model;
     struct AudioClip;
+    struct Shader;
+    struct Material;
 
     /// <summary>
     /// Purpose: Base message requesting that an asset payload be loaded.
@@ -80,19 +83,35 @@ namespace tbx
     };
 
     /// <summary>
-    /// Purpose: Message requesting that a shader program payload be loaded.
+    /// Purpose: Message requesting that a shader payload be loaded.
     /// </summary>
     /// <remarks>
     /// Ownership: The shader program pointer is non-owning and owned by the caller.
     /// Thread Safety: Payload access requires external synchronization.
     /// </remarks>
-    struct TBX_API LoadShaderProgramRequest : public LoadAssetRequest<ShaderProgram>
+    struct TBX_API LoadShaderRequest : public LoadAssetRequest<Shader>
     {
       public:
-        LoadShaderProgramRequest(
+        LoadShaderRequest(
             const std::filesystem::path& asset_path,
-            ShaderProgram* asset_payload)
-            : LoadAssetRequest<ShaderProgram>(asset_path, asset_payload)
+            Shader* asset_payload)
+            : LoadAssetRequest<Shader>(asset_path, asset_payload)
+        {
+        }
+    };
+
+    /// <summary>
+    /// Purpose: Message requesting that a material payload be loaded.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: The material pointer is non-owning and owned by the caller.
+    /// Thread Safety: Payload access requires external synchronization.
+    /// </remarks>
+    struct TBX_API LoadMaterialRequest : public LoadAssetRequest<Material>
+    {
+      public:
+        LoadMaterialRequest(const std::filesystem::path& asset_path, Material* asset_payload)
+            : LoadAssetRequest<Material>(asset_path, asset_payload)
         {
         }
     };

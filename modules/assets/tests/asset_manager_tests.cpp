@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "test_filesystem.h"
-#include "tbx/assets/asset_handle.h"
+#include "tbx/common/handle.h"
 #include "tbx/assets/asset_manager.h"
 #include "tbx/common/result.h"
 #include <future>
@@ -86,7 +86,7 @@ namespace tbx::tests::assets
 
         reset_test_asset_loader_state();
         AssetManager manager(file_system);
-        AssetHandle path_handle(std::filesystem::path("stone.asset"));
+        Handle path_handle("stone.asset");
         auto asset = manager.load<TestAsset>(path_handle);
 
         ASSERT_NE(asset, nullptr);
@@ -112,13 +112,13 @@ namespace tbx::tests::assets
 
         reset_test_asset_loader_state();
         AssetManager manager(file_system);
-        AssetHandle path_handle(std::filesystem::path("ore.asset"));
+        Handle path_handle("ore.asset");
         auto asset = manager.load<TestAsset>(path_handle);
 
         ASSERT_NE(asset, nullptr);
         asset->value = 84;
 
-        AssetHandle id_handle(Uuid(0x2fU));
+        Handle id_handle(Uuid(0x2fU));
         auto by_id = manager.load<TestAsset>(id_handle);
         ASSERT_NE(by_id, nullptr);
         EXPECT_EQ(by_id->value, 84);
@@ -139,7 +139,7 @@ namespace tbx::tests::assets
 
         reset_test_asset_loader_state();
         AssetManager manager(file_system);
-        AssetHandle handle(std::filesystem::path("crate.asset"));
+        Handle handle("crate.asset");
         auto streamed_in = manager.load_async<TestAsset>(handle);
 
         ASSERT_NE(streamed_in.asset, nullptr);
@@ -167,7 +167,7 @@ namespace tbx::tests::assets
         loader_state.use_async = true;
 
         AssetManager manager(file_system);
-        AssetHandle handle(std::filesystem::path("async.asset"));
+        Handle handle("async.asset");
         auto streamed_in = manager.load_async<TestAsset>(handle);
 
         ASSERT_NE(streamed_in.asset, nullptr);

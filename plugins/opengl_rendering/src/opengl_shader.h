@@ -18,7 +18,7 @@ namespace tbx::plugins
         /// <remarks>Purpose: Compiles the shader source into a GPU shader object.
         /// Ownership: Owns the created shader identifier.
         /// Thread Safety: Construct on the render thread.</remarks>
-        explicit OpenGlShader(const Shader& shader);
+        explicit OpenGlShader(const ShaderSource& shader);
 
         /// <summary>Destroys the OpenGL shader resource.</summary>
         /// <remarks>Purpose: Releases the GPU shader identifier.

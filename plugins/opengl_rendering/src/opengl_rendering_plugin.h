@@ -5,10 +5,11 @@
 #include "opengl_texture.h"
 #include "tbx/app/application.h"
 #include "tbx/common/int.h"
-#include "tbx/graphics/color.h"
+#include "tbx/common/handle.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/messages.h"
 #include "tbx/graphics/model.h"
+#include "tbx/graphics/renderer.h"
 #include "tbx/graphics/window.h"
 #include "tbx/math/matrices.h"
 #include "tbx/messages/observable.h"
@@ -44,8 +45,10 @@ namespace tbx::plugins
         void draw_models_for_cameras(const Size& window_size);
         std::shared_ptr<OpenGlTexture> get_default_texture();
         std::shared_ptr<OpenGlMesh> get_mesh(const Mesh& mesh);
-        std::shared_ptr<OpenGlShader> get_shader(const Shader& shader);
-        std::shared_ptr<OpenGlShaderProgram> get_shader_program(const Material& material);
+        std::shared_ptr<OpenGlShader> get_shader(const ShaderSource& shader);
+        std::shared_ptr<OpenGlShaderProgram> get_shader_program(
+            const Handle& handle,
+            const Shader& shader);
         std::shared_ptr<OpenGlTexture> get_texture(const Texture& texture);
         void remove_window_state(const Uuid& window_id, bool try_release);
 
@@ -57,7 +60,6 @@ namespace tbx::plugins
         std::unordered_map<Uuid, std::shared_ptr<OpenGlShader>> _shaders = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlShaderProgram>> _shader_programs = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlTexture>> _textures = {};
-        std::unordered_set<Uuid> _mesh_entities_missing_material = {};
         std::shared_ptr<OpenGlTexture> _default_texture = {};
     };
 }

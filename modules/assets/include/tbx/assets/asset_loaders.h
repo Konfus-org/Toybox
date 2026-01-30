@@ -2,6 +2,7 @@
 #include "tbx/assets/assets.h"
 #include "tbx/assets/audio_assets.h"
 #include "tbx/assets/model_assets.h"
+#include "tbx/assets/material_assets.h"
 #include "tbx/assets/shader_assets.h"
 #include "tbx/assets/texture_assets.h"
 
@@ -94,23 +95,44 @@ namespace tbx
     };
 
     /// <summary>
-    /// Purpose: Provides the async loader specialization for ShaderProgram assets.
+    /// Purpose: Provides the async loader specialization for Shader assets.
     /// </summary>
     /// <remarks>
     /// Ownership: Returns an AssetPromise that shares ownership with the caller.
     /// Thread Safety: Safe to call concurrently.
     /// </remarks>
     template <>
-    struct AssetLoader<ShaderProgram>
+    struct AssetLoader<Shader>
     {
-        static AssetPromise<ShaderProgram> load_async(const std::filesystem::path& asset_path)
+        static AssetPromise<Shader> load_async(const std::filesystem::path& asset_path)
         {
-            return load_shader_program_async(asset_path);
+            return load_shader_async(asset_path);
         }
 
-        static std::shared_ptr<ShaderProgram> load(const std::filesystem::path& asset_path)
+        static std::shared_ptr<Shader> load(const std::filesystem::path& asset_path)
         {
-            return load_shader_program(asset_path);
+            return load_shader(asset_path);
+        }
+    };
+
+    /// <summary>
+    /// Purpose: Provides the async loader specialization for Material assets.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Returns an AssetPromise that shares ownership with the caller.
+    /// Thread Safety: Safe to call concurrently.
+    /// </remarks>
+    template <>
+    struct AssetLoader<Material>
+    {
+        static AssetPromise<Material> load_async(const std::filesystem::path& asset_path)
+        {
+            return load_material_async(asset_path);
+        }
+
+        static std::shared_ptr<Material> load(const std::filesystem::path& asset_path)
+        {
+            return load_material(asset_path);
         }
     };
 }

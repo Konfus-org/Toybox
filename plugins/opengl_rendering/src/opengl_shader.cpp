@@ -55,7 +55,7 @@ namespace tbx::plugins
         return glGetUniformLocation(program_id, name.c_str());
     }
 
-    OpenGlShader::OpenGlShader(const Shader& shader)
+    OpenGlShader::OpenGlShader(const ShaderSource& shader)
         : _type(shader.type)
     {
         const auto gl_type = to_gl_shader_type(shader.type);

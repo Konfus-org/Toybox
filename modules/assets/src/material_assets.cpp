@@ -1,52 +1,52 @@
-#include "tbx/assets/shader_assets.h"
+#include "tbx/assets/material_assets.h"
 #include "tbx/assets/messages.h"
 #include <memory>
 
 namespace tbx
 {
-    static std::shared_ptr<Shader> create_shader_data(
-        const std::shared_ptr<Shader>& default_data)
+    static std::shared_ptr<Material> create_material_data(
+        const std::shared_ptr<Material>& default_data)
     {
         if (default_data)
         {
-            return std::make_shared<Shader>(*default_data);
+            return std::make_shared<Material>(*default_data);
         }
 
-        return std::make_shared<Shader>();
+        return std::make_shared<Material>();
     }
 
-    AssetPromise<Shader> load_shader_async(
+    AssetPromise<Material> load_material_async(
         const std::filesystem::path& asset_path,
-        const std::shared_ptr<Shader>& default_data)
+        const std::shared_ptr<Material>& default_data)
     {
-        auto asset = create_shader_data(default_data);
+        auto asset = create_material_data(default_data);
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
             return {};
         }
 
-        auto future = dispatcher->post<LoadShaderRequest>(
+        auto future = dispatcher->post<LoadMaterialRequest>(
             asset_path,
             asset.get());
-        AssetPromise<Shader> result = {};
+        AssetPromise<Material> result = {};
         result.asset = asset;
         result.promise = future;
         return result;
     }
 
-    std::shared_ptr<Shader> load_shader(
+    std::shared_ptr<Material> load_material(
         const std::filesystem::path& asset_path,
-        const std::shared_ptr<Shader>& default_data)
+        const std::shared_ptr<Material>& default_data)
     {
-        auto asset = create_shader_data(default_data);
+        auto asset = create_material_data(default_data);
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
             return {};
         }
 
-        LoadShaderRequest message(
+        LoadMaterialRequest message(
             asset_path,
             asset.get());
         dispatcher->send(message);

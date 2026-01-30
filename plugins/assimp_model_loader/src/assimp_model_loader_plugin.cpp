@@ -231,7 +231,7 @@ namespace tbx::plugins
             Material material = {};
             if (source_material)
             {
-                material.color = get_material_diffuse_color(*source_material);
+                material.set_parameter("Color", get_material_diffuse_color(*source_material));
             }
             materials.push_back(material);
         }
@@ -267,7 +267,8 @@ namespace tbx::plugins
                                               ? static_cast<uint32>(mesh->mMaterialIndex)
                                               : 0U;
             mesh_material_indices.push_back(material_index);
-            const RgbaColor material_color = materials.at(material_index).color;
+            RgbaColor material_color = RgbaColor(1.0f, 1.0f, 1.0f, 1.0f);
+            materials.at(material_index).try_get_parameter("Color", material_color);
 
             // Convert vertices for this mesh.
             std::vector<Vertex> vertices;

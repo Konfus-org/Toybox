@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/assets/asset_handle.h"
+#include "tbx/common/handle.h"
 #include "tbx/assets/asset_loaders.h"
 #include "tbx/assets/asset_meta.h"
 #include "tbx/assets/assets.h"
@@ -166,7 +166,7 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        std::shared_ptr<TAsset> load(const AssetHandle& handle)
+        std::shared_ptr<TAsset> load(const Handle& handle)
         {
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
@@ -197,7 +197,7 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        AssetUsage get_usage(const AssetHandle& handle) const
+        AssetUsage get_usage(const Handle& handle) const
         {
             std::lock_guard lock(_mutex);
             auto* store = find_store<TAsset>();
@@ -222,7 +222,7 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        AssetPromise<TAsset> load_async(const AssetHandle& handle)
+        AssetPromise<TAsset> load_async(const Handle& handle)
         {
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
@@ -261,7 +261,7 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        bool unload(const AssetHandle& handle, bool force = false)
+        bool unload(const Handle& handle, bool force = false)
         {
             std::lock_guard lock(_mutex);
             auto* store = find_store<TAsset>();
@@ -300,7 +300,7 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        bool reload(const AssetHandle& handle)
+        bool reload(const Handle& handle)
         {
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
@@ -328,7 +328,7 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        void set_pinned(const AssetHandle& handle, bool is_pinned)
+        void set_pinned(const Handle& handle, bool is_pinned)
         {
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
@@ -433,10 +433,10 @@ namespace tbx
             return inserted->second;
         }
 
-        AssetRegistryEntry* get_or_create_registry_entry(const AssetHandle& handle)
+        AssetRegistryEntry* get_or_create_registry_entry(const Handle& handle)
         {
             // Prefer resolving by id to avoid path normalization when possible.
-            if (handle.has_id())
+            if (handle.id.is_valid())
             {
                 auto* existing = find_registry_entry_by_id(handle.id);
                 if (existing)
@@ -444,11 +444,11 @@ namespace tbx
                     return existing;
                 }
             }
-            if (!handle.has_path())
+            if (handle.name.empty())
             {
                 return nullptr;
             }
-            auto normalized = normalize_path(handle.path);
+            auto normalized = normalize_path(handle.name);
             return &get_or_create_registry_entry(normalized);
         }
 
@@ -569,9 +569,9 @@ namespace tbx
         }
 
         template <typename TAsset>
-        AssetRecord<TAsset>* try_find_record(AssetStore<TAsset>& store, const AssetHandle& handle)
+        AssetRecord<TAsset>* try_find_record(AssetStore<TAsset>& store, const Handle& handle)
         {
-            if (handle.has_id())
+            if (handle.id.is_valid())
             {
                 auto iterator = find_record_by_id(store.records, handle.id);
                 if (iterator != store.records.end())
@@ -579,11 +579,11 @@ namespace tbx
                     return &iterator->second;
                 }
             }
-            if (!handle.has_path())
+            if (handle.name.empty())
             {
                 return nullptr;
             }
-            auto normalized = normalize_path(handle.path);
+            auto normalized = normalize_path(handle.name);
             auto iterator = store.records.find(normalized.path_key);
             if (iterator == store.records.end())
             {
@@ -595,9 +595,9 @@ namespace tbx
         template <typename TAsset>
         const AssetRecord<TAsset>* try_find_record(
             const AssetStore<TAsset>& store,
-            const AssetHandle& handle) const
+            const Handle& handle) const
         {
-            if (handle.has_id())
+            if (handle.id.is_valid())
             {
                 auto iterator = find_record_by_id(store.records, handle.id);
                 if (iterator != store.records.end())
@@ -605,11 +605,11 @@ namespace tbx
                     return &iterator->second;
                 }
             }
-            if (!handle.has_path())
+            if (handle.name.empty())
             {
                 return nullptr;
             }
-            auto normalized = normalize_path(handle.path);
+            auto normalized = normalize_path(handle.name);
             auto iterator = store.records.find(normalized.path_key);
             if (iterator == store.records.end())
             {
