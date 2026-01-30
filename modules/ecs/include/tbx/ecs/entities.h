@@ -113,20 +113,20 @@ namespace tbx
         void destroy_all();
         bool is_empty();
 
-        Entity create_entity(
+        Entity create(
             const std::string& name,
             const std::string& tag = "",
             const std::string& layer = "",
             const Uuid& parent = invalid::uuid);
 
-        Entity create_entity(const EntityDescription& desc);
+        Entity create(const EntityDescription& desc);
 
-        Entity get_entity(const Uuid& id);
+        Entity get(const Uuid& id);
 
-        std::vector<Entity> get_all_entities();
+        std::vector<Entity> get_all();
 
         template <typename... TBlocks>
-        std::vector<Entity> get_entities_with()
+        std::vector<Entity> get_with()
         {
             std::vector<Entity> toys = {};
             auto view = _registry->view<TBlocks...>();

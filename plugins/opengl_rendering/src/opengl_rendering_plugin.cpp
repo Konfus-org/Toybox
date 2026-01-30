@@ -351,7 +351,7 @@ namespace tbx::plugins
             return material;
         }();
 
-        auto entities = ecs.get_entities_with<Model>();
+        auto entities = ecs.get_with<Model>();
         for (auto& entity : entities)
         {
             const Model& model = entity.get_component<Model>();
@@ -432,7 +432,7 @@ namespace tbx::plugins
             }
         }
 
-        auto mesh_entities = ecs.get_entities_with<Mesh>();
+        auto mesh_entities = ecs.get_with<Mesh>();
         for (auto& entity : mesh_entities)
         {
             if (entity.has_component<Model>())
@@ -472,7 +472,7 @@ namespace tbx::plugins
     void OpenGlRenderingPlugin::draw_models_for_cameras(const Size& window_size)
     {
         auto& ecs = get_host().get_entity_manager();
-        auto cameras = ecs.get_entities_with<Camera, Transform>();
+        auto cameras = ecs.get_with<Camera, Transform>();
 
         if (cameras.begin() == cameras.end())
         {

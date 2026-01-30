@@ -6,7 +6,7 @@ namespace tbx::tests::ecs
     {
         EntityManager ecs = {};
 
-        const auto entity = ecs.create_entity("Player", "Hero", "Gameplay");
+        const auto entity = ecs.create("Player", "Hero", "Gameplay");
         const auto& description = entity.get_description();
 
         EXPECT_EQ(description.name, "Player");

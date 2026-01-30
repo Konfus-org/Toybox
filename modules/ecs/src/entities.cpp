@@ -69,10 +69,10 @@ namespace tbx
 
     bool EntityManager::is_empty()
     {
-        return get_all_entities().empty();
+        return get_all().empty();
     }
 
-    Entity EntityManager::create_entity(
+    Entity EntityManager::create(
         const std::string& name,
         const std::string& tag,
         const std::string& layer,
@@ -86,17 +86,17 @@ namespace tbx
         return Entity(_registry.get(), desc);
     }
 
-    Entity EntityManager::create_entity(const EntityDescription& desc)
+    Entity EntityManager::create(const EntityDescription& desc)
     {
         return Entity(_registry.get(), desc);
     }
 
-    Entity EntityManager::get_entity(const Uuid& id)
+    Entity EntityManager::get(const Uuid& id)
     {
         return Entity(_registry.get(), static_cast<EntityHandle>(id.value));
     }
 
-    std::vector<Entity> EntityManager::get_all_entities()
+    std::vector<Entity> EntityManager::get_all()
     {
         std::vector<Entity> toys = {};
         auto view = _registry->view<EntityDescription>();

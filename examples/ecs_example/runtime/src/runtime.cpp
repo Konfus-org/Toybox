@@ -24,7 +24,7 @@ namespace tbx::examples
         for (int i = 0; i < toys_to_make; i++)
         {
             // create and add components
-            auto ent = _entity_manager->create_entity(std::to_string(i));
+            auto ent = _entity_manager->create(std::to_string(i));
             ent.add_component<Transform>();
             ent.add_component<Model>();
 
@@ -40,7 +40,7 @@ namespace tbx::examples
     {
         // bob all toys in stage with transform up, then down over time
         float offset = 0;
-        for (auto& entity : _entity_manager->get_entities_with<Transform>())
+        for (auto& entity : _entity_manager->get_with<Transform>())
         {
             auto& transform = entity.get_component<Transform>();
             transform.position.y = sin(dt.seconds * 2.0 + offset);
