@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "tbx/app/application.h"
 #include "tbx/debugging/logging.h"
 #include "tbx/files/filesystem.h"
 #include "tbx/plugin_api/plugin.h"
@@ -15,7 +16,7 @@ namespace tbx::tests::plugin_loader
     class TestStaticPlugin : public ::tbx::Plugin
     {
       public:
-        void on_attach(::tbx::Application&) override {}
+        void on_attach(::tbx::IPluginHost&) override {}
         void on_detach() override {}
         void on_update(const ::tbx::DeltaTime&) override {}
         void on_recieve_message(::tbx::Message&) override {}
@@ -168,11 +169,70 @@ namespace tbx::tests::plugin_loader
         std::filesystem::path assets_directory;
     };
 
+    class TestPluginHost final : public ::tbx::IPluginHost
+    {
+      public:
+        explicit TestPluginHost(::tbx::IFileSystem& filesystem)
+            : _filesystem(filesystem)
+            , _asset_manager(_filesystem)
+            , _settings(_coordinator, true, ::tbx::GraphicsApi::OpenGL, {1280, 720})
+        {
+        }
+
+        const std::string& get_name() const override
+        {
+            return _name;
+        }
+
+        ::tbx::AppSettings& get_settings() override
+        {
+            return _settings;
+        }
+
+        ::tbx::IMessageDispatcher& get_dispatcher() override
+        {
+            return _coordinator;
+        }
+
+        ::tbx::IMessageHandlerRegistrar& get_message_registrar() override
+        {
+            return _coordinator;
+        }
+
+        ::tbx::IMessageQueue& get_message_queue() override
+        {
+            return _coordinator;
+        }
+
+        ::tbx::IFileSystem& get_filesystem() override
+        {
+            return _filesystem;
+        }
+
+        ::tbx::EntityManager& get_entity_manager() override
+        {
+            return _entity_manager;
+        }
+
+        ::tbx::AssetManager& get_asset_manager() override
+        {
+            return _asset_manager;
+        }
+
+      private:
+        std::string _name = "PluginLoaderTests";
+        ::tbx::AppMessageCoordinator _coordinator = {};
+        ::tbx::IFileSystem& _filesystem;
+        ::tbx::EntityManager _entity_manager = {};
+        ::tbx::AssetManager _asset_manager;
+        ::tbx::AppSettings _settings;
+    };
+
     TEST(plugin_loader, loads_static_plugin_from_meta_list)
     {
         ManifestFilesystemOps ops;
-        PluginLoader loader;
-        auto loaded = loader.load_plugins(std::vector<PluginMeta> {make_static_meta()}, ops);
+        TestPluginHost host(ops);
+        auto loaded = ::tbx::load_plugins(std::vector<PluginMeta> {make_static_meta()}, ops, host);
         const bool has_fallback_logger =
             ::tbx::PluginRegistry::get_instance().find_plugin(
                 std::string(get_stdout_fallback_logger_name()))
@@ -206,6 +266,7 @@ namespace tbx::tests::plugin_loader
     TEST(plugin_loader, scans_manifests_using_custom_filesystem)
     {
         ManifestFilesystemOps ops;
+        TestPluginHost host(ops);
         ops.add_directory("virtual");
         ops.add_directory("virtual/logger");
         ops.add_file(
@@ -217,11 +278,11 @@ namespace tbx::tests::plugin_loader
                 "static": true
             })");
 
-        PluginLoader loader;
-        auto loaded = loader.load_plugins(
+        auto loaded = ::tbx::load_plugins(
             std::filesystem::path("virtual"),
             std::vector<std::string> {},
-            ops);
+            ops,
+            host);
         const bool has_fallback_logger =
             ::tbx::PluginRegistry::get_instance().find_plugin(
                 std::string(get_stdout_fallback_logger_name()))
@@ -253,6 +314,7 @@ namespace tbx::tests::plugin_loader
     TEST(plugin_loader, rejects_plugin_with_mismatched_abi_version)
     {
         ManifestFilesystemOps ops;
+        TestPluginHost host(ops);
         ops.add_directory("virtual");
         ops.add_directory("virtual/logger");
         ops.add_file(
@@ -264,11 +326,11 @@ namespace tbx::tests::plugin_loader
                 "static": true
             })");
 
-        PluginLoader loader;
-        auto loaded = loader.load_plugins(
+        auto loaded = ::tbx::load_plugins(
             std::filesystem::path("virtual"),
             std::vector<std::string> {},
-            ops);
+            ops,
+            host);
         const bool has_fallback_logger =
             ::tbx::PluginRegistry::get_instance().find_plugin(
                 std::string(get_stdout_fallback_logger_name()))

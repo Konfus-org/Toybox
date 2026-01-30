@@ -1,11 +1,10 @@
 #include "spd_console_logger_plugin.h"
-#include "tbx/app/application.h"
 #include "tbx/debugging/log_requests.h"
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace tbx::plugins
 {
-    void SpdConsoleLoggerPlugin::on_attach(Application& app)
+    void SpdConsoleLoggerPlugin::on_attach(IPluginHost& app)
     {
         auto sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
         _logger = std::make_shared<spdlog::logger>(app.get_name(), sink);

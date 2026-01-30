@@ -8,7 +8,7 @@
 
 namespace tbx::examples
 {
-    void AssetLoadAndUseExampleRuntimePlugin::on_attach(Application& context)
+    void AssetLoadAndUseExampleRuntimePlugin::on_attach(IPluginHost& context)
     {
         _entity_manager = &context.get_entity_manager();
         TBX_TRACE_INFO("AssetLoadAndUseExample: loading Smily texture.");

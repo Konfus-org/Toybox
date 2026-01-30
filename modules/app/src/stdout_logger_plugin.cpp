@@ -10,7 +10,7 @@ namespace tbx
     class StdoutLoggerPlugin final : public Plugin
     {
       public:
-        void on_attach(Application&) override
+        void on_attach(IPluginHost&) override
         {
         }
 

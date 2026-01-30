@@ -1,5 +1,4 @@
 #include "stb_image_loader_plugin.h"
-#include "tbx/app/application.h"
 #include "tbx/assets/messages.h"
 #include "tbx/files/filesystem.h"
 #include "tbx/graphics/texture.h"
@@ -24,7 +23,7 @@ namespace tbx::plugins
         return message;
     }
 
-    void StbImageLoaderPlugin::on_attach(Application& host)
+    void StbImageLoaderPlugin::on_attach(IPluginHost& host)
     {
         _filesystem = &host.get_filesystem();
     }

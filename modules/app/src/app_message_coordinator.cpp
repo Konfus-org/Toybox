@@ -111,11 +111,11 @@ namespace tbx
     AppMessageCoordinator::AppMessageCoordinator() = default;
     AppMessageCoordinator::~AppMessageCoordinator() noexcept
     {
-        process_posts();
+        flush();
         clear_handlers();
     }
 
-    Uuid AppMessageCoordinator::add_handler(MessageHandler handler)
+    Uuid AppMessageCoordinator::register_handler(MessageHandler handler)
     {
         Uuid id = Uuid::generate();
         {
@@ -125,7 +125,7 @@ namespace tbx
         return id;
     }
 
-    void AppMessageCoordinator::remove_handler(const Uuid& token)
+    void AppMessageCoordinator::deregister_handler(const Uuid& token)
     {
         std::lock_guard<std::mutex> lock(_handlers_mutex);
         std::vector<std::pair<Uuid, MessageHandler>> next;
@@ -211,13 +211,13 @@ namespace tbx
         }
     }
 
-    Result AppMessageCoordinator::send_impl(Message& msg) const
+    Result AppMessageCoordinator::send(Message& msg) const
     {
         dispatch(msg);
         return msg.result;
     }
 
-    std::shared_future<Result> AppMessageCoordinator::post_impl(
+    std::shared_future<Result> AppMessageCoordinator::post(
         std::unique_ptr<Message> msg) const
     {
         std::promise<Result> promise;
@@ -231,7 +231,7 @@ namespace tbx
         return future;
     }
 
-    void AppMessageCoordinator::process_posts()
+    void AppMessageCoordinator::flush()
     {
         std::vector<QueuedMessage> processing;
         {

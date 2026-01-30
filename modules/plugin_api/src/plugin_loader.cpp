@@ -75,7 +75,10 @@ namespace tbx
         return library_path;
     }
 
-    static LoadedPlugin load_plugin_internal(const PluginMeta& meta, IFileSystem& file_ops)
+    static LoadedPlugin load_plugin_internal(
+        const PluginMeta& meta,
+        IFileSystem& file_ops,
+        IPluginHost& host)
     {
         if (meta.abi_version != PluginAbiVersion)
         {
@@ -101,7 +104,7 @@ namespace tbx
                 [](Plugin*)
                 {
                 });
-            return LoadedPlugin(meta, nullptr, std::move(instance));
+            return LoadedPlugin(meta, nullptr, std::move(instance), host);
         }
 
         const std::filesystem::path library_path = resolve_library_path(meta, file_ops);
@@ -131,7 +134,7 @@ namespace tbx
         }
 
         auto instance = std::unique_ptr<Plugin, PluginDeleter>(plugin_instance, destroy);
-        return LoadedPlugin(meta, std::move(lib), std::move(instance));
+        return LoadedPlugin(meta, std::move(lib), std::move(instance), host);
     }
 
     static bool has_loaded_category(
@@ -174,14 +177,15 @@ namespace tbx
 
     static void load_required_fallback_plugins(
         std::vector<LoadedPlugin>& loaded_plugins,
-        IFileSystem& file_ops)
+        IFileSystem& file_ops,
+        IPluginHost& host)
     {
         for (const RequiredFallbackPlugin& fallback : get_required_fallback_plugins())
         {
             if (has_loaded_category(loaded_plugins, fallback.category))
                 continue;
 
-            LoadedPlugin fallback_loaded = load_plugin_internal(fallback.meta, file_ops);
+            LoadedPlugin fallback_loaded = load_plugin_internal(fallback.meta, file_ops, host);
             if (fallback_loaded.is_valid())
                 loaded_plugins.push_back(std::move(fallback_loaded));
         }
@@ -286,10 +290,11 @@ namespace tbx
         return ordered;
     }
 
-    std::vector<LoadedPlugin> PluginLoader::load_plugins(
+    std::vector<LoadedPlugin> load_plugins(
         const std::filesystem::path& directory,
         const std::vector<std::string>& requested_ids,
-        IFileSystem& file_ops)
+        IFileSystem& file_ops,
+        IPluginHost& host)
     {
         std::vector<LoadedPlugin> loaded;
 
@@ -324,7 +329,7 @@ namespace tbx
 
         if (discovered.empty())
         {
-            load_required_fallback_plugins(loaded, file_ops);
+            load_required_fallback_plugins(loaded, file_ops, host);
             return loaded;
         }
 
@@ -386,43 +391,44 @@ namespace tbx
 
         if (metas.empty())
         {
-            load_required_fallback_plugins(loaded, file_ops);
+            load_required_fallback_plugins(loaded, file_ops, host);
             return loaded;
         }
 
         metas = resolve_plugin_load_order(metas);
         if (metas.empty())
         {
-            load_required_fallback_plugins(loaded, file_ops);
+            load_required_fallback_plugins(loaded, file_ops, host);
             return loaded;
         }
         for (const PluginMeta& meta : metas)
         {
-            LoadedPlugin plug = load_plugin_internal(meta, file_ops);
+            LoadedPlugin plug = load_plugin_internal(meta, file_ops, host);
             if (plug.is_valid())
                 loaded.push_back(std::move(plug));
             else
                 TBX_TRACE_WARNING("Failed to load plugin: {}", meta.name);
         }
 
-        load_required_fallback_plugins(loaded, file_ops);
+        load_required_fallback_plugins(loaded, file_ops, host);
         return loaded;
     }
 
-    std::vector<LoadedPlugin> PluginLoader::load_plugins(
+    std::vector<LoadedPlugin> load_plugins(
         const std::vector<PluginMeta>& metas,
-        IFileSystem& file_ops)
+        IFileSystem& file_ops,
+        IPluginHost& host)
     {
         std::vector<LoadedPlugin> loaded;
 
         for (const PluginMeta& meta : metas)
         {
-            LoadedPlugin plug = load_plugin_internal(meta, file_ops);
+            LoadedPlugin plug = load_plugin_internal(meta, file_ops, host);
             if (plug.is_valid())
                 loaded.push_back(std::move(plug));
         }
 
-        load_required_fallback_plugins(loaded, file_ops);
+        load_required_fallback_plugins(loaded, file_ops, host);
         return loaded;
     }
 }

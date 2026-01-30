@@ -18,10 +18,10 @@ namespace tbx
     Plugin::Plugin() = default;
     Plugin::~Plugin() noexcept = default;
 
-    void Plugin::attach(Application& host, IMessageDispatcher& dispatcher)
+    void Plugin::attach(IPluginHost& host)
     {
         _host = &host;
-        _dispatcher = &dispatcher;
+        _dispatcher = &host.get_dispatcher();
         on_attach(host);
     }
 
@@ -48,7 +48,7 @@ namespace tbx
         return *_dispatcher;
     }
 
-    Application& Plugin::get_host() const
+    IPluginHost& Plugin::get_host() const
     {
         TBX_ASSERT(_host, "Plugins must be attached before accessing the host.");
         return *_host;

@@ -24,7 +24,7 @@ namespace tbx::tests::app
         std::atomic<int> count {0};
         int received_value = 0;
 
-        d.add_handler(
+        d.register_handler(
             [&](const Message& msg)
             {
                 count.fetch_add(1);
@@ -32,7 +32,7 @@ namespace tbx::tests::app
                 received_value = typed ? typed->value : -1;
                 const_cast<Message&>(msg).state = MessageState::Handled;
             });
-        d.add_handler(
+        d.register_handler(
             [&](const Message& msg)
             {
                 count.fetch_add(1);
@@ -105,7 +105,7 @@ namespace tbx::tests::app
         GlobalDispatcherScope dispatcher_scope(d);
         std::atomic<int> count {0};
 
-        d.add_handler(
+        d.register_handler(
             [&](const Message&)
             {
                 count.fetch_add(1);
@@ -140,7 +140,7 @@ namespace tbx::tests::app
         GlobalDispatcherScope dispatcher_scope(d);
         std::atomic<int> count {0};
 
-        d.add_handler(
+        d.register_handler(
             [&](const Message& msg)
             {
                 count.fetch_add(1);
@@ -158,7 +158,7 @@ namespace tbx::tests::app
         auto interim = future.wait_for(TimeSpan().to_duration());
         EXPECT_NE(interim, std::future_status::ready);
 
-        d.process_posts();
+        d.flush();
         EXPECT_EQ(count.load(), 1);
         future.wait();
         auto result = future.get();
@@ -171,7 +171,7 @@ namespace tbx::tests::app
         GlobalDispatcherScope dispatcher_scope(d);
         int received_value = -1;
 
-        d.add_handler(
+        d.register_handler(
             [&](const Message& msg)
             {
                 const auto* typed = dynamic_cast<const TestMessage*>(&msg);
@@ -184,7 +184,7 @@ namespace tbx::tests::app
         msg.value = 123;
         auto future = d.post(msg);
 
-        d.process_posts();
+        d.flush();
 
         future.wait();
         auto result = future.get();
@@ -198,18 +198,18 @@ namespace tbx::tests::app
         GlobalDispatcherScope dispatcher_scope(d);
         std::atomic<int> count {0};
 
-        Uuid keep_id = d.add_handler(
+        Uuid keep_id = d.register_handler(
             [&](const Message&)
             {
                 count.fetch_add(1);
             });
-        Uuid drop_id = d.add_handler(
+        Uuid drop_id = d.register_handler(
             [&](const Message&)
             {
                 count.fetch_add(100);
             });
 
-        d.remove_handler(drop_id);
+        d.deregister_handler(drop_id);
 
         TestMessage msg;
         auto result = d.send(msg);
@@ -226,7 +226,7 @@ namespace tbx::tests::app
         GlobalDispatcherScope dispatcher_scope(d);
         std::atomic<int> count {0};
 
-        d.add_handler(
+        d.register_handler(
             [&](const Message&)
             {
                 count.fetch_add(1);
@@ -250,7 +250,7 @@ namespace tbx::tests::app
         auto future = d.post(msg);
 
         source.cancel();
-        d.process_posts();
+        d.flush();
 
         future.wait();
         auto result = future.get();
@@ -267,7 +267,7 @@ namespace tbx::tests::app
         GlobalDispatcherScope dispatcher_scope(d);
         std::atomic<int> count {0};
 
-        d.add_handler(
+        d.register_handler(
             [&](const Message&)
             {
                 count.fetch_add(1);
@@ -297,7 +297,7 @@ namespace tbx::tests::app
         AppMessageCoordinator d;
         GlobalDispatcherScope dispatcher_scope(d);
 
-        d.add_handler(
+        d.register_handler(
             [](Message& message)
             {
                 auto* request = handle_message<Request<int>>(message);
@@ -334,7 +334,7 @@ namespace tbx::tests::app
         AppMessageCoordinator d;
         GlobalDispatcherScope dispatcher_scope(d);
 
-        d.add_handler(
+        d.register_handler(
             [](Message& message)
             {
                 auto* request = handle_message<Request<std::string>>(message);
@@ -367,7 +367,7 @@ namespace tbx::tests::app
         auto interim = future.wait_for(TimeSpan().to_duration());
         EXPECT_NE(interim, std::future_status::ready);
 
-        d.process_posts();
+        d.flush();
 
         future.wait();
         auto result = future.get();

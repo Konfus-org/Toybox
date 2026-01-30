@@ -91,6 +91,16 @@ namespace tbx
         return static_cast<IMessageDispatcher&>(_msg_coordinator);
     }
 
+    IMessageHandlerRegistrar& Application::get_message_registrar()
+    {
+        return static_cast<IMessageHandlerRegistrar&>(_msg_coordinator);
+    }
+
+    IMessageQueue& Application::get_message_queue()
+    {
+        return static_cast<IMessageQueue&>(_msg_coordinator);
+    }
+
     EntityManager& Application::get_entity_manager()
     {
         return _entity_manager;
@@ -120,7 +130,7 @@ namespace tbx
             TBX_TRACE_INFO("Assets Directory: {}", _filesystem.get_assets_directory().string());
 
             // Register internal message handler
-            _msg_coordinator.add_handler(
+            _msg_coordinator.register_handler(
                 [this](Message& msg)
                 {
                     recieve_message(msg);
@@ -128,14 +138,11 @@ namespace tbx
 
             // Load plugins
             auto& fs = get_filesystem();
-            auto plug_loader = PluginLoader();
-            _loaded = plug_loader.load_plugins(fs.get_plugins_directory(), requested_plugins, fs);
-
-            // Register plugin message handlers then attach them to host
-            for (auto& p : _loaded)
-            {
-                p.attach(*this, _name, _msg_coordinator, _msg_coordinator);
-            }
+            _loaded = load_plugins(
+                fs.get_plugins_directory(),
+                requested_plugins,
+                fs,
+                *this);
 
             // Send initialized event
             _msg_coordinator.send<ApplicationInitializedEvent>(this);
@@ -153,7 +160,7 @@ namespace tbx
     void Application::update(DeltaTimer timer)
     {
         // Process messages posted in previous frame
-        _msg_coordinator.process_posts();
+        _msg_coordinator.flush();
 
         // Update delta time
         DeltaTime dt = timer.tick();
@@ -203,25 +210,16 @@ namespace tbx
             std::vector<LoadedPlugin> logging_plugins(
                 std::make_move_iterator(logging_start),
                 std::make_move_iterator(_loaded.end()));
+            _loaded.erase(logging_start, _loaded.end());
 
             // 5. Detach and unload all non-logging plugins
-            for (auto& plugin : _loaded)
-            {
-                if (plugin.meta.category == PluginCategory::Logging)
-                    continue;
-                plugin.detach(*this, _name, _msg_coordinator);
-            }
             _loaded.clear();
 
             // 6. Process any remaining posted messages and clear handlers
-            _msg_coordinator.process_posts();
+            _msg_coordinator.flush();
             _msg_coordinator.clear_handlers();
 
             // 6. Detach and unload logging plugins last
-            for (auto& plugin : logging_plugins)
-            {
-                plugin.detach(*this, _name, _msg_coordinator);
-            }
             logging_plugins.clear();
         }
         catch (const std::exception& ex)

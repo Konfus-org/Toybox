@@ -22,7 +22,7 @@ namespace tbx::plugins
         /// Ownership: Does not take ownership of the host.
         /// Thread Safety: Called on the main thread during plugin attach.
         /// </remarks>
-        void on_attach(Application& host) override;
+        void on_attach(IPluginHost& host) override;
 
         /// <summary>
         /// Purpose: Releases any cached host references.

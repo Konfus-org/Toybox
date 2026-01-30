@@ -25,7 +25,7 @@ namespace tbx::examples
         /// Ownership: Does not take ownership of the host Application.
         /// Thread Safety: Must be called on the main thread.
         /// </remarks>
-        void on_attach(Application& host) override;
+        void on_attach(IPluginHost& host) override;
 
         /// <summary>
         /// Releases cached example data.
