@@ -138,11 +138,7 @@ namespace tbx
 
             // Load plugins
             auto& fs = get_filesystem();
-            _loaded = load_plugins(
-                fs.get_plugins_directory(),
-                requested_plugins,
-                fs,
-                *this);
+            _loaded = load_plugins(fs.get_plugins_directory(), requested_plugins, fs, *this);
 
             // Send initialized event
             _msg_coordinator.send<ApplicationInitializedEvent>(this);
@@ -199,28 +195,12 @@ namespace tbx
             _entity_manager.destroy_all();
             _asset_manager.cleanup();
 
-            // 4. Seperate logging plugins to ensure they remain loaded until after other plugins
-            auto logging_start = std::stable_partition(
-                _loaded.begin(),
-                _loaded.end(),
-                [](const LoadedPlugin& plugin)
-                {
-                    return plugin.meta.category != PluginCategory::Logging;
-                });
-            std::vector<LoadedPlugin> logging_plugins(
-                std::make_move_iterator(logging_start),
-                std::make_move_iterator(_loaded.end()));
-            _loaded.erase(logging_start, _loaded.end());
-
-            // 5. Detach and unload all non-logging plugins
+            // 4. Detach and unload all non-logging plugins
             _loaded.clear();
 
-            // 6. Process any remaining posted messages and clear handlers
+            // 5. Process any remaining posted messages and clear handlers
             _msg_coordinator.flush();
             _msg_coordinator.clear_handlers();
-
-            // 6. Detach and unload logging plugins last
-            logging_plugins.clear();
         }
         catch (const std::exception& ex)
         {

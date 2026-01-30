@@ -1,9 +1,9 @@
 #pragma once
 #include "tbx/common/uuid.h"
 #include "tbx/plugin_api/plugin.h"
+#include "tbx/plugin_api/plugin_host.h"
 #include "tbx/plugin_api/plugin_meta.h"
 #include "tbx/plugin_api/shared_library.h"
-#include "tbx/plugin_api/plugin_host.h"
 #include "tbx/tbx_api.h"
 #include <functional>
 #include <memory>
