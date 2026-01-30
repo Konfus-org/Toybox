@@ -52,9 +52,9 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y xorg-dev libwayland-dev libxkbcommon-dev ccache
 
-    - name: Set up ccache
+    - name: Restore ccache
       if: runner.os == 'Linux'
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: ~/.cache/ccache
         key: ${{ runner.os }}-ccache-${{ github.sha }}
@@ -65,14 +65,15 @@ jobs:
       if: runner.os == 'Windows'
       uses: mozilla-actions/sccache-action@v0.0.4
 
-    - name: Cache sccache
+    - name: Restore sccache
       if: runner.os == 'Windows'
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: ${{ env.SCCACHE_DIR }}
         key: ${{ runner.os }}-sccache-${{ github.sha }}
         restore-keys: |
           ${{ runner.os }}-sccache-
+
 
     - uses: actions/checkout@v4
       with:
@@ -123,6 +124,20 @@ jobs:
       # Execute tests defined by the CMake configuration. Note that --build-config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest --build-config ${{ matrix.build_type }} --output-on-failure
+
+    - name: Save ccache
+      if: runner.os == 'Linux'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.cache/ccache
+        key: ${{ runner.os }}-ccache-${{ github.sha }}
+
+    - name: Save sccache
+      if: runner.os == 'Windows'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ env.SCCACHE_DIR }}
+        key: ${{ runner.os }}-sccache-${{ github.sha }}
 
   build_full:
     if: github.event_name != 'pull_request'
@@ -175,9 +190,9 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y xorg-dev libwayland-dev libxkbcommon-dev ccache
 
-    - name: Set up ccache
+    - name: Restore ccache
       if: runner.os == 'Linux'
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: ~/.cache/ccache
         key: ${{ runner.os }}-ccache-${{ github.sha }}
@@ -188,14 +203,15 @@ jobs:
       if: runner.os == 'Windows'
       uses: mozilla-actions/sccache-action@v0.0.4
 
-    - name: Cache sccache
+    - name: Restore sccache
       if: runner.os == 'Windows'
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: ${{ env.SCCACHE_DIR }}
         key: ${{ runner.os }}-sccache-${{ github.sha }}
         restore-keys: |
           ${{ runner.os }}-sccache-
+
 
     - uses: actions/checkout@v4
       with:
@@ -246,3 +262,17 @@ jobs:
       # Execute tests defined by the CMake configuration. Note that --build-config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest --build-config ${{ matrix.build_type }} --output-on-failure
+
+    - name: Save ccache
+      if: runner.os == 'Linux'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.cache/ccache
+        key: ${{ runner.os }}-ccache-${{ github.sha }}
+
+    - name: Save sccache
+      if: runner.os == 'Windows'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ env.SCCACHE_DIR }}
+        key: ${{ runner.os }}-sccache-${{ github.sha }}
