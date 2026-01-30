@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/assets/assets.h"
+#include "tbx/graphics/material.h"
 #include "tbx/graphics/texture.h"
 #include "tbx/messages/message.h"
 #include "tbx/tbx_api.h"
@@ -74,6 +75,24 @@ namespace tbx
       public:
         LoadModelRequest(const std::filesystem::path& asset_path, Model* asset_payload)
             : LoadAssetRequest<Model>(asset_path, asset_payload)
+        {
+        }
+    };
+
+    /// <summary>
+    /// Purpose: Message requesting that a shader program payload be loaded.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: The shader program pointer is non-owning and owned by the caller.
+    /// Thread Safety: Payload access requires external synchronization.
+    /// </remarks>
+    struct TBX_API LoadShaderProgramRequest : public LoadAssetRequest<ShaderProgram>
+    {
+      public:
+        LoadShaderProgramRequest(
+            const std::filesystem::path& asset_path,
+            ShaderProgram* asset_payload)
+            : LoadAssetRequest<ShaderProgram>(asset_path, asset_payload)
         {
         }
     };

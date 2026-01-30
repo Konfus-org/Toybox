@@ -159,14 +159,14 @@ namespace tbx
         ~AssetManager() = default;
 
         /// <summary>
-        /// Purpose: Requests an asset by handle, streaming it in if needed and tracking usage.
+        /// Purpose: Loads an asset by handle synchronously and tracks usage.
         /// </summary>
         /// <remarks>
         /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        std::shared_ptr<TAsset> request(const AssetHandle& handle)
+        std::shared_ptr<TAsset> load(const AssetHandle& handle)
         {
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
@@ -181,39 +181,12 @@ namespace tbx
             if (!record.asset)
             {
                 record.stream_state = AssetStreamState::Loading;
-                auto promise = AssetAsyncLoader<TAsset>::load(entry->resolved_path);
-                record.asset = std::move(promise.asset);
-                record.pending_load = promise.promise;
+                record.asset = AssetLoader<TAsset>::load(entry->resolved_path);
+                record.pending_load = {};
+                record.stream_state = record.asset ? AssetStreamState::Loaded
+                                                   : AssetStreamState::Unloaded;
             }
-            update_stream_state(record);
             return record.asset;
-        }
-
-        /// <summary>
-        /// Purpose: Returns a tracked asset without adjusting the ref count.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
-        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
-        template <typename TAsset>
-        std::shared_ptr<TAsset> get(const AssetHandle& handle)
-        {
-            auto now = std::chrono::steady_clock::now();
-            std::lock_guard lock(_mutex);
-            auto* store = find_store<TAsset>();
-            if (!store)
-            {
-                return {};
-            }
-            auto* record = try_find_record(*store, handle);
-            if (!record)
-            {
-                return {};
-            }
-            record->last_access = now;
-            update_stream_state(*record);
-            return record->asset;
         }
 
         /// <summary>
@@ -242,36 +215,42 @@ namespace tbx
         }
 
         /// <summary>
-        /// Purpose: Streams an asset in without altering the ref count.
+        /// Purpose: Loads an asset asynchronously and tracks usage metadata.
         /// </summary>
         /// <remarks>
-        /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
+        /// Ownership: Returns an AssetPromise that shares ownership with the caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        std::shared_ptr<TAsset> stream_in(const AssetHandle& handle)
+        AssetPromise<TAsset> load_async(const AssetHandle& handle)
         {
             auto now = std::chrono::steady_clock::now();
             std::lock_guard lock(_mutex);
+            AssetPromise<TAsset> result = {};
             auto* entry = get_or_create_registry_entry(handle);
             if (!entry)
             {
-                return {};
+                return result;
             }
             auto& store = get_or_create_store<TAsset>();
             auto& record = get_or_create_record(store, *entry);
             record.last_access = now;
             if (record.asset)
             {
-                record.stream_state = AssetStreamState::Loaded;
-                return record.asset;
+                update_stream_state(record);
+                result.asset = record.asset;
+                result.promise = record.pending_load;
+                return result;
             }
-            record.stream_state = AssetStreamState::Loading;
-            auto promise = AssetAsyncLoader<TAsset>::load(entry->resolved_path);
+            auto promise = AssetLoader<TAsset>::load_async(entry->resolved_path);
             record.asset = std::move(promise.asset);
             record.pending_load = promise.promise;
+            record.stream_state = record.asset ? AssetStreamState::Loading
+                                               : AssetStreamState::Unloaded;
             update_stream_state(record);
-            return record.asset;
+            result.asset = record.asset;
+            result.promise = record.pending_load;
+            return result;
         }
 
         /// <summary>
@@ -282,7 +261,7 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
         template <typename TAsset>
-        bool stream_out(const AssetHandle& handle, bool force = false)
+        bool unload(const AssetHandle& handle, bool force = false)
         {
             std::lock_guard lock(_mutex);
             auto* store = find_store<TAsset>();
@@ -333,7 +312,7 @@ namespace tbx
             auto& store = get_or_create_store<TAsset>();
             auto& record = get_or_create_record(store, *entry);
             record.stream_state = AssetStreamState::Loading;
-            auto promise = AssetAsyncLoader<TAsset>::load(entry->resolved_path);
+            auto promise = AssetLoader<TAsset>::load_async(entry->resolved_path);
             record.asset = std::move(promise.asset);
             record.pending_load = promise.promise;
             update_stream_state(record);
