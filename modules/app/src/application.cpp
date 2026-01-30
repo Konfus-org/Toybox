@@ -177,29 +177,22 @@ namespace tbx
     {
         try
         {
+            // IMPORTANT: Shutdown order matters, careful re-arranging could break things.
+
             GlobalDispatcherScope scope(_msg_coordinator);
 
+            // 1. Send shutdown event
             _msg_coordinator.send<ApplicationShutdownEvent>(this);
 
-            for (auto& plugin : _loaded)
-            {
-                if (plugin.meta.category != PluginCategory::Logging)
-                {
-                    plugin.detach(*this, _name, _msg_coordinator);
-                }
-            }
+            // 2. Close main window
+            _main_window.is_open = false;
+            _should_exit = true;
 
-            for (auto& plugin : _loaded)
-            {
-                if (plugin.meta.category == PluginCategory::Logging)
-                {
-                    plugin.detach(*this, _name, _msg_coordinator);
-                }
-            }
-
-            // Order matters: reset EntityManager before unloading plugin list.
+            // 3. Destroy all entities
             _entity_manager.destroy_all();
-            // Partition and destroy logging plugins after non-logging plugins to keep logging alive.
+            _asset_manager.cleanup();
+
+            // 4. Seperate logging plugins to ensure they remain loaded until after other plugins
             auto logging_start = std::stable_partition(
                 _loaded.begin(),
                 _loaded.end(),
@@ -207,18 +200,31 @@ namespace tbx
                 {
                     return plugin.meta.category != PluginCategory::Logging;
                 });
-
             std::vector<LoadedPlugin> logging_plugins(
                 std::make_move_iterator(logging_start),
                 std::make_move_iterator(_loaded.end()));
-            _loaded.erase(logging_start, _loaded.end());
+
+            // 5. Detach and unload all non-logging plugins
+            for (auto& plugin : _loaded)
+            {
+                if (plugin.meta.category == PluginCategory::Logging)
+                    continue;
+                plugin.detach(*this, _name, _msg_coordinator);
+            }
             _loaded.clear();
+
+            // 6. Detach and unload logging plugins
+            for (auto& plugin : logging_plugins)
+            {
+                if (plugin.meta.category == PluginCategory::Logging)
+                    continue;
+                plugin.detach(*this, _name, _msg_coordinator);
+            }
             logging_plugins.clear();
+
+            // 7. Clear message handlers
             _msg_coordinator.process_posts();
             _msg_coordinator.clear_handlers();
-            _asset_manager.cleanup();
-            _main_window.is_open = false;
-            _should_exit = true;
         }
         catch (const std::exception& ex)
         {

@@ -8,6 +8,9 @@ namespace tbx::plugins
     class SpdConsoleLoggerPlugin final : public Plugin
     {
       public:
+        SpdConsoleLoggerPlugin() = default;
+        ~SpdConsoleLoggerPlugin() noexcept override;
+
         void on_attach(Application& host) override;
         void on_detach() override;
         void on_recieve_message(Message& msg) override;

@@ -10,11 +10,22 @@
 
 namespace tbx::plugins
 {
+    SpdFileLoggerPlugin::~SpdFileLoggerPlugin() noexcept
+    {
+        _logger->info(
+            "[{}:{}] {}",
+            "spd_console_logger_plugin.cpp",
+            9,
+            "Unloading SpdConsoleLoggerPlugin");
+        _logger->flush();
+        _logger.reset();
+    }
+
     void SpdFileLoggerPlugin::on_attach(Application& host)
     {
         auto path = Log::open(host.get_filesystem());
         _logger = std::make_shared<spdlog::logger>(
-            "Tbx",
+            host.get_name(),
             std::make_shared<spdlog::sinks::basic_file_sink_mt>(path.string(), true));
         _logger->info("SpdFileLoggerPlugin attached");
     }
@@ -47,11 +58,7 @@ namespace tbx::plugins
                 _logger->error("[{}:{}] {}", filename_cstr, log->line, log->message);
                 break;
             case LogLevel::Critical:
-                _logger->critical(
-                    "[{}:{}] {}",
-                    filename_cstr,
-                    log->line,
-                    log->message);
+                _logger->critical("[{}:{}] {}", filename_cstr, log->line, log->message);
                 break;
         }
     }

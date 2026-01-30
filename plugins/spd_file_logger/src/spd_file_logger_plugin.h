@@ -2,14 +2,17 @@
 #include "tbx/plugin_api/plugin.h"
 #include <filesystem>
 #include <memory>
-#include <string>
 #include <spdlog/logger.h>
+#include <string>
 
 namespace tbx::plugins
 {
     class SpdFileLoggerPlugin final : public Plugin
     {
       public:
+        SpdFileLoggerPlugin() = default;
+        ~SpdFileLoggerPlugin() noexcept override;
+
         void on_attach(Application& host) override;
         void on_detach() override;
         void on_recieve_message(Message& msg) override;

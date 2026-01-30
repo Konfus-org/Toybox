@@ -27,7 +27,7 @@ namespace tbx
             return;
         }
 
-        TBX_TRACE_INFO("Unloading plugin: {} v{}", meta.name, meta.version);
+        TBX_TRACE_INFO("Unloading plugin: {}", meta.name);
     }
 
     bool LoadedPlugin::is_valid() const
@@ -51,11 +51,7 @@ namespace tbx
             !message_handler_token.is_valid(),
             "LoadedPlugin cannot attach while it still has a registered handler.");
 
-        TBX_TRACE_INFO(
-            "Attaching plugin: {} v{} to app {}",
-            meta.name,
-            meta.version,
-            host_name);
+        TBX_TRACE_INFO("Attaching plugin: {} to app {}", meta.name, host_name);
 
         message_handler_token = registrar.add_handler(
             [plugin = instance.get()](Message& msg)
@@ -76,18 +72,12 @@ namespace tbx
             return;
         }
 
-        TBX_TRACE_INFO(
-            "Detaching plugin: {} v{} from app {}",
-            meta.name,
-            meta.version,
-            host_name);
-
-        if (message_handler_token.is_valid())
-        {
-            registrar.remove_handler(message_handler_token);
-            message_handler_token = {};
-        }
-
+        TBX_TRACE_INFO("Detaching plugin: {} from app {}", meta.name, host_name);
+        TBX_ASSERT(
+            message_handler_token.is_valid(),
+            "LoadedPlugin cannot detach correctly without a valid message token!");
+        registrar.remove_handler(message_handler_token);
+        message_handler_token = {};
         instance->detach();
     }
 
