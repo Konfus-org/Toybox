@@ -1,0 +1,12 @@
+{
+  "shader": "00000001",
+  "parameters": [
+    { "name": "Color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
+    { "name": "Diffuse", "type": "texture", "value": "" },
+    { "name": "Normal", "type": "texture", "value": "" },
+    { "name": "Metallic", "type": "float", "value": 0.0 },
+    { "name": "Roughness", "type": "float", "value": 1.0 },
+    { "name": "Emissive", "type": "color", "value": [0.0, 0.0, 0.0, 1.0] },
+    { "name": "Occlusion", "type": "float", "value": 1.0 }
+  ]
+}

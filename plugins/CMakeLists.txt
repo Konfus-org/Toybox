@@ -12,6 +12,7 @@ add_subdirectory(spd_file_logger)
 # Asset loaders.
 add_subdirectory(stb_image_loader)
 add_subdirectory(shader_loader)
+add_subdirectory(material_loader)
 # Assimp-based model loader.
 add_subdirectory(assimp_model_loader)
 add_subdirectory(sdl_adapter)

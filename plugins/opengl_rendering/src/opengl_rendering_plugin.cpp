@@ -1,5 +1,6 @@
 #include "opengl_rendering_plugin.h"
 #include "tbx/app/application.h"
+#include "tbx/assets/asset_manager.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/camera.h"
 #include "tbx/math/matrices.h"
@@ -9,6 +10,8 @@
 #ifdef USING_SDL3
     #include <SDL3/SDL.h>
 #endif
+#include <functional>
+#include <string>
 #include <vector>
 
 namespace tbx::plugins
@@ -279,12 +282,65 @@ namespace tbx::plugins
     void OpenGlRenderingPlugin::draw_models(const Mat4& view_projection)
     {
         auto& ecs = get_host().get_entity_manager();
+        auto& asset_manager = get_host().get_asset_manager();
+
+        static const auto fallback_material = std::make_shared<Material>();
+
+        const auto resolve_material = [&](const Handle& handle) -> std::shared_ptr<Material>
+        {
+            const Handle resolved = handle.is_valid() ? handle : default_material_handle;
+            auto promise = asset_manager.load_async<Material>(resolved);
+            if (!promise.asset)
+            {
+                return fallback_material;
+            }
+            const AssetUsage usage = asset_manager.get_usage<Material>(resolved);
+            if (usage.stream_state != AssetStreamState::Loaded
+                && resolved.id != default_material_handle.id)
+            {
+                auto fallback = asset_manager.load_async<Material>(default_material_handle);
+                return fallback.asset ? fallback.asset : fallback_material;
+            }
+            return promise.asset;
+        };
+
         const auto draw_mesh_with_material =
             [&](const Mesh& mesh, const Material& material, const Mat4& model_matrix)
         {
             auto mesh_resource = get_mesh(mesh);
-            auto program = get_shader_program(material);
-            if (!mesh_resource || !program)
+            if (!mesh_resource)
+            {
+                return;
+            }
+
+            Handle shader_handle = default_shader_handle;
+            Handle shader_reference = {};
+            if (material.try_get_parameter("Shader", shader_reference)
+                && shader_reference.is_valid())
+            {
+                shader_handle = shader_reference;
+            }
+
+            auto shader_promise = asset_manager.load_async<Shader>(shader_handle);
+            if (!shader_promise.asset)
+            {
+                return;
+            }
+
+            const AssetUsage shader_usage = asset_manager.get_usage<Shader>(shader_handle);
+            if (shader_usage.stream_state != AssetStreamState::Loaded
+                && shader_handle.id != default_shader_handle.id)
+            {
+                shader_handle = default_shader_handle;
+                shader_promise = asset_manager.load_async<Shader>(shader_handle);
+                if (!shader_promise.asset)
+                {
+                    return;
+                }
+            }
+
+            auto program = get_shader_program(shader_handle, *shader_promise.asset);
+            if (!program)
             {
                 return;
             }
@@ -300,9 +356,11 @@ namespace tbx::plugins
             model_uniform.data = model_matrix;
             program->upload(model_uniform);
 
+            RgbaColor color = RgbaColor(1.0f, 1.0f, 1.0f, 1.0f);
+            material.try_get_parameter("Color", color);
             ShaderUniform color_uniform = {};
             color_uniform.name = "color_uniform";
-            color_uniform.data = material.color;
+            color_uniform.data = color;
             program->upload(color_uniform);
 
             ShaderUniform texture_uniform = {};
@@ -311,161 +369,162 @@ namespace tbx::plugins
             program->upload(texture_uniform);
 
             std::vector<GlResourceScope> texture_scopes = {};
-            texture_scopes.reserve(material.textures.size() + 1);
-            uint32 slot = 0;
-            if (material.textures.empty())
+            texture_scopes.reserve(1);
+            std::shared_ptr<OpenGlTexture> diffuse_resource = {};
+            Handle diffuse_handle = {};
+            if (material.try_get_parameter("Diffuse", diffuse_handle) && diffuse_handle.is_valid())
             {
-                auto resource = get_default_texture();
-                if (resource)
+                auto texture_promise = asset_manager.load_async<Texture>(diffuse_handle);
+                if (texture_promise.asset)
                 {
-                    resource->set_slot(slot);
-                    texture_scopes.emplace_back(*resource);
-                    slot += 1;
+                    const AssetUsage texture_usage =
+                        asset_manager.get_usage<Texture>(diffuse_handle);
+                    if (texture_usage.stream_state == AssetStreamState::Loaded)
+                    {
+                        diffuse_resource = get_texture(*texture_promise.asset);
+                    }
                 }
             }
 
-            for (const auto& texture : material.textures)
+            if (!diffuse_resource)
             {
-                if (!texture)
-                {
-                    continue;
-                }
-                auto resource = get_texture(*texture);
-                if (!resource)
-                {
-                    continue;
-                }
-                resource->set_slot(slot);
-                texture_scopes.emplace_back(*resource);
-                slot += 1;
+                diffuse_resource = get_default_texture();
+            }
+
+            if (diffuse_resource)
+            {
+                diffuse_resource->set_slot(0);
+                texture_scopes.emplace_back(*diffuse_resource);
             }
 
             GlResourceScope mesh_scope(*mesh_resource);
             mesh_resource->draw();
         };
 
-        static const Material fallback_material = []()
-        {
-            Material material = {};
-            material.color = RgbaColor::magenta;
-            return material;
-        }();
-
-        auto entities = ecs.get_with<Model>();
+        auto entities = ecs.get_with<Renderer>();
         for (auto& entity : entities)
         {
-            const Model& model = entity.get_component<Model>();
+            const Renderer& renderer = entity.get_component<Renderer>();
+            if (!renderer.data)
+            {
+                continue;
+            }
 
             Mat4 entity_matrix = Mat4(1.0f);
             if (entity.has_component<Transform>())
+            {
                 entity_matrix = build_model_matrix(entity.get_component<Transform>());
-
-            const size_t part_count = model.parts.size();
-            if (part_count == 0U)
-            {
-                continue;
             }
 
-            std::vector<bool> is_child = std::vector<bool>(part_count, false);
-            for (const auto& part : model.parts)
+            if (auto* static_data = dynamic_cast<const StaticRenderData*>(renderer.data.get()))
             {
-                for (const auto child_index : part.children)
+                if (!static_data->model.is_valid())
                 {
-                    if (child_index < part_count)
+                    continue;
+                }
+
+                auto model_promise = asset_manager.load_async<Model>(static_data->model);
+                if (!model_promise.asset)
+                {
+                    continue;
+                }
+
+                auto material_asset = resolve_material(static_data->material);
+
+                const Model& model = *model_promise.asset;
+                const size_t part_count = model.parts.size();
+                if (part_count == 0U)
+                {
+                    for (const auto& mesh : model.meshes)
                     {
-                        is_child[child_index] = true;
+                        if (mesh.vertices.empty() || mesh.indices.empty())
+                        {
+                            continue;
+                        }
+                        draw_mesh_with_material(mesh, *material_asset, entity_matrix);
                     }
-                }
-            }
-
-            auto draw_part = [&](auto&& self, const uint32 part_index, const Mat4& parent_matrix)
-            {
-                if (part_index >= part_count)
-                {
-                    return;
+                    continue;
                 }
 
-                const ModelPart& part = model.parts[part_index];
-                const Mat4 part_matrix = parent_matrix * part.transform;
-
-                if (part.mesh_index < model.meshes.size())
+                std::vector<bool> is_child = std::vector<bool>(part_count, false);
+                for (const auto& part : model.parts)
                 {
-                    const Mesh& mesh = model.meshes[part.mesh_index];
-                    if (!mesh.vertices.empty() && !mesh.indices.empty())
+                    for (const auto child_index : part.children)
                     {
-                        const Material* material = nullptr;
-                        if (part.material_index < model.materials.size())
+                        if (child_index < part_count)
                         {
-                            material = &model.materials[part.material_index];
+                            is_child[child_index] = true;
                         }
-                        else
-                        {
-                            material = &fallback_material;
-                        }
-
-                        draw_mesh_with_material(mesh, *material, part_matrix);
                     }
                 }
 
-                for (const auto child_index : part.children)
+                auto draw_part =
+                    [&](auto&& self, const uint32 part_index, const Mat4& parent_matrix)
                 {
-                    self(self, child_index, part_matrix);
-                }
-            };
+                    if (part_index >= part_count)
+                    {
+                        return;
+                    }
 
-            bool has_root = false;
-            for (uint32 part_index = 0U; part_index < part_count; ++part_index)
-            {
-                if (!is_child[part_index])
-                {
-                    has_root = true;
-                    draw_part(draw_part, part_index, entity_matrix);
-                }
-            }
+                    const ModelPart& part = model.parts[part_index];
+                    const Mat4 part_matrix = parent_matrix * part.transform;
 
-            if (!has_root)
-            {
+                    if (part.mesh_index < model.meshes.size())
+                    {
+                        const Mesh& mesh = model.meshes[part.mesh_index];
+                        if (!mesh.vertices.empty() && !mesh.indices.empty())
+                        {
+                            draw_mesh_with_material(mesh, *material_asset, part_matrix);
+                        }
+                    }
+
+                    for (const auto child_index : part.children)
+                    {
+                        self(self, child_index, part_matrix);
+                    }
+                };
+
+                bool has_root = false;
                 for (uint32 part_index = 0U; part_index < part_count; ++part_index)
                 {
-                    draw_part(draw_part, part_index, entity_matrix);
+                    if (!is_child[part_index])
+                    {
+                        has_root = true;
+                        draw_part(draw_part, part_index, entity_matrix);
+                    }
                 }
-            }
-        }
 
-        auto mesh_entities = ecs.get_with<Mesh>();
-        for (auto& entity : mesh_entities)
-        {
-            if (entity.has_component<Model>())
-            {
+                if (!has_root)
+                {
+                    for (uint32 part_index = 0U; part_index < part_count; ++part_index)
+                    {
+                        draw_part(draw_part, part_index, entity_matrix);
+                    }
+                }
                 continue;
             }
 
-            const Mesh& mesh = entity.get_component<Mesh>();
-            Mat4 model_matrix = Mat4(1.0f);
-            if (entity.has_component<Transform>())
-                model_matrix = build_model_matrix(entity.get_component<Transform>());
-
-            const Material* material = nullptr;
-            if (entity.has_component<Material>())
+            if (auto* procedural_data = dynamic_cast<const ProceduralData*>(renderer.data.get()))
             {
-                material = &entity.get_component<Material>();
-            }
-            else
-            {
-                const Uuid entity_id = entity.get_id();
-                const bool is_new_warning =
-                    _mesh_entities_missing_material.emplace(entity_id).second;
-                if (is_new_warning)
+                const size_t mesh_count = procedural_data->meshes.size();
+                for (size_t mesh_index = 0U; mesh_index < mesh_count; ++mesh_index)
                 {
-                    TBX_TRACE_WARNING(
-                        "OpenGL rendering: mesh entity {} has no material component; rendering "
-                        "with bright pink.",
-                        to_string(entity_id));
-                }
-                material = &fallback_material;
-            }
+                    const Mesh& mesh = procedural_data->meshes[mesh_index];
+                    if (mesh.vertices.empty() || mesh.indices.empty())
+                    {
+                        continue;
+                    }
 
-            draw_mesh_with_material(mesh, *material, model_matrix);
+                    Handle material_handle = {};
+                    if (mesh_index < procedural_data->materials.size())
+                    {
+                        material_handle = procedural_data->materials[mesh_index];
+                    }
+
+                    auto material_asset = resolve_material(material_handle);
+                    draw_mesh_with_material(mesh, *material_asset, entity_matrix);
+                }
+            }
         }
     }
 
@@ -512,32 +571,44 @@ namespace tbx::plugins
         return resource;
     }
 
-    std::shared_ptr<OpenGlShader> OpenGlRenderingPlugin::get_shader(const Shader& shader)
+    static Uuid make_shader_source_key(const ShaderSource& shader)
     {
-        if (auto it = _shaders.find(shader.id); it != _shaders.end())
+        const auto hasher = std::hash<std::string>();
+        std::string key = shader.source;
+        key.append("|");
+        key.append(std::to_string(static_cast<int>(shader.type)));
+        const auto hashed = static_cast<uint32>(hasher(key));
+        return hashed == 0U ? Uuid(1U) : Uuid(hashed);
+    }
+
+    std::shared_ptr<OpenGlShader> OpenGlRenderingPlugin::get_shader(const ShaderSource& shader)
+    {
+        const Uuid shader_key = make_shader_source_key(shader);
+        if (auto it = _shaders.find(shader_key); it != _shaders.end())
         {
             return it->second;
         }
 
         auto resource = std::make_shared<OpenGlShader>(shader);
-        _shaders.emplace(shader.id, resource);
+        _shaders.emplace(shader_key, resource);
         return resource;
     }
 
     std::shared_ptr<OpenGlShaderProgram> OpenGlRenderingPlugin::get_shader_program(
-        const Material& material)
+        const Handle& handle,
+        const Shader& shader)
     {
-        const auto program_id = material.shader_program.id;
+        const auto program_id = handle.id;
         if (auto it = _shader_programs.find(program_id); it != _shader_programs.end())
         {
             return it->second;
         }
 
         std::vector<std::shared_ptr<OpenGlShader>> shaders = {};
-        shaders.reserve(material.shader_program.shaders.size());
-        for (const auto& shader : material.shader_program.shaders)
+        shaders.reserve(shader.sources.size());
+        for (const auto& shader_source : shader.sources)
         {
-            shaders.push_back(get_shader(shader));
+            shaders.push_back(get_shader(shader_source));
         }
 
         if (shaders.empty())

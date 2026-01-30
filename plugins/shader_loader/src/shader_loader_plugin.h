@@ -6,13 +6,13 @@
 namespace tbx
 {
     class IFileSystem;
-    struct LoadShaderProgramRequest;
+    struct LoadShaderRequest;
 }
 
 namespace tbx::plugins
 {
     /// <summary>
-    /// Purpose: Loads shader program assets from .shader files with #type sections.
+    /// Purpose: Loads shader assets from .shader files with #type sections.
     /// </summary>
     /// <remarks>
     /// Ownership: Plugin lifetime is owned by the host; it keeps non-owning references to the host.
@@ -40,17 +40,17 @@ namespace tbx::plugins
         void on_detach() override;
 
         /// <summary>
-        /// Purpose: Receives shader program load requests and dispatches file parsing.
+        /// Purpose: Receives shader load requests and dispatches file parsing.
         /// </summary>
         /// <remarks>
         /// Ownership: Does not take ownership of messages or asset payloads.
-        /// Thread Safety: Executes on the dispatcher thread; relies on ShaderProgram payload
+        /// Thread Safety: Executes on the dispatcher thread; relies on Shader payload
         /// synchronization.
         /// </remarks>
         void on_recieve_message(Message& msg) override;
 
       private:
-        void on_load_shader_program_request(LoadShaderProgramRequest& request);
+        void on_load_shader_program_request(LoadShaderRequest& request);
         std::filesystem::path resolve_asset_path(const std::filesystem::path& path) const;
 
         IFileSystem* _filesystem = nullptr;

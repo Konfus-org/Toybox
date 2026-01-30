@@ -1,7 +1,6 @@
 #include "shader_loader_plugin.h"
 #include "tbx/assets/messages.h"
 #include "tbx/files/filesystem.h"
-#include "tbx/graphics/material.h"
 #include "tbx/graphics/shader.h"
 #include <algorithm>
 #include <cctype>
@@ -69,7 +68,7 @@ namespace tbx::plugins
 
     static bool try_parse_shader_source(
         const std::string& file_data,
-        std::vector<Shader>& shaders,
+        std::vector<ShaderSource>& shaders,
         std::string& error_message)
     {
         std::istringstream stream(file_data);
@@ -153,7 +152,7 @@ namespace tbx::plugins
 
     void ShaderLoaderPlugin::on_recieve_message(Message& msg)
     {
-        auto* request = handle_message<LoadShaderProgramRequest>(msg);
+        auto* request = handle_message<LoadShaderRequest>(msg);
         if (!request)
         {
             return;
@@ -162,13 +161,13 @@ namespace tbx::plugins
         on_load_shader_program_request(*request);
     }
 
-    void ShaderLoaderPlugin::on_load_shader_program_request(LoadShaderProgramRequest& request)
+    void ShaderLoaderPlugin::on_load_shader_program_request(LoadShaderRequest& request)
     {
         auto* asset = request.asset;
         if (!asset)
         {
             request.state = MessageState::Error;
-            request.result.flag_failure("Shader loader: missing shader program asset wrapper.");
+            request.result.flag_failure("Shader loader: missing shader asset wrapper.");
             return;
         }
 
@@ -204,7 +203,7 @@ namespace tbx::plugins
             return;
         }
 
-        std::vector<Shader> shaders;
+        std::vector<ShaderSource> shaders;
         std::string parse_error;
         if (!try_parse_shader_source(file_data, shaders, parse_error))
         {
@@ -213,10 +212,7 @@ namespace tbx::plugins
             return;
         }
 
-        const Uuid existing_id = asset->id;
-        ShaderProgram program(std::move(shaders));
-        program.id = existing_id;
-        *asset = std::move(program);
+        *asset = Shader(std::move(shaders));
 
         request.state = MessageState::Handled;
     }

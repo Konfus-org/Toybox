@@ -1,10 +1,9 @@
 #include "runtime.h"
-#include "tbx/app/application.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/entities.h"
-#include "tbx/graphics/camera.h"
-#include "tbx/graphics/model.h"
+#include "tbx/graphics/mesh.h"
+#include "tbx/graphics/renderer.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
 
@@ -14,8 +13,8 @@ namespace tbx::examples
     {
         _entity_manager = &context.get_entity_manager();
         std::string greeting =
-            "Welcome to the ecs example! This plugin just loads a few basic plugins and makes some "
-            "entities.";
+            "Welcome to the ecs example! This plugin just loads a few basic plugins and "
+            "makes some entities.";
         std::string message = trim(greeting);
         TBX_TRACE_INFO("{}", message.c_str());
 
@@ -26,7 +25,7 @@ namespace tbx::examples
             // create and add components
             auto ent = _entity_manager->create(std::to_string(i));
             ent.add_component<Transform>();
-            ent.add_component<Model>();
+            ent.add_component<Renderer>(quad);
 
             // shift on the x axis so they are not all in the same spot
             auto& transform = ent.get_component<Transform>();
