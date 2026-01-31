@@ -154,6 +154,7 @@ namespace tbx::plugins
     {
         bool loaded = false;
 
+        // TODO: Make an abstraction for GL loader selection
 #ifdef USING_SDL3
         loaded = gladLoadGLLoader(reinterpret_cast<GLADloadproc>(SDL_GL_GetProcAddress));
 #endif

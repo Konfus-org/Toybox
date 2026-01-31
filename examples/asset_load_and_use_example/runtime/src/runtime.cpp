@@ -12,7 +12,7 @@ namespace tbx::examples
 
         auto transform = entity.add_component<Transform>();
         transform.scale = Vec3(0.1f, 0.1f, 0.1f);
-        transform.position = Vec3(0.0f, 0.0f, 125.0f);
+        transform.position = Vec3(0.0f, 0.0f, -125.0f);
         entity.add_component<Renderer>("Green_Cube.fbx");
     }
 
@@ -28,8 +28,6 @@ namespace tbx::examples
         {
             auto& transform = entity.get_component<Transform>();
             transform.rotation = Quat({0.0f, 0.01f, 0.0f}) * transform.rotation;
-            transform.scale = Vec3(0.1f, 0.1f, 0.1f);
-            transform.position = Vec3(0.0f, 0.0f, -125.0f);
         }
     }
 

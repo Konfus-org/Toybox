@@ -9,12 +9,17 @@ namespace tbx
         discover_assets();
     }
 
-    void AssetManager::cleanup()
+    void AssetManager::unload_all()
+    {
+        _stores.clear();
+    }
+
+    void AssetManager::unload_unreferenced()
     {
         std::lock_guard lock(_mutex);
         for (const auto& store : _stores)
         {
-            store.second->cleanup();
+            store.second->unload_unreferenced();
         }
     }
 
