@@ -1,8 +1,8 @@
 #pragma once
-#include "tbx/common/handle.h"
 #include "tbx/assets/asset_loaders.h"
 #include "tbx/assets/asset_meta.h"
 #include "tbx/assets/assets.h"
+#include "tbx/common/handle.h"
 #include "tbx/common/int.h"
 #include "tbx/common/uuid.h"
 #include "tbx/files/filesystem.h"
@@ -86,7 +86,7 @@ namespace tbx
     struct IAssetStore
     {
         virtual ~IAssetStore() = default;
-        virtual void cleanup() = 0;
+        virtual void unload_unreferenced() = 0;
     };
 
     /// <summary>
@@ -120,7 +120,7 @@ namespace tbx
     {
         std::unordered_map<Uuid, AssetRecord<TAsset>> records;
 
-        void cleanup() override
+        void unload_unreferenced() override
         {
             for (auto& entry : records)
             {
@@ -138,8 +138,8 @@ namespace tbx
     /// Purpose: Tracks streamed assets by normalized path and maintains usage metadata.
     /// </summary>
     /// <remarks>
-    /// Ownership: Owns shared asset instances for loaded assets and releases them when streamed out.
-    /// Thread Safety: All public member functions are synchronized internally.
+    /// Ownership: Owns shared asset instances for loaded assets and releases them when streamed
+    /// out. Thread Safety: All public member functions are synchronized internally.
     /// </remarks>
     class TBX_API AssetManager final
     {
@@ -183,8 +183,8 @@ namespace tbx
                 record.stream_state = AssetStreamState::Loading;
                 record.asset = AssetLoader<TAsset>::load(entry->resolved_path);
                 record.pending_load = {};
-                record.stream_state = record.asset ? AssetStreamState::Loaded
-                                                   : AssetStreamState::Unloaded;
+                record.stream_state =
+                    record.asset ? AssetStreamState::Loaded : AssetStreamState::Unloaded;
             }
             return record.asset;
         }
@@ -245,8 +245,8 @@ namespace tbx
             auto promise = AssetLoader<TAsset>::load_async(entry->resolved_path);
             record.asset = std::move(promise.asset);
             record.pending_load = promise.promise;
-            record.stream_state = record.asset ? AssetStreamState::Loading
-                                               : AssetStreamState::Unloaded;
+            record.stream_state =
+                record.asset ? AssetStreamState::Loading : AssetStreamState::Unloaded;
             update_stream_state(record);
             result.asset = record.asset;
             result.promise = record.pending_load;
@@ -284,13 +284,22 @@ namespace tbx
         }
 
         /// <summary>
+        /// Purpose: Streams out all assets of all types.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Releases manager-owned asset instances that are safe to evict.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        /// </remarks>
+        void unload_all();
+
+        /// <summary>
         /// Purpose: Streams out all unreferenced, unpinned assets and reclaims memory.
         /// </summary>
         /// <remarks>
         /// Ownership: Releases manager-owned asset instances that are safe to evict.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
-        void cleanup();
+        void unload_unreferenced();
 
         /// <summary>
         /// Purpose: Reloads a streamed asset and swaps the managed asset instance.
@@ -529,14 +538,16 @@ namespace tbx
             AssetRecord<TAsset> record = {};
             record.normalized_path = entry.normalized_path;
             record.id = entry.id;
-            auto [inserted, was_inserted] = store.records.emplace(entry.path_key, std::move(record));
+            auto [inserted, was_inserted] =
+                store.records.emplace(entry.path_key, std::move(record));
             static_cast<void>(was_inserted);
             return inserted->second;
         }
 
         template <typename TAsset>
-        auto find_record_by_id(std::unordered_map<Uuid, AssetRecord<TAsset>>& records, Uuid asset_id)
-            -> typename std::unordered_map<Uuid, AssetRecord<TAsset>>::iterator
+        auto find_record_by_id(
+            std::unordered_map<Uuid, AssetRecord<TAsset>>& records,
+            Uuid asset_id) -> typename std::unordered_map<Uuid, AssetRecord<TAsset>>::iterator
         {
             if (!asset_id)
             {
@@ -553,8 +564,8 @@ namespace tbx
         template <typename TAsset>
         auto find_record_by_id(
             const std::unordered_map<Uuid, AssetRecord<TAsset>>& records,
-            Uuid asset_id) const
-            -> typename std::unordered_map<Uuid, AssetRecord<TAsset>>::const_iterator
+            Uuid asset_id) const ->
+            typename std::unordered_map<Uuid, AssetRecord<TAsset>>::const_iterator
         {
             if (!asset_id)
             {
@@ -643,8 +654,8 @@ namespace tbx
             using namespace std::chrono_literals;
             if (record.pending_load.wait_for(0s) == std::future_status::ready)
             {
-                record.stream_state = record.asset ? AssetStreamState::Loaded
-                                                   : AssetStreamState::Unloaded;
+                record.stream_state =
+                    record.asset ? AssetStreamState::Loaded : AssetStreamState::Unloaded;
                 record.pending_load = {};
             }
         }

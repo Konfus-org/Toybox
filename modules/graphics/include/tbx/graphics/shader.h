@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/common/handle.h"
 #include "tbx/graphics/color.h"
 #include "tbx/math/matrices.h"
 #include "tbx/math/vectors.h"

@@ -82,11 +82,8 @@ namespace tbx
     /// </remarks>
     struct TBX_API Renderer
     {
-        Renderer() = default;
-        Renderer(std::unique_ptr<IRenderData> render_data)
-            : data(std::move(render_data))
-        {
-        }
+        Renderer();
+        Renderer(std::unique_ptr<IRenderData> render_data);
 
         /// <summary>
         /// Purpose: Creates a renderer for a static model asset by name.
@@ -95,13 +92,7 @@ namespace tbx
         /// Ownership: Takes ownership of the created render data payload.
         /// Thread Safety: Safe to construct on any thread.
         /// </remarks>
-        Renderer(std::string model_name, Handle material_handle = {})
-            : data(
-                  std::make_unique<StaticRenderData>(
-                      std::move(model_name),
-                      std::move(material_handle)))
-        {
-        }
+        Renderer(std::string model_name, Handle material_handle = {});
 
         /// <summary>
         /// Purpose: Creates a renderer for a static model asset handle.
@@ -110,13 +101,7 @@ namespace tbx
         /// Ownership: Takes ownership of the created render data payload.
         /// Thread Safety: Safe to construct on any thread.
         /// </remarks>
-        Renderer(Handle model_handle, Handle material_handle = {})
-            : data(
-                  std::make_unique<StaticRenderData>(
-                      std::move(model_handle),
-                      std::move(material_handle)))
-        {
-        }
+        Renderer(Handle model_handle, Handle material_handle = {});
 
         /// <summary>
         /// Purpose: Creates a renderer for static asset-backed render data.
@@ -125,10 +110,7 @@ namespace tbx
         /// Ownership: Takes ownership of the created render data payload.
         /// Thread Safety: Safe to construct on any thread.
         /// </remarks>
-        Renderer(StaticRenderData render_data)
-            : data(std::make_unique<StaticRenderData>(std::move(render_data)))
-        {
-        }
+        Renderer(StaticRenderData render_data);
 
         /// <summary>
         /// Purpose: Creates a renderer for a single procedural mesh.
@@ -137,13 +119,7 @@ namespace tbx
         /// Ownership: Takes ownership of the created render data payload.
         /// Thread Safety: Safe to construct on any thread.
         /// </remarks>
-        Renderer(const Mesh& mesh, Handle material_handle = {})
-            : data(
-                  std::make_unique<ProceduralData>(
-                      std::vector<Mesh> {mesh},
-                      std::vector<Handle> {std::move(material_handle)}))
-        {
-        }
+        Renderer(const Mesh& mesh, Handle material_handle = {});
 
         /// <summary>
         /// Purpose: Creates a renderer for procedural mesh data.
@@ -152,10 +128,7 @@ namespace tbx
         /// Ownership: Takes ownership of the created render data payload.
         /// Thread Safety: Safe to construct on any thread.
         /// </remarks>
-        Renderer(ProceduralData render_data)
-            : data(std::make_unique<ProceduralData>(std::move(render_data)))
-        {
-        }
+        Renderer(ProceduralData render_data);
 
         std::unique_ptr<IRenderData> data = {};
     };

@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/common/handle.h"
 #include "tbx/graphics/color.h"
+#include "tbx/graphics/shader.h"
 #include "tbx/math/vectors.h"
 #include "tbx/tbx_api.h"
 #include <string>
@@ -19,15 +20,6 @@ namespace tbx
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
     /// </remarks>
     using MaterialParameterValue = std::variant<bool, int, float, Vec2, Vec3, Vec4, RgbaColor>;
-
-    /// <summary>
-    /// Purpose: Provides the default shader asset handle.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Returns a value handle; no ownership transfer.
-    /// Thread Safety: Safe to read concurrently.
-    /// </remarks>
-    inline const Handle default_shader_handle = Handle(Uuid(0x1U));
 
     /// <summary>
     /// Purpose: Provides the default material asset handle.

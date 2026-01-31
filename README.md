@@ -99,3 +99,54 @@ All AI-generated code must be reviewed and approved by a human before being merg
 
 
 
+
+CMake 4.1.0 or newer is required to support the Visual Studio 2026 generator and the Ninja presets.
+
+Toybox relies on the presets defined in `CMakePresets.json`. Configure once, then build/test via the associated build and test presets.
+
+#### Windows (Visual Studio 2022)
+
+```bash
+# Configure (creates files under cmake/build/vs)
+cmake --preset tbx-vs
+
+# Build Debug or Release
+cmake --build --preset tbx-vs-debug
+cmake --build --preset tbx-vs-release
+
+# Run tests
+ctest --preset tbx-test-vs-debug
+ctest --preset tbx-test-vs-release
+```
+
+#### Cross-platform Ninja workflow
+
+```bash
+# Configure (under cmake/build/ninja)
+cmake --preset tbx-ninja
+
+# Build Debug or Release
+cmake --build --preset tbx-ninja-debug
+cmake --build --preset tbx-ninja-release
+
+# Run tests
+ctest --preset tbx-test-ninja-debug
+ctest --preset tbx-test-ninja-release
+```
+
+Artifacts land in `cmake/build/bin/<Config>` with matching `lib` and `pdb` directories.
+
+## Contributing and AI Usage
+
+Look to the contributing documentation [here](CONTRIBUTING.md).
+
+In regards to AI usage:
+
+See `AGENT.md` for the AI contributor standards used by AI agents which are allowed and used in this project. We recongnize the potential of AI tools to assist in development and encourage their responsible use.
+However, AI code is used with great care and scrutiny and is never blindly accepted, if you use AI to contribute you should fully understand what the code it gives you is doing and be ready to explain, defend, and/or change it.
+All AI-generated code must be reviewed and approved by a human before being merged and any AI-generated code must follow the same standards as human-written code.
+
+
+
+
+

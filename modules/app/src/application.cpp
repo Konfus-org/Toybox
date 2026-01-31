@@ -173,7 +173,7 @@ namespace tbx
 
         ++_update_count;
         if ((_update_count % 5) == 0)
-            _asset_manager.cleanup();
+            _asset_manager.unload_unreferenced();
     }
 
     void Application::shutdown()
@@ -193,7 +193,7 @@ namespace tbx
 
             // 3. Destroy all entities
             _entity_manager.destroy_all();
-            _asset_manager.cleanup();
+            _asset_manager.unload_all();
 
             // 4. Detach and unload all non-logging plugins
             _loaded.clear();
