@@ -74,7 +74,7 @@ namespace tbx
     struct TBX_API Renderer
     {
         Renderer() = default;
-        explicit Renderer(std::unique_ptr<IRenderData> render_data)
+        Renderer(std::unique_ptr<IRenderData> render_data)
             : data(std::move(render_data))
         {
         }
@@ -86,10 +86,11 @@ namespace tbx
         /// Ownership: Takes ownership of the created render data payload.
         /// Thread Safety: Safe to construct on any thread.
         /// </remarks>
-        explicit Renderer(std::string_view model_name, Handle material_handle = {})
-            : data(std::make_unique<StaticRenderData>(
-                  Handle(model_name),
-                  std::move(material_handle)))
+        Renderer(std::string model_name, Handle material_handle = {})
+            : data(
+                  std::make_unique<StaticRenderData>(
+                      std::move(model_name),
+                      std::move(material_handle)))
         {
         }
 
@@ -100,10 +101,11 @@ namespace tbx
         /// Ownership: Takes ownership of the created render data payload.
         /// Thread Safety: Safe to construct on any thread.
         /// </remarks>
-        explicit Renderer(Handle model_handle, Handle material_handle = {})
-            : data(std::make_unique<StaticRenderData>(
-                  std::move(model_handle),
-                  std::move(material_handle)))
+        Renderer(Handle model_handle, Handle material_handle = {})
+            : data(
+                  std::make_unique<StaticRenderData>(
+                      std::move(model_handle),
+                      std::move(material_handle)))
         {
         }
 
@@ -114,7 +116,7 @@ namespace tbx
         /// Ownership: Takes ownership of the created render data payload.
         /// Thread Safety: Safe to construct on any thread.
         /// </remarks>
-        explicit Renderer(StaticRenderData render_data)
+        Renderer(StaticRenderData render_data)
             : data(std::make_unique<StaticRenderData>(std::move(render_data)))
         {
         }
@@ -126,10 +128,11 @@ namespace tbx
         /// Ownership: Takes ownership of the created render data payload.
         /// Thread Safety: Safe to construct on any thread.
         /// </remarks>
-        explicit Renderer(const Mesh& mesh, Handle material_handle = {})
-            : data(std::make_unique<ProceduralData>(
-                  std::vector<Mesh>{mesh},
-                  std::vector<Handle>{std::move(material_handle)}))
+        Renderer(const Mesh& mesh, Handle material_handle = {})
+            : data(
+                  std::make_unique<ProceduralData>(
+                      std::vector<Mesh> {mesh},
+                      std::vector<Handle> {std::move(material_handle)}))
         {
         }
 
@@ -140,7 +143,7 @@ namespace tbx
         /// Ownership: Takes ownership of the created render data payload.
         /// Thread Safety: Safe to construct on any thread.
         /// </remarks>
-        explicit Renderer(ProceduralData render_data)
+        Renderer(ProceduralData render_data)
             : data(std::make_unique<ProceduralData>(std::move(render_data)))
         {
         }

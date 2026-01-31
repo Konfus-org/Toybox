@@ -24,22 +24,12 @@ namespace tbx
         /// Ownership: Copies the provided name into the handle.
         /// Thread Safety: Safe to call concurrently.
         /// </remarks>
-        Handle(const char* asset_name)
-            : Handle(asset_name ? std::string(asset_name) : std::string())
-        {
-        }
-
-        /// <summary>
-        /// Purpose: Constructs a handle from an asset name.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Copies the provided name into the handle.
-        /// Thread Safety: Safe to call concurrently.
-        /// </remarks>
         Handle(std::string asset_name)
-            : name(std::move(asset_name))
-            , id(hash_name(name))
         {
+            const auto hasher = std::hash<std::string_view>();
+            const auto hashed = static_cast<uint32>(hasher(asset_name));
+            id = hashed == 0U ? Uuid(1U) : Uuid(hashed);
+            name = std::move(asset_name);
         }
 
         /// <summary>
@@ -54,19 +44,6 @@ namespace tbx
         {
         }
 
-      private:
-        static Uuid hash_name(std::string_view value)
-        {
-            if (value.empty())
-            {
-                return {};
-            }
-            const auto hasher = std::hash<std::string_view>();
-            const auto hashed = static_cast<uint32>(hasher(value));
-            return hashed == 0U ? Uuid(1U) : Uuid(hashed);
-        }
-
-      public:
         /// <summary>
         /// Purpose: Returns true when the handle has either a name or UUID.
         /// </summary>

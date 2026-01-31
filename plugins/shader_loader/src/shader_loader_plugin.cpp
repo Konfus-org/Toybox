@@ -13,23 +13,26 @@ namespace tbx::plugins
 {
     static std::string trim_string(std::string_view text)
     {
-        const auto start = text.find_first_not_of(" 	
-");
+        const auto start = text.find_first_not_of(" \n\t");
         if (start == std::string_view::npos)
         {
             return "";
         }
-        const auto end = text.find_last_not_of(" 	
-");
+        const auto end = text.find_last_not_of(" \n\t");
         return std::string(text.substr(start, end - start + 1U));
     }
 
     static bool try_parse_shader_type(std::string_view type_name, ShaderType& out_type)
     {
         std::string type_text(type_name);
-        std::transform(type_text.begin(), type_text.end(), type_text.begin(), [](unsigned char ch) {
-            return static_cast<char>(std::tolower(ch));
-        });
+        std::transform(
+            type_text.begin(),
+            type_text.end(),
+            type_text.begin(),
+            [](unsigned char ch)
+            {
+                return static_cast<char>(std::tolower(ch));
+            });
 
         if (type_text == "vertex")
         {
@@ -110,14 +113,12 @@ namespace tbx::plugins
             if (!has_section)
             {
                 pending_header.append(line);
-                pending_header.append("
-");
+                pending_header.append(" \n\t");
                 continue;
             }
 
             current_source.append(line);
-            current_source.append("
-");
+            current_source.append(" \n\t");
         }
 
         if (!has_section)
@@ -197,9 +198,8 @@ namespace tbx::plugins
         if (!_filesystem->read_file(resolved, FileDataFormat::Utf8Text, file_data))
         {
             request.state = MessageState::Error;
-            request.result.flag_failure(build_load_failure_message(
-                resolved,
-                "file could not be read"));
+            request.result.flag_failure(
+                build_load_failure_message(resolved, "file could not be read"));
             return;
         }
 
