@@ -1,42 +1,52 @@
 #type vertex
 #version 450 core
 
-layout(location = 0) in vec3 in_position;
-layout(location = 1) in vec4 in_vert_color;
-layout(location = 2) in vec3 in_normal; // TODO: implement normals!
-layout(location = 3) in vec2 in_tex_coord;
+layout(location = 0) in vec3 a_position;
+layout(location = 1) in vec4 a_color;
+layout(location = 2) in vec3 a_normal; // TODO: implement normals!
+layout(location = 3) in vec2 a_texcoord;
 
-out vec4 color;
-out vec4 vert_color;
-out vec2 tex_coord;
+out vec4 v_color;
+out vec4 v_vertex_color;
+out vec3 v_normal;
+out vec2 v_tex_coord;
 
-uniform mat4 view_proj_uniform;
-uniform mat4 model_uniform;
-uniform vec4 color_uniform = vec4(1.0, 1.0, 1.0, 1.0);
+uniform mat4 u_view_proj;
+uniform mat4 u_model;
+uniform vec4 u_color = vec4(1.0, 1.0, 1.0, 1.0);
 
 void main()
 {
-    color = color_uniform;
-    vert_color = in_vert_color;
-    tex_coord = in_tex_coord;
-    gl_Position = view_proj_uniform * model_uniform * vec4(in_position, 1.0);
+    v_color = u_color;
+    v_vertex_color = a_color;
+    v_normal = a_normal;
+    v_tex_coord = a_texcoord;
+    gl_Position = u_view_proj * u_model * vec4(a_position, 1.0);
 }
 
 #type fragment
 #version 450 core
 
-layout(location = 0) out vec4 out_color;
+layout(location = 0) out vec4 o_color;
 
-in vec4 color;
-in vec4 vert_color;
-in vec3 normal; // TODO: implement normals!
-in vec2 tex_coord;
+in vec4 v_color;
+in vec4 v_vertex_color;
+in vec3 v_normal; // TODO: implement normals!
+in vec2 v_tex_coord;
 
-uniform sampler2D texture_uniform;
+uniform sampler2D u_diffuse;
+uniform sampler2D u_normal;
+uniform float u_metallic = 0.0;
+uniform float u_roughness = 1.0;
+uniform vec4 u_emissive = vec4(0.0, 0.0, 0.0, 1.0);
+uniform float u_occlusion = 1.0;
 
 void main()
 {
-    vec4 texture_color = color;
-    texture_color *= texture(texture_uniform, tex_coord);
-    out_color = texture_color;
+    vec4 texture_color = v_color;
+    texture_color *= texture(u_diffuse, v_tex_coord);
+    vec3 emissive_color = u_emissive.rgb;
+    float occlusion_factor = u_occlusion;
+    vec3 lit_color = texture_color.rgb * occlusion_factor + emissive_color;
+    o_color = vec4(lit_color, texture_color.a);
 }

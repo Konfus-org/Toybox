@@ -44,12 +44,12 @@ namespace tbx::plugins
         void draw_models(const Mat4& view_projection);
         void draw_models_for_cameras(const Size& window_size);
         std::shared_ptr<OpenGlTexture> get_default_texture();
-        std::shared_ptr<OpenGlMesh> get_mesh(const Mesh& mesh);
+        std::shared_ptr<OpenGlMesh> get_mesh(const Mesh& mesh, const Uuid& mesh_key);
         std::shared_ptr<OpenGlShader> get_shader(const ShaderSource& shader);
         std::shared_ptr<OpenGlShaderProgram> get_shader_program(
             const Handle& handle,
             const Shader& shader);
-        std::shared_ptr<OpenGlTexture> get_texture(const Texture& texture);
+        std::shared_ptr<OpenGlTexture> get_texture(const Handle& handle, const Texture& texture);
         void remove_window_state(const Uuid& window_id, bool try_release);
 
       private:

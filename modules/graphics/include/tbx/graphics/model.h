@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/common/uuid.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/math/matrices.h"
@@ -33,7 +32,7 @@ namespace tbx
     struct TBX_API Model
     {
         /// <summary>Creates a model with a default mesh, material, and part.</summary>
-        /// <remarks>Purpose: Initializes the model with a single mesh/material pair and id.
+        /// <remarks>Purpose: Initializes the model with a single mesh/material pair.
         /// Ownership: Owns the mesh/material/part data by value.
         /// Thread Safety: Safe to construct on any thread.</remarks>
         Model();
@@ -53,6 +52,5 @@ namespace tbx
         std::vector<Mesh> meshes = {};
         std::vector<Material> materials = {};
         std::vector<ModelPart> parts = {};
-        Uuid id = Uuid::generate();
     };
 }

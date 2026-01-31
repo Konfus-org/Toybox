@@ -254,7 +254,7 @@ namespace tbx::plugins
             Material material = {};
             if (source_material)
             {
-                material.set_parameter("Color", get_material_diffuse_color(*source_material));
+                material.set_parameter("color", get_material_diffuse_color(*source_material));
             }
             materials.push_back(material);
         }
@@ -291,7 +291,7 @@ namespace tbx::plugins
                                               : 0U;
             mesh_material_indices.push_back(material_index);
             RgbaColor material_color = RgbaColor(1.0f, 1.0f, 1.0f, 1.0f);
-            materials.at(material_index).try_get_parameter("Color", material_color);
+            materials.at(material_index).try_get_parameter("color", material_color);
 
             // Convert vertices for this mesh.
             std::vector<Vertex> vertices;
@@ -369,14 +369,11 @@ namespace tbx::plugins
             parts.push_back(part);
         }
 
-        // Preserve the existing asset id when replacing the payload.
-        const Uuid existing_id = asset->id;
         // Assemble the final model payload.
         Model model = {};
         model.meshes = std::move(meshes);
         model.materials = std::move(materials);
         model.parts = std::move(parts);
-        model.id = existing_id;
         *asset = std::move(model);
 
         // Mark the request as handled on success.

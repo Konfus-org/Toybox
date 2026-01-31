@@ -9,16 +9,7 @@
 
 namespace tbx
 {
-    /// <summary>
-    /// Purpose: Provides the default shader asset handle.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Returns a value handle; no ownership transfer.
-    /// Thread Safety: Safe to read concurrently.
-    /// </remarks>
-    inline const Handle default_shader_handle = Handle(Uuid(0x1U));
-
-    using UniformData = std::variant<bool, int, float, Vec2, Vec3, RgbaColor, Mat4>;
+    using UniformData = std::variant<bool, int, float, Vec2, Vec3, Vec4, RgbaColor, Mat4>;
 
     /// <summary>
     /// Purpose: Represents a uniform upload payload for shader programs.

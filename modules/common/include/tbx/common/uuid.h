@@ -16,6 +16,25 @@ namespace tbx
         }
 
         static Uuid generate();
+
+        /// <summary>
+        /// Purpose: Combines a base UUID with an additional value into a new UUID.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a value type; no ownership transfer.
+        /// Thread Safety: Safe to call concurrently.
+        /// </remarks>
+        static Uuid combine(Uuid base, uint32 value);
+
+        /// <summary>
+        /// Purpose: Combines an additional value into this UUID.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Mutates this UUID in place.
+        /// Thread Safety: Not thread-safe; synchronize mutation externally.
+        /// </remarks>
+        void combine(uint32 value);
+
         bool is_valid() const;
 
         operator bool() const;

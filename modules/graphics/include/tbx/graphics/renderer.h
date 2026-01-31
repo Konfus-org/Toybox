@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/common/handle.h"
+#include "tbx/common/uuid.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/tbx_api.h"
 #include <memory>
@@ -60,6 +61,14 @@ namespace tbx
         {
         }
 
+        /// <summary>
+        /// Purpose: Identifies this procedural batch for GPU cache lookups.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores the identifier by value.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// </remarks>
+        Uuid id = Uuid::generate();
         std::vector<Mesh> meshes = {};
         std::vector<Handle> materials = {};
     };
