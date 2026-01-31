@@ -5,6 +5,7 @@
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/model.h"
 #include "tbx/graphics/vertex.h"
+#include "tbx/math/matrices.h"
 #include <assimp/Importer.hpp>
 #include <assimp/material.h>
 #include <assimp/postprocess.h>
@@ -69,6 +70,23 @@ namespace tbx::plugins
     static RgbaColor to_color(const aiColor4D& color)
     {
         return RgbaColor(color.r, color.g, color.b, color.a);
+    }
+
+    // Determines the scale needed to convert imported scene units to meters.
+    static float get_scene_scale_to_meters(const aiScene& scene)
+    {
+        if (!scene.mMetaData)
+        {
+            return 1.0f;
+        }
+
+        double unit_scale = 1.0;
+        if (scene.mMetaData->Get("UnitScaleFactor", unit_scale) && unit_scale > 0.0)
+        {
+            return static_cast<float>(unit_scale * 0.01);
+        }
+
+        return 1.0f;
     }
 
     // Queries a diffuse color from an Assimp material, falling back to white.
@@ -320,12 +338,15 @@ namespace tbx::plugins
         // Build model parts from the node hierarchy.
         std::vector<ModelPart> parts;
         parts.reserve(meshes.size());
+        const float scene_scale_to_meters = get_scene_scale_to_meters(*scene);
+        const Mat4 scene_scale =
+            (scene_scale_to_meters == 1.0f) ? Mat4(1.0f) : scale(Vec3(scene_scale_to_meters));
         // Walk the node tree only when we have mesh references.
         if (scene->mRootNode && !mesh_material_indices.empty())
         {
             append_parts_from_node(
                 *scene->mRootNode,
-                Mat4(1.0f),
+                scene_scale,
                 mesh_material_indices,
                 parts,
                 0U,
@@ -337,6 +358,7 @@ namespace tbx::plugins
         {
             // Create a model part referencing the mesh/material and local transform.
             ModelPart part = {};
+            part.transform = scene_scale;
             part.mesh_index = 0U;
             part.material_index = 0U;
             parts.push_back(part);
