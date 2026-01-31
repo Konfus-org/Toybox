@@ -6,6 +6,7 @@ target_include_directories(OpenGlRenderingPlugin PRIVATE ${CMAKE_CURRENT_SOURCE_
 
 target_link_libraries(OpenGlRenderingPlugin PRIVATE
     Tbx::App
+    Tbx::Common
     Tbx::Graphics
     glad::glad
 )
