@@ -1,42 +1,12 @@
 #include "opengl_rendering_plugin.h"
-#include "tbx/app/application.h"
-#include "tbx/assets/asset_manager.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/graphics/camera.h"
-#include "tbx/math/matrices.h"
-#include "tbx/math/transform.h"
-#include "tbx/math/trig.h"
 #include <glad/glad.h>
 #ifdef USING_SDL3
     #include <SDL3/SDL.h>
 #endif
-#include <functional>
-#include <string>
-#include <vector>
 
 namespace tbx::plugins
 {
-    // Build a model matrix from an entity transform.
-    static Mat4 build_model_matrix(const Transform& transform)
-    {
-        const Mat4 translation = translate(transform.position);
-        const Mat4 rotation = quaternion_to_mat4(transform.rotation);
-        const Mat4 scaling = scale(transform.scale);
-        return translation * rotation * scaling;
-    }
-
-    // Compute a cache key for procedural meshes using a stable batch id and mesh index.
-    static Uuid make_procedural_mesh_key(const Uuid& batch_id, uint32 mesh_index)
-    {
-        return Uuid::combine(batch_id, mesh_index);
-    }
-
-    // Compute a cache key for asset-backed model meshes.
-    static Uuid make_model_mesh_key(const Handle& model_handle, uint32 part_index)
-    {
-        return Uuid::combine(model_handle.id, part_index);
-    }
-
     static void GLAPIENTRY gl_message_callback(
         GLenum source,
         GLenum type,
@@ -74,10 +44,17 @@ namespace tbx::plugins
 
     void OpenGlRenderingPlugin::on_attach(IPluginHost& host)
     {
-        _render_resolution = host.get_settings().resolution.value;
+        _render_pipeline = std::make_unique<OpenGlRenderPipeline>(
+            host.get_dispatcher(),
+            host.get_entity_manager(),
+            host.get_asset_manager(),
+            host.get_settings().resolution.value);
     }
 
-    void OpenGlRenderingPlugin::on_detach() {}
+    void OpenGlRenderingPlugin::on_detach()
+    {
+        _render_pipeline.reset();
+    }
 
     void OpenGlRenderingPlugin::on_update(const DeltaTime&)
     {
@@ -86,56 +63,23 @@ namespace tbx::plugins
             return;
         }
 
-        // Track windows that fail to render so their state can be dropped.
-        std::vector<Uuid> windows_to_remove = {};
-        windows_to_remove.reserve(_window_sizes.size());
+        if (!_render_pipeline)
+        {
+            auto& host = get_host();
+            _render_pipeline = std::make_unique<OpenGlRenderPipeline>(
+                host.get_dispatcher(),
+                host.get_entity_manager(),
+                host.get_asset_manager(),
+                host.get_settings().resolution.value);
+        }
 
         for (const auto& entry : _window_sizes)
         {
             const Uuid window_id = entry.first;
             const Size& window_size = entry.second;
-            const Size render_resolution = get_effective_resolution(window_size);
-
-            // Bind the window context before issuing any GL commands.
-            const auto result = send_message<WindowMakeCurrentRequest>(window_id);
-            if (!result)
-            {
-                TBX_TRACE_ERROR(
-                    "OpenGL rendering: failed to make window current: {}",
-                    result.get_report());
-                windows_to_remove.push_back(window_id);
-                continue;
-            }
-
-            // Configure viewport and clear the frame.
-            glViewport(
-                0,
-                0,
-                static_cast<GLsizei>(render_resolution.width),
-                static_cast<GLsizei>(render_resolution.height));
-            glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Fixed 255 to 1.0f
-
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-            // Draw all scene cameras to the current framebuffer.
-            draw_models_for_cameras(render_resolution);
-
-            // Present the rendered frame to the window.
-            glFlush();
-            const auto present_result = send_message<WindowPresentRequest>(window_id);
-            if (!present_result)
-            {
-                TBX_TRACE_ERROR(
-                    "OpenGL rendering: failed to present window: {}",
-                    present_result.get_report());
-            }
+            _render_pipeline->execute_frame(window_id, window_size);
         }
 
-        // Clean up window state after rendering completes.
-        for (const auto& window_id : windows_to_remove)
-        {
-            remove_window_state(window_id, false);
-        }
     }
 
     void OpenGlRenderingPlugin::on_recieve_message(Message& msg)
@@ -228,7 +172,10 @@ namespace tbx::plugins
     void OpenGlRenderingPlugin::handle_resolution_changed(
         PropertyChangedEvent<AppSettings, Size>& event)
     {
-        _render_resolution = event.current;
+        if (_render_pipeline)
+        {
+            _render_pipeline->set_render_resolution(event.current);
+        }
     }
 
     void OpenGlRenderingPlugin::initialize_opengl() const
@@ -269,444 +216,8 @@ namespace tbx::plugins
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
-    Size OpenGlRenderingPlugin::get_effective_resolution(const Size& window_size) const
-    {
-        Size resolution = _render_resolution;
-        if (resolution.width == 0U || resolution.height == 0U)
-        {
-            resolution = window_size;
-        }
-
-        if (resolution.width == 0U)
-        {
-            resolution.width = 1U;
-        }
-
-        if (resolution.height == 0U)
-        {
-            resolution.height = 1U;
-        }
-
-        return resolution;
-    }
-
     void OpenGlRenderingPlugin::remove_window_state(const Uuid& window_id, const bool try_release)
     {
         _window_sizes.erase(window_id);
-    }
-
-    void OpenGlRenderingPlugin::draw_models(const Mat4& view_projection)
-    {
-        auto& ecs = get_host().get_entity_manager();
-        auto& asset_manager = get_host().get_asset_manager();
-
-        static const auto fallback_material = std::make_shared<Material>();
-
-        // Resolve a material handle to a loaded material asset, falling back to the default.
-        const auto resolve_material = [&](const Handle& handle) -> std::shared_ptr<Material>
-        {
-            const Handle resolved = handle.is_valid() ? handle : default_material_handle;
-            auto promise = asset_manager.load_async<Material>(resolved);
-            if (!promise.asset)
-            {
-                return fallback_material;
-            }
-            const AssetUsage usage = asset_manager.get_usage<Material>(resolved);
-            if (usage.stream_state != AssetStreamState::Loaded
-                && resolved.id != default_material_handle.id)
-            {
-                auto fallback = asset_manager.load_async<Material>(default_material_handle);
-                return fallback.asset ? fallback.asset : fallback_material;
-            }
-            return promise.asset;
-        };
-
-        // Draw a single mesh with a resolved material and cache key.
-        const auto draw_mesh_with_material = [&](const Mesh& mesh,
-                                                 const Material& material,
-                                                 const Mat4& model_matrix,
-                                                 const Uuid& mesh_key)
-        {
-            auto mesh_resource = get_mesh(mesh, mesh_key);
-            if (!mesh_resource)
-            {
-                return;
-            }
-
-            // Determine which shader passes to render for this material.
-            std::vector<Handle> shader_handles = material.shaders;
-            if (shader_handles.empty())
-            {
-                shader_handles.push_back(default_shader_handle);
-            }
-
-            for (auto shader_handle : shader_handles)
-            {
-                // Ensure the shader asset is valid and loaded before drawing.
-                if (!shader_handle.is_valid())
-                {
-                    shader_handle = default_shader_handle;
-                }
-
-                auto shader_promise = asset_manager.load_async<Shader>(shader_handle);
-                if (!shader_promise.asset)
-                {
-                    continue;
-                }
-
-                const AssetUsage shader_usage = asset_manager.get_usage<Shader>(shader_handle);
-                if (shader_usage.stream_state != AssetStreamState::Loaded
-                    && shader_handle.id != default_shader_handle.id)
-                {
-                    shader_handle = default_shader_handle;
-                    shader_promise = asset_manager.load_async<Shader>(shader_handle);
-                    if (!shader_promise.asset)
-                    {
-                        continue;
-                    }
-                }
-
-                auto program = get_shader_program(shader_handle, *shader_promise.asset);
-                if (!program)
-                {
-                    continue;
-                }
-
-                GlResourceScope program_scope(*program);
-                ShaderUniform view_projection_uniform = {};
-                view_projection_uniform.name = "u_view_proj";
-                view_projection_uniform.data = view_projection;
-                program->upload(view_projection_uniform);
-
-                ShaderUniform model_uniform = {};
-                model_uniform.name = "u_model";
-                model_uniform.data = model_matrix;
-                program->upload(model_uniform);
-
-                // Upload scalar/vector material parameters to matching uniforms.
-                for (const auto& parameter : material.parameters)
-                {
-                    ShaderUniform uniform = {};
-                    uniform.name = "u_" + parameter.name;
-                    std::visit(
-                        [&uniform](const auto& value)
-                        {
-                            uniform.data = value;
-                        },
-                        parameter.value);
-                    program->upload(uniform);
-                }
-
-                std::vector<GlResourceScope> texture_scopes = {};
-                texture_scopes.reserve(material.textures.size());
-                uint32 texture_slot = 0U;
-
-                // Bind textures and upload sampler bindings.
-                for (const auto& texture_binding : material.textures)
-                {
-                    std::shared_ptr<OpenGlTexture> texture_resource = {};
-                    if (texture_binding.handle.is_valid())
-                    {
-                        auto texture_promise =
-                            asset_manager.load_async<Texture>(texture_binding.handle);
-                        if (texture_promise.asset)
-                        {
-                            const AssetUsage texture_usage =
-                                asset_manager.get_usage<Texture>(texture_binding.handle);
-                            if (texture_usage.stream_state == AssetStreamState::Loaded)
-                            {
-                                texture_resource =
-                                    get_texture(texture_binding.handle, *texture_promise.asset);
-                            }
-                        }
-                    }
-
-                    if (!texture_resource)
-                    {
-                        texture_resource = get_default_texture();
-                    }
-
-                    if (texture_resource)
-                    {
-                        texture_resource->set_slot(static_cast<int>(texture_slot));
-                        texture_scopes.emplace_back(*texture_resource);
-                    }
-
-                    ShaderUniform texture_uniform = {};
-                    texture_uniform.name = "u_" + texture_binding.name;
-                    texture_uniform.data = static_cast<int>(texture_slot);
-                    program->upload(texture_uniform);
-                    ++texture_slot;
-                }
-
-                // Issue the draw for this mesh and shader pass.
-                GlResourceScope mesh_scope(*mesh_resource);
-                mesh_resource->draw();
-            }
-        };
-
-        auto entities = ecs.get_with<Renderer>();
-        for (auto& entity : entities)
-        {
-            const Renderer& renderer = entity.get_component<Renderer>();
-            if (!renderer.data)
-            {
-                continue;
-            }
-
-            Mat4 entity_matrix = Mat4(1.0f);
-            if (entity.has_component<Transform>())
-            {
-                entity_matrix = build_model_matrix(entity.get_component<Transform>());
-            }
-
-            if (auto* static_data = dynamic_cast<const StaticRenderData*>(renderer.data.get()))
-            {
-                // Draw meshes from model assets.
-                if (!static_data->model.is_valid())
-                {
-                    continue;
-                }
-
-                auto model_promise = asset_manager.load_async<Model>(static_data->model);
-                if (!model_promise.asset)
-                {
-                    continue;
-                }
-
-                auto material_asset = resolve_material(static_data->material);
-
-                const Model& model = *model_promise.asset;
-                const size_t part_count = model.parts.size();
-                if (part_count == 0U)
-                {
-                    for (size_t mesh_index = 0U; mesh_index < model.meshes.size(); ++mesh_index)
-                    {
-                        const auto& mesh = model.meshes[mesh_index];
-                        if (mesh.vertices.empty() || mesh.indices.empty())
-                        {
-                            continue;
-                        }
-                        const auto mesh_key =
-                            make_model_mesh_key(static_data->model, static_cast<uint32>(mesh_index));
-                        draw_mesh_with_material(mesh, *material_asset, entity_matrix, mesh_key);
-                    }
-                    continue;
-                }
-
-                std::vector<bool> is_child = std::vector<bool>(part_count, false);
-                for (const auto& part : model.parts)
-                {
-                    for (const auto child_index : part.children)
-                    {
-                        if (child_index < part_count)
-                        {
-                            is_child[child_index] = true;
-                        }
-                    }
-                }
-
-                auto draw_part =
-                    [&](auto&& self, const uint32 part_index, const Mat4& parent_matrix)
-                {
-                    if (part_index >= part_count)
-                    {
-                        return;
-                    }
-
-                    const ModelPart& part = model.parts[part_index];
-                    const Mat4 part_matrix = parent_matrix * part.transform;
-
-                    if (part.mesh_index < model.meshes.size())
-                    {
-                        const Mesh& mesh = model.meshes[part.mesh_index];
-                        if (!mesh.vertices.empty() && !mesh.indices.empty())
-                        {
-                            const auto mesh_key =
-                                make_model_mesh_key(static_data->model, part_index);
-                            draw_mesh_with_material(mesh, *material_asset, part_matrix, mesh_key);
-                        }
-                    }
-
-                    for (const auto child_index : part.children)
-                    {
-                        self(self, child_index, part_matrix);
-                    }
-                };
-
-                bool has_root = false;
-                for (uint32 part_index = 0U; part_index < part_count; ++part_index)
-                {
-                    if (!is_child[part_index])
-                    {
-                        has_root = true;
-                        draw_part(draw_part, part_index, entity_matrix);
-                    }
-                }
-
-                if (!has_root)
-                {
-                    for (uint32 part_index = 0U; part_index < part_count; ++part_index)
-                    {
-                        draw_part(draw_part, part_index, entity_matrix);
-                    }
-                }
-                continue;
-            }
-
-            if (auto* procedural_data = dynamic_cast<const ProceduralData*>(renderer.data.get()))
-            {
-                // Draw procedurally supplied meshes.
-                const size_t mesh_count = procedural_data->meshes.size();
-                for (size_t mesh_index = 0U; mesh_index < mesh_count; ++mesh_index)
-                {
-                    const Mesh& mesh = procedural_data->meshes[mesh_index];
-                    if (mesh.vertices.empty() || mesh.indices.empty())
-                    {
-                        continue;
-                    }
-
-                    Handle material_handle = {};
-                    if (mesh_index < procedural_data->materials.size())
-                    {
-                        material_handle = procedural_data->materials[mesh_index];
-                    }
-
-                    auto material_asset = resolve_material(material_handle);
-                    const auto mesh_key = make_procedural_mesh_key(
-                        procedural_data->id,
-                        static_cast<uint32>(mesh_index));
-                    draw_mesh_with_material(mesh, *material_asset, entity_matrix, mesh_key);
-                }
-            }
-        }
-    }
-
-    void OpenGlRenderingPlugin::draw_models_for_cameras(const Size& window_size)
-    {
-        auto& ecs = get_host().get_entity_manager();
-        auto cameras = ecs.get_with<Camera, Transform>();
-
-        if (cameras.begin() == cameras.end())
-        {
-            const float aspect = window_size.get_aspect_ratio();
-            const Mat4 default_view =
-                look_at(Vec3(0.0f, 0.0f, 5.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));
-            const Mat4 default_projection =
-                perspective_projection(degrees_to_radians(60.0f), aspect, 0.1f, 1000.0f);
-            const Mat4 view_projection = default_projection * default_view;
-            draw_models(view_projection);
-            return;
-        }
-
-        const float aspect = window_size.get_aspect_ratio();
-        for (auto cameraEnt : cameras)
-        {
-            auto& camera = cameraEnt.get_component<Camera>();
-            camera.set_aspect(aspect);
-
-            const Transform& transform = cameraEnt.get_component<Transform>();
-            const Mat4 view_projection =
-                camera.get_view_projection_matrix(transform.position, transform.rotation);
-
-            draw_models(view_projection);
-        }
-    }
-
-    std::shared_ptr<OpenGlMesh> OpenGlRenderingPlugin::get_mesh(
-        const Mesh& mesh,
-        const Uuid& mesh_key)
-    {
-        if (auto it = _meshes.find(mesh_key); it != _meshes.end())
-        {
-            return it->second;
-        }
-
-        auto resource = std::make_shared<OpenGlMesh>(mesh);
-        _meshes.emplace(mesh_key, resource);
-        return resource;
-    }
-
-    static Uuid make_shader_source_key(const ShaderSource& shader)
-    {
-        const auto hasher = std::hash<std::string>();
-        std::string key = shader.source;
-        key.append("|");
-        key.append(std::to_string(static_cast<int>(shader.type)));
-        const auto hashed = static_cast<uint32>(hasher(key));
-        return hashed == 0U ? Uuid(1U) : Uuid(hashed);
-    }
-
-    std::shared_ptr<OpenGlShader> OpenGlRenderingPlugin::get_shader(const ShaderSource& shader)
-    {
-        const Uuid shader_key = make_shader_source_key(shader);
-        if (auto it = _shaders.find(shader_key); it != _shaders.end())
-        {
-            return it->second;
-        }
-
-        auto resource = std::make_shared<OpenGlShader>(shader);
-        _shaders.emplace(shader_key, resource);
-        return resource;
-    }
-
-    std::shared_ptr<OpenGlShaderProgram> OpenGlRenderingPlugin::get_shader_program(
-        const Handle& handle,
-        const Shader& shader)
-    {
-        const auto program_id = handle.id;
-        if (auto it = _shader_programs.find(program_id); it != _shader_programs.end())
-        {
-            return it->second;
-        }
-
-        std::vector<std::shared_ptr<OpenGlShader>> shaders = {};
-        shaders.reserve(shader.sources.size());
-        for (const auto& shader_source : shader.sources)
-        {
-            shaders.push_back(get_shader(shader_source));
-        }
-
-        if (shaders.empty())
-        {
-            TBX_TRACE_WARNING("OpenGL rendering: shader program has no shaders.");
-            return nullptr;
-        }
-
-        auto program = std::make_shared<OpenGlShaderProgram>(shaders);
-        _shader_programs.emplace(program_id, program);
-        return program;
-    }
-
-    std::shared_ptr<OpenGlTexture> OpenGlRenderingPlugin::get_default_texture()
-    {
-        if (_default_texture)
-        {
-            return _default_texture;
-        }
-
-        Texture default_texture = Texture(
-            Size(1, 1),
-            TextureWrap::Repeat,
-            TextureFilter::Nearest,
-            TextureFormat::RGBA,
-            {255, 255, 255, 255});
-        _default_texture = std::make_shared<OpenGlTexture>(default_texture);
-        return _default_texture;
-    }
-
-    std::shared_ptr<OpenGlTexture> OpenGlRenderingPlugin::get_texture(
-        const Handle& handle,
-        const Texture& texture)
-    {
-        const Uuid texture_key = handle.id;
-        if (auto it = _textures.find(texture_key); it != _textures.end())
-        {
-            return it->second;
-        }
-
-        auto resource = std::make_shared<OpenGlTexture>(texture);
-        _textures.emplace(texture_key, resource);
-        return resource;
     }
 }
