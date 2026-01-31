@@ -157,6 +157,14 @@ namespace tbx::plugins
     void OpenGlShaderProgram::upload(const ShaderUniform& uniform)
     {
         const auto location = uniform_location(_program_id, uniform.name);
+        if (location < 0)
+        {
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: uniform '{}' not found on program {}.",
+                uniform.name,
+                _program_id);
+            return;
+        }
         std::visit(
             [location](const auto& value)
             {
@@ -180,6 +188,10 @@ namespace tbx::plugins
                 else if constexpr (std::is_same_v<ValueType, Vec3>)
                 {
                     glUniform3f(location, value.x, value.y, value.z);
+                }
+                else if constexpr (std::is_same_v<ValueType, Vec4>)
+                {
+                    glUniform4f(location, value.x, value.y, value.z, value.w);
                 }
                 else if constexpr (std::is_same_v<ValueType, RgbaColor>)
                 {

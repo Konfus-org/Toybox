@@ -1,6 +1,5 @@
 #pragma once
 #include "tbx/common/int.h"
-#include "tbx/common/uuid.h"
 #include "tbx/graphics/vertex.h"
 #include "tbx/tbx_api.h"
 #include <vector>
@@ -17,7 +16,6 @@ namespace tbx
 
         VertexBuffer vertices = {};
         IndexBuffer indices = {};
-        Uuid id = Uuid::generate();
     };
 
     TBX_API Mesh make_triangle();

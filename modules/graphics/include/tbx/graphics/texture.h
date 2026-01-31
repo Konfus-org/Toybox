@@ -1,6 +1,5 @@
 #pragma once
 #include "tbx/math/size.h"
-#include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
 #include <vector>
 
@@ -49,6 +48,5 @@ namespace tbx
         TextureFilter filter = TextureFilter::Nearest;
         TextureFormat format = TextureFormat::RGB;
         std::vector<Pixel> pixels = { 255, 255, 255 };
-        Uuid id = Uuid::generate();
     };
 }

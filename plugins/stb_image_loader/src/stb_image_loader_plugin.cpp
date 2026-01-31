@@ -89,10 +89,8 @@ namespace tbx::plugins
         std::vector<Pixel> pixels(raw_data, raw_data + pixel_count);
         stbi_image_free(raw_data);
 
-        const Uuid existing_id = asset->id;
         Size resolution = {static_cast<uint32>(width), static_cast<uint32>(height)};
         Texture texture(resolution, request.wrap, request.filter, request.format, pixels);
-        texture.id = existing_id;
         *asset = texture;
 
         request.state = MessageState::Handled;

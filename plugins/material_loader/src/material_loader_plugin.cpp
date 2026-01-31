@@ -89,7 +89,7 @@ namespace tbx::plugins
             return true;
         }
 
-        if (type_text == "texture" || type_text == "shader")
+        if (type_text == "texture")
         {
             Handle handle = {};
             Uuid asset_id = {};
@@ -111,7 +111,37 @@ namespace tbx::plugins
                     handle = Handle(asset_name);
                 }
             }
-            out_material.set_parameter(name, handle);
+            out_material.set_texture(name, handle);
+            return true;
+        }
+
+        if (type_text == "shader")
+        {
+            Handle handle = {};
+            Uuid asset_id = {};
+            if (entry.try_get_uuid("value", asset_id))
+            {
+                handle = Handle(asset_id);
+            }
+            else
+            {
+                std::string asset_name;
+                if (!entry.try_get_string("value", asset_name))
+                {
+                    error_message =
+                        "Material loader: asset parameter '" + name + "' missing value.";
+                    return false;
+                }
+                if (!asset_name.empty())
+                {
+                    handle = Handle(asset_name);
+                }
+            }
+
+            if (handle.is_valid())
+            {
+                out_material.shaders = {handle};
+            }
             return true;
         }
 
@@ -200,14 +230,14 @@ namespace tbx::plugins
             Uuid shader_id = {};
             if (data.try_get_uuid("shader", shader_id))
             {
-                material.set_parameter("Shader", Handle(shader_id));
+                material.shaders = {Handle(shader_id)};
             }
             else
             {
                 std::string shader_name;
                 if (data.try_get_string("shader", shader_name) && !shader_name.empty())
                 {
-                    material.set_parameter("Shader", Handle(shader_name));
+                    material.shaders = {Handle(shader_name)};
                 }
             }
 
