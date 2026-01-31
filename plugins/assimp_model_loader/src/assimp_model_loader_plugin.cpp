@@ -80,8 +80,13 @@ namespace tbx::plugins
             return 1.0f;
         }
 
-        double unit_scale = 1.0;
-        if (scene.mMetaData->Get("UnitScaleFactor", unit_scale) && unit_scale > 0.0)
+        double unit_scale = 0.0;
+        if (!scene.mMetaData->Get("UnitScaleFactor", unit_scale))
+        {
+            scene.mMetaData->Get("OriginalUnitScaleFactor", unit_scale);
+        }
+
+        if (unit_scale > 0.0)
         {
             return static_cast<float>(unit_scale * 0.01);
         }

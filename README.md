@@ -16,7 +16,8 @@ Honestly, not much yet. There is a simple ECS system dubbed TBS (Toy Box System)
 
 Toybox treats 1 world unit as 1 meter. The Assimp model loader converts imported models that provide
 unit scale metadata (for example, Assimp's `UnitScaleFactor`, which is expressed in centimeters) so
-the resulting transforms land in meters.
+the resulting transforms land in meters. For Blender FBX exports, the default settings with "Apply
+Unit" enabled should line up a 2x2x2 Blender cube with a 2-meter cube in Toybox.
 
 ## Repository Structure
 
