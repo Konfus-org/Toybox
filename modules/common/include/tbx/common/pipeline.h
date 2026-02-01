@@ -38,6 +38,51 @@ namespace tbx
     {
       public:
         /// <summary>
+        /// Purpose: Constructs an empty pipeline.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Does not take ownership of external resources.
+        /// Thread Safety: Not thread-safe; construct on the owning thread.
+        /// </remarks>
+        Pipeline() = default;
+
+        /// <summary>
+        /// Purpose: Prevents copying of pipeline instances.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Copying is disallowed because operations are uniquely owned.
+        /// Thread Safety: Not thread-safe; copy operations are not supported.
+        /// </remarks>
+        Pipeline(const Pipeline&) = delete;
+
+        /// <summary>
+        /// Purpose: Prevents copy assignment between pipelines.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Copy assignment is disallowed because operations are uniquely owned.
+        /// Thread Safety: Not thread-safe; copy operations are not supported.
+        /// </remarks>
+        Pipeline& operator=(const Pipeline&) = delete;
+
+        /// <summary>
+        /// Purpose: Transfers ownership of operations from another pipeline.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Takes ownership of the moved-from pipeline's operations.
+        /// Thread Safety: Not thread-safe; move on the owning thread.
+        /// </remarks>
+        Pipeline(Pipeline&&) noexcept = default;
+
+        /// <summary>
+        /// Purpose: Replaces this pipeline with another via move.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Releases current operations and takes ownership from the source pipeline.
+        /// Thread Safety: Not thread-safe; move on the owning thread.
+        /// </remarks>
+        Pipeline& operator=(Pipeline&&) noexcept = default;
+
+        /// <summary>
         /// Purpose: Adds a new operation to the end of the pipeline.
         /// </summary>
         /// <remarks>

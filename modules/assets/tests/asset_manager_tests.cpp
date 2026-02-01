@@ -60,14 +60,7 @@ namespace tbx
 
         static std::shared_ptr<TestAsset> load(const std::filesystem::path&)
         {
-            auto& state = get_test_asset_loader_state();
-            if (state.asset)
-            {
-                return state.asset;
-            }
-
-            state.asset = std::make_shared<TestAsset>();
-            return state.asset;
+            return std::make_shared<TestAsset>();
         }
     };
 }
