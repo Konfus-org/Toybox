@@ -99,11 +99,10 @@ namespace tbx::plugins
     std::filesystem::path StbImageLoaderPlugin::resolve_asset_path(
         const std::filesystem::path& path) const
     {
-        if (path.is_absolute() || !_filesystem)
+        if (!_filesystem)
         {
             return path;
         }
-
-        return _filesystem->get_assets_directory() / path;
+        return _filesystem->resolve_asset_path(path);
     }
 }

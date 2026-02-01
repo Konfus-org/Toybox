@@ -10,6 +10,7 @@
 #include "tbx/time/delta_time.h"
 #include <algorithm>
 #include <iterator>
+#include <utility>
 
 namespace tbx
 {
@@ -30,7 +31,7 @@ namespace tbx
               desc.working_root,
               desc.plugins_directory,
               desc.logs_directory,
-              desc.assets_directory)
+              {desc.assets_directory})
         , _main_window(
               _msg_coordinator,
               desc.name.empty() ? std::string("Toybox Application") : desc.name,
@@ -127,7 +128,9 @@ namespace tbx
             TBX_TRACE_INFO("Working Directory: {}", _filesystem.get_working_directory().string());
             TBX_TRACE_INFO("Plugins Directory: {}", _filesystem.get_plugins_directory().string());
             TBX_TRACE_INFO("Logs Directory: {}", _filesystem.get_logs_directory().string());
-            TBX_TRACE_INFO("Assets Directory: {}", _filesystem.get_assets_directory().string());
+            const auto asset_roots = _filesystem.get_assets_directories();
+            for (const auto& root : asset_roots)
+                TBX_TRACE_INFO("Asset Directory: {}", root.string());
 
             // Register internal message handler
             _msg_coordinator.register_handler(
@@ -195,8 +198,27 @@ namespace tbx
             _entity_manager.destroy_all();
             _asset_manager.unload_all();
 
-            // 4. Detach and unload all non-logging plugins
-            _loaded.clear();
+            // 4. Detach and unload all non-logging plugins first, then logging plugins.
+            if (!_loaded.empty())
+            {
+                std::vector<LoadedPlugin> logging_plugins;
+                std::vector<LoadedPlugin> non_logging_plugins;
+                logging_plugins.reserve(_loaded.size());
+                non_logging_plugins.reserve(_loaded.size());
+
+                for (auto& plugin : _loaded)
+                {
+                    if (plugin.meta.category == PluginCategory::Logging)
+                        logging_plugins.push_back(std::move(plugin));
+                    else
+                        non_logging_plugins.push_back(std::move(plugin));
+                }
+
+                _loaded.clear();
+                non_logging_plugins.clear();
+                _msg_coordinator.flush();
+                logging_plugins.clear();
+            }
 
             // 5. Process any remaining posted messages and clear handlers
             _msg_coordinator.flush();

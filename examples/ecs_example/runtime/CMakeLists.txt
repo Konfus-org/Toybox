@@ -7,10 +7,13 @@ target_include_directories(EcsExampleRuntime PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 target_link_libraries(EcsExampleRuntime PRIVATE
     Tbx::App
     Tbx::ECS
-    Tbx::Plugins::SpdConsoleLoggerPlugin
-    Tbx::Plugins::SpdFileLoggerPlugin
+    Tbx::Plugins::SpdLoggerPlugin
     Tbx::Plugins::SdlWindowingPlugin
     Tbx::Plugins::OpenGlRenderingPlugin
+    Tbx::Plugins::StbImageLoaderPlugin
+    Tbx::Plugins::AssimpModelLoaderPlugin
+    Tbx::Plugins::SdrShaderLoaderPlugin
+    Tbx::Plugins::MatMaterialLoaderPlugin
 )
 
 tbx_register_plugin(

@@ -8,12 +8,12 @@
 #include <string_view>
 #include <vector>
 
+#ifndef TBX_PLUGIN_ABI_VERSION
+    #define TBX_PLUGIN_ABI_VERSION 1
+#endif
+
 namespace tbx
 {
-    #ifndef TBX_PLUGIN_ABI_VERSION
-        #define TBX_PLUGIN_ABI_VERSION 1
-    #endif
-
     /// <summary>
     /// Defines the plugin ABI version enforced by the host.
     /// </summary>

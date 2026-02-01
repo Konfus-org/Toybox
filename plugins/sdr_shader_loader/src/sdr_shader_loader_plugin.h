@@ -1,24 +1,19 @@
 #pragma once
 #include "tbx/assets/messages.h"
+#include "tbx/files/filesystem.h"
 #include "tbx/plugin_api/plugin.h"
 #include <filesystem>
-
-namespace tbx
-{
-    class IFileSystem;
-    struct LoadMaterialRequest;
-}
 
 namespace tbx::plugins
 {
     /// <summary>
-    /// Purpose: Loads material assets from .mat JSON files.
+    /// Purpose: Loads shader assets from .shader files with #type sections.
     /// </summary>
     /// <remarks>
     /// Ownership: Plugin lifetime is owned by the host; it keeps non-owning references to the host.
     /// Thread Safety: Handles asset messages on the dispatcher thread; no internal synchronization.
     /// </remarks>
-    class MaterialLoaderPlugin final : public Plugin
+    class SdrShaderLoaderPlugin final : public Plugin
     {
       public:
         /// <summary>
@@ -40,17 +35,17 @@ namespace tbx::plugins
         void on_detach() override;
 
         /// <summary>
-        /// Purpose: Receives material load requests and dispatches file parsing.
+        /// Purpose: Receives shader load requests and dispatches file parsing.
         /// </summary>
         /// <remarks>
         /// Ownership: Does not take ownership of messages or asset payloads.
-        /// Thread Safety: Executes on the dispatcher thread; relies on Material payload
+        /// Thread Safety: Executes on the dispatcher thread; relies on Shader payload
         /// synchronization.
         /// </remarks>
         void on_recieve_message(Message& msg) override;
 
       private:
-        void on_load_material_request(LoadMaterialRequest& request);
+        void on_load_shader_program_request(LoadShaderRequest& request);
         std::filesystem::path resolve_asset_path(const std::filesystem::path& path) const;
 
         IFileSystem* _filesystem = nullptr;

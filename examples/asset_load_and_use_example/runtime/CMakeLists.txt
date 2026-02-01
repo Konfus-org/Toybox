@@ -9,14 +9,13 @@ target_link_libraries(AssetLoadAndUseExampleRuntime PRIVATE
     Tbx::Assets
     Tbx::ECS
     Tbx::Graphics
-    Tbx::Plugins::SpdConsoleLoggerPlugin
-    Tbx::Plugins::SpdFileLoggerPlugin
+    Tbx::Plugins::SpdLoggerPlugin
     Tbx::Plugins::SdlWindowingPlugin
     Tbx::Plugins::OpenGlRenderingPlugin
     Tbx::Plugins::StbImageLoaderPlugin
     Tbx::Plugins::AssimpModelLoaderPlugin
-    Tbx::Plugins::ShaderLoaderPlugin
-    Tbx::Plugins::MaterialLoaderPlugin
+    Tbx::Plugins::SdrShaderLoaderPlugin
+    Tbx::Plugins::MatMaterialLoaderPlugin
 )
 
 tbx_register_plugin(

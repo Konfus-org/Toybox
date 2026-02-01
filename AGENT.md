@@ -22,9 +22,9 @@
 - Summaries should be in microsoft xml format.
 
 ## Language & Feature Use
-- The project targets C++23, but stick to a conservative, C-like style unless a modern feature clearly improves safety or clarity. Justify advanced language constructs in code review notes.
-- Favor plain old data structures and free/static helper functions when possible; resist template metaprogramming unless unavoidable.
+- The project targets C++23.
 - Prefer copy-style initialization (`int value = {};`, `auto widget = Widget(args);`) over brace-only or direct-call forms (`int value{};`, `auto widget(Widget(args));`) to keep intent obvious.
+- Avoid forward declarations where possible, prefer directly including what is needed.
 
 ## Memory & Handle Management
 - Prefer smart pointers whenever ownership semantics are needed. Only fall back to raw pointers for non-owning references that are trivially validated elsewhere.

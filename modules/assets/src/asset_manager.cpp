@@ -4,7 +4,6 @@ namespace tbx
 {
     AssetManager::AssetManager(IFileSystem& file_system)
         : _file_system(&file_system)
-        , _assets_root(file_system.get_assets_directory())
     {
         discover_assets();
     }
@@ -29,31 +28,31 @@ namespace tbx
         {
             return;
         }
-        if (_assets_root.empty())
+        const auto roots = _file_system->get_assets_directories();
+        for (const auto& root : roots)
         {
-            _assets_root = _file_system->get_assets_directory();
-        }
-        if (_assets_root.empty())
-        {
-            return;
-        }
-        const auto entries = _file_system->read_directory(_assets_root);
-        for (const auto& entry : entries)
-        {
-            if (_file_system->get_file_type(entry) != FilePathType::Regular)
+            if (root.empty())
             {
                 continue;
             }
-            if (entry.extension() == ".meta")
+            const auto entries = _file_system->read_directory(root);
+            for (const auto& entry : entries)
             {
-                continue;
+                if (_file_system->get_file_type(entry) != FilePathType::Regular)
+                {
+                    continue;
+                }
+                if (entry.extension() == ".meta")
+                {
+                    continue;
+                }
+                const auto normalized = normalize_path(entry);
+                if (_registry.contains(normalized.path_key))
+                {
+                    continue;
+                }
+                get_or_create_registry_entry(normalized);
             }
-            const auto normalized = normalize_path(entry);
-            if (_registry.contains(normalized.path_key))
-            {
-                continue;
-            }
-            static_cast<void>(get_or_create_registry_entry(normalized));
         }
     }
 }

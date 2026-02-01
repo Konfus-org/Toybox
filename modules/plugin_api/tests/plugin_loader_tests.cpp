@@ -62,9 +62,67 @@ namespace tbx::tests::plugin_loader
             return logs_directory;
         }
 
-        std::filesystem::path get_assets_directory() const override
+        std::vector<std::filesystem::path> get_assets_directories() const override
         {
-            return assets_directory;
+            std::vector<std::filesystem::path> roots = assets_directories;
+            if (!assets_directory.empty())
+            {
+                bool has_primary = false;
+                for (const auto& root : roots)
+                {
+                    if (root == assets_directory)
+                    {
+                        has_primary = true;
+                        break;
+                    }
+                }
+                if (!has_primary)
+                {
+                    roots.insert(roots.begin(), assets_directory);
+                }
+            }
+            return roots;
+        }
+
+        void add_assets_directory(const std::filesystem::path& path) override
+        {
+            const auto resolved = resolve_relative_path(path);
+            if (assets_directory.empty())
+            {
+                assets_directory = resolved;
+            }
+            assets_directories.push_back(resolved);
+        }
+
+        std::filesystem::path resolve_asset_path(
+            const std::filesystem::path& path) const override
+        {
+            if (path.empty())
+            {
+                return {};
+            }
+            if (path.is_absolute())
+            {
+                return path;
+            }
+            const auto roots = get_assets_directories();
+            for (const auto& root : roots)
+            {
+                if (root.empty())
+                {
+                    continue;
+                }
+                const auto candidate = resolve_relative_path(root / path);
+                if (exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+            if (!assets_directory.empty())
+            {
+                return resolve_relative_path(assets_directory / path);
+            }
+            return resolve_relative_path(path);
         }
 
         std::filesystem::path resolve_relative_path(
@@ -167,6 +225,7 @@ namespace tbx::tests::plugin_loader
         std::filesystem::path plugins_directory;
         std::filesystem::path logs_directory;
         std::filesystem::path assets_directory;
+        std::vector<std::filesystem::path> assets_directories;
     };
 
     class TestPluginHost final : public ::tbx::IPluginHost

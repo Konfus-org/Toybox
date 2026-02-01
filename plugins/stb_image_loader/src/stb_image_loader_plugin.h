@@ -1,12 +1,8 @@
 #pragma once
+#include "tbx/assets/messages.h"
+#include "tbx/files/filesystem.h"
 #include "tbx/plugin_api/plugin.h"
 #include <filesystem>
-
-namespace tbx
-{
-    class IFileSystem;
-    struct LoadTextureRequest;
-}
 
 namespace tbx::plugins
 {

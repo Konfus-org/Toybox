@@ -20,4 +20,9 @@ target_link_libraries(Files
         nlohmann_json
 )
 
+target_compile_definitions(Files
+    PRIVATE
+        $<$<CONFIG:Debug>:TBX_REPO_ROOT="${TBX_REPO_ROOT_PATH}">
+)
+
 add_library(Tbx::Files ALIAS Files)

@@ -175,4 +175,42 @@ namespace tbx::tests::assets
         EXPECT_EQ(usage.stream_state, AssetStreamState::Loaded);
         EXPECT_EQ(streamed_in.asset->value, 99);
     }
+
+    TEST(asset_manager, unloads_unreferenced_assets)
+    {
+        TestFileSystem file_system;
+        file_system.assets_directory = "/virtual/assets";
+        file_system.add_directory(file_system.assets_directory);
+        file_system.add_file("/virtual/assets/keep.asset", "");
+        file_system.add_file("/virtual/assets/drop.asset", "");
+
+        reset_test_asset_loader_state();
+        AssetManager manager(file_system);
+        Handle keep_handle("keep.asset");
+        Handle drop_handle("drop.asset");
+
+        auto keep_asset = manager.load<TestAsset>(keep_handle);
+        auto drop_asset = manager.load<TestAsset>(drop_handle);
+
+        ASSERT_NE(keep_asset, nullptr);
+        ASSERT_NE(drop_asset, nullptr);
+
+        drop_asset.reset();
+        manager.unload_unreferenced();
+
+        AssetUsage keep_usage = manager.get_usage<TestAsset>(keep_handle);
+        EXPECT_EQ(keep_usage.stream_state, AssetStreamState::Loaded);
+        EXPECT_EQ(keep_usage.ref_count, 1U);
+
+        AssetUsage drop_usage = manager.get_usage<TestAsset>(drop_handle);
+        EXPECT_EQ(drop_usage.stream_state, AssetStreamState::Unloaded);
+        EXPECT_EQ(drop_usage.ref_count, 0U);
+
+        keep_asset.reset();
+        manager.unload_unreferenced();
+
+        AssetUsage keep_usage_after = manager.get_usage<TestAsset>(keep_handle);
+        EXPECT_EQ(keep_usage_after.stream_state, AssetStreamState::Unloaded);
+        EXPECT_EQ(keep_usage_after.ref_count, 0U);
+    }
 }

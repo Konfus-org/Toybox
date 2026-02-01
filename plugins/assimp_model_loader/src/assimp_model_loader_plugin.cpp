@@ -380,16 +380,14 @@ namespace tbx::plugins
         request.state = MessageState::Handled;
     }
 
-    // Resolves relative asset paths against the filesystem assets directory.
+    // Resolves asset paths using the filesystem asset search roots.
     std::filesystem::path AssimpModelLoaderPlugin::resolve_asset_path(
         const std::filesystem::path& path) const
     {
-        // Only prepend the assets directory for relative paths when available.
-        if (path.is_absolute() || !_filesystem)
+        if (!_filesystem)
         {
             return path;
         }
-
-        return _filesystem->get_assets_directory() / path;
+        return _filesystem->resolve_asset_path(path);
     }
 }

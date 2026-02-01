@@ -215,6 +215,24 @@ namespace tbx
         }
 
         /// <summary>
+        /// Purpose: Resolves a handle to the registered asset UUID for caching or lookup.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a UUID value; no ownership transfer.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        /// </remarks>
+        Uuid resolve_asset_id(const Handle& handle)
+        {
+            std::lock_guard lock(_mutex);
+            auto* entry = get_or_create_registry_entry(handle);
+            if (!entry)
+            {
+                return handle.id;
+            }
+            return entry->id;
+        }
+
+        /// <summary>
         /// Purpose: Loads an asset asynchronously and tracks usage metadata.
         /// </summary>
         /// <remarks>
@@ -369,24 +387,7 @@ namespace tbx
             {
                 return asset_path;
             }
-            if (asset_path.empty())
-            {
-                return {};
-            }
-            if (asset_path.is_absolute())
-            {
-                return asset_path;
-            }
-            auto root = _assets_root;
-            if (root.empty())
-            {
-                root = _file_system->get_assets_directory();
-            }
-            if (root.empty())
-            {
-                return _file_system->resolve_relative_path(asset_path);
-            }
-            return _file_system->resolve_relative_path(root / asset_path);
+            return _file_system->resolve_asset_path(asset_path);
         }
 
         static Uuid make_path_key(const std::string& normalized_path)
@@ -688,7 +689,6 @@ namespace tbx
 
         mutable std::mutex _mutex;
         IFileSystem* _file_system = nullptr;
-        std::filesystem::path _assets_root;
         AssetMetaReader _meta_reader = {};
         std::unordered_map<Uuid, AssetRegistryEntry> _registry;
         std::unordered_map<Uuid, Uuid> _registry_by_id;

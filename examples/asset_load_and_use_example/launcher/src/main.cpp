@@ -10,8 +10,6 @@ int main()
     tbx::AppDescription desc = {
         .name = "AssetLoadAndUseExample",
         .assets_directory = assets_root,
-        .logs_directory = "./logs",
-        .plugins_directory = "./",
         .requested_plugins = {"AssetLoadAndUseExampleRuntime"},
     };
     auto app = tbx::Application(desc);

@@ -1,11 +1,40 @@
 #include "tbx/files/filesystem.h"
+#include <algorithm>
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <system_error>
+#include <vector>
 
 namespace tbx
 {
+    static std::filesystem::path get_repo_root_directory()
+    {
+#if defined(TBX_REPO_ROOT)
+        std::filesystem::path root(TBX_REPO_ROOT);
+        if (!root.empty())
+        {
+            return root.lexically_normal();
+        }
+#endif
+        return {};
+    }
+
+    static std::filesystem::path get_current_path()
+    {
+        std::error_code ec;
+        auto current = std::filesystem::current_path(ec);
+        if (ec)
+            return {};
+        return current;
+    }
+
+    static std::filesystem::path get_default_working_directory()
+    {
+        return get_current_path();
+    }
+
     static std::filesystem::path resolve_with_working(
         const std::filesystem::path& working_directory,
         const std::filesystem::path& path)
@@ -13,7 +42,7 @@ namespace tbx
         if (path.empty())
             return {};
         if (path.is_absolute() || working_directory.empty())
-            return path;
+            return path.lexically_normal();
         return (working_directory / path).lexically_normal();
     }
 
@@ -24,31 +53,68 @@ namespace tbx
     {
         if (!candidate_path.empty())
             return resolve_with_working(working_directory, candidate_path);
-        return working_directory / default_path;
+        return (working_directory / default_path).lexically_normal();
+    }
+
+    static bool is_path_prefix(
+        const std::filesystem::path& root,
+        const std::filesystem::path& candidate)
+    {
+        if (root.empty() || candidate.empty())
+        {
+            return false;
+        }
+
+        const auto normalized_root = root.lexically_normal();
+        const auto normalized_candidate = candidate.lexically_normal();
+        auto root_iter = normalized_root.begin();
+        auto root_end = normalized_root.end();
+        auto candidate_iter = normalized_candidate.begin();
+        auto candidate_end = normalized_candidate.end();
+
+        for (; root_iter != root_end; ++root_iter, ++candidate_iter)
+        {
+            if (candidate_iter == candidate_end || *candidate_iter != *root_iter)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     FileSystem::FileSystem(
         const std::filesystem::path& working_directory,
         const std::filesystem::path& plugins_directory,
         const std::filesystem::path& logs_directory,
-        const std::filesystem::path& assets_directory)
+        const std::vector<std::filesystem::path>& asset_directories)
         : _working_directory(working_directory)
         , _plugins_directory(plugins_directory)
         , _logs_directory(logs_directory)
-        , _assets_directory(assets_directory)
     {
-        if (_working_directory.empty())
-        {
-            std::error_code ec;
-            _working_directory = std::filesystem::current_path(ec);
-            if (ec)
-                _working_directory = std::filesystem::path();
-        }
+        if (_working_directory.empty()) // use default working dir if none specified
+            _working_directory = get_default_working_directory();
 
-        // Default subdirectories always hang off the working directory unless overridden.
-        _plugins_directory = choose_directory(_working_directory, _plugins_directory, "plugins");
-        _logs_directory = choose_directory(_working_directory, _logs_directory, "logs");
-        _assets_directory = choose_directory(_working_directory, _assets_directory, "assets");
+        _plugins_directory = choose_directory(
+            _working_directory,
+            _plugins_directory,
+            "./"); // choose between user-defined and default plugins dir
+        _logs_directory = choose_directory(
+            _working_directory,
+            _logs_directory,
+            "logs"); // choose between user-defined and default logs dir
+
+        for (const auto& extra : asset_directories)
+            add_assets_directory(extra); // user-defined assets
+
+        add_assets_directory(
+            resolve_with_working(_working_directory, "assets")); // default assets dir
+
+        const auto repo_root = get_repo_root_directory();
+        if (!repo_root.empty() && is_path_prefix(repo_root, _working_directory))
+        {
+            add_assets_directory(repo_root / "resources"); // built-in assets
+        }
     }
 
     std::filesystem::path FileSystem::get_working_directory() const
@@ -66,9 +132,60 @@ namespace tbx
         return _logs_directory;
     }
 
-    std::filesystem::path FileSystem::get_assets_directory() const
+    std::vector<std::filesystem::path> FileSystem::get_assets_directories() const
     {
-        return _assets_directory;
+        return _assets_directories;
+    }
+
+    void FileSystem::add_assets_directory(const std::filesystem::path& path)
+    {
+        const auto resolved = resolve_with_working(_working_directory, path);
+        if (resolved.empty())
+        {
+            return;
+        }
+
+        const auto normalized = resolved.lexically_normal();
+        const auto is_duplicate = std::any_of(
+            _assets_directories.begin(),
+            _assets_directories.end(),
+            [&normalized](const std::filesystem::path& existing)
+            {
+                return existing == normalized;
+            });
+        if (is_duplicate)
+        {
+            return;
+        }
+
+        _assets_directories.push_back(normalized);
+    }
+
+    std::filesystem::path FileSystem::resolve_asset_path(const std::filesystem::path& path) const
+    {
+        if (path.empty())
+        {
+            return {};
+        }
+        if (path.is_absolute())
+        {
+            return path;
+        }
+
+        for (const auto& root : _assets_directories)
+        {
+            if (root.empty())
+            {
+                continue;
+            }
+            const auto candidate = resolve_relative_path(root / path);
+            if (exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return resolve_relative_path(path);
     }
 
     std::filesystem::path FileSystem::resolve_relative_path(const std::filesystem::path& path) const

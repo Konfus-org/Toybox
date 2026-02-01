@@ -47,7 +47,7 @@ namespace tbx::plugins
         // Handles a model load request message.
         void on_load_model_request(LoadModelRequest& request);
 
-        // Resolves a request-relative path against the assets directory when needed.
+        // Resolves a request-relative path against the asset search roots when needed.
         std::filesystem::path resolve_asset_path(const std::filesystem::path& path) const;
 
         // Non-owning pointer to the host filesystem for asset path resolution.
