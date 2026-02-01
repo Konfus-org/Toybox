@@ -13,10 +13,10 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Defaults, only if the user hasn't set them already.
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;" CACHE STRING "Supported configuration types")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/cmake/build/bin" CACHE PATH "Where to place executables")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/cmake/build/lib" CACHE PATH "Where to place shared libraries")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/cmake/build/lib" CACHE PATH "Where to place static libraries")
-set(CMAKE_PDB_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/cmake/build/pdb" CACHE PATH "Where to place PDBs")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" CACHE PATH "Where to place executables")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib" CACHE PATH "Where to place shared libraries")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib" CACHE PATH "Where to place static libraries")
+set(CMAKE_PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/pdb" CACHE PATH "Where to place PDBs")
 
 set(TBX_PLUGIN_ABI_VERSION 1 CACHE STRING "Plugin ABI version")
 
