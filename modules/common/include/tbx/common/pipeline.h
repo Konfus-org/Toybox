@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/tbx_api.h"
 #include <memory>
 #include <vector>
 
@@ -11,7 +12,7 @@ namespace tbx
     /// Ownership: Pipeline operations own their internal state and are held by unique ownership.
     /// Thread Safety: Not thread-safe; callers must synchronize access.
     /// </remarks>
-    class PipelineOperation
+    class TBX_API PipelineOperation
     {
       public:
         virtual ~PipelineOperation() = default;
@@ -33,7 +34,7 @@ namespace tbx
     /// Ownership: Owns the operations via unique pointers.
     /// Thread Safety: Not thread-safe; synchronize when used across threads.
     /// </remarks>
-    class Pipeline final : public PipelineOperation
+    class TBX_API Pipeline final : public PipelineOperation
     {
       public:
         /// <summary>
