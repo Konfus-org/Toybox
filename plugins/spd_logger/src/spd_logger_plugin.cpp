@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/msvc_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <system_error>
 
@@ -15,9 +16,10 @@ namespace tbx::plugins
         auto path = Log::open(host.get_filesystem());
         auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path.string(), true);
         auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+        auto msvc_sink = std::make_shared<spdlog::sinks::msvc_sink_mt>();
         _logger = std::make_shared<spdlog::logger>(
             host.get_name(),
-            spdlog::sinks_init_list{console_sink, file_sink});
+            spdlog::sinks_init_list {console_sink, file_sink, msvc_sink});
     }
 
     void SpdLoggerPlugin::on_detach()

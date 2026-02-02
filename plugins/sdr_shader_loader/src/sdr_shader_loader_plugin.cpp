@@ -187,7 +187,7 @@ namespace tbx::plugins
         }
 
         const std::filesystem::path resolved = resolve_asset_path(request.path);
-        if (resolved.extension() != ".shader")
+        if (resolved.extension() != ".sdr")
         {
             request.state = MessageState::Error;
             request.result.flag_failure("Shader loader: unsupported shader file extension.");

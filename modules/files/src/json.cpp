@@ -249,6 +249,51 @@ namespace tbx
         return found;
     }
 
+    bool Json::try_get_float_array(const std::string& key, std::vector<double>& out_values) const
+    {
+        if (!_data->Data.is_object())
+            return false;
+
+        const auto iterator = _data->Data.find(key);
+        if (iterator == _data->Data.end())
+            return false;
+
+        if (!iterator->is_array())
+            return false;
+
+        std::vector<double> parsed;
+        try
+        {
+            parsed = iterator->get<std::vector<double>>();
+        }
+        catch (...)
+        {
+            return false;
+        }
+
+        if (parsed.empty())
+            return false;
+
+        out_values.insert(out_values.end(), parsed.begin(), parsed.end());
+        return true;
+    }
+
+    bool Json::try_get_float_array(
+        const std::string& key,
+        std::size_t expected_size,
+        std::vector<double>& out_values) const
+    {
+        std::vector<double> parsed;
+        if (!try_get_float_array(key, parsed))
+            return false;
+
+        if (parsed.size() != expected_size)
+            return false;
+
+        out_values.insert(out_values.end(), parsed.begin(), parsed.end());
+        return true;
+    }
+
     bool Json::try_get_child(const std::string& key, Json& out_value) const
     {
         if (!_data->Data.is_object())

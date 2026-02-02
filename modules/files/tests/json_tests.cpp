@@ -68,6 +68,37 @@ namespace tbx::tests::file_system
         EXPECT_DOUBLE_EQ(floats[1], 4.0);
     }
 
+    TEST(JsonTests, ReadsStrictFloatArrays)
+    {
+        const std::string text = "{\n"
+                                 "  \"values\": [1.5, 4, 2.25],\n"
+                                 "  \"mixed\": [1, \"nope\"],\n"
+                                 "  \"empty\": []\n"
+                                 "}";
+
+        Json json(text);
+
+        std::vector<double> values;
+        EXPECT_TRUE(json.try_get_float_array("values", values));
+        ASSERT_EQ(values.size(), 3u);
+        EXPECT_DOUBLE_EQ(values[0], 1.5);
+        EXPECT_DOUBLE_EQ(values[1], 4.0);
+        EXPECT_DOUBLE_EQ(values[2], 2.25);
+
+        std::vector<double> sized;
+        EXPECT_TRUE(json.try_get_float_array("values", 3u, sized));
+        ASSERT_EQ(sized.size(), 3u);
+
+        std::vector<double> mismatch;
+        EXPECT_FALSE(json.try_get_float_array("values", 2u, mismatch));
+
+        std::vector<double> mixed;
+        EXPECT_FALSE(json.try_get_float_array("mixed", mixed));
+
+        std::vector<double> empty;
+        EXPECT_FALSE(json.try_get_float_array("empty", empty));
+    }
+
     TEST(JsonTests, ReadsNestedObjects)
     {
         const std::string text =

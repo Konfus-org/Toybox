@@ -3,6 +3,7 @@
 #include "tbx/assets/asset_manager.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/camera.h"
+#include "tbx/graphics/model.h"
 #include "tbx/math/matrices.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
@@ -87,7 +88,20 @@ namespace tbx::plugins
         _render_resolution = host.get_settings().resolution.value;
     }
 
-    void OpenGlRenderingPlugin::on_detach() {}
+    void OpenGlRenderingPlugin::on_detach()
+    {
+        _is_gl_ready = false;
+        _window_sizes.clear();
+        _meshes.clear();
+        _shaders.clear();
+        _shader_programs.clear();
+        _textures.clear();
+        _models.clear();
+        _materials.clear();
+        _fallback_material = {};
+        _has_fallback_material = false;
+        _default_texture.reset();
+    }
 
     void OpenGlRenderingPlugin::on_update(const DeltaTime&)
     {
@@ -354,50 +368,160 @@ namespace tbx::plugins
         }
     }
 
-    std::shared_ptr<Material> OpenGlRenderingPlugin::resolve_material_asset(
+    OpenGlModel* OpenGlRenderingPlugin::get_cached_model(
         AssetManager& asset_manager,
-        const Handle& handle,
-        const std::shared_ptr<Material>& fallback_material) const
+        const Handle& handle)
     {
-        // Step 1: Prefer the explicit handle, fall back to the default material.
-        const Handle resolved = handle.is_valid() ? handle : default_material_handle;
-
-        // Step 2: Attempt to load the requested material asset.
-        auto promise = asset_manager.load_async<Material>(resolved);
-        if (!promise.asset)
+        if (!handle.is_valid())
         {
-            return fallback_material;
+            return nullptr;
         }
 
-        // Step 3: If the asset is still streaming, use the default material instead.
-        const AssetUsage usage = asset_manager.get_usage<Material>(resolved);
-        if (usage.stream_state != AssetStreamState::Loaded
-            && resolved.id != default_material_handle.id)
+        const Uuid model_id = asset_manager.resolve_asset_id(handle);
+        auto model_it = _models.find(model_id);
+        if (model_it != _models.end())
         {
-            auto fallback = asset_manager.load_async<Material>(default_material_handle);
-            return fallback.asset ? fallback.asset : fallback_material;
+            return &model_it->second;
         }
 
-        return promise.asset;
+        auto model_asset = asset_manager.load<Model>(handle);
+        if (!model_asset)
+        {
+            return nullptr;
+        }
+
+        OpenGlModel gl_model = {};
+        gl_model.model_id = model_id;
+        gl_model.meshes.reserve(model_asset->meshes.size());
+        gl_model.parts.reserve(model_asset->parts.size());
+
+        for (size_t mesh_index = 0U; mesh_index < model_asset->meshes.size(); ++mesh_index)
+        {
+            const Mesh& mesh = model_asset->meshes[mesh_index];
+            if (mesh.vertices.empty() || mesh.indices.empty())
+            {
+                gl_model.meshes.push_back({});
+                continue;
+            }
+
+            const Uuid mesh_key = make_model_mesh_key(model_id, static_cast<uint32>(mesh_index));
+            get_mesh(mesh, mesh_key);
+            gl_model.meshes.push_back(mesh_key);
+        }
+
+        for (const auto& part : model_asset->parts)
+        {
+            OpenGlModelPart gl_part = {};
+            gl_part.transform = part.transform;
+            gl_part.children = part.children;
+
+            if (part.mesh_index < gl_model.meshes.size())
+            {
+                gl_part.mesh_id = gl_model.meshes[part.mesh_index];
+            }
+
+            if (part.material_index < model_asset->materials.size())
+            {
+                const Uuid material_key =
+                    Uuid::combine(model_id, static_cast<uint32>(part.material_index));
+                gl_part.material_id = material_key;
+
+                if (_materials.find(material_key) == _materials.end())
+                {
+                    OpenGlMaterial gl_material = {};
+                    const Material& material = model_asset->materials[part.material_index];
+                    if (try_build_gl_material(asset_manager, material, gl_material))
+                    {
+                        _materials.emplace(material_key, std::move(gl_material));
+                    }
+                    else
+                    {
+                        gl_part.material_id = {};
+                    }
+                }
+            }
+
+            gl_model.parts.push_back(std::move(gl_part));
+        }
+
+        auto [inserted, was_inserted] = _models.emplace(model_id, std::move(gl_model));
+        static_cast<void>(was_inserted);
+        return &inserted->second;
     }
 
-    void OpenGlRenderingPlugin::draw_mesh_with_material(
+    OpenGlMaterial* OpenGlRenderingPlugin::get_cached_material(
         AssetManager& asset_manager,
-        const Mesh& mesh,
-        const Material& material,
-        const Mat4& model_matrix,
-        const Mat4& view_projection,
-        const Uuid& mesh_key)
+        const Handle& handle,
+        const std::shared_ptr<Material>& fallback_material)
     {
-        // Step 1: Fetch or create the mesh resource for this cache key.
-        auto mesh_resource = get_mesh(mesh, mesh_key);
-        if (!mesh_resource)
+        const Handle resolved = handle.is_valid() ? handle : default_material_handle;
+        const Uuid material_id = asset_manager.resolve_asset_id(resolved);
+        auto material_it = _materials.find(material_id);
+        if (material_it != _materials.end())
         {
-            return;
+            return &material_it->second;
         }
 
-        // Step 2: Determine which shader passes to render.
-        std::vector<Handle> shader_handles = material.shaders;
+        auto material_asset = asset_manager.load<Material>(resolved);
+        if (!material_asset)
+        {
+            return get_cached_fallback_material(asset_manager, fallback_material);
+        }
+
+        const AssetUsage usage = asset_manager.get_usage<Material>(resolved);
+        if (usage.stream_state != AssetStreamState::Loaded)
+        {
+            return resolved.id == default_material_handle.id
+                ? get_cached_fallback_material(asset_manager, fallback_material)
+                : get_cached_material(asset_manager, default_material_handle, fallback_material);
+        }
+
+        OpenGlMaterial gl_material = {};
+        if (!try_build_gl_material(asset_manager, *material_asset, gl_material))
+        {
+            return get_cached_fallback_material(asset_manager, fallback_material);
+        }
+
+        auto [inserted, was_inserted] = _materials.emplace(material_id, std::move(gl_material));
+        static_cast<void>(was_inserted);
+        return &inserted->second;
+    }
+
+    OpenGlMaterial* OpenGlRenderingPlugin::get_cached_fallback_material(
+        AssetManager& asset_manager,
+        const std::shared_ptr<Material>& fallback_material)
+    {
+        if (_has_fallback_material)
+        {
+            return &_fallback_material;
+        }
+
+        Material fallback = Material();
+        const Material& source = fallback_material ? *fallback_material : fallback;
+        OpenGlMaterial gl_material = {};
+        if (try_build_gl_material(asset_manager, source, gl_material))
+        {
+            _fallback_material = std::move(gl_material);
+        }
+        else
+        {
+            _fallback_material = {};
+        }
+
+        _has_fallback_material = true;
+        return &_fallback_material;
+    }
+
+    bool OpenGlRenderingPlugin::try_build_gl_material(
+        AssetManager& asset_manager,
+        const Material& source_material,
+        OpenGlMaterial& out_material)
+    {
+        OpenGlMaterial gl_material = {};
+        gl_material.parameters = source_material.parameters;
+        gl_material.textures.reserve(source_material.textures.size());
+
+        std::vector<Handle> shader_handles = source_material.shaders;
         if (shader_handles.empty())
         {
             shader_handles.push_back(default_shader_handle);
@@ -405,38 +529,155 @@ namespace tbx::plugins
 
         for (auto shader_handle : shader_handles)
         {
-            // Step 3: Validate and load the shader asset.
-            if (!shader_handle.is_valid())
-            {
-                shader_handle = default_shader_handle;
-            }
-
-            auto shader_promise = asset_manager.load<Shader>(shader_handle);
-            if (!shader_promise)
+            auto resolved_handle = shader_handle;
+            if (!ensure_shader_program(asset_manager, resolved_handle))
             {
                 continue;
             }
 
-            const AssetUsage shader_usage = asset_manager.get_usage<Shader>(shader_handle);
-            if (shader_usage.stream_state != AssetStreamState::Loaded
-                && shader_handle.id != default_shader_handle.id)
+            gl_material.shader_programs.push_back(
+                asset_manager.resolve_asset_id(resolved_handle));
+        }
+
+        for (const auto& texture_binding : source_material.textures)
+        {
+            OpenGlMaterialTexture entry = {};
+            entry.name = texture_binding.name;
+
+            if (!texture_binding.handle.is_valid())
             {
-                shader_handle = default_shader_handle;
-                shader_promise = asset_manager.load<Shader>(shader_handle);
-                if (!shader_promise)
-                {
-                    continue;
-                }
+                gl_material.textures.push_back(std::move(entry));
+                continue;
             }
 
-            const Uuid shader_id = asset_manager.resolve_asset_id(shader_handle);
-            auto program = get_shader_program(shader_id, *shader_promise);
+            auto texture_asset = asset_manager.load<Texture>(texture_binding.handle);
+            if (!texture_asset)
+            {
+                gl_material.textures.push_back(std::move(entry));
+                continue;
+            }
+
+            const AssetUsage texture_usage =
+                asset_manager.get_usage<Texture>(texture_binding.handle);
+            if (texture_usage.stream_state != AssetStreamState::Loaded)
+            {
+                gl_material.textures.push_back(std::move(entry));
+                continue;
+            }
+
+            const Uuid texture_id =
+                asset_manager.resolve_asset_id(texture_binding.handle);
+            get_texture(texture_id, *texture_asset);
+            entry.texture_id = texture_id;
+            gl_material.textures.push_back(std::move(entry));
+        }
+
+        if (gl_material.shader_programs.empty())
+        {
+            return false;
+        }
+
+        out_material = std::move(gl_material);
+        return true;
+    }
+
+    std::shared_ptr<OpenGlShaderProgram> OpenGlRenderingPlugin::ensure_shader_program(
+        AssetManager& asset_manager,
+        Handle& shader_handle)
+    {
+        if (!shader_handle.is_valid())
+        {
+            shader_handle = default_shader_handle;
+        }
+
+        const Uuid shader_id = asset_manager.resolve_asset_id(shader_handle);
+        auto program_it = _shader_programs.find(shader_id);
+        if (program_it != _shader_programs.end())
+        {
+            return program_it->second;
+        }
+
+        auto shader_asset = asset_manager.load<Shader>(shader_handle);
+        if (!shader_asset)
+        {
+            return {};
+        }
+
+        const AssetUsage shader_usage = asset_manager.get_usage<Shader>(shader_handle);
+        if (shader_usage.stream_state == AssetStreamState::Loaded)
+        {
+            return get_shader_program(asset_manager.resolve_asset_id(shader_handle), *shader_asset);
+        }
+
+        if (shader_handle.id == default_shader_handle.id)
+        {
+            return {};
+        }
+
+        shader_handle = default_shader_handle;
+        const Uuid fallback_id = asset_manager.resolve_asset_id(shader_handle);
+        auto fallback_it = _shader_programs.find(fallback_id);
+        if (fallback_it != _shader_programs.end())
+        {
+            return fallback_it->second;
+        }
+
+        shader_asset = asset_manager.load<Shader>(shader_handle);
+        if (!shader_asset)
+        {
+            return {};
+        }
+
+        return get_shader_program(asset_manager.resolve_asset_id(shader_handle), *shader_asset);
+    }
+
+    std::shared_ptr<OpenGlMesh> OpenGlRenderingPlugin::get_cached_mesh(
+        const Uuid& mesh_key) const
+    {
+        auto mesh_it = _meshes.find(mesh_key);
+        if (mesh_it == _meshes.end())
+        {
+            return {};
+        }
+
+        return mesh_it->second;
+    }
+
+    void OpenGlRenderingPlugin::draw_mesh_with_material(
+        const Uuid& mesh_key,
+        const OpenGlMaterial& material,
+        const Mat4& model_matrix,
+        const Mat4& view_projection)
+    {
+        // Step 1: Fetch the mesh resource for this cache key.
+        auto mesh_resource = get_cached_mesh(mesh_key);
+        if (!mesh_resource)
+        {
+            return;
+        }
+
+        // Step 2: Determine which shader programs to render with.
+        std::vector<Uuid> shader_programs = material.shader_programs;
+        if (shader_programs.empty())
+        {
+            shader_programs.push_back(default_shader_handle.id);
+        }
+
+        for (const auto& shader_id : shader_programs)
+        {
+            auto program_it = _shader_programs.find(shader_id);
+            if (program_it == _shader_programs.end())
+            {
+                continue;
+            }
+
+            auto program = program_it->second;
             if (!program)
             {
                 continue;
             }
 
-            // Step 4: Bind the shader program and upload view/model matrices.
+            // Step 3: Bind the shader program and upload view/model matrices.
             GlResourceScope program_scope(*program);
 
             ShaderUniform view_projection_uniform = {};
@@ -449,45 +690,31 @@ namespace tbx::plugins
             model_uniform.data = model_matrix;
             program->upload(model_uniform);
 
-            // Step 5: Upload scalar/vector material parameters.
+            // Step 4: Upload scalar/vector material parameters.
             for (const auto& parameter : material.parameters)
             {
                 ShaderUniform uniform = {};
                 uniform.name = "u_" + parameter.name;
-                MaterialParameterUniformVisitor visitor{uniform};
+                MaterialParameterUniformVisitor visitor {uniform};
                 std::visit(visitor, parameter.value);
                 program->upload(uniform);
             }
 
-            // Step 6: Bind textures and upload sampler slots.
+            // Step 5: Bind textures and upload sampler slots.
             std::vector<GlResourceScope> texture_scopes = {};
             texture_scopes.reserve(material.textures.size());
             uint32 texture_slot = 0U;
 
             for (const auto& texture_binding : material.textures)
             {
-                std::shared_ptr<OpenGlTexture> texture_resource = {};
-
-                if (texture_binding.handle.is_valid())
+                auto texture_resource = get_default_texture();
+                if (texture_binding.texture_id.is_valid())
                 {
-                    auto texture_promise =
-                        asset_manager.load_async<Texture>(texture_binding.handle);
-                    if (texture_promise.asset)
+                    auto texture_it = _textures.find(texture_binding.texture_id);
+                    if (texture_it != _textures.end() && texture_it->second)
                     {
-                        const AssetUsage texture_usage =
-                            asset_manager.get_usage<Texture>(texture_binding.handle);
-                        if (texture_usage.stream_state == AssetStreamState::Loaded)
-                        {
-                            const Uuid texture_id =
-                                asset_manager.resolve_asset_id(texture_binding.handle);
-                            texture_resource = get_texture(texture_id, *texture_promise.asset);
-                        }
+                        texture_resource = texture_it->second;
                     }
-                }
-
-                if (!texture_resource)
-                {
-                    texture_resource = get_default_texture();
                 }
 
                 if (texture_resource)
@@ -503,7 +730,7 @@ namespace tbx::plugins
                 ++texture_slot;
             }
 
-            // Step 7: Bind the mesh and issue the draw call.
+            // Step 6: Bind the mesh and issue the draw call.
             GlResourceScope mesh_scope(*mesh_resource);
             mesh_resource->draw();
         }
@@ -516,67 +743,65 @@ namespace tbx::plugins
         const Mat4& view_projection,
         const std::shared_ptr<Material>& fallback_material)
     {
-        // Step 1: Validate the model handle and load the asset.
-        if (!static_data.model.is_valid())
+        // Step 1: Validate and cache the model asset.
+        auto model_asset = get_cached_model(asset_manager, static_data.model);
+        if (!model_asset)
         {
             return;
         }
 
-        auto model_promise = asset_manager.load_async<Model>(static_data.model);
-        if (!model_promise.asset)
+        // Step 2: Resolve the cached material for this model.
+        auto fallback_gl_material = get_cached_fallback_material(asset_manager, fallback_material);
+        if (!fallback_gl_material)
         {
             return;
         }
 
-        // Step 2: Resolve the material asset for this model.
-        auto material_asset =
-            resolve_material_asset(asset_manager, static_data.material, fallback_material);
+        OpenGlMaterial* override_material = nullptr;
+        if (static_data.material.is_valid())
+        {
+            override_material =
+                get_cached_material(asset_manager, static_data.material, fallback_material);
+        }
 
-        const Uuid model_id = asset_manager.resolve_asset_id(static_data.model);
-        const Model& model = *model_promise.asset;
-        const size_t part_count = model.parts.size();
+        const size_t part_count = model_asset->parts.size();
 
         // Step 3: Draw meshes directly when the model has no part hierarchy.
         if (part_count == 0U)
         {
-            for (size_t mesh_index = 0U; mesh_index < model.meshes.size(); ++mesh_index)
+            const OpenGlMaterial* material =
+                override_material ? override_material : fallback_gl_material;
+            for (const auto& mesh_key : model_asset->meshes)
             {
-                const Mesh& mesh = model.meshes[mesh_index];
-                if (mesh.vertices.empty() || mesh.indices.empty())
+                if (!mesh_key.is_valid())
                 {
                     continue;
                 }
 
-                const Uuid mesh_key =
-                    make_model_mesh_key(model_id, static_cast<uint32>(mesh_index));
                 draw_mesh_with_material(
-                    asset_manager,
-                    mesh,
-                    *material_asset,
+                    mesh_key,
+                    *material,
                     entity_matrix,
-                    view_projection,
-                    mesh_key);
+                    view_projection);
             }
             return;
         }
 
         // Step 4: Traverse the part hierarchy so transforms are applied in order.
         draw_model_parts(
-            asset_manager,
-            model,
-            model_id,
+            *model_asset,
             entity_matrix,
             view_projection,
-            material_asset);
+            override_material,
+            *fallback_gl_material);
     }
 
     void OpenGlRenderingPlugin::draw_model_parts(
-        AssetManager& asset_manager,
-        const Model& model,
-        const Uuid& model_id,
+        const OpenGlModel& model,
         const Mat4& entity_matrix,
         const Mat4& view_projection,
-        const std::shared_ptr<Material>& material_asset)
+        const OpenGlMaterial* override_material,
+        const OpenGlMaterial& fallback_material)
     {
         const size_t part_count = model.parts.size();
         std::vector<bool> is_child = std::vector<bool>(part_count, false);
@@ -600,12 +825,11 @@ namespace tbx::plugins
             {
                 has_root = true;
                 draw_model_part_recursive(
-                    asset_manager,
                     model,
-                    model_id,
                     entity_matrix,
                     view_projection,
-                    material_asset,
+                    override_material,
+                    fallback_material,
                     part_index);
             }
         }
@@ -616,24 +840,22 @@ namespace tbx::plugins
             for (uint32 part_index = 0U; part_index < part_count; ++part_index)
             {
                 draw_model_part_recursive(
-                    asset_manager,
                     model,
-                    model_id,
                     entity_matrix,
                     view_projection,
-                    material_asset,
+                    override_material,
+                    fallback_material,
                     part_index);
             }
         }
     }
 
     void OpenGlRenderingPlugin::draw_model_part_recursive(
-        AssetManager& asset_manager,
-        const Model& model,
-        const Uuid& model_id,
+        const OpenGlModel& model,
         const Mat4& parent_matrix,
         const Mat4& view_projection,
-        const std::shared_ptr<Material>& material_asset,
+        const OpenGlMaterial* override_material,
+        const OpenGlMaterial& fallback_material,
         uint32 part_index)
     {
         if (part_index >= model.parts.size())
@@ -641,39 +863,41 @@ namespace tbx::plugins
             return;
         }
 
-        const ModelPart& part = model.parts[part_index];
+        const OpenGlModelPart& part = model.parts[part_index];
 
         // Step 4c: Combine the parent transform with this part's local transform.
         const Mat4 part_matrix = parent_matrix * part.transform;
 
         // Step 4d: Draw the mesh bound to this part, if any.
-        if (part.mesh_index < model.meshes.size())
+        if (part.mesh_id.is_valid())
         {
-            const Mesh& mesh = model.meshes[part.mesh_index];
-            if (!mesh.vertices.empty() && !mesh.indices.empty())
+            const OpenGlMaterial* material = override_material;
+            if (!material)
             {
-                const Uuid mesh_key =
-                    make_model_mesh_key(model_id, part.mesh_index);
-                draw_mesh_with_material(
-                    asset_manager,
-                    mesh,
-                    *material_asset,
-                    part_matrix,
-                    view_projection,
-                    mesh_key);
+                auto material_it = _materials.find(part.material_id);
+                material = material_it != _materials.end() ? &material_it->second : nullptr;
             }
+            if (!material)
+            {
+                material = &fallback_material;
+            }
+
+            draw_mesh_with_material(
+                part.mesh_id,
+                *material,
+                part_matrix,
+                view_projection);
         }
 
         // Step 4e: Recurse into child parts.
         for (const auto child_index : part.children)
         {
             draw_model_part_recursive(
-                asset_manager,
                 model,
-                model_id,
                 part_matrix,
                 view_projection,
-                material_asset,
+                override_material,
+                fallback_material,
                 child_index);
         }
     }
@@ -703,18 +927,25 @@ namespace tbx::plugins
             }
 
             auto material_asset =
-                resolve_material_asset(asset_manager, material_handle, fallback_material);
+                get_cached_material(asset_manager, material_handle, fallback_material);
+            if (!material_asset)
+            {
+                continue;
+            }
 
             // Step 3: Draw the mesh with a stable cache key.
             const Uuid mesh_key =
                 make_procedural_mesh_key(procedural_data.id, static_cast<uint32>(mesh_index));
+            auto mesh_resource = get_mesh(mesh, mesh_key);
+            if (!mesh_resource)
+            {
+                continue;
+            }
             draw_mesh_with_material(
-                asset_manager,
-                mesh,
+                mesh_key,
                 *material_asset,
                 entity_matrix,
-                view_projection,
-                mesh_key);
+                view_projection);
         }
     }
 
@@ -765,8 +996,7 @@ namespace tbx::plugins
 
     static Uuid make_shader_source_key(const Uuid& shader_id, uint32 source_index)
     {
-        const Uuid resolved =
-            shader_id.is_valid() ? shader_id : default_shader_handle.id;
+        const Uuid resolved = shader_id.is_valid() ? shader_id : default_shader_handle.id;
         return Uuid::combine(resolved, source_index);
     }
 

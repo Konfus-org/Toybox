@@ -1,5 +1,7 @@
 #pragma once
+#include "opengl_material.h"
 #include "opengl_mesh.h"
+#include "opengl_model.h"
 #include "opengl_resource.h"
 #include "opengl_shader.h"
 #include "opengl_texture.h"
@@ -9,7 +11,6 @@
 #include "tbx/common/handle.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/messages.h"
-#include "tbx/graphics/model.h"
 #include "tbx/graphics/renderer.h"
 #include "tbx/graphics/window.h"
 #include "tbx/math/matrices.h"
@@ -17,7 +18,6 @@
 #include "tbx/plugin_api/plugin.h"
 #include <memory>
 #include <unordered_map>
-#include <unordered_set>
 
 namespace tbx::plugins
 {
@@ -44,17 +44,29 @@ namespace tbx::plugins
         Size get_effective_resolution(const Size& window_size) const;
         void draw_models(const Mat4& view_projection);
         void draw_models_for_cameras(const Size& window_size);
-        std::shared_ptr<Material> resolve_material_asset(
+        OpenGlModel* get_cached_model(
+            AssetManager& asset_manager,
+            const Handle& handle);
+        OpenGlMaterial* get_cached_material(
             AssetManager& asset_manager,
             const Handle& handle,
-            const std::shared_ptr<Material>& fallback_material) const;
-        void draw_mesh_with_material(
+            const std::shared_ptr<Material>& fallback_material);
+        OpenGlMaterial* get_cached_fallback_material(
             AssetManager& asset_manager,
-            const Mesh& mesh,
-            const Material& material,
+            const std::shared_ptr<Material>& fallback_material);
+        bool try_build_gl_material(
+            AssetManager& asset_manager,
+            const Material& source_material,
+            OpenGlMaterial& out_material);
+        std::shared_ptr<OpenGlShaderProgram> ensure_shader_program(
+            AssetManager& asset_manager,
+            Handle& shader_handle);
+        std::shared_ptr<OpenGlMesh> get_cached_mesh(const Uuid& mesh_key) const;
+        void draw_mesh_with_material(
+            const Uuid& mesh_key,
+            const OpenGlMaterial& material,
             const Mat4& model_matrix,
-            const Mat4& view_projection,
-            const Uuid& mesh_key);
+            const Mat4& view_projection);
         void draw_static_model(
             AssetManager& asset_manager,
             const StaticRenderData& static_data,
@@ -62,19 +74,17 @@ namespace tbx::plugins
             const Mat4& view_projection,
             const std::shared_ptr<Material>& fallback_material);
         void draw_model_parts(
-            AssetManager& asset_manager,
-            const Model& model,
-            const Uuid& model_id,
+            const OpenGlModel& model,
             const Mat4& entity_matrix,
             const Mat4& view_projection,
-            const std::shared_ptr<Material>& material_asset);
+            const OpenGlMaterial* override_material,
+            const OpenGlMaterial& fallback_material);
         void draw_model_part_recursive(
-            AssetManager& asset_manager,
-            const Model& model,
-            const Uuid& model_id,
+            const OpenGlModel& model,
             const Mat4& parent_matrix,
             const Mat4& view_projection,
-            const std::shared_ptr<Material>& material_asset,
+            const OpenGlMaterial* override_material,
+            const OpenGlMaterial& fallback_material,
             uint32 part_index);
         void draw_procedural_meshes(
             AssetManager& asset_manager,
@@ -99,6 +109,10 @@ namespace tbx::plugins
         std::unordered_map<Uuid, std::shared_ptr<OpenGlShader>> _shaders = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlShaderProgram>> _shader_programs = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlTexture>> _textures = {};
+        std::unordered_map<Uuid, OpenGlModel> _models = {};
+        std::unordered_map<Uuid, OpenGlMaterial> _materials = {};
+        OpenGlMaterial _fallback_material = {};
+        bool _has_fallback_material = false;
         std::shared_ptr<OpenGlTexture> _default_texture = {};
     };
 }

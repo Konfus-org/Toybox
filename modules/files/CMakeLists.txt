@@ -21,9 +21,4 @@ target_link_libraries(${module_name}
         nlohmann_json
 )
 
-target_compile_definitions(${module_name}
-    PRIVATE
-        $<$<CONFIG:Debug>:TBX_REPO_ROOT="${TBX_REPO_ROOT_PATH}">
-)
-
 tbx_setup_module(${module_name})

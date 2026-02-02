@@ -1,5 +1,6 @@
 #include "assimp_model_loader_plugin.h"
 #include "tbx/assets/messages.h"
+#include "tbx/common/string_utils.h"
 #include "tbx/files/filesystem.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/mesh.h"
@@ -10,6 +11,7 @@
 #include <assimp/material.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <assimp/types.h>
 #include <string>
 #include <vector>
 
@@ -73,25 +75,38 @@ namespace tbx::plugins
     }
 
     // Determines the scale needed to convert imported scene units to meters.
-    static float get_scene_scale_to_meters(const aiScene& scene)
+    static float get_default_scale_to_meters_for_path(const std::filesystem::path& path)
+    {
+        const std::string extension = to_lower(path.extension().string());
+        if (extension == ".fbx")
+        {
+            return 0.01f;
+        }
+
+        return 1.0f;
+    }
+
+    static float get_scene_scale_to_meters(
+        const aiScene& scene,
+        const std::filesystem::path& source_path)
     {
         if (!scene.mMetaData)
         {
-            return 1.0f;
+            return get_default_scale_to_meters_for_path(source_path);
         }
 
-        double unit_scale = 0.0;
+        ai_real unit_scale = static_cast<ai_real>(0.0);
         if (!scene.mMetaData->Get("UnitScaleFactor", unit_scale))
         {
             scene.mMetaData->Get("OriginalUnitScaleFactor", unit_scale);
         }
 
-        if (unit_scale > 0.0)
+        if (unit_scale > static_cast<ai_real>(0.0))
         {
-            return static_cast<float>(unit_scale * 0.01);
+            return static_cast<float>(unit_scale * static_cast<ai_real>(0.01));
         }
 
-        return 1.0f;
+        return get_default_scale_to_meters_for_path(source_path);
     }
 
     // Queries a diffuse color from an Assimp material, falling back to white.
@@ -343,7 +358,7 @@ namespace tbx::plugins
         // Build model parts from the node hierarchy.
         std::vector<ModelPart> parts;
         parts.reserve(meshes.size());
-        const float scene_scale_to_meters = get_scene_scale_to_meters(*scene);
+        const float scene_scale_to_meters = get_scene_scale_to_meters(*scene, resolved);
         const Mat4 scene_scale =
             (scene_scale_to_meters == 1.0f) ? Mat4(1.0f) : scale(Vec3(scene_scale_to_meters));
         // Walk the node tree only when we have mesh references.

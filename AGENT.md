@@ -6,6 +6,7 @@
 - Keep `#include` directives contiguous—no blank lines between include statements.
 - Keep namespaces non-empty. If you only need a translation-unit helper, prefer `static` functions or unnamed structs over opening placeholder namespaces.
 - Maintain include hygiene: headers should only include what they use, and source files should provide the heavier dependencies.
+- Simplify and remove nesting where possible.
 
 ## Naming & API Shape
 - Choose descriptive, self-documenting names; avoid jargon, abbreviations, or `util`-style catch‑all names.
@@ -20,6 +21,7 @@
   3. **Thread Safety** – whether callers can use it concurrently, and any required synchronization.
 - Keep doc comments adjacent to declarations; brief inline notes are acceptable for complex implementation details.
 - Summaries should be in microsoft xml format.
+- Complex and long methods should be broken up with comments explaining things, and preferably if really large, they should be broken up into sub methods that are then documented with summaries and meaningful names.
 
 ## Language & Feature Use
 - The project targets C++23.

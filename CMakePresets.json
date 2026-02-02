@@ -9,6 +9,7 @@
     {
       "name": "tbx-base",
       "cacheVariables": {
+        "TBX_RESOURCES_PATH": "${sourceDir}/resources",
         "TBX_PLUGIN_ABI_VERSION": "1",
         "TBX_ENABLE_ASSERTS": "ON",
         "CTEST_TEST_TIMEOUT": "120",

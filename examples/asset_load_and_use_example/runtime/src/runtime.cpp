@@ -10,9 +10,8 @@ namespace tbx::examples
 
         auto entity = _entity_manager->create("Green Cube");
 
-        auto transform = entity.add_component<Transform>();
-        transform.scale = Vec3(0.1f, 0.1f, 0.1f);
-        transform.position = Vec3(0.0f, 0.0f, -125.0f);
+        auto& transform = entity.add_component<Transform>();
+        transform.position = Vec3(0.0f, 0.0f, -5.0f);
         entity.add_component<Renderer>("Green_Cube.fbx");
     }
 

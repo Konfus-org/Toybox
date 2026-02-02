@@ -9,14 +9,11 @@
 
 namespace tbx
 {
-    static std::filesystem::path get_repo_root_directory()
+    static std::filesystem::path get_resources_directory()
     {
-#if defined(TBX_REPO_ROOT)
-        std::filesystem::path root(TBX_REPO_ROOT);
-        if (!root.empty())
-        {
-            return root.lexically_normal();
-        }
+#if defined(TBX_RESOURCES)
+        auto resources = std::filesystem::path(TBX_RESOURCES);
+        return resources.lexically_normal();
 #endif
         return {};
     }
@@ -104,9 +101,9 @@ namespace tbx
             _logs_directory,
             "logs"); // choose between user-defined and default logs dir
 
-        const auto repo_root = get_repo_root_directory();
-        if (!repo_root.empty() && is_path_prefix(repo_root, _working_directory))
-            add_assets_directory(repo_root / "resources"); // built-in assets
+        const auto resources = get_resources_directory();
+        if (!resources.empty())
+            add_assets_directory(resources); // built-in assets
         for (const auto& extra : asset_directories)
             add_assets_directory(extra); // user-defined assets
         if (asset_directories.empty())
@@ -144,20 +141,19 @@ namespace tbx
             return;
         }
 
-        const auto normalized = resolved.lexically_normal();
         const auto is_duplicate = std::any_of(
             _assets_directories.begin(),
             _assets_directories.end(),
-            [&normalized](const std::filesystem::path& existing)
+            [&resolved](const std::filesystem::path& existing)
             {
-                return existing == normalized;
+                return existing == resolved;
             });
         if (is_duplicate)
         {
             return;
         }
 
-        _assets_directories.push_back(normalized);
+        _assets_directories.push_back(resolved);
     }
 
     std::filesystem::path FileSystem::resolve_asset_path(const std::filesystem::path& path) const

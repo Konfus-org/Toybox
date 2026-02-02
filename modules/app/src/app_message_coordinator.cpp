@@ -217,8 +217,7 @@ namespace tbx
         return msg.result;
     }
 
-    std::shared_future<Result> AppMessageCoordinator::post(
-        std::unique_ptr<Message> msg) const
+    std::shared_future<Result> AppMessageCoordinator::post(std::unique_ptr<Message> msg) const
     {
         std::promise<Result> promise;
         auto future = promise.get_future().share();

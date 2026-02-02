@@ -145,16 +145,10 @@ namespace tbx::plugins
             return true;
         }
 
-        std::vector<double> values;
-        if (!entry.try_get_floats("value", values))
-        {
-            error_message = "Material loader: parameter '" + name + "' missing array value.";
-            return false;
-        }
-
         if (type_text == "vec2")
         {
-            if (values.size() != 2U)
+            std::vector<double> values;
+            if (!entry.try_get_float_array("value", 2U, values))
             {
                 error_message =
                     "Material loader: vec2 parameter '" + name + "' must have 2 values.";
@@ -168,7 +162,8 @@ namespace tbx::plugins
 
         if (type_text == "vec3")
         {
-            if (values.size() != 3U)
+            std::vector<double> values;
+            if (!entry.try_get_float_array("value", 3U, values))
             {
                 error_message =
                     "Material loader: vec3 parameter '" + name + "' must have 3 values.";
@@ -183,7 +178,8 @@ namespace tbx::plugins
 
         if (type_text == "vec4")
         {
-            if (values.size() != 4U)
+            std::vector<double> values;
+            if (!entry.try_get_float_array("value", 4U, values))
             {
                 error_message =
                     "Material loader: vec4 parameter '" + name + "' must have 4 values.";
@@ -199,7 +195,8 @@ namespace tbx::plugins
 
         if (type_text == "color")
         {
-            if (values.size() != 4U)
+            std::vector<double> values;
+            if (!entry.try_get_float_array("value", 4U, values))
             {
                 error_message =
                     "Material loader: color parameter '" + name + "' must have 4 values.";
