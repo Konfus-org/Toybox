@@ -326,14 +326,12 @@ namespace tbx::plugins
 
         static const auto fallback_material = std::make_shared<Material>();
 
-        // Step 1: Gather renderable entities.
-        auto entities = ecs.get_with<Renderer>();
-        for (auto& entity : entities)
+        ecs.for_each_with<Renderer>([&](Entity entity)
         {
             const Renderer& renderer = entity.get_component<Renderer>();
             if (!renderer.data)
             {
-                continue;
+                return;
             }
 
             // Step 2: Compute the entity model matrix (identity if no transform).
@@ -352,7 +350,7 @@ namespace tbx::plugins
                     entity_matrix,
                     view_projection,
                     fallback_material);
-                continue;
+                return;
             }
 
             if (auto* procedural_data = dynamic_cast<const ProceduralData*>(renderer.data.get()))
@@ -365,7 +363,7 @@ namespace tbx::plugins
                     view_projection,
                     fallback_material);
             }
-        }
+        });
     }
 
     OpenGlModel* OpenGlRenderingPlugin::get_cached_model(

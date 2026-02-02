@@ -104,4 +104,14 @@ namespace tbx
             toys.emplace_back(_registry.get(), entity);
         return toys;
     }
+
+    void EntityManager::for_each(const std::function<void(Entity&)>& callback)
+    {
+        auto view = _registry->view<EntityDescription>();
+        for (auto entity_handle : view)
+        {
+            Entity entity(_registry.get(), entity_handle);
+            callback(entity);
+        }
+    }
 }

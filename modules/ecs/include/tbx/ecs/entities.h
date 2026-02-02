@@ -135,6 +135,19 @@ namespace tbx
             return toys;
         }
 
+        void for_each(const std::function<void(Entity&)>& callback);
+
+        template <typename... TBlocks>
+        void for_each_with(const std::function<void(Entity&)>& callback)
+        {
+            auto view = _registry->view<TBlocks...>();
+            for (auto entity_handle : view)
+            {
+                Entity entity(_registry.get(), entity_handle);
+                callback(entity);
+            }
+        }
+
       private:
         std::unique_ptr<EntityRegistry> _registry = nullptr;
     };
