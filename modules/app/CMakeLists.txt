@@ -1,19 +1,20 @@
-tbx_add_module(App)
+set(module_name App)
 
-file(GLOB_RECURSE INCL CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.*")
-file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
-target_sources(App PRIVATE ${SRCS} ${INCL})
+if(TBX_BUILD_SHARED)
+    add_library(${module_name} SHARED)
+    target_compile_definitions(${module_name}
+        PUBLIC
+            TBX_SHARED_LIB
+        PRIVATE
+            TBX_EXPORTING_SYMBOLS
+    )
+else()
+    add_library(${module_name} STATIC)
+endif()
 
-target_include_directories(App
-  PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-  PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
+add_library(Tbx::${module_name} ALIAS ${module_name})
 
-target_link_libraries(App
+target_link_libraries(${module_name}
     PUBLIC
         Tbx::Time
         Tbx::Math
@@ -25,4 +26,4 @@ target_link_libraries(App
         Tbx::Assets
 )
 
-add_library(Tbx::App ALIAS App)
+tbx_setup_module(${module_name})

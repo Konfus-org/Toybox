@@ -1,40 +1,20 @@
-# Build the Assimp-backed model loader as a shared plugin.
-add_library(AssimpModelLoaderPlugin SHARED)
+set(plugin_name AssimpModelLoaderPlugin)
 
-# Collect plugin sources.
-file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
-target_sources(AssimpModelLoaderPlugin PRIVATE ${SRCS})
-target_include_directories(AssimpModelLoaderPlugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-
-# Prefer the namespaced Assimp target when available.
-set(ASSIMP_TARGET assimp::assimp)
-# Fall back to the legacy target name if needed.
-if(NOT TARGET ${ASSIMP_TARGET})
-    set(ASSIMP_TARGET assimp)
-endif()
-# Abort when Assimp is not available.
-if(NOT TARGET ${ASSIMP_TARGET})
-    message(FATAL_ERROR "Assimp model loader requires the assimp target to be available.")
-endif()
-
-# Link against engine modules and Assimp.
-target_link_libraries(AssimpModelLoaderPlugin PRIVATE
+add_library(${plugin_name} SHARED)
+add_library(Tbx::Plugins::${plugin_name} ALIAS ${plugin_name})
+target_link_libraries(${plugin_name} PRIVATE
     Tbx::App
     Tbx::Assets
     Tbx::Files
     Tbx::Graphics
-    ${ASSIMP_TARGET}
+    assimp::assimp
 )
 
-# Register the plugin with the Toybox plugin system.
 tbx_register_plugin(
-    TARGET AssimpModelLoaderPlugin
+    TARGET ${plugin_name}
     CLASS tbx::plugins::AssimpModelLoaderPlugin
     HEADER "assimp_model_loader_plugin.h"
-    NAME "AssimpModelLoaderPlugin"
+    NAME "${plugin_name}"
     VERSION "1.0.0"
     CATEGORY "default"
 )
-
-# Provide a namespaced alias for consumers.
-add_library(Tbx::Plugins::AssimpModelLoaderPlugin ALIAS AssimpModelLoaderPlugin)

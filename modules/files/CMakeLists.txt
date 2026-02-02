@@ -1,28 +1,29 @@
-tbx_add_module(Files)
+set(module_name Files)
 
-file(GLOB_RECURSE FILE_SYSTEM_HEADERS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.*")
-file(GLOB_RECURSE FILE_SYSTEM_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
-target_sources(Files PRIVATE ${FILE_SYSTEM_SOURCES} ${FILE_SYSTEM_HEADERS} )
+if(TBX_BUILD_SHARED)
+    add_library(${module_name} SHARED)
+    target_compile_definitions(${module_name}
+        PUBLIC
+            TBX_SHARED_LIB
+        PRIVATE
+            TBX_EXPORTING_SYMBOLS
+    )
+else()
+    add_library(${module_name} STATIC)
+endif()
 
-target_include_directories(Files
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
+add_library(Tbx::${module_name} ALIAS ${module_name})
 
-target_link_libraries(Files
+target_link_libraries(${module_name}
     PUBLIC
         Tbx::Common
     PRIVATE
         nlohmann_json
 )
 
-target_compile_definitions(Files
+target_compile_definitions(${module_name}
     PRIVATE
         $<$<CONFIG:Debug>:TBX_REPO_ROOT="${TBX_REPO_ROOT_PATH}">
 )
 
-add_library(Tbx::Files ALIAS Files)
+tbx_setup_module(${module_name})

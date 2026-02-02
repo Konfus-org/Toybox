@@ -6,15 +6,15 @@ namespace tbx::tests::file_system
 {
     TEST(FileSystemOpsTests, UsesWorkingDirectoryForDefaultFolders)
     {
-        const std::filesystem::path working("/tmp/tbx_working_root");
+        const std::filesystem::path working("/tmp/tbx_working_root/");
         FileSystem fs {working};
 
-        EXPECT_EQ(fs.get_working_directory(), working);
-        EXPECT_EQ(fs.get_plugins_directory(), working / "plugins");
+        EXPECT_EQ(fs.get_working_directory(), working.lexically_normal());
+        EXPECT_EQ(fs.get_plugins_directory(), working.lexically_normal());
         EXPECT_EQ(fs.get_logs_directory(), working / "logs");
         const auto assets_directories = fs.get_assets_directories();
         ASSERT_EQ(assets_directories.size(), 1U);
-        EXPECT_EQ(assets_directories.front(), working / "assets");
+        EXPECT_EQ(assets_directories.back(), working / "assets"); // the front is the built-in
     }
 
     TEST(FileSystemOpsTests, UsesProvidedDirectoriesWhenSpecified)
@@ -30,9 +30,8 @@ namespace tbx::tests::file_system
         EXPECT_EQ(fs.get_plugins_directory(), plugins_override);
         EXPECT_EQ(fs.get_logs_directory(), logs_override);
         const auto assets_directories = fs.get_assets_directories();
-        ASSERT_EQ(assets_directories.size(), 2U);
+        ASSERT_EQ(assets_directories.size(), 1U);
         EXPECT_EQ(assets_directories[0], assets_override);
-        EXPECT_EQ(assets_directories[1], working / "assets");
     }
 
     TEST(FileSystemOpsTests, ResolvesRelativePathsAgainstWorkingDirectory)

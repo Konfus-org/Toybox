@@ -88,7 +88,7 @@ namespace tbx
         const std::filesystem::path& plugins_directory,
         const std::filesystem::path& logs_directory,
         const std::vector<std::filesystem::path>& asset_directories)
-        : _working_directory(working_directory)
+        : _working_directory(working_directory.lexically_normal())
         , _plugins_directory(plugins_directory)
         , _logs_directory(logs_directory)
     {
@@ -104,16 +104,15 @@ namespace tbx
             _logs_directory,
             "logs"); // choose between user-defined and default logs dir
 
-        for (const auto& extra : asset_directories)
-            add_assets_directory(extra); // user-defined assets
-
-        add_assets_directory(
-            resolve_with_working(_working_directory, "assets")); // default assets dir
-
         const auto repo_root = get_repo_root_directory();
         if (!repo_root.empty() && is_path_prefix(repo_root, _working_directory))
-        {
             add_assets_directory(repo_root / "resources"); // built-in assets
+        for (const auto& extra : asset_directories)
+            add_assets_directory(extra); // user-defined assets
+        if (asset_directories.empty())
+        {
+            add_assets_directory(
+                resolve_with_working(_working_directory, "assets")); // default assets dir
         }
     }
 

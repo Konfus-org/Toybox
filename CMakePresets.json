@@ -9,9 +9,10 @@
     {
       "name": "tbx-base",
       "cacheVariables": {
-        "TBX_PLUGIN_ABI_VERSION": 1,
+        "TBX_PLUGIN_ABI_VERSION": "1",
         "TBX_ENABLE_ASSERTS": "ON",
-        "CTEST_TEST_TIMEOUT": 120
+        "CTEST_TEST_TIMEOUT": "120",
+        "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/TbxPresetCompileDefinitions.cmake;${sourceDir}/cmake/TbxPresetMsvcOptions.cmake",
       },
       "hidden": true
     },
@@ -21,6 +22,13 @@
       "generator": "Ninja Multi-Config",
       "binaryDir": "${sourceDir}/build/ninja",
       "inherits": "tbx-base",
+      "cacheVariables": {
+        "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build/ninja/lib",
+        "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/ninja/lib",
+        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/ninja/bin",
+        "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/ninja/pdb",
+        "CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/ninja/pdb"
+      },
       "hidden": true
     },
     {
@@ -28,12 +36,15 @@
       "binaryDir": "${sourceDir}/build/vs",
       "inherits": "tbx-base",
       "cacheVariables": {
-        "CMAKE_C_FLAGS": "/Zc:preprocessor",
-        "CMAKE_CXX_FLAGS": "/Zc:preprocessor",
         "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "Embedded",
         "CMAKE_EXE_LINKER_FLAGS_DEBUG": "/DEBUG:FULL /INCREMENTAL",
         "CMAKE_SHARED_LINKER_FLAGS_DEBUG": "/DEBUG:FULL /INCREMENTAL",
-        "CMAKE_MODULE_LINKER_FLAGS_DEBUG": "/DEBUG:FULL /INCREMENTAL"
+        "CMAKE_MODULE_LINKER_FLAGS_DEBUG": "/DEBUG:FULL /INCREMENTAL",
+        "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build/vs/lib",
+        "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/vs/lib",
+        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/vs/bin",
+        "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/vs/pdb",
+        "CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/vs/pdb"
       },
       "hidden": true
     },

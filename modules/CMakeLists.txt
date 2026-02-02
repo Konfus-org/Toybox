@@ -3,8 +3,7 @@ option(TBX_VERB_LOGGING "Enable verbose logging" OFF)
 
 message(STATUS "")
 message(STATUS "Configuring Toybox Modules:")
-
-include(TbxModules)
+include(TbxSetupModule)
 
 if (CMAKE_CXX_FLAGS MATCHES "-fno-rtti")
     message(FATAL_ERROR "Tbx: RTTI must be enabled for Toybox")
