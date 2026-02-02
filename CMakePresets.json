@@ -12,7 +12,7 @@
         "TBX_PLUGIN_ABI_VERSION": "1",
         "TBX_ENABLE_ASSERTS": "ON",
         "CTEST_TEST_TIMEOUT": "120",
-        "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/TbxPresetCompileDefinitions.cmake;${sourceDir}/cmake/TbxPresetMsvcOptions.cmake",
+        "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/TbxPresetCompileDefinitions.cmake;${sourceDir}/cmake/TbxPresetMsvcOptions.cmake"
       },
       "hidden": true
     },
