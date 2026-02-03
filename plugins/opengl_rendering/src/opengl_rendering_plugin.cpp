@@ -1,6 +1,7 @@
 #include "opengl_rendering_plugin.h"
 #include "tbx/app/application.h"
 #include "tbx/assets/asset_manager.h"
+#include "tbx/assets/builtin_assets.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/camera.h"
 #include "tbx/graphics/model.h"
@@ -11,11 +12,207 @@
 #ifdef USING_SDL3
     #include <SDL3/SDL.h>
 #endif
+#include <algorithm>
 #include <string>
 #include <vector>
 
 namespace tbx::plugins
 {
+    static std::string to_uniform_name(const std::string& material_name)
+    {
+        if (material_name.size() >= 2U && material_name[0] == 'u' && material_name[1] == '_')
+        {
+            return material_name;
+        }
+        return "u_" + material_name;
+    }
+
+    static void ensure_default_shader_textures(OpenGlMaterial& material)
+    {
+        if (material.shader_programs.size() != 1U
+            || material.shader_programs.front() != default_shader_handle.id)
+        {
+            return;
+        }
+
+        const std::string diffuse_name = to_uniform_name("diffuse");
+        const std::string normal_name = to_uniform_name("normal");
+
+        OpenGlMaterialTexture diffuse = {.name = diffuse_name};
+        OpenGlMaterialTexture normal = {.name = normal_name};
+
+        for (const auto& texture : material.textures)
+        {
+            if (texture.name == diffuse_name)
+            {
+                diffuse = texture;
+            }
+            else if (texture.name == normal_name)
+            {
+                normal = texture;
+            }
+        }
+
+        std::vector<OpenGlMaterialTexture> reordered = {};
+        reordered.reserve(material.textures.size() + 2U);
+        reordered.push_back(std::move(diffuse));
+        reordered.push_back(std::move(normal));
+
+        for (const auto& texture : material.textures)
+        {
+            if (texture.name == diffuse_name || texture.name == normal_name)
+            {
+                continue;
+            }
+            reordered.push_back(texture);
+        }
+
+        material.textures = std::move(reordered);
+    }
+
+    static GLuint compile_shader(const GLenum type, const char* source)
+    {
+        const GLuint shader = glCreateShader(type);
+        glShaderSource(shader, 1, &source, nullptr);
+        glCompileShader(shader);
+
+        GLint status = 0;
+        glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+        if (status != GL_TRUE)
+        {
+            GLchar log[1024] = {};
+            GLsizei log_length = 0;
+            glGetShaderInfoLog(shader, static_cast<GLsizei>(sizeof(log)), &log_length, log);
+            TBX_TRACE_ERROR("OpenGL rendering: shader compile failed: {}", log);
+            glDeleteShader(shader);
+            return 0U;
+        }
+
+        return shader;
+    }
+
+    static GLuint link_program(const GLuint vertex_shader, const GLuint fragment_shader)
+    {
+        const GLuint program = glCreateProgram();
+        glAttachShader(program, vertex_shader);
+        glAttachShader(program, fragment_shader);
+        glLinkProgram(program);
+
+        GLint status = 0;
+        glGetProgramiv(program, GL_LINK_STATUS, &status);
+        if (status != GL_TRUE)
+        {
+            GLchar log[1024] = {};
+            GLsizei log_length = 0;
+            glGetProgramInfoLog(program, static_cast<GLsizei>(sizeof(log)), &log_length, log);
+            TBX_TRACE_ERROR("OpenGL rendering: program link failed: {}", log);
+            glDeleteProgram(program);
+            return 0U;
+        }
+
+        return program;
+    }
+
+    template <typename TRenderTarget>
+    static void destroy_render_target(TRenderTarget& target)
+    {
+        if (target.depth_stencil != 0U)
+        {
+            const auto id = static_cast<GLuint>(target.depth_stencil);
+            glDeleteRenderbuffers(1, &id);
+            target.depth_stencil = 0U;
+        }
+
+        if (target.color_texture != 0U)
+        {
+            const auto id = static_cast<GLuint>(target.color_texture);
+            glDeleteTextures(1, &id);
+            target.color_texture = 0U;
+        }
+
+        if (target.framebuffer != 0U)
+        {
+            const auto id = static_cast<GLuint>(target.framebuffer);
+            glDeleteFramebuffers(1, &id);
+            target.framebuffer = 0U;
+        }
+
+        target.size = {0U, 0U};
+    }
+
+    template <typename TRenderTarget>
+    static bool try_create_render_target(TRenderTarget& target, const Size& size)
+    {
+        destroy_render_target(target);
+
+        if (size.width == 0U || size.height == 0U)
+        {
+            return false;
+        }
+
+        GLuint framebuffer = 0U;
+        GLuint color_texture = 0U;
+        GLuint depth_stencil = 0U;
+
+        glGenFramebuffers(1, &framebuffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+        glGenTextures(1, &color_texture);
+        glBindTexture(GL_TEXTURE_2D, color_texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_SRGB8,
+            static_cast<GLsizei>(size.width),
+            static_cast<GLsizei>(size.height),
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            nullptr);
+        glFramebufferTexture2D(
+            GL_FRAMEBUFFER,
+            GL_COLOR_ATTACHMENT0,
+            GL_TEXTURE_2D,
+            color_texture,
+            0);
+
+        glGenRenderbuffers(1, &depth_stencil);
+        glBindRenderbuffer(GL_RENDERBUFFER, depth_stencil);
+        glRenderbufferStorage(
+            GL_RENDERBUFFER,
+            GL_DEPTH24_STENCIL8,
+            static_cast<GLsizei>(size.width),
+            static_cast<GLsizei>(size.height));
+        glFramebufferRenderbuffer(
+            GL_FRAMEBUFFER,
+            GL_DEPTH_STENCIL_ATTACHMENT,
+            GL_RENDERBUFFER,
+            depth_stencil);
+
+        const auto status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+        if (status != GL_FRAMEBUFFER_COMPLETE)
+        {
+            glDeleteRenderbuffers(1, &depth_stencil);
+            glDeleteTextures(1, &color_texture);
+            glDeleteFramebuffers(1, &framebuffer);
+            return false;
+        }
+
+        target.framebuffer = static_cast<uint32>(framebuffer);
+        target.color_texture = static_cast<uint32>(color_texture);
+        target.depth_stencil = static_cast<uint32>(depth_stencil);
+        target.size = size;
+        return true;
+    }
+
     // Build a model matrix from an entity transform.
     static Mat4 build_model_matrix(const Transform& transform)
     {
@@ -36,17 +233,6 @@ namespace tbx::plugins
     {
         return Uuid::combine(model_id, part_index);
     }
-
-    struct MaterialParameterUniformVisitor
-    {
-        ShaderUniform& uniform;
-
-        template <typename TValue>
-        void operator()(const TValue& value) const
-        {
-            uniform.data = value;
-        }
-    };
 
     static void GLAPIENTRY gl_message_callback(
         GLenum source,
@@ -90,8 +276,20 @@ namespace tbx::plugins
 
     void OpenGlRenderingPlugin::on_detach()
     {
+        for (auto& entry : _render_targets)
+        {
+            const Uuid window_id = entry.first;
+            const auto result = send_message<WindowMakeCurrentRequest>(window_id);
+            if (result)
+            {
+                destroy_render_target(entry.second);
+                destroy_present_pipeline(entry.second.present);
+            }
+        }
+
         _is_gl_ready = false;
         _window_sizes.clear();
+        _render_targets.clear();
         _meshes.clear();
         _shaders.clear();
         _shader_programs.clear();
@@ -131,18 +329,141 @@ namespace tbx::plugins
                 continue;
             }
 
-            // Configure viewport and clear the frame.
-            glViewport(
-                0,
-                0,
-                static_cast<GLsizei>(render_resolution.width),
-                static_cast<GLsizei>(render_resolution.height));
-            glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Fixed 255 to 1.0f
+            const bool should_scale_to_window = render_resolution.width != window_size.width
+                                                || render_resolution.height != window_size.height;
 
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            if (should_scale_to_window)
+            {
+                auto& target = _render_targets[window_id];
+                if (target.size.width != render_resolution.width
+                    || target.size.height != render_resolution.height)
+                {
+                    if (!try_create_render_target(target, render_resolution))
+                    {
+                        TBX_TRACE_WARNING(
+                            "OpenGL rendering: Failed to create render target {}x{} for window {}.",
+                            render_resolution.width,
+                            render_resolution.height,
+                            window_id.value);
+                    }
+                }
 
-            // Draw all scene cameras to the current framebuffer.
-            draw_models_for_cameras(render_resolution);
+                if (target.framebuffer != 0U)
+                {
+                    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(target.framebuffer));
+                    glViewport(
+                        0,
+                        0,
+                        static_cast<GLsizei>(render_resolution.width),
+                        static_cast<GLsizei>(render_resolution.height));
+                    glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Fixed 255 to 1.0f
+                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+                    // Draw all scene cameras to the offscreen target at the logical resolution.
+                    draw_models_for_cameras(render_resolution);
+
+                    // Present the scaled image to the window backbuffer via a shader, avoiding
+                    // glBlitFramebuffer scaling (which can be invalid with multisampled defaults).
+                    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                    glViewport(
+                        0,
+                        0,
+                        static_cast<GLsizei>(window_size.width),
+                        static_cast<GLsizei>(window_size.height));
+                    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+                    glClear(GL_COLOR_BUFFER_BIT);
+
+                    auto& pipeline = target.present;
+                    if (pipeline.program == 0U)
+                    {
+                        initialize_present_pipeline(pipeline);
+                    }
+
+                    if (pipeline.program != 0U)
+                    {
+                        const float x_scale = static_cast<float>(window_size.width)
+                                              / static_cast<float>(render_resolution.width);
+                        const float y_scale = static_cast<float>(window_size.height)
+                                              / static_cast<float>(render_resolution.height);
+                        const float scale = std::min(x_scale, y_scale);
+
+                        const int scaled_width = std::max(
+                            1,
+                            static_cast<int>(static_cast<float>(render_resolution.width) * scale));
+                        const int scaled_height = std::max(
+                            1,
+                            static_cast<int>(static_cast<float>(render_resolution.height) * scale));
+
+                        const int x_offset =
+                            std::max(0, (static_cast<int>(window_size.width) - scaled_width) / 2);
+                        const int y_offset =
+                            std::max(0, (static_cast<int>(window_size.height) - scaled_height) / 2);
+
+                        const bool was_depth_test_enabled = glIsEnabled(GL_DEPTH_TEST) == GL_TRUE;
+                        const bool was_blend_enabled = glIsEnabled(GL_BLEND) == GL_TRUE;
+
+                        glDisable(GL_DEPTH_TEST);
+                        glDisable(GL_BLEND);
+
+                        glUseProgram(static_cast<GLuint>(pipeline.program));
+                        glBindVertexArray(static_cast<GLuint>(pipeline.vertex_array));
+                        glActiveTexture(GL_TEXTURE0);
+                        glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(target.color_texture));
+                        if (pipeline.texture_uniform >= 0)
+                        {
+                            glUniform1i(pipeline.texture_uniform, 0);
+                        }
+
+                        glViewport(x_offset, y_offset, scaled_width, scaled_height);
+                        glDrawArrays(GL_TRIANGLES, 0, 3);
+
+                        glBindTexture(GL_TEXTURE_2D, 0);
+                        glBindVertexArray(0);
+                        glUseProgram(0);
+
+                        if (was_blend_enabled)
+                        {
+                            glEnable(GL_BLEND);
+                        }
+                        if (was_depth_test_enabled)
+                        {
+                            glEnable(GL_DEPTH_TEST);
+                        }
+
+                        glViewport(
+                            0,
+                            0,
+                            static_cast<GLsizei>(window_size.width),
+                            static_cast<GLsizei>(window_size.height));
+                    }
+                }
+                else
+                {
+                    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                    glViewport(
+                        0,
+                        0,
+                        static_cast<GLsizei>(window_size.width),
+                        static_cast<GLsizei>(window_size.height));
+                    glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Fixed 255 to 1.0f
+                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                    draw_models_for_cameras(window_size);
+                }
+            }
+            else
+            {
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                glViewport(
+                    0,
+                    0,
+                    static_cast<GLsizei>(render_resolution.width),
+                    static_cast<GLsizei>(render_resolution.height));
+                glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Fixed 255 to 1.0f
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+                // Draw all scene cameras to the current framebuffer.
+                draw_models_for_cameras(render_resolution);
+            }
 
             // Present the rendered frame to the window.
             glFlush();
@@ -293,6 +614,95 @@ namespace tbx::plugins
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
+    void OpenGlRenderingPlugin::initialize_present_pipeline(PresentPipeline& pipeline)
+    {
+        if (pipeline.program != 0U)
+        {
+            return;
+        }
+
+        static constexpr const char* vertex_source = R"GLSL(
+#version 450 core
+out vec2 v_uv;
+void main()
+{
+    vec2 positions[3] = vec2[3](
+        vec2(-1.0, -1.0),
+        vec2( 3.0, -1.0),
+        vec2(-1.0,  3.0)
+    );
+    vec2 uvs[3] = vec2[3](
+        vec2(0.0, 0.0),
+        vec2(2.0, 0.0),
+        vec2(0.0, 2.0)
+    );
+    gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+    v_uv = uvs[gl_VertexID];
+}
+)GLSL";
+
+        static constexpr const char* fragment_source = R"GLSL(
+#version 450 core
+in vec2 v_uv;
+uniform sampler2D u_texture;
+out vec4 out_color;
+void main()
+{
+    out_color = texture(u_texture, v_uv);
+}
+)GLSL";
+
+        const GLuint vertex_shader = compile_shader(GL_VERTEX_SHADER, vertex_source);
+        if (vertex_shader == 0U)
+        {
+            return;
+        }
+
+        const GLuint fragment_shader = compile_shader(GL_FRAGMENT_SHADER, fragment_source);
+        if (fragment_shader == 0U)
+        {
+            glDeleteShader(vertex_shader);
+            return;
+        }
+
+        const GLuint program = link_program(vertex_shader, fragment_shader);
+        glDeleteShader(vertex_shader);
+        glDeleteShader(fragment_shader);
+        if (program == 0U)
+        {
+            return;
+        }
+
+        GLuint vertex_array = 0U;
+        glGenVertexArrays(1, &vertex_array);
+
+        const GLint texture_uniform = glGetUniformLocation(program, "u_texture");
+        if (texture_uniform < 0)
+        {
+            TBX_TRACE_WARNING("OpenGL rendering: present pipeline uniform 'u_texture' not found.");
+        }
+
+        pipeline.program = static_cast<uint32>(program);
+        pipeline.vertex_array = static_cast<uint32>(vertex_array);
+        pipeline.texture_uniform = texture_uniform;
+    }
+
+    void OpenGlRenderingPlugin::destroy_present_pipeline(PresentPipeline& pipeline)
+    {
+        if (pipeline.vertex_array != 0U)
+        {
+            const auto id = static_cast<GLuint>(pipeline.vertex_array);
+            glDeleteVertexArrays(1, &id);
+        }
+
+        if (pipeline.program != 0U)
+        {
+            glDeleteProgram(static_cast<GLuint>(pipeline.program));
+        }
+
+        pipeline = {};
+    }
+
     Size OpenGlRenderingPlugin::get_effective_resolution(const Size& window_size) const
     {
         Size resolution = _render_resolution;
@@ -317,6 +727,24 @@ namespace tbx::plugins
     void OpenGlRenderingPlugin::remove_window_state(const Uuid& window_id, const bool try_release)
     {
         _window_sizes.erase(window_id);
+
+        auto it = _render_targets.find(window_id);
+        if (it == _render_targets.end())
+        {
+            return;
+        }
+
+        if (try_release)
+        {
+            const auto result = send_message<WindowMakeCurrentRequest>(window_id);
+            if (result)
+            {
+                destroy_render_target(it->second);
+                destroy_present_pipeline(it->second.present);
+            }
+        }
+
+        _render_targets.erase(it);
     }
 
     void OpenGlRenderingPlugin::draw_models(const Mat4& view_projection)
@@ -326,44 +754,46 @@ namespace tbx::plugins
 
         static const auto fallback_material = std::make_shared<Material>();
 
-        ecs.for_each_with<Renderer>([&](Entity entity)
-        {
-            const Renderer& renderer = entity.get_component<Renderer>();
-            if (!renderer.data)
+        ecs.for_each_with<Renderer>(
+            [&](Entity entity)
             {
-                return;
-            }
+                const Renderer& renderer = entity.get_component<Renderer>();
+                if (!renderer.data)
+                {
+                    return;
+                }
 
-            // Step 2: Compute the entity model matrix (identity if no transform).
-            Mat4 entity_matrix = Mat4(1.0f);
-            if (entity.has_component<Transform>())
-            {
-                entity_matrix = build_model_matrix(entity.get_component<Transform>());
-            }
+                // Step 2: Compute the entity model matrix (identity if no transform).
+                Mat4 entity_matrix = Mat4(1.0f);
+                if (entity.has_component<Transform>())
+                {
+                    entity_matrix = build_model_matrix(entity.get_component<Transform>());
+                }
 
-            if (auto* static_data = dynamic_cast<const StaticRenderData*>(renderer.data.get()))
-            {
-                // Step 3: Draw meshes from a static model asset.
-                draw_static_model(
-                    asset_manager,
-                    *static_data,
-                    entity_matrix,
-                    view_projection,
-                    fallback_material);
-                return;
-            }
+                if (auto* static_data = dynamic_cast<const StaticRenderData*>(renderer.data.get()))
+                {
+                    // Step 3: Draw meshes from a static model asset.
+                    draw_static_model(
+                        asset_manager,
+                        *static_data,
+                        entity_matrix,
+                        view_projection,
+                        fallback_material);
+                    return;
+                }
 
-            if (auto* procedural_data = dynamic_cast<const ProceduralData*>(renderer.data.get()))
-            {
-                // Step 4: Draw procedurally supplied meshes.
-                draw_procedural_meshes(
-                    asset_manager,
-                    *procedural_data,
-                    entity_matrix,
-                    view_projection,
-                    fallback_material);
-            }
-        });
+                if (auto* procedural_data =
+                        dynamic_cast<const ProceduralData*>(renderer.data.get()))
+                {
+                    // Step 4: Draw procedurally supplied meshes.
+                    draw_procedural_meshes(
+                        asset_manager,
+                        *procedural_data,
+                        entity_matrix,
+                        view_projection,
+                        fallback_material);
+                }
+            });
     }
 
     OpenGlModel* OpenGlRenderingPlugin::get_cached_model(
@@ -470,8 +900,11 @@ namespace tbx::plugins
         if (usage.stream_state != AssetStreamState::Loaded)
         {
             return resolved.id == default_material_handle.id
-                ? get_cached_fallback_material(asset_manager, fallback_material)
-                : get_cached_material(asset_manager, default_material_handle, fallback_material);
+                       ? get_cached_fallback_material(asset_manager, fallback_material)
+                       : get_cached_material(
+                             asset_manager,
+                             default_material_handle,
+                             fallback_material);
         }
 
         OpenGlMaterial gl_material = {};
@@ -516,7 +949,13 @@ namespace tbx::plugins
         OpenGlMaterial& out_material)
     {
         OpenGlMaterial gl_material = {};
-        gl_material.parameters = source_material.parameters;
+        gl_material.parameters.reserve(source_material.parameters.size());
+        for (const auto& parameter : source_material.parameters)
+        {
+            ShaderUniform mapped = parameter;
+            mapped.name = to_uniform_name(parameter.name);
+            gl_material.parameters.push_back(std::move(mapped));
+        }
         gl_material.textures.reserve(source_material.textures.size());
 
         std::vector<Handle> shader_handles = source_material.shaders;
@@ -533,14 +972,13 @@ namespace tbx::plugins
                 continue;
             }
 
-            gl_material.shader_programs.push_back(
-                asset_manager.resolve_asset_id(resolved_handle));
+            gl_material.shader_programs.push_back(asset_manager.resolve_asset_id(resolved_handle));
         }
 
         for (const auto& texture_binding : source_material.textures)
         {
             OpenGlMaterialTexture entry = {};
-            entry.name = texture_binding.name;
+            entry.name = to_uniform_name(texture_binding.name);
 
             if (!texture_binding.handle.is_valid())
             {
@@ -563,12 +1001,13 @@ namespace tbx::plugins
                 continue;
             }
 
-            const Uuid texture_id =
-                asset_manager.resolve_asset_id(texture_binding.handle);
+            const Uuid texture_id = asset_manager.resolve_asset_id(texture_binding.handle);
             get_texture(texture_id, *texture_asset);
             entry.texture_id = texture_id;
             gl_material.textures.push_back(std::move(entry));
         }
+
+        ensure_default_shader_textures(gl_material);
 
         if (gl_material.shader_programs.empty())
         {
@@ -629,8 +1068,7 @@ namespace tbx::plugins
         return get_shader_program(asset_manager.resolve_asset_id(shader_handle), *shader_asset);
     }
 
-    std::shared_ptr<OpenGlMesh> OpenGlRenderingPlugin::get_cached_mesh(
-        const Uuid& mesh_key) const
+    std::shared_ptr<OpenGlMesh> OpenGlRenderingPlugin::get_cached_mesh(const Uuid& mesh_key) const
     {
         auto mesh_it = _meshes.find(mesh_key);
         if (mesh_it == _meshes.end())
@@ -650,53 +1088,38 @@ namespace tbx::plugins
         // Step 1: Fetch the mesh resource for this cache key.
         auto mesh_resource = get_cached_mesh(mesh_key);
         if (!mesh_resource)
-        {
             return;
-        }
 
         // Step 2: Determine which shader programs to render with.
         std::vector<Uuid> shader_programs = material.shader_programs;
         if (shader_programs.empty())
-        {
             shader_programs.push_back(default_shader_handle.id);
-        }
 
         for (const auto& shader_id : shader_programs)
         {
             auto program_it = _shader_programs.find(shader_id);
             if (program_it == _shader_programs.end())
-            {
                 continue;
-            }
 
             auto program = program_it->second;
             if (!program)
-            {
                 continue;
-            }
 
             // Step 3: Bind the shader program and upload view/model matrices.
             GlResourceScope program_scope(*program);
 
-            ShaderUniform view_projection_uniform = {};
-            view_projection_uniform.name = "u_view_proj";
-            view_projection_uniform.data = view_projection;
-            program->upload(view_projection_uniform);
-
-            ShaderUniform model_uniform = {};
-            model_uniform.name = "u_model";
-            model_uniform.data = model_matrix;
-            program->upload(model_uniform);
+            program->upload({
+                .name = "u_view_proj",
+                .data = view_projection,
+            });
+            program->upload({
+                .name = "u_model",
+                .data = model_matrix,
+            });
 
             // Step 4: Upload scalar/vector material parameters.
             for (const auto& parameter : material.parameters)
-            {
-                ShaderUniform uniform = {};
-                uniform.name = "u_" + parameter.name;
-                MaterialParameterUniformVisitor visitor {uniform};
-                std::visit(visitor, parameter.value);
-                program->upload(uniform);
-            }
+                program->upload(parameter);
 
             // Step 5: Bind textures and upload sampler slots.
             std::vector<GlResourceScope> texture_scopes = {};
@@ -710,9 +1133,7 @@ namespace tbx::plugins
                 {
                     auto texture_it = _textures.find(texture_binding.texture_id);
                     if (texture_it != _textures.end() && texture_it->second)
-                    {
                         texture_resource = texture_it->second;
-                    }
                 }
 
                 if (texture_resource)
@@ -721,10 +1142,10 @@ namespace tbx::plugins
                     texture_scopes.emplace_back(*texture_resource);
                 }
 
-                ShaderUniform texture_uniform = {};
-                texture_uniform.name = "u_" + texture_binding.name;
-                texture_uniform.data = static_cast<int>(texture_slot);
-                program->upload(texture_uniform);
+                program->upload({
+                    .name = texture_binding.name,
+                    .data = static_cast<int>(texture_slot),
+                });
                 ++texture_slot;
             }
 
@@ -776,11 +1197,7 @@ namespace tbx::plugins
                     continue;
                 }
 
-                draw_mesh_with_material(
-                    mesh_key,
-                    *material,
-                    entity_matrix,
-                    view_projection);
+                draw_mesh_with_material(mesh_key, *material, entity_matrix, view_projection);
             }
             return;
         }
@@ -880,11 +1297,7 @@ namespace tbx::plugins
                 material = &fallback_material;
             }
 
-            draw_mesh_with_material(
-                part.mesh_id,
-                *material,
-                part_matrix,
-                view_projection);
+            draw_mesh_with_material(part.mesh_id, *material, part_matrix, view_projection);
         }
 
         // Step 4e: Recurse into child parts.
@@ -939,11 +1352,7 @@ namespace tbx::plugins
             {
                 continue;
             }
-            draw_mesh_with_material(
-                mesh_key,
-                *material_asset,
-                entity_matrix,
-                view_projection);
+            draw_mesh_with_material(mesh_key, *material_asset, entity_matrix, view_projection);
         }
     }
 

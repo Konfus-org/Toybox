@@ -36,11 +36,29 @@ namespace tbx::plugins
         void on_update(const DeltaTime& dt) override;
 
       private:
+        struct PresentPipeline
+        {
+            uint32 program = 0U;
+            uint32 vertex_array = 0U;
+            int texture_uniform = -1;
+        };
+
+        struct RenderTarget
+        {
+            uint32 framebuffer = 0U;
+            uint32 color_texture = 0U;
+            uint32 depth_stencil = 0U;
+            Size size = {0U, 0U};
+            PresentPipeline present = {};
+        };
+
         void handle_window_ready(WindowContextReadyEvent& event);
         void handle_window_open_changed(PropertyChangedEvent<Window, bool>& event);
         void handle_window_resized(PropertyChangedEvent<Window, Size>& event);
         void handle_resolution_changed(PropertyChangedEvent<AppSettings, Size>& event);
         void initialize_opengl() const;
+        void initialize_present_pipeline(PresentPipeline& pipeline);
+        void destroy_present_pipeline(PresentPipeline& pipeline);
         Size get_effective_resolution(const Size& window_size) const;
         void draw_models(const Mat4& view_projection);
         void draw_models_for_cameras(const Size& window_size);
@@ -94,7 +112,9 @@ namespace tbx::plugins
             const std::shared_ptr<Material>& fallback_material);
         std::shared_ptr<OpenGlTexture> get_default_texture();
         std::shared_ptr<OpenGlMesh> get_mesh(const Mesh& mesh, const Uuid& mesh_key);
-        std::shared_ptr<OpenGlShader> get_shader(const ShaderSource& shader, const Uuid& shader_key);
+        std::shared_ptr<OpenGlShader> get_shader(
+            const ShaderSource& shader,
+            const Uuid& shader_key);
         std::shared_ptr<OpenGlShaderProgram> get_shader_program(
             const Uuid& shader_id,
             const Shader& shader);
@@ -105,6 +125,7 @@ namespace tbx::plugins
         bool _is_gl_ready = false;
         Size _render_resolution = {1, 1};
         std::unordered_map<Uuid, Size> _window_sizes = {};
+        std::unordered_map<Uuid, RenderTarget> _render_targets = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlMesh>> _meshes = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlShader>> _shaders = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlShaderProgram>> _shader_programs = {};

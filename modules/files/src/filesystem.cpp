@@ -1,14 +1,89 @@
 #include "tbx/files/filesystem.h"
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <system_error>
 #include <vector>
+#if defined(TBX_PLATFORM_WINDOWS)
+    #ifndef NOMINMAX
+        #define NOMINMAX
+    #endif
+    #ifndef WIN32_LEAN_AND_MEAN
+        #define WIN32_LEAN_AND_MEAN
+    #endif
+    #include <windows.h>
+#elif defined(TBX_PLATFORM_LINUX)
+    #include <unistd.h>
+#elif defined(TBX_PLATFORM_MACOS)
+    #include <mach-o/dyld.h>
+#endif
 
 namespace tbx
 {
+    static std::filesystem::path get_executable_directory()
+    {
+#if defined(TBX_PLATFORM_WINDOWS)
+        std::wstring buffer = {};
+        buffer.resize(1024);
+
+        for (;;)
+        {
+            const DWORD size =
+                GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+            if (size == 0)
+            {
+                return {};
+            }
+
+            if (size < (buffer.size() - 1))
+            {
+                buffer.resize(size);
+                break;
+            }
+
+            if (buffer.size() >= 32768)
+            {
+                return {};
+            }
+
+            buffer.resize(buffer.size() * 2);
+        }
+
+        return std::filesystem::path(buffer).parent_path().lexically_normal();
+#elif defined(TBX_PLATFORM_LINUX)
+        std::array<char, 4096> buffer = {};
+        const std::int64_t size = readlink("/proc/self/exe", buffer.data(), buffer.size() - 1);
+        if (size <= 0)
+        {
+            return {};
+        }
+
+        buffer[static_cast<std::size_t>(size)] = '\0';
+        return std::filesystem::path(buffer.data()).parent_path().lexically_normal();
+#elif defined(TBX_PLATFORM_MACOS)
+        std::uint32_t required_size = 0;
+        _NSGetExecutablePath(nullptr, &required_size);
+        if (required_size == 0)
+        {
+            return {};
+        }
+
+        std::vector<char> buffer = {};
+        buffer.resize(required_size);
+        if (_NSGetExecutablePath(buffer.data(), &required_size) != 0)
+        {
+            return {};
+        }
+
+        return std::filesystem::path(buffer.data()).parent_path().lexically_normal();
+#else
+        return {};
+#endif
+    }
+
     static std::filesystem::path get_resources_directory()
     {
 #if defined(TBX_RESOURCES)
@@ -29,6 +104,12 @@ namespace tbx
 
     static std::filesystem::path get_default_working_directory()
     {
+        const auto executable_directory = get_executable_directory();
+        if (!executable_directory.empty())
+        {
+            return executable_directory;
+        }
+
         return get_current_path();
     }
 
@@ -101,16 +182,20 @@ namespace tbx
             _logs_directory,
             "logs"); // choose between user-defined and default logs dir
 
+#if defined(TBX_RELEASE)
+        // Release build: use resources directory next to executable where assets are bundled
+        // into the application package at build time for releases
+        add_assets_directory(resolve_with_working(_working_directory, "resources"));
+#else
+        // Debug build: use paths to built-in and user-defined assets
+        // in the development environment
         const auto resources = get_resources_directory();
         if (!resources.empty())
             add_assets_directory(resources); // built-in assets
         for (const auto& extra : asset_directories)
             add_assets_directory(extra); // user-defined assets
-        if (asset_directories.empty())
-        {
-            add_assets_directory(
-                resolve_with_working(_working_directory, "assets")); // default assets dir
-        }
+
+#endif
     }
 
     std::filesystem::path FileSystem::get_working_directory() const
@@ -135,11 +220,12 @@ namespace tbx
 
     void FileSystem::add_assets_directory(const std::filesystem::path& path)
     {
+        if (path.empty())
+            return;
+
         const auto resolved = resolve_with_working(_working_directory, path);
         if (resolved.empty())
-        {
             return;
-        }
 
         const auto is_duplicate = std::any_of(
             _assets_directories.begin(),
@@ -149,9 +235,7 @@ namespace tbx
                 return existing == resolved;
             });
         if (is_duplicate)
-        {
             return;
-        }
 
         _assets_directories.push_back(resolved);
     }
@@ -159,25 +243,18 @@ namespace tbx
     std::filesystem::path FileSystem::resolve_asset_path(const std::filesystem::path& path) const
     {
         if (path.empty())
-        {
             return {};
-        }
         if (path.is_absolute())
-        {
             return path;
-        }
 
         for (const auto& root : _assets_directories)
         {
             if (root.empty())
-            {
                 continue;
-            }
+
             const auto candidate = resolve_relative_path(root / path);
             if (exists(candidate))
-            {
                 return candidate;
-            }
         }
 
         return resolve_relative_path(path);

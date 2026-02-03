@@ -55,4 +55,15 @@ namespace tbx
             }
         }
     }
+
+    void AssetManager::set_pinned(const Handle& handle, bool is_pinned)
+    {
+        std::lock_guard lock(_mutex);
+        auto* entry = get_or_create_registry_entry(handle);
+        if (!entry)
+            return;
+
+        for (auto& store : _stores)
+            store.second->set_pinned(entry->path_key, is_pinned);
+    }
 }

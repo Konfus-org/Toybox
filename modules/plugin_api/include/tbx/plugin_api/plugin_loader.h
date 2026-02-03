@@ -9,7 +9,8 @@
 
 namespace tbx
 {
-    // Scans 'directory' for manifests (*.meta or plugin.meta), filters by requested IDs,
+    // Scans 'directory' for plugin manifests (e.g. `*.dll.meta`, `*.so.meta`),
+    // skips any `resources/` subtree, filters by requested IDs,
     // resolves load order, loads plugins, and returns pointers to loaded plugins.
     // Ownership: The caller owns the returned LoadedPlugin objects. The host must outlive
     // the returned plugins.

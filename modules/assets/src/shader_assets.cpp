@@ -23,12 +23,16 @@ namespace tbx
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
-            return {};
+            AssetPromise<Shader> result = {};
+            result.asset = asset;
+            warn_missing_dispatcher("load a shader asynchronously");
+            result.promise = make_missing_dispatcher_future("load a shader asynchronously");
+            return result;
         }
 
-        auto future = dispatcher->post<LoadShaderRequest>(
-            asset_path,
-            asset.get());
+        LoadShaderRequest message(asset_path, asset.get());
+        message.not_handled_behavior = MessageNotHandledBehavior::Warn;
+        auto future = dispatcher->post(message);
         AssetPromise<Shader> result = {};
         result.asset = asset;
         result.promise = future;
@@ -43,12 +47,14 @@ namespace tbx
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
-            return {};
+            warn_missing_dispatcher("load a shader synchronously");
+            return asset;
         }
 
         LoadShaderRequest message(
             asset_path,
             asset.get());
+        message.not_handled_behavior = MessageNotHandledBehavior::Warn;
         dispatcher->send(message);
         return asset;
     }

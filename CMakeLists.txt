@@ -12,6 +12,8 @@ enable_testing()
 
 # Libs and projects
 add_subdirectory(modules)
+include(TbxDefaultIncludes)
+tbx_define_default_includes()
 add_subdirectory(thirdparty)
 add_subdirectory(plugins)
 add_subdirectory(examples)

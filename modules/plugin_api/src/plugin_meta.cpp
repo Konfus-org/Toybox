@@ -40,6 +40,53 @@ namespace tbx
         }
     }
 
+    static bool try_assign_optional_resource_directory(
+        const Json& data,
+        const std::filesystem::path& base_directory,
+        std::filesystem::path& out_directory)
+    {
+        std::filesystem::path resolved;
+
+        std::vector<std::string> values;
+        if (data.try_get_strings("resources", values))
+        {
+            for (std::string value : values)
+            {
+                value = trim(value);
+                if (value.empty())
+                    continue;
+
+                if (!resolved.empty())
+                    return false;
+
+                auto path = std::filesystem::path(value);
+                if (!path.is_absolute() && !base_directory.empty())
+                    path = base_directory / path;
+
+                resolved = path.lexically_normal();
+            }
+        }
+        else
+        {
+            std::string value;
+            if (data.try_get_string("resources", value))
+            {
+                value = trim(value);
+                if (!value.empty())
+                {
+                    auto path = std::filesystem::path(value);
+                    if (!path.is_absolute() && !base_directory.empty())
+                        path = base_directory / path;
+
+                    resolved = path.lexically_normal();
+                }
+            }
+        }
+
+        out_directory = std::move(resolved);
+        return true;
+    }
+
     static bool try_parse_category(
         const std::string& category_text,
         PluginCategory& out_category)
@@ -99,6 +146,8 @@ namespace tbx
             meta.root_directory = manifest_path.parent_path();
 
         assign_string_list(data, "dependencies", meta.dependencies);
+        if (!try_assign_optional_resource_directory(data, meta.root_directory, meta.resource_directory))
+            return false;
 
         int32 abi_version = 0;
         if (data.try_get_int("abi_version", abi_version))

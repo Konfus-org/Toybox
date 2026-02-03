@@ -1,20 +1,21 @@
 #include "tbx/assets/assets.h"
-#include <stdexcept>
 #include <string>
+#include <cstdio>
 
 namespace tbx
 {
-    void throw_missing_dispatcher(std::string_view action)
+    void warn_missing_dispatcher(std::string_view action)
     {
-        throw std::runtime_error(
-            std::string("No global dispatcher available to ").append(action));
+        std::string message = std::string("No global dispatcher available to ").append(action);
+        std::fprintf(stderr, "Toybox warning: %s\n", message.c_str());
     }
 
     std::shared_future<Result> make_missing_dispatcher_future(std::string_view action)
     {
         std::promise<Result> promise;
-        promise.set_exception(std::make_exception_ptr(
-            std::runtime_error(std::string("No global dispatcher available to ").append(action))));
+        Result result = {};
+        result.flag_failure(std::string("No global dispatcher available to ").append(action));
+        promise.set_value(result);
         return promise.get_future().share();
     }
 }

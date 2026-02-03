@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "tbx/files/filesystem.h"
+#include <algorithm>
 #include <filesystem>
 
 namespace tbx::tests::file_system
@@ -13,8 +14,17 @@ namespace tbx::tests::file_system
         EXPECT_EQ(fs.get_plugins_directory(), working.lexically_normal());
         EXPECT_EQ(fs.get_logs_directory(), working / "logs");
         const auto assets_directories = fs.get_assets_directories();
-        ASSERT_EQ(assets_directories.size(), 1U);
-        EXPECT_EQ(assets_directories.back(), working / "assets"); // the front is the built-in
+        const auto expected_default_assets = (working / "resources").lexically_normal();
+        const auto has_default_assets = std::find(
+            assets_directories.begin(),
+            assets_directories.end(),
+            expected_default_assets)
+            != assets_directories.end();
+#if defined(TBX_RELEASE)
+        EXPECT_TRUE(has_default_assets);
+#else
+        EXPECT_FALSE(has_default_assets);
+#endif
     }
 
     TEST(FileSystemOpsTests, UsesProvidedDirectoriesWhenSpecified)
@@ -30,8 +40,9 @@ namespace tbx::tests::file_system
         EXPECT_EQ(fs.get_plugins_directory(), plugins_override);
         EXPECT_EQ(fs.get_logs_directory(), logs_override);
         const auto assets_directories = fs.get_assets_directories();
-        ASSERT_EQ(assets_directories.size(), 1U);
-        EXPECT_EQ(assets_directories[0], assets_override);
+        EXPECT_TRUE(
+            std::find(assets_directories.begin(), assets_directories.end(), assets_override)
+            != assets_directories.end());
     }
 
     TEST(FileSystemOpsTests, ResolvesRelativePathsAgainstWorkingDirectory)

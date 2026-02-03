@@ -17,6 +17,10 @@ namespace tbx::tests::app
         int value = 0;
     };
 
+    struct TestRequest : public Request<void>
+    {
+    };
+
     TEST(dispatcher_send, invokes_and_stops_on_handled)
     {
         AppMessageCoordinator d;
@@ -77,8 +81,8 @@ namespace tbx::tests::app
         AppMessageCoordinator d;
         GlobalDispatcherScope dispatcher_scope(d);
 
-        Message msg;
-        msg.require_handling = true;
+        TestRequest msg;
+        msg.not_handled_behavior = MessageNotHandledBehavior::Warn;
 
         bool error_callback = false;
         bool processed_callback = false;
@@ -111,7 +115,7 @@ namespace tbx::tests::app
                 count.fetch_add(1);
             });
 
-        Message msg;
+        TestRequest msg;
         bool error_callback = false;
         bool processed_callback = false;
         msg.callbacks.on_error = [&](const Message&)
@@ -123,7 +127,7 @@ namespace tbx::tests::app
             processed_callback = true;
         };
 
-        msg.require_handling = true;
+        msg.not_handled_behavior = MessageNotHandledBehavior::Warn;
 
         auto result = d.send(msg);
 

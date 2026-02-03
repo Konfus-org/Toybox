@@ -1,4 +1,5 @@
 #include "assimp_model_loader_plugin.h"
+#include "tbx/assets/builtin_assets.h"
 #include "tbx/assets/messages.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/files/filesystem.h"
@@ -32,6 +33,13 @@ namespace tbx::plugins
             message.append(")");
         }
         return message;
+    }
+
+    static void assign_not_found_model(Model& asset)
+    {
+        Material material = {};
+        material.set_texture("diffuse", not_found_texture_handle);
+        asset = Model(quad, material);
     }
 
     // Converts an Assimp matrix to the engine Mat4 type.
@@ -79,9 +87,7 @@ namespace tbx::plugins
     {
         const std::string extension = to_lower(path.extension().string());
         if (extension == ".fbx")
-        {
             return 0.01f;
-        }
 
         return 1.0f;
     }
@@ -239,6 +245,7 @@ namespace tbx::plugins
 
         if (!_filesystem)
         {
+            assign_not_found_model(*asset);
             request.state = MessageState::Error;
             request.result.flag_failure("Assimp model loader: filesystem unavailable.");
             return;
@@ -254,6 +261,7 @@ namespace tbx::plugins
         const aiScene* scene = importer.ReadFile(resolved.string(), flags);
         if (!scene || !scene->HasMeshes())
         {
+            assign_not_found_model(*asset);
             request.state = MessageState::Error;
             request.result.flag_failure(
                 build_load_failure_message(resolved, importer.GetErrorString()));

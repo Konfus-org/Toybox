@@ -23,12 +23,16 @@ namespace tbx
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
-            throw_missing_dispatcher("load audio asynchronously");
+            AssetPromise<AudioClip> result = {};
+            result.asset = asset;
+            warn_missing_dispatcher("load audio asynchronously");
+            result.promise = make_missing_dispatcher_future("load audio asynchronously");
+            return result;
         }
 
-        auto future = dispatcher->post<LoadAudioRequest>(
-            asset_path,
-            asset.get());
+        LoadAudioRequest message(asset_path, asset.get());
+        message.not_handled_behavior = MessageNotHandledBehavior::Warn;
+        auto future = dispatcher->post(message);
         AssetPromise<AudioClip> result = {};
         result.asset = asset;
         result.promise = future;
@@ -43,12 +47,12 @@ namespace tbx
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
-            throw_missing_dispatcher("load audio synchronously");
+            warn_missing_dispatcher("load audio synchronously");
+            return asset;
         }
 
-        LoadAudioRequest message(
-            asset_path,
-            asset.get());
+        LoadAudioRequest message(asset_path, asset.get());
+        message.not_handled_behavior = MessageNotHandledBehavior::Warn;
         dispatcher->send(message);
         return asset;
     }

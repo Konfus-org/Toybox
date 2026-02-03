@@ -29,7 +29,7 @@ namespace tbx::plugins
     struct OpenGlMaterial
     {
         std::vector<Uuid> shader_programs = {};
-        std::vector<MaterialParameter> parameters = {};
+        std::vector<ShaderUniform> parameters = {};
         std::vector<OpenGlMaterialTexture> textures = {};
     };
 }

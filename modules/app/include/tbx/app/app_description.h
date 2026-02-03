@@ -18,15 +18,9 @@ namespace tbx
         // Absolute or relative base directory used to resolve other paths.
         const std::filesystem::path working_root = {};
 
-        // Location of runtime assets. Relative to working root.
-        const std::filesystem::path assets_directory = {};
-
         // Directory where runtime logs should be stored relative to working root.
         // May be empty to fall back to the working root.
         const std::filesystem::path logs_directory = {};
-
-        // Directory searched for plugin binaries and manifests, relative to working root.
-        const std::filesystem::path plugins_directory = {};
 
         // Ordered list of plugin identifiers requested for loading.
         const std::vector<std::string> requested_plugins = {};

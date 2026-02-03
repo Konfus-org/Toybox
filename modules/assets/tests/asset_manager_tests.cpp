@@ -136,10 +136,10 @@ namespace tbx::tests::assets
         auto streamed_in = manager.load_async<TestAsset>(handle);
 
         ASSERT_NE(streamed_in.asset, nullptr);
-        manager.set_pinned<TestAsset>(handle, true);
+        manager.set_pinned(handle, true);
         EXPECT_FALSE(manager.unload<TestAsset>(handle));
 
-        manager.set_pinned<TestAsset>(handle, false);
+        manager.set_pinned(handle, false);
         streamed_in.asset.reset();
 
         EXPECT_TRUE(manager.unload<TestAsset>(handle));

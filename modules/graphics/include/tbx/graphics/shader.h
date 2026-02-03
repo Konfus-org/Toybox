@@ -6,19 +6,18 @@
 #include "tbx/tbx_api.h"
 #include <string>
 #include <variant>
+#include <vector>
 
 namespace tbx
 {
-    using UniformData = std::variant<bool, int, float, Vec2, Vec3, Vec4, RgbaColor, Mat4>;
-
     /// <summary>
-    /// Purpose: Provides the default shader asset handle.
+    /// Purpose: Represents the supported values for material parameters.
     /// </summary>
     /// <remarks>
-    /// Ownership: Returns a value handle; no ownership transfer.
-    /// Thread Safety: Safe to read concurrently.
+    /// Ownership: Owns any stored value data.
+    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
     /// </remarks>
-    inline const Handle default_shader_handle = Handle(Uuid(0x1U));
+    using UniformData = std::variant<bool, int, float, Vec2, Vec3, Vec4, RgbaColor, Mat4>;
 
     /// <summary>
     /// Purpose: Represents a uniform upload payload for shader programs.

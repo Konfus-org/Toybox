@@ -5,10 +5,7 @@ target_sources(AssetLoadAndUseExampleRuntime PRIVATE ${SRCS})
 target_include_directories(AssetLoadAndUseExampleRuntime PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_link_libraries(AssetLoadAndUseExampleRuntime PRIVATE
-    Tbx::App
-    Tbx::Assets
-    Tbx::ECS
-    Tbx::Graphics
+    Tbx::DefaultIncludes
     Tbx::Plugins::SpdLoggerPlugin
     Tbx::Plugins::SdlWindowingPlugin
     Tbx::Plugins::OpenGlRenderingPlugin
@@ -25,6 +22,8 @@ tbx_register_plugin(
     NAME "AssetLoadAndUseExampleRuntime"
     VERSION "1.0.0"
     CATEGORY "gameplay"
+    RESOURCES
+        "${CMAKE_CURRENT_LIST_DIR}/../assets"
 )
 
 add_library(Tbx::Examples::AssetLoadAndUseExampleRuntime ALIAS AssetLoadAndUseExampleRuntime)

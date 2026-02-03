@@ -58,6 +58,9 @@ namespace tbx
         // Hard dependencies that must be satisfied before loading this plugin.
         std::vector<std::string> dependencies;
 
+        // Optional directory that should be searched for plugin assets/resources.
+        std::filesystem::path resource_directory;
+
         // ABI version reported by the plugin manifest for compatibility checks.
         uint32 abi_version = PluginAbiVersion;
 

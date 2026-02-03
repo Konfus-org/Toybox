@@ -6,7 +6,6 @@ int main()
     tbx::AppDescription desc = {
         .name = "PluginExample",
         .logs_directory = "./logs",
-        .plugins_directory = "./",
         .requested_plugins = {"PluginExampleRuntime"},
     };
     auto app = tbx::Application(desc);

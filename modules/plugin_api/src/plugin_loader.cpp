@@ -24,6 +24,34 @@ namespace tbx
         PluginMeta meta;
     };
 
+    static bool path_contains_directory_token(
+        const std::filesystem::path& path,
+        std::string_view directory_name_lowered)
+    {
+        if (directory_name_lowered.empty())
+            return false;
+
+        for (const auto& part : path)
+        {
+            if (to_lower(part.string()) == directory_name_lowered)
+                return true;
+        }
+
+        return false;
+    }
+
+    static bool is_plugin_manifest_file(const std::filesystem::path& path)
+    {
+        const std::string lowered_name = to_lower(path.filename().string());
+#if defined(TBX_PLATFORM_WINDOWS)
+        return lowered_name.ends_with(".dll.meta");
+#elif defined(TBX_PLATFORM_MACOS)
+        return lowered_name.ends_with(".dylib.meta");
+#else
+        return lowered_name.ends_with(".so.meta");
+#endif
+    }
+
     static std::filesystem::path append_debug_postfix(const std::filesystem::path& library_path)
     {
         const std::string extension = library_path.extension().string();
@@ -304,25 +332,30 @@ namespace tbx
         {
             for (const std::filesystem::path& entry : file_ops.read_directory(directory))
             {
+                // Release builds often bundle assets into a `resources/` folder near the executable.
+                // Keep plugin discovery from crawling that subtree.
+                if (path_contains_directory_token(entry, "resources"))
+                    continue;
+
                 if (file_ops.get_file_type(entry) != FilePathType::Regular)
                     continue;
 
-                const std::string name = entry.filename().string();
-                const std::string lowered_name = to_lower(name);
-                if (entry.extension() == ".meta" || lowered_name == "plugin.meta")
-                {
-                    std::string manifest_data;
-                    if (!file_ops.read_file(entry, FileDataFormat::Utf8Text, manifest_data))
-                        continue;
+                // Only treat manifests as plugin metadata when their filename also contains the platform's
+                // dynamic library extension (e.g. `Foo.dll.meta`, `libFoo.so.meta`).
+                if (!is_plugin_manifest_file(entry))
+                    continue;
 
-                    PluginMeta manifest_meta;
-                    if (parser.try_parse_plugin_meta(manifest_data, entry, manifest_meta))
-                        discovered.push_back(manifest_meta);
-                    else
-                    {
-                        const std::string manifest_path = entry.string();
-                        TBX_TRACE_WARNING("Plugin {} is unable to be loaded!", manifest_path);
-                    }
+                std::string manifest_data;
+                if (!file_ops.read_file(entry, FileDataFormat::Utf8Text, manifest_data))
+                    continue;
+
+                PluginMeta manifest_meta;
+                if (parser.try_parse_plugin_meta(manifest_data, entry, manifest_meta))
+                    discovered.push_back(manifest_meta);
+                else
+                {
+                    const std::string manifest_path = entry.string();
+                    TBX_TRACE_WARNING("Plugin {} is unable to be loaded!", manifest_path);
                 }
             }
         }

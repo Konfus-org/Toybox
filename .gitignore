@@ -68,5 +68,4 @@ install_manifest.txt
 CTestTestfile.cmake
 Makefile
 *.recipe
-*.cmake
 *.dir

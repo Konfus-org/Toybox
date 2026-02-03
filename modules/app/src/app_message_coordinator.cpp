@@ -3,6 +3,7 @@
 #include <exception>
 #include <mutex>
 #include <string>
+#include <typeinfo>
 #include <utility>
 
 namespace tbx
@@ -188,15 +189,53 @@ namespace tbx
 
             if (msg.state == MessageState::UnHandled)
             {
-                if (msg.require_handling)
+                auto* request = dynamic_cast<RequestBase*>(&msg);
+                if (!request)
                 {
-                    apply_state(
-                        msg,
-                        MessageState::Error,
-                        "Message required handling but no handlers completed it.");
-                }
-                else
                     apply_state(msg, MessageState::UnHandled, std::string());
+                    return;
+                }
+
+                switch (request->not_handled_behavior)
+                {
+                    case MessageNotHandledBehavior::DoNothing:
+                    {
+                        apply_state(msg, MessageState::UnHandled, std::string());
+                        break;
+                    }
+                    case MessageNotHandledBehavior::Warn:
+                    {
+                        TBX_TRACE_WARNING(
+                            "Request was not handled (type: %s).",
+                            typeid(msg).name());
+                        apply_state(
+                            msg,
+                            MessageState::Error,
+                            "Request was not handled by any handlers.");
+                        break;
+                    }
+                    case MessageNotHandledBehavior::Assert:
+                    {
+                        TBX_ASSERT(
+                            false,
+                            "Request required handling but was not handled (type: %s).",
+                            typeid(msg).name());
+                        apply_state(
+                            msg,
+                            MessageState::Error,
+                            "Request required handling but was not handled by any handlers.");
+                        break;
+                    }
+                    default:
+                    {
+                        TBX_ASSERT(false, "Unknown MessageNotHandledBehavior.");
+                        apply_state(
+                            msg,
+                            MessageState::Error,
+                            "Unknown request not-handled behavior.");
+                        break;
+                    }
+                }
             }
         }
         catch (const std::exception& ex)

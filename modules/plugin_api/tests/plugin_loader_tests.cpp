@@ -13,6 +13,17 @@
 
 namespace tbx::tests::plugin_loader
 {
+    static std::string platform_manifest_path(std::string base_without_extension)
+    {
+#if defined(TBX_PLATFORM_WINDOWS)
+        return base_without_extension + ".dll.meta";
+#elif defined(TBX_PLATFORM_MACOS)
+        return base_without_extension + ".dylib.meta";
+#else
+        return base_without_extension + ".so.meta";
+#endif
+    }
+
     class TestStaticPlugin : public ::tbx::Plugin
     {
       public:
@@ -329,7 +340,7 @@ namespace tbx::tests::plugin_loader
         ops.add_directory("virtual");
         ops.add_directory("virtual/logger");
         ops.add_file(
-            "virtual/logger/logger.meta",
+            platform_manifest_path("virtual/logger/logger"),
             R"({
                 "name": "TestStaticPlugin",
                 "version": "1.0.0",
@@ -377,7 +388,7 @@ namespace tbx::tests::plugin_loader
         ops.add_directory("virtual");
         ops.add_directory("virtual/logger");
         ops.add_file(
-            "virtual/logger/logger.meta",
+            platform_manifest_path("virtual/logger/logger"),
             R"({
                 "name": "TestStaticPlugin",
                 "version": "1.0.0",

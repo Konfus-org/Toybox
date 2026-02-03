@@ -87,6 +87,7 @@ namespace tbx
     {
         virtual ~IAssetStore() = default;
         virtual void unload_unreferenced() = 0;
+        virtual void set_pinned(Uuid path_key, bool is_pinned) = 0;
     };
 
     /// <summary>
@@ -131,6 +132,14 @@ namespace tbx
                     record.stream_state = AssetStreamState::Unloaded;
                 }
             }
+        }
+
+        void set_pinned(Uuid path_key, bool is_pinned) override
+        {
+            auto iterator = records.find(path_key);
+            if (iterator == records.end())
+                return;
+            iterator->second.is_pinned = is_pinned;
         }
     };
 
@@ -354,21 +363,7 @@ namespace tbx
         /// Ownership: Retains manager ownership of the asset instance while pinned.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
-        template <typename TAsset>
-        void set_pinned(const Handle& handle, bool is_pinned)
-        {
-            auto now = std::chrono::steady_clock::now();
-            std::lock_guard lock(_mutex);
-            auto* entry = get_or_create_registry_entry(handle);
-            if (!entry)
-            {
-                return;
-            }
-            auto& store = get_or_create_store<TAsset>();
-            auto& record = get_or_create_record(store, *entry);
-            record.is_pinned = is_pinned;
-            record.last_access = now;
-        }
+        void set_pinned(const Handle& handle, bool is_pinned);
 
       private:
         void discover_assets();

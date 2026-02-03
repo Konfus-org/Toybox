@@ -26,15 +26,16 @@ namespace tbx
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
-            throw_missing_dispatcher("load a texture asynchronously");
+            AssetPromise<Texture> result = {};
+            result.asset = asset;
+            warn_missing_dispatcher("load a texture asynchronously");
+            result.promise = make_missing_dispatcher_future("load a texture asynchronously");
+            return result;
         }
 
-        auto future = dispatcher->post<LoadTextureRequest>(
-            asset_path,
-            asset.get(),
-            wrap,
-            filter,
-            format);
+        LoadTextureRequest message(asset_path, asset.get(), wrap, filter, format);
+        message.not_handled_behavior = MessageNotHandledBehavior::Warn;
+        auto future = dispatcher->post(message);
         AssetPromise<Texture> result = {};
         result.asset = asset;
         result.promise = future;
@@ -52,7 +53,8 @@ namespace tbx
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
-            throw_missing_dispatcher("load a texture synchronously");
+            warn_missing_dispatcher("load a texture synchronously");
+            return asset;
         }
 
         LoadTextureRequest message(
@@ -61,6 +63,7 @@ namespace tbx
             wrap,
             filter,
             format);
+        message.not_handled_behavior = MessageNotHandledBehavior::Warn;
         dispatcher->send(message);
         return asset;
     }

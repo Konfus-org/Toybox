@@ -43,10 +43,10 @@ namespace tbx
         {
         }
 
-        Size resolution = { 1, 1 };
+        Size resolution = {1, 1};
         TextureWrap wrap = TextureWrap::Repeat;
         TextureFilter filter = TextureFilter::Nearest;
         TextureFormat format = TextureFormat::RGB;
-        std::vector<Pixel> pixels = { 255, 255, 255 };
+        std::vector<Pixel> pixels = {255, 255, 255};
     };
 }

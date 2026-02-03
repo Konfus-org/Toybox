@@ -13,37 +13,6 @@
 namespace tbx
 {
     /// <summary>
-    /// Purpose: Represents the supported values for material parameters.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Owns any stored value data.
-    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    /// </remarks>
-    using MaterialParameterValue = std::variant<bool, int, float, Vec2, Vec3, Vec4, RgbaColor>;
-
-    /// <summary>
-    /// Purpose: Provides the default material asset handle.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Returns a value handle; no ownership transfer.
-    /// Thread Safety: Safe to read concurrently.
-    /// </remarks>
-    inline const Handle default_material_handle = Handle(Uuid(0x2U));
-
-    /// <summary>
-    /// Purpose: Stores a named material parameter value.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Owns the parameter name string and value data.
-    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    /// </remarks>
-    struct TBX_API MaterialParameter
-    {
-        std::string name = "";
-        MaterialParameterValue value = 0.0f;
-    };
-
-    /// <summary>
     /// Purpose: Stores a named texture binding for a material.
     /// </summary>
     /// <remarks>
@@ -52,8 +21,8 @@ namespace tbx
     /// </remarks>
     struct TBX_API MaterialTexture
     {
-        std::string name = "";
-        Handle handle = {};
+        std::string name;
+        Handle handle;
     };
 
     /// <summary>
@@ -74,7 +43,7 @@ namespace tbx
         /// Ownership: Takes ownership of the provided parameter data.
         /// Thread Safety: Safe to construct on any thread.
         /// </remarks>
-        explicit Material(std::vector<MaterialParameter> material_params)
+        explicit Material(std::vector<ShaderUniform> material_params)
             : parameters(std::move(material_params))
         {
         }
@@ -86,20 +55,20 @@ namespace tbx
         /// Ownership: Stores a copy of the provided value in the parameter list.
         /// Thread Safety: Not thread-safe; synchronize concurrent mutation externally.
         /// </remarks>
-        void set_parameter(std::string name, MaterialParameterValue value)
+        void set_parameter(std::string name, UniformData value)
         {
             for (auto& parameter : parameters)
             {
                 if (parameter.name == name)
                 {
-                    parameter.value = std::move(value);
+                    parameter.data = std::move(value);
                     return;
                 }
             }
 
-            MaterialParameter parameter = {};
+            ShaderUniform parameter = {};
             parameter.name = std::move(name);
-            parameter.value = std::move(value);
+            parameter.data = std::move(value);
             parameters.push_back(std::move(parameter));
         }
 
@@ -113,7 +82,7 @@ namespace tbx
         template <typename TValue>
         void set_parameter(const std::string& name, TValue value)
         {
-            MaterialParameterValue parameter_value = std::move(value);
+            UniformData parameter_value = std::move(value);
             set_parameter(std::string(name), std::move(parameter_value));
         }
 
@@ -172,10 +141,9 @@ namespace tbx
             for (auto& texture : textures)
             {
                 if (texture.name == name)
-                {
                     return &texture.handle;
-                }
             }
+
             return nullptr;
         }
 
@@ -186,15 +154,14 @@ namespace tbx
         /// Ownership: Does not transfer ownership; returned pointer is owned by the material.
         /// Thread Safety: Safe for concurrent reads; synchronize concurrent mutation externally.
         /// </remarks>
-        const MaterialParameterValue* get_parameter(std::string_view name) const
+        const UniformData* get_parameter(std::string_view name) const
         {
             for (const auto& parameter : parameters)
             {
                 if (parameter.name == name)
-                {
-                    return &parameter.value;
-                }
+                    return &parameter.data;
             }
+
             return nullptr;
         }
 
@@ -205,15 +172,14 @@ namespace tbx
         /// Ownership: Does not transfer ownership; returned pointer is owned by the material.
         /// Thread Safety: Not thread-safe; synchronize concurrent mutation externally.
         /// </remarks>
-        MaterialParameterValue* get_parameter(std::string_view name)
+        UniformData* get_parameter(std::string_view name)
         {
             for (auto& parameter : parameters)
             {
                 if (parameter.name == name)
-                {
-                    return &parameter.value;
-                }
+                    return &parameter.data;
             }
+
             return nullptr;
         }
 
@@ -227,16 +193,14 @@ namespace tbx
         template <typename TValue>
         bool try_get_parameter(std::string_view name, TValue& out_value) const
         {
-            const MaterialParameterValue* value = get_parameter(name);
+            const auto* value = get_parameter(name);
             if (!value)
-            {
                 return false;
-            }
+
             const TValue* typed_value = std::get_if<TValue>(value);
             if (!typed_value)
-            {
                 return false;
-            }
+
             out_value = *typed_value;
             return true;
         }
@@ -248,7 +212,7 @@ namespace tbx
         /// Ownership: Stores the shader handles by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         /// </remarks>
-        std::vector<Handle> shaders = {default_shader_handle};
+        std::vector<Handle> shaders = {};
 
         /// <summary>
         /// Purpose: Stores named texture bindings for the material.
@@ -257,24 +221,15 @@ namespace tbx
         /// Ownership: Owns the texture list and handles by value.
         /// Thread Safety: Safe for concurrent reads; synchronize concurrent mutation externally.
         /// </remarks>
-        std::vector<MaterialTexture> textures = {
-            {"diffuse", Handle()},
-            {"normal", Handle()},
-        };
+        std::vector<MaterialTexture> textures = {};
 
         /// <summary>
-        /// Purpose: Stores material parameters. Defaults to a standard PBR parameter set.
+        /// Purpose: Stores material parameters.
         /// </summary>
         /// <remarks>
         /// Ownership: Owns the parameter list and associated values.
         /// Thread Safety: Safe for concurrent reads; synchronize concurrent mutation externally.
         /// </remarks>
-        std::vector<MaterialParameter> parameters = {
-            {"color", RgbaColor(1.0f, 1.0f, 1.0f, 1.0f)},
-            {"metallic", 0.0f},
-            {"roughness", 1.0f},
-            {"emissive", RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)},
-            {"occlusion", 1.0f},
-        };
+        std::vector<ShaderUniform> parameters = {};
     };
 }

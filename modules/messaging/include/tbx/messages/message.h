@@ -14,6 +14,13 @@ namespace tbx
         Error
     };
 
+    enum class MessageNotHandledBehavior
+    {
+        DoNothing,
+        Warn,
+        Assert,
+    };
+
     struct Message;
 
     struct TBX_API MessageCallbacks
@@ -37,7 +44,6 @@ namespace tbx
         Message();
         virtual ~Message() noexcept;
 
-        bool require_handling = false;
         MessageState state = MessageState::UnHandled;
         Result result = {};
         CancellationToken cancellation_token = {};
@@ -52,9 +58,17 @@ namespace tbx
         virtual ~Event() noexcept = default;
     };
 
+    struct TBX_API RequestBase : public Message
+    {
+        RequestBase() = default;
+        virtual ~RequestBase() noexcept = default;
+
+        MessageNotHandledBehavior not_handled_behavior = MessageNotHandledBehavior::DoNothing;
+    };
+
     // Request message with a typed response.
     template <typename T>
-    struct Request : public Message
+    struct Request : public RequestBase
     {
         Request() = default;
         virtual ~Request() noexcept = default;
@@ -64,7 +78,7 @@ namespace tbx
 
     // Void specialization to allow requests without a result payload.
     template <>
-    struct Request<void> : public Message
+    struct Request<void> : public RequestBase
     {
         Request() = default;
         virtual ~Request() noexcept = default;

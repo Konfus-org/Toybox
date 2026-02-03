@@ -25,19 +25,19 @@ namespace tbx
     };
 
     /// <summary>
-    /// Purpose: Throws when no global dispatcher is available.
+    /// Purpose: Logs a warning when no global dispatcher is available.
     /// </summary>
     /// <remarks>
-    /// Ownership: Throws on failure; no ownership transfer occurs.
-    /// Thread Safety: Safe to call concurrently; throws on missing dispatcher.
+    /// Ownership: Does not transfer ownership.
+    /// Thread Safety: Safe to call concurrently.
     /// </remarks>
-    TBX_API void throw_missing_dispatcher(std::string_view action);
+    TBX_API void warn_missing_dispatcher(std::string_view action);
 
     /// <summary>
-    /// Purpose: Creates a shared future that surfaces a missing-dispatcher exception.
+    /// Purpose: Creates a shared future that completes with a missing-dispatcher failure.
     /// </summary>
     /// <remarks>
-    /// Ownership: The returned future owns its shared state.
+    /// Ownership: The returned future owns its shared state and completes with a failed Result.
     /// Thread Safety: Safe to call concurrently.
     /// </remarks>
     TBX_API std::shared_future<Result> make_missing_dispatcher_future(std::string_view action);

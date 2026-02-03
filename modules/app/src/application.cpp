@@ -27,18 +27,14 @@ namespace tbx
 
     Application::Application(const AppDescription& desc)
         : _name(desc.name)
-        , _filesystem(
-              desc.working_root,
-              desc.plugins_directory,
-              desc.logs_directory,
-              {desc.assets_directory})
+        , _filesystem(desc.working_root, {}, desc.logs_directory, {})
         , _main_window(
               _msg_coordinator,
               desc.name.empty() ? std::string("Toybox Application") : desc.name,
               {1280, 720},
               WindowMode::Windowed,
               false)
-        , _settings(_msg_coordinator, true, GraphicsApi::OpenGL, {0, 0})
+        , _settings(_msg_coordinator, true, GraphicsApi::OpenGL, {640, 480})
         , _asset_manager(_filesystem)
     {
         initialize(desc.requested_plugins);
@@ -123,8 +119,27 @@ namespace tbx
         {
             GlobalDispatcherScope scope(_msg_coordinator);
 
-            // Log app settings and configuration
             TBX_TRACE_INFO("Initializing application: {}", _name);
+#if defined(TBX_RELEASE)
+            TBX_TRACE_INFO("Build Configuration: Release");
+#elif defined(TBX_DEBUG)
+            TBX_TRACE_INFO("Build Configuration: Debug");
+#endif
+
+            // Register app message handler
+            _msg_coordinator.register_handler(
+                [this](Message& msg)
+                {
+                    recieve_message(msg);
+                });
+
+            // Load requested plugins
+            auto& fs = get_filesystem();
+            _loaded = load_plugins(fs.get_plugins_directory(), requested_plugins, fs, *this);
+            for (const auto& loaded : _loaded)
+                _filesystem.add_assets_directory(loaded.meta.resource_directory);
+
+            // Log filesystem directories
             TBX_TRACE_INFO("Working Directory: {}", _filesystem.get_working_directory().string());
             TBX_TRACE_INFO("Plugins Directory: {}", _filesystem.get_plugins_directory().string());
             TBX_TRACE_INFO("Logs Directory: {}", _filesystem.get_logs_directory().string());
@@ -132,18 +147,7 @@ namespace tbx
             for (const auto& root : asset_roots)
                 TBX_TRACE_INFO("Asset Directory: {}", root.string());
 
-            // Register internal message handler
-            _msg_coordinator.register_handler(
-                [this](Message& msg)
-                {
-                    recieve_message(msg);
-                });
-
-            // Load plugins
-            auto& fs = get_filesystem();
-            _loaded = load_plugins(fs.get_plugins_directory(), requested_plugins, fs, *this);
-
-            // Send initialized event
+            // Tell everyone we're initialized
             _msg_coordinator.send<ApplicationInitializedEvent>(this);
         }
         catch (const std::exception& ex)

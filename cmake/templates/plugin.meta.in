@@ -7,5 +7,6 @@
     "category": "@PLUGIN_CATEGORY@",
     "priority": @PLUGIN_PRIORITY@,
 @PLUGIN_DEPENDENCIES_BLOCK@
+@PLUGIN_RESOURCES_BLOCK@
     "static": @PLUGIN_STATIC_VALUE@
 }

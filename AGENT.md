@@ -1,12 +1,20 @@
 # Toybox Agent Standards
 
+## Language & Feature Use
+- The project targets C++23.
+- Prefer copy-style initialization (`int value = {};`, `auto widget = Widget(args);`) over brace-only or direct-call forms (`int value{};`, `auto widget(Widget(args));`) to keep intent obvious.
+- Avoid forward declarations where possible, prefer directly including what is needed.
+
 ## Formatting & Layout
 - Follow the root `.clang-format` (Allman braces, Microsoft base, 4-space indents, column limit 100, namespace indentation, sorted includes). Run the formatter on any touched file or match its style manually.
 - Use windows style line endings: `CRLF`.
 - Keep `#include` directives contiguous—no blank lines between include statements.
-- Keep namespaces non-empty. If you only need a translation-unit helper, prefer `static` functions or unnamed structs over opening placeholder namespaces.
+- Keep namespaces non-empty. If you only need a translation-unit helper, prefer `static` functions or unnamed structs empty over empty or detail namespaces.
 - Maintain include hygiene: headers should only include what they use, and source files should provide the heavier dependencies.
+- Don't use forward declarations where possible, directly include what is needed.
 - Simplify and remove nesting where possible.
+- Don't nest structs/classes and don't make massive header files, break things up so the project stays organized and things are easy to find.
+- Prefer to not use curly braces for single line ifs, for, and while loops.
 
 ## Naming & API Shape
 - Choose descriptive, self-documenting names; avoid jargon, abbreviations, or `util`-style catch‑all names.
@@ -22,11 +30,6 @@
 - Keep doc comments adjacent to declarations; brief inline notes are acceptable for complex implementation details.
 - Summaries should be in microsoft xml format.
 - Complex and long methods should be broken up with comments explaining things, and preferably if really large, they should be broken up into sub methods that are then documented with summaries and meaningful names.
-
-## Language & Feature Use
-- The project targets C++23.
-- Prefer copy-style initialization (`int value = {};`, `auto widget = Widget(args);`) over brace-only or direct-call forms (`int value{};`, `auto widget(Widget(args));`) to keep intent obvious.
-- Avoid forward declarations where possible, prefer directly including what is needed.
 
 ## Memory & Handle Management
 - Prefer smart pointers whenever ownership semantics are needed. Only fall back to raw pointers for non-owning references that are trivially validated elsewhere.

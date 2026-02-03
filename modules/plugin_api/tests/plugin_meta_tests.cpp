@@ -15,6 +15,7 @@ namespace tbx::tests::plugin_api
                 "abi_version": 1,
                 "description": " Example description ",
                 "dependencies": ["Core.Renderer"],
+                "resources": ["./assets"],
                 "category": "audio",
                 "priority": 250,
                 "module": "bin/logger.so",
@@ -33,6 +34,7 @@ namespace tbx::tests::plugin_api
         EXPECT_EQ(meta.description, "Example description");
         ASSERT_EQ(meta.dependencies.size(), 1u);
         EXPECT_EQ(meta.dependencies[0], "Core.Renderer");
+        EXPECT_EQ(meta.resource_directory, manifest_path.parent_path() / "assets");
         EXPECT_EQ(meta.category, PluginCategory::Audio);
         EXPECT_EQ(meta.priority, 250u);
         EXPECT_EQ(meta.root_directory, manifest_path.parent_path());
@@ -51,7 +53,8 @@ namespace tbx::tests::plugin_api
         constexpr const char* manifest_text = R"JSON({
                 "name": "Example.RelativeModule",
                 "version": "5.4.3",
-                "module": "modules/example_renderer.so"
+                "module": "modules/example_renderer.so",
+                "resources": ["./assets"]
             })JSON";
         const std::filesystem::path manifest_path =
             "/virtual/plugin_api/example/relative_module/plugin.meta";
@@ -63,6 +66,43 @@ namespace tbx::tests::plugin_api
         EXPECT_EQ(
             meta.library_path,
             manifest_path.parent_path() / "modules/example_renderer.so");
+        EXPECT_EQ(meta.resource_directory, manifest_path.parent_path() / "assets");
+    }
+
+    /// <summary>
+    /// Verifies a single resource directory can be supplied as a string.
+    /// </summary>
+    TEST(plugin_meta_parse_test, accepts_string_resource_directory)
+    {
+        constexpr const char* manifest_text = R"JSON({
+                "name": "Example.StringResources",
+                "version": "0.1.0",
+                "resources": "./assets"
+            })JSON";
+
+        const std::filesystem::path manifest_path =
+            "/virtual/plugin_api/example/string_resources/plugin.meta";
+
+        PluginMeta meta;
+        PluginMetaParser parser;
+        ASSERT_TRUE(parser.try_parse_plugin_meta(manifest_text, manifest_path, meta));
+        EXPECT_EQ(meta.resource_directory, manifest_path.parent_path() / "assets");
+    }
+
+    /// <summary>
+    /// Verifies parsing fails when more than one resource directory is supplied.
+    /// </summary>
+    TEST(plugin_meta_parse_test, fails_with_multiple_resource_directories)
+    {
+        constexpr const char* manifest_text = R"JSON({
+                "name": "Example.MultipleResources",
+                "version": "0.1.0",
+                "resources": ["./assets", "/tmp/extra_assets"]
+            })JSON";
+
+        PluginMeta meta;
+        PluginMetaParser parser;
+        EXPECT_FALSE(parser.try_parse_plugin_meta(manifest_text, "/virtual/multi.meta", meta));
     }
 
     /// <summary>

@@ -23,12 +23,16 @@ namespace tbx
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
-            return {};
+            AssetPromise<Material> result = {};
+            result.asset = asset;
+            warn_missing_dispatcher("load a material asynchronously");
+            result.promise = make_missing_dispatcher_future("load a material asynchronously");
+            return result;
         }
 
-        auto future = dispatcher->post<LoadMaterialRequest>(
-            asset_path,
-            asset.get());
+        LoadMaterialRequest message(asset_path, asset.get());
+        message.not_handled_behavior = MessageNotHandledBehavior::Warn;
+        auto future = dispatcher->post(message);
         AssetPromise<Material> result = {};
         result.asset = asset;
         result.promise = future;
@@ -43,12 +47,14 @@ namespace tbx
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
-            return {};
+            warn_missing_dispatcher("load a material synchronously");
+            return asset;
         }
 
         LoadMaterialRequest message(
             asset_path,
             asset.get());
+        message.not_handled_behavior = MessageNotHandledBehavior::Warn;
         dispatcher->send(message);
         return asset;
     }

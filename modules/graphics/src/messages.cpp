@@ -5,7 +5,7 @@ namespace tbx
     WindowMakeCurrentRequest::WindowMakeCurrentRequest(const Uuid& window_id)
         : window(window_id)
     {
-        require_handling = true;
+        not_handled_behavior = MessageNotHandledBehavior::Assert;
     }
 
     WindowMakeCurrentRequest::~WindowMakeCurrentRequest() noexcept = default;
@@ -13,7 +13,7 @@ namespace tbx
     WindowPresentRequest::WindowPresentRequest(const Uuid& window_id)
         : window(window_id)
     {
-        require_handling = true;
+        not_handled_behavior = MessageNotHandledBehavior::Assert;
     }
 
     WindowPresentRequest::~WindowPresentRequest() noexcept = default;
