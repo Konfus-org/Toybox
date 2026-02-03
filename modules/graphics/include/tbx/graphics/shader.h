@@ -17,7 +17,7 @@ namespace tbx
     /// Ownership: Owns any stored value data.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
     /// </remarks>
-    using UniformData = std::variant<bool, int, float, Vec2, Vec3, Vec4, RgbaColor, Mat4>;
+    using UniformData = std::variant<bool, int, float, double, Vec2, Vec3, Vec4, RgbaColor, Mat4>;
 
     /// <summary>
     /// Purpose: Represents a uniform upload payload for shader programs.

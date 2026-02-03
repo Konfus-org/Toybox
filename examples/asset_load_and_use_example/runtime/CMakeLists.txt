@@ -11,7 +11,7 @@ target_link_libraries(AssetLoadAndUseExampleRuntime PRIVATE
     Tbx::Plugins::OpenGlRenderingPlugin
     Tbx::Plugins::StbImageLoaderPlugin
     Tbx::Plugins::AssimpModelLoaderPlugin
-    Tbx::Plugins::SdrShaderLoaderPlugin
+    Tbx::Plugins::GlslShaderLoaderPlugin
     Tbx::Plugins::MatMaterialLoaderPlugin
 )
 

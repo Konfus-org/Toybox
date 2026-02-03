@@ -1,6 +1,8 @@
 #pragma once
 #include "tbx/assets/assets.h"
+#include "tbx/audio/audio_clip.h"
 #include "tbx/graphics/material.h"
+#include "tbx/graphics/model.h"
 #include "tbx/graphics/shader.h"
 #include "tbx/graphics/texture.h"
 #include "tbx/messages/message.h"
@@ -9,12 +11,6 @@
 
 namespace tbx
 {
-    struct Texture;
-    struct Model;
-    struct AudioClip;
-    struct Shader;
-    struct Material;
-
     /// <summary>
     /// Purpose: Base message requesting that an asset payload be loaded.
     /// </summary>
@@ -92,9 +88,7 @@ namespace tbx
     struct TBX_API LoadShaderRequest : public LoadAssetRequest<Shader>
     {
       public:
-        LoadShaderRequest(
-            const std::filesystem::path& asset_path,
-            Shader* asset_payload)
+        LoadShaderRequest(const std::filesystem::path& asset_path, Shader* asset_payload)
             : LoadAssetRequest<Shader>(asset_path, asset_payload)
         {
         }
@@ -126,9 +120,7 @@ namespace tbx
     struct TBX_API LoadAudioRequest : public LoadAssetRequest<AudioClip>
     {
       public:
-        LoadAudioRequest(
-            const std::filesystem::path& asset_path,
-            AudioClip* asset_payload)
+        LoadAudioRequest(const std::filesystem::path& asset_path, AudioClip* asset_payload)
             : LoadAssetRequest<AudioClip>(asset_path, asset_payload)
         {
         }

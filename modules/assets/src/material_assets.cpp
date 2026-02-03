@@ -4,22 +4,15 @@
 
 namespace tbx
 {
-    static std::shared_ptr<Material> create_material_data(
-        const std::shared_ptr<Material>& default_data)
+    static std::shared_ptr<Material> create_material_data()
     {
-        if (default_data)
-        {
-            return std::make_shared<Material>(*default_data);
-        }
-
+        // make a bright pink material
         return std::make_shared<Material>();
     }
 
-    AssetPromise<Material> load_material_async(
-        const std::filesystem::path& asset_path,
-        const std::shared_ptr<Material>& default_data)
+    AssetPromise<Material> load_material_async(const std::filesystem::path& asset_path)
     {
-        auto asset = create_material_data(default_data);
+        auto asset = create_material_data();
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -39,11 +32,9 @@ namespace tbx
         return result;
     }
 
-    std::shared_ptr<Material> load_material(
-        const std::filesystem::path& asset_path,
-        const std::shared_ptr<Material>& default_data)
+    std::shared_ptr<Material> load_material(const std::filesystem::path& asset_path)
     {
-        auto asset = create_material_data(default_data);
+        auto asset = create_material_data();
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -51,9 +42,7 @@ namespace tbx
             return asset;
         }
 
-        LoadMaterialRequest message(
-            asset_path,
-            asset.get());
+        LoadMaterialRequest message(asset_path, asset.get());
         message.not_handled_behavior = MessageNotHandledBehavior::Warn;
         dispatcher->send(message);
         return asset;

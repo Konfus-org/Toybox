@@ -11,7 +11,7 @@ namespace tbx::examples
 {
     void ExampleRuntimePlugin::on_attach(IPluginHost& context)
     {
-        _entity_manager = &context.get_entity_manager();
+        _entity_manager = &context.get_entity_registry();
         std::string greeting =
             "Welcome to the ecs example! This plugin just loads a few basic plugins and "
             "makes some entities.";

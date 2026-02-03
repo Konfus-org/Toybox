@@ -34,7 +34,7 @@ namespace tbx
               {1280, 720},
               WindowMode::Windowed,
               false)
-        , _settings(_msg_coordinator, true, GraphicsApi::OpenGL, {640, 480})
+        , _settings(_msg_coordinator)
         , _asset_manager(_filesystem)
     {
         initialize(desc.requested_plugins);
@@ -98,9 +98,9 @@ namespace tbx
         return static_cast<IMessageQueue&>(_msg_coordinator);
     }
 
-    EntityManager& Application::get_entity_manager()
+    EntityRegistry& Application::get_entity_registry()
     {
-        return _entity_manager;
+        return _entity_registry;
     }
 
     IFileSystem& Application::get_filesystem()
@@ -199,7 +199,7 @@ namespace tbx
             _should_exit = true;
 
             // 3. Destroy all entities
-            _entity_manager.destroy_all();
+            _entity_registry.destroy_all();
             _asset_manager.unload_all();
 
             // 4. Detach and unload all non-logging plugins first, then logging plugins.

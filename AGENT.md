@@ -15,6 +15,7 @@
 - Simplify and remove nesting where possible.
 - Don't nest structs/classes and don't make massive header files, break things up so the project stays organized and things are easy to find.
 - Prefer to not use curly braces for single line ifs, for, and while loops.
+- Prefer designated initialization when available.
 
 ## Naming & API Shape
 - Choose descriptive, self-documenting names; avoid jargon, abbreviations, or `util`-style catch‑all names.

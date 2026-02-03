@@ -9,9 +9,10 @@ namespace tbx
         const std::filesystem::path& asset_path,
         AssetMeta& out_meta)
     {
-        AssetMeta meta = {};
-        meta.asset_path = asset_path;
-        meta.name = asset_path.stem().string();
+        AssetMeta meta = {
+            .asset_path = asset_path,
+            .name = asset_path.stem().string(),
+        };
 
         std::string name_value;
         if (data.try_get_string("name", name_value))
@@ -35,22 +36,16 @@ namespace tbx
         AssetMeta& out_meta) const
     {
         if (asset_path.empty())
-        {
             return false;
-        }
 
         auto meta_path = asset_path;
         meta_path += ".meta";
         if (!file_system.exists(meta_path))
-        {
             return false;
-        }
 
         std::string contents;
         if (!file_system.read_file(meta_path, FileDataFormat::Utf8Text, contents))
-        {
             return false;
-        }
 
         try
         {

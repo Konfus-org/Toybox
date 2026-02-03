@@ -412,8 +412,8 @@ namespace tbx
 
         AssetRegistryEntry& get_or_create_registry_entry(const NormalizedAssetPath& normalized)
         {
-            auto iterator = _registry.find(normalized.path_key);
-            if (iterator != _registry.end())
+            auto iterator = _pool.find(normalized.path_key);
+            if (iterator != _pool.end())
             {
                 return iterator->second;
             }
@@ -433,7 +433,7 @@ namespace tbx
                 entry.id = normalized.path_key;
             }
             _registry_by_id[entry.id] = entry.path_key;
-            auto [inserted, was_inserted] = _registry.emplace(entry.path_key, std::move(entry));
+            auto [inserted, was_inserted] = _pool.emplace(entry.path_key, std::move(entry));
             static_cast<void>(was_inserted);
             return inserted->second;
         }
@@ -474,8 +474,8 @@ namespace tbx
             {
                 return nullptr;
             }
-            auto registry_iterator = _registry.find(iterator->second);
-            if (registry_iterator == _registry.end())
+            auto registry_iterator = _pool.find(iterator->second);
+            if (registry_iterator == _pool.end())
             {
                 return nullptr;
             }
@@ -685,7 +685,7 @@ namespace tbx
         mutable std::mutex _mutex;
         IFileSystem* _file_system = nullptr;
         AssetMetaReader _meta_reader = {};
-        std::unordered_map<Uuid, AssetRegistryEntry> _registry;
+        std::unordered_map<Uuid, AssetRegistryEntry> _pool;
         std::unordered_map<Uuid, Uuid> _registry_by_id;
         std::unordered_map<std::type_index, std::unique_ptr<IAssetStore>> _stores;
     };

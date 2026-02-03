@@ -17,7 +17,11 @@ namespace tbx
 {
     struct TBX_API AppSettings
     {
-        AppSettings(IMessageDispatcher& dispatcher, bool vsync, GraphicsApi api, Size resolution);
+        AppSettings(
+            IMessageDispatcher& dispatcher,
+            bool vsync = true,
+            GraphicsApi api = GraphicsApi::OpenGL,
+            Size resolution = {0, 0});
 
         Observable<AppSettings, bool> vsync_enabled;
         Observable<AppSettings, GraphicsApi> graphics_api;
@@ -99,7 +103,7 @@ namespace tbx
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
-        EntityManager& get_entity_manager() override;
+        EntityRegistry& get_entity_registry() override;
 
         /// <summary>
         /// Purpose: Returns the application-owned asset manager.
@@ -119,7 +123,7 @@ namespace tbx
       private:
         bool _should_exit = false;
         std::string _name = "App";
-        EntityManager _entity_manager = {};
+        EntityRegistry _entity_registry = {};
         AppMessageCoordinator _msg_coordinator = {};
         std::vector<LoadedPlugin> _loaded = {};
         AppSettings _settings;

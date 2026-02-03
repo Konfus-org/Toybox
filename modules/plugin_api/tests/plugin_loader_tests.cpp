@@ -279,7 +279,7 @@ namespace tbx::tests::plugin_loader
             return _filesystem;
         }
 
-        ::tbx::EntityManager& get_entity_manager() override
+        ::tbx::EntityRegistry& get_entity_registry() override
         {
             return _entity_manager;
         }
@@ -293,7 +293,7 @@ namespace tbx::tests::plugin_loader
         std::string _name = "PluginLoaderTests";
         ::tbx::AppMessageCoordinator _coordinator = {};
         ::tbx::IFileSystem& _filesystem;
-        ::tbx::EntityManager _entity_manager = {};
+        ::tbx::EntityRegistry _entity_manager = {};
         ::tbx::AssetManager _asset_manager;
         ::tbx::AppSettings _settings;
     };

@@ -1,25 +1,22 @@
 #include "tbx/assets/model_assets.h"
+#include "tbx/assets/builtin_assets.h"
 #include "tbx/assets/messages.h"
+#include "tbx/graphics/model.h"
 #include <memory>
 
 namespace tbx
 {
-    static std::shared_ptr<Model> create_model_data(
-        const std::shared_ptr<Model>& default_data)
+    static std::shared_ptr<Model> create_model_data()
     {
-        if (default_data)
-        {
-            return std::make_shared<Model>(*default_data);
-        }
-
-        return std::make_shared<Model>();
+        Material material = {
+            .textures = {{"diffuse", not_found_texture}},
+        };
+        return std::make_shared<Model>(quad, material);
     }
 
-    AssetPromise<Model> load_model_async(
-        const std::filesystem::path& asset_path,
-        const std::shared_ptr<Model>& default_data)
+    AssetPromise<Model> load_model_async(const std::filesystem::path& asset_path)
     {
-        auto asset = create_model_data(default_data);
+        auto asset = create_model_data();
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -39,11 +36,9 @@ namespace tbx
         return result;
     }
 
-    std::shared_ptr<Model> load_model(
-        const std::filesystem::path& asset_path,
-        const std::shared_ptr<Model>& default_data)
+    std::shared_ptr<Model> load_model(const std::filesystem::path& asset_path)
     {
-        auto asset = create_model_data(default_data);
+        auto asset = create_model_data();
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -51,9 +46,7 @@ namespace tbx
             return asset;
         }
 
-        LoadModelRequest message(
-            asset_path,
-            asset.get());
+        LoadModelRequest message(asset_path, asset.get());
         message.not_handled_behavior = MessageNotHandledBehavior::Warn;
         dispatcher->send(message);
         return asset;

@@ -3,6 +3,9 @@
 #include "tbx/common/int.h"
 #include "tbx/graphics/shader.h"
 #include <memory>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace tbx::plugins
@@ -93,7 +96,17 @@ namespace tbx::plugins
         /// Thread Safety: Call only on the render thread.</remarks>
         void upload(const ShaderUniform& uniform);
 
+        /// <summary>Attempts to upload a uniform value to the program.</summary>
+        /// <remarks>Purpose: Updates uniform state used by the program without warning on missing uniforms.
+        /// Ownership: Copies uniform data; caller retains CPU ownership.
+        /// Thread Safety: Call only on the render thread.</remarks>
+        bool try_upload(const ShaderUniform& uniform);
+
       private:
+        int get_cached_uniform_location(const std::string& name);
+
         uint32 _program_id = 0;
+        std::unordered_map<std::string, int> _uniform_locations = {};
+        std::unordered_set<std::string> _logged_missing_uniforms = {};
     };
 }

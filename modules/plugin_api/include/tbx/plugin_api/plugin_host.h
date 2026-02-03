@@ -9,7 +9,7 @@ namespace tbx
     class IMessageHandlerRegistrar;
     class IMessageQueue;
     class AssetManager;
-    class EntityManager;
+    class EntityRegistry;
     struct AppSettings;
 
     /// <summary>
@@ -85,7 +85,7 @@ namespace tbx
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
-        virtual EntityManager& get_entity_manager() = 0;
+        virtual EntityRegistry& get_entity_registry() = 0;
 
         /// <summary>
         /// Purpose: Returns the host asset manager.

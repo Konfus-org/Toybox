@@ -14,8 +14,7 @@ namespace tbx
     /// Thread Safety: Safe to call concurrently provided the global dispatcher is thread-safe.
     /// </remarks>
     TBX_API AssetPromise<Material> load_material_async(
-        const std::filesystem::path& asset_path,
-        const std::shared_ptr<Material>& default_data = {});
+        const std::filesystem::path& asset_path);
 
     /// <summary>
     /// Purpose: Loads a material synchronously via the global message dispatcher.
@@ -25,6 +24,5 @@ namespace tbx
     /// Thread Safety: Safe to call concurrently provided the global dispatcher is thread-safe.
     /// </remarks>
     TBX_API std::shared_ptr<Material> load_material(
-        const std::filesystem::path& asset_path,
-        const std::shared_ptr<Material>& default_data = {});
+        const std::filesystem::path& asset_path);
 }

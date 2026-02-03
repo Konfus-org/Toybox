@@ -27,7 +27,7 @@ namespace tbx
         bool try_get_bool(const std::string& key, bool& out_value) const;
 
         // Attempts to retrieve a floating-point value stored at the specified object key.
-        bool try_get_float(const std::string& key, double& out_value) const;
+        bool try_get_float(const std::string& key, float& out_value) const;
 
         // Attempts to retrieve a string value stored at the specified object key.
         bool try_get_string(const std::string& key, std::string& out_value) const;
@@ -45,16 +45,7 @@ namespace tbx
         bool try_get_bools(const std::string& key, std::vector<bool>& out_values) const;
 
         // Attempts to retrieve a list of floating-point values stored at the specified object key.
-        bool try_get_floats(const std::string& key, std::vector<double>& out_values) const;
-
-        /// <summary>
-        /// Purpose: Attempts to retrieve a strict floating-point array stored at the specified object key.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Appends parsed values to the provided vector; the caller retains ownership.
-        /// Thread Safety: Safe for concurrent reads; callers must synchronize access to out_values.
-        /// </remarks>
-        bool try_get_float_array(const std::string& key, std::vector<double>& out_values) const;
+        bool try_get_floats(const std::string& key, std::vector<float>& out_values) const;
 
         /// <summary>
         /// Purpose: Attempts to retrieve a strict floating-point array with an expected length.
@@ -63,10 +54,10 @@ namespace tbx
         /// Ownership: Appends parsed values to the provided vector; the caller retains ownership.
         /// Thread Safety: Safe for concurrent reads; callers must synchronize access to out_values.
         /// </remarks>
-        bool try_get_float_array(
+        bool try_get_floats(
             const std::string& key,
             std::size_t expected_size,
-            std::vector<double>& out_values) const;
+            std::vector<float>& out_values) const;
 
         // Attempts to retrieve a nested JSON object stored at the specified object key.
         bool try_get_child(const std::string& key, Json& out_value) const;

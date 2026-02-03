@@ -55,6 +55,52 @@ namespace tbx::plugins
         return glGetUniformLocation(program_id, name.c_str());
     }
 
+    static void upload_uniform_value(GLint location, const UniformData& data)
+    {
+        std::visit(
+            [location](const auto& value)
+            {
+                using ValueType = std::decay_t<decltype(value)>;
+                if constexpr (std::is_same_v<ValueType, bool>)
+                {
+                    glUniform1i(location, value ? 1 : 0);
+                }
+                else if constexpr (std::is_same_v<ValueType, int>)
+                {
+                    glUniform1i(location, value);
+                }
+                else if constexpr (std::is_same_v<ValueType, float>)
+                {
+                    glUniform1f(location, value);
+                }
+                else if constexpr (std::is_same_v<ValueType, Vec2>)
+                {
+                    glUniform2f(location, value.x, value.y);
+                }
+                else if constexpr (std::is_same_v<ValueType, Vec3>)
+                {
+                    glUniform3f(location, value.x, value.y, value.z);
+                }
+                else if constexpr (std::is_same_v<ValueType, Vec4>)
+                {
+                    glUniform4f(location, value.x, value.y, value.z, value.w);
+                }
+                else if constexpr (std::is_same_v<ValueType, RgbaColor>)
+                {
+                    glUniform4f(location, value.r, value.g, value.b, value.a);
+                }
+                else if constexpr (std::is_same_v<ValueType, Mat4>)
+                {
+                    glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));
+                }
+                else
+                {
+                    TBX_ASSERT(false, "OpenGL rendering: unsupported uniform type.");
+                }
+            },
+            data);
+    }
+
     OpenGlShader::OpenGlShader(const ShaderSource& shader)
         : _type(shader.type)
     {
@@ -156,56 +202,47 @@ namespace tbx::plugins
 
     void OpenGlShaderProgram::upload(const ShaderUniform& uniform)
     {
-        const auto location = uniform_location(_program_id, uniform.name);
-        if (location < 0)
+        if (try_upload(uniform))
+        {
+            return;
+        }
+
+        if (_logged_missing_uniforms.insert(uniform.name).second)
         {
             TBX_TRACE_WARNING(
                 "OpenGL rendering: uniform '{}' not found on program {}.",
                 uniform.name,
                 _program_id);
-            return;
         }
-        std::visit(
-            [location](const auto& value)
-            {
-                using ValueType = std::decay_t<decltype(value)>;
-                if constexpr (std::is_same_v<ValueType, bool>)
-                {
-                    glUniform1i(location, value ? 1 : 0);
-                }
-                else if constexpr (std::is_same_v<ValueType, int>)
-                {
-                    glUniform1i(location, value);
-                }
-                else if constexpr (std::is_same_v<ValueType, float>)
-                {
-                    glUniform1f(location, value);
-                }
-                else if constexpr (std::is_same_v<ValueType, Vec2>)
-                {
-                    glUniform2f(location, value.x, value.y);
-                }
-                else if constexpr (std::is_same_v<ValueType, Vec3>)
-                {
-                    glUniform3f(location, value.x, value.y, value.z);
-                }
-                else if constexpr (std::is_same_v<ValueType, Vec4>)
-                {
-                    glUniform4f(location, value.x, value.y, value.z, value.w);
-                }
-                else if constexpr (std::is_same_v<ValueType, RgbaColor>)
-                {
-                    glUniform4f(location, value.r, value.g, value.b, value.a);
-                }
-                else if constexpr (std::is_same_v<ValueType, Mat4>)
-                {
-                    glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));
-                }
-                else
-                {
-                    TBX_ASSERT(false, "OpenGL rendering: unsupported uniform type.");
-                }
-            },
-            uniform.data);
+    }
+
+    bool OpenGlShaderProgram::try_upload(const ShaderUniform& uniform)
+    {
+        if (_program_id == 0)
+        {
+            return false;
+        }
+
+        const GLint location = static_cast<GLint>(get_cached_uniform_location(uniform.name));
+        if (location < 0)
+        {
+            return false;
+        }
+
+        upload_uniform_value(location, uniform.data);
+        return true;
+    }
+
+    int OpenGlShaderProgram::get_cached_uniform_location(const std::string& name)
+    {
+        const auto it = _uniform_locations.find(name);
+        if (it != _uniform_locations.end())
+        {
+            return it->second;
+        }
+
+        const GLint location = uniform_location(_program_id, name);
+        _uniform_locations.emplace(name, static_cast<int>(location));
+        return static_cast<int>(location);
     }
 }

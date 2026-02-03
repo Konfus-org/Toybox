@@ -30,7 +30,7 @@ namespace tbx::plugins
     static void ensure_default_shader_textures(OpenGlMaterial& material)
     {
         if (material.shader_programs.size() != 1U
-            || material.shader_programs.front() != default_shader_handle.id)
+            || material.shader_programs.front() != default_shader.id)
         {
             return;
         }
@@ -166,7 +166,7 @@ namespace tbx::plugins
         glTexImage2D(
             GL_TEXTURE_2D,
             0,
-            GL_SRGB8,
+            GL_RGBA8,
             static_cast<GLsizei>(size.width),
             static_cast<GLsizei>(size.height),
             0,
@@ -749,7 +749,7 @@ void main()
 
     void OpenGlRenderingPlugin::draw_models(const Mat4& view_projection)
     {
-        auto& ecs = get_host().get_entity_manager();
+        auto& ecs = get_host().get_entity_registry();
         auto& asset_manager = get_host().get_asset_manager();
 
         static const auto fallback_material = std::make_shared<Material>();
@@ -882,7 +882,7 @@ void main()
         const Handle& handle,
         const std::shared_ptr<Material>& fallback_material)
     {
-        const Handle resolved = handle.is_valid() ? handle : default_material_handle;
+        const Handle resolved = handle.is_valid() ? handle : default_material;
         const Uuid material_id = asset_manager.resolve_asset_id(resolved);
         auto material_it = _materials.find(material_id);
         if (material_it != _materials.end())
@@ -899,11 +899,11 @@ void main()
         const AssetUsage usage = asset_manager.get_usage<Material>(resolved);
         if (usage.stream_state != AssetStreamState::Loaded)
         {
-            return resolved.id == default_material_handle.id
+            return resolved.id == default_material.id
                        ? get_cached_fallback_material(asset_manager, fallback_material)
                        : get_cached_material(
                              asset_manager,
-                             default_material_handle,
+                             default_material,
                              fallback_material);
         }
 
@@ -961,7 +961,7 @@ void main()
         std::vector<Handle> shader_handles = source_material.shaders;
         if (shader_handles.empty())
         {
-            shader_handles.push_back(default_shader_handle);
+            shader_handles.push_back(default_shader);
         }
 
         for (auto shader_handle : shader_handles)
@@ -1024,7 +1024,7 @@ void main()
     {
         if (!shader_handle.is_valid())
         {
-            shader_handle = default_shader_handle;
+            shader_handle = default_shader;
         }
 
         const Uuid shader_id = asset_manager.resolve_asset_id(shader_handle);
@@ -1046,12 +1046,12 @@ void main()
             return get_shader_program(asset_manager.resolve_asset_id(shader_handle), *shader_asset);
         }
 
-        if (shader_handle.id == default_shader_handle.id)
+        if (shader_handle.id == default_shader.id)
         {
             return {};
         }
 
-        shader_handle = default_shader_handle;
+        shader_handle = default_shader;
         const Uuid fallback_id = asset_manager.resolve_asset_id(shader_handle);
         auto fallback_it = _shader_programs.find(fallback_id);
         if (fallback_it != _shader_programs.end())
@@ -1093,7 +1093,7 @@ void main()
         // Step 2: Determine which shader programs to render with.
         std::vector<Uuid> shader_programs = material.shader_programs;
         if (shader_programs.empty())
-            shader_programs.push_back(default_shader_handle.id);
+            shader_programs.push_back(default_shader.id);
 
         for (const auto& shader_id : shader_programs)
         {
@@ -1108,11 +1108,11 @@ void main()
             // Step 3: Bind the shader program and upload view/model matrices.
             GlResourceScope program_scope(*program);
 
-            program->upload({
+            program->try_upload({
                 .name = "u_view_proj",
                 .data = view_projection,
             });
-            program->upload({
+            program->try_upload({
                 .name = "u_model",
                 .data = model_matrix,
             });
@@ -1358,7 +1358,7 @@ void main()
 
     void OpenGlRenderingPlugin::draw_models_for_cameras(const Size& window_size)
     {
-        auto& ecs = get_host().get_entity_manager();
+        auto& ecs = get_host().get_entity_registry();
         auto cameras = ecs.get_with<Camera, Transform>();
 
         if (cameras.begin() == cameras.end())
@@ -1403,7 +1403,7 @@ void main()
 
     static Uuid make_shader_source_key(const Uuid& shader_id, uint32 source_index)
     {
-        const Uuid resolved = shader_id.is_valid() ? shader_id : default_shader_handle.id;
+        const Uuid resolved = shader_id.is_valid() ? shader_id : default_shader.id;
         return Uuid::combine(resolved, source_index);
     }
 
@@ -1425,7 +1425,7 @@ void main()
         const Uuid& shader_id,
         const Shader& shader)
     {
-        const auto program_id = shader_id.is_valid() ? shader_id : default_shader_handle.id;
+        const auto program_id = shader_id.is_valid() ? shader_id : default_shader.id;
         if (auto it = _shader_programs.find(program_id); it != _shader_programs.end())
         {
             return it->second;

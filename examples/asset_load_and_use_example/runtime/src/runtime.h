@@ -58,6 +58,6 @@ namespace tbx::examples
         void on_recieve_message(Message& msg) override;
 
       private:
-        EntityManager* _entity_manager = nullptr;
+        EntityRegistry* _entity_manager = nullptr;
     };
 }

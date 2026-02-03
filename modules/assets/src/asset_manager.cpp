@@ -47,7 +47,7 @@ namespace tbx
                     continue;
                 }
                 const auto normalized = normalize_path(entry);
-                if (_registry.contains(normalized.path_key))
+                if (_pool.contains(normalized.path_key))
                 {
                     continue;
                 }

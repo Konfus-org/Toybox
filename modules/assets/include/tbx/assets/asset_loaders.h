@@ -1,8 +1,8 @@
 #pragma once
 #include "tbx/assets/assets.h"
 #include "tbx/assets/audio_assets.h"
-#include "tbx/assets/model_assets.h"
 #include "tbx/assets/material_assets.h"
+#include "tbx/assets/model_assets.h"
 #include "tbx/assets/shader_assets.h"
 #include "tbx/assets/texture_assets.h"
 
@@ -64,12 +64,20 @@ namespace tbx
     {
         static AssetPromise<Texture> load_async(const std::filesystem::path& asset_path)
         {
-            return load_texture_async(asset_path);
+            return load_texture_async(
+                asset_path,
+                TextureWrap::Repeat,
+                TextureFilter::Nearest,
+                TextureFormat::RGBA);
         }
 
         static std::shared_ptr<Texture> load(const std::filesystem::path& asset_path)
         {
-            return load_texture(asset_path);
+            return load_texture(
+                asset_path,
+                TextureWrap::Repeat,
+                TextureFilter::Nearest,
+                TextureFormat::RGBA);
         }
     };
 

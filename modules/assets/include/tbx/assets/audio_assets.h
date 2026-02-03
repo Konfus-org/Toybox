@@ -15,8 +15,7 @@ namespace tbx
     /// Thread Safety: Safe to call concurrently provided the global dispatcher is thread-safe.
     /// </remarks>
     TBX_API AssetPromise<AudioClip> load_audio_async(
-        const std::filesystem::path& asset_path,
-        const std::shared_ptr<AudioClip>& default_data = {});
+        const std::filesystem::path& asset_path);
 
     /// <summary>
     /// Purpose: Loads audio synchronously via the global message dispatcher.
@@ -27,6 +26,5 @@ namespace tbx
     /// Thread Safety: Safe to call concurrently provided the global dispatcher is thread-safe.
     /// </remarks>
     TBX_API std::shared_ptr<AudioClip> load_audio(
-        const std::filesystem::path& asset_path,
-        const std::shared_ptr<AudioClip>& default_data = {});
+        const std::filesystem::path& asset_path);
 }

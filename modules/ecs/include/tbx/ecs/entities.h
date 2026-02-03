@@ -1,11 +1,14 @@
 #pragma once
+#include "entt/entt.hpp"
 #include "tbx/common/int.h"
 #include "tbx/common/uuid.h"
-#include "tbx/ecs/registry.h"
 #include <string>
 
 namespace tbx
 {
+    // A registry managing entities and their components.
+    using EntityPool = entt::registry;
+
     // An entity identifier.
     // Ownership: value type; callers own any copies created from this alias.
     // Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
@@ -31,8 +34,8 @@ namespace tbx
     {
       public:
         Entity() = default;
-        Entity(EntityRegistry* reg, const EntityHandle& handle);
-        Entity(EntityRegistry* reg, const EntityDescription& desc);
+        Entity(EntityPool* pool, const EntityHandle& handle);
+        Entity(EntityPool* pool, const EntityDescription& desc);
 
         void destroy();
 
@@ -43,41 +46,41 @@ namespace tbx
         template <typename TComponent>
         TComponent& add_component(const TComponent& b)
         {
-            return _registry->emplace<TComponent>(_handle, b);
+            return _pool->emplace<TComponent>(_handle, b);
         }
 
         template <typename TComponent, typename... TArgs>
         TComponent& add_component(TArgs&&... args)
         {
-            return _registry->emplace<TComponent>(_handle, std::forward<TArgs>(args)...);
+            return _pool->emplace<TComponent>(_handle, std::forward<TArgs>(args)...);
         }
 
         template <typename TComponent>
         void remove_component()
         {
-            _registry->remove<TComponent>(_handle);
+            _pool->remove<TComponent>(_handle);
         }
 
         template <typename TComponent>
         TComponent& get_component() const
         {
-            return _registry->get<TComponent>(_handle);
+            return _pool->get<TComponent>(_handle);
         }
 
         template <typename... TComponent>
         auto get_components() const
         {
-            return _registry->view<TComponent...>();
+            return _pool->view<TComponent...>();
         }
 
         template <typename TComponent>
         bool has_component() const
         {
-            return _registry->all_of<TComponent>(_handle);
+            return _pool->all_of<TComponent>(_handle);
         }
 
       private:
-        EntityRegistry* _registry;
+        EntityPool* _pool;
         EntityHandle _handle;
     };
 
@@ -103,11 +106,11 @@ namespace tbx
     // Ownership: value type; callers own any copies created from this class. Owns the underlying
     // registry and its entities. Ensure this outlives any entities created from it.
     // Thread Safety: not inherently thread-safe; synchronize access when sharing instances.
-    class TBX_API EntityManager
+    class TBX_API EntityRegistry
     {
       public:
-        EntityManager();
-        ~EntityManager() noexcept;
+        EntityRegistry();
+        ~EntityRegistry() noexcept;
 
         void destroy(Entity& entity);
         void destroy_all();
@@ -129,9 +132,9 @@ namespace tbx
         std::vector<Entity> get_with()
         {
             std::vector<Entity> toys = {};
-            auto view = _registry->view<TBlocks...>();
+            auto view = _pool->view<TBlocks...>();
             for (auto entity : view)
-                toys.emplace_back(_registry.get(), entity);
+                toys.emplace_back(_pool.get(), entity);
             return toys;
         }
 
@@ -140,16 +143,16 @@ namespace tbx
         template <typename... TBlocks>
         void for_each_with(const std::function<void(Entity&)>& callback)
         {
-            auto view = _registry->view<TBlocks...>();
+            auto view = _pool->view<TBlocks...>();
             for (auto entity_handle : view)
             {
-                Entity entity(_registry.get(), entity_handle);
+                Entity entity(_pool.get(), entity_handle);
                 callback(entity);
             }
         }
 
       private:
-        std::unique_ptr<EntityRegistry> _registry = nullptr;
+        std::unique_ptr<EntityPool> _pool = nullptr;
     };
 
     namespace invalid

@@ -177,8 +177,9 @@ namespace tbx::plugins
                         WindowMode target_mode = record->last_window_mode;
                         if (target_mode == WindowMode::Minimized)
                         {
-                            target_mode =
-                                get_window_mode_from_flags(record->sdl_window, WindowMode::Windowed);
+                            target_mode = get_window_mode_from_flags(
+                                record->sdl_window,
+                                WindowMode::Windowed);
                         }
                         if (target_mode == WindowMode::Minimized)
                         {
@@ -195,8 +196,9 @@ namespace tbx::plugins
                     SdlWindowRecord* record = try_get_record(window);
                     if (record && record->tbx_window)
                     {
-                        WindowMode target_mode =
-                            get_window_mode_from_flags(record->sdl_window, record->last_window_mode);
+                        WindowMode target_mode = get_window_mode_from_flags(
+                            record->sdl_window,
+                            record->last_window_mode);
                         if (target_mode == WindowMode::Minimized)
                         {
                             target_mode = WindowMode::Windowed;

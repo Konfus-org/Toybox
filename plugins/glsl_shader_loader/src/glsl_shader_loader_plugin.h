@@ -7,13 +7,14 @@
 namespace tbx::plugins
 {
     /// <summary>
-    /// Purpose: Loads shader assets from .shader files with #type sections.
+    /// Purpose: Loads shader assets from .glsl files with #type sections.
     /// </summary>
     /// <remarks>
+    /// Include Support: Expands `#include "..."` directives by pasting the referenced asset text.
     /// Ownership: Plugin lifetime is owned by the host; it keeps non-owning references to the host.
     /// Thread Safety: Handles asset messages on the dispatcher thread; no internal synchronization.
     /// </remarks>
-    class SdrShaderLoaderPlugin final : public Plugin
+    class GlslShaderLoaderPlugin final : public Plugin
     {
       public:
         /// <summary>

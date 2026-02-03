@@ -12,9 +12,14 @@ namespace tbx::plugins
 {
     static std::string to_lower(std::string text)
     {
-        std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
-            return static_cast<char>(std::tolower(ch));
-        });
+        std::transform(
+            text.begin(),
+            text.end(),
+            text.begin(),
+            [](unsigned char ch)
+            {
+                return static_cast<char>(std::tolower(ch));
+            });
         return text;
     }
 
@@ -61,7 +66,7 @@ namespace tbx::plugins
                 error_message = "Material loader: bool parameter '" + name + "' missing value.";
                 return false;
             }
-            out_material.set_parameter(name, value);
+            out_material.parameters.push_back({name, value});
             return true;
         }
 
@@ -73,19 +78,19 @@ namespace tbx::plugins
                 error_message = "Material loader: int parameter '" + name + "' missing value.";
                 return false;
             }
-            out_material.set_parameter(name, value);
+            out_material.parameters.push_back({name, value});
             return true;
         }
 
         if (type_text == "float")
         {
-            double value = 0.0;
+            float value = 0.0;
             if (!entry.try_get_float("value", value))
             {
                 error_message = "Material loader: float parameter '" + name + "' missing value.";
                 return false;
             }
-            out_material.set_parameter(name, static_cast<float>(value));
+            out_material.parameters.push_back({name, value});
             return true;
         }
 
@@ -111,7 +116,7 @@ namespace tbx::plugins
                     handle = Handle(asset_name);
                 }
             }
-            out_material.set_texture(name, handle);
+            out_material.textures.push_back({name, handle});
             return true;
         }
 
@@ -147,66 +152,74 @@ namespace tbx::plugins
 
         if (type_text == "vec2")
         {
-            std::vector<double> values;
-            if (!entry.try_get_float_array("value", 2U, values))
+            std::vector<float> values;
+            if (!entry.try_get_floats("value", 2U, values))
             {
                 error_message =
                     "Material loader: vec2 parameter '" + name + "' must have 2 values.";
                 return false;
             }
-            out_material.set_parameter(name, Vec2(
-                static_cast<float>(values[0]),
-                static_cast<float>(values[1])));
+            out_material.parameters.push_back(
+                {name, Vec2(static_cast<float>(values[0]), static_cast<float>(values[1]))});
             return true;
         }
 
         if (type_text == "vec3")
         {
-            std::vector<double> values;
-            if (!entry.try_get_float_array("value", 3U, values))
+            std::vector<float> values;
+            if (!entry.try_get_floats("value", 3U, values))
             {
                 error_message =
                     "Material loader: vec3 parameter '" + name + "' must have 3 values.";
                 return false;
             }
-            out_material.set_parameter(name, Vec3(
-                static_cast<float>(values[0]),
-                static_cast<float>(values[1]),
-                static_cast<float>(values[2])));
+            out_material.parameters.push_back({
+                name,
+                Vec3(
+                    static_cast<float>(values[0]),
+                    static_cast<float>(values[1]),
+                    static_cast<float>(values[2])),
+            });
             return true;
         }
 
         if (type_text == "vec4")
         {
-            std::vector<double> values;
-            if (!entry.try_get_float_array("value", 4U, values))
+            std::vector<float> values;
+            if (!entry.try_get_floats("value", 4U, values))
             {
                 error_message =
                     "Material loader: vec4 parameter '" + name + "' must have 4 values.";
                 return false;
             }
-            out_material.set_parameter(name, Vec4(
-                static_cast<float>(values[0]),
-                static_cast<float>(values[1]),
-                static_cast<float>(values[2]),
-                static_cast<float>(values[3])));
+            out_material.parameters.push_back({
+                name,
+                Vec4(
+                    static_cast<float>(values[0]),
+                    static_cast<float>(values[1]),
+                    static_cast<float>(values[2]),
+                    static_cast<float>(values[3])),
+            });
             return true;
         }
 
         if (type_text == "color")
         {
-            std::vector<double> values;
-            if (!entry.try_get_float_array("value", 4U, values))
+            std::vector<float> values;
+            if (!entry.try_get_floats("value", 4U, values))
             {
                 error_message =
                     "Material loader: color parameter '" + name + "' must have 4 values.";
                 return false;
             }
-            out_material.set_parameter(name, RgbaColor(
-                static_cast<float>(values[0]),
-                static_cast<float>(values[1]),
-                static_cast<float>(values[2]),
-                static_cast<float>(values[3])));
+            out_material.parameters.push_back({
+                name,
+                RgbaColor(
+                    static_cast<float>(values[0]),
+                    static_cast<float>(values[1]),
+                    static_cast<float>(values[2]),
+                    static_cast<float>(values[3])),
+            });
             return true;
         }
 
@@ -317,9 +330,8 @@ namespace tbx::plugins
         if (!_filesystem->read_file(resolved, FileDataFormat::Utf8Text, file_data))
         {
             request.state = MessageState::Error;
-            request.result.flag_failure(build_load_failure_message(
-                resolved,
-                "file could not be read"));
+            request.result.flag_failure(
+                build_load_failure_message(resolved, "file could not be read"));
             return;
         }
 

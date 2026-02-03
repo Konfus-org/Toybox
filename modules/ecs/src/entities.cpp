@@ -4,22 +4,22 @@ namespace tbx
 {
     //// Entity class implementation ////
 
-    Entity::Entity(EntityRegistry* reg, const EntityHandle& handle)
-        : _registry(reg)
+    Entity::Entity(EntityPool* pool, const EntityHandle& handle)
+        : _pool(pool)
         , _handle(handle)
     {
     }
 
-    Entity::Entity(EntityRegistry* reg, const EntityDescription& desc)
-        : _registry(reg)
-        , _handle(reg->create())
+    Entity::Entity(EntityPool* pools, const EntityDescription& desc)
+        : _pool(pools)
+        , _handle(pools->create())
     {
-        _registry->emplace<EntityDescription>(_handle, desc);
+        _pool->emplace<EntityDescription>(_handle, desc);
     }
 
     void Entity::destroy()
     {
-        _registry->destroy(_handle);
+        _pool->destroy(_handle);
     }
 
     Uuid Entity::get_id() const
@@ -29,7 +29,7 @@ namespace tbx
 
     EntityDescription& Entity::get_description() const
     {
-        return _registry->get<EntityDescription>(_handle);
+        return _pool->get<EntityDescription>(_handle);
     }
 
     //// EntityScope class implementation ////
@@ -44,35 +44,35 @@ namespace tbx
         entity.destroy();
     }
 
-    //// EntityManager class implementation ////
+    //// EntityRegistry class implementation ////
 
-    EntityManager::EntityManager()
-        : _registry(std::make_unique<EntityRegistry>())
+    EntityRegistry::EntityRegistry()
+        : _pool(std::make_unique<EntityPool>())
     {
     }
 
-    EntityManager::~EntityManager() noexcept
+    EntityRegistry::~EntityRegistry() noexcept
     {
         destroy_all();
     }
 
-    void EntityManager::destroy(Entity& entity)
+    void EntityRegistry::destroy(Entity& entity)
     {
         entity.destroy();
     }
 
-    void EntityManager::destroy_all()
+    void EntityRegistry::destroy_all()
     {
-        _registry->clear();
-        _registry = std::make_unique<EntityRegistry>();
+        _pool->clear();
+        _pool = std::make_unique<EntityPool>();
     }
 
-    bool EntityManager::is_empty()
+    bool EntityRegistry::is_empty()
     {
         return get_all().empty();
     }
 
-    Entity EntityManager::create(
+    Entity EntityRegistry::create(
         const std::string& name,
         const std::string& tag,
         const std::string& layer,
@@ -83,34 +83,34 @@ namespace tbx
         desc.tag = tag;
         desc.layer = layer;
         desc.parent = parent;
-        return Entity(_registry.get(), desc);
+        return Entity(_pool.get(), desc);
     }
 
-    Entity EntityManager::create(const EntityDescription& desc)
+    Entity EntityRegistry::create(const EntityDescription& desc)
     {
-        return Entity(_registry.get(), desc);
+        return Entity(_pool.get(), desc);
     }
 
-    Entity EntityManager::get(const Uuid& id)
+    Entity EntityRegistry::get(const Uuid& id)
     {
-        return Entity(_registry.get(), static_cast<EntityHandle>(id.value));
+        return Entity(_pool.get(), static_cast<EntityHandle>(id.value));
     }
 
-    std::vector<Entity> EntityManager::get_all()
+    std::vector<Entity> EntityRegistry::get_all()
     {
         std::vector<Entity> toys = {};
-        auto view = _registry->view<EntityDescription>();
+        auto view = _pool->view<EntityDescription>();
         for (auto entity : view)
-            toys.emplace_back(_registry.get(), entity);
+            toys.emplace_back(_pool.get(), entity);
         return toys;
     }
 
-    void EntityManager::for_each(const std::function<void(Entity&)>& callback)
+    void EntityRegistry::for_each(const std::function<void(Entity&)>& callback)
     {
-        auto view = _registry->view<EntityDescription>();
+        auto view = _pool->view<EntityDescription>();
         for (auto entity_handle : view)
         {
-            Entity entity(_registry.get(), entity_handle);
+            Entity entity(_pool.get(), entity_handle);
             callback(entity);
         }
     }

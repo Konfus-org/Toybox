@@ -35,13 +35,6 @@ namespace tbx::plugins
         return message;
     }
 
-    static void assign_not_found_model(Model& asset)
-    {
-        Material material = {};
-        material.set_texture("diffuse", not_found_texture_handle);
-        asset = Model(quad, material);
-    }
-
     // Converts an Assimp matrix to the engine Mat4 type.
     static Mat4 to_mat4(const aiMatrix4x4& matrix)
     {
@@ -245,7 +238,6 @@ namespace tbx::plugins
 
         if (!_filesystem)
         {
-            assign_not_found_model(*asset);
             request.state = MessageState::Error;
             request.result.flag_failure("Assimp model loader: filesystem unavailable.");
             return;
@@ -261,7 +253,6 @@ namespace tbx::plugins
         const aiScene* scene = importer.ReadFile(resolved.string(), flags);
         if (!scene || !scene->HasMeshes())
         {
-            assign_not_found_model(*asset);
             request.state = MessageState::Error;
             request.result.flag_failure(
                 build_load_failure_message(resolved, importer.GetErrorString()));
@@ -277,7 +268,8 @@ namespace tbx::plugins
             Material material = {};
             if (source_material)
             {
-                material.set_parameter("color", get_material_diffuse_color(*source_material));
+                material.parameters.push_back(
+                    {"color", get_material_diffuse_color(*source_material)});
             }
             materials.push_back(material);
         }
@@ -313,8 +305,6 @@ namespace tbx::plugins
                                               ? static_cast<uint32>(mesh->mMaterialIndex)
                                               : 0U;
             mesh_material_indices.push_back(material_index);
-            RgbaColor material_color = RgbaColor(1.0f, 1.0f, 1.0f, 1.0f);
-            materials.at(material_index).try_get_parameter("color", material_color);
 
             // Convert vertices for this mesh.
             std::vector<Vertex> vertices;
@@ -327,21 +317,13 @@ namespace tbx::plugins
                 Vertex vertex = {};
                 vertex.position = to_vec3(mesh->mVertices[vertex_index]);
                 if (mesh->HasNormals())
-                {
                     vertex.normal = to_vec3(mesh->mNormals[vertex_index]);
-                }
                 if (mesh->HasTextureCoords(0))
-                {
                     vertex.uv = to_vec2(mesh->mTextureCoords[0][vertex_index]);
-                }
                 if (mesh->HasVertexColors(0))
-                {
                     vertex.color = to_color(mesh->mColors[0][vertex_index]);
-                }
                 else
-                {
-                    vertex.color = material_color;
-                }
+                    vertex.color = RgbaColor(1.0f, 1.0f, 1.0f, 1.0f);
                 vertices.push_back(vertex);
             }
 
@@ -369,7 +351,6 @@ namespace tbx::plugins
         const float scene_scale_to_meters = get_scene_scale_to_meters(*scene, resolved);
         const Mat4 scene_scale =
             (scene_scale_to_meters == 1.0f) ? Mat4(1.0f) : scale(Vec3(scene_scale_to_meters));
-        // Walk the node tree only when we have mesh references.
         if (scene->mRootNode && !mesh_material_indices.empty())
         {
             append_parts_from_node(

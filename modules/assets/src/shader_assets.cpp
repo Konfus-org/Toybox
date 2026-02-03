@@ -4,22 +4,15 @@
 
 namespace tbx
 {
-    static std::shared_ptr<Shader> create_shader_data(
-        const std::shared_ptr<Shader>& default_data)
+    static std::shared_ptr<Shader> create_shader_data()
     {
-        if (default_data)
-        {
-            return std::make_shared<Shader>(*default_data);
-        }
-
+        // TODO: return bright pink shader
         return std::make_shared<Shader>();
     }
 
-    AssetPromise<Shader> load_shader_async(
-        const std::filesystem::path& asset_path,
-        const std::shared_ptr<Shader>& default_data)
+    AssetPromise<Shader> load_shader_async(const std::filesystem::path& asset_path)
     {
-        auto asset = create_shader_data(default_data);
+        auto asset = create_shader_data();
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -39,11 +32,9 @@ namespace tbx
         return result;
     }
 
-    std::shared_ptr<Shader> load_shader(
-        const std::filesystem::path& asset_path,
-        const std::shared_ptr<Shader>& default_data)
+    std::shared_ptr<Shader> load_shader(const std::filesystem::path& asset_path)
     {
-        auto asset = create_shader_data(default_data);
+        auto asset = create_shader_data();
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -51,9 +42,7 @@ namespace tbx
             return asset;
         }
 
-        LoadShaderRequest message(
-            asset_path,
-            asset.get());
+        LoadShaderRequest message(asset_path, asset.get());
         message.not_handled_behavior = MessageNotHandledBehavior::Warn;
         dispatcher->send(message);
         return asset;

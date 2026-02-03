@@ -16,10 +16,9 @@ namespace tbx
     /// </remarks>
     TBX_API AssetPromise<Texture> load_texture_async(
         const std::filesystem::path& asset_path,
-        TextureWrap wrap = TextureWrap::Repeat,
-        TextureFilter filter = TextureFilter::Nearest,
-        TextureFormat format = TextureFormat::RGBA,
-        const std::shared_ptr<Texture>& default_data = {});
+        TextureWrap wrap,
+        TextureFilter filter,
+        TextureFormat format);
 
     /// <summary>
     /// Purpose: Loads a texture synchronously via the global message dispatcher.
@@ -31,8 +30,7 @@ namespace tbx
     /// </remarks>
     TBX_API std::shared_ptr<Texture> load_texture(
         const std::filesystem::path& asset_path,
-        TextureWrap wrap = TextureWrap::Repeat,
-        TextureFilter filter = TextureFilter::Nearest,
-        TextureFormat format = TextureFormat::RGBA,
-        const std::shared_ptr<Texture>& default_data = {});
+        TextureWrap wrap,
+        TextureFilter filter,
+        TextureFormat format);
 }

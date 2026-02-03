@@ -25,7 +25,8 @@ namespace tbx::plugins
                 (message && *message) ? message : "SDL reported a warning without details.";
             TBX_TRACE_WARNING("SDL warning (category {}): {}", category, text);
         }
-        else if (priority == SDL_LOG_PRIORITY_INFO)
+        // We don't really care about infos and debug messages from SDL
+        /*else if (priority == SDL_LOG_PRIORITY_INFO)
         {
             const char* text =
                 (message && *message) ? message : "SDL reported an info message without details.";
@@ -36,7 +37,7 @@ namespace tbx::plugins
             const char* text =
                 (message && *message) ? message : "SDL reported a debug message without details.";
             TBX_TRACE_INFO("SDL debug (category {}): {}", category, text);
-        }
+        }*/
     }
 
     void SdlAdapterPlugin::on_attach(IPluginHost&)

@@ -4,14 +4,9 @@
 
 namespace tbx
 {
-    static std::shared_ptr<Texture> create_texture_data(
-        const std::shared_ptr<Texture>& default_data)
+    static std::shared_ptr<Texture> create_texture_data()
     {
-        if (default_data)
-        {
-            return std::make_shared<Texture>(*default_data);
-        }
-
+        // TODO: return bright pink texture
         return std::make_shared<Texture>();
     }
 
@@ -19,10 +14,9 @@ namespace tbx
         const std::filesystem::path& asset_path,
         TextureWrap wrap,
         TextureFilter filter,
-        TextureFormat format,
-        const std::shared_ptr<Texture>& default_data)
+        TextureFormat format)
     {
-        auto asset = create_texture_data(default_data);
+        auto asset = create_texture_data();
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -46,10 +40,9 @@ namespace tbx
         const std::filesystem::path& asset_path,
         TextureWrap wrap,
         TextureFilter filter,
-        TextureFormat format,
-        const std::shared_ptr<Texture>& default_data)
+        TextureFormat format)
     {
-        auto asset = create_texture_data(default_data);
+        auto asset = create_texture_data();
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -57,12 +50,7 @@ namespace tbx
             return asset;
         }
 
-        LoadTextureRequest message(
-            asset_path,
-            asset.get(),
-            wrap,
-            filter,
-            format);
+        LoadTextureRequest message(asset_path, asset.get(), wrap, filter, format);
         message.not_handled_behavior = MessageNotHandledBehavior::Warn;
         dispatcher->send(message);
         return asset;

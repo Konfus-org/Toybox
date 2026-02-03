@@ -6,7 +6,7 @@ namespace tbx::examples
 {
     void AssetLoadAndUseExampleRuntimePlugin::on_attach(IPluginHost& context)
     {
-        _entity_manager = &context.get_entity_manager();
+        _entity_manager = &context.get_entity_registry();
 
         auto entity = _entity_manager->create("Green Cube");
 

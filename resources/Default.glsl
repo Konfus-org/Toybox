@@ -1,5 +1,6 @@
 #type vertex
 #version 450 core
+#include Globals.glsl
 
 layout(location = 0) in vec3 a_position;
 layout(location = 1) in vec4 a_color;
@@ -11,8 +12,6 @@ out vec4 v_vertex_color;
 out vec3 v_normal;
 out vec2 v_tex_coord;
 
-uniform mat4 u_view_proj;
-uniform mat4 u_model;
 uniform vec4 u_color = vec4(1.0, 1.0, 1.0, 1.0);
 
 void main()
