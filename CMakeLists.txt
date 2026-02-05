@@ -28,23 +28,16 @@ add_subdirectory(examples)
 
 # Add utilities
 set(CMAKE_FOLDER "utility")
-if(WIN32)
-    add_custom_target(CompileCommandsLink ALL
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_BINARY_DIR}/compile_commands.json"
-            "${CMAKE_SOURCE_DIR}/compile_commands.json"
-        BYPRODUCTS "${CMAKE_SOURCE_DIR}/compile_commands.json"
-        COMMENT "Copy compile_commands.json into the repo root for clangd."
-    )
-else()
-    add_custom_target(CompileCommandsLink ALL
-        COMMAND ${CMAKE_COMMAND} -E create_symlink
-            "${CMAKE_BINARY_DIR}/compile_commands.json"
-            "${CMAKE_SOURCE_DIR}/compile_commands.json"
-        BYPRODUCTS "${CMAKE_SOURCE_DIR}/compile_commands.json"
-        COMMENT "Link compile_commands.json into the repo root for clangd."
-    )
-endif()
+set(TBX_COMPILE_COMMANDS_SOURCE "${CMAKE_BINARY_DIR}/compile_commands.json")
+set(TBX_COMPILE_COMMANDS_DESTINATION "${CMAKE_SOURCE_DIR}/compile_commands.json")
+add_custom_target(CompileCommandsLink ALL
+    COMMAND ${CMAKE_COMMAND}
+        -D "TBX_COMPILE_COMMANDS_SOURCE=${TBX_COMPILE_COMMANDS_SOURCE}"
+        -D "TBX_COMPILE_COMMANDS_DESTINATION=${TBX_COMPILE_COMMANDS_DESTINATION}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CopyCompileCommands.cmake"
+    BYPRODUCTS "${TBX_COMPILE_COMMANDS_DESTINATION}"
+    COMMENT "Sync compile_commands.json into the repo root for clangd."
+)
 add_custom_target(Tests
     DEPENDS
         TbxCommonTests
