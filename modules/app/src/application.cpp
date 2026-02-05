@@ -81,19 +81,9 @@ namespace tbx
         return _settings;
     }
 
-    IMessageDispatcher& Application::get_dispatcher()
+    IMessageCoordinator& Application::get_message_coordinator()
     {
-        return static_cast<IMessageDispatcher&>(_msg_coordinator);
-    }
-
-    IMessageHandlerRegistrar& Application::get_message_registrar()
-    {
-        return static_cast<IMessageHandlerRegistrar&>(_msg_coordinator);
-    }
-
-    IMessageQueue& Application::get_message_queue()
-    {
-        return static_cast<IMessageQueue&>(_msg_coordinator);
+        return _msg_coordinator;
     }
 
     EntityRegistry& Application::get_entity_registry()

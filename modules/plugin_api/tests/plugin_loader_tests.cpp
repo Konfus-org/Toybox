@@ -259,17 +259,7 @@ namespace tbx::tests::plugin_loader
             return _settings;
         }
 
-        ::tbx::IMessageDispatcher& get_dispatcher() override
-        {
-            return _coordinator;
-        }
-
-        ::tbx::IMessageHandlerRegistrar& get_message_registrar() override
-        {
-            return _coordinator;
-        }
-
-        ::tbx::IMessageQueue& get_message_queue() override
+        ::tbx::IMessageCoordinator& get_message_coordinator() override
         {
             return _coordinator;
         }

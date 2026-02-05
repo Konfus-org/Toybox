@@ -61,31 +61,13 @@ namespace tbx
         AppSettings& get_settings() override;
 
         /// <summary>
-        /// Purpose: Returns the application message dispatcher.
+        /// Purpose: Returns the application message coordinator.
         /// </summary>
         /// <remarks>
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
-        IMessageDispatcher& get_dispatcher() override;
-
-        /// <summary>
-        /// Purpose: Returns the application message handler registrar.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns a reference owned by the application.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
-        IMessageHandlerRegistrar& get_message_registrar() override;
-
-        /// <summary>
-        /// Purpose: Returns the application message queue.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns a reference owned by the application.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
-        IMessageQueue& get_message_queue() override;
+        IMessageCoordinator& get_message_coordinator() override;
 
         /// <summary>
         /// Purpose: Returns the application filesystem service.

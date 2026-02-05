@@ -17,6 +17,8 @@ add_library(Tbx::${module_name} ALIAS ${module_name})
 
 target_link_libraries(${module_name}
     PUBLIC
+        Tbx::Assets
+        Tbx::ECS
         Tbx::Messaging
         Tbx::Debugging
         Tbx::Files

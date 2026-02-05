@@ -154,6 +154,25 @@ namespace tbx
     };
 
     /// <summary>
+    /// Purpose: Defines the combined interface for coordinating message dispatch, handler
+    /// registration, and queued processing.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Implementations own their handlers and queued messages; callers receive
+    /// non-owning references.
+    /// Thread Safety: Not required to be thread-safe; expected single-thread usage unless
+    /// documented otherwise by an implementation.
+    /// </remarks>
+    class TBX_API IMessageCoordinator
+        : public IMessageDispatcher
+        , public IMessageQueue
+        , public IMessageHandlerRegistrar
+    {
+      public:
+        virtual ~IMessageCoordinator() noexcept = default;
+    };
+
+    /// <summary>
     /// Purpose: Returns the current global dispatcher pointer (may be nullptr).
     /// </summary>
     /// <remarks>

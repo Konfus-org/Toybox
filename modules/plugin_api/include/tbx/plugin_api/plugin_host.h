@@ -1,15 +1,13 @@
 #pragma once
+#include "tbx/assets/asset_manager.h"
+#include "tbx/ecs/entities.h"
+#include "tbx/files/filesystem.h"
+#include "tbx/messages/dispatcher.h"
 #include "tbx/tbx_api.h"
 #include <string>
 
 namespace tbx
 {
-    class IFileSystem;
-    class IMessageDispatcher;
-    class IMessageHandlerRegistrar;
-    class IMessageQueue;
-    class AssetManager;
-    class EntityRegistry;
     struct AppSettings;
 
     /// <summary>
@@ -43,31 +41,13 @@ namespace tbx
         virtual AppSettings& get_settings() = 0;
 
         /// <summary>
-        /// Purpose: Returns the host message dispatcher.
+        /// Purpose: Returns the host message coordinator.
         /// </summary>
         /// <remarks>
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
-        virtual IMessageDispatcher& get_dispatcher() = 0;
-
-        /// <summary>
-        /// Purpose: Returns the host message handler registrar.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns a reference owned by the host.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
-        virtual IMessageHandlerRegistrar& get_message_registrar() = 0;
-
-        /// <summary>
-        /// Purpose: Returns the host message queue.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns a reference owned by the host.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
-        virtual IMessageQueue& get_message_queue() = 0;
+        virtual IMessageCoordinator& get_message_coordinator() = 0;
 
         /// <summary>
         /// Purpose: Returns the host filesystem service.
