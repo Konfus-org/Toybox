@@ -12,7 +12,7 @@ namespace tbx
     };
 
     // Represents the available graphics APIs.
-    enum class TBX_API GraphicsApi
+    enum class GraphicsApi
     {
         None,
         Vulkan,

@@ -11,7 +11,7 @@ namespace tbx
     // Enumerates the presentation modes that a window can be configured for.
     // Ownership: Represents value semantics only; no ownership concerns.
     // Thread-safety: Immutable enum used freely across threads.
-    enum class TBX_API WindowMode
+    enum class WindowMode
     {
         Windowed,
         Borderless,

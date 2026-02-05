@@ -27,28 +27,56 @@ function(tbx_collect_plugin_dependencies target out_var)
         set(interface_linked "")
     endif()
 
-    # Combine the link interfaces and filter for plugin-aware targets.
-    set(all_links ${linked} ${interface_linked})
-    foreach(item IN LISTS all_links)
+    # Walk target dependencies to catch plugin names hidden behind interface targets.
+    set(pending ${linked} ${interface_linked})
+    set(visited "")
+    while(pending)
+        list(GET pending 0 item)
+        list(REMOVE_AT pending 0)
+
         if(NOT item)
             continue()
         endif()
 
-        if(TARGET ${item})
-            set(candidate ${item})
-            get_target_property(alias_target ${item} ALIASED_TARGET)
-            if(alias_target)
-                set(candidate ${alias_target})
-            endif()
-
-            get_target_property(dep_names ${candidate} TBX_PLUGIN_NAME_LIST)
-            if(dep_names)
-                foreach(dep_name IN LISTS dep_names)
-                    list(APPEND result ${dep_name})
-                endforeach()
-            endif()
+        if(item MATCHES "^\\$<")
+            continue()
         endif()
-    endforeach()
+
+        if(NOT TARGET ${item})
+            continue()
+        endif()
+
+        set(candidate ${item})
+        get_target_property(alias_target ${item} ALIASED_TARGET)
+        if(alias_target)
+            set(candidate ${alias_target})
+        endif()
+
+        list(FIND visited "${candidate}" visited_index)
+        if(NOT visited_index EQUAL -1)
+            continue()
+        endif()
+        list(APPEND visited "${candidate}")
+
+        get_target_property(dep_names ${candidate} TBX_PLUGIN_NAME_LIST)
+        if(dep_names)
+            foreach(dep_name IN LISTS dep_names)
+                list(APPEND result ${dep_name})
+            endforeach()
+        endif()
+
+        get_target_property(child_linked ${candidate} LINK_LIBRARIES)
+        if(NOT child_linked)
+            set(child_linked "")
+        endif()
+
+        get_target_property(child_interface ${candidate} INTERFACE_LINK_LIBRARIES)
+        if(NOT child_interface)
+            set(child_interface "")
+        endif()
+
+        list(APPEND pending ${child_linked} ${child_interface})
+    endwhile()
 
     list(REMOVE_DUPLICATES result)
     set(${out_var} "${result}" PARENT_SCOPE)

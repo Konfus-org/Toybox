@@ -28,12 +28,40 @@ function(tbx_define_default_includes)
     if(NOT TARGET Tbx::Graphics)
         message(FATAL_ERROR "Tbx::DefaultIncludes requires Tbx::Graphics (call after add_subdirectory(modules))")
     endif()
+    if(NOT TARGET Tbx::Plugins::SpdLoggerPlugin)
+        message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::SpdLoggerPlugin (call after add_subdirectory(plugins))")
+    endif()
+    if(NOT TARGET Tbx::Plugins::SdlWindowingPlugin)
+        message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::SdlWindowingPlugin (call after add_subdirectory(plugins))")
+    endif()
+    if(NOT TARGET Tbx::Plugins::OpenGlRenderingPlugin)
+        message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::OpenGlRenderingPlugin (call after add_subdirectory(plugins))")
+    endif()
+    if(NOT TARGET Tbx::Plugins::StbImageLoaderPlugin)
+        message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::StbImageLoaderPlugin (call after add_subdirectory(plugins))")
+    endif()
+    if(NOT TARGET Tbx::Plugins::AssimpModelLoaderPlugin)
+        message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::AssimpModelLoaderPlugin (call after add_subdirectory(plugins))")
+    endif()
+    if(NOT TARGET Tbx::Plugins::GlslShaderLoaderPlugin)
+        message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::GlslShaderLoaderPlugin (call after add_subdirectory(plugins))")
+    endif()
+    if(NOT TARGET Tbx::Plugins::MatMaterialLoaderPlugin)
+        message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::MatMaterialLoaderPlugin (call after add_subdirectory(plugins))")
+    endif()
 
     target_link_libraries(TbxDefaultIncludes INTERFACE
         Tbx::App
         Tbx::Assets
         Tbx::ECS
         Tbx::Graphics
+        Tbx::Plugins::SpdLoggerPlugin
+        Tbx::Plugins::SdlWindowingPlugin
+        Tbx::Plugins::OpenGlRenderingPlugin
+        Tbx::Plugins::StbImageLoaderPlugin
+        Tbx::Plugins::AssimpModelLoaderPlugin
+        Tbx::Plugins::GlslShaderLoaderPlugin
+        Tbx::Plugins::MatMaterialLoaderPlugin
     )
 endfunction()
 

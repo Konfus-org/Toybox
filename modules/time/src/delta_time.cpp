@@ -14,11 +14,10 @@ namespace tbx
 
     DeltaTime DeltaTimer::tick()
     {
-        const auto now = std::chrono::steady_clock::now();
-        const auto delta = now - _last;
+        auto now = std::chrono::steady_clock::now();
+        auto delta = now - _last;
         _last = now;
-
-        const double secs = std::chrono::duration<double>(delta).count();
+        double secs = std::chrono::duration<double>(delta).count();
         DeltaTime dt;
         dt.seconds = secs;
         dt.milliseconds = secs * 1000.0;

@@ -7,91 +7,97 @@
   },
   "configurePresets": [
     {
-      "name": "tbx-base",
+      "name": "base",
+      "displayName": "Toybox Base",
+      "generator": "Ninja Multi-Config",
+      "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "TBX_RESOURCES_PATH": "${sourceDir}/resources",
         "TBX_PLUGIN_ABI_VERSION": "1",
         "TBX_ENABLE_ASSERTS": "ON",
         "CTEST_TEST_TIMEOUT": "120",
-        "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/TbxPresetCompileDefinitions.cmake;${sourceDir}/cmake/TbxPresetMsvcOptions.cmake"
+        "CMAKE_COMPILE_WARNING_AS_ERROR": "ON",
+        "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/TbxPresetCompileDefinitions.cmake;${sourceDir}/cmake/TbxPresetMsvcOptions.cmake",
+        "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/lib",
+        "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/lib",
+        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
+        "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/pdb",
+        "CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/pdb"
       },
       "hidden": true
     },
     {
-      "name": "ninja-base",
-      "displayName": "Ninja (base)",
-      "generator": "Ninja Multi-Config",
-      "binaryDir": "${sourceDir}/build/ninja",
-      "inherits": "tbx-base",
-      "cacheVariables": {
-        "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build/ninja/lib",
-        "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/ninja/lib",
-        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/ninja/bin",
-        "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/ninja/pdb",
-        "CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/ninja/pdb"
-      },
-      "hidden": true
-    },
-    {
-      "name": "vs-base",
-      "binaryDir": "${sourceDir}/build/vs",
-      "inherits": "tbx-base",
+      "name": "msvc",
+      "displayName": "Toybox (MSVC)",
+      "inherits": "base",
       "cacheVariables": {
         "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "Embedded",
         "CMAKE_EXE_LINKER_FLAGS_DEBUG": "/DEBUG:FULL /INCREMENTAL",
         "CMAKE_SHARED_LINKER_FLAGS_DEBUG": "/DEBUG:FULL /INCREMENTAL",
         "CMAKE_MODULE_LINKER_FLAGS_DEBUG": "/DEBUG:FULL /INCREMENTAL",
-        "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build/vs/lib",
-        "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/vs/lib",
-        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/vs/bin",
-        "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/vs/pdb",
-        "CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/vs/pdb"
-      },
-      "hidden": true
+        "CMAKE_C_COMPILER": "cl",
+        "CMAKE_CXX_COMPILER": "cl",
+        "CMAKE_LINKER": "link"
+      }
     },
     {
-      "name": "tbx-vs-26",
-      "displayName": "Toybox (VS2026)",
-      "generator": "Visual Studio 18 2026",
-      "inherits": "vs-base"
+      "name": "clang",
+      "displayName": "Toybox (Clang)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
     },
     {
-      "name": "tbx-ninja",
-      "displayName": "Toybox (Ninja)",
-      "inherits": "ninja-base"
+      "name": "default",
+      "displayName": "Toybox (Default)",
+      "inherits": "base"
     }
   ],
   "buildPresets": [
     {
-      "name": "tbx-vs26-debug",
+      "name": "msvc-debug",
       "displayName": "MSVC (Debug)",
-      "configurePreset": "tbx-vs-26",
+      "configurePreset": "msvc",
       "configuration": "Debug"
     },
     {
-      "name": "tbx-vs26-release",
+      "name": "msvc-release",
       "displayName": "MSVC (Release)",
-      "configurePreset": "tbx-vs-26",
+      "configurePreset": "msvc",
       "configuration": "Release"
     },
     {
-      "name": "tbx-ninja-debug",
-      "displayName": "Ninja (Debug)",
-      "configurePreset": "tbx-ninja",
+      "name": "clang-debug",
+      "displayName": "Clang (Debug)",
+      "configurePreset": "clang",
       "configuration": "Debug"
     },
     {
-      "name": "tbx-ninja-release",
-      "displayName": "Ninja (Release)",
-      "configurePreset": "tbx-ninja",
+      "name": "clang-release",
+      "displayName": "Clang (Release)",
+      "configurePreset": "clang",
+      "configuration": "Release"
+    },
+    {
+      "name": "default-debug",
+      "displayName": "Default (Debug)",
+      "configurePreset": "default",
+      "configuration": "Debug"
+    },
+    {
+      "name": "default-release",
+      "displayName": "Default (Release)",
+      "configurePreset": "default",
       "configuration": "Release"
     }
   ],
   "testPresets": [
     {
-      "name": "tbx-test-vs26-debug",
-      "displayName": "Test VS26 (Debug)",
-      "configurePreset": "tbx-vs-26",
+      "name": "test-msvc-debug",
+      "displayName": "Test MSVC (Debug)",
+      "configurePreset": "msvc",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true
@@ -101,9 +107,9 @@
       }
     },
     {
-      "name": "tbx-test-vs26-release",
-      "displayName": "Test VS26 (Release)",
-      "configurePreset": "tbx-vs-26",
+      "name": "test-msvc-release",
+      "displayName": "Test MSVC (Release)",
+      "configurePreset": "msvc",
       "configuration": "Release",
       "output": {
         "outputOnFailure": true
@@ -113,9 +119,9 @@
       }
     },
     {
-      "name": "tbx-test-ninja-debug",
-      "displayName": "Test Ninja (Debug)",
-      "configurePreset": "tbx-ninja",
+      "name": "test-clang-debug",
+      "displayName": "Test Clang (Debug)",
+      "configurePreset": "clang",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true
@@ -125,9 +131,33 @@
       }
     },
     {
-      "name": "tbx-test-ninja-release",
-      "displayName": "Test Ninja (Release)",
-      "configurePreset": "tbx-ninja",
+      "name": "test-clang-release",
+      "displayName": "Test Clang (Release)",
+      "configurePreset": "clang",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "timeout": 120
+      }
+    },
+    {
+      "name": "test-default-debug",
+      "displayName": "Test Default (Debug)",
+      "configurePreset": "default",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "timeout": 120
+      }
+    },
+    {
+      "name": "test-default-release",
+      "displayName": "Test Default (Release)",
+      "configurePreset": "default",
       "configuration": "Release",
       "output": {
         "outputOnFailure": true

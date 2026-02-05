@@ -39,7 +39,7 @@ namespace tbx
     /// Ownership: Does not own resources.
     /// Thread Safety: Safe to read concurrently.
     /// </remarks>
-    enum class TBX_API ShaderType
+    enum class ShaderType
     {
         None,
         Vertex,

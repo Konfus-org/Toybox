@@ -32,7 +32,7 @@ namespace tbx
     {
       public:
         Application(const AppDescription& desc);
-        ~Application() noexcept;
+        ~Application() noexcept override;
 
         /// <summary>
         /// Purpose: Runs the application main loop and returns the process exit code.
@@ -116,7 +116,7 @@ namespace tbx
 
       private:
         void initialize(const std::vector<std::string>& requested_plugins);
-        void update(DeltaTimer timer);
+        void update(DeltaTimer& timer);
         void shutdown();
         void recieve_message(Message& msg);
 

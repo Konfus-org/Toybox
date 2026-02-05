@@ -3,7 +3,7 @@
 
 namespace tbx
 {
-    enum class TBX_API LogLevel
+    enum class LogLevel
     {
         Info,
         Warning,

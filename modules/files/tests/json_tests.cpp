@@ -49,7 +49,7 @@ namespace tbx::tests::file_system
 
         std::vector<int> ints;
         std::vector<bool> bools;
-        std::vector<double> floats;
+        std::vector<float> floats;
 
         EXPECT_TRUE(json.try_get_ints("ints", ints));
         EXPECT_TRUE(json.try_get_bools("bools", bools));
@@ -64,8 +64,8 @@ namespace tbx::tests::file_system
         EXPECT_FALSE(bools[1]);
 
         ASSERT_EQ(floats.size(), 2u);
-        EXPECT_DOUBLE_EQ(floats[0], 1.5);
-        EXPECT_DOUBLE_EQ(floats[1], 4.0);
+        EXPECT_FLOAT_EQ(floats[0], 1.5);
+        EXPECT_FLOAT_EQ(floats[1], 4.0);
     }
 
     TEST(JsonTests, ReadsStrictFloatArrays)
@@ -78,25 +78,25 @@ namespace tbx::tests::file_system
 
         Json json(text);
 
-        std::vector<double> values;
-        EXPECT_TRUE(json.try_get_float_array("values", values));
+        std::vector<float> values;
+        EXPECT_TRUE(json.try_get_floats("values", values));
         ASSERT_EQ(values.size(), 3u);
-        EXPECT_DOUBLE_EQ(values[0], 1.5);
-        EXPECT_DOUBLE_EQ(values[1], 4.0);
-        EXPECT_DOUBLE_EQ(values[2], 2.25);
+        EXPECT_FLOAT_EQ(values[0], 1.5);
+        EXPECT_FLOAT_EQ(values[1], 4.0);
+        EXPECT_FLOAT_EQ(values[2], 2.25);
 
-        std::vector<double> sized;
-        EXPECT_TRUE(json.try_get_float_array("values", 3u, sized));
+        std::vector<float> sized;
+        EXPECT_TRUE(json.try_get_floats("values", 3u, sized));
         ASSERT_EQ(sized.size(), 3u);
 
-        std::vector<double> mismatch;
-        EXPECT_FALSE(json.try_get_float_array("values", 2u, mismatch));
+        std::vector<float> mismatch;
+        EXPECT_FALSE(json.try_get_floats("values", 2u, mismatch));
 
-        std::vector<double> mixed;
-        EXPECT_FALSE(json.try_get_float_array("mixed", mixed));
+        std::vector<float> mixed;
+        EXPECT_FALSE(json.try_get_floats("mixed", 2u, mixed));
 
-        std::vector<double> empty;
-        EXPECT_FALSE(json.try_get_float_array("empty", empty));
+        std::vector<float> empty;
+        EXPECT_FALSE(json.try_get_floats("empty", empty));
     }
 
     TEST(JsonTests, ReadsNestedObjects)
@@ -117,9 +117,9 @@ namespace tbx::tests::file_system
         EXPECT_TRUE(child.try_get_int("value", value));
         EXPECT_EQ(value, 7);
 
-        double pi = {};
+        float pi = {};
         EXPECT_TRUE(json.try_get_float("pi", pi));
-        EXPECT_DOUBLE_EQ(pi, 3.14);
+        EXPECT_FLOAT_EQ(pi, 3.14);
 
         std::vector<Json> children;
         EXPECT_TRUE(json.try_get_children("children", children));
@@ -146,3 +146,4 @@ namespace tbx::tests::file_system
         EXPECT_EQ(values[1], "second");
     }
 }
+

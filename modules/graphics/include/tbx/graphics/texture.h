@@ -7,20 +7,20 @@ namespace tbx
 {
     using Pixel = unsigned char;
 
-    enum class TBX_API TextureFilter
+    enum class TextureFilter
     {
         Nearest,
         Linear
     };
 
-    enum class TBX_API TextureWrap
+    enum class TextureWrap
     {
         ClampToEdge,
         MirroredRepeat,
         Repeat
     };
 
-    enum class TBX_API TextureFormat
+    enum class TextureFormat
     {
         RGB,
         RGBA

@@ -1,4 +1,5 @@
 set(module_name PluginApi)
+set(TBX_PLUGIN_ABI_VERSION 1 CACHE STRING "Plugin ABI version used for plugin compatibility checks" FORCE)
 
 if(TBX_BUILD_SHARED)
     add_library(${module_name} SHARED)

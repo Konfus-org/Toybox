@@ -35,6 +35,7 @@
 .idea/
 .vs/
 .vscode/
+.cache/
 
 # Solution Files
 *.vcxproj

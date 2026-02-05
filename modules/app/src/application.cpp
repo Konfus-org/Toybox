@@ -8,8 +8,6 @@
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/plugin_api/plugin_registry.h"
 #include "tbx/time/delta_time.h"
-#include <algorithm>
-#include <iterator>
 #include <utility>
 
 namespace tbx
@@ -143,7 +141,7 @@ namespace tbx
             TBX_TRACE_INFO("Working Directory: {}", _filesystem.get_working_directory().string());
             TBX_TRACE_INFO("Plugins Directory: {}", _filesystem.get_plugins_directory().string());
             TBX_TRACE_INFO("Logs Directory: {}", _filesystem.get_logs_directory().string());
-            const auto asset_roots = _filesystem.get_assets_directories();
+            const auto& asset_roots = _filesystem.get_assets_directories();
             for (const auto& root : asset_roots)
                 TBX_TRACE_INFO("Asset Directory: {}", root.string());
 
@@ -160,7 +158,7 @@ namespace tbx
         }
     }
 
-    void Application::update(DeltaTimer timer)
+    void Application::update(DeltaTimer& timer)
     {
         // Process messages posted in previous frame
         _msg_coordinator.flush();
