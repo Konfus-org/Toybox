@@ -1,4 +1,4 @@
-#include "opengl_shader.h"
+﻿#include "opengl_shader.h"
 #include "tbx/common/int.h"
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
@@ -231,6 +231,11 @@ namespace tbx::plugins
 
         upload_uniform_value(location, uniform.data);
         return true;
+    }
+
+    uint32 OpenGlShaderProgram::get_program_id() const
+    {
+        return _program_id;
     }
 
     int OpenGlShaderProgram::get_cached_uniform_location(const std::string& name)
