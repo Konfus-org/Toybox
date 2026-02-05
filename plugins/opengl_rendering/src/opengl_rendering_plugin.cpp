@@ -35,8 +35,8 @@ namespace tbx::plugins
             return;
         }
 
-        const std::string diffuse_name = to_uniform_name("diffuse");
-        const std::string normal_name = to_uniform_name("normal");
+        std::string diffuse_name = to_uniform_name("diffuse");
+        std::string normal_name = to_uniform_name("normal");
 
         OpenGlMaterialTexture diffuse = {.name = diffuse_name};
         OpenGlMaterialTexture normal = {.name = normal_name};
@@ -70,9 +70,9 @@ namespace tbx::plugins
         material.textures = std::move(reordered);
     }
 
-    static GLuint compile_shader(const GLenum type, const char* source)
+    static GLuint compile_shader(GLenum type, const char* source)
     {
-        const GLuint shader = glCreateShader(type);
+        GLuint shader = glCreateShader(type);
         glShaderSource(shader, 1, &source, nullptr);
         glCompileShader(shader);
 
@@ -91,9 +91,9 @@ namespace tbx::plugins
         return shader;
     }
 
-    static GLuint link_program(const GLuint vertex_shader, const GLuint fragment_shader)
+    static GLuint link_program(GLuint vertex_shader, GLuint fragment_shader)
     {
-        const GLuint program = glCreateProgram();
+        GLuint program = glCreateProgram();
         glAttachShader(program, vertex_shader);
         glAttachShader(program, fragment_shader);
         glLinkProgram(program);
@@ -193,7 +193,7 @@ namespace tbx::plugins
             GL_RENDERBUFFER,
             depth_stencil);
 
-        const auto status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        auto status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glBindTexture(GL_TEXTURE_2D, 0);
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
@@ -216,9 +216,9 @@ namespace tbx::plugins
     // Build a model matrix from an entity transform.
     static Mat4 build_model_matrix(const Transform& transform)
     {
-        const Mat4 translation = translate(transform.position);
-        const Mat4 rotation = quaternion_to_mat4(transform.rotation);
-        const Mat4 scaling = scale(transform.scale);
+        Mat4 translation = translate(transform.position);
+        Mat4 rotation = quaternion_to_mat4(transform.rotation);
+        Mat4 scaling = scale(transform.scale);
         return translation * rotation * scaling;
     }
 
@@ -278,8 +278,8 @@ namespace tbx::plugins
     {
         for (auto& entry : _render_targets)
         {
-            const Uuid window_id = entry.first;
-            const auto result = send_message<WindowMakeCurrentRequest>(window_id);
+            Uuid window_id = entry.first;
+            auto result = send_message<WindowMakeCurrentRequest>(window_id);
             if (result)
             {
                 destroy_render_target(entry.second);
@@ -314,12 +314,12 @@ namespace tbx::plugins
 
         for (const auto& entry : _window_sizes)
         {
-            const Uuid window_id = entry.first;
+            Uuid window_id = entry.first;
             const Size& window_size = entry.second;
-            const Size render_resolution = get_effective_resolution(window_size);
+            Size render_resolution = get_effective_resolution(window_size);
 
             // Bind the window context before issuing any GL commands.
-            const auto result = send_message<WindowMakeCurrentRequest>(window_id);
+            auto result = send_message<WindowMakeCurrentRequest>(window_id);
             if (!result)
             {
                 TBX_TRACE_ERROR(
@@ -329,8 +329,8 @@ namespace tbx::plugins
                 continue;
             }
 
-            const bool should_scale_to_window = render_resolution.width != window_size.width
-                                                || render_resolution.height != window_size.height;
+            bool should_scale_to_window = render_resolution.width != window_size.width
+                                          || render_resolution.height != window_size.height;
 
             if (should_scale_to_window)
             {
@@ -381,26 +381,26 @@ namespace tbx::plugins
 
                     if (pipeline.program != 0U)
                     {
-                        const float x_scale = static_cast<float>(window_size.width)
-                                              / static_cast<float>(render_resolution.width);
-                        const float y_scale = static_cast<float>(window_size.height)
-                                              / static_cast<float>(render_resolution.height);
-                        const float scale = std::min(x_scale, y_scale);
+                        float x_scale = static_cast<float>(window_size.width)
+                                        / static_cast<float>(render_resolution.width);
+                        float y_scale = static_cast<float>(window_size.height)
+                                        / static_cast<float>(render_resolution.height);
+                        float scale = std::min(x_scale, y_scale);
 
-                        const int scaled_width = std::max(
+                        int scaled_width = std::max(
                             1,
                             static_cast<int>(static_cast<float>(render_resolution.width) * scale));
-                        const int scaled_height = std::max(
+                        int scaled_height = std::max(
                             1,
                             static_cast<int>(static_cast<float>(render_resolution.height) * scale));
 
-                        const int x_offset =
+                        int x_offset =
                             std::max(0, (static_cast<int>(window_size.width) - scaled_width) / 2);
-                        const int y_offset =
+                        int y_offset =
                             std::max(0, (static_cast<int>(window_size.height) - scaled_height) / 2);
 
-                        const bool was_depth_test_enabled = glIsEnabled(GL_DEPTH_TEST) == GL_TRUE;
-                        const bool was_blend_enabled = glIsEnabled(GL_BLEND) == GL_TRUE;
+                        bool was_depth_test_enabled = glIsEnabled(GL_DEPTH_TEST) == GL_TRUE;
+                        bool was_blend_enabled = glIsEnabled(GL_BLEND) == GL_TRUE;
 
                         glDisable(GL_DEPTH_TEST);
                         glDisable(GL_BLEND);
@@ -467,7 +467,7 @@ namespace tbx::plugins
 
             // Present the rendered frame to the window.
             glFlush();
-            const auto present_result = send_message<WindowPresentRequest>(window_id);
+            auto present_result = send_message<WindowPresentRequest>(window_id);
             if (!present_result)
             {
                 TBX_TRACE_ERROR(
@@ -529,14 +529,14 @@ namespace tbx::plugins
 
         if (!_is_gl_ready)
         {
-            event.state = MessageState::Error;
+            event.state = MessageState::ERROR;
             event.result.flag_failure("OpenGL rendering: GL loader not initialized.");
             return;
         }
 
         _window_sizes[event.window] = event.size;
 
-        event.state = MessageState::Handled;
+        event.state = MessageState::HANDLED;
         event.result.flag_success();
     }
 
@@ -563,7 +563,7 @@ namespace tbx::plugins
             return;
         }
 
-        const auto window_id = event.owner->id;
+        auto window_id = event.owner->id;
         if (_window_sizes.contains(window_id))
         {
             _window_sizes[window_id] = event.current;
@@ -621,7 +621,7 @@ namespace tbx::plugins
             return;
         }
 
-        static constexpr const char* vertex_source = R"GLSL(
+        static constexpr const char* VERTEX_SOURCE = R"GLSL(
 #version 450 core
 out vec2 v_uv;
 void main()
@@ -641,7 +641,7 @@ void main()
 }
 )GLSL";
 
-        static constexpr const char* fragment_source = R"GLSL(
+        static constexpr const char* FRAGMENT_SOURCE = R"GLSL(
 #version 450 core
 in vec2 v_uv;
 uniform sampler2D u_texture;
@@ -652,23 +652,23 @@ void main()
 }
 )GLSL";
 
-        const GLuint vertex_shader = compile_shader(GL_VERTEX_SHADER, vertex_source);
-        if (vertex_shader == 0U)
+        const GLuint VERTEX_SHADER = compile_shader(GL_VERTEX_SHADER, VERTEX_SOURCE);
+        if (VERTEX_SHADER == 0U)
         {
             return;
         }
 
-        const GLuint fragment_shader = compile_shader(GL_FRAGMENT_SHADER, fragment_source);
-        if (fragment_shader == 0U)
+        const GLuint FRAGMENT_SHADER = compile_shader(GL_FRAGMENT_SHADER, FRAGMENT_SOURCE);
+        if (FRAGMENT_SHADER == 0U)
         {
-            glDeleteShader(vertex_shader);
+            glDeleteShader(VERTEX_SHADER);
             return;
         }
 
-        const GLuint program = link_program(vertex_shader, fragment_shader);
-        glDeleteShader(vertex_shader);
-        glDeleteShader(fragment_shader);
-        if (program == 0U)
+        const GLuint PROGRAM = link_program(VERTEX_SHADER, FRAGMENT_SHADER);
+        glDeleteShader(VERTEX_SHADER);
+        glDeleteShader(FRAGMENT_SHADER);
+        if (PROGRAM == 0U)
         {
             return;
         }
@@ -676,22 +676,22 @@ void main()
         GLuint vertex_array = 0U;
         glGenVertexArrays(1, &vertex_array);
 
-        const GLint texture_uniform = glGetUniformLocation(program, "u_texture");
-        if (texture_uniform < 0)
+        const GLint TEXTURE_UNIFORM = glGetUniformLocation(PROGRAM, "u_texture");
+        if (TEXTURE_UNIFORM < 0)
         {
             TBX_TRACE_WARNING("OpenGL rendering: present pipeline uniform 'u_texture' not found.");
         }
 
-        pipeline.program = static_cast<uint32>(program);
+        pipeline.program = static_cast<uint32>(PROGRAM);
         pipeline.vertex_array = static_cast<uint32>(vertex_array);
-        pipeline.texture_uniform = texture_uniform;
+        pipeline.texture_uniform = TEXTURE_UNIFORM;
     }
 
     void OpenGlRenderingPlugin::destroy_present_pipeline(PresentPipeline& pipeline)
     {
         if (pipeline.vertex_array != 0U)
         {
-            const auto id = static_cast<GLuint>(pipeline.vertex_array);
+            auto id = static_cast<GLuint>(pipeline.vertex_array);
             glDeleteVertexArrays(1, &id);
         }
 
@@ -724,7 +724,7 @@ void main()
         return resolution;
     }
 
-    void OpenGlRenderingPlugin::remove_window_state(const Uuid& window_id, const bool try_release)
+    void OpenGlRenderingPlugin::remove_window_state(const Uuid& window_id, bool try_release)
     {
         _window_sizes.erase(window_id);
 
@@ -736,7 +736,7 @@ void main()
 
         if (try_release)
         {
-            const auto result = send_message<WindowMakeCurrentRequest>(window_id);
+            auto result = send_message<WindowMakeCurrentRequest>(window_id);
             if (result)
             {
                 destroy_render_target(it->second);
@@ -752,7 +752,7 @@ void main()
         auto& ecs = get_host().get_entity_registry();
         auto& asset_manager = get_host().get_asset_manager();
 
-        static const auto fallback_material = std::make_shared<Material>();
+        static const auto FALLBACK_MATERIAL = std::make_shared<Material>();
 
         ecs.for_each_with<Renderer>(
             [&](Entity entity)
@@ -778,7 +778,7 @@ void main()
                         *static_data,
                         entity_matrix,
                         view_projection,
-                        fallback_material);
+                        FALLBACK_MATERIAL);
                     return;
                 }
 
@@ -791,7 +791,7 @@ void main()
                         *procedural_data,
                         entity_matrix,
                         view_projection,
-                        fallback_material);
+                        FALLBACK_MATERIAL);
                 }
             });
     }
@@ -805,7 +805,7 @@ void main()
             return nullptr;
         }
 
-        const Uuid model_id = asset_manager.resolve_asset_id(handle);
+        Uuid model_id = asset_manager.resolve_asset_id(handle);
         auto model_it = _models.find(model_id);
         if (model_it != _models.end())
         {
@@ -832,7 +832,7 @@ void main()
                 continue;
             }
 
-            const Uuid mesh_key = make_model_mesh_key(model_id, static_cast<uint32>(mesh_index));
+            Uuid mesh_key = make_model_mesh_key(model_id, static_cast<uint32>(mesh_index));
             get_mesh(mesh, mesh_key);
             gl_model.meshes.push_back(mesh_key);
         }
@@ -850,7 +850,7 @@ void main()
 
             if (part.material_index < model_asset->materials.size())
             {
-                const Uuid material_key =
+                Uuid material_key =
                     Uuid::combine(model_id, static_cast<uint32>(part.material_index));
                 gl_part.material_id = material_key;
 
@@ -882,8 +882,8 @@ void main()
         const Handle& handle,
         const std::shared_ptr<Material>& fallback_material)
     {
-        const Handle resolved = handle.is_valid() ? handle : default_material;
-        const Uuid material_id = asset_manager.resolve_asset_id(resolved);
+        Handle resolved = handle.is_valid() ? handle : default_material;
+        Uuid material_id = asset_manager.resolve_asset_id(resolved);
         auto material_it = _materials.find(material_id);
         if (material_it != _materials.end())
         {
@@ -896,15 +896,12 @@ void main()
             return get_cached_fallback_material(asset_manager, fallback_material);
         }
 
-        const AssetUsage usage = asset_manager.get_usage<Material>(resolved);
-        if (usage.stream_state != AssetStreamState::Loaded)
+        AssetUsage usage = asset_manager.get_usage<Material>(resolved);
+        if (usage.stream_state != AssetStreamState::LOADED)
         {
             return resolved.id == default_material.id
                        ? get_cached_fallback_material(asset_manager, fallback_material)
-                       : get_cached_material(
-                             asset_manager,
-                             default_material,
-                             fallback_material);
+                       : get_cached_material(asset_manager, default_material, fallback_material);
         }
 
         OpenGlMaterial gl_material = {};
@@ -993,15 +990,14 @@ void main()
                 continue;
             }
 
-            const AssetUsage texture_usage =
-                asset_manager.get_usage<Texture>(texture_binding.handle);
-            if (texture_usage.stream_state != AssetStreamState::Loaded)
+            AssetUsage texture_usage = asset_manager.get_usage<Texture>(texture_binding.handle);
+            if (texture_usage.stream_state != AssetStreamState::LOADED)
             {
                 gl_material.textures.push_back(std::move(entry));
                 continue;
             }
 
-            const Uuid texture_id = asset_manager.resolve_asset_id(texture_binding.handle);
+            Uuid texture_id = asset_manager.resolve_asset_id(texture_binding.handle);
             get_texture(texture_id, *texture_asset);
             entry.texture_id = texture_id;
             gl_material.textures.push_back(std::move(entry));
@@ -1027,7 +1023,7 @@ void main()
             shader_handle = default_shader;
         }
 
-        const Uuid shader_id = asset_manager.resolve_asset_id(shader_handle);
+        Uuid shader_id = asset_manager.resolve_asset_id(shader_handle);
         auto program_it = _shader_programs.find(shader_id);
         if (program_it != _shader_programs.end())
         {
@@ -1040,8 +1036,8 @@ void main()
             return {};
         }
 
-        const AssetUsage shader_usage = asset_manager.get_usage<Shader>(shader_handle);
-        if (shader_usage.stream_state == AssetStreamState::Loaded)
+        AssetUsage shader_usage = asset_manager.get_usage<Shader>(shader_handle);
+        if (shader_usage.stream_state == AssetStreamState::LOADED)
         {
             return get_shader_program(asset_manager.resolve_asset_id(shader_handle), *shader_asset);
         }
@@ -1052,7 +1048,7 @@ void main()
         }
 
         shader_handle = default_shader;
-        const Uuid fallback_id = asset_manager.resolve_asset_id(shader_handle);
+        Uuid fallback_id = asset_manager.resolve_asset_id(shader_handle);
         auto fallback_it = _shader_programs.find(fallback_id);
         if (fallback_it != _shader_programs.end())
         {
@@ -1183,7 +1179,7 @@ void main()
                 get_cached_material(asset_manager, static_data.material, fallback_material);
         }
 
-        const size_t part_count = model_asset->parts.size();
+        auto part_count = model_asset->parts.size();
 
         // Step 3: Draw meshes directly when the model has no part hierarchy.
         if (part_count == 0U)
@@ -1218,13 +1214,13 @@ void main()
         const OpenGlMaterial* override_material,
         const OpenGlMaterial& fallback_material)
     {
-        const size_t part_count = model.parts.size();
+        auto part_count = model.parts.size();
         std::vector<bool> is_child = std::vector<bool>(part_count, false);
 
         // Step 4a: Mark parts that are referenced as children.
         for (const auto& part : model.parts)
         {
-            for (const auto child_index : part.children)
+            for (const auto& child_index : part.children)
             {
                 if (child_index < part_count)
                 {
@@ -1281,7 +1277,7 @@ void main()
         const OpenGlModelPart& part = model.parts[part_index];
 
         // Step 4c: Combine the parent transform with this part's local transform.
-        const Mat4 part_matrix = parent_matrix * part.transform;
+        Mat4 part_matrix = parent_matrix * part.transform;
 
         // Step 4d: Draw the mesh bound to this part, if any.
         if (part.mesh_id.is_valid())
@@ -1301,7 +1297,7 @@ void main()
         }
 
         // Step 4e: Recurse into child parts.
-        for (const auto child_index : part.children)
+        for (const auto& child_index : part.children)
         {
             draw_model_part_recursive(
                 model,
@@ -1345,7 +1341,7 @@ void main()
             }
 
             // Step 3: Draw the mesh with a stable cache key.
-            const Uuid mesh_key =
+            Uuid mesh_key =
                 make_procedural_mesh_key(procedural_data.id, static_cast<uint32>(mesh_index));
             auto mesh_resource = get_mesh(mesh, mesh_key);
             if (!mesh_resource)
@@ -1363,24 +1359,24 @@ void main()
 
         if (cameras.begin() == cameras.end())
         {
-            const float aspect = window_size.get_aspect_ratio();
-            const Mat4 default_view =
+            float aspect = window_size.get_aspect_ratio();
+            Mat4 default_view =
                 look_at(Vec3(0.0f, 0.0f, 5.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));
-            const Mat4 default_projection =
+            Mat4 default_projection =
                 perspective_projection(degrees_to_radians(60.0f), aspect, 0.1f, 1000.0f);
-            const Mat4 view_projection = default_projection * default_view;
+            Mat4 view_projection = default_projection * default_view;
             draw_models(view_projection);
             return;
         }
 
-        const float aspect = window_size.get_aspect_ratio();
-        for (auto cameraEnt : cameras)
+        float aspect = window_size.get_aspect_ratio();
+        for (const auto& camera_ent : cameras)
         {
-            auto& camera = cameraEnt.get_component<Camera>();
+            auto& camera = camera_ent.get_component<Camera>();
             camera.set_aspect(aspect);
 
-            const Transform& transform = cameraEnt.get_component<Transform>();
-            const Mat4 view_projection =
+            Transform& transform = camera_ent.get_component<Transform>();
+            Mat4 view_projection =
                 camera.get_view_projection_matrix(transform.position, transform.rotation);
 
             draw_models(view_projection);
@@ -1403,7 +1399,7 @@ void main()
 
     static Uuid make_shader_source_key(const Uuid& shader_id, uint32 source_index)
     {
-        const Uuid resolved = shader_id.is_valid() ? shader_id : default_shader.id;
+        Uuid resolved = shader_id.is_valid() ? shader_id : default_shader.id;
         return Uuid::combine(resolved, source_index);
     }
 
@@ -1425,7 +1421,7 @@ void main()
         const Uuid& shader_id,
         const Shader& shader)
     {
-        const auto program_id = shader_id.is_valid() ? shader_id : default_shader.id;
+        auto program_id = shader_id.is_valid() ? shader_id : default_shader.id;
         if (auto it = _shader_programs.find(program_id); it != _shader_programs.end())
         {
             return it->second;
@@ -1436,8 +1432,7 @@ void main()
         for (size_t source_index = 0U; source_index < shader.sources.size(); ++source_index)
         {
             const ShaderSource& shader_source = shader.sources[source_index];
-            const Uuid shader_key =
-                make_shader_source_key(program_id, static_cast<uint32>(source_index));
+            Uuid shader_key = make_shader_source_key(program_id, static_cast<uint32>(source_index));
             shaders.push_back(get_shader(shader_source, shader_key));
         }
 
@@ -1461,8 +1456,8 @@ void main()
 
         Texture default_texture = Texture(
             Size(1, 1),
-            TextureWrap::Repeat,
-            TextureFilter::Nearest,
+            TextureWrap::REPEAT,
+            TextureFilter::NEAREST,
             TextureFormat::RGBA,
             {255, 255, 255, 255});
         _default_texture = std::make_shared<OpenGlTexture>(default_texture);
@@ -1473,7 +1468,7 @@ void main()
         const Uuid& texture_id,
         const Texture& texture)
     {
-        const Uuid texture_key = texture_id;
+        Uuid texture_key = texture_id;
         if (auto it = _textures.find(texture_key); it != _textures.end())
         {
             return it->second;

@@ -4,6 +4,7 @@
 #include "tbx/graphics/color.h"
 #include "tbx/math/vectors.h"
 #include "tbx/tbx_api.h"
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -161,9 +162,9 @@ namespace tbx
     struct TBX_API VertexBuffer
     {
         VertexBuffer() = default;
-        VertexBuffer(const std::vector<Vertex>& vertices, const VertexBufferLayout& layout)
+        VertexBuffer(const std::vector<Vertex>& vertices, VertexBufferLayout layout)
             : vertices(flatten_vertex_vector(vertices))
-            , layout(layout)
+            , layout(std::move(layout))
         {
         }
 

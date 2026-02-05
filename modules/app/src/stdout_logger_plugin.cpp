@@ -39,13 +39,13 @@ namespace tbx
         {
             switch (level)
             {
-                case LogLevel::Info:
+                case LogLevel::INFO:
                     return "INFO";
-                case LogLevel::Warning:
+                case LogLevel::WARNING:
                     return "WARNING";
-                case LogLevel::Error:
+                case LogLevel::ERROR:
                     return "ERROR";
-                case LogLevel::Critical:
+                case LogLevel::CRITICAL:
                     return "CRITICAL";
             }
 

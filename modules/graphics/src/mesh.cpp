@@ -1,4 +1,5 @@
 #include "tbx/graphics/mesh.h"
+#include <utility>
 #include <vector>
 
 namespace tbx
@@ -10,15 +11,15 @@ namespace tbx
         indices = default_quad.indices;
     }
 
-    Mesh::Mesh(const VertexBuffer& vertBuff, const IndexBuffer& indexBuff)
-        : vertices(vertBuff)
-        , indices(indexBuff)
+    Mesh::Mesh(VertexBuffer vert_buff, IndexBuffer index_buff)
+        : vertices(std::move(vert_buff))
+        , indices(std::move(index_buff))
     {
     }
 
     Mesh make_triangle()
     {
-        const std::vector<Vertex> triangle_mesh_vertices = {
+        const std::vector<Vertex> TRIANGLE_MESH_VERTICES = {
             Vertex {
                 Vec3(-0.5f, -0.5f, 0.0f),
                 Vec3(0.0f, 0.0f, 0.0f),
@@ -35,9 +36,9 @@ namespace tbx
                 Vec2(0.0f, 0.0f),
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)}};
 
-        const IndexBuffer index_buffer = {0, 1, 2};
-        const VertexBuffer vertex_buffer = {
-            triangle_mesh_vertices,
+        const IndexBuffer INDEX_BUFFER = {0, 1, 2};
+        const VertexBuffer VERTEX_BUFFER = {
+            TRIANGLE_MESH_VERTICES,
             {{
                 Vec3(0.0f),
                 RgbaColor(),
@@ -45,12 +46,12 @@ namespace tbx
                 Vec2(0.0f),
             }}};
 
-        return {vertex_buffer, index_buffer};
+        return {VERTEX_BUFFER, INDEX_BUFFER};
     }
 
     Mesh make_quad()
     {
-        const std::vector<Vertex> quad_mesh_vertices = {
+        const std::vector<Vertex> QUAD_MESH_VERTICES = {
             Vertex {
                 Vec3(-0.5f, -0.5f, 0.0f),
                 Vec3(0.0f, 0.0f, 0.0f),
@@ -72,9 +73,9 @@ namespace tbx
                 Vec2(0.0f, 1.0f),
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)}};
 
-        const IndexBuffer index_buffer = {0, 1, 2, 2, 3, 0};
-        const VertexBuffer vertex_buffer = {
-            quad_mesh_vertices,
+        const IndexBuffer INDEX_BUFFER = {0, 1, 2, 2, 3, 0};
+        const VertexBuffer VERTEX_BUFFER = {
+            QUAD_MESH_VERTICES,
             {{
                 Vec3(0.0f),
                 RgbaColor(),
@@ -82,6 +83,6 @@ namespace tbx
                 Vec2(0.0f),
             }}};
 
-        return {vertex_buffer, index_buffer};
+        return {VERTEX_BUFFER, INDEX_BUFFER};
     }
 }

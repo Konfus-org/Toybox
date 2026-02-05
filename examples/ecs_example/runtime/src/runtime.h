@@ -14,5 +14,6 @@ namespace tbx::examples
 
       private:
         EntityRegistry* _entity_manager = nullptr;
+        float _elapsed_seconds = 0.0f;
     };
 }

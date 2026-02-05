@@ -9,7 +9,7 @@
         {                                                                                          \
             ::tbx::Log::write(                                                                     \
                 *dispatcher,                                                                       \
-                ::tbx::LogLevel::Info,                                                             \
+                ::tbx::LogLevel::INFO,                                                             \
                 __FILE__,                                                                          \
                 __LINE__,                                                                          \
                 msg __VA_OPT__(, ) __VA_ARGS__);                                                    \
@@ -23,7 +23,7 @@
         {                                                                                          \
             ::tbx::Log::write(                                                                     \
                 *dispatcher,                                                                       \
-                ::tbx::LogLevel::Warning,                                                          \
+                ::tbx::LogLevel::WARNING,                                                          \
                 __FILE__,                                                                          \
                 __LINE__,                                                                          \
                 msg __VA_OPT__(, ) __VA_ARGS__);                                                    \
@@ -37,7 +37,7 @@
         {                                                                                          \
             ::tbx::Log::write(                                                                     \
                 *dispatcher,                                                                       \
-                ::tbx::LogLevel::Error,                                                            \
+                ::tbx::LogLevel::ERROR,                                                            \
                 __FILE__,                                                                          \
                 __LINE__,                                                                          \
                 msg __VA_OPT__(, ) __VA_ARGS__);                                                    \
@@ -51,7 +51,7 @@
         {                                                                                          \
             ::tbx::Log::write(                                                                     \
                 *dispatcher,                                                                       \
-                ::tbx::LogLevel::Critical,                                                         \
+                ::tbx::LogLevel::CRITICAL,                                                         \
                 __FILE__,                                                                          \
                 __LINE__,                                                                          \
                 msg __VA_OPT__(, ) __VA_ARGS__);                                                    \
@@ -86,7 +86,7 @@
             {                                                                                      \
                 ::tbx::Log::write(                                                                 \
                     *dispatcher,                                                                   \
-                    ::tbx::LogLevel::Critical,                                                     \
+                    ::tbx::LogLevel::CRITICAL,                                                     \
                     __FILE__,                                                                      \
                     __LINE__,                                                                      \
                     __VA_ARGS__);                                                                  \

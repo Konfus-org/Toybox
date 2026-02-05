@@ -2,7 +2,7 @@
 #include "tbx/app/app_events.h"
 #include "tbx/app/app_requests.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/files/filesystem.h"
+#include "tbx/files/file_operator.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
@@ -25,16 +25,22 @@ namespace tbx
 
     Application::Application(const AppDescription& desc)
         : _name(desc.name)
-        , _filesystem(desc.working_root, {}, desc.logs_directory, {})
         , _main_window(
               _msg_coordinator,
               desc.name.empty() ? std::string("Toybox Application") : desc.name,
               {1280, 720},
-              WindowMode::Windowed,
+              WindowMode::WINDOWED,
               false)
         , _settings(_msg_coordinator)
-        , _asset_manager(_filesystem)
+        , _asset_manager(desc.working_root)
     {
+        FileOperator file_operator = FileOperator(desc.working_root);
+        _settings.working_directory = file_operator.get_working_directory();
+        if (desc.logs_directory.empty())
+            _settings.logs_directory = file_operator.resolve("logs");
+        else
+            _settings.logs_directory = file_operator.resolve(desc.logs_directory);
+        _settings.plugins_directory = _settings.working_directory;
         initialize(desc.requested_plugins);
     }
 
@@ -91,11 +97,6 @@ namespace tbx
         return _entity_registry;
     }
 
-    IFileSystem& Application::get_filesystem()
-    {
-        return _filesystem;
-    }
-
     AssetManager& Application::get_asset_manager()
     {
         return _asset_manager;
@@ -122,16 +123,19 @@ namespace tbx
                 });
 
             // Load requested plugins
-            auto& fs = get_filesystem();
-            _loaded = load_plugins(fs.get_plugins_directory(), requested_plugins, fs, *this);
+            _loaded = load_plugins(
+                _settings.plugins_directory,
+                requested_plugins,
+                _settings.working_directory,
+                *this);
             for (const auto& loaded : _loaded)
-                _filesystem.add_assets_directory(loaded.meta.resource_directory);
+                _asset_manager.add_asset_directory(loaded.meta.resource_directory);
 
             // Log filesystem directories
-            TBX_TRACE_INFO("Working Directory: {}", _filesystem.get_working_directory().string());
-            TBX_TRACE_INFO("Plugins Directory: {}", _filesystem.get_plugins_directory().string());
-            TBX_TRACE_INFO("Logs Directory: {}", _filesystem.get_logs_directory().string());
-            const auto& asset_roots = _filesystem.get_assets_directories();
+            TBX_TRACE_INFO("Working Directory: {}", _settings.working_directory.string());
+            TBX_TRACE_INFO("Plugins Directory: {}", _settings.plugins_directory.string());
+            TBX_TRACE_INFO("Logs Directory: {}", _settings.logs_directory.string());
+            auto asset_roots = _asset_manager.get_asset_directories();
             for (const auto& root : asset_roots)
                 TBX_TRACE_INFO("Asset Directory: {}", root.string());
 
@@ -200,7 +204,7 @@ namespace tbx
 
                 for (auto& plugin : _loaded)
                 {
-                    if (plugin.meta.category == PluginCategory::Logging)
+                    if (plugin.meta.category == PluginCategory::LOGGING)
                         logging_plugins.push_back(std::move(plugin));
                     else
                         non_logging_plugins.push_back(std::move(plugin));
@@ -231,7 +235,7 @@ namespace tbx
         if (auto* exit_request = handle_message<ExitApplicationRequest>(msg))
         {
             _should_exit = true;
-            exit_request->state = MessageState::Handled;
+            exit_request->state = MessageState::HANDLED;
             return;
         }
 

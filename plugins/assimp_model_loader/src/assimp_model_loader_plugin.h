@@ -1,6 +1,8 @@
 #pragma once
+#include "tbx/assets/asset_manager.h"
 #include "tbx/assets/messages.h"
 #include "tbx/plugin_api/plugin.h"
+#include <filesystem>
 
 namespace tbx::plugins
 {
@@ -50,7 +52,7 @@ namespace tbx::plugins
         // Resolves a request-relative path against the asset search roots when needed.
         std::filesystem::path resolve_asset_path(const std::filesystem::path& path) const;
 
-        // Non-owning pointer to the host filesystem for asset path resolution.
-        IFileSystem* _filesystem = nullptr;
+        // Non-owning pointer to the host asset manager for asset path resolution.
+        AssetManager* _asset_manager = nullptr;
     };
 }

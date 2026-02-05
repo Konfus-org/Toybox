@@ -5,16 +5,17 @@
 #include "tbx/common/handle.h"
 #include "tbx/common/int.h"
 #include "tbx/common/uuid.h"
-#include "tbx/files/filesystem.h"
 #include "tbx/tbx_api.h"
 #include <chrono>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <typeindex>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace tbx
 {
@@ -27,9 +28,9 @@ namespace tbx
     /// </remarks>
     enum class AssetStreamState
     {
-        Unloaded,
-        Loading,
-        Loaded
+        UNLOADED,
+        LOADING,
+        LOADED
     };
 
     /// <summary>
@@ -43,7 +44,7 @@ namespace tbx
     {
         uint ref_count = 0U;
         bool is_pinned = false;
-        AssetStreamState stream_state = AssetStreamState::Unloaded;
+        AssetStreamState stream_state = AssetStreamState::UNLOADED;
         std::chrono::steady_clock::time_point last_access = {};
     };
 
@@ -103,7 +104,7 @@ namespace tbx
         std::shared_ptr<TAsset> asset;
         std::string normalized_path;
         bool is_pinned = false;
-        AssetStreamState stream_state = AssetStreamState::Unloaded;
+        AssetStreamState stream_state = AssetStreamState::UNLOADED;
         std::chrono::steady_clock::time_point last_access = {};
         Uuid id = {};
         std::shared_future<Result> pending_load;
@@ -129,7 +130,7 @@ namespace tbx
                 if (!record.is_pinned && record.asset && record.asset.use_count() <= 1)
                 {
                     record.asset.reset();
-                    record.stream_state = AssetStreamState::Unloaded;
+                    record.stream_state = AssetStreamState::UNLOADED;
                 }
             }
         }
@@ -154,13 +155,31 @@ namespace tbx
     {
       public:
         /// <summary>
-        /// Purpose: Initializes the manager with filesystem access and discovers asset ids.
+        /// Purpose: Supplies asset metadata without requiring disk access.
         /// </summary>
         /// <remarks>
-        /// Ownership: Does not take ownership of the filesystem reference.
-        /// Thread Safety: Not thread-safe; construct on a single thread before sharing.
+        /// Ownership: The manager stores a copy of the callable.
+        /// Thread Safety: The callable must be safe to invoke concurrently.
         /// </remarks>
-        explicit AssetManager(IFileSystem& file_system);
+        using AssetMetaSource =
+            std::function<bool(const std::filesystem::path&, AssetMeta& out_meta)>;
+
+        /// <summary>
+        /// Purpose: Initializes the manager with a working directory, asset search roots, and an
+        /// optional metadata source.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Takes ownership of the working directory and asset path values for
+        /// internal use and stores a copy of the metadata source when provided.
+        /// Thread Safety: Not thread-safe; construct on a single thread before sharing. The
+        /// metadata source must be safe to invoke concurrently. When include_default_resources
+        /// is false, the constructor skips adding the built-in resources directory.
+        /// </remarks>
+        explicit AssetManager(
+            std::filesystem::path working_directory,
+            std::vector<std::filesystem::path> asset_directories = {},
+            AssetMetaSource meta_source = {},
+            bool include_default_resources = true);
         AssetManager(const AssetManager&) = delete;
         AssetManager& operator=(const AssetManager&) = delete;
         AssetManager(AssetManager&&) = delete;
@@ -189,11 +208,11 @@ namespace tbx
             record.last_access = now;
             if (!record.asset)
             {
-                record.stream_state = AssetStreamState::Loading;
+                record.stream_state = AssetStreamState::LOADING;
                 record.asset = AssetLoader<TAsset>::load(entry->resolved_path);
                 record.pending_load = {};
                 record.stream_state =
-                    record.asset ? AssetStreamState::Loaded : AssetStreamState::Unloaded;
+                    record.asset ? AssetStreamState::LOADED : AssetStreamState::UNLOADED;
             }
             return record.asset;
         }
@@ -230,16 +249,34 @@ namespace tbx
         /// Ownership: Returns a UUID value; no ownership transfer.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         /// </remarks>
-        Uuid resolve_asset_id(const Handle& handle)
-        {
-            std::lock_guard lock(_mutex);
-            auto* entry = get_or_create_registry_entry(handle);
-            if (!entry)
-            {
-                return handle.id;
-            }
-            return entry->id;
-        }
+        Uuid resolve_asset_id(const Handle& handle);
+
+        /// <summary>
+        /// Purpose: Resolves an asset path against the configured asset roots.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a path value owned by the caller.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        /// </remarks>
+        std::filesystem::path resolve_asset_path(const std::filesystem::path& asset_path) const;
+
+        /// <summary>
+        /// Purpose: Adds an asset directory to the search list.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Copies the provided path into internal storage.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        /// </remarks>
+        void add_asset_directory(const std::filesystem::path& path);
+
+        /// <summary>
+        /// Purpose: Returns the ordered list of asset search roots.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a copy; callers own the returned paths.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        /// </remarks>
+        std::vector<std::filesystem::path> get_asset_directories() const;
 
         /// <summary>
         /// Purpose: Loads an asset asynchronously and tracks usage metadata.
@@ -273,7 +310,7 @@ namespace tbx
             record.asset = std::move(promise.asset);
             record.pending_load = promise.promise;
             record.stream_state =
-                record.asset ? AssetStreamState::Loading : AssetStreamState::Unloaded;
+                record.asset ? AssetStreamState::LOADING : AssetStreamState::UNLOADED;
             update_stream_state(record);
             result.asset = record.asset;
             result.promise = record.pending_load;
@@ -306,7 +343,7 @@ namespace tbx
                 return false;
             }
             record->asset.reset();
-            record->stream_state = AssetStreamState::Unloaded;
+            record->stream_state = AssetStreamState::UNLOADED;
             return true;
         }
 
@@ -347,7 +384,7 @@ namespace tbx
             }
             auto& store = get_or_create_store<TAsset>();
             auto& record = get_or_create_record(store, *entry);
-            record.stream_state = AssetStreamState::Loading;
+            record.stream_state = AssetStreamState::LOADING;
             auto promise = AssetLoader<TAsset>::load_async(entry->resolved_path);
             record.asset = std::move(promise.asset);
             record.pending_load = promise.promise;
@@ -370,20 +407,14 @@ namespace tbx
 
         NormalizedAssetPath normalize_path(const std::filesystem::path& asset_path) const
         {
-            auto resolved_path = resolve_asset_path(asset_path);
+            auto resolved_path = resolve_asset_path_no_lock(asset_path);
             auto normalized_path = resolved_path.lexically_normal().generic_string();
             auto path_key = make_path_key(normalized_path);
             return {resolved_path, std::move(normalized_path), path_key};
         }
 
-        std::filesystem::path resolve_asset_path(const std::filesystem::path& asset_path) const
-        {
-            if (!_file_system)
-            {
-                return asset_path;
-            }
-            return _file_system->resolve_asset_path(asset_path);
-        }
+        std::filesystem::path resolve_asset_path_no_lock(
+            const std::filesystem::path& asset_path) const;
 
         static Uuid make_path_key(const std::string& normalized_path)
         {
@@ -396,19 +427,7 @@ namespace tbx
             return Uuid(hashed);
         }
 
-        Uuid read_meta_uuid(const std::filesystem::path& asset_path) const
-        {
-            if (!_file_system)
-            {
-                return {};
-            }
-            AssetMeta meta = {};
-            if (!_meta_reader.try_read(*_file_system, asset_path, meta))
-            {
-                return {};
-            }
-            return meta.id;
-        }
+        Uuid read_meta_uuid(const std::filesystem::path& asset_path) const;
 
         AssetRegistryEntry& get_or_create_registry_entry(const NormalizedAssetPath& normalized)
         {
@@ -639,7 +658,7 @@ namespace tbx
         template <typename TAsset>
         void update_stream_state(AssetRecord<TAsset>& record) const
         {
-            if (record.stream_state != AssetStreamState::Loading)
+            if (record.stream_state != AssetStreamState::LOADING)
             {
                 return;
             }
@@ -651,7 +670,7 @@ namespace tbx
             if (record.pending_load.wait_for(0s) == std::future_status::ready)
             {
                 record.stream_state =
-                    record.asset ? AssetStreamState::Loaded : AssetStreamState::Unloaded;
+                    record.asset ? AssetStreamState::LOADED : AssetStreamState::UNLOADED;
                 record.pending_load = {};
             }
         }
@@ -673,7 +692,7 @@ namespace tbx
             {
                 return 0U;
             }
-            const auto count = record.asset.use_count();
+            auto count = record.asset.use_count();
             if (count <= 1)
             {
                 return 0U;
@@ -683,8 +702,10 @@ namespace tbx
         }
 
         mutable std::mutex _mutex;
-        IFileSystem* _file_system = nullptr;
-        AssetMetaReader _meta_reader = {};
+        std::filesystem::path _working_directory = {};
+        AssetMetaParser _meta_reader = {};
+        AssetMetaSource _meta_source = {};
+        std::vector<std::filesystem::path> _asset_directories = {};
         std::unordered_map<Uuid, AssetRegistryEntry> _pool;
         std::unordered_map<Uuid, Uuid> _registry_by_id;
         std::unordered_map<std::type_index, std::unique_ptr<IAssetStore>> _stores;

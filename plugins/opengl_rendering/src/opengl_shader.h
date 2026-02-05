@@ -55,7 +55,7 @@ namespace tbx::plugins
 
       private:
         uint32 _shader_id = 0;
-        ShaderType _type = ShaderType::None;
+        ShaderType _type = ShaderType::NONE;
     };
 
     /// <summary>OpenGL implementation of a shader program resource.</summary>

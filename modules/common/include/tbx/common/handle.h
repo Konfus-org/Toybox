@@ -21,7 +21,7 @@ namespace tbx
         /// Purpose: Constructs a handle from an asset name.
         /// </summary>
         /// <remarks>
-        /// Ownership: Copies the provided name into the handle.
+        /// Ownership: Takes ownership of the provided name string.
         /// Thread Safety: Safe to call concurrently.
         /// </remarks>
         Handle(std::string asset_name)

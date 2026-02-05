@@ -66,8 +66,8 @@ namespace tbx
         {
             return load_texture_async(
                 asset_path,
-                TextureWrap::Repeat,
-                TextureFilter::Nearest,
+                TextureWrap::REPEAT,
+                TextureFilter::NEAREST,
                 TextureFormat::RGBA);
         }
 
@@ -75,8 +75,8 @@ namespace tbx
         {
             return load_texture(
                 asset_path,
-                TextureWrap::Repeat,
-                TextureFilter::Nearest,
+                TextureWrap::REPEAT,
+                TextureFilter::NEAREST,
                 TextureFormat::RGBA);
         }
     };

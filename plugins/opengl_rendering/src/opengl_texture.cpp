@@ -14,9 +14,9 @@ namespace tbx::plugins
     {
         switch (filter)
         {
-            case TextureFilter::Nearest:
+            case TextureFilter::NEAREST:
                 return GL_NEAREST;
-            case TextureFilter::Linear:
+            case TextureFilter::LINEAR:
                 return GL_LINEAR;
             default:
                 TBX_ASSERT(false, "OpenGL rendering: unsupported texture filter.");
@@ -28,11 +28,11 @@ namespace tbx::plugins
     {
         switch (wrap)
         {
-            case TextureWrap::Repeat:
+            case TextureWrap::REPEAT:
                 return GL_REPEAT;
-            case TextureWrap::MirroredRepeat:
+            case TextureWrap::MIRRORED_REPEAT:
                 return GL_MIRRORED_REPEAT;
-            case TextureWrap::ClampToEdge:
+            case TextureWrap::CLAMP_TO_EDGE:
                 return GL_CLAMP_TO_EDGE;
             default:
                 TBX_ASSERT(false, "OpenGL rendering: unsupported texture wrap.");

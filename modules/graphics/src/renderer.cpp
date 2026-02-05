@@ -31,10 +31,10 @@ namespace tbx
     {
     }
 
-    Renderer::Renderer(const Mesh& mesh, Handle material_handle)
+    Renderer::Renderer(Mesh mesh, Handle material_handle)
         : data(
               std::make_unique<ProceduralData>(
-                  std::vector<Mesh> {mesh},
+                  std::vector<Mesh> {std::move(mesh)},
                   std::vector<Handle> {std::move(material_handle)}))
     {
     }

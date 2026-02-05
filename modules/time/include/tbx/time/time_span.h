@@ -8,11 +8,11 @@ namespace tbx
 {
     enum TimeUnit
     {
-        Milliseconds,
-        Seconds,
-        Minutes,
-        Hours,
-        Days
+        MILLISECONDS,
+        SECONDS,
+        MINUTES,
+        HOURS,
+        DAYS
     };
 
     // Value-type duration helper; thread-safe due to copy semantics.
@@ -26,7 +26,7 @@ namespace tbx
         operator std::chrono::steady_clock::duration() const;
 
         uint64 value = 0;
-        TimeUnit unit = TimeUnit::Milliseconds;
+        TimeUnit unit = TimeUnit::MILLISECONDS;
     };
 
     /// <summary>Purpose: Formats a TimeSpan value with its unit for display.</summary>

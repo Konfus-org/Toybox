@@ -27,29 +27,29 @@ namespace tbx::plugins
         const Uint32 flags = SDL_GetWindowFlags(sdl_window);
         if ((flags & SDL_WINDOW_FULLSCREEN) != 0)
         {
-            return WindowMode::Fullscreen;
+            return WindowMode::FULLSCREEN;
         }
         if ((flags & SDL_WINDOW_MINIMIZED) != 0)
         {
-            return WindowMode::Minimized;
+            return WindowMode::MINIMIZED;
         }
         if ((flags & SDL_WINDOW_BORDERLESS) != 0)
         {
-            return WindowMode::Borderless;
+            return WindowMode::BORDERLESS;
         }
-        return WindowMode::Windowed;
+        return WindowMode::WINDOWED;
     }
 
     static SDL_Window* create_sdl_window(Window* tbx_window, bool use_opengl)
     {
         uint flags = use_opengl ? SDL_WINDOW_OPENGL : 0;
-        if (tbx_window->mode == WindowMode::Borderless)
+        if (tbx_window->mode == WindowMode::BORDERLESS)
             flags |= SDL_WINDOW_BORDERLESS;
-        else if (tbx_window->mode == WindowMode::Fullscreen)
+        else if (tbx_window->mode == WindowMode::FULLSCREEN)
             flags |= SDL_WINDOW_FULLSCREEN;
-        else if (tbx_window->mode == WindowMode::Windowed)
+        else if (tbx_window->mode == WindowMode::WINDOWED)
             flags |= SDL_WINDOW_RESIZABLE;
-        else if (tbx_window->mode == WindowMode::Minimized)
+        else if (tbx_window->mode == WindowMode::MINIMIZED)
             flags |= SDL_WINDOW_MINIMIZED;
 
         std::string& title = tbx_window->title;
@@ -74,7 +74,7 @@ namespace tbx::plugins
         else
             TBX_TRACE_INFO("Initialized SDL video subsystem.");
 
-        _use_opengl = host.get_settings().graphics_api == GraphicsApi::OpenGL;
+        _use_opengl = host.get_settings().graphics_api == GraphicsApi::OPEN_GL;
         if (_use_opengl)
         {
             set_opengl_attribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
@@ -160,11 +160,11 @@ namespace tbx::plugins
                     SdlWindowRecord* record = try_get_record(window);
                     if (record && record->tbx_window)
                     {
-                        if (record->tbx_window->mode != WindowMode::Minimized)
+                        if (record->tbx_window->mode != WindowMode::MINIMIZED)
                         {
                             record->last_window_mode = record->tbx_window->mode;
                         }
-                        record->tbx_window->mode = WindowMode::Minimized;
+                        record->tbx_window->mode = WindowMode::MINIMIZED;
                     }
                     break;
                 }
@@ -175,15 +175,15 @@ namespace tbx::plugins
                     if (record && record->tbx_window)
                     {
                         WindowMode target_mode = record->last_window_mode;
-                        if (target_mode == WindowMode::Minimized)
+                        if (target_mode == WindowMode::MINIMIZED)
                         {
                             target_mode = get_window_mode_from_flags(
                                 record->sdl_window,
-                                WindowMode::Windowed);
+                                WindowMode::WINDOWED);
                         }
-                        if (target_mode == WindowMode::Minimized)
+                        if (target_mode == WindowMode::MINIMIZED)
                         {
-                            target_mode = WindowMode::Windowed;
+                            target_mode = WindowMode::WINDOWED;
                         }
                         record->last_window_mode = record->tbx_window->mode;
                         record->tbx_window->mode = target_mode;
@@ -199,9 +199,9 @@ namespace tbx::plugins
                         WindowMode target_mode = get_window_mode_from_flags(
                             record->sdl_window,
                             record->last_window_mode);
-                        if (target_mode == WindowMode::Minimized)
+                        if (target_mode == WindowMode::MINIMIZED)
                         {
-                            target_mode = WindowMode::Windowed;
+                            target_mode = WindowMode::WINDOWED;
                         }
                         record->last_window_mode = record->tbx_window->mode;
                         record->tbx_window->mode = target_mode;
@@ -241,7 +241,7 @@ namespace tbx::plugins
         // Graphics api changed
         if (auto* graphics_event = handle_property_changed<&AppSettings::graphics_api>(msg))
         {
-            _use_opengl = graphics_event->current == GraphicsApi::OpenGL;
+            _use_opengl = graphics_event->current == GraphicsApi::OPEN_GL;
 
             // Recreate all windows with new graphics api
             for (auto& record : _windows)
@@ -339,13 +339,13 @@ namespace tbx::plugins
         }
 
         record->last_window_mode = event.previous;
-        if (event.current == WindowMode::Borderless)
+        if (event.current == WindowMode::BORDERLESS)
             SDL_SetWindowBordered(record->sdl_window, false);
-        else if (event.current == WindowMode::Fullscreen)
+        else if (event.current == WindowMode::FULLSCREEN)
             SDL_SetWindowFullscreen(record->sdl_window, true);
-        else if (event.current == WindowMode::Minimized)
+        else if (event.current == WindowMode::MINIMIZED)
             SDL_MinimizeWindow(record->sdl_window);
-        else if (event.current == WindowMode::Windowed)
+        else if (event.current == WindowMode::WINDOWED)
         {
             SDL_SetWindowBordered(record->sdl_window, true);
             SDL_SetWindowFullscreen(record->sdl_window, false);
@@ -370,19 +370,19 @@ namespace tbx::plugins
         SdlWindowRecord* record = try_get_record(request.window);
         if (!record || !record->sdl_window || !record->gl_context)
         {
-            request.state = MessageState::Error;
+            request.state = MessageState::ERROR;
             request.result.flag_failure("SDL windowing: OpenGL context not available.");
             return;
         }
 
         if (_use_opengl && !SDL_GL_MakeCurrent(record->sdl_window, record->gl_context))
         {
-            request.state = MessageState::Error;
+            request.state = MessageState::ERROR;
             request.result.flag_failure(SDL_GetError());
             return;
         }
 
-        request.state = MessageState::Handled;
+        request.state = MessageState::HANDLED;
         request.result.flag_success();
     }
 
@@ -391,13 +391,13 @@ namespace tbx::plugins
         SdlWindowRecord* record = try_get_record(request.window);
         if (!record || !record->sdl_window || !record->gl_context)
         {
-            request.state = MessageState::Error;
+            request.state = MessageState::ERROR;
             request.result.flag_failure("SDL windowing: OpenGL context not available.");
             return;
         }
 
         SDL_GL_SwapWindow(record->sdl_window);
-        request.state = MessageState::Handled;
+        request.state = MessageState::HANDLED;
         request.result.flag_success();
     }
 

@@ -13,11 +13,11 @@ namespace tbx::plugins
     {
         switch (type)
         {
-            case ShaderType::Vertex:
+            case ShaderType::VERTEX:
                 return GL_VERTEX_SHADER;
-            case ShaderType::Fragment:
+            case ShaderType::FRAGMENT:
                 return GL_FRAGMENT_SHADER;
-            case ShaderType::Compute:
+            case ShaderType::COMPUTE:
                 return GL_COMPUTE_SHADER;
             default:
                 TBX_ASSERT(false, "OpenGL rendering: unsupported shader type.");

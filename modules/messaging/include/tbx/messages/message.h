@@ -8,17 +8,17 @@ namespace tbx
 {
     enum class MessageState
     {
-        UnHandled,
-        Handled,
-        Cancelled,
-        Error
+        UN_HANDLED,
+        HANDLED,
+        CANCELLED,
+        ERROR
     };
 
     enum class MessageNotHandledBehavior
     {
-        DoNothing,
-        Warn,
-        Assert,
+        DO_NOTHING,
+        WARN,
+        ASSERT,
     };
 
     struct Message;
@@ -44,7 +44,7 @@ namespace tbx
         Message();
         virtual ~Message() noexcept;
 
-        MessageState state = MessageState::UnHandled;
+        MessageState state = MessageState::UN_HANDLED;
         Result result = {};
         CancellationToken cancellation_token = {};
         MessageCallbacks callbacks = {};
@@ -63,7 +63,7 @@ namespace tbx
         RequestBase() = default;
         virtual ~RequestBase() noexcept = default;
 
-        MessageNotHandledBehavior not_handled_behavior = MessageNotHandledBehavior::DoNothing;
+        MessageNotHandledBehavior not_handled_behavior = MessageNotHandledBehavior::DO_NOTHING;
     };
 
     // Request message with a typed response.

@@ -14,19 +14,19 @@ namespace tbx
 
         switch (unit)
         {
-            case TimeUnit::Milliseconds:
+            case TimeUnit::MILLISECONDS:
                 duration = std::chrono::milliseconds(value);
                 break;
-            case TimeUnit::Seconds:
+            case TimeUnit::SECONDS:
                 duration = std::chrono::seconds(value);
                 break;
-            case TimeUnit::Minutes:
+            case TimeUnit::MINUTES:
                 duration = std::chrono::minutes(value);
                 break;
-            case TimeUnit::Hours:
+            case TimeUnit::HOURS:
                 duration = std::chrono::hours(value);
                 break;
-            case TimeUnit::Days:
+            case TimeUnit::DAYS:
                 duration = std::chrono::hours(value * 24);
                 break;
             default:
@@ -55,15 +55,15 @@ namespace tbx
     {
         switch (time_span.unit)
         {
-            case TimeUnit::Milliseconds:
+            case TimeUnit::MILLISECONDS:
                 return std::to_string(time_span.value) + " ms";
-            case TimeUnit::Seconds:
+            case TimeUnit::SECONDS:
                 return std::to_string(time_span.value) + " s";
-            case TimeUnit::Minutes:
+            case TimeUnit::MINUTES:
                 return std::to_string(time_span.value) + " min";
-            case TimeUnit::Hours:
+            case TimeUnit::HOURS:
                 return std::to_string(time_span.value) + " h";
-            case TimeUnit::Days:
+            case TimeUnit::DAYS:
                 return std::to_string(time_span.value) + " d";
             default:
                 return std::to_string(time_span.value) + " (unknown unit)";

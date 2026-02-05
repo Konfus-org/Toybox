@@ -7,7 +7,7 @@ namespace tbx::tests::messaging
     {
         Message message = {};
 
-        EXPECT_EQ(message.state, MessageState::UnHandled);
+        EXPECT_EQ(message.state, MessageState::UN_HANDLED);
         EXPECT_TRUE(message.result.succeeded());
         EXPECT_EQ(message.id, message.id);
     }
@@ -16,7 +16,7 @@ namespace tbx::tests::messaging
     {
         Request<void> request = {};
 
-        EXPECT_EQ(request.not_handled_behavior, MessageNotHandledBehavior::DoNothing);
-        EXPECT_EQ(request.state, MessageState::UnHandled);
+        EXPECT_EQ(request.not_handled_behavior, MessageNotHandledBehavior::DO_NOTHING);
+        EXPECT_EQ(request.state, MessageState::UN_HANDLED);
     }
 }

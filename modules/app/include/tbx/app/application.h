@@ -3,29 +3,93 @@
 #include "tbx/app/app_message_coordinator.h"
 #include "tbx/assets/asset_manager.h"
 #include "tbx/ecs/entities.h"
-#include "tbx/files/filesystem.h"
 #include "tbx/graphics/graphics_api.h"
 #include "tbx/graphics/window.h"
 #include "tbx/plugin_api/loaded_plugin.h"
 #include "tbx/plugin_api/plugin_host.h"
 #include "tbx/time/delta_time.h"
 #include <cstddef>
+#include <filesystem>
 #include <string>
 #include <vector>
 
 namespace tbx
 {
+    /// <summary>
+    /// Purpose: Stores mutable settings and fixed runtime paths for the application.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns all stored settings values.
+    /// Thread Safety: Not thread-safe; synchronize access externally.
+    /// </remarks>
     struct TBX_API AppSettings
     {
+        /// <summary>
+        /// Purpose: Initializes observable graphics settings defaults.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Does not take ownership of the dispatcher reference.
+        /// Thread Safety: Not thread-safe; initialize on a single thread.
+        /// </remarks>
         AppSettings(
             IMessageDispatcher& dispatcher,
             bool vsync = true,
-            GraphicsApi api = GraphicsApi::OpenGL,
+            GraphicsApi api = GraphicsApi::OPEN_GL,
             Size resolution = {0, 0});
 
+        /// <summary>
+        /// Purpose: Enables or disables vertical sync at runtime.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores the latest value internally.
+        /// Thread Safety: Not thread-safe; observe or mutate with external synchronization.
+        /// </remarks>
         Observable<AppSettings, bool> vsync_enabled;
+
+        /// <summary>
+        /// Purpose: Selects the active graphics API.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores the latest value internally.
+        /// Thread Safety: Not thread-safe; observe or mutate with external synchronization.
+        /// </remarks>
         Observable<AppSettings, GraphicsApi> graphics_api;
+
+        /// <summary>
+        /// Purpose: Stores the active render resolution.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores the latest value internally.
+        /// Thread Safety: Not thread-safe; observe or mutate with external synchronization.
+        /// </remarks>
         Observable<AppSettings, Size> resolution;
+
+        /// <summary>
+        /// Purpose: Defines the working directory used for relative path resolution.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores a path value copied at startup and not expected to change.
+        /// Thread Safety: Not thread-safe; treat as immutable after initialization.
+        /// </remarks>
+        std::filesystem::path working_directory = {};
+
+        /// <summary>
+        /// Purpose: Defines the directory used for log file output.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores a path value copied at startup and not expected to change.
+        /// Thread Safety: Not thread-safe; treat as immutable after initialization.
+        /// </remarks>
+        std::filesystem::path logs_directory = {};
+
+        /// <summary>
+        /// Purpose: Defines the root directory used for plugin discovery.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores a path value copied at startup and not expected to change.
+        /// Thread Safety: Not thread-safe; treat as immutable after initialization.
+        /// </remarks>
+        std::filesystem::path plugins_directory = {};
     };
 
     class TBX_API Application : public IPluginHost
@@ -51,6 +115,7 @@ namespace tbx
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
         const std::string& get_name() const override;
+
         /// <summary>
         /// Purpose: Returns the mutable application settings.
         /// </summary>
@@ -68,15 +133,6 @@ namespace tbx
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
         IMessageCoordinator& get_message_coordinator() override;
-
-        /// <summary>
-        /// Purpose: Returns the application filesystem service.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns a reference owned by the application.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
-        IFileSystem& get_filesystem() override;
 
         /// <summary>
         /// Purpose: Returns the application entity manager instance.
@@ -110,7 +166,6 @@ namespace tbx
         std::vector<LoadedPlugin> _loaded = {};
         AppSettings _settings;
         Window _main_window;
-        FileSystem _filesystem;
         AssetManager _asset_manager;
         size_t _update_count = 0;
     };

@@ -14,7 +14,7 @@ namespace tbx::plugins
         SDL_Window* sdl_window = nullptr;
         SDL_GLContext gl_context = nullptr;
         Window* tbx_window = nullptr;
-        WindowMode last_window_mode = WindowMode::Windowed;
+        WindowMode last_window_mode = WindowMode::WINDOWED;
     };
 
     class SdlWindowingPlugin final : public Plugin

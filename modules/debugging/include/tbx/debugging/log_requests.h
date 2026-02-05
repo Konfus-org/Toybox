@@ -23,7 +23,7 @@ namespace tbx
         {
         }
 
-        LogLevel level = LogLevel::Info;
+        LogLevel level = LogLevel::INFO;
         std::string message;
         std::filesystem::path file;
         uint32 line = 0;

@@ -36,7 +36,7 @@ namespace tbx::tests::time
 
         TimeSpan span;
         span.value = 5;
-        span.unit = TimeUnit::Milliseconds;
+        span.unit = TimeUnit::MILLISECONDS;
 
         timer = Timer(span);
         timer.time_up_callback = [&]()
@@ -44,12 +44,12 @@ namespace tbx::tests::time
             time_up = true;
         };
 
-        EXPECT_TRUE(timer.tick({1, TimeUnit::Milliseconds}));
+        EXPECT_TRUE(timer.tick({1, TimeUnit::MILLISECONDS}));
         EXPECT_TRUE(tick_called);
         EXPECT_EQ(timer.time_left.value, 4);
         tick_called = false;
 
-        EXPECT_FALSE(timer.tick({5, TimeUnit::Milliseconds}));
+        EXPECT_FALSE(timer.tick({5, TimeUnit::MILLISECONDS}));
         EXPECT_FALSE(tick_called);
         EXPECT_TRUE(time_up);
     }

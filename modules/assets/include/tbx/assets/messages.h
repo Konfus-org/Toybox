@@ -8,6 +8,7 @@
 #include "tbx/messages/message.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
+#include <utility>
 
 namespace tbx
 {
@@ -22,8 +23,8 @@ namespace tbx
     struct LoadAssetRequest : public Request<void>
     {
       public:
-        LoadAssetRequest(const std::filesystem::path& asset_path, TAsset* asset_payload)
-            : path(asset_path)
+        LoadAssetRequest(std::filesystem::path asset_path, TAsset* asset_payload)
+            : path(std::move(asset_path))
             , asset(asset_payload)
         {
         }
@@ -44,12 +45,12 @@ namespace tbx
     {
       public:
         LoadTextureRequest(
-            const std::filesystem::path& asset_path,
+            std::filesystem::path asset_path,
             Texture* asset_payload,
             TextureWrap wrap,
             TextureFilter filter,
             TextureFormat format)
-            : LoadAssetRequest<Texture>(asset_path, asset_payload)
+            : LoadAssetRequest<Texture>(std::move(asset_path), asset_payload)
             , wrap(wrap)
             , filter(filter)
             , format(format)
@@ -57,8 +58,8 @@ namespace tbx
         }
 
       public:
-        TextureWrap wrap = TextureWrap::Repeat;
-        TextureFilter filter = TextureFilter::Nearest;
+        TextureWrap wrap = TextureWrap::REPEAT;
+        TextureFilter filter = TextureFilter::NEAREST;
         TextureFormat format = TextureFormat::RGBA;
     };
 
@@ -72,8 +73,8 @@ namespace tbx
     struct TBX_API LoadModelRequest : public LoadAssetRequest<Model>
     {
       public:
-        LoadModelRequest(const std::filesystem::path& asset_path, Model* asset_payload)
-            : LoadAssetRequest<Model>(asset_path, asset_payload)
+        LoadModelRequest(std::filesystem::path asset_path, Model* asset_payload)
+            : LoadAssetRequest<Model>(std::move(asset_path), asset_payload)
         {
         }
     };
@@ -88,8 +89,8 @@ namespace tbx
     struct TBX_API LoadShaderRequest : public LoadAssetRequest<Shader>
     {
       public:
-        LoadShaderRequest(const std::filesystem::path& asset_path, Shader* asset_payload)
-            : LoadAssetRequest<Shader>(asset_path, asset_payload)
+        LoadShaderRequest(std::filesystem::path asset_path, Shader* asset_payload)
+            : LoadAssetRequest<Shader>(std::move(asset_path), asset_payload)
         {
         }
     };
@@ -104,8 +105,8 @@ namespace tbx
     struct TBX_API LoadMaterialRequest : public LoadAssetRequest<Material>
     {
       public:
-        LoadMaterialRequest(const std::filesystem::path& asset_path, Material* asset_payload)
-            : LoadAssetRequest<Material>(asset_path, asset_payload)
+        LoadMaterialRequest(std::filesystem::path asset_path, Material* asset_payload)
+            : LoadAssetRequest<Material>(std::move(asset_path), asset_payload)
         {
         }
     };
@@ -120,8 +121,8 @@ namespace tbx
     struct TBX_API LoadAudioRequest : public LoadAssetRequest<AudioClip>
     {
       public:
-        LoadAudioRequest(const std::filesystem::path& asset_path, AudioClip* asset_payload)
-            : LoadAssetRequest<AudioClip>(asset_path, asset_payload)
+        LoadAudioRequest(std::filesystem::path asset_path, AudioClip* asset_payload)
+            : LoadAssetRequest<AudioClip>(std::move(asset_path), asset_payload)
         {
         }
     };

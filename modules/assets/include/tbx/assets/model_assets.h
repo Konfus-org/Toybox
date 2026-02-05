@@ -2,6 +2,7 @@
 #include "tbx/assets/assets.h"
 #include "tbx/graphics/model.h"
 #include "tbx/tbx_api.h"
+#include <filesystem>
 #include <memory>
 
 namespace tbx

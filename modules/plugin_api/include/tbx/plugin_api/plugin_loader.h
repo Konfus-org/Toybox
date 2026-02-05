@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/files/filesystem.h"
 #include "tbx/plugin_api/loaded_plugin.h"
 #include "tbx/plugin_api/plugin_host.h"
 #include "tbx/tbx_api.h"
@@ -18,15 +17,15 @@ namespace tbx
     TBX_API std::vector<LoadedPlugin> load_plugins(
         const std::filesystem::path& directory,
         const std::vector<std::string>& requested_ids,
-        IFileSystem& file_ops,
+        const std::filesystem::path& working_directory,
         IPluginHost& host);
 
-    // Loads plugins from already-parsed metadata, without any filesystem IO.
+    // Loads plugins from already-parsed metadata, without any file IO.
     // Ownership: The caller owns the returned LoadedPlugin objects. The host must outlive
     // the returned plugins.
     // Thread-safety: Not thread-safe; call from the main thread.
     TBX_API std::vector<LoadedPlugin> load_plugins(
         const std::vector<PluginMeta>& metas,
-        IFileSystem& file_ops,
+        const std::filesystem::path& working_directory,
         IPluginHost& host);
 }

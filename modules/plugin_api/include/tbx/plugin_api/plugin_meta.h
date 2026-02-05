@@ -1,6 +1,5 @@
 #pragma once
 #include "tbx/common/int.h"
-#include "tbx/files/filesystem.h"
 #include "tbx/plugin_api/plugin_linkage.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
@@ -34,13 +33,13 @@ namespace tbx
     /// </remarks>
     enum class PluginCategory : uint32
     {
-        Default = 0,
-        Logging = 50,
-        Input = 100,
-        Audio = 200,
-        Physics = 300,
-        Rendering = 400,
-        Gameplay = 500
+        DEFAULT = 0,
+        LOGGING = 50,
+        INPUT = 100,
+        AUDIO = 200,
+        PHYSICS = 300,
+        RENDERING = 400,
+        GAMEPLAY = 500
     };
 
     // Describes the metadata discovered for a plugin before it is loaded.
@@ -65,12 +64,12 @@ namespace tbx
         uint32 abi_version = PluginAbiVersion;
 
         // Broad update phase used when ordering plugin updates.
-        PluginCategory category = PluginCategory::Default;
+        PluginCategory category = PluginCategory::DEFAULT;
 
         // Explicit update priority within the update category (lower values update first).
         uint32 priority = 0;
 
-        PluginLinkage linkage = PluginLinkage::Dynamic;
+        PluginLinkage linkage = PluginLinkage::DYNAMIC;
 
         // Path to the manifest file that produced this metadata.
         std::filesystem::path manifest_path;
@@ -82,18 +81,36 @@ namespace tbx
         std::filesystem::path library_path;
     };
 
-    class TBX_API PluginMetaParser
+    /// <summary>
+    /// Purpose: Parses plugin manifest metadata from disk or raw text.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Does not own file handles; reads data through FileOperator.
+    /// Thread Safety: Safe to use concurrently when the file operator is thread-safe.
+    /// </remarks>
+    class TBX_API PluginMetaParser final
     {
       public:
-        // Parses a plugin manifest from disk and returns the populated metadata.
-        // Returns true when the manifest could be parsed successfully.
-        bool try_parse_plugin_meta(
-            const IFileSystem& fs,
+        /// <summary>
+        /// Purpose: Attempts to parse a plugin manifest from disk.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Writes metadata into the caller-provided struct on success.
+        /// Thread Safety: Safe to call concurrently when the file operator is thread-safe.
+        /// </remarks>
+        bool try_parse_from_disk(
+            const std::filesystem::path& working_directory,
             const std::filesystem::path& manifest_path,
             PluginMeta& out_meta);
 
-        // Parses plugin metadata from raw manifest text. Returns true when parsing succeeds.
-        bool try_parse_plugin_meta(
+        /// <summary>
+        /// Purpose: Attempts to parse plugin metadata from raw manifest text.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Writes metadata into the caller-provided struct on success.
+        /// Thread Safety: Safe to call concurrently.
+        /// </remarks>
+        bool try_parse_from_source(
             std::string_view manifest_text,
             const std::filesystem::path& manifest_path,
             PluginMeta& out_meta);

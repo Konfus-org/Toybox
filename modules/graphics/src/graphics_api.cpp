@@ -6,17 +6,17 @@ namespace tbx
     {
         switch (api)
         {
-            case GraphicsApi::None:
+            case GraphicsApi::NONE:
                 return "None";
-            case GraphicsApi::Vulkan:
+            case GraphicsApi::VULKAN:
                 return "Vulkan";
-            case GraphicsApi::OpenGL:
+            case GraphicsApi::OPEN_GL:
                 return "OpenGL";
-            case GraphicsApi::DirectX:
+            case GraphicsApi::DIRECT_X:
                 return "DirectX";
-            case GraphicsApi::Metal:
+            case GraphicsApi::METAL:
                 return "Metal";
-            case GraphicsApi::Custom:
+            case GraphicsApi::CUSTOM:
                 return "Custom";
             default:
                 return "Unknown";

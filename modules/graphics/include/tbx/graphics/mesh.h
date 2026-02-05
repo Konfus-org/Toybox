@@ -12,7 +12,7 @@ namespace tbx
     {
         // Defaults to a quad.
         Mesh();
-        Mesh(const VertexBuffer& vertBuff, const IndexBuffer& indexBuff);
+        Mesh(VertexBuffer vert_buff, IndexBuffer index_buff);
 
         VertexBuffer vertices = {};
         IndexBuffer indices = {};

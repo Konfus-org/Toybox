@@ -9,15 +9,15 @@ namespace tbx
 
     enum class TextureFilter
     {
-        Nearest,
-        Linear
+        NEAREST,
+        LINEAR
     };
 
     enum class TextureWrap
     {
-        ClampToEdge,
-        MirroredRepeat,
-        Repeat
+        CLAMP_TO_EDGE,
+        MIRRORED_REPEAT,
+        REPEAT
     };
 
     enum class TextureFormat
@@ -44,8 +44,8 @@ namespace tbx
         }
 
         Size resolution = {1, 1};
-        TextureWrap wrap = TextureWrap::Repeat;
-        TextureFilter filter = TextureFilter::Nearest;
+        TextureWrap wrap = TextureWrap::REPEAT;
+        TextureFilter filter = TextureFilter::NEAREST;
         TextureFormat format = TextureFormat::RGB;
         std::vector<Pixel> pixels = {255, 255, 255};
     };

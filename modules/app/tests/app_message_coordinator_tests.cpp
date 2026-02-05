@@ -34,7 +34,7 @@ namespace tbx::tests::app
                 count.fetch_add(1);
                 const auto* typed = dynamic_cast<const TestMessage*>(&msg);
                 received_value = typed ? typed->value : -1;
-                const_cast<Message&>(msg).state = MessageState::Handled;
+                const_cast<Message&>(msg).state = MessageState::HANDLED;
             });
         d.register_handler(
             [&](const Message& msg)
@@ -82,7 +82,7 @@ namespace tbx::tests::app
         GlobalDispatcherScope dispatcher_scope(d);
 
         TestRequest msg;
-        msg.not_handled_behavior = MessageNotHandledBehavior::Warn;
+        msg.not_handled_behavior = MessageNotHandledBehavior::WARN;
 
         bool error_callback = false;
         bool processed_callback = false;
@@ -127,7 +127,7 @@ namespace tbx::tests::app
             processed_callback = true;
         };
 
-        msg.not_handled_behavior = MessageNotHandledBehavior::Warn;
+        msg.not_handled_behavior = MessageNotHandledBehavior::WARN;
 
         auto result = d.send(msg);
 
@@ -148,7 +148,7 @@ namespace tbx::tests::app
             [&](const Message& msg)
             {
                 count.fetch_add(1);
-                const_cast<Message&>(msg).state = MessageState::Handled;
+                const_cast<Message&>(msg).state = MessageState::HANDLED;
             });
 
         Message msg;
@@ -181,7 +181,7 @@ namespace tbx::tests::app
                 const auto* typed = dynamic_cast<const TestMessage*>(&msg);
                 ASSERT_NE(typed, nullptr);
                 received_value = typed->value;
-                const_cast<Message&>(msg).state = MessageState::Handled;
+                const_cast<Message&>(msg).state = MessageState::HANDLED;
             });
 
         TestMessage msg;
@@ -310,7 +310,7 @@ namespace tbx::tests::app
                     return;
                 }
 
-                request->state = MessageState::Handled;
+                request->state = MessageState::HANDLED;
                 request->result = 123;
             });
 
@@ -347,7 +347,7 @@ namespace tbx::tests::app
                     return;
                 }
 
-                request->state = MessageState::Handled;
+                request->state = MessageState::HANDLED;
                 request->result = std::string("ready");
             });
 
