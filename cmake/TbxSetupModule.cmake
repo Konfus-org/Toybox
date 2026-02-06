@@ -21,4 +21,8 @@ function(tbx_setup_module target_name)
     )
 
     target_precompile_headers(${target_name} PRIVATE "${PROJECT_SOURCE_DIR}/modules/common/include/tbx/pch.h")
+
+    if(WIN32 AND TBX_BUILD_SHARED)
+        set_target_properties(${target_name} PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    endif()
 endfunction()
