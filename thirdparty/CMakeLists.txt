@@ -27,7 +27,7 @@ function(tbx_add_thirdparty_library thirdparty_subdirectory)
                     $<$<C_COMPILER_ID:MSVC>:/W0>
                     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-w>
                     $<$<NOT:$<C_COMPILER_ID:MSVC>>:-w>
-                )
+            )
         endif()
     endforeach()
 endfunction()
@@ -41,5 +41,6 @@ tbx_add_thirdparty_library(nlohmann_json nlohmann_json)
 tbx_add_thirdparty_library(spdlog spdlog spdlog_header_only)
 tbx_add_thirdparty_library(SDL SDL3-static SDL3-shared SDL3_test)
 tbx_add_thirdparty_library(imgui imgui)
+tbx_add_thirdparty_library(googletest gtest gtest_main)
 
 unset(CMAKE_FOLDER)
