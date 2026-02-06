@@ -1,18 +1,16 @@
 cmake_minimum_required(VERSION 4.1.0)
 project(Toybox LANGUAGES C CXX)
 enable_testing()
+
+# Global configs
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Includes and subdirectories
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-include(TbxGlobalConfigs)
-
-# Cache options touched by presets to avoid "unused" warnings.
-option(TBX_ENABLE_ASSERTS "Enable Toybox asserts (Debug only)." OFF)
-if(DEFINED CTEST_TEST_TIMEOUT)
-    set(_TBX_PRESET_CTEST_TEST_TIMEOUT "${CTEST_TEST_TIMEOUT}")
-endif()
-if(DEFINED CMAKE_MODULE_LINKER_FLAGS_DEBUG)
-    set(_TBX_PRESET_MODULE_LINKER_FLAGS_DEBUG "${CMAKE_MODULE_LINKER_FLAGS_DEBUG}")
-endif()
-
 add_subdirectory(modules)
 add_subdirectory(thirdparty)
 add_subdirectory(plugins)
