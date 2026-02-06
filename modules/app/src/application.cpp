@@ -35,12 +35,14 @@ namespace tbx
         , _asset_manager(desc.working_root)
     {
         FileOperator file_operator = FileOperator(desc.working_root);
+
         _settings.working_directory = file_operator.get_working_directory();
         if (desc.logs_directory.empty())
             _settings.logs_directory = file_operator.resolve("logs");
         else
             _settings.logs_directory = file_operator.resolve(desc.logs_directory);
         _settings.plugins_directory = _settings.working_directory;
+
         initialize(desc.requested_plugins);
     }
 
@@ -159,6 +161,7 @@ namespace tbx
 
         // Update delta time
         DeltaTime dt = timer.tick();
+        _time_running += dt.seconds;
 
         // Begin update
         _msg_coordinator.send<ApplicationUpdateBeginEvent>(this, dt);
@@ -182,6 +185,12 @@ namespace tbx
             // IMPORTANT: Shutdown order matters, careful re-arranging could break things.
 
             GlobalDispatcherScope scope(_msg_coordinator);
+
+            TBX_TRACE_INFO("Shutting down application: {}", _name);
+            TBX_TRACE_INFO(
+                "Total Run Time: {:.2f}s, Total Updates: {}",
+                _time_running,
+                _update_count);
 
             // 1. Send shutdown event
             _msg_coordinator.send<ApplicationShutdownEvent>(this);

@@ -33,7 +33,7 @@ namespace tbx
         /// </remarks>
         AppSettings(
             IMessageDispatcher& dispatcher,
-            bool vsync = true,
+            bool vsync = false,
             GraphicsApi api = GraphicsApi::OPEN_GL,
             Size resolution = {0, 0});
 
@@ -167,6 +167,7 @@ namespace tbx
         AppSettings _settings;
         Window _main_window;
         AssetManager _asset_manager;
-        size_t _update_count = 0;
+        uint _update_count = 0;
+        double _time_running = 0;
     };
 }

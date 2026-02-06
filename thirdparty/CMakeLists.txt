@@ -1,12 +1,7 @@
 set(CMAKE_FOLDER "third party")
 
-# Silence warnings from third-party libraries to keep engine builds clean.
-if (MSVC)
-    add_compile_options(/W0)
-else()
-    add_compile_options(-w)
-endif()
-
+set(SDL_SHARED ON CACHE BOOL "" FORCE)
+set(SDL_STATIC OFF CACHE BOOL "" FORCE)
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
 set(SDL_TESTS OFF CACHE BOOL "" FORCE)
 set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -23,30 +18,28 @@ set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "" FORCE)
 
-add_subdirectory(assimp)
-add_subdirectory(entt)
-add_subdirectory(glad)
-add_subdirectory(stbimg)
-add_subdirectory(glm)
-add_subdirectory(nlohmann_json)
-set(_TBX_SAVED_BUILD_SHARED_LIBS_DEFINED OFF)
-if (DEFINED BUILD_SHARED_LIBS)
-    set(_TBX_SAVED_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-    set(_TBX_SAVED_BUILD_SHARED_LIBS_DEFINED ON)
-endif()
+function(tbx_add_thirdparty_library thirdparty_subdirectory)
+    add_subdirectory("${thirdparty_subdirectory}")
+    foreach(thirdparty_target IN LISTS ARGN)
+        if(TARGET ${thirdparty_target})
+            target_compile_options(${thirdparty_target} INTERFACE
+                    $<$<CXX_COMPILER_ID:MSVC>:/W0>
+                    $<$<C_COMPILER_ID:MSVC>:/W0>
+                    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-w>
+                    $<$<NOT:$<C_COMPILER_ID:MSVC>>:-w>
+                )
+        endif()
+    endforeach()
+endfunction()
 
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-add_subdirectory(googletest)
-if (_TBX_SAVED_BUILD_SHARED_LIBS_DEFINED)
-    set(BUILD_SHARED_LIBS ${_TBX_SAVED_BUILD_SHARED_LIBS} CACHE BOOL "" FORCE)
-else()
-    unset(BUILD_SHARED_LIBS CACHE)
-endif()
-unset(_TBX_SAVED_BUILD_SHARED_LIBS)
-unset(_TBX_SAVED_BUILD_SHARED_LIBS_DEFINED)
-add_subdirectory(spdlog)
-add_subdirectory(SDL)
-add_subdirectory(imgui)
+tbx_add_thirdparty_library(assimp assimp)
+tbx_add_thirdparty_library(entt EnTT)
+tbx_add_thirdparty_library(glad glad)
+tbx_add_thirdparty_library(stbimg stbimg)
+tbx_add_thirdparty_library(glm glm glm-header-only)
+tbx_add_thirdparty_library(nlohmann_json nlohmann_json)
+tbx_add_thirdparty_library(spdlog spdlog spdlog_header_only)
+tbx_add_thirdparty_library(SDL SDL3-static SDL3-shared SDL3_test)
+tbx_add_thirdparty_library(imgui imgui)
 
 unset(CMAKE_FOLDER)
-

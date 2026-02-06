@@ -12,4 +12,3 @@ int main()
     // Run the application main loop
     return app.run();
 }
-

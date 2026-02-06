@@ -17,7 +17,9 @@ namespace tbx::plugins
         }
     }
 
-    static WindowMode get_window_mode_from_flags(SDL_Window* sdl_window, WindowMode fallback_mode)
+    static WindowMode get_window_mode_from_flags(
+        SDL_Window* sdl_window,
+        WindowMode fallback_mode = WindowMode::WINDOWED)
     {
         if (!sdl_window)
         {
@@ -74,6 +76,11 @@ namespace tbx::plugins
         else
             TBX_TRACE_INFO("Initialized SDL video subsystem.");
 
+        if (host.get_settings().vsync_enabled)
+            SDL_GL_SetSwapInterval(0);
+        else
+            SDL_GL_SetSwapInterval(1);
+
         _use_opengl = host.get_settings().graphics_api == GraphicsApi::OPEN_GL;
         if (_use_opengl)
         {
@@ -113,20 +120,14 @@ namespace tbx::plugins
                     {
                         auto* window = SDL_GetWindowFromID(event.window.windowID);
                         SdlWindowRecord* record = try_get_record(window);
-                        if (record && record->sdl_window && record->gl_context)
+                        if (record && record->sdl_window && record->gl_context
+                            && !SDL_GL_MakeCurrent(record->sdl_window, record->gl_context))
                         {
-                            if (SDL_GL_MakeCurrent(record->sdl_window, record->gl_context))
-                                TBX_TRACE_INFO(
-                                    "SDL windowing: Made OpenGL context current for window '{}'.",
-                                    record->tbx_window ? record->tbx_window->title.value
-                                                       : "<unknown>");
-                            else
-                                TBX_TRACE_ERROR(
-                                    "SDL windowing: Failed to make OpenGL context current for "
-                                    "window '{}': {}",
-                                    record->tbx_window ? record->tbx_window->title.value
-                                                       : "<unknown>",
-                                    SDL_GetError());
+                            TBX_TRACE_ERROR(
+                                "SDL windowing: Failed to make OpenGL context current for "
+                                "window '{}': {}",
+                                record->tbx_window ? record->tbx_window->title.value : "<unknown>",
+                                SDL_GetError());
                         }
                     }
                     break;
@@ -136,9 +137,7 @@ namespace tbx::plugins
                     auto* window = SDL_GetWindowFromID(event.window.windowID);
                     SdlWindowRecord* record = try_get_record(window);
                     if (record && record->tbx_window)
-                    {
                         record->tbx_window->is_open = false;
-                    }
                     break;
                 }
                 case SDL_EventType::SDL_EVENT_WINDOW_RESIZED:
@@ -160,10 +159,7 @@ namespace tbx::plugins
                     SdlWindowRecord* record = try_get_record(window);
                     if (record && record->tbx_window)
                     {
-                        if (record->tbx_window->mode != WindowMode::MINIMIZED)
-                        {
-                            record->last_window_mode = record->tbx_window->mode;
-                        }
+                        record->mode_to_restore = get_window_mode_from_flags(record->sdl_window);
                         record->tbx_window->mode = WindowMode::MINIMIZED;
                     }
                     break;
@@ -173,39 +169,7 @@ namespace tbx::plugins
                     auto* window = SDL_GetWindowFromID(event.window.windowID);
                     SdlWindowRecord* record = try_get_record(window);
                     if (record && record->tbx_window)
-                    {
-                        WindowMode target_mode = record->last_window_mode;
-                        if (target_mode == WindowMode::MINIMIZED)
-                        {
-                            target_mode = get_window_mode_from_flags(
-                                record->sdl_window,
-                                WindowMode::WINDOWED);
-                        }
-                        if (target_mode == WindowMode::MINIMIZED)
-                        {
-                            target_mode = WindowMode::WINDOWED;
-                        }
-                        record->last_window_mode = record->tbx_window->mode;
-                        record->tbx_window->mode = target_mode;
-                    }
-                    break;
-                }
-                case SDL_EventType::SDL_EVENT_WINDOW_MAXIMIZED:
-                {
-                    auto* window = SDL_GetWindowFromID(event.window.windowID);
-                    SdlWindowRecord* record = try_get_record(window);
-                    if (record && record->tbx_window)
-                    {
-                        WindowMode target_mode = get_window_mode_from_flags(
-                            record->sdl_window,
-                            record->last_window_mode);
-                        if (target_mode == WindowMode::MINIMIZED)
-                        {
-                            target_mode = WindowMode::WINDOWED;
-                        }
-                        record->last_window_mode = record->tbx_window->mode;
-                        record->tbx_window->mode = target_mode;
-                    }
+                        record->tbx_window->mode = record->mode_to_restore;
                     break;
                 }
                 case SDL_EventType::SDL_EVENT_QUIT:
@@ -235,6 +199,14 @@ namespace tbx::plugins
         if (auto* present_request = handle_message<WindowPresentRequest>(msg))
         {
             on_window_present(*present_request);
+            return;
+        }
+
+        // vsync changed
+        if (auto* vsync_event = handle_property_changed<&AppSettings::vsync_enabled>(msg))
+        {
+            bool vsync_enabled = vsync_event->current;
+            SDL_GL_SetSwapInterval(vsync_enabled);
             return;
         }
 
@@ -338,7 +310,7 @@ namespace tbx::plugins
             return;
         }
 
-        record->last_window_mode = event.previous;
+        record->mode_to_restore = event.previous;
         if (event.current == WindowMode::BORDERLESS)
             SDL_SetWindowBordered(record->sdl_window, false);
         else if (event.current == WindowMode::FULLSCREEN)
@@ -494,7 +466,7 @@ namespace tbx::plugins
         _windows.back().tbx_window = tbx_window;
         if (tbx_window)
         {
-            _windows.back().last_window_mode = tbx_window->mode;
+            _windows.back().mode_to_restore = tbx_window->mode;
         }
         return _windows.back();
     }
