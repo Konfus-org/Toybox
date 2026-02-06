@@ -1,3 +1,7 @@
+
+// TODO: seperate vert and frag shader into separate files, and implement a shader preprocessor to
+// handle includes and such. For now, this is just a simple default shader that can be used for
+// testing and as a fallback.
 #type vertex
 #version 450 core
 #include Globals.glsl
