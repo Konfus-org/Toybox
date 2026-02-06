@@ -4,7 +4,7 @@ namespace tbx
 {
     enum class PluginLinkage
     {
-        Dynamic,
-        Static,
+        DYNAMIC,
+        STATIC,
     };
 }

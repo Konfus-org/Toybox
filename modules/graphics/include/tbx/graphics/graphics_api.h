@@ -6,20 +6,20 @@ namespace tbx
     // Represents the available vertical sync modes for a graphics context swap chain.
     enum class VsyncMode
     {
-        Off,
-        On,
-        Adaptive
+        OFF,
+        ON,
+        ADAPTIVE
     };
 
     // Represents the available graphics APIs.
     enum class GraphicsApi
     {
-        None,
-        Vulkan,
-        OpenGL,
-        DirectX,
-        Metal,
-        Custom
+        NONE,
+        VULKAN,
+        OPEN_GL,
+        DIRECT_X,
+        METAL,
+        CUSTOM
     };
 
     // Converts a GraphicsApi enum value to its string representation.

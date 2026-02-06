@@ -28,7 +28,7 @@ namespace tbx
         }
 
         LoadModelRequest message(asset_path, asset.get());
-        message.not_handled_behavior = MessageNotHandledBehavior::Warn;
+        message.not_handled_behavior = MessageNotHandledBehavior::WARN;
         auto future = dispatcher->post(message);
         AssetPromise<Model> result = {};
         result.asset = asset;
@@ -47,7 +47,7 @@ namespace tbx
         }
 
         LoadModelRequest message(asset_path, asset.get());
-        message.not_handled_behavior = MessageNotHandledBehavior::Warn;
+        message.not_handled_behavior = MessageNotHandledBehavior::WARN;
         dispatcher->send(message);
         return asset;
     }

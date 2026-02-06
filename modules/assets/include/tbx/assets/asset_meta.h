@@ -1,9 +1,10 @@
 #pragma once
 #include "tbx/common/uuid.h"
-#include "tbx/files/filesystem.h"
+#include "tbx/files/file_operator.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
 #include <string>
+#include <string_view>
 
 namespace tbx
 {
@@ -22,13 +23,13 @@ namespace tbx
     };
 
     /// <summary>
-    /// Purpose: Reads asset metadata from JSON sidecar files.
+    /// Purpose: Parses asset metadata from JSON sidecar files or raw JSON.
     /// </summary>
     /// <remarks>
-    /// Ownership: Does not own filesystem resources; reads from the provided IFileSystem.
-    /// Thread Safety: Safe to call concurrently as long as the filesystem is thread-safe.
+    /// Ownership: Does not own filesystem resources; reads from disk using FileOperator.
+    /// Thread Safety: Safe to call concurrently as long as the file operator is thread-safe.
     /// </remarks>
-    class TBX_API AssetMetaReader final
+    class TBX_API AssetMetaParser final
     {
       public:
         /// <summary>
@@ -36,10 +37,22 @@ namespace tbx
         /// </summary>
         /// <remarks>
         /// Ownership: Writes metadata into the caller-provided struct on success.
-        /// Thread Safety: Safe to call concurrently when the filesystem is thread-safe.
+        /// Thread Safety: Safe to call concurrently when the file operator is thread-safe.
         /// </remarks>
-        bool try_read(
-            const IFileSystem& file_system,
+        bool try_parse_from_disk(
+            const std::filesystem::path& working_directory,
+            const std::filesystem::path& asset_path,
+            AssetMeta& out_meta) const;
+
+        /// <summary>
+        /// Purpose: Parses metadata from raw JSON text.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Writes metadata into the caller-provided struct on success.
+        /// Thread Safety: Safe to call concurrently.
+        /// </remarks>
+        bool try_parse_from_source(
+            std::string_view meta_text,
             const std::filesystem::path& asset_path,
             AssetMeta& out_meta) const;
     };

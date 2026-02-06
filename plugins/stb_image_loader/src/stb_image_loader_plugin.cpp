@@ -1,6 +1,5 @@
 #include "stb_image_loader_plugin.h"
 #include "tbx/assets/messages.h"
-#include "tbx/files/filesystem.h"
 #include "tbx/graphics/texture.h"
 #include <stb_image.h>
 #include <string>
@@ -25,12 +24,12 @@ namespace tbx::plugins
 
     void StbImageLoaderPlugin::on_attach(IPluginHost& host)
     {
-        _filesystem = &host.get_filesystem();
+        _asset_manager = &host.get_asset_manager();
     }
 
     void StbImageLoaderPlugin::on_detach()
     {
-        _filesystem = nullptr;
+        _asset_manager = nullptr;
     }
 
     void StbImageLoaderPlugin::on_recieve_message(Message& msg)
@@ -49,22 +48,22 @@ namespace tbx::plugins
         auto* asset = request.asset;
         if (!asset)
         {
-            request.state = MessageState::Error;
+            request.state = MessageState::ERROR;
             request.result.flag_failure("Stb image loader: missing texture asset wrapper.");
             return;
         }
 
         if (request.cancellation_token && request.cancellation_token.is_cancelled())
         {
-            request.state = MessageState::Cancelled;
+            request.state = MessageState::CANCELLED;
             request.result.flag_failure("Stb image loader cancelled.");
             return;
         }
 
-        if (!_filesystem)
+        if (!_asset_manager)
         {
-            request.state = MessageState::Error;
-            request.result.flag_failure("Stb image loader: filesystem unavailable.");
+            request.state = MessageState::ERROR;
+            request.result.flag_failure("Stb image loader: asset manager unavailable.");
             return;
         }
 
@@ -78,7 +77,7 @@ namespace tbx::plugins
             stbi_load(resolved_string.c_str(), &width, &height, nullptr, desired_channels);
         if (!raw_data)
         {
-            request.state = MessageState::Error;
+            request.state = MessageState::ERROR;
             request.result.flag_failure(
                 build_load_failure_message(resolved, stbi_failure_reason()));
             return;
@@ -93,16 +92,16 @@ namespace tbx::plugins
         Texture texture(resolution, request.wrap, request.filter, request.format, pixels);
         *asset = texture;
 
-        request.state = MessageState::Handled;
+        request.state = MessageState::HANDLED;
     }
 
     std::filesystem::path StbImageLoaderPlugin::resolve_asset_path(
         const std::filesystem::path& path) const
     {
-        if (!_filesystem)
+        if (!_asset_manager)
         {
             return path;
         }
-        return _filesystem->resolve_asset_path(path);
+        return _asset_manager->resolve_asset_path(path);
     }
 }

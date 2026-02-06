@@ -1,8 +1,11 @@
 Checks:
   - -*
   - bugprone-*
+  - -bugprone-easily-swappable-parameters
+  - -bugprone-narrowing-conversions
   - clang-analyzer-*
   - cppcoreguidelines-avoid-goto
+  - -cppcoreguidelines-narrowing-conversions
   - google-build-using-namespace
   - modernize-use-nullptr
   - modernize-use-override

@@ -1,5 +1,6 @@
 #include "mat_material_loader_plugin.h"
-#include "tbx/files/filesystem.h"
+#include "tbx/app/application.h"
+#include "tbx/files/file_operator.h"
 #include "tbx/files/json.h"
 #include "tbx/graphics/material.h"
 #include <algorithm>
@@ -57,7 +58,7 @@ namespace tbx::plugins
             return false;
         }
 
-        const std::string type_text = to_lower(type_name);
+        std::string type_text = to_lower(type_name);
         if (type_text == "bool")
         {
             bool value = false;
@@ -275,12 +276,14 @@ namespace tbx::plugins
 
     void MatMaterialLoaderPlugin::on_attach(IPluginHost& host)
     {
-        _filesystem = &host.get_filesystem();
+        _asset_manager = &host.get_asset_manager();
+        _working_directory = host.get_settings().working_directory;
     }
 
     void MatMaterialLoaderPlugin::on_detach()
     {
-        _filesystem = nullptr;
+        _asset_manager = nullptr;
+        _working_directory = std::filesystem::path();
     }
 
     void MatMaterialLoaderPlugin::on_recieve_message(Message& msg)
@@ -299,39 +302,39 @@ namespace tbx::plugins
         auto* asset = request.asset;
         if (!asset)
         {
-            request.state = MessageState::Error;
+            request.state = MessageState::ERROR;
             request.result.flag_failure("Material loader: missing material asset wrapper.");
             return;
         }
 
         if (request.cancellation_token && request.cancellation_token.is_cancelled())
         {
-            request.state = MessageState::Cancelled;
+            request.state = MessageState::CANCELLED;
             request.result.flag_failure("Material loader cancelled.");
             return;
         }
 
-        if (!_filesystem)
+        if (!_asset_manager)
         {
-            request.state = MessageState::Error;
-            request.result.flag_failure("Material loader: filesystem unavailable.");
+            request.state = MessageState::ERROR;
+            request.result.flag_failure("Material loader: file services unavailable.");
             return;
         }
 
-        const std::filesystem::path resolved = resolve_asset_path(request.path);
-        if (resolved.extension() != ".mat")
+        FileOperator file_operator = FileOperator(_working_directory);
+        if (request.path.extension() != ".mat")
         {
-            request.state = MessageState::Error;
+            request.state = MessageState::ERROR;
             request.result.flag_failure("Material loader: unsupported material file extension.");
             return;
         }
 
         std::string file_data;
-        if (!_filesystem->read_file(resolved, FileDataFormat::Utf8Text, file_data))
+        if (!file_operator.read_file(request.path, FileDataFormat::UTF8_TEXT, file_data))
         {
-            request.state = MessageState::Error;
+            request.state = MessageState::ERROR;
             request.result.flag_failure(
-                build_load_failure_message(resolved, "file could not be read"));
+                build_load_failure_message(request.path, "file could not be read"));
             return;
         }
 
@@ -339,23 +342,13 @@ namespace tbx::plugins
         std::string parse_error;
         if (!try_parse_material(file_data, parsed_material, parse_error))
         {
-            request.state = MessageState::Error;
-            request.result.flag_failure(build_load_failure_message(resolved, parse_error));
+            request.state = MessageState::ERROR;
+            request.result.flag_failure(build_load_failure_message(request.path, parse_error));
             return;
         }
 
         *asset = std::move(parsed_material);
 
-        request.state = MessageState::Handled;
-    }
-
-    std::filesystem::path MatMaterialLoaderPlugin::resolve_asset_path(
-        const std::filesystem::path& path) const
-    {
-        if (!_filesystem)
-        {
-            return path;
-        }
-        return _filesystem->resolve_asset_path(path);
+        request.state = MessageState::HANDLED;
     }
 }

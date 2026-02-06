@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "opengl_resource.h"
 #include "tbx/common/int.h"
 #include "tbx/graphics/shader.h"
@@ -55,7 +55,7 @@ namespace tbx::plugins
 
       private:
         uint32 _shader_id = 0;
-        ShaderType _type = ShaderType::None;
+        ShaderType _type = ShaderType::NONE;
     };
 
     /// <summary>OpenGL implementation of a shader program resource.</summary>
@@ -97,10 +97,16 @@ namespace tbx::plugins
         void upload(const ShaderUniform& uniform);
 
         /// <summary>Attempts to upload a uniform value to the program.</summary>
-        /// <remarks>Purpose: Updates uniform state used by the program without warning on missing uniforms.
+        /// <remarks>Purpose: Updates uniform state without warning on missing uniforms.
         /// Ownership: Copies uniform data; caller retains CPU ownership.
         /// Thread Safety: Call only on the render thread.</remarks>
         bool try_upload(const ShaderUniform& uniform);
+
+        /// <summary>Returns the OpenGL program handle.</summary>
+        /// <remarks>Purpose: Allows inspection of the linked program identifier.
+        /// Ownership: Returns a value type; no ownership transfer.
+        /// Thread Safety: Safe to call on the render thread.</remarks>
+        uint32 get_program_id() const;
 
       private:
         int get_cached_uniform_location(const std::string& name);

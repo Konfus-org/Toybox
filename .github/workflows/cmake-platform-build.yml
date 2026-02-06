@@ -29,13 +29,6 @@ jobs:
 
     steps:
 
-    - name: Define build output path
-      # Turn repeated input strings (such as the build output directory) into step outputs.
-      id: strings
-      shell: bash
-      run: |
-        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
-
     - name: Check out repository
       # Pull repository contents and submodules.
       uses: actions/checkout@v4
@@ -55,10 +48,10 @@ jobs:
       uses: ./.github/actions/windows-setup
       with:
         sccache-dir: ${{ env.SCCACHE_DIR }}
-        cache-key: ${{ runner.os }}-sccache-${{ matrix.cpp_compiler }}-${{ matrix.build_type }}-${{ env.CACHE_VERSION }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**', 'modules/**', 'plugins/**', 'thirdparty/**') }}
+        cache-key: ${{ runner.os }}-sccache-${{ matrix.configure_preset }}-${{ matrix.build_preset }}-${{ env.CACHE_VERSION }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**', 'modules/**', 'plugins/**', 'thirdparty/**') }}
         cache-restore-keys: |
-          ${{ runner.os }}-sccache-${{ matrix.cpp_compiler }}-${{ matrix.build_type }}-${{ env.CACHE_VERSION }}-
-          ${{ runner.os }}-sccache-${{ matrix.cpp_compiler }}-${{ env.CACHE_VERSION }}-
+          ${{ runner.os }}-sccache-${{ matrix.configure_preset }}-${{ matrix.build_preset }}-${{ env.CACHE_VERSION }}-
+          ${{ runner.os }}-sccache-${{ matrix.configure_preset }}-${{ env.CACHE_VERSION }}-
           ${{ runner.os }}-sccache-${{ env.CACHE_VERSION }}-
 
     - name: Setup (Windows, no cache)
@@ -66,15 +59,20 @@ jobs:
       if: runner.os == 'Windows' && !inputs.use-cache
       run: echo "Windows setup complete; full builds run without caching."
 
+    - name: Configure MSVC environment
+      # Ensure cl.exe is available on PATH for preset compiler selection.
+      if: runner.os == 'Windows'
+      uses: ilammy/msvc-dev-cmd@v1
+
     - name: Setup (Linux)
       # Install Linux dependencies and restore the compiler cache when enabled.
       if: runner.os == 'Linux' && inputs.use-cache
       uses: ./.github/actions/linux-setup
       with:
-        cache-key: ${{ runner.os }}-ccache-${{ matrix.cpp_compiler }}-${{ matrix.build_type }}-${{ env.CACHE_VERSION }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**', 'modules/**', 'plugins/**', 'thirdparty/**') }}
+        cache-key: ${{ runner.os }}-ccache-${{ matrix.configure_preset }}-${{ matrix.build_preset }}-${{ env.CACHE_VERSION }}-${{ hashFiles('**/CMakeLists.txt', 'cmake/**', 'modules/**', 'plugins/**', 'thirdparty/**') }}
         cache-restore-keys: |
-          ${{ runner.os }}-ccache-${{ matrix.cpp_compiler }}-${{ matrix.build_type }}-${{ env.CACHE_VERSION }}-
-          ${{ runner.os }}-ccache-${{ matrix.cpp_compiler }}-${{ env.CACHE_VERSION }}-
+          ${{ runner.os }}-ccache-${{ matrix.configure_preset }}-${{ matrix.build_preset }}-${{ env.CACHE_VERSION }}-
+          ${{ runner.os }}-ccache-${{ matrix.configure_preset }}-${{ env.CACHE_VERSION }}-
           ${{ runner.os }}-ccache-${{ env.CACHE_VERSION }}-
 
     - name: Setup (Linux, no cache)
@@ -95,39 +93,33 @@ jobs:
     #     ls -la Plugins/Toybox-SDL-Input-Plugin || true
 
     - name: Build (Windows)
-      # Clean and build the Windows configuration, then run tests.
+      # Configure and build using presets, then run tests.
       if: runner.os == 'Windows'
       shell: bash
       run: |
         set -e
-        rm -rf "${{ steps.strings.outputs.build-output-dir }}"
-        cmake -B "${{ steps.strings.outputs.build-output-dir }}" \
-          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
-          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
-          -DCMAKE_CXX_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }} \
-          -DCMAKE_C_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }} \
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-          -S "${{ github.workspace }}"
-        cmake --build "${{ steps.strings.outputs.build-output-dir }}" --config ${{ matrix.build_type }}
-        cd "${{ steps.strings.outputs.build-output-dir }}"
-        ctest --build-config ${{ matrix.build_type }} --output-on-failure
+        launcher_args=()
+        if [ -n "${{ matrix.compiler_launcher }}" ]; then
+          launcher_args+=("-D" "CMAKE_CXX_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }}")
+          launcher_args+=("-D" "CMAKE_C_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }}")
+        fi
+        cmake --preset "${{ matrix.configure_preset }}" "${launcher_args[@]}"
+        cmake --build --preset "${{ matrix.build_preset }}"
+        ctest --preset "${{ matrix.test_preset }}"
 
     - name: Build (Linux)
-      # Clean and build the Linux configuration, then run tests.
+      # Configure and build using presets, then run tests.
       if: runner.os == 'Linux'
       run: |
         set -e
-        rm -rf "${{ steps.strings.outputs.build-output-dir }}"
-        cmake -B "${{ steps.strings.outputs.build-output-dir }}" \
-          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
-          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
-          -DCMAKE_CXX_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }} \
-          -DCMAKE_C_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }} \
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-          -S "${{ github.workspace }}"
-        cmake --build "${{ steps.strings.outputs.build-output-dir }}" --config ${{ matrix.build_type }}
-        cd "${{ steps.strings.outputs.build-output-dir }}"
-        ctest --build-config ${{ matrix.build_type }} --output-on-failure
+        launcher_args=()
+        if [ -n "${{ matrix.compiler_launcher }}" ]; then
+          launcher_args+=("-D" "CMAKE_CXX_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }}")
+          launcher_args+=("-D" "CMAKE_C_COMPILER_LAUNCHER=${{ matrix.compiler_launcher }}")
+        fi
+        cmake --preset "${{ matrix.configure_preset }}" "${launcher_args[@]}"
+        cmake --build --preset "${{ matrix.build_preset }}"
+        ctest --preset "${{ matrix.test_preset }}"
 
     - name: Cleanup (Windows)
       # Confirm Windows cleanup is complete.

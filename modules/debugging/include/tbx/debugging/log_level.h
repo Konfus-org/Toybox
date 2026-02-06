@@ -5,9 +5,9 @@ namespace tbx
 {
     enum class LogLevel
     {
-        Info,
-        Warning,
-        Error,
-        Critical
+        INFO,
+        WARNING,
+        ERROR,
+        CRITICAL
     };
 }

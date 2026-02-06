@@ -18,8 +18,11 @@ namespace tbx::examples
         std::string message = trim(greeting);
         TBX_TRACE_INFO("{}", message.c_str());
 
-        const auto toys_to_make = 5;
-        const auto starting_x = -toys_to_make / 2.0f - 1.5f;
+        _elapsed_seconds = 0.0f;
+
+        auto toys_to_make = 5;
+        auto spacing = 2.0f;
+        auto starting_x = -((toys_to_make - 1.0f) * spacing) * 0.5f;
         for (int i = 0; i < toys_to_make; i++)
         {
             // create and add components
@@ -29,7 +32,7 @@ namespace tbx::examples
 
             // shift on the x axis so they are not all in the same spot
             auto& transform = ent.get_component<Transform>();
-            transform.position.x = starting_x + (i * 2);
+            transform.position.x = starting_x + (static_cast<float>(i) * spacing);
         }
     }
 
@@ -37,12 +40,14 @@ namespace tbx::examples
 
     void ExampleRuntimePlugin::on_update(const DeltaTime& dt)
     {
+        _elapsed_seconds += dt.seconds;
+
         // bob all toys in stage with transform up, then down over time
         float offset = 0;
         for (auto& entity : _entity_manager->get_with<Transform>())
         {
             auto& transform = entity.get_component<Transform>();
-            transform.position.y = sin(dt.seconds * 2.0 + offset);
+            transform.position.y = sin((_elapsed_seconds * 2.0f) + offset);
             offset += 0.1f;
         }
     }

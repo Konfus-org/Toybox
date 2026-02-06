@@ -9,6 +9,7 @@ namespace tbx::tests::plugin_api
     /// </summary>
     TEST(plugin_meta_parse_test, populates_expected_fields)
     {
+        // Arrange
         constexpr const char* manifest_text = R"JSON({
                 "name": "Example.Logger",
                 "version": "1.2.3",
@@ -26,8 +27,11 @@ namespace tbx::tests::plugin_api
 
         PluginMeta meta;
         PluginMetaParser parser;
-        ASSERT_TRUE(parser.try_parse_plugin_meta(manifest_text, manifest_path, meta));
 
+        // Act
+        ASSERT_TRUE(parser.try_parse_from_source(manifest_text, manifest_path, meta));
+
+        // Assert
         EXPECT_EQ(meta.name, "Example.Logger");
         EXPECT_EQ(meta.version, "1.2.3");
         EXPECT_EQ(meta.abi_version, PluginAbiVersion);
@@ -35,14 +39,12 @@ namespace tbx::tests::plugin_api
         ASSERT_EQ(meta.dependencies.size(), 1u);
         EXPECT_EQ(meta.dependencies[0], "Core.Renderer");
         EXPECT_EQ(meta.resource_directory, manifest_path.parent_path() / "assets");
-        EXPECT_EQ(meta.category, PluginCategory::Audio);
+        EXPECT_EQ(meta.category, PluginCategory::AUDIO);
         EXPECT_EQ(meta.priority, 250u);
         EXPECT_EQ(meta.root_directory, manifest_path.parent_path());
         EXPECT_EQ(meta.manifest_path, manifest_path);
-        EXPECT_EQ(
-            meta.library_path,
-            manifest_path.parent_path() / "bin/logger.so");
-        EXPECT_EQ(meta.linkage, PluginLinkage::Static);
+        EXPECT_EQ(meta.library_path, manifest_path.parent_path() / "bin/logger.so");
+        EXPECT_EQ(meta.linkage, PluginLinkage::STATIC);
     }
 
     /// <summary>
@@ -50,6 +52,7 @@ namespace tbx::tests::plugin_api
     /// </summary>
     TEST(plugin_meta_parse_test, resolves_relative_module_paths)
     {
+        // Arrange
         constexpr const char* manifest_text = R"JSON({
                 "name": "Example.RelativeModule",
                 "version": "5.4.3",
@@ -61,11 +64,12 @@ namespace tbx::tests::plugin_api
 
         PluginMeta meta;
         PluginMetaParser parser;
-        ASSERT_TRUE(parser.try_parse_plugin_meta(manifest_text, manifest_path, meta));
 
-        EXPECT_EQ(
-            meta.library_path,
-            manifest_path.parent_path() / "modules/example_renderer.so");
+        // Act
+        ASSERT_TRUE(parser.try_parse_from_source(manifest_text, manifest_path, meta));
+
+        // Assert
+        EXPECT_EQ(meta.library_path, manifest_path.parent_path() / "modules/example_renderer.so");
         EXPECT_EQ(meta.resource_directory, manifest_path.parent_path() / "assets");
     }
 
@@ -74,6 +78,7 @@ namespace tbx::tests::plugin_api
     /// </summary>
     TEST(plugin_meta_parse_test, accepts_string_resource_directory)
     {
+        // Arrange
         constexpr const char* manifest_text = R"JSON({
                 "name": "Example.StringResources",
                 "version": "0.1.0",
@@ -85,7 +90,11 @@ namespace tbx::tests::plugin_api
 
         PluginMeta meta;
         PluginMetaParser parser;
-        ASSERT_TRUE(parser.try_parse_plugin_meta(manifest_text, manifest_path, meta));
+
+        // Act
+        ASSERT_TRUE(parser.try_parse_from_source(manifest_text, manifest_path, meta));
+
+        // Assert
         EXPECT_EQ(meta.resource_directory, manifest_path.parent_path() / "assets");
     }
 
@@ -94,6 +103,7 @@ namespace tbx::tests::plugin_api
     /// </summary>
     TEST(plugin_meta_parse_test, fails_with_multiple_resource_directories)
     {
+        // Arrange
         constexpr const char* manifest_text = R"JSON({
                 "name": "Example.MultipleResources",
                 "version": "0.1.0",
@@ -102,7 +112,9 @@ namespace tbx::tests::plugin_api
 
         PluginMeta meta;
         PluginMetaParser parser;
-        EXPECT_FALSE(parser.try_parse_plugin_meta(manifest_text, "/virtual/multi.meta", meta));
+
+        // Act
+        EXPECT_FALSE(parser.try_parse_from_source(manifest_text, "/virtual/multi.meta", meta));
     }
 
     /// <summary>
@@ -110,12 +122,15 @@ namespace tbx::tests::plugin_api
     /// </summary>
     TEST(plugin_meta_parse_test, fails_without_required_fields)
     {
+        // Arrange
         constexpr const char* manifest_text = R"JSON({
                 "description": "Missing name and version"
             })JSON";
 
         PluginMeta meta;
         PluginMetaParser parser;
-        EXPECT_FALSE(parser.try_parse_plugin_meta(manifest_text, "/virtual/invalid.meta", meta));
+
+        // Act
+        EXPECT_FALSE(parser.try_parse_from_source(manifest_text, "/virtual/invalid.meta", meta));
     }
 }

@@ -3,7 +3,7 @@
 #include "tbx/common/string_utils.h"
 #include "tbx/debugging/logging.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/files/filesystem.h"
+#include "tbx/files/file_operator.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_registry.h"
 #include <algorithm>
@@ -20,7 +20,7 @@ namespace tbx
 {
     struct RequiredFallbackPlugin
     {
-        PluginCategory category = PluginCategory::Default;
+        PluginCategory category = PluginCategory::DEFAULT;
         PluginMeta meta;
     };
 
@@ -66,14 +66,16 @@ namespace tbx
         return library_path.parent_path() / debug_name;
     }
 
-    static std::filesystem::path resolve_library_path(const PluginMeta& meta, IFileSystem& file_ops)
+    static std::filesystem::path resolve_library_path(
+        const PluginMeta& meta,
+        FileOperator& file_ops)
     {
         std::filesystem::path library_path = meta.library_path;
 
         if (library_path.empty())
             library_path = meta.root_directory;
 
-        if (file_ops.get_file_type(library_path) == FilePathType::Directory)
+        if (file_ops.get_type(library_path) == FileType::DIRECTORY)
             library_path /= meta.name;
 
         if (library_path.extension().string().empty())
@@ -105,7 +107,7 @@ namespace tbx
 
     static LoadedPlugin load_plugin_internal(
         const PluginMeta& meta,
-        IFileSystem& file_ops,
+        FileOperator& file_ops,
         IPluginHost& host)
     {
         if (meta.abi_version != PluginAbiVersion)
@@ -118,7 +120,7 @@ namespace tbx
             return {};
         }
 
-        if (meta.linkage == PluginLinkage::Static)
+        if (meta.linkage == PluginLinkage::STATIC)
         {
             Plugin* plug = PluginRegistry::get_instance().find_plugin(meta.name);
             if (!plug)
@@ -188,12 +190,12 @@ namespace tbx
             logging_meta.name = std::string(get_stdout_fallback_logger_name());
             logging_meta.version = std::string(get_stdout_fallback_logger_version());
             logging_meta.description = std::string(get_stdout_fallback_logger_description());
-            logging_meta.linkage = PluginLinkage::Static;
-            logging_meta.category = PluginCategory::Logging;
+            logging_meta.linkage = PluginLinkage::STATIC;
+            logging_meta.category = PluginCategory::LOGGING;
             logging_meta.priority = 0;
 
             RequiredFallbackPlugin logging_fallback;
-            logging_fallback.category = PluginCategory::Logging;
+            logging_fallback.category = PluginCategory::LOGGING;
             logging_fallback.meta = std::move(logging_meta);
             entries.push_back(std::move(logging_fallback));
 
@@ -205,7 +207,7 @@ namespace tbx
 
     static void load_required_fallback_plugins(
         std::vector<LoadedPlugin>& loaded_plugins,
-        IFileSystem& file_ops,
+        FileOperator& file_ops,
         IPluginHost& host)
     {
         for (const RequiredFallbackPlugin& fallback : get_required_fallback_plugins())
@@ -321,9 +323,10 @@ namespace tbx
     std::vector<LoadedPlugin> load_plugins(
         const std::filesystem::path& directory,
         const std::vector<std::string>& requested_ids,
-        IFileSystem& file_ops,
+        const std::filesystem::path& working_directory,
         IPluginHost& host)
     {
+        FileOperator file_ops = FileOperator(working_directory);
         std::vector<LoadedPlugin> loaded;
 
         std::vector<PluginMeta> discovered;
@@ -332,25 +335,25 @@ namespace tbx
         {
             for (const std::filesystem::path& entry : file_ops.read_directory(directory))
             {
-                // Release builds often bundle assets into a `resources/` folder near the executable.
-                // Keep plugin discovery from crawling that subtree.
+                // Release builds often bundle assets into a `resources/` folder near the
+                // executable. Keep plugin discovery from crawling that subtree.
                 if (path_contains_directory_token(entry, "resources"))
                     continue;
 
-                if (file_ops.get_file_type(entry) != FilePathType::Regular)
+                if (file_ops.get_type(entry) != FileType::FILE)
                     continue;
 
-                // Only treat manifests as plugin metadata when their filename also contains the platform's
-                // dynamic library extension (e.g. `Foo.dll.meta`, `libFoo.so.meta`).
+                // Only treat manifests as plugin metadata when their filename also contains the
+                // platform's dynamic library extension (e.g. `Foo.dll.meta`, `libFoo.so.meta`).
                 if (!is_plugin_manifest_file(entry))
                     continue;
 
                 std::string manifest_data;
-                if (!file_ops.read_file(entry, FileDataFormat::Utf8Text, manifest_data))
+                if (!file_ops.read_file(entry, FileDataFormat::UTF8_TEXT, manifest_data))
                     continue;
 
                 PluginMeta manifest_meta;
-                if (parser.try_parse_plugin_meta(manifest_data, entry, manifest_meta))
+                if (parser.try_parse_from_source(std::string_view(manifest_data), entry, manifest_meta))
                     discovered.push_back(manifest_meta);
                 else
                 {
@@ -449,9 +452,10 @@ namespace tbx
 
     std::vector<LoadedPlugin> load_plugins(
         const std::vector<PluginMeta>& metas,
-        IFileSystem& file_ops,
+        const std::filesystem::path& working_directory,
         IPluginHost& host)
     {
+        FileOperator file_ops = FileOperator(working_directory);
         std::vector<LoadedPlugin> loaded;
 
         for (const PluginMeta& meta : metas)

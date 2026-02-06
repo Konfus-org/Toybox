@@ -1,4 +1,4 @@
-#include "opengl_shader.h"
+﻿#include "opengl_shader.h"
 #include "tbx/common/int.h"
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
@@ -13,11 +13,11 @@ namespace tbx::plugins
     {
         switch (type)
         {
-            case ShaderType::Vertex:
+            case ShaderType::VERTEX:
                 return GL_VERTEX_SHADER;
-            case ShaderType::Fragment:
+            case ShaderType::FRAGMENT:
                 return GL_FRAGMENT_SHADER;
-            case ShaderType::Compute:
+            case ShaderType::COMPUTE:
                 return GL_COMPUTE_SHADER;
             default:
                 TBX_ASSERT(false, "OpenGL rendering: unsupported shader type.");
@@ -231,6 +231,11 @@ namespace tbx::plugins
 
         upload_uniform_value(location, uniform.data);
         return true;
+    }
+
+    uint32 OpenGlShaderProgram::get_program_id() const
+    {
+        return _program_id;
     }
 
     int OpenGlShaderProgram::get_cached_uniform_location(const std::string& name)

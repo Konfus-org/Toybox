@@ -1,6 +1,7 @@
 #include "tbx/plugin_api/plugin_meta.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/debugging/macros.h"
+#include "tbx/files/file_operator.h"
 #include "tbx/files/json.h"
 #include <filesystem>
 #include <fstream>
@@ -87,44 +88,42 @@ namespace tbx
         return true;
     }
 
-    static bool try_parse_category(
-        const std::string& category_text,
-        PluginCategory& out_category)
+    static bool try_parse_category(const std::string& category_text, PluginCategory& out_category)
     {
-        const std::string token = to_lower(trim(category_text));
+        std::string token = to_lower(trim(category_text));
         if (token == "default")
         {
-            out_category = PluginCategory::Default;
+            out_category = PluginCategory::DEFAULT;
             return true;
         }
         if (token == "logging")
         {
-            out_category = PluginCategory::Logging;
+            out_category = PluginCategory::LOGGING;
             return true;
         }
         if (token == "input")
         {
-            out_category = PluginCategory::Input;
+            out_category = PluginCategory::INPUT;
             return true;
         }
         if (token == "audio")
         {
-            out_category = PluginCategory::Audio;
+            out_category = PluginCategory::AUDIO;
             return true;
         }
         if (token == "physics")
         {
-            out_category = PluginCategory::Physics;
+            out_category = PluginCategory::PHYSICS;
             return true;
         }
         if (token == "rendering")
         {
-            out_category = PluginCategory::Rendering;
+            out_category = PluginCategory::RENDERING;
             return true;
         }
         if (token == "gameplay")
         {
-            out_category = PluginCategory::Gameplay;
+            out_category = PluginCategory::GAMEPLAY;
             return true;
         }
 
@@ -146,7 +145,10 @@ namespace tbx
             meta.root_directory = manifest_path.parent_path();
 
         assign_string_list(data, "dependencies", meta.dependencies);
-        if (!try_assign_optional_resource_directory(data, meta.root_directory, meta.resource_directory))
+        if (!try_assign_optional_resource_directory(
+                data,
+                meta.root_directory,
+                meta.resource_directory))
             return false;
 
         int32 abi_version = 0;
@@ -182,7 +184,7 @@ namespace tbx
 
         bool is_static = false;
         if (data.try_get_bool("static", is_static))
-            meta.linkage = is_static ? PluginLinkage::Static : PluginLinkage::Dynamic;
+            meta.linkage = is_static ? PluginLinkage::STATIC : PluginLinkage::DYNAMIC;
 
         std::string description;
         if (data.try_get_string("description", description))
@@ -215,7 +217,7 @@ namespace tbx
     /// <summary>
     /// Parses plugin metadata from raw JSON text.
     /// </summary>
-    bool PluginMetaParser::try_parse_plugin_meta(
+    bool PluginMetaParser::try_parse_from_source(
         std::string_view manifest_text,
         const std::filesystem::path& manifest_path,
         PluginMeta& out_meta)
@@ -236,18 +238,19 @@ namespace tbx
     /// <summary>
     /// Opens the manifest on disk and parses plugin metadata.
     /// </summary>
-    bool PluginMetaParser::try_parse_plugin_meta(
-        const IFileSystem& fs,
+    bool PluginMetaParser::try_parse_from_disk(
+        const std::filesystem::path& working_directory,
         const std::filesystem::path& manifest_path,
         PluginMeta& out_meta)
     {
+        FileOperator file_operator = FileOperator(working_directory);
         std::string out_data = {};
-        if (!fs.read_file(manifest_path, FileDataFormat::Utf8Text, out_data))
+        if (!file_operator.read_file(manifest_path, FileDataFormat::UTF8_TEXT, out_data))
         {
             TBX_ASSERT(false, "Unable to read plugin manifest: {}", manifest_path.string());
             return false;
         }
 
-        return try_parse_plugin_meta(out_data, manifest_path, out_meta);
+        return try_parse_from_source(std::string_view(out_data), manifest_path, out_meta);
     }
 }

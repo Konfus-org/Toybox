@@ -3,7 +3,6 @@
 #include <exception>
 #include <mutex>
 #include <string>
-#include <typeinfo>
 #include <utility>
 
 namespace tbx
@@ -14,24 +13,24 @@ namespace tbx
 
     static void update_result_for_state(
         const Message& msg,
-        const MessageState state,
+        const MessageState& state,
         const std::string& message)
     {
         switch (state)
         {
-            case MessageState::Handled:
-            case MessageState::UnHandled:
+            case MessageState::HANDLED:
+            case MessageState::UN_HANDLED:
             {
                 msg.result.flag_success(message);
                 break;
             }
-            case MessageState::Cancelled:
+            case MessageState::CANCELLED:
             {
                 msg.result.flag_failure(
                     message.empty() ? std::string("Message was cancelled.") : message);
                 break;
             }
-            case MessageState::Error:
+            case MessageState::ERROR:
             {
                 msg.result.flag_failure(
                     message.empty() ? std::string("Message processing failed.") : message);
@@ -45,24 +44,24 @@ namespace tbx
         }
     }
 
-    static void dispatch_state_callbacks(const Message& msg, const MessageState state)
+    static void dispatch_state_callbacks(const Message& msg, const MessageState& state)
     {
         switch (state)
         {
-            case MessageState::Cancelled:
+            case MessageState::CANCELLED:
             {
                 if (msg.callbacks.on_cancelled)
                     msg.callbacks.on_cancelled(msg);
                 break;
             }
-            case MessageState::Error:
+            case MessageState::ERROR:
             {
                 if (msg.callbacks.on_error)
                     msg.callbacks.on_error(msg);
                 break;
             }
-            case MessageState::Handled:
-            case MessageState::UnHandled:
+            case MessageState::HANDLED:
+            case MessageState::UN_HANDLED:
                 break;
             default:
             {
@@ -82,7 +81,7 @@ namespace tbx
         dispatch_state_callbacks(msg, state);
     }
 
-    static void handle_state_change(const Message& msg, const MessageState previous_state)
+    static void handle_state_change(const Message& msg, const MessageState& previous_state)
     {
         if (msg.state == previous_state)
             return;
@@ -96,11 +95,11 @@ namespace tbx
         if (!msg.cancellation_token || !msg.cancellation_token.is_cancelled())
             return false;
 
-        if (msg.state == MessageState::Cancelled)
+        if (msg.state == MessageState::CANCELLED)
             return true;
 
         std::string resolved = reason.empty() ? std::string("Message was cancelled.") : reason;
-        apply_state(msg, MessageState::Cancelled, resolved);
+        apply_state(msg, MessageState::CANCELLED, resolved);
 
         return true;
     }
@@ -179,42 +178,42 @@ namespace tbx
                     previous_state = msg.state;
                 }
 
-                if (msg.state == MessageState::Handled)
+                if (msg.state == MessageState::HANDLED)
                     break;
-                if (msg.state == MessageState::Cancelled)
+                if (msg.state == MessageState::CANCELLED)
                     return;
                 if (cancel_if_requested(msg))
                     return;
             }
 
-            if (msg.state == MessageState::UnHandled)
+            if (msg.state == MessageState::UN_HANDLED)
             {
                 auto* request = dynamic_cast<RequestBase*>(&msg);
                 if (!request)
                 {
-                    apply_state(msg, MessageState::UnHandled, std::string());
+                    apply_state(msg, MessageState::UN_HANDLED, std::string());
                     return;
                 }
 
                 switch (request->not_handled_behavior)
                 {
-                    case MessageNotHandledBehavior::DoNothing:
+                    case MessageNotHandledBehavior::DO_NOTHING:
                     {
-                        apply_state(msg, MessageState::UnHandled, std::string());
+                        apply_state(msg, MessageState::UN_HANDLED, std::string());
                         break;
                     }
-                    case MessageNotHandledBehavior::Warn:
+                    case MessageNotHandledBehavior::WARN:
                     {
                         TBX_TRACE_WARNING(
                             "Request was not handled (type: %s).",
                             typeid(msg).name());
                         apply_state(
                             msg,
-                            MessageState::Error,
+                            MessageState::ERROR,
                             "Request was not handled by any handlers.");
                         break;
                     }
-                    case MessageNotHandledBehavior::Assert:
+                    case MessageNotHandledBehavior::ASSERT:
                     {
                         TBX_ASSERT(
                             false,
@@ -222,7 +221,7 @@ namespace tbx
                             typeid(msg).name());
                         apply_state(
                             msg,
-                            MessageState::Error,
+                            MessageState::ERROR,
                             "Request required handling but was not handled by any handlers.");
                         break;
                     }
@@ -231,7 +230,7 @@ namespace tbx
                         TBX_ASSERT(false, "Unknown MessageNotHandledBehavior.");
                         apply_state(
                             msg,
-                            MessageState::Error,
+                            MessageState::ERROR,
                             "Unknown request not-handled behavior.");
                         break;
                     }
@@ -240,12 +239,12 @@ namespace tbx
         }
         catch (const std::exception& ex)
         {
-            apply_state(msg, MessageState::Error, ex.what());
+            apply_state(msg, MessageState::ERROR, ex.what());
             TBX_ASSERT(false, "Exception during message dispatch: %s", ex.what());
         }
         catch (...)
         {
-            apply_state(msg, MessageState::Error, "Unknown exception during message dispatch.");
+            apply_state(msg, MessageState::ERROR, "Unknown exception during message dispatch.");
             TBX_ASSERT(false, "Unknown exception during message dispatch.");
         }
     }
@@ -285,13 +284,13 @@ namespace tbx
             }
             catch (const std::exception& ex)
             {
-                apply_state(*entry.message, MessageState::Error, ex.what());
+                apply_state(*entry.message, MessageState::ERROR, ex.what());
             }
             catch (...)
             {
                 apply_state(
                     *entry.message,
-                    MessageState::Error,
+                    MessageState::ERROR,
                     "Unknown exception during message dispatch.");
             }
 

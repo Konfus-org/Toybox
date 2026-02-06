@@ -5,6 +5,7 @@
 #include "tbx/math/vectors.h"
 #include "tbx/tbx_api.h"
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -41,10 +42,10 @@ namespace tbx
     /// </remarks>
     enum class ShaderType
     {
-        None,
-        Vertex,
-        Fragment,
-        Compute
+        NONE,
+        VERTEX,
+        FRAGMENT,
+        COMPUTE
     };
 
     /// <summary>
@@ -57,14 +58,14 @@ namespace tbx
     struct TBX_API ShaderSource
     {
         ShaderSource() = default;
-        ShaderSource(const std::string& shader_source, ShaderType shader_type)
-            : source(shader_source)
+        ShaderSource(std::string shader_source, ShaderType shader_type)
+            : source(std::move(shader_source))
             , type(shader_type)
         {
         }
 
         std::string source = "";
-        ShaderType type = ShaderType::None;
+        ShaderType type = ShaderType::NONE;
     };
 
     /// <summary>

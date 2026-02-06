@@ -41,13 +41,13 @@ namespace tbx
         /// <remarks>Purpose: Initializes the model with the provided mesh and default material.
         /// Ownership: Owns the mesh/material/part data by value.
         /// Thread Safety: Safe to construct on any thread.</remarks>
-        Model(const Mesh& mesh);
+        Model(Mesh mesh);
 
         /// <summary>Creates a model with a single mesh and material.</summary>
         /// <remarks>Purpose: Initializes the model with the provided mesh and material.
         /// Ownership: Owns the mesh/material/part data by value.
         /// Thread Safety: Safe to construct on any thread.</remarks>
-        Model(const Mesh& mesh, const Material& material);
+        Model(Mesh mesh, Material material);
 
         std::vector<Mesh> meshes = {};
         std::vector<Material> materials = {};

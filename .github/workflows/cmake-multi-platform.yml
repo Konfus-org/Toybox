@@ -26,8 +26,20 @@ jobs:
       fail-fast: true
       matrix-config: >-
         {"include":[
-          {"os":"windows-latest","build_type":"Release","c_compiler":"cl","cpp_compiler":"cl","compiler_launcher":"sccache"},
-          {"os":"ubuntu-latest","build_type":"Release","c_compiler":"clang","cpp_compiler":"clang++","compiler_launcher":"ccache"}
+          {"os":"windows-latest","configure_preset":"msvc","build_preset":"msvc-release","test_preset":"test-msvc-release","compiler_launcher":"sccache"},
+          {"os":"ubuntu-latest","configure_preset":"clang","build_preset":"clang-release","test_preset":"test-clang-release","compiler_launcher":"ccache"}
+        ]}
+
+  cache_seed:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/cmake-platform-build.yml
+    with:
+      use-cache: true
+      fail-fast: false
+      matrix-config: >-
+        {"include":[
+          {"os":"windows-latest","configure_preset":"msvc","build_preset":"msvc-release","test_preset":"test-msvc-release","compiler_launcher":"sccache"},
+          {"os":"ubuntu-latest","configure_preset":"clang","build_preset":"clang-release","test_preset":"test-clang-release","compiler_launcher":"ccache"}
         ]}
 
   build_full:
@@ -38,7 +50,7 @@ jobs:
       fail-fast: false
       matrix-config: >-
         {"include":[
-          {"os":"windows-latest","build_type":"Release","c_compiler":"cl","cpp_compiler":"cl","compiler_launcher":""},
-          {"os":"ubuntu-latest","build_type":"Release","c_compiler":"gcc","cpp_compiler":"g++","compiler_launcher":""},
-          {"os":"ubuntu-latest","build_type":"Release","c_compiler":"clang","cpp_compiler":"clang++","compiler_launcher":""}
+          {"os":"windows-latest","configure_preset":"msvc","build_preset":"msvc-release","test_preset":"test-msvc-release","compiler_launcher":""},
+          {"os":"ubuntu-latest","configure_preset":"default","build_preset":"default-release","test_preset":"test-default-release","compiler_launcher":""},
+          {"os":"ubuntu-latest","configure_preset":"clang","build_preset":"clang-release","test_preset":"test-clang-release","compiler_launcher":""}
         ]}

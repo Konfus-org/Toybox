@@ -2,6 +2,7 @@
 #include "tbx/assets/assets.h"
 #include "tbx/audio/audio_clip.h"
 #include "tbx/tbx_api.h"
+#include <filesystem>
 #include <memory>
 
 namespace tbx

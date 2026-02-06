@@ -1,8 +1,9 @@
-#pragma once
+﻿#pragma once
 #ifndef GLM_ENABLE_EXPERIMENTAL
     #define GLM_ENABLE_EXPERIMENTAL
 #endif
 #include "tbx/math/quaternions.h"
+#include "tbx/math/transform.h"
 #include "tbx/math/vectors.h"
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
@@ -95,5 +96,19 @@ namespace tbx
     inline Mat4 scale(const Vec3& factors)
     {
         return glm::scale(Mat4(1.0f), factors);
+    }
+
+    /// <summary>Builds a transform matrix from a position/rotation/scale triple.</summary>
+    /// <remarks>
+    /// Purpose: Composes translation, rotation, and scale into a single matrix.
+    /// Ownership: Returns a matrix by value; the caller owns the copy.
+    /// Thread Safety: Stateless wrapper; safe to call concurrently.
+    /// </remarks>
+    inline Mat4 build_transform_matrix(const Transform& transform)
+    {
+        Mat4 translation = translate(transform.position);
+        Mat4 rotation = quaternion_to_mat4(transform.rotation);
+        Mat4 scaling = scale(transform.scale);
+        return translation * rotation * scaling;
     }
 }

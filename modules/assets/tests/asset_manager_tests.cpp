@@ -1,9 +1,10 @@
-#include "pch.h"
-#include "test_filesystem.h"
-#include "tbx/common/handle.h"
 #include "tbx/assets/asset_manager.h"
+#include "tbx/common/handle.h"
 #include "tbx/common/result.h"
+#include <filesystem>
 #include <future>
+#include <string>
+#include <unordered_map>
 
 namespace tbx
 {
@@ -67,21 +68,59 @@ namespace tbx
 
 namespace tbx::tests::assets
 {
+    struct InMemoryMetaSource final
+    {
+        std::unordered_map<std::string, Uuid> id_by_path = {};
+
+        void add(const std::filesystem::path& asset_path, Uuid id)
+        {
+            auto key = asset_path.lexically_normal().generic_string();
+            id_by_path.emplace(key, id);
+        }
+
+        bool try_get(const std::filesystem::path& asset_path, AssetMeta& out_meta) const
+        {
+            auto key = asset_path.lexically_normal().generic_string();
+            auto iterator = id_by_path.find(key);
+            if (iterator == id_by_path.end())
+                return false;
+
+            AssetMeta meta = {
+                .asset_path = asset_path,
+                .id = iterator->second,
+                .name = asset_path.stem().string(),
+            };
+            out_meta = std::move(meta);
+            return true;
+        }
+    };
+
+    static AssetManager make_manager(
+        const std::filesystem::path& working_directory,
+        const InMemoryMetaSource& meta_source = {})
+    {
+        auto provider = [meta_source](const std::filesystem::path& asset_path, AssetMeta& out_meta)
+        {
+            return meta_source.try_get(asset_path, out_meta);
+        };
+        return AssetManager(working_directory, {}, provider, false);
+    }
+
+    /// <summary>
+    /// Verifies loading by path reuses the same tracked asset instance.
+    /// </summary>
     TEST(asset_manager, resolves_handle_by_path)
     {
-        TestFileSystem file_system;
-        file_system.assets_directory = "/virtual/assets";
-        file_system.add_directory(file_system.assets_directory);
-        file_system.add_file("/virtual/assets/stone.asset", "");
-        file_system.add_file(
-            "/virtual/assets/stone.asset.meta",
-            R"({ "id": "2f" })");
-
-        reset_test_asset_loader_state();
-        AssetManager manager(file_system);
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        AssetManager manager = make_manager(working_directory);
         Handle path_handle("stone.asset");
+
+        // Act
+        reset_test_asset_loader_state();
         auto asset = manager.load<TestAsset>(path_handle);
 
+        // Assert
         ASSERT_NE(asset, nullptr);
         asset->value = 42;
 
@@ -93,21 +132,23 @@ namespace tbx::tests::assets
         EXPECT_EQ(usage.ref_count, 2U);
     }
 
+    /// <summary>
+    /// Confirms handle resolution by id uses metadata-supplied UUIDs.
+    /// </summary>
     TEST(asset_manager, resolves_handle_by_id)
     {
-        TestFileSystem file_system;
-        file_system.assets_directory = "/virtual/assets";
-        file_system.add_directory(file_system.assets_directory);
-        file_system.add_file("/virtual/assets/ore.asset", "");
-        file_system.add_file(
-            "/virtual/assets/ore.asset.meta",
-            R"({ "id": "2f" })");
-
-        reset_test_asset_loader_state();
-        AssetManager manager(file_system);
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        InMemoryMetaSource meta_source = {};
+        meta_source.add(working_directory / "ore.asset", Uuid(0x2fU));
+        AssetManager manager = make_manager(working_directory, meta_source);
         Handle path_handle("ore.asset");
+
+        // Act
+        reset_test_asset_loader_state();
         auto asset = manager.load<TestAsset>(path_handle);
 
+        // Assert
         ASSERT_NE(asset, nullptr);
         asset->value = 84;
 
@@ -120,21 +161,21 @@ namespace tbx::tests::assets
         EXPECT_EQ(usage.ref_count, 2U);
     }
 
+    /// <summary>
+    /// Ensures pinning prevents unload and unpinning allows eviction.
+    /// </summary>
     TEST(asset_manager, supports_stream_in_out_and_pin)
     {
-        TestFileSystem file_system;
-        file_system.assets_directory = "/virtual/assets";
-        file_system.add_directory(file_system.assets_directory);
-        file_system.add_file("/virtual/assets/crate.asset", "");
-        file_system.add_file(
-            "/virtual/assets/crate.asset.meta",
-            R"({ "id": "30" })");
-
-        reset_test_asset_loader_state();
-        AssetManager manager(file_system);
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        AssetManager manager = make_manager(working_directory);
         Handle handle("crate.asset");
+
+        // Act
+        reset_test_asset_loader_state();
         auto streamed_in = manager.load_async<TestAsset>(handle);
 
+        // Assert
         ASSERT_NE(streamed_in.asset, nullptr);
         manager.set_pinned(handle, true);
         EXPECT_FALSE(manager.unload<TestAsset>(handle));
@@ -145,24 +186,23 @@ namespace tbx::tests::assets
         EXPECT_TRUE(manager.unload<TestAsset>(handle));
     }
 
+    /// <summary>
+    /// Verifies asynchronous loading updates the streamed asset payload.
+    /// </summary>
     TEST(asset_manager, streams_in_async_and_updates_payload)
     {
-        TestFileSystem file_system;
-        file_system.assets_directory = "/virtual/assets";
-        file_system.add_directory(file_system.assets_directory);
-        file_system.add_file("/virtual/assets/async.asset", "");
-        file_system.add_file(
-            "/virtual/assets/async.asset.meta",
-            R"({ "id": "40" })");
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        AssetManager manager = make_manager(working_directory);
+        Handle handle("async.asset");
 
+        // Act
         reset_test_asset_loader_state();
         auto& loader_state = get_test_asset_loader_state();
         loader_state.use_async = true;
-
-        AssetManager manager(file_system);
-        Handle handle("async.asset");
         auto streamed_in = manager.load_async<TestAsset>(handle);
 
+        // Assert
         ASSERT_NE(streamed_in.asset, nullptr);
         EXPECT_EQ(streamed_in.asset->value, 0);
 
@@ -172,23 +212,23 @@ namespace tbx::tests::assets
         loader_state.completion->set_value(result);
 
         AssetUsage usage = manager.get_usage<TestAsset>(handle);
-        EXPECT_EQ(usage.stream_state, AssetStreamState::Loaded);
+        EXPECT_EQ(usage.stream_state, AssetStreamState::LOADED);
         EXPECT_EQ(streamed_in.asset->value, 99);
     }
 
+    /// <summary>
+    /// Confirms unreferenced assets are released during cleanup.
+    /// </summary>
     TEST(asset_manager, unloads_unreferenced_assets)
     {
-        TestFileSystem file_system;
-        file_system.assets_directory = "/virtual/assets";
-        file_system.add_directory(file_system.assets_directory);
-        file_system.add_file("/virtual/assets/keep.asset", "");
-        file_system.add_file("/virtual/assets/drop.asset", "");
-
-        reset_test_asset_loader_state();
-        AssetManager manager(file_system);
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        AssetManager manager = make_manager(working_directory);
         Handle keep_handle("keep.asset");
         Handle drop_handle("drop.asset");
 
+        // Act
+        reset_test_asset_loader_state();
         auto keep_asset = manager.load<TestAsset>(keep_handle);
         auto drop_asset = manager.load<TestAsset>(drop_handle);
 
@@ -198,19 +238,116 @@ namespace tbx::tests::assets
         drop_asset.reset();
         manager.unload_unreferenced();
 
+        // Assert
         AssetUsage keep_usage = manager.get_usage<TestAsset>(keep_handle);
-        EXPECT_EQ(keep_usage.stream_state, AssetStreamState::Loaded);
+        EXPECT_EQ(keep_usage.stream_state, AssetStreamState::LOADED);
         EXPECT_EQ(keep_usage.ref_count, 1U);
 
         AssetUsage drop_usage = manager.get_usage<TestAsset>(drop_handle);
-        EXPECT_EQ(drop_usage.stream_state, AssetStreamState::Unloaded);
+        EXPECT_EQ(drop_usage.stream_state, AssetStreamState::UNLOADED);
         EXPECT_EQ(drop_usage.ref_count, 0U);
 
         keep_asset.reset();
         manager.unload_unreferenced();
 
         AssetUsage keep_usage_after = manager.get_usage<TestAsset>(keep_handle);
-        EXPECT_EQ(keep_usage_after.stream_state, AssetStreamState::Unloaded);
+        EXPECT_EQ(keep_usage_after.stream_state, AssetStreamState::UNLOADED);
         EXPECT_EQ(keep_usage_after.ref_count, 0U);
+    }
+
+    /// <summary>
+    /// Verifies the manager resolves asset ids from metadata when provided.
+    /// </summary>
+    TEST(asset_manager, resolves_asset_id_from_meta_source)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        InMemoryMetaSource meta_source = {};
+        meta_source.add(working_directory / "id.asset", Uuid(0x7aU));
+        AssetManager manager = make_manager(working_directory, meta_source);
+        Handle handle("id.asset");
+
+        // Act
+        auto resolved_id = manager.resolve_asset_id(handle);
+
+        // Assert
+        EXPECT_EQ(resolved_id.value, 0x7aU);
+    }
+
+    /// <summary>
+    /// Ensures asset paths resolve against the working directory when no roots are configured.
+    /// </summary>
+    TEST(asset_manager, resolves_relative_paths_without_search_roots)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        AssetManager manager = make_manager(working_directory);
+        std::filesystem::path relative_path = "relative.asset";
+
+        // Act
+        auto resolved = manager.resolve_asset_path(relative_path);
+
+        // Assert
+        EXPECT_EQ(resolved, working_directory / relative_path);
+    }
+
+    /// <summary>
+    /// Validates adding asset directories stores resolved roots.
+    /// </summary>
+    TEST(asset_manager, tracks_asset_directories)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        AssetManager manager = make_manager(working_directory);
+
+        // Act
+        manager.add_asset_directory("content");
+        auto directories = manager.get_asset_directories();
+
+        // Assert
+        ASSERT_EQ(directories.size(), 1U);
+        EXPECT_EQ(directories[0], working_directory / "content");
+    }
+
+    /// <summary>
+    /// Confirms unload_all clears tracked assets across types.
+    /// </summary>
+    TEST(asset_manager, unloads_all_assets)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        AssetManager manager = make_manager(working_directory);
+        Handle handle("cleanup.asset");
+
+        // Act
+        reset_test_asset_loader_state();
+        auto asset = manager.load<TestAsset>(handle);
+        manager.unload_all();
+
+        // Assert
+        ASSERT_NE(asset, nullptr);
+        AssetUsage usage = manager.get_usage<TestAsset>(handle);
+        EXPECT_EQ(usage.stream_state, AssetStreamState::UNLOADED);
+        EXPECT_EQ(usage.ref_count, 0U);
+    }
+
+    /// <summary>
+    /// Verifies reload replaces the asset payload when invoked.
+    /// </summary>
+    TEST(asset_manager, reloads_assets)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        AssetManager manager = make_manager(working_directory);
+        Handle handle("reload.asset");
+
+        // Act
+        reset_test_asset_loader_state();
+        auto asset = manager.load<TestAsset>(handle);
+        bool reloaded = manager.reload<TestAsset>(handle);
+
+        // Assert
+        ASSERT_NE(asset, nullptr);
+        EXPECT_TRUE(reloaded);
     }
 }

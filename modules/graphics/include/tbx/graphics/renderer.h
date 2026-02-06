@@ -119,7 +119,7 @@ namespace tbx
         /// Ownership: Takes ownership of the created render data payload.
         /// Thread Safety: Safe to construct on any thread.
         /// </remarks>
-        Renderer(const Mesh& mesh, Handle material_handle = {});
+        Renderer(Mesh mesh, Handle material_handle = {});
 
         /// <summary>
         /// Purpose: Creates a renderer for procedural mesh data.

@@ -30,11 +30,12 @@ namespace tbx
         return true;
     }
 
-    bool AssetMetaReader::try_read(
-        const IFileSystem& file_system,
+    bool AssetMetaParser::try_parse_from_disk(
+        const std::filesystem::path& working_directory,
         const std::filesystem::path& asset_path,
         AssetMeta& out_meta) const
     {
+        FileOperator file_system = FileOperator(working_directory);
         if (asset_path.empty())
             return false;
 
@@ -44,12 +45,27 @@ namespace tbx
             return false;
 
         std::string contents;
-        if (!file_system.read_file(meta_path, FileDataFormat::Utf8Text, contents))
+        if (!file_system.read_file(meta_path, FileDataFormat::UTF8_TEXT, contents))
             return false;
 
         try
         {
-            Json data(contents);
+            return try_parse_from_source(std::string_view(contents), asset_path, out_meta);
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
+
+    bool AssetMetaParser::try_parse_from_source(
+        std::string_view meta_text,
+        const std::filesystem::path& asset_path,
+        AssetMeta& out_meta) const
+    {
+        try
+        {
+            Json data = std::string(meta_text);
             return try_parse_asset_meta(data, asset_path, out_meta);
         }
         catch (...)

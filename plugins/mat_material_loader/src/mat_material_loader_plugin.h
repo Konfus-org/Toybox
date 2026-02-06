@@ -1,6 +1,6 @@
 #pragma once
+#include "tbx/assets/asset_manager.h"
 #include "tbx/assets/messages.h"
-#include "tbx/files/filesystem.h"
 #include "tbx/plugin_api/plugin.h"
 #include <filesystem>
 
@@ -48,6 +48,7 @@ namespace tbx::plugins
         void on_load_material_request(LoadMaterialRequest& request);
         std::filesystem::path resolve_asset_path(const std::filesystem::path& path) const;
 
-        IFileSystem* _filesystem = nullptr;
+        AssetManager* _asset_manager = nullptr;
+        std::filesystem::path _working_directory = {};
     };
 }

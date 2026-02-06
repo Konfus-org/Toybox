@@ -40,5 +40,9 @@
 - Keep translation units free of unused declarations or definitions; delete stale code rather than leaving empty shells.
 - Ensure commands/events and other message types have their logic defined in `.cpp` files to keep headers lightweight.
 - Validate changes with the relevant tests or builds when practical, and mention what was (or was not) run in your final summary.
+- Tests must not touch disk; prefer source or in-memory APIs.
+- Use AAA (Arrange, Act, Assert) structure in tests with labeled sections.
+- Document what each test validates (summary comment or concise inline note).
+- Aim to cover all public APIs with tests; call out gaps when constraints prevent coverage.
 
 By aligning with these standards, we keep the Toybox Engine consistent, readable, and predictable for every contributor.

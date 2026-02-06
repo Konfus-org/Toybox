@@ -1,8 +1,6 @@
 #pragma once
-#include "tbx/debugging/log_requests.h"
-#include "tbx/files/filesystem.h"
+#include "tbx/debugging/log_level.h"
 #include "tbx/messages/dispatcher.h"
-#include <filesystem>
 #include <format>
 #include <string>
 #include <string_view>
@@ -15,8 +13,6 @@ namespace tbx
     class TBX_API Log
     {
       public:
-        static std::filesystem::path open(IFileSystem& ops);
-
         template <typename... Args>
         static void write(
             IMessageDispatcher& dispatcher,
@@ -45,7 +41,7 @@ namespace tbx
         {
             if constexpr (std::is_constructible_v<std::string, std::remove_cvref_t<T>>)
             {
-                const std::string string_value = static_cast<std::string>(std::forward<T>(value));
+                std::string string_value = static_cast<std::string>(std::forward<T>(value));
                 return string_value;
             }
             else
@@ -62,9 +58,7 @@ namespace tbx
             std::string formatted = std::apply(
                 [&](auto&... tuple_args)
                 {
-                    return std::vformat(
-                        fmt,
-                        std::make_format_args(tuple_args...));
+                    return std::vformat(fmt, std::make_format_args(tuple_args...));
                 },
                 arguments);
             return formatted;

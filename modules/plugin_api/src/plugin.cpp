@@ -21,7 +21,7 @@ namespace tbx
     void Plugin::attach(IPluginHost& host)
     {
         _host = &host;
-        _dispatcher = &host.get_dispatcher();
+        _dispatcher = &host.get_message_coordinator();
         on_attach(host);
     }
 

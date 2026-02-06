@@ -1,4 +1,5 @@
 #include "tbx/graphics/model.h"
+#include <utility>
 
 namespace tbx
 {
@@ -9,17 +10,17 @@ namespace tbx
         parts = {ModelPart()};
     }
 
-    Model::Model(const Mesh& mesh)
+    Model::Model(Mesh mesh)
     {
-        meshes = {mesh};
+        meshes = {std::move(mesh)};
         materials = {Material()};
         parts = {ModelPart()};
     }
 
-    Model::Model(const Mesh& mesh, const Material& material)
+    Model::Model(Mesh mesh, Material material)
     {
-        meshes = {mesh};
-        materials = {material};
+        meshes = {std::move(mesh)};
+        materials = {std::move(material)};
         parts = {ModelPart()};
     }
 }

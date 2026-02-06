@@ -13,10 +13,10 @@ namespace tbx
     // Thread-safety: Immutable enum used freely across threads.
     enum class WindowMode
     {
-        Windowed,
-        Borderless,
-        Fullscreen,
-        Minimized
+        WINDOWED,
+        BORDERLESS,
+        FULLSCREEN,
+        MINIMIZED
     };
 
     // Window is a lightweight wrapper around a platform specific implementation managed through
@@ -29,7 +29,7 @@ namespace tbx
             IMessageDispatcher& dispatcher,
             std::string title = "Toybox",
             Size size = {1280, 720},
-            WindowMode mode = WindowMode::Windowed,
+            WindowMode mode = WindowMode::WINDOWED,
             bool open_on_creation = true);
         ~Window() noexcept;
 

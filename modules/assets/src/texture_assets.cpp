@@ -28,7 +28,7 @@ namespace tbx
         }
 
         LoadTextureRequest message(asset_path, asset.get(), wrap, filter, format);
-        message.not_handled_behavior = MessageNotHandledBehavior::Warn;
+        message.not_handled_behavior = MessageNotHandledBehavior::WARN;
         auto future = dispatcher->post(message);
         AssetPromise<Texture> result = {};
         result.asset = asset;
@@ -51,7 +51,7 @@ namespace tbx
         }
 
         LoadTextureRequest message(asset_path, asset.get(), wrap, filter, format);
-        message.not_handled_behavior = MessageNotHandledBehavior::Warn;
+        message.not_handled_behavior = MessageNotHandledBehavior::WARN;
         dispatcher->send(message);
         return asset;
     }

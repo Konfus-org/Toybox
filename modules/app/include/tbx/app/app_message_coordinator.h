@@ -17,9 +17,7 @@ namespace tbx
     };
 
     class TBX_API AppMessageCoordinator final
-        : public IMessageDispatcher
-        , public IMessageQueue
-        , public IMessageHandlerRegistrar
+        : public IMessageCoordinator
     {
       public:
         AppMessageCoordinator();
