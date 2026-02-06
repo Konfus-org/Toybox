@@ -59,6 +59,11 @@ jobs:
       if: runner.os == 'Windows' && !inputs.use-cache
       run: echo "Windows setup complete; full builds run without caching."
 
+    - name: Configure MSVC environment
+      # Ensure cl.exe is available on PATH for preset compiler selection.
+      if: runner.os == 'Windows'
+      uses: ilammy/msvc-dev-cmd@v1
+
     - name: Setup (Linux)
       # Install Linux dependencies and restore the compiler cache when enabled.
       if: runner.os == 'Linux' && inputs.use-cache
