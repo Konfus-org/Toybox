@@ -227,7 +227,7 @@ namespace tbx
             _performance_sample_has_data = false;
 
             // Warn if average FPS is below 30
-            if (averave_fps < 30.0)
+            if (average_fps < 30.0)
             {
                 TBX_TRACE_WARNING(
                     "Average FPS is below 30! Consider optimizing your application or "
