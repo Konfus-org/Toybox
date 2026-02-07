@@ -59,6 +59,7 @@ x64/
 compileData.scor
 compileData.scor.gbl
 compileData.scor.t0000
+compile_commands.json
 
 # CMake
 cmake-build-*/

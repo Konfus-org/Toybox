@@ -6,17 +6,6 @@
 
 namespace tbx::plugins
 {
-    static void set_opengl_attribute(SDL_GLAttr attribute, int value)
-    {
-        if (!SDL_GL_SetAttribute(attribute, value))
-        {
-            TBX_TRACE_WARNING(
-                "Failed to set SDL OpenGL attribute {}: {}",
-                static_cast<int>(attribute),
-                SDL_GetError());
-        }
-    }
-
     static WindowMode get_window_mode_from_flags(
         SDL_Window* sdl_window,
         WindowMode fallback_mode = WindowMode::WINDOWED)
@@ -26,7 +15,7 @@ namespace tbx::plugins
             return fallback_mode;
         }
 
-        const Uint32 flags = SDL_GetWindowFlags(sdl_window);
+        auto flags = SDL_GetWindowFlags(sdl_window);
         if ((flags & SDL_WINDOW_FULLSCREEN) != 0)
         {
             return WindowMode::FULLSCREEN;
@@ -76,31 +65,21 @@ namespace tbx::plugins
         else
             TBX_TRACE_INFO("Initialized SDL video subsystem.");
 
-        if (host.get_settings().vsync_enabled)
-            SDL_GL_SetSwapInterval(0);
-        else
-            SDL_GL_SetSwapInterval(1);
-
         _use_opengl = host.get_settings().graphics_api == GraphicsApi::OPEN_GL;
-        if (_use_opengl)
-        {
-            set_opengl_attribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-            set_opengl_attribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
-            set_opengl_attribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-            set_opengl_attribute(SDL_GL_DEPTH_SIZE, 24);
-            set_opengl_attribute(SDL_GL_STENCIL_SIZE, 8);
-            set_opengl_attribute(SDL_GL_DOUBLEBUFFER, 1);
-#if defined(TBX_DEBUG)
-            set_opengl_attribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
-#endif
-        }
     }
 
     void SdlWindowingPlugin::on_detach()
     {
         for (auto& record : _windows)
         {
-            destroy_gl_context(record);
+            if (record.tbx_window && record.sdl_window)
+            {
+                send_message<WindowNativeHandleChangedEvent>(
+                    record.tbx_window->id,
+                    record.sdl_window,
+                    nullptr,
+                    record.tbx_window->size.value);
+            }
             SDL_DestroyWindow(record.sdl_window);
         }
         _windows.clear();
@@ -116,20 +95,6 @@ namespace tbx::plugins
             {
                 case SDL_EventType::SDL_EVENT_WINDOW_FOCUS_GAINED:
                 {
-                    if (_use_opengl)
-                    {
-                        auto* window = SDL_GetWindowFromID(event.window.windowID);
-                        SdlWindowRecord* record = try_get_record(window);
-                        if (record && record->sdl_window && record->gl_context
-                            && !SDL_GL_MakeCurrent(record->sdl_window, record->gl_context))
-                        {
-                            TBX_TRACE_ERROR(
-                                "SDL windowing: Failed to make OpenGL context current for "
-                                "window '{}': {}",
-                                record->tbx_window ? record->tbx_window->title.value : "<unknown>",
-                                SDL_GetError());
-                        }
-                    }
                     break;
                 }
                 case SDL_EventType::SDL_EVENT_WINDOW_CLOSE_REQUESTED:
@@ -176,7 +141,14 @@ namespace tbx::plugins
                 {
                     for (auto& record : _windows)
                     {
-                        destroy_gl_context(record);
+                        if (record.tbx_window && record.sdl_window)
+                        {
+                            send_message<WindowNativeHandleChangedEvent>(
+                                record.tbx_window->id,
+                                record.sdl_window,
+                                nullptr,
+                                record.tbx_window->size.value);
+                        }
                         SDL_DestroyWindow(record.sdl_window);
                     }
                     _windows.clear();
@@ -190,23 +162,22 @@ namespace tbx::plugins
 
     void SdlWindowingPlugin::on_recieve_message(Message& msg)
     {
-        if (auto* make_current = handle_message<WindowMakeCurrentRequest>(msg))
+        if (auto* snapshot_request = handle_message<WindowNativeHandleSnapshotRequest>(msg))
         {
-            on_window_make_current(*make_current);
-            return;
-        }
+            for (const auto& record : _windows)
+            {
+                if (!record.tbx_window || !record.sdl_window)
+                    continue;
 
-        if (auto* present_request = handle_message<WindowPresentRequest>(msg))
-        {
-            on_window_present(*present_request);
-            return;
-        }
+                send_message<WindowNativeHandleChangedEvent>(
+                    record.tbx_window->id,
+                    nullptr,
+                    record.sdl_window,
+                    record.tbx_window->size.value);
+            }
 
-        // vsync changed
-        if (auto* vsync_event = handle_property_changed<&AppSettings::vsync_enabled>(msg))
-        {
-            bool vsync_enabled = vsync_event->current;
-            SDL_GL_SetSwapInterval(vsync_enabled);
+            snapshot_request->state = MessageState::HANDLED;
+            snapshot_request->result.flag_success();
             return;
         }
 
@@ -219,17 +190,28 @@ namespace tbx::plugins
             for (auto& record : _windows)
             {
                 // Destory old SDL window
-                destroy_gl_context(record);
+                if (record.tbx_window && record.sdl_window)
+                {
+                    send_message<WindowNativeHandleChangedEvent>(
+                        record.tbx_window->id,
+                        record.sdl_window,
+                        nullptr,
+                        record.tbx_window->size.value);
+                }
                 SDL_DestroyWindow(record.sdl_window);
                 record.sdl_window = nullptr;
-                record.gl_context = nullptr;
 
                 // Create new SDL window
                 Window* window = record.tbx_window;
                 SDL_Window* native = create_sdl_window(window, _use_opengl);
                 record.sdl_window = native;
-                if (_use_opengl)
-                    record.gl_context = create_gl_context(native, window);
+
+                if (window && native)
+                    send_message<WindowNativeHandleChangedEvent>(
+                        window->id,
+                        nullptr,
+                        native,
+                        window->size.value);
             }
             return;
         }
@@ -273,7 +255,14 @@ namespace tbx::plugins
             {
                 return;
             }
-            destroy_gl_context(*record);
+            if (record->tbx_window && record->sdl_window)
+            {
+                send_message<WindowNativeHandleChangedEvent>(
+                    record->tbx_window->id,
+                    record->sdl_window,
+                    nullptr,
+                    record->tbx_window->size.value);
+            }
             SDL_DestroyWindow(record->sdl_window);
             remove_record(*record);
         }
@@ -283,10 +272,14 @@ namespace tbx::plugins
             Window* window = event.owner;
             SDL_Window* native = create_sdl_window(window, _use_opengl);
             SdlWindowRecord& record = add_record(native, window);
-            if (_use_opengl)
-            {
-                record.gl_context = create_gl_context(native, window);
-            }
+            (void)record;
+
+            if (window && native)
+                send_message<WindowNativeHandleChangedEvent>(
+                    window->id,
+                    nullptr,
+                    native,
+                    window->size.value);
         }
     }
 
@@ -334,84 +327,6 @@ namespace tbx::plugins
         if (record && record->sdl_window)
         {
             SDL_SetWindowTitle(record->sdl_window, event.current.c_str());
-        }
-    }
-
-    void SdlWindowingPlugin::on_window_make_current(WindowMakeCurrentRequest& request)
-    {
-        SdlWindowRecord* record = try_get_record(request.window);
-        if (!record || !record->sdl_window || !record->gl_context)
-        {
-            request.state = MessageState::ERROR;
-            request.result.flag_failure("SDL windowing: OpenGL context not available.");
-            return;
-        }
-
-        if (_use_opengl && !SDL_GL_MakeCurrent(record->sdl_window, record->gl_context))
-        {
-            request.state = MessageState::ERROR;
-            request.result.flag_failure(SDL_GetError());
-            return;
-        }
-
-        request.state = MessageState::HANDLED;
-        request.result.flag_success();
-    }
-
-    void SdlWindowingPlugin::on_window_present(WindowPresentRequest& request)
-    {
-        SdlWindowRecord* record = try_get_record(request.window);
-        if (!record || !record->sdl_window || !record->gl_context)
-        {
-            request.state = MessageState::ERROR;
-            request.result.flag_failure("SDL windowing: OpenGL context not available.");
-            return;
-        }
-
-        SDL_GL_SwapWindow(record->sdl_window);
-        request.state = MessageState::HANDLED;
-        request.result.flag_success();
-    }
-
-    SDL_GLContext SdlWindowingPlugin::create_gl_context(SDL_Window* sdl_window, Window* tbx_window)
-    {
-        if (!sdl_window || !tbx_window || !_use_opengl)
-        {
-            return nullptr;
-        }
-
-        SDL_GLContext context = SDL_GL_CreateContext(sdl_window);
-        if (!context)
-        {
-            TBX_TRACE_ERROR(
-                "Failed to create SDL OpenGL context for window '{}': {}",
-                tbx_window->title.value,
-                SDL_GetError());
-            return nullptr;
-        }
-
-        if (!SDL_GL_MakeCurrent(sdl_window, context))
-        {
-            TBX_TRACE_ERROR(
-                "Failed to make SDL OpenGL context current for window '{}': {}",
-                tbx_window->title.value,
-                SDL_GetError());
-        }
-
-        const auto get_proc_address = reinterpret_cast<GraphicsProcAddress>(SDL_GL_GetProcAddress);
-        send_message<WindowContextReadyEvent>(
-            tbx_window->id,
-            get_proc_address,
-            tbx_window->size.value);
-        return context;
-    }
-
-    void SdlWindowingPlugin::destroy_gl_context(SdlWindowRecord& record)
-    {
-        if (record.gl_context)
-        {
-            SDL_GL_DestroyContext(record.gl_context);
-            record.gl_context = nullptr;
         }
     }
 

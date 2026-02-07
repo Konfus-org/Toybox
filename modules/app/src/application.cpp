@@ -8,6 +8,7 @@
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/plugin_api/plugin_registry.h"
 #include "tbx/time/delta_time.h"
+#include <algorithm>
 #include <utility>
 
 namespace tbx
@@ -162,6 +163,7 @@ namespace tbx
         // Update delta time
         DeltaTime dt = timer.tick();
         _time_running += dt.seconds;
+        _asset_unload_elapsed_seconds += dt.seconds;
 
         // Begin update
         _msg_coordinator.send<ApplicationUpdateBeginEvent>(this, dt);
@@ -174,8 +176,64 @@ namespace tbx
         _msg_coordinator.send<ApplicationUpdateEndEvent>(this, dt);
 
         ++_update_count;
-        if ((_update_count % 5) == 0)
+        if (_asset_unload_elapsed_seconds >= 1.0)
+        {
             _asset_manager.unload_unreferenced();
+            _asset_unload_elapsed_seconds = 0.0;
+        }
+
+        ++_performance_sample_frame_count;
+        _performance_sample_elapsed_seconds += dt.seconds;
+
+        if (!_performance_sample_has_data)
+        {
+            _performance_sample_min_frame_time_ms = dt.milliseconds;
+            _performance_sample_max_frame_time_ms = dt.milliseconds;
+            _performance_sample_has_data = true;
+        }
+        else
+        {
+            _performance_sample_min_frame_time_ms =
+                std::min(_performance_sample_min_frame_time_ms, dt.milliseconds);
+            _performance_sample_max_frame_time_ms =
+                std::max(_performance_sample_max_frame_time_ms, dt.milliseconds);
+        }
+
+        // Log performance metrics every 2 minutes
+        if (_performance_sample_elapsed_seconds >= 120.0)
+        {
+            double average_fps = 0.0;
+            double average_frame_time_ms = 0.0;
+
+            if (_performance_sample_elapsed_seconds > 0.0 && _performance_sample_frame_count > 0U)
+            {
+                average_fps = static_cast<double>(_performance_sample_frame_count)
+                              / _performance_sample_elapsed_seconds;
+                average_frame_time_ms = (_performance_sample_elapsed_seconds * 1000.0)
+                                        / static_cast<double>(_performance_sample_frame_count);
+            }
+
+            TBX_TRACE_INFO(
+                "FPS(avg): {:.2f}, Frame Time(avg): {:.2f}ms, Frame Time(min/max): {:.2f}/{:.2f}ms",
+                average_fps,
+                average_frame_time_ms,
+                _performance_sample_min_frame_time_ms,
+                _performance_sample_max_frame_time_ms);
+
+            _performance_sample_elapsed_seconds = 0.0;
+            _performance_sample_frame_count = 0U;
+            _performance_sample_min_frame_time_ms = 0.0;
+            _performance_sample_max_frame_time_ms = 0.0;
+            _performance_sample_has_data = false;
+
+            // Warn if average FPS is below 30
+            if (average_fps < 30.0)
+            {
+                TBX_TRACE_WARNING(
+                    "Average FPS is below 30! Consider optimizing your application or "
+                    "investigating potential performance issues.");
+            }
+        }
     }
 
     void Application::shutdown()

@@ -169,5 +169,13 @@ namespace tbx
         AssetManager _asset_manager;
         uint _update_count = 0;
         double _time_running = 0;
+
+        double _performance_sample_elapsed_seconds = 0.0;
+        uint _performance_sample_frame_count = 0U;
+        double _performance_sample_min_frame_time_ms = 0.0;
+        double _performance_sample_max_frame_time_ms = 0.0;
+        bool _performance_sample_has_data = false;
+
+        double _asset_unload_elapsed_seconds = 0.0;
     };
 }

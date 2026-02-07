@@ -8,9 +8,6 @@
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
 #include <glad/glad.h>
-#ifdef USING_SDL3
-    #include <SDL3/SDL.h>
-#endif
 #include <algorithm>
 #include <vector>
 
@@ -293,10 +290,8 @@ namespace tbx::plugins
     {
         bool loaded = false;
 
-        // TODO: Make an abstraction for GL loader selection
-#ifdef USING_SDL3
-        loaded = gladLoadGLLoader(reinterpret_cast<GLADloadproc>(SDL_GL_GetProcAddress));
-#endif
+        if (event.get_proc_address)
+            loaded = gladLoadGLLoader(reinterpret_cast<GLADloadproc>(event.get_proc_address));
 
         if (loaded)
         {

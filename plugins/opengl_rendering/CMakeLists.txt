@@ -13,13 +13,6 @@ target_link_libraries(${plugin_name} PRIVATE
     glad::glad
 )
 
-if(TARGET SDL3::SDL3-shared)
-    target_link_libraries(${plugin_name} PRIVATE
-        SDL3::SDL3-shared
-    )
-    target_compile_definitions(${plugin_name} PRIVATE USING_SDL3)
-endif()
-
 tbx_register_plugin(
     TARGET ${plugin_name}
     CLASS tbx::plugins::OpenGlRenderingPlugin

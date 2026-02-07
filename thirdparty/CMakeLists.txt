@@ -16,19 +16,18 @@ set(GLM_BUILD_LIBRARY OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
+set(ASSIMP_INSTALL_PDB OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "" FORCE)
 
 function(tbx_add_thirdparty_library thirdparty_subdirectory)
     add_subdirectory("${thirdparty_subdirectory}")
     foreach(thirdparty_target IN LISTS ARGN)
-        if(TARGET ${thirdparty_target})
-            target_compile_options(${thirdparty_target} INTERFACE
-                    $<$<CXX_COMPILER_ID:MSVC>:/W0>
-                    $<$<C_COMPILER_ID:MSVC>:/W0>
-                    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-w>
-                    $<$<NOT:$<C_COMPILER_ID:MSVC>>:-w>
-            )
+        if(NOT TARGET ${thirdparty_target})
+            continue()
         endif()
+
+        # Ensure third-party warnings never become build-stopping errors.
+        set_property(TARGET ${thirdparty_target} PROPERTY COMPILE_WARNING_AS_ERROR OFF)
     endforeach()
 endfunction()
 
@@ -41,6 +40,22 @@ tbx_add_thirdparty_library(nlohmann_json nlohmann_json)
 tbx_add_thirdparty_library(spdlog spdlog spdlog_header_only)
 tbx_add_thirdparty_library(SDL SDL3-static SDL3-shared SDL3_test)
 tbx_add_thirdparty_library(imgui imgui)
-tbx_add_thirdparty_library(googletest gtest gtest_main)
+set(tbx_had_build_shared_libs_cache OFF)
+if(DEFINED CACHE{BUILD_SHARED_LIBS})
+    set(tbx_had_build_shared_libs_cache ON)
+    set(tbx_previous_build_shared_libs "${BUILD_SHARED_LIBS}")
+endif()
+
+# GoogleTest/GoogleMock need to be built as static libs on Windows/clang to avoid DLL export issues.
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries (DLLs)." FORCE)
+tbx_add_thirdparty_library(googletest gtest gtest_main gmock gmock_main)
+
+if(tbx_had_build_shared_libs_cache)
+    set(BUILD_SHARED_LIBS "${tbx_previous_build_shared_libs}" CACHE BOOL "Build shared libraries (DLLs)." FORCE)
+else()
+    unset(BUILD_SHARED_LIBS CACHE)
+endif()
+unset(BUILD_SHARED_LIBS)
 
 unset(CMAKE_FOLDER)
+

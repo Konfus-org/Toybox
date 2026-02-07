@@ -17,4 +17,11 @@ namespace tbx
     }
 
     WindowPresentRequest::~WindowPresentRequest() noexcept = default;
+
+    WindowNativeHandleSnapshotRequest::WindowNativeHandleSnapshotRequest()
+    {
+        not_handled_behavior = MessageNotHandledBehavior::ASSERT;
+    }
+
+    WindowNativeHandleSnapshotRequest::~WindowNativeHandleSnapshotRequest() noexcept = default;
 }

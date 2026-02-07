@@ -12,7 +12,6 @@ namespace tbx::plugins
     struct SdlWindowRecord
     {
         SDL_Window* sdl_window = nullptr;
-        SDL_GLContext gl_context = nullptr;
         Window* tbx_window = nullptr;
         WindowMode mode_to_restore = WindowMode::WINDOWED;
     };
@@ -30,10 +29,6 @@ namespace tbx::plugins
         void on_window_size_changed(PropertyChangedEvent<Window, Size>& event);
         void on_window_mode_changed(PropertyChangedEvent<Window, WindowMode>& event);
         void on_window_title_changed(PropertyChangedEvent<Window, std::string>& event);
-        void on_window_make_current(WindowMakeCurrentRequest& request);
-        void on_window_present(WindowPresentRequest& request);
-        SDL_GLContext create_gl_context(SDL_Window* sdl_window, Window* tbx_window);
-        void destroy_gl_context(SdlWindowRecord& record);
         SdlWindowRecord* try_get_record(std::function<bool(const SdlWindowRecord&)> condition);
         SdlWindowRecord* try_get_record(const SDL_Window* sdl_window);
         SdlWindowRecord* try_get_record(const Window* tbx_window);
