@@ -50,7 +50,9 @@ namespace tbx::plugins
             _settings.is_debug_context_enabled ? SDL_GL_CONTEXT_DEBUG_FLAG : 0);
     }
 
-    bool SdlOpenGlAdapter::try_create_context(SDL_Window* sdl_window, const std::string& window_title)
+    bool SdlOpenGlAdapter::try_create_context(
+        SDL_Window* sdl_window,
+        const std::string& window_title)
     {
         if (!sdl_window)
         {
@@ -169,7 +171,7 @@ namespace tbx::plugins
                 continue;
             }
 
-            if (!SDL_GL_SetSwapInterval(interval))
+            if (SDL_GL_SetSwapInterval(interval) != 0)
             {
                 TBX_TRACE_WARNING(
                     "SDL OpenGL: Failed to set vsync={}: {}",
