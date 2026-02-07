@@ -22,12 +22,43 @@ function(tbx_add_thirdparty_library thirdparty_subdirectory)
     add_subdirectory("${thirdparty_subdirectory}")
     foreach(thirdparty_target IN LISTS ARGN)
         if(TARGET ${thirdparty_target})
-            target_compile_options(${thirdparty_target} INTERFACE
+            get_target_property(thirdparty_target_type ${thirdparty_target} TYPE)
+
+            if(thirdparty_target_type STREQUAL "INTERFACE_LIBRARY")
+                target_compile_options(${thirdparty_target} INTERFACE
                     $<$<CXX_COMPILER_ID:MSVC>:/W0>
                     $<$<C_COMPILER_ID:MSVC>:/W0>
                     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-w>
                     $<$<NOT:$<C_COMPILER_ID:MSVC>>:-w>
-            )
+                )
+
+                if(WIN32)
+                    target_compile_definitions(${thirdparty_target} INTERFACE
+                        _CRT_SECURE_NO_WARNINGS
+                        _CRT_NONSTDC_NO_WARNINGS
+                    )
+                endif()
+            else()
+                target_compile_options(${thirdparty_target}
+                    PRIVATE
+                        $<$<CXX_COMPILER_ID:MSVC>:/W0>
+                        $<$<C_COMPILER_ID:MSVC>:/W0>
+                        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-w>
+                        $<$<NOT:$<C_COMPILER_ID:MSVC>>:-w>
+                    INTERFACE
+                        $<$<CXX_COMPILER_ID:MSVC>:/W0>
+                        $<$<C_COMPILER_ID:MSVC>:/W0>
+                        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-w>
+                        $<$<NOT:$<C_COMPILER_ID:MSVC>>:-w>
+                )
+
+                if(WIN32)
+                    target_compile_definitions(${thirdparty_target} PRIVATE
+                        _CRT_SECURE_NO_WARNINGS
+                        _CRT_NONSTDC_NO_WARNINGS
+                    )
+                endif()
+            endif()
         endif()
     endforeach()
 endfunction()

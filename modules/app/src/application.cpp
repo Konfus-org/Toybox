@@ -176,6 +176,8 @@ namespace tbx
         ++_update_count;
         if ((_update_count % 5) == 0)
             _asset_manager.unload_unreferenced();
+
+        TBX_TRACE_INFO("FPS: {:.2f}, Frame Time: {:.2f}ms", 1.0 / dt.seconds, dt.milliseconds);
     }
 
     void Application::shutdown()

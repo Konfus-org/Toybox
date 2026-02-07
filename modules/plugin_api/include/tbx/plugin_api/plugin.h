@@ -68,8 +68,8 @@ namespace tbx
                 TMessage msg = {};
                 return _dispatcher->send(msg);
             }
-
-            return _dispatcher->send<TMessage>(std::forward<TArgs>(args)...);
+            else
+                return _dispatcher->send<TMessage>(std::forward<TArgs>(args)...);
         }
 
         // Helper to post a constructed message for deferred processing via the dispatcher.
@@ -93,8 +93,8 @@ namespace tbx
                 TMessage msg = {};
                 return _dispatcher->post(msg);
             }
-
-            return _dispatcher->post<TMessage>(std::forward<TArgs>(args)...);
+            else
+                return _dispatcher->post<TMessage>(std::forward<TArgs>(args)...);
         }
 
       protected:
