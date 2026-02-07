@@ -1,165 +1,165 @@
-{
-  "version": 6,
-  "cmakeMinimumRequired": {
-    "major": 4,
-    "minor": 1,
-    "patch": 0
-  },
-  "configurePresets": [
-    {
-      "name": "base",
-      "displayName": "Toybox Base",
-      "generator": "Ninja Multi-Config",
-      "binaryDir": "${sourceDir}/build/${presetName}",
-      "cacheVariables": {
-        "TBX_RESOURCES_PATH": "${sourceDir}/resources",
-        "TBX_PLUGIN_ABI_VERSION": "1",
-        "CMAKE_COMPILE_WARNING_AS_ERROR": "ON",
-        "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/TbxPresetCompileDefinitions.cmake;${sourceDir}/cmake/TbxPresetMsvcOptions.cmake",
-        "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/lib",
-        "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/lib",
-        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
-        "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/pdb"
-      },
-      "hidden": true
-    },
-    {
-      "name": "msvc",
-      "displayName": "Toybox (MSVC)",
-      "inherits": "base",
-      "cacheVariables": {
-        "CMAKE_EXE_LINKER_FLAGS_DEBUG": "/DEBUG:FULL /INCREMENTAL",
-        "CMAKE_SHARED_LINKER_FLAGS_DEBUG": "/DEBUG:FULL /INCREMENTAL",
-        "CMAKE_C_COMPILER": "cl",
-        "CMAKE_CXX_COMPILER": "cl",
-        "CMAKE_LINKER": "link"
-      }
-    },
-    {
-      "name": "clang",
-      "displayName": "Toybox (Clang)",
-      "inherits": "base",
-      "cacheVariables": {
-        "CMAKE_C_COMPILER": "clang",
-        "CMAKE_CXX_COMPILER": "clang++"
-      }
-    },
-    {
-      "name": "default",
-      "displayName": "Toybox (Default)",
-      "inherits": "base"
-    }
-  ],
-  "buildPresets": [
-    {
-      "name": "msvc-debug",
-      "displayName": "MSVC (Debug)",
-      "configurePreset": "msvc",
-      "configuration": "Debug"
-    },
-    {
-      "name": "msvc-release",
-      "displayName": "MSVC (Release)",
-      "configurePreset": "msvc",
-      "configuration": "Release"
-    },
-    {
-      "name": "clang-debug",
-      "displayName": "Clang (Debug)",
-      "configurePreset": "clang",
-      "configuration": "Debug"
-    },
-    {
-      "name": "clang-release",
-      "displayName": "Clang (Release)",
-      "configurePreset": "clang",
-      "configuration": "Release"
-    },
-    {
-      "name": "default-debug",
-      "displayName": "Default (Debug)",
-      "configurePreset": "default",
-      "configuration": "Debug"
-    },
-    {
-      "name": "default-release",
-      "displayName": "Default (Release)",
-      "configurePreset": "default",
-      "configuration": "Release"
-    }
-  ],
-  "testPresets": [
-    {
-      "name": "test-msvc-debug",
-      "displayName": "Test MSVC (Debug)",
-      "configurePreset": "msvc",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "timeout": 120
-      }
-    },
-    {
-      "name": "test-msvc-release",
-      "displayName": "Test MSVC (Release)",
-      "configurePreset": "msvc",
-      "configuration": "Release",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "timeout": 120
-      }
-    },
-    {
-      "name": "test-clang-debug",
-      "displayName": "Test Clang (Debug)",
-      "configurePreset": "clang",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "timeout": 120
-      }
-    },
-    {
-      "name": "test-clang-release",
-      "displayName": "Test Clang (Release)",
-      "configurePreset": "clang",
-      "configuration": "Release",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "timeout": 120
-      }
-    },
-    {
-      "name": "test-default-debug",
-      "displayName": "Test Default (Debug)",
-      "configurePreset": "default",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "timeout": 120
-      }
-    },
-    {
-      "name": "test-default-release",
-      "displayName": "Test Default (Release)",
-      "configurePreset": "default",
-      "configuration": "Release",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "timeout": 120
-      }
-    }
-  ]
-}
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 4,
+    "minor": 1,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "displayName": "Toybox Base",
+      "generator": "Ninja Multi-Config",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "TBX_RESOURCES_PATH": "${sourceDir}/resources",
+        "TBX_PLUGIN_ABI_VERSION": "1",
+        "CMAKE_COMPILE_WARNING_AS_ERROR": "ON",
+        "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/TbxPresetCompileDefinitions.cmake;${sourceDir}/cmake/TbxPresetMsvcOptions.cmake",
+        "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/lib",
+        "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/lib",
+        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
+        "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/pdb"
+      },
+      "hidden": true
+    },
+    {
+      "name": "msvc",
+      "displayName": "Toybox (MSVC)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_EXE_LINKER_FLAGS_DEBUG": "/DEBUG:FULL /INCREMENTAL",
+        "CMAKE_SHARED_LINKER_FLAGS_DEBUG": "/DEBUG:FULL /INCREMENTAL",
+        "CMAKE_C_COMPILER": "cl",
+        "CMAKE_CXX_COMPILER": "cl",
+        "CMAKE_LINKER": "link"
+      }
+    },
+    {
+      "name": "clang",
+      "displayName": "Toybox (Clang)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "default",
+      "displayName": "Toybox (Default)",
+      "inherits": "base"
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "msvc-debug",
+      "displayName": "MSVC (Debug)",
+      "configurePreset": "msvc",
+      "configuration": "Debug"
+    },
+    {
+      "name": "msvc-release",
+      "displayName": "MSVC (Release)",
+      "configurePreset": "msvc",
+      "configuration": "Release"
+    },
+    {
+      "name": "clang-debug",
+      "displayName": "Clang (Debug)",
+      "configurePreset": "clang",
+      "configuration": "Debug"
+    },
+    {
+      "name": "clang-release",
+      "displayName": "Clang (Release)",
+      "configurePreset": "clang",
+      "configuration": "Release"
+    },
+    {
+      "name": "default-debug",
+      "displayName": "Default (Debug)",
+      "configurePreset": "default",
+      "configuration": "Debug"
+    },
+    {
+      "name": "default-release",
+      "displayName": "Default (Release)",
+      "configurePreset": "default",
+      "configuration": "Release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "test-msvc-debug",
+      "displayName": "Test MSVC (Debug)",
+      "configurePreset": "msvc",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "timeout": 120
+      }
+    },
+    {
+      "name": "test-msvc-release",
+      "displayName": "Test MSVC (Release)",
+      "configurePreset": "msvc",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "timeout": 120
+      }
+    },
+    {
+      "name": "test-clang-debug",
+      "displayName": "Test Clang (Debug)",
+      "configurePreset": "clang",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "timeout": 120
+      }
+    },
+    {
+      "name": "test-clang-release",
+      "displayName": "Test Clang (Release)",
+      "configurePreset": "clang",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "timeout": 120
+      }
+    },
+    {
+      "name": "test-default-debug",
+      "displayName": "Test Default (Debug)",
+      "configurePreset": "default",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "timeout": 120
+      }
+    },
+    {
+      "name": "test-default-release",
+      "displayName": "Test Default (Release)",
+      "configurePreset": "default",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "timeout": 120
+      }
+    }
+  ]
+}

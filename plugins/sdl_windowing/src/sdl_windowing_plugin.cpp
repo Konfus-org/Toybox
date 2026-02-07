@@ -15,7 +15,7 @@ namespace tbx::plugins
             return fallback_mode;
         }
 
-        const Uint32 flags = SDL_GetWindowFlags(sdl_window);
+        auto flags = SDL_GetWindowFlags(sdl_window);
         if ((flags & SDL_WINDOW_FULLSCREEN) != 0)
         {
             return WindowMode::FULLSCREEN;
@@ -329,7 +329,6 @@ namespace tbx::plugins
             SDL_SetWindowTitle(record->sdl_window, event.current.c_str());
         }
     }
-
 
     SdlWindowRecord* SdlWindowingPlugin::try_get_record(
         std::function<bool(const SdlWindowRecord&)> condition)
