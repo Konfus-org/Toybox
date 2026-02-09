@@ -13,19 +13,6 @@
 namespace tbx
 {
     /// <summary>
-    /// Purpose: Stores a named texture binding for a material.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Owns the parameter name string and handle value.
-    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    /// </remarks>
-    struct TBX_API MaterialTexture
-    {
-        std::string name;
-        Handle handle;
-    };
-
-    /// <summary>
     /// Purpose: Defines a mutable collection of material parameters.
     /// </summary>
     /// <remarks>
@@ -44,13 +31,13 @@ namespace tbx
         std::vector<Handle> shaders = {};
 
         /// <summary>
-        /// Purpose: Stores named texture bindings for the material.
+        /// Purpose: Stores named texture asset bindings for the material.
         /// </summary>
         /// <remarks>
-        /// Ownership: Owns the texture list and handles by value.
+        /// Ownership: Owns the texture name strings and handle values.
         /// Thread Safety: Safe for concurrent reads; synchronize concurrent mutation externally.
         /// </remarks>
-        std::vector<MaterialTexture> textures = {};
+        std::vector<std::pair<std::string, Handle>> textures = {};
 
         /// <summary>
         /// Purpose: Stores material parameters.
@@ -59,6 +46,6 @@ namespace tbx
         /// Ownership: Owns the parameter list and associated values.
         /// Thread Safety: Safe for concurrent reads; synchronize concurrent mutation externally.
         /// </remarks>
-        std::vector<ShaderUniform> parameters = {};
+        std::vector<std::pair<std::string, UniformData>> parameters = {};
     };
 }

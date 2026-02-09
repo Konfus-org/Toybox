@@ -1,7 +1,8 @@
 add_library(AssetExampleRuntime SHARED)
 
 file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
-target_sources(AssetExampleRuntime PRIVATE ${SRCS})
+file(GLOB_RECURSE ASSETS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}../assets/*.*")
+target_sources(AssetExampleRuntime PRIVATE ${SRCS} ${ASSETS})
 target_include_directories(AssetExampleRuntime PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_link_libraries(AssetExampleRuntime PRIVATE

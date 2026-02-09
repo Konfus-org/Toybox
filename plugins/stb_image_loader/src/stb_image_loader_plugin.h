@@ -45,7 +45,6 @@ namespace tbx::plugins
 
       private:
         void on_load_texture_request(LoadTextureRequest& request);
-        std::filesystem::path resolve_asset_path(const std::filesystem::path& path) const;
 
         AssetManager* _asset_manager = nullptr;
     };

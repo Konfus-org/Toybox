@@ -1,18 +1,216 @@
-﻿#include "opengl_rendering_plugin.h"
+#include "opengl_rendering_plugin.h"
 #include "tbx/app/application.h"
 #include "tbx/assets/asset_manager.h"
 #include "tbx/assets/builtin_assets.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/camera.h"
+#include "tbx/graphics/light.h"
 #include "tbx/math/matrices.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
-#include <glad/glad.h>
+#include "tbx/math/vectors.h"
 #include <algorithm>
+#include <cmath>
+#include <glad/glad.h>
+#include <utility>
 #include <vector>
 
 namespace tbx::plugins
 {
+    static constexpr int MAX_LIGHTS = 16;
+    static constexpr float MIN_LIGHT_RANGE = 0.01f;
+    static constexpr float MAX_SPOT_ANGLE = 179.0f;
+
+    struct MeshDrawRequest
+    {
+        Uuid mesh_id = {};
+        const OpenGlMaterial* material = nullptr;
+        Mat4 model_matrix = Mat4(1.0f);
+    };
+
+    struct ModelMeshInstance
+    {
+        Uuid mesh_id = {};
+        Uuid material_id = {};
+        Mat4 model_matrix = Mat4(1.0f);
+    };
+
+    static void append_model_mesh_instances(
+        const OpenGlModel& model,
+        const Mat4& entity_matrix,
+        std::vector<ModelMeshInstance>& instances)
+    {
+        if (model.parts.empty())
+        {
+            for (const auto& mesh_id : model.meshes)
+            {
+                if (!mesh_id.is_valid())
+                    continue;
+
+                ModelMeshInstance instance = {
+                    .mesh_id = mesh_id,
+                    .model_matrix = entity_matrix,
+                };
+                instances.push_back(instance);
+            }
+            return;
+        }
+
+        size_t part_count = model.parts.size();
+        std::vector<bool> is_child = std::vector<bool>(part_count, false);
+
+        for (const auto& part : model.parts)
+        {
+            for (const auto& child_index : part.children)
+            {
+                if (child_index < part_count)
+                    is_child[child_index] = true;
+            }
+        }
+
+        std::vector<uint32> root_indices = {};
+        root_indices.reserve(part_count);
+
+        for (uint32 part_index = 0U; part_index < part_count; ++part_index)
+        {
+            if (!is_child[part_index])
+                root_indices.push_back(part_index);
+        }
+
+        if (root_indices.empty())
+        {
+            for (uint32 part_index = 0U; part_index < part_count; ++part_index)
+                root_indices.push_back(part_index);
+        }
+
+        std::vector<std::pair<uint32, Mat4>> stack = {};
+        stack.reserve(part_count);
+
+        for (const auto& root_index : root_indices)
+        {
+            stack.emplace_back(root_index, entity_matrix);
+        }
+
+        while (!stack.empty())
+        {
+            auto [part_index, parent_matrix] = stack.back();
+            stack.pop_back();
+
+            if (part_index >= part_count)
+                continue;
+
+            const OpenGlModelPart& part = model.parts[part_index];
+            Mat4 part_matrix = parent_matrix * part.transform;
+
+            if (part.mesh_id.is_valid())
+            {
+                ModelMeshInstance instance = {
+                    .mesh_id = part.mesh_id,
+                    .material_id = part.material_id,
+                    .model_matrix = part_matrix,
+                };
+                instances.push_back(instance);
+            }
+
+            for (const auto& child_index : part.children)
+            {
+                stack.emplace_back(child_index, part_matrix);
+            }
+        }
+    }
+
+    static void append_static_model_draw_requests(
+        OpenGlRenderCache& cache,
+        GlIdProvider& id_provider,
+        AssetManager& asset_manager,
+        const StaticRenderData& static_data,
+        const Mat4& entity_matrix,
+        const std::shared_ptr<Material>& fallback_material,
+        std::vector<MeshDrawRequest>& draw_requests)
+    {
+        auto model_asset = cache.get_cached_model(asset_manager, static_data.model, id_provider);
+        if (!model_asset)
+            return;
+
+        auto fallback_gl_material =
+            cache.get_cached_fallback_material(asset_manager, fallback_material, id_provider);
+        if (!fallback_gl_material)
+            return;
+
+        OpenGlMaterial* override_material = nullptr;
+        if (static_data.material.is_valid())
+        {
+            override_material = cache.get_cached_material(
+                asset_manager,
+                static_data.material,
+                fallback_material,
+                id_provider);
+        }
+
+        std::vector<ModelMeshInstance> instances = {};
+        instances.reserve(model_asset->meshes.size() + model_asset->parts.size());
+        append_model_mesh_instances(*model_asset, entity_matrix, instances);
+
+        for (const auto& instance : instances)
+        {
+            const OpenGlMaterial* material = override_material;
+            if (!material && instance.material_id.is_valid())
+                material = cache.get_cached_material(instance.material_id);
+            if (!material)
+                material = fallback_gl_material;
+
+            MeshDrawRequest request = {
+                .mesh_id = instance.mesh_id,
+                .material = material,
+                .model_matrix = instance.model_matrix,
+            };
+            draw_requests.push_back(request);
+        }
+    }
+
+    static void append_procedural_draw_requests(
+        OpenGlRenderCache& cache,
+        GlIdProvider& id_provider,
+        AssetManager& asset_manager,
+        const ProceduralData& procedural_data,
+        const Mat4& entity_matrix,
+        const std::shared_ptr<Material>& fallback_material,
+        std::vector<MeshDrawRequest>& draw_requests)
+    {
+        size_t mesh_count = procedural_data.meshes.size();
+        for (size_t mesh_index = 0U; mesh_index < mesh_count; ++mesh_index)
+        {
+            const Mesh& mesh = procedural_data.meshes[mesh_index];
+            if (mesh.vertices.empty() || mesh.indices.empty())
+                continue;
+
+            Handle material_handle = {};
+            if (mesh_index < procedural_data.materials.size())
+                material_handle = procedural_data.materials[mesh_index];
+
+            auto material_asset = cache.get_cached_material(
+                asset_manager,
+                material_handle,
+                fallback_material,
+                id_provider);
+            if (!material_asset)
+                continue;
+
+            Uuid mesh_key =
+                id_provider.provide(procedural_data.id, static_cast<uint32>(mesh_index));
+            auto mesh_resource = cache.get_mesh(mesh, mesh_key);
+            if (!mesh_resource)
+                continue;
+
+            MeshDrawRequest request = {
+                .mesh_id = mesh_key,
+                .material = material_asset,
+                .model_matrix = entity_matrix,
+            };
+            draw_requests.push_back(request);
+        }
+    }
+
     static void GLAPIENTRY gl_message_callback(
         GLenum source,
         GLenum type,
@@ -75,9 +273,7 @@ namespace tbx::plugins
     void OpenGlRenderingPlugin::on_update(const DeltaTime&)
     {
         if (!_is_gl_ready || _window_sizes.empty())
-        {
             return;
-        }
 
         for (const auto& entry : _window_sizes)
         {
@@ -95,157 +291,94 @@ namespace tbx::plugins
                 continue;
             }
 
-            bool should_scale_to_window = render_resolution.width != window_size.width
-                                          || render_resolution.height != window_size.height;
-
-            if (_render_resolution.width != 0U && _render_resolution.height != 0U)
+            auto& target = _render_targets[window_id];
+            if (!target.try_resize(render_resolution))
             {
-                auto& target = _render_targets[window_id];
-                if (target.get_framebuffer() == 0U)
-                {
-                    target.try_resize(render_resolution);
-                }
-
-                auto& pipeline = target.get_present_pipeline();
-                if (!pipeline.is_ready())
-                {
-                    pipeline.try_initialize();
-                }
+                TBX_TRACE_WARNING(
+                    "OpenGL rendering: Failed to create render target {}x{} for window {}.",
+                    render_resolution.width,
+                    render_resolution.height,
+                    window_id.value);
+                continue;
             }
 
-            if (should_scale_to_window)
+            auto& pipeline = target.get_present_pipeline();
+            if (!pipeline.is_ready() && !pipeline.try_initialize())
             {
-                auto& target = _render_targets[window_id];
-                if (!target.try_resize(render_resolution))
-                {
-                    TBX_TRACE_WARNING(
-                        "OpenGL rendering: Failed to create render target {}x{} for window {}.",
-                        render_resolution.width,
-                        render_resolution.height,
-                        window_id.value);
-                }
-
-                if (target.get_framebuffer() != 0U)
-                {
-                    glBindFramebuffer(
-                        GL_FRAMEBUFFER,
-                        static_cast<GLuint>(target.get_framebuffer()));
-                    glViewport(
-                        0,
-                        0,
-                        static_cast<GLsizei>(render_resolution.width),
-                        static_cast<GLsizei>(render_resolution.height));
-                    glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Fixed 255 to 1.0f
-                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-                    // Draw all scene cameras to the offscreen target at the logical resolution.
-                    draw_models_for_cameras(render_resolution);
-
-                    // Present the scaled image to the window backbuffer via a shader, avoiding
-                    // glBlitFramebuffer scaling (which can be invalid with multisampled defaults).
-                    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                    glViewport(
-                        0,
-                        0,
-                        static_cast<GLsizei>(window_size.width),
-                        static_cast<GLsizei>(window_size.height));
-                    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-                    glClear(GL_COLOR_BUFFER_BIT);
-
-                    auto& pipeline = target.get_present_pipeline();
-                    if (!pipeline.is_ready())
-                    {
-                        pipeline.try_initialize();
-                    }
-
-                    if (pipeline.is_ready())
-                    {
-                        float x_scale = static_cast<float>(window_size.width)
-                                        / static_cast<float>(render_resolution.width);
-                        float y_scale = static_cast<float>(window_size.height)
-                                        / static_cast<float>(render_resolution.height);
-                        float scale = std::min(x_scale, y_scale);
-
-                        int scaled_width = std::max(
-                            1,
-                            static_cast<int>(static_cast<float>(render_resolution.width) * scale));
-                        int scaled_height = std::max(
-                            1,
-                            static_cast<int>(
-                                static_cast<float>(render_resolution.height) * scale));
-
-                        int x_offset =
-                            std::max(0, (static_cast<int>(window_size.width) - scaled_width) / 2);
-                        int y_offset = std::max(
-                            0,
-                            (static_cast<int>(window_size.height) - scaled_height) / 2);
-
-                        bool was_depth_test_enabled = glIsEnabled(GL_DEPTH_TEST) == GL_TRUE;
-                        bool was_blend_enabled = glIsEnabled(GL_BLEND) == GL_TRUE;
-
-                        glDisable(GL_DEPTH_TEST);
-                        glDisable(GL_BLEND);
-
-                        GlResourceScope program_scope(*pipeline.program);
-                        glBindVertexArray(static_cast<GLuint>(pipeline.vertex_array));
-                        glActiveTexture(GL_TEXTURE0);
-                        glBindTexture(
-                            GL_TEXTURE_2D,
-                            static_cast<GLuint>(target.get_color_texture()));
-                        pipeline.program->try_upload({
-                            .name = "u_texture",
-                            .data = 0,
-                        });
-
-                        glViewport(x_offset, y_offset, scaled_width, scaled_height);
-                        glDrawArrays(GL_TRIANGLES, 0, 3);
-
-                        glBindTexture(GL_TEXTURE_2D, 0);
-                        glBindVertexArray(0);
-
-                        if (was_blend_enabled)
-                        {
-                            glEnable(GL_BLEND);
-                        }
-                        if (was_depth_test_enabled)
-                        {
-                            glEnable(GL_DEPTH_TEST);
-                        }
-
-                        glViewport(
-                            0,
-                            0,
-                            static_cast<GLsizei>(window_size.width),
-                            static_cast<GLsizei>(window_size.height));
-                    }
-                }
-                else
-                {
-                    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                    glViewport(
-                        0,
-                        0,
-                        static_cast<GLsizei>(window_size.width),
-                        static_cast<GLsizei>(window_size.height));
-                    glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Fixed 255 to 1.0f
-                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                    draw_models_for_cameras(window_size);
-                }
+                TBX_TRACE_WARNING(
+                    "OpenGL rendering: Failed to initialize present pipeline for window {}.",
+                    window_id.value);
+                continue;
             }
-            else
-            {
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                glViewport(
-                    0,
-                    0,
-                    static_cast<GLsizei>(render_resolution.width),
-                    static_cast<GLsizei>(render_resolution.height));
-                glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Fixed 255 to 1.0f
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-                // Draw all scene cameras to the current framebuffer.
-                draw_models_for_cameras(render_resolution);
-            }
+            glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(target.get_framebuffer()));
+            glViewport(
+                0,
+                0,
+                static_cast<GLsizei>(render_resolution.width),
+                static_cast<GLsizei>(render_resolution.height));
+            glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Fixed 255 to 1.0f
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            // Draw all scene cameras to the offscreen target at the logical resolution.
+            draw_models_for_cameras(render_resolution);
+
+            // Present the scaled image to the window backbuffer via a shader, avoiding
+            // glBlitFramebuffer scaling (which can be invalid with multisampled defaults).
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glViewport(
+                0,
+                0,
+                static_cast<GLsizei>(window_size.width),
+                static_cast<GLsizei>(window_size.height));
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            float x_scale =
+                static_cast<float>(window_size.width) / static_cast<float>(render_resolution.width);
+            float y_scale = static_cast<float>(window_size.height)
+                            / static_cast<float>(render_resolution.height);
+            float scale = std::min(x_scale, y_scale);
+
+            int scaled_width =
+                std::max(1, static_cast<int>(static_cast<float>(render_resolution.width) * scale));
+            int scaled_height =
+                std::max(1, static_cast<int>(static_cast<float>(render_resolution.height) * scale));
+
+            int x_offset = std::max(0, (static_cast<int>(window_size.width) - scaled_width) / 2);
+            int y_offset = std::max(0, (static_cast<int>(window_size.height) - scaled_height) / 2);
+
+            bool was_depth_test_enabled = glIsEnabled(GL_DEPTH_TEST) == GL_TRUE;
+            bool was_blend_enabled = glIsEnabled(GL_BLEND) == GL_TRUE;
+
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_BLEND);
+
+            GlResourceScope program_scope(*pipeline.program);
+            glBindVertexArray(static_cast<GLuint>(pipeline.vertex_array));
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(target.get_color_texture()));
+            pipeline.program->try_upload({
+                .name = "u_texture",
+                .data = 0,
+            });
+
+            glViewport(x_offset, y_offset, scaled_width, scaled_height);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+
+            glBindTexture(GL_TEXTURE_2D, 0);
+            glBindVertexArray(0);
+
+            if (was_blend_enabled)
+                glEnable(GL_BLEND);
+            if (was_depth_test_enabled)
+                glEnable(GL_DEPTH_TEST);
+
+            glViewport(
+                0,
+                0,
+                static_cast<GLsizei>(window_size.width),
+                static_cast<GLsizei>(window_size.height));
 
             // Present the rendered frame to the window.
             glFlush();
@@ -409,6 +542,62 @@ namespace tbx::plugins
         return resolution;
     }
 
+    void OpenGlRenderingPlugin::update_frame_lighting()
+    {
+        _frame_light_uniforms.clear();
+        _frame_light_count = 0;
+
+        auto& ecs = get_host().get_entity_registry();
+        auto lights = ecs.get_with<Light>();
+        if (lights.empty())
+            return;
+
+        size_t light_count = std::min(lights.size(), static_cast<size_t>(MAX_LIGHTS));
+        _frame_light_uniforms.reserve(light_count * 9U);
+
+        for (size_t light_index = 0U; light_index < light_count; ++light_index)
+        {
+            Entity entity = lights[light_index];
+            const Light& light = entity.get_component<Light>();
+            Transform* light_tran = nullptr;
+            if (entity.has_component<Transform>())
+            {
+                light_tran = &entity.get_component<Transform>();
+            }
+
+            Vec3 direction = light_tran ? normalize(light_tran->rotation * Vec3(0.0f, 0.0f, -1.0f))
+                                        : Vec3(0, -1, 0);
+            float intensity = std::max(0.0f, light.intensity);
+            float range = std::max(light.range, MIN_LIGHT_RANGE);
+
+            float inner_angle = std::clamp(light.inner_angle, 0.0f, MAX_SPOT_ANGLE);
+            float outer_angle = std::clamp(light.outer_angle, inner_angle, MAX_SPOT_ANGLE);
+
+            float inner_cos = std::cos(degrees_to_radians(inner_angle));
+            float outer_cos = std::cos(degrees_to_radians(outer_angle));
+
+            Vec2 area_size = light.area_size;
+            area_size.x = std::max(area_size.x, 0.0f);
+            area_size.y = std::max(area_size.y, 0.0f);
+
+            Vec3 color = Vec3(light.color.r, light.color.g, light.color.b);
+
+            std::string base = "u_lights[" + std::to_string(light_index) + "].";
+            _frame_light_uniforms.push_back({base + "mode", static_cast<int>(light.mode)});
+            _frame_light_uniforms.push_back(
+                {base + "position", light_tran ? light_tran->position : Vec3(0)});
+            _frame_light_uniforms.push_back({base + "direction", direction});
+            _frame_light_uniforms.push_back({base + "color", color});
+            _frame_light_uniforms.push_back({base + "intensity", intensity});
+            _frame_light_uniforms.push_back({base + "range", range});
+            _frame_light_uniforms.push_back({base + "inner_cos", inner_cos});
+            _frame_light_uniforms.push_back({base + "outer_cos", outer_cos});
+            _frame_light_uniforms.push_back({base + "area_size", area_size});
+        }
+
+        _frame_light_count = static_cast<int>(light_count);
+    }
+
     void OpenGlRenderingPlugin::remove_window_state(const Uuid& window_id, bool try_release)
     {
         _window_sizes.erase(window_id);
@@ -444,39 +633,50 @@ namespace tbx::plugins
             {
                 const Renderer& renderer = entity.get_component<Renderer>();
                 if (!renderer.data)
-                {
                     return;
-                }
 
                 // Step 2: Compute the entity model matrix (identity if no transform).
                 Mat4 entity_matrix = Mat4(1.0f);
                 if (entity.has_component<Transform>())
-                {
                     entity_matrix = build_transform_matrix(entity.get_component<Transform>());
-                }
+
+                std::vector<MeshDrawRequest> draw_requests = {};
 
                 if (auto* static_data = dynamic_cast<const StaticRenderData*>(renderer.data.get()))
                 {
-                    // Step 3: Draw meshes from a static model asset.
-                    draw_static_model(
+                    append_static_model_draw_requests(
+                        _cache,
+                        _id_provider,
                         asset_manager,
                         *static_data,
                         entity_matrix,
-                        view_projection,
-                        FALLBACK_MATERIAL);
-                    return;
+                        FALLBACK_MATERIAL,
+                        draw_requests);
                 }
-
-                if (auto* procedural_data =
+                else if (
+                    auto* procedural_data =
                         dynamic_cast<const ProceduralData*>(renderer.data.get()))
                 {
-                    // Step 4: Draw procedurally supplied meshes.
-                    draw_procedural_meshes(
+                    append_procedural_draw_requests(
+                        _cache,
+                        _id_provider,
                         asset_manager,
                         *procedural_data,
                         entity_matrix,
-                        view_projection,
-                        FALLBACK_MATERIAL);
+                        FALLBACK_MATERIAL,
+                        draw_requests);
+                }
+
+                for (const auto& request : draw_requests)
+                {
+                    if (!request.material)
+                        continue;
+
+                    draw_mesh_with_material(
+                        request.mesh_id,
+                        *request.material,
+                        request.model_matrix,
+                        view_projection);
                 }
             });
     }
@@ -514,6 +714,14 @@ namespace tbx::plugins
                 .name = "u_model",
                 .data = model_matrix,
             });
+            program->try_upload({
+                .name = "u_light_count",
+                .data = _frame_light_count,
+            });
+            for (const auto& light_uniform : _frame_light_uniforms)
+            {
+                program->try_upload(light_uniform);
+            }
 
             // Step 4: Upload scalar/vector material parameters.
             for (const auto& parameter : material.parameters)
@@ -555,218 +763,12 @@ namespace tbx::plugins
         }
     }
 
-    void OpenGlRenderingPlugin::draw_static_model(
-        AssetManager& asset_manager,
-        const StaticRenderData& static_data,
-        const Mat4& entity_matrix,
-        const Mat4& view_projection,
-        const std::shared_ptr<Material>& fallback_material)
-    {
-        // Step 1: Validate and cache the model asset.
-        auto model_asset = _cache.get_cached_model(asset_manager, static_data.model, _id_provider);
-        if (!model_asset)
-        {
-            return;
-        }
-
-        // Step 2: Resolve the cached material for this model.
-        auto fallback_gl_material =
-            _cache.get_cached_fallback_material(asset_manager, fallback_material, _id_provider);
-        if (!fallback_gl_material)
-        {
-            return;
-        }
-
-        OpenGlMaterial* override_material = nullptr;
-        if (static_data.material.is_valid())
-        {
-            override_material = _cache.get_cached_material(
-                asset_manager,
-                static_data.material,
-                fallback_material,
-                _id_provider);
-        }
-
-        auto part_count = model_asset->parts.size();
-
-        // Step 3: Draw meshes directly when the model has no part hierarchy.
-        if (part_count == 0U)
-        {
-            const OpenGlMaterial* material =
-                override_material ? override_material : fallback_gl_material;
-            for (const auto& mesh_key : model_asset->meshes)
-            {
-                if (!mesh_key.is_valid())
-                {
-                    continue;
-                }
-
-                draw_mesh_with_material(mesh_key, *material, entity_matrix, view_projection);
-            }
-            return;
-        }
-
-        // Step 4: Traverse the part hierarchy so transforms are applied in order.
-        draw_model_parts(
-            *model_asset,
-            entity_matrix,
-            view_projection,
-            override_material,
-            *fallback_gl_material);
-    }
-
-    void OpenGlRenderingPlugin::draw_model_parts(
-        const OpenGlModel& model,
-        const Mat4& entity_matrix,
-        const Mat4& view_projection,
-        const OpenGlMaterial* override_material,
-        const OpenGlMaterial& fallback_material)
-    {
-        auto part_count = model.parts.size();
-        std::vector<bool> is_child = std::vector<bool>(part_count, false);
-
-        // Step 4a: Mark parts that are referenced as children.
-        for (const auto& part : model.parts)
-        {
-            for (const auto& child_index : part.children)
-            {
-                if (child_index < part_count)
-                {
-                    is_child[child_index] = true;
-                }
-            }
-        }
-
-        bool has_root = false;
-        for (uint32 part_index = 0U; part_index < part_count; ++part_index)
-        {
-            if (!is_child[part_index])
-            {
-                has_root = true;
-                draw_model_part_recursive(
-                    model,
-                    entity_matrix,
-                    view_projection,
-                    override_material,
-                    fallback_material,
-                    part_index);
-            }
-        }
-
-        // Step 4b: If no roots were found, draw all parts from the entity transform.
-        if (!has_root)
-        {
-            for (uint32 part_index = 0U; part_index < part_count; ++part_index)
-            {
-                draw_model_part_recursive(
-                    model,
-                    entity_matrix,
-                    view_projection,
-                    override_material,
-                    fallback_material,
-                    part_index);
-            }
-        }
-    }
-
-    void OpenGlRenderingPlugin::draw_model_part_recursive(
-        const OpenGlModel& model,
-        const Mat4& parent_matrix,
-        const Mat4& view_projection,
-        const OpenGlMaterial* override_material,
-        const OpenGlMaterial& fallback_material,
-        uint32 part_index)
-    {
-        if (part_index >= model.parts.size())
-        {
-            return;
-        }
-
-        const OpenGlModelPart& part = model.parts[part_index];
-
-        // Step 4c: Combine the parent transform with this part's local transform.
-        Mat4 part_matrix = parent_matrix * part.transform;
-
-        // Step 4d: Draw the mesh bound to this part, if any.
-        if (part.mesh_id.is_valid())
-        {
-            const OpenGlMaterial* material = override_material;
-            if (!material)
-            {
-                material = _cache.get_cached_material(part.material_id);
-            }
-            if (!material)
-            {
-                material = &fallback_material;
-            }
-
-            draw_mesh_with_material(part.mesh_id, *material, part_matrix, view_projection);
-        }
-
-        // Step 4e: Recurse into child parts.
-        for (const auto& child_index : part.children)
-        {
-            draw_model_part_recursive(
-                model,
-                part_matrix,
-                view_projection,
-                override_material,
-                fallback_material,
-                child_index);
-        }
-    }
-
-    void OpenGlRenderingPlugin::draw_procedural_meshes(
-        AssetManager& asset_manager,
-        const ProceduralData& procedural_data,
-        const Mat4& entity_matrix,
-        const Mat4& view_projection,
-        const std::shared_ptr<Material>& fallback_material)
-    {
-        // Step 1: Iterate the procedural mesh list.
-        size_t mesh_count = procedural_data.meshes.size();
-        for (size_t mesh_index = 0U; mesh_index < mesh_count; ++mesh_index)
-        {
-            const Mesh& mesh = procedural_data.meshes[mesh_index];
-            if (mesh.vertices.empty() || mesh.indices.empty())
-            {
-                continue;
-            }
-
-            // Step 2: Resolve a material for this mesh index (or use default).
-            Handle material_handle = {};
-            if (mesh_index < procedural_data.materials.size())
-            {
-                material_handle = procedural_data.materials[mesh_index];
-            }
-
-            auto material_asset = _cache.get_cached_material(
-                asset_manager,
-                material_handle,
-                fallback_material,
-                _id_provider);
-            if (!material_asset)
-            {
-                continue;
-            }
-
-            // Step 3: Draw the mesh with a stable cache key.
-            Uuid mesh_key = _id_provider.provide(
-                procedural_data.id,
-                static_cast<uint32>(mesh_index));
-            auto mesh_resource = _cache.get_mesh(mesh, mesh_key);
-            if (!mesh_resource)
-            {
-                continue;
-            }
-            draw_mesh_with_material(mesh_key, *material_asset, entity_matrix, view_projection);
-        }
-    }
-
     void OpenGlRenderingPlugin::draw_models_for_cameras(const Size& window_size)
     {
         auto& ecs = get_host().get_entity_registry();
         auto cameras = ecs.get_with<Camera, Transform>();
+
+        update_frame_lighting();
 
         if (cameras.begin() == cameras.end())
         {

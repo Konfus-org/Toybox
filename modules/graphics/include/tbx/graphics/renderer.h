@@ -4,7 +4,6 @@
 #include "tbx/graphics/mesh.h"
 #include "tbx/tbx_api.h"
 #include <memory>
-#include <string_view>
 #include <utility>
 #include <vector>
 

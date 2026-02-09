@@ -1,4 +1,4 @@
-﻿#include "opengl_render_cache.h"
+#include "opengl_render_cache.h"
 #include "tbx/assets/builtin_assets.h"
 #include "tbx/debugging/macros.h"
 #include <string>
@@ -24,10 +24,8 @@ namespace tbx::plugins
         }
 
         std::string diffuse_name = to_uniform_name("diffuse");
-        std::string normal_name = to_uniform_name("normal");
 
         OpenGlMaterialTexture diffuse = {.name = diffuse_name};
-        OpenGlMaterialTexture normal = {.name = normal_name};
 
         for (const auto& texture : material.textures)
         {
@@ -35,20 +33,15 @@ namespace tbx::plugins
             {
                 diffuse = texture;
             }
-            else if (texture.name == normal_name)
-            {
-                normal = texture;
-            }
         }
 
         std::vector<OpenGlMaterialTexture> reordered = {};
-        reordered.reserve(material.textures.size() + 2U);
+        reordered.reserve(material.textures.size() + 1U);
         reordered.push_back(std::move(diffuse));
-        reordered.push_back(std::move(normal));
 
         for (const auto& texture : material.textures)
         {
-            if (texture.name == diffuse_name || texture.name == normal_name)
+            if (texture.name == diffuse_name)
             {
                 continue;
             }
@@ -232,11 +225,15 @@ namespace tbx::plugins
         gl_material.parameters.reserve(source_material.parameters.size());
         for (const auto& parameter : source_material.parameters)
         {
-            ShaderUniform mapped = parameter;
-            mapped.name = to_uniform_name(parameter.name);
+            ShaderUniform mapped = {};
+            mapped.name = to_uniform_name(parameter.first);
+            mapped.data = parameter.second;
             gl_material.parameters.push_back(std::move(mapped));
         }
-        gl_material.textures.reserve(source_material.textures.size());
+
+        std::vector<std::pair<std::string, Handle>> merged_textures = source_material.textures;
+
+        gl_material.textures.reserve(merged_textures.size());
 
         std::vector<Handle> shader_handles = source_material.shaders;
         if (shader_handles.empty())
@@ -244,6 +241,7 @@ namespace tbx::plugins
             shader_handles.push_back(default_shader);
         }
 
+        bool has_default_shader = false;
         for (auto shader_handle : shader_handles)
         {
             auto resolved_handle = shader_handle;
@@ -252,41 +250,73 @@ namespace tbx::plugins
                 continue;
             }
 
-            gl_material.shader_programs.push_back(asset_manager.resolve_asset_id(resolved_handle));
+            Uuid shader_id = asset_manager.resolve_asset_id(resolved_handle);
+            if (shader_id == default_shader.id)
+            {
+                has_default_shader = true;
+            }
+            gl_material.shader_programs.push_back(shader_id);
         }
 
-        for (const auto& texture_binding : source_material.textures)
+        bool has_normal_texture = false;
+        for (const auto& texture_binding : merged_textures)
         {
             OpenGlMaterialTexture entry = {};
-            entry.name = to_uniform_name(texture_binding.name);
+            entry.name = to_uniform_name(texture_binding.first);
 
-            if (!texture_binding.handle.is_valid())
+            if (!texture_binding.second.is_valid())
             {
                 gl_material.textures.push_back(std::move(entry));
                 continue;
             }
 
-            auto texture_asset = asset_manager.load<Texture>(texture_binding.handle);
+            auto texture_asset = asset_manager.load<Texture>(texture_binding.second);
             if (!texture_asset)
             {
                 gl_material.textures.push_back(std::move(entry));
                 continue;
             }
 
-            AssetUsage texture_usage = asset_manager.get_usage<Texture>(texture_binding.handle);
+            AssetUsage texture_usage = asset_manager.get_usage<Texture>(texture_binding.second);
             if (texture_usage.stream_state != AssetStreamState::LOADED)
             {
                 gl_material.textures.push_back(std::move(entry));
                 continue;
             }
 
-            Uuid texture_id = asset_manager.resolve_asset_id(texture_binding.handle);
+            Uuid texture_id = asset_manager.resolve_asset_id(texture_binding.second);
             get_texture(texture_id, *texture_asset);
             entry.texture_id = texture_id;
             gl_material.textures.push_back(std::move(entry));
+
+            if (entry.name == to_uniform_name("normal"))
+            {
+                has_normal_texture = true;
+            }
         }
 
         ensure_default_shader_textures(gl_material);
+
+        if (has_default_shader)
+        {
+            bool has_flag = false;
+            for (const auto& parameter : gl_material.parameters)
+            {
+                if (parameter.name == "u_has_normal")
+                {
+                    has_flag = true;
+                    break;
+                }
+            }
+
+            if (!has_flag)
+            {
+                ShaderUniform has_normal = {};
+                has_normal.name = "u_has_normal";
+                has_normal.data = has_normal_texture ? 1 : 0;
+                gl_material.parameters.push_back(std::move(has_normal));
+            }
+        }
 
         if (gl_material.shader_programs.empty())
         {

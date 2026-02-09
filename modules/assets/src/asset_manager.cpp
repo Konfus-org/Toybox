@@ -136,6 +136,7 @@ namespace tbx
             return;
 
         _asset_directories.push_back(resolved);
+        discover_assets();
     }
 
     std::vector<std::filesystem::path> AssetManager::get_asset_directories() const

@@ -1,8 +1,10 @@
 {
   "shader": "00000001",
   "textures": [
-    { "name": "diffuse", "value": "" },
-    { "name": "normal", "value": "" }
+    {
+      "name": "diffuse",
+      "value": "10203042"
+    }
   ],
   "parameters": [
     { "name": "color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },

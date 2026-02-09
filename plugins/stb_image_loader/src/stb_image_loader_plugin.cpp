@@ -68,18 +68,17 @@ namespace tbx::plugins
         }
 
         stbi_set_flip_vertically_on_load(true);
-        const std::filesystem::path resolved = resolve_asset_path(request.path);
-        const std::string resolved_string = resolved.string();
+        const std::string texture_path = request.path.string();
         int width = 0;
         int height = 0;
         const int desired_channels = (request.format == TextureFormat::RGB) ? 3 : 4;
         stbi_uc* raw_data =
-            stbi_load(resolved_string.c_str(), &width, &height, nullptr, desired_channels);
+            stbi_load(texture_path.c_str(), &width, &height, nullptr, desired_channels);
         if (!raw_data)
         {
             request.state = MessageState::ERROR;
             request.result.flag_failure(
-                build_load_failure_message(resolved, stbi_failure_reason()));
+                build_load_failure_message(texture_path, stbi_failure_reason()));
             return;
         }
 
@@ -93,15 +92,5 @@ namespace tbx::plugins
         *asset = texture;
 
         request.state = MessageState::HANDLED;
-    }
-
-    std::filesystem::path StbImageLoaderPlugin::resolve_asset_path(
-        const std::filesystem::path& path) const
-    {
-        if (!_asset_manager)
-        {
-            return path;
-        }
-        return _asset_manager->resolve_asset_path(path);
     }
 }

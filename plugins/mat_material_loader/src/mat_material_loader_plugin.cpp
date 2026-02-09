@@ -4,6 +4,7 @@
 #include "tbx/files/json.h"
 #include "tbx/graphics/material.h"
 #include <algorithm>
+#include <charconv>
 #include <cctype>
 #include <string>
 #include <string_view>
@@ -39,6 +40,77 @@ namespace tbx::plugins
         return message;
     }
 
+    static std::string_view trim_view(std::string_view text)
+    {
+        size_t start = 0U;
+        size_t end = text.size();
+        while (start < end && std::isspace(static_cast<unsigned char>(text[start])) != 0)
+        {
+            ++start;
+        }
+        while (end > start && std::isspace(static_cast<unsigned char>(text[end - 1U])) != 0)
+        {
+            --end;
+        }
+        return text.substr(start, end - start);
+    }
+
+    static Uuid parse_uuid_text(std::string_view value)
+    {
+        std::string_view trimmed = trim_view(value);
+        if (trimmed.empty())
+        {
+            return {};
+        }
+
+        const char* start = trimmed.data();
+        const char* end = trimmed.data() + trimmed.size();
+        while (start < end && !std::isxdigit(static_cast<unsigned char>(*start)))
+        {
+            start += 1;
+        }
+        if (start == end)
+        {
+            return {};
+        }
+
+        const char* token_end = start;
+        while (token_end < end && std::isxdigit(static_cast<unsigned char>(*token_end)))
+        {
+            token_end += 1;
+        }
+
+        uint32 parsed = 0U;
+        auto result = std::from_chars(start, token_end, parsed, 16);
+        if (result.ec != std::errc())
+        {
+            return {};
+        }
+        if (parsed == 0U)
+        {
+            return {};
+        }
+
+        return Uuid(parsed);
+    }
+
+    static Handle parse_asset_handle(std::string_view value)
+    {
+        std::string_view trimmed = trim_view(value);
+        if (trimmed.empty())
+        {
+            return {};
+        }
+
+        Uuid parsed = parse_uuid_text(trimmed);
+        if (parsed.is_valid())
+        {
+            return Handle(parsed);
+        }
+
+        return Handle(std::string(trimmed));
+    }
+
     static bool try_parse_parameter_entry(
         const Json& entry,
         Material& out_material,
@@ -67,7 +139,7 @@ namespace tbx::plugins
                 error_message = "Material loader: bool parameter '" + name + "' missing value.";
                 return false;
             }
-            out_material.parameters.push_back({name, value});
+            out_material.parameters.emplace_back(name, value);
             return true;
         }
 
@@ -79,7 +151,7 @@ namespace tbx::plugins
                 error_message = "Material loader: int parameter '" + name + "' missing value.";
                 return false;
             }
-            out_material.parameters.push_back({name, value});
+            out_material.parameters.emplace_back(name, value);
             return true;
         }
 
@@ -91,7 +163,7 @@ namespace tbx::plugins
                 error_message = "Material loader: float parameter '" + name + "' missing value.";
                 return false;
             }
-            out_material.parameters.push_back({name, value});
+            out_material.parameters.emplace_back(name, value);
             return true;
         }
 
@@ -117,7 +189,7 @@ namespace tbx::plugins
                     handle = Handle(asset_name);
                 }
             }
-            out_material.textures.push_back({name, handle});
+            out_material.textures.emplace_back(name, handle);
             return true;
         }
 
@@ -160,8 +232,9 @@ namespace tbx::plugins
                     "Material loader: vec2 parameter '" + name + "' must have 2 values.";
                 return false;
             }
-            out_material.parameters.push_back(
-                {name, Vec2(static_cast<float>(values[0]), static_cast<float>(values[1]))});
+            out_material.parameters.emplace_back(
+                name,
+                Vec2(static_cast<float>(values[0]), static_cast<float>(values[1])));
             return true;
         }
 
@@ -174,13 +247,12 @@ namespace tbx::plugins
                     "Material loader: vec3 parameter '" + name + "' must have 3 values.";
                 return false;
             }
-            out_material.parameters.push_back({
+            out_material.parameters.emplace_back(
                 name,
                 Vec3(
                     static_cast<float>(values[0]),
                     static_cast<float>(values[1]),
-                    static_cast<float>(values[2])),
-            });
+                    static_cast<float>(values[2])));
             return true;
         }
 
@@ -193,14 +265,13 @@ namespace tbx::plugins
                     "Material loader: vec4 parameter '" + name + "' must have 4 values.";
                 return false;
             }
-            out_material.parameters.push_back({
+            out_material.parameters.emplace_back(
                 name,
                 Vec4(
                     static_cast<float>(values[0]),
                     static_cast<float>(values[1]),
                     static_cast<float>(values[2]),
-                    static_cast<float>(values[3])),
-            });
+                    static_cast<float>(values[3])));
             return true;
         }
 
@@ -213,14 +284,13 @@ namespace tbx::plugins
                     "Material loader: color parameter '" + name + "' must have 4 values.";
                 return false;
             }
-            out_material.parameters.push_back({
+            out_material.parameters.emplace_back(
                 name,
                 RgbaColor(
                     static_cast<float>(values[0]),
                     static_cast<float>(values[1]),
                     static_cast<float>(values[2]),
-                    static_cast<float>(values[3])),
-            });
+                    static_cast<float>(values[3])));
             return true;
         }
 
@@ -249,6 +319,44 @@ namespace tbx::plugins
                 if (data.try_get_string("shader", shader_name) && !shader_name.empty())
                 {
                     material.shaders = {Handle(shader_name)};
+                }
+            }
+
+            std::vector<Json> texture_entries;
+            if (data.try_get_children("textures", texture_entries))
+            {
+                material.textures.reserve(texture_entries.size());
+                for (const auto& entry : texture_entries)
+                {
+                    std::string name;
+                    if (!entry.try_get_string("name", name) || name.empty())
+                    {
+                        error_message = "Material loader: texture entry missing name.";
+                        return false;
+                    }
+
+                    Handle handle = {};
+                    Uuid asset_id = {};
+                    if (entry.try_get_uuid("value", asset_id))
+                    {
+                        handle = Handle(asset_id);
+                    }
+                    else
+                    {
+                        std::string asset_name;
+                        if (!entry.try_get_string("value", asset_name))
+                        {
+                            error_message =
+                                "Material loader: texture entry '" + name + "' missing value.";
+                            return false;
+                        }
+                        handle = parse_asset_handle(asset_name);
+                    }
+
+                    if (handle.is_valid())
+                    {
+                        material.textures.emplace_back(name, handle);
+                    }
                 }
             }
 

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "opengl_render_cache.h"
 #include "opengl_render_target.h"
 #include "opengl_resource.h"
@@ -15,6 +15,7 @@
 #include "tbx/plugin_api/plugin.h"
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 namespace tbx::plugins
 {
@@ -39,6 +40,7 @@ namespace tbx::plugins
         void handle_resolution_changed(PropertyChangedEvent<AppSettings, Size>& event);
         void initialize_opengl() const;
         Size get_effective_resolution(const Size& window_size) const;
+        void update_frame_lighting();
         void draw_models(const Mat4& view_projection);
         void draw_models_for_cameras(const Size& window_size);
         void draw_mesh_with_material(
@@ -46,31 +48,6 @@ namespace tbx::plugins
             const OpenGlMaterial& material,
             const Mat4& model_matrix,
             const Mat4& view_projection);
-        void draw_static_model(
-            AssetManager& asset_manager,
-            const StaticRenderData& static_data,
-            const Mat4& entity_matrix,
-            const Mat4& view_projection,
-            const std::shared_ptr<Material>& fallback_material);
-        void draw_model_parts(
-            const OpenGlModel& model,
-            const Mat4& entity_matrix,
-            const Mat4& view_projection,
-            const OpenGlMaterial* override_material,
-            const OpenGlMaterial& fallback_material);
-        void draw_model_part_recursive(
-            const OpenGlModel& model,
-            const Mat4& parent_matrix,
-            const Mat4& view_projection,
-            const OpenGlMaterial* override_material,
-            const OpenGlMaterial& fallback_material,
-            uint32 part_index);
-        void draw_procedural_meshes(
-            AssetManager& asset_manager,
-            const ProceduralData& procedural_data,
-            const Mat4& entity_matrix,
-            const Mat4& view_projection,
-            const std::shared_ptr<Material>& fallback_material);
         void remove_window_state(const Uuid& window_id, bool try_release);
 
       private:
@@ -80,5 +57,7 @@ namespace tbx::plugins
         std::unordered_map<Uuid, OpenGlRenderTarget> _render_targets = {};
         OpenGlRenderCache _cache = {};
         GlIdProvider _id_provider = {};
+        std::vector<ShaderUniform> _frame_light_uniforms = {};
+        int _frame_light_count = 0;
     };
 }

@@ -1,7 +1,6 @@
 #include "spd_logger_plugin.h"
 #include "tbx/app/application.h"
 #include "tbx/debugging/log_requests.h"
-#include <filesystem>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
