@@ -89,6 +89,10 @@ namespace tbx::plugins
                 {
                     glUniform4f(location, value.r, value.g, value.b, value.a);
                 }
+                else if constexpr (std::is_same_v<ValueType, Mat3>)
+                {
+                    glUniformMatrix3fv(location, 1, GL_FALSE, glm::value_ptr(value));
+                }
                 else if constexpr (std::is_same_v<ValueType, Mat4>)
                 {
                     glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));

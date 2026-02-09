@@ -8,7 +8,7 @@
 
 layout(location = 0) in vec3 a_position;
 layout(location = 1) in vec4 a_color;
-layout(location = 2) in vec3 a_normal; // TODO: implement normals!
+layout(location = 2) in vec3 a_normal;
 layout(location = 3) in vec2 a_texcoord;
 
 out vec4 v_color;
@@ -25,14 +25,14 @@ void main()
     v_vertex_color = a_color;
     v_tex_coord = a_texcoord;
     vec4 world_pos = u_model * vec4(a_position, 1.0);
-    mat3 normal_matrix = transpose(inverse(mat3(u_model)));
     v_world_pos = world_pos.xyz;
-    v_world_normal = normalize(normal_matrix * a_normal);
+    v_world_normal = normalize(u_normal_matrix * a_normal);
     gl_Position = u_view_proj * world_pos;
 }
 
 #type fragment
 #version 450 core
+#include Globals.glsl
 #include Lights.glsl
 
 layout(location = 0) out vec4 o_color;
@@ -50,6 +50,18 @@ uniform float u_roughness = 1.0;
 uniform vec4 u_emissive = vec4(0.0, 0.0, 0.0, 1.0);
 uniform float u_occlusion = 1.0;
 uniform int u_has_normal = 0;
+uniform float u_exposure = 1.0;
+
+vec3 tbx_tonemap_aces(vec3 color)
+{
+    // ACES fitted tonemap (Narkowicz 2015)
+    const float a = 2.51;
+    const float b = 0.03;
+    const float c = 2.43;
+    const float d = 0.59;
+    const float e = 0.14;
+    return clamp((color * (a * color + b)) / (color * (c * color + d) + e), 0.0, 1.0);
+}
 
 void main()
 {
@@ -66,10 +78,17 @@ void main()
         vec3 normal_sample = texture(u_normal, v_tex_coord).xyz * 2.0 - 1.0;
         normal_factor = clamp(normal_sample.z * 0.5 + 0.5, 0.0, 1.0);
     }
-    float surface_factor = (1.0 - metallic * 0.2) * (1.0 - roughness * 0.5);
-    vec3 lighting = tbx_compute_lighting(v_world_pos, normal);
-    vec3 lit_color = texture_color.rgb * lighting * occlusion_factor * surface_factor;
+
+    vec3 albedo = max(texture_color.rgb, vec3(0.0));
+    vec3 view_dir = normalize(u_camera_pos - v_world_pos);
+
+    vec3 lit_color =
+        tbx_compute_pbr_lighting(v_world_pos, normal, view_dir, albedo, metallic, roughness);
+    lit_color *= occlusion_factor;
     lit_color *= mix(0.75, 1.0, normal_factor);
     lit_color += emissive_color;
-    o_color = vec4(lit_color, texture_color.a);
+
+    vec3 mapped = tbx_tonemap_aces(lit_color * max(u_exposure, 0.0));
+    mapped = pow(mapped, vec3(1.0 / 2.2));
+    o_color = vec4(mapped, texture_color.a);
 }

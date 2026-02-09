@@ -47,18 +47,8 @@ namespace tbx::examples
         /// </remarks>
         void on_update(const DeltaTime& dt) override;
 
-        /// <summary>
-        /// Handles incoming messages routed through the dispatcher.
-        /// </summary>
-        /// <remarks>
-        /// Purpose: Responds to runtime messages if needed.
-        /// Ownership: Does not take ownership of the message.
-        /// Thread Safety: Must be called on the main thread.
-        /// </remarks>
-        void on_recieve_message(Message& msg) override;
-
       private:
         EntityRegistry* _entity_manager = nullptr;
+        Entity _cube = {};
     };
 }
-

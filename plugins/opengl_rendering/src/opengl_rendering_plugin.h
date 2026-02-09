@@ -41,13 +41,14 @@ namespace tbx::plugins
         void initialize_opengl() const;
         Size get_effective_resolution(const Size& window_size) const;
         void update_frame_lighting();
-        void draw_models(const Mat4& view_projection);
+        void draw_models(const Mat4& view_projection, const Vec3& camera_position);
         void draw_models_for_cameras(const Size& window_size);
         void draw_mesh_with_material(
             const Uuid& mesh_key,
             const OpenGlMaterial& material,
             const Mat4& model_matrix,
-            const Mat4& view_projection);
+            const Mat4& view_projection,
+            const Vec3& camera_position);
         void remove_window_state(const Uuid& window_id, bool try_release);
 
       private:
@@ -58,6 +59,9 @@ namespace tbx::plugins
         OpenGlRenderCache _cache = {};
         GlIdProvider _id_provider = {};
         std::vector<ShaderUniform> _frame_light_uniforms = {};
-        int _frame_light_count = 0;
+        int _frame_point_light_count = 0;
+        int _frame_area_light_count = 0;
+        int _frame_spot_light_count = 0;
+        int _frame_directional_light_count = 0;
     };
 }

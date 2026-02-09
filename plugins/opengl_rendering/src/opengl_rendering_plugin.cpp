@@ -17,7 +17,10 @@
 
 namespace tbx::plugins
 {
-    static constexpr int MAX_LIGHTS = 16;
+    static constexpr int MAX_POINT_LIGHTS = 16;
+    static constexpr int MAX_AREA_LIGHTS = 8;
+    static constexpr int MAX_SPOT_LIGHTS = 12;
+    static constexpr int MAX_DIRECTIONAL_LIGHTS = 5;
     static constexpr float MIN_LIGHT_RANGE = 0.01f;
     static constexpr float MAX_SPOT_ANGLE = 179.0f;
 
@@ -317,7 +320,7 @@ namespace tbx::plugins
                 0,
                 static_cast<GLsizei>(render_resolution.width),
                 static_cast<GLsizei>(render_resolution.height));
-            glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Fixed 255 to 1.0f
+            glClearColor(0, 0, 0, 1.0f); // Fixed 255 to 1.0f
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             // Draw all scene cameras to the offscreen target at the logical resolution.
@@ -545,25 +548,52 @@ namespace tbx::plugins
     void OpenGlRenderingPlugin::update_frame_lighting()
     {
         _frame_light_uniforms.clear();
-        _frame_light_count = 0;
+        _frame_point_light_count = 0;
+        _frame_area_light_count = 0;
+        _frame_spot_light_count = 0;
+        _frame_directional_light_count = 0;
 
         auto& ecs = get_host().get_entity_registry();
-        auto lights = ecs.get_with<Light>();
-        if (lights.empty())
-            return;
+        auto point_lights = ecs.get_with<PointLight>();
+        auto area_lights = ecs.get_with<AreaLight>();
+        auto spot_lights = ecs.get_with<SpotLight>();
+        auto directional_lights = ecs.get_with<DirectionalLight>();
 
-        size_t light_count = std::min(lights.size(), static_cast<size_t>(MAX_LIGHTS));
-        _frame_light_uniforms.reserve(light_count * 9U);
+        size_t point_count =
+            std::min(point_lights.size(), static_cast<size_t>(MAX_POINT_LIGHTS));
+        size_t area_count = std::min(area_lights.size(), static_cast<size_t>(MAX_AREA_LIGHTS));
+        size_t spot_count = std::min(spot_lights.size(), static_cast<size_t>(MAX_SPOT_LIGHTS));
+        size_t directional_count =
+            std::min(directional_lights.size(), static_cast<size_t>(MAX_DIRECTIONAL_LIGHTS));
 
-        for (size_t light_index = 0U; light_index < light_count; ++light_index)
+        _frame_light_uniforms.reserve(
+            point_count * 4U + area_count * 5U + spot_count * 7U + directional_count * 3U);
+
+        for (size_t light_index = 0U; light_index < point_count; ++light_index)
         {
-            Entity entity = lights[light_index];
-            const Light& light = entity.get_component<Light>();
-            Transform* light_tran = nullptr;
-            if (entity.has_component<Transform>())
-            {
-                light_tran = &entity.get_component<Transform>();
-            }
+            Entity entity = point_lights[light_index];
+            const PointLight& light = entity.get_component<PointLight>();
+            Transform* light_tran = entity.has_component<Transform>() ? &entity.get_component<Transform>()
+                                                                     : nullptr;
+
+            float intensity = std::max(0.0f, light.intensity);
+            float range = std::max(light.range, MIN_LIGHT_RANGE);
+            Vec3 color = Vec3(light.color.r, light.color.g, light.color.b);
+
+            std::string base = "u_point_lights[" + std::to_string(light_index) + "].";
+            _frame_light_uniforms.push_back(
+                {base + "position", light_tran ? light_tran->position : Vec3(0)});
+            _frame_light_uniforms.push_back({base + "color", color});
+            _frame_light_uniforms.push_back({base + "intensity", intensity});
+            _frame_light_uniforms.push_back({base + "range", range});
+        }
+
+        for (size_t light_index = 0U; light_index < spot_count; ++light_index)
+        {
+            Entity entity = spot_lights[light_index];
+            const SpotLight& light = entity.get_component<SpotLight>();
+            Transform* light_tran = entity.has_component<Transform>() ? &entity.get_component<Transform>()
+                                                                     : nullptr;
 
             Vec3 direction = light_tran ? normalize(light_tran->rotation * Vec3(0.0f, 0.0f, -1.0f))
                                         : Vec3(0, -1, 0);
@@ -576,14 +606,9 @@ namespace tbx::plugins
             float inner_cos = std::cos(degrees_to_radians(inner_angle));
             float outer_cos = std::cos(degrees_to_radians(outer_angle));
 
-            Vec2 area_size = light.area_size;
-            area_size.x = std::max(area_size.x, 0.0f);
-            area_size.y = std::max(area_size.y, 0.0f);
-
             Vec3 color = Vec3(light.color.r, light.color.g, light.color.b);
 
-            std::string base = "u_lights[" + std::to_string(light_index) + "].";
-            _frame_light_uniforms.push_back({base + "mode", static_cast<int>(light.mode)});
+            std::string base = "u_spot_lights[" + std::to_string(light_index) + "].";
             _frame_light_uniforms.push_back(
                 {base + "position", light_tran ? light_tran->position : Vec3(0)});
             _frame_light_uniforms.push_back({base + "direction", direction});
@@ -592,10 +617,55 @@ namespace tbx::plugins
             _frame_light_uniforms.push_back({base + "range", range});
             _frame_light_uniforms.push_back({base + "inner_cos", inner_cos});
             _frame_light_uniforms.push_back({base + "outer_cos", outer_cos});
+        }
+
+        for (size_t light_index = 0U; light_index < area_count; ++light_index)
+        {
+            Entity entity = area_lights[light_index];
+            const AreaLight& light = entity.get_component<AreaLight>();
+            Transform* light_tran = entity.has_component<Transform>() ? &entity.get_component<Transform>()
+                                                                     : nullptr;
+
+            float intensity = std::max(0.0f, light.intensity);
+            float range = std::max(light.range, MIN_LIGHT_RANGE);
+
+            Vec2 area_size = light.area_size;
+            area_size.x = std::max(area_size.x, 0.0f);
+            area_size.y = std::max(area_size.y, 0.0f);
+
+            Vec3 color = Vec3(light.color.r, light.color.g, light.color.b);
+
+            std::string base = "u_area_lights[" + std::to_string(light_index) + "].";
+            _frame_light_uniforms.push_back(
+                {base + "position", light_tran ? light_tran->position : Vec3(0)});
+            _frame_light_uniforms.push_back({base + "color", color});
+            _frame_light_uniforms.push_back({base + "intensity", intensity});
+            _frame_light_uniforms.push_back({base + "range", range});
             _frame_light_uniforms.push_back({base + "area_size", area_size});
         }
 
-        _frame_light_count = static_cast<int>(light_count);
+        for (size_t light_index = 0U; light_index < directional_count; ++light_index)
+        {
+            Entity entity = directional_lights[light_index];
+            const DirectionalLight& light = entity.get_component<DirectionalLight>();
+            Transform* light_tran = entity.has_component<Transform>() ? &entity.get_component<Transform>()
+                                                                     : nullptr;
+
+            Vec3 direction = light_tran ? normalize(light_tran->rotation * Vec3(0.0f, 0.0f, -1.0f))
+                                        : Vec3(0, -1, 0);
+            float intensity = std::max(0.0f, light.intensity);
+            Vec3 color = Vec3(light.color.r, light.color.g, light.color.b);
+
+            std::string base = "u_directional_lights[" + std::to_string(light_index) + "].";
+            _frame_light_uniforms.push_back({base + "direction", direction});
+            _frame_light_uniforms.push_back({base + "color", color});
+            _frame_light_uniforms.push_back({base + "intensity", intensity});
+        }
+
+        _frame_point_light_count = static_cast<int>(point_count);
+        _frame_area_light_count = static_cast<int>(area_count);
+        _frame_spot_light_count = static_cast<int>(spot_count);
+        _frame_directional_light_count = static_cast<int>(directional_count);
     }
 
     void OpenGlRenderingPlugin::remove_window_state(const Uuid& window_id, bool try_release)
@@ -621,7 +691,7 @@ namespace tbx::plugins
         _render_targets.erase(it);
     }
 
-    void OpenGlRenderingPlugin::draw_models(const Mat4& view_projection)
+    void OpenGlRenderingPlugin::draw_models(const Mat4& view_projection, const Vec3& camera_position)
     {
         auto& ecs = get_host().get_entity_registry();
         auto& asset_manager = get_host().get_asset_manager();
@@ -676,7 +746,8 @@ namespace tbx::plugins
                         request.mesh_id,
                         *request.material,
                         request.model_matrix,
-                        view_projection);
+                        view_projection,
+                        camera_position);
                 }
             });
     }
@@ -685,7 +756,8 @@ namespace tbx::plugins
         const Uuid& mesh_key,
         const OpenGlMaterial& material,
         const Mat4& model_matrix,
-        const Mat4& view_projection)
+        const Mat4& view_projection,
+        const Vec3& camera_position)
     {
         // Step 1: Fetch the mesh resource for this cache key.
         auto mesh_resource = _cache.get_cached_mesh(mesh_key);
@@ -714,9 +786,31 @@ namespace tbx::plugins
                 .name = "u_model",
                 .data = model_matrix,
             });
+
+            Mat3 normal_matrix = glm::inverseTranspose(Mat3(model_matrix));
             program->try_upload({
-                .name = "u_light_count",
-                .data = _frame_light_count,
+                .name = "u_normal_matrix",
+                .data = normal_matrix,
+            });
+            program->try_upload({
+                .name = "u_camera_pos",
+                .data = camera_position,
+            });
+            program->try_upload({
+                .name = "u_point_light_count",
+                .data = _frame_point_light_count,
+            });
+            program->try_upload({
+                .name = "u_area_light_count",
+                .data = _frame_area_light_count,
+            });
+            program->try_upload({
+                .name = "u_spot_light_count",
+                .data = _frame_spot_light_count,
+            });
+            program->try_upload({
+                .name = "u_directional_light_count",
+                .data = _frame_directional_light_count,
             });
             for (const auto& light_uniform : _frame_light_uniforms)
             {
@@ -778,7 +872,7 @@ namespace tbx::plugins
             Mat4 default_projection =
                 perspective_projection(degrees_to_radians(60.0f), aspect, 0.1f, 1000.0f);
             Mat4 view_projection = default_projection * default_view;
-            draw_models(view_projection);
+            draw_models(view_projection, Vec3(0.0f, 0.0f, 5.0f));
             return;
         }
 
@@ -792,7 +886,7 @@ namespace tbx::plugins
             Mat4 view_projection =
                 camera.get_view_projection_matrix(transform.position, transform.rotation);
 
-            draw_models(view_projection);
+            draw_models(view_projection, transform.position);
         }
     }
 }
