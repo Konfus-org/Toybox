@@ -1,11 +1,15 @@
 #include "opengl_buffers.h"
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
-#include <utility>
 #include <variant>
 
 namespace tbx::plugins
 {
+    OpenGlFrameBuffer::OpenGlFrameBuffer(const Size& size)
+    {
+        set_size(size);
+    }
+
     OpenGlFrameBuffer::~OpenGlFrameBuffer() noexcept
     {
         if (_depth_stencil_renderbuffer_id != 0)
@@ -27,20 +31,12 @@ namespace tbx::plugins
         }
     }
 
-    OpenGlFrameBuffer::OpenGlFrameBuffer(OpenGlFrameBuffer&& other) noexcept
-        : _framebuffer_id(std::exchange(other._framebuffer_id, 0))
-        , _color_texture_id(std::exchange(other._color_texture_id, 0))
-        , _depth_stencil_renderbuffer_id(std::exchange(other._depth_stencil_renderbuffer_id, 0))
-        , _size(std::exchange(other._size, {}))
-    {
-    }
-
-    void OpenGlFrameBuffer::bind() const
+    void OpenGlFrameBuffer::bind()
     {
         glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer_id);
     }
 
-    void OpenGlFrameBuffer::unbind() const
+    void OpenGlFrameBuffer::unbind()
     {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
@@ -206,12 +202,12 @@ namespace tbx::plugins
         }
     }
 
-    void OpenGlVertexBuffer::bind() const
+    void OpenGlVertexBuffer::bind()
     {
         glBindBuffer(GL_ARRAY_BUFFER, _buffer_id);
     }
 
-    void OpenGlVertexBuffer::unbind() const
+    void OpenGlVertexBuffer::unbind()
     {
         glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
@@ -244,12 +240,12 @@ namespace tbx::plugins
             GL_STATIC_DRAW);
     }
 
-    void OpenGlIndexBuffer::bind() const
+    void OpenGlIndexBuffer::bind()
     {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _buffer_id);
     }
 
-    void OpenGlIndexBuffer::unbind() const
+    void OpenGlIndexBuffer::unbind()
     {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     }

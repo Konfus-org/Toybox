@@ -1,4 +1,5 @@
 #pragma once
+#include "opengl_resource.h"
 #include "tbx/common/int.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/vertex.h"
@@ -6,111 +7,75 @@
 
 namespace tbx::plugins
 {
-    // TODO: move implementations into cpp file
+    /// <summary>Owns an OpenGL framebuffer with color and depth-stencil attachments.</summary>
+    /// <remarks>Purpose: Provides a resizable render target for multi-pass rendering.
+    /// Ownership: Owns framebuffer, color texture, and depth-stencil renderbuffer handles.
+    /// Thread Safety: Not thread-safe; use on the render thread.</remarks>
     class OpenGlFrameBuffer final : public IOpenGlResource
     {
       public:
-        OpenGlFrameBuffer(int w, int h)
-            : width(w)
-            , height(h)
-        {
-            // 1. Generate the FBO
-            glGenFramebuffers(1, &FBO);
-            glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+        /// <summary>Creates an empty framebuffer object.</summary>
+        /// <remarks>Purpose: Defers attachment allocation until set_size() is called.
+        /// Ownership: Owns no GPU handles until initialized.
+        /// Thread Safety: Construct on the render thread.</remarks>
+        OpenGlFrameBuffer() = default;
 
-            // 2. Create a color attachment texture
-            glGenTextures(1, &colorTexture);
-            glBindTexture(GL_TEXTURE_2D, colorTexture);
-            glTexImage2D(
-                GL_TEXTURE_2D,
-                0,
-                GL_RGB,
-                width,
-                height,
-                0,
-                GL_RGB,
-                GL_UNSIGNED_BYTE,
-                NULL);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glFramebufferTexture2D(
-                GL_FRAMEBUFFER,
-                GL_COLOR_ATTACHMENT0,
-                GL_TEXTURE_2D,
-                colorTexture,
-                0);
+        /// <summary>Creates and allocates a framebuffer for the provided size.</summary>
+        /// <remarks>Purpose: Initializes framebuffer attachments immediately.
+        /// Ownership: Owns created GPU handles.
+        /// Thread Safety: Construct on the render thread.</remarks>
+        explicit OpenGlFrameBuffer(const Size& size);
 
-            // 3. Create a renderbuffer object for depth and stencil attachment
-            glGenRenderbuffers(1, &RBO);
-            glBindRenderbuffer(GL_RENDERBUFFER, RBO);
-            glRenderbufferStorage(
-                GL_RENDERBUFFER,
-                GL_DEPTH24_STENCIL8,
-                width,
-                height); // Use GL_DEPTH24_STENCIL8 for combined depth/stencil
-            glFramebufferRenderbuffer(
-                GL_FRAMEBUFFER,
-                GL_DEPTH_STENCIL_ATTACHMENT,
-                GL_RENDERBUFFER,
-                RBO);
+        OpenGlFrameBuffer(const OpenGlFrameBuffer&) = delete;
+        OpenGlFrameBuffer& operator=(const OpenGlFrameBuffer&) = delete;
 
-            // 4. Check for completeness
-            if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-            {
-                std::cerr << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
-            }
+        /// <summary>Destroys the framebuffer and all attachments.</summary>
+        /// <remarks>Purpose: Releases owned GPU handles.
+        /// Ownership: Destroys GPU resources owned by this instance.
+        /// Thread Safety: Destroy on the render thread.</remarks>
+        ~OpenGlFrameBuffer() noexcept override;
 
-            // 5. Unbind the FBO
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        }
+        /// <summary>Binds this framebuffer for rendering.</summary>
+        /// <remarks>Purpose: Sets GL_FRAMEBUFFER binding to this instance.
+        /// Ownership: Does not transfer ownership.
+        /// Thread Safety: Call on the render thread.</remarks>
+        void bind() override;
 
-        ~FrameBuffer()
-        {
-            glDeleteFramebuffers(1, &FBO);
-            glDeleteTextures(1, &colorTexture);
-            glDeleteRenderbuffers(1, &RBO);
-        }
+        /// <summary>Unbinds this framebuffer from rendering.</summary>
+        /// <remarks>Purpose: Restores GL_FRAMEBUFFER binding to default framebuffer.
+        /// Ownership: Does not transfer ownership.
+        /// Thread Safety: Call on the render thread.</remarks>
+        void unbind() override;
 
-        void bind() const
-        {
-            glBindFramebuffer(GL_FRAMEBUFFER, FBO);
-        }
+        /// <summary>Returns the allocated framebuffer size.</summary>
+        /// <remarks>Purpose: Exposes render target dimensions.
+        /// Ownership: Returns value; no ownership transfer.
+        /// Thread Safety: Safe on render thread.</remarks>
+        Size get_size() const;
 
-        void unbind() const
-        {
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        }
+        /// <summary>Returns the OpenGL framebuffer handle.</summary>
+        /// <remarks>Purpose: Allows use in low-level OpenGL operations.
+        /// Ownership: Returns value; no ownership transfer.
+        /// Thread Safety: Safe on render thread.</remarks>
+        uint32 get_framebuffer_id() const;
 
-        void resize(int w, int h)
-        {
-            width = w;
-            height = h;
+        /// <summary>Returns the OpenGL color attachment texture handle.</summary>
+        /// <remarks>Purpose: Allows sampling/blitting from the color buffer.
+        /// Ownership: Returns value; no ownership transfer.
+        /// Thread Safety: Safe on render thread.</remarks>
+        uint32 get_color_texture_id() const;
 
-            bind();
-
-            glBindTexture(GL_TEXTURE_2D, colorTexture);
-            glTexImage2D(
-                GL_TEXTURE_2D,
-                0,
-                GL_RGB,
-                width,
-                height,
-                0,
-                GL_RGB,
-                GL_UNSIGNED_BYTE,
-                NULL);
-            glBindRenderbuffer(GL_RENDERBUFFER, RBO);
-            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-
-            unbind();
-        }
+        /// <summary>Resizes the framebuffer attachments.</summary>
+        /// <remarks>Purpose: Recreates attachments to match the requested render size.
+        /// Ownership: Replaces and owns newly created GPU handles.
+        /// Thread Safety: Call on the render thread.</remarks>
+        void set_size(const Size& size);
 
       private:
-        uint _fbo;
-        uint _rbo;
-        uint _color_texture;
-        int width;
-        int height;
+        uint32 _framebuffer_id = 0;
+        uint32 _color_texture_id = 0;
+        uint32 _depth_stencil_renderbuffer_id = 0;
+        Size _size = {};
     };
 
     /// <summary>Owns an OpenGL vertex buffer object.</summary>
@@ -145,13 +110,13 @@ namespace tbx::plugins
         /// <remarks>Purpose: Makes the buffer active for subsequent operations.
         /// Ownership: The instance retains ownership of the buffer.
         /// Thread Safety: Call only on the render thread.</remarks>
-        void bind() const;
+        void bind() override;
 
         /// <summary>Unbinds the vertex buffer from GL_ARRAY_BUFFER.</summary>
         /// <remarks>Purpose: Clears the buffer binding.
         /// Ownership: The instance retains ownership of the buffer.
         /// Thread Safety: Call only on the render thread.</remarks>
-        void unbind() const;
+        void unbind() override;
 
         /// <summary>Returns the number of vertices stored in the buffer.</summary>
         /// <remarks>Purpose: Allows draw calls to know the vertex count.
@@ -193,13 +158,13 @@ namespace tbx::plugins
         /// <remarks>Purpose: Makes the buffer active for indexed draw calls.
         /// Ownership: The instance retains ownership of the buffer.
         /// Thread Safety: Call only on the render thread.</remarks>
-        void bind() const;
+        void bind() override;
 
         /// <summary>Unbinds the index buffer from GL_ELEMENT_ARRAY_BUFFER.</summary>
         /// <remarks>Purpose: Clears the buffer binding.
         /// Ownership: The instance retains ownership of the buffer.
         /// Thread Safety: Call only on the render thread.</remarks>
-        void unbind() const;
+        void unbind() override;
 
         /// <summary>Returns the number of indices stored in the buffer.</summary>
         /// <remarks>Purpose: Allows draw calls to know the index count.

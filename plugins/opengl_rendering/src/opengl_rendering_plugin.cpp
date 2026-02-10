@@ -1,32 +1,18 @@
 #include "opengl_rendering_plugin.h"
 #include "tbx/app/application.h"
-#include "tbx/assets/asset_manager.h"
-#include "tbx/assets/builtin_assets.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/graphics/camera.h"
-#include "tbx/graphics/light.h"
-#include "tbx/math/matrices.h"
-#include "tbx/math/transform.h"
-#include "tbx/math/trig.h"
-#include "tbx/math/vectors.h"
-#include <algorithm>
-#include <cmath>
 #include <glad/glad.h>
-#include <iterator>
-#include <span>
-#include <utility>
-#include <vector>
 
 namespace tbx::plugins
 {
     static void GLAPIENTRY gl_message_callback(
-        GLenum source,
-        GLenum type,
-        GLuint id,
+        GLenum,
+        GLenum,
+        GLuint,
         GLenum severity,
-        GLsizei length,
+        GLsizei,
         const GLchar* message,
-        const void* user_param)
+        const void*)
     {
         switch (severity)
         {
@@ -48,34 +34,62 @@ namespace tbx::plugins
         }
     }
 
-    void OpenGlRenderingPlugin::on_attach(IPluginHost& host)
+    void OpenGlRenderingPlugin::on_attach(IPluginHost&) {}
+
+    void OpenGlRenderingPlugin::on_detach()
     {
-        initialize_opengl();
+        _is_context_ready = false;
     }
 
-    void OpenGlRenderingPlugin::on_detach() {}
+    void OpenGlRenderingPlugin::on_update(const DeltaTime&)
+    {
+        if (!_is_context_ready)
+            return;
 
-    void OpenGlRenderingPlugin::on_update(const DeltaTime&) {}
+        send_message<WindowMakeCurrentRequest>(_window_id);
+
+        auto frame_context = OpenGlRenderFrameContext {
+            .camera = nullptr,
+            .render_resolution = _render_resolution,
+            .viewport_size = _viewport_size,
+            .render_target = &_framebuffer,
+        };
+
+        _render_pipeline.set_frame_context(frame_context);
+        _render_pipeline.execute();
+        send_message<WindowPresentRequest>(_window_id);
+    }
 
     void OpenGlRenderingPlugin::on_recieve_message(Message& msg)
     {
         if (auto* ready_event = handle_message<WindowContextReadyEvent>(msg))
         {
-            return;
-        }
+            _window_id = ready_event->window;
 
-        if (auto* open_event = handle_property_changed<&Window::is_open>(msg))
-        {
+            auto* loader = reinterpret_cast<GLADloadproc>(ready_event->get_proc_address);
+            TBX_ASSERT(
+                loader != nullptr,
+                "OpenGL rendering: context-ready event provided null loader.");
+            const auto load_result = gladLoadGLLoader(loader);
+            TBX_ASSERT(load_result != 0, "OpenGL rendering: failed to initialize GLAD.");
+
+            initialize_opengl();
+            set_viewport_size(ready_event->size);
+            set_render_resolution(ready_event->size);
+            _is_context_ready = true;
             return;
         }
 
         if (auto* size_event = handle_property_changed<&Window::size>(msg))
         {
+            if (size_event->source.id == _window_id)
+                set_viewport_size(size_event->value);
             return;
         }
 
         if (auto* resolution_event = handle_property_changed<&AppSettings::resolution>(msg))
         {
+            set_render_resolution(resolution_event->value);
             return;
         }
     }
@@ -116,5 +130,23 @@ namespace tbx::plugins
         glEnable(GL_BLEND);
         glDepthFunc(GL_LEQUAL);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glClearColor(0.07f, 0.08f, 0.11f, 1.0f);
+    }
+
+    void OpenGlRenderingPlugin::set_viewport_size(const Size& viewport_size)
+    {
+        if (viewport_size.width == 0 || viewport_size.height == 0)
+            return;
+
+        _viewport_size = viewport_size;
+    }
+
+    void OpenGlRenderingPlugin::set_render_resolution(const Size& render_resolution)
+    {
+        if (render_resolution.width == 0 || render_resolution.height == 0)
+            return;
+
+        _render_resolution = render_resolution;
+        _framebuffer.set_size(render_resolution);
     }
 }
