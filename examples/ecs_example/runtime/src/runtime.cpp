@@ -27,29 +27,17 @@ namespace tbx::examples
         auto toys_to_make = 5;
         auto spacing = 2.0f;
         auto starting_x = -((toys_to_make - 1.0f) * spacing) * 0.5f;
-        auto colors = std::array<RgbaColor, 6> {
-            RgbaColor::red,
-            RgbaColor::green,
-            RgbaColor::blue,
-            RgbaColor::yellow,
-            RgbaColor::magenta,
-            RgbaColor::cyan,
-        };
         for (int i = 0; i < toys_to_make; i++)
         {
-            // create and add components
             auto ent = _entity_manager->create(std::to_string(i));
-            ent.add_component<Transform>();
-            auto& renderer = ent.add_component<Renderer>();
-            renderer.material = unlit_material;
-            renderer.material_overrides.set(
-                "color",
-                colors[static_cast<size_t>(i) % colors.size()]);
+            ent.add_component<Transform>(Vec3(
+                starting_x
+                    + (static_cast<float>(i)
+                       * spacing), // shift on the x axis so they are not all in the same spot
+                0,
+                0));
+            ent.add_component<Renderer>(unlit_material);
             ent.add_component<ProceduralMesh>(quad);
-
-            // shift on the x axis so they are not all in the same spot
-            auto& transform = ent.get_component<Transform>();
-            transform.position.x = starting_x + (static_cast<float>(i) * spacing);
         }
     }
 

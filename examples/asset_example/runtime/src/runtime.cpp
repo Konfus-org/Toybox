@@ -27,13 +27,13 @@ namespace tbx::examples
         _green_cube = _entity_manager->create("Cube");
         _green_cube.add_component<Renderer>();
         _green_cube.add_component<StaticMesh>(green_cube);
-        auto& smily_tran = _green_cube.add_component<Transform>(Vec3(0.0f, 0.0f, -5.0f));
+        _green_cube.add_component<Transform>(Vec3(0.0f, 0.0f, -5.0f));
 
         // Setup ground
         auto ground_ent = _entity_manager->create("Ground");
         ground_ent.add_component<Renderer>(smily_mat);
         ground_ent.add_component<ProceduralMesh>(quad);
-        auto& ground_tran = ground_ent.add_component<Transform>(
+        ground_ent.add_component<Transform>(
             Vec3(0.0f, -2.0f, -5.0f),
             to_radians(Vec3(-90.0f, 0.0f, 0.0f)),
             Vec3(20.0f, 20.0f, 1.0f));
