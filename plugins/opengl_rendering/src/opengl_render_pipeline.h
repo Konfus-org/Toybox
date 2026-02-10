@@ -1,10 +1,18 @@
 #pragma once
 #include "opengl_resources/opengl_buffers.h"
+#include "opengl_resources/opengl_material.h"
+#include "opengl_resources/opengl_mesh.h"
+#include "opengl_resources/opengl_model.h"
+#include "opengl_resources/opengl_shader.h"
+#include "opengl_resources/opengl_texture.h"
 #include "tbx/common/pipeline.h"
+#include "tbx/common/uuid.h"
 #include "tbx/graphics/camera.h"
 #include "tbx/math/size.h"
 #include <memory>
 #include <optional>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace tbx::plugins
 {
@@ -101,7 +109,7 @@ namespace tbx::plugins
     /// Purpose: Executes OpenGL rendering work in a predefined operation order.
     /// </summary>
     /// <remarks>
-    /// Ownership: Owns render operations via unique pointers.
+    /// Ownership: Owns render operations and cached resource maps by UUID.
     /// Thread Safety: Not thread-safe; configure and execute on the render thread.
     /// </remarks>
     class OpenGlRenderPipeline final : public Pipeline
@@ -120,7 +128,7 @@ namespace tbx::plugins
         /// Purpose: Destroys the pipeline and clears any queued operations.
         /// </summary>
         /// <remarks>
-        /// Ownership: Releases owned operations.
+        /// Ownership: Releases owned operations and cached resources.
         /// Thread Safety: Destroy on the render thread.
         /// </remarks>
         ~OpenGlRenderPipeline() noexcept override;
@@ -143,10 +151,54 @@ namespace tbx::plugins
         /// </remarks>
         void execute() override;
 
+        /// <summary>
+        /// Purpose: Removes every cached OpenGL resource from all UUID maps.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Releases this pipeline's shared ownership of cached resources.
+        /// Thread Safety: Not thread-safe; call on the render thread.
+        /// </remarks>
+        void clear_resource_caches();
+
+        /// <summary>
+        /// Purpose: Removes cached entries not present in the current live resource sets.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Releases shared ownership for pruned entries.
+        /// Thread Safety: Not thread-safe; call on the render thread.
+        /// </remarks>
+        void trim_resource_caches(
+            const std::unordered_set<Uuid>& live_mesh_ids,
+            const std::unordered_set<Uuid>& live_texture_ids,
+            const std::unordered_set<Uuid>& live_shader_program_ids,
+            const std::unordered_set<Uuid>& live_material_ids,
+            const std::unordered_set<Uuid>& live_model_ids);
+
       private:
         void assign_frame_context();
         void reset_frame_context();
 
+        static void trim_cache(
+            std::unordered_map<Uuid, std::shared_ptr<OpenGlMesh>>& cache,
+            const std::unordered_set<Uuid>& live_ids);
+        static void trim_cache(
+            std::unordered_map<Uuid, std::shared_ptr<OpenGlTexture>>& cache,
+            const std::unordered_set<Uuid>& live_ids);
+        static void trim_cache(
+            std::unordered_map<Uuid, std::shared_ptr<OpenGlShaderProgram>>& cache,
+            const std::unordered_set<Uuid>& live_ids);
+        static void trim_cache(
+            std::unordered_map<Uuid, std::shared_ptr<OpenGlMaterial>>& cache,
+            const std::unordered_set<Uuid>& live_ids);
+        static void trim_cache(
+            std::unordered_map<Uuid, std::shared_ptr<OpenGlModel>>& cache,
+            const std::unordered_set<Uuid>& live_ids);
+
         std::optional<OpenGlRenderFrameContext> _current_frame_context = {};
+        std::unordered_map<Uuid, std::shared_ptr<OpenGlMesh>> _meshes_by_id = {};
+        std::unordered_map<Uuid, std::shared_ptr<OpenGlTexture>> _textures_by_id = {};
+        std::unordered_map<Uuid, std::shared_ptr<OpenGlShaderProgram>> _shader_programs_by_id = {};
+        std::unordered_map<Uuid, std::shared_ptr<OpenGlMaterial>> _materials_by_id = {};
+        std::unordered_map<Uuid, std::shared_ptr<OpenGlModel>> _models_by_id = {};
     };
 }

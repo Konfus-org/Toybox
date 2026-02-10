@@ -34,16 +34,20 @@ namespace tbx::plugins
         }
     }
 
-    void OpenGlRenderingPlugin::on_attach(IPluginHost&) {}
+    void OpenGlRenderingPlugin::on_attach(IPluginHost&)
+    {
+        _render_pipeline = std::make_unique<OpenGlRenderPipeline>();
+    }
 
     void OpenGlRenderingPlugin::on_detach()
     {
         _is_context_ready = false;
+        _render_pipeline.reset();
     }
 
     void OpenGlRenderingPlugin::on_update(const DeltaTime&)
     {
-        if (!_is_context_ready)
+        if (!_is_context_ready || !_render_pipeline)
             return;
 
         send_message<WindowMakeCurrentRequest>(_window_id);
@@ -55,8 +59,8 @@ namespace tbx::plugins
             .render_target = &_framebuffer,
         };
 
-        _render_pipeline.set_frame_context(frame_context);
-        _render_pipeline.execute();
+        _render_pipeline->set_frame_context(frame_context);
+        _render_pipeline->execute();
         send_message<WindowPresentRequest>(_window_id);
     }
 
@@ -65,6 +69,8 @@ namespace tbx::plugins
         if (auto* ready_event = handle_message<WindowContextReadyEvent>(msg))
         {
             _window_id = ready_event->window;
+            if (!_render_pipeline)
+                _render_pipeline = std::make_unique<OpenGlRenderPipeline>();
 
             auto* loader = reinterpret_cast<GLADloadproc>(ready_event->get_proc_address);
             TBX_ASSERT(
