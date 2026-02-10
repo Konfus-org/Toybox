@@ -86,4 +86,11 @@ namespace tbx
     /// Thread Safety: stateless; safe to call concurrently.
     /// </summary>
     TBX_API Vec4 normalize(Vec4 v);
+
+    /// <summary>
+    /// Purpose: Computes the Euclidean distance between two Vec3 points.
+    /// Ownership: Returns a value type.
+    /// Thread Safety: Stateless; safe to call concurrently.
+    /// </summary>
+    TBX_API float distance(const Vec3& a, const Vec3& b);
 }

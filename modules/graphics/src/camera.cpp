@@ -34,7 +34,7 @@ namespace tbx
         _z_far = z_far;
         _aspect = aspect;
         _fov = fov;
-        _projection_matrix = perspective_projection(degrees_to_radians(fov), aspect, z_near, z_far);
+        _projection_matrix = perspective_projection(to_radians(fov), aspect, z_near, z_far);
     }
 
     void Camera::set_aspect(float aspect)

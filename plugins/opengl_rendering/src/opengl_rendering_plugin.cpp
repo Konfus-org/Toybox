@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cmath>
 #include <glad/glad.h>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -28,6 +29,7 @@ namespace tbx::plugins
     {
         Uuid mesh_id = {};
         const OpenGlMaterial* material = nullptr;
+        std::span<const ShaderUniform> material_overrides = {};
         Mat4 model_matrix = Mat4(1.0f);
     };
 
@@ -126,12 +128,13 @@ namespace tbx::plugins
         OpenGlRenderCache& cache,
         GlIdProvider& id_provider,
         AssetManager& asset_manager,
-        const StaticRenderData& static_data,
+        const Renderer& renderer,
+        const StaticMesh& static_mesh,
         const Mat4& entity_matrix,
         const std::shared_ptr<Material>& fallback_material,
         std::vector<MeshDrawRequest>& draw_requests)
     {
-        auto model_asset = cache.get_cached_model(asset_manager, static_data.model, id_provider);
+        auto model_asset = cache.get_cached_model(asset_manager, static_mesh.model, id_provider);
         if (!model_asset)
             return;
 
@@ -141,11 +144,11 @@ namespace tbx::plugins
             return;
 
         OpenGlMaterial* override_material = nullptr;
-        if (static_data.material.is_valid())
+        if (renderer.material.is_valid())
         {
             override_material = cache.get_cached_material(
                 asset_manager,
-                static_data.material,
+                renderer.material,
                 fallback_material,
                 id_provider);
         }
@@ -153,6 +156,8 @@ namespace tbx::plugins
         std::vector<ModelMeshInstance> instances = {};
         instances.reserve(model_asset->meshes.size() + model_asset->parts.size());
         append_model_mesh_instances(*model_asset, entity_matrix, instances);
+
+        const std::span<const ShaderUniform> material_overrides = renderer.material_overrides.get_uniforms();
 
         for (const auto& instance : instances)
         {
@@ -165,53 +170,22 @@ namespace tbx::plugins
             MeshDrawRequest request = {
                 .mesh_id = instance.mesh_id,
                 .material = material,
+                .material_overrides = material_overrides,
                 .model_matrix = instance.model_matrix,
             };
             draw_requests.push_back(request);
         }
     }
 
-    static void append_procedural_draw_requests(
-        OpenGlRenderCache& cache,
-        GlIdProvider& id_provider,
-        AssetManager& asset_manager,
-        const ProceduralData& procedural_data,
-        const Mat4& entity_matrix,
-        const std::shared_ptr<Material>& fallback_material,
-        std::vector<MeshDrawRequest>& draw_requests)
+    static Uuid get_procedural_mesh_cache_key(const ProceduralMesh& procedural_mesh)
     {
-        size_t mesh_count = procedural_data.meshes.size();
-        for (size_t mesh_index = 0U; mesh_index < mesh_count; ++mesh_index)
-        {
-            const Mesh& mesh = procedural_data.meshes[mesh_index];
-            if (mesh.vertices.empty() || mesh.indices.empty())
-                continue;
+        const std::size_t render_id = std::hash<const Mesh*>{}(procedural_mesh.mesh.get());
+        uint32 low_bits = static_cast<uint32>(render_id);
+        uint32 high_bits = static_cast<uint32>(render_id >> 32U);
 
-            Handle material_handle = {};
-            if (mesh_index < procedural_data.materials.size())
-                material_handle = procedural_data.materials[mesh_index];
-
-            auto material_asset = cache.get_cached_material(
-                asset_manager,
-                material_handle,
-                fallback_material,
-                id_provider);
-            if (!material_asset)
-                continue;
-
-            Uuid mesh_key =
-                id_provider.provide(procedural_data.id, static_cast<uint32>(mesh_index));
-            auto mesh_resource = cache.get_mesh(mesh, mesh_key);
-            if (!mesh_resource)
-                continue;
-
-            MeshDrawRequest request = {
-                .mesh_id = mesh_key,
-                .material = material_asset,
-                .model_matrix = entity_matrix,
-            };
-            draw_requests.push_back(request);
-        }
+        Uuid key = Uuid(low_bits);
+        key.combine(high_bits);
+        return key;
     }
 
     static void GLAPIENTRY gl_message_callback(
@@ -623,8 +597,8 @@ namespace tbx::plugins
             float inner_angle = std::clamp(light.inner_angle, 0.0f, MAX_SPOT_ANGLE);
             float outer_angle = std::clamp(light.outer_angle, inner_angle, MAX_SPOT_ANGLE);
 
-            float inner_cos = std::cos(degrees_to_radians(inner_angle));
-            float outer_cos = std::cos(degrees_to_radians(outer_angle));
+            float inner_cos = std::cos(to_radians(inner_angle));
+            float outer_cos = std::cos(to_radians(outer_angle));
 
             Vec3 color = Vec3(light.color.r, light.color.g, light.color.b);
             if (color.x <= 0.0f && color.y <= 0.0f && color.z <= 0.0f)
@@ -742,11 +716,13 @@ namespace tbx::plugins
 
         static const auto FALLBACK_MATERIAL = std::make_shared<Material>();
 
-        ecs.for_each_with<Renderer>(
+        ecs.for_each_with<Renderer, StaticMesh>(
             [&](Entity entity)
             {
                 const Renderer& renderer = entity.get_component<Renderer>();
-                if (!renderer.data)
+                const StaticMesh& static_mesh = entity.get_component<StaticMesh>();
+
+                if (!static_mesh.model.is_valid())
                     return;
 
                 // Step 2: Compute the entity model matrix (identity if no transform).
@@ -754,32 +730,45 @@ namespace tbx::plugins
                 if (entity.has_component<Transform>())
                     entity_matrix = build_transform_matrix(entity.get_component<Transform>());
 
+                if (renderer.is_cullable && renderer.render_distance > 0.0f
+                    && entity.has_component<Transform>())
+                {
+                    const auto& transform = entity.get_component<Transform>();
+                    const float camera_distance = distance(camera_position, transform.position);
+                    if (camera_distance > renderer.render_distance)
+                        return;
+                }
+
+                Handle model_handle = static_mesh.model;
+                if (!renderer.lods.empty() && entity.has_component<Transform>())
+                {
+                    const auto& transform = entity.get_component<Transform>();
+                    const float camera_distance = distance(camera_position, transform.position);
+
+                    for (const auto& lod : renderer.lods)
+                    {
+                        if (!lod.model.is_valid())
+                            continue;
+
+                        if (lod.max_distance <= 0.0f || camera_distance <= lod.max_distance)
+                        {
+                            model_handle = lod.model;
+                            break;
+                        }
+                    }
+                }
+
                 std::vector<MeshDrawRequest> draw_requests = {};
 
-                if (auto* static_data = dynamic_cast<const StaticRenderData*>(renderer.data.get()))
-                {
-                    append_static_model_draw_requests(
-                        _cache,
-                        _id_provider,
-                        asset_manager,
-                        *static_data,
-                        entity_matrix,
-                        FALLBACK_MATERIAL,
-                        draw_requests);
-                }
-                else if (
-                    auto* procedural_data =
-                        dynamic_cast<const ProceduralData*>(renderer.data.get()))
-                {
-                    append_procedural_draw_requests(
-                        _cache,
-                        _id_provider,
-                        asset_manager,
-                        *procedural_data,
-                        entity_matrix,
-                        FALLBACK_MATERIAL,
-                        draw_requests);
-                }
+                append_static_model_draw_requests(
+                    _cache,
+                    _id_provider,
+                    asset_manager,
+                    renderer,
+                    StaticMesh {.model = model_handle},
+                    entity_matrix,
+                    FALLBACK_MATERIAL,
+                    draw_requests);
 
                 for (const auto& request : draw_requests)
                 {
@@ -789,16 +778,64 @@ namespace tbx::plugins
                     draw_mesh_with_material(
                         request.mesh_id,
                         *request.material,
+                        request.material_overrides,
                         request.model_matrix,
                         view_projection,
                         camera_position);
                 }
+            });
+
+        ecs.for_each_with<Renderer, ProceduralMesh>(
+            [&](Entity entity)
+            {
+                const Renderer& renderer = entity.get_component<Renderer>();
+                const ProceduralMesh& procedural_mesh = entity.get_component<ProceduralMesh>();
+
+                if (!procedural_mesh.mesh)
+                    return;
+
+                const Mesh& mesh = *procedural_mesh.mesh;
+                if (mesh.vertices.empty() || mesh.indices.empty())
+                    return;
+
+                if (renderer.is_cullable && renderer.render_distance > 0.0f
+                    && entity.has_component<Transform>())
+                {
+                    const auto& transform = entity.get_component<Transform>();
+                    const float camera_distance = distance(camera_position, transform.position);
+                    if (camera_distance > renderer.render_distance)
+                        return;
+                }
+
+                auto material_asset = _cache.get_cached_material(
+                    asset_manager,
+                    renderer.material,
+                    FALLBACK_MATERIAL,
+                    _id_provider);
+                if (!material_asset)
+                    return;
+
+                const Uuid mesh_key = get_procedural_mesh_cache_key(procedural_mesh);
+                auto mesh_resource = _cache.get_mesh(mesh, mesh_key);
+                if (!mesh_resource)
+                    return;
+
+                draw_mesh_with_material(
+                    mesh_key,
+                    *material_asset,
+                    renderer.material_overrides.get_uniforms(),
+                    entity.has_component<Transform>()
+                        ? build_transform_matrix(entity.get_component<Transform>())
+                        : Mat4(1.0f),
+                    view_projection,
+                    camera_position);
             });
     }
 
     void OpenGlRenderingPlugin::draw_mesh_with_material(
         const Uuid& mesh_key,
         const OpenGlMaterial& material,
+        std::span<const ShaderUniform> material_overrides,
         const Mat4& model_matrix,
         const Mat4& view_projection,
         const Vec3& camera_position)
@@ -841,7 +878,7 @@ namespace tbx::plugins
                 .data = model_matrix,
             });
 
-            Mat3 normal_matrix = glm::inverseTranspose(Mat3(model_matrix));
+            Mat3 normal_matrix = inverse_transpose(Mat3(model_matrix));
             program->try_upload({
                 .name = "u_normal_matrix",
                 .data = normal_matrix,
@@ -872,6 +909,9 @@ namespace tbx::plugins
 
             // Step 4: Upload scalar/vector material parameters.
             for (const auto& parameter : material.parameters)
+                program->upload(parameter);
+
+            for (const auto& parameter : material_overrides)
                 program->upload(parameter);
 
             // Step 5: Bind textures and upload sampler slots.
@@ -924,7 +964,7 @@ namespace tbx::plugins
             Mat4 default_view =
                 look_at(Vec3(0.0f, 0.0f, 5.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));
             Mat4 default_projection =
-                perspective_projection(degrees_to_radians(60.0f), aspect, 0.1f, 1000.0f);
+                perspective_projection(to_radians(60.0f), aspect, 0.1f, 1000.0f);
             Mat4 view_projection = default_projection * default_view;
             draw_models(view_projection, Vec3(0.0f, 0.0f, 5.0f));
             return;

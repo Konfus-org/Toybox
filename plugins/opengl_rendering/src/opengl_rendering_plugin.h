@@ -14,6 +14,7 @@
 #include "tbx/messages/observable.h"
 #include "tbx/plugin_api/plugin.h"
 #include <memory>
+#include <span>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -47,6 +48,7 @@ namespace tbx::plugins
         void draw_mesh_with_material(
             const Uuid& mesh_key,
             const OpenGlMaterial& material,
+            std::span<const ShaderUniform> material_overrides,
             const Mat4& model_matrix,
             const Mat4& view_projection,
             const Vec3& camera_position);

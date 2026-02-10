@@ -6,6 +6,7 @@
 #include "tbx/graphics/renderer.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
+#include <memory>
 
 namespace tbx::examples
 {
@@ -19,16 +20,18 @@ namespace tbx::examples
 
         // Setup cube
         _cube = _entity_manager->create("Cube");
-        _cube.add_component<Renderer>(green_cube);
+        _cube.add_component<Renderer>();
+        _cube.add_component<StaticMesh>(green_cube);
         auto& smily_tran = _cube.add_component<Transform>();
         smily_tran.position = Vec3(0.0f, 0.0f, -5.0f);
 
         // Setup ground
         auto ground_ent = _entity_manager->create("Ground");
-        ground_ent.add_component<Renderer>(quad, smily_mat);
+        auto& ground_renderer = ground_ent.add_component<Renderer>(smily_mat);
+        ground_ent.add_component<ProceduralMesh>(quad);
         auto& ground_tran = ground_ent.add_component<Transform>();
         ground_tran.position = Vec3(0.0f, -2.0f, -5.0f);
-        ground_tran.rotation = Vec3(degrees_to_radians(-90.0f), 0.0f, 0.0f);
+        ground_tran.rotation = to_radians(Vec3(-90.0f, 0.0f, 0.0f));
         ground_tran.scale = Vec3(20.0f, 20.0f, 1.0f);
 
         // Setup light
@@ -37,14 +40,14 @@ namespace tbx::examples
         dir_light.color = RgbaColor::yellow;
         dir_light.intensity = 1;
         auto& light_tran = light_ent.add_component<Transform>();
-        light_tran.rotation = Vec3(degrees_to_radians(-45.0f), degrees_to_radians(45.0f), 0.0f);
+        light_tran.rotation = to_radians(Vec3(-45.0f, 45.0f, 0.0f));
 
         // Setup camera
         auto cam_ent = _entity_manager->create("Camera");
         cam_ent.add_component<Camera>();
         auto& cam_tran = cam_ent.add_component<Transform>();
         cam_tran.position = Vec3(0.0f, 5.0f, 10.0f);
-        cam_tran.rotation = Vec3(degrees_to_radians(-25.0f), 0.0f, 0.0f);
+        cam_tran.rotation = to_radians(Vec3(-25.0f, 0.0f, 0.0f));
     }
 
     void AssetExampleRuntimePlugin::on_detach()

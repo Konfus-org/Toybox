@@ -1,134 +1,299 @@
 #pragma once
 #include "tbx/common/handle.h"
-#include "tbx/common/uuid.h"
 #include "tbx/graphics/mesh.h"
+#include "tbx/graphics/shader.h"
 #include "tbx/tbx_api.h"
 #include <memory>
-#include <utility>
+#include <span>
+#include <string_view>
 #include <vector>
 
 namespace tbx
 {
     /// <summary>
-    /// Purpose: Provides a polymorphic base for renderer data payloads.
+    /// Purpose: Stores per-entity material uniform overrides applied at render time.
     /// </summary>
     /// <remarks>
-    /// Ownership: Does not own external resources beyond derived payloads.
-    /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-    /// </remarks>
-    class TBX_API IRenderData
-    {
-      public:
-        virtual ~IRenderData() = default;
-    };
-    
-    /// <summary>
-    /// Purpose: Stores asset-backed render data for static models and materials.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Owns asset handle copies for model and material references.
+    /// Ownership: Owns a collection of ShaderUniform values.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
     /// </remarks>
-    class TBX_API StaticRenderData final : public IRenderData
+    struct TBX_API MaterialOverrides
     {
-      public:
-        StaticRenderData() = default;
-        StaticRenderData(Handle model_handle, Handle material_handle)
-            : model(std::move(model_handle))
-            , material(std::move(material_handle))
-        {
-        }
+        /// <summary>
+        /// Purpose: Adds or updates an override by uniform name.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores a copy of the provided uniform value.
+        /// Thread Safety: Not thread-safe; synchronize mutation externally.
+        /// </remarks>
+        void set(std::string_view name, UniformData value);
 
-        Handle model = {};
-        Handle material = {};
-    };
+        /// <summary>
+        /// Purpose: Returns an override uniform by name.
+        /// </summary>
+        /// <remarks>
+        /// Purpose: Retrieves an override uniform by name.
+        /// Ownership: Returns a non-owning reference to internal storage.
+        /// Thread Safety: Not thread-safe; synchronize mutation externally.
+        /// </remarks>
+        ShaderUniform& get(std::string_view name);
 
-    /// <summary>
-    /// Purpose: Stores procedural mesh data with optional material handles.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Owns mesh data and material handle copies.
-    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    /// </remarks>
-    class TBX_API ProceduralData final : public IRenderData
-    {
-      public:
-        ProceduralData() = default;
-        ProceduralData(std::vector<Mesh> mesh_data, std::vector<Handle> material_handles)
-            : meshes(std::move(mesh_data))
-            , materials(std::move(material_handles))
+        /// <summary>
+        /// Purpose: Returns an override uniform by name.
+        /// </summary>
+        /// <remarks>
+        /// Purpose: Retrieves an override uniform by name.
+        /// Ownership: Returns a non-owning reference to internal storage.
+        /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+        /// </remarks>
+        const ShaderUniform& get(std::string_view name) const;
+
+        /// <summary>
+        /// Purpose: Returns an override value by uniform name as a specific type.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a non-owning reference to internal storage.
+        /// Thread Safety: Not thread-safe; synchronize mutation externally.
+        /// </remarks>
+        template <typename TValue>
+        TValue& get(std::string_view name)
         {
+            ShaderUniform& uniform = get(name);
+            return std::get<TValue>(uniform.data);
         }
 
         /// <summary>
-        /// Purpose: Identifies this procedural batch for GPU cache lookups.
+        /// Purpose: Returns an override value by uniform name as a specific type.
         /// </summary>
         /// <remarks>
-        /// Ownership: Stores the identifier by value.
-        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// Ownership: Returns a non-owning reference to internal storage.
+        /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
         /// </remarks>
-        Uuid id = Uuid::generate();
-        std::vector<Mesh> meshes = {};
-        std::vector<Handle> materials = {};
+        template <typename TValue>
+        const TValue& get(std::string_view name) const
+        {
+            const ShaderUniform& uniform = get(name);
+            return std::get<TValue>(uniform.data);
+        }
+
+        /// <summary>
+        /// Purpose: Attempts to read an override value by uniform name.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Copies the stored value into the output parameter.
+        /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+        /// </remarks>
+        bool try_get(std::string_view name, UniformData& out_value) const;
+
+        /// <summary>
+        /// Purpose: Attempts to read an override value by uniform name as a specific type.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Copies the stored value into the output parameter.
+        /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+        /// </remarks>
+        template <typename TValue>
+        bool try_get(std::string_view name, TValue& out_value) const
+        {
+            UniformData value = {};
+            if (!try_get(name, value))
+                return false;
+
+            if (!std::holds_alternative<TValue>(value))
+                return false;
+
+            out_value = std::get<TValue>(value);
+            return true;
+        }
+
+        /// <summary>
+        /// Purpose: Returns whether an override exists for the given uniform name.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stateless; no ownership transfer.
+        /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+        /// </remarks>
+        bool has(std::string_view name) const;
+
+        /// <summary>
+        /// Purpose: Removes an override by uniform name.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Mutates internal storage.
+        /// Thread Safety: Not thread-safe; synchronize mutation externally.
+        /// </remarks>
+        void remove(std::string_view name);
+
+        /// <summary>
+        /// Purpose: Clears all overrides.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Releases internal storage.
+        /// Thread Safety: Not thread-safe; synchronize mutation externally.
+        /// </remarks>
+        void clear();
+
+        /// <summary>
+        /// Purpose: Returns a view of the stored override uniforms.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a non-owning view of internal storage.
+        /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+        /// </remarks>
+        std::span<const ShaderUniform> get_uniforms() const;
+
+      private:
+        std::vector<ShaderUniform> _uniforms = {};
     };
 
     /// <summary>
-    /// Purpose: Associates render data with an entity for efficient rendering.
+    /// Purpose: Defines a model handle to use within a specific distance band (LOD).
     /// </summary>
     /// <remarks>
-    /// Ownership: Owns the render data payload via a unique pointer.
-    /// Thread Safety: Safe to move between threads; mutation requires external synchronization.
+    /// Ownership: Stores handles by value; does not own loaded model assets.
+    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    /// </remarks>
+    struct TBX_API RendererLod
+    {
+        /// <summary>
+        /// Purpose: Model asset handle used when within the specified distance band.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores a non-owning handle reference.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// </remarks>
+        Handle model = {};
+
+        /// <summary>
+        /// Purpose: Inclusive maximum distance (world units) where this LOD should be used.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// </remarks>
+        float max_distance = 0.0f;
+    };
+
+    /// <summary>
+    /// Purpose: Stores render settings and material selection for an entity.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores handles and override data by value.
+    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
     /// </remarks>
     struct TBX_API Renderer
     {
-        Renderer();
-        Renderer(std::unique_ptr<IRenderData> render_data);
-
         /// <summary>
-        /// Purpose: Creates a renderer for a static model asset by name.
+        /// Purpose: Material asset handle to use as a per-entity override.
         /// </summary>
         /// <remarks>
-        /// Ownership: Takes ownership of the created render data payload.
-        /// Thread Safety: Safe to construct on any thread.
+        /// Ownership: Stores a non-owning handle reference.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         /// </remarks>
-        Renderer(std::string model_name, Handle material_handle = {});
+        Handle material = {};
 
         /// <summary>
-        /// Purpose: Creates a renderer for a static model asset handle.
+        /// Purpose: Applies runtime uniform overrides to the selected material.
         /// </summary>
         /// <remarks>
-        /// Ownership: Takes ownership of the created render data payload.
-        /// Thread Safety: Safe to construct on any thread.
+        /// Ownership: Owns the override collection and uniform values.
+        /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
         /// </remarks>
-        Renderer(Handle model_handle, Handle material_handle = {});
+        MaterialOverrides material_overrides = {};
 
         /// <summary>
-        /// Purpose: Creates a renderer for static asset-backed render data.
+        /// Purpose: Enables or disables culling behavior for this entity (e.g., render distance
+        /// cull).
         /// </summary>
         /// <remarks>
-        /// Ownership: Takes ownership of the created render data payload.
-        /// Thread Safety: Safe to construct on any thread.
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         /// </remarks>
-        Renderer(StaticRenderData render_data);
+        bool is_cullable = true;
 
         /// <summary>
-        /// Purpose: Creates a renderer for a single procedural mesh.
+        /// Purpose: Enables or disables shadow participation for this entity.
         /// </summary>
         /// <remarks>
-        /// Ownership: Takes ownership of the created render data payload.
-        /// Thread Safety: Safe to construct on any thread.
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         /// </remarks>
-        Renderer(Mesh mesh, Handle material_handle = {});
+        bool are_shadows_enabled = true;
 
         /// <summary>
-        /// Purpose: Creates a renderer for procedural mesh data.
+        /// Purpose: Marks the surface as two-sided for rendering.
         /// </summary>
         /// <remarks>
-        /// Ownership: Takes ownership of the created render data payload.
-        /// Thread Safety: Safe to construct on any thread.
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         /// </remarks>
-        Renderer(ProceduralData render_data);
+        bool is_two_sided = false;
 
-        std::unique_ptr<IRenderData> data = {};
+        /// <summary>
+        /// Purpose: Limits rendering based on distance from the active camera (0 means unlimited).
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// </remarks>
+        float render_distance = 0.0f;
+
+        /// <summary>
+        /// Purpose: Provides optional LOD model handles selected based on camera distance.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Owns the LOD vector.
+        /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+        /// </remarks>
+        std::vector<RendererLod> lods = {};
+    };
+
+    /// <summary>
+    /// Purpose: Identifies a static, asset-backed model to render for an entity.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores a non-owning model handle reference.
+    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    /// </remarks>
+    struct TBX_API StaticMesh
+    {
+        /// <summary>
+        /// Purpose: Model asset handle that provides mesh geometry (and optional part materials).
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores a non-owning handle reference.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// </remarks>
+        Handle model = {};
+    };
+
+    /// <summary>
+    /// Purpose: Identifies a runtime-provided mesh to render for an entity.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Holds a shared pointer to mesh data owned by the caller or systems that create
+    /// it. Thread Safety: Mesh content mutation must be synchronized externally; the shared pointer
+    /// itself is safe to copy between threads.
+    /// </remarks>
+    struct TBX_API ProceduralMesh
+    {
+        ProceduralMesh() = default;
+        ProceduralMesh(Mesh mesh)
+            : mesh(std::make_shared<Mesh>(std::move(mesh)))
+        {
+        }
+        ProceduralMesh(std::shared_ptr<Mesh> mesh_data)
+            : mesh(std::move(mesh_data))
+        {
+        }
+
+        /// <summary>
+        /// Purpose: Mesh data to render.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Shared ownership of the mesh data via std::shared_ptr.
+        /// Thread Safety: Safe to copy; synchronize mutation of the pointed-to Mesh externally.
+        /// </remarks>
+        std::shared_ptr<Mesh> mesh = {};
     };
 }
