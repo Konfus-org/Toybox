@@ -36,13 +36,11 @@ namespace tbx
         , _asset_manager(desc.working_root)
     {
         FileOperator file_operator = FileOperator(desc.working_root);
-
         _settings.working_directory = file_operator.get_working_directory();
         if (desc.logs_directory.empty())
             _settings.logs_directory = file_operator.resolve("logs");
         else
             _settings.logs_directory = file_operator.resolve(desc.logs_directory);
-        _settings.plugins_directory = _settings.working_directory;
 
         initialize(desc.requested_plugins);
     }
@@ -127,7 +125,7 @@ namespace tbx
 
             // Load requested plugins
             _loaded = load_plugins(
-                _settings.plugins_directory,
+                _settings.working_directory,
                 requested_plugins,
                 _settings.working_directory,
                 *this);
@@ -136,7 +134,6 @@ namespace tbx
 
             // Log filesystem directories
             TBX_TRACE_INFO("Working Directory: {}", _settings.working_directory.string());
-            TBX_TRACE_INFO("Plugins Directory: {}", _settings.plugins_directory.string());
             TBX_TRACE_INFO("Logs Directory: {}", _settings.logs_directory.string());
             auto asset_roots = _asset_manager.get_asset_directories();
             for (const auto& root : asset_roots)

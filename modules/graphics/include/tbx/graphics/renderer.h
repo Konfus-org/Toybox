@@ -21,7 +21,7 @@ namespace tbx
       public:
         virtual ~IRenderData() = default;
     };
-
+    
     /// <summary>
     /// Purpose: Stores asset-backed render data for static models and materials.
     /// </summary>

@@ -13,15 +13,19 @@ namespace tbx::examples
     {
         _entity_manager = &context.get_entity_registry();
 
+        // Setup assets to use
+        auto smily_mat = Handle("Smily.mat");
+        auto green_cube = Handle("Green_Cube.fbx");
+
         // Setup cube
-        _cube = _entity_manager->create("Smily Cube");
-        _cube.add_component<Renderer>("Green_Cube.fbx");
+        _cube = _entity_manager->create("Cube");
+        _cube.add_component<Renderer>(green_cube);
         auto& smily_tran = _cube.add_component<Transform>();
         smily_tran.position = Vec3(0.0f, 0.0f, -5.0f);
 
         // Setup ground
         auto ground_ent = _entity_manager->create("Ground");
-        ground_ent.add_component<Renderer>(quad, Handle("Smily.mat"));
+        ground_ent.add_component<Renderer>(quad, smily_mat);
         auto& ground_tran = ground_ent.add_component<Transform>();
         ground_tran.position = Vec3(0.0f, -2.0f, -5.0f);
         ground_tran.rotation = Vec3(degrees_to_radians(-90.0f), 0.0f, 0.0f);

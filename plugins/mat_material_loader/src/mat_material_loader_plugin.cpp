@@ -410,19 +410,16 @@ namespace tbx::plugins
                     else
                     {
                         std::string asset_name;
-                        if (!entry.try_get_string("value", asset_name))
-                        {
-                            error_message =
-                                "Material loader: texture entry '" + name + "' missing value.";
-                            return false;
-                        }
-                        handle = parse_asset_handle(asset_name);
-                    }
-
-                    if (handle.is_valid())
+                    if (!entry.try_get_string("value", asset_name))
                     {
-                        material.textures.emplace_back(name, handle);
+                        error_message =
+                            "Material loader: texture entry '" + name + "' missing value.";
+                        return false;
                     }
+                    handle = parse_asset_handle(asset_name);
+                }
+
+                    material.textures.emplace_back(name, handle);
                 }
             }
 

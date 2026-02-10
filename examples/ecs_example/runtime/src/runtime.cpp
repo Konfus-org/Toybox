@@ -1,4 +1,5 @@
 #include "runtime.h"
+#include "tbx/assets/builtin_assets.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/entities.h"
@@ -28,7 +29,7 @@ namespace tbx::examples
             // create and add components
             auto ent = _entity_manager->create(std::to_string(i));
             ent.add_component<Transform>();
-            ent.add_component<Renderer>(quad);
+            ent.add_component<Renderer>(quad, unlit_material);
 
             // shift on the x axis so they are not all in the same spot
             auto& transform = ent.get_component<Transform>();
