@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cmath>
 #include <glad/glad.h>
+#include <iterator>
 #include <span>
 #include <utility>
 #include <vector>
@@ -25,13 +26,10 @@ namespace tbx::plugins
     static constexpr float MIN_LIGHT_RANGE = 0.01f;
     static constexpr float MAX_SPOT_ANGLE = 179.0f;
 
-    struct MeshDrawRequest
-    {
-        Uuid mesh_id = {};
-        const OpenGlMaterial* material = nullptr;
-        std::span<const ShaderUniform> material_overrides = {};
-        Mat4 model_matrix = Mat4(1.0f);
-    };
+    using FrameBufferInfo = OpenGlFrameBufferInfo;
+    using FrameCameraInfo = OpenGlFrameCameraInfo;
+    using FrameLightingInfo = OpenGlFrameLightingInfo;
+    using MeshDrawRequest = OpenGlFrameMeshDrawRequest;
 
     struct ModelMeshInstance
     {
@@ -254,7 +252,6 @@ namespace tbx::plugins
 
         for (const auto& entry : _window_sizes)
         {
-            _uploaded_lighting_program_ids.clear();
             Uuid window_id = entry.first;
             const Size& window_size = entry.second;
             Size render_resolution = get_effective_resolution(window_size);
@@ -289,6 +286,11 @@ namespace tbx::plugins
                 continue;
             }
 
+            build_frame_buffer(_frame, window_size);
+            _frame.window_id = window_id;
+            _frame.render_resolution = render_resolution;
+            _frame.render_target = &target;
+
             glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(target.get_framebuffer()));
             glViewport(
                 0,
@@ -298,8 +300,13 @@ namespace tbx::plugins
             glClearColor(0, 0, 0, 1.0f); // Fixed 255 to 1.0f
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            // Draw all scene cameras to the offscreen target at the logical resolution.
-            draw_models_for_cameras(render_resolution);
+            build_frame_lighting(_frame);
+            build_frame_cameras(_frame, render_resolution);
+
+            for (auto& camera : _frame.cameras)
+                build_draw_requests_for_camera(camera);
+
+            draw_frame(_frame);
 
             // Present the scaled image to the window backbuffer via a shader, avoiding
             // glBlitFramebuffer scaling (which can be invalid with multisampled defaults).
@@ -520,13 +527,28 @@ namespace tbx::plugins
         return resolution;
     }
 
-    void OpenGlRenderingPlugin::update_frame_lighting()
+    void OpenGlRenderingPlugin::build_frame_buffer(FrameBufferInfo& frame, const Size& window_size)
     {
-        _frame_light_uniforms.clear();
-        _frame_point_light_count = 0;
-        _frame_area_light_count = 0;
-        _frame_spot_light_count = 0;
-        _frame_directional_light_count = 0;
+        frame.window_size = window_size;
+        frame.render_resolution = get_effective_resolution(window_size);
+        frame.render_target = nullptr;
+
+        frame.lighting.uniforms.clear();
+        frame.lighting.point_light_count = 0;
+        frame.lighting.area_light_count = 0;
+        frame.lighting.spot_light_count = 0;
+        frame.lighting.directional_light_count = 0;
+        frame.lighting.uploaded_program_ids.clear();
+    }
+
+    void OpenGlRenderingPlugin::build_frame_lighting(FrameBufferInfo& frame)
+    {
+        auto& lighting = frame.lighting;
+        lighting.uniforms.clear();
+        lighting.point_light_count = 0;
+        lighting.area_light_count = 0;
+        lighting.spot_light_count = 0;
+        lighting.directional_light_count = 0;
 
         auto& ecs = get_host().get_entity_registry();
         auto point_lights = ecs.get_with<PointLight>();
@@ -545,7 +567,7 @@ namespace tbx::plugins
         const size_t directional_reserve =
             std::min(directional_lights.size(), max_directional_count);
 
-        _frame_light_uniforms.reserve(
+        lighting.uniforms.reserve(
             point_reserve * 4U + area_reserve * 5U + spot_reserve * 7U + directional_reserve * 4U);
 
         size_t point_upload_index = 0U;
@@ -568,11 +590,11 @@ namespace tbx::plugins
                 continue;
 
             std::string base = "u_point_lights[" + std::to_string(point_upload_index) + "].";
-            _frame_light_uniforms.push_back(
+            lighting.uniforms.push_back(
                 {base + "position", light_tran ? light_tran->position : Vec3(0)});
-            _frame_light_uniforms.push_back({base + "color", color});
-            _frame_light_uniforms.push_back({base + "intensity", intensity});
-            _frame_light_uniforms.push_back({base + "range", range});
+            lighting.uniforms.push_back({base + "color", color});
+            lighting.uniforms.push_back({base + "intensity", intensity});
+            lighting.uniforms.push_back({base + "range", range});
             ++point_upload_index;
         }
 
@@ -605,14 +627,14 @@ namespace tbx::plugins
                 continue;
 
             std::string base = "u_spot_lights[" + std::to_string(spot_upload_index) + "].";
-            _frame_light_uniforms.push_back(
+            lighting.uniforms.push_back(
                 {base + "position", light_tran ? light_tran->position : Vec3(0)});
-            _frame_light_uniforms.push_back({base + "direction", direction});
-            _frame_light_uniforms.push_back({base + "color", color});
-            _frame_light_uniforms.push_back({base + "intensity", intensity});
-            _frame_light_uniforms.push_back({base + "range", range});
-            _frame_light_uniforms.push_back({base + "inner_cos", inner_cos});
-            _frame_light_uniforms.push_back({base + "outer_cos", outer_cos});
+            lighting.uniforms.push_back({base + "direction", direction});
+            lighting.uniforms.push_back({base + "color", color});
+            lighting.uniforms.push_back({base + "intensity", intensity});
+            lighting.uniforms.push_back({base + "range", range});
+            lighting.uniforms.push_back({base + "inner_cos", inner_cos});
+            lighting.uniforms.push_back({base + "outer_cos", outer_cos});
             ++spot_upload_index;
         }
 
@@ -641,12 +663,12 @@ namespace tbx::plugins
                 continue;
 
             std::string base = "u_area_lights[" + std::to_string(area_upload_index) + "].";
-            _frame_light_uniforms.push_back(
+            lighting.uniforms.push_back(
                 {base + "position", light_tran ? light_tran->position : Vec3(0)});
-            _frame_light_uniforms.push_back({base + "color", color});
-            _frame_light_uniforms.push_back({base + "intensity", intensity});
-            _frame_light_uniforms.push_back({base + "range", range});
-            _frame_light_uniforms.push_back({base + "area_size", area_size});
+            lighting.uniforms.push_back({base + "color", color});
+            lighting.uniforms.push_back({base + "intensity", intensity});
+            lighting.uniforms.push_back({base + "range", range});
+            lighting.uniforms.push_back({base + "area_size", area_size});
             ++area_upload_index;
         }
 
@@ -673,17 +695,17 @@ namespace tbx::plugins
 
             std::string base = "u_directional_lights[" + std::to_string(directional_upload_index)
                                + "].";
-            _frame_light_uniforms.push_back({base + "direction", direction});
-            _frame_light_uniforms.push_back({base + "color", color});
-            _frame_light_uniforms.push_back({base + "intensity", intensity});
-            _frame_light_uniforms.push_back({base + "ambient", ambient});
+            lighting.uniforms.push_back({base + "direction", direction});
+            lighting.uniforms.push_back({base + "color", color});
+            lighting.uniforms.push_back({base + "intensity", intensity});
+            lighting.uniforms.push_back({base + "ambient", ambient});
             ++directional_upload_index;
         }
 
-        _frame_point_light_count = static_cast<int>(point_upload_index);
-        _frame_area_light_count = static_cast<int>(area_upload_index);
-        _frame_spot_light_count = static_cast<int>(spot_upload_index);
-        _frame_directional_light_count = static_cast<int>(directional_upload_index);
+        lighting.point_light_count = static_cast<int>(point_upload_index);
+        lighting.area_light_count = static_cast<int>(area_upload_index);
+        lighting.spot_light_count = static_cast<int>(spot_upload_index);
+        lighting.directional_light_count = static_cast<int>(directional_upload_index);
     }
 
     void OpenGlRenderingPlugin::remove_window_state(const Uuid& window_id, bool try_release)
@@ -709,12 +731,67 @@ namespace tbx::plugins
         _render_targets.erase(it);
     }
 
-    void OpenGlRenderingPlugin::draw_models(const Mat4& view_projection, const Vec3& camera_position)
+    void OpenGlRenderingPlugin::build_frame_cameras(FrameBufferInfo& frame, const Size& render_resolution)
+    {
+        auto& ecs = get_host().get_entity_registry();
+        auto cameras = ecs.get_with<Camera, Transform>();
+
+        float aspect = render_resolution.get_aspect_ratio();
+
+        if (cameras.begin() == cameras.end())
+        {
+            frame.cameras.resize(1U);
+            auto& camera = frame.cameras.front();
+            camera.uploaded_program_ids.clear();
+            camera.draw_requests.clear();
+            camera.position = Vec3(0.0f, 0.0f, 5.0f);
+
+            Mat4 default_view = look_at(
+                Vec3(0.0f, 0.0f, 5.0f),
+                Vec3(0.0f, 0.0f, 0.0f),
+                Vec3(0.0f, 1.0f, 0.0f));
+            Mat4 default_projection =
+                perspective_projection(to_radians(60.0f), aspect, 0.1f, 1000.0f);
+            camera.view_projection = default_projection * default_view;
+            return;
+        }
+
+        size_t camera_count = 0U;
+        if constexpr (requires { cameras.size(); })
+            camera_count = cameras.size();
+        else
+            camera_count = static_cast<size_t>(std::distance(cameras.begin(), cameras.end()));
+
+        frame.cameras.resize(camera_count);
+        size_t camera_index = 0U;
+        for (const auto& camera_ent : cameras)
+        {
+            auto& camera = camera_ent.get_component<Camera>();
+            camera.set_aspect(aspect);
+
+            Transform& transform = camera_ent.get_component<Transform>();
+
+            auto& frame_camera = frame.cameras[camera_index];
+            frame_camera.uploaded_program_ids.clear();
+            frame_camera.draw_requests.clear();
+            frame_camera.position = transform.position;
+            frame_camera.view_projection =
+                camera.get_view_projection_matrix(transform.position, transform.rotation);
+
+            ++camera_index;
+        }
+    }
+
+    void OpenGlRenderingPlugin::build_draw_requests_for_camera(FrameCameraInfo& camera)
     {
         auto& ecs = get_host().get_entity_registry();
         auto& asset_manager = get_host().get_asset_manager();
 
         static const auto FALLBACK_MATERIAL = std::make_shared<Material>();
+
+        camera.draw_requests.clear();
+
+        const Vec3& camera_position = camera.position;
 
         ecs.for_each_with<Renderer, StaticMesh>(
             [&](Entity entity)
@@ -758,8 +835,6 @@ namespace tbx::plugins
                     }
                 }
 
-                std::vector<MeshDrawRequest> draw_requests = {};
-
                 append_static_model_draw_requests(
                     _cache,
                     _id_provider,
@@ -768,21 +843,7 @@ namespace tbx::plugins
                     StaticMesh {.model = model_handle},
                     entity_matrix,
                     FALLBACK_MATERIAL,
-                    draw_requests);
-
-                for (const auto& request : draw_requests)
-                {
-                    if (!request.material)
-                        continue;
-
-                    draw_mesh_with_material(
-                        request.mesh_id,
-                        *request.material,
-                        request.material_overrides,
-                        request.model_matrix,
-                        view_projection,
-                        camera_position);
-                }
+                    camera.draw_requests);
             });
 
         ecs.for_each_with<Renderer, ProceduralMesh>(
@@ -820,19 +881,46 @@ namespace tbx::plugins
                 if (!mesh_resource)
                     return;
 
-                draw_mesh_with_material(
-                    mesh_key,
-                    *material_asset,
-                    renderer.material_overrides.get_uniforms(),
-                    entity.has_component<Transform>()
-                        ? build_transform_matrix(entity.get_component<Transform>())
-                        : Mat4(1.0f),
-                    view_projection,
-                    camera_position);
+                MeshDrawRequest request = {
+                    .mesh_id = mesh_key,
+                    .material = material_asset,
+                    .material_overrides = renderer.material_overrides.get_uniforms(),
+                    .model_matrix = entity.has_component<Transform>()
+                                        ? build_transform_matrix(entity.get_component<Transform>())
+                                        : Mat4(1.0f),
+                };
+                camera.draw_requests.push_back(std::move(request));
             });
     }
 
+    void OpenGlRenderingPlugin::draw_frame(FrameBufferInfo& frame)
+    {
+        if (frame.cameras.empty())
+            return;
+
+        for (auto& camera : frame.cameras)
+        {
+            for (const auto& request : camera.draw_requests)
+            {
+                if (!request.material)
+                    continue;
+
+                draw_mesh_with_material(
+                    camera,
+                    frame.lighting,
+                    request.mesh_id,
+                    *request.material,
+                    request.material_overrides,
+                    request.model_matrix,
+                    camera.view_projection,
+                    camera.position);
+            }
+        }
+    }
+
     void OpenGlRenderingPlugin::draw_mesh_with_material(
+        FrameCameraInfo& camera,
+        FrameLightingInfo& lighting,
         const Uuid& mesh_key,
         const OpenGlMaterial& material,
         std::span<const ShaderUniform> material_overrides,
@@ -846,11 +934,101 @@ namespace tbx::plugins
             return;
 
         // Step 2: Determine which shader programs to render with.
-        std::vector<Uuid> shader_programs = material.shader_programs;
-        if (shader_programs.empty())
-            shader_programs.push_back(default_shader.id);
+        if (material.shader_programs.empty())
+        {
+            auto program = _cache.get_cached_shader_program(default_shader.id);
+            if (program)
+            {
+                GlResourceScope program_scope(*program);
+                const uint32 program_id = program->get_program_id();
 
-        for (const auto& shader_id : shader_programs)
+                if (camera.uploaded_program_ids.insert(program_id).second)
+                {
+                    program->try_upload({
+                        .name = "u_view_proj",
+                        .data = view_projection,
+                    });
+                    program->try_upload({
+                        .name = "u_camera_pos",
+                        .data = camera_position,
+                    });
+                }
+
+                program->try_upload({
+                    .name = "u_model",
+                    .data = model_matrix,
+                });
+
+                Mat3 normal_matrix = inverse_transpose(Mat3(model_matrix));
+                program->try_upload({
+                    .name = "u_normal_matrix",
+                    .data = normal_matrix,
+                });
+
+                if (lighting.uploaded_program_ids.insert(program_id).second)
+                {
+                    program->try_upload({
+                        .name = "u_point_light_count",
+                        .data = lighting.point_light_count,
+                    });
+                    program->try_upload({
+                        .name = "u_area_light_count",
+                        .data = lighting.area_light_count,
+                    });
+                    program->try_upload({
+                        .name = "u_spot_light_count",
+                        .data = lighting.spot_light_count,
+                    });
+                    program->try_upload({
+                        .name = "u_directional_light_count",
+                        .data = lighting.directional_light_count,
+                    });
+
+                    for (const auto& light_uniform : lighting.uniforms)
+                        program->try_upload(light_uniform);
+                }
+
+                for (const auto& parameter : material.parameters)
+                    program->upload(parameter);
+
+                for (const auto& parameter : material_overrides)
+                    program->upload(parameter);
+
+                std::vector<GlResourceScope> texture_scopes = {};
+                texture_scopes.reserve(material.textures.size());
+                uint32 texture_slot = 0U;
+
+                for (const auto& texture_binding : material.textures)
+                {
+                    auto texture_resource = _cache.get_default_texture();
+                    if (texture_binding.texture_id.is_valid())
+                    {
+                        auto cached_texture = _cache.get_cached_texture(texture_binding.texture_id);
+                        if (cached_texture)
+                            texture_resource = cached_texture;
+                    }
+
+                    if (texture_resource)
+                    {
+                        texture_resource->set_slot(static_cast<int>(texture_slot));
+                        texture_scopes.emplace_back(*texture_resource);
+                    }
+
+                    program->upload({
+                        .name = texture_binding.name,
+                        .data = static_cast<int>(texture_slot),
+                    });
+                    ++texture_slot;
+                }
+
+                GlResourceScope mesh_scope(*mesh_resource);
+                mesh_resource->draw();
+            }
+
+            return;
+        }
+
+        for (const auto& shader_id : material.shader_programs)
         {
             auto program = _cache.get_cached_shader_program(shader_id);
             if (!program)
@@ -861,7 +1039,7 @@ namespace tbx::plugins
 
             const uint32 program_id = program->get_program_id();
 
-            if (_uploaded_camera_program_ids.insert(program_id).second)
+            if (camera.uploaded_program_ids.insert(program_id).second)
             {
                 program->try_upload({
                     .name = "u_view_proj",
@@ -884,26 +1062,26 @@ namespace tbx::plugins
                 .data = normal_matrix,
             });
 
-            if (_uploaded_lighting_program_ids.insert(program_id).second)
+            if (lighting.uploaded_program_ids.insert(program_id).second)
             {
                 program->try_upload({
                     .name = "u_point_light_count",
-                    .data = _frame_point_light_count,
+                    .data = lighting.point_light_count,
                 });
                 program->try_upload({
                     .name = "u_area_light_count",
-                    .data = _frame_area_light_count,
+                    .data = lighting.area_light_count,
                 });
                 program->try_upload({
                     .name = "u_spot_light_count",
-                    .data = _frame_spot_light_count,
+                    .data = lighting.spot_light_count,
                 });
                 program->try_upload({
                     .name = "u_directional_light_count",
-                    .data = _frame_directional_light_count,
+                    .data = lighting.directional_light_count,
                 });
 
-                for (const auto& light_uniform : _frame_light_uniforms)
+                for (const auto& light_uniform : lighting.uniforms)
                     program->try_upload(light_uniform);
             }
 
@@ -926,9 +1104,7 @@ namespace tbx::plugins
                 {
                     auto cached_texture = _cache.get_cached_texture(texture_binding.texture_id);
                     if (cached_texture)
-                    {
                         texture_resource = cached_texture;
-                    }
                 }
 
                 if (texture_resource)
@@ -947,41 +1123,6 @@ namespace tbx::plugins
             // Step 6: Bind the mesh and issue the draw call.
             GlResourceScope mesh_scope(*mesh_resource);
             mesh_resource->draw();
-        }
-    }
-
-    void OpenGlRenderingPlugin::draw_models_for_cameras(const Size& window_size)
-    {
-        auto& ecs = get_host().get_entity_registry();
-        auto cameras = ecs.get_with<Camera, Transform>();
-
-        update_frame_lighting();
-
-        if (cameras.begin() == cameras.end())
-        {
-            _uploaded_camera_program_ids.clear();
-            float aspect = window_size.get_aspect_ratio();
-            Mat4 default_view =
-                look_at(Vec3(0.0f, 0.0f, 5.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));
-            Mat4 default_projection =
-                perspective_projection(to_radians(60.0f), aspect, 0.1f, 1000.0f);
-            Mat4 view_projection = default_projection * default_view;
-            draw_models(view_projection, Vec3(0.0f, 0.0f, 5.0f));
-            return;
-        }
-
-        float aspect = window_size.get_aspect_ratio();
-        for (const auto& camera_ent : cameras)
-        {
-            _uploaded_camera_program_ids.clear();
-            auto& camera = camera_ent.get_component<Camera>();
-            camera.set_aspect(aspect);
-
-            Transform& transform = camera_ent.get_component<Transform>();
-            Mat4 view_projection =
-                camera.get_view_projection_matrix(transform.position, transform.rotation);
-
-            draw_models(view_projection, transform.position);
         }
     }
 }
