@@ -165,14 +165,8 @@ namespace tbx
     /// </remarks>
     struct TBX_API DirectionalLight : public Light
     {
-        /// <summary>
-        /// Purpose: Initializes a directional light with default realtime lighting settings.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Value type; callers own constructed instances.
-        /// Thread Safety: Safe to construct on any thread.
-        /// </remarks>
         DirectionalLight();
+        DirectionalLight(const RgbaColor& color, float intensity);
 
         /// <summary>
         /// Purpose: Sets the ambient lighting contribution produced by this directional light.
@@ -186,4 +180,3 @@ namespace tbx
         float ambient = 0.03f;
     };
 }
-

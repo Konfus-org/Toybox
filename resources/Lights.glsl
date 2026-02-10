@@ -53,6 +53,10 @@ uniform TbxSpotLight u_spot_lights[TBX_MAX_SPOT_LIGHTS];
 uniform int u_directional_light_count;
 uniform TbxDirectionalLight u_directional_lights[TBX_MAX_DIRECTIONAL_LIGHTS];
 
+uniform int u_has_directional_shadow;
+uniform mat4 u_directional_shadow_matrix;
+uniform sampler2DShadow u_directional_shadow_map;
+
 float tbx_saturate(float value)
 {
     return clamp(value, 0.0, 1.0);
@@ -89,6 +93,40 @@ vec3 tbx_compute_ambient_light()
     }
 
     return ambient;
+}
+
+float tbx_compute_directional_shadow(vec3 world_pos, vec3 normal, vec3 light_dir)
+{
+    if (u_has_directional_shadow == 0)
+        return 1.0;
+
+    vec4 light_space = u_directional_shadow_matrix * vec4(world_pos, 1.0);
+    vec3 proj = light_space.xyz / max(light_space.w, 1e-6);
+
+    if (proj.x < 0.0 || proj.x > 1.0
+        || proj.y < 0.0 || proj.y > 1.0
+        || proj.z < 0.0 || proj.z > 1.0)
+        return 1.0;
+
+    float n_dot_l = tbx_saturate(dot(normalize(normal), normalize(light_dir)));
+    float bias = max(0.0015 * (1.0 - n_dot_l), 0.0005);
+
+    ivec2 shadow_size = textureSize(u_directional_shadow_map, 0);
+    vec2 texel = 1.0 / max(vec2(shadow_size), vec2(1.0));
+
+    float visibility = 0.0;
+    for (int x = -1; x <= 1; ++x)
+    {
+        for (int y = -1; y <= 1; ++y)
+        {
+            vec2 offset = vec2(float(x), float(y)) * texel;
+            visibility += texture(
+                u_directional_shadow_map,
+                vec3(proj.xy + offset, proj.z - bias));
+        }
+    }
+
+    return visibility / 9.0;
 }
 
 float tbx_distribution_ggx(float n_dot_h, float roughness)
@@ -219,7 +257,8 @@ vec3 tbx_compute_pbr_lighting(
             continue;
 
         vec3 l = vec3(0.0, 1.0, 0.0);
-        float attenuation = tbx_compute_distance_attenuation(light.position, world_pos, light.range, l);
+        float attenuation =
+            tbx_compute_distance_attenuation(light.position, world_pos, light.range, l);
 
         vec3 brdf = tbx_evaluate_pbr_brdf(n, v, l, albedo, metallic, roughness, f0, n_dot_v);
         if (dot(brdf, brdf) <= 0.0)
@@ -242,9 +281,15 @@ vec3 tbx_compute_pbr_lighting(
             continue;
 
         vec3 l = vec3(0.0, 1.0, 0.0);
-        float attenuation = tbx_compute_distance_attenuation(light.position, world_pos, light.range, l);
+        float attenuation =
+            tbx_compute_distance_attenuation(light.position, world_pos, light.range, l);
         float spot_factor =
-            tbx_compute_spot_factor(light.position, light.direction, world_pos, light.inner_cos, light.outer_cos);
+            tbx_compute_spot_factor(
+                light.position,
+                light.direction,
+                world_pos,
+                light.inner_cos,
+                light.outer_cos);
 
         vec3 brdf = tbx_evaluate_pbr_brdf(n, v, l, albedo, metallic, roughness, f0, n_dot_v);
         if (dot(brdf, brdf) <= 0.0)
@@ -267,7 +312,8 @@ vec3 tbx_compute_pbr_lighting(
             continue;
 
         vec3 l = vec3(0.0, 1.0, 0.0);
-        float attenuation = tbx_compute_distance_attenuation(light.position, world_pos, light.range, l);
+        float attenuation =
+            tbx_compute_distance_attenuation(light.position, world_pos, light.range, l);
         float area_factor = tbx_compute_area_factor(light.area_size);
 
         vec3 brdf = tbx_evaluate_pbr_brdf(n, v, l, albedo, metallic, roughness, f0, n_dot_v);
@@ -296,7 +342,8 @@ vec3 tbx_compute_pbr_lighting(
         if (dot(brdf, brdf) <= 0.0)
             continue;
 
-        vec3 radiance = light_color * intensity;
+        float shadow = tbx_compute_directional_shadow(world_pos, n, l);
+        vec3 radiance = light_color * intensity * shadow;
         direct += brdf * radiance;
     }
 
@@ -314,7 +361,11 @@ vec3 tbx_compute_lighting(vec3 world_pos, vec3 normal)
         TbxPointLight light = u_point_lights[i];
         vec3 light_color = tbx_normalize_light_color(light.color);
         vec3 light_dir = vec3(0.0, 1.0, 0.0);
-        float attenuation = tbx_compute_distance_attenuation(light.position, world_pos, light.range, light_dir);
+        float attenuation = tbx_compute_distance_attenuation(
+            light.position,
+            world_pos,
+            light.range,
+            light_dir);
 
         float n_dot_l = max(dot(normal, light_dir), 0.0);
         if (n_dot_l <= 0.0)
@@ -329,9 +380,18 @@ vec3 tbx_compute_lighting(vec3 world_pos, vec3 normal)
         TbxSpotLight light = u_spot_lights[i];
         vec3 light_color = tbx_normalize_light_color(light.color);
         vec3 light_dir = vec3(0.0, 1.0, 0.0);
-        float attenuation = tbx_compute_distance_attenuation(light.position, world_pos, light.range, light_dir);
+        float attenuation = tbx_compute_distance_attenuation(
+            light.position,
+            world_pos,
+            light.range,
+            light_dir);
         float spot_factor =
-            tbx_compute_spot_factor(light.position, light.direction, world_pos, light.inner_cos, light.outer_cos);
+            tbx_compute_spot_factor(
+                light.position,
+                light.direction,
+                world_pos,
+                light.inner_cos,
+                light.outer_cos);
 
         float n_dot_l = max(dot(normal, light_dir), 0.0);
         if (n_dot_l <= 0.0)
@@ -346,7 +406,11 @@ vec3 tbx_compute_lighting(vec3 world_pos, vec3 normal)
         TbxAreaLight light = u_area_lights[i];
         vec3 light_color = tbx_normalize_light_color(light.color);
         vec3 light_dir = vec3(0.0, 1.0, 0.0);
-        float attenuation = tbx_compute_distance_attenuation(light.position, world_pos, light.range, light_dir);
+        float attenuation = tbx_compute_distance_attenuation(
+            light.position,
+            world_pos,
+            light.range,
+            light_dir);
         float area_factor = tbx_compute_area_factor(light.area_size);
 
         float n_dot_l = max(dot(normal, light_dir), 0.0);
@@ -367,7 +431,8 @@ vec3 tbx_compute_lighting(vec3 world_pos, vec3 normal)
         if (n_dot_l <= 0.0)
             continue;
 
-        lighting += light_color * light.intensity * n_dot_l;
+        float shadow = tbx_compute_directional_shadow(world_pos, normal, light_dir);
+        lighting += light_color * light.intensity * n_dot_l * shadow;
     }
 
     return lighting;

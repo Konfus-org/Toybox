@@ -26,6 +26,11 @@ namespace tbx::plugins
     static constexpr float MIN_LIGHT_RANGE = 0.01f;
     static constexpr float MAX_SPOT_ANGLE = 179.0f;
 
+    static constexpr uint32 DIRECTIONAL_SHADOW_MAP_SIZE = 2048U;
+    static constexpr int DIRECTIONAL_SHADOW_TEXTURE_SLOT = 15;
+    static constexpr float DIRECTIONAL_SHADOW_DISTANCE = 75.0f;
+    static constexpr float DIRECTIONAL_SHADOW_ORTHO_EXTENT = 35.0f;
+
     using FrameBufferInfo = OpenGlFrameBufferInfo;
     using FrameCameraInfo = OpenGlFrameCameraInfo;
     using FrameLightingInfo = OpenGlFrameLightingInfo;
@@ -155,7 +160,8 @@ namespace tbx::plugins
         instances.reserve(model_asset->meshes.size() + model_asset->parts.size());
         append_model_mesh_instances(*model_asset, entity_matrix, instances);
 
-        const std::span<const ShaderUniform> material_overrides = renderer.material_overrides.get_uniforms();
+        const std::span<const ShaderUniform> material_overrides =
+            renderer.material_overrides.get_uniforms();
 
         for (const auto& instance : instances)
         {
@@ -236,13 +242,21 @@ namespace tbx::plugins
             {
                 entry.second.destroy();
                 entry.second.destroy_present_pipeline();
+
+                auto shadow_it = _directional_shadow_targets.find(window_id);
+                if (shadow_it != _directional_shadow_targets.end())
+                {
+                    shadow_it->second.destroy();
+                }
             }
         }
 
         _is_gl_ready = false;
         _window_sizes.clear();
         _render_targets.clear();
+        _directional_shadow_targets.clear();
         _cache.clear();
+        _directional_shadow_program.reset();
     }
 
     void OpenGlRenderingPlugin::on_update(const DeltaTime&)
@@ -291,20 +305,22 @@ namespace tbx::plugins
             _frame.render_resolution = render_resolution;
             _frame.render_target = &target;
 
+            build_frame_lighting(_frame);
+            build_frame_cameras(_frame, render_resolution);
+
+            for (auto& camera : _frame.cameras)
+                build_draw_requests_for_camera(camera);
+
+            render_directional_shadow_map(_frame);
+
             glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(target.get_framebuffer()));
             glViewport(
                 0,
                 0,
                 static_cast<GLsizei>(render_resolution.width),
                 static_cast<GLsizei>(render_resolution.height));
-            glClearColor(0, 0, 0, 1.0f); // Fixed 255 to 1.0f
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-            build_frame_lighting(_frame);
-            build_frame_cameras(_frame, render_resolution);
-
-            for (auto& camera : _frame.cameras)
-                build_draw_requests_for_camera(camera);
 
             draw_frame(_frame);
 
@@ -319,16 +335,17 @@ namespace tbx::plugins
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
 
-            float x_scale =
-                static_cast<float>(window_size.width) / static_cast<float>(render_resolution.width);
+            float x_scale = static_cast<float>(window_size.width)
+                            / static_cast<float>(render_resolution.width);
             float y_scale = static_cast<float>(window_size.height)
                             / static_cast<float>(render_resolution.height);
             float scale = std::min(x_scale, y_scale);
 
             int scaled_width =
                 std::max(1, static_cast<int>(static_cast<float>(render_resolution.width) * scale));
-            int scaled_height =
-                std::max(1, static_cast<int>(static_cast<float>(render_resolution.height) * scale));
+            int scaled_height = std::max(
+                1,
+                static_cast<int>(static_cast<float>(render_resolution.height) * scale));
 
             int x_offset = std::max(0, (static_cast<int>(window_size.width) - scaled_width) / 2);
             int y_offset = std::max(0, (static_cast<int>(window_size.height) - scaled_height) / 2);
@@ -527,7 +544,9 @@ namespace tbx::plugins
         return resolution;
     }
 
-    void OpenGlRenderingPlugin::build_frame_buffer(FrameBufferInfo& frame, const Size& window_size)
+    void OpenGlRenderingPlugin::build_frame_buffer(
+        FrameBufferInfo& frame,
+        const Size& window_size)
     {
         frame.window_size = window_size;
         frame.render_resolution = get_effective_resolution(window_size);
@@ -538,6 +557,9 @@ namespace tbx::plugins
         frame.lighting.area_light_count = 0;
         frame.lighting.spot_light_count = 0;
         frame.lighting.directional_light_count = 0;
+        frame.lighting.has_directional_shadow = false;
+        frame.lighting.directional_shadow_matrix = Mat4(1.0f);
+        frame.lighting.directional_shadow_texture = 0U;
         frame.lighting.uploaded_program_ids.clear();
     }
 
@@ -549,6 +571,9 @@ namespace tbx::plugins
         lighting.area_light_count = 0;
         lighting.spot_light_count = 0;
         lighting.directional_light_count = 0;
+        lighting.has_directional_shadow = false;
+        lighting.directional_shadow_matrix = Mat4(1.0f);
+        lighting.directional_shadow_texture = 0U;
 
         auto& ecs = get_host().get_entity_registry();
         auto point_lights = ecs.get_with<PointLight>();
@@ -577,8 +602,9 @@ namespace tbx::plugins
                 break;
 
             const PointLight& light = entity.get_component<PointLight>();
-            Transform* light_tran = entity.has_component<Transform>() ? &entity.get_component<Transform>()
-                                                                     : nullptr;
+            Transform* light_tran = entity.has_component<Transform>()
+                                        ? &entity.get_component<Transform>()
+                                        : nullptr;
 
             float intensity = std::max(0.0f, light.intensity);
             if (intensity <= 0.0f)
@@ -605,8 +631,9 @@ namespace tbx::plugins
                 break;
 
             const SpotLight& light = entity.get_component<SpotLight>();
-            Transform* light_tran = entity.has_component<Transform>() ? &entity.get_component<Transform>()
-                                                                     : nullptr;
+            Transform* light_tran = entity.has_component<Transform>()
+                                        ? &entity.get_component<Transform>()
+                                        : nullptr;
 
             Vec3 direction = light_tran ? normalize(light_tran->rotation * Vec3(0.0f, 0.0f, -1.0f))
                                         : Vec3(0, -1, 0);
@@ -645,8 +672,9 @@ namespace tbx::plugins
                 break;
 
             const AreaLight& light = entity.get_component<AreaLight>();
-            Transform* light_tran = entity.has_component<Transform>() ? &entity.get_component<Transform>()
-                                                                     : nullptr;
+            Transform* light_tran = entity.has_component<Transform>()
+                                        ? &entity.get_component<Transform>()
+                                        : nullptr;
 
             float intensity = std::max(0.0f, light.intensity);
             if (intensity <= 0.0f)
@@ -679,8 +707,9 @@ namespace tbx::plugins
                 break;
 
             const DirectionalLight& light = entity.get_component<DirectionalLight>();
-            Transform* light_tran = entity.has_component<Transform>() ? &entity.get_component<Transform>()
-                                                                     : nullptr;
+            Transform* light_tran = entity.has_component<Transform>()
+                                        ? &entity.get_component<Transform>()
+                                        : nullptr;
 
             Vec3 direction = light_tran ? normalize(light_tran->rotation * Vec3(0.0f, 0.0f, -1.0f))
                                         : Vec3(0, -1, 0);
@@ -706,6 +735,225 @@ namespace tbx::plugins
         lighting.area_light_count = static_cast<int>(area_upload_index);
         lighting.spot_light_count = static_cast<int>(spot_upload_index);
         lighting.directional_light_count = static_cast<int>(directional_upload_index);
+
+        lighting.uniforms.push_back({
+            .name = "u_has_directional_shadow",
+            .data = 0,
+        });
+        lighting.uniforms.push_back({
+            .name = "u_directional_shadow_matrix",
+            .data = Mat4(1.0f),
+        });
+        lighting.uniforms.push_back({
+            .name = "u_directional_shadow_map",
+            .data = DIRECTIONAL_SHADOW_TEXTURE_SLOT,
+        });
+    }
+
+    void OpenGlRenderingPlugin::render_directional_shadow_map(FrameBufferInfo& frame)
+    {
+        auto& lighting = frame.lighting;
+        lighting.has_directional_shadow = false;
+        lighting.directional_shadow_matrix = Mat4(1.0f);
+        lighting.directional_shadow_texture = 0U;
+
+        if (frame.cameras.empty())
+        {
+            return;
+        }
+
+        const Uuid window_id = frame.window_id;
+        auto [shadow_it, was_inserted] = _directional_shadow_targets.try_emplace(window_id);
+        static_cast<void>(was_inserted);
+
+        auto& shadow_target = shadow_it->second;
+        Size shadow_map_size = {DIRECTIONAL_SHADOW_MAP_SIZE, DIRECTIONAL_SHADOW_MAP_SIZE};
+        if (!shadow_target.try_resize(shadow_map_size))
+        {
+            return;
+        }
+
+        if (!_directional_shadow_program || _directional_shadow_program->get_program_id() == 0U)
+        {
+            static constexpr const char* VERTEX_SOURCE = R"GLSL(
+#version 450 core
+layout(location = 0) in vec3 a_position;
+uniform mat4 u_light_view_proj;
+uniform mat4 u_model;
+void main()
+{
+    gl_Position = u_light_view_proj * u_model * vec4(a_position, 1.0);
+}
+)GLSL";
+
+            static constexpr const char* FRAGMENT_SOURCE = R"GLSL(
+#version 450 core
+void main()
+{
+}
+)GLSL";
+
+            auto vertex_shader = std::make_shared<OpenGlShader>(
+                ShaderSource(std::string(VERTEX_SOURCE), ShaderType::VERTEX));
+            if (vertex_shader->get_shader_id() == 0U)
+            {
+                return;
+            }
+
+            auto fragment_shader = std::make_shared<OpenGlShader>(
+                ShaderSource(std::string(FRAGMENT_SOURCE), ShaderType::FRAGMENT));
+            if (fragment_shader->get_shader_id() == 0U)
+            {
+                return;
+            }
+
+            std::vector<std::shared_ptr<OpenGlShader>> stages = {};
+            stages.reserve(2U);
+            stages.push_back(std::move(vertex_shader));
+            stages.push_back(std::move(fragment_shader));
+            _directional_shadow_program = std::make_shared<OpenGlShaderProgram>(stages);
+
+            if (!_directional_shadow_program || _directional_shadow_program->get_program_id() == 0U)
+            {
+                _directional_shadow_program.reset();
+                return;
+            }
+        }
+
+        auto& ecs = get_host().get_entity_registry();
+        auto directional_lights = ecs.get_with<DirectionalLight, Transform>();
+        if (directional_lights.begin() == directional_lights.end())
+        {
+            return;
+        }
+
+        const Entity light_entity = *directional_lights.begin();
+        const auto& light = light_entity.get_component<DirectionalLight>();
+        const auto& light_transform = light_entity.get_component<Transform>();
+
+        float intensity = std::max(0.0f, light.intensity);
+        if (intensity <= 0.0f)
+        {
+            return;
+        }
+
+        Vec3 light_color = Vec3(light.color.r, light.color.g, light.color.b);
+        if (light_color.x <= 0.0f && light_color.y <= 0.0f && light_color.z <= 0.0f)
+        {
+            return;
+        }
+
+        Vec3 direction = normalize(light_transform.rotation * Vec3(0.0f, 0.0f, -1.0f));
+        Vec3 anchor = frame.cameras.front().position;
+        Vec3 light_position = anchor - direction * DIRECTIONAL_SHADOW_DISTANCE;
+
+        Vec3 up = Vec3(0.0f, 1.0f, 0.0f);
+        if (std::abs(dot(normalize(direction), normalize(up))) > 0.95f)
+        {
+            up = Vec3(1.0f, 0.0f, 0.0f);
+        }
+
+        Mat4 light_view = look_at(light_position, anchor, up);
+        Mat4 light_projection = ortho_projection(
+            -DIRECTIONAL_SHADOW_ORTHO_EXTENT,
+            DIRECTIONAL_SHADOW_ORTHO_EXTENT,
+            -DIRECTIONAL_SHADOW_ORTHO_EXTENT,
+            DIRECTIONAL_SHADOW_ORTHO_EXTENT,
+            0.1f,
+            DIRECTIONAL_SHADOW_DISTANCE * 4.0f);
+        Mat4 light_view_proj = light_projection * light_view;
+
+        Mat4 bias = Mat4(1.0f);
+        bias[0] = Vec4(0.5f, 0.0f, 0.0f, 0.0f);
+        bias[1] = Vec4(0.0f, 0.5f, 0.0f, 0.0f);
+        bias[2] = Vec4(0.0f, 0.0f, 0.5f, 0.0f);
+        bias[3] = Vec4(0.5f, 0.5f, 0.5f, 1.0f);
+
+        Mat4 shadow_matrix = bias * light_view_proj;
+
+        GLint previous_framebuffer = 0;
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previous_framebuffer);
+
+        GLint previous_viewport[4] = {};
+        glGetIntegerv(GL_VIEWPORT, previous_viewport);
+
+        const bool was_blend_enabled = glIsEnabled(GL_BLEND) == GL_TRUE;
+        const bool was_cull_enabled = glIsEnabled(GL_CULL_FACE) == GL_TRUE;
+        GLint previous_cull_face = GL_BACK;
+        glGetIntegerv(GL_CULL_FACE_MODE, &previous_cull_face);
+
+        glDisable(GL_BLEND);
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_FRONT);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(shadow_target.get_framebuffer()));
+        glViewport(
+            0,
+            0,
+            static_cast<GLsizei>(shadow_map_size.width),
+            static_cast<GLsizei>(shadow_map_size.height));
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        GlResourceScope program_scope(*_directional_shadow_program);
+        _directional_shadow_program->try_upload({
+            .name = "u_light_view_proj",
+            .data = light_view_proj,
+        });
+
+        for (const auto& camera : frame.cameras)
+        {
+            for (const auto& request : camera.draw_requests)
+            {
+                auto mesh_resource = _cache.get_cached_mesh(request.mesh_id);
+                if (!mesh_resource)
+                {
+                    continue;
+                }
+
+                _directional_shadow_program->try_upload({
+                    .name = "u_model",
+                    .data = request.model_matrix,
+                });
+
+                GlResourceScope mesh_scope(*mesh_resource);
+                mesh_resource->draw();
+            }
+        }
+
+        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previous_framebuffer));
+        glViewport(
+            previous_viewport[0],
+            previous_viewport[1],
+            previous_viewport[2],
+            previous_viewport[3]);
+        glCullFace(static_cast<GLenum>(previous_cull_face));
+
+        if (!was_cull_enabled)
+        {
+            glDisable(GL_CULL_FACE);
+        }
+
+        if (was_blend_enabled)
+        {
+            glEnable(GL_BLEND);
+        }
+
+        lighting.has_directional_shadow = true;
+        lighting.directional_shadow_matrix = shadow_matrix;
+        lighting.directional_shadow_texture = shadow_target.get_depth_texture();
+        lighting.uniforms.push_back({
+            .name = "u_has_directional_shadow",
+            .data = 1,
+        });
+        lighting.uniforms.push_back({
+            .name = "u_directional_shadow_matrix",
+            .data = shadow_matrix,
+        });
+        lighting.uniforms.push_back({
+            .name = "u_directional_shadow_map",
+            .data = DIRECTIONAL_SHADOW_TEXTURE_SLOT,
+        });
     }
 
     void OpenGlRenderingPlugin::remove_window_state(const Uuid& window_id, bool try_release)
@@ -729,9 +977,26 @@ namespace tbx::plugins
         }
 
         _render_targets.erase(it);
+
+        auto shadow_it = _directional_shadow_targets.find(window_id);
+        if (shadow_it != _directional_shadow_targets.end())
+        {
+            if (try_release)
+            {
+                auto result = send_message<WindowMakeCurrentRequest>(window_id);
+                if (result)
+                {
+                    shadow_it->second.destroy();
+                }
+            }
+
+            _directional_shadow_targets.erase(shadow_it);
+        }
     }
 
-    void OpenGlRenderingPlugin::build_frame_cameras(FrameBufferInfo& frame, const Size& render_resolution)
+    void OpenGlRenderingPlugin::build_frame_cameras(
+        FrameBufferInfo& frame,
+        const Size& render_resolution)
     {
         auto& ecs = get_host().get_entity_registry();
         auto cameras = ecs.get_with<Camera, Transform>();
@@ -1003,7 +1268,8 @@ namespace tbx::plugins
                     auto texture_resource = _cache.get_default_texture();
                     if (texture_binding.texture_id.is_valid())
                     {
-                        auto cached_texture = _cache.get_cached_texture(texture_binding.texture_id);
+                        auto cached_texture =
+                            _cache.get_cached_texture(texture_binding.texture_id);
                         if (cached_texture)
                             texture_resource = cached_texture;
                     }
@@ -1019,6 +1285,13 @@ namespace tbx::plugins
                         .data = static_cast<int>(texture_slot),
                     });
                     ++texture_slot;
+                }
+
+                if (lighting.has_directional_shadow && lighting.directional_shadow_texture != 0U)
+                {
+                    glBindTextureUnit(
+                        static_cast<GLuint>(DIRECTIONAL_SHADOW_TEXTURE_SLOT),
+                        static_cast<GLuint>(lighting.directional_shadow_texture));
                 }
 
                 GlResourceScope mesh_scope(*mesh_resource);
@@ -1118,6 +1391,13 @@ namespace tbx::plugins
                     .data = static_cast<int>(texture_slot),
                 });
                 ++texture_slot;
+            }
+
+            if (lighting.has_directional_shadow && lighting.directional_shadow_texture != 0U)
+            {
+                glBindTextureUnit(
+                    static_cast<GLuint>(DIRECTIONAL_SHADOW_TEXTURE_SLOT),
+                    static_cast<GLuint>(lighting.directional_shadow_texture));
             }
 
             // Step 6: Bind the mesh and issue the draw call.

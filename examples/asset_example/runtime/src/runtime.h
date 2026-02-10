@@ -49,6 +49,7 @@ namespace tbx::examples
 
       private:
         EntityRegistry* _entity_manager = nullptr;
-        Entity _cube = {};
+        Entity _green_cube = {};
+        Entity _sun = {};
     };
 }

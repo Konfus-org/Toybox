@@ -2,6 +2,7 @@
 #include "opengl_frame_info.h"
 #include "opengl_render_cache.h"
 #include "opengl_render_target.h"
+#include "opengl_shadow_map_target.h"
 #include "opengl_resource.h"
 #include "tbx/app/application.h"
 #include "tbx/assets/asset_manager.h"
@@ -46,6 +47,7 @@ namespace tbx::plugins
         void build_frame_lighting(OpenGlFrameBufferInfo& frame);
         void build_frame_cameras(OpenGlFrameBufferInfo& frame, const Size& render_resolution);
         void build_draw_requests_for_camera(OpenGlFrameCameraInfo& camera);
+        void render_directional_shadow_map(OpenGlFrameBufferInfo& frame);
         void draw_frame(OpenGlFrameBufferInfo& frame);
         void draw_mesh_with_material(
             OpenGlFrameCameraInfo& camera,
@@ -63,8 +65,10 @@ namespace tbx::plugins
         Size _render_resolution = {1, 1};
         std::unordered_map<Uuid, Size> _window_sizes = {};
         std::unordered_map<Uuid, OpenGlRenderTarget> _render_targets = {};
+        std::unordered_map<Uuid, OpenGlShadowMapTarget> _directional_shadow_targets = {};
         OpenGlRenderCache _cache = {};
         GlIdProvider _id_provider = {};
+        std::shared_ptr<OpenGlShaderProgram> _directional_shadow_program = {};
         OpenGlFrameBufferInfo _frame = {};
     };
 }

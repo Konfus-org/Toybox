@@ -25,6 +25,9 @@ namespace tbx::plugins
         int area_light_count = 0;
         int spot_light_count = 0;
         int directional_light_count = 0;
+        bool has_directional_shadow = false;
+        Mat4 directional_shadow_matrix = Mat4(1.0f);
+        uint32 directional_shadow_texture = 0U;
         std::unordered_set<uint32> uploaded_program_ids = {};
     };
 
