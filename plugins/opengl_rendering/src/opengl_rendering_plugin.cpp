@@ -280,6 +280,7 @@ namespace tbx::plugins
 
         for (const auto& entry : _window_sizes)
         {
+            _uploaded_lighting_program_ids.clear();
             Uuid window_id = entry.first;
             const Size& window_size = entry.second;
             Size render_resolution = get_effective_resolution(window_size);
@@ -559,38 +560,54 @@ namespace tbx::plugins
         auto spot_lights = ecs.get_with<SpotLight>();
         auto directional_lights = ecs.get_with<DirectionalLight>();
 
-        size_t point_count =
-            std::min(point_lights.size(), static_cast<size_t>(MAX_POINT_LIGHTS));
-        size_t area_count = std::min(area_lights.size(), static_cast<size_t>(MAX_AREA_LIGHTS));
-        size_t spot_count = std::min(spot_lights.size(), static_cast<size_t>(MAX_SPOT_LIGHTS));
-        size_t directional_count =
-            std::min(directional_lights.size(), static_cast<size_t>(MAX_DIRECTIONAL_LIGHTS));
+        const size_t max_point_count = static_cast<size_t>(MAX_POINT_LIGHTS);
+        const size_t max_area_count = static_cast<size_t>(MAX_AREA_LIGHTS);
+        const size_t max_spot_count = static_cast<size_t>(MAX_SPOT_LIGHTS);
+        const size_t max_directional_count = static_cast<size_t>(MAX_DIRECTIONAL_LIGHTS);
+
+        const size_t point_reserve = std::min(point_lights.size(), max_point_count);
+        const size_t area_reserve = std::min(area_lights.size(), max_area_count);
+        const size_t spot_reserve = std::min(spot_lights.size(), max_spot_count);
+        const size_t directional_reserve =
+            std::min(directional_lights.size(), max_directional_count);
 
         _frame_light_uniforms.reserve(
-            point_count * 4U + area_count * 5U + spot_count * 7U + directional_count * 3U);
+            point_reserve * 4U + area_reserve * 5U + spot_reserve * 7U + directional_reserve * 4U);
 
-        for (size_t light_index = 0U; light_index < point_count; ++light_index)
+        size_t point_upload_index = 0U;
+        for (const Entity entity : point_lights)
         {
-            Entity entity = point_lights[light_index];
+            if (point_upload_index >= max_point_count)
+                break;
+
             const PointLight& light = entity.get_component<PointLight>();
             Transform* light_tran = entity.has_component<Transform>() ? &entity.get_component<Transform>()
                                                                      : nullptr;
 
             float intensity = std::max(0.0f, light.intensity);
+            if (intensity <= 0.0f)
+                continue;
+
             float range = std::max(light.range, MIN_LIGHT_RANGE);
             Vec3 color = Vec3(light.color.r, light.color.g, light.color.b);
+            if (color.x <= 0.0f && color.y <= 0.0f && color.z <= 0.0f)
+                continue;
 
-            std::string base = "u_point_lights[" + std::to_string(light_index) + "].";
+            std::string base = "u_point_lights[" + std::to_string(point_upload_index) + "].";
             _frame_light_uniforms.push_back(
                 {base + "position", light_tran ? light_tran->position : Vec3(0)});
             _frame_light_uniforms.push_back({base + "color", color});
             _frame_light_uniforms.push_back({base + "intensity", intensity});
             _frame_light_uniforms.push_back({base + "range", range});
+            ++point_upload_index;
         }
 
-        for (size_t light_index = 0U; light_index < spot_count; ++light_index)
+        size_t spot_upload_index = 0U;
+        for (const Entity entity : spot_lights)
         {
-            Entity entity = spot_lights[light_index];
+            if (spot_upload_index >= max_spot_count)
+                break;
+
             const SpotLight& light = entity.get_component<SpotLight>();
             Transform* light_tran = entity.has_component<Transform>() ? &entity.get_component<Transform>()
                                                                      : nullptr;
@@ -598,6 +615,9 @@ namespace tbx::plugins
             Vec3 direction = light_tran ? normalize(light_tran->rotation * Vec3(0.0f, 0.0f, -1.0f))
                                         : Vec3(0, -1, 0);
             float intensity = std::max(0.0f, light.intensity);
+            if (intensity <= 0.0f)
+                continue;
+
             float range = std::max(light.range, MIN_LIGHT_RANGE);
 
             float inner_angle = std::clamp(light.inner_angle, 0.0f, MAX_SPOT_ANGLE);
@@ -607,8 +627,10 @@ namespace tbx::plugins
             float outer_cos = std::cos(degrees_to_radians(outer_angle));
 
             Vec3 color = Vec3(light.color.r, light.color.g, light.color.b);
+            if (color.x <= 0.0f && color.y <= 0.0f && color.z <= 0.0f)
+                continue;
 
-            std::string base = "u_spot_lights[" + std::to_string(light_index) + "].";
+            std::string base = "u_spot_lights[" + std::to_string(spot_upload_index) + "].";
             _frame_light_uniforms.push_back(
                 {base + "position", light_tran ? light_tran->position : Vec3(0)});
             _frame_light_uniforms.push_back({base + "direction", direction});
@@ -617,16 +639,23 @@ namespace tbx::plugins
             _frame_light_uniforms.push_back({base + "range", range});
             _frame_light_uniforms.push_back({base + "inner_cos", inner_cos});
             _frame_light_uniforms.push_back({base + "outer_cos", outer_cos});
+            ++spot_upload_index;
         }
 
-        for (size_t light_index = 0U; light_index < area_count; ++light_index)
+        size_t area_upload_index = 0U;
+        for (const Entity entity : area_lights)
         {
-            Entity entity = area_lights[light_index];
+            if (area_upload_index >= max_area_count)
+                break;
+
             const AreaLight& light = entity.get_component<AreaLight>();
             Transform* light_tran = entity.has_component<Transform>() ? &entity.get_component<Transform>()
                                                                      : nullptr;
 
             float intensity = std::max(0.0f, light.intensity);
+            if (intensity <= 0.0f)
+                continue;
+
             float range = std::max(light.range, MIN_LIGHT_RANGE);
 
             Vec2 area_size = light.area_size;
@@ -634,19 +663,25 @@ namespace tbx::plugins
             area_size.y = std::max(area_size.y, 0.0f);
 
             Vec3 color = Vec3(light.color.r, light.color.g, light.color.b);
+            if (color.x <= 0.0f && color.y <= 0.0f && color.z <= 0.0f)
+                continue;
 
-            std::string base = "u_area_lights[" + std::to_string(light_index) + "].";
+            std::string base = "u_area_lights[" + std::to_string(area_upload_index) + "].";
             _frame_light_uniforms.push_back(
                 {base + "position", light_tran ? light_tran->position : Vec3(0)});
             _frame_light_uniforms.push_back({base + "color", color});
             _frame_light_uniforms.push_back({base + "intensity", intensity});
             _frame_light_uniforms.push_back({base + "range", range});
             _frame_light_uniforms.push_back({base + "area_size", area_size});
+            ++area_upload_index;
         }
 
-        for (size_t light_index = 0U; light_index < directional_count; ++light_index)
+        size_t directional_upload_index = 0U;
+        for (const Entity entity : directional_lights)
         {
-            Entity entity = directional_lights[light_index];
+            if (directional_upload_index >= max_directional_count)
+                break;
+
             const DirectionalLight& light = entity.get_component<DirectionalLight>();
             Transform* light_tran = entity.has_component<Transform>() ? &entity.get_component<Transform>()
                                                                      : nullptr;
@@ -654,18 +689,27 @@ namespace tbx::plugins
             Vec3 direction = light_tran ? normalize(light_tran->rotation * Vec3(0.0f, 0.0f, -1.0f))
                                         : Vec3(0, -1, 0);
             float intensity = std::max(0.0f, light.intensity);
-            Vec3 color = Vec3(light.color.r, light.color.g, light.color.b);
+            if (intensity <= 0.0f)
+                continue;
 
-            std::string base = "u_directional_lights[" + std::to_string(light_index) + "].";
+            float ambient = std::max(0.0f, light.ambient);
+            Vec3 color = Vec3(light.color.r, light.color.g, light.color.b);
+            if (color.x <= 0.0f && color.y <= 0.0f && color.z <= 0.0f)
+                continue;
+
+            std::string base = "u_directional_lights[" + std::to_string(directional_upload_index)
+                               + "].";
             _frame_light_uniforms.push_back({base + "direction", direction});
             _frame_light_uniforms.push_back({base + "color", color});
             _frame_light_uniforms.push_back({base + "intensity", intensity});
+            _frame_light_uniforms.push_back({base + "ambient", ambient});
+            ++directional_upload_index;
         }
 
-        _frame_point_light_count = static_cast<int>(point_count);
-        _frame_area_light_count = static_cast<int>(area_count);
-        _frame_spot_light_count = static_cast<int>(spot_count);
-        _frame_directional_light_count = static_cast<int>(directional_count);
+        _frame_point_light_count = static_cast<int>(point_upload_index);
+        _frame_area_light_count = static_cast<int>(area_upload_index);
+        _frame_spot_light_count = static_cast<int>(spot_upload_index);
+        _frame_directional_light_count = static_cast<int>(directional_upload_index);
     }
 
     void OpenGlRenderingPlugin::remove_window_state(const Uuid& window_id, bool try_release)
@@ -778,10 +822,20 @@ namespace tbx::plugins
             // Step 3: Bind the shader program and upload view/model matrices.
             GlResourceScope program_scope(*program);
 
-            program->try_upload({
-                .name = "u_view_proj",
-                .data = view_projection,
-            });
+            const uint32 program_id = program->get_program_id();
+
+            if (_uploaded_camera_program_ids.insert(program_id).second)
+            {
+                program->try_upload({
+                    .name = "u_view_proj",
+                    .data = view_projection,
+                });
+                program->try_upload({
+                    .name = "u_camera_pos",
+                    .data = camera_position,
+                });
+            }
+
             program->try_upload({
                 .name = "u_model",
                 .data = model_matrix,
@@ -792,29 +846,28 @@ namespace tbx::plugins
                 .name = "u_normal_matrix",
                 .data = normal_matrix,
             });
-            program->try_upload({
-                .name = "u_camera_pos",
-                .data = camera_position,
-            });
-            program->try_upload({
-                .name = "u_point_light_count",
-                .data = _frame_point_light_count,
-            });
-            program->try_upload({
-                .name = "u_area_light_count",
-                .data = _frame_area_light_count,
-            });
-            program->try_upload({
-                .name = "u_spot_light_count",
-                .data = _frame_spot_light_count,
-            });
-            program->try_upload({
-                .name = "u_directional_light_count",
-                .data = _frame_directional_light_count,
-            });
-            for (const auto& light_uniform : _frame_light_uniforms)
+
+            if (_uploaded_lighting_program_ids.insert(program_id).second)
             {
-                program->try_upload(light_uniform);
+                program->try_upload({
+                    .name = "u_point_light_count",
+                    .data = _frame_point_light_count,
+                });
+                program->try_upload({
+                    .name = "u_area_light_count",
+                    .data = _frame_area_light_count,
+                });
+                program->try_upload({
+                    .name = "u_spot_light_count",
+                    .data = _frame_spot_light_count,
+                });
+                program->try_upload({
+                    .name = "u_directional_light_count",
+                    .data = _frame_directional_light_count,
+                });
+
+                for (const auto& light_uniform : _frame_light_uniforms)
+                    program->try_upload(light_uniform);
             }
 
             // Step 4: Upload scalar/vector material parameters.
@@ -866,6 +919,7 @@ namespace tbx::plugins
 
         if (cameras.begin() == cameras.end())
         {
+            _uploaded_camera_program_ids.clear();
             float aspect = window_size.get_aspect_ratio();
             Mat4 default_view =
                 look_at(Vec3(0.0f, 0.0f, 5.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));
@@ -879,6 +933,7 @@ namespace tbx::plugins
         float aspect = window_size.get_aspect_ratio();
         for (const auto& camera_ent : cameras)
         {
+            _uploaded_camera_program_ids.clear();
             auto& camera = camera_ent.get_component<Camera>();
             camera.set_aspect(aspect);
 

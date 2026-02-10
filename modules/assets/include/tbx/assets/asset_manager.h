@@ -5,6 +5,7 @@
 #include "tbx/common/handle.h"
 #include "tbx/common/int.h"
 #include "tbx/common/uuid.h"
+#include "tbx/debugging/macros.h"
 #include "tbx/tbx_api.h"
 #include <chrono>
 #include <filesystem>
@@ -129,6 +130,11 @@ namespace tbx
                 auto& record = entry.second;
                 if (!record.is_pinned && record.asset && record.asset.use_count() <= 1)
                 {
+                    TBX_TRACE_INFO(
+                        "Unloaded asset: '{}' (id={}, type={})",
+                        record.normalized_path,
+                        to_string(record.id),
+                        typeid(TAsset).name());
                     record.asset.reset();
                     record.stream_state = AssetStreamState::UNLOADED;
                 }
@@ -208,11 +214,24 @@ namespace tbx
             record.last_access = now;
             if (!record.asset)
             {
+                TBX_TRACE_INFO(
+                    "Loading asset: '{}' (id={}, type={})",
+                    record.normalized_path,
+                    to_string(record.id),
+                    typeid(TAsset).name());
                 record.stream_state = AssetStreamState::LOADING;
                 record.asset = AssetLoader<TAsset>::load(entry->resolved_path);
                 record.pending_load = {};
                 record.stream_state =
                     record.asset ? AssetStreamState::LOADED : AssetStreamState::UNLOADED;
+                if (!record.asset)
+                {
+                    TBX_TRACE_WARNING(
+                        "Failed to load asset: '{}' (id={}, type={})",
+                        record.normalized_path,
+                        to_string(record.id),
+                        typeid(TAsset).name());
+                }
             }
             return record.asset;
         }
@@ -306,6 +325,11 @@ namespace tbx
                 result.promise = record.pending_load;
                 return result;
             }
+            TBX_TRACE_INFO(
+                "Loading asset asyncronously: '{}' (id={}, type={})",
+                record.normalized_path,
+                to_string(record.id),
+                typeid(TAsset).name());
             auto promise = AssetLoader<TAsset>::load_async(entry->resolved_path);
             record.asset = std::move(promise.asset);
             record.pending_load = promise.promise;
@@ -342,6 +366,11 @@ namespace tbx
             {
                 return false;
             }
+            TBX_TRACE_INFO(
+                "Unloaded asset: '{}' (id={}, type={})",
+                record->normalized_path,
+                to_string(record->id),
+                typeid(TAsset).name());
             record->asset.reset();
             record->stream_state = AssetStreamState::UNLOADED;
             return true;
@@ -384,13 +413,27 @@ namespace tbx
             }
             auto& store = get_or_create_store<TAsset>();
             auto& record = get_or_create_record(store, *entry);
+            TBX_TRACE_INFO(
+                "Reloading asset: '{}' (id={}, type={})",
+                record.normalized_path,
+                to_string(record.id),
+                typeid(TAsset).name());
             record.stream_state = AssetStreamState::LOADING;
             auto promise = AssetLoader<TAsset>::load_async(entry->resolved_path);
             record.asset = std::move(promise.asset);
             record.pending_load = promise.promise;
             update_stream_state(record);
             record.last_access = now;
-            return record.asset != nullptr;
+            bool succeeded = record.asset != nullptr;
+            if (!succeeded)
+            {
+                TBX_TRACE_WARNING(
+                    "Failed to reload asset: '{}' (id={}, type={})",
+                    record.normalized_path,
+                    to_string(record.id),
+                    typeid(TAsset).name());
+            }
+            return succeeded;
         }
 
         /// <summary>

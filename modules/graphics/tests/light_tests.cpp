@@ -76,5 +76,6 @@ namespace tbx::tests::graphics
         EXPECT_NEAR(light.color.b, 1.0f, 1e-5f);
         EXPECT_NEAR(light.color.a, 1.0f, 1e-5f);
         EXPECT_NEAR(light.intensity, 1.0f, 1e-5f);
+        EXPECT_NEAR(light.ambient, 0.03f, 1e-5f);
     }
 }

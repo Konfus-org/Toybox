@@ -5,13 +5,60 @@
 #include "tbx/math/vectors.h"
 #include "tbx/tbx_api.h"
 #include <string>
-#include <string_view>
 #include <utility>
-#include <variant>
 #include <vector>
 
 namespace tbx
 {
+    /// <summary>
+    /// Purpose: Holds explicit shader stage handles used to build a shader program.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores stage handles by value; does not own loaded shader assets.
+    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    /// </remarks>
+    struct TBX_API ShaderProgram
+    {
+        /// <summary>
+        /// Purpose: Identifies the vertex shader stage asset.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores a non-owning handle reference.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// </remarks>
+        Handle vertex = {};
+
+        /// <summary>
+        /// Purpose: Identifies the fragment shader stage asset.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores a non-owning handle reference.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// </remarks>
+        Handle fragment = {};
+
+        /// <summary>
+        /// Purpose: Identifies the compute shader stage asset.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores a non-owning handle reference.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// </remarks>
+        Handle compute = {};
+
+        /// <summary>
+        /// Purpose: Returns whether any stage handle is set.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stateless; no ownership transfer.
+        /// Thread Safety: Safe to call concurrently.
+        /// </remarks>
+        bool is_valid() const
+        {
+            return (vertex.is_valid() && fragment.is_valid()) || compute.is_valid();
+        }
+    };
+
     /// <summary>
     /// Purpose: Defines a mutable collection of material parameters.
     /// </summary>
@@ -22,13 +69,13 @@ namespace tbx
     struct TBX_API Material
     {
         /// <summary>
-        /// Purpose: Identifies the shader assets used to render the material.
+        /// Purpose: Provides explicit shader stage handles used to build a single shader program.
         /// </summary>
         /// <remarks>
-        /// Ownership: Stores the shader handles by value.
-        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// Ownership: Stores stage handles by value; does not own loaded shader assets.
+        /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
         /// </remarks>
-        std::vector<Handle> shaders = {};
+        ShaderProgram shader = {};
 
         /// <summary>
         /// Purpose: Stores named texture asset bindings for the material.

@@ -1,5 +1,5 @@
 {
-  "shader": "00000001",
+  "shaders": { "vertex": "00000001", "fragment": "00000005" },
   "textures": [
     { "name": "diffuse", "value": "" },
     { "name": "normal", "value": "" }

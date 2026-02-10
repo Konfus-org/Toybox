@@ -45,6 +45,8 @@ namespace tbx
 
     void AssetManager::unload_all()
     {
+        TBX_TRACE_INFO("Unloading all assets.");
+        std::lock_guard lock(_mutex);
         _stores.clear();
     }
 

@@ -6,6 +6,32 @@
 
 namespace tbx::plugins
 {
+    static Uuid build_material_shader_program_id(
+        const Uuid& vertex_id,
+        const Uuid& fragment_id,
+        const Uuid& compute_id)
+    {
+        Uuid program_id = Uuid(0x4D41544CU); // 'MATL'
+        program_id.combine(static_cast<uint32>(vertex_id));
+        program_id.combine(static_cast<uint32>(fragment_id));
+        program_id.combine(static_cast<uint32>(compute_id));
+        return program_id;
+    }
+
+    static bool try_get_shader_stage(const Shader& shader, ShaderType type, ShaderSource& out_stage)
+    {
+        for (const auto& stage : shader.sources)
+        {
+            if (stage.type != type)
+                continue;
+
+            out_stage = stage;
+            return true;
+        }
+
+        return false;
+    }
+
     static std::string to_uniform_name(const std::string& material_name)
     {
         if (material_name.size() >= 2U && material_name[0] == 'u' && material_name[1] == '_')
@@ -235,27 +261,85 @@ namespace tbx::plugins
 
         gl_material.textures.reserve(merged_textures.size());
 
-        std::vector<Handle> shader_handles = source_material.shaders;
-        if (shader_handles.empty())
-        {
-            shader_handles.push_back(default_shader);
-        }
-
         bool has_default_shader = false;
-        for (auto shader_handle : shader_handles)
+        if (!source_material.shader.is_valid())
         {
-            auto resolved_handle = shader_handle;
-            if (!ensure_shader_program(asset_manager, resolved_handle, id_provider))
-            {
-                continue;
-            }
+            Handle fallback_handle = default_shader;
+            if (!ensure_shader_program(asset_manager, fallback_handle, id_provider))
+                return false;
 
-            Uuid shader_id = asset_manager.resolve_asset_id(resolved_handle);
-            if (shader_id == default_shader.id)
-            {
-                has_default_shader = true;
-            }
-            gl_material.shader_programs.push_back(shader_id);
+            gl_material.shader_programs.push_back(default_shader.id);
+            has_default_shader = true;
+        }
+        else if (source_material.shader.compute.is_valid())
+        {
+            auto compute_asset = asset_manager.load<Shader>(source_material.shader.compute);
+            AssetUsage compute_usage =
+                asset_manager.get_usage<Shader>(source_material.shader.compute);
+            if (!compute_asset || compute_usage.stream_state != AssetStreamState::LOADED)
+                return false;
+
+            Uuid compute_id = asset_manager.resolve_asset_id(source_material.shader.compute);
+
+            ShaderSource compute_stage = {};
+            if (!try_get_shader_stage(*compute_asset, ShaderType::COMPUTE, compute_stage))
+                return false;
+
+            std::vector<ShaderSource> stage_sources = {std::move(compute_stage)};
+
+            Uuid program_id = build_material_shader_program_id({}, {}, compute_id);
+            auto program =
+                get_shader_program(program_id, Shader(std::move(stage_sources)), id_provider);
+            if (!program)
+                return false;
+
+            gl_material.shader_programs.push_back(program_id);
+        }
+        else
+        {
+            Handle vertex_handle = source_material.shader.vertex;
+            Handle fragment_handle = source_material.shader.fragment;
+
+            if (!vertex_handle.is_valid())
+                vertex_handle = fragment_handle;
+            if (!fragment_handle.is_valid())
+                fragment_handle = vertex_handle;
+
+            if (!vertex_handle.is_valid() || !fragment_handle.is_valid())
+                return false;
+
+            auto vertex_asset = asset_manager.load<Shader>(vertex_handle);
+            AssetUsage vertex_usage = asset_manager.get_usage<Shader>(vertex_handle);
+            if (!vertex_asset || vertex_usage.stream_state != AssetStreamState::LOADED)
+                return false;
+
+            auto fragment_asset = asset_manager.load<Shader>(fragment_handle);
+            AssetUsage fragment_usage = asset_manager.get_usage<Shader>(fragment_handle);
+            if (!fragment_asset || fragment_usage.stream_state != AssetStreamState::LOADED)
+                return false;
+
+            ShaderSource vertex_stage = {};
+            if (!try_get_shader_stage(*vertex_asset, ShaderType::VERTEX, vertex_stage))
+                return false;
+
+            ShaderSource fragment_stage = {};
+            if (!try_get_shader_stage(*fragment_asset, ShaderType::FRAGMENT, fragment_stage))
+                return false;
+
+            std::vector<ShaderSource> stage_sources = {
+                std::move(vertex_stage),
+                std::move(fragment_stage)};
+
+            Uuid vertex_id = asset_manager.resolve_asset_id(vertex_handle);
+            Uuid fragment_id = asset_manager.resolve_asset_id(fragment_handle);
+
+            Uuid program_id = build_material_shader_program_id(vertex_id, fragment_id, {});
+            auto program =
+                get_shader_program(program_id, Shader(std::move(stage_sources)), id_provider);
+            if (!program)
+                return false;
+
+            gl_material.shader_programs.push_back(program_id);
         }
 
         bool has_normal_texture = false;

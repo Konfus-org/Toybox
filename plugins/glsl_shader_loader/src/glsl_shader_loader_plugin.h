@@ -7,10 +7,11 @@
 namespace tbx::plugins
 {
     /// <summary>
-    /// Purpose: Loads shader assets from .glsl files with #type sections.
+    /// Purpose: Loads shader assets from stage-specific GLSL files (.vert/.frag/.comp).
     /// </summary>
     /// <remarks>
     /// Include Support: Expands `#include "..."` directives by pasting the referenced asset text.
+    /// Include-Once: Each resolved include file is expanded at most once per shader stage.
     /// Ownership: Plugin lifetime is owned by the host; it keeps non-owning references to the host.
     /// Thread Safety: Handles asset messages on the dispatcher thread; no internal synchronization.
     /// </remarks>
@@ -47,7 +48,6 @@ namespace tbx::plugins
 
       private:
         void on_load_shader_program_request(LoadShaderRequest& request);
-        std::filesystem::path resolve_asset_path(const std::filesystem::path& path) const;
 
         AssetManager* _asset_manager = nullptr;
         std::filesystem::path _working_directory = {};

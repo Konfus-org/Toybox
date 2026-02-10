@@ -38,6 +38,7 @@ struct TbxDirectionalLight
     vec3 direction;
     vec3 color;
     float intensity;
+    float ambient;
 };
 
 uniform int u_point_light_count;
@@ -52,8 +53,6 @@ uniform TbxSpotLight u_spot_lights[TBX_MAX_SPOT_LIGHTS];
 uniform int u_directional_light_count;
 uniform TbxDirectionalLight u_directional_lights[TBX_MAX_DIRECTIONAL_LIGHTS];
 
-uniform vec3 u_ambient_light = vec3(0.03, 0.03, 0.03);
-
 float tbx_saturate(float value)
 {
     return clamp(value, 0.0, 1.0);
@@ -66,6 +65,30 @@ vec3 tbx_normalize_light_color(vec3 color)
     if (energy <= 0.0001)
         return vec3(0.0);
     return color * (3.0 / energy);
+}
+
+vec3 tbx_compute_ambient_light()
+{
+    int directional_count = clamp(u_directional_light_count, 0, TBX_MAX_DIRECTIONAL_LIGHTS);
+    if (directional_count <= 0)
+        return vec3(0.0);
+
+    vec3 ambient = vec3(0.0);
+    for (int i = 0; i < directional_count; ++i)
+    {
+        TbxDirectionalLight light = u_directional_lights[i];
+        float ambient_intensity = max(light.ambient, 0.0);
+        if (ambient_intensity <= 0.0)
+            continue;
+
+        vec3 light_color = tbx_normalize_light_color(light.color);
+        if (dot(light_color, light_color) <= 0.0)
+            continue;
+
+        ambient += light_color * ambient_intensity;
+    }
+
+    return ambient;
 }
 
 float tbx_distribution_ggx(float n_dot_h, float roughness)
@@ -277,13 +300,13 @@ vec3 tbx_compute_pbr_lighting(
         direct += brdf * radiance;
     }
 
-    vec3 ambient = u_ambient_light * albedo * (1.0 - metallic);
+    vec3 ambient = tbx_compute_ambient_light() * albedo * (1.0 - metallic);
     return ambient + direct;
 }
 
 vec3 tbx_compute_lighting(vec3 world_pos, vec3 normal)
 {
-    vec3 lighting = u_ambient_light;
+    vec3 lighting = tbx_compute_ambient_light();
 
     int point_count = clamp(u_point_light_count, 0, TBX_MAX_POINT_LIGHTS);
     for (int i = 0; i < point_count; ++i)

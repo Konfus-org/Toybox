@@ -218,7 +218,8 @@ namespace tbx::plugins
 
             if (handle.is_valid())
             {
-                out_material.shaders = {handle};
+                out_material.shader.vertex = handle;
+                out_material.shader.fragment = handle;
             }
             return true;
         }
@@ -308,17 +309,82 @@ namespace tbx::plugins
             Json data(file_data);
             Material material = Material();
 
-            Uuid shader_id = {};
-            if (data.try_get_uuid("shader", shader_id))
+            Json shaders_data;
+            if (data.try_get_child("shaders", shaders_data))
             {
-                material.shaders = {Handle(shader_id)};
+                Uuid vertex_id = {};
+                if (shaders_data.try_get_uuid("vertex", vertex_id))
+                {
+                    material.shader.vertex = Handle(vertex_id);
+                }
+                else
+                {
+                    std::string vertex_text;
+                    if (shaders_data.try_get_string("vertex", vertex_text))
+                        material.shader.vertex = parse_asset_handle(vertex_text);
+                }
+
+                Uuid fragment_id = {};
+                if (shaders_data.try_get_uuid("fragment", fragment_id))
+                {
+                    material.shader.fragment = Handle(fragment_id);
+                }
+                else
+                {
+                    std::string fragment_text;
+                    if (shaders_data.try_get_string("fragment", fragment_text))
+                        material.shader.fragment = parse_asset_handle(fragment_text);
+                }
+
+                Uuid compute_id = {};
+                if (shaders_data.try_get_uuid("compute", compute_id))
+                {
+                    material.shader.compute = Handle(compute_id);
+                }
+                else
+                {
+                    std::string compute_text;
+                    if (shaders_data.try_get_string("compute", compute_text))
+                        material.shader.compute = parse_asset_handle(compute_text);
+                }
+
+                if (material.shader.compute.is_valid())
+                {
+                    if (material.shader.vertex.is_valid() || material.shader.fragment.is_valid())
+                    {
+                        error_message =
+                            "Material loader: compute shaders cannot be combined with "
+                            "vertex/fragment shaders.";
+                        return false;
+                    }
+                }
+                else
+                {
+                    if (material.shader.vertex.is_valid() && !material.shader.fragment.is_valid())
+                        material.shader.fragment = material.shader.vertex;
+                    if (!material.shader.vertex.is_valid() && material.shader.fragment.is_valid())
+                        material.shader.vertex = material.shader.fragment;
+                }
             }
             else
             {
-                std::string shader_name;
-                if (data.try_get_string("shader", shader_name) && !shader_name.empty())
+                Uuid shader_id = {};
+                Handle shader_handle = {};
+                if (data.try_get_uuid("shader", shader_id))
                 {
-                    material.shaders = {Handle(shader_name)};
+                    shader_handle = Handle(shader_id);
+                }
+                else
+                {
+                    std::string shader_text;
+                    if (data.try_get_string("shader", shader_text))
+                        shader_handle = parse_asset_handle(shader_text);
+                }
+
+                if (shader_handle.is_valid())
+                {
+                    material.shader.vertex = shader_handle;
+                    material.shader.fragment = shader_handle;
                 }
             }
 

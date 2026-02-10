@@ -141,9 +141,6 @@ namespace tbx::plugins
         return trimmed_line.rfind("#include", 0U) == 0U;
     }
 
-    // Supports a header-like `#pragma once` pattern in shader includes.
-    // If an included file contains `#pragma once`, the loader remembers the file and skips future
-    // includes of it for the remainder of the expansion pass.
     static bool is_pragma_once_directive(std::string_view trimmed_line)
     {
         if (trimmed_line.rfind("#pragma", 0U) != 0U)
@@ -194,7 +191,7 @@ namespace tbx::plugins
     // Behavior:
     // - Strips all `#include ...` directives by replacing them with included file contents.
     // - Strips `#pragma once` directives (they are not part of GLSL and should not reach OpenGL).
-    // - Implements a basic `#pragma once` system to prevent duplicate inclusion during expansion.
+    // - Ensures each resolved include file is expanded only once per shader stage.
     // - Detects include cycles using the include stack.
     static ShaderLoadResult try_expand_includes(
         const FileOperator& file_operator,
@@ -202,7 +199,7 @@ namespace tbx::plugins
         const std::filesystem::path& source_file,
         const std::string& source,
         std::vector<std::filesystem::path>& include_stack,
-        std::unordered_set<std::string>& pragma_once_files,
+        std::unordered_set<std::string>& included_files,
         size_t depth)
     {
         constexpr size_t MAX_DEPTH = 32U;
@@ -213,15 +210,13 @@ namespace tbx::plugins
         std::string line;
         std::string expanded;
         expanded.reserve(source.size());
-        bool marks_once = false;
 
         while (std::getline(stream, line))
         {
             std::string trimmed = trim_string(line);
             if (is_pragma_once_directive(trimmed))
             {
-                // Mark this file as include-once and omit the directive from the output.
-                marks_once = true;
+                // Strip the directive from output for compatibility with older shader includes.
                 continue;
             }
 
@@ -252,10 +247,6 @@ namespace tbx::plugins
 
             std::string include_key =
                 include_result.resolved_path.lexically_normal().generic_string();
-            if (pragma_once_files.contains(include_key))
-                // This file was previously expanded and marked `#pragma once`, so skip it.
-                continue;
-
             for (const auto& entry : include_stack)
             {
                 if (entry == include_result.resolved_path)
@@ -268,6 +259,10 @@ namespace tbx::plugins
                 }
             }
 
+            if (included_files.contains(include_key))
+                continue;
+
+            included_files.emplace(include_key);
             include_stack.push_back(include_result.resolved_path);
             ShaderLoadResult expanded_include = try_expand_includes(
                 file_operator,
@@ -275,7 +270,7 @@ namespace tbx::plugins
                 include_result.resolved_path,
                 include_result.data,
                 include_stack,
-                pragma_once_files,
+                included_files,
                 depth + 1U);
             if (!expanded_include.succeeded)
                 return expanded_include;
@@ -285,37 +280,34 @@ namespace tbx::plugins
             expanded.append(expanded_include.data);
         }
 
-        // Record include-once status after processing the file so subsequent includes can be
-        // skipped without needing to re-scan the source for the directive.
-        if (marks_once && !source_file.empty())
-            pragma_once_files.emplace(source_file.lexically_normal().generic_string());
-
         return make_shader_load_success(std::move(expanded));
     }
 
-    static bool try_parse_shader_type(std::string_view type_name, ShaderType& out_type)
+    static bool try_get_shader_type_from_extension(
+        const std::filesystem::path& path,
+        ShaderType& out_type)
     {
-        std::string type_text = std::string(type_name);
+        std::string extension = path.extension().generic_string();
         std::transform(
-            type_text.begin(),
-            type_text.end(),
-            type_text.begin(),
+            extension.begin(),
+            extension.end(),
+            extension.begin(),
             [](unsigned char ch)
             {
                 return static_cast<char>(std::tolower(ch));
             });
 
-        if (type_text == "vertex")
+        if (extension == ".vert")
         {
             out_type = ShaderType::VERTEX;
             return true;
         }
-        if (type_text == "fragment")
+        if (extension == ".frag")
         {
             out_type = ShaderType::FRAGMENT;
             return true;
         }
-        if (type_text == "compute")
+        if (extension == ".comp")
         {
             out_type = ShaderType::COMPUTE;
             return true;
@@ -340,74 +332,21 @@ namespace tbx::plugins
         return message;
     }
 
-    static bool try_parse_shader_source(
-        const std::string& file_data,
-        std::vector<ShaderSource>& shaders,
-        std::string& error_message)
+    static ShaderLoadResult try_read_shader_file(
+        const FileOperator& file_operator,
+        const std::filesystem::path& path,
+        std::string& out_data)
     {
-        std::istringstream stream = std::istringstream(file_data);
-        std::string line;
-        std::string pending_header;
-        ShaderType current_type = ShaderType::NONE;
-        std::string current_source;
-        bool has_section = false;
+        if (path.empty())
+            return make_shader_load_failure("Shader loader: empty shader path.");
 
-        while (std::getline(stream, line))
+        if (!file_operator.read_file(path, FileDataFormat::UTF8_TEXT, out_data))
         {
-            std::string trimmed = trim_string(line);
-            if (trimmed.rfind("#type", 0U) == 0U)
-            {
-                std::string type_name = trim_string(trimmed.substr(5U));
-                ShaderType parsed_type = ShaderType::NONE;
-                if (!try_parse_shader_type(type_name, parsed_type))
-                {
-                    error_message = "Shader loader: unknown shader type '" + type_name + "'.";
-                    return false;
-                }
-
-                if (has_section)
-                {
-                    shaders.emplace_back(current_source, current_type);
-                    current_source.clear();
-                }
-                else
-                {
-                    current_source = pending_header;
-                    pending_header.clear();
-                    has_section = true;
-                }
-
-                current_type = parsed_type;
-                continue;
-            }
-
-            if (!has_section)
-            {
-                pending_header.append(line);
-                pending_header.append(" \n\t");
-                continue;
-            }
-
-            current_source.append(line);
-            current_source.append(" \n\t");
+            return make_shader_load_failure(
+                build_load_failure_message(path, "file could not be read"));
         }
 
-        if (!has_section)
-        {
-            error_message = "Shader loader: shader file does not declare any #type sections.";
-            return false;
-        }
-
-        if (current_type != ShaderType::NONE)
-            shaders.emplace_back(current_source, current_type);
-
-        if (shaders.empty())
-        {
-            error_message = "Shader loader: no shader stages were parsed.";
-            return false;
-        }
-
-        return true;
+        return make_shader_load_success({});
     }
 
     void GlslShaderLoaderPlugin::on_attach(IPluginHost& host)
@@ -456,48 +395,77 @@ namespace tbx::plugins
         }
 
         FileOperator file_operator = FileOperator(_working_directory);
-        if (request.path.extension() != ".glsl")
+
+        ShaderType requested_type = ShaderType::NONE;
+        if (!try_get_shader_type_from_extension(request.path, requested_type))
         {
             request.state = MessageState::ERROR;
-            request.result.flag_failure("Shader loader: unsupported shader file extension.");
+            if (request.path.extension() == ".glsl")
+            {
+                request.result.flag_failure(
+                    "Shader loader: .glsl files are include-only; use .vert/.frag/.comp for shader programs.");
+            }
+            else
+            {
+                request.result.flag_failure("Shader loader: unsupported shader file extension.");
+            }
             return;
         }
 
-        std::string file_data;
-        if (!file_operator.read_file(request.path, FileDataFormat::UTF8_TEXT, file_data))
+        std::vector<std::filesystem::path> stage_paths = {request.path};
+        if (requested_type == ShaderType::VERTEX || requested_type == ShaderType::FRAGMENT)
         {
-            request.state = MessageState::ERROR;
-            request.result.flag_failure(
-                build_load_failure_message(request.path, "file could not be read"));
-            return;
+            auto sibling = request.path;
+            sibling.replace_extension(requested_type == ShaderType::VERTEX ? ".frag" : ".vert");
+            if (file_operator.exists(sibling))
+                stage_paths.push_back(std::move(sibling));
         }
 
         std::vector<ShaderSource> shaders;
-        std::string parse_error;
-        if (!try_parse_shader_source(file_data, shaders, parse_error))
+        shaders.reserve(stage_paths.size());
+        for (const auto& stage_path : stage_paths)
         {
-            request.state = MessageState::ERROR;
-            request.result.flag_failure(build_load_failure_message(request.path, parse_error));
-            return;
+            ShaderType stage_type = ShaderType::NONE;
+            if (!try_get_shader_type_from_extension(stage_path, stage_type))
+            {
+                request.state = MessageState::ERROR;
+                request.result.flag_failure(build_load_failure_message(
+                    stage_path,
+                    "stage file uses an unsupported shader extension"));
+                return;
+            }
+
+            std::string stage_data;
+            auto read_result = try_read_shader_file(file_operator, stage_path, stage_data);
+            if (!read_result.succeeded)
+            {
+                request.state = MessageState::ERROR;
+                request.result.flag_failure(read_result.error);
+                return;
+            }
+
+            shaders.emplace_back(std::move(stage_data), stage_type);
         }
 
-        for (auto& shader : shaders)
+        for (size_t index = 0U; index < shaders.size(); ++index)
         {
-            std::vector<std::filesystem::path> include_stack = {request.path};
-            std::unordered_set<std::string> pragma_once_files = {};
+            auto& shader = shaders[index];
+            const auto& stage_path = stage_paths[index];
+            std::vector<std::filesystem::path> include_stack = {stage_path};
+            std::unordered_set<std::string> included_files = {};
             ShaderLoadResult expanded = try_expand_includes(
                 file_operator,
                 *_asset_manager,
-                request.path,
+                stage_path,
                 shader.source,
                 include_stack,
-                pragma_once_files,
+                included_files,
                 0U);
             if (!expanded.succeeded)
             {
                 request.state = MessageState::ERROR;
                 request.result.flag_failure(
-                    build_load_failure_message(request.path, expanded.error));
+                    build_load_failure_message(stage_path, expanded.error));
                 return;
             }
 

@@ -173,6 +173,17 @@ namespace tbx
         /// Thread Safety: Safe to construct on any thread.
         /// </remarks>
         DirectionalLight();
+
+        /// <summary>
+        /// Purpose: Sets the ambient lighting contribution produced by this directional light.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stored by value.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// Notes: The renderer tints this ambient term using the directional light color and sums
+        /// contributions across all directional lights.
+        /// </remarks>
+        float ambient = 0.03f;
     };
 }
 

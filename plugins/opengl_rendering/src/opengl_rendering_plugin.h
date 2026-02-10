@@ -15,6 +15,7 @@
 #include "tbx/plugin_api/plugin.h"
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace tbx::plugins
@@ -63,5 +64,7 @@ namespace tbx::plugins
         int _frame_area_light_count = 0;
         int _frame_spot_light_count = 0;
         int _frame_directional_light_count = 0;
+        std::unordered_set<uint32> _uploaded_lighting_program_ids = {};
+        std::unordered_set<uint32> _uploaded_camera_program_ids = {};
     };
 }

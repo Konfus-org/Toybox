@@ -199,8 +199,13 @@ namespace tbx
                 std::max(_performance_sample_max_frame_time_ms, dt.milliseconds);
         }
 
-        // Log performance metrics every 2 minutes
-        if (_performance_sample_elapsed_seconds >= 120.0)
+        // Log performance metrics
+#ifdef TBX_DEBUG
+        constexpr double PERFORMANCE_LOG_INTERVAL_SECONDS = 10.0;
+#else
+        constexpr double PERFORMANCE_LOG_INTERVAL_SECONDS = 120.0;
+#endif
+        if (_performance_sample_elapsed_seconds >= PERFORMANCE_LOG_INTERVAL_SECONDS)
         {
             double average_fps = 0.0;
             double average_frame_time_ms = 0.0;
