@@ -34,7 +34,7 @@ namespace tbx
     /// Ownership: Owns the operations via unique pointers.
     /// Thread Safety: Not thread-safe; synchronize when used across threads.
     /// </remarks>
-    class TBX_API Pipeline final : public PipelineOperation
+    class TBX_API Pipeline : public PipelineOperation
     {
       public:
         /// <summary>
