@@ -23,14 +23,6 @@ namespace tbx::plugins
         std::filesystem::path resolved_path;
     };
 
-    struct ShaderUniformResult
-    {
-      public:
-        bool succeeded = false;
-        std::string type;
-        std::string name;
-    };
-
     static ShaderLoadResult make_shader_load_failure(std::string message)
     {
         return ShaderLoadResult {
@@ -68,36 +60,6 @@ namespace tbx::plugins
             return "";
         auto end = text.find_last_not_of(" \r\n\t");
         return std::string(text.substr(start, end - start + 1U));
-    }
-
-    // Minimal "uniform <type> <name>;" parser used to validate/introspect basic declarations.
-    // This is not a full GLSL parser; it intentionally only supports the simple shape we use.
-    static ShaderUniformResult try_parse_simple_uniform_declaration(std::string_view trimmed_line)
-    {
-        if (trimmed_line.rfind("uniform", 0U) != 0U)
-            return {};
-
-        std::istringstream stream = std::istringstream(std::string(trimmed_line));
-        std::string keyword;
-        std::string type;
-        std::string name;
-        if (!(stream >> keyword >> type >> name))
-            return {};
-
-        if (keyword != "uniform")
-            return {};
-
-        if (!name.empty() && name.back() == ';')
-            name.pop_back();
-
-        auto array_start = name.find('[');
-        if (array_start != std::string::npos)
-            name.erase(array_start);
-
-        return ShaderUniformResult {
-            .succeeded = true,
-            .type = std::move(type),
-            .name = std::move(name)};
     }
 
     // Parses GLSL-style include directives:
@@ -213,6 +175,9 @@ namespace tbx::plugins
 
         while (std::getline(stream, line))
         {
+            if (!line.empty() && line.back() == '\r')
+                line.pop_back();
+
             std::string trimmed = trim_string(line);
             if (is_pragma_once_directive(trimmed))
             {

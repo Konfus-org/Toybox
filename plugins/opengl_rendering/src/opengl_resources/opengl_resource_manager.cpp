@@ -164,19 +164,26 @@ namespace tbx::plugins
 
         for (const auto& [texture_name, texture_handle] : material->textures)
         {
-            if (!texture_handle.is_valid())
-                continue;
+            const auto normalized_name = normalize_uniform_name(texture_name);
 
-            auto texture_asset = _asset_manager->load<Texture>(texture_handle);
-            if (!texture_asset)
-                continue;
+            std::shared_ptr<Texture> texture_asset = nullptr;
+            if (texture_handle.is_valid())
+                texture_asset = _asset_manager->load<Texture>(texture_handle);
 
-            auto texture = std::make_shared<OpenGlTexture>(*texture_asset);
+            auto fallback_texture = Texture();
+            if (normalized_name == "u_normal")
+            {
+                fallback_texture.format = TextureFormat::RGB;
+                fallback_texture.pixels = {128, 128, 255};
+            }
+
+            const Texture& texture_data = texture_asset ? *texture_asset : fallback_texture;
+            auto texture = std::make_shared<OpenGlTexture>(texture_data);
             auto texture_slot = static_cast<int>(out_resources.textures.size());
             texture->set_slot(static_cast<uint32>(texture_slot));
             out_resources.textures.push_back(
                 OpenGlTextureBinding {
-                    .uniform_name = normalize_uniform_name(texture_name),
+                    .uniform_name = normalized_name,
                     .slot = texture_slot,
                     .texture = texture,
                 });

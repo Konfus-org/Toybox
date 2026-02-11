@@ -84,7 +84,7 @@ namespace tbx::plugins
                     .name = "u_view_proj",
                     .data = view_projection,
                 });
-            shader_program.upload(
+            shader_program.try_upload(
                 ShaderUniform {
                     .name = "u_camera_pos",
                     .data = camera_position,
@@ -108,7 +108,7 @@ namespace tbx::plugins
                     .name = "u_model",
                     .data = model_matrix,
                 });
-            shader_program.upload(
+            shader_program.try_upload(
                 ShaderUniform {
                     .name = "u_normal_matrix",
                     .data = normal_matrix,
@@ -207,6 +207,58 @@ namespace tbx::plugins
                 frame_context.render_target != nullptr,
                 "OpenGL rendering: present operation requires a render target.");
 
+            if (frame_context.render_resolution.width != frame_context.viewport_size.width
+                || frame_context.render_resolution.height != frame_context.viewport_size.height)
+            {
+                if (_present_target.get_framebuffer_id() == 0)
+                {
+                    _present_target.set_size(frame_context.viewport_size);
+                }
+                else
+                {
+                    const auto current_size = _present_target.get_size();
+                    if (current_size.width != frame_context.viewport_size.width
+                        || current_size.height != frame_context.viewport_size.height)
+                    {
+                        _present_target.set_size(frame_context.viewport_size);
+                    }
+                }
+
+                glBindFramebuffer(
+                    GL_READ_FRAMEBUFFER,
+                    frame_context.render_target->get_framebuffer_id());
+                glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _present_target.get_framebuffer_id());
+                glBlitFramebuffer(
+                    0,
+                    0,
+                    static_cast<GLint>(frame_context.render_resolution.width),
+                    static_cast<GLint>(frame_context.render_resolution.height),
+                    0,
+                    0,
+                    static_cast<GLint>(frame_context.viewport_size.width),
+                    static_cast<GLint>(frame_context.viewport_size.height),
+                    GL_COLOR_BUFFER_BIT,
+                    GL_NEAREST);
+
+                glBindFramebuffer(
+                    GL_READ_FRAMEBUFFER,
+                    _present_target.get_framebuffer_id());
+                glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+                glBlitFramebuffer(
+                    0,
+                    0,
+                    static_cast<GLint>(frame_context.viewport_size.width),
+                    static_cast<GLint>(frame_context.viewport_size.height),
+                    0,
+                    0,
+                    static_cast<GLint>(frame_context.viewport_size.width),
+                    static_cast<GLint>(frame_context.viewport_size.height),
+                    GL_COLOR_BUFFER_BIT,
+                    GL_NEAREST);
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                return;
+            }
+
             glBindFramebuffer(
                 GL_READ_FRAMEBUFFER,
                 frame_context.render_target->get_framebuffer_id());
@@ -224,6 +276,9 @@ namespace tbx::plugins
                 GL_NEAREST);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
         }
+
+      private:
+        OpenGlFrameBuffer _present_target = {};
     };
 
     void OpenGlRenderOperation::execute(const std::any& payload)
