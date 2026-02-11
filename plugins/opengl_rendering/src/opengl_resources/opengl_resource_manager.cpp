@@ -122,7 +122,8 @@ namespace tbx::plugins
         {
             auto shader_stages = std::vector<std::shared_ptr<OpenGlShader>> {};
 
-            const auto append_shader_stages = [this, &shader_stages](const Handle& shader_handle)
+            const auto append_shader_stages =
+                [this, &shader_stages](const Handle& shader_handle, ShaderType expected_type)
             {
                 if (!shader_handle.is_valid())
                     return;
@@ -131,13 +132,31 @@ namespace tbx::plugins
                 if (!shader_asset)
                     return;
 
+                const ShaderSource* stage_source = nullptr;
                 for (const auto& source : shader_asset->sources)
-                    shader_stages.push_back(std::make_shared<OpenGlShader>(source));
+                {
+                    if (source.type != expected_type)
+                    {
+                        TBX_ASSERT(
+                            false,
+                            "OpenGL rendering: shader source type does not match expected stage "
+                            "type.");
+                        continue;
+                    }
+
+                    stage_source = &source;
+                    break;
+                }
+
+                if (!stage_source)
+                    return;
+
+                shader_stages.push_back(std::make_shared<OpenGlShader>(*stage_source));
             };
 
-            append_shader_stages(material->shader.vertex);
-            append_shader_stages(material->shader.fragment);
-            append_shader_stages(material->shader.compute);
+            append_shader_stages(material->shader.vertex, ShaderType::VERTEX);
+            append_shader_stages(material->shader.fragment, ShaderType::FRAGMENT);
+            append_shader_stages(material->shader.compute, ShaderType::COMPUTE);
 
             if (!shader_stages.empty())
                 out_resources.shader_program = std::make_shared<OpenGlShaderProgram>(shader_stages);

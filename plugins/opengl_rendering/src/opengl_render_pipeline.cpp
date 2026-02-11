@@ -38,9 +38,9 @@ namespace tbx::plugins
 
             const auto view_projection = get_view_projection_matrix(frame_context.camera_view);
             const auto camera_position = get_camera_position(frame_context.camera_view);
-            for (auto& entity : frame_context.camera_view.in_view_static_entities)
+            for (const auto& entity : frame_context.camera_view.in_view_static_entities)
                 draw_entity(entity, view_projection, camera_position);
-            for (auto& entity : frame_context.camera_view.in_view_dynamic_entities)
+            for (const auto& entity : frame_context.camera_view.in_view_dynamic_entities)
                 draw_entity(entity, view_projection, camera_position);
         }
 
@@ -50,7 +50,7 @@ namespace tbx::plugins
             if (!camera_view.camera_entity.has_component<Camera>())
                 return Mat4(1.0f);
 
-            const auto& camera = camera_view.camera_entity.get_component<Camera>();
+            auto& camera = camera_view.camera_entity.get_component<Camera>();
             const auto camera_rotation = get_camera_rotation(camera_view);
             const auto camera_position = get_camera_position(camera_view);
             return camera.get_view_projection_matrix(camera_position, camera_rotation);
@@ -162,7 +162,7 @@ namespace tbx::plugins
             glEnable(GL_CULL_FACE);
         }
 
-        void draw_entity(Entity& entity, const Mat4& view_projection, const Vec3& camera_position)
+        void draw_entity(const Entity& entity, const Mat4& view_projection, const Vec3& camera_position)
             const
         {
             TBX_ASSERT(

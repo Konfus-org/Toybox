@@ -48,7 +48,7 @@ namespace tbx::examples
         void on_update(const DeltaTime& dt) override;
 
       private:
-        EntityRegistry* _entity_manager = nullptr;
+        EntityRegistry* _ent_registry = nullptr;
         Entity _green_cube = {};
         Entity _sun = {};
     };

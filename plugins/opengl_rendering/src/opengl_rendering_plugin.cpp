@@ -1,6 +1,8 @@
 #include "opengl_rendering_plugin.h"
 #include "tbx/app/application.h"
 #include "tbx/debugging/macros.h"
+#include "tbx/graphics/camera.h"
+#include "tbx/messages/observable.h"
 #include <glad/glad.h>
 
 namespace tbx::plugins
@@ -53,15 +55,20 @@ namespace tbx::plugins
         send_message<WindowMakeCurrentRequest>(_window_id);
 
         auto camera_view = OpenGlCameraView {};
+        bool did_find_camera = false;
         auto& registry = get_host().get_entity_registry();
         registry.for_each_with<Camera>(
-            [&camera_view](Entity& entity)
+            [&camera_view, &did_find_camera](Entity& entity)
             {
-                if (camera_view.camera_entity.has_component<Camera>())
+                if (did_find_camera)
                     return;
 
                 camera_view.camera_entity = entity;
+                did_find_camera = true;
             });
+
+        if (!did_find_camera)
+            return;
 
         registry.for_each_with<Renderer, StaticMesh>(
             [&camera_view](Entity& entity)
@@ -111,14 +118,14 @@ namespace tbx::plugins
 
         if (auto* size_event = handle_property_changed<&Window::size>(msg))
         {
-            if (size_event->source.id == _window_id)
-                set_viewport_size(size_event->value);
+            if (size_event->owner && size_event->owner->id == _window_id)
+                set_viewport_size(size_event->current);
             return;
         }
 
         if (auto* resolution_event = handle_property_changed<&AppSettings::resolution>(msg))
         {
-            set_render_resolution(resolution_event->value);
+            set_render_resolution(resolution_event->current);
             return;
         }
     }

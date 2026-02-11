@@ -60,7 +60,7 @@ namespace tbx::tests::plugin_loader
 
         ::tbx::EntityRegistry& get_entity_registry() override
         {
-            return _entity_manager;
+            return _ent_registry;
         }
 
         ::tbx::AssetManager& get_asset_manager() override
@@ -71,7 +71,7 @@ namespace tbx::tests::plugin_loader
       private:
         std::string _name = "PluginLoaderTests";
         ::tbx::AppMessageCoordinator _coordinator = {};
-        ::tbx::EntityRegistry _entity_manager = {};
+        ::tbx::EntityRegistry _ent_registry = {};
         ::tbx::AssetManager _asset_manager;
         ::tbx::AppSettings _settings;
     };

@@ -11,7 +11,7 @@ namespace tbx::examples
         void on_update(const DeltaTime& dt) override;
 
       private:
-        EntityRegistry* _entity_manager = nullptr;
+        EntityRegistry* _ent_registry = nullptr;
         float _elapsed_seconds = 0.0f;
     };
 }

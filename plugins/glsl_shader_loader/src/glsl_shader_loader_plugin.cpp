@@ -412,67 +412,36 @@ namespace tbx::plugins
             return;
         }
 
-        std::vector<std::filesystem::path> stage_paths = {request.path};
-        if (requested_type == ShaderType::VERTEX || requested_type == ShaderType::FRAGMENT)
+        std::string stage_data;
+        auto read_result = try_read_shader_file(file_operator, request.path, stage_data);
+        if (!read_result.succeeded)
         {
-            auto sibling = request.path;
-            sibling.replace_extension(requested_type == ShaderType::VERTEX ? ".frag" : ".vert");
-            if (file_operator.exists(sibling))
-                stage_paths.push_back(std::move(sibling));
+            request.state = MessageState::ERROR;
+            request.result.flag_failure(read_result.error);
+            return;
         }
 
-        std::vector<ShaderSource> shaders;
-        shaders.reserve(stage_paths.size());
-        for (const auto& stage_path : stage_paths)
+        auto shader = ShaderSource(std::move(stage_data), requested_type);
+        std::vector<std::filesystem::path> include_stack = {request.path};
+        std::unordered_set<std::string> included_files = {};
+        ShaderLoadResult expanded = try_expand_includes(
+            file_operator,
+            *_asset_manager,
+            request.path,
+            shader.source,
+            include_stack,
+            included_files,
+            0U);
+        if (!expanded.succeeded)
         {
-            ShaderType stage_type = ShaderType::NONE;
-            if (!try_get_shader_type_from_extension(stage_path, stage_type))
-            {
-                request.state = MessageState::ERROR;
-                request.result.flag_failure(build_load_failure_message(
-                    stage_path,
-                    "stage file uses an unsupported shader extension"));
-                return;
-            }
-
-            std::string stage_data;
-            auto read_result = try_read_shader_file(file_operator, stage_path, stage_data);
-            if (!read_result.succeeded)
-            {
-                request.state = MessageState::ERROR;
-                request.result.flag_failure(read_result.error);
-                return;
-            }
-
-            shaders.emplace_back(std::move(stage_data), stage_type);
+            request.state = MessageState::ERROR;
+            request.result.flag_failure(
+                build_load_failure_message(request.path, expanded.error));
+            return;
         }
 
-        for (size_t index = 0U; index < shaders.size(); ++index)
-        {
-            auto& shader = shaders[index];
-            const auto& stage_path = stage_paths[index];
-            std::vector<std::filesystem::path> include_stack = {stage_path};
-            std::unordered_set<std::string> included_files = {};
-            ShaderLoadResult expanded = try_expand_includes(
-                file_operator,
-                *_asset_manager,
-                stage_path,
-                shader.source,
-                include_stack,
-                included_files,
-                0U);
-            if (!expanded.succeeded)
-            {
-                request.state = MessageState::ERROR;
-                request.result.flag_failure(
-                    build_load_failure_message(stage_path, expanded.error));
-                return;
-            }
-
-            shader.source = std::move(expanded.data);
-        }
-
-        *asset = Shader(std::move(shaders));
+        shader.source = std::move(expanded.data);
+        *asset = Shader(std::move(shader));
 
         request.state = MessageState::HANDLED;
     }

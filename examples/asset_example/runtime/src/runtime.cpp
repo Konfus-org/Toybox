@@ -12,25 +12,25 @@ namespace tbx::examples
 {
     void AssetExampleRuntimePlugin::on_attach(IPluginHost& context)
     {
-        _entity_manager = &context.get_entity_registry();
+        _ent_registry = &context.get_entity_registry();
 
         // Setup assets to use
         auto smily_mat = Handle("Smily.mat");
         auto green_cube = Handle("Green_Cube.fbx");
 
         // Setup light
-        _sun = _entity_manager->create("Light");
+        _sun = _ent_registry->create("Light");
         _sun.add_component<DirectionalLight>(RgbaColor::yellow, 1);
         _sun.add_component<Transform>(Vec3(0), to_radians(Vec3(-45.0f, 45.0f, 0.0f)), Vec3(1));
 
         // Setup cube
-        _green_cube = _entity_manager->create("Cube");
+        _green_cube = _ent_registry->create("Cube");
         _green_cube.add_component<Renderer>();
         _green_cube.add_component<StaticMesh>(green_cube);
         _green_cube.add_component<Transform>(Vec3(0.0f, 0.0f, -5.0f));
 
         // Setup ground
-        auto ground_ent = _entity_manager->create("Ground");
+        auto ground_ent = _ent_registry->create("Ground");
         ground_ent.add_component<Renderer>(smily_mat);
         ground_ent.add_component<ProceduralMesh>(quad);
         ground_ent.add_component<Transform>(
@@ -39,7 +39,7 @@ namespace tbx::examples
             Vec3(20.0f, 20.0f, 1.0f));
 
         // Setup camera
-        auto cam_ent = _entity_manager->create("Camera");
+        auto cam_ent = _ent_registry->create("Camera");
         cam_ent.add_component<Camera>();
         cam_ent.add_component<Transform>(
             Vec3(0.0f, 5.0f, 10.0f),
@@ -48,7 +48,7 @@ namespace tbx::examples
 
     void AssetExampleRuntimePlugin::on_detach()
     {
-        _entity_manager = nullptr;
+        _ent_registry = nullptr;
     }
 
     void AssetExampleRuntimePlugin::on_update(const DeltaTime& dt)
