@@ -87,6 +87,8 @@ namespace tbx::plugins
             .render_resolution = _render_resolution,
             .viewport_size = _viewport_size,
             .render_target = &_framebuffer,
+            .present_mode = OpenGlFrameBufferPresentMode::ASPECT_FIT,
+            .present_target_framebuffer_id = 0,
         };
 
         _render_pipeline->execute(frame_context);
@@ -180,6 +182,6 @@ namespace tbx::plugins
             return;
 
         _render_resolution = render_resolution;
-        _framebuffer.set_size(render_resolution);
+        _framebuffer.set_resolution(render_resolution);
     }
 }

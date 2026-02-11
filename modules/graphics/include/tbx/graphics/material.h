@@ -37,6 +37,10 @@ namespace tbx
         /// </remarks>
         Handle fragment = {};
 
+        Handle tesselation = {};
+
+        Handle geometry = {};
+
         /// <summary>
         /// Purpose: Identifies the compute shader stage asset.
         /// </summary>
@@ -55,7 +59,18 @@ namespace tbx
         /// </remarks>
         bool is_valid() const
         {
-            return (vertex.is_valid() && fragment.is_valid()) || compute.is_valid();
+            return
+                // Standard combo
+                (vertex.is_valid() && fragment.is_valid()) ||
+                // tesselation combo
+                (vertex.is_valid() && fragment.is_valid() && tesselation.is_valid()) ||
+                // geometry combo
+                (vertex.is_valid() && fragment.is_valid() && geometry.is_valid()) ||
+                // full pipeline
+                (vertex.is_valid() && fragment.is_valid() && tesselation.is_valid()
+                 && geometry.is_valid())
+                // compute must be standalone
+                || compute.is_valid();
         }
     };
 

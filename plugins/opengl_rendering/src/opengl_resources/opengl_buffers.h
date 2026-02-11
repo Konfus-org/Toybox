@@ -2,11 +2,22 @@
 #include "opengl_resource.h"
 #include "tbx/common/int.h"
 #include "tbx/graphics/mesh.h"
+#include "tbx/graphics/texture.h"
 #include "tbx/graphics/vertex.h"
 #include "tbx/math/size.h"
 
 namespace tbx::plugins
 {
+    /// <summary>Defines how a framebuffer is mapped into a presentation destination.</summary>
+    /// <remarks>Purpose: Controls scaling behavior during framebuffer blit presentation.
+    /// Ownership: Value semantics only; no ownership transfer.
+    /// Thread Safety: Immutable enum safe to read across threads.</remarks>
+    enum class OpenGlFrameBufferPresentMode
+    {
+        ASPECT_FIT,
+        STRETCH
+    };
+
     /// <summary>Owns an OpenGL framebuffer with color and depth-stencil attachments.</summary>
     /// <remarks>Purpose: Provides a resizable render target for multi-pass rendering.
     /// Ownership: Owns framebuffer, color texture, and depth-stencil renderbuffer handles.
@@ -15,7 +26,7 @@ namespace tbx::plugins
     {
       public:
         /// <summary>Creates an empty framebuffer object.</summary>
-        /// <remarks>Purpose: Defers attachment allocation until set_size() is called.
+        /// <remarks>Purpose: Defers attachment allocation until set_resolution() is called.
         /// Ownership: Owns no GPU handles until initialized.
         /// Thread Safety: Construct on the render thread.</remarks>
         OpenGlFrameBuffer() = default;
@@ -24,7 +35,13 @@ namespace tbx::plugins
         /// <remarks>Purpose: Initializes framebuffer attachments immediately.
         /// Ownership: Owns created GPU handles.
         /// Thread Safety: Construct on the render thread.</remarks>
-        explicit OpenGlFrameBuffer(const Size& size);
+        explicit OpenGlFrameBuffer(const Size& resolution);
+
+        /// <summary>Creates and allocates a framebuffer with explicit filtering.</summary>
+        /// <remarks>Purpose: Initializes framebuffer attachments and color sampling mode.
+        /// Ownership: Owns created GPU handles.
+        /// Thread Safety: Construct on the render thread.</remarks>
+        OpenGlFrameBuffer(const Size& resolution, TextureFilter filtering);
 
         OpenGlFrameBuffer(const OpenGlFrameBuffer&) = delete;
         OpenGlFrameBuffer& operator=(const OpenGlFrameBuffer&) = delete;
@@ -47,11 +64,11 @@ namespace tbx::plugins
         /// Thread Safety: Call on the render thread.</remarks>
         void unbind() override;
 
-        /// <summary>Returns the allocated framebuffer size.</summary>
-        /// <remarks>Purpose: Exposes render target dimensions.
+        /// <summary>Returns the allocated framebuffer resolution.</summary>
+        /// <remarks>Purpose: Exposes render target dimensions used for rasterization.
         /// Ownership: Returns value; no ownership transfer.
         /// Thread Safety: Safe on render thread.</remarks>
-        Size get_size() const;
+        Size get_resolution() const;
 
         /// <summary>Returns the OpenGL framebuffer handle.</summary>
         /// <remarks>Purpose: Allows use in low-level OpenGL operations.
@@ -65,17 +82,47 @@ namespace tbx::plugins
         /// Thread Safety: Safe on render thread.</remarks>
         uint32 get_color_texture_id() const;
 
+        /// <summary>Updates the color attachment filtering mode.</summary>
+        /// <remarks>Purpose: Controls min/mag sampling behavior used when presenting this
+        /// framebuffer.
+        /// Ownership: Stores value in this framebuffer; no ownership transfer.
+        /// Thread Safety: Call on the render thread.</remarks>
+        void set_filtering(TextureFilter filtering);
+
+        /// <summary>Returns the active color attachment filtering mode.</summary>
+        /// <remarks>Purpose: Exposes how the framebuffer color texture is sampled during blit.
+        /// Ownership: Returns value; no ownership transfer.
+        /// Thread Safety: Safe on render thread.</remarks>
+        TextureFilter get_filtering() const;
+
         /// <summary>Resizes the framebuffer attachments.</summary>
-        /// <remarks>Purpose: Recreates attachments to match the requested render size.
+        /// <remarks>Purpose: Recreates attachments to match the requested render resolution.
+        /// Ownership: Replaces and owns newly created GPU handles.
+        /// Thread Safety: Call on the render thread.</remarks>
+        void set_resolution(const Size& resolution);
+
+        /// <summary>Resizes the framebuffer attachments.</summary>
+        /// <remarks>Purpose: Backward-compatible alias for set_resolution().
         /// Ownership: Replaces and owns newly created GPU handles.
         /// Thread Safety: Call on the render thread.</remarks>
         void set_size(const Size& size);
+
+        /// <summary>Presents this framebuffer into the requested destination framebuffer.</summary>
+        /// <remarks>Purpose: Blits the framebuffer color attachment into a destination target with
+        /// configurable scaling mode.
+        /// Ownership: Does not transfer ownership of source or destination framebuffers.
+        /// Thread Safety: Call on the render thread with a current OpenGL context.</remarks>
+        void preset(
+            uint32 destination_framebuffer_id,
+            const Size& destination_size,
+            OpenGlFrameBufferPresentMode mode) const;
 
       private:
         uint32 _framebuffer_id = 0;
         uint32 _color_texture_id = 0;
         uint32 _depth_stencil_renderbuffer_id = 0;
-        Size _size = {};
+        Size _resolution = {};
+        TextureFilter _filtering = TextureFilter::LINEAR;
     };
 
     /// <summary>Owns an OpenGL vertex buffer object.</summary>

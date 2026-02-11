@@ -5,9 +5,66 @@
 
 namespace tbx::plugins
 {
-    OpenGlFrameBuffer::OpenGlFrameBuffer(const Size& size)
+    static GLenum to_gl_texture_filter(const TextureFilter filtering)
     {
-        set_size(size);
+        switch (filtering)
+        {
+            case TextureFilter::NEAREST:
+                return GL_NEAREST;
+            case TextureFilter::LINEAR:
+                return GL_LINEAR;
+            default:
+                TBX_ASSERT(false, "OpenGL rendering: unsupported framebuffer texture filter.");
+                return GL_LINEAR;
+        }
+    }
+
+    static void get_preset_destination_bounds(
+        const Size& source_size,
+        const Size& destination_size,
+        const OpenGlFrameBufferPresentMode mode,
+        GLint& out_x,
+        GLint& out_y,
+        GLint& out_width,
+        GLint& out_height)
+    {
+        out_x = 0;
+        out_y = 0;
+        out_width = static_cast<GLint>(destination_size.width);
+        out_height = static_cast<GLint>(destination_size.height);
+        if (mode == OpenGlFrameBufferPresentMode::STRETCH)
+            return;
+
+        const auto source_width = static_cast<float>(source_size.width);
+        const auto source_height = static_cast<float>(source_size.height);
+        const auto destination_width = static_cast<float>(destination_size.width);
+        const auto destination_height = static_cast<float>(destination_size.height);
+        const auto source_aspect = source_width / source_height;
+        const auto destination_aspect = destination_width / destination_height;
+
+        if (source_aspect > destination_aspect)
+        {
+            out_height = static_cast<GLint>(destination_width / source_aspect);
+            out_y = (static_cast<GLint>(destination_size.height) - out_height) / 2;
+            return;
+        }
+
+        if (source_aspect < destination_aspect)
+        {
+            out_width = static_cast<GLint>(destination_height * source_aspect);
+            out_x = (static_cast<GLint>(destination_size.width) - out_width) / 2;
+        }
+    }
+
+    OpenGlFrameBuffer::OpenGlFrameBuffer(const Size& resolution)
+    {
+        set_resolution(resolution);
+    }
+
+    OpenGlFrameBuffer::OpenGlFrameBuffer(const Size& resolution, const TextureFilter filtering)
+        : _filtering(filtering)
+    {
+        set_resolution(resolution);
     }
 
     OpenGlFrameBuffer::~OpenGlFrameBuffer() noexcept
@@ -41,9 +98,9 @@ namespace tbx::plugins
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
-    Size OpenGlFrameBuffer::get_size() const
+    Size OpenGlFrameBuffer::get_resolution() const
     {
-        return _size;
+        return _resolution;
     }
 
     uint32 OpenGlFrameBuffer::get_framebuffer_id() const
@@ -56,7 +113,23 @@ namespace tbx::plugins
         return _color_texture_id;
     }
 
-    void OpenGlFrameBuffer::set_size(const Size& size)
+    void OpenGlFrameBuffer::set_filtering(const TextureFilter filtering)
+    {
+        _filtering = filtering;
+        if (_color_texture_id == 0)
+            return;
+
+        const auto gl_filter = to_gl_texture_filter(_filtering);
+        glTextureParameteri(_color_texture_id, GL_TEXTURE_MIN_FILTER, gl_filter);
+        glTextureParameteri(_color_texture_id, GL_TEXTURE_MAG_FILTER, gl_filter);
+    }
+
+    TextureFilter OpenGlFrameBuffer::get_filtering() const
+    {
+        return _filtering;
+    }
+
+    void OpenGlFrameBuffer::set_resolution(const Size& resolution)
     {
         if (_framebuffer_id == 0)
         {
@@ -72,25 +145,26 @@ namespace tbx::plugins
             glDeleteRenderbuffers(1, &_depth_stencil_renderbuffer_id);
         }
 
+        const auto gl_filter = to_gl_texture_filter(_filtering);
         glCreateTextures(GL_TEXTURE_2D, 1, &_color_texture_id);
-        glTextureParameteri(_color_texture_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTextureParameteri(_color_texture_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTextureParameteri(_color_texture_id, GL_TEXTURE_MIN_FILTER, gl_filter);
+        glTextureParameteri(_color_texture_id, GL_TEXTURE_MAG_FILTER, gl_filter);
         glTextureParameteri(_color_texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTextureParameteri(_color_texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTextureStorage2D(
             _color_texture_id,
             1,
             GL_RGBA8,
-            static_cast<GLsizei>(size.width),
-            static_cast<GLsizei>(size.height));
+            static_cast<GLsizei>(resolution.width),
+            static_cast<GLsizei>(resolution.height));
         glNamedFramebufferTexture(_framebuffer_id, GL_COLOR_ATTACHMENT0, _color_texture_id, 0);
 
         glCreateRenderbuffers(1, &_depth_stencil_renderbuffer_id);
         glNamedRenderbufferStorage(
             _depth_stencil_renderbuffer_id,
             GL_DEPTH24_STENCIL8,
-            static_cast<GLsizei>(size.width),
-            static_cast<GLsizei>(size.height));
+            static_cast<GLsizei>(resolution.width),
+            static_cast<GLsizei>(resolution.height));
         glNamedFramebufferRenderbuffer(
             _framebuffer_id,
             GL_DEPTH_STENCIL_ATTACHMENT,
@@ -106,7 +180,65 @@ namespace tbx::plugins
             "OpenGL rendering: framebuffer is incomplete (status={}).",
             static_cast<uint32>(status));
 
-        _size = size;
+        _resolution = resolution;
+    }
+
+    void OpenGlFrameBuffer::set_size(const Size& size)
+    {
+        set_resolution(size);
+    }
+
+    void OpenGlFrameBuffer::preset(
+        const uint32 destination_framebuffer_id,
+        const Size& destination_size,
+        const OpenGlFrameBufferPresentMode mode) const
+    {
+        TBX_ASSERT(
+            _framebuffer_id != 0,
+            "OpenGL rendering: preset requires a valid source framebuffer.");
+
+        const auto source_size = get_resolution();
+        TBX_ASSERT(
+            source_size.width > 0 && source_size.height > 0,
+            "OpenGL rendering: preset requires non-zero source framebuffer size.");
+        TBX_ASSERT(
+            destination_size.width > 0 && destination_size.height > 0,
+            "OpenGL rendering: preset requires non-zero destination framebuffer size.");
+
+        auto destination_x = GLint {};
+        auto destination_y = GLint {};
+        auto destination_width = GLint {};
+        auto destination_height = GLint {};
+        get_preset_destination_bounds(
+            source_size,
+            destination_size,
+            mode,
+            destination_x,
+            destination_y,
+            destination_width,
+            destination_height);
+
+        const auto source_width = static_cast<GLint>(source_size.width);
+        const auto source_height = static_cast<GLint>(source_size.height);
+        const auto viewport_width = static_cast<GLint>(destination_size.width);
+        const auto viewport_height = static_cast<GLint>(destination_size.height);
+
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, _framebuffer_id);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, destination_framebuffer_id);
+        glViewport(0, 0, viewport_width, viewport_height);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glBlitFramebuffer(
+            0,
+            0,
+            source_width,
+            source_height,
+            destination_x,
+            destination_y,
+            destination_x + destination_width,
+            destination_y + destination_height,
+            GL_COLOR_BUFFER_BIT,
+            GL_NEAREST);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
     static GLenum vertex_type_to_gl_type(const VertexData& type)

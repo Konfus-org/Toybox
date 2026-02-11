@@ -79,6 +79,20 @@ namespace tbx::plugins
         /// Thread Safety: Use on the render thread.
         /// </summary>
         OpenGlFrameBuffer* render_target = nullptr;
+
+        /// <summary>
+        /// Purpose: Defines how the render target is scaled into the presentation target.
+        /// Ownership: Value type owned by this context.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        OpenGlFrameBufferPresentMode present_mode = OpenGlFrameBufferPresentMode::ASPECT_FIT;
+
+        /// <summary>
+        /// Purpose: Framebuffer identifier used as the destination draw target for presentation.
+        /// Ownership: Value type owned by this context.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        uint32 present_target_framebuffer_id = 0;
     };
 
     /// <summary>

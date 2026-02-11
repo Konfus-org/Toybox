@@ -191,55 +191,13 @@ namespace tbx::plugins
       public:
         void execute_with_frame_context(const OpenGlRenderFrameContext& frame_context) override
         {
-            // TODO: this should prolly be abstracted to live in the render target class
             TBX_ASSERT(
                 frame_context.render_target != nullptr,
                 "OpenGL rendering: present operation requires a render target.");
-
-            const auto source_width = static_cast<GLint>(frame_context.render_resolution.width);
-            const auto source_height = static_cast<GLint>(frame_context.render_resolution.height);
-            const auto viewport_width = static_cast<GLint>(frame_context.viewport_size.width);
-            const auto viewport_height = static_cast<GLint>(frame_context.viewport_size.height);
-
-            auto destination_x = 0;
-            auto destination_y = 0;
-            auto destination_width = viewport_width;
-            auto destination_height = viewport_height;
-            const auto source_aspect =
-                static_cast<float>(source_width) / static_cast<float>(source_height);
-            const auto viewport_aspect =
-                static_cast<float>(viewport_width) / static_cast<float>(viewport_height);
-            if (source_aspect > viewport_aspect)
-            {
-                destination_height =
-                    static_cast<GLint>(static_cast<float>(viewport_width) / source_aspect);
-                destination_y = (viewport_height - destination_height) / 2;
-            }
-            else if (source_aspect < viewport_aspect)
-            {
-                destination_width =
-                    static_cast<GLint>(static_cast<float>(viewport_height) * source_aspect);
-                destination_x = (viewport_width - destination_width) / 2;
-            }
-
-            glBindFramebuffer(
-                GL_READ_FRAMEBUFFER,
-                frame_context.render_target->get_framebuffer_id());
-            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-            glViewport(0, 0, viewport_width, viewport_height);
-            glClear(GL_COLOR_BUFFER_BIT);
-            glBlitFramebuffer(
-                0,
-                0,
-                source_width,
-                source_height,
-                destination_x,
-                destination_y,
-                destination_x + destination_width,
-                destination_y + destination_height,
-                GL_COLOR_BUFFER_BIT,
-                GL_NEAREST);
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            frame_context.render_target->preset(
+                frame_context.present_target_framebuffer_id,
+                frame_context.viewport_size,
+                frame_context.present_mode);
         }
     };
 
