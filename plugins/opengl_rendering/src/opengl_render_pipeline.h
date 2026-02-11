@@ -178,22 +178,6 @@ namespace tbx::plugins
         void assign_frame_context();
         void reset_frame_context();
 
-        static void trim_cache(
-            std::unordered_map<Uuid, std::shared_ptr<OpenGlMesh>>& cache,
-            const std::unordered_set<Uuid>& live_ids);
-        static void trim_cache(
-            std::unordered_map<Uuid, std::shared_ptr<OpenGlTexture>>& cache,
-            const std::unordered_set<Uuid>& live_ids);
-        static void trim_cache(
-            std::unordered_map<Uuid, std::shared_ptr<OpenGlShaderProgram>>& cache,
-            const std::unordered_set<Uuid>& live_ids);
-        static void trim_cache(
-            std::unordered_map<Uuid, std::shared_ptr<OpenGlMaterial>>& cache,
-            const std::unordered_set<Uuid>& live_ids);
-        static void trim_cache(
-            std::unordered_map<Uuid, std::shared_ptr<OpenGlModel>>& cache,
-            const std::unordered_set<Uuid>& live_ids);
-
         std::optional<OpenGlRenderFrameContext> _current_frame_context = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlMesh>> _meshes_by_id = {};
         std::unordered_map<Uuid, std::shared_ptr<OpenGlTexture>> _textures_by_id = {};

@@ -6,6 +6,23 @@
 
 namespace tbx::plugins
 {
+    template <typename TResource>
+    static void trim_resource_cache_entries(
+        std::unordered_map<Uuid, std::shared_ptr<TResource>>& cache,
+        const std::unordered_set<Uuid>& live_ids)
+    {
+        for (auto iterator = cache.begin(); iterator != cache.end();)
+        {
+            if (!live_ids.contains(iterator->first))
+            {
+                iterator = cache.erase(iterator);
+                continue;
+            }
+
+            ++iterator;
+        }
+    }
+
     class OpenGlGeometryOperation final : public OpenGlRenderOperation
     {
       public:
@@ -129,11 +146,11 @@ namespace tbx::plugins
         const std::unordered_set<Uuid>& live_material_ids,
         const std::unordered_set<Uuid>& live_model_ids)
     {
-        trim_cache(_meshes_by_id, live_mesh_ids);
-        trim_cache(_textures_by_id, live_texture_ids);
-        trim_cache(_shader_programs_by_id, live_shader_program_ids);
-        trim_cache(_materials_by_id, live_material_ids);
-        trim_cache(_models_by_id, live_model_ids);
+        trim_resource_cache_entries(_meshes_by_id, live_mesh_ids);
+        trim_resource_cache_entries(_textures_by_id, live_texture_ids);
+        trim_resource_cache_entries(_shader_programs_by_id, live_shader_program_ids);
+        trim_resource_cache_entries(_materials_by_id, live_material_ids);
+        trim_resource_cache_entries(_models_by_id, live_model_ids);
     }
 
     void OpenGlRenderPipeline::assign_frame_context()
@@ -166,83 +183,4 @@ namespace tbx::plugins
         _current_frame_context.reset();
     }
 
-    void OpenGlRenderPipeline::trim_cache(
-        std::unordered_map<Uuid, std::shared_ptr<OpenGlMesh>>& cache,
-        const std::unordered_set<Uuid>& live_ids)
-    {
-        for (auto iterator = cache.begin(); iterator != cache.end();)
-        {
-            if (!live_ids.contains(iterator->first))
-            {
-                iterator = cache.erase(iterator);
-                continue;
-            }
-
-            ++iterator;
-        }
-    }
-
-    void OpenGlRenderPipeline::trim_cache(
-        std::unordered_map<Uuid, std::shared_ptr<OpenGlTexture>>& cache,
-        const std::unordered_set<Uuid>& live_ids)
-    {
-        for (auto iterator = cache.begin(); iterator != cache.end();)
-        {
-            if (!live_ids.contains(iterator->first))
-            {
-                iterator = cache.erase(iterator);
-                continue;
-            }
-
-            ++iterator;
-        }
-    }
-
-    void OpenGlRenderPipeline::trim_cache(
-        std::unordered_map<Uuid, std::shared_ptr<OpenGlShaderProgram>>& cache,
-        const std::unordered_set<Uuid>& live_ids)
-    {
-        for (auto iterator = cache.begin(); iterator != cache.end();)
-        {
-            if (!live_ids.contains(iterator->first))
-            {
-                iterator = cache.erase(iterator);
-                continue;
-            }
-
-            ++iterator;
-        }
-    }
-
-    void OpenGlRenderPipeline::trim_cache(
-        std::unordered_map<Uuid, std::shared_ptr<OpenGlMaterial>>& cache,
-        const std::unordered_set<Uuid>& live_ids)
-    {
-        for (auto iterator = cache.begin(); iterator != cache.end();)
-        {
-            if (!live_ids.contains(iterator->first))
-            {
-                iterator = cache.erase(iterator);
-                continue;
-            }
-
-            ++iterator;
-        }
-    }
-
-    void OpenGlRenderPipeline::trim_cache(
-        std::unordered_map<Uuid, std::shared_ptr<OpenGlModel>>& cache,
-        const std::unordered_set<Uuid>& live_ids)
-    {
-        for (auto iterator = cache.begin(); iterator != cache.end();)
-        {
-            if (!live_ids.contains(iterator->first))
-            {
-                iterator = cache.erase(iterator);
-                continue;
-            }
-
-            ++iterator;
-        }
-    }
 }
