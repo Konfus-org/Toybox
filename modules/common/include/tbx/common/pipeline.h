@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/tbx_api.h"
+#include <any>
 #include <memory>
 #include <vector>
 
@@ -18,13 +19,25 @@ namespace tbx
         virtual ~PipelineOperation() = default;
 
         /// <summary>
-        /// Purpose: Executes the operation logic.
+        /// Purpose: Executes the operation logic using an optional execution payload.
         /// </summary>
         /// <remarks>
         /// Ownership: Does not transfer ownership of referenced resources.
         /// Thread Safety: Not thread-safe; call from the owning thread.
         /// </remarks>
-        virtual void execute() = 0;
+        virtual void execute(const std::any& payload) = 0;
+
+        /// <summary>
+        /// Purpose: Executes the operation logic with an empty payload.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Does not transfer ownership of referenced resources.
+        /// Thread Safety: Not thread-safe; call from the owning thread.
+        /// </remarks>
+        void execute()
+        {
+            execute(std::any {});
+        }
     };
 
     /// <summary>
@@ -110,13 +123,22 @@ namespace tbx
         const std::vector<std::unique_ptr<PipelineOperation>>& get_operations() const;
 
         /// <summary>
-        /// Purpose: Executes each operation in sequence.
+        /// Purpose: Executes each operation in sequence with the given payload.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Does not transfer ownership of operations or payload resources.
+        /// Thread Safety: Not thread-safe; call from the owning thread.
+        /// </remarks>
+        void execute(const std::any& payload) override;
+
+        /// <summary>
+        /// Purpose: Executes each operation in sequence with an empty payload.
         /// </summary>
         /// <remarks>
         /// Ownership: Does not transfer ownership of operations.
         /// Thread Safety: Not thread-safe; call from the owning thread.
         /// </remarks>
-        void execute() override;
+        void execute();
 
       private:
         std::vector<std::unique_ptr<PipelineOperation>> _operations = {};

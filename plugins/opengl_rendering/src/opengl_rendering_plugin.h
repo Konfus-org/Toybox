@@ -4,12 +4,13 @@
 #include "tbx/common/uuid.h"
 #include "tbx/graphics/messages.h"
 #include "tbx/plugin_api/plugin.h"
+#include <memory>
 
 namespace tbx::plugins
 {
     /// <summary>Hosts the OpenGL rendering backend implementation.</summary>
     /// <remarks>Purpose: Owns OpenGL pipeline orchestration and frame submission.
-    /// Ownership: Owns render pipeline and framebuffer resources.
+    /// Ownership: Owns framebuffer resources and uniquely owns a lazily-created render pipeline.
     /// Thread Safety: Not thread-safe; use on the render thread.</remarks>
     class OpenGlRenderingPlugin final : public Plugin
     {
@@ -44,6 +45,6 @@ namespace tbx::plugins
         Size _render_resolution = {0, 0};
         bool _is_context_ready = false;
         OpenGlFrameBuffer _framebuffer = {};
-        OpenGlRenderPipeline _render_pipeline = {};
+        std::unique_ptr<OpenGlRenderPipeline> _render_pipeline = nullptr;
     };
 }

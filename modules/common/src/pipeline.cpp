@@ -5,9 +5,7 @@ namespace tbx
     void Pipeline::add_operation(std::unique_ptr<PipelineOperation> operation)
     {
         if (!operation)
-        {
             return;
-        }
 
         _operations.push_back(std::move(operation));
     }
@@ -22,16 +20,19 @@ namespace tbx
         return _operations;
     }
 
-    void Pipeline::execute()
+    void Pipeline::execute(const std::any& payload)
     {
         for (const auto& operation : _operations)
         {
             if (!operation)
-            {
                 continue;
-            }
 
-            operation->execute();
+            operation->execute(payload);
         }
+    }
+
+    void Pipeline::execute()
+    {
+        execute(std::any {});
     }
 }
