@@ -119,13 +119,10 @@ namespace tbx::plugins
         if (auto* size_event = handle_property_changed<&Window::size>(msg))
         {
             if (size_event->owner && size_event->owner->id == _window_id)
+            {
                 set_viewport_size(size_event->current);
-            return;
-        }
-
-        if (auto* resolution_event = handle_property_changed<&AppSettings::resolution>(msg))
-        {
-            set_render_resolution(resolution_event->current);
+                set_render_resolution(size_event->current);
+            }
             return;
         }
     }

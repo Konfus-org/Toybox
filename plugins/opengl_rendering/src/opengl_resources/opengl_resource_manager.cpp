@@ -1,4 +1,5 @@
 #include "opengl_resource_manager.h"
+#include "tbx/assets/builtin_assets.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/model.h"
@@ -13,6 +14,60 @@ namespace tbx::plugins
         std::string normalized = "u_";
         normalized.append(name.begin(), name.end());
         return normalized;
+    }
+
+    static void append_or_override_uniform(
+        std::vector<ShaderUniform>& uniforms,
+        const ShaderUniform& uniform)
+    {
+        for (auto& existing : uniforms)
+        {
+            if (existing.name != uniform.name)
+                continue;
+
+            existing = uniform;
+            return;
+        }
+
+        uniforms.push_back(uniform);
+    }
+
+    static void append_texture_binding(
+        OpenGlDrawResources& out_resources,
+        std::string_view uniform_name,
+        const Texture& texture_data)
+    {
+        auto texture = std::make_shared<OpenGlTexture>(texture_data);
+        auto texture_slot = static_cast<int>(out_resources.textures.size());
+        texture->set_slot(static_cast<uint32>(texture_slot));
+        out_resources.textures.push_back(
+            OpenGlTextureBinding {
+                .uniform_name = std::string(uniform_name),
+                .slot = texture_slot,
+                .texture = texture,
+            });
+    }
+
+    static Material resolve_static_mesh_material(const Model& model)
+    {
+        Material resolved = Material();
+
+        for (const auto& part : model.parts)
+        {
+            if (part.mesh_index != 0U)
+                continue;
+
+            const auto material_index = static_cast<size_t>(part.material_index);
+            if (material_index < model.materials.size())
+                return model.materials[material_index];
+
+            break;
+        }
+
+        if (!model.materials.empty())
+            resolved = model.materials[0];
+
+        return resolved;
     }
 
     OpenGlResourceManager::OpenGlResourceManager(AssetManager& asset_manager)
@@ -91,7 +146,20 @@ namespace tbx::plugins
             return false;
 
         out_resources.mesh = std::make_shared<OpenGlMesh>(model->meshes[0]);
-        return try_append_material_resources(renderer, out_resources);
+
+        auto material = Material();
+        if (renderer.material.is_valid())
+        {
+            auto override_material = _asset_manager->load<Material>(renderer.material);
+            if (override_material)
+                material = *override_material;
+        }
+        else
+        {
+            material = resolve_static_mesh_material(*model);
+        }
+
+        return try_append_material_resources(material, out_resources);
     }
 
     bool OpenGlResourceManager::try_create_dynamic_mesh_resources(
@@ -104,21 +172,30 @@ namespace tbx::plugins
             return false;
 
         out_resources.mesh = std::make_shared<OpenGlMesh>(*dynamic_mesh.mesh);
-        return try_append_material_resources(renderer, out_resources);
+
+        auto material = Material();
+        if (renderer.material.is_valid())
+        {
+            auto loaded_material = _asset_manager->load<Material>(renderer.material);
+            if (loaded_material)
+                material = *loaded_material;
+        }
+
+        return try_append_material_resources(material, out_resources);
     }
 
     bool OpenGlResourceManager::try_append_material_resources(
-        const Renderer& renderer,
+        const Material& material,
         OpenGlDrawResources& out_resources)
     {
-        if (!renderer.material.is_valid())
-            return out_resources.mesh != nullptr;
+        auto resolved_material = material;
+        if (!resolved_material.shader.is_valid())
+        {
+            resolved_material.shader.vertex = lit_vertex_shader;
+            resolved_material.shader.fragment = lit_fragment_shader;
+        }
 
-        auto material = _asset_manager->load<Material>(renderer.material);
-        if (!material)
-            return out_resources.mesh != nullptr;
-
-        if (material->shader.is_valid())
+        if (resolved_material.shader.is_valid())
         {
             auto shader_stages = std::vector<std::shared_ptr<OpenGlShader>> {};
 
@@ -154,17 +231,21 @@ namespace tbx::plugins
                 shader_stages.push_back(std::make_shared<OpenGlShader>(*stage_source));
             };
 
-            append_shader_stages(material->shader.vertex, ShaderType::VERTEX);
-            append_shader_stages(material->shader.fragment, ShaderType::FRAGMENT);
-            append_shader_stages(material->shader.compute, ShaderType::COMPUTE);
+            append_shader_stages(resolved_material.shader.vertex, ShaderType::VERTEX);
+            append_shader_stages(resolved_material.shader.fragment, ShaderType::FRAGMENT);
+            append_shader_stages(resolved_material.shader.compute, ShaderType::COMPUTE);
 
             if (!shader_stages.empty())
                 out_resources.shader_program = std::make_shared<OpenGlShaderProgram>(shader_stages);
         }
 
-        for (const auto& [texture_name, texture_handle] : material->textures)
+        bool has_diffuse = false;
+        bool has_normal = false;
+        for (const auto& [texture_name, texture_handle] : resolved_material.textures)
         {
             const auto normalized_name = normalize_uniform_name(texture_name);
+            has_diffuse = has_diffuse || normalized_name == "u_diffuse";
+            has_normal = has_normal || normalized_name == "u_normal";
 
             std::shared_ptr<Texture> texture_asset = nullptr;
             if (texture_handle.is_valid())
@@ -178,20 +259,23 @@ namespace tbx::plugins
             }
 
             const Texture& texture_data = texture_asset ? *texture_asset : fallback_texture;
-            auto texture = std::make_shared<OpenGlTexture>(texture_data);
-            auto texture_slot = static_cast<int>(out_resources.textures.size());
-            texture->set_slot(static_cast<uint32>(texture_slot));
-            out_resources.textures.push_back(
-                OpenGlTextureBinding {
-                    .uniform_name = normalized_name,
-                    .slot = texture_slot,
-                    .texture = texture,
-                });
+            append_texture_binding(out_resources, normalized_name, texture_data);
         }
 
-        for (const auto& [parameter_name, parameter_value] : material->parameters)
+        if (!has_diffuse)
+            append_texture_binding(out_resources, "u_diffuse", Texture());
+        if (!has_normal)
         {
-            out_resources.shader_parameters.push_back(
+            auto normal_texture = Texture();
+            normal_texture.format = TextureFormat::RGB;
+            normal_texture.pixels = {128, 128, 255};
+            append_texture_binding(out_resources, "u_normal", normal_texture);
+        }
+
+        for (const auto& [parameter_name, parameter_value] : resolved_material.parameters)
+        {
+            append_or_override_uniform(
+                out_resources.shader_parameters,
                 ShaderUniform {
                     .name = normalize_uniform_name(parameter_name),
                     .data = parameter_value,

@@ -3,7 +3,6 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/camera.h"
 #include "tbx/graphics/renderer.h"
-#include "tbx/math/matrices.h"
 #include "tbx/math/transform.h"
 #include <any>
 #include <glad/glad.h>
@@ -36,21 +35,24 @@ namespace tbx::plugins
                 static_cast<GLsizei>(frame_context.render_resolution.height));
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            const auto view_projection = get_view_projection_matrix(frame_context.camera_view);
-            const auto camera_position = get_camera_position(frame_context.camera_view);
+            const auto view_projection =
+                get_view_projection_matrix(frame_context.camera_view, frame_context.render_resolution);
             for (const auto& entity : frame_context.camera_view.in_view_static_entities)
-                draw_entity(entity, view_projection, camera_position);
+                draw_entity(entity, view_projection);
             for (const auto& entity : frame_context.camera_view.in_view_dynamic_entities)
-                draw_entity(entity, view_projection, camera_position);
+                draw_entity(entity, view_projection);
         }
 
       private:
-        Mat4 get_view_projection_matrix(const OpenGlCameraView& camera_view) const
+        Mat4 get_view_projection_matrix(
+            const OpenGlCameraView& camera_view,
+            const Size& render_resolution) const
         {
             if (!camera_view.camera_entity.has_component<Camera>())
                 return Mat4(1.0f);
 
             auto& camera = camera_view.camera_entity.get_component<Camera>();
+            camera.set_aspect(render_resolution.get_aspect_ratio());
             const auto camera_rotation = get_camera_rotation(camera_view);
             const auto camera_position = get_camera_position(camera_view);
             return camera.get_view_projection_matrix(camera_position, camera_rotation);
@@ -74,20 +76,13 @@ namespace tbx::plugins
             return camera_transform.rotation;
         }
 
-        void upload_frame_uniforms(
-            OpenGlShaderProgram& shader_program,
-            const Mat4& view_projection,
-            const Vec3& camera_position) const
+        void upload_frame_uniforms(OpenGlShaderProgram& shader_program, const Mat4& view_projection)
+            const
         {
             shader_program.upload(
                 ShaderUniform {
                     .name = "u_view_proj",
                     .data = view_projection,
-                });
-            shader_program.try_upload(
-                ShaderUniform {
-                    .name = "u_camera_pos",
-                    .data = camera_position,
                 });
         }
 
@@ -102,16 +97,10 @@ namespace tbx::plugins
                 transform = entity.get_component<Transform>();
 
             const auto model_matrix = build_transform_matrix(transform);
-            const auto normal_matrix = inverse_transpose(Mat3(model_matrix));
             shader_program.upload(
                 ShaderUniform {
                     .name = "u_model",
                     .data = model_matrix,
-                });
-            shader_program.try_upload(
-                ShaderUniform {
-                    .name = "u_normal_matrix",
-                    .data = normal_matrix,
                 });
 
             auto merged_uniforms = std::vector<ShaderUniform>(
@@ -135,7 +124,7 @@ namespace tbx::plugins
             }
 
             for (const auto& merged_uniform : merged_uniforms)
-                shader_program.upload(merged_uniform);
+                shader_program.try_upload(merged_uniform);
         }
 
         void bind_textures(
@@ -162,8 +151,7 @@ namespace tbx::plugins
             glEnable(GL_CULL_FACE);
         }
 
-        void draw_entity(const Entity& entity, const Mat4& view_projection, const Vec3& camera_position)
-            const
+        void draw_entity(const Entity& entity, const Mat4& view_projection) const
         {
             TBX_ASSERT(
                 entity.has_component<Renderer>(),
@@ -185,7 +173,7 @@ namespace tbx::plugins
             resource_scopes.push_back(GlResourceScope(*draw_resources.mesh));
             bind_textures(draw_resources, resource_scopes);
 
-            upload_frame_uniforms(*draw_resources.shader_program, view_projection, camera_position);
+            upload_frame_uniforms(*draw_resources.shader_program, view_projection);
             upload_entity_uniforms(
                 *draw_resources.shader_program,
                 entity,
@@ -203,82 +191,56 @@ namespace tbx::plugins
       public:
         void execute_with_frame_context(const OpenGlRenderFrameContext& frame_context) override
         {
+            // TODO: this should prolly be abstracted to live in the render target class
             TBX_ASSERT(
                 frame_context.render_target != nullptr,
                 "OpenGL rendering: present operation requires a render target.");
 
-            if (frame_context.render_resolution.width != frame_context.viewport_size.width
-                || frame_context.render_resolution.height != frame_context.viewport_size.height)
+            const auto source_width = static_cast<GLint>(frame_context.render_resolution.width);
+            const auto source_height = static_cast<GLint>(frame_context.render_resolution.height);
+            const auto viewport_width = static_cast<GLint>(frame_context.viewport_size.width);
+            const auto viewport_height = static_cast<GLint>(frame_context.viewport_size.height);
+
+            auto destination_x = 0;
+            auto destination_y = 0;
+            auto destination_width = viewport_width;
+            auto destination_height = viewport_height;
+            const auto source_aspect =
+                static_cast<float>(source_width) / static_cast<float>(source_height);
+            const auto viewport_aspect =
+                static_cast<float>(viewport_width) / static_cast<float>(viewport_height);
+            if (source_aspect > viewport_aspect)
             {
-                if (_present_target.get_framebuffer_id() == 0)
-                {
-                    _present_target.set_size(frame_context.viewport_size);
-                }
-                else
-                {
-                    const auto current_size = _present_target.get_size();
-                    if (current_size.width != frame_context.viewport_size.width
-                        || current_size.height != frame_context.viewport_size.height)
-                    {
-                        _present_target.set_size(frame_context.viewport_size);
-                    }
-                }
-
-                glBindFramebuffer(
-                    GL_READ_FRAMEBUFFER,
-                    frame_context.render_target->get_framebuffer_id());
-                glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _present_target.get_framebuffer_id());
-                glBlitFramebuffer(
-                    0,
-                    0,
-                    static_cast<GLint>(frame_context.render_resolution.width),
-                    static_cast<GLint>(frame_context.render_resolution.height),
-                    0,
-                    0,
-                    static_cast<GLint>(frame_context.viewport_size.width),
-                    static_cast<GLint>(frame_context.viewport_size.height),
-                    GL_COLOR_BUFFER_BIT,
-                    GL_NEAREST);
-
-                glBindFramebuffer(
-                    GL_READ_FRAMEBUFFER,
-                    _present_target.get_framebuffer_id());
-                glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-                glBlitFramebuffer(
-                    0,
-                    0,
-                    static_cast<GLint>(frame_context.viewport_size.width),
-                    static_cast<GLint>(frame_context.viewport_size.height),
-                    0,
-                    0,
-                    static_cast<GLint>(frame_context.viewport_size.width),
-                    static_cast<GLint>(frame_context.viewport_size.height),
-                    GL_COLOR_BUFFER_BIT,
-                    GL_NEAREST);
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                return;
+                destination_height =
+                    static_cast<GLint>(static_cast<float>(viewport_width) / source_aspect);
+                destination_y = (viewport_height - destination_height) / 2;
+            }
+            else if (source_aspect < viewport_aspect)
+            {
+                destination_width =
+                    static_cast<GLint>(static_cast<float>(viewport_height) * source_aspect);
+                destination_x = (viewport_width - destination_width) / 2;
             }
 
             glBindFramebuffer(
                 GL_READ_FRAMEBUFFER,
                 frame_context.render_target->get_framebuffer_id());
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+            glViewport(0, 0, viewport_width, viewport_height);
+            glClear(GL_COLOR_BUFFER_BIT);
             glBlitFramebuffer(
                 0,
                 0,
-                static_cast<GLint>(frame_context.render_resolution.width),
-                static_cast<GLint>(frame_context.render_resolution.height),
-                0,
-                0,
-                static_cast<GLint>(frame_context.viewport_size.width),
-                static_cast<GLint>(frame_context.viewport_size.height),
+                source_width,
+                source_height,
+                destination_x,
+                destination_y,
+                destination_x + destination_width,
+                destination_y + destination_height,
                 GL_COLOR_BUFFER_BIT,
                 GL_NEAREST);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
         }
-
-      private:
-        OpenGlFrameBuffer _present_target = {};
     };
 
     void OpenGlRenderOperation::execute(const std::any& payload)

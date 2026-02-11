@@ -114,7 +114,7 @@ namespace tbx::plugins
             const Renderer& renderer,
             OpenGlDrawResources& out_resources);
         bool try_append_material_resources(
-            const Renderer& renderer,
+            const Material& material,
             OpenGlDrawResources& out_resources);
 
         struct CachedEntityResources final
