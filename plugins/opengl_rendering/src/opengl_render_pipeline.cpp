@@ -1,8 +1,8 @@
 #include "opengl_render_pipeline.h"
 #include "opengl_resources/opengl_resource.h"
 #include "tbx/debugging/macros.h"
+#include <any>
 #include <glad/glad.h>
-#include <utility>
 
 namespace tbx::plugins
 {
@@ -53,28 +53,17 @@ namespace tbx::plugins
         }
     };
 
-    void OpenGlRenderOperation::set_frame_context(const OpenGlRenderFrameContext* frame_context)
+    void OpenGlRenderOperation::execute(const std::any& payload)
     {
-        _frame_context = frame_context;
-    }
-
-    void OpenGlRenderOperation::execute()
-    {
+        const auto* frame_context = std::any_cast<OpenGlRenderFrameContext>(&payload);
         TBX_ASSERT(
-            _frame_context != nullptr,
-            "OpenGL rendering: render operation requires frame context.");
-        execute_with_frame_context(*_frame_context);
+            frame_context != nullptr,
+            "OpenGL rendering: render operation requires OpenGlRenderFrameContext payload.");
+        execute_with_frame_context(*frame_context);
     }
 
-    const OpenGlRenderFrameContext& OpenGlRenderOperation::get_frame_context() const
-    {
-        TBX_ASSERT(
-            _frame_context != nullptr,
-            "OpenGL rendering: render operation requires frame context.");
-        return *_frame_context;
-    }
-
-    OpenGlRenderPipeline::OpenGlRenderPipeline()
+    OpenGlRenderPipeline::OpenGlRenderPipeline(AssetManager& asset_manager)
+        : _resource_manager(asset_manager)
     {
         add_operation(std::make_unique<OpenGlGeometryOperation>());
         add_operation(std::make_unique<OpenGlPresentOperation>());
@@ -82,63 +71,32 @@ namespace tbx::plugins
 
     OpenGlRenderPipeline::~OpenGlRenderPipeline() noexcept
     {
+        clear_resource_caches();
         clear_operations();
     }
 
-    void OpenGlRenderPipeline::set_frame_context(const OpenGlRenderFrameContext& frame_context)
+    void OpenGlRenderPipeline::execute(const std::any& payload)
     {
-        _current_frame_context = frame_context;
-    }
-
-    void OpenGlRenderPipeline::execute()
-    {
+        const auto* frame_context = std::any_cast<OpenGlRenderFrameContext>(&payload);
         TBX_ASSERT(
-            _current_frame_context.has_value(),
-            "OpenGL rendering: frame context must be set before execute().");
+            frame_context != nullptr,
+            "OpenGL rendering: execute() requires OpenGlRenderFrameContext payload.");
         TBX_ASSERT(
-            _current_frame_context->render_resolution.width > 0
-                && _current_frame_context->render_resolution.height > 0,
+            frame_context->render_resolution.width > 0 && frame_context->render_resolution.height > 0,
             "OpenGL rendering: render resolution must be greater than zero.");
         TBX_ASSERT(
-            _current_frame_context->viewport_size.width > 0
-                && _current_frame_context->viewport_size.height > 0,
+            frame_context->viewport_size.width > 0 && frame_context->viewport_size.height > 0,
             "OpenGL rendering: viewport size must be greater than zero.");
         TBX_ASSERT(
-            _current_frame_context->render_target != nullptr,
+            frame_context->render_target != nullptr,
             "OpenGL rendering: frame context requires a render target framebuffer.");
 
-        assign_frame_context();
-        Pipeline::execute();
-        reset_frame_context();
+        _resource_manager.unload_unreferenced();
+        Pipeline::execute(payload);
     }
 
-    void OpenGlRenderPipeline::assign_frame_context()
+    void OpenGlRenderPipeline::clear_resource_caches()
     {
-        TBX_ASSERT(
-            _current_frame_context.has_value(),
-            "OpenGL rendering: frame context must be set before assigning operations.");
-
-        for (const auto& operation : get_operations())
-        {
-            auto* open_gl_operation = dynamic_cast<OpenGlRenderOperation*>(operation.get());
-            TBX_ASSERT(
-                open_gl_operation != nullptr,
-                "OpenGL rendering: pipeline contains a non OpenGlRenderOperation instance.");
-            open_gl_operation->set_frame_context(&*_current_frame_context);
-        }
-    }
-
-    void OpenGlRenderPipeline::reset_frame_context()
-    {
-        for (const auto& operation : get_operations())
-        {
-            auto* open_gl_operation = dynamic_cast<OpenGlRenderOperation*>(operation.get());
-            TBX_ASSERT(
-                open_gl_operation != nullptr,
-                "OpenGL rendering: pipeline contains a non OpenGlRenderOperation instance.");
-            open_gl_operation->set_frame_context(nullptr);
-        }
-
-        _current_frame_context.reset();
+        _resource_manager.clear();
     }
 }

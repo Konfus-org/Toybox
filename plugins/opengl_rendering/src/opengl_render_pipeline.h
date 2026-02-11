@@ -1,10 +1,11 @@
 #pragma once
 #include "opengl_resources/opengl_buffers.h"
+#include "opengl_resources/opengl_resource_manager.h"
 #include "tbx/common/pipeline.h"
 #include "tbx/graphics/camera.h"
 #include "tbx/math/size.h"
+#include <any>
 #include <memory>
-#include <optional>
 
 namespace tbx::plugins
 {
@@ -57,33 +58,15 @@ namespace tbx::plugins
     {
       public:
         /// <summary>
-        /// Purpose: Stores the current frame context pointer for execute().
+        /// Purpose: Executes this operation using a payload-backed frame context.
         /// </summary>
         /// <remarks>
-        /// Ownership: Stores a non-owning pointer owned by the caller.
-        /// Thread Safety: Not thread-safe; set on render thread before execute().
-        /// </remarks>
-        void set_frame_context(const OpenGlRenderFrameContext* frame_context);
-
-        /// <summary>
-        /// Purpose: Executes this operation using the active frame context.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Does not take ownership of the frame context.
+        /// Ownership: Does not take ownership of frame context resources.
         /// Thread Safety: Call only on the render thread.
         /// </remarks>
-        void execute() override;
+        void execute(const std::any& payload) override;
 
       protected:
-        /// <summary>
-        /// Purpose: Returns the currently assigned frame context.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns a non-owning reference; caller does not own it.
-        /// Thread Safety: Call only on the render thread.
-        /// </remarks>
-        const OpenGlRenderFrameContext& get_frame_context() const;
-
         /// <summary>
         /// Purpose: Executes this operation using the provided frame context.
         /// </summary>
@@ -92,16 +75,13 @@ namespace tbx::plugins
         /// Thread Safety: Call only on the render thread.
         /// </remarks>
         virtual void execute_with_frame_context(const OpenGlRenderFrameContext& frame_context) = 0;
-
-      private:
-        const OpenGlRenderFrameContext* _frame_context = nullptr;
     };
 
     /// <summary>
     /// Purpose: Executes OpenGL rendering work in a predefined operation order.
     /// </summary>
     /// <remarks>
-    /// Ownership: Owns render operations via unique pointers.
+    /// Ownership: Owns render operations and an OpenGL resource manager.
     /// Thread Safety: Not thread-safe; configure and execute on the render thread.
     /// </remarks>
     class OpenGlRenderPipeline final : public Pipeline
@@ -111,42 +91,39 @@ namespace tbx::plugins
         /// Purpose: Configures the default OpenGL rendering operation sequence.
         /// </summary>
         /// <remarks>
-        /// Ownership: Owns created operations for the full pipeline lifetime.
+        /// Ownership: Owns created operations and the resource manager.
         /// Thread Safety: Construct on the render thread.
         /// </remarks>
-        OpenGlRenderPipeline();
+        explicit OpenGlRenderPipeline(AssetManager& asset_manager);
 
         /// <summary>
         /// Purpose: Destroys the pipeline and clears any queued operations.
         /// </summary>
         /// <remarks>
-        /// Ownership: Releases owned operations.
+        /// Ownership: Releases owned operations and cached resources.
         /// Thread Safety: Destroy on the render thread.
         /// </remarks>
         ~OpenGlRenderPipeline() noexcept override;
 
         /// <summary>
-        /// Purpose: Stores the frame context used by execute().
+        /// Purpose: Executes the configured operation sequence using payload frame data.
         /// </summary>
         /// <remarks>
-        /// Ownership: Copies the context values and non-owning pointers.
-        /// Thread Safety: Not thread-safe; configure on render thread.
-        /// </remarks>
-        void set_frame_context(const OpenGlRenderFrameContext& frame_context);
-
-        /// <summary>
-        /// Purpose: Executes the configured operation sequence using the current frame context.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Does not take ownership of referenced frame resources.
+        /// Ownership: Does not take ownership of payload resources.
         /// Thread Safety: Call only on the render thread.
         /// </remarks>
-        void execute() override;
+        void execute(const std::any& payload) override;
+
+        /// <summary>
+        /// Purpose: Removes every cached OpenGL resource from the resource manager.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Releases this pipeline's shared ownership of cached resources.
+        /// Thread Safety: Not thread-safe; call on the render thread.
+        /// </remarks>
+        void clear_resource_caches();
 
       private:
-        void assign_frame_context();
-        void reset_frame_context();
-
-        std::optional<OpenGlRenderFrameContext> _current_frame_context = {};
+        OpenGlResourceManager _resource_manager;
     };
 }

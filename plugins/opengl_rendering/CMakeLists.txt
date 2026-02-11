@@ -9,6 +9,7 @@ target_include_directories(${plugin_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/sr
 target_link_libraries(${plugin_name} PRIVATE
     Tbx::App
     Tbx::Common
+    Tbx::Ecs
     Tbx::Graphics
     glad::glad
 )
