@@ -2,11 +2,113 @@
 #include "tbx/app/application.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/camera.h"
+#include "tbx/graphics/material.h"
+#include "tbx/graphics/renderer.h"
 #include "tbx/messages/observable.h"
 #include <glad/glad.h>
 
 namespace tbx::plugins
 {
+    static std::string normalize_uniform_name(std::string_view name)
+    {
+        if (name.size() >= 2U && name[0] == 'u' && name[1] == '_')
+            return std::string(name);
+
+        std::string normalized = "u_";
+        normalized.append(name.begin(), name.end());
+        return normalized;
+    }
+
+    static bool has_sky_texture(const Material& material)
+    {
+        for (const auto& [_, texture_handle] : material.textures)
+        {
+            if (texture_handle.is_valid())
+                return true;
+        }
+
+        return false;
+    }
+
+    static bool try_get_sky_color(const Material& material, RgbaColor& out_color)
+    {
+        for (const auto& [parameter_name, parameter_value] : material.parameters)
+        {
+            const auto normalized_name = normalize_uniform_name(parameter_name);
+            if (normalized_name != "u_color")
+                continue;
+
+            if (std::holds_alternative<RgbaColor>(parameter_value))
+            {
+                out_color = std::get<RgbaColor>(parameter_value);
+                return true;
+            }
+
+            if (std::holds_alternative<Vec4>(parameter_value))
+            {
+                const auto value = std::get<Vec4>(parameter_value);
+                out_color = RgbaColor(value.x, value.y, value.z, value.w);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static bool is_valid_sky_shader_program(const ShaderProgram& shader_program)
+    {
+        if (shader_program.compute.is_valid())
+            return false;
+
+        if (!shader_program.vertex.is_valid() || !shader_program.fragment.is_valid())
+            return false;
+
+        return true;
+    }
+
+    static RgbaColor resolve_sky_clear_color(EntityRegistry& registry, AssetManager& asset_manager)
+    {
+        RgbaColor clear_color = RgbaColor::black;
+        bool did_find_sky = false;
+
+        registry.for_each_with<Sky>(
+            [&clear_color, &did_find_sky, &asset_manager](Entity& entity)
+            {
+                if (did_find_sky)
+                    return;
+
+                did_find_sky = true;
+
+                const auto& sky = entity.get_component<Sky>();
+                TBX_ASSERT(
+                    sky.material.is_valid(),
+                    "OpenGL rendering: Sky component requires a valid material handle.");
+                if (!sky.material.is_valid())
+                    return;
+
+                auto sky_material = asset_manager.load<Material>(sky.material);
+                TBX_ASSERT(
+                    sky_material != nullptr,
+                    "OpenGL rendering: Sky material could not be loaded.");
+                if (!sky_material)
+                    return;
+
+                TBX_ASSERT(
+                    is_valid_sky_shader_program(sky_material->shader),
+                    "OpenGL rendering: Sky material must use a graphics shader program with "
+                    "vertex+fragment stages and no compute stage.");
+
+                if (has_sky_texture(*sky_material))
+                    return;
+
+                RgbaColor material_color = RgbaColor::black;
+                if (try_get_sky_color(*sky_material, material_color))
+                    clear_color = material_color;
+            });
+
+        return clear_color;
+    }
+
     static void GLAPIENTRY gl_message_callback(
         GLenum,
         GLenum,
@@ -82,10 +184,12 @@ namespace tbx::plugins
                 camera_view.in_view_dynamic_entities.push_back(entity);
             });
 
+        const auto sky_clear_color = resolve_sky_clear_color(registry, get_host().get_asset_manager());
         auto frame_context = OpenGlRenderFrameContext {
             .camera_view = camera_view,
             .render_resolution = _render_resolution,
             .viewport_size = _viewport_size,
+            .clear_color = sky_clear_color,
             .render_target = &_framebuffer,
             .present_mode = OpenGlFrameBufferPresentMode::ASPECT_FIT,
             .present_target_framebuffer_id = 0,

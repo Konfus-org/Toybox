@@ -7,7 +7,8 @@
 namespace tbx::plugins
 {
     /// <summary>
-    /// Purpose: Loads shader assets from stage-specific GLSL files (.vert/.frag/.comp).
+    /// Purpose: Loads shader assets from stage-specific GLSL files
+    /// (.vert/.tes/.geom/.frag/.comp).
     /// </summary>
     /// <remarks>
     /// Include Support: Expands `#include "..."` directives by pasting the referenced asset text.

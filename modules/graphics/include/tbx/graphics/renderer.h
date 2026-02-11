@@ -249,6 +249,25 @@ namespace tbx
     };
 
     /// <summary>
+    /// Purpose: Defines the active sky material used for skybox rendering and clear-color fallback.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores a non-owning material handle reference.
+    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    /// </remarks>
+    struct TBX_API Sky
+    {
+        /// <summary>
+        /// Purpose: Material asset handle used by the renderer to resolve sky shading data.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores a non-owning handle reference.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// </remarks>
+        Handle material = {};
+    };
+
+    /// <summary>
     /// Purpose: Identifies a static, asset-backed model to render for an entity.
     /// </summary>
     /// <remarks>

@@ -40,6 +40,7 @@ namespace tbx::plugins
     {
         std::shared_ptr<OpenGlMesh> mesh = nullptr;
         std::shared_ptr<OpenGlShaderProgram> shader_program = nullptr;
+        bool use_tesselation = false;
         std::vector<OpenGlTextureBinding> textures = {};
         std::vector<ShaderUniform> shader_parameters = {};
     };

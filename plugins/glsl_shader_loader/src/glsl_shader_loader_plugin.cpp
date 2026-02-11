@@ -103,20 +103,6 @@ namespace tbx::plugins
         return trimmed_line.rfind("#include", 0U) == 0U;
     }
 
-    static bool is_pragma_once_directive(std::string_view trimmed_line)
-    {
-        if (trimmed_line.rfind("#pragma", 0U) != 0U)
-            return false;
-
-        std::istringstream stream = std::istringstream(std::string(trimmed_line));
-        std::string keyword;
-        std::string pragma;
-        if (!(stream >> keyword >> pragma))
-            return false;
-
-        return (keyword == "#pragma") && (pragma == "once");
-    }
-
     // Resolves and reads an include file by checking:
     // 1) Relative to the including file (if any).
     // 2) Via the asset manager's search roots.
@@ -152,7 +138,6 @@ namespace tbx::plugins
     //
     // Behavior:
     // - Strips all `#include ...` directives by replacing them with included file contents.
-    // - Strips `#pragma once` directives (they are not part of GLSL and should not reach OpenGL).
     // - Ensures each resolved include file is expanded only once per shader stage.
     // - Detects include cycles using the include stack.
     static ShaderLoadResult try_expand_includes(
@@ -179,12 +164,6 @@ namespace tbx::plugins
                 line.pop_back();
 
             std::string trimmed = trim_string(line);
-            if (is_pragma_once_directive(trimmed))
-            {
-                // Strip the directive from output for compatibility with older shader includes.
-                continue;
-            }
-
             std::string include_path_text;
             if (!try_parse_include_directive(trimmed, include_path_text))
             {
@@ -265,6 +244,16 @@ namespace tbx::plugins
         if (extension == ".vert")
         {
             out_type = ShaderType::VERTEX;
+            return true;
+        }
+        if (extension == ".tes")
+        {
+            out_type = ShaderType::TESSELATION;
+            return true;
+        }
+        if (extension == ".geom")
+        {
+            out_type = ShaderType::GEOMETRY;
             return true;
         }
         if (extension == ".frag")
@@ -368,7 +357,7 @@ namespace tbx::plugins
             if (request.path.extension() == ".glsl")
             {
                 request.result.flag_failure(
-                    "Shader loader: .glsl files are include-only; use .vert/.frag/.comp for shader programs.");
+                    "Shader loader: .glsl files are include-only; use .vert/.tes/.geom/.frag/.comp for shader programs.");
             }
             else
             {

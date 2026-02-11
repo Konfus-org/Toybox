@@ -197,6 +197,7 @@ namespace tbx::plugins
 
         if (resolved_material.shader.is_valid())
         {
+            out_resources.use_tesselation = resolved_material.shader.tesselation.is_valid();
             auto shader_stages = std::vector<std::shared_ptr<OpenGlShader>> {};
 
             const auto append_shader_stages =
@@ -206,6 +207,9 @@ namespace tbx::plugins
                     return;
 
                 auto shader_asset = _asset_manager->load<Shader>(shader_handle);
+                TBX_ASSERT(
+                    shader_asset != nullptr,
+                    "OpenGL rendering: material shader stage could not be loaded.");
                 if (!shader_asset)
                     return;
 
@@ -225,18 +229,35 @@ namespace tbx::plugins
                     break;
                 }
 
+                TBX_ASSERT(
+                    stage_source != nullptr,
+                    "OpenGL rendering: material shader stage is missing expected source type.");
                 if (!stage_source)
                     return;
 
-                shader_stages.push_back(std::make_shared<OpenGlShader>(*stage_source));
+                auto stage = std::make_shared<OpenGlShader>(*stage_source);
+                TBX_ASSERT(
+                    stage->get_shader_id() != 0,
+                    "OpenGL rendering: material shader stage failed to compile.");
+                if (stage->get_shader_id() == 0)
+                    return;
+
+                shader_stages.push_back(std::move(stage));
             };
 
             append_shader_stages(resolved_material.shader.vertex, ShaderType::VERTEX);
+            append_shader_stages(resolved_material.shader.tesselation, ShaderType::TESSELATION);
+            append_shader_stages(resolved_material.shader.geometry, ShaderType::GEOMETRY);
             append_shader_stages(resolved_material.shader.fragment, ShaderType::FRAGMENT);
             append_shader_stages(resolved_material.shader.compute, ShaderType::COMPUTE);
 
             if (!shader_stages.empty())
+            {
                 out_resources.shader_program = std::make_shared<OpenGlShaderProgram>(shader_stages);
+                TBX_ASSERT(
+                    out_resources.shader_program->get_program_id() != 0,
+                    "OpenGL rendering: failed to link a valid shader program.");
+            }
         }
 
         bool has_diffuse = false;

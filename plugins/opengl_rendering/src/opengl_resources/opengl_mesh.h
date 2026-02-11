@@ -39,10 +39,10 @@ namespace tbx::plugins
         void set_index_buffer(const IndexBuffer& buffer);
 
         /// <summary>Issues a draw call for the mesh.</summary>
-        /// <remarks>Purpose: Draws indexed triangles for the mesh.
+        /// <remarks>Purpose: Draws indexed triangles or patches for the mesh.
         /// Ownership: Does not transfer ownership of any resources.
         /// Thread Safety: Call only on the render thread.</remarks>
-        void draw();
+        void draw(bool draw_patches = false);
 
         /// <summary>Binds the mesh's VAO and buffers.</summary>
         /// <remarks>Purpose: Binds the VAO and buffers for rendering.

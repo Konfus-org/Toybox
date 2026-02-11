@@ -3,6 +3,7 @@
 #include "opengl_resources/opengl_resource_manager.h"
 #include "tbx/common/pipeline.h"
 #include "tbx/ecs/entities.h"
+#include "tbx/graphics/color.h"
 #include "tbx/math/size.h"
 #include <any>
 #include <memory>
@@ -72,6 +73,13 @@ namespace tbx::plugins
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
         Size viewport_size = {};
+
+        /// <summary>
+        /// Purpose: Clear color used when starting the geometry pass.
+        /// Ownership: Value type owned by this context.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        RgbaColor clear_color = RgbaColor::black;
 
         /// <summary>
         /// Purpose: Framebuffer used for scene rendering before post-processing/present.

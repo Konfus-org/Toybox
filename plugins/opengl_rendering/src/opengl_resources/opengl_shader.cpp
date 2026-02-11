@@ -15,6 +15,10 @@ namespace tbx::plugins
         {
             case ShaderType::VERTEX:
                 return GL_VERTEX_SHADER;
+            case ShaderType::TESSELATION:
+                return GL_TESS_EVALUATION_SHADER;
+            case ShaderType::GEOMETRY:
+                return GL_GEOMETRY_SHADER;
             case ShaderType::FRAGMENT:
                 return GL_FRAGMENT_SHADER;
             case ShaderType::COMPUTE:
@@ -108,6 +112,13 @@ namespace tbx::plugins
     OpenGlShader::OpenGlShader(const ShaderSource& shader)
         : _type(shader.type)
     {
+        TBX_ASSERT(
+            shader.type != ShaderType::NONE,
+            "OpenGL rendering: shader source type must be a concrete stage.");
+        TBX_ASSERT(
+            !shader.source.empty(),
+            "OpenGL rendering: shader source must not be empty.");
+
         const auto gl_type = to_gl_shader_type(shader.type);
         _shader_id = glCreateShader(gl_type);
 
@@ -123,6 +134,10 @@ namespace tbx::plugins
             glDeleteShader(_shader_id);
             _shader_id = 0;
         }
+
+        TBX_ASSERT(
+            _shader_id != 0,
+            "OpenGL rendering: failed to create a valid shader object.");
     }
 
     OpenGlShader::~OpenGlShader() noexcept
@@ -155,6 +170,9 @@ namespace tbx::plugins
         const std::vector<std::shared_ptr<OpenGlShader>>& shaders)
     {
         _program_id = glCreateProgram();
+        TBX_ASSERT(
+            _program_id != 0,
+            "OpenGL rendering: failed to create shader program object.");
 
         for (const auto& shader : shaders)
         {
@@ -162,6 +180,9 @@ namespace tbx::plugins
             {
                 continue;
             }
+            TBX_ASSERT(
+                shader->get_shader_id() != 0,
+                "OpenGL rendering: attempted to link an invalid shader stage.");
             glAttachShader(_program_id, shader->get_shader_id());
         }
 
@@ -196,6 +217,9 @@ namespace tbx::plugins
 
     void OpenGlShaderProgram::bind()
     {
+        TBX_ASSERT(
+            _program_id != 0,
+            "OpenGL rendering: cannot bind an invalid shader program.");
         glUseProgram(_program_id);
     }
 
@@ -206,6 +230,9 @@ namespace tbx::plugins
 
     void OpenGlShaderProgram::upload(const ShaderUniform& uniform)
     {
+        TBX_ASSERT(
+            _program_id != 0,
+            "OpenGL rendering: cannot upload uniforms to an invalid shader program.");
         if (try_upload(uniform))
         {
             return;

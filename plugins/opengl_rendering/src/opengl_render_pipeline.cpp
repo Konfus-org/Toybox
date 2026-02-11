@@ -33,6 +33,11 @@ namespace tbx::plugins
                 0,
                 static_cast<GLsizei>(frame_context.render_resolution.width),
                 static_cast<GLsizei>(frame_context.render_resolution.height));
+            glClearColor(
+                frame_context.clear_color.r,
+                frame_context.clear_color.g,
+                frame_context.clear_color.b,
+                frame_context.clear_color.a);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             const auto view_projection =
@@ -164,6 +169,9 @@ namespace tbx::plugins
 
             if (!draw_resources.mesh || !draw_resources.shader_program)
                 return;
+            TBX_ASSERT(
+                draw_resources.shader_program->get_program_id() != 0,
+                "OpenGL rendering: draw call requires a valid shader program.");
 
             apply_culling(renderer);
 
@@ -179,7 +187,7 @@ namespace tbx::plugins
                 entity,
                 renderer,
                 draw_resources);
-            draw_resources.mesh->draw();
+            draw_resources.mesh->draw(draw_resources.use_tesselation);
         }
 
       private:

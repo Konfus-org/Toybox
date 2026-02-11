@@ -42,8 +42,19 @@ namespace tbx::plugins
         _index_buffer.upload(buffer);
     }
 
-    void OpenGlMesh::draw()
+    void OpenGlMesh::draw(bool draw_patches)
     {
+        if (draw_patches)
+        {
+            glPatchParameteri(GL_PATCH_VERTICES, 3);
+            glDrawElements(
+                GL_PATCHES,
+                static_cast<GLsizei>(_index_buffer.get_count()),
+                GL_UNSIGNED_INT,
+                nullptr);
+            return;
+        }
+
         glDrawElements(
             GL_TRIANGLES,
             static_cast<GLsizei>(_index_buffer.get_count()),

@@ -37,8 +37,22 @@ namespace tbx
         /// </remarks>
         Handle fragment = {};
 
+        /// <summary>
+        /// Purpose: Identifies the optional tessellation control and evaluation shader stages.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores a non-owning handle reference.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// </remarks>
         Handle tesselation = {};
 
+        /// <summary>
+        /// Purpose: Identifies the geometry shader stage asset.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores a non-owning handle reference.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// </remarks>
         Handle geometry = {};
 
         /// <summary>
@@ -59,18 +73,17 @@ namespace tbx
         /// </remarks>
         bool is_valid() const
         {
-            return
-                // Standard combo
-                (vertex.is_valid() && fragment.is_valid()) ||
-                // tesselation combo
-                (vertex.is_valid() && fragment.is_valid() && tesselation.is_valid()) ||
-                // geometry combo
-                (vertex.is_valid() && fragment.is_valid() && geometry.is_valid()) ||
-                // full pipeline
-                (vertex.is_valid() && fragment.is_valid() && tesselation.is_valid()
-                 && geometry.is_valid())
-                // compute must be standalone
-                || compute.is_valid();
+            const bool has_compute = compute.is_valid();
+            const bool has_graphics_stages = vertex.is_valid() || fragment.is_valid()
+                || tesselation.is_valid() || geometry.is_valid();
+
+            if (has_compute)
+                return !has_graphics_stages;
+
+            if (!vertex.is_valid() || !fragment.is_valid())
+                return false;
+
+            return true;
         }
     };
 

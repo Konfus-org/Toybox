@@ -336,6 +336,36 @@ namespace tbx::plugins
                         material.shader.fragment = parse_asset_handle(fragment_text);
                 }
 
+                Uuid tesselation_id = {};
+                if (shaders_data.try_get_uuid("tesselation", tesselation_id))
+                {
+                    material.shader.tesselation = Handle(tesselation_id);
+                }
+                else
+                {
+                    std::string tesselation_text;
+                    if (shaders_data.try_get_string("tesselation", tesselation_text))
+                        material.shader.tesselation = parse_asset_handle(tesselation_text);
+                    else
+                    {
+                        std::string tessellation_text;
+                        if (shaders_data.try_get_string("tessellation", tessellation_text))
+                            material.shader.tesselation = parse_asset_handle(tessellation_text);
+                    }
+                }
+
+                Uuid geometry_id = {};
+                if (shaders_data.try_get_uuid("geometry", geometry_id))
+                {
+                    material.shader.geometry = Handle(geometry_id);
+                }
+                else
+                {
+                    std::string geometry_text;
+                    if (shaders_data.try_get_string("geometry", geometry_text))
+                        material.shader.geometry = parse_asset_handle(geometry_text);
+                }
+
                 Uuid compute_id = {};
                 if (shaders_data.try_get_uuid("compute", compute_id))
                 {
@@ -350,11 +380,14 @@ namespace tbx::plugins
 
                 if (material.shader.compute.is_valid())
                 {
-                    if (material.shader.vertex.is_valid() || material.shader.fragment.is_valid())
+                    if (
+                        material.shader.vertex.is_valid() || material.shader.fragment.is_valid()
+                        || material.shader.tesselation.is_valid()
+                        || material.shader.geometry.is_valid())
                     {
                         error_message =
                             "Material loader: compute shaders cannot be combined with "
-                            "vertex/fragment shaders.";
+                            "graphics shader stages.";
                         return false;
                     }
                 }

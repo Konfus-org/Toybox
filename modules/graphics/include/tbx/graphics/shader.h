@@ -45,6 +45,8 @@ namespace tbx
     {
         NONE,
         VERTEX,
+        TESSELATION,
+        GEOMETRY,
         FRAGMENT,
         COMPUTE
     };
