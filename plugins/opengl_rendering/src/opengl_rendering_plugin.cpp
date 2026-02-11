@@ -52,8 +52,31 @@ namespace tbx::plugins
 
         send_message<WindowMakeCurrentRequest>(_window_id);
 
+        auto camera_view = OpenGlCameraView {};
+        auto& registry = get_host().get_entity_registry();
+        registry.for_each_with<Camera>(
+            [&camera_view](Entity& entity)
+            {
+                if (camera_view.camera_entity.has_component<Camera>())
+                    return;
+
+                camera_view.camera_entity = entity;
+            });
+
+        registry.for_each_with<Renderer, StaticMesh>(
+            [&camera_view](Entity& entity)
+            {
+                camera_view.in_view_static_entities.push_back(entity);
+            });
+
+        registry.for_each_with<Renderer, DynamicMesh>(
+            [&camera_view](Entity& entity)
+            {
+                camera_view.in_view_dynamic_entities.push_back(entity);
+            });
+
         auto frame_context = OpenGlRenderFrameContext {
-            .camera = nullptr,
+            .camera_view = camera_view,
             .render_resolution = _render_resolution,
             .viewport_size = _viewport_size,
             .render_target = &_framebuffer,
@@ -69,7 +92,8 @@ namespace tbx::plugins
         {
             _window_id = ready_event->window;
             if (!_render_pipeline)
-                _render_pipeline = std::make_unique<OpenGlRenderPipeline>(get_host().get_asset_manager());
+                _render_pipeline =
+                    std::make_unique<OpenGlRenderPipeline>(get_host().get_asset_manager());
 
             auto* loader = reinterpret_cast<GLADloadproc>(ready_event->get_proc_address);
             TBX_ASSERT(

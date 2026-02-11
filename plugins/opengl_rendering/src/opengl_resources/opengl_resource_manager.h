@@ -1,15 +1,49 @@
 #pragma once
-#include "opengl_resource.h"
+#include "opengl_mesh.h"
+#include "opengl_shader.h"
+#include "opengl_texture.h"
 #include "tbx/assets/asset_manager.h"
 #include "tbx/common/uuid.h"
 #include "tbx/ecs/entities.h"
+#include "tbx/graphics/renderer.h"
+#include "tbx/graphics/shader.h"
 #include <chrono>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
 namespace tbx::plugins
 {
+    /// <summary>
+    /// Purpose: Describes a texture-to-sampler binding for an OpenGL shader program.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns the uniform name string and shared ownership of the texture resource.
+    /// Thread Safety: Not thread-safe; configure and use on the render thread.
+    /// </remarks>
+    struct OpenGlTextureBinding final
+    {
+        std::string uniform_name = "";
+        int slot = 0;
+        std::shared_ptr<OpenGlTexture> texture = nullptr;
+    };
+
+    /// <summary>
+    /// Purpose: Groups the OpenGL resources needed to draw one renderable entity.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Shares ownership of mesh, shader program, and textures.
+    /// Thread Safety: Not thread-safe; use on the render thread.
+    /// </remarks>
+    struct OpenGlDrawResources final
+    {
+        std::shared_ptr<OpenGlMesh> mesh = nullptr;
+        std::shared_ptr<OpenGlShaderProgram> shader_program = nullptr;
+        std::vector<OpenGlTextureBinding> textures = {};
+        std::vector<ShaderUniform> shader_parameters = {};
+    };
+
     /// <summary>
     /// Purpose: Owns OpenGL resource caches and unloads entries that have not been referenced
     /// recently.
@@ -33,14 +67,14 @@ namespace tbx::plugins
         explicit OpenGlResourceManager(AssetManager& asset_manager);
 
         /// <summary>
-        /// Purpose: Loads or retrieves cached OpenGL resources for an entity.
+        /// Purpose: Loads or retrieves cached OpenGL draw resources for an entity.
         /// </summary>
         /// <remarks>
-        /// Ownership: Returns shared ownership through the output collection and stores shared
+        /// Ownership: Returns shared ownership through the output struct and stores shared
         /// ownership in the cache when creation succeeds.
         /// Thread Safety: Not thread-safe; call only from the render thread.
         /// </remarks>
-        bool try_load(const Entity& entity, std::vector<std::shared_ptr<IOpenGlResource>>& out_resources);
+        bool try_load(const Entity& entity, OpenGlDrawResources& out_resources);
 
         /// <summary>
         /// Purpose: Clears every cached resource entry.
@@ -67,16 +101,25 @@ namespace tbx::plugins
         /// Purpose: Creates OpenGL resources for an entity from the source TBX assets.
         /// </summary>
         /// <remarks>
-        /// Ownership: Returns shared ownership of created resources through the output collection.
+        /// Ownership: Returns shared ownership of created resources through the output struct.
         /// Thread Safety: Not thread-safe; call only from the render thread.
         /// </remarks>
-        bool try_create_resources(
+        bool try_create_resources(const Entity& entity, OpenGlDrawResources& out_resources);
+        bool try_create_static_mesh_resources(
             const Entity& entity,
-            std::vector<std::shared_ptr<IOpenGlResource>>& out_resources);
+            const Renderer& renderer,
+            OpenGlDrawResources& out_resources);
+        bool try_create_dynamic_mesh_resources(
+            const Entity& entity,
+            const Renderer& renderer,
+            OpenGlDrawResources& out_resources);
+        bool try_append_material_resources(
+            const Renderer& renderer,
+            OpenGlDrawResources& out_resources);
 
-        struct CachedEntityResources
+        struct CachedEntityResources final
         {
-            std::vector<std::shared_ptr<IOpenGlResource>> resources = {};
+            OpenGlDrawResources resources = {};
             Clock::time_point last_use = {};
         };
 

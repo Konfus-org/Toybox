@@ -268,21 +268,21 @@ namespace tbx
     };
 
     /// <summary>
-    /// Purpose: Identifies a runtime-provided mesh to render for an entity.
+    /// Purpose: Identifies runtime-owned mesh geometry to render for an entity.
     /// </summary>
     /// <remarks>
-    /// Ownership: Holds a shared pointer to mesh data owned by the caller or systems that create
-    /// it. Thread Safety: Mesh content mutation must be synchronized externally; the shared pointer
+    /// Ownership: Holds a shared pointer to mesh data owned by callers or producer systems.
+    /// Thread Safety: Mesh content mutation must be synchronized externally; the shared pointer
     /// itself is safe to copy between threads.
     /// </remarks>
-    struct TBX_API ProceduralMesh
+    struct TBX_API DynamicMesh
     {
-        ProceduralMesh() = default;
-        ProceduralMesh(Mesh mesh)
+        DynamicMesh() = default;
+        DynamicMesh(Mesh mesh)
             : mesh(std::make_shared<Mesh>(std::move(mesh)))
         {
         }
-        ProceduralMesh(std::shared_ptr<Mesh> mesh_data)
+        DynamicMesh(std::shared_ptr<Mesh> mesh_data)
             : mesh(std::move(mesh_data))
         {
         }
@@ -296,4 +296,13 @@ namespace tbx
         /// </remarks>
         std::shared_ptr<Mesh> mesh = {};
     };
+
+    /// <summary>
+    /// Purpose: Backward-compatible alias for DynamicMesh.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Alias type; ownership semantics are identical to DynamicMesh.
+    /// Thread Safety: Same thread-safety guarantees as DynamicMesh.
+    /// </remarks>
+    using ProceduralMesh [[deprecated("Use DynamicMesh instead")]] = DynamicMesh;
 }

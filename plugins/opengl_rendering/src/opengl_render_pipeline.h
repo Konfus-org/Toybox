@@ -2,28 +2,62 @@
 #include "opengl_resources/opengl_buffers.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "tbx/common/pipeline.h"
-#include "tbx/graphics/camera.h"
+#include "tbx/ecs/entities.h"
 #include "tbx/math/size.h"
 #include <any>
 #include <memory>
+#include <vector>
 
 namespace tbx::plugins
 {
     /// <summary>
+    /// Purpose: Captures the active camera entity used for frame visibility and matrix generation.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores a non-owning entity wrapper whose underlying registry must outlive frame
+    /// execution.
+    /// Thread Safety: Read-only on the render thread.
+    /// </remarks>
+    struct OpenGlCameraView final
+    {
+        /// <summary>
+        /// Purpose: Active camera entity used to derive view and projection state.
+        /// Ownership: Non-owning entity wrapper; registry and entity must outlive frame execution.
+        /// Thread Safety: Read-only on the render thread.
+        /// </summary>
+        Entity camera_entity = {};
+
+        /// <summary>
+        /// Purpose: Static-mesh entities visible to the active camera and ready for rendering.
+        /// Ownership: Stores non-owning entity wrappers into the owning entity registry.
+        /// Thread Safety: Read-only on the render thread.
+        /// </summary>
+        std::vector<Entity> in_view_static_entities = {};
+
+        /// <summary>
+        /// Purpose: Dynamic-mesh entities visible to the active camera and ready for rendering.
+        /// Ownership: Stores non-owning entity wrappers into the owning entity registry.
+        /// Thread Safety: Read-only on the render thread.
+        /// </summary>
+        std::vector<Entity> in_view_dynamic_entities = {};
+    };
+
+    /// <summary>
     /// Purpose: Provides immutable per-frame data to OpenGL render operations.
     /// </summary>
     /// <remarks>
-    /// Ownership: Stores non-owning pointers to scene resources; owner must outlive frame
-    /// execution. Thread Safety: Safe to read concurrently after construction.
+    /// Ownership: Stores non-owning pointers and wrappers to scene resources; owners must outlive
+    /// frame execution.
+    /// Thread Safety: Safe to read concurrently after construction.
     /// </remarks>
     struct OpenGlRenderFrameContext
     {
         /// <summary>
-        /// Purpose: Active camera used to build view and projection matrices for the frame.
-        /// Ownership: Non-owning pointer; must remain valid during pipeline execution.
+        /// Purpose: Active camera and visible-entity list used by geometry rendering.
+        /// Ownership: Value type owned by this context; internally uses non-owning entity wrappers.
         /// Thread Safety: Read-only on the render thread.
         /// </summary>
-        const Camera* camera = nullptr;
+        OpenGlCameraView camera_view = {};
 
         /// <summary>
         /// Purpose: Internal render resolution used for scene rasterization.
