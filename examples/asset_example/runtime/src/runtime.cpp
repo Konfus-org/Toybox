@@ -16,6 +16,7 @@ namespace tbx::examples
 
         // Setup assets to use
         auto smily_mat = Handle("Smily.mat");
+        auto skybox_mat = Handle("AnimeSkybox.mat");
         auto green_cube = Handle("Green_Cube.fbx");
 
         // Setup light
@@ -38,12 +39,14 @@ namespace tbx::examples
             to_radians(Vec3(-90.0f, 0.0f, 0.0f)),
             Vec3(20.0f, 20.0f, 1.0f));
 
+        // Setup sky
+        auto sky_ent = _ent_registry->create("Sky");
+        sky_ent.add_component<Sky>(skybox_mat);
+
         // Setup camera
         auto cam_ent = _ent_registry->create("Camera");
         cam_ent.add_component<Camera>();
-        cam_ent.add_component<Transform>(
-            Vec3(0.0f, 5.0f, 10.0f),
-            to_radians(Vec3(-25.0f, 0.0f, 0.0f)));
+        cam_ent.add_component<Transform>(Vec3(0.0f, 0.0f, 10.0f));
     }
 
     void AssetExampleRuntimePlugin::on_detach()

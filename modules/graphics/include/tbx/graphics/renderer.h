@@ -249,7 +249,8 @@ namespace tbx
     };
 
     /// <summary>
-    /// Purpose: Defines the active sky material used for skybox rendering and clear-color fallback.
+    /// Purpose: Defines the active sky material used for skybox rendering and
+    /// clear-color fallback.
     /// </summary>
     /// <remarks>
     /// Ownership: Stores a non-owning material handle reference.

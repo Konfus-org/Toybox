@@ -1,6 +1,7 @@
 #pragma once
 #include "opengl_resources/opengl_buffers.h"
 #include "opengl_resources/opengl_resource_manager.h"
+#include "tbx/common/handle.h"
 #include "tbx/common/pipeline.h"
 #include "tbx/ecs/entities.h"
 #include "tbx/graphics/color.h"
@@ -55,7 +56,8 @@ namespace tbx::plugins
     {
         /// <summary>
         /// Purpose: Active camera and visible-entity list used by geometry rendering.
-        /// Ownership: Value type owned by this context; internally uses non-owning entity wrappers.
+        /// Ownership: Value type owned by this context; internally uses non-owning entity
+        /// wrappers.
         /// Thread Safety: Read-only on the render thread.
         /// </summary>
         OpenGlCameraView camera_view = {};
@@ -80,6 +82,13 @@ namespace tbx::plugins
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
         RgbaColor clear_color = RgbaColor::black;
+
+        /// <summary>
+        /// Purpose: Optional sky material handle used for skybox rendering in the geometry pass.
+        /// Ownership: Stores a non-owning material handle reference.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        Handle sky_material = {};
 
         /// <summary>
         /// Purpose: Framebuffer used for scene rendering before post-processing/present.

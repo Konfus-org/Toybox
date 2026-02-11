@@ -78,6 +78,16 @@ namespace tbx::plugins
         bool try_load(const Entity& entity, OpenGlDrawResources& out_resources);
 
         /// <summary>
+        /// Purpose: Loads or retrieves cached OpenGL draw resources for a sky material.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns shared ownership through the output struct and stores shared
+        /// ownership in the cache when creation succeeds.
+        /// Thread Safety: Not thread-safe; call only from the render thread.
+        /// </remarks>
+        bool try_load_sky(const Handle& sky_material, OpenGlDrawResources& out_resources);
+
+        /// <summary>
         /// Purpose: Clears every cached resource entry.
         /// </summary>
         /// <remarks>
@@ -114,6 +124,9 @@ namespace tbx::plugins
             const Entity& entity,
             const Renderer& renderer,
             OpenGlDrawResources& out_resources);
+        bool try_create_sky_resources(
+            const Handle& sky_material,
+            OpenGlDrawResources& out_resources);
         bool try_append_material_resources(
             const Material& material,
             OpenGlDrawResources& out_resources);
@@ -124,10 +137,17 @@ namespace tbx::plugins
             Clock::time_point last_use = {};
         };
 
+        struct CachedSkyResources final
+        {
+            OpenGlDrawResources resources = {};
+            Clock::time_point last_use = {};
+        };
+
       private:
         static constexpr std::chrono::seconds UNUSED_TTL = std::chrono::seconds(3);
 
         AssetManager* _asset_manager = nullptr;
         std::unordered_map<Uuid, CachedEntityResources> _resources_by_entity = {};
+        std::unordered_map<Uuid, CachedSkyResources> _resources_by_sky_material = {};
     };
 }

@@ -6,6 +6,8 @@
 #include "tbx/graphics/renderer.h"
 #include "tbx/messages/observable.h"
 #include <glad/glad.h>
+#include <string>
+#include <string_view>
 
 namespace tbx::plugins
 {
@@ -21,13 +23,38 @@ namespace tbx::plugins
 
     static bool has_sky_texture(const Material& material)
     {
-        for (const auto& [_, texture_handle] : material.textures)
+        bool has_any_texture = false;
+        bool has_diffuse_texture = false;
+
+        for (const auto& texture : material.textures)
         {
-            if (texture_handle.is_valid())
-                return true;
+            const auto normalized_name = normalize_uniform_name(texture.first);
+            const auto& texture_handle = texture.second;
+            if (!texture_handle.is_valid())
+                continue;
+
+            has_any_texture = true;
+            if (normalized_name == "u_diffuse")
+            {
+                has_diffuse_texture = true;
+                continue;
+            }
+
+            TBX_ASSERT(
+                false,
+                "OpenGL rendering: Sky only supports panoramic textures bound to 'diffuse'.");
+            return false;
         }
 
-        return false;
+        if (has_any_texture && !has_diffuse_texture)
+        {
+            TBX_ASSERT(
+                false,
+                "OpenGL rendering: Sky requires a panoramic texture bound to 'diffuse'.");
+            return false;
+        }
+
+        return has_diffuse_texture;
     }
 
     static bool try_get_sky_color(const Material& material, RgbaColor& out_color)
@@ -64,49 +91,6 @@ namespace tbx::plugins
             return false;
 
         return true;
-    }
-
-    static RgbaColor resolve_sky_clear_color(EntityRegistry& registry, AssetManager& asset_manager)
-    {
-        RgbaColor clear_color = RgbaColor::black;
-        bool did_find_sky = false;
-
-        registry.for_each_with<Sky>(
-            [&clear_color, &did_find_sky, &asset_manager](Entity& entity)
-            {
-                if (did_find_sky)
-                    return;
-
-                did_find_sky = true;
-
-                const auto& sky = entity.get_component<Sky>();
-                TBX_ASSERT(
-                    sky.material.is_valid(),
-                    "OpenGL rendering: Sky component requires a valid material handle.");
-                if (!sky.material.is_valid())
-                    return;
-
-                auto sky_material = asset_manager.load<Material>(sky.material);
-                TBX_ASSERT(
-                    sky_material != nullptr,
-                    "OpenGL rendering: Sky material could not be loaded.");
-                if (!sky_material)
-                    return;
-
-                TBX_ASSERT(
-                    is_valid_sky_shader_program(sky_material->shader),
-                    "OpenGL rendering: Sky material must use a graphics shader program with "
-                    "vertex+fragment stages and no compute stage.");
-
-                if (has_sky_texture(*sky_material))
-                    return;
-
-                RgbaColor material_color = RgbaColor::black;
-                if (try_get_sky_color(*sky_material, material_color))
-                    clear_color = material_color;
-            });
-
-        return clear_color;
     }
 
     static void GLAPIENTRY gl_message_callback(
@@ -147,6 +131,11 @@ namespace tbx::plugins
     {
         _is_context_ready = false;
         _render_pipeline.reset();
+        _is_sky_cache_valid = false;
+        _cached_has_sky_component = false;
+        _cached_sky_source_material = {};
+        _cached_sky_material = nullptr;
+        _cached_resolved_sky = {};
     }
 
     void OpenGlRenderingPlugin::on_update(const DeltaTime&)
@@ -184,12 +173,87 @@ namespace tbx::plugins
                 camera_view.in_view_dynamic_entities.push_back(entity);
             });
 
-        const auto sky_clear_color = resolve_sky_clear_color(registry, get_host().get_asset_manager());
+        auto sky_material = Handle {};
+        bool did_find_sky = false;
+        bool did_warn_multiple_skies = false;
+        registry.for_each_with<Sky>(
+            [&sky_material, &did_find_sky, &did_warn_multiple_skies](Entity& entity)
+            {
+                if (did_find_sky)
+                {
+                    if (!did_warn_multiple_skies)
+                    {
+                        TBX_TRACE_WARNING(
+                            "OpenGL rendering: multiple Sky components found; using the first "
+                            "one.");
+                        did_warn_multiple_skies = true;
+                    }
+                    return;
+                }
+
+                did_find_sky = true;
+                sky_material = entity.get_component<Sky>().material;
+            });
+
+        if (!did_find_sky)
+        {
+            _is_sky_cache_valid = true;
+            _cached_has_sky_component = false;
+            _cached_sky_source_material = {};
+            _cached_sky_material = nullptr;
+            _cached_resolved_sky = {};
+        }
+        else if (
+            !_is_sky_cache_valid || !_cached_has_sky_component
+            || _cached_sky_source_material.id != sky_material.id)
+        {
+            _cached_has_sky_component = true;
+            _cached_sky_source_material = sky_material;
+            _cached_sky_material = nullptr;
+            _cached_resolved_sky = {};
+
+            TBX_ASSERT(
+                sky_material.is_valid(),
+                "OpenGL rendering: Sky component requires a valid material handle.");
+            if (sky_material.is_valid())
+            {
+                auto& asset_manager = get_host().get_asset_manager();
+                _cached_sky_material = asset_manager.load<Material>(sky_material);
+                TBX_ASSERT(
+                    _cached_sky_material != nullptr,
+                    "OpenGL rendering: Sky material could not be loaded.");
+                if (_cached_sky_material)
+                {
+                    TBX_ASSERT(
+                        is_valid_sky_shader_program(_cached_sky_material->shader),
+                        "OpenGL rendering: Sky material must use a graphics shader program "
+                        "with vertex+fragment stages and no compute stage.");
+
+                    if (is_valid_sky_shader_program(_cached_sky_material->shader))
+                    {
+                        if (has_sky_texture(*_cached_sky_material))
+                        {
+                            _cached_resolved_sky.sky_material = sky_material;
+                        }
+                        else
+                        {
+                            RgbaColor material_color = RgbaColor::black;
+                            if (try_get_sky_color(*_cached_sky_material, material_color))
+                                _cached_resolved_sky.clear_color = material_color;
+                        }
+                    }
+                }
+            }
+
+            _is_sky_cache_valid = true;
+        }
+
         auto frame_context = OpenGlRenderFrameContext {
             .camera_view = camera_view,
             .render_resolution = _render_resolution,
             .viewport_size = _viewport_size,
-            .clear_color = sky_clear_color,
+            .clear_color = _cached_resolved_sky.clear_color,
+            .sky_material = _cached_resolved_sky.sky_material,
             .render_target = &_framebuffer,
             .present_mode = OpenGlFrameBufferPresentMode::ASPECT_FIT,
             .present_target_framebuffer_id = 0,

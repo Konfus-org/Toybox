@@ -3,9 +3,84 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/model.h"
+#include <cmath>
+#include <numbers>
 
 namespace tbx::plugins
 {
+    static Mesh make_panoramic_sky_mesh()
+    {
+        constexpr int stack_count = 32;
+        constexpr int slice_count = 64;
+
+        auto vertices = std::vector<Vertex> {};
+        vertices.reserve(
+            static_cast<size_t>(stack_count + 1) * static_cast<size_t>(slice_count + 1));
+
+        auto indices = IndexBuffer {};
+        indices.reserve(static_cast<size_t>(stack_count * slice_count * 6));
+
+        const float pi = std::numbers::pi_v<float>;
+        const float inv_stack_count = 1.0f / static_cast<float>(stack_count);
+        const float inv_slice_count = 1.0f / static_cast<float>(slice_count);
+
+        for (int stack = 0; stack <= stack_count; ++stack)
+        {
+            const float v = static_cast<float>(stack) * inv_stack_count;
+            const float theta = v * pi;
+            const float sin_theta = std::sin(theta);
+            const float cos_theta = std::cos(theta);
+
+            for (int slice = 0; slice <= slice_count; ++slice)
+            {
+                const float u = static_cast<float>(slice) * inv_slice_count;
+                const float phi = u * 2.0f * pi;
+                const float sin_phi = std::sin(phi);
+                const float cos_phi = std::cos(phi);
+
+                const float x = sin_theta * cos_phi;
+                const float y = cos_theta;
+                const float z = sin_theta * sin_phi;
+
+                vertices.push_back(Vertex {
+                    .position = Vec3(x, y, z),
+                    .uv = Vec2(u, 1.0f - v),
+                });
+            }
+        }
+
+        const int stride = slice_count + 1;
+        for (int stack = 0; stack < stack_count; ++stack)
+        {
+            for (int slice = 0; slice < slice_count; ++slice)
+            {
+                const uint32 top_left = static_cast<uint32>(stack * stride + slice);
+                const uint32 bottom_left = static_cast<uint32>((stack + 1) * stride + slice);
+                const uint32 top_right = top_left + 1U;
+                const uint32 bottom_right = bottom_left + 1U;
+
+                indices.push_back(top_left);
+                indices.push_back(bottom_left);
+                indices.push_back(top_right);
+
+                indices.push_back(top_right);
+                indices.push_back(bottom_left);
+                indices.push_back(bottom_right);
+            }
+        }
+
+        const VertexBuffer vertex_buffer = {
+            vertices,
+            {{
+                Vec3(0.0f),
+                RgbaColor(),
+                Vec3(0.0f),
+                Vec2(0.0f),
+            }}};
+
+        return Mesh(vertex_buffer, indices);
+    }
+
     static std::string normalize_uniform_name(std::string_view name)
     {
         if (name.size() >= 2U && name[0] == 'u' && name[1] == '_')
@@ -101,9 +176,38 @@ namespace tbx::plugins
         return true;
     }
 
+    bool OpenGlResourceManager::try_load_sky(
+        const Handle& sky_material,
+        OpenGlDrawResources& out_resources)
+    {
+        if (!sky_material.is_valid())
+            return false;
+
+        const auto resource_id = sky_material.id;
+        auto iterator = _resources_by_sky_material.find(resource_id);
+        if (iterator != _resources_by_sky_material.end())
+        {
+            iterator->second.last_use = Clock::now();
+            out_resources = iterator->second.resources;
+            return true;
+        }
+
+        auto resources = OpenGlDrawResources {};
+        if (!try_create_sky_resources(sky_material, resources))
+            return false;
+
+        _resources_by_sky_material[resource_id] = CachedSkyResources {
+            .resources = resources,
+            .last_use = Clock::now(),
+        };
+        out_resources = std::move(resources);
+        return true;
+    }
+
     void OpenGlResourceManager::clear()
     {
         _resources_by_entity.clear();
+        _resources_by_sky_material.clear();
     }
 
     void OpenGlResourceManager::unload_unreferenced()
@@ -119,6 +223,18 @@ namespace tbx::plugins
             }
 
             iterator = _resources_by_entity.erase(iterator);
+        }
+
+        for (auto iterator = _resources_by_sky_material.begin();
+             iterator != _resources_by_sky_material.end();)
+        {
+            if (iterator->second.last_use >= unload_before)
+            {
+                ++iterator;
+                continue;
+            }
+
+            iterator = _resources_by_sky_material.erase(iterator);
         }
     }
 
@@ -182,6 +298,19 @@ namespace tbx::plugins
         }
 
         return try_append_material_resources(material, out_resources);
+    }
+
+    bool OpenGlResourceManager::try_create_sky_resources(
+        const Handle& sky_material,
+        OpenGlDrawResources& out_resources)
+    {
+        auto material = _asset_manager->load<Material>(sky_material);
+        if (!material)
+            return false;
+
+        static const Mesh skybox_mesh = make_panoramic_sky_mesh();
+        out_resources.mesh = std::make_shared<OpenGlMesh>(skybox_mesh);
+        return try_append_material_resources(*material, out_resources);
     }
 
     bool OpenGlResourceManager::try_append_material_resources(
@@ -253,7 +382,8 @@ namespace tbx::plugins
 
             if (!shader_stages.empty())
             {
-                out_resources.shader_program = std::make_shared<OpenGlShaderProgram>(shader_stages);
+                out_resources.shader_program =
+                    std::make_shared<OpenGlShaderProgram>(shader_stages);
                 TBX_ASSERT(
                     out_resources.shader_program->get_program_id() != 0,
                     "OpenGL rendering: failed to link a valid shader program.");

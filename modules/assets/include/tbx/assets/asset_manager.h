@@ -492,6 +492,18 @@ namespace tbx
             auto id_iterator = _registry_by_id.find(entry.id);
             if (id_iterator != _registry_by_id.end() && id_iterator->second != entry.path_key)
             {
+                std::string existing_path = "<unknown>";
+                auto existing_entry_iterator = _pool.find(id_iterator->second);
+                if (existing_entry_iterator != _pool.end())
+                    existing_path = existing_entry_iterator->second.normalized_path;
+
+                TBX_ASSERT(
+                    false,
+                    "AssetManager: duplicate asset id detected (id={}). Existing asset: '{}'. "
+                    "Conflicting asset: '{}'.",
+                    to_string(entry.id),
+                    existing_path,
+                    entry.normalized_path);
                 entry.id = normalized.path_key;
             }
             _registry_by_id[entry.id] = entry.path_key;

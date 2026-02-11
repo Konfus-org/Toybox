@@ -1,7 +1,10 @@
 #pragma once
 #include "opengl_render_pipeline.h"
 #include "opengl_resources/opengl_buffers.h"
+#include "tbx/common/handle.h"
 #include "tbx/common/uuid.h"
+#include "tbx/graphics/color.h"
+#include "tbx/graphics/material.h"
 #include "tbx/graphics/messages.h"
 #include "tbx/plugin_api/plugin.h"
 #include <memory>
@@ -40,11 +43,22 @@ namespace tbx::plugins
         void set_render_resolution(const Size& render_resolution);
 
       private:
+        struct ResolvedSky final
+        {
+            RgbaColor clear_color = RgbaColor::black;
+            Handle sky_material = {};
+        };
+
         Uuid _window_id = invalid::uuid;
         Size _viewport_size = {0, 0};
         Size _render_resolution = {0, 0};
         bool _is_context_ready = false;
         OpenGlFrameBuffer _framebuffer = {};
         std::unique_ptr<OpenGlRenderPipeline> _render_pipeline = nullptr;
+        bool _is_sky_cache_valid = false;
+        bool _cached_has_sky_component = false;
+        Handle _cached_sky_source_material = {};
+        std::shared_ptr<Material> _cached_sky_material = nullptr;
+        ResolvedSky _cached_resolved_sky = {};
     };
 }
