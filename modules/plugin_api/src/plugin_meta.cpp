@@ -1,7 +1,7 @@
 #include "tbx/plugin_api/plugin_meta.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/files/file_operator.h"
+#include "tbx/files/file_ops.h"
 #include "tbx/files/json.h"
 #include <filesystem>
 #include <fstream>

@@ -8,9 +8,8 @@ namespace tbx
 {
     static std::shared_ptr<Model> create_model_data()
     {
-        Material material = {
-            .textures = {{"diffuse", not_found_texture}},
-        };
+        Material material = {};
+        material.textures.set("diffuse", not_found_texture);
         return std::make_shared<Model>(quad, material);
     }
 

@@ -2,7 +2,7 @@
 #include "tbx/app/app_events.h"
 #include "tbx/app/app_requests.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/files/file_operator.h"
+#include "tbx/files/file_ops.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/time/delta_time.h"

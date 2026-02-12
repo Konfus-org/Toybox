@@ -8,6 +8,7 @@
 #include "tbx/math/size.h"
 #include <any>
 #include <memory>
+#include <span>
 #include <vector>
 
 namespace tbx::plugins
@@ -42,6 +43,61 @@ namespace tbx::plugins
         /// Thread Safety: Read-only on the render thread.
         /// </summary>
         std::vector<Entity> in_view_dynamic_entities = {};
+    };
+
+    /// <summary>
+    /// Purpose: Describes post-processing configuration for the current frame.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores value settings and a non-owning material handle reference.
+    /// Thread Safety: Safe to read concurrently after construction.
+    /// </remarks>
+    struct OpenGlPostProcessEffect final
+    {
+        /// <summary>
+        /// Purpose: Enables or disables this post-process effect.
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        bool is_enabled = false;
+
+        /// <summary>
+        /// Purpose: Runtime material data used to shade this fullscreen post-processing pass.
+        /// Ownership: Owns parameter/texture overrides and a base material handle reference.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        MaterialInstance material = {};
+
+        /// <summary>
+        /// Purpose: Controls blend weight between source scene color and post-processed output.
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        float blend = 1.0f;
+    };
+
+    /// <summary>
+    /// Purpose: Describes post-processing configuration for the current frame.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores value settings and a non-owning view over effect data owned by caller.
+    /// Thread Safety: Safe to read concurrently after construction.
+    /// </remarks>
+    struct OpenGlPostProcessSettings final
+    {
+        /// <summary>
+        /// Purpose: Enables or disables execution of post-processing.
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        bool is_enabled = false;
+
+        /// <summary>
+        /// Purpose: Ordered effects to execute from first to last.
+        /// Ownership: Non-owning span; caller owns underlying storage.
+        /// Thread Safety: Safe to read concurrently while underlying storage remains valid.
+        /// </summary>
+        std::span<const OpenGlPostProcessEffect> effects = {};
     };
 
     /// <summary>
@@ -84,18 +140,46 @@ namespace tbx::plugins
         RgbaColor clear_color = RgbaColor::black;
 
         /// <summary>
-        /// Purpose: Optional sky material handle used for skybox rendering in the geometry pass.
-        /// Ownership: Stores a non-owning material handle reference.
+        /// Purpose: Optional sky runtime material used for skybox rendering in the geometry pass.
+        /// Ownership: Stores a non-owning base material handle and runtime overrides by value.
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
-        Handle sky_material = {};
+        MaterialInstance sky_material = {};
 
         /// <summary>
-        /// Purpose: Framebuffer used for scene rendering before post-processing/present.
+        /// Purpose: Optional post-processing settings used for final fullscreen shading.
+        /// Ownership: Value type owned by this context.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        OpenGlPostProcessSettings post_process = {};
+
+        /// <summary>
+        /// Purpose: Framebuffer used for geometry accumulation (G-buffer transition target).
         /// Ownership: Non-owning pointer; caller retains framebuffer lifetime.
         /// Thread Safety: Use on the render thread.
         /// </summary>
-        OpenGlFrameBuffer* render_target = nullptr;
+        OpenGlFrameBuffer* gbuffer_target = nullptr;
+
+        /// <summary>
+        /// Purpose: Framebuffer used for deferred lighting composition before post-processing.
+        /// Ownership: Non-owning pointer; caller retains framebuffer lifetime.
+        /// Thread Safety: Use on the render thread.
+        /// </summary>
+        OpenGlFrameBuffer* lighting_target = nullptr;
+
+        /// <summary>
+        /// Purpose: First intermediate framebuffer used for multi-pass post-processing.
+        /// Ownership: Non-owning pointer; caller retains framebuffer lifetime.
+        /// Thread Safety: Use on the render thread.
+        /// </summary>
+        OpenGlFrameBuffer* post_process_ping_target = nullptr;
+
+        /// <summary>
+        /// Purpose: Second intermediate framebuffer used for multi-pass post-processing.
+        /// Ownership: Non-owning pointer; caller retains framebuffer lifetime.
+        /// Thread Safety: Use on the render thread.
+        /// </summary>
+        OpenGlFrameBuffer* post_process_pong_target = nullptr;
 
         /// <summary>
         /// Purpose: Defines how the render target is scaled into the presentation target.

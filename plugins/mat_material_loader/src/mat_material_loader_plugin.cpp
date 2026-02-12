@@ -1,6 +1,6 @@
 #include "mat_material_loader_plugin.h"
 #include "tbx/app/application.h"
-#include "tbx/files/file_operator.h"
+#include "tbx/files/file_ops.h"
 #include "tbx/files/json.h"
 #include "tbx/graphics/material.h"
 #include <algorithm>
@@ -63,29 +63,29 @@ namespace tbx::plugins
             return {};
         }
 
-        const char* start = trimmed.data();
-        const char* end = trimmed.data() + trimmed.size();
-        while (start < end && !std::isxdigit(static_cast<unsigned char>(*start)))
-        {
-            start += 1;
-        }
-        if (start == end)
-        {
+        if (trimmed.size() > 2U && trimmed[0] == '0' && (trimmed[1] == 'x' || trimmed[1] == 'X'))
+            trimmed.remove_prefix(2U);
+        if (trimmed.empty())
             return {};
-        }
 
-        const char* token_end = start;
-        while (token_end < end && std::isxdigit(static_cast<unsigned char>(*token_end)))
+        for (char ch : trimmed)
         {
-            token_end += 1;
+            if (std::isxdigit(static_cast<unsigned char>(ch)) == 0)
+                return {};
         }
 
         uint32 parsed = 0U;
-        auto result = std::from_chars(start, token_end, parsed, 16);
+        auto result = std::from_chars(
+            trimmed.data(),
+            trimmed.data() + trimmed.size(),
+            parsed,
+            16);
         if (result.ec != std::errc())
         {
             return {};
         }
+        if (result.ptr != (trimmed.data() + trimmed.size()))
+            return {};
         if (parsed == 0U)
         {
             return {};
@@ -139,7 +139,7 @@ namespace tbx::plugins
                 error_message = "Material loader: bool parameter '" + name + "' missing value.";
                 return false;
             }
-            out_material.parameters.emplace_back(name, value);
+            out_material.parameters.set(name, value);
             return true;
         }
 
@@ -151,7 +151,7 @@ namespace tbx::plugins
                 error_message = "Material loader: int parameter '" + name + "' missing value.";
                 return false;
             }
-            out_material.parameters.emplace_back(name, value);
+            out_material.parameters.set(name, value);
             return true;
         }
 
@@ -163,7 +163,7 @@ namespace tbx::plugins
                 error_message = "Material loader: float parameter '" + name + "' missing value.";
                 return false;
             }
-            out_material.parameters.emplace_back(name, value);
+            out_material.parameters.set(name, value);
             return true;
         }
 
@@ -189,7 +189,7 @@ namespace tbx::plugins
                     handle = Handle(asset_name);
                 }
             }
-            out_material.textures.emplace_back(name, handle);
+            out_material.textures.set(name, std::move(handle));
             return true;
         }
 
@@ -218,8 +218,8 @@ namespace tbx::plugins
 
             if (handle.is_valid())
             {
-                out_material.shader.vertex = handle;
-                out_material.shader.fragment = handle;
+                out_material.program.vertex = handle;
+                out_material.program.fragment = handle;
             }
             return true;
         }
@@ -233,7 +233,7 @@ namespace tbx::plugins
                     "Material loader: vec2 parameter '" + name + "' must have 2 values.";
                 return false;
             }
-            out_material.parameters.emplace_back(
+            out_material.parameters.set(
                 name,
                 Vec2(static_cast<float>(values[0]), static_cast<float>(values[1])));
             return true;
@@ -248,7 +248,7 @@ namespace tbx::plugins
                     "Material loader: vec3 parameter '" + name + "' must have 3 values.";
                 return false;
             }
-            out_material.parameters.emplace_back(
+            out_material.parameters.set(
                 name,
                 Vec3(
                     static_cast<float>(values[0]),
@@ -266,7 +266,7 @@ namespace tbx::plugins
                     "Material loader: vec4 parameter '" + name + "' must have 4 values.";
                 return false;
             }
-            out_material.parameters.emplace_back(
+            out_material.parameters.set(
                 name,
                 Vec4(
                     static_cast<float>(values[0]),
@@ -285,7 +285,7 @@ namespace tbx::plugins
                     "Material loader: color parameter '" + name + "' must have 4 values.";
                 return false;
             }
-            out_material.parameters.emplace_back(
+            out_material.parameters.set(
                 name,
                 RgbaColor(
                     static_cast<float>(values[0]),
@@ -315,75 +315,75 @@ namespace tbx::plugins
                 Uuid vertex_id = {};
                 if (shaders_data.try_get_uuid("vertex", vertex_id))
                 {
-                    material.shader.vertex = Handle(vertex_id);
+                    material.program.vertex = Handle(vertex_id);
                 }
                 else
                 {
                     std::string vertex_text;
                     if (shaders_data.try_get_string("vertex", vertex_text))
-                        material.shader.vertex = parse_asset_handle(vertex_text);
+                        material.program.vertex = parse_asset_handle(vertex_text);
                 }
 
                 Uuid fragment_id = {};
                 if (shaders_data.try_get_uuid("fragment", fragment_id))
                 {
-                    material.shader.fragment = Handle(fragment_id);
+                    material.program.fragment = Handle(fragment_id);
                 }
                 else
                 {
                     std::string fragment_text;
                     if (shaders_data.try_get_string("fragment", fragment_text))
-                        material.shader.fragment = parse_asset_handle(fragment_text);
+                        material.program.fragment = parse_asset_handle(fragment_text);
                 }
 
                 Uuid tesselation_id = {};
                 if (shaders_data.try_get_uuid("tesselation", tesselation_id))
                 {
-                    material.shader.tesselation = Handle(tesselation_id);
+                    material.program.tesselation = Handle(tesselation_id);
                 }
                 else
                 {
                     std::string tesselation_text;
                     if (shaders_data.try_get_string("tesselation", tesselation_text))
-                        material.shader.tesselation = parse_asset_handle(tesselation_text);
+                        material.program.tesselation = parse_asset_handle(tesselation_text);
                     else
                     {
                         std::string tessellation_text;
                         if (shaders_data.try_get_string("tessellation", tessellation_text))
-                            material.shader.tesselation = parse_asset_handle(tessellation_text);
+                            material.program.tesselation = parse_asset_handle(tessellation_text);
                     }
                 }
 
                 Uuid geometry_id = {};
                 if (shaders_data.try_get_uuid("geometry", geometry_id))
                 {
-                    material.shader.geometry = Handle(geometry_id);
+                    material.program.geometry = Handle(geometry_id);
                 }
                 else
                 {
                     std::string geometry_text;
                     if (shaders_data.try_get_string("geometry", geometry_text))
-                        material.shader.geometry = parse_asset_handle(geometry_text);
+                        material.program.geometry = parse_asset_handle(geometry_text);
                 }
 
                 Uuid compute_id = {};
                 if (shaders_data.try_get_uuid("compute", compute_id))
                 {
-                    material.shader.compute = Handle(compute_id);
+                    material.program.compute = Handle(compute_id);
                 }
                 else
                 {
                     std::string compute_text;
                     if (shaders_data.try_get_string("compute", compute_text))
-                        material.shader.compute = parse_asset_handle(compute_text);
+                        material.program.compute = parse_asset_handle(compute_text);
                 }
 
-                if (material.shader.compute.is_valid())
+                if (material.program.compute.is_valid())
                 {
                     if (
-                        material.shader.vertex.is_valid() || material.shader.fragment.is_valid()
-                        || material.shader.tesselation.is_valid()
-                        || material.shader.geometry.is_valid())
+                        material.program.vertex.is_valid() || material.program.fragment.is_valid()
+                        || material.program.tesselation.is_valid()
+                        || material.program.geometry.is_valid())
                     {
                         error_message =
                             "Material loader: compute shaders cannot be combined with "
@@ -393,10 +393,10 @@ namespace tbx::plugins
                 }
                 else
                 {
-                    if (material.shader.vertex.is_valid() && !material.shader.fragment.is_valid())
-                        material.shader.fragment = material.shader.vertex;
-                    if (!material.shader.vertex.is_valid() && material.shader.fragment.is_valid())
-                        material.shader.vertex = material.shader.fragment;
+                    if (material.program.vertex.is_valid() && !material.program.fragment.is_valid())
+                        material.program.fragment = material.program.vertex;
+                    if (!material.program.vertex.is_valid() && material.program.fragment.is_valid())
+                        material.program.vertex = material.program.fragment;
                 }
             }
             else
@@ -416,15 +416,16 @@ namespace tbx::plugins
 
                 if (shader_handle.is_valid())
                 {
-                    material.shader.vertex = shader_handle;
-                    material.shader.fragment = shader_handle;
+                    material.program.vertex = shader_handle;
+                    material.program.fragment = shader_handle;
                 }
             }
 
             std::vector<Json> texture_entries;
             if (data.try_get_children("textures", texture_entries))
             {
-                material.textures.reserve(texture_entries.size());
+                material.textures.overrides.reserve(
+                    material.textures.overrides.size() + texture_entries.size());
                 for (const auto& entry : texture_entries)
                 {
                     std::string name;
@@ -443,16 +444,16 @@ namespace tbx::plugins
                     else
                     {
                         std::string asset_name;
-                    if (!entry.try_get_string("value", asset_name))
-                    {
-                        error_message =
-                            "Material loader: texture entry '" + name + "' missing value.";
-                        return false;
+                        if (!entry.try_get_string("value", asset_name))
+                        {
+                            error_message =
+                                "Material loader: texture entry '" + name + "' missing value.";
+                            return false;
+                        }
+                        handle = parse_asset_handle(asset_name);
                     }
-                    handle = parse_asset_handle(asset_name);
-                }
 
-                    material.textures.emplace_back(name, handle);
+                    material.textures.set(name, std::move(handle));
                 }
             }
 
@@ -482,12 +483,19 @@ namespace tbx::plugins
     {
         _asset_manager = &host.get_asset_manager();
         _working_directory = host.get_settings().working_directory;
+        if (!_file_ops)
+            _file_ops = std::make_shared<FileOperator>(_working_directory);
     }
 
     void MatMaterialLoaderPlugin::on_detach()
     {
         _asset_manager = nullptr;
         _working_directory = std::filesystem::path();
+    }
+
+    void MatMaterialLoaderPlugin::set_file_ops(std::shared_ptr<IFileOps> file_ops)
+    {
+        _file_ops = std::move(file_ops);
     }
 
     void MatMaterialLoaderPlugin::on_recieve_message(Message& msg)
@@ -525,7 +533,13 @@ namespace tbx::plugins
             return;
         }
 
-        FileOperator file_operator = FileOperator(_working_directory);
+        if (!_file_ops)
+        {
+            request.state = MessageState::ERROR;
+            request.result.flag_failure("Material loader: file services unavailable.");
+            return;
+        }
+
         if (request.path.extension() != ".mat")
         {
             request.state = MessageState::ERROR;
@@ -534,7 +548,7 @@ namespace tbx::plugins
         }
 
         std::string file_data;
-        if (!file_operator.read_file(request.path, FileDataFormat::UTF8_TEXT, file_data))
+        if (!_file_ops->read_file(request.path, FileDataFormat::UTF8_TEXT, file_data))
         {
             request.state = MessageState::ERROR;
             request.result.flag_failure(

@@ -6,8 +6,10 @@
 #include "tbx/graphics/renderer.h"
 #include "tbx/messages/observable.h"
 #include <glad/glad.h>
+#include <span>
 #include <string>
 #include <string_view>
+#include <variant>
 
 namespace tbx::plugins
 {
@@ -21,15 +23,109 @@ namespace tbx::plugins
         return normalized;
     }
 
+    static void append_or_override_material_parameter(
+        MaterialParameterBindings& parameters,
+        std::string_view name,
+        MaterialParameterData data)
+    {
+        parameters.set(name, std::move(data));
+    }
+
+    static void append_or_override_texture(
+        MaterialTextureBindings& textures,
+        std::string_view name,
+        const TextureInstance& runtime_texture)
+    {
+        textures.set(name, runtime_texture);
+    }
+
+    static void apply_runtime_material_overrides(
+        const MaterialInstance& runtime_material,
+        Material& in_out_material)
+    {
+        for (const auto& texture_binding : runtime_material.textures.overrides)
+            append_or_override_texture(
+                in_out_material.textures,
+                texture_binding.name,
+                texture_binding.texture);
+
+        for (const auto& parameter_binding : runtime_material.parameters.values)
+            append_or_override_material_parameter(
+                in_out_material.parameters,
+                parameter_binding.name,
+                parameter_binding.value);
+    }
+
+    static uint64 hash_runtime_material(const MaterialInstance& runtime_material)
+    {
+        constexpr uint64 fnv_offset = 1469598103934665603ULL;
+        constexpr uint64 fnv_prime = 1099511628211ULL;
+
+        auto hash_value = fnv_offset;
+        auto hash_bytes = [&hash_value](const void* data, size_t size)
+        {
+            const auto* bytes = static_cast<const unsigned char*>(data);
+            for (size_t i = 0; i < size; ++i)
+            {
+                hash_value ^= static_cast<uint64>(bytes[i]);
+                hash_value *= fnv_prime;
+            }
+        };
+
+        hash_bytes(&runtime_material.handle.id, sizeof(runtime_material.handle.id));
+
+        for (const auto& parameter_binding : runtime_material.parameters.values)
+        {
+            hash_bytes(parameter_binding.name.data(), parameter_binding.name.size());
+            const auto variant_index = static_cast<uint64>(parameter_binding.value.index());
+            hash_bytes(&variant_index, sizeof(variant_index));
+            std::visit(
+                [&hash_bytes](const auto& value)
+                {
+                    hash_bytes(&value, sizeof(value));
+                },
+                parameter_binding.value);
+        }
+
+        for (const auto& texture_binding : runtime_material.textures.overrides)
+        {
+            hash_bytes(texture_binding.name.data(), texture_binding.name.size());
+            hash_bytes(&texture_binding.texture.handle.id, sizeof(texture_binding.texture.handle.id));
+            const bool has_settings_override = texture_binding.texture.settings.has_value();
+            hash_bytes(&has_settings_override, sizeof(has_settings_override));
+            if (has_settings_override)
+            {
+                const TextureSettings& texture_settings = texture_binding.texture.settings.value();
+                hash_bytes(
+                    &texture_settings.filter,
+                    sizeof(texture_settings.filter));
+                hash_bytes(
+                    &texture_settings.wrap,
+                    sizeof(texture_settings.wrap));
+                hash_bytes(
+                    &texture_settings.format,
+                    sizeof(texture_settings.format));
+                hash_bytes(
+                    &texture_settings.mipmaps,
+                    sizeof(texture_settings.mipmaps));
+                hash_bytes(
+                    &texture_settings.compression,
+                    sizeof(texture_settings.compression));
+            }
+        }
+
+        return hash_value;
+    }
+
     static bool has_sky_texture(const Material& material)
     {
         bool has_any_texture = false;
         bool has_diffuse_texture = false;
 
-        for (const auto& texture : material.textures)
+        for (const auto& texture_binding : material.textures.overrides)
         {
-            const auto normalized_name = normalize_uniform_name(texture.first);
-            const auto& texture_handle = texture.second;
+            const auto normalized_name = normalize_uniform_name(texture_binding.name);
+            const auto& texture_handle = texture_binding.texture.handle;
             if (!texture_handle.is_valid())
                 continue;
 
@@ -59,21 +155,21 @@ namespace tbx::plugins
 
     static bool try_get_sky_color(const Material& material, RgbaColor& out_color)
     {
-        for (const auto& [parameter_name, parameter_value] : material.parameters)
+        for (const auto& parameter_binding : material.parameters.values)
         {
-            const auto normalized_name = normalize_uniform_name(parameter_name);
+            const auto normalized_name = normalize_uniform_name(parameter_binding.name);
             if (normalized_name != "u_color")
                 continue;
 
-            if (std::holds_alternative<RgbaColor>(parameter_value))
+            if (std::holds_alternative<RgbaColor>(parameter_binding.value))
             {
-                out_color = std::get<RgbaColor>(parameter_value);
+                out_color = std::get<RgbaColor>(parameter_binding.value);
                 return true;
             }
 
-            if (std::holds_alternative<Vec4>(parameter_value))
+            if (std::holds_alternative<Vec4>(parameter_binding.value))
             {
-                const auto value = std::get<Vec4>(parameter_value);
+                const auto value = std::get<Vec4>(parameter_binding.value);
                 out_color = RgbaColor(value.x, value.y, value.z, value.w);
                 return true;
             }
@@ -133,9 +229,10 @@ namespace tbx::plugins
         _render_pipeline.reset();
         _is_sky_cache_valid = false;
         _cached_has_sky_component = false;
-        _cached_sky_source_material = {};
+        _cached_sky_source_material_hash = 0U;
         _cached_sky_material = nullptr;
         _cached_resolved_sky = {};
+        _cached_resolved_post_processing.effects.clear();
     }
 
     void OpenGlRenderingPlugin::on_update(const DeltaTime&)
@@ -147,7 +244,7 @@ namespace tbx::plugins
         if (!make_current_result)
             return;
 
-        auto camera_view = OpenGlCameraView {};
+        auto camera_view = OpenGlCameraView();
         bool did_find_camera = false;
         auto& registry = get_host().get_entity_registry();
         registry.for_each_with<Camera>(
@@ -175,7 +272,7 @@ namespace tbx::plugins
                 camera_view.in_view_dynamic_entities.push_back(entity);
             });
 
-        auto sky_material = Handle {};
+        auto sky_material = MaterialInstance {};
         bool did_find_sky = false;
         bool did_warn_multiple_skies = false;
         registry.for_each_with<Sky>(
@@ -201,54 +298,105 @@ namespace tbx::plugins
         {
             _is_sky_cache_valid = true;
             _cached_has_sky_component = false;
-            _cached_sky_source_material = {};
+            _cached_sky_source_material_hash = 0U;
             _cached_sky_material = nullptr;
             _cached_resolved_sky = {};
         }
-        else if (
-            !_is_sky_cache_valid || !_cached_has_sky_component
-            || _cached_sky_source_material.id != sky_material.id)
+        else
         {
-            _cached_has_sky_component = true;
-            _cached_sky_source_material = sky_material;
-            _cached_sky_material = nullptr;
-            _cached_resolved_sky = {};
-
-            TBX_ASSERT(
-                sky_material.is_valid(),
-                "OpenGL rendering: Sky component requires a valid material handle.");
-            if (sky_material.is_valid())
+            const auto sky_material_hash = hash_runtime_material(sky_material);
+            if (
+                !_is_sky_cache_valid || !_cached_has_sky_component
+                || _cached_sky_source_material_hash != sky_material_hash)
             {
-                auto& asset_manager = get_host().get_asset_manager();
-                _cached_sky_material = asset_manager.load<Material>(sky_material);
-                TBX_ASSERT(
-                    _cached_sky_material != nullptr,
-                    "OpenGL rendering: Sky material could not be loaded.");
-                if (_cached_sky_material)
-                {
-                    TBX_ASSERT(
-                        is_valid_sky_shader_program(_cached_sky_material->shader),
-                        "OpenGL rendering: Sky material must use a graphics shader program "
-                        "with vertex+fragment stages and no compute stage.");
+                _cached_has_sky_component = true;
+                _cached_sky_source_material_hash = sky_material_hash;
+                _cached_sky_material = nullptr;
+                _cached_resolved_sky = {};
 
-                    if (is_valid_sky_shader_program(_cached_sky_material->shader))
+                TBX_ASSERT(
+                    sky_material.handle.is_valid(),
+                    "OpenGL rendering: Sky component requires a valid material handle.");
+                if (sky_material.handle.is_valid())
+                {
+                    auto& asset_manager = get_host().get_asset_manager();
+                    _cached_sky_material = asset_manager.load<Material>(sky_material.handle);
+                    TBX_ASSERT(
+                        _cached_sky_material != nullptr,
+                        "OpenGL rendering: Sky material could not be loaded.");
+                    if (_cached_sky_material)
                     {
-                        if (has_sky_texture(*_cached_sky_material))
+                        auto resolved_sky_material = *_cached_sky_material;
+                        apply_runtime_material_overrides(sky_material, resolved_sky_material);
+
+                        TBX_ASSERT(
+                            is_valid_sky_shader_program(resolved_sky_material.program),
+                            "OpenGL rendering: Sky material must use a graphics shader program "
+                            "with vertex+fragment stages and no compute stage.");
+
+                        if (is_valid_sky_shader_program(resolved_sky_material.program))
                         {
-                            _cached_resolved_sky.sky_material = sky_material;
-                        }
-                        else
-                        {
-                            RgbaColor material_color = RgbaColor::black;
-                            if (try_get_sky_color(*_cached_sky_material, material_color))
-                                _cached_resolved_sky.clear_color = material_color;
+                            if (has_sky_texture(resolved_sky_material))
+                            {
+                                _cached_resolved_sky.sky_material = sky_material;
+                            }
+                            else
+                            {
+                                RgbaColor material_color = RgbaColor::black;
+                                if (try_get_sky_color(resolved_sky_material, material_color))
+                                    _cached_resolved_sky.clear_color = material_color;
+                            }
                         }
                     }
                 }
-            }
 
-            _is_sky_cache_valid = true;
+                _is_sky_cache_valid = true;
+            }
         }
+
+        bool did_find_post_processing = false;
+        bool did_warn_multiple_post_processing = false;
+        bool is_post_processing_enabled = false;
+        _cached_resolved_post_processing.effects.clear();
+        registry.for_each_with<PostProcessing>(
+            [this,
+             &did_find_post_processing,
+             &did_warn_multiple_post_processing,
+             &is_post_processing_enabled](Entity& entity)
+            {
+                if (did_find_post_processing)
+                {
+                    if (!did_warn_multiple_post_processing)
+                    {
+                        TBX_TRACE_WARNING(
+                            "OpenGL rendering: multiple PostProcessing components found; using "
+                            "the first one.");
+                        did_warn_multiple_post_processing = true;
+                    }
+                    return;
+                }
+
+                did_find_post_processing = true;
+                const auto& post_processing = entity.get_component<PostProcessing>();
+                is_post_processing_enabled = post_processing.is_enabled;
+
+                _cached_resolved_post_processing.effects.reserve(post_processing.effects.size());
+                for (const auto& effect : post_processing.effects)
+                {
+                    _cached_resolved_post_processing.effects.push_back(
+                        OpenGlPostProcessEffect {
+                            .is_enabled = effect.is_enabled,
+                            .material = effect.material,
+                            .blend = effect.blend,
+                        });
+                }
+            });
+
+        const auto post_process_settings = OpenGlPostProcessSettings {
+            .is_enabled = did_find_post_processing && is_post_processing_enabled,
+            .effects =
+                std::span<const OpenGlPostProcessEffect>(_cached_resolved_post_processing.effects),
+        };
 
         auto frame_context = OpenGlRenderFrameContext {
             .camera_view = camera_view,
@@ -256,7 +404,11 @@ namespace tbx::plugins
             .viewport_size = _viewport_size,
             .clear_color = _cached_resolved_sky.clear_color,
             .sky_material = _cached_resolved_sky.sky_material,
-            .render_target = &_framebuffer,
+            .post_process = post_process_settings,
+            .gbuffer_target = &_gbuffer_framebuffer,
+            .lighting_target = &_lighting_framebuffer,
+            .post_process_ping_target = &_post_process_ping_framebuffer,
+            .post_process_pong_target = &_post_process_pong_framebuffer,
             .present_mode = OpenGlFrameBufferPresentMode::ASPECT_FIT,
             .present_target_framebuffer_id = 0,
         };
@@ -358,6 +510,9 @@ namespace tbx::plugins
             return;
 
         _render_resolution = render_resolution;
-        _framebuffer.set_resolution(render_resolution);
+        _gbuffer_framebuffer.set_resolution(render_resolution);
+        _lighting_framebuffer.set_resolution(render_resolution);
+        _post_process_ping_framebuffer.set_resolution(render_resolution);
+        _post_process_pong_framebuffer.set_resolution(render_resolution);
     }
 }

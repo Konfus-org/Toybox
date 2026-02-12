@@ -1,7 +1,7 @@
 #include "glsl_shader_loader_plugin.h"
 #include "tbx/app/application.h"
 #include "tbx/assets/messages.h"
-#include "tbx/files/file_operator.h"
+#include "tbx/files/file_ops.h"
 #include "tbx/graphics/shader.h"
 #include <algorithm>
 #include <cctype>
@@ -107,7 +107,7 @@ namespace tbx::plugins
     // 1) Relative to the including file (if any).
     // 2) Via the asset manager's search roots.
     static ShaderLoadResult try_load_include_file(
-        const FileOperator& file_operator,
+        const IFileOps& file_operator,
         const AssetManager& asset_manager,
         const std::filesystem::path& including_file,
         const std::filesystem::path& include_path)
@@ -141,7 +141,7 @@ namespace tbx::plugins
     // - Ensures each resolved include file is expanded only once per shader stage.
     // - Detects include cycles using the include stack.
     static ShaderLoadResult try_expand_includes(
-        const FileOperator& file_operator,
+        const IFileOps& file_operator,
         const AssetManager& asset_manager,
         const std::filesystem::path& source_file,
         const std::string& source,
@@ -287,7 +287,7 @@ namespace tbx::plugins
     }
 
     static ShaderLoadResult try_read_shader_file(
-        const FileOperator& file_operator,
+        const IFileOps& file_operator,
         const std::filesystem::path& path,
         std::string& out_data)
     {
@@ -307,12 +307,19 @@ namespace tbx::plugins
     {
         _asset_manager = &host.get_asset_manager();
         _working_directory = host.get_settings().working_directory;
+        if (!_file_ops)
+            _file_ops = std::make_shared<FileOperator>(_working_directory);
     }
 
     void GlslShaderLoaderPlugin::on_detach()
     {
         _asset_manager = nullptr;
         _working_directory = std::filesystem::path();
+    }
+
+    void GlslShaderLoaderPlugin::set_file_ops(std::shared_ptr<IFileOps> file_ops)
+    {
+        _file_ops = std::move(file_ops);
     }
 
     void GlslShaderLoaderPlugin::on_recieve_message(Message& msg)
@@ -348,7 +355,12 @@ namespace tbx::plugins
             return;
         }
 
-        FileOperator file_operator = FileOperator(_working_directory);
+        if (!_file_ops)
+        {
+            request.state = MessageState::ERROR;
+            request.result.flag_failure("Shader loader: file services unavailable.");
+            return;
+        }
 
         ShaderType requested_type = ShaderType::NONE;
         if (!try_get_shader_type_from_extension(request.path, requested_type))
@@ -367,7 +379,7 @@ namespace tbx::plugins
         }
 
         std::string stage_data;
-        auto read_result = try_read_shader_file(file_operator, request.path, stage_data);
+        auto read_result = try_read_shader_file(*_file_ops, request.path, stage_data);
         if (!read_result.succeeded)
         {
             request.state = MessageState::ERROR;
@@ -379,7 +391,7 @@ namespace tbx::plugins
         std::vector<std::filesystem::path> include_stack = {request.path};
         std::unordered_set<std::string> included_files = {};
         ShaderLoadResult expanded = try_expand_includes(
-            file_operator,
+            *_file_ops,
             *_asset_manager,
             request.path,
             shader.source,

@@ -1,8 +1,10 @@
 #pragma once
 #include "tbx/common/uuid.h"
-#include "tbx/files/file_operator.h"
+#include "tbx/files/file_ops.h"
+#include "tbx/graphics/texture.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -20,6 +22,7 @@ namespace tbx
         std::filesystem::path asset_path;
         Uuid id = {};
         std::string name;
+        std::optional<TextureSettings> texture_settings = std::nullopt;
     };
 
     /// <summary>
@@ -45,6 +48,18 @@ namespace tbx
             AssetMeta& out_meta) const;
 
         /// <summary>
+        /// Purpose: Attempts to read metadata from the asset's .meta JSON sidecar using file ops.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Writes metadata into the caller-provided struct on success.
+        /// Thread Safety: Safe to call concurrently when file_ops is thread-safe.
+        /// </remarks>
+        bool try_parse_from_disk(
+            const IFileOps& file_ops,
+            const std::filesystem::path& asset_path,
+            AssetMeta& out_meta) const;
+
+        /// <summary>
         /// Purpose: Parses metadata from raw JSON text.
         /// </summary>
         /// <remarks>
@@ -55,5 +70,14 @@ namespace tbx
             std::string_view meta_text,
             const std::filesystem::path& asset_path,
             AssetMeta& out_meta) const;
+
+        /// <summary>
+        /// Purpose: Serializes metadata to JSON text suitable for writing to .meta files.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a caller-owned JSON string.
+        /// Thread Safety: Safe to call concurrently.
+        /// </remarks>
+        std::string serialize_to_source(const AssetMeta& meta) const;
     };
 }

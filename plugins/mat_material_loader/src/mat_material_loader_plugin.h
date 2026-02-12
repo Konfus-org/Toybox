@@ -1,8 +1,10 @@
 #pragma once
 #include "tbx/assets/asset_manager.h"
 #include "tbx/assets/messages.h"
+#include "tbx/files/file_ops.h"
 #include "tbx/plugin_api/plugin.h"
 #include <filesystem>
+#include <memory>
 
 namespace tbx::plugins
 {
@@ -44,11 +46,21 @@ namespace tbx::plugins
         /// </remarks>
         void on_recieve_message(Message& msg) override;
 
+        /// <summary>
+        /// Purpose: Overrides filesystem operations used by the loader.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Shares ownership of file_ops with the caller.
+        /// Thread Safety: Call before dispatching load messages.
+        /// </remarks>
+        void set_file_ops(std::shared_ptr<IFileOps> file_ops);
+
       private:
         void on_load_material_request(LoadMaterialRequest& request);
         std::filesystem::path resolve_asset_path(const std::filesystem::path& path) const;
 
         AssetManager* _asset_manager = nullptr;
         std::filesystem::path _working_directory = {};
+        std::shared_ptr<IFileOps> _file_ops = {};
     };
 }

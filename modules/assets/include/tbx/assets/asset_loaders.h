@@ -67,8 +67,10 @@ namespace tbx
             return load_texture_async(
                 asset_path,
                 TextureWrap::REPEAT,
-                TextureFilter::NEAREST,
-                TextureFormat::RGBA);
+                TextureFilter::LINEAR,
+                TextureFormat::RGBA,
+                TextureMipmaps::ENABLED,
+                TextureCompression::AUTO);
         }
 
         static std::shared_ptr<Texture> load(const std::filesystem::path& asset_path)
@@ -76,8 +78,10 @@ namespace tbx
             return load_texture(
                 asset_path,
                 TextureWrap::REPEAT,
-                TextureFilter::NEAREST,
-                TextureFormat::RGBA);
+                TextureFilter::LINEAR,
+                TextureFormat::RGBA,
+                TextureMipmaps::ENABLED,
+                TextureCompression::AUTO);
         }
     };
 

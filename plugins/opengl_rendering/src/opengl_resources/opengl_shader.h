@@ -93,13 +93,13 @@ namespace tbx::plugins
         /// <remarks>Purpose: Updates uniform state used by the program.
         /// Ownership: Copies uniform data; caller retains CPU ownership.
         /// Thread Safety: Call only on the render thread.</remarks>
-        void upload(const ShaderUniform& uniform);
+        void upload(const MaterialParameter& uniform);
 
         /// <summary>Attempts to upload a uniform value to the program.</summary>
         /// <remarks>Purpose: Updates uniform state without warning on missing uniforms.
         /// Ownership: Copies uniform data; caller retains CPU ownership.
         /// Thread Safety: Call only on the render thread.</remarks>
-        bool try_upload(const ShaderUniform& uniform);
+        bool try_upload(const MaterialParameter& uniform);
 
         /// <summary>Returns the OpenGL program handle.</summary>
         /// <remarks>Purpose: Allows inspection of the linked program identifier.

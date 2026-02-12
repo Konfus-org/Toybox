@@ -2,8 +2,10 @@
 #include "tbx/common/handle.h"
 #include "tbx/graphics/color.h"
 #include "tbx/graphics/shader.h"
+#include "tbx/graphics/texture.h"
 #include "tbx/math/vectors.h"
 #include "tbx/tbx_api.h"
+#include <initializer_list>
 #include <string>
 #include <utility>
 #include <vector>
@@ -11,80 +13,139 @@
 namespace tbx
 {
     /// <summary>
-    /// Purpose: Holds explicit shader stage handles used to build a shader program.
+    /// Purpose: Represents the supported values for material parameters.
     /// </summary>
     /// <remarks>
-    /// Ownership: Stores stage handles by value; does not own loaded shader assets.
+    /// Ownership: Owns any stored value data.
+    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    /// </remarks>
+    using MaterialParameterData =
+        std::variant<bool, int, float, double, Vec2, Vec3, Vec4, RgbaColor, Mat3, Mat4>;
+
+    /// <summary>
+    /// Purpose: Backward-compatible alias for material parameter value payloads.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Alias only; ownership semantics match MaterialParameterData.
+    /// Thread Safety: Alias only; thread safety semantics match MaterialParameterData.
+    /// </remarks>
+    using UniformData = MaterialParameterData;
+
+    /// <summary>
+    /// Purpose: Represents a uniform upload payload for shader programs.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores owned copies of uniform data values.
+    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    /// </remarks>
+    struct TBX_API MaterialParameter
+    {
+        std::string name = "";
+        MaterialParameterData data = 0;
+    };
+
+    /// <summary>
+    /// Purpose: Stores a material parameter binding name and value.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns the binding name and parameter value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     /// </remarks>
-    struct TBX_API ShaderProgram
+    struct TBX_API MaterialParameterBinding
+    {
+        std::string name = {};
+        MaterialParameterData value = 0.0f;
+    };
+
+    /// <summary>
+    /// Purpose: Stores a mutable list of named material parameters.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns parameter names and values.
+    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    /// </remarks>
+    struct TBX_API MaterialParameterBindings
+    {
+        void set(std::string_view name, MaterialParameterData value);
+        void set(MaterialParameterBinding parameter);
+        void set(std::initializer_list<MaterialParameterBinding> parameters);
+        bool has(std::string_view name) const;
+        void remove(std::string_view name);
+        void clear();
+
+        std::vector<MaterialParameterBinding> values = {};
+    };
+
+    /// <summary>
+    /// Purpose: Stores a runtime texture binding name and texture data.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns the binding name and TextureInstance value.
+    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    /// </remarks>
+    struct TBX_API MaterialTextureBinding
+    {
+        std::string name = {};
+        TextureInstance texture = {};
+    };
+
+    /// <summary>
+    /// Purpose: Stores per-material texture overrides applied at render time.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns uniform-name strings and runtime texture values.
+    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    /// </remarks>
+    struct TBX_API MaterialTextureBindings
     {
         /// <summary>
-        /// Purpose: Identifies the vertex shader stage asset.
+        /// Purpose: Adds or updates a texture override by sampler uniform name.
         /// </summary>
         /// <remarks>
-        /// Ownership: Stores a non-owning handle reference.
-        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// Ownership: Stores a copy of the normalized uniform name and handle value.
+        /// Thread Safety: Not thread-safe; synchronize mutation externally.
         /// </remarks>
-        Handle vertex = {};
+        void set(std::string_view name, Handle texture);
 
         /// <summary>
-        /// Purpose: Identifies the fragment shader stage asset.
+        /// Purpose: Adds or updates a runtime texture override by sampler uniform name.
         /// </summary>
         /// <remarks>
-        /// Ownership: Stores a non-owning handle reference.
-        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// Ownership: Stores a copy of the normalized uniform name and runtime texture settings.
+        /// Thread Safety: Not thread-safe; synchronize mutation externally.
         /// </remarks>
-        Handle fragment = {};
+        void set(std::string_view name, TextureInstance texture);
+        void set(MaterialTextureBinding texture_binding);
+        void set(std::initializer_list<MaterialTextureBinding> texture_bindings);
 
         /// <summary>
-        /// Purpose: Identifies the optional tessellation control and evaluation shader stages.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Stores a non-owning handle reference.
-        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        /// </remarks>
-        Handle tesselation = {};
-
-        /// <summary>
-        /// Purpose: Identifies the geometry shader stage asset.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Stores a non-owning handle reference.
-        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        /// </remarks>
-        Handle geometry = {};
-
-        /// <summary>
-        /// Purpose: Identifies the compute shader stage asset.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Stores a non-owning handle reference.
-        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        /// </remarks>
-        Handle compute = {};
-
-        /// <summary>
-        /// Purpose: Returns whether any stage handle is set.
+        /// Purpose: Returns whether a texture override exists for the given sampler name.
         /// </summary>
         /// <remarks>
         /// Ownership: Stateless; no ownership transfer.
-        /// Thread Safety: Safe to call concurrently.
+        /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
         /// </remarks>
-        bool is_valid() const
-        {
-            const bool has_compute = compute.is_valid();
-            const bool has_graphics_stages = vertex.is_valid() || fragment.is_valid()
-                || tesselation.is_valid() || geometry.is_valid();
+        bool has(std::string_view name) const;
 
-            if (has_compute)
-                return !has_graphics_stages;
+        /// <summary>
+        /// Purpose: Removes an override by name.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Mutates internal storage.
+        /// Thread Safety: Not thread-safe; synchronize mutation externally.
+        /// </remarks>
+        void remove(std::string_view name);
 
-            if (!vertex.is_valid() || !fragment.is_valid())
-                return false;
+        /// <summary>
+        /// Purpose: Clears all overrides.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Releases internal storage.
+        /// Thread Safety: Not thread-safe; synchronize mutation externally.
+        /// </remarks>
+        void clear();
 
-            return true;
-        }
+        std::vector<MaterialTextureBinding> overrides = {};
     };
 
     /// <summary>
@@ -103,7 +164,7 @@ namespace tbx
         /// Ownership: Stores stage handles by value; does not own loaded shader assets.
         /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
         /// </remarks>
-        ShaderProgram shader = {};
+        ShaderProgram program = {};
 
         /// <summary>
         /// Purpose: Stores named texture asset bindings for the material.
@@ -112,7 +173,7 @@ namespace tbx
         /// Ownership: Owns the texture name strings and handle values.
         /// Thread Safety: Safe for concurrent reads; synchronize concurrent mutation externally.
         /// </remarks>
-        std::vector<std::pair<std::string, Handle>> textures = {};
+        MaterialTextureBindings textures = {};
 
         /// <summary>
         /// Purpose: Stores material parameters.
@@ -121,6 +182,66 @@ namespace tbx
         /// Ownership: Owns the parameter list and associated values.
         /// Thread Safety: Safe for concurrent reads; synchronize concurrent mutation externally.
         /// </remarks>
-        std::vector<std::pair<std::string, UniformData>> parameters = {};
+        MaterialParameterBindings parameters = {};
+    };
+
+    /// <summary>
+    /// Purpose: Describes runtime material data used by renderers and post-processing effects.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores a non-owning base material handle plus owned parameter/texture override
+    /// sets. Shader stages are always sourced from the base material and are not runtime
+    /// overrideable.
+    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    /// </remarks>
+    struct TBX_API MaterialInstance
+    {
+        /// <summary>
+        /// Purpose: Base material asset used to resolve shader stages and default bindings.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores a non-owning material handle reference.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// </remarks>
+        Handle handle = {};
+
+        /// <summary>
+        /// Purpose: Runtime parameter overrides layered onto the base material.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Owns override values by name.
+        /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+        /// </remarks>
+        MaterialParameterBindings parameters = {};
+
+        /// <summary>
+        /// Purpose: Runtime texture overrides layered onto the base material.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Owns override sampler-name/handle pairs.
+        /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+        /// </remarks>
+        MaterialTextureBindings textures = {};
+    };
+
+    /// <summary>
+    /// Purpose: Defines the active sky material used for skybox rendering and clear-color
+    /// fallback.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores a non-owning material handle reference.
+    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    /// </remarks>
+    struct TBX_API Sky
+    {
+        /// <summary>
+        /// Purpose: Runtime material data used by the renderer to resolve sky shading data.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Owns parameter/texture override sets and a non-owning base material
+        /// handle.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// </remarks>
+        MaterialInstance material = {};
     };
 }

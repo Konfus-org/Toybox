@@ -77,6 +77,10 @@ namespace tbx::plugins
                 {
                     glUniform1f(location, value);
                 }
+                else if constexpr (std::is_same_v<ValueType, double>)
+                {
+                    glUniform1f(location, static_cast<float>(value));
+                }
                 else if constexpr (std::is_same_v<ValueType, Vec2>)
                 {
                     glUniform2f(location, value.x, value.y);
@@ -228,7 +232,7 @@ namespace tbx::plugins
         glUseProgram(0);
     }
 
-    void OpenGlShaderProgram::upload(const ShaderUniform& uniform)
+    void OpenGlShaderProgram::upload(const MaterialParameter& uniform)
     {
         TBX_ASSERT(
             _program_id != 0,
@@ -247,7 +251,7 @@ namespace tbx::plugins
         }
     }
 
-    bool OpenGlShaderProgram::try_upload(const ShaderUniform& uniform)
+    bool OpenGlShaderProgram::try_upload(const MaterialParameter& uniform)
     {
         if (_program_id == 0)
         {

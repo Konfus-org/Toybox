@@ -106,6 +106,11 @@ namespace tbx::tests::assets
         return AssetManager(working_directory, {}, provider, false);
     }
 
+    static AssetManager make_disk_backed_manager(const std::filesystem::path& working_directory)
+    {
+        return AssetManager(working_directory, {}, {}, false);
+    }
+
     /// <summary>
     /// Verifies loading by path reuses the same tracked asset instance.
     /// </summary>
@@ -272,6 +277,73 @@ namespace tbx::tests::assets
 
         // Assert
         EXPECT_EQ(resolved_id.value, 0x7aU);
+    }
+
+    /// <summary>
+    /// Verifies missing disk metadata generates a stable runtime id for discovery.
+    /// </summary>
+    TEST(asset_manager, generates_runtime_id_when_meta_is_missing)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        AssetManager manager = make_disk_backed_manager(working_directory);
+        Handle handle("missing_meta.asset");
+
+        // Act
+        auto first = manager.resolve_asset_id(handle);
+        auto second = manager.resolve_asset_id(handle);
+
+        // Assert
+        EXPECT_TRUE(first.is_valid());
+        EXPECT_EQ(first, second);
+    }
+
+    /// <summary>
+    /// Ensures invalid ids from metadata providers fall back to a generated registry id.
+    /// </summary>
+    TEST(asset_manager, falls_back_when_meta_provider_returns_invalid_id)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        InMemoryMetaSource meta_source = {};
+        meta_source.add(working_directory / "invalid_id.asset", Uuid());
+        AssetManager manager = make_manager(working_directory, meta_source);
+        Handle handle("invalid_id.asset");
+
+        // Act
+        auto resolved_id = manager.resolve_asset_id(handle);
+
+        // Assert
+        EXPECT_TRUE(resolved_id.is_valid());
+    }
+
+    /// <summary>
+    /// Verifies duplicate metadata ids reject the conflicting asset registration.
+    /// </summary>
+    TEST(asset_manager, rejects_conflicting_asset_when_meta_ids_collide)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        InMemoryMetaSource meta_source = {};
+        meta_source.add(working_directory / "alpha.asset", Uuid(0x44U));
+        meta_source.add(working_directory / "beta.asset", Uuid(0x44U));
+        AssetManager manager = make_manager(working_directory, meta_source);
+        Handle first_path("alpha.asset");
+        Handle second_path("beta.asset");
+        Handle shared_id(Uuid(0x44U));
+
+        // Act
+        reset_test_asset_loader_state();
+        auto first_asset = manager.load<TestAsset>(first_path);
+        auto conflicting_asset = manager.load<TestAsset>(second_path);
+        auto conflicting_id = manager.resolve_asset_id(second_path);
+        auto by_id_asset = manager.load<TestAsset>(shared_id);
+
+        // Assert
+        ASSERT_NE(first_asset, nullptr);
+        EXPECT_EQ(conflicting_asset, nullptr);
+        EXPECT_FALSE(conflicting_id.is_valid());
+        EXPECT_EQ(by_id_asset, first_asset);
     }
 
     /// <summary>

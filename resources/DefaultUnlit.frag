@@ -14,8 +14,9 @@ void main()
 {
     vec4 texture_color = v_color;
     texture_color *= texture(u_diffuse, v_tex_coord);
+    texture_color.rgb = tbx_srgb_to_linear(texture_color.rgb);
 
     vec3 mapped = tbx_tonemap_aces((texture_color.rgb + u_emissive.rgb) * max(u_exposure, 0.0));
-    mapped = pow(mapped, vec3(1.0 / 2.2));
+    mapped = tbx_linear_to_srgb(mapped);
     o_color = vec4(mapped, texture_color.a);
 }

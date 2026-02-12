@@ -2,7 +2,7 @@
 #include "tbx/common/int.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/files/file_operator.h"
+#include "tbx/files/file_ops.h"
 #include "tbx/plugin_api/plugin.h"
 #include <algorithm>
 #include <deque>

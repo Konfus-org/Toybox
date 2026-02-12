@@ -1,0 +1,15 @@
+{
+  "shaders": {
+    "vertex": "20243570",
+    "fragment": "20243571"
+  },
+  "textures": [
+    {
+      "name": "lut",
+      "value": "LUT_Film.tga"
+    }
+  ],
+  "parameters": [
+    { "name": "strength", "type": "float", "value": 0.7 }
+  ]
+}

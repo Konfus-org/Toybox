@@ -5,6 +5,7 @@
 #include "tbx/graphics/model.h"
 #include <cmath>
 #include <numbers>
+#include <variant>
 
 namespace tbx::plugins
 {
@@ -42,10 +43,11 @@ namespace tbx::plugins
                 const float y = cos_theta;
                 const float z = sin_theta * sin_phi;
 
-                vertices.push_back(Vertex {
-                    .position = Vec3(x, y, z),
-                    .uv = Vec2(u, 1.0f - v),
-                });
+                vertices.push_back(
+                    Vertex {
+                        .position = Vec3(x, y, z),
+                        .uv = Vec2(u, 1.0f - v),
+                    });
             }
         }
 
@@ -81,6 +83,38 @@ namespace tbx::plugins
         return Mesh(vertex_buffer, indices);
     }
 
+    static Mesh make_fullscreen_quad_mesh()
+    {
+        const std::vector<Vertex> vertices = {
+            Vertex {
+                .position = Vec3(-1.0f, -1.0f, 0.0f),
+                .uv = Vec2(0.0f, 0.0f),
+            },
+            Vertex {
+                .position = Vec3(1.0f, -1.0f, 0.0f),
+                .uv = Vec2(1.0f, 0.0f),
+            },
+            Vertex {
+                .position = Vec3(1.0f, 1.0f, 0.0f),
+                .uv = Vec2(1.0f, 1.0f),
+            },
+            Vertex {
+                .position = Vec3(-1.0f, 1.0f, 0.0f),
+                .uv = Vec2(0.0f, 1.0f),
+            }};
+
+        const IndexBuffer indices = {0, 1, 2, 2, 3, 0};
+        const VertexBuffer vertex_buffer = {
+            vertices,
+            {{
+                Vec3(0.0f),
+                RgbaColor(),
+                Vec3(0.0f),
+                Vec2(0.0f),
+            }}};
+        return Mesh(vertex_buffer, indices);
+    }
+
     static std::string normalize_uniform_name(std::string_view name)
     {
         if (name.size() >= 2U && name[0] == 'u' && name[1] == '_')
@@ -92,10 +126,10 @@ namespace tbx::plugins
     }
 
     static void append_or_override_uniform(
-        std::vector<ShaderUniform>& uniforms,
-        const ShaderUniform& uniform)
+        std::vector<MaterialParameter>& overrides,
+        const MaterialParameter& uniform)
     {
-        for (auto& existing : uniforms)
+        for (auto& existing : overrides)
         {
             if (existing.name != uniform.name)
                 continue;
@@ -104,7 +138,165 @@ namespace tbx::plugins
             return;
         }
 
-        uniforms.push_back(uniform);
+        overrides.push_back(uniform);
+    }
+
+    static void append_or_override_material_parameter(
+        MaterialParameterBindings& parameters,
+        std::string_view name,
+        MaterialParameterData data)
+    {
+        parameters.set(name, std::move(data));
+    }
+
+    static void append_or_override_texture(
+        MaterialTextureBindings& overrides,
+        std::string_view name,
+        const TextureInstance& runtime_texture)
+    {
+        overrides.set(name, runtime_texture);
+    }
+
+    static void append_or_override_runtime_texture(
+        std::vector<MaterialTextureBinding>& overrides,
+        std::string_view name,
+        const TextureInstance& runtime_texture)
+    {
+        const auto normalized_name = normalize_uniform_name(name);
+        for (auto& texture : overrides)
+        {
+            if (normalize_uniform_name(texture.name) != normalized_name)
+                continue;
+
+            texture.name = normalized_name;
+            texture.texture = runtime_texture;
+            return;
+        }
+
+        overrides.push_back(
+            MaterialTextureBinding {
+                .name = normalized_name,
+                .texture = runtime_texture,
+            });
+    }
+
+    static const TextureInstance* try_get_runtime_texture_override(
+        const std::vector<MaterialTextureBinding>& overrides,
+        const std::string& normalized_name)
+    {
+        for (const auto& override_texture : overrides)
+        {
+            if (normalize_uniform_name(override_texture.name) != normalized_name)
+                continue;
+
+            return &override_texture.texture;
+        }
+
+        return nullptr;
+    }
+
+    static void hash_uniform_value(
+        uint64& hash_value,
+        const MaterialParameterData& data)
+    {
+        constexpr uint64 fnv_prime = 1099511628211ULL;
+        auto hash_bytes = [&hash_value](const void* bytes, size_t size)
+        {
+            const auto* data_bytes = static_cast<const unsigned char*>(bytes);
+            for (size_t index = 0; index < size; ++index)
+            {
+                hash_value ^= static_cast<uint64>(data_bytes[index]);
+                hash_value *= fnv_prime;
+            }
+        };
+
+        const auto variant_index = static_cast<uint64>(data.index());
+        hash_bytes(&variant_index, sizeof(variant_index));
+        std::visit(
+            [&hash_bytes](const auto& value)
+            {
+                hash_bytes(&value, sizeof(value));
+            },
+            data);
+    }
+
+    static uint64 hash_runtime_material(const MaterialInstance& runtime_material)
+    {
+        constexpr uint64 fnv_offset = 1469598103934665603ULL;
+        constexpr uint64 fnv_prime = 1099511628211ULL;
+
+        auto hash_value = fnv_offset;
+        auto hash_bytes = [&hash_value](const void* data, size_t size)
+        {
+            const auto* bytes = static_cast<const unsigned char*>(data);
+            for (size_t i = 0; i < size; ++i)
+            {
+                hash_value ^= static_cast<uint64>(bytes[i]);
+                hash_value *= fnv_prime;
+            }
+        };
+
+        hash_bytes(&runtime_material.handle.id, sizeof(runtime_material.handle.id));
+
+        for (const auto& parameter : runtime_material.parameters.values)
+        {
+            hash_bytes(parameter.name.data(), parameter.name.size());
+            hash_uniform_value(hash_value, parameter.value);
+        }
+
+        for (const auto& texture_binding : runtime_material.textures.overrides)
+        {
+            hash_bytes(texture_binding.name.data(), texture_binding.name.size());
+            hash_bytes(&texture_binding.texture.handle.id, sizeof(texture_binding.texture.handle.id));
+            const bool has_settings_override = texture_binding.texture.settings.has_value();
+            hash_bytes(&has_settings_override, sizeof(has_settings_override));
+            if (has_settings_override)
+            {
+                const TextureSettings& texture_settings = texture_binding.texture.settings.value();
+                hash_bytes(
+                    &texture_settings.filter,
+                    sizeof(texture_settings.filter));
+                hash_bytes(&texture_settings.wrap, sizeof(texture_settings.wrap));
+                hash_bytes(
+                    &texture_settings.format,
+                    sizeof(texture_settings.format));
+                hash_bytes(
+                    &texture_settings.mipmaps,
+                    sizeof(texture_settings.mipmaps));
+                hash_bytes(
+                    &texture_settings.compression,
+                    sizeof(texture_settings.compression));
+            }
+        }
+
+        return hash_value;
+    }
+
+    static void apply_runtime_material_overrides(
+        const MaterialInstance& runtime_material,
+        Material& in_out_material,
+        std::vector<MaterialTextureBinding>* out_runtime_texture_overrides)
+    {
+        for (const auto& texture_binding : runtime_material.textures.overrides)
+        {
+            append_or_override_texture(
+                in_out_material.textures,
+                texture_binding.name,
+                texture_binding.texture);
+            if (out_runtime_texture_overrides != nullptr)
+                append_or_override_runtime_texture(
+                    *out_runtime_texture_overrides,
+                    texture_binding.name,
+                    texture_binding.texture);
+        }
+
+        for (const auto& parameter_override : runtime_material.parameters.values)
+        {
+            append_or_override_material_parameter(
+                in_out_material.parameters,
+                parameter_override.name,
+                parameter_override.value);
+        }
     }
 
     static void append_texture_binding(
@@ -161,14 +353,13 @@ namespace tbx::plugins
             const auto& dynamic_mesh = entity.get_component<DynamicMesh>();
             auto dynamic_signature = CachedEntityResources::DynamicSignature {};
             dynamic_signature.mesh_address =
-                reinterpret_cast<std::uintptr_t>(dynamic_mesh.mesh.get());
-            dynamic_signature.material_id = renderer.material.id;
+                reinterpret_cast<std::uintptr_t>(dynamic_mesh.data.get());
+            dynamic_signature.material_id = renderer.material.handle.id;
+            dynamic_signature.runtime_material_hash = hash_runtime_material(renderer.material);
 
             const auto resource_id = entity.get_id();
             auto iterator = _resources_by_entity.find(resource_id);
-            if (
-                iterator != _resources_by_entity.end()
-                && iterator->second.is_dynamic
+            if (iterator != _resources_by_entity.end() && iterator->second.is_dynamic
                 && iterator->second.dynamic_signature == dynamic_signature)
             {
                 iterator->second.last_use = Clock::now();
@@ -176,14 +367,14 @@ namespace tbx::plugins
                 return true;
             }
 
-            if (
-                iterator != _resources_by_entity.end()
-                && iterator->second.is_dynamic
+            if (iterator != _resources_by_entity.end() && iterator->second.is_dynamic
                 && iterator->second.dynamic_signature.material_id == dynamic_signature.material_id
-                && dynamic_mesh.mesh)
+                && iterator->second.dynamic_signature.runtime_material_hash
+                    == dynamic_signature.runtime_material_hash
+                && dynamic_mesh.data)
             {
                 auto resources = iterator->second.resources;
-                resources.mesh = std::make_shared<OpenGlMesh>(*dynamic_mesh.mesh);
+                resources.mesh = std::make_shared<OpenGlMesh>(*dynamic_mesh.data);
                 iterator->second.resources = resources;
                 iterator->second.dynamic_signature = dynamic_signature;
                 iterator->second.last_use = Clock::now();
@@ -211,13 +402,12 @@ namespace tbx::plugins
         const auto& renderer = entity.get_component<Renderer>();
         auto static_signature = CachedEntityResources::StaticSignature {};
         const auto& static_mesh = entity.get_component<StaticMesh>();
-        static_signature.model_id = static_mesh.model.id;
-        static_signature.material_id = renderer.material.id;
+        static_signature.model_id = static_mesh.handle.id;
+        static_signature.material_id = renderer.material.handle.id;
+        static_signature.runtime_material_hash = hash_runtime_material(renderer.material);
         const auto resource_id = entity.get_id();
         auto iterator = _resources_by_entity.find(resource_id);
-        if (
-            iterator != _resources_by_entity.end()
-            && !iterator->second.is_dynamic
+        if (iterator != _resources_by_entity.end() && !iterator->second.is_dynamic
             && iterator->second.static_signature == static_signature)
         {
             iterator->second.last_use = Clock::now();
@@ -240,13 +430,13 @@ namespace tbx::plugins
     }
 
     bool OpenGlResourceManager::try_load_sky(
-        const Handle& sky_material,
+        const MaterialInstance& sky_material,
         OpenGlDrawResources& out_resources)
     {
-        if (!sky_material.is_valid())
+        if (!sky_material.handle.is_valid())
             return false;
 
-        const auto resource_id = sky_material.id;
+        const auto resource_id = hash_runtime_material(sky_material);
         auto iterator = _resources_by_sky_material.find(resource_id);
         if (iterator != _resources_by_sky_material.end())
         {
@@ -267,10 +457,39 @@ namespace tbx::plugins
         return true;
     }
 
+    bool OpenGlResourceManager::try_load_post_process(
+        const MaterialInstance& post_process_material,
+        OpenGlDrawResources& out_resources)
+    {
+        if (!post_process_material.handle.is_valid())
+            return false;
+
+        const auto resource_id = hash_runtime_material(post_process_material);
+        auto iterator = _resources_by_post_process_material.find(resource_id);
+        if (iterator != _resources_by_post_process_material.end())
+        {
+            iterator->second.last_use = Clock::now();
+            out_resources = iterator->second.resources;
+            return true;
+        }
+
+        auto resources = OpenGlDrawResources {};
+        if (!try_create_post_process_resources(post_process_material, resources))
+            return false;
+
+        _resources_by_post_process_material[resource_id] = CachedPostProcessResources {
+            .resources = resources,
+            .last_use = Clock::now(),
+        };
+        out_resources = std::move(resources);
+        return true;
+    }
+
     void OpenGlResourceManager::clear()
     {
         _resources_by_entity.clear();
         _resources_by_sky_material.clear();
+        _resources_by_post_process_material.clear();
         _next_unused_scan_time = {};
     }
 
@@ -303,6 +522,17 @@ namespace tbx::plugins
             }
             iterator = _resources_by_sky_material.erase(iterator);
         }
+
+        for (auto iterator = _resources_by_post_process_material.begin();
+             iterator != _resources_by_post_process_material.end();)
+        {
+            if (iterator->second.last_use >= unload_before)
+            {
+                ++iterator;
+                continue;
+            }
+            iterator = _resources_by_post_process_material.erase(iterator);
+        }
     }
 
     bool OpenGlResourceManager::try_create_static_mesh_resources(
@@ -311,16 +541,16 @@ namespace tbx::plugins
         OpenGlDrawResources& out_resources)
     {
         const auto& static_mesh = entity.get_component<StaticMesh>();
-        auto model = _asset_manager->load<Model>(static_mesh.model);
+        auto model = _asset_manager->load<Model>(static_mesh.handle);
         if (!model || model->meshes.empty())
             return false;
 
         out_resources.mesh = std::make_shared<OpenGlMesh>(model->meshes[0]);
 
         auto material = Material();
-        if (renderer.material.is_valid())
+        if (renderer.material.handle.is_valid())
         {
-            auto override_material = _asset_manager->load<Material>(renderer.material);
+            auto override_material = _asset_manager->load<Material>(renderer.material.handle);
             if (override_material)
                 material = *override_material;
         }
@@ -329,7 +559,9 @@ namespace tbx::plugins
             material = resolve_static_mesh_material(*model);
         }
 
-        return try_append_material_resources(material, out_resources);
+        auto runtime_texture_overrides = std::vector<MaterialTextureBinding> {};
+        apply_runtime_material_overrides(renderer.material, material, &runtime_texture_overrides);
+        return try_append_material_resources(material, runtime_texture_overrides, out_resources);
     }
 
     bool OpenGlResourceManager::try_create_dynamic_mesh_resources(
@@ -338,49 +570,78 @@ namespace tbx::plugins
         OpenGlDrawResources& out_resources)
     {
         const auto& dynamic_mesh = entity.get_component<DynamicMesh>();
-        if (!dynamic_mesh.mesh)
+        if (!dynamic_mesh.data)
             return false;
 
-        out_resources.mesh = std::make_shared<OpenGlMesh>(*dynamic_mesh.mesh);
+        out_resources.mesh = std::make_shared<OpenGlMesh>(*dynamic_mesh.data);
 
         auto material = Material();
-        if (renderer.material.is_valid())
+        if (renderer.material.handle.is_valid())
         {
-            auto loaded_material = _asset_manager->load<Material>(renderer.material);
+            auto loaded_material = _asset_manager->load<Material>(renderer.material.handle);
             if (loaded_material)
                 material = *loaded_material;
         }
 
-        return try_append_material_resources(material, out_resources);
+        auto runtime_texture_overrides = std::vector<MaterialTextureBinding> {};
+        apply_runtime_material_overrides(renderer.material, material, &runtime_texture_overrides);
+        return try_append_material_resources(material, runtime_texture_overrides, out_resources);
     }
 
     bool OpenGlResourceManager::try_create_sky_resources(
-        const Handle& sky_material,
+        const MaterialInstance& sky_material,
         OpenGlDrawResources& out_resources)
     {
-        auto material = _asset_manager->load<Material>(sky_material);
+        auto material = _asset_manager->load<Material>(sky_material.handle);
         if (!material)
             return false;
 
         static const Mesh skybox_mesh = make_panoramic_sky_mesh();
         out_resources.mesh = std::make_shared<OpenGlMesh>(skybox_mesh);
-        return try_append_material_resources(*material, out_resources);
+        auto resolved = *material;
+        auto runtime_texture_overrides = std::vector<MaterialTextureBinding> {};
+        apply_runtime_material_overrides(sky_material, resolved, &runtime_texture_overrides);
+        return try_append_material_resources(resolved, runtime_texture_overrides, out_resources);
+    }
+
+    bool OpenGlResourceManager::try_create_post_process_resources(
+        const MaterialInstance& post_process_material,
+        OpenGlDrawResources& out_resources)
+    {
+        if (!post_process_material.handle.is_valid())
+            return false;
+
+        auto material = _asset_manager->load<Material>(post_process_material.handle);
+        if (!material)
+            return false;
+
+        static const Mesh fullscreen_quad_mesh = make_fullscreen_quad_mesh();
+        out_resources.mesh = std::make_shared<OpenGlMesh>(fullscreen_quad_mesh);
+
+        auto resolved = *material;
+        auto runtime_texture_overrides = std::vector<MaterialTextureBinding> {};
+        apply_runtime_material_overrides(
+            post_process_material,
+            resolved,
+            &runtime_texture_overrides);
+        return try_append_material_resources(resolved, runtime_texture_overrides, out_resources);
     }
 
     bool OpenGlResourceManager::try_append_material_resources(
         const Material& material,
+        const std::vector<MaterialTextureBinding>& runtime_texture_overrides,
         OpenGlDrawResources& out_resources)
     {
         auto resolved_material = material;
-        if (!resolved_material.shader.is_valid())
+        if (!resolved_material.program.is_valid())
         {
-            resolved_material.shader.vertex = lit_vertex_shader;
-            resolved_material.shader.fragment = lit_fragment_shader;
+            resolved_material.program.vertex = lit_vertex_shader;
+            resolved_material.program.fragment = lit_fragment_shader;
         }
 
-        if (resolved_material.shader.is_valid())
+        if (resolved_material.program.is_valid())
         {
-            out_resources.use_tesselation = resolved_material.shader.tesselation.is_valid();
+            out_resources.use_tesselation = resolved_material.program.tesselation.is_valid();
             auto shader_stages = std::vector<std::shared_ptr<OpenGlShader>> {};
 
             const auto append_shader_stages =
@@ -428,16 +689,15 @@ namespace tbx::plugins
                 shader_stages.push_back(std::move(stage));
             };
 
-            append_shader_stages(resolved_material.shader.vertex, ShaderType::VERTEX);
-            append_shader_stages(resolved_material.shader.tesselation, ShaderType::TESSELATION);
-            append_shader_stages(resolved_material.shader.geometry, ShaderType::GEOMETRY);
-            append_shader_stages(resolved_material.shader.fragment, ShaderType::FRAGMENT);
-            append_shader_stages(resolved_material.shader.compute, ShaderType::COMPUTE);
+            append_shader_stages(resolved_material.program.vertex, ShaderType::VERTEX);
+            append_shader_stages(resolved_material.program.tesselation, ShaderType::TESSELATION);
+            append_shader_stages(resolved_material.program.geometry, ShaderType::GEOMETRY);
+            append_shader_stages(resolved_material.program.fragment, ShaderType::FRAGMENT);
+            append_shader_stages(resolved_material.program.compute, ShaderType::COMPUTE);
 
             if (!shader_stages.empty())
             {
-                out_resources.shader_program =
-                    std::make_shared<OpenGlShaderProgram>(shader_stages);
+                out_resources.shader_program = std::make_shared<OpenGlShaderProgram>(shader_stages);
                 TBX_ASSERT(
                     out_resources.shader_program->get_program_id() != 0,
                     "OpenGL rendering: failed to link a valid shader program.");
@@ -446,15 +706,33 @@ namespace tbx::plugins
 
         bool has_diffuse = false;
         bool has_normal = false;
-        for (const auto& [texture_name, texture_handle] : resolved_material.textures)
+        for (const auto& texture_binding : resolved_material.textures.overrides)
         {
-            const auto normalized_name = normalize_uniform_name(texture_name);
+            const auto normalized_name = normalize_uniform_name(texture_binding.name);
             has_diffuse = has_diffuse || normalized_name == "u_diffuse";
             has_normal = has_normal || normalized_name == "u_normal";
 
+            const TextureInstance* runtime_texture_override =
+                try_get_runtime_texture_override(runtime_texture_overrides, normalized_name);
+
             std::shared_ptr<Texture> texture_asset = nullptr;
-            if (texture_handle.is_valid())
-                texture_asset = _asset_manager->load<Texture>(texture_handle);
+            Handle resolved_texture_handle = texture_binding.texture.handle;
+            if (runtime_texture_override && runtime_texture_override->handle.is_valid())
+                resolved_texture_handle = runtime_texture_override->handle;
+            if (resolved_texture_handle.is_valid())
+            {
+                auto load_parameters = TextureLoadParameters {};
+                if (runtime_texture_override && runtime_texture_override->settings.has_value())
+                    load_parameters.settings = runtime_texture_override->settings.value();
+
+                texture_asset = _asset_manager->load(resolved_texture_handle, load_parameters);
+                TBX_ASSERT(
+                    texture_asset != nullptr,
+                    "OpenGL rendering: texture '{}' failed to load as Texture (id={}, name='{}').",
+                    normalized_name,
+                    to_string(resolved_texture_handle.id),
+                    resolved_texture_handle.name);
+            }
 
             auto fallback_texture = Texture();
             if (normalized_name == "u_normal")
@@ -463,7 +741,16 @@ namespace tbx::plugins
                 fallback_texture.pixels = {128, 128, 255};
             }
 
-            const Texture& texture_data = texture_asset ? *texture_asset : fallback_texture;
+            auto texture_data = texture_asset ? *texture_asset : fallback_texture;
+            if (runtime_texture_override && runtime_texture_override->settings.has_value())
+            {
+                const TextureSettings& texture_settings = runtime_texture_override->settings.value();
+                texture_data.filter = texture_settings.filter;
+                texture_data.wrap = texture_settings.wrap;
+                texture_data.format = texture_settings.format;
+                texture_data.mipmaps = texture_settings.mipmaps;
+                texture_data.compression = texture_settings.compression;
+            }
             append_texture_binding(out_resources, normalized_name, texture_data);
         }
 
@@ -477,13 +764,13 @@ namespace tbx::plugins
             append_texture_binding(out_resources, "u_normal", normal_texture);
         }
 
-        for (const auto& [parameter_name, parameter_value] : resolved_material.parameters)
+        for (const auto& parameter_binding : resolved_material.parameters.values)
         {
             append_or_override_uniform(
                 out_resources.shader_parameters,
-                ShaderUniform {
-                    .name = normalize_uniform_name(parameter_name),
-                    .data = parameter_value,
+                MaterialParameter {
+                    .name = normalize_uniform_name(parameter_binding.name),
+                    .data = parameter_binding.value,
                 });
         }
 
@@ -494,7 +781,7 @@ namespace tbx::plugins
         for (const auto& texture_binding : out_resources.textures)
         {
             out_resources.shader_program->try_upload(
-                ShaderUniform {
+                MaterialParameter {
                     .name = texture_binding.uniform_name,
                     .data = texture_binding.slot,
                 });

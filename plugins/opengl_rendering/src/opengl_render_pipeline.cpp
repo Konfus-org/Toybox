@@ -1,4 +1,7 @@
 #include "opengl_render_pipeline.h"
+#include "opengl_deferred_lighting_pass.h"
+#include "opengl_post_process_pass.h"
+#include "opengl_sky_pass.h"
 #include "opengl_resources/opengl_resource.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/camera.h"
@@ -24,22 +27,15 @@ namespace tbx::plugins
                 _resource_manager != nullptr,
                 "OpenGL rendering: geometry operation requires a resource manager.");
             TBX_ASSERT(
-                frame_context.render_target != nullptr,
-                "OpenGL rendering: geometry operation requires a render target.");
+                frame_context.gbuffer_target != nullptr,
+                "OpenGL rendering: geometry operation requires a gbuffer target.");
 
-            auto render_target_scope = GlResourceScope(*frame_context.render_target);
+            auto render_target_scope = GlResourceScope(*frame_context.gbuffer_target);
             glViewport(
                 0,
                 0,
                 static_cast<GLsizei>(frame_context.render_resolution.width),
                 static_cast<GLsizei>(frame_context.render_resolution.height));
-            glClearColor(
-                frame_context.clear_color.r,
-                frame_context.clear_color.g,
-                frame_context.clear_color.b,
-                frame_context.clear_color.a);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            draw_sky(frame_context);
 
             const auto view_projection =
                 get_view_projection_matrix(
@@ -66,25 +62,6 @@ namespace tbx::plugins
             return camera.get_view_projection_matrix(camera_position, camera_rotation);
         }
 
-        Mat4 get_sky_view_projection_matrix(
-            const OpenGlCameraView& camera_view,
-            const Size& render_resolution) const
-        {
-            if (!camera_view.camera_entity.has_component<Camera>())
-                return Mat4(1.0f);
-
-            auto& camera = camera_view.camera_entity.get_component<Camera>();
-            camera.set_aspect(render_resolution.get_aspect_ratio());
-            const auto camera_rotation = get_camera_rotation(camera_view);
-            const auto camera_position = get_camera_position(camera_view);
-
-            auto sky_view = camera.get_view_matrix(camera_position, camera_rotation);
-            sky_view[3][0] = 0.0f;
-            sky_view[3][1] = 0.0f;
-            sky_view[3][2] = 0.0f;
-            return camera.get_projection_matrix() * sky_view;
-        }
-
         Vec3 get_camera_position(const OpenGlCameraView& camera_view) const
         {
             if (!camera_view.camera_entity.has_component<Transform>())
@@ -108,7 +85,7 @@ namespace tbx::plugins
             const Mat4& view_projection) const
         {
             shader_program.upload(
-                ShaderUniform {
+                MaterialParameter {
                     .name = "u_view_proj",
                     .data = view_projection,
                 });
@@ -124,18 +101,10 @@ namespace tbx::plugins
 
             const auto model_matrix = build_transform_matrix(transform);
             shader_program.upload(
-                ShaderUniform {
+                MaterialParameter {
                     .name = "u_model",
                     .data = model_matrix,
                 });
-        }
-
-        void upload_override_uniforms(
-            OpenGlShaderProgram& shader_program,
-            const Renderer& renderer) const
-        {
-            for (const auto& override_uniform : renderer.material_overrides.get_uniforms())
-                shader_program.try_upload(override_uniform);
         }
 
         void bind_textures(
@@ -170,47 +139,6 @@ namespace tbx::plugins
             glEnable(GL_CULL_FACE);
         }
 
-        void draw_sky(const OpenGlRenderFrameContext& frame_context) const
-        {
-            if (!frame_context.sky_material.is_valid())
-                return;
-
-            auto draw_resources = OpenGlDrawResources {};
-            if (!_resource_manager->try_load_sky(frame_context.sky_material, draw_resources))
-                return;
-
-            if (!draw_resources.mesh || !draw_resources.shader_program)
-                return;
-
-            TBX_ASSERT(
-                draw_resources.shader_program->get_program_id() != 0,
-                "OpenGL rendering: sky draw requires a valid shader program.");
-
-            const auto sky_view_projection =
-                get_sky_view_projection_matrix(
-                    frame_context.camera_view,
-                    frame_context.render_resolution);
-
-            auto resource_scopes = std::vector<GlResourceScope> {};
-            resource_scopes.reserve(draw_resources.textures.size() + 2);
-            resource_scopes.push_back(GlResourceScope(*draw_resources.shader_program));
-            resource_scopes.push_back(GlResourceScope(*draw_resources.mesh));
-            bind_textures(draw_resources, resource_scopes);
-
-            upload_frame_uniforms(*draw_resources.shader_program, sky_view_projection);
-            draw_resources.shader_program->upload(
-                ShaderUniform {
-                    .name = "u_model",
-                    .data = Mat4(1.0f),
-                });
-            upload_material_uniforms(*draw_resources.shader_program, draw_resources);
-
-            glDepthMask(GL_FALSE);
-            glDisable(GL_CULL_FACE);
-            draw_resources.mesh->draw(draw_resources.use_tesselation);
-            glDepthMask(GL_TRUE);
-        }
-
         void draw_entity(const Entity& entity, const Mat4& view_projection) const
         {
             TBX_ASSERT(
@@ -239,7 +167,6 @@ namespace tbx::plugins
             upload_frame_uniforms(*draw_resources.shader_program, view_projection);
             upload_material_uniforms(*draw_resources.shader_program, draw_resources);
             upload_model_uniform(*draw_resources.shader_program, entity);
-            upload_override_uniforms(*draw_resources.shader_program, renderer);
             draw_resources.mesh->draw(draw_resources.use_tesselation);
         }
 
@@ -247,19 +174,58 @@ namespace tbx::plugins
         OpenGlResourceManager* _resource_manager = nullptr;
     };
 
-    class OpenGlPresentOperation final : public OpenGlRenderOperation
+    class OpenGlSkyOperation final : public OpenGlRenderOperation
+    {
+      public:
+        explicit OpenGlSkyOperation(OpenGlResourceManager& resource_manager)
+            : _resource_manager(&resource_manager)
+        {
+        }
+
+        void execute_with_frame_context(const OpenGlRenderFrameContext& frame_context) override
+        {
+            TBX_ASSERT(
+                _resource_manager != nullptr,
+                "OpenGL rendering: sky operation requires a resource manager.");
+            _pass.execute(frame_context, *_resource_manager);
+        }
+
+      private:
+        OpenGlResourceManager* _resource_manager = nullptr;
+        OpenGlSkyPass _pass = {};
+    };
+
+    class OpenGlDeferredLightingOperation final : public OpenGlRenderOperation
     {
       public:
         void execute_with_frame_context(const OpenGlRenderFrameContext& frame_context) override
         {
-            TBX_ASSERT(
-                frame_context.render_target != nullptr,
-                "OpenGL rendering: present operation requires a render target.");
-            frame_context.render_target->preset(
-                frame_context.present_target_framebuffer_id,
-                frame_context.viewport_size,
-                frame_context.present_mode);
+            _pass.execute(frame_context);
         }
+
+      private:
+        OpenGlDeferredLightingPass _pass = {};
+    };
+
+    class OpenGlPostProcessOperation final : public OpenGlRenderOperation
+    {
+      public:
+        explicit OpenGlPostProcessOperation(OpenGlResourceManager& resource_manager)
+            : _resource_manager(&resource_manager)
+        {
+        }
+
+        void execute_with_frame_context(const OpenGlRenderFrameContext& frame_context) override
+        {
+            TBX_ASSERT(
+                _resource_manager != nullptr,
+                "OpenGL rendering: post-process operation requires a resource manager.");
+            _pass.execute(frame_context, *_resource_manager);
+        }
+
+      private:
+        OpenGlResourceManager* _resource_manager = nullptr;
+        OpenGlPostProcessPass _pass = {};
     };
 
     void OpenGlRenderOperation::execute(const std::any& payload)
@@ -274,8 +240,10 @@ namespace tbx::plugins
     OpenGlRenderPipeline::OpenGlRenderPipeline(AssetManager& asset_manager)
         : _resource_manager(asset_manager)
     {
+        add_operation(std::make_unique<OpenGlSkyOperation>(_resource_manager));
         add_operation(std::make_unique<OpenGlGeometryOperation>(_resource_manager));
-        add_operation(std::make_unique<OpenGlPresentOperation>());
+        add_operation(std::make_unique<OpenGlDeferredLightingOperation>());
+        add_operation(std::make_unique<OpenGlPostProcessOperation>(_resource_manager));
     }
 
     OpenGlRenderPipeline::~OpenGlRenderPipeline() noexcept
@@ -298,8 +266,11 @@ namespace tbx::plugins
             frame_context->viewport_size.width > 0 && frame_context->viewport_size.height > 0,
             "OpenGL rendering: viewport size must be greater than zero.");
         TBX_ASSERT(
-            frame_context->render_target != nullptr,
-            "OpenGL rendering: frame context requires a render target framebuffer.");
+            frame_context->gbuffer_target != nullptr,
+            "OpenGL rendering: frame context requires a gbuffer target framebuffer.");
+        TBX_ASSERT(
+            frame_context->lighting_target != nullptr,
+            "OpenGL rendering: frame context requires a lighting target framebuffer.");
 
         _resource_manager.unload_unreferenced();
         Pipeline::execute(payload);

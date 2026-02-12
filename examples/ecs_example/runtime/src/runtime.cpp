@@ -69,7 +69,7 @@ namespace tbx::examples
             const float b = 0.5f + (0.5f * sin(t + (4.0f * PI / 3.0f)));
 
             RgbaColor color = RgbaColor(r, g, b, 1.0f);
-            renderer.material_overrides.set("color", color);
+            renderer.material.parameters.set("color", color);
 
             offset += 0.1f;
         }

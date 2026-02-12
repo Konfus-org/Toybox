@@ -19,7 +19,9 @@ namespace tbx
         const std::filesystem::path& asset_path,
         TextureWrap wrap,
         TextureFilter filter,
-        TextureFormat format);
+        TextureFormat format,
+        TextureMipmaps mipmaps = TextureMipmaps::ENABLED,
+        TextureCompression compression = TextureCompression::AUTO);
 
     /// <summary>
     /// Purpose: Loads a texture synchronously via the global message dispatcher.
@@ -33,5 +35,7 @@ namespace tbx
         const std::filesystem::path& asset_path,
         TextureWrap wrap,
         TextureFilter filter,
-        TextureFormat format);
+        TextureFormat format,
+        TextureMipmaps mipmaps = TextureMipmaps::ENABLED,
+        TextureCompression compression = TextureCompression::AUTO);
 }

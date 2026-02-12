@@ -43,7 +43,7 @@ namespace tbx::plugins
         std::shared_ptr<OpenGlShaderProgram> shader_program = nullptr;
         bool use_tesselation = false;
         std::vector<OpenGlTextureBinding> textures = {};
-        std::vector<ShaderUniform> shader_parameters = {};
+        std::vector<MaterialParameter> shader_parameters = {};
     };
 
     /// <summary>
@@ -86,7 +86,20 @@ namespace tbx::plugins
         /// ownership in the cache when creation succeeds.
         /// Thread Safety: Not thread-safe; call only from the render thread.
         /// </remarks>
-        bool try_load_sky(const Handle& sky_material, OpenGlDrawResources& out_resources);
+        bool try_load_sky(const MaterialInstance& sky_material, OpenGlDrawResources& out_resources);
+
+        /// <summary>
+        /// Purpose: Loads or retrieves cached OpenGL draw resources for a post-processing
+        /// material.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns shared ownership through the output struct and stores shared
+        /// ownership in the cache when creation succeeds.
+        /// Thread Safety: Not thread-safe; call only from the render thread.
+        /// </remarks>
+        bool try_load_post_process(
+            const MaterialInstance& post_process_material,
+            OpenGlDrawResources& out_resources);
 
         /// <summary>
         /// Purpose: Clears every cached resource entry.
@@ -125,10 +138,14 @@ namespace tbx::plugins
             const Renderer& renderer,
             OpenGlDrawResources& out_resources);
         bool try_create_sky_resources(
-            const Handle& sky_material,
+            const MaterialInstance& sky_material,
+            OpenGlDrawResources& out_resources);
+        bool try_create_post_process_resources(
+            const MaterialInstance& post_process_material,
             OpenGlDrawResources& out_resources);
         bool try_append_material_resources(
             const Material& material,
+            const std::vector<MaterialTextureBinding>& runtime_texture_overrides,
             OpenGlDrawResources& out_resources);
 
         struct CachedEntityResources final
@@ -137,22 +154,28 @@ namespace tbx::plugins
             {
                 Uuid model_id = {};
                 Uuid material_id = {};
+                uint64 runtime_material_hash = 0U;
 
                 bool operator==(const StaticSignature& other) const
                 {
-                    return model_id == other.model_id && material_id == other.material_id;
+                    return (
+                        model_id == other.model_id
+                        && material_id == other.material_id
+                        && runtime_material_hash == other.runtime_material_hash);
                 }
             };
             struct DynamicSignature final
             {
                 std::uintptr_t mesh_address = 0U;
                 Uuid material_id = {};
+                uint64 runtime_material_hash = 0U;
 
                 bool operator==(const DynamicSignature& other) const
                 {
                     return (
                         mesh_address == other.mesh_address
-                        && material_id == other.material_id);
+                        && material_id == other.material_id
+                        && runtime_material_hash == other.runtime_material_hash);
                 }
             };
 
@@ -169,13 +192,21 @@ namespace tbx::plugins
             Clock::time_point last_use = {};
         };
 
+        struct CachedPostProcessResources final
+        {
+            OpenGlDrawResources resources = {};
+            Clock::time_point last_use = {};
+        };
+
       private:
         static constexpr std::chrono::seconds UNUSED_TTL = std::chrono::seconds(3);
         static constexpr std::chrono::seconds UNUSED_SCAN_INTERVAL = std::chrono::seconds(1);
 
         AssetManager* _asset_manager = nullptr;
         std::unordered_map<Uuid, CachedEntityResources> _resources_by_entity = {};
-        std::unordered_map<Uuid, CachedSkyResources> _resources_by_sky_material = {};
+        std::unordered_map<uint64, CachedSkyResources> _resources_by_sky_material = {};
+        std::unordered_map<uint64, CachedPostProcessResources> _resources_by_post_process_material =
+            {};
         Clock::time_point _next_unused_scan_time = {};
     };
 }

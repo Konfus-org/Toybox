@@ -8,6 +8,7 @@
 #include "tbx/graphics/messages.h"
 #include "tbx/plugin_api/plugin.h"
 #include <memory>
+#include <vector>
 
 namespace tbx::plugins
 {
@@ -46,19 +47,28 @@ namespace tbx::plugins
         struct ResolvedSky final
         {
             RgbaColor clear_color = RgbaColor::black;
-            Handle sky_material = {};
+            MaterialInstance sky_material = {};
+        };
+
+        struct ResolvedPostProcessing final
+        {
+            std::vector<OpenGlPostProcessEffect> effects = {};
         };
 
         Uuid _window_id = invalid::uuid;
         Size _viewport_size = {0, 0};
         Size _render_resolution = {0, 0};
         bool _is_context_ready = false;
-        OpenGlFrameBuffer _framebuffer = {};
+        OpenGlFrameBuffer _gbuffer_framebuffer = {};
+        OpenGlFrameBuffer _lighting_framebuffer = {};
+        OpenGlFrameBuffer _post_process_ping_framebuffer = {};
+        OpenGlFrameBuffer _post_process_pong_framebuffer = {};
         std::unique_ptr<OpenGlRenderPipeline> _render_pipeline = nullptr;
         bool _is_sky_cache_valid = false;
         bool _cached_has_sky_component = false;
-        Handle _cached_sky_source_material = {};
+        uint64 _cached_sky_source_material_hash = 0U;
         std::shared_ptr<Material> _cached_sky_material = nullptr;
         ResolvedSky _cached_resolved_sky = {};
+        ResolvedPostProcessing _cached_resolved_post_processing = {};
     };
 }

@@ -1,7 +1,9 @@
 #include "tbx/assets/asset_manager.h"
-#include "tbx/files/file_operator.h"
+#include "tbx/common/string_utils.h"
+#include "tbx/files/file_ops.h"
 #include <algorithm>
 #include <filesystem>
+#include <string>
 
 namespace tbx
 {
@@ -59,20 +61,121 @@ namespace tbx
         }
     }
 
-    Uuid AssetManager::read_meta_uuid(const std::filesystem::path& asset_path) const
+    static bool is_texture_asset_path(const std::filesystem::path& asset_path)
+    {
+        auto extension = to_lower(asset_path.extension().string());
+        return extension == ".png" || extension == ".jpg" || extension == ".jpeg"
+               || extension == ".tga" || extension == ".bmp" || extension == ".gif"
+               || extension == ".hdr";
+    }
+
+    static TextureSettings make_default_texture_meta_settings()
+    {
+        TextureSettings settings = {};
+        settings.wrap = TextureWrap::REPEAT;
+        settings.filter = TextureFilter::LINEAR;
+        settings.format = TextureFormat::RGBA;
+        settings.mipmaps = TextureMipmaps::ENABLED;
+        settings.compression = TextureCompression::AUTO;
+        return settings;
+    }
+
+    static std::string make_meta_contents(
+        const AssetMetaParser& parser,
+        const std::filesystem::path& asset_path,
+        Uuid id)
+    {
+        AssetMeta meta = {
+            .asset_path = asset_path,
+            .id = id,
+            .name = asset_path.stem().string(),
+        };
+        if (is_texture_asset_path(asset_path))
+            meta.texture_settings = make_default_texture_meta_settings();
+        return parser.serialize_to_source(meta);
+    }
+
+    bool AssetManager::write_meta_with_id(const std::filesystem::path& asset_path, Uuid id) const
+    {
+        auto meta_path = asset_path;
+        meta_path += ".meta";
+        auto file_operator = FileOperator(_working_directory);
+        return file_operator.write_file(
+            meta_path,
+            FileDataFormat::UTF8_TEXT,
+            make_meta_contents(_meta_reader, asset_path, id));
+    }
+
+    Uuid AssetManager::generate_unique_asset_id_locked() const
+    {
+        auto generated = Uuid::generate();
+        while (!generated.is_valid() || _registry_by_id.contains(generated))
+            generated = Uuid::generate();
+        return generated;
+    }
+
+    AssetManager::ResolvedAssetMetaId AssetManager::resolve_or_repair_asset_id(
+        const NormalizedAssetPath& normalized)
     {
         if (_meta_source)
         {
-            AssetMeta meta = {};
-            if (_meta_source(asset_path, meta))
-                return meta.id;
-            return {};
+            auto meta = AssetMeta();
+            if (!_meta_source(normalized.resolved_path, meta))
+                return {};
+
+            auto result = ResolvedAssetMetaId();
+            result.resolved_id = meta.id;
+            result.state = meta.id.is_valid() ? AssetMetaState::VALID : AssetMetaState::INVALID;
+            return result;
         }
 
-        AssetMeta meta = {};
-        if (!_meta_reader.try_parse_from_disk(_working_directory, asset_path, meta))
-            return {};
-        return meta.id;
+        auto result = ResolvedAssetMetaId();
+        auto meta = AssetMeta();
+        auto meta_path = normalized.resolved_path;
+        meta_path += ".meta";
+
+        auto file_operator = FileOperator(_working_directory);
+        if (file_operator.exists(meta_path)
+            && _meta_reader.try_parse_from_disk(_working_directory, normalized.resolved_path, meta)
+            && meta.id.is_valid())
+        {
+            result.resolved_id = meta.id;
+            result.state = AssetMetaState::VALID;
+            return result;
+        }
+
+        result.state =
+            file_operator.exists(meta_path) ? AssetMetaState::INVALID : AssetMetaState::MISSING;
+        result.resolved_id = generate_unique_asset_id_locked();
+        auto write_success = write_meta_with_id(normalized.resolved_path, result.resolved_id);
+        if (result.state == AssetMetaState::MISSING)
+        {
+            TBX_TRACE_WARNING(
+                "AssetManager: missing metadata for asset '{}'. Generated '{}' with id={}.",
+                normalized.normalized_path,
+                meta_path.generic_string(),
+                to_string(result.resolved_id));
+        }
+        else
+        {
+            TBX_TRACE_WARNING(
+                "AssetManager: invalid metadata for asset '{}'. Rewrote '{}' with id={}.",
+                normalized.normalized_path,
+                meta_path.generic_string(),
+                to_string(result.resolved_id));
+        }
+
+        if (!write_success)
+        {
+            TBX_TRACE_WARNING(
+                "AssetManager: failed to write metadata sidecar '{}' for asset '{}'. Using id={} "
+                "for this session.",
+                meta_path.generic_string(),
+                normalized.normalized_path,
+                to_string(result.resolved_id));
+        }
+
+        return result;
     }
 
     void AssetManager::discover_assets()
@@ -85,6 +188,7 @@ namespace tbx
                 continue;
             }
             auto entries = file_operator.read_directory(root);
+            auto asset_entries = std::vector<std::filesystem::path>();
             for (const auto& entry : entries)
             {
                 if (file_operator.get_type(entry) != FileType::FILE)
@@ -95,12 +199,26 @@ namespace tbx
                 {
                     continue;
                 }
+                asset_entries.push_back(entry);
+            }
+
+            std::sort(
+                asset_entries.begin(),
+                asset_entries.end(),
+                [](const std::filesystem::path& left, const std::filesystem::path& right)
+                {
+                    return left.lexically_normal().generic_string()
+                           < right.lexically_normal().generic_string();
+                });
+
+            for (const auto& entry : asset_entries)
+            {
                 auto normalized = normalize_path(entry);
                 if (_pool.contains(normalized.path_key))
                 {
                     continue;
                 }
-                get_or_create_registry_entry(normalized);
+                static_cast<void>(get_or_create_registry_entry(normalized));
             }
         }
     }
@@ -153,9 +271,65 @@ namespace tbx
         auto* entry = get_or_create_registry_entry(handle);
         if (!entry)
         {
-            return handle.id;
+            if (handle.name.empty())
+                return handle.id;
+            return {};
         }
         return entry->id;
+    }
+
+    std::shared_ptr<Texture> AssetManager::load(
+        const Handle& handle,
+        const TextureLoadParameters& parameters)
+    {
+        auto now = std::chrono::steady_clock::now();
+        std::lock_guard lock(_mutex);
+        auto* entry = get_or_create_registry_entry(handle);
+        if (!entry)
+            return {};
+
+        auto& store = get_or_create_store<Texture>();
+        auto& record = get_or_create_record(store, *entry);
+        record.last_access = now;
+
+        const TextureSettings& settings = parameters.settings;
+        const bool should_reload = !record.asset;
+        if (should_reload)
+        {
+            TBX_TRACE_INFO(
+                "Loading asset: '{}' (id={}, type={}, settings={}/{}/{}/{}/{})",
+                record.normalized_path,
+                to_string(record.id),
+                typeid(Texture).name(),
+                static_cast<int>(settings.wrap),
+                static_cast<int>(settings.filter),
+                static_cast<int>(settings.format),
+                static_cast<int>(settings.mipmaps),
+                static_cast<int>(settings.compression));
+            record.stream_state = AssetStreamState::LOADING;
+            record.asset = load_texture(
+                entry->resolved_path,
+                settings.wrap,
+                settings.filter,
+                settings.format,
+                settings.mipmaps,
+                settings.compression);
+            record.texture_settings = settings;
+            record.has_texture_settings = true;
+            record.pending_load = {};
+            record.stream_state =
+                record.asset ? AssetStreamState::LOADED : AssetStreamState::UNLOADED;
+            if (!record.asset)
+            {
+                TBX_TRACE_WARNING(
+                    "Failed to load asset: '{}' (id={}, type={})",
+                    record.normalized_path,
+                    to_string(record.id),
+                    typeid(Texture).name());
+            }
+        }
+
+        return record.asset;
     }
 
     std::filesystem::path AssetManager::resolve_asset_path(

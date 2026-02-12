@@ -14,7 +14,9 @@ namespace tbx
         const std::filesystem::path& asset_path,
         TextureWrap wrap,
         TextureFilter filter,
-        TextureFormat format)
+        TextureFormat format,
+        TextureMipmaps mipmaps,
+        TextureCompression compression)
     {
         auto asset = create_texture_data();
         auto* dispatcher = get_global_dispatcher();
@@ -27,7 +29,14 @@ namespace tbx
             return result;
         }
 
-        LoadTextureRequest message(asset_path, asset.get(), wrap, filter, format);
+        LoadTextureRequest message(
+            asset_path,
+            asset.get(),
+            wrap,
+            filter,
+            format,
+            mipmaps,
+            compression);
         message.not_handled_behavior = MessageNotHandledBehavior::WARN;
         auto future = dispatcher->post(message);
         AssetPromise<Texture> result = {};
@@ -40,7 +49,9 @@ namespace tbx
         const std::filesystem::path& asset_path,
         TextureWrap wrap,
         TextureFilter filter,
-        TextureFormat format)
+        TextureFormat format,
+        TextureMipmaps mipmaps,
+        TextureCompression compression)
     {
         auto asset = create_texture_data();
         auto* dispatcher = get_global_dispatcher();
@@ -50,7 +61,14 @@ namespace tbx
             return asset;
         }
 
-        LoadTextureRequest message(asset_path, asset.get(), wrap, filter, format);
+        LoadTextureRequest message(
+            asset_path,
+            asset.get(),
+            wrap,
+            filter,
+            format,
+            mipmaps,
+            compression);
         message.not_handled_behavior = MessageNotHandledBehavior::WARN;
         dispatcher->send(message);
         return asset;

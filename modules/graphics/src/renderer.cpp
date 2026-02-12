@@ -14,109 +14,167 @@ namespace tbx
         return normalized;
     }
 
-    static ShaderUniform* try_get_uniform_by_name(
-        std::vector<ShaderUniform>& uniforms,
+    static MaterialParameterBinding* try_get_uniform_by_name(
+        std::vector<MaterialParameterBinding>& values,
         const std::string& normalized_name)
     {
-        for (auto& uniform : uniforms)
+        for (auto& value : values)
         {
-            if (uniform.name == normalized_name)
-                return &uniform;
+            if (value.name == normalized_name)
+                return &value;
         }
 
         return nullptr;
     }
 
-    static const ShaderUniform* try_get_uniform_by_name(
-        const std::vector<ShaderUniform>& uniforms,
+    static const MaterialParameterBinding* try_get_uniform_by_name(
+        const std::vector<MaterialParameterBinding>& values,
         const std::string& normalized_name)
     {
-        for (const auto& uniform : uniforms)
+        for (const auto& value : values)
         {
-            if (uniform.name == normalized_name)
-                return &uniform;
+            if (value.name == normalized_name)
+                return &value;
         }
 
         return nullptr;
     }
 
-    void MaterialOverrides::set(std::string_view name, UniformData value)
+    static MaterialTextureBinding* try_get_texture_by_name(
+        std::vector<MaterialTextureBinding>& overrides,
+        const std::string& normalized_name)
+    {
+        for (auto& texture : overrides)
+        {
+            if (texture.name == normalized_name)
+                return &texture;
+        }
+
+        return nullptr;
+    }
+
+    static const MaterialTextureBinding* try_get_texture_by_name(
+        const std::vector<MaterialTextureBinding>& overrides,
+        const std::string& normalized_name)
+    {
+        for (const auto& texture : overrides)
+        {
+            if (texture.name == normalized_name)
+                return &texture;
+        }
+
+        return nullptr;
+    }
+
+    void MaterialParameterBindings::set(std::string_view name, MaterialParameterData value)
     {
         const std::string normalized_name = normalize_uniform_name(name);
 
-        ShaderUniform* uniform = try_get_uniform_by_name(_uniforms, normalized_name);
-        if (uniform)
+        auto* parameter = try_get_uniform_by_name(values, normalized_name);
+        if (parameter)
         {
-            uniform->data = std::move(value);
+            parameter->value = std::move(value);
             return;
         }
 
-        _uniforms.push_back(ShaderUniform {
-            .name = normalized_name,
-            .data = std::move(value),
-        });
+        values.push_back(
+            MaterialParameterBinding {
+                .name = normalized_name,
+                .value = std::move(value),
+            });
     }
 
-    ShaderUniform& MaterialOverrides::get(std::string_view name)
+    void MaterialParameterBindings::set(MaterialParameterBinding parameter)
+    {
+        set(parameter.name, std::move(parameter.value));
+    }
+
+    void MaterialParameterBindings::set(std::initializer_list<MaterialParameterBinding> parameters)
+    {
+        for (auto parameter : parameters)
+            set(std::move(parameter));
+    }
+
+    bool MaterialParameterBindings::has(std::string_view name) const
     {
         const std::string normalized_name = normalize_uniform_name(name);
-        ShaderUniform* uniform = try_get_uniform_by_name(_uniforms, normalized_name);
-        TBX_ASSERT(
-            uniform != nullptr,
-            "MaterialOverrides: uniform '{}' not found.",
-            normalized_name);
-        return *uniform;
+        return try_get_uniform_by_name(values, normalized_name) != nullptr;
     }
 
-    const ShaderUniform& MaterialOverrides::get(std::string_view name) const
-    {
-        const std::string normalized_name = normalize_uniform_name(name);
-        const ShaderUniform* uniform = try_get_uniform_by_name(_uniforms, normalized_name);
-        TBX_ASSERT(
-            uniform != nullptr,
-            "MaterialOverrides: uniform '{}' not found.",
-            normalized_name);
-        return *uniform;
-    }
-
-    bool MaterialOverrides::try_get(std::string_view name, UniformData& out_value) const
-    {
-        const std::string normalized_name = normalize_uniform_name(name);
-        const ShaderUniform* uniform = try_get_uniform_by_name(_uniforms, normalized_name);
-        if (!uniform)
-            return false;
-
-        out_value = uniform->data;
-        return true;
-    }
-
-    bool MaterialOverrides::has(std::string_view name) const
-    {
-        const std::string normalized_name = normalize_uniform_name(name);
-        return try_get_uniform_by_name(_uniforms, normalized_name) != nullptr;
-    }
-
-    void MaterialOverrides::remove(std::string_view name)
+    void MaterialParameterBindings::remove(std::string_view name)
     {
         const std::string normalized_name = normalize_uniform_name(name);
 
-        for (auto it = _uniforms.begin(); it != _uniforms.end(); ++it)
+        for (auto it = values.begin(); it != values.end(); ++it)
         {
             if (it->name != normalized_name)
                 continue;
 
-            _uniforms.erase(it);
+            values.erase(it);
             return;
         }
     }
 
-    void MaterialOverrides::clear()
+    void MaterialParameterBindings::clear()
     {
-        _uniforms.clear();
+        values.clear();
     }
 
-    std::span<const ShaderUniform> MaterialOverrides::get_uniforms() const
+    void MaterialTextureBindings::set(std::string_view name, Handle texture)
     {
-        return std::span<const ShaderUniform>(_uniforms.data(), _uniforms.size());
+        set(name, TextureInstance(std::move(texture)));
+    }
+
+    void MaterialTextureBindings::set(std::string_view name, TextureInstance texture)
+    {
+        const std::string normalized_name = normalize_uniform_name(name);
+        auto* entry = try_get_texture_by_name(overrides, normalized_name);
+        if (entry)
+        {
+            entry->texture = std::move(texture);
+            return;
+        }
+
+        overrides.push_back(
+            MaterialTextureBinding {
+                .name = normalized_name,
+                .texture = std::move(texture),
+            });
+    }
+
+    void MaterialTextureBindings::set(MaterialTextureBinding texture_binding)
+    {
+        set(texture_binding.name, std::move(texture_binding.texture));
+    }
+
+    void MaterialTextureBindings::set(
+        std::initializer_list<MaterialTextureBinding> texture_bindings)
+    {
+        for (auto texture_binding : texture_bindings)
+            set(std::move(texture_binding));
+    }
+
+    bool MaterialTextureBindings::has(std::string_view name) const
+    {
+        const std::string normalized_name = normalize_uniform_name(name);
+        return try_get_texture_by_name(overrides, normalized_name) != nullptr;
+    }
+
+    void MaterialTextureBindings::remove(std::string_view name)
+    {
+        const std::string normalized_name = normalize_uniform_name(name);
+        for (auto it = overrides.begin(); it != overrides.end(); ++it)
+        {
+            if (it->name != normalized_name)
+                continue;
+
+            overrides.erase(it);
+            return;
+        }
+    }
+
+    void MaterialTextureBindings::clear()
+    {
+        overrides.clear();
     }
 }

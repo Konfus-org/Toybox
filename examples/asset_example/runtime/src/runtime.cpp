@@ -17,7 +17,10 @@ namespace tbx::examples
         // Setup assets to use
         auto smily_mat = Handle("Smily.mat");
         auto skybox_mat = Handle("AnimeSkybox.mat");
+        auto skybox_tex = Handle("AnimeSkybox.png");
         auto green_cube = Handle("Green_Cube.fbx");
+        auto lut_post_mat = Handle("LutPostProcess.mat");
+        auto lut_tex = Handle("LUT_Film.tga");
 
         // Setup light
         _sun = _ent_registry->create("Light");
@@ -42,6 +45,21 @@ namespace tbx::examples
         // Setup sky
         auto sky_ent = _ent_registry->create("Sky");
         sky_ent.add_component<Sky>(skybox_mat);
+
+        // Setup global post-processing stack
+        // auto post_ent = _ent_registry->create("PostProcessing");
+        // auto post_processing = PostProcessing({
+        //    PostProcessingEffect(
+        //        lut_post_mat,
+        //        {"strength", 1.0f},
+        //        {"lut",
+        //         {
+        //             lut_tex,
+        //             TextureFilter::LINEAR,
+        //             TextureWrap::CLAMP_TO_EDGE,
+        //         }}),
+        //});
+        // post_ent.add_component<PostProcessing>(post_processing);
 
         // Setup camera
         auto cam_ent = _ent_registry->create("Camera");
