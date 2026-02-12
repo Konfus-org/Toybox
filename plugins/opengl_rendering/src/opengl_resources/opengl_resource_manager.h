@@ -115,7 +115,6 @@ namespace tbx::plugins
         /// Ownership: Returns shared ownership of created resources through the output struct.
         /// Thread Safety: Not thread-safe; call only from the render thread.
         /// </remarks>
-        bool try_create_resources(const Entity& entity, OpenGlDrawResources& out_resources);
         bool try_create_static_mesh_resources(
             const Entity& entity,
             const Renderer& renderer,
@@ -133,8 +132,20 @@ namespace tbx::plugins
 
         struct CachedEntityResources final
         {
+            struct StaticSignature final
+            {
+                Uuid model_id = {};
+                Uuid material_id = {};
+
+                bool operator==(const StaticSignature& other) const
+                {
+                    return model_id == other.model_id && material_id == other.material_id;
+                }
+            };
+
             OpenGlDrawResources resources = {};
             Clock::time_point last_use = {};
+            StaticSignature static_signature = {};
         };
 
         struct CachedSkyResources final
@@ -145,9 +156,11 @@ namespace tbx::plugins
 
       private:
         static constexpr std::chrono::seconds UNUSED_TTL = std::chrono::seconds(3);
+        static constexpr std::chrono::seconds UNUSED_SCAN_INTERVAL = std::chrono::seconds(1);
 
         AssetManager* _asset_manager = nullptr;
         std::unordered_map<Uuid, CachedEntityResources> _resources_by_entity = {};
         std::unordered_map<Uuid, CachedSkyResources> _resources_by_sky_material = {};
+        Clock::time_point _next_unused_scan_time = {};
     };
 }

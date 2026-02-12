@@ -114,11 +114,9 @@ namespace tbx::plugins
                 });
         }
 
-        void upload_entity_uniforms(
+        void upload_model_uniform(
             OpenGlShaderProgram& shader_program,
-            const Entity& entity,
-            const Renderer& renderer,
-            const OpenGlDrawResources& draw_resources) const
+            const Entity& entity) const
         {
             auto transform = Transform();
             if (entity.has_component<Transform>())
@@ -130,29 +128,14 @@ namespace tbx::plugins
                     .name = "u_model",
                     .data = model_matrix,
                 });
+        }
 
-            auto merged_uniforms = std::vector<ShaderUniform>(
-                draw_resources.shader_parameters.begin(),
-                draw_resources.shader_parameters.end());
-            for (const auto& entity_uniform : renderer.material_overrides.get_uniforms())
-            {
-                auto did_override = false;
-                for (auto& merged_uniform : merged_uniforms)
-                {
-                    if (merged_uniform.name != entity_uniform.name)
-                        continue;
-
-                    merged_uniform = entity_uniform;
-                    did_override = true;
-                    break;
-                }
-
-                if (!did_override)
-                    merged_uniforms.push_back(entity_uniform);
-            }
-
-            for (const auto& merged_uniform : merged_uniforms)
-                shader_program.try_upload(merged_uniform);
+        void upload_override_uniforms(
+            OpenGlShaderProgram& shader_program,
+            const Renderer& renderer) const
+        {
+            for (const auto& override_uniform : renderer.material_overrides.get_uniforms())
+                shader_program.try_upload(override_uniform);
         }
 
         void bind_textures(
@@ -254,11 +237,9 @@ namespace tbx::plugins
             bind_textures(draw_resources, resource_scopes);
 
             upload_frame_uniforms(*draw_resources.shader_program, view_projection);
-            upload_entity_uniforms(
-                *draw_resources.shader_program,
-                entity,
-                renderer,
-                draw_resources);
+            upload_material_uniforms(*draw_resources.shader_program, draw_resources);
+            upload_model_uniform(*draw_resources.shader_program, entity);
+            upload_override_uniforms(*draw_resources.shader_program, renderer);
             draw_resources.mesh->draw(draw_resources.use_tesselation);
         }
 

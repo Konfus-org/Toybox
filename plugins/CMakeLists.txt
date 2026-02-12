@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.26)
-
 message(STATUS "")
 message(STATUS "Configuring Toybox Plugins:")
 include(TbxRegisterPlugin)

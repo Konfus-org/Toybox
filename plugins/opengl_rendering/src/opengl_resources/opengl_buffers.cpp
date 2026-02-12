@@ -237,7 +237,7 @@ namespace tbx::plugins
             destination_x + destination_width,
             destination_y + destination_height,
             GL_COLOR_BUFFER_BIT,
-            GL_NEAREST);
+            to_gl_texture_filter(_filtering));
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 

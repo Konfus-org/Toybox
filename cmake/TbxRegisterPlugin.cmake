@@ -162,6 +162,8 @@ function(tbx_register_plugin)
             "tbx_register_plugin: PRIORITY '${update_priority}' must be a non-negative integer")
     endif()
     
+    message(STATUS "Registering tbx plugin '${TBX_PLUGIN_TARGET}'")
+    
     file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
     target_sources(${TBX_PLUGIN_TARGET} PRIVATE ${SRCS})
     target_include_directories(${TBX_PLUGIN_TARGET} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

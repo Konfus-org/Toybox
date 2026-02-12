@@ -155,9 +155,30 @@ namespace tbx::plugins
 
     bool OpenGlResourceManager::try_load(const Entity& entity, OpenGlDrawResources& out_resources)
     {
+        if (entity.has_component<DynamicMesh>())
+        {
+            auto resources = OpenGlDrawResources {};
+            const auto& renderer = entity.get_component<Renderer>();
+            if (!try_create_dynamic_mesh_resources(entity, renderer, resources))
+                return false;
+
+            out_resources = std::move(resources);
+            return true;
+        }
+
+        if (!entity.has_component<StaticMesh>())
+            return false;
+
+        const auto& renderer = entity.get_component<Renderer>();
+        auto static_signature = CachedEntityResources::StaticSignature {};
+        const auto& static_mesh = entity.get_component<StaticMesh>();
+        static_signature.model_id = static_mesh.model.id;
+        static_signature.material_id = renderer.material.id;
         const auto resource_id = entity.get_id();
         auto iterator = _resources_by_entity.find(resource_id);
-        if (iterator != _resources_by_entity.end())
+        if (
+            iterator != _resources_by_entity.end()
+            && iterator->second.static_signature == static_signature)
         {
             iterator->second.last_use = Clock::now();
             out_resources = iterator->second.resources;
@@ -165,12 +186,13 @@ namespace tbx::plugins
         }
 
         auto resources = OpenGlDrawResources {};
-        if (!try_create_resources(entity, resources))
+        if (!try_create_static_mesh_resources(entity, renderer, resources))
             return false;
 
         _resources_by_entity[resource_id] = CachedEntityResources {
             .resources = resources,
             .last_use = Clock::now(),
+            .static_signature = static_signature,
         };
         out_resources = std::move(resources);
         return true;
@@ -208,10 +230,16 @@ namespace tbx::plugins
     {
         _resources_by_entity.clear();
         _resources_by_sky_material.clear();
+        _next_unused_scan_time = {};
     }
 
     void OpenGlResourceManager::unload_unreferenced()
     {
+        const auto now = Clock::now();
+        if (_next_unused_scan_time > now)
+            return;
+
+        _next_unused_scan_time = now + UNUSED_SCAN_INTERVAL;
         const auto unload_before = Clock::now() - UNUSED_TTL;
 
         for (auto iterator = _resources_by_entity.begin(); iterator != _resources_by_entity.end();)
@@ -236,19 +264,6 @@ namespace tbx::plugins
 
             iterator = _resources_by_sky_material.erase(iterator);
         }
-    }
-
-    bool OpenGlResourceManager::try_create_resources(
-        const Entity& entity,
-        OpenGlDrawResources& out_resources)
-    {
-        const auto& renderer = entity.get_component<Renderer>();
-        if (entity.has_component<StaticMesh>())
-            return try_create_static_mesh_resources(entity, renderer, out_resources);
-        if (entity.has_component<DynamicMesh>())
-            return try_create_dynamic_mesh_resources(entity, renderer, out_resources);
-
-        return false;
     }
 
     bool OpenGlResourceManager::try_create_static_mesh_resources(

@@ -120,7 +120,11 @@ namespace tbx
         Uuid id = Uuid::generate();
         {
             std::lock_guard<std::mutex> lock(_handlers_mutex);
-            _handlers.emplace_back(id, std::move(handler));
+            _handlers.push_back(
+                RegisteredMessageHandler {
+                    .id = id,
+                    .handler = std::make_shared<MessageHandler>(std::move(handler)),
+                });
         }
         return id;
     }
@@ -128,11 +132,11 @@ namespace tbx
     void AppMessageCoordinator::deregister_handler(const Uuid& token)
     {
         std::lock_guard<std::mutex> lock(_handlers_mutex);
-        std::vector<std::pair<Uuid, MessageHandler>> next;
+        std::vector<RegisteredMessageHandler> next;
         next.reserve(_handlers.size());
         for (auto& entry : _handlers)
         {
-            if (entry.first != token)
+            if (entry.id != token)
                 next.push_back(std::move(entry));
         }
         _handlers.swap(next);
@@ -148,7 +152,7 @@ namespace tbx
     {
         try
         {
-            std::vector<std::pair<Uuid, MessageHandler>> handlers_snapshot;
+            std::vector<RegisteredMessageHandler> handlers_snapshot;
             {
                 std::lock_guard<std::mutex> lock(_handlers_mutex);
                 handlers_snapshot = _handlers;
@@ -160,7 +164,7 @@ namespace tbx
             MessageState previous_state = msg.state;
             for (const auto& entry : handlers_snapshot)
             {
-                if (!entry.second)
+                if (!entry.handler || !(*entry.handler))
                 {
                     TBX_ASSERT(
                         false,
@@ -170,7 +174,7 @@ namespace tbx
                     continue;
                 }
 
-                entry.second(msg);
+                (*entry.handler)(msg);
 
                 if (msg.state != previous_state)
                 {

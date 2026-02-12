@@ -143,7 +143,14 @@ namespace tbx::plugins
         if (!_is_context_ready || !_render_pipeline)
             return;
 
-        send_message<WindowMakeCurrentRequest>(_window_id);
+        auto make_current_result = send_message<WindowMakeCurrentRequest>(_window_id);
+        if (!make_current_result)
+        {
+            TBX_TRACE_ERROR(
+                "OpenGL rendering: failed to make window context current: {}",
+                make_current_result.get_report());
+            return;
+        }
 
         auto camera_view = OpenGlCameraView {};
         bool did_find_camera = false;
@@ -260,7 +267,13 @@ namespace tbx::plugins
         };
 
         _render_pipeline->execute(frame_context);
-        send_message<WindowPresentRequest>(_window_id);
+        auto present_result = send_message<WindowPresentRequest>(_window_id);
+        if (!present_result)
+        {
+            TBX_TRACE_ERROR(
+                "OpenGL rendering: present request failed: {}",
+                present_result.get_report());
+        }
     }
 
     void OpenGlRenderingPlugin::on_recieve_message(Message& msg)
