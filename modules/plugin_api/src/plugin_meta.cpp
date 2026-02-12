@@ -183,8 +183,16 @@ namespace tbx
         }
 
         bool is_static = false;
-        if (data.try_get_bool("static", is_static))
-            meta.linkage = is_static ? PluginLinkage::STATIC : PluginLinkage::DYNAMIC;
+        if (data.try_get_bool("static", is_static) && is_static)
+            return false;
+
+        std::string linkage;
+        if (data.try_get_string("linkage", linkage))
+        {
+            linkage = to_lower(trim(linkage));
+            if (linkage != "dynamic")
+                return false;
+        }
 
         std::string description;
         if (data.try_get_string("description", description))

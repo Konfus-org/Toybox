@@ -4,7 +4,6 @@ include(TbxRegisterPlugin)
 
 set(CMAKE_FOLDER "plugins")
 
-add_subdirectory(spd_logger)
 add_subdirectory(stb_image_loader)
 add_subdirectory(glsl_shader_loader)
 add_subdirectory(mat_material_loader)

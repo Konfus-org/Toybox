@@ -5,6 +5,5 @@ namespace tbx
     enum class PluginLinkage
     {
         DYNAMIC,
-        STATIC,
     };
 }

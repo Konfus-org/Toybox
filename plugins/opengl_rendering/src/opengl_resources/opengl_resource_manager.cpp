@@ -157,11 +157,50 @@ namespace tbx::plugins
     {
         if (entity.has_component<DynamicMesh>())
         {
-            auto resources = OpenGlDrawResources {};
             const auto& renderer = entity.get_component<Renderer>();
+            const auto& dynamic_mesh = entity.get_component<DynamicMesh>();
+            auto dynamic_signature = CachedEntityResources::DynamicSignature {};
+            dynamic_signature.mesh_address =
+                reinterpret_cast<std::uintptr_t>(dynamic_mesh.mesh.get());
+            dynamic_signature.material_id = renderer.material.id;
+
+            const auto resource_id = entity.get_id();
+            auto iterator = _resources_by_entity.find(resource_id);
+            if (
+                iterator != _resources_by_entity.end()
+                && iterator->second.is_dynamic
+                && iterator->second.dynamic_signature == dynamic_signature)
+            {
+                iterator->second.last_use = Clock::now();
+                out_resources = iterator->second.resources;
+                return true;
+            }
+
+            if (
+                iterator != _resources_by_entity.end()
+                && iterator->second.is_dynamic
+                && iterator->second.dynamic_signature.material_id == dynamic_signature.material_id
+                && dynamic_mesh.mesh)
+            {
+                auto resources = iterator->second.resources;
+                resources.mesh = std::make_shared<OpenGlMesh>(*dynamic_mesh.mesh);
+                iterator->second.resources = resources;
+                iterator->second.dynamic_signature = dynamic_signature;
+                iterator->second.last_use = Clock::now();
+                out_resources = std::move(resources);
+                return true;
+            }
+
+            auto resources = OpenGlDrawResources {};
             if (!try_create_dynamic_mesh_resources(entity, renderer, resources))
                 return false;
 
+            _resources_by_entity[resource_id] = CachedEntityResources {
+                .resources = resources,
+                .last_use = Clock::now(),
+                .is_dynamic = true,
+                .dynamic_signature = dynamic_signature,
+            };
             out_resources = std::move(resources);
             return true;
         }
@@ -178,6 +217,7 @@ namespace tbx::plugins
         auto iterator = _resources_by_entity.find(resource_id);
         if (
             iterator != _resources_by_entity.end()
+            && !iterator->second.is_dynamic
             && iterator->second.static_signature == static_signature)
         {
             iterator->second.last_use = Clock::now();
@@ -192,6 +232,7 @@ namespace tbx::plugins
         _resources_by_entity[resource_id] = CachedEntityResources {
             .resources = resources,
             .last_use = Clock::now(),
+            .is_dynamic = false,
             .static_signature = static_signature,
         };
         out_resources = std::move(resources);
@@ -249,7 +290,6 @@ namespace tbx::plugins
                 ++iterator;
                 continue;
             }
-
             iterator = _resources_by_entity.erase(iterator);
         }
 
@@ -261,7 +301,6 @@ namespace tbx::plugins
                 ++iterator;
                 continue;
             }
-
             iterator = _resources_by_sky_material.erase(iterator);
         }
     }
@@ -463,4 +502,5 @@ namespace tbx::plugins
 
         return out_resources.mesh != nullptr;
     }
+
 }

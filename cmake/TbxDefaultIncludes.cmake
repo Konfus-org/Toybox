@@ -28,9 +28,6 @@ function(tbx_define_default_includes)
     if(NOT TARGET Tbx::Graphics)
         message(FATAL_ERROR "Tbx::DefaultIncludes requires Tbx::Graphics (call after add_subdirectory(modules))")
     endif()
-    if(NOT TARGET Tbx::Plugins::SpdLoggerPlugin)
-        message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::SpdLoggerPlugin (call after add_subdirectory(plugins))")
-    endif()
     if(NOT TARGET Tbx::Plugins::SdlWindowingPlugin)
         message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::SdlWindowingPlugin (call after add_subdirectory(plugins))")
     endif()
@@ -58,7 +55,6 @@ function(tbx_define_default_includes)
         Tbx::Assets
         Tbx::ECS
         Tbx::Graphics
-        Tbx::Plugins::SpdLoggerPlugin
         Tbx::Plugins::SdlWindowingPlugin
         Tbx::Plugins::OpenGlRenderingPlugin
         Tbx::Plugins::SdlOpenGlAdapterPlugin
@@ -68,4 +64,3 @@ function(tbx_define_default_includes)
         Tbx::Plugins::MatMaterialLoaderPlugin
     )
 endfunction()
-

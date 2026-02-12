@@ -19,8 +19,7 @@ namespace tbx::tests::plugin_api
                 "resources": ["./assets"],
                 "category": "audio",
                 "priority": 250,
-                "module": "bin/logger.so",
-                "static": true
+                "module": "bin/logger.so"
             })JSON";
         const std::filesystem::path manifest_path =
             "/virtual/plugin_api/example/logger/plugin.meta";
@@ -44,7 +43,7 @@ namespace tbx::tests::plugin_api
         EXPECT_EQ(meta.root_directory, manifest_path.parent_path());
         EXPECT_EQ(meta.manifest_path, manifest_path);
         EXPECT_EQ(meta.library_path, manifest_path.parent_path() / "bin/logger.so");
-        EXPECT_EQ(meta.linkage, PluginLinkage::STATIC);
+        EXPECT_EQ(meta.linkage, PluginLinkage::DYNAMIC);
     }
 
     /// <summary>
@@ -132,5 +131,24 @@ namespace tbx::tests::plugin_api
 
         // Act
         EXPECT_FALSE(parser.try_parse_from_source(manifest_text, "/virtual/invalid.meta", meta));
+    }
+
+    /// <summary>
+    /// Verifies static plugin manifests are rejected now that only dynamic plugins are supported.
+    /// </summary>
+    TEST(plugin_meta_parse_test, rejects_static_linkage)
+    {
+        // Arrange
+        constexpr const char* manifest_text = R"JSON({
+                "name": "Example.StaticPlugin",
+                "version": "1.0.0",
+                "static": true
+            })JSON";
+
+        PluginMeta meta;
+        PluginMetaParser parser;
+
+        // Act
+        EXPECT_FALSE(parser.try_parse_from_source(manifest_text, "/virtual/static.meta", meta));
     }
 }

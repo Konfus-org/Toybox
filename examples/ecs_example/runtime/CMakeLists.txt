@@ -6,7 +6,6 @@ target_include_directories(EcsExampleRuntime PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 
 target_link_libraries(EcsExampleRuntime PRIVATE
     Tbx::DefaultIncludes
-    Tbx::Plugins::SpdLoggerPlugin
     Tbx::Plugins::SdlWindowingPlugin
     Tbx::Plugins::OpenGlRenderingPlugin
     Tbx::Plugins::StbImageLoaderPlugin

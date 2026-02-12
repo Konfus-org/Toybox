@@ -4,9 +4,7 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/files/file_operator.h"
 #include "tbx/messages/dispatcher.h"
-#include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_loader.h"
-#include "tbx/plugin_api/plugin_registry.h"
 #include "tbx/time/delta_time.h"
 #include <algorithm>
 #include <chrono>

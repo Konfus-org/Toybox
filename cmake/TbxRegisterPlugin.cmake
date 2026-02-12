@@ -95,11 +95,10 @@ endfunction()
 #   MODULE        - Optional override for module/manifest output directory.
 #   DEPENDENCIES      - Additional dependency identifiers to record.
 #   RESOURCES         - Optional asset/resource directory for this plugin (at most one).
-#   STATIC            - Flag indicating the plugin is statically linked.
 #   CATEGORY   - Optional update category (default, logging, input, audio, physics, rendering, gameplay).
 #   PRIORITY   - Optional update priority integer (lower updates first).
 function(tbx_register_plugin)
-    set(options STATIC)
+    set(options)
     set(one_value_args TARGET CLASS HEADER NAME VERSION DESCRIPTION MODULE CATEGORY PRIORITY)
     set(multi_value_args DEPENDENCIES RESOURCES)
     cmake_parse_arguments(TBX_PLUGIN "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
@@ -129,12 +128,7 @@ function(tbx_register_plugin)
         message(FATAL_ERROR "tbx_register_plugin: target '${TBX_PLUGIN_TARGET}' does not exist")
     endif()
 
-    set(is_static FALSE)
     set(register_macro "TBX_REGISTER_PLUGIN")
-    if(TBX_PLUGIN_STATIC)
-        set(is_static TRUE)
-        set(register_macro "TBX_REGISTER_STATIC_PLUGIN")
-    endif()
 
     if(DEFINED TBX_PLUGIN_CATEGORY)
         set(update_category "${TBX_PLUGIN_CATEGORY}")
@@ -334,12 +328,6 @@ function(tbx_register_plugin)
         set(PLUGIN_RESOURCES_BLOCK "    \"resources\": [],\n")
     else()
         set(PLUGIN_RESOURCES_BLOCK "    \"resources\": [\n${resources_json}\n    ],\n")
-    endif()
-
-    if(is_static)
-        set(PLUGIN_STATIC_VALUE "true")
-    else()
-        set(PLUGIN_STATIC_VALUE "false")
     endif()
 
     set(PLUGIN_CATEGORY "${update_category}")

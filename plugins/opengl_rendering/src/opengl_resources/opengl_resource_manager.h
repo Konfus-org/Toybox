@@ -8,6 +8,7 @@
 #include "tbx/graphics/renderer.h"
 #include "tbx/graphics/shader.h"
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -142,10 +143,24 @@ namespace tbx::plugins
                     return model_id == other.model_id && material_id == other.material_id;
                 }
             };
+            struct DynamicSignature final
+            {
+                std::uintptr_t mesh_address = 0U;
+                Uuid material_id = {};
+
+                bool operator==(const DynamicSignature& other) const
+                {
+                    return (
+                        mesh_address == other.mesh_address
+                        && material_id == other.material_id);
+                }
+            };
 
             OpenGlDrawResources resources = {};
             Clock::time_point last_use = {};
+            bool is_dynamic = false;
             StaticSignature static_signature = {};
+            DynamicSignature dynamic_signature = {};
         };
 
         struct CachedSkyResources final

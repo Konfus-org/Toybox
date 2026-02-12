@@ -145,12 +145,7 @@ namespace tbx::plugins
 
         auto make_current_result = send_message<WindowMakeCurrentRequest>(_window_id);
         if (!make_current_result)
-        {
-            TBX_TRACE_ERROR(
-                "OpenGL rendering: failed to make window context current: {}",
-                make_current_result.get_report());
             return;
-        }
 
         auto camera_view = OpenGlCameraView {};
         bool did_find_camera = false;

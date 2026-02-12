@@ -22,11 +22,11 @@ namespace tbx
             std::string_view fmt,
             Args&&... args)
         {
-            post(dispatcher, level, file, line, format(fmt, std::forward<Args>(args)...));
+            write_internal(dispatcher, level, file, line, format(fmt, std::forward<Args>(args)...));
         }
 
       private:
-        static void post(
+        static void write_internal(
             const IMessageDispatcher& dispatcher,
             LogLevel level,
             const char* file,
@@ -64,31 +64,4 @@ namespace tbx
             return formatted;
         }
     };
-
-    /// <summary>
-    /// Purpose: Returns the registered name for the stdout fallback logger plugin.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Returns a non-owning view of a static string.
-    /// Thread Safety: Immutable constant.
-    /// </remarks>
-    TBX_API std::string_view get_stdout_fallback_logger_name();
-
-    /// <summary>
-    /// Purpose: Returns the description used for the stdout fallback logger plugin.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Returns a non-owning view of a static string.
-    /// Thread Safety: Immutable constant.
-    /// </remarks>
-    TBX_API std::string_view get_stdout_fallback_logger_description();
-
-    /// <summary>
-    /// Purpose: Returns the semantic version for the stdout fallback logger plugin.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Returns a non-owning view of a static string.
-    /// Thread Safety: Immutable constant.
-    /// </remarks>
-    TBX_API std::string_view get_stdout_fallback_logger_version();
 }
