@@ -10,7 +10,7 @@ namespace tbx::tests::graphics
         Sky sky = {};
 
         // Act
-        const bool is_material_valid = sky.material.is_valid();
+        const bool is_material_valid = sky.material.handle.is_valid();
 
         // Assert
         EXPECT_FALSE(is_material_valid);
