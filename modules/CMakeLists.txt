@@ -44,5 +44,3 @@ add_subdirectory(app/tests)
 add_subdirectory(assets/tests)
 
 unset(CMAKE_FOLDER)
-
-message(STATUS "")
