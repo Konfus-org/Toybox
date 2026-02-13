@@ -117,14 +117,14 @@ namespace tbx::plugins
         std::string& error_message)
     {
         std::string name;
-        if (!entry.try_get_string("name", name) || name.empty())
+        if (!entry.try_get<std::string>("name", name) || name.empty())
         {
             error_message = "Material loader: parameter missing name.";
             return false;
         }
 
         std::string type_name;
-        if (!entry.try_get_string("type", type_name) || type_name.empty())
+        if (!entry.try_get<std::string>("type", type_name) || type_name.empty())
         {
             error_message = "Material loader: parameter missing type.";
             return false;
@@ -134,7 +134,7 @@ namespace tbx::plugins
         if (type_text == "bool")
         {
             bool value = false;
-            if (!entry.try_get_bool("value", value))
+            if (!entry.try_get<bool>("value", value))
             {
                 error_message = "Material loader: bool parameter '" + name + "' missing value.";
                 return false;
@@ -146,7 +146,7 @@ namespace tbx::plugins
         if (type_text == "int")
         {
             int value = 0;
-            if (!entry.try_get_int("value", value))
+            if (!entry.try_get<int>("value", value))
             {
                 error_message = "Material loader: int parameter '" + name + "' missing value.";
                 return false;
@@ -158,7 +158,7 @@ namespace tbx::plugins
         if (type_text == "float")
         {
             float value = 0.0;
-            if (!entry.try_get_float("value", value))
+            if (!entry.try_get<float>("value", value))
             {
                 error_message = "Material loader: float parameter '" + name + "' missing value.";
                 return false;
@@ -171,14 +171,14 @@ namespace tbx::plugins
         {
             Handle handle = {};
             Uuid asset_id = {};
-            if (entry.try_get_uuid("value", asset_id))
+            if (entry.try_get<Uuid>("value", asset_id))
             {
                 handle = Handle(asset_id);
             }
             else
             {
                 std::string asset_name;
-                if (!entry.try_get_string("value", asset_name))
+                if (!entry.try_get<std::string>("value", asset_name))
                 {
                     error_message =
                         "Material loader: asset parameter '" + name + "' missing value.";
@@ -197,14 +197,14 @@ namespace tbx::plugins
         {
             Handle handle = {};
             Uuid asset_id = {};
-            if (entry.try_get_uuid("value", asset_id))
+            if (entry.try_get<Uuid>("value", asset_id))
             {
                 handle = Handle(asset_id);
             }
             else
             {
                 std::string asset_name;
-                if (!entry.try_get_string("value", asset_name))
+                if (!entry.try_get<std::string>("value", asset_name))
                 {
                     error_message =
                         "Material loader: asset parameter '" + name + "' missing value.";
@@ -227,7 +227,7 @@ namespace tbx::plugins
         if (type_text == "vec2")
         {
             std::vector<float> values;
-            if (!entry.try_get_floats("value", 2U, values))
+            if (!entry.try_get<float>("value", 2U, values))
             {
                 error_message =
                     "Material loader: vec2 parameter '" + name + "' must have 2 values.";
@@ -242,7 +242,7 @@ namespace tbx::plugins
         if (type_text == "vec3")
         {
             std::vector<float> values;
-            if (!entry.try_get_floats("value", 3U, values))
+            if (!entry.try_get<float>("value", 3U, values))
             {
                 error_message =
                     "Material loader: vec3 parameter '" + name + "' must have 3 values.";
@@ -260,7 +260,7 @@ namespace tbx::plugins
         if (type_text == "vec4")
         {
             std::vector<float> values;
-            if (!entry.try_get_floats("value", 4U, values))
+            if (!entry.try_get<float>("value", 4U, values))
             {
                 error_message =
                     "Material loader: vec4 parameter '" + name + "' must have 4 values.";
@@ -279,7 +279,7 @@ namespace tbx::plugins
         if (type_text == "color")
         {
             std::vector<float> values;
-            if (!entry.try_get_floats("value", 4U, values))
+            if (!entry.try_get<float>("value", 4U, values))
             {
                 error_message =
                     "Material loader: color parameter '" + name + "' must have 4 values.";
@@ -313,68 +313,68 @@ namespace tbx::plugins
             if (data.try_get_child("shaders", shaders_data))
             {
                 Uuid vertex_id = {};
-                if (shaders_data.try_get_uuid("vertex", vertex_id))
+                if (shaders_data.try_get<Uuid>("vertex", vertex_id))
                 {
                     material.program.vertex = Handle(vertex_id);
                 }
                 else
                 {
                     std::string vertex_text;
-                    if (shaders_data.try_get_string("vertex", vertex_text))
+                    if (shaders_data.try_get<std::string>("vertex", vertex_text))
                         material.program.vertex = parse_asset_handle(vertex_text);
                 }
 
                 Uuid fragment_id = {};
-                if (shaders_data.try_get_uuid("fragment", fragment_id))
+                if (shaders_data.try_get<Uuid>("fragment", fragment_id))
                 {
                     material.program.fragment = Handle(fragment_id);
                 }
                 else
                 {
                     std::string fragment_text;
-                    if (shaders_data.try_get_string("fragment", fragment_text))
+                    if (shaders_data.try_get<std::string>("fragment", fragment_text))
                         material.program.fragment = parse_asset_handle(fragment_text);
                 }
 
                 Uuid tesselation_id = {};
-                if (shaders_data.try_get_uuid("tesselation", tesselation_id))
+                if (shaders_data.try_get<Uuid>("tesselation", tesselation_id))
                 {
                     material.program.tesselation = Handle(tesselation_id);
                 }
                 else
                 {
                     std::string tesselation_text;
-                    if (shaders_data.try_get_string("tesselation", tesselation_text))
+                    if (shaders_data.try_get<std::string>("tesselation", tesselation_text))
                         material.program.tesselation = parse_asset_handle(tesselation_text);
                     else
                     {
                         std::string tessellation_text;
-                        if (shaders_data.try_get_string("tessellation", tessellation_text))
+                        if (shaders_data.try_get<std::string>("tessellation", tessellation_text))
                             material.program.tesselation = parse_asset_handle(tessellation_text);
                     }
                 }
 
                 Uuid geometry_id = {};
-                if (shaders_data.try_get_uuid("geometry", geometry_id))
+                if (shaders_data.try_get<Uuid>("geometry", geometry_id))
                 {
                     material.program.geometry = Handle(geometry_id);
                 }
                 else
                 {
                     std::string geometry_text;
-                    if (shaders_data.try_get_string("geometry", geometry_text))
+                    if (shaders_data.try_get<std::string>("geometry", geometry_text))
                         material.program.geometry = parse_asset_handle(geometry_text);
                 }
 
                 Uuid compute_id = {};
-                if (shaders_data.try_get_uuid("compute", compute_id))
+                if (shaders_data.try_get<Uuid>("compute", compute_id))
                 {
                     material.program.compute = Handle(compute_id);
                 }
                 else
                 {
                     std::string compute_text;
-                    if (shaders_data.try_get_string("compute", compute_text))
+                    if (shaders_data.try_get<std::string>("compute", compute_text))
                         material.program.compute = parse_asset_handle(compute_text);
                 }
 
@@ -403,14 +403,14 @@ namespace tbx::plugins
             {
                 Uuid shader_id = {};
                 Handle shader_handle = {};
-                if (data.try_get_uuid("shader", shader_id))
+                if (data.try_get<Uuid>("shader", shader_id))
                 {
                     shader_handle = Handle(shader_id);
                 }
                 else
                 {
                     std::string shader_text;
-                    if (data.try_get_string("shader", shader_text))
+                    if (data.try_get<std::string>("shader", shader_text))
                         shader_handle = parse_asset_handle(shader_text);
                 }
 
@@ -424,12 +424,12 @@ namespace tbx::plugins
             std::vector<Json> texture_entries;
             if (data.try_get_children("textures", texture_entries))
             {
-                material.textures.values.reserve(
-                    material.textures.values.size() + texture_entries.size());
+                material.textures.overrides.reserve(
+                    material.textures.overrides.size() + texture_entries.size());
                 for (const auto& entry : texture_entries)
                 {
                     std::string name;
-                    if (!entry.try_get_string("name", name) || name.empty())
+                    if (!entry.try_get<std::string>("name", name) || name.empty())
                     {
                         error_message = "Material loader: texture entry missing name.";
                         return false;
@@ -437,14 +437,14 @@ namespace tbx::plugins
 
                     Handle handle = {};
                     Uuid asset_id = {};
-                    if (entry.try_get_uuid("value", asset_id))
+                    if (entry.try_get<Uuid>("value", asset_id))
                     {
                         handle = Handle(asset_id);
                     }
                     else
                     {
                         std::string asset_name;
-                        if (!entry.try_get_string("value", asset_name))
+                        if (!entry.try_get<std::string>("value", asset_name))
                         {
                             error_message =
                                 "Material loader: texture entry '" + name + "' missing value.";

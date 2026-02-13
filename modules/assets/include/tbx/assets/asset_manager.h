@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/assets/asset_loaders.h"
-#include "tbx/assets/asset_meta.h"
+#include "tbx/assets/asset_handle_serializer.h"
 #include "tbx/assets/assets.h"
 #include "tbx/common/handle.h"
 #include "tbx/common/int.h"
@@ -225,25 +225,26 @@ namespace tbx
         /// Ownership: The manager stores a copy of the callable.
         /// Thread Safety: The callable must be safe to invoke concurrently.
         /// </remarks>
-        using AssetMetaSource =
-            std::function<bool(const std::filesystem::path&, AssetMeta& out_meta)>;
+        using HandleSource =
+            std::function<bool(const std::filesystem::path&, Handle& out_handle)>;
 
         /// <summary>
         /// Purpose: Initializes the manager with a working directory, asset search roots, and an
-        /// optional metadata source.
+        /// optional handle source and optional asset handle serializer.
         /// </summary>
         /// <remarks>
         /// Ownership: Takes ownership of the working directory and asset path values for
-        /// internal use and stores a copy of the metadata source when provided.
+        /// internal use and stores the handle source and takes ownership of the serializer when provided.
         /// Thread Safety: Not thread-safe; construct on a single thread before sharing. The
-        /// metadata source must be safe to invoke concurrently. When include_default_resources
+        /// handle source and serializer must be safe to invoke concurrently. When include_default_resources
         /// is false, the constructor skips adding the built-in resources directory.
         /// </remarks>
         explicit AssetManager(
             std::filesystem::path working_directory,
             std::vector<std::filesystem::path> asset_directories = {},
-            AssetMetaSource meta_source = {},
-            bool include_default_resources = true);
+            HandleSource handle_source = {},
+            bool include_default_resources = true,
+            std::unique_ptr<IAssetHandleSerializer> asset_handle_serializer = {});
         AssetManager(const AssetManager&) = delete;
         AssetManager& operator=(const AssetManager&) = delete;
         AssetManager(AssetManager&&) = delete;
@@ -897,8 +898,8 @@ namespace tbx
 
         mutable std::mutex _mutex;
         std::filesystem::path _working_directory = {};
-        AssetMetaParser _meta_reader = {};
-        AssetMetaSource _meta_source = {};
+        std::unique_ptr<IAssetHandleSerializer> _asset_handle_serializer = {};
+        HandleSource _handle_source = {};
         std::vector<std::filesystem::path> _asset_directories = {};
         std::unordered_map<Uuid, AssetRegistryEntry> _pool;
         std::unordered_map<Uuid, Uuid> _registry_by_id;
