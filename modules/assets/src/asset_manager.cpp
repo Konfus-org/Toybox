@@ -23,11 +23,11 @@ namespace tbx
         bool include_default_resources,
         std::unique_ptr<IAssetHandleSerializer> asset_handle_serializer)
         : _working_directory(std::move(working_directory))
-        , _asset_handle_serializer(std::move(asset_handle_serializer))
+        , _handle_serializer(std::move(asset_handle_serializer))
         , _handle_source(std::move(handle_source))
     {
-        if (!_asset_handle_serializer)
-            _asset_handle_serializer = std::make_unique<AssetHandleSerializer>();
+        if (!_handle_serializer)
+            _handle_serializer = std::make_unique<AssetHandleSerializer>();
 
         FileOperator file_operator = FileOperator(_working_directory);
         _working_directory = file_operator.get_working_directory();
@@ -70,7 +70,8 @@ namespace tbx
     {
         auto file_operator = FileOperator(_working_directory);
         auto handle = Handle(id);
-        return _asset_handle_serializer && _asset_handle_serializer->try_write_to_disk(file_operator, asset_path, handle);
+        return _handle_serializer
+               && _handle_serializer->try_write_to_disk(file_operator, asset_path, handle);
     }
 
     Uuid AssetManager::generate_unique_asset_id_locked() const
@@ -93,7 +94,7 @@ namespace tbx
             return {};
         }
 
-        if (_meta_source)
+        if (_handle_source)
         {
             auto handle = Handle();
             if (!_handle_source(normalized.resolved_path, handle))
@@ -109,13 +110,10 @@ namespace tbx
         auto meta_path = normalized.resolved_path;
         meta_path += ".meta";
 
-        if (file_operator.exists(meta_path)
-            && _meta_reader.try_parse_from_disk(_working_directory, normalized.resolved_path, meta)
-            && meta.id.is_valid())
+        if (file_operator.exists(meta_path))
         {
-            auto parsed_handle = _asset_handle_serializer->read_from_disk(
-                _working_directory,
-                normalized.resolved_path);
+            auto parsed_handle =
+                _handle_serializer->read_from_disk(_working_directory, normalized.resolved_path);
             if (parsed_handle && parsed_handle->id.is_valid())
             {
                 result.resolved_id = parsed_handle->id;

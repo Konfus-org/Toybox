@@ -391,8 +391,8 @@ namespace tbx::plugins
             std::vector<Json> texture_entries;
             if (data.try_get_children("textures", texture_entries))
             {
-                material.textures.overrides.reserve(
-                    material.textures.overrides.size() + texture_entries.size());
+                material.textures.values.reserve(
+                    material.textures.values.size() + texture_entries.size());
                 for (const auto& entry : texture_entries)
                 {
                     std::string name;

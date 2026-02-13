@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/assets/asset_loaders.h"
 #include "tbx/assets/asset_handle_serializer.h"
+#include "tbx/assets/asset_loaders.h"
 #include "tbx/assets/assets.h"
 #include "tbx/common/handle.h"
 #include "tbx/common/int.h"
@@ -225,8 +225,7 @@ namespace tbx
         /// Ownership: The manager stores a copy of the callable.
         /// Thread Safety: The callable must be safe to invoke concurrently.
         /// </remarks>
-        using HandleSource =
-            std::function<bool(const std::filesystem::path&, Handle& out_handle)>;
+        using HandleSource = std::function<bool(const std::filesystem::path&, Handle& out_handle)>;
 
         /// <summary>
         /// Purpose: Initializes the manager with a working directory, asset search roots, and an
@@ -234,10 +233,11 @@ namespace tbx
         /// </summary>
         /// <remarks>
         /// Ownership: Takes ownership of the working directory and asset path values for
-        /// internal use and stores the handle source and takes ownership of the serializer when provided.
-        /// Thread Safety: Not thread-safe; construct on a single thread before sharing. The
-        /// handle source and serializer must be safe to invoke concurrently. When include_default_resources
-        /// is false, the constructor skips adding the built-in resources directory.
+        /// internal use and stores the handle source and takes ownership of the serializer when
+        /// provided. Thread Safety: Not thread-safe; construct on a single thread before sharing.
+        /// The handle source and serializer must be safe to invoke concurrently. When
+        /// include_default_resources is false, the constructor skips adding the built-in resources
+        /// directory.
         /// </remarks>
         explicit AssetManager(
             std::filesystem::path working_directory,
@@ -896,10 +896,11 @@ namespace tbx
             return static_cast<uint>(count - 1);
         }
 
+      private:
         mutable std::mutex _mutex;
         std::filesystem::path _working_directory = {};
-        std::unique_ptr<IAssetHandleSerializer> _asset_handle_serializer = {};
         HandleSource _handle_source = {};
+        std::unique_ptr<IAssetHandleSerializer> _handle_serializer = nullptr;
         std::vector<std::filesystem::path> _asset_directories = {};
         std::unordered_map<Uuid, AssetRegistryEntry> _pool;
         std::unordered_map<Uuid, Uuid> _registry_by_id;

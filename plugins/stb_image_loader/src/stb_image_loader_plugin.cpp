@@ -110,9 +110,7 @@ namespace tbx::plugins
             .compression = request.compression,
         };
 
-        const std::filesystem::path resolved_path =
-            _asset_manager->resolve_asset_path(request.path);
-        auto meta_path = resolved_path;
+        auto meta_path = request.path;
         meta_path += ".meta";
         std::string meta_data = {};
         if (_file_ops->read_file(meta_path, FileDataFormat::UTF8_TEXT, meta_data))
@@ -126,6 +124,7 @@ namespace tbx::plugins
             }
             catch (...)
             {
+                // Ignore meta parsing errors and fall back to request settings.
             }
         }
 
@@ -134,7 +133,7 @@ namespace tbx::plugins
         {
             request.state = MessageState::ERROR;
             request.result.flag_failure(
-                build_load_failure_message(resolved_path, "file could not be read"));
+                build_load_failure_message(request.path, "file could not be read"));
             return;
         }
 
