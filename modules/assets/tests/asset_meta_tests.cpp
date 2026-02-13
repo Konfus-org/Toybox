@@ -90,6 +90,25 @@ namespace tbx::tests::assets
     }
 
     /// <summary>
+    /// Verifies serializer preserves invalid ids so AssetManager can trigger metadata repair.
+    /// </summary>
+    TEST(asset_handle_serializer, preserves_invalid_id_when_meta_id_is_missing)
+    {
+        // Arrange
+        AssetHandleSerializer parser;
+        auto asset_path = std::filesystem::path("wood.png");
+        std::string meta_text = "{ \"name\": \"Wood\" }\n";
+
+        // Act
+        auto handle = parser.read_from_source(meta_text, asset_path);
+
+        // Assert
+        ASSERT_NE(handle, nullptr);
+        EXPECT_FALSE(handle->id.is_valid());
+        EXPECT_EQ(handle->name, "wood.png");
+    }
+
+    /// <summary>
     /// Verifies serializer only updates the id while preserving existing custom metadata fields.
     /// </summary>
     TEST(asset_handle_serializer, writes_only_id_field_in_existing_meta)

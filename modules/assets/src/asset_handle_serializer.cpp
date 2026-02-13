@@ -6,9 +6,9 @@ namespace tbx
 {
     static Handle make_asset_handle(const std::filesystem::path& asset_path, Uuid id)
     {
-        auto handle = Handle(asset_path.lexically_normal().generic_string());
-        if (id.is_valid())
-            handle.id = id;
+        auto handle = Handle();
+        handle.name = asset_path.lexically_normal().generic_string();
+        handle.id = id;
         return handle;
     }
 
