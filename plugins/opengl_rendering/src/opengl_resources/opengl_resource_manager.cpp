@@ -126,10 +126,10 @@ namespace tbx::plugins
     }
 
     static void append_or_override_uniform(
-        std::vector<MaterialParameter>& overrides,
+        std::vector<MaterialParameter>& values,
         const MaterialParameter& uniform)
     {
-        for (auto& existing : overrides)
+        for (auto& existing : values)
         {
             if (existing.name != uniform.name)
                 continue;
@@ -138,7 +138,7 @@ namespace tbx::plugins
             return;
         }
 
-        overrides.push_back(uniform);
+        values.push_back(uniform);
     }
 
     static void append_or_override_material_parameter(
@@ -150,20 +150,20 @@ namespace tbx::plugins
     }
 
     static void append_or_override_texture(
-        MaterialTextureBindings& overrides,
+        MaterialTextureBindings& values,
         std::string_view name,
         const TextureInstance& runtime_texture)
     {
-        overrides.set(name, runtime_texture);
+        values.set(name, runtime_texture);
     }
 
     static void append_or_override_runtime_texture(
-        std::vector<MaterialTextureBinding>& overrides,
+        std::vector<MaterialTextureBinding>& values,
         std::string_view name,
         const TextureInstance& runtime_texture)
     {
         const auto normalized_name = normalize_uniform_name(name);
-        for (auto& texture : overrides)
+        for (auto& texture : values)
         {
             if (normalize_uniform_name(texture.name) != normalized_name)
                 continue;
@@ -173,7 +173,7 @@ namespace tbx::plugins
             return;
         }
 
-        overrides.push_back(
+        values.push_back(
             MaterialTextureBinding {
                 .name = normalized_name,
                 .texture = runtime_texture,
@@ -181,10 +181,10 @@ namespace tbx::plugins
     }
 
     static const TextureInstance* try_get_runtime_texture_override(
-        const std::vector<MaterialTextureBinding>& overrides,
+        const std::vector<MaterialTextureBinding>& values,
         const std::string& normalized_name)
     {
-        for (const auto& override_texture : overrides)
+        for (const auto& override_texture : values)
         {
             if (normalize_uniform_name(override_texture.name) != normalized_name)
                 continue;
@@ -238,13 +238,13 @@ namespace tbx::plugins
 
         hash_bytes(&runtime_material.handle.id, sizeof(runtime_material.handle.id));
 
-        for (const auto& parameter : runtime_material.parameters.values)
+        for (const auto& parameter : runtime_material.parameters)
         {
             hash_bytes(parameter.name.data(), parameter.name.size());
             hash_uniform_value(hash_value, parameter.value);
         }
 
-        for (const auto& texture_binding : runtime_material.textures.overrides)
+        for (const auto& texture_binding : runtime_material.textures)
         {
             hash_bytes(texture_binding.name.data(), texture_binding.name.size());
             hash_bytes(&texture_binding.texture.handle.id, sizeof(texture_binding.texture.handle.id));
@@ -277,7 +277,7 @@ namespace tbx::plugins
         Material& in_out_material,
         std::vector<MaterialTextureBinding>* out_runtime_texture_overrides)
     {
-        for (const auto& texture_binding : runtime_material.textures.overrides)
+        for (const auto& texture_binding : runtime_material.textures)
         {
             append_or_override_texture(
                 in_out_material.textures,
@@ -290,7 +290,7 @@ namespace tbx::plugins
                     texture_binding.texture);
         }
 
-        for (const auto& parameter_override : runtime_material.parameters.values)
+        for (const auto& parameter_override : runtime_material.parameters)
         {
             append_or_override_material_parameter(
                 in_out_material.parameters,
@@ -704,13 +704,11 @@ namespace tbx::plugins
             }
         }
 
-        bool has_diffuse = false;
-        bool has_normal = false;
-        for (const auto& texture_binding : resolved_material.textures.overrides)
+        const bool has_diffuse = resolved_material.textures.get("diffuse") != nullptr;
+        const bool has_normal = resolved_material.textures.get("normal") != nullptr;
+        for (const auto& texture_binding : resolved_material.textures)
         {
             const auto normalized_name = normalize_uniform_name(texture_binding.name);
-            has_diffuse = has_diffuse || normalized_name == "u_diffuse";
-            has_normal = has_normal || normalized_name == "u_normal";
 
             const TextureInstance* runtime_texture_override =
                 try_get_runtime_texture_override(runtime_texture_overrides, normalized_name);
@@ -764,7 +762,7 @@ namespace tbx::plugins
             append_texture_binding(out_resources, "u_normal", normal_texture);
         }
 
-        for (const auto& parameter_binding : resolved_material.parameters.values)
+        for (const auto& parameter_binding : resolved_material.parameters)
         {
             append_or_override_uniform(
                 out_resources.shader_parameters,

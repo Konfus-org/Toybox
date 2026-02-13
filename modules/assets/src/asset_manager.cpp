@@ -84,7 +84,16 @@ namespace tbx
     AssetManager::ResolvedAssetMetaId AssetManager::resolve_or_repair_asset_id(
         const NormalizedAssetPath& normalized)
     {
-        if (_handle_source)
+        auto file_operator = FileOperator(_working_directory);
+        if (!file_operator.exists(normalized.resolved_path))
+        {
+            TBX_TRACE_WARNING(
+                "AssetManager: requested asset '{}' was not found on disk. Using runtime id only.",
+                normalized.normalized_path);
+            return {};
+        }
+
+        if (_meta_source)
         {
             auto handle = Handle();
             if (!_handle_source(normalized.resolved_path, handle))
@@ -100,8 +109,9 @@ namespace tbx
         auto meta_path = normalized.resolved_path;
         meta_path += ".meta";
 
-        auto file_operator = FileOperator(_working_directory);
-        if (file_operator.exists(meta_path) && _asset_handle_serializer)
+        if (file_operator.exists(meta_path)
+            && _meta_reader.try_parse_from_disk(_working_directory, normalized.resolved_path, meta)
+            && meta.id.is_valid())
         {
             auto parsed_handle = _asset_handle_serializer->read_from_disk(
                 _working_directory,
