@@ -1,9 +1,8 @@
 #include "stb_image_loader_plugin.h"
 #include "tbx/app/application.h"
-#include "tbx/files/json.h"
 #include "tbx/assets/messages.h"
 #include "tbx/files/file_ops.h"
-#include "tbx/common/string_utils.h"
+#include "tbx/files/json.h"
 #include "tbx/graphics/texture.h"
 #include <memory>
 #include <stb_image.h>
@@ -12,91 +11,6 @@
 
 namespace tbx::plugins
 {
-    static bool try_parse_texture_wrap(std::string_view value, TextureWrap& out_value)
-    {
-        const std::string lowered = to_lower(trim(std::string(value)));
-        if (lowered == "clamp_to_edge")
-        {
-            out_value = TextureWrap::CLAMP_TO_EDGE;
-            return true;
-        }
-        if (lowered == "mirrored_repeat")
-        {
-            out_value = TextureWrap::MIRRORED_REPEAT;
-            return true;
-        }
-        if (lowered == "repeat")
-        {
-            out_value = TextureWrap::REPEAT;
-            return true;
-        }
-        return false;
-    }
-
-    static bool try_parse_texture_filter(std::string_view value, TextureFilter& out_value)
-    {
-        const std::string lowered = to_lower(trim(std::string(value)));
-        if (lowered == "nearest")
-        {
-            out_value = TextureFilter::NEAREST;
-            return true;
-        }
-        if (lowered == "linear")
-        {
-            out_value = TextureFilter::LINEAR;
-            return true;
-        }
-        return false;
-    }
-
-    static bool try_parse_texture_format(std::string_view value, TextureFormat& out_value)
-    {
-        const std::string lowered = to_lower(trim(std::string(value)));
-        if (lowered == "rgb")
-        {
-            out_value = TextureFormat::RGB;
-            return true;
-        }
-        if (lowered == "rgba")
-        {
-            out_value = TextureFormat::RGBA;
-            return true;
-        }
-        return false;
-    }
-
-    static bool try_parse_texture_mipmaps(std::string_view value, TextureMipmaps& out_value)
-    {
-        const std::string lowered = to_lower(trim(std::string(value)));
-        if (lowered == "disabled")
-        {
-            out_value = TextureMipmaps::DISABLED;
-            return true;
-        }
-        if (lowered == "enabled")
-        {
-            out_value = TextureMipmaps::ENABLED;
-            return true;
-        }
-        return false;
-    }
-
-    static bool try_parse_texture_compression(std::string_view value, TextureCompression& out_value)
-    {
-        const std::string lowered = to_lower(trim(std::string(value)));
-        if (lowered == "disabled")
-        {
-            out_value = TextureCompression::DISABLED;
-            return true;
-        }
-        if (lowered == "auto")
-        {
-            out_value = TextureCompression::AUTO;
-            return true;
-        }
-        return false;
-    }
-
     static bool try_parse_texture_settings(const Json& data, TextureSettings& out_settings)
     {
         auto texture_data = Json();
@@ -104,22 +18,12 @@ namespace tbx::plugins
             return false;
 
         auto settings = TextureSettings();
-        auto text = std::string();
-        if (texture_data.try_get<std::string>("wrap", text) && !try_parse_texture_wrap(text, settings.wrap))
-            return false;
-        if (texture_data.try_get<std::string>("filter", text)
-            && !try_parse_texture_filter(text, settings.filter))
-            return false;
-        if (texture_data.try_get<std::string>("format", text)
-            && !try_parse_texture_format(text, settings.format))
-            return false;
-        if (texture_data.try_get<std::string>("mipmaps", text)
-            && !try_parse_texture_mipmaps(text, settings.mipmaps))
-            return false;
-        if (texture_data.try_get<std::string>("compression", text)
-            && !try_parse_texture_compression(text, settings.compression))
-            return false;
-
+        static_cast<void>(texture_data.try_get<TextureWrap>("wrap", settings.wrap));
+        static_cast<void>(texture_data.try_get<TextureFilter>("filter", settings.filter));
+        static_cast<void>(texture_data.try_get<TextureFormat>("format", settings.format));
+        static_cast<void>(texture_data.try_get<TextureMipmaps>("mipmaps", settings.mipmaps));
+        static_cast<void>(
+            texture_data.try_get<TextureCompression>("compression", settings.compression));
         out_settings = settings;
         return true;
     }
@@ -206,7 +110,9 @@ namespace tbx::plugins
             .compression = request.compression,
         };
 
-        auto meta_path = request.path;
+        const std::filesystem::path resolved_path =
+            _asset_manager->resolve_asset_path(request.path);
+        auto meta_path = resolved_path;
         meta_path += ".meta";
         std::string meta_data = {};
         if (_file_ops->read_file(meta_path, FileDataFormat::UTF8_TEXT, meta_data))
@@ -228,7 +134,7 @@ namespace tbx::plugins
         {
             request.state = MessageState::ERROR;
             request.result.flag_failure(
-                build_load_failure_message(request.path, "file could not be read"));
+                build_load_failure_message(resolved_path, "file could not be read"));
             return;
         }
 

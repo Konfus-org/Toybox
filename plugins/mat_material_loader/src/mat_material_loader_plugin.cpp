@@ -1,30 +1,17 @@
 #include "mat_material_loader_plugin.h"
 #include "tbx/app/application.h"
+#include "tbx/common/string_utils.h"
 #include "tbx/files/file_ops.h"
 #include "tbx/files/json.h"
 #include "tbx/graphics/material.h"
-#include <algorithm>
-#include <charconv>
 #include <cctype>
+#include <charconv>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace tbx::plugins
 {
-    static std::string to_lower(std::string text)
-    {
-        std::transform(
-            text.begin(),
-            text.end(),
-            text.begin(),
-            [](unsigned char ch)
-            {
-                return static_cast<char>(std::tolower(ch));
-            });
-        return text;
-    }
-
     static std::string build_load_failure_message(
         const std::filesystem::path& path,
         std::string_view reason)
@@ -40,31 +27,16 @@ namespace tbx::plugins
         return message;
     }
 
-    static std::string_view trim_view(std::string_view text)
-    {
-        size_t start = 0U;
-        size_t end = text.size();
-        while (start < end && std::isspace(static_cast<unsigned char>(text[start])) != 0)
-        {
-            ++start;
-        }
-        while (end > start && std::isspace(static_cast<unsigned char>(text[end - 1U])) != 0)
-        {
-            --end;
-        }
-        return text.substr(start, end - start);
-    }
-
     static Uuid parse_uuid_text(std::string_view value)
     {
-        std::string_view trimmed = trim_view(value);
+        std::string trimmed = trim(value);
         if (trimmed.empty())
         {
             return {};
         }
 
         if (trimmed.size() > 2U && trimmed[0] == '0' && (trimmed[1] == 'x' || trimmed[1] == 'X'))
-            trimmed.remove_prefix(2U);
+            trimmed = trimmed.substr(2U);
         if (trimmed.empty())
             return {};
 
@@ -75,11 +47,7 @@ namespace tbx::plugins
         }
 
         uint32 parsed = 0U;
-        auto result = std::from_chars(
-            trimmed.data(),
-            trimmed.data() + trimmed.size(),
-            parsed,
-            16);
+        auto result = std::from_chars(trimmed.data(), trimmed.data() + trimmed.size(), parsed, 16);
         if (result.ec != std::errc())
         {
             return {};
@@ -96,7 +64,7 @@ namespace tbx::plugins
 
     static Handle parse_asset_handle(std::string_view value)
     {
-        std::string_view trimmed = trim_view(value);
+        std::string trimmed = trim(value);
         if (trimmed.empty())
         {
             return {};
@@ -380,8 +348,7 @@ namespace tbx::plugins
 
                 if (material.program.compute.is_valid())
                 {
-                    if (
-                        material.program.vertex.is_valid() || material.program.fragment.is_valid()
+                    if (material.program.vertex.is_valid() || material.program.fragment.is_valid()
                         || material.program.tesselation.is_valid()
                         || material.program.geometry.is_valid())
                     {
