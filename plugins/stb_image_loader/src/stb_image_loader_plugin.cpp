@@ -1,16 +1,33 @@
 #include "stb_image_loader_plugin.h"
 #include "tbx/app/application.h"
-#include "tbx/assets/asset_meta.h"
 #include "tbx/assets/messages.h"
 #include "tbx/files/file_ops.h"
+#include "tbx/files/json.h"
 #include "tbx/graphics/texture.h"
-#include <stb_image.h>
 #include <memory>
+#include <stb_image.h>
 #include <string>
 #include <vector>
 
 namespace tbx::plugins
 {
+    static bool try_parse_texture_settings(const Json& data, TextureSettings& out_settings)
+    {
+        auto texture_data = Json();
+        if (!data.try_get_child("texture", texture_data))
+            return false;
+
+        auto settings = TextureSettings();
+        static_cast<void>(texture_data.try_get<TextureWrap>("wrap", settings.wrap));
+        static_cast<void>(texture_data.try_get<TextureFilter>("filter", settings.filter));
+        static_cast<void>(texture_data.try_get<TextureFormat>("format", settings.format));
+        static_cast<void>(texture_data.try_get<TextureMipmaps>("mipmaps", settings.mipmaps));
+        static_cast<void>(
+            texture_data.try_get<TextureCompression>("compression", settings.compression));
+        out_settings = settings;
+        return true;
+    }
+
     static std::string build_load_failure_message(
         const std::filesystem::path& path,
         const char* reason)
@@ -92,24 +109,31 @@ namespace tbx::plugins
         load_settings.mipmaps = request.mipmaps;
         load_settings.compression = request.compression;
 
-        const std::filesystem::path resolved_path = _asset_manager->resolve_asset_path(request.path);
+        const std::filesystem::path resolved_path =
+            _asset_manager->resolve_asset_path(request.path);
         auto meta_path = resolved_path;
         meta_path += ".meta";
-        std::string meta_data;
+        std::string meta_data = {};
         if (_file_ops->read_file(meta_path, FileDataFormat::UTF8_TEXT, meta_data))
         {
-            AssetMeta meta = {};
-            AssetMetaParser parser = {};
-            if (parser.try_parse_from_source(meta_data, resolved_path, meta)
-                && meta.texture_settings.has_value())
-                load_settings = *meta.texture_settings;
+            try
+            {
+                auto data = Json(meta_data);
+                auto parsed_settings = TextureSettings();
+                if (try_parse_texture_settings(data, parsed_settings))
+                    load_settings = parsed_settings;
+            }
+            catch (...)
+            {
+            }
         }
 
         std::string encoded_image;
         if (!_file_ops->read_file(resolved_path, FileDataFormat::BINARY, encoded_image))
         {
             request.state = MessageState::ERROR;
-            request.result.flag_failure(build_load_failure_message(resolved_path, "file could not be read"));
+            request.result.flag_failure(
+                build_load_failure_message(resolved_path, "file could not be read"));
             return;
         }
 
