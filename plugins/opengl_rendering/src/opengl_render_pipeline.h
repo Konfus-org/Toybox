@@ -152,6 +152,37 @@ namespace tbx::plugins
     };
 
     /// <summary>
+    /// Purpose: Describes shadow-map resources used by deferred shading.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores non-owning spans over caller-managed arrays.
+    /// Thread Safety: Safe to read concurrently while storage remains valid.
+    /// </remarks>
+    struct OpenGlShadowFrameData final
+    {
+        /// <summary>
+        /// Purpose: Ordered shadow-map depth textures sampled by deferred lighting.
+        /// Ownership: Non-owning span; caller owns texture identifiers.
+        /// Thread Safety: Safe to read concurrently while storage remains valid.
+        /// </summary>
+        std::span<const uint32> map_texture_ids = {};
+
+        /// <summary>
+        /// Purpose: Ordered light view-projection matrices matching each shadow map.
+        /// Ownership: Non-owning span; caller owns matrix storage.
+        /// Thread Safety: Safe to read concurrently while storage remains valid.
+        /// </summary>
+        std::span<const Mat4> light_view_projections = {};
+
+        /// <summary>
+        /// Purpose: Cascade split distances used for cascaded directional shadow sampling.
+        /// Ownership: Non-owning span; caller owns split storage.
+        /// Thread Safety: Safe to read concurrently while storage remains valid.
+        /// </summary>
+        std::span<const float> cascade_splits = {};
+    };
+
+    /// <summary>
     /// Purpose: Provides immutable per-frame data to OpenGL render operations.
     /// </summary>
     /// <remarks>
@@ -273,6 +304,13 @@ namespace tbx::plugins
         /// Thread Safety: Safe to read concurrently while storage remains valid.
         /// </summary>
         std::span<const OpenGlSpotLightData> spot_lights = {};
+
+        /// <summary>
+        /// Purpose: Shadow-map textures and transform inputs used by shadow and deferred passes.
+        /// Ownership: Value type with non-owning spans; caller owns backing arrays.
+        /// Thread Safety: Safe to read concurrently while storage remains valid.
+        /// </summary>
+        OpenGlShadowFrameData shadow_data = {};
 
         /// <summary>
         /// Purpose: Defines how the render target is scaled into the presentation target.
