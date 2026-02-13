@@ -19,11 +19,16 @@ namespace tbx
     AssetManager::AssetManager(
         std::filesystem::path working_directory,
         std::vector<std::filesystem::path> asset_directories,
-        AssetMetaSource meta_source,
-        bool include_default_resources)
+        HandleSource handle_source,
+        bool include_default_resources,
+        std::unique_ptr<IAssetHandleSerializer> asset_handle_serializer)
         : _working_directory(std::move(working_directory))
-        , _meta_source(std::move(meta_source))
+        , _asset_handle_serializer(std::move(asset_handle_serializer))
+        , _handle_source(std::move(handle_source))
     {
+        if (!_asset_handle_serializer)
+            _asset_handle_serializer = std::make_unique<AssetHandleSerializer>();
+
         FileOperator file_operator = FileOperator(_working_directory);
         _working_directory = file_operator.get_working_directory();
 
@@ -61,49 +66,11 @@ namespace tbx
         }
     }
 
-    static bool is_texture_asset_path(const std::filesystem::path& asset_path)
-    {
-        auto extension = to_lower(asset_path.extension().string());
-        return extension == ".png" || extension == ".jpg" || extension == ".jpeg"
-               || extension == ".tga" || extension == ".bmp" || extension == ".gif"
-               || extension == ".hdr";
-    }
-
-    static TextureSettings make_default_texture_meta_settings()
-    {
-        TextureSettings settings = {};
-        settings.wrap = TextureWrap::REPEAT;
-        settings.filter = TextureFilter::LINEAR;
-        settings.format = TextureFormat::RGBA;
-        settings.mipmaps = TextureMipmaps::ENABLED;
-        settings.compression = TextureCompression::AUTO;
-        return settings;
-    }
-
-    static std::string make_meta_contents(
-        const AssetMetaParser& parser,
-        const std::filesystem::path& asset_path,
-        Uuid id)
-    {
-        AssetMeta meta = {
-            .asset_path = asset_path,
-            .id = id,
-            .name = asset_path.stem().string(),
-        };
-        if (is_texture_asset_path(asset_path))
-            meta.texture_settings = make_default_texture_meta_settings();
-        return parser.serialize_to_source(meta);
-    }
-
     bool AssetManager::write_meta_with_id(const std::filesystem::path& asset_path, Uuid id) const
     {
-        auto meta_path = asset_path;
-        meta_path += ".meta";
         auto file_operator = FileOperator(_working_directory);
-        return file_operator.write_file(
-            meta_path,
-            FileDataFormat::UTF8_TEXT,
-            make_meta_contents(_meta_reader, asset_path, id));
+        auto handle = Handle(id);
+        return _asset_handle_serializer && _asset_handle_serializer->try_write_to_disk(file_operator, asset_path, handle);
     }
 
     Uuid AssetManager::generate_unique_asset_id_locked() const
@@ -128,18 +95,17 @@ namespace tbx
 
         if (_meta_source)
         {
-            auto meta = AssetMeta();
-            if (!_meta_source(normalized.resolved_path, meta))
+            auto handle = Handle();
+            if (!_handle_source(normalized.resolved_path, handle))
                 return {};
 
             auto result = ResolvedAssetMetaId();
-            result.resolved_id = meta.id;
-            result.state = meta.id.is_valid() ? AssetMetaState::VALID : AssetMetaState::INVALID;
+            result.resolved_id = handle.id;
+            result.state = handle.id.is_valid() ? AssetMetaState::VALID : AssetMetaState::INVALID;
             return result;
         }
 
         auto result = ResolvedAssetMetaId();
-        auto meta = AssetMeta();
         auto meta_path = normalized.resolved_path;
         meta_path += ".meta";
 
@@ -147,9 +113,15 @@ namespace tbx
             && _meta_reader.try_parse_from_disk(_working_directory, normalized.resolved_path, meta)
             && meta.id.is_valid())
         {
-            result.resolved_id = meta.id;
-            result.state = AssetMetaState::VALID;
-            return result;
+            auto parsed_handle = _asset_handle_serializer->read_from_disk(
+                _working_directory,
+                normalized.resolved_path);
+            if (parsed_handle && parsed_handle->id.is_valid())
+            {
+                result.resolved_id = parsed_handle->id;
+                result.state = AssetMetaState::VALID;
+                return result;
+            }
         }
 
         result.state =

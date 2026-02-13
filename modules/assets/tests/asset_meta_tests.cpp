@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "tbx/assets/asset_meta.h"
+#include "tbx/assets/asset_handle_serializer.h"
 #include <filesystem>
 #include <unordered_map>
 
@@ -69,158 +69,73 @@ namespace tbx::tests::assets
     };
 
     /// <summary>
-    /// Verifies metadata parsing reads id and explicit name values.
+    /// Verifies handle serializer reads id and path-derived name from in-memory metadata.
     /// </summary>
-    TEST(asset_meta_parser, reads_name_and_id_from_json)
+    TEST(asset_handle_serializer, reads_handle_from_ifileops_without_disk_io)
     {
         // Arrange
-        AssetMetaParser parser;
-        AssetMeta meta = {};
-        const auto asset_path = std::filesystem::path("/virtual/assets/hero.png");
-        constexpr const char* meta_text = R"JSON({ "id": "1a2b", "name": "Hero" })JSON";
-
-        // Act
-        ASSERT_TRUE(parser.try_parse_from_source(meta_text, asset_path, meta));
-
-        // Assert
-        EXPECT_EQ(meta.asset_path, asset_path);
-        EXPECT_EQ(meta.name, "Hero");
-        EXPECT_EQ(meta.id.value, 0x1a2bU);
-    }
-
-    /// <summary>
-    /// Verifies missing names fall back to the source filename stem.
-    /// </summary>
-    TEST(asset_meta_parser, falls_back_to_stem_name)
-    {
-        // Arrange
-        AssetMetaParser parser;
-        AssetMeta meta = {};
-        const auto asset_path = std::filesystem::path("/virtual/assets/rock.tbx");
-        constexpr const char* meta_text = R"JSON({ "id": "10" })JSON";
-
-        // Act
-        ASSERT_TRUE(parser.try_parse_from_source(meta_text, asset_path, meta));
-
-        // Assert
-        EXPECT_EQ(meta.name, "rock");
-        EXPECT_EQ(meta.id.value, 0x10U);
-    }
-
-    /// <summary>
-    /// Verifies texture settings deserialize from metadata sidecars.
-    /// </summary>
-    TEST(asset_meta_parser, parses_meta_text)
-    {
-        // Arrange
-        constexpr const char* meta_text = R"JSON({ "id": "a1", "name": "Crystal" })JSON";
-        AssetMetaParser parser;
-        AssetMeta meta = {};
-        const auto asset_path = std::filesystem::path("/virtual/assets/crystal.asset");
-
-        // Act
-        ASSERT_TRUE(parser.try_parse_from_source(meta_text, asset_path, meta));
-
-        // Assert
-        EXPECT_EQ(meta.asset_path, asset_path);
-        EXPECT_EQ(meta.name, "Crystal");
-        EXPECT_EQ(meta.id.value, 0xA1U);
-    }
-
-    /// <summary>
-    /// Verifies invalid JSON input is rejected.
-    /// </summary>
-    TEST(asset_meta_parser, rejects_invalid_json)
-    {
-        // Arrange
-        AssetMetaParser parser;
-        AssetMeta meta = {};
-        const auto asset_path = std::filesystem::path("/virtual/assets/broken.asset");
-
-        // Act / Assert
-        EXPECT_FALSE(parser.try_parse_from_source("{ invalid json }", asset_path, meta));
-    }
-
-    /// <summary>
-    /// Verifies texture sidecar settings are parsed from metadata JSON.
-    /// </summary>
-    TEST(asset_meta_parser, parses_texture_settings)
-    {
-        // Arrange
-        AssetMetaParser parser;
-        AssetMeta meta = {};
-        const auto asset_path = std::filesystem::path("/virtual/assets/diffuse.png");
-        constexpr const char* meta_text = R"JSON(
-            {
-              "id": "55",
-              "texture": {
-                "wrap": "clamp_to_edge",
-                "filter": "nearest",
-                "format": "rgba",
-                "mipmaps": "disabled",
-                "compression": "auto"
-              }
-            })JSON";
-
-        // Act
-        ASSERT_TRUE(parser.try_parse_from_source(meta_text, asset_path, meta));
-
-        // Assert
-        ASSERT_TRUE(meta.texture_settings.has_value());
-        EXPECT_EQ(meta.texture_settings->wrap, TextureWrap::CLAMP_TO_EDGE);
-        EXPECT_EQ(meta.texture_settings->filter, TextureFilter::NEAREST);
-        EXPECT_EQ(meta.texture_settings->format, TextureFormat::RGBA);
-        EXPECT_EQ(meta.texture_settings->mipmaps, TextureMipmaps::DISABLED);
-        EXPECT_EQ(meta.texture_settings->compression, TextureCompression::AUTO);
-    }
-
-    /// <summary>
-    /// Verifies metadata can be parsed from in-memory file operations.
-    /// </summary>
-    TEST(asset_meta_parser, parses_from_ifileops_without_disk_io)
-    {
-        // Arrange
-        AssetMetaParser parser;
+        AssetHandleSerializer parser;
         InMemoryFileOps file_ops("/virtual/assets");
         auto asset_path = std::filesystem::path("wood.png");
         std::string meta_text = "{ \"id\": \"99\" }\n";
         ASSERT_TRUE(file_ops.write_file("wood.png.meta", FileDataFormat::UTF8_TEXT, meta_text));
-        AssetMeta meta = {};
 
         // Act
-        auto succeeded = parser.try_parse_from_disk(file_ops, asset_path, meta);
+        auto handle = parser.read_from_disk(file_ops, asset_path);
 
         // Assert
-        EXPECT_TRUE(succeeded);
-        EXPECT_EQ(meta.id.value, 0x99U);
+        ASSERT_NE(handle, nullptr);
+        EXPECT_EQ(handle->id.value, 0x99U);
+        EXPECT_EQ(handle->name, "wood.png");
     }
 
     /// <summary>
-    /// Verifies texture settings serialize into metadata sidecar text.
+    /// Verifies serializer preserves invalid ids so AssetManager can trigger metadata repair.
     /// </summary>
-    TEST(asset_meta_parser, serializes_texture_settings)
+    TEST(asset_handle_serializer, preserves_invalid_id_when_meta_id_is_missing)
     {
         // Arrange
-        AssetMetaParser parser;
-        TextureSettings settings = {};
-        settings.wrap = TextureWrap::MIRRORED_REPEAT;
-        settings.filter = TextureFilter::LINEAR;
-        settings.format = TextureFormat::RGB;
-        settings.mipmaps = TextureMipmaps::ENABLED;
-        settings.compression = TextureCompression::DISABLED;
-        AssetMeta meta = {
-            .asset_path = "/virtual/assets/ui.png",
-            .id = Uuid(0x33U),
-            .name = "ui",
-            .texture_settings = settings,
-        };
+        AssetHandleSerializer parser;
+        auto asset_path = std::filesystem::path("wood.png");
+        std::string meta_text = "{ \"name\": \"Wood\" }\n";
 
         // Act
-        auto encoded = parser.serialize_to_source(meta);
+        auto handle = parser.read_from_source(meta_text, asset_path);
 
         // Assert
+        ASSERT_NE(handle, nullptr);
+        EXPECT_FALSE(handle->id.is_valid());
+        EXPECT_EQ(handle->name, "wood.png");
+    }
+
+    /// <summary>
+    /// Verifies serializer only updates the id while preserving existing custom metadata fields.
+    /// </summary>
+    TEST(asset_handle_serializer, writes_only_id_field_in_existing_meta)
+    {
+        // Arrange
+        AssetHandleSerializer serializer;
+        InMemoryFileOps file_ops("/virtual/assets");
+        auto asset_path = std::filesystem::path("stone.png");
+        std::string original_meta = R"JSON(
+            {
+              "name": "Stone",
+              "texture": { "wrap": "repeat" },
+              "id": "1"
+            }
+            )JSON";
+        ASSERT_TRUE(file_ops.write_file("stone.png.meta", FileDataFormat::UTF8_TEXT, original_meta));
+        auto updated_handle = Handle(Uuid(0xABU));
+
+        // Act
+        auto write_succeeded = serializer.try_write_to_disk(file_ops, asset_path, updated_handle);
+
+        // Assert
+        ASSERT_TRUE(write_succeeded);
+        auto encoded = std::string();
+        ASSERT_TRUE(file_ops.read_file("stone.png.meta", FileDataFormat::UTF8_TEXT, encoded));
+        EXPECT_NE(encoded.find("\"id\": \"ab\""), std::string::npos);
+        EXPECT_NE(encoded.find("\"name\": \"Stone\""), std::string::npos);
         EXPECT_NE(encoded.find("\"texture\""), std::string::npos);
-        EXPECT_NE(encoded.find("\"wrap\": \"mirrored_repeat\""), std::string::npos);
-        EXPECT_NE(encoded.find("\"format\": \"rgb\""), std::string::npos);
     }
 }

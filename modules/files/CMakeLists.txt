@@ -21,4 +21,11 @@ target_link_libraries(${module_name}
         nlohmann_json
 )
 
+target_include_directories(${module_name}
+    PUBLIC
+        ${PROJECT_SOURCE_DIR}/modules/graphics/include
+        ${PROJECT_SOURCE_DIR}/modules/math/include
+        ${PROJECT_SOURCE_DIR}/thirdparty/glm
+)
+
 tbx_setup_module(${module_name})
