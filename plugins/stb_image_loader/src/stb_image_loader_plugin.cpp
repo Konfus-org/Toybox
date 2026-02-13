@@ -93,7 +93,8 @@ namespace tbx::plugins
             .compression = request.compression,
         };
 
-        auto meta_path = request.path / ".meta";
+        auto meta_path = request.path;
+        meta_path += ".meta";
         std::string meta_data;
         if (_file_ops->read_file(meta_path, FileDataFormat::UTF8_TEXT, meta_data))
         {
