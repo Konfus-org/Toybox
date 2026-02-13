@@ -26,7 +26,10 @@ void main()
     vec3 albedo_linear = tbx_srgb_to_linear(texture_color.rgb);
 
     vec3 normal_sample = texture(u_normal, v_tex_coord).xyz * 2.0 - 1.0;
-    vec3 world_normal = normalize(v_world_normal + normal_sample * 0.25);
+    vec3 default_normal_sample = vec3(0.0, 0.0, 1.0);
+    float has_normal_map = step(0.02, length(normal_sample - default_normal_sample));
+    vec3 perturbed_normal = normalize(v_world_normal + normal_sample * 0.25);
+    vec3 world_normal = normalize(mix(v_world_normal, perturbed_normal, has_normal_map));
     vec3 encoded_normal = normalize(world_normal) * 0.5 + 0.5;
 
     float roughness = clamp(u_roughness, 0.02, 1.0);
