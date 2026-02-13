@@ -15,12 +15,12 @@ namespace tbx::examples
         _ent_registry = &context.get_entity_registry();
 
         // Setup assets to use
-        auto smily_mat = Handle("Smily.mat");
-        auto skybox_mat = Handle("AnimeSkybox.mat");
-        auto skybox_tex = Handle("AnimeSkybox.png");
-        auto green_cube = Handle("Green_Cube.fbx");
-        auto lut_post_mat = Handle("LutPostProcess.mat");
-        auto lut_tex = Handle("LUT_Film.png");
+        auto smily_mat = Handle("Materials/Smily.mat");
+        auto skybox_mat = Handle("Materials/AnimeSkybox.mat");
+        auto lut_post_mat = Handle("Materials/LutPostProcess.mat");
+        auto skybox_tex = Handle("Textures/AnimeSkybox.png");
+        auto lut_tex = Handle("Textures/LUTs/LUT_Cinematic.png");
+        auto green_cube = Handle("Models/Green_Cube.fbx");
 
         // Setup light
         _sun = _ent_registry->create("Light");
