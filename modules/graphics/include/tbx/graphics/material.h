@@ -7,6 +7,7 @@
 #include "tbx/tbx_api.h"
 #include <initializer_list>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -66,12 +67,29 @@ namespace tbx
     /// </remarks>
     struct TBX_API MaterialParameterBindings
     {
+        using iterator = std::vector<MaterialParameterBinding>::iterator;
+        using const_iterator = std::vector<MaterialParameterBinding>::const_iterator;
+
+        MaterialParameterBindings() = default;
+        MaterialParameterBindings(std::initializer_list<MaterialParameterBinding> parameters)
+            : values(parameters)
+        {
+        }
+
         void set(std::string_view name, MaterialParameterData value);
         void set(MaterialParameterBinding parameter);
         void set(std::initializer_list<MaterialParameterBinding> parameters);
+        MaterialParameterBinding* get(std::string_view name);
+        const MaterialParameterBinding* get(std::string_view name) const;
         bool has(std::string_view name) const;
         void remove(std::string_view name);
         void clear();
+        iterator begin();
+        const_iterator begin() const;
+        const_iterator cbegin() const;
+        iterator end();
+        const_iterator end() const;
+        const_iterator cend() const;
 
         std::vector<MaterialParameterBinding> values = {};
     };
@@ -90,7 +108,7 @@ namespace tbx
     };
 
     /// <summary>
-    /// Purpose: Stores per-material texture overrides applied at render time.
+    /// Purpose: Stores per-material texture values applied at render time.
     /// </summary>
     /// <remarks>
     /// Ownership: Owns uniform-name strings and runtime texture values.
@@ -98,54 +116,32 @@ namespace tbx
     /// </remarks>
     struct TBX_API MaterialTextureBindings
     {
-        /// <summary>
-        /// Purpose: Adds or updates a texture override by sampler uniform name.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Stores a copy of the normalized uniform name and handle value.
-        /// Thread Safety: Not thread-safe; synchronize mutation externally.
-        /// </remarks>
-        void set(std::string_view name, Handle texture);
+        using iterator = std::vector<MaterialTextureBinding>::iterator;
+        using const_iterator = std::vector<MaterialTextureBinding>::const_iterator;
 
-        /// <summary>
-        /// Purpose: Adds or updates a runtime texture override by sampler uniform name.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Stores a copy of the normalized uniform name and runtime texture settings.
-        /// Thread Safety: Not thread-safe; synchronize mutation externally.
-        /// </remarks>
+        MaterialTextureBindings() = default;
+        MaterialTextureBindings(std::initializer_list<MaterialTextureBinding> texture_bindings)
+            : values(texture_bindings)
+        {
+        }
+
+        void set(std::string_view name, Handle texture);
         void set(std::string_view name, TextureInstance texture);
         void set(MaterialTextureBinding texture_binding);
         void set(std::initializer_list<MaterialTextureBinding> texture_bindings);
-
-        /// <summary>
-        /// Purpose: Returns whether a texture override exists for the given sampler name.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Stateless; no ownership transfer.
-        /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-        /// </remarks>
+        MaterialTextureBinding* get(std::string_view name);
+        const MaterialTextureBinding* get(std::string_view name) const;
         bool has(std::string_view name) const;
-
-        /// <summary>
-        /// Purpose: Removes an override by name.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Mutates internal storage.
-        /// Thread Safety: Not thread-safe; synchronize mutation externally.
-        /// </remarks>
         void remove(std::string_view name);
-
-        /// <summary>
-        /// Purpose: Clears all overrides.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Releases internal storage.
-        /// Thread Safety: Not thread-safe; synchronize mutation externally.
-        /// </remarks>
         void clear();
+        iterator begin();
+        const_iterator begin() const;
+        const_iterator cbegin() const;
+        iterator end();
+        const_iterator end() const;
+        const_iterator cend() const;
 
-        std::vector<MaterialTextureBinding> overrides = {};
+        std::vector<MaterialTextureBinding> values = {};
     };
 
     /// <summary>
@@ -206,7 +202,7 @@ namespace tbx
         Handle handle = {};
 
         /// <summary>
-        /// Purpose: Runtime parameter overrides layered onto the base material.
+        /// Purpose: Runtime parameter values layered onto the base material.
         /// </summary>
         /// <remarks>
         /// Ownership: Owns override values by name.
@@ -215,7 +211,7 @@ namespace tbx
         MaterialParameterBindings parameters = {};
 
         /// <summary>
-        /// Purpose: Runtime texture overrides layered onto the base material.
+        /// Purpose: Runtime texture values layered onto the base material.
         /// </summary>
         /// <remarks>
         /// Ownership: Owns override sampler-name/handle pairs.

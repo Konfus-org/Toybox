@@ -15,12 +15,12 @@ namespace tbx::examples
         _ent_registry = &context.get_entity_registry();
 
         // Setup assets to use
-        auto smily_mat = Handle("Smily.mat");
-        auto skybox_mat = Handle("AnimeSkybox.mat");
-        auto skybox_tex = Handle("AnimeSkybox.png");
-        auto green_cube = Handle("Green_Cube.fbx");
-        auto lut_post_mat = Handle("LutPostProcess.mat");
-        auto lut_tex = Handle("LUT_Film.tga");
+        auto smily_mat = Handle("Materials/Smily.mat");
+        auto skybox_mat = Handle("Materials/AnimeSkybox.mat");
+        auto lut_post_mat = Handle("Materials/LutPostProcess.mat");
+        auto skybox_tex = Handle("Textures/AnimeSkybox.png");
+        auto lut_tex = Handle("Textures/LUTs/LUT_Cinematic.png");
+        auto green_cube = Handle("Models/Green_Cube.fbx");
 
         // Setup light
         _sun = _ent_registry->create("Light");
@@ -36,7 +36,7 @@ namespace tbx::examples
         // Setup ground
         auto ground_ent = _ent_registry->create("Ground");
         ground_ent.add_component<Renderer>(smily_mat);
-        ground_ent.add_component<ProceduralMesh>(quad);
+        ground_ent.add_component<DynamicMesh>(quad);
         ground_ent.add_component<Transform>(
             Vec3(0.0f, -2.0f, -5.0f),
             to_radians(Vec3(-90.0f, 0.0f, 0.0f)),
@@ -47,19 +47,21 @@ namespace tbx::examples
         sky_ent.add_component<Sky>(skybox_mat);
 
         // Setup global post-processing stack
-        // auto post_ent = _ent_registry->create("PostProcessing");
-        // auto post_processing = PostProcessing({
-        //    PostProcessingEffect(
-        //        lut_post_mat,
-        //        {"strength", 1.0f},
-        //        {"lut",
-        //         {
-        //             lut_tex,
-        //             TextureFilter::LINEAR,
-        //             TextureWrap::CLAMP_TO_EDGE,
-        //         }}),
-        //});
-        // post_ent.add_component<PostProcessing>(post_processing);
+        auto post_ent = _ent_registry->create("PostProcessing");
+        auto post_processing = PostProcessing({
+            {
+                .material =
+                    {
+                        .handle = lut_post_mat,
+                        .textures = {{
+                            .name = "lut",
+                            .texture = lut_tex,
+                        }},
+                    },
+                .blend = 1.0f,
+            },
+        });
+        post_ent.add_component<PostProcessing>(post_processing);
 
         // Setup camera
         auto cam_ent = _ent_registry->create("Camera");

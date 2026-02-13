@@ -1,7 +1,7 @@
 #include "opengl_texture.h"
 #include "tbx/debugging/macros.h"
-#include <glad/glad.h>
 #include <algorithm>
+#include <glad/glad.h>
 
 namespace tbx::plugins
 {
@@ -79,12 +79,12 @@ namespace tbx::plugins
         switch (format)
         {
             case TextureFormat::RGBA:
-                return GlTextureFormat { GL_RGBA8, GL_RGBA };
+                return GlTextureFormat {GL_RGBA8, GL_RGBA};
             case TextureFormat::RGB:
-                return GlTextureFormat { GL_RGB8, GL_RGB };
+                return GlTextureFormat {GL_RGB8, GL_RGB};
             default:
                 TBX_ASSERT(false, "OpenGL rendering: unsupported texture format.");
-                return GlTextureFormat { GL_RGB8, GL_RGB };
+                return GlTextureFormat {GL_RGB8, GL_RGB};
         }
     }
 

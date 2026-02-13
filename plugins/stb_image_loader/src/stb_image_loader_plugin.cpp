@@ -102,12 +102,13 @@ namespace tbx::plugins
             return;
         }
 
-        TextureSettings load_settings = {};
-        load_settings.wrap = request.wrap;
-        load_settings.filter = request.filter;
-        load_settings.format = request.format;
-        load_settings.mipmaps = request.mipmaps;
-        load_settings.compression = request.compression;
+        TextureSettings load_settings = {
+            .wrap = request.wrap,
+            .filter = request.filter,
+            .format = request.format,
+            .mipmaps = request.mipmaps,
+            .compression = request.compression,
+        };
 
         const std::filesystem::path resolved_path =
             _asset_manager->resolve_asset_path(request.path);
@@ -129,7 +130,7 @@ namespace tbx::plugins
         }
 
         std::string encoded_image;
-        if (!_file_ops->read_file(resolved_path, FileDataFormat::BINARY, encoded_image))
+        if (!_file_ops->read_file(request.path, FileDataFormat::BINARY, encoded_image))
         {
             request.state = MessageState::ERROR;
             request.result.flag_failure(
@@ -152,7 +153,7 @@ namespace tbx::plugins
         {
             request.state = MessageState::ERROR;
             request.result.flag_failure(
-                build_load_failure_message(resolved_path, stbi_failure_reason()));
+                build_load_failure_message(request.path, stbi_failure_reason()));
             return;
         }
 
@@ -167,9 +168,9 @@ namespace tbx::plugins
             load_settings.wrap,
             load_settings.filter,
             load_settings.format,
-            pixels,
             load_settings.mipmaps,
-            load_settings.compression);
+            load_settings.compression,
+            pixels);
         *asset = texture;
 
         request.state = MessageState::HANDLED;

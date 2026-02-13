@@ -59,7 +59,7 @@ namespace tbx
         TextureFilter filter = TextureFilter::LINEAR;
         TextureFormat format = TextureFormat::RGB;
         TextureMipmaps mipmaps = TextureMipmaps::ENABLED;
-        TextureCompression compression = TextureCompression::AUTO;
+        TextureCompression compression = TextureCompression::DISABLED;
 
         bool operator==(const TextureSettings&) const = default;
     };
@@ -72,9 +72,24 @@ namespace tbx
             TextureWrap wrap,
             TextureFilter filter,
             TextureFormat format,
-            const std::vector<Pixel>& pixels,
-            TextureMipmaps mipmaps = TextureMipmaps::ENABLED,
-            TextureCompression compression = TextureCompression::AUTO)
+            const std::vector<Pixel>& pixels)
+            : TextureSettings {
+                .resolution = resolution,
+                .wrap = wrap,
+                .filter = filter,
+                .compression = compression,
+            }
+            , pixels(pixels)
+        {
+        }
+        Texture(
+            const Size& resolution,
+            TextureWrap wrap,
+            TextureFilter filter,
+            TextureFormat format,
+            TextureMipmaps mipmaps,
+            TextureCompression compression,
+            const std::vector<Pixel>& pixels)
             : TextureSettings {
                 .resolution = resolution,
                 .wrap = wrap,
@@ -91,7 +106,7 @@ namespace tbx
     };
 
     /// <summary>
-    /// Purpose: Stores a texture asset handle with optional runtime texture settings overrides.
+    /// Purpose: Stores a texture asset handle with optional runtime texture settings values.
     /// </summary>
     /// <remarks>
     /// Ownership: Stores a non-owning handle reference and optional value settings.
@@ -99,17 +114,6 @@ namespace tbx
     /// </remarks>
     struct TBX_API TextureInstance
     {
-        TextureInstance() = default;
-        explicit TextureInstance(Handle texture_handle)
-            : handle(std::move(texture_handle))
-        {
-        }
-        TextureInstance(Handle texture_handle, TextureSettings texture_settings)
-            : handle(std::move(texture_handle))
-            , settings(std::move(texture_settings))
-        {
-        }
-
         Handle handle = {};
         std::optional<TextureSettings> settings = std::nullopt;
     };

@@ -43,13 +43,13 @@ namespace tbx::plugins
         const MaterialInstance& runtime_material,
         Material& in_out_material)
     {
-        for (const auto& texture_binding : runtime_material.textures.overrides)
+        for (const auto& texture_binding : runtime_material.textures)
             append_or_override_texture(
                 in_out_material.textures,
                 texture_binding.name,
                 texture_binding.texture);
 
-        for (const auto& parameter_binding : runtime_material.parameters.values)
+        for (const auto& parameter_binding : runtime_material.parameters)
             append_or_override_material_parameter(
                 in_out_material.parameters,
                 parameter_binding.name,
@@ -74,7 +74,7 @@ namespace tbx::plugins
 
         hash_bytes(&runtime_material.handle.id, sizeof(runtime_material.handle.id));
 
-        for (const auto& parameter_binding : runtime_material.parameters.values)
+        for (const auto& parameter_binding : runtime_material.parameters)
         {
             hash_bytes(parameter_binding.name.data(), parameter_binding.name.size());
             const auto variant_index = static_cast<uint64>(parameter_binding.value.index());
@@ -87,7 +87,7 @@ namespace tbx::plugins
                 parameter_binding.value);
         }
 
-        for (const auto& texture_binding : runtime_material.textures.overrides)
+        for (const auto& texture_binding : runtime_material.textures)
         {
             hash_bytes(texture_binding.name.data(), texture_binding.name.size());
             hash_bytes(&texture_binding.texture.handle.id, sizeof(texture_binding.texture.handle.id));
@@ -120,9 +120,11 @@ namespace tbx::plugins
     static bool has_sky_texture(const Material& material)
     {
         bool has_any_texture = false;
-        bool has_diffuse_texture = false;
+        const auto* diffuse_texture_binding = material.textures.get("diffuse");
+        const bool has_diffuse_texture = diffuse_texture_binding
+            && diffuse_texture_binding->texture.handle.is_valid();
 
-        for (const auto& texture_binding : material.textures.overrides)
+        for (const auto& texture_binding : material.textures)
         {
             const auto normalized_name = normalize_uniform_name(texture_binding.name);
             const auto& texture_handle = texture_binding.texture.handle;
@@ -131,10 +133,7 @@ namespace tbx::plugins
 
             has_any_texture = true;
             if (normalized_name == "u_diffuse")
-            {
-                has_diffuse_texture = true;
                 continue;
-            }
 
             TBX_ASSERT(
                 false,
@@ -155,24 +154,21 @@ namespace tbx::plugins
 
     static bool try_get_sky_color(const Material& material, RgbaColor& out_color)
     {
-        for (const auto& parameter_binding : material.parameters.values)
+        const auto* parameter_binding = material.parameters.get("color");
+        if (parameter_binding == nullptr)
+            return false;
+
+        if (std::holds_alternative<RgbaColor>(parameter_binding->value))
         {
-            const auto normalized_name = normalize_uniform_name(parameter_binding.name);
-            if (normalized_name != "u_color")
-                continue;
+            out_color = std::get<RgbaColor>(parameter_binding->value);
+            return true;
+        }
 
-            if (std::holds_alternative<RgbaColor>(parameter_binding.value))
-            {
-                out_color = std::get<RgbaColor>(parameter_binding.value);
-                return true;
-            }
-
-            if (std::holds_alternative<Vec4>(parameter_binding.value))
-            {
-                const auto value = std::get<Vec4>(parameter_binding.value);
-                out_color = RgbaColor(value.x, value.y, value.z, value.w);
-                return true;
-            }
+        if (std::holds_alternative<Vec4>(parameter_binding->value))
+        {
+            const auto value = std::get<Vec4>(parameter_binding->value);
+            out_color = RgbaColor(value.x, value.y, value.z, value.w);
+            return true;
         }
 
         return false;

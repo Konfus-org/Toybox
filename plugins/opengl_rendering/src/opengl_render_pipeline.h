@@ -63,7 +63,7 @@ namespace tbx::plugins
 
         /// <summary>
         /// Purpose: Runtime material data used to shade this fullscreen post-processing pass.
-        /// Ownership: Owns parameter/texture overrides and a base material handle reference.
+        /// Ownership: Owns parameter/texture values and a base material handle reference.
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
         MaterialInstance material = {};
@@ -141,7 +141,7 @@ namespace tbx::plugins
 
         /// <summary>
         /// Purpose: Optional sky runtime material used for skybox rendering in the geometry pass.
-        /// Ownership: Stores a non-owning base material handle and runtime overrides by value.
+        /// Ownership: Stores a non-owning base material handle and runtime values by value.
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
         MaterialInstance sky_material = {};
