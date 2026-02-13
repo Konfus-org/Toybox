@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "opengl_resource.h"
 #include "tbx/common/int.h"
+#include "tbx/graphics/material.h"
 #include "tbx/graphics/shader.h"
 #include <memory>
 #include <string>

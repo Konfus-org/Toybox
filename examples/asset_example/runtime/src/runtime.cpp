@@ -36,7 +36,7 @@ namespace tbx::examples
         // Setup ground
         auto ground_ent = _ent_registry->create("Ground");
         ground_ent.add_component<Renderer>(smily_mat);
-        ground_ent.add_component<ProceduralMesh>(quad);
+        ground_ent.add_component<DynamicMesh>(quad);
         ground_ent.add_component<Transform>(
             Vec3(0.0f, -2.0f, -5.0f),
             to_radians(Vec3(-90.0f, 0.0f, 0.0f)),
@@ -47,19 +47,21 @@ namespace tbx::examples
         sky_ent.add_component<Sky>(skybox_mat);
 
         // Setup global post-processing stack
-        // auto post_ent = _ent_registry->create("PostProcessing");
-        // auto post_processing = PostProcessing({
-        //    PostProcessingEffect(
-        //        lut_post_mat,
-        //        {"strength", 1.0f},
-        //        {"lut",
-        //         {
-        //             lut_tex,
-        //             TextureFilter::LINEAR,
-        //             TextureWrap::CLAMP_TO_EDGE,
-        //         }}),
-        //});
-        // post_ent.add_component<PostProcessing>(post_processing);
+        auto post_ent = _ent_registry->create("PostProcessing");
+        auto post_processing = PostProcessing({
+            {
+                .material =
+                    {
+                        .handle = lut_post_mat,
+                        .textures = {{
+                            .name = "lut",
+                            .texture = lut_tex,
+                        }},
+                    },
+                .blend = 0.5f,
+            },
+        });
+        post_ent.add_component<PostProcessing>(post_processing);
 
         // Setup camera
         auto cam_ent = _ent_registry->create("Camera");

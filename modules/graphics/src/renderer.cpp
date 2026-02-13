@@ -41,10 +41,10 @@ namespace tbx
     }
 
     static MaterialTextureBinding* try_get_texture_by_name(
-        std::vector<MaterialTextureBinding>& overrides,
+        std::vector<MaterialTextureBinding>& values,
         const std::string& normalized_name)
     {
-        for (auto& texture : overrides)
+        for (auto& texture : values)
         {
             if (texture.name == normalized_name)
                 return &texture;
@@ -54,10 +54,10 @@ namespace tbx
     }
 
     static const MaterialTextureBinding* try_get_texture_by_name(
-        const std::vector<MaterialTextureBinding>& overrides,
+        const std::vector<MaterialTextureBinding>& values,
         const std::string& normalized_name)
     {
-        for (const auto& texture : overrides)
+        for (const auto& texture : values)
         {
             if (texture.name == normalized_name)
                 return &texture;
@@ -95,10 +95,21 @@ namespace tbx
             set(std::move(parameter));
     }
 
-    bool MaterialParameterBindings::has(std::string_view name) const
+    MaterialParameterBinding* MaterialParameterBindings::get(std::string_view name)
     {
         const std::string normalized_name = normalize_uniform_name(name);
-        return try_get_uniform_by_name(values, normalized_name) != nullptr;
+        return try_get_uniform_by_name(values, normalized_name);
+    }
+
+    const MaterialParameterBinding* MaterialParameterBindings::get(std::string_view name) const
+    {
+        const std::string normalized_name = normalize_uniform_name(name);
+        return try_get_uniform_by_name(values, normalized_name);
+    }
+
+    bool MaterialParameterBindings::has(std::string_view name) const
+    {
+        return get(name) != nullptr;
     }
 
     void MaterialParameterBindings::remove(std::string_view name)
@@ -120,6 +131,36 @@ namespace tbx
         values.clear();
     }
 
+    MaterialParameterBindings::iterator MaterialParameterBindings::begin()
+    {
+        return values.begin();
+    }
+
+    MaterialParameterBindings::const_iterator MaterialParameterBindings::begin() const
+    {
+        return values.begin();
+    }
+
+    MaterialParameterBindings::const_iterator MaterialParameterBindings::cbegin() const
+    {
+        return values.cbegin();
+    }
+
+    MaterialParameterBindings::iterator MaterialParameterBindings::end()
+    {
+        return values.end();
+    }
+
+    MaterialParameterBindings::const_iterator MaterialParameterBindings::end() const
+    {
+        return values.end();
+    }
+
+    MaterialParameterBindings::const_iterator MaterialParameterBindings::cend() const
+    {
+        return values.cend();
+    }
+
     void MaterialTextureBindings::set(std::string_view name, Handle texture)
     {
         set(name, TextureInstance(std::move(texture)));
@@ -128,14 +169,14 @@ namespace tbx
     void MaterialTextureBindings::set(std::string_view name, TextureInstance texture)
     {
         const std::string normalized_name = normalize_uniform_name(name);
-        auto* entry = try_get_texture_by_name(overrides, normalized_name);
+        auto* entry = try_get_texture_by_name(values, normalized_name);
         if (entry)
         {
             entry->texture = std::move(texture);
             return;
         }
 
-        overrides.push_back(
+        values.push_back(
             MaterialTextureBinding {
                 .name = normalized_name,
                 .texture = std::move(texture),
@@ -154,27 +195,68 @@ namespace tbx
             set(std::move(texture_binding));
     }
 
-    bool MaterialTextureBindings::has(std::string_view name) const
+    MaterialTextureBinding* MaterialTextureBindings::get(std::string_view name)
     {
         const std::string normalized_name = normalize_uniform_name(name);
-        return try_get_texture_by_name(overrides, normalized_name) != nullptr;
+        return try_get_texture_by_name(values, normalized_name);
+    }
+
+    const MaterialTextureBinding* MaterialTextureBindings::get(std::string_view name) const
+    {
+        const std::string normalized_name = normalize_uniform_name(name);
+        return try_get_texture_by_name(values, normalized_name);
+    }
+
+    bool MaterialTextureBindings::has(std::string_view name) const
+    {
+        return get(name) != nullptr;
     }
 
     void MaterialTextureBindings::remove(std::string_view name)
     {
         const std::string normalized_name = normalize_uniform_name(name);
-        for (auto it = overrides.begin(); it != overrides.end(); ++it)
+        for (auto it = values.begin(); it != values.end(); ++it)
         {
             if (it->name != normalized_name)
                 continue;
 
-            overrides.erase(it);
+            values.erase(it);
             return;
         }
     }
 
     void MaterialTextureBindings::clear()
     {
-        overrides.clear();
+        values.clear();
+    }
+
+    MaterialTextureBindings::iterator MaterialTextureBindings::begin()
+    {
+        return values.begin();
+    }
+
+    MaterialTextureBindings::const_iterator MaterialTextureBindings::begin() const
+    {
+        return values.begin();
+    }
+
+    MaterialTextureBindings::const_iterator MaterialTextureBindings::cbegin() const
+    {
+        return values.cbegin();
+    }
+
+    MaterialTextureBindings::iterator MaterialTextureBindings::end()
+    {
+        return values.end();
+    }
+
+    MaterialTextureBindings::const_iterator MaterialTextureBindings::end() const
+    {
+        return values.end();
+    }
+
+    MaterialTextureBindings::const_iterator MaterialTextureBindings::cend() const
+    {
+        return values.cend();
     }
 }

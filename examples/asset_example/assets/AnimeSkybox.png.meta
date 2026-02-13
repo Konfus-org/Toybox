@@ -4,7 +4,6 @@
     "wrap": "clamp_to_edge",
     "filter": "linear",
     "format": "rgba",
-    "mipmaps": "enabled",
-    "compression": "auto"
+    "mipmaps": "enabled"
   }
 }
