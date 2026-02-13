@@ -72,21 +72,17 @@ namespace tbx::plugins
         OpenGlResourceManager& resource_manager) const
     {
         TBX_ASSERT(
-            frame_context.gbuffer_target != nullptr,
+            frame_context.gbuffer != nullptr,
             "OpenGL rendering: sky pass requires a gbuffer target.");
 
-        auto render_target_scope = GlResourceScope(*frame_context.gbuffer_target);
+        auto render_target_scope = GlResourceScope(*frame_context.gbuffer);
         glViewport(
             0,
             0,
             static_cast<GLsizei>(frame_context.render_resolution.width),
             static_cast<GLsizei>(frame_context.render_resolution.height));
-        glClearColor(
-            frame_context.clear_color.r,
-            frame_context.clear_color.g,
-            frame_context.clear_color.b,
-            frame_context.clear_color.a);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glDisable(GL_BLEND);
+        frame_context.gbuffer->clear(frame_context.clear_color);
 
         if (!frame_context.sky_material.handle.is_valid())
             return;

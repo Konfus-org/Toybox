@@ -48,10 +48,7 @@ namespace tbx::plugins
         glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &length);
         std::string error_log(static_cast<uint64>(length), '\0');
         glGetProgramInfoLog(program_id, length, &length, error_log.data());
-        TBX_ASSERT(
-            false,
-            "OpenGL rendering: shader program link failure. {}",
-            error_log);
+        TBX_ASSERT(false, "OpenGL rendering: shader program link failure. {}", error_log);
     }
 
     static GLint uniform_location(uint32 program_id, const std::string& name)
@@ -119,9 +116,7 @@ namespace tbx::plugins
         TBX_ASSERT(
             shader.type != ShaderType::NONE,
             "OpenGL rendering: shader source type must be a concrete stage.");
-        TBX_ASSERT(
-            !shader.source.empty(),
-            "OpenGL rendering: shader source must not be empty.");
+        TBX_ASSERT(!shader.source.empty(), "OpenGL rendering: shader source must not be empty.");
 
         const auto gl_type = to_gl_shader_type(shader.type);
         _shader_id = glCreateShader(gl_type);
@@ -139,9 +134,7 @@ namespace tbx::plugins
             _shader_id = 0;
         }
 
-        TBX_ASSERT(
-            _shader_id != 0,
-            "OpenGL rendering: failed to create a valid shader object.");
+        TBX_ASSERT(_shader_id != 0, "OpenGL rendering: failed to create a valid shader object.");
     }
 
     OpenGlShader::~OpenGlShader() noexcept
@@ -157,13 +150,9 @@ namespace tbx::plugins
         return _type;
     }
 
-    void OpenGlShader::bind()
-    {
-    }
+    void OpenGlShader::bind() {}
 
-    void OpenGlShader::unbind()
-    {
-    }
+    void OpenGlShader::unbind() {}
 
     uint32 OpenGlShader::get_shader_id() const
     {
@@ -174,9 +163,7 @@ namespace tbx::plugins
         const std::vector<std::shared_ptr<OpenGlShader>>& shaders)
     {
         _program_id = glCreateProgram();
-        TBX_ASSERT(
-            _program_id != 0,
-            "OpenGL rendering: failed to create shader program object.");
+        TBX_ASSERT(_program_id != 0, "OpenGL rendering: failed to create shader program object.");
 
         for (const auto& shader : shaders)
         {
@@ -221,9 +208,7 @@ namespace tbx::plugins
 
     void OpenGlShaderProgram::bind()
     {
-        TBX_ASSERT(
-            _program_id != 0,
-            "OpenGL rendering: cannot bind an invalid shader program.");
+        TBX_ASSERT(_program_id != 0, "OpenGL rendering: cannot bind an invalid shader program.");
         glUseProgram(_program_id);
     }
 

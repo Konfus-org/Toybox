@@ -59,6 +59,7 @@ namespace tbx::plugins
     }
 
     static void draw_effect(
+        const OpenGlRenderFrameContext& frame_context,
         const OpenGlFrameBuffer& source_target,
         const OpenGlDrawResources& draw_resources,
         const OpenGlPostProcessEffect& effect)
@@ -70,15 +71,67 @@ namespace tbx::plugins
         bind_textures(draw_resources, resource_scopes);
 
         const int scene_color_texture_slot = static_cast<int>(draw_resources.textures.size());
+        uint32 scene_color_texture_id = source_target.get_color_texture_id();
+        if (
+            frame_context.lighting_target != nullptr
+            && (&source_target == frame_context.lighting_target)
+            && frame_context.scene_color_texture_id != 0)
+        {
+            scene_color_texture_id = frame_context.scene_color_texture_id;
+        }
         glBindTextureUnit(
             static_cast<GLuint>(scene_color_texture_slot),
-            source_target.get_color_texture_id());
+            scene_color_texture_id);
+        int texture_slot = scene_color_texture_slot + 1;
+        int scene_depth_texture_slot = -1;
+        int gbuffer_albedo_spec_texture_slot = -1;
+        int gbuffer_normal_texture_slot = -1;
+        int gbuffer_material_texture_slot = -1;
+        if (frame_context.gbuffer != nullptr)
+        {
+            scene_depth_texture_slot = texture_slot++;
+            gbuffer_albedo_spec_texture_slot = texture_slot++;
+            gbuffer_normal_texture_slot = texture_slot++;
+            gbuffer_material_texture_slot = texture_slot++;
+
+            glBindTextureUnit(
+                static_cast<GLuint>(scene_depth_texture_slot),
+                frame_context.gbuffer->get_depth_texture_id());
+            glBindTextureUnit(
+                static_cast<GLuint>(gbuffer_albedo_spec_texture_slot),
+                frame_context.gbuffer->get_albedo_spec_texture_id());
+            glBindTextureUnit(
+                static_cast<GLuint>(gbuffer_normal_texture_slot),
+                frame_context.gbuffer->get_normal_texture_id());
+            glBindTextureUnit(
+                static_cast<GLuint>(gbuffer_material_texture_slot),
+                frame_context.gbuffer->get_material_texture_id());
+        }
 
         const float clamped_blend = std::clamp(effect.blend, 0.0f, 1.0f);
         draw_resources.shader_program->try_upload(MaterialParameter {
             .name = "u_scene_color",
             .data = scene_color_texture_slot,
         });
+        if (scene_depth_texture_slot >= 0)
+        {
+            draw_resources.shader_program->try_upload(MaterialParameter {
+                .name = "u_scene_depth",
+                .data = scene_depth_texture_slot,
+            });
+            draw_resources.shader_program->try_upload(MaterialParameter {
+                .name = "u_gbuffer_albedo_spec",
+                .data = gbuffer_albedo_spec_texture_slot,
+            });
+            draw_resources.shader_program->try_upload(MaterialParameter {
+                .name = "u_gbuffer_normal",
+                .data = gbuffer_normal_texture_slot,
+            });
+            draw_resources.shader_program->try_upload(MaterialParameter {
+                .name = "u_gbuffer_material",
+                .data = gbuffer_material_texture_slot,
+            });
+        }
         draw_resources.shader_program->try_upload(MaterialParameter {
             .name = "u_blend",
             .data = clamped_blend,
@@ -88,9 +141,17 @@ namespace tbx::plugins
 
         draw_resources.mesh->draw(draw_resources.use_tesselation);
         glBindTextureUnit(static_cast<GLuint>(scene_color_texture_slot), 0);
+        if (scene_depth_texture_slot >= 0)
+        {
+            glBindTextureUnit(static_cast<GLuint>(scene_depth_texture_slot), 0);
+            glBindTextureUnit(static_cast<GLuint>(gbuffer_albedo_spec_texture_slot), 0);
+            glBindTextureUnit(static_cast<GLuint>(gbuffer_normal_texture_slot), 0);
+            glBindTextureUnit(static_cast<GLuint>(gbuffer_material_texture_slot), 0);
+        }
     }
 
     static void draw_to_intermediate_target(
+        const OpenGlRenderFrameContext& frame_context,
         OpenGlFrameBuffer& destination_target,
         const OpenGlFrameBuffer& source_target,
         const OpenGlDrawResources& draw_resources,
@@ -104,7 +165,7 @@ namespace tbx::plugins
             static_cast<GLsizei>(resolution.width),
             static_cast<GLsizei>(resolution.height));
         glClear(GL_COLOR_BUFFER_BIT);
-        draw_effect(source_target, draw_resources, effect);
+        draw_effect(frame_context, source_target, draw_resources, effect);
     }
 
     static void draw_to_present_target(
@@ -134,7 +195,7 @@ namespace tbx::plugins
             static_cast<GLsizei>(frame_context.viewport_size.height));
         glClear(GL_COLOR_BUFFER_BIT);
         glViewport(destination_x, destination_y, destination_width, destination_height);
-        draw_effect(source_target, draw_resources, effect);
+        draw_effect(frame_context, source_target, draw_resources, effect);
     }
 
     void OpenGlPostProcessPass::execute(
@@ -184,6 +245,7 @@ namespace tbx::plugins
 
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE);
+        glDisable(GL_BLEND);
 
         const OpenGlFrameBuffer* source_target = frame_context.lighting_target;
         OpenGlFrameBuffer* ping_target = frame_context.post_process_ping_target;
@@ -210,6 +272,7 @@ namespace tbx::plugins
             OpenGlFrameBuffer* destination_target =
                 (effect_index % 2U == 0U) ? ping_target : pong_target;
             draw_to_intermediate_target(
+                frame_context,
                 *destination_target,
                 *source_target,
                 draw_resources,

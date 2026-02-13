@@ -85,6 +85,51 @@ namespace tbx
     inline const Handle default_shader = lit_vertex_shader;
 
     /// <summary>
+    /// Purpose: Handle for the built-in deferred geometry vertex shader stage.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Non-owning reference to a built-in asset.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    inline const Handle deferred_geometry_vertex_shader = Handle(Uuid(0x9U));
+
+    /// <summary>
+    /// Purpose: Handle for the built-in deferred geometry fragment shader stage.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Non-owning reference to a built-in asset.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    inline const Handle deferred_geometry_fragment_shader = Handle(Uuid(0xAU));
+
+    /// <summary>
+    /// Purpose: Handle for the built-in deferred lighting vertex shader stage.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Non-owning reference to a built-in asset.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    inline const Handle deferred_lighting_vertex_shader = Handle(Uuid(0xBU));
+
+    /// <summary>
+    /// Purpose: Handle for the built-in deferred lighting fragment shader stage.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Non-owning reference to a built-in asset.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    inline const Handle deferred_lighting_fragment_shader = Handle(Uuid(0xCU));
+
+    /// <summary>
+    /// Purpose: Handle for the built-in deferred lighting material.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Non-owning reference to a built-in asset.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    inline const Handle deferred_lighting_material = Handle(Uuid(0xDU));
+
+    /// <summary>
     /// Purpose: Legacy handle for the built-in default material.
     /// </summary>
     /// <remarks>

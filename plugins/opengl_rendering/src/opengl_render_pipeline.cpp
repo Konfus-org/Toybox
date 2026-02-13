@@ -4,7 +4,6 @@
 #include "opengl_sky_pass.h"
 #include "opengl_resources/opengl_resource.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/graphics/camera.h"
 #include "tbx/graphics/renderer.h"
 #include "tbx/math/transform.h"
 #include <any>
@@ -27,20 +26,18 @@ namespace tbx::plugins
                 _resource_manager != nullptr,
                 "OpenGL rendering: geometry operation requires a resource manager.");
             TBX_ASSERT(
-                frame_context.gbuffer_target != nullptr,
+                frame_context.gbuffer != nullptr,
                 "OpenGL rendering: geometry operation requires a gbuffer target.");
 
-            auto render_target_scope = GlResourceScope(*frame_context.gbuffer_target);
+            auto render_target_scope = GlResourceScope(*frame_context.gbuffer);
             glViewport(
                 0,
                 0,
                 static_cast<GLsizei>(frame_context.render_resolution.width),
                 static_cast<GLsizei>(frame_context.render_resolution.height));
+            glDisable(GL_BLEND);
 
-            const auto view_projection =
-                get_view_projection_matrix(
-                    frame_context.camera_view,
-                    frame_context.render_resolution);
+            const auto view_projection = frame_context.view_projection;
             for (const auto& entity : frame_context.camera_view.in_view_static_entities)
                 draw_entity(entity, view_projection);
             for (const auto& entity : frame_context.camera_view.in_view_dynamic_entities)
@@ -48,38 +45,6 @@ namespace tbx::plugins
         }
 
       private:
-        Mat4 get_view_projection_matrix(
-            const OpenGlCameraView& camera_view,
-            const Size& render_resolution) const
-        {
-            if (!camera_view.camera_entity.has_component<Camera>())
-                return Mat4(1.0f);
-
-            auto& camera = camera_view.camera_entity.get_component<Camera>();
-            camera.set_aspect(render_resolution.get_aspect_ratio());
-            const auto camera_rotation = get_camera_rotation(camera_view);
-            const auto camera_position = get_camera_position(camera_view);
-            return camera.get_view_projection_matrix(camera_position, camera_rotation);
-        }
-
-        Vec3 get_camera_position(const OpenGlCameraView& camera_view) const
-        {
-            if (!camera_view.camera_entity.has_component<Transform>())
-                return Vec3(0.0f);
-
-            const auto& camera_transform = camera_view.camera_entity.get_component<Transform>();
-            return camera_transform.position;
-        }
-
-        Quat get_camera_rotation(const OpenGlCameraView& camera_view) const
-        {
-            if (!camera_view.camera_entity.has_component<Transform>())
-                return Quat(1.0f, 0.0f, 0.0f, 0.0f);
-
-            const auto& camera_transform = camera_view.camera_entity.get_component<Transform>();
-            return camera_transform.rotation;
-        }
-
         void upload_frame_uniforms(
             OpenGlShaderProgram& shader_program,
             const Mat4& view_projection) const
@@ -198,12 +163,21 @@ namespace tbx::plugins
     class OpenGlDeferredLightingOperation final : public OpenGlRenderOperation
     {
       public:
+        explicit OpenGlDeferredLightingOperation(OpenGlResourceManager& resource_manager)
+            : _resource_manager(&resource_manager)
+        {
+        }
+
         void execute_with_frame_context(const OpenGlRenderFrameContext& frame_context) override
         {
-            _pass.execute(frame_context);
+            TBX_ASSERT(
+                _resource_manager != nullptr,
+                "OpenGL rendering: deferred lighting operation requires a resource manager.");
+            _pass.execute(frame_context, *_resource_manager);
         }
 
       private:
+        OpenGlResourceManager* _resource_manager = nullptr;
         OpenGlDeferredLightingPass _pass = {};
     };
 
@@ -242,7 +216,7 @@ namespace tbx::plugins
     {
         add_operation(std::make_unique<OpenGlSkyOperation>(_resource_manager));
         add_operation(std::make_unique<OpenGlGeometryOperation>(_resource_manager));
-        add_operation(std::make_unique<OpenGlDeferredLightingOperation>());
+        add_operation(std::make_unique<OpenGlDeferredLightingOperation>(_resource_manager));
         add_operation(std::make_unique<OpenGlPostProcessOperation>(_resource_manager));
     }
 
@@ -266,7 +240,7 @@ namespace tbx::plugins
             frame_context->viewport_size.width > 0 && frame_context->viewport_size.height > 0,
             "OpenGL rendering: viewport size must be greater than zero.");
         TBX_ASSERT(
-            frame_context->gbuffer_target != nullptr,
+            frame_context->gbuffer != nullptr,
             "OpenGL rendering: frame context requires a gbuffer target framebuffer.");
         TBX_ASSERT(
             frame_context->lighting_target != nullptr,

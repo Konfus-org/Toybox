@@ -1,6 +1,7 @@
 #pragma once
 #include "opengl_render_pipeline.h"
 #include "opengl_resources/opengl_buffers.h"
+#include "opengl_resources/opengl_gbuffer.h"
 #include "tbx/common/handle.h"
 #include "tbx/common/uuid.h"
 #include "tbx/graphics/color.h"
@@ -59,7 +60,7 @@ namespace tbx::plugins
         Size _viewport_size = {0, 0};
         Size _render_resolution = {0, 0};
         bool _is_context_ready = false;
-        OpenGlFrameBuffer _gbuffer_framebuffer = {};
+        OpenGlGBuffer _gbuffer = {};
         OpenGlFrameBuffer _lighting_framebuffer = {};
         OpenGlFrameBuffer _post_process_ping_framebuffer = {};
         OpenGlFrameBuffer _post_process_pong_framebuffer = {};
@@ -70,5 +71,8 @@ namespace tbx::plugins
         std::shared_ptr<Material> _cached_sky_material = nullptr;
         ResolvedSky _cached_resolved_sky = {};
         ResolvedPostProcessing _cached_resolved_post_processing = {};
+        std::vector<OpenGlDirectionalLightData> _frame_directional_lights = {};
+        std::vector<OpenGlPointLightData> _frame_point_lights = {};
+        std::vector<OpenGlSpotLightData> _frame_spot_lights = {};
     };
 }

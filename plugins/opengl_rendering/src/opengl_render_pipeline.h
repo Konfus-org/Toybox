@@ -1,11 +1,14 @@
 #pragma once
 #include "opengl_resources/opengl_buffers.h"
+#include "opengl_resources/opengl_gbuffer.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "tbx/common/handle.h"
 #include "tbx/common/pipeline.h"
 #include "tbx/ecs/entities.h"
 #include "tbx/graphics/color.h"
+#include "tbx/math/matrices.h"
 #include "tbx/math/size.h"
+#include "tbx/math/vectors.h"
 #include <any>
 #include <memory>
 #include <span>
@@ -101,6 +104,54 @@ namespace tbx::plugins
     };
 
     /// <summary>
+    /// Purpose: Packs one directional light for deferred shading.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to read concurrently after construction.
+    /// </remarks>
+    struct OpenGlDirectionalLightData final
+    {
+        Vec3 direction = Vec3(0.0f, -1.0f, 0.0f);
+        float intensity = 1.0f;
+        Vec3 color = Vec3(1.0f, 1.0f, 1.0f);
+        float ambient = 0.03f;
+    };
+
+    /// <summary>
+    /// Purpose: Packs one point light for deferred shading.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to read concurrently after construction.
+    /// </remarks>
+    struct OpenGlPointLightData final
+    {
+        Vec3 position = Vec3(0.0f);
+        float range = 10.0f;
+        Vec3 color = Vec3(1.0f, 1.0f, 1.0f);
+        float intensity = 1.0f;
+    };
+
+    /// <summary>
+    /// Purpose: Packs one spot light for deferred shading.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to read concurrently after construction.
+    /// </remarks>
+    struct OpenGlSpotLightData final
+    {
+        Vec3 position = Vec3(0.0f);
+        float range = 10.0f;
+        Vec3 direction = Vec3(0.0f, -1.0f, 0.0f);
+        float inner_cos = 0.94f;
+        Vec3 color = Vec3(1.0f, 1.0f, 1.0f);
+        float outer_cos = 0.82f;
+        float intensity = 1.0f;
+    };
+
+    /// <summary>
     /// Purpose: Provides immutable per-frame data to OpenGL render operations.
     /// </summary>
     /// <remarks>
@@ -154,11 +205,11 @@ namespace tbx::plugins
         OpenGlPostProcessSettings post_process = {};
 
         /// <summary>
-        /// Purpose: Framebuffer used for geometry accumulation (G-buffer transition target).
-        /// Ownership: Non-owning pointer; caller retains framebuffer lifetime.
+        /// Purpose: G-buffer used for deferred geometry outputs.
+        /// Ownership: Non-owning pointer; caller retains G-buffer lifetime.
         /// Thread Safety: Use on the render thread.
         /// </summary>
-        OpenGlFrameBuffer* gbuffer_target = nullptr;
+        OpenGlGBuffer* gbuffer = nullptr;
 
         /// <summary>
         /// Purpose: Framebuffer used for deferred lighting composition before post-processing.
@@ -182,6 +233,48 @@ namespace tbx::plugins
         OpenGlFrameBuffer* post_process_pong_target = nullptr;
 
         /// <summary>
+        /// Purpose: Camera world position used for deferred specular lighting.
+        /// Ownership: Value type owned by this context.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        Vec3 camera_world_position = Vec3(0.0f);
+
+        /// <summary>
+        /// Purpose: Camera view-projection matrix for the active frame.
+        /// Ownership: Value type owned by this context.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        Mat4 view_projection = Mat4(1.0f);
+
+        /// <summary>
+        /// Purpose: Inverse of the camera view-projection matrix.
+        /// Ownership: Value type owned by this context.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        Mat4 inverse_view_projection = Mat4(1.0f);
+
+        /// <summary>
+        /// Purpose: Directional lights visible to the deferred lighting pass.
+        /// Ownership: Non-owning span; caller owns the underlying storage.
+        /// Thread Safety: Safe to read concurrently while storage remains valid.
+        /// </summary>
+        std::span<const OpenGlDirectionalLightData> directional_lights = {};
+
+        /// <summary>
+        /// Purpose: Point lights visible to the deferred lighting pass.
+        /// Ownership: Non-owning span; caller owns the underlying storage.
+        /// Thread Safety: Safe to read concurrently while storage remains valid.
+        /// </summary>
+        std::span<const OpenGlPointLightData> point_lights = {};
+
+        /// <summary>
+        /// Purpose: Spot lights visible to the deferred lighting pass.
+        /// Ownership: Non-owning span; caller owns the underlying storage.
+        /// Thread Safety: Safe to read concurrently while storage remains valid.
+        /// </summary>
+        std::span<const OpenGlSpotLightData> spot_lights = {};
+
+        /// <summary>
         /// Purpose: Defines how the render target is scaled into the presentation target.
         /// Ownership: Value type owned by this context.
         /// Thread Safety: Safe to read concurrently.
@@ -194,6 +287,13 @@ namespace tbx::plugins
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
         uint32 present_target_framebuffer_id = 0;
+
+        /// <summary>
+        /// Purpose: Scene color texture sampled by post-process passes.
+        /// Ownership: Value type; texture is owned by the originating framebuffer.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        uint32 scene_color_texture_id = 0;
     };
 
     /// <summary>

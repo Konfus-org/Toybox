@@ -3,6 +3,8 @@
 
 namespace tbx::plugins
 {
+    class OpenGlResourceManager;
+
     /// <summary>
     /// Purpose: Executes the deferred-lighting composition pass between geometry and post-process.
     /// </summary>
@@ -20,6 +22,8 @@ namespace tbx::plugins
         /// Ownership: Uses non-owning frame buffer pointers from frame context.
         /// Thread Safety: Call only on the render thread with a current OpenGL context.
         /// </remarks>
-        void execute(const OpenGlRenderFrameContext& frame_context) const;
+        void execute(
+            const OpenGlRenderFrameContext& frame_context,
+            OpenGlResourceManager& resource_manager) const;
     };
 }

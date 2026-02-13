@@ -146,7 +146,8 @@ namespace tbx::plugins
         bool try_append_material_resources(
             const Material& material,
             const std::vector<MaterialTextureBinding>& runtime_texture_overrides,
-            OpenGlDrawResources& out_resources);
+            OpenGlDrawResources& out_resources,
+            bool force_deferred_geometry_program);
 
         struct CachedEntityResources final
         {

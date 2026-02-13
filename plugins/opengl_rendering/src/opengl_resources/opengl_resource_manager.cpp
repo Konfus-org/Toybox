@@ -561,7 +561,11 @@ namespace tbx::plugins
 
         auto runtime_texture_overrides = std::vector<MaterialTextureBinding> {};
         apply_runtime_material_overrides(renderer.material, material, &runtime_texture_overrides);
-        return try_append_material_resources(material, runtime_texture_overrides, out_resources);
+        return try_append_material_resources(
+            material,
+            runtime_texture_overrides,
+            out_resources,
+            true);
     }
 
     bool OpenGlResourceManager::try_create_dynamic_mesh_resources(
@@ -585,7 +589,11 @@ namespace tbx::plugins
 
         auto runtime_texture_overrides = std::vector<MaterialTextureBinding> {};
         apply_runtime_material_overrides(renderer.material, material, &runtime_texture_overrides);
-        return try_append_material_resources(material, runtime_texture_overrides, out_resources);
+        return try_append_material_resources(
+            material,
+            runtime_texture_overrides,
+            out_resources,
+            true);
     }
 
     bool OpenGlResourceManager::try_create_sky_resources(
@@ -601,7 +609,11 @@ namespace tbx::plugins
         auto resolved = *material;
         auto runtime_texture_overrides = std::vector<MaterialTextureBinding> {};
         apply_runtime_material_overrides(sky_material, resolved, &runtime_texture_overrides);
-        return try_append_material_resources(resolved, runtime_texture_overrides, out_resources);
+        return try_append_material_resources(
+            resolved,
+            runtime_texture_overrides,
+            out_resources,
+            false);
     }
 
     bool OpenGlResourceManager::try_create_post_process_resources(
@@ -624,16 +636,29 @@ namespace tbx::plugins
             post_process_material,
             resolved,
             &runtime_texture_overrides);
-        return try_append_material_resources(resolved, runtime_texture_overrides, out_resources);
+        return try_append_material_resources(
+            resolved,
+            runtime_texture_overrides,
+            out_resources,
+            false);
     }
 
     bool OpenGlResourceManager::try_append_material_resources(
         const Material& material,
         const std::vector<MaterialTextureBinding>& runtime_texture_overrides,
-        OpenGlDrawResources& out_resources)
+        OpenGlDrawResources& out_resources,
+        const bool force_deferred_geometry_program)
     {
         auto resolved_material = material;
-        if (!resolved_material.program.is_valid())
+        if (force_deferred_geometry_program)
+        {
+            resolved_material.program.vertex = deferred_geometry_vertex_shader;
+            resolved_material.program.fragment = deferred_geometry_fragment_shader;
+            resolved_material.program.tesselation = {};
+            resolved_material.program.geometry = {};
+            resolved_material.program.compute = {};
+        }
+        else if (!resolved_material.program.is_valid())
         {
             resolved_material.program.vertex = lit_vertex_shader;
             resolved_material.program.fragment = lit_fragment_shader;

@@ -2,10 +2,15 @@
 #include "tbx/app/application.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/camera.h"
+#include "tbx/graphics/light.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/renderer.h"
+#include "tbx/math/transform.h"
+#include "tbx/math/trig.h"
 #include "tbx/messages/observable.h"
+#include <algorithm>
 #include <glad/glad.h>
+#include <limits>
 #include <span>
 #include <string>
 #include <string_view>
@@ -185,6 +190,77 @@ namespace tbx::plugins
         return true;
     }
 
+    static Vec3 get_camera_world_position(const OpenGlCameraView& camera_view)
+    {
+        if (!camera_view.camera_entity.has_component<Transform>())
+            return Vec3(0.0f);
+
+        const auto& camera_transform = camera_view.camera_entity.get_component<Transform>();
+        return camera_transform.position;
+    }
+
+    static Quat get_camera_world_rotation(const OpenGlCameraView& camera_view)
+    {
+        if (!camera_view.camera_entity.has_component<Transform>())
+            return Quat(1.0f, 0.0f, 0.0f, 0.0f);
+
+        const auto& camera_transform = camera_view.camera_entity.get_component<Transform>();
+        return camera_transform.rotation;
+    }
+
+    static Mat4 get_camera_view_projection(
+        const OpenGlCameraView& camera_view,
+        const Size& render_resolution)
+    {
+        if (!camera_view.camera_entity.has_component<Camera>())
+            return Mat4(1.0f);
+
+        auto& camera = camera_view.camera_entity.get_component<Camera>();
+        camera.set_aspect(render_resolution.get_aspect_ratio());
+        const auto camera_position = get_camera_world_position(camera_view);
+        const auto camera_rotation = get_camera_world_rotation(camera_view);
+        return camera.get_view_projection_matrix(camera_position, camera_rotation);
+    }
+
+    static Vec3 get_entity_forward_direction(const Entity& entity)
+    {
+        if (!entity.has_component<Transform>())
+            return Vec3(0.0f, -1.0f, 0.0f);
+
+        const auto& transform = entity.get_component<Transform>();
+        return normalize(transform.rotation * Vec3(0.0f, 0.0f, -1.0f));
+    }
+
+    static Vec3 get_entity_position(const Entity& entity)
+    {
+        if (!entity.has_component<Transform>())
+            return Vec3(0.0f);
+
+        const auto& transform = entity.get_component<Transform>();
+        return transform.position;
+    }
+
+    static void resolve_light_color(
+        const RgbaColor& raw_color,
+        const float raw_intensity,
+        Vec3& out_color,
+        float& out_intensity)
+    {
+        out_color = Vec3(raw_color.r, raw_color.g, raw_color.b);
+        out_intensity = std::max(raw_intensity, 0.0f);
+
+        const float max_channel = std::max(out_color.x, std::max(out_color.y, out_color.z));
+        if (max_channel <= std::numeric_limits<float>::epsilon())
+        {
+            out_color = Vec3(1.0f);
+            out_intensity = 0.0f;
+            return;
+        }
+
+        out_color /= max_channel;
+        out_intensity *= max_channel;
+    }
+
     static void GLAPIENTRY gl_message_callback(
         GLenum,
         GLenum,
@@ -229,6 +305,9 @@ namespace tbx::plugins
         _cached_sky_material = nullptr;
         _cached_resolved_sky = {};
         _cached_resolved_post_processing.effects.clear();
+        _frame_directional_lights.clear();
+        _frame_point_lights.clear();
+        _frame_spot_lights.clear();
     }
 
     void OpenGlRenderingPlugin::on_update(const DeltaTime&)
@@ -266,6 +345,63 @@ namespace tbx::plugins
             [&camera_view](Entity& entity)
             {
                 camera_view.in_view_dynamic_entities.push_back(entity);
+            });
+
+        _frame_directional_lights.clear();
+        _frame_point_lights.clear();
+        _frame_spot_lights.clear();
+        registry.for_each_with<DirectionalLight>(
+            [this](Entity& entity)
+            {
+                auto color = Vec3(1.0f);
+                auto intensity = 1.0f;
+                const auto& light = entity.get_component<DirectionalLight>();
+                resolve_light_color(light.color, light.intensity, color, intensity);
+                _frame_directional_lights.push_back(
+                    OpenGlDirectionalLightData {
+                        .direction = get_entity_forward_direction(entity),
+                        .intensity = intensity,
+                        .color = color,
+                        .ambient = std::max(light.ambient, 0.0f),
+                    });
+            });
+
+        registry.for_each_with<PointLight>(
+            [this](Entity& entity)
+            {
+                auto color = Vec3(1.0f);
+                auto intensity = 1.0f;
+                const auto& light = entity.get_component<PointLight>();
+                resolve_light_color(light.color, light.intensity, color, intensity);
+                _frame_point_lights.push_back(
+                    OpenGlPointLightData {
+                        .position = get_entity_position(entity),
+                        .range = std::max(light.range, 0.001f),
+                        .color = color,
+                        .intensity = intensity,
+                    });
+            });
+
+        registry.for_each_with<SpotLight>(
+            [this](Entity& entity)
+            {
+                auto color = Vec3(1.0f);
+                auto intensity = 1.0f;
+                const auto& light = entity.get_component<SpotLight>();
+                resolve_light_color(light.color, light.intensity, color, intensity);
+                const float inner_radians = to_radians(std::max(light.inner_angle, 0.0f));
+                const float outer_radians =
+                    to_radians(std::max(light.outer_angle, light.inner_angle));
+                _frame_spot_lights.push_back(
+                    OpenGlSpotLightData {
+                        .position = get_entity_position(entity),
+                        .range = std::max(light.range, 0.001f),
+                        .direction = get_entity_forward_direction(entity),
+                        .inner_cos = cos(inner_radians),
+                        .color = color,
+                        .outer_cos = cos(outer_radians),
+                        .intensity = intensity,
+                    });
             });
 
         auto sky_material = MaterialInstance {};
@@ -393,6 +529,7 @@ namespace tbx::plugins
             .effects =
                 std::span<const OpenGlPostProcessEffect>(_cached_resolved_post_processing.effects),
         };
+        const auto view_projection = get_camera_view_projection(camera_view, _render_resolution);
 
         auto frame_context = OpenGlRenderFrameContext {
             .camera_view = camera_view,
@@ -401,12 +538,20 @@ namespace tbx::plugins
             .clear_color = _cached_resolved_sky.clear_color,
             .sky_material = _cached_resolved_sky.sky_material,
             .post_process = post_process_settings,
-            .gbuffer_target = &_gbuffer_framebuffer,
+            .gbuffer = &_gbuffer,
             .lighting_target = &_lighting_framebuffer,
             .post_process_ping_target = &_post_process_ping_framebuffer,
             .post_process_pong_target = &_post_process_pong_framebuffer,
+            .camera_world_position = get_camera_world_position(camera_view),
+            .view_projection = view_projection,
+            .inverse_view_projection = inverse(view_projection),
+            .directional_lights =
+                std::span<const OpenGlDirectionalLightData>(_frame_directional_lights),
+            .point_lights = std::span<const OpenGlPointLightData>(_frame_point_lights),
+            .spot_lights = std::span<const OpenGlSpotLightData>(_frame_spot_lights),
             .present_mode = OpenGlFrameBufferPresentMode::ASPECT_FIT,
             .present_target_framebuffer_id = 0,
+            .scene_color_texture_id = _lighting_framebuffer.get_color_texture_id(),
         };
 
         _render_pipeline->execute(frame_context);
@@ -506,7 +651,7 @@ namespace tbx::plugins
             return;
 
         _render_resolution = render_resolution;
-        _gbuffer_framebuffer.set_resolution(render_resolution);
+        _gbuffer.set_resolution(render_resolution);
         _lighting_framebuffer.set_resolution(render_resolution);
         _post_process_ping_framebuffer.set_resolution(render_resolution);
         _post_process_pong_framebuffer.set_resolution(render_resolution);
