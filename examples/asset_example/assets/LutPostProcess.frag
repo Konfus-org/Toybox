@@ -14,30 +14,34 @@ void main()
     vec4 source = texture(u_scene_color, v_tex_coord);
     vec3 color = clamp(source.rgb, 0.0, 1.0);
 
-    vec2 lut_resolution = vec2(textureSize(u_lut, 0));
-    float size = lut_resolution.y;
-    vec2 texel_size = 1.0 / lut_resolution;
+    // Dimensions for 1024x32
+    float size = 32.0;
+    float width = 1024.0;
+    float height = 32.0;
 
-    // Determine the blue slices
+    // 1. Blue channel selects the slice
     float blue = color.b * (size - 1.0);
     float b0 = floor(blue);
     float b1 = ceil(blue);
 
-    // Scale and offset R and G to sample from the center of texels
-    // This prevents "bleeding" between color tiles
-    vec2 offset = 0.5 * texel_size;
-    vec2 scale = vec2((size - 1.0) * texel_size.x, (size - 1.0) * texel_size.y);
-    float lut_y = 1.0 - (offset.y + color.g * scale.y);
+    // 2. Constants for half-texel offsets and scaling
+    float x_offset = 0.5 / width;
+    float y_offset = 0.5 / height;
+    float x_scale = (size - 1.0) / width;
+    float y_scale = (size - 1.0) / height;
 
-    // Map RG to the first blue slice (b0)
-    vec2 uv0 = vec2((b0 / size) + offset.x + (color.r * scale.x), lut_y);
-    // Map RG to the second blue slice (b1)
-    vec2 uv1 = vec2((b1 / size) + offset.x + (color.r * scale.x), lut_y);
+    // 3. Compute Vertical Coordinate (INVERTED)
+    // 1.0 - (offset + scaled_green) flips the Y-axis
+    float lut_y = 1.0 - (y_offset + (color.g * y_scale));
 
+    // 4. Compute Horizontal UVs
+    vec2 uv0 = vec2((b0 / size) + x_offset + (color.r * x_scale), lut_y);
+    vec2 uv1 = vec2((b1 / size) + x_offset + (color.r * x_scale), lut_y);
+
+    // 5. Sample and Lerp
     vec3 graded0 = textureLod(u_lut, uv0, 0.0).rgb;
     vec3 graded1 = textureLod(u_lut, uv1, 0.0).rgb;
 
     vec3 final_color = mix(graded0, graded1, fract(blue));
-    float blend = clamp(u_strength * u_blend, 0.0, 1.0);
-    o_color = vec4(mix(source.rgb, final_color, blend), source.a);
+    o_color = vec4(mix(source.rgb, final_color, u_strength * u_blend), source.a);
 }

@@ -20,7 +20,7 @@ namespace tbx::examples
         auto skybox_tex = Handle("AnimeSkybox.png");
         auto green_cube = Handle("Green_Cube.fbx");
         auto lut_post_mat = Handle("LutPostProcess.mat");
-        auto lut_tex = Handle("LUT_Cinematic.png");
+        auto lut_tex = Handle("LUT_Film.png");
 
         // Setup light
         _sun = _ent_registry->create("Light");
