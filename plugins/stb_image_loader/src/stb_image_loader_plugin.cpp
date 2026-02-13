@@ -1,8 +1,9 @@
 #include "stb_image_loader_plugin.h"
 #include "tbx/app/application.h"
-#include "tbx/assets/asset_meta.h"
+#include "tbx/files/json.h"
 #include "tbx/assets/messages.h"
 #include "tbx/files/file_ops.h"
+#include "tbx/common/string_utils.h"
 #include "tbx/graphics/texture.h"
 #include <stb_image.h>
 #include <memory>
@@ -11,6 +12,118 @@
 
 namespace tbx::plugins
 {
+    static bool try_parse_texture_wrap(std::string_view value, TextureWrap& out_value)
+    {
+        const std::string lowered = to_lower(trim(std::string(value)));
+        if (lowered == "clamp_to_edge")
+        {
+            out_value = TextureWrap::CLAMP_TO_EDGE;
+            return true;
+        }
+        if (lowered == "mirrored_repeat")
+        {
+            out_value = TextureWrap::MIRRORED_REPEAT;
+            return true;
+        }
+        if (lowered == "repeat")
+        {
+            out_value = TextureWrap::REPEAT;
+            return true;
+        }
+        return false;
+    }
+
+    static bool try_parse_texture_filter(std::string_view value, TextureFilter& out_value)
+    {
+        const std::string lowered = to_lower(trim(std::string(value)));
+        if (lowered == "nearest")
+        {
+            out_value = TextureFilter::NEAREST;
+            return true;
+        }
+        if (lowered == "linear")
+        {
+            out_value = TextureFilter::LINEAR;
+            return true;
+        }
+        return false;
+    }
+
+    static bool try_parse_texture_format(std::string_view value, TextureFormat& out_value)
+    {
+        const std::string lowered = to_lower(trim(std::string(value)));
+        if (lowered == "rgb")
+        {
+            out_value = TextureFormat::RGB;
+            return true;
+        }
+        if (lowered == "rgba")
+        {
+            out_value = TextureFormat::RGBA;
+            return true;
+        }
+        return false;
+    }
+
+    static bool try_parse_texture_mipmaps(std::string_view value, TextureMipmaps& out_value)
+    {
+        const std::string lowered = to_lower(trim(std::string(value)));
+        if (lowered == "disabled")
+        {
+            out_value = TextureMipmaps::DISABLED;
+            return true;
+        }
+        if (lowered == "enabled")
+        {
+            out_value = TextureMipmaps::ENABLED;
+            return true;
+        }
+        return false;
+    }
+
+    static bool try_parse_texture_compression(std::string_view value, TextureCompression& out_value)
+    {
+        const std::string lowered = to_lower(trim(std::string(value)));
+        if (lowered == "disabled")
+        {
+            out_value = TextureCompression::DISABLED;
+            return true;
+        }
+        if (lowered == "auto")
+        {
+            out_value = TextureCompression::AUTO;
+            return true;
+        }
+        return false;
+    }
+
+    static bool try_parse_texture_settings(const Json& data, TextureSettings& out_settings)
+    {
+        auto texture_data = Json();
+        if (!data.try_get_child("texture", texture_data))
+            return false;
+
+        auto settings = TextureSettings();
+        auto text = std::string();
+        if (texture_data.try_get<std::string>("wrap", text) && !try_parse_texture_wrap(text, settings.wrap))
+            return false;
+        if (texture_data.try_get<std::string>("filter", text)
+            && !try_parse_texture_filter(text, settings.filter))
+            return false;
+        if (texture_data.try_get<std::string>("format", text)
+            && !try_parse_texture_format(text, settings.format))
+            return false;
+        if (texture_data.try_get<std::string>("mipmaps", text)
+            && !try_parse_texture_mipmaps(text, settings.mipmaps))
+            return false;
+        if (texture_data.try_get<std::string>("compression", text)
+            && !try_parse_texture_compression(text, settings.compression))
+            return false;
+
+        out_settings = settings;
+        return true;
+    }
+
     static std::string build_load_failure_message(
         const std::filesystem::path& path,
         const char* reason)
@@ -95,14 +208,19 @@ namespace tbx::plugins
         const std::filesystem::path resolved_path = _asset_manager->resolve_asset_path(request.path);
         auto meta_path = resolved_path;
         meta_path += ".meta";
-        std::string meta_data;
+        std::string meta_data = {};
         if (_file_ops->read_file(meta_path, FileDataFormat::UTF8_TEXT, meta_data))
         {
-            AssetMeta meta = {};
-            AssetMetaParser parser = {};
-            if (parser.try_parse_from_source(meta_data, resolved_path, meta)
-                && meta.texture_settings.has_value())
-                load_settings = *meta.texture_settings;
+            try
+            {
+                auto data = Json(meta_data);
+                auto parsed_settings = TextureSettings();
+                if (try_parse_texture_settings(data, parsed_settings))
+                    load_settings = parsed_settings;
+            }
+            catch (...)
+            {
+            }
         }
 
         std::string encoded_image;
