@@ -1,33 +1,340 @@
-﻿#include "opengl_rendering_plugin.h"
+#include "opengl_rendering_plugin.h"
 #include "tbx/app/application.h"
-#include "tbx/assets/asset_manager.h"
-#include "tbx/assets/builtin_assets.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/camera.h"
-#include "tbx/math/matrices.h"
+#include "tbx/graphics/light.h"
+#include "tbx/graphics/material.h"
+#include "tbx/graphics/renderer.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
-#include <glad/glad.h>
+#include "tbx/messages/observable.h"
 #include <algorithm>
-#include <vector>
+#include <glad/glad.h>
+#include <limits>
+#include <span>
+#include <string>
+#include <string_view>
+#include <variant>
 
 namespace tbx::plugins
 {
-    static void GLAPIENTRY gl_message_callback(
-        GLenum source,
-        GLenum type,
-        GLuint id,
-        GLenum severity,
-        GLsizei length,
-        const GLchar* message,
-        const void* user_param)
-    {
-        (void)source;
-        (void)type;
-        (void)id;
-        (void)length;
-        (void)user_param;
+    static constexpr int MAX_DIRECTIONAL_SHADOW_MAPS = 1;
+    static constexpr int SHADOW_MAP_RESOLUTION = 2048;
 
+    static void destroy_shadow_map_textures(std::vector<uint32>& texture_ids)
+    {
+        if (texture_ids.empty())
+            return;
+
+        glDeleteTextures(
+            static_cast<GLsizei>(texture_ids.size()),
+            reinterpret_cast<const GLuint*>(texture_ids.data()));
+        texture_ids.clear();
+    }
+
+    static uint32 create_shadow_map_texture()
+    {
+        uint32 texture_id = 0;
+        glCreateTextures(GL_TEXTURE_2D, 1, reinterpret_cast<GLuint*>(&texture_id));
+        if (texture_id == 0)
+            return 0;
+
+        glTextureStorage2D(
+            texture_id,
+            1,
+            GL_DEPTH_COMPONENT32F,
+            SHADOW_MAP_RESOLUTION,
+            SHADOW_MAP_RESOLUTION);
+        glTextureParameteri(texture_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTextureParameteri(texture_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTextureParameteri(texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTextureParameteri(texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
+        constexpr float border_color[] = {1.0f, 1.0f, 1.0f, 1.0f};
+        glTextureParameterfv(texture_id, GL_TEXTURE_BORDER_COLOR, border_color);
+        return texture_id;
+    }
+
+    static void ensure_shadow_map_textures(
+        std::vector<uint32>& texture_ids,
+        const size_t desired_count)
+    {
+        if (texture_ids.size() == desired_count)
+            return;
+
+        destroy_shadow_map_textures(texture_ids);
+        texture_ids.reserve(desired_count);
+        for (size_t shadow_index = 0; shadow_index < desired_count; ++shadow_index)
+        {
+            const auto texture_id = create_shadow_map_texture();
+            if (texture_id == 0)
+                break;
+
+            texture_ids.push_back(texture_id);
+        }
+    }
+
+    static std::string normalize_uniform_name(std::string_view name)
+    {
+        if (name.size() >= 2U && name[0] == 'u' && name[1] == '_')
+            return std::string(name);
+
+        std::string normalized = "u_";
+        normalized.append(name.begin(), name.end());
+        return normalized;
+    }
+
+    static void append_or_override_material_parameter(
+        MaterialParameterBindings& parameters,
+        std::string_view name,
+        MaterialParameterData data)
+    {
+        parameters.set(name, std::move(data));
+    }
+
+    static void append_or_override_texture(
+        MaterialTextureBindings& textures,
+        std::string_view name,
+        const TextureInstance& runtime_texture)
+    {
+        textures.set(name, runtime_texture);
+    }
+
+    static void apply_runtime_material_overrides(
+        const MaterialInstance& runtime_material,
+        Material& in_out_material)
+    {
+        for (const auto& texture_binding : runtime_material.textures)
+            append_or_override_texture(
+                in_out_material.textures,
+                texture_binding.name,
+                texture_binding.texture);
+
+        for (const auto& parameter_binding : runtime_material.parameters)
+            append_or_override_material_parameter(
+                in_out_material.parameters,
+                parameter_binding.name,
+                parameter_binding.value);
+    }
+
+    static uint64 hash_runtime_material(const MaterialInstance& runtime_material)
+    {
+        constexpr uint64 fnv_offset = 1469598103934665603ULL;
+        constexpr uint64 fnv_prime = 1099511628211ULL;
+
+        auto hash_value = fnv_offset;
+        auto hash_bytes = [&hash_value](const void* data, size_t size)
+        {
+            const auto* bytes = static_cast<const unsigned char*>(data);
+            for (size_t i = 0; i < size; ++i)
+            {
+                hash_value ^= static_cast<uint64>(bytes[i]);
+                hash_value *= fnv_prime;
+            }
+        };
+
+        hash_bytes(&runtime_material.handle.id, sizeof(runtime_material.handle.id));
+
+        for (const auto& parameter_binding : runtime_material.parameters)
+        {
+            hash_bytes(parameter_binding.name.data(), parameter_binding.name.size());
+            const auto variant_index = static_cast<uint64>(parameter_binding.value.index());
+            hash_bytes(&variant_index, sizeof(variant_index));
+            std::visit(
+                [&hash_bytes](const auto& value)
+                {
+                    hash_bytes(&value, sizeof(value));
+                },
+                parameter_binding.value);
+        }
+
+        for (const auto& texture_binding : runtime_material.textures)
+        {
+            hash_bytes(texture_binding.name.data(), texture_binding.name.size());
+            hash_bytes(
+                &texture_binding.texture.handle.id,
+                sizeof(texture_binding.texture.handle.id));
+            const bool has_settings_override = texture_binding.texture.settings.has_value();
+            hash_bytes(&has_settings_override, sizeof(has_settings_override));
+            if (has_settings_override)
+            {
+                const TextureSettings& texture_settings = texture_binding.texture.settings.value();
+                hash_bytes(&texture_settings.filter, sizeof(texture_settings.filter));
+                hash_bytes(&texture_settings.wrap, sizeof(texture_settings.wrap));
+                hash_bytes(&texture_settings.format, sizeof(texture_settings.format));
+                hash_bytes(&texture_settings.mipmaps, sizeof(texture_settings.mipmaps));
+                hash_bytes(&texture_settings.compression, sizeof(texture_settings.compression));
+            }
+        }
+
+        return hash_value;
+    }
+
+    static bool has_sky_texture(const Material& material)
+    {
+        bool has_any_texture = false;
+        const auto* diffuse_texture_binding = material.textures.get("diffuse");
+        const bool has_diffuse_texture =
+            diffuse_texture_binding && diffuse_texture_binding->texture.handle.is_valid();
+
+        for (const auto& texture_binding : material.textures)
+        {
+            const auto normalized_name = normalize_uniform_name(texture_binding.name);
+            const auto& texture_handle = texture_binding.texture.handle;
+            if (!texture_handle.is_valid())
+                continue;
+
+            has_any_texture = true;
+            if (normalized_name == "u_diffuse")
+                continue;
+
+            TBX_ASSERT(
+                false,
+                "OpenGL rendering: Sky only supports panoramic textures bound to 'diffuse'.");
+            return false;
+        }
+
+        if (has_any_texture && !has_diffuse_texture)
+        {
+            TBX_ASSERT(
+                false,
+                "OpenGL rendering: Sky requires a panoramic texture bound to 'diffuse'.");
+            return false;
+        }
+
+        return has_diffuse_texture;
+    }
+
+    static bool try_get_sky_color(const Material& material, RgbaColor& out_color)
+    {
+        const auto* parameter_binding = material.parameters.get("color");
+        if (parameter_binding == nullptr)
+            return false;
+
+        if (std::holds_alternative<RgbaColor>(parameter_binding->value))
+        {
+            out_color = std::get<RgbaColor>(parameter_binding->value);
+            return true;
+        }
+
+        if (std::holds_alternative<Vec4>(parameter_binding->value))
+        {
+            const auto value = std::get<Vec4>(parameter_binding->value);
+            out_color = RgbaColor(value.x, value.y, value.z, value.w);
+            return true;
+        }
+
+        return false;
+    }
+
+    static bool is_valid_sky_shader_program(const ShaderProgram& shader_program)
+    {
+        if (shader_program.compute.is_valid())
+            return false;
+
+        if (!shader_program.vertex.is_valid() || !shader_program.fragment.is_valid())
+            return false;
+
+        return true;
+    }
+
+    static Vec3 get_camera_world_position(const OpenGlCameraView& camera_view)
+    {
+        if (!camera_view.camera_entity.has_component<Transform>())
+            return Vec3(0.0f);
+
+        const auto& camera_transform = camera_view.camera_entity.get_component<Transform>();
+        return camera_transform.position;
+    }
+
+    static Quat get_camera_world_rotation(const OpenGlCameraView& camera_view)
+    {
+        if (!camera_view.camera_entity.has_component<Transform>())
+            return Quat(1.0f, 0.0f, 0.0f, 0.0f);
+
+        const auto& camera_transform = camera_view.camera_entity.get_component<Transform>();
+        return camera_transform.rotation;
+    }
+
+    static Mat4 get_camera_view_projection(
+        const OpenGlCameraView& camera_view,
+        const Size& render_resolution)
+    {
+        if (!camera_view.camera_entity.has_component<Camera>())
+            return Mat4(1.0f);
+
+        auto& camera = camera_view.camera_entity.get_component<Camera>();
+        camera.set_aspect(render_resolution.get_aspect_ratio());
+        const auto camera_position = get_camera_world_position(camera_view);
+        const auto camera_rotation = get_camera_world_rotation(camera_view);
+        return camera.get_view_projection_matrix(camera_position, camera_rotation);
+    }
+
+    static Vec3 get_entity_forward_direction(const Entity& entity)
+    {
+        if (!entity.has_component<Transform>())
+            return Vec3(0.0f, -1.0f, 0.0f);
+
+        const auto& transform = entity.get_component<Transform>();
+        return normalize(transform.rotation * Vec3(0.0f, 0.0f, -1.0f));
+    }
+
+    static Vec3 get_entity_position(const Entity& entity)
+    {
+        if (!entity.has_component<Transform>())
+            return Vec3(0.0f);
+
+        const auto& transform = entity.get_component<Transform>();
+        return transform.position;
+    }
+
+    static void resolve_light_color(
+        const RgbaColor& raw_color,
+        const float raw_intensity,
+        Vec3& out_color,
+        float& out_intensity)
+    {
+        out_color = Vec3(raw_color.r, raw_color.g, raw_color.b);
+        out_intensity = std::max(raw_intensity, 0.0f);
+
+        const float max_channel = std::max(out_color.x, std::max(out_color.y, out_color.z));
+        if (max_channel <= std::numeric_limits<float>::epsilon())
+        {
+            out_color = Vec3(1.0f);
+            out_intensity = 0.0f;
+            return;
+        }
+
+        out_color /= max_channel;
+        out_intensity *= max_channel;
+    }
+
+    static Mat4 build_directional_shadow_view_projection(
+        const Vec3& camera_position,
+        const Vec3& directional_light_direction)
+    {
+        const auto direction_to_light = normalize(directional_light_direction);
+        const auto shadow_center = camera_position;
+        const auto light_position = shadow_center - (direction_to_light * 40.0f);
+
+        auto up_axis = Vec3(0.0f, 1.0f, 0.0f);
+        if (abs(dot(direction_to_light, up_axis)) > 0.95f)
+            up_axis = Vec3(1.0f, 0.0f, 0.0f);
+
+        const auto light_view = look_at(light_position, shadow_center, up_axis);
+        const auto light_projection = ortho_projection(-50.0f, 50.0f, -50.0f, 50.0f, 1.0f, 120.0f);
+        return light_projection * light_view;
+    }
+
+    static void GLAPIENTRY gl_message_callback(
+        GLenum,
+        GLenum,
+        GLuint,
+        GLenum severity,
+        GLsizei,
+        const GLchar* message,
+        const void*)
+    {
         switch (severity)
         {
             case GL_DEBUG_SEVERITY_HIGH:
@@ -50,212 +357,303 @@ namespace tbx::plugins
 
     void OpenGlRenderingPlugin::on_attach(IPluginHost& host)
     {
-        _render_resolution = host.get_settings().resolution.value;
+        _render_pipeline = std::make_unique<OpenGlRenderPipeline>(host.get_asset_manager());
     }
 
     void OpenGlRenderingPlugin::on_detach()
     {
-        for (auto& entry : _render_targets)
-        {
-            Uuid window_id = entry.first;
-            auto result = send_message<WindowMakeCurrentRequest>(window_id);
-            if (result)
-            {
-                entry.second.destroy();
-                entry.second.destroy_present_pipeline();
-            }
-        }
+        if (_is_context_ready)
+            destroy_shadow_map_textures(_frame_shadow_map_texture_ids);
 
-        _is_gl_ready = false;
-        _window_sizes.clear();
-        _render_targets.clear();
-        _cache.clear();
+        _is_context_ready = false;
+        _render_pipeline.reset();
+        _is_sky_cache_valid = false;
+        _cached_has_sky_component = false;
+        _cached_sky_source_material_hash = 0U;
+        _cached_sky_material = nullptr;
+        _cached_resolved_sky = {};
+        _cached_resolved_post_processing.effects.clear();
+        _frame_directional_lights.clear();
+        _frame_point_lights.clear();
+        _frame_spot_lights.clear();
+        _frame_shadow_light_view_projections.clear();
+        _frame_shadow_cascade_splits.clear();
+        _frame_shadow_map_texture_ids.clear();
     }
 
     void OpenGlRenderingPlugin::on_update(const DeltaTime&)
     {
-        if (!_is_gl_ready || _window_sizes.empty())
-        {
+        if (!_is_context_ready || !_render_pipeline)
             return;
+
+        auto make_current_result = send_message<WindowMakeCurrentRequest>(_window_id);
+        if (!make_current_result)
+            return;
+
+        auto camera_view = OpenGlCameraView();
+        bool did_find_camera = false;
+        auto& registry = get_host().get_entity_registry();
+        registry.for_each_with<Camera>(
+            [&camera_view, &did_find_camera](Entity& entity)
+            {
+                if (did_find_camera)
+                    return;
+
+                camera_view.camera_entity = entity;
+                did_find_camera = true;
+            });
+
+        if (!did_find_camera)
+            return;
+
+        registry.for_each_with<Renderer, StaticMesh>(
+            [&camera_view](Entity& entity)
+            {
+                camera_view.in_view_static_entities.push_back(entity);
+            });
+
+        registry.for_each_with<Renderer, DynamicMesh>(
+            [&camera_view](Entity& entity)
+            {
+                camera_view.in_view_dynamic_entities.push_back(entity);
+            });
+
+        _frame_directional_lights.clear();
+        _frame_point_lights.clear();
+        _frame_spot_lights.clear();
+        _frame_shadow_light_view_projections.clear();
+        _frame_shadow_cascade_splits.clear();
+        registry.for_each_with<DirectionalLight>(
+            [this](Entity& entity)
+            {
+                auto color = Vec3(1.0f);
+                auto intensity = 1.0f;
+                const auto& light = entity.get_component<DirectionalLight>();
+                resolve_light_color(light.color, light.intensity, color, intensity);
+                _frame_directional_lights.push_back(
+                    OpenGlDirectionalLightData {
+                        .direction = get_entity_forward_direction(entity),
+                        .intensity = intensity,
+                        .color = color,
+                        .ambient = std::max(light.ambient, 0.0f),
+                    });
+            });
+
+        const auto directional_shadow_count = std::min(
+            _frame_directional_lights.size(),
+            static_cast<size_t>(MAX_DIRECTIONAL_SHADOW_MAPS));
+        ensure_shadow_map_textures(_frame_shadow_map_texture_ids, directional_shadow_count);
+
+        const auto shadow_center_position = get_camera_world_position(camera_view);
+        for (size_t shadow_index = 0; shadow_index < directional_shadow_count; ++shadow_index)
+        {
+            _frame_shadow_light_view_projections.push_back(build_directional_shadow_view_projection(
+                shadow_center_position,
+                _frame_directional_lights[shadow_index].direction));
         }
 
-        for (const auto& entry : _window_sizes)
+        registry.for_each_with<PointLight>(
+            [this](Entity& entity)
+            {
+                auto color = Vec3(1.0f);
+                auto intensity = 1.0f;
+                const auto& light = entity.get_component<PointLight>();
+                resolve_light_color(light.color, light.intensity, color, intensity);
+                _frame_point_lights.push_back(
+                    OpenGlPointLightData {
+                        .position = get_entity_position(entity),
+                        .range = std::max(light.range, 0.001f),
+                        .color = color,
+                        .intensity = intensity,
+                    });
+            });
+
+        registry.for_each_with<SpotLight>(
+            [this](Entity& entity)
+            {
+                auto color = Vec3(1.0f);
+                auto intensity = 1.0f;
+                const auto& light = entity.get_component<SpotLight>();
+                resolve_light_color(light.color, light.intensity, color, intensity);
+                const float inner_radians = to_radians(std::max(light.inner_angle, 0.0f));
+                const float outer_radians =
+                    to_radians(std::max(light.outer_angle, light.inner_angle));
+                _frame_spot_lights.push_back(
+                    OpenGlSpotLightData {
+                        .position = get_entity_position(entity),
+                        .range = std::max(light.range, 0.001f),
+                        .direction = get_entity_forward_direction(entity),
+                        .inner_cos = cos(inner_radians),
+                        .color = color,
+                        .outer_cos = cos(outer_radians),
+                        .intensity = intensity,
+                    });
+            });
+
+        auto sky_material = MaterialInstance {};
+        bool did_find_sky = false;
+        bool did_warn_multiple_skies = false;
+        registry.for_each_with<Sky>(
+            [&sky_material, &did_find_sky, &did_warn_multiple_skies](Entity& entity)
+            {
+                if (did_find_sky)
+                {
+                    if (!did_warn_multiple_skies)
+                    {
+                        TBX_TRACE_WARNING(
+                            "OpenGL rendering: multiple Sky components found; using the first "
+                            "one.");
+                        did_warn_multiple_skies = true;
+                    }
+                    return;
+                }
+
+                did_find_sky = true;
+                sky_material = entity.get_component<Sky>().material;
+            });
+
+        if (!did_find_sky)
         {
-            Uuid window_id = entry.first;
-            const Size& window_size = entry.second;
-            Size render_resolution = get_effective_resolution(window_size);
-
-            // Bind the window context before issuing any GL commands.
-            auto result = send_message<WindowMakeCurrentRequest>(window_id);
-            if (!result)
+            _is_sky_cache_valid = true;
+            _cached_has_sky_component = false;
+            _cached_sky_source_material_hash = 0U;
+            _cached_sky_material = nullptr;
+            _cached_resolved_sky = {};
+        }
+        else
+        {
+            const auto sky_material_hash = hash_runtime_material(sky_material);
+            if (!_is_sky_cache_valid || !_cached_has_sky_component
+                || _cached_sky_source_material_hash != sky_material_hash)
             {
-                TBX_TRACE_WARNING(
-                    "OpenGL rendering: failed to make window current: {}",
-                    result.get_report());
-                continue;
-            }
+                _cached_has_sky_component = true;
+                _cached_sky_source_material_hash = sky_material_hash;
+                _cached_sky_material = nullptr;
+                _cached_resolved_sky = {};
 
-            bool should_scale_to_window = render_resolution.width != window_size.width
-                                          || render_resolution.height != window_size.height;
-
-            if (_render_resolution.width != 0U && _render_resolution.height != 0U)
-            {
-                auto& target = _render_targets[window_id];
-                if (target.get_framebuffer() == 0U)
+                TBX_ASSERT(
+                    sky_material.handle.is_valid(),
+                    "OpenGL rendering: Sky component requires a valid material handle.");
+                if (sky_material.handle.is_valid())
                 {
-                    target.try_resize(render_resolution);
-                }
-
-                auto& pipeline = target.get_present_pipeline();
-                if (!pipeline.is_ready())
-                {
-                    pipeline.try_initialize();
-                }
-            }
-
-            if (should_scale_to_window)
-            {
-                auto& target = _render_targets[window_id];
-                if (!target.try_resize(render_resolution))
-                {
-                    TBX_TRACE_WARNING(
-                        "OpenGL rendering: Failed to create render target {}x{} for window {}.",
-                        render_resolution.width,
-                        render_resolution.height,
-                        window_id.value);
-                }
-
-                if (target.get_framebuffer() != 0U)
-                {
-                    glBindFramebuffer(
-                        GL_FRAMEBUFFER,
-                        static_cast<GLuint>(target.get_framebuffer()));
-                    glViewport(
-                        0,
-                        0,
-                        static_cast<GLsizei>(render_resolution.width),
-                        static_cast<GLsizei>(render_resolution.height));
-                    glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Fixed 255 to 1.0f
-                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-                    // Draw all scene cameras to the offscreen target at the logical resolution.
-                    draw_models_for_cameras(render_resolution);
-
-                    // Present the scaled image to the window backbuffer via a shader, avoiding
-                    // glBlitFramebuffer scaling (which can be invalid with multisampled defaults).
-                    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                    glViewport(
-                        0,
-                        0,
-                        static_cast<GLsizei>(window_size.width),
-                        static_cast<GLsizei>(window_size.height));
-                    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-                    glClear(GL_COLOR_BUFFER_BIT);
-
-                    auto& pipeline = target.get_present_pipeline();
-                    if (!pipeline.is_ready())
+                    auto& asset_manager = get_host().get_asset_manager();
+                    _cached_sky_material = asset_manager.load<Material>(sky_material.handle);
+                    TBX_ASSERT(
+                        _cached_sky_material != nullptr,
+                        "OpenGL rendering: Sky material could not be loaded.");
+                    if (_cached_sky_material)
                     {
-                        pipeline.try_initialize();
+                        auto resolved_sky_material = *_cached_sky_material;
+                        apply_runtime_material_overrides(sky_material, resolved_sky_material);
+
+                        TBX_ASSERT(
+                            is_valid_sky_shader_program(resolved_sky_material.program),
+                            "OpenGL rendering: Sky material must use a graphics shader program "
+                            "with vertex+fragment stages and no compute stage.");
+
+                        if (is_valid_sky_shader_program(resolved_sky_material.program))
+                        {
+                            if (has_sky_texture(resolved_sky_material))
+                            {
+                                _cached_resolved_sky.sky_material = sky_material;
+                            }
+                            else
+                            {
+                                RgbaColor material_color = RgbaColor::black;
+                                if (try_get_sky_color(resolved_sky_material, material_color))
+                                    _cached_resolved_sky.clear_color = material_color;
+                            }
+                        }
                     }
+                }
 
-                    if (pipeline.is_ready())
+                _is_sky_cache_valid = true;
+            }
+        }
+
+        bool did_find_post_processing = false;
+        bool did_warn_multiple_post_processing = false;
+        bool is_post_processing_enabled = false;
+        _cached_resolved_post_processing.effects.clear();
+        registry.for_each_with<PostProcessing>(
+            [this,
+             &did_find_post_processing,
+             &did_warn_multiple_post_processing,
+             &is_post_processing_enabled](Entity& entity)
+            {
+                if (did_find_post_processing)
+                {
+                    if (!did_warn_multiple_post_processing)
                     {
-                        float x_scale = static_cast<float>(window_size.width)
-                                        / static_cast<float>(render_resolution.width);
-                        float y_scale = static_cast<float>(window_size.height)
-                                        / static_cast<float>(render_resolution.height);
-                        float scale = std::min(x_scale, y_scale);
+                        TBX_TRACE_WARNING(
+                            "OpenGL rendering: multiple PostProcessing components found; using "
+                            "the first one.");
+                        did_warn_multiple_post_processing = true;
+                    }
+                    return;
+                }
 
-                        int scaled_width = std::max(
-                            1,
-                            static_cast<int>(static_cast<float>(render_resolution.width) * scale));
-                        int scaled_height = std::max(
-                            1,
-                            static_cast<int>(
-                                static_cast<float>(render_resolution.height) * scale));
+                did_find_post_processing = true;
+                const auto& post_processing = entity.get_component<PostProcessing>();
+                is_post_processing_enabled = post_processing.is_enabled;
 
-                        int x_offset =
-                            std::max(0, (static_cast<int>(window_size.width) - scaled_width) / 2);
-                        int y_offset = std::max(
-                            0,
-                            (static_cast<int>(window_size.height) - scaled_height) / 2);
-
-                        bool was_depth_test_enabled = glIsEnabled(GL_DEPTH_TEST) == GL_TRUE;
-                        bool was_blend_enabled = glIsEnabled(GL_BLEND) == GL_TRUE;
-
-                        glDisable(GL_DEPTH_TEST);
-                        glDisable(GL_BLEND);
-
-                        GlResourceScope program_scope(*pipeline.program);
-                        glBindVertexArray(static_cast<GLuint>(pipeline.vertex_array));
-                        glActiveTexture(GL_TEXTURE0);
-                        glBindTexture(
-                            GL_TEXTURE_2D,
-                            static_cast<GLuint>(target.get_color_texture()));
-                        pipeline.program->try_upload({
-                            .name = "u_texture",
-                            .data = 0,
+                _cached_resolved_post_processing.effects.reserve(post_processing.effects.size());
+                for (const auto& effect : post_processing.effects)
+                {
+                    _cached_resolved_post_processing.effects.push_back(
+                        OpenGlPostProcessEffect {
+                            .is_enabled = effect.is_enabled,
+                            .material = effect.material,
+                            .blend = effect.blend,
                         });
-
-                        glViewport(x_offset, y_offset, scaled_width, scaled_height);
-                        glDrawArrays(GL_TRIANGLES, 0, 3);
-
-                        glBindTexture(GL_TEXTURE_2D, 0);
-                        glBindVertexArray(0);
-
-                        if (was_blend_enabled)
-                        {
-                            glEnable(GL_BLEND);
-                        }
-                        if (was_depth_test_enabled)
-                        {
-                            glEnable(GL_DEPTH_TEST);
-                        }
-
-                        glViewport(
-                            0,
-                            0,
-                            static_cast<GLsizei>(window_size.width),
-                            static_cast<GLsizei>(window_size.height));
-                    }
                 }
-                else
-                {
-                    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                    glViewport(
-                        0,
-                        0,
-                        static_cast<GLsizei>(window_size.width),
-                        static_cast<GLsizei>(window_size.height));
-                    glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Fixed 255 to 1.0f
-                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                    draw_models_for_cameras(window_size);
-                }
-            }
-            else
-            {
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                glViewport(
-                    0,
-                    0,
-                    static_cast<GLsizei>(render_resolution.width),
-                    static_cast<GLsizei>(render_resolution.height));
-                glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Fixed 255 to 1.0f
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            });
 
-                // Draw all scene cameras to the current framebuffer.
-                draw_models_for_cameras(render_resolution);
-            }
+        const auto post_process_settings = OpenGlPostProcessSettings {
+            .is_enabled = did_find_post_processing && is_post_processing_enabled,
+            .effects =
+                std::span<const OpenGlPostProcessEffect>(_cached_resolved_post_processing.effects),
+        };
+        const auto view_projection = get_camera_view_projection(camera_view, _render_resolution);
+        const auto camera_world_position = get_camera_world_position(camera_view);
 
-            // Present the rendered frame to the window.
-            glFlush();
-            auto present_result = send_message<WindowPresentRequest>(window_id);
-            if (!present_result)
-            {
-                TBX_TRACE_WARNING(
-                    "OpenGL rendering: failed to present window: {}",
-                    present_result.get_report());
-            }
+        auto frame_context = OpenGlRenderFrameContext {
+            .camera_view = camera_view,
+            .render_resolution = _render_resolution,
+            .viewport_size = _viewport_size,
+            .clear_color = _cached_resolved_sky.clear_color,
+            .sky_material = _cached_resolved_sky.sky_material,
+            .post_process = post_process_settings,
+            .gbuffer = &_gbuffer,
+            .lighting_target = &_lighting_framebuffer,
+            .post_process_ping_target = &_post_process_ping_framebuffer,
+            .post_process_pong_target = &_post_process_pong_framebuffer,
+            .camera_world_position = camera_world_position,
+            .view_projection = view_projection,
+            .inverse_view_projection = inverse(view_projection),
+            .directional_lights =
+                std::span<const OpenGlDirectionalLightData>(_frame_directional_lights),
+            .point_lights = std::span<const OpenGlPointLightData>(_frame_point_lights),
+            .spot_lights = std::span<const OpenGlSpotLightData>(_frame_spot_lights),
+            .shadow_data =
+                OpenGlShadowFrameData {
+                    .map_texture_ids = std::span<const uint32>(_frame_shadow_map_texture_ids),
+                    .light_view_projections =
+                        std::span<const Mat4>(_frame_shadow_light_view_projections),
+                    .cascade_splits = std::span<const float>(_frame_shadow_cascade_splits),
+                },
+            .present_mode = OpenGlFrameBufferPresentMode::ASPECT_FIT,
+            .present_target_framebuffer_id = 0,
+            .scene_color_texture_id = _lighting_framebuffer.get_color_texture_id(),
+        };
+
+        _render_pipeline->execute(frame_context);
+        auto present_result = send_message<WindowPresentRequest>(_window_id);
+        if (!present_result)
+        {
+            TBX_TRACE_ERROR(
+                "OpenGL rendering: present request failed: {}",
+                present_result.get_report());
         }
     }
 
@@ -263,91 +661,34 @@ namespace tbx::plugins
     {
         if (auto* ready_event = handle_message<WindowContextReadyEvent>(msg))
         {
-            handle_window_ready(*ready_event);
-            return;
-        }
+            _window_id = ready_event->window;
+            if (!_render_pipeline)
+                _render_pipeline =
+                    std::make_unique<OpenGlRenderPipeline>(get_host().get_asset_manager());
 
-        if (auto* open_event = handle_property_changed<&Window::is_open>(msg))
-        {
-            handle_window_open_changed(*open_event);
+            auto* loader = reinterpret_cast<GLADloadproc>(ready_event->get_proc_address);
+            TBX_ASSERT(
+                loader != nullptr,
+                "OpenGL rendering: context-ready event provided null loader.");
+            const auto load_result = gladLoadGLLoader(loader);
+            TBX_ASSERT(load_result != 0, "OpenGL rendering: failed to initialize GLAD.");
+
+            initialize_opengl();
+            set_viewport_size(ready_event->size);
+            set_render_resolution(ready_event->size);
+            _is_context_ready = true;
             return;
         }
 
         if (auto* size_event = handle_property_changed<&Window::size>(msg))
         {
-            handle_window_resized(*size_event);
+            if (size_event->owner && size_event->owner->id == _window_id)
+            {
+                set_viewport_size(size_event->current);
+                set_render_resolution(size_event->current);
+            }
             return;
         }
-
-        if (auto* resolution_event = handle_property_changed<&AppSettings::resolution>(msg))
-        {
-            handle_resolution_changed(*resolution_event);
-            return;
-        }
-    }
-
-    void OpenGlRenderingPlugin::handle_window_ready(WindowContextReadyEvent& event)
-    {
-        bool loaded = false;
-
-        if (event.get_proc_address)
-            loaded = gladLoadGLLoader(reinterpret_cast<GLADloadproc>(event.get_proc_address));
-
-        if (loaded)
-        {
-            initialize_opengl();
-            _is_gl_ready = true;
-        }
-        else
-            TBX_TRACE_WARNING("Failed to load glad!");
-
-        if (!_is_gl_ready)
-        {
-            event.state = MessageState::ERROR;
-            event.result.flag_failure("OpenGL rendering: GL loader not initialized.");
-            return;
-        }
-
-        _window_sizes[event.window] = event.size;
-
-        event.state = MessageState::HANDLED;
-        event.result.flag_success();
-    }
-
-    void OpenGlRenderingPlugin::handle_window_open_changed(
-        PropertyChangedEvent<Window, bool>& event)
-    {
-        if (!event.owner)
-        {
-            return;
-        }
-
-        if (event.current)
-        {
-            return;
-        }
-
-        remove_window_state(event.owner->id, true);
-    }
-
-    void OpenGlRenderingPlugin::handle_window_resized(PropertyChangedEvent<Window, Size>& event)
-    {
-        if (!event.owner)
-        {
-            return;
-        }
-
-        auto window_id = event.owner->id;
-        if (_window_sizes.contains(window_id))
-        {
-            _window_sizes[window_id] = event.current;
-        }
-    }
-
-    void OpenGlRenderingPlugin::handle_resolution_changed(
-        PropertyChangedEvent<AppSettings, Size>& event)
-    {
-        _render_resolution = event.current;
     }
 
     void OpenGlRenderingPlugin::initialize_opengl() const
@@ -386,411 +727,26 @@ namespace tbx::plugins
         glEnable(GL_BLEND);
         glDepthFunc(GL_LEQUAL);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glClearColor(0.07f, 0.08f, 0.11f, 1.0f);
     }
 
-    Size OpenGlRenderingPlugin::get_effective_resolution(const Size& window_size) const
+    void OpenGlRenderingPlugin::set_viewport_size(const Size& viewport_size)
     {
-        Size resolution = _render_resolution;
-        if (resolution.width == 0U || resolution.height == 0U)
-        {
-            resolution = window_size;
-        }
-
-        if (resolution.width == 0U)
-        {
-            resolution.width = 1U;
-        }
-
-        if (resolution.height == 0U)
-        {
-            resolution.height = 1U;
-        }
-
-        return resolution;
-    }
-
-    void OpenGlRenderingPlugin::remove_window_state(const Uuid& window_id, bool try_release)
-    {
-        _window_sizes.erase(window_id);
-
-        auto it = _render_targets.find(window_id);
-        if (it == _render_targets.end())
-        {
-            return;
-        }
-
-        if (try_release)
-        {
-            auto result = send_message<WindowMakeCurrentRequest>(window_id);
-            if (result)
-            {
-                it->second.destroy();
-                it->second.destroy_present_pipeline();
-            }
-        }
-
-        _render_targets.erase(it);
-    }
-
-    void OpenGlRenderingPlugin::draw_models(const Mat4& view_projection)
-    {
-        auto& ecs = get_host().get_entity_registry();
-        auto& asset_manager = get_host().get_asset_manager();
-
-        static const auto FALLBACK_MATERIAL = std::make_shared<Material>();
-
-        ecs.for_each_with<Renderer>(
-            [&](Entity entity)
-            {
-                const Renderer& renderer = entity.get_component<Renderer>();
-                if (!renderer.data)
-                {
-                    return;
-                }
-
-                // Step 2: Compute the entity model matrix (identity if no transform).
-                Mat4 entity_matrix = Mat4(1.0f);
-                if (entity.has_component<Transform>())
-                {
-                    entity_matrix = build_transform_matrix(entity.get_component<Transform>());
-                }
-
-                if (auto* static_data = dynamic_cast<const StaticRenderData*>(renderer.data.get()))
-                {
-                    // Step 3: Draw meshes from a static model asset.
-                    draw_static_model(
-                        asset_manager,
-                        *static_data,
-                        entity_matrix,
-                        view_projection,
-                        FALLBACK_MATERIAL);
-                    return;
-                }
-
-                if (auto* procedural_data =
-                        dynamic_cast<const ProceduralData*>(renderer.data.get()))
-                {
-                    // Step 4: Draw procedurally supplied meshes.
-                    draw_procedural_meshes(
-                        asset_manager,
-                        *procedural_data,
-                        entity_matrix,
-                        view_projection,
-                        FALLBACK_MATERIAL);
-                }
-            });
-    }
-
-    void OpenGlRenderingPlugin::draw_mesh_with_material(
-        const Uuid& mesh_key,
-        const OpenGlMaterial& material,
-        const Mat4& model_matrix,
-        const Mat4& view_projection)
-    {
-        // Step 1: Fetch the mesh resource for this cache key.
-        auto mesh_resource = _cache.get_cached_mesh(mesh_key);
-        if (!mesh_resource)
+        if (viewport_size.width == 0 || viewport_size.height == 0)
             return;
 
-        // Step 2: Determine which shader programs to render with.
-        std::vector<Uuid> shader_programs = material.shader_programs;
-        if (shader_programs.empty())
-            shader_programs.push_back(default_shader.id);
-
-        for (const auto& shader_id : shader_programs)
-        {
-            auto program = _cache.get_cached_shader_program(shader_id);
-            if (!program)
-                continue;
-
-            // Step 3: Bind the shader program and upload view/model matrices.
-            GlResourceScope program_scope(*program);
-
-            program->try_upload({
-                .name = "u_view_proj",
-                .data = view_projection,
-            });
-            program->try_upload({
-                .name = "u_model",
-                .data = model_matrix,
-            });
-
-            // Step 4: Upload scalar/vector material parameters.
-            for (const auto& parameter : material.parameters)
-                program->upload(parameter);
-
-            // Step 5: Bind textures and upload sampler slots.
-            std::vector<GlResourceScope> texture_scopes = {};
-            texture_scopes.reserve(material.textures.size());
-            uint32 texture_slot = 0U;
-
-            for (const auto& texture_binding : material.textures)
-            {
-                auto texture_resource = _cache.get_default_texture();
-                if (texture_binding.texture_id.is_valid())
-                {
-                    auto cached_texture = _cache.get_cached_texture(texture_binding.texture_id);
-                    if (cached_texture)
-                    {
-                        texture_resource = cached_texture;
-                    }
-                }
-
-                if (texture_resource)
-                {
-                    texture_resource->set_slot(static_cast<int>(texture_slot));
-                    texture_scopes.emplace_back(*texture_resource);
-                }
-
-                program->upload({
-                    .name = texture_binding.name,
-                    .data = static_cast<int>(texture_slot),
-                });
-                ++texture_slot;
-            }
-
-            // Step 6: Bind the mesh and issue the draw call.
-            GlResourceScope mesh_scope(*mesh_resource);
-            mesh_resource->draw();
-        }
+        _viewport_size = viewport_size;
     }
 
-    void OpenGlRenderingPlugin::draw_static_model(
-        AssetManager& asset_manager,
-        const StaticRenderData& static_data,
-        const Mat4& entity_matrix,
-        const Mat4& view_projection,
-        const std::shared_ptr<Material>& fallback_material)
+    void OpenGlRenderingPlugin::set_render_resolution(const Size& render_resolution)
     {
-        // Step 1: Validate and cache the model asset.
-        auto model_asset = _cache.get_cached_model(asset_manager, static_data.model, _id_provider);
-        if (!model_asset)
-        {
+        if (render_resolution.width == 0 || render_resolution.height == 0)
             return;
-        }
 
-        // Step 2: Resolve the cached material for this model.
-        auto fallback_gl_material =
-            _cache.get_cached_fallback_material(asset_manager, fallback_material, _id_provider);
-        if (!fallback_gl_material)
-        {
-            return;
-        }
-
-        OpenGlMaterial* override_material = nullptr;
-        if (static_data.material.is_valid())
-        {
-            override_material = _cache.get_cached_material(
-                asset_manager,
-                static_data.material,
-                fallback_material,
-                _id_provider);
-        }
-
-        auto part_count = model_asset->parts.size();
-
-        // Step 3: Draw meshes directly when the model has no part hierarchy.
-        if (part_count == 0U)
-        {
-            const OpenGlMaterial* material =
-                override_material ? override_material : fallback_gl_material;
-            for (const auto& mesh_key : model_asset->meshes)
-            {
-                if (!mesh_key.is_valid())
-                {
-                    continue;
-                }
-
-                draw_mesh_with_material(mesh_key, *material, entity_matrix, view_projection);
-            }
-            return;
-        }
-
-        // Step 4: Traverse the part hierarchy so transforms are applied in order.
-        draw_model_parts(
-            *model_asset,
-            entity_matrix,
-            view_projection,
-            override_material,
-            *fallback_gl_material);
-    }
-
-    void OpenGlRenderingPlugin::draw_model_parts(
-        const OpenGlModel& model,
-        const Mat4& entity_matrix,
-        const Mat4& view_projection,
-        const OpenGlMaterial* override_material,
-        const OpenGlMaterial& fallback_material)
-    {
-        auto part_count = model.parts.size();
-        std::vector<bool> is_child = std::vector<bool>(part_count, false);
-
-        // Step 4a: Mark parts that are referenced as children.
-        for (const auto& part : model.parts)
-        {
-            for (const auto& child_index : part.children)
-            {
-                if (child_index < part_count)
-                {
-                    is_child[child_index] = true;
-                }
-            }
-        }
-
-        bool has_root = false;
-        for (uint32 part_index = 0U; part_index < part_count; ++part_index)
-        {
-            if (!is_child[part_index])
-            {
-                has_root = true;
-                draw_model_part_recursive(
-                    model,
-                    entity_matrix,
-                    view_projection,
-                    override_material,
-                    fallback_material,
-                    part_index);
-            }
-        }
-
-        // Step 4b: If no roots were found, draw all parts from the entity transform.
-        if (!has_root)
-        {
-            for (uint32 part_index = 0U; part_index < part_count; ++part_index)
-            {
-                draw_model_part_recursive(
-                    model,
-                    entity_matrix,
-                    view_projection,
-                    override_material,
-                    fallback_material,
-                    part_index);
-            }
-        }
-    }
-
-    void OpenGlRenderingPlugin::draw_model_part_recursive(
-        const OpenGlModel& model,
-        const Mat4& parent_matrix,
-        const Mat4& view_projection,
-        const OpenGlMaterial* override_material,
-        const OpenGlMaterial& fallback_material,
-        uint32 part_index)
-    {
-        if (part_index >= model.parts.size())
-        {
-            return;
-        }
-
-        const OpenGlModelPart& part = model.parts[part_index];
-
-        // Step 4c: Combine the parent transform with this part's local transform.
-        Mat4 part_matrix = parent_matrix * part.transform;
-
-        // Step 4d: Draw the mesh bound to this part, if any.
-        if (part.mesh_id.is_valid())
-        {
-            const OpenGlMaterial* material = override_material;
-            if (!material)
-            {
-                material = _cache.get_cached_material(part.material_id);
-            }
-            if (!material)
-            {
-                material = &fallback_material;
-            }
-
-            draw_mesh_with_material(part.mesh_id, *material, part_matrix, view_projection);
-        }
-
-        // Step 4e: Recurse into child parts.
-        for (const auto& child_index : part.children)
-        {
-            draw_model_part_recursive(
-                model,
-                part_matrix,
-                view_projection,
-                override_material,
-                fallback_material,
-                child_index);
-        }
-    }
-
-    void OpenGlRenderingPlugin::draw_procedural_meshes(
-        AssetManager& asset_manager,
-        const ProceduralData& procedural_data,
-        const Mat4& entity_matrix,
-        const Mat4& view_projection,
-        const std::shared_ptr<Material>& fallback_material)
-    {
-        // Step 1: Iterate the procedural mesh list.
-        size_t mesh_count = procedural_data.meshes.size();
-        for (size_t mesh_index = 0U; mesh_index < mesh_count; ++mesh_index)
-        {
-            const Mesh& mesh = procedural_data.meshes[mesh_index];
-            if (mesh.vertices.empty() || mesh.indices.empty())
-            {
-                continue;
-            }
-
-            // Step 2: Resolve a material for this mesh index (or use default).
-            Handle material_handle = {};
-            if (mesh_index < procedural_data.materials.size())
-            {
-                material_handle = procedural_data.materials[mesh_index];
-            }
-
-            auto material_asset = _cache.get_cached_material(
-                asset_manager,
-                material_handle,
-                fallback_material,
-                _id_provider);
-            if (!material_asset)
-            {
-                continue;
-            }
-
-            // Step 3: Draw the mesh with a stable cache key.
-            Uuid mesh_key = _id_provider.provide(
-                procedural_data.id,
-                static_cast<uint32>(mesh_index));
-            auto mesh_resource = _cache.get_mesh(mesh, mesh_key);
-            if (!mesh_resource)
-            {
-                continue;
-            }
-            draw_mesh_with_material(mesh_key, *material_asset, entity_matrix, view_projection);
-        }
-    }
-
-    void OpenGlRenderingPlugin::draw_models_for_cameras(const Size& window_size)
-    {
-        auto& ecs = get_host().get_entity_registry();
-        auto cameras = ecs.get_with<Camera, Transform>();
-
-        if (cameras.begin() == cameras.end())
-        {
-            float aspect = window_size.get_aspect_ratio();
-            Mat4 default_view =
-                look_at(Vec3(0.0f, 0.0f, 5.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 1.0f, 0.0f));
-            Mat4 default_projection =
-                perspective_projection(degrees_to_radians(60.0f), aspect, 0.1f, 1000.0f);
-            Mat4 view_projection = default_projection * default_view;
-            draw_models(view_projection);
-            return;
-        }
-
-        float aspect = window_size.get_aspect_ratio();
-        for (const auto& camera_ent : cameras)
-        {
-            auto& camera = camera_ent.get_component<Camera>();
-            camera.set_aspect(aspect);
-
-            Transform& transform = camera_ent.get_component<Transform>();
-            Mat4 view_projection =
-                camera.get_view_projection_matrix(transform.position, transform.rotation);
-
-            draw_models(view_projection);
-        }
+        _render_resolution = render_resolution;
+        _gbuffer.set_resolution(render_resolution);
+        _lighting_framebuffer.set_resolution(render_resolution);
+        _post_process_ping_framebuffer.set_resolution(render_resolution);
+        _post_process_pong_framebuffer.set_resolution(render_resolution);
     }
 }
