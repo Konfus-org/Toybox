@@ -9,12 +9,16 @@ uniform sampler2D u_gbuffer_albedo_spec;
 uniform sampler2D u_gbuffer_normal;
 uniform sampler2D u_gbuffer_material;
 uniform sampler2D u_scene_depth;
+uniform sampler2D u_shadow_maps[4];
 
 uniform vec3 u_camera_position = vec3(0.0);
 uniform mat4 u_inverse_view_projection = mat4(1.0);
+uniform mat4 u_light_view_projection_matrices[4];
 uniform int u_directional_light_count = 0;
 uniform int u_point_light_count = 0;
 uniform int u_spot_light_count = 0;
+uniform int u_shadow_map_count = 0;
+uniform float u_cascade_splits[4] = float[4](10.0, 25.0, 60.0, 1000.0);
 uniform float u_exposure = 0.6;
 
 struct DirectionalLight
@@ -83,7 +87,9 @@ vec3 safe_normalize(vec3 value, vec3 fallback)
 }
 
 vec3 evaluate_directional_light(
+    int light_index,
     DirectionalLight light,
+    vec3 world_position,
     vec3 normal,
     vec3 view_direction,
     vec3 albedo,
@@ -98,7 +104,28 @@ vec3 evaluate_directional_light(
     vec3 diffuse = albedo * light.color * light.intensity * diffuse_term * 0.35;
     vec3 specular = light.color * light.intensity * specular_term;
     vec3 ambient = albedo * light.color * max(light.ambient, 0.0);
-    return ambient + diffuse + specular;
+
+    float shadow_visibility = 1.0;
+    if (light_index < u_shadow_map_count)
+    {
+        vec4 light_space_position =
+            u_light_view_projection_matrices[light_index] * vec4(world_position, 1.0);
+        vec3 projected = light_space_position.xyz / max(light_space_position.w, 0.0001);
+
+        if (
+            projected.x >= -1.0 && projected.x <= 1.0
+            && projected.y >= -1.0 && projected.y <= 1.0
+            && projected.z >= 0.0 && projected.z <= 1.0)
+        {
+            vec2 shadow_uv = projected.xy * 0.5 + 0.5;
+            float shadow_depth = texture(u_shadow_maps[light_index], shadow_uv).r;
+            float current_depth = projected.z;
+            float bias = max(0.0015 * (1.0 - dot(normal, light_direction)), 0.0003);
+            shadow_visibility = current_depth - bias <= shadow_depth ? 1.0 : 0.15;
+        }
+    }
+
+    return ambient + ((diffuse + specular) * shadow_visibility);
 }
 
 vec3 evaluate_point_light(
@@ -185,7 +212,9 @@ void main()
     for (int index = 0; index < min(u_directional_light_count, MAX_DIRECTIONAL_LIGHTS); ++index)
     {
         lighting += evaluate_directional_light(
+            index,
             u_directional_lights[index],
+            world_position,
             normal,
             view_direction,
             albedo,

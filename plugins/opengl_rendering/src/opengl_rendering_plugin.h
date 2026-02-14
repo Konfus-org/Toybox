@@ -74,5 +74,8 @@ namespace tbx::plugins
         std::vector<OpenGlDirectionalLightData> _frame_directional_lights = {};
         std::vector<OpenGlPointLightData> _frame_point_lights = {};
         std::vector<OpenGlSpotLightData> _frame_spot_lights = {};
+        std::vector<uint32> _frame_shadow_map_texture_ids = {};
+        std::vector<Mat4> _frame_shadow_light_view_projections = {};
+        std::vector<float> _frame_shadow_cascade_splits = {};
     };
 }

@@ -1,8 +1,9 @@
 #include "opengl_render_pipeline.h"
 #include "opengl_deferred_lighting_pass.h"
 #include "opengl_post_process_pass.h"
-#include "opengl_sky_pass.h"
 #include "opengl_resources/opengl_resource.h"
+#include "opengl_shadow_pass.h"
+#include "opengl_sky_pass.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/renderer.h"
 #include "tbx/math/transform.h"
@@ -45,9 +46,8 @@ namespace tbx::plugins
         }
 
       private:
-        void upload_frame_uniforms(
-            OpenGlShaderProgram& shader_program,
-            const Mat4& view_projection) const
+        void upload_frame_uniforms(OpenGlShaderProgram& shader_program, const Mat4& view_projection)
+            const
         {
             shader_program.upload(
                 MaterialParameter {
@@ -56,9 +56,7 @@ namespace tbx::plugins
                 });
         }
 
-        void upload_model_uniform(
-            OpenGlShaderProgram& shader_program,
-            const Entity& entity) const
+        void upload_model_uniform(OpenGlShaderProgram& shader_program, const Entity& entity) const
         {
             auto transform = Transform();
             if (entity.has_component<Transform>())
@@ -160,6 +158,27 @@ namespace tbx::plugins
         OpenGlSkyPass _pass = {};
     };
 
+    class OpenGlShadowOperation final : public OpenGlRenderOperation
+    {
+      public:
+        explicit OpenGlShadowOperation(OpenGlResourceManager& resource_manager)
+            : _resource_manager(&resource_manager)
+        {
+        }
+
+        void execute_with_frame_context(const OpenGlRenderFrameContext& frame_context) override
+        {
+            TBX_ASSERT(
+                _resource_manager != nullptr,
+                "OpenGL rendering: shadow operation requires a resource manager.");
+            _pass.execute(frame_context, *_resource_manager);
+        }
+
+      private:
+        OpenGlResourceManager* _resource_manager = nullptr;
+        OpenGlShadowPass _pass = {};
+    };
+
     class OpenGlDeferredLightingOperation final : public OpenGlRenderOperation
     {
       public:
@@ -214,9 +233,10 @@ namespace tbx::plugins
     OpenGlRenderPipeline::OpenGlRenderPipeline(AssetManager& asset_manager)
         : _resource_manager(asset_manager)
     {
-        add_operation(std::make_unique<OpenGlSkyOperation>(_resource_manager));
         add_operation(std::make_unique<OpenGlGeometryOperation>(_resource_manager));
+        add_operation(std::make_unique<OpenGlShadowOperation>(_resource_manager));
         add_operation(std::make_unique<OpenGlDeferredLightingOperation>(_resource_manager));
+        add_operation(std::make_unique<OpenGlSkyOperation>(_resource_manager));
         add_operation(std::make_unique<OpenGlPostProcessOperation>(_resource_manager));
     }
 
