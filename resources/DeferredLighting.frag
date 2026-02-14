@@ -111,15 +111,15 @@ vec3 evaluate_directional_light(
         vec4 light_space_position =
             u_light_view_projection_matrices[light_index] * vec4(world_position, 1.0);
         vec3 projected = light_space_position.xyz / max(light_space_position.w, 0.0001);
+        float current_depth = projected.z * 0.5 + 0.5;
 
         if (
             projected.x >= -1.0 && projected.x <= 1.0
             && projected.y >= -1.0 && projected.y <= 1.0
-            && projected.z >= 0.0 && projected.z <= 1.0)
+            && current_depth >= 0.0 && current_depth <= 1.0)
         {
             vec2 shadow_uv = projected.xy * 0.5 + 0.5;
             float shadow_depth = texture(u_shadow_maps[light_index], shadow_uv).r;
-            float current_depth = projected.z;
             float bias = max(0.0015 * (1.0 - dot(normal, light_direction)), 0.0003);
             shadow_visibility = current_depth - bias <= shadow_depth ? 1.0 : 0.15;
         }

@@ -313,12 +313,12 @@ namespace tbx::plugins
         const Vec3& camera_position,
         const Vec3& directional_light_direction)
     {
-        const auto light_direction = normalize(directional_light_direction);
+        const auto direction_to_light = normalize(directional_light_direction);
         const auto shadow_center = camera_position;
-        const auto light_position = shadow_center - (light_direction * 40.0f);
+        const auto light_position = shadow_center + (direction_to_light * 40.0f);
 
         auto up_axis = Vec3(0.0f, 1.0f, 0.0f);
-        if (abs(dot(light_direction, up_axis)) > 0.95f)
+        if (abs(dot(direction_to_light, up_axis)) > 0.95f)
             up_axis = Vec3(1.0f, 0.0f, 0.0f);
 
         const auto light_view = look_at(light_position, shadow_center, up_axis);
