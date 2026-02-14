@@ -18,6 +18,62 @@
 
 namespace tbx::plugins
 {
+    static constexpr int MAX_DIRECTIONAL_SHADOW_MAPS = 1;
+    static constexpr int SHADOW_MAP_RESOLUTION = 2048;
+
+    static void destroy_shadow_map_textures(std::vector<uint32>& texture_ids)
+    {
+        if (texture_ids.empty())
+            return;
+
+        glDeleteTextures(
+            static_cast<GLsizei>(texture_ids.size()),
+            reinterpret_cast<const GLuint*>(texture_ids.data()));
+        texture_ids.clear();
+    }
+
+    static uint32 create_shadow_map_texture()
+    {
+        uint32 texture_id = 0;
+        glCreateTextures(GL_TEXTURE_2D, 1, reinterpret_cast<GLuint*>(&texture_id));
+        if (texture_id == 0)
+            return 0;
+
+        glTextureStorage2D(
+            texture_id,
+            1,
+            GL_DEPTH_COMPONENT32F,
+            SHADOW_MAP_RESOLUTION,
+            SHADOW_MAP_RESOLUTION);
+        glTextureParameteri(texture_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTextureParameteri(texture_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTextureParameteri(texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTextureParameteri(texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
+        constexpr float border_color[] = {1.0f, 1.0f, 1.0f, 1.0f};
+        glTextureParameterfv(texture_id, GL_TEXTURE_BORDER_COLOR, border_color);
+        return texture_id;
+    }
+
+    static void ensure_shadow_map_textures(
+        std::vector<uint32>& texture_ids,
+        const size_t desired_count)
+    {
+        if (texture_ids.size() == desired_count)
+            return;
+
+        destroy_shadow_map_textures(texture_ids);
+        texture_ids.reserve(desired_count);
+        for (size_t shadow_index = 0; shadow_index < desired_count; ++shadow_index)
+        {
+            const auto texture_id = create_shadow_map_texture();
+            if (texture_id == 0)
+                break;
+
+            texture_ids.push_back(texture_id);
+        }
+    }
+
     static std::string normalize_uniform_name(std::string_view name)
     {
         if (name.size() >= 2U && name[0] == 'u' && name[1] == '_')
@@ -95,27 +151,19 @@ namespace tbx::plugins
         for (const auto& texture_binding : runtime_material.textures)
         {
             hash_bytes(texture_binding.name.data(), texture_binding.name.size());
-            hash_bytes(&texture_binding.texture.handle.id, sizeof(texture_binding.texture.handle.id));
+            hash_bytes(
+                &texture_binding.texture.handle.id,
+                sizeof(texture_binding.texture.handle.id));
             const bool has_settings_override = texture_binding.texture.settings.has_value();
             hash_bytes(&has_settings_override, sizeof(has_settings_override));
             if (has_settings_override)
             {
                 const TextureSettings& texture_settings = texture_binding.texture.settings.value();
-                hash_bytes(
-                    &texture_settings.filter,
-                    sizeof(texture_settings.filter));
-                hash_bytes(
-                    &texture_settings.wrap,
-                    sizeof(texture_settings.wrap));
-                hash_bytes(
-                    &texture_settings.format,
-                    sizeof(texture_settings.format));
-                hash_bytes(
-                    &texture_settings.mipmaps,
-                    sizeof(texture_settings.mipmaps));
-                hash_bytes(
-                    &texture_settings.compression,
-                    sizeof(texture_settings.compression));
+                hash_bytes(&texture_settings.filter, sizeof(texture_settings.filter));
+                hash_bytes(&texture_settings.wrap, sizeof(texture_settings.wrap));
+                hash_bytes(&texture_settings.format, sizeof(texture_settings.format));
+                hash_bytes(&texture_settings.mipmaps, sizeof(texture_settings.mipmaps));
+                hash_bytes(&texture_settings.compression, sizeof(texture_settings.compression));
             }
         }
 
@@ -126,8 +174,8 @@ namespace tbx::plugins
     {
         bool has_any_texture = false;
         const auto* diffuse_texture_binding = material.textures.get("diffuse");
-        const bool has_diffuse_texture = diffuse_texture_binding
-            && diffuse_texture_binding->texture.handle.is_valid();
+        const bool has_diffuse_texture =
+            diffuse_texture_binding && diffuse_texture_binding->texture.handle.is_valid();
 
         for (const auto& texture_binding : material.textures)
         {
@@ -261,6 +309,23 @@ namespace tbx::plugins
         out_intensity *= max_channel;
     }
 
+    static Mat4 build_directional_shadow_view_projection(
+        const Vec3& camera_position,
+        const Vec3& directional_light_direction)
+    {
+        const auto light_direction = normalize(directional_light_direction);
+        const auto shadow_center = camera_position;
+        const auto light_position = shadow_center - (light_direction * 40.0f);
+
+        auto up_axis = Vec3(0.0f, 1.0f, 0.0f);
+        if (abs(dot(light_direction, up_axis)) > 0.95f)
+            up_axis = Vec3(1.0f, 0.0f, 0.0f);
+
+        const auto light_view = look_at(light_position, shadow_center, up_axis);
+        const auto light_projection = ortho_projection(-50.0f, 50.0f, -50.0f, 50.0f, 1.0f, 120.0f);
+        return light_projection * light_view;
+    }
+
     static void GLAPIENTRY gl_message_callback(
         GLenum,
         GLenum,
@@ -297,6 +362,9 @@ namespace tbx::plugins
 
     void OpenGlRenderingPlugin::on_detach()
     {
+        if (_is_context_ready)
+            destroy_shadow_map_textures(_frame_shadow_map_texture_ids);
+
         _is_context_ready = false;
         _render_pipeline.reset();
         _is_sky_cache_valid = false;
@@ -308,6 +376,9 @@ namespace tbx::plugins
         _frame_directional_lights.clear();
         _frame_point_lights.clear();
         _frame_spot_lights.clear();
+        _frame_shadow_light_view_projections.clear();
+        _frame_shadow_cascade_splits.clear();
+        _frame_shadow_map_texture_ids.clear();
     }
 
     void OpenGlRenderingPlugin::on_update(const DeltaTime&)
@@ -350,6 +421,8 @@ namespace tbx::plugins
         _frame_directional_lights.clear();
         _frame_point_lights.clear();
         _frame_spot_lights.clear();
+        _frame_shadow_light_view_projections.clear();
+        _frame_shadow_cascade_splits.clear();
         registry.for_each_with<DirectionalLight>(
             [this](Entity& entity)
             {
@@ -365,6 +438,19 @@ namespace tbx::plugins
                         .ambient = std::max(light.ambient, 0.0f),
                     });
             });
+
+        const auto directional_shadow_count = std::min(
+            _frame_directional_lights.size(),
+            static_cast<size_t>(MAX_DIRECTIONAL_SHADOW_MAPS));
+        ensure_shadow_map_textures(_frame_shadow_map_texture_ids, directional_shadow_count);
+
+        const auto shadow_center_position = get_camera_world_position(camera_view);
+        for (size_t shadow_index = 0; shadow_index < directional_shadow_count; ++shadow_index)
+        {
+            _frame_shadow_light_view_projections.push_back(build_directional_shadow_view_projection(
+                shadow_center_position,
+                _frame_directional_lights[shadow_index].direction));
+        }
 
         registry.for_each_with<PointLight>(
             [this](Entity& entity)
@@ -437,8 +523,7 @@ namespace tbx::plugins
         else
         {
             const auto sky_material_hash = hash_runtime_material(sky_material);
-            if (
-                !_is_sky_cache_valid || !_cached_has_sky_component
+            if (!_is_sky_cache_valid || !_cached_has_sky_component
                 || _cached_sky_source_material_hash != sky_material_hash)
             {
                 _cached_has_sky_component = true;
@@ -530,6 +615,7 @@ namespace tbx::plugins
                 std::span<const OpenGlPostProcessEffect>(_cached_resolved_post_processing.effects),
         };
         const auto view_projection = get_camera_view_projection(camera_view, _render_resolution);
+        const auto camera_world_position = get_camera_world_position(camera_view);
 
         auto frame_context = OpenGlRenderFrameContext {
             .camera_view = camera_view,
@@ -542,13 +628,20 @@ namespace tbx::plugins
             .lighting_target = &_lighting_framebuffer,
             .post_process_ping_target = &_post_process_ping_framebuffer,
             .post_process_pong_target = &_post_process_pong_framebuffer,
-            .camera_world_position = get_camera_world_position(camera_view),
+            .camera_world_position = camera_world_position,
             .view_projection = view_projection,
             .inverse_view_projection = inverse(view_projection),
             .directional_lights =
                 std::span<const OpenGlDirectionalLightData>(_frame_directional_lights),
             .point_lights = std::span<const OpenGlPointLightData>(_frame_point_lights),
             .spot_lights = std::span<const OpenGlSpotLightData>(_frame_spot_lights),
+            .shadow_data =
+                OpenGlShadowFrameData {
+                    .map_texture_ids = std::span<const uint32>(_frame_shadow_map_texture_ids),
+                    .light_view_projections =
+                        std::span<const Mat4>(_frame_shadow_light_view_projections),
+                    .cascade_splits = std::span<const float>(_frame_shadow_cascade_splits),
+                },
             .present_mode = OpenGlFrameBufferPresentMode::ASPECT_FIT,
             .present_target_framebuffer_id = 0,
             .scene_color_texture_id = _lighting_framebuffer.get_color_texture_id(),
