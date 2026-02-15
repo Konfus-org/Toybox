@@ -44,7 +44,7 @@ namespace tbx::examples
                 0,
                 0));
             ent.add_component<Renderer>(unlit_material);
-            ent.add_component<ProceduralMesh>(quad);
+            ent.add_component<DynamicMesh>(quad);
         }
     }
 
