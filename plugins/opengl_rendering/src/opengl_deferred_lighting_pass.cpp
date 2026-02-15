@@ -277,8 +277,14 @@ namespace tbx::plugins
                 .name = "u_inverse_view_projection",
                 .data = frame_context.inverse_view_projection,
             });
-        upload_shadow_data(*draw_resources.shader_program, frame_context, texture_slot);
-        texture_slot += MAX_SHADOW_MAPS;
+        const int first_shadow_map_slot = texture_slot;
+        upload_shadow_data(*draw_resources.shader_program, frame_context, first_shadow_map_slot);
+
+        const auto max_shadow_maps = std::min(
+            frame_context.shadow_data.map_texture_ids.size(),
+            frame_context.shadow_data.light_view_projections.size());
+        const auto shadow_map_count =
+            std::min(max_shadow_maps, static_cast<size_t>(MAX_SHADOW_MAPS));
         draw_resources.shader_program->try_upload(
             MaterialParameter {
                 .name = "u_directional_light_count",
@@ -307,8 +313,11 @@ namespace tbx::plugins
         glBindTextureUnit(static_cast<GLuint>(normal_slot), 0);
         glBindTextureUnit(static_cast<GLuint>(material_slot), 0);
         glBindTextureUnit(static_cast<GLuint>(depth_slot), 0);
-        for (int shadow_index = 0; shadow_index < MAX_SHADOW_MAPS; ++shadow_index)
-            glBindTextureUnit(static_cast<GLuint>(depth_slot + 1 + shadow_index), 0);
+        for (size_t shadow_index = 0; shadow_index < shadow_map_count; ++shadow_index)
+        {
+            const auto shadow_texture_slot = first_shadow_map_slot + static_cast<int>(shadow_index);
+            glBindTextureUnit(static_cast<GLuint>(shadow_texture_slot), 0);
+        }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glEnable(GL_DEPTH_TEST);
     }
