@@ -432,7 +432,7 @@ namespace tbx::plugins
                 resolve_light_color(light.color, light.intensity, color, intensity);
                 _frame_directional_lights.push_back(
                     OpenGlDirectionalLightData {
-                        .direction = get_entity_forward_direction(entity),
+                        .direction = -get_entity_forward_direction(entity),
                         .intensity = intensity,
                         .color = color,
                         .ambient = std::max(light.ambient, 0.0f),
