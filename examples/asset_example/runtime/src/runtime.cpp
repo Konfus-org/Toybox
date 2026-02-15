@@ -49,13 +49,13 @@ namespace tbx::examples
         // Setup global post-processing stack
         auto post_ent = _ent_registry->create("PostProcessing");
         auto post_processing = PostProcessing({
-            {
+            PostProcessingEffect {
                 .material =
                     {
                         .handle = lut_post_mat,
                         .textures = {{
                             .name = "lut",
-                            .texture = lut_tex,
+                            .texture = {lut_tex},
                         }},
                     },
                 .blend = 1.0f,

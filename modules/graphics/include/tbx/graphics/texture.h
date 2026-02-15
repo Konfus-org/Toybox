@@ -60,8 +60,6 @@ namespace tbx
         TextureFormat format = TextureFormat::RGB;
         TextureMipmaps mipmaps = TextureMipmaps::ENABLED;
         TextureCompression compression = TextureCompression::DISABLED;
-
-        bool operator==(const TextureSettings&) const = default;
     };
 
     struct TBX_API Texture : TextureSettings
@@ -73,12 +71,7 @@ namespace tbx
             TextureFilter filter,
             TextureFormat format,
             const std::vector<Pixel>& pixels)
-            : TextureSettings {
-                .resolution = resolution,
-                .wrap = wrap,
-                .filter = filter,
-                .compression = compression,
-            }
+            : TextureSettings {.resolution = resolution, .wrap = wrap, .filter = filter, .format = format}
             , pixels(pixels)
         {
         }
