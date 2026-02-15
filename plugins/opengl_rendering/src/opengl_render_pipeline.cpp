@@ -36,6 +36,8 @@ namespace tbx::plugins
                 0,
                 static_cast<GLsizei>(frame_context.render_resolution.width),
                 static_cast<GLsizei>(frame_context.render_resolution.height));
+            glEnable(GL_DEPTH_TEST);
+            glDepthMask(GL_TRUE);
             glDisable(GL_BLEND);
 
             const auto view_projection = frame_context.view_projection;
