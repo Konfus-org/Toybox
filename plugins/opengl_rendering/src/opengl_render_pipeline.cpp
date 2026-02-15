@@ -16,7 +16,7 @@ namespace tbx::plugins
     class OpenGlGeometryOperation final : public OpenGlRenderOperation
     {
       public:
-        explicit OpenGlGeometryOperation(OpenGlResourceManager& resource_manager)
+        OpenGlGeometryOperation(OpenGlResourceManager& resource_manager)
             : _resource_manager(&resource_manager)
         {
         }
@@ -40,7 +40,7 @@ namespace tbx::plugins
             glDepthMask(GL_TRUE);
             glDisable(GL_BLEND);
 
-            const auto view_projection = frame_context.view_projection;
+            auto view_projection = frame_context.view_projection;
             for (const auto& entity : frame_context.camera_view.in_view_static_entities)
                 draw_entity(entity, view_projection);
             for (const auto& entity : frame_context.camera_view.in_view_dynamic_entities)
@@ -64,7 +64,7 @@ namespace tbx::plugins
             if (entity.has_component<Transform>())
                 transform = entity.get_component<Transform>();
 
-            const auto model_matrix = build_transform_matrix(transform);
+            auto model_matrix = build_transform_matrix(transform);
             shader_program.upload(
                 MaterialParameter {
                     .name = "u_model",

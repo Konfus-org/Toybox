@@ -12,10 +12,17 @@ namespace tbx
 
     DirectionalLight::DirectionalLight() = default;
 
-    DirectionalLight::DirectionalLight(const RgbaColor& col, float inten)
+    DirectionalLight::DirectionalLight(RgbaColor col, float inten)
         : Light()
     {
-        color = col;
+        color = std::move(col);
         intensity = inten;
+    }
+
+    DirectionalLight::DirectionalLight(RgbaColor col, float inten, float amb)
+    {
+        color = std::move(col);
+        intensity = inten;
+        ambient = amb;
     }
 }

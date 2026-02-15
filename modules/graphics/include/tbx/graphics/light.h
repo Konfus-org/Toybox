@@ -166,7 +166,8 @@ namespace tbx
     struct TBX_API DirectionalLight : public Light
     {
         DirectionalLight();
-        DirectionalLight(const RgbaColor& color, float intensity);
+        DirectionalLight(RgbaColor color, float intensity);
+        DirectionalLight(RgbaColor color, float intensity, float ambient);
 
         /// <summary>
         /// Purpose: Sets the ambient lighting contribution produced by this directional light.

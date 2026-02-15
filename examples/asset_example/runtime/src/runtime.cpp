@@ -23,7 +23,7 @@ namespace tbx::examples
 
         // Setup light
         _sun = _ent_registry->create("Light");
-        _sun.add_component<DirectionalLight>(RgbaColor::yellow, 1);
+        _sun.add_component<DirectionalLight>(RgbaColor::yellow, 1, 0.25f);
         _sun.add_component<Transform>(Vec3(0), to_radians(Vec3(-45.0f, 45.0f, 0.0f)), Vec3(1));
 
         // Setup cube

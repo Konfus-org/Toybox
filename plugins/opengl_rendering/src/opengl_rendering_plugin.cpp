@@ -1,5 +1,4 @@
 #include "opengl_rendering_plugin.h"
-#include "tbx/app/application.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/camera.h"
 #include "tbx/graphics/light.h"
@@ -50,14 +49,12 @@ namespace tbx::plugins
         glTextureParameteri(texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
         glTextureParameteri(texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
-        constexpr float border_color[] = {1.0f, 1.0f, 1.0f, 1.0f};
-        glTextureParameterfv(texture_id, GL_TEXTURE_BORDER_COLOR, border_color);
+        constexpr float BORDER_COLOR[] = {1.0f, 1.0f, 1.0f, 1.0f};
+        glTextureParameterfv(texture_id, GL_TEXTURE_BORDER_COLOR, BORDER_COLOR);
         return texture_id;
     }
 
-    static void ensure_shadow_map_textures(
-        std::vector<uint32>& texture_ids,
-        const size_t desired_count)
+    static void ensure_shadow_map_textures(std::vector<uint32>& texture_ids, size_t desired_count)
     {
         if (texture_ids.size() == desired_count)
             return;
@@ -66,7 +63,7 @@ namespace tbx::plugins
         texture_ids.reserve(desired_count);
         for (size_t shadow_index = 0; shadow_index < desired_count; ++shadow_index)
         {
-            const auto texture_id = create_shadow_map_texture();
+            auto texture_id = create_shadow_map_texture();
             if (texture_id == 0)
                 break;
 
@@ -119,17 +116,17 @@ namespace tbx::plugins
 
     static uint64 hash_runtime_material(const MaterialInstance& runtime_material)
     {
-        constexpr uint64 fnv_offset = 1469598103934665603ULL;
-        constexpr uint64 fnv_prime = 1099511628211ULL;
+        constexpr uint64 FNV_OFFSET = 1469598103934665603ULL;
+        constexpr uint64 FNV_PRIME = 1099511628211ULL;
 
-        auto hash_value = fnv_offset;
+        auto hash_value = FNV_OFFSET;
         auto hash_bytes = [&hash_value](const void* data, size_t size)
         {
             const auto* bytes = static_cast<const unsigned char*>(data);
             for (size_t i = 0; i < size; ++i)
             {
                 hash_value ^= static_cast<uint64>(bytes[i]);
-                hash_value *= fnv_prime;
+                hash_value *= FNV_PRIME;
             }
         };
 
@@ -138,7 +135,7 @@ namespace tbx::plugins
         for (const auto& parameter_binding : runtime_material.parameters)
         {
             hash_bytes(parameter_binding.name.data(), parameter_binding.name.size());
-            const auto variant_index = static_cast<uint64>(parameter_binding.value.index());
+            auto variant_index = static_cast<uint64>(parameter_binding.value.index());
             hash_bytes(&variant_index, sizeof(variant_index));
             std::visit(
                 [&hash_bytes](const auto& value)
@@ -154,7 +151,7 @@ namespace tbx::plugins
             hash_bytes(
                 &texture_binding.texture.handle.id,
                 sizeof(texture_binding.texture.handle.id));
-            const bool has_settings_override = texture_binding.texture.settings.has_value();
+            bool has_settings_override = texture_binding.texture.settings.has_value();
             hash_bytes(&has_settings_override, sizeof(has_settings_override));
             if (has_settings_override)
             {
@@ -174,12 +171,12 @@ namespace tbx::plugins
     {
         bool has_any_texture = false;
         const auto* diffuse_texture_binding = material.textures.get("diffuse");
-        const bool has_diffuse_texture =
+        bool has_diffuse_texture =
             diffuse_texture_binding && diffuse_texture_binding->texture.handle.is_valid();
 
         for (const auto& texture_binding : material.textures)
         {
-            const auto normalized_name = normalize_uniform_name(texture_binding.name);
+            auto normalized_name = normalize_uniform_name(texture_binding.name);
             const auto& texture_handle = texture_binding.texture.handle;
             if (!texture_handle.is_valid())
                 continue;
@@ -219,7 +216,7 @@ namespace tbx::plugins
 
         if (std::holds_alternative<Vec4>(parameter_binding->value))
         {
-            const auto value = std::get<Vec4>(parameter_binding->value);
+            auto value = std::get<Vec4>(parameter_binding->value);
             out_color = RgbaColor(value.x, value.y, value.z, value.w);
             return true;
         }
@@ -265,8 +262,8 @@ namespace tbx::plugins
 
         auto& camera = camera_view.camera_entity.get_component<Camera>();
         camera.set_aspect(render_resolution.get_aspect_ratio());
-        const auto camera_position = get_camera_world_position(camera_view);
-        const auto camera_rotation = get_camera_world_rotation(camera_view);
+        auto camera_position = get_camera_world_position(camera_view);
+        auto camera_rotation = get_camera_world_rotation(camera_view);
         return camera.get_view_projection_matrix(camera_position, camera_rotation);
     }
 
@@ -290,14 +287,14 @@ namespace tbx::plugins
 
     static void resolve_light_color(
         const RgbaColor& raw_color,
-        const float raw_intensity,
+        float raw_intensity,
         Vec3& out_color,
         float& out_intensity)
     {
         out_color = Vec3(raw_color.r, raw_color.g, raw_color.b);
         out_intensity = std::max(raw_intensity, 0.0f);
 
-        const float max_channel = std::max(out_color.x, std::max(out_color.y, out_color.z));
+        float max_channel = std::max(out_color.x, std::max(out_color.y, out_color.z));
         if (max_channel <= std::numeric_limits<float>::epsilon())
         {
             out_color = Vec3(1.0f);
@@ -313,16 +310,16 @@ namespace tbx::plugins
         const Vec3& camera_position,
         const Vec3& directional_light_direction)
     {
-        const auto direction_to_light = normalize(directional_light_direction);
-        const auto shadow_center = camera_position;
-        const auto light_position = shadow_center + (direction_to_light * 40.0f);
+        auto direction_to_light = normalize(directional_light_direction);
+        auto shadow_center = camera_position;
+        auto light_position = shadow_center + (direction_to_light * 40.0f);
 
         auto up_axis = Vec3(0.0f, 1.0f, 0.0f);
         if (abs(dot(direction_to_light, up_axis)) > 0.95f)
             up_axis = Vec3(1.0f, 0.0f, 0.0f);
 
-        const auto light_view = look_at(light_position, shadow_center, up_axis);
-        const auto light_projection = ortho_projection(-50.0f, 50.0f, -50.0f, 50.0f, 1.0f, 120.0f);
+        auto light_view = look_at(light_position, shadow_center, up_axis);
+        auto light_projection = ortho_projection(-50.0f, 50.0f, -50.0f, 50.0f, 1.0f, 120.0f);
         return light_projection * light_view;
     }
 
@@ -439,12 +436,12 @@ namespace tbx::plugins
                     });
             });
 
-        const auto directional_shadow_count = std::min(
+        auto directional_shadow_count = std::min(
             _frame_directional_lights.size(),
             static_cast<size_t>(MAX_DIRECTIONAL_SHADOW_MAPS));
         ensure_shadow_map_textures(_frame_shadow_map_texture_ids, directional_shadow_count);
 
-        const auto shadow_center_position = get_camera_world_position(camera_view);
+        auto shadow_center_position = get_camera_world_position(camera_view);
         for (size_t shadow_index = 0; shadow_index < directional_shadow_count; ++shadow_index)
         {
             _frame_shadow_light_view_projections.push_back(build_directional_shadow_view_projection(
@@ -475,9 +472,8 @@ namespace tbx::plugins
                 auto intensity = 1.0f;
                 const auto& light = entity.get_component<SpotLight>();
                 resolve_light_color(light.color, light.intensity, color, intensity);
-                const float inner_radians = to_radians(std::max(light.inner_angle, 0.0f));
-                const float outer_radians =
-                    to_radians(std::max(light.outer_angle, light.inner_angle));
+                float inner_radians = to_radians(std::max(light.inner_angle, 0.0f));
+                float outer_radians = to_radians(std::max(light.outer_angle, light.inner_angle));
                 _frame_spot_lights.push_back(
                     OpenGlSpotLightData {
                         .position = get_entity_position(entity),
@@ -522,7 +518,7 @@ namespace tbx::plugins
         }
         else
         {
-            const auto sky_material_hash = hash_runtime_material(sky_material);
+            auto sky_material_hash = hash_runtime_material(sky_material);
             if (!_is_sky_cache_valid || !_cached_has_sky_component
                 || _cached_sky_source_material_hash != sky_material_hash)
             {
@@ -609,13 +605,13 @@ namespace tbx::plugins
                 }
             });
 
-        const auto post_process_settings = OpenGlPostProcessSettings {
+        auto post_process_settings = OpenGlPostProcessSettings {
             .is_enabled = did_find_post_processing && is_post_processing_enabled,
             .effects =
                 std::span<const OpenGlPostProcessEffect>(_cached_resolved_post_processing.effects),
         };
-        const auto view_projection = get_camera_view_projection(camera_view, _render_resolution);
-        const auto camera_world_position = get_camera_world_position(camera_view);
+        auto view_projection = get_camera_view_projection(camera_view, _render_resolution);
+        auto camera_world_position = get_camera_world_position(camera_view);
 
         auto frame_context = OpenGlRenderFrameContext {
             .camera_view = camera_view,
@@ -670,7 +666,7 @@ namespace tbx::plugins
             TBX_ASSERT(
                 loader != nullptr,
                 "OpenGL rendering: context-ready event provided null loader.");
-            const auto load_result = gladLoadGLLoader(loader);
+            auto load_result = gladLoadGLLoader(loader);
             TBX_ASSERT(load_result != 0, "OpenGL rendering: failed to initialize GLAD.");
 
             initialize_opengl();
