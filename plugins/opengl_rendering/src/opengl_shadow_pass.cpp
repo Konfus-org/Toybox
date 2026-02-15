@@ -10,6 +10,7 @@
 
 namespace tbx::plugins
 {
+    static constexpr size_t MAX_SHADOW_MAPS = 4;
     static constexpr uint32 SHADOW_MAP_RESOLUTION = 2048;
 
     static void bind_textures(
@@ -55,6 +56,14 @@ namespace tbx::plugins
             });
     }
 
+    static void upload_material_uniforms(
+        OpenGlShaderProgram& shader_program,
+        const OpenGlDrawResources& draw_resources)
+    {
+        for (const auto& uniform : draw_resources.shader_parameters)
+            shader_program.try_upload(uniform);
+    }
+
     static void draw_shadow_entity(
         const Entity& entity,
         OpenGlResourceManager& resource_manager,
@@ -80,6 +89,7 @@ namespace tbx::plugins
         bind_textures(draw_resources, resource_scopes);
 
         upload_light_view_projection(*draw_resources.shader_program, light_view_projection);
+        upload_material_uniforms(*draw_resources.shader_program, draw_resources);
         upload_model_uniform(*draw_resources.shader_program, entity);
         draw_resources.mesh->draw(draw_resources.use_tesselation);
     }
@@ -91,7 +101,8 @@ namespace tbx::plugins
         const auto max_shadow_maps = std::min(
             frame_context.shadow_data.map_texture_ids.size(),
             frame_context.shadow_data.light_view_projections.size());
-        if (max_shadow_maps == 0)
+        const auto shadow_map_count = std::min(max_shadow_maps, MAX_SHADOW_MAPS);
+        if (shadow_map_count == 0)
             return;
 
         uint32 shadow_framebuffer_id = 0;
@@ -109,7 +120,7 @@ namespace tbx::plugins
         glEnable(GL_CULL_FACE);
         glCullFace(GL_FRONT);
 
-        for (size_t shadow_index = 0; shadow_index < max_shadow_maps; ++shadow_index)
+        for (size_t shadow_index = 0; shadow_index < shadow_map_count; ++shadow_index)
         {
             const auto texture_id = frame_context.shadow_data.map_texture_ids[shadow_index];
             if (texture_id == 0)
