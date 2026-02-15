@@ -83,7 +83,7 @@ namespace tbx::tests::graphics
         camera.set_perspective(fov, aspect, z_near, z_far);
 
         const Mat4 expected =
-            perspective_projection(degrees_to_radians(fov), aspect, z_near, z_far);
+            perspective_projection(to_radians(fov), aspect, z_near, z_far);
 
         EXPECT_TRUE(matrices_close(camera.get_projection_matrix(), expected));
     }

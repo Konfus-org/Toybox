@@ -49,18 +49,24 @@ namespace tbx
             Texture* asset_payload,
             TextureWrap wrap,
             TextureFilter filter,
-            TextureFormat format)
+            TextureFormat format,
+            TextureMipmaps mipmaps,
+            TextureCompression compression)
             : LoadAssetRequest<Texture>(std::move(asset_path), asset_payload)
             , wrap(wrap)
             , filter(filter)
             , format(format)
+            , mipmaps(mipmaps)
+            , compression(compression)
         {
         }
 
       public:
         TextureWrap wrap = TextureWrap::REPEAT;
-        TextureFilter filter = TextureFilter::NEAREST;
+        TextureFilter filter = TextureFilter::LINEAR;
         TextureFormat format = TextureFormat::RGBA;
+        TextureMipmaps mipmaps = TextureMipmaps::ENABLED;
+        TextureCompression compression = TextureCompression::AUTO;
     };
 
     /// <summary>

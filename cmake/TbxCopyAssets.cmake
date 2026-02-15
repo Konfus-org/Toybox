@@ -24,6 +24,8 @@ function(tbx_copy_assets_to_bin)
         set(TBX_COPY_CONFIGS Release)
     endif()
 
+    message(STATUS "Adding tbx post build asset commands to '${TBX_COPY_TARGET}'")
+
     set(copy_script "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/TbxCopyAssetsPostBuild.cmake")
 
     add_custom_command(TARGET ${TBX_COPY_TARGET} POST_BUILD

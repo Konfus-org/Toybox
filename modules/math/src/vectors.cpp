@@ -16,4 +16,9 @@ namespace tbx
     {
         return glm::normalize(v);
     }
+
+    float distance(const Vec3& a, const Vec3& b)
+    {
+        return glm::distance(a, b);
+    }
 }

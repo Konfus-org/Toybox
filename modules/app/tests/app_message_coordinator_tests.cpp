@@ -9,6 +9,7 @@
 #include <future>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace tbx::tests::app
 {
@@ -377,6 +378,65 @@ namespace tbx::tests::app
         auto result = future.get();
         EXPECT_TRUE(result.succeeded());
         EXPECT_EQ(processed_payload, "ready");
+    }
+
+    TEST(dispatcher_handler_order, invokes_handlers_in_registration_order)
+    {
+        AppMessageCoordinator d;
+        GlobalDispatcherScope dispatcher_scope(d);
+        std::vector<int> call_order = {};
+
+        d.register_handler(
+            [&](Message&)
+            {
+                call_order.push_back(1);
+            });
+        d.register_handler(
+            [&](Message& message)
+            {
+                call_order.push_back(2);
+                message.state = MessageState::HANDLED;
+            });
+
+        Message msg;
+        auto result = d.send(msg);
+
+        ASSERT_TRUE(result.succeeded());
+        ASSERT_EQ(call_order.size(), 2U);
+        EXPECT_EQ(call_order[0], 1);
+        EXPECT_EQ(call_order[1], 2);
+    }
+
+    TEST(dispatcher_post_after_deregister, only_active_handlers_process_posted_messages)
+    {
+        AppMessageCoordinator d;
+        GlobalDispatcherScope dispatcher_scope(d);
+        std::vector<int> call_order = {};
+
+        Uuid removed_handler = d.register_handler(
+            [&](Message&)
+            {
+                call_order.push_back(1);
+            });
+        d.register_handler(
+            [&](Message& message)
+            {
+                call_order.push_back(2);
+                message.state = MessageState::HANDLED;
+            });
+
+        d.deregister_handler(removed_handler);
+
+        Message msg;
+        auto future = d.post(msg);
+        d.flush();
+
+        future.wait();
+        auto result = future.get();
+
+        ASSERT_TRUE(result.succeeded());
+        ASSERT_EQ(call_order.size(), 1U);
+        EXPECT_EQ(call_order[0], 2);
     }
 
 }

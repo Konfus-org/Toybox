@@ -130,10 +130,8 @@ namespace tbx
 
 #if defined(TBX_PLATFORM_WINDOWS)
     #define TBX_PLUGIN_EXPORT extern "C" __declspec(dllexport)
-    #define TBX_STATIC_PLUGIN_EXPORT extern "C"
 #else
     #define TBX_PLUGIN_EXPORT extern "C"
-    #define TBX_STATIC_PLUGIN_EXPORT extern "C"
 #endif
 
 #define TBX_REGISTER_PLUGIN(PluginName, PluginType)                                                \
@@ -148,13 +146,3 @@ namespace tbx
         ::tbx::PluginRegistry::get_instance().unregister_plugin(#PluginName);                      \
         delete plugin;                                                                             \
     }
-
-#define TBX_REGISTER_STATIC_PLUGIN(PluginName, PluginType)                                         \
-    static PluginType PluginName##_global_instance = {};                                           \
-    static bool PluginName##_registered = []()                                                     \
-    {                                                                                              \
-        ::tbx::PluginRegistry::get_instance().register_plugin(                                     \
-            #PluginName,                                                                           \
-            &PluginName##_global_instance);                                                        \
-        return true;                                                                               \
-    }();

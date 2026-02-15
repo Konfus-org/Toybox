@@ -19,6 +19,7 @@ target_link_libraries(${module_name}
         Tbx::Common
         Tbx::Messaging
         Tbx::Files
+        spdlog::spdlog
 )
 
 tbx_setup_module(${module_name})

@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "tbx/files/file_operator.h"
+#include "tbx/files/file_ops.h"
 #include <filesystem>
 
 namespace tbx::tests::file_system

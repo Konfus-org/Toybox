@@ -1,7 +1,7 @@
 #include "tbx/plugin_api/plugin_meta.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/files/file_operator.h"
+#include "tbx/files/file_ops.h"
 #include "tbx/files/json.h"
 #include <filesystem>
 #include <fstream>
@@ -14,7 +14,7 @@ namespace tbx
         const std::string& key,
         std::string& target)
     {
-        if (!data.try_get_string(key, target))
+        if (!data.try_get<std::string>(key, target))
             return false;
 
         target = trim(target);
@@ -30,7 +30,7 @@ namespace tbx
         std::vector<std::string>& target)
     {
         std::vector<std::string> values;
-        if (!data.try_get_strings(key, values))
+        if (!data.try_get<std::string>(key, values))
             return;
 
         for (std::string value : values)
@@ -49,7 +49,7 @@ namespace tbx
         std::filesystem::path resolved;
 
         std::vector<std::string> values;
-        if (data.try_get_strings("resources", values))
+        if (data.try_get<std::string>("resources", values))
         {
             for (std::string value : values)
             {
@@ -70,7 +70,7 @@ namespace tbx
         else
         {
             std::string value;
-            if (data.try_get_string("resources", value))
+            if (data.try_get<std::string>("resources", value))
             {
                 value = trim(value);
                 if (!value.empty())
@@ -152,7 +152,7 @@ namespace tbx
             return false;
 
         int32 abi_version = 0;
-        if (data.try_get_int("abi_version", abi_version))
+        if (data.try_get<int>("abi_version", abi_version))
         {
             if (abi_version <= 0)
                 return false;
@@ -167,14 +167,14 @@ namespace tbx
             return false;
 
         std::string category;
-        if (data.try_get_string("category", category))
+        if (data.try_get<std::string>("category", category))
         {
             if (!try_parse_category(category, meta.category))
                 return false;
         }
 
         int32 priority = 0;
-        if (data.try_get_int("priority", priority))
+        if (data.try_get<int>("priority", priority))
         {
             if (priority < 0)
                 return false;
@@ -183,15 +183,23 @@ namespace tbx
         }
 
         bool is_static = false;
-        if (data.try_get_bool("static", is_static))
-            meta.linkage = is_static ? PluginLinkage::STATIC : PluginLinkage::DYNAMIC;
+        if (data.try_get<bool>("static", is_static) && is_static)
+            return false;
+
+        std::string linkage;
+        if (data.try_get<std::string>("linkage", linkage))
+        {
+            linkage = to_lower(trim(linkage));
+            if (linkage != "dynamic")
+                return false;
+        }
 
         std::string description;
-        if (data.try_get_string("description", description))
+        if (data.try_get<std::string>("description", description))
             meta.description = trim(description);
 
         std::string module_value;
-        if (data.try_get_string("module", module_value))
+        if (data.try_get<std::string>("module", module_value))
         {
             module_value = trim(module_value);
             if (!module_value.empty())

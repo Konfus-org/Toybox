@@ -1,0 +1,9 @@
+{
+  "id": "10343045",
+  "texture": {
+    "wrap": "clamp_to_edge",
+    "filter": "linear",
+    "format": "rgba",
+    "mipmaps": "enabled"
+  }
+}

@@ -1,135 +1,104 @@
 #pragma once
 #include "tbx/common/handle.h"
-#include "tbx/common/uuid.h"
+#include "tbx/graphics/material.h"
 #include "tbx/graphics/mesh.h"
+#include "tbx/graphics/post_processing.h"
 #include "tbx/tbx_api.h"
-#include <memory>
-#include <string_view>
-#include <utility>
 #include <vector>
 
 namespace tbx
 {
     /// <summary>
-    /// Purpose: Provides a polymorphic base for renderer data payloads.
+    /// Purpose: Defines a model handle to use within a specific distance band (LOD).
     /// </summary>
     /// <remarks>
-    /// Ownership: Does not own external resources beyond derived payloads.
-    /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-    /// </remarks>
-    class TBX_API IRenderData
-    {
-      public:
-        virtual ~IRenderData() = default;
-    };
-
-    /// <summary>
-    /// Purpose: Stores asset-backed render data for static models and materials.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Owns asset handle copies for model and material references.
+    /// Ownership: Stores handles by value; does not own loaded model assets.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
     /// </remarks>
-    class TBX_API StaticRenderData final : public IRenderData
+    struct TBX_API RendererLod
     {
-      public:
-        StaticRenderData() = default;
-        StaticRenderData(Handle model_handle, Handle material_handle)
-            : model(std::move(model_handle))
-            , material(std::move(material_handle))
-        {
-        }
-
-        Handle model = {};
-        Handle material = {};
-    };
-
-    /// <summary>
-    /// Purpose: Stores procedural mesh data with optional material handles.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Owns mesh data and material handle copies.
-    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    /// </remarks>
-    class TBX_API ProceduralData final : public IRenderData
-    {
-      public:
-        ProceduralData() = default;
-        ProceduralData(std::vector<Mesh> mesh_data, std::vector<Handle> material_handles)
-            : meshes(std::move(mesh_data))
-            , materials(std::move(material_handles))
-        {
-        }
-
         /// <summary>
-        /// Purpose: Identifies this procedural batch for GPU cache lookups.
+        /// Purpose: Model asset handle used when within the specified distance band.
         /// </summary>
         /// <remarks>
-        /// Ownership: Stores the identifier by value.
+        /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         /// </remarks>
-        Uuid id = Uuid::generate();
-        std::vector<Mesh> meshes = {};
-        std::vector<Handle> materials = {};
+        Handle handle = {};
+
+        /// <summary>
+        /// Purpose: Inclusive maximum distance (world units) where this LOD should be used.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// </remarks>
+        float max_distance = 0.0f;
     };
 
     /// <summary>
-    /// Purpose: Associates render data with an entity for efficient rendering.
+    /// Purpose: Stores render settings and material selection for an entity.
     /// </summary>
     /// <remarks>
-    /// Ownership: Owns the render data payload via a unique pointer.
-    /// Thread Safety: Safe to move between threads; mutation requires external synchronization.
+    /// Ownership: Stores handles and override data by value.
+    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
     /// </remarks>
     struct TBX_API Renderer
     {
-        Renderer();
-        Renderer(std::unique_ptr<IRenderData> render_data);
-
         /// <summary>
-        /// Purpose: Creates a renderer for a static model asset by name.
+        /// Purpose: Runtime material data for this entity.
         /// </summary>
         /// <remarks>
-        /// Ownership: Takes ownership of the created render data payload.
-        /// Thread Safety: Safe to construct on any thread.
+        /// Ownership: Owns parameter/texture override sets and a base material handle.
+        /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
         /// </remarks>
-        Renderer(std::string model_name, Handle material_handle = {});
+        MaterialInstance material = {};
 
         /// <summary>
-        /// Purpose: Creates a renderer for a static model asset handle.
+        /// Purpose: Enables or disables culling behavior for this entity (e.g., render distance
+        /// cull).
         /// </summary>
         /// <remarks>
-        /// Ownership: Takes ownership of the created render data payload.
-        /// Thread Safety: Safe to construct on any thread.
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         /// </remarks>
-        Renderer(Handle model_handle, Handle material_handle = {});
+        bool is_cullable = true;
 
         /// <summary>
-        /// Purpose: Creates a renderer for static asset-backed render data.
+        /// Purpose: Enables or disables shadow participation for this entity.
         /// </summary>
         /// <remarks>
-        /// Ownership: Takes ownership of the created render data payload.
-        /// Thread Safety: Safe to construct on any thread.
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         /// </remarks>
-        Renderer(StaticRenderData render_data);
+        bool are_shadows_enabled = true;
 
         /// <summary>
-        /// Purpose: Creates a renderer for a single procedural mesh.
+        /// Purpose: Marks the surface as two-sided for rendering.
         /// </summary>
         /// <remarks>
-        /// Ownership: Takes ownership of the created render data payload.
-        /// Thread Safety: Safe to construct on any thread.
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         /// </remarks>
-        Renderer(Mesh mesh, Handle material_handle = {});
+        bool is_two_sided = false;
 
         /// <summary>
-        /// Purpose: Creates a renderer for procedural mesh data.
+        /// Purpose: Limits rendering based on distance from the active camera (0 means unlimited).
         /// </summary>
         /// <remarks>
-        /// Ownership: Takes ownership of the created render data payload.
-        /// Thread Safety: Safe to construct on any thread.
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         /// </remarks>
-        Renderer(ProceduralData render_data);
+        float render_distance = 0.0f;
 
-        std::unique_ptr<IRenderData> data = {};
+        /// <summary>
+        /// Purpose: Provides optional LOD model handles selected based on camera distance.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Owns the LOD vector.
+        /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+        /// </remarks>
+        std::vector<RendererLod> lods = {};
     };
+
 }

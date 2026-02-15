@@ -1,10 +1,11 @@
 #pragma once
+#include "tbx/assets/asset_handle_serializer.h"
 #include "tbx/assets/asset_loaders.h"
-#include "tbx/assets/asset_meta.h"
 #include "tbx/assets/assets.h"
 #include "tbx/common/handle.h"
 #include "tbx/common/int.h"
 #include "tbx/common/uuid.h"
+#include "tbx/debugging/macros.h"
 #include "tbx/tbx_api.h"
 #include <chrono>
 #include <filesystem>
@@ -46,6 +47,62 @@ namespace tbx
         bool is_pinned = false;
         AssetStreamState stream_state = AssetStreamState::UNLOADED;
         std::chrono::steady_clock::time_point last_access = {};
+    };
+
+    /// <summary>
+    /// Purpose: Provides texture-specific load parameters for AssetManager::load.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type settings owned by the caller.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    struct TextureLoadParameters
+    {
+        TextureSettings settings = {};
+    };
+
+    /// <summary>
+    /// Purpose: Provides model-specific load parameters for AssetManager::load.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    struct ModelLoadParameters
+    {
+    };
+
+    /// <summary>
+    /// Purpose: Provides shader-specific load parameters for AssetManager::load.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    struct ShaderLoadParameters
+    {
+    };
+
+    /// <summary>
+    /// Purpose: Provides material-specific load parameters for AssetManager::load.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    struct MaterialLoadParameters
+    {
+    };
+
+    /// <summary>
+    /// Purpose: Provides audio-specific load parameters for AssetManager::load.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    struct AudioLoadParameters
+    {
     };
 
     /// <summary>
@@ -108,6 +165,8 @@ namespace tbx
         std::chrono::steady_clock::time_point last_access = {};
         Uuid id = {};
         std::shared_future<Result> pending_load;
+        TextureSettings texture_settings = {};
+        bool has_texture_settings = false;
     };
 
     /// <summary>
@@ -129,6 +188,11 @@ namespace tbx
                 auto& record = entry.second;
                 if (!record.is_pinned && record.asset && record.asset.use_count() <= 1)
                 {
+                    TBX_TRACE_INFO(
+                        "Unloaded asset: '{}' (id={}, type={})",
+                        record.normalized_path,
+                        to_string(record.id),
+                        typeid(TAsset).name());
                     record.asset.reset();
                     record.stream_state = AssetStreamState::UNLOADED;
                 }
@@ -161,25 +225,26 @@ namespace tbx
         /// Ownership: The manager stores a copy of the callable.
         /// Thread Safety: The callable must be safe to invoke concurrently.
         /// </remarks>
-        using AssetMetaSource =
-            std::function<bool(const std::filesystem::path&, AssetMeta& out_meta)>;
+        using HandleSource = std::function<bool(const std::filesystem::path&, Handle& out_handle)>;
 
         /// <summary>
         /// Purpose: Initializes the manager with a working directory, asset search roots, and an
-        /// optional metadata source.
+        /// optional handle source and optional asset handle serializer.
         /// </summary>
         /// <remarks>
         /// Ownership: Takes ownership of the working directory and asset path values for
-        /// internal use and stores a copy of the metadata source when provided.
-        /// Thread Safety: Not thread-safe; construct on a single thread before sharing. The
-        /// metadata source must be safe to invoke concurrently. When include_default_resources
-        /// is false, the constructor skips adding the built-in resources directory.
+        /// internal use and stores the handle source and takes ownership of the serializer when
+        /// provided. Thread Safety: Not thread-safe; construct on a single thread before sharing.
+        /// The handle source and serializer must be safe to invoke concurrently. When
+        /// include_default_resources is false, the constructor skips adding the built-in resources
+        /// directory.
         /// </remarks>
         explicit AssetManager(
             std::filesystem::path working_directory,
             std::vector<std::filesystem::path> asset_directories = {},
-            AssetMetaSource meta_source = {},
-            bool include_default_resources = true);
+            HandleSource handle_source = {},
+            bool include_default_resources = true,
+            std::unique_ptr<IAssetHandleSerializer> asset_handle_serializer = {});
         AssetManager(const AssetManager&) = delete;
         AssetManager& operator=(const AssetManager&) = delete;
         AssetManager(AssetManager&&) = delete;
@@ -208,13 +273,85 @@ namespace tbx
             record.last_access = now;
             if (!record.asset)
             {
+                TBX_TRACE_INFO(
+                    "Loading asset: '{}' (id={}, type={})",
+                    record.normalized_path,
+                    to_string(record.id),
+                    typeid(TAsset).name());
                 record.stream_state = AssetStreamState::LOADING;
                 record.asset = AssetLoader<TAsset>::load(entry->resolved_path);
                 record.pending_load = {};
                 record.stream_state =
                     record.asset ? AssetStreamState::LOADED : AssetStreamState::UNLOADED;
+                if (!record.asset)
+                {
+                    TBX_TRACE_WARNING(
+                        "Failed to load asset: '{}' (id={}, type={})",
+                        record.normalized_path,
+                        to_string(record.id),
+                        typeid(TAsset).name());
+                }
             }
             return record.asset;
+        }
+
+        /// <summary>
+        /// Purpose: Loads a texture with explicit load parameters and tracks usage.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a shared texture instance owned jointly by the manager and caller.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        /// </remarks>
+        std::shared_ptr<Texture> load(
+            const Handle& handle,
+            const TextureLoadParameters& parameters);
+
+        /// <summary>
+        /// Purpose: Loads a model with explicit load parameters and tracks usage.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a shared model instance owned jointly by the manager and caller.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        /// </remarks>
+        std::shared_ptr<Model> load(const Handle& handle, const ModelLoadParameters&)
+        {
+            return load<Model>(handle);
+        }
+
+        /// <summary>
+        /// Purpose: Loads a shader with explicit load parameters and tracks usage.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a shared shader instance owned jointly by the manager and caller.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        /// </remarks>
+        std::shared_ptr<Shader> load(const Handle& handle, const ShaderLoadParameters&)
+        {
+            return load<Shader>(handle);
+        }
+
+        /// <summary>
+        /// Purpose: Loads a material with explicit load parameters and tracks usage.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a shared material instance owned jointly by the manager and caller.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        /// </remarks>
+        std::shared_ptr<Material> load(const Handle& handle, const MaterialLoadParameters&)
+        {
+            return load<Material>(handle);
+        }
+
+        /// <summary>
+        /// Purpose: Loads an audio clip with explicit load parameters and tracks usage.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a shared audio instance owned jointly by the manager and caller.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        /// </remarks>
+        std::shared_ptr<AudioClip> load(const Handle& handle, const AudioLoadParameters&)
+        {
+            return load<AudioClip>(handle);
         }
 
         /// <summary>
@@ -306,6 +443,11 @@ namespace tbx
                 result.promise = record.pending_load;
                 return result;
             }
+            TBX_TRACE_INFO(
+                "Loading asset asyncronously: '{}' (id={}, type={})",
+                record.normalized_path,
+                to_string(record.id),
+                typeid(TAsset).name());
             auto promise = AssetLoader<TAsset>::load_async(entry->resolved_path);
             record.asset = std::move(promise.asset);
             record.pending_load = promise.promise;
@@ -342,6 +484,11 @@ namespace tbx
             {
                 return false;
             }
+            TBX_TRACE_INFO(
+                "Unloaded asset: '{}' (id={}, type={})",
+                record->normalized_path,
+                to_string(record->id),
+                typeid(TAsset).name());
             record->asset.reset();
             record->stream_state = AssetStreamState::UNLOADED;
             return true;
@@ -384,13 +531,27 @@ namespace tbx
             }
             auto& store = get_or_create_store<TAsset>();
             auto& record = get_or_create_record(store, *entry);
+            TBX_TRACE_INFO(
+                "Reloading asset: '{}' (id={}, type={})",
+                record.normalized_path,
+                to_string(record.id),
+                typeid(TAsset).name());
             record.stream_state = AssetStreamState::LOADING;
             auto promise = AssetLoader<TAsset>::load_async(entry->resolved_path);
             record.asset = std::move(promise.asset);
             record.pending_load = promise.promise;
             update_stream_state(record);
             record.last_access = now;
-            return record.asset != nullptr;
+            bool succeeded = record.asset != nullptr;
+            if (!succeeded)
+            {
+                TBX_TRACE_WARNING(
+                    "Failed to reload asset: '{}' (id={}, type={})",
+                    record.normalized_path,
+                    to_string(record.id),
+                    typeid(TAsset).name());
+            }
+            return succeeded;
         }
 
         /// <summary>
@@ -403,6 +564,19 @@ namespace tbx
         void set_pinned(const Handle& handle, bool is_pinned);
 
       private:
+        enum class AssetMetaState
+        {
+            VALID,
+            MISSING,
+            INVALID
+        };
+
+        struct ResolvedAssetMetaId
+        {
+            Uuid resolved_id = {};
+            AssetMetaState state = AssetMetaState::MISSING;
+        };
+
         void discover_assets();
 
         NormalizedAssetPath normalize_path(const std::filesystem::path& asset_path) const
@@ -427,20 +601,22 @@ namespace tbx
             return Uuid(hashed);
         }
 
-        Uuid read_meta_uuid(const std::filesystem::path& asset_path) const;
+        ResolvedAssetMetaId resolve_or_repair_asset_id(const NormalizedAssetPath& normalized);
+        Uuid generate_unique_asset_id_locked() const;
+        bool write_meta_with_id(const std::filesystem::path& asset_path, Uuid id) const;
 
-        AssetRegistryEntry& get_or_create_registry_entry(const NormalizedAssetPath& normalized)
+        AssetRegistryEntry* get_or_create_registry_entry(const NormalizedAssetPath& normalized)
         {
             auto iterator = _pool.find(normalized.path_key);
             if (iterator != _pool.end())
             {
-                return iterator->second;
+                return &iterator->second;
             }
             AssetRegistryEntry entry = {};
             entry.resolved_path = normalized.resolved_path;
             entry.normalized_path = normalized.normalized_path;
             entry.path_key = normalized.path_key;
-            auto desired_id = read_meta_uuid(normalized.resolved_path);
+            auto desired_id = resolve_or_repair_asset_id(normalized).resolved_id;
             if (!desired_id)
             {
                 desired_id = normalized.path_key;
@@ -449,12 +625,31 @@ namespace tbx
             auto id_iterator = _registry_by_id.find(entry.id);
             if (id_iterator != _registry_by_id.end() && id_iterator->second != entry.path_key)
             {
-                entry.id = normalized.path_key;
+                std::string existing_path = "<unknown>";
+                auto existing_entry_iterator = _pool.find(id_iterator->second);
+                if (existing_entry_iterator != _pool.end())
+                    existing_path = existing_entry_iterator->second.normalized_path;
+
+                TBX_ASSERT(
+                    false,
+                    "AssetManager: duplicate asset id detected (id={}). Existing asset: '{}'. "
+                    "Conflicting asset: '{}'.",
+                    to_string(entry.id),
+                    existing_path,
+                    entry.normalized_path);
+
+                TBX_TRACE_ERROR(
+                    "AssetManager: skipping asset '{}' due to duplicate id={} already used by "
+                    "'{}'.",
+                    entry.normalized_path,
+                    to_string(entry.id),
+                    existing_path);
+                return nullptr;
             }
             _registry_by_id[entry.id] = entry.path_key;
             auto [inserted, was_inserted] = _pool.emplace(entry.path_key, std::move(entry));
             static_cast<void>(was_inserted);
-            return inserted->second;
+            return &inserted->second;
         }
 
         AssetRegistryEntry* get_or_create_registry_entry(const Handle& handle)
@@ -473,7 +668,7 @@ namespace tbx
                 return nullptr;
             }
             auto normalized = normalize_path(handle.name);
-            return &get_or_create_registry_entry(normalized);
+            return get_or_create_registry_entry(normalized);
         }
 
         AssetRegistryEntry* find_registry_entry_by_id(Uuid asset_id)
@@ -701,10 +896,11 @@ namespace tbx
             return static_cast<uint>(count - 1);
         }
 
+      private:
         mutable std::mutex _mutex;
         std::filesystem::path _working_directory = {};
-        AssetMetaParser _meta_reader = {};
-        AssetMetaSource _meta_source = {};
+        HandleSource _handle_source = {};
+        std::unique_ptr<IAssetHandleSerializer> _handle_serializer = nullptr;
         std::vector<std::filesystem::path> _asset_directories = {};
         std::unordered_map<Uuid, AssetRegistryEntry> _pool;
         std::unordered_map<Uuid, Uuid> _registry_by_id;

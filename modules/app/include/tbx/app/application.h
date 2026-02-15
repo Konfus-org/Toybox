@@ -81,15 +81,6 @@ namespace tbx
         /// Thread Safety: Not thread-safe; treat as immutable after initialization.
         /// </remarks>
         std::filesystem::path logs_directory = {};
-
-        /// <summary>
-        /// Purpose: Defines the root directory used for plugin discovery.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Stores a path value copied at startup and not expected to change.
-        /// Thread Safety: Not thread-safe; treat as immutable after initialization.
-        /// </remarks>
-        std::filesystem::path plugins_directory = {};
     };
 
     class TBX_API Application : public IPluginHost

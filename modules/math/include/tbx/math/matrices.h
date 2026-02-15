@@ -66,6 +66,16 @@ namespace tbx
         return glm::inverse(matrix);
     }
 
+    /// <summary>
+    /// Purpose: Computes the inverse-transpose of a 3x3 matrix.
+    /// Ownership: Returns a matrix by value; the caller owns the copy.
+    /// Thread Safety: Stateless wrapper; safe to call concurrently.
+    /// </summary>
+    inline Mat3 inverse_transpose(const Mat3& matrix)
+    {
+        return glm::inverseTranspose(matrix);
+    }
+
     // Builds a view matrix from position, target, and up vectors.
     // Ownership: returns a matrix by value; the caller owns the copy.
     // Thread Safety: stateless wrapper; safe to call concurrently.

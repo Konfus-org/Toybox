@@ -6,12 +6,25 @@
 
 namespace tbx
 {
+    static Mesh create_two_sided_fallback_mesh()
+    {
+        auto mesh = Mesh(quad.vertices, quad.indices);
+        const auto original_index_count = mesh.indices.size();
+        mesh.indices.reserve(original_index_count * 2U);
+        for (size_t index = 0U; index + 2U < original_index_count; index += 3U)
+        {
+            mesh.indices.push_back(mesh.indices[index]);
+            mesh.indices.push_back(mesh.indices[index + 2U]);
+            mesh.indices.push_back(mesh.indices[index + 1U]);
+        }
+        return mesh;
+    }
+
     static std::shared_ptr<Model> create_model_data()
     {
-        Material material = {
-            .textures = {{"diffuse", not_found_texture}},
-        };
-        return std::make_shared<Model>(quad, material);
+        Material material = {};
+        material.textures.set("diffuse", not_found_texture);
+        return std::make_shared<Model>(create_two_sided_fallback_mesh(), material);
     }
 
     AssetPromise<Model> load_model_async(const std::filesystem::path& asset_path)

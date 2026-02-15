@@ -265,8 +265,7 @@ namespace tbx::plugins
             Material material = {};
             if (source_material)
             {
-                material.parameters.push_back(
-                    {"color", get_material_diffuse_color(*source_material)});
+                material.parameters.set("color", get_material_diffuse_color(*source_material));
             }
             materials.push_back(material);
         }

@@ -1,22 +1,42 @@
 #include "tbx/assets/texture_assets.h"
 #include "tbx/assets/messages.h"
+#include "tbx/debugging/macros.h"
 #include <memory>
 
 namespace tbx
 {
-    static std::shared_ptr<Texture> create_texture_data()
+    static std::shared_ptr<Texture> create_fallback_texture(
+        TextureWrap wrap,
+        TextureFilter filter,
+        TextureFormat format,
+        TextureMipmaps mipmaps,
+        TextureCompression compression)
     {
-        // TODO: return bright pink texture
-        return std::make_shared<Texture>();
+        auto pixels = std::vector<Pixel>();
+        if (format == TextureFormat::RGB)
+            pixels = {255, 0, 255};
+        else
+            pixels = {255, 0, 255, 255};
+
+        return std::make_shared<Texture>(
+            Size(1, 1),
+            wrap,
+            filter,
+            format,
+            mipmaps,
+            compression,
+            pixels);
     }
 
     AssetPromise<Texture> load_texture_async(
         const std::filesystem::path& asset_path,
         TextureWrap wrap,
         TextureFilter filter,
-        TextureFormat format)
+        TextureFormat format,
+        TextureMipmaps mipmaps,
+        TextureCompression compression)
     {
-        auto asset = create_texture_data();
+        auto asset = create_fallback_texture(wrap, filter, format, mipmaps, compression);
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -27,7 +47,14 @@ namespace tbx
             return result;
         }
 
-        LoadTextureRequest message(asset_path, asset.get(), wrap, filter, format);
+        LoadTextureRequest message(
+            asset_path,
+            asset.get(),
+            wrap,
+            filter,
+            format,
+            mipmaps,
+            compression);
         message.not_handled_behavior = MessageNotHandledBehavior::WARN;
         auto future = dispatcher->post(message);
         AssetPromise<Texture> result = {};
@@ -40,9 +67,11 @@ namespace tbx
         const std::filesystem::path& asset_path,
         TextureWrap wrap,
         TextureFilter filter,
-        TextureFormat format)
+        TextureFormat format,
+        TextureMipmaps mipmaps,
+        TextureCompression compression)
     {
-        auto asset = create_texture_data();
+        auto asset = create_fallback_texture(wrap, filter, format, mipmaps, compression);
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -50,9 +79,23 @@ namespace tbx
             return asset;
         }
 
-        LoadTextureRequest message(asset_path, asset.get(), wrap, filter, format);
+        LoadTextureRequest message(
+            asset_path,
+            asset.get(),
+            wrap,
+            filter,
+            format,
+            mipmaps,
+            compression);
         message.not_handled_behavior = MessageNotHandledBehavior::WARN;
-        dispatcher->send(message);
+        auto result = dispatcher->send(message);
+        if (!result.succeeded())
+        {
+            TBX_TRACE_WARNING(
+                "Texture load request failed for '{}': {}. Using fallback pink texture.",
+                asset_path.string(),
+                result.get_report());
+        }
         return asset;
     }
 }

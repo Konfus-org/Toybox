@@ -10,12 +10,9 @@ namespace tbx
     // Thread Safety: not inherently thread-safe; synchronize access when sharing instances.
     struct TBX_API Transform
     {
-      public:
         Transform();
-
-        // Initializes the transform with explicit position, rotation, and scale values.
-        // Ownership: stores provided values by copy.
-        // Thread Safety: not thread-safe; synchronize external access if shared.
+        Transform(const Vec3& position);
+        Transform(const Vec3& position, const Quat& rotation);
         Transform(const Vec3& position, const Quat& rotation, const Vec3& scale);
 
         // World-space translation component for the transform.

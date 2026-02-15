@@ -16,6 +16,12 @@ namespace tbx
         std::promise<Result> completion_state;
     };
 
+    struct RegisteredMessageHandler
+    {
+        Uuid id = {};
+        std::shared_ptr<MessageHandler> handler = nullptr;
+    };
+
     class TBX_API AppMessageCoordinator final
         : public IMessageCoordinator
     {
@@ -44,7 +50,7 @@ namespace tbx
         void dispatch(Message& msg) const;
 
         mutable std::mutex _handlers_mutex;
-        std::vector<std::pair<Uuid, MessageHandler>> _handlers;
+        std::vector<RegisteredMessageHandler> _handlers;
         mutable std::mutex _pending_mutex;
         mutable std::vector<QueuedMessage> _pending;
     };

@@ -1,29 +1,17 @@
 #include "mat_material_loader_plugin.h"
 #include "tbx/app/application.h"
-#include "tbx/files/file_operator.h"
+#include "tbx/common/string_utils.h"
+#include "tbx/files/file_ops.h"
 #include "tbx/files/json.h"
 #include "tbx/graphics/material.h"
-#include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace tbx::plugins
 {
-    static std::string to_lower(std::string text)
-    {
-        std::transform(
-            text.begin(),
-            text.end(),
-            text.begin(),
-            [](unsigned char ch)
-            {
-                return static_cast<char>(std::tolower(ch));
-            });
-        return text;
-    }
-
     static std::string build_load_failure_message(
         const std::filesystem::path& path,
         std::string_view reason)
@@ -39,20 +27,72 @@ namespace tbx::plugins
         return message;
     }
 
+    static Uuid parse_uuid_text(std::string_view value)
+    {
+        std::string trimmed = trim(value);
+        if (trimmed.empty())
+        {
+            return {};
+        }
+
+        if (trimmed.size() > 2U && trimmed[0] == '0' && (trimmed[1] == 'x' || trimmed[1] == 'X'))
+            trimmed = trimmed.substr(2U);
+        if (trimmed.empty())
+            return {};
+
+        for (char ch : trimmed)
+        {
+            if (std::isxdigit(static_cast<unsigned char>(ch)) == 0)
+                return {};
+        }
+
+        uint32 parsed = 0U;
+        auto result = std::from_chars(trimmed.data(), trimmed.data() + trimmed.size(), parsed, 16);
+        if (result.ec != std::errc())
+        {
+            return {};
+        }
+        if (result.ptr != (trimmed.data() + trimmed.size()))
+            return {};
+        if (parsed == 0U)
+        {
+            return {};
+        }
+
+        return Uuid(parsed);
+    }
+
+    static Handle parse_asset_handle(std::string_view value)
+    {
+        std::string trimmed = trim(value);
+        if (trimmed.empty())
+        {
+            return {};
+        }
+
+        Uuid parsed = parse_uuid_text(trimmed);
+        if (parsed.is_valid())
+        {
+            return Handle(parsed);
+        }
+
+        return Handle(std::string(trimmed));
+    }
+
     static bool try_parse_parameter_entry(
         const Json& entry,
         Material& out_material,
         std::string& error_message)
     {
         std::string name;
-        if (!entry.try_get_string("name", name) || name.empty())
+        if (!entry.try_get<std::string>("name", name) || name.empty())
         {
             error_message = "Material loader: parameter missing name.";
             return false;
         }
 
         std::string type_name;
-        if (!entry.try_get_string("type", type_name) || type_name.empty())
+        if (!entry.try_get<std::string>("type", type_name) || type_name.empty())
         {
             error_message = "Material loader: parameter missing type.";
             return false;
@@ -62,36 +102,36 @@ namespace tbx::plugins
         if (type_text == "bool")
         {
             bool value = false;
-            if (!entry.try_get_bool("value", value))
+            if (!entry.try_get<bool>("value", value))
             {
                 error_message = "Material loader: bool parameter '" + name + "' missing value.";
                 return false;
             }
-            out_material.parameters.push_back({name, value});
+            out_material.parameters.set(name, value);
             return true;
         }
 
         if (type_text == "int")
         {
             int value = 0;
-            if (!entry.try_get_int("value", value))
+            if (!entry.try_get<int>("value", value))
             {
                 error_message = "Material loader: int parameter '" + name + "' missing value.";
                 return false;
             }
-            out_material.parameters.push_back({name, value});
+            out_material.parameters.set(name, value);
             return true;
         }
 
         if (type_text == "float")
         {
             float value = 0.0;
-            if (!entry.try_get_float("value", value))
+            if (!entry.try_get<float>("value", value))
             {
                 error_message = "Material loader: float parameter '" + name + "' missing value.";
                 return false;
             }
-            out_material.parameters.push_back({name, value});
+            out_material.parameters.set(name, value);
             return true;
         }
 
@@ -99,14 +139,14 @@ namespace tbx::plugins
         {
             Handle handle = {};
             Uuid asset_id = {};
-            if (entry.try_get_uuid("value", asset_id))
+            if (entry.try_get<Uuid>("value", asset_id))
             {
                 handle = Handle(asset_id);
             }
             else
             {
                 std::string asset_name;
-                if (!entry.try_get_string("value", asset_name))
+                if (!entry.try_get<std::string>("value", asset_name))
                 {
                     error_message =
                         "Material loader: asset parameter '" + name + "' missing value.";
@@ -117,7 +157,7 @@ namespace tbx::plugins
                     handle = Handle(asset_name);
                 }
             }
-            out_material.textures.push_back({name, handle});
+            out_material.textures.set(name, std::move(handle));
             return true;
         }
 
@@ -125,14 +165,14 @@ namespace tbx::plugins
         {
             Handle handle = {};
             Uuid asset_id = {};
-            if (entry.try_get_uuid("value", asset_id))
+            if (entry.try_get<Uuid>("value", asset_id))
             {
                 handle = Handle(asset_id);
             }
             else
             {
                 std::string asset_name;
-                if (!entry.try_get_string("value", asset_name))
+                if (!entry.try_get<std::string>("value", asset_name))
                 {
                     error_message =
                         "Material loader: asset parameter '" + name + "' missing value.";
@@ -146,7 +186,8 @@ namespace tbx::plugins
 
             if (handle.is_valid())
             {
-                out_material.shaders = {handle};
+                out_material.program.vertex = handle;
+                out_material.program.fragment = handle;
             }
             return true;
         }
@@ -154,73 +195,71 @@ namespace tbx::plugins
         if (type_text == "vec2")
         {
             std::vector<float> values;
-            if (!entry.try_get_floats("value", 2U, values))
+            if (!entry.try_get<float>("value", 2U, values))
             {
                 error_message =
                     "Material loader: vec2 parameter '" + name + "' must have 2 values.";
                 return false;
             }
-            out_material.parameters.push_back(
-                {name, Vec2(static_cast<float>(values[0]), static_cast<float>(values[1]))});
+            out_material.parameters.set(
+                name,
+                Vec2(static_cast<float>(values[0]), static_cast<float>(values[1])));
             return true;
         }
 
         if (type_text == "vec3")
         {
             std::vector<float> values;
-            if (!entry.try_get_floats("value", 3U, values))
+            if (!entry.try_get<float>("value", 3U, values))
             {
                 error_message =
                     "Material loader: vec3 parameter '" + name + "' must have 3 values.";
                 return false;
             }
-            out_material.parameters.push_back({
+            out_material.parameters.set(
                 name,
                 Vec3(
                     static_cast<float>(values[0]),
                     static_cast<float>(values[1]),
-                    static_cast<float>(values[2])),
-            });
+                    static_cast<float>(values[2])));
             return true;
         }
 
         if (type_text == "vec4")
         {
             std::vector<float> values;
-            if (!entry.try_get_floats("value", 4U, values))
+            if (!entry.try_get<float>("value", 4U, values))
             {
                 error_message =
                     "Material loader: vec4 parameter '" + name + "' must have 4 values.";
                 return false;
             }
-            out_material.parameters.push_back({
+            out_material.parameters.set(
                 name,
                 Vec4(
                     static_cast<float>(values[0]),
                     static_cast<float>(values[1]),
                     static_cast<float>(values[2]),
-                    static_cast<float>(values[3])),
-            });
+                    static_cast<float>(values[3])));
             return true;
         }
 
         if (type_text == "color")
         {
             std::vector<float> values;
-            if (!entry.try_get_floats("value", 4U, values))
+            if (!entry.try_get<float>("value", 4U, values))
             {
                 error_message =
                     "Material loader: color parameter '" + name + "' must have 4 values.";
                 return false;
             }
-            out_material.parameters.push_back({
+            out_material.parameters.set(
                 name,
                 RgbaColor(
                     static_cast<float>(values[0]),
                     static_cast<float>(values[1]),
                     static_cast<float>(values[2]),
-                    static_cast<float>(values[3])),
-            });
+                    static_cast<float>(values[3])));
             return true;
         }
 
@@ -238,17 +277,150 @@ namespace tbx::plugins
             Json data(file_data);
             Material material = Material();
 
-            Uuid shader_id = {};
-            if (data.try_get_uuid("shader", shader_id))
+            Json shaders_data;
+            if (data.try_get_child("shaders", shaders_data))
             {
-                material.shaders = {Handle(shader_id)};
+                Uuid vertex_id = {};
+                if (shaders_data.try_get<Uuid>("vertex", vertex_id))
+                {
+                    material.program.vertex = Handle(vertex_id);
+                }
+                else
+                {
+                    std::string vertex_text;
+                    if (shaders_data.try_get<std::string>("vertex", vertex_text))
+                        material.program.vertex = parse_asset_handle(vertex_text);
+                }
+
+                Uuid fragment_id = {};
+                if (shaders_data.try_get<Uuid>("fragment", fragment_id))
+                {
+                    material.program.fragment = Handle(fragment_id);
+                }
+                else
+                {
+                    std::string fragment_text;
+                    if (shaders_data.try_get<std::string>("fragment", fragment_text))
+                        material.program.fragment = parse_asset_handle(fragment_text);
+                }
+
+                Uuid tesselation_id = {};
+                if (shaders_data.try_get<Uuid>("tesselation", tesselation_id))
+                {
+                    material.program.tesselation = Handle(tesselation_id);
+                }
+                else
+                {
+                    std::string tesselation_text;
+                    if (shaders_data.try_get<std::string>("tesselation", tesselation_text))
+                        material.program.tesselation = parse_asset_handle(tesselation_text);
+                    else
+                    {
+                        std::string tessellation_text;
+                        if (shaders_data.try_get<std::string>("tessellation", tessellation_text))
+                            material.program.tesselation = parse_asset_handle(tessellation_text);
+                    }
+                }
+
+                Uuid geometry_id = {};
+                if (shaders_data.try_get<Uuid>("geometry", geometry_id))
+                {
+                    material.program.geometry = Handle(geometry_id);
+                }
+                else
+                {
+                    std::string geometry_text;
+                    if (shaders_data.try_get<std::string>("geometry", geometry_text))
+                        material.program.geometry = parse_asset_handle(geometry_text);
+                }
+
+                Uuid compute_id = {};
+                if (shaders_data.try_get<Uuid>("compute", compute_id))
+                {
+                    material.program.compute = Handle(compute_id);
+                }
+                else
+                {
+                    std::string compute_text;
+                    if (shaders_data.try_get<std::string>("compute", compute_text))
+                        material.program.compute = parse_asset_handle(compute_text);
+                }
+
+                if (material.program.compute.is_valid())
+                {
+                    if (material.program.vertex.is_valid() || material.program.fragment.is_valid()
+                        || material.program.tesselation.is_valid()
+                        || material.program.geometry.is_valid())
+                    {
+                        error_message =
+                            "Material loader: compute shaders cannot be combined with "
+                            "graphics shader stages.";
+                        return false;
+                    }
+                }
+                else
+                {
+                    if (material.program.vertex.is_valid() && !material.program.fragment.is_valid())
+                        material.program.fragment = material.program.vertex;
+                    if (!material.program.vertex.is_valid() && material.program.fragment.is_valid())
+                        material.program.vertex = material.program.fragment;
+                }
             }
             else
             {
-                std::string shader_name;
-                if (data.try_get_string("shader", shader_name) && !shader_name.empty())
+                Uuid shader_id = {};
+                Handle shader_handle = {};
+                if (data.try_get<Uuid>("shader", shader_id))
                 {
-                    material.shaders = {Handle(shader_name)};
+                    shader_handle = Handle(shader_id);
+                }
+                else
+                {
+                    std::string shader_text;
+                    if (data.try_get<std::string>("shader", shader_text))
+                        shader_handle = parse_asset_handle(shader_text);
+                }
+
+                if (shader_handle.is_valid())
+                {
+                    material.program.vertex = shader_handle;
+                    material.program.fragment = shader_handle;
+                }
+            }
+
+            std::vector<Json> texture_entries;
+            if (data.try_get_children("textures", texture_entries))
+            {
+                material.textures.values.reserve(
+                    material.textures.values.size() + texture_entries.size());
+                for (const auto& entry : texture_entries)
+                {
+                    std::string name;
+                    if (!entry.try_get<std::string>("name", name) || name.empty())
+                    {
+                        error_message = "Material loader: texture entry missing name.";
+                        return false;
+                    }
+
+                    Handle handle = {};
+                    Uuid asset_id = {};
+                    if (entry.try_get<Uuid>("value", asset_id))
+                    {
+                        handle = Handle(asset_id);
+                    }
+                    else
+                    {
+                        std::string asset_name;
+                        if (!entry.try_get<std::string>("value", asset_name))
+                        {
+                            error_message =
+                                "Material loader: texture entry '" + name + "' missing value.";
+                            return false;
+                        }
+                        handle = parse_asset_handle(asset_name);
+                    }
+
+                    material.textures.set(name, std::move(handle));
                 }
             }
 
@@ -278,12 +450,19 @@ namespace tbx::plugins
     {
         _asset_manager = &host.get_asset_manager();
         _working_directory = host.get_settings().working_directory;
+        if (!_file_ops)
+            _file_ops = std::make_shared<FileOperator>(_working_directory);
     }
 
     void MatMaterialLoaderPlugin::on_detach()
     {
         _asset_manager = nullptr;
         _working_directory = std::filesystem::path();
+    }
+
+    void MatMaterialLoaderPlugin::set_file_ops(std::shared_ptr<IFileOps> file_ops)
+    {
+        _file_ops = std::move(file_ops);
     }
 
     void MatMaterialLoaderPlugin::on_recieve_message(Message& msg)
@@ -321,7 +500,13 @@ namespace tbx::plugins
             return;
         }
 
-        FileOperator file_operator = FileOperator(_working_directory);
+        if (!_file_ops)
+        {
+            request.state = MessageState::ERROR;
+            request.result.flag_failure("Material loader: file services unavailable.");
+            return;
+        }
+
         if (request.path.extension() != ".mat")
         {
             request.state = MessageState::ERROR;
@@ -330,7 +515,7 @@ namespace tbx::plugins
         }
 
         std::string file_data;
-        if (!file_operator.read_file(request.path, FileDataFormat::UTF8_TEXT, file_data))
+        if (!_file_ops->read_file(request.path, FileDataFormat::UTF8_TEXT, file_data))
         {
             request.state = MessageState::ERROR;
             request.result.flag_failure(

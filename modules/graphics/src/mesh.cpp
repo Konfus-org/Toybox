@@ -22,17 +22,17 @@ namespace tbx
         const std::vector<Vertex> TRIANGLE_MESH_VERTICES = {
             Vertex {
                 Vec3(-0.5f, -0.5f, 0.0f),
-                Vec3(0.0f, 0.0f, 0.0f),
+                Vec3(0.0f, 0.0f, 1.0f),
                 Vec2(0.0f, 0.0f),
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)},
             Vertex {
                 Vec3(0.5f, -0.5f, 0.0f),
-                Vec3(0.0f, 0.0f, 0.0f),
+                Vec3(0.0f, 0.0f, 1.0f),
                 Vec2(0.0f, 0.0f),
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)},
             Vertex {
                 Vec3(0.0f, 0.5f, 0.0f),
-                Vec3(0.0f, 0.0f, 0.0f),
+                Vec3(0.0f, 0.0f, 1.0f),
                 Vec2(0.0f, 0.0f),
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)}};
 
@@ -54,22 +54,22 @@ namespace tbx
         const std::vector<Vertex> QUAD_MESH_VERTICES = {
             Vertex {
                 Vec3(-0.5f, -0.5f, 0.0f),
-                Vec3(0.0f, 0.0f, 0.0f),
+                Vec3(0.0f, 0.0f, 1.0f),
                 Vec2(0.0f, 0.0f),
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)},
             Vertex {
                 Vec3(0.5f, -0.5f, 0.0f),
-                Vec3(0.0f, 0.0f, 0.0f),
+                Vec3(0.0f, 0.0f, 1.0f),
                 Vec2(1.0f, 0.0f),
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)},
             Vertex {
                 Vec3(0.5f, 0.5f, 0.0f),
-                Vec3(0.0f, 0.0f, 0.0f),
+                Vec3(0.0f, 0.0f, 1.0f),
                 Vec2(1.0f, 1.0f),
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)},
             Vertex {
                 Vec3(-0.5f, 0.5f, 0.0f),
-                Vec3(0.0f, 0.0f, 0.0f),
+                Vec3(0.0f, 0.0f, 1.0f),
                 Vec2(0.0f, 1.0f),
                 RgbaColor(0.0f, 0.0f, 0.0f, 1.0f)}};
 

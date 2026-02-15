@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.1.0)
+cmake_minimum_required(VERSION 3.28.3)
 project(Toybox LANGUAGES C CXX)
 enable_testing()
 

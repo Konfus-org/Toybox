@@ -1,11 +1,9 @@
 #include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/common/int.h"
 #include "tbx/common/string_utils.h"
-#include "tbx/debugging/logging.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/files/file_operator.h"
+#include "tbx/files/file_ops.h"
 #include "tbx/plugin_api/plugin.h"
-#include "tbx/plugin_api/plugin_registry.h"
 #include <algorithm>
 #include <deque>
 #include <filesystem>
@@ -18,12 +16,6 @@
 
 namespace tbx
 {
-    struct RequiredFallbackPlugin
-    {
-        PluginCategory category = PluginCategory::DEFAULT;
-        PluginMeta meta;
-    };
-
     static bool path_contains_directory_token(
         const std::filesystem::path& path,
         std::string_view directory_name_lowered)
@@ -120,23 +112,6 @@ namespace tbx
             return {};
         }
 
-        if (meta.linkage == PluginLinkage::STATIC)
-        {
-            Plugin* plug = PluginRegistry::get_instance().find_plugin(meta.name);
-            if (!plug)
-            {
-                TBX_TRACE_WARNING("Static plugin not registered: {}", meta.name);
-                return {};
-            }
-
-            auto instance = std::unique_ptr<Plugin, PluginDeleter>(
-                plug,
-                [](Plugin*)
-                {
-                });
-            return LoadedPlugin(meta, nullptr, std::move(instance), host);
-        }
-
         const std::filesystem::path library_path = resolve_library_path(meta, file_ops);
         auto lib = std::make_unique<SharedLibrary>(library_path);
 
@@ -165,60 +140,6 @@ namespace tbx
 
         auto instance = std::unique_ptr<Plugin, PluginDeleter>(plugin_instance, destroy);
         return LoadedPlugin(meta, std::move(lib), std::move(instance), host);
-    }
-
-    static bool has_loaded_category(
-        const std::vector<LoadedPlugin>& loaded_plugins,
-        PluginCategory category)
-    {
-        for (const auto& plugin : loaded_plugins)
-        {
-            if (plugin.meta.category == category)
-                return true;
-        }
-
-        return false;
-    }
-
-    static const std::vector<RequiredFallbackPlugin>& get_required_fallback_plugins()
-    {
-        static const std::vector<RequiredFallbackPlugin> fallbacks = []()
-        {
-            std::vector<RequiredFallbackPlugin> entries;
-
-            PluginMeta logging_meta;
-            logging_meta.name = std::string(get_stdout_fallback_logger_name());
-            logging_meta.version = std::string(get_stdout_fallback_logger_version());
-            logging_meta.description = std::string(get_stdout_fallback_logger_description());
-            logging_meta.linkage = PluginLinkage::STATIC;
-            logging_meta.category = PluginCategory::LOGGING;
-            logging_meta.priority = 0;
-
-            RequiredFallbackPlugin logging_fallback;
-            logging_fallback.category = PluginCategory::LOGGING;
-            logging_fallback.meta = std::move(logging_meta);
-            entries.push_back(std::move(logging_fallback));
-
-            return entries;
-        }();
-
-        return fallbacks;
-    }
-
-    static void load_required_fallback_plugins(
-        std::vector<LoadedPlugin>& loaded_plugins,
-        FileOperator& file_ops,
-        IPluginHost& host)
-    {
-        for (const RequiredFallbackPlugin& fallback : get_required_fallback_plugins())
-        {
-            if (has_loaded_category(loaded_plugins, fallback.category))
-                continue;
-
-            LoadedPlugin fallback_loaded = load_plugin_internal(fallback.meta, file_ops, host);
-            if (fallback_loaded.is_valid())
-                loaded_plugins.push_back(std::move(fallback_loaded));
-        }
     }
 
     static std::vector<PluginMeta> resolve_plugin_load_order(const std::vector<PluginMeta>& plugins)
@@ -364,10 +285,7 @@ namespace tbx
         }
 
         if (discovered.empty())
-        {
-            load_required_fallback_plugins(loaded, file_ops, host);
             return loaded;
-        }
 
         std::vector<PluginMeta> metas;
         if (requested_ids.empty())
@@ -426,17 +344,11 @@ namespace tbx
         }
 
         if (metas.empty())
-        {
-            load_required_fallback_plugins(loaded, file_ops, host);
             return loaded;
-        }
 
         metas = resolve_plugin_load_order(metas);
         if (metas.empty())
-        {
-            load_required_fallback_plugins(loaded, file_ops, host);
             return loaded;
-        }
         for (const PluginMeta& meta : metas)
         {
             LoadedPlugin plug = load_plugin_internal(meta, file_ops, host);
@@ -446,7 +358,6 @@ namespace tbx
                 TBX_TRACE_WARNING("Failed to load plugin: {}", meta.name);
         }
 
-        load_required_fallback_plugins(loaded, file_ops, host);
         return loaded;
     }
 
@@ -465,7 +376,6 @@ namespace tbx
                 loaded.push_back(std::move(plug));
         }
 
-        load_required_fallback_plugins(loaded, file_ops, host);
         return loaded;
     }
 }
