@@ -2,8 +2,9 @@ set(CMAKE_FOLDER "tests")
 add_executable(TbxImporterTests)
 
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
+    "${PROJECT_SOURCE_DIR}/plugins/*/tests/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/shared/*.h"
 )
 
 target_precompile_headers(TbxImporterTests PRIVATE "pch.h")
