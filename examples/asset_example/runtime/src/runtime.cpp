@@ -6,7 +6,6 @@
 #include "tbx/graphics/renderer.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
-#include <memory>
 
 namespace tbx::examples
 {
