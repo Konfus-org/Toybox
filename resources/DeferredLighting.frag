@@ -96,7 +96,7 @@ vec3 evaluate_directional_light(
     float specular_strength,
     float shininess)
 {
-    vec3 light_direction = safe_normalize(-light.direction, vec3(0.0, 0.0, -1.0));
+    vec3 light_direction = safe_normalize(light.direction, vec3(0.0, 0.0, -1.0));
     float diffuse_term = max(dot(normal, light_direction), 0.0);
     vec3 half_direction = safe_normalize(light_direction + view_direction, normal);
     float specular_term = pow(max(dot(normal, half_direction), 0.0), shininess) * specular_strength;
