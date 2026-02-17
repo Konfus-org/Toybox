@@ -8,6 +8,7 @@
 #include "tbx/math/trig.h"
 #include "tbx/messages/observable.h"
 #include <algorithm>
+#include <cmath>
 #include <glad/glad.h>
 #include <limits>
 #include <span>
@@ -315,7 +316,7 @@ namespace tbx::plugins
         auto light_position = shadow_center + (direction_to_light * 40.0f);
 
         auto up_axis = Vec3(0.0f, 1.0f, 0.0f);
-        if (abs(dot(direction_to_light, up_axis)) > 0.95f)
+        if (std::abs(dot(direction_to_light, up_axis)) > 0.95f)
             up_axis = Vec3(1.0f, 0.0f, 0.0f);
 
         auto light_view = look_at(light_position, shadow_center, up_axis);
