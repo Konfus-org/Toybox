@@ -67,7 +67,8 @@ namespace tbx::plugins
     static void draw_shadow_entity(
         const Entity& entity,
         OpenGlResourceManager& resource_manager,
-        const Mat4& light_view_projection)
+        const Mat4& light_view_projection,
+        std::vector<GlResourceScope>& resource_scopes)
     {
         if (!entity.has_component<Renderer>())
             return;
@@ -82,7 +83,7 @@ namespace tbx::plugins
         if (!draw_resources.mesh || !draw_resources.shader_program)
             return;
 
-        auto resource_scopes = std::vector<GlResourceScope> {};
+        resource_scopes.clear();
         resource_scopes.reserve(draw_resources.textures.size() + 2);
         resource_scopes.push_back(GlResourceScope(*draw_resources.shader_program));
         resource_scopes.push_back(GlResourceScope(*draw_resources.mesh));
@@ -94,9 +95,32 @@ namespace tbx::plugins
         draw_resources.mesh->draw(draw_resources.use_tesselation);
     }
 
+    OpenGlShadowPass::~OpenGlShadowPass() noexcept
+    {
+        if (_shadow_framebuffer_id == 0)
+            return;
+
+        glDeleteFramebuffers(1, &_shadow_framebuffer_id);
+        _shadow_framebuffer_id = 0;
+    }
+
+    uint32 OpenGlShadowPass::get_or_create_shadow_framebuffer_id()
+    {
+        if (_shadow_framebuffer_id != 0)
+            return _shadow_framebuffer_id;
+
+        glCreateFramebuffers(1, &_shadow_framebuffer_id);
+        if (_shadow_framebuffer_id == 0)
+            return 0;
+
+        glNamedFramebufferDrawBuffer(_shadow_framebuffer_id, GL_NONE);
+        glNamedFramebufferReadBuffer(_shadow_framebuffer_id, GL_NONE);
+        return _shadow_framebuffer_id;
+    }
+
     void OpenGlShadowPass::execute(
         const OpenGlRenderFrameContext& frame_context,
-        OpenGlResourceManager& resource_manager) const
+        OpenGlResourceManager& resource_manager)
     {
         const auto max_shadow_maps = std::min(
             frame_context.shadow_data.map_texture_ids.size(),
@@ -105,13 +129,10 @@ namespace tbx::plugins
         if (shadow_map_count == 0)
             return;
 
-        uint32 shadow_framebuffer_id = 0;
-        glCreateFramebuffers(1, &shadow_framebuffer_id);
+        const uint32 shadow_framebuffer_id = get_or_create_shadow_framebuffer_id();
         if (shadow_framebuffer_id == 0)
             return;
 
-        glNamedFramebufferDrawBuffer(shadow_framebuffer_id, GL_NONE);
-        glNamedFramebufferReadBuffer(shadow_framebuffer_id, GL_NONE);
         glBindFramebuffer(GL_FRAMEBUFFER, shadow_framebuffer_id);
 
         glViewport(0, 0, SHADOW_MAP_RESOLUTION, SHADOW_MAP_RESOLUTION);
@@ -120,6 +141,7 @@ namespace tbx::plugins
         glEnable(GL_CULL_FACE);
         glCullFace(GL_FRONT);
 
+        auto resource_scopes = std::vector<GlResourceScope> {};
         for (size_t shadow_index = 0; shadow_index < shadow_map_count; ++shadow_index)
         {
             const auto texture_id = frame_context.shadow_data.map_texture_ids[shadow_index];
@@ -137,13 +159,20 @@ namespace tbx::plugins
             const auto& light_view_projection =
                 frame_context.shadow_data.light_view_projections[shadow_index];
             for (const auto& entity : frame_context.camera_view.in_view_static_entities)
-                draw_shadow_entity(entity, resource_manager, light_view_projection);
+                draw_shadow_entity(
+                    entity,
+                    resource_manager,
+                    light_view_projection,
+                    resource_scopes);
             for (const auto& entity : frame_context.camera_view.in_view_dynamic_entities)
-                draw_shadow_entity(entity, resource_manager, light_view_projection);
+                draw_shadow_entity(
+                    entity,
+                    resource_manager,
+                    light_view_projection,
+                    resource_scopes);
         }
 
         glCullFace(GL_BACK);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glDeleteFramebuffers(1, &shadow_framebuffer_id);
     }
 }

@@ -41,10 +41,11 @@ namespace tbx::plugins
             glDisable(GL_BLEND);
 
             auto view_projection = frame_context.view_projection;
+            auto resource_scopes = std::vector<GlResourceScope> {};
             for (const auto& entity : frame_context.camera_view.in_view_static_entities)
-                draw_entity(entity, view_projection);
+                draw_entity(entity, view_projection, resource_scopes);
             for (const auto& entity : frame_context.camera_view.in_view_dynamic_entities)
-                draw_entity(entity, view_projection);
+                draw_entity(entity, view_projection, resource_scopes);
         }
 
       private:
@@ -104,7 +105,10 @@ namespace tbx::plugins
             glEnable(GL_CULL_FACE);
         }
 
-        void draw_entity(const Entity& entity, const Mat4& view_projection) const
+        void draw_entity(
+            const Entity& entity,
+            const Mat4& view_projection,
+            std::vector<GlResourceScope>& resource_scopes) const
         {
             TBX_ASSERT(
                 entity.has_component<Renderer>(),
@@ -123,7 +127,7 @@ namespace tbx::plugins
 
             apply_culling(renderer);
 
-            auto resource_scopes = std::vector<GlResourceScope> {};
+            resource_scopes.clear();
             resource_scopes.reserve(draw_resources.textures.size() + 2);
             resource_scopes.push_back(GlResourceScope(*draw_resources.shader_program));
             resource_scopes.push_back(GlResourceScope(*draw_resources.mesh));
