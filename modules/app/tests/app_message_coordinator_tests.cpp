@@ -380,6 +380,37 @@ namespace tbx::tests::app
         EXPECT_EQ(processed_payload, "ready");
     }
 
+    TEST(dispatcher_send_error_stops_dispatch, does_not_invoke_subsequent_handlers)
+    {
+        // Arrange
+        AppMessageCoordinator d;
+        GlobalDispatcherScope dispatcher_scope(d);
+        std::vector<int> call_order = {};
+
+        d.register_handler(
+            [&](Message& message)
+            {
+                // Act
+                call_order.push_back(1);
+                message.state = MessageState::ERROR;
+            });
+        d.register_handler(
+            [&](Message&)
+            {
+                call_order.push_back(2);
+            });
+
+        Message msg;
+
+        // Act
+        auto result = d.send(msg);
+
+        // Assert
+        EXPECT_FALSE(result.succeeded());
+        ASSERT_EQ(call_order.size(), 1U);
+        EXPECT_EQ(call_order[0], 1);
+    }
+
     TEST(dispatcher_handler_order, invokes_handlers_in_registration_order)
     {
         AppMessageCoordinator d;

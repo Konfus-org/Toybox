@@ -1,5 +1,6 @@
 #include "tbx/app/app_message_coordinator.h"
 #include "tbx/debugging/macros.h"
+#include <algorithm>
 #include <exception>
 #include <mutex>
 #include <string>
@@ -108,7 +109,11 @@ namespace tbx
     // AppMessageCoordinator
     // ----------------------
 
-    AppMessageCoordinator::AppMessageCoordinator() = default;
+    AppMessageCoordinator::AppMessageCoordinator()
+        : _handlers_snapshot(std::make_shared<std::vector<RegisteredMessageHandler>>())
+    {
+    }
+
     AppMessageCoordinator::~AppMessageCoordinator() noexcept
     {
         flush();
@@ -118,51 +123,69 @@ namespace tbx
     Uuid AppMessageCoordinator::register_handler(MessageHandler handler)
     {
         Uuid id = Uuid::generate();
-        {
-            std::lock_guard<std::mutex> lock(_handlers_mutex);
-            _handlers.push_back(
-                RegisteredMessageHandler {
-                    .id = id,
-                    .handler = std::make_shared<MessageHandler>(std::move(handler)),
-                });
-        }
+        std::lock_guard<std::mutex> lock(_handlers_write_mutex);
+
+        auto current = get_handlers_snapshot();
+        auto next = std::make_shared<std::vector<RegisteredMessageHandler>>(*current);
+        next->push_back(
+            RegisteredMessageHandler {
+                .id = id,
+                .handler = std::make_shared<MessageHandler>(std::move(handler)),
+            });
+        std::atomic_store_explicit(
+            &_handlers_snapshot,
+            std::const_pointer_cast<const std::vector<RegisteredMessageHandler>>(next),
+            std::memory_order_release);
+
         return id;
     }
 
     void AppMessageCoordinator::deregister_handler(const Uuid& token)
     {
-        std::lock_guard<std::mutex> lock(_handlers_mutex);
-        std::vector<RegisteredMessageHandler> next;
-        next.reserve(_handlers.size());
-        for (auto& entry : _handlers)
-        {
-            if (entry.id != token)
-                next.push_back(std::move(entry));
-        }
-        _handlers.swap(next);
+        std::lock_guard<std::mutex> lock(_handlers_write_mutex);
+
+        auto current = get_handlers_snapshot();
+        auto next = std::make_shared<std::vector<RegisteredMessageHandler>>(*current);
+        std::erase_if(
+            *next,
+            [&](const RegisteredMessageHandler& entry)
+            {
+                return entry.id == token;
+            });
+        std::atomic_store_explicit(
+            &_handlers_snapshot,
+            std::const_pointer_cast<const std::vector<RegisteredMessageHandler>>(next),
+            std::memory_order_release);
     }
 
     void AppMessageCoordinator::clear_handlers()
     {
-        std::lock_guard<std::mutex> lock(_handlers_mutex);
-        _handlers.clear();
+        std::lock_guard<std::mutex> lock(_handlers_write_mutex);
+
+        auto cleared = std::make_shared<std::vector<RegisteredMessageHandler>>();
+        std::atomic_store_explicit(
+            &_handlers_snapshot,
+            std::const_pointer_cast<const std::vector<RegisteredMessageHandler>>(cleared),
+            std::memory_order_release);
+    }
+
+    std::shared_ptr<const std::vector<RegisteredMessageHandler>> AppMessageCoordinator::
+        get_handlers_snapshot() const
+    {
+        return std::atomic_load_explicit(&_handlers_snapshot, std::memory_order_acquire);
     }
 
     void AppMessageCoordinator::dispatch(Message& msg) const
     {
         try
         {
-            std::vector<RegisteredMessageHandler> handlers_snapshot;
-            {
-                std::lock_guard<std::mutex> lock(_handlers_mutex);
-                handlers_snapshot = _handlers;
-            }
+            auto handlers_snapshot = get_handlers_snapshot();
 
             if (cancel_if_requested(msg))
                 return;
 
             MessageState previous_state = msg.state;
-            for (const auto& entry : handlers_snapshot)
+            for (const auto& entry : *handlers_snapshot)
             {
                 if (!entry.handler || !(*entry.handler))
                 {
@@ -185,6 +208,8 @@ namespace tbx
                 if (msg.state == MessageState::HANDLED)
                     break;
                 if (msg.state == MessageState::CANCELLED)
+                    return;
+                if (msg.state == MessageState::ERROR)
                     return;
                 if (cancel_if_requested(msg))
                     return;
