@@ -110,7 +110,8 @@ namespace tbx
     // ----------------------
 
     AppMessageCoordinator::AppMessageCoordinator()
-        : _handlers_snapshot(std::make_shared<std::vector<RegisteredMessageHandler>>())
+        : _handlers_snapshot(
+              std::make_shared<const std::vector<RegisteredMessageHandler>>())
     {
     }
 
@@ -132,10 +133,7 @@ namespace tbx
                 .id = id,
                 .handler = std::make_shared<MessageHandler>(std::move(handler)),
             });
-        std::atomic_store_explicit(
-            &_handlers_snapshot,
-            std::const_pointer_cast<const std::vector<RegisteredMessageHandler>>(next),
-            std::memory_order_release);
+        _handlers_snapshot.store(next, std::memory_order_release);
 
         return id;
     }
@@ -152,27 +150,21 @@ namespace tbx
             {
                 return entry.id == token;
             });
-        std::atomic_store_explicit(
-            &_handlers_snapshot,
-            std::const_pointer_cast<const std::vector<RegisteredMessageHandler>>(next),
-            std::memory_order_release);
+        _handlers_snapshot.store(next, std::memory_order_release);
     }
 
     void AppMessageCoordinator::clear_handlers()
     {
         std::lock_guard<std::mutex> lock(_handlers_write_mutex);
 
-        auto cleared = std::make_shared<std::vector<RegisteredMessageHandler>>();
-        std::atomic_store_explicit(
-            &_handlers_snapshot,
-            std::const_pointer_cast<const std::vector<RegisteredMessageHandler>>(cleared),
-            std::memory_order_release);
+        auto cleared = std::make_shared<const std::vector<RegisteredMessageHandler>>();
+        _handlers_snapshot.store(cleared, std::memory_order_release);
     }
 
     std::shared_ptr<const std::vector<RegisteredMessageHandler>> AppMessageCoordinator::
         get_handlers_snapshot() const
     {
-        return std::atomic_load_explicit(&_handlers_snapshot, std::memory_order_acquire);
+        return _handlers_snapshot.load(std::memory_order_acquire);
     }
 
     void AppMessageCoordinator::dispatch(Message& msg) const

@@ -66,7 +66,8 @@ namespace tbx
         void dispatch(Message& msg) const;
 
         mutable std::mutex _handlers_write_mutex;
-        mutable std::shared_ptr<const std::vector<RegisteredMessageHandler>> _handlers_snapshot;
+        mutable std::atomic<std::shared_ptr<const std::vector<RegisteredMessageHandler>>>
+            _handlers_snapshot;
         mutable std::mutex _pending_mutex;
         mutable std::vector<QueuedMessage> _pending;
     };
