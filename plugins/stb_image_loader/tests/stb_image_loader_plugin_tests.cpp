@@ -1,8 +1,8 @@
 #include "pch.h"
-#include "../../tests/shared/importer_test_environment.h"
+#include "tbx/plugin_api/tests/importer_test_environment.h"
 #include "../src/stb_image_loader_plugin.h"
 
-namespace tbx::tests::importers
+namespace tbx::tests::plugin_api
 {
     /// <summary>
     /// Verifies the texture importer applies texture settings declared in sidecar metadata.
@@ -10,7 +10,7 @@ namespace tbx::tests::importers
     TEST(importers, stb_image_loader_applies_texture_meta_settings)
     {
         // Arrange
-        auto working_directory = std::filesystem::path("/virtual/assets");
+        auto working_directory = get_test_working_directory();
         TestPluginHost host = TestPluginHost(working_directory);
         auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
         file_ops->set_binary(
