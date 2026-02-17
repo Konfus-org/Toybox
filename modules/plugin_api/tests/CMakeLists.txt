@@ -11,7 +11,10 @@ file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
 
 target_precompile_headers(TbxPluginApiTests PRIVATE "pch.h")
 target_sources(TbxPluginApiTests PRIVATE ${TEST_SOURCES})
-target_include_directories(TbxPluginApiTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(TbxPluginApiTests PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
 
 target_link_libraries(TbxPluginApiTests PRIVATE
     Tbx::App
