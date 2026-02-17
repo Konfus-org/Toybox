@@ -86,24 +86,26 @@ namespace tbx
         const NormalizedAssetPath& normalized)
     {
         auto file_operator = FileOperator(_working_directory);
+
+        if (_handle_source)
+        {
+            auto handle = Handle();
+            if (_handle_source(normalized.resolved_path, handle))
+            {
+                auto result = ResolvedAssetMetaId();
+                result.resolved_id = handle.id;
+                result.state =
+                    handle.id.is_valid() ? AssetMetaState::VALID : AssetMetaState::INVALID;
+                return result;
+            }
+        }
+
         if (!file_operator.exists(normalized.resolved_path))
         {
             TBX_TRACE_WARNING(
                 "AssetManager: requested asset '{}' was not found on disk. Using runtime id only.",
                 normalized.normalized_path);
             return {};
-        }
-
-        if (_handle_source)
-        {
-            auto handle = Handle();
-            if (!_handle_source(normalized.resolved_path, handle))
-                return {};
-
-            auto result = ResolvedAssetMetaId();
-            result.resolved_id = handle.id;
-            result.state = handle.id.is_valid() ? AssetMetaState::VALID : AssetMetaState::INVALID;
-            return result;
         }
 
         auto result = ResolvedAssetMetaId();
