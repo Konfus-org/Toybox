@@ -4,12 +4,14 @@ add_executable(TbxImporterTests)
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
     "${PROJECT_SOURCE_DIR}/plugins/*/tests/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/shared/*.h"
 )
 
 target_precompile_headers(TbxImporterTests PRIVATE "pch.h")
 target_sources(TbxImporterTests PRIVATE ${TEST_SOURCES})
-target_include_directories(TbxImporterTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(TbxImporterTests PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/modules/plugin_api/tests/include"
+)
 
 target_link_libraries(TbxImporterTests PRIVATE
     Tbx::Plugins::StbImageLoaderPlugin

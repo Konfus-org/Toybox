@@ -1,8 +1,8 @@
 #include "pch.h"
-#include "../../tests/shared/importer_test_environment.h"
+#include "tbx/plugin_api/tests/importer_test_environment.h"
 #include "../src/glsl_shader_loader_plugin.h"
 
-namespace tbx::tests::importers
+namespace tbx::tests::plugin_api
 {
     /// <summary>
     /// Verifies the GLSL importer expands include directives using in-memory files.
@@ -10,7 +10,7 @@ namespace tbx::tests::importers
     TEST(importers, glsl_shader_loader_expands_includes_from_ifileops)
     {
         // Arrange
-        auto working_directory = std::filesystem::path("/virtual/assets");
+        auto working_directory = get_test_working_directory();
         TestPluginHost host = TestPluginHost(working_directory);
         auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
         file_ops->set_text(

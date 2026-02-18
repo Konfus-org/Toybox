@@ -5,6 +5,7 @@
 #include "tbx/ecs/entities.h"
 #include "tbx/graphics/graphics_api.h"
 #include "tbx/graphics/window.h"
+#include "tbx/input/input_manager.h"
 #include "tbx/plugin_api/loaded_plugin.h"
 #include "tbx/plugin_api/plugin_host.h"
 #include "tbx/time/delta_time.h"
@@ -126,6 +127,15 @@ namespace tbx
         IMessageCoordinator& get_message_coordinator() override;
 
         /// <summary>
+        /// Purpose: Returns the application input manager instance.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a reference owned by the application.
+        /// Thread Safety: Not thread-safe; synchronize access externally.
+        /// </remarks>
+        InputManager& get_input_manager() override;
+
+        /// <summary>
         /// Purpose: Returns the application entity manager instance.
         /// </summary>
         /// <remarks>
@@ -154,6 +164,7 @@ namespace tbx
         std::string _name = "App";
         EntityRegistry _entity_registry = {};
         AppMessageCoordinator _msg_coordinator = {};
+        InputManager _input_manager;
         std::vector<LoadedPlugin> _loaded = {};
         AppSettings _settings;
         Window _main_window;

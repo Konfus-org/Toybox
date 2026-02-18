@@ -11,6 +11,7 @@ add_subdirectory(assimp_model_loader)
 add_subdirectory(sdl_base_systems)
 add_subdirectory(sdl_opengl_adapter)
 add_subdirectory(sdl_windowing)
+add_subdirectory(sdl_input)
 add_subdirectory(opengl_rendering)
 add_subdirectory(tests)
 
