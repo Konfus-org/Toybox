@@ -6,11 +6,16 @@ namespace tbx::tests::ecs
     {
         EntityRegistry ecs = {};
 
-        const auto entity = ecs.create("Player", "Hero", "Gameplay");
-        const auto& description = entity.get_description();
+        auto entity = Entity("Player", ecs);
+        entity.set_tag("Hero");
+        entity.set_layer("Gameplay");
 
-        EXPECT_EQ(description.name, "Player");
-        EXPECT_EQ(description.tag, "Hero");
-        EXPECT_EQ(description.layer, "Gameplay");
+        EXPECT_EQ(entity.get_name(), "Player");
+        EXPECT_EQ(entity.get_tag(), "Hero");
+        EXPECT_EQ(entity.get_layer(), "Gameplay");
+
+        Uuid parent = Uuid(99U);
+        entity.set_parent(parent);
+        EXPECT_EQ(entity.get_parent(), parent);
     }
 }

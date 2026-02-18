@@ -9,11 +9,8 @@ namespace tbx
 {
     struct TBX_API Uuid
     {
-        Uuid() = default;
-        Uuid(uint32 v)
-            : value(v)
-        {
-        }
+        Uuid();
+        Uuid(uint32 v);
 
         static Uuid generate();
 
@@ -48,18 +45,14 @@ namespace tbx
         bool operator!=(const Uuid& other) const;
 
         uint32 value = 0U;
+
+        static const Uuid NONE;
     };
 
     /// <summary>Purpose: Formats a UUID value as a hex string.</summary>
     /// <remarks>Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for
     /// concurrent use.</remarks>
     TBX_API std::string to_string(const Uuid& value);
-
-    namespace invalid
-    {
-        inline Uuid uuid = Uuid();
-    }
-
 }
 
 namespace std

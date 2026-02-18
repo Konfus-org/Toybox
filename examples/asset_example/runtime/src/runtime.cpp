@@ -11,6 +11,7 @@ namespace tbx::examples
 {
     void AssetExampleRuntimePlugin::on_attach(IPluginHost& context)
     {
+        // Get the entity registry from the plugin host
         _ent_registry = &context.get_entity_registry();
 
         // Setup assets to use
@@ -22,18 +23,18 @@ namespace tbx::examples
         auto green_cube = Handle("Models/Green_Cube.fbx");
 
         // Setup light
-        _sun = _ent_registry->create("Light");
+        _sun = Entity("Light", *_ent_registry);
         _sun.add_component<DirectionalLight>(RgbaColor::yellow, 1, 0.25f);
         _sun.add_component<Transform>(Vec3(0), to_radians(Vec3(-45.0f, 45.0f, 0.0f)), Vec3(1));
 
         // Setup cube
-        _green_cube = _ent_registry->create("Cube");
+        _green_cube = Entity("Cube", *_ent_registry);
         _green_cube.add_component<Renderer>();
         _green_cube.add_component<StaticMesh>(green_cube);
         _green_cube.add_component<Transform>(Vec3(0.0f, 0.0f, -5.0f));
 
         // Setup ground
-        auto ground_ent = _ent_registry->create("Ground");
+        auto ground_ent = Entity("Ground", *_ent_registry);
         ground_ent.add_component<Renderer>(smily_mat);
         ground_ent.add_component<DynamicMesh>(quad);
         ground_ent.add_component<Transform>(
@@ -42,11 +43,11 @@ namespace tbx::examples
             Vec3(20.0f, 20.0f, 1.0f));
 
         // Setup sky
-        auto sky_ent = _ent_registry->create("Sky");
+        auto sky_ent = Entity("Sky", *_ent_registry);
         sky_ent.add_component<Sky>(skybox_mat);
 
         // Setup global post-processing stack
-        auto post_ent = _ent_registry->create("PostProcessing");
+        auto post_ent = Entity("PostProcessing", *_ent_registry);
         auto post_processing = PostProcessing({
             PostProcessingEffect {
                 .material =
@@ -63,7 +64,7 @@ namespace tbx::examples
         post_ent.add_component<PostProcessing>(post_processing);
 
         // Setup camera
-        auto cam_ent = _ent_registry->create("Camera");
+        auto cam_ent = Entity("Camera", *_ent_registry);
         cam_ent.add_component<Camera>();
         cam_ent.add_component<Transform>(Vec3(0.0f, 0.0f, 10.0f));
     }

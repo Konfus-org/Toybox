@@ -6,6 +6,14 @@
 
 namespace tbx
 {
+    const Uuid Uuid::NONE = Uuid();
+
+    Uuid::Uuid() = default;
+    Uuid::Uuid(uint32 v)
+        : value(v)
+    {
+    }
+
     Uuid Uuid::generate()
     {
         Uuid id = {};
@@ -23,7 +31,7 @@ namespace tbx
 
     static uint32 combine_value(uint32 seed, uint32 value)
     {
-        const auto hashed = std::hash<uint32>{}(value);
+        auto hashed = std::hash<uint32> {}(value);
         seed ^= hashed + 0x9e3779b9U + (seed << 6) + (seed >> 2);
         return seed;
     }
@@ -99,5 +107,4 @@ namespace tbx
         stream << std::hex << value.value;
         return stream.str();
     }
-
 }

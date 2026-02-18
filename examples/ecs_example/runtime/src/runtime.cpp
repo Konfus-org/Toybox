@@ -26,7 +26,7 @@ namespace tbx::examples
         _elapsed_seconds = 0.0f;
 
         // Setup camera
-        auto cam_ent = _ent_registry->create("Camera");
+        auto cam_ent = Entity("Camera", *_ent_registry);
         cam_ent.add_component<Camera>();
         cam_ent.add_component<Transform>(Vec3(0.0f, 0.0f, 10.0f));
 
@@ -36,7 +36,7 @@ namespace tbx::examples
         auto starting_x = -((toys_to_make - 1.0f) * spacing) * 0.5f;
         for (int i = 0; i < toys_to_make; i++)
         {
-            auto ent = _ent_registry->create(std::to_string(i));
+            auto ent = Entity(std::to_string(i), *_ent_registry);
             ent.add_component<Transform>(Vec3(
                 starting_x
                     + (static_cast<float>(i)
@@ -61,12 +61,12 @@ namespace tbx::examples
             transform.position.y = sin((_elapsed_seconds * 2.0f) + offset);
 
             auto& renderer = entity.get_component<Renderer>();
-            const float phase = transform.position.x;
-            const float t = (_elapsed_seconds * 1.5f) + phase;
+            float phase = transform.position.x;
+            float t = (_elapsed_seconds * 1.5f) + phase;
 
-            const float r = 0.5f + (0.5f * sin(t));
-            const float g = 0.5f + (0.5f * sin(t + (2.0f * PI / 3.0f)));
-            const float b = 0.5f + (0.5f * sin(t + (4.0f * PI / 3.0f)));
+            float r = 0.5f + (0.5f * sin(t));
+            float g = 0.5f + (0.5f * sin(t + (2.0f * PI / 3.0f)));
+            float b = 0.5f + (0.5f * sin(t + (4.0f * PI / 3.0f)));
 
             RgbaColor color = RgbaColor(r, g, b, 1.0f);
             renderer.material.parameters.set("color", color);
