@@ -1,5 +1,4 @@
-set(module_name PluginApi)
-set(TBX_PLUGIN_ABI_VERSION 1 CACHE STRING "Plugin ABI version used for plugin compatibility checks" FORCE)
+set(module_name Input)
 
 if(TBX_BUILD_SHARED)
     add_library(${module_name} SHARED)
@@ -17,19 +16,9 @@ add_library(Tbx::${module_name} ALIAS ${module_name})
 
 target_link_libraries(${module_name}
     PUBLIC
-        Tbx::Assets
-        Tbx::ECS
+        Tbx::Math
         Tbx::Messaging
-        Tbx::Input
-        Tbx::Debugging
-        Tbx::Files
-    PRIVATE
-        nlohmann_json
-)
-
-target_compile_definitions(${module_name}
-    PUBLIC
-        TBX_PLUGIN_ABI_VERSION=${TBX_PLUGIN_ABI_VERSION}
+        Tbx::Time
 )
 
 tbx_setup_module(${module_name})

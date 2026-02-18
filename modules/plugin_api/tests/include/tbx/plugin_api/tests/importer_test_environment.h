@@ -2,6 +2,7 @@
 #include "tbx/app/application.h"
 #include "tbx/assets/asset_manager.h"
 #include "tbx/files/file_ops.h"
+#include "tbx/input/input_manager.h"
 #include <filesystem>
 #include <string>
 #include <unordered_map>
@@ -11,8 +12,9 @@ namespace tbx::tests::plugin_api
 {
     /// <summary>
     /// Purpose: Provides an in-memory implementation of file operations for plugin tests.
-    /// Ownership: Owns all staged file contents internally; callers pass paths/data by value and receive copied data.
-    /// Thread Safety: Not thread-safe; use on a single thread or protect with external synchronization.
+    /// Ownership: Owns all staged file contents internally; callers pass paths/data by value and
+    /// receive copied data. Thread Safety: Not thread-safe; use on a single thread or protect with
+    /// external synchronization.
     /// </summary>
     class InMemoryFileOps final : public IFileOps
     {
@@ -46,15 +48,14 @@ namespace tbx::tests::plugin_api
             return FileType::NONE;
         }
 
-        std::vector<std::filesystem::path> read_directory(const std::filesystem::path&) const override
+        std::vector<std::filesystem::path> read_directory(
+            const std::filesystem::path&) const override
         {
             return {};
         }
 
-        bool read_file(
-            const std::filesystem::path& path,
-            FileDataFormat,
-            std::string& out_data) const override
+        bool read_file(const std::filesystem::path& path, FileDataFormat, std::string& out_data)
+            const override
         {
             auto iterator = _files.find(resolve(path));
             if (iterator == _files.end())
@@ -63,10 +64,8 @@ namespace tbx::tests::plugin_api
             return true;
         }
 
-        bool write_file(
-            const std::filesystem::path& path,
-            FileDataFormat,
-            const std::string& data) override
+        bool write_file(const std::filesystem::path& path, FileDataFormat, const std::string& data)
+            override
         {
             _files[resolve(path)] = data;
             return true;
@@ -91,8 +90,8 @@ namespace tbx::tests::plugin_api
     };
 
     /// <summary>
-    /// Purpose: Returns a deterministic absolute-style working directory path for tests on each platform.
-    /// Ownership: Returns a value path object with no shared lifetime requirements.
+    /// Purpose: Returns a deterministic absolute-style working directory path for tests on each
+    /// platform. Ownership: Returns a value path object with no shared lifetime requirements.
     /// Thread Safety: Thread-safe; no shared mutable state.
     /// </summary>
     static std::filesystem::path get_test_working_directory()
@@ -105,9 +104,10 @@ namespace tbx::tests::plugin_api
     }
 
     /// <summary>
-    /// Purpose: Minimal plugin host implementation that exposes engine services needed by importer tests.
-    /// Ownership: Owns coordinator, registry, settings, and asset manager for the test lifetime.
-    /// Thread Safety: Not thread-safe; intended for single-threaded test setup and execution.
+    /// Purpose: Minimal plugin host implementation that exposes engine services needed by importer
+    /// tests. Ownership: Owns coordinator, registry, settings, and asset manager for the test
+    /// lifetime. Thread Safety: Not thread-safe; intended for single-threaded test setup and
+    /// execution.
     /// </summary>
     class TestPluginHost final : public IPluginHost
     {
@@ -135,6 +135,11 @@ namespace tbx::tests::plugin_api
             return _coordinator;
         }
 
+        InputManager& get_input_manager() override
+        {
+            return _input_manager;
+        }
+
         EntityRegistry& get_entity_registry() override
         {
             return _registry;
@@ -148,6 +153,7 @@ namespace tbx::tests::plugin_api
       private:
         std::string _name = "ImporterTests";
         AppMessageCoordinator _coordinator = {};
+        InputManager _input_manager = _coordinator;
         EntityRegistry _registry = {};
         AssetManager _asset_manager;
         AppSettings _settings;

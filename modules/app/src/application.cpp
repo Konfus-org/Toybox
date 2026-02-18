@@ -25,13 +25,14 @@ namespace tbx
 
     Application::Application(const AppDescription& desc)
         : _name(desc.name)
+        , _input_manager(_msg_coordinator)
+        , _settings(_msg_coordinator)
         , _main_window(
               _msg_coordinator,
               desc.name.empty() ? std::string("Toybox Application") : desc.name,
               {1280, 720},
               WindowMode::WINDOWED,
               false)
-        , _settings(_msg_coordinator)
         , _asset_manager(desc.working_root)
     {
         FileOperator file_operator = FileOperator(desc.working_root);
@@ -90,6 +91,11 @@ namespace tbx
     IMessageCoordinator& Application::get_message_coordinator()
     {
         return _msg_coordinator;
+    }
+
+    InputManager& Application::get_input_manager()
+    {
+        return _input_manager;
     }
 
     EntityRegistry& Application::get_entity_registry()
@@ -182,6 +188,8 @@ namespace tbx
 
         // Begin update
         _msg_coordinator.send<ApplicationUpdateBeginEvent>(this, dt);
+
+        _input_manager.update(dt);
 
         // Update all loaded plugins
         for (auto& p : _loaded)

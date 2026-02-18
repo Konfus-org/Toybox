@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/assets/asset_manager.h"
 #include "tbx/ecs/entities.h"
+#include "tbx/input/input_manager.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/tbx_api.h"
 #include <string>
@@ -47,6 +48,15 @@ namespace tbx
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </remarks>
         virtual IMessageCoordinator& get_message_coordinator() = 0;
+
+        /// <summary>
+        /// Purpose: Returns the host input manager.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a reference owned by the host.
+        /// Thread Safety: Not thread-safe; synchronize access externally.
+        /// </remarks>
+        virtual InputManager& get_input_manager() = 0;
 
         /// <summary>
         /// Purpose: Returns the host entity manager.
