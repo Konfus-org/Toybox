@@ -189,11 +189,11 @@ namespace tbx
         // Begin update
         _msg_coordinator.send<ApplicationUpdateBeginEvent>(this, dt);
 
-        _input_manager.update(dt);
-
         // Update all loaded plugins
         for (auto& p : _loaded)
             p.instance->update(dt);
+
+        _input_manager.update(dt);
 
         // End update
         _msg_coordinator.send<ApplicationUpdateEndEvent>(this, dt);

@@ -9,6 +9,7 @@ namespace tbx::plugins
         if ((SDL_WasInit(mask) & mask) == mask)
         {
             _owns_gamepad_subsystem = false;
+            SDL_AddEventWatch(accumulate_wheel_delta, this);
             return;
         }
 
@@ -19,14 +20,23 @@ namespace tbx::plugins
             return;
         }
 
+        SDL_AddEventWatch(accumulate_wheel_delta, this);
+
         _owns_gamepad_subsystem = true;
     }
 
     void SdlInputPlugin::on_detach()
     {
+        SDL_RemoveEventWatch(accumulate_wheel_delta, this);
+
         if (_owns_gamepad_subsystem)
             SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
         _owns_gamepad_subsystem = false;
+    }
+
+    void SdlInputPlugin::on_update(const DeltaTime&)
+    {
+        _wheel_delta = 0.0F;
     }
 
     void SdlInputPlugin::on_recieve_message(Message& msg)
@@ -70,7 +80,7 @@ namespace tbx::plugins
         request.Message::result.flag_success();
     }
 
-    void SdlInputPlugin::handle_mouse_request(MouseStateRequest& request) const
+    void SdlInputPlugin::handle_mouse_request(MouseStateRequest& request)
     {
         MouseState state = {};
 
@@ -83,6 +93,7 @@ namespace tbx::plugins
         float delta_y = 0.0F;
         SDL_GetRelativeMouseState(&delta_x, &delta_y);
         state.delta = Vec2(delta_x, delta_y);
+        state.wheel_delta = _wheel_delta;
 
         constexpr int LEFT_BUTTON = 1;
         constexpr int MIDDLE_BUTTON = 2;
@@ -104,6 +115,19 @@ namespace tbx::plugins
         request.result = std::move(state);
         request.state = MessageState::HANDLED;
         request.Message::result.flag_success();
+    }
+
+    bool SdlInputPlugin::accumulate_wheel_delta(void* userdata, SDL_Event* event)
+    {
+        if (!userdata || !event)
+            return true;
+
+        if (event->type != SDL_EVENT_MOUSE_WHEEL)
+            return true;
+
+        auto* plugin = static_cast<SdlInputPlugin*>(userdata);
+        plugin->_wheel_delta += event->wheel.y;
+        return true;
     }
 
     void SdlInputPlugin::handle_controller_request(ControllerStateRequest& request) const

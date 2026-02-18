@@ -14,13 +14,17 @@ namespace tbx::plugins
       public:
         void on_attach(IPluginHost& host) override;
         void on_detach() override;
+        void on_update(const DeltaTime& dt) override;
         void on_recieve_message(Message& msg) override;
 
       private:
         void handle_keyboard_request(KeyboardStateRequest& request) const;
-        void handle_mouse_request(MouseStateRequest& request) const;
+        void handle_mouse_request(MouseStateRequest& request);
         void handle_controller_request(ControllerStateRequest& request) const;
 
+        static bool accumulate_wheel_delta(void* userdata, SDL_Event* event);
+
         bool _owns_gamepad_subsystem = false;
+        float _wheel_delta = 0.0F;
     };
 }

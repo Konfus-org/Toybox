@@ -183,7 +183,5 @@ namespace tbx::examples
             move *= inverse_length;
             camera_transform.position += move * _camera_move_speed * static_cast<float>(dt.seconds);
         }
-
-        _look_delta = Vec2(0.0F, 0.0F);
     }
 }
