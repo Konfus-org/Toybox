@@ -19,6 +19,7 @@ target_link_libraries(${module_name}
         Tbx::Time
         Tbx::Math
         Tbx::Messaging
+        Tbx::Input
         Tbx::PluginApi
         Tbx::ECS
         Tbx::Debugging
