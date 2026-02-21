@@ -7,7 +7,7 @@
 
 ## Formatting & Layout
 - Follow the root `.clang-format` (Allman braces, Microsoft base, 4-space indents, column limit 100, namespace indentation, sorted includes). Run the formatter on any touched file or match its style manually.
-- Use windows style line endings: `CRLF`.
+- Use linux style line endings: `LF`.
 - Keep `#include` directives contiguous—no blank lines between include statements.
 - Keep namespaces non-empty. If you only need a translation-unit helper, prefer `static` functions or unnamed structs empty over empty or detail namespaces.
 - Maintain include hygiene: headers should only include what they use, and source files should provide the heavier dependencies.

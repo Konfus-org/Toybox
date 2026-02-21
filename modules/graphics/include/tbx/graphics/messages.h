@@ -29,7 +29,7 @@ namespace tbx
         /// Thread Safety: Safe to destroy on any thread.</remarks>
         ~WindowMakeCurrentRequest() noexcept override;
 
-        Uuid window = invalid::uuid;
+        Uuid window = {};
     };
 
     /// <summary>Requests that a window present its back buffer.</summary>
@@ -51,7 +51,7 @@ namespace tbx
         /// Thread Safety: Safe to destroy on any thread.</remarks>
         ~WindowPresentRequest() noexcept override;
 
-        Uuid window = invalid::uuid;
+        Uuid window = {};
     };
 
     /// <summary>Notifies listeners that a window context is ready.</summary>
@@ -75,7 +75,7 @@ namespace tbx
         {
         }
 
-        Uuid window = invalid::uuid;
+        Uuid window = {};
         GraphicsProcAddress get_proc_address = nullptr;
         Size size = {};
     };
@@ -84,13 +84,15 @@ namespace tbx
     /// <remarks>Purpose: Allows backend adapters to observe native window creation, recreation, and
     /// teardown without coupling windowing to a specific graphics backend.
     /// Ownership: Native handles are non-owning; providers must keep them valid while published.
-    /// Thread Safety: Delivered on the dispatcher thread; consumers must obey backend thread rules.</remarks>
+    /// Thread Safety: Delivered on the dispatcher thread; consumers must obey backend thread
+    /// rules.</remarks>
     struct TBX_API WindowNativeHandleChangedEvent : public Event
     {
         /// <summary>Creates a native-handle changed event for the specified window.</summary>
         /// <remarks>Purpose: Communicates old/new native handles so adapters can migrate resources.
         /// Ownership: Handles are non-owning; no lifetime extension is implied.
-        /// Thread Safety: Safe to construct on any thread; handling is backend-thread specific.</remarks>
+        /// Thread Safety: Safe to construct on any thread; handling is backend-thread
+        /// specific.</remarks>
         WindowNativeHandleChangedEvent(
             const Uuid& window_id,
             void* previous_handle,
@@ -103,22 +105,23 @@ namespace tbx
         {
         }
 
-        Uuid window = invalid::uuid;
+        Uuid window = {};
         void* previous_native_handle = nullptr;
         void* native_handle = nullptr;
         Size size = {};
     };
 
-    /// <summary>Requests that the windowing backend publish current native window handles.</summary>
-    /// <remarks>Purpose: Allows adapters loaded after window creation to receive handle events.
-    /// Ownership: No ownership transfer.
-    /// Thread Safety: Should be handled on the main thread.</remarks>
+    /// <summary>Requests that the windowing backend publish current native window
+    /// handles.</summary> <remarks>Purpose: Allows adapters loaded after window creation to receive
+    /// handle events. Ownership: No ownership transfer. Thread Safety: Should be handled on the
+    /// main thread.</remarks>
     struct TBX_API WindowNativeHandleSnapshotRequest : public Request<void>
     {
         /// <summary>Creates a snapshot request.</summary>
         /// <remarks>Purpose: Prompts windowing to re-emit native-handle events for open windows.
         /// Ownership: No ownership transfer.
-        /// Thread Safety: Safe to construct on any thread; handling should be main-thread.</remarks>
+        /// Thread Safety: Safe to construct on any thread; handling should be
+        /// main-thread.</remarks>
         WindowNativeHandleSnapshotRequest();
 
         /// <summary>Destroys the snapshot request instance.</summary>

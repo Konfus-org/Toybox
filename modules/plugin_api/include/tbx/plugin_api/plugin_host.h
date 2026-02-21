@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/assets/asset_manager.h"
-#include "tbx/ecs/entities.h"
+#include "tbx/ecs/entity.h"
 #include "tbx/input/input_manager.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/tbx_api.h"

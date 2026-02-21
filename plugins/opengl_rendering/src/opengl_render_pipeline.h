@@ -4,7 +4,7 @@
 #include "opengl_resources/opengl_resource_manager.h"
 #include "tbx/common/handle.h"
 #include "tbx/common/pipeline.h"
-#include "tbx/ecs/entities.h"
+#include "tbx/ecs/entity.h"
 #include "tbx/graphics/color.h"
 #include "tbx/math/matrices.h"
 #include "tbx/math/size.h"

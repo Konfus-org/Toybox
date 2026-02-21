@@ -4,7 +4,7 @@
 namespace tbx
 {
     /// <summary>
-    /// Purpose: Handle for the built-in shader include library at resources/Globals.glsl.
+    /// Purpose: Handle for the built-in shader include library at resources/Shaders/Globals.glsl.
     /// </summary>
     /// <remarks>
     /// Ownership: Non-owning reference to a built-in asset.

@@ -286,17 +286,17 @@ namespace tbx
             _main_window.is_open = false;
             _should_exit = true;
 
-            // 3. Destroy all entities
-            _entity_registry.destroy_all();
+            // 3. Unregister all entities
+            _entity_registry.clear();
             _asset_manager.unload_all();
 
             // 4. Detach and unload all non-logging plugins first, then logging plugins.
             _loaded.clear();
 
             // 5. Process any remaining messages that may have been posted during shutdown
-            const auto shutdown_elapsed_ms = std::chrono::duration<double, std::milli>(
-                                                 std::chrono::steady_clock::now() - shutdown_begin)
-                                                 .count();
+            auto shutdown_elapsed_ms = std::chrono::duration<double, std::milli>(
+                                           std::chrono::steady_clock::now() - shutdown_begin)
+                                           .count();
             TBX_TRACE_INFO("Application shutdown completed in {:.2f} ms.", shutdown_elapsed_ms);
 
             // 6. Process any remaining posted messages and clear handlers
@@ -305,9 +305,9 @@ namespace tbx
         }
         catch (const std::exception& ex)
         {
-            const auto shutdown_elapsed_ms = std::chrono::duration<double, std::milli>(
-                                                 std::chrono::steady_clock::now() - shutdown_begin)
-                                                 .count();
+            auto shutdown_elapsed_ms = std::chrono::duration<double, std::milli>(
+                                           std::chrono::steady_clock::now() - shutdown_begin)
+                                           .count();
             TBX_TRACE_ERROR(
                 "Application shutdown failed after {:.2f} ms: {}",
                 shutdown_elapsed_ms,
@@ -316,9 +316,9 @@ namespace tbx
         }
         catch (...)
         {
-            const auto shutdown_elapsed_ms = std::chrono::duration<double, std::milli>(
-                                                 std::chrono::steady_clock::now() - shutdown_begin)
-                                                 .count();
+            auto shutdown_elapsed_ms = std::chrono::duration<double, std::milli>(
+                                           std::chrono::steady_clock::now() - shutdown_begin)
+                                           .count();
             TBX_TRACE_ERROR(
                 "Application shutdown failed after {:.2f} ms with unknown exception.",
                 shutdown_elapsed_ms);

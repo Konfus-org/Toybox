@@ -285,7 +285,10 @@ namespace tbx
         }
 
         if (discovered.empty())
+        {
+            TBX_TRACE_WARNING("No plugins found at {}", directory.string());
             return loaded;
+        }
 
         std::vector<PluginMeta> metas;
         if (requested_ids.empty())

@@ -25,7 +25,7 @@ namespace tbx::examples
 
         // Setup light
         _sun = Entity("Light", *_ent_registry);
-        _sun.add_component<DirectionalLight>(RgbaColor::yellow, 1, 0.25f);
+        _sun.add_component<DirectionalLight>(RgbaColor::yellow, 1.0f, 0.25f);
         _sun.add_component<Transform>(Vec3(0), to_radians(Vec3(-45.0f, 45.0f, 0.0f)), Vec3(1));
 
         // Setup cube
@@ -65,9 +65,9 @@ namespace tbx::examples
         post_ent.add_component<PostProcessing>(post_processing);
 
         // Setup camera
-        auto cam_ent = Entity("Camera", *_ent_registry);
-        cam_ent.add_component<Camera>();
-        cam_ent.add_component<Transform>(Vec3(0.0f, 0.0f, 10.0f));
+        _camera = Entity("Camera", *_ent_registry);
+        _camera.add_component<Camera>();
+        _camera.add_component<Transform>(Vec3(0.0f, 0.0f, 10.0f));
 
         // Setup input scheme: WASD move + mouse delta look
         auto camera_scheme = InputScheme(_camera_scheme_name);

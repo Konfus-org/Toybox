@@ -182,5 +182,3 @@ namespace tbx::plugins
         request.Message::result.flag_success();
     }
 }
-
-TBX_REGISTER_PLUGIN(SdlInputPlugin, tbx::plugins::SdlInputPlugin)

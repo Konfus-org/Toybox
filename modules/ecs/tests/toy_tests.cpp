@@ -1,4 +1,4 @@
-#include "tbx/ecs/entities.h"
+#include "tbx/ecs/entity.h"
 
 namespace tbx::tests::ecs
 {

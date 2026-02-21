@@ -56,7 +56,7 @@ namespace tbx::plugins
             std::vector<OpenGlPostProcessEffect> effects = {};
         };
 
-        Uuid _window_id = invalid::uuid;
+        Uuid _window_id = Uuid::NONE;
         Size _viewport_size = {0, 0};
         Size _render_resolution = {0, 0};
         bool _is_context_ready = false;

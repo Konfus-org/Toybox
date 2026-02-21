@@ -4,7 +4,7 @@
 #include "opengl_texture.h"
 #include "tbx/assets/asset_manager.h"
 #include "tbx/common/uuid.h"
-#include "tbx/ecs/entities.h"
+#include "tbx/ecs/entity.h"
 #include "tbx/graphics/renderer.h"
 #include "tbx/graphics/shader.h"
 #include <chrono>

@@ -2,7 +2,7 @@
 #include "tbx/app/app_description.h"
 #include "tbx/app/app_message_coordinator.h"
 #include "tbx/assets/asset_manager.h"
-#include "tbx/ecs/entities.h"
+#include "tbx/ecs/entity.h"
 #include "tbx/graphics/graphics_api.h"
 #include "tbx/graphics/window.h"
 #include "tbx/input/input_manager.h"

@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/ecs/entities.h"
+#include "tbx/ecs/entity.h"
 #include "tbx/input/input_manager.h"
 #include "tbx/plugin_api/plugin.h"
 #include <string>

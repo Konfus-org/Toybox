@@ -2,7 +2,7 @@
 #include "tbx/assets/builtin_assets.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/ecs/entities.h"
+#include "tbx/ecs/entity.h"
 #include "tbx/graphics/camera.h"
 #include "tbx/graphics/color.h"
 #include "tbx/graphics/mesh.h"
