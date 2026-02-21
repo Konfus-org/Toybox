@@ -2,6 +2,7 @@
 #include "tbx/graphics/messages.h"
 #include <SDL3/SDL.h>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace tbx::plugins
@@ -23,7 +24,7 @@ namespace tbx::plugins
 
     /// <summary>Bridges SDL windows and OpenGL context management for the engine.</summary>
     /// <remarks>Purpose: Centralizes SDL OpenGL attribute setup, context creation, and swap.
-    /// Ownership: Owns one shared SDL_GLContext handle and releases it on destruction.
+    /// Ownership: Owns one SDL_GLContext per tracked SDL window and releases them on destruction.
     /// Thread Safety: Not thread-safe; expected to be used from the render/main thread that owns
     /// the SDL contexts.</remarks>
     class SdlOpenGlAdapter final
@@ -44,18 +45,18 @@ namespace tbx::plugins
         /// Safety: Not thread-safe; call before creating contexts.</remarks>
         void apply_default_attributes() const;
 
-        /// <summary>Creates the shared OpenGL context if needed and binds it to the
-        /// window.</summary> <remarks>Purpose: Initializes a single reusable SDL_GLContext and
-        /// optionally applies vsync when first created. Ownership: Adapter owns the shared context
-        /// until destruction. Thread Safety: Not thread-safe; must be called on the owning
-        /// thread.</remarks>
+        /// <summary>Creates an OpenGL context for one SDL window when needed.</summary>
+        /// <remarks>Purpose: Initializes and binds a per-window SDL_GLContext and applies current
+        /// vsync setting.
+        /// Ownership: Adapter owns the created context until `destroy_context` or destruction.
+        /// Thread Safety: Not thread-safe; must be called on the owning thread.</remarks>
         bool try_create_context(SDL_Window* sdl_window, const std::string& window_title);
 
-        /// <summary>Destroys the shared OpenGL context.</summary>
-        /// <remarks>Purpose: Releases the shared SDL_GLContext owned by this adapter.
+        /// <summary>Destroys the OpenGL context associated with one SDL window.</summary>
+        /// <remarks>Purpose: Releases one SDL_GLContext owned by this adapter.
         /// Ownership: Adapter releases its owned context; the SDL_Window remains non-owning.
         /// Thread Safety: Not thread-safe; must be called on the owning thread.</remarks>
-        void destroy_context();
+        void destroy_context(SDL_Window* sdl_window);
 
         /// <summary>Makes the OpenGL context for the given window current.</summary>
         /// <remarks>Purpose: Activates the window's context for subsequent GL commands.
@@ -89,6 +90,6 @@ namespace tbx::plugins
 
       private:
         SdlOpenGlAdapterSettings _settings = {};
-        SDL_GLContext _shared_context = nullptr;
+        std::unordered_map<SDL_Window*, SDL_GLContext> _contexts = {};
     };
 }

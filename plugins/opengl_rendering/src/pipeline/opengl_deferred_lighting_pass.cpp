@@ -1,7 +1,8 @@
 #include "opengl_deferred_lighting_pass.h"
+#include "opengl_resources/opengl_post_processing_stack_resource.h"
 #include "opengl_resources/opengl_resource.h"
 #include "opengl_resources/opengl_resource_manager.h"
-#include "tbx/assets/builtin_assets.h"
+#include "opengl_resources/opengl_shadow_map.h"
 #include "tbx/debugging/macros.h"
 #include <algorithm>
 #include <glad/glad.h>
@@ -143,27 +144,50 @@ namespace tbx::plugins
     static void upload_shadow_data(
         OpenGlShaderProgram& shader_program,
         const OpenGlRenderFrameContext& frame_context,
-        int first_texture_slot)
+        OpenGlResourceManager& resource_manager,
+        int first_texture_slot,
+        size_t& out_bound_shadow_map_count)
     {
         const auto max_shadow_maps = std::min(
-            frame_context.shadow_data.map_texture_ids.size(),
+            frame_context.shadow_data.map_uuids.size(),
             frame_context.shadow_data.light_view_projections.size());
         const auto shadow_map_count =
             std::min(max_shadow_maps, static_cast<size_t>(MAX_SHADOW_MAPS));
 
+        out_bound_shadow_map_count = 0;
         shader_program.try_upload(
             MaterialParameter {
                 .name = "u_shadow_map_count",
-                .data = static_cast<int>(shadow_map_count),
+                .data = 0,
             });
 
         for (size_t index = 0; index < shadow_map_count; ++index)
         {
             const auto index_string = std::to_string(index);
             const auto texture_slot = first_texture_slot + static_cast<int>(index);
-            glBindTextureUnit(
-                static_cast<GLuint>(texture_slot),
-                frame_context.shadow_data.map_texture_ids[index]);
+            const auto shadow_map_uuid = frame_context.shadow_data.map_uuids[index];
+            auto base_resource = std::shared_ptr<IOpenGlResource> {};
+            if (!resource_manager.try_get(shadow_map_uuid, base_resource))
+            {
+                TBX_ASSERT(
+                    false,
+                    "OpenGL rendering: deferred pass could not resolve shadow-map UUID.");
+                continue;
+            }
+            auto shadow_map = std::dynamic_pointer_cast<OpenGlShadowMap>(base_resource);
+            if (!shadow_map)
+            {
+                TBX_ASSERT(
+                    false,
+                    "OpenGL rendering: deferred pass could not resolve shadow-map UUID.");
+                continue;
+            }
+
+            const auto texture_id = shadow_map->get_texture_id();
+            if (texture_id == 0)
+                continue;
+
+            glBindTextureUnit(static_cast<GLuint>(texture_slot), texture_id);
 
             shader_program.try_upload(
                 MaterialParameter {
@@ -175,7 +199,13 @@ namespace tbx::plugins
                     .name = "u_light_view_projection_matrices[" + index_string + "]",
                     .data = frame_context.shadow_data.light_view_projections[index],
                 });
+            out_bound_shadow_map_count += 1;
         }
+        shader_program.try_upload(
+            MaterialParameter {
+                .name = "u_shadow_map_count",
+                .data = static_cast<int>(out_bound_shadow_map_count),
+            });
 
         const auto split_count = std::min(
             frame_context.shadow_data.cascade_splits.size(),
@@ -201,12 +231,18 @@ namespace tbx::plugins
             frame_context.lighting_target != nullptr,
             "OpenGL rendering: deferred pass requires a lighting target.");
 
-        auto draw_resources = OpenGlDrawResources {};
-        const auto lighting_material = MaterialInstance {
-            .handle = deferred_lighting_material,
-        };
-        if (!resource_manager.try_load_post_process(lighting_material, draw_resources))
+        auto deferred_lighting_resource = std::shared_ptr<IOpenGlResource> {};
+        if (!resource_manager.try_get(
+                frame_context.deferred_lighting_entity,
+                deferred_lighting_resource))
             return;
+
+        auto deferred_lighting_stack = std::dynamic_pointer_cast<OpenGlPostProcessingStackResource>(
+            deferred_lighting_resource);
+        if (!deferred_lighting_stack || deferred_lighting_stack->get_effects().empty())
+            return;
+
+        const auto& draw_resources = deferred_lighting_stack->get_effects()[0].draw_resources;
         if (!draw_resources.mesh || !draw_resources.shader_program)
             return;
 
@@ -278,13 +314,14 @@ namespace tbx::plugins
                 .data = frame_context.inverse_view_projection,
             });
         const int first_shadow_map_slot = texture_slot;
-        upload_shadow_data(*draw_resources.shader_program, frame_context, first_shadow_map_slot);
+        size_t bound_shadow_map_count = 0;
+        upload_shadow_data(
+            *draw_resources.shader_program,
+            frame_context,
+            resource_manager,
+            first_shadow_map_slot,
+            bound_shadow_map_count);
 
-        const auto max_shadow_maps = std::min(
-            frame_context.shadow_data.map_texture_ids.size(),
-            frame_context.shadow_data.light_view_projections.size());
-        const auto shadow_map_count =
-            std::min(max_shadow_maps, static_cast<size_t>(MAX_SHADOW_MAPS));
         draw_resources.shader_program->try_upload(
             MaterialParameter {
                 .name = "u_directional_light_count",
@@ -313,6 +350,11 @@ namespace tbx::plugins
         glBindTextureUnit(static_cast<GLuint>(normal_slot), 0);
         glBindTextureUnit(static_cast<GLuint>(material_slot), 0);
         glBindTextureUnit(static_cast<GLuint>(depth_slot), 0);
+        const auto max_shadow_maps = std::min(
+            frame_context.shadow_data.map_uuids.size(),
+            frame_context.shadow_data.light_view_projections.size());
+        const auto shadow_map_count =
+            std::min(max_shadow_maps, static_cast<size_t>(MAX_SHADOW_MAPS));
         for (size_t shadow_index = 0; shadow_index < shadow_map_count; ++shadow_index)
         {
             const auto shadow_texture_slot = first_shadow_map_slot + static_cast<int>(shadow_index);

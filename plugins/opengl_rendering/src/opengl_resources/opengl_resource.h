@@ -1,6 +1,5 @@
 #pragma once
 #include "tbx/tbx_api.h"
-#include <utility>
 
 namespace tbx::plugins
 {
@@ -37,56 +36,13 @@ namespace tbx::plugins
     class GlResourceScope final
     {
       public:
-        /// <summary>Binds the provided resource for the scope lifetime.</summary>
-        /// <remarks>Purpose: Automates bind/unbind around a scope.
-        /// Ownership: Non-owning reference; resource must outlive the scope.
-        /// Thread Safety: Use only on the render thread.</remarks>
-        explicit GlResourceScope(IOpenGlResource& resource)
-            : _resource(&resource)
-        {
-            _resource->bind();
-        }
-
-        /// <summary>Unbinds the resource when the scope ends.</summary>
-        /// <remarks>Purpose: Ensures resource state is released.
-        /// Ownership: Does not own the resource.
-        /// Thread Safety: Use only on the render thread.</remarks>
-        ~GlResourceScope() noexcept
-        {
-            if (_resource)
-            {
-                _resource->unbind();
-            }
-        }
-
+        GlResourceScope(IOpenGlResource& resource);
         GlResourceScope(const GlResourceScope&) = delete;
+        GlResourceScope(GlResourceScope&& other) noexcept;
+        ~GlResourceScope() noexcept;
+
         GlResourceScope& operator=(const GlResourceScope&) = delete;
-
-        /// <summary>Moves the scope to transfer ownership of the binding.</summary>
-        /// <remarks>Purpose: Allows scopes to be stored in containers.
-        /// Ownership: Transfers non-owning pointer ownership.
-        /// Thread Safety: Use only on the render thread.</remarks>
-        GlResourceScope(GlResourceScope&& other) noexcept
-            : _resource(std::exchange(other._resource, nullptr))
-        {
-        }
-
-        /// <summary>Destroys the current binding and adopts another scope.</summary>
-        /// <remarks>Purpose: Moves binding ownership between scopes.
-        /// Ownership: Transfers non-owning pointer ownership.
-        /// Thread Safety: Use only on the render thread.</remarks>
-        GlResourceScope& operator=(GlResourceScope&& other) noexcept
-        {
-            if (this != &other)
-            {
-                if (_resource)
-                {
-                    _resource->unbind();
-                }
-                _resource = std::exchange(other._resource, nullptr);
-            }
-            return *this;
-        }
+        GlResourceScope& operator=(GlResourceScope&& other) noexcept;
 
       private:
         IOpenGlResource* _resource = nullptr;

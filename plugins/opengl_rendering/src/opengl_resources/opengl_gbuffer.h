@@ -1,8 +1,10 @@
 #pragma once
 #include "opengl_resource.h"
+#include "opengl_texture.h"
 #include "tbx/common/int.h"
 #include "tbx/graphics/color.h"
 #include "tbx/math/size.h"
+#include <memory>
 
 namespace tbx::plugins
 {
@@ -110,6 +112,15 @@ namespace tbx::plugins
         uint32 get_albedo_spec_texture_id() const;
 
         /// <summary>
+        /// Purpose: Returns shared ownership of the albedo/specular attachment texture wrapper.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns shared ownership of renderer-managed runtime texture.
+        /// Thread Safety: Not thread-safe; use on the render thread.
+        /// </remarks>
+        std::shared_ptr<OpenGlTexture> get_albedo_spec_texture() const;
+
+        /// <summary>
         /// Purpose: Returns the normal attachment texture identifier.
         /// </summary>
         /// <remarks>
@@ -117,6 +128,15 @@ namespace tbx::plugins
         /// Thread Safety: Safe on the render thread.
         /// </remarks>
         uint32 get_normal_texture_id() const;
+
+        /// <summary>
+        /// Purpose: Returns shared ownership of the normal attachment texture wrapper.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns shared ownership of renderer-managed runtime texture.
+        /// Thread Safety: Not thread-safe; use on the render thread.
+        /// </remarks>
+        std::shared_ptr<OpenGlTexture> get_normal_texture() const;
 
         /// <summary>
         /// Purpose: Returns the material attachment texture identifier.
@@ -128,6 +148,15 @@ namespace tbx::plugins
         uint32 get_material_texture_id() const;
 
         /// <summary>
+        /// Purpose: Returns shared ownership of the material attachment texture wrapper.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns shared ownership of renderer-managed runtime texture.
+        /// Thread Safety: Not thread-safe; use on the render thread.
+        /// </remarks>
+        std::shared_ptr<OpenGlTexture> get_material_texture() const;
+
+        /// <summary>
         /// Purpose: Returns the depth attachment texture identifier.
         /// </summary>
         /// <remarks>
@@ -136,12 +165,21 @@ namespace tbx::plugins
         /// </remarks>
         uint32 get_depth_texture_id() const;
 
+        /// <summary>
+        /// Purpose: Returns shared ownership of the depth attachment texture wrapper.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns shared ownership of renderer-managed runtime texture.
+        /// Thread Safety: Not thread-safe; use on the render thread.
+        /// </remarks>
+        std::shared_ptr<OpenGlTexture> get_depth_texture() const;
+
       private:
         uint32 _framebuffer_id = 0;
-        uint32 _albedo_spec_texture_id = 0;
-        uint32 _normal_texture_id = 0;
-        uint32 _material_texture_id = 0;
-        uint32 _depth_texture_id = 0;
+        std::shared_ptr<OpenGlTexture> _albedo_spec_texture = nullptr;
+        std::shared_ptr<OpenGlTexture> _normal_texture = nullptr;
+        std::shared_ptr<OpenGlTexture> _material_texture = nullptr;
+        std::shared_ptr<OpenGlTexture> _depth_texture = nullptr;
         Size _resolution = {};
     };
 }

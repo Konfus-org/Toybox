@@ -4,6 +4,7 @@
 #include "opengl_resources/opengl_resource_manager.h"
 #include "tbx/common/handle.h"
 #include "tbx/common/pipeline.h"
+#include "tbx/common/uuid.h"
 #include "tbx/ecs/entity.h"
 #include "tbx/graphics/color.h"
 #include "tbx/math/matrices.h"
@@ -58,6 +59,20 @@ namespace tbx::plugins
     struct OpenGlPostProcessEffect final
     {
         /// <summary>
+        /// Purpose: Source entity that owns the PostProcessing component.
+        /// Ownership: Non-owning entity wrapper.
+        /// Thread Safety: Safe to read on render thread while registry is valid.
+        /// </summary>
+        Entity owner_entity = {};
+
+        /// <summary>
+        /// Purpose: Effect index within the owner's PostProcessing component.
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        size_t source_effect_index = 0U;
+
+        /// <summary>
         /// Purpose: Enables or disables this post-process effect.
         /// Ownership: Value type.
         /// Thread Safety: Safe to read concurrently.
@@ -94,6 +109,13 @@ namespace tbx::plugins
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
         bool is_enabled = false;
+
+        /// <summary>
+        /// Purpose: Entity that owns the active PostProcessing component.
+        /// Ownership: Non-owning entity wrapper into the active registry.
+        /// Thread Safety: Read-only on render thread.
+        /// </summary>
+        Entity owner_entity = {};
 
         /// <summary>
         /// Purpose: Ordered effects to execute from first to last.
@@ -161,11 +183,11 @@ namespace tbx::plugins
     struct OpenGlShadowFrameData final
     {
         /// <summary>
-        /// Purpose: Ordered shadow-map depth textures sampled by deferred lighting.
-        /// Ownership: Non-owning span; caller owns texture identifiers.
+        /// Purpose: Ordered shadow-map resources sampled by deferred lighting.
+        /// Ownership: Non-owning span; caller owns shadow-map UUID storage.
         /// Thread Safety: Safe to read concurrently while storage remains valid.
         /// </summary>
-        std::span<const uint32> map_texture_ids = {};
+        std::span<const Uuid> map_uuids = {};
 
         /// <summary>
         /// Purpose: Ordered light view-projection matrices matching each shadow map.
@@ -222,11 +244,11 @@ namespace tbx::plugins
         RgbaColor clear_color = RgbaColor::black;
 
         /// <summary>
-        /// Purpose: Optional sky runtime material used for skybox rendering in the geometry pass.
-        /// Ownership: Stores a non-owning base material handle and runtime values by value.
-        /// Thread Safety: Safe to read concurrently.
+        /// Purpose: Optional sky entity used by the sky pass.
+        /// Ownership: Non-owning entity wrapper into the active registry.
+        /// Thread Safety: Read-only on render thread.
         /// </summary>
-        MaterialInstance sky_material = {};
+        Entity sky_entity = {};
 
         /// <summary>
         /// Purpose: Optional post-processing settings used for final fullscreen shading.
@@ -234,6 +256,13 @@ namespace tbx::plugins
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
         OpenGlPostProcessSettings post_process = {};
+
+        /// <summary>
+        /// Purpose: Entity used to resolve deferred-lighting fullscreen material resources.
+        /// Ownership: Non-owning entity wrapper into the active registry.
+        /// Thread Safety: Read-only on render thread.
+        /// </summary>
+        Entity deferred_lighting_entity = {};
 
         /// <summary>
         /// Purpose: G-buffer used for deferred geometry outputs.
@@ -328,7 +357,7 @@ namespace tbx::plugins
 
         /// <summary>
         /// Purpose: Scene color texture sampled by post-process passes.
-        /// Ownership: Value type; texture is owned by the originating framebuffer.
+        /// Ownership: Value type; texture is owned by the originating framebuffer resource.
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
         uint32 scene_color_texture_id = 0;
@@ -368,7 +397,7 @@ namespace tbx::plugins
     /// Purpose: Executes OpenGL rendering work in a predefined operation order.
     /// </summary>
     /// <remarks>
-    /// Ownership: Owns render operations and an OpenGL resource manager.
+    /// Ownership: Owns render operations and stores a non-owning resource-manager reference.
     /// Thread Safety: Not thread-safe; configure and execute on the render thread.
     /// </remarks>
     class OpenGlRenderPipeline final : public Pipeline
@@ -378,16 +407,17 @@ namespace tbx::plugins
         /// Purpose: Configures the default OpenGL rendering operation sequence.
         /// </summary>
         /// <remarks>
-        /// Ownership: Owns created operations and the resource manager.
+        /// Ownership: Owns created operations; stores a non-owning pointer to the provided
+        /// resource manager.
         /// Thread Safety: Construct on the render thread.
         /// </remarks>
-        explicit OpenGlRenderPipeline(AssetManager& asset_manager);
+        explicit OpenGlRenderPipeline(OpenGlResourceManager& resource_manager);
 
         /// <summary>
-        /// Purpose: Destroys the pipeline and clears any queued operations.
+        /// Purpose: Destroys the pipeline and clears queued operations.
         /// </summary>
         /// <remarks>
-        /// Ownership: Releases owned operations and cached resources.
+        /// Ownership: Releases owned operations.
         /// Thread Safety: Destroy on the render thread.
         /// </remarks>
         ~OpenGlRenderPipeline() noexcept override;
@@ -401,16 +431,7 @@ namespace tbx::plugins
         /// </remarks>
         void execute(const std::any& payload) override;
 
-        /// <summary>
-        /// Purpose: Removes every cached OpenGL resource from the resource manager.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Releases this pipeline's shared ownership of cached resources.
-        /// Thread Safety: Not thread-safe; call on the render thread.
-        /// </remarks>
-        void clear_resource_caches();
-
       private:
-        OpenGlResourceManager _resource_manager;
+        OpenGlResourceManager* _resource_manager = nullptr;
     };
 }

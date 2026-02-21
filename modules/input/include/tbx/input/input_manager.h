@@ -606,8 +606,10 @@ namespace tbx
         std::vector<std::reference_wrapper<const InputScheme>> get_all_schemes() const;
 
         KeyboardState get_keyboard_state() const;
-        MouseState get_mouse_state() const;
         ControllerState get_controller_state(int controller_index) const;
+        MouseState get_mouse_state() const;
+        void set_mouse_lock_mode(MouseLockMode mode) const;
+        MouseLockMode get_mouse_lock_mode() const;
 
         /// <summary>Updates active schemes and triggers action callbacks for the frame.</summary>
         /// <remarks>Purpose: Evaluates bindings and sends action lifecycle callbacks.

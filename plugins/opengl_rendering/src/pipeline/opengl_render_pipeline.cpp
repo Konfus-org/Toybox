@@ -116,7 +116,7 @@ namespace tbx::plugins
 
             const auto& renderer = entity.get_component<Renderer>();
             auto draw_resources = OpenGlDrawResources {};
-            if (!_resource_manager->try_load(entity, draw_resources))
+            if (!_resource_manager->try_get(entity, draw_resources))
                 return;
 
             if (!draw_resources.mesh || !draw_resources.shader_program)
@@ -236,19 +236,21 @@ namespace tbx::plugins
         execute_with_frame_context(*frame_context);
     }
 
-    OpenGlRenderPipeline::OpenGlRenderPipeline(AssetManager& asset_manager)
-        : _resource_manager(asset_manager)
+    OpenGlRenderPipeline::OpenGlRenderPipeline(OpenGlResourceManager& resource_manager)
+        : _resource_manager(&resource_manager)
     {
-        add_operation(std::make_unique<OpenGlGeometryOperation>(_resource_manager));
-        add_operation(std::make_unique<OpenGlShadowOperation>(_resource_manager));
-        add_operation(std::make_unique<OpenGlDeferredLightingOperation>(_resource_manager));
-        add_operation(std::make_unique<OpenGlSkyOperation>(_resource_manager));
-        add_operation(std::make_unique<OpenGlPostProcessOperation>(_resource_manager));
+        TBX_ASSERT(
+            _resource_manager != nullptr,
+            "OpenGL rendering: pipeline requires a valid resource manager.");
+        add_operation(std::make_unique<OpenGlGeometryOperation>(*_resource_manager));
+        add_operation(std::make_unique<OpenGlShadowOperation>(*_resource_manager));
+        add_operation(std::make_unique<OpenGlDeferredLightingOperation>(*_resource_manager));
+        add_operation(std::make_unique<OpenGlSkyOperation>(*_resource_manager));
+        add_operation(std::make_unique<OpenGlPostProcessOperation>(*_resource_manager));
     }
 
     OpenGlRenderPipeline::~OpenGlRenderPipeline() noexcept
     {
-        clear_resource_caches();
         clear_operations();
     }
 
@@ -272,12 +274,10 @@ namespace tbx::plugins
             frame_context->lighting_target != nullptr,
             "OpenGL rendering: frame context requires a lighting target framebuffer.");
 
-        _resource_manager.unload_unreferenced();
+        TBX_ASSERT(
+            _resource_manager != nullptr,
+            "OpenGL rendering: pipeline execute requires a valid resource manager.");
+        _resource_manager->clear_unused();
         Pipeline::execute(payload);
-    }
-
-    void OpenGlRenderPipeline::clear_resource_caches()
-    {
-        _resource_manager.clear();
     }
 }

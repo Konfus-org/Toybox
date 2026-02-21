@@ -1,5 +1,7 @@
 #pragma once
 #include "opengl_mesh.h"
+#include "opengl_resource.h"
+#include "opengl_runtime_resource_descriptor.h"
 #include "opengl_shader.h"
 #include "opengl_texture.h"
 #include "tbx/assets/asset_manager.h"
@@ -26,8 +28,8 @@ namespace tbx::plugins
     struct OpenGlTextureBinding final
     {
         std::string uniform_name = "";
-        int slot = 0;
         std::shared_ptr<OpenGlTexture> texture = nullptr;
+        int slot = 0;
     };
 
     /// <summary>
@@ -41,9 +43,25 @@ namespace tbx::plugins
     {
         std::shared_ptr<OpenGlMesh> mesh = nullptr;
         std::shared_ptr<OpenGlShaderProgram> shader_program = nullptr;
-        bool use_tesselation = false;
         std::vector<OpenGlTextureBinding> textures = {};
         std::vector<MaterialParameter> shader_parameters = {};
+        bool use_tesselation = false;
+    };
+
+    /// <summary>
+    /// Purpose: Stores one cached OpenGL resource and eviction metadata.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores shared ownership of one IOpenGlResource instance.
+    /// Thread Safety: Not thread-safe; mutate only on the render thread.
+    /// </remarks>
+    struct OpenGlCachedResourceEntry final
+    {
+        std::shared_ptr<IOpenGlResource> resource = nullptr;
+        std::chrono::steady_clock::time_point last_use = {};
+        uint64 signature = 0U;
+        uint64 aux_signature = 0U;
+        bool is_pinned = false;
     };
 
     /// <summary>
@@ -76,30 +94,69 @@ namespace tbx::plugins
         /// ownership in the cache when creation succeeds.
         /// Thread Safety: Not thread-safe; call only from the render thread.
         /// </remarks>
-        bool try_load(const Entity& entity, OpenGlDrawResources& out_resources);
+        bool try_get(const Entity& entity, OpenGlDrawResources& out_resources, bool pin = false);
 
         /// <summary>
-        /// Purpose: Loads or retrieves cached OpenGL draw resources for a sky material.
+        /// Purpose: Registers cached OpenGL resources for an entity without requiring immediate
+        /// retrieval.
         /// </summary>
         /// <remarks>
-        /// Ownership: Returns shared ownership through the output struct and stores shared
-        /// ownership in the cache when creation succeeds.
+        /// Ownership: Stores shared ownership of created resources in this manager cache.
         /// Thread Safety: Not thread-safe; call only from the render thread.
         /// </remarks>
-        bool try_load_sky(const MaterialInstance& sky_material, OpenGlDrawResources& out_resources);
+        bool add(const Entity& entity, bool pin = false);
 
         /// <summary>
-        /// Purpose: Loads or retrieves cached OpenGL draw resources for a post-processing
-        /// material.
+        /// Purpose: Registers one runtime OpenGL resource directly by UUID and descriptor.
         /// </summary>
         /// <remarks>
-        /// Ownership: Returns shared ownership through the output struct and stores shared
-        /// ownership in the cache when creation succeeds.
+        /// Ownership: Stores shared ownership of the created resource in this manager cache.
         /// Thread Safety: Not thread-safe; call only from the render thread.
         /// </remarks>
-        bool try_load_post_process(
-            const MaterialInstance& post_process_material,
-            OpenGlDrawResources& out_resources);
+        bool add(
+            const Uuid& resource_uuid,
+            const OpenGlRuntimeResourceDescriptor& descriptor,
+            bool pin = false);
+
+        /// <summary>
+        /// Purpose: Resolves one cached resource by entity.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns shared ownership through output parameter when found.
+        /// Thread Safety: Not thread-safe; call only from the render thread.
+        /// </remarks>
+        bool try_get(
+            const Entity& entity,
+            std::shared_ptr<IOpenGlResource>& out_resource,
+            bool pin = false);
+
+        /// <summary>
+        /// Purpose: Resolves one stored resource by UUID.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns shared ownership through output parameter when found.
+        /// Thread Safety: Not thread-safe; call only from the render thread.
+        /// </remarks>
+        bool try_get(const Uuid& resource_uuid, std::shared_ptr<IOpenGlResource>& out_resource)
+            const;
+
+        /// <summary>
+        /// Purpose: Marks one stored runtime resource as pinned.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Adds the UUID to the pinned-resource set.
+        /// Thread Safety: Not thread-safe; call only from the render thread.
+        /// </remarks>
+        void pin(const Uuid& resource_uuid);
+
+        /// <summary>
+        /// Purpose: Removes one runtime resource pin.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Removes the UUID from the pinned-resource set.
+        /// Thread Safety: Not thread-safe; call only from the render thread.
+        /// </remarks>
+        void unpin(const Uuid& resource_uuid);
 
         /// <summary>
         /// Purpose: Clears every cached resource entry.
@@ -114,21 +171,18 @@ namespace tbx::plugins
         /// Purpose: Removes cached resources whose last reference time exceeds the configured TTL.
         /// </summary>
         /// <remarks>
-        /// Ownership: Releases shared ownership of resources removed from cache maps.
+        /// Ownership: Releases shared ownership of resources removed from non-pinned cache maps.
         /// Thread Safety: Not thread-safe; call only from the render thread.
         /// </remarks>
-        void unload_unreferenced();
+        void clear_unused();
 
       private:
-        using Clock = std::chrono::steady_clock;
-
-        /// <summary>
-        /// Purpose: Creates OpenGL resources for an entity from the source TBX assets.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns shared ownership of created resources through the output struct.
-        /// Thread Safety: Not thread-safe; call only from the render thread.
-        /// </remarks>
+        bool try_get_stored_resource_base(
+            const Uuid& resource_uuid,
+            std::shared_ptr<IOpenGlResource>& out_resource) const;
+        bool try_get_cached_draw_resources(
+            const OpenGlCachedResourceEntry& cached_entry,
+            OpenGlDrawResources& out_resources) const;
         bool try_create_static_mesh_resources(
             const Entity& entity,
             const Renderer& renderer,
@@ -137,6 +191,10 @@ namespace tbx::plugins
             const Entity& entity,
             const Renderer& renderer,
             OpenGlDrawResources& out_resources);
+        bool try_create_post_processing_stack_resource(
+            const PostProcessing& post_processing,
+            std::shared_ptr<IOpenGlResource>& out_resource,
+            uint64& out_signature);
         bool try_create_sky_resources(
             const MaterialInstance& sky_material,
             OpenGlDrawResources& out_resources);
@@ -149,65 +207,14 @@ namespace tbx::plugins
             OpenGlDrawResources& out_resources,
             bool force_deferred_geometry_program);
 
-        struct CachedEntityResources final
-        {
-            struct StaticSignature final
-            {
-                Uuid model_id = {};
-                Uuid material_id = {};
-                uint64 runtime_material_hash = 0U;
-
-                bool operator==(const StaticSignature& other) const
-                {
-                    return (
-                        model_id == other.model_id
-                        && material_id == other.material_id
-                        && runtime_material_hash == other.runtime_material_hash);
-                }
-            };
-            struct DynamicSignature final
-            {
-                std::uintptr_t mesh_address = 0U;
-                Uuid material_id = {};
-                uint64 runtime_material_hash = 0U;
-
-                bool operator==(const DynamicSignature& other) const
-                {
-                    return (
-                        mesh_address == other.mesh_address
-                        && material_id == other.material_id
-                        && runtime_material_hash == other.runtime_material_hash);
-                }
-            };
-
-            OpenGlDrawResources resources = {};
-            Clock::time_point last_use = {};
-            bool is_dynamic = false;
-            StaticSignature static_signature = {};
-            DynamicSignature dynamic_signature = {};
-        };
-
-        struct CachedSkyResources final
-        {
-            OpenGlDrawResources resources = {};
-            Clock::time_point last_use = {};
-        };
-
-        struct CachedPostProcessResources final
-        {
-            OpenGlDrawResources resources = {};
-            Clock::time_point last_use = {};
-        };
-
       private:
+        using Clock = std::chrono::steady_clock;
+
         static constexpr std::chrono::seconds UNUSED_TTL = std::chrono::seconds(3);
         static constexpr std::chrono::seconds UNUSED_SCAN_INTERVAL = std::chrono::seconds(1);
 
         AssetManager* _asset_manager = nullptr;
-        std::unordered_map<Uuid, CachedEntityResources> _resources_by_entity = {};
-        std::unordered_map<uint64, CachedSkyResources> _resources_by_sky_material = {};
-        std::unordered_map<uint64, CachedPostProcessResources> _resources_by_post_process_material =
-            {};
+        std::unordered_map<Uuid, OpenGlCachedResourceEntry> _resources_by_entity = {};
         Clock::time_point _next_unused_scan_time = {};
     };
 }

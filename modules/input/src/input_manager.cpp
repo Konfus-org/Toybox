@@ -1,6 +1,7 @@
 #include "tbx/input/input_manager.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 namespace tbx
 {
@@ -119,6 +120,28 @@ namespace tbx
             if (iterator == snapshot.controllers.end())
                 return nullptr;
             return &iterator->second;
+        }
+
+        static void warn_if_request_failed(const char* operation_name, const Result& result)
+        {
+            if (result.succeeded())
+                return;
+
+            const std::string& report = result.get_report();
+            if (report.empty())
+            {
+                std::fprintf(
+                    stderr,
+                    "[Input Warning] Input operation '%s' failed.\n",
+                    operation_name);
+                return;
+            }
+
+            std::fprintf(
+                stderr,
+                "[Input Warning] Input operation '%s' failed: %s\n",
+                operation_name,
+                report.c_str());
         }
     }
 
@@ -376,21 +399,39 @@ namespace tbx
     KeyboardState InputManager::get_keyboard_state() const
     {
         KeyboardStateRequest request = {};
-        _dispatcher->send(request);
+        const Result send_result = _dispatcher->send(request);
+        warn_if_request_failed("get_keyboard_state", send_result);
         return request.result;
     }
 
     MouseState InputManager::get_mouse_state() const
     {
         MouseStateRequest request = {};
-        _dispatcher->send(request);
+        const Result send_result = _dispatcher->send(request);
+        warn_if_request_failed("get_mouse_state", send_result);
+        return request.result;
+    }
+
+    void InputManager::set_mouse_lock_mode(MouseLockMode mode) const
+    {
+        SetMouseLockRequest request = SetMouseLockRequest(mode);
+        const Result send_result = _dispatcher->send(request);
+        warn_if_request_failed("set_mouse_lock_mode", send_result);
+    }
+
+    MouseLockMode InputManager::get_mouse_lock_mode() const
+    {
+        MouseLockModeRequest request = {};
+        const Result send_result = _dispatcher->send(request);
+        warn_if_request_failed("get_mouse_lock_mode", send_result);
         return request.result;
     }
 
     ControllerState InputManager::get_controller_state(int controller_index) const
     {
         ControllerStateRequest request = ControllerStateRequest(controller_index);
-        _dispatcher->send(request);
+        const Result send_result = _dispatcher->send(request);
+        warn_if_request_failed("get_controller_state", send_result);
         return request.result;
     }
 

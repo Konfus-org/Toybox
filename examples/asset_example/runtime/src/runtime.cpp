@@ -69,7 +69,7 @@ namespace tbx::examples
         _camera.add_component<Camera>();
         _camera.add_component<Transform>(Vec3(0.0f, 0.0f, 10.0f));
 
-        // Setup input scheme: WASD move + mouse delta look
+        // Setup input scheme: WASD move + mouse delta look and locked mouse
         auto camera_scheme = InputScheme(_camera_scheme_name);
 
         auto move_action = InputAction("Move", InputActionValueType::VECTOR2);
@@ -123,6 +123,7 @@ namespace tbx::examples
 
         _input_manager->add_scheme(camera_scheme);
         _input_manager->activate_scheme(_camera_scheme_name);
+        _input_manager->set_mouse_lock_mode(MouseLockMode::RELATIVE);
     }
 
     void AssetExampleRuntimePlugin::on_detach()

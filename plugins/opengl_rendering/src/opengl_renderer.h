@@ -1,49 +1,35 @@
 #pragma once
-#include "opengl_render_pipeline.h"
-#include "opengl_renderer_info.h"
-#include "opengl_resources/opengl_buffers.h"
-#include "opengl_resources/opengl_gbuffer.h"
-#include "opengl_sky.h"
+#include "opengl_context.h"
+#include "opengl_resources/opengl_resource_manager.h"
+#include "pipeline/opengl_render_pipeline.h"
 #include "tbx/assets/asset_manager.h"
-#include "tbx/common/result.h"
 #include "tbx/common/uuid.h"
 #include "tbx/ecs/entity_registry.h"
 #include "tbx/graphics/messages.h"
-#include <functional>
 #include <memory>
 #include <optional>
 #include <vector>
 
 namespace tbx::plugins
 {
-    /// <summary>Owns shared OpenGL renderer state and frame execution.</summary>
+    /// <summary>Owns one window-bound OpenGL renderer state and frame execution.</summary>
     /// <remarks>Purpose: Manages GL initialization, scene extraction, and pipeline execution.
     /// Ownership: Owns render pipeline and all renderer-scoped GPU resource wrappers.
     /// Thread Safety: Not thread-safe; use on render thread only.</remarks>
     struct OpenGlRenderer final
     {
-        using MakeCurrentSender = std::function<Result(const Uuid&)>;
-        using PresentSender = std::function<Result(const Uuid&)>;
-
         OpenGlRenderer(
             GraphicsProcAddress loader,
             EntityRegistry& entity_registry,
             AssetManager& asset_manager,
-            MakeCurrentSender make_current_sender,
-            PresentSender present_sender);
+            OpenGlContext context);
         ~OpenGlRenderer() noexcept;
 
-        /// <summary>Returns OpenGL implementation details discovered during
-        /// initialization.</summary> <remarks>Purpose: Exposes diagnostics about active OpenGL
-        /// runtime. Ownership: Returns reference to renderer-owned info data. Thread Safety: Read
-        /// on render thread.</remarks>
-        const OpenGlRendererInfo& get_info() const;
-
-        /// <summary>Renders and presents one frame to the target window.</summary>
-        /// <remarks>Purpose: Makes target context current, builds frame data, runs pipeline,
+        /// <summary>Renders and presents one frame to the bound context window.</summary>
+        /// <remarks>Purpose: Makes context current, builds frame data, runs pipeline,
         /// presents. Ownership: Uses renderer-owned resources and non-owning host references.
         /// Thread Safety: Call on render thread only.</remarks>
-        bool render(const Uuid& target_window_id);
+        bool render();
 
         /// <summary>Updates current viewport size used for final presentation.</summary>
         /// <remarks>Purpose: Tracks current window output dimensions.
@@ -65,19 +51,21 @@ namespace tbx::plugins
       private:
         EntityRegistry* _entity_registry = nullptr;
         AssetManager* _asset_manager = nullptr;
-        MakeCurrentSender _make_current_sender = nullptr;
-        PresentSender _present_sender = nullptr;
+        OpenGlContext _context;
+
+        std::unique_ptr<OpenGlResourceManager> _resource_manager = nullptr;
+        std::unique_ptr<OpenGlRenderPipeline> _render_pipeline = nullptr;
 
         Size _viewport_size = {0, 0};
         Size _render_resolution = {0, 0};
         std::optional<Size> _pending_render_resolution = std::nullopt;
-        OpenGlGBuffer _gbuffer = {};
-        OpenGlFrameBuffer _lighting_framebuffer = {};
-        OpenGlFrameBuffer _post_process_ping_framebuffer = {};
-        OpenGlFrameBuffer _post_process_pong_framebuffer = {};
-        std::unique_ptr<OpenGlRenderPipeline> _render_pipeline = nullptr;
-        OpenGlSky _sky = {};
-        std::vector<uint32> _shadow_map_texture_ids = {};
-        OpenGlRendererInfo _info = {};
+
+        Uuid _gbuffer_resource = Uuid::NONE;
+        Uuid _lighting_framebuffer_resource = Uuid::NONE;
+        Uuid _post_process_ping_framebuffer_resource = Uuid::NONE;
+        Uuid _post_process_pong_framebuffer_resource = Uuid::NONE;
+        Uuid _pinned_sky_resource = Uuid::NONE;
+        Uuid _deferred_lighting_resource = Uuid::NONE;
+        std::vector<Uuid> _shadow_map_resources = {};
     };
 }

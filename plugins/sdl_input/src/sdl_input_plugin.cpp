@@ -28,6 +28,10 @@ namespace tbx::plugins
     void SdlInputPlugin::on_detach()
     {
         SDL_RemoveEventWatch(accumulate_wheel_delta, this);
+        std::string error_report = {};
+        release_mouse_lock_window(&error_report);
+        _requested_mouse_lock_mode = MouseLockMode::UNLOCKED;
+        _mouse_lock_mode = MouseLockMode::UNLOCKED;
 
         if (_owns_gamepad_subsystem)
             SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
@@ -37,6 +41,7 @@ namespace tbx::plugins
     void SdlInputPlugin::on_update(const DeltaTime&)
     {
         _wheel_delta = 0.0F;
+        apply_mouse_lock_mode();
     }
 
     void SdlInputPlugin::on_recieve_message(Message& msg)
@@ -50,6 +55,18 @@ namespace tbx::plugins
         if (auto* request = handle_message<MouseStateRequest>(msg))
         {
             handle_mouse_request(*request);
+            return;
+        }
+
+        if (auto* request = handle_message<SetMouseLockRequest>(msg))
+        {
+            handle_set_mouse_lock_request(*request);
+            return;
+        }
+
+        if (auto* request = handle_message<MouseLockModeRequest>(msg))
+        {
+            handle_mouse_lock_mode_request(*request);
             return;
         }
 
@@ -117,6 +134,25 @@ namespace tbx::plugins
         request.Message::result.flag_success();
     }
 
+    void SdlInputPlugin::handle_set_mouse_lock_request(SetMouseLockRequest& request)
+    {
+        _requested_mouse_lock_mode = request.mode;
+        std::string error_report = {};
+        const bool succeeded = apply_mouse_lock_mode(&error_report);
+        request.state = MessageState::HANDLED;
+        if (succeeded)
+            request.Message::result.flag_success();
+        else
+            request.Message::result.flag_failure(error_report);
+    }
+
+    void SdlInputPlugin::handle_mouse_lock_mode_request(MouseLockModeRequest& request) const
+    {
+        request.result = _mouse_lock_mode;
+        request.state = MessageState::HANDLED;
+        request.Message::result.flag_success();
+    }
+
     bool SdlInputPlugin::accumulate_wheel_delta(void* userdata, SDL_Event* event)
     {
         if (!userdata || !event)
@@ -128,6 +164,130 @@ namespace tbx::plugins
         auto* plugin = static_cast<SdlInputPlugin*>(userdata);
         plugin->_wheel_delta += event->wheel.y;
         return true;
+    }
+
+    bool SdlInputPlugin::apply_mouse_lock_mode(std::string* out_error_report)
+    {
+        auto assign_error_report = [out_error_report](const std::string& message)
+        {
+            if (out_error_report)
+                *out_error_report = message;
+        };
+
+        SDL_Window* target_window = SDL_GetMouseFocus();
+        if (!target_window)
+            target_window = SDL_GetKeyboardFocus();
+
+        if (_requested_mouse_lock_mode == MouseLockMode::UNLOCKED)
+        {
+            const bool released = release_mouse_lock_window(out_error_report);
+            _mouse_lock_mode = MouseLockMode::UNLOCKED;
+            return released;
+        }
+
+        MouseLockMode target_mode = _requested_mouse_lock_mode;
+        if (target_mode != MouseLockMode::UNLOCKED && is_maximized_fullscreen_window(target_window))
+            target_mode = MouseLockMode::INPUT_GRABBED;
+
+        if (_mouse_lock_window && _mouse_lock_window != target_window)
+        {
+            if (!release_mouse_lock_window(out_error_report))
+            {
+                _mouse_lock_mode = MouseLockMode::UNLOCKED;
+                return false;
+            }
+        }
+
+        _mouse_lock_window = target_window;
+
+        if (!_mouse_lock_window)
+        {
+            _mouse_lock_mode = MouseLockMode::UNLOCKED;
+            assign_error_report("No focused window is available for mouse lock mode.");
+            return false;
+        }
+
+        if (target_mode == MouseLockMode::RELATIVE)
+        {
+            if (!SDL_SetWindowMouseGrab(_mouse_lock_window, false))
+            {
+                _mouse_lock_mode = MouseLockMode::UNLOCKED;
+                assign_error_report(
+                    std::string("Failed to disable mouse grab before relative mode: ")
+                    + SDL_GetError());
+                return false;
+            }
+
+            if (!SDL_SetWindowRelativeMouseMode(_mouse_lock_window, true))
+            {
+                _mouse_lock_mode = MouseLockMode::UNLOCKED;
+                assign_error_report(
+                    std::string("Failed to enable relative mouse mode: ") + SDL_GetError());
+                return false;
+            }
+
+            _mouse_lock_mode = MouseLockMode::RELATIVE;
+            return true;
+        }
+
+        if (!SDL_SetWindowRelativeMouseMode(_mouse_lock_window, false))
+        {
+            _mouse_lock_mode = MouseLockMode::UNLOCKED;
+            assign_error_report(
+                std::string("Failed to disable relative mouse mode before grab mode: ")
+                + SDL_GetError());
+            return false;
+        }
+
+        if (!SDL_SetWindowMouseGrab(_mouse_lock_window, true))
+        {
+            _mouse_lock_mode = MouseLockMode::UNLOCKED;
+            assign_error_report(std::string("Failed to enable mouse grab mode: ") + SDL_GetError());
+            return false;
+        }
+
+        _mouse_lock_mode = MouseLockMode::INPUT_GRABBED;
+        return true;
+    }
+
+    bool SdlInputPlugin::release_mouse_lock_window(std::string* out_error_report)
+    {
+        auto assign_error_report = [out_error_report](const std::string& message)
+        {
+            if (out_error_report)
+                *out_error_report = message;
+        };
+
+        if (!_mouse_lock_window)
+            return true;
+
+        if (!SDL_SetWindowRelativeMouseMode(_mouse_lock_window, false))
+        {
+            assign_error_report(
+                std::string("Failed to disable relative mouse mode: ") + SDL_GetError());
+            return false;
+        }
+
+        if (!SDL_SetWindowMouseGrab(_mouse_lock_window, false))
+        {
+            assign_error_report(
+                std::string("Failed to disable mouse grab mode: ") + SDL_GetError());
+            return false;
+        }
+
+        _mouse_lock_window = nullptr;
+        return true;
+    }
+
+    bool SdlInputPlugin::is_maximized_fullscreen_window(SDL_Window* window)
+    {
+        if (!window)
+            return false;
+
+        const SDL_WindowFlags window_flags = SDL_GetWindowFlags(window);
+        const bool is_fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN) != 0;
+        const bool is_maximized = (window_flags & SDL_WINDOW_MAXIMIZED) != 0;
+        return is_fullscreen && is_maximized;
     }
 
     void SdlInputPlugin::handle_controller_request(ControllerStateRequest& request) const

@@ -1,4 +1,5 @@
 #include "opengl_post_process_pass.h"
+#include "opengl_resources/opengl_post_processing_stack_resource.h"
 #include "opengl_resources/opengl_resource.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "tbx/debugging/macros.h"
@@ -62,7 +63,7 @@ namespace tbx::plugins
         const OpenGlRenderFrameContext& frame_context,
         const OpenGlFrameBuffer& source_target,
         const OpenGlDrawResources& draw_resources,
-        const OpenGlPostProcessEffect& effect)
+        const OpenGlPostProcessingStackResource::Effect& effect)
     {
         auto resource_scopes = std::vector<GlResourceScope> {};
         resource_scopes.reserve(draw_resources.textures.size() + 2);
@@ -72,16 +73,14 @@ namespace tbx::plugins
 
         const int scene_color_texture_slot = static_cast<int>(draw_resources.textures.size());
         uint32 scene_color_texture_id = source_target.get_color_texture_id();
-        if (
-            frame_context.lighting_target != nullptr
+        if (frame_context.lighting_target != nullptr
             && (&source_target == frame_context.lighting_target)
             && frame_context.scene_color_texture_id != 0)
         {
             scene_color_texture_id = frame_context.scene_color_texture_id;
         }
-        glBindTextureUnit(
-            static_cast<GLuint>(scene_color_texture_slot),
-            scene_color_texture_id);
+
+        glBindTextureUnit(static_cast<GLuint>(scene_color_texture_slot), scene_color_texture_id);
         int texture_slot = scene_color_texture_slot + 1;
         int scene_depth_texture_slot = -1;
         int gbuffer_albedo_spec_texture_slot = -1;
@@ -109,33 +108,39 @@ namespace tbx::plugins
         }
 
         const float clamped_blend = std::clamp(effect.blend, 0.0f, 1.0f);
-        draw_resources.shader_program->try_upload(MaterialParameter {
-            .name = "u_scene_color",
-            .data = scene_color_texture_slot,
-        });
+        draw_resources.shader_program->try_upload(
+            MaterialParameter {
+                .name = "u_scene_color",
+                .data = scene_color_texture_slot,
+            });
         if (scene_depth_texture_slot >= 0)
         {
-            draw_resources.shader_program->try_upload(MaterialParameter {
-                .name = "u_scene_depth",
-                .data = scene_depth_texture_slot,
-            });
-            draw_resources.shader_program->try_upload(MaterialParameter {
-                .name = "u_gbuffer_albedo_spec",
-                .data = gbuffer_albedo_spec_texture_slot,
-            });
-            draw_resources.shader_program->try_upload(MaterialParameter {
-                .name = "u_gbuffer_normal",
-                .data = gbuffer_normal_texture_slot,
-            });
-            draw_resources.shader_program->try_upload(MaterialParameter {
-                .name = "u_gbuffer_material",
-                .data = gbuffer_material_texture_slot,
-            });
+            draw_resources.shader_program->try_upload(
+                MaterialParameter {
+                    .name = "u_scene_depth",
+                    .data = scene_depth_texture_slot,
+                });
+            draw_resources.shader_program->try_upload(
+                MaterialParameter {
+                    .name = "u_gbuffer_albedo_spec",
+                    .data = gbuffer_albedo_spec_texture_slot,
+                });
+            draw_resources.shader_program->try_upload(
+                MaterialParameter {
+                    .name = "u_gbuffer_normal",
+                    .data = gbuffer_normal_texture_slot,
+                });
+            draw_resources.shader_program->try_upload(
+                MaterialParameter {
+                    .name = "u_gbuffer_material",
+                    .data = gbuffer_material_texture_slot,
+                });
         }
-        draw_resources.shader_program->try_upload(MaterialParameter {
-            .name = "u_blend",
-            .data = clamped_blend,
-        });
+        draw_resources.shader_program->try_upload(
+            MaterialParameter {
+                .name = "u_blend",
+                .data = clamped_blend,
+            });
         for (const auto& uniform : draw_resources.shader_parameters)
             draw_resources.shader_program->try_upload(uniform);
 
@@ -155,7 +160,7 @@ namespace tbx::plugins
         OpenGlFrameBuffer& destination_target,
         const OpenGlFrameBuffer& source_target,
         const OpenGlDrawResources& draw_resources,
-        const OpenGlPostProcessEffect& effect)
+        const OpenGlPostProcessingStackResource::Effect& effect)
     {
         glBindFramebuffer(GL_FRAMEBUFFER, destination_target.get_framebuffer_id());
         const auto resolution = destination_target.get_resolution();
@@ -172,7 +177,7 @@ namespace tbx::plugins
         const OpenGlRenderFrameContext& frame_context,
         const OpenGlFrameBuffer& source_target,
         const OpenGlDrawResources& draw_resources,
-        const OpenGlPostProcessEffect& effect)
+        const OpenGlPostProcessingStackResource::Effect& effect)
     {
         auto destination_x = GLint {};
         auto destination_y = GLint {};
@@ -222,19 +227,7 @@ namespace tbx::plugins
             return;
         }
 
-        auto enabled_effects = std::vector<OpenGlPostProcessEffect> {};
-        enabled_effects.reserve(post_process.effects.size());
-        for (const auto& effect : post_process.effects)
-        {
-            if (!effect.is_enabled)
-                continue;
-            if (!effect.material.handle.is_valid())
-                continue;
-
-            enabled_effects.push_back(effect);
-        }
-
-        if (enabled_effects.empty())
+        if (post_process.owner_entity.get_id() == Uuid::NONE)
         {
             frame_context.lighting_target->preset(
                 frame_context.present_target_framebuffer_id,
@@ -242,6 +235,29 @@ namespace tbx::plugins
                 frame_context.present_mode);
             return;
         }
+
+        auto base_resource = std::shared_ptr<IOpenGlResource> {};
+        if (!resource_manager.try_get(post_process.owner_entity, base_resource))
+        {
+            frame_context.lighting_target->preset(
+                frame_context.present_target_framebuffer_id,
+                frame_context.viewport_size,
+                frame_context.present_mode);
+            return;
+        }
+
+        auto post_process_stack =
+            std::dynamic_pointer_cast<OpenGlPostProcessingStackResource>(base_resource);
+        if (!post_process_stack || post_process_stack->get_effects().empty())
+        {
+            frame_context.lighting_target->preset(
+                frame_context.present_target_framebuffer_id,
+                frame_context.viewport_size,
+                frame_context.present_mode);
+            return;
+        }
+
+        const auto& stack_effects = post_process_stack->get_effects();
 
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE);
@@ -252,16 +268,14 @@ namespace tbx::plugins
         OpenGlFrameBuffer* pong_target = frame_context.post_process_pong_target;
         bool did_draw_effect = false;
 
-        for (size_t effect_index = 0; effect_index < enabled_effects.size(); ++effect_index)
+        for (size_t effect_index = 0; effect_index < stack_effects.size(); ++effect_index)
         {
-            const auto& effect = enabled_effects[effect_index];
-            auto draw_resources = OpenGlDrawResources {};
-            if (!resource_manager.try_load_post_process(effect.material, draw_resources))
-                continue;
+            const auto& effect = stack_effects[effect_index];
+            const auto& draw_resources = effect.draw_resources;
             if (!draw_resources.mesh || !draw_resources.shader_program)
                 continue;
 
-            const bool is_last_effect = effect_index == (enabled_effects.size() - 1U);
+            const bool is_last_effect = effect_index == (stack_effects.size() - 1U);
             if (is_last_effect)
             {
                 draw_to_present_target(frame_context, *source_target, draw_resources, effect);

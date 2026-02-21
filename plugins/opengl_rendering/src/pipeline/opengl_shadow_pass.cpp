@@ -1,6 +1,7 @@
 #include "opengl_shadow_pass.h"
 #include "opengl_resources/opengl_resource.h"
 #include "opengl_resources/opengl_resource_manager.h"
+#include "opengl_resources/opengl_shadow_map.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/renderer.h"
 #include "tbx/math/transform.h"
@@ -78,7 +79,7 @@ namespace tbx::plugins
             return;
 
         auto draw_resources = OpenGlDrawResources {};
-        if (!resource_manager.try_load(entity, draw_resources))
+        if (!resource_manager.try_get(entity, draw_resources))
             return;
         if (!draw_resources.mesh || !draw_resources.shader_program)
             return;
@@ -123,7 +124,7 @@ namespace tbx::plugins
         OpenGlResourceManager& resource_manager)
     {
         const auto max_shadow_maps = std::min(
-            frame_context.shadow_data.map_texture_ids.size(),
+            frame_context.shadow_data.map_uuids.size(),
             frame_context.shadow_data.light_view_projections.size());
         const auto shadow_map_count = std::min(max_shadow_maps, MAX_SHADOW_MAPS);
         if (shadow_map_count == 0)
@@ -144,7 +145,25 @@ namespace tbx::plugins
         auto resource_scopes = std::vector<GlResourceScope> {};
         for (size_t shadow_index = 0; shadow_index < shadow_map_count; ++shadow_index)
         {
-            const auto texture_id = frame_context.shadow_data.map_texture_ids[shadow_index];
+            const auto shadow_map_uuid = frame_context.shadow_data.map_uuids[shadow_index];
+            auto base_resource = std::shared_ptr<IOpenGlResource> {};
+            if (!resource_manager.try_get(shadow_map_uuid, base_resource))
+            {
+                TBX_ASSERT(
+                    false,
+                    "OpenGL rendering: shadow map UUID was not registered in resource manager.");
+                continue;
+            }
+            auto shadow_map = std::dynamic_pointer_cast<OpenGlShadowMap>(base_resource);
+            if (!shadow_map)
+            {
+                TBX_ASSERT(
+                    false,
+                    "OpenGL rendering: shadow map UUID was not registered in resource manager.");
+                continue;
+            }
+
+            const auto texture_id = shadow_map->get_texture_id();
             if (texture_id == 0)
                 continue;
 

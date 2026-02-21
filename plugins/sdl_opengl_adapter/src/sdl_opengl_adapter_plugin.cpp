@@ -122,23 +122,15 @@ namespace tbx::plugins
         SDL_Window* current_window = reinterpret_cast<SDL_Window*>(event.current);
         if (!current_window)
         {
+            SDL_Window* previous_window = nullptr;
+            if (_native_windows.contains(window_id))
+                previous_window = _native_windows[window_id];
+
+            if (_open_gl_adapter && previous_window)
+                _open_gl_adapter->destroy_context(previous_window);
+
             _window_sizes.erase(window_id);
             _native_windows.erase(window_id);
-
-            if (!_use_opengl || !_open_gl_adapter || _native_windows.empty())
-                return;
-
-            const auto& fallback = *(_native_windows.begin());
-            Size fallback_size = {};
-            if (_window_sizes.contains(fallback.first))
-                fallback_size = _window_sizes[fallback.first];
-            if (_open_gl_adapter->try_make_current(fallback.second, to_string(fallback.first)))
-            {
-                send_message<WindowContextReadyEvent>(
-                    fallback.first,
-                    _open_gl_adapter->get_proc_address(),
-                    fallback_size);
-            }
             return;
         }
 

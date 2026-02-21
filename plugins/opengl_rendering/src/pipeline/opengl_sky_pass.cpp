@@ -84,11 +84,11 @@ namespace tbx::plugins
         glDisable(GL_BLEND);
         frame_context.gbuffer->clear(frame_context.clear_color);
 
-        if (!frame_context.sky_material.handle.is_valid())
+        if (!frame_context.sky_entity.has_component<Sky>())
             return;
 
         auto draw_resources = OpenGlDrawResources {};
-        if (!resource_manager.try_load_sky(frame_context.sky_material, draw_resources))
+        if (!resource_manager.try_get(frame_context.sky_entity, draw_resources))
             return;
 
         if (!draw_resources.mesh || !draw_resources.shader_program)
@@ -98,10 +98,9 @@ namespace tbx::plugins
             draw_resources.shader_program->get_program_id() != 0,
             "OpenGL rendering: sky pass requires a valid shader program.");
 
-        const auto sky_view_projection =
-            get_sky_view_projection_matrix(
-                frame_context.camera_view,
-                frame_context.render_resolution);
+        const auto sky_view_projection = get_sky_view_projection_matrix(
+            frame_context.camera_view,
+            frame_context.render_resolution);
 
         auto resource_scopes = std::vector<GlResourceScope> {};
         resource_scopes.reserve(draw_resources.textures.size() + 2);
@@ -109,14 +108,16 @@ namespace tbx::plugins
         resource_scopes.push_back(GlResourceScope(*draw_resources.mesh));
         bind_textures(draw_resources, resource_scopes);
 
-        draw_resources.shader_program->upload(MaterialParameter {
-            .name = "u_view_proj",
-            .data = sky_view_projection,
-        });
-        draw_resources.shader_program->upload(MaterialParameter {
-            .name = "u_model",
-            .data = Mat4(1.0f),
-        });
+        draw_resources.shader_program->upload(
+            MaterialParameter {
+                .name = "u_view_proj",
+                .data = sky_view_projection,
+            });
+        draw_resources.shader_program->upload(
+            MaterialParameter {
+                .name = "u_model",
+                .data = Mat4(1.0f),
+            });
         upload_material_uniforms(*draw_resources.shader_program, draw_resources);
 
         glDepthMask(GL_FALSE);

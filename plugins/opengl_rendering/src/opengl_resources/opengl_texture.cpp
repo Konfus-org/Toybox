@@ -74,6 +74,24 @@ namespace tbx::plugins
         }
     }
 
+    static GLenum to_gl_runtime_internal_format(OpenGlTextureRuntimeMode mode)
+    {
+        switch (mode)
+        {
+            case OpenGlTextureRuntimeMode::Color:
+                return GL_RGBA8;
+            case OpenGlTextureRuntimeMode::HdrColor:
+                return GL_RGBA16F;
+            case OpenGlTextureRuntimeMode::Depth:
+                return GL_DEPTH_COMPONENT32F;
+            case OpenGlTextureRuntimeMode::DepthStencil:
+                return GL_DEPTH24_STENCIL8;
+            default:
+                TBX_ASSERT(false, "OpenGL rendering: unsupported runtime texture mode.");
+                return GL_RGBA8;
+        }
+    }
+
     static GlTextureFormat to_gl_texture_format(TextureFormat format)
     {
         switch (format)
@@ -177,6 +195,40 @@ namespace tbx::plugins
             glGenerateTextureMipmap(_texture_id);
     }
 
+    OpenGlTexture::OpenGlTexture(const OpenGlTextureRuntimeSettings& settings)
+    {
+        TBX_ASSERT(
+            settings.resolution.width > 0 && settings.resolution.height > 0,
+            "OpenGL rendering: runtime texture resolution must be greater than zero.");
+
+        glCreateTextures(GL_TEXTURE_2D, 1, &_texture_id);
+        if (_texture_id == 0)
+            return;
+
+        const auto gl_filter = to_gl_texture_mag_filter(settings.filter);
+        auto wrapping = to_gl_texture_wrap(settings.wrap);
+        if (settings.use_border_color)
+            wrapping = GL_CLAMP_TO_BORDER;
+        const auto internal_format = to_gl_runtime_internal_format(settings.mode);
+        glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, gl_filter);
+        glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, gl_filter);
+        glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_S, wrapping);
+        glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_T, wrapping);
+        if (settings.use_border_color)
+        {
+            const auto border = settings.border_color;
+            const float border_values[] = {border.x, border.y, border.z, border.w};
+            glTextureParameterfv(_texture_id, GL_TEXTURE_BORDER_COLOR, border_values);
+        }
+
+        glTextureStorage2D(
+            _texture_id,
+            1,
+            internal_format,
+            static_cast<GLsizei>(settings.resolution.width),
+            static_cast<GLsizei>(settings.resolution.height));
+    }
+
     OpenGlTexture::~OpenGlTexture() noexcept
     {
         if (_texture_id != 0)
@@ -198,5 +250,10 @@ namespace tbx::plugins
     void OpenGlTexture::unbind()
     {
         glBindTextureUnit(_slot, 0);
+    }
+
+    uint32 OpenGlTexture::get_texture_id() const
+    {
+        return _texture_id;
     }
 }

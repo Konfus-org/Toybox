@@ -1,10 +1,12 @@
 #pragma once
 #include "opengl_resource.h"
+#include "opengl_texture.h"
 #include "tbx/common/int.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/texture.h"
 #include "tbx/graphics/vertex.h"
 #include "tbx/math/size.h"
+#include <memory>
 
 namespace tbx::plugins
 {
@@ -82,6 +84,12 @@ namespace tbx::plugins
         /// Thread Safety: Safe on render thread.</remarks>
         uint32 get_color_texture_id() const;
 
+        /// <summary>Returns shared ownership of the color attachment texture object.</summary>
+        /// <remarks>Purpose: Exposes the runtime OpenGL texture wrapper for registration.
+        /// Ownership: Returns shared ownership.
+        /// Thread Safety: Not thread-safe; use on render thread.</remarks>
+        std::shared_ptr<OpenGlTexture> get_color_texture() const;
+
         /// <summary>Updates the color attachment filtering mode.</summary>
         /// <remarks>Purpose: Controls min/mag sampling behavior used when presenting this
         /// framebuffer.
@@ -119,7 +127,7 @@ namespace tbx::plugins
 
       private:
         uint32 _framebuffer_id = 0;
-        uint32 _color_texture_id = 0;
+        std::shared_ptr<OpenGlTexture> _color_texture = nullptr;
         uint32 _depth_stencil_renderbuffer_id = 0;
         Size _resolution = {};
         TextureFilter _filtering = TextureFilter::LINEAR;

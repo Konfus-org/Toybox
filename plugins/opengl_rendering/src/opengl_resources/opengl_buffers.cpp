@@ -75,11 +75,7 @@ namespace tbx::plugins
             _depth_stencil_renderbuffer_id = 0;
         }
 
-        if (_color_texture_id != 0)
-        {
-            glDeleteTextures(1, &_color_texture_id);
-            _color_texture_id = 0;
-        }
+        _color_texture.reset();
 
         if (_framebuffer_id != 0)
         {
@@ -110,18 +106,27 @@ namespace tbx::plugins
 
     uint32 OpenGlFrameBuffer::get_color_texture_id() const
     {
-        return _color_texture_id;
+        if (!_color_texture)
+            return 0;
+
+        return _color_texture->get_texture_id();
+    }
+
+    std::shared_ptr<OpenGlTexture> OpenGlFrameBuffer::get_color_texture() const
+    {
+        return _color_texture;
     }
 
     void OpenGlFrameBuffer::set_filtering(const TextureFilter filtering)
     {
         _filtering = filtering;
-        if (_color_texture_id == 0)
+        if (!_color_texture)
             return;
 
         const auto gl_filter = to_gl_texture_filter(_filtering);
-        glTextureParameteri(_color_texture_id, GL_TEXTURE_MIN_FILTER, gl_filter);
-        glTextureParameteri(_color_texture_id, GL_TEXTURE_MAG_FILTER, gl_filter);
+        const auto texture_id = _color_texture->get_texture_id();
+        glTextureParameteri(texture_id, GL_TEXTURE_MIN_FILTER, gl_filter);
+        glTextureParameteri(texture_id, GL_TEXTURE_MAG_FILTER, gl_filter);
     }
 
     TextureFilter OpenGlFrameBuffer::get_filtering() const
@@ -136,28 +141,21 @@ namespace tbx::plugins
             glCreateFramebuffers(1, &_framebuffer_id);
         }
 
-        if (_color_texture_id != 0)
-        {
-            glDeleteTextures(1, &_color_texture_id);
-        }
+        _color_texture.reset();
         if (_depth_stencil_renderbuffer_id != 0)
         {
             glDeleteRenderbuffers(1, &_depth_stencil_renderbuffer_id);
         }
 
-        const auto gl_filter = to_gl_texture_filter(_filtering);
-        glCreateTextures(GL_TEXTURE_2D, 1, &_color_texture_id);
-        glTextureParameteri(_color_texture_id, GL_TEXTURE_MIN_FILTER, gl_filter);
-        glTextureParameteri(_color_texture_id, GL_TEXTURE_MAG_FILTER, gl_filter);
-        glTextureParameteri(_color_texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTextureParameteri(_color_texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTextureStorage2D(
-            _color_texture_id,
-            1,
-            GL_RGBA8,
-            static_cast<GLsizei>(resolution.width),
-            static_cast<GLsizei>(resolution.height));
-        glNamedFramebufferTexture(_framebuffer_id, GL_COLOR_ATTACHMENT0, _color_texture_id, 0);
+        auto color_texture_settings = OpenGlTextureRuntimeSettings {
+            .mode = OpenGlTextureRuntimeMode::Color,
+            .resolution = resolution,
+            .filter = _filtering,
+            .wrap = TextureWrap::CLAMP_TO_EDGE,
+        };
+        _color_texture = std::make_shared<OpenGlTexture>(color_texture_settings);
+        const auto color_texture_id = _color_texture->get_texture_id();
+        glNamedFramebufferTexture(_framebuffer_id, GL_COLOR_ATTACHMENT0, color_texture_id, 0);
 
         glCreateRenderbuffers(1, &_depth_stencil_renderbuffer_id);
         glNamedRenderbufferStorage(

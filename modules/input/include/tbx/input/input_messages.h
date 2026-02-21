@@ -27,6 +27,17 @@ namespace tbx
         float wheel_delta = 0.0F;
     };
 
+    /// <summary>Represents the active mouse lock behavior selected by the input backend.</summary>
+    /// <remarks>Purpose: Exposes whether mouse input is unlocked, relative, or window-grabbed.
+    /// Ownership: Enum value type with no ownership semantics.
+    /// Thread Safety: Safe for concurrent use.</remarks>
+    enum class MouseLockMode
+    {
+        UNLOCKED,
+        RELATIVE,
+        INPUT_GRABBED
+    };
+
     /// <summary>Represents a snapshot of a single controller for the current frame.</summary>
     /// <remarks>Purpose: Stores button and axis values used by input actions.
     /// Ownership: Value type; owns copied button and axis values.
@@ -54,6 +65,33 @@ namespace tbx
     /// Thread Safety: Can be sent from any thread; backend handling is
     /// implementation-defined.</remarks>
     struct TBX_API MouseStateRequest : public Request<MouseState>
+    {
+    };
+
+    /// <summary>Requests that the input backend apply a specific mouse lock mode.</summary>
+    /// <remarks>Purpose: Allows gameplay code to explicitly choose mouse lock behavior.
+    /// Ownership: The request owns the requested mode value.
+    /// Thread Safety: Can be sent from any thread; backend handling is implementation-defined.
+    /// </remarks>
+    struct TBX_API SetMouseLockRequest : public Request<void>
+    {
+        /// <summary>Creates a lock request for the desired lock mode.</summary>
+        /// <remarks>Purpose: Captures the mouse lock mode that should be applied.
+        /// Ownership: Copies the enum value.
+        /// Thread Safety: Safe to construct on any thread.</remarks>
+        explicit SetMouseLockRequest(MouseLockMode requested_lock_mode)
+            : mode(requested_lock_mode)
+        {
+        }
+
+        MouseLockMode mode = MouseLockMode::UNLOCKED;
+    };
+
+    /// <summary>Requests the currently effective mouse lock mode from the input backend.</summary>
+    /// <remarks>Purpose: Allows systems to inspect whether mouse lock is active and how it is
+    /// applied. Ownership: The request owns the response value. Thread Safety: Can be sent from any
+    /// thread; backend handling is implementation-defined.</remarks>
+    struct TBX_API MouseLockModeRequest : public Request<MouseLockMode>
     {
     };
 

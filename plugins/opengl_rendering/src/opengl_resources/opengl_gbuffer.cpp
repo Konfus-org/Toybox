@@ -5,36 +5,23 @@
 
 namespace tbx::plugins
 {
-    static void delete_texture(uint32& texture_id)
-    {
-        if (texture_id == 0)
-            return;
-
-        glDeleteTextures(1, &texture_id);
-        texture_id = 0;
-    }
-
     static void allocate_color_texture(
         uint32 framebuffer_id,
         uint32 attachment_index,
         const Size& resolution,
-        uint32& out_texture_id)
+        std::shared_ptr<OpenGlTexture>& out_texture)
     {
-        glCreateTextures(GL_TEXTURE_2D, 1, &out_texture_id);
-        glTextureParameteri(out_texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTextureParameteri(out_texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTextureParameteri(out_texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTextureParameteri(out_texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTextureStorage2D(
-            out_texture_id,
-            1,
-            GL_RGBA16F,
-            static_cast<GLsizei>(resolution.width),
-            static_cast<GLsizei>(resolution.height));
+        auto settings = OpenGlTextureRuntimeSettings {
+            .mode = OpenGlTextureRuntimeMode::HdrColor,
+            .resolution = resolution,
+            .filter = TextureFilter::NEAREST,
+            .wrap = TextureWrap::CLAMP_TO_EDGE,
+        };
+        out_texture = std::make_shared<OpenGlTexture>(settings);
         glNamedFramebufferTexture(
             framebuffer_id,
             GL_COLOR_ATTACHMENT0 + attachment_index,
-            out_texture_id,
+            out_texture->get_texture_id(),
             0);
     }
 
@@ -45,10 +32,10 @@ namespace tbx::plugins
 
     OpenGlGBuffer::~OpenGlGBuffer() noexcept
     {
-        delete_texture(_depth_texture_id);
-        delete_texture(_material_texture_id);
-        delete_texture(_normal_texture_id);
-        delete_texture(_albedo_spec_texture_id);
+        _depth_texture.reset();
+        _material_texture.reset();
+        _normal_texture.reset();
+        _albedo_spec_texture.reset();
 
         if (_framebuffer_id != 0)
         {
@@ -76,27 +63,27 @@ namespace tbx::plugins
         if (_framebuffer_id == 0)
             glCreateFramebuffers(1, &_framebuffer_id);
 
-        delete_texture(_depth_texture_id);
-        delete_texture(_material_texture_id);
-        delete_texture(_normal_texture_id);
-        delete_texture(_albedo_spec_texture_id);
+        _depth_texture.reset();
+        _material_texture.reset();
+        _normal_texture.reset();
+        _albedo_spec_texture.reset();
 
-        allocate_color_texture(_framebuffer_id, 0, resolution, _albedo_spec_texture_id);
-        allocate_color_texture(_framebuffer_id, 1, resolution, _normal_texture_id);
-        allocate_color_texture(_framebuffer_id, 2, resolution, _material_texture_id);
+        allocate_color_texture(_framebuffer_id, 0, resolution, _albedo_spec_texture);
+        allocate_color_texture(_framebuffer_id, 1, resolution, _normal_texture);
+        allocate_color_texture(_framebuffer_id, 2, resolution, _material_texture);
 
-        glCreateTextures(GL_TEXTURE_2D, 1, &_depth_texture_id);
-        glTextureParameteri(_depth_texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTextureParameteri(_depth_texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTextureParameteri(_depth_texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTextureParameteri(_depth_texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTextureStorage2D(
-            _depth_texture_id,
-            1,
-            GL_DEPTH_COMPONENT24,
-            static_cast<GLsizei>(resolution.width),
-            static_cast<GLsizei>(resolution.height));
-        glNamedFramebufferTexture(_framebuffer_id, GL_DEPTH_ATTACHMENT, _depth_texture_id, 0);
+        auto depth_settings = OpenGlTextureRuntimeSettings {
+            .mode = OpenGlTextureRuntimeMode::Depth,
+            .resolution = resolution,
+            .filter = TextureFilter::NEAREST,
+            .wrap = TextureWrap::CLAMP_TO_EDGE,
+        };
+        _depth_texture = std::make_shared<OpenGlTexture>(depth_settings);
+        glNamedFramebufferTexture(
+            _framebuffer_id,
+            GL_DEPTH_ATTACHMENT,
+            _depth_texture->get_texture_id(),
+            0);
 
         const std::array<GLenum, 3> draw_buffers = {
             GL_COLOR_ATTACHMENT0,
@@ -118,11 +105,8 @@ namespace tbx::plugins
 
     void OpenGlGBuffer::clear(const RgbaColor& clear_color) const
     {
-        const std::array<float, 4> albedo_spec = {
-            clear_color.r,
-            clear_color.g,
-            clear_color.b,
-            clear_color.a};
+        const std::array<float, 4> albedo_spec =
+            {clear_color.r, clear_color.g, clear_color.b, clear_color.a};
         const std::array<float, 4> normal = {0.5f, 0.5f, 1.0f, 0.0f};
         const std::array<float, 4> material = {0.0f, 0.0f, 0.0f, 1.0f};
         const float depth = 1.0f;
@@ -145,21 +129,53 @@ namespace tbx::plugins
 
     uint32 OpenGlGBuffer::get_albedo_spec_texture_id() const
     {
-        return _albedo_spec_texture_id;
+        if (!_albedo_spec_texture)
+            return 0;
+
+        return _albedo_spec_texture->get_texture_id();
+    }
+
+    std::shared_ptr<OpenGlTexture> OpenGlGBuffer::get_albedo_spec_texture() const
+    {
+        return _albedo_spec_texture;
     }
 
     uint32 OpenGlGBuffer::get_normal_texture_id() const
     {
-        return _normal_texture_id;
+        if (!_normal_texture)
+            return 0;
+
+        return _normal_texture->get_texture_id();
+    }
+
+    std::shared_ptr<OpenGlTexture> OpenGlGBuffer::get_normal_texture() const
+    {
+        return _normal_texture;
     }
 
     uint32 OpenGlGBuffer::get_material_texture_id() const
     {
-        return _material_texture_id;
+        if (!_material_texture)
+            return 0;
+
+        return _material_texture->get_texture_id();
+    }
+
+    std::shared_ptr<OpenGlTexture> OpenGlGBuffer::get_material_texture() const
+    {
+        return _material_texture;
     }
 
     uint32 OpenGlGBuffer::get_depth_texture_id() const
     {
-        return _depth_texture_id;
+        if (!_depth_texture)
+            return 0;
+
+        return _depth_texture->get_texture_id();
+    }
+
+    std::shared_ptr<OpenGlTexture> OpenGlGBuffer::get_depth_texture() const
+    {
+        return _depth_texture;
     }
 }

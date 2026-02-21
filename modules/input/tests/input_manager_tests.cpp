@@ -14,6 +14,8 @@ namespace tbx::tests::input
         KeyboardState keyboard_state = {};
         MouseState mouse_state = {};
         std::unordered_map<int, ControllerState> controller_states = {};
+        mutable MouseLockMode mouse_lock_mode = MouseLockMode::UNLOCKED;
+        bool lock_mouse_result = true;
 
       protected:
         Result send(Message& message) const override
@@ -45,6 +47,30 @@ namespace tbx::tests::input
                 controller_request->state = MessageState::HANDLED;
                 controller_request->Message::result.flag_success();
                 return controller_request->Message::result;
+            }
+
+            if (auto* set_lock_request = handle_message<SetMouseLockRequest>(message))
+            {
+                if (lock_mouse_result)
+                {
+                    mouse_lock_mode = set_lock_request->mode;
+                    set_lock_request->Message::result.flag_success();
+                }
+                else
+                {
+                    set_lock_request->Message::result.flag_failure("Test lock request failure.");
+                }
+
+                set_lock_request->state = MessageState::HANDLED;
+                return set_lock_request->Message::result;
+            }
+
+            if (auto* lock_mode_request = handle_message<MouseLockModeRequest>(message))
+            {
+                lock_mode_request->result = mouse_lock_mode;
+                lock_mode_request->state = MessageState::HANDLED;
+                lock_mode_request->Message::result.flag_success();
+                return lock_mode_request->Message::result;
             }
 
             Result result = {};
@@ -195,5 +221,27 @@ namespace tbx::tests::input
         ASSERT_NE(second_scheme, nullptr);
         ASSERT_FALSE(first_scheme->get_is_active());
         ASSERT_TRUE(second_scheme->get_is_active());
+    }
+
+    /// <summary>
+    /// Purpose: Validates mouse lock requests and lock mode queries route through the dispatcher.
+    /// Ownership: Uses stack-local dispatcher and manager instances only.
+    /// Thread Safety: Single-threaded unit test.
+    /// </summary>
+    TEST(input_manager, mouse_lock_requests_and_mode_queries_are_forwarded)
+    {
+        // Arrange
+        auto dispatcher = TestInputDispatcher {};
+        auto manager = InputManager(dispatcher);
+
+        // Act
+        manager.set_mouse_lock_mode(MouseLockMode::RELATIVE);
+        const MouseLockMode locked_mode = manager.get_mouse_lock_mode();
+        manager.set_mouse_lock_mode(MouseLockMode::UNLOCKED);
+        const MouseLockMode unlocked_mode = manager.get_mouse_lock_mode();
+
+        // Assert
+        ASSERT_EQ(locked_mode, MouseLockMode::RELATIVE);
+        ASSERT_EQ(unlocked_mode, MouseLockMode::UNLOCKED);
     }
 }
