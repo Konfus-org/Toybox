@@ -22,14 +22,6 @@ namespace tbx::plugins
         _use_opengl = host.get_settings().graphics_api == GraphicsApi::OPEN_GL;
         _vsync_enabled = host.get_settings().vsync_enabled;
         ensure_open_gl_adapter();
-
-        auto snapshot = send_message<WindowNativeHandleSnapshotRequest>();
-        if (!snapshot)
-        {
-            TBX_TRACE_WARNING(
-                "SDL OpenGL adapter: native handle snapshot request was not handled: {}",
-                snapshot.get_report());
-        }
     }
 
     void SdlOpenGlAdapterPlugin::on_detach()
@@ -41,9 +33,9 @@ namespace tbx::plugins
 
     void SdlOpenGlAdapterPlugin::on_recieve_message(Message& msg)
     {
-        if (auto* native_changed = handle_message<WindowNativeHandleChangedEvent>(msg))
+        if (auto* native_handle_event = handle_property_changed<&Window::native_handle>(msg))
         {
-            handle_native_handle_changed(*native_changed);
+            on_window_native_handle_changed(*native_handle_event);
             return;
         }
 
@@ -63,6 +55,13 @@ namespace tbx::plugins
         {
             _vsync_enabled = vsync_event->current;
             apply_vsync_setting();
+            return;
+        }
+
+        if (auto* size_event = handle_property_changed<&Window::size>(msg))
+        {
+            if (size_event->owner)
+                _window_sizes[size_event->owner->id] = size_event->current;
             return;
         }
 
@@ -104,31 +103,46 @@ namespace tbx::plugins
         }
 
         if (!_open_gl_adapter)
-            _open_gl_adapter = std::make_unique<SdlOpenGlAdapter>(
-                get_default_open_gl_settings(_vsync_enabled));
+            _open_gl_adapter =
+                std::make_unique<SdlOpenGlAdapter>(get_default_open_gl_settings(_vsync_enabled));
 
         _open_gl_adapter->set_settings(get_default_open_gl_settings(_vsync_enabled));
         _open_gl_adapter->apply_default_attributes();
     }
 
-    void SdlOpenGlAdapterPlugin::handle_native_handle_changed(WindowNativeHandleChangedEvent& event)
+    void SdlOpenGlAdapterPlugin::on_window_native_handle_changed(
+        PropertyChangedEvent<Window, NativeWindowHandle>& event)
     {
-        SDL_Window* previous =
-            reinterpret_cast<SDL_Window*>(event.previous_native_handle);
-        SDL_Window* current = reinterpret_cast<SDL_Window*>(event.native_handle);
+        if (!event.owner)
+            return;
 
-        _window_sizes[event.window] = event.size;
+        Uuid window_id = event.owner->id;
+        _window_sizes[window_id] = event.owner->size.value;
 
-        if (previous && _open_gl_adapter)
-            _open_gl_adapter->destroy_context(previous);
-
-        if (!current)
+        SDL_Window* current_window = reinterpret_cast<SDL_Window*>(event.current);
+        if (!current_window)
         {
-            _native_windows.erase(event.window);
+            _window_sizes.erase(window_id);
+            _native_windows.erase(window_id);
+
+            if (!_use_opengl || !_open_gl_adapter || _native_windows.empty())
+                return;
+
+            const auto& fallback = *(_native_windows.begin());
+            Size fallback_size = {};
+            if (_window_sizes.contains(fallback.first))
+                fallback_size = _window_sizes[fallback.first];
+            if (_open_gl_adapter->try_make_current(fallback.second, to_string(fallback.first)))
+            {
+                send_message<WindowContextReadyEvent>(
+                    fallback.first,
+                    _open_gl_adapter->get_proc_address(),
+                    fallback_size);
+            }
             return;
         }
 
-        _native_windows[event.window] = current;
+        _native_windows[window_id] = current_window;
 
         if (!_use_opengl)
             return;
@@ -137,14 +151,14 @@ namespace tbx::plugins
         if (!_open_gl_adapter)
             return;
 
-        std::string label = to_string(event.window);
-        if (!_open_gl_adapter->try_create_context(current, label))
+        std::string label = to_string(window_id);
+        if (!_open_gl_adapter->try_create_context(current_window, label))
             return;
 
         send_message<WindowContextReadyEvent>(
-            event.window,
+            window_id,
             _open_gl_adapter->get_proc_address(),
-            event.size);
+            event.owner->size.value);
     }
 
     void SdlOpenGlAdapterPlugin::handle_make_current(WindowMakeCurrentRequest& request)

@@ -1,5 +1,7 @@
 set(CMAKE_FOLDER "tests")
+include(TbxTestOutput)
 add_executable(TbxImporterTests)
+tbx_set_test_output(TbxImporterTests)
 
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
     "${PROJECT_SOURCE_DIR}/plugins/*/tests/*.cpp"

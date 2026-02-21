@@ -28,6 +28,9 @@ function(tbx_define_default_includes)
     if(NOT TARGET Tbx::Graphics)
         message(FATAL_ERROR "Tbx::DefaultIncludes requires Tbx::Graphics (call after add_subdirectory(modules))")
     endif()
+    if (NOT Tbx::Plugins::SdlInputPlugin)
+        message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::SdlInputPlugin (call after add_subdirectory(plugins))")
+    endif()
     if(NOT TARGET Tbx::Plugins::SdlWindowingPlugin)
         message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::SdlWindowingPlugin (call after add_subdirectory(plugins))")
     endif()
@@ -55,6 +58,7 @@ function(tbx_define_default_includes)
         Tbx::Assets
         Tbx::ECS
         Tbx::Graphics
+        Tbx::Plugins::SdlInputPlugin
         Tbx::Plugins::SdlWindowingPlugin
         Tbx::Plugins::OpenGlRenderingPlugin
         Tbx::Plugins::SdlOpenGlAdapterPlugin

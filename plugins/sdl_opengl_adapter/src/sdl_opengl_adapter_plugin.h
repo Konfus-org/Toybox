@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/graphics/messages.h"
+#include "tbx/messages/observable.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugins/sdl_opengl_adapter/sdl_open_gl_adapter.h"
 #include <SDL3/SDL.h>
@@ -21,7 +22,8 @@ namespace tbx::plugins
 
       private:
         void ensure_open_gl_adapter();
-        void handle_native_handle_changed(WindowNativeHandleChangedEvent& event);
+        void on_window_native_handle_changed(
+            PropertyChangedEvent<Window, NativeWindowHandle>& event);
         void handle_make_current(WindowMakeCurrentRequest& request);
         void handle_present(WindowPresentRequest& request);
         void apply_vsync_setting();
@@ -34,4 +36,3 @@ namespace tbx::plugins
         std::unique_ptr<SdlOpenGlAdapter> _open_gl_adapter;
     };
 }
-

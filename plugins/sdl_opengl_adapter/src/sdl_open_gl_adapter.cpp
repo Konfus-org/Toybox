@@ -21,15 +21,7 @@ namespace tbx::plugins
 
     SdlOpenGlAdapter::~SdlOpenGlAdapter() noexcept
     {
-        for (auto& entry : _contexts)
-        {
-            SDL_GLContext context = entry.second;
-            if (context)
-            {
-                SDL_GL_DestroyContext(context);
-            }
-        }
-        _contexts.clear();
+        destroy_context();
     }
 
     void SdlOpenGlAdapter::set_settings(const SdlOpenGlAdapterSettings& settings)
@@ -55,77 +47,67 @@ namespace tbx::plugins
         const std::string& window_title)
     {
         if (!sdl_window)
-        {
             return false;
+
+        if (!_shared_context)
+        {
+            _shared_context = SDL_GL_CreateContext(sdl_window);
+            if (!_shared_context)
+            {
+                TBX_TRACE_ERROR(
+                    "Failed to create SDL OpenGL context for window '{}': {}",
+                    window_title,
+                    SDL_GetError());
+                return false;
+            }
+
+            if (!SDL_GL_MakeCurrent(sdl_window, _shared_context))
+            {
+                TBX_TRACE_ERROR(
+                    "Failed to make SDL OpenGL context current for window '{}': {}",
+                    window_title,
+                    SDL_GetError());
+                destroy_context();
+                return false;
+            }
+
+            int interval = _settings.is_vsync_enabled ? 1 : 0;
+            if (!SDL_GL_SetSwapInterval(interval))
+            {
+                TBX_TRACE_WARNING(
+                    "SDL OpenGL: Failed to set vsync={} for window '{}': {}",
+                    _settings.is_vsync_enabled,
+                    window_title,
+                    SDL_GetError());
+            }
         }
-
-        destroy_context(sdl_window);
-
-        SDL_GLContext context = SDL_GL_CreateContext(sdl_window);
-        if (!context)
+        else if (!SDL_GL_MakeCurrent(sdl_window, _shared_context))
         {
             TBX_TRACE_ERROR(
-                "Failed to create SDL OpenGL context for window '{}': {}",
+                "SDL OpenGL: Failed to bind shared OpenGL context for window '{}': {}",
                 window_title,
                 SDL_GetError());
             return false;
-        }
-
-        _contexts[sdl_window] = context;
-
-        if (!SDL_GL_MakeCurrent(sdl_window, context))
-        {
-            TBX_TRACE_ERROR(
-                "Failed to make SDL OpenGL context current for window '{}': {}",
-                window_title,
-                SDL_GetError());
-            destroy_context(sdl_window);
-            return false;
-        }
-
-        int interval = _settings.is_vsync_enabled ? 1 : 0;
-        if (!SDL_GL_SetSwapInterval(interval))
-        {
-            TBX_TRACE_WARNING(
-                "SDL OpenGL: Failed to set vsync={} for window '{}': {}",
-                _settings.is_vsync_enabled,
-                window_title,
-                SDL_GetError());
         }
 
         return true;
     }
 
-    void SdlOpenGlAdapter::destroy_context(SDL_Window* sdl_window)
+    void SdlOpenGlAdapter::destroy_context()
     {
-        if (!sdl_window)
-        {
+        if (!_shared_context)
             return;
-        }
 
-        auto it = _contexts.find(sdl_window);
-        if (it == _contexts.end())
-        {
-            return;
-        }
-
-        SDL_GLContext context = it->second;
-        if (context)
-        {
-            SDL_GL_DestroyContext(context);
-        }
-        _contexts.erase(it);
+        SDL_GL_DestroyContext(_shared_context);
+        _shared_context = nullptr;
     }
 
     bool SdlOpenGlAdapter::try_make_current(SDL_Window* sdl_window, const std::string& window_title)
     {
-        SDL_GLContext* context = try_get_context(sdl_window);
-        if (!sdl_window || !context || !(*context))
-        {
+        if (!sdl_window || !_shared_context)
             return false;
-        }
 
-        if (!SDL_GL_MakeCurrent(sdl_window, *context))
+        if (!SDL_GL_MakeCurrent(sdl_window, _shared_context))
         {
             TBX_TRACE_ERROR(
                 "SDL OpenGL: Failed to make OpenGL context current for window '{}': {}",
@@ -139,11 +121,8 @@ namespace tbx::plugins
 
     bool SdlOpenGlAdapter::try_present(SDL_Window* sdl_window)
     {
-        SDL_GLContext* context = try_get_context(sdl_window);
-        if (!sdl_window || !context || !(*context))
-        {
+        if (!sdl_window || !_shared_context)
             return false;
-        }
 
         SDL_GL_SwapWindow(sdl_window);
         return true;
@@ -157,13 +136,10 @@ namespace tbx::plugins
         int interval = _settings.is_vsync_enabled ? 1 : 0;
         for (SDL_Window* sdl_window : windows)
         {
-            SDL_GLContext* context = try_get_context(sdl_window);
-            if (!sdl_window || !context || !(*context))
-            {
+            if (!sdl_window || !_shared_context)
                 continue;
-            }
 
-            if (!SDL_GL_MakeCurrent(sdl_window, *context))
+            if (!SDL_GL_MakeCurrent(sdl_window, _shared_context))
             {
                 TBX_TRACE_WARNING(
                     "SDL OpenGL: Failed to make OpenGL context current to apply vsync: {}",
@@ -193,22 +169,6 @@ namespace tbx::plugins
 
     bool SdlOpenGlAdapter::has_context(SDL_Window* sdl_window) const
     {
-        return sdl_window && _contexts.contains(sdl_window);
-    }
-
-    SDL_GLContext* SdlOpenGlAdapter::try_get_context(SDL_Window* sdl_window)
-    {
-        if (!sdl_window)
-        {
-            return nullptr;
-        }
-
-        auto it = _contexts.find(sdl_window);
-        if (it == _contexts.end())
-        {
-            return nullptr;
-        }
-
-        return &it->second;
+        return sdl_window != nullptr && _shared_context != nullptr;
     }
 }

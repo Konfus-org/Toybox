@@ -148,16 +148,16 @@ namespace tbx
             // Tell everyone we're initialized
             _msg_coordinator.send<ApplicationInitializedEvent>(this);
 
-            const auto startup_elapsed_ms = std::chrono::duration<double, std::milli>(
-                                                std::chrono::steady_clock::now() - startup_begin)
-                                                .count();
+            auto startup_elapsed_ms = std::chrono::duration<double, std::milli>(
+                                          std::chrono::steady_clock::now() - startup_begin)
+                                          .count();
             TBX_TRACE_INFO("Application startup completed in {:.2f} ms.", startup_elapsed_ms);
         }
         catch (const std::exception& ex)
         {
-            const auto startup_elapsed_ms = std::chrono::duration<double, std::milli>(
-                                                std::chrono::steady_clock::now() - startup_begin)
-                                                .count();
+            auto startup_elapsed_ms = std::chrono::duration<double, std::milli>(
+                                          std::chrono::steady_clock::now() - startup_begin)
+                                          .count();
             TBX_TRACE_ERROR(
                 "Application startup failed after {:.2f} ms: {}",
                 startup_elapsed_ms,
@@ -283,15 +283,15 @@ namespace tbx
             _msg_coordinator.send<ApplicationShutdownEvent>(this);
 
             // 2. Close main window
-            _main_window.is_open = false;
+            //_main_window.is_open = false;
             _should_exit = true;
 
             // 3. Unregister all entities
             _entity_registry.clear();
             _asset_manager.unload_all();
 
-            // 4. Detach and unload all non-logging plugins first, then logging plugins.
-            _loaded.clear();
+            // 4. Detach and unload plugins using dependency-aware unload ordering.
+            unload_plugins(_loaded);
 
             // 5. Process any remaining messages that may have been posted during shutdown
             auto shutdown_elapsed_ms = std::chrono::duration<double, std::milli>(

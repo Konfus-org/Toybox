@@ -274,7 +274,10 @@ namespace tbx
                     continue;
 
                 PluginMeta manifest_meta;
-                if (parser.try_parse_from_source(std::string_view(manifest_data), entry, manifest_meta))
+                if (parser.try_parse_from_source(
+                        std::string_view(manifest_data),
+                        entry,
+                        manifest_meta))
                     discovered.push_back(manifest_meta);
                 else
                 {
@@ -380,5 +383,94 @@ namespace tbx
         }
 
         return loaded;
+    }
+
+    static bool is_windowing_plugin(const PluginMeta& meta)
+    {
+        return to_lower(meta.name).find("window") != std::string::npos;
+    }
+
+    static bool should_unload_before(const PluginMeta& left, const PluginMeta& right)
+    {
+        const bool left_is_logging = left.category == PluginCategory::LOGGING;
+        const bool right_is_logging = right.category == PluginCategory::LOGGING;
+        if (left_is_logging != right_is_logging)
+            return !left_is_logging;
+
+        const bool left_is_windowing = is_windowing_plugin(left);
+        const bool right_is_windowing = is_windowing_plugin(right);
+        const bool left_is_rendering = left.category == PluginCategory::RENDERING;
+        const bool right_is_rendering = right.category == PluginCategory::RENDERING;
+        if (left_is_rendering && right_is_windowing)
+            return true;
+        if (right_is_rendering && left_is_windowing)
+            return false;
+
+        if (left.priority != right.priority)
+            return left.priority > right.priority;
+
+        return to_lower(left.name) < to_lower(right.name);
+    }
+
+    void unload_plugins(std::vector<LoadedPlugin>& loaded_plugins)
+    {
+        while (!loaded_plugins.empty())
+        {
+            const auto plugin_count = loaded_plugins.size();
+            auto name_to_index = std::unordered_map<std::string, size_t> {};
+            name_to_index.reserve(plugin_count);
+            for (size_t index = 0; index < plugin_count; ++index)
+            {
+                name_to_index.emplace(to_lower(loaded_plugins[index].meta.name), index);
+            }
+
+            auto dependents_count = std::vector<size_t>(plugin_count, 0U);
+            for (size_t index = 0; index < plugin_count; ++index)
+            {
+                for (const std::string& dependency : loaded_plugins[index].meta.dependencies)
+                {
+                    const std::string lowered = to_lower(trim(dependency));
+                    auto dependency_it = name_to_index.find(lowered);
+                    if (dependency_it == name_to_index.end())
+                        continue;
+
+                    dependents_count[dependency_it->second] += 1U;
+                }
+            }
+
+            auto candidates = std::vector<size_t> {};
+            candidates.reserve(plugin_count);
+            for (size_t index = 0; index < plugin_count; ++index)
+            {
+                if (dependents_count[index] == 0U)
+                    candidates.push_back(index);
+            }
+
+            if (candidates.empty())
+            {
+                TBX_TRACE_WARNING(
+                    "Plugin unload dependency cycle detected. Falling back to stack order.");
+                loaded_plugins.pop_back();
+                continue;
+            }
+
+            std::sort(
+                candidates.begin(),
+                candidates.end(),
+                [&loaded_plugins](size_t left_index, size_t right_index)
+                {
+                    const PluginMeta& left = loaded_plugins[left_index].meta;
+                    const PluginMeta& right = loaded_plugins[right_index].meta;
+                    return should_unload_before(left, right);
+                });
+
+            const size_t selected_index = candidates.front();
+            const size_t last_index = plugin_count - 1U;
+            if (selected_index != last_index)
+            {
+                std::swap(loaded_plugins[selected_index], loaded_plugins[last_index]);
+            }
+            loaded_plugins.pop_back();
+        }
     }
 }

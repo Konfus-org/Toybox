@@ -68,7 +68,7 @@ namespace tbx::plugins
             return;
         }
 
-        TBX_TRACE_INFO("SDL base systems initialized the events subsystem.");
+        TBX_TRACE_INFO("SDL base systems initialized the SDL events subsystem.");
     }
 
     void SdlBaseSystemsPlugin::on_detach()

@@ -40,6 +40,7 @@ namespace tbx
 
         if (_host)
         {
+            instance->detach();
             IMessageCoordinator& coordinator = _host->get_message_coordinator();
             coordinator.flush();
             if (message_handler_token.is_valid())
@@ -47,7 +48,6 @@ namespace tbx
                 coordinator.deregister_handler(message_handler_token);
                 message_handler_token = {};
             }
-            instance->detach();
         }
     }
 

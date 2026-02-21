@@ -2,7 +2,6 @@
 #include "tbx/graphics/messages.h"
 #include <SDL3/SDL.h>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace tbx::plugins
@@ -24,8 +23,7 @@ namespace tbx::plugins
 
     /// <summary>Bridges SDL windows and OpenGL context management for the engine.</summary>
     /// <remarks>Purpose: Centralizes SDL OpenGL attribute setup, context creation, and swap.
-    /// Ownership: Owns any created SDL_GLContext handles and releases them on destruction or when
-    /// explicitly destroyed.
+    /// Ownership: Owns one shared SDL_GLContext handle and releases it on destruction.
     /// Thread Safety: Not thread-safe; expected to be used from the render/main thread that owns
     /// the SDL contexts.</remarks>
     class SdlOpenGlAdapter final
@@ -34,29 +32,30 @@ namespace tbx::plugins
         explicit SdlOpenGlAdapter(const SdlOpenGlAdapterSettings& settings);
         ~SdlOpenGlAdapter() noexcept;
 
-        /// <summary>Updates runtime settings (vsync/debug) used by new and existing contexts.</summary>
-        /// <remarks>Purpose: Allows plugins to keep context behavior aligned with app settings.
-        /// Ownership: Copies the provided settings.
-        /// Thread Safety: Not thread-safe; must be called on the owning thread.</remarks>
+        /// <summary>Updates runtime settings (vsync/debug) used by new and existing
+        /// contexts.</summary> <remarks>Purpose: Allows plugins to keep context behavior aligned
+        /// with app settings. Ownership: Copies the provided settings. Thread Safety: Not
+        /// thread-safe; must be called on the owning thread.</remarks>
         void set_settings(const SdlOpenGlAdapterSettings& settings);
 
         /// <summary>Applies default SDL OpenGL attributes for future context creation.</summary>
-        /// <remarks>Purpose: Configures SDL_GL attributes (version/profile/depth/stencil/doublebuffer).
-        /// Ownership: No ownership transfer.
-        /// Thread Safety: Not thread-safe; call before creating contexts.</remarks>
+        /// <remarks>Purpose: Configures SDL_GL attributes
+        /// (version/profile/depth/stencil/doublebuffer). Ownership: No ownership transfer. Thread
+        /// Safety: Not thread-safe; call before creating contexts.</remarks>
         void apply_default_attributes() const;
 
-        /// <summary>Creates and stores an OpenGL context for the given SDL window.</summary>
-        /// <remarks>Purpose: Initializes a per-window SDL_GLContext and optionally applies vsync.
-        /// Ownership: Adapter owns the created context until destroyed.
-        /// Thread Safety: Not thread-safe; must be called on the owning thread.</remarks>
+        /// <summary>Creates the shared OpenGL context if needed and binds it to the
+        /// window.</summary> <remarks>Purpose: Initializes a single reusable SDL_GLContext and
+        /// optionally applies vsync when first created. Ownership: Adapter owns the shared context
+        /// until destruction. Thread Safety: Not thread-safe; must be called on the owning
+        /// thread.</remarks>
         bool try_create_context(SDL_Window* sdl_window, const std::string& window_title);
 
-        /// <summary>Destroys the stored OpenGL context for the given SDL window.</summary>
-        /// <remarks>Purpose: Releases the SDL_GLContext associated with the window (if any).
+        /// <summary>Destroys the shared OpenGL context.</summary>
+        /// <remarks>Purpose: Releases the shared SDL_GLContext owned by this adapter.
         /// Ownership: Adapter releases its owned context; the SDL_Window remains non-owning.
         /// Thread Safety: Not thread-safe; must be called on the owning thread.</remarks>
-        void destroy_context(SDL_Window* sdl_window);
+        void destroy_context();
 
         /// <summary>Makes the OpenGL context for the given window current.</summary>
         /// <remarks>Purpose: Activates the window's context for subsequent GL commands.
@@ -71,9 +70,9 @@ namespace tbx::plugins
         bool try_present(SDL_Window* sdl_window);
 
         /// <summary>Applies the current vsync setting to all tracked contexts.</summary>
-        /// <remarks>Purpose: Updates swap interval on all owned contexts while restoring prior current context.
-        /// Ownership: The provided window pointers are non-owning.
-        /// Thread Safety: Not thread-safe; must be called on the owning thread.</remarks>
+        /// <remarks>Purpose: Updates swap interval on all owned contexts while restoring prior
+        /// current context. Ownership: The provided window pointers are non-owning. Thread Safety:
+        /// Not thread-safe; must be called on the owning thread.</remarks>
         void apply_vsync_setting(const std::vector<SDL_Window*>& windows);
 
         /// <summary>Returns the SDL OpenGL proc-address loader function.</summary>
@@ -89,11 +88,7 @@ namespace tbx::plugins
         [[nodiscard]] bool has_context(SDL_Window* sdl_window) const;
 
       private:
-        [[nodiscard]] SDL_GLContext* try_get_context(SDL_Window* sdl_window);
-
-      private:
         SdlOpenGlAdapterSettings _settings = {};
-        std::unordered_map<SDL_Window*, SDL_GLContext> _contexts;
+        SDL_GLContext _shared_context = nullptr;
     };
 }
-

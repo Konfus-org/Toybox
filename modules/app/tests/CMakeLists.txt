@@ -1,5 +1,7 @@
 set(CMAKE_FOLDER "tests")
+include(TbxTestOutput)
 add_executable(TbxAppTests)
+tbx_set_test_output(TbxAppTests)
 
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"

@@ -48,7 +48,7 @@ namespace tbx::plugins
         SDL_Window* native = SDL_CreateWindow(title.c_str(), size.width, size.height, flags);
         if (!native)
         {
-            TBX_ASSERT(false, "Failed to create SDL window!");
+            TBX_ASSERT(false, "Failed to create SDL window! Error {}", SDL_GetError());
             return nullptr;
         }
 
@@ -59,27 +59,23 @@ namespace tbx::plugins
     {
         if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
         {
-            TBX_TRACE_ERROR("Failed to initialize SDL video subsystem. See SDL logs for details.");
+            TBX_TRACE_ERROR("Failed to initialize SDL video subsystem. Error: {}", SDL_GetError());
             return;
         }
         else
             TBX_TRACE_INFO("Initialized SDL video subsystem.");
 
+        TBX_TRACE_INFO("Video driver: {}", SDL_GetCurrentVideoDriver());
         _use_opengl = host.get_settings().graphics_api == GraphicsApi::OPEN_GL;
     }
 
     void SdlWindowingPlugin::on_detach()
     {
+        _pending_close_window_ids.clear();
         for (auto& record : _windows)
         {
-            if (record.tbx_window && record.sdl_window)
-            {
-                send_message<WindowNativeHandleChangedEvent>(
-                    record.tbx_window->id,
-                    record.sdl_window,
-                    nullptr,
-                    record.tbx_window->size.value);
-            }
+            if (record.tbx_window)
+                record.tbx_window->native_handle = nullptr;
             SDL_DestroyWindow(record.sdl_window);
         }
         _windows.clear();
@@ -141,14 +137,8 @@ namespace tbx::plugins
                 {
                     for (auto& record : _windows)
                     {
-                        if (record.tbx_window && record.sdl_window)
-                        {
-                            send_message<WindowNativeHandleChangedEvent>(
-                                record.tbx_window->id,
-                                record.sdl_window,
-                                nullptr,
-                                record.tbx_window->size.value);
-                        }
+                        if (record.tbx_window)
+                            record.tbx_window->native_handle = nullptr;
                         SDL_DestroyWindow(record.sdl_window);
                     }
                     _windows.clear();
@@ -158,29 +148,12 @@ namespace tbx::plugins
                     break;
             }
         }
+
+        process_pending_window_closes();
     }
 
     void SdlWindowingPlugin::on_recieve_message(Message& msg)
     {
-        if (auto* snapshot_request = handle_message<WindowNativeHandleSnapshotRequest>(msg))
-        {
-            for (const auto& record : _windows)
-            {
-                if (!record.tbx_window || !record.sdl_window)
-                    continue;
-
-                send_message<WindowNativeHandleChangedEvent>(
-                    record.tbx_window->id,
-                    nullptr,
-                    record.sdl_window,
-                    record.tbx_window->size.value);
-            }
-
-            snapshot_request->state = MessageState::HANDLED;
-            snapshot_request->result.flag_success();
-            return;
-        }
-
         // Graphics api changed
         if (auto* graphics_event = handle_property_changed<&AppSettings::graphics_api>(msg))
         {
@@ -190,14 +163,8 @@ namespace tbx::plugins
             for (auto& record : _windows)
             {
                 // Destory old SDL window
-                if (record.tbx_window && record.sdl_window)
-                {
-                    send_message<WindowNativeHandleChangedEvent>(
-                        record.tbx_window->id,
-                        record.sdl_window,
-                        nullptr,
-                        record.tbx_window->size.value);
-                }
+                if (record.tbx_window)
+                    record.tbx_window->native_handle = nullptr;
                 SDL_DestroyWindow(record.sdl_window);
                 record.sdl_window = nullptr;
 
@@ -205,13 +172,8 @@ namespace tbx::plugins
                 Window* window = record.tbx_window;
                 SDL_Window* native = create_sdl_window(window, _use_opengl);
                 record.sdl_window = native;
-
-                if (window && native)
-                    send_message<WindowNativeHandleChangedEvent>(
-                        window->id,
-                        nullptr,
-                        native,
-                        window->size.value);
+                if (window)
+                    window->native_handle = native;
             }
             return;
         }
@@ -252,34 +214,53 @@ namespace tbx::plugins
         {
             SdlWindowRecord* record = try_get_record(event.owner);
             if (!record)
-            {
                 return;
-            }
-            if (record->tbx_window && record->sdl_window)
-            {
-                send_message<WindowNativeHandleChangedEvent>(
-                    record->tbx_window->id,
-                    record->sdl_window,
-                    nullptr,
-                    record->tbx_window->size.value);
-            }
-            SDL_DestroyWindow(record->sdl_window);
-            remove_record(*record);
+
+            const Uuid window_id = record->tbx_window ? record->tbx_window->id : Uuid::NONE;
+            if (window_id.is_valid()
+                && !std::ranges::contains(_pending_close_window_ids, window_id))
+                _pending_close_window_ids.push_back(window_id);
         }
         // Window is opening
         else
         {
+            if (!event.owner)
+                return;
+
+            auto pending_it = std::ranges::find(_pending_close_window_ids, event.owner->id);
+            if (pending_it != _pending_close_window_ids.end())
+                _pending_close_window_ids.erase(pending_it);
+
+            if (try_get_record(event.owner))
+                return;
+
             Window* window = event.owner;
             SDL_Window* native = create_sdl_window(window, _use_opengl);
             SdlWindowRecord& record = add_record(native, window);
             (void)record;
+            if (window)
+                window->native_handle = native;
+        }
+    }
 
-            if (window && native)
-                send_message<WindowNativeHandleChangedEvent>(
-                    window->id,
-                    nullptr,
-                    native,
-                    window->size.value);
+    void SdlWindowingPlugin::process_pending_window_closes()
+    {
+        if (_pending_close_window_ids.empty())
+            return;
+
+        auto closing_window_ids = std::move(_pending_close_window_ids);
+        _pending_close_window_ids.clear();
+
+        for (const Uuid& window_id : closing_window_ids)
+        {
+            SdlWindowRecord* record = try_get_record(window_id);
+            if (!record)
+                continue;
+
+            if (record->tbx_window)
+                record->tbx_window->native_handle = nullptr;
+            SDL_DestroyWindow(record->sdl_window);
+            remove_record(*record);
         }
     }
 
@@ -288,10 +269,23 @@ namespace tbx::plugins
         SdlWindowRecord* record = try_get_record(event.owner);
         if (record && record->sdl_window)
         {
-            SDL_SetWindowSize(
-                record->sdl_window,
-                static_cast<int>(event.current.width),
-                static_cast<int>(event.current.height));
+            int current_width = 0;
+            int current_height = 0;
+            if (!SDL_GetWindowSize(record->sdl_window, &current_width, &current_height))
+            {
+                TBX_TRACE_WARNING(
+                    "Failed to query SDL window size for '{}': {}",
+                    record->tbx_window ? record->tbx_window->title.value : "Unnamed Window",
+                    SDL_GetError());
+                return;
+            }
+
+            int target_width = static_cast<int>(event.current.width);
+            int target_height = static_cast<int>(event.current.height);
+            if (current_width == target_width && current_height == target_height)
+                return;
+
+            SDL_SetWindowSize(record->sdl_window, target_width, target_height);
         }
     }
 

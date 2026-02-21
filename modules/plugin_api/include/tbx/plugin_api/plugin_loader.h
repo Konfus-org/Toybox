@@ -28,4 +28,9 @@ namespace tbx
         const std::vector<PluginMeta>& metas,
         const std::filesystem::path& working_directory,
         IPluginHost& host);
+
+    // Unloads plugins in a deterministic dependency-aware order.
+    // Ownership: Consumes and destroys LoadedPlugin instances in the provided vector.
+    // Thread-safety: Not thread-safe; call from the main thread.
+    TBX_API void unload_plugins(std::vector<LoadedPlugin>& loaded_plugins);
 }

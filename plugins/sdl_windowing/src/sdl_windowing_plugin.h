@@ -29,6 +29,7 @@ namespace tbx::plugins
         void on_window_size_changed(PropertyChangedEvent<Window, Size>& event);
         void on_window_mode_changed(PropertyChangedEvent<Window, WindowMode>& event);
         void on_window_title_changed(PropertyChangedEvent<Window, std::string>& event);
+        void process_pending_window_closes();
         SdlWindowRecord* try_get_record(std::function<bool(const SdlWindowRecord&)> condition);
         SdlWindowRecord* try_get_record(const SDL_Window* sdl_window);
         SdlWindowRecord* try_get_record(const Window* tbx_window);
@@ -38,6 +39,7 @@ namespace tbx::plugins
 
       private:
         std::vector<SdlWindowRecord> _windows;
+        std::vector<Uuid> _pending_close_window_ids;
         bool _use_opengl = false;
     };
 }

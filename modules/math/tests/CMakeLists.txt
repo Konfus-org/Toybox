@@ -1,4 +1,6 @@
+include(TbxTestOutput)
 add_executable(TbxMathTests)
+tbx_set_test_output(TbxMathTests)
 
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"

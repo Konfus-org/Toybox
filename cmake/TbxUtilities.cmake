@@ -26,7 +26,4 @@ add_custom_target(Tests
         TbxAppTests
 )
 
-file(GLOB_RECURSE TBX_PROJECT_RESOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/resources/*.*")
-add_custom_target(Resources SOURCES ${TBX_PROJECT_RESOURCES})
-
 unset(CMAKE_FOLDER)

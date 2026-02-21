@@ -21,4 +21,5 @@ tbx_register_plugin(
     NAME "${plugin_name}"
     VERSION "1.0.0"
     CATEGORY "rendering"
+    PRIORITY 100
 )

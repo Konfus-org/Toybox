@@ -8,6 +8,13 @@
 
 namespace tbx
 {
+    /// <summary>Represents a non-owning native platform window handle.</summary>
+    /// <remarks>Purpose: Carries backend-specific window handle data across systems.
+    /// Ownership: Non-owning opaque pointer; platform backend controls lifetime.
+    /// Thread Safety: Pointer value is copyable; lifetime access must be externally synchronized.
+    /// </remarks>
+    using NativeWindowHandle = void*;
+
     // Enumerates the presentation modes that a window can be configured for.
     // Ownership: Represents value semantics only; no ownership concerns.
     // Thread-safety: Immutable enum used freely across threads.
@@ -37,6 +44,7 @@ namespace tbx
         Observable<Window, Size> size;
         Observable<Window, WindowMode> mode;
         Observable<Window, bool> is_open;
+        Observable<Window, NativeWindowHandle> native_handle;
 
         Uuid id = Uuid::generate();
     };
