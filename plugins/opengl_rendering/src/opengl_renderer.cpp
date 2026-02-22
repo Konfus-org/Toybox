@@ -841,6 +841,8 @@ namespace tbx::plugins
             .owner_entity = post_process_owner_entity,
             .effects = std::span<const OpenGlPostProcessEffect>(resolved_post_processing.effects),
         };
+        const auto camera_forward =
+            normalize(get_camera_world_rotation(camera_view) * Vec3(0.0F, 0.0F, -1.0F));
         auto view_projection = get_camera_view_projection(camera_view, _render_resolution);
         auto inverse_view_projection = inverse(view_projection);
 
@@ -857,6 +859,7 @@ namespace tbx::plugins
             .post_process_ping_target = post_process_ping_framebuffer.get(),
             .post_process_pong_target = post_process_pong_framebuffer.get(),
             .camera_world_position = camera_world_position,
+            .camera_forward = camera_forward,
             .view_projection = view_projection,
             .inverse_view_projection = inverse_view_projection,
             .directional_lights =

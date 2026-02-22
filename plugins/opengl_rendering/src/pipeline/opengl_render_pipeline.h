@@ -318,6 +318,13 @@ namespace tbx::plugins
         Vec3 camera_world_position = Vec3(0.0f);
 
         /// <summary>
+        /// Purpose: Camera forward direction used for directional shadow cascade selection.
+        /// Ownership: Value type owned by this context.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        Vec3 camera_forward = Vec3(0.0f, 0.0f, -1.0f);
+
+        /// <summary>
         /// Purpose: Camera view-projection matrix for the active frame.
         /// Ownership: Value type owned by this context.
         /// Thread Safety: Safe to read concurrently.

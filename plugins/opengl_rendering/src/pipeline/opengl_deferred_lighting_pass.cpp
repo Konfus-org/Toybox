@@ -337,6 +337,11 @@ namespace tbx::plugins
             });
         draw_resources.shader_program->try_upload(
             MaterialParameter {
+                .name = "u_camera_forward",
+                .data = frame_context.camera_forward,
+            });
+        draw_resources.shader_program->try_upload(
+            MaterialParameter {
                 .name = "u_inverse_view_projection",
                 .data = frame_context.inverse_view_projection,
             });

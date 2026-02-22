@@ -33,7 +33,9 @@ namespace tbx::examples
             Vec3(20.0F, 20.0F, 1.0F));
 
         auto cube_ent = Entity("Cube", _ent_registry);
-        cube_ent.add_component<Renderer>();
+        cube_ent.add_component<Renderer>(MaterialInstance {
+            .parameters = {{"color", RgbaColor::yellow}},
+        });
         cube_ent.add_component<DynamicMesh>(cube);
         cube_ent.add_component<Transform>(Vec3(0.0F, 0.5F, -5.0F));
 
@@ -43,7 +45,9 @@ namespace tbx::examples
             _player.add_component<Transform>(Vec3(0.0F, 0.01F, 0.0F));
 
             auto player_visual = Entity("PlayerVisual", _player.get_id(), _ent_registry);
-            player_visual.add_component<Renderer>();
+            player_visual.add_component<Renderer>(MaterialInstance {
+                .parameters = {{"color", RgbaColor::red}},
+            });
             player_visual.add_component<DynamicMesh>(capsule);
             player_visual.add_component<Transform>(
                 Vec3(0.0F, 1.0F, 0.0F),

@@ -33,7 +33,9 @@ namespace tbx::examples
             to_radians(Vec3(-8.0F, 0.0F, 0.0F)));
 
         auto ground_ent = Entity("Ground", ent_registry);
-        ground_ent.add_component<Renderer>();
+        ground_ent.add_component<Renderer>(MaterialInstance {
+            .parameters = {{"color", RgbaColor::green}},
+        });
         ground_ent.add_component<DynamicMesh>(quad);
         ground_ent.add_component<MeshCollider>();
         ground_ent.add_component<Transform>(
@@ -42,14 +44,18 @@ namespace tbx::examples
             Vec3(20.0F, 20.0F, 1.0F));
 
         auto falling_sphere = Entity("FallingSphere", ent_registry);
-        falling_sphere.add_component<Renderer>();
+        falling_sphere.add_component<Renderer>(MaterialInstance {
+            .parameters = {{"color", RgbaColor::red}},
+        });
         falling_sphere.add_component<DynamicMesh>(sphere);
         falling_sphere.add_component<Transform>(Vec3(0.0F, 6.0F, -5.2F));
         falling_sphere.add_component<SphereCollider>(0.5F);
         falling_sphere.add_component<Physics>();
 
         auto falling_cube = Entity("FallingCube", ent_registry);
-        falling_cube.add_component<Renderer>();
+        falling_sphere.add_component<Renderer>(MaterialInstance {
+            .parameters = {{"color", RgbaColor::blue}},
+        });
         falling_cube.add_component<DynamicMesh>(cube);
         falling_cube.add_component<Transform>(Vec3(0.0F, 10.0F, -4.9F));
         falling_cube.add_component<CubeCollider>(Vec3(0.5F, 0.5F, 0.5F));
