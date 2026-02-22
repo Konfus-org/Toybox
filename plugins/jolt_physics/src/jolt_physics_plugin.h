@@ -1,4 +1,6 @@
 #pragma once
+#include "tbx/math/quaternions.h"
+#include "tbx/math/vectors.h"
 #include "tbx/plugin_api/plugin.h"
 #include <Jolt/Jolt.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
@@ -20,7 +22,7 @@ namespace tbx::plugins
       public:
         void on_attach(IPluginHost& host) override;
         void on_detach() override;
-        void on_update(const DeltaTime& dt) override;
+        void on_fixed_update(const DeltaTime& dt) override;
 
       private:
         void clear_bodies();
@@ -33,13 +35,16 @@ namespace tbx::plugins
         {
             JPH::BodyID body_id = {};
             bool is_physics_driven = false;
+            Vec3 last_position = Vec3(0.0F, 0.0F, 0.0F);
+            Quat last_rotation = Quat(1.0F, 0.0F, 0.0F, 0.0F);
+            Vec3 last_scale = Vec3(1.0F, 1.0F, 1.0F);
+            bool has_last_transform = false;
         };
 
         JPH::PhysicsSystem _physics_system = {};
         std::unique_ptr<JPH::TempAllocator> _temp_allocator = nullptr;
         std::unique_ptr<JPH::JobSystemThreadPool> _job_system = nullptr;
         std::unordered_map<Uuid, BodyRecord> _bodies_by_entity = {};
-        double _step_accumulator_seconds = 0.0;
         bool _is_ready = false;
     };
 }

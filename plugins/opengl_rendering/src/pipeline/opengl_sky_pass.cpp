@@ -3,7 +3,6 @@
 #include "opengl_resources/opengl_resource_manager.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/camera.h"
-#include "tbx/math/transform.h"
 #include <glad/glad.h>
 #include <vector>
 
@@ -11,19 +10,13 @@ namespace tbx::plugins
 {
     static Quat get_camera_rotation(const OpenGlCameraView& camera_view)
     {
-        if (!camera_view.camera_entity.has_component<Transform>())
-            return Quat(1.0f, 0.0f, 0.0f, 0.0f);
-
-        const auto& camera_transform = camera_view.camera_entity.get_component<Transform>();
+        const auto camera_transform = get_world_space_transform(camera_view.camera_entity);
         return camera_transform.rotation;
     }
 
     static Vec3 get_camera_position(const OpenGlCameraView& camera_view)
     {
-        if (!camera_view.camera_entity.has_component<Transform>())
-            return Vec3(0.0f);
-
-        const auto& camera_transform = camera_view.camera_entity.get_component<Transform>();
+        const auto camera_transform = get_world_space_transform(camera_view.camera_entity);
         return camera_transform.position;
     }
 

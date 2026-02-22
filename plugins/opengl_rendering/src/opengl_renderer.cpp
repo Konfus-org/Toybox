@@ -11,7 +11,6 @@
 #include "tbx/graphics/light.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/renderer.h"
-#include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
 #include <algorithm>
 #include <cmath>
@@ -107,19 +106,13 @@ namespace tbx::plugins
 
     static Vec3 get_camera_world_position(const OpenGlCameraView& camera_view)
     {
-        if (!camera_view.camera_entity.has_component<Transform>())
-            return Vec3(0.0f);
-
-        const auto& camera_transform = camera_view.camera_entity.get_component<Transform>();
+        const auto camera_transform = get_world_space_transform(camera_view.camera_entity);
         return camera_transform.position;
     }
 
     static Quat get_camera_world_rotation(const OpenGlCameraView& camera_view)
     {
-        if (!camera_view.camera_entity.has_component<Transform>())
-            return Quat(1.0f, 0.0f, 0.0f, 0.0f);
-
-        const auto& camera_transform = camera_view.camera_entity.get_component<Transform>();
+        const auto camera_transform = get_world_space_transform(camera_view.camera_entity);
         return camera_transform.rotation;
     }
 
@@ -139,19 +132,13 @@ namespace tbx::plugins
 
     static Vec3 get_entity_forward_direction(const Entity& entity)
     {
-        if (!entity.has_component<Transform>())
-            return Vec3(0.0f, -1.0f, 0.0f);
-
-        const auto& transform = entity.get_component<Transform>();
+        const auto transform = get_world_space_transform(entity);
         return normalize(transform.rotation * Vec3(0.0f, 0.0f, -1.0f));
     }
 
     static Vec3 get_entity_position(const Entity& entity)
     {
-        if (!entity.has_component<Transform>())
-            return Vec3(0.0f);
-
-        const auto& transform = entity.get_component<Transform>();
+        const auto transform = get_world_space_transform(entity);
         return transform.position;
     }
 

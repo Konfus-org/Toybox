@@ -23,6 +23,9 @@ namespace tbx
 
     TBX_API Mesh make_triangle();
     TBX_API Mesh make_quad();
+    TBX_API Mesh make_cube();
+    TBX_API Mesh make_sphere();
+    TBX_API Mesh make_capsule();
 
     /// <summary>Purpose: Provides a triangle mesh.</summary>
     /// <remarks>Ownership: Returns a reference to the default triangle mesh owned
@@ -35,6 +38,24 @@ namespace tbx
     /// by the module.
     /// Thread Safety: Safe to read concurrently.</remarks>
     inline Mesh quad = make_quad();
+
+    /// <summary>Purpose: Provides a cube mesh.</summary>
+    /// <remarks>Ownership: Returns a reference to the default cube mesh owned
+    /// by the module.
+    /// Thread Safety: Safe to read concurrently.</remarks>
+    inline Mesh cube_mesh = make_cube();
+
+    /// <summary>Purpose: Provides a sphere mesh.</summary>
+    /// <remarks>Ownership: Returns a reference to the default sphere mesh owned
+    /// by the module.
+    /// Thread Safety: Safe to read concurrently.</remarks>
+    inline Mesh sphere_mesh = make_sphere();
+
+    /// <summary>Purpose: Provides a capsule mesh.</summary>
+    /// <remarks>Ownership: Returns a reference to the default capsule mesh owned
+    /// by the module.
+    /// Thread Safety: Safe to read concurrently.</remarks>
+    inline Mesh capsule_mesh = make_capsule();
 
     /// <summary>
     /// Purpose: Identifies a static, asset-backed model to render for an entity.

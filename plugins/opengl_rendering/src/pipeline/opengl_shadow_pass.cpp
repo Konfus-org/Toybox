@@ -4,7 +4,6 @@
 #include "opengl_resources/opengl_shadow_map.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/renderer.h"
-#include "tbx/math/transform.h"
 #include <algorithm>
 #include <glad/glad.h>
 #include <vector>
@@ -29,10 +28,7 @@ namespace tbx::plugins
 
     static void upload_model_uniform(OpenGlShaderProgram& shader_program, const Entity& entity)
     {
-        auto transform = Transform {};
-        if (entity.has_component<Transform>())
-            transform = entity.get_component<Transform>();
-
+        const auto transform = get_world_space_transform(entity);
         const auto model_matrix = build_transform_matrix(transform);
         shader_program.upload(
             MaterialParameter {

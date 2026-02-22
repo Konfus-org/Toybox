@@ -6,7 +6,6 @@
 #include "opengl_sky_pass.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/renderer.h"
-#include "tbx/math/transform.h"
 #include <any>
 #include <glad/glad.h>
 #include <string>
@@ -73,10 +72,7 @@ namespace tbx::plugins
 
         void upload_model_uniform(OpenGlShaderProgram& shader_program, const Entity& entity) const
         {
-            auto transform = Transform();
-            if (entity.has_component<Transform>())
-                transform = entity.get_component<Transform>();
-
+            const auto transform = get_world_space_transform(entity);
             auto model_matrix = build_transform_matrix(transform);
             shader_program.upload(
                 MaterialParameter {

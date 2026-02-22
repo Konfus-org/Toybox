@@ -26,53 +26,16 @@ namespace tbx
     /// </remarks>
     struct TBX_API AppSettings
     {
-        /// <summary>
-        /// Purpose: Initializes observable graphics and physics settings defaults.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Does not take ownership of the dispatcher reference.
-        /// Thread Safety: Not thread-safe; initialize on a single thread.
-        /// </remarks>
         AppSettings(
             IMessageDispatcher& dispatcher,
             bool vsync = false,
             GraphicsApi api = GraphicsApi::OPEN_GL,
             Size resolution = {0, 0});
 
-        /// <summary>
-        /// Purpose: Stores global graphics settings for all render backends.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Owns the nested settings struct by value.
-        /// Thread Safety: Not thread-safe; observe or mutate with external synchronization.
-        /// </remarks>
         GraphicsSettings graphics;
-
-        /// <summary>
-        /// Purpose: Stores global physics simulation settings for all physics backends.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Owns the nested settings struct by value.
-        /// Thread Safety: Not thread-safe; observe or mutate with external synchronization.
-        /// </remarks>
         PhysicsSettings physics;
 
-        /// <summary>
-        /// Purpose: Defines the working directory used for relative path resolution.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Stores a path value copied at startup and not expected to change.
-        /// Thread Safety: Not thread-safe; treat as immutable after initialization.
-        /// </remarks>
         std::filesystem::path working_directory = {};
-
-        /// <summary>
-        /// Purpose: Defines the directory used for log file output.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Stores a path value copied at startup and not expected to change.
-        /// Thread Safety: Not thread-safe; treat as immutable after initialization.
-        /// </remarks>
         std::filesystem::path logs_directory = {};
     };
 
@@ -157,6 +120,7 @@ namespace tbx
       private:
         void initialize(const std::vector<std::string>& requested_plugins);
         void update(DeltaTimer& timer);
+        void fixed_update(const DeltaTime& dt);
         void shutdown();
         void recieve_message(Message& msg);
 
@@ -181,5 +145,6 @@ namespace tbx
         bool _performance_sample_has_data = false;
 
         double _asset_unload_elapsed_seconds = 0.0;
+        double _fixed_update_accumulator_seconds = 0.0;
     };
 }

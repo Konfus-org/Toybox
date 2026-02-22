@@ -46,6 +46,9 @@ namespace tbx
         // Ticks the plugin for the given frame delta.
         void update(const DeltaTime& dt);
 
+        // Ticks the plugin for a fixed simulation step.
+        void fixed_update(const DeltaTime& dt);
+
         // Invokes the plugin's message entry point.
         void receive_message(Message& msg);
 
@@ -107,6 +110,9 @@ namespace tbx
 
         // Per-frame update with delta timing.
         virtual void on_update(const DeltaTime& dt) {}
+
+        // Fixed-step update with deterministic delta timing.
+        virtual void on_fixed_update(const DeltaTime& dt) {}
 
         // Unified message entry point for dispatch callbacks.
         virtual void on_recieve_message(Message& msg) {}

@@ -1,7 +1,27 @@
 #include "tbx/ecs/entity.h"
+#include <cstddef>
 
 namespace tbx
 {
+    static Vec3 multiply_components(const Vec3& left, const Vec3& right)
+    {
+        return Vec3(left.x * right.x, left.y * right.y, left.z * right.z);
+    }
+
+    static Transform compose_world_space_transform(
+        const Transform& parent_transform,
+        const Transform& local_transform)
+    {
+        auto world_transform = Transform {};
+        world_transform.scale = multiply_components(parent_transform.scale, local_transform.scale);
+        world_transform.rotation = normalize(parent_transform.rotation * local_transform.rotation);
+        world_transform.position =
+            parent_transform.position
+            + (parent_transform.rotation
+               * multiply_components(parent_transform.scale, local_transform.position));
+        return world_transform;
+    }
+
     Entity::Entity(const std::string& name, EntityRegistry* registry)
         : Entity(name, Uuid::NONE, registry)
     {
@@ -114,6 +134,20 @@ namespace tbx
         _registry->set_parent_id(_id, parent);
     }
 
+    bool Entity::try_get_parent_entity(Entity& out_parent) const
+    {
+        out_parent = Entity {};
+        if (_registry == nullptr)
+            return false;
+
+        const Uuid parent_id = _registry->get_parent_id(_id);
+        if (!parent_id.is_valid())
+            return false;
+
+        out_parent = _registry->get(parent_id);
+        return out_parent.get_id().is_valid();
+    }
+
     std::string to_string(const Entity& entity)
     {
         auto idValue = std::to_string(entity.get_id().value);
@@ -143,6 +177,34 @@ namespace tbx
         value += parentValue;
         value += "}";
         return value;
+    }
+
+    Transform get_world_space_transform(const Entity& entity)
+    {
+        auto world_transform = Transform {};
+        if (entity.has_component<Transform>())
+            world_transform = entity.get_component<Transform>();
+
+        auto cursor = entity;
+        auto parent = Entity {};
+        size_t iteration_count = 0U;
+        static constexpr size_t max_parent_depth = 1024U;
+        while (cursor.try_get_parent_entity(parent) && iteration_count < max_parent_depth)
+        {
+            if (parent.get_id() == cursor.get_id())
+                break;
+
+            if (parent.has_component<Transform>())
+            {
+                const auto& parent_transform = parent.get_component<Transform>();
+                world_transform = compose_world_space_transform(parent_transform, world_transform);
+            }
+
+            cursor = parent;
+            ++iteration_count;
+        }
+
+        return world_transform;
     }
 
     EntityScope::EntityScope(Entity& source)

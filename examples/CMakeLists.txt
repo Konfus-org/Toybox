@@ -6,5 +6,7 @@ tbx_define_default_includes()
 add_subdirectory(plugin_example)
 add_subdirectory(ecs_example)
 add_subdirectory(asset_example)
+add_subdirectory(input_example)
+add_subdirectory(physics_example)
 
 unset(CMAKE_FOLDER)

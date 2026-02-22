@@ -1,6 +1,8 @@
 #include "jolt_physics_plugin.h"
 #include "tbx/app/application.h"
 #include "tbx/debugging/macros.h"
+#include "tbx/graphics/mesh.h"
+#include "tbx/graphics/model.h"
 #include "tbx/math/transform.h"
 #include "tbx/physics/collider.h"
 #include "tbx/physics/physics.h"
@@ -12,10 +14,13 @@
 #include <Jolt/Physics/Collision/ObjectLayer.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
+#include <Jolt/Physics/Collision/Shape/ConvexHullShape.h>
+#include <Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <Jolt/Physics/Collision/Shape/Shape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/RegisterTypes.h>
 #include <algorithm>
+#include <cmath>
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
@@ -232,6 +237,72 @@ namespace tbx::plugins
             return Quat(value.GetW(), value.GetX(), value.GetY(), value.GetZ());
         }
 
+        static float get_vec3_distance_squared(const Vec3& left, const Vec3& right)
+        {
+            const float delta_x = left.x - right.x;
+            const float delta_y = left.y - right.y;
+            const float delta_z = left.z - right.z;
+            return delta_x * delta_x + delta_y * delta_y + delta_z * delta_z;
+        }
+
+        static bool has_transform_changed(
+            const Transform& current,
+            const Vec3& previous_position,
+            const Quat& previous_rotation,
+            const Vec3& previous_scale)
+        {
+            constexpr float position_epsilon_squared = 0.000001F * 0.000001F;
+            constexpr float rotation_dot_epsilon = 0.0001F;
+            constexpr float scale_epsilon_squared = 0.0001F * 0.0001F;
+
+            if (get_vec3_distance_squared(current.position, previous_position)
+                > position_epsilon_squared)
+                return true;
+
+            const Quat current_rotation = normalize(current.rotation);
+            const Quat previous_rotation_normalized = normalize(previous_rotation);
+            const float rotation_dot = std::abs(
+                current_rotation.x * previous_rotation_normalized.x
+                + current_rotation.y * previous_rotation_normalized.y
+                + current_rotation.z * previous_rotation_normalized.z
+                + current_rotation.w * previous_rotation_normalized.w);
+            if ((1.0F - std::min(1.0F, rotation_dot)) > rotation_dot_epsilon)
+                return true;
+
+            if (get_vec3_distance_squared(current.scale, previous_scale) > scale_epsilon_squared)
+                return true;
+
+            return false;
+        }
+
+        static Vec3 multiply_components(const Vec3& left, const Vec3& right)
+        {
+            return Vec3(left.x * right.x, left.y * right.y, left.z * right.z);
+        }
+
+        static Vec3 calculate_angular_velocity_for_step(
+            const Quat& start_rotation,
+            const Quat& target_rotation,
+            float dt_seconds)
+        {
+            Quat normalized_start = normalize(start_rotation);
+            Quat normalized_target = normalize(target_rotation);
+
+            Quat delta_rotation = normalize(normalized_target * glm::conjugate(normalized_start));
+            if (delta_rotation.w < 0.0F)
+                delta_rotation = -delta_rotation;
+
+            float clamped_w = std::clamp(delta_rotation.w, -1.0F, 1.0F);
+            float half_angle_sine = std::sqrt(std::max(0.0F, 1.0F - clamped_w * clamped_w));
+            if (half_angle_sine <= 0.000001F)
+                return Vec3(0.0F, 0.0F, 0.0F);
+
+            Vec3 axis = Vec3(delta_rotation.x, delta_rotation.y, delta_rotation.z)
+                        * (1.0F / half_angle_sine);
+            float angle_radians = 2.0F * std::atan2(half_angle_sine, clamped_w);
+            return axis * (angle_radians / std::max(0.0001F, dt_seconds));
+        }
+
         static JPH::RefConst<JPH::Shape> create_box_shape(const CubeCollider& cube)
         {
             auto half_extents = JPH::Vec3(
@@ -254,13 +325,358 @@ namespace tbx::plugins
             return new JPH::CapsuleShape(half_height, radius);
         }
 
+        static Vec3 get_safe_scale(const Vec3& scale)
+        {
+            return Vec3(
+                std::max(0.001F, std::abs(scale.x)),
+                std::max(0.001F, std::abs(scale.y)),
+                std::max(0.001F, std::abs(scale.z)));
+        }
+
+        static bool try_get_mesh_vertex_position_offset(
+            const VertexBufferLayout& layout,
+            std::size_t& position_offset_bytes)
+        {
+            for (const auto& attribute : layout.elements)
+            {
+                if (!std::holds_alternative<Vec3>(attribute.type))
+                    continue;
+
+                position_offset_bytes = static_cast<std::size_t>(attribute.offset);
+                return true;
+            }
+
+            return false;
+        }
+
+        static bool try_get_mesh_vertex_positions(
+            const Mesh& mesh,
+            const Vec3& scale,
+            std::vector<JPH::Float3>& positions)
+        {
+            const auto& vertex_values = mesh.vertices.vertices;
+            const auto stride_bytes = static_cast<std::size_t>(mesh.vertices.layout.stride);
+            if (stride_bytes < sizeof(float) * 3U)
+                return false;
+
+            std::size_t position_offset_bytes = 0U;
+            if (!try_get_mesh_vertex_position_offset(mesh.vertices.layout, position_offset_bytes))
+                position_offset_bytes = 0U;
+
+            if ((stride_bytes % sizeof(float)) != 0U
+                || (position_offset_bytes % sizeof(float)) != 0U)
+                return false;
+
+            const std::size_t stride_floats = stride_bytes / sizeof(float);
+            const std::size_t position_offset_floats = position_offset_bytes / sizeof(float);
+            if (stride_floats == 0U || position_offset_floats + 2U >= stride_floats)
+                return false;
+
+            if ((vertex_values.size() % stride_floats) != 0U)
+                return false;
+
+            const Vec3 safe_scale = get_safe_scale(scale);
+            const std::size_t vertex_count = vertex_values.size() / stride_floats;
+            positions.clear();
+            positions.reserve(vertex_count);
+            for (std::size_t vertex_index = 0U; vertex_index < vertex_count; ++vertex_index)
+            {
+                const std::size_t base_index =
+                    vertex_index * stride_floats + position_offset_floats;
+                positions.push_back(
+                    JPH::Float3(
+                        vertex_values[base_index] * safe_scale.x,
+                        vertex_values[base_index + 1U] * safe_scale.y,
+                        vertex_values[base_index + 2U] * safe_scale.z));
+            }
+
+            return !positions.empty();
+        }
+
+        static bool try_append_mesh_geometry(
+            const Mesh& mesh,
+            const Mat4& mesh_transform,
+            const Vec3& mesh_scale,
+            std::vector<JPH::Float3>& positions,
+            std::vector<JPH::IndexedTriangle>& triangles)
+        {
+            const auto& vertex_values = mesh.vertices.vertices;
+            const auto stride_bytes = static_cast<std::size_t>(mesh.vertices.layout.stride);
+            if (stride_bytes < sizeof(float) * 3U)
+                return false;
+
+            std::size_t position_offset_bytes = 0U;
+            if (!try_get_mesh_vertex_position_offset(mesh.vertices.layout, position_offset_bytes))
+                position_offset_bytes = 0U;
+
+            if ((stride_bytes % sizeof(float)) != 0U
+                || (position_offset_bytes % sizeof(float)) != 0U)
+                return false;
+
+            const std::size_t stride_floats = stride_bytes / sizeof(float);
+            const std::size_t position_offset_floats = position_offset_bytes / sizeof(float);
+            if (stride_floats == 0U || position_offset_floats + 2U >= stride_floats)
+                return false;
+
+            if ((vertex_values.size() % stride_floats) != 0U)
+                return false;
+
+            const std::size_t base_vertex_index = positions.size();
+            const Vec3 safe_scale = get_safe_scale(mesh_scale);
+            const std::size_t vertex_count = vertex_values.size() / stride_floats;
+            positions.reserve(base_vertex_index + vertex_count);
+            for (std::size_t vertex_index = 0U; vertex_index < vertex_count; ++vertex_index)
+            {
+                const std::size_t base_index =
+                    vertex_index * stride_floats + position_offset_floats;
+                const Vec4 local_position = Vec4(
+                    vertex_values[base_index],
+                    vertex_values[base_index + 1U],
+                    vertex_values[base_index + 2U],
+                    1.0F);
+                const Vec4 transformed_position = mesh_transform * local_position;
+
+                positions.push_back(
+                    JPH::Float3(
+                        transformed_position.x * safe_scale.x,
+                        transformed_position.y * safe_scale.y,
+                        transformed_position.z * safe_scale.z));
+            }
+
+            const auto& mesh_indices = mesh.indices;
+            if (mesh_indices.size() >= 3U)
+            {
+                const std::size_t triangle_count = mesh_indices.size() / 3U;
+                triangles.reserve(triangles.size() + triangle_count);
+                for (std::size_t triangle_index = 0U; triangle_index < triangle_count;
+                     ++triangle_index)
+                {
+                    const std::size_t index_base = triangle_index * 3U;
+                    const std::size_t index0 = base_vertex_index + mesh_indices[index_base];
+                    const std::size_t index1 = base_vertex_index + mesh_indices[index_base + 1U];
+                    const std::size_t index2 = base_vertex_index + mesh_indices[index_base + 2U];
+                    if (index0 >= positions.size() || index1 >= positions.size()
+                        || index2 >= positions.size())
+                        continue;
+
+                    triangles.push_back(
+                        JPH::IndexedTriangle(
+                            static_cast<JPH::uint32>(index0),
+                            static_cast<JPH::uint32>(index1),
+                            static_cast<JPH::uint32>(index2),
+                            0U));
+                }
+            }
+
+            return positions.size() > base_vertex_index;
+        }
+
+        static bool try_get_mesh_collider_data(
+            IPluginHost& host,
+            const Entity& entity,
+            const Vec3& scale,
+            std::vector<JPH::Float3>& positions,
+            std::vector<JPH::IndexedTriangle>& triangles)
+        {
+            positions.clear();
+            triangles.clear();
+
+            if (entity.has_component<DynamicMesh>())
+            {
+                const auto& mesh_component = entity.get_component<DynamicMesh>();
+                const auto& mesh_data = mesh_component.data;
+                if (!mesh_data)
+                    return false;
+
+                return try_append_mesh_geometry(
+                    *mesh_data,
+                    Mat4(1.0F),
+                    scale,
+                    positions,
+                    triangles);
+            }
+
+            if (!entity.has_component<StaticMesh>())
+                return false;
+
+            const auto& static_mesh = entity.get_component<StaticMesh>();
+            if (!static_mesh.handle.is_valid())
+                return false;
+
+            auto model = host.get_asset_manager().load<Model>(static_mesh.handle);
+            if (!model || model->meshes.empty())
+                return false;
+
+            if (model->parts.empty())
+            {
+                bool has_any_mesh = false;
+                for (const auto& mesh : model->meshes)
+                    has_any_mesh |=
+                        try_append_mesh_geometry(mesh, Mat4(1.0F), scale, positions, triangles);
+
+                return has_any_mesh;
+            }
+
+            auto has_parent = std::vector<bool>(model->parts.size(), false);
+            for (const auto& part : model->parts)
+            {
+                for (const auto child_index : part.children)
+                {
+                    if (child_index < has_parent.size())
+                        has_parent[child_index] = true;
+                }
+            }
+
+            struct PartQueueEntry
+            {
+                std::size_t part_index = 0U;
+                Mat4 parent_transform = Mat4(1.0F);
+            };
+
+            auto queue = std::vector<PartQueueEntry> {};
+            queue.reserve(model->parts.size());
+            for (std::size_t part_index = 0U; part_index < model->parts.size(); ++part_index)
+            {
+                if (has_parent[part_index])
+                    continue;
+
+                queue.push_back(
+                    PartQueueEntry {
+                        .part_index = part_index,
+                        .parent_transform = Mat4(1.0F),
+                    });
+            }
+
+            if (queue.empty())
+            {
+                queue.push_back(
+                    PartQueueEntry {
+                        .part_index = 0U,
+                        .parent_transform = Mat4(1.0F),
+                    });
+            }
+
+            auto visited_parts = std::vector<bool>(model->parts.size(), false);
+            bool has_any_part_mesh = false;
+            while (!queue.empty())
+            {
+                const PartQueueEntry current = queue.back();
+                queue.pop_back();
+                if (current.part_index >= model->parts.size())
+                    continue;
+
+                if (visited_parts[current.part_index])
+                    continue;
+                visited_parts[current.part_index] = true;
+
+                const auto& part = model->parts[current.part_index];
+                const Mat4 part_transform = current.parent_transform * part.transform;
+                if (part.mesh_index < model->meshes.size())
+                {
+                    has_any_part_mesh |= try_append_mesh_geometry(
+                        model->meshes[part.mesh_index],
+                        part_transform,
+                        scale,
+                        positions,
+                        triangles);
+                }
+
+                for (const auto child_index : part.children)
+                {
+                    queue.push_back(
+                        PartQueueEntry {
+                            .part_index = child_index,
+                            .parent_transform = part_transform,
+                        });
+                }
+            }
+
+            return has_any_part_mesh;
+        }
+
+        static JPH::RefConst<JPH::Shape> create_mesh_shape(
+            IPluginHost& host,
+            const Entity& entity,
+            const Transform& transform,
+            bool is_physics_driven)
+        {
+            const auto& mesh_collider = entity.get_component<MeshCollider>();
+
+            auto positions = std::vector<JPH::Float3> {};
+            auto triangles = std::vector<JPH::IndexedTriangle> {};
+            if (!try_get_mesh_collider_data(host, entity, transform.scale, positions, triangles))
+            {
+                TBX_TRACE_WARNING(
+                    "Jolt physics: MeshCollider on entity {} has no usable mesh geometry, "
+                    "using fallback box shape.",
+                    to_string(entity.get_id()));
+                return nullptr;
+            }
+
+            if (mesh_collider.is_convex || is_physics_driven)
+            {
+                JPH::Array<JPH::Vec3> convex_points = {};
+                convex_points.reserve(static_cast<JPH::uint>(positions.size()));
+                for (const auto& point : positions)
+                    convex_points.push_back(JPH::Vec3(point.x, point.y, point.z));
+
+                auto convex_shape_result = JPH::ConvexHullShapeSettings(convex_points).Create();
+                if (convex_shape_result.HasError())
+                {
+                    TBX_TRACE_WARNING(
+                        "Jolt physics: Failed to build convex MeshCollider on entity {}: {}",
+                        to_string(entity.get_id()),
+                        convex_shape_result.GetError().c_str());
+                    return nullptr;
+                }
+
+                return convex_shape_result.Get();
+            }
+
+            if (triangles.empty())
+            {
+                TBX_TRACE_WARNING(
+                    "Jolt physics: Non-convex MeshCollider on entity {} has no triangle index "
+                    "data.",
+                    to_string(entity.get_id()));
+                return nullptr;
+            }
+
+            JPH::VertexList vertex_list = {};
+            vertex_list.reserve(static_cast<JPH::uint>(positions.size()));
+            for (const auto& position : positions)
+                vertex_list.push_back(position);
+
+            JPH::IndexedTriangleList triangle_list = {};
+            triangle_list.reserve(static_cast<JPH::uint>(triangles.size()));
+            for (const auto& triangle : triangles)
+                triangle_list.push_back(triangle);
+
+            auto mesh_shape_result =
+                JPH::MeshShapeSettings(std::move(vertex_list), std::move(triangle_list)).Create();
+            if (mesh_shape_result.HasError())
+            {
+                TBX_TRACE_WARNING(
+                    "Jolt physics: Failed to build mesh MeshCollider on entity {}: {}",
+                    to_string(entity.get_id()),
+                    mesh_shape_result.GetError().c_str());
+                return nullptr;
+            }
+
+            return mesh_shape_result.Get();
+        }
+
         static bool has_any_collider(const Entity& entity)
         {
             return entity.has_component<SphereCollider>() || entity.has_component<CapsuleCollider>()
                    || entity.has_component<CubeCollider>() || entity.has_component<MeshCollider>();
         }
 
-        static JPH::RefConst<JPH::Shape> create_shape_for_entity(const Entity& entity)
+        static JPH::RefConst<JPH::Shape> create_shape_for_entity(
+            IPluginHost& host,
+            const Entity& entity,
+            const Transform& transform,
+            bool is_physics_driven)
         {
             if (entity.has_component<SphereCollider>())
                 return create_sphere_shape(entity.get_component<SphereCollider>());
@@ -272,7 +688,14 @@ namespace tbx::plugins
                 return create_box_shape(entity.get_component<CubeCollider>());
 
             if (entity.has_component<MeshCollider>())
+            {
+                JPH::RefConst<JPH::Shape> mesh_shape =
+                    create_mesh_shape(host, entity, transform, is_physics_driven);
+                if (mesh_shape)
+                    return mesh_shape;
+
                 return new JPH::BoxShape(JPH::Vec3(0.5F, 0.5F, 0.5F));
+            }
 
             if (!entity.has_component<Physics>())
                 return nullptr;
@@ -324,7 +747,6 @@ namespace tbx::plugins
             object_layer_pair_filter);
 
         apply_world_settings();
-        _step_accumulator_seconds = 0.0;
         _is_ready = true;
     }
 
@@ -334,42 +756,26 @@ namespace tbx::plugins
         _job_system.reset();
         _temp_allocator.reset();
         _is_ready = false;
-        _step_accumulator_seconds = 0.0;
         release_jolt_runtime();
     }
 
-    void JoltPhysicsPlugin::on_update(const DeltaTime& dt)
+    void JoltPhysicsPlugin::on_fixed_update(const DeltaTime& dt)
     {
         if (!_is_ready || !_temp_allocator || !_job_system)
             return;
 
-        auto& physics_settings = get_host().get_settings().physics;
-        float fixed_step = std::max(0.0001F, physics_settings.fixed_time_step_seconds.value);
-        int max_sub_steps = std::max(1, static_cast<int>(physics_settings.max_sub_steps.value));
-
         apply_world_settings();
-        sync_entities_to_world(fixed_step);
+        sync_entities_to_world(static_cast<float>(dt.seconds));
 
-        _step_accumulator_seconds += std::max(0.0, dt.seconds);
-
-        int sub_step_count = 0;
-        while (_step_accumulator_seconds >= fixed_step && sub_step_count < max_sub_steps)
-        {
-            JPH::EPhysicsUpdateError update_error =
-                _physics_system.Update(fixed_step, 1, _temp_allocator.get(), _job_system.get());
-            if (update_error != JPH::EPhysicsUpdateError::None)
-                TBX_TRACE_WARNING(
-                    "Jolt physics update reported error flags: {}",
-                    static_cast<std::uint32_t>(update_error));
-
-            _step_accumulator_seconds -= fixed_step;
-            ++sub_step_count;
-        }
-
-        double max_accumulator_seconds =
-            static_cast<double>(fixed_step) * static_cast<double>(std::max(1, max_sub_steps));
-        if (_step_accumulator_seconds > max_accumulator_seconds)
-            _step_accumulator_seconds = max_accumulator_seconds;
+        JPH::EPhysicsUpdateError update_error = _physics_system.Update(
+            static_cast<float>(std::max(0.0001, dt.seconds)),
+            1,
+            _temp_allocator.get(),
+            _job_system.get());
+        if (update_error != JPH::EPhysicsUpdateError::None)
+            TBX_TRACE_WARNING(
+                "Jolt physics update reported error flags: {}",
+                static_cast<std::uint32_t>(update_error));
 
         sync_world_to_entities();
     }
@@ -415,7 +821,7 @@ namespace tbx::plugins
         {
             Uuid entity_id = entity.get_id();
 
-            auto& transform = entity.get_component<Transform>();
+            const auto world_transform = get_world_space_transform(entity);
             const bool has_physics_component = entity.has_component<Physics>();
             const bool has_collider = has_any_collider(entity);
             if (!has_physics_component && !has_collider)
@@ -448,7 +854,8 @@ namespace tbx::plugins
 
             if (body_it == _bodies_by_entity.end())
             {
-                JPH::RefConst<JPH::Shape> shape = create_shape_for_entity(entity);
+                JPH::RefConst<JPH::Shape> shape =
+                    create_shape_for_entity(get_host(), entity, world_transform, is_physics_driven);
                 if (!shape)
                     continue;
 
@@ -458,8 +865,8 @@ namespace tbx::plugins
 
                 auto body_settings = JPH::BodyCreationSettings(
                     shape,
-                    to_jolt_rvec3(transform.position),
-                    to_jolt_quat(transform.rotation),
+                    to_jolt_rvec3(world_transform.position),
+                    to_jolt_quat(world_transform.rotation),
                     motion_type,
                     object_layer);
 
@@ -499,21 +906,40 @@ namespace tbx::plugins
                     continue;
                 }
 
-                _bodies_by_entity[entity_id] = BodyRecord {body_id, is_physics_driven};
+                _bodies_by_entity[entity_id] = BodyRecord {
+                    .body_id = body_id,
+                    .is_physics_driven = is_physics_driven,
+                    .last_position = world_transform.position,
+                    .last_rotation = world_transform.rotation,
+                    .last_scale = world_transform.scale,
+                    .has_last_transform = true,
+                };
                 continue;
             }
 
-            JPH::BodyID body_id = body_it->second.body_id;
+            auto& body_record = body_it->second;
+            JPH::BodyID body_id = body_record.body_id;
             if (!body_interface.IsAdded(body_id))
                 continue;
+
+            const bool transform_is_dirty = body_record.has_last_transform
+                                            && has_transform_changed(
+                                                world_transform,
+                                                body_record.last_position,
+                                                body_record.last_rotation,
+                                                body_record.last_scale);
 
             if (!is_physics_driven)
             {
                 body_interface.SetPositionAndRotation(
                     body_id,
-                    to_jolt_rvec3(transform.position),
-                    to_jolt_quat(transform.rotation),
+                    to_jolt_rvec3(world_transform.position),
+                    to_jolt_quat(world_transform.rotation),
                     JPH::EActivation::DontActivate);
+                body_record.last_position = world_transform.position;
+                body_record.last_rotation = world_transform.rotation;
+                body_record.last_scale = world_transform.scale;
+                body_record.has_last_transform = true;
                 continue;
             }
 
@@ -521,12 +947,45 @@ namespace tbx::plugins
             {
                 body_interface.MoveKinematic(
                     body_id,
-                    to_jolt_rvec3(transform.position),
-                    to_jolt_quat(transform.rotation),
+                    to_jolt_rvec3(world_transform.position),
+                    to_jolt_quat(world_transform.rotation),
                     std::max(0.0001F, dt_seconds));
 
                 body_interface.SetLinearVelocity(body_id, to_jolt_vec3(physics->linear_velocity));
                 body_interface.SetAngularVelocity(body_id, to_jolt_vec3(physics->angular_velocity));
+                body_record.last_position = world_transform.position;
+                body_record.last_rotation = world_transform.rotation;
+                body_record.last_scale = world_transform.scale;
+                body_record.has_last_transform = true;
+            }
+            else if (transform_is_dirty)
+            {
+                if (physics->transform_sync_mode == PhysicsTransformSyncMode::TELEPORT)
+                {
+                    body_interface.SetPositionAndRotation(
+                        body_id,
+                        to_jolt_rvec3(world_transform.position),
+                        to_jolt_quat(world_transform.rotation),
+                        JPH::EActivation::Activate);
+                }
+                else if (physics->transform_sync_mode == PhysicsTransformSyncMode::SWEEP)
+                {
+                    const Vec3 current_position =
+                        to_tbx_vec3_from_rvec3(body_interface.GetPosition(body_id));
+                    const Quat current_rotation = to_tbx_quat(body_interface.GetRotation(body_id));
+                    const float safe_dt_seconds = std::max(0.0001F, dt_seconds);
+
+                    Vec3 linear_velocity =
+                        (world_transform.position - current_position) / safe_dt_seconds;
+                    Vec3 angular_velocity = calculate_angular_velocity_for_step(
+                        current_rotation,
+                        world_transform.rotation,
+                        safe_dt_seconds);
+
+                    body_interface.SetLinearVelocity(body_id, to_jolt_vec3(linear_velocity));
+                    body_interface.SetAngularVelocity(body_id, to_jolt_vec3(angular_velocity));
+                    body_interface.ActivateBody(body_id);
+                }
             }
 
             body_interface.SetFriction(body_id, physics->friction);
@@ -567,28 +1026,71 @@ namespace tbx::plugins
         auto& registry = get_host().get_entity_registry();
         auto& body_interface = _physics_system.GetBodyInterface();
 
-        for (const auto& body_entry : _bodies_by_entity)
+        for (auto& body_entry : _bodies_by_entity)
         {
             const Uuid& entity_id = body_entry.first;
-            const JPH::BodyID& body_id = body_entry.second.body_id;
+            auto& body_record = body_entry.second;
+            const JPH::BodyID& body_id = body_record.body_id;
 
-            if (!registry.has<Physics>(entity_id) || !registry.has<Transform>(entity_id))
+            if (!registry.has<Transform>(entity_id))
                 continue;
 
-            auto& physics = registry.get_with<Physics>(entity_id);
             auto& transform = registry.get_with<Transform>(entity_id);
+            auto entity = registry.get(entity_id);
+            if (!entity.get_id().is_valid())
+                continue;
 
             if (!body_interface.IsAdded(body_id))
                 continue;
 
+            if (!registry.has<Physics>(entity_id))
+            {
+                const auto world_transform = get_world_space_transform(entity);
+                body_record.last_position = world_transform.position;
+                body_record.last_rotation = world_transform.rotation;
+                body_record.last_scale = world_transform.scale;
+                body_record.has_last_transform = true;
+                continue;
+            }
+
+            auto& physics = registry.get_with<Physics>(entity_id);
             physics.linear_velocity = to_tbx_vec3(body_interface.GetLinearVelocity(body_id));
             physics.angular_velocity = to_tbx_vec3(body_interface.GetAngularVelocity(body_id));
 
             if (physics.is_kinematic)
+            {
+                const auto world_transform = get_world_space_transform(entity);
+                body_record.last_position = world_transform.position;
+                body_record.last_rotation = world_transform.rotation;
+                body_record.last_scale = world_transform.scale;
+                body_record.has_last_transform = true;
                 continue;
+            }
 
-            transform.position = to_tbx_vec3_from_rvec3(body_interface.GetPosition(body_id));
-            transform.rotation = to_tbx_quat(body_interface.GetRotation(body_id));
+            auto world_transform = Transform {};
+            world_transform.position = to_tbx_vec3_from_rvec3(body_interface.GetPosition(body_id));
+            world_transform.rotation = to_tbx_quat(body_interface.GetRotation(body_id));
+            world_transform.scale = transform.scale;
+
+            auto parent_entity = Entity {};
+            if (entity.try_get_parent_entity(parent_entity))
+            {
+                const auto parent_world_transform = get_world_space_transform(parent_entity);
+                const auto local_transform =
+                    world_to_local_tranform(parent_world_transform, world_transform);
+                transform.position = local_transform.position;
+                transform.rotation = local_transform.rotation;
+            }
+            else
+            {
+                transform.position = world_transform.position;
+                transform.rotation = world_transform.rotation;
+            }
+
+            body_record.last_position = world_transform.position;
+            body_record.last_rotation = world_transform.rotation;
+            body_record.last_scale = world_transform.scale;
+            body_record.has_last_transform = true;
         }
     }
 }
