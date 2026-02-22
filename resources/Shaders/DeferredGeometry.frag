@@ -12,6 +12,7 @@ in vec4 v_vertex_color;
 uniform sampler2D u_diffuse;
 uniform sampler2D u_normal;
 uniform vec4 u_emissive = vec4(0.0, 0.0, 0.0, 1.0);
+uniform bool u_unlit = false;
 uniform float u_roughness = 1.0;
 uniform float u_specular = 1.0;
 uniform float u_occlusion = 1.0;
@@ -35,9 +36,11 @@ void main()
     float roughness = clamp(u_roughness, 0.02, 1.0);
     float specular_strength = clamp((1.0 - roughness) * max(u_specular, 0.0), 0.0, 1.0);
     float shininess = mix(4.0, 128.0, 1.0 - roughness);
-    vec3 emissive_linear = tbx_srgb_to_linear(u_emissive.rgb) * max(u_occlusion, 0.0);
+    float occlusion = max(u_occlusion, 0.0);
+    vec3 emissive_linear = tbx_srgb_to_linear(u_emissive.rgb) * occlusion;
+    float unlit_flag = u_unlit ? 1.0 : 0.0;
 
     o_albedo_spec = vec4(albedo_linear, specular_strength);
-    o_normal = vec4(encoded_normal, 1.0);
+    o_normal = vec4(encoded_normal, unlit_flag);
     o_material = vec4(emissive_linear, shininess / 128.0);
 }

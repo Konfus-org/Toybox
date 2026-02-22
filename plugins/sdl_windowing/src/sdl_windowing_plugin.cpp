@@ -3,9 +3,56 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/observable.h"
 #include <algorithm>
+#include <cctype>
+#include <filesystem>
+#include <string_view>
 
 namespace tbx::plugins
 {
+    static bool is_wayland_video_driver()
+    {
+        const char* video_driver = SDL_GetCurrentVideoDriver();
+        return video_driver != nullptr && std::string_view(video_driver) == "wayland";
+    }
+
+    static SDL_Surface* try_load_icon_surface(const std::filesystem::path& icon_path)
+    {
+        if (icon_path.empty())
+            return nullptr;
+
+        SDL_ClearError();
+        SDL_Surface* icon_surface = SDL_LoadSurface(icon_path.string().c_str());
+        if (icon_surface)
+        {
+            TBX_TRACE_INFO("Loaded app icon '{}'.", icon_path.string());
+            return icon_surface;
+        }
+
+        TBX_TRACE_WARNING(
+            "Failed to load app icon '{}'. Error: {}",
+            icon_path.string(),
+            SDL_GetError());
+        SDL_ClearError();
+        return nullptr;
+    }
+
+    static void try_apply_window_icon(SDL_Window* native, SDL_Surface* icon_surface)
+    {
+        if (!native || !icon_surface)
+            return;
+
+        // Wayland video drivers do not support setting window icons, so we skip this step on
+        // Wayland systems.
+        if (is_wayland_video_driver())
+            return;
+
+        if (!SDL_SetWindowIcon(native, icon_surface))
+        {
+            TBX_TRACE_WARNING("Failed to set SDL window icon. Error: {}", SDL_GetError());
+            SDL_ClearError();
+        }
+    }
+
     static WindowMode get_window_mode_from_flags(
         SDL_Window* sdl_window,
         WindowMode fallback_mode = WindowMode::WINDOWED)
@@ -31,7 +78,10 @@ namespace tbx::plugins
         return WindowMode::WINDOWED;
     }
 
-    static SDL_Window* create_sdl_window(Window* tbx_window, bool use_opengl)
+    static SDL_Window* create_sdl_window(
+        Window* tbx_window,
+        bool use_opengl,
+        SDL_Surface* icon_surface)
     {
         uint flags = use_opengl ? SDL_WINDOW_OPENGL : 0;
         if (tbx_window->mode == WindowMode::BORDERLESS)
@@ -52,6 +102,12 @@ namespace tbx::plugins
             return nullptr;
         }
 
+        TBX_TRACE_INFO(
+            "Created window with title '{}', size ({}, {})",
+            title,
+            size.width,
+            size.height);
+        try_apply_window_icon(native, icon_surface);
         return native;
     }
 
@@ -67,6 +123,17 @@ namespace tbx::plugins
 
         TBX_TRACE_INFO("Video driver: {}", SDL_GetCurrentVideoDriver());
         _use_opengl = host.get_settings().graphics_api == GraphicsApi::OPEN_GL;
+
+        const std::filesystem::path icon_path =
+            host.get_asset_manager().resolve_asset_path(host.get_icon_handle());
+        if (icon_path.empty())
+        {
+            TBX_TRACE_WARNING(
+                "Failed to resolve app icon handle to a path. Window icon will not be set.");
+            return;
+        }
+
+        _window_icon_surface = try_load_icon_surface(icon_path);
     }
 
     void SdlWindowingPlugin::on_detach()
@@ -79,6 +146,11 @@ namespace tbx::plugins
             SDL_DestroyWindow(record.sdl_window);
         }
         _windows.clear();
+        if (_window_icon_surface)
+        {
+            SDL_DestroySurface(_window_icon_surface);
+            _window_icon_surface = nullptr;
+        }
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
     }
 
@@ -170,7 +242,7 @@ namespace tbx::plugins
 
                 // Create new SDL window
                 Window* window = record.tbx_window;
-                SDL_Window* native = create_sdl_window(window, _use_opengl);
+                SDL_Window* native = create_sdl_window(window, _use_opengl, _window_icon_surface);
                 record.sdl_window = native;
                 if (window)
                     window->native_handle = native;
@@ -235,7 +307,7 @@ namespace tbx::plugins
                 return;
 
             Window* window = event.owner;
-            SDL_Window* native = create_sdl_window(window, _use_opengl);
+            SDL_Window* native = create_sdl_window(window, _use_opengl, _window_icon_surface);
             SdlWindowRecord& record = add_record(native, window);
             (void)record;
             if (window)

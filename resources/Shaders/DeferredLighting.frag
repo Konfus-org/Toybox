@@ -204,9 +204,17 @@ void main()
     vec3 normal = safe_normalize(normal_data.xyz * 2.0 - 1.0, vec3(0.0, 1.0, 0.0));
     vec3 view_direction = safe_normalize(u_camera_position - world_position, vec3(0.0, 0.0, 1.0));
     vec3 albedo = albedo_spec.rgb;
+    bool is_unlit = normal_data.a > 0.5;
     float specular_strength = clamp(albedo_spec.a, 0.0, 1.0);
     float shininess = max(material_data.a * 128.0, 1.0);
     vec3 emissive = material_data.rgb;
+
+    if (is_unlit)
+    {
+        vec3 unlit_color = tbx_linear_to_srgb(albedo + emissive);
+        o_color = vec4(unlit_color, 1.0);
+        return;
+    }
 
     vec3 lighting = emissive;
     for (int index = 0; index < min(u_directional_light_count, MAX_DIRECTIONAL_LIGHTS); ++index)

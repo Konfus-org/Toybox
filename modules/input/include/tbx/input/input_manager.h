@@ -5,6 +5,7 @@
 #include "tbx/time/delta_time.h"
 #include <chrono>
 #include <functional>
+#include <initializer_list>
 #include <string>
 #include <unordered_map>
 #include <variant>
@@ -470,6 +471,22 @@ namespace tbx
     /// Invocation occurs on the input update thread.</remarks>
     using InputActionCallback = std::function<void(const InputAction&)>;
 
+    /// <summary>
+    /// Represents optional bindings and lifecycle callbacks supplied when constructing an action.
+    /// </summary>
+    /// <remarks>
+    /// Purpose: Enables one-shot action construction with predefined bindings and subscriptions.
+    /// Ownership: Owns binding and callback collections by value.
+    /// Thread Safety: Not thread-safe for mutation; synchronize externally if shared.
+    /// </remarks>
+    struct TBX_API InputActionConstruction
+    {
+        std::vector<InputBinding> bindings = {};
+        std::vector<InputActionCallback> on_start_callbacks = {};
+        std::vector<InputActionCallback> on_performed_callbacks = {};
+        std::vector<InputActionCallback> on_cancelled_callbacks = {};
+    };
+
     /// <summary>Describes the expected value type for an input action.</summary>
     /// <remarks>Purpose: Helps map action bindings to stable gameplay value shapes.
     /// Ownership: Enum value type.
@@ -499,7 +516,20 @@ namespace tbx
     class TBX_API InputAction
     {
       public:
+        /// <summary>Constructs an action with no initial bindings or callbacks.</summary>
+        /// <remarks>Purpose: Creates an action shell to configure incrementally.
+        /// Ownership: Stores the provided name by value and owns internal collections.
+        /// Thread Safety: Construction is thread-confined; synchronize shared access
+        /// after.</remarks>
         InputAction(std::string action_name, InputActionValueType value_type);
+        /// <summary>Constructs an action with predefined bindings and lifecycle
+        /// callbacks.</summary> <remarks>Purpose: Supports one-shot action setup for concise scheme
+        /// declarations. Ownership: Takes ownership of copied/moved construction data. Thread
+        /// Safety: Construction is thread-confined; synchronize shared access after.</remarks>
+        InputAction(
+            std::string action_name,
+            InputActionValueType value_type,
+            InputActionConstruction construction);
 
         const std::string& get_name() const;
         InputActionValueType get_value_type() const;
@@ -568,7 +598,24 @@ namespace tbx
     class TBX_API InputScheme
     {
       public:
+        /// <summary>Constructs an empty named input scheme.</summary>
+        /// <remarks>Purpose: Creates a scheme for actions added later.
+        /// Ownership: Stores the scheme name by value and owns any later-added actions.
+        /// Thread Safety: Construction is thread-confined; synchronize shared access
+        /// after.</remarks>
         InputScheme(std::string scheme_name);
+        /// <summary>Constructs a named input scheme with an initializer-list of actions.</summary>
+        /// <remarks>Purpose: Enables concise inline scheme declarations with predefined actions.
+        /// Ownership: Copies provided actions into scheme-owned storage.
+        /// Thread Safety: Construction is thread-confined; synchronize shared access
+        /// after.</remarks>
+        InputScheme(std::string scheme_name, std::initializer_list<InputAction> actions);
+        /// <summary>Constructs a named input scheme with a vector of actions.</summary>
+        /// <remarks>Purpose: Supports bulk action setup from pre-built action collections.
+        /// Ownership: Copies provided actions into scheme-owned storage.
+        /// Thread Safety: Construction is thread-confined; synchronize shared access
+        /// after.</remarks>
+        InputScheme(std::string scheme_name, std::vector<InputAction> actions);
 
         const std::string& get_name() const;
         bool get_is_active() const;

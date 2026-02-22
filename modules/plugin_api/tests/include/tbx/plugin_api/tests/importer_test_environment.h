@@ -125,6 +125,11 @@ namespace tbx::tests::plugin_api
             return _name;
         }
 
+        const Handle& get_icon_handle() const override
+        {
+            return _icon_handle;
+        }
+
         AppSettings& get_settings() override
         {
             return _settings;
@@ -152,6 +157,7 @@ namespace tbx::tests::plugin_api
 
       private:
         std::string _name = "ImporterTests";
+        Handle _icon_handle = box_icon;
         AppMessageCoordinator _coordinator = {};
         InputManager _input_manager = _coordinator;
         EntityRegistry _registry = {};

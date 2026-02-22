@@ -152,6 +152,20 @@ namespace tbx
     {
     }
 
+    InputAction::InputAction(
+        std::string action_name,
+        InputActionValueType value_type,
+        InputActionConstruction construction)
+        : _name(std::move(action_name))
+        , _value_type(value_type)
+        , _bindings(std::move(construction.bindings))
+        , _value(get_default_value(value_type))
+        , _on_start_callbacks(std::move(construction.on_start_callbacks))
+        , _on_performed_callbacks(std::move(construction.on_performed_callbacks))
+        , _on_cancelled_callbacks(std::move(construction.on_cancelled_callbacks))
+    {
+    }
+
     const std::string& InputAction::get_name() const
     {
         return _name;
@@ -272,6 +286,20 @@ namespace tbx
     InputScheme::InputScheme(std::string scheme_name)
         : _name(std::move(scheme_name))
     {
+    }
+
+    InputScheme::InputScheme(std::string scheme_name, std::initializer_list<InputAction> actions)
+        : _name(std::move(scheme_name))
+    {
+        for (const InputAction& action : actions)
+            add_action(action);
+    }
+
+    InputScheme::InputScheme(std::string scheme_name, std::vector<InputAction> actions)
+        : _name(std::move(scheme_name))
+    {
+        for (const InputAction& action : actions)
+            add_action(action);
     }
 
     const std::string& InputScheme::get_name() const

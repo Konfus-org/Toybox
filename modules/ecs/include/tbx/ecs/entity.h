@@ -18,24 +18,12 @@ namespace tbx
     {
       public:
         Entity() = default;
-
-        /// <summary>
-        /// Purpose: Creates and registers a new entity with an optional explicit name.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Does not own the provided registry reference.
-        /// Thread Safety: Not thread-safe; synchronize external concurrent access.
-        /// </remarks>
-        Entity(const std::string& name, EntityRegistry& registry, const Uuid& parent = Uuid());
-
-        /// <summary>
-        /// Purpose: Creates and registers a new entity with an auto-generated fallback name.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Does not own the provided registry reference.
-        /// Thread Safety: Not thread-safe; synchronize external concurrent access.
-        /// </remarks>
-        Entity(EntityRegistry& registry, const Uuid& parent = Uuid());
+        Entity(const std::string& name, EntityRegistry* registry);
+        Entity(const std::string& name, EntityRegistry& registry);
+        Entity(const std::string& name, const Uuid& parent, EntityRegistry* registry);
+        Entity(const std::string& name, const Uuid& parent, EntityRegistry& registry);
+        Entity(const Uuid& parent, EntityRegistry* registry);
+        Entity(const Uuid& parent, EntityRegistry& registry);
 
         void destroy();
 
@@ -73,12 +61,6 @@ namespace tbx
 
       private:
         friend class EntityRegistry;
-
-        struct FromRegistryTag
-        {
-        };
-
-        Entity(EntityRegistry& registry, const Uuid& id, FromRegistryTag);
 
         EntityRegistry* _registry = nullptr;
         Uuid _id = {};

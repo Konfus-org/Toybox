@@ -34,6 +34,11 @@ namespace tbx::tests::plugin_loader
             return _name;
         }
 
+        const ::tbx::Handle& get_icon_handle() const override
+        {
+            return _icon_handle;
+        }
+
         ::tbx::AppSettings& get_settings() override
         {
             return _settings;
@@ -61,6 +66,7 @@ namespace tbx::tests::plugin_loader
 
       private:
         std::string _name = "PluginLoaderTests";
+        ::tbx::Handle _icon_handle = ::tbx::box_icon;
         ::tbx::AppMessageCoordinator _coordinator = {};
         ::tbx::InputManager _input_manager = _coordinator;
         ::tbx::EntityRegistry _ent_registry = {};

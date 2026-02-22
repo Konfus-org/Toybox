@@ -83,13 +83,15 @@ namespace tbx::plugins
         }
 
         int interval = _settings.is_vsync_enabled ? 1 : 0;
-        if (SDL_GL_SetSwapInterval(interval) != 0)
+        SDL_ClearError();
+        if (!SDL_GL_SetSwapInterval(interval))
         {
             TBX_TRACE_WARNING(
-                "SDL OpenGL: Failed to set vsync={} for window '{}': {}",
+                "Failed to set vsync={} for window '{}': {}",
                 _settings.is_vsync_enabled,
                 window_title,
                 SDL_GetError());
+            SDL_ClearError();
         }
 
         return true;
@@ -121,7 +123,7 @@ namespace tbx::plugins
         if (!SDL_GL_MakeCurrent(sdl_window, context_it->second))
         {
             TBX_TRACE_ERROR(
-                "SDL OpenGL: Failed to make OpenGL context current for window '{}': {}",
+                "Failed to make OpenGL context current for window '{}': {}",
                 window_title,
                 SDL_GetError());
             return false;
@@ -156,17 +158,19 @@ namespace tbx::plugins
             if (!SDL_GL_MakeCurrent(sdl_window, context_it->second))
             {
                 TBX_TRACE_WARNING(
-                    "SDL OpenGL: Failed to make OpenGL context current to apply vsync: {}",
+                    "Failed to make OpenGL context current to apply vsync: {}",
                     SDL_GetError());
                 continue;
             }
 
+            SDL_ClearError();
             if (SDL_GL_SetSwapInterval(interval) != 0)
             {
                 TBX_TRACE_WARNING(
-                    "SDL OpenGL: Failed to set vsync={}: {}",
+                    "Failed to set vsync={}: {}",
                     _settings.is_vsync_enabled,
                     SDL_GetError());
+                SDL_ClearError();
             }
         }
 

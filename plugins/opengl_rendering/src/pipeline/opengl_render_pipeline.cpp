@@ -9,10 +9,22 @@
 #include "tbx/math/transform.h"
 #include <any>
 #include <glad/glad.h>
+#include <string>
+#include <string_view>
 #include <vector>
 
 namespace tbx::plugins
 {
+    static std::string normalize_uniform_name(std::string_view name)
+    {
+        if (name.size() >= 2U && name[0] == 'u' && name[1] == '_')
+            return std::string(name);
+
+        std::string normalized = "u_";
+        normalized.append(name.begin(), name.end());
+        return normalized;
+    }
+
     class OpenGlGeometryOperation final : public OpenGlRenderOperation
     {
       public:
@@ -94,6 +106,20 @@ namespace tbx::plugins
                 shader_program.try_upload(uniform);
         }
 
+        void upload_runtime_material_uniforms(
+            OpenGlShaderProgram& shader_program,
+            const Renderer& renderer) const
+        {
+            for (const auto& parameter : renderer.material.parameters)
+            {
+                shader_program.try_upload(
+                    MaterialParameter {
+                        .name = normalize_uniform_name(parameter.name),
+                        .data = parameter.value,
+                    });
+            }
+        }
+
         void apply_culling(const Renderer& renderer) const
         {
             if (renderer.is_two_sided)
@@ -135,6 +161,7 @@ namespace tbx::plugins
 
             upload_frame_uniforms(*draw_resources.shader_program, view_projection);
             upload_material_uniforms(*draw_resources.shader_program, draw_resources);
+            upload_runtime_material_uniforms(*draw_resources.shader_program, renderer);
             upload_model_uniform(*draw_resources.shader_program, entity);
             draw_resources.mesh->draw(draw_resources.use_tesselation);
         }

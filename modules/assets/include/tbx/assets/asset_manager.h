@@ -398,6 +398,15 @@ namespace tbx
         std::filesystem::path resolve_asset_path(const std::filesystem::path& asset_path) const;
 
         /// <summary>
+        /// Purpose: Resolves a handle to its registered absolute asset path when available.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a path value owned by the caller.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        /// </remarks>
+        std::filesystem::path resolve_asset_path(const Handle& handle) const;
+
+        /// <summary>
         /// Purpose: Adds an asset directory to the search list.
         /// </summary>
         /// <remarks>

@@ -41,5 +41,6 @@ namespace tbx::plugins
         std::vector<SdlWindowRecord> _windows;
         std::vector<Uuid> _pending_close_window_ids;
         bool _use_opengl = false;
+        SDL_Surface* _window_icon_surface = nullptr;
     };
 }

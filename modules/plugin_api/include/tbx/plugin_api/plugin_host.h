@@ -32,6 +32,15 @@ namespace tbx
         virtual const std::string& get_name() const = 0;
 
         /// <summary>
+        /// Purpose: Returns the immutable startup icon handle for native windows.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a reference owned by the host.
+        /// Thread Safety: Not thread-safe; synchronize access externally.
+        /// </remarks>
+        virtual const Handle& get_icon_handle() const = 0;
+
+        /// <summary>
         /// Purpose: Returns the host settings instance.
         /// </summary>
         /// <remarks>

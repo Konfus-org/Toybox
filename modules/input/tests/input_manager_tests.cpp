@@ -143,6 +143,58 @@ namespace tbx::tests::input
     }
 
     /// <summary>
+    /// Purpose: Validates action construction can preload bindings and callbacks.
+    /// Ownership: Uses stack-local action state only.
+    /// Thread Safety: Single-threaded unit test.
+    /// </summary>
+    TEST(input_manager, action_constructor_accepts_bindings_and_callbacks)
+    {
+        // Arrange
+        bool performed = false;
+        bool cancelled = false;
+        auto action = InputAction(
+            "Look",
+            InputActionValueType::VECTOR2,
+            InputActionConstruction {
+                .bindings =
+                    {
+                        InputBinding {
+                            .control =
+                                MouseVectorInputControl {
+                                    .control = InputMouseVectorControl::DELTA,
+                                },
+                            .scale = 1.0F,
+                        },
+                    },
+                .on_performed_callbacks =
+                    {
+                        [&](const InputAction&)
+                        {
+                            performed = true;
+                        },
+                    },
+                .on_cancelled_callbacks =
+                    {
+                        [&](const InputAction&)
+                        {
+                            cancelled = true;
+                        },
+                    },
+            });
+        auto frame_time = DeltaTime {};
+        frame_time.seconds = 0.016;
+
+        // Act
+        action.apply_value(Vec2(0.5F, 0.0F), frame_time);
+        action.apply_value(Vec2(0.0F, 0.0F), frame_time);
+
+        // Assert
+        ASSERT_EQ(action.get_bindings().size(), 1U);
+        ASSERT_TRUE(performed);
+        ASSERT_TRUE(cancelled);
+    }
+
+    /// <summary>
     /// Purpose: Validates keyboard vector2 composite bindings produce a single move vector.
     /// Ownership: Uses in-memory dispatcher state and action/scheme instances.
     /// Thread Safety: Single-threaded unit test.
@@ -189,6 +241,31 @@ namespace tbx::tests::input
         ASSERT_TRUE(got_axis);
         ASSERT_FLOAT_EQ(axis.x, 1.0F);
         ASSERT_FLOAT_EQ(axis.y, 1.0F);
+    }
+
+    /// <summary>
+    /// Purpose: Validates scheme construction can preload actions with initializer-list syntax.
+    /// Ownership: Uses stack-local scheme/action state only.
+    /// Thread Safety: Single-threaded unit test.
+    /// </summary>
+    TEST(input_manager, scheme_constructor_accepts_actions)
+    {
+        // Arrange
+        auto scheme = InputScheme(
+            "Gameplay",
+            {
+                InputAction("Move", InputActionValueType::VECTOR2),
+                InputAction("Look", InputActionValueType::VECTOR2),
+            });
+
+        // Act
+        const InputAction* move_action = scheme.try_get_action("Move");
+        const InputAction* look_action = scheme.try_get_action("Look");
+
+        // Assert
+        ASSERT_NE(move_action, nullptr);
+        ASSERT_NE(look_action, nullptr);
+        ASSERT_EQ(scheme.get_all_actions().size(), 2U);
     }
 
     /// <summary>

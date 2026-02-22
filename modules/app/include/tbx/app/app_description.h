@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/assets/builtin_assets.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
 #include <string>
@@ -24,5 +25,9 @@ namespace tbx
 
         // Ordered list of plugin identifiers requested for loading.
         const std::vector<std::string> requested_plugins = {};
+
+        // Startup icon asset used for native window icons.
+        // Defaults to the built-in box icon.
+        const Handle icon = box_icon;
     };
 }

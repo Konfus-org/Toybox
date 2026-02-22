@@ -70,56 +70,75 @@ namespace tbx::examples
         _camera.add_component<Transform>(Vec3(0.0f, 0.0f, 10.0f));
 
         // Setup input scheme: WASD move + mouse delta look and locked mouse
-        auto camera_scheme = InputScheme(_camera_scheme_name);
-
-        auto move_action = InputAction("Move", InputActionValueType::VECTOR2);
-        move_action.add_binding(
-            InputBinding {
-                .control =
-                    KeyboardVector2CompositeInputControl {
-                        .up = InputKey::W,
-                        .down = InputKey::S,
-                        .left = InputKey::A,
-                        .right = InputKey::D,
-                    },
-                .scale = 1.0F,
-            });
-
-        auto look_action = InputAction("Look", InputActionValueType::VECTOR2);
-        look_action.add_binding(
-            InputBinding {
-                .control = MouseVectorInputControl {.control = InputMouseVectorControl::DELTA},
-                .scale = 1.0F,
-            });
-
-        move_action.add_on_performed_callback(
-            [this](const InputAction& action)
+        auto camera_scheme = InputScheme(
+            _camera_scheme_name,
             {
-                Vec2 move_axis = Vec2(0.0F, 0.0F);
-                if (action.try_get_value_as<Vec2>(move_axis))
-                    _move_axis = move_axis;
+                InputAction(
+                    "Move",
+                    InputActionValueType::VECTOR2,
+                    InputActionConstruction {
+                        .bindings =
+                            {
+                                InputBinding {
+                                    .control =
+                                        KeyboardVector2CompositeInputControl {
+                                            .up = InputKey::W,
+                                            .down = InputKey::S,
+                                            .left = InputKey::A,
+                                            .right = InputKey::D,
+                                        },
+                                    .scale = 1.0F,
+                                },
+                            },
+                        .on_performed_callbacks =
+                            {
+                                [this](const InputAction& action)
+                                {
+                                    Vec2 move_axis = Vec2(0.0F, 0.0F);
+                                    if (action.try_get_value_as<Vec2>(move_axis))
+                                        _move_axis = move_axis;
+                                },
+                            },
+                        .on_cancelled_callbacks =
+                            {
+                                [this](const InputAction&)
+                                {
+                                    _move_axis = Vec2(0.0F, 0.0F);
+                                },
+                            },
+                    }),
+                InputAction(
+                    "Look",
+                    InputActionValueType::VECTOR2,
+                    InputActionConstruction {
+                        .bindings =
+                            {
+                                InputBinding {
+                                    .control =
+                                        MouseVectorInputControl {
+                                            .control = InputMouseVectorControl::DELTA,
+                                        },
+                                    .scale = 1.0F,
+                                },
+                            },
+                        .on_performed_callbacks =
+                            {
+                                [this](const InputAction& action)
+                                {
+                                    Vec2 look_delta = Vec2(0.0F, 0.0F);
+                                    if (action.try_get_value_as<Vec2>(look_delta))
+                                        _look_delta = look_delta;
+                                },
+                            },
+                        .on_cancelled_callbacks =
+                            {
+                                [this](const InputAction&)
+                                {
+                                    _look_delta = Vec2(0.0F, 0.0F);
+                                },
+                            },
+                    }),
             });
-        move_action.add_on_cancelled_callback(
-            [this](const InputAction&)
-            {
-                _move_axis = Vec2(0.0F, 0.0F);
-            });
-
-        look_action.add_on_performed_callback(
-            [this](const InputAction& action)
-            {
-                Vec2 look_delta = Vec2(0.0F, 0.0F);
-                if (action.try_get_value_as<Vec2>(look_delta))
-                    _look_delta = look_delta;
-            });
-        look_action.add_on_cancelled_callback(
-            [this](const InputAction&)
-            {
-                _look_delta = Vec2(0.0F, 0.0F);
-            });
-
-        camera_scheme.add_action(move_action);
-        camera_scheme.add_action(look_action);
 
         _input_manager->add_scheme(camera_scheme);
         _input_manager->activate_scheme(_camera_scheme_name);
@@ -158,7 +177,7 @@ namespace tbx::examples
         auto& camera_transform = _camera.get_component<Transform>();
 
         // Mouse-look.
-        _camera_yaw += _look_delta.x * _camera_look_sensitivity;
+        _camera_yaw -= _look_delta.x * _camera_look_sensitivity;
         _camera_pitch -= _look_delta.y * _camera_look_sensitivity;
 
         const float max_pitch = to_radians(89.0F);
@@ -169,12 +188,26 @@ namespace tbx::examples
 
         camera_transform.rotation = normalize(Quat(Vec3(_camera_pitch, _camera_yaw, 0.0F)));
 
-        // WASD translation in camera yaw-space.
+        // WASD translation in camera local-space (flattened to world XZ).
         const float right_axis = _move_axis.x;
         const float forward_axis = _move_axis.y;
 
-        Vec3 forward = Vec3(std::sin(_camera_yaw), 0.0F, -std::cos(_camera_yaw));
-        Vec3 right = Vec3(std::cos(_camera_yaw), 0.0F, std::sin(_camera_yaw));
+        Vec3 forward = camera_transform.rotation * Vec3(0.0F, 0.0F, -1.0F);
+        Vec3 right = camera_transform.rotation * Vec3(1.0F, 0.0F, 0.0F);
+
+        forward.y = 0.0F;
+        right.y = 0.0F;
+
+        const float forward_length_squared =
+            forward.x * forward.x + forward.y * forward.y + forward.z * forward.z;
+        if (forward_length_squared > 0.0F)
+            forward *= 1.0F / std::sqrt(forward_length_squared);
+
+        const float right_length_squared =
+            right.x * right.x + right.y * right.y + right.z * right.z;
+        if (right_length_squared > 0.0F)
+            right *= 1.0F / std::sqrt(right_length_squared);
+
         Vec3 move = forward * forward_axis + right * right_axis;
 
         const float move_length_squared = move.x * move.x + move.y * move.y + move.z * move.z;

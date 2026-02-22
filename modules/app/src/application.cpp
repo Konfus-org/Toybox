@@ -25,6 +25,7 @@ namespace tbx
 
     Application::Application(const AppDescription& desc)
         : _name(desc.name)
+        , _icon_handle(desc.icon)
         , _input_manager(_msg_coordinator)
         , _settings(_msg_coordinator)
         , _main_window(
@@ -81,6 +82,11 @@ namespace tbx
     const std::string& Application::get_name() const
     {
         return _name;
+    }
+
+    const Handle& Application::get_icon_handle() const
+    {
+        return _icon_handle;
     }
 
     AppSettings& Application::get_settings()

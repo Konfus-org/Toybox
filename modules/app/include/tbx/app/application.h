@@ -109,6 +109,15 @@ namespace tbx
         const std::string& get_name() const override;
 
         /// <summary>
+        /// Purpose: Returns the immutable startup icon handle used for native windows.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a reference owned by the application.
+        /// Thread Safety: Not thread-safe; synchronize access externally.
+        /// </remarks>
+        const Handle& get_icon_handle() const override;
+
+        /// <summary>
         /// Purpose: Returns the mutable application settings.
         /// </summary>
         /// <remarks>
@@ -162,6 +171,7 @@ namespace tbx
       private:
         bool _should_exit = false;
         std::string _name = "App";
+        Handle _icon_handle = box_icon;
         EntityRegistry _entity_registry = {};
         AppMessageCoordinator _msg_coordinator = {};
         InputManager _input_manager;

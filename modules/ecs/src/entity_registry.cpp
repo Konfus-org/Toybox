@@ -26,10 +26,7 @@ namespace tbx
     };
 
     template <typename TComponent, typename TValue>
-    static void set_component_value(
-        entt::registry& registry,
-        const Uuid& id,
-        TValue&& value)
+    static void set_component_value(entt::registry& registry, const Uuid& id, TValue&& value)
     {
         auto entityHandle = static_cast<EntityHandle>(id.value);
         if (!registry.valid(entityHandle))
@@ -47,9 +44,7 @@ namespace tbx
     }
 
     template <typename TComponent, typename TValue>
-    static TValue get_component_value(
-        const entt::registry& registry,
-        const Uuid& id)
+    static TValue get_component_value(const entt::registry& registry, const Uuid& id)
     {
         auto entityHandle = static_cast<EntityHandle>(id.value);
         if (!registry.valid(entityHandle))
@@ -119,7 +114,10 @@ namespace tbx
         if (!_impl->valid(static_cast<EntityHandle>(id.value)))
             return {};
 
-        return Entity(*this, id, Entity::FromRegistryTag {});
+        auto entity = Entity {};
+        entity._id = id;
+        entity._registry = this;
+        return entity;
     }
 
     std::vector<Entity> EntityRegistry::get_all()
@@ -130,7 +128,10 @@ namespace tbx
         for (const auto entityHandle : view)
         {
             auto id = Uuid(static_cast<uint32>(entt::to_integral(entityHandle)));
-            entities.push_back(Entity(*this, id, Entity::FromRegistryTag {}));
+            auto entity = Entity {};
+            entity._id = id;
+            entity._registry = this;
+            entities.push_back(entity);
         }
 
         return entities;
@@ -145,7 +146,9 @@ namespace tbx
         for (const auto entityHandle : view)
         {
             auto id = Uuid(static_cast<uint32>(entt::to_integral(entityHandle)));
-            Entity entity(*this, id, Entity::FromRegistryTag {});
+            auto entity = Entity {};
+            entity._id = id;
+            entity._registry = this;
             callback(entity);
         }
     }

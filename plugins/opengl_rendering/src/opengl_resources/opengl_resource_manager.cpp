@@ -296,6 +296,48 @@ namespace tbx::plugins
         return hash_value;
     }
 
+    static uint64 hash_runtime_material_resource_identity(const MaterialInstance& runtime_material)
+    {
+        constexpr uint64 fnv_offset = 1469598103934665603ULL;
+        constexpr uint64 fnv_prime = 1099511628211ULL;
+
+        auto hash_value = fnv_offset;
+        auto hash_bytes = [&hash_value](const void* data, size_t size)
+        {
+            const auto* bytes = static_cast<const unsigned char*>(data);
+            for (size_t i = 0; i < size; ++i)
+            {
+                hash_value ^= static_cast<uint64>(bytes[i]);
+                hash_value *= fnv_prime;
+            }
+        };
+
+        // Cache identity tracks resource-affecting inputs only.
+        hash_bytes(&runtime_material.handle.id, sizeof(runtime_material.handle.id));
+
+        for (const auto& texture_binding : runtime_material.textures)
+        {
+            hash_bytes(texture_binding.name.data(), texture_binding.name.size());
+            hash_bytes(
+                &texture_binding.texture.handle.id,
+                sizeof(texture_binding.texture.handle.id));
+
+            const bool has_settings_override = texture_binding.texture.settings.has_value();
+            hash_bytes(&has_settings_override, sizeof(has_settings_override));
+            if (has_settings_override)
+            {
+                const TextureSettings& texture_settings = texture_binding.texture.settings.value();
+                hash_bytes(&texture_settings.filter, sizeof(texture_settings.filter));
+                hash_bytes(&texture_settings.wrap, sizeof(texture_settings.wrap));
+                hash_bytes(&texture_settings.format, sizeof(texture_settings.format));
+                hash_bytes(&texture_settings.mipmaps, sizeof(texture_settings.mipmaps));
+                hash_bytes(&texture_settings.compression, sizeof(texture_settings.compression));
+            }
+        }
+
+        return hash_value;
+    }
+
     static uint64 hash_post_process_stack(const PostProcessing& post_processing)
     {
         constexpr uint64 fnv_offset = 1469598103934665603ULL;
@@ -463,7 +505,8 @@ namespace tbx::plugins
         {
             const auto& renderer = entity.get_component<Renderer>();
             const auto& dynamic_mesh = entity.get_component<DynamicMesh>();
-            const uint64 material_signature = hash_runtime_material(renderer.material);
+            const uint64 material_signature =
+                hash_runtime_material_resource_identity(renderer.material);
             const uint64 mesh_signature =
                 static_cast<uint64>(reinterpret_cast<std::uintptr_t>(dynamic_mesh.data.get()));
 
@@ -515,7 +558,8 @@ namespace tbx::plugins
 
         const auto& renderer = entity.get_component<Renderer>();
         const auto& static_mesh = entity.get_component<StaticMesh>();
-        const uint64 material_signature = hash_runtime_material(renderer.material);
+        const uint64 material_signature =
+            hash_runtime_material_resource_identity(renderer.material);
         const uint64 model_signature = static_cast<uint64>(static_mesh.handle.id.value);
         const auto resource_id = entity.get_id();
         auto iterator = _resources_by_entity.find(resource_id);

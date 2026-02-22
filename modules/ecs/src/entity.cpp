@@ -2,20 +2,35 @@
 
 namespace tbx
 {
-    Entity::Entity(EntityRegistry& registry, const Uuid& id, FromRegistryTag)
-        : _registry(&registry)
-        , _id(id)
+    Entity::Entity(const std::string& name, EntityRegistry* registry)
+        : Entity(name, Uuid::NONE, registry)
     {
     }
 
-    Entity::Entity(const std::string& name, EntityRegistry& registry, const Uuid& parent)
+    Entity::Entity(const std::string& name, EntityRegistry& registry)
+        : Entity(name, Uuid::NONE, registry)
+    {
+    }
+
+    Entity::Entity(const std::string& name, const Uuid& parent, EntityRegistry* registry)
+        : _registry(registry)
+        , _id(registry->add(name, "", "", parent))
+    {
+    }
+
+    Entity::Entity(const Uuid& parent, EntityRegistry* registry)
+        : Entity("", parent, registry)
+    {
+    }
+
+    Entity::Entity(const Uuid& parent, EntityRegistry& registry)
+        : Entity("", parent, registry)
+    {
+    }
+
+    Entity::Entity(const std::string& name, const Uuid& parent, EntityRegistry& registry)
         : _registry(&registry)
         , _id(registry.add(name, "", "", parent))
-    {
-    }
-
-    Entity::Entity(EntityRegistry& registry, const Uuid& parent)
-        : Entity("", registry, parent)
     {
     }
 

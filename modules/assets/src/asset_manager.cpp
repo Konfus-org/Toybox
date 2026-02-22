@@ -319,6 +319,23 @@ namespace tbx
         return resolve_asset_path_no_lock(asset_path);
     }
 
+    std::filesystem::path AssetManager::resolve_asset_path(const Handle& handle) const
+    {
+        std::lock_guard lock(_mutex);
+
+        if (handle.id.is_valid())
+        {
+            const AssetRegistryEntry* entry = find_registry_entry_by_id(handle.id);
+            if (entry)
+                return entry->resolved_path;
+        }
+
+        if (handle.name.empty())
+            return {};
+
+        return resolve_asset_path_no_lock(handle.name);
+    }
+
     std::filesystem::path AssetManager::resolve_asset_path_no_lock(
         const std::filesystem::path& asset_path) const
     {
