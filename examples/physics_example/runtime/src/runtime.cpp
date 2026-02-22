@@ -16,9 +16,9 @@ namespace tbx::examples
     void PhysicsExampleRuntimePlugin::on_attach(IPluginHost& host)
     {
         auto& graphics = host.get_settings().graphics;
-        graphics.shadow_map_resolution = 4096U;
+        graphics.shadow_map_resolution = 2048U;
         graphics.shadow_render_distance = 40.0F;
-        graphics.shadow_softness = 1.25F;
+        graphics.shadow_softness = 1.1F;
 
         auto& ent_registry = host.get_entity_registry();
 

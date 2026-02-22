@@ -139,6 +139,7 @@ namespace tbx::plugins
         float intensity = 1.0f;
         Vec3 color = Vec3(1.0f, 1.0f, 1.0f);
         float ambient = 0.03f;
+        int shadow_map_index = -1;
     };
 
     /// <summary>
@@ -154,6 +155,7 @@ namespace tbx::plugins
         float range = 10.0f;
         Vec3 color = Vec3(1.0f, 1.0f, 1.0f);
         float intensity = 1.0f;
+        int shadow_map_index = -1;
     };
 
     /// <summary>
@@ -172,6 +174,7 @@ namespace tbx::plugins
         Vec3 color = Vec3(1.0f, 1.0f, 1.0f);
         float outer_cos = 0.82f;
         float intensity = 1.0f;
+        int shadow_map_index = -1;
     };
 
     /// <summary>

@@ -14,7 +14,7 @@ namespace tbx::plugins
     static constexpr int MAX_DIRECTIONAL_LIGHTS = 4;
     static constexpr int MAX_POINT_LIGHTS = 32;
     static constexpr int MAX_SPOT_LIGHTS = 16;
-    static constexpr int MAX_SHADOW_MAPS = 4;
+    static constexpr int MAX_SHADOW_MAPS = 24;
 
     static void bind_textures(
         const OpenGlDrawResources& draw_resources,
@@ -59,6 +59,11 @@ namespace tbx::plugins
                     .name = "u_directional_lights[" + index_string + "].ambient",
                     .data = light.ambient,
                 });
+            shader_program.try_upload(
+                MaterialParameter {
+                    .name = "u_directional_lights[" + index_string + "].shadow_map_index",
+                    .data = light.shadow_map_index,
+                });
         }
     }
 
@@ -90,6 +95,11 @@ namespace tbx::plugins
                 MaterialParameter {
                     .name = "u_point_lights[" + index_string + "].intensity",
                     .data = light.intensity,
+                });
+            shader_program.try_upload(
+                MaterialParameter {
+                    .name = "u_point_lights[" + index_string + "].shadow_map_index",
+                    .data = light.shadow_map_index,
                 });
         }
     }
@@ -138,6 +148,11 @@ namespace tbx::plugins
                     .name = "u_spot_lights[" + index_string + "].intensity",
                     .data = light.intensity,
                 });
+            shader_program.try_upload(
+                MaterialParameter {
+                    .name = "u_spot_lights[" + index_string + "].shadow_map_index",
+                    .data = light.shadow_map_index,
+                });
         }
     }
 
@@ -151,8 +166,15 @@ namespace tbx::plugins
         const auto max_shadow_maps = std::min(
             frame_context.shadow_data.map_uuids.size(),
             frame_context.shadow_data.light_view_projections.size());
-        const auto shadow_map_count =
-            std::min(max_shadow_maps, static_cast<size_t>(MAX_SHADOW_MAPS));
+        GLint max_texture_units = 0;
+        glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &max_texture_units);
+        const int available_texture_slots =
+            std::max(0, max_texture_units - std::max(first_texture_slot, 0));
+        const auto shadow_map_count = std::min(
+            max_shadow_maps,
+            std::min(
+                static_cast<size_t>(MAX_SHADOW_MAPS),
+                static_cast<size_t>(available_texture_slots)));
 
         out_bound_shadow_map_count = 0;
         shader_program.try_upload(
@@ -355,12 +377,7 @@ namespace tbx::plugins
         glBindTextureUnit(static_cast<GLuint>(normal_slot), 0);
         glBindTextureUnit(static_cast<GLuint>(material_slot), 0);
         glBindTextureUnit(static_cast<GLuint>(depth_slot), 0);
-        const auto max_shadow_maps = std::min(
-            frame_context.shadow_data.map_uuids.size(),
-            frame_context.shadow_data.light_view_projections.size());
-        const auto shadow_map_count =
-            std::min(max_shadow_maps, static_cast<size_t>(MAX_SHADOW_MAPS));
-        for (size_t shadow_index = 0; shadow_index < shadow_map_count; ++shadow_index)
+        for (size_t shadow_index = 0; shadow_index < bound_shadow_map_count; ++shadow_index)
         {
             const auto shadow_texture_slot = first_shadow_map_slot + static_cast<int>(shadow_index);
             glBindTextureUnit(static_cast<GLuint>(shadow_texture_slot), 0);

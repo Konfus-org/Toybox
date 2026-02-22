@@ -16,9 +16,9 @@ namespace tbx::examples
         _ent_registry = &host.get_entity_registry();
         _input_manager = &host.get_input_manager();
         auto& graphics = host.get_settings().graphics;
-        graphics.shadow_map_resolution = 4096U;
+        graphics.shadow_map_resolution = 2048U;
         graphics.shadow_render_distance = 40.0F;
-        graphics.shadow_softness = 1.25F;
+        graphics.shadow_softness = 1.1F;
 
         _sun = Entity("Light", _ent_registry);
         _sun.add_component<DirectionalLight>(RgbaColor::white, 1.0F, 0.25F);

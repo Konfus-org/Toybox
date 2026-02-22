@@ -23,7 +23,12 @@
 
 namespace tbx::plugins
 {
-    static constexpr size_t MAX_DIRECTIONAL_SHADOW_MAPS = 1U;
+    static constexpr size_t MAX_SHADOWED_DIRECTIONAL_LIGHTS = 1U;
+    static constexpr size_t DIRECTIONAL_SHADOW_CASCADE_COUNT = 2U;
+    static constexpr size_t MAX_SHADOWED_SPOT_LIGHTS = 4U;
+    static constexpr size_t MAX_SHADOWED_POINT_LIGHTS = 2U;
+    static constexpr size_t POINT_SHADOW_FACE_COUNT = 6U;
+    static constexpr float DIRECTIONAL_SHADOW_SPLIT_LAMBDA = 0.7F;
     static constexpr float SHADOW_NEAR_PLANE = 0.1F;
 
     static std::shared_ptr<OpenGlGBuffer> try_load_gbuffer(
@@ -163,14 +168,43 @@ namespace tbx::plugins
         out_intensity *= max_channel;
     }
 
+    static float calculate_local_light_shadow_importance(
+        float intensity,
+        const Vec3& light_position,
+        const Vec3& camera_world_position,
+        float range)
+    {
+        const float safe_range = std::max(range, 0.001F);
+        const float distance_to_camera = length(light_position - camera_world_position);
+        const float normalized_distance = distance_to_camera / safe_range;
+        return std::max(intensity, 0.0F) / (1.0F + (normalized_distance * normalized_distance));
+    }
+
+    static float calculate_directional_shadow_split_distance(
+        float shadow_near_plane,
+        float shadow_far_plane)
+    {
+        const float safe_near = std::max(0.001F, shadow_near_plane);
+        const float safe_far = std::max(safe_near + 0.001F, shadow_far_plane);
+        const float split_t = 0.5F;
+        const float logarithmic_split = safe_near * std::pow(safe_far / safe_near, split_t);
+        const float linear_split = safe_near + ((safe_far - safe_near) * split_t);
+        const float blended_split = (DIRECTIONAL_SHADOW_SPLIT_LAMBDA * logarithmic_split)
+                                    + ((1.0F - DIRECTIONAL_SHADOW_SPLIT_LAMBDA) * linear_split);
+        return std::clamp(blended_split, safe_near + 0.001F, safe_far - 0.001F);
+    }
+
     static Mat4 build_directional_shadow_view_projection(
         const OpenGlCameraView& camera_view,
         const Size& render_resolution,
         const Vec3& directional_light_direction,
+        float shadow_near_plane,
+        float shadow_far_plane,
         const OpenGlShadowSettings& shadow_settings)
     {
-        const float shadow_far_plane =
-            std::max(SHADOW_NEAR_PLANE + 0.001F, shadow_settings.shadow_render_distance);
+        const float safe_shadow_near_plane = std::max(0.001F, shadow_near_plane);
+        const float safe_shadow_far_plane =
+            std::max(safe_shadow_near_plane + 0.001F, shadow_far_plane);
         auto camera_position = get_camera_world_position(camera_view);
         auto camera_rotation = get_camera_world_rotation(camera_view);
         auto forward_axis = normalize(camera_rotation * Vec3(0.0F, 0.0F, -1.0F));
@@ -189,9 +223,9 @@ namespace tbx::plugins
             if (camera.is_perspective())
             {
                 const float tan_half_fov = std::tan(to_radians(camera.get_fov() * 0.5F));
-                near_half_height = tan_half_fov * SHADOW_NEAR_PLANE;
+                near_half_height = tan_half_fov * safe_shadow_near_plane;
                 near_half_width = near_half_height * camera.get_aspect();
-                far_half_height = tan_half_fov * shadow_far_plane;
+                far_half_height = tan_half_fov * safe_shadow_far_plane;
                 far_half_width = far_half_height * camera.get_aspect();
             }
             else
@@ -205,8 +239,8 @@ namespace tbx::plugins
             }
         }
 
-        const Vec3 near_center = camera_position + (forward_axis * SHADOW_NEAR_PLANE);
-        const Vec3 far_center = camera_position + (forward_axis * shadow_far_plane);
+        const Vec3 near_center = camera_position + (forward_axis * safe_shadow_near_plane);
+        const Vec3 far_center = camera_position + (forward_axis * safe_shadow_far_plane);
         const auto near_up = up_axis * near_half_height;
         const auto near_right = right_axis * near_half_width;
         const auto far_up = up_axis * far_half_height;
@@ -228,7 +262,7 @@ namespace tbx::plugins
         frustum_center /= static_cast<float>(frustum_corners.size());
 
         auto direction_to_light = normalize(directional_light_direction);
-        auto light_position = frustum_center + (direction_to_light * shadow_far_plane);
+        auto light_position = frustum_center + (direction_to_light * safe_shadow_far_plane);
 
         auto light_up_axis = Vec3(0.0f, 1.0f, 0.0f);
         if (std::abs(dot(direction_to_light, light_up_axis)) > 0.95f)
@@ -253,10 +287,79 @@ namespace tbx::plugins
             max_z = std::max(max_z, light_space_corner.z);
         }
 
-        const float z_padding = std::max(0.1F, shadow_far_plane * 0.1F);
+        const float width = std::max(max_x - min_x, 0.001F);
+        const float height = std::max(max_y - min_y, 0.001F);
+        const float map_resolution =
+            std::max(1.0F, static_cast<float>(shadow_settings.shadow_map_resolution));
+        const float texel_size_x = width / map_resolution;
+        const float texel_size_y = height / map_resolution;
+        float center_x = (min_x + max_x) * 0.5F;
+        float center_y = (min_y + max_y) * 0.5F;
+        center_x = std::floor(center_x / texel_size_x) * texel_size_x;
+        center_y = std::floor(center_y / texel_size_y) * texel_size_y;
+        min_x = center_x - (width * 0.5F);
+        max_x = center_x + (width * 0.5F);
+        min_y = center_y - (height * 0.5F);
+        max_y = center_y + (height * 0.5F);
+
+        const float z_padding = std::max(0.1F, safe_shadow_far_plane * 0.1F);
         const float near_plane = std::max(0.001F, -max_z - z_padding);
         const float far_plane = std::max(near_plane + 0.001F, -min_z + z_padding);
         auto light_projection = ortho_projection(min_x, max_x, min_y, max_y, near_plane, far_plane);
+        return light_projection * light_view;
+    }
+
+    static Mat4 build_spot_shadow_view_projection(
+        const Vec3& light_position,
+        const Vec3& light_direction,
+        float outer_angle_radians,
+        float range)
+    {
+        auto safe_direction = normalize(light_direction);
+        auto up_axis = Vec3(0.0F, 1.0F, 0.0F);
+        if (std::abs(dot(safe_direction, up_axis)) > 0.95F)
+            up_axis = Vec3(1.0F, 0.0F, 0.0F);
+
+        const float near_plane = SHADOW_NEAR_PLANE;
+        const float far_plane = std::max(near_plane + 0.001F, range);
+        const float clamped_fov =
+            std::clamp(outer_angle_radians * 2.0F, to_radians(1.0F), to_radians(175.0F));
+        auto light_view = look_at(light_position, light_position + safe_direction, up_axis);
+        auto light_projection = perspective_projection(clamped_fov, 1.0F, near_plane, far_plane);
+        return light_projection * light_view;
+    }
+
+    static Mat4 build_point_shadow_face_view_projection(
+        const Vec3& light_position,
+        float range,
+        size_t face_index)
+    {
+        static const auto face_directions = std::array<Vec3, POINT_SHADOW_FACE_COUNT> {
+            Vec3(1.0F, 0.0F, 0.0F),
+            Vec3(-1.0F, 0.0F, 0.0F),
+            Vec3(0.0F, 1.0F, 0.0F),
+            Vec3(0.0F, -1.0F, 0.0F),
+            Vec3(0.0F, 0.0F, 1.0F),
+            Vec3(0.0F, 0.0F, -1.0F),
+        };
+        static const auto face_up_vectors = std::array<Vec3, POINT_SHADOW_FACE_COUNT> {
+            Vec3(0.0F, -1.0F, 0.0F),
+            Vec3(0.0F, -1.0F, 0.0F),
+            Vec3(0.0F, 0.0F, 1.0F),
+            Vec3(0.0F, 0.0F, -1.0F),
+            Vec3(0.0F, -1.0F, 0.0F),
+            Vec3(0.0F, -1.0F, 0.0F),
+        };
+
+        const size_t safe_face_index = std::min(face_index, POINT_SHADOW_FACE_COUNT - 1U);
+        const float near_plane = SHADOW_NEAR_PLANE;
+        const float far_plane = std::max(near_plane + 0.001F, range);
+        auto light_view = look_at(
+            light_position,
+            light_position + face_directions[safe_face_index],
+            face_up_vectors[safe_face_index]);
+        auto light_projection =
+            perspective_projection(to_radians(90.0F), 1.0F, near_plane, far_plane);
         return light_projection * light_view;
     }
 
@@ -427,8 +530,11 @@ namespace tbx::plugins
         for (auto& entity : _entity_registry->get_with<Renderer, DynamicMesh>())
             camera_view.in_view_dynamic_entities.push_back(entity);
 
-        // Step 6: Gather directional lights and the corresponding shadow-map metadata.
+        auto camera_world_position = get_camera_world_position(camera_view);
+
+        // Step 6: Gather directional/local light inputs and select capped shadow casters.
         auto frame_directional_lights = std::vector<OpenGlDirectionalLightData> {};
+        auto directional_shadow_light_indices = std::vector<size_t> {};
         for (auto& entity : _entity_registry->get_with<DirectionalLight>())
         {
             auto color = Vec3(1.0f);
@@ -441,68 +547,217 @@ namespace tbx::plugins
                     .intensity = intensity,
                     .color = color,
                     .ambient = std::max(light.ambient, 0.0f),
+                    .shadow_map_index = -1,
                 });
+            directional_shadow_light_indices.push_back(frame_directional_lights.size() - 1U);
         }
 
-        auto directional_shadow_count =
-            std::min(frame_directional_lights.size(), MAX_DIRECTIONAL_SHADOW_MAPS);
-        ensure_shadow_map_resources(
-            _shadow_map_resources,
-            directional_shadow_count,
-            _shadow_settings,
-            resource_manager);
-
-        auto camera_world_position = get_camera_world_position(camera_view);
-        auto frame_shadow_light_view_projections = std::vector<Mat4> {};
-        frame_shadow_light_view_projections.reserve(directional_shadow_count);
-        auto frame_shadow_map_resources = std::vector<Uuid> {};
-        frame_shadow_map_resources.reserve(directional_shadow_count);
-        for (size_t shadow_index = 0; shadow_index < directional_shadow_count; ++shadow_index)
-        {
-            frame_shadow_light_view_projections.push_back(build_directional_shadow_view_projection(
-                camera_view,
-                _render_resolution,
-                frame_directional_lights[shadow_index].direction,
-                _shadow_settings));
-            frame_shadow_map_resources.push_back(_shadow_map_resources[shadow_index]);
-        }
-
-        // Step 7: Gather local (point/spot) lights for the deferred lighting pass.
         auto frame_point_lights = std::vector<OpenGlPointLightData> {};
+        struct PointShadowCandidate final
+        {
+            size_t light_index = 0U;
+            Vec3 position = Vec3(0.0F);
+            float range = 1.0F;
+            float importance = 0.0F;
+        };
+        auto point_shadow_candidates = std::vector<PointShadowCandidate> {};
         for (auto& entity : _entity_registry->get_with<PointLight>())
         {
             auto color = Vec3(1.0f);
             auto intensity = 1.0f;
             const auto& light = entity.get_component<PointLight>();
+            const float safe_range = std::max(light.range, 0.001F);
+            const auto light_position = get_entity_position(entity);
             resolve_light_color(light.color, light.intensity, color, intensity);
             frame_point_lights.push_back(
                 OpenGlPointLightData {
-                    .position = get_entity_position(entity),
-                    .range = std::max(light.range, 0.001f),
+                    .position = light_position,
+                    .range = safe_range,
                     .color = color,
                     .intensity = intensity,
+                    .shadow_map_index = -1,
+                });
+            point_shadow_candidates.push_back(
+                PointShadowCandidate {
+                    .light_index = frame_point_lights.size() - 1U,
+                    .position = light_position,
+                    .range = safe_range,
+                    .importance = calculate_local_light_shadow_importance(
+                        intensity,
+                        light_position,
+                        camera_world_position,
+                        safe_range),
                 });
         }
 
         auto frame_spot_lights = std::vector<OpenGlSpotLightData> {};
+        struct SpotShadowCandidate final
+        {
+            size_t light_index = 0U;
+            Vec3 position = Vec3(0.0F);
+            Vec3 direction = Vec3(0.0F, 0.0F, -1.0F);
+            float range = 1.0F;
+            float outer_angle_radians = 0.0F;
+            float importance = 0.0F;
+        };
+        auto spot_shadow_candidates = std::vector<SpotShadowCandidate> {};
         for (auto& entity : _entity_registry->get_with<SpotLight>())
         {
             auto color = Vec3(1.0f);
             auto intensity = 1.0f;
             const auto& light = entity.get_component<SpotLight>();
+            const float safe_range = std::max(light.range, 0.001F);
+            const auto light_position = get_entity_position(entity);
+            const auto light_direction = get_entity_forward_direction(entity);
             resolve_light_color(light.color, light.intensity, color, intensity);
             float inner_radians = to_radians(std::max(light.inner_angle, 0.0f));
             float outer_radians = to_radians(std::max(light.outer_angle, light.inner_angle));
             frame_spot_lights.push_back(
                 OpenGlSpotLightData {
-                    .position = get_entity_position(entity),
-                    .range = std::max(light.range, 0.001f),
-                    .direction = get_entity_forward_direction(entity),
+                    .position = light_position,
+                    .range = safe_range,
+                    .direction = light_direction,
                     .inner_cos = cos(inner_radians),
                     .color = color,
                     .outer_cos = cos(outer_radians),
                     .intensity = intensity,
+                    .shadow_map_index = -1,
                 });
+            spot_shadow_candidates.push_back(
+                SpotShadowCandidate {
+                    .light_index = frame_spot_lights.size() - 1U,
+                    .position = light_position,
+                    .direction = light_direction,
+                    .range = safe_range,
+                    .outer_angle_radians = outer_radians,
+                    .importance = calculate_local_light_shadow_importance(
+                        intensity,
+                        light_position,
+                        camera_world_position,
+                        safe_range),
+                });
+        }
+
+        std::sort(
+            directional_shadow_light_indices.begin(),
+            directional_shadow_light_indices.end(),
+            [&frame_directional_lights](size_t lhs, size_t rhs)
+            {
+                return frame_directional_lights[lhs].intensity
+                       > frame_directional_lights[rhs].intensity;
+            });
+        if (directional_shadow_light_indices.size() > MAX_SHADOWED_DIRECTIONAL_LIGHTS)
+            directional_shadow_light_indices.resize(MAX_SHADOWED_DIRECTIONAL_LIGHTS);
+
+        std::sort(
+            point_shadow_candidates.begin(),
+            point_shadow_candidates.end(),
+            [](const PointShadowCandidate& lhs, const PointShadowCandidate& rhs)
+            {
+                return lhs.importance > rhs.importance;
+            });
+        if (point_shadow_candidates.size() > MAX_SHADOWED_POINT_LIGHTS)
+            point_shadow_candidates.resize(MAX_SHADOWED_POINT_LIGHTS);
+
+        std::sort(
+            spot_shadow_candidates.begin(),
+            spot_shadow_candidates.end(),
+            [](const SpotShadowCandidate& lhs, const SpotShadowCandidate& rhs)
+            {
+                return lhs.importance > rhs.importance;
+            });
+        if (spot_shadow_candidates.size() > MAX_SHADOWED_SPOT_LIGHTS)
+            spot_shadow_candidates.resize(MAX_SHADOWED_SPOT_LIGHTS);
+
+        // Step 7: Build per-light shadow map projections for directional/spot/point casters.
+        const size_t directional_shadow_map_count =
+            directional_shadow_light_indices.size() * DIRECTIONAL_SHADOW_CASCADE_COUNT;
+        const size_t point_shadow_map_count =
+            point_shadow_candidates.size() * POINT_SHADOW_FACE_COUNT;
+        const size_t spot_shadow_map_count = spot_shadow_candidates.size();
+        const size_t total_shadow_map_count =
+            directional_shadow_map_count + point_shadow_map_count + spot_shadow_map_count;
+        ensure_shadow_map_resources(
+            _shadow_map_resources,
+            total_shadow_map_count,
+            _shadow_settings,
+            resource_manager);
+
+        auto frame_shadow_light_view_projections = std::vector<Mat4> {};
+        frame_shadow_light_view_projections.reserve(total_shadow_map_count);
+        auto frame_shadow_map_resources = std::vector<Uuid> {};
+        frame_shadow_map_resources.reserve(total_shadow_map_count);
+        auto frame_cascade_splits = std::vector<float> {};
+        frame_cascade_splits.reserve(directional_shadow_light_indices.size());
+        size_t shadow_map_index = 0U;
+        const float directional_shadow_far_plane =
+            std::max(SHADOW_NEAR_PLANE + 0.001F, _shadow_settings.shadow_render_distance);
+        const float directional_split_distance = calculate_directional_shadow_split_distance(
+            SHADOW_NEAR_PLANE,
+            directional_shadow_far_plane);
+
+        auto append_shadow_projection = [&](const Mat4& light_view_projection) -> bool
+        {
+            if (shadow_map_index >= _shadow_map_resources.size())
+                return false;
+
+            frame_shadow_light_view_projections.push_back(light_view_projection);
+            frame_shadow_map_resources.push_back(_shadow_map_resources[shadow_map_index]);
+            shadow_map_index += 1U;
+            return true;
+        };
+
+        for (const auto directional_light_index : directional_shadow_light_indices)
+        {
+            frame_directional_lights[directional_light_index].shadow_map_index =
+                static_cast<int>(shadow_map_index);
+            frame_cascade_splits.push_back(directional_split_distance);
+
+            auto near_plane = SHADOW_NEAR_PLANE;
+            for (size_t cascade_index = 0; cascade_index < DIRECTIONAL_SHADOW_CASCADE_COUNT;
+                 ++cascade_index)
+            {
+                const float far_plane =
+                    cascade_index == 0U ? directional_split_distance : directional_shadow_far_plane;
+                const auto shadow_matrix = build_directional_shadow_view_projection(
+                    camera_view,
+                    _render_resolution,
+                    frame_directional_lights[directional_light_index].direction,
+                    near_plane,
+                    far_plane,
+                    _shadow_settings);
+                if (!append_shadow_projection(shadow_matrix))
+                    break;
+                near_plane = far_plane;
+            }
+        }
+
+        for (const auto& spot_shadow_candidate : spot_shadow_candidates)
+        {
+            frame_spot_lights[spot_shadow_candidate.light_index].shadow_map_index =
+                static_cast<int>(shadow_map_index);
+            const auto shadow_matrix = build_spot_shadow_view_projection(
+                spot_shadow_candidate.position,
+                spot_shadow_candidate.direction,
+                spot_shadow_candidate.outer_angle_radians,
+                spot_shadow_candidate.range);
+            if (!append_shadow_projection(shadow_matrix))
+                break;
+        }
+
+        for (const auto& point_shadow_candidate : point_shadow_candidates)
+        {
+            frame_point_lights[point_shadow_candidate.light_index].shadow_map_index =
+                static_cast<int>(shadow_map_index);
+            for (size_t face_index = 0; face_index < POINT_SHADOW_FACE_COUNT; ++face_index)
+            {
+                const auto shadow_matrix = build_point_shadow_face_view_projection(
+                    point_shadow_candidate.position,
+                    point_shadow_candidate.range,
+                    face_index);
+                if (!append_shadow_projection(shadow_matrix))
+                    break;
+            }
         }
 
         // Step 8: Resolve the active sky and maintain pinned sky-resource ownership.
@@ -613,7 +868,7 @@ namespace tbx::plugins
                     .map_uuids = std::span<const Uuid>(frame_shadow_map_resources),
                     .light_view_projections =
                         std::span<const Mat4>(frame_shadow_light_view_projections),
-                    .cascade_splits = std::span<const float>(),
+                    .cascade_splits = std::span<const float>(frame_cascade_splits),
                     .shadow_map_resolution = _shadow_settings.shadow_map_resolution,
                     .shadow_softness = _shadow_settings.shadow_softness,
                 },
