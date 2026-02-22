@@ -12,12 +12,4 @@ namespace tbx
         , resolution(&dispatcher, this, &GraphicsSettings::resolution, resolution)
     {
     }
-
-    bool GraphicsSettings::get_is_valid() const
-    {
-        if (resolution.value.width == 0 || resolution.value.height == 0)
-            return false;
-
-        return true;
-    }
 }

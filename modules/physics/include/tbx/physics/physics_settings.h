@@ -15,14 +15,7 @@ namespace tbx
     /// </remarks>
     struct TBX_API PhysicsSettings
     {
-        /// <summary>
-        /// Purpose: Constructs global physics settings with engine defaults.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Does not assume ownership of the dispatcher reference.
-        /// Thread Safety: Not thread-safe; initialize on one thread.
-        /// </remarks>
-        explicit PhysicsSettings(IMessageDispatcher& dispatcher);
+        PhysicsSettings(IMessageDispatcher& dispatcher);
 
         Observable<PhysicsSettings, Vec3> gravity;
         Observable<PhysicsSettings, float> fixed_time_step_seconds;
@@ -36,14 +29,5 @@ namespace tbx
         Observable<PhysicsSettings, std::uint32_t> solver_position_iterations;
         Observable<PhysicsSettings, float> max_linear_velocity;
         Observable<PhysicsSettings, float> max_angular_velocity;
-
-        /// <summary>
-        /// Purpose: Validates that global simulation settings are usable by runtime backends.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Reads internal values only and does not transfer ownership.
-        /// Thread Safety: Safe for concurrent reads when no concurrent mutation occurs.
-        /// </remarks>
-        bool get_is_valid() const;
     };
 }

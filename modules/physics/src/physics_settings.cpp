@@ -32,32 +32,4 @@ namespace tbx
         , max_angular_velocity(&dispatcher, this, &PhysicsSettings::max_angular_velocity, 200.0F)
     {
     }
-
-    bool PhysicsSettings::get_is_valid() const
-    {
-        if (!std::isfinite(gravity.value.x) || !std::isfinite(gravity.value.y)
-            || !std::isfinite(gravity.value.z))
-            return false;
-
-        if (!std::isfinite(fixed_time_step_seconds.value) || fixed_time_step_seconds.value <= 0.0F)
-            return false;
-
-        if (max_sub_steps.value == 0)
-            return false;
-
-        if (max_body_count.value == 0 || max_contact_constraints.value == 0
-            || max_body_pairs.value == 0)
-            return false;
-
-        if (solver_velocity_iterations.value == 0 || solver_position_iterations.value == 0)
-            return false;
-
-        if (!std::isfinite(max_linear_velocity.value) || max_linear_velocity.value <= 0.0F)
-            return false;
-
-        if (!std::isfinite(max_angular_velocity.value) || max_angular_velocity.value <= 0.0F)
-            return false;
-
-        return true;
-    }
 }
