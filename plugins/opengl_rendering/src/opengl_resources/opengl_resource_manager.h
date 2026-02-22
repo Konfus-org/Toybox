@@ -1,7 +1,6 @@
 #pragma once
 #include "opengl_mesh.h"
 #include "opengl_resource.h"
-#include "opengl_runtime_resource_descriptor.h"
 #include "opengl_shader.h"
 #include "opengl_texture.h"
 #include "tbx/assets/asset_manager.h"
@@ -10,10 +9,14 @@
 #include "tbx/graphics/renderer.h"
 #include "tbx/graphics/shader.h"
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <type_traits>
+#include <typeinfo>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace tbx::plugins
@@ -107,16 +110,25 @@ namespace tbx::plugins
         bool add(const Entity& entity, bool pin = false);
 
         /// <summary>
-        /// Purpose: Registers one runtime OpenGL resource directly by UUID and descriptor.
+        /// Purpose: Registers one runtime OpenGL resource by UUID and constructor arguments.
         /// </summary>
         /// <remarks>
         /// Ownership: Stores shared ownership of the created resource in this manager cache.
         /// Thread Safety: Not thread-safe; call only from the render thread.
         /// </remarks>
-        bool add(
-            const Uuid& resource_uuid,
-            const OpenGlRuntimeResourceDescriptor& descriptor,
-            bool pin = false);
+        template <typename ResourceType, typename... TArgs>
+        bool add(const Uuid& resource_uuid, TArgs&&... args);
+
+        /// <summary>
+        /// Purpose: Registers one runtime OpenGL resource with an auto-generated UUID.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stores shared ownership of the created resource in this manager cache and
+        /// returns the generated UUID.
+        /// Thread Safety: Not thread-safe; call only from the render thread.
+        /// </remarks>
+        template <typename ResourceType, typename... TArgs>
+        Uuid add(TArgs&&... args);
 
         /// <summary>
         /// Purpose: Resolves one cached resource by entity.
@@ -177,6 +189,17 @@ namespace tbx::plugins
         void clear_unused();
 
       private:
+        template <typename ResourceType, typename... TArgs>
+        bool add_resource_with_uuid(const Uuid& resource_uuid, TArgs&&... args);
+
+        static void append_signature_bytes(uint64& hash_value, const void* data, size_t size);
+
+        template <typename TValue>
+        static void append_signature_value(uint64& hash_value, const TValue& value);
+
+        template <typename ResourceType, typename... TArgs>
+        static uint64 hash_runtime_resource_signature(const TArgs&... args);
+
         bool try_get_stored_resource_base(
             const Uuid& resource_uuid,
             std::shared_ptr<IOpenGlResource>& out_resource) const;
@@ -217,4 +240,69 @@ namespace tbx::plugins
         std::unordered_map<Uuid, OpenGlCachedResourceEntry> _resources_by_entity = {};
         Clock::time_point _next_unused_scan_time = {};
     };
+
+    template <typename ResourceType, typename... TArgs>
+    bool OpenGlResourceManager::add(const Uuid& resource_uuid, TArgs&&... args)
+    {
+        return add_resource_with_uuid<ResourceType>(resource_uuid, std::forward<TArgs>(args)...);
+    }
+
+    template <typename ResourceType, typename... TArgs>
+    Uuid OpenGlResourceManager::add(TArgs&&... args)
+    {
+        auto resource_uuid = Uuid::generate();
+        if (!add_resource_with_uuid<ResourceType>(resource_uuid, std::forward<TArgs>(args)...))
+            return Uuid::NONE;
+
+        return resource_uuid;
+    }
+
+    template <typename ResourceType, typename... TArgs>
+    bool OpenGlResourceManager::add_resource_with_uuid(const Uuid& resource_uuid, TArgs&&... args)
+    {
+        static_assert(
+            std::is_base_of_v<IOpenGlResource, ResourceType>,
+            "ResourceType must derive from IOpenGlResource.");
+
+        if (!resource_uuid.is_valid())
+            return false;
+
+        const uint64 signature =
+            hash_runtime_resource_signature<ResourceType>(std::forward<TArgs>(args)...);
+        auto iterator = _resources_by_entity.find(resource_uuid);
+        if (iterator != _resources_by_entity.end() && iterator->second.signature == signature
+            && iterator->second.resource)
+        {
+            iterator->second.last_use = Clock::now();
+            return true;
+        }
+
+        _resources_by_entity[resource_uuid] = OpenGlCachedResourceEntry {
+            .resource = std::make_shared<ResourceType>(std::forward<TArgs>(args)...),
+            .last_use = Clock::now(),
+            .signature = signature,
+        };
+        return true;
+    }
+
+    template <typename TValue>
+    void OpenGlResourceManager::append_signature_value(uint64& hash_value, const TValue& value)
+    {
+        static_assert(
+            std::is_trivially_copyable_v<TValue>,
+            "Runtime resource signatures only support trivially copyable arguments.");
+        append_signature_bytes(hash_value, &value, sizeof(value));
+    }
+
+    template <typename ResourceType, typename... TArgs>
+    uint64 OpenGlResourceManager::hash_runtime_resource_signature(const TArgs&... args)
+    {
+        constexpr uint64 fnv_offset = 1469598103934665603ULL;
+
+        auto hash_value = fnv_offset;
+        const auto type_hash = static_cast<uint64>(typeid(ResourceType).hash_code());
+        append_signature_bytes(hash_value, &type_hash, sizeof(type_hash));
+        (append_signature_value(hash_value, args), ...);
+        return hash_value;
+    }
 }

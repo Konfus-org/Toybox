@@ -1,7 +1,6 @@
 #include "opengl_renderer.h"
 #include "opengl_resources/opengl_buffers.h"
 #include "opengl_resources/opengl_gbuffer.h"
-#include "opengl_resources/opengl_runtime_resource_descriptor.h"
 #include "opengl_resources/opengl_shadow_map.h"
 #include "pipeline/opengl_post_processing.h"
 #include "pipeline/opengl_render_pipeline.h"
@@ -25,6 +24,10 @@ namespace tbx::plugins
 {
     static constexpr int MAX_DIRECTIONAL_SHADOW_MAPS = 1;
     static constexpr int SHADOW_MAP_RESOLUTION = 2048;
+    static constexpr float SHADOW_DISTANCE_FROM_CAMERA = 30.0f;
+    static constexpr float SHADOW_ORTHO_HALF_EXTENT = 30.0f;
+    static constexpr float SHADOW_NEAR_PLANE = 1.0f;
+    static constexpr float SHADOW_FAR_PLANE = 90.0f;
 
     static std::shared_ptr<OpenGlGBuffer> try_load_gbuffer(
         OpenGlResourceManager& resource_manager,
@@ -58,20 +61,14 @@ namespace tbx::plugins
 
         while (shadow_map_resources.size() < desired_count)
         {
-            auto shadow_map_resource = Uuid::generate();
-            const auto did_register = resource_manager.add(
-                shadow_map_resource,
-                OpenGlRuntimeResourceDescriptor {
-                    .kind = OpenGlRuntimeResourceKind::SHADOW_MAP,
-                    .shadow_map_resolution =
-                        Size {
-                            static_cast<uint32>(SHADOW_MAP_RESOLUTION),
-                            static_cast<uint32>(SHADOW_MAP_RESOLUTION),
-                        },
-                });
-            TBX_ASSERT(did_register, "OpenGL rendering: failed to register shadow map resource.");
-            if (!did_register)
+            auto shadow_map_resource = resource_manager.add<OpenGlShadowMap>(Size(
+                static_cast<uint32>(SHADOW_MAP_RESOLUTION),
+                static_cast<uint32>(SHADOW_MAP_RESOLUTION)));
+            if (!shadow_map_resource.is_valid())
+            {
+                TBX_ASSERT(false, "OpenGL rendering: failed to register shadow map resource.");
                 continue;
+            }
 
             resource_manager.pin(shadow_map_resource);
             shadow_map_resources.push_back(shadow_map_resource);
@@ -169,14 +166,20 @@ namespace tbx::plugins
     {
         auto direction_to_light = normalize(directional_light_direction);
         auto shadow_center = camera_position;
-        auto light_position = shadow_center + (direction_to_light * 40.0f);
+        auto light_position = shadow_center + (direction_to_light * SHADOW_DISTANCE_FROM_CAMERA);
 
         auto up_axis = Vec3(0.0f, 1.0f, 0.0f);
         if (std::abs(dot(direction_to_light, up_axis)) > 0.95f)
             up_axis = Vec3(1.0f, 0.0f, 0.0f);
 
         auto light_view = look_at(light_position, shadow_center, up_axis);
-        auto light_projection = ortho_projection(-50.0f, 50.0f, -50.0f, 50.0f, 1.0f, 120.0f);
+        auto light_projection = ortho_projection(
+            -SHADOW_ORTHO_HALF_EXTENT,
+            SHADOW_ORTHO_HALF_EXTENT,
+            -SHADOW_ORTHO_HALF_EXTENT,
+            SHADOW_ORTHO_HALF_EXTENT,
+            SHADOW_NEAR_PLANE,
+            SHADOW_FAR_PLANE);
         return light_projection * light_view;
     }
 
@@ -250,43 +253,27 @@ namespace tbx::plugins
         _resource_manager = std::make_unique<OpenGlResourceManager>(asset_manager);
         _render_pipeline = std::make_unique<OpenGlRenderPipeline>(*_resource_manager);
 
-        _gbuffer_resource = Uuid::generate();
-        auto did_register_gbuffer = _resource_manager->add(
-            _gbuffer_resource,
-            OpenGlRuntimeResourceDescriptor {
-                .kind = OpenGlRuntimeResourceKind::GBUFFER,
-            });
+        _gbuffer_resource = _resource_manager->add<OpenGlGBuffer>();
+        auto did_register_gbuffer = _gbuffer_resource.is_valid();
         TBX_ASSERT(did_register_gbuffer, "OpenGL rendering: failed to register gbuffer resource.");
         _resource_manager->pin(_gbuffer_resource);
 
-        _lighting_framebuffer_resource = Uuid::generate();
-        auto did_register_lighting = _resource_manager->add(
-            _lighting_framebuffer_resource,
-            OpenGlRuntimeResourceDescriptor {
-                .kind = OpenGlRuntimeResourceKind::FRAMEBUFFER,
-            });
+        _lighting_framebuffer_resource = _resource_manager->add<OpenGlFrameBuffer>();
+        auto did_register_lighting = _lighting_framebuffer_resource.is_valid();
         TBX_ASSERT(
             did_register_lighting,
             "OpenGL rendering: failed to register lighting framebuffer resource.");
         _resource_manager->pin(_lighting_framebuffer_resource);
 
-        _post_process_ping_framebuffer_resource = Uuid::generate();
-        auto did_register_post_process_ping = _resource_manager->add(
-            _post_process_ping_framebuffer_resource,
-            OpenGlRuntimeResourceDescriptor {
-                .kind = OpenGlRuntimeResourceKind::FRAMEBUFFER,
-            });
+        _post_process_ping_framebuffer_resource = _resource_manager->add<OpenGlFrameBuffer>();
+        auto did_register_post_process_ping = _post_process_ping_framebuffer_resource.is_valid();
         TBX_ASSERT(
             did_register_post_process_ping,
             "OpenGL rendering: failed to register ping post-process framebuffer resource.");
         _resource_manager->pin(_post_process_ping_framebuffer_resource);
 
-        _post_process_pong_framebuffer_resource = Uuid::generate();
-        auto did_register_post_process_pong = _resource_manager->add(
-            _post_process_pong_framebuffer_resource,
-            OpenGlRuntimeResourceDescriptor {
-                .kind = OpenGlRuntimeResourceKind::FRAMEBUFFER,
-            });
+        _post_process_pong_framebuffer_resource = _resource_manager->add<OpenGlFrameBuffer>();
+        auto did_register_post_process_pong = _post_process_pong_framebuffer_resource.is_valid();
         TBX_ASSERT(
             did_register_post_process_pong,
             "OpenGL rendering: failed to register pong post-process framebuffer resource.");

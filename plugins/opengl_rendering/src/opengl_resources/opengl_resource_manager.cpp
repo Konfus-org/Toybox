@@ -2,7 +2,6 @@
 #include "opengl_buffers.h"
 #include "opengl_gbuffer.h"
 #include "opengl_post_processing_stack_resource.h"
-#include "opengl_runtime_resource_descriptor.h"
 #include "opengl_shadow_map.h"
 #include "tbx/assets/builtin_assets.h"
 #include "tbx/debugging/macros.h"
@@ -366,34 +365,6 @@ namespace tbx::plugins
         return hash_value;
     }
 
-    static uint64 hash_runtime_resource_descriptor(
-        const OpenGlRuntimeResourceDescriptor& descriptor)
-    {
-        constexpr uint64 fnv_offset = 1469598103934665603ULL;
-        constexpr uint64 fnv_prime = 1099511628211ULL;
-        auto hash_value = fnv_offset;
-
-        auto hash_bytes = [&hash_value](const void* data, size_t size)
-        {
-            const auto* bytes = static_cast<const unsigned char*>(data);
-            for (size_t index = 0; index < size; ++index)
-            {
-                hash_value ^= static_cast<uint64>(bytes[index]);
-                hash_value *= fnv_prime;
-            }
-        };
-
-        const auto kind_value = static_cast<uint64>(descriptor.kind);
-        hash_bytes(&kind_value, sizeof(kind_value));
-        hash_bytes(
-            &descriptor.shadow_map_resolution.width,
-            sizeof(descriptor.shadow_map_resolution.width));
-        hash_bytes(
-            &descriptor.shadow_map_resolution.height,
-            sizeof(descriptor.shadow_map_resolution.height));
-        return hash_value;
-    }
-
     static void apply_runtime_material_overrides(
         const MaterialInstance& runtime_material,
         Material& in_out_material,
@@ -590,12 +561,6 @@ namespace tbx::plugins
 
     bool OpenGlResourceManager::add(const Entity& entity, const bool pin)
     {
-        if (entity.has_component<OpenGlRuntimeResourceDescriptor>())
-        {
-            const auto& descriptor = entity.get_component<OpenGlRuntimeResourceDescriptor>();
-            return add(entity.get_id(), descriptor, pin);
-        }
-
         if (entity.has_component<PostProcessing>())
         {
             const auto resource_id = entity.get_id();
@@ -638,49 +603,18 @@ namespace tbx::plugins
         return try_get(entity, out_draw_resources, pin);
     }
 
-    bool OpenGlResourceManager::add(
-        const Uuid& resource_uuid,
-        const OpenGlRuntimeResourceDescriptor& descriptor,
-        const bool pin)
+    void OpenGlResourceManager::append_signature_bytes(
+        uint64& hash_value,
+        const void* data,
+        const size_t size)
     {
-        if (!resource_uuid.is_valid())
-            return false;
-
-        const auto descriptor_hash = hash_runtime_resource_descriptor(descriptor);
-        auto iterator = _resources_by_entity.find(resource_uuid);
-        if (iterator != _resources_by_entity.end() && iterator->second.signature == descriptor_hash
-            && iterator->second.resource)
+        constexpr uint64 fnv_prime = 1099511628211ULL;
+        const auto* bytes = static_cast<const unsigned char*>(data);
+        for (size_t index = 0; index < size; ++index)
         {
-            iterator->second.last_use = Clock::now();
-            iterator->second.is_pinned = iterator->second.is_pinned || pin;
-            return true;
+            hash_value ^= static_cast<uint64>(bytes[index]);
+            hash_value *= fnv_prime;
         }
-
-        auto created_resource = std::shared_ptr<IOpenGlResource> {};
-        switch (descriptor.kind)
-        {
-            case OpenGlRuntimeResourceKind::GBUFFER:
-                created_resource = std::make_shared<OpenGlGBuffer>();
-                break;
-            case OpenGlRuntimeResourceKind::FRAMEBUFFER:
-                created_resource = std::make_shared<OpenGlFrameBuffer>();
-                break;
-            case OpenGlRuntimeResourceKind::SHADOW_MAP:
-                created_resource =
-                    std::make_shared<OpenGlShadowMap>(descriptor.shadow_map_resolution);
-                break;
-        }
-
-        if (!created_resource)
-            return false;
-
-        _resources_by_entity[resource_uuid] = OpenGlCachedResourceEntry {
-            .resource = created_resource,
-            .last_use = Clock::now(),
-            .signature = descriptor_hash,
-            .is_pinned = pin,
-        };
-        return true;
     }
 
     bool OpenGlResourceManager::try_get(
