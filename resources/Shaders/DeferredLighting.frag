@@ -19,6 +19,7 @@ uniform int u_point_light_count = 0;
 uniform int u_spot_light_count = 0;
 uniform int u_shadow_map_count = 0;
 uniform float u_cascade_splits[4] = float[4](10.0, 25.0, 60.0, 1000.0);
+uniform float u_shadow_softness = 1.75;
 uniform float u_exposure = 0.6;
 
 struct DirectionalLight
@@ -108,16 +109,13 @@ float sample_shadow_visibility(
         vec2(-0.322, -0.933),
         vec2(-0.792, -0.598));
 
+    // Reintroduce stochastic rotation to break up banding and repeated sampling patterns.
     float hash_value = fract(sin(dot(world_position.xz, vec2(12.9898, 78.233))) * 43758.5453);
     float rotation = hash_value * 6.2831853;
-    mat2 rotation_matrix = mat2(
-        cos(rotation),
-        -sin(rotation),
-        sin(rotation),
-        cos(rotation));
+    mat2 rotation_matrix = mat2(cos(rotation), -sin(rotation), sin(rotation), cos(rotation));
 
     float visibility = 0.0;
-    const float radius_in_texels = 2.5;
+    float radius_in_texels = clamp(u_shadow_softness, 0.0, 4.0);
     const int sample_count = 12;
     for (int index = 0; index < sample_count; ++index)
     {
@@ -162,7 +160,9 @@ vec3 evaluate_directional_light(
             && current_depth >= 0.0 && current_depth <= 1.0)
         {
             vec2 shadow_uv = projected.xy * 0.5 + 0.5;
-            float bias = max(0.0020 * (1.0 - dot(normal, light_direction)), 0.0005);
+            // Keep slope-scaled bias small to reduce peter-panning while still suppressing acne.
+            float ndotl = clamp(dot(normal, light_direction), 0.0, 1.0);
+            float bias = max(0.0004 * (1.0 - ndotl), 0.00005);
             float pcf_visibility =
                 sample_shadow_visibility(light_index, shadow_uv, current_depth, bias, world_position);
             shadow_visibility = mix(0.15, 1.0, pcf_visibility);

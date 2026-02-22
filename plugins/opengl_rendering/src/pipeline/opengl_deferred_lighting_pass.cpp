@@ -206,6 +206,11 @@ namespace tbx::plugins
                 .name = "u_shadow_map_count",
                 .data = static_cast<int>(out_bound_shadow_map_count),
             });
+        shader_program.try_upload(
+            MaterialParameter {
+                .name = "u_shadow_softness",
+                .data = frame_context.shadow_data.shadow_softness,
+            });
 
         const auto split_count = std::min(
             frame_context.shadow_data.cascade_splits.size(),

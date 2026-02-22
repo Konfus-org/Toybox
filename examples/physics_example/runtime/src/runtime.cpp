@@ -1,4 +1,5 @@
 #include "runtime.h"
+#include "tbx/app/application.h"
 #include "tbx/graphics/camera.h"
 #include "tbx/graphics/color.h"
 #include "tbx/graphics/light.h"
@@ -14,6 +15,11 @@ namespace tbx::examples
 {
     void PhysicsExampleRuntimePlugin::on_attach(IPluginHost& host)
     {
+        auto& graphics = host.get_settings().graphics;
+        graphics.shadow_map_resolution = 4096U;
+        graphics.shadow_render_distance = 40.0F;
+        graphics.shadow_softness = 1.25F;
+
         auto& ent_registry = host.get_entity_registry();
 
         auto sun = Entity("Light", ent_registry);
@@ -37,14 +43,14 @@ namespace tbx::examples
 
         auto falling_sphere = Entity("FallingSphere", ent_registry);
         falling_sphere.add_component<Renderer>();
-        falling_sphere.add_component<DynamicMesh>(sphere_mesh);
+        falling_sphere.add_component<DynamicMesh>(sphere);
         falling_sphere.add_component<Transform>(Vec3(0.0F, 6.0F, -5.2F));
         falling_sphere.add_component<SphereCollider>(0.5F);
         falling_sphere.add_component<Physics>();
 
         auto falling_cube = Entity("FallingCube", ent_registry);
         falling_cube.add_component<Renderer>();
-        falling_cube.add_component<DynamicMesh>(cube_mesh);
+        falling_cube.add_component<DynamicMesh>(cube);
         falling_cube.add_component<Transform>(Vec3(0.0F, 10.0F, -4.9F));
         falling_cube.add_component<CubeCollider>(Vec3(0.5F, 0.5F, 0.5F));
         falling_cube.add_component<Physics>();

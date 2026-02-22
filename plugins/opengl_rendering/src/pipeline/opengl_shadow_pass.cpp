@@ -10,9 +10,6 @@
 
 namespace tbx::plugins
 {
-    static constexpr size_t MAX_SHADOW_MAPS = 4;
-    static constexpr uint32 SHADOW_MAP_RESOLUTION = 2048;
-
     static void bind_textures(
         const OpenGlDrawResources& draw_resources,
         std::vector<GlResourceScope>& out_scopes)
@@ -122,7 +119,7 @@ namespace tbx::plugins
         const auto max_shadow_maps = std::min(
             frame_context.shadow_data.map_uuids.size(),
             frame_context.shadow_data.light_view_projections.size());
-        const auto shadow_map_count = std::min(max_shadow_maps, MAX_SHADOW_MAPS);
+        const auto shadow_map_count = max_shadow_maps;
         if (shadow_map_count == 0)
             return;
 
@@ -132,11 +129,13 @@ namespace tbx::plugins
 
         glBindFramebuffer(GL_FRAMEBUFFER, shadow_framebuffer_id);
 
-        glViewport(0, 0, SHADOW_MAP_RESOLUTION, SHADOW_MAP_RESOLUTION);
+        const auto shadow_map_resolution =
+            static_cast<GLsizei>(std::max(1U, frame_context.shadow_data.shadow_map_resolution));
+        glViewport(0, 0, shadow_map_resolution, shadow_map_resolution);
         glDisable(GL_BLEND);
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
-        glCullFace(GL_FRONT);
+        glCullFace(GL_BACK);
 
         auto resource_scopes = std::vector<GlResourceScope> {};
         for (size_t shadow_index = 0; shadow_index < shadow_map_count; ++shadow_index)

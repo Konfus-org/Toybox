@@ -1,12 +1,23 @@
 #include "opengl_rendering_plugin.h"
+#include "tbx/app/application.h"
 #include "tbx/debugging/macros.h"
+#include "tbx/graphics/graphics_settings.h"
 #include "tbx/messages/observable.h"
 
 namespace tbx::plugins
 {
+    static OpenGlShadowSettings build_shadow_settings(const GraphicsSettings& graphics_settings)
+    {
+        return OpenGlShadowSettings {
+            .shadow_map_resolution = graphics_settings.shadow_map_resolution.value,
+            .shadow_render_distance = graphics_settings.shadow_render_distance.value,
+            .shadow_softness = graphics_settings.shadow_softness.value,
+        };
+    }
+
     void OpenGlRenderingPlugin::on_attach(IPluginHost& host)
     {
-        (void)host;
+        _shadow_settings = build_shadow_settings(host.get_settings().graphics);
     }
 
     void OpenGlRenderingPlugin::on_detach()
@@ -29,7 +40,8 @@ namespace tbx::plugins
                 ready_event->get_proc_address,
                 get_host().get_entity_registry(),
                 get_host().get_asset_manager(),
-                std::move(context));
+                std::move(context),
+                _shadow_settings);
             renderer->set_viewport_size(ready_event->size);
             renderer->set_pending_render_resolution(ready_event->size);
             _renderers[ready_event->window] = std::move(renderer);
@@ -60,10 +72,40 @@ namespace tbx::plugins
             renderer_it->second->set_pending_render_resolution(size_event->current);
             return;
         }
+
+        if (auto* shadow_resolution_event =
+                handle_property_changed<&GraphicsSettings::shadow_map_resolution>(msg))
+        {
+            _shadow_settings.shadow_map_resolution = shadow_resolution_event->current;
+            apply_shadow_settings_to_renderers();
+            return;
+        }
+
+        if (auto* shadow_distance_event =
+                handle_property_changed<&GraphicsSettings::shadow_render_distance>(msg))
+        {
+            _shadow_settings.shadow_render_distance = shadow_distance_event->current;
+            apply_shadow_settings_to_renderers();
+            return;
+        }
+
+        if (auto* shadow_softness_event =
+                handle_property_changed<&GraphicsSettings::shadow_softness>(msg))
+        {
+            _shadow_settings.shadow_softness = shadow_softness_event->current;
+            apply_shadow_settings_to_renderers();
+            return;
+        }
     }
 
     void OpenGlRenderingPlugin::teardown_renderer(const Uuid& window_id)
     {
         _renderers.erase(window_id);
+    }
+
+    void OpenGlRenderingPlugin::apply_shadow_settings_to_renderers()
+    {
+        for (auto& renderer_entry : _renderers)
+            renderer_entry.second->set_shadow_settings(_shadow_settings);
     }
 }

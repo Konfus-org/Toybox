@@ -15,5 +15,5 @@ namespace tbx
     /// <remarks>Purpose: Supplies a shared unit sphere instance for common queries.
     /// Ownership: Stored as a shared constant owned by the module.
     /// Thread Safety: Safe to read concurrently.</remarks>
-    inline const Sphere sphere = {Vec3(0.0f), 1.0f};
+    // inline const Sphere sphere = {Vec3(0.0f), 1.0f};
 }

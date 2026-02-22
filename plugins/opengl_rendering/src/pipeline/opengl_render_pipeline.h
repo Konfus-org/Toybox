@@ -3,6 +3,7 @@
 #include "opengl_resources/opengl_gbuffer.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "tbx/common/handle.h"
+#include "tbx/common/int.h"
 #include "tbx/common/pipeline.h"
 #include "tbx/common/uuid.h"
 #include "tbx/ecs/entity.h"
@@ -202,6 +203,20 @@ namespace tbx::plugins
         /// Thread Safety: Safe to read concurrently while storage remains valid.
         /// </summary>
         std::span<const float> cascade_splits = {};
+
+        /// <summary>
+        /// Purpose: Resolution shared by all shadow-map textures rendered this frame.
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        uint32 shadow_map_resolution = 1U;
+
+        /// <summary>
+        /// Purpose: Directional shadow filter radius measured in shadow-map texels.
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        float shadow_softness = 1.75F;
     };
 
     /// <summary>

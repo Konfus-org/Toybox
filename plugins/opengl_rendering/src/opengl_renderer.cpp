@@ -12,6 +12,7 @@
 #include "tbx/graphics/renderer.h"
 #include "tbx/math/trig.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <glad/glad.h>
 #include <limits>
@@ -22,12 +23,8 @@
 
 namespace tbx::plugins
 {
-    static constexpr int MAX_DIRECTIONAL_SHADOW_MAPS = 1;
-    static constexpr int SHADOW_MAP_RESOLUTION = 2048;
-    static constexpr float SHADOW_DISTANCE_FROM_CAMERA = 30.0f;
-    static constexpr float SHADOW_ORTHO_HALF_EXTENT = 30.0f;
-    static constexpr float SHADOW_NEAR_PLANE = 1.0f;
-    static constexpr float SHADOW_FAR_PLANE = 90.0f;
+    static constexpr size_t MAX_DIRECTIONAL_SHADOW_MAPS = 1U;
+    static constexpr float SHADOW_NEAR_PLANE = 0.1F;
 
     static std::shared_ptr<OpenGlGBuffer> try_load_gbuffer(
         OpenGlResourceManager& resource_manager,
@@ -54,16 +51,22 @@ namespace tbx::plugins
     static void ensure_shadow_map_resources(
         std::vector<Uuid>& shadow_map_resources,
         size_t desired_count,
+        const OpenGlShadowSettings& shadow_settings,
         OpenGlResourceManager& resource_manager)
     {
+        while (shadow_map_resources.size() > desired_count)
+        {
+            resource_manager.unpin(shadow_map_resources.back());
+            shadow_map_resources.pop_back();
+        }
+
         if (shadow_map_resources.size() < desired_count)
             shadow_map_resources.reserve(desired_count);
 
         while (shadow_map_resources.size() < desired_count)
         {
-            auto shadow_map_resource = resource_manager.add<OpenGlShadowMap>(Size(
-                static_cast<uint32>(SHADOW_MAP_RESOLUTION),
-                static_cast<uint32>(SHADOW_MAP_RESOLUTION)));
+            auto shadow_map_resource = resource_manager.add<OpenGlShadowMap>(
+                Size(shadow_settings.shadow_map_resolution, shadow_settings.shadow_map_resolution));
             if (!shadow_map_resource.is_valid())
             {
                 TBX_ASSERT(false, "OpenGL rendering: failed to register shadow map resource.");
@@ -161,25 +164,99 @@ namespace tbx::plugins
     }
 
     static Mat4 build_directional_shadow_view_projection(
-        const Vec3& camera_position,
-        const Vec3& directional_light_direction)
+        const OpenGlCameraView& camera_view,
+        const Size& render_resolution,
+        const Vec3& directional_light_direction,
+        const OpenGlShadowSettings& shadow_settings)
     {
+        const float shadow_far_plane =
+            std::max(SHADOW_NEAR_PLANE + 0.001F, shadow_settings.shadow_render_distance);
+        auto camera_position = get_camera_world_position(camera_view);
+        auto camera_rotation = get_camera_world_rotation(camera_view);
+        auto forward_axis = normalize(camera_rotation * Vec3(0.0F, 0.0F, -1.0F));
+        auto right_axis = normalize(camera_rotation * Vec3(1.0F, 0.0F, 0.0F));
+        auto up_axis = normalize(camera_rotation * Vec3(0.0F, 1.0F, 0.0F));
+
+        float near_half_height = 0.5F;
+        float near_half_width = 0.5F;
+        float far_half_height = 0.5F;
+        float far_half_width = 0.5F;
+        if (camera_view.camera_entity.has_component<Camera>())
+        {
+            auto& camera = camera_view.camera_entity.get_component<Camera>();
+            camera.set_aspect(render_resolution.get_aspect_ratio());
+
+            if (camera.is_perspective())
+            {
+                const float tan_half_fov = std::tan(to_radians(camera.get_fov() * 0.5F));
+                near_half_height = tan_half_fov * SHADOW_NEAR_PLANE;
+                near_half_width = near_half_height * camera.get_aspect();
+                far_half_height = tan_half_fov * shadow_far_plane;
+                far_half_width = far_half_height * camera.get_aspect();
+            }
+            else
+            {
+                const float ortho_half_height = std::max(0.001F, camera.get_fov() * 0.5F);
+                const float ortho_half_width = ortho_half_height * camera.get_aspect();
+                near_half_height = ortho_half_height;
+                near_half_width = ortho_half_width;
+                far_half_height = ortho_half_height;
+                far_half_width = ortho_half_width;
+            }
+        }
+
+        const Vec3 near_center = camera_position + (forward_axis * SHADOW_NEAR_PLANE);
+        const Vec3 far_center = camera_position + (forward_axis * shadow_far_plane);
+        const auto near_up = up_axis * near_half_height;
+        const auto near_right = right_axis * near_half_width;
+        const auto far_up = up_axis * far_half_height;
+        const auto far_right = right_axis * far_half_width;
+        const auto frustum_corners = std::array<Vec3, 8> {
+            near_center + near_up - near_right,
+            near_center + near_up + near_right,
+            near_center - near_up - near_right,
+            near_center - near_up + near_right,
+            far_center + far_up - far_right,
+            far_center + far_up + far_right,
+            far_center - far_up - far_right,
+            far_center - far_up + far_right,
+        };
+
+        Vec3 frustum_center = Vec3(0.0F);
+        for (const auto& corner : frustum_corners)
+            frustum_center += corner;
+        frustum_center /= static_cast<float>(frustum_corners.size());
+
         auto direction_to_light = normalize(directional_light_direction);
-        auto shadow_center = camera_position;
-        auto light_position = shadow_center + (direction_to_light * SHADOW_DISTANCE_FROM_CAMERA);
+        auto light_position = frustum_center + (direction_to_light * shadow_far_plane);
 
-        auto up_axis = Vec3(0.0f, 1.0f, 0.0f);
-        if (std::abs(dot(direction_to_light, up_axis)) > 0.95f)
-            up_axis = Vec3(1.0f, 0.0f, 0.0f);
+        auto light_up_axis = Vec3(0.0f, 1.0f, 0.0f);
+        if (std::abs(dot(direction_to_light, light_up_axis)) > 0.95f)
+            light_up_axis = Vec3(1.0f, 0.0f, 0.0f);
 
-        auto light_view = look_at(light_position, shadow_center, up_axis);
-        auto light_projection = ortho_projection(
-            -SHADOW_ORTHO_HALF_EXTENT,
-            SHADOW_ORTHO_HALF_EXTENT,
-            -SHADOW_ORTHO_HALF_EXTENT,
-            SHADOW_ORTHO_HALF_EXTENT,
-            SHADOW_NEAR_PLANE,
-            SHADOW_FAR_PLANE);
+        auto light_view = look_at(light_position, frustum_center, light_up_axis);
+        float min_x = std::numeric_limits<float>::max();
+        float max_x = std::numeric_limits<float>::lowest();
+        float min_y = std::numeric_limits<float>::max();
+        float max_y = std::numeric_limits<float>::lowest();
+        float min_z = std::numeric_limits<float>::max();
+        float max_z = std::numeric_limits<float>::lowest();
+
+        for (const auto& corner : frustum_corners)
+        {
+            const auto light_space_corner = light_view * Vec4(corner, 1.0F);
+            min_x = std::min(min_x, light_space_corner.x);
+            max_x = std::max(max_x, light_space_corner.x);
+            min_y = std::min(min_y, light_space_corner.y);
+            max_y = std::max(max_y, light_space_corner.y);
+            min_z = std::min(min_z, light_space_corner.z);
+            max_z = std::max(max_z, light_space_corner.z);
+        }
+
+        const float z_padding = std::max(0.1F, shadow_far_plane * 0.1F);
+        const float near_plane = std::max(0.001F, -max_z - z_padding);
+        const float far_plane = std::max(near_plane + 0.001F, -min_z + z_padding);
+        auto light_projection = ortho_projection(min_x, max_x, min_y, max_y, near_plane, far_plane);
         return light_projection * light_view;
     }
 
@@ -216,11 +293,14 @@ namespace tbx::plugins
         GraphicsProcAddress loader,
         EntityRegistry& entity_registry,
         AssetManager& asset_manager,
-        OpenGlContext context)
+        OpenGlContext context,
+        const OpenGlShadowSettings& shadow_settings)
         : _entity_registry(&entity_registry)
         , _asset_manager(&asset_manager)
         , _context(std::move(context))
     {
+        set_shadow_settings(shadow_settings);
+
         auto* glad_loader = reinterpret_cast<GLADloadproc>(loader);
         TBX_ASSERT(
             glad_loader != nullptr,
@@ -364,12 +444,12 @@ namespace tbx::plugins
                 });
         }
 
-        auto directional_shadow_count = std::min(
-            frame_directional_lights.size(),
-            static_cast<size_t>(MAX_DIRECTIONAL_SHADOW_MAPS));
+        auto directional_shadow_count =
+            std::min(frame_directional_lights.size(), MAX_DIRECTIONAL_SHADOW_MAPS);
         ensure_shadow_map_resources(
             _shadow_map_resources,
             directional_shadow_count,
+            _shadow_settings,
             resource_manager);
 
         auto camera_world_position = get_camera_world_position(camera_view);
@@ -380,8 +460,10 @@ namespace tbx::plugins
         for (size_t shadow_index = 0; shadow_index < directional_shadow_count; ++shadow_index)
         {
             frame_shadow_light_view_projections.push_back(build_directional_shadow_view_projection(
-                camera_world_position,
-                frame_directional_lights[shadow_index].direction));
+                camera_view,
+                _render_resolution,
+                frame_directional_lights[shadow_index].direction,
+                _shadow_settings));
             frame_shadow_map_resources.push_back(_shadow_map_resources[shadow_index]);
         }
 
@@ -532,6 +614,8 @@ namespace tbx::plugins
                     .light_view_projections =
                         std::span<const Mat4>(frame_shadow_light_view_projections),
                     .cascade_splits = std::span<const float>(),
+                    .shadow_map_resolution = _shadow_settings.shadow_map_resolution,
+                    .shadow_softness = _shadow_settings.shadow_softness,
                 },
             .present_mode = OpenGlFrameBufferPresentMode::ASPECT_FIT,
             .present_target_framebuffer_id = 0,
@@ -564,6 +648,21 @@ namespace tbx::plugins
         const std::optional<Size>& pending_render_resolution)
     {
         _pending_render_resolution = pending_render_resolution;
+    }
+
+    void OpenGlRenderer::set_shadow_settings(const OpenGlShadowSettings& shadow_settings)
+    {
+        auto sanitized = shadow_settings;
+        sanitized.shadow_map_resolution = std::max(1U, sanitized.shadow_map_resolution);
+        sanitized.shadow_render_distance = std::max(0.001F, sanitized.shadow_render_distance);
+        sanitized.shadow_softness = std::max(0.0F, sanitized.shadow_softness);
+
+        const bool did_resolution_change =
+            _shadow_settings.shadow_map_resolution != sanitized.shadow_map_resolution;
+        _shadow_settings = sanitized;
+
+        if (did_resolution_change)
+            reset_shadow_maps();
     }
 
     void OpenGlRenderer::initialize()
@@ -611,7 +710,7 @@ namespace tbx::plugins
             _resource_manager->unpin(_pinned_sky_resource);
         _pinned_sky_resource = Uuid::NONE;
         _deferred_lighting_resource = Uuid::NONE;
-        _shadow_map_resources.clear();
+        reset_shadow_maps();
         _gbuffer_resource = Uuid::NONE;
         _lighting_framebuffer_resource = Uuid::NONE;
         _post_process_ping_framebuffer_resource = Uuid::NONE;
@@ -623,6 +722,17 @@ namespace tbx::plugins
         _pending_render_resolution = std::nullopt;
         _viewport_size = {};
         _render_resolution = {};
+    }
+
+    void OpenGlRenderer::reset_shadow_maps()
+    {
+        if (_resource_manager)
+        {
+            for (const auto& shadow_map_resource : _shadow_map_resources)
+                _resource_manager->unpin(shadow_map_resource);
+        }
+
+        _shadow_map_resources.clear();
     }
 
     void OpenGlRenderer::set_render_resolution(const Size& render_resolution)

@@ -54,9 +54,9 @@ namespace tbx::tests::graphics
         // Arrange
         const Mesh& triangle_mesh = triangle;
         const Mesh& quad_mesh = quad;
-        const Mesh& cube_mesh_ref = cube_mesh;
-        const Mesh& sphere_mesh_ref = sphere_mesh;
-        const Mesh& capsule_mesh_ref = capsule_mesh;
+        const Mesh& cube_mesh_ref = cube;
+        const Mesh& sphere_mesh_ref = sphere;
+        const Mesh& capsule_mesh_ref = capsule;
 
         // Act
         const bool triangle_has_data =

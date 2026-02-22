@@ -1,4 +1,5 @@
 #include "runtime.h"
+#include "tbx/app/application.h"
 #include "tbx/graphics/camera.h"
 #include "tbx/graphics/color.h"
 #include "tbx/graphics/light.h"
@@ -14,6 +15,10 @@ namespace tbx::examples
     {
         _ent_registry = &host.get_entity_registry();
         _input_manager = &host.get_input_manager();
+        auto& graphics = host.get_settings().graphics;
+        graphics.shadow_map_resolution = 4096U;
+        graphics.shadow_render_distance = 40.0F;
+        graphics.shadow_softness = 1.25F;
 
         _sun = Entity("Light", _ent_registry);
         _sun.add_component<DirectionalLight>(RgbaColor::white, 1.0F, 0.25F);
@@ -23,9 +28,14 @@ namespace tbx::examples
         ground_ent.add_component<Renderer>();
         ground_ent.add_component<DynamicMesh>(quad);
         ground_ent.add_component<Transform>(
-            Vec3(0.0F, 0.0F, -5.0F),
+            Vec3(0.0F, 0.0F, 0.0F),
             to_radians(Vec3(-90.0F, 0.0F, 0.0F)),
             Vec3(20.0F, 20.0F, 1.0F));
+
+        auto cube_ent = Entity("Cube", _ent_registry);
+        cube_ent.add_component<Renderer>();
+        cube_ent.add_component<DynamicMesh>(cube);
+        cube_ent.add_component<Transform>(Vec3(0.0F, 0.5F, -5.0F));
 
         // Create player entity
         {
@@ -34,7 +44,7 @@ namespace tbx::examples
 
             auto player_visual = Entity("PlayerVisual", _player.get_id(), _ent_registry);
             player_visual.add_component<Renderer>();
-            player_visual.add_component<DynamicMesh>(capsule_mesh);
+            player_visual.add_component<DynamicMesh>(capsule);
             player_visual.add_component<Transform>(
                 Vec3(0.0F, 1.0F, 0.0F),
                 Quat(1.0F, 0.0F, 0.0F, 0.0F),
