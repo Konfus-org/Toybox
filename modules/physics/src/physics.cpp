@@ -3,7 +3,7 @@
 
 namespace tbx
 {
-    bool Physics::get_is_valid() const
+    bool Physics::is_valid() const
     {
         if (!std::isfinite(mass) || mass <= 0.0F)
             return false;

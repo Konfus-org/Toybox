@@ -1,6 +1,5 @@
 #pragma once
 #include "tbx/math/vectors.h"
-#include "tbx/physics/collider.h"
 #include "tbx/tbx_api.h"
 
 namespace tbx
@@ -18,7 +17,6 @@ namespace tbx
         bool is_kinematic = false;
         bool is_sensor = false;
         bool is_gravity_enabled = true;
-        Collider collider = {};
 
         Vec3 linear_velocity = Vec3(0.0F, 0.0F, 0.0F);
         Vec3 angular_velocity = Vec3(0.0F, 0.0F, 0.0F);
@@ -32,13 +30,6 @@ namespace tbx
         float sleep_velocity_threshold = 0.03F;
         float sleep_time_seconds = 0.5F;
 
-        /// <summary>
-        /// Purpose: Validates that this per-entity component can be consumed by a physics backend.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Reads stored values only and does not transfer ownership.
-        /// Thread Safety: Safe for concurrent reads when no writer mutates concurrently.
-        /// </remarks>
-        bool get_is_valid() const;
+        bool is_valid() const;
     };
 }

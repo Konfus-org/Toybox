@@ -1,8 +1,6 @@
 #pragma once
 #include "tbx/math/vectors.h"
 #include "tbx/tbx_api.h"
-#include <cstdint>
-#include <variant>
 
 namespace tbx
 {
@@ -56,4 +54,5 @@ namespace tbx
         float radius = 0.5F;
         float half_height = 0.5F;
     };
+
 }

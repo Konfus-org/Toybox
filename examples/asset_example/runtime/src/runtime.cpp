@@ -6,6 +6,8 @@
 #include "tbx/graphics/renderer.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
+#include "tbx/physics/collider.h"
+#include "tbx/physics/physics.h"
 #include <cmath>
 
 namespace tbx::examples
@@ -33,11 +35,14 @@ namespace tbx::examples
         _green_cube.add_component<Renderer>();
         _green_cube.add_component<StaticMesh>(green_cube);
         _green_cube.add_component<Transform>(Vec3(0.0f, 0.0f, -5.0f));
+        _green_cube.add_component<MeshCollider>();
+        _green_cube.add_component<Physics>(2.0f);
 
         // Setup ground
         auto ground_ent = Entity("Ground", *_ent_registry);
         ground_ent.add_component<Renderer>(smily_mat);
         ground_ent.add_component<DynamicMesh>(quad);
+        ground_ent.add_component<MeshCollider>();
         ground_ent.add_component<Transform>(
             Vec3(0.0f, -2.0f, -5.0f),
             to_radians(Vec3(-90.0f, 0.0f, 0.0f)),

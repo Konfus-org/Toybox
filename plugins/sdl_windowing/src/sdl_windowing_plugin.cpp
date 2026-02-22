@@ -22,7 +22,7 @@ namespace tbx::plugins
 
         // Wayland doesn't support icons on windows so no need to load it up.
         if (is_wayland_video_driver())
-            return;
+            return nullptr;
 
         SDL_ClearError();
         SDL_Surface* icon_surface = SDL_LoadSurface(icon_path.string().c_str());
