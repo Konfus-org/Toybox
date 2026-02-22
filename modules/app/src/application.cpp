@@ -17,9 +17,8 @@ namespace tbx
         bool vsync,
         GraphicsApi api,
         Size resolution)
-        : vsync_enabled(&dispatcher, this, &AppSettings::vsync_enabled, vsync)
-        , graphics_api(&dispatcher, this, &AppSettings::graphics_api, api)
-        , resolution(&dispatcher, this, &AppSettings::resolution, resolution)
+        : graphics(dispatcher, vsync, api, resolution)
+        , physics(dispatcher)
     {
     }
 

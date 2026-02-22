@@ -3,9 +3,10 @@
 #include "tbx/app/app_message_coordinator.h"
 #include "tbx/assets/asset_manager.h"
 #include "tbx/ecs/entity.h"
-#include "tbx/graphics/graphics_api.h"
+#include "tbx/graphics/graphics_settings.h"
 #include "tbx/graphics/window.h"
 #include "tbx/input/input_manager.h"
+#include "tbx/physics/physics_settings.h"
 #include "tbx/plugin_api/loaded_plugin.h"
 #include "tbx/plugin_api/plugin_host.h"
 #include "tbx/time/delta_time.h"
@@ -26,7 +27,7 @@ namespace tbx
     struct TBX_API AppSettings
     {
         /// <summary>
-        /// Purpose: Initializes observable graphics settings defaults.
+        /// Purpose: Initializes observable graphics and physics settings defaults.
         /// </summary>
         /// <remarks>
         /// Ownership: Does not take ownership of the dispatcher reference.
@@ -39,31 +40,22 @@ namespace tbx
             Size resolution = {0, 0});
 
         /// <summary>
-        /// Purpose: Enables or disables vertical sync at runtime.
+        /// Purpose: Stores global graphics settings for all render backends.
         /// </summary>
         /// <remarks>
-        /// Ownership: Stores the latest value internally.
+        /// Ownership: Owns the nested settings struct by value.
         /// Thread Safety: Not thread-safe; observe or mutate with external synchronization.
         /// </remarks>
-        Observable<AppSettings, bool> vsync_enabled;
+        GraphicsSettings graphics;
 
         /// <summary>
-        /// Purpose: Selects the active graphics API.
+        /// Purpose: Stores global physics simulation settings for all physics backends.
         /// </summary>
         /// <remarks>
-        /// Ownership: Stores the latest value internally.
+        /// Ownership: Owns the nested settings struct by value.
         /// Thread Safety: Not thread-safe; observe or mutate with external synchronization.
         /// </remarks>
-        Observable<AppSettings, GraphicsApi> graphics_api;
-
-        /// <summary>
-        /// Purpose: Stores the active render resolution.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Stores the latest value internally.
-        /// Thread Safety: Not thread-safe; observe or mutate with external synchronization.
-        /// </remarks>
-        Observable<AppSettings, Size> resolution;
+        PhysicsSettings physics;
 
         /// <summary>
         /// Purpose: Defines the working directory used for relative path resolution.

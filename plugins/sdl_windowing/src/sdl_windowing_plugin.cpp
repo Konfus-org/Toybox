@@ -122,7 +122,7 @@ namespace tbx::plugins
             TBX_TRACE_INFO("Initialized SDL video subsystem.");
 
         TBX_TRACE_INFO("Video driver: {}", SDL_GetCurrentVideoDriver());
-        _use_opengl = host.get_settings().graphics_api == GraphicsApi::OPEN_GL;
+        _use_opengl = host.get_settings().graphics.graphics_api == GraphicsApi::OPEN_GL;
 
         const std::filesystem::path icon_path =
             host.get_asset_manager().resolve_asset_path(host.get_icon_handle());
@@ -227,7 +227,7 @@ namespace tbx::plugins
     void SdlWindowingPlugin::on_recieve_message(Message& msg)
     {
         // Graphics api changed
-        if (auto* graphics_event = handle_property_changed<&AppSettings::graphics_api>(msg))
+        if (auto* graphics_event = handle_property_changed<&GraphicsSettings::graphics_api>(msg))
         {
             _use_opengl = graphics_event->current == GraphicsApi::OPEN_GL;
 
