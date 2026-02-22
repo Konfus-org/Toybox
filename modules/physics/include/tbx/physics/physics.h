@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/math/vectors.h"
+#include "tbx/physics/collider.h"
 #include "tbx/tbx_api.h"
 
 namespace tbx
@@ -17,6 +18,7 @@ namespace tbx
         bool is_kinematic = false;
         bool is_sensor = false;
         bool is_gravity_enabled = true;
+        Collider collider = {};
 
         Vec3 linear_velocity = Vec3(0.0F, 0.0F, 0.0F);
         Vec3 angular_velocity = Vec3(0.0F, 0.0F, 0.0F);
