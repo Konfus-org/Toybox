@@ -275,6 +275,12 @@ namespace tbx::plugins
             return false;
         }
 
+        static bool has_scale_changed(const Vec3& current_scale, const Vec3& previous_scale)
+        {
+            constexpr float scale_epsilon_squared = 0.0001F * 0.0001F;
+            return get_vec3_distance_squared(current_scale, previous_scale) > scale_epsilon_squared;
+        }
+
         static Vec3 multiply_components(const Vec3& left, const Vec3& right)
         {
             return Vec3(left.x * right.x, left.y * right.y, left.z * right.z);
@@ -303,6 +309,14 @@ namespace tbx::plugins
             return axis * (angle_radians / std::max(0.0001F, dt_seconds));
         }
 
+        static Vec3 get_safe_scale(const Vec3& scale)
+        {
+            return Vec3(
+                std::max(0.001F, std::abs(scale.x)),
+                std::max(0.001F, std::abs(scale.y)),
+                std::max(0.001F, std::abs(scale.z)));
+        }
+
         static JPH::RefConst<JPH::Shape> create_box_shape(const CubeCollider& cube)
         {
             auto half_extents = JPH::Vec3(
@@ -325,12 +339,38 @@ namespace tbx::plugins
             return new JPH::CapsuleShape(half_height, radius);
         }
 
-        static Vec3 get_safe_scale(const Vec3& scale)
+        static void apply_dynamic_body_settings(
+            IPluginHost& host,
+            const Physics& physics,
+            JPH::BodyCreationSettings& out_body_settings)
         {
-            return Vec3(
-                std::max(0.001F, std::abs(scale.x)),
-                std::max(0.001F, std::abs(scale.y)),
-                std::max(0.001F, std::abs(scale.z)));
+            out_body_settings.mIsSensor = physics.is_sensor;
+            out_body_settings.mAllowSleeping = physics.is_sleep_enabled;
+            out_body_settings.mFriction = physics.friction;
+            out_body_settings.mRestitution = physics.restitution;
+            out_body_settings.mLinearDamping = physics.default_linear_damping;
+            out_body_settings.mAngularDamping = physics.default_angular_damping;
+            out_body_settings.mLinearVelocity = to_jolt_vec3(physics.linear_velocity);
+            out_body_settings.mAngularVelocity = to_jolt_vec3(physics.angular_velocity);
+            out_body_settings.mGravityFactor = physics.is_gravity_enabled ? 1.0F : 0.0F;
+            out_body_settings.mMaxLinearVelocity =
+                std::max(0.0F, host.get_settings().physics.max_linear_velocity.value);
+            out_body_settings.mMaxAngularVelocity =
+                std::max(0.0F, host.get_settings().physics.max_angular_velocity.value);
+            out_body_settings.mOverrideMassProperties =
+                JPH::EOverrideMassProperties::CalculateInertia;
+            out_body_settings.mMassPropertiesOverride.mMass = physics.mass;
+
+            constexpr float ccd_linear_speed_threshold = 8.0F;
+            const float linear_speed_squared =
+                physics.linear_velocity.x * physics.linear_velocity.x
+                + physics.linear_velocity.y * physics.linear_velocity.y
+                + physics.linear_velocity.z * physics.linear_velocity.z;
+            const float ccd_threshold_squared =
+                ccd_linear_speed_threshold * ccd_linear_speed_threshold;
+            out_body_settings.mMotionQuality = linear_speed_squared >= ccd_threshold_squared
+                                                   ? JPH::EMotionQuality::LinearCast
+                                                   : JPH::EMotionQuality::Discrete;
         }
 
         static bool try_get_mesh_vertex_position_offset(
@@ -851,6 +891,21 @@ namespace tbx::plugins
                 _bodies_by_entity.erase(body_it);
                 body_it = _bodies_by_entity.end();
             }
+            else if (
+                body_it != _bodies_by_entity.end() && entity.has_component<MeshCollider>()
+                && body_it->second.has_last_transform
+                && has_scale_changed(world_transform.scale, body_it->second.last_scale))
+            {
+                const JPH::BodyID existing_body_id = body_it->second.body_id;
+                if (body_interface.IsAdded(existing_body_id))
+                {
+                    body_interface.RemoveBody(existing_body_id);
+                    body_interface.DestroyBody(existing_body_id);
+                }
+
+                _bodies_by_entity.erase(body_it);
+                body_it = _bodies_by_entity.end();
+            }
 
             if (body_it == _bodies_by_entity.end())
             {
@@ -872,23 +927,7 @@ namespace tbx::plugins
 
                 if (is_physics_driven)
                 {
-                    body_settings.mIsSensor = physics->is_sensor;
-                    body_settings.mAllowSleeping = physics->is_sleep_enabled;
-                    body_settings.mFriction = physics->friction;
-                    body_settings.mRestitution = physics->restitution;
-                    body_settings.mLinearDamping = physics->default_linear_damping;
-                    body_settings.mAngularDamping = physics->default_angular_damping;
-                    body_settings.mLinearVelocity = to_jolt_vec3(physics->linear_velocity);
-                    body_settings.mAngularVelocity = to_jolt_vec3(physics->angular_velocity);
-                    body_settings.mGravityFactor = physics->is_gravity_enabled ? 1.0F : 0.0F;
-                    body_settings.mMaxLinearVelocity =
-                        std::max(0.0F, get_host().get_settings().physics.max_linear_velocity.value);
-                    body_settings.mMaxAngularVelocity = std::max(
-                        0.0F,
-                        get_host().get_settings().physics.max_angular_velocity.value);
-                    body_settings.mOverrideMassProperties =
-                        JPH::EOverrideMassProperties::CalculateInertia;
-                    body_settings.mMassPropertiesOverride.mMass = physics->mass;
+                    apply_dynamic_body_settings(get_host(), *physics, body_settings);
                 }
 
                 auto activation = JPH::EActivation::DontActivate;

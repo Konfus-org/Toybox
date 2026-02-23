@@ -68,6 +68,54 @@ namespace tbx::plugins
     };
 
     /// <summary>
+    /// Purpose: Stores one hash reference to a cached OpenGL texture.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns the uniform name and stores a non-owning cache signature.
+    /// Thread Safety: Not thread-safe; mutate only on the render thread.
+    /// </remarks>
+    struct OpenGlTextureResourceReference final
+    {
+        std::string uniform_name = "";
+        uint64 texture_signature = 0U;
+        int slot = 0;
+    };
+
+    /// <summary>
+    /// Purpose: Stores hash references for one cached draw-resource payload.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores value-type signatures and owned uniform/texture metadata.
+    /// Thread Safety: Not thread-safe; mutate only on the render thread.
+    /// </remarks>
+    struct OpenGlCachedDrawResourceEntry final
+    {
+        uint64 mesh_signature = 0U;
+        uint64 shader_program_signature = 0U;
+        std::vector<OpenGlTextureResourceReference> textures = {};
+        std::vector<MaterialParameter> shader_parameters = {};
+        bool use_tesselation = false;
+        std::chrono::steady_clock::time_point last_use = {};
+        uint64 signature = 0U;
+        uint64 aux_signature = 0U;
+        bool is_pinned = false;
+    };
+
+    /// <summary>
+    /// Purpose: Stores one typed OpenGL resource cache entry with usage timestamp.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores shared ownership of one typed OpenGL resource.
+    /// Thread Safety: Not thread-safe; mutate only on the render thread.
+    /// </remarks>
+    template <typename TResource>
+    struct OpenGlSharedResourceCacheEntry final
+    {
+        std::shared_ptr<TResource> resource = nullptr;
+        std::chrono::steady_clock::time_point last_use = {};
+    };
+
+    /// <summary>
     /// Purpose: Owns OpenGL resource caches and unloads entries that have not been referenced
     /// recently.
     /// </summary>
@@ -204,30 +252,48 @@ namespace tbx::plugins
             const Uuid& resource_uuid,
             std::shared_ptr<IOpenGlResource>& out_resource) const;
         bool try_get_cached_draw_resources(
-            const OpenGlCachedResourceEntry& cached_entry,
-            OpenGlDrawResources& out_resources) const;
+            const OpenGlCachedDrawResourceEntry& cached_entry,
+            OpenGlDrawResources& out_resources);
+        std::shared_ptr<OpenGlMesh> get_or_create_shared_mesh(
+            uint64 mesh_signature,
+            const Mesh& mesh);
+        std::shared_ptr<OpenGlShader> get_or_create_shared_shader_stage(
+            const Handle& shader_handle,
+            ShaderType expected_type);
+        std::shared_ptr<OpenGlShaderProgram> get_or_create_shared_shader_program(
+            const ShaderProgram& shader_program,
+            uint64* out_program_signature);
+        std::shared_ptr<OpenGlTexture> get_or_create_shared_texture(
+            uint64 texture_signature,
+            const Texture& texture_data);
         bool try_create_static_mesh_resources(
             const Entity& entity,
             const Renderer& renderer,
-            OpenGlDrawResources& out_resources);
+            OpenGlDrawResources& out_resources,
+            OpenGlCachedDrawResourceEntry* out_cache_entry);
         bool try_create_dynamic_mesh_resources(
             const Entity& entity,
             const Renderer& renderer,
-            OpenGlDrawResources& out_resources);
+            OpenGlDrawResources& out_resources,
+            OpenGlCachedDrawResourceEntry* out_cache_entry);
         bool try_create_post_processing_stack_resource(
             const PostProcessing& post_processing,
             std::shared_ptr<IOpenGlResource>& out_resource,
             uint64& out_signature);
         bool try_create_sky_resources(
             const MaterialInstance& sky_material,
-            OpenGlDrawResources& out_resources);
+            OpenGlDrawResources& out_resources,
+            OpenGlCachedDrawResourceEntry* out_cache_entry);
         bool try_create_post_process_resources(
             const MaterialInstance& post_process_material,
-            OpenGlDrawResources& out_resources);
+            OpenGlDrawResources& out_resources,
+            OpenGlCachedDrawResourceEntry* out_cache_entry);
         bool try_append_material_resources(
             const Material& material,
             const std::vector<MaterialTextureBinding>& runtime_texture_overrides,
             OpenGlDrawResources& out_resources,
+            uint64* out_shader_program_signature,
+            std::vector<OpenGlTextureResourceReference>* out_texture_references,
             bool force_deferred_geometry_program);
 
       private:
@@ -237,7 +303,16 @@ namespace tbx::plugins
         static constexpr std::chrono::seconds UNUSED_SCAN_INTERVAL = std::chrono::seconds(1);
 
         AssetManager* _asset_manager = nullptr;
+        std::unordered_map<Uuid, OpenGlCachedDrawResourceEntry> _draw_resources_by_entity = {};
         std::unordered_map<Uuid, OpenGlCachedResourceEntry> _resources_by_entity = {};
+        std::unordered_map<uint64, OpenGlSharedResourceCacheEntry<OpenGlMesh>>
+            _shared_meshes_by_signature = {};
+        std::unordered_map<uint64, OpenGlSharedResourceCacheEntry<OpenGlShader>>
+            _shared_shader_stages_by_signature = {};
+        std::unordered_map<uint64, OpenGlSharedResourceCacheEntry<OpenGlShaderProgram>>
+            _shared_shader_programs_by_signature = {};
+        std::unordered_map<uint64, OpenGlSharedResourceCacheEntry<OpenGlTexture>>
+            _shared_textures_by_signature = {};
         Clock::time_point _next_unused_scan_time = {};
     };
 

@@ -25,6 +25,7 @@ namespace tbx::plugins
             if (!texture_binding.texture)
                 continue;
 
+            texture_binding.texture->set_slot(static_cast<uint32>(texture_binding.slot));
             out_scopes.push_back(GlResourceScope(*texture_binding.texture));
         }
     }
@@ -290,6 +291,14 @@ namespace tbx::plugins
         resource_scopes.push_back(GlResourceScope(*draw_resources.shader_program));
         resource_scopes.push_back(GlResourceScope(*draw_resources.mesh));
         bind_textures(draw_resources, resource_scopes);
+        for (const auto& texture_binding : draw_resources.textures)
+        {
+            draw_resources.shader_program->try_upload(
+                MaterialParameter {
+                    .name = texture_binding.uniform_name,
+                    .data = texture_binding.slot,
+                });
+        }
 
         int texture_slot = static_cast<int>(draw_resources.textures.size());
         const int albedo_slot = texture_slot++;

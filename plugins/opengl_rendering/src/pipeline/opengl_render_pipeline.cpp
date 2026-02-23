@@ -90,7 +90,22 @@ namespace tbx::plugins
                 if (!texture_binding.texture)
                     continue;
 
+                texture_binding.texture->set_slot(static_cast<uint32>(texture_binding.slot));
                 out_scopes.push_back(GlResourceScope(*texture_binding.texture));
+            }
+        }
+
+        void upload_texture_uniforms(
+            OpenGlShaderProgram& shader_program,
+            const OpenGlDrawResources& draw_resources) const
+        {
+            for (const auto& texture_binding : draw_resources.textures)
+            {
+                shader_program.try_upload(
+                    MaterialParameter {
+                        .name = texture_binding.uniform_name,
+                        .data = texture_binding.slot,
+                    });
             }
         }
 
@@ -156,6 +171,7 @@ namespace tbx::plugins
             bind_textures(draw_resources, resource_scopes);
 
             upload_frame_uniforms(*draw_resources.shader_program, view_projection);
+            upload_texture_uniforms(*draw_resources.shader_program, draw_resources);
             upload_material_uniforms(*draw_resources.shader_program, draw_resources);
             upload_runtime_material_uniforms(*draw_resources.shader_program, renderer);
             upload_model_uniform(*draw_resources.shader_program, entity);

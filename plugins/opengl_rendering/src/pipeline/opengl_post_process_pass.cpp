@@ -55,6 +55,7 @@ namespace tbx::plugins
             if (!texture_binding.texture)
                 continue;
 
+            texture_binding.texture->set_slot(static_cast<uint32>(texture_binding.slot));
             out_scopes.push_back(GlResourceScope(*texture_binding.texture));
         }
     }
@@ -141,6 +142,14 @@ namespace tbx::plugins
                 .name = "u_blend",
                 .data = clamped_blend,
             });
+        for (const auto& texture_binding : draw_resources.textures)
+        {
+            draw_resources.shader_program->try_upload(
+                MaterialParameter {
+                    .name = texture_binding.uniform_name,
+                    .data = texture_binding.slot,
+                });
+        }
         for (const auto& uniform : draw_resources.shader_parameters)
             draw_resources.shader_program->try_upload(uniform);
 

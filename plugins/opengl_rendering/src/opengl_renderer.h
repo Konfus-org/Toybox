@@ -70,7 +70,6 @@ namespace tbx::plugins
 
       private:
         EntityRegistry* _entity_registry = nullptr;
-        AssetManager* _asset_manager = nullptr;
         OpenGlContext _context;
 
         std::unique_ptr<OpenGlResourceManager> _resource_manager = nullptr;

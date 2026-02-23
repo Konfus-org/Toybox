@@ -399,7 +399,6 @@ namespace tbx::plugins
         OpenGlContext context,
         const OpenGlShadowSettings& shadow_settings)
         : _entity_registry(&entity_registry)
-        , _asset_manager(&asset_manager)
         , _context(std::move(context))
     {
         set_shadow_settings(shadow_settings);
@@ -411,9 +410,6 @@ namespace tbx::plugins
         TBX_ASSERT(
             _entity_registry != nullptr,
             "OpenGL rendering: renderer requires a valid entity registry.");
-        TBX_ASSERT(
-            _asset_manager != nullptr,
-            "OpenGL rendering: renderer requires a valid asset manager.");
         TBX_ASSERT(
             _context.get_window_id().is_valid(),
             "OpenGL rendering: renderer requires a valid context window id.");

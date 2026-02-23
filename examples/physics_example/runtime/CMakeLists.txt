@@ -13,6 +13,7 @@ target_link_libraries(PhysicsExampleRuntime PRIVATE
     Tbx::Physics
     Tbx::Plugins::JoltPhysicsPlugin
     Tbx::Plugins::SdlWindowingPlugin
+    Tbx::Plugins::SdlInputPlugin
     Tbx::Plugins::OpenGlRenderingPlugin
     Tbx::Plugins::SdlOpenGlAdapterPlugin
     Tbx::Plugins::StbImageLoaderPlugin

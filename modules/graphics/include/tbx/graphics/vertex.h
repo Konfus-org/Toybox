@@ -188,6 +188,11 @@ namespace tbx
             return vertices.size();
         }
 
+        auto data() const
+        {
+            return vertices.data();
+        }
+
         std::vector<float> vertices = {};
         VertexBufferLayout layout = {};
     };

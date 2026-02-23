@@ -82,15 +82,15 @@ namespace tbx
                     if (stack_index != 0U)
                     {
                         indices.push_back(current);
-                        indices.push_back(next);
                         indices.push_back(current + 1U);
+                        indices.push_back(next);
                     }
 
                     if (stack_index != stacks - 1U)
                     {
                         indices.push_back(current + 1U);
-                        indices.push_back(next);
                         indices.push_back(next + 1U);
+                        indices.push_back(next);
                     }
                 }
             }
@@ -300,6 +300,36 @@ namespace tbx
         return Mesh(vertex_buffer, index_buffer);
     }
 
+    Mesh make_fullscreen_quad()
+    {
+        const std::vector<Vertex> fullscreen_quad_vertices = {
+            Vertex {
+                Vec3(-1.0F, -1.0F, 0.0F),
+                Vec3(0.0F, 0.0F, 1.0F),
+                Vec2(0.0F, 0.0F),
+                RgbaColor(0.0F, 0.0F, 0.0F, 1.0F)},
+            Vertex {
+                Vec3(1.0F, -1.0F, 0.0F),
+                Vec3(0.0F, 0.0F, 1.0F),
+                Vec2(1.0F, 0.0F),
+                RgbaColor(0.0F, 0.0F, 0.0F, 1.0F)},
+            Vertex {
+                Vec3(1.0F, 1.0F, 0.0F),
+                Vec3(0.0F, 0.0F, 1.0F),
+                Vec2(1.0F, 1.0F),
+                RgbaColor(0.0F, 0.0F, 0.0F, 1.0F)},
+            Vertex {
+                Vec3(-1.0F, 1.0F, 0.0F),
+                Vec3(0.0F, 0.0F, 1.0F),
+                Vec2(0.0F, 1.0F),
+                RgbaColor(0.0F, 0.0F, 0.0F, 1.0F)}};
+
+        const IndexBuffer index_buffer = {0, 1, 2, 2, 3, 0};
+        const VertexBuffer vertex_buffer = make_vertex_buffer(fullscreen_quad_vertices);
+
+        return Mesh(vertex_buffer, index_buffer);
+    }
+
     Mesh make_cube()
     {
         const std::array<Vec3, 8> positions = {
@@ -391,5 +421,71 @@ namespace tbx
             hemisphere_stacks,
             cylinder_stacks,
             sectors);
+    }
+
+    Mesh make_sky_dome()
+    {
+        constexpr int stack_count = 32;
+        constexpr int slice_count = 64;
+
+        auto vertices = std::vector<Vertex> {};
+        vertices.reserve(
+            static_cast<size_t>(stack_count + 1) * static_cast<size_t>(slice_count + 1));
+
+        auto indices = IndexBuffer {};
+        indices.reserve(static_cast<size_t>(stack_count * slice_count * 6));
+
+        const float pi = std::numbers::pi_v<float>;
+        const float inverse_stack_count = 1.0F / static_cast<float>(stack_count);
+        const float inverse_slice_count = 1.0F / static_cast<float>(slice_count);
+
+        for (int stack = 0; stack <= stack_count; ++stack)
+        {
+            const float v = static_cast<float>(stack) * inverse_stack_count;
+            const float theta = v * pi;
+            const float sin_theta = std::sin(theta);
+            const float cos_theta = std::cos(theta);
+
+            for (int slice = 0; slice <= slice_count; ++slice)
+            {
+                const float u = static_cast<float>(slice) * inverse_slice_count;
+                const float phi = u * 2.0F * pi;
+                const float sin_phi = std::sin(phi);
+                const float cos_phi = std::cos(phi);
+
+                const float x = sin_theta * cos_phi;
+                const float y = cos_theta;
+                const float z = sin_theta * sin_phi;
+
+                vertices.push_back(
+                    Vertex {
+                        .position = Vec3(x, y, z),
+                        .uv = Vec2(u, 1.0F - v),
+                    });
+            }
+        }
+
+        const int stride = slice_count + 1;
+        for (int stack = 0; stack < stack_count; ++stack)
+        {
+            for (int slice = 0; slice < slice_count; ++slice)
+            {
+                const uint32 top_left = static_cast<uint32>(stack * stride + slice);
+                const uint32 bottom_left = static_cast<uint32>((stack + 1) * stride + slice);
+                const uint32 top_right = top_left + 1U;
+                const uint32 bottom_right = bottom_left + 1U;
+
+                indices.push_back(top_left);
+                indices.push_back(bottom_left);
+                indices.push_back(top_right);
+
+                indices.push_back(top_right);
+                indices.push_back(bottom_left);
+                indices.push_back(bottom_right);
+            }
+        }
+
+        const VertexBuffer vertex_buffer = make_vertex_buffer(vertices);
+        return Mesh(vertex_buffer, indices);
     }
 }
