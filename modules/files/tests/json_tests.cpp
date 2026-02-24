@@ -32,11 +32,11 @@ namespace tbx::tests::file_system
 
         Json json(text);
 
-        auto color = RgbaColor();
+        auto color = Color();
         auto position = Vec3();
         auto rotation = Quat();
 
-        EXPECT_TRUE(json.try_get<RgbaColor>("color", color));
+        EXPECT_TRUE(json.try_get<Color>("color", color));
         EXPECT_TRUE(json.try_get<Vec3>("position", position));
         EXPECT_TRUE(json.try_get<Quat>("rotation", rotation));
 

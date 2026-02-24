@@ -249,7 +249,7 @@ namespace tbx::plugins
         {
             return GL_FLOAT;
         }
-        if (std::holds_alternative<RgbaColor>(type))
+        if (std::holds_alternative<Color>(type))
         {
             return GL_FLOAT;
         }

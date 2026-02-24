@@ -22,3 +22,6 @@
 [submodule "assimp"]
 	path = thirdparty/assimp
 	url = https://github.com/Konfus-org/assimp.git
+[submodule "thirdparty/JoltPhysics"]
+	path = thirdparty/JoltPhysics
+	url = https://github.com/Konfus-org/JoltPhysics

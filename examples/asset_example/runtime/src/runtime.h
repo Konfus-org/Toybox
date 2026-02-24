@@ -1,8 +1,6 @@
 #pragma once
 #include "tbx/ecs/entity.h"
-#include "tbx/input/input_manager.h"
 #include "tbx/plugin_api/plugin.h"
-#include <string>
 
 namespace tbx::examples
 {
@@ -39,10 +37,10 @@ namespace tbx::examples
         void on_detach() override;
 
         /// <summary>
-        /// Updates scene animation and input-driven camera movement/rotation.
+        /// Updates scene animation for the asset showcase.
         /// </summary>
         /// <remarks>
-        /// Purpose: Rotates demo entities and applies WASD + mouse-look camera motion.
+        /// Purpose: Rotates demo entities in a render-only showcase.
         /// Ownership: Does not own the provided DeltaTime instance.
         /// Thread Safety: Must be called on the main thread.
         /// </remarks>
@@ -50,20 +48,8 @@ namespace tbx::examples
 
       private:
         EntityRegistry* _ent_registry = nullptr;
-        InputManager* _input_manager = nullptr;
 
-        Entity _green_cube = {};
+        Entity _cube = {};
         Entity _sun = {};
-        Entity _camera = {};
-
-        std::string _camera_scheme_name = "AssetExample.Camera";
-
-        float _camera_yaw = 0.0F;
-        float _camera_pitch = 0.0F;
-        float _camera_move_speed = 6.0F;
-        float _camera_look_sensitivity = 0.0025F;
-
-        Vec2 _move_axis = Vec2(0.0F, 0.0F);
-        Vec2 _look_delta = Vec2(0.0F, 0.0F);
     };
 }

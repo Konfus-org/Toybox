@@ -1,4 +1,5 @@
 # Format Style Options - Created with Clang Power Tools
+# Naming conventions (including STATIC_CONST_ static constants) are enforced via .clang-tidy.
 ---
 AccessModifierOffset: -2
 AlignAfterOpenBracket: AlwaysBreak

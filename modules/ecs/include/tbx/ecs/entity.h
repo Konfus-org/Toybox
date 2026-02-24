@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/common/uuid.h"
+#include "tbx/math/transform.h"
 #include <string>
 #include <utility>
 
@@ -40,6 +41,14 @@ namespace tbx
 
         Uuid get_parent() const;
         void set_parent(const Uuid& parent);
+        /// <summary>
+        /// Purpose: Resolves and returns this entity's parent entity handle.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Writes a non-owning entity handle into out_parent when available.
+        /// Thread Safety: Not thread-safe; synchronize external concurrent access.
+        /// </remarks>
+        bool try_get_parent_entity(Entity& out_parent) const;
 
         template <typename TComponent>
         TComponent& add_component(const TComponent& component);
@@ -74,6 +83,16 @@ namespace tbx
     /// Thread Safety: Safe for concurrent use when the entity metadata is not being mutated.
     /// </remarks>
     TBX_API std::string to_string(const Entity& entity);
+
+    /// <summary>
+    /// Purpose: Resolves an entity transform in world space by composing parent local transforms.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Returns an owned Transform value snapshot.
+    /// Thread Safety: Not thread-safe; synchronize external concurrent access.
+    /// Notes: Entity Transform components are authored and stored in local space.
+    /// </remarks>
+    TBX_API Transform get_world_space_transform(const Entity& entity);
 
     /// <summary>
     /// Purpose: RAII wrapper that destroys the wrapped entity on scope exit.

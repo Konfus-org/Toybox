@@ -1,7 +1,7 @@
 #include "tbx/input/input_manager.h"
+#include "tbx/debugging/macros.h"
 #include <algorithm>
 #include <cmath>
-#include <cstdio>
 
 namespace tbx
 {
@@ -130,18 +130,11 @@ namespace tbx
             const std::string& report = result.get_report();
             if (report.empty())
             {
-                std::fprintf(
-                    stderr,
-                    "[Input Warning] Input operation '%s' failed.\n",
-                    operation_name);
+                TBX_TRACE_WARNING("Input operation '{}' failed.", operation_name);
                 return;
             }
 
-            std::fprintf(
-                stderr,
-                "[Input Warning] Input operation '%s' failed: %s\n",
-                operation_name,
-                report.c_str());
+            TBX_TRACE_WARNING("Input operation '{}' failed: {}", operation_name, report);
         }
     }
 
@@ -657,8 +650,10 @@ namespace tbx
 
     void InputManager::update(const DeltaTime& delta_time)
     {
-        const InputDeviceSnapshot snapshot = query_snapshot();
-
+        auto active_actions = std::vector<std::reference_wrapper<InputAction>> {};
+        bool requires_keyboard = false;
+        bool requires_mouse = false;
+        auto controller_indices = std::vector<int> {};
         for (auto& [_, scheme] : _schemes)
         {
             if (!scheme.get_is_active())
@@ -666,9 +661,104 @@ namespace tbx
 
             for (InputAction& action : scheme.get_all_actions())
             {
-                const InputActionValue value = evaluate_action_value(action, snapshot);
-                action.apply_value(value, delta_time);
+                active_actions.push_back(std::ref(action));
+
+                for (const auto& binding : action.get_bindings())
+                {
+                    if (std::holds_alternative<KeyboardInputControl>(binding.control)
+                        || std::holds_alternative<KeyboardVector2CompositeInputControl>(
+                            binding.control))
+                    {
+                        requires_keyboard = true;
+                        continue;
+                    }
+
+                    if (std::holds_alternative<MouseButtonInputControl>(binding.control)
+                        || std::holds_alternative<MouseVectorInputControl>(binding.control)
+                        || std::holds_alternative<MouseAxisInputControl>(binding.control))
+                    {
+                        requires_mouse = true;
+                        continue;
+                    }
+
+                    if (std::holds_alternative<ControllerButtonInputControl>(binding.control))
+                    {
+                        controller_indices.push_back(
+                            std::get<ControllerButtonInputControl>(binding.control)
+                                .controller_index);
+                        continue;
+                    }
+
+                    if (std::holds_alternative<ControllerAxisInputControl>(binding.control))
+                    {
+                        controller_indices.push_back(
+                            std::get<ControllerAxisInputControl>(binding.control).controller_index);
+                        continue;
+                    }
+
+                    if (std::holds_alternative<ControllerStickInputControl>(binding.control))
+                    {
+                        controller_indices.push_back(
+                            std::get<ControllerStickInputControl>(binding.control)
+                                .controller_index);
+                    }
+                }
             }
+        }
+
+        if (active_actions.empty())
+            return;
+
+        std::sort(controller_indices.begin(), controller_indices.end());
+        controller_indices.erase(
+            std::unique(controller_indices.begin(), controller_indices.end()),
+            controller_indices.end());
+
+        auto snapshot = InputDeviceSnapshot {};
+        bool has_missing_handlers = false;
+
+        if (requires_keyboard)
+        {
+            auto keyboard_request = KeyboardStateRequest {};
+            const Result send_result = _dispatcher->send(keyboard_request);
+            if (send_result.succeeded())
+                snapshot.keyboard = keyboard_request.result;
+            else
+                has_missing_handlers = true;
+        }
+
+        if (requires_mouse)
+        {
+            auto mouse_request = MouseStateRequest {};
+            const Result send_result = _dispatcher->send(mouse_request);
+            if (send_result.succeeded())
+                snapshot.mouse = mouse_request.result;
+            else
+                has_missing_handlers = true;
+        }
+
+        for (const int controller_index : controller_indices)
+        {
+            auto controller_request = ControllerStateRequest(controller_index);
+            const Result send_result = _dispatcher->send(controller_request);
+            if (send_result.succeeded())
+                snapshot.controllers.emplace(controller_index, controller_request.result);
+            else
+                has_missing_handlers = true;
+        }
+
+        if (has_missing_handlers && !_did_warn_missing_action_input_handlers)
+        {
+            TBX_TRACE_WARNING(
+                "Active input actions are not fully handled because required "
+                "input providers are missing.\n");
+            _did_warn_missing_action_input_handlers = true;
+        }
+
+        for (InputAction& action : active_actions)
+        {
+            const InputActionValue value = evaluate_action_value(action, snapshot);
+            action.apply_value(value, delta_time);
         }
     }
 }

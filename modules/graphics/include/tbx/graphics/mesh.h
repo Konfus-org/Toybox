@@ -23,6 +23,17 @@ namespace tbx
 
     TBX_API Mesh make_triangle();
     TBX_API Mesh make_quad();
+    /// <summary>Purpose: Creates a clip-space fullscreen quad mesh.</summary>
+    /// <remarks>Ownership: Returns a mesh value owned by the caller.
+    /// Thread Safety: Safe to call concurrently.</remarks>
+    TBX_API Mesh make_fullscreen_quad();
+    TBX_API Mesh make_cube();
+    TBX_API Mesh make_sphere();
+    TBX_API Mesh make_capsule();
+    /// <summary>Purpose: Creates a panoramic sky dome mesh.</summary>
+    /// <remarks>Ownership: Returns a mesh value owned by the caller.
+    /// Thread Safety: Safe to call concurrently.</remarks>
+    TBX_API Mesh make_sky_dome();
 
     /// <summary>Purpose: Provides a triangle mesh.</summary>
     /// <remarks>Ownership: Returns a reference to the default triangle mesh owned
@@ -35,6 +46,36 @@ namespace tbx
     /// by the module.
     /// Thread Safety: Safe to read concurrently.</remarks>
     inline Mesh quad = make_quad();
+
+    /// <summary>Purpose: Provides a clip-space fullscreen quad mesh.</summary>
+    /// <remarks>Ownership: Returns a reference to the default fullscreen quad mesh owned
+    /// by the module.
+    /// Thread Safety: Safe to read concurrently.</remarks>
+    inline Mesh fullscreen_quad = make_fullscreen_quad();
+
+    /// <summary>Purpose: Provides a cube mesh.</summary>
+    /// <remarks>Ownership: Returns a reference to the default cube mesh owned
+    /// by the module.
+    /// Thread Safety: Safe to read concurrently.</remarks>
+    inline Mesh cube = make_cube();
+
+    /// <summary>Purpose: Provides a sphere mesh.</summary>
+    /// <remarks>Ownership: Returns a reference to the default sphere mesh owned
+    /// by the module.
+    /// Thread Safety: Safe to read concurrently.</remarks>
+    inline Mesh sphere = make_sphere();
+
+    /// <summary>Purpose: Provides a capsule mesh.</summary>
+    /// <remarks>Ownership: Returns a reference to the default capsule mesh owned
+    /// by the module.
+    /// Thread Safety: Safe to read concurrently.</remarks>
+    inline Mesh capsule = make_capsule();
+
+    /// <summary>Purpose: Provides a panoramic sky dome mesh.</summary>
+    /// <remarks>Ownership: Returns a reference to the default sky dome mesh owned
+    /// by the module.
+    /// Thread Safety: Safe to read concurrently.</remarks>
+    inline Mesh sky_dome = make_sky_dome();
 
     /// <summary>
     /// Purpose: Identifies a static, asset-backed model to render for an entity.

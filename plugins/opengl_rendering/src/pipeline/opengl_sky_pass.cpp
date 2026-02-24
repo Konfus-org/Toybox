@@ -3,7 +3,6 @@
 #include "opengl_resources/opengl_resource_manager.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/camera.h"
-#include "tbx/math/transform.h"
 #include <glad/glad.h>
 #include <vector>
 
@@ -11,19 +10,13 @@ namespace tbx::plugins
 {
     static Quat get_camera_rotation(const OpenGlCameraView& camera_view)
     {
-        if (!camera_view.camera_entity.has_component<Transform>())
-            return Quat(1.0f, 0.0f, 0.0f, 0.0f);
-
-        const auto& camera_transform = camera_view.camera_entity.get_component<Transform>();
+        const auto camera_transform = get_world_space_transform(camera_view.camera_entity);
         return camera_transform.rotation;
     }
 
     static Vec3 get_camera_position(const OpenGlCameraView& camera_view)
     {
-        if (!camera_view.camera_entity.has_component<Transform>())
-            return Vec3(0.0f);
-
-        const auto& camera_transform = camera_view.camera_entity.get_component<Transform>();
+        const auto camera_transform = get_world_space_transform(camera_view.camera_entity);
         return camera_transform.position;
     }
 
@@ -55,7 +48,22 @@ namespace tbx::plugins
             if (!texture_binding.texture)
                 continue;
 
+            texture_binding.texture->set_slot(static_cast<uint32>(texture_binding.slot));
             out_scopes.push_back(GlResourceScope(*texture_binding.texture));
+        }
+    }
+
+    static void upload_texture_uniforms(
+        OpenGlShaderProgram& shader_program,
+        const OpenGlDrawResources& draw_resources)
+    {
+        for (const auto& texture_binding : draw_resources.textures)
+        {
+            shader_program.try_upload(
+                MaterialParameter {
+                    .name = texture_binding.uniform_name,
+                    .data = texture_binding.slot,
+                });
         }
     }
 
@@ -118,6 +126,7 @@ namespace tbx::plugins
                 .name = "u_model",
                 .data = Mat4(1.0f),
             });
+        upload_texture_uniforms(*draw_resources.shader_program, draw_resources);
         upload_material_uniforms(*draw_resources.shader_program, draw_resources);
 
         glDepthMask(GL_FALSE);

@@ -3,6 +3,7 @@
 #include "opengl_resources/opengl_gbuffer.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "tbx/common/handle.h"
+#include "tbx/common/int.h"
 #include "tbx/common/pipeline.h"
 #include "tbx/common/uuid.h"
 #include "tbx/ecs/entity.h"
@@ -138,6 +139,7 @@ namespace tbx::plugins
         float intensity = 1.0f;
         Vec3 color = Vec3(1.0f, 1.0f, 1.0f);
         float ambient = 0.03f;
+        int shadow_map_index = -1;
     };
 
     /// <summary>
@@ -153,6 +155,7 @@ namespace tbx::plugins
         float range = 10.0f;
         Vec3 color = Vec3(1.0f, 1.0f, 1.0f);
         float intensity = 1.0f;
+        int shadow_map_index = -1;
     };
 
     /// <summary>
@@ -171,6 +174,7 @@ namespace tbx::plugins
         Vec3 color = Vec3(1.0f, 1.0f, 1.0f);
         float outer_cos = 0.82f;
         float intensity = 1.0f;
+        int shadow_map_index = -1;
     };
 
     /// <summary>
@@ -202,6 +206,20 @@ namespace tbx::plugins
         /// Thread Safety: Safe to read concurrently while storage remains valid.
         /// </summary>
         std::span<const float> cascade_splits = {};
+
+        /// <summary>
+        /// Purpose: Resolution shared by all shadow-map textures rendered this frame.
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        uint32 shadow_map_resolution = 1U;
+
+        /// <summary>
+        /// Purpose: Directional shadow filter radius measured in shadow-map texels.
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        float shadow_softness = 1.75F;
     };
 
     /// <summary>
@@ -241,7 +259,7 @@ namespace tbx::plugins
         /// Ownership: Value type owned by this context.
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
-        RgbaColor clear_color = RgbaColor::black;
+        Color clear_color = Color::BLACK;
 
         /// <summary>
         /// Purpose: Optional sky entity used by the sky pass.
@@ -298,6 +316,13 @@ namespace tbx::plugins
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
         Vec3 camera_world_position = Vec3(0.0f);
+
+        /// <summary>
+        /// Purpose: Camera forward direction used for directional shadow cascade selection.
+        /// Ownership: Value type owned by this context.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        Vec3 camera_forward = Vec3(0.0f, 0.0f, -1.0f);
 
         /// <summary>
         /// Purpose: Camera view-projection matrix for the active frame.

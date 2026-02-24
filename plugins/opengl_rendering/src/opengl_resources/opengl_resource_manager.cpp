@@ -2,14 +2,11 @@
 #include "opengl_buffers.h"
 #include "opengl_gbuffer.h"
 #include "opengl_post_processing_stack_resource.h"
-#include "opengl_runtime_resource_descriptor.h"
 #include "opengl_shadow_map.h"
 #include "tbx/assets/builtin_assets.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/model.h"
-#include <cmath>
-#include <numbers>
 #include <variant>
 
 namespace tbx::plugins
@@ -35,116 +32,133 @@ namespace tbx::plugins
         OpenGlDrawResources _draw_resources = {};
     };
 
-    static std::shared_ptr<IOpenGlResource> make_draw_resource_bundle(
-        const OpenGlDrawResources& draw_resources)
+    static void hash_signature_bytes(uint64& hash_value, const void* data, const size_t size)
     {
-        return std::make_shared<OpenGlDrawResourceBundle>(draw_resources);
+        constexpr uint64 fnv_prime = 1099511628211ULL;
+        const auto* bytes = static_cast<const unsigned char*>(data);
+        for (size_t index = 0; index < size; ++index)
+        {
+            hash_value ^= static_cast<uint64>(bytes[index]);
+            hash_value *= fnv_prime;
+        }
     }
 
-    static Mesh make_panoramic_sky_mesh()
+    template <typename TValue>
+    static void hash_signature_value(uint64& hash_value, const TValue& value)
     {
-        constexpr int stack_count = 32;
-        constexpr int slice_count = 64;
-
-        auto vertices = std::vector<Vertex> {};
-        vertices.reserve(
-            static_cast<size_t>(stack_count + 1) * static_cast<size_t>(slice_count + 1));
-
-        auto indices = IndexBuffer {};
-        indices.reserve(static_cast<size_t>(stack_count * slice_count * 6));
-
-        const float pi = std::numbers::pi_v<float>;
-        const float inv_stack_count = 1.0f / static_cast<float>(stack_count);
-        const float inv_slice_count = 1.0f / static_cast<float>(slice_count);
-
-        for (int stack = 0; stack <= stack_count; ++stack)
-        {
-            const float v = static_cast<float>(stack) * inv_stack_count;
-            const float theta = v * pi;
-            const float sin_theta = std::sin(theta);
-            const float cos_theta = std::cos(theta);
-
-            for (int slice = 0; slice <= slice_count; ++slice)
-            {
-                const float u = static_cast<float>(slice) * inv_slice_count;
-                const float phi = u * 2.0f * pi;
-                const float sin_phi = std::sin(phi);
-                const float cos_phi = std::cos(phi);
-
-                const float x = sin_theta * cos_phi;
-                const float y = cos_theta;
-                const float z = sin_theta * sin_phi;
-
-                vertices.push_back(
-                    Vertex {
-                        .position = Vec3(x, y, z),
-                        .uv = Vec2(u, 1.0f - v),
-                    });
-            }
-        }
-
-        const int stride = slice_count + 1;
-        for (int stack = 0; stack < stack_count; ++stack)
-        {
-            for (int slice = 0; slice < slice_count; ++slice)
-            {
-                const uint32 top_left = static_cast<uint32>(stack * stride + slice);
-                const uint32 bottom_left = static_cast<uint32>((stack + 1) * stride + slice);
-                const uint32 top_right = top_left + 1U;
-                const uint32 bottom_right = bottom_left + 1U;
-
-                indices.push_back(top_left);
-                indices.push_back(bottom_left);
-                indices.push_back(top_right);
-
-                indices.push_back(top_right);
-                indices.push_back(bottom_left);
-                indices.push_back(bottom_right);
-            }
-        }
-
-        const VertexBuffer vertex_buffer = {
-            vertices,
-            {{
-                Vec3(0.0f),
-                RgbaColor(),
-                Vec3(0.0f),
-                Vec2(0.0f),
-            }}};
-
-        return Mesh(vertex_buffer, indices);
+        hash_signature_bytes(hash_value, &value, sizeof(value));
     }
 
-    static Mesh make_fullscreen_quad_mesh()
+    template <size_t N>
+    static uint64 make_tagged_signature(const char (&tag)[N])
     {
-        const std::vector<Vertex> vertices = {
-            Vertex {
-                .position = Vec3(-1.0f, -1.0f, 0.0f),
-                .uv = Vec2(0.0f, 0.0f),
-            },
-            Vertex {
-                .position = Vec3(1.0f, -1.0f, 0.0f),
-                .uv = Vec2(1.0f, 0.0f),
-            },
-            Vertex {
-                .position = Vec3(1.0f, 1.0f, 0.0f),
-                .uv = Vec2(1.0f, 1.0f),
-            },
-            Vertex {
-                .position = Vec3(-1.0f, 1.0f, 0.0f),
-                .uv = Vec2(0.0f, 1.0f),
-            }};
+        constexpr uint64 fnv_offset = 1469598103934665603ULL;
+        auto hash_value = fnv_offset;
+        hash_signature_bytes(hash_value, tag, N - 1U);
+        return hash_value;
+    }
 
-        const IndexBuffer indices = {0, 1, 2, 2, 3, 0};
-        const VertexBuffer vertex_buffer = {
-            vertices,
-            {{
-                Vec3(0.0f),
-                RgbaColor(),
-                Vec3(0.0f),
-                Vec2(0.0f),
-            }}};
-        return Mesh(vertex_buffer, indices);
+    static uint64 hash_mesh_content_signature(const Mesh& mesh)
+    {
+        auto hash_value = make_tagged_signature("MeshContent");
+        const auto vertex_count = static_cast<uint64>(mesh.vertices.size());
+        const auto index_count = static_cast<uint64>(mesh.indices.size());
+        hash_signature_value(hash_value, vertex_count);
+        hash_signature_value(hash_value, index_count);
+
+        if (!mesh.vertices.empty())
+        {
+            hash_signature_bytes(
+                hash_value,
+                mesh.vertices.data(),
+                mesh.vertices.size() * sizeof(Vertex));
+        }
+
+        if (!mesh.indices.empty())
+            hash_signature_bytes(
+                hash_value,
+                mesh.indices.data(),
+                mesh.indices.size() * sizeof(uint32));
+
+        return hash_value;
+    }
+
+    static uint64 hash_dynamic_mesh_pointer_signature(const std::shared_ptr<Mesh>& mesh)
+    {
+        auto hash_value = make_tagged_signature("DynamicMeshPointer");
+        const auto pointer_value =
+            static_cast<uint64>(reinterpret_cast<std::uintptr_t>(mesh.get()));
+        hash_signature_value(hash_value, pointer_value);
+        return hash_value;
+    }
+
+    static uint64 hash_static_mesh_signature(const Handle& model_handle)
+    {
+        auto hash_value = make_tagged_signature("StaticMesh");
+        hash_signature_value(hash_value, model_handle.id.value);
+        return hash_value;
+    }
+
+    static uint64 hash_shader_program_signature(const ShaderProgram& shader_program)
+    {
+        auto hash_value = make_tagged_signature("ShaderProgram");
+        hash_signature_value(hash_value, shader_program.vertex.id.value);
+        hash_signature_value(hash_value, shader_program.tesselation.id.value);
+        hash_signature_value(hash_value, shader_program.geometry.id.value);
+        hash_signature_value(hash_value, shader_program.fragment.id.value);
+        hash_signature_value(hash_value, shader_program.compute.id.value);
+        return hash_value;
+    }
+
+    static uint64 hash_shader_stage_signature(
+        const Handle& shader_handle,
+        const ShaderType stage_type)
+    {
+        auto hash_value = make_tagged_signature("ShaderStage");
+        hash_signature_value(hash_value, shader_handle.id.value);
+        hash_signature_value(hash_value, stage_type);
+        return hash_value;
+    }
+
+    static void hash_texture_settings(uint64& hash_value, const TextureSettings& settings)
+    {
+        hash_signature_value(hash_value, settings.resolution.width);
+        hash_signature_value(hash_value, settings.resolution.height);
+        hash_signature_value(hash_value, settings.wrap);
+        hash_signature_value(hash_value, settings.filter);
+        hash_signature_value(hash_value, settings.format);
+        hash_signature_value(hash_value, settings.mipmaps);
+        hash_signature_value(hash_value, settings.compression);
+    }
+
+    static uint64 hash_texture_asset_signature(
+        const Handle& texture_handle,
+        const std::optional<TextureSettings>& override_settings)
+    {
+        auto hash_value = make_tagged_signature("TextureAsset");
+        hash_signature_value(hash_value, texture_handle.id.value);
+        const bool has_override = override_settings.has_value();
+        hash_signature_value(hash_value, has_override);
+        if (has_override)
+            hash_texture_settings(hash_value, override_settings.value());
+        return hash_value;
+    }
+
+    static uint64 hash_texture_content_signature(const Texture& texture_data)
+    {
+        auto hash_value = make_tagged_signature("TextureContent");
+        hash_texture_settings(hash_value, texture_data);
+        const auto pixel_count = static_cast<uint64>(texture_data.pixels.size());
+        hash_signature_value(hash_value, pixel_count);
+        if (!texture_data.pixels.empty())
+        {
+            hash_signature_bytes(
+                hash_value,
+                texture_data.pixels.data(),
+                texture_data.pixels.size() * sizeof(Pixel));
+        }
+
+        return hash_value;
     }
 
     static std::string normalize_uniform_name(std::string_view name)
@@ -227,115 +241,16 @@ namespace tbx::plugins
         return nullptr;
     }
 
-    static void hash_uniform_value(uint64& hash_value, const MaterialParameterData& data)
-    {
-        constexpr uint64 fnv_prime = 1099511628211ULL;
-        auto hash_bytes = [&hash_value](const void* bytes, size_t size)
-        {
-            const auto* data_bytes = static_cast<const unsigned char*>(bytes);
-            for (size_t index = 0; index < size; ++index)
-            {
-                hash_value ^= static_cast<uint64>(data_bytes[index]);
-                hash_value *= fnv_prime;
-            }
-        };
-
-        const auto variant_index = static_cast<uint64>(data.index());
-        hash_bytes(&variant_index, sizeof(variant_index));
-        std::visit(
-            [&hash_bytes](const auto& value)
-            {
-                hash_bytes(&value, sizeof(value));
-            },
-            data);
-    }
-
     static uint64 hash_runtime_material(const MaterialInstance& runtime_material)
     {
-        constexpr uint64 fnv_offset = 1469598103934665603ULL;
-        constexpr uint64 fnv_prime = 1099511628211ULL;
-
-        auto hash_value = fnv_offset;
-        auto hash_bytes = [&hash_value](const void* data, size_t size)
-        {
-            const auto* bytes = static_cast<const unsigned char*>(data);
-            for (size_t i = 0; i < size; ++i)
-            {
-                hash_value ^= static_cast<uint64>(bytes[i]);
-                hash_value *= fnv_prime;
-            }
-        };
-
-        hash_bytes(&runtime_material.handle.id, sizeof(runtime_material.handle.id));
-
-        for (const auto& parameter : runtime_material.parameters)
-        {
-            hash_bytes(parameter.name.data(), parameter.name.size());
-            hash_uniform_value(hash_value, parameter.value);
-        }
-
-        for (const auto& texture_binding : runtime_material.textures)
-        {
-            hash_bytes(texture_binding.name.data(), texture_binding.name.size());
-            hash_bytes(
-                &texture_binding.texture.handle.id,
-                sizeof(texture_binding.texture.handle.id));
-            const bool has_settings_override = texture_binding.texture.settings.has_value();
-            hash_bytes(&has_settings_override, sizeof(has_settings_override));
-            if (has_settings_override)
-            {
-                const TextureSettings& texture_settings = texture_binding.texture.settings.value();
-                hash_bytes(&texture_settings.filter, sizeof(texture_settings.filter));
-                hash_bytes(&texture_settings.wrap, sizeof(texture_settings.wrap));
-                hash_bytes(&texture_settings.format, sizeof(texture_settings.format));
-                hash_bytes(&texture_settings.mipmaps, sizeof(texture_settings.mipmaps));
-                hash_bytes(&texture_settings.compression, sizeof(texture_settings.compression));
-            }
-        }
-
+        auto hash_value = make_tagged_signature("MaterialHandle");
+        hash_signature_value(hash_value, runtime_material.handle.id.value);
         return hash_value;
     }
 
     static uint64 hash_runtime_material_resource_identity(const MaterialInstance& runtime_material)
     {
-        constexpr uint64 fnv_offset = 1469598103934665603ULL;
-        constexpr uint64 fnv_prime = 1099511628211ULL;
-
-        auto hash_value = fnv_offset;
-        auto hash_bytes = [&hash_value](const void* data, size_t size)
-        {
-            const auto* bytes = static_cast<const unsigned char*>(data);
-            for (size_t i = 0; i < size; ++i)
-            {
-                hash_value ^= static_cast<uint64>(bytes[i]);
-                hash_value *= fnv_prime;
-            }
-        };
-
-        // Cache identity tracks resource-affecting inputs only.
-        hash_bytes(&runtime_material.handle.id, sizeof(runtime_material.handle.id));
-
-        for (const auto& texture_binding : runtime_material.textures)
-        {
-            hash_bytes(texture_binding.name.data(), texture_binding.name.size());
-            hash_bytes(
-                &texture_binding.texture.handle.id,
-                sizeof(texture_binding.texture.handle.id));
-
-            const bool has_settings_override = texture_binding.texture.settings.has_value();
-            hash_bytes(&has_settings_override, sizeof(has_settings_override));
-            if (has_settings_override)
-            {
-                const TextureSettings& texture_settings = texture_binding.texture.settings.value();
-                hash_bytes(&texture_settings.filter, sizeof(texture_settings.filter));
-                hash_bytes(&texture_settings.wrap, sizeof(texture_settings.wrap));
-                hash_bytes(&texture_settings.format, sizeof(texture_settings.format));
-                hash_bytes(&texture_settings.mipmaps, sizeof(texture_settings.mipmaps));
-                hash_bytes(&texture_settings.compression, sizeof(texture_settings.compression));
-            }
-        }
-
-        return hash_value;
+        return hash_runtime_material(runtime_material);
     }
 
     static uint64 hash_post_process_stack(const PostProcessing& post_processing)
@@ -366,34 +281,6 @@ namespace tbx::plugins
         return hash_value;
     }
 
-    static uint64 hash_runtime_resource_descriptor(
-        const OpenGlRuntimeResourceDescriptor& descriptor)
-    {
-        constexpr uint64 fnv_offset = 1469598103934665603ULL;
-        constexpr uint64 fnv_prime = 1099511628211ULL;
-        auto hash_value = fnv_offset;
-
-        auto hash_bytes = [&hash_value](const void* data, size_t size)
-        {
-            const auto* bytes = static_cast<const unsigned char*>(data);
-            for (size_t index = 0; index < size; ++index)
-            {
-                hash_value ^= static_cast<uint64>(bytes[index]);
-                hash_value *= fnv_prime;
-            }
-        };
-
-        const auto kind_value = static_cast<uint64>(descriptor.kind);
-        hash_bytes(&kind_value, sizeof(kind_value));
-        hash_bytes(
-            &descriptor.shadow_map_resolution.width,
-            sizeof(descriptor.shadow_map_resolution.width));
-        hash_bytes(
-            &descriptor.shadow_map_resolution.height,
-            sizeof(descriptor.shadow_map_resolution.height));
-        return hash_value;
-    }
-
     static void apply_runtime_material_overrides(
         const MaterialInstance& runtime_material,
         Material& in_out_material,
@@ -421,14 +308,18 @@ namespace tbx::plugins
         }
     }
 
+    static void apply_default_material_parameters(MaterialParameterBindings& parameters)
+    {
+        if (!parameters.has("color"))
+            parameters.set("color", Color::WHITE);
+    }
+
     static void append_texture_binding(
         OpenGlDrawResources& out_resources,
         std::string_view uniform_name,
-        const Texture& texture_data)
+        const std::shared_ptr<OpenGlTexture>& texture)
     {
-        auto texture = std::make_shared<OpenGlTexture>(texture_data);
         auto texture_slot = static_cast<int>(out_resources.textures.size());
-        texture->set_slot(static_cast<uint32>(texture_slot));
         out_resources.textures.push_back(
             OpenGlTextureBinding {
                 .uniform_name = std::string(uniform_name),
@@ -477,8 +368,8 @@ namespace tbx::plugins
             const auto& sky = entity.get_component<Sky>();
             const uint64 material_hash = hash_runtime_material(sky.material);
             const auto entity_id = entity.get_id();
-            auto iterator = _resources_by_entity.find(entity_id);
-            if (iterator != _resources_by_entity.end()
+            auto iterator = _draw_resources_by_entity.find(entity_id);
+            if (iterator != _draw_resources_by_entity.end()
                 && iterator->second.signature == material_hash
                 && try_get_cached_draw_resources(iterator->second, out_resources))
             {
@@ -488,11 +379,16 @@ namespace tbx::plugins
             }
 
             auto resources = OpenGlDrawResources {};
-            if (!try_create_sky_resources(sky.material, resources))
+            auto cache_entry = OpenGlCachedDrawResourceEntry {};
+            if (!try_create_sky_resources(sky.material, resources, &cache_entry))
                 return false;
 
-            _resources_by_entity[entity_id] = OpenGlCachedResourceEntry {
-                .resource = make_draw_resource_bundle(resources),
+            _draw_resources_by_entity[entity_id] = OpenGlCachedDrawResourceEntry {
+                .mesh_signature = cache_entry.mesh_signature,
+                .shader_program_signature = cache_entry.shader_program_signature,
+                .textures = std::move(cache_entry.textures),
+                .shader_parameters = std::move(cache_entry.shader_parameters),
+                .use_tesselation = cache_entry.use_tesselation,
                 .last_use = Clock::now(),
                 .signature = material_hash,
                 .is_pinned = pin,
@@ -511,8 +407,8 @@ namespace tbx::plugins
                 static_cast<uint64>(reinterpret_cast<std::uintptr_t>(dynamic_mesh.data.get()));
 
             const auto resource_id = entity.get_id();
-            auto iterator = _resources_by_entity.find(resource_id);
-            if (iterator != _resources_by_entity.end()
+            auto iterator = _draw_resources_by_entity.find(resource_id);
+            if (iterator != _draw_resources_by_entity.end()
                 && iterator->second.signature == material_signature
                 && iterator->second.aux_signature == mesh_signature
                 && try_get_cached_draw_resources(iterator->second, out_resources))
@@ -522,28 +418,36 @@ namespace tbx::plugins
                 return true;
             }
 
-            if (iterator != _resources_by_entity.end()
+            if (iterator != _draw_resources_by_entity.end()
                 && iterator->second.signature == material_signature && dynamic_mesh.data)
             {
                 auto resources = OpenGlDrawResources {};
-                if (!try_get_cached_draw_resources(iterator->second, resources))
-                    return false;
-
-                resources.mesh = std::make_shared<OpenGlMesh>(*dynamic_mesh.data);
-                iterator->second.resource = make_draw_resource_bundle(resources);
-                iterator->second.aux_signature = mesh_signature;
-                iterator->second.last_use = Clock::now();
-                iterator->second.is_pinned = iterator->second.is_pinned || pin;
-                out_resources = std::move(resources);
-                return true;
+                if (try_get_cached_draw_resources(iterator->second, resources))
+                {
+                    const auto shared_mesh_signature =
+                        hash_dynamic_mesh_pointer_signature(dynamic_mesh.data);
+                    resources.mesh =
+                        get_or_create_shared_mesh(shared_mesh_signature, *dynamic_mesh.data);
+                    iterator->second.mesh_signature = shared_mesh_signature;
+                    iterator->second.aux_signature = mesh_signature;
+                    iterator->second.last_use = Clock::now();
+                    iterator->second.is_pinned = iterator->second.is_pinned || pin;
+                    out_resources = std::move(resources);
+                    return true;
+                }
             }
 
             auto resources = OpenGlDrawResources {};
-            if (!try_create_dynamic_mesh_resources(entity, renderer, resources))
+            auto cache_entry = OpenGlCachedDrawResourceEntry {};
+            if (!try_create_dynamic_mesh_resources(entity, renderer, resources, &cache_entry))
                 return false;
 
-            _resources_by_entity[resource_id] = OpenGlCachedResourceEntry {
-                .resource = make_draw_resource_bundle(resources),
+            _draw_resources_by_entity[resource_id] = OpenGlCachedDrawResourceEntry {
+                .mesh_signature = cache_entry.mesh_signature,
+                .shader_program_signature = cache_entry.shader_program_signature,
+                .textures = std::move(cache_entry.textures),
+                .shader_parameters = std::move(cache_entry.shader_parameters),
+                .use_tesselation = cache_entry.use_tesselation,
                 .last_use = Clock::now(),
                 .signature = material_signature,
                 .aux_signature = mesh_signature,
@@ -562,8 +466,8 @@ namespace tbx::plugins
             hash_runtime_material_resource_identity(renderer.material);
         const uint64 model_signature = static_cast<uint64>(static_mesh.handle.id.value);
         const auto resource_id = entity.get_id();
-        auto iterator = _resources_by_entity.find(resource_id);
-        if (iterator != _resources_by_entity.end()
+        auto iterator = _draw_resources_by_entity.find(resource_id);
+        if (iterator != _draw_resources_by_entity.end()
             && iterator->second.signature == material_signature
             && iterator->second.aux_signature == model_signature
             && try_get_cached_draw_resources(iterator->second, out_resources))
@@ -574,11 +478,16 @@ namespace tbx::plugins
         }
 
         auto resources = OpenGlDrawResources {};
-        if (!try_create_static_mesh_resources(entity, renderer, resources))
+        auto cache_entry = OpenGlCachedDrawResourceEntry {};
+        if (!try_create_static_mesh_resources(entity, renderer, resources, &cache_entry))
             return false;
 
-        _resources_by_entity[resource_id] = OpenGlCachedResourceEntry {
-            .resource = make_draw_resource_bundle(resources),
+        _draw_resources_by_entity[resource_id] = OpenGlCachedDrawResourceEntry {
+            .mesh_signature = cache_entry.mesh_signature,
+            .shader_program_signature = cache_entry.shader_program_signature,
+            .textures = std::move(cache_entry.textures),
+            .shader_parameters = std::move(cache_entry.shader_parameters),
+            .use_tesselation = cache_entry.use_tesselation,
             .last_use = Clock::now(),
             .signature = material_signature,
             .aux_signature = model_signature,
@@ -590,12 +499,6 @@ namespace tbx::plugins
 
     bool OpenGlResourceManager::add(const Entity& entity, const bool pin)
     {
-        if (entity.has_component<OpenGlRuntimeResourceDescriptor>())
-        {
-            const auto& descriptor = entity.get_component<OpenGlRuntimeResourceDescriptor>();
-            return add(entity.get_id(), descriptor, pin);
-        }
-
         if (entity.has_component<PostProcessing>())
         {
             const auto resource_id = entity.get_id();
@@ -638,49 +541,18 @@ namespace tbx::plugins
         return try_get(entity, out_draw_resources, pin);
     }
 
-    bool OpenGlResourceManager::add(
-        const Uuid& resource_uuid,
-        const OpenGlRuntimeResourceDescriptor& descriptor,
-        const bool pin)
+    void OpenGlResourceManager::append_signature_bytes(
+        uint64& hash_value,
+        const void* data,
+        const size_t size)
     {
-        if (!resource_uuid.is_valid())
-            return false;
-
-        const auto descriptor_hash = hash_runtime_resource_descriptor(descriptor);
-        auto iterator = _resources_by_entity.find(resource_uuid);
-        if (iterator != _resources_by_entity.end() && iterator->second.signature == descriptor_hash
-            && iterator->second.resource)
+        constexpr uint64 fnv_prime = 1099511628211ULL;
+        const auto* bytes = static_cast<const unsigned char*>(data);
+        for (size_t index = 0; index < size; ++index)
         {
-            iterator->second.last_use = Clock::now();
-            iterator->second.is_pinned = iterator->second.is_pinned || pin;
-            return true;
+            hash_value ^= static_cast<uint64>(bytes[index]);
+            hash_value *= fnv_prime;
         }
-
-        auto created_resource = std::shared_ptr<IOpenGlResource> {};
-        switch (descriptor.kind)
-        {
-            case OpenGlRuntimeResourceKind::GBUFFER:
-                created_resource = std::make_shared<OpenGlGBuffer>();
-                break;
-            case OpenGlRuntimeResourceKind::FRAMEBUFFER:
-                created_resource = std::make_shared<OpenGlFrameBuffer>();
-                break;
-            case OpenGlRuntimeResourceKind::SHADOW_MAP:
-                created_resource =
-                    std::make_shared<OpenGlShadowMap>(descriptor.shadow_map_resolution);
-                break;
-        }
-
-        if (!created_resource)
-            return false;
-
-        _resources_by_entity[resource_uuid] = OpenGlCachedResourceEntry {
-            .resource = created_resource,
-            .last_use = Clock::now(),
-            .signature = descriptor_hash,
-            .is_pinned = pin,
-        };
-        return true;
     }
 
     bool OpenGlResourceManager::try_get(
@@ -709,6 +581,19 @@ namespace tbx::plugins
             return true;
         }
 
+        auto draw_iterator = _draw_resources_by_entity.find(resource_id);
+        if (draw_iterator != _draw_resources_by_entity.end())
+        {
+            auto draw_resources = OpenGlDrawResources {};
+            if (try_get_cached_draw_resources(draw_iterator->second, draw_resources))
+            {
+                draw_iterator->second.last_use = Clock::now();
+                draw_iterator->second.is_pinned = draw_iterator->second.is_pinned || pin;
+                out_resource = std::make_shared<OpenGlDrawResourceBundle>(draw_resources);
+                return true;
+            }
+        }
+
         if (!add(entity, pin))
             return false;
 
@@ -716,6 +601,19 @@ namespace tbx::plugins
         if (entity_iterator != _resources_by_entity.end() && entity_iterator->second.resource)
         {
             out_resource = entity_iterator->second.resource;
+            return true;
+        }
+
+        draw_iterator = _draw_resources_by_entity.find(resource_id);
+        if (draw_iterator != _draw_resources_by_entity.end())
+        {
+            auto draw_resources = OpenGlDrawResources {};
+            if (!try_get_cached_draw_resources(draw_iterator->second, draw_resources))
+                return false;
+
+            draw_iterator->second.last_use = Clock::now();
+            draw_iterator->second.is_pinned = draw_iterator->second.is_pinned || pin;
+            out_resource = std::make_shared<OpenGlDrawResourceBundle>(draw_resources);
             return true;
         }
 
@@ -739,26 +637,238 @@ namespace tbx::plugins
     }
 
     bool OpenGlResourceManager::try_get_cached_draw_resources(
-        const OpenGlCachedResourceEntry& cached_entry,
-        OpenGlDrawResources& out_resources) const
+        const OpenGlCachedDrawResourceEntry& cached_entry,
+        OpenGlDrawResources& out_resources)
     {
         out_resources = {};
-        if (!cached_entry.resource)
+        if (cached_entry.mesh_signature == 0U)
             return false;
 
-        auto draw_resources =
-            std::dynamic_pointer_cast<OpenGlDrawResourceBundle>(cached_entry.resource);
-        if (!draw_resources)
+        auto mesh_iterator = _shared_meshes_by_signature.find(cached_entry.mesh_signature);
+        if (mesh_iterator == _shared_meshes_by_signature.end())
             return false;
+        out_resources.mesh = mesh_iterator->second.resource;
+        if (!out_resources.mesh)
+            return false;
+        mesh_iterator->second.last_use = Clock::now();
 
-        out_resources = draw_resources->get_draw_resources();
+        if (cached_entry.shader_program_signature != 0U)
+        {
+            auto program_iterator =
+                _shared_shader_programs_by_signature.find(cached_entry.shader_program_signature);
+            if (program_iterator == _shared_shader_programs_by_signature.end())
+                return false;
+            out_resources.shader_program = program_iterator->second.resource;
+            if (!out_resources.shader_program)
+                return false;
+            program_iterator->second.last_use = Clock::now();
+        }
+
+        out_resources.textures.reserve(cached_entry.textures.size());
+        for (const auto& texture_reference : cached_entry.textures)
+        {
+            auto texture_iterator =
+                _shared_textures_by_signature.find(texture_reference.texture_signature);
+            if (texture_iterator == _shared_textures_by_signature.end())
+                return false;
+
+            auto texture = texture_iterator->second.resource;
+            if (!texture)
+                return false;
+            texture_iterator->second.last_use = Clock::now();
+
+            out_resources.textures.push_back(
+                OpenGlTextureBinding {
+                    .uniform_name = texture_reference.uniform_name,
+                    .texture = texture,
+                    .slot = texture_reference.slot,
+                });
+        }
+
+        out_resources.shader_parameters = cached_entry.shader_parameters;
+        out_resources.use_tesselation = cached_entry.use_tesselation;
         return true;
+    }
+
+    std::shared_ptr<OpenGlMesh> OpenGlResourceManager::get_or_create_shared_mesh(
+        const uint64 mesh_signature,
+        const Mesh& mesh)
+    {
+        auto iterator = _shared_meshes_by_signature.find(mesh_signature);
+        if (iterator != _shared_meshes_by_signature.end())
+        {
+            auto cached_mesh = iterator->second.resource;
+            if (cached_mesh)
+            {
+                iterator->second.last_use = Clock::now();
+                return cached_mesh;
+            }
+        }
+
+        auto shared_mesh = std::make_shared<OpenGlMesh>(mesh);
+        _shared_meshes_by_signature[mesh_signature] = OpenGlSharedResourceCacheEntry<OpenGlMesh> {
+            .resource = shared_mesh,
+            .last_use = Clock::now(),
+        };
+        return shared_mesh;
+    }
+
+    std::shared_ptr<OpenGlShader> OpenGlResourceManager::get_or_create_shared_shader_stage(
+        const Handle& shader_handle,
+        const ShaderType expected_type)
+    {
+        if (!shader_handle.is_valid())
+            return nullptr;
+
+        const auto stage_signature = hash_shader_stage_signature(shader_handle, expected_type);
+        auto iterator = _shared_shader_stages_by_signature.find(stage_signature);
+        if (iterator != _shared_shader_stages_by_signature.end())
+        {
+            auto cached_stage = iterator->second.resource;
+            if (cached_stage)
+            {
+                iterator->second.last_use = Clock::now();
+                return cached_stage;
+            }
+        }
+
+        auto shader_asset = _asset_manager->load<Shader>(shader_handle);
+        TBX_ASSERT(
+            shader_asset != nullptr,
+            "OpenGL rendering: material shader stage could not be loaded.");
+        if (!shader_asset)
+            return nullptr;
+
+        const auto* stage_source = static_cast<const ShaderSource*>(nullptr);
+        for (const auto& source : shader_asset->sources)
+        {
+            if (source.type != expected_type)
+            {
+                TBX_ASSERT(
+                    false,
+                    "OpenGL rendering: shader source type does not match expected stage type.");
+                continue;
+            }
+
+            stage_source = &source;
+            break;
+        }
+
+        TBX_ASSERT(
+            stage_source != nullptr,
+            "OpenGL rendering: material shader stage is missing expected source type.");
+        if (!stage_source)
+            return nullptr;
+
+        auto stage = std::make_shared<OpenGlShader>(*stage_source);
+        TBX_ASSERT(
+            stage->get_shader_id() != 0,
+            "OpenGL rendering: material shader stage failed to compile.");
+        if (stage->get_shader_id() == 0)
+            return nullptr;
+
+        _shared_shader_stages_by_signature[stage_signature] =
+            OpenGlSharedResourceCacheEntry<OpenGlShader> {
+                .resource = stage,
+                .last_use = Clock::now(),
+            };
+        return stage;
+    }
+
+    std::shared_ptr<OpenGlShaderProgram> OpenGlResourceManager::get_or_create_shared_shader_program(
+        const ShaderProgram& shader_program,
+        uint64* out_program_signature)
+    {
+        if (out_program_signature != nullptr)
+            *out_program_signature = 0U;
+
+        if (!shader_program.is_valid())
+            return nullptr;
+
+        const auto program_signature = hash_shader_program_signature(shader_program);
+
+        auto iterator = _shared_shader_programs_by_signature.find(program_signature);
+        if (iterator != _shared_shader_programs_by_signature.end())
+        {
+            auto cached_program = iterator->second.resource;
+            if (cached_program)
+            {
+                iterator->second.last_use = Clock::now();
+                if (out_program_signature != nullptr)
+                    *out_program_signature = program_signature;
+                return cached_program;
+            }
+        }
+
+        auto shader_stages = std::vector<std::shared_ptr<OpenGlShader>> {};
+        shader_stages.reserve(5U);
+        const auto append_shader_stage =
+            [this, &shader_stages](const Handle& shader_handle, const ShaderType expected_type)
+        {
+            auto stage = get_or_create_shared_shader_stage(shader_handle, expected_type);
+            if (!stage)
+                return;
+
+            shader_stages.push_back(std::move(stage));
+        };
+
+        append_shader_stage(shader_program.vertex, ShaderType::VERTEX);
+        append_shader_stage(shader_program.tesselation, ShaderType::TESSELATION);
+        append_shader_stage(shader_program.geometry, ShaderType::GEOMETRY);
+        append_shader_stage(shader_program.fragment, ShaderType::FRAGMENT);
+        append_shader_stage(shader_program.compute, ShaderType::COMPUTE);
+        if (shader_stages.empty())
+            return nullptr;
+
+        auto linked_program = std::make_shared<OpenGlShaderProgram>(shader_stages);
+        TBX_ASSERT(
+            linked_program->get_program_id() != 0,
+            "OpenGL rendering: failed to link a valid shader program.");
+        if (linked_program->get_program_id() == 0)
+            return nullptr;
+
+        _shared_shader_programs_by_signature[program_signature] =
+            OpenGlSharedResourceCacheEntry<OpenGlShaderProgram> {
+                .resource = linked_program,
+                .last_use = Clock::now(),
+            };
+        if (out_program_signature != nullptr)
+            *out_program_signature = program_signature;
+        return linked_program;
+    }
+
+    std::shared_ptr<OpenGlTexture> OpenGlResourceManager::get_or_create_shared_texture(
+        const uint64 texture_signature,
+        const Texture& texture_data)
+    {
+        auto iterator = _shared_textures_by_signature.find(texture_signature);
+        if (iterator != _shared_textures_by_signature.end())
+        {
+            auto cached_texture = iterator->second.resource;
+            if (cached_texture)
+            {
+                iterator->second.last_use = Clock::now();
+                return cached_texture;
+            }
+        }
+
+        auto texture = std::make_shared<OpenGlTexture>(texture_data);
+        _shared_textures_by_signature[texture_signature] =
+            OpenGlSharedResourceCacheEntry<OpenGlTexture> {
+                .resource = texture,
+                .last_use = Clock::now(),
+            };
+        return texture;
     }
 
     void OpenGlResourceManager::pin(const Uuid& resource_uuid)
     {
         if (!resource_uuid.is_valid())
             return;
+
+        auto draw_iterator = _draw_resources_by_entity.find(resource_uuid);
+        if (draw_iterator != _draw_resources_by_entity.end())
+            draw_iterator->second.is_pinned = true;
 
         auto entity_iterator = _resources_by_entity.find(resource_uuid);
         if (entity_iterator != _resources_by_entity.end())
@@ -770,6 +880,10 @@ namespace tbx::plugins
         if (!resource_uuid.is_valid())
             return;
 
+        auto draw_iterator = _draw_resources_by_entity.find(resource_uuid);
+        if (draw_iterator != _draw_resources_by_entity.end())
+            draw_iterator->second.is_pinned = false;
+
         auto entity_iterator = _resources_by_entity.find(resource_uuid);
         if (entity_iterator != _resources_by_entity.end())
             entity_iterator->second.is_pinned = false;
@@ -777,7 +891,12 @@ namespace tbx::plugins
 
     void OpenGlResourceManager::clear()
     {
+        _draw_resources_by_entity.clear();
         _resources_by_entity.clear();
+        _shared_meshes_by_signature.clear();
+        _shared_shader_stages_by_signature.clear();
+        _shared_shader_programs_by_signature.clear();
+        _shared_textures_by_signature.clear();
         _next_unused_scan_time = {};
     }
 
@@ -789,6 +908,22 @@ namespace tbx::plugins
 
         _next_unused_scan_time = now + UNUSED_SCAN_INTERVAL;
         const auto unload_before = Clock::now() - UNUSED_TTL;
+
+        for (auto iterator = _draw_resources_by_entity.begin();
+             iterator != _draw_resources_by_entity.end();)
+        {
+            if (iterator->second.is_pinned)
+            {
+                ++iterator;
+                continue;
+            }
+            if (iterator->second.last_use >= unload_before)
+            {
+                ++iterator;
+                continue;
+            }
+            iterator = _draw_resources_by_entity.erase(iterator);
+        }
 
         for (auto iterator = _resources_by_entity.begin(); iterator != _resources_by_entity.end();)
         {
@@ -804,19 +939,97 @@ namespace tbx::plugins
             }
             iterator = _resources_by_entity.erase(iterator);
         }
+
+        for (auto iterator = _shared_meshes_by_signature.begin();
+             iterator != _shared_meshes_by_signature.end();)
+        {
+            if (!iterator->second.resource)
+            {
+                iterator = _shared_meshes_by_signature.erase(iterator);
+                continue;
+            }
+            if (iterator->second.last_use >= unload_before
+                || iterator->second.resource.use_count() > 1)
+            {
+                ++iterator;
+                continue;
+            }
+
+            iterator = _shared_meshes_by_signature.erase(iterator);
+        }
+
+        for (auto iterator = _shared_shader_stages_by_signature.begin();
+             iterator != _shared_shader_stages_by_signature.end();)
+        {
+            if (!iterator->second.resource)
+            {
+                iterator = _shared_shader_stages_by_signature.erase(iterator);
+                continue;
+            }
+            if (iterator->second.last_use >= unload_before
+                || iterator->second.resource.use_count() > 1)
+            {
+                ++iterator;
+                continue;
+            }
+
+            iterator = _shared_shader_stages_by_signature.erase(iterator);
+        }
+
+        for (auto iterator = _shared_shader_programs_by_signature.begin();
+             iterator != _shared_shader_programs_by_signature.end();)
+        {
+            if (!iterator->second.resource)
+            {
+                iterator = _shared_shader_programs_by_signature.erase(iterator);
+                continue;
+            }
+            if (iterator->second.last_use >= unload_before
+                || iterator->second.resource.use_count() > 1)
+            {
+                ++iterator;
+                continue;
+            }
+
+            iterator = _shared_shader_programs_by_signature.erase(iterator);
+        }
+
+        for (auto iterator = _shared_textures_by_signature.begin();
+             iterator != _shared_textures_by_signature.end();)
+        {
+            if (!iterator->second.resource)
+            {
+                iterator = _shared_textures_by_signature.erase(iterator);
+                continue;
+            }
+            if (iterator->second.last_use >= unload_before
+                || iterator->second.resource.use_count() > 1)
+            {
+                ++iterator;
+                continue;
+            }
+
+            iterator = _shared_textures_by_signature.erase(iterator);
+        }
     }
 
     bool OpenGlResourceManager::try_create_static_mesh_resources(
         const Entity& entity,
         const Renderer& renderer,
-        OpenGlDrawResources& out_resources)
+        OpenGlDrawResources& out_resources,
+        OpenGlCachedDrawResourceEntry* out_cache_entry)
     {
         const auto& static_mesh = entity.get_component<StaticMesh>();
         auto model = _asset_manager->load<Model>(static_mesh.handle);
         if (!model || model->meshes.empty())
             return false;
 
-        out_resources.mesh = std::make_shared<OpenGlMesh>(model->meshes[0]);
+        constexpr uint32 static_mesh_index = 0U;
+        const auto static_mesh_signature = hash_static_mesh_signature(static_mesh.handle);
+        out_resources.mesh =
+            get_or_create_shared_mesh(static_mesh_signature, model->meshes[static_mesh_index]);
+        if (out_cache_entry != nullptr)
+            out_cache_entry->mesh_signature = static_mesh_signature;
 
         auto material = Material();
         if (renderer.material.handle.is_valid())
@@ -832,23 +1045,40 @@ namespace tbx::plugins
 
         auto runtime_texture_overrides = std::vector<MaterialTextureBinding> {};
         apply_runtime_material_overrides(renderer.material, material, &runtime_texture_overrides);
-        return try_append_material_resources(
+        auto texture_references = std::vector<OpenGlTextureResourceReference> {};
+        auto shader_program_signature = uint64 {};
+        const auto did_append_material = try_append_material_resources(
             material,
             runtime_texture_overrides,
             out_resources,
+            &shader_program_signature,
+            &texture_references,
             true);
+        if (did_append_material && out_cache_entry != nullptr)
+        {
+            out_cache_entry->shader_program_signature = shader_program_signature;
+            out_cache_entry->textures = std::move(texture_references);
+            out_cache_entry->shader_parameters = out_resources.shader_parameters;
+            out_cache_entry->use_tesselation = out_resources.use_tesselation;
+        }
+
+        return did_append_material;
     }
 
     bool OpenGlResourceManager::try_create_dynamic_mesh_resources(
         const Entity& entity,
         const Renderer& renderer,
-        OpenGlDrawResources& out_resources)
+        OpenGlDrawResources& out_resources,
+        OpenGlCachedDrawResourceEntry* out_cache_entry)
     {
         const auto& dynamic_mesh = entity.get_component<DynamicMesh>();
         if (!dynamic_mesh.data)
             return false;
 
-        out_resources.mesh = std::make_shared<OpenGlMesh>(*dynamic_mesh.data);
+        const auto dynamic_mesh_signature = hash_dynamic_mesh_pointer_signature(dynamic_mesh.data);
+        out_resources.mesh = get_or_create_shared_mesh(dynamic_mesh_signature, *dynamic_mesh.data);
+        if (out_cache_entry != nullptr)
+            out_cache_entry->mesh_signature = dynamic_mesh_signature;
 
         auto material = Material();
         if (renderer.material.handle.is_valid())
@@ -860,11 +1090,24 @@ namespace tbx::plugins
 
         auto runtime_texture_overrides = std::vector<MaterialTextureBinding> {};
         apply_runtime_material_overrides(renderer.material, material, &runtime_texture_overrides);
-        return try_append_material_resources(
+        auto texture_references = std::vector<OpenGlTextureResourceReference> {};
+        auto shader_program_signature = uint64 {};
+        const auto did_append_material = try_append_material_resources(
             material,
             runtime_texture_overrides,
             out_resources,
+            &shader_program_signature,
+            &texture_references,
             true);
+        if (did_append_material && out_cache_entry != nullptr)
+        {
+            out_cache_entry->shader_program_signature = shader_program_signature;
+            out_cache_entry->textures = std::move(texture_references);
+            out_cache_entry->shader_parameters = out_resources.shader_parameters;
+            out_cache_entry->use_tesselation = out_resources.use_tesselation;
+        }
+
+        return did_append_material;
     }
 
     bool OpenGlResourceManager::try_create_post_processing_stack_resource(
@@ -884,7 +1127,7 @@ namespace tbx::plugins
                 continue;
 
             auto draw_resources = OpenGlDrawResources {};
-            if (!try_create_post_process_resources(effect.material, draw_resources))
+            if (!try_create_post_process_resources(effect.material, draw_resources, nullptr))
                 continue;
             if (!draw_resources.mesh || !draw_resources.shader_program)
                 continue;
@@ -902,7 +1145,8 @@ namespace tbx::plugins
 
     bool OpenGlResourceManager::try_create_sky_resources(
         const MaterialInstance& material,
-        OpenGlDrawResources& out_resources)
+        OpenGlDrawResources& out_resources,
+        OpenGlCachedDrawResourceEntry* out_cache_entry)
     {
         if (!material.handle.is_valid())
             return false;
@@ -910,22 +1154,38 @@ namespace tbx::plugins
         if (!source_material)
             return false;
 
-        static const Mesh skybox_mesh = make_panoramic_sky_mesh();
-        out_resources.mesh = std::make_shared<OpenGlMesh>(skybox_mesh);
+        static const uint64 sky_dome_signature = hash_mesh_content_signature(sky_dome);
+        out_resources.mesh = get_or_create_shared_mesh(sky_dome_signature, sky_dome);
+        if (out_cache_entry != nullptr)
+            out_cache_entry->mesh_signature = sky_dome_signature;
 
         auto resolved = *source_material;
         auto runtime_texture_overrides = std::vector<MaterialTextureBinding> {};
         apply_runtime_material_overrides(material, resolved, &runtime_texture_overrides);
-        return try_append_material_resources(
+        auto texture_references = std::vector<OpenGlTextureResourceReference> {};
+        auto shader_program_signature = uint64 {};
+        const auto did_append_material = try_append_material_resources(
             resolved,
             runtime_texture_overrides,
             out_resources,
+            &shader_program_signature,
+            &texture_references,
             false);
+        if (did_append_material && out_cache_entry != nullptr)
+        {
+            out_cache_entry->shader_program_signature = shader_program_signature;
+            out_cache_entry->textures = std::move(texture_references);
+            out_cache_entry->shader_parameters = out_resources.shader_parameters;
+            out_cache_entry->use_tesselation = out_resources.use_tesselation;
+        }
+
+        return did_append_material;
     }
 
     bool OpenGlResourceManager::try_create_post_process_resources(
         const MaterialInstance& material,
-        OpenGlDrawResources& out_resources)
+        OpenGlDrawResources& out_resources,
+        OpenGlCachedDrawResourceEntry* out_cache_entry)
     {
         if (!material.handle.is_valid())
             return false;
@@ -933,25 +1193,48 @@ namespace tbx::plugins
         if (!source_material)
             return false;
 
-        static const Mesh fullscreen_quad_mesh = make_fullscreen_quad_mesh();
-        out_resources.mesh = std::make_shared<OpenGlMesh>(fullscreen_quad_mesh);
+        static const uint64 fullscreen_quad_signature =
+            hash_mesh_content_signature(fullscreen_quad);
+        out_resources.mesh = get_or_create_shared_mesh(fullscreen_quad_signature, fullscreen_quad);
+        if (out_cache_entry != nullptr)
+            out_cache_entry->mesh_signature = fullscreen_quad_signature;
 
         auto resolved = *source_material;
         auto runtime_texture_overrides = std::vector<MaterialTextureBinding> {};
         apply_runtime_material_overrides(material, resolved, &runtime_texture_overrides);
-        return try_append_material_resources(
+        auto texture_references = std::vector<OpenGlTextureResourceReference> {};
+        auto shader_program_signature = uint64 {};
+        const auto did_append_material = try_append_material_resources(
             resolved,
             runtime_texture_overrides,
             out_resources,
+            &shader_program_signature,
+            &texture_references,
             false);
+        if (did_append_material && out_cache_entry != nullptr)
+        {
+            out_cache_entry->shader_program_signature = shader_program_signature;
+            out_cache_entry->textures = std::move(texture_references);
+            out_cache_entry->shader_parameters = out_resources.shader_parameters;
+            out_cache_entry->use_tesselation = out_resources.use_tesselation;
+        }
+
+        return did_append_material;
     }
 
     bool OpenGlResourceManager::try_append_material_resources(
         const Material& material,
         const std::vector<MaterialTextureBinding>& runtime_texture_overrides,
         OpenGlDrawResources& out_resources,
+        uint64* out_shader_program_signature,
+        std::vector<OpenGlTextureResourceReference>* out_texture_references,
         const bool force_deferred_geometry_program)
     {
+        if (out_shader_program_signature != nullptr)
+            *out_shader_program_signature = 0U;
+        if (out_texture_references != nullptr)
+            out_texture_references->clear();
+
         auto resolved_material = material;
         if (force_deferred_geometry_program)
         {
@@ -966,70 +1249,14 @@ namespace tbx::plugins
             resolved_material.program.vertex = lit_vertex_shader;
             resolved_material.program.fragment = lit_fragment_shader;
         }
+        apply_default_material_parameters(resolved_material.parameters);
 
         if (resolved_material.program.is_valid())
         {
             out_resources.use_tesselation = resolved_material.program.tesselation.is_valid();
-            auto shader_stages = std::vector<std::shared_ptr<OpenGlShader>> {};
-
-            const auto append_shader_stages =
-                [this, &shader_stages](const Handle& shader_handle, ShaderType expected_type)
-            {
-                if (!shader_handle.is_valid())
-                    return;
-
-                auto shader_asset = _asset_manager->load<Shader>(shader_handle);
-                TBX_ASSERT(
-                    shader_asset != nullptr,
-                    "OpenGL rendering: material shader stage could not be loaded.");
-                if (!shader_asset)
-                    return;
-
-                const ShaderSource* stage_source = nullptr;
-                for (const auto& source : shader_asset->sources)
-                {
-                    if (source.type != expected_type)
-                    {
-                        TBX_ASSERT(
-                            false,
-                            "OpenGL rendering: shader source type does not match expected stage "
-                            "type.");
-                        continue;
-                    }
-
-                    stage_source = &source;
-                    break;
-                }
-
-                TBX_ASSERT(
-                    stage_source != nullptr,
-                    "OpenGL rendering: material shader stage is missing expected source type.");
-                if (!stage_source)
-                    return;
-
-                auto stage = std::make_shared<OpenGlShader>(*stage_source);
-                TBX_ASSERT(
-                    stage->get_shader_id() != 0,
-                    "OpenGL rendering: material shader stage failed to compile.");
-                if (stage->get_shader_id() == 0)
-                    return;
-
-                shader_stages.push_back(std::move(stage));
-            };
-
-            append_shader_stages(resolved_material.program.vertex, ShaderType::VERTEX);
-            append_shader_stages(resolved_material.program.tesselation, ShaderType::TESSELATION);
-            append_shader_stages(resolved_material.program.geometry, ShaderType::GEOMETRY);
-            append_shader_stages(resolved_material.program.fragment, ShaderType::FRAGMENT);
-            append_shader_stages(resolved_material.program.compute, ShaderType::COMPUTE);
-
-            if (!shader_stages.empty())
-            {
-                out_resources.shader_program = std::make_shared<OpenGlShaderProgram>(shader_stages);
-                TBX_ASSERT(
-                    out_resources.shader_program->get_program_id() != 0,
-                    "OpenGL rendering: failed to link a valid shader program.");
-            }
+            out_resources.shader_program = get_or_create_shared_shader_program(
+                resolved_material.program,
+                out_shader_program_signature);
         }
 
         const bool has_diffuse = resolved_material.textures.get("diffuse") != nullptr;
@@ -1068,6 +1295,7 @@ namespace tbx::plugins
             }
 
             auto texture_data = texture_asset ? *texture_asset : fallback_texture;
+            auto texture_signature = uint64 {};
             if (runtime_texture_override && runtime_texture_override->settings.has_value())
             {
                 const TextureSettings& texture_settings =
@@ -1078,17 +1306,69 @@ namespace tbx::plugins
                 texture_data.mipmaps = texture_settings.mipmaps;
                 texture_data.compression = texture_settings.compression;
             }
-            append_texture_binding(out_resources, normalized_name, texture_data);
+
+            if (texture_asset && resolved_texture_handle.is_valid())
+            {
+                auto override_settings = std::optional<TextureSettings> {};
+                if (runtime_texture_override && runtime_texture_override->settings.has_value())
+                    override_settings = runtime_texture_override->settings.value();
+                texture_signature =
+                    hash_texture_asset_signature(resolved_texture_handle, override_settings);
+            }
+            else
+            {
+                texture_signature = hash_texture_content_signature(texture_data);
+            }
+
+            auto texture = get_or_create_shared_texture(texture_signature, texture_data);
+            append_texture_binding(out_resources, normalized_name, texture);
+            if (out_texture_references != nullptr)
+            {
+                const int slot = static_cast<int>(out_resources.textures.size()) - 1;
+                out_texture_references->push_back(
+                    OpenGlTextureResourceReference {
+                        .uniform_name = std::string(normalized_name),
+                        .texture_signature = texture_signature,
+                        .slot = slot,
+                    });
+            }
         }
 
         if (!has_diffuse)
-            append_texture_binding(out_resources, "u_diffuse", Texture());
+        {
+            auto fallback_texture = Texture();
+            const auto texture_signature = hash_texture_content_signature(fallback_texture);
+            auto texture = get_or_create_shared_texture(texture_signature, fallback_texture);
+            append_texture_binding(out_resources, "u_diffuse", texture);
+            if (out_texture_references != nullptr)
+            {
+                const int slot = static_cast<int>(out_resources.textures.size()) - 1;
+                out_texture_references->push_back(
+                    OpenGlTextureResourceReference {
+                        .uniform_name = "u_diffuse",
+                        .texture_signature = texture_signature,
+                        .slot = slot,
+                    });
+            }
+        }
         if (!has_normal)
         {
             auto normal_texture = Texture();
             normal_texture.format = TextureFormat::RGB;
             normal_texture.pixels = {128, 128, 255};
-            append_texture_binding(out_resources, "u_normal", normal_texture);
+            const auto texture_signature = hash_texture_content_signature(normal_texture);
+            auto texture = get_or_create_shared_texture(texture_signature, normal_texture);
+            append_texture_binding(out_resources, "u_normal", texture);
+            if (out_texture_references != nullptr)
+            {
+                const int slot = static_cast<int>(out_resources.textures.size()) - 1;
+                out_texture_references->push_back(
+                    OpenGlTextureResourceReference {
+                        .uniform_name = "u_normal",
+                        .texture_signature = texture_signature,
+                        .slot = slot,
+                    });
+            }
         }
 
         for (const auto& parameter_binding : resolved_material.parameters)
@@ -1098,19 +1378,6 @@ namespace tbx::plugins
                 MaterialParameter {
                     .name = normalize_uniform_name(parameter_binding.name),
                     .data = parameter_binding.value,
-                });
-        }
-
-        if (!out_resources.shader_program)
-            return out_resources.mesh != nullptr;
-
-        auto shader_program_scope = GlResourceScope(*out_resources.shader_program);
-        for (const auto& texture_binding : out_resources.textures)
-        {
-            out_resources.shader_program->try_upload(
-                MaterialParameter {
-                    .name = texture_binding.uniform_name,
-                    .data = texture_binding.slot,
                 });
         }
 

@@ -3,6 +3,7 @@
 #include "opengl_resources/opengl_resource_manager.h"
 #include "pipeline/opengl_render_pipeline.h"
 #include "tbx/assets/asset_manager.h"
+#include "tbx/common/int.h"
 #include "tbx/common/uuid.h"
 #include "tbx/ecs/entity_registry.h"
 #include "tbx/graphics/messages.h"
@@ -12,6 +13,17 @@
 
 namespace tbx::plugins
 {
+    /// <summary>Configures directional shadow behavior for the OpenGL renderer.</summary>
+    /// <remarks>Purpose: Groups runtime-tunable shadow map and light-space camera settings.
+    /// Ownership: Value type owned by caller/renderer by copy.
+    /// Thread Safety: Safe to copy; mutate and consume on render thread.</remarks>
+    struct OpenGlShadowSettings final
+    {
+        uint32 shadow_map_resolution = 2048U;
+        float shadow_render_distance = 90.0F;
+        float shadow_softness = 1.75F;
+    };
+
     /// <summary>Owns one window-bound OpenGL renderer state and frame execution.</summary>
     /// <remarks>Purpose: Manages GL initialization, scene extraction, and pipeline execution.
     /// Ownership: Owns render pipeline and all renderer-scoped GPU resource wrappers.
@@ -22,7 +34,8 @@ namespace tbx::plugins
             GraphicsProcAddress loader,
             EntityRegistry& entity_registry,
             AssetManager& asset_manager,
-            OpenGlContext context);
+            OpenGlContext context,
+            const OpenGlShadowSettings& shadow_settings);
         ~OpenGlRenderer() noexcept;
 
         /// <summary>Renders and presents one frame to the bound context window.</summary>
@@ -43,14 +56,20 @@ namespace tbx::plugins
         /// Thread Safety: Call on render thread.</remarks>
         void set_pending_render_resolution(const std::optional<Size>& pending_render_resolution);
 
+        /// <summary>Updates directional shadow tuning values used for subsequent frames.</summary>
+        /// <remarks>Purpose: Applies runtime graphics settings to shadow resource allocation and
+        /// matrix generation. Ownership: Stores a value copy in renderer-owned state.
+        /// Thread Safety: Call on render thread.</remarks>
+        void set_shadow_settings(const OpenGlShadowSettings& shadow_settings);
+
       private:
         void initialize();
         void shutdown();
+        void reset_shadow_maps();
         void set_render_resolution(const Size& render_resolution);
 
       private:
         EntityRegistry* _entity_registry = nullptr;
-        AssetManager* _asset_manager = nullptr;
         OpenGlContext _context;
 
         std::unique_ptr<OpenGlResourceManager> _resource_manager = nullptr;
@@ -67,5 +86,6 @@ namespace tbx::plugins
         Uuid _pinned_sky_resource = Uuid::NONE;
         Uuid _deferred_lighting_resource = Uuid::NONE;
         std::vector<Uuid> _shadow_map_resources = {};
+        OpenGlShadowSettings _shadow_settings = {};
     };
 }

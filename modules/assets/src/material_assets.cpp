@@ -11,8 +11,8 @@ namespace tbx
         auto material = Material();
         material.program.vertex = unlit_vertex_shader;
         material.program.fragment = unlit_fragment_shader;
-        material.parameters.set("color", RgbaColor(1.0f, 0.0f, 1.0f, 1.0f));
-        material.parameters.set("emissive", RgbaColor(1.0f, 0.0f, 1.0f, 1.0f));
+        material.parameters.set("color", Color(1.0f, 0.0f, 1.0f, 1.0f));
+        material.parameters.set("emissive", Color(1.0f, 0.0f, 1.0f, 1.0f));
         return std::make_shared<Material>(std::move(material));
     }
 

@@ -69,9 +69,9 @@ namespace tbx::plugins
     }
 
     // Converts an Assimp color to the engine RGBA color type.
-    static RgbaColor to_color(const aiColor4D& color)
+    static Color to_color(const aiColor4D& color)
     {
-        return RgbaColor(color.r, color.g, color.b, color.a);
+        return Color(color.r, color.g, color.b, color.a);
     }
 
     // Determines the scale needed to convert imported scene units to meters.
@@ -108,7 +108,7 @@ namespace tbx::plugins
     }
 
     // Queries a diffuse color from an Assimp material, falling back to white.
-    static RgbaColor get_material_diffuse_color(const aiMaterial& material)
+    static Color get_material_diffuse_color(const aiMaterial& material)
     {
         aiColor4D diffuse = {};
         if (aiGetMaterialColor(&material, AI_MATKEY_COLOR_DIFFUSE, &diffuse) == AI_SUCCESS)
@@ -116,7 +116,7 @@ namespace tbx::plugins
             return to_color(diffuse);
         }
 
-        return RgbaColor(1.0f, 1.0f, 1.0f, 1.0f);
+        return Color(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
     // Defines the default vertex layout used when creating mesh buffers.
@@ -124,7 +124,7 @@ namespace tbx::plugins
     {
         return {{
             Vec3(0.0f),
-            RgbaColor(),
+            Color(),
             Vec3(0.0f),
             Vec2(0.0f),
         }};
@@ -319,7 +319,7 @@ namespace tbx::plugins
                 if (mesh->HasVertexColors(0))
                     vertex.color = to_color(mesh->mColors[0][vertex_index]);
                 else
-                    vertex.color = RgbaColor(1.0f, 1.0f, 1.0f, 1.0f);
+                    vertex.color = Color(1.0f, 1.0f, 1.0f, 1.0f);
                 vertices.push_back(vertex);
             }
 

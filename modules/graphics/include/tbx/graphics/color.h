@@ -5,14 +5,14 @@
 
 namespace tbx
 {
-    struct TBX_API RgbaColor
+    struct TBX_API Color
     {
         // Default constructor, initializes the color to black (0, 0, 0, 1)
-        RgbaColor() = default;
+        Color() = default;
 
         // Constructor that initializes the color with the given RGBA values.
         // Given values are expected to be in the range of 0-1.
-        RgbaColor(float r_value, float g_value, float b_value, float a_value)
+        Color(float r_value, float g_value, float b_value, float a_value)
             : r(r_value)
             , g(g_value)
             , b(b_value)
@@ -34,16 +34,16 @@ namespace tbx
         // Alpha/Transparency value (0-1)
         float a = 1;
 
-        static RgbaColor white;
-        static RgbaColor black;
-        static RgbaColor red;
-        static RgbaColor green;
-        static RgbaColor blue;
-        static RgbaColor yellow;
-        static RgbaColor cyan;
-        static RgbaColor magenta;
-        static RgbaColor grey;
-        static RgbaColor light_grey;
-        static RgbaColor dark_grey;
+        static const Color WHITE;
+        static const Color BLACK;
+        static const Color RED;
+        static const Color GREEN;
+        static const Color BLUE;
+        static const Color YELLOW;
+        static const Color CYAN;
+        static const Color MAGENTA;
+        static const Color GREY;
+        static const Color LIGHT_GREY;
+        static const Color DARK_GREY;
     };
 }

@@ -30,7 +30,7 @@ namespace tbx
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         /// </remarks>
-        RgbaColor color = RgbaColor(1.0f, 1.0f, 1.0f, 1.0f);
+        Color color = Color(1.0f, 1.0f, 1.0f, 1.0f);
 
         /// <summary>
         /// Purpose: Scales the light's brightness contribution.
@@ -166,8 +166,8 @@ namespace tbx
     struct TBX_API DirectionalLight : public Light
     {
         DirectionalLight();
-        DirectionalLight(RgbaColor color, float intensity);
-        DirectionalLight(RgbaColor color, float intensity, float ambient);
+        DirectionalLight(Color color, float intensity);
+        DirectionalLight(Color color, float intensity, float ambient);
 
         /// <summary>
         /// Purpose: Sets the ambient lighting contribution produced by this directional light.

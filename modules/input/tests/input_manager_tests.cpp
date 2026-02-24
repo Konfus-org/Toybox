@@ -3,7 +3,9 @@
 #include "tbx/input/input_messages.h"
 #include "tbx/messages/dispatcher.h"
 #include <future>
+#include <gtest/gtest-spi.h>
 #include <memory>
+#include <string>
 #include <utility>
 
 namespace tbx::tests::input
@@ -75,6 +77,25 @@ namespace tbx::tests::input
 
             Result result = {};
             result.flag_failure("Unhandled test message type.");
+            return result;
+        }
+
+        std::shared_future<Result> post(std::unique_ptr<Message> message) const override
+        {
+            std::promise<Result> promise = {};
+            Result result = send(*message);
+            promise.set_value(result);
+            return promise.get_future().share();
+        }
+    };
+
+    class FailingInputDispatcher final : public IMessageDispatcher
+    {
+      protected:
+        Result send(Message&) const override
+        {
+            auto result = Result {};
+            result.flag_failure("No handlers are registered.");
             return result;
         }
 
@@ -320,5 +341,54 @@ namespace tbx::tests::input
         // Assert
         ASSERT_EQ(locked_mode, MouseLockMode::RELATIVE);
         ASSERT_EQ(unlocked_mode, MouseLockMode::UNLOCKED);
+    }
+
+    /// <summary>
+    /// Purpose: Validates update emits one warning when active actions have no input handlers.
+    /// Ownership: Uses stack-local dispatcher and manager instances only.
+    /// Thread Safety: Single-threaded unit test.
+    /// </summary>
+    TEST(input_manager, update_warns_once_when_action_inputs_are_unhandled)
+    {
+        // Arrange
+        auto dispatcher = FailingInputDispatcher {};
+        auto manager = InputManager(dispatcher);
+
+        auto scheme = InputScheme("Gameplay");
+        auto fire_action = InputAction("Fire", InputActionValueType::BUTTON);
+        fire_action.add_binding(
+            InputBinding {
+                .control =
+                    KeyboardInputControl {
+                        .key = InputKey::SPACE,
+                    },
+                .scale = 1.0F,
+            });
+        scheme.add_action(fire_action);
+        manager.add_scheme(scheme);
+        manager.activate_scheme("Gameplay");
+
+        auto frame_time = DeltaTime {};
+        frame_time.seconds = 0.016;
+
+        // Act
+        testing::internal::CaptureStderr();
+        manager.update(frame_time);
+        manager.update(frame_time);
+        const std::string stderr_output = testing::internal::GetCapturedStderr();
+
+        // Assert
+        const std::string warning_text =
+            "Active input actions are not fully handled because required input providers are "
+            "missing.";
+        size_t warning_count = 0U;
+        size_t find_position = stderr_output.find(warning_text);
+        while (find_position != std::string::npos)
+        {
+            warning_count += 1U;
+            find_position = stderr_output.find(warning_text, find_position + warning_text.size());
+        }
+
+        ASSERT_EQ(warning_count, 1U);
     }
 }

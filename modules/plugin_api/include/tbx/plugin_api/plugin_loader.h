@@ -2,6 +2,7 @@
 #include "tbx/plugin_api/loaded_plugin.h"
 #include "tbx/plugin_api/plugin_host.h"
 #include "tbx/tbx_api.h"
+#include "tbx/time/delta_time.h"
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -33,4 +34,26 @@ namespace tbx
     // Ownership: Consumes and destroys LoadedPlugin instances in the provided vector.
     // Thread-safety: Not thread-safe; call from the main thread.
     TBX_API void unload_plugins(std::vector<LoadedPlugin>& loaded_plugins);
+
+    /// <summary>
+    /// Purpose: Updates loaded plugins in deterministic category/priority order for
+    /// variable-timestep frame updates.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Does not take ownership of plugin instances.
+    /// Thread Safety: Not thread-safe; call from the main thread.
+    /// </remarks>
+    TBX_API void update_plugins(std::vector<LoadedPlugin>& loaded_plugins, const DeltaTime& dt);
+
+    /// <summary>
+    /// Purpose: Updates loaded plugins in deterministic category/priority order for fixed-timestep
+    /// simulation updates.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Does not take ownership of plugin instances.
+    /// Thread Safety: Not thread-safe; call from the main thread.
+    /// </remarks>
+    TBX_API void update_plugins_fixed(
+        std::vector<LoadedPlugin>& loaded_plugins,
+        const DeltaTime& dt);
 }

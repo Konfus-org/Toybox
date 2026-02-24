@@ -103,7 +103,7 @@ namespace tbx::plugins
         _resolution = resolution;
     }
 
-    void OpenGlGBuffer::clear(const RgbaColor& clear_color) const
+    void OpenGlGBuffer::clear(const Color& clear_color) const
     {
         const std::array<float, 4> albedo_spec =
             {clear_color.r, clear_color.g, clear_color.b, clear_color.a};

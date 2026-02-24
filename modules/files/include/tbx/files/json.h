@@ -99,7 +99,7 @@ namespace tbx
     template <>
     TBX_API bool Json::try_get<Mat4>(const std::string& key, Mat4& out_value) const;
     template <>
-    TBX_API bool Json::try_get<RgbaColor>(const std::string& key, RgbaColor& out_value) const;
+    TBX_API bool Json::try_get<Color>(const std::string& key, Color& out_value) const;
 
     template <>
     TBX_API bool Json::try_get<TextureWrap>(const std::string& key, TextureWrap& out_value) const;

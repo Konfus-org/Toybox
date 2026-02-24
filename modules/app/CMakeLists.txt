@@ -24,6 +24,7 @@ target_link_libraries(${module_name}
         Tbx::ECS
         Tbx::Debugging
         Tbx::Graphics
+        Tbx::Physics
         Tbx::Assets
 )
 
