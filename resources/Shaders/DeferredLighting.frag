@@ -9,19 +9,19 @@ uniform sampler2D u_gbuffer_albedo_spec;
 uniform sampler2D u_gbuffer_normal;
 uniform sampler2D u_gbuffer_material;
 uniform sampler2D u_scene_depth;
+uniform sampler2D u_shadow_maps[24];
 
 uniform vec3 u_camera_position = vec3(0.0);
-uniform mat4 u_view_projection = mat4(1.0);
+uniform vec3 u_camera_forward = vec3(0.0, 0.0, -1.0);
 uniform mat4 u_inverse_view_projection = mat4(1.0);
+uniform mat4 u_light_view_projection_matrices[24];
 uniform int u_directional_light_count = 0;
 uniform int u_point_light_count = 0;
 uniform int u_spot_light_count = 0;
+uniform int u_shadow_map_count = 0;
+uniform float u_cascade_splits[4] = float[4](10.0, 25.0, 60.0, 1000.0);
+uniform float u_shadow_softness = 1.75;
 uniform float u_exposure = 0.6;
-uniform float u_sdf_shadow_step_scale = 0.75;
-uniform int u_sdf_shadow_max_steps = 24;
-uniform float u_sdf_shadow_max_distance = 96.0;
-uniform float u_sdf_surface_epsilon = 0.025;
-uniform float u_sdf_ao_strength = 0.65;
 
 struct DirectionalLight
 {
@@ -56,6 +56,9 @@ struct SpotLight
 const int MAX_DIRECTIONAL_LIGHTS = 4;
 const int MAX_POINT_LIGHTS = 32;
 const int MAX_SPOT_LIGHTS = 16;
+const int DIRECTIONAL_SHADOW_CASCADE_COUNT = 2;
+const int POINT_SHADOW_FACE_COUNT = 6;
+const float SHADOW_CLIP_EPSILON = 0.002;
 
 uniform DirectionalLight u_directional_lights[MAX_DIRECTIONAL_LIGHTS];
 uniform PointLight u_point_lights[MAX_POINT_LIGHTS];
@@ -91,68 +94,100 @@ vec3 safe_normalize(vec3 value, vec3 fallback)
     return value * inversesqrt(length_squared);
 }
 
-float evaluate_screen_space_signed_distance(vec3 world_sample)
+int select_point_shadow_face_index(vec3 light_to_fragment)
 {
-    vec4 clip_sample = u_view_projection * vec4(world_sample, 1.0);
-    if (clip_sample.w <= 0.0001)
-        return u_sdf_shadow_max_distance;
+    vec3 abs_vector = abs(light_to_fragment);
+    if (abs_vector.x >= abs_vector.y && abs_vector.x >= abs_vector.z)
+        return light_to_fragment.x >= 0.0 ? 0 : 1;
 
-    vec3 projected = clip_sample.xyz / clip_sample.w;
-    if (projected.x < -1.0 || projected.x > 1.0 || projected.y < -1.0 || projected.y > 1.0)
-        return u_sdf_shadow_max_distance;
+    if (abs_vector.y >= abs_vector.x && abs_vector.y >= abs_vector.z)
+        return light_to_fragment.y >= 0.0 ? 2 : 3;
 
-    vec2 sample_uv = projected.xy * 0.5 + 0.5;
-    float scene_depth = texture(u_scene_depth, sample_uv).r;
-    if (scene_depth >= 0.999999)
-        return u_sdf_shadow_max_distance;
-
-    vec3 scene_surface = reconstruct_world_position(sample_uv, scene_depth);
-    float euclidean_distance = length(world_sample - scene_surface);
-    float sample_to_camera = length(world_sample - u_camera_position);
-    float surface_to_camera = length(scene_surface - u_camera_position);
-    float sign = sample_to_camera > surface_to_camera ? -1.0 : 1.0;
-    return euclidean_distance * sign;
+    return light_to_fragment.z >= 0.0 ? 4 : 5;
 }
 
-float trace_sdf_shadow(vec3 origin, vec3 direction, float max_distance)
+float sample_shadow_visibility(
+    int shadow_map_index,
+    vec2 shadow_uv,
+    float current_depth,
+    float bias,
+    vec3 world_position,
+    float softness_scale,
+    int sample_count)
 {
-    float march_distance = max(u_sdf_surface_epsilon * 2.0, 0.01);
-    float penumbra = 1.0;
-    int max_steps = clamp(u_sdf_shadow_max_steps, 4, 64);
+    vec2 texel_size = 1.0 / vec2(textureSize(u_shadow_maps[shadow_map_index], 0));
+    const vec2 poisson_disk[12] = vec2[](
+        vec2(-0.326, -0.406),
+        vec2(-0.840, -0.074),
+        vec2(-0.696, 0.457),
+        vec2(-0.203, 0.621),
+        vec2(0.962, -0.195),
+        vec2(0.473, -0.480),
+        vec2(0.519, 0.767),
+        vec2(0.185, -0.893),
+        vec2(0.507, 0.064),
+        vec2(0.896, 0.412),
+        vec2(-0.322, -0.933),
+        vec2(-0.792, -0.598));
 
-    for (int step_index = 0; step_index < 64; ++step_index)
+    float reference_depth = texture(u_shadow_maps[shadow_map_index], shadow_uv).r;
+    if (current_depth - bias <= reference_depth)
+        return 1.0;
+
+    float radius_in_texels = clamp(u_shadow_softness * softness_scale, 0.0, 4.0);
+    if (radius_in_texels <= 0.001)
+        return 0.0;
+
+    float hash_value = fract(sin(dot(world_position.xz, vec2(12.9898, 78.233))) * 43758.5453);
+    float rotation = hash_value * 6.2831853;
+    mat2 rotation_matrix = mat2(cos(rotation), -sin(rotation), sin(rotation), cos(rotation));
+
+    const int max_sample_count = 8;
+    int clamped_sample_count = clamp(sample_count, 1, max_sample_count);
+    float visibility = 0.0;
+    for (int index = 0; index < max_sample_count; ++index)
     {
-        if (step_index >= max_steps || march_distance >= max_distance)
+        if (index >= clamped_sample_count)
             break;
 
-        vec3 sample_position = origin + direction * march_distance;
-        float signed_distance = evaluate_screen_space_signed_distance(sample_position);
-        if (signed_distance <= u_sdf_surface_epsilon)
-            return 0.0;
-
-        penumbra = min(penumbra, 12.0 * signed_distance / max(march_distance, 0.001));
-        float step_size = clamp(signed_distance * u_sdf_shadow_step_scale, 0.04, 1.25);
-        march_distance += step_size;
+        vec2 offset = rotation_matrix * poisson_disk[index] * texel_size * radius_in_texels;
+        float shadow_depth = texture(u_shadow_maps[shadow_map_index], shadow_uv + offset).r;
+        visibility += current_depth - bias <= shadow_depth ? 1.0 : 0.0;
     }
 
-    return clamp(penumbra, 0.0, 1.0);
+    return visibility / float(clamped_sample_count);
 }
 
-float evaluate_sdf_ambient_occlusion(vec3 world_position, vec3 normal)
+float sample_projected_shadow_visibility(
+    int shadow_map_index,
+    vec4 light_space_position,
+    float bias,
+    vec3 world_position,
+    float softness_scale,
+    int sample_count)
 {
-    float occlusion = 0.0;
-    const int sample_count = 5;
-    for (int sample_index = 1; sample_index <= sample_count; ++sample_index)
-    {
-        float sample_distance = float(sample_index) * 0.35;
-        vec3 sample_position = world_position + normal * sample_distance;
-        float signed_distance = evaluate_screen_space_signed_distance(sample_position);
-        float normalized_distance = clamp(signed_distance / sample_distance, -1.0, 1.0);
-        occlusion += clamp(1.0 - normalized_distance, 0.0, 1.0);
-    }
+    if (shadow_map_index < 0 || shadow_map_index >= u_shadow_map_count)
+        return 1.0;
 
-    float averaged_occlusion = occlusion / float(sample_count);
-    return clamp(1.0 - averaged_occlusion * u_sdf_ao_strength, 0.15, 1.0);
+    vec3 projected = light_space_position.xyz / max(light_space_position.w, 0.0001);
+    float current_depth = projected.z * 0.5 + 0.5;
+    if (projected.x < (-1.0 - SHADOW_CLIP_EPSILON) || projected.x > (1.0 + SHADOW_CLIP_EPSILON)
+        || projected.y < (-1.0 - SHADOW_CLIP_EPSILON)
+        || projected.y > (1.0 + SHADOW_CLIP_EPSILON)
+        || current_depth < (-SHADOW_CLIP_EPSILON)
+        || current_depth > (1.0 + SHADOW_CLIP_EPSILON))
+        return 1.0;
+
+    vec2 shadow_uv = clamp(projected.xy * 0.5 + 0.5, vec2(0.0), vec2(1.0));
+    current_depth = clamp(current_depth, 0.0, 1.0);
+    return sample_shadow_visibility(
+        shadow_map_index,
+        shadow_uv,
+        current_depth,
+        bias,
+        world_position,
+        softness_scale,
+        sample_count);
 }
 
 vec3 evaluate_directional_light(
@@ -169,10 +204,37 @@ vec3 evaluate_directional_light(
     vec3 half_direction = safe_normalize(light_direction + view_direction, normal);
     float specular_term = pow(max(dot(normal, half_direction), 0.0), shininess) * specular_strength;
 
-    float shadow_visibility = trace_sdf_shadow(world_position + normal * 0.05, light_direction, u_sdf_shadow_max_distance);
     vec3 diffuse = albedo * light.color * light.intensity * diffuse_term * 0.35;
     vec3 specular = light.color * light.intensity * specular_term;
     vec3 ambient = albedo * light.color * max(light.ambient, 0.0);
+
+    float shadow_visibility = 1.0;
+    int base_shadow_map_index = light.shadow_map_index;
+    if (base_shadow_map_index >= 0)
+    {
+        int selected_shadow_map_index = base_shadow_map_index;
+        float softness_scale = 1.0;
+        if (base_shadow_map_index + (DIRECTIONAL_SHADOW_CASCADE_COUNT - 1) < u_shadow_map_count)
+        {
+            float view_depth = max(dot(world_position - u_camera_position, u_camera_forward), 0.0);
+            int cascade_index = view_depth <= u_cascade_splits[0] ? 0 : 1;
+            selected_shadow_map_index = base_shadow_map_index + cascade_index;
+            softness_scale = cascade_index == 0 ? 0.8 : 1.0;
+        }
+
+        float ndotl = clamp(dot(normal, light_direction), 0.0, 1.0);
+        float bias = max(0.0004 * (1.0 - ndotl), 0.00005);
+        vec3 shadow_position = world_position + (normal * 0.004);
+        float pcf_visibility = sample_projected_shadow_visibility(
+            selected_shadow_map_index,
+            u_light_view_projection_matrices[selected_shadow_map_index] * vec4(shadow_position, 1.0),
+            bias,
+            world_position,
+            softness_scale,
+            8);
+        shadow_visibility = mix(0.15, 1.0, pcf_visibility);
+    }
+
     return ambient + ((diffuse + specular) * shadow_visibility);
 }
 
@@ -196,7 +258,26 @@ vec3 evaluate_point_light(
     vec3 half_direction = safe_normalize(light_direction + view_direction, normal);
     float specular_term = pow(max(dot(normal, half_direction), 0.0), shininess) * specular_strength;
 
-    float shadow_visibility = trace_sdf_shadow(world_position + normal * 0.05, light_direction, distance_to_light);
+    float shadow_visibility = 1.0;
+    int base_shadow_map_index = light.shadow_map_index;
+    if (base_shadow_map_index >= 0 && base_shadow_map_index + (POINT_SHADOW_FACE_COUNT - 1) < u_shadow_map_count)
+    {
+        vec3 light_to_fragment = world_position - light.position;
+        int face_index = select_point_shadow_face_index(light_to_fragment);
+        int shadow_map_index = base_shadow_map_index + face_index;
+        float ndotl = clamp(dot(normal, light_direction), 0.0, 1.0);
+        float bias = max(0.0016 * (1.0 - ndotl), 0.0004);
+        vec3 shadow_position = world_position + (normal * 0.01);
+        float pcf_visibility = sample_projected_shadow_visibility(
+            shadow_map_index,
+            u_light_view_projection_matrices[shadow_map_index] * vec4(shadow_position, 1.0),
+            bias,
+            world_position,
+            0.8,
+            4);
+        shadow_visibility = mix(0.2, 1.0, pcf_visibility);
+    }
+
     vec3 diffuse = albedo * light.color * light.intensity * diffuse_term * 0.35;
     vec3 specular = light.color * light.intensity * specular_term;
     return (diffuse + specular) * attenuation * shadow_visibility;
@@ -231,7 +312,23 @@ vec3 evaluate_spot_light(
     vec3 half_direction = safe_normalize(light_direction + view_direction, normal);
     float specular_term = pow(max(dot(normal, half_direction), 0.0), shininess) * specular_strength;
 
-    float shadow_visibility = trace_sdf_shadow(world_position + normal * 0.05, light_direction, distance_to_light);
+    float shadow_visibility = 1.0;
+    int shadow_map_index = light.shadow_map_index;
+    if (shadow_map_index >= 0)
+    {
+        float ndotl = clamp(dot(normal, light_direction), 0.0, 1.0);
+        float bias = max(0.0008 * (1.0 - ndotl), 0.00015);
+        vec3 shadow_position = world_position + (normal * 0.006);
+        float pcf_visibility = sample_projected_shadow_visibility(
+            shadow_map_index,
+            u_light_view_projection_matrices[shadow_map_index] * vec4(shadow_position, 1.0),
+            bias,
+            world_position,
+            0.9,
+            6);
+        shadow_visibility = mix(0.2, 1.0, pcf_visibility);
+    }
+
     vec3 diffuse = albedo * light.color * light.intensity * diffuse_term * 0.35;
     vec3 specular = light.color * light.intensity * specular_term;
     return (diffuse + specular) * attenuation * shadow_visibility;
@@ -278,7 +375,6 @@ void main()
             specular_strength,
             shininess);
     }
-
     for (int index = 0; index < min(u_point_light_count, MAX_POINT_LIGHTS); ++index)
     {
         lighting += evaluate_point_light(
@@ -290,7 +386,6 @@ void main()
             specular_strength,
             shininess);
     }
-
     for (int index = 0; index < min(u_spot_light_count, MAX_SPOT_LIGHTS); ++index)
     {
         lighting += evaluate_spot_light(
@@ -303,7 +398,6 @@ void main()
             shininess);
     }
 
-    lighting *= evaluate_sdf_ambient_occlusion(world_position, normal);
     vec3 bounded_lighting = clamp(lighting, vec3(0.0), vec3(32.0));
     vec3 mapped = tbx_tonemap_aces(bounded_lighting * max(u_exposure, 0.0));
     mapped = tbx_linear_to_srgb(mapped);
