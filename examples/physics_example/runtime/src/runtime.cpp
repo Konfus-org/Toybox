@@ -51,7 +51,7 @@ namespace tbx::examples
         wallf_ent.add_component<Transform>(
             Vec3(0.0F, 5.0F, -20.0F),
             to_radians(Vec3(0.0F, 0.0F, 0.0F)),
-            Vec3(40.0F, 10.0F, 1.0F));
+            Vec3(45.0F, 11.0F, 1.0F));
 
         auto walll_ent = Entity("Wall_L", ent_registry);
         walll_ent.add_component<Renderer>();
@@ -60,7 +60,7 @@ namespace tbx::examples
         walll_ent.add_component<Transform>(
             Vec3(-20.0F, 5.0F, 0.0F),
             to_radians(Vec3(0.0F, 90.0F, 0.0F)),
-            Vec3(40.0F, 10.0F, 1.0F));
+            Vec3(45.0F, 11.0F, 1.0F));
 
         auto wallr_ent = Entity("Wall_R", ent_registry);
         wallr_ent.add_component<Renderer>();
@@ -69,7 +69,7 @@ namespace tbx::examples
         wallr_ent.add_component<Transform>(
             Vec3(20.0F, 5.0F, 0.0F),
             to_radians(Vec3(0.0F, -90.0F, 0.0F)),
-            Vec3(40.0F, 10.0F, 1.0F));
+            Vec3(45.0F, 11.0F, 1.0F));
 
         auto wallb_ent = Entity("Wall_B", ent_registry);
         wallb_ent.add_component<Renderer>();
@@ -78,7 +78,7 @@ namespace tbx::examples
         wallb_ent.add_component<Transform>(
             Vec3(0.0F, 5.0F, 20.0F),
             to_radians(Vec3(0.0F, 180.0F, 0.0F)),
-            Vec3(40.0F, 10.0F, 1.0F));
+            Vec3(45.0F, 11.0F, 1.0F));
 
         auto falling_sphere = Entity("FallingSphere", ent_registry);
         falling_sphere.add_component<Renderer>(MaterialInstance {

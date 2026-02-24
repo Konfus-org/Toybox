@@ -10,7 +10,9 @@
 #include <Jolt/Physics/PhysicsSystem.h>
 // clang-format on
 #include <cstdint>
+#include <functional>
 #include <memory>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -20,8 +22,8 @@ namespace tbx::plugins
     /// components and supports collider-only entities as static collision bodies.</summary>
     /// <remarks>Purpose: Owns the Jolt world used by this plugin and synchronizes ECS component
     /// state. Ownership: Owns Jolt simulation resources and body mappings; borrows host
-    /// subsystems. Thread Safety: Not thread-safe; expected to run on the main update
-    /// thread.</remarks>
+    /// subsystems. Thread Safety: Uses a dedicated physics lane; public callbacks marshal work to
+    /// that lane.</remarks>
     class JoltPhysicsPlugin final : public Plugin
     {
       public:
@@ -39,6 +41,8 @@ namespace tbx::plugins
         void process_trigger_colliders();
         void handle_raycast_request(RaycastRequest& request) const;
         Uuid try_get_entity_for_body(const JPH::BodyID& body_id) const;
+        bool is_on_physics_thread() const;
+        void run_on_physics_lane_and_wait(const std::function<void()>& work);
 
       private:
         struct BodyRecord
@@ -58,6 +62,8 @@ namespace tbx::plugins
         std::unordered_map<Uuid, BodyRecord> _bodies_by_entity = {};
         std::unordered_map<std::uint32_t, Uuid> _entity_by_body_key = {};
         std::unordered_map<Uuid, std::unordered_set<Uuid>> _overlap_entities_by_trigger = {};
+        ThreadManager* _thread_manager = nullptr;
+        std::thread::id _physics_thread_id = {};
         bool _is_ready = false;
     };
 }

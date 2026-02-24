@@ -43,6 +43,7 @@ namespace tbx::plugins
 {
     namespace
     {
+        static constexpr std::string_view PHYSICS_THREAD_LANE_NAME = "physics";
         static constexpr JPH::ObjectLayer object_layer_static = 0;
         static constexpr JPH::ObjectLayer object_layer_moving = 1;
         static constexpr JPH::BroadPhaseLayer broad_phase_layer_static = JPH::BroadPhaseLayer(0);
@@ -834,80 +835,137 @@ namespace tbx::plugins
 
     void JoltPhysicsPlugin::on_attach(IPluginHost&)
     {
-        if (!acquire_jolt_runtime())
+        _thread_manager = &get_host().get_thread_manager();
+        if (_thread_manager != nullptr)
         {
-            TBX_TRACE_ERROR("Jolt physics: failed to initialize Jolt runtime.");
-            return;
+            _thread_manager->try_create_lane(PHYSICS_THREAD_LANE_NAME);
+            if (_thread_manager->has_lane(PHYSICS_THREAD_LANE_NAME))
+            {
+                _physics_thread_id = _thread_manager
+                                         ->post_with_future(
+                                             PHYSICS_THREAD_LANE_NAME,
+                                             []()
+                                             {
+                                                 return std::this_thread::get_id();
+                                             })
+                                         .get();
+            }
         }
 
-        constexpr JPH::uint temp_allocator_bytes = 64U * 1024U * 1024U;
-        _temp_allocator =
-            std::make_unique<JPH::TempAllocatorImplWithMallocFallback>(temp_allocator_bytes);
-        _job_system = std::make_unique<JPH::JobSystemThreadPool>(
-            JPH::cMaxPhysicsJobs,
-            JPH::cMaxPhysicsBarriers);
+        run_on_physics_lane_and_wait(
+            [this]()
+            {
+                if (!acquire_jolt_runtime())
+                {
+                    TBX_TRACE_ERROR("Jolt physics: failed to initialize Jolt runtime.");
+                    return;
+                }
 
-        auto& settings = get_host().get_settings().physics;
+                constexpr JPH::uint temp_allocator_bytes = 64U * 1024U * 1024U;
+                _temp_allocator = std::make_unique<JPH::TempAllocatorImplWithMallocFallback>(
+                    temp_allocator_bytes);
+                _job_system = std::make_unique<JPH::JobSystemThreadPool>(
+                    JPH::cMaxPhysicsJobs,
+                    JPH::cMaxPhysicsBarriers);
 
-        auto max_bodies = std::max<std::uint32_t>(1U, settings.max_body_count.value);
-        auto max_pairs = std::max<std::uint32_t>(1U, settings.max_body_pairs.value);
-        auto max_constraints = std::max<std::uint32_t>(1U, settings.max_contact_constraints.value);
+                auto& settings = get_host().get_settings().physics;
 
-        static auto broad_phase_interface = PhysicsBroadPhaseLayerInterface();
-        static auto object_vs_broad_phase_filter = PhysicsObjectVsBroadPhaseLayerFilter();
-        static auto object_layer_pair_filter = PhysicsObjectLayerPairFilter();
+                auto max_bodies = std::max<std::uint32_t>(1U, settings.max_body_count.value);
+                auto max_pairs = std::max<std::uint32_t>(1U, settings.max_body_pairs.value);
+                auto max_constraints =
+                    std::max<std::uint32_t>(1U, settings.max_contact_constraints.value);
 
-        _physics_system.Init(
-            max_bodies,
-            0,
-            max_pairs,
-            max_constraints,
-            broad_phase_interface,
-            object_vs_broad_phase_filter,
-            object_layer_pair_filter);
+                static auto broad_phase_interface = PhysicsBroadPhaseLayerInterface();
+                static auto object_vs_broad_phase_filter = PhysicsObjectVsBroadPhaseLayerFilter();
+                static auto object_layer_pair_filter = PhysicsObjectLayerPairFilter();
 
-        apply_world_settings();
-        _is_ready = true;
+                _physics_system.Init(
+                    max_bodies,
+                    0,
+                    max_pairs,
+                    max_constraints,
+                    broad_phase_interface,
+                    object_vs_broad_phase_filter,
+                    object_layer_pair_filter);
+
+                apply_world_settings();
+                _is_ready = true;
+            });
     }
 
     void JoltPhysicsPlugin::on_detach()
     {
-        clear_bodies();
-        _job_system.reset();
-        _temp_allocator.reset();
-        _is_ready = false;
-        release_jolt_runtime();
+        run_on_physics_lane_and_wait(
+            [this]()
+            {
+                clear_bodies();
+                _job_system.reset();
+                _temp_allocator.reset();
+                _is_ready = false;
+                release_jolt_runtime();
+            });
+        _physics_thread_id = {};
+        _thread_manager = nullptr;
     }
 
     void JoltPhysicsPlugin::on_fixed_update(const DeltaTime& dt)
     {
-        if (!_is_ready || !_temp_allocator || !_job_system)
-            return;
+        run_on_physics_lane_and_wait(
+            [this, dt]()
+            {
+                if (!_is_ready || !_temp_allocator || !_job_system)
+                    return;
 
-        apply_world_settings();
-        sync_entities_to_world(static_cast<float>(dt.seconds));
+                apply_world_settings();
+                sync_entities_to_world(static_cast<float>(dt.seconds));
 
-        JPH::EPhysicsUpdateError update_error = _physics_system.Update(
-            static_cast<float>(std::max(0.0001, dt.seconds)),
-            1,
-            _temp_allocator.get(),
-            _job_system.get());
-        if (update_error != JPH::EPhysicsUpdateError::None)
-            TBX_TRACE_WARNING(
-                "Jolt physics update reported error flags: {}",
-                static_cast<std::uint32_t>(update_error));
+                JPH::EPhysicsUpdateError update_error = _physics_system.Update(
+                    static_cast<float>(std::max(0.0001, dt.seconds)),
+                    1,
+                    _temp_allocator.get(),
+                    _job_system.get());
+                if (update_error != JPH::EPhysicsUpdateError::None)
+                    TBX_TRACE_WARNING(
+                        "Jolt physics update reported error flags: {}",
+                        static_cast<std::uint32_t>(update_error));
 
-        sync_world_to_entities();
-        process_trigger_colliders();
+                sync_world_to_entities();
+                process_trigger_colliders();
+            });
     }
 
     void JoltPhysicsPlugin::on_recieve_message(Message& msg)
     {
         if (auto* raycast_request = handle_message<RaycastRequest>(msg))
         {
-            handle_raycast_request(*raycast_request);
+            run_on_physics_lane_and_wait(
+                [this, raycast_request]()
+                {
+                    handle_raycast_request(*raycast_request);
+                });
             return;
         }
+    }
+
+    bool JoltPhysicsPlugin::is_on_physics_thread() const
+    {
+        return _physics_thread_id != std::thread::id {}
+               && std::this_thread::get_id() == _physics_thread_id;
+    }
+
+    void JoltPhysicsPlugin::run_on_physics_lane_and_wait(const std::function<void()>& work)
+    {
+        if (!work)
+            return;
+
+        if (_thread_manager == nullptr || !_thread_manager->has_lane(PHYSICS_THREAD_LANE_NAME)
+            || is_on_physics_thread())
+        {
+            work();
+            return;
+        }
+
+        _thread_manager->post_with_future(PHYSICS_THREAD_LANE_NAME, work).get();
     }
 
     void JoltPhysicsPlugin::clear_bodies()
