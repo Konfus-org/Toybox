@@ -160,6 +160,11 @@ namespace tbx::tests::plugin_api
             return _job_manager;
         }
 
+        ThreadManager& get_thread_manager() override
+        {
+            return _thread_manager;
+        }
+
       private:
         std::string _name = "ImporterTests";
         Handle _icon_handle = box_icon;
@@ -169,5 +174,6 @@ namespace tbx::tests::plugin_api
         AssetManager _asset_manager;
         AppSettings _settings;
         JobSystem _job_manager;
+        ThreadManager _thread_manager;
     };
 }

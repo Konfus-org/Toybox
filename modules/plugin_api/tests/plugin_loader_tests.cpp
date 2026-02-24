@@ -69,6 +69,11 @@ namespace tbx::tests::plugin_loader
             return _job_manager;
         }
 
+        ::tbx::ThreadManager& get_thread_manager() override
+        {
+            return _thread_manager;
+        }
+
       private:
         std::string _name = "PluginLoaderTests";
         ::tbx::Handle _icon_handle = ::tbx::box_icon;
@@ -78,6 +83,7 @@ namespace tbx::tests::plugin_loader
         ::tbx::AssetManager _asset_manager;
         ::tbx::AppSettings _settings;
         ::tbx::JobSystem _job_manager;
+        ::tbx::ThreadManager _thread_manager;
     };
 
     /// <summary>

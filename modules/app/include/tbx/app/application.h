@@ -93,6 +93,15 @@ namespace tbx
         JobSystem& get_job_system() override;
 
         /// <summary>
+        /// Purpose: Returns the application thread manager for dedicated lane scheduling.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a reference owned by the application.
+        /// Thread Safety: Thread-safe according to ThreadManager guarantees.
+        /// </remarks>
+        ThreadManager& get_thread_manager() override;
+
+        /// <summary>
         /// Purpose: Returns the application input manager instance.
         /// </summary>
         /// <remarks>
@@ -118,6 +127,7 @@ namespace tbx
         std::vector<LoadedPlugin> _loaded = {};
         AppSettings _settings;
         JobSystem _job_manager;
+        ThreadManager _thread_manager;
         Window _main_window;
         AssetManager _asset_manager;
         uint _update_count = 0;

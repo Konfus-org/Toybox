@@ -108,6 +108,11 @@ namespace tbx
         return _job_manager;
     }
 
+    ThreadManager& Application::get_thread_manager()
+    {
+        return _thread_manager;
+    }
+
     void Application::initialize(const std::vector<std::string>& requested_plugins)
     {
         const auto startup_begin = std::chrono::steady_clock::now();
@@ -327,13 +332,16 @@ namespace tbx
             // 4. Detach and unload plugins using dependency-aware unload ordering.
             unload_plugins(_loaded);
 
-            // 5. Process any remaining messages that may have been posted during shutdown
+            // 5. Stop dedicated thread lanes after plugin teardown.
+            _thread_manager.stop_all();
+
+            // 6. Process any remaining messages that may have been posted during shutdown
             auto shutdown_elapsed_ms = std::chrono::duration<double, std::milli>(
                                            std::chrono::steady_clock::now() - shutdown_begin)
                                            .count();
             TBX_TRACE_INFO("Application shutdown completed in {:.2f} ms.", shutdown_elapsed_ms);
 
-            // 6. Process any remaining posted messages and clear handlers
+            // 7. Process any remaining posted messages and clear handlers
             _msg_coordinator.flush();
             _msg_coordinator.clear_handlers();
         }

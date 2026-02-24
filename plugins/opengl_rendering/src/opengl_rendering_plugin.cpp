@@ -3,9 +3,14 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/graphics_settings.h"
 #include "tbx/messages/observable.h"
+#include <future>
+#include <string_view>
+#include <vector>
 
 namespace tbx::plugins
 {
+    static constexpr std::string_view OPENGL_RENDER_LANE_NAME = "render";
+
     static OpenGlShadowSettings build_shadow_settings(const GraphicsSettings& graphics_settings)
     {
         return OpenGlShadowSettings {
@@ -18,17 +23,48 @@ namespace tbx::plugins
     void OpenGlRenderingPlugin::on_attach(IPluginHost& host)
     {
         _shadow_settings = build_shadow_settings(host.get_settings().graphics);
+        host.get_thread_manager().try_create_lane(OPENGL_RENDER_LANE_NAME);
     }
 
     void OpenGlRenderingPlugin::on_detach()
     {
-        _renderers.clear();
+        auto window_ids = std::vector<Uuid> {};
+        window_ids.reserve(_renderers.size());
+        for (const auto& renderer_entry : _renderers)
+            window_ids.push_back(renderer_entry.first);
+
+        for (const auto& window_id : window_ids)
+            teardown_renderer(window_id);
     }
 
     void OpenGlRenderingPlugin::on_update(const DeltaTime&)
     {
+        auto& thread_manager = get_host().get_thread_manager();
+        auto render_futures = std::vector<std::future<void>> {};
+        render_futures.reserve(_renderers.size());
+
         for (auto& renderer_entry : _renderers)
-            renderer_entry.second->render();
+        {
+            auto* renderer = renderer_entry.second.get();
+            if (!renderer)
+                continue;
+
+            if (!thread_manager.has_lane(OPENGL_RENDER_LANE_NAME))
+            {
+                renderer->render();
+                continue;
+            }
+
+            render_futures.push_back(thread_manager.post_with_future(
+                OPENGL_RENDER_LANE_NAME,
+                [renderer]()
+                {
+                    renderer->render();
+                }));
+        }
+
+        for (auto& render_future : render_futures)
+            render_future.get();
     }
 
     void OpenGlRenderingPlugin::on_recieve_message(Message& msg)
@@ -36,14 +72,47 @@ namespace tbx::plugins
         if (auto* ready_event = handle_message<WindowContextReadyEvent>(msg))
         {
             auto context = OpenGlContext(get_host().get_message_coordinator(), ready_event->window);
-            auto renderer = std::make_unique<OpenGlRenderer>(
-                ready_event->get_proc_address,
-                get_host().get_entity_registry(),
-                get_host().get_asset_manager(),
-                std::move(context),
-                _shadow_settings);
-            renderer->set_viewport_size(ready_event->size);
-            renderer->set_pending_render_resolution(ready_event->size);
+            auto& thread_manager = get_host().get_thread_manager();
+            auto renderer = std::unique_ptr<OpenGlRenderer> {};
+            if (thread_manager.has_lane(OPENGL_RENDER_LANE_NAME))
+            {
+                auto* entity_registry = &get_host().get_entity_registry();
+                auto* asset_manager = &get_host().get_asset_manager();
+                auto shadow_settings = _shadow_settings;
+                auto render_resolution = ready_event->size;
+                auto create_renderer_future = thread_manager.post_with_future(
+                    OPENGL_RENDER_LANE_NAME,
+                    [loader = ready_event->get_proc_address,
+                     entity_registry,
+                     asset_manager,
+                     context = std::move(context),
+                     shadow_settings,
+                     render_resolution]() mutable
+                    {
+                        auto renderer = std::make_unique<OpenGlRenderer>(
+                            loader,
+                            *entity_registry,
+                            *asset_manager,
+                            std::move(context),
+                            shadow_settings);
+                        renderer->set_viewport_size(render_resolution);
+                        renderer->set_pending_render_resolution(render_resolution);
+                        return renderer;
+                    });
+                renderer = create_renderer_future.get();
+            }
+            else
+            {
+                renderer = std::make_unique<OpenGlRenderer>(
+                    ready_event->get_proc_address,
+                    get_host().get_entity_registry(),
+                    get_host().get_asset_manager(),
+                    std::move(context),
+                    _shadow_settings);
+                renderer->set_viewport_size(ready_event->size);
+                renderer->set_pending_render_resolution(ready_event->size);
+            }
+
             _renderers[ready_event->window] = std::move(renderer);
 
             TBX_TRACE_INFO(
@@ -68,8 +137,29 @@ namespace tbx::plugins
             if (renderer_it == _renderers.end())
                 return;
 
-            renderer_it->second->set_viewport_size(size_event->current);
-            renderer_it->second->set_pending_render_resolution(size_event->current);
+            auto* renderer = renderer_it->second.get();
+            if (!renderer)
+                return;
+
+            auto& thread_manager = get_host().get_thread_manager();
+            if (thread_manager.has_lane(OPENGL_RENDER_LANE_NAME))
+            {
+                auto viewport_size = size_event->current;
+                thread_manager
+                    .post_with_future(
+                        OPENGL_RENDER_LANE_NAME,
+                        [renderer, viewport_size]()
+                        {
+                            renderer->set_viewport_size(viewport_size);
+                            renderer->set_pending_render_resolution(viewport_size);
+                        })
+                    .get();
+            }
+            else
+            {
+                renderer->set_viewport_size(size_event->current);
+                renderer->set_pending_render_resolution(size_event->current);
+            }
             return;
         }
 
@@ -100,12 +190,64 @@ namespace tbx::plugins
 
     void OpenGlRenderingPlugin::teardown_renderer(const Uuid& window_id)
     {
-        _renderers.erase(window_id);
+        auto renderer_it = _renderers.find(window_id);
+        if (renderer_it == _renderers.end())
+            return;
+
+        auto renderer = std::move(renderer_it->second);
+        _renderers.erase(renderer_it);
+        if (!renderer)
+            return;
+
+        auto* released_renderer = renderer.release();
+        auto& thread_manager = get_host().get_thread_manager();
+        if (thread_manager.has_lane(OPENGL_RENDER_LANE_NAME))
+        {
+            thread_manager
+                .post_with_future(
+                    OPENGL_RENDER_LANE_NAME,
+                    [released_renderer]()
+                    {
+                        auto renderer_on_render_lane =
+                            std::unique_ptr<OpenGlRenderer>(released_renderer);
+                    })
+                .get();
+        }
+        else
+        {
+            auto renderer_on_main_thread = std::unique_ptr<OpenGlRenderer>(released_renderer);
+        }
     }
 
     void OpenGlRenderingPlugin::apply_shadow_settings_to_renderers()
     {
+        auto& thread_manager = get_host().get_thread_manager();
+        auto apply_futures = std::vector<std::future<void>> {};
+        apply_futures.reserve(_renderers.size());
+
         for (auto& renderer_entry : _renderers)
-            renderer_entry.second->set_shadow_settings(_shadow_settings);
+        {
+            auto* renderer = renderer_entry.second.get();
+            if (!renderer)
+                continue;
+
+            if (thread_manager.has_lane(OPENGL_RENDER_LANE_NAME))
+            {
+                auto shadow_settings = _shadow_settings;
+                apply_futures.push_back(thread_manager.post_with_future(
+                    OPENGL_RENDER_LANE_NAME,
+                    [renderer, shadow_settings]()
+                    {
+                        renderer->set_shadow_settings(shadow_settings);
+                    }));
+            }
+            else
+            {
+                renderer->set_shadow_settings(_shadow_settings);
+            }
+        }
+
+        for (auto& apply_future : apply_futures)
+            apply_future.get();
     }
 }

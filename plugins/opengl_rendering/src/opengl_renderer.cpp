@@ -441,6 +441,12 @@ namespace tbx::plugins
             _context.get_window_id().is_valid(),
             "OpenGL rendering: renderer requires a valid context window id.");
 
+        auto make_current_result = _context.make_current();
+        TBX_ASSERT(
+            make_current_result,
+            "OpenGL rendering: failed to make context current before GLAD initialization: {}",
+            make_current_result.get_report());
+
         auto load_result = gladLoadGLLoader(glad_loader);
         TBX_ASSERT(load_result != 0, "OpenGL rendering: failed to initialize GLAD.");
         initialize();

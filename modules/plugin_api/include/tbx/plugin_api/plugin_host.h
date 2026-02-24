@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/assets/asset_manager.h"
 #include "tbx/async/job_system.h"
+#include "tbx/async/thread_manager.h"
 #include "tbx/ecs/entity.h"
 #include "tbx/input/input_manager.h"
 #include "tbx/messages/dispatcher.h"
@@ -94,5 +95,14 @@ namespace tbx
         /// Thread Safety: Thread-safe according to JobSystem guarantees.
         /// </remarks>
         virtual JobSystem& get_job_system() = 0;
+
+        /// <summary>
+        /// Purpose: Returns the host thread manager for dedicated lane scheduling.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a reference owned by the host.
+        /// Thread Safety: Thread-safe according to ThreadManager guarantees.
+        /// </remarks>
+        virtual ThreadManager& get_thread_manager() = 0;
     };
 }

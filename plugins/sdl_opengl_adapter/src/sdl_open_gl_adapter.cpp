@@ -94,6 +94,15 @@ namespace tbx::plugins
             SDL_ClearError();
         }
 
+        // Release the context from the setup thread so a dedicated render thread can acquire it.
+        if (!SDL_GL_MakeCurrent(nullptr, nullptr))
+        {
+            TBX_TRACE_WARNING(
+                "Failed to release SDL OpenGL context for window '{}': {}",
+                window_title,
+                SDL_GetError());
+        }
+
         return true;
     }
 
