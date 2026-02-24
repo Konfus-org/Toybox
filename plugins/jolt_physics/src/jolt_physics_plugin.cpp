@@ -7,7 +7,6 @@
 #include "tbx/physics/collider.h"
 #include "tbx/physics/physics.h"
 #include <Jolt/Jolt.h>
-// clang-format off
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/IssueReporting.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
@@ -28,7 +27,6 @@
 #include <Jolt/Physics/Collision/Shape/Shape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/RegisterTypes.h>
-// clang-format on
 #include <algorithm>
 #include <cmath>
 #include <cstdarg>
@@ -41,794 +39,791 @@
 
 namespace tbx::plugins
 {
-    namespace
+    static constexpr std::string_view PHYSICS_THREAD_LANE_NAME = "physics";
+    static constexpr JPH::ObjectLayer object_layer_static = 0;
+    static constexpr JPH::ObjectLayer object_layer_moving = 1;
+    static constexpr JPH::BroadPhaseLayer broad_phase_layer_static = JPH::BroadPhaseLayer(0);
+    static constexpr JPH::BroadPhaseLayer broad_phase_layer_moving = JPH::BroadPhaseLayer(1);
+    static constexpr std::uint32_t broad_phase_layer_count = 2;
+
+    static std::uint32_t get_body_key(const JPH::BodyID& body_id)
     {
-        static constexpr std::string_view PHYSICS_THREAD_LANE_NAME = "physics";
-        static constexpr JPH::ObjectLayer object_layer_static = 0;
-        static constexpr JPH::ObjectLayer object_layer_moving = 1;
-        static constexpr JPH::BroadPhaseLayer broad_phase_layer_static = JPH::BroadPhaseLayer(0);
-        static constexpr JPH::BroadPhaseLayer broad_phase_layer_moving = JPH::BroadPhaseLayer(1);
-        static constexpr std::uint32_t broad_phase_layer_count = 2;
+        return body_id.GetIndexAndSequenceNumber();
+    }
 
-        static std::uint32_t get_body_key(const JPH::BodyID& body_id)
-        {
-            return body_id.GetIndexAndSequenceNumber();
-        }
+    static bool should_execute_overlap_query(
+        ColliderOverlapExecutionMode execution_mode,
+        bool is_manual_trigger_requested)
+    {
+        return execution_mode == ColliderOverlapExecutionMode::AUTO
+               || is_manual_trigger_requested;
+    }
 
-        static bool should_execute_overlap_query(
-            ColliderOverlapExecutionMode execution_mode,
-            bool is_manual_trigger_requested)
-        {
-            return execution_mode == ColliderOverlapExecutionMode::AUTO
-                   || is_manual_trigger_requested;
-        }
+    static std::string format_jolt_trace_message(const char* fmt, std::va_list args)
+    {
+        if (fmt == nullptr || *fmt == '\0')
+            return std::string("Jolt reported an empty trace message.");
 
-        static std::string format_jolt_trace_message(const char* fmt, std::va_list args)
-        {
-            if (fmt == nullptr || *fmt == '\0')
-                return std::string("Jolt reported an empty trace message.");
+        std::va_list args_copy;
+        va_copy(args_copy, args);
+        int required_chars = std::vsnprintf(nullptr, 0, fmt, args_copy);
+        va_end(args_copy);
+        if (required_chars <= 0)
+            return std::string(fmt);
 
-            std::va_list args_copy;
-            va_copy(args_copy, args);
-            int required_chars = std::vsnprintf(nullptr, 0, fmt, args_copy);
-            va_end(args_copy);
-            if (required_chars <= 0)
-                return std::string(fmt);
+        std::string message = {};
+        message.resize(static_cast<std::size_t>(required_chars));
+        std::vsnprintf(
+            message.data(),
+            static_cast<std::size_t>(required_chars) + 1U,
+            fmt,
+            args);
+        return message;
+    }
 
-            std::string message = {};
-            message.resize(static_cast<std::size_t>(required_chars));
-            std::vsnprintf(
-                message.data(),
-                static_cast<std::size_t>(required_chars) + 1U,
-                fmt,
-                args);
-            return message;
-        }
+    static void tbx_jolt_trace_callback(const char* fmt, ...)
+    {
+        std::va_list args;
+        va_start(args, fmt);
+        std::string message = format_jolt_trace_message(fmt, args);
+        va_end(args);
 
-        static void tbx_jolt_trace_callback(const char* fmt, ...)
-        {
-            std::va_list args;
-            va_start(args, fmt);
-            std::string message = format_jolt_trace_message(fmt, args);
-            va_end(args);
-
-            TBX_TRACE_INFO("Jolt: {}", message);
-        }
+        TBX_TRACE_INFO("Jolt: {}", message);
+    }
 
 #ifdef JPH_ENABLE_ASSERTS
-        static bool tbx_jolt_assert_failed_callback(
-            const char* expression,
-            const char* message,
-            const char* file,
-            JPH::uint line)
-        {
-            const char* safe_expression =
-                (expression && *expression) ? expression : "<expression unavailable>";
-            const char* safe_message = (message && *message) ? message : "";
-            const char* safe_file = (file && *file) ? file : "<unknown>";
+    static bool tbx_jolt_assert_failed_callback(
+        const char* expression,
+        const char* message,
+        const char* file,
+        JPH::uint line)
+    {
+        const char* safe_expression =
+            (expression && *expression) ? expression : "<expression unavailable>";
+        const char* safe_message = (message && *message) ? message : "";
+        const char* safe_file = (file && *file) ? file : "<unknown>";
 
-            if (*safe_message == '\0')
-            {
-                TBX_TRACE_CRITICAL(
-                    "Jolt assertion failed: '{}' at {}:{}",
-                    safe_expression,
-                    safe_file,
-                    line);
-            }
-            else
-            {
-                TBX_TRACE_CRITICAL(
-                    "Jolt assertion failed: '{}' at {}:{} ({})",
-                    safe_expression,
-                    safe_file,
-                    line,
-                    safe_message);
-            }
+        if (*safe_message == '\0')
+        {
+            TBX_TRACE_CRITICAL(
+                "Jolt assertion failed: '{}' at {}:{}",
+                safe_expression,
+                safe_file,
+                line);
+        }
+        else
+        {
+            TBX_TRACE_CRITICAL(
+                "Jolt assertion failed: '{}' at {}:{} ({})",
+                safe_expression,
+                safe_file,
+                line,
+                safe_message);
+        }
+
+        return false;
+    }
+#endif
+
+    class PhysicsBroadPhaseLayerInterface final : public JPH::BroadPhaseLayerInterface
+    {
+      public:
+        std::uint32_t GetNumBroadPhaseLayers() const override
+        {
+            return broad_phase_layer_count;
+        }
+
+        JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer layer) const override
+        {
+            if (layer == object_layer_moving)
+                return broad_phase_layer_moving;
+
+            return broad_phase_layer_static;
+        }
+
+#if defined(JPH_EXTERNAL_PROFILE) || defined(JPH_PROFILE_ENABLED)
+        const char* GetBroadPhaseLayerName(JPH::BroadPhaseLayer layer) const override
+        {
+            if (layer == broad_phase_layer_moving)
+                return "Moving";
+
+            return "Static";
+        }
+#endif
+    };
+
+    class PhysicsObjectLayerPairFilter final : public JPH::ObjectLayerPairFilter
+    {
+      public:
+        bool ShouldCollide(JPH::ObjectLayer left, JPH::ObjectLayer right) const override
+        {
+            if (left == object_layer_static)
+                return right == object_layer_moving;
+
+            if (left == object_layer_moving)
+                return true;
 
             return false;
         }
-#endif
+    };
 
-        class PhysicsBroadPhaseLayerInterface final : public JPH::BroadPhaseLayerInterface
+    class PhysicsObjectVsBroadPhaseLayerFilter final : public JPH::ObjectVsBroadPhaseLayerFilter
+    {
+      public:
+        bool ShouldCollide(JPH::ObjectLayer layer, JPH::BroadPhaseLayer broad_phase_layer)
+            const override
         {
-          public:
-            std::uint32_t GetNumBroadPhaseLayers() const override
-            {
-                return broad_phase_layer_count;
-            }
+            if (layer == object_layer_static)
+                return broad_phase_layer == broad_phase_layer_moving;
 
-            JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer layer) const override
-            {
-                if (layer == object_layer_moving)
-                    return broad_phase_layer_moving;
+            if (layer == object_layer_moving)
+                return true;
 
-                return broad_phase_layer_static;
-            }
+            return false;
+        }
+    };
 
-#if defined(JPH_EXTERNAL_PROFILE) || defined(JPH_PROFILE_ENABLED)
-            const char* GetBroadPhaseLayerName(JPH::BroadPhaseLayer layer) const override
-            {
-                if (layer == broad_phase_layer_moving)
-                    return "Moving";
+    struct JoltRuntimeRef
+    {
+        std::size_t reference_count = 0;
+    };
 
-                return "Static";
-            }
-#endif
-        };
+    static JoltRuntimeRef g_jolt_runtime = {};
+    static std::mutex g_jolt_runtime_mutex = {};
 
-        class PhysicsObjectLayerPairFilter final : public JPH::ObjectLayerPairFilter
+    static bool acquire_jolt_runtime()
+    {
+        auto lock = std::scoped_lock(g_jolt_runtime_mutex);
+        if (g_jolt_runtime.reference_count == 0)
         {
-          public:
-            bool ShouldCollide(JPH::ObjectLayer left, JPH::ObjectLayer right) const override
-            {
-                if (left == object_layer_static)
-                    return right == object_layer_moving;
-
-                if (left == object_layer_moving)
-                    return true;
-
-                return false;
-            }
-        };
-
-        class PhysicsObjectVsBroadPhaseLayerFilter final : public JPH::ObjectVsBroadPhaseLayerFilter
-        {
-          public:
-            bool ShouldCollide(JPH::ObjectLayer layer, JPH::BroadPhaseLayer broad_phase_layer)
-                const override
-            {
-                if (layer == object_layer_static)
-                    return broad_phase_layer == broad_phase_layer_moving;
-
-                if (layer == object_layer_moving)
-                    return true;
-
-                return false;
-            }
-        };
-
-        struct JoltRuntimeRef
-        {
-            std::size_t reference_count = 0;
-        };
-
-        static JoltRuntimeRef g_jolt_runtime = {};
-        static std::mutex g_jolt_runtime_mutex = {};
-
-        static bool acquire_jolt_runtime()
-        {
-            auto lock = std::scoped_lock(g_jolt_runtime_mutex);
-            if (g_jolt_runtime.reference_count == 0)
-            {
-                JPH::RegisterDefaultAllocator();
-                JPH::Trace = tbx_jolt_trace_callback;
+            JPH::RegisterDefaultAllocator();
+            JPH::Trace = tbx_jolt_trace_callback;
 #ifdef JPH_ENABLE_ASSERTS
-                JPH::AssertFailed = tbx_jolt_assert_failed_callback;
+            JPH::AssertFailed = tbx_jolt_assert_failed_callback;
 #endif
 
-                JPH::Factory::sInstance = new JPH::Factory();
-                JPH::RegisterTypes();
-            }
+            JPH::Factory::sInstance = new JPH::Factory();
+            JPH::RegisterTypes();
+        }
 
-            ++g_jolt_runtime.reference_count;
+        ++g_jolt_runtime.reference_count;
+        return true;
+    }
+
+    static void release_jolt_runtime()
+    {
+        auto lock = std::scoped_lock(g_jolt_runtime_mutex);
+        if (g_jolt_runtime.reference_count == 0)
+            return;
+
+        --g_jolt_runtime.reference_count;
+        if (g_jolt_runtime.reference_count > 0)
+            return;
+
+        JPH::UnregisterTypes();
+        delete JPH::Factory::sInstance;
+        JPH::Factory::sInstance = nullptr;
+    }
+
+    static JPH::Vec3 to_jolt_vec3(const Vec3& value)
+    {
+        return JPH::Vec3(value.x, value.y, value.z);
+    }
+
+    static JPH::RVec3 to_jolt_rvec3(const Vec3& value)
+    {
+        return JPH::RVec3(value.x, value.y, value.z);
+    }
+
+    static JPH::Quat to_jolt_quat(const Quat& value)
+    {
+        return JPH::Quat(value.x, value.y, value.z, value.w);
+    }
+
+    static Vec3 to_tbx_vec3(JPH::Vec3Arg value)
+    {
+        return Vec3(value.GetX(), value.GetY(), value.GetZ());
+    }
+
+    static Vec3 to_tbx_vec3_from_rvec3(JPH::RVec3Arg value)
+    {
+        return Vec3(
+            static_cast<float>(value.GetX()),
+            static_cast<float>(value.GetY()),
+            static_cast<float>(value.GetZ()));
+    }
+
+    static Quat to_tbx_quat(JPH::QuatArg value)
+    {
+        return Quat(value.GetW(), value.GetX(), value.GetY(), value.GetZ());
+    }
+
+    static float get_vec3_distance_squared(const Vec3& left, const Vec3& right)
+    {
+        const float delta_x = left.x - right.x;
+        const float delta_y = left.y - right.y;
+        const float delta_z = left.z - right.z;
+        return delta_x * delta_x + delta_y * delta_y + delta_z * delta_z;
+    }
+
+    static bool has_transform_changed(
+        const Transform& current,
+        const Vec3& previous_position,
+        const Quat& previous_rotation,
+        const Vec3& previous_scale)
+    {
+        constexpr float position_epsilon_squared = 0.000001F * 0.000001F;
+        constexpr float rotation_dot_epsilon = 0.0001F;
+        constexpr float scale_epsilon_squared = 0.0001F * 0.0001F;
+
+        if (get_vec3_distance_squared(current.position, previous_position)
+            > position_epsilon_squared)
+            return true;
+
+        const Quat current_rotation = normalize(current.rotation);
+        const Quat previous_rotation_normalized = normalize(previous_rotation);
+        const float rotation_dot = std::abs(
+            current_rotation.x * previous_rotation_normalized.x
+            + current_rotation.y * previous_rotation_normalized.y
+            + current_rotation.z * previous_rotation_normalized.z
+            + current_rotation.w * previous_rotation_normalized.w);
+        if ((1.0F - std::min(1.0F, rotation_dot)) > rotation_dot_epsilon)
+            return true;
+
+        if (get_vec3_distance_squared(current.scale, previous_scale) > scale_epsilon_squared)
+            return true;
+
+        return false;
+    }
+
+    static bool has_scale_changed(const Vec3& current_scale, const Vec3& previous_scale)
+    {
+        constexpr float scale_epsilon_squared = 0.0001F * 0.0001F;
+        return get_vec3_distance_squared(current_scale, previous_scale) > scale_epsilon_squared;
+    }
+
+    static Vec3 multiply_components(const Vec3& left, const Vec3& right)
+    {
+        return Vec3(left.x * right.x, left.y * right.y, left.z * right.z);
+    }
+
+    static Vec3 get_safe_normalized(const Vec3& value, const Vec3& fallback)
+    {
+        const float length_squared = value.x * value.x + value.y * value.y + value.z * value.z;
+        if (length_squared <= 0.000001F)
+            return fallback;
+
+        const float inverse_length = 1.0F / std::sqrt(length_squared);
+        return value * inverse_length;
+    }
+
+    static Vec3 calculate_angular_velocity_for_step(
+        const Quat& start_rotation,
+        const Quat& target_rotation,
+        float dt_seconds)
+    {
+        Quat normalized_start = normalize(start_rotation);
+        Quat normalized_target = normalize(target_rotation);
+
+        Quat delta_rotation = normalize(normalized_target * glm::conjugate(normalized_start));
+        if (delta_rotation.w < 0.0F)
+            delta_rotation = -delta_rotation;
+
+        float clamped_w = std::clamp(delta_rotation.w, -1.0F, 1.0F);
+        float half_angle_sine = std::sqrt(std::max(0.0F, 1.0F - clamped_w * clamped_w));
+        if (half_angle_sine <= 0.000001F)
+            return Vec3(0.0F, 0.0F, 0.0F);
+
+        Vec3 axis = Vec3(delta_rotation.x, delta_rotation.y, delta_rotation.z)
+                    * (1.0F / half_angle_sine);
+        float angle_radians = 2.0F * std::atan2(half_angle_sine, clamped_w);
+        return axis * (angle_radians / std::max(0.0001F, dt_seconds));
+    }
+
+    static Vec3 get_safe_scale(const Vec3& scale)
+    {
+        return Vec3(
+            std::max(0.001F, std::abs(scale.x)),
+            std::max(0.001F, std::abs(scale.y)),
+            std::max(0.001F, std::abs(scale.z)));
+    }
+
+    static JPH::RefConst<JPH::Shape> create_box_shape(const CubeCollider& cube)
+    {
+        auto half_extents = JPH::Vec3(
+            std::max(0.001F, cube.half_extents.x),
+            std::max(0.001F, cube.half_extents.y),
+            std::max(0.001F, cube.half_extents.z));
+        return new JPH::BoxShape(half_extents);
+    }
+
+    static JPH::RefConst<JPH::Shape> create_sphere_shape(const SphereCollider& sphere)
+    {
+        float radius = std::max(0.001F, sphere.radius);
+        return new JPH::SphereShape(radius);
+    }
+
+    static JPH::RefConst<JPH::Shape> create_capsule_shape(const CapsuleCollider& capsule)
+    {
+        float radius = std::max(0.001F, capsule.radius);
+        float half_height = std::max(0.001F, capsule.half_height);
+        return new JPH::CapsuleShape(half_height, radius);
+    }
+
+    static void apply_dynamic_body_settings(
+        IPluginHost& host,
+        const Physics& physics,
+        bool is_trigger_only,
+        JPH::BodyCreationSettings& out_body_settings)
+    {
+        out_body_settings.mIsSensor = is_trigger_only;
+        out_body_settings.mAllowSleeping = physics.is_sleep_enabled;
+        out_body_settings.mFriction = physics.friction;
+        out_body_settings.mRestitution = physics.restitution;
+        out_body_settings.mLinearDamping = physics.default_linear_damping;
+        out_body_settings.mAngularDamping = physics.default_angular_damping;
+        out_body_settings.mLinearVelocity = to_jolt_vec3(physics.linear_velocity);
+        out_body_settings.mAngularVelocity = to_jolt_vec3(physics.angular_velocity);
+        out_body_settings.mGravityFactor = physics.is_gravity_enabled ? 1.0F : 0.0F;
+        out_body_settings.mMaxLinearVelocity =
+            std::max(0.0F, host.get_settings().physics.max_linear_velocity.value);
+        out_body_settings.mMaxAngularVelocity =
+            std::max(0.0F, host.get_settings().physics.max_angular_velocity.value);
+        out_body_settings.mOverrideMassProperties =
+            JPH::EOverrideMassProperties::CalculateInertia;
+        out_body_settings.mMassPropertiesOverride.mMass = physics.mass;
+
+        constexpr float ccd_linear_speed_threshold = 8.0F;
+        const float linear_speed_squared =
+            physics.linear_velocity.x * physics.linear_velocity.x
+            + physics.linear_velocity.y * physics.linear_velocity.y
+            + physics.linear_velocity.z * physics.linear_velocity.z;
+        const float ccd_threshold_squared =
+            ccd_linear_speed_threshold * ccd_linear_speed_threshold;
+        out_body_settings.mMotionQuality = linear_speed_squared >= ccd_threshold_squared
+                                               ? JPH::EMotionQuality::LinearCast
+                                               : JPH::EMotionQuality::Discrete;
+    }
+
+    static bool try_get_mesh_vertex_position_offset(
+        const VertexBufferLayout& layout,
+        std::size_t& position_offset_bytes)
+    {
+        for (const auto& attribute : layout.elements)
+        {
+            if (!std::holds_alternative<Vec3>(attribute.type))
+                continue;
+
+            position_offset_bytes = static_cast<std::size_t>(attribute.offset);
             return true;
         }
 
-        static void release_jolt_runtime()
-        {
-            auto lock = std::scoped_lock(g_jolt_runtime_mutex);
-            if (g_jolt_runtime.reference_count == 0)
-                return;
+        return false;
+    }
 
-            --g_jolt_runtime.reference_count;
-            if (g_jolt_runtime.reference_count > 0)
-                return;
-
-            JPH::UnregisterTypes();
-            delete JPH::Factory::sInstance;
-            JPH::Factory::sInstance = nullptr;
-        }
-
-        static JPH::Vec3 to_jolt_vec3(const Vec3& value)
-        {
-            return JPH::Vec3(value.x, value.y, value.z);
-        }
-
-        static JPH::RVec3 to_jolt_rvec3(const Vec3& value)
-        {
-            return JPH::RVec3(value.x, value.y, value.z);
-        }
-
-        static JPH::Quat to_jolt_quat(const Quat& value)
-        {
-            return JPH::Quat(value.x, value.y, value.z, value.w);
-        }
-
-        static Vec3 to_tbx_vec3(JPH::Vec3Arg value)
-        {
-            return Vec3(value.GetX(), value.GetY(), value.GetZ());
-        }
-
-        static Vec3 to_tbx_vec3_from_rvec3(JPH::RVec3Arg value)
-        {
-            return Vec3(
-                static_cast<float>(value.GetX()),
-                static_cast<float>(value.GetY()),
-                static_cast<float>(value.GetZ()));
-        }
-
-        static Quat to_tbx_quat(JPH::QuatArg value)
-        {
-            return Quat(value.GetW(), value.GetX(), value.GetY(), value.GetZ());
-        }
-
-        static float get_vec3_distance_squared(const Vec3& left, const Vec3& right)
-        {
-            const float delta_x = left.x - right.x;
-            const float delta_y = left.y - right.y;
-            const float delta_z = left.z - right.z;
-            return delta_x * delta_x + delta_y * delta_y + delta_z * delta_z;
-        }
-
-        static bool has_transform_changed(
-            const Transform& current,
-            const Vec3& previous_position,
-            const Quat& previous_rotation,
-            const Vec3& previous_scale)
-        {
-            constexpr float position_epsilon_squared = 0.000001F * 0.000001F;
-            constexpr float rotation_dot_epsilon = 0.0001F;
-            constexpr float scale_epsilon_squared = 0.0001F * 0.0001F;
-
-            if (get_vec3_distance_squared(current.position, previous_position)
-                > position_epsilon_squared)
-                return true;
-
-            const Quat current_rotation = normalize(current.rotation);
-            const Quat previous_rotation_normalized = normalize(previous_rotation);
-            const float rotation_dot = std::abs(
-                current_rotation.x * previous_rotation_normalized.x
-                + current_rotation.y * previous_rotation_normalized.y
-                + current_rotation.z * previous_rotation_normalized.z
-                + current_rotation.w * previous_rotation_normalized.w);
-            if ((1.0F - std::min(1.0F, rotation_dot)) > rotation_dot_epsilon)
-                return true;
-
-            if (get_vec3_distance_squared(current.scale, previous_scale) > scale_epsilon_squared)
-                return true;
-
+    static bool try_get_mesh_vertex_positions(
+        const Mesh& mesh,
+        const Vec3& scale,
+        std::vector<JPH::Float3>& positions)
+    {
+        const auto& vertex_values = mesh.vertices.vertices;
+        const auto stride_bytes = static_cast<std::size_t>(mesh.vertices.layout.stride);
+        if (stride_bytes < sizeof(float) * 3U)
             return false;
+
+        std::size_t position_offset_bytes = 0U;
+        if (!try_get_mesh_vertex_position_offset(mesh.vertices.layout, position_offset_bytes))
+            position_offset_bytes = 0U;
+
+        if ((stride_bytes % sizeof(float)) != 0U
+            || (position_offset_bytes % sizeof(float)) != 0U)
+            return false;
+
+        const std::size_t stride_floats = stride_bytes / sizeof(float);
+        const std::size_t position_offset_floats = position_offset_bytes / sizeof(float);
+        if (stride_floats == 0U || position_offset_floats + 2U >= stride_floats)
+            return false;
+
+        if ((vertex_values.size() % stride_floats) != 0U)
+            return false;
+
+        const Vec3 safe_scale = get_safe_scale(scale);
+        const std::size_t vertex_count = vertex_values.size() / stride_floats;
+        positions.clear();
+        positions.reserve(vertex_count);
+        for (std::size_t vertex_index = 0U; vertex_index < vertex_count; ++vertex_index)
+        {
+            const std::size_t base_index =
+                vertex_index * stride_floats + position_offset_floats;
+            positions.push_back(
+                JPH::Float3(
+                    vertex_values[base_index] * safe_scale.x,
+                    vertex_values[base_index + 1U] * safe_scale.y,
+                    vertex_values[base_index + 2U] * safe_scale.z));
         }
 
-        static bool has_scale_changed(const Vec3& current_scale, const Vec3& previous_scale)
+        return !positions.empty();
+    }
+
+    static bool try_append_mesh_geometry(
+        const Mesh& mesh,
+        const Mat4& mesh_transform,
+        const Vec3& mesh_scale,
+        std::vector<JPH::Float3>& positions,
+        std::vector<JPH::IndexedTriangle>& triangles)
+    {
+        const auto& vertex_values = mesh.vertices.vertices;
+        const auto stride_bytes = static_cast<std::size_t>(mesh.vertices.layout.stride);
+        if (stride_bytes < sizeof(float) * 3U)
+            return false;
+
+        std::size_t position_offset_bytes = 0U;
+        if (!try_get_mesh_vertex_position_offset(mesh.vertices.layout, position_offset_bytes))
+            position_offset_bytes = 0U;
+
+        if ((stride_bytes % sizeof(float)) != 0U
+            || (position_offset_bytes % sizeof(float)) != 0U)
+            return false;
+
+        const std::size_t stride_floats = stride_bytes / sizeof(float);
+        const std::size_t position_offset_floats = position_offset_bytes / sizeof(float);
+        if (stride_floats == 0U || position_offset_floats + 2U >= stride_floats)
+            return false;
+
+        if ((vertex_values.size() % stride_floats) != 0U)
+            return false;
+
+        const std::size_t base_vertex_index = positions.size();
+        const Vec3 safe_scale = get_safe_scale(mesh_scale);
+        const std::size_t vertex_count = vertex_values.size() / stride_floats;
+        positions.reserve(base_vertex_index + vertex_count);
+        for (std::size_t vertex_index = 0U; vertex_index < vertex_count; ++vertex_index)
         {
-            constexpr float scale_epsilon_squared = 0.0001F * 0.0001F;
-            return get_vec3_distance_squared(current_scale, previous_scale) > scale_epsilon_squared;
+            const std::size_t base_index =
+                vertex_index * stride_floats + position_offset_floats;
+            const Vec4 local_position = Vec4(
+                vertex_values[base_index],
+                vertex_values[base_index + 1U],
+                vertex_values[base_index + 2U],
+                1.0F);
+            const Vec4 transformed_position = mesh_transform * local_position;
+
+            positions.push_back(
+                JPH::Float3(
+                    transformed_position.x * safe_scale.x,
+                    transformed_position.y * safe_scale.y,
+                    transformed_position.z * safe_scale.z));
         }
 
-        static Vec3 multiply_components(const Vec3& left, const Vec3& right)
+        const auto& mesh_indices = mesh.indices;
+        if (mesh_indices.size() >= 3U)
         {
-            return Vec3(left.x * right.x, left.y * right.y, left.z * right.z);
-        }
-
-        static Vec3 get_safe_normalized(const Vec3& value, const Vec3& fallback)
-        {
-            const float length_squared = value.x * value.x + value.y * value.y + value.z * value.z;
-            if (length_squared <= 0.000001F)
-                return fallback;
-
-            const float inverse_length = 1.0F / std::sqrt(length_squared);
-            return value * inverse_length;
-        }
-
-        static Vec3 calculate_angular_velocity_for_step(
-            const Quat& start_rotation,
-            const Quat& target_rotation,
-            float dt_seconds)
-        {
-            Quat normalized_start = normalize(start_rotation);
-            Quat normalized_target = normalize(target_rotation);
-
-            Quat delta_rotation = normalize(normalized_target * glm::conjugate(normalized_start));
-            if (delta_rotation.w < 0.0F)
-                delta_rotation = -delta_rotation;
-
-            float clamped_w = std::clamp(delta_rotation.w, -1.0F, 1.0F);
-            float half_angle_sine = std::sqrt(std::max(0.0F, 1.0F - clamped_w * clamped_w));
-            if (half_angle_sine <= 0.000001F)
-                return Vec3(0.0F, 0.0F, 0.0F);
-
-            Vec3 axis = Vec3(delta_rotation.x, delta_rotation.y, delta_rotation.z)
-                        * (1.0F / half_angle_sine);
-            float angle_radians = 2.0F * std::atan2(half_angle_sine, clamped_w);
-            return axis * (angle_radians / std::max(0.0001F, dt_seconds));
-        }
-
-        static Vec3 get_safe_scale(const Vec3& scale)
-        {
-            return Vec3(
-                std::max(0.001F, std::abs(scale.x)),
-                std::max(0.001F, std::abs(scale.y)),
-                std::max(0.001F, std::abs(scale.z)));
-        }
-
-        static JPH::RefConst<JPH::Shape> create_box_shape(const CubeCollider& cube)
-        {
-            auto half_extents = JPH::Vec3(
-                std::max(0.001F, cube.half_extents.x),
-                std::max(0.001F, cube.half_extents.y),
-                std::max(0.001F, cube.half_extents.z));
-            return new JPH::BoxShape(half_extents);
-        }
-
-        static JPH::RefConst<JPH::Shape> create_sphere_shape(const SphereCollider& sphere)
-        {
-            float radius = std::max(0.001F, sphere.radius);
-            return new JPH::SphereShape(radius);
-        }
-
-        static JPH::RefConst<JPH::Shape> create_capsule_shape(const CapsuleCollider& capsule)
-        {
-            float radius = std::max(0.001F, capsule.radius);
-            float half_height = std::max(0.001F, capsule.half_height);
-            return new JPH::CapsuleShape(half_height, radius);
-        }
-
-        static void apply_dynamic_body_settings(
-            IPluginHost& host,
-            const Physics& physics,
-            bool is_trigger_only,
-            JPH::BodyCreationSettings& out_body_settings)
-        {
-            out_body_settings.mIsSensor = is_trigger_only;
-            out_body_settings.mAllowSleeping = physics.is_sleep_enabled;
-            out_body_settings.mFriction = physics.friction;
-            out_body_settings.mRestitution = physics.restitution;
-            out_body_settings.mLinearDamping = physics.default_linear_damping;
-            out_body_settings.mAngularDamping = physics.default_angular_damping;
-            out_body_settings.mLinearVelocity = to_jolt_vec3(physics.linear_velocity);
-            out_body_settings.mAngularVelocity = to_jolt_vec3(physics.angular_velocity);
-            out_body_settings.mGravityFactor = physics.is_gravity_enabled ? 1.0F : 0.0F;
-            out_body_settings.mMaxLinearVelocity =
-                std::max(0.0F, host.get_settings().physics.max_linear_velocity.value);
-            out_body_settings.mMaxAngularVelocity =
-                std::max(0.0F, host.get_settings().physics.max_angular_velocity.value);
-            out_body_settings.mOverrideMassProperties =
-                JPH::EOverrideMassProperties::CalculateInertia;
-            out_body_settings.mMassPropertiesOverride.mMass = physics.mass;
-
-            constexpr float ccd_linear_speed_threshold = 8.0F;
-            const float linear_speed_squared =
-                physics.linear_velocity.x * physics.linear_velocity.x
-                + physics.linear_velocity.y * physics.linear_velocity.y
-                + physics.linear_velocity.z * physics.linear_velocity.z;
-            const float ccd_threshold_squared =
-                ccd_linear_speed_threshold * ccd_linear_speed_threshold;
-            out_body_settings.mMotionQuality = linear_speed_squared >= ccd_threshold_squared
-                                                   ? JPH::EMotionQuality::LinearCast
-                                                   : JPH::EMotionQuality::Discrete;
-        }
-
-        static bool try_get_mesh_vertex_position_offset(
-            const VertexBufferLayout& layout,
-            std::size_t& position_offset_bytes)
-        {
-            for (const auto& attribute : layout.elements)
+            const std::size_t triangle_count = mesh_indices.size() / 3U;
+            triangles.reserve(triangles.size() + triangle_count);
+            for (std::size_t triangle_index = 0U; triangle_index < triangle_count;
+                 ++triangle_index)
             {
-                if (!std::holds_alternative<Vec3>(attribute.type))
+                const std::size_t index_base = triangle_index * 3U;
+                const std::size_t index0 = base_vertex_index + mesh_indices[index_base];
+                const std::size_t index1 = base_vertex_index + mesh_indices[index_base + 1U];
+                const std::size_t index2 = base_vertex_index + mesh_indices[index_base + 2U];
+                if (index0 >= positions.size() || index1 >= positions.size()
+                    || index2 >= positions.size())
                     continue;
 
-                position_offset_bytes = static_cast<std::size_t>(attribute.offset);
-                return true;
+                triangles.push_back(
+                    JPH::IndexedTriangle(
+                        static_cast<JPH::uint32>(index0),
+                        static_cast<JPH::uint32>(index1),
+                        static_cast<JPH::uint32>(index2),
+                        0U));
             }
+        }
 
+        return positions.size() > base_vertex_index;
+    }
+
+    static bool try_get_mesh_collider_data(
+        IPluginHost& host,
+        const Entity& entity,
+        const Vec3& scale,
+        std::vector<JPH::Float3>& positions,
+        std::vector<JPH::IndexedTriangle>& triangles)
+    {
+        positions.clear();
+        triangles.clear();
+
+        if (entity.has_component<DynamicMesh>())
+        {
+            const auto& mesh_component = entity.get_component<DynamicMesh>();
+            const auto& mesh_data = mesh_component.data;
+            if (!mesh_data)
+                return false;
+
+            return try_append_mesh_geometry(
+                *mesh_data,
+                Mat4(1.0F),
+                scale,
+                positions,
+                triangles);
+        }
+
+        if (!entity.has_component<StaticMesh>())
             return false;
+
+        const auto& static_mesh = entity.get_component<StaticMesh>();
+        if (!static_mesh.handle.is_valid())
+            return false;
+
+        auto model = host.get_asset_manager().load<Model>(static_mesh.handle);
+        if (!model || model->meshes.empty())
+            return false;
+
+        if (model->parts.empty())
+        {
+            bool has_any_mesh = false;
+            for (const auto& mesh : model->meshes)
+                has_any_mesh |=
+                    try_append_mesh_geometry(mesh, Mat4(1.0F), scale, positions, triangles);
+
+            return has_any_mesh;
         }
 
-        static bool try_get_mesh_vertex_positions(
-            const Mesh& mesh,
-            const Vec3& scale,
-            std::vector<JPH::Float3>& positions)
+        auto has_parent = std::vector<bool>(model->parts.size(), false);
+        for (const auto& part : model->parts)
         {
-            const auto& vertex_values = mesh.vertices.vertices;
-            const auto stride_bytes = static_cast<std::size_t>(mesh.vertices.layout.stride);
-            if (stride_bytes < sizeof(float) * 3U)
-                return false;
-
-            std::size_t position_offset_bytes = 0U;
-            if (!try_get_mesh_vertex_position_offset(mesh.vertices.layout, position_offset_bytes))
-                position_offset_bytes = 0U;
-
-            if ((stride_bytes % sizeof(float)) != 0U
-                || (position_offset_bytes % sizeof(float)) != 0U)
-                return false;
-
-            const std::size_t stride_floats = stride_bytes / sizeof(float);
-            const std::size_t position_offset_floats = position_offset_bytes / sizeof(float);
-            if (stride_floats == 0U || position_offset_floats + 2U >= stride_floats)
-                return false;
-
-            if ((vertex_values.size() % stride_floats) != 0U)
-                return false;
-
-            const Vec3 safe_scale = get_safe_scale(scale);
-            const std::size_t vertex_count = vertex_values.size() / stride_floats;
-            positions.clear();
-            positions.reserve(vertex_count);
-            for (std::size_t vertex_index = 0U; vertex_index < vertex_count; ++vertex_index)
+            for (const auto child_index : part.children)
             {
-                const std::size_t base_index =
-                    vertex_index * stride_floats + position_offset_floats;
-                positions.push_back(
-                    JPH::Float3(
-                        vertex_values[base_index] * safe_scale.x,
-                        vertex_values[base_index + 1U] * safe_scale.y,
-                        vertex_values[base_index + 2U] * safe_scale.z));
+                if (child_index < has_parent.size())
+                    has_parent[child_index] = true;
             }
-
-            return !positions.empty();
         }
 
-        static bool try_append_mesh_geometry(
-            const Mesh& mesh,
-            const Mat4& mesh_transform,
-            const Vec3& mesh_scale,
-            std::vector<JPH::Float3>& positions,
-            std::vector<JPH::IndexedTriangle>& triangles)
+        struct PartQueueEntry
         {
-            const auto& vertex_values = mesh.vertices.vertices;
-            const auto stride_bytes = static_cast<std::size_t>(mesh.vertices.layout.stride);
-            if (stride_bytes < sizeof(float) * 3U)
-                return false;
+            std::size_t part_index = 0U;
+            Mat4 parent_transform = Mat4(1.0F);
+        };
 
-            std::size_t position_offset_bytes = 0U;
-            if (!try_get_mesh_vertex_position_offset(mesh.vertices.layout, position_offset_bytes))
-                position_offset_bytes = 0U;
+        auto queue = std::vector<PartQueueEntry> {};
+        queue.reserve(model->parts.size());
+        for (std::size_t part_index = 0U; part_index < model->parts.size(); ++part_index)
+        {
+            if (has_parent[part_index])
+                continue;
 
-            if ((stride_bytes % sizeof(float)) != 0U
-                || (position_offset_bytes % sizeof(float)) != 0U)
-                return false;
-
-            const std::size_t stride_floats = stride_bytes / sizeof(float);
-            const std::size_t position_offset_floats = position_offset_bytes / sizeof(float);
-            if (stride_floats == 0U || position_offset_floats + 2U >= stride_floats)
-                return false;
-
-            if ((vertex_values.size() % stride_floats) != 0U)
-                return false;
-
-            const std::size_t base_vertex_index = positions.size();
-            const Vec3 safe_scale = get_safe_scale(mesh_scale);
-            const std::size_t vertex_count = vertex_values.size() / stride_floats;
-            positions.reserve(base_vertex_index + vertex_count);
-            for (std::size_t vertex_index = 0U; vertex_index < vertex_count; ++vertex_index)
-            {
-                const std::size_t base_index =
-                    vertex_index * stride_floats + position_offset_floats;
-                const Vec4 local_position = Vec4(
-                    vertex_values[base_index],
-                    vertex_values[base_index + 1U],
-                    vertex_values[base_index + 2U],
-                    1.0F);
-                const Vec4 transformed_position = mesh_transform * local_position;
-
-                positions.push_back(
-                    JPH::Float3(
-                        transformed_position.x * safe_scale.x,
-                        transformed_position.y * safe_scale.y,
-                        transformed_position.z * safe_scale.z));
-            }
-
-            const auto& mesh_indices = mesh.indices;
-            if (mesh_indices.size() >= 3U)
-            {
-                const std::size_t triangle_count = mesh_indices.size() / 3U;
-                triangles.reserve(triangles.size() + triangle_count);
-                for (std::size_t triangle_index = 0U; triangle_index < triangle_count;
-                     ++triangle_index)
-                {
-                    const std::size_t index_base = triangle_index * 3U;
-                    const std::size_t index0 = base_vertex_index + mesh_indices[index_base];
-                    const std::size_t index1 = base_vertex_index + mesh_indices[index_base + 1U];
-                    const std::size_t index2 = base_vertex_index + mesh_indices[index_base + 2U];
-                    if (index0 >= positions.size() || index1 >= positions.size()
-                        || index2 >= positions.size())
-                        continue;
-
-                    triangles.push_back(
-                        JPH::IndexedTriangle(
-                            static_cast<JPH::uint32>(index0),
-                            static_cast<JPH::uint32>(index1),
-                            static_cast<JPH::uint32>(index2),
-                            0U));
-                }
-            }
-
-            return positions.size() > base_vertex_index;
+            queue.push_back(
+                PartQueueEntry {
+                    .part_index = part_index,
+                    .parent_transform = Mat4(1.0F),
+                });
         }
 
-        static bool try_get_mesh_collider_data(
-            IPluginHost& host,
-            const Entity& entity,
-            const Vec3& scale,
-            std::vector<JPH::Float3>& positions,
-            std::vector<JPH::IndexedTriangle>& triangles)
+        if (queue.empty())
         {
-            positions.clear();
-            triangles.clear();
+            queue.push_back(
+                PartQueueEntry {
+                    .part_index = 0U,
+                    .parent_transform = Mat4(1.0F),
+                });
+        }
 
-            if (entity.has_component<DynamicMesh>())
+        auto visited_parts = std::vector<bool>(model->parts.size(), false);
+        bool has_any_part_mesh = false;
+        while (!queue.empty())
+        {
+            const PartQueueEntry current = queue.back();
+            queue.pop_back();
+            if (current.part_index >= model->parts.size())
+                continue;
+
+            if (visited_parts[current.part_index])
+                continue;
+            visited_parts[current.part_index] = true;
+
+            const auto& part = model->parts[current.part_index];
+            const Mat4 part_transform = current.parent_transform * part.transform;
+            if (part.mesh_index < model->meshes.size())
             {
-                const auto& mesh_component = entity.get_component<DynamicMesh>();
-                const auto& mesh_data = mesh_component.data;
-                if (!mesh_data)
-                    return false;
-
-                return try_append_mesh_geometry(
-                    *mesh_data,
-                    Mat4(1.0F),
+                has_any_part_mesh |= try_append_mesh_geometry(
+                    model->meshes[part.mesh_index],
+                    part_transform,
                     scale,
                     positions,
                     triangles);
             }
 
-            if (!entity.has_component<StaticMesh>())
-                return false;
-
-            const auto& static_mesh = entity.get_component<StaticMesh>();
-            if (!static_mesh.handle.is_valid())
-                return false;
-
-            auto model = host.get_asset_manager().load<Model>(static_mesh.handle);
-            if (!model || model->meshes.empty())
-                return false;
-
-            if (model->parts.empty())
-            {
-                bool has_any_mesh = false;
-                for (const auto& mesh : model->meshes)
-                    has_any_mesh |=
-                        try_append_mesh_geometry(mesh, Mat4(1.0F), scale, positions, triangles);
-
-                return has_any_mesh;
-            }
-
-            auto has_parent = std::vector<bool>(model->parts.size(), false);
-            for (const auto& part : model->parts)
-            {
-                for (const auto child_index : part.children)
-                {
-                    if (child_index < has_parent.size())
-                        has_parent[child_index] = true;
-                }
-            }
-
-            struct PartQueueEntry
-            {
-                std::size_t part_index = 0U;
-                Mat4 parent_transform = Mat4(1.0F);
-            };
-
-            auto queue = std::vector<PartQueueEntry> {};
-            queue.reserve(model->parts.size());
-            for (std::size_t part_index = 0U; part_index < model->parts.size(); ++part_index)
-            {
-                if (has_parent[part_index])
-                    continue;
-
-                queue.push_back(
-                    PartQueueEntry {
-                        .part_index = part_index,
-                        .parent_transform = Mat4(1.0F),
-                    });
-            }
-
-            if (queue.empty())
+            for (const auto child_index : part.children)
             {
                 queue.push_back(
                     PartQueueEntry {
-                        .part_index = 0U,
-                        .parent_transform = Mat4(1.0F),
+                        .part_index = child_index,
+                        .parent_transform = part_transform,
                     });
             }
-
-            auto visited_parts = std::vector<bool>(model->parts.size(), false);
-            bool has_any_part_mesh = false;
-            while (!queue.empty())
-            {
-                const PartQueueEntry current = queue.back();
-                queue.pop_back();
-                if (current.part_index >= model->parts.size())
-                    continue;
-
-                if (visited_parts[current.part_index])
-                    continue;
-                visited_parts[current.part_index] = true;
-
-                const auto& part = model->parts[current.part_index];
-                const Mat4 part_transform = current.parent_transform * part.transform;
-                if (part.mesh_index < model->meshes.size())
-                {
-                    has_any_part_mesh |= try_append_mesh_geometry(
-                        model->meshes[part.mesh_index],
-                        part_transform,
-                        scale,
-                        positions,
-                        triangles);
-                }
-
-                for (const auto child_index : part.children)
-                {
-                    queue.push_back(
-                        PartQueueEntry {
-                            .part_index = child_index,
-                            .parent_transform = part_transform,
-                        });
-                }
-            }
-
-            return has_any_part_mesh;
         }
 
-        static JPH::RefConst<JPH::Shape> create_mesh_shape(
-            IPluginHost& host,
-            const Entity& entity,
-            const Transform& transform,
-            bool is_physics_driven)
+        return has_any_part_mesh;
+    }
+
+    static JPH::RefConst<JPH::Shape> create_mesh_shape(
+        IPluginHost& host,
+        const Entity& entity,
+        const Transform& transform,
+        bool is_physics_driven)
+    {
+        const auto& mesh_collider = entity.get_component<MeshCollider>();
+
+        auto positions = std::vector<JPH::Float3> {};
+        auto triangles = std::vector<JPH::IndexedTriangle> {};
+        if (!try_get_mesh_collider_data(host, entity, transform.scale, positions, triangles))
         {
-            const auto& mesh_collider = entity.get_component<MeshCollider>();
+            TBX_TRACE_WARNING(
+                "Jolt physics: MeshCollider on entity {} has no usable mesh geometry, "
+                "using fallback box shape.",
+                to_string(entity.get_id()));
+            return nullptr;
+        }
 
-            auto positions = std::vector<JPH::Float3> {};
-            auto triangles = std::vector<JPH::IndexedTriangle> {};
-            if (!try_get_mesh_collider_data(host, entity, transform.scale, positions, triangles))
+        if (mesh_collider.is_convex || is_physics_driven)
+        {
+            JPH::Array<JPH::Vec3> convex_points = {};
+            convex_points.reserve(static_cast<JPH::uint>(positions.size()));
+            for (const auto& point : positions)
+                convex_points.push_back(JPH::Vec3(point.x, point.y, point.z));
+
+            auto convex_shape_result = JPH::ConvexHullShapeSettings(convex_points).Create();
+            if (convex_shape_result.HasError())
             {
                 TBX_TRACE_WARNING(
-                    "Jolt physics: MeshCollider on entity {} has no usable mesh geometry, "
-                    "using fallback box shape.",
-                    to_string(entity.get_id()));
-                return nullptr;
-            }
-
-            if (mesh_collider.is_convex || is_physics_driven)
-            {
-                JPH::Array<JPH::Vec3> convex_points = {};
-                convex_points.reserve(static_cast<JPH::uint>(positions.size()));
-                for (const auto& point : positions)
-                    convex_points.push_back(JPH::Vec3(point.x, point.y, point.z));
-
-                auto convex_shape_result = JPH::ConvexHullShapeSettings(convex_points).Create();
-                if (convex_shape_result.HasError())
-                {
-                    TBX_TRACE_WARNING(
-                        "Jolt physics: Failed to build convex MeshCollider on entity {}: {}",
-                        to_string(entity.get_id()),
-                        convex_shape_result.GetError().c_str());
-                    return nullptr;
-                }
-
-                return convex_shape_result.Get();
-            }
-
-            if (triangles.empty())
-            {
-                TBX_TRACE_WARNING(
-                    "Jolt physics: Non-convex MeshCollider on entity {} has no triangle index "
-                    "data.",
-                    to_string(entity.get_id()));
-                return nullptr;
-            }
-
-            JPH::VertexList vertex_list = {};
-            vertex_list.reserve(static_cast<JPH::uint>(positions.size()));
-            for (const auto& position : positions)
-                vertex_list.push_back(position);
-
-            JPH::IndexedTriangleList triangle_list = {};
-            triangle_list.reserve(static_cast<JPH::uint>(triangles.size()));
-            for (const auto& triangle : triangles)
-                triangle_list.push_back(triangle);
-
-            auto mesh_shape_result =
-                JPH::MeshShapeSettings(std::move(vertex_list), std::move(triangle_list)).Create();
-            if (mesh_shape_result.HasError())
-            {
-                TBX_TRACE_WARNING(
-                    "Jolt physics: Failed to build mesh MeshCollider on entity {}: {}",
+                    "Jolt physics: Failed to build convex MeshCollider on entity {}: {}",
                     to_string(entity.get_id()),
-                    mesh_shape_result.GetError().c_str());
+                    convex_shape_result.GetError().c_str());
                 return nullptr;
             }
 
-            return mesh_shape_result.Get();
+            return convex_shape_result.Get();
         }
 
-        static bool has_any_collider(const Entity& entity)
+        if (triangles.empty())
         {
-            return entity.has_component<SphereCollider>() || entity.has_component<CapsuleCollider>()
-                   || entity.has_component<CubeCollider>() || entity.has_component<MeshCollider>();
-        }
-
-        static const ColliderTrigger* try_get_trigger_collider(const Entity& entity)
-        {
-            if (entity.has_component<SphereCollider>())
-                return &entity.get_component<SphereCollider>().trigger;
-
-            if (entity.has_component<CapsuleCollider>())
-                return &entity.get_component<CapsuleCollider>().trigger;
-
-            if (entity.has_component<CubeCollider>())
-                return &entity.get_component<CubeCollider>().trigger;
-
-            if (entity.has_component<MeshCollider>())
-                return &entity.get_component<MeshCollider>().trigger;
-
+            TBX_TRACE_WARNING(
+                "Jolt physics: Non-convex MeshCollider on entity {} has no triangle index "
+                "data.",
+                to_string(entity.get_id()));
             return nullptr;
         }
 
-        static ColliderTrigger* try_get_trigger_collider(Entity& entity)
+        JPH::VertexList vertex_list = {};
+        vertex_list.reserve(static_cast<JPH::uint>(positions.size()));
+        for (const auto& position : positions)
+            vertex_list.push_back(position);
+
+        JPH::IndexedTriangleList triangle_list = {};
+        triangle_list.reserve(static_cast<JPH::uint>(triangles.size()));
+        for (const auto& triangle : triangles)
+            triangle_list.push_back(triangle);
+
+        auto mesh_shape_result =
+            JPH::MeshShapeSettings(std::move(vertex_list), std::move(triangle_list)).Create();
+        if (mesh_shape_result.HasError())
         {
-            if (entity.has_component<SphereCollider>())
-                return &entity.get_component<SphereCollider>().trigger;
-
-            if (entity.has_component<CapsuleCollider>())
-                return &entity.get_component<CapsuleCollider>().trigger;
-
-            if (entity.has_component<CubeCollider>())
-                return &entity.get_component<CubeCollider>().trigger;
-
-            if (entity.has_component<MeshCollider>())
-                return &entity.get_component<MeshCollider>().trigger;
-
+            TBX_TRACE_WARNING(
+                "Jolt physics: Failed to build mesh MeshCollider on entity {}: {}",
+                to_string(entity.get_id()),
+                mesh_shape_result.GetError().c_str());
             return nullptr;
         }
 
-        static bool is_trigger_only_collider(const Entity& entity)
+        return mesh_shape_result.Get();
+    }
+
+    static bool has_any_collider(const Entity& entity)
+    {
+        return entity.has_component<SphereCollider>() || entity.has_component<CapsuleCollider>()
+               || entity.has_component<CubeCollider>() || entity.has_component<MeshCollider>();
+    }
+
+    static const ColliderTrigger* try_get_trigger_collider(const Entity& entity)
+    {
+        if (entity.has_component<SphereCollider>())
+            return &entity.get_component<SphereCollider>().trigger;
+
+        if (entity.has_component<CapsuleCollider>())
+            return &entity.get_component<CapsuleCollider>().trigger;
+
+        if (entity.has_component<CubeCollider>())
+            return &entity.get_component<CubeCollider>().trigger;
+
+        if (entity.has_component<MeshCollider>())
+            return &entity.get_component<MeshCollider>().trigger;
+
+        return nullptr;
+    }
+
+    static ColliderTrigger* try_get_trigger_collider(Entity& entity)
+    {
+        if (entity.has_component<SphereCollider>())
+            return &entity.get_component<SphereCollider>().trigger;
+
+        if (entity.has_component<CapsuleCollider>())
+            return &entity.get_component<CapsuleCollider>().trigger;
+
+        if (entity.has_component<CubeCollider>())
+            return &entity.get_component<CubeCollider>().trigger;
+
+        if (entity.has_component<MeshCollider>())
+            return &entity.get_component<MeshCollider>().trigger;
+
+        return nullptr;
+    }
+
+    static bool is_trigger_only_collider(const Entity& entity)
+    {
+        const ColliderTrigger* trigger = try_get_trigger_collider(entity);
+        if (trigger == nullptr)
+            return false;
+
+        return trigger->is_trigger_only;
+    }
+
+    static JPH::RefConst<JPH::Shape> create_shape_for_entity(
+        IPluginHost& host,
+        const Entity& entity,
+        const Transform& transform,
+        bool is_physics_driven)
+    {
+        if (entity.has_component<SphereCollider>())
+            return create_sphere_shape(entity.get_component<SphereCollider>());
+
+        if (entity.has_component<CapsuleCollider>())
+            return create_capsule_shape(entity.get_component<CapsuleCollider>());
+
+        if (entity.has_component<CubeCollider>())
+            return create_box_shape(entity.get_component<CubeCollider>());
+
+        if (entity.has_component<MeshCollider>())
         {
-            const ColliderTrigger* trigger = try_get_trigger_collider(entity);
-            if (trigger == nullptr)
-                return false;
-
-            return trigger->is_trigger_only;
-        }
-
-        static JPH::RefConst<JPH::Shape> create_shape_for_entity(
-            IPluginHost& host,
-            const Entity& entity,
-            const Transform& transform,
-            bool is_physics_driven)
-        {
-            if (entity.has_component<SphereCollider>())
-                return create_sphere_shape(entity.get_component<SphereCollider>());
-
-            if (entity.has_component<CapsuleCollider>())
-                return create_capsule_shape(entity.get_component<CapsuleCollider>());
-
-            if (entity.has_component<CubeCollider>())
-                return create_box_shape(entity.get_component<CubeCollider>());
-
-            if (entity.has_component<MeshCollider>())
-            {
-                JPH::RefConst<JPH::Shape> mesh_shape =
-                    create_mesh_shape(host, entity, transform, is_physics_driven);
-                if (mesh_shape)
-                    return mesh_shape;
-
-                return new JPH::BoxShape(JPH::Vec3(0.5F, 0.5F, 0.5F));
-            }
-
-            if (!entity.has_component<Physics>())
-                return nullptr;
+            JPH::RefConst<JPH::Shape> mesh_shape =
+                create_mesh_shape(host, entity, transform, is_physics_driven);
+            if (mesh_shape)
+                return mesh_shape;
 
             return new JPH::BoxShape(JPH::Vec3(0.5F, 0.5F, 0.5F));
         }
 
-        static JPH::EMotionType get_motion_type(const Physics& physics)
-        {
-            if (physics.is_kinematic)
-                return JPH::EMotionType::Kinematic;
+        if (!entity.has_component<Physics>())
+            return nullptr;
 
-            return JPH::EMotionType::Dynamic;
-        }
+        return new JPH::BoxShape(JPH::Vec3(0.5F, 0.5F, 0.5F));
+    }
+
+    static JPH::EMotionType get_motion_type(const Physics& physics)
+    {
+        if (physics.is_kinematic)
+            return JPH::EMotionType::Kinematic;
+
+        return JPH::EMotionType::Dynamic;
     }
 
     JoltPhysicsPlugin::~JoltPhysicsPlugin() = default;

@@ -46,39 +46,39 @@ namespace tbx::examples
 
         auto wallf_ent = Entity("Wall_F", ent_registry);
         wallf_ent.add_component<Renderer>();
-        wallf_ent.add_component<DynamicMesh>(quad);
-        wallf_ent.add_component<MeshCollider>();
+        wallf_ent.add_component<DynamicMesh>(cube);
+        wallf_ent.add_component<CubeCollider>(Vec3(22.5F, 5.5F, 0.75F));
         wallf_ent.add_component<Transform>(
             Vec3(0.0F, 5.0F, -20.0F),
-            to_radians(Vec3(0.0F, 0.0F, 0.0F)),
-            Vec3(45.0F, 11.0F, 1.0F));
+            Quat(Vec3(0.0F, 0.0F, 0.0F)),
+            Vec3(45.0F, 11.0F, 1.5F));
 
         auto walll_ent = Entity("Wall_L", ent_registry);
         walll_ent.add_component<Renderer>();
-        walll_ent.add_component<DynamicMesh>(quad);
-        walll_ent.add_component<MeshCollider>();
+        walll_ent.add_component<DynamicMesh>(cube);
+        walll_ent.add_component<CubeCollider>(Vec3(0.75F, 5.5F, 22.5F));
         walll_ent.add_component<Transform>(
             Vec3(-20.0F, 5.0F, 0.0F),
-            to_radians(Vec3(0.0F, 90.0F, 0.0F)),
-            Vec3(45.0F, 11.0F, 1.0F));
+            Quat(Vec3(0.0F, 0.0F, 0.0F)),
+            Vec3(1.5F, 11.0F, 45.0F));
 
         auto wallr_ent = Entity("Wall_R", ent_registry);
         wallr_ent.add_component<Renderer>();
-        wallr_ent.add_component<DynamicMesh>(quad);
-        wallr_ent.add_component<MeshCollider>();
+        wallr_ent.add_component<DynamicMesh>(cube);
+        wallr_ent.add_component<CubeCollider>(Vec3(0.75F, 5.5F, 22.5F));
         wallr_ent.add_component<Transform>(
             Vec3(20.0F, 5.0F, 0.0F),
-            to_radians(Vec3(0.0F, -90.0F, 0.0F)),
-            Vec3(45.0F, 11.0F, 1.0F));
+            Quat(Vec3(0.0F, 0.0F, 0.0F)),
+            Vec3(1.5F, 11.0F, 45.0F));
 
         auto wallb_ent = Entity("Wall_B", ent_registry);
         wallb_ent.add_component<Renderer>();
-        wallb_ent.add_component<DynamicMesh>(quad);
-        wallb_ent.add_component<MeshCollider>();
+        wallb_ent.add_component<DynamicMesh>(cube);
+        wallb_ent.add_component<CubeCollider>(Vec3(22.5F, 5.5F, 0.75F));
         wallb_ent.add_component<Transform>(
             Vec3(0.0F, 5.0F, 20.0F),
-            to_radians(Vec3(0.0F, 180.0F, 0.0F)),
-            Vec3(45.0F, 11.0F, 1.0F));
+            Quat(Vec3(0.0F, 0.0F, 0.0F)),
+            Vec3(45.0F, 11.0F, 1.5F));
 
         auto falling_sphere = Entity("FallingSphere", ent_registry);
         falling_sphere.add_component<Renderer>(MaterialInstance {

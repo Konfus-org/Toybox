@@ -152,7 +152,7 @@ float sample_shadow_visibility(
     float rotation = hash_value * 6.2831853;
     mat2 rotation_matrix = mat2(cos(rotation), -sin(rotation), sin(rotation), cos(rotation));
 
-    const int max_sample_count = 8;
+    const int max_sample_count = 12;
     int clamped_sample_count = clamp(sample_count, 1, max_sample_count);
     float visibility = 0.0;
     for (int index = 0; index < max_sample_count; ++index)
@@ -224,9 +224,12 @@ float calculate_directional_shadow_bias(int shadow_map_index, float ndotl, float
 {
     vec2 texel_size = 1.0 / vec2(textureSize(u_shadow_maps[shadow_map_index], 0));
     float max_texel_size = max(texel_size.x, texel_size.y);
-    float slope_factor = 1.0 - clamp(ndotl, 0.0, 1.0);
-    float slope_bias = max(0.00003 * cascade_scale * slope_factor, 0.00001);
-    float texel_bias = max_texel_size * (1.5 * cascade_scale);
+    float clamped_ndotl = clamp(ndotl, 0.0, 1.0);
+    float slope_radians = acos(max(clamped_ndotl, 0.0001));
+    float slope_scale = clamp(tan(slope_radians), 0.0, 2.5);
+    float slope_bias = max(0.000015 * cascade_scale, 0.000003)
+                       + (0.000045 * cascade_scale * slope_scale);
+    float texel_bias = max_texel_size * (0.9 * cascade_scale);
     return slope_bias + texel_bias;
 }
 
@@ -253,7 +256,7 @@ vec3 evaluate_directional_light(
     if (base_shadow_map_index >= 0)
     {
         float ndotl = clamp(dot(normal, light_direction), 0.0, 1.0);
-        vec3 shadow_position = world_position + (normal * 0.0008);
+        vec3 shadow_position = world_position + (normal * 0.00045);
 
         if (base_shadow_map_index + (DIRECTIONAL_SHADOW_CASCADE_COUNT - 1) < u_shadow_map_count)
         {
@@ -295,7 +298,7 @@ vec3 evaluate_directional_light(
                     near_bias,
                     world_position,
                     1.0,
-                    8);
+                    12);
             }
 
             float far_visibility = 1.0;
@@ -308,7 +311,7 @@ vec3 evaluate_directional_light(
                     far_bias,
                     world_position,
                     1.0,
-                    8);
+                    12);
             }
 
             float blended_visibility = 1.0;
@@ -330,7 +333,7 @@ vec3 evaluate_directional_light(
                 base_bias,
                 world_position,
                 1.0,
-                8);
+                12);
             shadow_visibility = mix(0.15, 1.0, pcf_visibility);
         }
     }
