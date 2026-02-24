@@ -267,71 +267,42 @@ namespace tbx::plugins
             frustum_center += corner;
         frustum_center /= static_cast<float>(frustum_corners.size());
 
+        float frustum_radius = 0.0F;
+        for (const auto& corner : frustum_corners)
+            frustum_radius = std::max(frustum_radius, length(corner - frustum_center));
+        frustum_radius = std::max(frustum_radius, 0.001F);
+
         auto direction_to_light = normalize(directional_light_direction);
-        auto light_position = frustum_center + (direction_to_light * safe_shadow_far_plane);
+        auto light_position = frustum_center + (direction_to_light * frustum_radius);
 
         auto light_up_axis = Vec3(0.0f, 1.0f, 0.0f);
         if (std::abs(dot(direction_to_light, light_up_axis)) > 0.95f)
             light_up_axis = Vec3(1.0f, 0.0f, 0.0f);
 
         auto light_view = look_at(light_position, frustum_center, light_up_axis);
-        float min_x = std::numeric_limits<float>::max();
-        float max_x = std::numeric_limits<float>::lowest();
-        float min_y = std::numeric_limits<float>::max();
-        float max_y = std::numeric_limits<float>::lowest();
-        float min_z = std::numeric_limits<float>::max();
-        float max_z = std::numeric_limits<float>::lowest();
-
-        for (const auto& corner : frustum_corners)
-        {
-            const auto light_space_corner = light_view * Vec4(corner, 1.0F);
-            min_x = std::min(min_x, light_space_corner.x);
-            max_x = std::max(max_x, light_space_corner.x);
-            min_y = std::min(min_y, light_space_corner.y);
-            max_y = std::max(max_y, light_space_corner.y);
-            min_z = std::min(min_z, light_space_corner.z);
-            max_z = std::max(max_z, light_space_corner.z);
-        }
-
         const float map_resolution =
             std::max(1.0F, static_cast<float>(shadow_settings.shadow_map_resolution));
-        float width = std::max(max_x - min_x, 0.001F);
-        float height = std::max(max_y - min_y, 0.001F);
-        const float coarse_texel_size_x = width / map_resolution;
-        const float coarse_texel_size_y = height / map_resolution;
-        const float coarse_texel_size = std::max(coarse_texel_size_x, coarse_texel_size_y);
-        const float padding = std::max(
-            std::max(width, height) * DIRECTIONAL_SHADOW_XY_PADDING_RATIO,
-            coarse_texel_size * DIRECTIONAL_SHADOW_MIN_PADDING_TEXELS);
-        min_x -= padding;
-        max_x += padding;
-        min_y -= padding;
-        max_y += padding;
-        width = std::max(max_x - min_x, 0.001F);
-        height = std::max(max_y - min_y, 0.001F);
-        const float stabilized_extent = std::max(width, height);
-        const float stabilized_center_x = (min_x + max_x) * 0.5F;
-        const float stabilized_center_y = (min_y + max_y) * 0.5F;
-        min_x = stabilized_center_x - (stabilized_extent * 0.5F);
-        max_x = stabilized_center_x + (stabilized_extent * 0.5F);
-        min_y = stabilized_center_y - (stabilized_extent * 0.5F);
-        max_y = stabilized_center_y + (stabilized_extent * 0.5F);
-        width = stabilized_extent;
-        height = stabilized_extent;
-        const float texel_size_x = width / map_resolution;
-        const float texel_size_y = height / map_resolution;
-        float center_x = (min_x + max_x) * 0.5F;
-        float center_y = (min_y + max_y) * 0.5F;
-        center_x = std::floor(center_x / texel_size_x) * texel_size_x;
-        center_y = std::floor(center_y / texel_size_y) * texel_size_y;
-        min_x = center_x - (width * 0.5F);
-        max_x = center_x + (width * 0.5F);
-        min_y = center_y - (height * 0.5F);
-        max_y = center_y + (height * 0.5F);
+        const float base_diameter = std::max(frustum_radius * 2.0F, 0.001F);
+        const float base_texel_size = base_diameter / map_resolution;
+        const float radius_padding = std::max(
+            frustum_radius * DIRECTIONAL_SHADOW_XY_PADDING_RATIO,
+            base_texel_size * DIRECTIONAL_SHADOW_MIN_PADDING_TEXELS);
+        const float stabilized_radius = frustum_radius + radius_padding;
+        const float stabilized_diameter = stabilized_radius * 2.0F;
+        const float texel_size = std::max(0.000001F, stabilized_diameter / map_resolution);
+        const auto light_space_center = light_view * Vec4(frustum_center, 1.0F);
+        const float snapped_center_x = std::round(light_space_center.x / texel_size) * texel_size;
+        const float snapped_center_y = std::round(light_space_center.y / texel_size) * texel_size;
+        const float min_x = snapped_center_x - stabilized_radius;
+        const float max_x = snapped_center_x + stabilized_radius;
+        const float min_y = snapped_center_y - stabilized_radius;
+        const float max_y = snapped_center_y + stabilized_radius;
 
         const float z_padding = std::max(0.1F, safe_shadow_far_plane * 0.1F);
-        const float near_plane = std::max(0.001F, -max_z - z_padding);
-        const float far_plane = std::max(near_plane + 0.001F, -min_z + z_padding);
+        const float near_plane =
+            std::max(0.001F, -light_space_center.z - stabilized_radius - z_padding);
+        const float far_plane =
+            std::max(near_plane + 0.001F, -light_space_center.z + stabilized_radius + z_padding);
         auto light_projection = ortho_projection(min_x, max_x, min_y, max_y, near_plane, far_plane);
         return light_projection * light_view;
     }
