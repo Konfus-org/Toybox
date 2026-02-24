@@ -33,7 +33,7 @@ read_meta_id("resources/Materials/DefaultUnlit.mat.meta" unlit_material_id)
 read_meta_id("resources/Shaders/DeferredGeometry.vert.meta" deferred_geometry_vertex_shader_id)
 read_meta_id("resources/Shaders/DeferredGeometry.frag.meta" deferred_geometry_fragment_shader_id)
 read_meta_id("resources/Shaders/DeferredLighting.vert.meta" deferred_lighting_vertex_shader_id)
-read_meta_id("resources/Shaders/DeferredLighting.frag.meta" deferred_lighting_fragment_shader_id)
+read_meta_id("resources/Shaders/DererredLighting.frag.meta" deferred_lighting_fragment_shader_id)
 read_meta_id("resources/Materials/DeferredLighting.mat.meta" deferred_lighting_material_id)
 read_meta_id("resources/Icons/Box.png.meta" box_icon_id)
 

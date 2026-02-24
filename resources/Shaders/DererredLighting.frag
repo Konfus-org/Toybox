@@ -150,15 +150,17 @@ float sample_shadow_visibility(
     return visibility / max(sample_counter, 1.0);
 }
 
-float sample_projected_shadow_visibility(
+bool try_sample_projected_shadow_visibility(
     int shadow_map_index,
     vec4 light_space_position,
     float bias,
     float softness_scale,
-    int kernel_radius)
+    int kernel_radius,
+    out float out_visibility)
 {
+    out_visibility = 1.0;
     if (shadow_map_index < 0 || shadow_map_index >= u_shadow_map_count)
-        return 1.0;
+        return false;
 
     vec3 projected = light_space_position.xyz / max(light_space_position.w, 0.0001);
     float current_depth = projected.z * 0.5 + 0.5;
@@ -167,17 +169,36 @@ float sample_projected_shadow_visibility(
         || projected.y > (1.0 + SHADOW_CLIP_EPSILON)
         || current_depth < (-SHADOW_CLIP_EPSILON)
         || current_depth > (1.0 + SHADOW_CLIP_EPSILON))
-        return 1.0;
+        return false;
 
     vec2 shadow_uv = clamp(projected.xy * 0.5 + 0.5, vec2(0.0), vec2(1.0));
     current_depth = clamp(current_depth, 0.0, 1.0);
-    return sample_shadow_visibility(
+    out_visibility = sample_shadow_visibility(
         shadow_map_index,
         shadow_uv,
         current_depth,
         bias,
         softness_scale,
         kernel_radius);
+    return true;
+}
+
+float sample_projected_shadow_visibility(
+    int shadow_map_index,
+    vec4 light_space_position,
+    float bias,
+    float softness_scale,
+    int kernel_radius)
+{
+    float visibility = 1.0;
+    try_sample_projected_shadow_visibility(
+        shadow_map_index,
+        light_space_position,
+        bias,
+        softness_scale,
+        kernel_radius,
+        visibility);
+    return visibility;
 }
 
 vec3 apply_shadow_normal_offset(
@@ -192,6 +213,88 @@ vec3 apply_shadow_normal_offset(
     return world_position + (normal * offset);
 }
 
+vec3 evaluate_lighting_brdf(
+    vec3 normal,
+    vec3 view_direction,
+    vec3 light_direction,
+    vec3 albedo,
+    vec3 light_color,
+    float light_intensity,
+    float specular_strength,
+    float shininess)
+{
+    float diffuse_term = max(dot(normal, light_direction), 0.0);
+    vec3 half_direction = safe_normalize(light_direction + view_direction, normal);
+    float specular_term = pow(max(dot(normal, half_direction), 0.0), shininess) * specular_strength;
+    vec3 diffuse = albedo * light_color * light_intensity * diffuse_term * 0.35;
+    vec3 specular = light_color * light_intensity * specular_term;
+    return diffuse + specular;
+}
+
+bool try_sample_light_shadow_visibility(
+    int shadow_map_index,
+    vec3 world_position,
+    vec3 normal,
+    vec3 light_direction,
+    float bias_scale,
+    float min_bias,
+    float normal_offset_base,
+    float normal_offset_slope,
+    float softness_scale,
+    int kernel_radius,
+    out float out_visibility)
+{
+    out_visibility = 1.0;
+    if (shadow_map_index < 0 || shadow_map_index >= u_shadow_map_count)
+        return false;
+
+    float ndotl = clamp(dot(normal, light_direction), 0.0, 1.0);
+    float bias = max(bias_scale * (1.0 - ndotl), min_bias);
+    vec3 shadow_position = apply_shadow_normal_offset(
+        world_position,
+        normal,
+        ndotl,
+        normal_offset_base,
+        normal_offset_slope);
+    vec4 light_space_position =
+        u_light_view_projection_matrices[shadow_map_index] * vec4(shadow_position, 1.0);
+    return try_sample_projected_shadow_visibility(
+        shadow_map_index,
+        light_space_position,
+        bias,
+        softness_scale,
+        kernel_radius,
+        out_visibility);
+}
+
+float sample_light_shadow_visibility(
+    int shadow_map_index,
+    vec3 world_position,
+    vec3 normal,
+    vec3 light_direction,
+    float bias_scale,
+    float min_bias,
+    float normal_offset_base,
+    float normal_offset_slope,
+    float softness_scale,
+    int kernel_radius)
+{
+    float visibility = 1.0;
+    try_sample_light_shadow_visibility(
+        shadow_map_index,
+        world_position,
+        normal,
+        light_direction,
+        bias_scale,
+        min_bias,
+        normal_offset_base,
+        normal_offset_slope,
+        softness_scale,
+        kernel_radius,
+        visibility);
+    return visibility;
+}
+
 vec3 evaluate_directional_light(
     DirectionalLight light,
     vec3 world_position,
@@ -202,73 +305,125 @@ vec3 evaluate_directional_light(
     float shininess)
 {
     vec3 light_direction = safe_normalize(light.direction, vec3(0.0, 0.0, -1.0));
-    float diffuse_term = max(dot(normal, light_direction), 0.0);
-    vec3 half_direction = safe_normalize(light_direction + view_direction, normal);
-    float specular_term = pow(max(dot(normal, half_direction), 0.0), shininess) * specular_strength;
-
-    vec3 diffuse = albedo * light.color * light.intensity * diffuse_term * 0.35;
-    vec3 specular = light.color * light.intensity * specular_term;
     vec3 ambient = albedo * light.color * max(light.ambient, 0.0);
+    vec3 direct = evaluate_lighting_brdf(
+        normal,
+        view_direction,
+        light_direction,
+        albedo,
+        light.color,
+        light.intensity,
+        specular_strength,
+        shininess);
 
     float shadow_visibility = 1.0;
     int base_shadow_map_index = light.shadow_map_index;
     if (base_shadow_map_index >= 0)
     {
-        int selected_shadow_map_index = base_shadow_map_index;
-        float softness_scale = 1.0;
-        bool should_blend_cascades = false;
-        int next_shadow_map_index = base_shadow_map_index;
-        float cascade_blend_t = 0.0;
-        if (base_shadow_map_index + (DIRECTIONAL_SHADOW_CASCADE_COUNT - 1) < u_shadow_map_count)
-        {
-            float view_depth = max(dot(world_position - u_camera_position, u_camera_forward), 0.0);
-            float split_depth = max(u_cascade_splits[0], 0.0001);
-            float transition_distance =
-                max(split_depth * DIRECTIONAL_CASCADE_TRANSITION_RATIO, 0.0001);
-            float transition_start = max(split_depth - transition_distance, 0.0);
-            int cascade_index = view_depth <= split_depth ? 0 : 1;
-            selected_shadow_map_index = base_shadow_map_index + cascade_index;
-            softness_scale = cascade_index == 0 ? 0.8 : 1.0;
-            if (view_depth > transition_start && view_depth < split_depth)
-            {
-                should_blend_cascades = true;
-                next_shadow_map_index = base_shadow_map_index + 1;
-                cascade_blend_t = clamp(
-                    (view_depth - transition_start) / max(split_depth - transition_start, 0.0001),
-                    0.0,
-                    1.0);
-            }
-        }
+        const int cascade0_shadow_map_index = base_shadow_map_index;
+        const int cascade1_shadow_map_index = base_shadow_map_index + 1;
+        const bool has_second_cascade =
+            cascade1_shadow_map_index < u_shadow_map_count && DIRECTIONAL_SHADOW_CASCADE_COUNT > 1;
+        const float cascade0_softness = 0.9;
+        const float cascade1_softness = 1.0;
+        const float view_depth = max(dot(world_position - u_camera_position, u_camera_forward), 0.0);
+        float pcf_visibility = 1.0;
 
-        float ndotl = clamp(dot(normal, light_direction), 0.0, 1.0);
-        float bias = max(0.00025 * (1.0 - ndotl), 0.00003);
-        vec3 shadow_position = apply_shadow_normal_offset(
-            world_position,
-            normal,
-            ndotl,
-            0.0018,
-            0.0085);
-        float pcf_visibility = sample_projected_shadow_visibility(
-            selected_shadow_map_index,
-            u_light_view_projection_matrices[selected_shadow_map_index] * vec4(shadow_position, 1.0),
-            bias,
-            softness_scale,
-            DIRECTIONAL_PCF_KERNEL_RADIUS);
-        if (should_blend_cascades)
+        if (!has_second_cascade)
         {
-            float next_cascade_visibility = sample_projected_shadow_visibility(
-                next_shadow_map_index,
-                u_light_view_projection_matrices[next_shadow_map_index]
-                    * vec4(shadow_position, 1.0),
-                bias,
-                1.0,
+            pcf_visibility = sample_light_shadow_visibility(
+                cascade0_shadow_map_index,
+                world_position,
+                normal,
+                light_direction,
+                0.00025,
+                0.00003,
+                0.0018,
+                0.0085,
+                cascade0_softness,
                 DIRECTIONAL_PCF_KERNEL_RADIUS);
-            pcf_visibility = mix(pcf_visibility, next_cascade_visibility, cascade_blend_t);
+        }
+        else
+        {
+            const float split_depth = max(u_cascade_splits[0], 0.0001);
+            const float blend_width =
+                max(split_depth * DIRECTIONAL_CASCADE_TRANSITION_RATIO, 0.0001);
+            const float blend_half_width = blend_width * 0.5;
+            const float blend_start = max(0.0, split_depth - blend_half_width);
+            const float blend_end = split_depth + blend_half_width;
+
+            if (view_depth <= blend_start)
+            {
+                pcf_visibility = sample_light_shadow_visibility(
+                    cascade0_shadow_map_index,
+                    world_position,
+                    normal,
+                    light_direction,
+                    0.00025,
+                    0.00003,
+                    0.0018,
+                    0.0085,
+                    cascade0_softness,
+                    DIRECTIONAL_PCF_KERNEL_RADIUS);
+            }
+            else if (view_depth >= blend_end)
+            {
+                pcf_visibility = sample_light_shadow_visibility(
+                    cascade1_shadow_map_index,
+                    world_position,
+                    normal,
+                    light_direction,
+                    0.00025,
+                    0.00003,
+                    0.0018,
+                    0.0085,
+                    cascade1_softness,
+                    DIRECTIONAL_PCF_KERNEL_RADIUS);
+            }
+            else
+            {
+                const float cascade_blend_t = smoothstep(blend_start, blend_end, view_depth);
+                const float blend_softness =
+                    mix(cascade0_softness, cascade1_softness, cascade_blend_t);
+                float cascade0_visibility = 1.0;
+                float cascade1_visibility = 1.0;
+                const bool has_cascade0_visibility = try_sample_light_shadow_visibility(
+                    cascade0_shadow_map_index,
+                    world_position,
+                    normal,
+                    light_direction,
+                    0.00025,
+                    0.00003,
+                    0.0018,
+                    0.0085,
+                    blend_softness,
+                    DIRECTIONAL_PCF_KERNEL_RADIUS,
+                    cascade0_visibility);
+                const bool has_cascade1_visibility = try_sample_light_shadow_visibility(
+                    cascade1_shadow_map_index,
+                    world_position,
+                    normal,
+                    light_direction,
+                    0.00025,
+                    0.00003,
+                    0.0018,
+                    0.0085,
+                    blend_softness,
+                    DIRECTIONAL_PCF_KERNEL_RADIUS,
+                    cascade1_visibility);
+
+                if (has_cascade0_visibility && has_cascade1_visibility)
+                    pcf_visibility = mix(cascade0_visibility, cascade1_visibility, cascade_blend_t);
+                else if (has_cascade0_visibility)
+                    pcf_visibility = cascade0_visibility;
+                else if (has_cascade1_visibility)
+                    pcf_visibility = cascade1_visibility;
+            }
         }
         shadow_visibility = mix(0.15, 1.0, pcf_visibility);
     }
 
-    return ambient + ((diffuse + specular) * shadow_visibility);
+    return ambient + (direct * shadow_visibility);
 }
 
 vec3 evaluate_point_light(
@@ -287,33 +442,39 @@ vec3 evaluate_point_light(
 
     vec3 light_direction = to_light / max(distance_to_light, 0.0001);
     float attenuation = calc_distance_attenuation(distance_to_light, light.range);
-    float diffuse_term = max(dot(normal, light_direction), 0.0);
-    vec3 half_direction = safe_normalize(light_direction + view_direction, normal);
-    float specular_term = pow(max(dot(normal, half_direction), 0.0), shininess) * specular_strength;
+    vec3 direct = evaluate_lighting_brdf(
+        normal,
+        view_direction,
+        light_direction,
+        albedo,
+        light.color,
+        light.intensity,
+        specular_strength,
+        shininess);
 
     float shadow_visibility = 1.0;
     int base_shadow_map_index = light.shadow_map_index;
-    if (base_shadow_map_index >= 0 && base_shadow_map_index + (POINT_SHADOW_FACE_COUNT - 1) < u_shadow_map_count)
+    if (base_shadow_map_index >= 0
+        && base_shadow_map_index + (POINT_SHADOW_FACE_COUNT - 1) < u_shadow_map_count)
     {
         vec3 light_to_fragment = world_position - light.position;
         int face_index = select_point_shadow_face_index(light_to_fragment);
         int shadow_map_index = base_shadow_map_index + face_index;
-        float ndotl = clamp(dot(normal, light_direction), 0.0, 1.0);
-        float bias = max(0.0009 * (1.0 - ndotl), 0.0002);
-        vec3 shadow_position =
-            apply_shadow_normal_offset(world_position, normal, ndotl, 0.003, 0.012);
-        float pcf_visibility = sample_projected_shadow_visibility(
+        float pcf_visibility = sample_light_shadow_visibility(
             shadow_map_index,
-            u_light_view_projection_matrices[shadow_map_index] * vec4(shadow_position, 1.0),
-            bias,
+            world_position,
+            normal,
+            light_direction,
+            0.0009,
+            0.0002,
+            0.003,
+            0.012,
             0.8,
             LOCAL_PCF_KERNEL_RADIUS);
         shadow_visibility = mix(0.2, 1.0, pcf_visibility);
     }
 
-    vec3 diffuse = albedo * light.color * light.intensity * diffuse_term * 0.35;
-    vec3 specular = light.color * light.intensity * specular_term;
-    return (diffuse + specular) * attenuation * shadow_visibility;
+    return direct * attenuation * shadow_visibility;
 }
 
 vec3 evaluate_spot_light(
@@ -341,30 +502,35 @@ vec3 evaluate_spot_light(
         0.0,
         1.0);
     float attenuation = calc_distance_attenuation(distance_to_light, light.range) * cone;
-    float diffuse_term = max(dot(normal, light_direction), 0.0);
-    vec3 half_direction = safe_normalize(light_direction + view_direction, normal);
-    float specular_term = pow(max(dot(normal, half_direction), 0.0), shininess) * specular_strength;
+    vec3 direct = evaluate_lighting_brdf(
+        normal,
+        view_direction,
+        light_direction,
+        albedo,
+        light.color,
+        light.intensity,
+        specular_strength,
+        shininess);
 
     float shadow_visibility = 1.0;
     int shadow_map_index = light.shadow_map_index;
     if (shadow_map_index >= 0)
     {
-        float ndotl = clamp(dot(normal, light_direction), 0.0, 1.0);
-        float bias = max(0.00045 * (1.0 - ndotl), 0.00008);
-        vec3 shadow_position =
-            apply_shadow_normal_offset(world_position, normal, ndotl, 0.0022, 0.009);
-        float pcf_visibility = sample_projected_shadow_visibility(
+        float pcf_visibility = sample_light_shadow_visibility(
             shadow_map_index,
-            u_light_view_projection_matrices[shadow_map_index] * vec4(shadow_position, 1.0),
-            bias,
+            world_position,
+            normal,
+            light_direction,
+            0.00045,
+            0.00008,
+            0.0022,
+            0.009,
             0.9,
             LOCAL_PCF_KERNEL_RADIUS);
         shadow_visibility = mix(0.2, 1.0, pcf_visibility);
     }
 
-    vec3 diffuse = albedo * light.color * light.intensity * diffuse_term * 0.35;
-    vec3 specular = light.color * light.intensity * specular_term;
-    return (diffuse + specular) * attenuation * shadow_visibility;
+    return direct * attenuation * shadow_visibility;
 }
 
 void main()

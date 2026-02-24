@@ -41,7 +41,7 @@ set(builtin_assets_meta_files
     "${PROJECT_SOURCE_DIR}/resources/Shaders/DeferredGeometry.vert.meta"
     "${PROJECT_SOURCE_DIR}/resources/Shaders/DeferredGeometry.frag.meta"
     "${PROJECT_SOURCE_DIR}/resources/Shaders/DeferredLighting.vert.meta"
-    "${PROJECT_SOURCE_DIR}/resources/Shaders/DeferredLighting.frag.meta"
+    "${PROJECT_SOURCE_DIR}/resources/Shaders/DererredLighting.frag.meta"
     "${PROJECT_SOURCE_DIR}/resources/Materials/DeferredLighting.mat.meta"
     "${PROJECT_SOURCE_DIR}/resources/Icons/Box.png.meta")
 
