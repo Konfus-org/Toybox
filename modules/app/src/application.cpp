@@ -144,11 +144,12 @@ namespace tbx
                 _asset_manager.add_asset_directory(loaded.meta.resource_directory);
 
             // Log filesystem directories
-            TBX_TRACE_INFO("Working Directory: {}", _settings.paths.working_directory.string());
-            TBX_TRACE_INFO("Logs Directory: {}", _settings.paths.logs_directory.string());
+            TBX_TRACE_INFO("Working Directory: '{}'", _settings.paths.working_directory.string());
+            TBX_TRACE_INFO("Logs Directory: '{}'", _settings.paths.logs_directory.string());
             auto asset_roots = _asset_manager.get_asset_directories();
+            TBX_TRACE_INFO("Asset Directories:");
             for (const auto& root : asset_roots)
-                TBX_TRACE_INFO("Asset Directory: {}", root.string());
+                TBX_TRACE_INFO("    -'{}'", root.string());
 
             // Tell everyone we're initialized
             _msg_coordinator.send<ApplicationInitializedEvent>(this);

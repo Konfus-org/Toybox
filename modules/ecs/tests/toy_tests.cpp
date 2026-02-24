@@ -40,4 +40,25 @@ namespace tbx::tests::ecs
         EXPECT_EQ(resolved_parent.get_id(), parent.get_id());
         EXPECT_EQ(resolved_parent.get_name(), "PlayerRoot");
     }
+
+    // Validates registry-level entity existence checks by id.
+    TEST(ECSTests, HasById_TracksEntityLifetime)
+    {
+        // Arrange
+        EntityRegistry ecs = {};
+        const auto entity = Entity("LifetimeProbe", ecs);
+        const auto entity_id = entity.get_id();
+
+        // Act
+        const bool has_before_destroy = ecs.has(entity_id);
+        auto entity_to_destroy = ecs.get(entity_id);
+        entity_to_destroy.destroy();
+        const bool has_after_destroy = ecs.has(entity_id);
+        const bool has_invalid_id = ecs.has(Uuid());
+
+        // Assert
+        EXPECT_TRUE(has_before_destroy);
+        EXPECT_FALSE(has_after_destroy);
+        EXPECT_FALSE(has_invalid_id);
+    }
 }

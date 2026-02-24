@@ -88,6 +88,11 @@ namespace tbx
         _impl->clear();
     }
 
+    bool EntityRegistry::has(const Uuid& id) const
+    {
+        return _impl->valid(to_entity_handle(id));
+    }
+
     Uuid EntityRegistry::add(
         const std::string& name,
         const std::string& tag,
@@ -123,18 +128,18 @@ namespace tbx
         entity._registry = nullptr;
     }
 
-    Entity EntityRegistry::get(const Uuid& id)
+    Entity EntityRegistry::get(const Uuid& id) const
     {
         if (!_impl->valid(to_entity_handle(id)))
             return {};
 
         auto entity = Entity {};
         entity._id = id;
-        entity._registry = this;
+        entity._registry = const_cast<EntityRegistry*>(this);
         return entity;
     }
 
-    std::vector<Entity> EntityRegistry::get_all()
+    std::vector<Entity> EntityRegistry::get_all() const
     {
         std::vector<Entity> entities = {};
         auto view = _impl->view<EntityNameComponent>();
@@ -144,7 +149,7 @@ namespace tbx
             auto id = to_entity_id(entityHandle);
             auto entity = Entity {};
             entity._id = id;
-            entity._registry = this;
+            entity._registry = const_cast<EntityRegistry*>(this);
             entities.push_back(entity);
         }
 

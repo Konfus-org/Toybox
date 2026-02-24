@@ -115,22 +115,34 @@ namespace tbx::examples
                     .is_overlap_enabled = true,
                     .overlap_begin_callbacks =
                         {
-                            [](const ColliderOverlapEvent& overlap_event)
+                            [entity_registry =
+                                 _ent_registry](const ColliderOverlapEvent& overlap_event)
                             {
+                                if (entity_registry == nullptr)
+                                    return;
+
                                 TBX_TRACE_INFO(
                                     "Trigger overlap begin: {} with {}.",
-                                    to_string(overlap_event.trigger_entity_id),
-                                    to_string(overlap_event.overlapped_entity_id));
+                                    entity_registry->get(overlap_event.trigger_entity_id)
+                                        .get_name(),
+                                    entity_registry->get(overlap_event.overlapped_entity_id)
+                                        .get_name());
                             },
                         },
                     .overlap_end_callbacks =
                         {
-                            [](const ColliderOverlapEvent& overlap_event)
+                            [entity_registry =
+                                 _ent_registry](const ColliderOverlapEvent& overlap_event)
                             {
+                                if (entity_registry == nullptr)
+                                    return;
+
                                 TBX_TRACE_INFO(
                                     "Trigger overlap end: {} with {}.",
-                                    to_string(overlap_event.trigger_entity_id),
-                                    to_string(overlap_event.overlapped_entity_id));
+                                    entity_registry->get(overlap_event.trigger_entity_id)
+                                        .get_name(),
+                                    entity_registry->get(overlap_event.overlapped_entity_id)
+                                        .get_name());
                             },
                         },
                 },
@@ -248,7 +260,7 @@ namespace tbx::examples
 
                                     TBX_TRACE_INFO(
                                         "Raycast hit entity {} at ({:.2f}, {:.2f}, {:.2f}).",
-                                        to_string(raycast_result.hit_entity_id),
+                                        _ent_registry->get(raycast_result.hit_entity_id).get_name(),
                                         raycast_result.hit_position.x,
                                         raycast_result.hit_position.y,
                                         raycast_result.hit_position.z);
@@ -334,12 +346,6 @@ namespace tbx::examples
 
     void PhysicsExampleRuntimePlugin::on_update(const DeltaTime& dt)
     {
-        auto& light_transform = _sun.get_component<Transform>();
-        const float yaw_rate = 0.5F;
-        float angle = yaw_rate * static_cast<float>(dt.seconds);
-        auto light_delta = Quat({0.0F, angle, 0.0F});
-        light_transform.rotation = normalize(light_delta * light_transform.rotation);
-
         auto& camera_transform = _camera.get_component<Transform>();
 
         _camera_yaw -= _look_delta.x * _camera_look_sensitivity;
