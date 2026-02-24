@@ -1,4 +1,5 @@
 {
+  "name": "not_found_texture",
   "id": "00000003",
   "texture": {
     "wrap": "clamp_to_edge",

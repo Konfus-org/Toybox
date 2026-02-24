@@ -60,7 +60,6 @@ const int DIRECTIONAL_SHADOW_CASCADE_COUNT = 2;
 const int POINT_SHADOW_FACE_COUNT = 6;
 const int DIRECTIONAL_PCF_KERNEL_RADIUS = 2;
 const int LOCAL_PCF_KERNEL_RADIUS = 1;
-const float SHADOW_CLIP_EPSILON = 0.002;
 const float DIRECTIONAL_CASCADE_TRANSITION_RATIO = 0.1;
 
 uniform DirectionalLight u_directional_lights[MAX_DIRECTIONAL_LIGHTS];
@@ -162,17 +161,16 @@ bool try_sample_projected_shadow_visibility(
     if (shadow_map_index < 0 || shadow_map_index >= u_shadow_map_count)
         return false;
 
-    vec3 projected = light_space_position.xyz / max(light_space_position.w, 0.0001);
-    float current_depth = projected.z * 0.5 + 0.5;
-    if (projected.x < (-1.0 - SHADOW_CLIP_EPSILON) || projected.x > (1.0 + SHADOW_CLIP_EPSILON)
-        || projected.y < (-1.0 - SHADOW_CLIP_EPSILON)
-        || projected.y > (1.0 + SHADOW_CLIP_EPSILON)
-        || current_depth < (-SHADOW_CLIP_EPSILON)
-        || current_depth > (1.0 + SHADOW_CLIP_EPSILON))
+    if (light_space_position.w <= 0.0001)
         return false;
 
-    vec2 shadow_uv = clamp(projected.xy * 0.5 + 0.5, vec2(0.0), vec2(1.0));
-    current_depth = clamp(current_depth, 0.0, 1.0);
+    vec3 projected = light_space_position.xyz / light_space_position.w;
+    float current_depth = projected.z * 0.5 + 0.5;
+    if (projected.x < -1.0 || projected.x > 1.0 || projected.y < -1.0 || projected.y > 1.0
+        || current_depth < 0.0 || current_depth > 1.0)
+        return false;
+
+    vec2 shadow_uv = projected.xy * 0.5 + 0.5;
     out_visibility = sample_shadow_visibility(
         shadow_map_index,
         shadow_uv,
@@ -326,7 +324,8 @@ vec3 evaluate_directional_light(
             cascade1_shadow_map_index < u_shadow_map_count && DIRECTIONAL_SHADOW_CASCADE_COUNT > 1;
         const float cascade0_softness = 0.9;
         const float cascade1_softness = 1.0;
-        const float view_depth = max(dot(world_position - u_camera_position, u_camera_forward), 0.0);
+        vec3 camera_forward = safe_normalize(u_camera_forward, vec3(0.0, 0.0, -1.0));
+        const float view_depth = max(dot(world_position - u_camera_position, camera_forward), 0.0);
         float pcf_visibility = 1.0;
 
         if (!has_second_cascade)
@@ -563,7 +562,11 @@ void main()
     }
 
     vec3 lighting = emissive;
-    for (int index = 0; index < min(u_directional_light_count, MAX_DIRECTIONAL_LIGHTS); ++index)
+    int directional_light_count = min(u_directional_light_count, MAX_DIRECTIONAL_LIGHTS);
+    int point_light_count = min(u_point_light_count, MAX_POINT_LIGHTS);
+    int spot_light_count = min(u_spot_light_count, MAX_SPOT_LIGHTS);
+
+    for (int index = 0; index < directional_light_count; ++index)
     {
         lighting += evaluate_directional_light(
             u_directional_lights[index],
@@ -574,7 +577,7 @@ void main()
             specular_strength,
             shininess);
     }
-    for (int index = 0; index < min(u_point_light_count, MAX_POINT_LIGHTS); ++index)
+    for (int index = 0; index < point_light_count; ++index)
     {
         lighting += evaluate_point_light(
             u_point_lights[index],
@@ -585,7 +588,7 @@ void main()
             specular_strength,
             shininess);
     }
-    for (int index = 0; index < min(u_spot_light_count, MAX_SPOT_LIGHTS); ++index)
+    for (int index = 0; index < spot_light_count; ++index)
     {
         lighting += evaluate_spot_light(
             u_spot_lights[index],

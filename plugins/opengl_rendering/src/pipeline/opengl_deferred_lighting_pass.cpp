@@ -237,7 +237,7 @@ namespace tbx::plugins
 
         const auto split_count = std::min(
             frame_context.shadow_data.cascade_splits.size(),
-            static_cast<size_t>(MAX_SHADOW_MAPS));
+            static_cast<size_t>(MAX_DIRECTIONAL_LIGHTS));
         for (size_t index = 0; index < split_count; ++index)
         {
             shader_program.try_upload(
