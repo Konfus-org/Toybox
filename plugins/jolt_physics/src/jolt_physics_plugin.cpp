@@ -6,12 +6,21 @@
 #include "tbx/math/transform.h"
 #include "tbx/physics/collider.h"
 #include "tbx/physics/physics.h"
+#include <Jolt/Jolt.h>
+// clang-format off
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/IssueReporting.h>
-#include <Jolt/Jolt.h>
+#include <Jolt/Core/JobSystemThreadPool.h>
+#include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
+#include <Jolt/Physics/Body/BodyFilter.h>
 #include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
+#include <Jolt/Physics/Collision/CastResult.h>
+#include <Jolt/Physics/Collision/CollideShape.h>
+#include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
+#include <Jolt/Physics/Collision/NarrowPhaseQuery.h>
 #include <Jolt/Physics/Collision/ObjectLayer.h>
+#include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/Shape/ConvexHullShape.h>
@@ -19,6 +28,7 @@
 #include <Jolt/Physics/Collision/Shape/Shape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/RegisterTypes.h>
+// clang-format on
 #include <algorithm>
 #include <cmath>
 #include <cstdarg>
@@ -27,6 +37,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 namespace tbx::plugins
 {
@@ -37,6 +48,19 @@ namespace tbx::plugins
         static constexpr JPH::BroadPhaseLayer broad_phase_layer_static = JPH::BroadPhaseLayer(0);
         static constexpr JPH::BroadPhaseLayer broad_phase_layer_moving = JPH::BroadPhaseLayer(1);
         static constexpr std::uint32_t broad_phase_layer_count = 2;
+
+        static std::uint32_t get_body_key(const JPH::BodyID& body_id)
+        {
+            return body_id.GetIndexAndSequenceNumber();
+        }
+
+        static bool should_execute_overlap_query(
+            ColliderOverlapExecutionMode execution_mode,
+            bool is_manual_trigger_requested)
+        {
+            return execution_mode == ColliderOverlapExecutionMode::AUTO
+                   || is_manual_trigger_requested;
+        }
 
         static std::string format_jolt_trace_message(const char* fmt, std::va_list args)
         {
@@ -286,6 +310,16 @@ namespace tbx::plugins
             return Vec3(left.x * right.x, left.y * right.y, left.z * right.z);
         }
 
+        static Vec3 get_safe_normalized(const Vec3& value, const Vec3& fallback)
+        {
+            const float length_squared = value.x * value.x + value.y * value.y + value.z * value.z;
+            if (length_squared <= 0.000001F)
+                return fallback;
+
+            const float inverse_length = 1.0F / std::sqrt(length_squared);
+            return value * inverse_length;
+        }
+
         static Vec3 calculate_angular_velocity_for_step(
             const Quat& start_rotation,
             const Quat& target_rotation,
@@ -342,9 +376,10 @@ namespace tbx::plugins
         static void apply_dynamic_body_settings(
             IPluginHost& host,
             const Physics& physics,
+            bool is_trigger_only,
             JPH::BodyCreationSettings& out_body_settings)
         {
-            out_body_settings.mIsSensor = physics.is_sensor;
+            out_body_settings.mIsSensor = is_trigger_only;
             out_body_settings.mAllowSleeping = physics.is_sleep_enabled;
             out_body_settings.mFriction = physics.friction;
             out_body_settings.mRestitution = physics.restitution;
@@ -712,6 +747,49 @@ namespace tbx::plugins
                    || entity.has_component<CubeCollider>() || entity.has_component<MeshCollider>();
         }
 
+        static const ColliderTrigger* try_get_trigger_collider(const Entity& entity)
+        {
+            if (entity.has_component<SphereCollider>())
+                return &entity.get_component<SphereCollider>().trigger;
+
+            if (entity.has_component<CapsuleCollider>())
+                return &entity.get_component<CapsuleCollider>().trigger;
+
+            if (entity.has_component<CubeCollider>())
+                return &entity.get_component<CubeCollider>().trigger;
+
+            if (entity.has_component<MeshCollider>())
+                return &entity.get_component<MeshCollider>().trigger;
+
+            return nullptr;
+        }
+
+        static ColliderTrigger* try_get_trigger_collider(Entity& entity)
+        {
+            if (entity.has_component<SphereCollider>())
+                return &entity.get_component<SphereCollider>().trigger;
+
+            if (entity.has_component<CapsuleCollider>())
+                return &entity.get_component<CapsuleCollider>().trigger;
+
+            if (entity.has_component<CubeCollider>())
+                return &entity.get_component<CubeCollider>().trigger;
+
+            if (entity.has_component<MeshCollider>())
+                return &entity.get_component<MeshCollider>().trigger;
+
+            return nullptr;
+        }
+
+        static bool is_trigger_only_collider(const Entity& entity)
+        {
+            const ColliderTrigger* trigger = try_get_trigger_collider(entity);
+            if (trigger == nullptr)
+                return false;
+
+            return trigger->is_trigger_only;
+        }
+
         static JPH::RefConst<JPH::Shape> create_shape_for_entity(
             IPluginHost& host,
             const Entity& entity,
@@ -751,6 +829,8 @@ namespace tbx::plugins
             return JPH::EMotionType::Dynamic;
         }
     }
+
+    JoltPhysicsPlugin::~JoltPhysicsPlugin() = default;
 
     void JoltPhysicsPlugin::on_attach(IPluginHost&)
     {
@@ -818,6 +898,16 @@ namespace tbx::plugins
                 static_cast<std::uint32_t>(update_error));
 
         sync_world_to_entities();
+        process_trigger_colliders();
+    }
+
+    void JoltPhysicsPlugin::on_recieve_message(Message& msg)
+    {
+        if (auto* raycast_request = handle_message<RaycastRequest>(msg))
+        {
+            handle_raycast_request(*raycast_request);
+            return;
+        }
     }
 
     void JoltPhysicsPlugin::clear_bodies()
@@ -835,6 +925,8 @@ namespace tbx::plugins
         }
 
         _bodies_by_entity.clear();
+        _entity_by_body_key.clear();
+        _overlap_entities_by_trigger.clear();
     }
 
     void JoltPhysicsPlugin::apply_world_settings()
@@ -867,6 +959,8 @@ namespace tbx::plugins
             if (!has_physics_component && !has_collider)
                 continue;
 
+            const bool is_trigger_only = is_trigger_only_collider(entity);
+
             const auto* physics =
                 has_physics_component ? &entity.get_component<Physics>() : nullptr;
             const bool is_physics_driven = physics != nullptr && physics->is_valid();
@@ -888,6 +982,22 @@ namespace tbx::plugins
                     body_interface.DestroyBody(existing_body_id);
                 }
 
+                _entity_by_body_key.erase(get_body_key(existing_body_id));
+                _bodies_by_entity.erase(body_it);
+                body_it = _bodies_by_entity.end();
+            }
+            else if (
+                body_it != _bodies_by_entity.end()
+                && body_it->second.is_trigger_only != is_trigger_only)
+            {
+                const JPH::BodyID existing_body_id = body_it->second.body_id;
+                if (body_interface.IsAdded(existing_body_id))
+                {
+                    body_interface.RemoveBody(existing_body_id);
+                    body_interface.DestroyBody(existing_body_id);
+                }
+
+                _entity_by_body_key.erase(get_body_key(existing_body_id));
                 _bodies_by_entity.erase(body_it);
                 body_it = _bodies_by_entity.end();
             }
@@ -903,6 +1013,7 @@ namespace tbx::plugins
                     body_interface.DestroyBody(existing_body_id);
                 }
 
+                _entity_by_body_key.erase(get_body_key(existing_body_id));
                 _bodies_by_entity.erase(body_it);
                 body_it = _bodies_by_entity.end();
             }
@@ -924,10 +1035,15 @@ namespace tbx::plugins
                     to_jolt_quat(world_transform.rotation),
                     motion_type,
                     object_layer);
+                body_settings.mIsSensor = is_trigger_only;
 
                 if (is_physics_driven)
                 {
-                    apply_dynamic_body_settings(get_host(), *physics, body_settings);
+                    apply_dynamic_body_settings(
+                        get_host(),
+                        *physics,
+                        is_trigger_only,
+                        body_settings);
                 }
 
                 auto activation = JPH::EActivation::DontActivate;
@@ -952,11 +1068,14 @@ namespace tbx::plugins
                     .last_rotation = world_transform.rotation,
                     .last_scale = world_transform.scale,
                     .has_last_transform = true,
+                    .is_trigger_only = is_trigger_only,
                 };
+                _entity_by_body_key[get_body_key(body_id)] = entity_id;
                 continue;
             }
 
             auto& body_record = body_it->second;
+            body_record.is_trigger_only = is_trigger_only;
             JPH::BodyID body_id = body_record.body_id;
             if (!body_interface.IsAdded(body_id))
                 continue;
@@ -1056,6 +1175,7 @@ namespace tbx::plugins
                 body_interface.DestroyBody(body_id);
             }
 
+            _entity_by_body_key.erase(get_body_key(body_id));
             _bodies_by_entity.erase(body_it);
         }
     }
@@ -1131,5 +1251,221 @@ namespace tbx::plugins
             body_record.last_scale = world_transform.scale;
             body_record.has_last_transform = true;
         }
+    }
+
+    Uuid JoltPhysicsPlugin::try_get_entity_for_body(const JPH::BodyID& body_id) const
+    {
+        auto entity_it = _entity_by_body_key.find(get_body_key(body_id));
+        if (entity_it == _entity_by_body_key.end())
+            return {};
+
+        return entity_it->second;
+    }
+
+    void JoltPhysicsPlugin::process_trigger_colliders()
+    {
+        auto& registry = get_host().get_entity_registry();
+        auto& body_interface = _physics_system.GetBodyInterface();
+        const auto& narrow_phase_query = _physics_system.GetNarrowPhaseQuery();
+
+        auto active_trigger_entities = std::unordered_set<Uuid>();
+        auto trigger_entities = registry.get_with<Transform>();
+        for (auto& trigger_entity : trigger_entities)
+        {
+            const Uuid trigger_entity_id = trigger_entity.get_id();
+            auto* trigger_collider = try_get_trigger_collider(trigger_entity);
+            if (trigger_collider == nullptr)
+                continue;
+
+            active_trigger_entities.insert(trigger_entity_id);
+
+            if (!trigger_collider->is_overlap_enabled)
+            {
+                trigger_collider->is_manual_scan_requested = false;
+
+                auto previous_overlaps_it = _overlap_entities_by_trigger.find(trigger_entity_id);
+                if (previous_overlaps_it != _overlap_entities_by_trigger.end())
+                {
+                    for (const Uuid& overlapped_entity_id : previous_overlaps_it->second)
+                    {
+                        const ColliderOverlapEvent event = ColliderOverlapEvent {
+                            .trigger_entity_id = trigger_entity_id,
+                            .overlapped_entity_id = overlapped_entity_id,
+                        };
+                        for (const auto& callback : trigger_collider->overlap_end_callbacks)
+                        {
+                            if (callback)
+                                callback(event);
+                        }
+                    }
+                }
+
+                _overlap_entities_by_trigger.erase(trigger_entity_id);
+                continue;
+            }
+
+            if (!should_execute_overlap_query(
+                    trigger_collider->overlap_execution_mode,
+                    trigger_collider->is_manual_scan_requested))
+            {
+                trigger_collider->is_manual_scan_requested = false;
+                continue;
+            }
+            trigger_collider->is_manual_scan_requested = false;
+
+            auto current_overlaps = std::unordered_set<Uuid>();
+
+            auto body_it = _bodies_by_entity.find(trigger_entity_id);
+            if (body_it != _bodies_by_entity.end()
+                && body_interface.IsAdded(body_it->second.body_id))
+            {
+                const JPH::BodyID trigger_body_id = body_it->second.body_id;
+                JPH::RefConst<JPH::Shape> trigger_shape = body_interface.GetShape(trigger_body_id);
+                if (trigger_shape)
+                {
+                    JPH::CollideShapeSettings collide_settings = {};
+                    collide_settings.mBackFaceMode = JPH::EBackFaceMode::CollideWithBackFaces;
+
+                    JPH::IgnoreSingleBodyFilter ignore_trigger_body_filter =
+                        JPH::IgnoreSingleBodyFilter(trigger_body_id);
+                    JPH::AllHitCollisionCollector<JPH::CollideShapeCollector> collector = {};
+
+                    narrow_phase_query.CollideShape(
+                        trigger_shape.GetPtr(),
+                        JPH::Vec3::sReplicate(1.0F),
+                        body_interface.GetCenterOfMassTransform(trigger_body_id),
+                        collide_settings,
+                        JPH::RVec3::sZero(),
+                        collector,
+                        {},
+                        {},
+                        ignore_trigger_body_filter);
+
+                    current_overlaps.reserve(static_cast<std::size_t>(collector.mHits.size()));
+                    for (const auto& overlap_hit : collector.mHits)
+                    {
+                        const Uuid overlapped_entity_id =
+                            try_get_entity_for_body(overlap_hit.mBodyID2);
+                        if (!overlapped_entity_id.is_valid()
+                            || overlapped_entity_id == trigger_entity_id)
+                            continue;
+
+                        current_overlaps.insert(overlapped_entity_id);
+                    }
+                }
+            }
+
+            auto& previous_overlaps = _overlap_entities_by_trigger[trigger_entity_id];
+            for (const Uuid& overlapped_entity_id : current_overlaps)
+            {
+                const ColliderOverlapEvent event = ColliderOverlapEvent {
+                    .trigger_entity_id = trigger_entity_id,
+                    .overlapped_entity_id = overlapped_entity_id,
+                };
+                const bool was_overlapping = previous_overlaps.contains(overlapped_entity_id);
+                const auto& callbacks = was_overlapping ? trigger_collider->overlap_stay_callbacks
+                                                        : trigger_collider->overlap_begin_callbacks;
+                for (const auto& callback : callbacks)
+                {
+                    if (callback)
+                        callback(event);
+                }
+            }
+
+            for (const Uuid& overlapped_entity_id : previous_overlaps)
+            {
+                if (current_overlaps.contains(overlapped_entity_id))
+                    continue;
+
+                const ColliderOverlapEvent event = ColliderOverlapEvent {
+                    .trigger_entity_id = trigger_entity_id,
+                    .overlapped_entity_id = overlapped_entity_id,
+                };
+                for (const auto& callback : trigger_collider->overlap_end_callbacks)
+                {
+                    if (callback)
+                        callback(event);
+                }
+            }
+
+            if (current_overlaps.empty())
+            {
+                _overlap_entities_by_trigger.erase(trigger_entity_id);
+                continue;
+            }
+
+            previous_overlaps = std::move(current_overlaps);
+        }
+
+        auto stale_trigger_entities = std::vector<Uuid>();
+        stale_trigger_entities.reserve(_overlap_entities_by_trigger.size());
+        for (const auto& overlap_entry : _overlap_entities_by_trigger)
+        {
+            if (active_trigger_entities.contains(overlap_entry.first))
+                continue;
+
+            stale_trigger_entities.push_back(overlap_entry.first);
+        }
+
+        for (const Uuid& stale_trigger_entity : stale_trigger_entities)
+            _overlap_entities_by_trigger.erase(stale_trigger_entity);
+    }
+
+    void JoltPhysicsPlugin::handle_raycast_request(RaycastRequest& request) const
+    {
+        request.result = RaycastResult {};
+        if (!_is_ready)
+        {
+            request.state = MessageState::ERROR;
+            request.Message::result.flag_failure("Physics backend is not initialized.");
+            return;
+        }
+
+        const auto& body_interface = _physics_system.GetBodyInterface();
+        const auto& narrow_phase_query = _physics_system.GetNarrowPhaseQuery();
+
+        const Vec3 ray_direction =
+            get_safe_normalized(request.raycast.direction, Vec3(0.0F, 0.0F, -1.0F));
+        const float max_distance = std::max(0.0F, request.raycast.max_distance);
+        if (max_distance > 0.0F)
+        {
+            const JPH::RRayCast ray = JPH::RRayCast(
+                to_jolt_rvec3(request.raycast.origin),
+                to_jolt_vec3(ray_direction * max_distance));
+
+            JPH::RayCastResult ray_hit = {};
+            bool has_hit = false;
+            if (request.raycast.ignore_entity && request.raycast.ignored_entity_id.is_valid())
+            {
+                auto body_it = _bodies_by_entity.find(request.raycast.ignored_entity_id);
+                if (body_it != _bodies_by_entity.end()
+                    && body_interface.IsAdded(body_it->second.body_id))
+                {
+                    JPH::IgnoreSingleBodyFilter ignore_body_filter =
+                        JPH::IgnoreSingleBodyFilter(body_it->second.body_id);
+                    has_hit = narrow_phase_query.CastRay(ray, ray_hit, {}, {}, ignore_body_filter);
+                }
+                else
+                {
+                    has_hit = narrow_phase_query.CastRay(ray, ray_hit);
+                }
+            }
+            else
+            {
+                has_hit = narrow_phase_query.CastRay(ray, ray_hit);
+            }
+
+            request.result.has_hit = has_hit;
+            if (has_hit)
+            {
+                request.result.hit_entity_id = try_get_entity_for_body(ray_hit.mBodyID);
+                request.result.hit_fraction = ray_hit.mFraction;
+                request.result.hit_position =
+                    to_tbx_vec3_from_rvec3(ray.GetPointOnRay(ray_hit.mFraction));
+            }
+        }
+
+        request.state = MessageState::HANDLED;
+        request.Message::result.flag_success();
     }
 }

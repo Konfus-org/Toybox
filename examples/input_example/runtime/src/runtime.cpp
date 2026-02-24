@@ -21,7 +21,7 @@ namespace tbx::examples
         graphics.shadow_softness = 1.1F;
 
         _sun = Entity("Light", _ent_registry);
-        _sun.add_component<DirectionalLight>(RgbaColor::white, 1.0F, 0.25F);
+        _sun.add_component<DirectionalLight>(Color::WHITE, 1.0F, 0.25F);
         _sun.add_component<Transform>(Vec3(0), to_radians(Vec3(-45.0F, 45.0F, 0.0F)), Vec3(1));
 
         auto ground_ent = Entity("Ground", _ent_registry);
@@ -34,7 +34,7 @@ namespace tbx::examples
 
         auto cube_ent = Entity("Cube", _ent_registry);
         cube_ent.add_component<Renderer>(MaterialInstance {
-            .parameters = {{"color", RgbaColor::yellow}},
+            .parameters = {{"color", Color::YELLOW}},
         });
         cube_ent.add_component<DynamicMesh>(cube);
         cube_ent.add_component<Transform>(Vec3(0.0F, 0.5F, -5.0F));
@@ -46,7 +46,7 @@ namespace tbx::examples
 
             auto player_visual = Entity("PlayerVisual", _player.get_id(), _ent_registry);
             player_visual.add_component<Renderer>(MaterialInstance {
-                .parameters = {{"color", RgbaColor::red}},
+                .parameters = {{"color", Color::RED}},
             });
             player_visual.add_component<DynamicMesh>(capsule);
             player_visual.add_component<Transform>(

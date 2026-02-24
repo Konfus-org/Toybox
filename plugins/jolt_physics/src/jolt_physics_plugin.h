@@ -1,13 +1,18 @@
 #pragma once
 #include "tbx/math/quaternions.h"
 #include "tbx/math/vectors.h"
+#include "tbx/physics/raycast.h"
 #include "tbx/plugin_api/plugin.h"
 #include <Jolt/Jolt.h>
+// clang-format off
 #include <Jolt/Core/JobSystemThreadPool.h>
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Physics/PhysicsSystem.h>
+// clang-format on
+#include <cstdint>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace tbx::plugins
 {
@@ -20,15 +25,20 @@ namespace tbx::plugins
     class JoltPhysicsPlugin final : public Plugin
     {
       public:
+        ~JoltPhysicsPlugin() override;
         void on_attach(IPluginHost& host) override;
         void on_detach() override;
         void on_fixed_update(const DeltaTime& dt) override;
+        void on_recieve_message(Message& msg) override;
 
       private:
         void clear_bodies();
         void apply_world_settings();
         void sync_entities_to_world(float dt_seconds);
         void sync_world_to_entities();
+        void process_trigger_colliders();
+        void handle_raycast_request(RaycastRequest& request) const;
+        Uuid try_get_entity_for_body(const JPH::BodyID& body_id) const;
 
       private:
         struct BodyRecord
@@ -39,12 +49,15 @@ namespace tbx::plugins
             Quat last_rotation = Quat(1.0F, 0.0F, 0.0F, 0.0F);
             Vec3 last_scale = Vec3(1.0F, 1.0F, 1.0F);
             bool has_last_transform = false;
+            bool is_trigger_only = false;
         };
 
         JPH::PhysicsSystem _physics_system = {};
         std::unique_ptr<JPH::TempAllocator> _temp_allocator = nullptr;
         std::unique_ptr<JPH::JobSystemThreadPool> _job_system = nullptr;
         std::unordered_map<Uuid, BodyRecord> _bodies_by_entity = {};
+        std::unordered_map<std::uint32_t, Uuid> _entity_by_body_key = {};
+        std::unordered_map<Uuid, std::unordered_set<Uuid>> _overlap_entities_by_trigger = {};
         bool _is_ready = false;
     };
 }

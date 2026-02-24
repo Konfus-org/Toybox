@@ -200,14 +200,8 @@ namespace tbx::plugins
             destination_y,
             destination_width,
             destination_height);
-
-        glBindFramebuffer(GL_FRAMEBUFFER, frame_context.present_target_framebuffer_id);
-        glViewport(
-            0,
-            0,
-            static_cast<GLsizei>(frame_context.viewport_size.width),
-            static_cast<GLsizei>(frame_context.viewport_size.height));
         glClear(GL_COLOR_BUFFER_BIT);
+        glBindFramebuffer(GL_FRAMEBUFFER, frame_context.present_target_framebuffer_id);
         glViewport(destination_x, destination_y, destination_width, destination_height);
         draw_effect(frame_context, source_target, draw_resources, effect);
     }

@@ -259,7 +259,7 @@ namespace tbx::plugins
         /// Ownership: Value type owned by this context.
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
-        RgbaColor clear_color = RgbaColor::black;
+        Color clear_color = Color::BLACK;
 
         /// <summary>
         /// Purpose: Optional sky entity used by the sky pass.

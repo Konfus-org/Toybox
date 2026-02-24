@@ -308,6 +308,12 @@ namespace tbx::plugins
         }
     }
 
+    static void apply_default_material_parameters(MaterialParameterBindings& parameters)
+    {
+        if (!parameters.has("color"))
+            parameters.set("color", Color::WHITE);
+    }
+
     static void append_texture_binding(
         OpenGlDrawResources& out_resources,
         std::string_view uniform_name,
@@ -1243,6 +1249,7 @@ namespace tbx::plugins
             resolved_material.program.vertex = lit_vertex_shader;
             resolved_material.program.fragment = lit_fragment_shader;
         }
+        apply_default_material_parameters(resolved_material.parameters);
 
         if (resolved_material.program.is_valid())
         {

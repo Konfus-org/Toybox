@@ -2,15 +2,15 @@
 
 namespace tbx
 {
-    RgbaColor RgbaColor::white = RgbaColor(1.0f, 1.0f, 1.0f, 1.0f);
-    RgbaColor RgbaColor::black = RgbaColor(0.0f, 0.0f, 0.0f, 1.0f);
-    RgbaColor RgbaColor::red = RgbaColor(1.0f, 0.0f, 0.0f, 1.0f);
-    RgbaColor RgbaColor::green = RgbaColor(0.0f, 1.0f, 0.0f, 1.0f);
-    RgbaColor RgbaColor::blue = RgbaColor(0.0f, 0.0f, 1.0f, 1.0f);
-    RgbaColor RgbaColor::yellow = RgbaColor(1.0f, 1.0f, 0.0f, 1.0f);
-    RgbaColor RgbaColor::cyan = RgbaColor(0.0f, 1.0f, 1.0f, 1.0f);
-    RgbaColor RgbaColor::magenta = RgbaColor(1.0f, 0.0f, 1.0f, 1.0f);
-    RgbaColor RgbaColor::grey = RgbaColor(0.5f, 0.5f, 0.5f, 1.0f);
-    RgbaColor RgbaColor::light_grey = RgbaColor(0.75f, 0.75f, 0.75f, 1.0f);
-    RgbaColor RgbaColor::dark_grey = RgbaColor(0.1f, 0.1f, 0.1f, 1.0f);
+    const Color Color::WHITE = Color(1.0f, 1.0f, 1.0f, 1.0f);
+    const Color Color::BLACK = Color(0.0f, 0.0f, 0.0f, 1.0f);
+    const Color Color::RED = Color(1.0f, 0.0f, 0.0f, 1.0f);
+    const Color Color::GREEN = Color(0.0f, 1.0f, 0.0f, 1.0f);
+    const Color Color::BLUE = Color(0.0f, 0.0f, 1.0f, 1.0f);
+    const Color Color::YELLOW = Color(1.0f, 1.0f, 0.0f, 1.0f);
+    const Color Color::CYAN = Color(0.0f, 1.0f, 1.0f, 1.0f);
+    const Color Color::MAGENTA = Color(1.0f, 0.0f, 1.0f, 1.0f);
+    const Color Color::GREY = Color(0.5f, 0.5f, 0.5f, 1.0f);
+    const Color Color::LIGHT_GREY = Color(0.75f, 0.75f, 0.75f, 1.0f);
+    const Color Color::DARK_GREY = Color(0.1f, 0.1f, 0.1f, 1.0f);
 }

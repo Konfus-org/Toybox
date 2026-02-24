@@ -30,7 +30,6 @@ namespace tbx
     {
         float mass = 1.0F;
         bool is_kinematic = false;
-        bool is_sensor = false;
         bool is_gravity_enabled = true;
         PhysicsTransformSyncMode transform_sync_mode = PhysicsTransformSyncMode::SWEEP;
 

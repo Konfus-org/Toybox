@@ -29,7 +29,8 @@ namespace tbx::plugins
     static constexpr size_t MAX_SHADOWED_POINT_LIGHTS = 2U;
     static constexpr size_t POINT_SHADOW_FACE_COUNT = 6U;
     static constexpr float DIRECTIONAL_SHADOW_SPLIT_LAMBDA = 0.7F;
-    static constexpr float SHADOW_NEAR_PLANE = 0.1F;
+    static constexpr float DIRECTIONAL_SHADOW_NEAR_PLANE = 0.001F;
+    static constexpr float LOCAL_LIGHT_SHADOW_NEAR_PLANE = 0.1F;
 
     static std::shared_ptr<OpenGlGBuffer> try_load_gbuffer(
         OpenGlResourceManager& resource_manager,
@@ -148,7 +149,7 @@ namespace tbx::plugins
     }
 
     static void resolve_light_color(
-        const RgbaColor& raw_color,
+        const Color& raw_color,
         float raw_intensity,
         Vec3& out_color,
         float& out_intensity)
@@ -320,7 +321,7 @@ namespace tbx::plugins
         if (std::abs(dot(safe_direction, up_axis)) > 0.95F)
             up_axis = Vec3(1.0F, 0.0F, 0.0F);
 
-        const float near_plane = SHADOW_NEAR_PLANE;
+        const float near_plane = LOCAL_LIGHT_SHADOW_NEAR_PLANE;
         const float far_plane = std::max(near_plane + 0.001F, range);
         const float clamped_fov =
             std::clamp(outer_angle_radians * 2.0F, to_radians(1.0F), to_radians(175.0F));
@@ -352,7 +353,7 @@ namespace tbx::plugins
         };
 
         const size_t safe_face_index = std::min(face_index, POINT_SHADOW_FACE_COUNT - 1U);
-        const float near_plane = SHADOW_NEAR_PLANE;
+        const float near_plane = LOCAL_LIGHT_SHADOW_NEAR_PLANE;
         const float far_plane = std::max(near_plane + 0.001F, range);
         auto light_view = look_at(
             light_position,
@@ -686,10 +687,11 @@ namespace tbx::plugins
         auto frame_cascade_splits = std::vector<float> {};
         frame_cascade_splits.reserve(directional_shadow_light_indices.size());
         size_t shadow_map_index = 0U;
-        const float directional_shadow_far_plane =
-            std::max(SHADOW_NEAR_PLANE + 0.001F, _shadow_settings.shadow_render_distance);
+        const float directional_shadow_far_plane = std::max(
+            DIRECTIONAL_SHADOW_NEAR_PLANE + 0.001F,
+            _shadow_settings.shadow_render_distance);
         const float directional_split_distance = calculate_directional_shadow_split_distance(
-            SHADOW_NEAR_PLANE,
+            DIRECTIONAL_SHADOW_NEAR_PLANE,
             directional_shadow_far_plane);
 
         auto append_shadow_projection = [&](const Mat4& light_view_projection) -> bool
@@ -709,7 +711,7 @@ namespace tbx::plugins
                 static_cast<int>(shadow_map_index);
             frame_cascade_splits.push_back(directional_split_distance);
 
-            auto near_plane = SHADOW_NEAR_PLANE;
+            auto near_plane = DIRECTIONAL_SHADOW_NEAR_PLANE;
             for (size_t cascade_index = 0; cascade_index < DIRECTIONAL_SHADOW_CASCADE_COUNT;
                  ++cascade_index)
             {
@@ -759,7 +761,7 @@ namespace tbx::plugins
         // Step 8: Resolve the active sky and maintain pinned sky-resource ownership.
         auto sky_material = MaterialInstance {};
         auto sky_entity = Entity {};
-        auto frame_clear_color = RgbaColor::black;
+        auto frame_clear_color = Color::BLACK;
         auto frame_sky_resource = Uuid::NONE;
         auto frame_sky_entity = Entity {};
         auto sky_entities = _entity_registry->get_with<Sky>();

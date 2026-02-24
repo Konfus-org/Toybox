@@ -16,7 +16,7 @@ namespace tbx
                 vertices,
                 {{
                     Vec3(0.0F),
-                    RgbaColor(),
+                    Color(),
                     Vec3(0.0F),
                     Vec2(0.0F),
                 }});
@@ -64,7 +64,7 @@ namespace tbx
                             unit_position * radius,
                             normalize_or_zero(unit_position),
                             Vec2(sector_ratio, 1.0F - stack_ratio),
-                            RgbaColor(0.0F, 0.0F, 0.0F, 1.0F),
+                            Color(0.0F, 0.0F, 0.0F, 1.0F),
                         });
                 }
             }
@@ -202,7 +202,7 @@ namespace tbx
                             position,
                             normal,
                             Vec2(u, 1.0F - v),
-                            RgbaColor(0.0F, 0.0F, 0.0F, 1.0F),
+                            Color(0.0F, 0.0F, 0.0F, 1.0F),
                         });
                 }
             }
@@ -252,17 +252,17 @@ namespace tbx
                 Vec3(-0.5F, -0.5F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(0.0F, 0.0F),
-                RgbaColor(0.0F, 0.0F, 0.0F, 1.0F)},
+                Color(0.0F, 0.0F, 0.0F, 1.0F)},
             Vertex {
                 Vec3(0.5F, -0.5F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(0.0F, 0.0F),
-                RgbaColor(0.0F, 0.0F, 0.0F, 1.0F)},
+                Color(0.0F, 0.0F, 0.0F, 1.0F)},
             Vertex {
                 Vec3(0.0F, 0.5F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(0.0F, 0.0F),
-                RgbaColor(0.0F, 0.0F, 0.0F, 1.0F)}};
+                Color(0.0F, 0.0F, 0.0F, 1.0F)}};
 
         const IndexBuffer index_buffer = {0, 1, 2};
         const VertexBuffer vertex_buffer = make_vertex_buffer(triangle_mesh_vertices);
@@ -277,22 +277,22 @@ namespace tbx
                 Vec3(-0.5F, -0.5F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(0.0F, 0.0F),
-                RgbaColor(0.0F, 0.0F, 0.0F, 1.0F)},
+                Color(0.0F, 0.0F, 0.0F, 1.0F)},
             Vertex {
                 Vec3(0.5F, -0.5F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(1.0F, 0.0F),
-                RgbaColor(0.0F, 0.0F, 0.0F, 1.0F)},
+                Color(0.0F, 0.0F, 0.0F, 1.0F)},
             Vertex {
                 Vec3(0.5F, 0.5F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(1.0F, 1.0F),
-                RgbaColor(0.0F, 0.0F, 0.0F, 1.0F)},
+                Color(0.0F, 0.0F, 0.0F, 1.0F)},
             Vertex {
                 Vec3(-0.5F, 0.5F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(0.0F, 1.0F),
-                RgbaColor(0.0F, 0.0F, 0.0F, 1.0F)}};
+                Color(0.0F, 0.0F, 0.0F, 1.0F)}};
 
         const IndexBuffer index_buffer = {0, 1, 2, 2, 3, 0};
         const VertexBuffer vertex_buffer = make_vertex_buffer(quad_mesh_vertices);
@@ -307,22 +307,22 @@ namespace tbx
                 Vec3(-1.0F, -1.0F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(0.0F, 0.0F),
-                RgbaColor(0.0F, 0.0F, 0.0F, 1.0F)},
+                Color(0.0F, 0.0F, 0.0F, 1.0F)},
             Vertex {
                 Vec3(1.0F, -1.0F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(1.0F, 0.0F),
-                RgbaColor(0.0F, 0.0F, 0.0F, 1.0F)},
+                Color(0.0F, 0.0F, 0.0F, 1.0F)},
             Vertex {
                 Vec3(1.0F, 1.0F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(1.0F, 1.0F),
-                RgbaColor(0.0F, 0.0F, 0.0F, 1.0F)},
+                Color(0.0F, 0.0F, 0.0F, 1.0F)},
             Vertex {
                 Vec3(-1.0F, 1.0F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(0.0F, 1.0F),
-                RgbaColor(0.0F, 0.0F, 0.0F, 1.0F)}};
+                Color(0.0F, 0.0F, 0.0F, 1.0F)}};
 
         const IndexBuffer index_buffer = {0, 1, 2, 2, 3, 0};
         const VertexBuffer vertex_buffer = make_vertex_buffer(fullscreen_quad_vertices);
@@ -383,7 +383,7 @@ namespace tbx
                         positions[faces[face_index][corner]],
                         normals[face_index],
                         uvs[corner],
-                        RgbaColor(0.0F, 0.0F, 0.0F, 1.0F),
+                        Color(0.0F, 0.0F, 0.0F, 1.0F),
                     });
             }
 

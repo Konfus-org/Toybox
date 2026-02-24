@@ -90,7 +90,7 @@ namespace tbx::plugins
                 {
                     glUniform4f(location, value.x, value.y, value.z, value.w);
                 }
-                else if constexpr (std::is_same_v<ValueType, RgbaColor>)
+                else if constexpr (std::is_same_v<ValueType, Color>)
                 {
                     glUniform4f(location, value.r, value.g, value.b, value.a);
                 }

@@ -58,6 +58,7 @@ const int MAX_POINT_LIGHTS = 32;
 const int MAX_SPOT_LIGHTS = 16;
 const int DIRECTIONAL_SHADOW_CASCADE_COUNT = 2;
 const int POINT_SHADOW_FACE_COUNT = 6;
+const float SHADOW_CLIP_EPSILON = 0.002;
 
 uniform DirectionalLight u_directional_lights[MAX_DIRECTIONAL_LIGHTS];
 uniform PointLight u_point_lights[MAX_POINT_LIGHTS];
@@ -170,11 +171,15 @@ float sample_projected_shadow_visibility(
 
     vec3 projected = light_space_position.xyz / max(light_space_position.w, 0.0001);
     float current_depth = projected.z * 0.5 + 0.5;
-    if (projected.x < -1.0 || projected.x > 1.0 || projected.y < -1.0 || projected.y > 1.0
-        || current_depth < 0.0 || current_depth > 1.0)
+    if (projected.x < (-1.0 - SHADOW_CLIP_EPSILON) || projected.x > (1.0 + SHADOW_CLIP_EPSILON)
+        || projected.y < (-1.0 - SHADOW_CLIP_EPSILON)
+        || projected.y > (1.0 + SHADOW_CLIP_EPSILON)
+        || current_depth < (-SHADOW_CLIP_EPSILON)
+        || current_depth > (1.0 + SHADOW_CLIP_EPSILON))
         return 1.0;
 
-    vec2 shadow_uv = projected.xy * 0.5 + 0.5;
+    vec2 shadow_uv = clamp(projected.xy * 0.5 + 0.5, vec2(0.0), vec2(1.0));
+    current_depth = clamp(current_depth, 0.0, 1.0);
     return sample_shadow_visibility(
         shadow_map_index,
         shadow_uv,

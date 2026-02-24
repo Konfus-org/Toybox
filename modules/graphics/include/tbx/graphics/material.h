@@ -21,7 +21,7 @@ namespace tbx
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
     /// </remarks>
     using MaterialParameterData =
-        std::variant<bool, int, float, double, Vec2, Vec3, Vec4, RgbaColor, Mat3, Mat4>;
+        std::variant<bool, int, float, double, Vec2, Vec3, Vec4, Color, Mat3, Mat4>;
 
     /// <summary>
     /// Purpose: Backward-compatible alias for material parameter value payloads.

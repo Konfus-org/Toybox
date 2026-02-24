@@ -70,7 +70,7 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto parameters = MaterialParameterBindings {};
-        parameters.set("color", RgbaColor(1.0f, 0.5f, 0.25f, 1.0f));
+        parameters.set("color", Color(1.0f, 0.5f, 0.25f, 1.0f));
         parameters.set("roughness", 0.25f);
 
         // Act
