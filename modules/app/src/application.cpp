@@ -17,9 +17,8 @@ namespace tbx
         bool vsync,
         GraphicsApi api,
         Size resolution)
-        : vsync_enabled(&dispatcher, this, &AppSettings::vsync_enabled, vsync)
-        , graphics_api(&dispatcher, this, &AppSettings::graphics_api, api)
-        , resolution(&dispatcher, this, &AppSettings::resolution, resolution)
+        : graphics(dispatcher, vsync, api, resolution)
+        , physics(dispatcher)
     {
     }
 
@@ -195,9 +194,11 @@ namespace tbx
         // Begin update
         _msg_coordinator.send<ApplicationUpdateBeginEvent>(this, dt);
 
+        // Run fixed update logic
+        fixed_update(dt);
+
         // Update all loaded plugins
-        for (auto& p : _loaded)
-            p.instance->update(dt);
+        update_plugins(_loaded, dt);
 
         _input_manager.update(dt);
 
@@ -268,6 +269,38 @@ namespace tbx
                     "investigating potential performance issues.");
             }
         }
+    }
+
+    void Application::fixed_update(const DeltaTime& dt)
+    {
+        auto& physics_settings = _settings.physics;
+        double fixed_step_seconds =
+            std::max(0.0001, static_cast<double>(physics_settings.fixed_time_step_seconds.value));
+        int max_sub_steps = std::max(1, static_cast<int>(physics_settings.max_sub_steps.value));
+
+        _fixed_update_accumulator_seconds += dt.seconds;
+        if (_fixed_update_accumulator_seconds < fixed_step_seconds)
+            return;
+
+        int sub_step_count = 0;
+        while (_fixed_update_accumulator_seconds >= fixed_step_seconds
+               && sub_step_count < max_sub_steps)
+        {
+            DeltaTime fixed_dt = {
+                .seconds = fixed_step_seconds,
+                .milliseconds = fixed_step_seconds * 1000.0,
+            };
+
+            update_plugins_fixed(_loaded, fixed_dt);
+
+            _fixed_update_accumulator_seconds -= fixed_step_seconds;
+            ++sub_step_count;
+        }
+
+        double max_accumulator_seconds =
+            static_cast<double>(fixed_step_seconds) * static_cast<double>(max_sub_steps);
+        if (_fixed_update_accumulator_seconds > max_accumulator_seconds)
+            _fixed_update_accumulator_seconds = max_accumulator_seconds;
     }
 
     void Application::shutdown()

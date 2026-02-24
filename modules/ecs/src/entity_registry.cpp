@@ -25,10 +25,24 @@ namespace tbx
         Uuid value = {};
     };
 
+    static EntityHandle to_entity_handle(const Uuid& id)
+    {
+        if (!id.is_valid())
+            return entt::null;
+
+        return static_cast<EntityHandle>(id.value - 1U);
+    }
+
+    static Uuid to_entity_id(EntityHandle handle)
+    {
+        const auto handle_value = static_cast<uint32>(entt::to_integral(handle));
+        return Uuid(handle_value + 1U);
+    }
+
     template <typename TComponent, typename TValue>
     static void set_component_value(entt::registry& registry, const Uuid& id, TValue&& value)
     {
-        auto entityHandle = static_cast<EntityHandle>(id.value);
+        auto entityHandle = to_entity_handle(id);
         if (!registry.valid(entityHandle))
             return;
 
@@ -46,7 +60,7 @@ namespace tbx
     template <typename TComponent, typename TValue>
     static TValue get_component_value(const entt::registry& registry, const Uuid& id)
     {
-        auto entityHandle = static_cast<EntityHandle>(id.value);
+        auto entityHandle = to_entity_handle(id);
         if (!registry.valid(entityHandle))
             return {};
 
@@ -82,17 +96,17 @@ namespace tbx
     {
         EntityHandle handle = _impl->create();
 
-        auto id = static_cast<uint32>(entt::to_integral(handle));
+        auto id = to_entity_id(handle);
         auto resolvedName = name;
         if (resolvedName.empty())
-            resolvedName = tbx::to_string(Uuid(id));
+            resolvedName = tbx::to_string(id);
 
         _impl->emplace<EntityNameComponent>(handle, EntityNameComponent {.value = resolvedName});
         _impl->emplace<EntityTagComponent>(handle, EntityTagComponent {.value = tag});
         _impl->emplace<EntityLayerComponent>(handle, EntityLayerComponent {.value = layer});
         _impl->emplace<EntityParentComponent>(handle, EntityParentComponent {.value = parent});
 
-        return Uuid(id);
+        return id;
     }
 
     void EntityRegistry::remove(Entity& entity)
@@ -100,7 +114,7 @@ namespace tbx
         if (entity._registry != this)
             return;
 
-        auto handle = static_cast<EntityHandle>(entity._id.value);
+        auto handle = to_entity_handle(entity._id);
         if (!_impl->valid(handle))
             return;
 
@@ -111,7 +125,7 @@ namespace tbx
 
     Entity EntityRegistry::get(const Uuid& id)
     {
-        if (!_impl->valid(static_cast<EntityHandle>(id.value)))
+        if (!_impl->valid(to_entity_handle(id)))
             return {};
 
         auto entity = Entity {};
@@ -127,7 +141,7 @@ namespace tbx
 
         for (const auto entityHandle : view)
         {
-            auto id = Uuid(static_cast<uint32>(entt::to_integral(entityHandle)));
+            auto id = to_entity_id(entityHandle);
             auto entity = Entity {};
             entity._id = id;
             entity._registry = this;
@@ -145,7 +159,7 @@ namespace tbx
         auto view = _impl->view<EntityNameComponent>();
         for (const auto entityHandle : view)
         {
-            auto id = Uuid(static_cast<uint32>(entt::to_integral(entityHandle)));
+            auto id = to_entity_id(entityHandle);
             auto entity = Entity {};
             entity._id = id;
             entity._registry = this;

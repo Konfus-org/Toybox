@@ -37,6 +37,11 @@ namespace tbx
         on_update(dt);
     }
 
+    void Plugin::fixed_update(const DeltaTime& dt)
+    {
+        on_fixed_update(dt);
+    }
+
     void Plugin::receive_message(Message& msg)
     {
         on_recieve_message(msg);

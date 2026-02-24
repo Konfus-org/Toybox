@@ -82,7 +82,7 @@ namespace tbx::plugins
         /// Ownership: Writes to this framebuffer's attachments only.
         /// Thread Safety: Call on the render thread.
         /// </remarks>
-        void clear(const RgbaColor& clear_color) const;
+        void clear(const Color& clear_color) const;
 
         /// <summary>
         /// Purpose: Returns the framebuffer resolution.

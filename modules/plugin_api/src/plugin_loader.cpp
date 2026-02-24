@@ -8,6 +8,7 @@
 #include <deque>
 #include <filesystem>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -410,6 +411,85 @@ namespace tbx
             return left.priority > right.priority;
 
         return to_lower(left.name) < to_lower(right.name);
+    }
+
+    static uint32 get_update_category_rank(PluginCategory category, bool is_fixed_update)
+    {
+        (void)is_fixed_update;
+        switch (category)
+        {
+            case PluginCategory::LOGGING:
+                return 0U;
+            case PluginCategory::DEFAULT:
+                return 1U;
+            case PluginCategory::INPUT:
+                return 2U;
+            case PluginCategory::AUDIO:
+                return 3U;
+            case PluginCategory::GAMEPLAY:
+                return 4U;
+            case PluginCategory::PHYSICS:
+                return 5U;
+            case PluginCategory::RENDERING:
+                return 6U;
+            default:
+                return 7U;
+        }
+    }
+
+    static std::vector<size_t> build_update_order(
+        const std::vector<LoadedPlugin>& loaded_plugins,
+        bool is_fixed_update)
+    {
+        auto ordered_indices = std::vector<size_t>(loaded_plugins.size(), 0U);
+        std::iota(ordered_indices.begin(), ordered_indices.end(), 0U);
+
+        std::stable_sort(
+            ordered_indices.begin(),
+            ordered_indices.end(),
+            [&loaded_plugins, is_fixed_update](size_t left_index, size_t right_index)
+            {
+                const auto& left = loaded_plugins[left_index].meta;
+                const auto& right = loaded_plugins[right_index].meta;
+
+                uint32 left_rank = get_update_category_rank(left.category, is_fixed_update);
+                uint32 right_rank = get_update_category_rank(right.category, is_fixed_update);
+                if (left_rank != right_rank)
+                    return left_rank < right_rank;
+
+                if (left.priority != right.priority)
+                    return left.priority < right.priority;
+
+                return to_lower(left.name) < to_lower(right.name);
+            });
+
+        return ordered_indices;
+    }
+
+    void update_plugins(std::vector<LoadedPlugin>& loaded_plugins, const DeltaTime& dt)
+    {
+        auto ordered_indices = build_update_order(loaded_plugins, false);
+        for (size_t index : ordered_indices)
+        {
+            auto& plugin = loaded_plugins[index];
+            if (!plugin.instance)
+                continue;
+
+            plugin.instance->update(dt);
+        }
+    }
+
+    void update_plugins_fixed(std::vector<LoadedPlugin>& loaded_plugins, const DeltaTime& dt)
+    {
+        auto ordered_indices = build_update_order(loaded_plugins, true);
+        for (size_t index : ordered_indices)
+        {
+            auto& plugin = loaded_plugins[index];
+            if (!plugin.instance)
+                continue;
+
+            plugin.instance->fixed_update(dt);
+        }
     }
 
     void unload_plugins(std::vector<LoadedPlugin>& loaded_plugins)

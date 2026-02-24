@@ -28,8 +28,14 @@ function(tbx_define_default_includes)
     if(NOT TARGET Tbx::Graphics)
         message(FATAL_ERROR "Tbx::DefaultIncludes requires Tbx::Graphics (call after add_subdirectory(modules))")
     endif()
+    if(NOT TARGET Tbx::Physics)
+        message(FATAL_ERROR "Tbx::DefaultIncludes requires Tbx::Physics (call after add_subdirectory(modules))")
+    endif()
     if(NOT TARGET Tbx::Plugins::SdlInputPlugin)
         message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::SdlInputPlugin (call after add_subdirectory(plugins))")
+    endif()
+    if(NOT TARGET Tbx::Plugins::JoltPhysicsPlugin)
+        message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::JoltPhysicsPlugin (call after add_subdirectory(plugins))")
     endif()
     if(NOT TARGET Tbx::Plugins::SdlWindowingPlugin)
         message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::SdlWindowingPlugin (call after add_subdirectory(plugins))")
@@ -58,7 +64,9 @@ function(tbx_define_default_includes)
         Tbx::Assets
         Tbx::ECS
         Tbx::Graphics
+        Tbx::Physics
         Tbx::Plugins::SdlInputPlugin
+        Tbx::Plugins::JoltPhysicsPlugin
         Tbx::Plugins::SdlWindowingPlugin
         Tbx::Plugins::OpenGlRenderingPlugin
         Tbx::Plugins::SdlOpenGlAdapterPlugin

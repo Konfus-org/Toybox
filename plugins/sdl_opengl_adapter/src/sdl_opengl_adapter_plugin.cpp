@@ -19,8 +19,8 @@ namespace tbx::plugins
 
     void SdlOpenGlAdapterPlugin::on_attach(IPluginHost& host)
     {
-        _use_opengl = host.get_settings().graphics_api == GraphicsApi::OPEN_GL;
-        _vsync_enabled = host.get_settings().vsync_enabled;
+        _use_opengl = host.get_settings().graphics.graphics_api == GraphicsApi::OPEN_GL;
+        _vsync_enabled = host.get_settings().graphics.vsync_enabled;
         ensure_open_gl_adapter();
     }
 
@@ -51,7 +51,7 @@ namespace tbx::plugins
             return;
         }
 
-        if (auto* vsync_event = handle_property_changed<&AppSettings::vsync_enabled>(msg))
+        if (auto* vsync_event = handle_property_changed<&GraphicsSettings::vsync_enabled>(msg))
         {
             _vsync_enabled = vsync_event->current;
             apply_vsync_setting();
@@ -65,7 +65,7 @@ namespace tbx::plugins
             return;
         }
 
-        if (auto* graphics_event = handle_property_changed<&AppSettings::graphics_api>(msg))
+        if (auto* graphics_event = handle_property_changed<&GraphicsSettings::graphics_api>(msg))
         {
             _use_opengl = graphics_event->current == GraphicsApi::OPEN_GL;
             ensure_open_gl_adapter();

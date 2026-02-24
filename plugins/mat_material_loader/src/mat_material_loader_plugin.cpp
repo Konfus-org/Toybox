@@ -255,7 +255,7 @@ namespace tbx::plugins
             }
             out_material.parameters.set(
                 name,
-                RgbaColor(
+                Color(
                     static_cast<float>(values[0]),
                     static_cast<float>(values[1]),
                     static_cast<float>(values[2]),

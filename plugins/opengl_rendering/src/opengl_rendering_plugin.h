@@ -26,7 +26,14 @@ namespace tbx::plugins
         /// Thread Safety: Call on render thread.</remarks>
         void teardown_renderer(const Uuid& window_id);
 
+        /// <summary>Applies current shadow settings to all active renderer instances.</summary>
+        /// <remarks>Purpose: Keeps per-window renderer shadow behavior aligned with app graphics
+        /// settings. Ownership: Uses plugin-owned renderer instances; does not transfer ownership.
+        /// Thread Safety: Call on render thread.</remarks>
+        void apply_shadow_settings_to_renderers();
+
       private:
         std::unordered_map<Uuid, std::unique_ptr<OpenGlRenderer>> _renderers = {};
+        OpenGlShadowSettings _shadow_settings = {};
     };
 }

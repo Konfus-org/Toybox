@@ -673,5 +673,6 @@ namespace tbx
 
         IMessageDispatcher* _dispatcher = nullptr;
         std::unordered_map<std::string, InputScheme> _schemes = {};
+        bool _did_warn_missing_action_input_handlers = false;
     };
 }

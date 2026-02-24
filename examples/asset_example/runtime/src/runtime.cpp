@@ -6,33 +6,30 @@
 #include "tbx/graphics/renderer.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
-#include <cmath>
 
 namespace tbx::examples
 {
     void AssetExampleRuntimePlugin::on_attach(IPluginHost& host)
     {
         _ent_registry = &host.get_entity_registry();
-        _input_manager = &host.get_input_manager();
 
         // Setup assets to use
         auto smily_mat = Handle("Materials/Smily.mat");
         auto skybox_mat = Handle("Materials/AnimeSkybox.mat");
         auto lut_post_mat = Handle("Materials/LutPostProcess.mat");
-        auto skybox_tex = Handle("Textures/AnimeSkybox.png");
         auto lut_tex = Handle("Textures/LUTs/LUT_Cinematic.png");
         auto green_cube = Handle("Models/Green_Cube.fbx");
 
         // Setup light
         _sun = Entity("Light", *_ent_registry);
-        _sun.add_component<DirectionalLight>(RgbaColor::yellow, 1.0f, 0.25f);
+        _sun.add_component<DirectionalLight>(Color::YELLOW, 1.0f, 0.25f);
         _sun.add_component<Transform>(Vec3(0), to_radians(Vec3(-45.0f, 45.0f, 0.0f)), Vec3(1));
 
         // Setup cube
-        _green_cube = Entity("Cube", *_ent_registry);
-        _green_cube.add_component<Renderer>();
-        _green_cube.add_component<StaticMesh>(green_cube);
-        _green_cube.add_component<Transform>(Vec3(0.0f, 0.0f, -5.0f));
+        _cube = Entity("Cube", *_ent_registry);
+        _cube.add_component<Renderer>();
+        _cube.add_component<StaticMesh>(green_cube);
+        _cube.add_component<Transform>(Vec3(0.0f, 0.0f, -5.0f));
 
         // Setup ground
         auto ground_ent = Entity("Ground", *_ent_registry);
@@ -65,92 +62,13 @@ namespace tbx::examples
         post_ent.add_component<PostProcessing>(post_processing);
 
         // Setup camera
-        _camera = Entity("Camera", *_ent_registry);
-        _camera.add_component<Camera>();
-        _camera.add_component<Transform>(Vec3(0.0f, 0.0f, 10.0f));
-
-        // Setup input scheme: WASD move + mouse delta look and locked mouse
-        auto camera_scheme = InputScheme(
-            _camera_scheme_name,
-            {
-                InputAction(
-                    "Move",
-                    InputActionValueType::VECTOR2,
-                    InputActionConstruction {
-                        .bindings =
-                            {
-                                InputBinding {
-                                    .control =
-                                        KeyboardVector2CompositeInputControl {
-                                            .up = InputKey::W,
-                                            .down = InputKey::S,
-                                            .left = InputKey::A,
-                                            .right = InputKey::D,
-                                        },
-                                    .scale = 1.0F,
-                                },
-                            },
-                        .on_performed_callbacks =
-                            {
-                                [this](const InputAction& action)
-                                {
-                                    Vec2 move_axis = Vec2(0.0F, 0.0F);
-                                    if (action.try_get_value_as<Vec2>(move_axis))
-                                        _move_axis = move_axis;
-                                },
-                            },
-                        .on_cancelled_callbacks =
-                            {
-                                [this](const InputAction&)
-                                {
-                                    _move_axis = Vec2(0.0F, 0.0F);
-                                },
-                            },
-                    }),
-                InputAction(
-                    "Look",
-                    InputActionValueType::VECTOR2,
-                    InputActionConstruction {
-                        .bindings =
-                            {
-                                InputBinding {
-                                    .control =
-                                        MouseVectorInputControl {
-                                            .control = InputMouseVectorControl::DELTA,
-                                        },
-                                    .scale = 1.0F,
-                                },
-                            },
-                        .on_performed_callbacks =
-                            {
-                                [this](const InputAction& action)
-                                {
-                                    Vec2 look_delta = Vec2(0.0F, 0.0F);
-                                    if (action.try_get_value_as<Vec2>(look_delta))
-                                        _look_delta = look_delta;
-                                },
-                            },
-                        .on_cancelled_callbacks =
-                            {
-                                [this](const InputAction&)
-                                {
-                                    _look_delta = Vec2(0.0F, 0.0F);
-                                },
-                            },
-                    }),
-            });
-
-        _input_manager->add_scheme(camera_scheme);
-        _input_manager->activate_scheme(_camera_scheme_name);
-        _input_manager->set_mouse_lock_mode(MouseLockMode::RELATIVE);
+        auto camera = Entity("Camera", *_ent_registry);
+        camera.add_component<Camera>();
+        camera.add_component<Transform>(Vec3(0.0f, 0.0f, 10.0f));
     }
 
     void AssetExampleRuntimePlugin::on_detach()
     {
-        if (_input_manager)
-            _input_manager->remove_scheme(_camera_scheme_name);
-
-        _input_manager = nullptr;
         _ent_registry = nullptr;
     }
 
@@ -158,10 +76,10 @@ namespace tbx::examples
     {
         // Rotate cube...
         {
-            auto& transform = _green_cube.get_component<Transform>();
-            const float yaw_rate = 2.0F;
+            auto& transform = _cube.get_component<Transform>();
+            const float yaw_rate = 1.0F;
             float angle = yaw_rate * static_cast<float>(dt.seconds);
-            auto delta = Quat({0.0f, angle, 0.0f});
+            auto delta = Quat({0.0F, angle, 0.0F});
             transform.rotation = normalize(delta * transform.rotation);
         }
 
@@ -170,52 +88,8 @@ namespace tbx::examples
             auto& transform = _sun.get_component<Transform>();
             const float yaw_rate = 0.5F;
             float angle = yaw_rate * static_cast<float>(dt.seconds);
-            auto delta = Quat({0.0f, angle, 0.0f});
+            auto delta = Quat({0.0F, angle, 0.0F});
             transform.rotation = normalize(delta * transform.rotation);
-        }
-
-        auto& camera_transform = _camera.get_component<Transform>();
-
-        // Mouse-look.
-        _camera_yaw -= _look_delta.x * _camera_look_sensitivity;
-        _camera_pitch -= _look_delta.y * _camera_look_sensitivity;
-
-        const float max_pitch = to_radians(89.0F);
-        if (_camera_pitch > max_pitch)
-            _camera_pitch = max_pitch;
-        if (_camera_pitch < -max_pitch)
-            _camera_pitch = -max_pitch;
-
-        camera_transform.rotation = normalize(Quat(Vec3(_camera_pitch, _camera_yaw, 0.0F)));
-
-        // WASD translation in camera local-space (flattened to world XZ).
-        const float right_axis = _move_axis.x;
-        const float forward_axis = _move_axis.y;
-
-        Vec3 forward = camera_transform.rotation * Vec3(0.0F, 0.0F, -1.0F);
-        Vec3 right = camera_transform.rotation * Vec3(1.0F, 0.0F, 0.0F);
-
-        forward.y = 0.0F;
-        right.y = 0.0F;
-
-        const float forward_length_squared =
-            forward.x * forward.x + forward.y * forward.y + forward.z * forward.z;
-        if (forward_length_squared > 0.0F)
-            forward *= 1.0F / std::sqrt(forward_length_squared);
-
-        const float right_length_squared =
-            right.x * right.x + right.y * right.y + right.z * right.z;
-        if (right_length_squared > 0.0F)
-            right *= 1.0F / std::sqrt(right_length_squared);
-
-        Vec3 move = forward * forward_axis + right * right_axis;
-
-        const float move_length_squared = move.x * move.x + move.y * move.y + move.z * move.z;
-        if (move_length_squared > 0.0F)
-        {
-            const float inverse_length = 1.0F / std::sqrt(move_length_squared);
-            move *= inverse_length;
-            camera_transform.position += move * _camera_move_speed * static_cast<float>(dt.seconds);
         }
     }
 }

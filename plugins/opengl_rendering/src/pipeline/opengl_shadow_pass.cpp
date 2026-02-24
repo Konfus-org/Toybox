@@ -4,16 +4,12 @@
 #include "opengl_resources/opengl_shadow_map.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/renderer.h"
-#include "tbx/math/transform.h"
 #include <algorithm>
 #include <glad/glad.h>
 #include <vector>
 
 namespace tbx::plugins
 {
-    static constexpr size_t MAX_SHADOW_MAPS = 4;
-    static constexpr uint32 SHADOW_MAP_RESOLUTION = 2048;
-
     static void bind_textures(
         const OpenGlDrawResources& draw_resources,
         std::vector<GlResourceScope>& out_scopes)
@@ -23,16 +19,28 @@ namespace tbx::plugins
             if (!texture_binding.texture)
                 continue;
 
+            texture_binding.texture->set_slot(static_cast<uint32>(texture_binding.slot));
             out_scopes.push_back(GlResourceScope(*texture_binding.texture));
+        }
+    }
+
+    static void upload_texture_uniforms(
+        OpenGlShaderProgram& shader_program,
+        const OpenGlDrawResources& draw_resources)
+    {
+        for (const auto& texture_binding : draw_resources.textures)
+        {
+            shader_program.try_upload(
+                MaterialParameter {
+                    .name = texture_binding.uniform_name,
+                    .data = texture_binding.slot,
+                });
         }
     }
 
     static void upload_model_uniform(OpenGlShaderProgram& shader_program, const Entity& entity)
     {
-        auto transform = Transform {};
-        if (entity.has_component<Transform>())
-            transform = entity.get_component<Transform>();
-
+        const auto transform = get_world_space_transform(entity);
         const auto model_matrix = build_transform_matrix(transform);
         shader_program.upload(
             MaterialParameter {
@@ -91,6 +99,7 @@ namespace tbx::plugins
         bind_textures(draw_resources, resource_scopes);
 
         upload_light_view_projection(*draw_resources.shader_program, light_view_projection);
+        upload_texture_uniforms(*draw_resources.shader_program, draw_resources);
         upload_material_uniforms(*draw_resources.shader_program, draw_resources);
         upload_model_uniform(*draw_resources.shader_program, entity);
         draw_resources.mesh->draw(draw_resources.use_tesselation);
@@ -126,7 +135,7 @@ namespace tbx::plugins
         const auto max_shadow_maps = std::min(
             frame_context.shadow_data.map_uuids.size(),
             frame_context.shadow_data.light_view_projections.size());
-        const auto shadow_map_count = std::min(max_shadow_maps, MAX_SHADOW_MAPS);
+        const auto shadow_map_count = max_shadow_maps;
         if (shadow_map_count == 0)
             return;
 
@@ -136,11 +145,13 @@ namespace tbx::plugins
 
         glBindFramebuffer(GL_FRAMEBUFFER, shadow_framebuffer_id);
 
-        glViewport(0, 0, SHADOW_MAP_RESOLUTION, SHADOW_MAP_RESOLUTION);
+        const auto shadow_map_resolution =
+            static_cast<GLsizei>(std::max(1U, frame_context.shadow_data.shadow_map_resolution));
+        glViewport(0, 0, shadow_map_resolution, shadow_map_resolution);
         glDisable(GL_BLEND);
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
-        glCullFace(GL_FRONT);
+        glCullFace(GL_BACK);
 
         auto resource_scopes = std::vector<GlResourceScope> {};
         for (size_t shadow_index = 0; shadow_index < shadow_map_count; ++shadow_index)

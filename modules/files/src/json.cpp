@@ -232,13 +232,13 @@ namespace tbx
     }
 
     template <>
-    bool Json::try_get<RgbaColor>(const std::string& key, RgbaColor& out_value) const
+    bool Json::try_get<Color>(const std::string& key, Color& out_value) const
     {
         float components[4] = {};
         if (!try_parse_float_components(_data->Data, key, components))
             return false;
 
-        out_value = RgbaColor(components[0], components[1], components[2], components[3]);
+        out_value = Color(components[0], components[1], components[2], components[3]);
         return true;
     }
 

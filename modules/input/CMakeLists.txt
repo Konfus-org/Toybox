@@ -19,6 +19,8 @@ target_link_libraries(${module_name}
         Tbx::Math
         Tbx::Messaging
         Tbx::Time
+    PRIVATE
+        Tbx::Debugging
 )
 
 tbx_setup_module(${module_name})

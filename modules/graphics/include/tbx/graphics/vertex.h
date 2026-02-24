@@ -12,7 +12,7 @@ namespace tbx
 {
     ///////////// VERTEX DATA //////////////////
 
-    using VertexData = std::variant<int, float, Vec2, Vec3, RgbaColor>;
+    using VertexData = std::variant<int, float, Vec2, Vec3, Color>;
 
     inline int32 get_vertex_data_count(const VertexData& data)
     {
@@ -24,7 +24,7 @@ namespace tbx
         {
             return 3;
         }
-        else if (std::holds_alternative<RgbaColor>(data))
+        else if (std::holds_alternative<Color>(data))
         {
             return 4;
         }
@@ -53,7 +53,7 @@ namespace tbx
         {
             return 4 * 3;
         }
-        else if (std::holds_alternative<RgbaColor>(data))
+        else if (std::holds_alternative<Color>(data))
         {
             return 4 * 4;
         }
@@ -83,7 +83,7 @@ namespace tbx
         // Texture coordinate for texture mapping
         Vec2 uv = Vec2(0.0f);
         // (r, g, b, a) for color
-        RgbaColor color = {1.0f, 1.0f, 1.0f, 1.0f};
+        Color color = {1.0f, 1.0f, 1.0f, 1.0f};
     };
 
     ///////////// VERTEX BUFFER //////////////////
@@ -186,6 +186,11 @@ namespace tbx
         size_t size() const
         {
             return vertices.size();
+        }
+
+        auto data() const
+        {
+            return vertices.data();
         }
 
         std::vector<float> vertices = {};
