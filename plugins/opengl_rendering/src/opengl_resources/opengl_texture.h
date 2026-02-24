@@ -31,6 +31,7 @@ namespace tbx::plugins
         TextureWrap wrap = TextureWrap::CLAMP_TO_EDGE;
         bool use_border_color = false;
         Vec4 border_color = Vec4(0.0f);
+        bool use_compare_mode = false;
     };
 
     /// <summary>OpenGL implementation of a texture resource.</summary>

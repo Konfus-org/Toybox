@@ -30,6 +30,7 @@ namespace tbx::plugins
             .wrap = TextureWrap::CLAMP_TO_EDGE,
             .use_border_color = true,
             .border_color = Vec4(1.0f, 1.0f, 1.0f, 1.0f),
+            .use_compare_mode = true,
         };
         _texture = std::make_shared<OpenGlTexture>(settings);
         _resolution = resolution;

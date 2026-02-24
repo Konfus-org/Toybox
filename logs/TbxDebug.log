@@ -1,0 +1,61 @@
+[2026-02-23 22:49:18.604] [Toybox] [info] [application.cpp:118] Initializing application: PhysicsExample
+[2026-02-23 22:49:18.604] [Toybox] [info] [application.cpp:122] Build Configuration: Debug
+[2026-02-23 22:49:18.606] [Toybox] [info] [loaded_plugin.cpp:22] Loading plugin: AssimpModelLoaderPlugin v1.0.0
+[2026-02-23 22:49:18.606] [Toybox] [info] [loaded_plugin.cpp:22] Loading plugin: GlslShaderLoaderPlugin v1.0.0
+[2026-02-23 22:49:18.606] [Toybox] [info] [loaded_plugin.cpp:22] Loading plugin: MatMaterialLoaderPlugin v1.0.0
+[2026-02-23 22:49:18.606] [Toybox] [info] [loaded_plugin.cpp:22] Loading plugin: StbImageLoaderPlugin v1.0.0
+[2026-02-23 22:49:18.606] [Toybox] [info] [loaded_plugin.cpp:22] Loading plugin: SdlBaseSystemsPlugin v1.0.0
+[2026-02-23 22:49:18.608] [Toybox] [info] [sdl_base_systems_plugin.cpp:71] SDL base systems initialized the SDL events subsystem.
+[2026-02-23 22:49:18.608] [Toybox] [info] [loaded_plugin.cpp:22] Loading plugin: SdlInputPlugin v1.0.0
+[2026-02-23 22:49:18.636] [Toybox] [info] [loaded_plugin.cpp:22] Loading plugin: SdlWindowingPlugin v1.0.0
+[2026-02-23 22:49:18.685] [Toybox] [info] [sdl_windowing_plugin.cpp:126] Initialized SDL video subsystem.
+[2026-02-23 22:49:18.685] [Toybox] [info] [sdl_windowing_plugin.cpp:128] Video driver: wayland
+[2026-02-23 22:49:18.685] [Toybox] [info] [loaded_plugin.cpp:22] Loading plugin: JoltPhysicsPlugin v1.0.0
+[2026-02-23 22:49:18.689] [Toybox] [info] [loaded_plugin.cpp:22] Loading plugin: SdlOpenGlAdapterPlugin v1.0.0
+[2026-02-23 22:49:18.689] [Toybox] [info] [loaded_plugin.cpp:22] Loading plugin: OpenGlRenderingPlugin v1.0.0
+[2026-02-23 22:49:18.689] [Toybox] [info] [loaded_plugin.cpp:22] Loading plugin: PhysicsExampleRuntime v1.0.0
+[2026-02-23 22:49:18.691] [Toybox] [info] [application.cpp:142] Working Directory: /home/konfus/Source/Repos/Toybox/Engine/build/clang/bin/Debug
+[2026-02-23 22:49:18.691] [Toybox] [info] [application.cpp:143] Logs Directory: /home/konfus/Source/Repos/Toybox/Engine/build/clang/bin/Debug/logs
+[2026-02-23 22:49:18.691] [Toybox] [info] [application.cpp:146] Asset Directory: /home/konfus/Source/Repos/Toybox/Engine/resources
+[2026-02-23 22:49:18.691] [Toybox] [info] [application.cpp:146] Asset Directory: /home/konfus/Source/Repos/Toybox/Engine/examples/asset_example/assets
+[2026-02-23 22:49:18.691] [Toybox] [info] [application.cpp:154] Application startup completed in 87.32 ms.
+[2026-02-23 22:49:18.757] [Toybox] [info] [sdl_windowing_plugin.cpp:113] Created window with title 'PhysicsExample', size (1280, 720)
+[2026-02-23 22:49:18.762] [Toybox] [info] [opengl_renderer.cpp:932] OpenGL rendering: initializing window 767ddf96 context.
+[2026-02-23 22:49:18.763] [Toybox] [info] [opengl_rendering_plugin.cpp:51] OpenGL rendering: renderer ready for window 767ddf96.
+[2026-02-23 22:49:18.784] [Toybox] [info] [asset_manager.h:280] Loading asset: '/home/konfus/Source/Repos/Toybox/Engine/resources/Shaders/DeferredGeometry.vert' (id=9, type=N3tbx6ShaderE)
+[2026-02-23 22:49:18.787] [Toybox] [info] [asset_manager.h:280] Loading asset: '/home/konfus/Source/Repos/Toybox/Engine/resources/Shaders/DeferredGeometry.frag' (id=a, type=N3tbx6ShaderE)
+[2026-02-23 22:49:18.790] [Toybox] [info] [asset_manager.h:280] Loading asset: '/home/konfus/Source/Repos/Toybox/Engine/resources/Materials/DeferredLighting.mat' (id=d, type=N3tbx8MaterialE)
+[2026-02-23 22:49:18.790] [Toybox] [info] [asset_manager.h:280] Loading asset: '/home/konfus/Source/Repos/Toybox/Engine/resources/Shaders/DeferredLighting.vert' (id=b, type=N3tbx6ShaderE)
+[2026-02-23 22:49:18.790] [Toybox] [info] [asset_manager.h:280] Loading asset: '/home/konfus/Source/Repos/Toybox/Engine/resources/Shaders/DeferredLighting.frag' (id=c, type=N3tbx6ShaderE)
+[2026-02-23 22:49:19.242] [Toybox] [info] [runtime.cpp:123] Trigger overlap begin: a with 8.
+[2026-02-23 22:49:19.694] [Toybox] [info] [asset_manager.h:195] Unloaded asset: '/home/konfus/Source/Repos/Toybox/Engine/resources/Materials/DeferredLighting.mat' (id=d, type=N3tbx8MaterialE)
+[2026-02-23 22:49:19.694] [Toybox] [info] [asset_manager.h:195] Unloaded asset: '/home/konfus/Source/Repos/Toybox/Engine/resources/Shaders/DeferredLighting.frag' (id=c, type=N3tbx6ShaderE)
+[2026-02-23 22:49:19.694] [Toybox] [info] [asset_manager.h:195] Unloaded asset: '/home/konfus/Source/Repos/Toybox/Engine/resources/Shaders/DeferredGeometry.frag' (id=a, type=N3tbx6ShaderE)
+[2026-02-23 22:49:19.694] [Toybox] [info] [asset_manager.h:195] Unloaded asset: '/home/konfus/Source/Repos/Toybox/Engine/resources/Shaders/DeferredLighting.vert' (id=b, type=N3tbx6ShaderE)
+[2026-02-23 22:49:19.694] [Toybox] [info] [asset_manager.h:195] Unloaded asset: '/home/konfus/Source/Repos/Toybox/Engine/resources/Shaders/DeferredGeometry.vert' (id=9, type=N3tbx6ShaderE)
+[2026-02-23 22:49:19.760] [Toybox] [info] [runtime.cpp:123] Trigger overlap begin: a with 9.
+[2026-02-23 22:49:19.760] [Toybox] [info] [runtime.cpp:133] Trigger overlap end: a with 8.
+[2026-02-23 22:49:20.909] [Toybox] [info] [runtime.cpp:133] Trigger overlap end: a with 9.
+[2026-02-23 22:49:28.692] [Toybox] [info] [application.cpp:251] FPS(avg): 656.79, Frame Time(avg): 1.52ms, Frame Time(min/max): 0.43/79.71ms
+[2026-02-23 22:49:38.693] [Toybox] [info] [application.cpp:251] FPS(avg): 696.04, Frame Time(avg): 1.44ms, Frame Time(min/max): 0.78/9.21ms
+[2026-02-23 22:49:48.694] [Toybox] [info] [application.cpp:251] FPS(avg): 635.75, Frame Time(avg): 1.57ms, Frame Time(min/max): 0.46/35.48ms
+[2026-02-23 22:49:58.695] [Toybox] [info] [application.cpp:251] FPS(avg): 601.23, Frame Time(avg): 1.66ms, Frame Time(min/max): 0.56/37.62ms
+[2026-02-23 22:50:08.696] [Toybox] [info] [application.cpp:251] FPS(avg): 652.01, Frame Time(avg): 1.53ms, Frame Time(min/max): 0.61/19.31ms
+[2026-02-23 22:50:18.697] [Toybox] [info] [application.cpp:251] FPS(avg): 679.26, Frame Time(avg): 1.47ms, Frame Time(min/max): 0.82/11.26ms
+[2026-02-23 22:50:28.698] [Toybox] [info] [application.cpp:251] FPS(avg): 669.15, Frame Time(avg): 1.49ms, Frame Time(min/max): 0.80/12.25ms
+[2026-02-23 22:50:38.700] [Toybox] [info] [application.cpp:251] FPS(avg): 627.46, Frame Time(avg): 1.59ms, Frame Time(min/max): 0.56/24.02ms
+[2026-02-23 22:50:39.844] [Toybox] [info] [application.cpp:310] Shutting down application: PhysicsExample
+[2026-02-23 22:50:39.844] [Toybox] [info] [application.cpp:314] Total Run Time: 81.14s, Total Updates: 52471
+[2026-02-23 22:50:39.844] [Toybox] [info] [asset_manager.cpp:55] Unloading all assets.
+[2026-02-23 22:50:39.844] [Toybox] [info] [loaded_plugin.cpp:39] Unloading plugin: PhysicsExampleRuntime
+[2026-02-23 22:50:39.844] [Toybox] [info] [loaded_plugin.cpp:39] Unloading plugin: OpenGlRenderingPlugin
+[2026-02-23 22:50:39.844] [Toybox] [info] [loaded_plugin.cpp:39] Unloading plugin: JoltPhysicsPlugin
+[2026-02-23 22:50:39.846] [Toybox] [info] [loaded_plugin.cpp:39] Unloading plugin: AssimpModelLoaderPlugin
+[2026-02-23 22:50:39.846] [Toybox] [info] [loaded_plugin.cpp:39] Unloading plugin: GlslShaderLoaderPlugin
+[2026-02-23 22:50:39.846] [Toybox] [info] [loaded_plugin.cpp:39] Unloading plugin: MatMaterialLoaderPlugin
+[2026-02-23 22:50:39.846] [Toybox] [info] [loaded_plugin.cpp:39] Unloading plugin: SdlInputPlugin
+[2026-02-23 22:50:39.846] [Toybox] [info] [loaded_plugin.cpp:39] Unloading plugin: SdlOpenGlAdapterPlugin
+[2026-02-23 22:50:39.846] [Toybox] [info] [loaded_plugin.cpp:39] Unloading plugin: SdlWindowingPlugin
+[2026-02-23 22:50:39.847] [Toybox] [info] [loaded_plugin.cpp:39] Unloading plugin: SdlBaseSystemsPlugin
+[2026-02-23 22:50:39.847] [Toybox] [info] [loaded_plugin.cpp:39] Unloading plugin: StbImageLoaderPlugin
+[2026-02-23 22:50:39.847] [Toybox] [info] [application.cpp:334] Application shutdown completed in 3.41 ms.

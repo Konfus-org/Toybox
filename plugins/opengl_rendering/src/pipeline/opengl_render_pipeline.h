@@ -220,6 +220,13 @@ namespace tbx::plugins
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
         float shadow_softness = 1.75F;
+
+        /// <summary>
+        /// Purpose: Maximum distance from camera to render shadows.
+        /// Ownership: Value type.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        float shadow_render_distance = 90.0F;
     };
 
     /// <summary>

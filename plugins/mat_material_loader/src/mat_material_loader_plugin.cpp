@@ -1,5 +1,5 @@
 #include "mat_material_loader_plugin.h"
-#include "tbx/app/application.h"
+#include "tbx/app/app_settings.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/files/file_ops.h"
 #include "tbx/files/json.h"
@@ -449,7 +449,7 @@ namespace tbx::plugins
     void MatMaterialLoaderPlugin::on_attach(IPluginHost& host)
     {
         _asset_manager = &host.get_asset_manager();
-        _working_directory = host.get_settings().working_directory;
+        _working_directory = host.get_settings().paths.working_directory;
         if (!_file_ops)
             _file_ops = std::make_shared<FileOperator>(_working_directory);
     }

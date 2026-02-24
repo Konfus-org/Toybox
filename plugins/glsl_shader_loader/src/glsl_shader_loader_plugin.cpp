@@ -1,5 +1,5 @@
 #include "glsl_shader_loader_plugin.h"
-#include "tbx/app/application.h"
+#include "tbx/app/app_settings.h"
 #include "tbx/assets/messages.h"
 #include "tbx/files/file_ops.h"
 #include "tbx/graphics/shader.h"
@@ -306,7 +306,7 @@ namespace tbx::plugins
     void GlslShaderLoaderPlugin::on_attach(IPluginHost& host)
     {
         _asset_manager = &host.get_asset_manager();
-        _working_directory = host.get_settings().working_directory;
+        _working_directory = host.get_settings().paths.working_directory;
         if (!_file_ops)
             _file_ops = std::make_shared<FileOperator>(_working_directory);
     }
@@ -369,7 +369,8 @@ namespace tbx::plugins
             if (request.path.extension() == ".glsl")
             {
                 request.result.flag_failure(
-                    "Shader loader: .glsl files are include-only; use .vert/.tes/.geom/.frag/.comp for shader programs.");
+                    "Shader loader: .glsl files are include-only; use .vert/.tes/.geom/.frag/.comp "
+                    "for shader programs.");
             }
             else
             {
@@ -401,8 +402,7 @@ namespace tbx::plugins
         if (!expanded.succeeded)
         {
             request.state = MessageState::ERROR;
-            request.result.flag_failure(
-                build_load_failure_message(request.path, expanded.error));
+            request.result.flag_failure(build_load_failure_message(request.path, expanded.error));
             return;
         }
 

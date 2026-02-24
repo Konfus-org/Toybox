@@ -1,5 +1,5 @@
 #include "stb_image_loader_plugin.h"
-#include "tbx/app/application.h"
+#include "tbx/app/app_settings.h"
 #include "tbx/assets/messages.h"
 #include "tbx/files/file_ops.h"
 #include "tbx/files/json.h"
@@ -47,7 +47,7 @@ namespace tbx::plugins
     {
         _asset_manager = &host.get_asset_manager();
         if (!_file_ops)
-            _file_ops = std::make_shared<FileOperator>(host.get_settings().working_directory);
+            _file_ops = std::make_shared<FileOperator>(host.get_settings().paths.working_directory);
     }
 
     void StbImageLoaderPlugin::on_detach()

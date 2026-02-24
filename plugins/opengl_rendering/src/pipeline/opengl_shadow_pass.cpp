@@ -3,7 +3,9 @@
 #include "opengl_resources/opengl_resource_manager.h"
 #include "opengl_resources/opengl_shadow_map.h"
 #include "tbx/debugging/macros.h"
+#include "tbx/ecs/entity.h"
 #include "tbx/graphics/renderer.h"
+#include "tbx/math/vectors.h"
 #include <algorithm>
 #include <glad/glad.h>
 #include <vector>
@@ -77,14 +79,24 @@ namespace tbx::plugins
         const Entity& entity,
         OpenGlResourceManager& resource_manager,
         const Mat4& light_view_projection,
-        std::vector<GlResourceScope>& resource_scopes)
+        std::vector<GlResourceScope>& resource_scopes,
+        const Vec3& camera_position,
+        float shadow_render_distance)
     {
         if (!entity.has_component<Renderer>())
             return;
 
         const auto& renderer = entity.get_component<Renderer>();
-        if (!renderer.are_shadows_enabled)
+        if (renderer.shadow_mode == ShadowMode::None)
             return;
+
+        if (renderer.shadow_mode == ShadowMode::Standard && shadow_render_distance > 0.0F)
+        {
+            const auto entity_transform = get_world_space_transform(entity);
+            const float distance_to_camera = length(entity_transform.position - camera_position);
+            if (distance_to_camera > shadow_render_distance)
+                return;
+        }
 
         auto draw_resources = OpenGlDrawResources {};
         if (!resource_manager.try_get(entity, draw_resources))
@@ -150,8 +162,9 @@ namespace tbx::plugins
         glViewport(0, 0, shadow_map_resolution, shadow_map_resolution);
         glDisable(GL_BLEND);
         glEnable(GL_DEPTH_TEST);
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
+        glDisable(GL_CULL_FACE);
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(0.7f, 1.5f);
 
         auto resource_scopes = std::vector<GlResourceScope> {};
         for (size_t shadow_index = 0; shadow_index < shadow_map_count; ++shadow_index)
@@ -188,21 +201,28 @@ namespace tbx::plugins
             glClear(GL_DEPTH_BUFFER_BIT);
             const auto& light_view_projection =
                 frame_context.shadow_data.light_view_projections[shadow_index];
+            const float shadow_render_distance =
+                std::max(0.0F, frame_context.shadow_data.shadow_render_distance);
             for (const auto& entity : frame_context.camera_view.in_view_static_entities)
                 draw_shadow_entity(
                     entity,
                     resource_manager,
                     light_view_projection,
-                    resource_scopes);
+                    resource_scopes,
+                    frame_context.camera_world_position,
+                    shadow_render_distance);
             for (const auto& entity : frame_context.camera_view.in_view_dynamic_entities)
                 draw_shadow_entity(
                     entity,
                     resource_manager,
                     light_view_projection,
-                    resource_scopes);
+                    resource_scopes,
+                    frame_context.camera_world_position,
+                    shadow_render_distance);
         }
 
-        glCullFace(GL_BACK);
+        glDisable(GL_POLYGON_OFFSET_FILL);
+        glDisable(GL_CULL_FACE);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 }

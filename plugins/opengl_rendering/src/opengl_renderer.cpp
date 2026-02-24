@@ -29,7 +29,12 @@ namespace tbx::plugins
     static constexpr size_t MAX_SHADOWED_POINT_LIGHTS = 2U;
     static constexpr size_t POINT_SHADOW_FACE_COUNT = 6U;
     static constexpr float DIRECTIONAL_SHADOW_SPLIT_LAMBDA = 0.7F;
+    static constexpr float DIRECTIONAL_SHADOW_SPLIT_FRACTION = 0.7F;
     static constexpr float DIRECTIONAL_SHADOW_NEAR_PLANE = 0.001F;
+    static constexpr float DIRECTIONAL_SHADOW_CASCADE_OVERLAP = 0.08F;
+    static constexpr float DIRECTIONAL_SHADOW_XY_PADDING_RATIO = 0.08F;
+    static constexpr float DIRECTIONAL_SHADOW_MIN_PADDING_TEXELS = 4.0F;
+    static constexpr float DIRECTIONAL_SHADOW_FAR_DISTANCE_SCALE = 1.25F;
     static constexpr float LOCAL_LIGHT_SHADOW_NEAR_PLANE = 0.1F;
 
     static std::shared_ptr<OpenGlGBuffer> try_load_gbuffer(
@@ -187,7 +192,7 @@ namespace tbx::plugins
     {
         const float safe_near = std::max(0.001F, shadow_near_plane);
         const float safe_far = std::max(safe_near + 0.001F, shadow_far_plane);
-        const float split_t = 0.5F;
+        const float split_t = DIRECTIONAL_SHADOW_SPLIT_FRACTION;
         const float logarithmic_split = safe_near * std::pow(safe_far / safe_near, split_t);
         const float linear_split = safe_near + ((safe_far - safe_near) * split_t);
         const float blended_split = (DIRECTIONAL_SHADOW_SPLIT_LAMBDA * logarithmic_split)
@@ -288,10 +293,31 @@ namespace tbx::plugins
             max_z = std::max(max_z, light_space_corner.z);
         }
 
-        const float width = std::max(max_x - min_x, 0.001F);
-        const float height = std::max(max_y - min_y, 0.001F);
         const float map_resolution =
             std::max(1.0F, static_cast<float>(shadow_settings.shadow_map_resolution));
+        float width = std::max(max_x - min_x, 0.001F);
+        float height = std::max(max_y - min_y, 0.001F);
+        const float coarse_texel_size_x = width / map_resolution;
+        const float coarse_texel_size_y = height / map_resolution;
+        const float coarse_texel_size = std::max(coarse_texel_size_x, coarse_texel_size_y);
+        const float padding = std::max(
+            std::max(width, height) * DIRECTIONAL_SHADOW_XY_PADDING_RATIO,
+            coarse_texel_size * DIRECTIONAL_SHADOW_MIN_PADDING_TEXELS);
+        min_x -= padding;
+        max_x += padding;
+        min_y -= padding;
+        max_y += padding;
+        width = std::max(max_x - min_x, 0.001F);
+        height = std::max(max_y - min_y, 0.001F);
+        const float stabilized_extent = std::max(width, height);
+        const float stabilized_center_x = (min_x + max_x) * 0.5F;
+        const float stabilized_center_y = (min_y + max_y) * 0.5F;
+        min_x = stabilized_center_x - (stabilized_extent * 0.5F);
+        max_x = stabilized_center_x + (stabilized_extent * 0.5F);
+        min_y = stabilized_center_y - (stabilized_extent * 0.5F);
+        max_y = stabilized_center_y + (stabilized_extent * 0.5F);
+        width = stabilized_extent;
+        height = stabilized_extent;
         const float texel_size_x = width / map_resolution;
         const float texel_size_y = height / map_resolution;
         float center_x = (min_x + max_x) * 0.5F;
@@ -689,7 +715,7 @@ namespace tbx::plugins
         size_t shadow_map_index = 0U;
         const float directional_shadow_far_plane = std::max(
             DIRECTIONAL_SHADOW_NEAR_PLANE + 0.001F,
-            _shadow_settings.shadow_render_distance);
+            _shadow_settings.shadow_render_distance * DIRECTIONAL_SHADOW_FAR_DISTANCE_SCALE);
         const float directional_split_distance = calculate_directional_shadow_split_distance(
             DIRECTIONAL_SHADOW_NEAR_PLANE,
             directional_shadow_far_plane);
@@ -711,17 +737,26 @@ namespace tbx::plugins
                 static_cast<int>(shadow_map_index);
             frame_cascade_splits.push_back(directional_split_distance);
 
-            auto near_plane = DIRECTIONAL_SHADOW_NEAR_PLANE;
+            float near_plane = DIRECTIONAL_SHADOW_NEAR_PLANE;
+            const float cascade_overlap = std::max(
+                0.01F,
+                (directional_split_distance - DIRECTIONAL_SHADOW_NEAR_PLANE)
+                    * DIRECTIONAL_SHADOW_CASCADE_OVERLAP);
             for (size_t cascade_index = 0; cascade_index < DIRECTIONAL_SHADOW_CASCADE_COUNT;
                  ++cascade_index)
             {
+                float cascade_near_plane = near_plane;
                 const float far_plane =
                     cascade_index == 0U ? directional_split_distance : directional_shadow_far_plane;
+                if (cascade_index > 0U)
+                    cascade_near_plane = std::max(
+                        DIRECTIONAL_SHADOW_NEAR_PLANE,
+                        cascade_near_plane - cascade_overlap);
                 const auto shadow_matrix = build_directional_shadow_view_projection(
                     camera_view,
                     _render_resolution,
                     frame_directional_lights[directional_light_index].direction,
-                    near_plane,
+                    cascade_near_plane,
                     far_plane,
                     _shadow_settings);
                 if (!append_shadow_projection(shadow_matrix))
@@ -872,6 +907,7 @@ namespace tbx::plugins
                     .cascade_splits = std::span<const float>(frame_cascade_splits),
                     .shadow_map_resolution = _shadow_settings.shadow_map_resolution,
                     .shadow_softness = _shadow_settings.shadow_softness,
+                    .shadow_render_distance = _shadow_settings.shadow_render_distance,
                 },
             .present_mode = OpenGlFrameBufferPresentMode::ASPECT_FIT,
             .present_target_framebuffer_id = 0,

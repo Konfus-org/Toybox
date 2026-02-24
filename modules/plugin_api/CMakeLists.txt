@@ -21,6 +21,7 @@ target_link_libraries(${module_name}
         Tbx::ECS
         Tbx::Messaging
         Tbx::Input
+        Tbx::Async
         Tbx::Debugging
         Tbx::Files
     PRIVATE

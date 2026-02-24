@@ -9,6 +9,30 @@
 namespace tbx
 {
     /// <summary>
+    /// Purpose: Controls when shadows are rendered for an entity.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    enum class ShadowMode : uint8_t
+    {
+        /// <summary>
+        /// Purpose: Never render shadows for this entity.
+        /// </summary>
+        None = 0,
+
+        /// <summary>
+        /// Purpose: Render shadows based on distance settings in GraphicsSettings.
+        /// </summary>
+        Standard = 1,
+
+        /// <summary>
+        /// Purpose: Always render shadows regardless of distance.
+        /// </summary>
+        Always = 2
+    };
+    /// <summary>
     /// Purpose: Defines a model handle to use within a specific distance band (LOD).
     /// </summary>
     /// <remarks>
@@ -65,13 +89,13 @@ namespace tbx
         bool is_cullable = true;
 
         /// <summary>
-        /// Purpose: Enables or disables shadow participation for this entity.
+        /// Purpose: Controls shadow rendering behavior for this entity.
         /// </summary>
         /// <remarks>
         /// Ownership: Value type.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         /// </remarks>
-        bool are_shadows_enabled = true;
+        ShadowMode shadow_mode = ShadowMode::Standard;
 
         /// <summary>
         /// Purpose: Marks the surface as two-sided for rendering.

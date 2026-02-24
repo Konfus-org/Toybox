@@ -372,21 +372,22 @@ namespace tbx::tests::input
         frame_time.seconds = 0.016;
 
         // Act
-        testing::internal::CaptureStderr();
+        auto global_dispatcher_scope = GlobalDispatcherScope(dispatcher);
+        testing::internal::CaptureStdout();
         manager.update(frame_time);
         manager.update(frame_time);
-        const std::string stderr_output = testing::internal::GetCapturedStderr();
+        const std::string stdout_output = testing::internal::GetCapturedStdout();
 
         // Assert
         const std::string warning_text =
             "Active input actions are not fully handled because required input providers are "
             "missing.";
         size_t warning_count = 0U;
-        size_t find_position = stderr_output.find(warning_text);
+        size_t find_position = stdout_output.find(warning_text);
         while (find_position != std::string::npos)
         {
             warning_count += 1U;
-            find_position = stderr_output.find(warning_text, find_position + warning_text.size());
+            find_position = stdout_output.find(warning_text, find_position + warning_text.size());
         }
 
         ASSERT_EQ(warning_count, 1U);

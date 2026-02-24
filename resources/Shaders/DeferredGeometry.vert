@@ -14,8 +14,11 @@ uniform vec4 u_color = vec4(1.0, 1.0, 1.0, 1.0);
 void main()
 {
     vec4 world_position = u_model * vec4(a_position, 1.0);
-    mat3 normal_matrix = mat3(transpose(inverse(u_model)));
-    v_world_normal = normalize(normal_matrix * a_normal);
+    mat3 normal_matrix = transpose(inverse(mat3(u_model)));
+    vec3 transformed_normal = normal_matrix * a_normal;
+    v_world_normal = length(transformed_normal) > 0.0001
+        ? normalize(transformed_normal)
+        : vec3(0.0, 1.0, 0.0);
     v_tex_coord = a_texcoord;
     v_vertex_color = u_color;
     gl_Position = u_view_proj * world_position;

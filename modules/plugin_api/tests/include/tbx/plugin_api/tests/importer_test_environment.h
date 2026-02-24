@@ -116,8 +116,8 @@ namespace tbx::tests::plugin_api
             : _asset_manager(working_directory, {}, {}, false)
             , _settings(_coordinator, true, GraphicsApi::OPEN_GL, {640, 480})
         {
-            _settings.working_directory = working_directory;
-            _settings.logs_directory = working_directory / "logs";
+            _settings.paths.working_directory = working_directory;
+            _settings.paths.logs_directory = working_directory / "logs";
         }
 
         const std::string& get_name() const override
@@ -155,6 +155,11 @@ namespace tbx::tests::plugin_api
             return _asset_manager;
         }
 
+        JobSystem& get_job_system() override
+        {
+            return _job_manager;
+        }
+
       private:
         std::string _name = "ImporterTests";
         Handle _icon_handle = box_icon;
@@ -163,5 +168,6 @@ namespace tbx::tests::plugin_api
         EntityRegistry _registry = {};
         AssetManager _asset_manager;
         AppSettings _settings;
+        JobSystem _job_manager;
     };
 }

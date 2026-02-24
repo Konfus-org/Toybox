@@ -1,44 +1,19 @@
 #pragma once
 #include "tbx/app/app_description.h"
 #include "tbx/app/app_message_coordinator.h"
+#include "tbx/app/app_settings.h"
 #include "tbx/assets/asset_manager.h"
 #include "tbx/ecs/entity.h"
-#include "tbx/graphics/graphics_settings.h"
 #include "tbx/graphics/window.h"
 #include "tbx/input/input_manager.h"
-#include "tbx/physics/physics_settings.h"
 #include "tbx/plugin_api/loaded_plugin.h"
 #include "tbx/plugin_api/plugin_host.h"
 #include "tbx/time/delta_time.h"
-#include <cstddef>
-#include <filesystem>
 #include <string>
 #include <vector>
 
 namespace tbx
 {
-    /// <summary>
-    /// Purpose: Stores mutable settings and fixed runtime paths for the application.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Owns all stored settings values.
-    /// Thread Safety: Not thread-safe; synchronize access externally.
-    /// </remarks>
-    struct TBX_API AppSettings
-    {
-        AppSettings(
-            IMessageDispatcher& dispatcher,
-            bool vsync = false,
-            GraphicsApi api = GraphicsApi::OPEN_GL,
-            Size resolution = {0, 0});
-
-        GraphicsSettings graphics;
-        PhysicsSettings physics;
-
-        std::filesystem::path working_directory = {};
-        std::filesystem::path logs_directory = {};
-    };
-
     class TBX_API Application : public IPluginHost
     {
       public:
@@ -91,15 +66,6 @@ namespace tbx
         IMessageCoordinator& get_message_coordinator() override;
 
         /// <summary>
-        /// Purpose: Returns the application input manager instance.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Returns a reference owned by the application.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
-        InputManager& get_input_manager() override;
-
-        /// <summary>
         /// Purpose: Returns the application entity manager instance.
         /// </summary>
         /// <remarks>
@@ -117,6 +83,24 @@ namespace tbx
         /// </remarks>
         AssetManager& get_asset_manager() override;
 
+        /// <summary>
+        /// Purpose: Returns the application job manager for asynchronous scheduling.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a reference owned by the application.
+        /// Thread Safety: Thread-safe according to JobSystem guarantees.
+        /// </remarks>
+        JobSystem& get_job_system() override;
+
+        /// <summary>
+        /// Purpose: Returns the application input manager instance.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns a reference owned by the application.
+        /// Thread Safety: Not thread-safe; synchronize access externally.
+        /// </remarks>
+        InputManager& get_input_manager() override;
+
       private:
         void initialize(const std::vector<std::string>& requested_plugins);
         void update(DeltaTimer& timer);
@@ -133,6 +117,7 @@ namespace tbx
         InputManager _input_manager;
         std::vector<LoadedPlugin> _loaded = {};
         AppSettings _settings;
+        JobSystem _job_manager;
         Window _main_window;
         AssetManager _asset_manager;
         uint _update_count = 0;

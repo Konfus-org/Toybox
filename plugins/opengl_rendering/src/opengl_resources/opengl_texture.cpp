@@ -220,6 +220,11 @@ namespace tbx::plugins
             const float border_values[] = {border.x, border.y, border.z, border.w};
             glTextureParameterfv(_texture_id, GL_TEXTURE_BORDER_COLOR, border_values);
         }
+        if (settings.use_compare_mode)
+        {
+            glTextureParameteri(_texture_id, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+            glTextureParameteri(_texture_id, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+        }
 
         glTextureStorage2D(
             _texture_id,

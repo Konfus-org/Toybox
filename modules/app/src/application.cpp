@@ -8,25 +8,15 @@
 #include "tbx/time/delta_time.h"
 #include <algorithm>
 #include <chrono>
-#include <utility>
 
 namespace tbx
 {
-    AppSettings::AppSettings(
-        IMessageDispatcher& dispatcher,
-        bool vsync,
-        GraphicsApi api,
-        Size resolution)
-        : graphics(dispatcher, vsync, api, resolution)
-        , physics(dispatcher)
-    {
-    }
-
     Application::Application(const AppDescription& desc)
         : _name(desc.name)
         , _icon_handle(desc.icon)
         , _input_manager(_msg_coordinator)
-        , _settings(_msg_coordinator)
+        , _settings(_msg_coordinator, false, GraphicsApi::OPEN_GL, {0, 0}, desc.async)
+        , _job_manager(desc.async.job_system)
         , _main_window(
               _msg_coordinator,
               desc.name.empty() ? std::string("Toybox Application") : desc.name,
@@ -36,11 +26,11 @@ namespace tbx
         , _asset_manager(desc.working_root)
     {
         FileOperator file_operator = FileOperator(desc.working_root);
-        _settings.working_directory = file_operator.get_working_directory();
+        _settings.paths.working_directory = file_operator.get_working_directory();
         if (desc.logs_directory.empty())
-            _settings.logs_directory = file_operator.resolve("logs");
+            _settings.paths.logs_directory = file_operator.resolve("logs");
         else
-            _settings.logs_directory = file_operator.resolve(desc.logs_directory);
+            _settings.paths.logs_directory = file_operator.resolve(desc.logs_directory);
 
         initialize(desc.requested_plugins);
     }
@@ -113,6 +103,11 @@ namespace tbx
         return _asset_manager;
     }
 
+    JobSystem& Application::get_job_system()
+    {
+        return _job_manager;
+    }
+
     void Application::initialize(const std::vector<std::string>& requested_plugins)
     {
         const auto startup_begin = std::chrono::steady_clock::now();
@@ -136,16 +131,16 @@ namespace tbx
 
             // Load requested plugins
             _loaded = load_plugins(
-                _settings.working_directory,
+                _settings.paths.working_directory,
                 requested_plugins,
-                _settings.working_directory,
+                _settings.paths.working_directory,
                 *this);
             for (const auto& loaded : _loaded)
                 _asset_manager.add_asset_directory(loaded.meta.resource_directory);
 
             // Log filesystem directories
-            TBX_TRACE_INFO("Working Directory: {}", _settings.working_directory.string());
-            TBX_TRACE_INFO("Logs Directory: {}", _settings.logs_directory.string());
+            TBX_TRACE_INFO("Working Directory: {}", _settings.paths.working_directory.string());
+            TBX_TRACE_INFO("Logs Directory: {}", _settings.paths.logs_directory.string());
             auto asset_roots = _asset_manager.get_asset_directories();
             for (const auto& root : asset_roots)
                 TBX_TRACE_INFO("Asset Directory: {}", root.string());

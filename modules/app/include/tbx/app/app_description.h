@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/app/app_settings.h"
 #include "tbx/assets/builtin_assets.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
@@ -22,6 +23,9 @@ namespace tbx
         // Directory where runtime logs should be stored relative to working root.
         // May be empty to fall back to the working root.
         const std::filesystem::path logs_directory = {};
+
+        // Async runtime settings used to initialize the application's job manager.
+        const AsyncSettings async = {};
 
         // Ordered list of plugin identifiers requested for loading.
         const std::vector<std::string> requested_plugins = {};

@@ -25,8 +25,8 @@ namespace tbx::tests::plugin_loader
             : _asset_manager(working_directory)
             , _settings(_coordinator, true, ::tbx::GraphicsApi::OPEN_GL, {1280, 720})
         {
-            _settings.working_directory = working_directory;
-            _settings.logs_directory = working_directory / "logs";
+            _settings.paths.working_directory = working_directory;
+            _settings.paths.logs_directory = working_directory / "logs";
         }
 
         const std::string& get_name() const override
@@ -64,6 +64,11 @@ namespace tbx::tests::plugin_loader
             return _asset_manager;
         }
 
+        ::tbx::JobSystem& get_job_system() override
+        {
+            return _job_manager;
+        }
+
       private:
         std::string _name = "PluginLoaderTests";
         ::tbx::Handle _icon_handle = ::tbx::box_icon;
@@ -72,6 +77,7 @@ namespace tbx::tests::plugin_loader
         ::tbx::EntityRegistry _ent_registry = {};
         ::tbx::AssetManager _asset_manager;
         ::tbx::AppSettings _settings;
+        ::tbx::JobSystem _job_manager;
     };
 
     /// <summary>

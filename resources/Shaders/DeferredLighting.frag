@@ -9,7 +9,7 @@ uniform sampler2D u_gbuffer_albedo_spec;
 uniform sampler2D u_gbuffer_normal;
 uniform sampler2D u_gbuffer_material;
 uniform sampler2D u_scene_depth;
-uniform sampler2D u_shadow_maps[24];
+uniform sampler2DShadow u_shadow_maps[24];
 
 uniform vec3 u_camera_position = vec3(0.0);
 uniform vec3 u_camera_forward = vec3(0.0, 0.0, -1.0);
@@ -130,13 +130,23 @@ float sample_shadow_visibility(
         vec2(-0.322, -0.933),
         vec2(-0.792, -0.598));
 
-    float reference_depth = texture(u_shadow_maps[shadow_map_index], shadow_uv).r;
-    if (current_depth - bias <= reference_depth)
+    float shadow_visibility = texture(u_shadow_maps[shadow_map_index], vec3(shadow_uv, current_depth - bias));
+    if (shadow_visibility >= 0.999)
         return 1.0;
 
     float radius_in_texels = clamp(u_shadow_softness * softness_scale, 0.0, 4.0);
     if (radius_in_texels <= 0.001)
-        return 0.0;
+        return shadow_visibility;
+
+    float edge_distance = min(
+        min(shadow_uv.x, 1.0 - shadow_uv.x),
+        min(shadow_uv.y, 1.0 - shadow_uv.y));
+    float max_texel_size = max(texel_size.x, texel_size.y);
+    float available_radius_in_uv = max(edge_distance - SHADOW_CLIP_EPSILON, 0.0);
+    float available_radius_in_texels = available_radius_in_uv / max(max_texel_size, 0.000001);
+    radius_in_texels = min(radius_in_texels, available_radius_in_texels);
+    if (radius_in_texels <= 0.001)
+        return shadow_visibility;
 
     float hash_value = fract(sin(dot(world_position.xz, vec2(12.9898, 78.233))) * 43758.5453);
     float rotation = hash_value * 6.2831853;
@@ -151,8 +161,7 @@ float sample_shadow_visibility(
             break;
 
         vec2 offset = rotation_matrix * poisson_disk[index] * texel_size * radius_in_texels;
-        float shadow_depth = texture(u_shadow_maps[shadow_map_index], shadow_uv + offset).r;
-        visibility += current_depth - bias <= shadow_depth ? 1.0 : 0.0;
+        visibility += texture(u_shadow_maps[shadow_map_index], vec3(shadow_uv + offset, current_depth - bias));
     }
 
     return visibility / float(clamped_sample_count);
@@ -170,15 +179,14 @@ float sample_projected_shadow_visibility(
         return 1.0;
 
     vec3 projected = light_space_position.xyz / max(light_space_position.w, 0.0001);
+    vec2 shadow_uv = projected.xy * 0.5 + 0.5;
     float current_depth = projected.z * 0.5 + 0.5;
-    if (projected.x < (-1.0 - SHADOW_CLIP_EPSILON) || projected.x > (1.0 + SHADOW_CLIP_EPSILON)
-        || projected.y < (-1.0 - SHADOW_CLIP_EPSILON)
-        || projected.y > (1.0 + SHADOW_CLIP_EPSILON)
-        || current_depth < (-SHADOW_CLIP_EPSILON)
-        || current_depth > (1.0 + SHADOW_CLIP_EPSILON))
+    if (shadow_uv.x < (-SHADOW_CLIP_EPSILON) || shadow_uv.x > (1.0 + SHADOW_CLIP_EPSILON)
+        || shadow_uv.y < (-SHADOW_CLIP_EPSILON) || shadow_uv.y > (1.0 + SHADOW_CLIP_EPSILON)
+        || current_depth < (-SHADOW_CLIP_EPSILON) || current_depth > (1.0 + SHADOW_CLIP_EPSILON))
         return 1.0;
 
-    vec2 shadow_uv = clamp(projected.xy * 0.5 + 0.5, vec2(0.0), vec2(1.0));
+    shadow_uv = clamp(shadow_uv, vec2(0.0), vec2(1.0));
     current_depth = clamp(current_depth, 0.0, 1.0);
     return sample_shadow_visibility(
         shadow_map_index,
@@ -188,6 +196,38 @@ float sample_projected_shadow_visibility(
         world_position,
         softness_scale,
         sample_count);
+}
+
+bool try_project_shadow_coordinates(
+    vec4 light_space_position,
+    out vec2 out_shadow_uv,
+    out float out_current_depth)
+{
+    float safe_w = light_space_position.w;
+    if (abs(safe_w) <= 0.0001)
+        return false;
+
+    vec3 projected = light_space_position.xyz / safe_w;
+    vec2 shadow_uv = projected.xy * 0.5 + 0.5;
+    float current_depth = projected.z * 0.5 + 0.5;
+    if (shadow_uv.x < (-SHADOW_CLIP_EPSILON) || shadow_uv.x > (1.0 + SHADOW_CLIP_EPSILON)
+        || shadow_uv.y < (-SHADOW_CLIP_EPSILON) || shadow_uv.y > (1.0 + SHADOW_CLIP_EPSILON)
+        || current_depth < (-SHADOW_CLIP_EPSILON) || current_depth > (1.0 + SHADOW_CLIP_EPSILON))
+        return false;
+
+    out_shadow_uv = clamp(shadow_uv, vec2(0.0), vec2(1.0));
+    out_current_depth = clamp(current_depth, 0.0, 1.0);
+    return true;
+}
+
+float calculate_directional_shadow_bias(int shadow_map_index, float ndotl, float cascade_scale)
+{
+    vec2 texel_size = 1.0 / vec2(textureSize(u_shadow_maps[shadow_map_index], 0));
+    float max_texel_size = max(texel_size.x, texel_size.y);
+    float slope_factor = 1.0 - clamp(ndotl, 0.0, 1.0);
+    float slope_bias = max(0.00003 * cascade_scale * slope_factor, 0.00001);
+    float texel_bias = max_texel_size * (1.5 * cascade_scale);
+    return slope_bias + texel_bias;
 }
 
 vec3 evaluate_directional_light(
@@ -212,27 +252,87 @@ vec3 evaluate_directional_light(
     int base_shadow_map_index = light.shadow_map_index;
     if (base_shadow_map_index >= 0)
     {
-        int selected_shadow_map_index = base_shadow_map_index;
-        float softness_scale = 1.0;
+        float ndotl = clamp(dot(normal, light_direction), 0.0, 1.0);
+        vec3 shadow_position = world_position + (normal * 0.0008);
+
         if (base_shadow_map_index + (DIRECTIONAL_SHADOW_CASCADE_COUNT - 1) < u_shadow_map_count)
         {
             float view_depth = max(dot(world_position - u_camera_position, u_camera_forward), 0.0);
-            int cascade_index = view_depth <= u_cascade_splits[0] ? 0 : 1;
-            selected_shadow_map_index = base_shadow_map_index + cascade_index;
-            softness_scale = cascade_index == 0 ? 0.8 : 1.0;
-        }
+            float split = max(u_cascade_splits[0], 0.001);
+            float blend_range = max(split * 0.08, 1.25);
+            float far_cascade_weight =
+                smoothstep(split - blend_range, split + blend_range, view_depth);
 
-        float ndotl = clamp(dot(normal, light_direction), 0.0, 1.0);
-        float bias = max(0.0004 * (1.0 - ndotl), 0.00005);
-        vec3 shadow_position = world_position + (normal * 0.004);
-        float pcf_visibility = sample_projected_shadow_visibility(
-            selected_shadow_map_index,
-            u_light_view_projection_matrices[selected_shadow_map_index] * vec4(shadow_position, 1.0),
-            bias,
-            world_position,
-            softness_scale,
-            8);
-        shadow_visibility = mix(0.15, 1.0, pcf_visibility);
+            int near_shadow_map_index = base_shadow_map_index;
+            int far_shadow_map_index = base_shadow_map_index + 1;
+            float near_bias = calculate_directional_shadow_bias(near_shadow_map_index, ndotl, 1.0);
+            float far_bias = calculate_directional_shadow_bias(far_shadow_map_index, ndotl, 1.25);
+            vec4 near_light_space_position =
+                u_light_view_projection_matrices[near_shadow_map_index] * vec4(shadow_position, 1.0);
+            vec4 far_light_space_position =
+                u_light_view_projection_matrices[far_shadow_map_index] * vec4(shadow_position, 1.0);
+
+            vec2 near_shadow_uv = vec2(0.0);
+            vec2 far_shadow_uv = vec2(0.0);
+            float near_current_depth = 0.0;
+            float far_current_depth = 0.0;
+            bool has_near_coverage = try_project_shadow_coordinates(
+                near_light_space_position,
+                near_shadow_uv,
+                near_current_depth);
+            bool has_far_coverage = try_project_shadow_coordinates(
+                far_light_space_position,
+                far_shadow_uv,
+                far_current_depth);
+
+            float near_visibility = 1.0;
+            if (has_near_coverage)
+            {
+                near_visibility = sample_shadow_visibility(
+                    near_shadow_map_index,
+                    near_shadow_uv,
+                    near_current_depth,
+                    near_bias,
+                    world_position,
+                    1.0,
+                    8);
+            }
+
+            float far_visibility = 1.0;
+            if (has_far_coverage)
+            {
+                far_visibility = sample_shadow_visibility(
+                    far_shadow_map_index,
+                    far_shadow_uv,
+                    far_current_depth,
+                    far_bias,
+                    world_position,
+                    1.0,
+                    8);
+            }
+
+            float blended_visibility = 1.0;
+            if (has_near_coverage && has_far_coverage)
+                blended_visibility = mix(near_visibility, far_visibility, far_cascade_weight);
+            else if (has_near_coverage)
+                blended_visibility = near_visibility;
+            else if (has_far_coverage)
+                blended_visibility = far_visibility;
+            shadow_visibility = mix(0.15, 1.0, blended_visibility);
+        }
+        else
+        {
+            float base_bias = calculate_directional_shadow_bias(base_shadow_map_index, ndotl, 1.0);
+            float pcf_visibility = sample_projected_shadow_visibility(
+                base_shadow_map_index,
+                u_light_view_projection_matrices[base_shadow_map_index]
+                    * vec4(shadow_position, 1.0),
+                base_bias,
+                world_position,
+                1.0,
+                8);
+            shadow_visibility = mix(0.15, 1.0, pcf_visibility);
+        }
     }
 
     return ambient + ((diffuse + specular) * shadow_visibility);
@@ -260,14 +360,15 @@ vec3 evaluate_point_light(
 
     float shadow_visibility = 1.0;
     int base_shadow_map_index = light.shadow_map_index;
-    if (base_shadow_map_index >= 0 && base_shadow_map_index + (POINT_SHADOW_FACE_COUNT - 1) < u_shadow_map_count)
+    if (base_shadow_map_index >= 0
+        && base_shadow_map_index + (POINT_SHADOW_FACE_COUNT - 1) < u_shadow_map_count)
     {
         vec3 light_to_fragment = world_position - light.position;
         int face_index = select_point_shadow_face_index(light_to_fragment);
         int shadow_map_index = base_shadow_map_index + face_index;
         float ndotl = clamp(dot(normal, light_direction), 0.0, 1.0);
-        float bias = max(0.0016 * (1.0 - ndotl), 0.0004);
-        vec3 shadow_position = world_position + (normal * 0.01);
+        float bias = max(0.0004 * (1.0 - ndotl), 0.0001);
+        vec3 shadow_position = world_position + (normal * 0.005);
         float pcf_visibility = sample_projected_shadow_visibility(
             shadow_map_index,
             u_light_view_projection_matrices[shadow_map_index] * vec4(shadow_position, 1.0),
@@ -317,8 +418,8 @@ vec3 evaluate_spot_light(
     if (shadow_map_index >= 0)
     {
         float ndotl = clamp(dot(normal, light_direction), 0.0, 1.0);
-        float bias = max(0.0008 * (1.0 - ndotl), 0.00015);
-        vec3 shadow_position = world_position + (normal * 0.006);
+        float bias = max(0.0002 * (1.0 - ndotl), 0.00004);
+        vec3 shadow_position = world_position + (normal * 0.003);
         float pcf_visibility = sample_projected_shadow_visibility(
             shadow_map_index,
             u_light_view_projection_matrices[shadow_map_index] * vec4(shadow_position, 1.0),
