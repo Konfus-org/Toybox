@@ -6,17 +6,8 @@ target_sources(AssetExampleRuntime PRIVATE ${SRCS} ${ASSETS})
 target_include_directories(AssetExampleRuntime PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_link_libraries(AssetExampleRuntime PRIVATE
-    Tbx::App
-    Tbx::Assets
-    Tbx::ECS
-    Tbx::Graphics
-    Tbx::Plugins::SdlWindowingPlugin
-    Tbx::Plugins::OpenGlRenderingPlugin
-    Tbx::Plugins::SdlOpenGlAdapterPlugin
-    Tbx::Plugins::StbImageLoaderPlugin
-    Tbx::Plugins::AssimpModelLoaderPlugin
-    Tbx::Plugins::GlslShaderLoaderPlugin
-    Tbx::Plugins::MatMaterialLoaderPlugin
+    Tbx::DefaultIncludes
+    Tbx::Examples::Common
 )
 
 tbx_register_plugin(

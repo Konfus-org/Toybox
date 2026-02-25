@@ -6,11 +6,11 @@
 #include "tbx/math/transform.h"
 #include "tbx/physics/collider.h"
 #include "tbx/physics/physics.h"
-#include <Jolt/Jolt.h>
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/IssueReporting.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
 #include <Jolt/Core/TempAllocator.h>
+#include <Jolt/Jolt.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyFilter.h>
 #include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
@@ -55,8 +55,7 @@ namespace tbx::plugins
         ColliderOverlapExecutionMode execution_mode,
         bool is_manual_trigger_requested)
     {
-        return execution_mode == ColliderOverlapExecutionMode::AUTO
-               || is_manual_trigger_requested;
+        return execution_mode == ColliderOverlapExecutionMode::AUTO || is_manual_trigger_requested;
     }
 
     static std::string format_jolt_trace_message(const char* fmt, std::va_list args)
@@ -73,11 +72,7 @@ namespace tbx::plugins
 
         std::string message = {};
         message.resize(static_cast<std::size_t>(required_chars));
-        std::vsnprintf(
-            message.data(),
-            static_cast<std::size_t>(required_chars) + 1U,
-            fmt,
-            args);
+        std::vsnprintf(message.data(), static_cast<std::size_t>(required_chars) + 1U, fmt, args);
         return message;
     }
 
@@ -334,8 +329,8 @@ namespace tbx::plugins
         if (half_angle_sine <= 0.000001F)
             return Vec3(0.0F, 0.0F, 0.0F);
 
-        Vec3 axis = Vec3(delta_rotation.x, delta_rotation.y, delta_rotation.z)
-                    * (1.0F / half_angle_sine);
+        Vec3 axis =
+            Vec3(delta_rotation.x, delta_rotation.y, delta_rotation.z) * (1.0F / half_angle_sine);
         float angle_radians = 2.0F * std::atan2(half_angle_sine, clamped_w);
         return axis * (angle_radians / std::max(0.0001F, dt_seconds));
     }
@@ -389,17 +384,14 @@ namespace tbx::plugins
             std::max(0.0F, host.get_settings().physics.max_linear_velocity.value);
         out_body_settings.mMaxAngularVelocity =
             std::max(0.0F, host.get_settings().physics.max_angular_velocity.value);
-        out_body_settings.mOverrideMassProperties =
-            JPH::EOverrideMassProperties::CalculateInertia;
+        out_body_settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
         out_body_settings.mMassPropertiesOverride.mMass = physics.mass;
 
         constexpr float ccd_linear_speed_threshold = 8.0F;
-        const float linear_speed_squared =
-            physics.linear_velocity.x * physics.linear_velocity.x
-            + physics.linear_velocity.y * physics.linear_velocity.y
-            + physics.linear_velocity.z * physics.linear_velocity.z;
-        const float ccd_threshold_squared =
-            ccd_linear_speed_threshold * ccd_linear_speed_threshold;
+        const float linear_speed_squared = physics.linear_velocity.x * physics.linear_velocity.x
+                                           + physics.linear_velocity.y * physics.linear_velocity.y
+                                           + physics.linear_velocity.z * physics.linear_velocity.z;
+        const float ccd_threshold_squared = ccd_linear_speed_threshold * ccd_linear_speed_threshold;
         out_body_settings.mMotionQuality = linear_speed_squared >= ccd_threshold_squared
                                                ? JPH::EMotionQuality::LinearCast
                                                : JPH::EMotionQuality::Discrete;
@@ -435,8 +427,7 @@ namespace tbx::plugins
         if (!try_get_mesh_vertex_position_offset(mesh.vertices.layout, position_offset_bytes))
             position_offset_bytes = 0U;
 
-        if ((stride_bytes % sizeof(float)) != 0U
-            || (position_offset_bytes % sizeof(float)) != 0U)
+        if ((stride_bytes % sizeof(float)) != 0U || (position_offset_bytes % sizeof(float)) != 0U)
             return false;
 
         const std::size_t stride_floats = stride_bytes / sizeof(float);
@@ -453,8 +444,7 @@ namespace tbx::plugins
         positions.reserve(vertex_count);
         for (std::size_t vertex_index = 0U; vertex_index < vertex_count; ++vertex_index)
         {
-            const std::size_t base_index =
-                vertex_index * stride_floats + position_offset_floats;
+            const std::size_t base_index = vertex_index * stride_floats + position_offset_floats;
             positions.push_back(
                 JPH::Float3(
                     vertex_values[base_index] * safe_scale.x,
@@ -481,8 +471,7 @@ namespace tbx::plugins
         if (!try_get_mesh_vertex_position_offset(mesh.vertices.layout, position_offset_bytes))
             position_offset_bytes = 0U;
 
-        if ((stride_bytes % sizeof(float)) != 0U
-            || (position_offset_bytes % sizeof(float)) != 0U)
+        if ((stride_bytes % sizeof(float)) != 0U || (position_offset_bytes % sizeof(float)) != 0U)
             return false;
 
         const std::size_t stride_floats = stride_bytes / sizeof(float);
@@ -499,8 +488,7 @@ namespace tbx::plugins
         positions.reserve(base_vertex_index + vertex_count);
         for (std::size_t vertex_index = 0U; vertex_index < vertex_count; ++vertex_index)
         {
-            const std::size_t base_index =
-                vertex_index * stride_floats + position_offset_floats;
+            const std::size_t base_index = vertex_index * stride_floats + position_offset_floats;
             const Vec4 local_position = Vec4(
                 vertex_values[base_index],
                 vertex_values[base_index + 1U],
@@ -520,8 +508,7 @@ namespace tbx::plugins
         {
             const std::size_t triangle_count = mesh_indices.size() / 3U;
             triangles.reserve(triangles.size() + triangle_count);
-            for (std::size_t triangle_index = 0U; triangle_index < triangle_count;
-                 ++triangle_index)
+            for (std::size_t triangle_index = 0U; triangle_index < triangle_count; ++triangle_index)
             {
                 const std::size_t index_base = triangle_index * 3U;
                 const std::size_t index0 = base_vertex_index + mesh_indices[index_base];
@@ -560,12 +547,7 @@ namespace tbx::plugins
             if (!mesh_data)
                 return false;
 
-            return try_append_mesh_geometry(
-                *mesh_data,
-                Mat4(1.0F),
-                scale,
-                positions,
-                triangles);
+            return try_append_mesh_geometry(*mesh_data, Mat4(1.0F), scale, positions, triangles);
         }
 
         if (!entity.has_component<StaticMesh>())
@@ -830,21 +812,18 @@ namespace tbx::plugins
 
     void JoltPhysicsPlugin::on_attach(IPluginHost&)
     {
-        _thread_manager = &get_host().get_thread_manager();
-        if (_thread_manager != nullptr)
+        auto& thread_manager = get_host().get_thread_manager();
+        thread_manager.try_create_lane(PHYSICS_THREAD_LANE_NAME);
+        if (thread_manager.has_lane(PHYSICS_THREAD_LANE_NAME))
         {
-            _thread_manager->try_create_lane(PHYSICS_THREAD_LANE_NAME);
-            if (_thread_manager->has_lane(PHYSICS_THREAD_LANE_NAME))
-            {
-                _physics_thread_id = _thread_manager
-                                         ->post_with_future(
-                                             PHYSICS_THREAD_LANE_NAME,
-                                             []()
-                                             {
-                                                 return std::this_thread::get_id();
-                                             })
-                                         .get();
-            }
+            _physics_thread_id = thread_manager
+                                     .post_with_future(
+                                         PHYSICS_THREAD_LANE_NAME,
+                                         []()
+                                         {
+                                             return std::this_thread::get_id();
+                                         })
+                                     .get();
         }
 
         run_on_physics_lane_and_wait(
@@ -900,7 +879,6 @@ namespace tbx::plugins
                 release_jolt_runtime();
             });
         _physics_thread_id = {};
-        _thread_manager = nullptr;
     }
 
     void JoltPhysicsPlugin::on_fixed_update(const DeltaTime& dt)
@@ -953,14 +931,14 @@ namespace tbx::plugins
         if (!work)
             return;
 
-        if (_thread_manager == nullptr || !_thread_manager->has_lane(PHYSICS_THREAD_LANE_NAME)
-            || is_on_physics_thread())
+        auto& thread_manager = get_host().get_thread_manager();
+        if (!thread_manager.has_lane(PHYSICS_THREAD_LANE_NAME) || is_on_physics_thread())
         {
             work();
             return;
         }
 
-        _thread_manager->post_with_future(PHYSICS_THREAD_LANE_NAME, work).get();
+        thread_manager.post_with_future(PHYSICS_THREAD_LANE_NAME, work).get();
     }
 
     void JoltPhysicsPlugin::clear_bodies()

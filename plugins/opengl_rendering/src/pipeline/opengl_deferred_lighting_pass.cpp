@@ -14,6 +14,7 @@ namespace tbx::plugins
     static constexpr int MAX_DIRECTIONAL_LIGHTS = 4;
     static constexpr int MAX_POINT_LIGHTS = 32;
     static constexpr int MAX_SPOT_LIGHTS = 16;
+    static constexpr int MAX_AREA_LIGHTS = 16;
     static constexpr int MAX_SHADOW_MAPS = 24;
 
     static void bind_textures(
@@ -153,6 +154,48 @@ namespace tbx::plugins
                 MaterialParameter {
                     .name = "u_spot_lights[" + index_string + "].shadow_map_index",
                     .data = light.shadow_map_index,
+                });
+        }
+    }
+
+    static void upload_area_lights(
+        OpenGlShaderProgram& shader_program,
+        std::span<const OpenGlAreaLightData> lights)
+    {
+        const size_t max_count = std::min(lights.size(), static_cast<size_t>(MAX_AREA_LIGHTS));
+        for (size_t index = 0; index < max_count; ++index)
+        {
+            const auto& light = lights[index];
+            const auto index_string = std::to_string(index);
+            shader_program.try_upload(
+                MaterialParameter {
+                    .name = "u_area_lights[" + index_string + "].position",
+                    .data = light.position,
+                });
+            shader_program.try_upload(
+                MaterialParameter {
+                    .name = "u_area_lights[" + index_string + "].range",
+                    .data = light.range,
+                });
+            shader_program.try_upload(
+                MaterialParameter {
+                    .name = "u_area_lights[" + index_string + "].direction",
+                    .data = light.direction,
+                });
+            shader_program.try_upload(
+                MaterialParameter {
+                    .name = "u_area_lights[" + index_string + "].intensity",
+                    .data = light.intensity,
+                });
+            shader_program.try_upload(
+                MaterialParameter {
+                    .name = "u_area_lights[" + index_string + "].color",
+                    .data = light.color,
+                });
+            shader_program.try_upload(
+                MaterialParameter {
+                    .name = "u_area_lights[" + index_string + "].area_size",
+                    .data = light.area_size,
                 });
         }
     }
@@ -382,9 +425,16 @@ namespace tbx::plugins
                 .data =
                     std::min(static_cast<int>(frame_context.spot_lights.size()), MAX_SPOT_LIGHTS),
             });
+        draw_resources.shader_program->try_upload(
+            MaterialParameter {
+                .name = "u_area_light_count",
+                .data =
+                    std::min(static_cast<int>(frame_context.area_lights.size()), MAX_AREA_LIGHTS),
+            });
         upload_directional_lights(*draw_resources.shader_program, frame_context.directional_lights);
         upload_point_lights(*draw_resources.shader_program, frame_context.point_lights);
         upload_spot_lights(*draw_resources.shader_program, frame_context.spot_lights);
+        upload_area_lights(*draw_resources.shader_program, frame_context.area_lights);
         draw_resources.mesh->draw(draw_resources.use_tesselation);
 
         glBindTextureUnit(static_cast<GLuint>(albedo_slot), 0);

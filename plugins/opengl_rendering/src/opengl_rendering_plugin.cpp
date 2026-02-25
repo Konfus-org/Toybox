@@ -3,6 +3,7 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/graphics_settings.h"
 #include "tbx/messages/observable.h"
+#include <functional>
 #include <future>
 #include <string_view>
 #include <vector>
@@ -76,8 +77,8 @@ namespace tbx::plugins
             auto renderer = std::unique_ptr<OpenGlRenderer> {};
             if (thread_manager.has_lane(OPENGL_RENDER_LANE_NAME))
             {
-                auto* entity_registry = &get_host().get_entity_registry();
-                auto* asset_manager = &get_host().get_asset_manager();
+                auto entity_registry = std::ref(get_host().get_entity_registry());
+                auto asset_manager = std::ref(get_host().get_asset_manager());
                 auto shadow_settings = _shadow_settings;
                 auto render_resolution = ready_event->size;
                 auto create_renderer_future = thread_manager.post_with_future(
@@ -91,8 +92,8 @@ namespace tbx::plugins
                     {
                         auto renderer = std::make_unique<OpenGlRenderer>(
                             loader,
-                            *entity_registry,
-                            *asset_manager,
+                            entity_registry.get(),
+                            asset_manager.get(),
                             std::move(context),
                             shadow_settings);
                         renderer->set_viewport_size(render_resolution);

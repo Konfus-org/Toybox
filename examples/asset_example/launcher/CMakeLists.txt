@@ -6,7 +6,7 @@ target_include_directories(AssetExampleLauncher
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 target_link_libraries(AssetExampleLauncher PRIVATE
-    Tbx::App
+    Tbx::DefaultIncludes
     Tbx::Examples::AssetExampleRuntime
 )
 

@@ -59,7 +59,6 @@ namespace tbx::plugins
         void on_load_material_request(LoadMaterialRequest& request);
         std::filesystem::path resolve_asset_path(const std::filesystem::path& path) const;
 
-        AssetManager* _asset_manager = nullptr;
         std::filesystem::path _working_directory = {};
         std::shared_ptr<IFileOps> _file_ops = {};
     };

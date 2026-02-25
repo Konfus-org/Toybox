@@ -2,6 +2,7 @@
 #include "tbx/common/result.h"
 #include "tbx/common/uuid.h"
 #include "tbx/messages/dispatcher.h"
+#include <functional>
 
 namespace tbx::plugins
 {
@@ -14,8 +15,6 @@ namespace tbx::plugins
     class OpenGlContext final
     {
       public:
-        OpenGlContext() = default;
-
         /// <summary>Creates a context helper for one window.</summary>
         /// <remarks>Purpose: Binds window context operations to a dispatcher and window id.
         /// Ownership: Keeps a non-owning dispatcher pointer; caller must keep dispatcher alive.
@@ -42,7 +41,7 @@ namespace tbx::plugins
         Result present() const;
 
       private:
-        IMessageDispatcher* _dispatcher = nullptr;
+        std::reference_wrapper<IMessageDispatcher> _dispatcher;
         Uuid _window_id = Uuid::NONE;
     };
 }

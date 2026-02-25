@@ -17,68 +17,35 @@ namespace tbx::examples
 {
     void PhysicsExampleRuntimePlugin::on_attach(IPluginHost& host)
     {
-        _ent_registry = &host.get_entity_registry();
-        _input_manager = &host.get_input_manager();
-
-        auto& ent_registry = *_ent_registry;
+        auto& ent_registry = host.get_entity_registry();
+        auto& input_manager = host.get_input_manager();
 
         _sun = Entity("Light", ent_registry);
         _sun.add_component<DirectionalLight>(Color::WHITE, 1.0F, 0.15F);
         _sun.add_component<Transform>(Vec3(0), to_radians(Vec3(-45.0F, 45.0F, 0.0F)), Vec3(1));
 
-        _camera_yaw = 0.0F;
-        _camera_pitch = to_radians(-8.0F);
-        _camera = Entity("Camera", ent_registry);
-        _camera.add_component<Camera>();
-        _camera.add_component<Transform>(
+        auto camera = Entity("Camera", ent_registry);
+        camera.add_component<Camera>();
+        camera.add_component<Transform>(
             Vec3(0.0F, 2.01F, 11.0F),
-            Quat(Vec3(_camera_pitch, _camera_yaw, 0.0F)),
+            Quat(Vec3(to_radians(-8.0F), 0.0F, 0.0F)),
             Vec3(1.0F));
 
-        auto ground_ent = Entity("Ground", ent_registry);
-        ground_ent.add_component<Renderer>();
-        ground_ent.add_component<DynamicMesh>(quad);
-        ground_ent.add_component<MeshCollider>();
-        ground_ent.add_component<Transform>(
-            Vec3(0.0F, 0.0f, 0.0F),
-            to_radians(Vec3(-90.0F, 0.0F, 0.0F)),
-            Vec3(40.0F, 40.0F, 1.0F));
+        _camera_controller.initialize(
+            camera,
+            input_manager,
+            CameraControllerSettings {
+                .initial_yaw = 0.0F,
+                .initial_pitch = to_radians(-8.0F),
+                .move_speed = 6.0F,
+                .look_sensitivity = 0.0025F});
 
-        auto wallf_ent = Entity("Wall_F", ent_registry);
-        wallf_ent.add_component<Renderer>();
-        wallf_ent.add_component<DynamicMesh>(cube);
-        wallf_ent.add_component<CubeCollider>(Vec3(22.5F, 5.5F, 0.75F));
-        wallf_ent.add_component<Transform>(
-            Vec3(0.0F, 5.0F, -20.0F),
-            Quat(Vec3(0.0F, 0.0F, 0.0F)),
-            Vec3(45.0F, 11.0F, 1.5F));
-
-        auto walll_ent = Entity("Wall_L", ent_registry);
-        walll_ent.add_component<Renderer>();
-        walll_ent.add_component<DynamicMesh>(cube);
-        walll_ent.add_component<CubeCollider>(Vec3(0.75F, 5.5F, 22.5F));
-        walll_ent.add_component<Transform>(
-            Vec3(-20.0F, 5.0F, 0.0F),
-            Quat(Vec3(0.0F, 0.0F, 0.0F)),
-            Vec3(1.5F, 11.0F, 45.0F));
-
-        auto wallr_ent = Entity("Wall_R", ent_registry);
-        wallr_ent.add_component<Renderer>();
-        wallr_ent.add_component<DynamicMesh>(cube);
-        wallr_ent.add_component<CubeCollider>(Vec3(0.75F, 5.5F, 22.5F));
-        wallr_ent.add_component<Transform>(
-            Vec3(20.0F, 5.0F, 0.0F),
-            Quat(Vec3(0.0F, 0.0F, 0.0F)),
-            Vec3(1.5F, 11.0F, 45.0F));
-
-        auto wallb_ent = Entity("Wall_B", ent_registry);
-        wallb_ent.add_component<Renderer>();
-        wallb_ent.add_component<DynamicMesh>(cube);
-        wallb_ent.add_component<CubeCollider>(Vec3(22.5F, 5.5F, 0.75F));
-        wallb_ent.add_component<Transform>(
-            Vec3(0.0F, 5.0F, 20.0F),
-            Quat(Vec3(0.0F, 0.0F, 0.0F)),
-            Vec3(45.0F, 11.0F, 1.5F));
+        _room.create(
+            ent_registry,
+            RoomSettings {
+                .center = Vec3(0.0F, 0.0F, 0.0F),
+                .include_colliders = true,
+            });
 
         auto falling_sphere = Entity("FallingSphere", ent_registry);
         falling_sphere.add_component<Renderer>(MaterialInstance {
@@ -116,215 +83,112 @@ namespace tbx::examples
                     .overlap_begin_callbacks =
                         {
                             [entity_registry =
-                                 _ent_registry](const ColliderOverlapEvent& overlap_event)
+                                 std::ref(ent_registry)](const ColliderOverlapEvent& overlap_event)
                             {
-                                if (entity_registry == nullptr)
-                                    return;
-
                                 TBX_TRACE_INFO(
                                     "Trigger overlap begin: {} with {}.",
-                                    entity_registry->get(overlap_event.trigger_entity_id)
+                                    entity_registry.get()
+                                        .get(overlap_event.trigger_entity_id)
                                         .get_name(),
-                                    entity_registry->get(overlap_event.overlapped_entity_id)
+                                    entity_registry.get()
+                                        .get(overlap_event.overlapped_entity_id)
                                         .get_name());
                             },
                         },
                     .overlap_end_callbacks =
                         {
                             [entity_registry =
-                                 _ent_registry](const ColliderOverlapEvent& overlap_event)
+                                 std::ref(ent_registry)](const ColliderOverlapEvent& overlap_event)
                             {
-                                if (entity_registry == nullptr)
-                                    return;
-
                                 TBX_TRACE_INFO(
                                     "Trigger overlap end: {} with {}.",
-                                    entity_registry->get(overlap_event.trigger_entity_id)
+                                    entity_registry.get()
+                                        .get(overlap_event.trigger_entity_id)
                                         .get_name(),
-                                    entity_registry->get(overlap_event.overlapped_entity_id)
+                                    entity_registry.get()
+                                        .get(overlap_event.overlapped_entity_id)
                                         .get_name());
                             },
                         },
                 },
         });
 
-        auto camera_scheme = InputScheme(
-            _camera_scheme_name,
-            {
-                InputAction(
-                    "Move",
-                    InputActionValueType::VECTOR2,
-                    InputActionConstruction {
-                        .bindings =
-                            {
-                                InputBinding {
-                                    .control =
-                                        KeyboardVector2CompositeInputControl {
-                                            .up = InputKey::W,
-                                            .down = InputKey::S,
-                                            .left = InputKey::A,
-                                            .right = InputKey::D,
-                                        },
-                                    .scale = 1.0F,
+        auto camera_scheme = _camera_controller.get_input_scheme();
+        camera_scheme.add_action(InputAction(
+            "Raycast",
+            InputActionValueType::BUTTON,
+            InputActionConstruction {
+                .bindings =
+                    {
+                        InputBinding {
+                            .control =
+                                MouseButtonInputControl {
+                                    .button = InputMouseButton::LEFT,
                                 },
-                            },
-                        .on_performed_callbacks =
-                            {
-                                [this](const InputAction& action)
-                                {
-                                    Vec2 move_axis = Vec2(0.0F, 0.0F);
-                                    if (action.try_get_value_as<Vec2>(move_axis))
-                                        _move_axis = move_axis;
-                                },
-                            },
-                        .on_cancelled_callbacks =
-                            {
-                                [this](const InputAction&)
-                                {
-                                    _move_axis = Vec2(0.0F, 0.0F);
-                                },
-                            },
-                    }),
-                InputAction(
-                    "UpDown",
-                    InputActionValueType::VECTOR2,
-                    InputActionConstruction {
-                        .bindings =
-                            {
-                                InputBinding {
-                                    .control =
-                                        KeyboardVector2CompositeInputControl {
-                                            .up = InputKey::Q,
-                                            .down = InputKey::E,
-                                        },
-                                    .scale = 1.0F,
-                                },
-                            },
-                        .on_performed_callbacks =
-                            {
-                                [this](const InputAction& action)
-                                {
-                                    Vec2 move_axis = Vec2(0.0F, 0.0F);
-                                    if (action.try_get_value_as<Vec2>(move_axis))
-                                        _updown_axis = move_axis;
-                                },
-                            },
-                        .on_cancelled_callbacks =
-                            {
-                                [this](const InputAction&)
-                                {
-                                    _updown_axis = Vec2(0.0F, 0.0F);
-                                },
-                            },
-                    }),
-                InputAction(
-                    "Raycast",
-                    InputActionValueType::BUTTON,
-                    InputActionConstruction {
-                        .bindings =
-                            {
-                                InputBinding {
-                                    .control =
-                                        MouseButtonInputControl {
-                                            .button = InputMouseButton::LEFT,
-                                        },
-                                    .scale = 1.0F,
-                                },
-                            },
-                        .on_start_callbacks =
-                            {
-                                [this](const InputAction&)
-                                {
-                                    if (!_camera.get_id().is_valid())
-                                        return;
+                            .scale = 1.0F,
+                        },
+                    },
+                .on_start_callbacks =
+                    {
+                        [this](const InputAction&)
+                        {
+                            const auto& camera = _camera_controller.get_camera();
+                            if (!camera.get_id().is_valid())
+                                return;
 
-                                    Transform camera_world_transform =
-                                        get_world_space_transform(_camera);
-                                    Vec3 direction = normalize(
-                                        camera_world_transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
+                            Transform camera_world_transform = get_world_space_transform(camera);
+                            Vec3 direction = normalize(
+                                camera_world_transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
 
-                                    Raycast raycast = Raycast {
-                                        .origin = camera_world_transform.position,
-                                        .direction = direction,
-                                        .max_distance = 60.0F,
-                                        .ignore_entity = true,
-                                        .ignored_entity_id = _camera.get_id(),
-                                    };
+                            Raycast raycast = Raycast {
+                                .origin = camera_world_transform.position,
+                                .direction = direction,
+                                .max_distance = 60.0F,
+                                .ignore_entity = true,
+                                .ignored_entity_id = camera.get_id(),
+                            };
 
-                                    RaycastResult raycast_result = raycast.cast();
-                                    if (!raycast_result)
-                                    {
-                                        TBX_TRACE_INFO("Raycast missed.");
-                                        return;
-                                    }
+                            RaycastResult raycast_result = raycast.cast();
+                            if (!raycast_result)
+                            {
+                                TBX_TRACE_INFO("Raycast missed.");
+                                return;
+                            }
 
-                                    TBX_TRACE_INFO(
-                                        "Raycast hit entity {} at ({:.2f}, {:.2f}, {:.2f}).",
-                                        _ent_registry->get(raycast_result.hit_entity_id).get_name(),
-                                        raycast_result.hit_position.x,
-                                        raycast_result.hit_position.y,
-                                        raycast_result.hit_position.z);
+                            TBX_TRACE_INFO(
+                                "Raycast hit entity {} at ({:.2f}, {:.2f}, {:.2f}).",
+                                get_host()
+                                    .get_entity_registry()
+                                    .get(raycast_result.hit_entity_id)
+                                    .get_name(),
+                                raycast_result.hit_position.x,
+                                raycast_result.hit_position.y,
+                                raycast_result.hit_position.z);
+                        },
+                    },
+            }));
+        camera_scheme.add_action(InputAction(
+            "Shoot",
+            InputActionValueType::BUTTON,
+            InputActionConstruction {
+                .bindings =
+                    {
+                        InputBinding {
+                            .control =
+                                MouseButtonInputControl {
+                                    .button = InputMouseButton::RIGHT,
                                 },
-                            },
-                    }),
-                InputAction(
-                    "Look",
-                    InputActionValueType::VECTOR2,
-                    InputActionConstruction {
-                        .bindings =
-                            {
-                                InputBinding {
-                                    .control =
-                                        MouseVectorInputControl {
-                                            .control = InputMouseVectorControl::DELTA,
-                                        },
-                                    .scale = 1.0F,
-                                },
-                            },
-                        .on_performed_callbacks =
-                            {
-                                [this](const InputAction& action)
-                                {
-                                    Vec2 look_delta = Vec2(0.0F, 0.0F);
-                                    if (action.try_get_value_as<Vec2>(look_delta))
-                                        _look_delta = look_delta;
-                                },
-                            },
-                        .on_cancelled_callbacks =
-                            {
-                                [this](const InputAction&)
-                                {
-                                    _look_delta = Vec2(0.0F, 0.0F);
-                                },
-                            },
-                    }),
-                InputAction(
-                    "Shoot",
-                    InputActionValueType::BUTTON,
-                    InputActionConstruction {
-                        .bindings =
-                            {
-                                InputBinding {
-                                    .control =
-                                        MouseButtonInputControl {
-                                            .button = InputMouseButton::RIGHT,
-                                        },
-                                    .scale = 1.0F,
-                                },
-                            },
-                        .on_start_callbacks =
-                            {
-                                [this](const InputAction&)
-                                {
-                                    _is_shoot_requested = true;
-                                },
-                            },
-                    }),
-            });
-
-        _input_manager->add_scheme(camera_scheme);
-        _input_manager->activate_scheme(_camera_scheme_name);
-        _input_manager->set_mouse_lock_mode(MouseLockMode::RELATIVE);
+                            .scale = 1.0F,
+                        },
+                    },
+                .on_start_callbacks =
+                    {
+                        [this](const InputAction&)
+                        {
+                            _is_shoot_requested = true;
+                        },
+                    },
+            }));
     }
 
     void PhysicsExampleRuntimePlugin::on_detach()
@@ -337,60 +201,14 @@ namespace tbx::examples
         _active_projectiles.clear();
         _active_projectile_lifetimes.clear();
 
-        if (_input_manager)
-            _input_manager->remove_scheme(_camera_scheme_name);
+        _camera_controller.shutdown(get_host().get_input_manager());
 
-        _input_manager = nullptr;
-        _ent_registry = nullptr;
+        _room.destroy();
     }
 
     void PhysicsExampleRuntimePlugin::on_update(const DeltaTime& dt)
     {
-        auto& camera_transform = _camera.get_component<Transform>();
-
-        _camera_yaw -= _look_delta.x * _camera_look_sensitivity;
-        _camera_pitch -= _look_delta.y * _camera_look_sensitivity;
-
-        const float max_pitch = to_radians(89.0F);
-        if (_camera_pitch > max_pitch)
-            _camera_pitch = max_pitch;
-        if (_camera_pitch < -max_pitch)
-            _camera_pitch = -max_pitch;
-
-        const Quat yaw_rotation = normalize(Quat(Vec3(0.0F, _camera_yaw, 0.0F)));
-        const Quat pitch_rotation = normalize(Quat(Vec3(_camera_pitch, 0.0F, 0.0F)));
-
-        const float right_axis = _move_axis.x;
-        const float forward_axis = _move_axis.y;
-
-        Vec3 forward = yaw_rotation * Vec3(0.0F, 0.0F, -1.0F);
-        Vec3 right = yaw_rotation * Vec3(1.0F, 0.0F, 0.0F);
-        forward.y = 0.0F;
-        right.y = 0.0F;
-
-        const float forward_length_squared =
-            forward.x * forward.x + forward.y * forward.y + forward.z * forward.z;
-        if (forward_length_squared > 0.0F)
-            forward *= 1.0F / std::sqrt(forward_length_squared);
-
-        const float right_length_squared =
-            right.x * right.x + right.y * right.y + right.z * right.z;
-        if (right_length_squared > 0.0F)
-            right *= 1.0F / std::sqrt(right_length_squared);
-
-        Vec3 move = forward * forward_axis + right * right_axis;
-        const float move_length_squared = move.x * move.x + move.y * move.y + move.z * move.z;
-        if (move_length_squared > 0.0F)
-        {
-            const float inverse_length = 1.0F / std::sqrt(move_length_squared);
-            move *= inverse_length;
-            camera_transform.position += move * _camera_move_speed * static_cast<float>(dt.seconds);
-        }
-
-        camera_transform.position += Vec3(_updown_axis.x, _updown_axis.y, 0.0F) * _camera_move_speed
-                                     * static_cast<float>(dt.seconds);
-
-        camera_transform.rotation = normalize(yaw_rotation * pitch_rotation);
+        _camera_controller.update(dt);
 
         update_projectiles(dt);
 
@@ -439,10 +257,11 @@ namespace tbx::examples
 
     void PhysicsExampleRuntimePlugin::spawn_projectile()
     {
-        if (_ent_registry == nullptr)
+        const auto& camera = _camera_controller.get_camera();
+        if (!camera.get_id().is_valid())
             return;
 
-        const auto camera_world_transform = get_world_space_transform(_camera);
+        const auto camera_world_transform = get_world_space_transform(camera);
         Vec3 shot_direction = camera_world_transform.rotation * Vec3(0.0F, 0.0F, -1.0F);
         const float direction_length_squared = shot_direction.x * shot_direction.x
                                                + shot_direction.y * shot_direction.y
@@ -468,7 +287,7 @@ namespace tbx::examples
             _active_projectile_lifetimes.erase(_active_projectile_lifetimes.begin());
         }
 
-        auto projectile = Entity(projectile_name, *_ent_registry);
+        auto projectile = Entity(projectile_name, get_host().get_entity_registry());
         constexpr float projectile_visual_scale = 0.35F;
         projectile.add_component<Renderer>(MaterialInstance {
             .parameters = {{"color", Color::YELLOW}},

@@ -7,6 +7,7 @@
 #include "tbx/common/uuid.h"
 #include "tbx/ecs/entity_registry.h"
 #include "tbx/graphics/messages.h"
+#include <functional>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -69,7 +70,7 @@ namespace tbx::plugins
         void set_render_resolution(const Size& render_resolution);
 
       private:
-        EntityRegistry* _entity_registry = nullptr;
+        std::reference_wrapper<EntityRegistry> _entity_registry;
         OpenGlContext _context;
 
         std::unique_ptr<OpenGlResourceManager> _resource_manager = nullptr;

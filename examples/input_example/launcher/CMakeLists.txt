@@ -6,6 +6,6 @@ target_include_directories(InputExampleLauncher
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 target_link_libraries(InputExampleLauncher PRIVATE
-    Tbx::App
+    Tbx::DefaultIncludes
     Tbx::Examples::InputExampleRuntime
 )

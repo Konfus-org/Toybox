@@ -6,6 +6,6 @@ target_include_directories(PhysicsExampleLauncher
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 target_link_libraries(PhysicsExampleLauncher PRIVATE
-    Tbx::App
+    Tbx::DefaultIncludes
     Tbx::Examples::PhysicsExampleRuntime
 )

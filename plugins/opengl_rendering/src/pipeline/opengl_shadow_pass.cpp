@@ -164,7 +164,7 @@ namespace tbx::plugins
         glEnable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE);
         glEnable(GL_POLYGON_OFFSET_FILL);
-        glPolygonOffset(0.7f, 1.5f);
+        glPolygonOffset(2.5f, 8.0f);
 
         auto resource_scopes = std::vector<GlResourceScope> {};
         for (size_t shadow_index = 0; shadow_index < shadow_map_count; ++shadow_index)

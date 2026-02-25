@@ -1,6 +1,8 @@
 #pragma once
 #include "tbx/ecs/entity.h"
+#include "tbx/examples/camera_controller.h"
 #include "tbx/plugin_api/plugin.h"
+#include <string>
 
 namespace tbx::examples
 {
@@ -11,7 +13,6 @@ namespace tbx::examples
         void on_update(const DeltaTime& dt) override;
 
       private:
-        EntityRegistry* _ent_registry = nullptr;
-        float _elapsed_seconds = 0.0f;
+        float _elapsed_seconds = 0.0F;
     };
 }

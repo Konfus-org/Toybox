@@ -58,7 +58,6 @@ namespace tbx::plugins
       private:
         void on_load_texture_request(LoadTextureRequest& request);
 
-        AssetManager* _asset_manager = nullptr;
         std::shared_ptr<IFileOps> _file_ops = {};
     };
 }

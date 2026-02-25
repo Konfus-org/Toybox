@@ -250,7 +250,7 @@ namespace tbx::tests::input
 
         // Act
         manager.update(frame_time);
-        const InputScheme* active_scheme = manager.try_get_scheme("Gameplay");
+        const InputScheme* active_scheme = manager.get_scheme("Gameplay");
         ASSERT_NE(active_scheme, nullptr);
         const InputAction* updated_action = active_scheme->try_get_action("Move");
         ASSERT_NE(updated_action, nullptr);
@@ -309,8 +309,8 @@ namespace tbx::tests::input
         bool first_activated = manager.activate_scheme("First");
         bool second_activated = manager.activate_scheme("Second");
 
-        const InputScheme* first_scheme = manager.try_get_scheme("First");
-        const InputScheme* second_scheme = manager.try_get_scheme("Second");
+        const InputScheme* first_scheme = manager.get_scheme("First");
+        const InputScheme* second_scheme = manager.get_scheme("Second");
 
         // Assert
         ASSERT_TRUE(first_activated);

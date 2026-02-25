@@ -9,14 +9,12 @@
 #include "tbx/graphics/renderer.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
-#include <array>
-#include <memory>
 
 namespace tbx::examples
 {
     void ExampleRuntimePlugin::on_attach(IPluginHost& context)
     {
-        _ent_registry = &context.get_entity_registry();
+        auto& ent_registry = context.get_entity_registry();
         std::string greeting =
             "Welcome to the ecs example! This plugin just loads a few basic plugins and "
             "makes some entities.";
@@ -26,8 +24,9 @@ namespace tbx::examples
         _elapsed_seconds = 0.0f;
 
         // Setup camera
-        auto cam_ent = Entity("Camera", *_ent_registry);
-        cam_ent.add_component<Camera>();
+        auto cam_ent = Entity("Camera", ent_registry);
+        auto& cam = cam_ent.add_component<Camera>();
+        cam.set_orthographic(20, 16.0f / 9.0f, 0.1f, 100.0f);
         cam_ent.add_component<Transform>(Vec3(0.0f, 0.0f, 10.0f));
 
         // Setup quads with unlit material
@@ -36,7 +35,7 @@ namespace tbx::examples
         auto starting_x = -((toys_to_make - 1.0f) * spacing) * 0.5f;
         for (int i = 0; i < toys_to_make; i++)
         {
-            auto ent = Entity(std::to_string(i), *_ent_registry);
+            auto ent = Entity(std::to_string(i), ent_registry);
             ent.add_component<Transform>(Vec3(
                 starting_x
                     + (static_cast<float>(i)
@@ -55,7 +54,7 @@ namespace tbx::examples
         // bob all toys in stage with transform up, then down over time
         // also change color over time...
         float offset = 0.0f;
-        for (auto& entity : _ent_registry->get_with<Transform, Renderer>())
+        for (auto& entity : get_host().get_entity_registry().get_with<Transform, Renderer>())
         {
             auto& transform = entity.get_component<Transform>();
             transform.position.y = sin((_elapsed_seconds * 2.0f) + offset);

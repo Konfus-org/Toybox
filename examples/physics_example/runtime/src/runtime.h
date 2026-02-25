@@ -1,9 +1,11 @@
 #pragma once
 #include "tbx/ecs/entity.h"
-#include "tbx/input/input_manager.h"
+#include "tbx/examples/camera_controller.h"
+#include "tbx/examples/room.h"
+#include "tbx/graphics/mesh.h"
 #include "tbx/plugin_api/plugin.h"
 #include <cstddef>
-#include <string>
+#include <memory>
 #include <vector>
 
 namespace tbx::examples
@@ -27,26 +29,15 @@ namespace tbx::examples
         void spawn_projectile();
 
       private:
-        EntityRegistry* _ent_registry = nullptr;
-        InputManager* _input_manager = nullptr;
-
-        Entity _camera = {};
+        CameraController _camera_controller = {};
+        Room _room = {};
         Entity _sun = {};
 
-        std::string _camera_scheme_name = "PhysicsExample.Camera";
-
-        float _camera_yaw = 0.0F;
-        float _camera_pitch = 0.0F;
-        float _camera_move_speed = 6.0F;
-        float _camera_look_sensitivity = 0.0025F;
         float _projectile_spawn_distance = 1.35F;
         float _projectile_speed = 26.0F;
         double _projectile_lifetime_seconds = 8.0;
         size_t _max_active_projectiles = 192U;
 
-        Vec2 _move_axis = Vec2(0.0F, 0.0F);
-        Vec2 _updown_axis = Vec2(0.0F, 0.0F);
-        Vec2 _look_delta = Vec2(0.0F, 0.0F);
         bool _is_shoot_requested = false;
 
         size_t _spawned_projectile_count = 0U;

@@ -33,23 +33,28 @@ function(read_meta_property relative_meta_path out_property_name out_id_hex)
 
     file(READ "${meta_file}" meta_text)
 
-    string(JSON name_type ERROR_VARIABLE name_type_error TYPE "${meta_text}" name)
+    set(meta_name_key "builtin_asset_global_var_name")
+    string(JSON name_type ERROR_VARIABLE name_type_error TYPE "${meta_text}" ${meta_name_key})
+    if(NOT name_type_error STREQUAL "NOTFOUND")
+        set(meta_name_key "name")
+        string(JSON name_type ERROR_VARIABLE name_type_error TYPE "${meta_text}" ${meta_name_key})
+    endif()
     if(NOT name_type_error STREQUAL "NOTFOUND")
         message(
             FATAL_ERROR
-            "generate_builtin_assets_header: missing name in '${meta_file}'")
+            "generate_builtin_assets_header: missing builtin_asset_global_var_name in '${meta_file}'")
     endif()
     if(NOT name_type STREQUAL "STRING")
         message(
             FATAL_ERROR
-            "generate_builtin_assets_header: name must be a string in '${meta_file}'")
+            "generate_builtin_assets_header: ${meta_name_key} must be a string in '${meta_file}'")
     endif()
 
-    string(JSON raw_name ERROR_VARIABLE raw_name_error GET "${meta_text}" name)
+    string(JSON raw_name ERROR_VARIABLE raw_name_error GET "${meta_text}" ${meta_name_key})
     if(NOT raw_name_error STREQUAL "NOTFOUND" OR raw_name STREQUAL "")
         message(
             FATAL_ERROR
-            "generate_builtin_assets_header: missing name in '${meta_file}'")
+            "generate_builtin_assets_header: missing ${meta_name_key} in '${meta_file}'")
     endif()
 
     make_property_name("${raw_name}" property_name)

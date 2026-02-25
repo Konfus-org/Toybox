@@ -61,7 +61,6 @@ namespace tbx::plugins
       private:
         void on_load_shader_program_request(LoadShaderRequest& request);
 
-        AssetManager* _asset_manager = nullptr;
         std::filesystem::path _working_directory = {};
         std::shared_ptr<IFileOps> _file_ops = {};
     };

@@ -1,5 +1,7 @@
 #pragma once
 #include "tbx/ecs/entity.h"
+#include "tbx/examples/camera_controller.h"
+#include "tbx/examples/room.h"
 #include "tbx/plugin_api/plugin.h"
 
 namespace tbx::examples
@@ -9,8 +11,8 @@ namespace tbx::examples
     /// </summary>
     /// <remarks>
     /// Purpose: Demonstrates asset loading plus a practical input-scheme-driven camera controller.
-    /// Ownership: Holds non-owning pointers to ECS and input manager services provided by the host.
-    /// Thread Safety: Expects to run on the main thread where the ECS and input systems are
+    /// Ownership: Holds non-owning references to ECS and input manager services provided by the
+    /// host. Thread Safety: Expects to run on the main thread where the ECS and input systems are
     /// updated.
     /// </remarks>
     class AssetExampleRuntimePlugin final : public Plugin
@@ -47,9 +49,9 @@ namespace tbx::examples
         void on_update(const DeltaTime& dt) override;
 
       private:
-        EntityRegistry* _ent_registry = nullptr;
-
         Entity _cube = {};
         Entity _sun = {};
+        CameraController _camera_controller = {};
+        Room _room = {};
     };
 }

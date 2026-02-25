@@ -312,6 +312,18 @@ namespace tbx::plugins
     {
         if (!parameters.has("color"))
             parameters.set("color", Color::WHITE);
+        if (!parameters.has("emissive"))
+            parameters.set("emissive", Color::BLACK);
+        if (!parameters.has("unlit"))
+            parameters.set("unlit", false);
+        if (!parameters.has("roughness"))
+            parameters.set("roughness", 1.0F);
+        if (!parameters.has("specular"))
+            parameters.set("specular", 1.0F);
+        if (!parameters.has("occlusion"))
+            parameters.set("occlusion", 1.0F);
+        if (!parameters.has("alpha_cutoff"))
+            parameters.set("alpha_cutoff", 0.1F);
     }
 
     static void append_texture_binding(
@@ -351,11 +363,8 @@ namespace tbx::plugins
     }
 
     OpenGlResourceManager::OpenGlResourceManager(AssetManager& asset_manager)
-        : _asset_manager(&asset_manager)
+        : _asset_manager(asset_manager)
     {
-        TBX_ASSERT(
-            _asset_manager != nullptr,
-            "OpenGL resource manager requires a valid asset manager reference.");
     }
 
     bool OpenGlResourceManager::try_get(
@@ -732,7 +741,7 @@ namespace tbx::plugins
             }
         }
 
-        auto shader_asset = _asset_manager->load<Shader>(shader_handle);
+        auto shader_asset = _asset_manager.get().load<Shader>(shader_handle);
         TBX_ASSERT(
             shader_asset != nullptr,
             "OpenGL rendering: material shader stage could not be loaded.");
@@ -1020,7 +1029,7 @@ namespace tbx::plugins
         OpenGlCachedDrawResourceEntry* out_cache_entry)
     {
         const auto& static_mesh = entity.get_component<StaticMesh>();
-        auto model = _asset_manager->load<Model>(static_mesh.handle);
+        auto model = _asset_manager.get().load<Model>(static_mesh.handle);
         if (!model || model->meshes.empty())
             return false;
 
@@ -1034,7 +1043,7 @@ namespace tbx::plugins
         auto material = Material();
         if (renderer.material.handle.is_valid())
         {
-            auto override_material = _asset_manager->load<Material>(renderer.material.handle);
+            auto override_material = _asset_manager.get().load<Material>(renderer.material.handle);
             if (override_material)
                 material = *override_material;
         }
@@ -1083,7 +1092,7 @@ namespace tbx::plugins
         auto material = Material();
         if (renderer.material.handle.is_valid())
         {
-            auto loaded_material = _asset_manager->load<Material>(renderer.material.handle);
+            auto loaded_material = _asset_manager.get().load<Material>(renderer.material.handle);
             if (loaded_material)
                 material = *loaded_material;
         }
@@ -1150,7 +1159,7 @@ namespace tbx::plugins
     {
         if (!material.handle.is_valid())
             return false;
-        auto source_material = _asset_manager->load<Material>(material.handle);
+        auto source_material = _asset_manager.get().load<Material>(material.handle);
         if (!source_material)
             return false;
 
@@ -1189,7 +1198,7 @@ namespace tbx::plugins
     {
         if (!material.handle.is_valid())
             return false;
-        auto source_material = _asset_manager->load<Material>(material.handle);
+        auto source_material = _asset_manager.get().load<Material>(material.handle);
         if (!source_material)
             return false;
 
@@ -1278,7 +1287,7 @@ namespace tbx::plugins
                 if (runtime_texture_override && runtime_texture_override->settings.has_value())
                     load_parameters.settings = runtime_texture_override->settings.value();
 
-                texture_asset = _asset_manager->load(resolved_texture_handle, load_parameters);
+                texture_asset = _asset_manager.get().load(resolved_texture_handle, load_parameters);
                 TBX_ASSERT(
                     texture_asset != nullptr,
                     "OpenGL rendering: texture '{}' failed to load as Texture (id={}, name='{}').",

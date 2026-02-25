@@ -6,20 +6,8 @@ target_sources(PhysicsExampleRuntime PRIVATE ${SRCS} ${ASSETS})
 target_include_directories(PhysicsExampleRuntime PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_link_libraries(PhysicsExampleRuntime PRIVATE
-    Tbx::App
-    Tbx::Assets
-    Tbx::ECS
-    Tbx::Graphics
-    Tbx::Physics
-    Tbx::Plugins::JoltPhysicsPlugin
-    Tbx::Plugins::SdlWindowingPlugin
-    Tbx::Plugins::SdlInputPlugin
-    Tbx::Plugins::OpenGlRenderingPlugin
-    Tbx::Plugins::SdlOpenGlAdapterPlugin
-    Tbx::Plugins::StbImageLoaderPlugin
-    Tbx::Plugins::AssimpModelLoaderPlugin
-    Tbx::Plugins::GlslShaderLoaderPlugin
-    Tbx::Plugins::MatMaterialLoaderPlugin
+    Tbx::DefaultIncludes
+    Tbx::Examples::Common
 )
 
 tbx_register_plugin(

@@ -281,10 +281,10 @@ namespace tbx::plugins
         TBX_ASSERT(
             _resource_manager != nullptr,
             "OpenGL rendering: pipeline requires a valid resource manager.");
-        add_operation(std::make_unique<OpenGlGeometryOperation>(*_resource_manager));
-        add_operation(std::make_unique<OpenGlShadowOperation>(*_resource_manager));
-        add_operation(std::make_unique<OpenGlDeferredLightingOperation>(*_resource_manager));
         add_operation(std::make_unique<OpenGlSkyOperation>(*_resource_manager));
+        add_operation(std::make_unique<OpenGlShadowOperation>(*_resource_manager));
+        add_operation(std::make_unique<OpenGlGeometryOperation>(*_resource_manager));
+        add_operation(std::make_unique<OpenGlDeferredLightingOperation>(*_resource_manager));
         add_operation(std::make_unique<OpenGlPostProcessOperation>(*_resource_manager));
     }
 

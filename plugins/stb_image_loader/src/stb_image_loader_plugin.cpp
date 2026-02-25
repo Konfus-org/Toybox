@@ -45,15 +45,11 @@ namespace tbx::plugins
 
     void StbImageLoaderPlugin::on_attach(IPluginHost& host)
     {
-        _asset_manager = &host.get_asset_manager();
         if (!_file_ops)
             _file_ops = std::make_shared<FileOperator>(host.get_settings().paths.working_directory);
     }
 
-    void StbImageLoaderPlugin::on_detach()
-    {
-        _asset_manager = nullptr;
-    }
+    void StbImageLoaderPlugin::on_detach() {}
 
     void StbImageLoaderPlugin::on_recieve_message(Message& msg)
     {
@@ -85,13 +81,6 @@ namespace tbx::plugins
         {
             request.state = MessageState::CANCELLED;
             request.result.flag_failure("Stb image loader cancelled.");
-            return;
-        }
-
-        if (!_asset_manager)
-        {
-            request.state = MessageState::ERROR;
-            request.result.flag_failure("Stb image loader: asset manager unavailable.");
             return;
         }
 

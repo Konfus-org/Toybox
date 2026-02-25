@@ -192,16 +192,10 @@ namespace tbx::plugins
     }
 
     // Captures a filesystem reference for asset resolution.
-    void AssimpModelLoaderPlugin::on_attach(IPluginHost& host)
-    {
-        _asset_manager = &host.get_asset_manager();
-    }
+    void AssimpModelLoaderPlugin::on_attach(IPluginHost&) {}
 
     // Clears cached references on detach.
-    void AssimpModelLoaderPlugin::on_detach()
-    {
-        _asset_manager = nullptr;
-    }
+    void AssimpModelLoaderPlugin::on_detach() {}
 
     // Handles incoming messages for model load requests.
     void AssimpModelLoaderPlugin::on_recieve_message(Message& msg)
@@ -232,13 +226,6 @@ namespace tbx::plugins
         {
             request.state = MessageState::CANCELLED;
             request.result.flag_failure("Assimp model loader cancelled.");
-            return;
-        }
-
-        if (!_asset_manager)
-        {
-            request.state = MessageState::ERROR;
-            request.result.flag_failure("Assimp model loader: asset manager unavailable.");
             return;
         }
 

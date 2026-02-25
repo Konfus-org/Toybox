@@ -62,7 +62,6 @@ namespace tbx::plugins
         std::unordered_map<Uuid, BodyRecord> _bodies_by_entity = {};
         std::unordered_map<std::uint32_t, Uuid> _entity_by_body_key = {};
         std::unordered_map<Uuid, std::unordered_set<Uuid>> _overlap_entities_by_trigger = {};
-        ThreadManager* _thread_manager = nullptr;
         std::thread::id _physics_thread_id = {};
         bool _is_ready = false;
     };

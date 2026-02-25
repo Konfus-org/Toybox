@@ -5,7 +5,7 @@
 namespace tbx::plugins
 {
     OpenGlContext::OpenGlContext(IMessageDispatcher& dispatcher, const Uuid& window_id)
-        : _dispatcher(&dispatcher)
+        : _dispatcher(std::ref(dispatcher))
         , _window_id(window_id)
     {
     }
@@ -17,29 +17,27 @@ namespace tbx::plugins
 
     Result OpenGlContext::make_current() const
     {
-        TBX_ASSERT(_dispatcher != nullptr, "OpenGL rendering: context dispatcher must be valid.");
         TBX_ASSERT(_window_id.is_valid(), "OpenGL rendering: context window id must be valid.");
-        if (_dispatcher == nullptr || !_window_id.is_valid())
+        if (!_window_id.is_valid())
         {
             auto result = Result {};
             result.flag_failure("OpenGL rendering: context is invalid.");
             return result;
         }
 
-        return _dispatcher->send<WindowMakeCurrentRequest>(_window_id);
+        return _dispatcher.get().send<WindowMakeCurrentRequest>(_window_id);
     }
 
     Result OpenGlContext::present() const
     {
-        TBX_ASSERT(_dispatcher != nullptr, "OpenGL rendering: context dispatcher must be valid.");
         TBX_ASSERT(_window_id.is_valid(), "OpenGL rendering: context window id must be valid.");
-        if (_dispatcher == nullptr || !_window_id.is_valid())
+        if (!_window_id.is_valid())
         {
             auto result = Result {};
             result.flag_failure("OpenGL rendering: context is invalid.");
             return result;
         }
 
-        return _dispatcher->send<WindowPresentRequest>(_window_id);
+        return _dispatcher.get().send<WindowPresentRequest>(_window_id);
     }
 }

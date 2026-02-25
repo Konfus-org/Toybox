@@ -305,7 +305,6 @@ namespace tbx::plugins
 
     void GlslShaderLoaderPlugin::on_attach(IPluginHost& host)
     {
-        _asset_manager = &host.get_asset_manager();
         _working_directory = host.get_settings().paths.working_directory;
         if (!_file_ops)
             _file_ops = std::make_shared<FileOperator>(_working_directory);
@@ -313,7 +312,6 @@ namespace tbx::plugins
 
     void GlslShaderLoaderPlugin::on_detach()
     {
-        _asset_manager = nullptr;
         _working_directory = std::filesystem::path();
     }
 
@@ -345,13 +343,6 @@ namespace tbx::plugins
         {
             request.state = MessageState::CANCELLED;
             request.result.flag_failure("Shader loader cancelled.");
-            return;
-        }
-
-        if (!_asset_manager)
-        {
-            request.state = MessageState::ERROR;
-            request.result.flag_failure("Shader loader: file services unavailable.");
             return;
         }
 
@@ -391,9 +382,10 @@ namespace tbx::plugins
         auto shader = ShaderSource(std::move(stage_data), requested_type);
         std::vector<std::filesystem::path> include_stack = {request.path};
         std::unordered_set<std::string> included_files = {};
+        auto& asset_manager = get_host().get_asset_manager();
         ShaderLoadResult expanded = try_expand_includes(
             *_file_ops,
-            *_asset_manager,
+            asset_manager,
             request.path,
             shader.source,
             include_stack,

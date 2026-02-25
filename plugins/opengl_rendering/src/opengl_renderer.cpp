@@ -36,6 +36,7 @@ namespace tbx::plugins
     static constexpr float DIRECTIONAL_SHADOW_MIN_PADDING_TEXELS = 4.0F;
     static constexpr float DIRECTIONAL_SHADOW_FAR_DISTANCE_SCALE = 1.25F;
     static constexpr float LOCAL_LIGHT_SHADOW_NEAR_PLANE = 0.1F;
+    static constexpr float LIGHT_INTENSITY_EPSILON = 0.0001F;
 
     static std::shared_ptr<OpenGlGBuffer> try_load_gbuffer(
         OpenGlResourceManager& resource_manager,
@@ -396,7 +397,7 @@ namespace tbx::plugins
         AssetManager& asset_manager,
         OpenGlContext context,
         const OpenGlShadowSettings& shadow_settings)
-        : _entity_registry(&entity_registry)
+        : _entity_registry(entity_registry)
         , _context(std::move(context))
     {
         set_shadow_settings(shadow_settings);
@@ -405,9 +406,6 @@ namespace tbx::plugins
         TBX_ASSERT(
             glad_loader != nullptr,
             "OpenGL rendering: context-ready event provided null loader.");
-        TBX_ASSERT(
-            _entity_registry != nullptr,
-            "OpenGL rendering: renderer requires a valid entity registry.");
         TBX_ASSERT(
             _context.get_window_id().is_valid(),
             "OpenGL rendering: renderer requires a valid context window id.");
@@ -421,9 +419,9 @@ namespace tbx::plugins
         auto load_result = gladLoadGLLoader(glad_loader);
         TBX_ASSERT(load_result != 0, "OpenGL rendering: failed to initialize GLAD.");
         initialize();
-        _deferred_lighting_resource = _entity_registry->add("OpenGlDeferredLighting");
+        _deferred_lighting_resource = _entity_registry.get().add("OpenGlDeferredLighting");
         auto& deferred_post_processing =
-            _entity_registry->add<PostProcessing>(_deferred_lighting_resource);
+            _entity_registry.get().add<PostProcessing>(_deferred_lighting_resource);
         deferred_post_processing.effects = {PostProcessingEffect {
             .material =
                 MaterialInstance {
@@ -516,7 +514,7 @@ namespace tbx::plugins
 
         // Step 4: Select the first available camera as the active frame camera.
         auto camera_view = OpenGlCameraView {};
-        auto camera_entities = _entity_registry->get_with<Camera>();
+        auto camera_entities = _entity_registry.get().get_with<Camera>();
         if (camera_entities.empty())
             return false;
         if (camera_entities.size() > 1)
@@ -525,9 +523,9 @@ namespace tbx::plugins
         camera_view.camera_entity = camera_entities.front();
 
         // Step 5: Collect visible renderables for static and dynamic passes.
-        for (auto& entity : _entity_registry->get_with<Renderer, StaticMesh>())
+        for (auto& entity : _entity_registry.get().get_with<Renderer, StaticMesh>())
             camera_view.in_view_static_entities.push_back(entity);
-        for (auto& entity : _entity_registry->get_with<Renderer, DynamicMesh>())
+        for (auto& entity : _entity_registry.get().get_with<Renderer, DynamicMesh>())
             camera_view.in_view_dynamic_entities.push_back(entity);
 
         auto camera_world_position = get_camera_world_position(camera_view);
@@ -535,21 +533,26 @@ namespace tbx::plugins
         // Step 6: Gather directional/local light inputs and select capped shadow casters.
         auto frame_directional_lights = std::vector<OpenGlDirectionalLightData> {};
         auto directional_shadow_light_indices = std::vector<size_t> {};
-        for (auto& entity : _entity_registry->get_with<DirectionalLight>())
+        for (auto& entity : _entity_registry.get().get_with<DirectionalLight>())
         {
             auto color = Vec3(1.0f);
             auto intensity = 1.0f;
             const auto& light = entity.get_component<DirectionalLight>();
+            const float ambient = std::max(light.ambient, 0.0f);
             resolve_light_color(light.color, light.intensity, color, intensity);
+            if (intensity <= LIGHT_INTENSITY_EPSILON && ambient <= LIGHT_INTENSITY_EPSILON)
+                continue;
+
             frame_directional_lights.push_back(
                 OpenGlDirectionalLightData {
                     .direction = -get_entity_forward_direction(entity),
                     .intensity = intensity,
                     .color = color,
-                    .ambient = std::max(light.ambient, 0.0f),
+                    .ambient = ambient,
                     .shadow_map_index = -1,
                 });
-            directional_shadow_light_indices.push_back(frame_directional_lights.size() - 1U);
+            if (intensity > LIGHT_INTENSITY_EPSILON)
+                directional_shadow_light_indices.push_back(frame_directional_lights.size() - 1U);
         }
 
         auto frame_point_lights = std::vector<OpenGlPointLightData> {};
@@ -561,7 +564,7 @@ namespace tbx::plugins
             float importance = 0.0F;
         };
         auto point_shadow_candidates = std::vector<PointShadowCandidate> {};
-        for (auto& entity : _entity_registry->get_with<PointLight>())
+        for (auto& entity : _entity_registry.get().get_with<PointLight>())
         {
             auto color = Vec3(1.0f);
             auto intensity = 1.0f;
@@ -569,6 +572,9 @@ namespace tbx::plugins
             const float safe_range = std::max(light.range, 0.001F);
             const auto light_position = get_entity_position(entity);
             resolve_light_color(light.color, light.intensity, color, intensity);
+            if (intensity <= LIGHT_INTENSITY_EPSILON)
+                continue;
+
             frame_point_lights.push_back(
                 OpenGlPointLightData {
                     .position = light_position,
@@ -601,7 +607,7 @@ namespace tbx::plugins
             float importance = 0.0F;
         };
         auto spot_shadow_candidates = std::vector<SpotShadowCandidate> {};
-        for (auto& entity : _entity_registry->get_with<SpotLight>())
+        for (auto& entity : _entity_registry.get().get_with<SpotLight>())
         {
             auto color = Vec3(1.0f);
             auto intensity = 1.0f;
@@ -610,6 +616,9 @@ namespace tbx::plugins
             const auto light_position = get_entity_position(entity);
             const auto light_direction = get_entity_forward_direction(entity);
             resolve_light_color(light.color, light.intensity, color, intensity);
+            if (intensity <= LIGHT_INTENSITY_EPSILON)
+                continue;
+
             float inner_radians = to_radians(std::max(light.inner_angle, 0.0f));
             float outer_radians = to_radians(std::max(light.outer_angle, light.inner_angle));
             frame_spot_lights.push_back(
@@ -635,6 +644,32 @@ namespace tbx::plugins
                         light_position,
                         camera_world_position,
                         safe_range),
+                });
+        }
+
+        auto frame_area_lights = std::vector<OpenGlAreaLightData> {};
+        for (auto& entity : _entity_registry.get().get_with<AreaLight>())
+        {
+            auto color = Vec3(1.0f);
+            auto intensity = 1.0f;
+            const auto& light = entity.get_component<AreaLight>();
+            const float safe_range = std::max(light.range, 0.001F);
+            const auto light_position = get_entity_position(entity);
+            const auto light_direction = get_entity_forward_direction(entity);
+            const auto safe_area_size =
+                Vec2(std::max(light.area_size.x, 0.001F), std::max(light.area_size.y, 0.001F));
+            resolve_light_color(light.color, light.intensity, color, intensity);
+            if (intensity <= LIGHT_INTENSITY_EPSILON)
+                continue;
+
+            frame_area_lights.push_back(
+                OpenGlAreaLightData {
+                    .position = light_position,
+                    .range = safe_range,
+                    .direction = light_direction,
+                    .intensity = intensity,
+                    .color = color,
+                    .area_size = safe_area_size,
                 });
         }
 
@@ -776,7 +811,7 @@ namespace tbx::plugins
         auto frame_clear_color = Color::BLACK;
         auto frame_sky_resource = Uuid::NONE;
         auto frame_sky_entity = Entity {};
-        auto sky_entities = _entity_registry->get_with<Sky>();
+        auto sky_entities = _entity_registry.get().get_with<Sky>();
         if (sky_entities.size() > 1)
             TBX_TRACE_WARNING(
                 "OpenGL rendering: multiple Sky components found; using the first one.");
@@ -805,7 +840,7 @@ namespace tbx::plugins
         bool is_post_processing_enabled = false;
         auto post_process_owner_entity = Entity {};
         auto resolved_post_processing = OpenGlPostProcessing {};
-        auto post_process_entities = _entity_registry->get_with<PostProcessing>();
+        auto post_process_entities = _entity_registry.get().get_with<PostProcessing>();
         auto selected_post_process_entity = Entity {};
         size_t user_post_process_count = 0;
         for (const auto& candidate : post_process_entities)
@@ -863,7 +898,7 @@ namespace tbx::plugins
             .clear_color = frame_clear_color,
             .sky_entity = frame_sky_entity,
             .post_process = post_process_settings,
-            .deferred_lighting_entity = _entity_registry->get(_deferred_lighting_resource),
+            .deferred_lighting_entity = _entity_registry.get().get(_deferred_lighting_resource),
             .gbuffer = gbuffer.get(),
             .lighting_target = lighting_framebuffer.get(),
             .post_process_ping_target = post_process_ping_framebuffer.get(),
@@ -876,6 +911,7 @@ namespace tbx::plugins
                 std::span<const OpenGlDirectionalLightData>(frame_directional_lights),
             .point_lights = std::span<const OpenGlPointLightData>(frame_point_lights),
             .spot_lights = std::span<const OpenGlSpotLightData>(frame_spot_lights),
+            .area_lights = std::span<const OpenGlAreaLightData>(frame_area_lights),
             .shadow_data =
                 OpenGlShadowFrameData {
                     .map_uuids = std::span<const Uuid>(frame_shadow_map_resources),
@@ -969,11 +1005,11 @@ namespace tbx::plugins
 
     void OpenGlRenderer::shutdown()
     {
-        if (_entity_registry && _deferred_lighting_resource.is_valid()
-            && _entity_registry->has<PostProcessing>(_deferred_lighting_resource))
+        if (_deferred_lighting_resource.is_valid()
+            && _entity_registry.get().has<PostProcessing>(_deferred_lighting_resource))
         {
-            auto deferred_entity = _entity_registry->get(_deferred_lighting_resource);
-            _entity_registry->remove(deferred_entity);
+            auto deferred_entity = _entity_registry.get().get(_deferred_lighting_resource);
+            _entity_registry.get().remove(deferred_entity);
         }
         if (_resource_manager && _pinned_sky_resource.is_valid())
             _resource_manager->unpin(_pinned_sky_resource);

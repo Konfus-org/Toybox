@@ -1,5 +1,5 @@
 {
-  "name": "not_found_texture",
+  "builtin_asset_global_var_name": "not_found_texture",
   "id": "00000003",
   "texture": {
     "wrap": "clamp_to_edge",

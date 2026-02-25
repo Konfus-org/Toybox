@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -302,7 +303,7 @@ namespace tbx::plugins
         static constexpr std::chrono::seconds UNUSED_TTL = std::chrono::seconds(3);
         static constexpr std::chrono::seconds UNUSED_SCAN_INTERVAL = std::chrono::seconds(1);
 
-        AssetManager* _asset_manager = nullptr;
+        std::reference_wrapper<AssetManager> _asset_manager;
         std::unordered_map<Uuid, OpenGlCachedDrawResourceEntry> _draw_resources_by_entity = {};
         std::unordered_map<Uuid, OpenGlCachedResourceEntry> _resources_by_entity = {};
         std::unordered_map<uint64, OpenGlSharedResourceCacheEntry<OpenGlMesh>>

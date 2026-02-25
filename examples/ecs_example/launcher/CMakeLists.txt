@@ -6,6 +6,6 @@ target_include_directories(EcsExampleLauncher
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 target_link_libraries(EcsExampleLauncher PRIVATE
-    Tbx::App
+    Tbx::DefaultIncludes
     Tbx::Examples::EcsExampleRuntime
 )

@@ -371,7 +371,7 @@ namespace tbx
 
     bool InputManager::activate_scheme(const std::string& scheme_name)
     {
-        InputScheme* target_scheme = try_get_scheme(scheme_name);
+        InputScheme* target_scheme = get_scheme(scheme_name);
         if (!target_scheme)
             return false;
 
@@ -384,7 +384,7 @@ namespace tbx
 
     bool InputManager::deactivate_scheme(const std::string& scheme_name)
     {
-        InputScheme* target_scheme = try_get_scheme(scheme_name);
+        InputScheme* target_scheme = get_scheme(scheme_name);
         if (!target_scheme)
             return false;
 
@@ -392,7 +392,7 @@ namespace tbx
         return true;
     }
 
-    InputScheme* InputManager::try_get_scheme(const std::string& scheme_name)
+    InputScheme* InputManager::get_scheme(const std::string& scheme_name)
     {
         const auto iterator = _schemes.find(scheme_name);
         if (iterator == _schemes.end())
@@ -400,7 +400,7 @@ namespace tbx
         return &iterator->second;
     }
 
-    const InputScheme* InputManager::try_get_scheme(const std::string& scheme_name) const
+    const InputScheme* InputManager::get_scheme(const std::string& scheme_name) const
     {
         const auto iterator = _schemes.find(scheme_name);
         if (iterator == _schemes.end())

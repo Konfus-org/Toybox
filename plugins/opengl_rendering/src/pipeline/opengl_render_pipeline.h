@@ -178,6 +178,23 @@ namespace tbx::plugins
     };
 
     /// <summary>
+    /// Purpose: Packs one area light for deferred shading.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to read concurrently after construction.
+    /// </remarks>
+    struct OpenGlAreaLightData final
+    {
+        Vec3 position = Vec3(0.0f);
+        float range = 10.0f;
+        Vec3 direction = Vec3(0.0f, -1.0f, 0.0f);
+        float intensity = 1.0f;
+        Vec3 color = Vec3(1.0f, 1.0f, 1.0f);
+        Vec2 area_size = Vec2(1.0f, 1.0f);
+    };
+
+    /// <summary>
     /// Purpose: Describes shadow-map resources used by deferred shading.
     /// </summary>
     /// <remarks>
@@ -365,6 +382,13 @@ namespace tbx::plugins
         /// Thread Safety: Safe to read concurrently while storage remains valid.
         /// </summary>
         std::span<const OpenGlSpotLightData> spot_lights = {};
+
+        /// <summary>
+        /// Purpose: Area lights visible to the deferred lighting pass.
+        /// Ownership: Non-owning span; caller owns the underlying storage.
+        /// Thread Safety: Safe to read concurrently while storage remains valid.
+        /// </summary>
+        std::span<const OpenGlAreaLightData> area_lights = {};
 
         /// <summary>
         /// Purpose: Shadow-map textures and transform inputs used by shadow and deferred passes.

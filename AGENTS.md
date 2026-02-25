@@ -29,7 +29,7 @@
   2. **Ownership** – who owns returned or stored resources and lifetime notes (e.g., non-owning pointers, reference expectations).
   3. **Thread Safety** – whether callers can use it concurrently, and any required synchronization.
 - Keep doc comments adjacent to declarations; brief inline notes are acceptable for complex implementation details.
-- Summaries should be in microsoft xml format.
+- Summaries should be in doxygen format.
 - Complex and long methods should be broken up with comments explaining things, and preferably if really large, they should be broken up into sub methods that are then documented with summaries and meaningful names.
 
 ## Memory & Handle Management
