@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/ecs/entity.h"
-#include "tbx/examples/camera_controller.h"
+#include "tbx/examples/free_look_camera_controller.h"
 #include "tbx/examples/room.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/plugin_api/plugin.h"
@@ -29,7 +29,7 @@ namespace tbx::examples
         void spawn_projectile();
 
       private:
-        CameraController _camera_controller = {};
+        FreeLookCameraController _camera_controller = {};
         Room _room = {};
         Entity _sun = {};
 

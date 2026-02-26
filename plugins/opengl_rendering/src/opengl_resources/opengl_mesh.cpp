@@ -62,6 +62,31 @@ namespace tbx::plugins
             nullptr);
     }
 
+    void OpenGlMesh::draw_instanced(uint32 instance_count, bool draw_patches)
+    {
+        if (instance_count == 0)
+            return;
+
+        if (draw_patches)
+        {
+            glPatchParameteri(GL_PATCH_VERTICES, 3);
+            glDrawElementsInstanced(
+                GL_PATCHES,
+                static_cast<GLsizei>(_index_buffer.get_count()),
+                GL_UNSIGNED_INT,
+                nullptr,
+                static_cast<GLsizei>(instance_count));
+            return;
+        }
+
+        glDrawElementsInstanced(
+            GL_TRIANGLES,
+            static_cast<GLsizei>(_index_buffer.get_count()),
+            GL_UNSIGNED_INT,
+            nullptr,
+            static_cast<GLsizei>(instance_count));
+    }
+
     void OpenGlMesh::bind()
     {
         glBindVertexArray(_vertex_array_id);

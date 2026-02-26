@@ -44,6 +44,12 @@ namespace tbx::plugins
         /// Thread Safety: Call only on the render thread.</remarks>
         void draw(bool draw_patches = false);
 
+        /// <summary>Issues an instanced draw call for the mesh.</summary>
+        /// <remarks>Purpose: Draws indexed triangles or patches across multiple instances.
+        /// Ownership: Does not transfer ownership of any resources.
+        /// Thread Safety: Call only on the render thread.</remarks>
+        void draw_instanced(uint32 instance_count, bool draw_patches = false);
+
         /// <summary>Binds the mesh's VAO and buffers.</summary>
         /// <remarks>Purpose: Binds the VAO and buffers for rendering.
         /// Ownership: The mesh retains ownership of its GPU handles.

@@ -384,4 +384,85 @@ namespace tbx::plugins
     {
         return _count;
     }
+
+    OpenGlStorageBuffer::OpenGlStorageBuffer()
+    {
+        glCreateBuffers(1, &_buffer_id);
+    }
+
+    OpenGlStorageBuffer::~OpenGlStorageBuffer() noexcept
+    {
+        if (_buffer_id != 0)
+            glDeleteBuffers(1, &_buffer_id);
+    }
+
+    void OpenGlStorageBuffer::ensure_capacity(size_t byte_count)
+    {
+        if (_buffer_id == 0)
+            return;
+        if (_capacity_bytes >= byte_count)
+            return;
+
+        _capacity_bytes = byte_count;
+        glNamedBufferData(
+            _buffer_id,
+            static_cast<GLsizeiptr>(_capacity_bytes),
+            nullptr,
+            GL_DYNAMIC_DRAW);
+    }
+
+    void OpenGlStorageBuffer::upload(const void* data, size_t byte_count, size_t byte_offset)
+    {
+        if (_buffer_id == 0 || data == nullptr || byte_count == 0)
+            return;
+
+        const size_t required_bytes = byte_offset + byte_count;
+        ensure_capacity(required_bytes);
+        glNamedBufferSubData(
+            _buffer_id,
+            static_cast<GLintptr>(byte_offset),
+            static_cast<GLsizeiptr>(byte_count),
+            data);
+    }
+
+    void OpenGlStorageBuffer::clear_u32(const uint32 value) const
+    {
+        if (_buffer_id == 0 || _capacity_bytes == 0U)
+            return;
+
+        glClearNamedBufferData(
+            _buffer_id,
+            GL_R32UI,
+            GL_RED_INTEGER,
+            GL_UNSIGNED_INT,
+            &value);
+    }
+
+    void OpenGlStorageBuffer::bind_base(const uint32 binding_point) const
+    {
+        if (_buffer_id == 0)
+            return;
+
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding_point, _buffer_id);
+    }
+
+    uint32 OpenGlStorageBuffer::get_buffer_id() const
+    {
+        return _buffer_id;
+    }
+
+    size_t OpenGlStorageBuffer::get_capacity_bytes() const
+    {
+        return _capacity_bytes;
+    }
+
+    void OpenGlStorageBuffer::bind()
+    {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, _buffer_id);
+    }
+
+    void OpenGlStorageBuffer::unbind()
+    {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    }
 }

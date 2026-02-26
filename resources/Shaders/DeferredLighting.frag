@@ -9,84 +9,59 @@ uniform sampler2D u_gbuffer_albedo_spec;
 uniform sampler2D u_gbuffer_normal;
 uniform sampler2D u_gbuffer_material;
 uniform sampler2D u_scene_depth;
-
-// NOTE: For this to work, shadow maps must be depth textures with:
-// GL_TEXTURE_COMPARE_MODE = GL_COMPARE_REF_TO_TEXTURE
-// GL_TEXTURE_COMPARE_FUNC = GL_LEQUAL (or GL_LESS if that matches your setup)
 uniform sampler2DShadow u_shadow_maps[24];
 
 uniform vec3 u_camera_position = vec3(0.0);
 uniform vec3 u_camera_forward = vec3(0.0, 0.0, -1.0);
 uniform mat4 u_inverse_view_projection = mat4(1.0);
 uniform mat4 u_light_view_projection_matrices[24];
-uniform int u_directional_light_count = 0;
-uniform int u_point_light_count = 0;
-uniform int u_spot_light_count = 0;
-uniform int u_area_light_count = 0;
-uniform int u_shadow_map_count = 0;
 uniform float u_cascade_splits[4] = float[4](10.0, 25.0, 60.0, 1000.0);
+uniform int u_shadow_map_count = 0;
 uniform float u_shadow_softness = 1.75;
 uniform float u_exposure = 0.6;
 
-struct DirectionalLight
-{
-    vec3 direction;
-    float intensity;
-    vec3 color;
-    float ambient;
-    int shadow_map_index;
-};
+uniform vec2 u_render_resolution = vec2(1.0, 1.0);
+uniform int u_tile_size = 16;
+uniform int u_tile_count_x = 0;
+uniform int u_tile_count_y = 0;
+uniform int u_packed_light_count = 0;
+uniform bool u_compute_culling_enabled = true;
+uniform bool u_include_local_lights = false;
 
-struct PointLight
-{
-    vec3 position;
-    float range;
-    vec3 color;
-    float intensity;
-    int shadow_map_index;
-};
-
-struct SpotLight
-{
-    vec3 position;
-    float range;
-    vec3 direction;
-    float inner_cos;
-    vec3 color;
-    float outer_cos;
-    float intensity;
-    int shadow_map_index;
-};
-
-struct AreaLight
-{
-    vec3 position;
-    float range;
-    vec3 direction;
-    float intensity;
-    vec3 color;
-    vec2 area_size;
-};
-
-const int MAX_DIRECTIONAL_LIGHTS = 4;
-const int MAX_POINT_LIGHTS = 32;
-const int MAX_SPOT_LIGHTS = 16;
-const int MAX_AREA_LIGHTS = 16;
+const int LIGHT_TYPE_DIRECTIONAL = 0;
+const int LIGHT_TYPE_POINT = 1;
+const int LIGHT_TYPE_SPOT = 2;
+const int LIGHT_TYPE_AREA = 3;
 const int DIRECTIONAL_SHADOW_CASCADE_COUNT = 2;
 const int POINT_SHADOW_FACE_COUNT = 6;
-
-// Kernel radii are now "intent" only; the sampling path is edge-adaptive and uses a tiny kernel.
-// Keep these so your call sites stay intact.
 const int DIRECTIONAL_PCF_KERNEL_RADIUS = 2;
 const int LOCAL_PCF_KERNEL_RADIUS = 1;
-
 const float DIRECTIONAL_CASCADE_TRANSITION_RATIO = 0.1;
 const float OUTPUT_DITHER_STRENGTH = 1.0 / 255.0;
 
-uniform DirectionalLight u_directional_lights[MAX_DIRECTIONAL_LIGHTS];
-uniform PointLight u_point_lights[MAX_POINT_LIGHTS];
-uniform SpotLight u_spot_lights[MAX_SPOT_LIGHTS];
-uniform AreaLight u_area_lights[MAX_AREA_LIGHTS];
+struct PackedLight
+{
+    vec4 position_range;
+    vec4 direction_inner_cos;
+    vec4 color_intensity;
+    vec4 area_outer_ambient;
+    ivec4 metadata;
+};
+
+layout(std430, binding = 0) readonly buffer PackedLightBuffer
+{
+    PackedLight packed_lights[];
+};
+
+layout(std430, binding = 1) readonly buffer TileHeaderBuffer
+{
+    uvec4 tile_headers[];
+};
+
+layout(std430, binding = 2) readonly buffer TileLightIndexBuffer
+{
+    uint tile_light_indices[];
+};
 
 float calc_distance_attenuation(float distance_to_light, float range)
 {
@@ -150,13 +125,6 @@ int select_point_shadow_face_index(vec3 light_to_fragment)
     return light_to_fragment.z >= 0.0 ? 4 : 5;
 }
 
-// -----------------------------
-// Shadow sampling
-// ---------------
-
-// Shadow-only PCF sampling:
-// - stable weighted kernel (no stochastic noise, no screen-space striping)
-// - softened edges while keeping fully lit/shadowed regions flat
 float sample_shadow_visibility(
     int shadow_map_index,
     vec2 shadow_uv,
@@ -165,29 +133,18 @@ float sample_shadow_visibility(
     float softness_scale,
     int kernel_radius)
 {
-    // Guard against bad indices (some drivers still try to sample...)
     if (shadow_map_index < 0 || shadow_map_index >= u_shadow_map_count)
         return 1.0;
 
-    // Radius in texels. Scale by kernel intent so directional shadows can be softer
-    // than local lights without affecting other lighting paths.
     float radius_texels =
         clamp(u_shadow_softness * softness_scale * max(float(kernel_radius), 1.0), 0.0, 3.0);
-
-    // Compare reference (depth) for sampler2DShadow is the 3rd component.
     float ref = clamp(current_depth - bias, 0.0, 1.0);
-
-    // 1-tap center compare
     float center = texture(u_shadow_maps[shadow_map_index], vec3(shadow_uv, ref));
-
-    // If softness is effectively off, return the center result.
     if (radius_texels <= 0.001)
         return center;
 
     vec2 texel = 1.0 / vec2(textureSize(u_shadow_maps[shadow_map_index], 0));
     vec2 r = texel * radius_texels;
-
-    // 3x3 tent PCF kernel.
     float sum = 0.0;
     float weight_sum = 0.0;
     const float center_weight = 4.0;
@@ -197,45 +154,29 @@ float sample_shadow_visibility(
     sum += center * center_weight;
     weight_sum += center_weight;
 
-    sum += texture(
-        u_shadow_maps[shadow_map_index],
-        vec3(shadow_uv + vec2(-r.x, 0.0), ref))
+    sum += texture(u_shadow_maps[shadow_map_index], vec3(shadow_uv + vec2(-r.x, 0.0), ref))
         * axis_weight;
     weight_sum += axis_weight;
-    sum += texture(
-        u_shadow_maps[shadow_map_index],
-        vec3(shadow_uv + vec2(r.x, 0.0), ref))
+    sum += texture(u_shadow_maps[shadow_map_index], vec3(shadow_uv + vec2(r.x, 0.0), ref))
         * axis_weight;
     weight_sum += axis_weight;
-    sum += texture(
-        u_shadow_maps[shadow_map_index],
-        vec3(shadow_uv + vec2(0.0, -r.y), ref))
+    sum += texture(u_shadow_maps[shadow_map_index], vec3(shadow_uv + vec2(0.0, -r.y), ref))
         * axis_weight;
     weight_sum += axis_weight;
-    sum += texture(
-        u_shadow_maps[shadow_map_index],
-        vec3(shadow_uv + vec2(0.0, r.y), ref))
+    sum += texture(u_shadow_maps[shadow_map_index], vec3(shadow_uv + vec2(0.0, r.y), ref))
         * axis_weight;
     weight_sum += axis_weight;
 
-    sum += texture(
-        u_shadow_maps[shadow_map_index],
-        vec3(shadow_uv + vec2(-r.x, -r.y), ref))
+    sum += texture(u_shadow_maps[shadow_map_index], vec3(shadow_uv + vec2(-r.x, -r.y), ref))
         * corner_weight;
     weight_sum += corner_weight;
-    sum += texture(
-        u_shadow_maps[shadow_map_index],
-        vec3(shadow_uv + vec2(r.x, -r.y), ref))
+    sum += texture(u_shadow_maps[shadow_map_index], vec3(shadow_uv + vec2(r.x, -r.y), ref))
         * corner_weight;
     weight_sum += corner_weight;
-    sum += texture(
-        u_shadow_maps[shadow_map_index],
-        vec3(shadow_uv + vec2(-r.x, r.y), ref))
+    sum += texture(u_shadow_maps[shadow_map_index], vec3(shadow_uv + vec2(-r.x, r.y), ref))
         * corner_weight;
     weight_sum += corner_weight;
-    sum += texture(
-        u_shadow_maps[shadow_map_index],
-        vec3(shadow_uv + vec2(r.x, r.y), ref))
+    sum += texture(u_shadow_maps[shadow_map_index], vec3(shadow_uv + vec2(r.x, r.y), ref))
         * corner_weight;
     weight_sum += corner_weight;
 
@@ -253,19 +194,18 @@ bool try_sample_projected_shadow_visibility(
     out_visibility = 1.0;
     if (shadow_map_index < 0 || shadow_map_index >= u_shadow_map_count)
         return false;
-
     if (light_space_position.w <= 1e-5)
         return false;
 
     vec3 projected = light_space_position.xyz / light_space_position.w;
-
     if (projected.x < -1.0 || projected.x > 1.0 || projected.y < -1.0 || projected.y > 1.0
         || projected.z < -1.0 || projected.z > 1.0)
+    {
         return false;
+    }
 
     vec2 shadow_uv = projected.xy * 0.5 + 0.5;
     float current_depth = projected.z * 0.5 + 0.5;
-
     out_visibility = sample_shadow_visibility(
         shadow_map_index,
         shadow_uv,
@@ -273,56 +213,7 @@ bool try_sample_projected_shadow_visibility(
         bias,
         softness_scale,
         kernel_radius);
-
     return true;
-}
-
-float sample_projected_shadow_visibility(
-    int shadow_map_index,
-    vec4 light_space_position,
-    float bias,
-    float softness_scale,
-    int kernel_radius)
-{
-    float visibility = 1.0;
-    try_sample_projected_shadow_visibility(
-        shadow_map_index,
-        light_space_position,
-        bias,
-        softness_scale,
-        kernel_radius,
-        visibility);
-    return visibility;
-}
-
-vec3 apply_shadow_normal_offset(
-    vec3 world_position,
-    vec3 normal,
-    float ndotl,
-    float base_offset,
-    float slope_scale)
-{
-    float slope_term = 1.0 - clamp(ndotl, 0.0, 1.0);
-    float offset = max(base_offset + (slope_term * slope_scale), 0.0);
-    return world_position + (normal * offset);
-}
-
-vec3 evaluate_lighting_brdf(
-    vec3 normal,
-    vec3 view_direction,
-    vec3 light_direction,
-    vec3 albedo,
-    vec3 light_color,
-    float light_intensity,
-    float specular_strength,
-    float shininess)
-{
-    float diffuse_term = max(dot(normal, light_direction), 0.0);
-    vec3 half_direction = safe_normalize(light_direction + view_direction, normal);
-    float specular_term = pow(max(dot(normal, half_direction), 0.0), shininess) * specular_strength;
-    vec3 diffuse = albedo * light_color * light_intensity * diffuse_term * 0.35;
-    vec3 specular = light_color * light_intensity * specular_term;
-    return diffuse + specular;
 }
 
 bool try_sample_light_shadow_visibility(
@@ -344,14 +235,9 @@ bool try_sample_light_shadow_visibility(
 
     float ndotl = clamp(dot(normal, light_direction), 0.0, 1.0);
     float bias = max(bias_scale * (1.0 - ndotl), min_bias);
-
-    vec3 shadow_position = apply_shadow_normal_offset(
-        world_position,
-        normal,
-        ndotl,
-        normal_offset_base,
-        normal_offset_slope);
-
+    float slope_term = 1.0 - clamp(ndotl, 0.0, 1.0);
+    float offset = max(normal_offset_base + (slope_term * normal_offset_slope), 0.0);
+    vec3 shadow_position = world_position + (normal * offset);
     vec4 light_space_position =
         u_light_view_projection_matrices[shadow_map_index] * vec4(shadow_position, 1.0);
 
@@ -392,8 +278,26 @@ float sample_light_shadow_visibility(
     return visibility;
 }
 
+vec3 evaluate_lighting_brdf(
+    vec3 normal,
+    vec3 view_direction,
+    vec3 light_direction,
+    vec3 albedo,
+    vec3 light_color,
+    float light_intensity,
+    float specular_strength,
+    float shininess)
+{
+    float diffuse_term = max(dot(normal, light_direction), 0.0);
+    vec3 half_direction = safe_normalize(light_direction + view_direction, normal);
+    float specular_term = pow(max(dot(normal, half_direction), 0.0), shininess) * specular_strength;
+    vec3 diffuse = albedo * light_color * light_intensity * diffuse_term * 0.35;
+    vec3 specular = light_color * light_intensity * specular_term;
+    return diffuse + specular;
+}
+
 vec3 evaluate_directional_light(
-    DirectionalLight light,
+    PackedLight light,
     vec3 world_position,
     vec3 normal,
     vec3 view_direction,
@@ -401,20 +305,24 @@ vec3 evaluate_directional_light(
     float specular_strength,
     float shininess)
 {
-    vec3 light_direction = safe_normalize(light.direction, vec3(0.0, 0.0, -1.0));
-    vec3 ambient = albedo * light.color * max(light.ambient, 0.0);
+    vec3 light_direction = safe_normalize(light.direction_inner_cos.xyz, vec3(0.0, 0.0, -1.0));
+    vec3 light_color = light.color_intensity.xyz;
+    float light_intensity = light.color_intensity.w;
+    float ambient_intensity = max(light.area_outer_ambient.w, 0.0);
+    int base_shadow_map_index = light.metadata.y;
+
+    vec3 ambient = albedo * light_color * ambient_intensity;
     vec3 direct = evaluate_lighting_brdf(
         normal,
         view_direction,
         light_direction,
         albedo,
-        light.color,
-        light.intensity,
+        light_color,
+        light_intensity,
         specular_strength,
         shininess);
 
     float shadow_visibility = 1.0;
-    int base_shadow_map_index = light.shadow_map_index;
     if (base_shadow_map_index >= 0)
     {
         const int cascade0_shadow_map_index = base_shadow_map_index;
@@ -422,13 +330,10 @@ vec3 evaluate_directional_light(
         const bool has_second_cascade =
             cascade1_shadow_map_index < u_shadow_map_count && DIRECTIONAL_SHADOW_CASCADE_COUNT > 1;
 
-        // Keep near cascade tighter and far cascade softer.
         const float cascade0_softness = 0.85;
         const float cascade1_softness = 1.15;
-
         vec3 camera_forward = safe_normalize(u_camera_forward, vec3(0.0, 0.0, -1.0));
         const float view_depth = max(dot(world_position - u_camera_position, camera_forward), 0.0);
-
         float pcf_visibility = 1.0;
 
         if (!has_second_cascade)
@@ -448,8 +353,7 @@ vec3 evaluate_directional_light(
         else
         {
             const float split_depth = max(u_cascade_splits[0], 0.0001);
-            const float blend_width =
-                max(split_depth * DIRECTIONAL_CASCADE_TRANSITION_RATIO, 0.0001);
+            const float blend_width = max(split_depth * DIRECTIONAL_CASCADE_TRANSITION_RATIO, 0.0001);
             const float blend_half_width = blend_width * 0.5;
             const float blend_start = max(0.0, split_depth - blend_half_width);
             const float blend_end = split_depth + blend_half_width;
@@ -485,13 +389,6 @@ vec3 evaluate_directional_light(
             else
             {
                 const float cascade_blend_t = smoothstep(blend_start, blend_end, view_depth);
-                const float blend_softness =
-                    mix(cascade0_softness, cascade1_softness, cascade_blend_t);
-                const float blend_bias_scale = mix(0.0008, 0.0014, cascade_blend_t);
-                const float blend_min_bias = mix(0.00015, 0.00035, cascade_blend_t);
-                const float blend_normal_offset_base = mix(0.0025, 0.0040, cascade_blend_t);
-                const float blend_normal_offset_slope = mix(0.012, 0.018, cascade_blend_t);
-
                 float cascade0_visibility = 1.0;
                 float cascade1_visibility = 1.0;
 
@@ -500,11 +397,11 @@ vec3 evaluate_directional_light(
                     world_position,
                     normal,
                     light_direction,
-                    blend_bias_scale,
-                    blend_min_bias,
-                    blend_normal_offset_base,
-                    blend_normal_offset_slope,
-                    blend_softness,
+                    mix(0.0008, 0.0014, cascade_blend_t),
+                    mix(0.00015, 0.00035, cascade_blend_t),
+                    mix(0.0025, 0.0040, cascade_blend_t),
+                    mix(0.012, 0.018, cascade_blend_t),
+                    mix(cascade0_softness, cascade1_softness, cascade_blend_t),
                     DIRECTIONAL_PCF_KERNEL_RADIUS,
                     cascade0_visibility);
 
@@ -513,11 +410,11 @@ vec3 evaluate_directional_light(
                     world_position,
                     normal,
                     light_direction,
-                    blend_bias_scale,
-                    blend_min_bias,
-                    blend_normal_offset_base,
-                    blend_normal_offset_slope,
-                    blend_softness,
+                    mix(0.0008, 0.0014, cascade_blend_t),
+                    mix(0.00015, 0.00035, cascade_blend_t),
+                    mix(0.0025, 0.0040, cascade_blend_t),
+                    mix(0.012, 0.018, cascade_blend_t),
+                    mix(cascade0_softness, cascade1_softness, cascade_blend_t),
                     DIRECTIONAL_PCF_KERNEL_RADIUS,
                     cascade1_visibility);
 
@@ -537,7 +434,7 @@ vec3 evaluate_directional_light(
 }
 
 vec3 evaluate_point_light(
-    PointLight light,
+    PackedLight light,
     vec3 world_position,
     vec3 normal,
     vec3 view_direction,
@@ -545,32 +442,32 @@ vec3 evaluate_point_light(
     float specular_strength,
     float shininess)
 {
-    vec3 to_light = light.position - world_position;
+    vec3 to_light = light.position_range.xyz - world_position;
     float distance_to_light = length(to_light);
-    if (distance_to_light >= light.range)
+    float range = light.position_range.w;
+    if (distance_to_light >= range)
         return vec3(0.0);
 
     vec3 light_direction = to_light / max(distance_to_light, 0.0001);
-    float attenuation = calc_distance_attenuation(distance_to_light, light.range);
+    float attenuation = calc_distance_attenuation(distance_to_light, range);
     vec3 direct = evaluate_lighting_brdf(
         normal,
         view_direction,
         light_direction,
         albedo,
-        light.color,
-        light.intensity,
+        light.color_intensity.xyz,
+        light.color_intensity.w,
         specular_strength,
         shininess);
 
     float shadow_visibility = 1.0;
-    int base_shadow_map_index = light.shadow_map_index;
+    int base_shadow_map_index = light.metadata.y;
     if (base_shadow_map_index >= 0
         && base_shadow_map_index + (POINT_SHADOW_FACE_COUNT - 1) < u_shadow_map_count)
     {
-        vec3 light_to_fragment = world_position - light.position;
+        vec3 light_to_fragment = world_position - light.position_range.xyz;
         int face_index = select_point_shadow_face_index(light_to_fragment);
         int shadow_map_index = base_shadow_map_index + face_index;
-
         float pcf_visibility = sample_light_shadow_visibility(
             shadow_map_index,
             world_position,
@@ -582,7 +479,6 @@ vec3 evaluate_point_light(
             0.008,
             0.8,
             LOCAL_PCF_KERNEL_RADIUS);
-
         shadow_visibility = mix(0.2, 1.0, pcf_visibility);
     }
 
@@ -590,7 +486,7 @@ vec3 evaluate_point_light(
 }
 
 vec3 evaluate_spot_light(
-    SpotLight light,
+    PackedLight light,
     vec3 world_position,
     vec3 normal,
     vec3 view_direction,
@@ -598,35 +494,35 @@ vec3 evaluate_spot_light(
     float specular_strength,
     float shininess)
 {
-    vec3 to_light = light.position - world_position;
+    vec3 to_light = light.position_range.xyz - world_position;
     float distance_to_light = length(to_light);
-    if (distance_to_light >= light.range)
+    float range = light.position_range.w;
+    if (distance_to_light >= range)
         return vec3(0.0);
 
     vec3 light_direction = to_light / max(distance_to_light, 0.0001);
-    vec3 spot_axis = safe_normalize(-light.direction, vec3(0.0, 0.0, -1.0));
+    vec3 spot_axis = safe_normalize(-light.direction_inner_cos.xyz, vec3(0.0, 0.0, -1.0));
     float spot_cos = dot(light_direction, spot_axis);
-    if (spot_cos <= light.outer_cos)
+    float inner_cos = light.direction_inner_cos.w;
+    float outer_cos = light.area_outer_ambient.z;
+    if (spot_cos <= outer_cos)
         return vec3(0.0);
 
-    float cone = clamp(
-        (spot_cos - light.outer_cos) / max(light.inner_cos - light.outer_cos, 0.0001),
-        0.0,
-        1.0);
-    float attenuation = calc_distance_attenuation(distance_to_light, light.range) * cone;
+    float cone = clamp((spot_cos - outer_cos) / max(inner_cos - outer_cos, 0.0001), 0.0, 1.0);
+    float attenuation = calc_distance_attenuation(distance_to_light, range) * cone;
 
     vec3 direct = evaluate_lighting_brdf(
         normal,
         view_direction,
         light_direction,
         albedo,
-        light.color,
-        light.intensity,
+        light.color_intensity.xyz,
+        light.color_intensity.w,
         specular_strength,
         shininess);
 
     float shadow_visibility = 1.0;
-    int shadow_map_index = light.shadow_map_index;
+    int shadow_map_index = light.metadata.y;
     if (shadow_map_index >= 0)
     {
         float pcf_visibility = sample_light_shadow_visibility(
@@ -640,7 +536,6 @@ vec3 evaluate_spot_light(
             0.007,
             0.85,
             LOCAL_PCF_KERNEL_RADIUS);
-
         shadow_visibility = mix(0.2, 1.0, pcf_visibility);
     }
 
@@ -648,7 +543,7 @@ vec3 evaluate_spot_light(
 }
 
 vec3 evaluate_area_light(
-    AreaLight light,
+    PackedLight light,
     vec3 world_position,
     vec3 normal,
     vec3 view_direction,
@@ -656,13 +551,14 @@ vec3 evaluate_area_light(
     float specular_strength,
     float shininess)
 {
-    vec3 to_light = light.position - world_position;
+    vec3 to_light = light.position_range.xyz - world_position;
     float distance_to_light = length(to_light);
-    if (distance_to_light >= light.range)
+    float range = light.position_range.w;
+    if (distance_to_light >= range)
         return vec3(0.0);
 
     vec3 light_direction = to_light / max(distance_to_light, 0.0001);
-    vec3 emission_axis = safe_normalize(light.direction, vec3(0.0, -1.0, 0.0));
+    vec3 emission_axis = safe_normalize(light.direction_inner_cos.xyz, vec3(0.0, -1.0, 0.0));
     vec3 light_to_fragment_direction = -light_direction;
     float front_cos = dot(light_to_fragment_direction, emission_axis);
     if (front_cos <= 0.0)
@@ -672,19 +568,24 @@ vec3 evaluate_area_light(
     vec3 bitangent = vec3(0.0, 0.0, 1.0);
     build_light_basis(emission_axis, tangent, bitangent);
 
-    vec2 half_size = max(light.area_size * 0.5, vec2(0.001));
-    vec3 local_offset = world_position - light.position;
+    vec2 half_size = max(light.area_outer_ambient.xy * 0.5, vec2(0.001));
+    vec3 local_offset = world_position - light.position_range.xyz;
+    float axis_distance = dot(local_offset, emission_axis);
+    if (axis_distance < 0.0 || axis_distance > range)
+        return vec3(0.0);
+
     float normalized_tangent_distance = abs(dot(local_offset, tangent)) / half_size.x;
     float normalized_bitangent_distance = abs(dot(local_offset, bitangent)) / half_size.y;
-    float tangent_falloff =
-        1.0 / (1.0 + (normalized_tangent_distance * normalized_tangent_distance));
-    float bitangent_falloff =
-        1.0 / (1.0 + (normalized_bitangent_distance * normalized_bitangent_distance));
+    if (normalized_tangent_distance >= 1.0 || normalized_bitangent_distance >= 1.0)
+        return vec3(0.0);
+
+    float tangent_falloff = 1.0 - normalized_tangent_distance;
+    float bitangent_falloff = 1.0 - normalized_bitangent_distance;
     float footprint = tangent_falloff * bitangent_falloff;
     if (footprint <= 0.0)
         return vec3(0.0);
 
-    float attenuation = calc_distance_attenuation(distance_to_light, light.range);
+    float attenuation = calc_distance_attenuation(distance_to_light, range);
     attenuation *= front_cos * footprint;
 
     vec3 direct = evaluate_lighting_brdf(
@@ -692,11 +593,127 @@ vec3 evaluate_area_light(
         view_direction,
         light_direction,
         albedo,
-        light.color,
-        light.intensity,
+        light.color_intensity.xyz,
+        light.color_intensity.w,
         specular_strength,
         shininess);
     return direct * attenuation;
+}
+
+vec3 evaluate_packed_light(
+    PackedLight light,
+    vec3 world_position,
+    vec3 normal,
+    vec3 view_direction,
+    vec3 albedo,
+    float specular_strength,
+    float shininess)
+{
+    int light_type = light.metadata.x;
+    if (light_type == LIGHT_TYPE_DIRECTIONAL)
+    {
+        return evaluate_directional_light(
+            light,
+            world_position,
+            normal,
+            view_direction,
+            albedo,
+            specular_strength,
+            shininess);
+    }
+    if (light_type == LIGHT_TYPE_POINT)
+    {
+        if (!u_include_local_lights)
+            return vec3(0.0);
+        return evaluate_point_light(
+            light,
+            world_position,
+            normal,
+            view_direction,
+            albedo,
+            specular_strength,
+            shininess);
+    }
+    if (light_type == LIGHT_TYPE_SPOT)
+    {
+        if (!u_include_local_lights)
+            return vec3(0.0);
+        return evaluate_spot_light(
+            light,
+            world_position,
+            normal,
+            view_direction,
+            albedo,
+            specular_strength,
+            shininess);
+    }
+    if (light_type == LIGHT_TYPE_AREA)
+    {
+        if (!u_include_local_lights)
+            return vec3(0.0);
+        return evaluate_area_light(
+            light,
+            world_position,
+            normal,
+            view_direction,
+            albedo,
+            specular_strength,
+            shininess);
+    }
+
+    return vec3(0.0);
+}
+
+void accumulate_tile_lighting(
+    vec3 world_position,
+    vec3 normal,
+    vec3 view_direction,
+    vec3 albedo,
+    float specular_strength,
+    float shininess,
+    inout vec3 lighting)
+{
+    if (u_packed_light_count <= 0)
+        return;
+
+    if (!u_compute_culling_enabled || u_tile_count_x <= 0 || u_tile_count_y <= 0 || u_tile_size <= 0)
+    {
+        for (int index = 0; index < u_packed_light_count; ++index)
+        {
+            lighting += evaluate_packed_light(
+                packed_lights[index],
+                world_position,
+                normal,
+                view_direction,
+                albedo,
+                specular_strength,
+                shininess);
+        }
+        return;
+    }
+
+    ivec2 tile_coord = ivec2(gl_FragCoord.xy) / u_tile_size;
+    tile_coord = clamp(tile_coord, ivec2(0), ivec2(u_tile_count_x - 1, u_tile_count_y - 1));
+    int tile_index = tile_coord.y * u_tile_count_x + tile_coord.x;
+    uvec4 header = tile_headers[tile_index];
+
+    uint tile_offset = header.x;
+    uint tile_count = header.y;
+    for (uint index = 0U; index < tile_count; ++index)
+    {
+        uint packed_index = tile_light_indices[tile_offset + index];
+        if (packed_index >= uint(u_packed_light_count))
+            continue;
+
+        lighting += evaluate_packed_light(
+            packed_lights[packed_index],
+            world_position,
+            normal,
+            view_direction,
+            albedo,
+            specular_strength,
+            shininess);
+    }
 }
 
 void main()
@@ -729,55 +746,14 @@ void main()
     }
 
     vec3 lighting = emissive;
-    int directional_light_count = min(u_directional_light_count, MAX_DIRECTIONAL_LIGHTS);
-    int point_light_count = min(u_point_light_count, MAX_POINT_LIGHTS);
-    int spot_light_count = min(u_spot_light_count, MAX_SPOT_LIGHTS);
-    int area_light_count = min(u_area_light_count, MAX_AREA_LIGHTS);
-
-    for (int index = 0; index < directional_light_count; ++index)
-    {
-        lighting += evaluate_directional_light(
-            u_directional_lights[index],
-            world_position,
-            normal,
-            view_direction,
-            albedo,
-            specular_strength,
-            shininess);
-    }
-    for (int index = 0; index < point_light_count; ++index)
-    {
-        lighting += evaluate_point_light(
-            u_point_lights[index],
-            world_position,
-            normal,
-            view_direction,
-            albedo,
-            specular_strength,
-            shininess);
-    }
-    for (int index = 0; index < spot_light_count; ++index)
-    {
-        lighting += evaluate_spot_light(
-            u_spot_lights[index],
-            world_position,
-            normal,
-            view_direction,
-            albedo,
-            specular_strength,
-            shininess);
-    }
-    for (int index = 0; index < area_light_count; ++index)
-    {
-        lighting += evaluate_area_light(
-            u_area_lights[index],
-            world_position,
-            normal,
-            view_direction,
-            albedo,
-            specular_strength,
-            shininess);
-    }
+    accumulate_tile_lighting(
+        world_position,
+        normal,
+        view_direction,
+        albedo,
+        specular_strength,
+        shininess,
+        lighting);
 
     vec3 bounded_lighting = clamp(lighting, vec3(0.0), vec3(32.0));
     vec3 mapped = tbx_tonemap_aces(bounded_lighting * max(u_exposure, 0.0));

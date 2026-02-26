@@ -1,5 +1,6 @@
 #pragma once
 #include "opengl_context.h"
+#include "opengl_resources/opengl_buffers.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "pipeline/opengl_render_pipeline.h"
 #include "tbx/assets/asset_manager.h"
@@ -63,6 +64,24 @@ namespace tbx::plugins
         /// Thread Safety: Call on render thread.</remarks>
         void set_shadow_settings(const OpenGlShadowSettings& shadow_settings);
 
+        /// <summary>Enables or disables compute light-culling execution.</summary>
+        /// <remarks>Purpose: Toggles compute-tiled light indexing.
+        /// Ownership: Stores the toggle value by copy.
+        /// Thread Safety: Call on render thread.</remarks>
+        void set_compute_culling_enabled(bool is_enabled);
+
+        /// <summary>Enables or disables instanced local-light volume rendering.</summary>
+        /// <remarks>Purpose: Toggles the local-light volume accumulation pass.
+        /// Ownership: Stores the toggle value by copy.
+        /// Thread Safety: Call on render thread.</remarks>
+        void set_local_light_volume_enabled(bool is_enabled);
+
+        /// <summary>Enables or disables GPU pass timing collection/logging.</summary>
+        /// <remarks>Purpose: Controls render-pipeline GPU timing instrumentation.
+        /// Ownership: Stores the toggle value by copy.
+        /// Thread Safety: Call on render thread.</remarks>
+        void set_gpu_pass_timing_enabled(bool is_enabled);
+
       private:
         void initialize();
         void shutdown();
@@ -86,7 +105,19 @@ namespace tbx::plugins
         Uuid _post_process_pong_framebuffer_resource = Uuid::NONE;
         Uuid _pinned_sky_resource = Uuid::NONE;
         Uuid _deferred_lighting_resource = Uuid::NONE;
+        std::unique_ptr<OpenGlStorageBuffer> _packed_lights_buffer = nullptr;
+        std::unique_ptr<OpenGlStorageBuffer> _tile_headers_buffer = nullptr;
+        std::unique_ptr<OpenGlStorageBuffer> _tile_light_indices_buffer = nullptr;
+        std::unique_ptr<OpenGlStorageBuffer> _tile_overflow_counter_buffer = nullptr;
+        std::unique_ptr<OpenGlStorageBuffer> _local_light_indices_buffer = nullptr;
+        std::shared_ptr<OpenGlShaderProgram> _light_culling_shader_program = nullptr;
+        std::shared_ptr<OpenGlShaderProgram> _local_light_volume_shader_program = nullptr;
         std::vector<Uuid> _shadow_map_resources = {};
         OpenGlShadowSettings _shadow_settings = {};
+        uint32 _light_tile_size = 16U;
+        uint32 _max_lights_per_tile = 256U;
+        bool _is_compute_culling_enabled = true;
+        bool _is_local_light_volume_enabled = true;
+        bool _is_gpu_pass_timing_enabled = false;
     };
 }

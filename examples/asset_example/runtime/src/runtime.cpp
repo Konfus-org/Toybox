@@ -67,7 +67,7 @@ namespace tbx::examples
         _camera_controller.initialize(
             camera,
             input_manager,
-            CameraControllerSettings {
+            FreeLookCameraControllerSettings {
                 .initial_yaw = 0.0F,
                 .initial_pitch = 0.0F,
                 .move_speed = 6.0F,

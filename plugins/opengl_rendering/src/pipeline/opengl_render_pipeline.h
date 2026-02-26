@@ -14,6 +14,7 @@
 #include <any>
 #include <memory>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace tbx::plugins
@@ -195,6 +196,72 @@ namespace tbx::plugins
     };
 
     /// <summary>
+    /// Purpose: Identifies supported packed deferred-light categories.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value enum.
+    /// Thread Safety: Safe to read concurrently.
+    /// </remarks>
+    enum class OpenGlPackedLightType : int
+    {
+        Directional = 0,
+        Point = 1,
+        Spot = 2,
+        Area = 3,
+    };
+
+    /// <summary>
+    /// Purpose: Packs one light into std430-friendly vec4/ivec4 fields for SSBO uploads.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to read concurrently after construction.
+    /// </remarks>
+    struct OpenGlPackedLightData final
+    {
+        Vec4 position_range = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        Vec4 direction_inner_cos = Vec4(0.0f, -1.0f, 0.0f, 0.0f);
+        Vec4 color_intensity = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+        Vec4 area_outer_ambient = Vec4(1.0f, 1.0f, 0.0f, 0.03f);
+        IVec4 metadata = IVec4(static_cast<int>(OpenGlPackedLightType::Directional), -1, 0, 0);
+    };
+
+    /// <summary>
+    /// Purpose: Describes compute light-culling SSBO bindings and tile dimensions.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type; stores OpenGL object identifiers by value.
+    /// Thread Safety: Safe to read concurrently after construction.
+    /// </remarks>
+    struct OpenGlLightCullingFrameData final
+    {
+        uint32 tile_size = 16U;
+        uint32 tile_count_x = 0U;
+        uint32 tile_count_y = 0U;
+        uint32 max_lights_per_tile = 256U;
+        uint32 packed_light_count = 0U;
+        uint32 packed_lights_buffer_id = 0U;
+        uint32 tile_headers_buffer_id = 0U;
+        uint32 tile_light_indices_buffer_id = 0U;
+        uint32 tile_overflow_counter_buffer_id = 0U;
+    };
+
+    /// <summary>
+    /// Purpose: Describes instanced local-light draw inputs.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type; stores OpenGL object identifiers by value.
+    /// Thread Safety: Safe to read concurrently after construction.
+    /// </remarks>
+    struct OpenGlLocalLightVolumeFrameData final
+    {
+        uint32 local_light_indices_buffer_id = 0U;
+        uint32 point_light_count = 0U;
+        uint32 spot_light_count = 0U;
+        uint32 area_light_count = 0U;
+    };
+
+    /// <summary>
     /// Purpose: Describes shadow-map resources used by deferred shading.
     /// </summary>
     /// <remarks>
@@ -363,32 +430,60 @@ namespace tbx::plugins
         Mat4 inverse_view_projection = Mat4(1.0f);
 
         /// <summary>
-        /// Purpose: Directional lights visible to the deferred lighting pass.
-        /// Ownership: Non-owning span; caller owns the underlying storage.
+        /// Purpose: Packed lights visible to deferred and local-volume lighting passes.
+        /// Ownership: Non-owning span; caller owns underlying storage.
         /// Thread Safety: Safe to read concurrently while storage remains valid.
         /// </summary>
-        std::span<const OpenGlDirectionalLightData> directional_lights = {};
+        std::span<const OpenGlPackedLightData> packed_lights = {};
 
         /// <summary>
-        /// Purpose: Point lights visible to the deferred lighting pass.
-        /// Ownership: Non-owning span; caller owns the underlying storage.
-        /// Thread Safety: Safe to read concurrently while storage remains valid.
+        /// Purpose: Per-frame compute light-culling bindings and dispatch dimensions.
+        /// Ownership: Value type owned by this context.
+        /// Thread Safety: Safe to read concurrently.
         /// </summary>
-        std::span<const OpenGlPointLightData> point_lights = {};
+        OpenGlLightCullingFrameData light_culling = {};
 
         /// <summary>
-        /// Purpose: Spot lights visible to the deferred lighting pass.
-        /// Ownership: Non-owning span; caller owns the underlying storage.
-        /// Thread Safety: Safe to read concurrently while storage remains valid.
+        /// Purpose: Per-frame local-light instancing input bindings and counts.
+        /// Ownership: Value type owned by this context.
+        /// Thread Safety: Safe to read concurrently.
         /// </summary>
-        std::span<const OpenGlSpotLightData> spot_lights = {};
+        OpenGlLocalLightVolumeFrameData local_light_volumes = {};
 
         /// <summary>
-        /// Purpose: Area lights visible to the deferred lighting pass.
-        /// Ownership: Non-owning span; caller owns the underlying storage.
-        /// Thread Safety: Safe to read concurrently while storage remains valid.
+        /// Purpose: Enables compute-tiled local-light indexing for deferred lighting.
+        /// Ownership: Value type owned by this context.
+        /// Thread Safety: Safe to read concurrently.
         /// </summary>
-        std::span<const OpenGlAreaLightData> area_lights = {};
+        bool is_compute_culling_enabled = true;
+
+        /// <summary>
+        /// Purpose: Enables instanced local-light volume accumulation.
+        /// Ownership: Value type owned by this context.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        bool is_local_light_volume_enabled = true;
+
+        /// <summary>
+        /// Purpose: Enables GPU pass timing instrumentation and logging.
+        /// Ownership: Value type owned by this context.
+        /// Thread Safety: Safe to read concurrently.
+        /// </summary>
+        bool is_gpu_pass_timing_enabled = false;
+
+        /// <summary>
+        /// Purpose: Shader program used to dispatch compute light culling.
+        /// Ownership: Non-owning pointer; caller retains shader-program lifetime.
+        /// Thread Safety: Use on render thread.
+        /// </summary>
+        OpenGlShaderProgram* light_culling_shader_program = nullptr;
+
+        /// <summary>
+        /// Purpose: Shader program used by instanced local-light volume rendering.
+        /// Ownership: Non-owning pointer; caller retains shader-program lifetime.
+        /// Thread Safety: Use on render thread.
+        /// </summary>
+        OpenGlShaderProgram* local_light_volume_shader_program = nullptr;
 
         /// <summary>
         /// Purpose: Shadow-map textures and transform inputs used by shadow and deferred passes.
@@ -467,7 +562,7 @@ namespace tbx::plugins
         /// resource manager.
         /// Thread Safety: Construct on the render thread.
         /// </remarks>
-        explicit OpenGlRenderPipeline(OpenGlResourceManager& resource_manager);
+        OpenGlRenderPipeline(OpenGlResourceManager& resource_manager);
 
         /// <summary>
         /// Purpose: Destroys the pipeline and clears queued operations.

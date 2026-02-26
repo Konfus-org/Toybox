@@ -23,7 +23,8 @@ namespace tbx::plugins
 
     void OpenGlRenderingPlugin::on_attach(IPluginHost& host)
     {
-        _shadow_settings = build_shadow_settings(host.get_settings().graphics);
+        const auto& graphics_settings = host.get_settings().graphics;
+        _shadow_settings = build_shadow_settings(graphics_settings);
         host.get_thread_manager().try_create_lane(OPENGL_RENDER_LANE_NAME);
     }
 
@@ -31,8 +32,8 @@ namespace tbx::plugins
     {
         auto window_ids = std::vector<Uuid> {};
         window_ids.reserve(_renderers.size());
-        for (const auto& renderer_entry : _renderers)
-            window_ids.push_back(renderer_entry.first);
+        for (const auto& key : _renderers | std::views::keys)
+            window_ids.push_back(key);
 
         for (const auto& window_id : window_ids)
             teardown_renderer(window_id);
@@ -44,9 +45,9 @@ namespace tbx::plugins
         auto render_futures = std::vector<std::future<void>> {};
         render_futures.reserve(_renderers.size());
 
-        for (auto& renderer_entry : _renderers)
+        for (auto& val : _renderers | std::views::values)
         {
-            auto* renderer = renderer_entry.second.get();
+            auto* renderer = val.get();
             if (!renderer)
                 continue;
 
@@ -90,15 +91,15 @@ namespace tbx::plugins
                      shadow_settings,
                      render_resolution]() mutable
                     {
-                        auto renderer = std::make_unique<OpenGlRenderer>(
+                        auto gl_renderer = std::make_unique<OpenGlRenderer>(
                             loader,
                             entity_registry.get(),
                             asset_manager.get(),
                             std::move(context),
                             shadow_settings);
-                        renderer->set_viewport_size(render_resolution);
-                        renderer->set_pending_render_resolution(render_resolution);
-                        return renderer;
+                        gl_renderer->set_viewport_size(render_resolution);
+                        gl_renderer->set_pending_render_resolution(render_resolution);
+                        return gl_renderer;
                     });
                 renderer = create_renderer_future.get();
             }
@@ -122,19 +123,19 @@ namespace tbx::plugins
             return;
         }
 
-        if (auto* open_event = handle_property_changed<&Window::is_open>(msg))
+        if (const auto* open_event = handle_property_changed<&Window::is_open>(msg))
         {
             if (!open_event->current && open_event->owner)
                 teardown_renderer(open_event->owner->id);
             return;
         }
 
-        if (auto* size_event = handle_property_changed<&Window::size>(msg))
+        if (const auto* size_event = handle_property_changed<&Window::size>(msg))
         {
             if (!size_event->owner)
                 return;
 
-            auto renderer_it = _renderers.find(size_event->owner->id);
+            const auto renderer_it = _renderers.find(size_event->owner->id);
             if (renderer_it == _renderers.end())
                 return;
 
@@ -142,8 +143,8 @@ namespace tbx::plugins
             if (!renderer)
                 return;
 
-            auto& thread_manager = get_host().get_thread_manager();
-            if (thread_manager.has_lane(OPENGL_RENDER_LANE_NAME))
+            if (auto& thread_manager = get_host().get_thread_manager();
+                thread_manager.has_lane(OPENGL_RENDER_LANE_NAME))
             {
                 auto viewport_size = size_event->current;
                 thread_manager
@@ -164,7 +165,7 @@ namespace tbx::plugins
             return;
         }
 
-        if (auto* shadow_resolution_event =
+        if (const auto* shadow_resolution_event =
                 handle_property_changed<&GraphicsSettings::shadow_map_resolution>(msg))
         {
             _shadow_settings.shadow_map_resolution = shadow_resolution_event->current;
@@ -172,7 +173,7 @@ namespace tbx::plugins
             return;
         }
 
-        if (auto* shadow_distance_event =
+        if (const auto* shadow_distance_event =
                 handle_property_changed<&GraphicsSettings::shadow_render_distance>(msg))
         {
             _shadow_settings.shadow_render_distance = shadow_distance_event->current;
@@ -180,7 +181,7 @@ namespace tbx::plugins
             return;
         }
 
-        if (auto* shadow_softness_event =
+        if (const auto* shadow_softness_event =
                 handle_property_changed<&GraphicsSettings::shadow_softness>(msg))
         {
             _shadow_settings.shadow_softness = shadow_softness_event->current;
@@ -220,15 +221,15 @@ namespace tbx::plugins
         }
     }
 
-    void OpenGlRenderingPlugin::apply_shadow_settings_to_renderers()
+    void OpenGlRenderingPlugin::apply_shadow_settings_to_renderers() const
     {
         auto& thread_manager = get_host().get_thread_manager();
         auto apply_futures = std::vector<std::future<void>> {};
         apply_futures.reserve(_renderers.size());
 
-        for (auto& renderer_entry : _renderers)
+        for (const auto& val : _renderers | std::views::values)
         {
-            auto* renderer = renderer_entry.second.get();
+            auto* renderer = val.get();
             if (!renderer)
                 continue;
 

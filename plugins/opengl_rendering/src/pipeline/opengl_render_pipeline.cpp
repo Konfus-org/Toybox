@@ -1,11 +1,14 @@
 #include "opengl_render_pipeline.h"
 #include "opengl_deferred_lighting_pass.h"
+#include "opengl_deferred_local_light_volume_pass.h"
+#include "opengl_light_culling_pass.h"
 #include "opengl_post_process_pass.h"
 #include "opengl_resources/opengl_resource.h"
 #include "opengl_shadow_pass.h"
 #include "opengl_sky_pass.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/renderer.h"
+#include <algorithm>
 #include <any>
 #include <glad/glad.h>
 #include <string>
@@ -14,6 +17,8 @@
 
 namespace tbx::plugins
 {
+    static constexpr uint32 GPU_TIMING_LOG_SAMPLE_WINDOW = 60U;
+
     static std::string normalize_uniform_name(std::string_view name)
     {
         if (name.size() >= 2U && name[0] == 'u' && name[1] == '_')
@@ -245,6 +250,39 @@ namespace tbx::plugins
         OpenGlDeferredLightingPass _pass = {};
     };
 
+    class OpenGlLightCullingOperation final : public OpenGlRenderOperation
+    {
+      public:
+        void execute_with_frame_context(const OpenGlRenderFrameContext& frame_context) override
+        {
+            _pass.execute(frame_context);
+        }
+
+      private:
+        OpenGlLightCullingPass _pass = {};
+    };
+
+    class OpenGlDeferredLocalLightVolumeOperation final : public OpenGlRenderOperation
+    {
+      public:
+        explicit OpenGlDeferredLocalLightVolumeOperation(OpenGlResourceManager& resource_manager)
+            : _resource_manager(&resource_manager)
+        {
+        }
+
+        void execute_with_frame_context(const OpenGlRenderFrameContext& frame_context) override
+        {
+            TBX_ASSERT(
+                _resource_manager != nullptr,
+                "OpenGL rendering: local light volume operation requires a resource manager.");
+            _pass.execute(frame_context, *_resource_manager);
+        }
+
+      private:
+        OpenGlResourceManager* _resource_manager = nullptr;
+        OpenGlDeferredLocalLightVolumePass _pass = {};
+    };
+
     class OpenGlPostProcessOperation final : public OpenGlRenderOperation
     {
       public:
@@ -284,7 +322,10 @@ namespace tbx::plugins
         add_operation(std::make_unique<OpenGlSkyOperation>(*_resource_manager));
         add_operation(std::make_unique<OpenGlShadowOperation>(*_resource_manager));
         add_operation(std::make_unique<OpenGlGeometryOperation>(*_resource_manager));
+        add_operation(std::make_unique<OpenGlLightCullingOperation>());
         add_operation(std::make_unique<OpenGlDeferredLightingOperation>(*_resource_manager));
+        add_operation(
+            std::make_unique<OpenGlDeferredLocalLightVolumeOperation>(*_resource_manager));
         add_operation(std::make_unique<OpenGlPostProcessOperation>(*_resource_manager));
     }
 
@@ -317,6 +358,17 @@ namespace tbx::plugins
             _resource_manager != nullptr,
             "OpenGL rendering: pipeline execute requires a valid resource manager.");
         _resource_manager->clear_unused();
-        Pipeline::execute(payload);
+
+        const auto& operations = get_operations();
+        if (!frame_context->is_gpu_pass_timing_enabled)
+        {
+            for (const auto& operation : operations)
+            {
+                if (!operation)
+                    continue;
+
+                operation->execute(payload);
+            }
+        }
     }
 }

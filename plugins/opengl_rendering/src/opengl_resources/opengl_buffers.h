@@ -6,6 +6,7 @@
 #include "tbx/graphics/texture.h"
 #include "tbx/graphics/vertex.h"
 #include "tbx/math/size.h"
+#include <cstddef>
 #include <memory>
 
 namespace tbx::plugins
@@ -230,5 +231,77 @@ namespace tbx::plugins
       private:
         uint32 _buffer_id = 0;
         uint32 _count = 0;
+    };
+
+    /// <summary>Owns an OpenGL shader-storage buffer object.</summary>
+    /// <remarks>Purpose: Uploads and binds structured GPU data for compute and shading passes.
+    /// Ownership: Owns the OpenGL buffer identifier and allocated byte storage.
+    /// Thread Safety: Not thread-safe; use on the render thread.</remarks>
+    class OpenGlStorageBuffer final : public IOpenGlResource
+    {
+      public:
+        /// <summary>Creates an empty storage buffer object.</summary>
+        /// <remarks>Purpose: Allocates an OpenGL buffer handle for SSBO usage.
+        /// Ownership: Owns the created GPU handle.
+        /// Thread Safety: Construct on the render thread.</remarks>
+        OpenGlStorageBuffer();
+
+        /// <summary>Destroys the storage buffer object.</summary>
+        /// <remarks>Purpose: Releases the OpenGL buffer handle.
+        /// Ownership: Owns the GPU handle being destroyed.
+        /// Thread Safety: Destroy on the render thread.</remarks>
+        ~OpenGlStorageBuffer() noexcept override;
+
+        /// <summary>Ensures the buffer capacity is at least the requested byte count.</summary>
+        /// <remarks>Purpose: Resizes GPU storage when capacity is insufficient.
+        /// Ownership: Reallocates and owns GPU storage.
+        /// Thread Safety: Call only on the render thread.</remarks>
+        void ensure_capacity(size_t byte_count);
+
+        /// <summary>Uploads bytes into the buffer at an offset.</summary>
+        /// <remarks>Purpose: Copies CPU data into GPU storage.
+        /// Ownership: Copies data; caller retains CPU ownership.
+        /// Thread Safety: Call only on the render thread.</remarks>
+        void upload(const void* data, size_t byte_count, size_t byte_offset = 0U);
+
+        /// <summary>Clears the buffer with an unsigned integer value pattern.</summary>
+        /// <remarks>Purpose: Initializes/reset buffer contents quickly on GPU.
+        /// Ownership: Does not transfer ownership.
+        /// Thread Safety: Call only on the render thread.</remarks>
+        void clear_u32(uint32 value) const;
+
+        /// <summary>Binds this buffer to a shader-storage binding point.</summary>
+        /// <remarks>Purpose: Exposes the buffer to shader programs via SSBO binding.
+        /// Ownership: Does not transfer ownership.
+        /// Thread Safety: Call only on the render thread.</remarks>
+        void bind_base(uint32 binding_point) const;
+
+        /// <summary>Returns the OpenGL buffer handle.</summary>
+        /// <remarks>Purpose: Supports low-level OpenGL calls and debug instrumentation.
+        /// Ownership: Returns a value; no ownership transfer.
+        /// Thread Safety: Safe on the render thread.</remarks>
+        uint32 get_buffer_id() const;
+
+        /// <summary>Returns current allocated capacity in bytes.</summary>
+        /// <remarks>Purpose: Allows callers to size uploads and dispatches.
+        /// Ownership: Returns a value; no ownership transfer.
+        /// Thread Safety: Safe on the render thread.</remarks>
+        size_t get_capacity_bytes() const;
+
+        /// <summary>Binds this buffer to GL_SHADER_STORAGE_BUFFER.</summary>
+        /// <remarks>Purpose: Makes the buffer active for non-indexed SSBO operations.
+        /// Ownership: Does not transfer ownership.
+        /// Thread Safety: Call only on the render thread.</remarks>
+        void bind() override;
+
+        /// <summary>Unbinds GL_SHADER_STORAGE_BUFFER.</summary>
+        /// <remarks>Purpose: Clears the non-indexed SSBO binding.
+        /// Ownership: Does not transfer ownership.
+        /// Thread Safety: Call only on the render thread.</remarks>
+        void unbind() override;
+
+      private:
+        uint32 _buffer_id = 0U;
+        size_t _capacity_bytes = 0U;
     };
 }

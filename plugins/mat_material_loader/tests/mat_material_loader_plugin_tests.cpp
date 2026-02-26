@@ -23,12 +23,12 @@ namespace tbx::tests::plugin_api
 )");
         plugins::MatMaterialLoaderPlugin plugin = {};
         plugin.set_file_ops(file_ops);
-        plugin.on_attach(host);
+        plugin.attach(host);
         Material material = {};
         LoadMaterialRequest request("Simple.mat", &material);
 
         // Act
-        plugin.on_recieve_message(request);
+        plugin.receive_message(request);
 
         // Assert
         EXPECT_EQ(request.state, MessageState::HANDLED);
@@ -36,5 +36,36 @@ namespace tbx::tests::plugin_api
         EXPECT_TRUE(material.program.fragment.is_valid());
         EXPECT_TRUE(material.textures.has("diffuse"));
         EXPECT_TRUE(material.parameters.has("roughness"));
+    }
+
+    /// <summary>
+    /// Verifies the material importer accepts compute-only shader programs.
+    /// </summary>
+    TEST(importers, mat_loader_parses_compute_only_material)
+    {
+        // Arrange
+        auto working_directory = get_test_working_directory();
+        TestPluginHost host = TestPluginHost(working_directory);
+        auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        file_ops->set_text(
+            "ComputeOnly.mat",
+            R"({
+  "shaders": { "compute": "303" }
+}
+)");
+        plugins::MatMaterialLoaderPlugin plugin = {};
+        plugin.set_file_ops(file_ops);
+        plugin.attach(host);
+        Material material = {};
+        LoadMaterialRequest request("ComputeOnly.mat", &material);
+
+        // Act
+        plugin.receive_message(request);
+
+        // Assert
+        EXPECT_EQ(request.state, MessageState::HANDLED);
+        EXPECT_TRUE(material.program.compute.is_valid());
+        EXPECT_FALSE(material.program.vertex.is_valid());
+        EXPECT_FALSE(material.program.fragment.is_valid());
     }
 }

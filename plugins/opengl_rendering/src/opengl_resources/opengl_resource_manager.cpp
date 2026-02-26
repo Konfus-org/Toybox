@@ -629,6 +629,21 @@ namespace tbx::plugins
         return false;
     }
 
+    bool OpenGlResourceManager::try_get_or_create_shader_program(
+        const ShaderProgram& shader_program,
+        std::shared_ptr<OpenGlShaderProgram>& out_program)
+    {
+        out_program = get_or_create_shared_shader_program(shader_program, nullptr);
+        return out_program != nullptr;
+    }
+
+    std::shared_ptr<OpenGlMesh> OpenGlResourceManager::get_or_create_runtime_mesh(
+        const uint64 mesh_signature,
+        const Mesh& mesh)
+    {
+        return get_or_create_shared_mesh(mesh_signature, mesh);
+    }
+
     bool OpenGlResourceManager::try_get_stored_resource_base(
         const Uuid& resource_uuid,
         std::shared_ptr<IOpenGlResource>& out_resource) const

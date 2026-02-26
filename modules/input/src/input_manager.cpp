@@ -2,140 +2,135 @@
 #include "tbx/debugging/macros.h"
 #include <algorithm>
 #include <cmath>
+#include <ranges>
 
 namespace tbx
 {
-    namespace
+    constexpr float AXIS_ACTIVE_EPSILON = 0.1F;
+    constexpr float VECTOR_ACTIVE_EPSILON = 0.1F;
+
+    static bool is_active_value(const InputActionValue& value)
     {
-        constexpr float AXIS_ACTIVE_EPSILON = 0.1F;
-        constexpr float VECTOR_ACTIVE_EPSILON = 0.1F;
+        if (std::holds_alternative<bool>(value))
+            return std::get<bool>(value);
+        if (std::holds_alternative<float>(value))
+            return std::abs(std::get<float>(value)) >= AXIS_ACTIVE_EPSILON;
 
-        static bool is_active_value(const InputActionValue& value)
+        const Vec2 vector_value = std::get<Vec2>(value);
+        return std::abs(vector_value.x) >= VECTOR_ACTIVE_EPSILON
+               || std::abs(vector_value.y) >= VECTOR_ACTIVE_EPSILON;
+    }
+
+    static bool has_value_changed(const InputActionValue& lhs, const InputActionValue& rhs)
+    {
+        if (lhs.index() != rhs.index())
+            return true;
+
+        if (std::holds_alternative<bool>(lhs))
+            return std::get<bool>(lhs) != std::get<bool>(rhs);
+
+        if (std::holds_alternative<float>(lhs))
         {
-            if (std::holds_alternative<bool>(value))
-                return std::get<bool>(value);
-            if (std::holds_alternative<float>(value))
-                return std::abs(std::get<float>(value)) >= AXIS_ACTIVE_EPSILON;
-
-            const Vec2 vector_value = std::get<Vec2>(value);
-            return std::abs(vector_value.x) >= VECTOR_ACTIVE_EPSILON
-                   || std::abs(vector_value.y) >= VECTOR_ACTIVE_EPSILON;
+            return std::abs(std::get<float>(lhs) - std::get<float>(rhs)) >= 0.0001F;
         }
 
-        static bool has_value_changed(const InputActionValue& lhs, const InputActionValue& rhs)
+        const Vec2 lhs_vector = std::get<Vec2>(lhs);
+        const Vec2 rhs_vector = std::get<Vec2>(rhs);
+        return std::abs(lhs_vector.x - rhs_vector.x) >= 0.0001F
+               || std::abs(lhs_vector.y - rhs_vector.y) >= 0.0001F;
+    }
+
+    static InputActionValue get_default_value(InputActionValueType value_type)
+    {
+        if (value_type == InputActionValueType::BUTTON)
+            return InputActionValue(false);
+        if (value_type == InputActionValueType::AXIS)
+            return InputActionValue(0.0F);
+        return InputActionValue(Vec2(0.0F, 0.0F));
+    }
+
+    static bool are_controls_equal(const InputControl& lhs, const InputControl& rhs)
+    {
+        if (lhs.index() != rhs.index())
+            return false;
+
+        if (std::holds_alternative<KeyboardInputControl>(lhs))
         {
-            if (lhs.index() != rhs.index())
-                return true;
-
-            if (std::holds_alternative<bool>(lhs))
-                return std::get<bool>(lhs) != std::get<bool>(rhs);
-
-            if (std::holds_alternative<float>(lhs))
-            {
-                return std::abs(std::get<float>(lhs) - std::get<float>(rhs)) >= 0.0001F;
-            }
-
-            const Vec2 lhs_vector = std::get<Vec2>(lhs);
-            const Vec2 rhs_vector = std::get<Vec2>(rhs);
-            return std::abs(lhs_vector.x - rhs_vector.x) >= 0.0001F
-                   || std::abs(lhs_vector.y - rhs_vector.y) >= 0.0001F;
+            return std::get<KeyboardInputControl>(lhs).key
+                   == std::get<KeyboardInputControl>(rhs).key;
         }
 
-        static InputActionValue get_default_value(InputActionValueType value_type)
+        if (std::holds_alternative<MouseButtonInputControl>(lhs))
         {
-            if (value_type == InputActionValueType::BUTTON)
-                return InputActionValue(false);
-            if (value_type == InputActionValueType::AXIS)
-                return InputActionValue(0.0F);
-            return InputActionValue(Vec2(0.0F, 0.0F));
+            return std::get<MouseButtonInputControl>(lhs).button
+                   == std::get<MouseButtonInputControl>(rhs).button;
         }
 
-        static bool are_controls_equal(const InputControl& lhs, const InputControl& rhs)
+        if (std::holds_alternative<MouseVectorInputControl>(lhs))
         {
-            if (lhs.index() != rhs.index())
-                return false;
-
-            if (std::holds_alternative<KeyboardInputControl>(lhs))
-            {
-                return std::get<KeyboardInputControl>(lhs).key
-                       == std::get<KeyboardInputControl>(rhs).key;
-            }
-
-            if (std::holds_alternative<MouseButtonInputControl>(lhs))
-            {
-                return std::get<MouseButtonInputControl>(lhs).button
-                       == std::get<MouseButtonInputControl>(rhs).button;
-            }
-
-            if (std::holds_alternative<MouseVectorInputControl>(lhs))
-            {
-                return std::get<MouseVectorInputControl>(lhs).control
-                       == std::get<MouseVectorInputControl>(rhs).control;
-            }
-
-            if (std::holds_alternative<MouseAxisInputControl>(lhs))
-            {
-                return std::get<MouseAxisInputControl>(lhs).control
-                       == std::get<MouseAxisInputControl>(rhs).control;
-            }
-
-            if (std::holds_alternative<KeyboardVector2CompositeInputControl>(lhs))
-            {
-                const KeyboardVector2CompositeInputControl left =
-                    std::get<KeyboardVector2CompositeInputControl>(lhs);
-                const KeyboardVector2CompositeInputControl right =
-                    std::get<KeyboardVector2CompositeInputControl>(rhs);
-                return left.up == right.up && left.down == right.down && left.left == right.left
-                       && left.right == right.right;
-            }
-
-            if (std::holds_alternative<ControllerButtonInputControl>(lhs))
-            {
-                const ControllerButtonInputControl left =
-                    std::get<ControllerButtonInputControl>(lhs);
-                const ControllerButtonInputControl right =
-                    std::get<ControllerButtonInputControl>(rhs);
-                return left.controller_index == right.controller_index
-                       && left.button == right.button;
-            }
-
-            if (std::holds_alternative<ControllerAxisInputControl>(lhs))
-            {
-                const ControllerAxisInputControl left = std::get<ControllerAxisInputControl>(lhs);
-                const ControllerAxisInputControl right = std::get<ControllerAxisInputControl>(rhs);
-                return left.controller_index == right.controller_index && left.axis == right.axis;
-            }
-
-            const ControllerStickInputControl left = std::get<ControllerStickInputControl>(lhs);
-            const ControllerStickInputControl right = std::get<ControllerStickInputControl>(rhs);
-            return left.controller_index == right.controller_index && left.x_axis == right.x_axis
-                   && left.y_axis == right.y_axis;
+            return std::get<MouseVectorInputControl>(lhs).control
+                   == std::get<MouseVectorInputControl>(rhs).control;
         }
 
-        static const ControllerState* try_get_controller_state(
-            const InputDeviceSnapshot& snapshot,
-            int controller_index)
+        if (std::holds_alternative<MouseAxisInputControl>(lhs))
         {
-            const auto iterator = snapshot.controllers.find(controller_index);
-            if (iterator == snapshot.controllers.end())
-                return nullptr;
-            return &iterator->second;
+            return std::get<MouseAxisInputControl>(lhs).control
+                   == std::get<MouseAxisInputControl>(rhs).control;
         }
 
-        static void warn_if_request_failed(const char* operation_name, const Result& result)
+        if (std::holds_alternative<KeyboardVector2CompositeInputControl>(lhs))
         {
-            if (result.succeeded())
-                return;
-
-            const std::string& report = result.get_report();
-            if (report.empty())
-            {
-                TBX_TRACE_WARNING("Input operation '{}' failed.", operation_name);
-                return;
-            }
-
-            TBX_TRACE_WARNING("Input operation '{}' failed: {}", operation_name, report);
+            const KeyboardVector2CompositeInputControl left =
+                std::get<KeyboardVector2CompositeInputControl>(lhs);
+            const KeyboardVector2CompositeInputControl right =
+                std::get<KeyboardVector2CompositeInputControl>(rhs);
+            return left.up == right.up && left.down == right.down && left.left == right.left
+                   && left.right == right.right;
         }
+
+        if (std::holds_alternative<ControllerButtonInputControl>(lhs))
+        {
+            const ControllerButtonInputControl left = std::get<ControllerButtonInputControl>(lhs);
+            const ControllerButtonInputControl right = std::get<ControllerButtonInputControl>(rhs);
+            return left.controller_index == right.controller_index && left.button == right.button;
+        }
+
+        if (std::holds_alternative<ControllerAxisInputControl>(lhs))
+        {
+            const ControllerAxisInputControl left = std::get<ControllerAxisInputControl>(lhs);
+            const ControllerAxisInputControl right = std::get<ControllerAxisInputControl>(rhs);
+            return left.controller_index == right.controller_index && left.axis == right.axis;
+        }
+
+        const ControllerStickInputControl left = std::get<ControllerStickInputControl>(lhs);
+        const ControllerStickInputControl right = std::get<ControllerStickInputControl>(rhs);
+        return left.controller_index == right.controller_index && left.x_axis == right.x_axis
+               && left.y_axis == right.y_axis;
+    }
+
+    static const ControllerState* try_get_controller_state(
+        const InputDeviceSnapshot& snapshot,
+        int controller_index)
+    {
+        const auto iterator = snapshot.controllers.find(controller_index);
+        if (iterator == snapshot.controllers.end())
+            return nullptr;
+        return &iterator->second;
+    }
+
+    static void warn_if_request_failed(const char* operation_name, const Result& result)
+    {
+        if (result.succeeded())
+            return;
+
+        const std::string& report = result.get_report();
+        if (report.empty())
+        {
+            TBX_TRACE_WARNING("Input operation '{}' failed.", operation_name);
+            return;
+        }
+
+        TBX_TRACE_WARNING("Input operation '{}' failed: {}", operation_name, report);
     }
 
     InputAction::InputAction(std::string action_name, InputActionValueType value_type)
@@ -450,7 +445,7 @@ namespace tbx
 
     ControllerState InputManager::get_controller_state(int controller_index) const
     {
-        ControllerStateRequest request = ControllerStateRequest(controller_index);
+        auto request = ControllerStateRequest(controller_index);
         const Result send_result = _dispatcher->send(request);
         warn_if_request_failed("get_controller_state", send_result);
         return request.result;
@@ -460,36 +455,34 @@ namespace tbx
     {
         std::vector<int> controller_indices = {};
 
-        for (const auto& [_, scheme] : _schemes)
+        for (const auto& scheme : _schemes | std::views::values)
         {
             if (!scheme.get_is_active())
                 continue;
 
             for (const auto& action_ref : scheme.get_all_actions())
             {
-                const InputAction& action = action_ref.get();
-                for (const InputBinding& binding : action.get_bindings())
+                for (const InputAction& action = action_ref.get();
+                     const auto& [control, scale] : action.get_bindings())
                 {
-                    if (std::holds_alternative<ControllerButtonInputControl>(binding.control))
+                    if (std::holds_alternative<ControllerButtonInputControl>(control))
                     {
                         controller_indices.push_back(
-                            std::get<ControllerButtonInputControl>(binding.control)
-                                .controller_index);
+                            std::get<ControllerButtonInputControl>(control).controller_index);
                         continue;
                     }
 
-                    if (std::holds_alternative<ControllerAxisInputControl>(binding.control))
+                    if (std::holds_alternative<ControllerAxisInputControl>(control))
                     {
                         controller_indices.push_back(
-                            std::get<ControllerAxisInputControl>(binding.control).controller_index);
+                            std::get<ControllerAxisInputControl>(control).controller_index);
                         continue;
                     }
 
-                    if (std::holds_alternative<ControllerStickInputControl>(binding.control))
+                    if (std::holds_alternative<ControllerStickInputControl>(control))
                     {
                         controller_indices.push_back(
-                            std::get<ControllerStickInputControl>(binding.control)
-                                .controller_index);
+                            std::get<ControllerStickInputControl>(control).controller_index);
                     }
                 }
             }
@@ -659,48 +652,45 @@ namespace tbx
             if (!scheme.get_is_active())
                 continue;
 
-            for (InputAction& action : scheme.get_all_actions())
+            for (auto& action : scheme.get_all_actions())
             {
                 active_actions.push_back(std::ref(action));
 
-                for (const auto& binding : action.get_bindings())
+                for (const auto& [control, scale] : action.get().get_bindings())
                 {
-                    if (std::holds_alternative<KeyboardInputControl>(binding.control)
-                        || std::holds_alternative<KeyboardVector2CompositeInputControl>(
-                            binding.control))
+                    if (std::holds_alternative<KeyboardInputControl>(control)
+                        || std::holds_alternative<KeyboardVector2CompositeInputControl>(control))
                     {
                         requires_keyboard = true;
                         continue;
                     }
 
-                    if (std::holds_alternative<MouseButtonInputControl>(binding.control)
-                        || std::holds_alternative<MouseVectorInputControl>(binding.control)
-                        || std::holds_alternative<MouseAxisInputControl>(binding.control))
+                    if (std::holds_alternative<MouseButtonInputControl>(control)
+                        || std::holds_alternative<MouseVectorInputControl>(control)
+                        || std::holds_alternative<MouseAxisInputControl>(control))
                     {
                         requires_mouse = true;
                         continue;
                     }
 
-                    if (std::holds_alternative<ControllerButtonInputControl>(binding.control))
+                    if (std::holds_alternative<ControllerButtonInputControl>(control))
                     {
                         controller_indices.push_back(
-                            std::get<ControllerButtonInputControl>(binding.control)
-                                .controller_index);
+                            std::get<ControllerButtonInputControl>(control).controller_index);
                         continue;
                     }
 
-                    if (std::holds_alternative<ControllerAxisInputControl>(binding.control))
+                    if (std::holds_alternative<ControllerAxisInputControl>(control))
                     {
                         controller_indices.push_back(
-                            std::get<ControllerAxisInputControl>(binding.control).controller_index);
+                            std::get<ControllerAxisInputControl>(control).controller_index);
                         continue;
                     }
 
-                    if (std::holds_alternative<ControllerStickInputControl>(binding.control))
+                    if (std::holds_alternative<ControllerStickInputControl>(control))
                     {
                         controller_indices.push_back(
-                            std::get<ControllerStickInputControl>(binding.control)
-                                .controller_index);
+                            std::get<ControllerStickInputControl>(control).controller_index);
                     }
                 }
             }
@@ -709,17 +699,17 @@ namespace tbx
         if (active_actions.empty())
             return;
 
-        std::sort(controller_indices.begin(), controller_indices.end());
+        std::ranges::sort(controller_indices);
         controller_indices.erase(
-            std::unique(controller_indices.begin(), controller_indices.end()),
+            std::ranges::unique(controller_indices).begin(),
             controller_indices.end());
 
-        auto snapshot = InputDeviceSnapshot {};
+        auto snapshot = InputDeviceSnapshot();
         bool has_missing_handlers = false;
 
         if (requires_keyboard)
         {
-            auto keyboard_request = KeyboardStateRequest {};
+            auto keyboard_request = KeyboardStateRequest();
             const Result send_result = _dispatcher->send(keyboard_request);
             if (send_result.succeeded())
                 snapshot.keyboard = keyboard_request.result;
@@ -729,9 +719,9 @@ namespace tbx
 
         if (requires_mouse)
         {
-            auto mouse_request = MouseStateRequest {};
-            const Result send_result = _dispatcher->send(mouse_request);
-            if (send_result.succeeded())
+            auto mouse_request = MouseStateRequest();
+            if (const Result send_result = _dispatcher->send(mouse_request);
+                send_result.succeeded())
                 snapshot.mouse = mouse_request.result;
             else
                 has_missing_handlers = true;
@@ -740,8 +730,8 @@ namespace tbx
         for (const int controller_index : controller_indices)
         {
             auto controller_request = ControllerStateRequest(controller_index);
-            const Result send_result = _dispatcher->send(controller_request);
-            if (send_result.succeeded())
+            if (const Result send_result = _dispatcher->send(controller_request);
+                send_result.succeeded())
                 snapshot.controllers.emplace(controller_index, controller_request.result);
             else
                 has_missing_handlers = true;
@@ -755,10 +745,10 @@ namespace tbx
             _did_warn_missing_action_input_handlers = true;
         }
 
-        for (InputAction& action : active_actions)
+        for (auto& action : active_actions)
         {
             const InputActionValue value = evaluate_action_value(action, snapshot);
-            action.apply_value(value, delta_time);
+            action.get().apply_value(value, delta_time);
         }
     }
 }

@@ -11,10 +11,7 @@
 
 namespace tbx::plugins
 {
-    static constexpr int MAX_DIRECTIONAL_LIGHTS = 4;
-    static constexpr int MAX_POINT_LIGHTS = 32;
-    static constexpr int MAX_SPOT_LIGHTS = 16;
-    static constexpr int MAX_AREA_LIGHTS = 16;
+    static constexpr int MAX_DIRECTIONAL_CASCADE_SPLITS = 4;
     static constexpr int MAX_SHADOW_MAPS = 24;
 
     static void bind_textures(
@@ -28,175 +25,6 @@ namespace tbx::plugins
 
             texture_binding.texture->set_slot(static_cast<uint32>(texture_binding.slot));
             out_scopes.push_back(GlResourceScope(*texture_binding.texture));
-        }
-    }
-
-    static void upload_directional_lights(
-        OpenGlShaderProgram& shader_program,
-        std::span<const OpenGlDirectionalLightData> lights)
-    {
-        const size_t max_count =
-            std::min(lights.size(), static_cast<size_t>(MAX_DIRECTIONAL_LIGHTS));
-        for (size_t index = 0; index < max_count; ++index)
-        {
-            const auto& light = lights[index];
-            const auto index_string = std::to_string(index);
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_directional_lights[" + index_string + "].direction",
-                    .data = light.direction,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_directional_lights[" + index_string + "].intensity",
-                    .data = light.intensity,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_directional_lights[" + index_string + "].color",
-                    .data = light.color,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_directional_lights[" + index_string + "].ambient",
-                    .data = light.ambient,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_directional_lights[" + index_string + "].shadow_map_index",
-                    .data = light.shadow_map_index,
-                });
-        }
-    }
-
-    static void upload_point_lights(
-        OpenGlShaderProgram& shader_program,
-        std::span<const OpenGlPointLightData> lights)
-    {
-        const size_t max_count = std::min(lights.size(), static_cast<size_t>(MAX_POINT_LIGHTS));
-        for (size_t index = 0; index < max_count; ++index)
-        {
-            const auto& light = lights[index];
-            const auto index_string = std::to_string(index);
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_point_lights[" + index_string + "].position",
-                    .data = light.position,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_point_lights[" + index_string + "].range",
-                    .data = light.range,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_point_lights[" + index_string + "].color",
-                    .data = light.color,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_point_lights[" + index_string + "].intensity",
-                    .data = light.intensity,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_point_lights[" + index_string + "].shadow_map_index",
-                    .data = light.shadow_map_index,
-                });
-        }
-    }
-
-    static void upload_spot_lights(
-        OpenGlShaderProgram& shader_program,
-        std::span<const OpenGlSpotLightData> lights)
-    {
-        const size_t max_count = std::min(lights.size(), static_cast<size_t>(MAX_SPOT_LIGHTS));
-        for (size_t index = 0; index < max_count; ++index)
-        {
-            const auto& light = lights[index];
-            const auto index_string = std::to_string(index);
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_spot_lights[" + index_string + "].position",
-                    .data = light.position,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_spot_lights[" + index_string + "].range",
-                    .data = light.range,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_spot_lights[" + index_string + "].direction",
-                    .data = light.direction,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_spot_lights[" + index_string + "].inner_cos",
-                    .data = light.inner_cos,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_spot_lights[" + index_string + "].color",
-                    .data = light.color,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_spot_lights[" + index_string + "].outer_cos",
-                    .data = light.outer_cos,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_spot_lights[" + index_string + "].intensity",
-                    .data = light.intensity,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_spot_lights[" + index_string + "].shadow_map_index",
-                    .data = light.shadow_map_index,
-                });
-        }
-    }
-
-    static void upload_area_lights(
-        OpenGlShaderProgram& shader_program,
-        std::span<const OpenGlAreaLightData> lights)
-    {
-        const size_t max_count = std::min(lights.size(), static_cast<size_t>(MAX_AREA_LIGHTS));
-        for (size_t index = 0; index < max_count; ++index)
-        {
-            const auto& light = lights[index];
-            const auto index_string = std::to_string(index);
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_area_lights[" + index_string + "].position",
-                    .data = light.position,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_area_lights[" + index_string + "].range",
-                    .data = light.range,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_area_lights[" + index_string + "].direction",
-                    .data = light.direction,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_area_lights[" + index_string + "].intensity",
-                    .data = light.intensity,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_area_lights[" + index_string + "].color",
-                    .data = light.color,
-                });
-            shader_program.try_upload(
-                MaterialParameter {
-                    .name = "u_area_lights[" + index_string + "].area_size",
-                    .data = light.area_size,
-                });
         }
     }
 
@@ -267,6 +95,7 @@ namespace tbx::plugins
                 });
             out_bound_shadow_map_count += 1;
         }
+
         shader_program.try_upload(
             MaterialParameter {
                 .name = "u_shadow_map_count",
@@ -280,7 +109,7 @@ namespace tbx::plugins
 
         const auto split_count = std::min(
             frame_context.shadow_data.cascade_splits.size(),
-            static_cast<size_t>(MAX_DIRECTIONAL_LIGHTS));
+            static_cast<size_t>(MAX_DIRECTIONAL_CASCADE_SPLITS));
         for (size_t index = 0; index < split_count; ++index)
         {
             shader_program.try_upload(
@@ -289,6 +118,29 @@ namespace tbx::plugins
                     .data = frame_context.shadow_data.cascade_splits[index],
                 });
         }
+    }
+
+    static void bind_light_buffers(const OpenGlRenderFrameContext& frame_context)
+    {
+        glBindBufferBase(
+            GL_SHADER_STORAGE_BUFFER,
+            0U,
+            frame_context.light_culling.packed_lights_buffer_id);
+        glBindBufferBase(
+            GL_SHADER_STORAGE_BUFFER,
+            1U,
+            frame_context.light_culling.tile_headers_buffer_id);
+        glBindBufferBase(
+            GL_SHADER_STORAGE_BUFFER,
+            2U,
+            frame_context.light_culling.tile_light_indices_buffer_id);
+    }
+
+    static void unbind_light_buffers()
+    {
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0U, 0U);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1U, 0U);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2U, 0U);
     }
 
     void OpenGlDeferredLightingPass::execute(
@@ -303,13 +155,11 @@ namespace tbx::plugins
             "OpenGL rendering: deferred pass requires a lighting target.");
 
         auto deferred_lighting_resource = std::shared_ptr<IOpenGlResource> {};
-        if (!resource_manager.try_get(
-                frame_context.deferred_lighting_entity,
-                deferred_lighting_resource))
+        if (!resource_manager.try_get(frame_context.deferred_lighting_entity, deferred_lighting_resource))
             return;
 
-        auto deferred_lighting_stack = std::dynamic_pointer_cast<OpenGlPostProcessingStackResource>(
-            deferred_lighting_resource);
+        auto deferred_lighting_stack =
+            std::dynamic_pointer_cast<OpenGlPostProcessingStackResource>(deferred_lighting_resource);
         if (!deferred_lighting_stack || deferred_lighting_stack->get_effects().empty())
             return;
 
@@ -397,6 +247,44 @@ namespace tbx::plugins
                 .name = "u_inverse_view_projection",
                 .data = frame_context.inverse_view_projection,
             });
+        draw_resources.shader_program->try_upload(
+            MaterialParameter {
+                .name = "u_render_resolution",
+                .data = Vec2(
+                    static_cast<float>(frame_context.render_resolution.width),
+                    static_cast<float>(frame_context.render_resolution.height)),
+            });
+        draw_resources.shader_program->try_upload(
+            MaterialParameter {
+                .name = "u_tile_size",
+                .data = static_cast<int>(frame_context.light_culling.tile_size),
+            });
+        draw_resources.shader_program->try_upload(
+            MaterialParameter {
+                .name = "u_tile_count_x",
+                .data = static_cast<int>(frame_context.light_culling.tile_count_x),
+            });
+        draw_resources.shader_program->try_upload(
+            MaterialParameter {
+                .name = "u_tile_count_y",
+                .data = static_cast<int>(frame_context.light_culling.tile_count_y),
+            });
+        draw_resources.shader_program->try_upload(
+            MaterialParameter {
+                .name = "u_packed_light_count",
+                .data = static_cast<int>(frame_context.light_culling.packed_light_count),
+            });
+        draw_resources.shader_program->try_upload(
+            MaterialParameter {
+                .name = "u_compute_culling_enabled",
+                .data = frame_context.is_compute_culling_enabled,
+            });
+        draw_resources.shader_program->try_upload(
+            MaterialParameter {
+                .name = "u_include_local_lights",
+                .data = !frame_context.is_local_light_volume_enabled,
+            });
+
         const int first_shadow_map_slot = texture_slot;
         size_t bound_shadow_map_count = 0;
         upload_shadow_data(
@@ -406,36 +294,9 @@ namespace tbx::plugins
             first_shadow_map_slot,
             bound_shadow_map_count);
 
-        draw_resources.shader_program->try_upload(
-            MaterialParameter {
-                .name = "u_directional_light_count",
-                .data = std::min(
-                    static_cast<int>(frame_context.directional_lights.size()),
-                    MAX_DIRECTIONAL_LIGHTS),
-            });
-        draw_resources.shader_program->try_upload(
-            MaterialParameter {
-                .name = "u_point_light_count",
-                .data =
-                    std::min(static_cast<int>(frame_context.point_lights.size()), MAX_POINT_LIGHTS),
-            });
-        draw_resources.shader_program->try_upload(
-            MaterialParameter {
-                .name = "u_spot_light_count",
-                .data =
-                    std::min(static_cast<int>(frame_context.spot_lights.size()), MAX_SPOT_LIGHTS),
-            });
-        draw_resources.shader_program->try_upload(
-            MaterialParameter {
-                .name = "u_area_light_count",
-                .data =
-                    std::min(static_cast<int>(frame_context.area_lights.size()), MAX_AREA_LIGHTS),
-            });
-        upload_directional_lights(*draw_resources.shader_program, frame_context.directional_lights);
-        upload_point_lights(*draw_resources.shader_program, frame_context.point_lights);
-        upload_spot_lights(*draw_resources.shader_program, frame_context.spot_lights);
-        upload_area_lights(*draw_resources.shader_program, frame_context.area_lights);
+        bind_light_buffers(frame_context);
         draw_resources.mesh->draw(draw_resources.use_tesselation);
+        unbind_light_buffers();
 
         glBindTextureUnit(static_cast<GLuint>(albedo_slot), 0);
         glBindTextureUnit(static_cast<GLuint>(normal_slot), 0);
@@ -446,6 +307,7 @@ namespace tbx::plugins
             const auto shadow_texture_slot = first_shadow_map_slot + static_cast<int>(shadow_index);
             glBindTextureUnit(static_cast<GLuint>(shadow_texture_slot), 0);
         }
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glEnable(GL_DEPTH_TEST);
     }

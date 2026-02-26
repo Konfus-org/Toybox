@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/ecs/entity.h"
-#include "tbx/examples/camera_controller.h"
+#include "tbx/examples/free_look_camera_controller.h"
 #include "tbx/examples/room.h"
 #include "tbx/plugin_api/plugin.h"
 
@@ -51,7 +51,7 @@ namespace tbx::examples
       private:
         Entity _cube = {};
         Entity _sun = {};
-        CameraController _camera_controller = {};
+        FreeLookCameraController _camera_controller = {};
         Room _room = {};
     };
 }

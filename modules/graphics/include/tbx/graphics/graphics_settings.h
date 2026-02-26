@@ -30,7 +30,7 @@ namespace tbx
             Size resolution = {0, 0},
             uint32 shadow_map_resolution = 2048U,
             float shadow_render_distance = 90.0F,
-            float shadow_softness = 1.75F);
+            float shadow_softness = 1.0F);
 
         /// <summary>
         /// Purpose: Toggles presentation sync with the display refresh rate.

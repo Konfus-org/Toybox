@@ -34,7 +34,7 @@ namespace tbx::examples
         _camera_controller.initialize(
             camera,
             input_manager,
-            CameraControllerSettings {
+            FreeLookCameraControllerSettings {
                 .initial_yaw = 0.0F,
                 .initial_pitch = to_radians(-8.0F),
                 .move_speed = 6.0F,
@@ -113,7 +113,7 @@ namespace tbx::examples
                 },
         });
 
-        auto camera_scheme = _camera_controller.get_input_scheme();
+        auto& camera_scheme = _camera_controller.get_input_scheme();
         camera_scheme.add_action(InputAction(
             "Raycast",
             InputActionValueType::BUTTON,

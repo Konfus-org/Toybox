@@ -1,9 +1,9 @@
 #pragma once
 #include "tbx/ecs/entity.h"
-#include "tbx/examples/camera_controller.h"
+#include "tbx/examples/free_look_camera_controller.h"
 #include "tbx/examples/room.h"
 #include "tbx/plugin_api/plugin.h"
-#include <string>
+#include <vector>
 
 namespace tbx::examples
 {
@@ -46,6 +46,10 @@ namespace tbx::examples
         void on_update(const DeltaTime& dt) override;
 
       private:
+        void rebuild_stress_lights(uint32 light_count);
+        void clear_stress_lights();
+
+        FreeLookCameraController _camera_controller = {};
         Room _room = {};
 
         Entity _directional_light = {};
@@ -66,7 +70,9 @@ namespace tbx::examples
         bool _spot_enabled = false;
         bool _area_enabled = false;
 
-        std::string _light_scheme_name = "LightingExample.Lights";
         double _elapsed_seconds = 0.0;
+        bool _stress_mode_enabled = false;
+        uint32 _stress_light_count = 512U;
+        std::vector<Entity> _stress_point_lights = {};
     };
 }

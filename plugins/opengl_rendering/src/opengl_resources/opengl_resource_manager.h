@@ -202,6 +202,28 @@ namespace tbx::plugins
             const;
 
         /// <summary>
+        /// Purpose: Resolves or creates a shared shader program from explicit stage handles.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns shared ownership of a cached OpenGlShaderProgram.
+        /// Thread Safety: Not thread-safe; call only from the render thread.
+        /// </remarks>
+        bool try_get_or_create_shader_program(
+            const ShaderProgram& shader_program,
+            std::shared_ptr<OpenGlShaderProgram>& out_program);
+
+        /// <summary>
+        /// Purpose: Resolves or creates a shared mesh from runtime geometry data.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns shared ownership of a cached OpenGlMesh.
+        /// Thread Safety: Not thread-safe; call only from the render thread.
+        /// </remarks>
+        std::shared_ptr<OpenGlMesh> get_or_create_runtime_mesh(
+            uint64 mesh_signature,
+            const Mesh& mesh);
+
+        /// <summary>
         /// Purpose: Marks one stored runtime resource as pinned.
         /// </summary>
         /// <remarks>

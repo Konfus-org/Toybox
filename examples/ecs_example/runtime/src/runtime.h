@@ -1,8 +1,5 @@
 #pragma once
-#include "tbx/ecs/entity.h"
-#include "tbx/examples/camera_controller.h"
 #include "tbx/plugin_api/plugin.h"
-#include <string>
 
 namespace tbx::examples
 {

@@ -1,5 +1,4 @@
 #include "tbx/examples/player_controller.h"
-#include "tbx/assets/builtin_assets.h"
 #include "tbx/graphics/camera.h"
 #include "tbx/graphics/color.h"
 #include "tbx/graphics/mesh.h"

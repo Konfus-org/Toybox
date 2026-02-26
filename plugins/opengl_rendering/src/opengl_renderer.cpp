@@ -37,6 +37,74 @@ namespace tbx::plugins
     static constexpr float DIRECTIONAL_SHADOW_FAR_DISTANCE_SCALE = 1.25F;
     static constexpr float LOCAL_LIGHT_SHADOW_NEAR_PLANE = 0.1F;
     static constexpr float LIGHT_INTENSITY_EPSILON = 0.0001F;
+    static constexpr uint32 LIGHT_CULLING_SHADER_ID = 0x0000000FU;
+    static constexpr uint32 LOCAL_LIGHT_VOLUME_VERTEX_SHADER_ID = 0x00000010U;
+    static constexpr uint32 LOCAL_LIGHT_VOLUME_FRAGMENT_SHADER_ID = 0x00000011U;
+
+    struct OpenGlTileHeaderData final
+    {
+        uint32 offset = 0U;
+        uint32 count = 0U;
+        uint32 reserved_0 = 0U;
+        uint32 reserved_1 = 0U;
+    };
+
+    static uint32 divide_round_up(const uint32 numerator, const uint32 denominator)
+    {
+        if (denominator == 0U)
+            return 0U;
+        return (numerator + denominator - 1U) / denominator;
+    }
+
+    static OpenGlPackedLightData pack_directional_light(const OpenGlDirectionalLightData& light)
+    {
+        return OpenGlPackedLightData {
+            .position_range = Vec4(0.0F, 0.0F, 0.0F, 0.0F),
+            .direction_inner_cos = Vec4(light.direction, 0.0F),
+            .color_intensity = Vec4(light.color, light.intensity),
+            .area_outer_ambient = Vec4(1.0F, 1.0F, 0.0F, light.ambient),
+            .metadata = IVec4(
+                static_cast<int>(OpenGlPackedLightType::Directional),
+                light.shadow_map_index,
+                0,
+                0),
+        };
+    }
+
+    static OpenGlPackedLightData pack_point_light(const OpenGlPointLightData& light)
+    {
+        return OpenGlPackedLightData {
+            .position_range = Vec4(light.position, light.range),
+            .direction_inner_cos = Vec4(0.0F, -1.0F, 0.0F, 0.0F),
+            .color_intensity = Vec4(light.color, light.intensity),
+            .area_outer_ambient = Vec4(1.0F, 1.0F, 0.0F, 0.0F),
+            .metadata =
+                IVec4(static_cast<int>(OpenGlPackedLightType::Point), light.shadow_map_index, 0, 0),
+        };
+    }
+
+    static OpenGlPackedLightData pack_spot_light(const OpenGlSpotLightData& light)
+    {
+        return OpenGlPackedLightData {
+            .position_range = Vec4(light.position, light.range),
+            .direction_inner_cos = Vec4(light.direction, light.inner_cos),
+            .color_intensity = Vec4(light.color, light.intensity),
+            .area_outer_ambient = Vec4(1.0F, 1.0F, light.outer_cos, 0.0F),
+            .metadata =
+                IVec4(static_cast<int>(OpenGlPackedLightType::Spot), light.shadow_map_index, 0, 0),
+        };
+    }
+
+    static OpenGlPackedLightData pack_area_light(const OpenGlAreaLightData& light)
+    {
+        return OpenGlPackedLightData {
+            .position_range = Vec4(light.position, light.range),
+            .direction_inner_cos = Vec4(light.direction, 0.0F),
+            .color_intensity = Vec4(light.color, light.intensity),
+            .area_outer_ambient = Vec4(light.area_size.x, light.area_size.y, 0.0F, 0.0F),
+            .metadata = IVec4(static_cast<int>(OpenGlPackedLightType::Area), -1, 0, 0),
+        };
+    }
 
     static std::shared_ptr<OpenGlGBuffer> try_load_gbuffer(
         OpenGlResourceManager& resource_manager,
@@ -805,6 +873,136 @@ namespace tbx::plugins
             }
         }
 
+        // Step 7.5: Build packed light payload and upload tiled-culling/instancing SSBOs.
+        auto frame_packed_lights = std::vector<OpenGlPackedLightData> {};
+        frame_packed_lights.reserve(
+            frame_directional_lights.size() + frame_point_lights.size() + frame_spot_lights.size()
+            + frame_area_lights.size());
+        auto frame_local_light_indices = std::vector<uint32> {};
+        frame_local_light_indices.reserve(
+            frame_point_lights.size() + frame_spot_lights.size() + frame_area_lights.size());
+
+        for (const auto& directional_light : frame_directional_lights)
+            frame_packed_lights.push_back(pack_directional_light(directional_light));
+
+        const uint32 point_light_offset = static_cast<uint32>(frame_packed_lights.size());
+        for (const auto& point_light : frame_point_lights)
+            frame_packed_lights.push_back(pack_point_light(point_light));
+        for (uint32 index = 0U; index < frame_point_lights.size(); ++index)
+            frame_local_light_indices.push_back(point_light_offset + index);
+        const uint32 packed_point_light_count = static_cast<uint32>(frame_point_lights.size());
+
+        const uint32 spot_light_offset = static_cast<uint32>(frame_packed_lights.size());
+        for (const auto& spot_light : frame_spot_lights)
+            frame_packed_lights.push_back(pack_spot_light(spot_light));
+        for (uint32 index = 0U; index < frame_spot_lights.size(); ++index)
+            frame_local_light_indices.push_back(spot_light_offset + index);
+        const uint32 packed_spot_light_count = static_cast<uint32>(frame_spot_lights.size());
+
+        const uint32 area_light_offset = static_cast<uint32>(frame_packed_lights.size());
+        for (const auto& area_light : frame_area_lights)
+            frame_packed_lights.push_back(pack_area_light(area_light));
+        for (uint32 index = 0U; index < frame_area_lights.size(); ++index)
+            frame_local_light_indices.push_back(area_light_offset + index);
+        const uint32 packed_area_light_count = static_cast<uint32>(frame_area_lights.size());
+
+        if (_packed_lights_buffer == nullptr)
+            _packed_lights_buffer = std::make_unique<OpenGlStorageBuffer>();
+        if (_tile_headers_buffer == nullptr)
+            _tile_headers_buffer = std::make_unique<OpenGlStorageBuffer>();
+        if (_tile_light_indices_buffer == nullptr)
+            _tile_light_indices_buffer = std::make_unique<OpenGlStorageBuffer>();
+        if (_tile_overflow_counter_buffer == nullptr)
+            _tile_overflow_counter_buffer = std::make_unique<OpenGlStorageBuffer>();
+        if (_local_light_indices_buffer == nullptr)
+            _local_light_indices_buffer = std::make_unique<OpenGlStorageBuffer>();
+
+        if (!frame_packed_lights.empty())
+        {
+            _packed_lights_buffer->upload(
+                frame_packed_lights.data(),
+                frame_packed_lights.size() * sizeof(OpenGlPackedLightData));
+        }
+        else
+        {
+            const auto empty_light = OpenGlPackedLightData {};
+            _packed_lights_buffer->upload(&empty_light, sizeof(OpenGlPackedLightData));
+        }
+
+        const uint32 tile_count_x = divide_round_up(_render_resolution.width, _light_tile_size);
+        const uint32 tile_count_y = divide_round_up(_render_resolution.height, _light_tile_size);
+        const uint32 tile_count = tile_count_x * tile_count_y;
+        auto tile_headers = std::vector<OpenGlTileHeaderData>(tile_count);
+        for (uint32 tile_index = 0U; tile_index < tile_count; ++tile_index)
+        {
+            tile_headers[tile_index] = OpenGlTileHeaderData {
+                .offset = tile_index * _max_lights_per_tile,
+                .count = 0U,
+                .reserved_0 = 0U,
+                .reserved_1 = 0U,
+            };
+        }
+        if (!tile_headers.empty())
+            _tile_headers_buffer->upload(
+                tile_headers.data(),
+                tile_headers.size() * sizeof(OpenGlTileHeaderData));
+        else
+        {
+            const auto empty_header = OpenGlTileHeaderData {};
+            _tile_headers_buffer->upload(&empty_header, sizeof(OpenGlTileHeaderData));
+        }
+
+        const uint32 tile_light_index_count = tile_count * _max_lights_per_tile;
+        auto tile_indices = std::vector<uint32>(tile_light_index_count, 0U);
+        if (!tile_indices.empty())
+            _tile_light_indices_buffer->upload(
+                tile_indices.data(),
+                tile_indices.size() * sizeof(uint32));
+        else
+        {
+            const uint32 empty_index = 0U;
+            _tile_light_indices_buffer->upload(&empty_index, sizeof(uint32));
+        }
+
+        const uint32 overflow_counter = 0U;
+        _tile_overflow_counter_buffer->upload(&overflow_counter, sizeof(uint32));
+
+        if (!frame_local_light_indices.empty())
+        {
+            _local_light_indices_buffer->upload(
+                frame_local_light_indices.data(),
+                frame_local_light_indices.size() * sizeof(uint32));
+        }
+        else
+        {
+            const uint32 empty_local_index = 0U;
+            _local_light_indices_buffer->upload(&empty_local_index, sizeof(uint32));
+        }
+
+        if (_light_culling_shader_program == nullptr)
+        {
+            auto culling_program = ShaderProgram {};
+            culling_program.compute = Handle(Uuid(LIGHT_CULLING_SHADER_ID));
+            resource_manager.try_get_or_create_shader_program(
+                culling_program,
+                _light_culling_shader_program);
+        }
+
+        if (_local_light_volume_shader_program == nullptr)
+        {
+            auto local_volume_program = ShaderProgram {};
+            local_volume_program.vertex = Handle(Uuid(LOCAL_LIGHT_VOLUME_VERTEX_SHADER_ID));
+            local_volume_program.fragment = Handle(Uuid(LOCAL_LIGHT_VOLUME_FRAGMENT_SHADER_ID));
+            resource_manager.try_get_or_create_shader_program(
+                local_volume_program,
+                _local_light_volume_shader_program);
+        }
+
+        const bool is_compute_culling_enabled =
+            _is_compute_culling_enabled && (_light_culling_shader_program != nullptr);
+        const bool is_local_light_volume_enabled =
+            _is_local_light_volume_enabled && (_local_light_volume_shader_program != nullptr);
+
         // Step 8: Resolve the active sky and maintain pinned sky-resource ownership.
         auto sky_material = MaterialInstance {};
         auto sky_entity = Entity {};
@@ -907,11 +1105,32 @@ namespace tbx::plugins
             .camera_forward = camera_forward,
             .view_projection = view_projection,
             .inverse_view_projection = inverse_view_projection,
-            .directional_lights =
-                std::span<const OpenGlDirectionalLightData>(frame_directional_lights),
-            .point_lights = std::span<const OpenGlPointLightData>(frame_point_lights),
-            .spot_lights = std::span<const OpenGlSpotLightData>(frame_spot_lights),
-            .area_lights = std::span<const OpenGlAreaLightData>(frame_area_lights),
+            .packed_lights = std::span<const OpenGlPackedLightData>(frame_packed_lights),
+            .light_culling =
+                OpenGlLightCullingFrameData {
+                    .tile_size = _light_tile_size,
+                    .tile_count_x = divide_round_up(_render_resolution.width, _light_tile_size),
+                    .tile_count_y = divide_round_up(_render_resolution.height, _light_tile_size),
+                    .max_lights_per_tile = _max_lights_per_tile,
+                    .packed_light_count = static_cast<uint32>(frame_packed_lights.size()),
+                    .packed_lights_buffer_id = _packed_lights_buffer->get_buffer_id(),
+                    .tile_headers_buffer_id = _tile_headers_buffer->get_buffer_id(),
+                    .tile_light_indices_buffer_id = _tile_light_indices_buffer->get_buffer_id(),
+                    .tile_overflow_counter_buffer_id =
+                        _tile_overflow_counter_buffer->get_buffer_id(),
+                },
+            .local_light_volumes =
+                OpenGlLocalLightVolumeFrameData {
+                    .local_light_indices_buffer_id = _local_light_indices_buffer->get_buffer_id(),
+                    .point_light_count = packed_point_light_count,
+                    .spot_light_count = packed_spot_light_count,
+                    .area_light_count = packed_area_light_count,
+                },
+            .is_compute_culling_enabled = is_compute_culling_enabled,
+            .is_local_light_volume_enabled = is_local_light_volume_enabled,
+            .is_gpu_pass_timing_enabled = _is_gpu_pass_timing_enabled,
+            .light_culling_shader_program = _light_culling_shader_program.get(),
+            .local_light_volume_shader_program = _local_light_volume_shader_program.get(),
             .shadow_data =
                 OpenGlShadowFrameData {
                     .map_uuids = std::span<const Uuid>(frame_shadow_map_resources),
@@ -970,6 +1189,21 @@ namespace tbx::plugins
             reset_shadow_maps();
     }
 
+    void OpenGlRenderer::set_compute_culling_enabled(const bool is_enabled)
+    {
+        _is_compute_culling_enabled = is_enabled;
+    }
+
+    void OpenGlRenderer::set_local_light_volume_enabled(const bool is_enabled)
+    {
+        _is_local_light_volume_enabled = is_enabled;
+    }
+
+    void OpenGlRenderer::set_gpu_pass_timing_enabled(const bool is_enabled)
+    {
+        _is_gpu_pass_timing_enabled = is_enabled;
+    }
+
     void OpenGlRenderer::initialize()
     {
         auto major_version = GLVersion.major;
@@ -1001,6 +1235,17 @@ namespace tbx::plugins
         glDepthFunc(GL_LEQUAL);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glClearColor(0.07f, 0.08f, 0.11f, 1.0f);
+
+        if (_packed_lights_buffer == nullptr)
+            _packed_lights_buffer = std::make_unique<OpenGlStorageBuffer>();
+        if (_tile_headers_buffer == nullptr)
+            _tile_headers_buffer = std::make_unique<OpenGlStorageBuffer>();
+        if (_tile_light_indices_buffer == nullptr)
+            _tile_light_indices_buffer = std::make_unique<OpenGlStorageBuffer>();
+        if (_tile_overflow_counter_buffer == nullptr)
+            _tile_overflow_counter_buffer = std::make_unique<OpenGlStorageBuffer>();
+        if (_local_light_indices_buffer == nullptr)
+            _local_light_indices_buffer = std::make_unique<OpenGlStorageBuffer>();
     }
 
     void OpenGlRenderer::shutdown()
@@ -1015,6 +1260,13 @@ namespace tbx::plugins
             _resource_manager->unpin(_pinned_sky_resource);
         _pinned_sky_resource = Uuid::NONE;
         _deferred_lighting_resource = Uuid::NONE;
+        _light_culling_shader_program.reset();
+        _local_light_volume_shader_program.reset();
+        _packed_lights_buffer.reset();
+        _tile_headers_buffer.reset();
+        _tile_light_indices_buffer.reset();
+        _tile_overflow_counter_buffer.reset();
+        _local_light_indices_buffer.reset();
         reset_shadow_maps();
         _gbuffer_resource = Uuid::NONE;
         _lighting_framebuffer_resource = Uuid::NONE;
