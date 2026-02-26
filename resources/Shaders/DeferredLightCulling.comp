@@ -1,0 +1,100 @@
+#version 450 core
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+uniform vec2 u_screen_size = vec2(1.0);
+uniform int u_tile_size = 16;
+uniform int u_tile_count_x = 0;
+uniform int u_tile_count_y = 0;
+uniform int u_max_lights_per_tile = 256;
+uniform int u_packed_light_count = 0;
+uniform vec3 u_camera_position = vec3(0.0);
+uniform mat4 u_view_projection = mat4(1.0);
+
+const int LIGHT_TYPE_DIRECTIONAL = 0;
+
+struct PackedLight
+{
+    vec4 position_range;
+    vec4 direction_inner_cos;
+    vec4 color_intensity;
+    vec4 area_outer_ambient;
+    ivec4 metadata;
+};
+
+layout(std430, binding = 0) readonly buffer PackedLightBuffer
+{
+    PackedLight packed_lights[];
+};
+
+layout(std430, binding = 1) buffer TileHeaderBuffer
+{
+    uvec4 tile_headers[];
+};
+
+layout(std430, binding = 2) buffer TileLightIndexBuffer
+{
+    uint tile_light_indices[];
+};
+
+layout(std430, binding = 3) buffer TileOverflowCounterBuffer
+{
+    uint tile_overflow_counter;
+};
+
+bool intersects_tile(PackedLight light, vec2 tile_min, vec2 tile_max)
+{
+    if (light.metadata.x == LIGHT_TYPE_DIRECTIONAL)
+        return true;
+
+    vec3 light_position = light.position_range.xyz;
+    float light_range = max(light.position_range.w, 0.0);
+    if (light_range <= 0.00001)
+        return false;
+
+    vec4 clip = u_view_projection * vec4(light_position, 1.0);
+    if (clip.w <= 0.00001)
+        return false;
+
+    vec2 ndc = clip.xy / clip.w;
+    vec2 center_px = (ndc * 0.5 + 0.5) * u_screen_size;
+    float distance_to_camera = length(light_position - u_camera_position);
+    float radius_px = (light_range / max(distance_to_camera, 0.0001)) * (u_screen_size.y * 0.5);
+
+    vec2 closest = clamp(center_px, tile_min, tile_max);
+    vec2 delta = center_px - closest;
+    return dot(delta, delta) <= (radius_px * radius_px);
+}
+
+void main()
+{
+    ivec2 tile_coord = ivec2(gl_GlobalInvocationID.xy);
+    if (tile_coord.x >= u_tile_count_x || tile_coord.y >= u_tile_count_y)
+        return;
+
+    int tile_index = tile_coord.y * u_tile_count_x + tile_coord.x;
+    uint tile_offset = uint(tile_index) * uint(max(u_max_lights_per_tile, 1));
+    uint tile_count = 0U;
+
+    vec2 tile_min = vec2(tile_coord) * float(u_tile_size);
+    vec2 tile_max = tile_min + vec2(float(u_tile_size));
+
+    for (int light_index = 0; light_index < u_packed_light_count; ++light_index)
+    {
+        PackedLight light = packed_lights[light_index];
+        if (!intersects_tile(light, tile_min, tile_max))
+            continue;
+
+        if (tile_count < uint(u_max_lights_per_tile))
+        {
+            tile_light_indices[tile_offset + tile_count] = uint(light_index);
+            tile_count += 1U;
+        }
+        else
+        {
+            atomicAdd(tile_overflow_counter, 1U);
+        }
+    }
+
+    tile_headers[tile_index] = uvec4(tile_offset, tile_count, 0U, 0U);
+}
