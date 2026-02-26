@@ -551,19 +551,11 @@ vec3 evaluate_area_light(
     float specular_strength,
     float shininess)
 {
-    vec3 to_light = light.position_range.xyz - world_position;
-    float distance_to_light = length(to_light);
     float range = light.position_range.w;
-    if (distance_to_light >= range)
+    if (range <= 0.0)
         return vec3(0.0);
 
-    vec3 light_direction = to_light / max(distance_to_light, 0.0001);
     vec3 emission_axis = safe_normalize(light.direction_inner_cos.xyz, vec3(0.0, -1.0, 0.0));
-    vec3 light_to_fragment_direction = -light_direction;
-    float front_cos = dot(light_to_fragment_direction, emission_axis);
-    if (front_cos <= 0.0)
-        return vec3(0.0);
-
     vec3 tangent = vec3(1.0, 0.0, 0.0);
     vec3 bitangent = vec3(0.0, 0.0, 1.0);
     build_light_basis(emission_axis, tangent, bitangent);
@@ -574,19 +566,31 @@ vec3 evaluate_area_light(
     if (axis_distance < 0.0 || axis_distance > range)
         return vec3(0.0);
 
-    float normalized_tangent_distance = abs(dot(local_offset, tangent)) / half_size.x;
-    float normalized_bitangent_distance = abs(dot(local_offset, bitangent)) / half_size.y;
+    float tangent_distance = dot(local_offset, tangent);
+    float bitangent_distance = dot(local_offset, bitangent);
+    float normalized_tangent_distance = abs(tangent_distance) / half_size.x;
+    float normalized_bitangent_distance = abs(bitangent_distance) / half_size.y;
     if (normalized_tangent_distance >= 1.0 || normalized_bitangent_distance >= 1.0)
         return vec3(0.0);
 
-    float tangent_falloff = 1.0 - normalized_tangent_distance;
-    float bitangent_falloff = 1.0 - normalized_bitangent_distance;
-    float footprint = tangent_falloff * bitangent_falloff;
-    if (footprint <= 0.0)
+    vec3 closest_point = light.position_range.xyz + (tangent * tangent_distance)
+        + (bitangent * bitangent_distance);
+    vec3 to_light = closest_point - world_position;
+    float distance_to_light = length(to_light);
+    if (distance_to_light >= range)
         return vec3(0.0);
 
+    vec3 light_direction = to_light / max(distance_to_light, 0.0001);
+    vec3 light_to_fragment_direction = -light_direction;
+    float front_cos = dot(light_to_fragment_direction, emission_axis);
+    if (front_cos <= 0.0)
+        return vec3(0.0);
+
+    float edge_falloff = 1.0 - max(normalized_tangent_distance, normalized_bitangent_distance);
+    edge_falloff = edge_falloff * edge_falloff * (3.0 - (2.0 * edge_falloff));
+    float depth_falloff = 1.0 - clamp(axis_distance / range, 0.0, 1.0);
     float attenuation = calc_distance_attenuation(distance_to_light, range);
-    attenuation *= front_cos * footprint;
+    attenuation *= front_cos * edge_falloff * depth_falloff;
 
     vec3 direct = evaluate_lighting_brdf(
         normal,
