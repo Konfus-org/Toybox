@@ -56,6 +56,11 @@ namespace tbx::plugins
         return (numerator + denominator - 1U) / denominator;
     }
 
+    static bool is_valid_size(const Size& size)
+    {
+        return size.width > 0U && size.height > 0U;
+    }
+
     static OpenGlPackedLightData pack_directional_light(const OpenGlDirectionalLightData& light)
     {
         return OpenGlPackedLightData {
@@ -198,15 +203,15 @@ namespace tbx::plugins
 
     static Mat4 get_camera_view_projection(
         const OpenGlCameraView& camera_view,
-        const Size& render_resolution)
+        const Size& render_resolution,
+        const Vec3& camera_position,
+        const Quat& camera_rotation)
     {
         if (!camera_view.camera_entity.has_component<Camera>())
-            return Mat4(1.0f);
+            return Mat4(1.0F);
 
         auto& camera = camera_view.camera_entity.get_component<Camera>();
         camera.set_aspect(render_resolution.get_aspect_ratio());
-        auto camera_position = get_camera_world_position(camera_view);
-        auto camera_rotation = get_camera_world_rotation(camera_view);
         return camera.get_view_projection_matrix(camera_position, camera_rotation);
     }
 
@@ -272,6 +277,8 @@ namespace tbx::plugins
     static Mat4 build_directional_shadow_view_projection(
         const OpenGlCameraView& camera_view,
         const Size& render_resolution,
+        const Vec3& camera_position,
+        const Quat& camera_rotation,
         const Vec3& directional_light_direction,
         float shadow_near_plane,
         float shadow_far_plane,
@@ -280,8 +287,6 @@ namespace tbx::plugins
         const float safe_shadow_near_plane = std::max(0.001F, shadow_near_plane);
         const float safe_shadow_far_plane =
             std::max(safe_shadow_near_plane + 0.001F, shadow_far_plane);
-        auto camera_position = get_camera_world_position(camera_view);
-        auto camera_rotation = get_camera_world_rotation(camera_view);
         auto forward_axis = normalize(camera_rotation * Vec3(0.0F, 0.0F, -1.0F));
         auto right_axis = normalize(camera_rotation * Vec3(1.0F, 0.0F, 0.0F));
         auto up_axis = normalize(camera_rotation * Vec3(0.0F, 1.0F, 0.0F));
@@ -293,20 +298,20 @@ namespace tbx::plugins
         if (camera_view.camera_entity.has_component<Camera>())
         {
             auto& camera = camera_view.camera_entity.get_component<Camera>();
-            camera.set_aspect(render_resolution.get_aspect_ratio());
+            const float camera_aspect = std::max(render_resolution.get_aspect_ratio(), 0.001F);
 
             if (camera.is_perspective())
             {
                 const float tan_half_fov = std::tan(to_radians(camera.get_fov() * 0.5F));
                 near_half_height = tan_half_fov * safe_shadow_near_plane;
-                near_half_width = near_half_height * camera.get_aspect();
+                near_half_width = near_half_height * camera_aspect;
                 far_half_height = tan_half_fov * safe_shadow_far_plane;
-                far_half_width = far_half_height * camera.get_aspect();
+                far_half_width = far_half_height * camera_aspect;
             }
             else
             {
                 const float ortho_half_height = std::max(0.001F, camera.get_fov() * 0.5F);
-                const float ortho_half_width = ortho_half_height * camera.get_aspect();
+                const float ortho_half_width = ortho_half_height * camera_aspect;
                 near_half_height = ortho_half_height;
                 near_half_width = ortho_half_width;
                 far_half_height = ortho_half_height;
@@ -550,15 +555,21 @@ namespace tbx::plugins
         if (!make_current_result)
             return false;
 
-        // Step 2: Apply any queued render-resolution change once the context is current.
+        // Step 2: Validate sizing state and apply queued render-resolution changes.
+        if (!is_valid_size(_viewport_size))
+            return false;
+        if (!is_valid_size(_render_resolution))
+            set_render_resolution(_viewport_size);
         if (_pending_render_resolution.has_value())
         {
-            Size pending_resolution = _pending_render_resolution.value();
+            auto pending_resolution = _pending_render_resolution.value();
             set_render_resolution(pending_resolution);
             if (_render_resolution.width == pending_resolution.width
                 && _render_resolution.height == pending_resolution.height)
                 _pending_render_resolution = std::nullopt;
         }
+        if (!is_valid_size(_render_resolution))
+            return false;
 
         // Step 3: Resolve frame targets that the pipeline depends on.
         auto try_load_required_framebuffer = [&resource_manager](const Uuid& resource_uuid)
@@ -597,6 +608,7 @@ namespace tbx::plugins
             camera_view.in_view_dynamic_entities.push_back(entity);
 
         auto camera_world_position = get_camera_world_position(camera_view);
+        auto camera_world_rotation = get_camera_world_rotation(camera_view);
 
         // Step 6: Gather directional/local light inputs and select capped shadow casters.
         auto frame_directional_lights = std::vector<OpenGlDirectionalLightData> {};
@@ -835,6 +847,8 @@ namespace tbx::plugins
                 const auto shadow_matrix = build_directional_shadow_view_projection(
                     camera_view,
                     _render_resolution,
+                    camera_world_position,
+                    camera_world_rotation,
                     frame_directional_lights[directional_light_index].direction,
                     cascade_near_plane,
                     far_plane,
@@ -931,41 +945,27 @@ namespace tbx::plugins
 
         const uint32 tile_count_x = divide_round_up(_render_resolution.width, _light_tile_size);
         const uint32 tile_count_y = divide_round_up(_render_resolution.height, _light_tile_size);
-        const uint32 tile_count = tile_count_x * tile_count_y;
-        auto tile_headers = std::vector<OpenGlTileHeaderData>(tile_count);
-        for (uint32 tile_index = 0U; tile_index < tile_count; ++tile_index)
-        {
-            tile_headers[tile_index] = OpenGlTileHeaderData {
-                .offset = tile_index * _max_lights_per_tile,
-                .count = 0U,
-                .reserved_0 = 0U,
-                .reserved_1 = 0U,
-            };
-        }
-        if (!tile_headers.empty())
-            _tile_headers_buffer->upload(
-                tile_headers.data(),
-                tile_headers.size() * sizeof(OpenGlTileHeaderData));
-        else
-        {
-            const auto empty_header = OpenGlTileHeaderData {};
-            _tile_headers_buffer->upload(&empty_header, sizeof(OpenGlTileHeaderData));
-        }
+        const uint64 tile_count_u64 = static_cast<uint64>(tile_count_x) * tile_count_y;
+        const uint64 tile_light_index_count_u64 = tile_count_u64 * _max_lights_per_tile;
+        const uint64 max_u32_value = std::numeric_limits<uint32>::max();
+        TBX_ASSERT(
+            tile_count_u64 <= max_u32_value && tile_light_index_count_u64 <= max_u32_value,
+            "OpenGL rendering: light-tile dimensions overflowed 32-bit indexing.");
+        if (tile_count_u64 > max_u32_value || tile_light_index_count_u64 > max_u32_value)
+            return false;
 
-        const uint32 tile_light_index_count = tile_count * _max_lights_per_tile;
-        auto tile_indices = std::vector<uint32>(tile_light_index_count, 0U);
-        if (!tile_indices.empty())
-            _tile_light_indices_buffer->upload(
-                tile_indices.data(),
-                tile_indices.size() * sizeof(uint32));
-        else
-        {
-            const uint32 empty_index = 0U;
-            _tile_light_indices_buffer->upload(&empty_index, sizeof(uint32));
-        }
-
-        const uint32 overflow_counter = 0U;
-        _tile_overflow_counter_buffer->upload(&overflow_counter, sizeof(uint32));
+        const uint32 tile_count = static_cast<uint32>(tile_count_u64);
+        const uint32 tile_light_index_count = static_cast<uint32>(tile_light_index_count_u64);
+        const size_t tile_header_bytes =
+            std::max(static_cast<size_t>(1U), static_cast<size_t>(tile_count))
+            * sizeof(OpenGlTileHeaderData);
+        _tile_headers_buffer->ensure_capacity(tile_header_bytes);
+        const size_t tile_index_bytes =
+            std::max(static_cast<size_t>(1U), static_cast<size_t>(tile_light_index_count))
+            * sizeof(uint32);
+        _tile_light_indices_buffer->ensure_capacity(tile_index_bytes);
+        _tile_overflow_counter_buffer->ensure_capacity(sizeof(uint32));
+        _tile_overflow_counter_buffer->clear_u32(0U);
 
         if (!frame_local_light_indices.empty())
         {
@@ -1000,8 +1000,10 @@ namespace tbx::plugins
 
         const bool is_compute_culling_enabled =
             _is_compute_culling_enabled && (_light_culling_shader_program != nullptr);
+        const bool is_area_light_volume_fallback_required = packed_area_light_count > 0U;
         const bool is_local_light_volume_enabled =
-            _is_local_light_volume_enabled && (_local_light_volume_shader_program != nullptr);
+            _is_local_light_volume_enabled && (_local_light_volume_shader_program != nullptr)
+            && !is_area_light_volume_fallback_required;
 
         // Step 8: Resolve the active sky and maintain pinned sky-resource ownership.
         auto sky_material = MaterialInstance {};
@@ -1084,9 +1086,12 @@ namespace tbx::plugins
             .owner_entity = post_process_owner_entity,
             .effects = std::span<const OpenGlPostProcessEffect>(resolved_post_processing.effects),
         };
-        const auto camera_forward =
-            normalize(get_camera_world_rotation(camera_view) * Vec3(0.0F, 0.0F, -1.0F));
-        auto view_projection = get_camera_view_projection(camera_view, _render_resolution);
+        const auto camera_forward = normalize(camera_world_rotation * Vec3(0.0F, 0.0F, -1.0F));
+        auto view_projection = get_camera_view_projection(
+            camera_view,
+            _render_resolution,
+            camera_world_position,
+            camera_world_rotation);
         auto inverse_view_projection = inverse(view_projection);
 
         auto frame_context = OpenGlRenderFrameContext {

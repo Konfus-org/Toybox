@@ -145,6 +145,7 @@ namespace tbx::plugins
             }
 
             glEnable(GL_CULL_FACE);
+            glCullFace(GL_BACK);
         }
 
         void draw_entity(

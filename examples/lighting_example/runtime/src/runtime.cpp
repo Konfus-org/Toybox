@@ -16,9 +16,9 @@ namespace tbx::examples
 {
     static constexpr float DIRECTIONAL_LIGHT_ENABLED_INTENSITY = 1.5F;
     static constexpr float DIRECTIONAL_LIGHT_ENABLED_AMBIENT = 0.15F;
-    static constexpr float POINT_LIGHT_ENABLED_INTENSITY = 6.0F;
-    static constexpr float SPOT_LIGHT_ENABLED_INTENSITY = 40.0F;
-    static constexpr float AREA_LIGHT_ENABLED_INTENSITY = 55.0F;
+    static constexpr float POINT_LIGHT_ENABLED_INTENSITY = 2.0F;
+    static constexpr float SPOT_LIGHT_ENABLED_INTENSITY = 4.0F;
+    static constexpr float AREA_LIGHT_ENABLED_INTENSITY = 5.0F;
 
     static InputAction create_key_toggle_action(
         const std::string& action_name,

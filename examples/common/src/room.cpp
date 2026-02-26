@@ -64,20 +64,11 @@ namespace tbx::examples
 
     void Room::destroy()
     {
-        if (_ground.get_id().is_valid())
-            _ground.destroy();
-
-        if (_front_wall.get_id().is_valid())
-            _front_wall.destroy();
-
-        if (_left_wall.get_id().is_valid())
-            _left_wall.destroy();
-
-        if (_right_wall.get_id().is_valid())
-            _right_wall.destroy();
-
-        if (_back_wall.get_id().is_valid())
-            _back_wall.destroy();
+        _ground.destroy();
+        _front_wall.destroy();
+        _left_wall.destroy();
+        _right_wall.destroy();
+        _back_wall.destroy();
 
         _ground = {};
         _front_wall = {};
