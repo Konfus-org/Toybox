@@ -8,6 +8,11 @@ namespace tbx
         , _report(std::make_shared<std::string>())
     {
     }
+    Result::Result(bool success, std::string report)
+    {
+        _success = std::make_shared<bool>(success);
+        _report = std::make_shared<std::string>(std::move(report));
+    }
 
     bool Result::succeeded() const
     {

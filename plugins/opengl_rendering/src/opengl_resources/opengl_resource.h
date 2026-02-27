@@ -1,8 +1,9 @@
 #pragma once
 #include "tbx/tbx_api.h"
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
+    using namespace tbx;
     /// <summary>Base interface for OpenGL resources that can be bound/unbound.</summary>
     /// <remarks>Purpose: Provides a common contract for binding OpenGL state.
     /// Ownership: Implementations own their underlying OpenGL handles.

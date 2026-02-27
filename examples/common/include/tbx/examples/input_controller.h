@@ -2,8 +2,9 @@
 #include "tbx/input/input_manager.h"
 #include <string>
 
-namespace tbx::examples
+namespace example_common
 {
+    using namespace tbx;
     /// <summary>
     /// Purpose: Shares input-manager scheme binding and lookup behavior for runtime controllers.
     /// </summary>

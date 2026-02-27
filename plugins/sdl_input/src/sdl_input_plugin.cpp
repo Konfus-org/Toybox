@@ -1,8 +1,9 @@
 #include "sdl_input_plugin.h"
 #include "tbx/debugging/macros.h"
 
-namespace tbx::plugins
+namespace sdl_input
 {
+    using namespace tbx;
     void SdlInputPlugin::on_attach(IPluginHost&)
     {
         const Uint32 mask = SDL_INIT_GAMEPAD;

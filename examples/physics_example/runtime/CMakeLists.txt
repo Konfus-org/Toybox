@@ -12,7 +12,7 @@ target_link_libraries(PhysicsExampleRuntime PRIVATE
 
 tbx_register_plugin(
     TARGET PhysicsExampleRuntime
-    CLASS tbx::examples::PhysicsExampleRuntimePlugin
+    CLASS physics_example::PhysicsExampleRuntimePlugin
     HEADER "runtime.h"
     NAME "PhysicsExampleRuntime"
     VERSION "1.0.0"

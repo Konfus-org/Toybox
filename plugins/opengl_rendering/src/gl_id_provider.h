@@ -1,10 +1,10 @@
 ﻿#pragma once
 #include "tbx/common/int.h"
 #include "tbx/common/uuid.h"
-#include "tbx/tbx_api.h"
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
+    using namespace tbx;
     /// <summary>Provides OpenGL cache keys for Toybox identifiers.</summary>
     /// <remarks>
     /// Purpose: Centralizes ID translation rules between TBX assets and OpenGL caches.

@@ -5,8 +5,9 @@
 #include <string>
 #include <vector>
 
-namespace tbx::examples
+namespace example_common
 {
+    using namespace tbx;
     void FreeLookCameraController::initialize(
         Entity camera,
         const FreeLookCameraControllerSettings& settings)

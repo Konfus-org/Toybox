@@ -1,6 +1,6 @@
+#include "../src/glsl_shader_loader_plugin.h"
 #include "pch.h"
 #include "tbx/plugin_api/tests/importer_test_environment.h"
-#include "../src/glsl_shader_loader_plugin.h"
 
 namespace tbx::tests::plugin_api
 {
@@ -20,7 +20,7 @@ namespace tbx::tests::plugin_api
 void main() {}
 )");
         file_ops->set_text("Globals.glsl", "vec3 make_color(){ return vec3(1.0); }\n");
-        plugins::GlslShaderLoaderPlugin plugin = {};
+        glsl_shader_loader::GlslShaderLoaderPlugin plugin = {};
         plugin.set_file_ops(file_ops);
         plugin.attach(host);
         Shader shader = {};
@@ -52,7 +52,7 @@ void main() {}
 void main() { uint x = make_index(); }
 )");
         file_ops->set_text("Common.glsl", "uint make_index(){ return 0u; }\n");
-        plugins::GlslShaderLoaderPlugin plugin = {};
+        glsl_shader_loader::GlslShaderLoaderPlugin plugin = {};
         plugin.set_file_ops(file_ops);
         plugin.attach(host);
         Shader shader = {};

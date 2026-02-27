@@ -7,8 +7,9 @@
 #include "tbx/math/trig.h"
 #include <cmath>
 
-namespace tbx::examples
+namespace example_common
 {
+    using namespace tbx;
     void PlayerController::initialize(
         EntityRegistry& entity_registry,
         InputManager& input_manager,

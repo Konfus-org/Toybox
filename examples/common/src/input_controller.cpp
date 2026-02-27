@@ -1,8 +1,9 @@
 #include "tbx/examples/input_controller.h"
 #include "tbx/debugging/macros.h"
 
-namespace tbx::examples
+namespace example_common
 {
+    using namespace tbx;
     void InputController::bind_input_context(
         InputManager& input_manager,
         const std::string& scheme_name)

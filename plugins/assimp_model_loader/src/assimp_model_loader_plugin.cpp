@@ -15,8 +15,9 @@
 #include <string>
 #include <vector>
 
-namespace tbx::plugins
+namespace assimp_model_loader
 {
+    using namespace tbx;
     // Formats a readable failure message for load errors.
     static std::string build_load_failure_message(
         const std::filesystem::path& path,

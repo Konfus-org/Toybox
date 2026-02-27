@@ -16,7 +16,7 @@ target_link_libraries(${plugin_name} PRIVATE
 
 tbx_register_plugin(
     TARGET ${plugin_name}
-    CLASS tbx::plugins::StbImageLoaderPlugin
+    CLASS stb_image_loader::StbImageLoaderPlugin
     HEADER "stb_image_loader_plugin.h"
     NAME "${plugin_name}"
     VERSION "1.0.0"

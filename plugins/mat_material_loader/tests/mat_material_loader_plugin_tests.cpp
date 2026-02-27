@@ -1,6 +1,6 @@
+#include "../src/mat_material_loader_plugin.h"
 #include "pch.h"
 #include "tbx/plugin_api/tests/importer_test_environment.h"
-#include "../src/mat_material_loader_plugin.h"
 
 namespace tbx::tests::plugin_api
 {
@@ -21,7 +21,7 @@ namespace tbx::tests::plugin_api
   "parameters": [{ "name": "roughness", "type": "float", "value": 0.4 }]
 }
 )");
-        plugins::MatMaterialLoaderPlugin plugin = {};
+        mat_material_loader::MatMaterialLoaderPlugin plugin = {};
         plugin.set_file_ops(file_ops);
         plugin.attach(host);
         Material material = {};
@@ -53,7 +53,7 @@ namespace tbx::tests::plugin_api
   "shaders": { "compute": "303" }
 }
 )");
-        plugins::MatMaterialLoaderPlugin plugin = {};
+        mat_material_loader::MatMaterialLoaderPlugin plugin = {};
         plugin.set_file_ops(file_ops);
         plugin.attach(host);
         Material material = {};

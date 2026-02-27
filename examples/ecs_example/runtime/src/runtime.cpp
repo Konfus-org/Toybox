@@ -10,8 +10,9 @@
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
 
-namespace tbx::examples
+namespace ecs_example
 {
+    using namespace tbx;
     void ExampleRuntimePlugin::on_attach(IPluginHost& context)
     {
         auto& ent_registry = context.get_entity_registry();

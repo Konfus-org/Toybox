@@ -12,8 +12,9 @@
 #include <unordered_set>
 #include <vector>
 
-namespace tbx::plugins
+namespace glsl_shader_loader
 {
+    using namespace tbx;
     struct ShaderLoadResult
     {
       public:

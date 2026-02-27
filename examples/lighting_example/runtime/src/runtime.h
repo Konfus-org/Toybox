@@ -5,8 +5,9 @@
 #include "tbx/plugin_api/plugin.h"
 #include <vector>
 
-namespace tbx::examples
+namespace lighting_example
 {
+    using namespace tbx;
     /// <summary>
     /// Purpose: Showcases directional, point, spot, and area lights with animated motion and color.
     /// </summary>
@@ -49,8 +50,8 @@ namespace tbx::examples
         void rebuild_stress_lights(uint32 light_count);
         void clear_stress_lights();
 
-        FreeLookCameraController _camera_controller = {};
-        Room _room = {};
+        example_common::FreeLookCameraController _camera_controller = {};
+        example_common::Room _room = {};
 
         Entity _directional_light = {};
         Entity _point_light = {};

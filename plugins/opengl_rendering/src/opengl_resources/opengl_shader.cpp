@@ -7,8 +7,9 @@
 #include <type_traits>
 #include <variant>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
+    using namespace tbx;
     static GLenum to_gl_shader_type(ShaderType type)
     {
         switch (type)

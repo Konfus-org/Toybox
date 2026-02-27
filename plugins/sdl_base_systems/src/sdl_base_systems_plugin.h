@@ -2,8 +2,9 @@
 #include "tbx/plugin_api/plugin.h"
 #include <SDL3/SDL_log.h>
 
-namespace tbx::plugins
+namespace sdl_base_systems
 {
+    using namespace tbx;
     /// <summary>Initializes shared SDL subsystems used by other plugins.</summary>
     /// <remarks>Purpose: Owns SDL initialization for core SDL subsystems used engine-wide.
     /// Ownership: Owns the SDL subsystems it initializes and shuts them down on detach.

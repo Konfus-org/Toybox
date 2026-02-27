@@ -9,8 +9,9 @@
 #include <unordered_set>
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
+    using namespace tbx;
     /// <summary>OpenGL implementation of a shader stage resource.</summary>
     /// <remarks>Purpose: Compiles shader source into an OpenGL shader object.
     /// Ownership: Owns the OpenGL shader identifier.

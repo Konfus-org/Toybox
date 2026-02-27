@@ -12,7 +12,7 @@ target_link_libraries(AssetExampleRuntime PRIVATE
 
 tbx_register_plugin(
     TARGET AssetExampleRuntime
-    CLASS tbx::examples::AssetExampleRuntimePlugin
+    CLASS asset_example::AssetExampleRuntimePlugin
     HEADER "runtime.h"
     NAME "AssetExampleRuntime"
     VERSION "1.0.0"

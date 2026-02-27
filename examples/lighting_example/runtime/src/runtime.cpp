@@ -12,8 +12,9 @@
 #include <cmath>
 #include <string>
 
-namespace tbx::examples
+namespace lighting_example
 {
+    using namespace tbx;
     static constexpr float DIRECTIONAL_LIGHT_ENABLED_INTENSITY = 1.5F;
     static constexpr float DIRECTIONAL_LIGHT_ENABLED_AMBIENT = 0.15F;
     static constexpr float POINT_LIGHT_ENABLED_INTENSITY = 2.0F;
@@ -124,7 +125,7 @@ namespace tbx::examples
 
         _room.create(
             ent_registry,
-            RoomSettings {
+            example_common::RoomSettings {
                 .center = Vec3(0.0F, -1.0F, 0.0F),
                 .include_colliders = true,
             });
@@ -244,7 +245,7 @@ namespace tbx::examples
         _camera_controller.initialize(
             camera,
             input_manager,
-            FreeLookCameraControllerSettings {
+            example_common::FreeLookCameraControllerSettings {
                 .initial_yaw = 0.0F,
                 .initial_pitch = to_radians(-10.0F),
                 .move_speed = 6.0F,

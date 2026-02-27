@@ -1,8 +1,9 @@
 #include "tbx/plugins/sdl_opengl_adapter/sdl_open_gl_adapter.h"
 #include "tbx/debugging/macros.h"
 
-namespace tbx::plugins
+namespace sdl_opengl_adapter
 {
+    using namespace tbx;
     static void set_opengl_attribute(SDL_GLAttr attribute, int value)
     {
         if (!SDL_GL_SetAttribute(attribute, value))

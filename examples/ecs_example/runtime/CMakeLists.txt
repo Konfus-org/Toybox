@@ -11,7 +11,7 @@ target_link_libraries(EcsExampleRuntime PRIVATE
 
 tbx_register_plugin(
     TARGET EcsExampleRuntime
-    CLASS tbx::examples::ExampleRuntimePlugin
+    CLASS ecs_example::ExampleRuntimePlugin
     HEADER "runtime.h"
     NAME "EcsExampleRuntime"
     VERSION "1.0.0"

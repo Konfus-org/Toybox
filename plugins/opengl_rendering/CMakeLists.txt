@@ -16,7 +16,7 @@ target_link_libraries(${plugin_name} PRIVATE
 
 tbx_register_plugin(
     TARGET ${plugin_name}
-    CLASS tbx::plugins::OpenGlRenderingPlugin
+    CLASS opengl_rendering::OpenGlRenderingPlugin
     HEADER "opengl_rendering_plugin.h"
     NAME "${plugin_name}"
     VERSION "1.0.0"

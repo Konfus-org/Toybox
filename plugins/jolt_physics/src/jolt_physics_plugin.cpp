@@ -37,8 +37,9 @@
 #include <unordered_set>
 #include <vector>
 
-namespace tbx::plugins
+namespace jolt_physics
 {
+    using namespace tbx;
     static constexpr std::string_view PHYSICS_THREAD_LANE_NAME = "physics";
     static constexpr JPH::ObjectLayer object_layer_static = 0;
     static constexpr JPH::ObjectLayer object_layer_moving = 1;

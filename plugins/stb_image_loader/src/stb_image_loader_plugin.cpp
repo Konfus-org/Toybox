@@ -9,8 +9,9 @@
 #include <string>
 #include <vector>
 
-namespace tbx::plugins
+namespace stb_image_loader
 {
+    using namespace tbx;
     static bool try_parse_texture_settings(const Json& data, TextureSettings& out_settings)
     {
         auto texture_data = Json();

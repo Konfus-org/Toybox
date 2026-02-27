@@ -10,8 +10,9 @@
 #include <string_view>
 #include <vector>
 
-namespace tbx::plugins
+namespace mat_material_loader
 {
+    using namespace tbx;
     static std::string build_load_failure_message(
         const std::filesystem::path& path,
         std::string_view reason)

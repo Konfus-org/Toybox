@@ -4,8 +4,9 @@
 #include "tbx/plugin_api/plugin.h"
 #include <filesystem>
 
-namespace tbx::plugins
+namespace assimp_model_loader
 {
+    using namespace tbx;
     /// <summary>
     /// Purpose: Loads model assets into Model payloads using Assimp.
     /// </summary>

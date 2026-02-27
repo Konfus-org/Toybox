@@ -16,8 +16,9 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace tbx::plugins
+namespace jolt_physics
 {
+    using namespace tbx;
     /// <summary>Runs rigid-body simulation for entities that contain Physics and Transform
     /// components and supports collider-only entities as static collision bodies.</summary>
     /// <remarks>Purpose: Owns the Jolt world used by this plugin and synchronizes ECS component

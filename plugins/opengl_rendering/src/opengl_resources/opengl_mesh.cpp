@@ -2,8 +2,9 @@
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
+    using namespace tbx;
     OpenGlMesh::OpenGlMesh(const Mesh& mesh)
     {
         glCreateVertexArrays(1, &_vertex_array_id);
@@ -22,9 +23,7 @@ namespace tbx::plugins
     void OpenGlMesh::set_vertex_buffer(const VertexBuffer& buffer)
     {
         glBindVertexArray(_vertex_array_id);
-        TBX_ASSERT(
-            !buffer.vertices.empty(),
-            "OpenGL rendering: vertex buffer must not be empty.");
+        TBX_ASSERT(!buffer.vertices.empty(), "OpenGL rendering: vertex buffer must not be empty.");
         TBX_ASSERT(
             !buffer.layout.elements.empty(),
             "OpenGL rendering: vertex buffer layout must not be empty.");
@@ -35,26 +34,13 @@ namespace tbx::plugins
     void OpenGlMesh::set_index_buffer(const IndexBuffer& buffer)
     {
         glBindVertexArray(_vertex_array_id);
-        TBX_ASSERT(
-            !buffer.empty(),
-            "OpenGL rendering: index buffer must not be empty.");
+        TBX_ASSERT(!buffer.empty(), "OpenGL rendering: index buffer must not be empty.");
         _index_buffer.bind();
         _index_buffer.upload(buffer);
     }
 
-    void OpenGlMesh::draw(bool draw_patches)
+    void OpenGlMesh::draw()
     {
-        if (draw_patches)
-        {
-            glPatchParameteri(GL_PATCH_VERTICES, 3);
-            glDrawElements(
-                GL_PATCHES,
-                static_cast<GLsizei>(_index_buffer.get_count()),
-                GL_UNSIGNED_INT,
-                nullptr);
-            return;
-        }
-
         glDrawElements(
             GL_TRIANGLES,
             static_cast<GLsizei>(_index_buffer.get_count()),
@@ -62,22 +48,10 @@ namespace tbx::plugins
             nullptr);
     }
 
-    void OpenGlMesh::draw_instanced(uint32 instance_count, bool draw_patches)
+    void OpenGlMesh::draw_instanced(uint32 instance_count)
     {
         if (instance_count == 0)
             return;
-
-        if (draw_patches)
-        {
-            glPatchParameteri(GL_PATCH_VERTICES, 3);
-            glDrawElementsInstanced(
-                GL_PATCHES,
-                static_cast<GLsizei>(_index_buffer.get_count()),
-                GL_UNSIGNED_INT,
-                nullptr,
-                static_cast<GLsizei>(instance_count));
-            return;
-        }
 
         glDrawElementsInstanced(
             GL_TRIANGLES,

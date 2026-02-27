@@ -13,8 +13,9 @@
 #include <cmath>
 #include <string>
 
-namespace tbx::examples
+namespace physics_example
 {
+    using namespace tbx;
     void PhysicsExampleRuntimePlugin::on_attach(IPluginHost& host)
     {
         auto& ent_registry = host.get_entity_registry();
@@ -34,7 +35,7 @@ namespace tbx::examples
         _camera_controller.initialize(
             camera,
             input_manager,
-            FreeLookCameraControllerSettings {
+            example_common::FreeLookCameraControllerSettings {
                 .initial_yaw = 0.0F,
                 .initial_pitch = to_radians(-8.0F),
                 .move_speed = 6.0F,
@@ -42,7 +43,7 @@ namespace tbx::examples
 
         _room.create(
             ent_registry,
-            RoomSettings {
+            example_common::RoomSettings {
                 .center = Vec3(0.0F, 0.0F, 0.0F),
                 .include_colliders = true,
             });

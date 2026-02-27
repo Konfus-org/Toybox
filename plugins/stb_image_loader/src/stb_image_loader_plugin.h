@@ -6,8 +6,9 @@
 #include <filesystem>
 #include <memory>
 
-namespace tbx::plugins
+namespace stb_image_loader
 {
+    using namespace tbx;
     /// <summary>
     /// Purpose: Loads texture assets into Texture payloads using stb_image.
     /// </summary>

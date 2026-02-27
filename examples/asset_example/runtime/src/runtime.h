@@ -4,8 +4,9 @@
 #include "tbx/examples/room.h"
 #include "tbx/plugin_api/plugin.h"
 
-namespace tbx::examples
+namespace asset_example
 {
+    using namespace tbx;
     /// <summary>
     /// Runtime plugin that loads the asset scene and drives camera controls using input actions.
     /// </summary>
@@ -51,7 +52,7 @@ namespace tbx::examples
       private:
         Entity _cube = {};
         Entity _sun = {};
-        FreeLookCameraController _camera_controller = {};
-        Room _room = {};
+        example_common::FreeLookCameraController _camera_controller = {};
+        example_common::Room _room = {};
     };
 }

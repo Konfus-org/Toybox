@@ -1,17 +1,23 @@
 #pragma once
 #include "tbx/graphics/messages.h"
+#include "tbx/plugin_api/plugin_export.h"
 #include <SDL3/SDL.h>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-namespace tbx::plugins
+#ifndef TBX_SDL_OPEN_GL_ADAPTER_PLUGIN_EXPORTS
+    #define TBX_SDL_OPEN_GL_ADAPTER_PLUGIN_EXPORTS 0
+#endif
+
+namespace sdl_opengl_adapter
 {
+    using namespace tbx;
     /// <summary>Settings that control SDL OpenGL context creation and behavior.</summary>
     /// <remarks>Purpose: Captures OpenGL-specific configuration for SDL-backed windows.
     /// Ownership: Value type; callers own their instances.
     /// Thread Safety: Safe to copy; values are immutable unless explicitly reassigned.</remarks>
-    struct SdlOpenGlAdapterSettings
+    struct TBX_PLUGIN_INCLUDE_API(TBX_SDL_OPEN_GL_ADAPTER_PLUGIN_EXPORTS) SdlOpenGlAdapterSettings
     {
         int major_version = 4;
         int minor_version = 5;
@@ -27,7 +33,7 @@ namespace tbx::plugins
     /// Ownership: Owns one SDL_GLContext per tracked SDL window and releases them on destruction.
     /// Thread Safety: Not thread-safe; expected to be used from the render/main thread that owns
     /// the SDL contexts.</remarks>
-    class SdlOpenGlAdapter final
+    class TBX_PLUGIN_INCLUDE_API(TBX_SDL_OPEN_GL_ADAPTER_PLUGIN_EXPORTS) SdlOpenGlAdapter final
     {
       public:
         explicit SdlOpenGlAdapter(const SdlOpenGlAdapterSettings& settings);

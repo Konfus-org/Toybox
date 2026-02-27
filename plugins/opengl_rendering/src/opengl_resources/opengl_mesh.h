@@ -5,8 +5,9 @@
 #include "tbx/graphics/mesh.h"
 #include "tbx/tbx_api.h"
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
+    using namespace tbx;
     /// <summary>OpenGL implementation of a mesh resource.</summary>
     /// <remarks>Purpose: Manages a VAO with vertex and index buffers for drawing.
     /// Ownership: Owns the VAO and associated buffers.
@@ -42,13 +43,13 @@ namespace tbx::plugins
         /// <remarks>Purpose: Draws indexed triangles or patches for the mesh.
         /// Ownership: Does not transfer ownership of any resources.
         /// Thread Safety: Call only on the render thread.</remarks>
-        void draw(bool draw_patches = false);
+        void draw();
 
         /// <summary>Issues an instanced draw call for the mesh.</summary>
         /// <remarks>Purpose: Draws indexed triangles or patches across multiple instances.
         /// Ownership: Does not transfer ownership of any resources.
         /// Thread Safety: Call only on the render thread.</remarks>
-        void draw_instanced(uint32 instance_count, bool draw_patches = false);
+        void draw_instanced(uint32 instance_count);
 
         /// <summary>Binds the mesh's VAO and buffers.</summary>
         /// <remarks>Purpose: Binds the VAO and buffers for rendering.

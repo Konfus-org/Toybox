@@ -3,8 +3,9 @@
 #include "tbx/examples/input_controller.h"
 #include "tbx/time/delta_time.h"
 
-namespace tbx::examples
+namespace example_common
 {
+    using namespace tbx;
     /// <summary>Configuration values used when initializing a free-look camera
     /// controller.</summary> <remarks> Purpose: Defines movement, look, and startup orientation
     /// values for camera control. Ownership: Value type copied by the controller; no external

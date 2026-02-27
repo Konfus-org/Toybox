@@ -7,8 +7,9 @@
 #include <memory>
 #include <unordered_map>
 
-namespace tbx::plugins
+namespace sdl_opengl_adapter
 {
+    using namespace tbx;
     /// <summary>Hosts SDL/OpenGL adapter code as a standalone plugin module.</summary>
     /// <remarks>Purpose: Packages SDL OpenGL bridging utilities into a dedicated plugin for reuse.
     /// Ownership: Owns no persistent resources by default.

@@ -5,8 +5,9 @@
 #include <string>
 #include <vector>
 
-namespace tbx::plugins
+namespace sdl_opengl_adapter
 {
+    using namespace tbx;
     static SdlOpenGlAdapterSettings get_default_open_gl_settings(bool vsync_enabled)
     {
         SdlOpenGlAdapterSettings settings = {};

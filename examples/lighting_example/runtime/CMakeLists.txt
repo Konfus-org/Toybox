@@ -11,7 +11,7 @@ target_link_libraries(LightingExampleRuntime PRIVATE
 
 tbx_register_plugin(
     TARGET LightingExampleRuntime
-    CLASS tbx::examples::LightingExampleRuntimePlugin
+    CLASS lighting_example::LightingExampleRuntimePlugin
     HEADER "runtime.h"
     NAME "LightingExampleRuntime"
     VERSION "1.0.0"

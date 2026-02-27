@@ -7,8 +7,9 @@
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
 
-namespace tbx::examples
+namespace asset_example
 {
+    using namespace tbx;
     void AssetExampleRuntimePlugin::on_attach(IPluginHost& host)
     {
         auto& ent_registry = host.get_entity_registry();
@@ -33,7 +34,7 @@ namespace tbx::examples
 
         _room.create(
             ent_registry,
-            RoomSettings {
+            example_common::RoomSettings {
                 .center = Vec3(0.0F, -2.0F, -5.0F),
                 .include_colliders = true,
             });
@@ -67,7 +68,7 @@ namespace tbx::examples
         _camera_controller.initialize(
             camera,
             input_manager,
-            FreeLookCameraControllerSettings {
+            example_common::FreeLookCameraControllerSettings {
                 .initial_yaw = 0.0F,
                 .initial_pitch = 0.0F,
                 .move_speed = 6.0F,

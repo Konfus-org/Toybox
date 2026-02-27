@@ -7,8 +7,9 @@
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
 
-namespace tbx::examples
+namespace input_example
 {
+    using namespace tbx;
     void InputExampleRuntimePlugin::on_attach(IPluginHost& host)
     {
         auto& ent_registry = host.get_entity_registry();
@@ -41,7 +42,7 @@ namespace tbx::examples
             ent_registry,
             input_manager,
             "InputExample.Camera",
-            PlayerControllerSettings {
+            example_common::PlayerControllerSettings {
                 .player_spawn_position = Vec3(0.0F, 0.01F, 0.0F),
                 .visual_local_position = Vec3(0.0F, 1.0F, 0.0F),
                 .visual_local_scale = Vec3(1.5F, 2.0F, 1.5F),

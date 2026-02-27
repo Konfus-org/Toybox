@@ -4,8 +4,9 @@
 #include "tbx/math/matrices.h"
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
+    using namespace tbx;
     /// <summary>
     /// Purpose: Stores OpenGL-resolved data for a model part.
     /// </summary>

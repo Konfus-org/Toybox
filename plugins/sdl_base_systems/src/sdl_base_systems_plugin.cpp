@@ -2,8 +2,9 @@
 #include "tbx/debugging/macros.h"
 #include <SDL3/SDL.h>
 
-namespace tbx::plugins
+namespace sdl_base_systems
 {
+    using namespace tbx;
     static void sdl_log_callback(
         void* userdata,
         int category,
@@ -29,14 +30,19 @@ namespace tbx::plugins
         /*else if (priority == SDL_LOG_PRIORITY_INFO)
         {
             const char* text =
-                (message && *message) ? message : "SDL reported an info message without details.";
-            TBX_TRACE_INFO("SDL info (category {}): {}", category, text);
+
+         * (message && *message) ? message : "SDL reported an info message without details.";
+
+         * TBX_TRACE_INFO("SDL info (category {}): {}", category, text);
         }
         else
-        {
-            const char* text =
-                (message && *message) ? message : "SDL reported a debug message without details.";
-            TBX_TRACE_INFO("SDL debug (category {}): {}", category, text);
+ {
+
+         * const char* text =
+                (message && *message) ? message : "SDL reported a
+         * debug message without details.";
+            TBX_TRACE_INFO("SDL debug (category {}):
+         * {}", category, text);
         }*/
     }
 
@@ -64,7 +70,8 @@ namespace tbx::plugins
             TBX_TRACE_ERROR("Failed to initialize SDL events subsystem. See SDL logs for details.");
             TBX_ASSERT(
                 false,
-                "SDL base systems failed to initialize events subsystem. See SDL logs for details.");
+                "SDL base systems failed to initialize events subsystem. See SDL logs for "
+                "details.");
             return;
         }
 

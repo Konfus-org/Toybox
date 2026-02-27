@@ -5,8 +5,9 @@
 #include "tbx/math/trig.h"
 #include "tbx/physics/collider.h"
 
-namespace tbx::examples
+namespace example_common
 {
+    using namespace tbx;
     void Room::create(EntityRegistry& entity_registry, const RoomSettings& settings)
     {
         destroy();

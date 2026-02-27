@@ -3,8 +3,9 @@
 #include "tbx/examples/player_controller.h"
 #include "tbx/plugin_api/plugin.h"
 
-namespace tbx::examples
+namespace input_example
 {
+    using namespace tbx;
     /// <summary>
     /// Purpose: Demonstrates runtime input mapping by controlling a capsule player entity.
     /// </summary>
@@ -21,6 +22,6 @@ namespace tbx::examples
 
       private:
         Entity _sun = {};
-        PlayerController _player_controller = {};
+        example_common::PlayerController _player_controller = {};
     };
 }

@@ -7,8 +7,9 @@
 #include <string>
 #include <vector>
 
-namespace tbx::plugins
+namespace sdl_windowing
 {
+    using namespace tbx;
     struct SdlWindowRecord
     {
         SDL_Window* sdl_window = nullptr;

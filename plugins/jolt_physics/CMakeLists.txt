@@ -16,7 +16,7 @@ target_link_libraries(${plugin_name} PRIVATE
 
 tbx_register_plugin(
     TARGET ${plugin_name}
-    CLASS tbx::plugins::JoltPhysicsPlugin
+    CLASS jolt_physics::JoltPhysicsPlugin
     HEADER "jolt_physics_plugin.h"
     NAME "${plugin_name}"
     VERSION "1.0.0"

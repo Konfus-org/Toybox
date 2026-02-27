@@ -4,8 +4,9 @@
 #include "tbx/time/delta_time.h"
 #include <string>
 
-namespace tbx::examples
+namespace example_common
 {
+    using namespace tbx;
     /// <summary>Defines spawn and movement settings for the reusable first-person player
     /// controller.</summary>
     /// <remarks>

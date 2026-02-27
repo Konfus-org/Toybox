@@ -7,8 +7,9 @@
 #include <filesystem>
 #include <string_view>
 
-namespace tbx::plugins
+namespace sdl_windowing
 {
+    using namespace tbx;
     static bool is_wayland_video_driver()
     {
         const char* video_driver = SDL_GetCurrentVideoDriver();

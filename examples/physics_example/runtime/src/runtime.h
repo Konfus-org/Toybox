@@ -8,8 +8,9 @@
 #include <memory>
 #include <vector>
 
-namespace tbx::examples
+namespace physics_example
 {
+    using namespace tbx;
     /// <summary>
     /// Purpose: Demonstrates runtime rigid-body simulation and transform sync behaviors.
     /// </summary>
@@ -29,8 +30,8 @@ namespace tbx::examples
         void spawn_projectile();
 
       private:
-        FreeLookCameraController _camera_controller = {};
-        Room _room = {};
+        example_common::FreeLookCameraController _camera_controller = {};
+        example_common::Room _room = {};
         Entity _sun = {};
 
         float _projectile_spawn_distance = 1.35F;

@@ -4,8 +4,9 @@
 #include <SDL3/SDL.h>
 #include <string>
 
-namespace tbx::plugins
+namespace sdl_input
 {
+    using namespace tbx;
     /// <summary>Provides SDL-backed keyboard, mouse, and controller state requests.</summary>
     /// <remarks>Purpose: Handles core input requests and translates SDL state into engine messages.
     /// Ownership: Owns initialization state for the SDL gamepad subsystem.

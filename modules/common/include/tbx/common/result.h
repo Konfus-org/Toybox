@@ -9,6 +9,7 @@ namespace tbx
     {
       public:
         Result();
+        Result(bool success, std::string report = "");
 
         // Returns true if the result indicates success.
         bool succeeded() const;

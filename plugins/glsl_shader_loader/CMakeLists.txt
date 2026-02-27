@@ -15,7 +15,7 @@ target_link_libraries(${plugin_name} PRIVATE
 
 tbx_register_plugin(
     TARGET ${plugin_name}
-    CLASS tbx::plugins::GlslShaderLoaderPlugin
+    CLASS glsl_shader_loader::GlslShaderLoaderPlugin
     HEADER "glsl_shader_loader_plugin.h"
     NAME "${plugin_name}"
     VERSION "1.0.0"
