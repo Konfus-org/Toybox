@@ -17,9 +17,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#ifndef TBX_JOLT_PHYSICS_PLUGIN_EXPORTS
-    #define TBX_JOLT_PHYSICS_PLUGIN_EXPORTS 0
-#endif
 
 namespace jolt_physics
 {
@@ -30,7 +27,7 @@ namespace jolt_physics
     /// state. Ownership: Owns Jolt simulation resources and body mappings; borrows host
     /// subsystems. Thread Safety: Uses a dedicated physics lane; public callbacks marshal work to
     /// that lane.</remarks>
-    class TBX_PLUGIN_INCLUDE_API(TBX_JOLT_PHYSICS_PLUGIN_EXPORTS) JoltPhysicsPlugin final : public Plugin
+    class TBX_PLUGIN_API JoltPhysicsPlugin final : public Plugin
     {
       public:
         ~JoltPhysicsPlugin() override;

@@ -1,4 +1,4 @@
-#include "sdl_windowing_plugin.h"
+#include "tbx/plugins/sdl_windowing/sdl_windowing_plugin.h"
 #include "tbx/app/application.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/observable.h"

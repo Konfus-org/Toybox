@@ -6,9 +6,6 @@
 #include <filesystem>
 #include <memory>
 
-#ifndef TBX_GLSL_SHADER_LOADER_PLUGIN_EXPORTS
-    #define TBX_GLSL_SHADER_LOADER_PLUGIN_EXPORTS 0
-#endif
 
 namespace glsl_shader_loader
 {
@@ -23,7 +20,7 @@ namespace glsl_shader_loader
     /// Ownership: Plugin lifetime is owned by the host; it keeps non-owning references to the host.
     /// Thread Safety: Handles asset messages on the dispatcher thread; no internal synchronization.
     /// </remarks>
-    class TBX_PLUGIN_INCLUDE_API(TBX_GLSL_SHADER_LOADER_PLUGIN_EXPORTS) GlslShaderLoaderPlugin final : public Plugin
+    class TBX_PLUGIN_API GlslShaderLoaderPlugin final : public Plugin
     {
       public:
         /// <summary>

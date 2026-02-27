@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "tbx/plugin_api/tests/importer_test_environment.h"
-#include "../src/glsl_shader_loader_plugin.h"
+#include "tbx/plugins/glsl_shader_loader/glsl_shader_loader_plugin.h"
 
 namespace glsl_shader_loader::tests
 {

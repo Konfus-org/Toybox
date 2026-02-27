@@ -1,4 +1,4 @@
-#include "glsl_shader_loader_plugin.h"
+#include "tbx/plugins/glsl_shader_loader/glsl_shader_loader_plugin.h"
 #include "tbx/app/app_settings.h"
 #include "tbx/assets/messages.h"
 #include "tbx/files/file_ops.h"

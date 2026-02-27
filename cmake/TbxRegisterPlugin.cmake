@@ -137,6 +137,10 @@ function(tbx_register_plugin)
                 WINDOWS_EXPORT_ALL_SYMBOLS ON)
     endif()
 
+    # Ensure plugin declarations that use TBX_PLUGIN_API resolve to dllexport while
+    # building the plugin target itself.
+    target_compile_definitions(${TBX_PLUGIN_TARGET} PRIVATE TBX_PLUGIN_EXPORTING_SYMBOLS)
+
     set(register_macro "TBX_REGISTER_PLUGIN")
 
     if(DEFINED TBX_PLUGIN_CATEGORY)

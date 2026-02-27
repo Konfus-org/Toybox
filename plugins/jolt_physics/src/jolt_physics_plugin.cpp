@@ -1,4 +1,4 @@
-#include "jolt_physics_plugin.h"
+#include "tbx/plugins/jolt_physics/jolt_physics_plugin.h"
 #include "tbx/app/application.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/mesh.h"

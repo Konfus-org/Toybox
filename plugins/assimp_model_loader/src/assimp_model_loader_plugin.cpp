@@ -1,4 +1,4 @@
-#include "assimp_model_loader_plugin.h"
+#include "tbx/plugins/assimp_model_loader/assimp_model_loader_plugin.h"
 #include "tbx/assets/messages.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/graphics/material.h"

@@ -5,9 +5,6 @@
 #include "tbx/plugin_api/plugin_export.h"
 #include <filesystem>
 
-#ifndef TBX_ASSIMP_MODEL_LOADER_PLUGIN_EXPORTS
-    #define TBX_ASSIMP_MODEL_LOADER_PLUGIN_EXPORTS 0
-#endif
 
 namespace assimp_model_loader
 {
@@ -20,7 +17,7 @@ namespace assimp_model_loader
     /// Thread Safety: Handles asset messages on the dispatcher thread; no internal synchronization.
     /// </remarks>
     // Plugin implementation that bridges Assimp model loading to the Toybox asset system.
-    class TBX_PLUGIN_INCLUDE_API(TBX_ASSIMP_MODEL_LOADER_PLUGIN_EXPORTS) AssimpModelLoaderPlugin final : public Plugin
+    class TBX_PLUGIN_API AssimpModelLoaderPlugin final : public Plugin
     {
       public:
         /// <summary>

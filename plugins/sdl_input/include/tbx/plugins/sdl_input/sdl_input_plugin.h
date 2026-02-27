@@ -5,9 +5,6 @@
 #include <SDL3/SDL.h>
 #include <string>
 
-#ifndef TBX_SDL_INPUT_PLUGIN_EXPORTS
-    #define TBX_SDL_INPUT_PLUGIN_EXPORTS 0
-#endif
 
 namespace sdl_input
 {
@@ -16,7 +13,7 @@ namespace sdl_input
     /// <remarks>Purpose: Handles core input requests and translates SDL state into engine messages.
     /// Ownership: Owns initialization state for the SDL gamepad subsystem.
     /// Thread Safety: Not thread-safe; expected to run on the main thread.</remarks>
-    class TBX_PLUGIN_INCLUDE_API(TBX_SDL_INPUT_PLUGIN_EXPORTS) SdlInputPlugin final : public Plugin
+    class TBX_PLUGIN_API SdlInputPlugin final : public Plugin
     {
       public:
         void on_attach(IPluginHost& host) override;

@@ -1,4 +1,4 @@
-#include "sdl_input_plugin.h"
+#include "tbx/plugins/sdl_input/sdl_input_plugin.h"
 #include "tbx/debugging/macros.h"
 
 namespace sdl_input
