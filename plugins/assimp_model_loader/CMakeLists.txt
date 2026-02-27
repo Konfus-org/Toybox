@@ -15,7 +15,7 @@ target_link_libraries(${plugin_name} PRIVATE
 tbx_register_plugin(
     TARGET ${plugin_name}
     CLASS assimp_model_loader::AssimpModelLoaderPlugin
-    HEADER "tbx/plugins/assimp_model_loader/assimp_model_loader_plugin.h"
+    HEADER "include/tbx/plugins/assimp_model_loader/assimp_model_loader_plugin.h"
     NAME "${plugin_name}"
     VERSION "1.0.0"
     CATEGORY "default"
