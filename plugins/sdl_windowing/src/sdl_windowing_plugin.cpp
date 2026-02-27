@@ -9,7 +9,6 @@
 
 namespace sdl_windowing
 {
-    using namespace tbx;
     static bool is_wayland_video_driver()
     {
         const char* video_driver = SDL_GetCurrentVideoDriver();
@@ -116,7 +115,7 @@ namespace sdl_windowing
         return native;
     }
 
-    void SdlWindowingPlugin::on_attach(IPluginHost& host)
+    void SdlWindowingPlugin::on_attach(tbx::IPluginHost& host)
     {
         if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
         {
@@ -159,7 +158,7 @@ namespace sdl_windowing
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
     }
 
-    void SdlWindowingPlugin::on_update(const DeltaTime&)
+    void SdlWindowingPlugin::on_update(const tbx::DeltaTime&)
     {
         SDL_Event event;
         while (SDL_PollEvent(&event))
@@ -229,7 +228,7 @@ namespace sdl_windowing
         process_pending_window_closes();
     }
 
-    void SdlWindowingPlugin::on_recieve_message(Message& msg)
+    void SdlWindowingPlugin::on_recieve_message(tbx::Message& msg)
     {
         // Graphics api changed
         if (auto* graphics_event = handle_property_changed<&GraphicsSettings::graphics_api>(msg))

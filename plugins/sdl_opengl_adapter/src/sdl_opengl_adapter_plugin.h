@@ -9,17 +9,16 @@
 
 namespace sdl_opengl_adapter
 {
-    using namespace tbx;
     /// <summary>Hosts SDL/OpenGL adapter code as a standalone plugin module.</summary>
     /// <remarks>Purpose: Packages SDL OpenGL bridging utilities into a dedicated plugin for reuse.
     /// Ownership: Owns no persistent resources by default.
     /// Thread Safety: Expected to be attached/detached on the main thread.</remarks>
-    class SdlOpenGlAdapterPlugin final : public Plugin
+    class SdlOpenGlAdapterPlugin final : public tbx::Plugin
     {
       public:
-        void on_attach(IPluginHost& host) override;
+        void on_attach(tbx::IPluginHost& host) override;
         void on_detach() override;
-        void on_recieve_message(Message& msg) override;
+        void on_recieve_message(tbx::Message& msg) override;
 
       private:
         void ensure_open_gl_adapter();

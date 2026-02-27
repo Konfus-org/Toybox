@@ -6,16 +6,15 @@
 
 namespace assimp_model_loader
 {
-    using namespace tbx;
     /// <summary>
-    /// Purpose: Loads model assets into Model payloads using Assimp.
+    /// Purpose: Loads model assets into tbx::Model payloads using Assimp.
     /// </summary>
     /// <remarks>
-    /// Ownership: Plugin lifetime is owned by the host; it keeps non-owning references to the host.
+    /// Ownership: tbx::Plugin lifetime is owned by the host; it keeps non-owning references to the host.
     /// Thread Safety: Handles asset messages on the dispatcher thread; no internal synchronization.
     /// </remarks>
-    // Plugin implementation that bridges Assimp model loading to the Toybox asset system.
-    class AssimpModelLoaderPlugin final : public Plugin
+    // tbx::Plugin implementation that bridges Assimp model loading to the Toybox asset system.
+    class AssimpModelLoaderPlugin final : public tbx::Plugin
     {
       public:
         /// <summary>
@@ -25,7 +24,7 @@ namespace assimp_model_loader
         /// Ownership: Does not take ownership of the host.
         /// Thread Safety: Called on the main thread during plugin attach.
         /// </remarks>
-        void on_attach(IPluginHost& host) override;
+        void on_attach(tbx::IPluginHost& host) override;
 
         /// <summary>
         /// Purpose: Releases any cached host references.
@@ -41,10 +40,10 @@ namespace assimp_model_loader
         /// </summary>
         /// <remarks>
         /// Ownership: Does not take ownership of messages or asset payloads.
-        /// Thread Safety: Executes on the dispatcher thread; relies on Model payload
+        /// Thread Safety: Executes on the dispatcher thread; relies on tbx::Model payload
         /// synchronization.
         /// </remarks>
-        void on_recieve_message(Message& msg) override;
+        void on_recieve_message(tbx::Message& msg) override;
 
       private:
         // Handles a model load request message.

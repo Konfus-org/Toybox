@@ -3,8 +3,7 @@
 
 namespace sdl_input
 {
-    using namespace tbx;
-    void SdlInputPlugin::on_attach(IPluginHost&)
+    void SdlInputPlugin::on_attach(tbx::IPluginHost&)
     {
         const Uint32 mask = SDL_INIT_GAMEPAD;
         if ((SDL_WasInit(mask) & mask) == mask)
@@ -39,13 +38,13 @@ namespace sdl_input
         _owns_gamepad_subsystem = false;
     }
 
-    void SdlInputPlugin::on_update(const DeltaTime&)
+    void SdlInputPlugin::on_update(const tbx::DeltaTime&)
     {
         _wheel_delta = 0.0F;
         apply_mouse_lock_mode();
     }
 
-    void SdlInputPlugin::on_recieve_message(Message& msg)
+    void SdlInputPlugin::on_recieve_message(tbx::Message& msg)
     {
         if (auto* request = handle_message<KeyboardStateRequest>(msg))
         {
@@ -80,7 +79,7 @@ namespace sdl_input
 
     void SdlInputPlugin::handle_keyboard_request(KeyboardStateRequest& request) const
     {
-        KeyboardState state = {};
+        tbx::KeyboardState state = {};
 
         int key_count = 0;
         const bool* key_states = SDL_GetKeyboardState(&key_count);
@@ -100,17 +99,17 @@ namespace sdl_input
 
     void SdlInputPlugin::handle_mouse_request(MouseStateRequest& request)
     {
-        MouseState state = {};
+        tbx::MouseState state = {};
 
         float x = 0.0F;
         float y = 0.0F;
         const SDL_MouseButtonFlags buttons = SDL_GetMouseState(&x, &y);
-        state.position = Vec2(x, y);
+        state.position = tbx::Vec2(x, y);
 
         float delta_x = 0.0F;
         float delta_y = 0.0F;
         SDL_GetRelativeMouseState(&delta_x, &delta_y);
-        state.delta = Vec2(delta_x, delta_y);
+        state.delta = tbx::Vec2(delta_x, delta_y);
         state.wheel_delta = _wheel_delta;
 
         constexpr int LEFT_BUTTON = 1;
@@ -293,7 +292,7 @@ namespace sdl_input
 
     void SdlInputPlugin::handle_controller_request(ControllerStateRequest& request) const
     {
-        ControllerState state = {};
+        tbx::ControllerState state = {};
         state.controller_index = request.controller_index;
 
         int gamepad_count = 0;

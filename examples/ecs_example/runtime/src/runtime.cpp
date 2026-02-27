@@ -12,8 +12,7 @@
 
 namespace ecs_example
 {
-    using namespace tbx;
-    void ExampleRuntimePlugin::on_attach(IPluginHost& context)
+    void ExampleRuntimePlugin::on_attach(tbx::IPluginHost& context)
     {
         auto& ent_registry = context.get_entity_registry();
         std::string greeting =
@@ -25,10 +24,10 @@ namespace ecs_example
         _elapsed_seconds = 0.0f;
 
         // Setup camera
-        auto cam_ent = Entity("Camera", ent_registry);
+        auto cam_ent = tbx::Entity("Camera", ent_registry);
         auto& cam = cam_ent.add_component<Camera>();
         cam.set_orthographic(20, 16.0f / 9.0f, 0.1f, 100.0f);
-        cam_ent.add_component<Transform>(Vec3(0.0f, 0.0f, 10.0f));
+        cam_ent.add_component<tbx::Transform>(tbx::Vec3(0.0f, 0.0f, 10.0f));
 
         // Setup quads with unlit material
         auto toys_to_make = 5;
@@ -36,8 +35,8 @@ namespace ecs_example
         auto starting_x = -((toys_to_make - 1.0f) * spacing) * 0.5f;
         for (int i = 0; i < toys_to_make; i++)
         {
-            auto ent = Entity(std::to_string(i), ent_registry);
-            ent.add_component<Transform>(Vec3(
+            auto ent = tbx::Entity(std::to_string(i), ent_registry);
+            ent.add_component<tbx::Transform>(tbx::Vec3(
                 starting_x
                     + (static_cast<float>(i)
                        * spacing), // shift on the x axis so they are not all in the same spot
@@ -48,16 +47,16 @@ namespace ecs_example
         }
     }
 
-    void ExampleRuntimePlugin::on_update(const DeltaTime& dt)
+    void ExampleRuntimePlugin::on_update(const tbx::DeltaTime& dt)
     {
         _elapsed_seconds += dt.seconds;
 
         // bob all toys in stage with transform up, then down over time
         // also change color over time...
         float offset = 0.0f;
-        for (auto& entity : get_host().get_entity_registry().get_with<Transform, Renderer>())
+        for (auto& entity : get_host().get_entity_registry().get_with<tbx::Transform, Renderer>())
         {
-            auto& transform = entity.get_component<Transform>();
+            auto& transform = entity.get_component<tbx::Transform>();
             transform.position.y = sin((_elapsed_seconds * 2.0f) + offset);
 
             auto& renderer = entity.get_component<Renderer>();
@@ -68,7 +67,7 @@ namespace ecs_example
             float g = 0.5f + (0.5f * sin(t + (2.0f * PI / 3.0f)));
             float b = 0.5f + (0.5f * sin(t + (4.0f * PI / 3.0f)));
 
-            Color color = Color(r, g, b, 1.0f);
+            tbx::Color color = tbx::Color(r, g, b, 1.0f);
             renderer.material.parameters.set("color", color);
 
             offset += 0.1f;

@@ -1,9 +1,9 @@
-#include "../src/assimp_model_loader_plugin.h"
 #include "pch.h"
+#include "../src/assimp_model_loader_plugin.h"
 #include "tbx/async/cancellation_token.h"
 #include "tbx/plugin_api/tests/importer_test_environment.h"
 
-namespace tbx::tests::plugin_api
+namespace assimp_model_loader::tests
 {
     /// <summary>
     /// Verifies the assimp importer short-circuits cancelled requests without file IO.
@@ -13,9 +13,9 @@ namespace tbx::tests::plugin_api
         // Arrange
         auto working_directory = get_test_working_directory();
         TestPluginHost host = TestPluginHost(working_directory);
-        assimp_model_loader::AssimpModelLoaderPlugin plugin = {};
+        plugins::AssimpModelLoaderPlugin plugin = {};
         plugin.on_attach(host);
-        Model model = {};
+        tbx::Model model = {};
         LoadModelRequest request("cancelled.fbx", &model);
         CancellationSource cancellation = {};
         cancellation.cancel();

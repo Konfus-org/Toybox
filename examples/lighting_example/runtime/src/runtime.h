@@ -7,7 +7,6 @@
 
 namespace lighting_example
 {
-    using namespace tbx;
     /// <summary>
     /// Purpose: Showcases directional, point, spot, and area lights with animated motion and color.
     /// </summary>
@@ -15,7 +14,7 @@ namespace lighting_example
     /// Ownership: Holds non-owning references and entity handles owned by the host ECS/input
     /// systems. Thread Safety: Must be used on the main thread where ECS and input are updated.
     /// </remarks>
-    class LightingExampleRuntimePlugin final : public Plugin
+    class LightingExampleRuntimePlugin final : public tbx::Plugin
     {
       public:
         /// <summary>
@@ -25,7 +24,7 @@ namespace lighting_example
         /// Ownership: Does not take ownership of host services or entity storage.
         /// Thread Safety: Must be called on the main thread.
         /// </remarks>
-        void on_attach(IPluginHost& host) override;
+        void on_attach(tbx::IPluginHost& host) override;
 
         /// <summary>
         /// Purpose: Cleans up input scheme state and clears non-owning runtime references.
@@ -41,30 +40,30 @@ namespace lighting_example
         /// colors.
         /// </summary>
         /// <remarks>
-        /// Ownership: Does not take ownership of the provided DeltaTime instance.
+        /// Ownership: Does not take ownership of the provided tbx::DeltaTime instance.
         /// Thread Safety: Must be called on the main thread.
         /// </remarks>
-        void on_update(const DeltaTime& dt) override;
+        void on_update(const tbx::DeltaTime& dt) override;
 
       private:
         void rebuild_stress_lights(uint32 light_count);
         void clear_stress_lights();
 
-        example_common::FreeLookCameraController _camera_controller = {};
-        example_common::Room _room = {};
+        examples_common::FreeLookCameraController _camera_controller = {};
+        examples_common::Room _room = {};
 
-        Entity _directional_light = {};
-        Entity _point_light = {};
-        Entity _spot_light = {};
-        Entity _area_light = {};
+        tbx::Entity _directional_light = {};
+        tbx::Entity _point_light = {};
+        tbx::Entity _spot_light = {};
+        tbx::Entity _area_light = {};
 
-        Entity _point_light_marker = {};
-        Entity _spot_light_marker = {};
-        Entity _area_light_marker = {};
+        tbx::Entity _point_light_marker = {};
+        tbx::Entity _spot_light_marker = {};
+        tbx::Entity _area_light_marker = {};
 
-        Vec3 _point_base_position = Vec3(0.0F, 0.0F, 0.0F);
-        Vec3 _spot_base_position = Vec3(0.0F, 0.0F, 0.0F);
-        Vec3 _area_base_position = Vec3(0.0F, 0.0F, 0.0F);
+        tbx::Vec3 _point_base_position = tbx::Vec3(0.0F, 0.0F, 0.0F);
+        tbx::Vec3 _spot_base_position = tbx::Vec3(0.0F, 0.0F, 0.0F);
+        tbx::Vec3 _area_base_position = tbx::Vec3(0.0F, 0.0F, 0.0F);
 
         bool _directional_enabled = true;
         bool _point_enabled = false;
@@ -74,6 +73,6 @@ namespace lighting_example
         double _elapsed_seconds = 0.0;
         bool _stress_mode_enabled = false;
         uint32 _stress_light_count = 512U;
-        std::vector<Entity> _stress_point_lights = {};
+        std::vector<tbx::Entity> _stress_point_lights = {};
     };
 }

@@ -1,14 +1,27 @@
 #pragma once
 
-#if defined(TBX_PLATFORM_WINDOWS) && defined(TBX_SHARED_LIB)
-    #define TBX_PLUGIN_INCLUDE_EXPORT __declspec(dllexport)
-    #define TBX_PLUGIN_INCLUDE_IMPORT __declspec(dllimport)
+#ifdef TBX_PLATFORM_WINDOWS
+    #ifdef TBX_SHARED_LIB
+        #ifdef TBX_PLUGIN_EXPORTING_SYMBOLS
+            /// <summary>
+            /// Purpose: Marks plugin public types for symbol export while building a plugin shared
+            /// library.
+            /// Ownership: Preprocessor macro with no ownership semantics.
+            /// Thread Safety: Compile-time only.
+            /// </summary>
+            #define TBX_PLUGIN_API __declspec(dllexport)
+        #else
+            /// <summary>
+            /// Purpose: Marks plugin public types for symbol import while consuming a plugin shared
+            /// library.
+            /// Ownership: Preprocessor macro with no ownership semantics.
+            /// Thread Safety: Compile-time only.
+            /// </summary>
+            #define TBX_PLUGIN_API __declspec(dllimport)
+        #endif
+    #else
+        #define TBX_PLUGIN_API
+    #endif
 #else
-    #define TBX_PLUGIN_INCLUDE_EXPORT
-    #define TBX_PLUGIN_INCLUDE_IMPORT
+    #define TBX_PLUGIN_API
 #endif
-
-#define TBX_PLUGIN_INCLUDE_API(exporting_flag) TBX_PLUGIN_INCLUDE_API_VALUE(exporting_flag)
-#define TBX_PLUGIN_INCLUDE_API_VALUE(exporting_flag) TBX_PLUGIN_INCLUDE_API_##exporting_flag
-#define TBX_PLUGIN_INCLUDE_API_0 TBX_PLUGIN_INCLUDE_IMPORT
-#define TBX_PLUGIN_INCLUDE_API_1 TBX_PLUGIN_INCLUDE_EXPORT

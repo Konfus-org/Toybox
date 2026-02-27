@@ -221,40 +221,40 @@ namespace jolt_physics
         JPH::Factory::sInstance = nullptr;
     }
 
-    static JPH::Vec3 to_jolt_vec3(const Vec3& value)
+    static JPH::Vec3 to_jolt_vec3(const tbx::Vec3& value)
     {
         return JPH::Vec3(value.x, value.y, value.z);
     }
 
-    static JPH::RVec3 to_jolt_rvec3(const Vec3& value)
+    static JPH::RVec3 to_jolt_rvec3(const tbx::Vec3& value)
     {
         return JPH::RVec3(value.x, value.y, value.z);
     }
 
-    static JPH::Quat to_jolt_quat(const Quat& value)
+    static JPH::Quat to_jolt_quat(const tbx::Quat& value)
     {
         return JPH::Quat(value.x, value.y, value.z, value.w);
     }
 
-    static Vec3 to_tbx_vec3(JPH::Vec3Arg value)
+    static tbx::Vec3 to_tbx_vec3(JPH::Vec3Arg value)
     {
-        return Vec3(value.GetX(), value.GetY(), value.GetZ());
+        return tbx::Vec3(value.GetX(), value.GetY(), value.GetZ());
     }
 
-    static Vec3 to_tbx_vec3_from_rvec3(JPH::RVec3Arg value)
+    static tbx::Vec3 to_tbx_vec3_from_rvec3(JPH::RVec3Arg value)
     {
-        return Vec3(
+        return tbx::Vec3(
             static_cast<float>(value.GetX()),
             static_cast<float>(value.GetY()),
             static_cast<float>(value.GetZ()));
     }
 
-    static Quat to_tbx_quat(JPH::QuatArg value)
+    static tbx::Quat to_tbx_quat(JPH::QuatArg value)
     {
-        return Quat(value.GetW(), value.GetX(), value.GetY(), value.GetZ());
+        return tbx::Quat(value.GetW(), value.GetX(), value.GetY(), value.GetZ());
     }
 
-    static float get_vec3_distance_squared(const Vec3& left, const Vec3& right)
+    static float get_vec3_distance_squared(const tbx::Vec3& left, const tbx::Vec3& right)
     {
         const float delta_x = left.x - right.x;
         const float delta_y = left.y - right.y;
@@ -263,10 +263,10 @@ namespace jolt_physics
     }
 
     static bool has_transform_changed(
-        const Transform& current,
-        const Vec3& previous_position,
-        const Quat& previous_rotation,
-        const Vec3& previous_scale)
+        const tbx::Transform& current,
+        const tbx::Vec3& previous_position,
+        const tbx::Quat& previous_rotation,
+        const tbx::Vec3& previous_scale)
     {
         constexpr float position_epsilon_squared = 0.000001F * 0.000001F;
         constexpr float rotation_dot_epsilon = 0.0001F;
@@ -276,8 +276,8 @@ namespace jolt_physics
             > position_epsilon_squared)
             return true;
 
-        const Quat current_rotation = normalize(current.rotation);
-        const Quat previous_rotation_normalized = normalize(previous_rotation);
+        const tbx::Quat current_rotation = normalize(current.rotation);
+        const tbx::Quat previous_rotation_normalized = normalize(previous_rotation);
         const float rotation_dot = std::abs(
             current_rotation.x * previous_rotation_normalized.x
             + current_rotation.y * previous_rotation_normalized.y
@@ -292,18 +292,18 @@ namespace jolt_physics
         return false;
     }
 
-    static bool has_scale_changed(const Vec3& current_scale, const Vec3& previous_scale)
+    static bool has_scale_changed(const tbx::Vec3& current_scale, const tbx::Vec3& previous_scale)
     {
         constexpr float scale_epsilon_squared = 0.0001F * 0.0001F;
         return get_vec3_distance_squared(current_scale, previous_scale) > scale_epsilon_squared;
     }
 
-    static Vec3 multiply_components(const Vec3& left, const Vec3& right)
+    static tbx::Vec3 multiply_components(const tbx::Vec3& left, const tbx::Vec3& right)
     {
-        return Vec3(left.x * right.x, left.y * right.y, left.z * right.z);
+        return tbx::Vec3(left.x * right.x, left.y * right.y, left.z * right.z);
     }
 
-    static Vec3 get_safe_normalized(const Vec3& value, const Vec3& fallback)
+    static tbx::Vec3 get_safe_normalized(const tbx::Vec3& value, const tbx::Vec3& fallback)
     {
         const float length_squared = value.x * value.x + value.y * value.y + value.z * value.z;
         if (length_squared <= 0.000001F)
@@ -313,32 +313,32 @@ namespace jolt_physics
         return value * inverse_length;
     }
 
-    static Vec3 calculate_angular_velocity_for_step(
-        const Quat& start_rotation,
-        const Quat& target_rotation,
+    static tbx::Vec3 calculate_angular_velocity_for_step(
+        const tbx::Quat& start_rotation,
+        const tbx::Quat& target_rotation,
         float dt_seconds)
     {
-        Quat normalized_start = normalize(start_rotation);
-        Quat normalized_target = normalize(target_rotation);
+        tbx::Quat normalized_start = normalize(start_rotation);
+        tbx::Quat normalized_target = normalize(target_rotation);
 
-        Quat delta_rotation = normalize(normalized_target * glm::conjugate(normalized_start));
+        tbx::Quat delta_rotation = normalize(normalized_target * glm::conjugate(normalized_start));
         if (delta_rotation.w < 0.0F)
             delta_rotation = -delta_rotation;
 
         float clamped_w = std::clamp(delta_rotation.w, -1.0F, 1.0F);
         float half_angle_sine = std::sqrt(std::max(0.0F, 1.0F - clamped_w * clamped_w));
         if (half_angle_sine <= 0.000001F)
-            return Vec3(0.0F, 0.0F, 0.0F);
+            return tbx::Vec3(0.0F, 0.0F, 0.0F);
 
-        Vec3 axis =
-            Vec3(delta_rotation.x, delta_rotation.y, delta_rotation.z) * (1.0F / half_angle_sine);
+        tbx::Vec3 axis =
+            tbx::Vec3(delta_rotation.x, delta_rotation.y, delta_rotation.z) * (1.0F / half_angle_sine);
         float angle_radians = 2.0F * std::atan2(half_angle_sine, clamped_w);
         return axis * (angle_radians / std::max(0.0001F, dt_seconds));
     }
 
-    static Vec3 get_safe_scale(const Vec3& scale)
+    static tbx::Vec3 get_safe_scale(const tbx::Vec3& scale)
     {
-        return Vec3(
+        return tbx::Vec3(
             std::max(0.001F, std::abs(scale.x)),
             std::max(0.001F, std::abs(scale.y)),
             std::max(0.001F, std::abs(scale.z)));
@@ -367,7 +367,7 @@ namespace jolt_physics
     }
 
     static void apply_dynamic_body_settings(
-        IPluginHost& host,
+        tbx::IPluginHost& host,
         const Physics& physics,
         bool is_trigger_only,
         JPH::BodyCreationSettings& out_body_settings)
@@ -404,7 +404,7 @@ namespace jolt_physics
     {
         for (const auto& attribute : layout.elements)
         {
-            if (!std::holds_alternative<Vec3>(attribute.type))
+            if (!std::holds_alternative<tbx::Vec3>(attribute.type))
                 continue;
 
             position_offset_bytes = static_cast<std::size_t>(attribute.offset);
@@ -415,8 +415,8 @@ namespace jolt_physics
     }
 
     static bool try_get_mesh_vertex_positions(
-        const Mesh& mesh,
-        const Vec3& scale,
+        const tbx::Mesh& mesh,
+        const tbx::Vec3& scale,
         std::vector<JPH::Float3>& positions)
     {
         const auto& vertex_values = mesh.vertices.vertices;
@@ -439,7 +439,7 @@ namespace jolt_physics
         if ((vertex_values.size() % stride_floats) != 0U)
             return false;
 
-        const Vec3 safe_scale = get_safe_scale(scale);
+        const tbx::Vec3 safe_scale = get_safe_scale(scale);
         const std::size_t vertex_count = vertex_values.size() / stride_floats;
         positions.clear();
         positions.reserve(vertex_count);
@@ -457,9 +457,9 @@ namespace jolt_physics
     }
 
     static bool try_append_mesh_geometry(
-        const Mesh& mesh,
-        const Mat4& mesh_transform,
-        const Vec3& mesh_scale,
+        const tbx::Mesh& mesh,
+        const tbx::Mat4& mesh_transform,
+        const tbx::Vec3& mesh_scale,
         std::vector<JPH::Float3>& positions,
         std::vector<JPH::IndexedTriangle>& triangles)
     {
@@ -484,18 +484,18 @@ namespace jolt_physics
             return false;
 
         const std::size_t base_vertex_index = positions.size();
-        const Vec3 safe_scale = get_safe_scale(mesh_scale);
+        const tbx::Vec3 safe_scale = get_safe_scale(mesh_scale);
         const std::size_t vertex_count = vertex_values.size() / stride_floats;
         positions.reserve(base_vertex_index + vertex_count);
         for (std::size_t vertex_index = 0U; vertex_index < vertex_count; ++vertex_index)
         {
             const std::size_t base_index = vertex_index * stride_floats + position_offset_floats;
-            const Vec4 local_position = Vec4(
+            const tbx::Vec4 local_position = tbx::Vec4(
                 vertex_values[base_index],
                 vertex_values[base_index + 1U],
                 vertex_values[base_index + 2U],
                 1.0F);
-            const Vec4 transformed_position = mesh_transform * local_position;
+            const tbx::Vec4 transformed_position = mesh_transform * local_position;
 
             positions.push_back(
                 JPH::Float3(
@@ -532,9 +532,9 @@ namespace jolt_physics
     }
 
     static bool try_get_mesh_collider_data(
-        IPluginHost& host,
-        const Entity& entity,
-        const Vec3& scale,
+        tbx::IPluginHost& host,
+        const tbx::Entity& entity,
+        const tbx::Vec3& scale,
         std::vector<JPH::Float3>& positions,
         std::vector<JPH::IndexedTriangle>& triangles)
     {
@@ -548,7 +548,7 @@ namespace jolt_physics
             if (!mesh_data)
                 return false;
 
-            return try_append_mesh_geometry(*mesh_data, Mat4(1.0F), scale, positions, triangles);
+            return try_append_mesh_geometry(*mesh_data, tbx::Mat4(1.0F), scale, positions, triangles);
         }
 
         if (!entity.has_component<StaticMesh>())
@@ -558,7 +558,7 @@ namespace jolt_physics
         if (!static_mesh.handle.is_valid())
             return false;
 
-        auto model = host.get_asset_manager().load<Model>(static_mesh.handle);
+        auto model = host.get_asset_manager().load<tbx::Model>(static_mesh.handle);
         if (!model || model->meshes.empty())
             return false;
 
@@ -567,7 +567,7 @@ namespace jolt_physics
             bool has_any_mesh = false;
             for (const auto& mesh : model->meshes)
                 has_any_mesh |=
-                    try_append_mesh_geometry(mesh, Mat4(1.0F), scale, positions, triangles);
+                    try_append_mesh_geometry(mesh, tbx::Mat4(1.0F), scale, positions, triangles);
 
             return has_any_mesh;
         }
@@ -585,7 +585,7 @@ namespace jolt_physics
         struct PartQueueEntry
         {
             std::size_t part_index = 0U;
-            Mat4 parent_transform = Mat4(1.0F);
+            tbx::Mat4 parent_transform = tbx::Mat4(1.0F);
         };
 
         auto queue = std::vector<PartQueueEntry> {};
@@ -598,7 +598,7 @@ namespace jolt_physics
             queue.push_back(
                 PartQueueEntry {
                     .part_index = part_index,
-                    .parent_transform = Mat4(1.0F),
+                    .parent_transform = tbx::Mat4(1.0F),
                 });
         }
 
@@ -607,7 +607,7 @@ namespace jolt_physics
             queue.push_back(
                 PartQueueEntry {
                     .part_index = 0U,
-                    .parent_transform = Mat4(1.0F),
+                    .parent_transform = tbx::Mat4(1.0F),
                 });
         }
 
@@ -625,7 +625,7 @@ namespace jolt_physics
             visited_parts[current.part_index] = true;
 
             const auto& part = model->parts[current.part_index];
-            const Mat4 part_transform = current.parent_transform * part.transform;
+            const tbx::Mat4 part_transform = current.parent_transform * part.transform;
             if (part.mesh_index < model->meshes.size())
             {
                 has_any_part_mesh |= try_append_mesh_geometry(
@@ -650,9 +650,9 @@ namespace jolt_physics
     }
 
     static JPH::RefConst<JPH::Shape> create_mesh_shape(
-        IPluginHost& host,
-        const Entity& entity,
-        const Transform& transform,
+        tbx::IPluginHost& host,
+        const tbx::Entity& entity,
+        const tbx::Transform& transform,
         bool is_physics_driven)
     {
         const auto& mesh_collider = entity.get_component<MeshCollider>();
@@ -721,13 +721,13 @@ namespace jolt_physics
         return mesh_shape_result.Get();
     }
 
-    static bool has_any_collider(const Entity& entity)
+    static bool has_any_collider(const tbx::Entity& entity)
     {
         return entity.has_component<SphereCollider>() || entity.has_component<CapsuleCollider>()
                || entity.has_component<CubeCollider>() || entity.has_component<MeshCollider>();
     }
 
-    static const ColliderTrigger* try_get_trigger_collider(const Entity& entity)
+    static const ColliderTrigger* try_get_trigger_collider(const tbx::Entity& entity)
     {
         if (entity.has_component<SphereCollider>())
             return &entity.get_component<SphereCollider>().trigger;
@@ -744,7 +744,7 @@ namespace jolt_physics
         return nullptr;
     }
 
-    static ColliderTrigger* try_get_trigger_collider(Entity& entity)
+    static ColliderTrigger* try_get_trigger_collider(tbx::Entity& entity)
     {
         if (entity.has_component<SphereCollider>())
             return &entity.get_component<SphereCollider>().trigger;
@@ -761,7 +761,7 @@ namespace jolt_physics
         return nullptr;
     }
 
-    static bool is_trigger_only_collider(const Entity& entity)
+    static bool is_trigger_only_collider(const tbx::Entity& entity)
     {
         const ColliderTrigger* trigger = try_get_trigger_collider(entity);
         if (trigger == nullptr)
@@ -771,9 +771,9 @@ namespace jolt_physics
     }
 
     static JPH::RefConst<JPH::Shape> create_shape_for_entity(
-        IPluginHost& host,
-        const Entity& entity,
-        const Transform& transform,
+        tbx::IPluginHost& host,
+        const tbx::Entity& entity,
+        const tbx::Transform& transform,
         bool is_physics_driven)
     {
         if (entity.has_component<SphereCollider>())
@@ -811,7 +811,7 @@ namespace jolt_physics
 
     JoltPhysicsPlugin::~JoltPhysicsPlugin() = default;
 
-    void JoltPhysicsPlugin::on_attach(IPluginHost&)
+    void JoltPhysicsPlugin::on_attach(tbx::IPluginHost&)
     {
         auto& thread_manager = get_host().get_thread_manager();
         thread_manager.try_create_lane(PHYSICS_THREAD_LANE_NAME);
@@ -882,7 +882,7 @@ namespace jolt_physics
         _physics_thread_id = {};
     }
 
-    void JoltPhysicsPlugin::on_fixed_update(const DeltaTime& dt)
+    void JoltPhysicsPlugin::on_fixed_update(const tbx::DeltaTime& dt)
     {
         run_on_physics_lane_and_wait(
             [this, dt]()
@@ -908,7 +908,7 @@ namespace jolt_physics
             });
     }
 
-    void JoltPhysicsPlugin::on_recieve_message(Message& msg)
+    void JoltPhysicsPlugin::on_recieve_message(tbx::Message& msg)
     {
         if (auto* raycast_request = handle_message<RaycastRequest>(msg))
         {
@@ -980,7 +980,7 @@ namespace jolt_physics
         auto& registry = get_host().get_entity_registry();
         auto active_entities = std::unordered_set<Uuid>();
 
-        auto entities = registry.get_with<Transform>();
+        auto entities = registry.get_with<tbx::Transform>();
         for (auto& entity : entities)
         {
             Uuid entity_id = entity.get_id();
@@ -1160,14 +1160,14 @@ namespace jolt_physics
                 }
                 else if (physics->transform_sync_mode == PhysicsTransformSyncMode::SWEEP)
                 {
-                    const Vec3 current_position =
+                    const tbx::Vec3 current_position =
                         to_tbx_vec3_from_rvec3(body_interface.GetPosition(body_id));
-                    const Quat current_rotation = to_tbx_quat(body_interface.GetRotation(body_id));
+                    const tbx::Quat current_rotation = to_tbx_quat(body_interface.GetRotation(body_id));
                     const float safe_dt_seconds = std::max(0.0001F, dt_seconds);
 
-                    Vec3 linear_velocity =
+                    tbx::Vec3 linear_velocity =
                         (world_transform.position - current_position) / safe_dt_seconds;
-                    Vec3 angular_velocity = calculate_angular_velocity_for_step(
+                    tbx::Vec3 angular_velocity = calculate_angular_velocity_for_step(
                         current_rotation,
                         world_transform.rotation,
                         safe_dt_seconds);
@@ -1223,10 +1223,10 @@ namespace jolt_physics
             auto& body_record = body_entry.second;
             const JPH::BodyID& body_id = body_record.body_id;
 
-            if (!registry.has<Transform>(entity_id))
+            if (!registry.has<tbx::Transform>(entity_id))
                 continue;
 
-            auto& transform = registry.get_with<Transform>(entity_id);
+            auto& transform = registry.get_with<tbx::Transform>(entity_id);
             auto entity = registry.get(entity_id);
             if (!entity.get_id().is_valid())
                 continue;
@@ -1258,12 +1258,12 @@ namespace jolt_physics
                 continue;
             }
 
-            auto world_transform = Transform {};
+            auto world_transform = tbx::Transform {};
             world_transform.position = to_tbx_vec3_from_rvec3(body_interface.GetPosition(body_id));
             world_transform.rotation = to_tbx_quat(body_interface.GetRotation(body_id));
             world_transform.scale = transform.scale;
 
-            auto parent_entity = Entity {};
+            auto parent_entity = tbx::Entity {};
             if (entity.try_get_parent_entity(parent_entity))
             {
                 const auto parent_world_transform = get_world_space_transform(parent_entity);
@@ -1301,7 +1301,7 @@ namespace jolt_physics
         const auto& narrow_phase_query = _physics_system.GetNarrowPhaseQuery();
 
         auto active_trigger_entities = std::unordered_set<Uuid>();
-        auto trigger_entities = registry.get_with<Transform>();
+        auto trigger_entities = registry.get_with<tbx::Transform>();
         for (auto& trigger_entity : trigger_entities)
         {
             const Uuid trigger_entity_id = trigger_entity.get_id();
@@ -1456,8 +1456,8 @@ namespace jolt_physics
         const auto& body_interface = _physics_system.GetBodyInterface();
         const auto& narrow_phase_query = _physics_system.GetNarrowPhaseQuery();
 
-        const Vec3 ray_direction =
-            get_safe_normalized(request.raycast.direction, Vec3(0.0F, 0.0F, -1.0F));
+        const tbx::Vec3 ray_direction =
+            get_safe_normalized(request.raycast.direction, tbx::Vec3(0.0F, 0.0F, -1.0F));
         const float max_distance = std::max(0.0F, request.raycast.max_distance);
         if (max_distance > 0.0F)
         {

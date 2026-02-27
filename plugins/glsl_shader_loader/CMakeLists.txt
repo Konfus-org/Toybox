@@ -3,6 +3,8 @@ set(plugin_name GlslShaderLoaderPlugin)
 add_library(${plugin_name} SHARED)
 add_library(Tbx::Plugins::${plugin_name} ALIAS ${plugin_name})
 
+target_compile_definitions(${plugin_name} PRIVATE TBX_PLUGIN_EXPORTING_SYMBOLS)
+
 file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
 target_sources(${plugin_name} PRIVATE ${SRCS})
 target_include_directories(${plugin_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

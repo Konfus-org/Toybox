@@ -18,21 +18,20 @@
 
 namespace jolt_physics
 {
-    using namespace tbx;
-    /// <summary>Runs rigid-body simulation for entities that contain Physics and Transform
+    /// <summary>Runs rigid-body simulation for entities that contain Physics and tbx::Transform
     /// components and supports collider-only entities as static collision bodies.</summary>
     /// <remarks>Purpose: Owns the Jolt world used by this plugin and synchronizes ECS component
     /// state. Ownership: Owns Jolt simulation resources and body mappings; borrows host
     /// subsystems. Thread Safety: Uses a dedicated physics lane; public callbacks marshal work to
     /// that lane.</remarks>
-    class JoltPhysicsPlugin final : public Plugin
+    class JoltPhysicsPlugin final : public tbx::Plugin
     {
       public:
         ~JoltPhysicsPlugin() override;
-        void on_attach(IPluginHost& host) override;
+        void on_attach(tbx::IPluginHost& host) override;
         void on_detach() override;
-        void on_fixed_update(const DeltaTime& dt) override;
-        void on_recieve_message(Message& msg) override;
+        void on_fixed_update(const tbx::DeltaTime& dt) override;
+        void on_recieve_message(tbx::Message& msg) override;
 
       private:
         void clear_bodies();
@@ -50,9 +49,9 @@ namespace jolt_physics
         {
             JPH::BodyID body_id = {};
             bool is_physics_driven = false;
-            Vec3 last_position = Vec3(0.0F, 0.0F, 0.0F);
-            Quat last_rotation = Quat(1.0F, 0.0F, 0.0F, 0.0F);
-            Vec3 last_scale = Vec3(1.0F, 1.0F, 1.0F);
+            tbx::Vec3 last_position = tbx::Vec3(0.0F, 0.0F, 0.0F);
+            tbx::Quat last_rotation = tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F);
+            tbx::Vec3 last_scale = tbx::Vec3(1.0F, 1.0F, 1.0F);
             bool has_last_transform = false;
             bool is_trigger_only = false;
         };

@@ -15,7 +15,7 @@ namespace glsl_shader_loader
     /// <remarks>
     /// Include Support: Expands `#include "..."` directives by pasting the referenced asset text.
     /// Include-Once: Each resolved include file is expanded at most once per shader stage.
-    /// Ownership: Plugin lifetime is owned by the host; it keeps non-owning references to the host.
+    /// Ownership: tbx::Plugin lifetime is owned by the host; it keeps non-owning references to the host.
     /// Thread Safety: Handles asset messages on the dispatcher thread; no internal synchronization.
     /// </remarks>
     class GlslShaderLoaderPlugin final : public tbx::Plugin
@@ -44,7 +44,7 @@ namespace glsl_shader_loader
         /// </summary>
         /// <remarks>
         /// Ownership: Does not take ownership of messages or asset payloads.
-        /// Thread Safety: Executes on the dispatcher thread; relies on Shader payload
+        /// Thread Safety: Executes on the dispatcher thread; relies on tbx::Shader payload
         /// synchronization.
         /// </remarks>
         void on_recieve_message(tbx::Message& msg) override;
@@ -59,7 +59,7 @@ namespace glsl_shader_loader
         void set_file_ops(std::shared_ptr<tbx::IFileOps> file_ops);
 
       private:
-        void on_load_shader_program_request(tbx::LoadShaderRequest& request);
+        void on_load_shader_program_request(LoadShaderRequest& request);
 
         std::filesystem::path _working_directory = {};
         std::shared_ptr<tbx::IFileOps> _file_ops = {};

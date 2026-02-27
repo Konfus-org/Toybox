@@ -10,7 +10,6 @@
 
 namespace physics_example
 {
-    using namespace tbx;
     /// <summary>
     /// Purpose: Demonstrates runtime rigid-body simulation and transform sync behaviors.
     /// </summary>
@@ -18,21 +17,21 @@ namespace physics_example
     /// Ownership: Holds non-owning references to host ECS services.
     /// Thread Safety: Must run on the main thread.
     /// </remarks>
-    class PhysicsExampleRuntimePlugin final : public Plugin
+    class PhysicsExampleRuntimePlugin final : public tbx::Plugin
     {
       public:
-        void on_attach(IPluginHost& host) override;
+        void on_attach(tbx::IPluginHost& host) override;
         void on_detach() override;
-        void on_update(const DeltaTime& dt) override;
+        void on_update(const tbx::DeltaTime& dt) override;
 
       private:
-        void update_projectiles(const DeltaTime& dt);
+        void update_projectiles(const tbx::DeltaTime& dt);
         void spawn_projectile();
 
       private:
-        example_common::FreeLookCameraController _camera_controller = {};
-        example_common::Room _room = {};
-        Entity _sun = {};
+        examples_common::FreeLookCameraController _camera_controller = {};
+        examples_common::Room _room = {};
+        tbx::Entity _sun = {};
 
         float _projectile_spawn_distance = 1.35F;
         float _projectile_speed = 26.0F;
@@ -42,8 +41,8 @@ namespace physics_example
         bool _is_shoot_requested = false;
 
         size_t _spawned_projectile_count = 0U;
-        std::shared_ptr<Mesh> _projectile_mesh = std::make_shared<Mesh>(sphere);
-        std::vector<Entity> _active_projectiles = {};
+        std::shared_ptr<tbx::Mesh> _projectile_mesh = std::make_shared<tbx::Mesh>(sphere);
+        std::vector<tbx::Entity> _active_projectiles = {};
         std::vector<double> _active_projectile_lifetimes = {};
     };
 }

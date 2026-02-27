@@ -3,9 +3,8 @@
 #include "tbx/examples/input_controller.h"
 #include "tbx/time/delta_time.h"
 
-namespace example_common
+namespace examples_common
 {
-    using namespace tbx;
     /// <summary>Configuration values used when initializing a free-look camera
     /// controller.</summary> <remarks> Purpose: Defines movement, look, and startup orientation
     /// values for camera control. Ownership: Value type copied by the controller; no external
@@ -35,7 +34,7 @@ namespace example_common
         /// Ownership: Does not own provided entities.
         /// Thread Safety: Main-thread only.
         /// </remarks>
-        virtual void initialize(Entity camera, const FreeLookCameraControllerSettings& settings);
+        virtual void initialize(tbx::Entity camera, const FreeLookCameraControllerSettings& settings);
 
         /// <summary>Initializes camera movement state and installs a default input
         /// scheme.</summary> <remarks> Purpose: Convenience overload used by examples that do not
@@ -43,7 +42,7 @@ namespace example_common
         /// Main-thread only.
         /// </remarks>
         virtual void initialize(
-            Entity camera,
+            tbx::Entity camera,
             InputManager& input_manager,
             const FreeLookCameraControllerSettings& settings);
 
@@ -60,7 +59,7 @@ namespace example_common
         /// to configured entities. Ownership: Does not transfer ownership; mutates entity
         /// components in place. Thread Safety: Main-thread only.
         /// </remarks>
-        virtual void update(const DeltaTime& dt);
+        virtual void update(const tbx::DeltaTime& dt);
 
         /// <summary>Retrieves the input scheme currently in use by this instance.</summary>
         /// <remarks>
@@ -68,26 +67,26 @@ namespace example_common
         /// Ownership: Returned handle is non-owning and aliases ECS entity state.
         /// Thread Safety: Read access is main-thread oriented with ECS synchronization.
         /// </remarks>
-        InputScheme& get_input_scheme() const;
+        tbx::InputScheme& get_input_scheme() const;
 
         /// <summary>Returns the camera entity handle currently controlled by this
         /// instance.</summary> <remarks> Purpose: Exposes camera access for raycast/spawn logic
         /// in example plugins. Ownership: Returned handle is non-owning and aliases ECS entity
         /// state. Thread Safety: Read access is main-thread oriented with ECS synchronization.
         /// </remarks>
-        const Entity& get_camera() const;
+        const tbx::Entity& get_camera() const;
 
       private:
-        InputAction create_move_action();
-        InputAction create_look_action();
-        InputAction create_up_down_action();
-        static Vec3 normalize_or_zero(const Vec3& value);
+        tbx::InputAction create_move_action();
+        tbx::InputAction create_look_action();
+        tbx::InputAction create_up_down_action();
+        static tbx::Vec3 normalize_or_zero(const tbx::Vec3& value);
 
       private:
-        Entity _camera_entity = {};
-        Vec2 _move_axis = Vec2(0.0F, 0.0F);
-        Vec2 _up_down_axis = Vec2(0.0F, 0.0F);
-        Vec2 _look_delta = Vec2(0.0F, 0.0F);
+        tbx::Entity _camera_entity = {};
+        tbx::Vec2 _move_axis = tbx::Vec2(0.0F, 0.0F);
+        tbx::Vec2 _up_down_axis = tbx::Vec2(0.0F, 0.0F);
+        tbx::Vec2 _look_delta = tbx::Vec2(0.0F, 0.0F);
         float _yaw = 0.0F;
         float _pitch = 0.0F;
         float _move_speed = 6.0F;

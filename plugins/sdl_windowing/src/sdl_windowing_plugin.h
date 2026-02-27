@@ -9,7 +9,6 @@
 
 namespace sdl_windowing
 {
-    using namespace tbx;
     struct SdlWindowRecord
     {
         SDL_Window* sdl_window = nullptr;
@@ -17,13 +16,13 @@ namespace sdl_windowing
         WindowMode mode_to_restore = WindowMode::WINDOWED;
     };
 
-    class SdlWindowingPlugin final : public Plugin
+    class SdlWindowingPlugin final : public tbx::Plugin
     {
       public:
-        void on_attach(IPluginHost& host) override;
+        void on_attach(tbx::IPluginHost& host) override;
         void on_detach() override;
-        void on_update(const DeltaTime& dt) override;
-        void on_recieve_message(Message& msg) override;
+        void on_update(const tbx::DeltaTime& dt) override;
+        void on_recieve_message(tbx::Message& msg) override;
 
       private:
         void on_window_is_open_changed(PropertyChangedEvent<Window, bool>& event);

@@ -2,6 +2,8 @@ set(plugin_name AssimpModelLoaderPlugin)
 
 add_library(${plugin_name} SHARED)
 add_library(Tbx::Plugins::${plugin_name} ALIAS ${plugin_name})
+
+target_compile_definitions(${plugin_name} PRIVATE TBX_PLUGIN_EXPORTING_SYMBOLS)
 target_link_libraries(${plugin_name} PRIVATE
     Tbx::App
     Tbx::Assets

@@ -4,7 +4,6 @@
 
 namespace sdl_base_systems
 {
-    using namespace tbx;
     static void sdl_log_callback(
         void* userdata,
         int category,
@@ -30,23 +29,18 @@ namespace sdl_base_systems
         /*else if (priority == SDL_LOG_PRIORITY_INFO)
         {
             const char* text =
-
-         * (message && *message) ? message : "SDL reported an info message without details.";
-
-         * TBX_TRACE_INFO("SDL info (category {}): {}", category, text);
+                (message && *message) ? message : "SDL reported an info message without details.";
+            TBX_TRACE_INFO("SDL info (category {}): {}", category, text);
         }
         else
- {
-
-         * const char* text =
-                (message && *message) ? message : "SDL reported a
-         * debug message without details.";
-            TBX_TRACE_INFO("SDL debug (category {}):
-         * {}", category, text);
+        {
+            const char* text =
+                (message && *message) ? message : "SDL reported a debug message without details.";
+            TBX_TRACE_INFO("SDL debug (category {}): {}", category, text);
         }*/
     }
 
-    void SdlBaseSystemsPlugin::on_attach(IPluginHost&)
+    void SdlBaseSystemsPlugin::on_attach(tbx::IPluginHost&)
     {
         SDL_SetLogOutputFunction(
             [](void* userdata, int category, SDL_LogPriority priority, const char* message)
@@ -70,8 +64,7 @@ namespace sdl_base_systems
             TBX_TRACE_ERROR("Failed to initialize SDL events subsystem. See SDL logs for details.");
             TBX_ASSERT(
                 false,
-                "SDL base systems failed to initialize events subsystem. See SDL logs for "
-                "details.");
+                "SDL base systems failed to initialize events subsystem. See SDL logs for details.");
             return;
         }
 
@@ -85,7 +78,7 @@ namespace sdl_base_systems
         _owns_sdl = false;
     }
 
-    void SdlBaseSystemsPlugin::on_update(const DeltaTime&)
+    void SdlBaseSystemsPlugin::on_update(const tbx::DeltaTime&)
     {
         SDL_PumpEvents();
     }

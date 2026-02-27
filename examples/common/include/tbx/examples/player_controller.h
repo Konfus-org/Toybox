@@ -4,9 +4,8 @@
 #include "tbx/time/delta_time.h"
 #include <string>
 
-namespace example_common
+namespace examples_common
 {
-    using namespace tbx;
     /// <summary>Defines spawn and movement settings for the reusable first-person player
     /// controller.</summary>
     /// <remarks>
@@ -16,10 +15,10 @@ namespace example_common
     /// </remarks>
     struct PlayerControllerSettings final
     {
-        Vec3 player_spawn_position = Vec3(0.0F, 0.01F, 0.0F);
-        Vec3 visual_local_position = Vec3(0.0F, 1.0F, 0.0F);
-        Vec3 visual_local_scale = Vec3(1.5F, 2.0F, 1.5F);
-        Vec3 camera_local_position = Vec3(0.0F, 2.0F, -0.55F);
+        tbx::Vec3 player_spawn_position = tbx::Vec3(0.0F, 0.01F, 0.0F);
+        tbx::Vec3 visual_local_position = tbx::Vec3(0.0F, 1.0F, 0.0F);
+        tbx::Vec3 visual_local_scale = tbx::Vec3(1.5F, 2.0F, 1.5F);
+        tbx::Vec3 camera_local_position = tbx::Vec3(0.0F, 2.0F, -0.55F);
         float initial_yaw = 0.0F;
         float initial_pitch = 0.0F;
         float move_speed = 6.0F;
@@ -41,7 +40,7 @@ namespace example_common
         /// entity handles only. Thread Safety: Main-thread only.
         /// </remarks>
         virtual void initialize(
-            EntityRegistry& entity_registry,
+            tbx::EntityRegistry& entity_registry,
             InputManager& input_manager,
             const std::string& scheme_name,
             const PlayerControllerSettings& settings = {});
@@ -60,7 +59,7 @@ namespace example_common
         /// Ownership: Mutates controlled ECS entities in place; no ownership transfer.
         /// Thread Safety: Main-thread only.
         /// </remarks>
-        virtual void update(const DeltaTime& dt);
+        virtual void update(const tbx::DeltaTime& dt);
 
         /// <summary>Retrieves the input scheme currently in use by this instance.</summary>
         /// <remarks>
@@ -68,7 +67,7 @@ namespace example_common
         /// Ownership: Returned handle is non-owning and aliases ECS entity state.
         /// Thread Safety: Read access is main-thread oriented with ECS synchronization.
         /// </remarks>
-        InputScheme& get_input_scheme();
+        tbx::InputScheme& get_input_scheme();
 
         /// <summary>Returns the controlled player entity handle.</summary>
         /// <remarks>
@@ -76,7 +75,7 @@ namespace example_common
         /// Ownership: Non-owning handle aliasing ECS state.
         /// Thread Safety: Read on main thread with ECS synchronization.
         /// </remarks>
-        const Entity& get_player() const;
+        const tbx::Entity& get_player() const;
 
         /// <summary>Returns the controlled camera entity handle.</summary>
         /// <remarks>
@@ -84,22 +83,22 @@ namespace example_common
         /// Ownership: Non-owning handle aliasing ECS state.
         /// Thread Safety: Read on main thread with ECS synchronization.
         /// </remarks>
-        const Entity& get_camera() const;
+        const tbx::Entity& get_camera() const;
 
       private:
-        InputAction create_move_action();
-        InputAction create_look_action();
-        static Vec3 normalize_or_zero(const Vec3& value);
+        tbx::InputAction create_move_action();
+        tbx::InputAction create_look_action();
+        static tbx::Vec3 normalize_or_zero(const tbx::Vec3& value);
 
       private:
-        Entity _player = {};
-        Entity _camera = {};
+        tbx::Entity _player = {};
+        tbx::Entity _camera = {};
         float _yaw = 0.0F;
         float _pitch = 0.0F;
         float _move_speed = 6.0F;
         float _look_sensitivity = 0.0025F;
-        Vec2 _move_axis = Vec2(0.0F, 0.0F);
-        Vec2 _look_delta = Vec2(0.0F, 0.0F);
+        tbx::Vec2 _move_axis = tbx::Vec2(0.0F, 0.0F);
+        tbx::Vec2 _look_delta = tbx::Vec2(0.0F, 0.0F);
         bool _is_initialized = false;
     };
 }

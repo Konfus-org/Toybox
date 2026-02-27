@@ -14,25 +14,24 @@
 
 namespace lighting_example
 {
-    using namespace tbx;
     static constexpr float DIRECTIONAL_LIGHT_ENABLED_INTENSITY = 1.5F;
     static constexpr float DIRECTIONAL_LIGHT_ENABLED_AMBIENT = 0.15F;
     static constexpr float POINT_LIGHT_ENABLED_INTENSITY = 2.0F;
     static constexpr float SPOT_LIGHT_ENABLED_INTENSITY = 4.0F;
     static constexpr float AREA_LIGHT_ENABLED_INTENSITY = 5.0F;
 
-    static InputAction create_key_toggle_action(
+    static tbx::InputAction create_key_toggle_action(
         const std::string& action_name,
         InputKey key,
         InputActionCallback on_start_callback)
     {
-        return InputAction(
+        return tbx::InputAction(
             action_name,
             InputActionValueType::BUTTON,
             InputActionConstruction {
                 .bindings =
                     {
-                        InputBinding {
+                        tbx::InputBinding {
                             .control = KeyboardInputControl {.key = key},
                             .scale = 1.0F,
                         },
@@ -44,13 +43,13 @@ namespace lighting_example
             });
     }
 
-    static Color evaluate_animated_color(double elapsed_seconds, float phase_offset)
+    static tbx::Color evaluate_animated_color(double elapsed_seconds, float phase_offset)
     {
         const float t = static_cast<float>(elapsed_seconds);
         const float r = 0.5F + (0.5F * std::sin((t * 0.9F) + phase_offset));
         const float g = 0.5F + (0.5F * std::sin((t * 0.9F) + phase_offset + ((2.0F * PI) / 3.0F)));
         const float b = 0.5F + (0.5F * std::sin((t * 0.9F) + phase_offset + ((4.0F * PI) / 3.0F)));
-        return Color(r, g, b, 1.0F);
+        return tbx::Color(r, g, b, 1.0F);
     }
 
     static float evaluate_bob_offset(
@@ -70,7 +69,7 @@ namespace lighting_example
         return (numerator + denominator - 1U) / denominator;
     }
 
-    static Vec3 evaluate_stress_light_position(
+    static tbx::Vec3 evaluate_stress_light_position(
         uint32 light_index,
         uint32 light_count,
         double elapsed_seconds)
@@ -86,7 +85,7 @@ namespace lighting_example
         const float t = static_cast<float>(elapsed_seconds);
         const float phase = static_cast<float>(light_index) * 0.17F;
         const float y = 1.0F + (0.5F * std::sin((t * 1.4F) + phase));
-        return Vec3(x, y, z);
+        return tbx::Vec3(x, y, z);
     }
 
     void LightingExampleRuntimePlugin::clear_stress_lights()
@@ -103,21 +102,21 @@ namespace lighting_example
         _stress_point_lights.reserve(light_count);
         for (uint32 light_index = 0U; light_index < light_count; ++light_index)
         {
-            auto light_entity = Entity("StressPointLight", entity_registry);
+            auto light_entity = tbx::Entity("StressPointLight", entity_registry);
             auto point_light = PointLight();
             point_light.range = 5.5F;
             point_light.intensity = 3.6F;
             point_light.color =
                 evaluate_animated_color(0.0, static_cast<float>(light_index) * 0.21F);
             light_entity.add_component<PointLight>(point_light);
-            light_entity.add_component<Transform>(
+            light_entity.add_component<tbx::Transform>(
                 evaluate_stress_light_position(light_index, light_count, 0.0));
             _stress_point_lights.push_back(light_entity);
         }
         TBX_TRACE_INFO("Stress lights rebuilt: {}", light_count);
     }
 
-    void LightingExampleRuntimePlugin::on_attach(IPluginHost& host)
+    void LightingExampleRuntimePlugin::on_attach(tbx::IPluginHost& host)
     {
         _elapsed_seconds = 0.0;
         auto& ent_registry = host.get_entity_registry();
@@ -125,50 +124,50 @@ namespace lighting_example
 
         _room.create(
             ent_registry,
-            example_common::RoomSettings {
-                .center = Vec3(0.0F, -1.0F, 0.0F),
+            examples_common::RoomSettings {
+                .center = tbx::Vec3(0.0F, -1.0F, 0.0F),
                 .include_colliders = true,
             });
 
-        auto showcase_sphere = Entity("ShowcaseSphere", ent_registry);
+        auto showcase_sphere = tbx::Entity("ShowcaseSphere", ent_registry);
         showcase_sphere.add_component<Renderer>(MaterialInstance {
             .parameters = {{"color", Color::LIGHT_GREY}},
         });
         showcase_sphere.add_component<DynamicMesh>(sphere);
-        showcase_sphere.add_component<Transform>(
-            Vec3(-2.0F, 1.5F, 0.0F),
-            Quat(1.0F, 0.0F, 0.0F, 0.0F),
-            Vec3(2.0F, 2.0F, 2.0F));
+        showcase_sphere.add_component<tbx::Transform>(
+            tbx::Vec3(-2.0F, 1.5F, 0.0F),
+            tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F),
+            tbx::Vec3(2.0F, 2.0F, 2.0F));
 
-        auto showcase_cube = Entity("ShowcaseCube", ent_registry);
+        auto showcase_cube = tbx::Entity("ShowcaseCube", ent_registry);
         showcase_cube.add_component<Renderer>(MaterialInstance {
             .parameters = {{"color", Color::GREY}},
         });
         showcase_cube.add_component<DynamicMesh>(cube);
-        showcase_cube.add_component<Transform>(
-            Vec3(2.0F, 0.25F, 0.0F),
-            Quat(1.0F, 0.0F, 0.0F, 0.0F),
-            Vec3(2.0F, 0.5F, 2.0F));
+        showcase_cube.add_component<tbx::Transform>(
+            tbx::Vec3(2.0F, 0.25F, 0.0F),
+            tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F),
+            tbx::Vec3(2.0F, 0.5F, 2.0F));
 
-        _directional_light = Entity("DirectionalLight", ent_registry);
+        _directional_light = tbx::Entity("DirectionalLight", ent_registry);
         auto directional_light = DirectionalLight();
         directional_light.ambient = DIRECTIONAL_LIGHT_ENABLED_AMBIENT;
         directional_light.intensity = DIRECTIONAL_LIGHT_ENABLED_INTENSITY;
         _directional_light.add_component<DirectionalLight>(directional_light);
-        _directional_light.add_component<Transform>(
-            Vec3(0.0F, 10.0F, 0.0F),
-            to_radians(Vec3(-45.0F, 30.0F, 0.0F)),
-            Vec3(1.0F));
+        _directional_light.add_component<tbx::Transform>(
+            tbx::Vec3(0.0F, 10.0F, 0.0F),
+            tbx::to_radians(tbx::Vec3(-45.0F, 30.0F, 0.0F)),
+            tbx::Vec3(1.0F));
 
-        _point_base_position = Vec3(-7.5F, 2.5F, -1.0F);
-        _point_light = Entity("PointLight", ent_registry);
+        _point_base_position = tbx::Vec3(-7.5F, 2.5F, -1.0F);
+        _point_light = tbx::Entity("PointLight", ent_registry);
         auto point_light = PointLight();
         point_light.range = 14.0F;
         point_light.intensity = _point_enabled ? POINT_LIGHT_ENABLED_INTENSITY : 0.0F;
         _point_light.add_component<PointLight>(point_light);
-        _point_light.add_component<Transform>(_point_base_position);
+        _point_light.add_component<tbx::Transform>(_point_base_position);
 
-        _point_light_marker = Entity("PointLightMarker", ent_registry);
+        _point_light_marker = tbx::Entity("PointLightMarker", ent_registry);
         _point_light_marker.add_component<Renderer>(Renderer {
             .material =
                 MaterialInstance {
@@ -177,25 +176,25 @@ namespace lighting_example
             .shadow_mode = ShadowMode::None,
         });
         _point_light_marker.add_component<DynamicMesh>(sphere);
-        _point_light_marker.add_component<Transform>(
+        _point_light_marker.add_component<tbx::Transform>(
             _point_base_position,
-            Quat(1.0F, 0.0F, 0.0F, 0.0F),
-            Vec3(0.3F));
+            tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F),
+            tbx::Vec3(0.3F));
 
-        _spot_base_position = Vec3(0.0F, 3.8F, 8.5F);
-        _spot_light = Entity("SpotLight", ent_registry);
+        _spot_base_position = tbx::Vec3(0.0F, 3.8F, 8.5F);
+        _spot_light = tbx::Entity("SpotLight", ent_registry);
         auto spot_light = SpotLight();
         spot_light.range = 30.0F;
         spot_light.inner_angle = 18.0F;
         spot_light.outer_angle = 32.0F;
         spot_light.intensity = _spot_enabled ? SPOT_LIGHT_ENABLED_INTENSITY : 0.0F;
         _spot_light.add_component<SpotLight>(spot_light);
-        _spot_light.add_component<Transform>(
+        _spot_light.add_component<tbx::Transform>(
             _spot_base_position,
-            to_radians(Vec3(-90.0F, 0.0F, 0.0F)),
-            Vec3(1.0F));
+            tbx::to_radians(tbx::Vec3(-90.0F, 0.0F, 0.0F)),
+            tbx::Vec3(1.0F));
 
-        _spot_light_marker = Entity("SpotLightMarker", ent_registry);
+        _spot_light_marker = tbx::Entity("SpotLightMarker", ent_registry);
         _spot_light_marker.add_component<Renderer>(Renderer {
             .material =
                 MaterialInstance {
@@ -204,24 +203,24 @@ namespace lighting_example
             .shadow_mode = ShadowMode::None,
         });
         _spot_light_marker.add_component<DynamicMesh>(cube);
-        _spot_light_marker.add_component<Transform>(
+        _spot_light_marker.add_component<tbx::Transform>(
             _spot_base_position,
-            to_radians(Vec3(-90.0F, 0.0F, 0.0F)),
-            Vec3(0.3F));
+            tbx::to_radians(tbx::Vec3(-90.0F, 0.0F, 0.0F)),
+            tbx::Vec3(0.3F));
 
-        _area_base_position = Vec3(7.5F, 2.5F, -1.0F);
-        _area_light = Entity("AreaLight", ent_registry);
+        _area_base_position = tbx::Vec3(7.5F, 2.5F, -1.0F);
+        _area_light = tbx::Entity("AreaLight", ent_registry);
         auto area_light = AreaLight();
         area_light.range = 20.0F;
-        area_light.area_size = Vec2(3.0F, 2.0F);
+        area_light.area_size = tbx::Vec2(3.0F, 2.0F);
         area_light.intensity = _area_enabled ? AREA_LIGHT_ENABLED_INTENSITY : 0.0F;
         _area_light.add_component<AreaLight>(area_light);
-        _area_light.add_component<Transform>(
+        _area_light.add_component<tbx::Transform>(
             _area_base_position,
-            to_radians(Vec3(-90.0F, 0.0F, 0.0F)),
-            Vec3(1.0F));
+            tbx::to_radians(tbx::Vec3(-90.0F, 0.0F, 0.0F)),
+            tbx::Vec3(1.0F));
 
-        _area_light_marker = Entity("AreaLightMarker", ent_registry);
+        _area_light_marker = tbx::Entity("AreaLightMarker", ent_registry);
         _area_light_marker.add_component<Renderer>(Renderer {
             .material =
                 MaterialInstance {
@@ -230,24 +229,24 @@ namespace lighting_example
             .shadow_mode = ShadowMode::None,
         });
         _area_light_marker.add_component<DynamicMesh>(capsule);
-        _area_light_marker.add_component<Transform>(
+        _area_light_marker.add_component<tbx::Transform>(
             _area_base_position,
-            to_radians(Vec3(-90.0F, 0.0F, 0.0F)),
-            Vec3(0.5F, 0.3F, 0.1F));
+            tbx::to_radians(tbx::Vec3(-90.0F, 0.0F, 0.0F)),
+            tbx::Vec3(0.5F, 0.3F, 0.1F));
 
-        auto camera = Entity("Camera", ent_registry);
+        auto camera = tbx::Entity("Camera", ent_registry);
         camera.add_component<Camera>();
-        camera.add_component<Transform>(
-            Vec3(0.0F, 3.5F, 14.0F),
-            Quat(Vec3(to_radians(-90.0F), 0.0F, 0.0F)),
-            Vec3(1.0F));
+        camera.add_component<tbx::Transform>(
+            tbx::Vec3(0.0F, 3.5F, 14.0F),
+            tbx::Quat(tbx::Vec3(tbx::to_radians(-90.0F), 0.0F, 0.0F)),
+            tbx::Vec3(1.0F));
 
         _camera_controller.initialize(
             camera,
             input_manager,
-            example_common::FreeLookCameraControllerSettings {
+            examples_common::FreeLookCameraControllerSettings {
                 .initial_yaw = 0.0F,
-                .initial_pitch = to_radians(-10.0F),
+                .initial_pitch = tbx::to_radians(-10.0F),
                 .move_speed = 6.0F,
                 .look_sensitivity = 0.0025F,
             });
@@ -256,7 +255,7 @@ namespace lighting_example
         light_scheme.add_action(create_key_toggle_action(
             "toggle_directional",
             InputKey::ALPHA_0,
-            [this](const InputAction&)
+            [this](const tbx::InputAction&)
             {
                 _directional_enabled = !_directional_enabled;
                 TBX_TRACE_INFO("Toggle directional light: {}", _directional_enabled);
@@ -267,7 +266,7 @@ namespace lighting_example
         light_scheme.add_action(create_key_toggle_action(
             "toggle_point",
             InputKey::ALPHA_1,
-            [this](const InputAction&)
+            [this](const tbx::InputAction&)
             {
                 _point_enabled = !_point_enabled;
                 TBX_TRACE_INFO("Toggle point light: {}", _point_enabled);
@@ -277,7 +276,7 @@ namespace lighting_example
         light_scheme.add_action(create_key_toggle_action(
             "toggle_spot",
             InputKey::ALPHA_2,
-            [this](const InputAction&)
+            [this](const tbx::InputAction&)
             {
                 _spot_enabled = !_spot_enabled;
                 TBX_TRACE_INFO("Toggle spot light: {}", _spot_enabled);
@@ -287,7 +286,7 @@ namespace lighting_example
         light_scheme.add_action(create_key_toggle_action(
             "toggle_area",
             InputKey::ALPHA_3,
-            [this](const InputAction&)
+            [this](const tbx::InputAction&)
             {
                 _area_enabled = !_area_enabled;
                 TBX_TRACE_INFO("Toggle area light: {}", _area_enabled);
@@ -297,7 +296,7 @@ namespace lighting_example
         light_scheme.add_action(create_key_toggle_action(
             "toggle_stress_lights",
             InputKey::F5,
-            [this](const InputAction&)
+            [this](const tbx::InputAction&)
             {
                 _stress_mode_enabled = !_stress_mode_enabled;
                 if (_stress_mode_enabled)
@@ -313,7 +312,7 @@ namespace lighting_example
         light_scheme.add_action(create_key_toggle_action(
             "cycle_stress_light_count",
             InputKey::F6,
-            [this](const InputAction&)
+            [this](const tbx::InputAction&)
             {
                 static constexpr auto STRESS_PRESETS = std::array {128U, 256U, 512U, 768U};
                 auto selected_index = 0U;
@@ -336,7 +335,7 @@ namespace lighting_example
         light_scheme.add_action(create_key_toggle_action(
             "toggle_shadow_budget",
             InputKey::F7,
-            [this](const InputAction&)
+            [this](const tbx::InputAction&)
             {
                 auto& graphics = get_host().get_settings().graphics;
                 if (graphics.shadow_render_distance.value <= 25.0F)
@@ -368,16 +367,16 @@ namespace lighting_example
         _room.destroy();
     }
 
-    void LightingExampleRuntimePlugin::on_update(const DeltaTime& dt)
+    void LightingExampleRuntimePlugin::on_update(const tbx::DeltaTime& dt)
     {
         _camera_controller.update(dt);
         _elapsed_seconds += dt.seconds;
 
         {
-            auto& directional_transform = _directional_light.get_component<Transform>();
+            auto& directional_transform = _directional_light.get_component<tbx::Transform>();
             constexpr float yaw_rate = 0.02F;
             const float angle = yaw_rate * static_cast<float>(dt.seconds);
-            const auto rotation_delta = Quat(Vec3(0.0F, angle, 0.0F));
+            const auto rotation_delta = tbx::Quat(tbx::Vec3(0.0F, angle, 0.0F));
             directional_transform.rotation =
                 normalize(rotation_delta * directional_transform.rotation);
         }
@@ -391,13 +390,13 @@ namespace lighting_example
                     POINT_LIGHT_ENABLED_INTENSITY
                     + (1.2F * std::sin(static_cast<float>(_elapsed_seconds) * 1.1F));
 
-                auto& point_transform = _point_light.get_component<Transform>();
+                auto& point_transform = _point_light.get_component<tbx::Transform>();
                 point_transform.position = _point_base_position;
                 point_transform.position.y +=
                     evaluate_bob_offset(_elapsed_seconds, 2.4F, 0.1F, 0.9F);
 
                 {
-                    auto& marker_transform = _point_light_marker.get_component<Transform>();
+                    auto& marker_transform = _point_light_marker.get_component<tbx::Transform>();
                     marker_transform.position = point_transform.position;
                     auto& marker_renderer = _point_light_marker.get_component<Renderer>();
                     marker_renderer.material.parameters.set("color", point_light.color);
@@ -421,13 +420,13 @@ namespace lighting_example
                 spot_light.intensity =
                     SPOT_LIGHT_ENABLED_INTENSITY
                     + (1.5F * std::sin(static_cast<float>(_elapsed_seconds) * 1.35F));
-                auto& spot_transform = _spot_light.get_component<Transform>();
+                auto& spot_transform = _spot_light.get_component<tbx::Transform>();
                 spot_transform.position = _spot_base_position;
                 spot_transform.position.y +=
                     evaluate_bob_offset(_elapsed_seconds, 2.1F, 1.2F, 0.8F);
 
                 {
-                    auto& marker_transform = _spot_light_marker.get_component<Transform>();
+                    auto& marker_transform = _spot_light_marker.get_component<tbx::Transform>();
                     marker_transform.position = spot_transform.position;
                     marker_transform.rotation = spot_transform.rotation;
                     auto& marker_renderer = _spot_light_marker.get_component<Renderer>();
@@ -453,13 +452,13 @@ namespace lighting_example
                     AREA_LIGHT_ENABLED_INTENSITY
                     + (1.0F * std::sin(static_cast<float>(_elapsed_seconds) * 0.95F));
 
-                auto& area_transform = _area_light.get_component<Transform>();
+                auto& area_transform = _area_light.get_component<tbx::Transform>();
                 area_transform.position = _area_base_position;
                 area_transform.position.y +=
                     evaluate_bob_offset(_elapsed_seconds, 1.8F, 2.7F, 0.85F);
 
                 {
-                    auto& marker_transform = _area_light_marker.get_component<Transform>();
+                    auto& marker_transform = _area_light_marker.get_component<tbx::Transform>();
                     marker_transform.position = area_transform.position;
                     marker_transform.rotation = area_transform.rotation;
                     auto& marker_renderer = _area_light_marker.get_component<Renderer>();
@@ -482,11 +481,11 @@ namespace lighting_example
             {
                 auto& light_entity = _stress_point_lights[light_index];
                 if (!light_entity.has_component<PointLight>()
-                    || !light_entity.has_component<Transform>())
+                    || !light_entity.has_component<tbx::Transform>())
                     continue;
 
                 auto& point_light = light_entity.get_component<PointLight>();
-                auto& transform = light_entity.get_component<Transform>();
+                auto& transform = light_entity.get_component<tbx::Transform>();
                 transform.position = evaluate_stress_light_position(
                     light_index,
                     static_cast<uint32>(_stress_point_lights.size()),

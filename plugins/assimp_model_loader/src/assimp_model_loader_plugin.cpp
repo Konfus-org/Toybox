@@ -17,7 +17,6 @@
 
 namespace assimp_model_loader
 {
-    using namespace tbx;
     // Formats a readable failure message for load errors.
     static std::string build_load_failure_message(
         const std::filesystem::path& path,
@@ -35,10 +34,10 @@ namespace assimp_model_loader
         return message;
     }
 
-    // Converts an Assimp matrix to the engine Mat4 type.
-    static Mat4 to_mat4(const aiMatrix4x4& matrix)
+    // Converts an Assimp matrix to the engine tbx::Mat4 type.
+    static tbx::Mat4 to_mat4(const aiMatrix4x4& matrix)
     {
-        return Mat4(
+        return tbx::Mat4(
             matrix.a1,
             matrix.b1,
             matrix.c1,
@@ -58,21 +57,21 @@ namespace assimp_model_loader
     }
 
     // Converts an Assimp vector to a 2D engine vector.
-    static Vec2 to_vec2(const aiVector3D& vector)
+    static tbx::Vec2 to_vec2(const aiVector3D& vector)
     {
-        return Vec2(vector.x, vector.y);
+        return tbx::Vec2(vector.x, vector.y);
     }
 
     // Converts an Assimp vector to a 3D engine vector.
-    static Vec3 to_vec3(const aiVector3D& vector)
+    static tbx::Vec3 to_vec3(const aiVector3D& vector)
     {
-        return Vec3(vector.x, vector.y, vector.z);
+        return tbx::Vec3(vector.x, vector.y, vector.z);
     }
 
     // Converts an Assimp color to the engine RGBA color type.
-    static Color to_color(const aiColor4D& color)
+    static tbx::Color to_color(const aiColor4D& color)
     {
-        return Color(color.r, color.g, color.b, color.a);
+        return tbx::Color(color.r, color.g, color.b, color.a);
     }
 
     // Determines the scale needed to convert imported scene units to meters.
@@ -109,7 +108,7 @@ namespace assimp_model_loader
     }
 
     // Queries a diffuse color from an Assimp material, falling back to white.
-    static Color get_material_diffuse_color(const aiMaterial& material)
+    static tbx::Color get_material_diffuse_color(const aiMaterial& material)
     {
         aiColor4D diffuse = {};
         if (aiGetMaterialColor(&material, AI_MATKEY_COLOR_DIFFUSE, &diffuse) == AI_SUCCESS)
@@ -117,31 +116,31 @@ namespace assimp_model_loader
             return to_color(diffuse);
         }
 
-        return Color(1.0f, 1.0f, 1.0f, 1.0f);
+        return tbx::Color(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
     // Defines the default vertex layout used when creating mesh buffers.
     static VertexBufferLayout get_default_mesh_layout()
     {
         return {{
-            Vec3(0.0f),
-            Color(),
-            Vec3(0.0f),
-            Vec2(0.0f),
+            tbx::Vec3(0.0f),
+            tbx::Color(),
+            tbx::Vec3(0.0f),
+            tbx::Vec2(0.0f),
         }};
     }
 
     // Recursively traverses the Assimp node hierarchy to build model parts.
     static void append_parts_from_node(
         const aiNode& node,
-        const Mat4& parent_transform,
+        const tbx::Mat4& parent_transform,
         const std::vector<uint32>& mesh_material_indices,
         std::vector<ModelPart>& parts,
         uint32 parent_index,
         bool has_parent)
     {
         // Compose the local transform with the accumulated parent transform.
-        Mat4 local_transform = parent_transform * to_mat4(node.mTransformation);
+        tbx::Mat4 local_transform = parent_transform * to_mat4(node.mTransformation);
         uint32 first_part_index = 0U;
         bool has_first_part = false;
 
@@ -193,13 +192,13 @@ namespace assimp_model_loader
     }
 
     // Captures a filesystem reference for asset resolution.
-    void AssimpModelLoaderPlugin::on_attach(IPluginHost&) {}
+    void AssimpModelLoaderPlugin::on_attach(tbx::IPluginHost&) {}
 
     // Clears cached references on detach.
     void AssimpModelLoaderPlugin::on_detach() {}
 
     // Handles incoming messages for model load requests.
-    void AssimpModelLoaderPlugin::on_recieve_message(Message& msg)
+    void AssimpModelLoaderPlugin::on_recieve_message(tbx::Message& msg)
     {
         auto* request = handle_message<LoadModelRequest>(msg);
         if (!request)
@@ -245,12 +244,12 @@ namespace assimp_model_loader
         }
 
         // Build materials from Assimp material data.
-        std::vector<Material> materials;
+        std::vector<tbx::Material> materials;
         materials.reserve(scene->mNumMaterials);
         for (uint32 material_index = 0; material_index < scene->mNumMaterials; ++material_index)
         {
             const aiMaterial* source_material = scene->mMaterials[material_index];
-            Material material = {};
+            tbx::Material material = {};
             if (source_material)
             {
                 material.parameters.set("color", get_material_diffuse_color(*source_material));
@@ -260,11 +259,11 @@ namespace assimp_model_loader
         // Ensure at least one material exists for mesh references.
         if (materials.empty())
         {
-            materials.push_back(Material());
+            materials.push_back(tbx::Material());
         }
 
-        // Convert Assimp meshes into engine Mesh instances.
-        std::vector<Mesh> meshes;
+        // Convert Assimp meshes into engine tbx::Mesh instances.
+        std::vector<tbx::Mesh> meshes;
         meshes.reserve(scene->mNumMeshes);
         // Track material indices per mesh for model part creation.
         std::vector<uint32> mesh_material_indices;
@@ -280,7 +279,7 @@ namespace assimp_model_loader
             {
                 // Keep indices aligned even if a mesh is missing.
                 mesh_material_indices.push_back(0U);
-                meshes.push_back(Mesh());
+                meshes.push_back(tbx::Mesh());
                 continue;
             }
 
@@ -307,7 +306,7 @@ namespace assimp_model_loader
                 if (mesh->HasVertexColors(0))
                     vertex.color = to_color(mesh->mColors[0][vertex_index]);
                 else
-                    vertex.color = Color(1.0f, 1.0f, 1.0f, 1.0f);
+                    vertex.color = tbx::Color(1.0f, 1.0f, 1.0f, 1.0f);
                 vertices.push_back(vertex);
             }
 
@@ -333,8 +332,8 @@ namespace assimp_model_loader
         std::vector<ModelPart> parts;
         parts.reserve(meshes.size());
         float scene_scale_to_meters = get_scene_scale_to_meters(*scene, request.path);
-        Mat4 scene_scale =
-            (scene_scale_to_meters == 1.0f) ? Mat4(1.0f) : scale(Vec3(scene_scale_to_meters));
+        tbx::Mat4 scene_scale =
+            (scene_scale_to_meters == 1.0f) ? tbx::Mat4(1.0f) : scale(tbx::Vec3(scene_scale_to_meters));
         if (scene->mRootNode && !mesh_material_indices.empty())
         {
             append_parts_from_node(
@@ -358,7 +357,7 @@ namespace assimp_model_loader
         }
 
         // Assemble the final model payload.
-        Model model = {};
+        tbx::Model model = {};
         model.meshes = std::move(meshes);
         model.materials = std::move(materials);
         model.parts = std::move(parts);

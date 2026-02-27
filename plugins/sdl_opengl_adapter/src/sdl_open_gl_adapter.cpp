@@ -3,7 +3,6 @@
 
 namespace sdl_opengl_adapter
 {
-    using namespace tbx;
     static void set_opengl_attribute(SDL_GLAttr attribute, int value)
     {
         if (!SDL_GL_SetAttribute(attribute, value))
@@ -190,9 +189,9 @@ namespace sdl_opengl_adapter
         }
     }
 
-    GraphicsProcAddress SdlOpenGlAdapter::get_proc_address() const
+    tbx::GraphicsProcAddress SdlOpenGlAdapter::get_proc_address() const
     {
-        return reinterpret_cast<GraphicsProcAddress>(SDL_GL_GetProcAddress);
+        return reinterpret_cast<tbx::GraphicsProcAddress>(SDL_GL_GetProcAddress);
     }
 
     bool SdlOpenGlAdapter::has_context(SDL_Window* sdl_window) const
