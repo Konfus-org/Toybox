@@ -7,7 +7,7 @@
 #include <type_traits>
 #include <variant>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     static GLenum to_gl_shader_type(ShaderType type)
     {
@@ -78,19 +78,19 @@ namespace tbx::plugins
                 {
                     glUniform1f(location, static_cast<float>(value));
                 }
-                else if constexpr (std::is_same_v<ValueType, Vec2>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Vec2>)
                 {
                     glUniform2f(location, value.x, value.y);
                 }
-                else if constexpr (std::is_same_v<ValueType, Vec3>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Vec3>)
                 {
                     glUniform3f(location, value.x, value.y, value.z);
                 }
-                else if constexpr (std::is_same_v<ValueType, Vec4>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Vec4>)
                 {
                     glUniform4f(location, value.x, value.y, value.z, value.w);
                 }
-                else if constexpr (std::is_same_v<ValueType, Color>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Color>)
                 {
                     glUniform4f(location, value.r, value.g, value.b, value.a);
                 }
@@ -98,7 +98,7 @@ namespace tbx::plugins
                 {
                     glUniformMatrix3fv(location, 1, GL_FALSE, glm::value_ptr(value));
                 }
-                else if constexpr (std::is_same_v<ValueType, Mat4>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Mat4>)
                 {
                     glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));
                 }

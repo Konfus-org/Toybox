@@ -12,7 +12,7 @@ target_link_libraries(InputExampleRuntime PRIVATE
 
 tbx_register_plugin(
     TARGET InputExampleRuntime
-    CLASS tbx::examples::InputExampleRuntimePlugin
+    CLASS input_example::InputExampleRuntimePlugin
     HEADER "runtime.h"
     NAME "InputExampleRuntime"
     VERSION "1.0.0"

@@ -5,7 +5,7 @@
 #include "tbx/graphics/mesh.h"
 #include "tbx/tbx_api.h"
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     /// <summary>OpenGL implementation of a mesh resource.</summary>
     /// <remarks>Purpose: Manages a VAO with vertex and index buffers for drawing.
@@ -18,7 +18,7 @@ namespace tbx::plugins
         /// <remarks>Purpose: Initializes GPU buffers for the mesh.
         /// Ownership: Owns the created VAO and buffer resources.
         /// Thread Safety: Construct on the render thread.</remarks>
-        explicit OpenGlMesh(const Mesh& mesh);
+        explicit OpenGlMesh(const tbx::Mesh& mesh);
 
         /// <summary>Destroys the OpenGL mesh resource.</summary>
         /// <remarks>Purpose: Releases the VAO and buffer resources.

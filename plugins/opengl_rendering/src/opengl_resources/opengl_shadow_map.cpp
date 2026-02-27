@@ -1,7 +1,7 @@
 #include "opengl_shadow_map.h"
 #include "tbx/debugging/macros.h"
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     OpenGlShadowMap::OpenGlShadowMap(const Size& resolution)
     {
@@ -29,7 +29,7 @@ namespace tbx::plugins
             .filter = TextureFilter::LINEAR,
             .wrap = TextureWrap::CLAMP_TO_EDGE,
             .use_border_color = true,
-            .border_color = Vec4(1.0f, 1.0f, 1.0f, 1.0f),
+            .border_color = tbx::Vec4(1.0f, 1.0f, 1.0f, 1.0f),
             .use_compare_mode = true,
         };
         _texture = std::make_shared<OpenGlTexture>(settings);

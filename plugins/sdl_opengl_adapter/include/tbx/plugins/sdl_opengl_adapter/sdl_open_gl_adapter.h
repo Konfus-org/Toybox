@@ -1,11 +1,12 @@
 #pragma once
 #include "tbx/graphics/messages.h"
+#include "tbx/plugin_api/plugin_export.h"
 #include <SDL3/SDL.h>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-namespace tbx::plugins
+namespace sdl_opengl_adapter
 {
     /// <summary>Settings that control SDL OpenGL context creation and behavior.</summary>
     /// <remarks>Purpose: Captures OpenGL-specific configuration for SDL-backed windows.
@@ -27,7 +28,7 @@ namespace tbx::plugins
     /// Ownership: Owns one SDL_GLContext per tracked SDL window and releases them on destruction.
     /// Thread Safety: Not thread-safe; expected to be used from the render/main thread that owns
     /// the SDL contexts.</remarks>
-    class SdlOpenGlAdapter final
+    class TBX_PLUGIN_API SdlOpenGlAdapter final
     {
       public:
         explicit SdlOpenGlAdapter(const SdlOpenGlAdapterSettings& settings);
@@ -80,7 +81,7 @@ namespace tbx::plugins
         /// <remarks>Purpose: Supplies a loader compatible with gladLoadGLLoader.
         /// Ownership: Non-owning pointer; valid as long as SDL is available.
         /// Thread Safety: Safe to copy; invocation must obey SDL context thread rules.</remarks>
-        [[nodiscard]] GraphicsProcAddress get_proc_address() const;
+        [[nodiscard]] tbx::GraphicsProcAddress get_proc_address() const;
 
         /// <summary>Returns whether a context exists for the given window.</summary>
         /// <remarks>Purpose: Allows callers to validate context availability.

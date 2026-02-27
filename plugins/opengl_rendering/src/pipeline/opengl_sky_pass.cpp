@@ -6,26 +6,26 @@
 #include <glad/glad.h>
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
-    static Quat get_camera_rotation(const OpenGlCameraView& camera_view)
+    static tbx::Quat get_camera_rotation(const OpenGlCameraView& camera_view)
     {
         const auto camera_transform = get_world_space_transform(camera_view.camera_entity);
         return camera_transform.rotation;
     }
 
-    static Vec3 get_camera_position(const OpenGlCameraView& camera_view)
+    static tbx::Vec3 get_camera_position(const OpenGlCameraView& camera_view)
     {
         const auto camera_transform = get_world_space_transform(camera_view.camera_entity);
         return camera_transform.position;
     }
 
-    static Mat4 get_sky_view_projection_matrix(
+    static tbx::Mat4 get_sky_view_projection_matrix(
         const OpenGlCameraView& camera_view,
         const Size& render_resolution)
     {
         if (!camera_view.camera_entity.has_component<Camera>())
-            return Mat4(1.0f);
+            return tbx::Mat4(1.0f);
 
         auto& camera = camera_view.camera_entity.get_component<Camera>();
         camera.set_aspect(render_resolution.get_aspect_ratio());
@@ -124,7 +124,7 @@ namespace tbx::plugins
         draw_resources.shader_program->upload(
             MaterialParameter {
                 .name = "u_model",
-                .data = Mat4(1.0f),
+                .data = tbx::Mat4(1.0f),
             });
         upload_texture_uniforms(*draw_resources.shader_program, draw_resources);
         upload_material_uniforms(*draw_resources.shader_program, draw_resources);

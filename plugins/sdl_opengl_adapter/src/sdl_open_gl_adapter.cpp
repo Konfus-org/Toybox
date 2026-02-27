@@ -1,7 +1,7 @@
 #include "tbx/plugins/sdl_opengl_adapter/sdl_open_gl_adapter.h"
 #include "tbx/debugging/macros.h"
 
-namespace tbx::plugins
+namespace sdl_opengl_adapter
 {
     static void set_opengl_attribute(SDL_GLAttr attribute, int value)
     {
@@ -189,9 +189,9 @@ namespace tbx::plugins
         }
     }
 
-    GraphicsProcAddress SdlOpenGlAdapter::get_proc_address() const
+    tbx::GraphicsProcAddress SdlOpenGlAdapter::get_proc_address() const
     {
-        return reinterpret_cast<GraphicsProcAddress>(SDL_GL_GetProcAddress);
+        return reinterpret_cast<tbx::GraphicsProcAddress>(SDL_GL_GetProcAddress);
     }
 
     bool SdlOpenGlAdapter::has_context(SDL_Window* sdl_window) const

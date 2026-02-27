@@ -7,7 +7,7 @@
 #include <glad/glad.h>
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     static void get_preset_destination_bounds(
         const Size& source_size,

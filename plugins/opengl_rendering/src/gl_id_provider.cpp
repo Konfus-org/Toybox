@@ -1,6 +1,6 @@
 ﻿#include "gl_id_provider.h"
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     Uuid GlIdProvider::provide(const Uuid& first, uint32 second) const
     {

@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     /// <summary>
     /// Purpose: Captures the active camera entity used for frame visibility and matrix generation.
@@ -34,21 +34,21 @@ namespace tbx::plugins
         /// Ownership: Non-owning entity wrapper; registry and entity must outlive frame execution.
         /// Thread Safety: Read-only on the render thread.
         /// </summary>
-        Entity camera_entity = {};
+        tbx::Entity camera_entity = {};
 
         /// <summary>
         /// Purpose: Static-mesh entities visible to the active camera and ready for rendering.
         /// Ownership: Stores non-owning entity wrappers into the owning entity registry.
         /// Thread Safety: Read-only on the render thread.
         /// </summary>
-        std::vector<Entity> in_view_static_entities = {};
+        std::vector<tbx::Entity> in_view_static_entities = {};
 
         /// <summary>
         /// Purpose: Dynamic-mesh entities visible to the active camera and ready for rendering.
         /// Ownership: Stores non-owning entity wrappers into the owning entity registry.
         /// Thread Safety: Read-only on the render thread.
         /// </summary>
-        std::vector<Entity> in_view_dynamic_entities = {};
+        std::vector<tbx::Entity> in_view_dynamic_entities = {};
     };
 
     /// <summary>
@@ -65,7 +65,7 @@ namespace tbx::plugins
         /// Ownership: Non-owning entity wrapper.
         /// Thread Safety: Safe to read on render thread while registry is valid.
         /// </summary>
-        Entity owner_entity = {};
+        tbx::Entity owner_entity = {};
 
         /// <summary>
         /// Purpose: Effect index within the owner's PostProcessing component.
@@ -82,7 +82,7 @@ namespace tbx::plugins
         bool is_enabled = false;
 
         /// <summary>
-        /// Purpose: Runtime material data used to shade this fullscreen post-processing pass.
+        /// Purpose: tbx::Runtime material data used to shade this fullscreen post-processing pass.
         /// Ownership: Owns parameter/texture values and a base material handle reference.
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
@@ -113,11 +113,11 @@ namespace tbx::plugins
         bool is_enabled = false;
 
         /// <summary>
-        /// Purpose: Entity that owns the active PostProcessing component.
+        /// Purpose: tbx::Entity that owns the active PostProcessing component.
         /// Ownership: Non-owning entity wrapper into the active registry.
         /// Thread Safety: Read-only on render thread.
         /// </summary>
-        Entity owner_entity = {};
+        tbx::Entity owner_entity = {};
 
         /// <summary>
         /// Purpose: Ordered effects to execute from first to last.
@@ -136,9 +136,9 @@ namespace tbx::plugins
     /// </remarks>
     struct OpenGlDirectionalLightData final
     {
-        Vec3 direction = Vec3(0.0f, -1.0f, 0.0f);
+        tbx::Vec3 direction = tbx::Vec3(0.0f, -1.0f, 0.0f);
         float intensity = 1.0f;
-        Vec3 color = Vec3(1.0f, 1.0f, 1.0f);
+        tbx::Vec3 color = tbx::Vec3(1.0f, 1.0f, 1.0f);
         float ambient = 0.03f;
         int shadow_map_index = -1;
     };
@@ -152,9 +152,9 @@ namespace tbx::plugins
     /// </remarks>
     struct OpenGlPointLightData final
     {
-        Vec3 position = Vec3(0.0f);
+        tbx::Vec3 position = tbx::Vec3(0.0f);
         float range = 10.0f;
-        Vec3 color = Vec3(1.0f, 1.0f, 1.0f);
+        tbx::Vec3 color = tbx::Vec3(1.0f, 1.0f, 1.0f);
         float intensity = 1.0f;
         int shadow_map_index = -1;
     };
@@ -168,11 +168,11 @@ namespace tbx::plugins
     /// </remarks>
     struct OpenGlSpotLightData final
     {
-        Vec3 position = Vec3(0.0f);
+        tbx::Vec3 position = tbx::Vec3(0.0f);
         float range = 10.0f;
-        Vec3 direction = Vec3(0.0f, -1.0f, 0.0f);
+        tbx::Vec3 direction = tbx::Vec3(0.0f, -1.0f, 0.0f);
         float inner_cos = 0.94f;
-        Vec3 color = Vec3(1.0f, 1.0f, 1.0f);
+        tbx::Vec3 color = tbx::Vec3(1.0f, 1.0f, 1.0f);
         float outer_cos = 0.82f;
         float intensity = 1.0f;
         int shadow_map_index = -1;
@@ -187,12 +187,12 @@ namespace tbx::plugins
     /// </remarks>
     struct OpenGlAreaLightData final
     {
-        Vec3 position = Vec3(0.0f);
+        tbx::Vec3 position = tbx::Vec3(0.0f);
         float range = 10.0f;
-        Vec3 direction = Vec3(0.0f, -1.0f, 0.0f);
+        tbx::Vec3 direction = tbx::Vec3(0.0f, -1.0f, 0.0f);
         float intensity = 1.0f;
-        Vec3 color = Vec3(1.0f, 1.0f, 1.0f);
-        Vec2 area_size = Vec2(1.0f, 1.0f);
+        tbx::Vec3 color = tbx::Vec3(1.0f, 1.0f, 1.0f);
+        tbx::Vec2 area_size = tbx::Vec2(1.0f, 1.0f);
     };
 
     /// <summary>
@@ -219,10 +219,10 @@ namespace tbx::plugins
     /// </remarks>
     struct OpenGlPackedLightData final
     {
-        Vec4 position_range = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
-        Vec4 direction_inner_cos = Vec4(0.0f, -1.0f, 0.0f, 0.0f);
-        Vec4 color_intensity = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
-        Vec4 area_outer_ambient = Vec4(1.0f, 1.0f, 0.0f, 0.03f);
+        tbx::Vec4 position_range = tbx::Vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        tbx::Vec4 direction_inner_cos = tbx::Vec4(0.0f, -1.0f, 0.0f, 0.0f);
+        tbx::Vec4 color_intensity = tbx::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+        tbx::Vec4 area_outer_ambient = tbx::Vec4(1.0f, 1.0f, 0.0f, 0.03f);
         IVec4 metadata = IVec4(static_cast<int>(OpenGlPackedLightType::Directional), -1, 0, 0);
     };
 
@@ -282,7 +282,7 @@ namespace tbx::plugins
         /// Ownership: Non-owning span; caller owns matrix storage.
         /// Thread Safety: Safe to read concurrently while storage remains valid.
         /// </summary>
-        std::span<const Mat4> light_view_projections = {};
+        std::span<const tbx::Mat4> light_view_projections = {};
 
         /// <summary>
         /// Purpose: Cascade split distances used for cascaded directional shadow sampling.
@@ -350,14 +350,14 @@ namespace tbx::plugins
         /// Ownership: Value type owned by this context.
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
-        Color clear_color = Color::BLACK;
+        tbx::Color clear_color = Color::BLACK;
 
         /// <summary>
         /// Purpose: Optional sky entity used by the sky pass.
         /// Ownership: Non-owning entity wrapper into the active registry.
         /// Thread Safety: Read-only on render thread.
         /// </summary>
-        Entity sky_entity = {};
+        tbx::Entity sky_entity = {};
 
         /// <summary>
         /// Purpose: Optional post-processing settings used for final fullscreen shading.
@@ -367,11 +367,11 @@ namespace tbx::plugins
         OpenGlPostProcessSettings post_process = {};
 
         /// <summary>
-        /// Purpose: Entity used to resolve deferred-lighting fullscreen material resources.
+        /// Purpose: tbx::Entity used to resolve deferred-lighting fullscreen material resources.
         /// Ownership: Non-owning entity wrapper into the active registry.
         /// Thread Safety: Read-only on render thread.
         /// </summary>
-        Entity deferred_lighting_entity = {};
+        tbx::Entity deferred_lighting_entity = {};
 
         /// <summary>
         /// Purpose: G-buffer used for deferred geometry outputs.
@@ -406,28 +406,28 @@ namespace tbx::plugins
         /// Ownership: Value type owned by this context.
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
-        Vec3 camera_world_position = Vec3(0.0f);
+        tbx::Vec3 camera_world_position = tbx::Vec3(0.0f);
 
         /// <summary>
         /// Purpose: Camera forward direction used for directional shadow cascade selection.
         /// Ownership: Value type owned by this context.
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
-        Vec3 camera_forward = Vec3(0.0f, 0.0f, -1.0f);
+        tbx::Vec3 camera_forward = tbx::Vec3(0.0f, 0.0f, -1.0f);
 
         /// <summary>
         /// Purpose: Camera view-projection matrix for the active frame.
         /// Ownership: Value type owned by this context.
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
-        Mat4 view_projection = Mat4(1.0f);
+        tbx::Mat4 view_projection = tbx::Mat4(1.0f);
 
         /// <summary>
         /// Purpose: Inverse of the camera view-projection matrix.
         /// Ownership: Value type owned by this context.
         /// Thread Safety: Safe to read concurrently.
         /// </summary>
-        Mat4 inverse_view_projection = Mat4(1.0f);
+        tbx::Mat4 inverse_view_projection = tbx::Mat4(1.0f);
 
         /// <summary>
         /// Purpose: Packed lights visible to deferred and local-volume lighting passes.
@@ -472,14 +472,14 @@ namespace tbx::plugins
         bool is_gpu_pass_timing_enabled = false;
 
         /// <summary>
-        /// Purpose: Shader program used to dispatch compute light culling.
+        /// Purpose: tbx::Shader program used to dispatch compute light culling.
         /// Ownership: Non-owning pointer; caller retains shader-program lifetime.
         /// Thread Safety: Use on render thread.
         /// </summary>
         OpenGlShaderProgram* light_culling_shader_program = nullptr;
 
         /// <summary>
-        /// Purpose: Shader program used by instanced local-light volume rendering.
+        /// Purpose: tbx::Shader program used by instanced local-light volume rendering.
         /// Ownership: Non-owning pointer; caller retains shader-program lifetime.
         /// Thread Safety: Use on render thread.
         /// </summary>

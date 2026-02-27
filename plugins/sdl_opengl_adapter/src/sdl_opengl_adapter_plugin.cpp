@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace tbx::plugins
+namespace sdl_opengl_adapter
 {
     static SdlOpenGlAdapterSettings get_default_open_gl_settings(bool vsync_enabled)
     {
@@ -17,7 +17,7 @@ namespace tbx::plugins
         return settings;
     }
 
-    void SdlOpenGlAdapterPlugin::on_attach(IPluginHost& host)
+    void SdlOpenGlAdapterPlugin::on_attach(tbx::IPluginHost& host)
     {
         _use_opengl = host.get_settings().graphics.graphics_api == GraphicsApi::OPEN_GL;
         _vsync_enabled = host.get_settings().graphics.vsync_enabled;
@@ -31,7 +31,7 @@ namespace tbx::plugins
         _native_windows.clear();
     }
 
-    void SdlOpenGlAdapterPlugin::on_recieve_message(Message& msg)
+    void SdlOpenGlAdapterPlugin::on_recieve_message(tbx::Message& msg)
     {
         if (auto* native_handle_event = handle_property_changed<&Window::native_handle>(msg))
         {

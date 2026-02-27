@@ -10,7 +10,7 @@
 #include <glad/glad.h>
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     static void bind_textures(
         const OpenGlDrawResources& draw_resources,
@@ -40,7 +40,7 @@ namespace tbx::plugins
         }
     }
 
-    static void upload_model_uniform(OpenGlShaderProgram& shader_program, const Entity& entity)
+    static void upload_model_uniform(OpenGlShaderProgram& shader_program, const tbx::Entity& entity)
     {
         const auto transform = get_world_space_transform(entity);
         const auto model_matrix = build_transform_matrix(transform);
@@ -53,7 +53,7 @@ namespace tbx::plugins
 
     static void upload_light_view_projection(
         OpenGlShaderProgram& shader_program,
-        const Mat4& light_view_projection)
+        const tbx::Mat4& light_view_projection)
     {
         shader_program.try_upload(
             MaterialParameter {
@@ -76,11 +76,11 @@ namespace tbx::plugins
     }
 
     static void draw_shadow_entity(
-        const Entity& entity,
+        const tbx::Entity& entity,
         OpenGlResourceManager& resource_manager,
-        const Mat4& light_view_projection,
+        const tbx::Mat4& light_view_projection,
         std::vector<GlResourceScope>& resource_scopes,
-        const Vec3& camera_position,
+        const tbx::Vec3& camera_position,
         float shadow_render_distance)
     {
         if (!entity.has_component<Renderer>())

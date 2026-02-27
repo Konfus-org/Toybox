@@ -21,7 +21,7 @@
 #include <string_view>
 #include <variant>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     static constexpr size_t MAX_SHADOWED_DIRECTIONAL_LIGHTS = 1U;
     static constexpr size_t DIRECTIONAL_SHADOW_CASCADE_COUNT = 2U;
@@ -64,10 +64,10 @@ namespace tbx::plugins
     static OpenGlPackedLightData pack_directional_light(const OpenGlDirectionalLightData& light)
     {
         return OpenGlPackedLightData {
-            .position_range = Vec4(0.0F, 0.0F, 0.0F, 0.0F),
-            .direction_inner_cos = Vec4(light.direction, 0.0F),
-            .color_intensity = Vec4(light.color, light.intensity),
-            .area_outer_ambient = Vec4(1.0F, 1.0F, 0.0F, light.ambient),
+            .position_range = tbx::Vec4(0.0F, 0.0F, 0.0F, 0.0F),
+            .direction_inner_cos = tbx::Vec4(light.direction, 0.0F),
+            .color_intensity = tbx::Vec4(light.color, light.intensity),
+            .area_outer_ambient = tbx::Vec4(1.0F, 1.0F, 0.0F, light.ambient),
             .metadata = IVec4(
                 static_cast<int>(OpenGlPackedLightType::Directional),
                 light.shadow_map_index,
@@ -79,10 +79,10 @@ namespace tbx::plugins
     static OpenGlPackedLightData pack_point_light(const OpenGlPointLightData& light)
     {
         return OpenGlPackedLightData {
-            .position_range = Vec4(light.position, light.range),
-            .direction_inner_cos = Vec4(0.0F, -1.0F, 0.0F, 0.0F),
-            .color_intensity = Vec4(light.color, light.intensity),
-            .area_outer_ambient = Vec4(1.0F, 1.0F, 0.0F, 0.0F),
+            .position_range = tbx::Vec4(light.position, light.range),
+            .direction_inner_cos = tbx::Vec4(0.0F, -1.0F, 0.0F, 0.0F),
+            .color_intensity = tbx::Vec4(light.color, light.intensity),
+            .area_outer_ambient = tbx::Vec4(1.0F, 1.0F, 0.0F, 0.0F),
             .metadata =
                 IVec4(static_cast<int>(OpenGlPackedLightType::Point), light.shadow_map_index, 0, 0),
         };
@@ -91,10 +91,10 @@ namespace tbx::plugins
     static OpenGlPackedLightData pack_spot_light(const OpenGlSpotLightData& light)
     {
         return OpenGlPackedLightData {
-            .position_range = Vec4(light.position, light.range),
-            .direction_inner_cos = Vec4(light.direction, light.inner_cos),
-            .color_intensity = Vec4(light.color, light.intensity),
-            .area_outer_ambient = Vec4(1.0F, 1.0F, light.outer_cos, 0.0F),
+            .position_range = tbx::Vec4(light.position, light.range),
+            .direction_inner_cos = tbx::Vec4(light.direction, light.inner_cos),
+            .color_intensity = tbx::Vec4(light.color, light.intensity),
+            .area_outer_ambient = tbx::Vec4(1.0F, 1.0F, light.outer_cos, 0.0F),
             .metadata =
                 IVec4(static_cast<int>(OpenGlPackedLightType::Spot), light.shadow_map_index, 0, 0),
         };
@@ -103,10 +103,10 @@ namespace tbx::plugins
     static OpenGlPackedLightData pack_area_light(const OpenGlAreaLightData& light)
     {
         return OpenGlPackedLightData {
-            .position_range = Vec4(light.position, light.range),
-            .direction_inner_cos = Vec4(light.direction, 0.0F),
-            .color_intensity = Vec4(light.color, light.intensity),
-            .area_outer_ambient = Vec4(light.area_size.x, light.area_size.y, 0.0F, 0.0F),
+            .position_range = tbx::Vec4(light.position, light.range),
+            .direction_inner_cos = tbx::Vec4(light.direction, 0.0F),
+            .color_intensity = tbx::Vec4(light.color, light.intensity),
+            .area_outer_ambient = tbx::Vec4(light.area_size.x, light.area_size.y, 0.0F, 0.0F),
             .metadata = IVec4(static_cast<int>(OpenGlPackedLightType::Area), -1, 0, 0),
         };
     }
@@ -189,57 +189,57 @@ namespace tbx::plugins
         textures.set(name, runtime_texture);
     }
 
-    static Vec3 get_camera_world_position(const OpenGlCameraView& camera_view)
+    static tbx::Vec3 get_camera_world_position(const OpenGlCameraView& camera_view)
     {
         const auto camera_transform = get_world_space_transform(camera_view.camera_entity);
         return camera_transform.position;
     }
 
-    static Quat get_camera_world_rotation(const OpenGlCameraView& camera_view)
+    static tbx::Quat get_camera_world_rotation(const OpenGlCameraView& camera_view)
     {
         const auto camera_transform = get_world_space_transform(camera_view.camera_entity);
         return camera_transform.rotation;
     }
 
-    static Mat4 get_camera_view_projection(
+    static tbx::Mat4 get_camera_view_projection(
         const OpenGlCameraView& camera_view,
         const Size& render_resolution,
-        const Vec3& camera_position,
-        const Quat& camera_rotation)
+        const tbx::Vec3& camera_position,
+        const tbx::Quat& camera_rotation)
     {
         if (!camera_view.camera_entity.has_component<Camera>())
-            return Mat4(1.0F);
+            return tbx::Mat4(1.0F);
 
         auto& camera = camera_view.camera_entity.get_component<Camera>();
         camera.set_aspect(render_resolution.get_aspect_ratio());
         return camera.get_view_projection_matrix(camera_position, camera_rotation);
     }
 
-    static Vec3 get_entity_forward_direction(const Entity& entity)
+    static tbx::Vec3 get_entity_forward_direction(const tbx::Entity& entity)
     {
         const auto transform = get_world_space_transform(entity);
-        return normalize(transform.rotation * Vec3(0.0f, 0.0f, -1.0f));
+        return normalize(transform.rotation * tbx::Vec3(0.0f, 0.0f, -1.0f));
     }
 
-    static Vec3 get_entity_position(const Entity& entity)
+    static tbx::Vec3 get_entity_position(const tbx::Entity& entity)
     {
         const auto transform = get_world_space_transform(entity);
         return transform.position;
     }
 
     static void resolve_light_color(
-        const Color& raw_color,
+        const tbx::Color& raw_color,
         float raw_intensity,
-        Vec3& out_color,
+        tbx::Vec3& out_color,
         float& out_intensity)
     {
-        out_color = Vec3(raw_color.r, raw_color.g, raw_color.b);
+        out_color = tbx::Vec3(raw_color.r, raw_color.g, raw_color.b);
         out_intensity = std::max(raw_intensity, 0.0f);
 
         float max_channel = std::max(out_color.x, std::max(out_color.y, out_color.z));
         if (max_channel <= std::numeric_limits<float>::epsilon())
         {
-            out_color = Vec3(1.0f);
+            out_color = tbx::Vec3(1.0f);
             out_intensity = 0.0f;
             return;
         }
@@ -250,8 +250,8 @@ namespace tbx::plugins
 
     static float calculate_local_light_shadow_importance(
         float intensity,
-        const Vec3& light_position,
-        const Vec3& camera_world_position,
+        const tbx::Vec3& light_position,
+        const tbx::Vec3& camera_world_position,
         float range)
     {
         const float safe_range = std::max(range, 0.001F);
@@ -274,12 +274,12 @@ namespace tbx::plugins
         return std::clamp(blended_split, safe_near + 0.001F, safe_far - 0.001F);
     }
 
-    static Mat4 build_directional_shadow_view_projection(
+    static tbx::Mat4 build_directional_shadow_view_projection(
         const OpenGlCameraView& camera_view,
         const Size& render_resolution,
-        const Vec3& camera_position,
-        const Quat& camera_rotation,
-        const Vec3& directional_light_direction,
+        const tbx::Vec3& camera_position,
+        const tbx::Quat& camera_rotation,
+        const tbx::Vec3& directional_light_direction,
         float shadow_near_plane,
         float shadow_far_plane,
         const OpenGlShadowSettings& shadow_settings)
@@ -287,9 +287,9 @@ namespace tbx::plugins
         const float safe_shadow_near_plane = std::max(0.001F, shadow_near_plane);
         const float safe_shadow_far_plane =
             std::max(safe_shadow_near_plane + 0.001F, shadow_far_plane);
-        auto forward_axis = normalize(camera_rotation * Vec3(0.0F, 0.0F, -1.0F));
-        auto right_axis = normalize(camera_rotation * Vec3(1.0F, 0.0F, 0.0F));
-        auto up_axis = normalize(camera_rotation * Vec3(0.0F, 1.0F, 0.0F));
+        auto forward_axis = normalize(camera_rotation * tbx::Vec3(0.0F, 0.0F, -1.0F));
+        auto right_axis = normalize(camera_rotation * tbx::Vec3(1.0F, 0.0F, 0.0F));
+        auto up_axis = normalize(camera_rotation * tbx::Vec3(0.0F, 1.0F, 0.0F));
 
         float near_half_height = 0.5F;
         float near_half_width = 0.5F;
@@ -302,7 +302,7 @@ namespace tbx::plugins
 
             if (camera.is_perspective())
             {
-                const float tan_half_fov = std::tan(to_radians(camera.get_fov() * 0.5F));
+                const float tan_half_fov = std::tan(tbx::to_radians(camera.get_fov() * 0.5F));
                 near_half_height = tan_half_fov * safe_shadow_near_plane;
                 near_half_width = near_half_height * camera_aspect;
                 far_half_height = tan_half_fov * safe_shadow_far_plane;
@@ -319,13 +319,13 @@ namespace tbx::plugins
             }
         }
 
-        const Vec3 near_center = camera_position + (forward_axis * safe_shadow_near_plane);
-        const Vec3 far_center = camera_position + (forward_axis * safe_shadow_far_plane);
+        const tbx::Vec3 near_center = camera_position + (forward_axis * safe_shadow_near_plane);
+        const tbx::Vec3 far_center = camera_position + (forward_axis * safe_shadow_far_plane);
         const auto near_up = up_axis * near_half_height;
         const auto near_right = right_axis * near_half_width;
         const auto far_up = up_axis * far_half_height;
         const auto far_right = right_axis * far_half_width;
-        const auto frustum_corners = std::array<Vec3, 8> {
+        const auto frustum_corners = std::array<tbx::Vec3, 8> {
             near_center + near_up - near_right,
             near_center + near_up + near_right,
             near_center - near_up - near_right,
@@ -336,7 +336,7 @@ namespace tbx::plugins
             far_center - far_up + far_right,
         };
 
-        Vec3 frustum_center = Vec3(0.0F);
+        tbx::Vec3 frustum_center = tbx::Vec3(0.0F);
         for (const auto& corner : frustum_corners)
             frustum_center += corner;
         frustum_center /= static_cast<float>(frustum_corners.size());
@@ -349,9 +349,9 @@ namespace tbx::plugins
         auto direction_to_light = normalize(directional_light_direction);
         auto light_position = frustum_center + (direction_to_light * frustum_radius);
 
-        auto light_up_axis = Vec3(0.0f, 1.0f, 0.0f);
+        auto light_up_axis = tbx::Vec3(0.0f, 1.0f, 0.0f);
         if (std::abs(dot(direction_to_light, light_up_axis)) > 0.95f)
-            light_up_axis = Vec3(1.0f, 0.0f, 0.0f);
+            light_up_axis = tbx::Vec3(1.0f, 0.0f, 0.0f);
 
         auto light_view = look_at(light_position, frustum_center, light_up_axis);
         const float map_resolution =
@@ -364,7 +364,7 @@ namespace tbx::plugins
         const float stabilized_radius = frustum_radius + radius_padding;
         const float stabilized_diameter = stabilized_radius * 2.0F;
         const float texel_size = std::max(0.000001F, stabilized_diameter / map_resolution);
-        const auto light_space_center = light_view * Vec4(frustum_center, 1.0F);
+        const auto light_space_center = light_view * tbx::Vec4(frustum_center, 1.0F);
         const float snapped_center_x = std::round(light_space_center.x / texel_size) * texel_size;
         const float snapped_center_y = std::round(light_space_center.y / texel_size) * texel_size;
         const float min_x = snapped_center_x - stabilized_radius;
@@ -381,46 +381,46 @@ namespace tbx::plugins
         return light_projection * light_view;
     }
 
-    static Mat4 build_spot_shadow_view_projection(
-        const Vec3& light_position,
-        const Vec3& light_direction,
+    static tbx::Mat4 build_spot_shadow_view_projection(
+        const tbx::Vec3& light_position,
+        const tbx::Vec3& light_direction,
         float outer_angle_radians,
         float range)
     {
         auto safe_direction = normalize(light_direction);
-        auto up_axis = Vec3(0.0F, 1.0F, 0.0F);
+        auto up_axis = tbx::Vec3(0.0F, 1.0F, 0.0F);
         if (std::abs(dot(safe_direction, up_axis)) > 0.95F)
-            up_axis = Vec3(1.0F, 0.0F, 0.0F);
+            up_axis = tbx::Vec3(1.0F, 0.0F, 0.0F);
 
         const float near_plane = LOCAL_LIGHT_SHADOW_NEAR_PLANE;
         const float far_plane = std::max(near_plane + 0.001F, range);
         const float clamped_fov =
-            std::clamp(outer_angle_radians * 2.0F, to_radians(1.0F), to_radians(175.0F));
+            std::clamp(outer_angle_radians * 2.0F, tbx::to_radians(1.0F), tbx::to_radians(175.0F));
         auto light_view = look_at(light_position, light_position + safe_direction, up_axis);
         auto light_projection = perspective_projection(clamped_fov, 1.0F, near_plane, far_plane);
         return light_projection * light_view;
     }
 
-    static Mat4 build_point_shadow_face_view_projection(
-        const Vec3& light_position,
+    static tbx::Mat4 build_point_shadow_face_view_projection(
+        const tbx::Vec3& light_position,
         float range,
         size_t face_index)
     {
-        static const auto face_directions = std::array<Vec3, POINT_SHADOW_FACE_COUNT> {
-            Vec3(1.0F, 0.0F, 0.0F),
-            Vec3(-1.0F, 0.0F, 0.0F),
-            Vec3(0.0F, 1.0F, 0.0F),
-            Vec3(0.0F, -1.0F, 0.0F),
-            Vec3(0.0F, 0.0F, 1.0F),
-            Vec3(0.0F, 0.0F, -1.0F),
+        static const auto face_directions = std::array<tbx::Vec3, POINT_SHADOW_FACE_COUNT> {
+            tbx::Vec3(1.0F, 0.0F, 0.0F),
+            tbx::Vec3(-1.0F, 0.0F, 0.0F),
+            tbx::Vec3(0.0F, 1.0F, 0.0F),
+            tbx::Vec3(0.0F, -1.0F, 0.0F),
+            tbx::Vec3(0.0F, 0.0F, 1.0F),
+            tbx::Vec3(0.0F, 0.0F, -1.0F),
         };
-        static const auto face_up_vectors = std::array<Vec3, POINT_SHADOW_FACE_COUNT> {
-            Vec3(0.0F, -1.0F, 0.0F),
-            Vec3(0.0F, -1.0F, 0.0F),
-            Vec3(0.0F, 0.0F, 1.0F),
-            Vec3(0.0F, 0.0F, -1.0F),
-            Vec3(0.0F, -1.0F, 0.0F),
-            Vec3(0.0F, -1.0F, 0.0F),
+        static const auto face_up_vectors = std::array<tbx::Vec3, POINT_SHADOW_FACE_COUNT> {
+            tbx::Vec3(0.0F, -1.0F, 0.0F),
+            tbx::Vec3(0.0F, -1.0F, 0.0F),
+            tbx::Vec3(0.0F, 0.0F, 1.0F),
+            tbx::Vec3(0.0F, 0.0F, -1.0F),
+            tbx::Vec3(0.0F, -1.0F, 0.0F),
+            tbx::Vec3(0.0F, -1.0F, 0.0F),
         };
 
         const size_t safe_face_index = std::min(face_index, POINT_SHADOW_FACE_COUNT - 1U);
@@ -431,7 +431,7 @@ namespace tbx::plugins
             light_position + face_directions[safe_face_index],
             face_up_vectors[safe_face_index]);
         auto light_projection =
-            perspective_projection(to_radians(90.0F), 1.0F, near_plane, far_plane);
+            perspective_projection(tbx::to_radians(90.0F), 1.0F, near_plane, far_plane);
         return light_projection * light_view;
     }
 
@@ -465,8 +465,8 @@ namespace tbx::plugins
     }
 
     OpenGlRenderer::OpenGlRenderer(
-        GraphicsProcAddress loader,
-        EntityRegistry& entity_registry,
+        tbx::GraphicsProcAddress loader,
+        tbx::EntityRegistry& entity_registry,
         AssetManager& asset_manager,
         OpenGlContext context,
         const OpenGlShadowSettings& shadow_settings)
@@ -615,7 +615,7 @@ namespace tbx::plugins
         auto directional_shadow_light_indices = std::vector<size_t> {};
         for (auto& entity : _entity_registry.get().get_with<DirectionalLight>())
         {
-            auto color = Vec3(1.0f);
+            auto color = tbx::Vec3(1.0f);
             auto intensity = 1.0f;
             const auto& light = entity.get_component<DirectionalLight>();
             const float ambient = std::max(light.ambient, 0.0f);
@@ -639,14 +639,14 @@ namespace tbx::plugins
         struct PointShadowCandidate final
         {
             size_t light_index = 0U;
-            Vec3 position = Vec3(0.0F);
+            tbx::Vec3 position = tbx::Vec3(0.0F);
             float range = 1.0F;
             float importance = 0.0F;
         };
         auto point_shadow_candidates = std::vector<PointShadowCandidate> {};
         for (auto& entity : _entity_registry.get().get_with<PointLight>())
         {
-            auto color = Vec3(1.0f);
+            auto color = tbx::Vec3(1.0f);
             auto intensity = 1.0f;
             const auto& light = entity.get_component<PointLight>();
             const float safe_range = std::max(light.range, 0.001F);
@@ -680,8 +680,8 @@ namespace tbx::plugins
         struct SpotShadowCandidate final
         {
             size_t light_index = 0U;
-            Vec3 position = Vec3(0.0F);
-            Vec3 direction = Vec3(0.0F, 0.0F, -1.0F);
+            tbx::Vec3 position = tbx::Vec3(0.0F);
+            tbx::Vec3 direction = tbx::Vec3(0.0F, 0.0F, -1.0F);
             float range = 1.0F;
             float outer_angle_radians = 0.0F;
             float importance = 0.0F;
@@ -689,7 +689,7 @@ namespace tbx::plugins
         auto spot_shadow_candidates = std::vector<SpotShadowCandidate> {};
         for (auto& entity : _entity_registry.get().get_with<SpotLight>())
         {
-            auto color = Vec3(1.0f);
+            auto color = tbx::Vec3(1.0f);
             auto intensity = 1.0f;
             const auto& light = entity.get_component<SpotLight>();
             const float safe_range = std::max(light.range, 0.001F);
@@ -699,8 +699,8 @@ namespace tbx::plugins
             if (intensity <= LIGHT_INTENSITY_EPSILON)
                 continue;
 
-            float inner_radians = to_radians(std::max(light.inner_angle, 0.0f));
-            float outer_radians = to_radians(std::max(light.outer_angle, light.inner_angle));
+            float inner_radians = tbx::to_radians(std::max(light.inner_angle, 0.0f));
+            float outer_radians = tbx::to_radians(std::max(light.outer_angle, light.inner_angle));
             frame_spot_lights.push_back(
                 OpenGlSpotLightData {
                     .position = light_position,
@@ -730,14 +730,14 @@ namespace tbx::plugins
         auto frame_area_lights = std::vector<OpenGlAreaLightData> {};
         for (auto& entity : _entity_registry.get().get_with<AreaLight>())
         {
-            auto color = Vec3(1.0f);
+            auto color = tbx::Vec3(1.0f);
             auto intensity = 1.0f;
             const auto& light = entity.get_component<AreaLight>();
             const float safe_range = std::max(light.range, 0.001F);
             const auto light_position = get_entity_position(entity);
             const auto light_direction = get_entity_forward_direction(entity);
             const auto safe_area_size =
-                Vec2(std::max(light.area_size.x, 0.001F), std::max(light.area_size.y, 0.001F));
+                tbx::Vec2(std::max(light.area_size.x, 0.001F), std::max(light.area_size.y, 0.001F));
             resolve_light_color(light.color, light.intensity, color, intensity);
             if (intensity <= LIGHT_INTENSITY_EPSILON)
                 continue;
@@ -798,7 +798,7 @@ namespace tbx::plugins
             _shadow_settings,
             resource_manager);
 
-        auto frame_shadow_light_view_projections = std::vector<Mat4> {};
+        auto frame_shadow_light_view_projections = std::vector<tbx::Mat4> {};
         frame_shadow_light_view_projections.reserve(total_shadow_map_count);
         auto frame_shadow_map_resources = std::vector<Uuid> {};
         frame_shadow_map_resources.reserve(total_shadow_map_count);
@@ -812,7 +812,7 @@ namespace tbx::plugins
             DIRECTIONAL_SHADOW_NEAR_PLANE,
             directional_shadow_far_plane);
 
-        auto append_shadow_projection = [&](const Mat4& light_view_projection) -> bool
+        auto append_shadow_projection = [&](const tbx::Mat4& light_view_projection) -> bool
         {
             if (shadow_map_index >= _shadow_map_resources.size())
                 return false;
@@ -1007,10 +1007,10 @@ namespace tbx::plugins
 
         // Step 8: Resolve the active sky and maintain pinned sky-resource ownership.
         auto sky_material = MaterialInstance {};
-        auto sky_entity = Entity {};
+        auto sky_entity = tbx::Entity {};
         auto frame_clear_color = Color::BLACK;
         auto frame_sky_resource = Uuid::NONE;
-        auto frame_sky_entity = Entity {};
+        auto frame_sky_entity = tbx::Entity {};
         auto sky_entities = _entity_registry.get().get_with<Sky>();
         if (sky_entities.size() > 1)
             TBX_TRACE_WARNING(
@@ -1038,10 +1038,10 @@ namespace tbx::plugins
 
         // Step 9: Resolve post-processing settings and flatten enabled effects.
         bool is_post_processing_enabled = false;
-        auto post_process_owner_entity = Entity {};
+        auto post_process_owner_entity = tbx::Entity {};
         auto resolved_post_processing = OpenGlPostProcessing {};
         auto post_process_entities = _entity_registry.get().get_with<PostProcessing>();
-        auto selected_post_process_entity = Entity {};
+        auto selected_post_process_entity = tbx::Entity {};
         size_t user_post_process_count = 0;
         for (const auto& candidate : post_process_entities)
         {
@@ -1086,7 +1086,7 @@ namespace tbx::plugins
             .owner_entity = post_process_owner_entity,
             .effects = std::span<const OpenGlPostProcessEffect>(resolved_post_processing.effects),
         };
-        const auto camera_forward = normalize(camera_world_rotation * Vec3(0.0F, 0.0F, -1.0F));
+        const auto camera_forward = normalize(camera_world_rotation * tbx::Vec3(0.0F, 0.0F, -1.0F));
         auto view_projection = get_camera_view_projection(
             camera_view,
             _render_resolution,
@@ -1140,7 +1140,7 @@ namespace tbx::plugins
                 OpenGlShadowFrameData {
                     .map_uuids = std::span<const Uuid>(frame_shadow_map_resources),
                     .light_view_projections =
-                        std::span<const Mat4>(frame_shadow_light_view_projections),
+                        std::span<const tbx::Mat4>(frame_shadow_light_view_projections),
                     .cascade_splits = std::span<const float>(frame_cascade_splits),
                     .shadow_map_resolution = _shadow_settings.shadow_map_resolution,
                     .shadow_softness = _shadow_settings.shadow_softness,

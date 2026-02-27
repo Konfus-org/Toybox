@@ -3,7 +3,7 @@
 #include "opengl_resource_manager.h"
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     /// <summary>
     /// Purpose: Stores resolved OpenGL resources for one post-processing stack.

@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <memory>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     /// <summary>Defines how a framebuffer is mapped into a presentation destination.</summary>
     /// <remarks>Purpose: Controls scaling behavior during framebuffer blit presentation.

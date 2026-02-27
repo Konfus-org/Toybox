@@ -3,7 +3,7 @@
 #include <array>
 #include <glad/glad.h>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     static void allocate_color_texture(
         uint32 framebuffer_id,
@@ -103,7 +103,7 @@ namespace tbx::plugins
         _resolution = resolution;
     }
 
-    void OpenGlGBuffer::clear(const Color& clear_color) const
+    void OpenGlGBuffer::clear(const tbx::Color& clear_color) const
     {
         const std::array<float, 4> albedo_spec =
             {clear_color.r, clear_color.g, clear_color.b, clear_color.a};

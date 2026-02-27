@@ -1,6 +1,6 @@
 #include "opengl_resource.h"
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     GlResourceScope::GlResourceScope(IOpenGlResource& resource)
         : _resource(&resource)

@@ -3,7 +3,7 @@
 #include <glad/glad.h>
 #include <variant>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     static GLenum to_gl_texture_filter(const TextureFilter filtering)
     {
@@ -241,15 +241,15 @@ namespace tbx::plugins
 
     static GLenum vertex_type_to_gl_type(const VertexData& type)
     {
-        if (std::holds_alternative<Vec2>(type))
+        if (std::holds_alternative<tbx::Vec2>(type))
         {
             return GL_FLOAT;
         }
-        if (std::holds_alternative<Vec3>(type))
+        if (std::holds_alternative<tbx::Vec3>(type))
         {
             return GL_FLOAT;
         }
-        if (std::holds_alternative<Color>(type))
+        if (std::holds_alternative<tbx::Color>(type))
         {
             return GL_FLOAT;
         }

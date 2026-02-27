@@ -15,7 +15,7 @@
 #include <string_view>
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     static constexpr uint32 GPU_TIMING_LOG_SAMPLE_WINDOW = 60U;
 
@@ -65,7 +65,7 @@ namespace tbx::plugins
         }
 
       private:
-        void upload_frame_uniforms(OpenGlShaderProgram& shader_program, const Mat4& view_projection)
+        void upload_frame_uniforms(OpenGlShaderProgram& shader_program, const tbx::Mat4& view_projection)
             const
         {
             shader_program.upload(
@@ -75,7 +75,7 @@ namespace tbx::plugins
                 });
         }
 
-        void upload_model_uniform(OpenGlShaderProgram& shader_program, const Entity& entity) const
+        void upload_model_uniform(OpenGlShaderProgram& shader_program, const tbx::Entity& entity) const
         {
             const auto transform = get_world_space_transform(entity);
             auto model_matrix = build_transform_matrix(transform);
@@ -149,8 +149,8 @@ namespace tbx::plugins
         }
 
         void draw_entity(
-            const Entity& entity,
-            const Mat4& view_projection,
+            const tbx::Entity& entity,
+            const tbx::Mat4& view_projection,
             std::vector<GlResourceScope>& resource_scopes) const
         {
             TBX_ASSERT(

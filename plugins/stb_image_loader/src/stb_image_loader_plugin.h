@@ -6,16 +6,16 @@
 #include <filesystem>
 #include <memory>
 
-namespace tbx::plugins
+namespace stb_image_loader
 {
     /// <summary>
-    /// Purpose: Loads texture assets into Texture payloads using stb_image.
+    /// Purpose: Loads texture assets into tbx::Texture payloads using stb_image.
     /// </summary>
     /// <remarks>
-    /// Ownership: Plugin lifetime is owned by the host; it keeps non-owning references to the host.
+    /// Ownership: tbx::Plugin lifetime is owned by the host; it keeps non-owning references to the host.
     /// Thread Safety: Handles asset messages on the dispatcher thread; no internal synchronization.
     /// </remarks>
-    class StbImageLoaderPlugin final : public Plugin
+    class StbImageLoaderPlugin final : public tbx::Plugin
     {
       public:
         /// <summary>
@@ -25,7 +25,7 @@ namespace tbx::plugins
         /// Ownership: Does not take ownership of the host.
         /// Thread Safety: Called on the main thread during plugin attach.
         /// </remarks>
-        void on_attach(IPluginHost& host) override;
+        void on_attach(tbx::IPluginHost& host) override;
 
         /// <summary>
         /// Purpose: Releases any cached host references.
@@ -41,10 +41,10 @@ namespace tbx::plugins
         /// </summary>
         /// <remarks>
         /// Ownership: Does not take ownership of messages or asset payloads.
-        /// Thread Safety: Executes on the dispatcher thread; relies on Texture payload
+        /// Thread Safety: Executes on the dispatcher thread; relies on tbx::Texture payload
         /// synchronization.
         /// </remarks>
-        void on_recieve_message(Message& msg) override;
+        void on_recieve_message(tbx::Message& msg) override;
 
         /// <summary>
         /// Purpose: Overrides filesystem operations used by the loader.
@@ -53,11 +53,11 @@ namespace tbx::plugins
         /// Ownership: Shares ownership of file_ops with the caller.
         /// Thread Safety: Call before dispatching load messages.
         /// </remarks>
-        void set_file_ops(std::shared_ptr<IFileOps> file_ops);
+        void set_file_ops(std::shared_ptr<tbx::IFileOps> file_ops);
 
       private:
         void on_load_texture_request(LoadTextureRequest& request);
 
-        std::shared_ptr<IFileOps> _file_ops = {};
+        std::shared_ptr<tbx::IFileOps> _file_ops = {};
     };
 }

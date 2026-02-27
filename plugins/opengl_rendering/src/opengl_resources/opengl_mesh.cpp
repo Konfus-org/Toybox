@@ -2,9 +2,9 @@
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
-    OpenGlMesh::OpenGlMesh(const Mesh& mesh)
+    OpenGlMesh::OpenGlMesh(const tbx::Mesh& mesh)
     {
         glCreateVertexArrays(1, &_vertex_array_id);
         set_vertex_buffer(mesh.vertices);

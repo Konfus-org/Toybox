@@ -7,9 +7,9 @@
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
 
-namespace tbx::examples
+namespace asset_example
 {
-    void AssetExampleRuntimePlugin::on_attach(IPluginHost& host)
+    void AssetExampleRuntimePlugin::on_attach(tbx::IPluginHost& host)
     {
         auto& ent_registry = host.get_entity_registry();
         auto& input_manager = host.get_input_manager();
@@ -21,29 +21,29 @@ namespace tbx::examples
         auto green_cube = Handle("Models/Green_Cube.fbx");
 
         // Setup light
-        _sun = Entity("Light", ent_registry);
+        _sun = tbx::Entity("Light", ent_registry);
         _sun.add_component<DirectionalLight>(Color::YELLOW, 1.0f, 0.25f);
-        _sun.add_component<Transform>(Vec3(0), to_radians(Vec3(-45.0f, 45.0f, 0.0f)), Vec3(1));
+        _sun.add_component<tbx::Transform>(tbx::Vec3(0), tbx::to_radians(tbx::Vec3(-45.0f, 45.0f, 0.0f)), tbx::Vec3(1));
 
         // Setup cube
-        _cube = Entity("Cube", ent_registry);
+        _cube = tbx::Entity("Cube", ent_registry);
         _cube.add_component<Renderer>();
         _cube.add_component<StaticMesh>(green_cube);
-        _cube.add_component<Transform>(Vec3(0.0f, 0.0f, -5.0f));
+        _cube.add_component<tbx::Transform>(tbx::Vec3(0.0f, 0.0f, -5.0f));
 
         _room.create(
             ent_registry,
-            RoomSettings {
-                .center = Vec3(0.0F, -2.0F, -5.0F),
+            examples_common::RoomSettings {
+                .center = tbx::Vec3(0.0F, -2.0F, -5.0F),
                 .include_colliders = true,
             });
 
         // Setup sky
-        auto sky_ent = Entity("Sky", ent_registry);
+        auto sky_ent = tbx::Entity("Sky", ent_registry);
         sky_ent.add_component<Sky>(skybox_mat);
 
         // Setup global post-processing stack
-        auto post_ent = Entity("PostProcessing", ent_registry);
+        auto post_ent = tbx::Entity("PostProcessing", ent_registry);
         auto post_processing = PostProcessing({
             PostProcessingEffect {
                 .material =
@@ -60,14 +60,14 @@ namespace tbx::examples
         post_ent.add_component<PostProcessing>(post_processing);
 
         // Setup camera
-        auto camera = Entity("Camera", ent_registry);
+        auto camera = tbx::Entity("Camera", ent_registry);
         camera.add_component<Camera>();
-        camera.add_component<Transform>(Vec3(0.0F, 0.0F, 10.0F));
+        camera.add_component<tbx::Transform>(tbx::Vec3(0.0F, 0.0F, 10.0F));
 
         _camera_controller.initialize(
             camera,
             input_manager,
-            FreeLookCameraControllerSettings {
+            examples_common::FreeLookCameraControllerSettings {
                 .initial_yaw = 0.0F,
                 .initial_pitch = 0.0F,
                 .move_speed = 6.0F,
@@ -81,23 +81,23 @@ namespace tbx::examples
         _room.destroy();
     }
 
-    void AssetExampleRuntimePlugin::on_update(const DeltaTime& dt)
+    void AssetExampleRuntimePlugin::on_update(const tbx::DeltaTime& dt)
     {
         // Rotate cube...
         {
-            auto& transform = _cube.get_component<Transform>();
+            auto& transform = _cube.get_component<tbx::Transform>();
             const float yaw_rate = 1.0F;
             float angle = yaw_rate * static_cast<float>(dt.seconds);
-            auto delta = Quat({0.0F, angle, 0.0F});
+            auto delta = tbx::Quat({0.0F, angle, 0.0F});
             transform.rotation = normalize(delta * transform.rotation);
         }
 
         // Rotate light...
         {
-            auto& transform = _sun.get_component<Transform>();
+            auto& transform = _sun.get_component<tbx::Transform>();
             const float yaw_rate = 0.5F;
             float angle = yaw_rate * static_cast<float>(dt.seconds);
-            auto delta = Quat({0.0F, angle, 0.0F});
+            auto delta = tbx::Quat({0.0F, angle, 0.0F});
             transform.rotation = normalize(delta * transform.rotation);
         }
 

@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/ecs/entity.h"
 
-namespace tbx::examples
+namespace examples_common
 {
     /// <summary>Settings used to create a reusable boxed room for rendering and physics
     /// examples.</summary> <remarks> Purpose: Defines transform and collider options for floor and
@@ -10,7 +10,7 @@ namespace tbx::examples
     /// </remarks>
     struct RoomSettings final
     {
-        Vec3 center = Vec3(0.0F, 0.0F, 0.0F);
+        tbx::Vec3 center = tbx::Vec3(0.0F, 0.0F, 0.0F);
         bool include_colliders = true;
     };
 
@@ -29,7 +29,7 @@ namespace tbx::examples
         /// Ownership: Does not own the registry; caller must keep registry alive for room lifetime.
         /// Thread Safety: Main-thread only because it mutates ECS state.
         /// </remarks>
-        void create(EntityRegistry& entity_registry, const RoomSettings& settings);
+        void create(tbx::EntityRegistry& entity_registry, const RoomSettings& settings);
 
         /// <summary>Destroys any currently tracked room entities.</summary>
         /// <remarks>
@@ -40,10 +40,10 @@ namespace tbx::examples
         void destroy();
 
       private:
-        Entity _ground = {};
-        Entity _front_wall = {};
-        Entity _left_wall = {};
-        Entity _right_wall = {};
-        Entity _back_wall = {};
+        tbx::Entity _ground = {};
+        tbx::Entity _front_wall = {};
+        tbx::Entity _left_wall = {};
+        tbx::Entity _right_wall = {};
+        tbx::Entity _back_wall = {};
     };
 }

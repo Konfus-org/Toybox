@@ -3,7 +3,7 @@
 #include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     /// <summary>Provides OpenGL cache keys for Toybox identifiers.</summary>
     /// <remarks>

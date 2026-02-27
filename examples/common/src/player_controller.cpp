@@ -7,10 +7,10 @@
 #include "tbx/math/trig.h"
 #include <cmath>
 
-namespace tbx::examples
+namespace examples_common
 {
     void PlayerController::initialize(
-        EntityRegistry& entity_registry,
+        tbx::EntityRegistry& entity_registry,
         InputManager& input_manager,
         const std::string& scheme_name,
         const PlayerControllerSettings& settings)
@@ -23,27 +23,27 @@ namespace tbx::examples
         _pitch = settings.initial_pitch;
         _move_speed = settings.move_speed;
         _look_sensitivity = settings.look_sensitivity;
-        _move_axis = Vec2(0.0F, 0.0F);
-        _look_delta = Vec2(0.0F, 0.0F);
+        _move_axis = tbx::Vec2(0.0F, 0.0F);
+        _look_delta = tbx::Vec2(0.0F, 0.0F);
 
-        _player = Entity("Player", entity_registry);
-        _player.add_component<Transform>(settings.player_spawn_position);
+        _player = tbx::Entity("Player", entity_registry);
+        _player.add_component<tbx::Transform>(settings.player_spawn_position);
 
-        auto player_visual = Entity("PlayerVisual", _player.get_id(), entity_registry);
+        auto player_visual = tbx::Entity("PlayerVisual", _player.get_id(), entity_registry);
         player_visual.add_component<Renderer>(MaterialInstance {
             .parameters = {{"color", Color::RED}},
         });
         player_visual.add_component<DynamicMesh>(capsule);
-        player_visual.add_component<Transform>(
+        player_visual.add_component<tbx::Transform>(
             settings.visual_local_position,
-            Quat(1.0F, 0.0F, 0.0F, 0.0F),
+            tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F),
             settings.visual_local_scale);
 
-        _camera = Entity("Camera", _player.get_id(), entity_registry);
+        _camera = tbx::Entity("Camera", _player.get_id(), entity_registry);
         _camera.add_component<Camera>();
-        _camera.add_component<Transform>(settings.camera_local_position);
+        _camera.add_component<tbx::Transform>(settings.camera_local_position);
 
-        auto input_scheme = InputScheme(
+        auto input_scheme = tbx::InputScheme(
             get_input_scheme_name(),
             {
                 create_move_action(),
@@ -56,7 +56,7 @@ namespace tbx::examples
         _is_initialized = true;
     }
 
-    InputScheme& PlayerController::get_input_scheme()
+    tbx::InputScheme& PlayerController::get_input_scheme()
     {
         return get_registered_input_scheme();
     }
@@ -68,35 +68,35 @@ namespace tbx::examples
         input_manager.set_mouse_lock_mode(MouseLockMode::UNLOCKED);
 
         clear_input_context();
-        _move_axis = Vec2(0.0F, 0.0F);
-        _look_delta = Vec2(0.0F, 0.0F);
+        _move_axis = tbx::Vec2(0.0F, 0.0F);
+        _look_delta = tbx::Vec2(0.0F, 0.0F);
         _player = {};
         _camera = {};
         _is_initialized = false;
     }
 
-    void PlayerController::update(const DeltaTime& dt)
+    void PlayerController::update(const tbx::DeltaTime& dt)
     {
         if (!_player.get_id().is_valid() || !_camera.get_id().is_valid())
             return;
 
-        auto& camera_transform = _camera.get_component<Transform>();
-        auto& player_transform = _player.get_component<Transform>();
+        auto& camera_transform = _camera.get_component<tbx::Transform>();
+        auto& player_transform = _player.get_component<tbx::Transform>();
 
         _yaw -= _look_delta.x * _look_sensitivity;
         _pitch -= _look_delta.y * _look_sensitivity;
 
-        const float max_pitch = to_radians(89.0F);
+        const float max_pitch = tbx::to_radians(89.0F);
         if (_pitch > max_pitch)
             _pitch = max_pitch;
         if (_pitch < -max_pitch)
             _pitch = -max_pitch;
 
-        auto yaw_rotation = normalize(Quat(Vec3(0.0F, _yaw, 0.0F)));
-        auto pitch_rotation = normalize(Quat(Vec3(_pitch, 0.0F, 0.0F)));
+        auto yaw_rotation = normalize(tbx::Quat(tbx::Vec3(0.0F, _yaw, 0.0F)));
+        auto pitch_rotation = normalize(tbx::Quat(tbx::Vec3(_pitch, 0.0F, 0.0F)));
 
-        auto forward = yaw_rotation * Vec3(0.0F, 0.0F, -1.0F);
-        auto right = yaw_rotation * Vec3(1.0F, 0.0F, 0.0F);
+        auto forward = yaw_rotation * tbx::Vec3(0.0F, 0.0F, -1.0F);
+        auto right = yaw_rotation * tbx::Vec3(1.0F, 0.0F, 0.0F);
         forward.y = 0.0F;
         right.y = 0.0F;
         forward = normalize_or_zero(forward);
@@ -110,25 +110,25 @@ namespace tbx::examples
         player_transform.rotation = yaw_rotation;
     }
 
-    const Entity& PlayerController::get_player() const
+    const tbx::Entity& PlayerController::get_player() const
     {
         return _player;
     }
 
-    const Entity& PlayerController::get_camera() const
+    const tbx::Entity& PlayerController::get_camera() const
     {
         return _camera;
     }
 
-    InputAction PlayerController::create_move_action()
+    tbx::InputAction PlayerController::create_move_action()
     {
-        return InputAction(
+        return tbx::InputAction(
             "Move",
             InputActionValueType::VECTOR2,
             InputActionConstruction {
                 .bindings =
                     {
-                        InputBinding {
+                        tbx::InputBinding {
                             .control =
                                 KeyboardVector2CompositeInputControl {
                                     .up = InputKey::W,
@@ -141,32 +141,32 @@ namespace tbx::examples
                     },
                 .on_performed_callbacks =
                     {
-                        [this](const InputAction& action)
+                        [this](const tbx::InputAction& action)
                         {
-                            auto move_axis = Vec2(0.0F, 0.0F);
-                            if (action.try_get_value_as<Vec2>(move_axis))
+                            auto move_axis = tbx::Vec2(0.0F, 0.0F);
+                            if (action.try_get_value_as<tbx::Vec2>(move_axis))
                                 _move_axis = move_axis;
                         },
                     },
                 .on_cancelled_callbacks =
                     {
-                        [this](const InputAction&)
+                        [this](const tbx::InputAction&)
                         {
-                            _move_axis = Vec2(0.0F, 0.0F);
+                            _move_axis = tbx::Vec2(0.0F, 0.0F);
                         },
                     },
             });
     }
 
-    InputAction PlayerController::create_look_action()
+    tbx::InputAction PlayerController::create_look_action()
     {
-        return InputAction(
+        return tbx::InputAction(
             "Look",
             InputActionValueType::VECTOR2,
             InputActionConstruction {
                 .bindings =
                     {
-                        InputBinding {
+                        tbx::InputBinding {
                             .control =
                                 MouseVectorInputControl {
                                     .control = InputMouseVectorControl::DELTA,
@@ -176,28 +176,28 @@ namespace tbx::examples
                     },
                 .on_performed_callbacks =
                     {
-                        [this](const InputAction& action)
+                        [this](const tbx::InputAction& action)
                         {
-                            auto look_delta = Vec2(0.0F, 0.0F);
-                            if (action.try_get_value_as<Vec2>(look_delta))
+                            auto look_delta = tbx::Vec2(0.0F, 0.0F);
+                            if (action.try_get_value_as<tbx::Vec2>(look_delta))
                                 _look_delta = look_delta;
                         },
                     },
                 .on_cancelled_callbacks =
                     {
-                        [this](const InputAction&)
+                        [this](const tbx::InputAction&)
                         {
-                            _look_delta = Vec2(0.0F, 0.0F);
+                            _look_delta = tbx::Vec2(0.0F, 0.0F);
                         },
                     },
             });
     }
 
-    Vec3 PlayerController::normalize_or_zero(const Vec3& value)
+    tbx::Vec3 PlayerController::normalize_or_zero(const tbx::Vec3& value)
     {
         const float length_squared = value.x * value.x + value.y * value.y + value.z * value.z;
         if (length_squared <= 0.0F)
-            return Vec3(0.0F, 0.0F, 0.0F);
+            return tbx::Vec3(0.0F, 0.0F, 0.0F);
 
         return value * (1.0F / std::sqrt(length_squared));
     }

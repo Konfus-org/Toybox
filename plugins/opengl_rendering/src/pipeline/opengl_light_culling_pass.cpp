@@ -2,7 +2,7 @@
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     static constexpr uint32 LIGHT_CULLING_WORKGROUP_SIZE_X = 8U;
     static constexpr uint32 LIGHT_CULLING_WORKGROUP_SIZE_Y = 8U;
@@ -62,7 +62,7 @@ namespace tbx::plugins
         shader_program.try_upload(
             MaterialParameter {
                 .name = "u_screen_size",
-                .data = Vec2(
+                .data = tbx::Vec2(
                     static_cast<float>(frame_context.render_resolution.width),
                     static_cast<float>(frame_context.render_resolution.height)),
             });

@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace tbx::plugins
+namespace stb_image_loader
 {
     static bool try_parse_texture_settings(const Json& data, TextureSettings& out_settings)
     {
@@ -43,7 +43,7 @@ namespace tbx::plugins
         return message;
     }
 
-    void StbImageLoaderPlugin::on_attach(IPluginHost& host)
+    void StbImageLoaderPlugin::on_attach(tbx::IPluginHost& host)
     {
         if (!_file_ops)
             _file_ops = std::make_shared<FileOperator>(host.get_settings().paths.working_directory);
@@ -51,7 +51,7 @@ namespace tbx::plugins
 
     void StbImageLoaderPlugin::on_detach() {}
 
-    void StbImageLoaderPlugin::on_recieve_message(Message& msg)
+    void StbImageLoaderPlugin::on_recieve_message(tbx::Message& msg)
     {
         auto* request = handle_message<LoadTextureRequest>(msg);
         if (!request)
@@ -62,7 +62,7 @@ namespace tbx::plugins
         on_load_texture_request(*request);
     }
 
-    void StbImageLoaderPlugin::set_file_ops(std::shared_ptr<IFileOps> file_ops)
+    void StbImageLoaderPlugin::set_file_ops(std::shared_ptr<tbx::IFileOps> file_ops)
     {
         _file_ops = std::move(file_ops);
     }
@@ -151,7 +151,7 @@ namespace tbx::plugins
         stbi_image_free(raw_data);
 
         Size resolution = {static_cast<uint32>(width), static_cast<uint32>(height)};
-        Texture texture(
+        tbx::Texture texture(
             resolution,
             load_settings.wrap,
             load_settings.filter,
