@@ -2,10 +2,12 @@
 #include "tbx/graphics/messages.h"
 #include "tbx/messages/observable.h"
 #include "tbx/plugin_api/plugin.h"
+#include "tbx/plugin_api/plugin_export.h"
 #include "tbx/plugins/sdl_opengl_adapter/sdl_open_gl_adapter.h"
 #include <SDL3/SDL.h>
 #include <memory>
 #include <unordered_map>
+
 
 namespace sdl_opengl_adapter
 {
@@ -13,7 +15,7 @@ namespace sdl_opengl_adapter
     /// <remarks>Purpose: Packages SDL OpenGL bridging utilities into a dedicated plugin for reuse.
     /// Ownership: Owns no persistent resources by default.
     /// Thread Safety: Expected to be attached/detached on the main thread.</remarks>
-    class SdlOpenGlAdapterPlugin final : public tbx::Plugin
+    class TBX_PLUGIN_API SdlOpenGlAdapterPlugin final : public tbx::Plugin
     {
       public:
         void on_attach(tbx::IPluginHost& host) override;
@@ -23,16 +25,16 @@ namespace sdl_opengl_adapter
       private:
         void ensure_open_gl_adapter();
         void on_window_native_handle_changed(
-            PropertyChangedEvent<Window, NativeWindowHandle>& event);
-        void handle_make_current(WindowMakeCurrentRequest& request);
-        void handle_present(WindowPresentRequest& request);
+            tbx::PropertyChangedEvent<tbx::Window, tbx::NativeWindowHandle>& event);
+        void handle_make_current(tbx::WindowMakeCurrentRequest& request);
+        void handle_present(tbx::WindowPresentRequest& request);
         void apply_vsync_setting();
 
       private:
-        std::unordered_map<Uuid, SDL_Window*> _native_windows;
-        std::unordered_map<Uuid, Size> _window_sizes;
+        std::unordered_map<tbx::Uuid, SDL_Window*> _native_windows = {};
+        std::unordered_map<tbx::Uuid, tbx::Size> _window_sizes = {};
         bool _use_opengl = false;
         bool _vsync_enabled = false;
-        std::unique_ptr<SdlOpenGlAdapter> _open_gl_adapter;
+        std::unique_ptr<SdlOpenGlAdapter> _open_gl_adapter = nullptr;
     };
 }

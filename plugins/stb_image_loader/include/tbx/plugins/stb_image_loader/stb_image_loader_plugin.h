@@ -7,9 +7,6 @@
 #include <filesystem>
 #include <memory>
 
-#ifndef TBX_STB_IMAGE_LOADER_PLUGIN_EXPORTS
-    #define TBX_STB_IMAGE_LOADER_PLUGIN_EXPORTS 0
-#endif
 
 namespace stb_image_loader
 {
@@ -21,7 +18,7 @@ namespace stb_image_loader
     /// Ownership: Plugin lifetime is owned by the host; it keeps non-owning references to the host.
     /// Thread Safety: Handles asset messages on the dispatcher thread; no internal synchronization.
     /// </remarks>
-    class TBX_PLUGIN_INCLUDE_API(TBX_STB_IMAGE_LOADER_PLUGIN_EXPORTS) StbImageLoaderPlugin final : public Plugin
+    class TBX_PLUGIN_API StbImageLoaderPlugin final : public Plugin
     {
       public:
         /// <summary>

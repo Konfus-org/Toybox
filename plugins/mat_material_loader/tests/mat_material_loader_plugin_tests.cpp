@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "tbx/plugin_api/tests/importer_test_environment.h"
-#include "../src/mat_material_loader_plugin.h"
+#include "tbx/plugins/mat_material_loader/mat_material_loader_plugin.h"
 
 namespace mat_material_loader::tests
 {

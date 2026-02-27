@@ -8,21 +8,18 @@
 #include <string>
 #include <vector>
 
-#ifndef TBX_SDL_WINDOWING_PLUGIN_EXPORTS
-    #define TBX_SDL_WINDOWING_PLUGIN_EXPORTS 0
-#endif
 
 namespace sdl_windowing
 {
     using namespace tbx;
-    struct TBX_PLUGIN_INCLUDE_API(TBX_SDL_WINDOWING_PLUGIN_EXPORTS) SdlWindowRecord
+    struct TBX_PLUGIN_API SdlWindowRecord
     {
         SDL_Window* sdl_window = nullptr;
         Window* tbx_window = nullptr;
         WindowMode mode_to_restore = WindowMode::WINDOWED;
     };
 
-    class TBX_PLUGIN_INCLUDE_API(TBX_SDL_WINDOWING_PLUGIN_EXPORTS) SdlWindowingPlugin final : public Plugin
+    class TBX_PLUGIN_API SdlWindowingPlugin final : public Plugin
     {
       public:
         void on_attach(IPluginHost& host) override;

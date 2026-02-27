@@ -1,4 +1,4 @@
-#include "sdl_opengl_adapter_plugin.h"
+#include "tbx/plugins/sdl_opengl_adapter/sdl_opengl_adapter_plugin.h"
 #include "tbx/app/application.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/observable.h"

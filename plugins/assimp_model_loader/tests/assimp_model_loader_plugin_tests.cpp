@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "../src/assimp_model_loader_plugin.h"
+#include "tbx/plugins/assimp_model_loader/assimp_model_loader_plugin.h"
 #include "tbx/async/cancellation_token.h"
 #include "tbx/plugin_api/tests/importer_test_environment.h"
 

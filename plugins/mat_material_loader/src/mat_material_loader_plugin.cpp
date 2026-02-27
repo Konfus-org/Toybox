@@ -1,4 +1,4 @@
-#include "mat_material_loader_plugin.h"
+#include "tbx/plugins/mat_material_loader/mat_material_loader_plugin.h"
 #include "tbx/app/app_settings.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/files/file_ops.h"

@@ -1,4 +1,4 @@
-#include "sdl_base_systems_plugin.h"
+#include "tbx/plugins/sdl_base_systems/sdl_base_systems_plugin.h"
 #include "tbx/debugging/macros.h"
 #include <SDL3/SDL.h>
 

@@ -3,7 +3,6 @@ set(plugin_name SdlOpenGlAdapterPlugin)
 add_library(${plugin_name} SHARED)
 add_library(Tbx::Plugins::${plugin_name} ALIAS ${plugin_name})
 
-target_compile_definitions(${plugin_name} PRIVATE TBX_PLUGIN_EXPORTING_SYMBOLS)
 
 file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
 target_sources(${plugin_name} PRIVATE ${SRCS})
@@ -19,7 +18,7 @@ target_link_libraries(${plugin_name} PRIVATE
 tbx_register_plugin(
     TARGET ${plugin_name}
     CLASS sdl_opengl_adapter::SdlOpenGlAdapterPlugin
-    HEADER "sdl_opengl_adapter_plugin.h"
+    HEADER "tbx/plugins/sdl_opengl_adapter/sdl_opengl_adapter_plugin.h"
     NAME "${plugin_name}"
     VERSION "1.0.0"
     CATEGORY "rendering"

@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "tbx/plugin_api/tests/importer_test_environment.h"
-#include "../src/stb_image_loader_plugin.h"
+#include "tbx/plugins/stb_image_loader/stb_image_loader_plugin.h"
 
 namespace stb_image_loader::tests
 {

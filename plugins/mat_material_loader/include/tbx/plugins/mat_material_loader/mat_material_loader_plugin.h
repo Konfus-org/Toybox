@@ -7,9 +7,6 @@
 #include <filesystem>
 #include <memory>
 
-#ifndef TBX_MAT_MATERIAL_LOADER_PLUGIN_EXPORTS
-    #define TBX_MAT_MATERIAL_LOADER_PLUGIN_EXPORTS 0
-#endif
 
 namespace mat_material_loader
 {
@@ -21,7 +18,7 @@ namespace mat_material_loader
     /// Ownership: Plugin lifetime is owned by the host; it keeps non-owning references to the host.
     /// Thread Safety: Handles asset messages on the dispatcher thread; no internal synchronization.
     /// </remarks>
-    class TBX_PLUGIN_INCLUDE_API(TBX_MAT_MATERIAL_LOADER_PLUGIN_EXPORTS) MatMaterialLoaderPlugin final : public Plugin
+    class TBX_PLUGIN_API MatMaterialLoaderPlugin final : public Plugin
     {
       public:
         /// <summary>

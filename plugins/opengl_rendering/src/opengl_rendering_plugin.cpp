@@ -1,4 +1,5 @@
-#include "opengl_rendering_plugin.h"
+#include "tbx/plugins/opengl_rendering/opengl_rendering_plugin.h"
+#include "opengl_renderer.h"
 #include "tbx/app/application.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/observable.h"
@@ -9,10 +10,11 @@
 
 namespace opengl_rendering
 {
-    using namespace tbx;
     static constexpr std::string_view OPENGL_RENDER_LANE_NAME = "render";
 
-    void OpenGlRenderingPlugin::on_attach(IPluginHost& host)
+    OpenGlRenderingPlugin::~OpenGlRenderingPlugin() = default;
+
+    void OpenGlRenderingPlugin::on_attach(tbx::IPluginHost& host)
     {
         host.get_thread_manager().try_create_lane(OPENGL_RENDER_LANE_NAME);
     }
@@ -23,7 +25,7 @@ namespace opengl_rendering
             teardown_renderer(window_id);
     }
 
-    void OpenGlRenderingPlugin::on_update(const DeltaTime&)
+    void OpenGlRenderingPlugin::on_update(const tbx::DeltaTime&)
     {
         auto& thread_manager = get_host().get_thread_manager();
         auto render_futures = std::vector<std::future<void>> {};
@@ -43,7 +45,7 @@ namespace opengl_rendering
                     {
                         TBX_TRACE_ERROR(
                             "Failed to render window {}",
-                            to_string(renderer->get_context().get_window_id()));
+                            tbx::to_string(renderer->get_context().get_window_id()));
                     }
                 }));
         }
@@ -52,9 +54,9 @@ namespace opengl_rendering
             render_future.get();
     }
 
-    void OpenGlRenderingPlugin::on_recieve_message(Message& msg)
+    void OpenGlRenderingPlugin::on_recieve_message(tbx::Message& msg)
     {
-        if (auto* ready_event = handle_message<WindowContextReadyEvent>(msg))
+        if (auto* ready_event = tbx::handle_message<tbx::WindowContextReadyEvent>(msg))
         {
             auto context = OpenGlContext(get_host().get_message_coordinator(), ready_event->window);
             auto& thread_manager = get_host().get_thread_manager();
@@ -85,18 +87,18 @@ namespace opengl_rendering
 
             TBX_TRACE_INFO(
                 "OpenGL rendering: renderer ready for window {}.",
-                to_string(ready_event->window));
+                tbx::to_string(ready_event->window));
             return;
         }
 
-        if (const auto* open_event = handle_property_changed<&Window::is_open>(msg))
+        if (const auto* open_event = tbx::handle_property_changed<&tbx::Window::is_open>(msg))
         {
             if (!open_event->current && open_event->owner)
                 teardown_renderer(open_event->owner->id);
             return;
         }
 
-        if (const auto* size_event = handle_property_changed<&Window::size>(msg))
+        if (const auto* size_event = tbx::handle_property_changed<&tbx::Window::size>(msg))
         {
             if (!size_event->owner)
                 return;
@@ -122,7 +124,7 @@ namespace opengl_rendering
         }
     }
 
-    void OpenGlRenderingPlugin::teardown_renderer(const Uuid& window_id)
+    void OpenGlRenderingPlugin::teardown_renderer(const tbx::Uuid& window_id)
     {
         const auto renderer_it = _renderers.find(window_id);
         if (renderer_it == _renderers.end())
