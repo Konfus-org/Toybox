@@ -4,7 +4,7 @@
 #include "tbx/messages/dispatcher.h"
 #include <functional>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     /// <summary>Represents an OpenGL window context bound to dispatcher-driven window
     /// requests.</summary>

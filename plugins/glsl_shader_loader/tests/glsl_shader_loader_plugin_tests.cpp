@@ -2,7 +2,7 @@
 #include "tbx/plugin_api/tests/importer_test_environment.h"
 #include "../src/glsl_shader_loader_plugin.h"
 
-namespace tbx::tests::plugin_api
+namespace glsl_shader_loader::tests
 {
     /// <summary>
     /// Verifies the GLSL importer expands include directives using in-memory files.
@@ -23,7 +23,7 @@ void main() {}
         plugins::GlslShaderLoaderPlugin plugin = {};
         plugin.set_file_ops(file_ops);
         plugin.attach(host);
-        Shader shader = {};
+        tbx::Shader shader = {};
         LoadShaderRequest request("Basic.vert", &shader);
 
         // Act
@@ -55,7 +55,7 @@ void main() { uint x = make_index(); }
         plugins::GlslShaderLoaderPlugin plugin = {};
         plugin.set_file_ops(file_ops);
         plugin.attach(host);
-        Shader shader = {};
+        tbx::Shader shader = {};
         LoadShaderRequest request("Culling.comp", &shader);
 
         // Act

@@ -1,7 +1,7 @@
 #include "tbx/examples/input_controller.h"
 #include "tbx/debugging/macros.h"
 
-namespace tbx::examples
+namespace examples_common
 {
     void InputController::bind_input_context(
         InputManager& input_manager,
@@ -22,9 +22,9 @@ namespace tbx::examples
         return _scheme_name;
     }
 
-    InputScheme& InputController::get_registered_input_scheme() const
+    tbx::InputScheme& InputController::get_registered_input_scheme() const
     {
-        static auto fallback_scheme = InputScheme("");
+        static auto fallback_scheme = tbx::InputScheme("");
         TBX_ASSERT(
             _input_manager != nullptr,
             "InputController has no InputManager bound for scheme '{}'.",

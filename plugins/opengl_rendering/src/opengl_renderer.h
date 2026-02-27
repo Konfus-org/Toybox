@@ -13,7 +13,7 @@
 #include <optional>
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     /// <summary>Configures directional shadow behavior for the OpenGL renderer.</summary>
     /// <remarks>Purpose: Groups runtime-tunable shadow map and light-space camera settings.
@@ -33,8 +33,8 @@ namespace tbx::plugins
     struct OpenGlRenderer final
     {
         OpenGlRenderer(
-            GraphicsProcAddress loader,
-            EntityRegistry& entity_registry,
+            tbx::GraphicsProcAddress loader,
+            tbx::EntityRegistry& entity_registry,
             AssetManager& asset_manager,
             OpenGlContext context,
             const OpenGlShadowSettings& shadow_settings);
@@ -89,7 +89,7 @@ namespace tbx::plugins
         void set_render_resolution(const Size& render_resolution);
 
       private:
-        std::reference_wrapper<EntityRegistry> _entity_registry;
+        std::reference_wrapper<tbx::EntityRegistry> _entity_registry;
         OpenGlContext _context;
 
         std::unique_ptr<OpenGlResourceManager> _resource_manager = nullptr;

@@ -2,7 +2,7 @@
 #include "tbx/debugging/macros.h"
 #include <SDL3/SDL.h>
 
-namespace tbx::plugins
+namespace sdl_base_systems
 {
     static void sdl_log_callback(
         void* userdata,
@@ -40,7 +40,7 @@ namespace tbx::plugins
         }*/
     }
 
-    void SdlBaseSystemsPlugin::on_attach(IPluginHost&)
+    void SdlBaseSystemsPlugin::on_attach(tbx::IPluginHost&)
     {
         SDL_SetLogOutputFunction(
             [](void* userdata, int category, SDL_LogPriority priority, const char* message)
@@ -78,7 +78,7 @@ namespace tbx::plugins
         _owns_sdl = false;
     }
 
-    void SdlBaseSystemsPlugin::on_update(const DeltaTime&)
+    void SdlBaseSystemsPlugin::on_update(const tbx::DeltaTime&)
     {
         SDL_PumpEvents();
     }

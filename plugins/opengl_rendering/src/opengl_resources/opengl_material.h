@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     /// <summary>
     /// Purpose: Stores texture bindings for OpenGL material rendering.

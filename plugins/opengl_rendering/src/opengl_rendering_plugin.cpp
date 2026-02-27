@@ -8,7 +8,7 @@
 #include <string_view>
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     static constexpr std::string_view OPENGL_RENDER_LANE_NAME = "render";
 
@@ -21,7 +21,7 @@ namespace tbx::plugins
         };
     }
 
-    void OpenGlRenderingPlugin::on_attach(IPluginHost& host)
+    void OpenGlRenderingPlugin::on_attach(tbx::IPluginHost& host)
     {
         const auto& graphics_settings = host.get_settings().graphics;
         _shadow_settings = build_shadow_settings(graphics_settings);
@@ -39,7 +39,7 @@ namespace tbx::plugins
             teardown_renderer(window_id);
     }
 
-    void OpenGlRenderingPlugin::on_update(const DeltaTime&)
+    void OpenGlRenderingPlugin::on_update(const tbx::DeltaTime&)
     {
         auto& thread_manager = get_host().get_thread_manager();
         auto render_futures = std::vector<std::future<void>> {};
@@ -69,7 +69,7 @@ namespace tbx::plugins
             render_future.get();
     }
 
-    void OpenGlRenderingPlugin::on_recieve_message(Message& msg)
+    void OpenGlRenderingPlugin::on_recieve_message(tbx::Message& msg)
     {
         if (auto* ready_event = handle_message<WindowContextReadyEvent>(msg))
         {

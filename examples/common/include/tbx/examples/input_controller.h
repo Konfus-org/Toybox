@@ -2,7 +2,7 @@
 #include "tbx/input/input_manager.h"
 #include <string>
 
-namespace tbx::examples
+namespace examples_common
 {
     /// <summary>
     /// Purpose: Shares input-manager scheme binding and lookup behavior for runtime controllers.
@@ -58,7 +58,7 @@ namespace tbx::examples
         /// Ownership: Returned reference is non-owning and owned by InputManager.
         /// Thread Safety: Main-thread only.
         /// </remarks>
-        InputScheme& get_registered_input_scheme() const;
+        tbx::InputScheme& get_registered_input_scheme() const;
 
       private:
         InputManager* _input_manager = nullptr;

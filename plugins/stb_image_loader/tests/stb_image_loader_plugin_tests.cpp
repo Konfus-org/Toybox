@@ -2,7 +2,7 @@
 #include "tbx/plugin_api/tests/importer_test_environment.h"
 #include "../src/stb_image_loader_plugin.h"
 
-namespace tbx::tests::plugin_api
+namespace stb_image_loader::tests
 {
     /// <summary>
     /// Verifies the texture importer applies texture settings declared in sidecar metadata.
@@ -39,7 +39,7 @@ namespace tbx::tests::plugin_api
         plugins::StbImageLoaderPlugin plugin = {};
         plugin.set_file_ops(file_ops);
         plugin.on_attach(host);
-        Texture texture = {};
+        tbx::Texture texture = {};
         LoadTextureRequest request(
             "test.png",
             &texture,

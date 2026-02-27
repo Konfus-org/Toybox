@@ -1,7 +1,7 @@
 #pragma once
 #include "opengl_render_pipeline.h"
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     class OpenGlResourceManager;
 

@@ -8,13 +8,13 @@
 #include <numbers>
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     static constexpr uint64 POINT_VOLUME_MESH_SIGNATURE = 0x7000000000000001ULL;
     static constexpr uint64 SPOT_VOLUME_MESH_SIGNATURE = 0x7000000000000002ULL;
     static constexpr uint64 AREA_VOLUME_MESH_SIGNATURE = 0x7000000000000003ULL;
 
-    static Mesh make_spot_cone_proxy_mesh()
+    static tbx::Mesh make_spot_cone_proxy_mesh()
     {
         static constexpr uint32 SEGMENT_COUNT = 24U;
 
@@ -25,15 +25,15 @@ namespace tbx::plugins
         indices.reserve(static_cast<size_t>(SEGMENT_COUNT) * 6U);
 
         const Vertex tip_vertex = Vertex {
-            .position = Vec3(0.0F, 1.0F, 0.0F),
-            .normal = Vec3(0.0F, 1.0F, 0.0F),
-            .uv = Vec2(0.5F, 1.0F),
+            .position = tbx::Vec3(0.0F, 1.0F, 0.0F),
+            .normal = tbx::Vec3(0.0F, 1.0F, 0.0F),
+            .uv = tbx::Vec2(0.5F, 1.0F),
             .color = Color::WHITE,
         };
         const Vertex base_center_vertex = Vertex {
-            .position = Vec3(0.0F, 0.0F, 0.0F),
-            .normal = Vec3(0.0F, -1.0F, 0.0F),
-            .uv = Vec2(0.5F, 0.5F),
+            .position = tbx::Vec3(0.0F, 0.0F, 0.0F),
+            .normal = tbx::Vec3(0.0F, -1.0F, 0.0F),
+            .uv = tbx::Vec2(0.5F, 0.5F),
             .color = Color::WHITE,
         };
         vertices.push_back(tip_vertex);
@@ -45,12 +45,12 @@ namespace tbx::plugins
             const float angle = t * 2.0F * std::numbers::pi_v<float>;
             const float x = std::cos(angle);
             const float z = std::sin(angle);
-            const auto side_normal = normalize(Vec3(x, 0.5F, z));
+            const auto side_normal = normalize(tbx::Vec3(x, 0.5F, z));
             vertices.push_back(
                 Vertex {
-                    .position = Vec3(x, 0.0F, z),
+                    .position = tbx::Vec3(x, 0.0F, z),
                     .normal = side_normal,
-                    .uv = Vec2(t, 0.0F),
+                    .uv = tbx::Vec2(t, 0.0F),
                     .color = Color::WHITE,
                 });
         }
@@ -76,12 +76,12 @@ namespace tbx::plugins
         const auto vertex_buffer = VertexBuffer(
             vertices,
             {{
-                Vec3(0.0F),
-                Color(),
-                Vec3(0.0F),
-                Vec2(0.0F),
+                tbx::Vec3(0.0F),
+                tbx::Color(),
+                tbx::Vec3(0.0F),
+                tbx::Vec2(0.0F),
             }});
-        return Mesh(vertex_buffer, indices);
+        return tbx::Mesh(vertex_buffer, indices);
     }
 
     static void bind_local_lighting_inputs(const OpenGlRenderFrameContext& frame_context)

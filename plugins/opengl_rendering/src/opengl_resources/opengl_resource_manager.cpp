@@ -9,7 +9,7 @@
 #include "tbx/graphics/model.h"
 #include <variant>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     class OpenGlDrawResourceBundle final : public IOpenGlResource
     {
@@ -58,7 +58,7 @@ namespace tbx::plugins
         return hash_value;
     }
 
-    static uint64 hash_mesh_content_signature(const Mesh& mesh)
+    static uint64 hash_mesh_content_signature(const tbx::Mesh& mesh)
     {
         auto hash_value = make_tagged_signature("MeshContent");
         const auto vertex_count = static_cast<uint64>(mesh.vertices.size());
@@ -83,7 +83,7 @@ namespace tbx::plugins
         return hash_value;
     }
 
-    static uint64 hash_dynamic_mesh_pointer_signature(const std::shared_ptr<Mesh>& mesh)
+    static uint64 hash_dynamic_mesh_pointer_signature(const std::shared_ptr<tbx::Mesh>& mesh)
     {
         auto hash_value = make_tagged_signature("DynamicMeshPointer");
         const auto pointer_value =
@@ -144,7 +144,7 @@ namespace tbx::plugins
         return hash_value;
     }
 
-    static uint64 hash_texture_content_signature(const Texture& texture_data)
+    static uint64 hash_texture_content_signature(const tbx::Texture& texture_data)
     {
         auto hash_value = make_tagged_signature("TextureContent");
         hash_texture_settings(hash_value, texture_data);
@@ -283,7 +283,7 @@ namespace tbx::plugins
 
     static void apply_runtime_material_overrides(
         const MaterialInstance& runtime_material,
-        Material& in_out_material,
+        tbx::Material& in_out_material,
         std::vector<MaterialTextureBinding>* out_runtime_texture_overrides)
     {
         for (const auto& texture_binding : runtime_material.textures)
@@ -340,9 +340,9 @@ namespace tbx::plugins
             });
     }
 
-    static Material resolve_static_mesh_material(const Model& model)
+    static tbx::Material resolve_static_mesh_material(const tbx::Model& model)
     {
-        Material resolved = Material();
+        tbx::Material resolved = tbx::Material();
 
         for (const auto& part : model.parts)
         {
@@ -368,7 +368,7 @@ namespace tbx::plugins
     }
 
     bool OpenGlResourceManager::try_get(
-        const Entity& entity,
+        const tbx::Entity& entity,
         OpenGlDrawResources& out_resources,
         const bool pin)
     {
@@ -506,7 +506,7 @@ namespace tbx::plugins
         return true;
     }
 
-    bool OpenGlResourceManager::add(const Entity& entity, const bool pin)
+    bool OpenGlResourceManager::add(const tbx::Entity& entity, const bool pin)
     {
         if (entity.has_component<PostProcessing>())
         {
@@ -572,7 +572,7 @@ namespace tbx::plugins
     }
 
     bool OpenGlResourceManager::try_get(
-        const Entity& entity,
+        const tbx::Entity& entity,
         std::shared_ptr<IOpenGlResource>& out_resource,
         const bool pin)
     {
@@ -639,7 +639,7 @@ namespace tbx::plugins
 
     std::shared_ptr<OpenGlMesh> OpenGlResourceManager::get_or_create_runtime_mesh(
         const uint64 mesh_signature,
-        const Mesh& mesh)
+        const tbx::Mesh& mesh)
     {
         return get_or_create_shared_mesh(mesh_signature, mesh);
     }
@@ -716,7 +716,7 @@ namespace tbx::plugins
 
     std::shared_ptr<OpenGlMesh> OpenGlResourceManager::get_or_create_shared_mesh(
         const uint64 mesh_signature,
-        const Mesh& mesh)
+        const tbx::Mesh& mesh)
     {
         auto iterator = _shared_meshes_by_signature.find(mesh_signature);
         if (iterator != _shared_meshes_by_signature.end())
@@ -756,7 +756,7 @@ namespace tbx::plugins
             }
         }
 
-        auto shader_asset = _asset_manager.get().load<Shader>(shader_handle);
+        auto shader_asset = _asset_manager.get().load<tbx::Shader>(shader_handle);
         TBX_ASSERT(
             shader_asset != nullptr,
             "OpenGL rendering: material shader stage could not be loaded.");
@@ -863,7 +863,7 @@ namespace tbx::plugins
 
     std::shared_ptr<OpenGlTexture> OpenGlResourceManager::get_or_create_shared_texture(
         const uint64 texture_signature,
-        const Texture& texture_data)
+        const tbx::Texture& texture_data)
     {
         auto iterator = _shared_textures_by_signature.find(texture_signature);
         if (iterator != _shared_textures_by_signature.end())
@@ -1038,13 +1038,13 @@ namespace tbx::plugins
     }
 
     bool OpenGlResourceManager::try_create_static_mesh_resources(
-        const Entity& entity,
+        const tbx::Entity& entity,
         const Renderer& renderer,
         OpenGlDrawResources& out_resources,
         OpenGlCachedDrawResourceEntry* out_cache_entry)
     {
         const auto& static_mesh = entity.get_component<StaticMesh>();
-        auto model = _asset_manager.get().load<Model>(static_mesh.handle);
+        auto model = _asset_manager.get().load<tbx::Model>(static_mesh.handle);
         if (!model || model->meshes.empty())
             return false;
 
@@ -1055,10 +1055,10 @@ namespace tbx::plugins
         if (out_cache_entry != nullptr)
             out_cache_entry->mesh_signature = static_mesh_signature;
 
-        auto material = Material();
+        auto material = tbx::Material();
         if (renderer.material.handle.is_valid())
         {
-            auto override_material = _asset_manager.get().load<Material>(renderer.material.handle);
+            auto override_material = _asset_manager.get().load<tbx::Material>(renderer.material.handle);
             if (override_material)
                 material = *override_material;
         }
@@ -1090,7 +1090,7 @@ namespace tbx::plugins
     }
 
     bool OpenGlResourceManager::try_create_dynamic_mesh_resources(
-        const Entity& entity,
+        const tbx::Entity& entity,
         const Renderer& renderer,
         OpenGlDrawResources& out_resources,
         OpenGlCachedDrawResourceEntry* out_cache_entry)
@@ -1104,10 +1104,10 @@ namespace tbx::plugins
         if (out_cache_entry != nullptr)
             out_cache_entry->mesh_signature = dynamic_mesh_signature;
 
-        auto material = Material();
+        auto material = tbx::Material();
         if (renderer.material.handle.is_valid())
         {
-            auto loaded_material = _asset_manager.get().load<Material>(renderer.material.handle);
+            auto loaded_material = _asset_manager.get().load<tbx::Material>(renderer.material.handle);
             if (loaded_material)
                 material = *loaded_material;
         }
@@ -1174,7 +1174,7 @@ namespace tbx::plugins
     {
         if (!material.handle.is_valid())
             return false;
-        auto source_material = _asset_manager.get().load<Material>(material.handle);
+        auto source_material = _asset_manager.get().load<tbx::Material>(material.handle);
         if (!source_material)
             return false;
 
@@ -1213,7 +1213,7 @@ namespace tbx::plugins
     {
         if (!material.handle.is_valid())
             return false;
-        auto source_material = _asset_manager.get().load<Material>(material.handle);
+        auto source_material = _asset_manager.get().load<tbx::Material>(material.handle);
         if (!source_material)
             return false;
 
@@ -1247,7 +1247,7 @@ namespace tbx::plugins
     }
 
     bool OpenGlResourceManager::try_append_material_resources(
-        const Material& material,
+        const tbx::Material& material,
         const std::vector<MaterialTextureBinding>& runtime_texture_overrides,
         OpenGlDrawResources& out_resources,
         uint64* out_shader_program_signature,
@@ -1292,7 +1292,7 @@ namespace tbx::plugins
             const TextureInstance* runtime_texture_override =
                 try_get_runtime_texture_override(runtime_texture_overrides, normalized_name);
 
-            std::shared_ptr<Texture> texture_asset = nullptr;
+            std::shared_ptr<tbx::Texture> texture_asset = nullptr;
             Handle resolved_texture_handle = texture_binding.texture.handle;
             if (runtime_texture_override && runtime_texture_override->handle.is_valid())
                 resolved_texture_handle = runtime_texture_override->handle;
@@ -1305,13 +1305,13 @@ namespace tbx::plugins
                 texture_asset = _asset_manager.get().load(resolved_texture_handle, load_parameters);
                 TBX_ASSERT(
                     texture_asset != nullptr,
-                    "OpenGL rendering: texture '{}' failed to load as Texture (id={}, name='{}').",
+                    "OpenGL rendering: texture '{}' failed to load as tbx::Texture (id={}, name='{}').",
                     normalized_name,
                     to_string(resolved_texture_handle.id),
                     resolved_texture_handle.name);
             }
 
-            auto fallback_texture = Texture();
+            auto fallback_texture = tbx::Texture();
             if (normalized_name == "u_normal")
             {
                 fallback_texture.format = TextureFormat::RGB;
@@ -1360,7 +1360,7 @@ namespace tbx::plugins
 
         if (!has_diffuse)
         {
-            auto fallback_texture = Texture();
+            auto fallback_texture = tbx::Texture();
             const auto texture_signature = hash_texture_content_signature(fallback_texture);
             auto texture = get_or_create_shared_texture(texture_signature, fallback_texture);
             append_texture_binding(out_resources, "u_diffuse", texture);
@@ -1377,7 +1377,7 @@ namespace tbx::plugins
         }
         if (!has_normal)
         {
-            auto normal_texture = Texture();
+            auto normal_texture = tbx::Texture();
             normal_texture.format = TextureFormat::RGB;
             normal_texture.pixels = {128, 128, 255};
             const auto texture_signature = hash_texture_content_signature(normal_texture);

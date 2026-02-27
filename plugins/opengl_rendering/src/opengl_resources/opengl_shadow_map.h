@@ -5,7 +5,7 @@
 #include "tbx/math/size.h"
 #include <memory>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     /// <summary>Owns one OpenGL shadow-map depth texture resource.</summary>
     /// <remarks>Purpose: Encapsulates shadow depth texture allocation and lifetime.

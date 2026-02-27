@@ -5,19 +5,19 @@
 #include <memory>
 #include <unordered_map>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     /// <summary>Hosts the OpenGL rendering backend implementation.</summary>
     /// <remarks>Purpose: Owns OpenGL renderer lifetime and routes window events.
     /// Ownership: Owns one renderer per active OpenGL window.
     /// Thread Safety: Not thread-safe; use on the render thread.</remarks>
-    class OpenGlRenderingPlugin final : public Plugin
+    class OpenGlRenderingPlugin final : public tbx::Plugin
     {
       public:
-        void on_attach(IPluginHost& host) override;
+        void on_attach(tbx::IPluginHost& host) override;
         void on_detach() override;
-        void on_update(const DeltaTime& dt) override;
-        void on_recieve_message(Message& msg) override;
+        void on_update(const tbx::DeltaTime& dt) override;
+        void on_recieve_message(tbx::Message& msg) override;
 
       private:
         /// <summary>Tears down one OpenGL renderer bound to a specific window.</summary>

@@ -6,7 +6,7 @@
 #include "tbx/math/size.h"
 #include <memory>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     /// <summary>
     /// Purpose: Owns the deferred geometry buffer with MRT color attachments and a depth texture.
@@ -82,7 +82,7 @@ namespace tbx::plugins
         /// Ownership: Writes to this framebuffer's attachments only.
         /// Thread Safety: Call on the render thread.
         /// </remarks>
-        void clear(const Color& clear_color) const;
+        void clear(const tbx::Color& clear_color) const;
 
         /// <summary>
         /// Purpose: Returns the framebuffer resolution.

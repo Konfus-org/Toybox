@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     /// <summary>
     /// Purpose: Describes a texture-to-sampler binding for an OpenGL shader program.
@@ -146,7 +146,7 @@ namespace tbx::plugins
         /// ownership in the cache when creation succeeds.
         /// Thread Safety: Not thread-safe; call only from the render thread.
         /// </remarks>
-        bool try_get(const Entity& entity, OpenGlDrawResources& out_resources, bool pin = false);
+        bool try_get(const tbx::Entity& entity, OpenGlDrawResources& out_resources, bool pin = false);
 
         /// <summary>
         /// Purpose: Registers cached OpenGL resources for an entity without requiring immediate
@@ -156,7 +156,7 @@ namespace tbx::plugins
         /// Ownership: Stores shared ownership of created resources in this manager cache.
         /// Thread Safety: Not thread-safe; call only from the render thread.
         /// </remarks>
-        bool add(const Entity& entity, bool pin = false);
+        bool add(const tbx::Entity& entity, bool pin = false);
 
         /// <summary>
         /// Purpose: Registers one runtime OpenGL resource by UUID and constructor arguments.
@@ -187,7 +187,7 @@ namespace tbx::plugins
         /// Thread Safety: Not thread-safe; call only from the render thread.
         /// </remarks>
         bool try_get(
-            const Entity& entity,
+            const tbx::Entity& entity,
             std::shared_ptr<IOpenGlResource>& out_resource,
             bool pin = false);
 
@@ -221,7 +221,7 @@ namespace tbx::plugins
         /// </remarks>
         std::shared_ptr<OpenGlMesh> get_or_create_runtime_mesh(
             uint64 mesh_signature,
-            const Mesh& mesh);
+            const tbx::Mesh& mesh);
 
         /// <summary>
         /// Purpose: Marks one stored runtime resource as pinned.
@@ -279,7 +279,7 @@ namespace tbx::plugins
             OpenGlDrawResources& out_resources);
         std::shared_ptr<OpenGlMesh> get_or_create_shared_mesh(
             uint64 mesh_signature,
-            const Mesh& mesh);
+            const tbx::Mesh& mesh);
         std::shared_ptr<OpenGlShader> get_or_create_shared_shader_stage(
             const Handle& shader_handle,
             ShaderType expected_type);
@@ -288,14 +288,14 @@ namespace tbx::plugins
             uint64* out_program_signature);
         std::shared_ptr<OpenGlTexture> get_or_create_shared_texture(
             uint64 texture_signature,
-            const Texture& texture_data);
+            const tbx::Texture& texture_data);
         bool try_create_static_mesh_resources(
-            const Entity& entity,
+            const tbx::Entity& entity,
             const Renderer& renderer,
             OpenGlDrawResources& out_resources,
             OpenGlCachedDrawResourceEntry* out_cache_entry);
         bool try_create_dynamic_mesh_resources(
-            const Entity& entity,
+            const tbx::Entity& entity,
             const Renderer& renderer,
             OpenGlDrawResources& out_resources,
             OpenGlCachedDrawResourceEntry* out_cache_entry);
@@ -312,7 +312,7 @@ namespace tbx::plugins
             OpenGlDrawResources& out_resources,
             OpenGlCachedDrawResourceEntry* out_cache_entry);
         bool try_append_material_resources(
-            const Material& material,
+            const tbx::Material& material,
             const std::vector<MaterialTextureBinding>& runtime_texture_overrides,
             OpenGlDrawResources& out_resources,
             uint64* out_shader_program_signature,
@@ -388,7 +388,7 @@ namespace tbx::plugins
     {
         static_assert(
             std::is_trivially_copyable_v<TValue>,
-            "Runtime resource signatures only support trivially copyable arguments.");
+            "tbx::Runtime resource signatures only support trivially copyable arguments.");
         append_signature_bytes(hash_value, &value, sizeof(value));
     }
 

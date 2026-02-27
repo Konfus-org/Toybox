@@ -2,7 +2,7 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/messages.h"
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     OpenGlContext::OpenGlContext(IMessageDispatcher& dispatcher, const Uuid& window_id)
         : _dispatcher(std::ref(dispatcher))

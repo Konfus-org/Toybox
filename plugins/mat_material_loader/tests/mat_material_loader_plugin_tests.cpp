@@ -2,7 +2,7 @@
 #include "tbx/plugin_api/tests/importer_test_environment.h"
 #include "../src/mat_material_loader_plugin.h"
 
-namespace tbx::tests::plugin_api
+namespace mat_material_loader::tests
 {
     /// <summary>
     /// Verifies the material importer parses handles and typed parameters from in-memory files.
@@ -24,7 +24,7 @@ namespace tbx::tests::plugin_api
         plugins::MatMaterialLoaderPlugin plugin = {};
         plugin.set_file_ops(file_ops);
         plugin.attach(host);
-        Material material = {};
+        tbx::Material material = {};
         LoadMaterialRequest request("Simple.mat", &material);
 
         // Act
@@ -56,7 +56,7 @@ namespace tbx::tests::plugin_api
         plugins::MatMaterialLoaderPlugin plugin = {};
         plugin.set_file_ops(file_ops);
         plugin.attach(host);
-        Material material = {};
+        tbx::Material material = {};
         LoadMaterialRequest request("ComputeOnly.mat", &material);
 
         // Act

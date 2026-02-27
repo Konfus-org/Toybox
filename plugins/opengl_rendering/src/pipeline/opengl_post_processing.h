@@ -2,7 +2,7 @@
 #include "opengl_render_pipeline.h"
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     /// <summary>Resolved post-processing stack for the active frame.</summary>
     /// <remarks>Purpose: Stores ordered post-process effects for renderer execution.

@@ -4,10 +4,10 @@
 #include "tbx/examples/room.h"
 #include "tbx/plugin_api/plugin.h"
 
-namespace tbx::examples
+namespace asset_example
 {
     /// <summary>
-    /// Runtime plugin that loads the asset scene and drives camera controls using input actions.
+    /// tbx::Runtime plugin that loads the asset scene and drives camera controls using input actions.
     /// </summary>
     /// <remarks>
     /// Purpose: Demonstrates asset loading plus a practical input-scheme-driven camera controller.
@@ -15,7 +15,7 @@ namespace tbx::examples
     /// host. Thread Safety: Expects to run on the main thread where the ECS and input systems are
     /// updated.
     /// </remarks>
-    class AssetExampleRuntimePlugin final : public Plugin
+    class AssetExampleRuntimePlugin final : public tbx::Plugin
     {
       public:
         /// <summary>
@@ -26,7 +26,7 @@ namespace tbx::examples
         /// Ownership: Does not take ownership of host services.
         /// Thread Safety: Must be called on the main thread.
         /// </remarks>
-        void on_attach(IPluginHost& host) override;
+        void on_attach(tbx::IPluginHost& host) override;
 
         /// <summary>
         /// Releases cached runtime references and camera input scheme state.
@@ -43,15 +43,15 @@ namespace tbx::examples
         /// </summary>
         /// <remarks>
         /// Purpose: Rotates demo entities in a render-only showcase.
-        /// Ownership: Does not own the provided DeltaTime instance.
+        /// Ownership: Does not own the provided tbx::DeltaTime instance.
         /// Thread Safety: Must be called on the main thread.
         /// </remarks>
-        void on_update(const DeltaTime& dt) override;
+        void on_update(const tbx::DeltaTime& dt) override;
 
       private:
-        Entity _cube = {};
-        Entity _sun = {};
-        FreeLookCameraController _camera_controller = {};
-        Room _room = {};
+        tbx::Entity _cube = {};
+        tbx::Entity _sun = {};
+        examples_common::FreeLookCameraController _camera_controller = {};
+        examples_common::Room _room = {};
     };
 }

@@ -5,7 +5,7 @@
 #include "tbx/math/size.h"
 #include "tbx/math/vectors.h"
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     /// <summary>Describes runtime texture allocation profiles for OpenGL resources.</summary>
     /// <remarks>Purpose: Selects OpenGL internal-format behavior for GPU-only allocations.
@@ -13,7 +13,7 @@ namespace tbx::plugins
     /// Thread Safety: Immutable enum safe to read concurrently.</remarks>
     enum class OpenGlTextureRuntimeMode
     {
-        Color,
+        tbx::Color,
         HdrColor,
         Depth,
         DepthStencil
@@ -30,7 +30,7 @@ namespace tbx::plugins
         TextureFilter filter = TextureFilter::LINEAR;
         TextureWrap wrap = TextureWrap::CLAMP_TO_EDGE;
         bool use_border_color = false;
-        Vec4 border_color = Vec4(0.0f);
+        tbx::Vec4 border_color = tbx::Vec4(0.0f);
         bool use_compare_mode = false;
     };
 
@@ -45,7 +45,7 @@ namespace tbx::plugins
         /// <remarks>Purpose: Uploads texture data into a GPU texture object.
         /// Ownership: Owns the created GPU texture.
         /// Thread Safety: Construct on the render thread.</remarks>
-        explicit OpenGlTexture(const Texture& texture);
+        explicit OpenGlTexture(const tbx::Texture& texture);
 
         /// <summary>Creates an OpenGL texture from runtime GPU allocation settings.</summary>
         /// <remarks>Purpose: Allocates texture storage without uploading CPU pixel data.

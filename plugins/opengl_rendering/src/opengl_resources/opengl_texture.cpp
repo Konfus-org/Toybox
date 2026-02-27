@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <glad/glad.h>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     struct GlTextureFormat
     {
@@ -11,7 +11,7 @@ namespace tbx::plugins
         GLenum data_format = 0;
     };
 
-    static GLint calculate_mipmap_levels(const Texture& texture)
+    static GLint calculate_mipmap_levels(const tbx::Texture& texture)
     {
         if (texture.mipmaps != TextureMipmaps::ENABLED)
             return 1;
@@ -28,7 +28,7 @@ namespace tbx::plugins
         return levels;
     }
 
-    static GLenum to_gl_texture_min_filter(const Texture& texture)
+    static GLenum to_gl_texture_min_filter(const tbx::Texture& texture)
     {
         switch (texture.filter)
         {
@@ -142,7 +142,7 @@ namespace tbx::plugins
         return is_supported == GL_TRUE;
     }
 
-    static GLenum resolve_internal_format(const Texture& texture, GLenum fallback_internal_format)
+    static GLenum resolve_internal_format(const tbx::Texture& texture, GLenum fallback_internal_format)
     {
         if (texture.compression == TextureCompression::DISABLED)
             return fallback_internal_format;
@@ -158,7 +158,7 @@ namespace tbx::plugins
         return fallback_internal_format;
     }
 
-    OpenGlTexture::OpenGlTexture(const Texture& texture)
+    OpenGlTexture::OpenGlTexture(const tbx::Texture& texture)
     {
         glCreateTextures(GL_TEXTURE_2D, 1, &_texture_id);
 

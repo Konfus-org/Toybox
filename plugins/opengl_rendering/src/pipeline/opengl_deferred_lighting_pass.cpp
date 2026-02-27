@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     static constexpr int MAX_DIRECTIONAL_CASCADE_SPLITS = 4;
     static constexpr int MAX_SHADOW_MAPS = 24;
@@ -250,7 +250,7 @@ namespace tbx::plugins
         draw_resources.shader_program->try_upload(
             MaterialParameter {
                 .name = "u_render_resolution",
-                .data = Vec2(
+                .data = tbx::Vec2(
                     static_cast<float>(frame_context.render_resolution.width),
                     static_cast<float>(frame_context.render_resolution.height)),
             });
