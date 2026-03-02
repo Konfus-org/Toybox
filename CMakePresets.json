@@ -20,9 +20,7 @@
         "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
         "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
         "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/pdb",
-        "SDL_UNIX_CONSOLE_BUILD": "ON",
-        "SDL_X11": "OFF",
-        "SDL_X11_XCURSOR": "OFF"
+        "SDL_UNIX_CONSOLE_BUILD": "ON"
       },
       "hidden": true
     },

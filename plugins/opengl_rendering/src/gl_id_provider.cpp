@@ -2,8 +2,8 @@
 
 namespace opengl_rendering
 {
-    Uuid GlIdProvider::provide(const Uuid& first, uint32 second) const
+    tbx::Uuid GlIdProvider::provide(const tbx::Uuid& first, tbx::uint32 second) const
     {
-        return Uuid::combine(first, second);
+        return tbx::Uuid::combine(first, second);
     }
 }

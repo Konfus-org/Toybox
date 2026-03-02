@@ -2,7 +2,6 @@
 
 namespace opengl_rendering
 {
-    using namespace tbx;
     GlResourceScope::GlResourceScope(IOpenGlResource& resource)
         : _resource(&resource)
     {
