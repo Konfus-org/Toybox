@@ -15,6 +15,10 @@ namespace opengl_rendering
     {
       public:
         OpenGlTexture(const tbx::Texture& texture);
+        OpenGlTexture(const OpenGlTexture&) = delete;
+        OpenGlTexture& operator=(const OpenGlTexture&) = delete;
+        OpenGlTexture(OpenGlTexture&& other) noexcept;
+        OpenGlTexture& operator=(OpenGlTexture&& other) noexcept;
         ~OpenGlTexture() noexcept override;
 
         void set_slot(tbx::uint32 slot);

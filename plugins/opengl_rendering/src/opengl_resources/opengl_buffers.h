@@ -10,6 +10,10 @@ namespace opengl_rendering
     {
       public:
         OpenGlVertexBuffer();
+        OpenGlVertexBuffer(const OpenGlVertexBuffer&) = delete;
+        OpenGlVertexBuffer& operator=(const OpenGlVertexBuffer&) = delete;
+        OpenGlVertexBuffer(OpenGlVertexBuffer&& other) noexcept;
+        OpenGlVertexBuffer& operator=(OpenGlVertexBuffer&& other) noexcept;
         ~OpenGlVertexBuffer() noexcept override;
 
         void upload(const VertexBuffer& buffer);
@@ -27,6 +31,10 @@ namespace opengl_rendering
     {
       public:
         OpenGlIndexBuffer();
+        OpenGlIndexBuffer(const OpenGlIndexBuffer&) = delete;
+        OpenGlIndexBuffer& operator=(const OpenGlIndexBuffer&) = delete;
+        OpenGlIndexBuffer(OpenGlIndexBuffer&& other) noexcept;
+        OpenGlIndexBuffer& operator=(OpenGlIndexBuffer&& other) noexcept;
         ~OpenGlIndexBuffer() noexcept override;
 
         void upload(const IndexBuffer& buffer);

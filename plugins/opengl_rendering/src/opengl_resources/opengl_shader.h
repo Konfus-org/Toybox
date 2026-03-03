@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "opengl_resource.h"
 #include "tbx/common/int.h"
 #include "tbx/graphics/material.h"
@@ -23,6 +23,10 @@ namespace opengl_rendering
         /// Ownership: Owns the created shader identifier.
         /// Thread Safety: Construct on the render thread.</remarks>
         explicit OpenGlShader(const tbx::ShaderSource& shader);
+        OpenGlShader(const OpenGlShader&) = delete;
+        OpenGlShader& operator=(const OpenGlShader&) = delete;
+        OpenGlShader(OpenGlShader&& other) noexcept;
+        OpenGlShader& operator=(OpenGlShader&& other) noexcept;
 
         /// <summary>Destroys the OpenGL shader resource.</summary>
         /// <remarks>Purpose: Releases the GPU shader identifier.
@@ -71,6 +75,10 @@ namespace opengl_rendering
         /// Ownership: Owns the created program identifier.
         /// Thread Safety: Construct on the render thread.</remarks>
         explicit OpenGlShaderProgram(const std::vector<std::shared_ptr<OpenGlShader>>& shaders);
+        OpenGlShaderProgram(const OpenGlShaderProgram&) = delete;
+        OpenGlShaderProgram& operator=(const OpenGlShaderProgram&) = delete;
+        OpenGlShaderProgram(OpenGlShaderProgram&& other) noexcept;
+        OpenGlShaderProgram& operator=(OpenGlShaderProgram&& other) noexcept;
 
         /// <summary>Destroys the shader program.</summary>
         /// <remarks>Purpose: Releases the GPU program identifier.

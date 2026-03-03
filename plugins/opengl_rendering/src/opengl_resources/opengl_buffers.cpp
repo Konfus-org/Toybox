@@ -1,10 +1,16 @@
 #include "opengl_buffers.h"
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
+#include <utility>
 #include <variant>
 
 namespace opengl_rendering
 {
+    static tbx::uint32 take_gl_handle(tbx::uint32& id) noexcept
+    {
+        return std::exchange(id, 0);
+    }
+
     static void add_attribute(
         const tbx::uint32 index,
         const tbx::uint32 size,
@@ -64,6 +70,27 @@ namespace opengl_rendering
         glCreateBuffers(1, &_buffer_id);
     }
 
+    OpenGlVertexBuffer::OpenGlVertexBuffer(OpenGlVertexBuffer&& other) noexcept
+        : _buffer_id(take_gl_handle(other._buffer_id))
+        , _count(other._count)
+    {
+        other._count = 0;
+    }
+
+    OpenGlVertexBuffer& OpenGlVertexBuffer::operator=(OpenGlVertexBuffer&& other) noexcept
+    {
+        if (this == &other)
+            return *this;
+
+        if (_buffer_id != 0)
+            glDeleteBuffers(1, &_buffer_id);
+
+        _buffer_id = take_gl_handle(other._buffer_id);
+        _count = other._count;
+        other._count = 0;
+        return *this;
+    }
+
     OpenGlVertexBuffer::~OpenGlVertexBuffer() noexcept
     {
         if (_buffer_id != 0)
@@ -110,6 +137,27 @@ namespace opengl_rendering
     OpenGlIndexBuffer::OpenGlIndexBuffer()
     {
         glCreateBuffers(1, &_buffer_id);
+    }
+
+    OpenGlIndexBuffer::OpenGlIndexBuffer(OpenGlIndexBuffer&& other) noexcept
+        : _buffer_id(take_gl_handle(other._buffer_id))
+        , _count(other._count)
+    {
+        other._count = 0;
+    }
+
+    OpenGlIndexBuffer& OpenGlIndexBuffer::operator=(OpenGlIndexBuffer&& other) noexcept
+    {
+        if (this == &other)
+            return *this;
+
+        if (_buffer_id != 0)
+            glDeleteBuffers(1, &_buffer_id);
+
+        _buffer_id = take_gl_handle(other._buffer_id);
+        _count = other._count;
+        other._count = 0;
+        return *this;
     }
 
     OpenGlIndexBuffer::~OpenGlIndexBuffer() noexcept
