@@ -61,7 +61,7 @@ namespace opengl_rendering
         _index_buffer.upload(_vertex_array_id, buffer);
     }
 
-    void OpenGlMesh::draw()
+    void OpenGlMesh::draw() const
     {
         glBindVertexArray(_vertex_array_id);
         glDrawElements(
@@ -71,7 +71,7 @@ namespace opengl_rendering
             nullptr);
     }
 
-    void OpenGlMesh::draw_instanced(tbx::uint32 instance_count)
+    void OpenGlMesh::draw_instanced(tbx::uint32 instance_count) const
     {
         if (instance_count == 0)
             return;

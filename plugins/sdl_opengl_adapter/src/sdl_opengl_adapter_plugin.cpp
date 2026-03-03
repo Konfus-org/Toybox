@@ -65,17 +65,16 @@ namespace sdl_opengl_adapter
             return;
         }
 
-        if (auto* graphics_event = handle_property_changed<&tbx::GraphicsSettings::graphics_api>(msg))
+        if (const auto* graphics_event =
+                handle_property_changed<&tbx::GraphicsSettings::graphics_api>(msg))
         {
             _use_opengl = graphics_event->current == tbx::GraphicsApi::OPEN_GL;
             ensure_open_gl_adapter();
 
             if (_use_opengl && _open_gl_adapter)
             {
-                for (const auto& entry : _native_windows)
+                for (const auto& [window_id, native_window] : _native_windows)
                 {
-                    tbx::Uuid window_id = entry.first;
-                    SDL_Window* native_window = entry.second;
                     tbx::Size size = {};
                     if (_window_sizes.contains(window_id))
                         size = _window_sizes[window_id];

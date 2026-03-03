@@ -1,14 +1,38 @@
 #include "opengl_renderer.h"
-#include "opengl_resources/opengl_buffers.h"
+#include "builtin_assets.generated.h"
+#include "pipeline/OpenGlFrameContext.h"
 #include "pipeline/opengl_render_pipeline.h"
 #include "tbx/debugging/macros.h"
+#include "tbx/ecs/entity.h"
+#include "tbx/graphics/renderer.h"
+#include "tbx/math/matrices.h"
 #include <algorithm>
 #include <glad/glad.h>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
 namespace opengl_rendering
 {
+    constexpr tbx::uint32 TextureSalt = 0x7EAE0001U;
+
+    static tbx::Uuid make_typed_key(const tbx::Uuid& base_key, const tbx::uint32 salt)
+    {
+        if (!base_key.is_valid())
+            return {};
+
+        auto typed_key = tbx::Uuid(base_key);
+        typed_key.combine(salt);
+        if (!typed_key.is_valid())
+            return tbx::Uuid(1U);
+        return typed_key;
+    }
+
+    static tbx::Uuid make_texture_key(const tbx::Handle& texture_handle)
+    {
+        return make_typed_key(texture_handle.id, TextureSalt);
+    }
+
     void gl_message_callback(
         GLenum source,
         GLenum type,
@@ -66,8 +90,10 @@ namespace opengl_rendering
         tbx::EntityRegistry& entity_registry,
         tbx::AssetManager& asset_manager,
         OpenGlContext context)
-        : _entity_registry(entity_registry)
-        , _context(std::move(context))
+        : _context(std::move(context))
+        , _entity_registry(entity_registry)
+        , _resource_manager(asset_manager)
+        , _render_pipeline(std::make_unique<OpenGlRenderPipeline>(_resource_manager))
     {
         initialize(loader);
     }
@@ -77,8 +103,9 @@ namespace opengl_rendering
         shutdown();
     }
 
-    bool OpenGlRenderer::render() const
+    bool OpenGlRenderer::render()
     {
+        // Step one: make OpenGL context current.
         if (const auto make_current_result = _context.make_current(); !make_current_result)
         {
             TBX_TRACE_ERROR(
@@ -87,10 +114,94 @@ namespace opengl_rendering
             return false;
         }
 
-        _render_pipeline->execute({});
+        // Step two: set viewport
+        glViewport(0, 0, _viewport_size.width, _viewport_size.height);
 
-        // Step 11: Present the final image to the window backbuffer.
-        if (auto present_result = _context.present(); !present_result)
+        // Step three: cache resources and build draw calls in one pass.
+        const auto entities = _entity_registry.get_with<tbx::Renderer>();
+        auto frame_context = OpenGlFrameContext();
+        auto draw_call_lookup = std::unordered_map<tbx::Uuid, std::size_t>();
+        auto cached_resource = std::shared_ptr<IOpenGlResource>();
+
+        for (const auto& entity : entities)
+        {
+            const auto& renderer = entity.get_component<tbx::Renderer>();
+            auto material = renderer.material;
+            if (!material.handle.is_valid())
+                material.handle = tbx::default_material;
+
+            const auto shader_program_key = _resource_manager.add_material(material);
+            if (!shader_program_key.is_valid())
+                continue;
+            if (!_resource_manager.try_get(shader_program_key, cached_resource))
+                continue;
+
+            auto mesh_key = tbx::Uuid {};
+            if (entity.has_component<tbx::DynamicMesh>())
+            {
+                const auto& dynamic_mesh = entity.get_component<tbx::DynamicMesh>();
+                mesh_key = _resource_manager.add_dynamic_mesh(dynamic_mesh);
+            }
+            else if (entity.has_component<tbx::StaticMesh>())
+            {
+                const auto& static_mesh = entity.get_component<tbx::StaticMesh>();
+                mesh_key = _resource_manager.add_static_mesh(static_mesh);
+            }
+
+            if (!mesh_key.is_valid())
+                continue;
+            if (!_resource_manager.try_get(mesh_key, cached_resource))
+                continue;
+
+            auto material_params = OpenGlMaterialParams();
+            material_params.parameters.reserve(renderer.material.parameters.values.size());
+            for (const auto& [name, value] : renderer.material.parameters.values)
+            {
+                material_params.parameters.push_back(
+                    tbx::MaterialParameter {.name = name, .data = value});
+            }
+
+            material_params.textures.reserve(renderer.material.textures.values.size());
+            for (const auto& [name, texture] : renderer.material.textures.values)
+            {
+                const auto texture_id = make_texture_key(texture.handle);
+                if (!texture_id.is_valid())
+                    continue;
+                if (!_resource_manager.try_get(texture_id, cached_resource))
+                    continue;
+
+                material_params.textures.push_back(
+                    OpenGlMaterialTexture {.name = name, .texture_id = texture_id});
+            }
+
+            auto transform_matrix = tbx::Mat4(1.0F);
+            if (entity.has_component<tbx::Transform>())
+            {
+                const auto world_transform = tbx::get_world_space_transform(entity);
+                transform_matrix = tbx::build_transform_matrix(world_transform);
+            }
+
+            auto draw_call_it = draw_call_lookup.find(shader_program_key);
+            if (draw_call_it == draw_call_lookup.end())
+            {
+                frame_context.draw_calls.push_back(DrawCall {.shader_program = shader_program_key});
+                draw_call_it =
+                    draw_call_lookup
+                        .emplace(shader_program_key, frame_context.draw_calls.size() - 1U)
+                        .first;
+            }
+
+            auto& draw_call = frame_context.draw_calls[draw_call_it->second];
+            draw_call.meshes.push_back(mesh_key);
+            draw_call.materials.push_back(std::move(material_params));
+            draw_call.transforms.push_back(transform_matrix);
+        }
+
+        // Step four: execute render pipeline.
+        _render_pipeline->execute(frame_context);
+
+        // Step five: present rendered frame.
+        if (const auto present_result = _context.present(); !present_result)
         {
             TBX_TRACE_ERROR(
                 "OpenGL rendering: present request failed: {}",
@@ -121,6 +232,12 @@ namespace opengl_rendering
 
     void OpenGlRenderer::initialize(const tbx::GraphicsProcAddress loader) const
     {
+        // Only init gl once
+        static bool initialized = false;
+        if (initialized)
+            return;
+        initialized = true;
+
         auto* glad_loader = loader;
         TBX_ASSERT(glad_loader != nullptr, "Context-ready event provided null loader.");
         TBX_ASSERT(

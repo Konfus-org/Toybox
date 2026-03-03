@@ -15,8 +15,7 @@ namespace tbx
         : _name(desc.name)
         , _icon_handle(desc.icon)
         , _input_manager(_msg_coordinator)
-        , _settings(_msg_coordinator, false, GraphicsApi::OPEN_GL, {0, 0}, desc.async)
-        , _job_manager(desc.async.job_system)
+        , _settings(_msg_coordinator, false, GraphicsApi::OPEN_GL, {0, 0})
         , _main_window(
               _msg_coordinator,
               desc.name.empty() ? std::string("Toybox Application") : desc.name,
@@ -25,7 +24,7 @@ namespace tbx
               false)
         , _asset_manager(desc.working_root)
     {
-        FileOperator file_operator = FileOperator(desc.working_root);
+        const auto file_operator = FileOperator(desc.working_root);
         _settings.paths.working_directory = file_operator.get_working_directory();
         if (desc.logs_directory.empty())
             _settings.paths.logs_directory = file_operator.resolve("logs");

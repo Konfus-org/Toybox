@@ -23,6 +23,7 @@ namespace opengl_rendering
     {
         for (const auto& window_id : _renderers | std::views::keys)
             teardown_renderer(window_id);
+        get_host().get_thread_manager().stop_lane(OPENGL_RENDER_LANE_NAME);
     }
 
     void OpenGlRenderingPlugin::on_update(const tbx::DeltaTime&)

@@ -46,13 +46,13 @@ namespace opengl_rendering
         /// <remarks>Purpose: Draws indexed triangles or patches for the mesh.
         /// Ownership: Does not transfer ownership of any resources.
         /// Thread Safety: Call only on the render thread.</remarks>
-        void draw();
+        void draw() const;
 
         /// <summary>Issues an instanced draw call for the mesh.</summary>
         /// <remarks>Purpose: Draws indexed triangles or patches across multiple instances.
         /// Ownership: Does not transfer ownership of any resources.
         /// Thread Safety: Call only on the render thread.</remarks>
-        void draw_instanced(tbx::uint32 instance_count);
+        void draw_instanced(tbx::uint32 instance_count) const;
 
         /// <summary>Binds the mesh's VAO and buffers.</summary>
         /// <remarks>Purpose: Binds the VAO and buffers for rendering.

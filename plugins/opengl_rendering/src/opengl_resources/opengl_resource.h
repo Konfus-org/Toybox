@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/tbx_api.h"
 
 namespace opengl_rendering
 {
@@ -33,16 +32,16 @@ namespace opengl_rendering
     /// <remarks>Purpose: Ensures OpenGL resources are unbound when leaving scope.
     /// Ownership: Does not take ownership of the resource; stores a non-owning pointer.
     /// Thread Safety: Use only on the render thread.</remarks>
-    class GlResourceScope final
+    class OpenGlResourceScope final
     {
       public:
-        GlResourceScope(IOpenGlResource& resource);
-        GlResourceScope(const GlResourceScope&) = delete;
-        GlResourceScope(GlResourceScope&& other) noexcept;
-        ~GlResourceScope() noexcept;
+        OpenGlResourceScope(IOpenGlResource& resource);
+        OpenGlResourceScope(const OpenGlResourceScope&) = delete;
+        OpenGlResourceScope(OpenGlResourceScope&& other) noexcept;
+        ~OpenGlResourceScope() noexcept;
 
-        GlResourceScope& operator=(const GlResourceScope&) = delete;
-        GlResourceScope& operator=(GlResourceScope&& other) noexcept;
+        OpenGlResourceScope& operator=(const OpenGlResourceScope&) = delete;
+        OpenGlResourceScope& operator=(OpenGlResourceScope&& other) noexcept;
 
       private:
         IOpenGlResource* _resource = nullptr;
