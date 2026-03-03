@@ -5,13 +5,12 @@
 
 namespace opengl_rendering
 {
-    using namespace tbx;
     static void add_attribute(
-        const uint32 index,
-        const uint32 size,
-        const uint32 type,
-        const uint32 stride,
-        const uint32 offset,
+        const tbx::uint32 index,
+        const tbx::uint32 size,
+        const tbx::uint32 type,
+        const tbx::uint32 stride,
+        const tbx::uint32 offset,
         const bool normalized)
     {
         glEnableVertexAttribArray(index);
@@ -35,11 +34,11 @@ namespace opengl_rendering
 
     static GLenum vertex_type_to_gl_type(const VertexData& type)
     {
-        if (std::holds_alternative<Vec2>(type))
+        if (std::holds_alternative<tbx::Vec2>(type))
         {
             return GL_FLOAT;
         }
-        if (std::holds_alternative<Vec3>(type))
+        if (std::holds_alternative<tbx::Vec3>(type))
         {
             return GL_FLOAT;
         }
@@ -75,14 +74,14 @@ namespace opengl_rendering
 
     void OpenGlVertexBuffer::upload(const VertexBuffer& buffer)
     {
-        _count = static_cast<uint32>(buffer.vertices.size());
+        _count = static_cast<tbx::uint32>(buffer.vertices.size());
         glBufferData(
             GL_ARRAY_BUFFER,
             static_cast<GLsizeiptr>(_count * sizeof(float)),
             buffer.vertices.data(),
             GL_STATIC_DRAW);
 
-        uint32 index = 0;
+        tbx::uint32 index = 0;
         const auto& layout = buffer.layout;
         const auto& stride = layout.stride;
         for (const auto& element : layout.elements)
@@ -103,7 +102,7 @@ namespace opengl_rendering
         glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 
-    uint32 OpenGlVertexBuffer::get_count() const
+    tbx::uint32 OpenGlVertexBuffer::get_count() const
     {
         return _count;
     }
@@ -123,10 +122,10 @@ namespace opengl_rendering
 
     void OpenGlIndexBuffer::upload(const IndexBuffer& buffer)
     {
-        _count = static_cast<uint32>(buffer.size());
+        _count = static_cast<tbx::uint32>(buffer.size());
         glBufferData(
             GL_ELEMENT_ARRAY_BUFFER,
-            static_cast<GLsizeiptr>(_count * sizeof(uint32)),
+            static_cast<GLsizeiptr>(_count * sizeof(tbx::uint32)),
             buffer.data(),
             GL_STATIC_DRAW);
     }
@@ -141,7 +140,7 @@ namespace opengl_rendering
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     }
 
-    uint32 OpenGlIndexBuffer::get_count() const
+    tbx::uint32 OpenGlIndexBuffer::get_count() const
     {
         return _count;
     }

@@ -15,35 +15,34 @@
 
 namespace opengl_rendering
 {
-    using namespace tbx;
     struct OpenGlRenderer final
     {
         OpenGlRenderer(
-            GraphicsProcAddress loader,
-            EntityRegistry& entity_registry,
-            AssetManager& asset_manager,
+            tbx::GraphicsProcAddress loader,
+            tbx::EntityRegistry& entity_registry,
+            tbx::AssetManager& asset_manager,
             OpenGlContext context);
         ~OpenGlRenderer() noexcept;
 
         bool render() const;
 
-        void set_viewport_size(const Size& viewport_size);
-        void set_pending_render_resolution(const std::optional<Size>& pending_render_resolution);
+        void set_viewport_size(const tbx::Size& viewport_size);
+        void set_pending_render_resolution(const std::optional<tbx::Size>& pending_render_resolution);
 
         const OpenGlContext& get_context() const;
 
       private:
-        void initialize(GraphicsProcAddress loader) const;
+        void initialize(tbx::GraphicsProcAddress loader) const;
         void shutdown();
-        void set_render_resolution(const Size& render_resolution);
+        void set_render_resolution(const tbx::Size& render_resolution);
 
       private:
         std::unique_ptr<OpenGlRenderPipeline> _render_pipeline = nullptr;
-        std::reference_wrapper<EntityRegistry> _entity_registry;
+        std::reference_wrapper<tbx::EntityRegistry> _entity_registry;
         OpenGlContext _context;
 
-        Size _viewport_size = {0, 0};
-        Size _render_resolution = {0, 0};
-        std::optional<Size> _pending_render_resolution = std::nullopt;
+        tbx::Size _viewport_size = {0, 0};
+        tbx::Size _render_resolution = {0, 0};
+        std::optional<tbx::Size> _pending_render_resolution = std::nullopt;
     };
 }

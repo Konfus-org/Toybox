@@ -4,6 +4,7 @@
 - The project targets C++23.
 - Prefer copy-style initialization (`int value = {};`, `auto widget = Widget(args);`) over brace-only or direct-call forms (`int value{};`, `auto widget(Widget(args));`) to keep intent obvious.
 - Avoid forward declarations where possible, prefer directly including what is needed.
+- Never use blanket namespace imports (for example, `using namespace tbx;`); always qualify symbols explicitly with their namespace (for example, `tbx::Plugin`).
 
 ## Formatting & Layout
 - Follow the root `.clang-format` (Allman braces, Microsoft base, 4-space indents, column limit 100, namespace indentation, sorted includes). Run the formatter on any touched file or match its style manually.

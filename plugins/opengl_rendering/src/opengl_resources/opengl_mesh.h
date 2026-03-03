@@ -7,7 +7,6 @@
 
 namespace opengl_rendering
 {
-    using namespace tbx;
     /// <summary>OpenGL implementation of a mesh resource.</summary>
     /// <remarks>Purpose: Manages a VAO with vertex and index buffers for drawing.
     /// Ownership: Owns the VAO and associated buffers.
@@ -19,7 +18,7 @@ namespace opengl_rendering
         /// <remarks>Purpose: Initializes GPU buffers for the mesh.
         /// Ownership: Owns the created VAO and buffer resources.
         /// Thread Safety: Construct on the render thread.</remarks>
-        explicit OpenGlMesh(const Mesh& mesh);
+        explicit OpenGlMesh(const tbx::Mesh& mesh);
 
         /// <summary>Destroys the OpenGL mesh resource.</summary>
         /// <remarks>Purpose: Releases the VAO and buffer resources.
@@ -49,7 +48,7 @@ namespace opengl_rendering
         /// <remarks>Purpose: Draws indexed triangles or patches across multiple instances.
         /// Ownership: Does not transfer ownership of any resources.
         /// Thread Safety: Call only on the render thread.</remarks>
-        void draw_instanced(uint32 instance_count);
+        void draw_instanced(tbx::uint32 instance_count);
 
         /// <summary>Binds the mesh's VAO and buffers.</summary>
         /// <remarks>Purpose: Binds the VAO and buffers for rendering.
@@ -64,7 +63,7 @@ namespace opengl_rendering
         void unbind() override;
 
       private:
-        uint32 _vertex_array_id = 0;
+        tbx::uint32 _vertex_array_id = 0;
         OpenGlVertexBuffer _vertex_buffer;
         OpenGlIndexBuffer _index_buffer;
     };

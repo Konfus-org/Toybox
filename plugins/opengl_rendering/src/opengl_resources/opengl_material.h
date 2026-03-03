@@ -6,7 +6,6 @@
 
 namespace opengl_rendering
 {
-    using namespace tbx;
     /// <summary>
     /// Purpose: Stores texture bindings for OpenGL material rendering.
     /// </summary>
@@ -17,7 +16,7 @@ namespace opengl_rendering
     struct OpenGlMaterialTexture
     {
         std::string name = "";
-        Uuid texture_id = {};
+        tbx::Uuid texture_id = {};
     };
 
     /// <summary>
@@ -29,8 +28,8 @@ namespace opengl_rendering
     /// </remarks>
     struct OpenGlMaterial
     {
-        std::vector<Uuid> shader_programs = {};
-        std::vector<MaterialParameter> parameters = {};
+        std::vector<tbx::Uuid> shader_programs = {};
+        std::vector<tbx::MaterialParameter> parameters = {};
         std::vector<OpenGlMaterialTexture> textures = {};
     };
 }

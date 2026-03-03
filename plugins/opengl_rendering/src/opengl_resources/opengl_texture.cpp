@@ -5,14 +5,13 @@
 
 namespace opengl_rendering
 {
-    using namespace tbx;
     struct GlTextureFormat
     {
         GLenum internal_format = 0;
         GLenum data_format = 0;
     };
 
-    static GLint calculate_mipmap_levels(const Texture& texture)
+    static GLint calculate_mipmap_levels(const tbx::Texture& texture)
     {
         if (texture.mipmaps != TextureMipmaps::ENABLED)
             return 1;
@@ -29,7 +28,7 @@ namespace opengl_rendering
         return levels;
     }
 
-    static GLenum to_gl_texture_min_filter(const Texture& texture)
+    static GLenum to_gl_texture_min_filter(const tbx::Texture& texture)
     {
         switch (texture.filter)
         {
@@ -125,7 +124,7 @@ namespace opengl_rendering
         return is_supported == GL_TRUE;
     }
 
-    static GLenum resolve_internal_format(const Texture& texture, GLenum fallback_internal_format)
+    static GLenum resolve_internal_format(const tbx::Texture& texture, GLenum fallback_internal_format)
     {
         if (texture.compression == TextureCompression::DISABLED)
             return fallback_internal_format;
@@ -141,7 +140,7 @@ namespace opengl_rendering
         return fallback_internal_format;
     }
 
-    OpenGlTexture::OpenGlTexture(const Texture& texture)
+    OpenGlTexture::OpenGlTexture(const tbx::Texture& texture)
     {
         glCreateTextures(GL_TEXTURE_2D, 1, &_texture_id);
 
@@ -186,7 +185,7 @@ namespace opengl_rendering
         }
     }
 
-    void OpenGlTexture::set_slot(uint32 slot)
+    void OpenGlTexture::set_slot(tbx::uint32 slot)
     {
         _slot = slot;
     }
@@ -201,7 +200,7 @@ namespace opengl_rendering
         glBindTextureUnit(_slot, 0);
     }
 
-    uint32 OpenGlTexture::get_texture_id() const
+    tbx::uint32 OpenGlTexture::get_texture_id() const
     {
         return _texture_id;
     }
