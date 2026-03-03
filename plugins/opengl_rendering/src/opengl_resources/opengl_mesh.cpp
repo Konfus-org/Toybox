@@ -4,8 +4,7 @@
 
 namespace opengl_rendering
 {
-    using namespace tbx;
-    OpenGlMesh::OpenGlMesh(const Mesh& mesh)
+    OpenGlMesh::OpenGlMesh(const tbx::Mesh& mesh)
     {
         glCreateVertexArrays(1, &_vertex_array_id);
         set_vertex_buffer(mesh.vertices);
@@ -48,7 +47,7 @@ namespace opengl_rendering
             nullptr);
     }
 
-    void OpenGlMesh::draw_instanced(uint32 instance_count)
+    void OpenGlMesh::draw_instanced(tbx::uint32 instance_count)
     {
         if (instance_count == 0)
             return;

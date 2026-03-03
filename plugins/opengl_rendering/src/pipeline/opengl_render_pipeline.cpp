@@ -4,7 +4,6 @@
 
 namespace opengl_rendering
 {
-    using namespace tbx;
     OpenGlRenderPipeline::OpenGlRenderPipeline() {}
 
     OpenGlRenderPipeline::~OpenGlRenderPipeline() noexcept

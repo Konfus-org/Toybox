@@ -39,7 +39,6 @@
 
 namespace jolt_physics
 {
-    using namespace tbx;
     static constexpr std::string_view PHYSICS_THREAD_LANE_NAME = "physics";
     static constexpr JPH::ObjectLayer object_layer_static = 0;
     static constexpr JPH::ObjectLayer object_layer_moving = 1;
@@ -978,12 +977,12 @@ namespace jolt_physics
     void JoltPhysicsPlugin::sync_entities_to_world(float dt_seconds)
     {
         auto& registry = get_host().get_entity_registry();
-        auto active_entities = std::unordered_set<Uuid>();
+        auto active_entities = std::unordered_set<tbx::Uuid>();
 
         auto entities = registry.get_with<tbx::Transform>();
         for (auto& entity : entities)
         {
-            Uuid entity_id = entity.get_id();
+            tbx::Uuid entity_id = entity.get_id();
 
             const auto world_transform = get_world_space_transform(entity);
             const bool has_physics_component = entity.has_component<Physics>();
@@ -1183,7 +1182,7 @@ namespace jolt_physics
             body_interface.SetGravityFactor(body_id, physics->is_gravity_enabled ? 1.0F : 0.0F);
         }
 
-        auto stale_entities = std::vector<Uuid>();
+        auto stale_entities = std::vector<tbx::Uuid>();
         stale_entities.reserve(_bodies_by_entity.size());
         for (const auto& body_entry : _bodies_by_entity)
         {
@@ -1194,7 +1193,7 @@ namespace jolt_physics
         }
 
         auto& body_interface = _physics_system.GetBodyInterface();
-        for (const Uuid& stale_entity : stale_entities)
+        for (const tbx::Uuid& stale_entity : stale_entities)
         {
             auto body_it = _bodies_by_entity.find(stale_entity);
             if (body_it == _bodies_by_entity.end())
@@ -1219,7 +1218,7 @@ namespace jolt_physics
 
         for (auto& body_entry : _bodies_by_entity)
         {
-            const Uuid& entity_id = body_entry.first;
+            const tbx::Uuid& entity_id = body_entry.first;
             auto& body_record = body_entry.second;
             const JPH::BodyID& body_id = body_record.body_id;
 
@@ -1285,7 +1284,7 @@ namespace jolt_physics
         }
     }
 
-    Uuid JoltPhysicsPlugin::try_get_entity_for_body(const JPH::BodyID& body_id) const
+    tbx::Uuid JoltPhysicsPlugin::try_get_entity_for_body(const JPH::BodyID& body_id) const
     {
         auto entity_it = _entity_by_body_key.find(get_body_key(body_id));
         if (entity_it == _entity_by_body_key.end())
@@ -1300,11 +1299,11 @@ namespace jolt_physics
         auto& body_interface = _physics_system.GetBodyInterface();
         const auto& narrow_phase_query = _physics_system.GetNarrowPhaseQuery();
 
-        auto active_trigger_entities = std::unordered_set<Uuid>();
+        auto active_trigger_entities = std::unordered_set<tbx::Uuid>();
         auto trigger_entities = registry.get_with<tbx::Transform>();
         for (auto& trigger_entity : trigger_entities)
         {
-            const Uuid trigger_entity_id = trigger_entity.get_id();
+            const tbx::Uuid trigger_entity_id = trigger_entity.get_id();
             auto* trigger_collider = try_get_trigger_collider(trigger_entity);
             if (trigger_collider == nullptr)
                 continue;
@@ -1318,7 +1317,7 @@ namespace jolt_physics
                 auto previous_overlaps_it = _overlap_entities_by_trigger.find(trigger_entity_id);
                 if (previous_overlaps_it != _overlap_entities_by_trigger.end())
                 {
-                    for (const Uuid& overlapped_entity_id : previous_overlaps_it->second)
+                    for (const tbx::Uuid& overlapped_entity_id : previous_overlaps_it->second)
                     {
                         const ColliderOverlapEvent event = ColliderOverlapEvent {
                             .trigger_entity_id = trigger_entity_id,
@@ -1345,7 +1344,7 @@ namespace jolt_physics
             }
             trigger_collider->is_manual_scan_requested = false;
 
-            auto current_overlaps = std::unordered_set<Uuid>();
+            auto current_overlaps = std::unordered_set<tbx::Uuid>();
 
             auto body_it = _bodies_by_entity.find(trigger_entity_id);
             if (body_it != _bodies_by_entity.end()
@@ -1376,7 +1375,7 @@ namespace jolt_physics
                     current_overlaps.reserve(static_cast<std::size_t>(collector.mHits.size()));
                     for (const auto& overlap_hit : collector.mHits)
                     {
-                        const Uuid overlapped_entity_id =
+                        const tbx::Uuid overlapped_entity_id =
                             try_get_entity_for_body(overlap_hit.mBodyID2);
                         if (!overlapped_entity_id.is_valid()
                             || overlapped_entity_id == trigger_entity_id)
@@ -1388,7 +1387,7 @@ namespace jolt_physics
             }
 
             auto& previous_overlaps = _overlap_entities_by_trigger[trigger_entity_id];
-            for (const Uuid& overlapped_entity_id : current_overlaps)
+            for (const tbx::Uuid& overlapped_entity_id : current_overlaps)
             {
                 const ColliderOverlapEvent event = ColliderOverlapEvent {
                     .trigger_entity_id = trigger_entity_id,
@@ -1404,7 +1403,7 @@ namespace jolt_physics
                 }
             }
 
-            for (const Uuid& overlapped_entity_id : previous_overlaps)
+            for (const tbx::Uuid& overlapped_entity_id : previous_overlaps)
             {
                 if (current_overlaps.contains(overlapped_entity_id))
                     continue;
@@ -1429,7 +1428,7 @@ namespace jolt_physics
             previous_overlaps = std::move(current_overlaps);
         }
 
-        auto stale_trigger_entities = std::vector<Uuid>();
+        auto stale_trigger_entities = std::vector<tbx::Uuid>();
         stale_trigger_entities.reserve(_overlap_entities_by_trigger.size());
         for (const auto& overlap_entry : _overlap_entities_by_trigger)
         {
@@ -1439,7 +1438,7 @@ namespace jolt_physics
             stale_trigger_entities.push_back(overlap_entry.first);
         }
 
-        for (const Uuid& stale_trigger_entity : stale_trigger_entities)
+        for (const tbx::Uuid& stale_trigger_entity : stale_trigger_entities)
             _overlap_entities_by_trigger.erase(stale_trigger_entity);
     }
 

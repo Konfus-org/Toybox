@@ -9,8 +9,7 @@
 
 namespace opengl_rendering
 {
-    using namespace tbx;
-    static GLenum to_gl_shader_type(ShaderType type)
+    static GLenum to_gl_shader_type(tbx::ShaderType type)
     {
         switch (type)
         {
@@ -30,7 +29,7 @@ namespace opengl_rendering
         }
     }
 
-    static void handle_shader_compile_error(uint32 shader_id, ShaderType type)
+    static void handle_shader_compile_error(tbx::uint32 shader_id, tbx::ShaderType type)
     {
         GLint length = 0;
         glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &length);
@@ -43,7 +42,7 @@ namespace opengl_rendering
             error_log);
     }
 
-    static void handle_program_link_error(uint32 program_id)
+    static void handle_program_link_error(tbx::uint32 program_id)
     {
         GLint length = 0;
         glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &length);
@@ -52,7 +51,7 @@ namespace opengl_rendering
         TBX_ASSERT(false, "OpenGL rendering: shader program link failure. {}", error_log);
     }
 
-    static GLint uniform_location(uint32 program_id, const std::string& name)
+    static GLint uniform_location(tbx::uint32 program_id, const std::string& name)
     {
         return glGetUniformLocation(program_id, name.c_str());
     }
@@ -79,15 +78,15 @@ namespace opengl_rendering
                 {
                     glUniform1f(location, static_cast<float>(value));
                 }
-                else if constexpr (std::is_same_v<ValueType, Vec2>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Vec2>)
                 {
                     glUniform2f(location, value.x, value.y);
                 }
-                else if constexpr (std::is_same_v<ValueType, Vec3>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Vec3>)
                 {
                     glUniform3f(location, value.x, value.y, value.z);
                 }
-                else if constexpr (std::is_same_v<ValueType, Vec4>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Vec4>)
                 {
                     glUniform4f(location, value.x, value.y, value.z, value.w);
                 }
@@ -99,7 +98,7 @@ namespace opengl_rendering
                 {
                     glUniformMatrix3fv(location, 1, GL_FALSE, glm::value_ptr(value));
                 }
-                else if constexpr (std::is_same_v<ValueType, Mat4>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Mat4>)
                 {
                     glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));
                 }
@@ -111,7 +110,7 @@ namespace opengl_rendering
             data);
     }
 
-    OpenGlShader::OpenGlShader(const ShaderSource& shader)
+    OpenGlShader::OpenGlShader(const tbx::ShaderSource& shader)
         : _type(shader.type)
     {
         TBX_ASSERT(
@@ -146,7 +145,7 @@ namespace opengl_rendering
         }
     }
 
-    ShaderType OpenGlShader::get_type() const
+    tbx::ShaderType OpenGlShader::get_type() const
     {
         return _type;
     }
@@ -155,7 +154,7 @@ namespace opengl_rendering
 
     void OpenGlShader::unbind() {}
 
-    uint32 OpenGlShader::get_shader_id() const
+    tbx::uint32 OpenGlShader::get_shader_id() const
     {
         return _shader_id;
     }
@@ -218,7 +217,7 @@ namespace opengl_rendering
         glUseProgram(0);
     }
 
-    void OpenGlShaderProgram::upload(const MaterialParameter& uniform)
+    void OpenGlShaderProgram::upload(const tbx::MaterialParameter& uniform)
     {
         TBX_ASSERT(
             _program_id != 0,
@@ -237,7 +236,7 @@ namespace opengl_rendering
         }
     }
 
-    bool OpenGlShaderProgram::try_upload(const MaterialParameter& uniform)
+    bool OpenGlShaderProgram::try_upload(const tbx::MaterialParameter& uniform)
     {
         if (_program_id == 0)
         {
@@ -254,7 +253,7 @@ namespace opengl_rendering
         return true;
     }
 
-    uint32 OpenGlShaderProgram::get_program_id() const
+    tbx::uint32 OpenGlShaderProgram::get_program_id() const
     {
         return _program_id;
     }

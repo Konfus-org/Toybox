@@ -10,15 +10,14 @@
 
 namespace stb_image_loader
 {
-    using namespace tbx;
     /// <summary>
-    /// Purpose: Loads texture assets into Texture payloads using stb_image.
+    /// Purpose: Loads texture assets into tbx::Texture payloads using stb_image.
     /// </summary>
     /// <remarks>
-    /// Ownership: Plugin lifetime is owned by the host; it keeps non-owning references to the host.
+    /// Ownership: tbx::Plugin lifetime is owned by the host; it keeps non-owning references to the host.
     /// Thread Safety: Handles asset messages on the dispatcher thread; no internal synchronization.
     /// </remarks>
-    class TBX_PLUGIN_API StbImageLoaderPlugin final : public Plugin
+    class TBX_PLUGIN_API StbImageLoaderPlugin final : public tbx::Plugin
     {
       public:
         /// <summary>
@@ -28,7 +27,7 @@ namespace stb_image_loader
         /// Ownership: Does not take ownership of the host.
         /// Thread Safety: Called on the main thread during plugin attach.
         /// </remarks>
-        void on_attach(IPluginHost& host) override;
+        void on_attach(tbx::IPluginHost& host) override;
 
         /// <summary>
         /// Purpose: Releases any cached host references.
@@ -44,10 +43,10 @@ namespace stb_image_loader
         /// </summary>
         /// <remarks>
         /// Ownership: Does not take ownership of messages or asset payloads.
-        /// Thread Safety: Executes on the dispatcher thread; relies on Texture payload
+        /// Thread Safety: Executes on the dispatcher thread; relies on tbx::Texture payload
         /// synchronization.
         /// </remarks>
-        void on_recieve_message(Message& msg) override;
+        void on_recieve_message(tbx::Message& msg) override;
 
         /// <summary>
         /// Purpose: Overrides filesystem operations used by the loader.

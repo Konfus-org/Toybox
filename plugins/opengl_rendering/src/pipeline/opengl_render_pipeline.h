@@ -5,7 +5,6 @@
 
 namespace opengl_rendering
 {
-    using namespace tbx;
     class OpenGlRenderPipeline final : public Pipeline
     {
       public:

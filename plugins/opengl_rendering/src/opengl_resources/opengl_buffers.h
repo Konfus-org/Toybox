@@ -6,7 +6,6 @@
 
 namespace opengl_rendering
 {
-    using namespace tbx;
     class OpenGlVertexBuffer final : public IOpenGlResource
     {
       public:
@@ -17,11 +16,11 @@ namespace opengl_rendering
         void bind() override;
         void unbind() override;
 
-        uint32 get_count() const;
+        tbx::uint32 get_count() const;
 
       private:
-        uint32 _buffer_id = 0;
-        uint32 _count = 0;
+        tbx::uint32 _buffer_id = 0;
+        tbx::uint32 _count = 0;
     };
 
     class OpenGlIndexBuffer final : public IOpenGlResource
@@ -34,10 +33,10 @@ namespace opengl_rendering
         void bind() override;
         void unbind() override;
 
-        uint32 get_count() const;
+        tbx::uint32 get_count() const;
 
       private:
-        uint32 _buffer_id = 0;
-        uint32 _count = 0;
+        tbx::uint32 _buffer_id = 0;
+        tbx::uint32 _count = 0;
     };
 }

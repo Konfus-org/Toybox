@@ -9,7 +9,6 @@
 
 namespace opengl_rendering
 {
-    using namespace tbx;
     void gl_message_callback(
         GLenum source,
         GLenum type,
@@ -63,9 +62,9 @@ namespace opengl_rendering
     }
 
     OpenGlRenderer::OpenGlRenderer(
-        const GraphicsProcAddress loader,
-        EntityRegistry& entity_registry,
-        AssetManager& asset_manager,
+        const tbx::GraphicsProcAddress loader,
+        tbx::EntityRegistry& entity_registry,
+        tbx::AssetManager& asset_manager,
         OpenGlContext context)
         : _entity_registry(entity_registry)
         , _context(std::move(context))
@@ -101,7 +100,7 @@ namespace opengl_rendering
         return true;
     }
 
-    void OpenGlRenderer::set_viewport_size(const Size& viewport_size)
+    void OpenGlRenderer::set_viewport_size(const tbx::Size& viewport_size)
     {
         if (viewport_size.width == 0 || viewport_size.height == 0)
             return;
@@ -110,7 +109,7 @@ namespace opengl_rendering
     }
 
     void OpenGlRenderer::set_pending_render_resolution(
-        const std::optional<Size>& pending_render_resolution)
+        const std::optional<tbx::Size>& pending_render_resolution)
     {
         _pending_render_resolution = pending_render_resolution;
     }
@@ -120,7 +119,7 @@ namespace opengl_rendering
         return _context;
     }
 
-    void OpenGlRenderer::initialize(const GraphicsProcAddress loader) const
+    void OpenGlRenderer::initialize(const tbx::GraphicsProcAddress loader) const
     {
         auto* glad_loader = loader;
         TBX_ASSERT(glad_loader != nullptr, "Context-ready event provided null loader.");
@@ -175,7 +174,7 @@ namespace opengl_rendering
         _render_resolution = {};
     }
 
-    void OpenGlRenderer::set_render_resolution(const Size& render_resolution)
+    void OpenGlRenderer::set_render_resolution(const tbx::Size& render_resolution)
     {
         _render_resolution = render_resolution;
     }
