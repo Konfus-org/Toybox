@@ -21,25 +21,22 @@ namespace opengl_rendering
 
     void OpenGlMesh::set_vertex_buffer(const VertexBuffer& buffer)
     {
-        glBindVertexArray(_vertex_array_id);
         TBX_ASSERT(!buffer.vertices.empty(), "OpenGL rendering: vertex buffer must not be empty.");
         TBX_ASSERT(
             !buffer.layout.elements.empty(),
             "OpenGL rendering: vertex buffer layout must not be empty.");
-        _vertex_buffer.bind();
-        _vertex_buffer.upload(buffer);
+        _vertex_buffer.upload(_vertex_array_id, buffer);
     }
 
     void OpenGlMesh::set_index_buffer(const IndexBuffer& buffer)
     {
-        glBindVertexArray(_vertex_array_id);
         TBX_ASSERT(!buffer.empty(), "OpenGL rendering: index buffer must not be empty.");
-        _index_buffer.bind();
-        _index_buffer.upload(buffer);
+        _index_buffer.upload(_vertex_array_id, buffer);
     }
 
     void OpenGlMesh::draw()
     {
+        glBindVertexArray(_vertex_array_id);
         glDrawElements(
             GL_TRIANGLES,
             static_cast<GLsizei>(_index_buffer.get_count()),
@@ -52,6 +49,7 @@ namespace opengl_rendering
         if (instance_count == 0)
             return;
 
+        glBindVertexArray(_vertex_array_id);
         glDrawElementsInstanced(
             GL_TRIANGLES,
             static_cast<GLsizei>(_index_buffer.get_count()),
@@ -63,14 +61,10 @@ namespace opengl_rendering
     void OpenGlMesh::bind()
     {
         glBindVertexArray(_vertex_array_id);
-        _vertex_buffer.bind();
-        _index_buffer.bind();
     }
 
     void OpenGlMesh::unbind()
     {
         glBindVertexArray(0);
-        _vertex_buffer.unbind();
-        _index_buffer.unbind();
     }
 }
