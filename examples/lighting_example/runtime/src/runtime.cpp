@@ -14,7 +14,6 @@
 
 namespace lighting_example
 {
-    using namespace tbx;
     static constexpr float DIRECTIONAL_LIGHT_ENABLED_INTENSITY = 1.5F;
     static constexpr float DIRECTIONAL_LIGHT_ENABLED_AMBIENT = 0.15F;
     static constexpr float POINT_LIGHT_ENABLED_INTENSITY = 2.0F;
@@ -23,17 +22,17 @@ namespace lighting_example
 
     static tbx::InputAction create_key_toggle_action(
         const std::string& action_name,
-        InputKey key,
-        InputActionCallback on_start_callback)
+        const tbx::InputKey key,
+        tbx::InputActionCallback on_start_callback)
     {
         return tbx::InputAction(
             action_name,
-            InputActionValueType::BUTTON,
-            InputActionConstruction {
+            tbx::InputActionValueType::BUTTON,
+            tbx::InputActionConstruction {
                 .bindings =
                     {
                         tbx::InputBinding {
-                            .control = KeyboardInputControl {.key = key},
+                            .control = tbx::KeyboardInputControl {.key = key},
                             .scale = 1.0F,
                         },
                     },
@@ -44,26 +43,28 @@ namespace lighting_example
             });
     }
 
-    static tbx::Color evaluate_animated_color(double elapsed_seconds, float phase_offset)
+    static tbx::Color evaluate_animated_color(
+        const double elapsed_seconds,
+        const float phase_offset)
     {
         const float t = static_cast<float>(elapsed_seconds);
-        const float r = 0.5F + (0.5F * std::sin((t * 0.9F) + phase_offset));
-        const float g = 0.5F + (0.5F * std::sin((t * 0.9F) + phase_offset + ((2.0F * PI) / 3.0F)));
-        const float b = 0.5F + (0.5F * std::sin((t * 0.9F) + phase_offset + ((4.0F * PI) / 3.0F)));
+        const float r = 0.5F + 0.5F * std::sin(t * 0.9F + phase_offset);
+        const float g = 0.5F + 0.5F * std::sin(t * 0.9F + phase_offset + 2.0F * tbx::PI / 3.0F);
+        const float b = 0.5F + 0.5F * std::sin(t * 0.9F + phase_offset + 4.0F * tbx::PI / 3.0F);
         return tbx::Color(r, g, b, 1.0F);
     }
 
     static float evaluate_bob_offset(
-        double elapsed_seconds,
-        float frequency,
-        float phase_offset,
-        float amplitude)
+        const double elapsed_seconds,
+        const float frequency,
+        const float phase_offset,
+        const float amplitude)
     {
         const float t = static_cast<float>(elapsed_seconds);
-        return std::sin((t * frequency) + phase_offset) * amplitude;
+        return std::sin(t * frequency + phase_offset) * amplitude;
     }
 
-    static uint32 divide_round_up(uint32 numerator, uint32 denominator)
+    static tbx::uint32 divide_round_up(const tbx::uint32 numerator, const tbx::uint32 denominator)
     {
         if (denominator == 0U)
             return 0U;
@@ -71,21 +72,21 @@ namespace lighting_example
     }
 
     static tbx::Vec3 evaluate_stress_light_position(
-        uint32 light_index,
-        uint32 light_count,
-        double elapsed_seconds)
+        const tbx::uint32 light_index,
+        const tbx::uint32 light_count,
+        const double elapsed_seconds)
     {
-        const uint32 columns =
-            static_cast<uint32>(std::ceil(std::sqrt(static_cast<float>(light_count))));
-        const uint32 rows = columns == 0U ? 0U : divide_round_up(light_count, columns);
-        const uint32 row = columns == 0U ? 0U : (light_index / columns);
-        const uint32 column = columns == 0U ? 0U : (light_index % columns);
+        const tbx::uint32 columns =
+            static_cast<tbx::uint32>(std::ceil(std::sqrt(static_cast<float>(light_count))));
+        const tbx::uint32 rows = columns == 0U ? 0U : divide_round_up(light_count, columns);
+        const tbx::uint32 row = columns == 0U ? 0U : light_index / columns;
+        const tbx::uint32 column = columns == 0U ? 0U : light_index % columns;
 
-        const float x = (static_cast<float>(column) - (static_cast<float>(columns) * 0.5F)) * 2.1F;
-        const float z = (static_cast<float>(row) - (static_cast<float>(rows) * 0.5F)) * 2.1F;
+        const float x = (static_cast<float>(column) - static_cast<float>(columns) * 0.5F) * 2.1F;
+        const float z = (static_cast<float>(row) - static_cast<float>(rows) * 0.5F) * 2.1F;
         const float t = static_cast<float>(elapsed_seconds);
         const float phase = static_cast<float>(light_index) * 0.17F;
-        const float y = 1.0F + (0.5F * std::sin((t * 1.4F) + phase));
+        const float y = 1.0F + 0.5F * std::sin(t * 1.4F + phase);
         return tbx::Vec3(x, y, z);
     }
 
@@ -96,20 +97,20 @@ namespace lighting_example
         _stress_point_lights.clear();
     }
 
-    void LightingExampleRuntimePlugin::rebuild_stress_lights(uint32 light_count)
+    void LightingExampleRuntimePlugin::rebuild_stress_lights(tbx::uint32 light_count)
     {
         clear_stress_lights();
         auto& entity_registry = get_host().get_entity_registry();
         _stress_point_lights.reserve(light_count);
-        for (uint32 light_index = 0U; light_index < light_count; ++light_index)
+        for (tbx::uint32 light_index = 0U; light_index < light_count; ++light_index)
         {
             auto light_entity = tbx::Entity("StressPointLight", entity_registry);
-            auto point_light = PointLight();
+            auto point_light = tbx::PointLight();
             point_light.range = 5.5F;
             point_light.intensity = 3.6F;
             point_light.color =
                 evaluate_animated_color(0.0, static_cast<float>(light_index) * 0.21F);
-            light_entity.add_component<PointLight>(point_light);
+            light_entity.add_component<tbx::PointLight>(point_light);
             light_entity.add_component<tbx::Transform>(
                 evaluate_stress_light_position(light_index, light_count, 0.0));
             _stress_point_lights.push_back(light_entity);
@@ -131,30 +132,30 @@ namespace lighting_example
             });
 
         auto showcase_sphere = tbx::Entity("ShowcaseSphere", ent_registry);
-        showcase_sphere.add_component<Renderer>(MaterialInstance {
-            .parameters = {{"color", Color::LIGHT_GREY}},
+        showcase_sphere.add_component<tbx::Renderer>(tbx::MaterialInstance {
+            .parameters = {{"color", tbx::Color::LIGHT_GREY}},
         });
-        showcase_sphere.add_component<DynamicMesh>(sphere);
+        showcase_sphere.add_component<tbx::DynamicMesh>(tbx::sphere);
         showcase_sphere.add_component<tbx::Transform>(
             tbx::Vec3(-2.0F, 1.5F, 0.0F),
             tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F),
             tbx::Vec3(2.0F, 2.0F, 2.0F));
 
         auto showcase_cube = tbx::Entity("ShowcaseCube", ent_registry);
-        showcase_cube.add_component<Renderer>(MaterialInstance {
-            .parameters = {{"color", Color::GREY}},
+        showcase_cube.add_component<tbx::Renderer>(tbx::MaterialInstance {
+            .parameters = {{"color", tbx::Color::GREY}},
         });
-        showcase_cube.add_component<DynamicMesh>(cube);
+        showcase_cube.add_component<tbx::DynamicMesh>(tbx::cube);
         showcase_cube.add_component<tbx::Transform>(
             tbx::Vec3(2.0F, 0.25F, 0.0F),
             tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F),
             tbx::Vec3(2.0F, 0.5F, 2.0F));
 
         _directional_light = tbx::Entity("DirectionalLight", ent_registry);
-        auto directional_light = DirectionalLight();
+        auto directional_light = tbx::DirectionalLight();
         directional_light.ambient = DIRECTIONAL_LIGHT_ENABLED_AMBIENT;
         directional_light.intensity = DIRECTIONAL_LIGHT_ENABLED_INTENSITY;
-        _directional_light.add_component<DirectionalLight>(directional_light);
+        _directional_light.add_component<tbx::DirectionalLight>(directional_light);
         _directional_light.add_component<tbx::Transform>(
             tbx::Vec3(0.0F, 10.0F, 0.0F),
             tbx::to_radians(tbx::Vec3(-45.0F, 30.0F, 0.0F)),
@@ -162,21 +163,21 @@ namespace lighting_example
 
         _point_base_position = tbx::Vec3(-7.5F, 2.5F, -1.0F);
         _point_light = tbx::Entity("PointLight", ent_registry);
-        auto point_light = PointLight();
+        auto point_light = tbx::PointLight();
         point_light.range = 14.0F;
         point_light.intensity = _point_enabled ? POINT_LIGHT_ENABLED_INTENSITY : 0.0F;
-        _point_light.add_component<PointLight>(point_light);
+        _point_light.add_component<tbx::PointLight>(point_light);
         _point_light.add_component<tbx::Transform>(_point_base_position);
 
         _point_light_marker = tbx::Entity("PointLightMarker", ent_registry);
-        _point_light_marker.add_component<Renderer>(Renderer {
+        _point_light_marker.add_component<tbx::Renderer>(tbx::Renderer {
             .material =
-                MaterialInstance {
-                    .parameters = {{"color", Color::RED}, {"emissive", Color::RED}},
+                tbx::MaterialInstance {
+                    .parameters = {{"color", tbx::Color::RED}, {"emissive", tbx::Color::RED}},
                 },
-            .shadow_mode = ShadowMode::None,
+            .shadow_mode = tbx::ShadowMode::None,
         });
-        _point_light_marker.add_component<DynamicMesh>(sphere);
+        _point_light_marker.add_component<tbx::DynamicMesh>(tbx::sphere);
         _point_light_marker.add_component<tbx::Transform>(
             _point_base_position,
             tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F),
@@ -184,26 +185,26 @@ namespace lighting_example
 
         _spot_base_position = tbx::Vec3(0.0F, 3.8F, 8.5F);
         _spot_light = tbx::Entity("SpotLight", ent_registry);
-        auto spot_light = SpotLight();
+        auto spot_light = tbx::SpotLight();
         spot_light.range = 30.0F;
         spot_light.inner_angle = 18.0F;
         spot_light.outer_angle = 32.0F;
         spot_light.intensity = _spot_enabled ? SPOT_LIGHT_ENABLED_INTENSITY : 0.0F;
-        _spot_light.add_component<SpotLight>(spot_light);
+        _spot_light.add_component<tbx::SpotLight>(spot_light);
         _spot_light.add_component<tbx::Transform>(
             _spot_base_position,
             tbx::to_radians(tbx::Vec3(-90.0F, 0.0F, 0.0F)),
             tbx::Vec3(1.0F));
 
         _spot_light_marker = tbx::Entity("SpotLightMarker", ent_registry);
-        _spot_light_marker.add_component<Renderer>(Renderer {
+        _spot_light_marker.add_component<tbx::Renderer>(tbx::Renderer {
             .material =
-                MaterialInstance {
-                    .parameters = {{"color", Color::GREEN}, {"emissive", Color::GREEN}},
+                tbx::MaterialInstance {
+                    .parameters = {{"color", tbx::Color::GREEN}, {"emissive", tbx::Color::GREEN}},
                 },
-            .shadow_mode = ShadowMode::None,
+            .shadow_mode = tbx::ShadowMode::None,
         });
-        _spot_light_marker.add_component<DynamicMesh>(cube);
+        _spot_light_marker.add_component<tbx::DynamicMesh>(tbx::cube);
         _spot_light_marker.add_component<tbx::Transform>(
             _spot_base_position,
             tbx::to_radians(tbx::Vec3(-90.0F, 0.0F, 0.0F)),
@@ -211,32 +212,32 @@ namespace lighting_example
 
         _area_base_position = tbx::Vec3(7.5F, 2.5F, -1.0F);
         _area_light = tbx::Entity("AreaLight", ent_registry);
-        auto area_light = AreaLight();
+        auto area_light = tbx::AreaLight();
         area_light.range = 20.0F;
         area_light.area_size = tbx::Vec2(3.0F, 2.0F);
         area_light.intensity = _area_enabled ? AREA_LIGHT_ENABLED_INTENSITY : 0.0F;
-        _area_light.add_component<AreaLight>(area_light);
+        _area_light.add_component<tbx::AreaLight>(area_light);
         _area_light.add_component<tbx::Transform>(
             _area_base_position,
             tbx::to_radians(tbx::Vec3(-90.0F, 0.0F, 0.0F)),
             tbx::Vec3(1.0F));
 
         _area_light_marker = tbx::Entity("AreaLightMarker", ent_registry);
-        _area_light_marker.add_component<Renderer>(Renderer {
+        _area_light_marker.add_component<tbx::Renderer>(tbx::Renderer {
             .material =
-                MaterialInstance {
-                    .parameters = {{"color", Color::BLUE}, {"emissive", Color::BLUE}},
+                tbx::MaterialInstance {
+                    .parameters = {{"color", tbx::Color::BLUE}, {"emissive", tbx::Color::BLUE}},
                 },
-            .shadow_mode = ShadowMode::None,
+            .shadow_mode = tbx::ShadowMode::None,
         });
-        _area_light_marker.add_component<DynamicMesh>(capsule);
+        _area_light_marker.add_component<tbx::DynamicMesh>(tbx::capsule);
         _area_light_marker.add_component<tbx::Transform>(
             _area_base_position,
             tbx::to_radians(tbx::Vec3(-90.0F, 0.0F, 0.0F)),
             tbx::Vec3(0.5F, 0.3F, 0.1F));
 
         auto camera = tbx::Entity("Camera", ent_registry);
-        camera.add_component<Camera>();
+        camera.add_component<tbx::Camera>();
         camera.add_component<tbx::Transform>(
             tbx::Vec3(0.0F, 3.5F, 14.0F),
             tbx::Quat(tbx::Vec3(tbx::to_radians(-90.0F), 0.0F, 0.0F)),
@@ -255,48 +256,48 @@ namespace lighting_example
         auto& light_scheme = _camera_controller.get_input_scheme();
         light_scheme.add_action(create_key_toggle_action(
             "toggle_directional",
-            InputKey::ALPHA_0,
+            tbx::InputKey::ALPHA_0,
             [this](const tbx::InputAction&)
             {
                 _directional_enabled = !_directional_enabled;
                 TBX_TRACE_INFO("Toggle directional light: {}", _directional_enabled);
-                auto& light = _directional_light.get_component<DirectionalLight>();
+                auto& light = _directional_light.get_component<tbx::DirectionalLight>();
                 light.intensity = _directional_enabled ? DIRECTIONAL_LIGHT_ENABLED_INTENSITY : 0.0F;
                 light.ambient = _directional_enabled ? DIRECTIONAL_LIGHT_ENABLED_AMBIENT : 0.0F;
             }));
         light_scheme.add_action(create_key_toggle_action(
             "toggle_point",
-            InputKey::ALPHA_1,
+            tbx::InputKey::ALPHA_1,
             [this](const tbx::InputAction&)
             {
                 _point_enabled = !_point_enabled;
                 TBX_TRACE_INFO("Toggle point light: {}", _point_enabled);
-                auto& light = _point_light.get_component<PointLight>();
+                auto& light = _point_light.get_component<tbx::PointLight>();
                 light.intensity = _point_enabled ? POINT_LIGHT_ENABLED_INTENSITY : 0.0F;
             }));
         light_scheme.add_action(create_key_toggle_action(
             "toggle_spot",
-            InputKey::ALPHA_2,
+            tbx::InputKey::ALPHA_2,
             [this](const tbx::InputAction&)
             {
                 _spot_enabled = !_spot_enabled;
                 TBX_TRACE_INFO("Toggle spot light: {}", _spot_enabled);
-                auto& light = _spot_light.get_component<SpotLight>();
+                auto& light = _spot_light.get_component<tbx::SpotLight>();
                 light.intensity = _spot_enabled ? SPOT_LIGHT_ENABLED_INTENSITY : 0.0F;
             }));
         light_scheme.add_action(create_key_toggle_action(
             "toggle_area",
-            InputKey::ALPHA_3,
+            tbx::InputKey::ALPHA_3,
             [this](const tbx::InputAction&)
             {
                 _area_enabled = !_area_enabled;
                 TBX_TRACE_INFO("Toggle area light: {}", _area_enabled);
-                auto& light = _area_light.get_component<AreaLight>();
+                auto& light = _area_light.get_component<tbx::AreaLight>();
                 light.intensity = _area_enabled ? AREA_LIGHT_ENABLED_INTENSITY : 0.0F;
             }));
         light_scheme.add_action(create_key_toggle_action(
             "toggle_stress_lights",
-            InputKey::F5,
+            tbx::InputKey::F5,
             [this](const tbx::InputAction&)
             {
                 _stress_mode_enabled = !_stress_mode_enabled;
@@ -312,7 +313,7 @@ namespace lighting_example
             }));
         light_scheme.add_action(create_key_toggle_action(
             "cycle_stress_light_count",
-            InputKey::F6,
+            tbx::InputKey::F6,
             [this](const tbx::InputAction&)
             {
                 static constexpr auto STRESS_PRESETS = std::array {128U, 256U, 512U, 768U};
@@ -335,7 +336,7 @@ namespace lighting_example
             }));
         light_scheme.add_action(create_key_toggle_action(
             "toggle_shadow_budget",
-            InputKey::F7,
+            tbx::InputKey::F7,
             [this](const tbx::InputAction&)
             {
                 auto& graphics = get_host().get_settings().graphics;
@@ -383,13 +384,13 @@ namespace lighting_example
         }
 
         {
-            auto& point_light = _point_light.get_component<PointLight>();
+            auto& point_light = _point_light.get_component<tbx::PointLight>();
             if (_point_enabled)
             {
                 point_light.color = evaluate_animated_color(_elapsed_seconds, 0.75F);
                 point_light.intensity =
                     POINT_LIGHT_ENABLED_INTENSITY
-                    + (1.2F * std::sin(static_cast<float>(_elapsed_seconds) * 1.1F));
+                    + 1.2F * std::sin(static_cast<float>(_elapsed_seconds) * 1.1F);
 
                 auto& point_transform = _point_light.get_component<tbx::Transform>();
                 point_transform.position = _point_base_position;
@@ -399,7 +400,7 @@ namespace lighting_example
                 {
                     auto& marker_transform = _point_light_marker.get_component<tbx::Transform>();
                     marker_transform.position = point_transform.position;
-                    auto& marker_renderer = _point_light_marker.get_component<Renderer>();
+                    auto& marker_renderer = _point_light_marker.get_component<tbx::Renderer>();
                     marker_renderer.material.parameters.set("color", point_light.color);
                     marker_renderer.material.parameters.set("emissive", point_light.color);
                 }
@@ -407,20 +408,20 @@ namespace lighting_example
             else
             {
                 point_light.intensity = 0.0F;
-                auto& marker_renderer = _point_light_marker.get_component<Renderer>();
-                marker_renderer.material.parameters.set("color", Color::BLACK);
-                marker_renderer.material.parameters.set("emissive", Color::BLACK);
+                auto& marker_renderer = _point_light_marker.get_component<tbx::Renderer>();
+                marker_renderer.material.parameters.set("color", tbx::Color::BLACK);
+                marker_renderer.material.parameters.set("emissive", tbx::Color::BLACK);
             }
         }
 
         {
-            auto& spot_light = _spot_light.get_component<SpotLight>();
+            auto& spot_light = _spot_light.get_component<tbx::SpotLight>();
             if (_spot_enabled)
             {
                 spot_light.color = evaluate_animated_color(_elapsed_seconds, 2.1F);
                 spot_light.intensity =
                     SPOT_LIGHT_ENABLED_INTENSITY
-                    + (1.5F * std::sin(static_cast<float>(_elapsed_seconds) * 1.35F));
+                    + 1.5F * std::sin(static_cast<float>(_elapsed_seconds) * 1.35F);
                 auto& spot_transform = _spot_light.get_component<tbx::Transform>();
                 spot_transform.position = _spot_base_position;
                 spot_transform.position.y +=
@@ -430,7 +431,7 @@ namespace lighting_example
                     auto& marker_transform = _spot_light_marker.get_component<tbx::Transform>();
                     marker_transform.position = spot_transform.position;
                     marker_transform.rotation = spot_transform.rotation;
-                    auto& marker_renderer = _spot_light_marker.get_component<Renderer>();
+                    auto& marker_renderer = _spot_light_marker.get_component<tbx::Renderer>();
                     marker_renderer.material.parameters.set("color", spot_light.color);
                     marker_renderer.material.parameters.set("emissive", spot_light.color);
                 }
@@ -438,20 +439,20 @@ namespace lighting_example
             else
             {
                 spot_light.intensity = 0.0F;
-                auto& marker_renderer = _spot_light_marker.get_component<Renderer>();
-                marker_renderer.material.parameters.set("color", Color::BLACK);
-                marker_renderer.material.parameters.set("emissive", Color::BLACK);
+                auto& marker_renderer = _spot_light_marker.get_component<tbx::Renderer>();
+                marker_renderer.material.parameters.set("color", tbx::Color::BLACK);
+                marker_renderer.material.parameters.set("emissive", tbx::Color::BLACK);
             }
         }
 
         {
-            auto& area_light = _area_light.get_component<AreaLight>();
+            auto& area_light = _area_light.get_component<tbx::AreaLight>();
             if (_area_enabled)
             {
                 area_light.color = evaluate_animated_color(_elapsed_seconds, 3.6F);
                 area_light.intensity =
                     AREA_LIGHT_ENABLED_INTENSITY
-                    + (1.0F * std::sin(static_cast<float>(_elapsed_seconds) * 0.95F));
+                    + 1.0F * std::sin(static_cast<float>(_elapsed_seconds) * 0.95F);
 
                 auto& area_transform = _area_light.get_component<tbx::Transform>();
                 area_transform.position = _area_base_position;
@@ -462,7 +463,7 @@ namespace lighting_example
                     auto& marker_transform = _area_light_marker.get_component<tbx::Transform>();
                     marker_transform.position = area_transform.position;
                     marker_transform.rotation = area_transform.rotation;
-                    auto& marker_renderer = _area_light_marker.get_component<Renderer>();
+                    auto& marker_renderer = _area_light_marker.get_component<tbx::Renderer>();
                     marker_renderer.material.parameters.set("color", area_light.color);
                     marker_renderer.material.parameters.set("emissive", area_light.color);
                 }
@@ -470,35 +471,36 @@ namespace lighting_example
             else
             {
                 area_light.intensity = 0.0F;
-                auto& marker_renderer = _area_light_marker.get_component<Renderer>();
-                marker_renderer.material.parameters.set("color", Color::BLACK);
-                marker_renderer.material.parameters.set("emissive", Color::BLACK);
+                auto& marker_renderer = _area_light_marker.get_component<tbx::Renderer>();
+                marker_renderer.material.parameters.set("color", tbx::Color::BLACK);
+                marker_renderer.material.parameters.set("emissive", tbx::Color::BLACK);
             }
         }
 
         if (_stress_mode_enabled)
         {
-            for (uint32 light_index = 0U; light_index < _stress_point_lights.size(); ++light_index)
+            for (tbx::uint32 light_index = 0U; light_index < _stress_point_lights.size();
+                 ++light_index)
             {
                 auto& light_entity = _stress_point_lights[light_index];
-                if (!light_entity.has_component<PointLight>()
+                if (!light_entity.has_component<tbx::PointLight>()
                     || !light_entity.has_component<tbx::Transform>())
                     continue;
 
-                auto& point_light = light_entity.get_component<PointLight>();
+                auto& point_light = light_entity.get_component<tbx::PointLight>();
                 auto& transform = light_entity.get_component<tbx::Transform>();
                 transform.position = evaluate_stress_light_position(
                     light_index,
-                    static_cast<uint32>(_stress_point_lights.size()),
+                    static_cast<tbx::uint32>(_stress_point_lights.size()),
                     _elapsed_seconds);
                 point_light.color = evaluate_animated_color(
                     _elapsed_seconds,
                     static_cast<float>(light_index) * 0.13F);
                 point_light.intensity = 2.6F
-                                        + (1.8F
-                                           * std::sin(
-                                               (static_cast<float>(_elapsed_seconds) * 1.25F)
-                                               + (static_cast<float>(light_index) * 0.19F)));
+                                        + 1.8F
+                                              * std::sin(
+                                                  static_cast<float>(_elapsed_seconds) * 1.25F
+                                                  + static_cast<float>(light_index) * 0.19F);
             }
         }
     }

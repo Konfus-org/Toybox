@@ -97,8 +97,9 @@ namespace opengl_rendering
         return key;
     }
 
-    tbx::Uuid
-        OpenGlResourceManager::add_static_mesh(const tbx::StaticMesh& static_mesh, const bool pin)
+    tbx::Uuid OpenGlResourceManager::add_static_mesh(
+        const tbx::StaticMesh& static_mesh,
+        const bool pin)
     {
         const auto now = std::chrono::steady_clock::now();
         const auto key = make_static_mesh_key(static_mesh.handle);
@@ -146,8 +147,7 @@ namespace opengl_rendering
                 _pinned_resources.insert_or_assign(program_key, existing->second);
             has_program = true;
         }
-        else if (
-            const auto material = _asset_manager.load<tbx::Material>(material_instance.handle))
+        else if (const auto material = _asset_manager.load<tbx::Material>(material_instance.handle))
         {
             auto shader_resources = std::vector<std::shared_ptr<OpenGlShader>>();
             auto try_append_shader = [&](const tbx::Handle& shader_handle)
@@ -175,8 +175,7 @@ namespace opengl_rendering
             const auto appended_geometry =
                 has_compute ? true : try_append_shader(material->program.geometry);
 
-            if (
-                (has_compute && appended_compute)
+            if ((has_compute && appended_compute)
                 || (!has_compute && appended_vertex && appended_fragment))
             {
                 (void)appended_tesselation;
@@ -221,6 +220,60 @@ namespace opengl_rendering
         if (has_program)
             return program_key;
         return {};
+    }
+
+    tbx::Uuid OpenGlResourceManager::add_texture(
+        const tbx::Texture& texture,
+        const tbx::Uuid& resource_uuid,
+        const bool pin)
+    {
+        if (!resource_uuid.is_valid())
+            return {};
+
+        const auto now = std::chrono::steady_clock::now();
+        if (const auto existing = _resources.find(resource_uuid); existing != _resources.end())
+        {
+            _last_access.insert_or_assign(resource_uuid, now);
+            if (pin)
+                _pinned_resources.insert_or_assign(resource_uuid, existing->second);
+            return resource_uuid;
+        }
+
+        const auto resource =
+            std::shared_ptr<IOpenGlResource>(std::make_shared<OpenGlTexture>(texture));
+        _resources.insert_or_assign(resource_uuid, resource);
+        _last_access.insert_or_assign(resource_uuid, now);
+        if (pin)
+            _pinned_resources.insert_or_assign(resource_uuid, resource);
+        return resource_uuid;
+    }
+
+    tbx::Uuid OpenGlResourceManager::add_texture(const tbx::Handle& texture_handle, const bool pin)
+    {
+        const auto key = make_texture_key(texture_handle);
+        if (!key.is_valid())
+            return {};
+
+        const auto now = std::chrono::steady_clock::now();
+        if (const auto existing = _resources.find(key); existing != _resources.end())
+        {
+            _last_access.insert_or_assign(key, now);
+            if (pin)
+                _pinned_resources.insert_or_assign(key, existing->second);
+            return key;
+        }
+
+        const auto texture = _asset_manager.load<tbx::Texture>(texture_handle);
+        if (!texture)
+            return {};
+
+        const auto resource =
+            std::shared_ptr<IOpenGlResource>(std::make_shared<OpenGlTexture>(*texture));
+        _resources.insert_or_assign(key, resource);
+        _last_access.insert_or_assign(key, now);
+        if (pin)
+            _pinned_resources.insert_or_assign(key, resource);
+        return key;
     }
 
     bool OpenGlResourceManager::try_get(

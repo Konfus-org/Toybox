@@ -18,9 +18,13 @@ namespace opengl_rendering
         tbx::Uuid add_dynamic_mesh(const tbx::DynamicMesh& dynamic_mesh, bool pin = false);
         tbx::Uuid add_static_mesh(const tbx::StaticMesh& static_mesh, bool pin = false);
         tbx::Uuid add_material(const tbx::MaterialInstance& material, bool pin = false);
-        bool try_get(
+        tbx::Uuid add_texture(
+            const tbx::Texture& texture,
             const tbx::Uuid& resource_uuid,
-            std::shared_ptr<IOpenGlResource>& out_resource) const;
+            bool pin = false);
+        tbx::Uuid add_texture(const tbx::Handle& texture_handle, bool pin = false);
+        bool try_get(const tbx::Uuid& resource_uuid, std::shared_ptr<IOpenGlResource>& out_resource)
+            const;
 
         void pin(const tbx::Uuid& resource_uuid);
         void unpin(const tbx::Uuid& resource_uuid);

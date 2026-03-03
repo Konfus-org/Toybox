@@ -1,10 +1,14 @@
 #include "opengl_renderer.h"
 #include "builtin_assets.generated.h"
+#include "opengl_resources/opengl_shader.h"
+#include "opengl_resources/opengl_texture.h"
 #include "pipeline/OpenGlFrameContext.h"
 #include "pipeline/opengl_render_pipeline.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/entity.h"
+#include "tbx/graphics/camera.h"
 #include "tbx/graphics/renderer.h"
+#include "tbx/graphics/texture.h"
 #include "tbx/math/matrices.h"
 #include <algorithm>
 #include <glad/glad.h>
@@ -14,23 +18,18 @@
 
 namespace opengl_rendering
 {
-    constexpr tbx::uint32 TextureSalt = 0x7EAE0001U;
+    const auto WhiteTextureResourceId = tbx::Uuid(0x7EAE00FFU);
 
-    static tbx::Uuid make_typed_key(const tbx::Uuid& base_key, const tbx::uint32 salt)
+    static tbx::Texture make_white_texture()
     {
-        if (!base_key.is_valid())
-            return {};
-
-        auto typed_key = tbx::Uuid(base_key);
-        typed_key.combine(salt);
-        if (!typed_key.is_valid())
-            return tbx::Uuid(1U);
-        return typed_key;
-    }
-
-    static tbx::Uuid make_texture_key(const tbx::Handle& texture_handle)
-    {
-        return make_typed_key(texture_handle.id, TextureSalt);
+        return tbx::Texture(
+            tbx::Size {1, 1},
+            tbx::TextureWrap::REPEAT,
+            tbx::TextureFilter::LINEAR,
+            tbx::TextureFormat::RGBA,
+            tbx::TextureMipmaps::DISABLED,
+            tbx::TextureCompression::DISABLED,
+            std::vector<tbx::Pixel> {255, 255, 255, 255});
     }
 
     void gl_message_callback(
@@ -117,12 +116,32 @@ namespace opengl_rendering
         // Step two: set viewport
         glViewport(0, 0, _viewport_size.width, _viewport_size.height);
 
-        // Step three: cache resources and build draw calls in one pass.
-        const auto entities = _entity_registry.get_with<tbx::Renderer>();
+        // Step three: build frame camera state.
         auto frame_context = OpenGlFrameContext();
+        frame_context.clear_color = tbx::Color::BLACK;
+        frame_context.view_projection = tbx::Mat4(1.0F);
+
+        if (const auto cameras = _entity_registry.get_with<tbx::Camera, tbx::Transform>();
+            !cameras.empty())
+        {
+            const auto& camera_entity = cameras.front();
+            auto& camera = camera_entity.get_component<tbx::Camera>();
+            const auto camera_transform = tbx::get_world_space_transform(camera_entity);
+            if (_viewport_size.width > 0 && _viewport_size.height > 0)
+            {
+                const auto aspect = static_cast<float>(_viewport_size.width)
+                                    / static_cast<float>(_viewport_size.height);
+                camera.set_aspect(aspect);
+            }
+            frame_context.view_projection = camera.get_view_projection_matrix(
+                camera_transform.position,
+                camera_transform.rotation);
+        }
+
+        // Step four: cache resources and build draw calls in one pass.
+        const auto entities = _entity_registry.get_with<tbx::Renderer>();
         auto draw_call_lookup = std::unordered_map<tbx::Uuid, std::size_t>();
         auto cached_resource = std::shared_ptr<IOpenGlResource>();
-
         for (const auto& entity : entities)
         {
             const auto& renderer = entity.get_component<tbx::Renderer>();
@@ -164,14 +183,53 @@ namespace opengl_rendering
             material_params.textures.reserve(renderer.material.textures.values.size());
             for (const auto& [name, texture] : renderer.material.textures.values)
             {
-                const auto texture_id = make_texture_key(texture.handle);
+                auto texture_id = tbx::Uuid {};
+                if (texture.handle.is_valid())
+                    texture_id = _resource_manager.add_texture(texture.handle);
+                else
+                    texture_id =
+                        _resource_manager.add_texture(make_white_texture(), WhiteTextureResourceId);
+
                 if (!texture_id.is_valid())
                     continue;
+
                 if (!_resource_manager.try_get(texture_id, cached_resource))
                     continue;
 
+                const auto texture_resource =
+                    std::reinterpret_pointer_cast<OpenGlTexture>(cached_resource);
+                if (!texture_resource)
+                    continue;
+
                 material_params.textures.push_back(
-                    OpenGlMaterialTexture {.name = name, .texture_id = texture_id});
+                    OpenGlMaterialTexture {
+                        .name = name,
+                        .texture_id = texture_id,
+                        .gl_texture_id = texture_resource->get_texture_id(),
+                    });
+            }
+
+            if (material_params.textures.empty())
+            {
+                const auto fallback_texture_id =
+                    _resource_manager.add_texture(make_white_texture(), WhiteTextureResourceId);
+                if (fallback_texture_id.is_valid())
+                {
+                    if (_resource_manager.try_get(fallback_texture_id, cached_resource))
+                    {
+                        const auto fallback_texture_resource =
+                            std::reinterpret_pointer_cast<OpenGlTexture>(cached_resource);
+                        if (fallback_texture_resource)
+                        {
+                            material_params.textures.push_back(
+                                OpenGlMaterialTexture {
+                                    .name = "diffuse",
+                                    .texture_id = fallback_texture_id,
+                                    .gl_texture_id = fallback_texture_resource->get_texture_id(),
+                                });
+                        }
+                    }
+                }
             }
 
             auto transform_matrix = tbx::Mat4(1.0F);
@@ -197,10 +255,10 @@ namespace opengl_rendering
             draw_call.transforms.push_back(transform_matrix);
         }
 
-        // Step four: execute render pipeline.
+        // Step five: execute render pipeline.
         _render_pipeline->execute(frame_context);
 
-        // Step five: present rendered frame.
+        // Step six: present rendered frame.
         if (const auto present_result = _context.present(); !present_result)
         {
             TBX_TRACE_ERROR(

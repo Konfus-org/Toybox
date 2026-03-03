@@ -235,6 +235,7 @@ namespace opengl_rendering
     OpenGlShaderProgram::OpenGlShaderProgram(OpenGlShaderProgram&& other) noexcept
         : _program_id(take_gl_handle(other._program_id))
         , _uniform_locations(std::move(other._uniform_locations))
+        , _sampler_uniform_layout(std::move(other._sampler_uniform_layout))
         , _logged_missing_uniforms(std::move(other._logged_missing_uniforms))
     {
     }
@@ -249,6 +250,7 @@ namespace opengl_rendering
 
         _program_id = take_gl_handle(other._program_id);
         _uniform_locations = std::move(other._uniform_locations);
+        _sampler_uniform_layout = std::move(other._sampler_uniform_layout);
         _logged_missing_uniforms = std::move(other._logged_missing_uniforms);
         return *this;
     }
@@ -275,15 +277,11 @@ namespace opengl_rendering
     bool OpenGlShaderProgram::try_upload(const tbx::MaterialParameter& uniform)
     {
         if (_program_id == 0)
-        {
             return false;
-        }
 
         const GLint location = get_cached_uniform_location(normalize_uniform_name(uniform.name));
         if (location < 0)
-        {
             return false;
-        }
 
         upload_uniform_value(location, uniform.data);
         return true;
@@ -292,29 +290,44 @@ namespace opengl_rendering
     bool OpenGlShaderProgram::try_upload(const OpenGlMaterialParams& params)
     {
         if (_program_id == 0)
-        {
             return false;
-        }
 
         for (const auto& parameter : params.parameters)
         {
             if (!try_upload(parameter))
-            {
                 return false;
+        }
+
+        bool is_same_sampler_layout = _sampler_uniform_layout.size() == params.textures.size();
+        if (is_same_sampler_layout)
+        {
+            for (std::size_t texture_slot = 0; texture_slot < params.textures.size(); ++texture_slot)
+            {
+                const auto normalized_name = normalize_uniform_name(params.textures[texture_slot].name);
+                if (_sampler_uniform_layout[texture_slot] != normalized_name)
+                {
+                    is_same_sampler_layout = false;
+                    break;
+                }
             }
         }
 
+        if (is_same_sampler_layout)
+            return true;
+
+        _sampler_uniform_layout.clear();
+        _sampler_uniform_layout.reserve(params.textures.size());
         for (std::size_t texture_slot = 0; texture_slot < params.textures.size(); ++texture_slot)
         {
-            const auto& [name, _] = params.textures[texture_slot];
+            const auto& texture_binding = params.textures[texture_slot];
+            const auto normalized_name = normalize_uniform_name(texture_binding.name);
             const auto sampler_uniform = tbx::MaterialParameter {
-                .name = name,
+                .name = normalized_name,
                 .data = static_cast<int>(texture_slot),
             };
             if (!try_upload(sampler_uniform))
-            {
                 return false;
-            }
+            _sampler_uniform_layout.push_back(normalized_name);
         }
 
         return true;

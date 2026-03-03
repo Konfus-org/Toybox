@@ -16,6 +16,7 @@ namespace opengl_rendering
     {
         std::string name = "";
         tbx::Uuid texture_id = {};
+        tbx::uint32 gl_texture_id = 0;
     };
 
     struct OpenGlMaterialParams
@@ -69,6 +70,7 @@ namespace opengl_rendering
 
         tbx::uint32 _program_id = 0;
         std::unordered_map<std::string, int> _uniform_locations = {};
+        std::vector<std::string> _sampler_uniform_layout = {};
         std::unordered_set<std::string> _logged_missing_uniforms = {};
     };
 }
