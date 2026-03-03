@@ -10,6 +10,13 @@
 
 namespace opengl_rendering
 {
+    static std::string normalize_uniform_name(const std::string& name)
+    {
+        if (name.find("u_") != 0)
+            return "u_" + name;
+        return name;
+    }
+
     static tbx::uint32 take_gl_handle(tbx::uint32& id) noexcept
     {
         return std::exchange(id, 0);
@@ -265,25 +272,6 @@ namespace opengl_rendering
         glUseProgram(0);
     }
 
-    void OpenGlShaderProgram::upload(const tbx::MaterialParameter& uniform)
-    {
-        TBX_ASSERT(
-            _program_id != 0,
-            "OpenGL rendering: cannot upload uniforms to an invalid shader program.");
-        if (try_upload(uniform))
-        {
-            return;
-        }
-
-        if (_logged_missing_uniforms.insert(uniform.name).second)
-        {
-            TBX_TRACE_WARNING(
-                "OpenGL rendering: uniform '{}' not found on program {}.",
-                uniform.name,
-                _program_id);
-        }
-    }
-
     bool OpenGlShaderProgram::try_upload(const tbx::MaterialParameter& uniform)
     {
         if (_program_id == 0)
@@ -291,13 +279,44 @@ namespace opengl_rendering
             return false;
         }
 
-        const GLint location = static_cast<GLint>(get_cached_uniform_location(uniform.name));
+        const GLint location = get_cached_uniform_location(normalize_uniform_name(uniform.name));
         if (location < 0)
         {
             return false;
         }
 
         upload_uniform_value(location, uniform.data);
+        return true;
+    }
+
+    bool OpenGlShaderProgram::try_upload(const OpenGlMaterialParams& params)
+    {
+        if (_program_id == 0)
+        {
+            return false;
+        }
+
+        for (const auto& parameter : params.parameters)
+        {
+            if (!try_upload(parameter))
+            {
+                return false;
+            }
+        }
+
+        for (std::size_t texture_slot = 0; texture_slot < params.textures.size(); ++texture_slot)
+        {
+            const auto& [name, _] = params.textures[texture_slot];
+            const auto sampler_uniform = tbx::MaterialParameter {
+                .name = name,
+                .data = static_cast<int>(texture_slot),
+            };
+            if (!try_upload(sampler_uniform))
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -308,14 +327,13 @@ namespace opengl_rendering
 
     int OpenGlShaderProgram::get_cached_uniform_location(const std::string& name)
     {
-        const auto it = _uniform_locations.find(name);
-        if (it != _uniform_locations.end())
+        if (const auto it = _uniform_locations.find(name); it != _uniform_locations.end())
         {
             return it->second;
         }
 
         const GLint location = uniform_location(_program_id, name);
         _uniform_locations.emplace(name, static_cast<int>(location));
-        return static_cast<int>(location);
+        return location;
     }
 }

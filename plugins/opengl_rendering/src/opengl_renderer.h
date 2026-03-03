@@ -24,10 +24,11 @@ namespace opengl_rendering
             OpenGlContext context);
         ~OpenGlRenderer() noexcept;
 
-        bool render() const;
+        bool render();
 
         void set_viewport_size(const tbx::Size& viewport_size);
-        void set_pending_render_resolution(const std::optional<tbx::Size>& pending_render_resolution);
+        void set_pending_render_resolution(
+            const std::optional<tbx::Size>& pending_render_resolution);
 
         const OpenGlContext& get_context() const;
 
@@ -37,9 +38,10 @@ namespace opengl_rendering
         void set_render_resolution(const tbx::Size& render_resolution);
 
       private:
-        std::unique_ptr<OpenGlRenderPipeline> _render_pipeline = nullptr;
-        std::reference_wrapper<tbx::EntityRegistry> _entity_registry;
         OpenGlContext _context;
+        tbx::EntityRegistry& _entity_registry;
+        OpenGlResourceManager _resource_manager;
+        std::unique_ptr<OpenGlRenderPipeline> _render_pipeline = nullptr;
 
         tbx::Size _viewport_size = {0, 0};
         tbx::Size _render_resolution = {0, 0};
