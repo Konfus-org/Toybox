@@ -1,38 +1,40 @@
 #include "opengl_buffers.h"
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
+#include <utility>
 #include <variant>
 
 namespace opengl_rendering
 {
+    static tbx::uint32 take_gl_handle(tbx::uint32& id) noexcept
+    {
+        return std::exchange(id, 0);
+    }
+
     static void add_attribute(
+        const tbx::uint32 vertex_array_id,
         const tbx::uint32 index,
         const tbx::uint32 size,
         const tbx::uint32 type,
-        const tbx::uint32 stride,
         const tbx::uint32 offset,
         const bool normalized)
     {
-        glEnableVertexAttribArray(index);
-        const auto* attribute_offset =
-            reinterpret_cast<const void*>(static_cast<std::uintptr_t>(offset));
+        glEnableVertexArrayAttrib(vertex_array_id, index);
         if (type == GL_INT && !normalized)
-        {
-            glVertexAttribIPointer(index, size, type, stride, attribute_offset);
-        }
+            glVertexArrayAttribIFormat(vertex_array_id, index, size, type, offset);
         else
-        {
-            glVertexAttribPointer(
+            glVertexArrayAttribFormat(
+                vertex_array_id,
                 index,
                 size,
                 type,
                 normalized ? GL_TRUE : GL_FALSE,
-                stride,
-                attribute_offset);
-        }
+                offset);
+
+        glVertexArrayAttribBinding(vertex_array_id, index, 0);
     }
 
-    static GLenum vertex_type_to_gl_type(const tbx::VertexData& type)
+    static GLenum vertex_type_to_gl_type(const VertexData& type)
     {
         if (std::holds_alternative<tbx::Vec2>(type))
         {
@@ -42,7 +44,7 @@ namespace opengl_rendering
         {
             return GL_FLOAT;
         }
-        if (std::holds_alternative<tbx::Color>(type))
+        if (std::holds_alternative<Color>(type))
         {
             return GL_FLOAT;
         }
@@ -64,6 +66,27 @@ namespace opengl_rendering
         glCreateBuffers(1, &_buffer_id);
     }
 
+    OpenGlVertexBuffer::OpenGlVertexBuffer(OpenGlVertexBuffer&& other) noexcept
+        : _buffer_id(take_gl_handle(other._buffer_id))
+        , _count(other._count)
+    {
+        other._count = 0;
+    }
+
+    OpenGlVertexBuffer& OpenGlVertexBuffer::operator=(OpenGlVertexBuffer&& other) noexcept
+    {
+        if (this == &other)
+            return *this;
+
+        if (_buffer_id != 0)
+            glDeleteBuffers(1, &_buffer_id);
+
+        _buffer_id = take_gl_handle(other._buffer_id);
+        _count = other._count;
+        other._count = 0;
+        return *this;
+    }
+
     OpenGlVertexBuffer::~OpenGlVertexBuffer() noexcept
     {
         if (_buffer_id != 0)
@@ -72,22 +95,32 @@ namespace opengl_rendering
         }
     }
 
-    void OpenGlVertexBuffer::upload(const tbx::VertexBuffer& buffer)
+    void OpenGlVertexBuffer::upload(const tbx::uint32 vertex_array_id, const VertexBuffer& buffer)
     {
         _count = static_cast<tbx::uint32>(buffer.vertices.size());
-        glBufferData(
-            GL_ARRAY_BUFFER,
+        glNamedBufferData(
+            _buffer_id,
             static_cast<GLsizeiptr>(_count * sizeof(float)),
             buffer.vertices.data(),
             GL_STATIC_DRAW);
 
-        tbx::uint32 index = 0;
         const auto& layout = buffer.layout;
-        const auto& stride = layout.stride;
+        TBX_ASSERT(
+            layout.stride > 0,
+            "OpenGL rendering: vertex buffer layout stride must be greater than zero.");
+        glVertexArrayVertexBuffer(vertex_array_id, 0, _buffer_id, 0, layout.stride);
+
+        tbx::uint32 index = 0;
         for (const auto& element : layout.elements)
         {
             const auto type = vertex_type_to_gl_type(element.type);
-            add_attribute(index, element.count, type, stride, element.offset, element.normalized);
+            add_attribute(
+                vertex_array_id,
+                index,
+                element.count,
+                type,
+                element.offset,
+                element.normalized);
             index += 1;
         }
     }
@@ -112,6 +145,27 @@ namespace opengl_rendering
         glCreateBuffers(1, &_buffer_id);
     }
 
+    OpenGlIndexBuffer::OpenGlIndexBuffer(OpenGlIndexBuffer&& other) noexcept
+        : _buffer_id(take_gl_handle(other._buffer_id))
+        , _count(other._count)
+    {
+        other._count = 0;
+    }
+
+    OpenGlIndexBuffer& OpenGlIndexBuffer::operator=(OpenGlIndexBuffer&& other) noexcept
+    {
+        if (this == &other)
+            return *this;
+
+        if (_buffer_id != 0)
+            glDeleteBuffers(1, &_buffer_id);
+
+        _buffer_id = take_gl_handle(other._buffer_id);
+        _count = other._count;
+        other._count = 0;
+        return *this;
+    }
+
     OpenGlIndexBuffer::~OpenGlIndexBuffer() noexcept
     {
         if (_buffer_id != 0)
@@ -120,14 +174,15 @@ namespace opengl_rendering
         }
     }
 
-    void OpenGlIndexBuffer::upload(const tbx::IndexBuffer& buffer)
+    void OpenGlIndexBuffer::upload(const tbx::uint32 vertex_array_id, const IndexBuffer& buffer)
     {
         _count = static_cast<tbx::uint32>(buffer.size());
-        glBufferData(
-            GL_ELEMENT_ARRAY_BUFFER,
+        glNamedBufferData(
+            _buffer_id,
             static_cast<GLsizeiptr>(_count * sizeof(tbx::uint32)),
             buffer.data(),
             GL_STATIC_DRAW);
+        glVertexArrayElementBuffer(vertex_array_id, _buffer_id);
     }
 
     void OpenGlIndexBuffer::bind()

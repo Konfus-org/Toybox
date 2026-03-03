@@ -6,13 +6,21 @@
 
 namespace opengl_rendering
 {
+    /// <summary>OpenGL vertex buffer resource.</summary>
+    /// <remarks>Purpose: Owns vertex data uploaded to GPU memory and configures VAO attribute
+    /// state. Ownership: Owns the OpenGL buffer handle and never owns caller-provided CPU data.
+    /// Thread Safety: Not thread-safe; call from the render thread.</remarks>
     class OpenGlVertexBuffer final : public IOpenGlResource
     {
       public:
         OpenGlVertexBuffer();
+        OpenGlVertexBuffer(const OpenGlVertexBuffer&) = delete;
+        OpenGlVertexBuffer& operator=(const OpenGlVertexBuffer&) = delete;
+        OpenGlVertexBuffer(OpenGlVertexBuffer&& other) noexcept;
+        OpenGlVertexBuffer& operator=(OpenGlVertexBuffer&& other) noexcept;
         ~OpenGlVertexBuffer() noexcept override;
-
-        void upload(const tbx::VertexBuffer& buffer);
+        
+        void upload(tbx::uint32 vertex_array_id, const VertexBuffer& buffer);
         void bind() override;
         void unbind() override;
 
@@ -23,13 +31,21 @@ namespace opengl_rendering
         tbx::uint32 _count = 0;
     };
 
+    /// <summary>OpenGL index buffer resource.</summary>
+    /// <remarks>Purpose: Owns index data uploaded to GPU memory and binds it to a VAO.
+    /// Ownership: Owns the OpenGL buffer handle and never owns caller-provided CPU data.
+    /// Thread Safety: Not thread-safe; call from the render thread.</remarks>
     class OpenGlIndexBuffer final : public IOpenGlResource
     {
       public:
         OpenGlIndexBuffer();
+        OpenGlIndexBuffer(const OpenGlIndexBuffer&) = delete;
+        OpenGlIndexBuffer& operator=(const OpenGlIndexBuffer&) = delete;
+        OpenGlIndexBuffer(OpenGlIndexBuffer&& other) noexcept;
+        OpenGlIndexBuffer& operator=(OpenGlIndexBuffer&& other) noexcept;
         ~OpenGlIndexBuffer() noexcept override;
 
-        void upload(const tbx::IndexBuffer& buffer);
+        void upload(tbx::uint32 vertex_array_id, const IndexBuffer& buffer);
         void bind() override;
         void unbind() override;
 

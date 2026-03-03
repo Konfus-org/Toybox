@@ -2,9 +2,15 @@
 #include "tbx/debugging/macros.h"
 #include <algorithm>
 #include <glad/glad.h>
+#include <utility>
 
 namespace opengl_rendering
 {
+    static tbx::uint32 take_gl_handle(tbx::uint32& id) noexcept
+    {
+        return std::exchange(id, 0);
+    }
+
     struct GlTextureFormat
     {
         GLenum internal_format = 0;
@@ -124,7 +130,9 @@ namespace opengl_rendering
         return is_supported == GL_TRUE;
     }
 
-    static GLenum resolve_internal_format(const tbx::Texture& texture, GLenum fallback_internal_format)
+    static GLenum resolve_internal_format(
+        const tbx::Texture& texture,
+        GLenum fallback_internal_format)
     {
         if (texture.compression == tbx::TextureCompression::DISABLED)
             return fallback_internal_format;
@@ -175,6 +183,27 @@ namespace opengl_rendering
             texture.pixels.data());
         if (texture.mipmaps == tbx::TextureMipmaps::ENABLED)
             glGenerateTextureMipmap(_texture_id);
+    }
+
+    OpenGlTexture::OpenGlTexture(OpenGlTexture&& other) noexcept
+        : _texture_id(take_gl_handle(other._texture_id))
+        , _slot(other._slot)
+    {
+        other._slot = 0;
+    }
+
+    OpenGlTexture& OpenGlTexture::operator=(OpenGlTexture&& other) noexcept
+    {
+        if (this == &other)
+            return *this;
+
+        if (_texture_id != 0)
+            glDeleteTextures(1, &_texture_id);
+
+        _texture_id = take_gl_handle(other._texture_id);
+        _slot = other._slot;
+        other._slot = 0;
+        return *this;
     }
 
     OpenGlTexture::~OpenGlTexture() noexcept

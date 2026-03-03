@@ -1,14 +1,20 @@
-﻿#include "opengl_shader.h"
+#include "opengl_shader.h"
 #include "tbx/common/int.h"
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <variant>
 
 namespace opengl_rendering
 {
+    static tbx::uint32 take_gl_handle(tbx::uint32& id) noexcept
+    {
+        return std::exchange(id, 0);
+    }
+
     static GLenum to_gl_shader_type(tbx::ShaderType type)
     {
         switch (type)
@@ -137,6 +143,27 @@ namespace opengl_rendering
         TBX_ASSERT(_shader_id != 0, "OpenGL rendering: failed to create a valid shader object.");
     }
 
+    OpenGlShader::OpenGlShader(OpenGlShader&& other) noexcept
+        : _shader_id(take_gl_handle(other._shader_id))
+        , _type(other._type)
+    {
+        other._type = tbx::ShaderType::NONE;
+    }
+
+    OpenGlShader& OpenGlShader::operator=(OpenGlShader&& other) noexcept
+    {
+        if (this == &other)
+            return *this;
+
+        if (_shader_id != 0)
+            glDeleteShader(_shader_id);
+
+        _shader_id = take_gl_handle(other._shader_id);
+        _type = other._type;
+        other._type = tbx::ShaderType::NONE;
+        return *this;
+    }
+
     OpenGlShader::~OpenGlShader() noexcept
     {
         if (_shader_id != 0)
@@ -196,6 +223,27 @@ namespace opengl_rendering
                 glDetachShader(_program_id, shader->get_shader_id());
             }
         }
+    }
+
+    OpenGlShaderProgram::OpenGlShaderProgram(OpenGlShaderProgram&& other) noexcept
+        : _program_id(take_gl_handle(other._program_id))
+        , _uniform_locations(std::move(other._uniform_locations))
+        , _logged_missing_uniforms(std::move(other._logged_missing_uniforms))
+    {
+    }
+
+    OpenGlShaderProgram& OpenGlShaderProgram::operator=(OpenGlShaderProgram&& other) noexcept
+    {
+        if (this == &other)
+            return *this;
+
+        if (_program_id != 0)
+            glDeleteProgram(_program_id);
+
+        _program_id = take_gl_handle(other._program_id);
+        _uniform_locations = std::move(other._uniform_locations);
+        _logged_missing_uniforms = std::move(other._logged_missing_uniforms);
+        return *this;
     }
 
     OpenGlShaderProgram::~OpenGlShaderProgram() noexcept

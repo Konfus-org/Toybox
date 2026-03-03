@@ -19,6 +19,10 @@ namespace opengl_rendering
         /// Ownership: Owns the created VAO and buffer resources.
         /// Thread Safety: Construct on the render thread.</remarks>
         explicit OpenGlMesh(const tbx::Mesh& mesh);
+        OpenGlMesh(const OpenGlMesh&) = delete;
+        OpenGlMesh& operator=(const OpenGlMesh&) = delete;
+        OpenGlMesh(OpenGlMesh&& other) noexcept;
+        OpenGlMesh& operator=(OpenGlMesh&& other) noexcept;
 
         /// <summary>Destroys the OpenGL mesh resource.</summary>
         /// <remarks>Purpose: Releases the VAO and buffer resources.
