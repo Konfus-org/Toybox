@@ -19,8 +19,8 @@ namespace opengl_rendering
         OpenGlVertexBuffer(OpenGlVertexBuffer&& other) noexcept;
         OpenGlVertexBuffer& operator=(OpenGlVertexBuffer&& other) noexcept;
         ~OpenGlVertexBuffer() noexcept override;
-        
-        void upload(tbx::uint32 vertex_array_id, const VertexBuffer& buffer);
+
+        void upload(tbx::uint32 vertex_array_id, const tbx::VertexBuffer& buffer);
         void bind() override;
         void unbind() override;
 
@@ -45,7 +45,7 @@ namespace opengl_rendering
         OpenGlIndexBuffer& operator=(OpenGlIndexBuffer&& other) noexcept;
         ~OpenGlIndexBuffer() noexcept override;
 
-        void upload(tbx::uint32 vertex_array_id, const IndexBuffer& buffer);
+        void upload(tbx::uint32 vertex_array_id, const tbx::IndexBuffer& buffer);
         void bind() override;
         void unbind() override;
 
