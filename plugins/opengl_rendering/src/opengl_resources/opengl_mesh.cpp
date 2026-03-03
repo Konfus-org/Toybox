@@ -19,7 +19,7 @@ namespace opengl_rendering
         }
     }
 
-    void OpenGlMesh::set_vertex_buffer(const VertexBuffer& buffer)
+    void OpenGlMesh::set_vertex_buffer(const tbx::VertexBuffer& buffer)
     {
         glBindVertexArray(_vertex_array_id);
         TBX_ASSERT(!buffer.vertices.empty(), "OpenGL rendering: vertex buffer must not be empty.");
@@ -30,7 +30,7 @@ namespace opengl_rendering
         _vertex_buffer.upload(buffer);
     }
 
-    void OpenGlMesh::set_index_buffer(const IndexBuffer& buffer)
+    void OpenGlMesh::set_index_buffer(const tbx::IndexBuffer& buffer)
     {
         glBindVertexArray(_vertex_array_id);
         TBX_ASSERT(!buffer.empty(), "OpenGL rendering: index buffer must not be empty.");

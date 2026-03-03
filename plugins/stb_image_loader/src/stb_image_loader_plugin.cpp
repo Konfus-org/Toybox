@@ -11,19 +11,20 @@
 
 namespace stb_image_loader
 {
-    static bool try_parse_texture_settings(const Json& data, TextureSettings& out_settings)
+    static bool try_parse_texture_settings(
+        const tbx::Json& data,
+        tbx::TextureSettings& out_settings)
     {
-        auto texture_data = Json();
+        auto texture_data = tbx::Json();
         if (!data.try_get_child("texture", texture_data))
             return false;
 
-        auto settings = TextureSettings();
-        static_cast<void>(texture_data.try_get<TextureWrap>("wrap", settings.wrap));
-        static_cast<void>(texture_data.try_get<TextureFilter>("filter", settings.filter));
-        static_cast<void>(texture_data.try_get<TextureFormat>("format", settings.format));
-        static_cast<void>(texture_data.try_get<TextureMipmaps>("mipmaps", settings.mipmaps));
-        static_cast<void>(
-            texture_data.try_get<TextureCompression>("compression", settings.compression));
+        auto settings = tbx::TextureSettings();
+        texture_data.try_get<tbx::TextureWrap>("wrap", settings.wrap);
+        texture_data.try_get<tbx::TextureFilter>("filter", settings.filter);
+        texture_data.try_get<tbx::TextureFormat>("format", settings.format);
+        texture_data.try_get<tbx::TextureMipmaps>("mipmaps", settings.mipmaps);
+        texture_data.try_get<tbx::TextureCompression>("compression", settings.compression);
         out_settings = settings;
         return true;
     }
@@ -46,14 +47,15 @@ namespace stb_image_loader
     void StbImageLoaderPlugin::on_attach(tbx::IPluginHost& host)
     {
         if (!_file_ops)
-            _file_ops = std::make_shared<FileOperator>(host.get_settings().paths.working_directory);
+            _file_ops =
+                std::make_unique<tbx::FileOperator>(host.get_settings().paths.working_directory);
     }
 
     void StbImageLoaderPlugin::on_detach() {}
 
     void StbImageLoaderPlugin::on_recieve_message(tbx::Message& msg)
     {
-        auto* request = handle_message<LoadTextureRequest>(msg);
+        auto* request = handle_message<tbx::LoadTextureRequest>(msg);
         if (!request)
         {
             return;
@@ -62,36 +64,31 @@ namespace stb_image_loader
         on_load_texture_request(*request);
     }
 
-    void StbImageLoaderPlugin::set_file_ops(std::shared_ptr<tbx::IFileOps> file_ops)
-    {
-        _file_ops = std::move(file_ops);
-    }
-
-    void StbImageLoaderPlugin::on_load_texture_request(LoadTextureRequest& request)
+    void StbImageLoaderPlugin::on_load_texture_request(tbx::LoadTextureRequest& request) const
     {
         auto* asset = request.asset;
         if (!asset)
         {
-            request.state = MessageState::ERROR;
+            request.state = tbx::MessageState::ERROR;
             request.result.flag_failure("Stb image loader: missing texture asset wrapper.");
             return;
         }
 
         if (request.cancellation_token && request.cancellation_token.is_cancelled())
         {
-            request.state = MessageState::CANCELLED;
+            request.state = tbx::MessageState::CANCELLED;
             request.result.flag_failure("Stb image loader cancelled.");
             return;
         }
 
         if (!_file_ops)
         {
-            request.state = MessageState::ERROR;
+            request.state = tbx::MessageState::ERROR;
             request.result.flag_failure("Stb image loader: file services unavailable.");
             return;
         }
 
-        TextureSettings load_settings = {
+        tbx::TextureSettings load_settings = {
             .wrap = request.wrap,
             .filter = request.filter,
             .format = request.format,
@@ -101,26 +98,29 @@ namespace stb_image_loader
 
         auto meta_path = request.path;
         meta_path += ".meta";
-        std::string meta_data = {};
-        if (_file_ops->read_file(meta_path, FileDataFormat::UTF8_TEXT, meta_data))
+        if (std::string meta_data = {};
+            _file_ops->read_file(meta_path, tbx::FileDataFormat::UTF8_TEXT, meta_data))
         {
             try
             {
-                auto data = Json(meta_data);
-                auto parsed_settings = TextureSettings();
-                if (try_parse_texture_settings(data, parsed_settings))
+                const auto data = tbx::Json(meta_data);
+                if (auto parsed_settings = tbx::TextureSettings();
+                    try_parse_texture_settings(data, parsed_settings))
+                {
                     load_settings = parsed_settings;
+                }
             }
             catch (...)
             {
                 // Ignore meta parsing errors and fall back to request settings.
+                TBX_TRACE_WARNING("Failed to parse texture meta data for {}", request.path);
             }
         }
 
         std::string encoded_image;
-        if (!_file_ops->read_file(request.path, FileDataFormat::BINARY, encoded_image))
+        if (!_file_ops->read_file(request.path, tbx::FileDataFormat::BINARY, encoded_image))
         {
-            request.state = MessageState::ERROR;
+            request.state = tbx::MessageState::ERROR;
             request.result.flag_failure(
                 build_load_failure_message(request.path, "file could not be read"));
             return;
@@ -129,7 +129,7 @@ namespace stb_image_loader
         stbi_set_flip_vertically_on_load(true);
         int width = 0;
         int height = 0;
-        const int desired_channels = (load_settings.format == TextureFormat::RGB) ? 3 : 4;
+        const int desired_channels = load_settings.format == tbx::TextureFormat::RGB ? 3 : 4;
         stbi_uc* raw_data = stbi_load_from_memory(
             reinterpret_cast<const stbi_uc*>(encoded_image.data()),
             static_cast<int>(encoded_image.size()),
@@ -139,7 +139,7 @@ namespace stb_image_loader
             desired_channels);
         if (!raw_data)
         {
-            request.state = MessageState::ERROR;
+            request.state = tbx::MessageState::ERROR;
             request.result.flag_failure(
                 build_load_failure_message(request.path, stbi_failure_reason()));
             return;
@@ -147,11 +147,13 @@ namespace stb_image_loader
 
         const auto pixel_count = static_cast<size_t>(width) * static_cast<size_t>(height)
                                  * static_cast<size_t>(desired_channels);
-        std::vector<Pixel> pixels(raw_data, raw_data + pixel_count);
+        const std::vector pixels(raw_data, raw_data + pixel_count);
         stbi_image_free(raw_data);
 
-        Size resolution = {static_cast<uint32>(width), static_cast<uint32>(height)};
-        tbx::Texture texture(
+        const tbx::Size resolution = {
+            static_cast<tbx::uint32>(width),
+            static_cast<tbx::uint32>(height)};
+        const tbx::Texture texture(
             resolution,
             load_settings.wrap,
             load_settings.filter,
@@ -161,6 +163,6 @@ namespace stb_image_loader
             pixels);
         *asset = texture;
 
-        request.state = MessageState::HANDLED;
+        request.state = tbx::MessageState::HANDLED;
     }
 }

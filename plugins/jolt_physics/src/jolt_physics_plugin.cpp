@@ -52,10 +52,10 @@ namespace jolt_physics
     }
 
     static bool should_execute_overlap_query(
-        ColliderOverlapExecutionMode execution_mode,
+        tbx::ColliderOverlapExecutionMode execution_mode,
         bool is_manual_trigger_requested)
     {
-        return execution_mode == ColliderOverlapExecutionMode::AUTO || is_manual_trigger_requested;
+        return execution_mode == tbx::ColliderOverlapExecutionMode::AUTO || is_manual_trigger_requested;
     }
 
     static std::string format_jolt_trace_message(const char* fmt, std::va_list args)
@@ -275,8 +275,8 @@ namespace jolt_physics
             > position_epsilon_squared)
             return true;
 
-        const tbx::Quat current_rotation = normalize(current.rotation);
-        const tbx::Quat previous_rotation_normalized = normalize(previous_rotation);
+        const tbx::Quat current_rotation = tbx::normalize(current.rotation);
+        const tbx::Quat previous_rotation_normalized = tbx::normalize(previous_rotation);
         const float rotation_dot = std::abs(
             current_rotation.x * previous_rotation_normalized.x
             + current_rotation.y * previous_rotation_normalized.y
@@ -317,10 +317,10 @@ namespace jolt_physics
         const tbx::Quat& target_rotation,
         float dt_seconds)
     {
-        tbx::Quat normalized_start = normalize(start_rotation);
-        tbx::Quat normalized_target = normalize(target_rotation);
+        tbx::Quat normalized_start = tbx::normalize(start_rotation);
+        tbx::Quat normalized_target = tbx::normalize(target_rotation);
 
-        tbx::Quat delta_rotation = normalize(normalized_target * glm::conjugate(normalized_start));
+        tbx::Quat delta_rotation = tbx::normalize(normalized_target * glm::conjugate(normalized_start));
         if (delta_rotation.w < 0.0F)
             delta_rotation = -delta_rotation;
 
@@ -343,7 +343,7 @@ namespace jolt_physics
             std::max(0.001F, std::abs(scale.z)));
     }
 
-    static JPH::RefConst<JPH::Shape> create_box_shape(const CubeCollider& cube)
+    static JPH::RefConst<JPH::Shape> create_box_shape(const tbx::CubeCollider& cube)
     {
         auto half_extents = JPH::Vec3(
             std::max(0.001F, cube.half_extents.x),
@@ -352,13 +352,13 @@ namespace jolt_physics
         return new JPH::BoxShape(half_extents);
     }
 
-    static JPH::RefConst<JPH::Shape> create_sphere_shape(const SphereCollider& sphere)
+    static JPH::RefConst<JPH::Shape> create_sphere_shape(const tbx::SphereCollider& sphere)
     {
         float radius = std::max(0.001F, sphere.radius);
         return new JPH::SphereShape(radius);
     }
 
-    static JPH::RefConst<JPH::Shape> create_capsule_shape(const CapsuleCollider& capsule)
+    static JPH::RefConst<JPH::Shape> create_capsule_shape(const tbx::CapsuleCollider& capsule)
     {
         float radius = std::max(0.001F, capsule.radius);
         float half_height = std::max(0.001F, capsule.half_height);
@@ -367,7 +367,7 @@ namespace jolt_physics
 
     static void apply_dynamic_body_settings(
         tbx::IPluginHost& host,
-        const Physics& physics,
+        const tbx::Physics& physics,
         bool is_trigger_only,
         JPH::BodyCreationSettings& out_body_settings)
     {
@@ -398,7 +398,7 @@ namespace jolt_physics
     }
 
     static bool try_get_mesh_vertex_position_offset(
-        const VertexBufferLayout& layout,
+        const tbx::VertexBufferLayout& layout,
         std::size_t& position_offset_bytes)
     {
         for (const auto& attribute : layout.elements)
@@ -540,9 +540,9 @@ namespace jolt_physics
         positions.clear();
         triangles.clear();
 
-        if (entity.has_component<DynamicMesh>())
+        if (entity.has_component<tbx::DynamicMesh>())
         {
-            const auto& mesh_component = entity.get_component<DynamicMesh>();
+            const auto& mesh_component = entity.get_component<tbx::DynamicMesh>();
             const auto& mesh_data = mesh_component.data;
             if (!mesh_data)
                 return false;
@@ -550,10 +550,10 @@ namespace jolt_physics
             return try_append_mesh_geometry(*mesh_data, tbx::Mat4(1.0F), scale, positions, triangles);
         }
 
-        if (!entity.has_component<StaticMesh>())
+        if (!entity.has_component<tbx::StaticMesh>())
             return false;
 
-        const auto& static_mesh = entity.get_component<StaticMesh>();
+        const auto& static_mesh = entity.get_component<tbx::StaticMesh>();
         if (!static_mesh.handle.is_valid())
             return false;
 
@@ -654,16 +654,16 @@ namespace jolt_physics
         const tbx::Transform& transform,
         bool is_physics_driven)
     {
-        const auto& mesh_collider = entity.get_component<MeshCollider>();
+        const auto& mesh_collider = entity.get_component<tbx::MeshCollider>();
 
         auto positions = std::vector<JPH::Float3> {};
         auto triangles = std::vector<JPH::IndexedTriangle> {};
         if (!try_get_mesh_collider_data(host, entity, transform.scale, positions, triangles))
         {
             TBX_TRACE_WARNING(
-                "Jolt physics: MeshCollider on entity {} has no usable mesh geometry, "
+                "Jolt physics: tbx::MeshCollider on entity {} has no usable mesh geometry, "
                 "using fallback box shape.",
-                to_string(entity.get_id()));
+                tbx::to_string(entity.get_id()));
             return nullptr;
         }
 
@@ -678,8 +678,8 @@ namespace jolt_physics
             if (convex_shape_result.HasError())
             {
                 TBX_TRACE_WARNING(
-                    "Jolt physics: Failed to build convex MeshCollider on entity {}: {}",
-                    to_string(entity.get_id()),
+                    "Jolt physics: Failed to build convex tbx::MeshCollider on entity {}: {}",
+                    tbx::to_string(entity.get_id()),
                     convex_shape_result.GetError().c_str());
                 return nullptr;
             }
@@ -690,9 +690,9 @@ namespace jolt_physics
         if (triangles.empty())
         {
             TBX_TRACE_WARNING(
-                "Jolt physics: Non-convex MeshCollider on entity {} has no triangle index "
+                "Jolt physics: Non-convex tbx::MeshCollider on entity {} has no triangle index "
                 "data.",
-                to_string(entity.get_id()));
+                tbx::to_string(entity.get_id()));
             return nullptr;
         }
 
@@ -711,8 +711,8 @@ namespace jolt_physics
         if (mesh_shape_result.HasError())
         {
             TBX_TRACE_WARNING(
-                "Jolt physics: Failed to build mesh MeshCollider on entity {}: {}",
-                to_string(entity.get_id()),
+                "Jolt physics: Failed to build mesh tbx::MeshCollider on entity {}: {}",
+                tbx::to_string(entity.get_id()),
                 mesh_shape_result.GetError().c_str());
             return nullptr;
         }
@@ -722,47 +722,47 @@ namespace jolt_physics
 
     static bool has_any_collider(const tbx::Entity& entity)
     {
-        return entity.has_component<SphereCollider>() || entity.has_component<CapsuleCollider>()
-               || entity.has_component<CubeCollider>() || entity.has_component<MeshCollider>();
+        return entity.has_component<tbx::SphereCollider>() || entity.has_component<tbx::CapsuleCollider>()
+               || entity.has_component<tbx::CubeCollider>() || entity.has_component<tbx::MeshCollider>();
     }
 
-    static const ColliderTrigger* try_get_trigger_collider(const tbx::Entity& entity)
+    static const tbx::ColliderTrigger* try_get_trigger_collider(const tbx::Entity& entity)
     {
-        if (entity.has_component<SphereCollider>())
-            return &entity.get_component<SphereCollider>().trigger;
+        if (entity.has_component<tbx::SphereCollider>())
+            return &entity.get_component<tbx::SphereCollider>().trigger;
 
-        if (entity.has_component<CapsuleCollider>())
-            return &entity.get_component<CapsuleCollider>().trigger;
+        if (entity.has_component<tbx::CapsuleCollider>())
+            return &entity.get_component<tbx::CapsuleCollider>().trigger;
 
-        if (entity.has_component<CubeCollider>())
-            return &entity.get_component<CubeCollider>().trigger;
+        if (entity.has_component<tbx::CubeCollider>())
+            return &entity.get_component<tbx::CubeCollider>().trigger;
 
-        if (entity.has_component<MeshCollider>())
-            return &entity.get_component<MeshCollider>().trigger;
+        if (entity.has_component<tbx::MeshCollider>())
+            return &entity.get_component<tbx::MeshCollider>().trigger;
 
         return nullptr;
     }
 
-    static ColliderTrigger* try_get_trigger_collider(tbx::Entity& entity)
+    static tbx::ColliderTrigger* try_get_trigger_collider(tbx::Entity& entity)
     {
-        if (entity.has_component<SphereCollider>())
-            return &entity.get_component<SphereCollider>().trigger;
+        if (entity.has_component<tbx::SphereCollider>())
+            return &entity.get_component<tbx::SphereCollider>().trigger;
 
-        if (entity.has_component<CapsuleCollider>())
-            return &entity.get_component<CapsuleCollider>().trigger;
+        if (entity.has_component<tbx::CapsuleCollider>())
+            return &entity.get_component<tbx::CapsuleCollider>().trigger;
 
-        if (entity.has_component<CubeCollider>())
-            return &entity.get_component<CubeCollider>().trigger;
+        if (entity.has_component<tbx::CubeCollider>())
+            return &entity.get_component<tbx::CubeCollider>().trigger;
 
-        if (entity.has_component<MeshCollider>())
-            return &entity.get_component<MeshCollider>().trigger;
+        if (entity.has_component<tbx::MeshCollider>())
+            return &entity.get_component<tbx::MeshCollider>().trigger;
 
         return nullptr;
     }
 
     static bool is_trigger_only_collider(const tbx::Entity& entity)
     {
-        const ColliderTrigger* trigger = try_get_trigger_collider(entity);
+        const tbx::ColliderTrigger* trigger = try_get_trigger_collider(entity);
         if (trigger == nullptr)
             return false;
 
@@ -775,16 +775,16 @@ namespace jolt_physics
         const tbx::Transform& transform,
         bool is_physics_driven)
     {
-        if (entity.has_component<SphereCollider>())
-            return create_sphere_shape(entity.get_component<SphereCollider>());
+        if (entity.has_component<tbx::SphereCollider>())
+            return create_sphere_shape(entity.get_component<tbx::SphereCollider>());
 
-        if (entity.has_component<CapsuleCollider>())
-            return create_capsule_shape(entity.get_component<CapsuleCollider>());
+        if (entity.has_component<tbx::CapsuleCollider>())
+            return create_capsule_shape(entity.get_component<tbx::CapsuleCollider>());
 
-        if (entity.has_component<CubeCollider>())
-            return create_box_shape(entity.get_component<CubeCollider>());
+        if (entity.has_component<tbx::CubeCollider>())
+            return create_box_shape(entity.get_component<tbx::CubeCollider>());
 
-        if (entity.has_component<MeshCollider>())
+        if (entity.has_component<tbx::MeshCollider>())
         {
             JPH::RefConst<JPH::Shape> mesh_shape =
                 create_mesh_shape(host, entity, transform, is_physics_driven);
@@ -794,13 +794,13 @@ namespace jolt_physics
             return new JPH::BoxShape(JPH::Vec3(0.5F, 0.5F, 0.5F));
         }
 
-        if (!entity.has_component<Physics>())
+        if (!entity.has_component<tbx::Physics>())
             return nullptr;
 
         return new JPH::BoxShape(JPH::Vec3(0.5F, 0.5F, 0.5F));
     }
 
-    static JPH::EMotionType get_motion_type(const Physics& physics)
+    static JPH::EMotionType get_motion_type(const tbx::Physics& physics)
     {
         if (physics.is_kinematic)
             return JPH::EMotionType::Kinematic;
@@ -909,7 +909,7 @@ namespace jolt_physics
 
     void JoltPhysicsPlugin::on_recieve_message(tbx::Message& msg)
     {
-        if (auto* raycast_request = handle_message<RaycastRequest>(msg))
+        if (auto* raycast_request = handle_message<tbx::RaycastRequest>(msg))
         {
             run_on_physics_lane_and_wait(
                 [this, raycast_request]()
@@ -984,8 +984,8 @@ namespace jolt_physics
         {
             tbx::Uuid entity_id = entity.get_id();
 
-            const auto world_transform = get_world_space_transform(entity);
-            const bool has_physics_component = entity.has_component<Physics>();
+            const auto world_transform = tbx::get_world_space_transform(entity);
+            const bool has_physics_component = entity.has_component<tbx::Physics>();
             const bool has_collider = has_any_collider(entity);
             if (!has_physics_component && !has_collider)
                 continue;
@@ -993,7 +993,7 @@ namespace jolt_physics
             const bool is_trigger_only = is_trigger_only_collider(entity);
 
             const auto* physics =
-                has_physics_component ? &entity.get_component<Physics>() : nullptr;
+                has_physics_component ? &entity.get_component<tbx::Physics>() : nullptr;
             const bool is_physics_driven = physics != nullptr && physics->is_valid();
             if (has_physics_component && !is_physics_driven)
                 continue;
@@ -1033,7 +1033,7 @@ namespace jolt_physics
                 body_it = _bodies_by_entity.end();
             }
             else if (
-                body_it != _bodies_by_entity.end() && entity.has_component<MeshCollider>()
+                body_it != _bodies_by_entity.end() && entity.has_component<tbx::MeshCollider>()
                 && body_it->second.has_last_transform
                 && has_scale_changed(world_transform.scale, body_it->second.last_scale))
             {
@@ -1088,7 +1088,7 @@ namespace jolt_physics
                 {
                     TBX_TRACE_WARNING(
                         "Jolt physics: failed to create a body for entity {}.",
-                        to_string(entity_id));
+                        tbx::to_string(entity_id));
                     continue;
                 }
 
@@ -1149,7 +1149,7 @@ namespace jolt_physics
             }
             else if (transform_is_dirty)
             {
-                if (physics->transform_sync_mode == PhysicsTransformSyncMode::TELEPORT)
+                if (physics->transform_sync_mode == tbx::PhysicsTransformSyncMode::TELEPORT)
                 {
                     body_interface.SetPositionAndRotation(
                         body_id,
@@ -1157,7 +1157,7 @@ namespace jolt_physics
                         to_jolt_quat(world_transform.rotation),
                         JPH::EActivation::Activate);
                 }
-                else if (physics->transform_sync_mode == PhysicsTransformSyncMode::SWEEP)
+                else if (physics->transform_sync_mode == tbx::PhysicsTransformSyncMode::SWEEP)
                 {
                     const tbx::Vec3 current_position =
                         to_tbx_vec3_from_rvec3(body_interface.GetPosition(body_id));
@@ -1233,9 +1233,9 @@ namespace jolt_physics
             if (!body_interface.IsAdded(body_id))
                 continue;
 
-            if (!registry.has<Physics>(entity_id))
+            if (!registry.has<tbx::Physics>(entity_id))
             {
-                const auto world_transform = get_world_space_transform(entity);
+                const auto world_transform = tbx::get_world_space_transform(entity);
                 body_record.last_position = world_transform.position;
                 body_record.last_rotation = world_transform.rotation;
                 body_record.last_scale = world_transform.scale;
@@ -1243,13 +1243,13 @@ namespace jolt_physics
                 continue;
             }
 
-            auto& physics = registry.get_with<Physics>(entity_id);
+            auto& physics = registry.get_with<tbx::Physics>(entity_id);
             physics.linear_velocity = to_tbx_vec3(body_interface.GetLinearVelocity(body_id));
             physics.angular_velocity = to_tbx_vec3(body_interface.GetAngularVelocity(body_id));
 
             if (physics.is_kinematic)
             {
-                const auto world_transform = get_world_space_transform(entity);
+                const auto world_transform = tbx::get_world_space_transform(entity);
                 body_record.last_position = world_transform.position;
                 body_record.last_rotation = world_transform.rotation;
                 body_record.last_scale = world_transform.scale;
@@ -1265,9 +1265,9 @@ namespace jolt_physics
             auto parent_entity = tbx::Entity {};
             if (entity.try_get_parent_entity(parent_entity))
             {
-                const auto parent_world_transform = get_world_space_transform(parent_entity);
+                const auto parent_world_transform = tbx::get_world_space_transform(parent_entity);
                 const auto local_transform =
-                    world_to_local_tranform(parent_world_transform, world_transform);
+                    tbx::world_to_local_tranform(parent_world_transform, world_transform);
                 transform.position = local_transform.position;
                 transform.rotation = local_transform.rotation;
             }
@@ -1319,7 +1319,7 @@ namespace jolt_physics
                 {
                     for (const tbx::Uuid& overlapped_entity_id : previous_overlaps_it->second)
                     {
-                        const ColliderOverlapEvent event = ColliderOverlapEvent {
+                        const tbx::ColliderOverlapEvent event = tbx::ColliderOverlapEvent {
                             .trigger_entity_id = trigger_entity_id,
                             .overlapped_entity_id = overlapped_entity_id,
                         };
@@ -1389,7 +1389,7 @@ namespace jolt_physics
             auto& previous_overlaps = _overlap_entities_by_trigger[trigger_entity_id];
             for (const tbx::Uuid& overlapped_entity_id : current_overlaps)
             {
-                const ColliderOverlapEvent event = ColliderOverlapEvent {
+                const tbx::ColliderOverlapEvent event = tbx::ColliderOverlapEvent {
                     .trigger_entity_id = trigger_entity_id,
                     .overlapped_entity_id = overlapped_entity_id,
                 };
@@ -1408,7 +1408,7 @@ namespace jolt_physics
                 if (current_overlaps.contains(overlapped_entity_id))
                     continue;
 
-                const ColliderOverlapEvent event = ColliderOverlapEvent {
+                const tbx::ColliderOverlapEvent event = tbx::ColliderOverlapEvent {
                     .trigger_entity_id = trigger_entity_id,
                     .overlapped_entity_id = overlapped_entity_id,
                 };
@@ -1442,13 +1442,13 @@ namespace jolt_physics
             _overlap_entities_by_trigger.erase(stale_trigger_entity);
     }
 
-    void JoltPhysicsPlugin::handle_raycast_request(RaycastRequest& request) const
+    void JoltPhysicsPlugin::handle_raycast_request(tbx::RaycastRequest& request) const
     {
-        request.result = RaycastResult {};
+        request.result = tbx::RaycastResult {};
         if (!_is_ready)
         {
-            request.state = MessageState::ERROR;
-            request.Message::result.flag_failure("Physics backend is not initialized.");
+            request.state = tbx::MessageState::ERROR;
+            request.Message::result.flag_failure("tbx::Physics backend is not initialized.");
             return;
         }
 
@@ -1496,7 +1496,7 @@ namespace jolt_physics
             }
         }
 
-        request.state = MessageState::HANDLED;
+        request.state = tbx::MessageState::HANDLED;
         request.Message::result.flag_success();
     }
 }

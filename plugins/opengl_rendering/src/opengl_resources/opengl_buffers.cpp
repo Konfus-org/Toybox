@@ -32,7 +32,7 @@ namespace opengl_rendering
         }
     }
 
-    static GLenum vertex_type_to_gl_type(const VertexData& type)
+    static GLenum vertex_type_to_gl_type(const tbx::VertexData& type)
     {
         if (std::holds_alternative<tbx::Vec2>(type))
         {
@@ -42,7 +42,7 @@ namespace opengl_rendering
         {
             return GL_FLOAT;
         }
-        if (std::holds_alternative<Color>(type))
+        if (std::holds_alternative<tbx::Color>(type))
         {
             return GL_FLOAT;
         }
@@ -72,7 +72,7 @@ namespace opengl_rendering
         }
     }
 
-    void OpenGlVertexBuffer::upload(const VertexBuffer& buffer)
+    void OpenGlVertexBuffer::upload(const tbx::VertexBuffer& buffer)
     {
         _count = static_cast<tbx::uint32>(buffer.vertices.size());
         glBufferData(
@@ -120,7 +120,7 @@ namespace opengl_rendering
         }
     }
 
-    void OpenGlIndexBuffer::upload(const IndexBuffer& buffer)
+    void OpenGlIndexBuffer::upload(const tbx::IndexBuffer& buffer)
     {
         _count = static_cast<tbx::uint32>(buffer.size());
         glBufferData(

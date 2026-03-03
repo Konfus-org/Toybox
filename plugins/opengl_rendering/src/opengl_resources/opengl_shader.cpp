@@ -13,15 +13,15 @@ namespace opengl_rendering
     {
         switch (type)
         {
-            case ShaderType::VERTEX:
+            case tbx::ShaderType::VERTEX:
                 return GL_VERTEX_SHADER;
-            case ShaderType::TESSELATION:
+            case tbx::ShaderType::TESSELATION:
                 return GL_TESS_EVALUATION_SHADER;
-            case ShaderType::GEOMETRY:
+            case tbx::ShaderType::GEOMETRY:
                 return GL_GEOMETRY_SHADER;
-            case ShaderType::FRAGMENT:
+            case tbx::ShaderType::FRAGMENT:
                 return GL_FRAGMENT_SHADER;
-            case ShaderType::COMPUTE:
+            case tbx::ShaderType::COMPUTE:
                 return GL_COMPUTE_SHADER;
             default:
                 TBX_ASSERT(false, "OpenGL rendering: unsupported shader type.");
@@ -33,7 +33,7 @@ namespace opengl_rendering
     {
         GLint length = 0;
         glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &length);
-        std::string error_log(static_cast<uint64>(length), '\0');
+        std::string error_log(static_cast<tbx::uint64>(length), '\0');
         glGetShaderInfoLog(shader_id, length, &length, error_log.data());
         TBX_ASSERT(
             false,
@@ -46,7 +46,7 @@ namespace opengl_rendering
     {
         GLint length = 0;
         glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &length);
-        std::string error_log(static_cast<uint64>(length), '\0');
+        std::string error_log(static_cast<tbx::uint64>(length), '\0');
         glGetProgramInfoLog(program_id, length, &length, error_log.data());
         TBX_ASSERT(false, "OpenGL rendering: shader program link failure. {}", error_log);
     }
@@ -56,7 +56,7 @@ namespace opengl_rendering
         return glGetUniformLocation(program_id, name.c_str());
     }
 
-    static void upload_uniform_value(GLint location, const UniformData& data)
+    static void upload_uniform_value(GLint location, const tbx::UniformData& data)
     {
         std::visit(
             [location](const auto& value)
@@ -90,11 +90,11 @@ namespace opengl_rendering
                 {
                     glUniform4f(location, value.x, value.y, value.z, value.w);
                 }
-                else if constexpr (std::is_same_v<ValueType, Color>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Color>)
                 {
                     glUniform4f(location, value.r, value.g, value.b, value.a);
                 }
-                else if constexpr (std::is_same_v<ValueType, Mat3>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Mat3>)
                 {
                     glUniformMatrix3fv(location, 1, GL_FALSE, glm::value_ptr(value));
                 }
@@ -114,7 +114,7 @@ namespace opengl_rendering
         : _type(shader.type)
     {
         TBX_ASSERT(
-            shader.type != ShaderType::NONE,
+            shader.type != tbx::ShaderType::NONE,
             "OpenGL rendering: shader source type must be a concrete stage.");
         TBX_ASSERT(!shader.source.empty(), "OpenGL rendering: shader source must not be empty.");
 

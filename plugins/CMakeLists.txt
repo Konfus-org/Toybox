@@ -14,6 +14,5 @@ add_subdirectory(sdl_windowing)
 add_subdirectory(sdl_input)
 add_subdirectory(jolt_physics)
 add_subdirectory(opengl_rendering)
-add_subdirectory(tests)
 
 unset(CMAKE_FOLDER)

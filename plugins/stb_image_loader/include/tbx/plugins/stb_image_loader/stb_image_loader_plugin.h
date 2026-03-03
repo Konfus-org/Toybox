@@ -1,12 +1,9 @@
 #pragma once
-#include "tbx/assets/asset_manager.h"
 #include "tbx/assets/messages.h"
 #include "tbx/files/file_ops.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_export.h"
-#include <filesystem>
 #include <memory>
-
 
 namespace stb_image_loader
 {
@@ -14,8 +11,9 @@ namespace stb_image_loader
     /// Purpose: Loads texture assets into tbx::Texture payloads using stb_image.
     /// </summary>
     /// <remarks>
-    /// Ownership: tbx::Plugin lifetime is owned by the host; it keeps non-owning references to the host.
-    /// Thread Safety: Handles asset messages on the dispatcher thread; no internal synchronization.
+    /// Ownership: tbx::Plugin lifetime is owned by the host; it keeps non-owning references to the
+    /// host. Thread Safety: Handles asset messages on the dispatcher thread; no internal
+    /// synchronization.
     /// </remarks>
     class TBX_PLUGIN_API StbImageLoaderPlugin final : public tbx::Plugin
     {
@@ -48,18 +46,9 @@ namespace stb_image_loader
         /// </remarks>
         void on_recieve_message(tbx::Message& msg) override;
 
-        /// <summary>
-        /// Purpose: Overrides filesystem operations used by the loader.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Shares ownership of file_ops with the caller.
-        /// Thread Safety: Call before dispatching load messages.
-        /// </remarks>
-        void set_file_ops(std::shared_ptr<IFileOps> file_ops);
-
       private:
-        void on_load_texture_request(LoadTextureRequest& request);
+        void on_load_texture_request(tbx::LoadTextureRequest& request) const;
 
-        std::shared_ptr<IFileOps> _file_ops = {};
+        std::unique_ptr<tbx::IFileOps> _file_ops = {};
     };
 }

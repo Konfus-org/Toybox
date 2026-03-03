@@ -12,7 +12,7 @@ namespace opengl_rendering
         OpenGlVertexBuffer();
         ~OpenGlVertexBuffer() noexcept override;
 
-        void upload(const VertexBuffer& buffer);
+        void upload(const tbx::VertexBuffer& buffer);
         void bind() override;
         void unbind() override;
 
@@ -29,7 +29,7 @@ namespace opengl_rendering
         OpenGlIndexBuffer();
         ~OpenGlIndexBuffer() noexcept override;
 
-        void upload(const IndexBuffer& buffer);
+        void upload(const tbx::IndexBuffer& buffer);
         void bind() override;
         void unbind() override;
 

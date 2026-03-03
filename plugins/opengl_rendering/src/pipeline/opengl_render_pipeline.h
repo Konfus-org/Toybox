@@ -5,7 +5,7 @@
 
 namespace opengl_rendering
 {
-    class OpenGlRenderPipeline final : public Pipeline
+    class OpenGlRenderPipeline final : public tbx::Pipeline
     {
       public:
         OpenGlRenderPipeline();

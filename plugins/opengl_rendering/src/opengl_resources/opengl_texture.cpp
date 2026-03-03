@@ -13,7 +13,7 @@ namespace opengl_rendering
 
     static GLint calculate_mipmap_levels(const tbx::Texture& texture)
     {
-        if (texture.mipmaps != TextureMipmaps::ENABLED)
+        if (texture.mipmaps != tbx::TextureMipmaps::ENABLED)
             return 1;
 
         int max_dimension =
@@ -32,11 +32,11 @@ namespace opengl_rendering
     {
         switch (texture.filter)
         {
-            case TextureFilter::NEAREST:
-                return texture.mipmaps == TextureMipmaps::ENABLED ? GL_NEAREST_MIPMAP_NEAREST
+            case tbx::TextureFilter::NEAREST:
+                return texture.mipmaps == tbx::TextureMipmaps::ENABLED ? GL_NEAREST_MIPMAP_NEAREST
                                                                   : GL_NEAREST;
-            case TextureFilter::LINEAR:
-                return texture.mipmaps == TextureMipmaps::ENABLED ? GL_LINEAR_MIPMAP_LINEAR
+            case tbx::TextureFilter::LINEAR:
+                return texture.mipmaps == tbx::TextureMipmaps::ENABLED ? GL_LINEAR_MIPMAP_LINEAR
                                                                   : GL_LINEAR;
             default:
                 TBX_ASSERT(false, "OpenGL rendering: unsupported texture filter.");
@@ -44,13 +44,13 @@ namespace opengl_rendering
         }
     }
 
-    static GLenum to_gl_texture_mag_filter(TextureFilter filter)
+    static GLenum to_gl_texture_mag_filter(tbx::TextureFilter filter)
     {
         switch (filter)
         {
-            case TextureFilter::NEAREST:
+            case tbx::TextureFilter::NEAREST:
                 return GL_NEAREST;
-            case TextureFilter::LINEAR:
+            case tbx::TextureFilter::LINEAR:
                 return GL_LINEAR;
             default:
                 TBX_ASSERT(false, "OpenGL rendering: unsupported texture filter.");
@@ -58,15 +58,15 @@ namespace opengl_rendering
         }
     }
 
-    static GLenum to_gl_texture_wrap(TextureWrap wrap)
+    static GLenum to_gl_texture_wrap(tbx::TextureWrap wrap)
     {
         switch (wrap)
         {
-            case TextureWrap::REPEAT:
+            case tbx::TextureWrap::REPEAT:
                 return GL_REPEAT;
-            case TextureWrap::MIRRORED_REPEAT:
+            case tbx::TextureWrap::MIRRORED_REPEAT:
                 return GL_MIRRORED_REPEAT;
-            case TextureWrap::CLAMP_TO_EDGE:
+            case tbx::TextureWrap::CLAMP_TO_EDGE:
                 return GL_CLAMP_TO_EDGE;
             default:
                 TBX_ASSERT(false, "OpenGL rendering: unsupported texture wrap.");
@@ -74,13 +74,13 @@ namespace opengl_rendering
         }
     }
 
-    static GlTextureFormat to_gl_texture_format(TextureFormat format)
+    static GlTextureFormat to_gl_texture_format(tbx::TextureFormat format)
     {
         switch (format)
         {
-            case TextureFormat::RGBA:
+            case tbx::TextureFormat::RGBA:
                 return GlTextureFormat {GL_RGBA8, GL_RGBA};
-            case TextureFormat::RGB:
+            case tbx::TextureFormat::RGB:
                 return GlTextureFormat {GL_RGB8, GL_RGB};
             default:
                 TBX_ASSERT(false, "OpenGL rendering: unsupported texture format.");
@@ -88,17 +88,17 @@ namespace opengl_rendering
         }
     }
 
-    static GLenum get_compressed_internal_format(TextureFormat format)
+    static GLenum get_compressed_internal_format(tbx::TextureFormat format)
     {
         switch (format)
         {
-            case TextureFormat::RGBA:
+            case tbx::TextureFormat::RGBA:
 #if defined(GL_COMPRESSED_RGBA8_ETC2_EAC)
                 return GL_COMPRESSED_RGBA8_ETC2_EAC;
 #else
                 return 0;
 #endif
-            case TextureFormat::RGB:
+            case tbx::TextureFormat::RGB:
 #if defined(GL_COMPRESSED_RGB8_ETC2)
                 return GL_COMPRESSED_RGB8_ETC2;
 #else
@@ -126,7 +126,7 @@ namespace opengl_rendering
 
     static GLenum resolve_internal_format(const tbx::Texture& texture, GLenum fallback_internal_format)
     {
-        if (texture.compression == TextureCompression::DISABLED)
+        if (texture.compression == tbx::TextureCompression::DISABLED)
             return fallback_internal_format;
 
         const GLenum compressed = get_compressed_internal_format(texture.format);
@@ -173,7 +173,7 @@ namespace opengl_rendering
             format.data_format,
             GL_UNSIGNED_BYTE,
             texture.pixels.data());
-        if (texture.mipmaps == TextureMipmaps::ENABLED)
+        if (texture.mipmaps == tbx::TextureMipmaps::ENABLED)
             glGenerateTextureMipmap(_texture_id);
     }
 

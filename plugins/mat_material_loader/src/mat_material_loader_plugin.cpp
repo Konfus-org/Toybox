@@ -27,9 +27,9 @@ namespace mat_material_loader
         return message;
     }
 
-    static Uuid parse_uuid_text(std::string_view value)
+    static tbx::Uuid parse_uuid_text(std::string_view value)
     {
-        std::string trimmed = trim(value);
+        std::string trimmed = tbx::trim(value);
         if (trimmed.empty())
         {
             return {};
@@ -46,7 +46,7 @@ namespace mat_material_loader
                 return {};
         }
 
-        uint32 parsed = 0U;
+        tbx::uint32 parsed = 0U;
         auto result = std::from_chars(trimmed.data(), trimmed.data() + trimmed.size(), parsed, 16);
         if (result.ec != std::errc())
         {
@@ -59,28 +59,28 @@ namespace mat_material_loader
             return {};
         }
 
-        return Uuid(parsed);
+        return tbx::Uuid(parsed);
     }
 
-    static Handle parse_asset_handle(std::string_view value)
+    static tbx::Handle parse_asset_handle(std::string_view value)
     {
-        std::string trimmed = trim(value);
+        std::string trimmed = tbx::trim(value);
         if (trimmed.empty())
         {
             return {};
         }
 
-        Uuid parsed = parse_uuid_text(trimmed);
+        tbx::Uuid parsed = parse_uuid_text(trimmed);
         if (parsed.is_valid())
         {
-            return Handle(parsed);
+            return tbx::Handle(parsed);
         }
 
-        return Handle(std::string(trimmed));
+        return tbx::Handle(std::string(trimmed));
     }
 
     static bool try_parse_parameter_entry(
-        const Json& entry,
+        const tbx::Json& entry,
         tbx::Material& out_material,
         std::string& error_message)
     {
@@ -98,7 +98,7 @@ namespace mat_material_loader
             return false;
         }
 
-        std::string type_text = to_lower(type_name);
+        std::string type_text = tbx::to_lower(type_name);
         if (type_text == "bool")
         {
             bool value = false;
@@ -137,11 +137,11 @@ namespace mat_material_loader
 
         if (type_text == "texture")
         {
-            Handle handle = {};
-            Uuid asset_id = {};
-            if (entry.try_get<Uuid>("value", asset_id))
+            tbx::Handle handle = {};
+            tbx::Uuid asset_id = {};
+            if (entry.try_get<tbx::Uuid>("value", asset_id))
             {
-                handle = Handle(asset_id);
+                handle = tbx::Handle(asset_id);
             }
             else
             {
@@ -154,7 +154,7 @@ namespace mat_material_loader
                 }
                 if (!asset_name.empty())
                 {
-                    handle = Handle(asset_name);
+                    handle = tbx::Handle(asset_name);
                 }
             }
             out_material.textures.set(name, std::move(handle));
@@ -163,11 +163,11 @@ namespace mat_material_loader
 
         if (type_text == "shader")
         {
-            Handle handle = {};
-            Uuid asset_id = {};
-            if (entry.try_get<Uuid>("value", asset_id))
+            tbx::Handle handle = {};
+            tbx::Uuid asset_id = {};
+            if (entry.try_get<tbx::Uuid>("value", asset_id))
             {
-                handle = Handle(asset_id);
+                handle = tbx::Handle(asset_id);
             }
             else
             {
@@ -180,7 +180,7 @@ namespace mat_material_loader
                 }
                 if (!asset_name.empty())
                 {
-                    handle = Handle(asset_name);
+                    handle = tbx::Handle(asset_name);
                 }
             }
 
@@ -274,16 +274,16 @@ namespace mat_material_loader
     {
         try
         {
-            Json data(file_data);
+            tbx::Json data(file_data);
             tbx::Material material = tbx::Material();
 
-            Json shaders_data;
+            tbx::Json shaders_data;
             if (data.try_get_child("shaders", shaders_data))
             {
-                Uuid vertex_id = {};
-                if (shaders_data.try_get<Uuid>("vertex", vertex_id))
+                tbx::Uuid vertex_id = {};
+                if (shaders_data.try_get<tbx::Uuid>("vertex", vertex_id))
                 {
-                    material.program.vertex = Handle(vertex_id);
+                    material.program.vertex = tbx::Handle(vertex_id);
                 }
                 else
                 {
@@ -292,10 +292,10 @@ namespace mat_material_loader
                         material.program.vertex = parse_asset_handle(vertex_text);
                 }
 
-                Uuid fragment_id = {};
-                if (shaders_data.try_get<Uuid>("fragment", fragment_id))
+                tbx::Uuid fragment_id = {};
+                if (shaders_data.try_get<tbx::Uuid>("fragment", fragment_id))
                 {
-                    material.program.fragment = Handle(fragment_id);
+                    material.program.fragment = tbx::Handle(fragment_id);
                 }
                 else
                 {
@@ -304,10 +304,10 @@ namespace mat_material_loader
                         material.program.fragment = parse_asset_handle(fragment_text);
                 }
 
-                Uuid tesselation_id = {};
-                if (shaders_data.try_get<Uuid>("tesselation", tesselation_id))
+                tbx::Uuid tesselation_id = {};
+                if (shaders_data.try_get<tbx::Uuid>("tesselation", tesselation_id))
                 {
-                    material.program.tesselation = Handle(tesselation_id);
+                    material.program.tesselation = tbx::Handle(tesselation_id);
                 }
                 else
                 {
@@ -322,10 +322,10 @@ namespace mat_material_loader
                     }
                 }
 
-                Uuid geometry_id = {};
-                if (shaders_data.try_get<Uuid>("geometry", geometry_id))
+                tbx::Uuid geometry_id = {};
+                if (shaders_data.try_get<tbx::Uuid>("geometry", geometry_id))
                 {
-                    material.program.geometry = Handle(geometry_id);
+                    material.program.geometry = tbx::Handle(geometry_id);
                 }
                 else
                 {
@@ -334,10 +334,10 @@ namespace mat_material_loader
                         material.program.geometry = parse_asset_handle(geometry_text);
                 }
 
-                Uuid compute_id = {};
-                if (shaders_data.try_get<Uuid>("compute", compute_id))
+                tbx::Uuid compute_id = {};
+                if (shaders_data.try_get<tbx::Uuid>("compute", compute_id))
                 {
-                    material.program.compute = Handle(compute_id);
+                    material.program.compute = tbx::Handle(compute_id);
                 }
                 else
                 {
@@ -368,11 +368,11 @@ namespace mat_material_loader
             }
             else
             {
-                Uuid shader_id = {};
-                Handle shader_handle = {};
-                if (data.try_get<Uuid>("shader", shader_id))
+                tbx::Uuid shader_id = {};
+                tbx::Handle shader_handle = {};
+                if (data.try_get<tbx::Uuid>("shader", shader_id))
                 {
-                    shader_handle = Handle(shader_id);
+                    shader_handle = tbx::Handle(shader_id);
                 }
                 else
                 {
@@ -388,7 +388,7 @@ namespace mat_material_loader
                 }
             }
 
-            std::vector<Json> texture_entries;
+            std::vector<tbx::Json> texture_entries;
             if (data.try_get_children("textures", texture_entries))
             {
                 material.textures.values.reserve(
@@ -402,11 +402,11 @@ namespace mat_material_loader
                         return false;
                     }
 
-                    Handle handle = {};
-                    Uuid asset_id = {};
-                    if (entry.try_get<Uuid>("value", asset_id))
+                    tbx::Handle handle = {};
+                    tbx::Uuid asset_id = {};
+                    if (entry.try_get<tbx::Uuid>("value", asset_id))
                     {
-                        handle = Handle(asset_id);
+                        handle = tbx::Handle(asset_id);
                     }
                     else
                     {
@@ -424,7 +424,7 @@ namespace mat_material_loader
                 }
             }
 
-            std::vector<Json> entries;
+            std::vector<tbx::Json> entries;
             if (data.try_get_children("parameters", entries))
             {
                 for (const auto& entry : entries)
@@ -450,7 +450,7 @@ namespace mat_material_loader
     {
         _working_directory = host.get_settings().paths.working_directory;
         if (!_file_ops)
-            _file_ops = std::make_shared<FileOperator>(_working_directory);
+            _file_ops = std::make_shared<tbx::FileOperator>(_working_directory);
     }
 
     void MatMaterialLoaderPlugin::on_detach()
@@ -465,7 +465,7 @@ namespace mat_material_loader
 
     void MatMaterialLoaderPlugin::on_recieve_message(tbx::Message& msg)
     {
-        auto* request = handle_message<LoadMaterialRequest>(msg);
+        auto* request = handle_message<tbx::LoadMaterialRequest>(msg);
         if (!request)
         {
             return;
@@ -474,41 +474,41 @@ namespace mat_material_loader
         on_load_material_request(*request);
     }
 
-    void MatMaterialLoaderPlugin::on_load_material_request(LoadMaterialRequest& request)
+    void MatMaterialLoaderPlugin::on_load_material_request(tbx::LoadMaterialRequest& request)
     {
         auto* asset = request.asset;
         if (!asset)
         {
-            request.state = MessageState::ERROR;
+            request.state = tbx::MessageState::ERROR;
             request.result.flag_failure("tbx::Material loader: missing material asset wrapper.");
             return;
         }
 
         if (request.cancellation_token && request.cancellation_token.is_cancelled())
         {
-            request.state = MessageState::CANCELLED;
+            request.state = tbx::MessageState::CANCELLED;
             request.result.flag_failure("tbx::Material loader cancelled.");
             return;
         }
 
         if (!_file_ops)
         {
-            request.state = MessageState::ERROR;
+            request.state = tbx::MessageState::ERROR;
             request.result.flag_failure("tbx::Material loader: file services unavailable.");
             return;
         }
 
         if (request.path.extension() != ".mat")
         {
-            request.state = MessageState::ERROR;
+            request.state = tbx::MessageState::ERROR;
             request.result.flag_failure("tbx::Material loader: unsupported material file extension.");
             return;
         }
 
         std::string file_data;
-        if (!_file_ops->read_file(request.path, FileDataFormat::UTF8_TEXT, file_data))
+        if (!_file_ops->read_file(request.path, tbx::FileDataFormat::UTF8_TEXT, file_data))
         {
-            request.state = MessageState::ERROR;
+            request.state = tbx::MessageState::ERROR;
             request.result.flag_failure(
                 build_load_failure_message(request.path, "file could not be read"));
             return;
@@ -518,13 +518,13 @@ namespace mat_material_loader
         std::string parse_error;
         if (!try_parse_material(file_data, parsed_material, parse_error))
         {
-            request.state = MessageState::ERROR;
+            request.state = tbx::MessageState::ERROR;
             request.result.flag_failure(build_load_failure_message(request.path, parse_error));
             return;
         }
 
         *asset = std::move(parsed_material);
 
-        request.state = MessageState::HANDLED;
+        request.state = tbx::MessageState::HANDLED;
     }
 }

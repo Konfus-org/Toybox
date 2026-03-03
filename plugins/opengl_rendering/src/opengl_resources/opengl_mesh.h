@@ -30,13 +30,13 @@ namespace opengl_rendering
         /// <remarks>Purpose: Updates vertex data for the mesh.
         /// Ownership: Copies data to the GPU; caller retains CPU ownership.
         /// Thread Safety: Call only on the render thread.</remarks>
-        void set_vertex_buffer(const VertexBuffer& buffer);
+        void set_vertex_buffer(const tbx::VertexBuffer& buffer);
 
         /// <summary>Uploads an index buffer to the mesh.</summary>
         /// <remarks>Purpose: Updates index data for the mesh.
         /// Ownership: Copies data to the GPU; caller retains CPU ownership.
         /// Thread Safety: Call only on the render thread.</remarks>
-        void set_index_buffer(const IndexBuffer& buffer);
+        void set_index_buffer(const tbx::IndexBuffer& buffer);
 
         /// <summary>Issues a draw call for the mesh.</summary>
         /// <remarks>Purpose: Draws indexed triangles or patches for the mesh.

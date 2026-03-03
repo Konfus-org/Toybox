@@ -7,15 +7,15 @@
 #include <filesystem>
 #include <memory>
 
-
 namespace mat_material_loader
 {
     /// <summary>
     /// Purpose: Loads material assets from .mat JSON files.
     /// </summary>
     /// <remarks>
-    /// Ownership: tbx::Plugin lifetime is owned by the host; it keeps non-owning references to the host.
-    /// Thread Safety: Handles asset messages on the dispatcher thread; no internal synchronization.
+    /// Ownership: tbx::Plugin lifetime is owned by the host; it keeps non-owning references to the
+    /// host. Thread Safety: Handles asset messages on the dispatcher thread; no internal
+    /// synchronization.
     /// </remarks>
     class TBX_PLUGIN_API MatMaterialLoaderPlugin final : public tbx::Plugin
     {
@@ -48,20 +48,12 @@ namespace mat_material_loader
         /// </remarks>
         void on_recieve_message(tbx::Message& msg) override;
 
-        /// <summary>
-        /// Purpose: Overrides filesystem operations used by the loader.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Shares ownership of file_ops with the caller.
-        /// Thread Safety: Call before dispatching load messages.
-        /// </remarks>
-        void set_file_ops(std::shared_ptr<IFileOps> file_ops);
-
       private:
         void on_load_material_request(tbx::LoadMaterialRequest& request);
+        void set_file_ops(std::shared_ptr<tbx::IFileOps> file_ops);
         std::filesystem::path resolve_asset_path(const std::filesystem::path& path) const;
 
         std::filesystem::path _working_directory = {};
-        std::shared_ptr<IFileOps> _file_ops = {};
+        std::shared_ptr<tbx::IFileOps> _file_ops = {};
     };
 }

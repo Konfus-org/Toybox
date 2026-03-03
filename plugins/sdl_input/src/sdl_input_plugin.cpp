@@ -30,8 +30,8 @@ namespace sdl_input
         SDL_RemoveEventWatch(accumulate_wheel_delta, this);
         std::string error_report = {};
         release_mouse_lock_window(&error_report);
-        _requested_mouse_lock_mode = MouseLockMode::UNLOCKED;
-        _mouse_lock_mode = MouseLockMode::UNLOCKED;
+        _requested_mouse_lock_mode = tbx::MouseLockMode::UNLOCKED;
+        _mouse_lock_mode = tbx::MouseLockMode::UNLOCKED;
 
         if (_owns_gamepad_subsystem)
             SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
@@ -46,38 +46,38 @@ namespace sdl_input
 
     void SdlInputPlugin::on_recieve_message(tbx::Message& msg)
     {
-        if (auto* request = handle_message<KeyboardStateRequest>(msg))
+        if (auto* request = handle_message<tbx::KeyboardStateRequest>(msg))
         {
             handle_keyboard_request(*request);
             return;
         }
 
-        if (auto* request = handle_message<MouseStateRequest>(msg))
+        if (auto* request = handle_message<tbx::MouseStateRequest>(msg))
         {
             handle_mouse_request(*request);
             return;
         }
 
-        if (auto* request = handle_message<SetMouseLockRequest>(msg))
+        if (auto* request = handle_message<tbx::SetMouseLockRequest>(msg))
         {
             handle_set_mouse_lock_request(*request);
             return;
         }
 
-        if (auto* request = handle_message<MouseLockModeRequest>(msg))
+        if (auto* request = handle_message<tbx::MouseLockModeRequest>(msg))
         {
             handle_mouse_lock_mode_request(*request);
             return;
         }
 
-        if (auto* request = handle_message<ControllerStateRequest>(msg))
+        if (auto* request = handle_message<tbx::ControllerStateRequest>(msg))
         {
             handle_controller_request(*request);
             return;
         }
     }
 
-    void SdlInputPlugin::handle_keyboard_request(KeyboardStateRequest& request) const
+    void SdlInputPlugin::handle_keyboard_request(tbx::KeyboardStateRequest& request) const
     {
         tbx::KeyboardState state = {};
 
@@ -93,11 +93,11 @@ namespace sdl_input
         }
 
         request.result = std::move(state);
-        request.state = MessageState::HANDLED;
+        request.state = tbx::MessageState::HANDLED;
         request.Message::result.flag_success();
     }
 
-    void SdlInputPlugin::handle_mouse_request(MouseStateRequest& request)
+    void SdlInputPlugin::handle_mouse_request(tbx::MouseStateRequest& request)
     {
         tbx::MouseState state = {};
 
@@ -130,26 +130,26 @@ namespace sdl_input
             state.pressed_buttons.insert(X2_BUTTON);
 
         request.result = std::move(state);
-        request.state = MessageState::HANDLED;
+        request.state = tbx::MessageState::HANDLED;
         request.Message::result.flag_success();
     }
 
-    void SdlInputPlugin::handle_set_mouse_lock_request(SetMouseLockRequest& request)
+    void SdlInputPlugin::handle_set_mouse_lock_request(tbx::SetMouseLockRequest& request)
     {
         _requested_mouse_lock_mode = request.mode;
         std::string error_report = {};
         const bool succeeded = apply_mouse_lock_mode(&error_report);
-        request.state = MessageState::HANDLED;
+        request.state = tbx::MessageState::HANDLED;
         if (succeeded)
             request.Message::result.flag_success();
         else
             request.Message::result.flag_failure(error_report);
     }
 
-    void SdlInputPlugin::handle_mouse_lock_mode_request(MouseLockModeRequest& request) const
+    void SdlInputPlugin::handle_mouse_lock_mode_request(tbx::MouseLockModeRequest& request) const
     {
         request.result = _mouse_lock_mode;
-        request.state = MessageState::HANDLED;
+        request.state = tbx::MessageState::HANDLED;
         request.Message::result.flag_success();
     }
 
@@ -178,22 +178,22 @@ namespace sdl_input
         if (!target_window)
             target_window = SDL_GetKeyboardFocus();
 
-        if (_requested_mouse_lock_mode == MouseLockMode::UNLOCKED)
+        if (_requested_mouse_lock_mode == tbx::MouseLockMode::UNLOCKED)
         {
             const bool released = release_mouse_lock_window(out_error_report);
-            _mouse_lock_mode = MouseLockMode::UNLOCKED;
+            _mouse_lock_mode = tbx::MouseLockMode::UNLOCKED;
             return released;
         }
 
-        MouseLockMode target_mode = _requested_mouse_lock_mode;
-        if (target_mode != MouseLockMode::UNLOCKED && is_maximized_fullscreen_window(target_window))
-            target_mode = MouseLockMode::INPUT_GRABBED;
+        tbx::MouseLockMode target_mode = _requested_mouse_lock_mode;
+        if (target_mode != tbx::MouseLockMode::UNLOCKED && is_maximized_fullscreen_window(target_window))
+            target_mode = tbx::MouseLockMode::INPUT_GRABBED;
 
         if (_mouse_lock_window && _mouse_lock_window != target_window)
         {
             if (!release_mouse_lock_window(out_error_report))
             {
-                _mouse_lock_mode = MouseLockMode::UNLOCKED;
+                _mouse_lock_mode = tbx::MouseLockMode::UNLOCKED;
                 return false;
             }
         }
@@ -202,16 +202,16 @@ namespace sdl_input
 
         if (!_mouse_lock_window)
         {
-            _mouse_lock_mode = MouseLockMode::UNLOCKED;
+            _mouse_lock_mode = tbx::MouseLockMode::UNLOCKED;
             assign_error_report("No focused window is available for mouse lock mode.");
             return false;
         }
 
-        if (target_mode == MouseLockMode::RELATIVE)
+        if (target_mode == tbx::MouseLockMode::RELATIVE)
         {
             if (!SDL_SetWindowMouseGrab(_mouse_lock_window, false))
             {
-                _mouse_lock_mode = MouseLockMode::UNLOCKED;
+                _mouse_lock_mode = tbx::MouseLockMode::UNLOCKED;
                 assign_error_report(
                     std::string("Failed to disable mouse grab before relative mode: ")
                     + SDL_GetError());
@@ -220,19 +220,19 @@ namespace sdl_input
 
             if (!SDL_SetWindowRelativeMouseMode(_mouse_lock_window, true))
             {
-                _mouse_lock_mode = MouseLockMode::UNLOCKED;
+                _mouse_lock_mode = tbx::MouseLockMode::UNLOCKED;
                 assign_error_report(
                     std::string("Failed to enable relative mouse mode: ") + SDL_GetError());
                 return false;
             }
 
-            _mouse_lock_mode = MouseLockMode::RELATIVE;
+            _mouse_lock_mode = tbx::MouseLockMode::RELATIVE;
             return true;
         }
 
         if (!SDL_SetWindowRelativeMouseMode(_mouse_lock_window, false))
         {
-            _mouse_lock_mode = MouseLockMode::UNLOCKED;
+            _mouse_lock_mode = tbx::MouseLockMode::UNLOCKED;
             assign_error_report(
                 std::string("Failed to disable relative mouse mode before grab mode: ")
                 + SDL_GetError());
@@ -241,12 +241,12 @@ namespace sdl_input
 
         if (!SDL_SetWindowMouseGrab(_mouse_lock_window, true))
         {
-            _mouse_lock_mode = MouseLockMode::UNLOCKED;
+            _mouse_lock_mode = tbx::MouseLockMode::UNLOCKED;
             assign_error_report(std::string("Failed to enable mouse grab mode: ") + SDL_GetError());
             return false;
         }
 
-        _mouse_lock_mode = MouseLockMode::INPUT_GRABBED;
+        _mouse_lock_mode = tbx::MouseLockMode::INPUT_GRABBED;
         return true;
     }
 
@@ -290,7 +290,7 @@ namespace sdl_input
         return is_fullscreen && is_maximized;
     }
 
-    void SdlInputPlugin::handle_controller_request(ControllerStateRequest& request) const
+    void SdlInputPlugin::handle_controller_request(tbx::ControllerStateRequest& request) const
     {
         tbx::ControllerState state = {};
         state.controller_index = request.controller_index;
@@ -304,7 +304,7 @@ namespace sdl_input
                 SDL_free(gamepad_ids);
 
             request.result = std::move(state);
-            request.state = MessageState::HANDLED;
+            request.state = tbx::MessageState::HANDLED;
             request.Message::result.flag_success();
             return;
         }
@@ -314,7 +314,7 @@ namespace sdl_input
         {
             SDL_free(gamepad_ids);
             request.result = std::move(state);
-            request.state = MessageState::HANDLED;
+            request.state = tbx::MessageState::HANDLED;
             request.Message::result.flag_success();
             return;
         }
@@ -338,7 +338,7 @@ namespace sdl_input
         SDL_free(gamepad_ids);
 
         request.result = std::move(state);
-        request.state = MessageState::HANDLED;
+        request.state = tbx::MessageState::HANDLED;
         request.Message::result.flag_success();
     }
 }
