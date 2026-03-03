@@ -1,7 +1,6 @@
 #include "opengl_resource_manager.h"
 #include "opengl_buffers.h"
 #include "opengl_post_processing_stack_resource.h"
-#include "opengl_shadow_map.h"
 #include "tbx/assets/builtin_assets.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/material.h"

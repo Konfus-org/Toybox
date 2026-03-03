@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/common/int.h"
 #include "tbx/ecs/entity.h"
 #include "tbx/examples/free_look_camera_controller.h"
 #include "tbx/examples/room.h"
@@ -46,7 +47,7 @@ namespace lighting_example
         void on_update(const tbx::DeltaTime& dt) override;
 
       private:
-        void rebuild_stress_lights(uint32 light_count);
+        void rebuild_stress_lights(tbx::uint32 light_count);
         void clear_stress_lights();
 
         examples_common::FreeLookCameraController _camera_controller = {};
@@ -72,7 +73,7 @@ namespace lighting_example
 
         double _elapsed_seconds = 0.0;
         bool _stress_mode_enabled = false;
-        uint32 _stress_light_count = 512U;
+        tbx::uint32 _stress_light_count = 512U;
         std::vector<tbx::Entity> _stress_point_lights = {};
     };
 }

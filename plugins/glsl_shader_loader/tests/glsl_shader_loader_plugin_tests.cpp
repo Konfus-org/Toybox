@@ -10,9 +10,9 @@ namespace glsl_shader_loader::tests
     TEST(importers, glsl_shader_loader_expands_includes_from_ifileops)
     {
         // Arrange
-        auto working_directory = get_test_working_directory();
-        TestPluginHost host = TestPluginHost(working_directory);
-        auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        auto working_directory = tbx::tests::plugin_api::get_test_working_directory();
+        tbx::tests::plugin_api::TestPluginHost host = tbx::tests::plugin_api::TestPluginHost(working_directory);
+        auto file_ops = std::make_shared<tbx::tests::plugin_api::InMemoryFileOps>(working_directory);
         file_ops->set_text(
             "Basic.vert",
             R"(#version 450
@@ -20,19 +20,19 @@ namespace glsl_shader_loader::tests
 void main() {}
 )");
         file_ops->set_text("Globals.glsl", "vec3 make_color(){ return vec3(1.0); }\n");
-        plugins::GlslShaderLoaderPlugin plugin = {};
+        glsl_shader_loader::GlslShaderLoaderPlugin plugin = {};
         plugin.set_file_ops(file_ops);
         plugin.attach(host);
         tbx::Shader shader = {};
-        LoadShaderRequest request("Basic.vert", &shader);
+        tbx::LoadShaderRequest request("Basic.vert", &shader);
 
         // Act
         plugin.receive_message(request);
 
         // Assert
-        EXPECT_EQ(request.state, MessageState::HANDLED);
+        EXPECT_EQ(request.state, tbx::MessageState::HANDLED);
         ASSERT_EQ(shader.sources.size(), 1U);
-        EXPECT_EQ(shader.sources[0].type, ShaderType::VERTEX);
+        EXPECT_EQ(shader.sources[0].type, tbx::ShaderType::VERTEX);
         EXPECT_NE(shader.sources[0].source.find("make_color"), std::string::npos);
     }
 
@@ -42,9 +42,9 @@ void main() {}
     TEST(importers, glsl_shader_loader_loads_compute_stage_with_includes)
     {
         // Arrange
-        auto working_directory = get_test_working_directory();
-        TestPluginHost host = TestPluginHost(working_directory);
-        auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        auto working_directory = tbx::tests::plugin_api::get_test_working_directory();
+        tbx::tests::plugin_api::TestPluginHost host = tbx::tests::plugin_api::TestPluginHost(working_directory);
+        auto file_ops = std::make_shared<tbx::tests::plugin_api::InMemoryFileOps>(working_directory);
         file_ops->set_text(
             "Culling.comp",
             R"(#version 450
@@ -52,19 +52,19 @@ void main() {}
 void main() { uint x = make_index(); }
 )");
         file_ops->set_text("Common.glsl", "uint make_index(){ return 0u; }\n");
-        plugins::GlslShaderLoaderPlugin plugin = {};
+        glsl_shader_loader::GlslShaderLoaderPlugin plugin = {};
         plugin.set_file_ops(file_ops);
         plugin.attach(host);
         tbx::Shader shader = {};
-        LoadShaderRequest request("Culling.comp", &shader);
+        tbx::LoadShaderRequest request("Culling.comp", &shader);
 
         // Act
         plugin.receive_message(request);
 
         // Assert
-        EXPECT_EQ(request.state, MessageState::HANDLED);
+        EXPECT_EQ(request.state, tbx::MessageState::HANDLED);
         ASSERT_EQ(shader.sources.size(), 1U);
-        EXPECT_EQ(shader.sources[0].type, ShaderType::COMPUTE);
+        EXPECT_EQ(shader.sources[0].type, tbx::ShaderType::COMPUTE);
         EXPECT_NE(shader.sources[0].source.find("make_index"), std::string::npos);
     }
 }

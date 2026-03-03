@@ -11,13 +11,13 @@ namespace assimp_model_loader::tests
     TEST(importers, assimp_loader_honors_cancellation_before_import)
     {
         // Arrange
-        auto working_directory = get_test_working_directory();
-        TestPluginHost host = TestPluginHost(working_directory);
-        plugins::AssimpModelLoaderPlugin plugin = {};
+        auto working_directory = tbx::tests::plugin_api::get_test_working_directory();
+        tbx::tests::plugin_api::TestPluginHost host = tbx::tests::plugin_api::TestPluginHost(working_directory);
+        assimp_model_loader::AssimpModelLoaderPlugin plugin = {};
         plugin.on_attach(host);
         tbx::Model model = {};
-        LoadModelRequest request("cancelled.fbx", &model);
-        CancellationSource cancellation = {};
+        tbx::LoadModelRequest request("cancelled.fbx", &model);
+        tbx::CancellationSource cancellation = {};
         cancellation.cancel();
         request.cancellation_token = cancellation.get_token();
 
@@ -25,6 +25,6 @@ namespace assimp_model_loader::tests
         plugin.on_recieve_message(request);
 
         // Assert
-        EXPECT_EQ(request.state, MessageState::CANCELLED);
+        EXPECT_EQ(request.state, tbx::MessageState::CANCELLED);
     }
 }

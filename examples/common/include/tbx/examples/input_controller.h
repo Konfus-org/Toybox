@@ -4,11 +4,12 @@
 
 namespace examples_common
 {
+    using namespace tbx;
     /// <summary>
     /// Purpose: Shares input-manager scheme binding and lookup behavior for runtime controllers.
     /// </summary>
     /// <remarks>
-    /// Ownership: Stores non-owning pointers/references to InputManager-owned scheme state.
+    /// Ownership: Stores non-owning pointers/references to tbx::InputManager-owned scheme state.
     /// Thread Safety: Not thread-safe; intended for main-thread ECS/input update usage.
     /// </remarks>
     class InputController
@@ -28,10 +29,10 @@ namespace examples_common
         /// Purpose: Records the manager and scheme name used for later scheme lookups.
         /// </summary>
         /// <remarks>
-        /// Ownership: Does not own InputManager; caller keeps manager alive.
+        /// Ownership: Does not own tbx::InputManager; caller keeps manager alive.
         /// Thread Safety: Main-thread only.
         /// </remarks>
-        void bind_input_context(InputManager& input_manager, const std::string& scheme_name);
+        void bind_input_context(tbx::InputManager& input_manager, const std::string& scheme_name);
 
         /// <summary>
         /// Purpose: Clears stored manager/scheme references.
@@ -52,16 +53,16 @@ namespace examples_common
         const std::string& get_input_scheme_name() const;
 
         /// <summary>
-        /// Purpose: Resolves the currently tracked scheme from InputManager storage.
+        /// Purpose: Resolves the currently tracked scheme from tbx::InputManager storage.
         /// </summary>
         /// <remarks>
-        /// Ownership: Returned reference is non-owning and owned by InputManager.
+        /// Ownership: Returned reference is non-owning and owned by tbx::InputManager.
         /// Thread Safety: Main-thread only.
         /// </remarks>
         tbx::InputScheme& get_registered_input_scheme() const;
 
       private:
-        InputManager* _input_manager = nullptr;
+        tbx::InputManager* _input_manager = nullptr;
         std::string _scheme_name = "";
     };
 }

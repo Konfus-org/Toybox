@@ -7,6 +7,7 @@
 
 namespace examples_common
 {
+    using namespace tbx;
     void Room::create(tbx::EntityRegistry& entity_registry, const RoomSettings& settings)
     {
         destroy();
