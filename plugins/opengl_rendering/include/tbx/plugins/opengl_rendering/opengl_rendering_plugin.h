@@ -1,4 +1,5 @@
 #pragma once
+#include "opengl_renderer.h"
 #include "tbx/common/uuid.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_export.h"
@@ -8,7 +9,6 @@
 
 namespace opengl_rendering
 {
-    class OpenGlRenderer;
 
     /// <summary>
     /// Purpose: Hosts OpenGL renderer instances for each window that publishes a ready context.

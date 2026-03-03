@@ -5,6 +5,7 @@
 
 namespace examples_common
 {
+    using namespace tbx;
     /// <summary>Configuration values used when initializing a free-look camera
     /// controller.</summary> <remarks> Purpose: Defines movement, look, and startup orientation
     /// values for camera control. Ownership: Value type copied by the controller; no external
@@ -43,16 +44,16 @@ namespace examples_common
         /// </remarks>
         virtual void initialize(
             tbx::Entity camera,
-            InputManager& input_manager,
+            tbx::InputManager& input_manager,
             const FreeLookCameraControllerSettings& settings);
 
         /// <summary>Clears input-scheme bindings and resets controller runtime state.</summary>
         /// <remarks>
         /// Purpose: Detaches the controller from input-manager scheme state.
-        /// Ownership: Does not own InputManager or ECS entities.
+        /// Ownership: Does not own tbx::InputManager or ECS entities.
         /// Thread Safety: Main-thread only.
         /// </remarks>
-        virtual void shutdown(InputManager& input_manager);
+        virtual void shutdown(tbx::InputManager& input_manager);
 
         /// <summary>Advances camera position/rotation for the frame using latest input
         /// state.</summary> <remarks> Purpose: Applies input-derived movement and look transforms

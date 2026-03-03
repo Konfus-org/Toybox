@@ -10,9 +10,9 @@ namespace stb_image_loader::tests
     TEST(importers, stb_image_loader_applies_texture_meta_settings)
     {
         // Arrange
-        auto working_directory = get_test_working_directory();
-        TestPluginHost host = TestPluginHost(working_directory);
-        auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        auto working_directory = tbx::tests::plugin_api::get_test_working_directory();
+        tbx::tests::plugin_api::TestPluginHost host = tbx::tests::plugin_api::TestPluginHost(working_directory);
+        auto file_ops = std::make_shared<tbx::tests::plugin_api::InMemoryFileOps>(working_directory);
         file_ops->set_binary(
             "test.png",
             std::vector<unsigned char> {
@@ -36,28 +36,28 @@ namespace stb_image_loader::tests
   }
 }
 )");
-        plugins::StbImageLoaderPlugin plugin = {};
+        stb_image_loader::StbImageLoaderPlugin plugin = {};
         plugin.set_file_ops(file_ops);
         plugin.on_attach(host);
         tbx::Texture texture = {};
-        LoadTextureRequest request(
+        tbx::LoadTextureRequest request(
             "test.png",
             &texture,
-            TextureWrap::REPEAT,
-            TextureFilter::LINEAR,
-            TextureFormat::RGB,
-            TextureMipmaps::ENABLED,
-            TextureCompression::DISABLED);
+            tbx::TextureWrap::REPEAT,
+            tbx::TextureFilter::LINEAR,
+            tbx::TextureFormat::RGB,
+            tbx::TextureMipmaps::ENABLED,
+            tbx::TextureCompression::DISABLED);
 
         // Act
         plugin.on_recieve_message(request);
 
         // Assert
-        EXPECT_EQ(request.state, MessageState::HANDLED);
-        EXPECT_EQ(texture.wrap, TextureWrap::CLAMP_TO_EDGE);
-        EXPECT_EQ(texture.filter, TextureFilter::NEAREST);
-        EXPECT_EQ(texture.format, TextureFormat::RGBA);
-        EXPECT_EQ(texture.mipmaps, TextureMipmaps::DISABLED);
-        EXPECT_EQ(texture.compression, TextureCompression::AUTO);
+        EXPECT_EQ(request.state, tbx::MessageState::HANDLED);
+        EXPECT_EQ(texture.wrap, tbx::TextureWrap::CLAMP_TO_EDGE);
+        EXPECT_EQ(texture.filter, tbx::TextureFilter::NEAREST);
+        EXPECT_EQ(texture.format, tbx::TextureFormat::RGBA);
+        EXPECT_EQ(texture.mipmaps, tbx::TextureMipmaps::DISABLED);
+        EXPECT_EQ(texture.compression, tbx::TextureCompression::AUTO);
     }
 }

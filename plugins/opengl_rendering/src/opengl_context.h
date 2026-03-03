@@ -19,29 +19,29 @@ namespace opengl_rendering
         /// <remarks>Purpose: Binds window context operations to a dispatcher and window id.
         /// Ownership: Keeps a non-owning dispatcher pointer; caller must keep dispatcher alive.
         /// Thread Safety: Safe to construct on one thread, use on render thread.</remarks>
-        OpenGlContext(IMessageDispatcher& dispatcher, const Uuid& window_id);
+        OpenGlContext(tbx::IMessageDispatcher& dispatcher, const tbx::Uuid& window_id);
 
         /// <summary>Returns the window identifier targeted by this context.</summary>
         /// <remarks>Purpose: Exposes the bound window id for diagnostics and routing.
         /// Ownership: Returns a const reference to context-owned id.
         /// Thread Safety: Read-only access is thread-compatible; operations remain render-thread
         /// only.</remarks>
-        const Uuid& get_window_id() const;
+        const tbx::Uuid& get_window_id() const;
 
         /// <summary>Requests that the bound window context become current.</summary>
         /// <remarks>Purpose: Routes a make-current request through the dispatcher.
         /// Ownership: No ownership transfer.
         /// Thread Safety: Call on render thread.</remarks>
-        Result make_current() const;
+        tbx::Result make_current() const;
 
         /// <summary>Requests present/swap for the bound window context.</summary>
         /// <remarks>Purpose: Routes a present request through the dispatcher.
         /// Ownership: No ownership transfer.
         /// Thread Safety: Call on render thread.</remarks>
-        Result present() const;
+        tbx::Result present() const;
 
       private:
-        std::reference_wrapper<IMessageDispatcher> _dispatcher;
-        Uuid _window_id = Uuid::NONE;
+        std::reference_wrapper<tbx::IMessageDispatcher> _dispatcher;
+        tbx::Uuid _window_id = tbx::Uuid::NONE;
     };
 }

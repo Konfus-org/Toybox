@@ -3,6 +3,7 @@
 
 namespace examples_common
 {
+    using namespace tbx;
     /// <summary>Settings used to create a reusable boxed room for rendering and physics
     /// examples.</summary> <remarks> Purpose: Defines transform and collider options for floor and
     /// wall geometry generation. Ownership: Value type copied by Room during creation. Thread

@@ -9,6 +9,7 @@
 
 namespace examples_common
 {
+    using namespace tbx;
     void PlayerController::initialize(
         tbx::EntityRegistry& entity_registry,
         InputManager& input_manager,
