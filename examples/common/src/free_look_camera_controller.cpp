@@ -7,6 +7,7 @@
 
 namespace examples_common
 {
+    using namespace tbx;
     void FreeLookCameraController::initialize(
         tbx::Entity camera,
         const FreeLookCameraControllerSettings& settings)
@@ -24,7 +25,7 @@ namespace examples_common
 
     void FreeLookCameraController::initialize(
         tbx::Entity camera,
-        InputManager& input_manager,
+        tbx::InputManager& input_manager,
         const FreeLookCameraControllerSettings& settings)
     {
         initialize(camera, settings);
@@ -42,14 +43,14 @@ namespace examples_common
         actions.push_back(create_up_down_action());
         input_manager.add_scheme(tbx::InputScheme(scheme_name, actions));
         input_manager.activate_scheme(scheme_name);
-        input_manager.set_mouse_lock_mode(MouseLockMode::RELATIVE);
+        input_manager.set_mouse_lock_mode(tbx::MouseLockMode::RELATIVE);
     }
 
-    void FreeLookCameraController::shutdown(InputManager& input_manager)
+    void FreeLookCameraController::shutdown(tbx::InputManager& input_manager)
     {
         if (!get_input_scheme_name().empty())
             input_manager.remove_scheme(get_input_scheme_name());
-        input_manager.set_mouse_lock_mode(MouseLockMode::UNLOCKED);
+        input_manager.set_mouse_lock_mode(tbx::MouseLockMode::UNLOCKED);
 
         clear_input_context();
         _move_axis = tbx::Vec2(0.0F, 0.0F);
@@ -108,17 +109,17 @@ namespace examples_common
     {
         return tbx::InputAction(
             "Move",
-            InputActionValueType::VECTOR2,
-            InputActionConstruction {
+            tbx::InputActionValueType::VECTOR2,
+            tbx::InputActionConstruction {
                 .bindings =
                     {
                         tbx::InputBinding {
                             .control =
-                                KeyboardVector2CompositeInputControl {
-                                    .up = InputKey::W,
-                                    .down = InputKey::S,
-                                    .left = InputKey::A,
-                                    .right = InputKey::D,
+                                tbx::KeyboardVector2CompositeInputControl {
+                                    .up = tbx::InputKey::W,
+                                    .down = tbx::InputKey::S,
+                                    .left = tbx::InputKey::A,
+                                    .right = tbx::InputKey::D,
                                 },
                             .scale = 1.0F,
                         },
@@ -146,14 +147,14 @@ namespace examples_common
     {
         return tbx::InputAction(
             "Look",
-            InputActionValueType::VECTOR2,
-            InputActionConstruction {
+            tbx::InputActionValueType::VECTOR2,
+            tbx::InputActionConstruction {
                 .bindings =
                     {
                         tbx::InputBinding {
                             .control =
-                                MouseVectorInputControl {
-                                    .control = InputMouseVectorControl::DELTA,
+                                tbx::MouseVectorInputControl {
+                                    .control = tbx::InputMouseVectorControl::DELTA,
                                 },
                             .scale = 1.0F,
                         },
@@ -181,15 +182,15 @@ namespace examples_common
     {
         return tbx::InputAction(
             "UpDown",
-            InputActionValueType::VECTOR2,
-            InputActionConstruction {
+            tbx::InputActionValueType::VECTOR2,
+            tbx::InputActionConstruction {
                 .bindings =
                     {
                         tbx::InputBinding {
                             .control =
-                                KeyboardVector2CompositeInputControl {
-                                    .up = InputKey::Q,
-                                    .down = InputKey::E,
+                                tbx::KeyboardVector2CompositeInputControl {
+                                    .up = tbx::InputKey::Q,
+                                    .down = tbx::InputKey::E,
                                 },
                             .scale = 1.0F,
                         },

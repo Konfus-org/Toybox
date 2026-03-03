@@ -10,9 +10,9 @@ namespace mat_material_loader::tests
     TEST(importers, mat_loader_parses_material_from_ifileops)
     {
         // Arrange
-        auto working_directory = get_test_working_directory();
-        TestPluginHost host = TestPluginHost(working_directory);
-        auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        auto working_directory = tbx::tests::plugin_api::get_test_working_directory();
+        tbx::tests::plugin_api::TestPluginHost host = tbx::tests::plugin_api::TestPluginHost(working_directory);
+        auto file_ops = std::make_shared<tbx::tests::plugin_api::InMemoryFileOps>(working_directory);
         file_ops->set_text(
             "Simple.mat",
             R"({
@@ -21,17 +21,17 @@ namespace mat_material_loader::tests
   "parameters": [{ "name": "roughness", "type": "float", "value": 0.4 }]
 }
 )");
-        plugins::MatMaterialLoaderPlugin plugin = {};
+        mat_material_loader::MatMaterialLoaderPlugin plugin = {};
         plugin.set_file_ops(file_ops);
         plugin.attach(host);
         tbx::Material material = {};
-        LoadMaterialRequest request("Simple.mat", &material);
+        tbx::LoadMaterialRequest request("Simple.mat", &material);
 
         // Act
         plugin.receive_message(request);
 
         // Assert
-        EXPECT_EQ(request.state, MessageState::HANDLED);
+        EXPECT_EQ(request.state, tbx::MessageState::HANDLED);
         EXPECT_TRUE(material.program.vertex.is_valid());
         EXPECT_TRUE(material.program.fragment.is_valid());
         EXPECT_TRUE(material.textures.has("diffuse"));
@@ -44,26 +44,26 @@ namespace mat_material_loader::tests
     TEST(importers, mat_loader_parses_compute_only_material)
     {
         // Arrange
-        auto working_directory = get_test_working_directory();
-        TestPluginHost host = TestPluginHost(working_directory);
-        auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        auto working_directory = tbx::tests::plugin_api::get_test_working_directory();
+        tbx::tests::plugin_api::TestPluginHost host = tbx::tests::plugin_api::TestPluginHost(working_directory);
+        auto file_ops = std::make_shared<tbx::tests::plugin_api::InMemoryFileOps>(working_directory);
         file_ops->set_text(
             "ComputeOnly.mat",
             R"({
   "shaders": { "compute": "303" }
 }
 )");
-        plugins::MatMaterialLoaderPlugin plugin = {};
+        mat_material_loader::MatMaterialLoaderPlugin plugin = {};
         plugin.set_file_ops(file_ops);
         plugin.attach(host);
         tbx::Material material = {};
-        LoadMaterialRequest request("ComputeOnly.mat", &material);
+        tbx::LoadMaterialRequest request("ComputeOnly.mat", &material);
 
         // Act
         plugin.receive_message(request);
 
         // Assert
-        EXPECT_EQ(request.state, MessageState::HANDLED);
+        EXPECT_EQ(request.state, tbx::MessageState::HANDLED);
         EXPECT_TRUE(material.program.compute.is_valid());
         EXPECT_FALSE(material.program.vertex.is_valid());
         EXPECT_FALSE(material.program.fragment.is_valid());

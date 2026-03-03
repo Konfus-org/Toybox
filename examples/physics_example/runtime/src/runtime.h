@@ -41,7 +41,7 @@ namespace physics_example
         bool _is_shoot_requested = false;
 
         size_t _spawned_projectile_count = 0U;
-        std::shared_ptr<tbx::Mesh> _projectile_mesh = std::make_shared<tbx::Mesh>(sphere);
+        std::shared_ptr<tbx::Mesh> _projectile_mesh = std::make_shared<tbx::Mesh>(tbx::sphere);
         std::vector<tbx::Entity> _active_projectiles = {};
         std::vector<double> _active_projectile_lifetimes = {};
     };

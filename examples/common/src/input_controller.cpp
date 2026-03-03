@@ -3,8 +3,9 @@
 
 namespace examples_common
 {
+    using namespace tbx;
     void InputController::bind_input_context(
-        InputManager& input_manager,
+        tbx::InputManager& input_manager,
         const std::string& scheme_name)
     {
         _input_manager = &input_manager;
@@ -27,7 +28,7 @@ namespace examples_common
         static auto fallback_scheme = tbx::InputScheme("");
         TBX_ASSERT(
             _input_manager != nullptr,
-            "InputController has no InputManager bound for scheme '{}'.",
+            "InputController has no tbx::InputManager bound for scheme '{}'.",
             _scheme_name);
         if (_input_manager == nullptr)
             return fallback_scheme;
@@ -35,7 +36,7 @@ namespace examples_common
         auto* input_scheme = _input_manager->get_scheme(_scheme_name);
         TBX_ASSERT(
             input_scheme != nullptr,
-            "InputController could not resolve input scheme '{}' in InputManager.",
+            "InputController could not resolve input scheme '{}' in tbx::InputManager.",
             _scheme_name);
         if (input_scheme == nullptr)
             return fallback_scheme;

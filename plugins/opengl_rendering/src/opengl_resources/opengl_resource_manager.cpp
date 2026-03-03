@@ -1,8 +1,5 @@
 #include "opengl_resource_manager.h"
 #include "opengl_buffers.h"
-#include "opengl_gbuffer.h"
-#include "opengl_post_processing_stack_resource.h"
-#include "opengl_shadow_map.h"
 #include "tbx/assets/builtin_assets.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/material.h"
@@ -30,6 +27,34 @@ namespace opengl_rendering
 
       private:
         OpenGlDrawResources _draw_resources = {};
+    };
+
+
+    class OpenGlPostProcessingStack final : public IOpenGlResource
+    {
+      public:
+        struct Effect final
+        {
+            OpenGlDrawResources draw_resources = {};
+            float blend = 1.0F;
+        };
+
+        void bind() override {}
+
+        void unbind() override {}
+
+        void add_effect(Effect effect)
+        {
+            _effects.push_back(std::move(effect));
+        }
+
+        const std::vector<Effect>& get_effects() const
+        {
+            return _effects;
+        }
+
+      private:
+        std::vector<Effect> _effects = {};
     };
 
     static void hash_signature_bytes(uint64& hash_value, const void* data, const size_t size)
@@ -519,7 +544,7 @@ namespace opengl_rendering
             auto iterator = _resources_by_entity.find(resource_id);
             if (iterator != _resources_by_entity.end()
                 && iterator->second.signature == post_process_signature
-                && std::dynamic_pointer_cast<OpenGlPostProcessingStackResource>(
+                && std::dynamic_pointer_cast<OpenGlPostProcessingStack>(
                     iterator->second.resource))
             {
                 iterator->second.last_use = Clock::now();
@@ -1142,7 +1167,7 @@ namespace opengl_rendering
         out_resource = nullptr;
         out_signature = hash_post_process_stack(post_processing);
 
-        auto stack_resource = std::make_shared<OpenGlPostProcessingStackResource>();
+        auto stack_resource = std::make_shared<OpenGlPostProcessingStack>();
         for (const auto& effect : post_processing.effects)
         {
             if (!effect.is_enabled)
@@ -1157,7 +1182,7 @@ namespace opengl_rendering
                 continue;
 
             stack_resource->add_effect(
-                OpenGlPostProcessingStackResource::Effect {
+                OpenGlPostProcessingStack::Effect {
                     .draw_resources = draw_resources,
                     .blend = effect.blend,
                 });

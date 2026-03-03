@@ -12,6 +12,7 @@
 
 namespace ecs_example
 {
+    using namespace tbx;
     void ExampleRuntimePlugin::on_attach(tbx::IPluginHost& context)
     {
         auto& ent_registry = context.get_entity_registry();

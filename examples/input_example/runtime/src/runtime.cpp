@@ -9,6 +9,7 @@
 
 namespace input_example
 {
+    using namespace tbx;
     void InputExampleRuntimePlugin::on_attach(tbx::IPluginHost& host)
     {
         auto& ent_registry = host.get_entity_registry();

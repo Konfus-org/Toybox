@@ -14,6 +14,7 @@
 
 namespace lighting_example
 {
+    using namespace tbx;
     static constexpr float DIRECTIONAL_LIGHT_ENABLED_INTENSITY = 1.5F;
     static constexpr float DIRECTIONAL_LIGHT_ENABLED_AMBIENT = 0.15F;
     static constexpr float POINT_LIGHT_ENABLED_INTENSITY = 2.0F;
