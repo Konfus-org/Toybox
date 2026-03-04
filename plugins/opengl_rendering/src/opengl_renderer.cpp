@@ -1,5 +1,6 @@
 #include "opengl_renderer.h"
 #include "builtin_assets.generated.h"
+#include "opengl_resources/opengl_bindless.h"
 #include "opengl_resources/opengl_shader.h"
 #include "opengl_resources/opengl_texture.h"
 #include "pipeline/OpenGlFrameContext.h"
@@ -18,7 +19,7 @@
 
 namespace opengl_rendering
 {
-    const auto WhiteTextureResourceId = tbx::Uuid(0x7EAE00FFU);
+    const auto WHITE_TEXTURE_RESOURCE_ID = tbx::Uuid(0x7EAE00FFU);
 
     static tbx::Texture make_white_texture()
     {
@@ -117,6 +118,27 @@ namespace opengl_rendering
         glViewport(0, 0, _viewport_size.width, _viewport_size.height);
 
         // Step three: build frame camera state.
+        OpenGlFrameContext frame_context = build_frame_context();
+
+        // Step four: cache resources and build draw calls in one pass.
+        build_draw_calls(frame_context);
+
+        // Step five: execute render pipeline.
+        _render_pipeline->execute(frame_context);
+
+        // Step six: present rendered frame.
+        if (const auto present_result = _context.present(); !present_result)
+        {
+            TBX_TRACE_ERROR(
+                "OpenGL rendering: present request failed: {}",
+                present_result.get_report());
+        }
+
+        return true;
+    }
+
+    OpenGlFrameContext OpenGlRenderer::build_frame_context() const
+    {
         auto frame_context = OpenGlFrameContext();
         frame_context.clear_color = tbx::Color::BLACK;
         frame_context.view_projection = tbx::Mat4(1.0F);
@@ -137,25 +159,29 @@ namespace opengl_rendering
                 camera_transform.position,
                 camera_transform.rotation);
         }
+        return frame_context;
+    }
 
-        // Step four: cache resources and build draw calls in one pass.
+    void OpenGlRenderer::build_draw_calls(OpenGlFrameContext& frame_context)
+    {
         const auto entities = _entity_registry.get_with<tbx::Renderer>();
         auto draw_call_lookup = std::unordered_map<tbx::Uuid, std::size_t>();
         auto cached_resource = std::shared_ptr<IOpenGlResource>();
         for (const auto& entity : entities)
         {
+            // Add shader program
             const auto& renderer = entity.get_component<tbx::Renderer>();
             auto material = renderer.material;
             if (!material.handle.is_valid())
                 material.handle = tbx::default_material;
-
             const auto shader_program_key = _resource_manager.add_material(material);
             if (!shader_program_key.is_valid())
                 continue;
             if (!_resource_manager.try_get(shader_program_key, cached_resource))
                 continue;
 
-            auto mesh_key = tbx::Uuid {};
+            // Add mesh
+            tbx::Uuid mesh_key;
             if (entity.has_component<tbx::DynamicMesh>())
             {
                 const auto& dynamic_mesh = entity.get_component<tbx::DynamicMesh>();
@@ -166,12 +192,12 @@ namespace opengl_rendering
                 const auto& static_mesh = entity.get_component<tbx::StaticMesh>();
                 mesh_key = _resource_manager.add_static_mesh(static_mesh);
             }
-
             if (!mesh_key.is_valid())
                 continue;
             if (!_resource_manager.try_get(mesh_key, cached_resource))
                 continue;
 
+            // Add material params
             auto material_params = OpenGlMaterialParams();
             material_params.parameters.reserve(renderer.material.parameters.values.size());
             for (const auto& [name, value] : renderer.material.parameters.values)
@@ -180,15 +206,17 @@ namespace opengl_rendering
                     tbx::MaterialParameter {.name = name, .data = value});
             }
 
+            // Add textures
             material_params.textures.reserve(renderer.material.textures.values.size());
             for (const auto& [name, texture] : renderer.material.textures.values)
             {
-                auto texture_id = tbx::Uuid {};
+                tbx::Uuid texture_id;
                 if (texture.handle.is_valid())
                     texture_id = _resource_manager.add_texture(texture.handle);
                 else
-                    texture_id =
-                        _resource_manager.add_texture(make_white_texture(), WhiteTextureResourceId);
+                    texture_id = _resource_manager.add_texture(
+                        make_white_texture(),
+                        WHITE_TEXTURE_RESOURCE_ID);
 
                 if (!texture_id.is_valid())
                     continue;
@@ -206,13 +234,15 @@ namespace opengl_rendering
                         .name = name,
                         .texture_id = texture_id,
                         .gl_texture_id = texture_resource->get_texture_id(),
+                        .bindless_handle = texture_resource->get_bindless_handle(),
                     });
             }
 
+            // Use white fallback texture
             if (material_params.textures.empty())
             {
                 const auto fallback_texture_id =
-                    _resource_manager.add_texture(make_white_texture(), WhiteTextureResourceId);
+                    _resource_manager.add_texture(make_white_texture(), WHITE_TEXTURE_RESOURCE_ID);
                 if (fallback_texture_id.is_valid())
                 {
                     if (_resource_manager.try_get(fallback_texture_id, cached_resource))
@@ -226,12 +256,15 @@ namespace opengl_rendering
                                     .name = "diffuse",
                                     .texture_id = fallback_texture_id,
                                     .gl_texture_id = fallback_texture_resource->get_texture_id(),
+                                    .bindless_handle =
+                                        fallback_texture_resource->get_bindless_handle(),
                                 });
                         }
                     }
                 }
             }
 
+            // Add transform matrix
             auto transform_matrix = tbx::Mat4(1.0F);
             if (entity.has_component<tbx::Transform>())
             {
@@ -239,6 +272,7 @@ namespace opengl_rendering
                 transform_matrix = tbx::build_transform_matrix(world_transform);
             }
 
+            // Push back new draw call
             auto draw_call_it = draw_call_lookup.find(shader_program_key);
             if (draw_call_it == draw_call_lookup.end())
             {
@@ -249,24 +283,13 @@ namespace opengl_rendering
                         .first;
             }
 
+            // Update draw call with new mesh
             auto& draw_call = frame_context.draw_calls[draw_call_it->second];
             draw_call.meshes.push_back(mesh_key);
             draw_call.materials.push_back(std::move(material_params));
             draw_call.transforms.push_back(transform_matrix);
+            draw_call.instance_ids.push_back(entity.get_id());
         }
-
-        // Step five: execute render pipeline.
-        _render_pipeline->execute(frame_context);
-
-        // Step six: present rendered frame.
-        if (const auto present_result = _context.present(); !present_result)
-        {
-            TBX_TRACE_ERROR(
-                "OpenGL rendering: present request failed: {}",
-                present_result.get_report());
-        }
-
-        return true;
     }
 
     void OpenGlRenderer::set_viewport_size(const tbx::Size& viewport_size)
@@ -312,6 +335,7 @@ namespace opengl_rendering
 
         const auto load_result = gladLoadGLLoader(glad_loader);
         TBX_ASSERT(load_result != 0, "Failed to initialize GLAD.");
+        set_bindless_proc_loader(loader);
 
         TBX_TRACE_INFO("Initializing window {} context.", to_string(_context.get_window_id()));
 

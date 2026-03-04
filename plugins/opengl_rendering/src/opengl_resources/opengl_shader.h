@@ -17,6 +17,7 @@ namespace opengl_rendering
         std::string name = "";
         tbx::Uuid texture_id = {};
         tbx::uint32 gl_texture_id = 0;
+        tbx::uint64 bindless_handle = 0;
     };
 
     struct OpenGlMaterialParams
@@ -64,13 +65,18 @@ namespace opengl_rendering
         bool try_upload(const OpenGlMaterialParams& params);
 
         tbx::uint32 get_program_id() const;
+        int get_instance_model_attribute_location() const;
+        int get_instance_id_attribute_location() const;
 
       private:
         int get_cached_uniform_location(const std::string& name);
 
         tbx::uint32 _program_id = 0;
         std::unordered_map<std::string, int> _uniform_locations = {};
+        std::unordered_map<std::string, tbx::uint64> _bindless_sampler_layout = {};
         std::vector<std::string> _sampler_uniform_layout = {};
         std::unordered_set<std::string> _logged_missing_uniforms = {};
+        int _instance_model_attribute_location = 8;
+        int _instance_id_attribute_location = 12;
     };
 }

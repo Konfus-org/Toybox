@@ -3,10 +3,18 @@
 #include "opengl_resource.h"
 #include "tbx/common/int.h"
 #include "tbx/graphics/mesh.h"
+#include "tbx/math/matrices.h"
 #include "tbx/tbx_api.h"
+#include <vector>
 
 namespace opengl_rendering
 {
+    struct OpenGlMeshInstanceData
+    {
+        tbx::Mat4 model = tbx::Mat4(1.0F);
+        tbx::uint32 instance_id = 0;
+    };
+
     /// <summary>OpenGL implementation of a mesh resource.</summary>
     /// <remarks>Purpose: Manages a VAO with vertex and index buffers for drawing.
     /// Ownership: Owns the VAO and associated buffers.
@@ -52,6 +60,10 @@ namespace opengl_rendering
         /// <remarks>Purpose: Draws indexed triangles or patches across multiple instances.
         /// Ownership: Does not transfer ownership of any resources.
         /// Thread Safety: Call only on the render thread.</remarks>
+        void upload_instance_data(
+            const std::vector<OpenGlMeshInstanceData>& instances,
+            int instance_model_attribute_location,
+            int instance_id_attribute_location);
         void draw_instanced(tbx::uint32 instance_count) const;
 
         /// <summary>Binds the mesh's VAO and buffers.</summary>
@@ -68,6 +80,9 @@ namespace opengl_rendering
 
       private:
         tbx::uint32 _vertex_array_id = 0;
+        tbx::uint32 _instance_buffer_id = 0;
+        int _instance_model_attribute_location = -1;
+        int _instance_id_attribute_location = -1;
         OpenGlVertexBuffer _vertex_buffer;
         OpenGlIndexBuffer _index_buffer;
     };

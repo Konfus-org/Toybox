@@ -1,9 +1,9 @@
 #pragma once
 #include "tbx/ecs/entity.h"
+#include "tbx/graphics/color.h"
 
 namespace examples_common
 {
-    using namespace tbx;
     /// <summary>Settings used to create a reusable boxed room for rendering and physics
     /// examples.</summary> <remarks> Purpose: Defines transform and collider options for floor and
     /// wall geometry generation. Ownership: Value type copied by Room during creation. Thread
@@ -13,6 +13,7 @@ namespace examples_common
     {
         tbx::Vec3 center = tbx::Vec3(0.0F, 0.0F, 0.0F);
         bool include_colliders = true;
+        tbx::Color color = tbx::Color::LIGHT_GREY;
     };
 
     /// <summary>Creates and owns room entities shared by example scenes.</summary>

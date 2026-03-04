@@ -27,9 +27,11 @@ namespace opengl_rendering
         void unbind() override;
 
         tbx::uint32 get_texture_id() const;
+        tbx::uint64 get_bindless_handle() const;
 
       private:
         tbx::uint32 _texture_id = 0;
         tbx::uint32 _slot = 0;
+        mutable tbx::uint64 _bindless_handle = 0;
     };
 }
