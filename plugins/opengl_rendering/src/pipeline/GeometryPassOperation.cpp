@@ -6,6 +6,7 @@
 #include "opengl_resources/opengl_shader.h"
 #include <cstddef>
 #include <cstring>
+#include <future>
 #include <glad/glad.h>
 #include <variant>
 #include <vector>
@@ -205,8 +206,11 @@ namespace opengl_rendering
         last_bound_count = current_count;
     }
 
-    GeometryPassOperation::GeometryPassOperation(const OpenGlResourceManager& resource_manager)
-        : _resource_manager(resource_manager)
+    GeometryPassOperation::GeometryPassOperation(
+        const OpenGlResourceManager& resource_manager,
+        tbx::JobSystem& job_system)
+        : _job_system(job_system)
+        , _resource_manager(resource_manager)
     {
     }
 
@@ -216,14 +220,27 @@ namespace opengl_rendering
     {
         const auto& [clear_color, view_proj, draw_calls] =
             std::any_cast<OpenGlFrameContext>(payload);
+        auto batch_futures = std::vector<std::future<std::vector<DrawBatch>>> {};
+        batch_futures.reserve(draw_calls.size());
+        for (const auto& draw_call : draw_calls)
+        {
+            batch_futures.push_back(_job_system.schedule_with_future(
+                [&draw_call]
+                {
+                    return build_batches(draw_call.meshes, draw_call.materials);
+                }));
+        }
 
         // Clear once at frame start so previously rendered batches are preserved.
         glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        for (const auto& [shader_program_id, meshes_ids, material_ids, transforms, instance_ids] :
-             draw_calls)
+        for (std::size_t draw_call_index = 0; draw_call_index < draw_calls.size();
+             ++draw_call_index)
         {
+            const auto& [shader_program_id, meshes_ids, material_ids, transforms, instance_ids] =
+                draw_calls[draw_call_index];
+
             // Use shader program
             std::shared_ptr<IOpenGlResource> shader_program_resource;
             if (!_resource_manager.try_get(shader_program_id, shader_program_resource))
@@ -252,7 +269,7 @@ namespace opengl_rendering
                 }
 
                 // Draw batches
-                for (const auto batches = build_batches(meshes_ids, material_ids);
+                for (const auto batches = batch_futures[draw_call_index].get();
                      const auto& [mesh_id, first_draw_index, draw_indices] : batches)
                 {
                     const auto representative_draw = first_draw_index;

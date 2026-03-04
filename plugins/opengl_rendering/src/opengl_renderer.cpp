@@ -12,14 +12,50 @@
 #include "tbx/graphics/texture.h"
 #include "tbx/math/matrices.h"
 #include <algorithm>
+#include <future>
 #include <glad/glad.h>
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 namespace opengl_rendering
 {
     const auto WHITE_TEXTURE_RESOURCE_ID = tbx::Uuid(0x7EAE00FFU);
+    constexpr std::size_t DRAW_BUILD_MIN_ITEMS_PER_JOB = 64;
+
+    struct ResolvedDrawItem
+    {
+        tbx::Uuid shader_program = {};
+        tbx::Uuid mesh = {};
+        OpenGlMaterialParams material = {};
+        tbx::Mat4 transform = tbx::Mat4(1.0F);
+        tbx::Uuid instance_id = {};
+    };
+
+    struct DrawCallBuckets
+    {
+        std::unordered_map<tbx::Uuid, std::size_t> lookup = {};
+        std::vector<DrawCall> draw_calls = {};
+    };
+
+    static void append_draw_item(DrawCallBuckets& buckets, ResolvedDrawItem&& draw_item)
+    {
+        auto draw_call_it = buckets.lookup.find(draw_item.shader_program);
+        if (draw_call_it == buckets.lookup.end())
+        {
+            buckets.draw_calls.push_back(DrawCall {.shader_program = draw_item.shader_program});
+            draw_call_it =
+                buckets.lookup.emplace(draw_item.shader_program, buckets.draw_calls.size() - 1U)
+                    .first;
+        }
+
+        auto& draw_call = buckets.draw_calls[draw_call_it->second];
+        draw_call.meshes.push_back(draw_item.mesh);
+        draw_call.materials.push_back(std::move(draw_item.material));
+        draw_call.transforms.push_back(draw_item.transform);
+        draw_call.instance_ids.push_back(draw_item.instance_id);
+    }
 
     static tbx::Texture make_white_texture()
     {
@@ -89,11 +125,13 @@ namespace opengl_rendering
         const tbx::GraphicsProcAddress loader,
         tbx::EntityRegistry& entity_registry,
         tbx::AssetManager& asset_manager,
+        tbx::JobSystem& job_system,
         OpenGlContext context)
         : _context(std::move(context))
         , _entity_registry(entity_registry)
+        , _job_system(job_system)
         , _resource_manager(asset_manager)
-        , _render_pipeline(std::make_unique<OpenGlRenderPipeline>(_resource_manager))
+        , _render_pipeline(std::make_unique<OpenGlRenderPipeline>(_resource_manager, _job_system))
     {
         initialize(loader);
     }
@@ -155,9 +193,15 @@ namespace opengl_rendering
                                     / static_cast<float>(_viewport_size.height);
                 camera.set_aspect(aspect);
             }
-            frame_context.view_projection = camera.get_view_projection_matrix(
-                camera_transform.position,
-                camera_transform.rotation);
+
+            auto view_projection_future = _job_system.schedule_with_future(
+                [camera, camera_transform]() mutable
+                {
+                    return camera.get_view_projection_matrix(
+                        camera_transform.position,
+                        camera_transform.rotation);
+                });
+            frame_context.view_projection = view_projection_future.get();
         }
         return frame_context;
     }
@@ -165,8 +209,9 @@ namespace opengl_rendering
     void OpenGlRenderer::build_draw_calls(OpenGlFrameContext& frame_context)
     {
         const auto entities = _entity_registry.get_with<tbx::Renderer>();
-        auto draw_call_lookup = std::unordered_map<tbx::Uuid, std::size_t>();
         auto cached_resource = std::shared_ptr<IOpenGlResource>();
+        auto resolved_draw_items = std::vector<ResolvedDrawItem> {};
+        resolved_draw_items.reserve(entities.size());
         for (const auto& entity : entities)
         {
             // Add shader program
@@ -272,24 +317,77 @@ namespace opengl_rendering
                 transform_matrix = tbx::build_transform_matrix(world_transform);
             }
 
-            // Push back new draw call
-            auto draw_call_it = draw_call_lookup.find(shader_program_key);
-            if (draw_call_it == draw_call_lookup.end())
-            {
-                frame_context.draw_calls.push_back(DrawCall {.shader_program = shader_program_key});
-                draw_call_it =
-                    draw_call_lookup
-                        .emplace(shader_program_key, frame_context.draw_calls.size() - 1U)
-                        .first;
-            }
-
-            // Update draw call with new mesh
-            auto& draw_call = frame_context.draw_calls[draw_call_it->second];
-            draw_call.meshes.push_back(mesh_key);
-            draw_call.materials.push_back(std::move(material_params));
-            draw_call.transforms.push_back(transform_matrix);
-            draw_call.instance_ids.push_back(entity.get_id());
+            resolved_draw_items.push_back(
+                ResolvedDrawItem {
+                    .shader_program = shader_program_key,
+                    .mesh = mesh_key,
+                    .material = std::move(material_params),
+                    .transform = transform_matrix,
+                    .instance_id = entity.get_id(),
+                });
         }
+
+        if (resolved_draw_items.empty())
+            return;
+
+        const auto job_worker_count = std::max<std::size_t>(_job_system.get_worker_count(), 1U);
+        const auto max_job_count =
+            std::max<std::size_t>(resolved_draw_items.size() / DRAW_BUILD_MIN_ITEMS_PER_JOB, 1U);
+        const auto job_count = std::min<std::size_t>(job_worker_count, max_job_count);
+        const auto chunk_size = (resolved_draw_items.size() + job_count - 1U) / job_count;
+
+        auto bucket_futures = std::vector<std::future<DrawCallBuckets>> {};
+        bucket_futures.reserve(job_count);
+        for (std::size_t job_index = 0; job_index < job_count; ++job_index)
+        {
+            const auto begin = job_index * chunk_size;
+            if (begin >= resolved_draw_items.size())
+                break;
+
+            const auto end = std::min<std::size_t>(begin + chunk_size, resolved_draw_items.size());
+            bucket_futures.push_back(_job_system.schedule_with_future(
+                [begin, end, &resolved_draw_items]
+                {
+                    auto local_buckets = DrawCallBuckets {};
+                    for (auto draw_item_index = begin; draw_item_index < end; ++draw_item_index)
+                    {
+                        append_draw_item(
+                            local_buckets,
+                            ResolvedDrawItem {
+                                .shader_program =
+                                    resolved_draw_items[draw_item_index].shader_program,
+                                .mesh = resolved_draw_items[draw_item_index].mesh,
+                                .material = resolved_draw_items[draw_item_index].material,
+                                .transform = resolved_draw_items[draw_item_index].transform,
+                                .instance_id = resolved_draw_items[draw_item_index].instance_id,
+                            });
+                    }
+                    return local_buckets;
+                }));
+        }
+
+        auto merged_buckets = DrawCallBuckets {};
+        for (auto& bucket_future : bucket_futures)
+        {
+            auto local_buckets = bucket_future.get();
+            for (auto& draw_call : local_buckets.draw_calls)
+            {
+                for (std::size_t draw_index = 0; draw_index < draw_call.meshes.size(); ++draw_index)
+                {
+                    append_draw_item(
+                        merged_buckets,
+                        ResolvedDrawItem {
+                            .shader_program = draw_call.shader_program,
+                            .mesh = draw_call.meshes[draw_index],
+                            .material = std::move(draw_call.materials[draw_index]),
+                            .transform = draw_call.transforms[draw_index],
+                            .instance_id = draw_call.instance_ids[draw_index],
+                        });
+                }
+            }
+        }
+
+        frame_context.draw_calls = std::move(merged_buckets.draw_calls);
     }
 
     void OpenGlRenderer::set_viewport_size(const tbx::Size& viewport_size)
