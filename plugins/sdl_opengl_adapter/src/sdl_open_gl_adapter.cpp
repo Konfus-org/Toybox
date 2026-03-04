@@ -3,6 +3,24 @@
 
 namespace sdl_opengl_adapter
 {
+    static void try_release_current_context(SDL_GLContext context)
+    {
+        if (!context)
+            return;
+
+        SDL_GLContext current_context = SDL_GL_GetCurrentContext();
+        if (current_context != context)
+            return;
+
+        if (!SDL_GL_MakeCurrent(nullptr, nullptr))
+        {
+            TBX_TRACE_WARNING(
+                "Failed to release current SDL OpenGL context before destruction: {}",
+                SDL_GetError());
+            SDL_ClearError();
+        }
+    }
+
     static void set_opengl_attribute(SDL_GLAttr attribute, int value)
     {
         if (!SDL_GL_SetAttribute(attribute, value))
@@ -24,7 +42,10 @@ namespace sdl_opengl_adapter
         for (const auto& context_entry : _contexts)
         {
             if (context_entry.second)
+            {
+                try_release_current_context(context_entry.second);
                 SDL_GL_DestroyContext(context_entry.second);
+            }
         }
         _contexts.clear();
     }
@@ -116,7 +137,10 @@ namespace sdl_opengl_adapter
             return;
 
         if (context_it->second)
+        {
+            try_release_current_context(context_it->second);
             SDL_GL_DestroyContext(context_it->second);
+        }
         _contexts.erase(context_it);
     }
 

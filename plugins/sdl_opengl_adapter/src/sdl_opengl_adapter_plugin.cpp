@@ -118,13 +118,13 @@ namespace sdl_opengl_adapter
         tbx::Uuid window_id = event.owner->id;
         _window_sizes[window_id] = event.owner->size.value;
 
-        SDL_Window* current_window = reinterpret_cast<SDL_Window*>(event.current);
+        auto* previous_window = static_cast<SDL_Window*>(event.previous);
+        if (!previous_window && _native_windows.contains(window_id))
+            previous_window = _native_windows[window_id];
+
+        auto* current_window = static_cast<SDL_Window*>(event.current);
         if (!current_window)
         {
-            SDL_Window* previous_window = nullptr;
-            if (_native_windows.contains(window_id))
-                previous_window = _native_windows[window_id];
-
             if (_open_gl_adapter && previous_window)
                 _open_gl_adapter->destroy_context(previous_window);
 
@@ -132,6 +132,9 @@ namespace sdl_opengl_adapter
             _native_windows.erase(window_id);
             return;
         }
+
+        if (_open_gl_adapter && previous_window && previous_window != current_window)
+            _open_gl_adapter->destroy_context(previous_window);
 
         _native_windows[window_id] = current_window;
 

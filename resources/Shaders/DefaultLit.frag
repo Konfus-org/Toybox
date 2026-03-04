@@ -27,7 +27,7 @@ void main()
     if (texture_color.a < alpha_cutoff)
         discard;
 
-    texture_color.rgb = tbx_srgb_to_linear(texture_color.rgb);
+    texture_color.rgb = texture_color.rgb;
 
     vec3 shaded_color = texture_color.rgb;
     if (!u_unlit)
@@ -44,7 +44,7 @@ void main()
     }
 
     float exposure = max(u_exposure, 0.0);
-    vec3 mapped = tbx_tonemap_aces((shaded_color + u_emissive.rgb) * exposure);
+    vec3 mapped = (shaded_color + u_emissive.rgb) * exposure;
     mapped += float(v_instance_id & 0u);
     mapped = tbx_linear_to_srgb(mapped);
     o_color = vec4(mapped, texture_color.a);

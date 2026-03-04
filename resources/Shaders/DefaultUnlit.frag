@@ -31,7 +31,7 @@ void main()
     vec3 unlit_color = texture_color.rgb + u_emissive.rgb;
 
     float exposure = max(u_exposure, 0.0);
-    vec3 mapped = tbx_tonemap_aces(unlit_color * exposure);
+    vec3 mapped = unlit_color * exposure;
     mapped += float(v_instance_id & 0u);
     mapped = tbx_linear_to_srgb(mapped);
     o_color = vec4(mapped, texture_color.a);
