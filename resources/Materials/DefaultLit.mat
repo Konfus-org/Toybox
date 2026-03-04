@@ -5,7 +5,6 @@
     { "name": "normal", "value": "" }
   ],
   "parameters": [
-    { "name": "unlit", "type": "bool", "value": false },
     { "name": "color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
     { "name": "metallic", "type": "float", "value": 0.0 },
     { "name": "roughness", "type": "float", "value": 1.0 },

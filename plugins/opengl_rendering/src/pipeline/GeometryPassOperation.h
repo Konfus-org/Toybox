@@ -8,9 +8,7 @@ namespace opengl_rendering
     class GeometryPassOperation : tbx::PipelineOperation
     {
       public:
-        GeometryPassOperation(
-            const OpenGlResourceManager& resource_manager,
-            tbx::JobSystem& job_system);
+        GeometryPassOperation(const OpenGlResourceManager& resource_manager);
         GeometryPassOperation(const GeometryPassOperation&) = delete;
         GeometryPassOperation& operator=(const GeometryPassOperation&) = delete;
         ~GeometryPassOperation() override;
@@ -18,7 +16,6 @@ namespace opengl_rendering
         void execute(const std::any& payload) override;
 
       private:
-        tbx::JobSystem& _job_system;
         const OpenGlResourceManager& _resource_manager;
     };
 

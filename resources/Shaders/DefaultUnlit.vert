@@ -4,29 +4,23 @@
 layout(location = 0) in vec3 a_position;
 layout(location = 2) in vec3 a_normal;
 layout(location = 3) in vec2 a_texcoord;
-layout(location = 8) in mat4 a_model;
-layout(location = 12) in uint a_instance_id;
 
 out vec4 v_color;
 out vec2 v_tex_coord;
 flat out uint v_instance_id;
 
-layout(std140, binding = 1) uniform MaterialParams
-{
-    vec4 u_color;
-    vec4 u_emissive;
-    float u_metallic;
-    float u_roughness;
-    float u_occlusion;
-    float u_alpha_cutoff;
-    float u_exposure;
-    bool u_unlit;
-};
+uniform vec4 u_color;
+uniform vec4 u_emissive;
+uniform float u_metallic;
+uniform float u_roughness;
+uniform float u_occlusion;
+uniform float u_alpha_cutoff;
+uniform float u_exposure;
 
 void main()
 {
     v_color = u_color;
     v_tex_coord = a_texcoord;
-    v_instance_id = tbx_get_instance_id(a_instance_id);
-    gl_Position = u_view_proj * (tbx_get_model_matrix(a_model) * vec4(a_position, 1.0));
+    v_instance_id = tbx_get_instance_id(0u);
+    gl_Position = u_view_proj * (tbx_get_model_matrix(u_model) * vec4(a_position, 1.0));
 }

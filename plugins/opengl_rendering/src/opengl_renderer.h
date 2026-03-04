@@ -19,7 +19,6 @@ namespace opengl_rendering
             tbx::GraphicsProcAddress loader,
             tbx::EntityRegistry& entity_registry,
             tbx::AssetManager& asset_manager,
-            tbx::JobSystem& job_system,
             OpenGlContext context);
         ~OpenGlRenderer() noexcept;
 
@@ -40,7 +39,6 @@ namespace opengl_rendering
       private:
         OpenGlContext _context;
         tbx::EntityRegistry& _entity_registry;
-        tbx::JobSystem& _job_system;
         OpenGlResourceManager _resource_manager;
         std::unique_ptr<OpenGlRenderPipeline> _render_pipeline = nullptr;
 

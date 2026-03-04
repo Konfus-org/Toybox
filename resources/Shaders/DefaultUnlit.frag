@@ -5,19 +5,14 @@ layout(location = 0) out vec4 o_color;
 
 in vec4 v_color;
 in vec2 v_tex_coord;
-flat in uint v_instance_id;
 
-layout(std140, binding = 1) uniform MaterialParams
-{
-    vec4 u_color;
-    vec4 u_emissive;
-    float u_metallic;
-    float u_roughness;
-    float u_occlusion;
-    float u_alpha_cutoff;
-    float u_exposure;
-    bool u_unlit;
-};
+uniform vec4 u_color;
+uniform vec4 u_emissive;
+uniform float u_metallic;
+uniform float u_roughness;
+uniform float u_occlusion;
+uniform float u_alpha_cutoff;
+uniform float u_exposure;
 
 uniform sampler2D u_diffuse;
 uniform sampler2D u_normal;
@@ -32,20 +27,11 @@ void main()
 
     texture_color.rgb = tbx_srgb_to_linear(texture_color.rgb);
 
-    vec3 normal_sample = texture(u_normal, v_tex_coord).xyz * 2.0 - 1.0;
-    vec3 tangent_normal = normalize(normal_sample);
-    float normal_facing = clamp(tangent_normal.z, 0.0, 1.0);
-    float metallic = clamp(u_metallic, 0.0, 1.0);
-    float roughness = clamp(u_roughness, 0.0, 1.0);
-    float occlusion = clamp(u_occlusion, 0.0, 1.0);
-    float exposure = max(u_exposure, 0.0);
-    bool unlit = u_unlit;
-    float detail = (metallic * (1.0 - roughness) * normal_facing) * 0.04;
-    vec3 base_color = (texture_color.rgb * occlusion) + vec3(detail);
+    // Unlit path intentionally ignores surface lighting inputs and keeps only base + emissive.
+    vec3 unlit_color = texture_color.rgb + u_emissive.rgb;
 
-    vec3 mapped = tbx_tonemap_aces((base_color + u_emissive.rgb) * exposure);
-    if (!unlit)
-        mapped *= 0.95;
+    float exposure = max(u_exposure, 0.0);
+    vec3 mapped = tbx_tonemap_aces(unlit_color * exposure);
     mapped += float(v_instance_id & 0u);
     mapped = tbx_linear_to_srgb(mapped);
     o_color = vec4(mapped, texture_color.a);

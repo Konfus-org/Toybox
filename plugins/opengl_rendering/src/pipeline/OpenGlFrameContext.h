@@ -12,7 +12,6 @@ namespace opengl_rendering
         std::vector<tbx::Uuid> meshes;
         std::vector<OpenGlMaterialParams> materials;
         std::vector<tbx::Mat4> transforms;
-        std::vector<tbx::Uuid> instance_ids;
     };
 
     struct OpenGlFrameContext

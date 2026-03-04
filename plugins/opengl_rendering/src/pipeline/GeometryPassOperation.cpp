@@ -4,61 +4,13 @@
 #include "opengl_resources/opengl_resource.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "opengl_resources/opengl_shader.h"
-#include <cstddef>
-#include <future>
 #include <glad/glad.h>
 #include <vector>
 
 namespace opengl_rendering
 {
     const auto VIEW_PROJ_UNIFORM_NAME = "u_view_proj";
-
-    struct DrawBatch
-    {
-        tbx::Uuid mesh_id = {};
-        int first_draw_index = 0;
-        std::vector<int> draw_indices = {};
-    };
-
-    static bool are_materials_equal(
-        const OpenGlMaterialParams& left,
-        const OpenGlMaterialParams& right)
-    {
-        return left.material_handle.id == right.material_handle.id;
-    }
-
-    static std::vector<DrawBatch> build_batches(
-        const std::vector<tbx::Uuid>& meshes,
-        const std::vector<OpenGlMaterialParams>& materials)
-    {
-        auto batches = std::vector<DrawBatch> {};
-        for (int draw_index = 0; draw_index < static_cast<int>(meshes.size()); ++draw_index)
-        {
-            bool merged = false;
-            for (auto& [mesh_id, first_draw_index, draw_indices] : batches)
-            {
-                if (mesh_id != meshes[draw_index])
-                    continue;
-                if (!are_materials_equal(materials[first_draw_index], materials[draw_index]))
-                    continue;
-
-                draw_indices.push_back(draw_index);
-                merged = true;
-                break;
-            }
-
-            if (merged)
-                continue;
-
-            auto batch = DrawBatch();
-            batch.mesh_id = meshes[draw_index];
-            batch.first_draw_index = draw_index;
-            batch.draw_indices.push_back(draw_index);
-            batches.push_back(std::move(batch));
-        }
-
-        return batches;
-    }
+    const auto MODEL_UNIFORM_NAME = "u_model";
 
     static void bind_textures(
         const OpenGlMaterialParams& material,
@@ -66,31 +18,12 @@ namespace opengl_rendering
         std::vector<GLuint>& zero_texture_ids,
         std::size_t& last_bound_count)
     {
-        bool all_bindless = !material.textures.empty();
-        for (const auto& texture : material.textures)
-        {
-            if (texture.bindless_handle == 0)
-            {
-                all_bindless = false;
-                break;
-            }
-        }
-
-        if (all_bindless)
-        {
-            if (last_bound_count > 0)
-            {
-                zero_texture_ids.assign(last_bound_count, 0);
-                glBindTextures(0, static_cast<GLsizei>(last_bound_count), zero_texture_ids.data());
-                last_bound_count = 0;
-            }
-            return;
-        }
-
         texture_ids.clear();
         texture_ids.reserve(material.textures.size());
         for (const auto& texture : material.textures)
         {
+            if (texture.gl_texture_id == 0)
+                continue;
             texture_ids.push_back(static_cast<GLuint>(texture.gl_texture_id));
         }
 
@@ -113,11 +46,8 @@ namespace opengl_rendering
         last_bound_count = current_count;
     }
 
-    GeometryPassOperation::GeometryPassOperation(
-        const OpenGlResourceManager& resource_manager,
-        tbx::JobSystem& job_system)
-        : _job_system(job_system)
-        , _resource_manager(resource_manager)
+    GeometryPassOperation::GeometryPassOperation(const OpenGlResourceManager& resource_manager)
+        : _resource_manager(resource_manager)
     {
     }
 
@@ -127,27 +57,13 @@ namespace opengl_rendering
     {
         const auto& [clear_color, view_proj, draw_calls] =
             std::any_cast<OpenGlFrameContext>(payload);
-        auto batch_futures = std::vector<std::future<std::vector<DrawBatch>>> {};
-        batch_futures.reserve(draw_calls.size());
-        for (const auto& draw_call : draw_calls)
-        {
-            batch_futures.push_back(_job_system.schedule_with_future(
-                [&draw_call]
-                {
-                    return build_batches(draw_call.meshes, draw_call.materials);
-                }));
-        }
 
         // Clear once at frame start so previously rendered batches are preserved.
         glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        for (std::size_t draw_call_index = 0; draw_call_index < draw_calls.size();
-             ++draw_call_index)
+        for (const auto& [shader_program_id, meshes_ids, material_ids, transforms] : draw_calls)
         {
-            const auto& [shader_program_id, meshes_ids, material_ids, transforms, instance_ids] =
-                draw_calls[draw_call_index];
-
             // Use shader program
             std::shared_ptr<IOpenGlResource> shader_program_resource;
             if (!_resource_manager.try_get(shader_program_id, shader_program_resource))
@@ -175,71 +91,51 @@ namespace opengl_rendering
                     continue;
                 }
 
-                // Draw batches
-                for (const auto batches = batch_futures[draw_call_index].get();
-                     const auto& [mesh_id, first_draw_index, draw_indices] : batches)
+                for (int draw_index = 0; draw_index < meshes_ids.size(); ++draw_index)
                 {
-                    const auto representative_draw = first_draw_index;
+                    // Update transform
+                    if (const auto& transform = transforms[draw_index]; !shader_program->try_upload(
+                            tbx::MaterialParameter(MODEL_UNIFORM_NAME, transform)))
+                    {
+                        TBX_ASSERT(false, "Failed to upload transform");
+                        continue;
+                    }
+
                     bind_textures(
-                        material_ids[representative_draw],
+                        material_ids[draw_index],
                         texture_ids,
                         zero_texture_ids,
                         last_bound_texture_count);
 
-                    if (!shader_program->try_upload_material_block(
-                            material_ids[representative_draw]))
+                    // Upload material params
+                    if (const auto& material_params = material_ids[draw_index];
+                        !shader_program->try_upload(material_params))
                     {
-                        TBX_ASSERT(
-                            false,
-                            "Failed to upload material block. Program: {}, draw index: {}",
-                            shader_program->get_program_id(),
-                            representative_draw);
+                        TBX_ASSERT(false, "Failed to upload material parameters");
                         continue;
                     }
 
-                    if (!shader_program->try_upload(material_ids[representative_draw]))
+                    // Draw mesh
                     {
-                        TBX_ASSERT(
-                            false,
-                            "Failed to upload material parameters. Program: {}, draw index: {}",
-                            shader_program->get_program_id(),
-                            representative_draw);
-                        continue;
+                        const auto& mesh_key = meshes_ids[draw_index];
+                        std::shared_ptr<IOpenGlResource> mesh_resource;
+                        if (!_resource_manager.try_get(mesh_key, mesh_resource))
+                        {
+                            TBX_ASSERT(false, "Mesh not found");
+                            continue;
+                        }
+                        auto mesh_scope = OpenGlResourceScope(*mesh_resource);
+                        {
+                            const auto mesh =
+                                std::reinterpret_pointer_cast<OpenGlMesh>(mesh_resource);
+                            if (!mesh)
+                            {
+                                TBX_ASSERT(false, "Mesh not found");
+                                continue;
+                            }
+                            mesh->draw();
+                        }
                     }
-
-                    std::shared_ptr<IOpenGlResource> mesh_resource;
-                    if (!_resource_manager.try_get(mesh_id, mesh_resource))
-                    {
-                        TBX_ASSERT(false, "Mesh not found");
-                        continue;
-                    }
-                    auto mesh_scope = OpenGlResourceScope(*mesh_resource);
-                    const auto mesh = std::reinterpret_pointer_cast<OpenGlMesh>(mesh_resource);
-                    if (!mesh)
-                    {
-                        TBX_ASSERT(false, "Mesh not found");
-                        continue;
-                    }
-
-                    auto instance_data = std::vector<OpenGlMeshInstanceData> {};
-                    instance_data.reserve(draw_indices.size());
-                    for (const auto draw_index : draw_indices)
-                    {
-                        const auto& instance_id = draw_index < static_cast<int>(instance_ids.size())
-                                                      ? instance_ids[draw_index]
-                                                      : tbx::Uuid {};
-                        instance_data.push_back(
-                            OpenGlMeshInstanceData {
-                                .model = transforms[draw_index],
-                                .instance_id = static_cast<tbx::uint32>(instance_id),
-                            });
-                    }
-
-                    mesh->upload_instance_data(
-                        instance_data,
-                        shader_program->get_instance_model_attribute_location(),
-                        shader_program->get_instance_id_attribute_location());
-                    mesh->draw_instanced(static_cast<tbx::uint32>(instance_data.size()));
                 }
             }
         }

@@ -64,14 +64,12 @@ namespace opengl_rendering
             auto renderer = std::unique_ptr<OpenGlRenderer> {};
             auto entity_registry = std::ref(get_host().get_entity_registry());
             auto asset_manager = std::ref(get_host().get_asset_manager());
-            auto job_system = std::ref(get_host().get_job_system());
             auto render_resolution = ready_event->size;
             auto create_renderer_future = thread_manager.post_with_future(
                 OPENGL_RENDER_LANE_NAME,
                 [loader = ready_event->get_proc_address,
                  entity_registry,
                  asset_manager,
-                 job_system,
                  context = std::move(context),
                  render_resolution]() mutable
                 {
@@ -79,7 +77,6 @@ namespace opengl_rendering
                         loader,
                         entity_registry.get(),
                         asset_manager.get(),
-                        job_system.get(),
                         std::move(context));
                     gl_renderer->set_viewport_size(render_resolution);
                     gl_renderer->set_pending_render_resolution(render_resolution);
