@@ -11,7 +11,17 @@ out vec4 v_color;
 out vec2 v_tex_coord;
 flat out uint v_instance_id;
 
-uniform vec4 u_color = vec4(1.0, 1.0, 1.0, 1.0);
+layout(std140, binding = 1) uniform MaterialParams
+{
+    vec4 u_color;
+    vec4 u_emissive;
+    float u_metallic;
+    float u_roughness;
+    float u_occlusion;
+    float u_alpha_cutoff;
+    float u_exposure;
+    bool u_unlit;
+};
 
 void main()
 {

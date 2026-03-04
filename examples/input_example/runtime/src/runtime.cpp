@@ -21,7 +21,10 @@ namespace input_example
 
         _sun = tbx::Entity("Light", ent_registry);
         _sun.add_component<DirectionalLight>(Color::WHITE, 1.0F, 0.25F);
-        _sun.add_component<tbx::Transform>(tbx::Vec3(0), tbx::to_radians(tbx::Vec3(-45.0F, 45.0F, 0.0F)), tbx::Vec3(1));
+        _sun.add_component<tbx::Transform>(
+            tbx::Vec3(0),
+            tbx::to_radians(tbx::Vec3(-45.0F, 45.0F, 0.0F)),
+            tbx::Vec3(1));
 
         auto ground_ent = tbx::Entity("Ground", ent_registry);
         ground_ent.add_component<Renderer>();
@@ -32,9 +35,7 @@ namespace input_example
             tbx::Vec3(20.0F, 20.0F, 1.0F));
 
         auto cube_ent = tbx::Entity("Cube", ent_registry);
-        cube_ent.add_component<Renderer>(MaterialInstance {
-            .parameters = {{"color", Color::YELLOW}},
-        });
+        cube_ent.add_component<Renderer>(StandardMaterialInstance(Color::YELLOW));
         cube_ent.add_component<DynamicMesh>(cube);
         cube_ent.add_component<tbx::Transform>(tbx::Vec3(0.0F, 0.5F, -5.0F));
 

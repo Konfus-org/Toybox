@@ -8,6 +8,7 @@
 #include <initializer_list>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 namespace tbx
@@ -106,6 +107,50 @@ namespace tbx
         Handle handle = {};
         MaterialParameterBindings parameters = {};
         MaterialTextureBindings textures = {};
+    };
+
+    /// <summary>
+    /// Purpose: Structured material instance with fixed default texture and parameter properties.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Inherits and owns MaterialInstance binding state by value.
+    /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
+    /// </remarks>
+    struct TBX_API StandardMaterialInstance : public MaterialInstance
+    {
+        StandardMaterialInstance();
+        StandardMaterialInstance(
+            Color color,
+            Color emissive = Color(0.0f, 0.0f, 0.0f, 1.0f),
+            float metallic = 0.0f,
+            float roughness = 1.0f,
+            float occlusion = 1.0f,
+            float alpha_cutoff = 0.1f,
+            const Handle& diffuse = Handle(),
+            const Handle& normal = Handle(),
+            const Handle& material_handle = Handle());
+        StandardMaterialInstance(const MaterialInstance& other);
+
+        void set_diffuse(Handle value);
+        Handle get_diffuse() const;
+        void set_normal(Handle value);
+        Handle get_normal() const;
+        void set_color(Color value);
+        Color get_color() const;
+        void set_metallic(float value);
+        float get_metallic() const;
+        void set_roughness(float value);
+        float get_roughness() const;
+        void set_emissive(Color value);
+        Color get_emissive() const;
+        void set_occlusion(float value);
+        float get_occlusion() const;
+        void set_alpha_cutoff(float value);
+        float get_alpha_cutoff() const;
+        void set_exposure(float value);
+        float get_exposure() const;
+        void set_unlit(bool value);
+        bool get_unlit() const;
     };
 
     struct TBX_API Sky

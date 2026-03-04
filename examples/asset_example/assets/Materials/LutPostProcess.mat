@@ -10,6 +10,8 @@
     }
   ],
   "parameters": [
+    { "name": "color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
+    { "name": "emissive", "type": "color", "value": [0.0, 0.0, 0.0, 1.0] },
     { "name": "strength", "type": "float", "value": 1.0 }
   ]
 }

@@ -262,9 +262,24 @@ namespace opengl_rendering
                         zero_texture_ids,
                         last_bound_texture_count);
 
+                    if (!shader_program->try_upload_material_block(
+                            material_ids[representative_draw]))
+                    {
+                        TBX_ASSERT(
+                            false,
+                            "Failed to upload material block. Program: {}, draw index: {}",
+                            shader_program->get_program_id(),
+                            representative_draw);
+                        continue;
+                    }
+
                     if (!shader_program->try_upload(material_ids[representative_draw]))
                     {
-                        TBX_ASSERT(false, "Failed to upload material parameters");
+                        TBX_ASSERT(
+                            false,
+                            "Failed to upload material parameters. Program: {}, draw index: {}",
+                            shader_program->get_program_id(),
+                            representative_draw);
                         continue;
                     }
 

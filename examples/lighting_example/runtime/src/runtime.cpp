@@ -105,11 +105,10 @@ namespace lighting_example
         for (tbx::uint32 light_index = 0U; light_index < light_count; ++light_index)
         {
             auto light_entity = tbx::Entity("StressPointLight", entity_registry);
-            auto point_light = tbx::PointLight();
-            point_light.range = 5.5F;
-            point_light.intensity = 3.6F;
-            point_light.color =
-                evaluate_animated_color(0.0, static_cast<float>(light_index) * 0.21F);
+            auto point_light = tbx::PointLight(
+                evaluate_animated_color(0.0, static_cast<float>(light_index) * 0.21F),
+                3.6F,
+                5.5F);
             light_entity.add_component<tbx::PointLight>(point_light);
             light_entity.add_component<tbx::Transform>(
                 evaluate_stress_light_position(light_index, light_count, 0.0));
@@ -132,234 +131,246 @@ namespace lighting_example
                 .color = tbx::Color::DARK_GREY,
             });
 
-        auto showcase_sphere = tbx::Entity("ShowcaseSphere", ent_registry);
-        showcase_sphere.add_component<tbx::Renderer>(tbx::MaterialInstance {
-            .parameters = {{"color", tbx::Color::LIGHT_GREY}, {"emissive", tbx::Color::BLACK}},
-        });
-        showcase_sphere.add_component<tbx::DynamicMesh>(tbx::sphere);
-        showcase_sphere.add_component<tbx::Transform>(
-            tbx::Vec3(-2.0F, 1.5F, 0.0F),
-            tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F),
-            tbx::Vec3(2.0F, 2.0F, 2.0F));
+        // Showcase models to react to lighting
+        {
+            auto showcase_sphere = tbx::Entity("ShowcaseSphere", ent_registry);
+            showcase_sphere.add_component<tbx::Renderer>(
+                tbx::StandardMaterialInstance(tbx::Color::LIGHT_GREY));
+            showcase_sphere.add_component<tbx::DynamicMesh>(tbx::sphere);
+            showcase_sphere.add_component<tbx::Transform>(
+                tbx::Vec3(-2.0F, 1.5F, 0.0F),
+                tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F),
+                tbx::Vec3(2.0F, 2.0F, 2.0F));
 
-        auto showcase_cube = tbx::Entity("ShowcaseCube", ent_registry);
-        showcase_cube.add_component<tbx::Renderer>(tbx::MaterialInstance {
-            .parameters = {{"color", tbx::Color::GREY}, {"emissive", tbx::Color::BLACK}},
-        });
-        showcase_cube.add_component<tbx::DynamicMesh>(tbx::cube);
-        showcase_cube.add_component<tbx::Transform>(
-            tbx::Vec3(2.0F, 0.25F, 0.0F),
-            tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F),
-            tbx::Vec3(2.0F, 0.5F, 2.0F));
+            auto showcase_cube = tbx::Entity("ShowcaseCube", ent_registry);
+            showcase_cube.add_component<tbx::Renderer>(
+                tbx::StandardMaterialInstance(tbx::Color::GREY));
+            showcase_cube.add_component<tbx::DynamicMesh>(tbx::cube);
+            showcase_cube.add_component<tbx::Transform>(
+                tbx::Vec3(2.0F, 0.25F, 0.0F),
+                tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F),
+                tbx::Vec3(2.0F, 0.5F, 2.0F));
+        }
 
-        _directional_light = tbx::Entity("DirectionalLight", ent_registry);
-        auto directional_light = tbx::DirectionalLight();
-        directional_light.ambient = DIRECTIONAL_LIGHT_ENABLED_AMBIENT;
-        directional_light.intensity = DIRECTIONAL_LIGHT_ENABLED_INTENSITY;
-        _directional_light.add_component<tbx::DirectionalLight>(directional_light);
-        _directional_light.add_component<tbx::Transform>(
-            tbx::Vec3(0.0F, 10.0F, 0.0F),
-            tbx::to_radians(tbx::Vec3(-45.0F, 30.0F, 0.0F)),
-            tbx::Vec3(1.0F));
+        // Directional light
+        {
+            _directional_light = tbx::Entity("DirectionalLight", ent_registry);
+            _directional_light.add_component<tbx::DirectionalLight>(
+                tbx::Color::WHITE,
+                DIRECTIONAL_LIGHT_ENABLED_INTENSITY,
+                DIRECTIONAL_LIGHT_ENABLED_AMBIENT);
+            _directional_light.add_component<tbx::Transform>(
+                tbx::Vec3(0.0F, 10.0F, 0.0F),
+                tbx::to_radians(tbx::Vec3(-45.0F, 30.0F, 0.0F)),
+                tbx::Vec3(1.0F));
+        }
 
-        _point_base_position = tbx::Vec3(-7.5F, 2.5F, -1.0F);
-        _point_light = tbx::Entity("PointLight", ent_registry);
-        auto point_light = tbx::PointLight();
-        point_light.range = 14.0F;
-        point_light.intensity = _point_enabled ? POINT_LIGHT_ENABLED_INTENSITY : 0.0F;
-        _point_light.add_component<tbx::PointLight>(point_light);
-        _point_light.add_component<tbx::Transform>(_point_base_position);
+        // Point light
+        {
+            _point_base_position = tbx::Vec3(-7.5F, 2.5F, -1.0F);
+            _point_light = tbx::Entity("PointLight", ent_registry);
+            _point_light.add_component<tbx::PointLight>(
+                tbx::Color::RED,
+                _point_enabled ? POINT_LIGHT_ENABLED_INTENSITY : 0.0F,
+                14.0F);
+            _point_light.add_component<tbx::Transform>(_point_base_position);
 
-        _point_light_marker = tbx::Entity("PointLightMarker", ent_registry);
-        _point_light_marker.add_component<tbx::Renderer>(tbx::Renderer {
-            .material =
-                tbx::MaterialInstance {
-                    .parameters = {{"color", tbx::Color::RED}, {"emissive", tbx::Color::RED}},
-                },
-            .shadow_mode = tbx::ShadowMode::None,
-        });
-        _point_light_marker.add_component<tbx::DynamicMesh>(tbx::sphere);
-        _point_light_marker.add_component<tbx::Transform>(
-            _point_base_position,
-            tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F),
-            tbx::Vec3(0.3F));
-
-        _spot_base_position = tbx::Vec3(0.0F, 3.8F, 8.5F);
-        _spot_light = tbx::Entity("SpotLight", ent_registry);
-        auto spot_light = tbx::SpotLight();
-        spot_light.range = 30.0F;
-        spot_light.inner_angle = 18.0F;
-        spot_light.outer_angle = 32.0F;
-        spot_light.intensity = _spot_enabled ? SPOT_LIGHT_ENABLED_INTENSITY : 0.0F;
-        _spot_light.add_component<tbx::SpotLight>(spot_light);
-        _spot_light.add_component<tbx::Transform>(
-            _spot_base_position,
-            tbx::to_radians(tbx::Vec3(-90.0F, 0.0F, 0.0F)),
-            tbx::Vec3(1.0F));
-
-        _spot_light_marker = tbx::Entity("SpotLightMarker", ent_registry);
-        _spot_light_marker.add_component<tbx::Renderer>(tbx::Renderer {
-            .material =
-                tbx::MaterialInstance {
-                    .parameters = {{"color", tbx::Color::GREEN}, {"emissive", tbx::Color::GREEN}},
-                },
-            .shadow_mode = tbx::ShadowMode::None,
-        });
-        _spot_light_marker.add_component<tbx::DynamicMesh>(tbx::cube);
-        _spot_light_marker.add_component<tbx::Transform>(
-            _spot_base_position,
-            tbx::to_radians(tbx::Vec3(-90.0F, 0.0F, 0.0F)),
-            tbx::Vec3(0.3F));
-
-        _area_base_position = tbx::Vec3(7.5F, 2.5F, -1.0F);
-        _area_light = tbx::Entity("AreaLight", ent_registry);
-        auto area_light = tbx::AreaLight();
-        area_light.range = 20.0F;
-        area_light.area_size = tbx::Vec2(3.0F, 2.0F);
-        area_light.intensity = _area_enabled ? AREA_LIGHT_ENABLED_INTENSITY : 0.0F;
-        _area_light.add_component<tbx::AreaLight>(area_light);
-        _area_light.add_component<tbx::Transform>(
-            _area_base_position,
-            tbx::to_radians(tbx::Vec3(-90.0F, 0.0F, 0.0F)),
-            tbx::Vec3(1.0F));
-
-        _area_light_marker = tbx::Entity("AreaLightMarker", ent_registry);
-        _area_light_marker.add_component<tbx::Renderer>(tbx::Renderer {
-            .material =
-                tbx::MaterialInstance {
-                    .parameters = {{"color", tbx::Color::BLUE}, {"emissive", tbx::Color::BLUE}},
-                },
-            .shadow_mode = tbx::ShadowMode::None,
-        });
-        _area_light_marker.add_component<tbx::DynamicMesh>(tbx::capsule);
-        _area_light_marker.add_component<tbx::Transform>(
-            _area_base_position,
-            tbx::to_radians(tbx::Vec3(-90.0F, 0.0F, 0.0F)),
-            tbx::Vec3(0.5F, 0.3F, 0.1F));
-
-        auto camera = tbx::Entity("Camera", ent_registry);
-        camera.add_component<tbx::Camera>();
-        camera.add_component<tbx::Transform>(
-            tbx::Vec3(0.0F, 3.5F, 14.0F),
-            tbx::Quat(tbx::Vec3(tbx::to_radians(-90.0F), 0.0F, 0.0F)),
-            tbx::Vec3(1.0F));
-
-        _camera_controller.initialize(
-            camera,
-            input_manager,
-            examples_common::FreeLookCameraControllerSettings {
-                .initial_yaw = 0.0F,
-                .initial_pitch = tbx::to_radians(-10.0F),
-                .move_speed = 6.0F,
-                .look_sensitivity = 0.0025F,
+            _point_light_marker = tbx::Entity("PointLightMarker", ent_registry);
+            _point_light_marker.add_component<tbx::Renderer>(tbx::Renderer {
+                .material = tbx::StandardMaterialInstance(tbx::Color::RED),
+                .shadow_mode = tbx::ShadowMode::None,
             });
+            _point_light_marker.add_component<tbx::DynamicMesh>(tbx::sphere);
+            _point_light_marker.add_component<tbx::Transform>(
+                _point_base_position,
+                tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F),
+                tbx::Vec3(0.3F));
+        }
 
-        auto& light_scheme = _camera_controller.get_input_scheme();
-        light_scheme.add_action(create_key_toggle_action(
-            "toggle_directional",
-            tbx::InputKey::ALPHA_0,
-            [this](const tbx::InputAction&)
-            {
-                _directional_enabled = !_directional_enabled;
-                TBX_TRACE_INFO("Toggle directional light: {}", _directional_enabled);
-                auto& light = _directional_light.get_component<tbx::DirectionalLight>();
-                light.intensity = _directional_enabled ? DIRECTIONAL_LIGHT_ENABLED_INTENSITY : 0.0F;
-                light.ambient = _directional_enabled ? DIRECTIONAL_LIGHT_ENABLED_AMBIENT : 0.0F;
-            }));
-        light_scheme.add_action(create_key_toggle_action(
-            "toggle_point",
-            tbx::InputKey::ALPHA_1,
-            [this](const tbx::InputAction&)
-            {
-                _point_enabled = !_point_enabled;
-                TBX_TRACE_INFO("Toggle point light: {}", _point_enabled);
-                auto& light = _point_light.get_component<tbx::PointLight>();
-                light.intensity = _point_enabled ? POINT_LIGHT_ENABLED_INTENSITY : 0.0F;
-            }));
-        light_scheme.add_action(create_key_toggle_action(
-            "toggle_spot",
-            tbx::InputKey::ALPHA_2,
-            [this](const tbx::InputAction&)
-            {
-                _spot_enabled = !_spot_enabled;
-                TBX_TRACE_INFO("Toggle spot light: {}", _spot_enabled);
-                auto& light = _spot_light.get_component<tbx::SpotLight>();
-                light.intensity = _spot_enabled ? SPOT_LIGHT_ENABLED_INTENSITY : 0.0F;
-            }));
-        light_scheme.add_action(create_key_toggle_action(
-            "toggle_area",
-            tbx::InputKey::ALPHA_3,
-            [this](const tbx::InputAction&)
-            {
-                _area_enabled = !_area_enabled;
-                TBX_TRACE_INFO("Toggle area light: {}", _area_enabled);
-                auto& light = _area_light.get_component<tbx::AreaLight>();
-                light.intensity = _area_enabled ? AREA_LIGHT_ENABLED_INTENSITY : 0.0F;
-            }));
-        light_scheme.add_action(create_key_toggle_action(
-            "toggle_stress_lights",
-            tbx::InputKey::F5,
-            [this](const tbx::InputAction&)
-            {
-                _stress_mode_enabled = !_stress_mode_enabled;
-                if (_stress_mode_enabled)
-                    rebuild_stress_lights(_stress_light_count);
-                else
-                    clear_stress_lights();
+        // Spot light
+        {
+            _spot_base_position = tbx::Vec3(0.0F, 3.8F, 8.5F);
+            _spot_light = tbx::Entity("SpotLight", ent_registry);
+            auto spot_light = tbx::SpotLight(
+                tbx::Color::GREEN,
+                _spot_enabled ? SPOT_LIGHT_ENABLED_INTENSITY : 0.0F,
+                30.0F,
+                18.0F,
+                32.0F);
+            _spot_light.add_component<tbx::SpotLight>(spot_light);
+            _spot_light.add_component<tbx::Transform>(
+                _spot_base_position,
+                tbx::to_radians(tbx::Vec3(-90.0F, 0.0F, 0.0F)),
+                tbx::Vec3(1.0F));
 
-                TBX_TRACE_INFO(
-                    "Toggle stress mode: {} (lights={})",
-                    _stress_mode_enabled,
-                    _stress_light_count);
-            }));
-        light_scheme.add_action(create_key_toggle_action(
-            "cycle_stress_light_count",
-            tbx::InputKey::F6,
-            [this](const tbx::InputAction&)
-            {
-                static constexpr auto STRESS_PRESETS = std::array {128U, 256U, 512U, 768U};
-                auto selected_index = 0U;
-                for (size_t index = 0U; index < STRESS_PRESETS.size(); ++index)
+            _spot_light_marker = tbx::Entity("SpotLightMarker", ent_registry);
+            _spot_light_marker.add_component<tbx::Renderer>(tbx::Renderer {
+                .material = tbx::StandardMaterialInstance(tbx::Color::GREEN),
+                .shadow_mode = tbx::ShadowMode::None,
+            });
+            _spot_light_marker.add_component<tbx::DynamicMesh>(tbx::cube);
+            _spot_light_marker.add_component<tbx::Transform>(
+                _spot_base_position,
+                tbx::to_radians(tbx::Vec3(-90.0F, 0.0F, 0.0F)),
+                tbx::Vec3(0.3F));
+        }
+
+        // Area light
+        {
+            _area_base_position = tbx::Vec3(7.5F, 2.5F, -1.0F);
+            _area_light = tbx::Entity("AreaLight", ent_registry);
+            _area_light.add_component<tbx::AreaLight>(
+                tbx::Color::BLUE,
+                _area_enabled ? AREA_LIGHT_ENABLED_INTENSITY : 0.0F,
+                20.0F,
+                tbx::Vec2(3.0F, 2.0F));
+            _area_light.add_component<tbx::Transform>(
+                _area_base_position,
+                tbx::to_radians(tbx::Vec3(-90.0F, 0.0F, 0.0F)),
+                tbx::Vec3(1.0F));
+
+            _area_light_marker = tbx::Entity("AreaLightMarker", ent_registry);
+            _area_light_marker.add_component<tbx::Renderer>(tbx::Renderer {
+                .material = tbx::StandardMaterialInstance(tbx::Color::BLUE),
+                .shadow_mode = tbx::ShadowMode::None,
+            });
+            _area_light_marker.add_component<tbx::DynamicMesh>(tbx::capsule);
+            _area_light_marker.add_component<tbx::Transform>(
+                _area_base_position,
+                tbx::to_radians(tbx::Vec3(-90.0F, 0.0F, 0.0F)),
+                tbx::Vec3(0.5F, 0.3F, 0.1F));
+        }
+
+        // Camera
+        {
+            auto camera = tbx::Entity("Camera", ent_registry);
+            camera.add_component<tbx::Camera>();
+            camera.add_component<tbx::Transform>(
+                tbx::Vec3(0.0F, 3.5F, 14.0F),
+                tbx::Quat(tbx::Vec3(tbx::to_radians(-90.0F), 0.0F, 0.0F)),
+                tbx::Vec3(1.0F));
+
+            _camera_controller.initialize(
+                camera,
+                input_manager,
+                examples_common::FreeLookCameraControllerSettings {
+                    .initial_yaw = 0.0F,
+                    .initial_pitch = tbx::to_radians(-10.0F),
+                    .move_speed = 6.0F,
+                    .look_sensitivity = 0.0025F,
+                });
+        }
+
+        // Input
+        {
+            auto& light_scheme = _camera_controller.get_input_scheme();
+            light_scheme.add_action(create_key_toggle_action(
+                "toggle_directional",
+                tbx::InputKey::ALPHA_0,
+                [this](const tbx::InputAction&)
                 {
-                    if (STRESS_PRESETS[index] != _stress_light_count)
-                        continue;
-
-                    selected_index = index;
-                    break;
-                }
-
-                selected_index = (selected_index + 1U) % STRESS_PRESETS.size();
-                _stress_light_count = STRESS_PRESETS[selected_index];
-                if (_stress_mode_enabled)
-                    rebuild_stress_lights(_stress_light_count);
-
-                TBX_TRACE_INFO("Stress light preset: {}", _stress_light_count);
-            }));
-        light_scheme.add_action(create_key_toggle_action(
-            "toggle_shadow_budget",
-            tbx::InputKey::F7,
-            [this](const tbx::InputAction&)
-            {
-                auto& graphics = get_host().get_settings().graphics;
-                if (graphics.shadow_render_distance.value <= 25.0F)
+                    _directional_enabled = !_directional_enabled;
+                    TBX_TRACE_INFO("Toggle directional light: {}", _directional_enabled);
+                    auto& light = _directional_light.get_component<tbx::DirectionalLight>();
+                    light.intensity =
+                        _directional_enabled ? DIRECTIONAL_LIGHT_ENABLED_INTENSITY : 0.0F;
+                    light.ambient = _directional_enabled ? DIRECTIONAL_LIGHT_ENABLED_AMBIENT : 0.0F;
+                }));
+            light_scheme.add_action(create_key_toggle_action(
+                "toggle_point",
+                tbx::InputKey::ALPHA_1,
+                [this](const tbx::InputAction&)
                 {
-                    graphics.shadow_map_resolution = 2048U;
-                    graphics.shadow_render_distance = 60.0F;
-                    graphics.shadow_softness = 1.0F;
-                }
-                else
+                    _point_enabled = !_point_enabled;
+                    TBX_TRACE_INFO("Toggle point light: {}", _point_enabled);
+                    auto& light = _point_light.get_component<tbx::PointLight>();
+                    light.intensity = _point_enabled ? POINT_LIGHT_ENABLED_INTENSITY : 0.0F;
+                }));
+            light_scheme.add_action(create_key_toggle_action(
+                "toggle_spot",
+                tbx::InputKey::ALPHA_2,
+                [this](const tbx::InputAction&)
                 {
-                    graphics.shadow_map_resolution = 1024U;
-                    graphics.shadow_render_distance = 20.0F;
-                    graphics.shadow_softness = 0.6F;
-                }
+                    _spot_enabled = !_spot_enabled;
+                    TBX_TRACE_INFO("Toggle spot light: {}", _spot_enabled);
+                    auto& light = _spot_light.get_component<tbx::SpotLight>();
+                    light.intensity = _spot_enabled ? SPOT_LIGHT_ENABLED_INTENSITY : 0.0F;
+                }));
+            light_scheme.add_action(create_key_toggle_action(
+                "toggle_area",
+                tbx::InputKey::ALPHA_3,
+                [this](const tbx::InputAction&)
+                {
+                    _area_enabled = !_area_enabled;
+                    TBX_TRACE_INFO("Toggle area light: {}", _area_enabled);
+                    auto& light = _area_light.get_component<tbx::AreaLight>();
+                    light.intensity = _area_enabled ? AREA_LIGHT_ENABLED_INTENSITY : 0.0F;
+                }));
+            light_scheme.add_action(create_key_toggle_action(
+                "toggle_stress_lights",
+                tbx::InputKey::F5,
+                [this](const tbx::InputAction&)
+                {
+                    _stress_mode_enabled = !_stress_mode_enabled;
+                    if (_stress_mode_enabled)
+                        rebuild_stress_lights(_stress_light_count);
+                    else
+                        clear_stress_lights();
 
-                TBX_TRACE_INFO(
-                    "Shadow budget preset -> res={}, distance={}, softness={}",
-                    graphics.shadow_map_resolution.value,
-                    graphics.shadow_render_distance.value,
-                    graphics.shadow_softness.value);
-            }));
+                    TBX_TRACE_INFO(
+                        "Toggle stress mode: {} (lights={})",
+                        _stress_mode_enabled,
+                        _stress_light_count);
+                }));
+            light_scheme.add_action(create_key_toggle_action(
+                "cycle_stress_light_count",
+                tbx::InputKey::F6,
+                [this](const tbx::InputAction&)
+                {
+                    static constexpr auto STRESS_PRESETS = std::array {128U, 256U, 512U, 768U};
+                    auto selected_index = 0U;
+                    for (size_t index = 0U; index < STRESS_PRESETS.size(); ++index)
+                    {
+                        if (STRESS_PRESETS[index] != _stress_light_count)
+                            continue;
+
+                        selected_index = index;
+                        break;
+                    }
+
+                    selected_index = (selected_index + 1U) % STRESS_PRESETS.size();
+                    _stress_light_count = STRESS_PRESETS[selected_index];
+                    if (_stress_mode_enabled)
+                        rebuild_stress_lights(_stress_light_count);
+
+                    TBX_TRACE_INFO("Stress light preset: {}", _stress_light_count);
+                }));
+            light_scheme.add_action(create_key_toggle_action(
+                "toggle_shadow_budget",
+                tbx::InputKey::F7,
+                [this](const tbx::InputAction&)
+                {
+                    auto& graphics = get_host().get_settings().graphics;
+                    if (graphics.shadow_render_distance.value <= 25.0F)
+                    {
+                        graphics.shadow_map_resolution = 2048U;
+                        graphics.shadow_render_distance = 60.0F;
+                        graphics.shadow_softness = 1.0F;
+                    }
+                    else
+                    {
+                        graphics.shadow_map_resolution = 1024U;
+                        graphics.shadow_render_distance = 20.0F;
+                        graphics.shadow_softness = 0.6F;
+                    }
+
+                    TBX_TRACE_INFO(
+                        "Shadow budget preset -> res={}, distance={}, softness={}",
+                        graphics.shadow_map_resolution.value,
+                        graphics.shadow_render_distance.value,
+                        graphics.shadow_softness.value);
+                }));
+        }
     }
 
     void LightingExampleRuntimePlugin::on_detach()
@@ -402,16 +413,20 @@ namespace lighting_example
                     auto& marker_transform = _point_light_marker.get_component<tbx::Transform>();
                     marker_transform.position = point_transform.position;
                     auto& marker_renderer = _point_light_marker.get_component<tbx::Renderer>();
-                    marker_renderer.material.parameters.set("color", point_light.color);
-                    marker_renderer.material.parameters.set("emissive", point_light.color);
+                    auto marker_material = tbx::StandardMaterialInstance(marker_renderer.material);
+                    marker_material.set_color(point_light.color);
+                    marker_material.set_emissive(point_light.color);
+                    marker_renderer.material = marker_material;
                 }
             }
             else
             {
                 point_light.intensity = 0.0F;
                 auto& marker_renderer = _point_light_marker.get_component<tbx::Renderer>();
-                marker_renderer.material.parameters.set("color", tbx::Color::BLACK);
-                marker_renderer.material.parameters.set("emissive", tbx::Color::BLACK);
+                auto marker_material = tbx::StandardMaterialInstance(marker_renderer.material);
+                marker_material.set_color(tbx::Color::BLACK);
+                marker_material.set_emissive(tbx::Color::BLACK);
+                marker_renderer.material = marker_material;
             }
         }
 
@@ -433,16 +448,20 @@ namespace lighting_example
                     marker_transform.position = spot_transform.position;
                     marker_transform.rotation = spot_transform.rotation;
                     auto& marker_renderer = _spot_light_marker.get_component<tbx::Renderer>();
-                    marker_renderer.material.parameters.set("color", spot_light.color);
-                    marker_renderer.material.parameters.set("emissive", spot_light.color);
+                    auto marker_material = tbx::StandardMaterialInstance(marker_renderer.material);
+                    marker_material.set_color(spot_light.color);
+                    marker_material.set_emissive(spot_light.color);
+                    marker_renderer.material = marker_material;
                 }
             }
             else
             {
                 spot_light.intensity = 0.0F;
                 auto& marker_renderer = _spot_light_marker.get_component<tbx::Renderer>();
-                marker_renderer.material.parameters.set("color", tbx::Color::BLACK);
-                marker_renderer.material.parameters.set("emissive", tbx::Color::BLACK);
+                auto marker_material = tbx::StandardMaterialInstance(marker_renderer.material);
+                marker_material.set_color(tbx::Color::BLACK);
+                marker_material.set_emissive(tbx::Color::BLACK);
+                marker_renderer.material = marker_material;
             }
         }
 
@@ -465,16 +484,20 @@ namespace lighting_example
                     marker_transform.position = area_transform.position;
                     marker_transform.rotation = area_transform.rotation;
                     auto& marker_renderer = _area_light_marker.get_component<tbx::Renderer>();
-                    marker_renderer.material.parameters.set("color", area_light.color);
-                    marker_renderer.material.parameters.set("emissive", area_light.color);
+                    auto marker_material = tbx::StandardMaterialInstance(marker_renderer.material);
+                    marker_material.set_color(area_light.color);
+                    marker_material.set_emissive(area_light.color);
+                    marker_renderer.material = marker_material;
                 }
             }
             else
             {
                 area_light.intensity = 0.0F;
                 auto& marker_renderer = _area_light_marker.get_component<tbx::Renderer>();
-                marker_renderer.material.parameters.set("color", tbx::Color::BLACK);
-                marker_renderer.material.parameters.set("emissive", tbx::Color::BLACK);
+                auto marker_material = tbx::StandardMaterialInstance(marker_renderer.material);
+                marker_material.set_color(tbx::Color::BLACK);
+                marker_material.set_emissive(tbx::Color::BLACK);
+                marker_renderer.material = marker_material;
             }
         }
 

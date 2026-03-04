@@ -23,7 +23,10 @@ namespace physics_example
 
         _sun = tbx::Entity("Light", ent_registry);
         _sun.add_component<DirectionalLight>(Color::WHITE, 1.0F, 0.15F);
-        _sun.add_component<tbx::Transform>(tbx::Vec3(0), tbx::to_radians(tbx::Vec3(-45.0F, 45.0F, 0.0F)), tbx::Vec3(1));
+        _sun.add_component<tbx::Transform>(
+            tbx::Vec3(0),
+            tbx::to_radians(tbx::Vec3(-45.0F, 45.0F, 0.0F)),
+            tbx::Vec3(1));
 
         auto camera = tbx::Entity("Camera", ent_registry);
         camera.add_component<Camera>();
@@ -49,27 +52,21 @@ namespace physics_example
             });
 
         auto falling_sphere = tbx::Entity("FallingSphere", ent_registry);
-        falling_sphere.add_component<Renderer>(MaterialInstance {
-            .parameters = {{"color", Color::RED}},
-        });
+        falling_sphere.add_component<Renderer>(StandardMaterialInstance(Color::RED));
         falling_sphere.add_component<DynamicMesh>(sphere);
         falling_sphere.add_component<tbx::Transform>(tbx::Vec3(0.0F, 6.0F, -5.2F));
         falling_sphere.add_component<SphereCollider>(0.5F);
         falling_sphere.add_component<Physics>();
 
         auto falling_cube = tbx::Entity("FallingCube", ent_registry);
-        falling_cube.add_component<Renderer>(MaterialInstance {
-            .parameters = {{"color", Color::BLUE}},
-        });
+        falling_cube.add_component<Renderer>(StandardMaterialInstance(Color::BLUE));
         falling_cube.add_component<DynamicMesh>(cube);
         falling_cube.add_component<tbx::Transform>(tbx::Vec3(0.0F, 10.0F, -4.9F));
         falling_cube.add_component<CubeCollider>(tbx::Vec3(0.5F, 0.5F, 0.5F));
         falling_cube.add_component<Physics>();
 
         auto trigger_zone = tbx::Entity("TriggerZone", ent_registry);
-        trigger_zone.add_component<Renderer>(MaterialInstance {
-            .parameters = {{"color", Color::GREEN}},
-        });
+        trigger_zone.add_component<Renderer>(StandardMaterialInstance(Color::GREEN));
         trigger_zone.add_component<DynamicMesh>(cube);
         trigger_zone.add_component<tbx::Transform>(
             tbx::Vec3(0.0F, 2.5F, -5.0F),
@@ -115,81 +112,84 @@ namespace physics_example
         });
 
         auto& camera_scheme = _camera_controller.get_input_scheme();
-        camera_scheme.add_action(tbx::InputAction(
-            "Raycast",
-            InputActionValueType::BUTTON,
-            InputActionConstruction {
-                .bindings =
-                    {
-                        tbx::InputBinding {
-                            .control =
-                                MouseButtonInputControl {
-                                    .button = InputMouseButton::LEFT,
-                                },
-                            .scale = 1.0F,
-                        },
-                    },
-                .on_start_callbacks =
-                    {
-                        [this](const tbx::InputAction&)
+        camera_scheme.add_action(
+            tbx::InputAction(
+                "Raycast",
+                InputActionValueType::BUTTON,
+                InputActionConstruction {
+                    .bindings =
                         {
-                            const auto& camera = _camera_controller.get_camera();
-                            if (!camera.get_id().is_valid())
-                                return;
-
-                            tbx::Transform camera_world_transform = get_world_space_transform(camera);
-                            tbx::Vec3 direction = normalize(
-                                camera_world_transform.rotation * tbx::Vec3(0.0F, 0.0F, -1.0F));
-
-                            Raycast raycast = Raycast {
-                                .origin = camera_world_transform.position,
-                                .direction = direction,
-                                .max_distance = 60.0F,
-                                .ignore_entity = true,
-                                .ignored_entity_id = camera.get_id(),
-                            };
-
-                            RaycastResult raycast_result = raycast.cast();
-                            if (!raycast_result)
+                            tbx::InputBinding {
+                                .control =
+                                    MouseButtonInputControl {
+                                        .button = InputMouseButton::LEFT,
+                                    },
+                                .scale = 1.0F,
+                            },
+                        },
+                    .on_start_callbacks =
+                        {
+                            [this](const tbx::InputAction&)
                             {
-                                TBX_TRACE_INFO("Raycast missed.");
-                                return;
-                            }
+                                const auto& camera = _camera_controller.get_camera();
+                                if (!camera.get_id().is_valid())
+                                    return;
 
-                            TBX_TRACE_INFO(
-                                "Raycast hit entity {} at ({:.2f}, {:.2f}, {:.2f}).",
-                                get_host()
-                                    .get_entity_registry()
-                                    .get(raycast_result.hit_entity_id)
-                                    .get_name(),
-                                raycast_result.hit_position.x,
-                                raycast_result.hit_position.y,
-                                raycast_result.hit_position.z);
+                                tbx::Transform camera_world_transform =
+                                    get_world_space_transform(camera);
+                                tbx::Vec3 direction = normalize(
+                                    camera_world_transform.rotation * tbx::Vec3(0.0F, 0.0F, -1.0F));
+
+                                Raycast raycast = Raycast {
+                                    .origin = camera_world_transform.position,
+                                    .direction = direction,
+                                    .max_distance = 60.0F,
+                                    .ignore_entity = true,
+                                    .ignored_entity_id = camera.get_id(),
+                                };
+
+                                RaycastResult raycast_result = raycast.cast();
+                                if (!raycast_result)
+                                {
+                                    TBX_TRACE_INFO("Raycast missed.");
+                                    return;
+                                }
+
+                                TBX_TRACE_INFO(
+                                    "Raycast hit entity {} at ({:.2f}, {:.2f}, {:.2f}).",
+                                    get_host()
+                                        .get_entity_registry()
+                                        .get(raycast_result.hit_entity_id)
+                                        .get_name(),
+                                    raycast_result.hit_position.x,
+                                    raycast_result.hit_position.y,
+                                    raycast_result.hit_position.z);
+                            },
                         },
-                    },
-            }));
-        camera_scheme.add_action(tbx::InputAction(
-            "Shoot",
-            InputActionValueType::BUTTON,
-            InputActionConstruction {
-                .bindings =
-                    {
-                        tbx::InputBinding {
-                            .control =
-                                MouseButtonInputControl {
-                                    .button = InputMouseButton::RIGHT,
-                                },
-                            .scale = 1.0F,
-                        },
-                    },
-                .on_start_callbacks =
-                    {
-                        [this](const tbx::InputAction&)
+                }));
+        camera_scheme.add_action(
+            tbx::InputAction(
+                "Shoot",
+                InputActionValueType::BUTTON,
+                InputActionConstruction {
+                    .bindings =
                         {
-                            _is_shoot_requested = true;
+                            tbx::InputBinding {
+                                .control =
+                                    MouseButtonInputControl {
+                                        .button = InputMouseButton::RIGHT,
+                                    },
+                                .scale = 1.0F,
+                            },
                         },
-                    },
-            }));
+                    .on_start_callbacks =
+                        {
+                            [this](const tbx::InputAction&)
+                            {
+                                _is_shoot_requested = true;
+                            },
+                        },
+                }));
     }
 
     void PhysicsExampleRuntimePlugin::on_detach()
@@ -290,9 +290,7 @@ namespace physics_example
 
         auto projectile = tbx::Entity(projectile_name, get_host().get_entity_registry());
         constexpr float projectile_visual_scale = 0.35F;
-        projectile.add_component<Renderer>(MaterialInstance {
-            .parameters = {{"color", Color::YELLOW}},
-        });
+        projectile.add_component<Renderer>(StandardMaterialInstance(Color::YELLOW));
         projectile.add_component<DynamicMesh>(_projectile_mesh);
         projectile.add_component<tbx::Transform>(
             spawn_position,

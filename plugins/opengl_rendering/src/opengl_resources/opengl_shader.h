@@ -62,6 +62,7 @@ namespace opengl_rendering
         void unbind() override;
 
         bool try_upload(const tbx::MaterialParameter& uniform);
+        bool try_upload_material_block(const OpenGlMaterialParams& params) const;
         bool try_upload(const OpenGlMaterialParams& params);
 
         tbx::uint32 get_program_id() const;
@@ -69,6 +70,14 @@ namespace opengl_rendering
         int get_instance_id_attribute_location() const;
 
       private:
+        struct MaterialBlockUniform
+        {
+            std::string name = {};
+            tbx::uint32 type = 0;
+            int offset = 0;
+            int size = 0;
+        };
+
         int get_cached_uniform_location(const std::string& name);
 
         tbx::uint32 _program_id = 0;
@@ -76,6 +85,10 @@ namespace opengl_rendering
         std::unordered_map<std::string, tbx::uint64> _bindless_sampler_layout = {};
         std::vector<std::string> _sampler_uniform_layout = {};
         std::unordered_set<std::string> _logged_missing_uniforms = {};
+        tbx::uint32 _material_uniform_buffer = 0;
+        int _material_uniform_block_size = 0;
+        std::vector<MaterialBlockUniform> _material_uniforms = {};
+        bool _has_material_uniform_block = false;
         int _instance_model_attribute_location = 8;
         int _instance_id_attribute_location = 12;
     };

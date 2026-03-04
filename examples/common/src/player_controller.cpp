@@ -31,9 +31,7 @@ namespace examples_common
         _player.add_component<tbx::Transform>(settings.player_spawn_position);
 
         auto player_visual = tbx::Entity("PlayerVisual", _player.get_id(), entity_registry);
-        player_visual.add_component<Renderer>(MaterialInstance {
-            .parameters = {{"color", Color::RED}},
-        });
+        player_visual.add_component<Renderer>(StandardMaterialInstance(Color::RED));
         player_visual.add_component<DynamicMesh>(capsule);
         player_visual.add_component<tbx::Transform>(
             settings.visual_local_position,

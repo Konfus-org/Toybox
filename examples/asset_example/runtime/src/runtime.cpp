@@ -24,7 +24,10 @@ namespace asset_example
         // Setup light
         _sun = tbx::Entity("Light", ent_registry);
         _sun.add_component<DirectionalLight>(Color::YELLOW, 1.0f, 0.25f);
-        _sun.add_component<tbx::Transform>(tbx::Vec3(0), tbx::to_radians(tbx::Vec3(-45.0f, 45.0f, 0.0f)), tbx::Vec3(1));
+        _sun.add_component<tbx::Transform>(
+            tbx::Vec3(0),
+            tbx::to_radians(tbx::Vec3(-45.0f, 45.0f, 0.0f)),
+            tbx::Vec3(1));
 
         // Setup cube
         _cube = tbx::Entity("Cube", ent_registry);
@@ -45,16 +48,20 @@ namespace asset_example
 
         // Setup global post-processing stack
         auto post_ent = tbx::Entity("PostProcessing", ent_registry);
+        auto lut_material = StandardMaterialInstance(
+            Color::WHITE,
+            Color::BLACK,
+            0.0f,
+            1.0f,
+            1.0f,
+            0.1f,
+            Handle(),
+            Handle(),
+            lut_post_mat);
+        lut_material.textures.set("lut", lut_tex);
         auto post_processing = PostProcessing({
             PostProcessingEffect {
-                .material =
-                    {
-                        .handle = lut_post_mat,
-                        .textures = {{
-                            .name = "lut",
-                            .texture = {lut_tex},
-                        }},
-                    },
+                .material = lut_material,
                 .blend = 1.0f,
             },
         });
