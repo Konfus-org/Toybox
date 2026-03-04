@@ -1,4 +1,5 @@
 #include "opengl_texture.h"
+#include "opengl_bindless.h"
 #include "tbx/debugging/macros.h"
 #include <algorithm>
 #include <glad/glad.h>
@@ -40,10 +41,10 @@ namespace opengl_rendering
         {
             case tbx::TextureFilter::NEAREST:
                 return texture.mipmaps == tbx::TextureMipmaps::ENABLED ? GL_NEAREST_MIPMAP_NEAREST
-                                                                  : GL_NEAREST;
+                                                                       : GL_NEAREST;
             case tbx::TextureFilter::LINEAR:
                 return texture.mipmaps == tbx::TextureMipmaps::ENABLED ? GL_LINEAR_MIPMAP_LINEAR
-                                                                  : GL_LINEAR;
+                                                                       : GL_LINEAR;
             default:
                 TBX_ASSERT(false, "OpenGL rendering: unsupported texture filter.");
                 return GL_LINEAR;
@@ -188,8 +189,10 @@ namespace opengl_rendering
     OpenGlTexture::OpenGlTexture(OpenGlTexture&& other) noexcept
         : _texture_id(take_gl_handle(other._texture_id))
         , _slot(other._slot)
+        , _bindless_handle(other._bindless_handle)
     {
         other._slot = 0;
+        other._bindless_handle = 0;
     }
 
     OpenGlTexture& OpenGlTexture::operator=(OpenGlTexture&& other) noexcept
@@ -200,14 +203,25 @@ namespace opengl_rendering
         if (_texture_id != 0)
             glDeleteTextures(1, &_texture_id);
 
+        if (_bindless_handle != 0)
+            release_bindless_handle(_bindless_handle);
+
         _texture_id = take_gl_handle(other._texture_id);
         _slot = other._slot;
+        _bindless_handle = other._bindless_handle;
         other._slot = 0;
+        other._bindless_handle = 0;
         return *this;
     }
 
     OpenGlTexture::~OpenGlTexture() noexcept
     {
+        if (_bindless_handle != 0)
+        {
+            release_bindless_handle(_bindless_handle);
+            _bindless_handle = 0;
+        }
+
         if (_texture_id != 0)
         {
             glDeleteTextures(1, &_texture_id);
@@ -232,5 +246,18 @@ namespace opengl_rendering
     tbx::uint32 OpenGlTexture::get_texture_id() const
     {
         return _texture_id;
+    }
+
+    tbx::uint64 OpenGlTexture::get_bindless_handle() const
+    {
+        if (_bindless_handle != 0)
+            return _bindless_handle;
+
+        auto handle = tbx::uint64 {};
+        if (!try_make_bindless_handle_resident(_texture_id, handle))
+            return 0;
+
+        _bindless_handle = handle;
+        return _bindless_handle;
     }
 }

@@ -1,17 +1,14 @@
 #pragma once
 #include "opengl_context.h"
-#include "opengl_resources/opengl_buffers.h"
 #include "opengl_resources/opengl_resource_manager.h"
+#include "pipeline/OpenGlFrameContext.h"
 #include "pipeline/opengl_render_pipeline.h"
 #include "tbx/assets/asset_manager.h"
-#include "tbx/common/int.h"
-#include "tbx/common/uuid.h"
 #include "tbx/ecs/entity_registry.h"
 #include "tbx/graphics/messages.h"
 #include <functional>
 #include <memory>
 #include <optional>
-#include <vector>
 
 namespace opengl_rendering
 {
@@ -29,13 +26,14 @@ namespace opengl_rendering
         void set_viewport_size(const tbx::Size& viewport_size);
         void set_pending_render_resolution(
             const std::optional<tbx::Size>& pending_render_resolution);
-
         const OpenGlContext& get_context() const;
 
       private:
         void initialize(tbx::GraphicsProcAddress loader) const;
         void shutdown();
         void set_render_resolution(const tbx::Size& render_resolution);
+        OpenGlFrameContext build_frame_context() const;
+        void build_draw_calls(OpenGlFrameContext& frame_context);
 
       private:
         OpenGlContext _context;

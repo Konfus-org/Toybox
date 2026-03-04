@@ -1,4 +1,5 @@
 #include "opengl_shader.h"
+#include "opengl_bindless.h"
 #include "tbx/common/int.h"
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
@@ -230,14 +231,22 @@ namespace opengl_rendering
                 glDetachShader(_program_id, shader->get_shader_id());
             }
         }
+
+        _instance_model_attribute_location = 8;
+        _instance_id_attribute_location = 12;
     }
 
     OpenGlShaderProgram::OpenGlShaderProgram(OpenGlShaderProgram&& other) noexcept
         : _program_id(take_gl_handle(other._program_id))
         , _uniform_locations(std::move(other._uniform_locations))
+        , _bindless_sampler_layout(std::move(other._bindless_sampler_layout))
         , _sampler_uniform_layout(std::move(other._sampler_uniform_layout))
         , _logged_missing_uniforms(std::move(other._logged_missing_uniforms))
+        , _instance_model_attribute_location(other._instance_model_attribute_location)
+        , _instance_id_attribute_location(other._instance_id_attribute_location)
     {
+        other._instance_model_attribute_location = 8;
+        other._instance_id_attribute_location = 12;
     }
 
     OpenGlShaderProgram& OpenGlShaderProgram::operator=(OpenGlShaderProgram&& other) noexcept
@@ -250,8 +259,13 @@ namespace opengl_rendering
 
         _program_id = take_gl_handle(other._program_id);
         _uniform_locations = std::move(other._uniform_locations);
+        _bindless_sampler_layout = std::move(other._bindless_sampler_layout);
         _sampler_uniform_layout = std::move(other._sampler_uniform_layout);
         _logged_missing_uniforms = std::move(other._logged_missing_uniforms);
+        _instance_model_attribute_location = other._instance_model_attribute_location;
+        _instance_id_attribute_location = other._instance_id_attribute_location;
+        other._instance_model_attribute_location = 8;
+        other._instance_id_attribute_location = 12;
         return *this;
     }
 
@@ -298,12 +312,58 @@ namespace opengl_rendering
                 return false;
         }
 
+        bool can_use_bindless = !params.textures.empty();
+        if (can_use_bindless)
+        {
+            for (const auto& texture_binding : params.textures)
+            {
+                if (texture_binding.bindless_handle == 0)
+                {
+                    can_use_bindless = false;
+                    break;
+                }
+            }
+        }
+
+        if (can_use_bindless)
+        {
+            for (const auto& texture_binding : params.textures)
+            {
+                const auto normalized_name = normalize_uniform_name(texture_binding.name);
+                if (const auto existing_sampler = _bindless_sampler_layout.find(normalized_name);
+                    existing_sampler != _bindless_sampler_layout.end()
+                    && existing_sampler->second == texture_binding.bindless_handle)
+                {
+                    continue;
+                }
+
+                const GLint location = get_cached_uniform_location(normalized_name);
+                if (location < 0)
+                    return false;
+
+                if (!try_upload_bindless_sampler(
+                        _program_id,
+                        location,
+                        texture_binding.bindless_handle))
+                    return false;
+
+                _bindless_sampler_layout.insert_or_assign(
+                    normalized_name,
+                    texture_binding.bindless_handle);
+            }
+
+            _sampler_uniform_layout.clear();
+            return true;
+        }
+
         bool is_same_sampler_layout = _sampler_uniform_layout.size() == params.textures.size();
         if (is_same_sampler_layout)
         {
-            for (std::size_t texture_slot = 0; texture_slot < params.textures.size(); ++texture_slot)
+            for (std::size_t texture_slot = 0; texture_slot < params.textures.size();
+                 ++texture_slot)
             {
-                const auto normalized_name = normalize_uniform_name(params.textures[texture_slot].name);
+                const auto normalized_name =
+                    normalize_uniform_name(params.textures[texture_slot].name);
                 if (_sampler_uniform_layout[texture_slot] != normalized_name)
                 {
                     is_same_sampler_layout = false;
@@ -336,6 +396,16 @@ namespace opengl_rendering
     tbx::uint32 OpenGlShaderProgram::get_program_id() const
     {
         return _program_id;
+    }
+
+    int OpenGlShaderProgram::get_instance_model_attribute_location() const
+    {
+        return _instance_model_attribute_location;
+    }
+
+    int OpenGlShaderProgram::get_instance_id_attribute_location() const
+    {
+        return _instance_id_attribute_location;
     }
 
     int OpenGlShaderProgram::get_cached_uniform_location(const std::string& name)

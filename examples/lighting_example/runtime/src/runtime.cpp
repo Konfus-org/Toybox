@@ -129,11 +129,12 @@ namespace lighting_example
             examples_common::RoomSettings {
                 .center = tbx::Vec3(0.0F, -1.0F, 0.0F),
                 .include_colliders = true,
+                .color = tbx::Color::DARK_GREY,
             });
 
         auto showcase_sphere = tbx::Entity("ShowcaseSphere", ent_registry);
         showcase_sphere.add_component<tbx::Renderer>(tbx::MaterialInstance {
-            .parameters = {{"color", tbx::Color::LIGHT_GREY}},
+            .parameters = {{"color", tbx::Color::LIGHT_GREY}, {"emissive", tbx::Color::BLACK}},
         });
         showcase_sphere.add_component<tbx::DynamicMesh>(tbx::sphere);
         showcase_sphere.add_component<tbx::Transform>(
@@ -143,7 +144,7 @@ namespace lighting_example
 
         auto showcase_cube = tbx::Entity("ShowcaseCube", ent_registry);
         showcase_cube.add_component<tbx::Renderer>(tbx::MaterialInstance {
-            .parameters = {{"color", tbx::Color::GREY}},
+            .parameters = {{"color", tbx::Color::GREY}, {"emissive", tbx::Color::BLACK}},
         });
         showcase_cube.add_component<tbx::DynamicMesh>(tbx::cube);
         showcase_cube.add_component<tbx::Transform>(

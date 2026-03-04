@@ -6,6 +6,7 @@ namespace opengl_rendering
 {
     OpenGlRenderPipeline::OpenGlRenderPipeline(const OpenGlResourceManager& resource_manager)
         : _resource_manager(resource_manager)
+        , _geometry_pass_operation(std::make_unique<GeometryPassOperation>(_resource_manager))
     {
     }
 
@@ -16,8 +17,6 @@ namespace opengl_rendering
 
     void OpenGlRenderPipeline::execute(const std::any& payload)
     {
-        const auto geometry_pass_operation =
-            std::make_unique<GeometryPassOperation>(_resource_manager);
-        geometry_pass_operation->execute(payload);
+        _geometry_pass_operation->execute(payload);
     }
 }

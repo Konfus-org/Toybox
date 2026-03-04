@@ -11,11 +11,13 @@ namespace tbx
         auto vertex_shader = ShaderSource(
             "#version 450 core\n"
             "layout(location = 0) in vec3 a_position;\n"
+            "layout(location = 8) in mat4 a_model;\n"
+            "layout(location = 12) in uint a_instance_id;\n"
             "uniform mat4 u_view_proj = mat4(1.0);\n"
-            "uniform mat4 u_model = mat4(1.0);\n"
             "void main()\n"
             "{\n"
-            "    gl_Position = u_view_proj * (u_model * vec4(a_position, 1.0));\n"
+            "    gl_Position = u_view_proj * (a_model * vec4(a_position, 1.0 + "
+            "float(a_instance_id & 0u)));\n"
             "}\n",
             ShaderType::VERTEX);
 

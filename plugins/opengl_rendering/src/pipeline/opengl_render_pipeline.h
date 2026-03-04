@@ -1,7 +1,9 @@
 #pragma once
+#include "GeometryPassOperation.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "tbx/common/pipeline.h"
 #include <any>
+#include <memory>
 
 namespace opengl_rendering
 {
@@ -15,5 +17,6 @@ namespace opengl_rendering
 
       private:
         const OpenGlResourceManager& _resource_manager;
+        std::unique_ptr<GeometryPassOperation> _geometry_pass_operation = nullptr;
     };
 }

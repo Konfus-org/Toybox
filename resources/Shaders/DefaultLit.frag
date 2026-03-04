@@ -5,6 +5,7 @@ layout(location = 0) out vec4 o_color;
 
 in vec4 v_color;
 in vec2 v_tex_coord;
+flat in uint v_instance_id;
 
 uniform sampler2D u_diffuse;
 uniform vec4 u_emissive = vec4(0.0, 0.0, 0.0, 1.0);
@@ -17,6 +18,7 @@ void main()
     texture_color.rgb = tbx_srgb_to_linear(texture_color.rgb);
 
     vec3 mapped = tbx_tonemap_aces((texture_color.rgb + u_emissive.rgb) * max(u_exposure, 0.0));
+    mapped += float(v_instance_id & 0u);
     mapped = tbx_linear_to_srgb(mapped);
     o_color = vec4(mapped, texture_color.a);
 }
