@@ -5,10 +5,8 @@
 #include "opengl_resources/opengl_resource_manager.h"
 #include "opengl_resources/opengl_shader.h"
 #include <cstddef>
-#include <cstring>
 #include <future>
 #include <glad/glad.h>
-#include <variant>
 #include <vector>
 
 namespace opengl_rendering
@@ -22,102 +20,11 @@ namespace opengl_rendering
         std::vector<int> draw_indices = {};
     };
 
-    static bool are_uniform_data_equal(const tbx::UniformData& left, const tbx::UniformData& right)
-    {
-        return std::visit(
-            []<typename T0, typename T1>(const T0& left_value, const T1& right_value) -> bool
-            {
-                using LeftType = std::decay_t<T0>;
-                using RightType = std::decay_t<T1>;
-                if constexpr (!std::is_same_v<LeftType, RightType>)
-                {
-                    return false;
-                }
-                else if constexpr (std::is_same_v<LeftType, tbx::Vec2>)
-                {
-                    return left_value.x == right_value.x && left_value.y == right_value.y;
-                }
-                else if constexpr (std::is_same_v<LeftType, tbx::Vec3>)
-                {
-                    return left_value.x == right_value.x && left_value.y == right_value.y
-                           && left_value.z == right_value.z;
-                }
-                else if constexpr (std::is_same_v<LeftType, tbx::Vec4>)
-                {
-                    return left_value.x == right_value.x && left_value.y == right_value.y
-                           && left_value.z == right_value.z && left_value.w == right_value.w;
-                }
-                else if constexpr (std::is_same_v<LeftType, tbx::Color>)
-                {
-                    return left_value.r == right_value.r && left_value.g == right_value.g
-                           && left_value.b == right_value.b && left_value.a == right_value.a;
-                }
-                else if constexpr (std::is_same_v<LeftType, tbx::Mat3>)
-                {
-                    for (int col = 0; col < 3; ++col)
-                    {
-                        for (int row = 0; row < 3; ++row)
-                        {
-                            if (left_value[col][row] != right_value[col][row])
-                                return false;
-                        }
-                    }
-                    return true;
-                }
-                else if constexpr (std::is_same_v<LeftType, tbx::Mat4>)
-                {
-                    for (int col = 0; col < 4; ++col)
-                    {
-                        for (int row = 0; row < 4; ++row)
-                        {
-                            if (left_value[col][row] != right_value[col][row])
-                                return false;
-                        }
-                    }
-                    return true;
-                }
-                else
-                {
-                    return left_value == right_value;
-                }
-            },
-            left,
-            right);
-    }
-
     static bool are_materials_equal(
         const OpenGlMaterialParams& left,
         const OpenGlMaterialParams& right)
     {
-        if (left.parameters.size() != right.parameters.size())
-            return false;
-        if (left.textures.size() != right.textures.size())
-            return false;
-
-        for (std::size_t parameter_index = 0; parameter_index < left.parameters.size();
-             ++parameter_index)
-        {
-            const auto& [name_a, data_a] = left.parameters[parameter_index];
-            const auto& [name_b, data_b] = right.parameters[parameter_index];
-            if (name_a != name_b)
-                return false;
-            if (!are_uniform_data_equal(data_a, data_b))
-                return false;
-        }
-
-        for (std::size_t texture_index = 0; texture_index < left.textures.size(); ++texture_index)
-        {
-            const auto& left_texture = left.textures[texture_index];
-            const auto& right_texture = right.textures[texture_index];
-            if (left_texture.name != right_texture.name)
-                return false;
-            if (left_texture.texture_id != right_texture.texture_id)
-                return false;
-            if (left_texture.bindless_handle != right_texture.bindless_handle)
-                return false;
-        }
-
-        return true;
+        return left.material_handle.id == right.material_handle.id;
     }
 
     static std::vector<DrawBatch> build_batches(

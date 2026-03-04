@@ -244,6 +244,7 @@ namespace opengl_rendering
 
             // Add material params
             auto material_params = OpenGlMaterialParams();
+            material_params.material_handle = material.handle;
             material_params.parameters.reserve(renderer.material.parameters.values.size());
             for (const auto& [name, value] : renderer.material.parameters.values)
             {
