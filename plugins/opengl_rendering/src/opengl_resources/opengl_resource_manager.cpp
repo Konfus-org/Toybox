@@ -2,6 +2,7 @@
 #include "opengl_mesh.h"
 #include "opengl_shader.h"
 #include "opengl_texture.h"
+#include "tbx/debugging/macros.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/model.h"
@@ -132,7 +133,10 @@ namespace opengl_rendering
         const bool pin)
     {
         if (!material_instance.handle.is_valid())
+        {
+            TBX_TRACE_WARNING("OpenGL rendering: material handle is invalid.");
             return {};
+        }
 
         const auto now = std::chrono::steady_clock::now();
         const auto program_key = make_material_program_key(material_instance.handle);
@@ -157,11 +161,38 @@ namespace opengl_rendering
 
                 const auto shader = _asset_manager.load<tbx::Shader>(shader_handle);
                 if (!shader)
+                {
+                    TBX_TRACE_WARNING(
+                        "OpenGL rendering: failed to load shader '{}' for material '{}'.",
+                        shader_handle.id.value,
+                        material_instance.handle.id.value);
                     return false;
+                }
 
                 for (const auto& source : shader->sources)
-                    shader_resources.emplace_back(std::make_shared<OpenGlShader>(source));
-                return !shader->sources.empty();
+                {
+                    auto shader_resource = std::make_shared<OpenGlShader>(source);
+                    if (!shader_resource->compile())
+                    {
+                        TBX_TRACE_WARNING(
+                            "OpenGL rendering: failed to compile shader stage (type {}) for "
+                            "material '{}'.",
+                            static_cast<int>(source.type),
+                            material_instance.handle.id.value);
+                        return false;
+                    }
+                    shader_resources.emplace_back(std::move(shader_resource));
+                }
+                if (shader->sources.empty())
+                {
+                    TBX_TRACE_WARNING(
+                        "OpenGL rendering: shader '{}' has no stages for material '{}'.",
+                        shader_handle.id.value,
+                        material_instance.handle.id.value);
+                    return false;
+                }
+
+                return true;
             };
 
             const auto has_compute = material->program.compute.is_valid();
@@ -180,14 +211,30 @@ namespace opengl_rendering
             {
                 (void)appended_tesselation;
                 (void)appended_geometry;
-                const auto resource = std::shared_ptr<IOpenGlResource>(
-                    std::make_shared<OpenGlShaderProgram>(shader_resources));
-                _resources.insert_or_assign(program_key, resource);
-                _last_access.insert_or_assign(program_key, now);
-                if (pin)
-                    _pinned_resources.insert_or_assign(program_key, resource);
-                has_program = true;
+                const auto shader_program = std::make_shared<OpenGlShaderProgram>(shader_resources);
+                if (shader_program->get_program_id() != 0)
+                {
+                    const auto resource = std::shared_ptr<IOpenGlResource>(shader_program);
+                    _resources.insert_or_assign(program_key, resource);
+                    _last_access.insert_or_assign(program_key, now);
+                    if (pin)
+                        _pinned_resources.insert_or_assign(program_key, resource);
+                    has_program = true;
+                }
             }
+
+            if (!has_program)
+            {
+                TBX_TRACE_WARNING(
+                    "OpenGL rendering: failed to build shader program for material '{}'.",
+                    material_instance.handle.id.value);
+            }
+        }
+        else
+        {
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: failed to load material '{}'.",
+                material_instance.handle.id.value);
         }
 
         for (const auto& texture_binding : material_instance.textures.values)
@@ -219,7 +266,36 @@ namespace opengl_rendering
 
         if (has_program)
             return program_key;
+
         return {};
+    }
+
+    tbx::Uuid OpenGlResourceManager::add_material(
+        const std::shared_ptr<OpenGlShaderProgram>& shader_program,
+        const tbx::Uuid& resource_uuid,
+        const bool pin)
+    {
+        if (!resource_uuid.is_valid())
+            return {};
+        if (!shader_program || shader_program->get_program_id() == 0)
+            return {};
+
+        const auto now = std::chrono::steady_clock::now();
+        if (const auto existing = _resources.find(resource_uuid);
+            existing != _resources.end())
+        {
+            _last_access.insert_or_assign(resource_uuid, now);
+            if (pin)
+                _pinned_resources.insert_or_assign(resource_uuid, existing->second);
+            return resource_uuid;
+        }
+
+        const auto resource = std::shared_ptr<IOpenGlResource>(shader_program);
+        _resources.insert_or_assign(resource_uuid, resource);
+        _last_access.insert_or_assign(resource_uuid, now);
+        if (pin)
+            _pinned_resources.insert_or_assign(resource_uuid, resource);
+        return resource_uuid;
     }
 
     tbx::Uuid OpenGlResourceManager::add_texture(
@@ -276,7 +352,7 @@ namespace opengl_rendering
         return key;
     }
 
-    bool OpenGlResourceManager::try_get(
+    bool OpenGlResourceManager::try_get_raw(
         const tbx::Uuid& resource_uuid,
         std::shared_ptr<IOpenGlResource>& out_resource) const
     {

@@ -1,4 +1,6 @@
 #include "tbx/plugins/jolt_physics/jolt_physics_plugin.h"
+#include "jolt_collision_layers.h"
+#include "jolt_runtime_lifetime.h"
 #include "tbx/app/application.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/mesh.h"
@@ -6,19 +8,15 @@
 #include "tbx/math/transform.h"
 #include "tbx/physics/collider.h"
 #include "tbx/physics/physics.h"
-#include <Jolt/Core/Factory.h>
-#include <Jolt/Core/IssueReporting.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyFilter.h>
-#include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
 #include <Jolt/Physics/Collision/CastResult.h>
 #include <Jolt/Physics/Collision/CollideShape.h>
 #include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
 #include <Jolt/Physics/Collision/NarrowPhaseQuery.h>
-#include <Jolt/Physics/Collision/ObjectLayer.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
@@ -26,13 +24,9 @@
 #include <Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <Jolt/Physics/Collision/Shape/Shape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
-#include <Jolt/RegisterTypes.h>
 #include <algorithm>
 #include <cmath>
-#include <cstdarg>
 #include <cstdint>
-#include <cstdio>
-#include <mutex>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -40,12 +34,6 @@
 namespace jolt_physics
 {
     static constexpr std::string_view PHYSICS_THREAD_LANE_NAME = "physics";
-    static constexpr JPH::ObjectLayer object_layer_static = 0;
-    static constexpr JPH::ObjectLayer object_layer_moving = 1;
-    static constexpr JPH::BroadPhaseLayer broad_phase_layer_static = JPH::BroadPhaseLayer(0);
-    static constexpr JPH::BroadPhaseLayer broad_phase_layer_moving = JPH::BroadPhaseLayer(1);
-    static constexpr std::uint32_t broad_phase_layer_count = 2;
-
     static std::uint32_t get_body_key(const JPH::BodyID& body_id)
     {
         return body_id.GetIndexAndSequenceNumber();
@@ -56,168 +44,6 @@ namespace jolt_physics
         bool is_manual_trigger_requested)
     {
         return execution_mode == tbx::ColliderOverlapExecutionMode::AUTO || is_manual_trigger_requested;
-    }
-
-    static std::string format_jolt_trace_message(const char* fmt, std::va_list args)
-    {
-        if (fmt == nullptr || *fmt == '\0')
-            return std::string("Jolt reported an empty trace message.");
-
-        std::va_list args_copy;
-        va_copy(args_copy, args);
-        int required_chars = std::vsnprintf(nullptr, 0, fmt, args_copy);
-        va_end(args_copy);
-        if (required_chars <= 0)
-            return std::string(fmt);
-
-        std::string message = {};
-        message.resize(static_cast<std::size_t>(required_chars));
-        std::vsnprintf(message.data(), static_cast<std::size_t>(required_chars) + 1U, fmt, args);
-        return message;
-    }
-
-    static void tbx_jolt_trace_callback(const char* fmt, ...)
-    {
-        std::va_list args;
-        va_start(args, fmt);
-        std::string message = format_jolt_trace_message(fmt, args);
-        va_end(args);
-
-        TBX_TRACE_INFO("Jolt: {}", message);
-    }
-
-#ifdef JPH_ENABLE_ASSERTS
-    static bool tbx_jolt_assert_failed_callback(
-        const char* expression,
-        const char* message,
-        const char* file,
-        JPH::uint line)
-    {
-        const char* safe_expression =
-            (expression && *expression) ? expression : "<expression unavailable>";
-        const char* safe_message = (message && *message) ? message : "";
-        const char* safe_file = (file && *file) ? file : "<unknown>";
-
-        if (*safe_message == '\0')
-        {
-            TBX_TRACE_CRITICAL(
-                "Jolt assertion failed: '{}' at {}:{}",
-                safe_expression,
-                safe_file,
-                line);
-        }
-        else
-        {
-            TBX_TRACE_CRITICAL(
-                "Jolt assertion failed: '{}' at {}:{} ({})",
-                safe_expression,
-                safe_file,
-                line,
-                safe_message);
-        }
-
-        return false;
-    }
-#endif
-
-    class PhysicsBroadPhaseLayerInterface final : public JPH::BroadPhaseLayerInterface
-    {
-      public:
-        std::uint32_t GetNumBroadPhaseLayers() const override
-        {
-            return broad_phase_layer_count;
-        }
-
-        JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer layer) const override
-        {
-            if (layer == object_layer_moving)
-                return broad_phase_layer_moving;
-
-            return broad_phase_layer_static;
-        }
-
-#if defined(JPH_EXTERNAL_PROFILE) || defined(JPH_PROFILE_ENABLED)
-        const char* GetBroadPhaseLayerName(JPH::BroadPhaseLayer layer) const override
-        {
-            if (layer == broad_phase_layer_moving)
-                return "Moving";
-
-            return "Static";
-        }
-#endif
-    };
-
-    class PhysicsObjectLayerPairFilter final : public JPH::ObjectLayerPairFilter
-    {
-      public:
-        bool ShouldCollide(JPH::ObjectLayer left, JPH::ObjectLayer right) const override
-        {
-            if (left == object_layer_static)
-                return right == object_layer_moving;
-
-            if (left == object_layer_moving)
-                return true;
-
-            return false;
-        }
-    };
-
-    class PhysicsObjectVsBroadPhaseLayerFilter final : public JPH::ObjectVsBroadPhaseLayerFilter
-    {
-      public:
-        bool ShouldCollide(JPH::ObjectLayer layer, JPH::BroadPhaseLayer broad_phase_layer)
-            const override
-        {
-            if (layer == object_layer_static)
-                return broad_phase_layer == broad_phase_layer_moving;
-
-            if (layer == object_layer_moving)
-                return true;
-
-            return false;
-        }
-    };
-
-    struct JoltRuntimeRef
-    {
-        std::size_t reference_count = 0;
-    };
-
-    static JoltRuntimeRef g_jolt_runtime = {};
-    static std::mutex g_jolt_runtime_mutex = {};
-
-    static bool acquire_jolt_runtime()
-    {
-        auto lock = std::scoped_lock(g_jolt_runtime_mutex);
-        if (g_jolt_runtime.reference_count == 0)
-        {
-            JPH::RegisterDefaultAllocator();
-            JPH::Trace = tbx_jolt_trace_callback;
-#ifdef JPH_ENABLE_ASSERTS
-            JPH::AssertFailed = tbx_jolt_assert_failed_callback;
-#endif
-
-            JPH::Factory::sInstance = new JPH::Factory();
-            JPH::RegisterTypes();
-        }
-
-        ++g_jolt_runtime.reference_count;
-        return true;
-    }
-
-    static void release_jolt_runtime()
-    {
-        auto lock = std::scoped_lock(g_jolt_runtime_mutex);
-        if (g_jolt_runtime.reference_count == 0)
-            return;
-
-        --g_jolt_runtime.reference_count;
-        if (g_jolt_runtime.reference_count > 0)
-            return;
-
-        JPH::UnregisterTypes();
-        delete JPH::Factory::sInstance;
-        JPH::Factory::sInstance = nullptr;
     }
 
     static JPH::Vec3 to_jolt_vec3(const tbx::Vec3& value)
@@ -530,6 +356,12 @@ namespace jolt_physics
         return positions.size() > base_vertex_index;
     }
 
+    struct MeshPartQueueEntry
+    {
+        std::size_t part_index = 0U;
+        tbx::Mat4 parent_transform = tbx::Mat4(1.0F);
+    };
+
     static bool try_get_mesh_collider_data(
         tbx::IPluginHost& host,
         const tbx::Entity& entity,
@@ -581,13 +413,7 @@ namespace jolt_physics
             }
         }
 
-        struct PartQueueEntry
-        {
-            std::size_t part_index = 0U;
-            tbx::Mat4 parent_transform = tbx::Mat4(1.0F);
-        };
-
-        auto queue = std::vector<PartQueueEntry> {};
+        auto queue = std::vector<MeshPartQueueEntry> {};
         queue.reserve(model->parts.size());
         for (std::size_t part_index = 0U; part_index < model->parts.size(); ++part_index)
         {
@@ -595,7 +421,7 @@ namespace jolt_physics
                 continue;
 
             queue.push_back(
-                PartQueueEntry {
+                MeshPartQueueEntry {
                     .part_index = part_index,
                     .parent_transform = tbx::Mat4(1.0F),
                 });
@@ -604,7 +430,7 @@ namespace jolt_physics
         if (queue.empty())
         {
             queue.push_back(
-                PartQueueEntry {
+                MeshPartQueueEntry {
                     .part_index = 0U,
                     .parent_transform = tbx::Mat4(1.0F),
                 });
@@ -614,7 +440,7 @@ namespace jolt_physics
         bool has_any_part_mesh = false;
         while (!queue.empty())
         {
-            const PartQueueEntry current = queue.back();
+            const MeshPartQueueEntry current = queue.back();
             queue.pop_back();
             if (current.part_index >= model->parts.size())
                 continue;
@@ -638,7 +464,7 @@ namespace jolt_physics
             for (const auto child_index : part.children)
             {
                 queue.push_back(
-                    PartQueueEntry {
+                    MeshPartQueueEntry {
                         .part_index = child_index,
                         .parent_transform = part_transform,
                     });
@@ -829,7 +655,7 @@ namespace jolt_physics
         run_on_physics_lane_and_wait(
             [this]()
             {
-                if (!acquire_jolt_runtime())
+                if (!JoltRuntimeLifetime::acquire())
                 {
                     TBX_TRACE_ERROR("Jolt physics: failed to initialize Jolt runtime.");
                     return;
@@ -849,18 +675,14 @@ namespace jolt_physics
                 auto max_constraints =
                     std::max<std::uint32_t>(1U, settings.max_contact_constraints.value);
 
-                static auto broad_phase_interface = PhysicsBroadPhaseLayerInterface();
-                static auto object_vs_broad_phase_filter = PhysicsObjectVsBroadPhaseLayerFilter();
-                static auto object_layer_pair_filter = PhysicsObjectLayerPairFilter();
-
                 _physics_system.Init(
                     max_bodies,
                     0,
                     max_pairs,
                     max_constraints,
-                    broad_phase_interface,
-                    object_vs_broad_phase_filter,
-                    object_layer_pair_filter);
+                    get_broad_phase_layer_interface(),
+                    get_object_vs_broad_phase_layer_filter(),
+                    get_object_layer_pair_filter());
 
                 apply_world_settings();
                 _is_ready = true;
@@ -876,7 +698,7 @@ namespace jolt_physics
                 _job_system.reset();
                 _temp_allocator.reset();
                 _is_ready = false;
-                release_jolt_runtime();
+                JoltRuntimeLifetime::release();
             });
         _physics_thread_id = {};
     }
@@ -1056,7 +878,8 @@ namespace jolt_physics
                 if (!shape)
                     continue;
 
-                auto object_layer = is_physics_driven ? object_layer_moving : object_layer_static;
+                auto object_layer = is_physics_driven ? get_moving_object_layer()
+                                                      : get_static_object_layer();
                 auto motion_type =
                     is_physics_driven ? get_motion_type(*physics) : JPH::EMotionType::Static;
 
@@ -1092,7 +915,7 @@ namespace jolt_physics
                     continue;
                 }
 
-                _bodies_by_entity[entity_id] = BodyRecord {
+                _bodies_by_entity[entity_id] = JoltBodyRecord {
                     .body_id = body_id,
                     .is_physics_driven = is_physics_driven,
                     .last_position = world_transform.position,

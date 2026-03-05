@@ -127,7 +127,6 @@ namespace tbx::tests::graphics
         material.set_occlusion(0.6f);
         material.set_alpha_cutoff(0.15f);
         material.set_exposure(1.5f);
-        material.set_unlit(true);
 
         // Act
         const auto* diffuse = material.textures.get("diffuse");
@@ -139,7 +138,6 @@ namespace tbx::tests::graphics
         const auto* occlusion = material.parameters.get("occlusion");
         const auto* alpha_cutoff = material.parameters.get("alpha_cutoff");
         const auto* exposure = material.parameters.get("exposure");
-        const auto* unlit = material.parameters.get("unlit");
 
         // Assert
         ASSERT_NE(diffuse, nullptr);
@@ -151,7 +149,6 @@ namespace tbx::tests::graphics
         ASSERT_NE(occlusion, nullptr);
         ASSERT_NE(alpha_cutoff, nullptr);
         ASSERT_NE(exposure, nullptr);
-        ASSERT_NE(unlit, nullptr);
         EXPECT_EQ(diffuse->name, "u_diffuse");
         EXPECT_EQ(normal->name, "u_normal");
     }
@@ -180,6 +177,5 @@ namespace tbx::tests::graphics
         EXPECT_FLOAT_EQ(material.get_occlusion(), 1.0f);
         EXPECT_FLOAT_EQ(material.get_alpha_cutoff(), 0.1f);
         EXPECT_FLOAT_EQ(material.get_exposure(), 1.0f);
-        EXPECT_FALSE(material.get_unlit());
     }
 }

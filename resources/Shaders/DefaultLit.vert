@@ -7,7 +7,6 @@ layout(location = 3) in vec2 a_texcoord;
 
 out vec4 v_color;
 out vec2 v_tex_coord;
-flat out uint v_instance_id;
 
 uniform vec4 u_color;
 uniform vec4 u_emissive;
@@ -21,6 +20,5 @@ void main()
 {
     v_color = u_color;
     v_tex_coord = a_texcoord;
-    v_instance_id = tbx_get_instance_id(0u);
     gl_Position = u_view_proj * (tbx_get_model_matrix(u_model) * vec4(a_position, 1.0));
 }

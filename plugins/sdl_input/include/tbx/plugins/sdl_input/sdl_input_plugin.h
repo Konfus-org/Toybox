@@ -5,7 +5,6 @@
 #include <SDL3/SDL.h>
 #include <string>
 
-
 namespace sdl_input
 {
     /// <summary>Provides SDL-backed keyboard, mouse, and controller state requests.</summary>
@@ -21,11 +20,11 @@ namespace sdl_input
         void on_recieve_message(tbx::Message& msg) override;
 
       private:
-        void handle_keyboard_request(tbx::KeyboardStateRequest& request) const;
-        void handle_mouse_request(tbx::MouseStateRequest& request);
+        static void handle_keyboard_request(tbx::KeyboardStateRequest& request);
+        void handle_mouse_request(tbx::MouseStateRequest& request) const;
         void handle_set_mouse_lock_request(tbx::SetMouseLockRequest& request);
         void handle_mouse_lock_mode_request(tbx::MouseLockModeRequest& request) const;
-        void handle_controller_request(tbx::ControllerStateRequest& request) const;
+        static void handle_controller_request(tbx::ControllerStateRequest& request);
         bool apply_mouse_lock_mode(std::string* out_error_report = nullptr);
         bool release_mouse_lock_window(std::string* out_error_report = nullptr);
         static bool is_maximized_fullscreen_window(SDL_Window* window);

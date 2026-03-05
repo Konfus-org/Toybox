@@ -19,6 +19,23 @@
 
 namespace jolt_physics
 {
+    /// <summary>Tracks runtime body metadata for one entity-backed physics body.</summary>
+    /// <remarks>
+    /// Purpose: Caches body identity and last synchronized transform state used by the plugin.
+    /// Ownership: Plain value type owned by `JoltPhysicsPlugin` body maps; no resource ownership.
+    /// Thread Safety: Not thread-safe; accessed on the plugin physics lane.
+    /// </remarks>
+    struct JoltBodyRecord
+    {
+        JPH::BodyID body_id = {};
+        bool is_physics_driven = false;
+        tbx::Vec3 last_position = tbx::Vec3(0.0F, 0.0F, 0.0F);
+        tbx::Quat last_rotation = tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F);
+        tbx::Vec3 last_scale = tbx::Vec3(1.0F, 1.0F, 1.0F);
+        bool has_last_transform = false;
+        bool is_trigger_only = false;
+    };
+
     class TBX_PLUGIN_API JoltPhysicsPlugin final : public tbx::Plugin
     {
       public:
@@ -40,21 +57,10 @@ namespace jolt_physics
         void run_on_physics_lane_and_wait(const std::function<void()>& work);
 
       private:
-        struct BodyRecord
-        {
-            JPH::BodyID body_id = {};
-            bool is_physics_driven = false;
-            tbx::Vec3 last_position = tbx::Vec3(0.0F, 0.0F, 0.0F);
-            tbx::Quat last_rotation = tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F);
-            tbx::Vec3 last_scale = tbx::Vec3(1.0F, 1.0F, 1.0F);
-            bool has_last_transform = false;
-            bool is_trigger_only = false;
-        };
-
         JPH::PhysicsSystem _physics_system = {};
         std::unique_ptr<JPH::TempAllocator> _temp_allocator = nullptr;
         std::unique_ptr<JPH::JobSystemThreadPool> _job_system = nullptr;
-        std::unordered_map<tbx::Uuid, BodyRecord> _bodies_by_entity = {};
+        std::unordered_map<tbx::Uuid, JoltBodyRecord> _bodies_by_entity = {};
         std::unordered_map<std::uint32_t, tbx::Uuid> _entity_by_body_key = {};
         std::unordered_map<tbx::Uuid, std::unordered_set<tbx::Uuid>> _overlap_entities_by_trigger =
             {};

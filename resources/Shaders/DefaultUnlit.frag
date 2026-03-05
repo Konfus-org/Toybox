@@ -5,17 +5,11 @@ layout(location = 0) out vec4 o_color;
 
 in vec4 v_color;
 in vec2 v_tex_coord;
-
-uniform vec4 u_color;
 uniform vec4 u_emissive;
-uniform float u_metallic;
-uniform float u_roughness;
-uniform float u_occlusion;
 uniform float u_alpha_cutoff;
 uniform float u_exposure;
 
 uniform sampler2D u_diffuse;
-uniform sampler2D u_normal;
 
 void main()
 {
@@ -25,14 +19,11 @@ void main()
     if (texture_color.a < alpha_cutoff)
         discard;
 
-    texture_color.rgb = tbx_srgb_to_linear(texture_color.rgb);
-
     // Unlit path intentionally ignores surface lighting inputs and keeps only base + emissive.
     vec3 unlit_color = texture_color.rgb + u_emissive.rgb;
 
     float exposure = max(u_exposure, 0.0);
     vec3 mapped = unlit_color * exposure;
-    mapped += float(v_instance_id & 0u);
     mapped = tbx_linear_to_srgb(mapped);
     o_color = vec4(mapped, texture_color.a);
 }
