@@ -20,7 +20,7 @@
 
 namespace opengl_rendering
 {
-    void gl_message_callback(
+    static void gl_message_callback(
         GLenum source,
         GLenum type,
         GLuint id,
@@ -72,6 +72,41 @@ namespace opengl_rendering
         }
     }
 
+    static std::shared_ptr<tbx::Material> try_get_material_defaults(
+        const tbx::Handle& material_handle,
+        tbx::AssetManager& asset_manager)
+    {
+        auto material_asset = asset_manager.load<tbx::Material>(material_handle);
+        return material_asset;
+    }
+
+    static void hydrate_material_instance_defaults(
+        tbx::MaterialInstance& material_instance,
+        tbx::AssetManager& asset_manager)
+    {
+        if (!material_instance.has_loaded_defaults)
+        {
+            const auto defaults =
+                try_get_material_defaults(material_instance.handle, asset_manager);
+
+            for (const auto& [name, value] : defaults->parameters.values)
+            {
+                if (material_instance.parameters.get(name) != nullptr)
+                    continue;
+                material_instance.parameters.set(name, value);
+            }
+
+            for (const auto& [name, texture] : defaults->textures.values)
+            {
+                if (material_instance.textures.get(name) != nullptr)
+                    continue;
+                material_instance.textures.set(name, texture);
+            }
+
+            material_instance.has_loaded_defaults = true;
+        }
+    }
+
     OpenGlRenderer::OpenGlRenderer(
         const tbx::GraphicsProcAddress loader,
         tbx::EntityRegistry& entity_registry,
@@ -79,6 +114,7 @@ namespace opengl_rendering
         OpenGlContext context)
         : _context(std::move(context))
         , _entity_registry(entity_registry)
+        , _asset_manager(asset_manager)
         , _resource_manager(asset_manager)
         , _render_pipeline(std::make_unique<OpenGlRenderPipeline>(_resource_manager))
     {
@@ -159,21 +195,17 @@ namespace opengl_rendering
 
         for (const auto& entity : entities)
         {
+            auto& renderer = entity.get_component<tbx::Renderer>();
+            auto& material_instance = renderer.material;
+            if (!material_instance.handle.is_valid())
+                material_instance.handle = tbx::default_material;
+            hydrate_material_instance_defaults(material_instance, _asset_manager);
+
             // Add shader program
-            const auto& renderer = entity.get_component<tbx::Renderer>();
-            auto material_instance = renderer.material;
             auto use_fallback_material_params = false;
             tbx::Uuid shader_program_key;
             {
-                if (!material_instance.handle.is_valid())
-                {
-                    material_instance.handle = tbx::default_material;
-                    shader_program_key = _resource_manager.add_material(material_instance);
-                }
-                else
-                {
-                    shader_program_key = _resource_manager.add_material(material_instance);
-                }
+                shader_program_key = _resource_manager.add_material(material_instance);
 
                 if (!shader_program_key.is_valid())
                 {
@@ -222,10 +254,8 @@ namespace opengl_rendering
                 material_params.material_handle = material_instance.handle;
                 material_params.parameters.reserve(material_instance.parameters.values.size());
                 for (const auto& [name, value] : material_instance.parameters.values)
-                {
                     material_params.parameters.push_back(
                         tbx::MaterialParameter {.name = name, .data = value});
-                }
             }
 
             // Add textures

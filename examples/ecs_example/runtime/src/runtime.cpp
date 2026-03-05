@@ -12,39 +12,38 @@
 
 namespace ecs_example
 {
-    using namespace tbx;
-    void ExampleRuntimePlugin::on_attach(tbx::IPluginHost& context)
+    void ExampleRuntimePlugin::on_attach(tbx::IPluginHost& host)
     {
-        auto& ent_registry = context.get_entity_registry();
-        std::string greeting =
+        auto& ent_registry = host.get_entity_registry();
+        const std::string greeting =
             "Welcome to the ecs example! This plugin just loads a few basic plugins and "
             "makes some entities.";
-        std::string message = trim(greeting);
+        const std::string message = tbx::trim(greeting);
         TBX_TRACE_INFO("{}", message.c_str());
 
         _elapsed_seconds = 0.0f;
 
         // Setup camera
         auto cam_ent = tbx::Entity("Camera", ent_registry);
-        auto& cam = cam_ent.add_component<Camera>();
+        auto& cam = cam_ent.add_component<tbx::Camera>();
         cam.set_orthographic(20, 16.0f / 9.0f, 0.1f, 100.0f);
         cam_ent.add_component<tbx::Transform>(tbx::Vec3(0.0f, 0.0f, 10.0f));
 
         // Setup quads with unlit material
-        auto toys_to_make = 5;
-        auto spacing = 2.0f;
-        auto starting_x = -((toys_to_make - 1.0f) * spacing) * 0.5f;
+        constexpr auto toys_to_make = 5;
+        constexpr auto spacing = 2.0f;
+        constexpr auto starting_x = -((toys_to_make - 1.0f) * spacing) * 0.5f;
         for (int i = 0; i < toys_to_make; i++)
         {
             auto ent = tbx::Entity(std::to_string(i), ent_registry);
             ent.add_component<tbx::Transform>(tbx::Vec3(
                 starting_x
-                    + (static_cast<float>(i)
-                       * spacing), // shift on the x axis so they are not all in the same spot
+                    + static_cast<float>(i)
+                          * spacing, // shift on the x axis so they are not all in the same spot
                 0,
                 0));
-            ent.add_component<Renderer>(unlit_material);
-            ent.add_component<DynamicMesh>(quad);
+            ent.add_component<tbx::Renderer>(tbx::unlit_material);
+            ent.add_component<tbx::DynamicMesh>(tbx::quad);
         }
     }
 
@@ -55,20 +54,21 @@ namespace ecs_example
         // bob all toys in stage with transform up, then down over time
         // also change color over time...
         float offset = 0.0f;
-        for (auto& entity : get_host().get_entity_registry().get_with<tbx::Transform, Renderer>())
+        for (auto& entity :
+             get_host().get_entity_registry().get_with<tbx::Transform, tbx::Renderer>())
         {
             auto& transform = entity.get_component<tbx::Transform>();
-            transform.position.y = sin((_elapsed_seconds * 2.0f) + offset);
+            transform.position.y = sin(_elapsed_seconds * 2.0f + offset);
 
-            auto& renderer = entity.get_component<Renderer>();
-            float phase = transform.position.x;
-            float t = (_elapsed_seconds * 1.5f) + phase;
+            auto& renderer = entity.get_component<tbx::Renderer>();
+            const float phase = transform.position.x;
+            const float t = _elapsed_seconds * 1.5f + phase;
 
-            float r = 0.5f + (0.5f * sin(t));
-            float g = 0.5f + (0.5f * sin(t + (2.0f * PI / 3.0f)));
-            float b = 0.5f + (0.5f * sin(t + (4.0f * PI / 3.0f)));
+            const float r = 0.5f + 0.5f * sin(t);
+            const float g = 0.5f + 0.5f * sin(t + 2.0f * tbx::PI / 3.0f);
+            const float b = 0.5f + 0.5f * sin(t + 4.0f * tbx::PI / 3.0f);
 
-            tbx::Color color = tbx::Color(r, g, b, 1.0f);
+            auto color = tbx::Color(r, g, b, 1.0f);
             renderer.material.parameters.set("color", color);
 
             offset += 0.1f;

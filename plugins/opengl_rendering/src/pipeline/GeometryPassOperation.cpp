@@ -31,9 +31,7 @@ namespace opengl_rendering
 
         const auto current_count = texture_ids.size();
         if (current_count > 0)
-        {
             glBindTextures(0, static_cast<GLsizei>(current_count), texture_ids.data());
-        }
 
         if (last_bound_count > current_count)
         {
@@ -143,17 +141,16 @@ namespace opengl_rendering
                     // Draw mesh
                     {
                         const auto& mesh_key = meshes_ids[draw_index];
-                        auto mesh_resource = std::shared_ptr<OpenGlMesh> {};
-                        if (!_resource_manager.try_get<OpenGlMesh>(mesh_key, mesh_resource))
+                        auto mesh = std::shared_ptr<OpenGlMesh> {};
+                        if (!_resource_manager.try_get<OpenGlMesh>(mesh_key, mesh))
                         {
                             TBX_TRACE_WARNING(
                                 "OpenGL rendering: mesh resource '{}' is unavailable.",
                                 mesh_key.value);
                             continue;
                         }
-                        auto mesh_scope = OpenGlResourceScope(*mesh_resource);
+                        auto mesh_scope = OpenGlResourceScope(*mesh);
                         {
-                            const auto mesh = mesh_resource;
                             mesh->draw();
                         }
                     }

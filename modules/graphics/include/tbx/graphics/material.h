@@ -107,6 +107,7 @@ namespace tbx
         Handle handle = {};
         MaterialParameterBindings parameters = {};
         MaterialTextureBindings textures = {};
+        bool has_loaded_defaults = false;
     };
 
     /// <summary>
