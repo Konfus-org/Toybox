@@ -6,6 +6,7 @@
   "parameters": [
     { "name": "color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
     { "name": "emissive", "type": "color", "value": [0.0, 0.0, 0.0, 1.0] },
-    { "name": "alpha_cutoff", "type": "float", "value": 0.1 }
+    { "name": "alpha_cutoff", "type": "float", "value": 0.1 },
+    { "name": "exposure", "type": "float", "value": 1.0 }
   ]
 }

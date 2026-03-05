@@ -8,6 +8,11 @@ namespace opengl_rendering
 {
     struct DrawCall
     {
+        DrawCall(tbx::Uuid shader_program)
+            : shader_program(shader_program)
+        {
+        }
+
         tbx::Uuid shader_program;
         std::vector<tbx::Uuid> meshes;
         std::vector<OpenGlMaterialParams> materials;

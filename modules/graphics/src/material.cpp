@@ -33,23 +33,6 @@ namespace tbx
         return fallback;
     }
 
-    static bool try_get_bool_or_default(
-        const MaterialParameterBindings& parameters,
-        const std::string_view name,
-        const bool fallback)
-    {
-        const auto* parameter = parameters.get(name);
-        if (!parameter)
-            return fallback;
-        if (const auto* value = std::get_if<bool>(&parameter->value))
-            return *value;
-        if (const auto* value = std::get_if<int>(&parameter->value))
-            return *value != 0;
-        if (const auto* value = std::get_if<float>(&parameter->value))
-            return *value != 0.0f;
-        return fallback;
-    }
-
     StandardMaterialInstance::StandardMaterialInstance()
     {
         set_diffuse(Handle());
@@ -61,7 +44,6 @@ namespace tbx
         set_occlusion(1.0f);
         set_alpha_cutoff(0.1f);
         set_exposure(1.0f);
-        set_unlit(false);
     }
 
     StandardMaterialInstance::StandardMaterialInstance(
@@ -99,7 +81,6 @@ namespace tbx
         set_occlusion(try_get_float_or_default(other.parameters, "occlusion", 1.0f));
         set_alpha_cutoff(try_get_float_or_default(other.parameters, "alpha_cutoff", 0.1f));
         set_exposure(try_get_float_or_default(other.parameters, "exposure", 1.0f));
-        set_unlit(try_get_bool_or_default(other.parameters, "unlit", false));
         const auto* diffuse = other.textures.get("diffuse");
         const auto* normal = other.textures.get("normal");
         set_diffuse(diffuse ? diffuse->texture.handle : Handle());
@@ -203,13 +184,4 @@ namespace tbx
         return try_get_float_or_default(parameters, "exposure", 1.0f);
     }
 
-    void StandardMaterialInstance::set_unlit(bool value)
-    {
-        parameters.set("unlit", value);
-    }
-
-    bool StandardMaterialInstance::get_unlit() const
-    {
-        return try_get_bool_or_default(parameters, "unlit", false);
-    }
 }

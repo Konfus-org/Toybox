@@ -11,7 +11,6 @@
 
 namespace opengl_rendering
 {
-
     struct OpenGlMaterialTexture
     {
         std::string name = "";
@@ -27,6 +26,14 @@ namespace opengl_rendering
         std::vector<OpenGlMaterialTexture> textures = {};
     };
 
+    struct OpenGlMaterialBlockUniform
+    {
+        std::string name = {};
+        tbx::uint32 type = 0;
+        int offset = 0;
+        int size = 0;
+    };
+
     class OpenGlShader final : public IOpenGlResource
     {
       public:
@@ -38,6 +45,8 @@ namespace opengl_rendering
         ~OpenGlShader() noexcept override;
 
         tbx::ShaderType get_type() const;
+        bool compile();
+        bool is_compiled() const;
 
         void bind() override;
         void unbind() override;
@@ -45,6 +54,7 @@ namespace opengl_rendering
         tbx::uint32 get_shader_id() const;
 
       private:
+        std::string _source = {};
         tbx::uint32 _shader_id = 0;
         tbx::ShaderType _type = tbx::ShaderType::NONE;
     };
@@ -63,7 +73,6 @@ namespace opengl_rendering
         void unbind() override;
 
         bool try_upload(const tbx::MaterialParameter& uniform);
-        bool try_upload_material_block(const OpenGlMaterialParams& params) const;
         bool try_upload(const OpenGlMaterialParams& params);
 
         tbx::uint32 get_program_id() const;
@@ -71,14 +80,6 @@ namespace opengl_rendering
         int get_instance_id_attribute_location() const;
 
       private:
-        struct MaterialBlockUniform
-        {
-            std::string name = {};
-            tbx::uint32 type = 0;
-            int offset = 0;
-            int size = 0;
-        };
-
         int get_cached_uniform_location(const std::string& name);
 
         tbx::uint32 _program_id = 0;
@@ -88,7 +89,7 @@ namespace opengl_rendering
         std::unordered_set<std::string> _logged_missing_uniforms = {};
         tbx::uint32 _material_uniform_buffer = 0;
         int _material_uniform_block_size = 0;
-        std::vector<MaterialBlockUniform> _material_uniforms = {};
+        std::vector<OpenGlMaterialBlockUniform> _material_uniforms = {};
         bool _has_material_uniform_block = false;
         int _instance_model_attribute_location = 8;
         int _instance_id_attribute_location = 12;

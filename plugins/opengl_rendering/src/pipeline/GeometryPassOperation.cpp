@@ -1,9 +1,11 @@
 #include "GeometryPassOperation.h"
 #include "OpenGlFrameContext.h"
+#include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_mesh.h"
 #include "opengl_resources/opengl_resource.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "opengl_resources/opengl_shader.h"
+#include "tbx/debugging/macros.h"
 #include <glad/glad.h>
 #include <vector>
 
@@ -65,19 +67,16 @@ namespace opengl_rendering
         for (const auto& [shader_program_id, meshes_ids, material_ids, transforms] : draw_calls)
         {
             // Use shader program
-            std::shared_ptr<IOpenGlResource> shader_program_resource;
-            if (!_resource_manager.try_get(shader_program_id, shader_program_resource))
-                continue;
-
-            const auto shader_program =
-                std::reinterpret_pointer_cast<OpenGlShaderProgram>(shader_program_resource);
-            if (!shader_program)
+            auto shader_program = std::shared_ptr<OpenGlShaderProgram>();
+            if (!_resource_manager.try_get<OpenGlShaderProgram>(shader_program_id, shader_program))
             {
-                TBX_ASSERT(false, "Shader program not found");
+                TBX_TRACE_WARNING(
+                    "OpenGL rendering: shader program '{}' is unavailable for geometry pass.",
+                    shader_program_id.value);
                 continue;
             }
 
-            auto shader_program_scope = OpenGlResourceScope(*shader_program_resource);
+            auto shader_program_scope = OpenGlResourceScope(*shader_program);
             {
                 auto texture_ids = std::vector<GLuint> {};
                 auto zero_texture_ids = std::vector<GLuint> {};
@@ -88,7 +87,10 @@ namespace opengl_rendering
                         tbx::MaterialParameter(VIEW_PROJ_UNIFORM_NAME, view_proj)))
                 {
                     TBX_ASSERT(false, "Failed to upload view projection");
-                    continue;
+                    TBX_TRACE_WARNING(
+                        "OpenGL rendering: failed to upload view projection uniform to program "
+                        "'{}'. Continuing with previous/default value.",
+                        shader_program_id.value);
                 }
 
                 for (int draw_index = 0; draw_index < meshes_ids.size(); ++draw_index)
@@ -97,8 +99,13 @@ namespace opengl_rendering
                     if (const auto& transform = transforms[draw_index]; !shader_program->try_upload(
                             tbx::MaterialParameter(MODEL_UNIFORM_NAME, transform)))
                     {
-                        TBX_ASSERT(false, "Failed to upload transform");
-                        continue;
+                        TBX_TRACE_WARNING(
+                            "OpenGL rendering: failed to upload transform for draw index {} on "
+                            "program '{}'. Using identity transform fallback.",
+                            draw_index,
+                            shader_program_id.value);
+                        shader_program->try_upload(
+                            tbx::MaterialParameter(MODEL_UNIFORM_NAME, tbx::Mat4(1.0F)));
                     }
 
                     bind_textures(
@@ -111,28 +118,42 @@ namespace opengl_rendering
                     if (const auto& material_params = material_ids[draw_index];
                         !shader_program->try_upload(material_params))
                     {
-                        TBX_ASSERT(false, "Failed to upload material parameters");
-                        continue;
+                        TBX_TRACE_WARNING(
+                            "OpenGL rendering: failed to upload material parameters for material "
+                            "'{}'. Using fallback magenta material parameters.",
+                            material_params.material_handle.id.value);
+
+                        const auto fallback_material_params =
+                            create_magenta_fallback_material_params(
+                                material_params.material_handle);
+                        bind_textures(
+                            fallback_material_params,
+                            texture_ids,
+                            zero_texture_ids,
+                            last_bound_texture_count);
+                        if (!shader_program->try_upload(fallback_material_params))
+                        {
+                            TBX_TRACE_WARNING(
+                                "OpenGL rendering: failed to upload fallback magenta material "
+                                "parameters for material '{}'.",
+                                material_params.material_handle.id.value);
+                        }
                     }
 
                     // Draw mesh
                     {
                         const auto& mesh_key = meshes_ids[draw_index];
-                        std::shared_ptr<IOpenGlResource> mesh_resource;
-                        if (!_resource_manager.try_get(mesh_key, mesh_resource))
+                        auto mesh_resource = std::shared_ptr<OpenGlMesh> {};
+                        if (!_resource_manager.try_get<OpenGlMesh>(mesh_key, mesh_resource))
                         {
-                            TBX_ASSERT(false, "Mesh not found");
+                            TBX_TRACE_WARNING(
+                                "OpenGL rendering: mesh resource '{}' is unavailable.",
+                                mesh_key.value);
                             continue;
                         }
                         auto mesh_scope = OpenGlResourceScope(*mesh_resource);
                         {
-                            const auto mesh =
-                                std::reinterpret_pointer_cast<OpenGlMesh>(mesh_resource);
-                            if (!mesh)
-                            {
-                                TBX_ASSERT(false, "Mesh not found");
-                                continue;
-                            }
+                            const auto mesh = mesh_resource;
                             mesh->draw();
                         }
                     }

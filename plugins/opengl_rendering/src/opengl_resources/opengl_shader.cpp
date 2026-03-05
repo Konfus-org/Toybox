@@ -49,8 +49,7 @@ namespace opengl_rendering
         glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &length);
         std::string error_log(static_cast<tbx::uint64>(length), '\0');
         glGetShaderInfoLog(shader_id, length, &length, error_log.data());
-        TBX_ASSERT(
-            false,
+        TBX_TRACE_WARNING(
             "OpenGL rendering: shader compilation failure (type {}). {}",
             static_cast<int>(type),
             error_log);
@@ -62,7 +61,7 @@ namespace opengl_rendering
         glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &length);
         std::string error_log(static_cast<tbx::uint64>(length), '\0');
         glGetProgramInfoLog(program_id, length, &length, error_log.data());
-        TBX_ASSERT(false, "OpenGL rendering: shader program link failure. {}", error_log);
+        TBX_TRACE_WARNING("OpenGL rendering: shader program link failure. {}", error_log);
     }
 
     static GLint uniform_location(tbx::uint32 program_id, const std::string& name)
@@ -125,34 +124,18 @@ namespace opengl_rendering
     }
 
     OpenGlShader::OpenGlShader(const tbx::ShaderSource& shader)
-        : _type(shader.type)
+        : _source(shader.source)
+        , _type(shader.type)
     {
         TBX_ASSERT(
             shader.type != tbx::ShaderType::NONE,
             "OpenGL rendering: shader source type must be a concrete stage.");
         TBX_ASSERT(!shader.source.empty(), "OpenGL rendering: shader source must not be empty.");
-
-        const auto gl_type = to_gl_shader_type(shader.type);
-        _shader_id = glCreateShader(gl_type);
-
-        const auto* source = shader.source.c_str();
-        glShaderSource(_shader_id, 1, &source, nullptr);
-        glCompileShader(_shader_id);
-
-        GLint compiled = 0;
-        glGetShaderiv(_shader_id, GL_COMPILE_STATUS, &compiled);
-        if (compiled == GL_FALSE)
-        {
-            handle_shader_compile_error(_shader_id, shader.type);
-            glDeleteShader(_shader_id);
-            _shader_id = 0;
-        }
-
-        TBX_ASSERT(_shader_id != 0, "OpenGL rendering: failed to create a valid shader object.");
     }
 
     OpenGlShader::OpenGlShader(OpenGlShader&& other) noexcept
-        : _shader_id(take_gl_handle(other._shader_id))
+        : _source(std::move(other._source))
+        , _shader_id(take_gl_handle(other._shader_id))
         , _type(other._type)
     {
         other._type = tbx::ShaderType::NONE;
@@ -166,6 +149,7 @@ namespace opengl_rendering
         if (_shader_id != 0)
             glDeleteShader(_shader_id);
 
+        _source = std::move(other._source);
         _shader_id = take_gl_handle(other._shader_id);
         _type = other._type;
         other._type = tbx::ShaderType::NONE;
@@ -183,6 +167,41 @@ namespace opengl_rendering
     tbx::ShaderType OpenGlShader::get_type() const
     {
         return _type;
+    }
+
+    bool OpenGlShader::compile()
+    {
+        if (_shader_id != 0)
+            return true;
+
+        if (_type == tbx::ShaderType::NONE || _source.empty())
+            return false;
+
+        const auto gl_type = to_gl_shader_type(_type);
+        _shader_id = glCreateShader(gl_type);
+        if (_shader_id == 0)
+            return false;
+
+        const auto* source = _source.c_str();
+        glShaderSource(_shader_id, 1, &source, nullptr);
+        glCompileShader(_shader_id);
+
+        GLint compiled = 0;
+        glGetShaderiv(_shader_id, GL_COMPILE_STATUS, &compiled);
+        if (compiled == GL_FALSE)
+        {
+            handle_shader_compile_error(_shader_id, _type);
+            glDeleteShader(_shader_id);
+            _shader_id = 0;
+            return false;
+        }
+
+        return true;
+    }
+
+    bool OpenGlShader::is_compiled() const
+    {
+        return _shader_id != 0;
     }
 
     void OpenGlShader::bind() {}
@@ -309,52 +328,10 @@ namespace opengl_rendering
         for (const auto& parameter : params.parameters)
         {
             if (!try_upload(parameter))
-                return false;
+                continue;
         }
 
-        bool can_use_bindless = !params.textures.empty();
-        if (can_use_bindless)
-        {
-            for (const auto& texture_binding : params.textures)
-            {
-                if (texture_binding.bindless_handle == 0)
-                {
-                    can_use_bindless = false;
-                    break;
-                }
-            }
-        }
-
-        if (can_use_bindless)
-        {
-            for (const auto& texture_binding : params.textures)
-            {
-                const auto normalized_name = normalize_uniform_name(texture_binding.name);
-                if (const auto existing_sampler = _bindless_sampler_layout.find(normalized_name);
-                    existing_sampler != _bindless_sampler_layout.end()
-                    && existing_sampler->second == texture_binding.bindless_handle)
-                {
-                    continue;
-                }
-
-                const GLint location = get_cached_uniform_location(normalized_name);
-                if (location < 0)
-                    return false;
-
-                if (!try_upload_bindless_sampler(
-                        _program_id,
-                        location,
-                        texture_binding.bindless_handle))
-                    return false;
-
-                _bindless_sampler_layout.insert_or_assign(
-                    normalized_name,
-                    texture_binding.bindless_handle);
-            }
-
-            _sampler_uniform_layout.clear();
-            return true;
-        }
+        _bindless_sampler_layout.clear();
 
         bool is_same_sampler_layout = _sampler_uniform_layout.size() == params.textures.size();
         if (is_same_sampler_layout)
@@ -386,7 +363,7 @@ namespace opengl_rendering
                 .data = static_cast<int>(texture_slot),
             };
             if (!try_upload(sampler_uniform))
-                return false;
+                continue;
             _sampler_uniform_layout.push_back(normalized_name);
         }
 

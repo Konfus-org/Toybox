@@ -149,8 +149,6 @@ namespace tbx
         float get_alpha_cutoff() const;
         void set_exposure(float value);
         float get_exposure() const;
-        void set_unlit(bool value);
-        bool get_unlit() const;
     };
 
     struct TBX_API Sky

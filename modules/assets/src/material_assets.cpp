@@ -11,7 +11,6 @@ namespace tbx
         auto material = Material();
         material.program.vertex = lit_vertex_shader;
         material.program.fragment = lit_fragment_shader;
-        material.parameters.set("unlit", false);
         material.parameters.set("color", Color(1.0f, 0.0f, 1.0f, 1.0f));
         material.parameters.set("metallic", 0.0f);
         material.parameters.set("roughness", 1.0f);
