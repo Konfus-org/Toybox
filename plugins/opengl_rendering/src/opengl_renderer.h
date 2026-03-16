@@ -3,6 +3,7 @@
 #include "opengl_resources/opengl_resource_manager.h"
 #include "opengl_resources/opengl_texture.h"
 #include "pipeline/OpenGlFrameContext.h"
+#include "pipeline/OpenGlGBuffer.h"
 #include "pipeline/opengl_render_pipeline.h"
 #include "tbx/assets/asset_manager.h"
 #include "tbx/async/job_system.h"
@@ -30,6 +31,7 @@ namespace opengl_rendering
         void set_pending_render_resolution(
             const std::optional<tbx::Size>& pending_render_resolution);
         const OpenGlContext& get_context() const;
+        void set_render_stage(tbx::RenderStage render_stage);
 
       private:
         void initialize(tbx::GraphicsProcAddress loader) const;
@@ -49,5 +51,7 @@ namespace opengl_rendering
         tbx::Size _viewport_size = {0, 0};
         tbx::Size _render_resolution = {0, 0};
         std::optional<tbx::Size> _pending_render_resolution = std::nullopt;
+        tbx::RenderStage _render_stage = tbx::RenderStage::FINAL_COLOR;
+        OpenGlGBuffer _gbuffer = {};
     };
 }

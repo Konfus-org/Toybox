@@ -2,9 +2,14 @@
 #include Globals.glsl
 
 layout(location = 0) out vec4 o_color;
+layout(location = 1) out vec4 o_geometry_color;
+layout(location = 2) out vec4 o_gbuffer_albedo;
+layout(location = 3) out vec4 o_gbuffer_normal;
+layout(location = 4) out vec4 o_gbuffer_depth;
 
 in vec4 v_color;
 in vec2 v_tex_coord;
+in vec3 v_world_normal;
 
 uniform vec4 u_color;
 uniform vec4 u_emissive;
@@ -25,11 +30,8 @@ void main()
     if (texture_color.a < alpha_cutoff)
         discard;
 
-    texture_color.rgb = texture_color.rgb;
-
     vec3 normal_sample = texture(u_normal, v_tex_coord).xyz * 2.0 - 1.0;
-    vec3 tangent_normal = normalize(normal_sample);
-    float normal_facing = clamp(tangent_normal.z, 0.0, 1.0);
+    float normal_facing = clamp(normal_sample.z, 0.0, 1.0);
     float metallic = clamp(u_metallic, 0.0, 1.0);
     float roughness = clamp(u_roughness, 0.0, 1.0);
     float occlusion = clamp(u_occlusion, 0.0, 1.0);
@@ -39,5 +41,13 @@ void main()
     float exposure = max(u_exposure, 0.0);
     vec3 mapped = (shaded_color + u_emissive.rgb) * exposure;
     mapped = tbx_linear_to_srgb(mapped);
+
+    vec3 normalized_world_normal = normalize(v_world_normal);
+    float depth_visual = 1.0 - pow(clamp(gl_FragCoord.z, 0.0, 1.0), 24.0);
+
     o_color = vec4(mapped, texture_color.a);
+    o_geometry_color = vec4(shaded_color, texture_color.a);
+    o_gbuffer_albedo = vec4(texture_color.rgb, texture_color.a);
+    o_gbuffer_normal = vec4((normalized_world_normal * 0.5) + 0.5, texture_color.a);
+    o_gbuffer_depth = vec4(vec3(depth_visual), 1.0);
 }

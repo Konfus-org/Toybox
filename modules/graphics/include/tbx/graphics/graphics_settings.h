@@ -8,6 +8,23 @@
 namespace tbx
 {
     /// <summary>
+    /// Purpose: Enumerates render stage outputs that can be presented to the swapchain.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Enum values are copied by value by configuration systems.
+    /// Thread Safety: Thread-safe as immutable enum constants; consuming settings remain externally
+    /// synchronized.
+    /// </remarks>
+    enum class RenderStage
+    {
+        FINAL_COLOR,
+        GEOMETRY_COLOR,
+        GBUFFER_ALBEDO,
+        GBUFFER_NORMAL,
+        GBUFFER_DEPTH,
+    };
+
+    /// <summary>
     /// Purpose: Defines global graphics runtime settings shared across render plugins.
     /// </summary>
     /// <remarks>
@@ -28,6 +45,7 @@ namespace tbx
             bool vsync = false,
             GraphicsApi api = GraphicsApi::OPEN_GL,
             Size resolution = {0, 0},
+            RenderStage render_stage = RenderStage::FINAL_COLOR,
             uint32 shadow_map_resolution = 2048U,
             float shadow_render_distance = 90.0F,
             float shadow_softness = 1.0F);
@@ -52,6 +70,13 @@ namespace tbx
         /// Thread Safety: Not thread-safe; synchronize access externally.
         /// </summary>
         Observable<GraphicsSettings, Size> resolution;
+
+        /// <summary>
+        /// Purpose: Selects which render stage output is presented to the backbuffer.
+        /// Ownership: Value owned by this settings object.
+        /// Thread Safety: Not thread-safe; synchronize access externally.
+        /// </summary>
+        Observable<GraphicsSettings, RenderStage> render_stage;
 
         /// <summary>
         /// Purpose: Sets square directional shadow-map texture resolution in pixels.
