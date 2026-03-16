@@ -1,4 +1,5 @@
 #pragma once
+#include "opengl_resources/opengl_resource.h"
 #include "tbx/graphics/graphics_settings.h"
 #include "tbx/math/size.h"
 #include <glad/glad.h>
@@ -13,13 +14,13 @@ namespace opengl_rendering
     /// Ownership: Owns OpenGL framebuffer and texture handles for the lifetime of this object.
     /// Thread Safety: Not thread-safe; use only on the active render thread/context.
     /// </remarks>
-    class OpenGlGBuffer final
+    class OpenGlGBuffer final : public IOpenGlResource
     {
       public:
         OpenGlGBuffer() = default;
         OpenGlGBuffer(const OpenGlGBuffer&) = delete;
         OpenGlGBuffer& operator=(const OpenGlGBuffer&) = delete;
-        ~OpenGlGBuffer() noexcept;
+        ~OpenGlGBuffer() noexcept override;
 
         /// <summary>
         /// Purpose: Recreates render targets to match the supplied dimensions.
@@ -30,10 +31,18 @@ namespace opengl_rendering
 
         /// <summary>
         /// Purpose: Binds the g-buffer framebuffer and configures all draw attachments for
-        /// geometry. Ownership: Does not transfer framebuffer ownership. Thread Safety: Not
-        /// thread-safe; render-thread only.
+        /// geometry.
+        /// Ownership: Does not transfer framebuffer ownership.
+        /// Thread Safety: Not thread-safe; render-thread only.
         /// </summary>
-        void bind_for_geometry_pass() const;
+        void bind() override;
+
+        /// <summary>
+        /// Purpose: Unbinds the g-buffer framebuffer and restores default framebuffer binding.
+        /// Ownership: Does not transfer framebuffer ownership.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        /// </summary>
+        void unbind() override;
 
         /// <summary>
         /// Purpose: Copies the selected render stage texture to the default framebuffer.

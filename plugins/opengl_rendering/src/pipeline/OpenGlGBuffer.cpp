@@ -84,15 +84,20 @@ namespace opengl_rendering
 
         const auto status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         TBX_ASSERT(status == GL_FRAMEBUFFER_COMPLETE, "OpenGL g-buffer framebuffer is incomplete.");
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        unbind();
     }
 
-    void OpenGlGBuffer::bind_for_geometry_pass() const
+    void OpenGlGBuffer::bind()
     {
         glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
         glDrawBuffers(
             static_cast<GLsizei>(GBUFFER_DRAW_ATTACHMENTS.size()),
             GBUFFER_DRAW_ATTACHMENTS.data());
+    }
+
+    void OpenGlGBuffer::unbind()
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
     void OpenGlGBuffer::present(const tbx::RenderStage render_stage, const tbx::Size& viewport_size)

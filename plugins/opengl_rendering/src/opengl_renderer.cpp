@@ -2,6 +2,7 @@
 #include "builtin_assets.generated.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_bindless.h"
+#include "opengl_resources/opengl_resource.h"
 #include "opengl_resources/opengl_shader.h"
 #include "opengl_resources/opengl_texture.h"
 #include "pipeline/OpenGlFrameContext.h"
@@ -162,8 +163,10 @@ namespace opengl_rendering
         build_draw_calls(frame_context);
 
         // Step five: execute render pipeline.
-        _gbuffer.bind_for_geometry_pass();
-        _render_pipeline->execute(frame_context);
+        {
+            auto gbuffer_scope = OpenGlResourceScope(_gbuffer);
+            _render_pipeline->execute(frame_context);
+        }
         _gbuffer.present(frame_context.render_stage, _viewport_size);
 
         // Step six: present rendered frame.
