@@ -1,4 +1,5 @@
-#include "tbx/ecs/entity.h"
+﻿#include "tbx/ecs/entity.h"
+#include "tbx/common/uuid.h"
 #include <cstddef>
 
 namespace tbx

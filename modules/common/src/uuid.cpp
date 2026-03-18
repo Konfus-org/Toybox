@@ -1,13 +1,12 @@
 #include "tbx/common/uuid.h"
 #include <functional>
+#include <limits>
 #include <random>
 #include <sstream>
 #include <string>
 
 namespace tbx
 {
-    const Uuid Uuid::NONE = Uuid();
-
     Uuid::Uuid() = default;
     Uuid::Uuid(uint32 v)
         : value(v)
@@ -19,12 +18,12 @@ namespace tbx
         Uuid id = {};
 
         std::random_device rd;
-        std::mt19937_64 generator(rd());
+        std::mt19937 generator(rd());
+        std::uniform_int_distribution<tbx::uint32> dist(
+            1u,
+            std::numeric_limits<tbx::uint32>::max());
 
-        do
-        {
-            id.value = generator();
-        } while (id.value == 0U);
+        id.value = dist(generator);
 
         return id;
     }

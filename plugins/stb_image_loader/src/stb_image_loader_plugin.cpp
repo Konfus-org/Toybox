@@ -1,4 +1,4 @@
-#include "tbx/plugins/stb_image_loader/stb_image_loader_plugin.h"
+﻿#include "tbx/plugins/stb_image_loader/stb_image_loader_plugin.h"
 #include "tbx/app/app_settings.h"
 #include "tbx/assets/messages.h"
 #include "tbx/files/file_ops.h"
@@ -113,7 +113,9 @@ namespace stb_image_loader
             catch (...)
             {
                 // Ignore meta parsing errors and fall back to request settings.
-                TBX_TRACE_WARNING("Failed to parse texture meta data for {}", request.path);
+                TBX_TRACE_WARNING(
+                    "Failed to parse texture meta data for {}",
+                    request.path.string());
             }
         }
 

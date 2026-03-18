@@ -23,7 +23,7 @@ set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
 set(ASSIMP_INSTALL_PDB OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "" FORCE)
-set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
+
 function(tbx_add_thirdparty_library thirdparty_subdirectory)
     add_subdirectory("${thirdparty_subdirectory}")
     foreach (thirdparty_target IN LISTS ARGN)
@@ -33,11 +33,6 @@ function(tbx_add_thirdparty_library thirdparty_subdirectory)
 
         # Ensure third-party warnings never become build-stopping errors.
         set_property(TARGET ${thirdparty_target} PROPERTY COMPILE_WARNING_AS_ERROR OFF)
-        # Mark third-party include dirs as system so their warnings don\'t fail consumers.
-        get_target_property(_tbx_iface_inc ${thirdparty_target} INTERFACE_INCLUDE_DIRECTORIES)
-        if (_tbx_iface_inc)
-            target_include_directories(${thirdparty_target} SYSTEM INTERFACE ${_tbx_iface_inc})
-        endif ()
     endforeach ()
 endfunction()
 

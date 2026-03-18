@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "tbx/ecs/entity_registry.h"
 #include <utility>
 
