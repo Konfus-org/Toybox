@@ -1,6 +1,7 @@
 #pragma once
 #include "opengl_resources/opengl_shader.h"
 #include "tbx/common/uuid.h"
+#include "tbx/graphics/graphics_settings.h"
 #include "tbx/math/matrices.h"
 #include <vector>
 
@@ -24,5 +25,6 @@ namespace opengl_rendering
         tbx::Color clear_color;
         tbx::Mat4 view_projection;
         std::vector<DrawCall> draw_calls;
+        tbx::RenderStage render_stage = tbx::RenderStage::FINAL_COLOR;
     };
 }

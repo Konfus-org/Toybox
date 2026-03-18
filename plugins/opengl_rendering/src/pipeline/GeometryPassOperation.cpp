@@ -55,8 +55,8 @@ namespace opengl_rendering
 
     void GeometryPassOperation::execute(const std::any& payload)
     {
-        const auto& [clear_color, view_proj, draw_calls] =
-            std::any_cast<OpenGlFrameContext>(payload);
+        const auto& [clear_color, view_proj, draw_calls, _] =
+            std::any_cast<const OpenGlFrameContext&>(payload);
 
         // Clear once at frame start so previously rendered batches are preserved.
         glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a);

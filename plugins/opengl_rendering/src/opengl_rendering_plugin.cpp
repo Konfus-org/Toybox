@@ -2,6 +2,7 @@
 #include "opengl_renderer.h"
 #include "tbx/app/application.h"
 #include "tbx/debugging/macros.h"
+#include "tbx/graphics/graphics_settings.h"
 #include "tbx/messages/observable.h"
 #include <functional>
 #include <future>
@@ -65,13 +66,15 @@ namespace opengl_rendering
             auto entity_registry = std::ref(get_host().get_entity_registry());
             auto asset_manager = std::ref(get_host().get_asset_manager());
             auto render_resolution = ready_event->size;
+            auto render_stage = get_host().get_settings().graphics.render_stage.value;
             auto create_renderer_future = thread_manager.post_with_future(
                 OPENGL_RENDER_LANE_NAME,
                 [loader = ready_event->get_proc_address,
                  entity_registry,
                  asset_manager,
                  context = std::move(context),
-                 render_resolution]() mutable
+                 render_resolution,
+                 render_stage]() mutable
                 {
                     auto gl_renderer = std::make_unique<OpenGlRenderer>(
                         loader,
@@ -80,6 +83,7 @@ namespace opengl_rendering
                         std::move(context));
                     gl_renderer->set_viewport_size(render_resolution);
                     gl_renderer->set_pending_render_resolution(render_resolution);
+                    gl_renderer->set_render_stage(render_stage);
                     return gl_renderer;
                 });
             renderer = create_renderer_future.get();
@@ -122,6 +126,32 @@ namespace opengl_rendering
                         renderer->set_pending_render_resolution(viewport_size);
                     })
                 .get();
+            return;
+        }
+
+        if (const auto* render_stage_event =
+                tbx::handle_property_changed<&tbx::GraphicsSettings::render_stage>(msg))
+        {
+            auto& thread_manager = get_host().get_thread_manager();
+            auto set_stage_futures = std::vector<std::future<void>> {};
+            set_stage_futures.reserve(_renderers.size());
+
+            for (auto& renderer_entry : _renderers | std::views::values)
+            {
+                auto* renderer = renderer_entry.get();
+                if (!renderer)
+                    continue;
+
+                set_stage_futures.push_back(thread_manager.post_with_future(
+                    OPENGL_RENDER_LANE_NAME,
+                    [renderer, render_stage = render_stage_event->current]
+                    {
+                        renderer->set_render_stage(render_stage);
+                    }));
+            }
+
+            for (auto& set_stage_future : set_stage_futures)
+                set_stage_future.get();
         }
     }
 
