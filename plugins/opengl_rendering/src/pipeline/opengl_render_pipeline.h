@@ -13,7 +13,10 @@ namespace opengl_rendering
     class OpenGlRenderPipeline final : public tbx::Pipeline
     {
       public:
-        OpenGlRenderPipeline(OpenGlResourceManager& resource_manager, OpenGlGBuffer& gbuffer);
+        OpenGlRenderPipeline(
+            OpenGlResourceManager& resource_manager,
+            tbx::JobSystem& job_system,
+            OpenGlGBuffer& gbuffer);
         ~OpenGlRenderPipeline() noexcept override;
 
         void execute(const std::any& payload) override;

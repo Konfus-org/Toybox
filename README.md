@@ -65,14 +65,14 @@ Toybox relies on the presets defined in `CMakePresets.json`. Configure once, the
 #### Cross-platform Ninja/Clang (Recommended)
 
 ```bash
-# Configure (builds under build/tbx-clang)
+#Configure(builds under build / tbx - clang)
 cmake --preset tbx-clang
 
-# Build Debug or Release
+#Build Debug or Release
 cmake --build --preset tbx-clang-debug
 cmake --build --preset tbx-clang-release
 
-# Run tests
+#Run tests
 ctest --preset tbx-test-clang-debug
 ctest --preset tbx-test-clang-release
 ```
@@ -82,14 +82,14 @@ Artifacts land in `build/tbx-clang/bin/<Config>` with matching `lib` and `pdb` d
 #### MSVC (Ninja + MSVC toolchain)
 
 ```bash
-# Configure (builds under build/tbx-msvc)
+#Configure(builds under build / tbx - msvc)
 cmake --preset tbx-msvc
 
-# Build Debug or Release
+#Build Debug or Release
 cmake --build --preset tbx-msvc-debug
 cmake --build --preset tbx-msvc-release
 
-# Run tests
+#Run tests
 ctest --preset tbx-test-msvc-debug
 ctest --preset tbx-test-msvc-release
 ```
@@ -97,14 +97,14 @@ ctest --preset tbx-test-msvc-release
 #### Default (Auto toolchain)
 
 ```bash
-# Configure (builds under build/tbx-default)
+#Configure(builds under build / tbx - default)
 cmake --preset tbx-default
 
-# Build Debug or Release
+#Build Debug or Release
 cmake --build --preset tbx-default-debug
 cmake --build --preset tbx-default-release
 
-# Run tests
+#Run tests
 ctest --preset tbx-test-default-debug
 ctest --preset tbx-test-default-release
 ```
@@ -115,6 +115,6 @@ Look to the contributing documentation [here](CONTRIBUTING.md).
 
 In regards to AI usage:
 
-See `AGENT.md` for the AI contributor standards used by AI agents which are allowed and used in this project. We recongnize the potential of AI tools to assist in development and encourage their responsible use.
+See `AGENTS.md` for the AI contributor standards used by AI agents which are allowed and used in this project. We recongnize the potential of AI tools to assist in development and encourage their responsible use.
 However, AI code is used with great care and scrutiny and is never blindly accepted, if you use AI to contribute you should fully understand what the code it gives you is doing and be ready to explain, defend, and/or change it.
 All AI-generated code must be reviewed and approved by a human before being merged and any AI-generated code must follow the same standards as human-written code.

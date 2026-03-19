@@ -5,16 +5,16 @@ Read the code of conduct [here](CODE_OF_CONDUCT.md)
 
 ### Coding Guidelines
 
-- Format with the root `.clang-format` (Allman braces, 4-space indents, namespace indentation, sorted includes) and keep files using Windows-style (CRLF) endings.
+- Format with the root `.clang-format` (Allman braces, 4-space indents, namespace indentation, sorted includes) and keep files using Unix-style (LF) endings.
 - Keep namespaces meaningful—avoid empty namespaces and prefer `static` helpers for TU-local utilities.
-- Use descriptive, self-documenting names (favor `Get...`/`Set...` for accessors) rather than jargon or `Util`-style blobs.
+- Use descriptive, self-documenting names (favor `get...`/`set...` for accessors) rather than jargon or `util`-style blobs.
 - Document every public API with purpose, ownership/lifetime expectations, and thread-safety notes.
 - Prefer Toybox smart handles (`Ref`, `WeakRef`, `Scope`) over raw owning pointers; raw pointers should remain non-owning and clearly documented.
-- We build with C++23 but stick to a conservative, C-like subset. Avoid `noexcept` and attribute annotations, and only adopt modern features when they clearly improve safety or clarity.
+- We build with C++23 and prefer modern language/library features when they clearly improve safety, performance, or readability.
 - Prefer copy-style initialization (`int value = {};`, `auto widget = Widget(args);`) instead of brace-only or direct-call syntax (`int value{};`, `auto widget(Widget(args));`) for readability.
 - Keep headers lean by defining non-trivial logic in `.cpp` files and add tests when introducing new functionality.
 
-See `AGENT.md` for the AI contributor standards used by AI agents which are allowed and used in this project.
+See `AGENTS.md` for the AI contributor standards used by AI agents which are allowed and used in this project.
 However, AI code is used with GREAT care and scrutiny. All AI-generated code must be reviewed and approved by a human before being merged and any AI-generated code must follow the same standards as human-written code.
 
 ### Merging and Approval: 
