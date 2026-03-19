@@ -3,6 +3,7 @@
 #include "OpenGlGBuffer.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "opengl_resources/opengl_shader.h"
+#include "tbx/async/job_system.h"
 #include <any>
 #include <memory>
 
@@ -18,7 +19,10 @@ namespace opengl_rendering
     class LightingPassOperation final
     {
       public:
-        LightingPassOperation(OpenGlResourceManager& resource_manager, OpenGlGBuffer& gbuffer);
+        LightingPassOperation(
+            OpenGlResourceManager& resource_manager,
+            tbx::JobSystem& job_system,
+            OpenGlGBuffer& gbuffer);
         LightingPassOperation(const LightingPassOperation&) = delete;
         LightingPassOperation& operator=(const LightingPassOperation&) = delete;
         ~LightingPassOperation() noexcept;
@@ -36,6 +40,7 @@ namespace opengl_rendering
 
       private:
         OpenGlResourceManager& _resource_manager;
+        tbx::JobSystem& _job_system;
         OpenGlGBuffer& _gbuffer;
         std::shared_ptr<OpenGlShaderProgram> _shader_program = nullptr;
         tbx::uint32 _fullscreen_vertex_array = 0U;

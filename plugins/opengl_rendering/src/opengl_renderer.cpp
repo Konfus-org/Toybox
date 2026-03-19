@@ -16,6 +16,7 @@
 #include "tbx/math/matrices.h"
 #include "tbx/math/trig.h"
 #include <glad/glad.h>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -116,6 +117,44 @@ namespace opengl_rendering
         return tbx::normalize(transform.rotation * tbx::Vec3(0.0F, 1.0F, 0.0F));
     }
 
+    static float get_max_component(const tbx::Vec3& value)
+    {
+        return tbx::max(value.x, tbx::max(value.y, value.z));
+    }
+
+    static float get_distance_squared(const tbx::Vec3& a, const tbx::Vec3& b)
+    {
+        const auto delta = a - b;
+        return (delta.x * delta.x) + (delta.y * delta.y) + (delta.z * delta.z);
+    }
+
+    static tbx::Handle resolve_renderer_mesh_handle(
+        const tbx::Renderer& renderer,
+        const float camera_distance)
+    {
+        if (renderer.lods.empty())
+            return {};
+
+        auto selected_handle = renderer.lods.back().handle;
+        auto selected_max_distance = std::numeric_limits<float>::max();
+        for (const auto& lod : renderer.lods)
+        {
+            if (!lod.handle.is_valid())
+                continue;
+
+            if (camera_distance > lod.max_distance)
+                continue;
+
+            if (lod.max_distance < selected_max_distance)
+            {
+                selected_max_distance = lod.max_distance;
+                selected_handle = lod.handle;
+            }
+        }
+
+        return selected_handle;
+    }
+
     static void hydrate_material_instance_defaults(
         tbx::MaterialInstance& material_instance,
         tbx::AssetManager& asset_manager)
@@ -147,12 +186,15 @@ namespace opengl_rendering
         const tbx::GraphicsProcAddress loader,
         tbx::EntityRegistry& entity_registry,
         tbx::AssetManager& asset_manager,
+        tbx::JobSystem& job_system,
         OpenGlContext context)
         : _context(std::move(context))
         , _entity_registry(entity_registry)
         , _asset_manager(asset_manager)
+        , _job_system(job_system)
         , _resource_manager(asset_manager)
-        , _render_pipeline(std::make_unique<OpenGlRenderPipeline>(_resource_manager, _gbuffer))
+        , _render_pipeline(
+              std::make_unique<OpenGlRenderPipeline>(_resource_manager, _job_system, _gbuffer))
     {
         initialize(loader);
     }
@@ -236,11 +278,11 @@ namespace opengl_rendering
                 camera.set_aspect(aspect);
             }
             frame_context.camera_position = camera_transform.position;
-            frame_context.view_matrix = camera.get_view_matrix(
-                camera_transform.position,
-                camera_transform.rotation);
+            frame_context.view_matrix =
+                camera.get_view_matrix(camera_transform.position, camera_transform.rotation);
             frame_context.projection_matrix = camera.get_projection_matrix();
-            frame_context.view_projection = frame_context.projection_matrix * frame_context.view_matrix;
+            frame_context.view_projection =
+                frame_context.projection_matrix * frame_context.view_matrix;
         }
 
         frame_context.inverse_view_projection = tbx::inverse(frame_context.view_projection);
@@ -324,12 +366,30 @@ namespace opengl_rendering
         const auto entities = _entity_registry.get_with<tbx::Renderer>();
         frame_context.draw_calls.reserve(entities.size());
 
-        auto draw_call_lookup = std::unordered_map<tbx::Uuid, std::size_t>();
+        const auto view_frustum = tbx::Frustum(frame_context.view_projection);
+        auto draw_call_lookup = std::unordered_map<std::uint64_t, std::size_t>();
         draw_call_lookup.reserve(entities.size());
 
         for (const auto& entity : entities)
         {
             auto& renderer = entity.get_component<tbx::Renderer>();
+            const auto world_transform = entity.has_component<tbx::Transform>()
+                                             ? tbx::get_world_space_transform(entity)
+                                             : tbx::Transform();
+
+            const auto bounds_radius = tbx::max(get_max_component(world_transform.scale), 0.001F);
+            const auto camera_distance_squared =
+                get_distance_squared(world_transform.position, frame_context.camera_position);
+            const auto camera_distance = tbx::sqrt(camera_distance_squared);
+
+            if (renderer.render_distance > 0.0F && camera_distance > renderer.render_distance)
+                continue;
+
+            if (renderer.is_cullable
+                && !view_frustum.intersects(
+                    tbx::Sphere {.center = world_transform.position, .radius = bounds_radius}))
+                continue;
+
             auto& material_instance = renderer.material;
             if (!material_instance.handle.is_valid())
                 material_instance.handle = tbx::default_material;
@@ -366,7 +426,11 @@ namespace opengl_rendering
             }
             else if (entity.has_component<tbx::StaticMesh>())
             {
-                const auto& static_mesh = entity.get_component<tbx::StaticMesh>();
+                auto static_mesh = entity.get_component<tbx::StaticMesh>();
+                const auto lod_mesh_handle =
+                    resolve_renderer_mesh_handle(renderer, camera_distance);
+                if (lod_mesh_handle.is_valid())
+                    static_mesh.handle = lod_mesh_handle;
                 mesh_key = _resource_manager.add_static_mesh(static_mesh);
             }
             if (!mesh_key.is_valid())
@@ -451,24 +515,20 @@ namespace opengl_rendering
             }
 
             // Add transform matrix
-            auto transform_matrix = tbx::Mat4(1.0F);
-            if (entity.has_component<tbx::Transform>())
-            {
-                const auto world_transform = tbx::get_world_space_transform(entity);
-                transform_matrix = tbx::build_transform_matrix(world_transform);
-            }
+            const auto transform_matrix = tbx::build_transform_matrix(world_transform);
 
             // Push back new draw call
-            auto draw_call_it = draw_call_lookup.find(shader_program_key);
+            const auto draw_call_key = (static_cast<std::uint64_t>(shader_program_key.value) << 1U)
+                                       | (renderer.is_two_sided ? 1ULL : 0ULL);
+            auto draw_call_it = draw_call_lookup.find(draw_call_key);
             if (draw_call_it == draw_call_lookup.end())
             {
-                frame_context.draw_calls.emplace_back(shader_program_key);
+                frame_context.draw_calls.emplace_back(shader_program_key, renderer.is_two_sided);
                 frame_context.draw_calls.back().meshes.reserve(8U);
                 frame_context.draw_calls.back().materials.reserve(8U);
                 frame_context.draw_calls.back().transforms.reserve(8U);
                 draw_call_it =
-                    draw_call_lookup
-                        .emplace(shader_program_key, frame_context.draw_calls.size() - 1U)
+                    draw_call_lookup.emplace(draw_call_key, frame_context.draw_calls.size() - 1U)
                         .first;
             }
 
@@ -552,9 +612,11 @@ namespace opengl_rendering
 #endif
 
         glEnable(GL_DEPTH_TEST);
-        glEnable(GL_BLEND);
         glDepthFunc(GL_LEQUAL);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+        glDisable(GL_BLEND);
         glClearColor(0.07f, 0.08f, 0.11f, 1.0f);
     }
 
