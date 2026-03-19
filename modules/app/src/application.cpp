@@ -148,16 +148,25 @@ namespace tbx
                 requested_plugins,
                 _settings.paths.working_directory,
                 *this);
+
+#ifdef TBX_DEBUG
+            // Only add extra dirs in debug mode, in release they are compiled into one dir in the
+            // release build dir.
             for (const auto& loaded : _loaded)
                 _asset_manager.add_asset_directory(loaded.meta.resource_directory);
-
+#endif
             // Log filesystem directories
             TBX_TRACE_INFO("Working Directory: '{}'", _settings.paths.working_directory.string());
             TBX_TRACE_INFO("Logs Directory: '{}'", _settings.paths.logs_directory.string());
             auto asset_roots = _asset_manager.get_asset_directories();
-            TBX_TRACE_INFO("Asset Directories:");
-            for (const auto& root : asset_roots)
-                TBX_TRACE_INFO("    -'{}'", root.string());
+            if (asset_roots.size() > 1)
+            {
+                TBX_TRACE_INFO("Asset Directories:");
+                for (const auto& root : asset_roots)
+                    TBX_TRACE_INFO("    -'{}'", root.string());
+            }
+            else
+                TBX_TRACE_INFO("Asset Directory: {}", asset_roots.front().string());
 
             // Tell everyone we're initialized
             _msg_coordinator.send<ApplicationInitializedEvent>(this);
@@ -348,11 +357,13 @@ namespace tbx
             auto shutdown_elapsed_ms = std::chrono::duration<double, std::milli>(
                                            std::chrono::steady_clock::now() - shutdown_begin)
                                            .count();
-            TBX_TRACE_INFO("Application shutdown completed in {:.2f} ms.", shutdown_elapsed_ms);
 
             // 7. Process any remaining posted messages and clear handlers
             _msg_coordinator.flush();
             _msg_coordinator.clear_handlers();
+
+            // 8. Log shutdown metrics
+            TBX_TRACE_INFO("Application shutdown completed in {:.2f} ms.", shutdown_elapsed_ms);
         }
         catch (const std::exception& ex)
         {
