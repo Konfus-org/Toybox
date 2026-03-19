@@ -22,6 +22,7 @@ namespace opengl_rendering
             tbx::GraphicsProcAddress loader,
             tbx::EntityRegistry& entity_registry,
             tbx::AssetManager& asset_manager,
+            tbx::JobSystem& job_system,
             OpenGlContext context);
         ~OpenGlRenderer() noexcept;
 
@@ -45,6 +46,7 @@ namespace opengl_rendering
         OpenGlContext _context;
         tbx::EntityRegistry& _entity_registry;
         tbx::AssetManager& _asset_manager;
+        tbx::JobSystem& _job_system;
         OpenGlResourceManager _resource_manager;
         std::unique_ptr<OpenGlRenderPipeline> _render_pipeline = nullptr;
         std::unordered_map<tbx::Uuid, tbx::Material> _material_defaults_cache = {};

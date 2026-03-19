@@ -62,14 +62,17 @@ namespace opengl_rendering
 
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_TRUE);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDisable(GL_BLEND);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
 
         // Clear once at frame start so previously rendered batches are preserved.
         glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        for (const auto& [shader_program_id, meshes_ids, material_ids, transforms] : draw_calls)
+        for (const auto& [shader_program_id, is_two_sided, meshes_ids, material_ids, transforms] :
+             draw_calls)
         {
             // Use shader program
             auto shader_program = std::shared_ptr<OpenGlShaderProgram>();
@@ -80,6 +83,11 @@ namespace opengl_rendering
                     shader_program_id.value);
                 continue;
             }
+
+            if (is_two_sided)
+                glDisable(GL_CULL_FACE);
+            else
+                glEnable(GL_CULL_FACE);
 
             auto shader_program_scope = OpenGlResourceScope(*shader_program);
             {
@@ -98,7 +106,7 @@ namespace opengl_rendering
                         shader_program_id.value);
                 }
 
-                for (int draw_index = 0; draw_index < meshes_ids.size(); ++draw_index)
+                for (std::size_t draw_index = 0; draw_index < meshes_ids.size(); ++draw_index)
                 {
                     // Update transform
                     if (const auto& transform = transforms[draw_index]; !shader_program->try_upload(
