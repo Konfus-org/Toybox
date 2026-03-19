@@ -1,0 +1,633 @@
+#include "LightingPassOperation.h"
+#include "tbx/assets/builtin_assets.h"
+#include "tbx/debugging/macros.h"
+#include "tbx/graphics/material.h"
+#include "tbx/math/trig.h"
+#include <glad/glad.h>
+#include <string>
+#include <vector>
+
+namespace opengl_rendering
+{
+    namespace
+    {
+        constexpr int MaxDirectionalLights = 4;
+        constexpr tbx::uint32 TileSize = 16U;
+
+        struct alignas(16) GpuPointLight
+        {
+            tbx::Vec3 position = tbx::Vec3(0.0F);
+            float range = 0.0F;
+            tbx::Vec3 radiance = tbx::Vec3(0.0F);
+            float padding = 0.0F;
+        };
+
+        struct alignas(16) GpuSpotLight
+        {
+            tbx::Vec3 position = tbx::Vec3(0.0F);
+            float range = 0.0F;
+            tbx::Vec3 direction = tbx::Vec3(0.0F, 0.0F, -1.0F);
+            float inner_cos = 0.0F;
+            tbx::Vec3 radiance = tbx::Vec3(0.0F);
+            float outer_cos = 0.0F;
+        };
+
+        struct alignas(16) TileLightSpan
+        {
+            tbx::uint32 point_offset = 0U;
+            tbx::uint32 point_count = 0U;
+            tbx::uint32 spot_offset = 0U;
+            tbx::uint32 spot_count = 0U;
+            tbx::uint32 area_offset = 0U;
+            tbx::uint32 area_count = 0U;
+            tbx::uint32 padding0 = 0U;
+            tbx::uint32 padding1 = 0U;
+        };
+
+        struct alignas(16) GpuAreaLight
+        {
+            tbx::Vec3 position = tbx::Vec3(0.0F);
+            float range = 0.0F;
+            tbx::Vec3 direction = tbx::Vec3(0.0F, 0.0F, -1.0F);
+            float half_width = 0.5F;
+            tbx::Vec3 radiance = tbx::Vec3(0.0F);
+            float half_height = 0.5F;
+            tbx::Vec3 right = tbx::Vec3(1.0F, 0.0F, 0.0F);
+            float padding0 = 0.0F;
+            tbx::Vec3 up = tbx::Vec3(0.0F, 1.0F, 0.0F);
+            float padding1 = 0.0F;
+        };
+
+        struct TileBounds
+        {
+            int min_x = 0;
+            int min_y = 0;
+            int max_x = -1;
+            int max_y = -1;
+        };
+
+        static GLint get_uniform_location(
+            const OpenGlShaderProgram& shader_program,
+            const std::string& name)
+        {
+            return glGetUniformLocation(shader_program.get_program_id(), name.c_str());
+        }
+
+        static void upload_vec3_uniform(
+            const OpenGlShaderProgram& shader_program,
+            const std::string& name,
+            const tbx::Vec3& value)
+        {
+            const auto location = get_uniform_location(shader_program, name);
+            if (location >= 0)
+                glUniform3f(location, value.x, value.y, value.z);
+        }
+
+        static void upload_float_uniform(
+            const OpenGlShaderProgram& shader_program,
+            const std::string& name,
+            const float value)
+        {
+            const auto location = get_uniform_location(shader_program, name);
+            if (location >= 0)
+                glUniform1f(location, value);
+        }
+
+        static void upload_directional_light_uniform(
+            const OpenGlShaderProgram& shader_program,
+            const int index,
+            const DirectionalLightFrameData& light)
+        {
+            const auto prefix = "u_directional_lights[" + std::to_string(index) + "]";
+            upload_vec3_uniform(shader_program, prefix + ".direction", light.direction);
+            upload_float_uniform(
+                shader_program,
+                prefix + ".ambient_intensity",
+                light.ambient_intensity);
+            upload_vec3_uniform(shader_program, prefix + ".radiance", light.radiance);
+        }
+
+        static tbx::uint32 divide_round_up(
+            const tbx::uint32 numerator,
+            const tbx::uint32 denominator)
+        {
+            if (denominator == 0U)
+                return 0U;
+
+            return (numerator + denominator - 1U) / denominator;
+        }
+
+        static int clamp_tile_index(const int value, const int maximum_value)
+        {
+            if (maximum_value < 0)
+                return 0;
+            if (value < 0)
+                return 0;
+            if (value > maximum_value)
+                return maximum_value;
+            return value;
+        }
+
+        static void ensure_buffer_created(tbx::uint32& buffer_id)
+        {
+            if (buffer_id == 0U)
+                glCreateBuffers(1, &buffer_id);
+        }
+
+        static void upload_storage_buffer(
+            const tbx::uint32 buffer_id,
+            const void* data,
+            const std::size_t size_in_bytes)
+        {
+            static const tbx::uint32 FallbackValue = 0U;
+            const auto upload_size =
+                size_in_bytes > 0U ? static_cast<GLsizeiptr>(size_in_bytes)
+                                   : static_cast<GLsizeiptr>(sizeof(FallbackValue));
+            const auto* upload_data = size_in_bytes > 0U ? data : &FallbackValue;
+            glNamedBufferData(buffer_id, upload_size, upload_data, GL_DYNAMIC_DRAW);
+        }
+
+        static bool try_project_sphere_to_tiles(
+            const tbx::Vec3& world_position,
+            const float range,
+            const OpenGlFrameContext& frame_context,
+            const tbx::uint32 tile_count_x,
+            const tbx::uint32 tile_count_y,
+            TileBounds& out_bounds)
+        {
+            if (frame_context.render_size.width == 0U || frame_context.render_size.height == 0U)
+                return false;
+            if (tile_count_x == 0U || tile_count_y == 0U)
+                return false;
+
+            const auto view_position =
+                frame_context.view_matrix * tbx::Vec4(world_position, 1.0F);
+            const auto camera_depth = -view_position.z;
+            if (camera_depth + range <= 0.0001F)
+                return false;
+
+            const auto max_tile_x = static_cast<int>(tile_count_x - 1U);
+            const auto max_tile_y = static_cast<int>(tile_count_y - 1U);
+            const auto nearest_depth = camera_depth - range;
+            if (nearest_depth <= 0.0001F)
+            {
+                out_bounds.min_x = 0;
+                out_bounds.min_y = 0;
+                out_bounds.max_x = max_tile_x;
+                out_bounds.max_y = max_tile_y;
+                return true;
+            }
+
+            const auto clip_position =
+                frame_context.view_projection * tbx::Vec4(world_position, 1.0F);
+            if (clip_position.w == 0.0F)
+                return false;
+
+            const auto ndc_center = tbx::Vec2(
+                clip_position.x / clip_position.w,
+                clip_position.y / clip_position.w);
+            const auto ndc_radius = tbx::Vec2(
+                frame_context.projection_matrix[0][0] * (range / nearest_depth),
+                frame_context.projection_matrix[1][1] * (range / nearest_depth));
+
+            const auto min_pixel_x =
+                ((ndc_center.x - ndc_radius.x) * 0.5F + 0.5F)
+                * static_cast<float>(frame_context.render_size.width);
+            const auto max_pixel_x =
+                ((ndc_center.x + ndc_radius.x) * 0.5F + 0.5F)
+                * static_cast<float>(frame_context.render_size.width);
+            const auto min_pixel_y =
+                ((ndc_center.y - ndc_radius.y) * 0.5F + 0.5F)
+                * static_cast<float>(frame_context.render_size.height);
+            const auto max_pixel_y =
+                ((ndc_center.y + ndc_radius.y) * 0.5F + 0.5F)
+                * static_cast<float>(frame_context.render_size.height);
+
+            const auto tile_size = static_cast<float>(TileSize);
+            auto min_tile_x = static_cast<int>(tbx::floor(min_pixel_x / tile_size));
+            auto min_tile_y = static_cast<int>(tbx::floor(min_pixel_y / tile_size));
+            auto max_tile_x_inclusive =
+                static_cast<int>(tbx::ceil(max_pixel_x / tile_size)) - 1;
+            auto max_tile_y_inclusive =
+                static_cast<int>(tbx::ceil(max_pixel_y / tile_size)) - 1;
+
+            if (max_tile_x_inclusive < 0 || max_tile_y_inclusive < 0)
+                return false;
+            if (min_tile_x > max_tile_x || min_tile_y > max_tile_y)
+                return false;
+
+            min_tile_x = clamp_tile_index(min_tile_x, max_tile_x);
+            min_tile_y = clamp_tile_index(min_tile_y, max_tile_y);
+            max_tile_x_inclusive = clamp_tile_index(max_tile_x_inclusive, max_tile_x);
+            max_tile_y_inclusive = clamp_tile_index(max_tile_y_inclusive, max_tile_y);
+
+            if (min_tile_x > max_tile_x_inclusive || min_tile_y > max_tile_y_inclusive)
+                return false;
+
+            out_bounds.min_x = min_tile_x;
+            out_bounds.min_y = min_tile_y;
+            out_bounds.max_x = max_tile_x_inclusive;
+            out_bounds.max_y = max_tile_y_inclusive;
+            return true;
+        }
+
+        static float get_area_light_culling_radius(const AreaLightFrameData& light)
+        {
+            const auto emitter_radius = tbx::sqrt(
+                (light.half_width * light.half_width) + (light.half_height * light.half_height));
+            return light.range + emitter_radius;
+        }
+    }
+
+    LightingPassOperation::LightingPassOperation(
+        OpenGlResourceManager& resource_manager,
+        OpenGlGBuffer& gbuffer)
+        : _resource_manager(resource_manager)
+        , _gbuffer(gbuffer)
+    {
+    }
+
+    LightingPassOperation::~LightingPassOperation() noexcept
+    {
+        if (_tile_area_light_indices_buffer != 0U)
+            glDeleteBuffers(1, &_tile_area_light_indices_buffer);
+        if (_tile_spot_light_indices_buffer != 0U)
+            glDeleteBuffers(1, &_tile_spot_light_indices_buffer);
+        if (_tile_point_light_indices_buffer != 0U)
+            glDeleteBuffers(1, &_tile_point_light_indices_buffer);
+        if (_tile_light_spans_buffer != 0U)
+            glDeleteBuffers(1, &_tile_light_spans_buffer);
+        if (_area_lights_buffer != 0U)
+            glDeleteBuffers(1, &_area_lights_buffer);
+        if (_spot_lights_buffer != 0U)
+            glDeleteBuffers(1, &_spot_lights_buffer);
+        if (_point_lights_buffer != 0U)
+            glDeleteBuffers(1, &_point_lights_buffer);
+        if (_fullscreen_vertex_array != 0U)
+            glDeleteVertexArrays(1, &_fullscreen_vertex_array);
+    }
+
+    void LightingPassOperation::execute(const std::any& payload)
+    {
+        if (!ensure_initialized())
+            return;
+
+        const auto& frame_context = std::any_cast<const OpenGlFrameContext&>(payload);
+        if (!_shader_program)
+            return;
+
+        upload_tiled_light_data(frame_context);
+
+        const auto depth_test_enabled = glIsEnabled(GL_DEPTH_TEST) == GL_TRUE;
+        const auto blend_enabled = glIsEnabled(GL_BLEND) == GL_TRUE;
+
+        _gbuffer.bind_final_color();
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+
+        auto shader_scope = OpenGlResourceScope(*_shader_program);
+        {
+            _shader_program->try_upload(
+                tbx::MaterialParameter("camera_position", frame_context.camera_position));
+            _shader_program->try_upload(
+                tbx::MaterialParameter(
+                    "inverse_view_projection",
+                    frame_context.inverse_view_projection));
+            _shader_program->try_upload(
+                tbx::MaterialParameter("clear_color", frame_context.clear_color));
+            _shader_program->try_upload(tbx::MaterialParameter("gbuffer_albedo", 0));
+            _shader_program->try_upload(tbx::MaterialParameter("gbuffer_normal", 1));
+            _shader_program->try_upload(tbx::MaterialParameter("gbuffer_emissive", 2));
+            _shader_program->try_upload(tbx::MaterialParameter("gbuffer_material", 3));
+            _shader_program->try_upload(tbx::MaterialParameter("gbuffer_depth", 4));
+            _shader_program->try_upload(
+                tbx::MaterialParameter("tile_size", static_cast<int>(TileSize)));
+            _shader_program->try_upload(tbx::MaterialParameter(
+                "tile_count_x",
+                static_cast<int>(divide_round_up(frame_context.render_size.width, TileSize))));
+            _shader_program->try_upload(tbx::MaterialParameter(
+                "tile_count_y",
+                static_cast<int>(divide_round_up(frame_context.render_size.height, TileSize))));
+
+            glBindTextureUnit(0, _gbuffer.get_albedo_texture());
+            glBindTextureUnit(1, _gbuffer.get_normal_texture());
+            glBindTextureUnit(2, _gbuffer.get_emissive_texture());
+            glBindTextureUnit(3, _gbuffer.get_material_texture());
+            glBindTextureUnit(4, _gbuffer.get_depth_texture());
+
+            const auto directional_light_count =
+                frame_context.directional_lights.size() < static_cast<std::size_t>(MaxDirectionalLights)
+                    ? static_cast<int>(frame_context.directional_lights.size())
+                    : MaxDirectionalLights;
+            _shader_program->try_upload(
+                tbx::MaterialParameter("directional_light_count", directional_light_count));
+
+            for (int light_index = 0; light_index < directional_light_count; ++light_index)
+                upload_directional_light_uniform(
+                    *_shader_program,
+                    light_index,
+                    frame_context.directional_lights[static_cast<std::size_t>(light_index)]);
+
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, _point_lights_buffer);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, _spot_lights_buffer);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, _tile_light_spans_buffer);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, _tile_point_light_indices_buffer);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, _tile_spot_light_indices_buffer);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, _area_lights_buffer);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, _tile_area_light_indices_buffer);
+
+            glBindVertexArray(_fullscreen_vertex_array);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+            glBindVertexArray(0);
+        }
+
+        if (depth_test_enabled)
+            glEnable(GL_DEPTH_TEST);
+        if (blend_enabled)
+            glEnable(GL_BLEND);
+    }
+
+    bool LightingPassOperation::ensure_initialized()
+    {
+        if (_fullscreen_vertex_array == 0U)
+            glCreateVertexArrays(1, &_fullscreen_vertex_array);
+
+        ensure_buffer_created(_point_lights_buffer);
+        ensure_buffer_created(_spot_lights_buffer);
+        ensure_buffer_created(_area_lights_buffer);
+        ensure_buffer_created(_tile_light_spans_buffer);
+        ensure_buffer_created(_tile_point_light_indices_buffer);
+        ensure_buffer_created(_tile_spot_light_indices_buffer);
+        ensure_buffer_created(_tile_area_light_indices_buffer);
+
+        if (_shader_program)
+            return true;
+
+        auto deferred_lighting_material = tbx::MaterialInstance();
+        deferred_lighting_material.handle = tbx::deferred_lighting_material;
+
+        const auto program_id = _resource_manager.add_material(deferred_lighting_material, true);
+        if (!program_id.is_valid())
+        {
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: failed to cache deferred lighting material program.");
+            return false;
+        }
+
+        if (!_resource_manager.try_get<OpenGlShaderProgram>(program_id, _shader_program))
+        {
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: deferred lighting shader program resource was not found after "
+                "caching.");
+            return false;
+        }
+
+        return true;
+    }
+
+    void LightingPassOperation::upload_tiled_light_data(const OpenGlFrameContext& frame_context)
+    {
+        const auto tile_count_x = divide_round_up(frame_context.render_size.width, TileSize);
+        const auto tile_count_y = divide_round_up(frame_context.render_size.height, TileSize);
+        const auto tile_count = tile_count_x * tile_count_y;
+
+        auto gpu_point_lights = std::vector<GpuPointLight> {};
+        gpu_point_lights.reserve(frame_context.point_lights.size());
+        for (const auto& point_light : frame_context.point_lights)
+            gpu_point_lights.push_back(
+                GpuPointLight {
+                    .position = point_light.position,
+                    .range = point_light.range,
+                    .radiance = point_light.radiance,
+                });
+
+        auto gpu_spot_lights = std::vector<GpuSpotLight> {};
+        gpu_spot_lights.reserve(frame_context.spot_lights.size());
+        for (const auto& spot_light : frame_context.spot_lights)
+            gpu_spot_lights.push_back(
+                GpuSpotLight {
+                    .position = spot_light.position,
+                    .range = spot_light.range,
+                    .direction = spot_light.direction,
+                    .inner_cos = spot_light.inner_cos,
+                    .radiance = spot_light.radiance,
+                    .outer_cos = spot_light.outer_cos,
+                });
+
+        auto gpu_area_lights = std::vector<GpuAreaLight> {};
+        gpu_area_lights.reserve(frame_context.area_lights.size());
+        for (const auto& area_light : frame_context.area_lights)
+            gpu_area_lights.push_back(
+                GpuAreaLight {
+                    .position = area_light.position,
+                    .range = area_light.range,
+                    .direction = area_light.direction,
+                    .half_width = area_light.half_width,
+                    .radiance = area_light.radiance,
+                    .half_height = area_light.half_height,
+                    .right = area_light.right,
+                    .up = area_light.up,
+                });
+
+        auto tile_spans = std::vector<TileLightSpan>(tile_count);
+        auto tile_point_counts = std::vector<tbx::uint32>(tile_count, 0U);
+        auto tile_spot_counts = std::vector<tbx::uint32>(tile_count, 0U);
+        auto tile_area_counts = std::vector<tbx::uint32>(tile_count, 0U);
+
+        for (tbx::uint32 light_index = 0U; light_index < frame_context.point_lights.size();
+             ++light_index)
+        {
+            auto tile_bounds = TileBounds();
+            if (!try_project_sphere_to_tiles(
+                    frame_context.point_lights[light_index].position,
+                    frame_context.point_lights[light_index].range,
+                    frame_context,
+                    tile_count_x,
+                    tile_count_y,
+                    tile_bounds))
+                continue;
+
+            for (int tile_y = tile_bounds.min_y; tile_y <= tile_bounds.max_y; ++tile_y)
+                for (int tile_x = tile_bounds.min_x; tile_x <= tile_bounds.max_x; ++tile_x)
+                {
+                    const auto tile_index =
+                        static_cast<tbx::uint32>(tile_y) * tile_count_x
+                        + static_cast<tbx::uint32>(tile_x);
+                    ++tile_point_counts[tile_index];
+                }
+        }
+
+        for (tbx::uint32 light_index = 0U; light_index < frame_context.spot_lights.size();
+             ++light_index)
+        {
+            auto tile_bounds = TileBounds();
+            if (!try_project_sphere_to_tiles(
+                    frame_context.spot_lights[light_index].position,
+                    frame_context.spot_lights[light_index].range,
+                    frame_context,
+                    tile_count_x,
+                    tile_count_y,
+                    tile_bounds))
+                continue;
+
+            for (int tile_y = tile_bounds.min_y; tile_y <= tile_bounds.max_y; ++tile_y)
+                for (int tile_x = tile_bounds.min_x; tile_x <= tile_bounds.max_x; ++tile_x)
+                {
+                    const auto tile_index =
+                        static_cast<tbx::uint32>(tile_y) * tile_count_x
+                        + static_cast<tbx::uint32>(tile_x);
+                    ++tile_spot_counts[tile_index];
+                }
+        }
+
+        for (tbx::uint32 light_index = 0U; light_index < frame_context.area_lights.size();
+             ++light_index)
+        {
+            auto tile_bounds = TileBounds();
+            if (!try_project_sphere_to_tiles(
+                    frame_context.area_lights[light_index].position,
+                    get_area_light_culling_radius(frame_context.area_lights[light_index]),
+                    frame_context,
+                    tile_count_x,
+                    tile_count_y,
+                    tile_bounds))
+                continue;
+
+            for (int tile_y = tile_bounds.min_y; tile_y <= tile_bounds.max_y; ++tile_y)
+                for (int tile_x = tile_bounds.min_x; tile_x <= tile_bounds.max_x; ++tile_x)
+                {
+                    const auto tile_index =
+                        static_cast<tbx::uint32>(tile_y) * tile_count_x
+                        + static_cast<tbx::uint32>(tile_x);
+                    ++tile_area_counts[tile_index];
+                }
+        }
+
+        auto total_point_indices = tbx::uint32 {0U};
+        auto total_spot_indices = tbx::uint32 {0U};
+        auto total_area_indices = tbx::uint32 {0U};
+        for (tbx::uint32 tile_index = 0U; tile_index < tile_count; ++tile_index)
+        {
+            tile_spans[tile_index].point_offset = total_point_indices;
+            tile_spans[tile_index].point_count = tile_point_counts[tile_index];
+            tile_spans[tile_index].spot_offset = total_spot_indices;
+            tile_spans[tile_index].spot_count = tile_spot_counts[tile_index];
+            tile_spans[tile_index].area_offset = total_area_indices;
+            tile_spans[tile_index].area_count = tile_area_counts[tile_index];
+            total_point_indices += tile_point_counts[tile_index];
+            total_spot_indices += tile_spot_counts[tile_index];
+            total_area_indices += tile_area_counts[tile_index];
+        }
+
+        auto tile_point_indices = std::vector<tbx::uint32>(total_point_indices, 0U);
+        auto tile_spot_indices = std::vector<tbx::uint32>(total_spot_indices, 0U);
+        auto tile_area_indices = std::vector<tbx::uint32>(total_area_indices, 0U);
+        auto point_write_offsets = std::vector<tbx::uint32>(tile_count, 0U);
+        auto spot_write_offsets = std::vector<tbx::uint32>(tile_count, 0U);
+        auto area_write_offsets = std::vector<tbx::uint32>(tile_count, 0U);
+        for (tbx::uint32 tile_index = 0U; tile_index < tile_count; ++tile_index)
+        {
+            point_write_offsets[tile_index] = tile_spans[tile_index].point_offset;
+            spot_write_offsets[tile_index] = tile_spans[tile_index].spot_offset;
+            area_write_offsets[tile_index] = tile_spans[tile_index].area_offset;
+        }
+
+        for (tbx::uint32 light_index = 0U; light_index < frame_context.point_lights.size();
+             ++light_index)
+        {
+            auto tile_bounds = TileBounds();
+            if (!try_project_sphere_to_tiles(
+                    frame_context.point_lights[light_index].position,
+                    frame_context.point_lights[light_index].range,
+                    frame_context,
+                    tile_count_x,
+                    tile_count_y,
+                    tile_bounds))
+                continue;
+
+            for (int tile_y = tile_bounds.min_y; tile_y <= tile_bounds.max_y; ++tile_y)
+                for (int tile_x = tile_bounds.min_x; tile_x <= tile_bounds.max_x; ++tile_x)
+                {
+                    const auto tile_index =
+                        static_cast<tbx::uint32>(tile_y) * tile_count_x
+                        + static_cast<tbx::uint32>(tile_x);
+                    tile_point_indices[point_write_offsets[tile_index]++] = light_index;
+                }
+        }
+
+        for (tbx::uint32 light_index = 0U; light_index < frame_context.spot_lights.size();
+             ++light_index)
+        {
+            auto tile_bounds = TileBounds();
+            if (!try_project_sphere_to_tiles(
+                    frame_context.spot_lights[light_index].position,
+                    frame_context.spot_lights[light_index].range,
+                    frame_context,
+                    tile_count_x,
+                    tile_count_y,
+                    tile_bounds))
+                continue;
+
+            for (int tile_y = tile_bounds.min_y; tile_y <= tile_bounds.max_y; ++tile_y)
+                for (int tile_x = tile_bounds.min_x; tile_x <= tile_bounds.max_x; ++tile_x)
+                {
+                    const auto tile_index =
+                        static_cast<tbx::uint32>(tile_y) * tile_count_x
+                        + static_cast<tbx::uint32>(tile_x);
+                    tile_spot_indices[spot_write_offsets[tile_index]++] = light_index;
+                }
+        }
+
+        for (tbx::uint32 light_index = 0U; light_index < frame_context.area_lights.size();
+             ++light_index)
+        {
+            auto tile_bounds = TileBounds();
+            if (!try_project_sphere_to_tiles(
+                    frame_context.area_lights[light_index].position,
+                    get_area_light_culling_radius(frame_context.area_lights[light_index]),
+                    frame_context,
+                    tile_count_x,
+                    tile_count_y,
+                    tile_bounds))
+                continue;
+
+            for (int tile_y = tile_bounds.min_y; tile_y <= tile_bounds.max_y; ++tile_y)
+                for (int tile_x = tile_bounds.min_x; tile_x <= tile_bounds.max_x; ++tile_x)
+                {
+                    const auto tile_index =
+                        static_cast<tbx::uint32>(tile_y) * tile_count_x
+                        + static_cast<tbx::uint32>(tile_x);
+                    tile_area_indices[area_write_offsets[tile_index]++] = light_index;
+                }
+        }
+
+        upload_storage_buffer(
+            _point_lights_buffer,
+            gpu_point_lights.data(),
+            gpu_point_lights.size() * sizeof(GpuPointLight));
+        upload_storage_buffer(
+            _spot_lights_buffer,
+            gpu_spot_lights.data(),
+            gpu_spot_lights.size() * sizeof(GpuSpotLight));
+        upload_storage_buffer(
+            _area_lights_buffer,
+            gpu_area_lights.data(),
+            gpu_area_lights.size() * sizeof(GpuAreaLight));
+        upload_storage_buffer(
+            _tile_light_spans_buffer,
+            tile_spans.data(),
+            tile_spans.size() * sizeof(TileLightSpan));
+        upload_storage_buffer(
+            _tile_point_light_indices_buffer,
+            tile_point_indices.data(),
+            tile_point_indices.size() * sizeof(tbx::uint32));
+        upload_storage_buffer(
+            _tile_spot_light_indices_buffer,
+            tile_spot_indices.data(),
+            tile_spot_indices.size() * sizeof(tbx::uint32));
+        upload_storage_buffer(
+            _tile_area_light_indices_buffer,
+            tile_area_indices.data(),
+            tile_area_indices.size() * sizeof(tbx::uint32));
+    }
+}

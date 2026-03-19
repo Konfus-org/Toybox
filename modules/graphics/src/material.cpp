@@ -86,6 +86,7 @@ namespace tbx
         set_diffuse(diffuse ? diffuse->texture.handle : Handle());
         set_normal(normal ? normal->texture.handle : Handle());
         handle = other.handle;
+        has_loaded_defaults = other.has_loaded_defaults;
     }
 
     void StandardMaterialInstance::set_diffuse(Handle value)

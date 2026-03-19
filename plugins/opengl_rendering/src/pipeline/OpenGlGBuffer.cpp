@@ -4,12 +4,14 @@
 
 namespace opengl_rendering
 {
-    static constexpr auto GBUFFER_DRAW_ATTACHMENTS = std::array<GLenum, 5U> {
+    static constexpr auto GBUFFER_DRAW_ATTACHMENTS = std::array<GLenum, 7U> {
         GL_COLOR_ATTACHMENT0,
         GL_COLOR_ATTACHMENT1,
         GL_COLOR_ATTACHMENT2,
         GL_COLOR_ATTACHMENT3,
         GL_COLOR_ATTACHMENT4,
+        GL_COLOR_ATTACHMENT5,
+        GL_COLOR_ATTACHMENT6,
     };
 
     static GLenum get_stage_attachment(const tbx::RenderStage render_stage)
@@ -55,6 +57,8 @@ namespace opengl_rendering
         _albedo = create_color_attachment(GL_RGBA8, _size.width, _size.height);
         _normal = create_color_attachment(GL_RGBA16F, _size.width, _size.height);
         _depth_visual = create_color_attachment(GL_RGBA16F, _size.width, _size.height);
+        _emissive = create_color_attachment(GL_RGBA16F, _size.width, _size.height);
+        _material = create_color_attachment(GL_RGBA16F, _size.width, _size.height);
         _depth = create_depth_attachment(_size.width, _size.height);
 
         glFramebufferTexture2D(
@@ -77,6 +81,8 @@ namespace opengl_rendering
             GL_TEXTURE_2D,
             _depth_visual,
             0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, GL_TEXTURE_2D, _emissive, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, GL_TEXTURE_2D, _material, 0);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _depth, 0);
         glDrawBuffers(
             static_cast<GLsizei>(GBUFFER_DRAW_ATTACHMENTS.size()),
@@ -100,6 +106,12 @@ namespace opengl_rendering
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
+    void OpenGlGBuffer::bind_final_color()
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    }
+
     void OpenGlGBuffer::present(const tbx::RenderStage render_stage, const tbx::Size& viewport_size)
         const
     {
@@ -121,6 +133,31 @@ namespace opengl_rendering
             GL_COLOR_BUFFER_BIT,
             GL_NEAREST);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+
+    GLuint OpenGlGBuffer::get_albedo_texture() const
+    {
+        return _albedo;
+    }
+
+    GLuint OpenGlGBuffer::get_normal_texture() const
+    {
+        return _normal;
+    }
+
+    GLuint OpenGlGBuffer::get_emissive_texture() const
+    {
+        return _emissive;
+    }
+
+    GLuint OpenGlGBuffer::get_material_texture() const
+    {
+        return _material;
+    }
+
+    GLuint OpenGlGBuffer::get_depth_texture() const
+    {
+        return _depth;
     }
 
     GLuint OpenGlGBuffer::create_color_attachment(
@@ -193,6 +230,8 @@ namespace opengl_rendering
         delete_texture(_albedo);
         delete_texture(_normal);
         delete_texture(_depth_visual);
+        delete_texture(_emissive);
+        delete_texture(_material);
         delete_texture(_depth);
 
         if (_framebuffer != 0U)

@@ -10,10 +10,11 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/entity.h"
 #include "tbx/graphics/camera.h"
+#include "tbx/graphics/light.h"
 #include "tbx/graphics/renderer.h"
 #include "tbx/graphics/texture.h"
 #include "tbx/math/matrices.h"
-#include <algorithm>
+#include "tbx/math/trig.h"
 #include <glad/glad.h>
 #include <string>
 #include <string_view>
@@ -81,6 +82,40 @@ namespace opengl_rendering
         return material_asset;
     }
 
+    static tbx::Vec3 to_vec3(const tbx::Color& color)
+    {
+        return tbx::Vec3(color.r, color.g, color.b);
+    }
+
+    static tbx::Vec3 get_normalized_light_color(const tbx::Color& color)
+    {
+        const auto rgb = to_vec3(color);
+        const auto length = tbx::sqrt((rgb.x * rgb.x) + (rgb.y * rgb.y) + (rgb.z * rgb.z));
+        if (length <= 0.0001F)
+            return tbx::Vec3(0.0F, 0.0F, 0.0F);
+        return rgb / length;
+    }
+
+    static tbx::Vec3 get_light_radiance(const tbx::Light& light)
+    {
+        return get_normalized_light_color(light.color) * tbx::max(light.intensity, 0.0F);
+    }
+
+    static tbx::Vec3 get_light_direction(const tbx::Transform& transform)
+    {
+        return tbx::normalize(transform.rotation * tbx::Vec3(0.0F, 0.0F, -1.0F));
+    }
+
+    static tbx::Vec3 get_light_right(const tbx::Transform& transform)
+    {
+        return tbx::normalize(transform.rotation * tbx::Vec3(1.0F, 0.0F, 0.0F));
+    }
+
+    static tbx::Vec3 get_light_up(const tbx::Transform& transform)
+    {
+        return tbx::normalize(transform.rotation * tbx::Vec3(0.0F, 1.0F, 0.0F));
+    }
+
     static void hydrate_material_instance_defaults(
         tbx::MaterialInstance& material_instance,
         tbx::AssetManager& asset_manager)
@@ -117,7 +152,7 @@ namespace opengl_rendering
         , _entity_registry(entity_registry)
         , _asset_manager(asset_manager)
         , _resource_manager(asset_manager)
-        , _render_pipeline(std::make_unique<OpenGlRenderPipeline>(_resource_manager))
+        , _render_pipeline(std::make_unique<OpenGlRenderPipeline>(_resource_manager, _gbuffer))
     {
         initialize(loader);
     }
@@ -183,9 +218,10 @@ namespace opengl_rendering
     OpenGlFrameContext OpenGlRenderer::build_frame_context() const
     {
         auto frame_context = OpenGlFrameContext();
-        frame_context.clear_color = tbx::Color::BLACK;
-        frame_context.view_projection = tbx::Mat4(1.0F);
         frame_context.render_stage = _render_stage;
+        frame_context.render_size = _render_resolution;
+        if (frame_context.render_size.width == 0U || frame_context.render_size.height == 0U)
+            frame_context.render_size = _viewport_size;
 
         if (const auto cameras = _entity_registry.get_with<tbx::Camera, tbx::Transform>();
             !cameras.empty())
@@ -199,11 +235,88 @@ namespace opengl_rendering
                                     / static_cast<float>(_viewport_size.height);
                 camera.set_aspect(aspect);
             }
-            frame_context.view_projection = camera.get_view_projection_matrix(
+            frame_context.camera_position = camera_transform.position;
+            frame_context.view_matrix = camera.get_view_matrix(
                 camera_transform.position,
                 camera_transform.rotation);
+            frame_context.projection_matrix = camera.get_projection_matrix();
+            frame_context.view_projection = frame_context.projection_matrix * frame_context.view_matrix;
         }
+
+        frame_context.inverse_view_projection = tbx::inverse(frame_context.view_projection);
+        build_light_data(frame_context);
+
         return frame_context;
+    }
+
+    void OpenGlRenderer::build_light_data(OpenGlFrameContext& frame_context) const
+    {
+        const auto directional_light_entities = _entity_registry.get_with<tbx::DirectionalLight>();
+        frame_context.directional_lights.reserve(directional_light_entities.size());
+        for (const auto& entity : directional_light_entities)
+        {
+            const auto world_transform = tbx::get_world_space_transform(entity);
+            const auto& light = entity.get_component<tbx::DirectionalLight>();
+
+            auto frame_light = DirectionalLightFrameData();
+            frame_light.direction = get_light_direction(world_transform);
+            frame_light.ambient_intensity = tbx::max(light.ambient, 0.0F);
+            frame_light.radiance = get_light_radiance(light);
+            frame_context.directional_lights.push_back(frame_light);
+        }
+
+        const auto point_light_entities = _entity_registry.get_with<tbx::PointLight>();
+        frame_context.point_lights.reserve(point_light_entities.size());
+        for (const auto& entity : point_light_entities)
+        {
+            const auto world_transform = tbx::get_world_space_transform(entity);
+            const auto& light = entity.get_component<tbx::PointLight>();
+
+            auto frame_light = PointLightFrameData();
+            frame_light.position = world_transform.position;
+            frame_light.range = tbx::max(light.range, 0.001F);
+            frame_light.radiance = get_light_radiance(light);
+            frame_context.point_lights.push_back(frame_light);
+        }
+
+        const auto spot_light_entities = _entity_registry.get_with<tbx::SpotLight>();
+        frame_context.spot_lights.reserve(spot_light_entities.size());
+        for (const auto& entity : spot_light_entities)
+        {
+            const auto world_transform = tbx::get_world_space_transform(entity);
+            const auto& light = entity.get_component<tbx::SpotLight>();
+
+            const auto inner_angle = tbx::clamp(light.inner_angle, 0.0F, light.outer_angle);
+            const auto outer_angle = tbx::max(light.outer_angle, inner_angle + 0.001F);
+
+            auto frame_light = SpotLightFrameData();
+            frame_light.position = world_transform.position;
+            frame_light.range = tbx::max(light.range, 0.001F);
+            frame_light.direction = get_light_direction(world_transform);
+            frame_light.inner_cos = tbx::cos(tbx::to_radians(inner_angle));
+            frame_light.outer_cos = tbx::cos(tbx::to_radians(outer_angle));
+            frame_light.radiance = get_light_radiance(light);
+            frame_context.spot_lights.push_back(frame_light);
+        }
+
+        const auto area_light_entities = _entity_registry.get_with<tbx::AreaLight>();
+        frame_context.area_lights.reserve(area_light_entities.size());
+        for (const auto& entity : area_light_entities)
+        {
+            const auto world_transform = tbx::get_world_space_transform(entity);
+            const auto& light = entity.get_component<tbx::AreaLight>();
+
+            auto frame_light = AreaLightFrameData();
+            frame_light.position = world_transform.position;
+            frame_light.range = tbx::max(light.range, 0.001F);
+            frame_light.direction = get_light_direction(world_transform);
+            frame_light.half_width = tbx::max(light.area_size.x * 0.5F, 0.001F);
+            frame_light.half_height = tbx::max(light.area_size.y * 0.5F, 0.001F);
+            frame_light.radiance = get_light_radiance(light);
+            frame_light.right = get_light_right(world_transform);
+            frame_light.up = get_light_up(world_transform);
+            frame_context.area_lights.push_back(frame_light);
+        }
     }
 
     void OpenGlRenderer::build_draw_calls(OpenGlFrameContext& frame_context)

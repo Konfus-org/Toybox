@@ -23,6 +23,36 @@ namespace tbx
         return glm::degrees(radians);
     }
 
+    float min(float left, float right)
+    {
+        return glm::min(left, right);
+    }
+
+    float max(float left, float right)
+    {
+        return glm::max(left, right);
+    }
+
+    float clamp(float value, float minimum_value, float maximum_value)
+    {
+        return glm::clamp(value, minimum_value, maximum_value);
+    }
+
+    float sqrt(float value)
+    {
+        return glm::sqrt(value);
+    }
+
+    float floor(float value)
+    {
+        return glm::floor(value);
+    }
+
+    float ceil(float value)
+    {
+        return glm::ceil(value);
+    }
+
     float cos(float x)
     {
         return glm::cos(x);

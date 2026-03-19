@@ -27,13 +27,15 @@ void main()
     vec3 unlit_color = texture_color.rgb + u_emissive.rgb;
 
     float exposure = max(u_exposure, 0.0);
-    vec3 mapped = unlit_color * exposure;
-    mapped = tbx_linear_to_srgb(mapped);
+    vec3 final_color = unlit_color * exposure;
+    vec3 display_color = tbx_linear_to_srgb(final_color);
+    float dither = tbx_interleaved_gradient_noise(gl_FragCoord.xy) - 0.5;
+    display_color += vec3(dither / 255.0);
 
     vec3 normalized_world_normal = normalize(v_world_normal);
     float depth_visual = 1.0 - pow(clamp(gl_FragCoord.z, 0.0, 1.0), 24.0);
 
-    o_color = vec4(mapped, texture_color.a);
+    o_color = vec4(clamp(display_color, 0.0, 1.0), texture_color.a);
     o_geometry_color = vec4(unlit_color, texture_color.a);
     o_gbuffer_albedo = vec4(texture_color.rgb, texture_color.a);
     o_gbuffer_normal = vec4((normalized_world_normal * 0.5) + 0.5, texture_color.a);

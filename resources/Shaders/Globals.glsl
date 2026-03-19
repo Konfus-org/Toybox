@@ -31,3 +31,8 @@ vec3 tbx_tonemap_aces(vec3 color)
     const float e = 0.14;
     return clamp((color * (a * color + b)) / (color * (c * color + d) + e), 0.0, 1.0);
 }
+
+float tbx_interleaved_gradient_noise(vec2 pixel_coord)
+{
+    return fract(52.9829189 * fract(dot(pixel_coord, vec2(0.06711056, 0.00583715))));
+}

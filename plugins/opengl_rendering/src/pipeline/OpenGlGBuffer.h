@@ -51,6 +51,49 @@ namespace opengl_rendering
         /// </summary>
         void present(tbx::RenderStage render_stage, const tbx::Size& viewport_size) const;
 
+        /// <summary>
+        /// Purpose: Rebinds the framebuffer for the lighting resolve and targets only the final
+        /// color attachment.
+        /// Ownership: Does not transfer ownership of any OpenGL object.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        /// </summary>
+        void bind_final_color();
+
+        /// <summary>
+        /// Purpose: Returns the albedo texture used by deferred lighting.
+        /// Ownership: Returns a non-owning OpenGL texture handle.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        /// </summary>
+        GLuint get_albedo_texture() const;
+
+        /// <summary>
+        /// Purpose: Returns the normal texture used by deferred lighting.
+        /// Ownership: Returns a non-owning OpenGL texture handle.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        /// </summary>
+        GLuint get_normal_texture() const;
+
+        /// <summary>
+        /// Purpose: Returns the emissive texture used by deferred lighting.
+        /// Ownership: Returns a non-owning OpenGL texture handle.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        /// </summary>
+        GLuint get_emissive_texture() const;
+
+        /// <summary>
+        /// Purpose: Returns the packed material-properties texture used by deferred lighting.
+        /// Ownership: Returns a non-owning OpenGL texture handle.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        /// </summary>
+        GLuint get_material_texture() const;
+
+        /// <summary>
+        /// Purpose: Returns the depth texture used for position reconstruction.
+        /// Ownership: Returns a non-owning OpenGL texture handle.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        /// </summary>
+        GLuint get_depth_texture() const;
+
       private:
         static GLuint create_color_attachment(
             GLenum internal_format,
@@ -68,6 +111,8 @@ namespace opengl_rendering
         GLuint _albedo = 0U;
         GLuint _normal = 0U;
         GLuint _depth_visual = 0U;
+        GLuint _emissive = 0U;
+        GLuint _material = 0U;
         GLuint _depth = 0U;
     };
 }

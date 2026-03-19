@@ -9,7 +9,6 @@
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
 #include <array>
-#include <cmath>
 #include <string>
 
 namespace lighting_example
@@ -48,9 +47,9 @@ namespace lighting_example
         const float phase_offset)
     {
         const float t = static_cast<float>(elapsed_seconds);
-        const float r = 0.5F + 0.5F * std::sin(t * 0.9F + phase_offset);
-        const float g = 0.5F + 0.5F * std::sin(t * 0.9F + phase_offset + 2.0F * tbx::PI / 3.0F);
-        const float b = 0.5F + 0.5F * std::sin(t * 0.9F + phase_offset + 4.0F * tbx::PI / 3.0F);
+        const float r = 0.5F + 0.5F * tbx::sin(t * 0.9F + phase_offset);
+        const float g = 0.5F + 0.5F * tbx::sin(t * 0.9F + phase_offset + 2.0F * tbx::PI / 3.0F);
+        const float b = 0.5F + 0.5F * tbx::sin(t * 0.9F + phase_offset + 4.0F * tbx::PI / 3.0F);
         return tbx::Color(r, g, b, 1.0F);
     }
 
@@ -61,7 +60,16 @@ namespace lighting_example
         const float amplitude)
     {
         const float t = static_cast<float>(elapsed_seconds);
-        return std::sin(t * frequency + phase_offset) * amplitude;
+        return tbx::sin(t * frequency + phase_offset) * amplitude;
+    }
+
+    static tbx::Quat evaluate_directional_light_rotation(const double elapsed_seconds)
+    {
+        const float t = static_cast<float>(elapsed_seconds);
+        const float azimuth = tbx::to_radians(30.0F) + t * 0.2F;
+        const float elevation =
+            tbx::to_radians(-52.0F) + tbx::to_radians(18.0F) * tbx::sin(t * 0.31F);
+        return tbx::normalize(tbx::Quat(tbx::Vec3(elevation, azimuth, 0.0F)));
     }
 
     static tbx::uint32 divide_round_up(const tbx::uint32 numerator, const tbx::uint32 denominator)
@@ -77,7 +85,7 @@ namespace lighting_example
         const double elapsed_seconds)
     {
         const tbx::uint32 columns =
-            static_cast<tbx::uint32>(std::ceil(std::sqrt(static_cast<float>(light_count))));
+            static_cast<tbx::uint32>(tbx::ceil(tbx::sqrt(static_cast<float>(light_count))));
         const tbx::uint32 rows = columns == 0U ? 0U : divide_round_up(light_count, columns);
         const tbx::uint32 row = columns == 0U ? 0U : light_index / columns;
         const tbx::uint32 column = columns == 0U ? 0U : light_index % columns;
@@ -86,7 +94,7 @@ namespace lighting_example
         const float z = (static_cast<float>(row) - static_cast<float>(rows) * 0.5F) * 2.1F;
         const float t = static_cast<float>(elapsed_seconds);
         const float phase = static_cast<float>(light_index) * 0.17F;
-        const float y = 1.0F + 0.5F * std::sin(t * 1.4F + phase);
+        const float y = 1.0F + 0.5F * tbx::sin(t * 1.4F + phase);
         return tbx::Vec3(x, y, z);
     }
 
@@ -161,7 +169,7 @@ namespace lighting_example
                 DIRECTIONAL_LIGHT_ENABLED_AMBIENT);
             _directional_light.add_component<tbx::Transform>(
                 tbx::Vec3(0.0F, 10.0F, 0.0F),
-                tbx::to_radians(tbx::Vec3(-45.0F, 30.0F, 0.0F)),
+                evaluate_directional_light_rotation(_elapsed_seconds),
                 tbx::Vec3(1.0F));
         }
 
@@ -327,7 +335,7 @@ namespace lighting_example
                 tbx::InputKey::F6,
                 [this](const tbx::InputAction&)
                 {
-                    static constexpr auto STRESS_PRESETS = std::array {128U, 256U, 512U, 768U};
+                    static constexpr auto STRESS_PRESETS = std::array {512U, 1024U, 2048U, 4096U};
                     auto selected_index = 0U;
                     for (size_t index = 0U; index < STRESS_PRESETS.size(); ++index)
                     {
@@ -388,11 +396,7 @@ namespace lighting_example
 
         {
             auto& directional_transform = _directional_light.get_component<tbx::Transform>();
-            constexpr float yaw_rate = 0.02F;
-            const float angle = yaw_rate * static_cast<float>(dt.seconds);
-            const auto rotation_delta = tbx::Quat(tbx::Vec3(0.0F, angle, 0.0F));
-            directional_transform.rotation =
-                normalize(rotation_delta * directional_transform.rotation);
+            directional_transform.rotation = evaluate_directional_light_rotation(_elapsed_seconds);
         }
 
         {
@@ -402,7 +406,7 @@ namespace lighting_example
                 point_light.color = evaluate_animated_color(_elapsed_seconds, 0.75F);
                 point_light.intensity =
                     POINT_LIGHT_ENABLED_INTENSITY
-                    + 1.2F * std::sin(static_cast<float>(_elapsed_seconds) * 1.1F);
+                    + 1.2F * tbx::sin(static_cast<float>(_elapsed_seconds) * 1.1F);
 
                 auto& point_transform = _point_light.get_component<tbx::Transform>();
                 point_transform.position = _point_base_position;
@@ -437,7 +441,7 @@ namespace lighting_example
                 spot_light.color = evaluate_animated_color(_elapsed_seconds, 2.1F);
                 spot_light.intensity =
                     SPOT_LIGHT_ENABLED_INTENSITY
-                    + 1.5F * std::sin(static_cast<float>(_elapsed_seconds) * 1.35F);
+                    + 1.5F * tbx::sin(static_cast<float>(_elapsed_seconds) * 1.35F);
                 auto& spot_transform = _spot_light.get_component<tbx::Transform>();
                 spot_transform.position = _spot_base_position;
                 spot_transform.position.y +=
@@ -472,7 +476,7 @@ namespace lighting_example
                 area_light.color = evaluate_animated_color(_elapsed_seconds, 3.6F);
                 area_light.intensity =
                     AREA_LIGHT_ENABLED_INTENSITY
-                    + 1.0F * std::sin(static_cast<float>(_elapsed_seconds) * 0.95F);
+                    + 1.0F * tbx::sin(static_cast<float>(_elapsed_seconds) * 0.95F);
 
                 auto& area_transform = _area_light.get_component<tbx::Transform>();
                 area_transform.position = _area_base_position;
@@ -498,33 +502,6 @@ namespace lighting_example
                 marker_material.set_color(tbx::Color::BLACK);
                 marker_material.set_emissive(tbx::Color::BLACK);
                 marker_renderer.material = marker_material;
-            }
-        }
-
-        if (_stress_mode_enabled)
-        {
-            for (tbx::uint32 light_index = 0U; light_index < _stress_point_lights.size();
-                 ++light_index)
-            {
-                auto& light_entity = _stress_point_lights[light_index];
-                if (!light_entity.has_component<tbx::PointLight>()
-                    || !light_entity.has_component<tbx::Transform>())
-                    continue;
-
-                auto& point_light = light_entity.get_component<tbx::PointLight>();
-                auto& transform = light_entity.get_component<tbx::Transform>();
-                transform.position = evaluate_stress_light_position(
-                    light_index,
-                    static_cast<tbx::uint32>(_stress_point_lights.size()),
-                    _elapsed_seconds);
-                point_light.color = evaluate_animated_color(
-                    _elapsed_seconds,
-                    static_cast<float>(light_index) * 0.13F);
-                point_light.intensity = 2.6F
-                                        + 1.8F
-                                              * std::sin(
-                                                  static_cast<float>(_elapsed_seconds) * 1.25F
-                                                  + static_cast<float>(light_index) * 0.19F);
             }
         }
     }
