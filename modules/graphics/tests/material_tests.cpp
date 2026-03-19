@@ -18,6 +18,7 @@ namespace tbx::tests::graphics
         source.parameters.set("occlusion", 0.8f);
         source.parameters.set("alpha_cutoff", 0.3f);
         source.parameters.set("exposure", 1.2f);
+        source.textures.set("orm", Handle("Textures/NeutralOrm.png"));
 
         // Act
         auto copy = StandardMaterialInstance(source);
@@ -32,6 +33,7 @@ namespace tbx::tests::graphics
         EXPECT_FLOAT_EQ(copy.get_roughness(), 0.6f);
         EXPECT_FLOAT_EQ(copy.get_emissive().r, 0.1f);
         EXPECT_FLOAT_EQ(copy.get_occlusion(), 0.8f);
+        EXPECT_EQ(copy.get_orm().name, "Textures/NeutralOrm.png");
         EXPECT_FLOAT_EQ(copy.get_alpha_cutoff(), 0.3f);
         EXPECT_FLOAT_EQ(copy.get_exposure(), 1.2f);
     }

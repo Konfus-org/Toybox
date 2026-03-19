@@ -117,42 +117,15 @@ namespace opengl_rendering
         return tbx::normalize(transform.rotation * tbx::Vec3(0.0F, 1.0F, 0.0F));
     }
 
-    static float get_max_component(const tbx::Vec3& value)
+    static tbx::Uuid get_default_texture_for_binding(
+        std::string_view binding_name,
+        OpenGlResourceManager& resource_manager)
     {
-        return tbx::max(value.x, tbx::max(value.y, value.z));
-    }
-
-    static float get_distance_squared(const tbx::Vec3& a, const tbx::Vec3& b)
-    {
-        const auto delta = a - b;
-        return (delta.x * delta.x) + (delta.y * delta.y) + (delta.z * delta.z);
-    }
-
-    static tbx::Handle resolve_renderer_mesh_handle(
-        const tbx::Renderer& renderer,
-        const float camera_distance)
-    {
-        if (renderer.lods.empty())
-            return {};
-
-        auto selected_handle = renderer.lods.back().handle;
-        auto selected_max_distance = std::numeric_limits<float>::max();
-        for (const auto& lod : renderer.lods)
-        {
-            if (!lod.handle.is_valid())
-                continue;
-
-            if (camera_distance > lod.max_distance)
-                continue;
-
-            if (lod.max_distance < selected_max_distance)
-            {
-                selected_max_distance = lod.max_distance;
-                selected_handle = lod.handle;
-            }
-        }
-
-        return selected_handle;
+        if (binding_name == "u_normal")
+            return get_flat_normal_texture(resource_manager);
+        if (binding_name == "u_orm")
+            return get_neutral_orm_texture(resource_manager);
+        return get_fallback_texture(resource_manager);
     }
 
     static void hydrate_material_instance_defaults(
@@ -173,7 +146,8 @@ namespace opengl_rendering
 
             for (const auto& [name, texture] : defaults->textures.values)
             {
-                if (material_instance.textures.get(name) != nullptr)
+                const auto* existing_texture = material_instance.textures.get(name);
+                if (existing_texture != nullptr && existing_texture->texture.handle.is_valid())
                     continue;
                 material_instance.textures.set(name, texture);
             }
@@ -464,7 +438,7 @@ namespace opengl_rendering
                 if (texture.handle.is_valid())
                     texture_id = _resource_manager.add_texture(texture.handle);
                 else
-                    texture_id = get_fallback_texture(_resource_manager);
+                    texture_id = get_default_texture_for_binding(name, _resource_manager);
 
                 if (!texture_id.is_valid())
                 {
@@ -473,6 +447,11 @@ namespace opengl_rendering
                         "Using fallback texture.",
                         texture.handle.id.value,
                         material_instance.handle.id.value);
+                    texture_id = get_default_texture_for_binding(name, _resource_manager);
+                }
+
+                if (!texture_id.is_valid())
+                {
                     continue;
                 }
 

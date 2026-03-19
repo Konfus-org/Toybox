@@ -96,6 +96,7 @@ namespace tbx::tests::graphics
         auto textures = MaterialTextureBindings {};
         textures.set("diffuse", Handle("Diffuse"));
         textures.set("normal", Handle("Normal"));
+        textures.set("orm", Handle("Orm"));
 
         // Act
         const auto* diffuse = textures.get("diffuse");
@@ -120,6 +121,7 @@ namespace tbx::tests::graphics
         auto material = StandardMaterialInstance {};
         material.set_diffuse(Handle("Diffuse"));
         material.set_normal(Handle("Normal"));
+        material.set_orm(Handle("Orm"));
         material.set_color(Color(0.25f, 0.5f, 0.75f, 1.0f));
         material.set_metallic(0.2f);
         material.set_roughness(0.8f);
@@ -131,6 +133,7 @@ namespace tbx::tests::graphics
         // Act
         const auto* diffuse = material.textures.get("diffuse");
         const auto* normal = material.textures.get("normal");
+        const auto* orm = material.textures.get("orm");
         const auto* color = material.parameters.get("color");
         const auto* metallic = material.parameters.get("metallic");
         const auto* roughness = material.parameters.get("roughness");
@@ -142,6 +145,7 @@ namespace tbx::tests::graphics
         // Assert
         ASSERT_NE(diffuse, nullptr);
         ASSERT_NE(normal, nullptr);
+        ASSERT_NE(orm, nullptr);
         ASSERT_NE(color, nullptr);
         ASSERT_NE(metallic, nullptr);
         ASSERT_NE(roughness, nullptr);
@@ -151,6 +155,7 @@ namespace tbx::tests::graphics
         ASSERT_NE(exposure, nullptr);
         EXPECT_EQ(diffuse->name, "u_diffuse");
         EXPECT_EQ(normal->name, "u_normal");
+        EXPECT_EQ(orm->name, "u_orm");
     }
 
     // Validates StandardMaterialInstance default getters return expected fallback values.
@@ -168,6 +173,7 @@ namespace tbx::tests::graphics
         EXPECT_FLOAT_EQ(color.g, 1.0f);
         EXPECT_FLOAT_EQ(color.b, 1.0f);
         EXPECT_FLOAT_EQ(color.a, 1.0f);
+        EXPECT_FALSE(material.get_orm().is_valid());
         EXPECT_FLOAT_EQ(material.get_metallic(), 0.0f);
         EXPECT_FLOAT_EQ(material.get_roughness(), 1.0f);
         EXPECT_FLOAT_EQ(emissive.r, 0.0f);

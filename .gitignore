@@ -63,6 +63,7 @@ compile_commands.json
 
 # CMake
 cmake-build-*/
+CMakeUserPresets.json
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake

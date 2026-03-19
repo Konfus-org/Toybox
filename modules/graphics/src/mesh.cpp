@@ -1,8 +1,7 @@
 #include "tbx/graphics/mesh.h"
+#include "tbx/math/trig.h"
 #include "tbx/math/vectors.h"
 #include <array>
-#include <cmath>
-#include <numbers>
 #include <utility>
 #include <vector>
 
@@ -19,6 +18,7 @@ namespace tbx
                     Color(),
                     Vec3(0.0F),
                     Vec2(0.0F),
+                    Vec4(0.0F),
                 }});
         }
 
@@ -29,6 +29,76 @@ namespace tbx
                 return Vec3(0.0F, 0.0F, 0.0F);
 
             return normalize(value);
+        }
+
+        static Vec3 get_fallback_tangent(const Vec3& normal)
+        {
+            const auto up = Vec3(0.0F, 1.0F, 0.0F);
+            const auto right = Vec3(1.0F, 0.0F, 0.0F);
+            auto tangent = cross(up, normal);
+            const float tangent_length_squared = dot(tangent, tangent);
+            if (tangent_length_squared <= 0.000001F)
+                tangent = cross(right, normal);
+            return normalize_or_zero(tangent);
+        }
+
+        static void compute_tangents(std::vector<Vertex>& vertices, const IndexBuffer& indices)
+        {
+            auto tangent_sums = std::vector<Vec3>(vertices.size(), Vec3(0.0F));
+            auto bitangent_sums = std::vector<Vec3>(vertices.size(), Vec3(0.0F));
+
+            for (size_t triangle_index = 0U; triangle_index + 2U < indices.size();
+                 triangle_index += 3U)
+            {
+                const auto index0 = static_cast<size_t>(indices[triangle_index + 0U]);
+                const auto index1 = static_cast<size_t>(indices[triangle_index + 1U]);
+                const auto index2 = static_cast<size_t>(indices[triangle_index + 2U]);
+                if (index0 >= vertices.size() || index1 >= vertices.size() || index2 >= vertices.size())
+                    continue;
+
+                const auto& vertex0 = vertices[index0];
+                const auto& vertex1 = vertices[index1];
+                const auto& vertex2 = vertices[index2];
+
+                const auto edge0 = vertex1.position - vertex0.position;
+                const auto edge1 = vertex2.position - vertex0.position;
+                const auto uv_delta0 = vertex1.uv - vertex0.uv;
+                const auto uv_delta1 = vertex2.uv - vertex0.uv;
+
+                const float determinant =
+                    (uv_delta0.x * uv_delta1.y) - (uv_delta1.x * uv_delta0.y);
+                if (determinant >= -0.000001F && determinant <= 0.000001F)
+                    continue;
+
+                const float inverse_determinant = 1.0F / determinant;
+                const auto tangent =
+                    ((edge0 * uv_delta1.y) - (edge1 * uv_delta0.y)) * inverse_determinant;
+                const auto bitangent =
+                    ((edge1 * uv_delta0.x) - (edge0 * uv_delta1.x)) * inverse_determinant;
+
+                tangent_sums[index0] += tangent;
+                tangent_sums[index1] += tangent;
+                tangent_sums[index2] += tangent;
+                bitangent_sums[index0] += bitangent;
+                bitangent_sums[index1] += bitangent;
+                bitangent_sums[index2] += bitangent;
+            }
+
+            for (size_t vertex_index = 0U; vertex_index < vertices.size(); ++vertex_index)
+            {
+                const auto normal = normalize_or_zero(vertices[vertex_index].normal);
+                auto tangent =
+                    tangent_sums[vertex_index] - (normal * dot(normal, tangent_sums[vertex_index]));
+                tangent = normalize_or_zero(tangent);
+                if (dot(tangent, tangent) <= 0.000001F)
+                    tangent = get_fallback_tangent(normal);
+
+                const auto bitangent = bitangent_sums[vertex_index];
+                const float handedness =
+                    dot(cross(normal, tangent), bitangent) < 0.0F ? -1.0F : 1.0F;
+                vertices[vertex_index].tangent =
+                    Vec4(tangent.x, tangent.y, tangent.z, handedness);
+            }
         }
 
         static Mesh make_uv_sphere_mesh(float radius, uint32 stacks, uint32 sectors)
@@ -45,18 +115,18 @@ namespace tbx
             {
                 const float stack_ratio =
                     static_cast<float>(stack_index) / static_cast<float>(stacks);
-                const float stack_angle = std::numbers::pi_v<float> * stack_ratio;
-                const float y = std::cos(stack_angle);
-                const float ring_radius = std::sin(stack_angle);
+                const float stack_angle = tbx::PI * stack_ratio;
+                const float y = tbx::cos(stack_angle);
+                const float ring_radius = tbx::sin(stack_angle);
 
                 for (uint32 sector_index = 0U; sector_index <= sectors; ++sector_index)
                 {
                     const float sector_ratio =
                         static_cast<float>(sector_index) / static_cast<float>(sectors);
-                    const float sector_angle = std::numbers::pi_v<float> * 2.0F * sector_ratio;
+                    const float sector_angle = tbx::PI * 2.0F * sector_ratio;
 
-                    const float x = ring_radius * std::cos(sector_angle);
-                    const float z = ring_radius * std::sin(sector_angle);
+                    const float x = ring_radius * tbx::cos(sector_angle);
+                    const float z = ring_radius * tbx::sin(sector_angle);
 
                     const Vec3 unit_position = Vec3(x, y, z);
                     vertices.push_back(
@@ -95,6 +165,7 @@ namespace tbx
                 }
             }
 
+            compute_tangents(vertices, indices);
             const VertexBuffer vertex_buffer = make_vertex_buffer(vertices);
             return Mesh(vertex_buffer, indices);
         }
@@ -119,11 +190,11 @@ namespace tbx
             {
                 const float ratio =
                     static_cast<float>(stack_index) / static_cast<float>(hemisphere_stacks);
-                const float angle = (std::numbers::pi_v<float> * 0.5F) * ratio;
+                const float angle = (tbx::PI * 0.5F) * ratio;
                 rings.push_back(
                     CapsuleRing {
-                        .y = cylinder_half_height + std::cos(angle) * radius,
-                        .radius = std::sin(angle) * radius,
+                        .y = cylinder_half_height + tbx::cos(angle) * radius,
+                        .radius = tbx::sin(angle) * radius,
                     });
             }
 
@@ -142,11 +213,11 @@ namespace tbx
             {
                 const float ratio =
                     static_cast<float>(stack_index) / static_cast<float>(hemisphere_stacks);
-                const float angle = (std::numbers::pi_v<float> * 0.5F) * ratio;
+                const float angle = (tbx::PI * 0.5F) * ratio;
                 rings.push_back(
                     CapsuleRing {
-                        .y = -cylinder_half_height - std::cos(angle) * radius,
-                        .radius = std::sin(angle) * radius,
+                        .y = -cylinder_half_height - tbx::cos(angle) * radius,
+                        .radius = tbx::sin(angle) * radius,
                     });
             }
 
@@ -177,10 +248,10 @@ namespace tbx
                 for (uint32 sector_index = 0U; sector_index <= sectors; ++sector_index)
                 {
                     const float u = static_cast<float>(sector_index) / static_cast<float>(sectors);
-                    const float angle = std::numbers::pi_v<float> * 2.0F * u;
+                    const float angle = tbx::PI * 2.0F * u;
 
-                    const float x = ring.radius * std::cos(angle);
-                    const float z = ring.radius * std::sin(angle);
+                    const float x = ring.radius * tbx::cos(angle);
+                    const float z = ring.radius * tbx::sin(angle);
                     const Vec3 position = Vec3(x, ring.y, z);
 
                     Vec3 normal = Vec3(0.0F, 0.0F, 0.0F);
@@ -227,6 +298,7 @@ namespace tbx
                 }
             }
 
+            compute_tangents(vertices, indices);
             const VertexBuffer vertex_buffer = make_vertex_buffer(vertices);
             return Mesh(vertex_buffer, indices);
         }
@@ -265,7 +337,9 @@ namespace tbx
                 Color(0.0F, 0.0F, 0.0F, 1.0F)}};
 
         const IndexBuffer index_buffer = {0, 1, 2};
-        const VertexBuffer vertex_buffer = make_vertex_buffer(triangle_mesh_vertices);
+        auto vertices = triangle_mesh_vertices;
+        compute_tangents(vertices, index_buffer);
+        const VertexBuffer vertex_buffer = make_vertex_buffer(vertices);
 
         return Mesh(vertex_buffer, index_buffer);
     }
@@ -295,7 +369,9 @@ namespace tbx
                 Color(0.0F, 0.0F, 0.0F, 1.0F)}};
 
         const IndexBuffer index_buffer = {0, 1, 2, 2, 3, 0};
-        const VertexBuffer vertex_buffer = make_vertex_buffer(quad_mesh_vertices);
+        auto vertices = quad_mesh_vertices;
+        compute_tangents(vertices, index_buffer);
+        const VertexBuffer vertex_buffer = make_vertex_buffer(vertices);
 
         return Mesh(vertex_buffer, index_buffer);
     }
@@ -325,7 +401,9 @@ namespace tbx
                 Color(0.0F, 0.0F, 0.0F, 1.0F)}};
 
         const IndexBuffer index_buffer = {0, 1, 2, 2, 3, 0};
-        const VertexBuffer vertex_buffer = make_vertex_buffer(fullscreen_quad_vertices);
+        auto vertices = fullscreen_quad_vertices;
+        compute_tangents(vertices, index_buffer);
+        const VertexBuffer vertex_buffer = make_vertex_buffer(vertices);
 
         return Mesh(vertex_buffer, index_buffer);
     }
@@ -395,6 +473,7 @@ namespace tbx
             indices.push_back(base_vertex + 0U);
         }
 
+        compute_tangents(vertices, indices);
         const VertexBuffer vertex_buffer = make_vertex_buffer(vertices);
         return Mesh(vertex_buffer, indices);
     }
@@ -435,7 +514,7 @@ namespace tbx
         auto indices = IndexBuffer {};
         indices.reserve(static_cast<size_t>(stack_count * slice_count * 6));
 
-        const float pi = std::numbers::pi_v<float>;
+        const float pi = tbx::PI;
         const float inverse_stack_count = 1.0F / static_cast<float>(stack_count);
         const float inverse_slice_count = 1.0F / static_cast<float>(slice_count);
 
@@ -443,15 +522,15 @@ namespace tbx
         {
             const float v = static_cast<float>(stack) * inverse_stack_count;
             const float theta = v * pi;
-            const float sin_theta = std::sin(theta);
-            const float cos_theta = std::cos(theta);
+            const float sin_theta = tbx::sin(theta);
+            const float cos_theta = tbx::cos(theta);
 
             for (int slice = 0; slice <= slice_count; ++slice)
             {
                 const float u = static_cast<float>(slice) * inverse_slice_count;
                 const float phi = u * 2.0F * pi;
-                const float sin_phi = std::sin(phi);
-                const float cos_phi = std::cos(phi);
+                const float sin_phi = tbx::sin(phi);
+                const float cos_phi = tbx::cos(phi);
 
                 const float x = sin_theta * cos_phi;
                 const float y = cos_theta;
@@ -485,6 +564,7 @@ namespace tbx
             }
         }
 
+        compute_tangents(vertices, indices);
         const VertexBuffer vertex_buffer = make_vertex_buffer(vertices);
         return Mesh(vertex_buffer, indices);
     }
