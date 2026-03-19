@@ -136,14 +136,19 @@ namespace lighting_example
             examples_common::RoomSettings {
                 .center = tbx::Vec3(0.0F, -1.0F, 0.0F),
                 .include_colliders = true,
-                .color = tbx::Color::DARK_GREY,
+                .color = tbx::Color::GREY,
             });
 
         // Showcase models to react to lighting
         {
+            auto brick_material = tbx::StandardMaterialInstance(tbx::Color::WHITE);
+            brick_material.set_diffuse(tbx::Handle("Textures/BrickAlbedo.png"));
+            brick_material.set_normal(tbx::Handle("Textures/BrickNormal.png"));
+            brick_material.set_roughness(0.9F);
+            brick_material.set_occlusion(1.0F);
+
             auto showcase_sphere = tbx::Entity("ShowcaseSphere", ent_registry);
-            showcase_sphere.add_component<tbx::Renderer>(
-                tbx::StandardMaterialInstance(tbx::Color::LIGHT_GREY));
+            showcase_sphere.add_component<tbx::Renderer>(brick_material);
             showcase_sphere.add_component<tbx::DynamicMesh>(tbx::sphere);
             showcase_sphere.add_component<tbx::Transform>(
                 tbx::Vec3(-2.0F, 1.5F, 0.0F),
@@ -151,13 +156,12 @@ namespace lighting_example
                 tbx::Vec3(2.0F, 2.0F, 2.0F));
 
             auto showcase_cube = tbx::Entity("ShowcaseCube", ent_registry);
-            showcase_cube.add_component<tbx::Renderer>(
-                tbx::StandardMaterialInstance(tbx::Color::GREY));
+            showcase_cube.add_component<tbx::Renderer>(brick_material);
             showcase_cube.add_component<tbx::DynamicMesh>(tbx::cube);
             showcase_cube.add_component<tbx::Transform>(
                 tbx::Vec3(2.0F, 0.25F, 0.0F),
                 tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F),
-                tbx::Vec3(2.0F, 0.5F, 2.0F));
+                tbx::Vec3(3.0F, 1.0F, 3.0F));
         }
 
         // Directional light
@@ -394,10 +398,11 @@ namespace lighting_example
         _camera_controller.update(dt);
         _elapsed_seconds += dt.seconds;
 
-        {
-            auto& directional_transform = _directional_light.get_component<tbx::Transform>();
-            directional_transform.rotation = evaluate_directional_light_rotation(_elapsed_seconds);
-        }
+        // {
+        //     auto& directional_transform = _directional_light.get_component<tbx::Transform>();
+        //     directional_transform.rotation =
+        //     evaluate_directional_light_rotation(_elapsed_seconds);
+        // }
 
         {
             auto& point_light = _point_light.get_component<tbx::PointLight>();

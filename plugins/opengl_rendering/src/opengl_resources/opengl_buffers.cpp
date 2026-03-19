@@ -44,6 +44,10 @@ namespace opengl_rendering
         {
             return GL_FLOAT;
         }
+        if (std::holds_alternative<tbx::Vec4>(type))
+        {
+            return GL_FLOAT;
+        }
         if (std::holds_alternative<tbx::Color>(type))
         {
             return GL_FLOAT;

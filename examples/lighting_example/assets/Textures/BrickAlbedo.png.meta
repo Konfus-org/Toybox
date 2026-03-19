@@ -1,0 +1,10 @@
+{
+  "id": "0000000C",
+  "texture": {
+    "wrap": "repeat",
+    "filter": "linear",
+    "format": "rgb",
+    "mipmaps": "enabled",
+    "compression": "disabled"
+  }
+}

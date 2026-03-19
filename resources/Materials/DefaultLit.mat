@@ -2,7 +2,8 @@
   "shaders": { "vertex": "00000001", "fragment": "00000005" },
   "textures": [
     { "name": "diffuse", "value": "" },
-    { "name": "normal", "value": "" }
+    { "name": "normal", "value": "" },
+    { "name": "orm", "value": "" }
   ],
   "parameters": [
     { "name": "color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },

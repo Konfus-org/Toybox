@@ -12,7 +12,7 @@ namespace tbx
 {
     ///////////// VERTEX DATA //////////////////
 
-    using VertexData = std::variant<int, float, Vec2, Vec3, Color>;
+    using VertexData = std::variant<int, float, Vec2, Vec3, Vec4, Color>;
 
     inline int32 get_vertex_data_count(const VertexData& data)
     {
@@ -23,6 +23,10 @@ namespace tbx
         else if (std::holds_alternative<Vec3>(data))
         {
             return 3;
+        }
+        else if (std::holds_alternative<Vec4>(data))
+        {
+            return 4;
         }
         else if (std::holds_alternative<Color>(data))
         {
@@ -52,6 +56,10 @@ namespace tbx
         else if (std::holds_alternative<Vec3>(data))
         {
             return 4 * 3;
+        }
+        else if (std::holds_alternative<Vec4>(data))
+        {
+            return 4 * 4;
         }
         else if (std::holds_alternative<Color>(data))
         {
@@ -84,6 +92,8 @@ namespace tbx
         Vec2 uv = Vec2(0.0f);
         // (r, g, b, a) for color
         Color color = {1.0f, 1.0f, 1.0f, 1.0f};
+        // (tx, ty, tz, handedness) for tangent-space normal mapping
+        Vec4 tangent = Vec4(1.0f, 0.0f, 0.0f, 1.0f);
     };
 
     ///////////// VERTEX BUFFER //////////////////
@@ -91,7 +101,7 @@ namespace tbx
     inline std::vector<float> flatten_vertex_vector(const std::vector<Vertex>& vertices)
     {
         const auto vertex_count = vertices.size();
-        auto mesh_points = std::vector<float>(vertex_count * 12);
+        auto mesh_points = std::vector<float>(vertex_count * 16);
         int write_index = 0;
 
         for (const auto& vertex : vertices)
@@ -116,7 +126,13 @@ namespace tbx
             mesh_points[write_index + 10] = texture_coord.x;
             mesh_points[write_index + 11] = texture_coord.y;
 
-            write_index += 12;
+            const auto& tangent = vertex.tangent;
+            mesh_points[write_index + 12] = tangent.x;
+            mesh_points[write_index + 13] = tangent.y;
+            mesh_points[write_index + 14] = tangent.z;
+            mesh_points[write_index + 15] = tangent.w;
+
+            write_index += 16;
         }
 
         return mesh_points;

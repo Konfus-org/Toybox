@@ -129,6 +129,7 @@ namespace tbx
             float alpha_cutoff = 0.1f,
             const Handle& diffuse = Handle(),
             const Handle& normal = Handle(),
+            const Handle& orm = Handle(),
             const Handle& material_handle = Handle());
         StandardMaterialInstance(const MaterialInstance& other);
 
@@ -136,6 +137,18 @@ namespace tbx
         Handle get_diffuse() const;
         void set_normal(Handle value);
         Handle get_normal() const;
+        /// <summary>
+        /// Purpose: Sets the packed ambient-occlusion, roughness, and metallic texture.
+        /// Ownership: Stores a non-owning asset handle by value.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
+        void set_orm(Handle value);
+        /// <summary>
+        /// Purpose: Returns the packed ambient-occlusion, roughness, and metallic texture handle.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
+        Handle get_orm() const;
         void set_color(Color value);
         Color get_color() const;
         void set_metallic(float value);

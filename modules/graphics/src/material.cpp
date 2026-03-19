@@ -37,6 +37,7 @@ namespace tbx
     {
         set_diffuse(Handle());
         set_normal(Handle());
+        set_orm(Handle());
         set_color(Color(1.0f, 1.0f, 1.0f, 1.0f));
         set_metallic(0.0f);
         set_roughness(1.0f);
@@ -55,6 +56,7 @@ namespace tbx
         const float alpha_cutoff,
         const Handle& diffuse,
         const Handle& normal,
+        const Handle& orm,
         const Handle& material_handle)
         : StandardMaterialInstance()
     {
@@ -66,6 +68,7 @@ namespace tbx
         set_alpha_cutoff(alpha_cutoff);
         set_diffuse(diffuse);
         set_normal(normal);
+        set_orm(orm);
         handle = material_handle;
     }
 
@@ -83,8 +86,10 @@ namespace tbx
         set_exposure(try_get_float_or_default(other.parameters, "exposure", 1.0f));
         const auto* diffuse = other.textures.get("diffuse");
         const auto* normal = other.textures.get("normal");
+        const auto* orm = other.textures.get("orm");
         set_diffuse(diffuse ? diffuse->texture.handle : Handle());
         set_normal(normal ? normal->texture.handle : Handle());
+        set_orm(orm ? orm->texture.handle : Handle());
         handle = other.handle;
         has_loaded_defaults = other.has_loaded_defaults;
     }
@@ -110,6 +115,19 @@ namespace tbx
     Handle StandardMaterialInstance::get_normal() const
     {
         const auto* texture = textures.get("normal");
+        if (!texture)
+            return {};
+        return texture->texture.handle;
+    }
+
+    void StandardMaterialInstance::set_orm(Handle value)
+    {
+        textures.set("orm", std::move(value));
+    }
+
+    Handle StandardMaterialInstance::get_orm() const
+    {
+        const auto* texture = textures.get("orm");
         if (!texture)
             return {};
         return texture->texture.handle;

@@ -17,7 +17,7 @@ tbx_register_plugin(
     VERSION "1.0.0"
     CATEGORY "gameplay"
     RESOURCES
-        "${PROJECT_SOURCE_DIR}/resources"
+        "${PROJECT_SOURCE_DIR}/examples/lighting_example/assets"
 )
 
 add_library(Tbx::Examples::LightingExampleRuntime ALIAS LightingExampleRuntime)
