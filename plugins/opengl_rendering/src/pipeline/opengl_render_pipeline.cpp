@@ -13,6 +13,8 @@ namespace opengl_rendering
         , _geometry_pass_operation(std::make_unique<GeometryPassOperation>(_resource_manager))
         , _lighting_pass_operation(
               std::make_unique<LightingPassOperation>(_resource_manager, job_system, gbuffer))
+        , _transparent_pass_operation(
+              std::make_unique<TransparentPassOperation>(_resource_manager, gbuffer))
     {
     }
 
@@ -25,5 +27,6 @@ namespace opengl_rendering
     {
         _geometry_pass_operation->execute(payload);
         _lighting_pass_operation->execute(payload);
+        _transparent_pass_operation->execute(payload);
     }
 }

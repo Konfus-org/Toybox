@@ -5,6 +5,7 @@
 #include "opengl_resources/opengl_shader.h"
 #include "tbx/async/job_system.h"
 #include <any>
+#include <cstddef>
 #include <memory>
 
 namespace opengl_rendering
@@ -51,5 +52,12 @@ namespace opengl_rendering
         tbx::uint32 _tile_point_light_indices_buffer = 0U;
         tbx::uint32 _tile_spot_light_indices_buffer = 0U;
         tbx::uint32 _tile_area_light_indices_buffer = 0U;
+        std::size_t _point_lights_buffer_capacity = 0U;
+        std::size_t _spot_lights_buffer_capacity = 0U;
+        std::size_t _area_lights_buffer_capacity = 0U;
+        std::size_t _tile_light_spans_buffer_capacity = 0U;
+        std::size_t _tile_point_light_indices_buffer_capacity = 0U;
+        std::size_t _tile_spot_light_indices_buffer_capacity = 0U;
+        std::size_t _tile_area_light_indices_buffer_capacity = 0U;
     };
 }

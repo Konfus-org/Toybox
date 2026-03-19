@@ -17,6 +17,9 @@ namespace tbx
         // Human-readable application name used in logs, manifests, and window names.
         std::string name = "";
 
+        // Args given passed in at start.
+        std::vector<std::string> args = {};
+
         // Absolute or relative base directory used to resolve other paths.
         std::filesystem::path working_root = {};
 

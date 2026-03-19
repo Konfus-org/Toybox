@@ -58,7 +58,6 @@ struct TileLightSpan
 };
 
 const int MAX_DIRECTIONAL_LIGHTS = 4;
-const float PI = 3.14159265359;
 
 uniform sampler2D u_gbuffer_albedo;
 uniform sampler2D u_gbuffer_normal;
@@ -118,37 +117,14 @@ vec3 reconstruct_world_position(vec2 uv, float depth)
     return world_position.xyz / max(world_position.w, 0.0001);
 }
 
-float distribution_ggx(float n_dot_h, float roughness)
-{
-    float a = roughness * roughness;
-    float a2 = a * a;
-    float denominator = (n_dot_h * n_dot_h) * (a2 - 1.0) + 1.0;
-    return a2 / max(PI * denominator * denominator, 0.0001);
-}
-
-float geometry_schlick_ggx(float n_dot_v, float roughness)
-{
-    float r = roughness + 1.0;
-    float k = (r * r) / 8.0;
-    return n_dot_v / max(n_dot_v * (1.0 - k) + k, 0.0001);
-}
-
-float geometry_smith(float n_dot_v, float n_dot_l, float roughness)
-{
-    return geometry_schlick_ggx(n_dot_v, roughness)
-           * geometry_schlick_ggx(n_dot_l, roughness);
-}
-
-vec3 fresnel_schlick(float cos_theta, vec3 f0)
-{
-    return f0 + (1.0 - f0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
-}
-
 float get_distance_attenuation(float distance_squared, float range)
 {
-    float distance_value = sqrt(distance_squared);
-    float normalized_distance = distance_value / max(range, 0.001);
-    float range_falloff = clamp(1.0 - normalized_distance * normalized_distance, 0.0, 1.0);
+    float range_squared = max(range * range, 0.0001);
+    if (distance_squared >= range_squared)
+        return 0.0;
+
+    float normalized_distance_squared = distance_squared / range_squared;
+    float range_falloff = clamp(1.0 - normalized_distance_squared, 0.0, 1.0);
     return (range_falloff * range_falloff) / max(distance_squared, 0.25);
 }
 
@@ -156,14 +132,14 @@ vec3 get_area_light_closest_point(AreaLight light, vec3 world_position)
 {
     vec3 relative_to_center = world_position - light.position;
     float local_x = clamp(
-        dot(relative_to_center, normalize(light.right)),
+        dot(relative_to_center, light.right),
         -light.half_width,
         light.half_width);
     float local_y = clamp(
-        dot(relative_to_center, normalize(light.up)),
+        dot(relative_to_center, light.up),
         -light.half_height,
         light.half_height);
-    return light.position + (normalize(light.right) * local_x) + (normalize(light.up) * local_y);
+    return light.position + (light.right * local_x) + (light.up * local_y);
 }
 
 float get_area_light_attenuation(
@@ -172,7 +148,7 @@ float get_area_light_attenuation(
     float distance_squared)
 {
     float base_attenuation = get_distance_attenuation(distance_squared, light.range);
-    float front_face = max(dot(normalize(light.direction), -light_direction), 0.0);
+    float front_face = max(dot(light.direction, -light_direction), 0.0);
     float emitter_extent = max(light.half_width + light.half_height, 0.001);
     float softness = emitter_extent / (emitter_extent + sqrt(max(distance_squared, 0.0001)));
     return base_attenuation * front_face * (0.35 + (0.65 * softness));
@@ -185,33 +161,20 @@ void accumulate_light(
     vec3 light_direction,
     vec3 radiance,
     float attenuation,
-    float metallic,
-    float roughness,
+    float specular_strength,
+    float shininess,
     inout vec3 diffuse_accumulation,
     inout vec3 specular_accumulation)
 {
     float n_dot_l = max(dot(normal, light_direction), 0.0);
-    float n_dot_v = max(dot(normal, view_direction), 0.0);
-    if (n_dot_l <= 0.0 || attenuation <= 0.0 || n_dot_v <= 0.0)
+    if (n_dot_l <= 0.0 || attenuation <= 0.0)
         return;
 
     vec3 half_vector = normalize(view_direction + light_direction);
-    float n_dot_h = max(dot(normal, half_vector), 0.0);
-    float h_dot_v = max(dot(half_vector, view_direction), 0.0);
-
-    vec3 f0 = mix(vec3(0.04), albedo, metallic);
-    vec3 fresnel = fresnel_schlick(h_dot_v, f0);
-    float distribution = distribution_ggx(n_dot_h, roughness);
-    float geometry = geometry_smith(n_dot_v, n_dot_l, roughness);
-
-    vec3 numerator = distribution * geometry * fresnel;
-    float denominator = max(4.0 * n_dot_v * n_dot_l, 0.0001);
-    vec3 specular = numerator / denominator;
-
-    vec3 diffuse_weight = (1.0 - fresnel) * (1.0 - metallic);
+    float specular_power = pow(max(dot(normal, half_vector), 0.0), shininess);
     vec3 light_energy = radiance * (n_dot_l * attenuation);
-    diffuse_accumulation += (diffuse_weight * albedo / PI) * light_energy;
-    specular_accumulation += specular * light_energy;
+    diffuse_accumulation += albedo * light_energy;
+    specular_accumulation += vec3(specular_strength * specular_power) * light_energy;
 }
 
 void main()
@@ -236,14 +199,19 @@ void main()
     vec3 view_direction =
         length(view_delta) > 0.0001 ? normalize(view_delta) : vec3(0.0, 0.0, 1.0);
 
-    float metallic = clamp(material_sample.r, 0.0, 1.0);
-    float roughness = clamp(material_sample.g, 0.08, 1.0);
+    float specular_strength = clamp(material_sample.r, 0.0, 1.0);
+    float shininess = clamp(material_sample.g, 1.0, 256.0);
     float occlusion = clamp(material_sample.b, 0.0, 1.0);
-    float exposure = max(material_sample.a, 0.0);
+    float exposure = max(emissive_sample.a, 0.0);
 
     vec3 diffuse_accumulation = vec3(0.0);
     vec3 specular_accumulation = vec3(0.0);
-    vec3 ambient_accumulation = albedo * (0.02 * occlusion);
+    float hemisphere_factor = clamp((normal.y * 0.5) + 0.5, 0.0, 1.0);
+    vec3 hemisphere_ambient =
+        mix(vec3(0.05, 0.045, 0.04), vec3(0.17, 0.19, 0.23), hemisphere_factor) * occlusion;
+    float fresnel = pow(1.0 - max(dot(normal, view_direction), 0.0), 4.0);
+    vec3 ambient_accumulation = albedo * hemisphere_ambient;
+    vec3 fresnel_accumulation = vec3(specular_strength * fresnel * 0.08);
     uint tile_x = min(uint(gl_FragCoord.x) / uint(max(u_tile_size, 1)), uint(max(u_tile_count_x - 1, 0)));
     uint tile_y = min(uint(gl_FragCoord.y) / uint(max(u_tile_size, 1)), uint(max(u_tile_count_y - 1, 0)));
     uint tile_index = tile_y * uint(max(u_tile_count_x, 1)) + tile_x;
@@ -260,8 +228,8 @@ void main()
             normalize(-light.direction),
             light.radiance,
             1.0,
-            metallic,
-            roughness,
+            specular_strength,
+            shininess,
             diffuse_accumulation,
             specular_accumulation);
     }
@@ -272,7 +240,11 @@ void main()
             u_point_lights[u_tile_point_light_indices[tile_light_span.point_offset + tile_light_index]];
         vec3 to_light = light.position - world_position;
         float distance_squared = dot(to_light, to_light);
-        vec3 light_direction = normalize(to_light);
+        if (distance_squared >= light.range * light.range)
+            continue;
+
+        float inverse_distance = inversesqrt(max(distance_squared, 0.0001));
+        vec3 light_direction = to_light * inverse_distance;
         float attenuation = get_distance_attenuation(distance_squared, light.range);
         accumulate_light(
             albedo,
@@ -281,8 +253,8 @@ void main()
             light_direction,
             light.radiance,
             attenuation,
-            metallic,
-            roughness,
+            specular_strength,
+            shininess,
             diffuse_accumulation,
             specular_accumulation);
     }
@@ -293,9 +265,16 @@ void main()
             u_spot_lights[u_tile_spot_light_indices[tile_light_span.spot_offset + tile_light_index]];
         vec3 to_light = light.position - world_position;
         float distance_squared = dot(to_light, to_light);
-        vec3 light_direction = normalize(to_light);
+        if (distance_squared >= light.range * light.range)
+            continue;
+
+        float inverse_distance = inversesqrt(max(distance_squared, 0.0001));
+        vec3 light_direction = to_light * inverse_distance;
         float attenuation = get_distance_attenuation(distance_squared, light.range);
-        float spot_cos = dot(normalize(light.direction), normalize(-light_direction));
+        float spot_cos = dot(light.direction, -light_direction);
+        if (spot_cos <= light.outer_cos)
+            continue;
+
         float cone = clamp(
             (spot_cos - light.outer_cos) / max(light.inner_cos - light.outer_cos, 0.0001),
             0.0,
@@ -307,8 +286,8 @@ void main()
             light_direction,
             light.radiance,
             attenuation * cone * cone,
-            metallic,
-            roughness,
+            specular_strength,
+            shininess,
             diffuse_accumulation,
             specular_accumulation);
     }
@@ -320,8 +299,11 @@ void main()
         vec3 closest_point = get_area_light_closest_point(light, world_position);
         vec3 to_light = closest_point - world_position;
         float distance_squared = dot(to_light, to_light);
+        if (distance_squared >= light.range * light.range)
+            continue;
+
         vec3 light_direction =
-            distance_squared > 0.0001 ? normalize(to_light) : normalize(-light.direction);
+            distance_squared > 0.0001 ? to_light * inversesqrt(distance_squared) : -light.direction;
         float attenuation = get_area_light_attenuation(light, light_direction, distance_squared);
         accumulate_light(
             albedo,
@@ -330,13 +312,14 @@ void main()
             light_direction,
             light.radiance,
             attenuation,
-            metallic,
-            roughness,
+            specular_strength,
+            shininess,
             diffuse_accumulation,
             specular_accumulation);
     }
 
-    vec3 final_color = ambient_accumulation + diffuse_accumulation + specular_accumulation;
+    vec3 final_color =
+        ambient_accumulation + diffuse_accumulation + specular_accumulation + fresnel_accumulation;
     final_color += emissive;
     final_color *= exposure;
 

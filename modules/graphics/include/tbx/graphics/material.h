@@ -123,45 +123,265 @@ namespace tbx
         StandardMaterialInstance(
             Color color,
             Color emissive = Color(0.0f, 0.0f, 0.0f, 1.0f),
-            float metallic = 0.0f,
-            float roughness = 1.0f,
+            float specular = 0.5f,
+            float shininess = 32.0f,
             float occlusion = 1.0f,
             float alpha_cutoff = 0.1f,
-            const Handle& diffuse = Handle(),
-            const Handle& normal = Handle(),
-            const Handle& orm = Handle(),
-            const Handle& material_handle = Handle());
+            float diffuse_map_strength = 1.0f,
+            float normal_map_strength = 1.0f,
+            float specular_map_strength = 1.0f,
+            float shininess_map_strength = 1.0f,
+            float emissive_map_strength = 1.0f,
+            float occlusion_map_strength = 1.0f,
+            const Handle& diffuse_map = Handle(),
+            const Handle& normal_map = Handle(),
+            const Handle& specular_map = Handle(),
+            const Handle& shininess_map = Handle(),
+            const Handle& emissive_map = Handle(),
+            const Handle& occlusion_map = Handle(),
+            const Handle& material_handle = Handle(),
+            float transparency_amount = 0.0f);
         StandardMaterialInstance(const MaterialInstance& other);
 
-        void set_diffuse(Handle value);
-        Handle get_diffuse() const;
-        void set_normal(Handle value);
-        Handle get_normal() const;
         /// <summary>
-        /// Purpose: Sets the packed ambient-occlusion, roughness, and metallic texture.
+        /// Purpose: Sets the diffuse map handle used by the material.
         /// Ownership: Stores a non-owning asset handle by value.
         /// Thread Safety: Safe to call with external synchronization.
         /// </summary>
-        void set_orm(Handle value);
+        void set_diffuse_map(Handle value);
         /// <summary>
-        /// Purpose: Returns the packed ambient-occlusion, roughness, and metallic texture handle.
+        /// Purpose: Returns the diffuse map handle used by the material.
         /// Ownership: Returns a value copy; the caller owns the result.
         /// Thread Safety: Safe for concurrent reads.
         /// </summary>
-        Handle get_orm() const;
+        Handle get_diffuse_map() const;
+        /// <summary>
+        /// Purpose: Sets the tangent-space normal map handle used by the material.
+        /// Ownership: Stores a non-owning asset handle by value.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
+        void set_normal_map(Handle value);
+        /// <summary>
+        /// Purpose: Returns the tangent-space normal map handle used by the material.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
+        Handle get_normal_map() const;
+        /// <summary>
+        /// Purpose: Sets the specular intensity map handle used by the material.
+        /// Ownership: Stores a non-owning asset handle by value.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
+        void set_specular_map(Handle value);
+        /// <summary>
+        /// Purpose: Returns the specular intensity map handle used by the material.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
+        Handle get_specular_map() const;
+        /// <summary>
+        /// Purpose: Sets the shininess map handle used by the material.
+        /// Ownership: Stores a non-owning asset handle by value.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
+        void set_shininess_map(Handle value);
+        /// <summary>
+        /// Purpose: Returns the shininess map handle used by the material.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
+        Handle get_shininess_map() const;
+        /// <summary>
+        /// Purpose: Sets the emissive map handle used by the material.
+        /// Ownership: Stores a non-owning asset handle by value.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
+        void set_emissive_map(Handle value);
+        /// <summary>
+        /// Purpose: Returns the emissive map handle used by the material.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
+        Handle get_emissive_map() const;
+        /// <summary>
+        /// Purpose: Sets the occlusion map handle used by the material.
+        /// Ownership: Stores a non-owning asset handle by value.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
+        void set_occlusion_map(Handle value);
+        /// <summary>
+        /// Purpose: Returns the occlusion map handle used by the material.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
+        Handle get_occlusion_map() const;
+        /// <summary>
+        /// Purpose: Sets the albedo tint used by the material.
+        /// Ownership: Stores the color by value in the material parameter bindings.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
         void set_color(Color value);
+        /// <summary>
+        /// Purpose: Returns the albedo tint used by the material.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
         Color get_color() const;
-        void set_metallic(float value);
-        float get_metallic() const;
-        void set_roughness(float value);
-        float get_roughness() const;
+        /// <summary>
+        /// Purpose: Sets the strength used when blending the diffuse map with the base color.
+        /// Ownership: Stores the value in the material parameter bindings.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
+        void set_diffuse_map_strength(float value);
+        /// <summary>
+        /// Purpose: Returns the strength used when blending the diffuse map with the base color.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
+        float get_diffuse_map_strength() const;
+        /// <summary>
+        /// Purpose: Sets the strength applied to the tangent-space normal map perturbation.
+        /// Ownership: Stores the value in the material parameter bindings.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
+        void set_normal_map_strength(float value);
+        /// <summary>
+        /// Purpose: Returns the strength applied to the tangent-space normal map perturbation.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
+        float get_normal_map_strength() const;
+        /// <summary>
+        /// Purpose: Sets the scalar Blinn-Phong specular intensity used by the material.
+        /// Ownership: Stores the value in the material parameter bindings.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
+        void set_specular(float value);
+        /// <summary>
+        /// Purpose: Returns the scalar Blinn-Phong specular intensity used by the material.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
+        float get_specular() const;
+        /// <summary>
+        /// Purpose: Sets the strength used when blending the specular map with the base specular.
+        /// Ownership: Stores the value in the material parameter bindings.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
+        void set_specular_map_strength(float value);
+        /// <summary>
+        /// Purpose: Returns the strength used when blending the specular map with the base specular.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
+        float get_specular_map_strength() const;
+        /// <summary>
+        /// Purpose: Sets the Blinn-Phong shininess exponent used by the material.
+        /// Ownership: Stores the value in the material parameter bindings.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
+        void set_shininess(float value);
+        /// <summary>
+        /// Purpose: Returns the Blinn-Phong shininess exponent used by the material.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
+        float get_shininess() const;
+        /// <summary>
+        /// Purpose: Sets the strength used when blending the shininess map with the base shininess.
+        /// Ownership: Stores the value in the material parameter bindings.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
+        void set_shininess_map_strength(float value);
+        /// <summary>
+        /// Purpose: Returns the strength used when blending the shininess map with the base shininess.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
+        float get_shininess_map_strength() const;
+        /// <summary>
+        /// Purpose: Sets the emissive color contribution used by the material.
+        /// Ownership: Stores the color by value in the material parameter bindings.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
         void set_emissive(Color value);
+        /// <summary>
+        /// Purpose: Returns the emissive color contribution used by the material.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
         Color get_emissive() const;
+        /// <summary>
+        /// Purpose: Sets the strength used when blending the emissive map with the base emissive.
+        /// Ownership: Stores the value in the material parameter bindings.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
+        void set_emissive_map_strength(float value);
+        /// <summary>
+        /// Purpose: Returns the strength used when blending the emissive map with the base emissive.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
+        float get_emissive_map_strength() const;
+        /// <summary>
+        /// Purpose: Sets the ambient occlusion multiplier used by the material.
+        /// Ownership: Stores the value in the material parameter bindings.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
         void set_occlusion(float value);
+        /// <summary>
+        /// Purpose: Returns the ambient occlusion multiplier used by the material.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
         float get_occlusion() const;
+        /// <summary>
+        /// Purpose: Sets the strength used when blending the occlusion map with the base occlusion.
+        /// Ownership: Stores the value in the material parameter bindings.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
+        void set_occlusion_map_strength(float value);
+        /// <summary>
+        /// Purpose: Returns the strength used when blending the occlusion map with the base occlusion.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
+        float get_occlusion_map_strength() const;
+        /// <summary>
+        /// Purpose: Sets the alpha test threshold used by the material.
+        /// Ownership: Stores the value in the material parameter bindings.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
         void set_alpha_cutoff(float value);
+        /// <summary>
+        /// Purpose: Returns the alpha test threshold used by the material.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
         float get_alpha_cutoff() const;
+        /// <summary>
+        /// Purpose: Sets the transparency blend amount used for forward transparent rendering.
+        /// Ownership: Stores the value in the material parameter bindings.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
+        void set_transparency_amount(float value);
+        /// <summary>
+        /// Purpose: Returns the transparency blend amount used for forward transparent rendering.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
+        float get_transparency_amount() const;
+        /// <summary>
+        /// Purpose: Sets the exposure multiplier applied after lighting.
+        /// Ownership: Stores the value in the material parameter bindings.
+        /// Thread Safety: Safe to call with external synchronization.
+        /// </summary>
         void set_exposure(float value);
+        /// <summary>
+        /// Purpose: Returns the exposure multiplier applied after lighting.
+        /// Ownership: Returns a value copy; the caller owns the result.
+        /// Thread Safety: Safe for concurrent reads.
+        /// </summary>
         float get_exposure() const;
     };
 

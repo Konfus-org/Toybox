@@ -65,8 +65,11 @@ namespace physics_example
         falling_cube.add_component<CubeCollider>(tbx::Vec3(0.5F, 0.5F, 0.5F));
         falling_cube.add_component<Physics>();
 
+        auto trigger_zone_material = StandardMaterialInstance(Color::GREEN);
+        trigger_zone_material.set_transparency_amount(0.5F);
+
         auto trigger_zone = tbx::Entity("TriggerZone", ent_registry);
-        trigger_zone.add_component<Renderer>(StandardMaterialInstance(Color::GREEN));
+        trigger_zone.add_component<Renderer>(trigger_zone_material);
         trigger_zone.add_component<DynamicMesh>(cube);
         trigger_zone.add_component<tbx::Transform>(
             tbx::Vec3(0.0F, 2.5F, -5.0F),

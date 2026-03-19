@@ -71,7 +71,7 @@ namespace tbx::tests::graphics
         // Arrange
         auto parameters = MaterialParameterBindings {};
         parameters.set("color", Color(1.0f, 0.5f, 0.25f, 1.0f));
-        parameters.set("roughness", 0.25f);
+        parameters.set("shininess", 32.0f);
 
         // Act
         const auto* color = parameters.get("color");
@@ -94,12 +94,15 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto textures = MaterialTextureBindings {};
-        textures.set("diffuse", Handle("Diffuse"));
-        textures.set("normal", Handle("Normal"));
-        textures.set("orm", Handle("Orm"));
+        textures.set("diffuse_map", Handle("Diffuse"));
+        textures.set("normal_map", Handle("Normal"));
+        textures.set("specular_map", Handle("Specular"));
+        textures.set("shininess_map", Handle("Shininess"));
+        textures.set("emissive_map", Handle("Emissive"));
+        textures.set("occlusion_map", Handle("Occlusion"));
 
         // Act
-        const auto* diffuse = textures.get("diffuse");
+        const auto* diffuse_map = textures.get("diffuse_map");
         int texture_count = 0;
         for (const auto& texture_binding : textures)
         {
@@ -108,9 +111,9 @@ namespace tbx::tests::graphics
         }
 
         // Assert
-        ASSERT_NE(diffuse, nullptr);
-        EXPECT_EQ(diffuse->name, "u_diffuse");
-        EXPECT_EQ(texture_count, 2);
+        ASSERT_NE(diffuse_map, nullptr);
+        EXPECT_EQ(diffuse_map->name, "u_diffuse_map");
+        EXPECT_EQ(texture_count, 6);
         EXPECT_NE(textures.begin(), textures.end());
     }
 
@@ -119,43 +122,76 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto material = StandardMaterialInstance {};
-        material.set_diffuse(Handle("Diffuse"));
-        material.set_normal(Handle("Normal"));
-        material.set_orm(Handle("Orm"));
+        material.set_diffuse_map(Handle("Diffuse"));
+        material.set_normal_map(Handle("Normal"));
+        material.set_specular_map(Handle("Specular"));
+        material.set_shininess_map(Handle("Shininess"));
+        material.set_emissive_map(Handle("Emissive"));
+        material.set_occlusion_map(Handle("Occlusion"));
         material.set_color(Color(0.25f, 0.5f, 0.75f, 1.0f));
-        material.set_metallic(0.2f);
-        material.set_roughness(0.8f);
+        material.set_diffuse_map_strength(0.9f);
+        material.set_normal_map_strength(0.8f);
+        material.set_specular(0.2f);
+        material.set_specular_map_strength(0.7f);
+        material.set_shininess(64.0f);
+        material.set_shininess_map_strength(0.6f);
         material.set_emissive(Color(0.1f, 0.2f, 0.3f, 1.0f));
+        material.set_emissive_map_strength(0.5f);
         material.set_occlusion(0.6f);
+        material.set_occlusion_map_strength(0.4f);
         material.set_alpha_cutoff(0.15f);
+        material.set_transparency_amount(0.35f);
         material.set_exposure(1.5f);
 
         // Act
-        const auto* diffuse = material.textures.get("diffuse");
-        const auto* normal = material.textures.get("normal");
-        const auto* orm = material.textures.get("orm");
+        const auto* diffuse_map = material.textures.get("diffuse_map");
+        const auto* normal_map = material.textures.get("normal_map");
+        const auto* specular_map = material.textures.get("specular_map");
+        const auto* shininess_map = material.textures.get("shininess_map");
+        const auto* emissive_map = material.textures.get("emissive_map");
+        const auto* occlusion_map = material.textures.get("occlusion_map");
         const auto* color = material.parameters.get("color");
-        const auto* metallic = material.parameters.get("metallic");
-        const auto* roughness = material.parameters.get("roughness");
+        const auto* diffuse_map_strength = material.parameters.get("diffuse_map_strength");
+        const auto* normal_map_strength = material.parameters.get("normal_map_strength");
+        const auto* specular = material.parameters.get("specular");
+        const auto* specular_map_strength = material.parameters.get("specular_map_strength");
+        const auto* shininess = material.parameters.get("shininess");
+        const auto* shininess_map_strength = material.parameters.get("shininess_map_strength");
         const auto* emissive = material.parameters.get("emissive");
+        const auto* emissive_map_strength = material.parameters.get("emissive_map_strength");
         const auto* occlusion = material.parameters.get("occlusion");
+        const auto* occlusion_map_strength = material.parameters.get("occlusion_map_strength");
         const auto* alpha_cutoff = material.parameters.get("alpha_cutoff");
+        const auto* transparency_amount = material.parameters.get("transparency_amount");
         const auto* exposure = material.parameters.get("exposure");
 
         // Assert
-        ASSERT_NE(diffuse, nullptr);
-        ASSERT_NE(normal, nullptr);
-        ASSERT_NE(orm, nullptr);
+        ASSERT_NE(diffuse_map, nullptr);
+        ASSERT_NE(normal_map, nullptr);
+        ASSERT_NE(specular_map, nullptr);
+        ASSERT_NE(shininess_map, nullptr);
+        ASSERT_NE(emissive_map, nullptr);
+        ASSERT_NE(occlusion_map, nullptr);
         ASSERT_NE(color, nullptr);
-        ASSERT_NE(metallic, nullptr);
-        ASSERT_NE(roughness, nullptr);
+        ASSERT_NE(diffuse_map_strength, nullptr);
+        ASSERT_NE(normal_map_strength, nullptr);
+        ASSERT_NE(specular, nullptr);
+        ASSERT_NE(specular_map_strength, nullptr);
+        ASSERT_NE(shininess, nullptr);
+        ASSERT_NE(shininess_map_strength, nullptr);
         ASSERT_NE(emissive, nullptr);
+        ASSERT_NE(emissive_map_strength, nullptr);
         ASSERT_NE(occlusion, nullptr);
+        ASSERT_NE(occlusion_map_strength, nullptr);
         ASSERT_NE(alpha_cutoff, nullptr);
+        ASSERT_NE(transparency_amount, nullptr);
         ASSERT_NE(exposure, nullptr);
-        EXPECT_EQ(diffuse->name, "u_diffuse");
-        EXPECT_EQ(normal->name, "u_normal");
-        EXPECT_EQ(orm->name, "u_orm");
+        EXPECT_EQ(diffuse_map->name, "u_diffuse_map");
+        EXPECT_EQ(normal_map->name, "u_normal_map");
+        EXPECT_EQ(specular_map->name, "u_specular_map");
+        EXPECT_EQ(shininess_map->name, "u_shininess_map");
+        EXPECT_EQ(emissive_map->name, "u_emissive_map");
+        EXPECT_EQ(occlusion_map->name, "u_occlusion_map");
     }
 
     // Validates StandardMaterialInstance default getters return expected fallback values.
@@ -173,15 +209,26 @@ namespace tbx::tests::graphics
         EXPECT_FLOAT_EQ(color.g, 1.0f);
         EXPECT_FLOAT_EQ(color.b, 1.0f);
         EXPECT_FLOAT_EQ(color.a, 1.0f);
-        EXPECT_FALSE(material.get_orm().is_valid());
-        EXPECT_FLOAT_EQ(material.get_metallic(), 0.0f);
-        EXPECT_FLOAT_EQ(material.get_roughness(), 1.0f);
+        EXPECT_FLOAT_EQ(material.get_diffuse_map_strength(), 1.0f);
+        EXPECT_FALSE(material.get_normal_map().is_valid());
+        EXPECT_FLOAT_EQ(material.get_normal_map_strength(), 1.0f);
+        EXPECT_FALSE(material.get_specular_map().is_valid());
+        EXPECT_FLOAT_EQ(material.get_specular(), 0.5f);
+        EXPECT_FLOAT_EQ(material.get_specular_map_strength(), 1.0f);
+        EXPECT_FALSE(material.get_shininess_map().is_valid());
+        EXPECT_FLOAT_EQ(material.get_shininess(), 32.0f);
+        EXPECT_FLOAT_EQ(material.get_shininess_map_strength(), 1.0f);
         EXPECT_FLOAT_EQ(emissive.r, 0.0f);
         EXPECT_FLOAT_EQ(emissive.g, 0.0f);
         EXPECT_FLOAT_EQ(emissive.b, 0.0f);
         EXPECT_FLOAT_EQ(emissive.a, 1.0f);
+        EXPECT_FALSE(material.get_emissive_map().is_valid());
+        EXPECT_FLOAT_EQ(material.get_emissive_map_strength(), 1.0f);
         EXPECT_FLOAT_EQ(material.get_occlusion(), 1.0f);
+        EXPECT_FALSE(material.get_occlusion_map().is_valid());
+        EXPECT_FLOAT_EQ(material.get_occlusion_map_strength(), 1.0f);
         EXPECT_FLOAT_EQ(material.get_alpha_cutoff(), 0.1f);
+        EXPECT_FLOAT_EQ(material.get_transparency_amount(), 0.0f);
         EXPECT_FLOAT_EQ(material.get_exposure(), 1.0f);
     }
 }

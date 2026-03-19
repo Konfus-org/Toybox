@@ -138,8 +138,19 @@ namespace opengl_rendering
             glCreateBuffers(1, &buffer_id);
     }
 
+    static std::size_t grow_buffer_capacity(
+        const std::size_t current_capacity,
+        const std::size_t required_capacity)
+    {
+        auto next_capacity = current_capacity == 0U ? required_capacity : current_capacity;
+        while (next_capacity < required_capacity)
+            next_capacity *= 2U;
+        return next_capacity;
+    }
+
     static void upload_storage_buffer(
         const tbx::uint32 buffer_id,
+        std::size_t& buffer_capacity,
         const void* data,
         const std::size_t size_in_bytes)
     {
@@ -148,7 +159,19 @@ namespace opengl_rendering
                                      ? static_cast<GLsizeiptr>(size_in_bytes)
                                      : static_cast<GLsizeiptr>(sizeof(FallbackValue));
         const auto* upload_data = size_in_bytes > 0U ? data : &FallbackValue;
-        glNamedBufferData(buffer_id, upload_size, upload_data, GL_DYNAMIC_DRAW);
+        if (buffer_capacity < static_cast<std::size_t>(upload_size))
+        {
+            buffer_capacity = grow_buffer_capacity(
+                buffer_capacity,
+                static_cast<std::size_t>(upload_size));
+            glNamedBufferData(
+                buffer_id,
+                static_cast<GLsizeiptr>(buffer_capacity),
+                nullptr,
+                GL_DYNAMIC_DRAW);
+        }
+
+        glNamedBufferSubData(buffer_id, 0, upload_size, upload_data);
     }
 
     static bool try_project_sphere_to_tiles(
@@ -560,30 +583,37 @@ namespace opengl_rendering
 
         upload_storage_buffer(
             _point_lights_buffer,
+            _point_lights_buffer_capacity,
             gpu_point_lights.data(),
             gpu_point_lights.size() * sizeof(GpuPointLight));
         upload_storage_buffer(
             _spot_lights_buffer,
+            _spot_lights_buffer_capacity,
             gpu_spot_lights.data(),
             gpu_spot_lights.size() * sizeof(GpuSpotLight));
         upload_storage_buffer(
             _area_lights_buffer,
+            _area_lights_buffer_capacity,
             gpu_area_lights.data(),
             gpu_area_lights.size() * sizeof(GpuAreaLight));
         upload_storage_buffer(
             _tile_light_spans_buffer,
+            _tile_light_spans_buffer_capacity,
             tile_spans.data(),
             tile_spans.size() * sizeof(TileLightSpan));
         upload_storage_buffer(
             _tile_point_light_indices_buffer,
+            _tile_point_light_indices_buffer_capacity,
             point_tile_data.tile_indices.data(),
             point_tile_data.tile_indices.size() * sizeof(tbx::uint32));
         upload_storage_buffer(
             _tile_spot_light_indices_buffer,
+            _tile_spot_light_indices_buffer_capacity,
             spot_tile_data.tile_indices.data(),
             spot_tile_data.tile_indices.size() * sizeof(tbx::uint32));
         upload_storage_buffer(
             _tile_area_light_indices_buffer,
+            _tile_area_light_indices_buffer_capacity,
             area_tile_data.tile_indices.data(),
             area_tile_data.tile_indices.size() * sizeof(tbx::uint32));
     }

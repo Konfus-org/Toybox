@@ -10,16 +10,19 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/entity.h"
 #include "tbx/graphics/camera.h"
+#include "tbx/graphics/frustum.h"
 #include "tbx/graphics/light.h"
 #include "tbx/graphics/renderer.h"
 #include "tbx/graphics/texture.h"
 #include "tbx/math/matrices.h"
 #include "tbx/math/trig.h"
+#include <algorithm>
 #include <glad/glad.h>
 #include <limits>
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <variant>
 
 namespace opengl_rendering
 {
@@ -102,6 +105,14 @@ namespace opengl_rendering
         return get_normalized_light_color(light.color) * tbx::max(light.intensity, 0.0F);
     }
 
+    static bool has_light_radiance(const tbx::Light& light)
+    {
+        if (tbx::max(light.intensity, 0.0F) <= 0.0001F)
+            return false;
+
+        return light.color.r > 0.0001F || light.color.g > 0.0001F || light.color.b > 0.0001F;
+    }
+
     static tbx::Vec3 get_light_direction(const tbx::Transform& transform)
     {
         return tbx::normalize(transform.rotation * tbx::Vec3(0.0F, 0.0F, -1.0F));
@@ -117,15 +128,98 @@ namespace opengl_rendering
         return tbx::normalize(transform.rotation * tbx::Vec3(0.0F, 1.0F, 0.0F));
     }
 
+    static float get_max_component(const tbx::Vec3& value)
+    {
+        return tbx::max(value.x, tbx::max(value.y, value.z));
+    }
+
+    static float get_distance_squared(const tbx::Vec3& a, const tbx::Vec3& b)
+    {
+        const auto delta = a - b;
+        return (delta.x * delta.x) + (delta.y * delta.y) + (delta.z * delta.z);
+    }
+
+    static bool intersects_light_influence(
+        const tbx::Frustum& view_frustum,
+        const tbx::Vec3& position,
+        const float radius)
+    {
+        return view_frustum.intersects(
+            tbx::Sphere {
+                .center = position,
+                .radius = tbx::max(radius, 0.001F),
+            });
+    }
+
+    static float get_area_light_culling_radius(const tbx::AreaLight& light)
+    {
+        const auto emitter_radius = tbx::sqrt(
+            (light.area_size.x * light.area_size.x * 0.25F)
+            + (light.area_size.y * light.area_size.y * 0.25F));
+        return tbx::max(light.range, 0.001F) + emitter_radius;
+    }
+
+    static tbx::Handle resolve_renderer_mesh_handle(
+        const tbx::Renderer& renderer,
+        const float camera_distance)
+    {
+        if (renderer.lods.empty())
+            return {};
+
+        auto selected_handle = renderer.lods.back().handle;
+        auto selected_max_distance = std::numeric_limits<float>::max();
+        for (const auto& lod : renderer.lods)
+        {
+            if (!lod.handle.is_valid())
+                continue;
+
+            if (camera_distance > lod.max_distance)
+                continue;
+
+            if (lod.max_distance < selected_max_distance)
+            {
+                selected_max_distance = lod.max_distance;
+                selected_handle = lod.handle;
+            }
+        }
+
+        return selected_handle;
+    }
+
     static tbx::Uuid get_default_texture_for_binding(
         std::string_view binding_name,
         OpenGlResourceManager& resource_manager)
     {
-        if (binding_name == "u_normal")
+        if (binding_name == "u_normal_map")
             return get_flat_normal_texture(resource_manager);
-        if (binding_name == "u_orm")
+        if (binding_name == "u_specular_map")
+            return get_fallback_texture(resource_manager);
+        if (binding_name == "u_shininess_map")
+            return get_fallback_texture(resource_manager);
+        if (binding_name == "u_emissive_map")
+            return get_fallback_texture(resource_manager);
+        if (binding_name == "u_occlusion_map")
             return get_neutral_orm_texture(resource_manager);
         return get_fallback_texture(resource_manager);
+    }
+
+    static float get_material_float_parameter_or_default(
+        const tbx::MaterialParameterBindings& parameters,
+        const std::string_view name,
+        const float fallback)
+    {
+        const auto* parameter = parameters.get(name);
+        if (!parameter)
+            return fallback;
+
+        if (const auto* value = std::get_if<float>(&parameter->value))
+            return *value;
+        if (const auto* value = std::get_if<double>(&parameter->value))
+            return static_cast<float>(*value);
+        if (const auto* value = std::get_if<int>(&parameter->value))
+            return static_cast<float>(*value);
+
+        return fallback;
     }
 
     static void hydrate_material_instance_defaults(
@@ -267,12 +361,15 @@ namespace opengl_rendering
 
     void OpenGlRenderer::build_light_data(OpenGlFrameContext& frame_context) const
     {
+        const auto view_frustum = tbx::Frustum(frame_context.view_projection);
         const auto directional_light_entities = _entity_registry.get_with<tbx::DirectionalLight>();
         frame_context.directional_lights.reserve(directional_light_entities.size());
         for (const auto& entity : directional_light_entities)
         {
             const auto world_transform = tbx::get_world_space_transform(entity);
             const auto& light = entity.get_component<tbx::DirectionalLight>();
+            if (!has_light_radiance(light) && tbx::max(light.ambient, 0.0F) <= 0.0001F)
+                continue;
 
             auto frame_light = DirectionalLightFrameData();
             frame_light.direction = get_light_direction(world_transform);
@@ -287,6 +384,10 @@ namespace opengl_rendering
         {
             const auto world_transform = tbx::get_world_space_transform(entity);
             const auto& light = entity.get_component<tbx::PointLight>();
+            if (!has_light_radiance(light))
+                continue;
+            if (!intersects_light_influence(view_frustum, world_transform.position, light.range))
+                continue;
 
             auto frame_light = PointLightFrameData();
             frame_light.position = world_transform.position;
@@ -301,6 +402,10 @@ namespace opengl_rendering
         {
             const auto world_transform = tbx::get_world_space_transform(entity);
             const auto& light = entity.get_component<tbx::SpotLight>();
+            if (!has_light_radiance(light))
+                continue;
+            if (!intersects_light_influence(view_frustum, world_transform.position, light.range))
+                continue;
 
             const auto inner_angle = tbx::clamp(light.inner_angle, 0.0F, light.outer_angle);
             const auto outer_angle = tbx::max(light.outer_angle, inner_angle + 0.001F);
@@ -321,6 +426,13 @@ namespace opengl_rendering
         {
             const auto world_transform = tbx::get_world_space_transform(entity);
             const auto& light = entity.get_component<tbx::AreaLight>();
+            if (!has_light_radiance(light))
+                continue;
+            if (!intersects_light_influence(
+                    view_frustum,
+                    world_transform.position,
+                    get_area_light_culling_radius(light)))
+                continue;
 
             auto frame_light = AreaLightFrameData();
             frame_light.position = world_transform.position;
@@ -339,6 +451,7 @@ namespace opengl_rendering
     {
         const auto entities = _entity_registry.get_with<tbx::Renderer>();
         frame_context.draw_calls.reserve(entities.size());
+        frame_context.transparent_draw_calls.reserve(entities.size());
 
         const auto view_frustum = tbx::Frustum(frame_context.view_projection);
         auto draw_call_lookup = std::unordered_map<std::uint64_t, std::size_t>();
@@ -368,6 +481,10 @@ namespace opengl_rendering
             if (!material_instance.handle.is_valid())
                 material_instance.handle = tbx::default_material;
             hydrate_material_instance_defaults(material_instance, _asset_manager);
+            const auto transparency_amount = get_material_float_parameter_or_default(
+                material_instance.parameters,
+                "transparency_amount",
+                0.0F);
 
             // Add shader program
             auto use_fallback_material_params = false;
@@ -486,7 +603,7 @@ namespace opengl_rendering
                         fallback_texture_resource))
                     material_params.textures.push_back(
                         OpenGlMaterialTexture {
-                            .name = "diffuse",
+                            .name = "diffuse_map",
                             .texture_id = fallback_texture_id,
                             .gl_texture_id = fallback_texture_resource->get_texture_id(),
                             .bindless_handle = fallback_texture_resource->get_bindless_handle(),
@@ -495,6 +612,20 @@ namespace opengl_rendering
 
             // Add transform matrix
             const auto transform_matrix = tbx::build_transform_matrix(world_transform);
+
+            if (transparency_amount > 0.0001F)
+            {
+                frame_context.transparent_draw_calls.push_back(
+                    TransparentDrawCall {
+                        .shader_program = shader_program_key,
+                        .is_two_sided = renderer.is_two_sided,
+                        .mesh = mesh_key,
+                        .material = std::move(material_params),
+                        .transform = transform_matrix,
+                        .camera_distance_squared = camera_distance_squared,
+                    });
+                continue;
+            }
 
             // Push back new draw call
             const auto draw_call_key = (static_cast<std::uint64_t>(shader_program_key.value) << 1U)
@@ -517,6 +648,14 @@ namespace opengl_rendering
             draw_call.materials.push_back(std::move(material_params));
             draw_call.transforms.push_back(transform_matrix);
         }
+
+        std::sort(
+            frame_context.transparent_draw_calls.begin(),
+            frame_context.transparent_draw_calls.end(),
+            [](const TransparentDrawCall& left, const TransparentDrawCall& right)
+            {
+                return left.camera_distance_squared > right.camera_distance_squared;
+            });
     }
 
     void OpenGlRenderer::set_viewport_size(const tbx::Size& viewport_size)

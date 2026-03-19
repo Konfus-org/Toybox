@@ -8,17 +8,12 @@ layout(location = 4) in vec4 a_tangent;
 
 out vec4 v_color;
 out vec2 v_tex_coord;
+out vec3 v_world_position;
 out vec3 v_world_normal;
 out vec3 v_world_tangent;
 out float v_world_tangent_sign;
 
 uniform vec4 u_color;
-uniform vec4 u_emissive;
-uniform float u_metallic;
-uniform float u_roughness;
-uniform float u_occlusion;
-uniform float u_alpha_cutoff;
-uniform float u_exposure;
 
 void main()
 {
@@ -26,6 +21,7 @@ void main()
     v_tex_coord = a_texcoord;
 
     vec4 world_position = tbx_get_model_matrix(u_model) * vec4(a_position, 1.0);
+    v_world_position = world_position.xyz;
     mat3 normal_matrix = mat3(transpose(inverse(tbx_get_model_matrix(u_model))));
     v_world_normal = normalize(normal_matrix * a_normal);
     v_world_tangent = normalize(normal_matrix * a_tangent.xyz);

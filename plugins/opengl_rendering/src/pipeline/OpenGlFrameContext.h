@@ -24,6 +24,23 @@ namespace opengl_rendering
     };
 
     /// <summary>
+    /// Purpose: Captures one transparent surface draw submitted after deferred lighting.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores mesh, transform, and material data by value for one frame.
+    /// Thread Safety: Safe to move between threads; render-thread mutation only.
+    /// </remarks>
+    struct TransparentDrawCall
+    {
+        tbx::Uuid shader_program = {};
+        bool is_two_sided = false;
+        tbx::Uuid mesh = {};
+        OpenGlMaterialParams material = {};
+        tbx::Mat4 transform = tbx::Mat4(1.0F);
+        float camera_distance_squared = 0.0F;
+    };
+
+    /// <summary>
     /// Purpose: Captures one directional light in the render-thread frame payload.
     /// </summary>
     /// <remarks>
@@ -101,6 +118,7 @@ namespace opengl_rendering
         tbx::Mat4 view_projection = tbx::Mat4(1.0F);
         tbx::Mat4 inverse_view_projection = tbx::Mat4(1.0F);
         std::vector<DrawCall> draw_calls;
+        std::vector<TransparentDrawCall> transparent_draw_calls;
         std::vector<DirectionalLightFrameData> directional_lights;
         std::vector<PointLightFrameData> point_lights;
         std::vector<SpotLightFrameData> spot_lights;

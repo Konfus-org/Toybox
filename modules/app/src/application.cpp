@@ -31,6 +31,15 @@ namespace tbx
         else
             _settings.paths.logs_directory = file_operator.resolve(desc.logs_directory);
 
+        for (auto& arg : desc.args)
+        {
+            // TODO:
+            // -- headless
+            // -- screenshot count seconds-between
+            // -- close-after time-in-milliseconds
+            // -- benchmark
+        }
+
         initialize(desc.requested_plugins);
     }
 
@@ -231,11 +240,11 @@ namespace tbx
 
         // Log performance metrics
 #ifdef TBX_DEBUG
-        constexpr double PERFORMANCE_LOG_INTERVAL_SECONDS = 10.0;
+        constexpr double performance_log_interval_seconds = 10.0;
 #else
-        constexpr double PERFORMANCE_LOG_INTERVAL_SECONDS = 120.0;
+        constexpr double performance_log_interval_seconds = 10.0;
 #endif
-        if (_performance_sample_elapsed_seconds >= PERFORMANCE_LOG_INTERVAL_SECONDS)
+        if (_performance_sample_elapsed_seconds >= performance_log_interval_seconds)
         {
             double average_fps = 0.0;
             double average_frame_time_ms = 0.0;
