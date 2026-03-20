@@ -2,6 +2,7 @@
 #include "GeometryPassOperation.h"
 #include "LightingPassOperation.h"
 #include "OpenGlGBuffer.h"
+#include "ShadowPassOperation.h"
 #include "TransparentPassOperation.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "tbx/async/job_system.h"
@@ -24,6 +25,7 @@ namespace opengl_rendering
 
       private:
         OpenGlResourceManager& _resource_manager;
+        std::unique_ptr<ShadowPassOperation> _shadow_pass_operation = nullptr;
         std::unique_ptr<GeometryPassOperation> _geometry_pass_operation = nullptr;
         std::unique_ptr<LightingPassOperation> _lighting_pass_operation = nullptr;
         std::unique_ptr<TransparentPassOperation> _transparent_pass_operation = nullptr;

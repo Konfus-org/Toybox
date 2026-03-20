@@ -40,6 +40,7 @@ namespace opengl_rendering
         void set_render_resolution(const tbx::Size& render_resolution);
         OpenGlFrameContext build_frame_context() const;
         void build_light_data(OpenGlFrameContext& frame_context) const;
+        void build_shadow_data(OpenGlFrameContext& frame_context) const;
         void build_draw_calls(OpenGlFrameContext& frame_context);
 
       private:
