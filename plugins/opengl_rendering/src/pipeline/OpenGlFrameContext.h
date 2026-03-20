@@ -24,6 +24,20 @@ namespace opengl_rendering
     };
 
     /// <summary>
+    /// Purpose: Captures one mesh batch for directional shadow-map rendering.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Stores mesh handles and transforms by value for one frame.
+    /// Thread Safety: Safe to move between threads; render-thread mutation only.
+    /// </remarks>
+    struct ShadowDrawCall
+    {
+        bool is_two_sided = false;
+        std::vector<tbx::Uuid> meshes;
+        std::vector<tbx::Mat4> transforms;
+    };
+
+    /// <summary>
     /// Purpose: Captures one transparent surface draw submitted after deferred lighting.
     /// </summary>
     /// <remarks>
@@ -52,7 +66,39 @@ namespace opengl_rendering
         tbx::Vec3 direction = tbx::Vec3(0.0F, 0.0F, -1.0F);
         float ambient_intensity = 0.03F;
         tbx::Vec3 radiance = tbx::Vec3(1.0F, 1.0F, 1.0F);
-        float padding = 0.0F;
+        float casts_shadows = 0.0F;
+    };
+
+    /// <summary>
+    /// Purpose: Stores one stabilized directional shadow cascade for the lighting pass.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type copied into the frame context and GPU upload payloads.
+    /// Thread Safety: Safe to copy between threads; render-thread mutation only.
+    /// </remarks>
+    struct ShadowCascadeFrameData
+    {
+        tbx::Mat4 light_view_projection = tbx::Mat4(1.0F);
+        float split_depth = 0.0F;
+        float normal_bias = 0.0F;
+        float depth_bias = 0.0F;
+        float blend_distance = 0.0F;
+    };
+
+    /// <summary>
+    /// Purpose: Stores directional shadow-map state consumed by render passes for one frame.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns cascade values by copy and references no external resources.
+    /// Thread Safety: Safe to copy between threads; render-thread mutation only.
+    /// </remarks>
+    struct ShadowFrameData
+    {
+        tbx::uint32 cascade_count = 0U;
+        tbx::uint32 map_resolution = 2048U;
+        float softness = 1.0F;
+        float max_distance = 90.0F;
+        std::vector<ShadowCascadeFrameData> cascades = {};
     };
 
     /// <summary>
@@ -118,11 +164,13 @@ namespace opengl_rendering
         tbx::Mat4 view_projection = tbx::Mat4(1.0F);
         tbx::Mat4 inverse_view_projection = tbx::Mat4(1.0F);
         std::vector<DrawCall> draw_calls;
+        std::vector<ShadowDrawCall> shadow_draw_calls;
         std::vector<TransparentDrawCall> transparent_draw_calls;
         std::vector<DirectionalLightFrameData> directional_lights;
         std::vector<PointLightFrameData> point_lights;
         std::vector<SpotLightFrameData> spot_lights;
         std::vector<AreaLightFrameData> area_lights;
+        ShadowFrameData shadows = {};
         tbx::RenderStage render_stage = tbx::RenderStage::FINAL_COLOR;
     };
 }

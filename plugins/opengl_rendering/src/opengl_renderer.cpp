@@ -17,6 +17,8 @@
 #include "tbx/math/matrices.h"
 #include "tbx/math/trig.h"
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <glad/glad.h>
 #include <limits>
 #include <string>
@@ -26,6 +28,14 @@
 
 namespace opengl_rendering
 {
+    static constexpr tbx::uint32 ShadowCascadeCount = 3U;
+    static constexpr tbx::uint32 ShadowMapResolution = 2048U;
+    static constexpr float ShadowRenderDistance = 90.0F;
+    static constexpr float ShadowFilterSoftness = 1.0F;
+    static constexpr float ShadowNearPlane = 0.1F;
+    static constexpr float ShadowSplitLambda = 0.6F;
+    static constexpr float ShadowStabilizationPadding = 6.0F;
+
     static void gl_message_callback(
         GLenum source,
         GLenum type,
@@ -222,6 +232,47 @@ namespace opengl_rendering
         return fallback;
     }
 
+    static std::array<tbx::Vec3, 8> get_world_frustum_corners(
+        const tbx::Mat4& inverse_view_projection,
+        const float near_depth,
+        const float far_depth)
+    {
+        auto corners = std::array<tbx::Vec3, 8> {};
+        auto corner_index = std::size_t {0U};
+        const auto clip_near = (near_depth * 2.0F) - 1.0F;
+        const auto clip_far = (far_depth * 2.0F) - 1.0F;
+
+        for (auto clip_z : {clip_near, clip_far})
+            for (auto clip_y : {-1.0F, 1.0F})
+                for (auto clip_x : {-1.0F, 1.0F})
+                {
+                    const auto clip_corner = tbx::Vec4(clip_x, clip_y, clip_z, 1.0F);
+                    const auto world_corner = inverse_view_projection * clip_corner;
+                    corners[corner_index++] =
+                        tbx::Vec3(world_corner) / tbx::max(world_corner.w, 0.0001F);
+                }
+
+        return corners;
+    }
+
+    static std::vector<float> build_shadow_splits(const float max_distance)
+    {
+        auto splits = std::vector<float>(ShadowCascadeCount, max_distance);
+        for (tbx::uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount; ++cascade_index)
+        {
+            const auto ratio =
+                static_cast<float>(cascade_index + 1U) / static_cast<float>(ShadowCascadeCount);
+            const auto logarithmic =
+                ShadowNearPlane
+                * static_cast<float>(std::pow(max_distance / ShadowNearPlane, ratio));
+            const auto uniform = ShadowNearPlane + ((max_distance - ShadowNearPlane) * ratio);
+            splits[cascade_index] =
+                (ShadowSplitLambda * logarithmic) + ((1.0F - ShadowSplitLambda) * uniform);
+        }
+
+        return splits;
+    }
+
     static void hydrate_material_instance_defaults(
         tbx::MaterialInstance& material_instance,
         tbx::AssetManager& asset_manager)
@@ -355,6 +406,7 @@ namespace opengl_rendering
 
         frame_context.inverse_view_projection = tbx::inverse(frame_context.view_projection);
         build_light_data(frame_context);
+        build_shadow_data(frame_context);
 
         return frame_context;
     }
@@ -375,6 +427,7 @@ namespace opengl_rendering
             frame_light.direction = get_light_direction(world_transform);
             frame_light.ambient_intensity = tbx::max(light.ambient, 0.0F);
             frame_light.radiance = get_light_radiance(light);
+            frame_light.casts_shadows = frame_context.directional_lights.empty() ? 1.0F : 0.0F;
             frame_context.directional_lights.push_back(frame_light);
         }
 
@@ -447,15 +500,102 @@ namespace opengl_rendering
         }
     }
 
+    void OpenGlRenderer::build_shadow_data(OpenGlFrameContext& frame_context) const
+    {
+        frame_context.shadows.map_resolution = ShadowMapResolution;
+        frame_context.shadows.max_distance = ShadowRenderDistance;
+        frame_context.shadows.softness = ShadowFilterSoftness;
+        frame_context.shadows.cascade_count = 0U;
+        frame_context.shadows.cascades.clear();
+
+        if (frame_context.directional_lights.empty())
+            return;
+
+        const auto light_direction =
+            tbx::normalize(frame_context.directional_lights.front().direction);
+        if (light_direction.x == 0.0F && light_direction.y == 0.0F && light_direction.z == 0.0F)
+            return;
+
+        const auto max_shadow_distance = tbx::max(ShadowRenderDistance, ShadowNearPlane + 0.001F);
+        const auto split_depths = build_shadow_splits(max_shadow_distance);
+        frame_context.shadows.cascades.reserve(ShadowCascadeCount);
+
+        auto previous_split = ShadowNearPlane;
+        for (tbx::uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount; ++cascade_index)
+        {
+            const auto cascade_far = split_depths[cascade_index];
+            const auto near_depth = tbx::clamp(previous_split / max_shadow_distance, 0.0F, 1.0F);
+            const auto far_depth = tbx::clamp(cascade_far / max_shadow_distance, 0.0F, 1.0F);
+            const auto corners = get_world_frustum_corners(
+                frame_context.inverse_view_projection,
+                near_depth,
+                far_depth);
+
+            auto frustum_center = tbx::Vec3(0.0F);
+            for (const auto& corner : corners)
+                frustum_center += corner;
+            frustum_center /= static_cast<float>(corners.size());
+
+            auto light_up = tbx::Vec3(0.0F, 1.0F, 0.0F);
+            if (std::abs(tbx::dot(light_up, light_direction)) > 0.95F)
+                light_up = tbx::Vec3(1.0F, 0.0F, 0.0F);
+
+            auto radius = 0.0F;
+            for (const auto& corner : corners)
+                radius = tbx::max(radius, glm::length(corner - frustum_center));
+            radius = std::ceil(radius * 16.0F) / 16.0F;
+
+            const auto light_position =
+                frustum_center - (light_direction * (radius + ShadowStabilizationPadding));
+            auto light_view = tbx::look_at(light_position, frustum_center, light_up);
+            const auto texel_size =
+                (radius * 2.0F) / static_cast<float>(frame_context.shadows.map_resolution);
+            auto shadow_center = light_view * tbx::Vec4(frustum_center, 1.0F);
+            shadow_center.x = std::floor(shadow_center.x / texel_size) * texel_size;
+            shadow_center.y = std::floor(shadow_center.y / texel_size) * texel_size;
+            const auto snapped_center_world =
+                tbx::inverse(light_view)
+                * tbx::Vec4(shadow_center.x, shadow_center.y, shadow_center.z, 1.0F);
+            light_view = tbx::look_at(
+                tbx::Vec3(snapped_center_world)
+                    - (light_direction * (radius + ShadowStabilizationPadding)),
+                tbx::Vec3(snapped_center_world),
+                light_up);
+
+            const auto light_projection = tbx::ortho_projection(
+                -radius,
+                radius,
+                -radius,
+                radius,
+                0.1F,
+                (radius * 2.0F) + (ShadowStabilizationPadding * 2.0F));
+            frame_context.shadows.cascades.push_back(
+                ShadowCascadeFrameData {
+                    .light_view_projection = light_projection * light_view,
+                    .split_depth = cascade_far,
+                    .normal_bias = 0.0025F * (1.0F + static_cast<float>(cascade_index)),
+                    .depth_bias = 0.00035F * (1.0F + static_cast<float>(cascade_index)),
+                    .blend_distance = 3.0F + static_cast<float>(cascade_index),
+                });
+            previous_split = cascade_far;
+        }
+
+        frame_context.shadows.cascade_count =
+            static_cast<tbx::uint32>(frame_context.shadows.cascades.size());
+    }
+
     void OpenGlRenderer::build_draw_calls(OpenGlFrameContext& frame_context)
     {
         const auto entities = _entity_registry.get_with<tbx::Renderer>();
         frame_context.draw_calls.reserve(entities.size());
+        frame_context.shadow_draw_calls.reserve(entities.size());
         frame_context.transparent_draw_calls.reserve(entities.size());
 
         const auto view_frustum = tbx::Frustum(frame_context.view_projection);
         auto draw_call_lookup = std::unordered_map<std::uint64_t, std::size_t>();
+        auto shadow_draw_call_lookup = std::unordered_map<std::uint64_t, std::size_t>();
         draw_call_lookup.reserve(entities.size());
+        shadow_draw_call_lookup.reserve(entities.size());
 
         for (const auto& entity : entities)
         {
@@ -612,6 +752,27 @@ namespace opengl_rendering
 
             // Add transform matrix
             const auto transform_matrix = tbx::build_transform_matrix(world_transform);
+
+            if (renderer.shadow_mode != tbx::ShadowMode::None)
+            {
+                const auto shadow_draw_call_key = renderer.is_two_sided ? 1ULL : 0ULL;
+                auto shadow_draw_call_it = shadow_draw_call_lookup.find(shadow_draw_call_key);
+                if (shadow_draw_call_it == shadow_draw_call_lookup.end())
+                {
+                    frame_context.shadow_draw_calls.push_back(
+                        ShadowDrawCall {.is_two_sided = renderer.is_two_sided});
+                    shadow_draw_call_it = shadow_draw_call_lookup
+                                              .emplace(
+                                                  shadow_draw_call_key,
+                                                  frame_context.shadow_draw_calls.size() - 1U)
+                                              .first;
+                }
+
+                auto& shadow_draw_call =
+                    frame_context.shadow_draw_calls[shadow_draw_call_it->second];
+                shadow_draw_call.meshes.push_back(mesh_key);
+                shadow_draw_call.transforms.push_back(transform_matrix);
+            }
 
             if (transparency_amount > 0.0001F)
             {
