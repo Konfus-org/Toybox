@@ -159,6 +159,11 @@ namespace opengl_rendering
         tbx::Color clear_color = tbx::Color::BLACK;
         tbx::Size render_size = {0U, 0U};
         tbx::Vec3 camera_position = tbx::Vec3(0.0F, 0.0F, 0.0F);
+        float camera_near_plane = 0.1F;
+        float camera_far_plane = 1000.0F;
+        bool is_camera_perspective = true;
+        float camera_vertical_fov_degrees = 60.0F;
+        float camera_aspect = 1.7777778F;
         tbx::Mat4 view_matrix = tbx::Mat4(1.0F);
         tbx::Mat4 projection_matrix = tbx::Mat4(1.0F);
         tbx::Mat4 view_projection = tbx::Mat4(1.0F);
