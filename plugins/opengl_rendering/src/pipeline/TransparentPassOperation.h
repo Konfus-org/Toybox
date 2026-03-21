@@ -1,6 +1,6 @@
 #pragma once
 #include "OpenGlFrameContext.h"
-#include "OpenGlGBuffer.h"
+#include "opengl_resources/opengl_buffers.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include <any>
 

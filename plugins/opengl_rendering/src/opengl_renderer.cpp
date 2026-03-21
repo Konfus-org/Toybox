@@ -90,12 +90,25 @@ namespace opengl_rendering
         }
     }
 
-    static std::shared_ptr<tbx::Material> try_get_material_defaults(
+    static const tbx::Material* try_get_material_defaults(
         const tbx::Handle& material_handle,
-        tbx::AssetManager& asset_manager)
+        tbx::AssetManager& asset_manager,
+        std::unordered_map<tbx::Uuid, tbx::Material>& material_defaults_cache)
     {
-        auto material_asset = asset_manager.load<tbx::Material>(material_handle);
-        return material_asset;
+        if (!material_handle.is_valid())
+            return nullptr;
+
+        if (const auto cached_material = material_defaults_cache.find(material_handle.id);
+            cached_material != material_defaults_cache.end())
+            return &cached_material->second;
+
+        const auto material_asset = asset_manager.load<tbx::Material>(material_handle);
+        if (!material_asset)
+            return nullptr;
+
+        const auto cache_it =
+            material_defaults_cache.emplace(material_handle.id, *material_asset).first;
+        return &cache_it->second;
     }
 
     static tbx::Vec3 to_vec3(const tbx::Color& color)
@@ -304,14 +317,36 @@ namespace opengl_rendering
         return splits;
     }
 
+    static void render_magenta_failure_frame(OpenGlGBuffer& gbuffer)
+    {
+        const auto depth_test_enabled = glIsEnabled(GL_DEPTH_TEST) == GL_TRUE;
+        const auto blend_enabled = glIsEnabled(GL_BLEND) == GL_TRUE;
+
+        auto gbuffer_scope = OpenGlResourceScope(gbuffer);
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+        glClearColor(1.0F, 0.0F, 1.0F, 1.0F);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        if (depth_test_enabled)
+            glEnable(GL_DEPTH_TEST);
+        if (blend_enabled)
+            glEnable(GL_BLEND);
+    }
+
     static void hydrate_material_instance_defaults(
         tbx::MaterialInstance& material_instance,
-        tbx::AssetManager& asset_manager)
+        tbx::AssetManager& asset_manager,
+        std::unordered_map<tbx::Uuid, tbx::Material>& material_defaults_cache)
     {
         if (!material_instance.has_loaded_defaults)
         {
-            const auto defaults =
-                try_get_material_defaults(material_instance.handle, asset_manager);
+            const auto* defaults = try_get_material_defaults(
+                material_instance.handle,
+                asset_manager,
+                material_defaults_cache);
+            if (defaults == nullptr)
+                return;
 
             for (const auto& [name, value] : defaults->parameters.values)
             {
@@ -386,14 +421,26 @@ namespace opengl_rendering
         // Step three: build frame camera state.
         OpenGlFrameContext frame_context = build_frame_context();
 
+        if (!frame_context.has_camera)
+        {
+            render_magenta_failure_frame(_gbuffer);
+            _gbuffer.present(frame_context.render_stage, _viewport_size);
+
+            if (const auto present_result = _context.present(); !present_result)
+            {
+                TBX_TRACE_ERROR(
+                    "OpenGL rendering: present request failed: {}",
+                    present_result.get_report());
+            }
+
+            return true;
+        }
+
         // Step four: cache resources and build draw calls in one pass.
         build_draw_calls(frame_context);
 
         // Step five: execute render pipeline.
-        {
-            auto gbuffer_scope = OpenGlResourceScope(_gbuffer);
-            _render_pipeline->execute(frame_context);
-        }
+        _render_pipeline->execute(frame_context);
         _gbuffer.present(frame_context.render_stage, _viewport_size);
 
         // Step six: present rendered frame.
@@ -419,6 +466,8 @@ namespace opengl_rendering
         if (const auto cameras = _entity_registry.get_with<tbx::Camera, tbx::Transform>();
             !cameras.empty())
         {
+            _has_reported_missing_camera = false;
+            frame_context.has_camera = true;
             const auto& camera_entity = cameras.front();
             auto& camera = camera_entity.get_component<tbx::Camera>();
             const auto camera_transform = tbx::get_world_space_transform(camera_entity);
@@ -442,9 +491,13 @@ namespace opengl_rendering
         }
         else
         {
-            TBX_TRACE_WARNING(
-                "OpenGL rendering: no active camera was found. Rendering will use the clear color "
-                "only until a camera is available.");
+            if (!_has_reported_missing_camera)
+            {
+                TBX_TRACE_WARNING(
+                    "OpenGL rendering: no camera with both Camera and Transform components was "
+                    "found. Rendering will use magenta fallback until one is available.");
+                _has_reported_missing_camera = true;
+            }
         }
 
         frame_context.inverse_view_projection = tbx::inverse(frame_context.view_projection);
@@ -686,7 +739,10 @@ namespace opengl_rendering
             auto& material_instance = renderer.material;
             if (!material_instance.handle.is_valid())
                 material_instance.handle = tbx::default_material;
-            hydrate_material_instance_defaults(material_instance, _asset_manager);
+            hydrate_material_instance_defaults(
+                material_instance,
+                _asset_manager,
+                _material_defaults_cache);
             const auto transparency_amount = get_material_float_parameter_or_default(
                 material_instance.parameters,
                 "transparency_amount",

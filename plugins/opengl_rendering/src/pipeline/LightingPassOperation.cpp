@@ -1,4 +1,5 @@
 #include "LightingPassOperation.h"
+#include "RenderPipelineFailure.h"
 #include "tbx/assets/builtin_assets.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/material.h"
@@ -11,21 +12,12 @@
 namespace opengl_rendering
 {
     static constexpr int MaxDirectionalLights = 4;
-    static constexpr int ShadowCascadeCount = 3;
     static constexpr tbx::uint32 TileSize = 16U;
 
     struct alignas(16) GpuDirectionalLight
     {
-        tbx::Vec3 direction = tbx::Vec3(0.0F, 0.0F, -1.0F);
-        float ambient_intensity = 0.03F;
-        tbx::Vec3 radiance = tbx::Vec3(1.0F);
-        float casts_shadows = 0.0F;
-    };
-
-    struct alignas(16) GpuShadowCascade
-    {
-        tbx::Mat4 light_view_projection = tbx::Mat4(1.0F);
-        tbx::Vec4 settings = tbx::Vec4(0.0F);
+        tbx::Vec4 direction_ambient = tbx::Vec4(0.0F, 0.0F, -1.0F, 0.03F);
+        tbx::Vec4 radiance = tbx::Vec4(1.0F, 1.0F, 1.0F, 1.0F);
     };
 
     struct alignas(16) GpuLightingInfo
@@ -38,55 +30,32 @@ namespace opengl_rendering
         std::array<GpuDirectionalLight, MaxDirectionalLights> directional_lights = {};
     };
 
-    struct alignas(16) GpuShadowInfo
-    {
-        std::array<GpuShadowCascade, ShadowCascadeCount> cascades = {};
-        tbx::Vec4 cascade_splits = tbx::Vec4(0.0F);
-        tbx::Vec4 metadata = tbx::Vec4(0.0F);
-    };
-
     struct alignas(16) GpuPointLight
     {
-        tbx::Vec3 position = tbx::Vec3(0.0F);
-        float range = 0.0F;
-        tbx::Vec3 radiance = tbx::Vec3(0.0F);
-        float padding = 0.0F;
+        tbx::Vec4 position_range = tbx::Vec4(0.0F);
+        tbx::Vec4 radiance = tbx::Vec4(0.0F);
     };
 
     struct alignas(16) GpuSpotLight
     {
-        tbx::Vec3 position = tbx::Vec3(0.0F);
-        float range = 0.0F;
-        tbx::Vec3 direction = tbx::Vec3(0.0F, 0.0F, -1.0F);
-        float inner_cos = 0.0F;
-        tbx::Vec3 radiance = tbx::Vec3(0.0F);
-        float outer_cos = 0.0F;
+        tbx::Vec4 position_range = tbx::Vec4(0.0F);
+        tbx::Vec4 direction_inner_cos = tbx::Vec4(0.0F, 0.0F, -1.0F, 0.0F);
+        tbx::Vec4 radiance_outer_cos = tbx::Vec4(0.0F);
     };
 
     struct alignas(16) TileLightSpan
     {
-        tbx::uint32 point_offset = 0U;
-        tbx::uint32 point_count = 0U;
-        tbx::uint32 spot_offset = 0U;
-        tbx::uint32 spot_count = 0U;
-        tbx::uint32 area_offset = 0U;
-        tbx::uint32 area_count = 0U;
-        tbx::uint32 padding0 = 0U;
-        tbx::uint32 padding1 = 0U;
+        glm::uvec4 point_and_spot = glm::uvec4(0U);
+        glm::uvec4 area = glm::uvec4(0U);
     };
 
     struct alignas(16) GpuAreaLight
     {
-        tbx::Vec3 position = tbx::Vec3(0.0F);
-        float range = 0.0F;
-        tbx::Vec3 direction = tbx::Vec3(0.0F, 0.0F, -1.0F);
-        float half_width = 0.5F;
-        tbx::Vec3 radiance = tbx::Vec3(0.0F);
-        float half_height = 0.5F;
-        tbx::Vec3 right = tbx::Vec3(1.0F, 0.0F, 0.0F);
-        float padding0 = 0.0F;
-        tbx::Vec3 up = tbx::Vec3(0.0F, 1.0F, 0.0F);
-        float padding1 = 0.0F;
+        tbx::Vec4 position_range = tbx::Vec4(0.0F);
+        tbx::Vec4 direction_half_width = tbx::Vec4(0.0F, 0.0F, -1.0F, 0.5F);
+        tbx::Vec4 radiance_half_height = tbx::Vec4(0.0F, 0.0F, 0.0F, 0.5F);
+        tbx::Vec4 right = tbx::Vec4(1.0F, 0.0F, 0.0F, 0.0F);
+        tbx::Vec4 up = tbx::Vec4(0.0F, 1.0F, 0.0F, 0.0F);
     };
 
     struct TileBounds
@@ -316,19 +285,15 @@ namespace opengl_rendering
     LightingPassOperation::LightingPassOperation(
         OpenGlResourceManager& resource_manager,
         tbx::JobSystem& job_system,
-        OpenGlGBuffer& gbuffer,
-        ShadowPassOperation& shadow_pass_operation)
+        OpenGlGBuffer& gbuffer)
         : _resource_manager(resource_manager)
         , _job_system(job_system)
         , _gbuffer(gbuffer)
-        , _shadow_pass_operation(shadow_pass_operation)
     {
     }
 
     LightingPassOperation::~LightingPassOperation() noexcept
     {
-        if (_shadow_info_buffer != 0U)
-            glDeleteBuffers(1, &_shadow_info_buffer);
         if (_lighting_info_buffer != 0U)
             glDeleteBuffers(1, &_lighting_info_buffer);
         if (_tile_area_light_indices_buffer != 0U)
@@ -352,18 +317,40 @@ namespace opengl_rendering
     void LightingPassOperation::execute(const std::any& payload)
     {
         if (!ensure_initialized())
+        {
+            if (!_has_reported_frame_failure)
+            {
+                TBX_TRACE_WARNING(
+                    "OpenGL rendering: deferred lighting initialization failed. "
+                    "Unable to execute deferred lighting.");
+                _has_reported_frame_failure = true;
+            }
+            report_render_pipeline_failure();
             return;
+        }
 
         const auto& frame_context = std::any_cast<const OpenGlFrameContext&>(payload);
         if (!_shader_program)
+        {
+            if (!_has_reported_frame_failure)
+            {
+                TBX_TRACE_WARNING(
+                    "OpenGL rendering: deferred lighting shader program is unavailable. "
+                    "Unable to execute deferred lighting.");
+                _has_reported_frame_failure = true;
+            }
+            report_render_pipeline_failure();
             return;
+        }
+
+        _has_reported_frame_failure = false;
 
         upload_tiled_light_data(frame_context);
 
         const auto depth_test_enabled = glIsEnabled(GL_DEPTH_TEST) == GL_TRUE;
         const auto blend_enabled = glIsEnabled(GL_BLEND) == GL_TRUE;
 
-        _gbuffer.bind_final_color();
+        auto gbuffer_scope = OpenGlResourceScope(_gbuffer);
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
 
@@ -374,14 +361,12 @@ namespace opengl_rendering
             _shader_program->try_upload(tbx::MaterialParameter("gbuffer_emissive", 2));
             _shader_program->try_upload(tbx::MaterialParameter("gbuffer_material", 3));
             _shader_program->try_upload(tbx::MaterialParameter("gbuffer_depth", 4));
-            _shader_program->try_upload(tbx::MaterialParameter("shadow_map", 5));
 
             glBindTextureUnit(0, _gbuffer.get_albedo_texture());
             glBindTextureUnit(1, _gbuffer.get_normal_texture());
             glBindTextureUnit(2, _gbuffer.get_emissive_texture());
             glBindTextureUnit(3, _gbuffer.get_material_texture());
             glBindTextureUnit(4, _gbuffer.get_depth_texture());
-            glBindTextureUnit(5, _shadow_pass_operation.get_shadow_texture());
 
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, _point_lights_buffer);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, _spot_lights_buffer);
@@ -391,7 +376,6 @@ namespace opengl_rendering
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, _area_lights_buffer);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, _tile_area_light_indices_buffer);
             glBindBufferBase(GL_UNIFORM_BUFFER, 7, _lighting_info_buffer);
-            glBindBufferBase(GL_UNIFORM_BUFFER, 8, _shadow_info_buffer);
 
             glBindVertexArray(_fullscreen_vertex_array);
             glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -410,7 +394,6 @@ namespace opengl_rendering
             glCreateVertexArrays(1, &_fullscreen_vertex_array);
 
         ensure_buffer_created(_lighting_info_buffer);
-        ensure_buffer_created(_shadow_info_buffer);
         ensure_buffer_created(_point_lights_buffer);
         ensure_buffer_created(_spot_lights_buffer);
         ensure_buffer_created(_area_lights_buffer);
@@ -470,49 +453,27 @@ namespace opengl_rendering
             const auto& light =
                 frame_context.directional_lights[static_cast<std::size_t>(light_index)];
             lighting_info.directional_lights[light_index] = GpuDirectionalLight {
-                .direction = light.direction,
-                .ambient_intensity = light.ambient_intensity,
-                .radiance = light.radiance,
-                .casts_shadows = light.casts_shadows,
+                .direction_ambient =
+                    tbx::Vec4(light.direction.x, light.direction.y, light.direction.z, light.ambient_intensity),
+                .radiance = tbx::Vec4(light.radiance.x, light.radiance.y, light.radiance.z, 1.0F),
             };
         }
-
-        auto shadow_info = GpuShadowInfo {};
-        shadow_info.metadata = tbx::Vec4(
-            static_cast<float>(frame_context.shadows.cascade_count),
-            static_cast<float>(frame_context.shadows.map_resolution),
-            frame_context.shadows.softness,
-            frame_context.shadows.max_distance);
-        for (tbx::uint32 cascade_index = 0U;
-             cascade_index < frame_context.shadows.cascade_count
-             && cascade_index < static_cast<tbx::uint32>(ShadowCascadeCount);
-             ++cascade_index)
-        {
-            const auto& cascade = frame_context.shadows.cascades[cascade_index];
-            shadow_info.cascades[cascade_index] = GpuShadowCascade {
-                .light_view_projection = cascade.light_view_projection,
-                .settings = tbx::Vec4(
-                    cascade.split_depth,
-                    cascade.normal_bias,
-                    cascade.depth_bias,
-                    cascade.blend_distance),
-            };
-        }
-        if (frame_context.shadows.cascade_count > 0U)
-            shadow_info.cascade_splits.x = frame_context.shadows.cascades[0].split_depth;
-        if (frame_context.shadows.cascade_count > 1U)
-            shadow_info.cascade_splits.y = frame_context.shadows.cascades[1].split_depth;
-        if (frame_context.shadows.cascade_count > 2U)
-            shadow_info.cascade_splits.z = frame_context.shadows.cascades[2].split_depth;
 
         auto gpu_point_lights = std::vector<GpuPointLight> {};
         gpu_point_lights.reserve(frame_context.point_lights.size());
         for (const auto& point_light : frame_context.point_lights)
             gpu_point_lights.push_back(
                 GpuPointLight {
-                    .position = point_light.position,
-                    .range = point_light.range,
-                    .radiance = point_light.radiance,
+                    .position_range = tbx::Vec4(
+                        point_light.position.x,
+                        point_light.position.y,
+                        point_light.position.z,
+                        point_light.range),
+                    .radiance = tbx::Vec4(
+                        point_light.radiance.x,
+                        point_light.radiance.y,
+                        point_light.radiance.z,
+                        1.0F),
                 });
 
         auto gpu_spot_lights = std::vector<GpuSpotLight> {};
@@ -520,12 +481,21 @@ namespace opengl_rendering
         for (const auto& spot_light : frame_context.spot_lights)
             gpu_spot_lights.push_back(
                 GpuSpotLight {
-                    .position = spot_light.position,
-                    .range = spot_light.range,
-                    .direction = spot_light.direction,
-                    .inner_cos = spot_light.inner_cos,
-                    .radiance = spot_light.radiance,
-                    .outer_cos = spot_light.outer_cos,
+                    .position_range = tbx::Vec4(
+                        spot_light.position.x,
+                        spot_light.position.y,
+                        spot_light.position.z,
+                        spot_light.range),
+                    .direction_inner_cos = tbx::Vec4(
+                        spot_light.direction.x,
+                        spot_light.direction.y,
+                        spot_light.direction.z,
+                        spot_light.inner_cos),
+                    .radiance_outer_cos = tbx::Vec4(
+                        spot_light.radiance.x,
+                        spot_light.radiance.y,
+                        spot_light.radiance.z,
+                        spot_light.outer_cos),
                 });
 
         auto gpu_area_lights = std::vector<GpuAreaLight> {};
@@ -533,14 +503,28 @@ namespace opengl_rendering
         for (const auto& area_light : frame_context.area_lights)
             gpu_area_lights.push_back(
                 GpuAreaLight {
-                    .position = area_light.position,
-                    .range = area_light.range,
-                    .direction = area_light.direction,
-                    .half_width = area_light.half_width,
-                    .radiance = area_light.radiance,
-                    .half_height = area_light.half_height,
-                    .right = area_light.right,
-                    .up = area_light.up,
+                    .position_range = tbx::Vec4(
+                        area_light.position.x,
+                        area_light.position.y,
+                        area_light.position.z,
+                        area_light.range),
+                    .direction_half_width = tbx::Vec4(
+                        area_light.direction.x,
+                        area_light.direction.y,
+                        area_light.direction.z,
+                        area_light.half_width),
+                    .radiance_half_height = tbx::Vec4(
+                        area_light.radiance.x,
+                        area_light.radiance.y,
+                        area_light.radiance.z,
+                        area_light.half_height),
+                    .right = tbx::Vec4(
+                        area_light.right.x,
+                        area_light.right.y,
+                        area_light.right.z,
+                        0.0F),
+                    .up =
+                        tbx::Vec4(area_light.up.x, area_light.up.y, area_light.up.z, 0.0F),
                 });
 
         auto tile_spans = std::vector<TileLightSpan>(tile_count);
@@ -590,21 +574,23 @@ namespace opengl_rendering
 
         for (tbx::uint32 tile_index = 0U; tile_index < tile_count; ++tile_index)
         {
-            tile_spans[tile_index].point_offset =
-                tile_index == 0U ? 0U
-                                 : tile_spans[tile_index - 1U].point_offset
-                                       + tile_spans[tile_index - 1U].point_count;
-            tile_spans[tile_index].point_count = point_tile_data.tile_counts[tile_index];
-            tile_spans[tile_index].spot_offset = tile_index == 0U
-                                                     ? 0U
-                                                     : tile_spans[tile_index - 1U].spot_offset
-                                                           + tile_spans[tile_index - 1U].spot_count;
-            tile_spans[tile_index].spot_count = spot_tile_data.tile_counts[tile_index];
-            tile_spans[tile_index].area_offset = tile_index == 0U
-                                                     ? 0U
-                                                     : tile_spans[tile_index - 1U].area_offset
-                                                           + tile_spans[tile_index - 1U].area_count;
-            tile_spans[tile_index].area_count = area_tile_data.tile_counts[tile_index];
+            tile_spans[tile_index].point_and_spot.x =
+                tile_index == 0U
+                    ? 0U
+                    : tile_spans[tile_index - 1U].point_and_spot.x
+                          + tile_spans[tile_index - 1U].point_and_spot.y;
+            tile_spans[tile_index].point_and_spot.y = point_tile_data.tile_counts[tile_index];
+            tile_spans[tile_index].point_and_spot.z =
+                tile_index == 0U
+                    ? 0U
+                    : tile_spans[tile_index - 1U].point_and_spot.z
+                          + tile_spans[tile_index - 1U].point_and_spot.w;
+            tile_spans[tile_index].point_and_spot.w = spot_tile_data.tile_counts[tile_index];
+            tile_spans[tile_index].area.x =
+                tile_index == 0U
+                    ? 0U
+                    : tile_spans[tile_index - 1U].area.x + tile_spans[tile_index - 1U].area.y;
+            tile_spans[tile_index].area.y = area_tile_data.tile_counts[tile_index];
         }
 
         upload_storage_buffer(
@@ -612,11 +598,6 @@ namespace opengl_rendering
             _lighting_info_buffer_capacity,
             &lighting_info,
             sizeof(GpuLightingInfo));
-        upload_storage_buffer(
-            _shadow_info_buffer,
-            _shadow_info_buffer_capacity,
-            &shadow_info,
-            sizeof(GpuShadowInfo));
         upload_storage_buffer(
             _point_lights_buffer,
             _point_lights_buffer_capacity,

@@ -1,5 +1,6 @@
 #include "GeometryPassOperation.h"
 #include "OpenGlFrameContext.h"
+#include "RenderPipelineFailure.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_mesh.h"
 #include "opengl_resources/opengl_resource.h"
@@ -59,6 +60,8 @@ namespace opengl_rendering
         const auto& clear_color = frame_context.clear_color;
         const auto& view_proj = frame_context.view_projection;
         const auto& draw_calls = frame_context.draw_calls;
+        bool saw_failure = false;
+        bool drew_mesh = false;
 
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_TRUE);
@@ -78,6 +81,7 @@ namespace opengl_rendering
             auto shader_program = std::shared_ptr<OpenGlShaderProgram>();
             if (!_resource_manager.try_get<OpenGlShaderProgram>(shader_program_id, shader_program))
             {
+                saw_failure = true;
                 TBX_TRACE_WARNING(
                     "OpenGL rendering: shader program '{}' is unavailable for geometry pass.",
                     shader_program_id.value);
@@ -99,6 +103,7 @@ namespace opengl_rendering
                 if (!shader_program->try_upload(
                         tbx::MaterialParameter(VIEW_PROJ_UNIFORM_NAME, view_proj)))
                 {
+                    saw_failure = true;
                     TBX_ASSERT(false, "Failed to upload view projection");
                     TBX_TRACE_WARNING(
                         "OpenGL rendering: failed to upload view projection uniform to program "
@@ -112,6 +117,7 @@ namespace opengl_rendering
                     if (const auto& transform = transforms[draw_index]; !shader_program->try_upload(
                             tbx::MaterialParameter(MODEL_UNIFORM_NAME, transform)))
                     {
+                        saw_failure = true;
                         TBX_TRACE_WARNING(
                             "OpenGL rendering: failed to upload transform for draw index {} on "
                             "program '{}'. Using identity transform fallback.",
@@ -131,6 +137,7 @@ namespace opengl_rendering
                     if (const auto& material_params = material_ids[draw_index];
                         !shader_program->try_upload(material_params))
                     {
+                        saw_failure = true;
                         TBX_TRACE_WARNING(
                             "OpenGL rendering: failed to upload material parameters for material "
                             "'{}'. Using fallback magenta material parameters.",
@@ -146,6 +153,7 @@ namespace opengl_rendering
                             last_bound_texture_count);
                         if (!shader_program->try_upload(fallback_material_params))
                         {
+                            saw_failure = true;
                             TBX_TRACE_WARNING(
                                 "OpenGL rendering: failed to upload fallback magenta material "
                                 "parameters for material '{}'.",
@@ -159,6 +167,7 @@ namespace opengl_rendering
                         auto mesh = std::shared_ptr<OpenGlMesh> {};
                         if (!_resource_manager.try_get<OpenGlMesh>(mesh_key, mesh))
                         {
+                            saw_failure = true;
                             TBX_TRACE_WARNING(
                                 "OpenGL rendering: mesh resource '{}' is unavailable.",
                                 mesh_key.value);
@@ -167,10 +176,13 @@ namespace opengl_rendering
                         auto mesh_scope = OpenGlResourceScope(*mesh);
                         {
                             mesh->draw();
+                            drew_mesh = true;
                         }
                     }
                 }
             }
         }
+        if (saw_failure && !drew_mesh)
+            report_render_pipeline_failure();
     }
 }

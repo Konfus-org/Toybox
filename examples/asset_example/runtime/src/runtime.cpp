@@ -48,23 +48,21 @@ namespace asset_example
 
         // Setup global post-processing stack
         auto post_ent = tbx::Entity("PostProcessing", ent_registry);
-        auto lut_material = StandardMaterialInstance(
-            Color::WHITE,
-            Color::BLACK,
-            0.0f,
-            1.0f,
-            1.0f,
-            0.1f,
-            Handle(),
-            Handle(),
-            lut_post_mat);
+        auto lut_material = MaterialInstance {
+            .handle = lut_post_mat,
+        };
         lut_material.textures.set("lut", lut_tex);
-        auto post_processing = PostProcessing({
-            PostProcessingEffect {
+        lut_material.parameters.set("strength", 1.0f);
+        auto post_processing = PostProcessing {
+            .effects = {
+                PostProcessingEffect {
                 .material = lut_material,
+                .is_enabled = true,
                 .blend = 1.0f,
             },
-        });
+            },
+            .is_enabled = true,
+        };
         post_ent.add_component<PostProcessing>(post_processing);
 
         // Setup camera

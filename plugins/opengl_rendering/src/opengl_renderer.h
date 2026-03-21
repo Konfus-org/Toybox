@@ -1,9 +1,9 @@
 #pragma once
 #include "opengl_context.h"
+#include "opengl_resources/opengl_buffers.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "opengl_resources/opengl_texture.h"
 #include "pipeline/OpenGlFrameContext.h"
-#include "pipeline/OpenGlGBuffer.h"
 #include "pipeline/opengl_render_pipeline.h"
 #include "tbx/assets/asset_manager.h"
 #include "tbx/async/job_system.h"
@@ -57,5 +57,6 @@ namespace opengl_rendering
         std::optional<tbx::Size> _pending_render_resolution = std::nullopt;
         tbx::RenderStage _render_stage = tbx::RenderStage::FINAL_COLOR;
         OpenGlGBuffer _gbuffer = {};
+        mutable bool _has_reported_missing_camera = false;
     };
 }

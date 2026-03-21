@@ -5,12 +5,15 @@
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <variant>
 
 namespace opengl_rendering
 {
+    static constexpr auto MATERIAL_SURFACE_UBO_BINDING = tbx::uint32 {9U};
+
     static std::string normalize_uniform_name(const std::string& name)
     {
         if (name.find("u_") != 0)
@@ -122,6 +125,68 @@ namespace opengl_rendering
             },
             data);
     }
+
+    static bool is_matching_parameter_name(
+        const std::string& candidate_name,
+        const std::string_view requested_name)
+    {
+        if (candidate_name == requested_name)
+            return true;
+        if (candidate_name.size() > 2U && candidate_name[0] == 'u' && candidate_name[1] == '_')
+            return std::string_view(candidate_name).substr(2U) == requested_name;
+        return false;
+    }
+
+    static const tbx::MaterialParameter* try_find_material_parameter(
+        const OpenGlMaterialParams& params,
+        const std::string_view parameter_name)
+    {
+        for (const auto& parameter : params.parameters)
+            if (is_matching_parameter_name(parameter.name, parameter_name))
+                return &parameter;
+
+        return nullptr;
+    }
+
+    static float get_material_parameter_float(
+        const OpenGlMaterialParams& params,
+        const std::string_view parameter_name,
+        const float fallback)
+    {
+        const auto* parameter = try_find_material_parameter(params, parameter_name);
+        if (parameter == nullptr)
+            return fallback;
+
+        if (const auto* value = std::get_if<float>(&parameter->data))
+            return *value;
+        if (const auto* value = std::get_if<double>(&parameter->data))
+            return static_cast<float>(*value);
+        if (const auto* value = std::get_if<int>(&parameter->data))
+            return static_cast<float>(*value);
+
+        return fallback;
+    }
+
+    static bool is_default_lit_surface_parameter(const std::string& parameter_name)
+    {
+        const auto normalized_name = normalize_uniform_name(parameter_name);
+        return normalized_name == "u_specular" || normalized_name == "u_shininess"
+               || normalized_name == "u_occlusion" || normalized_name == "u_alpha_cutoff"
+               || normalized_name == "u_transparency_amount" || normalized_name == "u_exposure"
+               || normalized_name == "u_diffuse_map_strength"
+               || normalized_name == "u_normal_map_strength"
+               || normalized_name == "u_specular_map_strength"
+               || normalized_name == "u_shininess_map_strength"
+               || normalized_name == "u_emissive_map_strength"
+               || normalized_name == "u_occlusion_map_strength";
+    }
+
+    struct alignas(16) MaterialSurfaceBlockGpu
+    {
+        tbx::Vec4 primary = tbx::Vec4(0.0F);
+        tbx::Vec4 secondary = tbx::Vec4(0.0F);
+        tbx::Vec4 map_strengths = tbx::Vec4(0.0F);
+    };
 
     OpenGlShader::OpenGlShader(const tbx::ShaderSource& shader)
         : _source(shader.source)
@@ -251,6 +316,26 @@ namespace opengl_rendering
             }
         }
 
+        const auto material_surface_block_index =
+            glGetUniformBlockIndex(_program_id, "MaterialSurfaceBlock");
+        if (material_surface_block_index != GL_INVALID_INDEX)
+        {
+            _has_material_uniform_block = true;
+            auto block_size = GLint {0};
+            glGetActiveUniformBlockiv(
+                _program_id,
+                material_surface_block_index,
+                GL_UNIFORM_BLOCK_DATA_SIZE,
+                &block_size);
+            _material_uniform_block_size = block_size > 0
+                                               ? block_size
+                                               : static_cast<int>(sizeof(MaterialSurfaceBlockGpu));
+            glUniformBlockBinding(
+                _program_id,
+                material_surface_block_index,
+                MATERIAL_SURFACE_UBO_BINDING);
+        }
+
         _instance_model_attribute_location = 8;
         _instance_id_attribute_location = 12;
     }
@@ -261,9 +346,15 @@ namespace opengl_rendering
         , _bindless_sampler_layout(std::move(other._bindless_sampler_layout))
         , _sampler_uniform_layout(std::move(other._sampler_uniform_layout))
         , _logged_missing_uniforms(std::move(other._logged_missing_uniforms))
+        , _material_uniform_buffer(take_gl_handle(other._material_uniform_buffer))
+        , _material_uniform_block_size(other._material_uniform_block_size)
+        , _material_uniforms(std::move(other._material_uniforms))
+        , _has_material_uniform_block(other._has_material_uniform_block)
         , _instance_model_attribute_location(other._instance_model_attribute_location)
         , _instance_id_attribute_location(other._instance_id_attribute_location)
     {
+        other._material_uniform_block_size = 0;
+        other._has_material_uniform_block = false;
         other._instance_model_attribute_location = 8;
         other._instance_id_attribute_location = 12;
     }
@@ -275,14 +366,22 @@ namespace opengl_rendering
 
         if (_program_id != 0)
             glDeleteProgram(_program_id);
+        if (_material_uniform_buffer != 0)
+            glDeleteBuffers(1, &_material_uniform_buffer);
 
         _program_id = take_gl_handle(other._program_id);
         _uniform_locations = std::move(other._uniform_locations);
         _bindless_sampler_layout = std::move(other._bindless_sampler_layout);
         _sampler_uniform_layout = std::move(other._sampler_uniform_layout);
         _logged_missing_uniforms = std::move(other._logged_missing_uniforms);
+        _material_uniform_buffer = take_gl_handle(other._material_uniform_buffer);
+        _material_uniform_block_size = other._material_uniform_block_size;
+        _material_uniforms = std::move(other._material_uniforms);
+        _has_material_uniform_block = other._has_material_uniform_block;
         _instance_model_attribute_location = other._instance_model_attribute_location;
         _instance_id_attribute_location = other._instance_id_attribute_location;
+        other._material_uniform_block_size = 0;
+        other._has_material_uniform_block = false;
         other._instance_model_attribute_location = 8;
         other._instance_id_attribute_location = 12;
         return *this;
@@ -293,6 +392,10 @@ namespace opengl_rendering
         if (_program_id != 0)
         {
             glDeleteProgram(_program_id);
+        }
+        if (_material_uniform_buffer != 0)
+        {
+            glDeleteBuffers(1, &_material_uniform_buffer);
         }
     }
 
@@ -325,8 +428,54 @@ namespace opengl_rendering
         if (_program_id == 0)
             return false;
 
+        auto used_packed_default_lit_surface = false;
+        if (_has_material_uniform_block)
+        {
+            if (_material_uniform_buffer == 0)
+            {
+                glCreateBuffers(1, &_material_uniform_buffer);
+                glNamedBufferData(
+                    _material_uniform_buffer,
+                    static_cast<GLsizeiptr>(_material_uniform_block_size),
+                    nullptr,
+                    GL_DYNAMIC_DRAW);
+            }
+
+            const auto material_surface_block = MaterialSurfaceBlockGpu {
+                .primary = tbx::Vec4(
+                    get_material_parameter_float(params, "specular", 0.5F),
+                    get_material_parameter_float(params, "shininess", 32.0F),
+                    get_material_parameter_float(params, "occlusion", 1.0F),
+                    get_material_parameter_float(params, "alpha_cutoff", 0.1F)),
+                .secondary = tbx::Vec4(
+                    get_material_parameter_float(params, "transparency_amount", 0.0F),
+                    get_material_parameter_float(params, "exposure", 1.0F),
+                    get_material_parameter_float(params, "diffuse_map_strength", 1.0F),
+                    get_material_parameter_float(params, "normal_map_strength", 1.0F)),
+                .map_strengths = tbx::Vec4(
+                    get_material_parameter_float(params, "specular_map_strength", 1.0F),
+                    get_material_parameter_float(params, "shininess_map_strength", 1.0F),
+                    get_material_parameter_float(params, "emissive_map_strength", 1.0F),
+                    get_material_parameter_float(params, "occlusion_map_strength", 1.0F)),
+            };
+
+            glNamedBufferSubData(
+                _material_uniform_buffer,
+                0,
+                static_cast<GLsizeiptr>(sizeof(MaterialSurfaceBlockGpu)),
+                &material_surface_block);
+            glBindBufferBase(
+                GL_UNIFORM_BUFFER,
+                MATERIAL_SURFACE_UBO_BINDING,
+                _material_uniform_buffer);
+            used_packed_default_lit_surface = true;
+        }
+
         for (const auto& parameter : params.parameters)
         {
+            if (used_packed_default_lit_surface
+                && is_default_lit_surface_parameter(parameter.name))
+                continue;
             if (!try_upload(parameter))
                 continue;
         }
