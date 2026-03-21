@@ -207,10 +207,9 @@ namespace opengl_rendering
                 has_compute ? true : try_append_shader(material->program.geometry);
 
             if ((has_compute && appended_compute)
-                || (!has_compute && appended_vertex && appended_fragment))
+                || (!has_compute && appended_vertex && appended_fragment
+                    && appended_tesselation && appended_geometry))
             {
-                (void)appended_tesselation;
-                (void)appended_geometry;
                 const auto shader_program = std::make_shared<OpenGlShaderProgram>(shader_resources);
                 if (shader_program->get_program_id() != 0)
                 {

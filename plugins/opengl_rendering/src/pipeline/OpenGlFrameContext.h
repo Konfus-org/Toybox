@@ -158,6 +158,7 @@ namespace opengl_rendering
     {
         tbx::Color clear_color = tbx::Color::BLACK;
         tbx::Size render_size = {0U, 0U};
+        bool has_camera = false;
         tbx::Vec3 camera_position = tbx::Vec3(0.0F, 0.0F, 0.0F);
         float camera_near_plane = 0.1F;
         float camera_far_plane = 1000.0F;

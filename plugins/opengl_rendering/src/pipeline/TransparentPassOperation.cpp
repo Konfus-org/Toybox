@@ -1,4 +1,5 @@
 #include "TransparentPassOperation.h"
+#include "RenderPipelineFailure.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_mesh.h"
 #include "opengl_resources/opengl_resource.h"
@@ -60,7 +61,10 @@ namespace opengl_rendering
         if (frame_context.transparent_draw_calls.empty())
             return;
 
-        _gbuffer.bind_final_color();
+        bool saw_failure = false;
+        bool drew_mesh = false;
+
+        auto gbuffer_scope = OpenGlResourceScope(_gbuffer);
 
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
@@ -82,6 +86,7 @@ namespace opengl_rendering
                     draw_call.shader_program,
                     shader_program))
             {
+                saw_failure = true;
                 TBX_TRACE_WARNING(
                     "OpenGL rendering: shader program '{}' is unavailable for transparent pass.",
                     draw_call.shader_program.value);
@@ -99,6 +104,7 @@ namespace opengl_rendering
                         TransparentViewProjUniformName,
                         frame_context.view_projection)))
             {
+                saw_failure = true;
                 TBX_TRACE_WARNING(
                     "OpenGL rendering: failed to upload view projection uniform to transparent "
                     "program '{}'.",
@@ -107,6 +113,7 @@ namespace opengl_rendering
             if (!shader_program->try_upload(
                     tbx::MaterialParameter(TransparentModelUniformName, draw_call.transform)))
             {
+                saw_failure = true;
                 TBX_TRACE_WARNING(
                     "OpenGL rendering: failed to upload model transform for transparent program "
                     "'{}'.",
@@ -120,6 +127,7 @@ namespace opengl_rendering
                 last_bound_texture_count);
             if (!shader_program->try_upload(draw_call.material))
             {
+                saw_failure = true;
                 TBX_TRACE_WARNING(
                     "OpenGL rendering: failed to upload transparent material parameters for "
                     "material '{}'. Using fallback magenta material parameters.",
@@ -134,6 +142,7 @@ namespace opengl_rendering
                     last_bound_texture_count);
                 if (!shader_program->try_upload(fallback_material_params))
                 {
+                    saw_failure = true;
                     TBX_TRACE_WARNING(
                         "OpenGL rendering: failed to upload fallback transparent material "
                         "parameters for material '{}'.",
@@ -144,6 +153,7 @@ namespace opengl_rendering
             auto mesh = std::shared_ptr<OpenGlMesh> {};
             if (!_resource_manager.try_get<OpenGlMesh>(draw_call.mesh, mesh))
             {
+                saw_failure = true;
                 TBX_TRACE_WARNING(
                     "OpenGL rendering: mesh resource '{}' is unavailable for transparent pass.",
                     draw_call.mesh.value);
@@ -152,10 +162,13 @@ namespace opengl_rendering
 
             auto mesh_scope = OpenGlResourceScope(*mesh);
             mesh->draw();
+            drew_mesh = true;
         }
 
         glDepthMask(GL_TRUE);
         glDisable(GL_BLEND);
         glEnable(GL_CULL_FACE);
+        if (saw_failure && !drew_mesh)
+            report_render_pipeline_failure();
     }
 }
