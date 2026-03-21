@@ -6,7 +6,7 @@ There isn't much here yet but, hopefully, soon there will be!
 
 ## What's here so far?
 
-Honestly, not much yet. There is a simple ECS system dubbed TBS (Toy Box System), a plugin system that will find and load plugins at runtime, a math library (which is a thin wrapper around GLM), logging and asserts, a windowing system made using SDL, some graphics primitives, and a simple renderer and input system. I plan to add all the things a game engine needs! Physics, audio, networking, a UI system, editor and more!
+Honestly, not much yet. There is a plugin system that will find and load plugins at runtime, a ECS system via entt, maths via GLM, logging and asserts via spdlogging, a windowing and input system made using SDL, some graphics primitives, physics via Jolt, and a simple renderer using OpenGL. I plan to add all the things a game engine needs! Audio, networking, a UI system, editor and more!
 
 ## Repository Structure
 
