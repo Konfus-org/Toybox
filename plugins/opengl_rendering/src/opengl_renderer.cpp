@@ -23,6 +23,7 @@
 #include <limits>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <unordered_map>
 #include <variant>
 
@@ -31,10 +32,11 @@ namespace opengl_rendering
     static constexpr tbx::uint32 ShadowCascadeCount = 3U;
     static constexpr tbx::uint32 ShadowMapResolution = 2048U;
     static constexpr float ShadowRenderDistance = 90.0F;
-    static constexpr float ShadowFilterSoftness = 1.0F;
+    static constexpr float ShadowFilterSoftness = 0.6F;
     static constexpr float ShadowNearPlane = 0.1F;
     static constexpr float ShadowSplitLambda = 0.6F;
     static constexpr float ShadowStabilizationPadding = 6.0F;
+    static const auto DefaultClearColor = tbx::Color(0.07F, 0.08F, 0.11F, 1.0F);
 
     static void gl_message_callback(
         GLenum source,
@@ -233,29 +235,59 @@ namespace opengl_rendering
     }
 
     static std::array<tbx::Vec3, 8> get_world_frustum_corners(
-        const tbx::Mat4& inverse_view_projection,
+        const OpenGlFrameContext& frame_context,
         const float near_depth,
         const float far_depth)
     {
         auto corners = std::array<tbx::Vec3, 8> {};
         auto corner_index = std::size_t {0U};
-        const auto clip_near = (near_depth * 2.0F) - 1.0F;
-        const auto clip_far = (far_depth * 2.0F) - 1.0F;
+        const auto inverse_view = tbx::inverse(frame_context.view_matrix);
+        const auto clamped_near = tbx::max(near_depth, 0.001F);
+        const auto clamped_far = tbx::max(far_depth, clamped_near + 0.001F);
 
-        for (auto clip_z : {clip_near, clip_far})
-            for (auto clip_y : {-1.0F, 1.0F})
-                for (auto clip_x : {-1.0F, 1.0F})
+        if (frame_context.is_camera_perspective)
+        {
+            const auto tan_half_vertical_fov =
+                tbx::tan(tbx::to_radians(frame_context.camera_vertical_fov_degrees) * 0.5F);
+            const auto near_half_height = clamped_near * tan_half_vertical_fov;
+            const auto near_half_width = near_half_height * frame_context.camera_aspect;
+            const auto far_half_height = clamped_far * tan_half_vertical_fov;
+            const auto far_half_width = far_half_height * frame_context.camera_aspect;
+
+            for (const auto depth_and_extent :
+                 {std::tuple(clamped_near, near_half_width, near_half_height),
+                  std::tuple(clamped_far, far_half_width, far_half_height)})
+            {
+                const auto depth = std::get<0>(depth_and_extent);
+                const auto half_width = std::get<1>(depth_and_extent);
+                const auto half_height = std::get<2>(depth_and_extent);
+                for (const auto view_y : {-half_height, half_height})
+                    for (const auto view_x : {-half_width, half_width})
+                    {
+                        const auto world_corner =
+                            inverse_view * tbx::Vec4(view_x, view_y, -depth, 1.0F);
+                        corners[corner_index++] = tbx::Vec3(world_corner);
+                    }
+            }
+
+            return corners;
+        }
+
+        const auto half_height = frame_context.camera_vertical_fov_degrees * 0.5F;
+        const auto half_width = half_height * frame_context.camera_aspect;
+        for (const auto depth : {clamped_near, clamped_far})
+            for (const auto view_y : {-half_height, half_height})
+                for (const auto view_x : {-half_width, half_width})
                 {
-                    const auto clip_corner = tbx::Vec4(clip_x, clip_y, clip_z, 1.0F);
-                    const auto world_corner = inverse_view_projection * clip_corner;
-                    corners[corner_index++] =
-                        tbx::Vec3(world_corner) / tbx::max(world_corner.w, 0.0001F);
+                    const auto world_corner =
+                        inverse_view * tbx::Vec4(view_x, view_y, -depth, 1.0F);
+                    corners[corner_index++] = tbx::Vec3(world_corner);
                 }
 
         return corners;
     }
 
-    static std::vector<float> build_shadow_splits(const float max_distance)
+    static std::vector<float> build_shadow_splits(const float near_plane, const float max_distance)
     {
         auto splits = std::vector<float>(ShadowCascadeCount, max_distance);
         for (tbx::uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount; ++cascade_index)
@@ -263,9 +295,8 @@ namespace opengl_rendering
             const auto ratio =
                 static_cast<float>(cascade_index + 1U) / static_cast<float>(ShadowCascadeCount);
             const auto logarithmic =
-                ShadowNearPlane
-                * static_cast<float>(std::pow(max_distance / ShadowNearPlane, ratio));
-            const auto uniform = ShadowNearPlane + ((max_distance - ShadowNearPlane) * ratio);
+                near_plane * static_cast<float>(std::pow(max_distance / near_plane, ratio));
+            const auto uniform = near_plane + ((max_distance - near_plane) * ratio);
             splits[cascade_index] =
                 (ShadowSplitLambda * logarithmic) + ((1.0F - ShadowSplitLambda) * uniform);
         }
@@ -379,6 +410,7 @@ namespace opengl_rendering
     OpenGlFrameContext OpenGlRenderer::build_frame_context() const
     {
         auto frame_context = OpenGlFrameContext();
+        frame_context.clear_color = DefaultClearColor;
         frame_context.render_stage = _render_stage;
         frame_context.render_size = _render_resolution;
         if (frame_context.render_size.width == 0U || frame_context.render_size.height == 0U)
@@ -397,11 +429,22 @@ namespace opengl_rendering
                 camera.set_aspect(aspect);
             }
             frame_context.camera_position = camera_transform.position;
+            frame_context.camera_near_plane = camera.get_z_near();
+            frame_context.camera_far_plane = camera.get_z_far();
+            frame_context.is_camera_perspective = camera.is_perspective();
+            frame_context.camera_vertical_fov_degrees = camera.get_fov();
+            frame_context.camera_aspect = camera.get_aspect();
             frame_context.view_matrix =
                 camera.get_view_matrix(camera_transform.position, camera_transform.rotation);
             frame_context.projection_matrix = camera.get_projection_matrix();
             frame_context.view_projection =
                 frame_context.projection_matrix * frame_context.view_matrix;
+        }
+        else
+        {
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: no active camera was found. Rendering will use the clear color "
+                "only until a camera is available.");
         }
 
         frame_context.inverse_view_projection = tbx::inverse(frame_context.view_projection);
@@ -510,26 +553,49 @@ namespace opengl_rendering
 
         if (frame_context.directional_lights.empty())
             return;
+        if (frame_context.render_size.width == 0U || frame_context.render_size.height == 0U)
+        {
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: skipped shadow setup because the render size is invalid.");
+            return;
+        }
+        if (frame_context.camera_far_plane <= frame_context.camera_near_plane)
+        {
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: skipped shadow setup because the active camera clip planes are "
+                "invalid.");
+            return;
+        }
 
         const auto light_direction =
             tbx::normalize(frame_context.directional_lights.front().direction);
         if (light_direction.x == 0.0F && light_direction.y == 0.0F && light_direction.z == 0.0F)
             return;
 
-        const auto max_shadow_distance = tbx::max(ShadowRenderDistance, ShadowNearPlane + 0.001F);
-        const auto split_depths = build_shadow_splits(max_shadow_distance);
+        const auto max_shadow_distance = tbx::clamp(
+            ShadowRenderDistance,
+            frame_context.camera_near_plane + 0.001F,
+            frame_context.camera_far_plane);
+        if (max_shadow_distance <= frame_context.camera_near_plane)
+        {
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: skipped shadow setup because the configured shadow distance is "
+                "invalid for the active camera.");
+            return;
+        }
+        const auto split_depths =
+            build_shadow_splits(frame_context.camera_near_plane, max_shadow_distance);
         frame_context.shadows.cascades.reserve(ShadowCascadeCount);
 
-        auto previous_split = ShadowNearPlane;
+        auto previous_split = frame_context.camera_near_plane;
         for (tbx::uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount; ++cascade_index)
         {
-            const auto cascade_far = split_depths[cascade_index];
-            const auto near_depth = tbx::clamp(previous_split / max_shadow_distance, 0.0F, 1.0F);
-            const auto far_depth = tbx::clamp(cascade_far / max_shadow_distance, 0.0F, 1.0F);
-            const auto corners = get_world_frustum_corners(
-                frame_context.inverse_view_projection,
-                near_depth,
-                far_depth);
+            const auto cascade_far = tbx::clamp(
+                split_depths[cascade_index],
+                previous_split + 0.001F,
+                max_shadow_distance);
+            const auto corners =
+                get_world_frustum_corners(frame_context, previous_split, cascade_far);
 
             auto frustum_center = tbx::Vec3(0.0F);
             for (const auto& corner : corners)
@@ -573,9 +639,9 @@ namespace opengl_rendering
                 ShadowCascadeFrameData {
                     .light_view_projection = light_projection * light_view,
                     .split_depth = cascade_far,
-                    .normal_bias = 0.0025F * (1.0F + static_cast<float>(cascade_index)),
-                    .depth_bias = 0.00035F * (1.0F + static_cast<float>(cascade_index)),
-                    .blend_distance = 3.0F + static_cast<float>(cascade_index),
+                    .normal_bias = 0.0011F * (1.0F + static_cast<float>(cascade_index)),
+                    .depth_bias = 0.00012F * (1.0F + static_cast<float>(cascade_index)),
+                    .blend_distance = 5.0F + static_cast<float>(cascade_index),
                 });
             previous_split = cascade_far;
         }
