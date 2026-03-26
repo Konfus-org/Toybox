@@ -35,39 +35,23 @@ uniform sampler2D u_normal_map;
 uniform sampler2D u_specular_map;
 uniform sampler2D u_shininess_map;
 uniform sampler2D u_emissive_map;
-uniform sampler2D u_occlusion_map;
-
-float tbx_apply_map_strength(float neutral_value, float sampled_value, float strength)
-{
-    return neutral_value + ((sampled_value - neutral_value) * max(strength, 0.0));
-}
-
-vec3 tbx_apply_map_strength(vec3 neutral_value, vec3 sampled_value, float strength)
-{
-    return neutral_value + ((sampled_value - neutral_value) * max(strength, 0.0));
-}
 
 void main()
 {
-    float specular_base = u_material_surface.primary.x;
-    float shininess_base = u_material_surface.primary.y;
-    float occlusion_base = u_material_surface.primary.z;
+    float specular_strength = max(u_material_surface.primary.x, 0.0);
+    float shininess_strength = max(u_material_surface.primary.y, 1.0);
     float alpha_cutoff = clamp(u_material_surface.primary.w, 0.0, 1.0);
     float transparency_amount = clamp(u_material_surface.secondary.x, 0.0, 1.0);
     float exposure = max(u_material_surface.secondary.y, 0.0);
     float diffuse_strength = max(u_material_surface.secondary.z, 0.0);
     float normal_strength = max(u_material_surface.secondary.w, 0.0);
-    float specular_map_strength = max(u_material_surface.map_strengths.x, 0.0);
-    float shininess_map_strength = max(u_material_surface.map_strengths.y, 0.0);
-    float emissive_map_strength = max(u_material_surface.map_strengths.z, 0.0);
-    float occlusion_map_strength = max(u_material_surface.map_strengths.w, 0.0);
+    float emissive_strength = max(u_material_surface.map_strengths.x, 0.0);
 
     vec4 diffuse_sample = texture(u_diffuse_map, v_tex_coord);
     vec3 normal_sample = texture(u_normal_map, v_tex_coord).xyz;
     float specular_sample = texture(u_specular_map, v_tex_coord).r;
     float shininess_sample = texture(u_shininess_map, v_tex_coord).r;
     vec3 emissive_sample = texture(u_emissive_map, v_tex_coord).rgb;
-    float occlusion_sample = texture(u_occlusion_map, v_tex_coord).r;
 
     vec4 texture_color =
         (v_color * u_color) * (vec4(1.0) + ((diffuse_sample - vec4(1.0)) * diffuse_strength));
@@ -75,21 +59,9 @@ void main()
         discard;
     float surface_alpha = texture_color.a * (1.0 - transparency_amount);
 
-    float specular = clamp(
-        specular_base * tbx_apply_map_strength(1.0, specular_sample, specular_map_strength),
-        0.0,
-        1.0);
-    float shininess = clamp(
-        shininess_base * tbx_apply_map_strength(1.0, shininess_sample, shininess_map_strength),
-        1.0,
-        256.0);
-    vec3 emissive =
-        u_emissive.rgb
-        * tbx_apply_map_strength(vec3(1.0), emissive_sample, emissive_map_strength);
-    float occlusion = clamp(
-        occlusion_base * tbx_apply_map_strength(1.0, occlusion_sample, occlusion_map_strength),
-        0.0,
-        1.0);
+    float specular = clamp(specular_sample * specular_strength, 0.0, 1.0);
+    float shininess = clamp(shininess_sample * shininess_strength, 1.0, 256.0);
+    vec3 emissive = u_emissive.rgb * emissive_sample * emissive_strength;
 
     vec3 tangent_space_normal = (normal_sample * 2.0) - 1.0;
     tangent_space_normal = normalize(
@@ -114,11 +86,11 @@ void main()
         pow(max(dot(mapped_world_normal, preview_half_vector), 0.0), shininess) * specular;
     float hemisphere_factor = clamp((mapped_world_normal.y * 0.5) + 0.5, 0.0, 1.0);
     vec3 hemisphere_ambient =
-        mix(vec3(0.05, 0.045, 0.04), vec3(0.17, 0.19, 0.23), hemisphere_factor) * occlusion;
+        mix(vec3(0.05, 0.045, 0.04), vec3(0.17, 0.19, 0.23), hemisphere_factor);
     float preview_fresnel =
         pow(1.0 - max(dot(mapped_world_normal, preview_view_direction), 0.0), 4.0);
     vec3 forward_lit_color =
-        (texture_color.rgb * (hemisphere_ambient + vec3(preview_n_dot_l * occlusion)))
+        (texture_color.rgb * (hemisphere_ambient + vec3(preview_n_dot_l)))
         + vec3(preview_specular)
         + vec3(specular * preview_fresnel * 0.08)
         + (emissive * 0.5);
@@ -130,5 +102,5 @@ void main()
     o_normal = vec4((mapped_world_normal * 0.5) + 0.5, 1.0);
     o_depth_preview = vec4(vec3(depth_preview), 1.0);
     o_emissive = vec4(emissive, exposure);
-    o_material = vec4(specular, shininess, occlusion, 1.0);
+    o_material = vec4(specular, shininess, 1.0, 1.0);
 }

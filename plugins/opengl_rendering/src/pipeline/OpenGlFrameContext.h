@@ -35,6 +35,8 @@ namespace opengl_rendering
         bool is_two_sided = false;
         std::vector<tbx::Uuid> meshes;
         std::vector<tbx::Mat4> transforms;
+        std::vector<tbx::Vec3> bounds_centers;
+        std::vector<float> bounds_radii;
     };
 
     /// <summary>
@@ -67,6 +69,10 @@ namespace opengl_rendering
         float ambient_intensity = 0.03F;
         tbx::Vec3 radiance = tbx::Vec3(1.0F, 1.0F, 1.0F);
         float casts_shadows = 0.0F;
+        tbx::uint32 shadow_cascade_offset = 0U;
+        tbx::uint32 shadow_cascade_count = 0U;
+        float padding0 = 0.0F;
+        float padding1 = 0.0F;
     };
 
     /// <summary>
@@ -83,6 +89,29 @@ namespace opengl_rendering
         float normal_bias = 0.0F;
         float depth_bias = 0.0F;
         float blend_distance = 0.0F;
+        tbx::uint32 texture_layer = 0U;
+        float padding0 = 0.0F;
+        float padding1 = 0.0F;
+    };
+
+    /// <summary>
+    /// Purpose: Stores one projected local-light shadow map for spot and area lights.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type copied into the frame context and GPU upload payloads.
+    /// Thread Safety: Safe to copy between threads; render-thread mutation only.
+    /// </remarks>
+    struct ProjectedShadowFrameData
+    {
+        tbx::Mat4 light_view_projection = tbx::Mat4(1.0F);
+        float near_plane = 0.1F;
+        float far_plane = 10.0F;
+        float normal_bias = 0.0F;
+        float depth_bias = 0.0F;
+        tbx::uint32 texture_layer = 0U;
+        float padding0 = 0.0F;
+        float padding1 = 0.0F;
+        float padding2 = 0.0F;
     };
 
     /// <summary>
@@ -94,11 +123,14 @@ namespace opengl_rendering
     /// </remarks>
     struct ShadowFrameData
     {
-        tbx::uint32 cascade_count = 0U;
-        tbx::uint32 map_resolution = 2048U;
+        tbx::uint32 directional_map_resolution = 2048U;
+        tbx::uint32 local_map_resolution = 1024U;
+        tbx::uint32 point_map_resolution = 1024U;
         float softness = 1.0F;
         float max_distance = 90.0F;
-        std::vector<ShadowCascadeFrameData> cascades = {};
+        std::vector<ShadowCascadeFrameData> directional_cascades = {};
+        std::vector<ProjectedShadowFrameData> spot_maps = {};
+        std::vector<ProjectedShadowFrameData> area_maps = {};
     };
 
     /// <summary>
@@ -113,7 +145,10 @@ namespace opengl_rendering
         tbx::Vec3 position = tbx::Vec3(0.0F, 0.0F, 0.0F);
         float range = 10.0F;
         tbx::Vec3 radiance = tbx::Vec3(1.0F, 1.0F, 1.0F);
-        float padding = 0.0F;
+        float shadow_bias = 0.00035F;
+        int shadow_index = -1;
+        float padding0 = 0.0F;
+        float padding1 = 0.0F;
     };
 
     /// <summary>
@@ -131,6 +166,9 @@ namespace opengl_rendering
         float inner_cos = 0.93969262F;
         tbx::Vec3 radiance = tbx::Vec3(1.0F, 1.0F, 1.0F);
         float outer_cos = 0.81915206F;
+        int shadow_index = -1;
+        float shadow_bias = 0.00035F;
+        float padding0 = 0.0F;
     };
 
     /// <summary>
@@ -149,9 +187,9 @@ namespace opengl_rendering
         tbx::Vec3 radiance = tbx::Vec3(1.0F, 1.0F, 1.0F);
         float half_height = 0.5F;
         tbx::Vec3 right = tbx::Vec3(1.0F, 0.0F, 0.0F);
-        float padding0 = 0.0F;
+        float shadow_bias = 0.00045F;
         tbx::Vec3 up = tbx::Vec3(0.0F, 1.0F, 0.0F);
-        float padding1 = 0.0F;
+        int shadow_index = -1;
     };
 
     struct OpenGlFrameContext

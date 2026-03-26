@@ -4,6 +4,7 @@
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/post_processing.h"
 #include "tbx/tbx_api.h"
+#include <concepts>
 #include <vector>
 
 namespace tbx
@@ -77,6 +78,20 @@ namespace tbx
         /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
         /// </remarks>
         MaterialInstance material = {};
+
+        /// <summary>
+        /// Purpose: Returns the renderer material converted to a specific material instance type.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Returns the converted material by value; the caller owns the copy.
+        /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
+        /// </remarks>
+        template <typename TMaterialInstance>
+            requires std::derived_from<TMaterialInstance, MaterialInstance>
+        TMaterialInstance get_material() const
+        {
+            return TMaterialInstance(material);
+        }
 
         /// <summary>
         /// Purpose: Enables or disables culling behavior for this entity (e.g., render distance

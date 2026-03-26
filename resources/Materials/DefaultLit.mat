@@ -5,21 +5,16 @@
     { "name": "normal_map", "value": "" },
     { "name": "specular_map", "value": "" },
     { "name": "shininess_map", "value": "" },
-    { "name": "emissive_map", "value": "" },
-    { "name": "occlusion_map", "value": "" }
+    { "name": "emissive_map", "value": "" }
   ],
   "parameters": [
     { "name": "color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
-    { "name": "diffuse_map_strength", "type": "float", "value": 1.0 },
-    { "name": "normal_map_strength", "type": "float", "value": 1.0 },
-    { "name": "specular", "type": "float", "value": 0.5 },
-    { "name": "specular_map_strength", "type": "float", "value": 1.0 },
-    { "name": "shininess", "type": "float", "value": 32.0 },
-    { "name": "shininess_map_strength", "type": "float", "value": 1.0 },
+    { "name": "diffuse_strength", "type": "float", "value": 1.0 },
+    { "name": "normal_strength", "type": "float", "value": 1.0 },
+    { "name": "specular_strength", "type": "float", "value": 0.5 },
+    { "name": "shininess_strength", "type": "float", "value": 32.0 },
     { "name": "emissive", "type": "color", "value": [0.0, 0.0, 0.0, 1.0] },
-    { "name": "emissive_map_strength", "type": "float", "value": 1.0 },
-    { "name": "occlusion", "type": "float", "value": 1.0 },
-    { "name": "occlusion_map_strength", "type": "float", "value": 1.0 },
+    { "name": "emissive_strength", "type": "float", "value": 1.0 },
     { "name": "alpha_cutoff", "type": "float", "value": 0.1 },
     { "name": "transparency_amount", "type": "float", "value": 0.0 },
     { "name": "exposure", "type": "float", "value": 1.0 }

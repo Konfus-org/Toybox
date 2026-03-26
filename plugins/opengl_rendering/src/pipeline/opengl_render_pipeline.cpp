@@ -22,7 +22,8 @@ namespace opengl_rendering
               std::make_unique<LightingPassOperation>(
                   _resource_manager,
                   job_system,
-                  gbuffer))
+                  gbuffer,
+                  *_shadow_pass_operation))
         , _transparent_pass_operation(
               std::make_unique<TransparentPassOperation>(_resource_manager, gbuffer))
     {

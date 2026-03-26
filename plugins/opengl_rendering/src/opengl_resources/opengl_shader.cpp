@@ -170,15 +170,13 @@ namespace opengl_rendering
     static bool is_default_lit_surface_parameter(const std::string& parameter_name)
     {
         const auto normalized_name = normalize_uniform_name(parameter_name);
-        return normalized_name == "u_specular" || normalized_name == "u_shininess"
-               || normalized_name == "u_occlusion" || normalized_name == "u_alpha_cutoff"
+        return normalized_name == "u_specular_strength"
+               || normalized_name == "u_shininess_strength"
+               || normalized_name == "u_alpha_cutoff"
                || normalized_name == "u_transparency_amount" || normalized_name == "u_exposure"
-               || normalized_name == "u_diffuse_map_strength"
-               || normalized_name == "u_normal_map_strength"
-               || normalized_name == "u_specular_map_strength"
-               || normalized_name == "u_shininess_map_strength"
-               || normalized_name == "u_emissive_map_strength"
-               || normalized_name == "u_occlusion_map_strength";
+               || normalized_name == "u_diffuse_strength"
+               || normalized_name == "u_normal_strength"
+               || normalized_name == "u_emissive_strength";
     }
 
     struct alignas(16) MaterialSurfaceBlockGpu
@@ -443,20 +441,20 @@ namespace opengl_rendering
 
             const auto material_surface_block = MaterialSurfaceBlockGpu {
                 .primary = tbx::Vec4(
-                    get_material_parameter_float(params, "specular", 0.5F),
-                    get_material_parameter_float(params, "shininess", 32.0F),
-                    get_material_parameter_float(params, "occlusion", 1.0F),
+                    get_material_parameter_float(params, "specular_strength", 0.5F),
+                    get_material_parameter_float(params, "shininess_strength", 32.0F),
+                    0.0F,
                     get_material_parameter_float(params, "alpha_cutoff", 0.1F)),
                 .secondary = tbx::Vec4(
                     get_material_parameter_float(params, "transparency_amount", 0.0F),
                     get_material_parameter_float(params, "exposure", 1.0F),
-                    get_material_parameter_float(params, "diffuse_map_strength", 1.0F),
-                    get_material_parameter_float(params, "normal_map_strength", 1.0F)),
+                    get_material_parameter_float(params, "diffuse_strength", 1.0F),
+                    get_material_parameter_float(params, "normal_strength", 1.0F)),
                 .map_strengths = tbx::Vec4(
-                    get_material_parameter_float(params, "specular_map_strength", 1.0F),
-                    get_material_parameter_float(params, "shininess_map_strength", 1.0F),
-                    get_material_parameter_float(params, "emissive_map_strength", 1.0F),
-                    get_material_parameter_float(params, "occlusion_map_strength", 1.0F)),
+                    get_material_parameter_float(params, "emissive_strength", 1.0F),
+                    0.0F,
+                    0.0F,
+                    0.0F),
             };
 
             glNamedBufferSubData(

@@ -1,0 +1,10 @@
+{
+  "id": "25256564",
+  "texture": {
+    "wrap": "clamp_to_edge",
+    "filter": "linear",
+    "format": "rgb",
+    "mipmaps": "disabled",
+    "compression": "disabled"
+  }
+}

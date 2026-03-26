@@ -1,5 +1,6 @@
 #pragma once
 #include "OpenGlFrameContext.h"
+#include "ShadowPassOperation.h"
 #include "opengl_resources/opengl_buffers.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "opengl_resources/opengl_shader.h"
@@ -24,7 +25,8 @@ namespace opengl_rendering
         LightingPassOperation(
             OpenGlResourceManager& resource_manager,
             tbx::JobSystem& job_system,
-            OpenGlGBuffer& gbuffer);
+            OpenGlGBuffer& gbuffer,
+            const ShadowPassOperation& shadow_pass_operation);
         LightingPassOperation(const LightingPassOperation&) = delete;
         LightingPassOperation& operator=(const LightingPassOperation&) = delete;
         ~LightingPassOperation() noexcept;
@@ -45,20 +47,27 @@ namespace opengl_rendering
         OpenGlResourceManager& _resource_manager;
         tbx::JobSystem& _job_system;
         OpenGlGBuffer& _gbuffer;
+        const ShadowPassOperation& _shadow_pass_operation;
         std::shared_ptr<OpenGlShaderProgram> _shader_program = nullptr;
         tbx::uint32 _fullscreen_vertex_array = 0U;
         tbx::uint32 _lighting_info_buffer = 0U;
+        tbx::uint32 _directional_shadow_cascades_buffer = 0U;
         tbx::uint32 _point_lights_buffer = 0U;
         tbx::uint32 _spot_lights_buffer = 0U;
         tbx::uint32 _area_lights_buffer = 0U;
+        tbx::uint32 _spot_shadow_maps_buffer = 0U;
+        tbx::uint32 _area_shadow_maps_buffer = 0U;
         tbx::uint32 _tile_light_spans_buffer = 0U;
         tbx::uint32 _tile_point_light_indices_buffer = 0U;
         tbx::uint32 _tile_spot_light_indices_buffer = 0U;
         tbx::uint32 _tile_area_light_indices_buffer = 0U;
         std::size_t _point_lights_buffer_capacity = 0U;
         std::size_t _lighting_info_buffer_capacity = 0U;
+        std::size_t _directional_shadow_cascades_buffer_capacity = 0U;
         std::size_t _spot_lights_buffer_capacity = 0U;
         std::size_t _area_lights_buffer_capacity = 0U;
+        std::size_t _spot_shadow_maps_buffer_capacity = 0U;
+        std::size_t _area_shadow_maps_buffer_capacity = 0U;
         std::size_t _tile_light_spans_buffer_capacity = 0U;
         std::size_t _tile_point_light_indices_buffer_capacity = 0U;
         std::size_t _tile_spot_light_indices_buffer_capacity = 0U;

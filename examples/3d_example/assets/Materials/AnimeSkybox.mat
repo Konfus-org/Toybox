@@ -1,0 +1,12 @@
+{
+  "shaders": { "vertex": "00000006", "fragment": "00000007" },
+  "textures": [
+    {
+      "name": "diffuse",
+      "value": "10343045"
+    }
+  ],
+  "parameters": [
+    { "name": "color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] }
+  ]
+}

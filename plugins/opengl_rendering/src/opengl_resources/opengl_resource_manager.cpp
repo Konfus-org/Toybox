@@ -7,9 +7,12 @@
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/model.h"
 #include <algorithm>
+#include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <vector>
+#include <variant>
 
 namespace opengl_rendering
 {
@@ -17,6 +20,12 @@ namespace opengl_rendering
     constexpr tbx::uint32 StaticMeshSalt = 0x57A71C01U;
     constexpr tbx::uint32 TextureSalt = 0x7EAE0001U;
     constexpr tbx::uint32 MaterialProgramSalt = 0xAA110001U;
+
+    struct MeshPartQueueEntry final
+    {
+        size_t part_index = 0U;
+        tbx::Mat4 parent_transform = tbx::Mat4(1.0F);
+    };
 
     tbx::Uuid make_non_zero_uuid_from_hash(const std::size_t hash_value)
     {
@@ -62,6 +71,243 @@ namespace opengl_rendering
     tbx::Uuid make_material_program_key(const tbx::Handle& material_handle)
     {
         return make_typed_key(material_handle.id, MaterialProgramSalt);
+    }
+
+    static bool try_get_vec3_attribute_offsets(
+        const tbx::VertexBufferLayout& layout,
+        size_t& out_position_offset_floats,
+        size_t& out_normal_offset_floats,
+        bool& out_has_normal)
+    {
+        out_position_offset_floats = 0U;
+        out_normal_offset_floats = 0U;
+        out_has_normal = false;
+
+        auto vec3_attribute_index = size_t {0U};
+        for (const auto& attribute : layout.elements)
+        {
+            if (!std::holds_alternative<tbx::Vec3>(attribute.type))
+                continue;
+
+            const auto attribute_offset_floats =
+                static_cast<size_t>(attribute.offset) / sizeof(float);
+            if (vec3_attribute_index == 0U)
+                out_position_offset_floats = attribute_offset_floats;
+            else if (vec3_attribute_index == 1U)
+            {
+                out_normal_offset_floats = attribute_offset_floats;
+                out_has_normal = true;
+                return true;
+            }
+
+            vec3_attribute_index += 1U;
+        }
+
+        return vec3_attribute_index > 0U;
+    }
+
+    static bool append_transformed_mesh(
+        const tbx::Mesh& mesh,
+        const tbx::Mat4& transform,
+        std::vector<float>& out_vertices,
+        std::vector<tbx::uint32>& out_indices,
+        tbx::VertexBufferLayout& out_layout,
+        bool& out_has_layout)
+    {
+        const auto& source_vertices = mesh.vertices.vertices;
+        const auto& source_layout = mesh.vertices.layout;
+        if (source_layout.stride == 0U || (source_layout.stride % sizeof(float)) != 0U)
+            return false;
+
+        const auto stride_floats = static_cast<size_t>(source_layout.stride) / sizeof(float);
+        if (stride_floats == 0U || (source_vertices.size() % stride_floats) != 0U)
+            return false;
+
+        auto position_offset_floats = size_t {0U};
+        auto normal_offset_floats = size_t {0U};
+        auto has_normal = false;
+        if (!try_get_vec3_attribute_offsets(
+                source_layout,
+                position_offset_floats,
+                normal_offset_floats,
+                has_normal))
+            return false;
+
+        if (!out_has_layout)
+        {
+            out_layout = source_layout;
+            out_has_layout = true;
+        }
+        else if (out_layout.stride != source_layout.stride)
+        {
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: skipping mesh append due to mismatched model vertex layouts.");
+            return false;
+        }
+
+        const auto base_vertex_index =
+            static_cast<tbx::uint32>(out_vertices.size() / stride_floats);
+        out_vertices.reserve(out_vertices.size() + source_vertices.size());
+
+        const auto vertex_count = source_vertices.size() / stride_floats;
+        for (size_t vertex_index = 0U; vertex_index < vertex_count; ++vertex_index)
+        {
+            const auto source_base_index = vertex_index * stride_floats;
+            out_vertices.insert(
+                out_vertices.end(),
+                source_vertices.begin() + static_cast<std::ptrdiff_t>(source_base_index),
+                source_vertices.begin()
+                    + static_cast<std::ptrdiff_t>(source_base_index + stride_floats));
+
+            const auto destination_base_index = out_vertices.size() - stride_floats;
+            const auto transformed_position =
+                transform
+                * tbx::Vec4(
+                    source_vertices[source_base_index + position_offset_floats],
+                    source_vertices[source_base_index + position_offset_floats + 1U],
+                    source_vertices[source_base_index + position_offset_floats + 2U],
+                    1.0F);
+            out_vertices[destination_base_index + position_offset_floats] = transformed_position.x;
+            out_vertices[destination_base_index + position_offset_floats + 1U] =
+                transformed_position.y;
+            out_vertices[destination_base_index + position_offset_floats + 2U] =
+                transformed_position.z;
+
+            if (!has_normal)
+                continue;
+
+            auto transformed_normal =
+                transform
+                * tbx::Vec4(
+                    source_vertices[source_base_index + normal_offset_floats],
+                    source_vertices[source_base_index + normal_offset_floats + 1U],
+                    source_vertices[source_base_index + normal_offset_floats + 2U],
+                    0.0F);
+            const auto normal_length_squared =
+                (transformed_normal.x * transformed_normal.x)
+                + (transformed_normal.y * transformed_normal.y)
+                + (transformed_normal.z * transformed_normal.z);
+            if (normal_length_squared > 0.000001F)
+            {
+                const auto inverse_length = 1.0F / std::sqrt(normal_length_squared);
+                transformed_normal *= inverse_length;
+            }
+
+            out_vertices[destination_base_index + normal_offset_floats] = transformed_normal.x;
+            out_vertices[destination_base_index + normal_offset_floats + 1U] =
+                transformed_normal.y;
+            out_vertices[destination_base_index + normal_offset_floats + 2U] =
+                transformed_normal.z;
+        }
+
+        out_indices.reserve(out_indices.size() + mesh.indices.size());
+        for (const auto index : mesh.indices)
+            out_indices.push_back(base_vertex_index + index);
+
+        return true;
+    }
+
+    static bool try_build_static_mesh_render_geometry(
+        const tbx::Model& model,
+        tbx::Mesh& out_mesh)
+    {
+        if (model.meshes.empty())
+            return false;
+
+        auto flattened_vertices = std::vector<float> {};
+        auto flattened_indices = std::vector<tbx::uint32> {};
+        auto flattened_layout = tbx::VertexBufferLayout {};
+        auto has_layout = false;
+        auto appended_any_mesh = false;
+
+        if (model.parts.empty())
+        {
+            for (const auto& mesh : model.meshes)
+            {
+                appended_any_mesh |= append_transformed_mesh(
+                    mesh,
+                    tbx::Mat4(1.0F),
+                    flattened_vertices,
+                    flattened_indices,
+                    flattened_layout,
+                    has_layout);
+            }
+        }
+        else
+        {
+            auto has_parent = std::vector<bool>(model.parts.size(), false);
+            for (const auto& part : model.parts)
+            {
+                for (const auto child_index : part.children)
+                {
+                    if (child_index < has_parent.size())
+                        has_parent[child_index] = true;
+                }
+            }
+
+            auto queue = std::vector<MeshPartQueueEntry> {};
+            queue.reserve(model.parts.size());
+            for (size_t part_index = 0U; part_index < model.parts.size(); ++part_index)
+            {
+                if (has_parent[part_index])
+                    continue;
+
+                queue.push_back(
+                    MeshPartQueueEntry {
+                        .part_index = part_index,
+                        .parent_transform = tbx::Mat4(1.0F),
+                    });
+            }
+
+            if (queue.empty())
+            {
+                queue.push_back(
+                    MeshPartQueueEntry {
+                        .part_index = 0U,
+                        .parent_transform = tbx::Mat4(1.0F),
+                    });
+            }
+
+            auto visited_parts = std::vector<bool>(model.parts.size(), false);
+            while (!queue.empty())
+            {
+                const auto current = queue.back();
+                queue.pop_back();
+                if (current.part_index >= model.parts.size() || visited_parts[current.part_index])
+                    continue;
+
+                visited_parts[current.part_index] = true;
+                const auto& part = model.parts[current.part_index];
+                const auto part_transform = current.parent_transform * part.transform;
+                if (part.mesh_index < model.meshes.size())
+                {
+                    appended_any_mesh |= append_transformed_mesh(
+                        model.meshes[part.mesh_index],
+                        part_transform,
+                        flattened_vertices,
+                        flattened_indices,
+                        flattened_layout,
+                        has_layout);
+                }
+
+                for (const auto child_index : part.children)
+                {
+                    queue.push_back(
+                        MeshPartQueueEntry {
+                            .part_index = child_index,
+                            .parent_transform = part_transform,
+                        });
+                }
+            }
+        }
+
+        if (!appended_any_mesh || !has_layout || flattened_indices.empty())
+            return false;
+
+        out_mesh.vertices.layout = flattened_layout;
+        out_mesh.vertices.vertices = std::move(flattened_vertices);
+        out_mesh.indices = std::move(flattened_indices);
+        return true;
     }
 
     OpenGlResourceManager::OpenGlResourceManager(tbx::AssetManager& asset_manager)
@@ -119,8 +365,17 @@ namespace opengl_rendering
         if (!model || model->meshes.empty())
             return {};
 
+        auto render_mesh = tbx::Mesh {};
+        if (!try_build_static_mesh_render_geometry(*model, render_mesh))
+        {
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: failed to build render geometry for model '{}'.",
+                static_mesh.handle.name.c_str());
+            return {};
+        }
+
         const auto resource =
-            std::shared_ptr<IOpenGlResource>(std::make_shared<OpenGlMesh>(model->meshes.front()));
+            std::shared_ptr<IOpenGlResource>(std::make_shared<OpenGlMesh>(render_mesh));
         _resources.insert_or_assign(key, resource);
         _last_access.insert_or_assign(key, now);
         if (pin)

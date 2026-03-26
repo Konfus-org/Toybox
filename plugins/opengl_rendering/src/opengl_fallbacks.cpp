@@ -16,12 +16,6 @@ namespace opengl_rendering
         return FLAT_NORMAL_TEXTURE_RESOURCE_ID;
     }
 
-    const tbx::Uuid& get_neutral_orm_texture_resource_id()
-    {
-        static const auto NEUTRAL_ORM_TEXTURE_RESOURCE_ID = tbx::Uuid(0x7EAE0102U);
-        return NEUTRAL_ORM_TEXTURE_RESOURCE_ID;
-    }
-
     const tbx::Uuid& get_fallback_material_resource_id()
     {
         static const auto FALLBACK_MATERIAL_PROGRAM_RESOURCE_ID = tbx::Uuid(0xAA11F0FFU);
@@ -52,19 +46,6 @@ namespace opengl_rendering
             tbx::TextureCompression::DISABLED,
             std::vector<tbx::Pixel> {128, 128, 255});
         return FLAT_NORMAL_TEXTURE;
-    }
-
-    static const tbx::Texture& get_neutral_orm_texture_data()
-    {
-        static const auto NEUTRAL_ORM_TEXTURE = tbx::Texture(
-            tbx::Size {1, 1},
-            tbx::TextureWrap::REPEAT,
-            tbx::TextureFilter::LINEAR,
-            tbx::TextureFormat::RGB,
-            tbx::TextureMipmaps::DISABLED,
-            tbx::TextureCompression::DISABLED,
-            std::vector<tbx::Pixel> {255, 255, 0});
-        return NEUTRAL_ORM_TEXTURE;
     }
 
     OpenGlMaterialParams create_magenta_fallback_material_params(const tbx::Handle& material_handle)
@@ -124,14 +105,6 @@ namespace opengl_rendering
         return resource_manager.add_texture(
             get_flat_normal_texture_data(),
             get_flat_normal_texture_resource_id(),
-            true);
-    }
-
-    tbx::Uuid get_neutral_orm_texture(OpenGlResourceManager& resource_manager)
-    {
-        return resource_manager.add_texture(
-            get_neutral_orm_texture_data(),
-            get_neutral_orm_texture_resource_id(),
             true);
     }
 

@@ -14,8 +14,8 @@ namespace tbx
         return normalized;
     }
 
-    static MaterialParameterBinding* try_get_uniform_by_name(
-        std::vector<MaterialParameterBinding>& values,
+    static MaterialParameter* try_get_uniform_by_name(
+        std::vector<MaterialParameter>& values,
         const std::string& normalized_name)
     {
         for (auto& value : values)
@@ -27,8 +27,8 @@ namespace tbx
         return nullptr;
     }
 
-    static const MaterialParameterBinding* try_get_uniform_by_name(
-        const std::vector<MaterialParameterBinding>& values,
+    static const MaterialParameter* try_get_uniform_by_name(
+        const std::vector<MaterialParameter>& values,
         const std::string& normalized_name)
     {
         for (const auto& value : values)
@@ -73,35 +73,35 @@ namespace tbx
         auto* parameter = try_get_uniform_by_name(values, normalized_name);
         if (parameter)
         {
-            parameter->value = std::move(value);
+            parameter->data = std::move(value);
             return;
         }
 
         values.push_back(
-            MaterialParameterBinding {
+            MaterialParameter {
                 .name = normalized_name,
-                .value = std::move(value),
+                .data = std::move(value),
             });
     }
 
-    void MaterialParameterBindings::set(MaterialParameterBinding parameter)
+    void MaterialParameterBindings::set(MaterialParameter parameter)
     {
-        set(parameter.name, std::move(parameter.value));
+        set(parameter.name, std::move(parameter.data));
     }
 
-    void MaterialParameterBindings::set(std::initializer_list<MaterialParameterBinding> parameters)
+    void MaterialParameterBindings::set(std::initializer_list<MaterialParameter> parameters)
     {
         for (auto parameter : parameters)
             set(std::move(parameter));
     }
 
-    MaterialParameterBinding* MaterialParameterBindings::get(std::string_view name)
+    MaterialParameter* MaterialParameterBindings::get(std::string_view name)
     {
         const std::string normalized_name = normalize_uniform_name(name);
         return try_get_uniform_by_name(values, normalized_name);
     }
 
-    const MaterialParameterBinding* MaterialParameterBindings::get(std::string_view name) const
+    const MaterialParameter* MaterialParameterBindings::get(std::string_view name) const
     {
         const std::string normalized_name = normalize_uniform_name(name);
         return try_get_uniform_by_name(values, normalized_name);

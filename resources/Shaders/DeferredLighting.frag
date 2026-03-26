@@ -9,17 +9,23 @@ uniform sampler2D u_normal;
 uniform sampler2D u_emissive;
 uniform sampler2D u_material;
 uniform sampler2D u_depth;
+uniform sampler2DArray u_directional_shadows;
+uniform samplerCubeArray u_point_shadows;
+uniform sampler2DArray u_spot_shadows;
+uniform sampler2DArray u_area_shadows;
 
 struct DirectionalLight
 {
     vec4 direction_ambient;
-    vec4 radiance;
+    vec4 radiance_shadowed;
+    ivec4 shadow_info;
 };
 
 struct PointLight
 {
     vec4 position_range;
-    vec4 radiance;
+    vec4 radiance_shadow_bias;
+    ivec4 shadow_info;
 };
 
 struct SpotLight
@@ -27,6 +33,7 @@ struct SpotLight
     vec4 position_range;
     vec4 direction_inner_cos;
     vec4 radiance_outer_cos;
+    ivec4 shadow_info;
 };
 
 struct AreaLight
@@ -36,12 +43,27 @@ struct AreaLight
     vec4 radiance_half_height;
     vec4 right;
     vec4 up;
+    ivec4 shadow_info;
 };
 
 struct TileLightSpan
 {
     uvec4 point_and_spot;
     uvec4 area;
+};
+
+struct ShadowCascade
+{
+    mat4 light_view_projection;
+    vec4 split_and_bias;
+    ivec4 texture_layer;
+};
+
+struct ProjectedShadow
+{
+    mat4 light_view_projection;
+    vec4 planes_and_bias;
+    ivec4 texture_layer;
 };
 
 struct LightingInfo
@@ -51,6 +73,7 @@ struct LightingInfo
     ivec4 tile_info;
     ivec4 light_counts;
     mat4 inverse_view_projection;
+    mat4 view_matrix;
     DirectionalLight directional_lights[4];
 };
 
@@ -92,6 +115,21 @@ layout(std430, binding = 5) readonly buffer AreaLightsBuffer
 layout(std430, binding = 6) readonly buffer TileAreaLightIndicesBuffer
 {
     uint u_tile_area_light_indices[];
+};
+
+layout(std430, binding = 8) readonly buffer DirectionalShadowCascadesBuffer
+{
+    ShadowCascade u_directional_shadow_cascades[];
+};
+
+layout(std430, binding = 10) readonly buffer SpotShadowMapsBuffer
+{
+    ProjectedShadow u_spot_shadow_maps[];
+};
+
+layout(std430, binding = 11) readonly buffer AreaShadowMapsBuffer
+{
+    ProjectedShadow u_area_shadow_maps[];
 };
 
 vec3 tbx_srgb_to_linear(vec3 color)
@@ -158,6 +196,145 @@ float tbx_get_area_light_attenuation(AreaLight light, vec3 light_direction, floa
     return base_attenuation * front_face * (0.35 + (0.65 * softness));
 }
 
+float tbx_get_shadow_normal_offset(vec3 normal, vec3 light_direction, float normal_bias)
+{
+    return (1.0 - max(dot(normal, light_direction), 0.0)) * normal_bias;
+}
+
+float tbx_sample_projected_shadow(
+    sampler2DArray shadow_texture,
+    vec4 shadow_position,
+    int texture_layer,
+    float depth_bias)
+{
+    if (texture_layer < 0 || shadow_position.w <= 0.0)
+        return 1.0;
+
+    vec3 projected = shadow_position.xyz / shadow_position.w;
+    projected = (projected * 0.5) + 0.5;
+    if (projected.x <= 0.0 || projected.x >= 1.0 || projected.y <= 0.0 || projected.y >= 1.0
+        || projected.z <= 0.0 || projected.z >= 1.0)
+        return 1.0;
+
+    vec2 texel_size = 1.0 / vec2(textureSize(shadow_texture, 0).xy);
+    float current_depth = projected.z - depth_bias;
+    float visibility = 0.0;
+    for (int sample_y = -1; sample_y <= 1; ++sample_y)
+        for (int sample_x = -1; sample_x <= 1; ++sample_x)
+        {
+            vec2 sample_uv = projected.xy + (vec2(sample_x, sample_y) * texel_size);
+            float stored_depth = texture(
+                shadow_texture,
+                vec3(sample_uv, float(texture_layer))).r;
+            visibility += step(current_depth, stored_depth);
+        }
+
+    return visibility / 9.0;
+}
+
+float tbx_sample_directional_shadow(
+    DirectionalLight light,
+    vec3 world_position,
+    vec3 normal,
+    vec3 light_direction)
+{
+    if (light.radiance_shadowed.w <= 0.5 || light.shadow_info.y <= 0)
+        return 1.0;
+
+    float view_depth = -(u_lighting_info.view_matrix * vec4(world_position, 1.0)).z;
+    int cascade_offset = light.shadow_info.x;
+    int cascade_count = light.shadow_info.y;
+
+    for (int cascade_index = 0; cascade_index < cascade_count; ++cascade_index)
+    {
+        ShadowCascade cascade = u_directional_shadow_cascades[cascade_offset + cascade_index];
+        float normal_offset = tbx_get_shadow_normal_offset(
+            normal,
+            light_direction,
+            cascade.split_and_bias.y);
+        vec4 shadow_position = cascade.light_view_projection
+                               * vec4(world_position + (normal * normal_offset), 1.0);
+        float visibility = tbx_sample_projected_shadow(
+            u_directional_shadows,
+            shadow_position,
+            cascade.texture_layer.x,
+            cascade.split_and_bias.z);
+
+        float split_depth = cascade.split_and_bias.x;
+        float blend_distance = cascade.split_and_bias.w;
+        bool is_last_cascade = cascade_index == cascade_count - 1;
+        if (!is_last_cascade && view_depth >= split_depth - blend_distance && view_depth <= split_depth)
+        {
+            ShadowCascade next_cascade =
+                u_directional_shadow_cascades[cascade_offset + cascade_index + 1];
+            float next_normal_offset = tbx_get_shadow_normal_offset(
+                normal,
+                light_direction,
+                next_cascade.split_and_bias.y);
+            vec4 next_shadow_position = next_cascade.light_view_projection
+                                        * vec4(world_position + (normal * next_normal_offset), 1.0);
+            float next_visibility = tbx_sample_projected_shadow(
+                u_directional_shadows,
+                next_shadow_position,
+                next_cascade.texture_layer.x,
+                next_cascade.split_and_bias.z);
+            float blend = clamp(
+                (view_depth - (split_depth - blend_distance)) / max(blend_distance, 0.0001),
+                0.0,
+                1.0);
+            return mix(visibility, next_visibility, blend);
+        }
+
+        if (view_depth <= split_depth || is_last_cascade)
+            return visibility;
+    }
+
+    return 1.0;
+}
+
+float tbx_sample_projected_light_shadow(
+    sampler2DArray shadow_texture,
+    ProjectedShadow shadow_map,
+    vec3 world_position,
+    vec3 normal,
+    vec3 light_direction)
+{
+    float normal_offset = tbx_get_shadow_normal_offset(
+        normal,
+        light_direction,
+        shadow_map.planes_and_bias.z);
+    vec4 shadow_position =
+        shadow_map.light_view_projection * vec4(world_position + (normal * normal_offset), 1.0);
+    return tbx_sample_projected_shadow(
+        shadow_texture,
+        shadow_position,
+        shadow_map.texture_layer.x,
+        shadow_map.planes_and_bias.w);
+}
+
+float tbx_sample_point_shadow(PointLight light, vec3 world_position, vec3 normal)
+{
+    if (light.shadow_info.x < 0)
+        return 1.0;
+
+    vec3 receiver_vector = world_position - light.position_range.xyz;
+    float receiver_distance = length(receiver_vector);
+    if (receiver_distance <= 0.0001 || receiver_distance >= light.position_range.w)
+        return 1.0;
+
+    vec3 receiver_direction = receiver_vector / receiver_distance;
+    float facing = max(dot(normal, -receiver_direction), 0.0);
+    float bias = (1.0 - facing) * light.radiance_shadow_bias.w;
+    float current_depth = clamp(
+        (receiver_distance - bias) / max(light.position_range.w, 0.0001),
+        0.0,
+        1.0);
+    float stored_depth = texture(
+        u_point_shadows,
+        vec4(receiver_direction, float(light.shadow_info.x))).r;
+    return step(current_depth, stored_depth);
+}
+
 void tbx_accumulate_light(
     vec3 albedo,
     vec3 normal,
@@ -208,14 +385,13 @@ void main()
 
     float specular_strength = clamp(material_sample.r, 0.0, 1.0);
     float shininess = clamp(material_sample.g, 1.0, 256.0);
-    float occlusion = clamp(material_sample.b, 0.0, 1.0);
     float exposure = max(emissive_sample.a, 0.0001);
 
     vec3 diffuse_accumulation = vec3(0.0);
     vec3 specular_accumulation = vec3(0.0);
     float hemisphere_factor = clamp((normal.y * 0.5) + 0.5, 0.0, 1.0);
     vec3 hemisphere_ambient =
-        mix(vec3(0.05, 0.045, 0.04), vec3(0.17, 0.19, 0.23), hemisphere_factor) * occlusion;
+        mix(vec3(0.05, 0.045, 0.04), vec3(0.17, 0.19, 0.23), hemisphere_factor);
     float fresnel = pow(1.0 - max(dot(normal, view_direction), 0.0), 4.0);
     vec3 ambient_accumulation = albedo * hemisphere_ambient;
     vec3 fresnel_accumulation = vec3(specular_strength * fresnel * 0.08);
@@ -232,15 +408,17 @@ void main()
     {
         DirectionalLight light = u_lighting_info.directional_lights[light_index];
         vec3 light_direction = normalize(-light.direction_ambient.xyz);
-        vec3 light_radiance = light.radiance.rgb;
-        ambient_accumulation += albedo * light_radiance * (light.direction_ambient.w * occlusion);
+        vec3 light_radiance = light.radiance_shadowed.rgb;
+        float shadow_visibility =
+            tbx_sample_directional_shadow(light, world_position, normal, light_direction);
+        ambient_accumulation += albedo * light_radiance * light.direction_ambient.w;
         tbx_accumulate_light(
             albedo,
             normal,
             view_direction,
             light_direction,
             light_radiance,
-            1.0,
+            shadow_visibility,
             specular_strength,
             shininess,
             diffuse_accumulation,
@@ -250,18 +428,20 @@ void main()
     for (uint tile_light_index = 0U; tile_light_index < tile_light_span.point_and_spot.y;
          ++tile_light_index)
     {
-        PointLight light = u_point_lights[u_tile_point_light_indices[tile_light_span.point_and_spot.x + tile_light_index]];
+        PointLight light =
+            u_point_lights[u_tile_point_light_indices[tile_light_span.point_and_spot.x + tile_light_index]];
         vec3 to_light = light.position_range.xyz - world_position;
         float distance_squared = dot(to_light, to_light);
         vec3 light_direction = to_light * inversesqrt(max(distance_squared, 0.0001));
         float attenuation = tbx_get_distance_attenuation(distance_squared, light.position_range.w);
+        float shadow_visibility = tbx_sample_point_shadow(light, world_position, normal);
         tbx_accumulate_light(
             albedo,
             normal,
             view_direction,
             light_direction,
-            light.radiance.rgb,
-            attenuation,
+            light.radiance_shadow_bias.rgb,
+            attenuation * shadow_visibility,
             specular_strength,
             shininess,
             diffuse_accumulation,
@@ -271,7 +451,8 @@ void main()
     for (uint tile_light_index = 0U; tile_light_index < tile_light_span.point_and_spot.w;
          ++tile_light_index)
     {
-        SpotLight light = u_spot_lights[u_tile_spot_light_indices[tile_light_span.point_and_spot.z + tile_light_index]];
+        SpotLight light =
+            u_spot_lights[u_tile_spot_light_indices[tile_light_span.point_and_spot.z + tile_light_index]];
         vec3 to_light = light.position_range.xyz - world_position;
         float distance_squared = dot(to_light, to_light);
         vec3 light_direction = to_light * inversesqrt(max(distance_squared, 0.0001));
@@ -283,13 +464,21 @@ void main()
             0.0,
             1.0);
         float cone_mask = step(light.radiance_outer_cos.w, spot_cos);
+        float shadow_visibility = 1.0;
+        if (light.shadow_info.x >= 0)
+            shadow_visibility = tbx_sample_projected_light_shadow(
+                u_spot_shadows,
+                u_spot_shadow_maps[light.shadow_info.x],
+                world_position,
+                normal,
+                light_direction);
         tbx_accumulate_light(
             albedo,
             normal,
             view_direction,
             light_direction,
             light.radiance_outer_cos.rgb,
-            attenuation * cone * cone * cone_mask,
+            attenuation * cone * cone * cone_mask * shadow_visibility,
             specular_strength,
             shininess,
             diffuse_accumulation,
@@ -298,7 +487,8 @@ void main()
 
     for (uint tile_light_index = 0U; tile_light_index < tile_light_span.area.y; ++tile_light_index)
     {
-        AreaLight light = u_area_lights[u_tile_area_light_indices[tile_light_span.area.x + tile_light_index]];
+        AreaLight light =
+            u_area_lights[u_tile_area_light_indices[tile_light_span.area.x + tile_light_index]];
         vec3 closest_point = tbx_get_area_light_closest_point(light, world_position);
         vec3 to_light = closest_point - world_position;
         float distance_squared = dot(to_light, to_light);
@@ -307,13 +497,21 @@ void main()
             to_light * inversesqrt(max(distance_squared, 0.0001)),
             step(0.0001, distance_squared));
         float attenuation = tbx_get_area_light_attenuation(light, light_direction, distance_squared);
+        float shadow_visibility = 1.0;
+        if (light.shadow_info.x >= 0)
+            shadow_visibility = tbx_sample_projected_light_shadow(
+                u_area_shadows,
+                u_area_shadow_maps[light.shadow_info.x],
+                world_position,
+                normal,
+                light_direction);
         tbx_accumulate_light(
             albedo,
             normal,
             view_direction,
             light_direction,
             light.radiance_half_height.rgb,
-            attenuation,
+            attenuation * shadow_visibility,
             specular_strength,
             shininess,
             diffuse_accumulation,
