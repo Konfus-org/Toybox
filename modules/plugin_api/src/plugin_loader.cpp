@@ -10,6 +10,7 @@
 #include <memory>
 #include <numeric>
 #include <string>
+#include <system_error>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -98,6 +99,60 @@ namespace tbx
         return library_path;
     }
 
+    static std::filesystem::path make_plugin_shadow_copy_path(
+        const std::filesystem::path& library_path,
+        FileOperator& file_ops)
+    {
+        static uint64 next_shadow_copy_index = 0U;
+
+        const auto copy_directory = library_path.parent_path();
+        const auto copy_stem = library_path.stem().string();
+        const auto copy_extension = library_path.extension().string();
+
+        for (auto attempt = 0U; attempt < 128U; ++attempt)
+        {
+            const auto copy_name =
+                copy_stem + ".load_copy_" + std::to_string(++next_shadow_copy_index)
+                + copy_extension;
+            const auto copy_path = copy_directory / copy_name;
+            if (!file_ops.exists(copy_path))
+                return copy_path;
+        }
+
+        return {};
+    }
+
+    static std::filesystem::path try_create_plugin_shadow_copy(
+        const std::filesystem::path& library_path,
+        FileOperator& file_ops)
+    {
+        if (file_ops.get_type(library_path) != FileType::FILE)
+            return {};
+
+        const auto shadow_copy_path = make_plugin_shadow_copy_path(library_path, file_ops);
+        if (shadow_copy_path.empty())
+            return {};
+
+        const auto resolved_library_path = file_ops.resolve(library_path);
+        const auto resolved_shadow_copy_path = file_ops.resolve(shadow_copy_path);
+        auto copy_error = std::error_code {};
+        std::filesystem::copy_file(
+            resolved_library_path,
+            resolved_shadow_copy_path,
+            std::filesystem::copy_options::overwrite_existing,
+            copy_error);
+        if (!copy_error)
+            return shadow_copy_path;
+
+        TBX_TRACE_WARNING(
+            "Failed to create plugin shadow copy '{}' from '{}': {}. Falling back to the "
+            "original module path.",
+            resolved_shadow_copy_path.string(),
+            resolved_library_path.string(),
+            copy_error.message());
+        return {};
+    }
+
     static LoadedPlugin load_plugin_internal(
         const PluginMeta& meta,
         FileOperator& file_ops,
@@ -114,13 +169,44 @@ namespace tbx
         }
 
         const std::filesystem::path library_path = resolve_library_path(meta, file_ops);
-        auto lib = std::make_unique<SharedLibrary>(library_path);
+        auto load_path = library_path;
+        auto cleanup_path = std::filesystem::path {};
+
+        if (const auto shadow_copy_path = try_create_plugin_shadow_copy(library_path, file_ops);
+            !shadow_copy_path.empty())
+        {
+            load_path = shadow_copy_path;
+            cleanup_path = shadow_copy_path;
+        }
+
+        auto lib = std::make_unique<SharedLibrary>(load_path, cleanup_path);
+        if (!lib->is_valid())
+        {
+            auto load_error_message = std::string {};
+            if (lib->try_get_load_error_message(load_error_message))
+            {
+                TBX_TRACE_WARNING(
+                    "Failed to load plugin module '{}': {}",
+                    load_path.string(),
+                    load_error_message);
+            }
+            else
+            {
+                TBX_TRACE_WARNING(
+                    "Failed to load plugin module '{}'.",
+                    load_path.string());
+            }
+            return {};
+        }
 
         const std::string create_symbol = "create_" + meta.name;
         CreatePluginFn create = lib->get_symbol<CreatePluginFn>(create_symbol.c_str());
         if (!create)
         {
-            TBX_TRACE_WARNING("Entry point not found in plugin module: {}", create_symbol);
+            TBX_TRACE_WARNING(
+                "Entry point not found in plugin module '{}': {}",
+                load_path.string(),
+                create_symbol);
             return {};
         }
 
@@ -128,7 +214,10 @@ namespace tbx
         DestroyPluginFn destroy = lib->get_symbol<DestroyPluginFn>(destroy_symbol.c_str());
         if (!destroy)
         {
-            TBX_TRACE_WARNING("Destroy entry point not found in plugin module: {}", destroy_symbol);
+            TBX_TRACE_WARNING(
+                "Destroy entry point not found in plugin module '{}': {}",
+                load_path.string(),
+                destroy_symbol);
             return {};
         }
 

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "opengl_resource.h"
 #include "tbx/common/int.h"
 #include "tbx/graphics/material.h"
@@ -9,110 +9,89 @@
 #include <unordered_set>
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
-    /// <summary>OpenGL implementation of a shader stage resource.</summary>
-    /// <remarks>Purpose: Compiles shader source into an OpenGL shader object.
-    /// Ownership: Owns the OpenGL shader identifier.
-    /// Thread Safety: Not thread-safe; use on the render thread.</remarks>
+    struct OpenGlMaterialTexture
+    {
+        std::string name = "";
+        tbx::Uuid texture_id = {};
+        tbx::uint32 gl_texture_id = 0;
+        tbx::uint64 bindless_handle = 0;
+    };
+
+    struct OpenGlMaterialParams
+    {
+        tbx::Handle material_handle = {};
+        std::vector<tbx::MaterialParameter> parameters = {};
+        std::vector<OpenGlMaterialTexture> textures = {};
+    };
+
+    struct OpenGlMaterialBlockUniform
+    {
+        std::string name = {};
+        tbx::uint32 type = 0;
+        int offset = 0;
+        int size = 0;
+    };
+
     class OpenGlShader final : public IOpenGlResource
     {
       public:
-        /// <summary>Creates an OpenGL shader from source.</summary>
-        /// <remarks>Purpose: Compiles the shader source into a GPU shader object.
-        /// Ownership: Owns the created shader identifier.
-        /// Thread Safety: Construct on the render thread.</remarks>
-        explicit OpenGlShader(const ShaderSource& shader);
-
-        /// <summary>Destroys the OpenGL shader resource.</summary>
-        /// <remarks>Purpose: Releases the GPU shader identifier.
-        /// Ownership: Owns the GPU handle being destroyed.
-        /// Thread Safety: Destroy on the render thread.</remarks>
+        explicit OpenGlShader(const tbx::ShaderSource& shader);
+        OpenGlShader(const OpenGlShader&) = delete;
+        OpenGlShader& operator=(const OpenGlShader&) = delete;
+        OpenGlShader(OpenGlShader&& other) noexcept;
+        OpenGlShader& operator=(OpenGlShader&& other) noexcept;
         ~OpenGlShader() noexcept override;
 
-        /// <summary>Returns the shader stage type.</summary>
-        /// <remarks>Purpose: Allows inspection of the shader stage.
-        /// Ownership: Returns a value type; no ownership transfer.
-        /// Thread Safety: Safe to call on the render thread.</remarks>
-        ShaderType get_type() const;
+        tbx::ShaderType get_type() const;
+        bool compile();
+        bool is_compiled() const;
 
-        /// <summary>Binds the shader stage.</summary>
-        /// <remarks>Purpose: OpenGL stages are activated via programs; this is a no-op.
-        /// Ownership: No ownership transfer.
-        /// Thread Safety: Safe to call on the render thread.</remarks>
         void bind() override;
-
-        /// <summary>Unbinds the shader stage.</summary>
-        /// <remarks>Purpose: OpenGL stages are activated via programs; this is a no-op.
-        /// Ownership: No ownership transfer.
-        /// Thread Safety: Safe to call on the render thread.</remarks>
         void unbind() override;
 
-        /// <summary>Returns the OpenGL shader handle.</summary>
-        /// <remarks>Purpose: Used internally when linking programs.
-        /// Ownership: Returns a value type; no ownership transfer.
-        /// Thread Safety: Safe to call on the render thread.</remarks>
-        uint32 get_shader_id() const;
+        tbx::uint32 get_shader_id() const;
 
       private:
-        uint32 _shader_id = 0;
-        ShaderType _type = ShaderType::NONE;
+        std::string _source = {};
+        tbx::uint32 _shader_id = 0;
+        tbx::ShaderType _type = tbx::ShaderType::NONE;
     };
 
-    /// <summary>OpenGL implementation of a shader program resource.</summary>
-    /// <remarks>Purpose: Links shader stages into a GPU program.
-    /// Ownership: Owns the OpenGL program identifier.
-    /// Thread Safety: Not thread-safe; use on the render thread.</remarks>
     class OpenGlShaderProgram final : public IOpenGlResource
     {
       public:
-        /// <summary>Creates and links a shader program.</summary>
-        /// <remarks>Purpose: Links provided shader stages into a program.
-        /// Ownership: Owns the created program identifier.
-        /// Thread Safety: Construct on the render thread.</remarks>
         explicit OpenGlShaderProgram(const std::vector<std::shared_ptr<OpenGlShader>>& shaders);
-
-        /// <summary>Destroys the shader program.</summary>
-        /// <remarks>Purpose: Releases the GPU program identifier.
-        /// Ownership: Owns the GPU handle being destroyed.
-        /// Thread Safety: Destroy on the render thread.</remarks>
+        OpenGlShaderProgram(const OpenGlShaderProgram&) = delete;
+        OpenGlShaderProgram& operator=(const OpenGlShaderProgram&) = delete;
+        OpenGlShaderProgram(OpenGlShaderProgram&& other) noexcept;
+        OpenGlShaderProgram& operator=(OpenGlShaderProgram&& other) noexcept;
         ~OpenGlShaderProgram() noexcept override;
 
-        /// <summary>Binds the program for rendering.</summary>
-        /// <remarks>Purpose: Binds the program so subsequent draw calls use it.
-        /// Ownership: The program retains ownership of its GPU handle.
-        /// Thread Safety: Call only on the render thread.</remarks>
         void bind() override;
-
-        /// <summary>Unbinds the program.</summary>
-        /// <remarks>Purpose: Unbinds the program from the pipeline.
-        /// Ownership: The program retains ownership of its GPU handle.
-        /// Thread Safety: Call only on the render thread.</remarks>
         void unbind() override;
 
-        /// <summary>Uploads a uniform value to the program.</summary>
-        /// <remarks>Purpose: Updates uniform state used by the program.
-        /// Ownership: Copies uniform data; caller retains CPU ownership.
-        /// Thread Safety: Call only on the render thread.</remarks>
-        void upload(const MaterialParameter& uniform);
+        bool try_upload(const tbx::MaterialParameter& uniform);
+        bool try_upload(const OpenGlMaterialParams& params);
 
-        /// <summary>Attempts to upload a uniform value to the program.</summary>
-        /// <remarks>Purpose: Updates uniform state without warning on missing uniforms.
-        /// Ownership: Copies uniform data; caller retains CPU ownership.
-        /// Thread Safety: Call only on the render thread.</remarks>
-        bool try_upload(const MaterialParameter& uniform);
-
-        /// <summary>Returns the OpenGL program handle.</summary>
-        /// <remarks>Purpose: Allows inspection of the linked program identifier.
-        /// Ownership: Returns a value type; no ownership transfer.
-        /// Thread Safety: Safe to call on the render thread.</remarks>
-        uint32 get_program_id() const;
+        tbx::uint32 get_program_id() const;
+        int get_instance_model_attribute_location() const;
+        int get_instance_id_attribute_location() const;
 
       private:
         int get_cached_uniform_location(const std::string& name);
 
-        uint32 _program_id = 0;
+        tbx::uint32 _program_id = 0;
         std::unordered_map<std::string, int> _uniform_locations = {};
+        std::unordered_map<std::string, tbx::uint64> _bindless_sampler_layout = {};
+        std::vector<std::string> _sampler_uniform_layout = {};
         std::unordered_set<std::string> _logged_missing_uniforms = {};
+        tbx::uint32 _material_uniform_buffer = 0;
+        int _material_uniform_block_size = 0;
+        std::vector<OpenGlMaterialBlockUniform> _material_uniforms = {};
+        bool _has_material_uniform_block = false;
+        int _instance_model_attribute_location = 8;
+        int _instance_id_attribute_location = 12;
     };
 }

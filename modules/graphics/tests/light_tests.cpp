@@ -19,6 +19,7 @@ namespace tbx::tests::graphics
         EXPECT_NEAR(light.color.a, 1.0f, 1e-5f);
         EXPECT_NEAR(light.intensity, 1.0f, 1e-5f);
         EXPECT_NEAR(light.range, 10.0f, 1e-5f);
+        EXPECT_TRUE(light.shadows_enabled);
     }
 
     // Validates default SpotLight settings.

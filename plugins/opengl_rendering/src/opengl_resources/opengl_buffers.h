@@ -1,234 +1,170 @@
 #pragma once
 #include "opengl_resource.h"
-#include "opengl_texture.h"
 #include "tbx/common/int.h"
+#include "tbx/graphics/graphics_settings.h"
 #include "tbx/graphics/mesh.h"
-#include "tbx/graphics/texture.h"
 #include "tbx/graphics/vertex.h"
 #include "tbx/math/size.h"
-#include <memory>
+#include <glad/glad.h>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
-    /// <summary>Defines how a framebuffer is mapped into a presentation destination.</summary>
-    /// <remarks>Purpose: Controls scaling behavior during framebuffer blit presentation.
-    /// Ownership: Value semantics only; no ownership transfer.
-    /// Thread Safety: Immutable enum safe to read across threads.</remarks>
-    enum class OpenGlFrameBufferPresentMode
-    {
-        ASPECT_FIT,
-        STRETCH
-    };
-
-    /// <summary>Owns an OpenGL framebuffer with color and depth-stencil attachments.</summary>
-    /// <remarks>Purpose: Provides a resizable render target for multi-pass rendering.
-    /// Ownership: Owns framebuffer, color texture, and depth-stencil renderbuffer handles.
-    /// Thread Safety: Not thread-safe; use on the render thread.</remarks>
-    class OpenGlFrameBuffer final : public IOpenGlResource
-    {
-      public:
-        /// <summary>Creates an empty framebuffer object.</summary>
-        /// <remarks>Purpose: Defers attachment allocation until set_resolution() is called.
-        /// Ownership: Owns no GPU handles until initialized.
-        /// Thread Safety: Construct on the render thread.</remarks>
-        OpenGlFrameBuffer() = default;
-
-        /// <summary>Creates and allocates a framebuffer for the provided size.</summary>
-        /// <remarks>Purpose: Initializes framebuffer attachments immediately.
-        /// Ownership: Owns created GPU handles.
-        /// Thread Safety: Construct on the render thread.</remarks>
-        explicit OpenGlFrameBuffer(const Size& resolution);
-
-        /// <summary>Creates and allocates a framebuffer with explicit filtering.</summary>
-        /// <remarks>Purpose: Initializes framebuffer attachments and color sampling mode.
-        /// Ownership: Owns created GPU handles.
-        /// Thread Safety: Construct on the render thread.</remarks>
-        OpenGlFrameBuffer(const Size& resolution, TextureFilter filtering);
-
-        OpenGlFrameBuffer(const OpenGlFrameBuffer&) = delete;
-        OpenGlFrameBuffer& operator=(const OpenGlFrameBuffer&) = delete;
-
-        /// <summary>Destroys the framebuffer and all attachments.</summary>
-        /// <remarks>Purpose: Releases owned GPU handles.
-        /// Ownership: Destroys GPU resources owned by this instance.
-        /// Thread Safety: Destroy on the render thread.</remarks>
-        ~OpenGlFrameBuffer() noexcept override;
-
-        /// <summary>Binds this framebuffer for rendering.</summary>
-        /// <remarks>Purpose: Sets GL_FRAMEBUFFER binding to this instance.
-        /// Ownership: Does not transfer ownership.
-        /// Thread Safety: Call on the render thread.</remarks>
-        void bind() override;
-
-        /// <summary>Unbinds this framebuffer from rendering.</summary>
-        /// <remarks>Purpose: Restores GL_FRAMEBUFFER binding to default framebuffer.
-        /// Ownership: Does not transfer ownership.
-        /// Thread Safety: Call on the render thread.</remarks>
-        void unbind() override;
-
-        /// <summary>Returns the allocated framebuffer resolution.</summary>
-        /// <remarks>Purpose: Exposes render target dimensions used for rasterization.
-        /// Ownership: Returns value; no ownership transfer.
-        /// Thread Safety: Safe on render thread.</remarks>
-        Size get_resolution() const;
-
-        /// <summary>Returns the OpenGL framebuffer handle.</summary>
-        /// <remarks>Purpose: Allows use in low-level OpenGL operations.
-        /// Ownership: Returns value; no ownership transfer.
-        /// Thread Safety: Safe on render thread.</remarks>
-        uint32 get_framebuffer_id() const;
-
-        /// <summary>Returns the OpenGL color attachment texture handle.</summary>
-        /// <remarks>Purpose: Allows sampling/blitting from the color buffer.
-        /// Ownership: Returns value; no ownership transfer.
-        /// Thread Safety: Safe on render thread.</remarks>
-        uint32 get_color_texture_id() const;
-
-        /// <summary>Returns shared ownership of the color attachment texture object.</summary>
-        /// <remarks>Purpose: Exposes the runtime OpenGL texture wrapper for registration.
-        /// Ownership: Returns shared ownership.
-        /// Thread Safety: Not thread-safe; use on render thread.</remarks>
-        std::shared_ptr<OpenGlTexture> get_color_texture() const;
-
-        /// <summary>Updates the color attachment filtering mode.</summary>
-        /// <remarks>Purpose: Controls min/mag sampling behavior used when presenting this
-        /// framebuffer.
-        /// Ownership: Stores value in this framebuffer; no ownership transfer.
-        /// Thread Safety: Call on the render thread.</remarks>
-        void set_filtering(TextureFilter filtering);
-
-        /// <summary>Returns the active color attachment filtering mode.</summary>
-        /// <remarks>Purpose: Exposes how the framebuffer color texture is sampled during blit.
-        /// Ownership: Returns value; no ownership transfer.
-        /// Thread Safety: Safe on render thread.</remarks>
-        TextureFilter get_filtering() const;
-
-        /// <summary>Resizes the framebuffer attachments.</summary>
-        /// <remarks>Purpose: Recreates attachments to match the requested render resolution.
-        /// Ownership: Replaces and owns newly created GPU handles.
-        /// Thread Safety: Call on the render thread.</remarks>
-        void set_resolution(const Size& resolution);
-
-        /// <summary>Resizes the framebuffer attachments.</summary>
-        /// <remarks>Purpose: Backward-compatible alias for set_resolution().
-        /// Ownership: Replaces and owns newly created GPU handles.
-        /// Thread Safety: Call on the render thread.</remarks>
-        void set_size(const Size& size);
-
-        /// <summary>Presents this framebuffer into the requested destination framebuffer.</summary>
-        /// <remarks>Purpose: Blits the framebuffer color attachment into a destination target with
-        /// configurable scaling mode.
-        /// Ownership: Does not transfer ownership of source or destination framebuffers.
-        /// Thread Safety: Call on the render thread with a current OpenGL context.</remarks>
-        void preset(
-            uint32 destination_framebuffer_id,
-            const Size& destination_size,
-            OpenGlFrameBufferPresentMode mode) const;
-
-      private:
-        uint32 _framebuffer_id = 0;
-        std::shared_ptr<OpenGlTexture> _color_texture = nullptr;
-        uint32 _depth_stencil_renderbuffer_id = 0;
-        Size _resolution = {};
-        TextureFilter _filtering = TextureFilter::LINEAR;
-    };
-
-    /// <summary>Owns an OpenGL vertex buffer object.</summary>
-    /// <remarks>Purpose: Uploads vertex data and configures attribute pointers.
-    /// Ownership: Owns the OpenGL buffer identifier and releases it on destruction.
-    /// Thread Safety: Not thread-safe; use on the render thread.</remarks>
+    /// <summary>OpenGL vertex buffer resource.</summary>
+    /// <remarks>Purpose: Owns vertex data uploaded to GPU memory and configures VAO attribute
+    /// state. Ownership: Owns the OpenGL buffer handle and never owns caller-provided CPU data.
+    /// Thread Safety: Not thread-safe; call from the render thread.</remarks>
     class OpenGlVertexBuffer final : public IOpenGlResource
     {
       public:
         OpenGlVertexBuffer();
-        ~OpenGlVertexBuffer() noexcept;
+        OpenGlVertexBuffer(const OpenGlVertexBuffer&) = delete;
+        OpenGlVertexBuffer& operator=(const OpenGlVertexBuffer&) = delete;
+        OpenGlVertexBuffer(OpenGlVertexBuffer&& other) noexcept;
+        OpenGlVertexBuffer& operator=(OpenGlVertexBuffer&& other) noexcept;
+        ~OpenGlVertexBuffer() noexcept override;
 
-        /// <summary>Uploads vertex data to the buffer.</summary>
-        /// <remarks>Purpose: Copies vertex data into GPU memory.
-        /// Ownership: Copies from the provided buffer; caller retains CPU ownership.
-        /// Thread Safety: Call only on the render thread.</remarks>
-        void upload(const VertexBuffer& buffer);
-
-        /// <summary>Adds a vertex attribute pointer for the currently bound VAO.</summary>
-        /// <remarks>Purpose: Configures how vertex data is read by the shader.
-        /// Ownership: Does not transfer ownership of any resources.
-        /// Thread Safety: Call only on the render thread.</remarks>
-        void add_attribute(
-            uint32 index,
-            uint32 size,
-            uint32 type,
-            uint32 stride,
-            uint32 offset,
-            bool normalized) const;
-
-        /// <summary>Binds the vertex buffer to GL_ARRAY_BUFFER.</summary>
-        /// <remarks>Purpose: Makes the buffer active for subsequent operations.
-        /// Ownership: The instance retains ownership of the buffer.
-        /// Thread Safety: Call only on the render thread.</remarks>
+        void upload(tbx::uint32 vertex_array_id, const tbx::VertexBuffer& buffer);
         void bind() override;
-
-        /// <summary>Unbinds the vertex buffer from GL_ARRAY_BUFFER.</summary>
-        /// <remarks>Purpose: Clears the buffer binding.
-        /// Ownership: The instance retains ownership of the buffer.
-        /// Thread Safety: Call only on the render thread.</remarks>
         void unbind() override;
 
-        /// <summary>Returns the number of vertices stored in the buffer.</summary>
-        /// <remarks>Purpose: Allows draw calls to know the vertex count.
-        /// Ownership: Returns a value type; no ownership transfer.
-        /// Thread Safety: Safe to call on the render thread.</remarks>
-        uint32 get_count() const;
+        tbx::uint32 get_count() const;
 
       private:
-        uint32 _buffer_id = 0;
-        uint32 _count = 0;
+        tbx::uint32 _buffer_id = 0;
+        tbx::uint32 _count = 0;
     };
 
-    /// <summary>Owns an OpenGL index buffer object.</summary>
-    /// <remarks>Purpose: Uploads index data for indexed draw calls.
-    /// Ownership: Owns the OpenGL buffer identifier and releases it on destruction.
-    /// Thread Safety: Not thread-safe; use on the render thread.</remarks>
+    /// <summary>OpenGL index buffer resource.</summary>
+    /// <remarks>Purpose: Owns index data uploaded to GPU memory and binds it to a VAO.
+    /// Ownership: Owns the OpenGL buffer handle and never owns caller-provided CPU data.
+    /// Thread Safety: Not thread-safe; call from the render thread.</remarks>
     class OpenGlIndexBuffer final : public IOpenGlResource
     {
       public:
-        /// <summary>Creates an OpenGL index buffer.</summary>
-        /// <remarks>Purpose: Allocates the underlying GPU buffer handle.
-        /// Ownership: The instance owns the created buffer.
-        /// Thread Safety: Construct on the render thread.</remarks>
         OpenGlIndexBuffer();
+        OpenGlIndexBuffer(const OpenGlIndexBuffer&) = delete;
+        OpenGlIndexBuffer& operator=(const OpenGlIndexBuffer&) = delete;
+        OpenGlIndexBuffer(OpenGlIndexBuffer&& other) noexcept;
+        OpenGlIndexBuffer& operator=(OpenGlIndexBuffer&& other) noexcept;
+        ~OpenGlIndexBuffer() noexcept override;
 
-        /// <summary>Destroys the OpenGL index buffer.</summary>
-        /// <remarks>Purpose: Releases the GPU buffer handle.
-        /// Ownership: The instance owns the buffer being destroyed.
-        /// Thread Safety: Destroy on the render thread.</remarks>
-        ~OpenGlIndexBuffer() noexcept;
-
-        /// <summary>Uploads index data to the buffer.</summary>
-        /// <remarks>Purpose: Copies index data into GPU memory.
-        /// Ownership: Copies from the provided buffer; caller retains CPU ownership.
-        /// Thread Safety: Call only on the render thread.</remarks>
-        void upload(const IndexBuffer& buffer);
-
-        /// <summary>Binds the index buffer to GL_ELEMENT_ARRAY_BUFFER.</summary>
-        /// <remarks>Purpose: Makes the buffer active for indexed draw calls.
-        /// Ownership: The instance retains ownership of the buffer.
-        /// Thread Safety: Call only on the render thread.</remarks>
+        void upload(tbx::uint32 vertex_array_id, const tbx::IndexBuffer& buffer);
         void bind() override;
-
-        /// <summary>Unbinds the index buffer from GL_ELEMENT_ARRAY_BUFFER.</summary>
-        /// <remarks>Purpose: Clears the buffer binding.
-        /// Ownership: The instance retains ownership of the buffer.
-        /// Thread Safety: Call only on the render thread.</remarks>
         void unbind() override;
 
-        /// <summary>Returns the number of indices stored in the buffer.</summary>
-        /// <remarks>Purpose: Allows draw calls to know the index count.
-        /// Ownership: Returns a value type; no ownership transfer.
-        /// Thread Safety: Safe to call on the render thread.</remarks>
-        uint32 get_count() const;
+        tbx::uint32 get_count() const;
 
       private:
-        uint32 _buffer_id = 0;
-        uint32 _count = 0;
+        tbx::uint32 _buffer_id = 0;
+        tbx::uint32 _count = 0;
+    };
+
+    /// <summary>
+    /// Purpose: Owns deferred-rendering attachments used by future multi-pass rendering and debug
+    /// presentation.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns OpenGL framebuffer and texture handles for the lifetime of this object.
+    /// Thread Safety: Not thread-safe; use only on the active render thread/context.
+    /// </remarks>
+    class OpenGlGBuffer final : public IOpenGlResource
+    {
+      public:
+        OpenGlGBuffer() = default;
+        OpenGlGBuffer(const OpenGlGBuffer&) = delete;
+        OpenGlGBuffer& operator=(const OpenGlGBuffer&) = delete;
+        ~OpenGlGBuffer() noexcept override;
+
+        /// <summary>
+        /// Purpose: Recreates render targets to match the supplied dimensions.
+        /// Ownership: Keeps ownership of all allocated OpenGL objects.
+        /// Thread Safety: Not thread-safe; caller must synchronize access.
+        /// </summary>
+        void resize(const tbx::Size& size);
+
+        /// <summary>
+        /// Purpose: Prepares the deferred framebuffer for geometry rendering.
+        /// Ownership: Does not transfer framebuffer ownership.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        /// </summary>
+        void prepare_geometry_pass() const;
+
+        /// <summary>
+        /// Purpose: Copies the selected render stage texture to the default framebuffer.
+        /// Ownership: Does not transfer ownership of any OpenGL object.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        /// </summary>
+        void present(tbx::RenderStage render_stage, const tbx::Size& viewport_size) const;
+
+        /// <summary>
+        /// Purpose: Prepares the deferred framebuffer for passes that only write final color.
+        /// Ownership: Does not transfer ownership of any OpenGL object.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        /// </summary>
+        void bind() override;
+
+        /// <summary>
+        /// Purpose: Restores rendering to the default framebuffer.
+        /// Ownership: Does not transfer ownership of any OpenGL object.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        /// </summary>
+        void unbind() override;
+
+        /// <summary>
+        /// Purpose: Returns the albedo texture used by deferred lighting.
+        /// Ownership: Returns a non-owning OpenGL texture handle.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        /// </summary>
+        GLuint get_albedo_texture() const;
+
+        /// <summary>
+        /// Purpose: Returns the normal texture used by deferred lighting.
+        /// Ownership: Returns a non-owning OpenGL texture handle.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        /// </summary>
+        GLuint get_normal_texture() const;
+
+        /// <summary>
+        /// Purpose: Returns the emissive texture used by deferred lighting.
+        /// Ownership: Returns a non-owning OpenGL texture handle.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        /// </summary>
+        GLuint get_emissive_texture() const;
+
+        /// <summary>
+        /// Purpose: Returns the packed material-properties texture used by deferred lighting.
+        /// Ownership: Returns a non-owning OpenGL texture handle.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        /// </summary>
+        GLuint get_material_texture() const;
+
+        /// <summary>
+        /// Purpose: Returns the depth texture used for position reconstruction.
+        /// Ownership: Returns a non-owning OpenGL texture handle.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        /// </summary>
+        GLuint get_depth_texture() const;
+
+      private:
+        static GLuint create_color_attachment(
+            GLenum internal_format,
+            tbx::uint32 width,
+            tbx::uint32 height);
+        static GLuint create_depth_attachment(tbx::uint32 width, tbx::uint32 height);
+        static void delete_texture(GLuint& texture_id);
+        void destroy();
+
+      private:
+        tbx::Size _size = {0U, 0U};
+        GLuint _geometry_framebuffer = 0U;
+        GLuint _final_color_framebuffer = 0U;
+        GLuint _final_color = 0U;
+        GLuint _geometry_preview_color = 0U;
+        GLuint _albedo = 0U;
+        GLuint _normal = 0U;
+        GLuint _depth_preview = 0U;
+        GLuint _emissive = 0U;
+        GLuint _material = 0U;
+        GLuint _depth = 0U;
     };
 }

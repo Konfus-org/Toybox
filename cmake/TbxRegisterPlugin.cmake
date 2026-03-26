@@ -137,6 +137,10 @@ function(tbx_register_plugin)
                 WINDOWS_EXPORT_ALL_SYMBOLS ON)
     endif()
 
+    # Ensure plugin declarations that use TBX_PLUGIN_API resolve to dllexport while
+    # building the plugin target itself.
+    target_compile_definitions(${TBX_PLUGIN_TARGET} PRIVATE TBX_PLUGIN_EXPORTING_SYMBOLS)
+
     set(register_macro "TBX_REGISTER_PLUGIN")
 
     if(DEFINED TBX_PLUGIN_CATEGORY)
@@ -221,6 +225,10 @@ function(tbx_register_plugin)
             set(resolved_header "${CMAKE_CURRENT_SOURCE_DIR}/${header_input}")
         endif()
 
+        if(NOT resolved_header AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/include/${header_input}")
+            set(resolved_header "${CMAKE_CURRENT_SOURCE_DIR}/include/${header_input}")
+        endif()
+
         if(NOT resolved_header)
             get_target_property(plugin_sources ${TBX_PLUGIN_TARGET} SOURCES)
             if(plugin_sources AND NOT plugin_sources STREQUAL "plugin_sources-NOTFOUND")
@@ -259,6 +267,9 @@ function(tbx_register_plugin)
         string(REPLACE "\\" "/" header_include "${resolved_header}")
     else()
         string(REPLACE "\\" "/" header_include "${header_include}")
+        if(header_include MATCHES "^include/")
+            string(REGEX REPLACE "^include/" "" header_include "${header_include}")
+        endif()
     endif()
     set(PLUGIN_HEADER ${header_include})
 

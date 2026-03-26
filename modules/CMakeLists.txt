@@ -5,7 +5,7 @@ message(STATUS "")
 message(STATUS "Configuring Toybox Modules:")
 include(TbxSetupModule)
 
-if (CMAKE_CXX_FLAGS MATCHES "-fno-rtti")
+if(CMAKE_CXX_FLAGS MATCHES "-fno-rtti")
     message(FATAL_ERROR "Tbx: RTTI must be enabled for Toybox")
 endif()
 

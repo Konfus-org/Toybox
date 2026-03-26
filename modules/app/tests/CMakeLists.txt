@@ -13,7 +13,7 @@ file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
 target_precompile_headers(TbxAppTests PRIVATE "pch.h")
 target_sources(TbxAppTests PRIVATE ${TEST_SOURCES})
 target_include_directories(TbxAppTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-set_target_properties(TbxAppTests PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+set_target_properties(TbxAppTests PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 
 target_link_libraries(TbxAppTests PRIVATE
     Tbx::App

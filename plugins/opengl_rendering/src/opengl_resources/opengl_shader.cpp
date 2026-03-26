@@ -1,27 +1,44 @@
-﻿#include "opengl_shader.h"
+#include "opengl_shader.h"
+#include "opengl_bindless.h"
 #include "tbx/common/int.h"
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <string>
+#include <string_view>
 #include <type_traits>
+#include <utility>
 #include <variant>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
-    static GLenum to_gl_shader_type(ShaderType type)
+    static constexpr auto MATERIAL_SURFACE_UBO_BINDING = tbx::uint32 {9U};
+
+    static std::string normalize_uniform_name(const std::string& name)
+    {
+        if (name.find("u_") != 0)
+            return "u_" + name;
+        return name;
+    }
+
+    static tbx::uint32 take_gl_handle(tbx::uint32& id) noexcept
+    {
+        return std::exchange(id, 0);
+    }
+
+    static GLenum to_gl_shader_type(tbx::ShaderType type)
     {
         switch (type)
         {
-            case ShaderType::VERTEX:
+            case tbx::ShaderType::VERTEX:
                 return GL_VERTEX_SHADER;
-            case ShaderType::TESSELATION:
+            case tbx::ShaderType::TESSELATION:
                 return GL_TESS_EVALUATION_SHADER;
-            case ShaderType::GEOMETRY:
+            case tbx::ShaderType::GEOMETRY:
                 return GL_GEOMETRY_SHADER;
-            case ShaderType::FRAGMENT:
+            case tbx::ShaderType::FRAGMENT:
                 return GL_FRAGMENT_SHADER;
-            case ShaderType::COMPUTE:
+            case tbx::ShaderType::COMPUTE:
                 return GL_COMPUTE_SHADER;
             default:
                 TBX_ASSERT(false, "OpenGL rendering: unsupported shader type.");
@@ -29,34 +46,33 @@ namespace tbx::plugins
         }
     }
 
-    static void handle_shader_compile_error(uint32 shader_id, ShaderType type)
+    static void handle_shader_compile_error(tbx::uint32 shader_id, tbx::ShaderType type)
     {
         GLint length = 0;
         glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &length);
-        std::string error_log(static_cast<uint64>(length), '\0');
+        std::string error_log(static_cast<tbx::uint64>(length), '\0');
         glGetShaderInfoLog(shader_id, length, &length, error_log.data());
-        TBX_ASSERT(
-            false,
+        TBX_TRACE_WARNING(
             "OpenGL rendering: shader compilation failure (type {}). {}",
             static_cast<int>(type),
             error_log);
     }
 
-    static void handle_program_link_error(uint32 program_id)
+    static void handle_program_link_error(tbx::uint32 program_id)
     {
         GLint length = 0;
         glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &length);
-        std::string error_log(static_cast<uint64>(length), '\0');
+        std::string error_log(static_cast<tbx::uint64>(length), '\0');
         glGetProgramInfoLog(program_id, length, &length, error_log.data());
-        TBX_ASSERT(false, "OpenGL rendering: shader program link failure. {}", error_log);
+        TBX_TRACE_WARNING("OpenGL rendering: shader program link failure. {}", error_log);
     }
 
-    static GLint uniform_location(uint32 program_id, const std::string& name)
+    static GLint uniform_location(tbx::uint32 program_id, const std::string& name)
     {
         return glGetUniformLocation(program_id, name.c_str());
     }
 
-    static void upload_uniform_value(GLint location, const UniformData& data)
+    static void upload_uniform_value(GLint location, const tbx::UniformData& data)
     {
         std::visit(
             [location](const auto& value)
@@ -78,27 +94,27 @@ namespace tbx::plugins
                 {
                     glUniform1f(location, static_cast<float>(value));
                 }
-                else if constexpr (std::is_same_v<ValueType, Vec2>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Vec2>)
                 {
                     glUniform2f(location, value.x, value.y);
                 }
-                else if constexpr (std::is_same_v<ValueType, Vec3>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Vec3>)
                 {
                     glUniform3f(location, value.x, value.y, value.z);
                 }
-                else if constexpr (std::is_same_v<ValueType, Vec4>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Vec4>)
                 {
                     glUniform4f(location, value.x, value.y, value.z, value.w);
                 }
-                else if constexpr (std::is_same_v<ValueType, Color>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Color>)
                 {
                     glUniform4f(location, value.r, value.g, value.b, value.a);
                 }
-                else if constexpr (std::is_same_v<ValueType, Mat3>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Mat3>)
                 {
                     glUniformMatrix3fv(location, 1, GL_FALSE, glm::value_ptr(value));
                 }
-                else if constexpr (std::is_same_v<ValueType, Mat4>)
+                else if constexpr (std::is_same_v<ValueType, tbx::Mat4>)
                 {
                     glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));
                 }
@@ -110,31 +126,97 @@ namespace tbx::plugins
             data);
     }
 
-    OpenGlShader::OpenGlShader(const ShaderSource& shader)
-        : _type(shader.type)
+    static bool is_matching_parameter_name(
+        const std::string& candidate_name,
+        const std::string_view requested_name)
+    {
+        if (candidate_name == requested_name)
+            return true;
+        if (candidate_name.size() > 2U && candidate_name[0] == 'u' && candidate_name[1] == '_')
+            return std::string_view(candidate_name).substr(2U) == requested_name;
+        return false;
+    }
+
+    static const tbx::MaterialParameter* try_find_material_parameter(
+        const OpenGlMaterialParams& params,
+        const std::string_view parameter_name)
+    {
+        for (const auto& parameter : params.parameters)
+            if (is_matching_parameter_name(parameter.name, parameter_name))
+                return &parameter;
+
+        return nullptr;
+    }
+
+    static float get_material_parameter_float(
+        const OpenGlMaterialParams& params,
+        const std::string_view parameter_name,
+        const float fallback)
+    {
+        const auto* parameter = try_find_material_parameter(params, parameter_name);
+        if (parameter == nullptr)
+            return fallback;
+
+        if (const auto* value = std::get_if<float>(&parameter->data))
+            return *value;
+        if (const auto* value = std::get_if<double>(&parameter->data))
+            return static_cast<float>(*value);
+        if (const auto* value = std::get_if<int>(&parameter->data))
+            return static_cast<float>(*value);
+
+        return fallback;
+    }
+
+    static bool is_default_lit_surface_parameter(const std::string& parameter_name)
+    {
+        const auto normalized_name = normalize_uniform_name(parameter_name);
+        return normalized_name == "u_specular_strength"
+               || normalized_name == "u_shininess_strength"
+               || normalized_name == "u_alpha_cutoff"
+               || normalized_name == "u_transparency_amount" || normalized_name == "u_exposure"
+               || normalized_name == "u_diffuse_strength"
+               || normalized_name == "u_normal_strength"
+               || normalized_name == "u_emissive_strength";
+    }
+
+    struct alignas(16) MaterialSurfaceBlockGpu
+    {
+        tbx::Vec4 primary = tbx::Vec4(0.0F);
+        tbx::Vec4 secondary = tbx::Vec4(0.0F);
+        tbx::Vec4 map_strengths = tbx::Vec4(0.0F);
+    };
+
+    OpenGlShader::OpenGlShader(const tbx::ShaderSource& shader)
+        : _source(shader.source)
+        , _type(shader.type)
     {
         TBX_ASSERT(
-            shader.type != ShaderType::NONE,
+            shader.type != tbx::ShaderType::NONE,
             "OpenGL rendering: shader source type must be a concrete stage.");
         TBX_ASSERT(!shader.source.empty(), "OpenGL rendering: shader source must not be empty.");
+    }
 
-        const auto gl_type = to_gl_shader_type(shader.type);
-        _shader_id = glCreateShader(gl_type);
+    OpenGlShader::OpenGlShader(OpenGlShader&& other) noexcept
+        : _source(std::move(other._source))
+        , _shader_id(take_gl_handle(other._shader_id))
+        , _type(other._type)
+    {
+        other._type = tbx::ShaderType::NONE;
+    }
 
-        const auto* source = shader.source.c_str();
-        glShaderSource(_shader_id, 1, &source, nullptr);
-        glCompileShader(_shader_id);
+    OpenGlShader& OpenGlShader::operator=(OpenGlShader&& other) noexcept
+    {
+        if (this == &other)
+            return *this;
 
-        GLint compiled = 0;
-        glGetShaderiv(_shader_id, GL_COMPILE_STATUS, &compiled);
-        if (compiled == GL_FALSE)
-        {
-            handle_shader_compile_error(_shader_id, shader.type);
+        if (_shader_id != 0)
             glDeleteShader(_shader_id);
-            _shader_id = 0;
-        }
 
-        TBX_ASSERT(_shader_id != 0, "OpenGL rendering: failed to create a valid shader object.");
+        _source = std::move(other._source);
+        _shader_id = take_gl_handle(other._shader_id);
+        _type = other._type;
+        other._type = tbx::ShaderType::NONE;
+        return *this;
     }
 
     OpenGlShader::~OpenGlShader() noexcept
@@ -145,16 +227,51 @@ namespace tbx::plugins
         }
     }
 
-    ShaderType OpenGlShader::get_type() const
+    tbx::ShaderType OpenGlShader::get_type() const
     {
         return _type;
+    }
+
+    bool OpenGlShader::compile()
+    {
+        if (_shader_id != 0)
+            return true;
+
+        if (_type == tbx::ShaderType::NONE || _source.empty())
+            return false;
+
+        const auto gl_type = to_gl_shader_type(_type);
+        _shader_id = glCreateShader(gl_type);
+        if (_shader_id == 0)
+            return false;
+
+        const auto* source = _source.c_str();
+        glShaderSource(_shader_id, 1, &source, nullptr);
+        glCompileShader(_shader_id);
+
+        GLint compiled = 0;
+        glGetShaderiv(_shader_id, GL_COMPILE_STATUS, &compiled);
+        if (compiled == GL_FALSE)
+        {
+            handle_shader_compile_error(_shader_id, _type);
+            glDeleteShader(_shader_id);
+            _shader_id = 0;
+            return false;
+        }
+
+        return true;
+    }
+
+    bool OpenGlShader::is_compiled() const
+    {
+        return _shader_id != 0;
     }
 
     void OpenGlShader::bind() {}
 
     void OpenGlShader::unbind() {}
 
-    uint32 OpenGlShader::get_shader_id() const
+    tbx::uint32 OpenGlShader::get_shader_id() const
     {
         return _shader_id;
     }
@@ -196,6 +313,76 @@ namespace tbx::plugins
                 glDetachShader(_program_id, shader->get_shader_id());
             }
         }
+
+        const auto material_surface_block_index =
+            glGetUniformBlockIndex(_program_id, "MaterialSurfaceBlock");
+        if (material_surface_block_index != GL_INVALID_INDEX)
+        {
+            _has_material_uniform_block = true;
+            auto block_size = GLint {0};
+            glGetActiveUniformBlockiv(
+                _program_id,
+                material_surface_block_index,
+                GL_UNIFORM_BLOCK_DATA_SIZE,
+                &block_size);
+            _material_uniform_block_size = block_size > 0
+                                               ? block_size
+                                               : static_cast<int>(sizeof(MaterialSurfaceBlockGpu));
+            glUniformBlockBinding(
+                _program_id,
+                material_surface_block_index,
+                MATERIAL_SURFACE_UBO_BINDING);
+        }
+
+        _instance_model_attribute_location = 8;
+        _instance_id_attribute_location = 12;
+    }
+
+    OpenGlShaderProgram::OpenGlShaderProgram(OpenGlShaderProgram&& other) noexcept
+        : _program_id(take_gl_handle(other._program_id))
+        , _uniform_locations(std::move(other._uniform_locations))
+        , _bindless_sampler_layout(std::move(other._bindless_sampler_layout))
+        , _sampler_uniform_layout(std::move(other._sampler_uniform_layout))
+        , _logged_missing_uniforms(std::move(other._logged_missing_uniforms))
+        , _material_uniform_buffer(take_gl_handle(other._material_uniform_buffer))
+        , _material_uniform_block_size(other._material_uniform_block_size)
+        , _material_uniforms(std::move(other._material_uniforms))
+        , _has_material_uniform_block(other._has_material_uniform_block)
+        , _instance_model_attribute_location(other._instance_model_attribute_location)
+        , _instance_id_attribute_location(other._instance_id_attribute_location)
+    {
+        other._material_uniform_block_size = 0;
+        other._has_material_uniform_block = false;
+        other._instance_model_attribute_location = 8;
+        other._instance_id_attribute_location = 12;
+    }
+
+    OpenGlShaderProgram& OpenGlShaderProgram::operator=(OpenGlShaderProgram&& other) noexcept
+    {
+        if (this == &other)
+            return *this;
+
+        if (_program_id != 0)
+            glDeleteProgram(_program_id);
+        if (_material_uniform_buffer != 0)
+            glDeleteBuffers(1, &_material_uniform_buffer);
+
+        _program_id = take_gl_handle(other._program_id);
+        _uniform_locations = std::move(other._uniform_locations);
+        _bindless_sampler_layout = std::move(other._bindless_sampler_layout);
+        _sampler_uniform_layout = std::move(other._sampler_uniform_layout);
+        _logged_missing_uniforms = std::move(other._logged_missing_uniforms);
+        _material_uniform_buffer = take_gl_handle(other._material_uniform_buffer);
+        _material_uniform_block_size = other._material_uniform_block_size;
+        _material_uniforms = std::move(other._material_uniforms);
+        _has_material_uniform_block = other._has_material_uniform_block;
+        _instance_model_attribute_location = other._instance_model_attribute_location;
+        _instance_id_attribute_location = other._instance_id_attribute_location;
+        other._material_uniform_block_size = 0;
+        other._has_material_uniform_block = false;
+        other._instance_model_attribute_location = 8;
+        other._instance_id_attribute_location = 12;
+        return *this;
     }
 
     OpenGlShaderProgram::~OpenGlShaderProgram() noexcept
@@ -203,6 +390,10 @@ namespace tbx::plugins
         if (_program_id != 0)
         {
             glDeleteProgram(_program_id);
+        }
+        if (_material_uniform_buffer != 0)
+        {
+            glDeleteBuffers(1, &_material_uniform_buffer);
         }
     }
 
@@ -217,57 +408,139 @@ namespace tbx::plugins
         glUseProgram(0);
     }
 
-    void OpenGlShaderProgram::upload(const MaterialParameter& uniform)
-    {
-        TBX_ASSERT(
-            _program_id != 0,
-            "OpenGL rendering: cannot upload uniforms to an invalid shader program.");
-        if (try_upload(uniform))
-        {
-            return;
-        }
-
-        if (_logged_missing_uniforms.insert(uniform.name).second)
-        {
-            TBX_TRACE_WARNING(
-                "OpenGL rendering: uniform '{}' not found on program {}.",
-                uniform.name,
-                _program_id);
-        }
-    }
-
-    bool OpenGlShaderProgram::try_upload(const MaterialParameter& uniform)
+    bool OpenGlShaderProgram::try_upload(const tbx::MaterialParameter& uniform)
     {
         if (_program_id == 0)
-        {
             return false;
-        }
 
-        const GLint location = static_cast<GLint>(get_cached_uniform_location(uniform.name));
+        const GLint location = get_cached_uniform_location(normalize_uniform_name(uniform.name));
         if (location < 0)
-        {
             return false;
-        }
 
         upload_uniform_value(location, uniform.data);
         return true;
     }
 
-    uint32 OpenGlShaderProgram::get_program_id() const
+    bool OpenGlShaderProgram::try_upload(const OpenGlMaterialParams& params)
+    {
+        if (_program_id == 0)
+            return false;
+
+        auto used_packed_default_lit_surface = false;
+        if (_has_material_uniform_block)
+        {
+            if (_material_uniform_buffer == 0)
+            {
+                glCreateBuffers(1, &_material_uniform_buffer);
+                glNamedBufferData(
+                    _material_uniform_buffer,
+                    static_cast<GLsizeiptr>(_material_uniform_block_size),
+                    nullptr,
+                    GL_DYNAMIC_DRAW);
+            }
+
+            const auto material_surface_block = MaterialSurfaceBlockGpu {
+                .primary = tbx::Vec4(
+                    get_material_parameter_float(params, "specular_strength", 0.5F),
+                    get_material_parameter_float(params, "shininess_strength", 32.0F),
+                    0.0F,
+                    get_material_parameter_float(params, "alpha_cutoff", 0.1F)),
+                .secondary = tbx::Vec4(
+                    get_material_parameter_float(params, "transparency_amount", 0.0F),
+                    get_material_parameter_float(params, "exposure", 1.0F),
+                    get_material_parameter_float(params, "diffuse_strength", 1.0F),
+                    get_material_parameter_float(params, "normal_strength", 1.0F)),
+                .map_strengths = tbx::Vec4(
+                    get_material_parameter_float(params, "emissive_strength", 1.0F),
+                    0.0F,
+                    0.0F,
+                    0.0F),
+            };
+
+            glNamedBufferSubData(
+                _material_uniform_buffer,
+                0,
+                static_cast<GLsizeiptr>(sizeof(MaterialSurfaceBlockGpu)),
+                &material_surface_block);
+            glBindBufferBase(
+                GL_UNIFORM_BUFFER,
+                MATERIAL_SURFACE_UBO_BINDING,
+                _material_uniform_buffer);
+            used_packed_default_lit_surface = true;
+        }
+
+        for (const auto& parameter : params.parameters)
+        {
+            if (used_packed_default_lit_surface
+                && is_default_lit_surface_parameter(parameter.name))
+                continue;
+            if (!try_upload(parameter))
+                continue;
+        }
+
+        _bindless_sampler_layout.clear();
+
+        bool is_same_sampler_layout = _sampler_uniform_layout.size() == params.textures.size();
+        if (is_same_sampler_layout)
+        {
+            for (std::size_t texture_slot = 0; texture_slot < params.textures.size();
+                 ++texture_slot)
+            {
+                const auto normalized_name =
+                    normalize_uniform_name(params.textures[texture_slot].name);
+                if (_sampler_uniform_layout[texture_slot] != normalized_name)
+                {
+                    is_same_sampler_layout = false;
+                    break;
+                }
+            }
+        }
+
+        if (is_same_sampler_layout)
+            return true;
+
+        _sampler_uniform_layout.clear();
+        _sampler_uniform_layout.reserve(params.textures.size());
+        for (std::size_t texture_slot = 0; texture_slot < params.textures.size(); ++texture_slot)
+        {
+            const auto& texture_binding = params.textures[texture_slot];
+            const auto normalized_name = normalize_uniform_name(texture_binding.name);
+            const auto sampler_uniform = tbx::MaterialParameter {
+                .name = normalized_name,
+                .data = static_cast<int>(texture_slot),
+            };
+            if (!try_upload(sampler_uniform))
+                continue;
+            _sampler_uniform_layout.push_back(normalized_name);
+        }
+
+        return true;
+    }
+
+    tbx::uint32 OpenGlShaderProgram::get_program_id() const
     {
         return _program_id;
     }
 
+    int OpenGlShaderProgram::get_instance_model_attribute_location() const
+    {
+        return _instance_model_attribute_location;
+    }
+
+    int OpenGlShaderProgram::get_instance_id_attribute_location() const
+    {
+        return _instance_id_attribute_location;
+    }
+
     int OpenGlShaderProgram::get_cached_uniform_location(const std::string& name)
     {
-        const auto it = _uniform_locations.find(name);
-        if (it != _uniform_locations.end())
+        if (const auto it = _uniform_locations.find(name); it != _uniform_locations.end())
         {
             return it->second;
         }
 
         const GLint location = uniform_location(_program_id, name);
         _uniform_locations.emplace(name, static_cast<int>(location));
-        return static_cast<int>(location);
+        return location;
     }
 }

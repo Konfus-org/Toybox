@@ -81,6 +81,20 @@ namespace tbx
     TBX_API Vec3 normalize(Vec3 v);
 
     /// <summary>
+    /// Purpose: Computes the dot product between two three-component vectors.
+    /// Ownership: Returns a value copy; the caller owns the result.
+    /// Thread Safety: Stateless; safe to call concurrently.
+    /// </summary>
+    TBX_API float dot(const Vec3& left, const Vec3& right);
+
+    /// <summary>
+    /// Purpose: Computes the cross product between two three-component vectors.
+    /// Ownership: Returns a value copy; the caller owns the result.
+    /// Thread Safety: Stateless; safe to call concurrently.
+    /// </summary>
+    TBX_API Vec3 cross(const Vec3& left, const Vec3& right);
+
+    /// <summary>
     /// Normalizes a four-component vector to unit length.
     /// Ownership: returns a value copy; the caller owns the result.
     /// Thread Safety: stateless; safe to call concurrently.

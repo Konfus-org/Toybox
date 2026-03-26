@@ -37,8 +37,9 @@ namespace tbx
         /// Thread Safety: Safe to construct on any thread.</remarks>
         Model();
 
-        /// <summary>Creates a model with a single mesh and default material.</summary>
-        /// <remarks>Purpose: Initializes the model with the provided mesh and default material.
+        /// <summary>Creates a model with a single mesh and the built-in lit material.</summary>
+        /// <remarks>Purpose: Initializes the model with the provided mesh and the built-in lit
+        /// material.
         /// Ownership: Owns the mesh/material/part data by value.
         /// Thread Safety: Safe to construct on any thread.</remarks>
         Model(Mesh mesh);

@@ -7,12 +7,14 @@ namespace tbx
         bool vsync,
         GraphicsApi api,
         Size resolution,
+        RenderStage render_stage,
         uint32 shadow_map_resolution,
         float shadow_render_distance,
         float shadow_softness)
         : vsync_enabled(&dispatcher, this, &GraphicsSettings::vsync_enabled, vsync)
         , graphics_api(&dispatcher, this, &GraphicsSettings::graphics_api, api)
         , resolution(&dispatcher, this, &GraphicsSettings::resolution, resolution)
+        , render_stage(&dispatcher, this, &GraphicsSettings::render_stage, render_stage)
         , shadow_map_resolution(
               &dispatcher,
               this,

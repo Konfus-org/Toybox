@@ -28,6 +28,20 @@ namespace tbx
         bool is_empty() const;
         void clear();
 
+        /// <summary>
+        /// Purpose: Checks whether this registry currently owns an entity for the specified id.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Does not transfer ownership; inspects registry-owned entity state only.
+        /// Thread Safety: Not thread-safe; synchronize external concurrent access.
+        /// </remarks>
+        bool has(const Uuid& id) const;
+
+        template <typename TComponent>
+        bool has(const Uuid& id) const;
+
+        template <typename TComponent, typename... TArgs>
+        TComponent& add(const Uuid& id, TArgs&&... args);
         Uuid add(
             const std::string& name = "",
             const std::string& tag = "",
@@ -39,22 +53,15 @@ namespace tbx
         void remove(Entity& entity);
 
         template <typename... TComponent>
-        std::vector<Entity> get_with();
-        std::vector<Entity> get_all();
-        Entity get(const Uuid& id);
+        decltype(auto) get_with(const Uuid& id) const;
+        template <typename... TComponent>
+        std::vector<Entity> get_with() const;
+        std::vector<Entity> get_all() const;
+        Entity get(const Uuid& id) const;
 
         template <typename... TComponent>
         void for_each_with(const std::function<void(Entity&)>& callback);
         void for_each(const std::function<void(Entity&)>& callback);
-
-        template <typename TComponent, typename... TArgs>
-        TComponent& add(const Uuid& id, TArgs&&... args);
-
-        template <typename... TComponent>
-        decltype(auto) get_with(const Uuid& id) const;
-
-        template <typename TComponent>
-        bool has(const Uuid& id) const;
 
       private:
         friend class Entity;

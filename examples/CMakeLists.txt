@@ -1,12 +1,19 @@
-set(CMAKE_FOLDER "examples")
+option(TBX_BUILD_EXAMPLES "Build Toybox examples" ON)
 
-include(TbxDefaultIncludes)
-tbx_define_default_includes()
+if (TBX_BUILD_EXAMPLES)
+    set(CMAKE_FOLDER "examples")
 
-add_subdirectory(plugin_example)
-add_subdirectory(ecs_example)
-add_subdirectory(asset_example)
-add_subdirectory(input_example)
-add_subdirectory(physics_example)
+    include(TbxDefaultIncludes)
+    tbx_define_default_includes()
 
-unset(CMAKE_FOLDER)
+    add_subdirectory(2d_example)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/input_example/CMakeLists.txt")
+        add_subdirectory(input_example)
+    endif()
+    add_subdirectory(3d_example)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/lighting_example/CMakeLists.txt")
+        add_subdirectory(lighting_example)
+    endif()
+
+    unset(CMAKE_FOLDER)
+endif()

@@ -639,14 +639,6 @@ namespace tbx
                 if (existing_entry_iterator != _pool.end())
                     existing_path = existing_entry_iterator->second.normalized_path;
 
-                TBX_ASSERT(
-                    false,
-                    "AssetManager: duplicate asset id detected (id={}). Existing asset: '{}'. "
-                    "Conflicting asset: '{}'.",
-                    to_string(entry.id),
-                    existing_path,
-                    entry.normalized_path);
-
                 TBX_TRACE_ERROR(
                     "AssetManager: skipping asset '{}' due to duplicate id={} already used by "
                     "'{}'.",

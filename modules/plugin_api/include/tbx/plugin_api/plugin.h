@@ -135,20 +135,20 @@ namespace tbx
 }
 
 #if defined(TBX_PLATFORM_WINDOWS)
-    #define TBX_PLUGIN_EXPORT extern "C" __declspec(dllexport)
+    #define TBX_PLUGIN_ENTRY_EXPORT extern "C" __declspec(dllexport)
 #else
-    #define TBX_PLUGIN_EXPORT extern "C"
+    #define TBX_PLUGIN_ENTRY_EXPORT extern "C"
 #endif
 
 #define TBX_REGISTER_PLUGIN(PluginName, PluginType)                                                \
-    TBX_PLUGIN_EXPORT ::tbx::Plugin* create_##PluginName()                                         \
-    {                                                                                              \
-        ::tbx::Plugin* plugin = new PluginType();                                                  \
-        ::tbx::PluginRegistry::get_instance().register_plugin(#PluginName, plugin);                \
-        return plugin;                                                                             \
-    }                                                                                              \
-    TBX_PLUGIN_EXPORT void destroy_##PluginName(::tbx::Plugin* plugin)                             \
-    {                                                                                              \
-        ::tbx::PluginRegistry::get_instance().unregister_plugin(#PluginName);                      \
-        delete plugin;                                                                             \
+    TBX_PLUGIN_ENTRY_EXPORT ::tbx::Plugin* create_##PluginName()                                   \
+    {                                                                                               \
+        ::tbx::Plugin* plugin = new PluginType();                                                   \
+        ::tbx::PluginRegistry::get_instance().register_plugin(#PluginName, plugin);                 \
+        return plugin;                                                                              \
+    }                                                                                               \
+    TBX_PLUGIN_ENTRY_EXPORT void destroy_##PluginName(::tbx::Plugin* plugin)                       \
+    {                                                                                               \
+        ::tbx::PluginRegistry::get_instance().unregister_plugin(#PluginName);                       \
+        delete plugin;                                                                              \
     }

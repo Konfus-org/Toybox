@@ -16,6 +16,7 @@ target_sources(TbxGraphicsTests PRIVATE ${TEST_SOURCES})
 target_include_directories(TbxGraphicsTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 target_link_libraries(TbxGraphicsTests PRIVATE
+    Tbx::Assets
     Tbx::Graphics
     Tbx::Math
     gtest

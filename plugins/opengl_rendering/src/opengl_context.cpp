@@ -2,44 +2,42 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/messages.h"
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
-    OpenGlContext::OpenGlContext(IMessageDispatcher& dispatcher, const Uuid& window_id)
-        : _dispatcher(&dispatcher)
+    OpenGlContext::OpenGlContext(tbx::IMessageDispatcher& dispatcher, const tbx::Uuid& window_id)
+        : _dispatcher(std::ref(dispatcher))
         , _window_id(window_id)
     {
     }
 
-    const Uuid& OpenGlContext::get_window_id() const
+    const tbx::Uuid& OpenGlContext::get_window_id() const
     {
         return _window_id;
     }
 
-    Result OpenGlContext::make_current() const
+    tbx::Result OpenGlContext::make_current() const
     {
-        TBX_ASSERT(_dispatcher != nullptr, "OpenGL rendering: context dispatcher must be valid.");
         TBX_ASSERT(_window_id.is_valid(), "OpenGL rendering: context window id must be valid.");
-        if (_dispatcher == nullptr || !_window_id.is_valid())
+        if (!_window_id.is_valid())
         {
-            auto result = Result {};
+            auto result = tbx::Result {};
             result.flag_failure("OpenGL rendering: context is invalid.");
             return result;
         }
 
-        return _dispatcher->send<WindowMakeCurrentRequest>(_window_id);
+        return _dispatcher.get().send<tbx::WindowMakeCurrentRequest>(_window_id);
     }
 
-    Result OpenGlContext::present() const
+    tbx::Result OpenGlContext::present() const
     {
-        TBX_ASSERT(_dispatcher != nullptr, "OpenGL rendering: context dispatcher must be valid.");
         TBX_ASSERT(_window_id.is_valid(), "OpenGL rendering: context window id must be valid.");
-        if (_dispatcher == nullptr || !_window_id.is_valid())
+        if (!_window_id.is_valid())
         {
-            auto result = Result {};
+            auto result = tbx::Result {};
             result.flag_failure("OpenGL rendering: context is invalid.");
             return result;
         }
 
-        return _dispatcher->send<WindowPresentRequest>(_window_id);
+        return _dispatcher.get().send<tbx::WindowPresentRequest>(_window_id);
     }
 }

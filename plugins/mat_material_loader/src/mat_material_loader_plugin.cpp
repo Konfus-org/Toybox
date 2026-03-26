@@ -1,5 +1,5 @@
-#include "mat_material_loader_plugin.h"
-#include "tbx/app/application.h"
+#include "tbx/plugins/mat_material_loader/mat_material_loader_plugin.h"
+#include "tbx/app/app_settings.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/files/file_ops.h"
 #include "tbx/files/json.h"
@@ -10,13 +10,13 @@
 #include <string_view>
 #include <vector>
 
-namespace tbx::plugins
+namespace mat_material_loader
 {
     static std::string build_load_failure_message(
         const std::filesystem::path& path,
         std::string_view reason)
     {
-        std::string message = "Material loader failed to load material: ";
+        std::string message = "tbx::Material loader failed to load material: ";
         message.append(path.string());
         if (!reason.empty())
         {
@@ -27,9 +27,9 @@ namespace tbx::plugins
         return message;
     }
 
-    static Uuid parse_uuid_text(std::string_view value)
+    static tbx::Uuid parse_uuid_text(std::string_view value)
     {
-        std::string trimmed = trim(value);
+        std::string trimmed = tbx::trim(value);
         if (trimmed.empty())
         {
             return {};
@@ -46,7 +46,7 @@ namespace tbx::plugins
                 return {};
         }
 
-        uint32 parsed = 0U;
+        tbx::uint32 parsed = 0U;
         auto result = std::from_chars(trimmed.data(), trimmed.data() + trimmed.size(), parsed, 16);
         if (result.ec != std::errc())
         {
@@ -59,52 +59,52 @@ namespace tbx::plugins
             return {};
         }
 
-        return Uuid(parsed);
+        return tbx::Uuid(parsed);
     }
 
-    static Handle parse_asset_handle(std::string_view value)
+    static tbx::Handle parse_asset_handle(std::string_view value)
     {
-        std::string trimmed = trim(value);
+        std::string trimmed = tbx::trim(value);
         if (trimmed.empty())
         {
             return {};
         }
 
-        Uuid parsed = parse_uuid_text(trimmed);
+        tbx::Uuid parsed = parse_uuid_text(trimmed);
         if (parsed.is_valid())
         {
-            return Handle(parsed);
+            return tbx::Handle(parsed);
         }
 
-        return Handle(std::string(trimmed));
+        return tbx::Handle(std::string(trimmed));
     }
 
     static bool try_parse_parameter_entry(
-        const Json& entry,
-        Material& out_material,
+        const tbx::Json& entry,
+        tbx::Material& out_material,
         std::string& error_message)
     {
         std::string name;
         if (!entry.try_get<std::string>("name", name) || name.empty())
         {
-            error_message = "Material loader: parameter missing name.";
+            error_message = "tbx::Material loader: parameter missing name.";
             return false;
         }
 
         std::string type_name;
         if (!entry.try_get<std::string>("type", type_name) || type_name.empty())
         {
-            error_message = "Material loader: parameter missing type.";
+            error_message = "tbx::Material loader: parameter missing type.";
             return false;
         }
 
-        std::string type_text = to_lower(type_name);
+        std::string type_text = tbx::to_lower(type_name);
         if (type_text == "bool")
         {
             bool value = false;
             if (!entry.try_get<bool>("value", value))
             {
-                error_message = "Material loader: bool parameter '" + name + "' missing value.";
+                error_message = "tbx::Material loader: bool parameter '" + name + "' missing value.";
                 return false;
             }
             out_material.parameters.set(name, value);
@@ -116,7 +116,7 @@ namespace tbx::plugins
             int value = 0;
             if (!entry.try_get<int>("value", value))
             {
-                error_message = "Material loader: int parameter '" + name + "' missing value.";
+                error_message = "tbx::Material loader: int parameter '" + name + "' missing value.";
                 return false;
             }
             out_material.parameters.set(name, value);
@@ -128,7 +128,7 @@ namespace tbx::plugins
             float value = 0.0;
             if (!entry.try_get<float>("value", value))
             {
-                error_message = "Material loader: float parameter '" + name + "' missing value.";
+                error_message = "tbx::Material loader: float parameter '" + name + "' missing value.";
                 return false;
             }
             out_material.parameters.set(name, value);
@@ -137,11 +137,11 @@ namespace tbx::plugins
 
         if (type_text == "texture")
         {
-            Handle handle = {};
-            Uuid asset_id = {};
-            if (entry.try_get<Uuid>("value", asset_id))
+            tbx::Handle handle = {};
+            tbx::Uuid asset_id = {};
+            if (entry.try_get<tbx::Uuid>("value", asset_id))
             {
-                handle = Handle(asset_id);
+                handle = tbx::Handle(asset_id);
             }
             else
             {
@@ -149,12 +149,12 @@ namespace tbx::plugins
                 if (!entry.try_get<std::string>("value", asset_name))
                 {
                     error_message =
-                        "Material loader: asset parameter '" + name + "' missing value.";
+                        "tbx::Material loader: asset parameter '" + name + "' missing value.";
                     return false;
                 }
                 if (!asset_name.empty())
                 {
-                    handle = Handle(asset_name);
+                    handle = tbx::Handle(asset_name);
                 }
             }
             out_material.textures.set(name, std::move(handle));
@@ -163,11 +163,11 @@ namespace tbx::plugins
 
         if (type_text == "shader")
         {
-            Handle handle = {};
-            Uuid asset_id = {};
-            if (entry.try_get<Uuid>("value", asset_id))
+            tbx::Handle handle = {};
+            tbx::Uuid asset_id = {};
+            if (entry.try_get<tbx::Uuid>("value", asset_id))
             {
-                handle = Handle(asset_id);
+                handle = tbx::Handle(asset_id);
             }
             else
             {
@@ -175,12 +175,12 @@ namespace tbx::plugins
                 if (!entry.try_get<std::string>("value", asset_name))
                 {
                     error_message =
-                        "Material loader: asset parameter '" + name + "' missing value.";
+                        "tbx::Material loader: asset parameter '" + name + "' missing value.";
                     return false;
                 }
                 if (!asset_name.empty())
                 {
-                    handle = Handle(asset_name);
+                    handle = tbx::Handle(asset_name);
                 }
             }
 
@@ -198,12 +198,12 @@ namespace tbx::plugins
             if (!entry.try_get<float>("value", 2U, values))
             {
                 error_message =
-                    "Material loader: vec2 parameter '" + name + "' must have 2 values.";
+                    "tbx::Material loader: vec2 parameter '" + name + "' must have 2 values.";
                 return false;
             }
             out_material.parameters.set(
                 name,
-                Vec2(static_cast<float>(values[0]), static_cast<float>(values[1])));
+                tbx::Vec2(static_cast<float>(values[0]), static_cast<float>(values[1])));
             return true;
         }
 
@@ -213,12 +213,12 @@ namespace tbx::plugins
             if (!entry.try_get<float>("value", 3U, values))
             {
                 error_message =
-                    "Material loader: vec3 parameter '" + name + "' must have 3 values.";
+                    "tbx::Material loader: vec3 parameter '" + name + "' must have 3 values.";
                 return false;
             }
             out_material.parameters.set(
                 name,
-                Vec3(
+                tbx::Vec3(
                     static_cast<float>(values[0]),
                     static_cast<float>(values[1]),
                     static_cast<float>(values[2])));
@@ -231,12 +231,12 @@ namespace tbx::plugins
             if (!entry.try_get<float>("value", 4U, values))
             {
                 error_message =
-                    "Material loader: vec4 parameter '" + name + "' must have 4 values.";
+                    "tbx::Material loader: vec4 parameter '" + name + "' must have 4 values.";
                 return false;
             }
             out_material.parameters.set(
                 name,
-                Vec4(
+                tbx::Vec4(
                     static_cast<float>(values[0]),
                     static_cast<float>(values[1]),
                     static_cast<float>(values[2]),
@@ -250,12 +250,12 @@ namespace tbx::plugins
             if (!entry.try_get<float>("value", 4U, values))
             {
                 error_message =
-                    "Material loader: color parameter '" + name + "' must have 4 values.";
+                    "tbx::Material loader: color parameter '" + name + "' must have 4 values.";
                 return false;
             }
             out_material.parameters.set(
                 name,
-                Color(
+                tbx::Color(
                     static_cast<float>(values[0]),
                     static_cast<float>(values[1]),
                     static_cast<float>(values[2]),
@@ -263,27 +263,27 @@ namespace tbx::plugins
             return true;
         }
 
-        error_message = "Material loader: unknown parameter type '" + type_name + "'.";
+        error_message = "tbx::Material loader: unknown parameter type '" + type_name + "'.";
         return false;
     }
 
     static bool try_parse_material(
         const std::string& file_data,
-        Material& out_material,
+        tbx::Material& out_material,
         std::string& error_message)
     {
         try
         {
-            Json data(file_data);
-            Material material = Material();
+            tbx::Json data(file_data);
+            tbx::Material material = tbx::Material();
 
-            Json shaders_data;
+            tbx::Json shaders_data;
             if (data.try_get_child("shaders", shaders_data))
             {
-                Uuid vertex_id = {};
-                if (shaders_data.try_get<Uuid>("vertex", vertex_id))
+                tbx::Uuid vertex_id = {};
+                if (shaders_data.try_get<tbx::Uuid>("vertex", vertex_id))
                 {
-                    material.program.vertex = Handle(vertex_id);
+                    material.program.vertex = tbx::Handle(vertex_id);
                 }
                 else
                 {
@@ -292,10 +292,10 @@ namespace tbx::plugins
                         material.program.vertex = parse_asset_handle(vertex_text);
                 }
 
-                Uuid fragment_id = {};
-                if (shaders_data.try_get<Uuid>("fragment", fragment_id))
+                tbx::Uuid fragment_id = {};
+                if (shaders_data.try_get<tbx::Uuid>("fragment", fragment_id))
                 {
-                    material.program.fragment = Handle(fragment_id);
+                    material.program.fragment = tbx::Handle(fragment_id);
                 }
                 else
                 {
@@ -304,10 +304,10 @@ namespace tbx::plugins
                         material.program.fragment = parse_asset_handle(fragment_text);
                 }
 
-                Uuid tesselation_id = {};
-                if (shaders_data.try_get<Uuid>("tesselation", tesselation_id))
+                tbx::Uuid tesselation_id = {};
+                if (shaders_data.try_get<tbx::Uuid>("tesselation", tesselation_id))
                 {
-                    material.program.tesselation = Handle(tesselation_id);
+                    material.program.tesselation = tbx::Handle(tesselation_id);
                 }
                 else
                 {
@@ -322,10 +322,10 @@ namespace tbx::plugins
                     }
                 }
 
-                Uuid geometry_id = {};
-                if (shaders_data.try_get<Uuid>("geometry", geometry_id))
+                tbx::Uuid geometry_id = {};
+                if (shaders_data.try_get<tbx::Uuid>("geometry", geometry_id))
                 {
-                    material.program.geometry = Handle(geometry_id);
+                    material.program.geometry = tbx::Handle(geometry_id);
                 }
                 else
                 {
@@ -334,10 +334,10 @@ namespace tbx::plugins
                         material.program.geometry = parse_asset_handle(geometry_text);
                 }
 
-                Uuid compute_id = {};
-                if (shaders_data.try_get<Uuid>("compute", compute_id))
+                tbx::Uuid compute_id = {};
+                if (shaders_data.try_get<tbx::Uuid>("compute", compute_id))
                 {
-                    material.program.compute = Handle(compute_id);
+                    material.program.compute = tbx::Handle(compute_id);
                 }
                 else
                 {
@@ -353,7 +353,7 @@ namespace tbx::plugins
                         || material.program.geometry.is_valid())
                     {
                         error_message =
-                            "Material loader: compute shaders cannot be combined with "
+                            "tbx::Material loader: compute shaders cannot be combined with "
                             "graphics shader stages.";
                         return false;
                     }
@@ -368,11 +368,11 @@ namespace tbx::plugins
             }
             else
             {
-                Uuid shader_id = {};
-                Handle shader_handle = {};
-                if (data.try_get<Uuid>("shader", shader_id))
+                tbx::Uuid shader_id = {};
+                tbx::Handle shader_handle = {};
+                if (data.try_get<tbx::Uuid>("shader", shader_id))
                 {
-                    shader_handle = Handle(shader_id);
+                    shader_handle = tbx::Handle(shader_id);
                 }
                 else
                 {
@@ -388,7 +388,7 @@ namespace tbx::plugins
                 }
             }
 
-            std::vector<Json> texture_entries;
+            std::vector<tbx::Json> texture_entries;
             if (data.try_get_children("textures", texture_entries))
             {
                 material.textures.values.reserve(
@@ -398,15 +398,15 @@ namespace tbx::plugins
                     std::string name;
                     if (!entry.try_get<std::string>("name", name) || name.empty())
                     {
-                        error_message = "Material loader: texture entry missing name.";
+                        error_message = "tbx::Material loader: texture entry missing name.";
                         return false;
                     }
 
-                    Handle handle = {};
-                    Uuid asset_id = {};
-                    if (entry.try_get<Uuid>("value", asset_id))
+                    tbx::Handle handle = {};
+                    tbx::Uuid asset_id = {};
+                    if (entry.try_get<tbx::Uuid>("value", asset_id))
                     {
-                        handle = Handle(asset_id);
+                        handle = tbx::Handle(asset_id);
                     }
                     else
                     {
@@ -414,7 +414,7 @@ namespace tbx::plugins
                         if (!entry.try_get<std::string>("value", asset_name))
                         {
                             error_message =
-                                "Material loader: texture entry '" + name + "' missing value.";
+                                "tbx::Material loader: texture entry '" + name + "' missing value.";
                             return false;
                         }
                         handle = parse_asset_handle(asset_name);
@@ -424,7 +424,7 @@ namespace tbx::plugins
                 }
             }
 
-            std::vector<Json> entries;
+            std::vector<tbx::Json> entries;
             if (data.try_get_children("parameters", entries))
             {
                 for (const auto& entry : entries)
@@ -441,33 +441,31 @@ namespace tbx::plugins
         }
         catch (...)
         {
-            error_message = "Material loader: invalid JSON data.";
+            error_message = "tbx::Material loader: invalid JSON data.";
             return false;
         }
     }
 
-    void MatMaterialLoaderPlugin::on_attach(IPluginHost& host)
+    void MatMaterialLoaderPlugin::on_attach(tbx::IPluginHost& host)
     {
-        _asset_manager = &host.get_asset_manager();
-        _working_directory = host.get_settings().working_directory;
+        _working_directory = host.get_settings().paths.working_directory;
         if (!_file_ops)
-            _file_ops = std::make_shared<FileOperator>(_working_directory);
+            _file_ops = std::make_shared<tbx::FileOperator>(_working_directory);
     }
 
     void MatMaterialLoaderPlugin::on_detach()
     {
-        _asset_manager = nullptr;
         _working_directory = std::filesystem::path();
     }
 
-    void MatMaterialLoaderPlugin::set_file_ops(std::shared_ptr<IFileOps> file_ops)
+    void MatMaterialLoaderPlugin::set_file_ops(std::shared_ptr<tbx::IFileOps> file_ops)
     {
         _file_ops = std::move(file_ops);
     }
 
-    void MatMaterialLoaderPlugin::on_recieve_message(Message& msg)
+    void MatMaterialLoaderPlugin::on_recieve_message(tbx::Message& msg)
     {
-        auto* request = handle_message<LoadMaterialRequest>(msg);
+        auto* request = handle_message<tbx::LoadMaterialRequest>(msg);
         if (!request)
         {
             return;
@@ -476,64 +474,57 @@ namespace tbx::plugins
         on_load_material_request(*request);
     }
 
-    void MatMaterialLoaderPlugin::on_load_material_request(LoadMaterialRequest& request)
+    void MatMaterialLoaderPlugin::on_load_material_request(tbx::LoadMaterialRequest& request)
     {
         auto* asset = request.asset;
         if (!asset)
         {
-            request.state = MessageState::ERROR;
-            request.result.flag_failure("Material loader: missing material asset wrapper.");
+            request.state = tbx::MessageState::ERROR;
+            request.result.flag_failure("tbx::Material loader: missing material asset wrapper.");
             return;
         }
 
         if (request.cancellation_token && request.cancellation_token.is_cancelled())
         {
-            request.state = MessageState::CANCELLED;
-            request.result.flag_failure("Material loader cancelled.");
-            return;
-        }
-
-        if (!_asset_manager)
-        {
-            request.state = MessageState::ERROR;
-            request.result.flag_failure("Material loader: file services unavailable.");
+            request.state = tbx::MessageState::CANCELLED;
+            request.result.flag_failure("tbx::Material loader cancelled.");
             return;
         }
 
         if (!_file_ops)
         {
-            request.state = MessageState::ERROR;
-            request.result.flag_failure("Material loader: file services unavailable.");
+            request.state = tbx::MessageState::ERROR;
+            request.result.flag_failure("tbx::Material loader: file services unavailable.");
             return;
         }
 
         if (request.path.extension() != ".mat")
         {
-            request.state = MessageState::ERROR;
-            request.result.flag_failure("Material loader: unsupported material file extension.");
+            request.state = tbx::MessageState::ERROR;
+            request.result.flag_failure("tbx::Material loader: unsupported material file extension.");
             return;
         }
 
         std::string file_data;
-        if (!_file_ops->read_file(request.path, FileDataFormat::UTF8_TEXT, file_data))
+        if (!_file_ops->read_file(request.path, tbx::FileDataFormat::UTF8_TEXT, file_data))
         {
-            request.state = MessageState::ERROR;
+            request.state = tbx::MessageState::ERROR;
             request.result.flag_failure(
                 build_load_failure_message(request.path, "file could not be read"));
             return;
         }
 
-        Material parsed_material;
+        tbx::Material parsed_material;
         std::string parse_error;
         if (!try_parse_material(file_data, parsed_material, parse_error))
         {
-            request.state = MessageState::ERROR;
+            request.state = tbx::MessageState::ERROR;
             request.result.flag_failure(build_load_failure_message(request.path, parse_error));
             return;
         }
 
         *asset = std::move(parsed_material);
 
-        request.state = MessageState::HANDLED;
+        request.state = tbx::MessageState::HANDLED;
     }
 }

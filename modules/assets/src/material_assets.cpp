@@ -9,10 +9,18 @@ namespace tbx
     static std::shared_ptr<Material> create_material_data()
     {
         auto material = Material();
-        material.program.vertex = unlit_vertex_shader;
-        material.program.fragment = unlit_fragment_shader;
+        material.program.vertex = lit_vertex_shader;
+        material.program.fragment = lit_fragment_shader;
         material.parameters.set("color", Color(1.0f, 0.0f, 1.0f, 1.0f));
+        material.parameters.set("diffuse_strength", 1.0f);
+        material.parameters.set("normal_strength", 1.0f);
+        material.parameters.set("specular_strength", 0.5f);
+        material.parameters.set("shininess_strength", 32.0f);
         material.parameters.set("emissive", Color(1.0f, 0.0f, 1.0f, 1.0f));
+        material.parameters.set("emissive_strength", 1.0f);
+        material.parameters.set("alpha_cutoff", 0.1f);
+        material.parameters.set("transparency_amount", 0.0f);
+        material.parameters.set("exposure", 1.0f);
         return std::make_shared<Material>(std::move(material));
     }
 

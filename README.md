@@ -6,7 +6,7 @@ There isn't much here yet but, hopefully, soon there will be!
 
 ## What's here so far?
 
-Honestly, not much yet. There is a simple ECS system dubbed TBS (Toy Box System), a plugin system that will find and load plugins at runtime, a math library (which is a thin wrapper around GLM), logging and asserts, a windowing system made using SDL, some graphics primitives, and a simple renderer and input system. I plan to add all the things a game engine needs! Physics, audio, networking, a UI system, editor and more!
+Honestly, not much yet. There is a plugin system that will find and load plugins at runtime, an ECS system via EnTT, math via GLM, logging and asserts via spdlog, windowing and input systems made using SDL, graphics primitives, physics via Jolt, and a simple renderer using OpenGL. I plan to add all the things a game engine needs: audio, networking, a UI system, editor tooling, and more.
 
 ## Repository Structure
 
@@ -46,67 +46,55 @@ If you are updating an existing clone, run `git pull origin BRANCH_HERE` followe
 
 1. Install [CMake](https://cmake.org/download/).
 2. Install [Ninja](https://ninja-build.org/).
-3. Install [Python](https://www.python.org/downloads/).
-4. Ensure your system supports OpenGL (nearly everything does, so you should be good).
-5. Enable long file path support on Windows if necessary.
+3. Install [Clang/LLVM](https://llvm.org/) (includes `clang` and `clang-format`, which is required for consistent formatting across the TBX codebase).
+4. Install [Python](https://www.python.org/downloads/).
+5. Ensure your system supports OpenGL (nearly everything does, so you should be good).
+6. Enable long file path support on Windows if necessary.
 
 ### Building
 
 ### CMake version notes
 
-CMake 4.1.0 or newer is required to support the Ninja Multi-Config presets.
+CMake 3.28.3 or newer is required (matching `CMakePresets.json`).
 
-All Toybox presets use Ninja for faster builds. The Clang preset requires
-Clang/LLVM to be installed and available on your PATH. Install it here:
-- [Clang/LLVM](https://llvm.org/)
+All Toybox presets use Ninja Multi-Config for faster builds.
 
 Toybox relies on the presets defined in `CMakePresets.json`. Configure once, then build/test via the associated build and test presets.
+
+To inspect available presets on your machine, run:
+
+```bash
+cmake --list-presets
+```
 
 #### Cross-platform Ninja/Clang (Recommended)
 
 ```bash
-# Configure (builds under build/tbx-clang)
-cmake --preset tbx-clang
+# Configure (builds under build/clang)
+cmake --preset clang
 
 # Build Debug or Release
-cmake --build --preset tbx-clang-debug
-cmake --build --preset tbx-clang-release
+cmake --build --preset clang-debug
+cmake --build --preset clang-release
 
 # Run tests
-ctest --preset tbx-test-clang-debug
-ctest --preset tbx-test-clang-release
+ctest --preset test-clang-debug
+ctest --preset test-clang-release
 ```
-
-Artifacts land in `build/tbx-clang/bin/<Config>` with matching `lib` and `pdb` directories.
 
 #### MSVC (Ninja + MSVC toolchain)
 
 ```bash
-# Configure (builds under build/tbx-msvc)
-cmake --preset tbx-msvc
+# Configure (builds under build/msvc)
+cmake --preset msvc
 
 # Build Debug or Release
-cmake --build --preset tbx-msvc-debug
-cmake --build --preset tbx-msvc-release
+cmake --build --preset msvc-debug
+cmake --build --preset msvc-release
 
 # Run tests
-ctest --preset tbx-test-msvc-debug
-ctest --preset tbx-test-msvc-release
-```
-
-#### Default (Auto toolchain)
-
-```bash
-# Configure (builds under build/tbx-default)
-cmake --preset tbx-default
-
-# Build Debug or Release
-cmake --build --preset tbx-default-debug
-cmake --build --preset tbx-default-release
-
-# Run tests
-ctest --preset tbx-test-default-debug
-ctest --preset tbx-test-default-release
+ctest --preset test-msvc-debug
+ctest --preset test-msvc-release
 ```
 
 ## Contributing and AI Usage
@@ -115,6 +103,6 @@ Look to the contributing documentation [here](CONTRIBUTING.md).
 
 In regards to AI usage:
 
-See `AGENT.md` for the AI contributor standards used by AI agents which are allowed and used in this project. We recongnize the potential of AI tools to assist in development and encourage their responsible use.
+See `AGENTS.md` for the AI contributor standards used by AI agents which are allowed and used in this project. We recongnize the potential of AI tools to assist in development and encourage their responsible use.
 However, AI code is used with great care and scrutiny and is never blindly accepted, if you use AI to contribute you should fully understand what the code it gives you is doing and be ready to explain, defend, and/or change it.
 All AI-generated code must be reviewed and approved by a human before being merged and any AI-generated code must follow the same standards as human-written code.

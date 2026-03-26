@@ -1,291 +1,32 @@
 #include "opengl_render_pipeline.h"
-#include "opengl_deferred_lighting_pass.h"
-#include "opengl_post_process_pass.h"
+#include "GeometryPassOperation.h"
+#include "LightingPassOperation.h"
+#include "RenderPipelineFailure.h"
+#include "ShadowPassOperation.h"
 #include "opengl_resources/opengl_resource.h"
-#include "opengl_shadow_pass.h"
-#include "opengl_sky_pass.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/graphics/renderer.h"
 #include <any>
 #include <glad/glad.h>
-#include <string>
-#include <string_view>
-#include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
-    static std::string normalize_uniform_name(std::string_view name)
+    OpenGlRenderPipeline::OpenGlRenderPipeline(
+        OpenGlResourceManager& resource_manager,
+        tbx::JobSystem& job_system,
+        OpenGlGBuffer& gbuffer)
+        : _resource_manager(resource_manager)
+        , _gbuffer(gbuffer)
+        , _shadow_pass_operation(std::make_unique<ShadowPassOperation>(_resource_manager))
+        , _geometry_pass_operation(std::make_unique<GeometryPassOperation>(_resource_manager))
+        , _lighting_pass_operation(
+              std::make_unique<LightingPassOperation>(
+                  _resource_manager,
+                  job_system,
+                  gbuffer,
+                  *_shadow_pass_operation))
+        , _transparent_pass_operation(
+              std::make_unique<TransparentPassOperation>(_resource_manager, gbuffer))
     {
-        if (name.size() >= 2U && name[0] == 'u' && name[1] == '_')
-            return std::string(name);
-
-        std::string normalized = "u_";
-        normalized.append(name.begin(), name.end());
-        return normalized;
-    }
-
-    class OpenGlGeometryOperation final : public OpenGlRenderOperation
-    {
-      public:
-        OpenGlGeometryOperation(OpenGlResourceManager& resource_manager)
-            : _resource_manager(&resource_manager)
-        {
-        }
-
-        void execute_with_frame_context(const OpenGlRenderFrameContext& frame_context) override
-        {
-            TBX_ASSERT(
-                _resource_manager != nullptr,
-                "OpenGL rendering: geometry operation requires a resource manager.");
-            TBX_ASSERT(
-                frame_context.gbuffer != nullptr,
-                "OpenGL rendering: geometry operation requires a gbuffer target.");
-
-            auto render_target_scope = GlResourceScope(*frame_context.gbuffer);
-            glViewport(
-                0,
-                0,
-                static_cast<GLsizei>(frame_context.render_resolution.width),
-                static_cast<GLsizei>(frame_context.render_resolution.height));
-            glEnable(GL_DEPTH_TEST);
-            glDepthMask(GL_TRUE);
-            glDisable(GL_BLEND);
-
-            auto view_projection = frame_context.view_projection;
-            auto resource_scopes = std::vector<GlResourceScope> {};
-            for (const auto& entity : frame_context.camera_view.in_view_static_entities)
-                draw_entity(entity, view_projection, resource_scopes);
-            for (const auto& entity : frame_context.camera_view.in_view_dynamic_entities)
-                draw_entity(entity, view_projection, resource_scopes);
-        }
-
-      private:
-        void upload_frame_uniforms(OpenGlShaderProgram& shader_program, const Mat4& view_projection)
-            const
-        {
-            shader_program.upload(
-                MaterialParameter {
-                    .name = "u_view_proj",
-                    .data = view_projection,
-                });
-        }
-
-        void upload_model_uniform(OpenGlShaderProgram& shader_program, const Entity& entity) const
-        {
-            const auto transform = get_world_space_transform(entity);
-            auto model_matrix = build_transform_matrix(transform);
-            shader_program.upload(
-                MaterialParameter {
-                    .name = "u_model",
-                    .data = model_matrix,
-                });
-        }
-
-        void bind_textures(
-            const OpenGlDrawResources& draw_resources,
-            std::vector<GlResourceScope>& out_scopes) const
-        {
-            for (const auto& texture_binding : draw_resources.textures)
-            {
-                if (!texture_binding.texture)
-                    continue;
-
-                texture_binding.texture->set_slot(static_cast<uint32>(texture_binding.slot));
-                out_scopes.push_back(GlResourceScope(*texture_binding.texture));
-            }
-        }
-
-        void upload_texture_uniforms(
-            OpenGlShaderProgram& shader_program,
-            const OpenGlDrawResources& draw_resources) const
-        {
-            for (const auto& texture_binding : draw_resources.textures)
-            {
-                shader_program.try_upload(
-                    MaterialParameter {
-                        .name = texture_binding.uniform_name,
-                        .data = texture_binding.slot,
-                    });
-            }
-        }
-
-        void upload_material_uniforms(
-            OpenGlShaderProgram& shader_program,
-            const OpenGlDrawResources& draw_resources) const
-        {
-            for (const auto& uniform : draw_resources.shader_parameters)
-                shader_program.try_upload(uniform);
-        }
-
-        void upload_runtime_material_uniforms(
-            OpenGlShaderProgram& shader_program,
-            const Renderer& renderer) const
-        {
-            for (const auto& parameter : renderer.material.parameters)
-            {
-                shader_program.try_upload(
-                    MaterialParameter {
-                        .name = normalize_uniform_name(parameter.name),
-                        .data = parameter.value,
-                    });
-            }
-        }
-
-        void apply_culling(const Renderer& renderer) const
-        {
-            if (renderer.is_two_sided)
-            {
-                glDisable(GL_CULL_FACE);
-                return;
-            }
-
-            glEnable(GL_CULL_FACE);
-        }
-
-        void draw_entity(
-            const Entity& entity,
-            const Mat4& view_projection,
-            std::vector<GlResourceScope>& resource_scopes) const
-        {
-            TBX_ASSERT(
-                entity.has_component<Renderer>(),
-                "OpenGL rendering: geometry view entity requires Renderer component.");
-
-            const auto& renderer = entity.get_component<Renderer>();
-            auto draw_resources = OpenGlDrawResources {};
-            if (!_resource_manager->try_get(entity, draw_resources))
-                return;
-
-            if (!draw_resources.mesh || !draw_resources.shader_program)
-                return;
-            TBX_ASSERT(
-                draw_resources.shader_program->get_program_id() != 0,
-                "OpenGL rendering: draw call requires a valid shader program.");
-
-            apply_culling(renderer);
-
-            resource_scopes.clear();
-            resource_scopes.reserve(draw_resources.textures.size() + 2);
-            resource_scopes.push_back(GlResourceScope(*draw_resources.shader_program));
-            resource_scopes.push_back(GlResourceScope(*draw_resources.mesh));
-            bind_textures(draw_resources, resource_scopes);
-
-            upload_frame_uniforms(*draw_resources.shader_program, view_projection);
-            upload_texture_uniforms(*draw_resources.shader_program, draw_resources);
-            upload_material_uniforms(*draw_resources.shader_program, draw_resources);
-            upload_runtime_material_uniforms(*draw_resources.shader_program, renderer);
-            upload_model_uniform(*draw_resources.shader_program, entity);
-            draw_resources.mesh->draw(draw_resources.use_tesselation);
-        }
-
-      private:
-        OpenGlResourceManager* _resource_manager = nullptr;
-    };
-
-    class OpenGlSkyOperation final : public OpenGlRenderOperation
-    {
-      public:
-        explicit OpenGlSkyOperation(OpenGlResourceManager& resource_manager)
-            : _resource_manager(&resource_manager)
-        {
-        }
-
-        void execute_with_frame_context(const OpenGlRenderFrameContext& frame_context) override
-        {
-            TBX_ASSERT(
-                _resource_manager != nullptr,
-                "OpenGL rendering: sky operation requires a resource manager.");
-            _pass.execute(frame_context, *_resource_manager);
-        }
-
-      private:
-        OpenGlResourceManager* _resource_manager = nullptr;
-        OpenGlSkyPass _pass = {};
-    };
-
-    class OpenGlShadowOperation final : public OpenGlRenderOperation
-    {
-      public:
-        explicit OpenGlShadowOperation(OpenGlResourceManager& resource_manager)
-            : _resource_manager(&resource_manager)
-        {
-        }
-
-        void execute_with_frame_context(const OpenGlRenderFrameContext& frame_context) override
-        {
-            TBX_ASSERT(
-                _resource_manager != nullptr,
-                "OpenGL rendering: shadow operation requires a resource manager.");
-            _pass.execute(frame_context, *_resource_manager);
-        }
-
-      private:
-        OpenGlResourceManager* _resource_manager = nullptr;
-        OpenGlShadowPass _pass = {};
-    };
-
-    class OpenGlDeferredLightingOperation final : public OpenGlRenderOperation
-    {
-      public:
-        explicit OpenGlDeferredLightingOperation(OpenGlResourceManager& resource_manager)
-            : _resource_manager(&resource_manager)
-        {
-        }
-
-        void execute_with_frame_context(const OpenGlRenderFrameContext& frame_context) override
-        {
-            TBX_ASSERT(
-                _resource_manager != nullptr,
-                "OpenGL rendering: deferred lighting operation requires a resource manager.");
-            _pass.execute(frame_context, *_resource_manager);
-        }
-
-      private:
-        OpenGlResourceManager* _resource_manager = nullptr;
-        OpenGlDeferredLightingPass _pass = {};
-    };
-
-    class OpenGlPostProcessOperation final : public OpenGlRenderOperation
-    {
-      public:
-        explicit OpenGlPostProcessOperation(OpenGlResourceManager& resource_manager)
-            : _resource_manager(&resource_manager)
-        {
-        }
-
-        void execute_with_frame_context(const OpenGlRenderFrameContext& frame_context) override
-        {
-            TBX_ASSERT(
-                _resource_manager != nullptr,
-                "OpenGL rendering: post-process operation requires a resource manager.");
-            _pass.execute(frame_context, *_resource_manager);
-        }
-
-      private:
-        OpenGlResourceManager* _resource_manager = nullptr;
-        OpenGlPostProcessPass _pass = {};
-    };
-
-    void OpenGlRenderOperation::execute(const std::any& payload)
-    {
-        const auto* frame_context = std::any_cast<OpenGlRenderFrameContext>(&payload);
-        TBX_ASSERT(
-            frame_context != nullptr,
-            "OpenGL rendering: render operation requires OpenGlRenderFrameContext payload.");
-        execute_with_frame_context(*frame_context);
-    }
-
-    OpenGlRenderPipeline::OpenGlRenderPipeline(OpenGlResourceManager& resource_manager)
-        : _resource_manager(&resource_manager)
-    {
-        TBX_ASSERT(
-            _resource_manager != nullptr,
-            "OpenGL rendering: pipeline requires a valid resource manager.");
-        add_operation(std::make_unique<OpenGlGeometryOperation>(*_resource_manager));
-        add_operation(std::make_unique<OpenGlShadowOperation>(*_resource_manager));
-        add_operation(std::make_unique<OpenGlDeferredLightingOperation>(*_resource_manager));
-        add_operation(std::make_unique<OpenGlSkyOperation>(*_resource_manager));
-        add_operation(std::make_unique<OpenGlPostProcessOperation>(*_resource_manager));
     }
 
     OpenGlRenderPipeline::~OpenGlRenderPipeline() noexcept
@@ -295,28 +36,34 @@ namespace tbx::plugins
 
     void OpenGlRenderPipeline::execute(const std::any& payload)
     {
-        const auto* frame_context = std::any_cast<OpenGlRenderFrameContext>(&payload);
-        TBX_ASSERT(
-            frame_context != nullptr,
-            "OpenGL rendering: execute() requires OpenGlRenderFrameContext payload.");
-        TBX_ASSERT(
-            frame_context->render_resolution.width > 0
-                && frame_context->render_resolution.height > 0,
-            "OpenGL rendering: render resolution must be greater than zero.");
-        TBX_ASSERT(
-            frame_context->viewport_size.width > 0 && frame_context->viewport_size.height > 0,
-            "OpenGL rendering: viewport size must be greater than zero.");
-        TBX_ASSERT(
-            frame_context->gbuffer != nullptr,
-            "OpenGL rendering: frame context requires a gbuffer target framebuffer.");
-        TBX_ASSERT(
-            frame_context->lighting_target != nullptr,
-            "OpenGL rendering: frame context requires a lighting target framebuffer.");
+        clear_render_pipeline_failure();
+        _shadow_pass_operation->execute(payload);
+        _gbuffer.prepare_geometry_pass();
+        _geometry_pass_operation->execute(payload);
+        _lighting_pass_operation->execute(payload);
+        _transparent_pass_operation->execute(payload);
+        if (!has_render_pipeline_failure())
+        {
+            _has_reported_pipeline_failure = false;
+            return;
+        }
 
-        TBX_ASSERT(
-            _resource_manager != nullptr,
-            "OpenGL rendering: pipeline execute requires a valid resource manager.");
-        _resource_manager->clear_unused();
-        Pipeline::execute(payload);
+        if (!_has_reported_pipeline_failure)
+        {
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: one or more render passes failed without producing a usable "
+                "frame. Rendering magenta fallback frame.");
+            _has_reported_pipeline_failure = true;
+        }
+        render_magenta_failure_frame(_gbuffer);
+    }
+
+    void OpenGlRenderPipeline::render_magenta_failure_frame(OpenGlGBuffer& gbuffer)
+    {
+        auto gbuffer_scope = OpenGlResourceScope(gbuffer);
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+        glClearColor(1.0F, 0.0F, 1.0F, 1.0F);
+        glClear(GL_COLOR_BUFFER_BIT);
     }
 }

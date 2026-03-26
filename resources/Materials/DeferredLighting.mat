@@ -1,6 +1,5 @@
 {
-  "shaders": {
-    "vertex": "0000000B",
-    "fragment": "0000000C"
-  }
+  "shaders": { "vertex": "00000009", "fragment": "0000000A" },
+  "textures": [],
+  "parameters": []
 }

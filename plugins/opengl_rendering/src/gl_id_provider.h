@@ -3,7 +3,7 @@
 #include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     /// <summary>Provides OpenGL cache keys for Toybox identifiers.</summary>
     /// <remarks>
@@ -20,6 +20,6 @@ namespace tbx::plugins
         /// Ownership: Returns a value type; the caller owns the copy.
         /// Thread Safety: Safe to call concurrently.
         /// </remarks>
-        Uuid provide(const Uuid& first, uint32 second) const;
+        tbx::Uuid provide(const tbx::Uuid& first, tbx::uint32 second) const;
     };
 }

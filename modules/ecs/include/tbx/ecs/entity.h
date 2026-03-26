@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "tbx/common/uuid.h"
 #include "tbx/math/transform.h"
 #include <string>
@@ -41,6 +41,7 @@ namespace tbx
 
         Uuid get_parent() const;
         void set_parent(const Uuid& parent);
+
         /// <summary>
         /// Purpose: Resolves and returns this entity's parent entity handle.
         /// </summary>

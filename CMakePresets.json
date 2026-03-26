@@ -19,23 +19,26 @@
         "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/lib",
         "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
         "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
-        "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/pdb",
-        "SDL_UNIX_CONSOLE_BUILD": "ON",
-        "SDL_X11": "OFF",
-        "SDL_X11_XCURSOR": "OFF"
+        "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/pdb"
       },
       "hidden": true
     },
     {
       "name": "msvc",
       "displayName": "Toybox (MSVC)",
+      "description": "Targeting Windows x64 with MSVC compiler",
       "inherits": "base",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "toolset": {
+        "value": "host=x64",
+        "strategy": "external"
+      },
       "cacheVariables": {
-        "CMAKE_EXE_LINKER_FLAGS_DEBUG": "/DEBUG:FULL /INCREMENTAL",
-        "CMAKE_SHARED_LINKER_FLAGS_DEBUG": "/DEBUG:FULL /INCREMENTAL",
         "CMAKE_C_COMPILER": "cl",
-        "CMAKE_CXX_COMPILER": "cl",
-        "CMAKE_LINKER": "link"
+        "CMAKE_CXX_COMPILER": "cl"
       }
     },
     {
@@ -46,123 +49,72 @@
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++"
       }
-    },
-    {
-      "name": "default",
-      "displayName": "Toybox (Default)",
-      "inherits": "base"
     }
   ],
   "buildPresets": [
     {
+      "name": "build-base",
+      "hidden": true
+    },
+    {
       "name": "msvc-debug",
-      "displayName": "MSVC (Debug)",
+      "inherits": "build-base",
       "configurePreset": "msvc",
       "configuration": "Debug"
     },
     {
       "name": "msvc-release",
-      "displayName": "MSVC (Release)",
+      "inherits": "build-base",
       "configurePreset": "msvc",
       "configuration": "Release"
     },
     {
       "name": "clang-debug",
-      "displayName": "Clang (Debug)",
+      "inherits": "build-base",
       "configurePreset": "clang",
       "configuration": "Debug"
     },
     {
       "name": "clang-release",
-      "displayName": "Clang (Release)",
+      "inherits": "build-base",
       "configurePreset": "clang",
-      "configuration": "Release"
-    },
-    {
-      "name": "default-debug",
-      "displayName": "Default (Debug)",
-      "configurePreset": "default",
-      "configuration": "Debug"
-    },
-    {
-      "name": "default-release",
-      "displayName": "Default (Release)",
-      "configurePreset": "default",
       "configuration": "Release"
     }
   ],
   "testPresets": [
     {
-      "name": "test-msvc-debug",
-      "displayName": "Test MSVC (Debug)",
-      "configurePreset": "msvc",
-      "configuration": "Debug",
+      "name": "test-base",
+      "hidden": true,
       "output": {
         "outputOnFailure": true
       },
       "execution": {
         "timeout": 120
       }
+    },
+    {
+      "name": "test-msvc-debug",
+      "inherits": "test-base",
+      "configurePreset": "msvc",
+      "configuration": "Debug"
     },
     {
       "name": "test-msvc-release",
-      "displayName": "Test MSVC (Release)",
+      "inherits": "test-base",
       "configurePreset": "msvc",
-      "configuration": "Release",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "timeout": 120
-      }
+      "configuration": "Release"
     },
     {
       "name": "test-clang-debug",
-      "displayName": "Test Clang (Debug)",
+      "inherits": "test-base",
       "configurePreset": "clang",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "timeout": 120
-      }
+      "configuration": "Debug"
     },
     {
       "name": "test-clang-release",
-      "displayName": "Test Clang (Release)",
+      "inherits": "test-base",
       "configurePreset": "clang",
-      "configuration": "Release",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "timeout": 120
-      }
-    },
-    {
-      "name": "test-default-debug",
-      "displayName": "Test Default (Debug)",
-      "configurePreset": "default",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "timeout": 120
-      }
-    },
-    {
-      "name": "test-default-release",
-      "displayName": "Test Default (Release)",
-      "configurePreset": "default",
-      "configuration": "Release",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "timeout": 120
-      }
+      "configuration": "Release"
     }
   ]
 }

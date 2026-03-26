@@ -1,5 +1,5 @@
-#include "glsl_shader_loader_plugin.h"
-#include "tbx/app/application.h"
+#include "tbx/plugins/glsl_shader_loader/glsl_shader_loader_plugin.h"
+#include "tbx/app/app_settings.h"
 #include "tbx/assets/messages.h"
 #include "tbx/files/file_ops.h"
 #include "tbx/graphics/shader.h"
@@ -12,7 +12,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace tbx::plugins
+namespace glsl_shader_loader
 {
     struct ShaderLoadResult
     {
@@ -53,12 +53,12 @@ namespace tbx::plugins
     }
 
     // Trims whitespace from both ends of a string view, returning an owned string for convenience.
-    static std::string trim_string(std::string_view text)
+    static std::string trim_string(const std::string_view text)
     {
-        auto start = text.find_first_not_of(" \r\n\t");
+        const auto start = text.find_first_not_of(" \r\n\t");
         if (start == std::string_view::npos)
             return "";
-        auto end = text.find_last_not_of(" \r\n\t");
+        const auto end = text.find_last_not_of(" \r\n\t");
         return std::string(text.substr(start, end - start + 1U));
     }
 
@@ -68,22 +68,23 @@ namespace tbx::plugins
     // - `#include path` (bare token; e.g. `#include Globals.glsl`)
     //
     // Returns the include path text, without quotes/angle brackets.
-    static bool try_parse_include_directive(std::string_view trimmed_line, std::string& out_path)
+    static bool try_parse_include_directive(
+        const std::string_view trimmed_line,
+        std::string& out_path)
     {
         if (trimmed_line.rfind("#include", 0U) != 0U)
             return false;
 
         auto remainder = trimmed_line.substr(8U);
-        auto include_start = remainder.find_first_not_of(" \t");
+        const auto include_start = remainder.find_first_not_of(" \t");
         if (include_start == std::string_view::npos)
             return false;
         remainder.remove_prefix(include_start);
 
-        char opening = remainder.front();
-        if (opening == '"' || opening == '<')
+        if (const char opening = remainder.front(); opening == '"' || opening == '<')
         {
-            char closing = opening == '<' ? '>' : '"';
-            auto end = remainder.find(closing, 1U);
+            const char closing = opening == '<' ? '>' : '"';
+            const auto end = remainder.find(closing, 1U);
             if (end == std::string_view::npos || end <= 1U)
                 return false;
 
@@ -91,14 +92,14 @@ namespace tbx::plugins
             return !out_path.empty();
         }
 
-        auto end = remainder.find_first_of(" \t");
+        const auto end = remainder.find_first_of(" \t");
         out_path = std::string(remainder.substr(0U, end));
         return !out_path.empty();
     }
 
     // Used to detect malformed include lines so we can report an error instead of silently passing
     // an unknown preprocessor directive to the OpenGL driver.
-    static bool is_include_directive(std::string_view trimmed_line)
+    static bool is_include_directive(const std::string_view trimmed_line)
     {
         return trimmed_line.rfind("#include", 0U) == 0U;
     }
@@ -107,31 +108,33 @@ namespace tbx::plugins
     // 1) Relative to the including file (if any).
     // 2) Via the asset manager's search roots.
     static ShaderLoadResult try_load_include_file(
-        const IFileOps& file_operator,
-        const AssetManager& asset_manager,
+        const tbx::IFileOps& file_operator,
+        const tbx::AssetManager& asset_manager,
         const std::filesystem::path& including_file,
         const std::filesystem::path& include_path)
     {
         if (include_path.empty())
-            return make_shader_load_failure("Shader loader: empty include path.");
+            return make_shader_load_failure("tbx::Shader loader: empty include path.");
 
         if (!include_path.is_absolute() && !including_file.empty())
         {
-            std::filesystem::path local_candidate =
+            const std::filesystem::path local_candidate =
                 (including_file.parent_path() / include_path).lexically_normal();
-            std::string local_data;
-            if (file_operator.read_file(local_candidate, FileDataFormat::UTF8_TEXT, local_data))
+            if (std::string local_data; file_operator.read_file(
+                    local_candidate,
+                    tbx::FileDataFormat::UTF8_TEXT,
+                    local_data))
                 return make_shader_load_success(std::move(local_data), local_candidate);
         }
 
-        std::filesystem::path asset_candidate =
+        const std::filesystem::path asset_candidate =
             asset_manager.resolve_asset_path(include_path).lexically_normal();
-        std::string asset_data;
-        if (file_operator.read_file(asset_candidate, FileDataFormat::UTF8_TEXT, asset_data))
+        if (std::string asset_data;
+            file_operator.read_file(asset_candidate, tbx::FileDataFormat::UTF8_TEXT, asset_data))
             return make_shader_load_success(std::move(asset_data), asset_candidate);
 
         return make_shader_load_failure(
-            "Shader loader: failed to resolve include path '" + include_path.string() + "'.");
+            "tbx::Shader loader: failed to resolve include path '" + include_path.string() + "'.");
     }
 
     // Recursively expands #include directives into a single source string.
@@ -141,19 +144,18 @@ namespace tbx::plugins
     // - Ensures each resolved include file is expanded only once per shader stage.
     // - Detects include cycles using the include stack.
     static ShaderLoadResult try_expand_includes(
-        const IFileOps& file_operator,
-        const AssetManager& asset_manager,
+        const tbx::IFileOps& file_operator,
+        const tbx::AssetManager& asset_manager,
         const std::filesystem::path& source_file,
         const std::string& source,
         std::vector<std::filesystem::path>& include_stack,
         std::unordered_set<std::string>& included_files,
         size_t depth)
     {
-        constexpr size_t MAX_DEPTH = 32U;
-        if (depth > MAX_DEPTH)
-            return make_shader_load_failure("Shader loader: include depth exceeded.");
+        if (constexpr size_t MAX_DEPTH = 32U; depth > MAX_DEPTH)
+            return make_shader_load_failure("tbx::Shader loader: include depth exceeded.");
 
-        std::istringstream stream = std::istringstream(source);
+        auto stream = std::istringstream(source);
         std::string line;
         std::string expanded;
         expanded.reserve(source.size());
@@ -172,7 +174,8 @@ namespace tbx::plugins
                     // The line looks like an include but we couldn't parse a usable path.
                     // Fail explicitly so the user gets a clear diagnostic instead of a driver
                     // error.
-                    return make_shader_load_failure("Shader loader: invalid #include directive.");
+                    return make_shader_load_failure(
+                        "tbx::Shader loader: invalid #include directive.");
                 }
 
                 // Ordinary line, keep it verbatim.
@@ -198,7 +201,7 @@ namespace tbx::plugins
                     // Simple cycle detection: if we try to include a file already on the call
                     // stack, we would recurse forever. Fail with a clear error.
                     return make_shader_load_failure(
-                        "Shader loader: include cycle detected for '"
+                        "tbx::Shader loader: include cycle detected for '"
                         + include_result.resolved_path.string() + "'.");
                 }
             }
@@ -229,12 +232,11 @@ namespace tbx::plugins
 
     static bool try_get_shader_type_from_extension(
         const std::filesystem::path& path,
-        ShaderType& out_type)
+        tbx::ShaderType& out_type)
     {
         std::string extension = path.extension().generic_string();
-        std::transform(
-            extension.begin(),
-            extension.end(),
+        std::ranges::transform(
+            extension,
             extension.begin(),
             [](unsigned char ch)
             {
@@ -243,39 +245,39 @@ namespace tbx::plugins
 
         if (extension == ".vert")
         {
-            out_type = ShaderType::VERTEX;
+            out_type = tbx::ShaderType::VERTEX;
             return true;
         }
         if (extension == ".tes")
         {
-            out_type = ShaderType::TESSELATION;
+            out_type = tbx::ShaderType::TESSELATION;
             return true;
         }
         if (extension == ".geom")
         {
-            out_type = ShaderType::GEOMETRY;
+            out_type = tbx::ShaderType::GEOMETRY;
             return true;
         }
         if (extension == ".frag")
         {
-            out_type = ShaderType::FRAGMENT;
+            out_type = tbx::ShaderType::FRAGMENT;
             return true;
         }
         if (extension == ".comp")
         {
-            out_type = ShaderType::COMPUTE;
+            out_type = tbx::ShaderType::COMPUTE;
             return true;
         }
 
-        out_type = ShaderType::NONE;
+        out_type = tbx::ShaderType::NONE;
         return false;
     }
 
     static std::string build_load_failure_message(
         const std::filesystem::path& path,
-        std::string_view reason)
+        const std::string_view reason)
     {
-        std::string message = "Shader loader failed to load shader: ";
+        std::string message = "tbx::Shader loader failed to load shader: ";
         message.append(path.string());
         if (!reason.empty())
         {
@@ -287,14 +289,14 @@ namespace tbx::plugins
     }
 
     static ShaderLoadResult try_read_shader_file(
-        const IFileOps& file_operator,
+        const tbx::IFileOps& file_operator,
         const std::filesystem::path& path,
         std::string& out_data)
     {
         if (path.empty())
-            return make_shader_load_failure("Shader loader: empty shader path.");
+            return make_shader_load_failure("tbx::Shader loader: empty shader path.");
 
-        if (!file_operator.read_file(path, FileDataFormat::UTF8_TEXT, out_data))
+        if (!file_operator.read_file(path, tbx::FileDataFormat::UTF8_TEXT, out_data))
         {
             return make_shader_load_failure(
                 build_load_failure_message(path, "file could not be read"));
@@ -303,77 +305,66 @@ namespace tbx::plugins
         return make_shader_load_success({});
     }
 
-    void GlslShaderLoaderPlugin::on_attach(IPluginHost& host)
+    void GlslShaderLoaderPlugin::on_attach(tbx::IPluginHost& host)
     {
-        _asset_manager = &host.get_asset_manager();
-        _working_directory = host.get_settings().working_directory;
+        _working_directory = host.get_settings().paths.working_directory;
         if (!_file_ops)
-            _file_ops = std::make_shared<FileOperator>(_working_directory);
+            _file_ops = std::make_unique<tbx::FileOperator>(_working_directory);
     }
 
     void GlslShaderLoaderPlugin::on_detach()
     {
-        _asset_manager = nullptr;
         _working_directory = std::filesystem::path();
     }
 
-    void GlslShaderLoaderPlugin::set_file_ops(std::shared_ptr<IFileOps> file_ops)
+    void GlslShaderLoaderPlugin::on_recieve_message(tbx::Message& msg)
     {
-        _file_ops = std::move(file_ops);
-    }
-
-    void GlslShaderLoaderPlugin::on_recieve_message(Message& msg)
-    {
-        auto* request = handle_message<LoadShaderRequest>(msg);
+        auto* request = handle_message<tbx::LoadShaderRequest>(msg);
         if (!request)
             return;
 
         on_load_shader_program_request(*request);
     }
 
-    void GlslShaderLoaderPlugin::on_load_shader_program_request(LoadShaderRequest& request)
+    void GlslShaderLoaderPlugin::on_load_shader_program_request(tbx::LoadShaderRequest& request)
     {
         auto* asset = request.asset;
         if (!asset)
         {
-            request.state = MessageState::ERROR;
-            request.result.flag_failure("Shader loader: missing shader asset wrapper.");
+            request.state = tbx::MessageState::ERROR;
+            request.result.flag_failure("tbx::Shader loader: missing shader asset wrapper.");
             return;
         }
 
         if (request.cancellation_token && request.cancellation_token.is_cancelled())
         {
-            request.state = MessageState::CANCELLED;
-            request.result.flag_failure("Shader loader cancelled.");
-            return;
-        }
-
-        if (!_asset_manager)
-        {
-            request.state = MessageState::ERROR;
-            request.result.flag_failure("Shader loader: file services unavailable.");
+            request.state = tbx::MessageState::CANCELLED;
+            request.result.flag_failure("tbx::Shader loader cancelled.");
             return;
         }
 
         if (!_file_ops)
         {
-            request.state = MessageState::ERROR;
-            request.result.flag_failure("Shader loader: file services unavailable.");
+            request.state = tbx::MessageState::ERROR;
+            request.result.flag_failure("tbx::Shader loader: file services unavailable.");
             return;
         }
 
-        ShaderType requested_type = ShaderType::NONE;
+        tbx::ShaderType requested_type = tbx::ShaderType::NONE;
         if (!try_get_shader_type_from_extension(request.path, requested_type))
         {
-            request.state = MessageState::ERROR;
+            request.state = tbx::MessageState::ERROR;
             if (request.path.extension() == ".glsl")
             {
                 request.result.flag_failure(
-                    "Shader loader: .glsl files are include-only; use .vert/.tes/.geom/.frag/.comp for shader programs.");
+                    "tbx::Shader loader: .glsl files are include-only; use "
+                    ".vert/.tes/.geom/.frag/.comp "
+                    "for shader programs.");
             }
             else
             {
-                request.result.flag_failure("Shader loader: unsupported shader file extension.");
+                request.result.flag_failure(
+                    "tbx::Shader loader: unsupported shader file extension.");
             }
             return;
         }
@@ -382,17 +373,18 @@ namespace tbx::plugins
         auto read_result = try_read_shader_file(*_file_ops, request.path, stage_data);
         if (!read_result.succeeded)
         {
-            request.state = MessageState::ERROR;
+            request.state = tbx::MessageState::ERROR;
             request.result.flag_failure(read_result.error);
             return;
         }
 
-        auto shader = ShaderSource(std::move(stage_data), requested_type);
-        std::vector<std::filesystem::path> include_stack = {request.path};
+        auto shader = tbx::ShaderSource(std::move(stage_data), requested_type);
+        std::vector include_stack = {request.path};
         std::unordered_set<std::string> included_files = {};
+        auto& asset_manager = get_host().get_asset_manager();
         ShaderLoadResult expanded = try_expand_includes(
             *_file_ops,
-            *_asset_manager,
+            asset_manager,
             request.path,
             shader.source,
             include_stack,
@@ -400,15 +392,14 @@ namespace tbx::plugins
             0U);
         if (!expanded.succeeded)
         {
-            request.state = MessageState::ERROR;
-            request.result.flag_failure(
-                build_load_failure_message(request.path, expanded.error));
+            request.state = tbx::MessageState::ERROR;
+            request.result.flag_failure(build_load_failure_message(request.path, expanded.error));
             return;
         }
 
         shader.source = std::move(expanded.data);
-        *asset = Shader(std::move(shader));
+        *asset = tbx::Shader(std::move(shader));
 
-        request.state = MessageState::HANDLED;
+        request.state = tbx::MessageState::HANDLED;
     }
 }

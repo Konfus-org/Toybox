@@ -1,19 +1,26 @@
 #include "opengl_texture.h"
+#include "opengl_bindless.h"
 #include "tbx/debugging/macros.h"
 #include <algorithm>
 #include <glad/glad.h>
+#include <utility>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
+    static tbx::uint32 take_gl_handle(tbx::uint32& id) noexcept
+    {
+        return std::exchange(id, 0);
+    }
+
     struct GlTextureFormat
     {
         GLenum internal_format = 0;
         GLenum data_format = 0;
     };
 
-    static GLint calculate_mipmap_levels(const Texture& texture)
+    static GLint calculate_mipmap_levels(const tbx::Texture& texture)
     {
-        if (texture.mipmaps != TextureMipmaps::ENABLED)
+        if (texture.mipmaps != tbx::TextureMipmaps::ENABLED)
             return 1;
 
         int max_dimension =
@@ -28,29 +35,29 @@ namespace tbx::plugins
         return levels;
     }
 
-    static GLenum to_gl_texture_min_filter(const Texture& texture)
+    static GLenum to_gl_texture_min_filter(const tbx::Texture& texture)
     {
         switch (texture.filter)
         {
-            case TextureFilter::NEAREST:
-                return texture.mipmaps == TextureMipmaps::ENABLED ? GL_NEAREST_MIPMAP_NEAREST
-                                                                  : GL_NEAREST;
-            case TextureFilter::LINEAR:
-                return texture.mipmaps == TextureMipmaps::ENABLED ? GL_LINEAR_MIPMAP_LINEAR
-                                                                  : GL_LINEAR;
+            case tbx::TextureFilter::NEAREST:
+                return texture.mipmaps == tbx::TextureMipmaps::ENABLED ? GL_NEAREST_MIPMAP_NEAREST
+                                                                       : GL_NEAREST;
+            case tbx::TextureFilter::LINEAR:
+                return texture.mipmaps == tbx::TextureMipmaps::ENABLED ? GL_LINEAR_MIPMAP_LINEAR
+                                                                       : GL_LINEAR;
             default:
                 TBX_ASSERT(false, "OpenGL rendering: unsupported texture filter.");
                 return GL_LINEAR;
         }
     }
 
-    static GLenum to_gl_texture_mag_filter(TextureFilter filter)
+    static GLenum to_gl_texture_mag_filter(tbx::TextureFilter filter)
     {
         switch (filter)
         {
-            case TextureFilter::NEAREST:
+            case tbx::TextureFilter::NEAREST:
                 return GL_NEAREST;
-            case TextureFilter::LINEAR:
+            case tbx::TextureFilter::LINEAR:
                 return GL_LINEAR;
             default:
                 TBX_ASSERT(false, "OpenGL rendering: unsupported texture filter.");
@@ -58,15 +65,15 @@ namespace tbx::plugins
         }
     }
 
-    static GLenum to_gl_texture_wrap(TextureWrap wrap)
+    static GLenum to_gl_texture_wrap(tbx::TextureWrap wrap)
     {
         switch (wrap)
         {
-            case TextureWrap::REPEAT:
+            case tbx::TextureWrap::REPEAT:
                 return GL_REPEAT;
-            case TextureWrap::MIRRORED_REPEAT:
+            case tbx::TextureWrap::MIRRORED_REPEAT:
                 return GL_MIRRORED_REPEAT;
-            case TextureWrap::CLAMP_TO_EDGE:
+            case tbx::TextureWrap::CLAMP_TO_EDGE:
                 return GL_CLAMP_TO_EDGE;
             default:
                 TBX_ASSERT(false, "OpenGL rendering: unsupported texture wrap.");
@@ -74,31 +81,13 @@ namespace tbx::plugins
         }
     }
 
-    static GLenum to_gl_runtime_internal_format(OpenGlTextureRuntimeMode mode)
-    {
-        switch (mode)
-        {
-            case OpenGlTextureRuntimeMode::Color:
-                return GL_RGBA8;
-            case OpenGlTextureRuntimeMode::HdrColor:
-                return GL_RGBA16F;
-            case OpenGlTextureRuntimeMode::Depth:
-                return GL_DEPTH_COMPONENT32F;
-            case OpenGlTextureRuntimeMode::DepthStencil:
-                return GL_DEPTH24_STENCIL8;
-            default:
-                TBX_ASSERT(false, "OpenGL rendering: unsupported runtime texture mode.");
-                return GL_RGBA8;
-        }
-    }
-
-    static GlTextureFormat to_gl_texture_format(TextureFormat format)
+    static GlTextureFormat to_gl_texture_format(tbx::TextureFormat format)
     {
         switch (format)
         {
-            case TextureFormat::RGBA:
+            case tbx::TextureFormat::RGBA:
                 return GlTextureFormat {GL_RGBA8, GL_RGBA};
-            case TextureFormat::RGB:
+            case tbx::TextureFormat::RGB:
                 return GlTextureFormat {GL_RGB8, GL_RGB};
             default:
                 TBX_ASSERT(false, "OpenGL rendering: unsupported texture format.");
@@ -106,17 +95,17 @@ namespace tbx::plugins
         }
     }
 
-    static GLenum get_compressed_internal_format(TextureFormat format)
+    static GLenum get_compressed_internal_format(tbx::TextureFormat format)
     {
         switch (format)
         {
-            case TextureFormat::RGBA:
+            case tbx::TextureFormat::RGBA:
 #if defined(GL_COMPRESSED_RGBA8_ETC2_EAC)
                 return GL_COMPRESSED_RGBA8_ETC2_EAC;
 #else
                 return 0;
 #endif
-            case TextureFormat::RGB:
+            case tbx::TextureFormat::RGB:
 #if defined(GL_COMPRESSED_RGB8_ETC2)
                 return GL_COMPRESSED_RGB8_ETC2;
 #else
@@ -142,9 +131,11 @@ namespace tbx::plugins
         return is_supported == GL_TRUE;
     }
 
-    static GLenum resolve_internal_format(const Texture& texture, GLenum fallback_internal_format)
+    static GLenum resolve_internal_format(
+        const tbx::Texture& texture,
+        GLenum fallback_internal_format)
     {
-        if (texture.compression == TextureCompression::DISABLED)
+        if (texture.compression == tbx::TextureCompression::DISABLED)
             return fallback_internal_format;
 
         const GLenum compressed = get_compressed_internal_format(texture.format);
@@ -158,7 +149,7 @@ namespace tbx::plugins
         return fallback_internal_format;
     }
 
-    OpenGlTexture::OpenGlTexture(const Texture& texture)
+    OpenGlTexture::OpenGlTexture(const tbx::Texture& texture)
     {
         glCreateTextures(GL_TEXTURE_2D, 1, &_texture_id);
 
@@ -191,53 +182,53 @@ namespace tbx::plugins
             format.data_format,
             GL_UNSIGNED_BYTE,
             texture.pixels.data());
-        if (texture.mipmaps == TextureMipmaps::ENABLED)
+        if (texture.mipmaps == tbx::TextureMipmaps::ENABLED)
             glGenerateTextureMipmap(_texture_id);
     }
 
-    OpenGlTexture::OpenGlTexture(const OpenGlTextureRuntimeSettings& settings)
+    OpenGlTexture::OpenGlTexture(OpenGlTexture&& other) noexcept
+        : _texture_id(take_gl_handle(other._texture_id))
+        , _slot(other._slot)
+        , _bindless_handle(other._bindless_handle)
     {
-        TBX_ASSERT(
-            settings.resolution.width > 0 && settings.resolution.height > 0,
-            "OpenGL rendering: runtime texture resolution must be greater than zero.");
+        other._slot = 0;
+        other._bindless_handle = 0;
+    }
 
-        glCreateTextures(GL_TEXTURE_2D, 1, &_texture_id);
-        if (_texture_id == 0)
-            return;
+    OpenGlTexture& OpenGlTexture::operator=(OpenGlTexture&& other) noexcept
+    {
+        if (this == &other)
+            return *this;
 
-        const auto gl_filter = to_gl_texture_mag_filter(settings.filter);
-        auto wrapping = to_gl_texture_wrap(settings.wrap);
-        if (settings.use_border_color)
-            wrapping = GL_CLAMP_TO_BORDER;
-        const auto internal_format = to_gl_runtime_internal_format(settings.mode);
-        glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, gl_filter);
-        glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, gl_filter);
-        glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_S, wrapping);
-        glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_T, wrapping);
-        if (settings.use_border_color)
-        {
-            const auto border = settings.border_color;
-            const float border_values[] = {border.x, border.y, border.z, border.w};
-            glTextureParameterfv(_texture_id, GL_TEXTURE_BORDER_COLOR, border_values);
-        }
+        if (_texture_id != 0)
+            glDeleteTextures(1, &_texture_id);
 
-        glTextureStorage2D(
-            _texture_id,
-            1,
-            internal_format,
-            static_cast<GLsizei>(settings.resolution.width),
-            static_cast<GLsizei>(settings.resolution.height));
+        if (_bindless_handle != 0)
+            release_bindless_handle(_bindless_handle);
+
+        _texture_id = take_gl_handle(other._texture_id);
+        _slot = other._slot;
+        _bindless_handle = other._bindless_handle;
+        other._slot = 0;
+        other._bindless_handle = 0;
+        return *this;
     }
 
     OpenGlTexture::~OpenGlTexture() noexcept
     {
+        if (_bindless_handle != 0)
+        {
+            release_bindless_handle(_bindless_handle);
+            _bindless_handle = 0;
+        }
+
         if (_texture_id != 0)
         {
             glDeleteTextures(1, &_texture_id);
         }
     }
 
-    void OpenGlTexture::set_slot(uint32 slot)
+    void OpenGlTexture::set_slot(tbx::uint32 slot)
     {
         _slot = slot;
     }
@@ -252,8 +243,21 @@ namespace tbx::plugins
         glBindTextureUnit(_slot, 0);
     }
 
-    uint32 OpenGlTexture::get_texture_id() const
+    tbx::uint32 OpenGlTexture::get_texture_id() const
     {
         return _texture_id;
+    }
+
+    tbx::uint64 OpenGlTexture::get_bindless_handle() const
+    {
+        if (_bindless_handle != 0)
+            return _bindless_handle;
+
+        auto handle = tbx::uint64 {};
+        if (!try_make_bindless_handle_resident(_texture_id, handle))
+            return 0;
+
+        _bindless_handle = handle;
+        return _bindless_handle;
     }
 }

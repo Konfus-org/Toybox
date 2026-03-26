@@ -12,6 +12,16 @@ namespace tbx
         return glm::normalize(v);
     }
 
+    float dot(const Vec3& left, const Vec3& right)
+    {
+        return glm::dot(left, right);
+    }
+
+    Vec3 cross(const Vec3& left, const Vec3& right)
+    {
+        return glm::cross(left, right);
+    }
+
     Vec4 normalize(Vec4 v)
     {
         return glm::normalize(v);

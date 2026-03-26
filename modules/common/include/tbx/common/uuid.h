@@ -7,12 +7,12 @@
 
 namespace tbx
 {
-    struct TBX_API Uuid
+    struct Uuid
     {
-        Uuid();
-        Uuid(uint32 v);
+        TBX_API Uuid();
+        TBX_API Uuid(uint32 v);
 
-        static Uuid generate();
+        TBX_API static Uuid generate();
 
         /// <summary>
         /// Purpose: Combines a base UUID with an additional value into a new UUID.
@@ -21,7 +21,7 @@ namespace tbx
         /// Ownership: Returns a value type; no ownership transfer.
         /// Thread Safety: Safe to call concurrently.
         /// </remarks>
-        static Uuid combine(Uuid base, uint32 value);
+        TBX_API static Uuid combine(Uuid base, uint32 value);
 
         /// <summary>
         /// Purpose: Combines an additional value into this UUID.
@@ -30,24 +30,26 @@ namespace tbx
         /// Ownership: Mutates this UUID in place.
         /// Thread Safety: Not thread-safe; synchronize mutation externally.
         /// </remarks>
-        void combine(uint32 value);
+        TBX_API void combine(uint32 value);
 
-        bool is_valid() const;
+        TBX_API bool is_valid() const;
 
-        operator bool() const;
-        operator uint32() const;
-        bool operator!() const;
-        bool operator<(const Uuid& other) const;
-        bool operator>(const Uuid& other) const;
-        bool operator<=(const Uuid& other) const;
-        bool operator>=(const Uuid& other) const;
-        bool operator==(const Uuid& other) const;
-        bool operator!=(const Uuid& other) const;
+        TBX_API operator bool() const;
+        TBX_API operator uint32() const;
+        TBX_API bool operator!() const;
+        TBX_API bool operator<(const Uuid& other) const;
+        TBX_API bool operator>(const Uuid& other) const;
+        TBX_API bool operator<=(const Uuid& other) const;
+        TBX_API bool operator>=(const Uuid& other) const;
+        TBX_API bool operator==(const Uuid& other) const;
+        TBX_API bool operator!=(const Uuid& other) const;
 
         uint32 value = 0U;
 
         static const Uuid NONE;
     };
+
+    inline const Uuid Uuid::NONE = {};
 
     /// <summary>Purpose: Formats a UUID value as a hex string.</summary>
     /// <remarks>Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for

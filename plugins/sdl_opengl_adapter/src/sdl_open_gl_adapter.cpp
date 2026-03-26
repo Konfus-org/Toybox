@@ -1,8 +1,26 @@
 #include "tbx/plugins/sdl_opengl_adapter/sdl_open_gl_adapter.h"
 #include "tbx/debugging/macros.h"
 
-namespace tbx::plugins
+namespace sdl_opengl_adapter
 {
+    static void try_release_current_context(SDL_GLContext context)
+    {
+        if (!context)
+            return;
+
+        SDL_GLContext current_context = SDL_GL_GetCurrentContext();
+        if (current_context != context)
+            return;
+
+        if (!SDL_GL_MakeCurrent(nullptr, nullptr))
+        {
+            TBX_TRACE_WARNING(
+                "Failed to release current SDL OpenGL context before destruction: {}",
+                SDL_GetError());
+            SDL_ClearError();
+        }
+    }
+
     static void set_opengl_attribute(SDL_GLAttr attribute, int value)
     {
         if (!SDL_GL_SetAttribute(attribute, value))
@@ -24,7 +42,10 @@ namespace tbx::plugins
         for (const auto& context_entry : _contexts)
         {
             if (context_entry.second)
+            {
+                try_release_current_context(context_entry.second);
                 SDL_GL_DestroyContext(context_entry.second);
+            }
         }
         _contexts.clear();
     }
@@ -94,6 +115,15 @@ namespace tbx::plugins
             SDL_ClearError();
         }
 
+        // Release the context from the setup thread so a dedicated render thread can acquire it.
+        if (!SDL_GL_MakeCurrent(nullptr, nullptr))
+        {
+            TBX_TRACE_WARNING(
+                "Failed to release SDL OpenGL context for window '{}': {}",
+                window_title,
+                SDL_GetError());
+        }
+
         return true;
     }
 
@@ -107,7 +137,10 @@ namespace tbx::plugins
             return;
 
         if (context_it->second)
+        {
+            try_release_current_context(context_it->second);
             SDL_GL_DestroyContext(context_it->second);
+        }
         _contexts.erase(context_it);
     }
 
@@ -180,9 +213,9 @@ namespace tbx::plugins
         }
     }
 
-    GraphicsProcAddress SdlOpenGlAdapter::get_proc_address() const
+    tbx::GraphicsProcAddress SdlOpenGlAdapter::get_proc_address() const
     {
-        return reinterpret_cast<GraphicsProcAddress>(SDL_GL_GetProcAddress);
+        return reinterpret_cast<tbx::GraphicsProcAddress>(SDL_GL_GetProcAddress);
     }
 
     bool SdlOpenGlAdapter::has_context(SDL_Window* sdl_window) const

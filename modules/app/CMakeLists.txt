@@ -26,6 +26,7 @@ target_link_libraries(${module_name}
         Tbx::Graphics
         Tbx::Physics
         Tbx::Assets
+        Tbx::Async
 )
 
 tbx_setup_module(${module_name})

@@ -8,25 +8,14 @@
 #include "tbx/time/delta_time.h"
 #include <algorithm>
 #include <chrono>
-#include <utility>
 
 namespace tbx
 {
-    AppSettings::AppSettings(
-        IMessageDispatcher& dispatcher,
-        bool vsync,
-        GraphicsApi api,
-        Size resolution)
-        : graphics(dispatcher, vsync, api, resolution)
-        , physics(dispatcher)
-    {
-    }
-
     Application::Application(const AppDescription& desc)
         : _name(desc.name)
         , _icon_handle(desc.icon)
         , _input_manager(_msg_coordinator)
-        , _settings(_msg_coordinator)
+        , _settings(_msg_coordinator, false, GraphicsApi::OPEN_GL, {0, 0})
         , _main_window(
               _msg_coordinator,
               desc.name.empty() ? std::string("Toybox Application") : desc.name,
@@ -35,12 +24,21 @@ namespace tbx
               false)
         , _asset_manager(desc.working_root)
     {
-        FileOperator file_operator = FileOperator(desc.working_root);
-        _settings.working_directory = file_operator.get_working_directory();
+        const auto file_operator = FileOperator(desc.working_root);
+        _settings.paths.working_directory = file_operator.get_working_directory();
         if (desc.logs_directory.empty())
-            _settings.logs_directory = file_operator.resolve("logs");
+            _settings.paths.logs_directory = file_operator.resolve("logs");
         else
-            _settings.logs_directory = file_operator.resolve(desc.logs_directory);
+            _settings.paths.logs_directory = file_operator.resolve(desc.logs_directory);
+
+        for (auto& arg : desc.args)
+        {
+            // TODO:
+            // -- headless
+            // -- screenshot count seconds-between
+            // -- close-after time-in-milliseconds
+            // -- benchmark
+        }
 
         initialize(desc.requested_plugins);
     }
@@ -113,6 +111,16 @@ namespace tbx
         return _asset_manager;
     }
 
+    JobSystem& Application::get_job_system()
+    {
+        return _job_manager;
+    }
+
+    ThreadManager& Application::get_thread_manager()
+    {
+        return _thread_manager;
+    }
+
     void Application::initialize(const std::vector<std::string>& requested_plugins)
     {
         const auto startup_begin = std::chrono::steady_clock::now();
@@ -136,19 +144,29 @@ namespace tbx
 
             // Load requested plugins
             _loaded = load_plugins(
-                _settings.working_directory,
+                _settings.paths.working_directory,
                 requested_plugins,
-                _settings.working_directory,
+                _settings.paths.working_directory,
                 *this);
+
+#ifdef TBX_DEBUG
+            // Only add extra dirs in debug mode, in release they are compiled into one dir in the
+            // release build dir.
             for (const auto& loaded : _loaded)
                 _asset_manager.add_asset_directory(loaded.meta.resource_directory);
-
+#endif
             // Log filesystem directories
-            TBX_TRACE_INFO("Working Directory: {}", _settings.working_directory.string());
-            TBX_TRACE_INFO("Logs Directory: {}", _settings.logs_directory.string());
+            TBX_TRACE_INFO("Working Directory: '{}'", _settings.paths.working_directory.string());
+            TBX_TRACE_INFO("Logs Directory: '{}'", _settings.paths.logs_directory.string());
             auto asset_roots = _asset_manager.get_asset_directories();
-            for (const auto& root : asset_roots)
-                TBX_TRACE_INFO("Asset Directory: {}", root.string());
+            if (asset_roots.size() > 1)
+            {
+                TBX_TRACE_INFO("Asset Directories:");
+                for (const auto& root : asset_roots)
+                    TBX_TRACE_INFO("    -'{}'", root.string());
+            }
+            else
+                TBX_TRACE_INFO("Asset Directory: {}", asset_roots.front().string());
 
             // Tell everyone we're initialized
             _msg_coordinator.send<ApplicationInitializedEvent>(this);
@@ -231,11 +249,11 @@ namespace tbx
 
         // Log performance metrics
 #ifdef TBX_DEBUG
-        constexpr double PERFORMANCE_LOG_INTERVAL_SECONDS = 10.0;
+        constexpr double performance_log_interval_seconds = 10.0;
 #else
-        constexpr double PERFORMANCE_LOG_INTERVAL_SECONDS = 120.0;
+        constexpr double performance_log_interval_seconds = 10.0;
 #endif
-        if (_performance_sample_elapsed_seconds >= PERFORMANCE_LOG_INTERVAL_SECONDS)
+        if (_performance_sample_elapsed_seconds >= performance_log_interval_seconds)
         {
             double average_fps = 0.0;
             double average_frame_time_ms = 0.0;
@@ -332,15 +350,20 @@ namespace tbx
             // 4. Detach and unload plugins using dependency-aware unload ordering.
             unload_plugins(_loaded);
 
-            // 5. Process any remaining messages that may have been posted during shutdown
+            // 5. Stop dedicated thread lanes after plugin teardown.
+            _thread_manager.stop_all();
+
+            // 6. Process any remaining messages that may have been posted during shutdown
             auto shutdown_elapsed_ms = std::chrono::duration<double, std::milli>(
                                            std::chrono::steady_clock::now() - shutdown_begin)
                                            .count();
-            TBX_TRACE_INFO("Application shutdown completed in {:.2f} ms.", shutdown_elapsed_ms);
 
-            // 6. Process any remaining posted messages and clear handlers
+            // 7. Process any remaining posted messages and clear handlers
             _msg_coordinator.flush();
             _msg_coordinator.clear_handlers();
+
+            // 8. Log shutdown metrics
+            TBX_TRACE_INFO("Application shutdown completed in {:.2f} ms.", shutdown_elapsed_ms);
         }
         catch (const std::exception& ex)
         {

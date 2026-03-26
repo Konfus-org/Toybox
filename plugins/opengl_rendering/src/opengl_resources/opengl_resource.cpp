@@ -1,26 +1,26 @@
 #include "opengl_resource.h"
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
-    GlResourceScope::GlResourceScope(IOpenGlResource& resource)
+    OpenGlResourceScope::OpenGlResourceScope(IOpenGlResource& resource)
         : _resource(&resource)
     {
         _resource->bind();
     }
 
-    GlResourceScope::GlResourceScope(GlResourceScope&& other) noexcept
+    OpenGlResourceScope::OpenGlResourceScope(OpenGlResourceScope&& other) noexcept
         : _resource(other._resource)
     {
         other._resource = nullptr;
     }
 
-    GlResourceScope::~GlResourceScope() noexcept
+    OpenGlResourceScope::~OpenGlResourceScope() noexcept
     {
         if (_resource != nullptr)
             _resource->unbind();
     }
 
-    GlResourceScope& GlResourceScope::operator=(GlResourceScope&& other) noexcept
+    OpenGlResourceScope& OpenGlResourceScope::operator=(OpenGlResourceScope&& other) noexcept
     {
         if (this == &other)
             return *this;

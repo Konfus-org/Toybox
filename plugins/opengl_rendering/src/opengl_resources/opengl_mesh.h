@@ -3,10 +3,18 @@
 #include "opengl_resource.h"
 #include "tbx/common/int.h"
 #include "tbx/graphics/mesh.h"
+#include "tbx/math/matrices.h"
 #include "tbx/tbx_api.h"
+#include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
+    struct OpenGlMeshInstanceData
+    {
+        tbx::Mat4 model = tbx::Mat4(1.0F);
+        tbx::uint32 instance_id = 0;
+    };
+
     /// <summary>OpenGL implementation of a mesh resource.</summary>
     /// <remarks>Purpose: Manages a VAO with vertex and index buffers for drawing.
     /// Ownership: Owns the VAO and associated buffers.
@@ -18,7 +26,11 @@ namespace tbx::plugins
         /// <remarks>Purpose: Initializes GPU buffers for the mesh.
         /// Ownership: Owns the created VAO and buffer resources.
         /// Thread Safety: Construct on the render thread.</remarks>
-        explicit OpenGlMesh(const Mesh& mesh);
+        explicit OpenGlMesh(const tbx::Mesh& mesh);
+        OpenGlMesh(const OpenGlMesh&) = delete;
+        OpenGlMesh& operator=(const OpenGlMesh&) = delete;
+        OpenGlMesh(OpenGlMesh&& other) noexcept;
+        OpenGlMesh& operator=(OpenGlMesh&& other) noexcept;
 
         /// <summary>Destroys the OpenGL mesh resource.</summary>
         /// <remarks>Purpose: Releases the VAO and buffer resources.
@@ -30,19 +42,43 @@ namespace tbx::plugins
         /// <remarks>Purpose: Updates vertex data for the mesh.
         /// Ownership: Copies data to the GPU; caller retains CPU ownership.
         /// Thread Safety: Call only on the render thread.</remarks>
-        void set_vertex_buffer(const VertexBuffer& buffer);
+        void set_vertex_buffer(const tbx::VertexBuffer& buffer);
 
         /// <summary>Uploads an index buffer to the mesh.</summary>
         /// <remarks>Purpose: Updates index data for the mesh.
         /// Ownership: Copies data to the GPU; caller retains CPU ownership.
         /// Thread Safety: Call only on the render thread.</remarks>
-        void set_index_buffer(const IndexBuffer& buffer);
+        void set_index_buffer(const tbx::IndexBuffer& buffer);
 
         /// <summary>Issues a draw call for the mesh.</summary>
         /// <remarks>Purpose: Draws indexed triangles or patches for the mesh.
         /// Ownership: Does not transfer ownership of any resources.
         /// Thread Safety: Call only on the render thread.</remarks>
-        void draw(bool draw_patches = false);
+        void draw() const;
+
+        /// <summary>Issues a draw call assuming this mesh is already bound.</summary>
+        /// <remarks>Purpose: Draws indexed triangles without rebinding the VAO, enabling
+        /// pass-level binding caches to reduce driver overhead.
+        /// Ownership: Does not transfer ownership of any resources.
+        /// Thread Safety: Call only on the render thread while this mesh remains bound.</remarks>
+        void draw_bound() const;
+
+        /// <summary>Issues an instanced draw call for the mesh.</summary>
+        /// <remarks>Purpose: Draws indexed triangles or patches across multiple instances.
+        /// Ownership: Does not transfer ownership of any resources.
+        /// Thread Safety: Call only on the render thread.</remarks>
+        void upload_instance_data(
+            const std::vector<OpenGlMeshInstanceData>& instances,
+            int instance_model_attribute_location,
+            int instance_id_attribute_location);
+        void draw_instanced(tbx::uint32 instance_count) const;
+
+        /// <summary>Issues an instanced draw call assuming this mesh is already bound.</summary>
+        /// <remarks>Purpose: Draws indexed triangles across multiple instances without rebinding
+        /// the VAO, enabling pass-level binding caches to reduce driver overhead.
+        /// Ownership: Does not transfer ownership of any resources.
+        /// Thread Safety: Call only on the render thread while this mesh remains bound.</remarks>
+        void draw_instanced_bound(tbx::uint32 instance_count) const;
 
         /// <summary>Binds the mesh's VAO and buffers.</summary>
         /// <remarks>Purpose: Binds the VAO and buffers for rendering.
@@ -57,7 +93,10 @@ namespace tbx::plugins
         void unbind() override;
 
       private:
-        uint32 _vertex_array_id = 0;
+        tbx::uint32 _vertex_array_id = 0;
+        tbx::uint32 _instance_buffer_id = 0;
+        int _instance_model_attribute_location = -1;
+        int _instance_id_attribute_location = -1;
         OpenGlVertexBuffer _vertex_buffer;
         OpenGlIndexBuffer _index_buffer;
     };

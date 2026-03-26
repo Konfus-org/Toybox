@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "tbx/tbx_api.h"
 #include <filesystem>
+#include <string>
 #include <type_traits>
 
 namespace tbx
@@ -13,7 +14,9 @@ namespace tbx
     class TBX_API SharedLibrary
     {
       public:
-        SharedLibrary(std::filesystem::path path);
+        SharedLibrary(
+            std::filesystem::path path,
+            std::filesystem::path cleanup_path = {});
         ~SharedLibrary() noexcept;
 
         SharedLibrary(const SharedLibrary&) = delete;
@@ -42,6 +45,14 @@ namespace tbx
             return _path;
         }
 
+        /// <summary>
+        /// Purpose: Returns the operating-system error captured during the last library load
+        /// attempt.
+        /// Ownership: Writes a copy of the stored message into the caller-provided string.
+        /// Thread Safety: Not thread-safe; synchronize external access if shared.
+        /// </summary>
+        bool try_get_load_error_message(std::string& out_error_message) const;
+
       private:
         void unload();
         void* get_symbol_raw(const char* name) const;
@@ -49,5 +60,7 @@ namespace tbx
       private:
         void* _handle = nullptr;
         std::filesystem::path _path;
+        std::filesystem::path _cleanup_path;
+        std::string _load_error_message = {};
     };
 }

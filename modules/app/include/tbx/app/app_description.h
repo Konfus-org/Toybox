@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/app/app_settings.h"
 #include "tbx/assets/builtin_assets.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
@@ -14,20 +15,23 @@ namespace tbx
     struct TBX_API AppDescription
     {
         // Human-readable application name used in logs, manifests, and window names.
-        const std::string name = "";
+        std::string name = "";
+
+        // Args given passed in at start.
+        std::vector<std::string> args = {};
 
         // Absolute or relative base directory used to resolve other paths.
-        const std::filesystem::path working_root = {};
+        std::filesystem::path working_root = {};
 
         // Directory where runtime logs should be stored relative to working root.
         // May be empty to fall back to the working root.
-        const std::filesystem::path logs_directory = {};
+        std::filesystem::path logs_directory = {};
 
         // Ordered list of plugin identifiers requested for loading.
-        const std::vector<std::string> requested_plugins = {};
+        std::vector<std::string> requested_plugins = {};
 
         // Startup icon asset used for native window icons.
         // Defaults to the built-in box icon.
-        const Handle icon = box_icon;
+        Handle icon = box_icon;
     };
 }

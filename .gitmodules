@@ -25,3 +25,6 @@
 [submodule "thirdparty/JoltPhysics"]
 	path = thirdparty/JoltPhysics
 	url = https://github.com/Konfus-org/JoltPhysics
+[submodule "thirdparty/benchmark"]
+	path = thirdparty/benchmark
+	url = https://github.com/Konfus-org/benchmark.git

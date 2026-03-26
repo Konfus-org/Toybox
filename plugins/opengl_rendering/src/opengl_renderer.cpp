@@ -1,463 +1,478 @@
 #include "opengl_renderer.h"
-#include "opengl_resources/opengl_buffers.h"
-#include "opengl_resources/opengl_gbuffer.h"
-#include "opengl_resources/opengl_shadow_map.h"
-#include "pipeline/opengl_post_processing.h"
+#include "builtin_assets.generated.h"
+#include "opengl_fallbacks.h"
+#include "opengl_resources/opengl_bindless.h"
+#include "opengl_resources/opengl_resource.h"
+#include "opengl_resources/opengl_shader.h"
+#include "opengl_resources/opengl_texture.h"
+#include "pipeline/OpenGlFrameContext.h"
 #include "pipeline/opengl_render_pipeline.h"
-#include "tbx/assets/builtin_assets.h"
 #include "tbx/debugging/macros.h"
+#include "tbx/ecs/entity.h"
 #include "tbx/graphics/camera.h"
+#include "tbx/graphics/frustum.h"
 #include "tbx/graphics/light.h"
-#include "tbx/graphics/material.h"
 #include "tbx/graphics/renderer.h"
+#include "tbx/graphics/texture.h"
+#include "tbx/math/matrices.h"
 #include "tbx/math/trig.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <glad/glad.h>
 #include <limits>
-#include <span>
 #include <string>
 #include <string_view>
+#include <tuple>
+#include <type_traits>
+#include <unordered_map>
 #include <variant>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
-    static constexpr size_t MAX_SHADOWED_DIRECTIONAL_LIGHTS = 1U;
-    static constexpr size_t DIRECTIONAL_SHADOW_CASCADE_COUNT = 2U;
-    static constexpr size_t MAX_SHADOWED_SPOT_LIGHTS = 4U;
-    static constexpr size_t MAX_SHADOWED_POINT_LIGHTS = 2U;
-    static constexpr size_t POINT_SHADOW_FACE_COUNT = 6U;
-    static constexpr float DIRECTIONAL_SHADOW_SPLIT_LAMBDA = 0.7F;
-    static constexpr float DIRECTIONAL_SHADOW_NEAR_PLANE = 0.001F;
-    static constexpr float LOCAL_LIGHT_SHADOW_NEAR_PLANE = 0.1F;
+    static constexpr tbx::uint32 ShadowCascadeCount = 3U;
+    static constexpr tbx::uint32 DirectionalShadowMapResolution = 2048U;
+    static constexpr tbx::uint32 LocalShadowMapResolution = 1024U;
+    static constexpr tbx::uint32 PointShadowMapResolution = 512U;
+    static constexpr float ShadowRenderDistance = 90.0F;
+    static constexpr float ShadowFilterSoftness = 0.6F;
+    static constexpr float ShadowNearPlane = 0.1F;
+    static constexpr float ShadowSplitLambda = 0.6F;
+    static constexpr float ShadowStabilizationPadding = 6.0F;
+    static constexpr float LocalShadowDepthBias = 0.00008F;
+    static constexpr float LocalShadowNormalBias = 0.00035F;
+    static constexpr float AreaShadowDepthPadding = 2.0F;
+    static const auto DefaultClearColor = tbx::Color(0.07F, 0.08F, 0.11F, 1.0F);
 
-    static std::shared_ptr<OpenGlGBuffer> try_load_gbuffer(
-        OpenGlResourceManager& resource_manager,
-        const Uuid& resource_uuid)
-    {
-        auto base_resource = std::shared_ptr<IOpenGlResource> {};
-        if (!resource_manager.try_get(resource_uuid, base_resource))
-            return nullptr;
-
-        return std::dynamic_pointer_cast<OpenGlGBuffer>(base_resource);
-    }
-
-    static std::shared_ptr<OpenGlFrameBuffer> try_load_framebuffer(
-        OpenGlResourceManager& resource_manager,
-        const Uuid& resource_uuid)
-    {
-        auto base_resource = std::shared_ptr<IOpenGlResource> {};
-        if (!resource_manager.try_get(resource_uuid, base_resource))
-            return nullptr;
-
-        return std::dynamic_pointer_cast<OpenGlFrameBuffer>(base_resource);
-    }
-
-    static void ensure_shadow_map_resources(
-        std::vector<Uuid>& shadow_map_resources,
-        size_t desired_count,
-        const OpenGlShadowSettings& shadow_settings,
-        OpenGlResourceManager& resource_manager)
-    {
-        while (shadow_map_resources.size() > desired_count)
-        {
-            resource_manager.unpin(shadow_map_resources.back());
-            shadow_map_resources.pop_back();
-        }
-
-        if (shadow_map_resources.size() < desired_count)
-            shadow_map_resources.reserve(desired_count);
-
-        while (shadow_map_resources.size() < desired_count)
-        {
-            auto shadow_map_resource = resource_manager.add<OpenGlShadowMap>(
-                Size(shadow_settings.shadow_map_resolution, shadow_settings.shadow_map_resolution));
-            if (!shadow_map_resource.is_valid())
-            {
-                TBX_ASSERT(false, "OpenGL rendering: failed to register shadow map resource.");
-                continue;
-            }
-
-            resource_manager.pin(shadow_map_resource);
-            shadow_map_resources.push_back(shadow_map_resource);
-        }
-    }
-
-    static std::string normalize_uniform_name(std::string_view name)
-    {
-        if (name.size() >= 2U && name[0] == 'u' && name[1] == '_')
-            return std::string(name);
-
-        std::string normalized = "u_";
-        normalized.append(name.begin(), name.end());
-        return normalized;
-    }
-
-    static void append_or_override_material_parameter(
-        MaterialParameterBindings& parameters,
-        std::string_view name,
-        MaterialParameterData data)
-    {
-        parameters.set(name, std::move(data));
-    }
-
-    static void append_or_override_texture(
-        MaterialTextureBindings& textures,
-        std::string_view name,
-        const TextureInstance& runtime_texture)
-    {
-        textures.set(name, runtime_texture);
-    }
-
-    static Vec3 get_camera_world_position(const OpenGlCameraView& camera_view)
-    {
-        const auto camera_transform = get_world_space_transform(camera_view.camera_entity);
-        return camera_transform.position;
-    }
-
-    static Quat get_camera_world_rotation(const OpenGlCameraView& camera_view)
-    {
-        const auto camera_transform = get_world_space_transform(camera_view.camera_entity);
-        return camera_transform.rotation;
-    }
-
-    static Mat4 get_camera_view_projection(
-        const OpenGlCameraView& camera_view,
-        const Size& render_resolution)
-    {
-        if (!camera_view.camera_entity.has_component<Camera>())
-            return Mat4(1.0f);
-
-        auto& camera = camera_view.camera_entity.get_component<Camera>();
-        camera.set_aspect(render_resolution.get_aspect_ratio());
-        auto camera_position = get_camera_world_position(camera_view);
-        auto camera_rotation = get_camera_world_rotation(camera_view);
-        return camera.get_view_projection_matrix(camera_position, camera_rotation);
-    }
-
-    static Vec3 get_entity_forward_direction(const Entity& entity)
-    {
-        const auto transform = get_world_space_transform(entity);
-        return normalize(transform.rotation * Vec3(0.0f, 0.0f, -1.0f));
-    }
-
-    static Vec3 get_entity_position(const Entity& entity)
-    {
-        const auto transform = get_world_space_transform(entity);
-        return transform.position;
-    }
-
-    static void resolve_light_color(
-        const Color& raw_color,
-        float raw_intensity,
-        Vec3& out_color,
-        float& out_intensity)
-    {
-        out_color = Vec3(raw_color.r, raw_color.g, raw_color.b);
-        out_intensity = std::max(raw_intensity, 0.0f);
-
-        float max_channel = std::max(out_color.x, std::max(out_color.y, out_color.z));
-        if (max_channel <= std::numeric_limits<float>::epsilon())
-        {
-            out_color = Vec3(1.0f);
-            out_intensity = 0.0f;
-            return;
-        }
-
-        out_color /= max_channel;
-        out_intensity *= max_channel;
-    }
-
-    static float calculate_local_light_shadow_importance(
-        float intensity,
-        const Vec3& light_position,
-        const Vec3& camera_world_position,
-        float range)
-    {
-        const float safe_range = std::max(range, 0.001F);
-        const float distance_to_camera = length(light_position - camera_world_position);
-        const float normalized_distance = distance_to_camera / safe_range;
-        return std::max(intensity, 0.0F) / (1.0F + (normalized_distance * normalized_distance));
-    }
-
-    static float calculate_directional_shadow_split_distance(
-        float shadow_near_plane,
-        float shadow_far_plane)
-    {
-        const float safe_near = std::max(0.001F, shadow_near_plane);
-        const float safe_far = std::max(safe_near + 0.001F, shadow_far_plane);
-        const float split_t = 0.5F;
-        const float logarithmic_split = safe_near * std::pow(safe_far / safe_near, split_t);
-        const float linear_split = safe_near + ((safe_far - safe_near) * split_t);
-        const float blended_split = (DIRECTIONAL_SHADOW_SPLIT_LAMBDA * logarithmic_split)
-                                    + ((1.0F - DIRECTIONAL_SHADOW_SPLIT_LAMBDA) * linear_split);
-        return std::clamp(blended_split, safe_near + 0.001F, safe_far - 0.001F);
-    }
-
-    static Mat4 build_directional_shadow_view_projection(
-        const OpenGlCameraView& camera_view,
-        const Size& render_resolution,
-        const Vec3& directional_light_direction,
-        float shadow_near_plane,
-        float shadow_far_plane,
-        const OpenGlShadowSettings& shadow_settings)
-    {
-        const float safe_shadow_near_plane = std::max(0.001F, shadow_near_plane);
-        const float safe_shadow_far_plane =
-            std::max(safe_shadow_near_plane + 0.001F, shadow_far_plane);
-        auto camera_position = get_camera_world_position(camera_view);
-        auto camera_rotation = get_camera_world_rotation(camera_view);
-        auto forward_axis = normalize(camera_rotation * Vec3(0.0F, 0.0F, -1.0F));
-        auto right_axis = normalize(camera_rotation * Vec3(1.0F, 0.0F, 0.0F));
-        auto up_axis = normalize(camera_rotation * Vec3(0.0F, 1.0F, 0.0F));
-
-        float near_half_height = 0.5F;
-        float near_half_width = 0.5F;
-        float far_half_height = 0.5F;
-        float far_half_width = 0.5F;
-        if (camera_view.camera_entity.has_component<Camera>())
-        {
-            auto& camera = camera_view.camera_entity.get_component<Camera>();
-            camera.set_aspect(render_resolution.get_aspect_ratio());
-
-            if (camera.is_perspective())
-            {
-                const float tan_half_fov = std::tan(to_radians(camera.get_fov() * 0.5F));
-                near_half_height = tan_half_fov * safe_shadow_near_plane;
-                near_half_width = near_half_height * camera.get_aspect();
-                far_half_height = tan_half_fov * safe_shadow_far_plane;
-                far_half_width = far_half_height * camera.get_aspect();
-            }
-            else
-            {
-                const float ortho_half_height = std::max(0.001F, camera.get_fov() * 0.5F);
-                const float ortho_half_width = ortho_half_height * camera.get_aspect();
-                near_half_height = ortho_half_height;
-                near_half_width = ortho_half_width;
-                far_half_height = ortho_half_height;
-                far_half_width = ortho_half_width;
-            }
-        }
-
-        const Vec3 near_center = camera_position + (forward_axis * safe_shadow_near_plane);
-        const Vec3 far_center = camera_position + (forward_axis * safe_shadow_far_plane);
-        const auto near_up = up_axis * near_half_height;
-        const auto near_right = right_axis * near_half_width;
-        const auto far_up = up_axis * far_half_height;
-        const auto far_right = right_axis * far_half_width;
-        const auto frustum_corners = std::array<Vec3, 8> {
-            near_center + near_up - near_right,
-            near_center + near_up + near_right,
-            near_center - near_up - near_right,
-            near_center - near_up + near_right,
-            far_center + far_up - far_right,
-            far_center + far_up + far_right,
-            far_center - far_up - far_right,
-            far_center - far_up + far_right,
-        };
-
-        Vec3 frustum_center = Vec3(0.0F);
-        for (const auto& corner : frustum_corners)
-            frustum_center += corner;
-        frustum_center /= static_cast<float>(frustum_corners.size());
-
-        auto direction_to_light = normalize(directional_light_direction);
-        auto light_position = frustum_center + (direction_to_light * safe_shadow_far_plane);
-
-        auto light_up_axis = Vec3(0.0f, 1.0f, 0.0f);
-        if (std::abs(dot(direction_to_light, light_up_axis)) > 0.95f)
-            light_up_axis = Vec3(1.0f, 0.0f, 0.0f);
-
-        auto light_view = look_at(light_position, frustum_center, light_up_axis);
-        float min_x = std::numeric_limits<float>::max();
-        float max_x = std::numeric_limits<float>::lowest();
-        float min_y = std::numeric_limits<float>::max();
-        float max_y = std::numeric_limits<float>::lowest();
-        float min_z = std::numeric_limits<float>::max();
-        float max_z = std::numeric_limits<float>::lowest();
-
-        for (const auto& corner : frustum_corners)
-        {
-            const auto light_space_corner = light_view * Vec4(corner, 1.0F);
-            min_x = std::min(min_x, light_space_corner.x);
-            max_x = std::max(max_x, light_space_corner.x);
-            min_y = std::min(min_y, light_space_corner.y);
-            max_y = std::max(max_y, light_space_corner.y);
-            min_z = std::min(min_z, light_space_corner.z);
-            max_z = std::max(max_z, light_space_corner.z);
-        }
-
-        const float width = std::max(max_x - min_x, 0.001F);
-        const float height = std::max(max_y - min_y, 0.001F);
-        const float map_resolution =
-            std::max(1.0F, static_cast<float>(shadow_settings.shadow_map_resolution));
-        const float texel_size_x = width / map_resolution;
-        const float texel_size_y = height / map_resolution;
-        float center_x = (min_x + max_x) * 0.5F;
-        float center_y = (min_y + max_y) * 0.5F;
-        center_x = std::floor(center_x / texel_size_x) * texel_size_x;
-        center_y = std::floor(center_y / texel_size_y) * texel_size_y;
-        min_x = center_x - (width * 0.5F);
-        max_x = center_x + (width * 0.5F);
-        min_y = center_y - (height * 0.5F);
-        max_y = center_y + (height * 0.5F);
-
-        const float z_padding = std::max(0.1F, safe_shadow_far_plane * 0.1F);
-        const float near_plane = std::max(0.001F, -max_z - z_padding);
-        const float far_plane = std::max(near_plane + 0.001F, -min_z + z_padding);
-        auto light_projection = ortho_projection(min_x, max_x, min_y, max_y, near_plane, far_plane);
-        return light_projection * light_view;
-    }
-
-    static Mat4 build_spot_shadow_view_projection(
-        const Vec3& light_position,
-        const Vec3& light_direction,
-        float outer_angle_radians,
-        float range)
-    {
-        auto safe_direction = normalize(light_direction);
-        auto up_axis = Vec3(0.0F, 1.0F, 0.0F);
-        if (std::abs(dot(safe_direction, up_axis)) > 0.95F)
-            up_axis = Vec3(1.0F, 0.0F, 0.0F);
-
-        const float near_plane = LOCAL_LIGHT_SHADOW_NEAR_PLANE;
-        const float far_plane = std::max(near_plane + 0.001F, range);
-        const float clamped_fov =
-            std::clamp(outer_angle_radians * 2.0F, to_radians(1.0F), to_radians(175.0F));
-        auto light_view = look_at(light_position, light_position + safe_direction, up_axis);
-        auto light_projection = perspective_projection(clamped_fov, 1.0F, near_plane, far_plane);
-        return light_projection * light_view;
-    }
-
-    static Mat4 build_point_shadow_face_view_projection(
-        const Vec3& light_position,
-        float range,
-        size_t face_index)
-    {
-        static const auto face_directions = std::array<Vec3, POINT_SHADOW_FACE_COUNT> {
-            Vec3(1.0F, 0.0F, 0.0F),
-            Vec3(-1.0F, 0.0F, 0.0F),
-            Vec3(0.0F, 1.0F, 0.0F),
-            Vec3(0.0F, -1.0F, 0.0F),
-            Vec3(0.0F, 0.0F, 1.0F),
-            Vec3(0.0F, 0.0F, -1.0F),
-        };
-        static const auto face_up_vectors = std::array<Vec3, POINT_SHADOW_FACE_COUNT> {
-            Vec3(0.0F, -1.0F, 0.0F),
-            Vec3(0.0F, -1.0F, 0.0F),
-            Vec3(0.0F, 0.0F, 1.0F),
-            Vec3(0.0F, 0.0F, -1.0F),
-            Vec3(0.0F, -1.0F, 0.0F),
-            Vec3(0.0F, -1.0F, 0.0F),
-        };
-
-        const size_t safe_face_index = std::min(face_index, POINT_SHADOW_FACE_COUNT - 1U);
-        const float near_plane = LOCAL_LIGHT_SHADOW_NEAR_PLANE;
-        const float far_plane = std::max(near_plane + 0.001F, range);
-        auto light_view = look_at(
-            light_position,
-            light_position + face_directions[safe_face_index],
-            face_up_vectors[safe_face_index]);
-        auto light_projection =
-            perspective_projection(to_radians(90.0F), 1.0F, near_plane, far_plane);
-        return light_projection * light_view;
-    }
-
-    static void GLAPIENTRY gl_message_callback(
-        GLenum,
-        GLenum,
-        GLuint,
+    static void gl_message_callback(
+        GLenum source,
+        GLenum type,
+        GLuint id,
         GLenum severity,
-        GLsizei,
+        const GLsizei length,
         const GLchar* message,
-        const void*)
+        const void* _)
     {
         switch (severity)
         {
             case GL_DEBUG_SEVERITY_HIGH:
-                TBX_ASSERT(false, "OpenGL callback: {}", message);
+            {
+                TBX_TRACE_WARNING(
+                    "GL debug message (source: {}, type: {}, id: {}, severity: {}) - {}:",
+                    source,
+                    type,
+                    id,
+                    severity,
+                    message,
+                    std::string_view(message, length));
                 break;
+            }
             case GL_DEBUG_SEVERITY_MEDIUM:
-                TBX_TRACE_ERROR("OpenGL callback: {}", message);
+            {
+                TBX_TRACE_WARNING(
+                    "GL debug message (source: {}, type: {}, id: {}, severity: {}) - {}:",
+                    source,
+                    type,
+                    id,
+                    severity,
+                    message,
+                    std::string_view(message, length));
                 break;
+            }
             case GL_DEBUG_SEVERITY_LOW:
-                TBX_TRACE_WARNING("OpenGL callback: {}", message);
+            {
+                TBX_TRACE_WARNING(
+                    "GL debug message (source: {}, type: {}, id: {}, severity: {}) - {}:",
+                    source,
+                    type,
+                    id,
+                    severity,
+                    message,
+                    std::string_view(message, length));
                 break;
-            case GL_DEBUG_SEVERITY_NOTIFICATION:
-                TBX_TRACE_INFO("OpenGL callback: {}", message);
-                break;
+            }
             default:
-                TBX_TRACE_WARNING("OpenGL callback: {}", message);
                 break;
         }
     }
 
-    OpenGlRenderer::OpenGlRenderer(
-        GraphicsProcAddress loader,
-        EntityRegistry& entity_registry,
-        AssetManager& asset_manager,
-        OpenGlContext context,
-        const OpenGlShadowSettings& shadow_settings)
-        : _entity_registry(&entity_registry)
-        , _context(std::move(context))
+    static const tbx::Material* try_get_material_defaults(
+        const tbx::Handle& material_handle,
+        tbx::AssetManager& asset_manager,
+        std::unordered_map<tbx::Uuid, tbx::Material>& material_defaults_cache)
     {
-        set_shadow_settings(shadow_settings);
+        if (!material_handle.is_valid())
+            return nullptr;
 
-        auto* glad_loader = reinterpret_cast<GLADloadproc>(loader);
-        TBX_ASSERT(
-            glad_loader != nullptr,
-            "OpenGL rendering: context-ready event provided null loader.");
-        TBX_ASSERT(
-            _entity_registry != nullptr,
-            "OpenGL rendering: renderer requires a valid entity registry.");
-        TBX_ASSERT(
-            _context.get_window_id().is_valid(),
-            "OpenGL rendering: renderer requires a valid context window id.");
+        if (const auto cached_material = material_defaults_cache.find(material_handle.id);
+            cached_material != material_defaults_cache.end())
+            return &cached_material->second;
 
-        auto load_result = gladLoadGLLoader(glad_loader);
-        TBX_ASSERT(load_result != 0, "OpenGL rendering: failed to initialize GLAD.");
-        initialize();
-        _deferred_lighting_resource = _entity_registry->add("OpenGlDeferredLighting");
-        auto& deferred_post_processing =
-            _entity_registry->add<PostProcessing>(_deferred_lighting_resource);
-        deferred_post_processing.effects = {PostProcessingEffect {
-            .material =
-                MaterialInstance {
-                    .handle = deferred_lighting_material,
-                },
-            .is_enabled = true,
-            .blend = 1.0f,
-        }};
-        deferred_post_processing.is_enabled = true;
-        _resource_manager = std::make_unique<OpenGlResourceManager>(asset_manager);
-        _render_pipeline = std::make_unique<OpenGlRenderPipeline>(*_resource_manager);
+        const auto material_asset = asset_manager.load<tbx::Material>(material_handle);
+        if (!material_asset)
+            return nullptr;
 
-        _gbuffer_resource = _resource_manager->add<OpenGlGBuffer>();
-        auto did_register_gbuffer = _gbuffer_resource.is_valid();
-        TBX_ASSERT(did_register_gbuffer, "OpenGL rendering: failed to register gbuffer resource.");
-        _resource_manager->pin(_gbuffer_resource);
+        const auto cache_it =
+            material_defaults_cache.emplace(material_handle.id, *material_asset).first;
+        return &cache_it->second;
+    }
 
-        _lighting_framebuffer_resource = _resource_manager->add<OpenGlFrameBuffer>();
-        auto did_register_lighting = _lighting_framebuffer_resource.is_valid();
-        TBX_ASSERT(
-            did_register_lighting,
-            "OpenGL rendering: failed to register lighting framebuffer resource.");
-        _resource_manager->pin(_lighting_framebuffer_resource);
+    static tbx::Vec3 to_vec3(const tbx::Color& color)
+    {
+        return tbx::Vec3(color.r, color.g, color.b);
+    }
 
-        _post_process_ping_framebuffer_resource = _resource_manager->add<OpenGlFrameBuffer>();
-        auto did_register_post_process_ping = _post_process_ping_framebuffer_resource.is_valid();
-        TBX_ASSERT(
-            did_register_post_process_ping,
-            "OpenGL rendering: failed to register ping post-process framebuffer resource.");
-        _resource_manager->pin(_post_process_ping_framebuffer_resource);
+    static tbx::Vec3 get_normalized_light_color(const tbx::Color& color)
+    {
+        const auto rgb = to_vec3(color);
+        const auto length = tbx::sqrt((rgb.x * rgb.x) + (rgb.y * rgb.y) + (rgb.z * rgb.z));
+        if (length <= 0.0001F)
+            return tbx::Vec3(0.0F, 0.0F, 0.0F);
+        return rgb / length;
+    }
 
-        _post_process_pong_framebuffer_resource = _resource_manager->add<OpenGlFrameBuffer>();
-        auto did_register_post_process_pong = _post_process_pong_framebuffer_resource.is_valid();
-        TBX_ASSERT(
-            did_register_post_process_pong,
-            "OpenGL rendering: failed to register pong post-process framebuffer resource.");
-        _resource_manager->pin(_post_process_pong_framebuffer_resource);
+    static tbx::Vec3 get_light_radiance(const tbx::Light& light)
+    {
+        return get_normalized_light_color(light.color) * tbx::max(light.intensity, 0.0F);
+    }
+
+    static bool has_light_radiance(const tbx::Light& light)
+    {
+        if (tbx::max(light.intensity, 0.0F) <= 0.0001F)
+            return false;
+
+        return light.color.r > 0.0001F || light.color.g > 0.0001F || light.color.b > 0.0001F;
+    }
+
+    static tbx::Vec3 get_light_direction(const tbx::Transform& transform)
+    {
+        return tbx::normalize(transform.rotation * tbx::Vec3(0.0F, 0.0F, -1.0F));
+    }
+
+    static tbx::Vec3 get_light_right(const tbx::Transform& transform)
+    {
+        return tbx::normalize(transform.rotation * tbx::Vec3(1.0F, 0.0F, 0.0F));
+    }
+
+    static tbx::Vec3 get_light_up(const tbx::Transform& transform)
+    {
+        return tbx::normalize(transform.rotation * tbx::Vec3(0.0F, 1.0F, 0.0F));
+    }
+
+    static float get_max_component(const tbx::Vec3& value)
+    {
+        return tbx::max(value.x, tbx::max(value.y, value.z));
+    }
+
+    static float get_distance_squared(const tbx::Vec3& a, const tbx::Vec3& b)
+    {
+        const auto delta = a - b;
+        return (delta.x * delta.x) + (delta.y * delta.y) + (delta.z * delta.z);
+    }
+
+    static bool intersects_light_influence(
+        const tbx::Frustum& view_frustum,
+        const tbx::Vec3& position,
+        const float radius)
+    {
+        return view_frustum.intersects(
+            tbx::Sphere {
+                .center = position,
+                .radius = tbx::max(radius, 0.001F),
+            });
+    }
+
+    static float get_area_light_culling_radius(const tbx::AreaLight& light)
+    {
+        const auto emitter_radius = tbx::sqrt(
+            (light.area_size.x * light.area_size.x * 0.25F)
+            + (light.area_size.y * light.area_size.y * 0.25F));
+        return tbx::max(light.range, 0.001F) + emitter_radius;
+    }
+
+    static tbx::Handle resolve_renderer_mesh_handle(
+        const tbx::Renderer& renderer,
+        const float camera_distance)
+    {
+        if (renderer.lods.empty())
+            return {};
+
+        auto selected_handle = renderer.lods.back().handle;
+        auto selected_max_distance = std::numeric_limits<float>::max();
+        for (const auto& lod : renderer.lods)
+        {
+            if (!lod.handle.is_valid())
+                continue;
+
+            if (camera_distance > lod.max_distance)
+                continue;
+
+            if (lod.max_distance < selected_max_distance)
+            {
+                selected_max_distance = lod.max_distance;
+                selected_handle = lod.handle;
+            }
+        }
+
+        return selected_handle;
+    }
+
+    static tbx::Uuid get_default_texture_for_binding(
+        std::string_view binding_name,
+        OpenGlResourceManager& resource_manager)
+    {
+        if (binding_name == "u_normal_map")
+            return get_flat_normal_texture(resource_manager);
+        if (binding_name == "u_specular_map")
+            return get_fallback_texture(resource_manager);
+        if (binding_name == "u_shininess_map")
+            return get_fallback_texture(resource_manager);
+        if (binding_name == "u_emissive_map")
+            return get_fallback_texture(resource_manager);
+        return get_fallback_texture(resource_manager);
+    }
+
+    static float get_material_float_parameter_or_default(
+        const tbx::MaterialParameterBindings& parameters,
+        const std::string_view name,
+        const float fallback)
+    {
+        const auto* parameter = parameters.get(name);
+        if (!parameter)
+            return fallback;
+
+        if (const auto* value = std::get_if<float>(&parameter->data))
+            return *value;
+        if (const auto* value = std::get_if<double>(&parameter->data))
+            return static_cast<float>(*value);
+        if (const auto* value = std::get_if<int>(&parameter->data))
+            return static_cast<float>(*value);
+
+        return fallback;
+    }
+
+    template <typename TLight>
+    static bool light_specifies_no_shadows(const TLight& light)
+    {
+        if constexpr (requires { light.casts_shadows; })
+        {
+            using CastsShadowsType = std::remove_cvref_t<decltype(light.casts_shadows)>;
+            if constexpr (std::is_same_v<CastsShadowsType, bool>)
+                return !light.casts_shadows;
+            else
+                return light.casts_shadows == 0;
+        }
+
+        if constexpr (requires { light.shadows_enabled; })
+        {
+            using ShadowsEnabledType = std::remove_cvref_t<decltype(light.shadows_enabled)>;
+            if constexpr (std::is_same_v<ShadowsEnabledType, bool>)
+                return !light.shadows_enabled;
+            else
+                return light.shadows_enabled == 0;
+        }
+
+        if constexpr (requires { light.enable_shadows; })
+        {
+            using EnableShadowsType = std::remove_cvref_t<decltype(light.enable_shadows)>;
+            if constexpr (std::is_same_v<EnableShadowsType, bool>)
+                return !light.enable_shadows;
+            else
+                return light.enable_shadows == 0;
+        }
+
+        if constexpr (requires { light.shadow_mode; })
+            return light.shadow_mode == tbx::ShadowMode::None;
+
+        return false;
+    }
+
+    static std::array<tbx::Vec3, 8> get_world_frustum_corners(
+        const OpenGlFrameContext& frame_context,
+        const float near_depth,
+        const float far_depth)
+    {
+        auto corners = std::array<tbx::Vec3, 8> {};
+        auto corner_index = std::size_t {0U};
+        const auto inverse_view = tbx::inverse(frame_context.view_matrix);
+        const auto clamped_near = tbx::max(near_depth, 0.001F);
+        const auto clamped_far = tbx::max(far_depth, clamped_near + 0.001F);
+
+        if (frame_context.is_camera_perspective)
+        {
+            const auto tan_half_vertical_fov =
+                tbx::tan(tbx::to_radians(frame_context.camera_vertical_fov_degrees) * 0.5F);
+            const auto near_half_height = clamped_near * tan_half_vertical_fov;
+            const auto near_half_width = near_half_height * frame_context.camera_aspect;
+            const auto far_half_height = clamped_far * tan_half_vertical_fov;
+            const auto far_half_width = far_half_height * frame_context.camera_aspect;
+
+            for (const auto depth_and_extent :
+                 {std::tuple(clamped_near, near_half_width, near_half_height),
+                  std::tuple(clamped_far, far_half_width, far_half_height)})
+            {
+                const auto depth = std::get<0>(depth_and_extent);
+                const auto half_width = std::get<1>(depth_and_extent);
+                const auto half_height = std::get<2>(depth_and_extent);
+                for (const auto view_y : {-half_height, half_height})
+                    for (const auto view_x : {-half_width, half_width})
+                    {
+                        const auto world_corner =
+                            inverse_view * tbx::Vec4(view_x, view_y, -depth, 1.0F);
+                        corners[corner_index++] = tbx::Vec3(world_corner);
+                    }
+            }
+
+            return corners;
+        }
+
+        const auto half_height = frame_context.camera_vertical_fov_degrees * 0.5F;
+        const auto half_width = half_height * frame_context.camera_aspect;
+        for (const auto depth : {clamped_near, clamped_far})
+            for (const auto view_y : {-half_height, half_height})
+                for (const auto view_x : {-half_width, half_width})
+                {
+                    const auto world_corner =
+                        inverse_view * tbx::Vec4(view_x, view_y, -depth, 1.0F);
+                    corners[corner_index++] = tbx::Vec3(world_corner);
+                }
+
+        return corners;
+    }
+
+    static std::vector<float> build_shadow_splits(const float near_plane, const float max_distance)
+    {
+        auto splits = std::vector<float>(ShadowCascadeCount, max_distance);
+        for (tbx::uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount; ++cascade_index)
+        {
+            const auto ratio =
+                static_cast<float>(cascade_index + 1U) / static_cast<float>(ShadowCascadeCount);
+            const auto logarithmic =
+                near_plane * static_cast<float>(std::pow(max_distance / near_plane, ratio));
+            const auto uniform = near_plane + ((max_distance - near_plane) * ratio);
+            splits[cascade_index] =
+                (ShadowSplitLambda * logarithmic) + ((1.0F - ShadowSplitLambda) * uniform);
+        }
+
+        return splits;
+    }
+
+    static tbx::Mat4 build_local_light_view(const tbx::Vec3& position, const tbx::Vec3& direction)
+    {
+        auto light_up = tbx::Vec3(0.0F, 1.0F, 0.0F);
+        if (std::abs(tbx::dot(light_up, direction)) > 0.95F)
+            light_up = tbx::Vec3(1.0F, 0.0F, 0.0F);
+
+        return tbx::look_at(position, position + direction, light_up);
+    }
+
+    static ProjectedShadowFrameData build_spot_shadow_map(
+        const SpotLightFrameData& light,
+        const tbx::uint32 texture_layer)
+    {
+        const auto direction = tbx::normalize(light.direction);
+        const auto light_view = build_local_light_view(light.position, direction);
+        const auto outer_angle_radians = std::acos(tbx::clamp(light.outer_cos, -1.0F, 1.0F));
+        const auto vertical_fov =
+            tbx::clamp(outer_angle_radians * 2.0F, tbx::to_radians(5.0F), tbx::to_radians(175.0F));
+        const auto light_projection =
+            tbx::perspective_projection(vertical_fov, 1.0F, ShadowNearPlane, light.range);
+        return ProjectedShadowFrameData {
+            .light_view_projection = light_projection * light_view,
+            .near_plane = ShadowNearPlane,
+            .far_plane = light.range,
+            .normal_bias = LocalShadowNormalBias,
+            .depth_bias = LocalShadowDepthBias,
+            .texture_layer = texture_layer,
+        };
+    }
+
+    static ProjectedShadowFrameData build_area_shadow_map(
+        const AreaLightFrameData& light,
+        const tbx::uint32 texture_layer)
+    {
+        const auto direction = tbx::normalize(light.direction);
+        const auto emitter_radius = tbx::sqrt(
+            (light.half_width * light.half_width) + (light.half_height * light.half_height));
+        const auto shadow_depth =
+            tbx::max(light.range + emitter_radius + AreaShadowDepthPadding, 0.5F);
+        const auto light_position = light.position - (direction * (shadow_depth * 0.5F));
+        const auto light_view = build_local_light_view(light_position, direction);
+        const auto projection_extent = tbx::max(light.range + emitter_radius, 0.5F);
+        const auto light_projection = tbx::ortho_projection(
+            -projection_extent,
+            projection_extent,
+            -projection_extent,
+            projection_extent,
+            ShadowNearPlane,
+            shadow_depth);
+        return ProjectedShadowFrameData {
+            .light_view_projection = light_projection * light_view,
+            .near_plane = ShadowNearPlane,
+            .far_plane = shadow_depth,
+            .normal_bias = LocalShadowNormalBias,
+            .depth_bias = LocalShadowDepthBias,
+            .texture_layer = texture_layer,
+        };
+    }
+
+    static void render_magenta_failure_frame(OpenGlGBuffer& gbuffer)
+    {
+        auto gbuffer_scope = OpenGlResourceScope(gbuffer);
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+        glClearColor(1.0F, 0.0F, 1.0F, 1.0F);
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
+
+    static void hydrate_material_instance_defaults(
+        tbx::MaterialInstance& material_instance,
+        tbx::AssetManager& asset_manager,
+        std::unordered_map<tbx::Uuid, tbx::Material>& material_defaults_cache)
+    {
+        if (!material_instance.has_loaded_defaults)
+        {
+            const auto* defaults = try_get_material_defaults(
+                material_instance.handle,
+                asset_manager,
+                material_defaults_cache);
+            if (defaults == nullptr)
+                return;
+
+            for (const auto& [name, value] : defaults->parameters.values)
+            {
+                if (material_instance.parameters.get(name) != nullptr)
+                    continue;
+                material_instance.parameters.set(name, value);
+            }
+
+            for (const auto& [name, texture] : defaults->textures.values)
+            {
+                const auto* existing_texture = material_instance.textures.get(name);
+                if (existing_texture != nullptr && existing_texture->texture.handle.is_valid())
+                    continue;
+                material_instance.textures.set(name, texture);
+            }
+
+            material_instance.has_loaded_defaults = true;
+        }
+    }
+
+    OpenGlRenderer::OpenGlRenderer(
+        const tbx::GraphicsProcAddress loader,
+        tbx::EntityRegistry& entity_registry,
+        tbx::AssetManager& asset_manager,
+        tbx::JobSystem& job_system,
+        OpenGlContext context)
+        : _context(std::move(context))
+        , _entity_registry(entity_registry)
+        , _asset_manager(asset_manager)
+        , _job_system(job_system)
+        , _resource_manager(asset_manager)
+        , _render_pipeline(
+              std::make_unique<OpenGlRenderPipeline>(_resource_manager, _job_system, _gbuffer))
+    {
+        initialize(loader);
     }
 
     OpenGlRenderer::~OpenGlRenderer() noexcept
@@ -467,422 +482,60 @@ namespace tbx::plugins
 
     bool OpenGlRenderer::render()
     {
-        // Step 1: Validate renderer state required to build and submit a frame.
-        if (!_render_pipeline)
+        // Step one: make OpenGL context current.
+        if (const auto make_current_result = _context.make_current(); !make_current_result)
+        {
+            TBX_TRACE_ERROR(
+                "OpenGL rendering: failed to make context current: {}",
+                make_current_result.get_report());
             return false;
-        TBX_ASSERT(
-            _resource_manager != nullptr,
-            "OpenGL rendering: renderer requires a valid resource manager.");
-        if (_resource_manager == nullptr)
-            return false;
-        auto& resource_manager = *_resource_manager;
+        }
 
-        auto make_current_result = _context.make_current();
-        if (!make_current_result)
-            return false;
-
-        // Step 2: Apply any queued render-resolution change once the context is current.
         if (_pending_render_resolution.has_value())
         {
-            Size pending_resolution = _pending_render_resolution.value();
-            set_render_resolution(pending_resolution);
-            if (_render_resolution.width == pending_resolution.width
-                && _render_resolution.height == pending_resolution.height)
-                _pending_render_resolution = std::nullopt;
+            set_render_resolution(_pending_render_resolution.value());
+            _pending_render_resolution = std::nullopt;
         }
 
-        // Step 3: Resolve frame targets that the pipeline depends on.
-        auto try_load_required_framebuffer = [&resource_manager](const Uuid& resource_uuid)
+        auto target_render_size = _render_resolution;
+        if (target_render_size.width == 0U || target_render_size.height == 0U)
+            target_render_size = _viewport_size;
+
+        // Step two: set viewport.
+        glViewport(
+            0,
+            0,
+            static_cast<GLsizei>(target_render_size.width),
+            static_cast<GLsizei>(target_render_size.height));
+        _gbuffer.resize(target_render_size);
+
+        // Step three: build frame camera state.
+        OpenGlFrameContext frame_context = build_frame_context();
+
+        if (!frame_context.has_camera)
         {
-            return try_load_framebuffer(resource_manager, resource_uuid);
-        };
-        auto gbuffer = try_load_gbuffer(resource_manager, _gbuffer_resource);
-        if (!gbuffer)
-            return false;
-        auto lighting_framebuffer = try_load_required_framebuffer(_lighting_framebuffer_resource);
-        if (!lighting_framebuffer)
-            return false;
-        auto post_process_ping_framebuffer =
-            try_load_required_framebuffer(_post_process_ping_framebuffer_resource);
-        if (!post_process_ping_framebuffer)
-            return false;
-        auto post_process_pong_framebuffer =
-            try_load_required_framebuffer(_post_process_pong_framebuffer_resource);
-        if (!post_process_pong_framebuffer)
-            return false;
+            render_magenta_failure_frame(_gbuffer);
+            _gbuffer.present(frame_context.render_stage, _viewport_size);
 
-        // Step 4: Select the first available camera as the active frame camera.
-        auto camera_view = OpenGlCameraView {};
-        auto camera_entities = _entity_registry->get_with<Camera>();
-        if (camera_entities.empty())
-            return false;
-        if (camera_entities.size() > 1)
-            TBX_TRACE_WARNING(
-                "OpenGL rendering: multiple Camera components found; using the first one.");
-        camera_view.camera_entity = camera_entities.front();
-
-        // Step 5: Collect visible renderables for static and dynamic passes.
-        for (auto& entity : _entity_registry->get_with<Renderer, StaticMesh>())
-            camera_view.in_view_static_entities.push_back(entity);
-        for (auto& entity : _entity_registry->get_with<Renderer, DynamicMesh>())
-            camera_view.in_view_dynamic_entities.push_back(entity);
-
-        auto camera_world_position = get_camera_world_position(camera_view);
-
-        // Step 6: Gather directional/local light inputs and select capped shadow casters.
-        auto frame_directional_lights = std::vector<OpenGlDirectionalLightData> {};
-        auto directional_shadow_light_indices = std::vector<size_t> {};
-        for (auto& entity : _entity_registry->get_with<DirectionalLight>())
-        {
-            auto color = Vec3(1.0f);
-            auto intensity = 1.0f;
-            const auto& light = entity.get_component<DirectionalLight>();
-            resolve_light_color(light.color, light.intensity, color, intensity);
-            frame_directional_lights.push_back(
-                OpenGlDirectionalLightData {
-                    .direction = -get_entity_forward_direction(entity),
-                    .intensity = intensity,
-                    .color = color,
-                    .ambient = std::max(light.ambient, 0.0f),
-                    .shadow_map_index = -1,
-                });
-            directional_shadow_light_indices.push_back(frame_directional_lights.size() - 1U);
-        }
-
-        auto frame_point_lights = std::vector<OpenGlPointLightData> {};
-        struct PointShadowCandidate final
-        {
-            size_t light_index = 0U;
-            Vec3 position = Vec3(0.0F);
-            float range = 1.0F;
-            float importance = 0.0F;
-        };
-        auto point_shadow_candidates = std::vector<PointShadowCandidate> {};
-        for (auto& entity : _entity_registry->get_with<PointLight>())
-        {
-            auto color = Vec3(1.0f);
-            auto intensity = 1.0f;
-            const auto& light = entity.get_component<PointLight>();
-            const float safe_range = std::max(light.range, 0.001F);
-            const auto light_position = get_entity_position(entity);
-            resolve_light_color(light.color, light.intensity, color, intensity);
-            frame_point_lights.push_back(
-                OpenGlPointLightData {
-                    .position = light_position,
-                    .range = safe_range,
-                    .color = color,
-                    .intensity = intensity,
-                    .shadow_map_index = -1,
-                });
-            point_shadow_candidates.push_back(
-                PointShadowCandidate {
-                    .light_index = frame_point_lights.size() - 1U,
-                    .position = light_position,
-                    .range = safe_range,
-                    .importance = calculate_local_light_shadow_importance(
-                        intensity,
-                        light_position,
-                        camera_world_position,
-                        safe_range),
-                });
-        }
-
-        auto frame_spot_lights = std::vector<OpenGlSpotLightData> {};
-        struct SpotShadowCandidate final
-        {
-            size_t light_index = 0U;
-            Vec3 position = Vec3(0.0F);
-            Vec3 direction = Vec3(0.0F, 0.0F, -1.0F);
-            float range = 1.0F;
-            float outer_angle_radians = 0.0F;
-            float importance = 0.0F;
-        };
-        auto spot_shadow_candidates = std::vector<SpotShadowCandidate> {};
-        for (auto& entity : _entity_registry->get_with<SpotLight>())
-        {
-            auto color = Vec3(1.0f);
-            auto intensity = 1.0f;
-            const auto& light = entity.get_component<SpotLight>();
-            const float safe_range = std::max(light.range, 0.001F);
-            const auto light_position = get_entity_position(entity);
-            const auto light_direction = get_entity_forward_direction(entity);
-            resolve_light_color(light.color, light.intensity, color, intensity);
-            float inner_radians = to_radians(std::max(light.inner_angle, 0.0f));
-            float outer_radians = to_radians(std::max(light.outer_angle, light.inner_angle));
-            frame_spot_lights.push_back(
-                OpenGlSpotLightData {
-                    .position = light_position,
-                    .range = safe_range,
-                    .direction = light_direction,
-                    .inner_cos = cos(inner_radians),
-                    .color = color,
-                    .outer_cos = cos(outer_radians),
-                    .intensity = intensity,
-                    .shadow_map_index = -1,
-                });
-            spot_shadow_candidates.push_back(
-                SpotShadowCandidate {
-                    .light_index = frame_spot_lights.size() - 1U,
-                    .position = light_position,
-                    .direction = light_direction,
-                    .range = safe_range,
-                    .outer_angle_radians = outer_radians,
-                    .importance = calculate_local_light_shadow_importance(
-                        intensity,
-                        light_position,
-                        camera_world_position,
-                        safe_range),
-                });
-        }
-
-        std::sort(
-            directional_shadow_light_indices.begin(),
-            directional_shadow_light_indices.end(),
-            [&frame_directional_lights](size_t lhs, size_t rhs)
+            if (const auto present_result = _context.present(); !present_result)
             {
-                return frame_directional_lights[lhs].intensity
-                       > frame_directional_lights[rhs].intensity;
-            });
-        if (directional_shadow_light_indices.size() > MAX_SHADOWED_DIRECTIONAL_LIGHTS)
-            directional_shadow_light_indices.resize(MAX_SHADOWED_DIRECTIONAL_LIGHTS);
+                TBX_TRACE_ERROR(
+                    "OpenGL rendering: present request failed: {}",
+                    present_result.get_report());
+            }
 
-        std::sort(
-            point_shadow_candidates.begin(),
-            point_shadow_candidates.end(),
-            [](const PointShadowCandidate& lhs, const PointShadowCandidate& rhs)
-            {
-                return lhs.importance > rhs.importance;
-            });
-        if (point_shadow_candidates.size() > MAX_SHADOWED_POINT_LIGHTS)
-            point_shadow_candidates.resize(MAX_SHADOWED_POINT_LIGHTS);
-
-        std::sort(
-            spot_shadow_candidates.begin(),
-            spot_shadow_candidates.end(),
-            [](const SpotShadowCandidate& lhs, const SpotShadowCandidate& rhs)
-            {
-                return lhs.importance > rhs.importance;
-            });
-        if (spot_shadow_candidates.size() > MAX_SHADOWED_SPOT_LIGHTS)
-            spot_shadow_candidates.resize(MAX_SHADOWED_SPOT_LIGHTS);
-
-        // Step 7: Build per-light shadow map projections for directional/spot/point casters.
-        const size_t directional_shadow_map_count =
-            directional_shadow_light_indices.size() * DIRECTIONAL_SHADOW_CASCADE_COUNT;
-        const size_t point_shadow_map_count =
-            point_shadow_candidates.size() * POINT_SHADOW_FACE_COUNT;
-        const size_t spot_shadow_map_count = spot_shadow_candidates.size();
-        const size_t total_shadow_map_count =
-            directional_shadow_map_count + point_shadow_map_count + spot_shadow_map_count;
-        ensure_shadow_map_resources(
-            _shadow_map_resources,
-            total_shadow_map_count,
-            _shadow_settings,
-            resource_manager);
-
-        auto frame_shadow_light_view_projections = std::vector<Mat4> {};
-        frame_shadow_light_view_projections.reserve(total_shadow_map_count);
-        auto frame_shadow_map_resources = std::vector<Uuid> {};
-        frame_shadow_map_resources.reserve(total_shadow_map_count);
-        auto frame_cascade_splits = std::vector<float> {};
-        frame_cascade_splits.reserve(directional_shadow_light_indices.size());
-        size_t shadow_map_index = 0U;
-        const float directional_shadow_far_plane = std::max(
-            DIRECTIONAL_SHADOW_NEAR_PLANE + 0.001F,
-            _shadow_settings.shadow_render_distance);
-        const float directional_split_distance = calculate_directional_shadow_split_distance(
-            DIRECTIONAL_SHADOW_NEAR_PLANE,
-            directional_shadow_far_plane);
-
-        auto append_shadow_projection = [&](const Mat4& light_view_projection) -> bool
-        {
-            if (shadow_map_index >= _shadow_map_resources.size())
-                return false;
-
-            frame_shadow_light_view_projections.push_back(light_view_projection);
-            frame_shadow_map_resources.push_back(_shadow_map_resources[shadow_map_index]);
-            shadow_map_index += 1U;
             return true;
-        };
-
-        for (const auto directional_light_index : directional_shadow_light_indices)
-        {
-            frame_directional_lights[directional_light_index].shadow_map_index =
-                static_cast<int>(shadow_map_index);
-            frame_cascade_splits.push_back(directional_split_distance);
-
-            auto near_plane = DIRECTIONAL_SHADOW_NEAR_PLANE;
-            for (size_t cascade_index = 0; cascade_index < DIRECTIONAL_SHADOW_CASCADE_COUNT;
-                 ++cascade_index)
-            {
-                const float far_plane =
-                    cascade_index == 0U ? directional_split_distance : directional_shadow_far_plane;
-                const auto shadow_matrix = build_directional_shadow_view_projection(
-                    camera_view,
-                    _render_resolution,
-                    frame_directional_lights[directional_light_index].direction,
-                    near_plane,
-                    far_plane,
-                    _shadow_settings);
-                if (!append_shadow_projection(shadow_matrix))
-                    break;
-                near_plane = far_plane;
-            }
         }
 
-        for (const auto& spot_shadow_candidate : spot_shadow_candidates)
-        {
-            frame_spot_lights[spot_shadow_candidate.light_index].shadow_map_index =
-                static_cast<int>(shadow_map_index);
-            const auto shadow_matrix = build_spot_shadow_view_projection(
-                spot_shadow_candidate.position,
-                spot_shadow_candidate.direction,
-                spot_shadow_candidate.outer_angle_radians,
-                spot_shadow_candidate.range);
-            if (!append_shadow_projection(shadow_matrix))
-                break;
-        }
+        // Step four: cache resources and build draw calls in one pass.
+        build_draw_calls(frame_context);
 
-        for (const auto& point_shadow_candidate : point_shadow_candidates)
-        {
-            frame_point_lights[point_shadow_candidate.light_index].shadow_map_index =
-                static_cast<int>(shadow_map_index);
-            for (size_t face_index = 0; face_index < POINT_SHADOW_FACE_COUNT; ++face_index)
-            {
-                const auto shadow_matrix = build_point_shadow_face_view_projection(
-                    point_shadow_candidate.position,
-                    point_shadow_candidate.range,
-                    face_index);
-                if (!append_shadow_projection(shadow_matrix))
-                    break;
-            }
-        }
-
-        // Step 8: Resolve the active sky and maintain pinned sky-resource ownership.
-        auto sky_material = MaterialInstance {};
-        auto sky_entity = Entity {};
-        auto frame_clear_color = Color::BLACK;
-        auto frame_sky_resource = Uuid::NONE;
-        auto frame_sky_entity = Entity {};
-        auto sky_entities = _entity_registry->get_with<Sky>();
-        if (sky_entities.size() > 1)
-            TBX_TRACE_WARNING(
-                "OpenGL rendering: multiple Sky components found; using the first one.");
-        if (!sky_entities.empty())
-        {
-            sky_entity = sky_entities.front();
-            sky_material = sky_entity.get_component<Sky>().material;
-            TBX_ASSERT(
-                sky_material.handle.is_valid(),
-                "OpenGL rendering: Sky component requires a valid material handle.");
-            if (sky_material.handle.is_valid())
-            {
-                if (resource_manager.add(sky_entity, true))
-                {
-                    frame_sky_entity = sky_entity;
-                    frame_sky_resource = sky_entity.get_id();
-                }
-            }
-        }
-
-        if (_pinned_sky_resource.is_valid() && _pinned_sky_resource != frame_sky_resource)
-            resource_manager.unpin(_pinned_sky_resource);
-        _pinned_sky_resource = frame_sky_resource;
-
-        // Step 9: Resolve post-processing settings and flatten enabled effects.
-        bool is_post_processing_enabled = false;
-        auto post_process_owner_entity = Entity {};
-        auto resolved_post_processing = OpenGlPostProcessing {};
-        auto post_process_entities = _entity_registry->get_with<PostProcessing>();
-        auto selected_post_process_entity = Entity {};
-        size_t user_post_process_count = 0;
-        for (const auto& candidate : post_process_entities)
-        {
-            if (candidate.get_id() == _deferred_lighting_resource)
-                continue;
-
-            if (!selected_post_process_entity.get_id().is_valid())
-                selected_post_process_entity = candidate;
-            ++user_post_process_count;
-        }
-
-        if (user_post_process_count > 1)
-            TBX_TRACE_WARNING(
-                "OpenGL rendering: multiple PostProcessing components found; using the first one.");
-        if (selected_post_process_entity.get_id().is_valid())
-        {
-            post_process_owner_entity = selected_post_process_entity;
-            const auto& post_processing = post_process_owner_entity.get_component<PostProcessing>();
-            is_post_processing_enabled = post_processing.is_enabled;
-            resource_manager.add(post_process_owner_entity);
-
-            resolved_post_processing.effects.reserve(post_processing.effects.size());
-            for (size_t effect_index = 0; effect_index < post_processing.effects.size();
-                 ++effect_index)
-            {
-                const auto& effect = post_processing.effects[effect_index];
-                resolved_post_processing.effects.push_back(
-                    OpenGlPostProcessEffect {
-                        .owner_entity = post_process_owner_entity,
-                        .source_effect_index = effect_index,
-                        .is_enabled = effect.is_enabled,
-                        .material = effect.material,
-                        .blend = effect.blend,
-                    });
-            }
-        }
-
-        // Step 10: Build a frame context payload and execute the render pipeline.
-        auto post_process_settings = OpenGlPostProcessSettings {
-            .is_enabled =
-                selected_post_process_entity.get_id().is_valid() && is_post_processing_enabled,
-            .owner_entity = post_process_owner_entity,
-            .effects = std::span<const OpenGlPostProcessEffect>(resolved_post_processing.effects),
-        };
-        const auto camera_forward =
-            normalize(get_camera_world_rotation(camera_view) * Vec3(0.0F, 0.0F, -1.0F));
-        auto view_projection = get_camera_view_projection(camera_view, _render_resolution);
-        auto inverse_view_projection = inverse(view_projection);
-
-        auto frame_context = OpenGlRenderFrameContext {
-            .camera_view = camera_view,
-            .render_resolution = _render_resolution,
-            .viewport_size = _viewport_size,
-            .clear_color = frame_clear_color,
-            .sky_entity = frame_sky_entity,
-            .post_process = post_process_settings,
-            .deferred_lighting_entity = _entity_registry->get(_deferred_lighting_resource),
-            .gbuffer = gbuffer.get(),
-            .lighting_target = lighting_framebuffer.get(),
-            .post_process_ping_target = post_process_ping_framebuffer.get(),
-            .post_process_pong_target = post_process_pong_framebuffer.get(),
-            .camera_world_position = camera_world_position,
-            .camera_forward = camera_forward,
-            .view_projection = view_projection,
-            .inverse_view_projection = inverse_view_projection,
-            .directional_lights =
-                std::span<const OpenGlDirectionalLightData>(frame_directional_lights),
-            .point_lights = std::span<const OpenGlPointLightData>(frame_point_lights),
-            .spot_lights = std::span<const OpenGlSpotLightData>(frame_spot_lights),
-            .shadow_data =
-                OpenGlShadowFrameData {
-                    .map_uuids = std::span<const Uuid>(frame_shadow_map_resources),
-                    .light_view_projections =
-                        std::span<const Mat4>(frame_shadow_light_view_projections),
-                    .cascade_splits = std::span<const float>(frame_cascade_splits),
-                    .shadow_map_resolution = _shadow_settings.shadow_map_resolution,
-                    .shadow_softness = _shadow_settings.shadow_softness,
-                },
-            .present_mode = OpenGlFrameBufferPresentMode::ASPECT_FIT,
-            .present_target_framebuffer_id = 0,
-            .scene_color_texture_id = lighting_framebuffer->get_color_texture_id(),
-        };
-
+        // Step five: execute render pipeline.
         _render_pipeline->execute(frame_context);
+        _gbuffer.present(frame_context.render_stage, _viewport_size);
 
-        // Step 11: Present the final image to the window backbuffer.
-        auto present_result = _context.present();
-        if (!present_result)
+        // Step six: present rendered frame.
+        if (const auto present_result = _context.present(); !present_result)
         {
             TBX_TRACE_ERROR(
                 "OpenGL rendering: present request failed: {}",
@@ -892,7 +545,563 @@ namespace tbx::plugins
         return true;
     }
 
-    void OpenGlRenderer::set_viewport_size(const Size& viewport_size)
+    OpenGlFrameContext OpenGlRenderer::build_frame_context() const
+    {
+        auto frame_context = OpenGlFrameContext();
+        frame_context.clear_color = DefaultClearColor;
+        frame_context.render_stage = _render_stage;
+        frame_context.render_size = _render_resolution;
+        if (frame_context.render_size.width == 0U || frame_context.render_size.height == 0U)
+            frame_context.render_size = _viewport_size;
+
+        if (const auto cameras = _entity_registry.get_with<tbx::Camera, tbx::Transform>();
+            !cameras.empty())
+        {
+            _has_reported_missing_camera = false;
+            frame_context.has_camera = true;
+            const auto& camera_entity = cameras.front();
+            auto& camera = camera_entity.get_component<tbx::Camera>();
+            const auto camera_transform = tbx::get_world_space_transform(camera_entity);
+            if (_viewport_size.width > 0 && _viewport_size.height > 0)
+            {
+                const auto aspect = static_cast<float>(_viewport_size.width)
+                                    / static_cast<float>(_viewport_size.height);
+                camera.set_aspect(aspect);
+            }
+            frame_context.camera_position = camera_transform.position;
+            frame_context.camera_near_plane = camera.get_z_near();
+            frame_context.camera_far_plane = camera.get_z_far();
+            frame_context.is_camera_perspective = camera.is_perspective();
+            frame_context.camera_vertical_fov_degrees = camera.get_fov();
+            frame_context.camera_aspect = camera.get_aspect();
+            frame_context.view_matrix =
+                camera.get_view_matrix(camera_transform.position, camera_transform.rotation);
+            frame_context.projection_matrix = camera.get_projection_matrix();
+            frame_context.view_projection =
+                frame_context.projection_matrix * frame_context.view_matrix;
+        }
+        else
+        {
+            if (!_has_reported_missing_camera)
+            {
+                TBX_TRACE_WARNING(
+                    "OpenGL rendering: no camera with both Camera and Transform components was "
+                    "found. Rendering will use magenta fallback until one is available.");
+                _has_reported_missing_camera = true;
+            }
+        }
+
+        frame_context.inverse_view_projection = tbx::inverse(frame_context.view_projection);
+        build_light_data(frame_context);
+        build_shadow_data(frame_context);
+
+        return frame_context;
+    }
+
+    void OpenGlRenderer::build_light_data(OpenGlFrameContext& frame_context) const
+    {
+        const auto view_frustum = tbx::Frustum(frame_context.view_projection);
+        const auto directional_light_entities = _entity_registry.get_with<tbx::DirectionalLight>();
+        frame_context.directional_lights.reserve(directional_light_entities.size());
+        for (const auto& entity : directional_light_entities)
+        {
+            const auto world_transform = tbx::get_world_space_transform(entity);
+            const auto& light = entity.get_component<tbx::DirectionalLight>();
+            if (!has_light_radiance(light) && tbx::max(light.ambient, 0.0F) <= 0.0001F)
+                continue;
+
+            auto frame_light = DirectionalLightFrameData();
+            frame_light.direction = get_light_direction(world_transform);
+            frame_light.ambient_intensity = tbx::max(light.ambient, 0.0F);
+            frame_light.radiance = get_light_radiance(light);
+            frame_light.casts_shadows = light_specifies_no_shadows(light) ? 0.0F : 1.0F;
+            frame_context.directional_lights.push_back(frame_light);
+        }
+
+        const auto point_light_entities = _entity_registry.get_with<tbx::PointLight>();
+        frame_context.point_lights.reserve(point_light_entities.size());
+        for (const auto& entity : point_light_entities)
+        {
+            const auto world_transform = tbx::get_world_space_transform(entity);
+            const auto& light = entity.get_component<tbx::PointLight>();
+            if (!has_light_radiance(light))
+                continue;
+            if (!intersects_light_influence(view_frustum, world_transform.position, light.range))
+                continue;
+
+            auto frame_light = PointLightFrameData();
+            frame_light.position = world_transform.position;
+            frame_light.range = tbx::max(light.range, 0.001F);
+            frame_light.radiance = get_light_radiance(light);
+            frame_light.shadow_index = light_specifies_no_shadows(light) ? -1 : 0;
+            frame_context.point_lights.push_back(frame_light);
+        }
+
+        const auto spot_light_entities = _entity_registry.get_with<tbx::SpotLight>();
+        frame_context.spot_lights.reserve(spot_light_entities.size());
+        for (const auto& entity : spot_light_entities)
+        {
+            const auto world_transform = tbx::get_world_space_transform(entity);
+            const auto& light = entity.get_component<tbx::SpotLight>();
+            if (!has_light_radiance(light))
+                continue;
+            if (!intersects_light_influence(view_frustum, world_transform.position, light.range))
+                continue;
+
+            const auto inner_angle = tbx::clamp(light.inner_angle, 0.0F, light.outer_angle);
+            const auto outer_angle = tbx::max(light.outer_angle, inner_angle + 0.001F);
+
+            auto frame_light = SpotLightFrameData();
+            frame_light.position = world_transform.position;
+            frame_light.range = tbx::max(light.range, 0.001F);
+            frame_light.direction = get_light_direction(world_transform);
+            frame_light.inner_cos = tbx::cos(tbx::to_radians(inner_angle));
+            frame_light.outer_cos = tbx::cos(tbx::to_radians(outer_angle));
+            frame_light.radiance = get_light_radiance(light);
+            frame_light.shadow_index = light_specifies_no_shadows(light) ? -1 : 0;
+            frame_context.spot_lights.push_back(frame_light);
+        }
+
+        const auto area_light_entities = _entity_registry.get_with<tbx::AreaLight>();
+        frame_context.area_lights.reserve(area_light_entities.size());
+        for (const auto& entity : area_light_entities)
+        {
+            const auto world_transform = tbx::get_world_space_transform(entity);
+            const auto& light = entity.get_component<tbx::AreaLight>();
+            if (!has_light_radiance(light))
+                continue;
+            if (!intersects_light_influence(
+                    view_frustum,
+                    world_transform.position,
+                    get_area_light_culling_radius(light)))
+                continue;
+
+            auto frame_light = AreaLightFrameData();
+            frame_light.position = world_transform.position;
+            frame_light.range = tbx::max(light.range, 0.001F);
+            frame_light.direction = get_light_direction(world_transform);
+            frame_light.half_width = tbx::max(light.area_size.x * 0.5F, 0.001F);
+            frame_light.half_height = tbx::max(light.area_size.y * 0.5F, 0.001F);
+            frame_light.radiance = get_light_radiance(light);
+            frame_light.right = get_light_right(world_transform);
+            frame_light.up = get_light_up(world_transform);
+            frame_light.shadow_index = light_specifies_no_shadows(light) ? -1 : 0;
+            frame_context.area_lights.push_back(frame_light);
+        }
+    }
+
+    void OpenGlRenderer::build_shadow_data(OpenGlFrameContext& frame_context) const
+    {
+        frame_context.shadows.directional_map_resolution = DirectionalShadowMapResolution;
+        frame_context.shadows.local_map_resolution = LocalShadowMapResolution;
+        frame_context.shadows.point_map_resolution = PointShadowMapResolution;
+        frame_context.shadows.max_distance = ShadowRenderDistance;
+        frame_context.shadows.softness = ShadowFilterSoftness;
+        frame_context.shadows.directional_cascades.clear();
+        frame_context.shadows.spot_maps.clear();
+        frame_context.shadows.area_maps.clear();
+
+        for (auto& directional_light : frame_context.directional_lights)
+        {
+            directional_light.shadow_cascade_offset = 0U;
+            directional_light.shadow_cascade_count = 0U;
+        }
+
+        auto point_shadow_index = 0;
+        for (auto& point_light : frame_context.point_lights)
+        {
+            if (point_light.shadow_index < 0)
+                continue;
+
+            point_light.shadow_index = point_shadow_index++;
+        }
+
+        auto spot_shadow_layer = tbx::uint32 {0U};
+        for (auto& spot_light : frame_context.spot_lights)
+        {
+            if (spot_light.shadow_index < 0)
+                continue;
+
+            spot_light.shadow_index = static_cast<int>(frame_context.shadows.spot_maps.size());
+            frame_context.shadows.spot_maps.push_back(
+                build_spot_shadow_map(spot_light, spot_shadow_layer++));
+        }
+
+        auto area_shadow_layer = tbx::uint32 {0U};
+        for (auto& area_light : frame_context.area_lights)
+        {
+            if (area_light.shadow_index < 0)
+                continue;
+
+            area_light.shadow_index = static_cast<int>(frame_context.shadows.area_maps.size());
+            frame_context.shadows.area_maps.push_back(
+                build_area_shadow_map(area_light, area_shadow_layer++));
+        }
+
+        if (frame_context.directional_lights.empty())
+            return;
+        if (frame_context.render_size.width == 0U || frame_context.render_size.height == 0U)
+        {
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: skipped shadow setup because the render size is invalid.");
+            return;
+        }
+        if (frame_context.camera_far_plane <= frame_context.camera_near_plane)
+        {
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: skipped shadow setup because the active camera clip planes are "
+                "invalid.");
+            return;
+        }
+
+        const auto max_shadow_distance = tbx::clamp(
+            ShadowRenderDistance,
+            frame_context.camera_near_plane + 0.001F,
+            frame_context.camera_far_plane);
+        if (max_shadow_distance <= frame_context.camera_near_plane)
+        {
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: skipped shadow setup because the configured shadow distance is "
+                "invalid for the active camera.");
+            return;
+        }
+        const auto split_depths =
+            build_shadow_splits(frame_context.camera_near_plane, max_shadow_distance);
+        frame_context.shadows.directional_cascades.reserve(
+            frame_context.directional_lights.size() * ShadowCascadeCount);
+
+        auto directional_shadow_layer = tbx::uint32 {0U};
+        for (auto& directional_light : frame_context.directional_lights)
+        {
+            if (directional_light.casts_shadows <= 0.5F)
+                continue;
+
+            const auto light_direction = tbx::normalize(directional_light.direction);
+            if (light_direction.x == 0.0F && light_direction.y == 0.0F && light_direction.z == 0.0F)
+            {
+                directional_light.casts_shadows = 0.0F;
+                continue;
+            }
+
+            directional_light.shadow_cascade_offset =
+                static_cast<tbx::uint32>(frame_context.shadows.directional_cascades.size());
+            auto previous_split = frame_context.camera_near_plane;
+            for (tbx::uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount;
+                 ++cascade_index)
+            {
+                const auto cascade_far = tbx::clamp(
+                    split_depths[cascade_index],
+                    previous_split + 0.001F,
+                    max_shadow_distance);
+                const auto corners =
+                    get_world_frustum_corners(frame_context, previous_split, cascade_far);
+
+                auto frustum_center = tbx::Vec3(0.0F);
+                for (const auto& corner : corners)
+                    frustum_center += corner;
+                frustum_center /= static_cast<float>(corners.size());
+
+                auto light_up = tbx::Vec3(0.0F, 1.0F, 0.0F);
+                if (std::abs(tbx::dot(light_up, light_direction)) > 0.95F)
+                    light_up = tbx::Vec3(1.0F, 0.0F, 0.0F);
+
+                auto radius = 0.0F;
+                for (const auto& corner : corners)
+                    radius = tbx::max(radius, glm::length(corner - frustum_center));
+                radius = std::ceil(radius * 16.0F) / 16.0F;
+
+                const auto light_position =
+                    frustum_center - (light_direction * (radius + ShadowStabilizationPadding));
+                auto light_view = tbx::look_at(light_position, frustum_center, light_up);
+                const auto texel_size =
+                    (radius * 2.0F)
+                    / static_cast<float>(frame_context.shadows.directional_map_resolution);
+                auto shadow_center = light_view * tbx::Vec4(frustum_center, 1.0F);
+                shadow_center.x = std::floor(shadow_center.x / texel_size) * texel_size;
+                shadow_center.y = std::floor(shadow_center.y / texel_size) * texel_size;
+                const auto snapped_center_world =
+                    tbx::inverse(light_view)
+                    * tbx::Vec4(shadow_center.x, shadow_center.y, shadow_center.z, 1.0F);
+                light_view = tbx::look_at(
+                    tbx::Vec3(snapped_center_world)
+                        - (light_direction * (radius + ShadowStabilizationPadding)),
+                    tbx::Vec3(snapped_center_world),
+                    light_up);
+
+                const auto light_projection = tbx::ortho_projection(
+                    -radius,
+                    radius,
+                    -radius,
+                    radius,
+                    0.1F,
+                    (radius * 2.0F) + (ShadowStabilizationPadding * 2.0F));
+                frame_context.shadows.directional_cascades.push_back(
+                    ShadowCascadeFrameData {
+                        .light_view_projection = light_projection * light_view,
+                        .split_depth = cascade_far,
+                        .normal_bias =
+                            0.0003F * (1.0F + (static_cast<float>(cascade_index) * 0.5F)),
+                        .depth_bias =
+                            0.00003F * (1.0F + (static_cast<float>(cascade_index) * 0.5F)),
+                        .blend_distance = 5.0F + static_cast<float>(cascade_index),
+                        .texture_layer = directional_shadow_layer++,
+                    });
+                previous_split = cascade_far;
+                ++directional_light.shadow_cascade_count;
+            }
+
+            if (directional_light.shadow_cascade_count == 0U)
+                directional_light.casts_shadows = 0.0F;
+        }
+    }
+
+    void OpenGlRenderer::build_draw_calls(OpenGlFrameContext& frame_context)
+    {
+        const auto entities = _entity_registry.get_with<tbx::Renderer>();
+        frame_context.draw_calls.reserve(entities.size());
+        frame_context.shadow_draw_calls.reserve(entities.size());
+        frame_context.transparent_draw_calls.reserve(entities.size());
+
+        const auto view_frustum = tbx::Frustum(frame_context.view_projection);
+        auto draw_call_lookup = std::unordered_map<std::uint64_t, std::size_t>();
+        auto shadow_draw_call_lookup = std::unordered_map<std::uint64_t, std::size_t>();
+        draw_call_lookup.reserve(entities.size());
+        shadow_draw_call_lookup.reserve(entities.size());
+
+        for (const auto& entity : entities)
+        {
+            auto& renderer = entity.get_component<tbx::Renderer>();
+            const auto world_transform = entity.has_component<tbx::Transform>()
+                                             ? tbx::get_world_space_transform(entity)
+                                             : tbx::Transform();
+            const auto can_cast_shadows = renderer.shadow_mode != tbx::ShadowMode::None;
+
+            const auto bounds_radius = tbx::max(get_max_component(world_transform.scale), 0.001F);
+            const auto camera_distance_squared =
+                get_distance_squared(world_transform.position, frame_context.camera_position);
+            const auto camera_distance = tbx::sqrt(camera_distance_squared);
+
+            if (renderer.render_distance > 0.0F && camera_distance > renderer.render_distance)
+                continue;
+
+            const auto is_visible_to_camera =
+                !renderer.is_cullable
+                || view_frustum.intersects(
+                    tbx::Sphere {.center = world_transform.position, .radius = bounds_radius});
+            if (!is_visible_to_camera && !can_cast_shadows)
+                continue;
+
+            auto& material_instance = renderer.material;
+            if (!material_instance.handle.is_valid())
+                material_instance.handle = tbx::lit_material;
+            hydrate_material_instance_defaults(
+                material_instance,
+                _asset_manager,
+                _material_defaults_cache);
+            const auto transparency_amount = get_material_float_parameter_or_default(
+                material_instance.parameters,
+                "transparency_amount",
+                0.0F);
+
+            // Add shader program
+            auto use_fallback_material_params = false;
+            tbx::Uuid shader_program_key;
+            {
+                shader_program_key = _resource_manager.add_material(material_instance);
+
+                if (!shader_program_key.is_valid())
+                {
+                    TBX_TRACE_WARNING(
+                        "Failed to cache shader program for material '{}'. Using "
+                        "fallback magenta material.",
+                        material_instance.handle.id.value);
+                    shader_program_key = get_fallback_material(_resource_manager);
+                    use_fallback_material_params = true;
+                }
+                if (!shader_program_key.is_valid())
+                {
+                    TBX_ASSERT(false, "Fallback magenta material program is unavailable.");
+                    continue;
+                }
+            }
+
+            // Add mesh
+            tbx::Uuid mesh_key;
+            if (entity.has_component<tbx::DynamicMesh>())
+            {
+                const auto& dynamic_mesh = entity.get_component<tbx::DynamicMesh>();
+                mesh_key = _resource_manager.add_dynamic_mesh(dynamic_mesh);
+            }
+            else if (entity.has_component<tbx::StaticMesh>())
+            {
+                auto static_mesh = entity.get_component<tbx::StaticMesh>();
+                const auto lod_mesh_handle =
+                    resolve_renderer_mesh_handle(renderer, camera_distance);
+                if (lod_mesh_handle.is_valid())
+                    static_mesh.handle = lod_mesh_handle;
+                mesh_key = _resource_manager.add_static_mesh(static_mesh);
+            }
+            if (!mesh_key.is_valid())
+            {
+                TBX_TRACE_WARNING(
+                    "Failed to add mesh for entity with ID {}.",
+                    tbx::to_string(entity.get_id()));
+                continue;
+            }
+
+            // Add material params
+            auto material_params = OpenGlMaterialParams();
+            if (use_fallback_material_params)
+            {
+                material_params = create_magenta_fallback_material_params(material_instance.handle);
+            }
+            else
+            {
+                material_params.material_handle = material_instance.handle;
+                material_params.parameters.reserve(material_instance.parameters.values.size());
+                for (const auto& [name, value] : material_instance.parameters.values)
+                    material_params.parameters.push_back(
+                        tbx::MaterialParameter {.name = name, .data = value});
+            }
+
+            // Add textures
+            material_params.textures.reserve(material_instance.textures.values.size());
+            for (const auto& [name, texture] : material_instance.textures.values)
+            {
+                tbx::Uuid texture_id;
+                if (texture.handle.is_valid())
+                    texture_id = _resource_manager.add_texture(texture.handle);
+                else
+                    texture_id = get_default_texture_for_binding(name, _resource_manager);
+
+                if (!texture_id.is_valid())
+                {
+                    TBX_TRACE_WARNING(
+                        "Failed to cache texture '{}' for material '{}'. "
+                        "Using fallback texture.",
+                        texture.handle.id.value,
+                        material_instance.handle.id.value);
+                    texture_id = get_default_texture_for_binding(name, _resource_manager);
+                }
+
+                if (!texture_id.is_valid())
+                {
+                    continue;
+                }
+
+                auto texture_resource = std::shared_ptr<OpenGlTexture>();
+                if (!_resource_manager.try_get<OpenGlTexture>(texture_id, texture_resource))
+                {
+                    TBX_TRACE_WARNING(
+                        "Failed to fetch texture resource '{}' for material "
+                        "'{}'. Using fallback texture.",
+                        texture_id.value,
+                        material_instance.handle.id.value);
+                    continue;
+                }
+
+                material_params.textures.push_back(
+                    OpenGlMaterialTexture {
+                        .name = name,
+                        .texture_id = texture_id,
+                        .gl_texture_id = texture_resource->get_texture_id(),
+                        .bindless_handle = texture_resource->get_bindless_handle(),
+                    });
+            }
+
+            // Use white fallback texture
+            if (material_params.textures.empty())
+            {
+                const auto fallback_texture_id = get_fallback_texture(_resource_manager);
+                if (auto fallback_texture_resource = std::shared_ptr<OpenGlTexture>();
+                    fallback_texture_id.is_valid()
+                    && _resource_manager.try_get<OpenGlTexture>(
+                        fallback_texture_id,
+                        fallback_texture_resource))
+                    material_params.textures.push_back(
+                        OpenGlMaterialTexture {
+                            .name = "diffuse_map",
+                            .texture_id = fallback_texture_id,
+                            .gl_texture_id = fallback_texture_resource->get_texture_id(),
+                            .bindless_handle = fallback_texture_resource->get_bindless_handle(),
+                        });
+            }
+
+            // Add transform matrix
+            const auto transform_matrix = tbx::build_transform_matrix(world_transform);
+
+            if (can_cast_shadows)
+            {
+                const auto shadow_draw_call_key = renderer.is_two_sided ? 1ULL : 0ULL;
+                auto shadow_draw_call_it = shadow_draw_call_lookup.find(shadow_draw_call_key);
+                if (shadow_draw_call_it == shadow_draw_call_lookup.end())
+                {
+                    frame_context.shadow_draw_calls.push_back(
+                        ShadowDrawCall {.is_two_sided = renderer.is_two_sided});
+                    shadow_draw_call_it = shadow_draw_call_lookup
+                                              .emplace(
+                                                  shadow_draw_call_key,
+                                                  frame_context.shadow_draw_calls.size() - 1U)
+                                              .first;
+                }
+
+                auto& shadow_draw_call =
+                    frame_context.shadow_draw_calls[shadow_draw_call_it->second];
+                shadow_draw_call.meshes.push_back(mesh_key);
+                shadow_draw_call.transforms.push_back(transform_matrix);
+                shadow_draw_call.bounds_centers.push_back(world_transform.position);
+                shadow_draw_call.bounds_radii.push_back(bounds_radius);
+            }
+
+            if (!is_visible_to_camera)
+                continue;
+
+            if (transparency_amount > 0.0001F)
+            {
+                frame_context.transparent_draw_calls.push_back(
+                    TransparentDrawCall {
+                        .shader_program = shader_program_key,
+                        .is_two_sided = renderer.is_two_sided,
+                        .mesh = mesh_key,
+                        .material = std::move(material_params),
+                        .transform = transform_matrix,
+                        .camera_distance_squared = camera_distance_squared,
+                    });
+                continue;
+            }
+
+            // Push back new draw call
+            const auto draw_call_key = (static_cast<std::uint64_t>(shader_program_key.value) << 1U)
+                                       | (renderer.is_two_sided ? 1ULL : 0ULL);
+            auto draw_call_it = draw_call_lookup.find(draw_call_key);
+            if (draw_call_it == draw_call_lookup.end())
+            {
+                frame_context.draw_calls.emplace_back(shader_program_key, renderer.is_two_sided);
+                frame_context.draw_calls.back().meshes.reserve(8U);
+                frame_context.draw_calls.back().materials.reserve(8U);
+                frame_context.draw_calls.back().transforms.reserve(8U);
+                draw_call_it =
+                    draw_call_lookup.emplace(draw_call_key, frame_context.draw_calls.size() - 1U)
+                        .first;
+            }
+
+            // Update draw call with new mesh
+            auto& draw_call = frame_context.draw_calls[draw_call_it->second];
+            draw_call.meshes.push_back(mesh_key);
+            draw_call.materials.push_back(std::move(material_params));
+            draw_call.transforms.push_back(transform_matrix);
+        }
+
+        std::sort(
+            frame_context.transparent_draw_calls.begin(),
+            frame_context.transparent_draw_calls.end(),
+            [](const TransparentDrawCall& left, const TransparentDrawCall& right)
+            {
+                return left.camera_distance_squared > right.camera_distance_squared;
+            });
+    }
+
+    void OpenGlRenderer::set_viewport_size(const tbx::Size& viewport_size)
     {
         if (viewport_size.width == 0 || viewport_size.height == 0)
             return;
@@ -901,38 +1110,54 @@ namespace tbx::plugins
     }
 
     void OpenGlRenderer::set_pending_render_resolution(
-        const std::optional<Size>& pending_render_resolution)
+        const std::optional<tbx::Size>& pending_render_resolution)
     {
         _pending_render_resolution = pending_render_resolution;
     }
 
-    void OpenGlRenderer::set_shadow_settings(const OpenGlShadowSettings& shadow_settings)
+    const OpenGlContext& OpenGlRenderer::get_context() const
     {
-        auto sanitized = shadow_settings;
-        sanitized.shadow_map_resolution = std::max(1U, sanitized.shadow_map_resolution);
-        sanitized.shadow_render_distance = std::max(0.001F, sanitized.shadow_render_distance);
-        sanitized.shadow_softness = std::max(0.0F, sanitized.shadow_softness);
-
-        const bool did_resolution_change =
-            _shadow_settings.shadow_map_resolution != sanitized.shadow_map_resolution;
-        _shadow_settings = sanitized;
-
-        if (did_resolution_change)
-            reset_shadow_maps();
+        return _context;
     }
 
-    void OpenGlRenderer::initialize()
+    void OpenGlRenderer::set_render_stage(const tbx::RenderStage render_stage)
     {
-        auto major_version = GLVersion.major;
-        auto minor_version = GLVersion.minor;
+        _render_stage = render_stage;
+    }
 
-        TBX_TRACE_INFO(
-            "OpenGL rendering: initializing window {} context.",
-            to_string(_context.get_window_id()));
+    void OpenGlRenderer::initialize(const tbx::GraphicsProcAddress loader) const
+    {
+        // Only init gl once
+        static bool initialized = false;
+        if (initialized)
+            return;
+        initialized = true;
 
+        auto* glad_loader = loader;
+        TBX_ASSERT(glad_loader != nullptr, "Context-ready event provided null loader.");
+        TBX_ASSERT(
+            _context.get_window_id().is_valid(),
+            "Renderer requires a valid context window id.");
+
+        if (const auto make_current_result = _context.make_current(); !make_current_result)
+        {
+            TBX_ASSERT(
+                make_current_result,
+                "Failed to make context current before GLAD initialization: {}",
+                make_current_result.get_report());
+        }
+
+        const auto load_result = gladLoadGLLoader(glad_loader);
+        TBX_ASSERT(load_result != 0, "Failed to initialize GLAD.");
+        set_bindless_proc_loader(loader);
+
+        TBX_TRACE_INFO("Initializing window {} context.", to_string(_context.get_window_id()));
+
+        const auto major_version = GLVersion.major;
+        const auto minor_version = GLVersion.minor;
         TBX_ASSERT(
             major_version > 4 || (major_version == 4 && minor_version >= 5),
-            "OpenGL rendering: requires OpenGL 4.5 or newer.");
+            "Requires OpenGL 4.5 or newer.");
 
 #if defined(TBX_DEBUG)
         glEnable(GL_DEBUG_OUTPUT);
@@ -948,80 +1173,24 @@ namespace tbx::plugins
 #endif
 
         glEnable(GL_DEPTH_TEST);
-        glEnable(GL_BLEND);
         glDepthFunc(GL_LEQUAL);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+        glDisable(GL_BLEND);
         glClearColor(0.07f, 0.08f, 0.11f, 1.0f);
     }
 
     void OpenGlRenderer::shutdown()
     {
-        if (_entity_registry && _deferred_lighting_resource.is_valid()
-            && _entity_registry->has<PostProcessing>(_deferred_lighting_resource))
-        {
-            auto deferred_entity = _entity_registry->get(_deferred_lighting_resource);
-            _entity_registry->remove(deferred_entity);
-        }
-        if (_resource_manager && _pinned_sky_resource.is_valid())
-            _resource_manager->unpin(_pinned_sky_resource);
-        _pinned_sky_resource = Uuid::NONE;
-        _deferred_lighting_resource = Uuid::NONE;
-        reset_shadow_maps();
-        _gbuffer_resource = Uuid::NONE;
-        _lighting_framebuffer_resource = Uuid::NONE;
-        _post_process_ping_framebuffer_resource = Uuid::NONE;
-        _post_process_pong_framebuffer_resource = Uuid::NONE;
-        if (_resource_manager)
-            _resource_manager->clear();
         _render_pipeline.reset();
-        _resource_manager.reset();
         _pending_render_resolution = std::nullopt;
         _viewport_size = {};
         _render_resolution = {};
     }
 
-    void OpenGlRenderer::reset_shadow_maps()
+    void OpenGlRenderer::set_render_resolution(const tbx::Size& render_resolution)
     {
-        if (_resource_manager)
-        {
-            for (const auto& shadow_map_resource : _shadow_map_resources)
-                _resource_manager->unpin(shadow_map_resource);
-        }
-
-        _shadow_map_resources.clear();
-    }
-
-    void OpenGlRenderer::set_render_resolution(const Size& render_resolution)
-    {
-        if (render_resolution.width == 0 || render_resolution.height == 0)
-            return;
-        if (_render_resolution.width == render_resolution.width
-            && _render_resolution.height == render_resolution.height)
-            return;
-
         _render_resolution = render_resolution;
-        if (_render_pipeline == nullptr || _resource_manager == nullptr)
-            return;
-
-        auto& resource_manager = *_resource_manager;
-        auto gbuffer = try_load_gbuffer(resource_manager, _gbuffer_resource);
-        auto lighting_framebuffer =
-            try_load_framebuffer(resource_manager, _lighting_framebuffer_resource);
-        auto post_process_ping_framebuffer =
-            try_load_framebuffer(resource_manager, _post_process_ping_framebuffer_resource);
-        auto post_process_pong_framebuffer =
-            try_load_framebuffer(resource_manager, _post_process_pong_framebuffer_resource);
-        TBX_ASSERT(
-            gbuffer && lighting_framebuffer && post_process_ping_framebuffer
-                && post_process_pong_framebuffer,
-            "OpenGL rendering: missing runtime render targets while resizing.");
-        if (!gbuffer || !lighting_framebuffer || !post_process_ping_framebuffer
-            || !post_process_pong_framebuffer)
-            return;
-
-        gbuffer->set_resolution(render_resolution);
-        lighting_framebuffer->set_resolution(render_resolution);
-        post_process_ping_framebuffer->set_resolution(render_resolution);
-        post_process_pong_framebuffer->set_resolution(render_resolution);
     }
 }

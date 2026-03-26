@@ -8,16 +8,16 @@ target_sources(${plugin_name} PRIVATE ${SRCS})
 target_include_directories(${plugin_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_include_directories(${plugin_name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(${plugin_name} PRIVATE
-    Tbx::Input
-    Tbx::PluginApi
-    SDL3::SDL3-shared
+        Tbx::Input
+        Tbx::PluginApi
+        SDL3::SDL3-shared
 )
 
 tbx_register_plugin(
-    TARGET ${plugin_name}
-    CLASS tbx::plugins::SdlInputPlugin
-    HEADER "sdl_input_plugin.h"
-    NAME "${plugin_name}"
-    VERSION "1.0.0"
-    CATEGORY "input"
+        TARGET ${plugin_name}
+        CLASS sdl_input::SdlInputPlugin
+        HEADER "tbx/plugins/sdl_input/sdl_input_plugin.h"
+        NAME "${plugin_name}"
+        VERSION "1.0.0"
+        CATEGORY "input"
 )

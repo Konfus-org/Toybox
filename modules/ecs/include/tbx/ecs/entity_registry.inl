@@ -20,7 +20,7 @@ namespace tbx
     }
 
     template <typename... TComponent>
-    std::vector<Entity> EntityRegistry::get_with()
+    std::vector<Entity> EntityRegistry::get_with() const
     {
         std::vector<Entity> entities = {};
         auto view = _impl->view<TComponent...>();

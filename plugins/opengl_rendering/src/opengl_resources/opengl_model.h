@@ -4,7 +4,7 @@
 #include "tbx/math/matrices.h"
 #include <vector>
 
-namespace tbx::plugins
+namespace opengl_rendering
 {
     /// <summary>
     /// Purpose: Stores OpenGL-resolved data for a model part.
@@ -15,10 +15,10 @@ namespace tbx::plugins
     /// </remarks>
     struct OpenGlModelPart
     {
-        Mat4 transform = Mat4(1.0f);
-        Uuid mesh_id = {};
-        Uuid material_id = {};
-        std::vector<uint32> children = {};
+        tbx::Mat4 transform = tbx::Mat4(1.0f);
+        tbx::Uuid mesh_id = {};
+        tbx::Uuid material_id = {};
+        std::vector<tbx::uint32> children = {};
     };
 
     /// <summary>
@@ -30,8 +30,8 @@ namespace tbx::plugins
     /// </remarks>
     struct OpenGlModel
     {
-        Uuid model_id = {};
-        std::vector<Uuid> meshes = {};
+        tbx::Uuid model_id = {};
+        std::vector<tbx::Uuid> meshes = {};
         std::vector<OpenGlModelPart> parts = {};
     };
 }

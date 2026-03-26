@@ -64,6 +64,16 @@ namespace tbx
         PointLight();
 
         /// <summary>
+        /// Purpose: Initializes a point light with explicit color and optional range/intensity
+        /// values.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Value type; callers own constructed instances.
+        /// Thread Safety: Safe to construct on any thread.
+        /// </remarks>
+        PointLight(Color color, float intensity = 1.0f, float range = 10.0f);
+
+        /// <summary>
         /// Purpose: Sets the effective range in world units for point lights.
         /// </summary>
         /// <remarks>
@@ -71,6 +81,15 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         /// </remarks>
         float range = 10.0f;
+
+        /// <summary>
+        /// Purpose: Controls whether this point light renders realtime shadows.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stored by value.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// </remarks>
+        bool shadows_enabled = true;
     };
 
     /// <summary>
@@ -90,6 +109,20 @@ namespace tbx
         /// Thread Safety: Safe to construct on any thread.
         /// </remarks>
         SpotLight();
+
+        /// <summary>
+        /// Purpose: Initializes a spot light with explicit color and optional spotlight settings.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Value type; callers own constructed instances.
+        /// Thread Safety: Safe to construct on any thread.
+        /// </remarks>
+        SpotLight(
+            Color color,
+            float intensity = 1.0f,
+            float range = 10.0f,
+            float inner_angle = 20.0f,
+            float outer_angle = 35.0f);
 
         /// <summary>
         /// Purpose: Sets the effective range in world units for spot lights.
@@ -138,6 +171,19 @@ namespace tbx
         AreaLight();
 
         /// <summary>
+        /// Purpose: Initializes an area light with explicit color and optional area settings.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Value type; callers own constructed instances.
+        /// Thread Safety: Safe to construct on any thread.
+        /// </remarks>
+        AreaLight(
+            Color color,
+            float intensity = 1.0f,
+            float range = 10.0f,
+            Vec2 area_size = Vec2(1.0f, 1.0f));
+
+        /// <summary>
         /// Purpose: Sets the effective range in world units for area lights.
         /// </summary>
         /// <remarks>
@@ -165,9 +211,24 @@ namespace tbx
     /// </remarks>
     struct TBX_API DirectionalLight : public Light
     {
+        /// <summary>
+        /// Purpose: Initializes a directional light with default realtime lighting settings.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Value type; callers own constructed instances.
+        /// Thread Safety: Safe to construct on any thread.
+        /// </remarks>
         DirectionalLight();
-        DirectionalLight(Color color, float intensity);
-        DirectionalLight(Color color, float intensity, float ambient);
+
+        /// <summary>
+        /// Purpose: Initializes a directional light with explicit color and optional
+        /// ambient/intensity values.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Value type; callers own constructed instances.
+        /// Thread Safety: Safe to construct on any thread.
+        /// </remarks>
+        DirectionalLight(Color color, float intensity = 1.0f, float ambient = 0.03f);
 
         /// <summary>
         /// Purpose: Sets the ambient lighting contribution produced by this directional light.
