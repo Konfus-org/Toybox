@@ -81,6 +81,15 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         /// </remarks>
         float range = 10.0f;
+
+        /// <summary>
+        /// Purpose: Controls whether this point light renders realtime shadows.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Stored by value.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        /// </remarks>
+        bool shadows_enabled = true;
     };
 
     /// <summary>

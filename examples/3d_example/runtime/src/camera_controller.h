@@ -57,6 +57,7 @@ namespace three_d_example
         std::string _scheme_name = {};
         tbx::Entity _character_entity = {};
         tbx::Entity _camera_entity = {};
+        tbx::Entity _reticle_entity = {};
         tbx::Vec2 _move_axis = tbx::Vec2(0.0F, 0.0F);
         tbx::Vec2 _vertical_axis = tbx::Vec2(0.0F, 0.0F);
         tbx::Vec2 _look_delta = tbx::Vec2(0.0F, 0.0F);

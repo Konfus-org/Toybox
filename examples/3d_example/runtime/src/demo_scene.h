@@ -31,6 +31,7 @@ namespace three_d_example
             const char* event_name,
             const tbx::ColliderOverlapEvent& overlap_event) const;
         tbx::MaterialInstance create_trigger_zone_material(const tbx::Color& color) const;
+        tbx::MaterialInstance create_falling_box_material() const;
         void set_trigger_zone_color(const tbx::Color& color);
 
       private:

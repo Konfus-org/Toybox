@@ -89,7 +89,7 @@ namespace three_d_example
         _falling_sphere.add_component<tbx::Physics>();
 
         _falling_box = tbx::Entity("FallingBox", entity_registry);
-        _falling_box.add_component<tbx::Renderer>(tbx::PbrMaterialInstance(tbx::Color::GREEN));
+        _falling_box.add_component<tbx::Renderer>(create_falling_box_material());
         _falling_box.add_component<tbx::DynamicMesh>(tbx::cube);
         _falling_box.add_component<tbx::Transform>(tbx::Vec3(0.0F, 10.0F, -4.9F));
         _falling_box.add_component<tbx::CubeCollider>(tbx::Vec3(0.5F, 0.5F, 0.5F));
@@ -156,6 +156,14 @@ namespace three_d_example
             tbx::Handle(),
             tbx::wireframe_material);
         material.parameters.set("wireframe_width", 1.6F);
+        return material;
+    }
+
+    tbx::MaterialInstance DemoScene::create_falling_box_material() const
+    {
+        auto material = tbx::PbrMaterialInstance(tbx::Color::GREEN);
+        material.set_diffuse_map(tbx::Handle("Textures/Smily.png"));
+        material.set_alpha_cutoff(0.0F);
         return material;
     }
 

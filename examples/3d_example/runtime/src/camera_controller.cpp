@@ -2,6 +2,8 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/camera.h"
 #include "tbx/graphics/light.h"
+#include "tbx/graphics/mesh.h"
+#include "tbx/graphics/renderer.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
 #include "tbx/physics/raycast.h"
@@ -40,6 +42,8 @@ namespace three_d_example
         _input_manager = nullptr;
         _projectile_system = nullptr;
         _scheme_name.clear();
+        _reticle_entity.destroy();
+        _reticle_entity = {};
         _camera_entity.destroy();
         _camera_entity = {};
         _character_entity.destroy();
@@ -114,6 +118,18 @@ namespace three_d_example
             tbx::Vec3(0.0F, 0.0F, 0.0F),
             tbx::Quat(tbx::Vec3(settings.initial_pitch, 0.0F, 0.0F)),
             tbx::Vec3(1.0F, 1.0F, 1.0F));
+
+        _reticle_entity = tbx::Entity("Reticle", _camera_entity.get_id(), entity_registry);
+        auto reticle_renderer = tbx::Renderer();
+        reticle_renderer.material = tbx::FlatMaterialInstance(tbx::Color::WHITE);
+        reticle_renderer.shadow_mode = tbx::ShadowMode::None;
+        _reticle_entity.add_component<tbx::Renderer>(reticle_renderer);
+        _reticle_entity.add_component<tbx::DynamicMesh>(tbx::quad);
+        _reticle_entity.add_component<tbx::Transform>(
+            tbx::Vec3(0.0F, 0.0F, -0.3F),
+            tbx::Quat(tbx::Vec3(0.0F, 0.0F, 0.0F)),
+            tbx::Vec3(0.01F, 0.01F, 0.01F));
+
         set_flashlight_enabled(false);
     }
 
