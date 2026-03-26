@@ -1,6 +1,7 @@
 #include "camera_controller.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/camera.h"
+#include "tbx/graphics/light.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
 #include "tbx/physics/raycast.h"
@@ -103,10 +104,17 @@ namespace three_d_example
 
         _camera_entity = tbx::Entity("Camera", _character_entity.get_id(), entity_registry);
         _camera_entity.add_component<tbx::Camera>();
+        _camera_entity.add_component<tbx::SpotLight>(
+            tbx::Color::WHITE,
+            0.0F,
+            20.0F,
+            16.0F,
+            28.0F);
         _camera_entity.add_component<tbx::Transform>(
             tbx::Vec3(0.0F, 0.0F, 0.0F),
             tbx::Quat(tbx::Vec3(settings.initial_pitch, 0.0F, 0.0F)),
             tbx::Vec3(1.0F, 1.0F, 1.0F));
+        set_flashlight_enabled(false);
     }
 
     void CameraController::register_input_scheme()
@@ -118,6 +126,7 @@ namespace three_d_example
             create_move_action(),
             create_look_action(),
             create_vertical_move_action(),
+            create_flashlight_toggle_action(),
             create_raycast_action(),
             create_shoot_action(),
         };
@@ -236,6 +245,29 @@ namespace three_d_example
             });
     }
 
+    tbx::InputAction CameraController::create_flashlight_toggle_action()
+    {
+        return tbx::InputAction(
+            "ToggleFlashlight",
+            tbx::InputActionValueType::BUTTON,
+            tbx::InputActionConstruction {
+                .bindings =
+                    {
+                        tbx::InputBinding {
+                            .control = tbx::KeyboardInputControl { .key = tbx::InputKey::F },
+                            .scale = 1.0F,
+                        },
+                    },
+                .on_start_callbacks =
+                    {
+                        [this](const tbx::InputAction&)
+                        {
+                            set_flashlight_enabled(!_is_flashlight_enabled);
+                        },
+                    },
+            });
+    }
+
     tbx::InputAction CameraController::create_raycast_action()
     {
         return tbx::InputAction(
@@ -319,6 +351,17 @@ namespace three_d_example
             raycast_result.hit_position.x,
             raycast_result.hit_position.y,
             raycast_result.hit_position.z);
+    }
+
+    void CameraController::set_flashlight_enabled(bool is_enabled)
+    {
+        _is_flashlight_enabled = is_enabled;
+
+        if (!_camera_entity.get_id().is_valid() || !_camera_entity.has_component<tbx::SpotLight>())
+            return;
+
+        auto& flashlight = _camera_entity.get_component<tbx::SpotLight>();
+        flashlight.intensity = _is_flashlight_enabled ? _flashlight_intensity : 0.0F;
     }
 
     tbx::Vec3 CameraController::normalize_or_zero(const tbx::Vec3& value)

@@ -1,6 +1,4 @@
 #include "projectile_system.h"
-#include "tbx/assets/asset_loaders.h"
-#include "tbx/debugging/macros.h"
 #include "tbx/graphics/light.h"
 #include "tbx/graphics/renderer.h"
 #include "tbx/math/transform.h"
@@ -14,24 +12,10 @@ namespace three_d_example
 {
     ProjectileSystem::ProjectileSystem(
         tbx::EntityRegistry& entity_registry,
-        tbx::AssetManager& asset_manager,
         std::function<tbx::Entity()> camera_provider)
     {
         _entity_registry = &entity_registry;
-        _asset_manager = &asset_manager;
         _camera_provider = std::move(camera_provider);
-
-        const auto projectile_texture = _asset_manager->load<tbx::Texture>(_projectile_texture);
-        if (projectile_texture == nullptr)
-        {
-            TBX_TRACE_WARNING(
-                "Failed to load projectile texture '{}'. Projectiles will use the fallback "
-                "texture.",
-                _projectile_texture.name.c_str());
-            return;
-        }
-
-        _asset_manager->set_pinned(_projectile_texture, true);
     }
 
     ProjectileSystem::~ProjectileSystem()
@@ -42,11 +26,7 @@ namespace three_d_example
                 projectile.destroy();
         }
 
-        if (_asset_manager != nullptr)
-            _asset_manager->set_pinned(_projectile_texture, false);
-
         _entity_registry = nullptr;
-        _asset_manager = nullptr;
         _camera_provider = {};
         _active_projectiles.clear();
         _active_projectile_lifetimes.clear();
@@ -167,9 +147,7 @@ namespace three_d_example
 
     tbx::MaterialInstance ProjectileSystem::create_projectile_material() const
     {
-        auto material = tbx::PbrMaterialInstance(tbx::Color::WHITE);
-        material.set_diffuse_map(_projectile_texture);
-        material.set_color(tbx::Color::WHITE);
+        auto material = tbx::PbrMaterialInstance(tbx::Color(1.0F, 0.92F, 0.15F, 1.0F));
         material.set_emissive_color(tbx::Color::BLACK);
         return material;
     }

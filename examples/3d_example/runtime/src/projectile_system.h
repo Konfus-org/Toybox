@@ -1,6 +1,4 @@
 #pragma once
-#include "tbx/assets/asset_manager.h"
-#include "tbx/common/handle.h"
 #include "tbx/ecs/entity.h"
 #include "tbx/ecs/entity_registry.h"
 #include "tbx/graphics/material.h"
@@ -18,7 +16,6 @@ namespace three_d_example
       public:
         ProjectileSystem(
             tbx::EntityRegistry& entity_registry,
-            tbx::AssetManager& asset_manager,
             std::function<tbx::Entity()> camera_provider);
         ~ProjectileSystem();
 
@@ -37,10 +34,8 @@ namespace three_d_example
 
       private:
         tbx::EntityRegistry* _entity_registry = nullptr;
-        tbx::AssetManager* _asset_manager = nullptr;
         std::function<tbx::Entity()> _camera_provider = {};
         std::shared_ptr<tbx::Mesh> _projectile_mesh = std::make_shared<tbx::Mesh>(tbx::sphere);
-        tbx::Handle _projectile_texture = tbx::Handle("Textures/Smily.png");
         float _projectile_spawn_distance = 1.35F;
         float _projectile_speed = 26.0F;
         double _projectile_lifetime_seconds = 8.0;

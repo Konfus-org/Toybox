@@ -43,9 +43,11 @@ namespace three_d_example
         tbx::InputAction create_move_action();
         tbx::InputAction create_look_action();
         tbx::InputAction create_vertical_move_action();
+        tbx::InputAction create_flashlight_toggle_action();
         tbx::InputAction create_raycast_action();
         tbx::InputAction create_shoot_action();
         void cast_raycast() const;
+        void set_flashlight_enabled(bool is_enabled);
         static tbx::Vec3 normalize_or_zero(const tbx::Vec3& value);
 
       private:
@@ -62,5 +64,7 @@ namespace three_d_example
         float _pitch = 0.0F;
         float _move_speed = 6.0F;
         float _look_sensitivity = 0.0025F;
+        bool _is_flashlight_enabled = false;
+        float _flashlight_intensity = 8.0F;
     };
 }

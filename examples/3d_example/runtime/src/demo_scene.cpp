@@ -1,4 +1,5 @@
 #include "demo_scene.h"
+#include "builtin_assets.generated.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/color.h"
 #include "tbx/graphics/light.h"
@@ -13,8 +14,7 @@ namespace three_d_example
 {
     DemoScene::DemoScene(
         tbx::EntityRegistry& entity_registry,
-        tbx::InputManager& input_manager,
-        tbx::AssetManager& asset_manager)
+        tbx::InputManager& input_manager)
         : _entity_registry(&entity_registry)
         , _demo_room(
               entity_registry,
@@ -24,7 +24,6 @@ namespace three_d_example
               })
         , _projectile_system(
               entity_registry,
-              asset_manager,
               [this]()
               {
                   return _camera_controller.get_camera();
@@ -48,11 +47,12 @@ namespace three_d_example
             tbx::Quat(tbx::to_radians(tbx::Vec3(-45.0F, 45.0F, 0.0F))),
             tbx::Vec3(1.0F, 1.0F, 1.0F));
 
-        auto trigger_zone_material = tbx::PbrMaterialInstance(tbx::Color::GREEN);
-        trigger_zone_material.set_transparency_amount(0.5F);
-
         _trigger_zone = tbx::Entity("TriggerZone", entity_registry);
-        _trigger_zone.add_component<tbx::Renderer>(trigger_zone_material);
+        auto trigger_zone_renderer = tbx::Renderer {};
+        trigger_zone_renderer.material = create_trigger_zone_material(tbx::Color::RED);
+        trigger_zone_renderer.is_two_sided = true;
+        trigger_zone_renderer.shadow_mode = tbx::ShadowMode::None;
+        _trigger_zone.add_component<tbx::Renderer>(trigger_zone_renderer);
         _trigger_zone.add_component<tbx::DynamicMesh>(tbx::cube);
         _trigger_zone.add_component<tbx::Transform>(
             tbx::Vec3(0.0F, 2.5F, -5.0F),
@@ -68,14 +68,14 @@ namespace three_d_example
                         {
                             [this](const tbx::ColliderOverlapEvent& overlap_event)
                             {
-                                log_overlap_event("begin", overlap_event);
+                                handle_overlap_begin(overlap_event);
                             },
                         },
                     .overlap_end_callbacks =
                         {
                             [this](const tbx::ColliderOverlapEvent& overlap_event)
                             {
-                                log_overlap_event("end", overlap_event);
+                                handle_overlap_end(overlap_event);
                             },
                         },
                 },
@@ -115,6 +115,24 @@ namespace three_d_example
         _projectile_system.update(dt);
     }
 
+    void DemoScene::handle_overlap_begin(const tbx::ColliderOverlapEvent& overlap_event)
+    {
+        _trigger_overlap_count += 1U;
+        set_trigger_zone_color(tbx::Color::GREEN);
+        log_overlap_event("begin", overlap_event);
+    }
+
+    void DemoScene::handle_overlap_end(const tbx::ColliderOverlapEvent& overlap_event)
+    {
+        if (_trigger_overlap_count > 0U)
+            _trigger_overlap_count -= 1U;
+
+        if (_trigger_overlap_count == 0U)
+            set_trigger_zone_color(tbx::Color::RED);
+
+        log_overlap_event("end", overlap_event);
+    }
+
     void DemoScene::log_overlap_event(
         const char* event_name,
         const tbx::ColliderOverlapEvent& overlap_event) const
@@ -127,5 +145,26 @@ namespace three_d_example
             event_name,
             _entity_registry->get(overlap_event.trigger_entity_id).get_name(),
             _entity_registry->get(overlap_event.overlapped_entity_id).get_name());
+    }
+
+    tbx::MaterialInstance DemoScene::create_trigger_zone_material(const tbx::Color& color) const
+    {
+        auto material = tbx::FlatMaterialInstance(
+            color,
+            tbx::Color::BLACK,
+            0.1F,
+            tbx::Handle(),
+            tbx::wireframe_material);
+        material.parameters.set("wireframe_width", 1.6F);
+        return material;
+    }
+
+    void DemoScene::set_trigger_zone_color(const tbx::Color& color)
+    {
+        if (!_trigger_zone.get_id().is_valid() || !_trigger_zone.has_component<tbx::Renderer>())
+            return;
+
+        auto& renderer = _trigger_zone.get_component<tbx::Renderer>();
+        renderer.material = create_trigger_zone_material(color);
     }
 }
