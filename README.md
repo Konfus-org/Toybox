@@ -82,8 +82,6 @@ ctest --preset test-clang-debug
 ctest --preset test-clang-release
 ```
 
-Artifacts land in `build/clang/bin/<Config>` with matching `lib` and `pdb` directories.
-
 #### MSVC (Ninja + MSVC toolchain)
 
 ```bash
