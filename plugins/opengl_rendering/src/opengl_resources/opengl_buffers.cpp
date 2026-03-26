@@ -12,8 +12,8 @@ namespace opengl_rendering
         return std::exchange(id, 0);
     }
 
-    static constexpr auto GBUFFER_DRAW_ATTACHMENTS = std::array<GLenum, 7U> {
-        GL_COLOR_ATTACHMENT0,
+    static constexpr auto GeometryPassDrawBuffers = std::array<GLenum, 7U> {
+        GL_NONE,
         GL_COLOR_ATTACHMENT1,
         GL_COLOR_ATTACHMENT2,
         GL_COLOR_ATTACHMENT3,
@@ -82,13 +82,13 @@ namespace opengl_rendering
         {
             case tbx::RenderStage::FINAL_COLOR:
                 return GL_COLOR_ATTACHMENT0;
-            case tbx::RenderStage::GEOMETRY_COLOR:
+            case tbx::RenderStage::GEOMETRY_PREVIEW_COLOR:
                 return GL_COLOR_ATTACHMENT1;
-            case tbx::RenderStage::GBUFFER_ALBEDO:
+            case tbx::RenderStage::ALBEDO:
                 return GL_COLOR_ATTACHMENT2;
-            case tbx::RenderStage::GBUFFER_NORMAL:
+            case tbx::RenderStage::NORMAL:
                 return GL_COLOR_ATTACHMENT3;
-            case tbx::RenderStage::GBUFFER_DEPTH:
+            case tbx::RenderStage::DEPTH_PREVIEW:
                 return GL_COLOR_ATTACHMENT4;
             default:
                 return GL_COLOR_ATTACHMENT0;
@@ -248,68 +248,79 @@ namespace opengl_rendering
         if (size.width == 0U || size.height == 0U)
             return;
 
-        if (_size.width == size.width && _size.height == size.height && _framebuffer != 0U)
+        if (_size.width == size.width && _size.height == size.height
+            && _geometry_framebuffer != 0U && _final_color_framebuffer != 0U)
             return;
 
         destroy();
         _size = size;
 
-        glGenFramebuffers(1, &_framebuffer);
-        glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
+        glCreateFramebuffers(1, &_geometry_framebuffer);
+        glCreateFramebuffers(1, &_final_color_framebuffer);
 
-        _final_color = create_color_attachment(GL_RGBA16F, _size.width, _size.height);
-        _geometry_color = create_color_attachment(GL_RGBA16F, _size.width, _size.height);
+        _final_color = create_color_attachment(GL_RGBA8, _size.width, _size.height);
+        _geometry_preview_color = create_color_attachment(GL_RGBA8, _size.width, _size.height);
         _albedo = create_color_attachment(GL_RGBA8, _size.width, _size.height);
         _normal = create_color_attachment(GL_RGBA16F, _size.width, _size.height);
-        _depth_visual = create_color_attachment(GL_RGBA16F, _size.width, _size.height);
+        _depth_preview = create_color_attachment(GL_RGBA8, _size.width, _size.height);
         _emissive = create_color_attachment(GL_RGBA16F, _size.width, _size.height);
         _material = create_color_attachment(GL_RGBA16F, _size.width, _size.height);
         _depth = create_depth_attachment(_size.width, _size.height);
 
-        glFramebufferTexture2D(
-            GL_FRAMEBUFFER,
+        glNamedFramebufferTexture(
+            _geometry_framebuffer,
             GL_COLOR_ATTACHMENT0,
-            GL_TEXTURE_2D,
             _final_color,
             0);
-        glFramebufferTexture2D(
-            GL_FRAMEBUFFER,
+        glNamedFramebufferTexture(
+            _geometry_framebuffer,
             GL_COLOR_ATTACHMENT1,
-            GL_TEXTURE_2D,
-            _geometry_color,
+            _geometry_preview_color,
             0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, _albedo, 0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, _normal, 0);
-        glFramebufferTexture2D(
-            GL_FRAMEBUFFER,
+        glNamedFramebufferTexture(_geometry_framebuffer, GL_COLOR_ATTACHMENT2, _albedo, 0);
+        glNamedFramebufferTexture(_geometry_framebuffer, GL_COLOR_ATTACHMENT3, _normal, 0);
+        glNamedFramebufferTexture(
+            _geometry_framebuffer,
             GL_COLOR_ATTACHMENT4,
-            GL_TEXTURE_2D,
-            _depth_visual,
+            _depth_preview,
             0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, GL_TEXTURE_2D, _emissive, 0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, GL_TEXTURE_2D, _material, 0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _depth, 0);
-        glDrawBuffers(
-            static_cast<GLsizei>(GBUFFER_DRAW_ATTACHMENTS.size()),
-            GBUFFER_DRAW_ATTACHMENTS.data());
+        glNamedFramebufferTexture(_geometry_framebuffer, GL_COLOR_ATTACHMENT5, _emissive, 0);
+        glNamedFramebufferTexture(_geometry_framebuffer, GL_COLOR_ATTACHMENT6, _material, 0);
+        glNamedFramebufferTexture(_geometry_framebuffer, GL_DEPTH_ATTACHMENT, _depth, 0);
+        glNamedFramebufferDrawBuffers(
+            _geometry_framebuffer,
+            static_cast<GLsizei>(GeometryPassDrawBuffers.size()),
+            GeometryPassDrawBuffers.data());
 
-        const auto status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-        TBX_ASSERT(status == GL_FRAMEBUFFER_COMPLETE, "OpenGL g-buffer framebuffer is incomplete.");
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glNamedFramebufferTexture(
+            _final_color_framebuffer,
+            GL_COLOR_ATTACHMENT0,
+            _final_color,
+            0);
+        glNamedFramebufferTexture(_final_color_framebuffer, GL_DEPTH_ATTACHMENT, _depth, 0);
+        glNamedFramebufferDrawBuffer(_final_color_framebuffer, GL_COLOR_ATTACHMENT0);
+
+        const auto geometry_status =
+            glCheckNamedFramebufferStatus(_geometry_framebuffer, GL_FRAMEBUFFER);
+        TBX_ASSERT(
+            geometry_status == GL_FRAMEBUFFER_COMPLETE,
+            "OpenGL geometry g-buffer framebuffer is incomplete.");
+
+        const auto final_color_status =
+            glCheckNamedFramebufferStatus(_final_color_framebuffer, GL_FRAMEBUFFER);
+        TBX_ASSERT(
+            final_color_status == GL_FRAMEBUFFER_COMPLETE,
+            "OpenGL final-color framebuffer is incomplete.");
     }
 
     void OpenGlGBuffer::prepare_geometry_pass() const
     {
-        glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
-        glDrawBuffers(
-            static_cast<GLsizei>(GBUFFER_DRAW_ATTACHMENTS.size()),
-            GBUFFER_DRAW_ATTACHMENTS.data());
+        glBindFramebuffer(GL_FRAMEBUFFER, _geometry_framebuffer);
     }
 
     void OpenGlGBuffer::bind()
     {
-        glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
-        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        glBindFramebuffer(GL_FRAMEBUFFER, _final_color_framebuffer);
     }
 
     void OpenGlGBuffer::unbind()
@@ -320,10 +331,10 @@ namespace opengl_rendering
     void OpenGlGBuffer::present(const tbx::RenderStage render_stage, const tbx::Size& viewport_size)
         const
     {
-        if (_framebuffer == 0U || viewport_size.width == 0U || viewport_size.height == 0U)
+        if (_geometry_framebuffer == 0U || viewport_size.width == 0U || viewport_size.height == 0U)
             return;
 
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, _framebuffer);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, _geometry_framebuffer);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
         glReadBuffer(get_stage_attachment(render_stage));
         glBlitFramebuffer(
@@ -372,51 +383,34 @@ namespace opengl_rendering
         const tbx::uint32 height)
     {
         auto texture_id = GLuint {0U};
-        glGenTextures(1, &texture_id);
-        glBindTexture(GL_TEXTURE_2D, texture_id);
-
-        auto upload_type = GL_FLOAT;
-        if (internal_format == GL_RGBA8)
-            upload_type = GL_UNSIGNED_BYTE;
-
-        glTexImage2D(
-            GL_TEXTURE_2D,
-            0,
-            static_cast<GLint>(internal_format),
+        glCreateTextures(GL_TEXTURE_2D, 1, &texture_id);
+        glTextureStorage2D(
+            texture_id,
+            1,
+            internal_format,
             static_cast<GLsizei>(width),
-            static_cast<GLsizei>(height),
-            0,
-            GL_RGBA,
-            upload_type,
-            nullptr);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glBindTexture(GL_TEXTURE_2D, 0);
+            static_cast<GLsizei>(height));
+        glTextureParameteri(texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTextureParameteri(texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTextureParameteri(texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         return texture_id;
     }
 
     GLuint OpenGlGBuffer::create_depth_attachment(const tbx::uint32 width, const tbx::uint32 height)
     {
         auto texture_id = GLuint {0U};
-        glGenTextures(1, &texture_id);
-        glBindTexture(GL_TEXTURE_2D, texture_id);
-        glTexImage2D(
-            GL_TEXTURE_2D,
-            0,
+        glCreateTextures(GL_TEXTURE_2D, 1, &texture_id);
+        glTextureStorage2D(
+            texture_id,
+            1,
             GL_DEPTH_COMPONENT24,
             static_cast<GLsizei>(width),
-            static_cast<GLsizei>(height),
-            0,
-            GL_DEPTH_COMPONENT,
-            GL_FLOAT,
-            nullptr);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glBindTexture(GL_TEXTURE_2D, 0);
+            static_cast<GLsizei>(height));
+        glTextureParameteri(texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTextureParameteri(texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTextureParameteri(texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         return texture_id;
     }
 
@@ -432,18 +426,24 @@ namespace opengl_rendering
     void OpenGlGBuffer::destroy()
     {
         delete_texture(_final_color);
-        delete_texture(_geometry_color);
+        delete_texture(_geometry_preview_color);
         delete_texture(_albedo);
         delete_texture(_normal);
-        delete_texture(_depth_visual);
+        delete_texture(_depth_preview);
         delete_texture(_emissive);
         delete_texture(_material);
         delete_texture(_depth);
 
-        if (_framebuffer != 0U)
+        if (_final_color_framebuffer != 0U)
         {
-            glDeleteFramebuffers(1, &_framebuffer);
-            _framebuffer = 0U;
+            glDeleteFramebuffers(1, &_final_color_framebuffer);
+            _final_color_framebuffer = 0U;
+        }
+
+        if (_geometry_framebuffer != 0U)
+        {
+            glDeleteFramebuffers(1, &_geometry_framebuffer);
+            _geometry_framebuffer = 0U;
         }
 
         _size = {0U, 0U};

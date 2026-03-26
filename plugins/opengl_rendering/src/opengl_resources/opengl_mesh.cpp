@@ -123,6 +123,11 @@ namespace opengl_rendering
     void OpenGlMesh::draw() const
     {
         glBindVertexArray(_vertex_array_id);
+        draw_bound();
+    }
+
+    void OpenGlMesh::draw_bound() const
+    {
         glDrawElements(
             GL_TRIANGLES,
             static_cast<GLsizei>(_index_buffer.get_count()),
@@ -167,6 +172,14 @@ namespace opengl_rendering
             return;
 
         glBindVertexArray(_vertex_array_id);
+        draw_instanced_bound(instance_count);
+    }
+
+    void OpenGlMesh::draw_instanced_bound(const tbx::uint32 instance_count) const
+    {
+        if (instance_count == 0)
+            return;
+
         glDrawElementsInstanced(
             GL_TRIANGLES,
             static_cast<GLsizei>(_index_buffer.get_count()),

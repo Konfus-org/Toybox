@@ -18,10 +18,10 @@ namespace tbx
     enum class RenderStage
     {
         FINAL_COLOR,
-        GEOMETRY_COLOR,
-        GBUFFER_ALBEDO,
-        GBUFFER_NORMAL,
-        GBUFFER_DEPTH,
+        GEOMETRY_PREVIEW_COLOR,
+        ALBEDO,
+        NORMAL,
+        DEPTH_PREVIEW,
     };
 
     /// <summary>

@@ -1,13 +1,13 @@
 #version 450 core
 #include Globals.glsl
 
-layout(location = 0) out vec4 o_color;
-layout(location = 1) out vec4 o_geometry_color;
-layout(location = 2) out vec4 o_gbuffer_albedo;
-layout(location = 3) out vec4 o_gbuffer_normal;
-layout(location = 4) out vec4 o_gbuffer_depth;
-layout(location = 5) out vec4 o_gbuffer_emissive;
-layout(location = 6) out vec4 o_gbuffer_material;
+layout(location = 0) out vec4 o_final_color;
+layout(location = 1) out vec4 o_geometry_preview_color;
+layout(location = 2) out vec4 o_albedo;
+layout(location = 3) out vec4 o_normal;
+layout(location = 4) out vec4 o_depth_preview;
+layout(location = 5) out vec4 o_emissive;
+layout(location = 6) out vec4 o_material;
 
 in vec4 v_color;
 in vec2 v_tex_coord;
@@ -117,18 +117,18 @@ void main()
         mix(vec3(0.05, 0.045, 0.04), vec3(0.17, 0.19, 0.23), hemisphere_factor) * occlusion;
     float preview_fresnel =
         pow(1.0 - max(dot(mapped_world_normal, preview_view_direction), 0.0), 4.0);
-    vec3 preview_color =
+    vec3 forward_lit_color =
         (texture_color.rgb * (hemisphere_ambient + vec3(preview_n_dot_l * occlusion)))
         + vec3(preview_specular)
         + vec3(specular * preview_fresnel * 0.08)
         + (emissive * 0.5);
-    float depth_visual = 1.0 - pow(clamp(gl_FragCoord.z, 0.0, 1.0), 24.0);
+    float depth_preview = 1.0 - pow(clamp(gl_FragCoord.z, 0.0, 1.0), 24.0);
 
-    o_color = vec4(preview_color, surface_alpha);
-    o_geometry_color = vec4(preview_color, surface_alpha);
-    o_gbuffer_albedo = vec4(texture_color.rgb, surface_alpha);
-    o_gbuffer_normal = vec4((mapped_world_normal * 0.5) + 0.5, 1.0);
-    o_gbuffer_depth = vec4(vec3(depth_visual), 1.0);
-    o_gbuffer_emissive = vec4(emissive, exposure);
-    o_gbuffer_material = vec4(specular, shininess, occlusion, 1.0);
+    o_final_color = vec4(forward_lit_color, surface_alpha);
+    o_geometry_preview_color = vec4(forward_lit_color, surface_alpha);
+    o_albedo = vec4(texture_color.rgb, surface_alpha);
+    o_normal = vec4((mapped_world_normal * 0.5) + 0.5, 1.0);
+    o_depth_preview = vec4(vec3(depth_preview), 1.0);
+    o_emissive = vec4(emissive, exposure);
+    o_material = vec4(specular, shininess, occlusion, 1.0);
 }

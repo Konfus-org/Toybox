@@ -56,6 +56,13 @@ namespace opengl_rendering
         /// Thread Safety: Call only on the render thread.</remarks>
         void draw() const;
 
+        /// <summary>Issues a draw call assuming this mesh is already bound.</summary>
+        /// <remarks>Purpose: Draws indexed triangles without rebinding the VAO, enabling
+        /// pass-level binding caches to reduce driver overhead.
+        /// Ownership: Does not transfer ownership of any resources.
+        /// Thread Safety: Call only on the render thread while this mesh remains bound.</remarks>
+        void draw_bound() const;
+
         /// <summary>Issues an instanced draw call for the mesh.</summary>
         /// <remarks>Purpose: Draws indexed triangles or patches across multiple instances.
         /// Ownership: Does not transfer ownership of any resources.
@@ -65,6 +72,13 @@ namespace opengl_rendering
             int instance_model_attribute_location,
             int instance_id_attribute_location);
         void draw_instanced(tbx::uint32 instance_count) const;
+
+        /// <summary>Issues an instanced draw call assuming this mesh is already bound.</summary>
+        /// <remarks>Purpose: Draws indexed triangles across multiple instances without rebinding
+        /// the VAO, enabling pass-level binding caches to reduce driver overhead.
+        /// Ownership: Does not transfer ownership of any resources.
+        /// Thread Safety: Call only on the render thread while this mesh remains bound.</remarks>
+        void draw_instanced_bound(tbx::uint32 instance_count) const;
 
         /// <summary>Binds the mesh's VAO and buffers.</summary>
         /// <remarks>Purpose: Binds the VAO and buffers for rendering.

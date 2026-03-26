@@ -11,7 +11,8 @@
 namespace opengl_rendering
 {
     /// <summary>
-    /// Purpose: Resolves deferred lighting from the g-buffer into the final color target.
+    /// Purpose: Resolves deferred lighting from the geometry attachments into the final color
+    /// target.
     /// </summary>
     /// <remarks>
     /// Ownership: Owns the fullscreen draw state and shader program it creates lazily.
@@ -37,6 +38,7 @@ namespace opengl_rendering
 
       private:
         bool ensure_initialized();
+        bool ensure_static_shader_bindings();
         void upload_tiled_light_data(const OpenGlFrameContext& frame_context);
 
       private:
@@ -61,6 +63,7 @@ namespace opengl_rendering
         std::size_t _tile_point_light_indices_buffer_capacity = 0U;
         std::size_t _tile_spot_light_indices_buffer_capacity = 0U;
         std::size_t _tile_area_light_indices_buffer_capacity = 0U;
+        bool _has_uploaded_static_shader_bindings = false;
         bool _has_reported_frame_failure = false;
     };
 }

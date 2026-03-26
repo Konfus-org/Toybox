@@ -2,10 +2,11 @@
 #include "RenderPipelineFailure.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_mesh.h"
-#include "opengl_resources/opengl_resource.h"
+#include "opengl_resources/opengl_resource_manager.h"
 #include "opengl_resources/opengl_shader.h"
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
+#include <unordered_map>
 #include <vector>
 
 namespace opengl_rendering
@@ -13,26 +14,33 @@ namespace opengl_rendering
     const auto TransparentViewProjUniformName = "u_view_proj";
     const auto TransparentModelUniformName = "u_model";
 
+    static bool are_texture_bindings_equal(
+        const std::vector<GLuint>& current_texture_ids,
+        const std::vector<GLuint>& previous_texture_ids)
+    {
+        return current_texture_ids == previous_texture_ids;
+    }
+
     static void bind_textures(
         const OpenGlMaterialParams& material,
         std::vector<GLuint>& texture_ids,
+        std::vector<GLuint>& previous_texture_ids,
         std::vector<GLuint>& zero_texture_ids,
         std::size_t& last_bound_count)
     {
         texture_ids.clear();
         texture_ids.reserve(material.textures.size());
         for (const auto& texture : material.textures)
-        {
-            if (texture.gl_texture_id == 0)
-                continue;
             texture_ids.push_back(static_cast<GLuint>(texture.gl_texture_id));
-        }
 
         const auto current_count = texture_ids.size();
-        if (current_count > 0)
+        const auto layout_matches_previous =
+            current_count == last_bound_count
+            && are_texture_bindings_equal(texture_ids, previous_texture_ids);
+        if (!layout_matches_previous && current_count > 0)
             glBindTextures(0, static_cast<GLsizei>(current_count), texture_ids.data());
 
-        if (last_bound_count > current_count)
+        if (!layout_matches_previous && last_bound_count > current_count)
         {
             const auto extra_count = last_bound_count - current_count;
             zero_texture_ids.assign(extra_count, 0);
@@ -42,6 +50,7 @@ namespace opengl_rendering
                 zero_texture_ids.data());
         }
 
+        previous_texture_ids = texture_ids;
         last_bound_count = current_count;
     }
 
@@ -64,8 +73,7 @@ namespace opengl_rendering
         bool saw_failure = false;
         bool drew_mesh = false;
 
-        auto gbuffer_scope = OpenGlResourceScope(_gbuffer);
-
+        _gbuffer.bind();
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
@@ -76,15 +84,30 @@ namespace opengl_rendering
         glFrontFace(GL_CCW);
 
         auto texture_ids = std::vector<GLuint> {};
+        auto previous_texture_ids = std::vector<GLuint> {};
         auto zero_texture_ids = std::vector<GLuint> {};
         std::size_t last_bound_texture_count = 0U;
+        auto shader_cache = std::unordered_map<tbx::Uuid, std::shared_ptr<OpenGlShaderProgram>> {};
+        auto mesh_cache = std::unordered_map<tbx::Uuid, std::shared_ptr<OpenGlMesh>> {};
+        auto currently_bound_shader = tbx::Uuid {};
+        auto currently_bound_mesh = tbx::Uuid {};
+        bool is_cull_face_enabled = true;
 
         for (const auto& draw_call : frame_context.transparent_draw_calls)
         {
             auto shader_program = std::shared_ptr<OpenGlShaderProgram>();
-            if (!_resource_manager.try_get<OpenGlShaderProgram>(
-                    draw_call.shader_program,
-                    shader_program))
+            if (const auto cached_shader = shader_cache.find(draw_call.shader_program);
+                cached_shader != shader_cache.end())
+            {
+                shader_program = cached_shader->second;
+            }
+            else if (_resource_manager.try_get<OpenGlShaderProgram>(
+                         draw_call.shader_program,
+                         shader_program))
+            {
+                shader_cache.emplace(draw_call.shader_program, shader_program);
+            }
+            else
             {
                 saw_failure = true;
                 TBX_TRACE_WARNING(
@@ -93,23 +116,37 @@ namespace opengl_rendering
                 continue;
             }
 
-            if (draw_call.is_two_sided)
-                glDisable(GL_CULL_FACE);
-            else
-                glEnable(GL_CULL_FACE);
-
-            auto shader_program_scope = OpenGlResourceScope(*shader_program);
-            if (!shader_program->try_upload(
-                    tbx::MaterialParameter(
-                        TransparentViewProjUniformName,
-                        frame_context.view_projection)))
+            const auto should_enable_cull_face = !draw_call.is_two_sided;
+            if (should_enable_cull_face != is_cull_face_enabled)
             {
-                saw_failure = true;
-                TBX_TRACE_WARNING(
-                    "OpenGL rendering: failed to upload view projection uniform to transparent "
-                    "program '{}'.",
-                    draw_call.shader_program.value);
+                if (should_enable_cull_face)
+                    glEnable(GL_CULL_FACE);
+                else
+                    glDisable(GL_CULL_FACE);
+                is_cull_face_enabled = should_enable_cull_face;
             }
+
+            if (currently_bound_shader != draw_call.shader_program)
+            {
+                shader_program->bind();
+                currently_bound_shader = draw_call.shader_program;
+                currently_bound_mesh = {};
+                last_bound_texture_count = 0U;
+                previous_texture_ids.clear();
+
+                if (!shader_program->try_upload(
+                        tbx::MaterialParameter(
+                            TransparentViewProjUniformName,
+                            frame_context.view_projection)))
+                {
+                    saw_failure = true;
+                    TBX_TRACE_WARNING(
+                        "OpenGL rendering: failed to upload view projection uniform to "
+                        "transparent program '{}'.",
+                        draw_call.shader_program.value);
+                }
+            }
+
             if (!shader_program->try_upload(
                     tbx::MaterialParameter(TransparentModelUniformName, draw_call.transform)))
             {
@@ -123,6 +160,7 @@ namespace opengl_rendering
             bind_textures(
                 draw_call.material,
                 texture_ids,
+                previous_texture_ids,
                 zero_texture_ids,
                 last_bound_texture_count);
             if (!shader_program->try_upload(draw_call.material))
@@ -138,6 +176,7 @@ namespace opengl_rendering
                 bind_textures(
                     fallback_material_params,
                     texture_ids,
+                    previous_texture_ids,
                     zero_texture_ids,
                     last_bound_texture_count);
                 if (!shader_program->try_upload(fallback_material_params))
@@ -151,7 +190,15 @@ namespace opengl_rendering
             }
 
             auto mesh = std::shared_ptr<OpenGlMesh> {};
-            if (!_resource_manager.try_get<OpenGlMesh>(draw_call.mesh, mesh))
+            if (const auto cached_mesh = mesh_cache.find(draw_call.mesh); cached_mesh != mesh_cache.end())
+            {
+                mesh = cached_mesh->second;
+            }
+            else if (_resource_manager.try_get<OpenGlMesh>(draw_call.mesh, mesh))
+            {
+                mesh_cache.emplace(draw_call.mesh, mesh);
+            }
+            else
             {
                 saw_failure = true;
                 TBX_TRACE_WARNING(
@@ -160,8 +207,13 @@ namespace opengl_rendering
                 continue;
             }
 
-            auto mesh_scope = OpenGlResourceScope(*mesh);
-            mesh->draw();
+            if (currently_bound_mesh != draw_call.mesh)
+            {
+                mesh->bind();
+                currently_bound_mesh = draw_call.mesh;
+            }
+
+            mesh->draw_bound();
             drew_mesh = true;
         }
 

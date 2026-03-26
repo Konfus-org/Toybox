@@ -59,18 +59,10 @@ namespace opengl_rendering
 
     void OpenGlRenderPipeline::render_magenta_failure_frame(OpenGlGBuffer& gbuffer)
     {
-        const auto depth_test_enabled = glIsEnabled(GL_DEPTH_TEST) == GL_TRUE;
-        const auto blend_enabled = glIsEnabled(GL_BLEND) == GL_TRUE;
-
         auto gbuffer_scope = OpenGlResourceScope(gbuffer);
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
         glClearColor(1.0F, 0.0F, 1.0F, 1.0F);
         glClear(GL_COLOR_BUFFER_BIT);
-
-        if (depth_test_enabled)
-            glEnable(GL_DEPTH_TEST);
-        if (blend_enabled)
-            glEnable(GL_BLEND);
     }
 }

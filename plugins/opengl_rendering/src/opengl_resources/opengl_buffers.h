@@ -60,7 +60,7 @@ namespace opengl_rendering
     };
 
     /// <summary>
-    /// Purpose: Owns geometry-buffer attachments used by future multi-pass rendering and debug
+    /// Purpose: Owns deferred-rendering attachments used by future multi-pass rendering and debug
     /// presentation.
     /// </summary>
     /// <remarks>
@@ -83,7 +83,7 @@ namespace opengl_rendering
         void resize(const tbx::Size& size);
 
         /// <summary>
-        /// Purpose: Prepares the g-buffer framebuffer for geometry rendering.
+        /// Purpose: Prepares the deferred framebuffer for geometry rendering.
         /// Ownership: Does not transfer framebuffer ownership.
         /// Thread Safety: Not thread-safe; render-thread only.
         /// </summary>
@@ -97,7 +97,7 @@ namespace opengl_rendering
         void present(tbx::RenderStage render_stage, const tbx::Size& viewport_size) const;
 
         /// <summary>
-        /// Purpose: Prepares the g-buffer framebuffer for passes that only write final color.
+        /// Purpose: Prepares the deferred framebuffer for passes that only write final color.
         /// Ownership: Does not transfer ownership of any OpenGL object.
         /// Thread Safety: Not thread-safe; render-thread only.
         /// </summary>
@@ -156,12 +156,13 @@ namespace opengl_rendering
 
       private:
         tbx::Size _size = {0U, 0U};
-        GLuint _framebuffer = 0U;
+        GLuint _geometry_framebuffer = 0U;
+        GLuint _final_color_framebuffer = 0U;
         GLuint _final_color = 0U;
-        GLuint _geometry_color = 0U;
+        GLuint _geometry_preview_color = 0U;
         GLuint _albedo = 0U;
         GLuint _normal = 0U;
-        GLuint _depth_visual = 0U;
+        GLuint _depth_preview = 0U;
         GLuint _emissive = 0U;
         GLuint _material = 0U;
         GLuint _depth = 0U;

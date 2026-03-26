@@ -3,11 +3,11 @@
 #include "RenderPipelineFailure.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_mesh.h"
-#include "opengl_resources/opengl_resource.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "opengl_resources/opengl_shader.h"
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
+#include <unordered_map>
 #include <vector>
 
 namespace opengl_rendering
@@ -15,26 +15,33 @@ namespace opengl_rendering
     const auto VIEW_PROJ_UNIFORM_NAME = "u_view_proj";
     const auto MODEL_UNIFORM_NAME = "u_model";
 
+    static bool are_texture_bindings_equal(
+        const std::vector<GLuint>& current_texture_ids,
+        const std::vector<GLuint>& previous_texture_ids)
+    {
+        return current_texture_ids == previous_texture_ids;
+    }
+
     static void bind_textures(
         const OpenGlMaterialParams& material,
         std::vector<GLuint>& texture_ids,
+        std::vector<GLuint>& previous_texture_ids,
         std::vector<GLuint>& zero_texture_ids,
         std::size_t& last_bound_count)
     {
         texture_ids.clear();
         texture_ids.reserve(material.textures.size());
         for (const auto& texture : material.textures)
-        {
-            if (texture.gl_texture_id == 0)
-                continue;
             texture_ids.push_back(static_cast<GLuint>(texture.gl_texture_id));
-        }
 
         const auto current_count = texture_ids.size();
-        if (current_count > 0)
+        const auto layout_matches_previous =
+            current_count == last_bound_count
+            && are_texture_bindings_equal(texture_ids, previous_texture_ids);
+        if (!layout_matches_previous && current_count > 0)
             glBindTextures(0, static_cast<GLsizei>(current_count), texture_ids.data());
 
-        if (last_bound_count > current_count)
+        if (!layout_matches_previous && last_bound_count > current_count)
         {
             const auto extra_count = last_bound_count - current_count;
             zero_texture_ids.assign(extra_count, 0);
@@ -44,6 +51,7 @@ namespace opengl_rendering
                 zero_texture_ids.data());
         }
 
+        previous_texture_ids = texture_ids;
         last_bound_count = current_count;
     }
 
@@ -74,6 +82,14 @@ namespace opengl_rendering
         glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        auto texture_ids = std::vector<GLuint> {};
+        auto previous_texture_ids = std::vector<GLuint> {};
+        auto zero_texture_ids = std::vector<GLuint> {};
+        std::size_t last_bound_texture_count = 0U;
+        auto mesh_cache = std::unordered_map<tbx::Uuid, std::shared_ptr<OpenGlMesh>> {};
+        bool is_cull_face_enabled = true;
+        auto currently_bound_mesh = tbx::Uuid {};
+
         for (const auto& [shader_program_id, is_two_sided, meshes_ids, material_ids, transforms] :
              draw_calls)
         {
@@ -88,98 +104,112 @@ namespace opengl_rendering
                 continue;
             }
 
-            if (is_two_sided)
-                glDisable(GL_CULL_FACE);
-            else
-                glEnable(GL_CULL_FACE);
-
-            auto shader_program_scope = OpenGlResourceScope(*shader_program);
+            const auto should_enable_cull_face = !is_two_sided;
+            if (should_enable_cull_face != is_cull_face_enabled)
             {
-                auto texture_ids = std::vector<GLuint> {};
-                auto zero_texture_ids = std::vector<GLuint> {};
-                std::size_t last_bound_texture_count = 0;
+                if (should_enable_cull_face)
+                    glEnable(GL_CULL_FACE);
+                else
+                    glDisable(GL_CULL_FACE);
+                is_cull_face_enabled = should_enable_cull_face;
+            }
 
-                // Update view proj
-                if (!shader_program->try_upload(
-                        tbx::MaterialParameter(VIEW_PROJ_UNIFORM_NAME, view_proj)))
+            shader_program->bind();
+            last_bound_texture_count = 0U;
+            previous_texture_ids.clear();
+            currently_bound_mesh = {};
+
+            // Update view proj
+            if (!shader_program->try_upload(
+                    tbx::MaterialParameter(VIEW_PROJ_UNIFORM_NAME, view_proj)))
+            {
+                saw_failure = true;
+                TBX_ASSERT(false, "Failed to upload view projection");
+                TBX_TRACE_WARNING(
+                    "OpenGL rendering: failed to upload view projection uniform to program "
+                    "'{}'. Continuing with previous/default value.",
+                    shader_program_id.value);
+            }
+
+            for (std::size_t draw_index = 0; draw_index < meshes_ids.size(); ++draw_index)
+            {
+                // Update transform
+                if (const auto& transform = transforms[draw_index]; !shader_program->try_upload(
+                        tbx::MaterialParameter(MODEL_UNIFORM_NAME, transform)))
                 {
                     saw_failure = true;
-                    TBX_ASSERT(false, "Failed to upload view projection");
                     TBX_TRACE_WARNING(
-                        "OpenGL rendering: failed to upload view projection uniform to program "
-                        "'{}'. Continuing with previous/default value.",
+                        "OpenGL rendering: failed to upload transform for draw index {} on "
+                        "program '{}'. Using identity transform fallback.",
+                        draw_index,
                         shader_program_id.value);
+                    shader_program->try_upload(
+                        tbx::MaterialParameter(MODEL_UNIFORM_NAME, tbx::Mat4(1.0F)));
                 }
 
-                for (std::size_t draw_index = 0; draw_index < meshes_ids.size(); ++draw_index)
-                {
-                    // Update transform
-                    if (const auto& transform = transforms[draw_index]; !shader_program->try_upload(
-                            tbx::MaterialParameter(MODEL_UNIFORM_NAME, transform)))
-                    {
-                        saw_failure = true;
-                        TBX_TRACE_WARNING(
-                            "OpenGL rendering: failed to upload transform for draw index {} on "
-                            "program '{}'. Using identity transform fallback.",
-                            draw_index,
-                            shader_program_id.value);
-                        shader_program->try_upload(
-                            tbx::MaterialParameter(MODEL_UNIFORM_NAME, tbx::Mat4(1.0F)));
-                    }
+                bind_textures(
+                    material_ids[draw_index],
+                    texture_ids,
+                    previous_texture_ids,
+                    zero_texture_ids,
+                    last_bound_texture_count);
 
+                // Upload material params
+                if (const auto& material_params = material_ids[draw_index];
+                    !shader_program->try_upload(material_params))
+                {
+                    saw_failure = true;
+                    TBX_TRACE_WARNING(
+                        "OpenGL rendering: failed to upload material parameters for material "
+                        "'{}'. Using fallback magenta material parameters.",
+                        material_params.material_handle.id.value);
+
+                    const auto fallback_material_params =
+                        create_magenta_fallback_material_params(material_params.material_handle);
                     bind_textures(
-                        material_ids[draw_index],
+                        fallback_material_params,
                         texture_ids,
+                        previous_texture_ids,
                         zero_texture_ids,
                         last_bound_texture_count);
-
-                    // Upload material params
-                    if (const auto& material_params = material_ids[draw_index];
-                        !shader_program->try_upload(material_params))
+                    if (!shader_program->try_upload(fallback_material_params))
                     {
                         saw_failure = true;
                         TBX_TRACE_WARNING(
-                            "OpenGL rendering: failed to upload material parameters for material "
-                            "'{}'. Using fallback magenta material parameters.",
+                            "OpenGL rendering: failed to upload fallback magenta material "
+                            "parameters for material '{}'.",
                             material_params.material_handle.id.value);
-
-                        const auto fallback_material_params =
-                            create_magenta_fallback_material_params(
-                                material_params.material_handle);
-                        bind_textures(
-                            fallback_material_params,
-                            texture_ids,
-                            zero_texture_ids,
-                            last_bound_texture_count);
-                        if (!shader_program->try_upload(fallback_material_params))
-                        {
-                            saw_failure = true;
-                            TBX_TRACE_WARNING(
-                                "OpenGL rendering: failed to upload fallback magenta material "
-                                "parameters for material '{}'.",
-                                material_params.material_handle.id.value);
-                        }
-                    }
-
-                    // Draw mesh
-                    {
-                        const auto& mesh_key = meshes_ids[draw_index];
-                        auto mesh = std::shared_ptr<OpenGlMesh> {};
-                        if (!_resource_manager.try_get<OpenGlMesh>(mesh_key, mesh))
-                        {
-                            saw_failure = true;
-                            TBX_TRACE_WARNING(
-                                "OpenGL rendering: mesh resource '{}' is unavailable.",
-                                mesh_key.value);
-                            continue;
-                        }
-                        auto mesh_scope = OpenGlResourceScope(*mesh);
-                        {
-                            mesh->draw();
-                            drew_mesh = true;
-                        }
                     }
                 }
+
+                // Draw mesh
+                const auto& mesh_key = meshes_ids[draw_index];
+                auto mesh = std::shared_ptr<OpenGlMesh> {};
+                if (const auto cached_mesh = mesh_cache.find(mesh_key); cached_mesh != mesh_cache.end())
+                {
+                    mesh = cached_mesh->second;
+                }
+                else if (_resource_manager.try_get<OpenGlMesh>(mesh_key, mesh))
+                {
+                    mesh_cache.emplace(mesh_key, mesh);
+                }
+                else
+                {
+                    saw_failure = true;
+                    TBX_TRACE_WARNING(
+                        "OpenGL rendering: mesh resource '{}' is unavailable.",
+                        mesh_key.value);
+                    continue;
+                }
+
+                if (currently_bound_mesh != mesh_key)
+                {
+                    mesh->bind();
+                    currently_bound_mesh = mesh_key;
+                }
+
+                mesh->draw_bound();
+                drew_mesh = true;
             }
         }
         if (saw_failure && !drew_mesh)

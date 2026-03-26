@@ -2,13 +2,13 @@
 
 in vec2 v_tex_coord;
 
-layout(location = 0) out vec4 o_color;
+layout(location = 0) out vec4 o_final_color;
 
-uniform sampler2D u_gbuffer_albedo;
-uniform sampler2D u_gbuffer_normal;
-uniform sampler2D u_gbuffer_emissive;
-uniform sampler2D u_gbuffer_material;
-uniform sampler2D u_gbuffer_depth;
+uniform sampler2D u_albedo;
+uniform sampler2D u_normal;
+uniform sampler2D u_emissive;
+uniform sampler2D u_material;
+uniform sampler2D u_depth;
 
 struct DirectionalLight
 {
@@ -183,23 +183,26 @@ void tbx_accumulate_light(
 
 void main()
 {
-    float depth = texture(u_gbuffer_depth, v_tex_coord).r;
-    if (depth >= 0.999999)
+    float depth_sample = texture(u_depth, v_tex_coord).r;
+    if (depth_sample >= 0.999999)
     {
-        o_color = u_lighting_info.clear_color;
+        o_final_color = u_lighting_info.clear_color;
         return;
     }
 
-    vec4 albedo_sample = texture(u_gbuffer_albedo, v_tex_coord);
-    vec4 normal_sample = texture(u_gbuffer_normal, v_tex_coord);
-    vec4 emissive_sample = texture(u_gbuffer_emissive, v_tex_coord);
-    vec4 material_sample = texture(u_gbuffer_material, v_tex_coord);
+    vec4 albedo_sample = texture(u_albedo, v_tex_coord);
+    vec4 normal_sample = texture(u_normal, v_tex_coord);
+    vec4 emissive_sample = texture(u_emissive, v_tex_coord);
+    vec4 material_sample = texture(u_material, v_tex_coord);
 
     vec3 albedo = tbx_srgb_to_linear(albedo_sample.rgb);
     vec3 emissive = tbx_srgb_to_linear(emissive_sample.rgb);
     vec3 normal = normalize((normal_sample.xyz * 2.0) - 1.0);
     vec3 world_position =
-        tbx_reconstruct_world_position(v_tex_coord, depth, u_lighting_info.inverse_view_projection);
+        tbx_reconstruct_world_position(
+            v_tex_coord,
+            depth_sample,
+            u_lighting_info.inverse_view_projection);
     vec3 view_delta = u_lighting_info.camera_position.xyz - world_position;
     vec3 view_direction = normalize(view_delta + vec3(0.0, 0.0, step(length(view_delta), 0.0001)));
 
@@ -317,12 +320,14 @@ void main()
             specular_accumulation);
     }
 
-    vec3 final_color = ambient_accumulation + diffuse_accumulation + specular_accumulation + fresnel_accumulation;
-    final_color += emissive;
-    final_color *= exposure;
+    vec3 hdr_lighting_color =
+        ambient_accumulation + diffuse_accumulation + specular_accumulation
+        + fresnel_accumulation;
+    hdr_lighting_color += emissive;
+    hdr_lighting_color *= exposure;
 
-    vec3 display_color = tbx_linear_to_srgb(tbx_tonemap_aces(final_color));
+    vec3 presented_color = tbx_linear_to_srgb(tbx_tonemap_aces(hdr_lighting_color));
     float dither = tbx_interleaved_gradient_noise(gl_FragCoord.xy) - 0.5;
-    display_color += vec3(dither / 255.0);
-    o_color = vec4(clamp(display_color, 0.0, 1.0), albedo_sample.a);
+    presented_color += vec3(dither / 255.0);
+    o_final_color = vec4(clamp(presented_color, 0.0, 1.0), albedo_sample.a);
 }

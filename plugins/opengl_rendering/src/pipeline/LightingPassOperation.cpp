@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <glad/glad.h>
+#include <optional>
 #include <vector>
 
 namespace opengl_rendering
@@ -73,6 +74,13 @@ namespace opengl_rendering
         std::vector<tbx::uint32> tile_counts = {};
         std::vector<tbx::uint32> tile_indices = {};
     };
+
+    static ParallelTileBuildResult create_empty_tile_build_result(const tbx::uint32 tile_count)
+    {
+        auto result = ParallelTileBuildResult();
+        result.tile_counts.resize(tile_count, 0U);
+        return result;
+    }
 
     static tbx::uint32 divide_round_up(const tbx::uint32 numerator, const tbx::uint32 denominator)
     {
@@ -347,45 +355,22 @@ namespace opengl_rendering
 
         upload_tiled_light_data(frame_context);
 
-        const auto depth_test_enabled = glIsEnabled(GL_DEPTH_TEST) == GL_TRUE;
-        const auto blend_enabled = glIsEnabled(GL_BLEND) == GL_TRUE;
-
-        auto gbuffer_scope = OpenGlResourceScope(_gbuffer);
+        _gbuffer.bind();
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
 
-        auto shader_scope = OpenGlResourceScope(*_shader_program);
-        {
-            _shader_program->try_upload(tbx::MaterialParameter("gbuffer_albedo", 0));
-            _shader_program->try_upload(tbx::MaterialParameter("gbuffer_normal", 1));
-            _shader_program->try_upload(tbx::MaterialParameter("gbuffer_emissive", 2));
-            _shader_program->try_upload(tbx::MaterialParameter("gbuffer_material", 3));
-            _shader_program->try_upload(tbx::MaterialParameter("gbuffer_depth", 4));
+        _shader_program->bind();
+        const auto gbuffer_textures = std::array<GLuint, 5U> {
+            _gbuffer.get_albedo_texture(),
+            _gbuffer.get_normal_texture(),
+            _gbuffer.get_emissive_texture(),
+            _gbuffer.get_material_texture(),
+            _gbuffer.get_depth_texture(),
+        };
+        glBindTextures(0, static_cast<GLsizei>(gbuffer_textures.size()), gbuffer_textures.data());
 
-            glBindTextureUnit(0, _gbuffer.get_albedo_texture());
-            glBindTextureUnit(1, _gbuffer.get_normal_texture());
-            glBindTextureUnit(2, _gbuffer.get_emissive_texture());
-            glBindTextureUnit(3, _gbuffer.get_material_texture());
-            glBindTextureUnit(4, _gbuffer.get_depth_texture());
-
-            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, _point_lights_buffer);
-            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, _spot_lights_buffer);
-            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, _tile_light_spans_buffer);
-            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, _tile_point_light_indices_buffer);
-            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, _tile_spot_light_indices_buffer);
-            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, _area_lights_buffer);
-            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, _tile_area_light_indices_buffer);
-            glBindBufferBase(GL_UNIFORM_BUFFER, 7, _lighting_info_buffer);
-
-            glBindVertexArray(_fullscreen_vertex_array);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
-            glBindVertexArray(0);
-        }
-
-        if (depth_test_enabled)
-            glEnable(GL_DEPTH_TEST);
-        if (blend_enabled)
-            glEnable(GL_BLEND);
+        glBindVertexArray(_fullscreen_vertex_array);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
     }
 
     bool LightingPassOperation::ensure_initialized()
@@ -424,6 +409,44 @@ namespace opengl_rendering
             return false;
         }
 
+        _has_uploaded_static_shader_bindings = false;
+        if (!ensure_static_shader_bindings())
+            return false;
+
+        return true;
+    }
+
+    bool LightingPassOperation::ensure_static_shader_bindings()
+    {
+        if (_has_uploaded_static_shader_bindings)
+            return true;
+        if (!_shader_program)
+            return false;
+
+        _shader_program->bind();
+        const auto uploaded_all_sampler_bindings =
+            _shader_program->try_upload(tbx::MaterialParameter("albedo", 0))
+            && _shader_program->try_upload(tbx::MaterialParameter("normal", 1))
+            && _shader_program->try_upload(tbx::MaterialParameter("emissive", 2))
+            && _shader_program->try_upload(tbx::MaterialParameter("material", 3))
+            && _shader_program->try_upload(tbx::MaterialParameter("depth", 4));
+        if (!uploaded_all_sampler_bindings)
+        {
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: failed to configure one or more deferred lighting sampler "
+                "bindings.");
+            return false;
+        }
+
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, _point_lights_buffer);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, _spot_lights_buffer);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, _tile_light_spans_buffer);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, _tile_point_light_indices_buffer);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, _tile_spot_light_indices_buffer);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, _area_lights_buffer);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, _tile_area_light_indices_buffer);
+        glBindBufferBase(GL_UNIFORM_BUFFER, 7, _lighting_info_buffer);
+        _has_uploaded_static_shader_bindings = true;
         return true;
     }
 
@@ -528,49 +551,68 @@ namespace opengl_rendering
                 });
 
         auto tile_spans = std::vector<TileLightSpan>(tile_count);
-        auto point_future = _job_system.schedule_with_future(
-            [&frame_context, tile_count_x, tile_count_y]()
-            {
-                return build_parallel_tile_data(
-                    frame_context.point_lights,
-                    frame_context,
-                    tile_count_x,
-                    tile_count_y,
-                    [](const PointLightFrameData& light)
-                    {
-                        return light.range;
-                    });
-            });
-        auto spot_future = _job_system.schedule_with_future(
-            [&frame_context, tile_count_x, tile_count_y]()
-            {
-                return build_parallel_tile_data(
-                    frame_context.spot_lights,
-                    frame_context,
-                    tile_count_x,
-                    tile_count_y,
-                    [](const SpotLightFrameData& light)
-                    {
-                        return light.range;
-                    });
-            });
-        auto area_future = _job_system.schedule_with_future(
-            [&frame_context, tile_count_x, tile_count_y]()
-            {
-                return build_parallel_tile_data(
-                    frame_context.area_lights,
-                    frame_context,
-                    tile_count_x,
-                    tile_count_y,
-                    [](const AreaLightFrameData& light)
-                    {
-                        return get_area_light_culling_radius(light);
-                    });
-            });
+        auto point_tile_data = create_empty_tile_build_result(tile_count);
+        auto spot_tile_data = create_empty_tile_build_result(tile_count);
+        auto area_tile_data = create_empty_tile_build_result(tile_count);
 
-        const auto point_tile_data = point_future.get();
-        const auto spot_tile_data = spot_future.get();
-        const auto area_tile_data = area_future.get();
+        auto point_future = std::optional<std::future<ParallelTileBuildResult>> {};
+        auto spot_future = std::optional<std::future<ParallelTileBuildResult>> {};
+        auto area_future = std::optional<std::future<ParallelTileBuildResult>> {};
+        const auto has_point_lights = !frame_context.point_lights.empty();
+        const auto has_spot_lights = !frame_context.spot_lights.empty();
+        const auto has_area_lights = !frame_context.area_lights.empty();
+
+        if (has_point_lights)
+            point_future = _job_system.schedule_with_future(
+                [&frame_context, tile_count_x, tile_count_y]()
+                {
+                    return build_parallel_tile_data(
+                        frame_context.point_lights,
+                        frame_context,
+                        tile_count_x,
+                        tile_count_y,
+                        [](const PointLightFrameData& light)
+                        {
+                            return light.range;
+                        });
+                });
+
+        if (has_spot_lights)
+            spot_future = _job_system.schedule_with_future(
+                [&frame_context, tile_count_x, tile_count_y]()
+                {
+                    return build_parallel_tile_data(
+                        frame_context.spot_lights,
+                        frame_context,
+                        tile_count_x,
+                        tile_count_y,
+                        [](const SpotLightFrameData& light)
+                        {
+                            return light.range;
+                        });
+                });
+
+        if (has_area_lights)
+            area_future = _job_system.schedule_with_future(
+                [&frame_context, tile_count_x, tile_count_y]()
+                {
+                    return build_parallel_tile_data(
+                        frame_context.area_lights,
+                        frame_context,
+                        tile_count_x,
+                        tile_count_y,
+                        [](const AreaLightFrameData& light)
+                        {
+                            return get_area_light_culling_radius(light);
+                        });
+                });
+
+        if (point_future.has_value())
+            point_tile_data = point_future->get();
+        if (spot_future.has_value())
+            spot_tile_data = spot_future->get();
+        if (area_future.has_value())
+            area_tile_data = area_future->get();
 
         for (tbx::uint32 tile_index = 0U; tile_index < tile_count; ++tile_index)
         {
