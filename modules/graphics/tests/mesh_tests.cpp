@@ -17,7 +17,7 @@ namespace tbx::tests::graphics
         if ((indices.size() % 3U) != 0U || vertex_stride < 3U)
             return false;
 
-        auto read_position = [&vertices](uint32 vertex_index)
+        auto read_position = [&vertices, vertex_stride](uint32 vertex_index)
         {
             const size_t base = static_cast<size_t>(vertex_index) * vertex_stride;
             return std::array<float, 3> {
