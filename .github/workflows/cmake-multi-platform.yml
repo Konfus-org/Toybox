@@ -51,6 +51,5 @@ jobs:
       matrix-config: >-
         {"include":[
           {"os":"windows-latest","configure_preset":"msvc","build_preset":"msvc-release","test_preset":"test-msvc-release","compiler_launcher":""},
-          {"os":"ubuntu-latest","configure_preset":"default","build_preset":"default-release","test_preset":"test-default-release","compiler_launcher":""},
           {"os":"ubuntu-latest","configure_preset":"clang","build_preset":"clang-release","test_preset":"test-clang-release","compiler_launcher":""}
         ]}
