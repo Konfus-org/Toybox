@@ -4,12 +4,17 @@
 
 namespace tbx::tests::graphics
 {
+    static size_t get_vertex_stride_float_count(const Mesh& mesh)
+    {
+        return mesh.vertices.layout.stride / sizeof(float);
+    }
+
     static bool are_all_triangles_outward_facing(const Mesh& mesh)
     {
-        constexpr size_t vertex_stride = 12U;
+        const size_t vertex_stride = get_vertex_stride_float_count(mesh);
         const auto& vertices = mesh.vertices.vertices;
         const auto& indices = mesh.indices;
-        if ((indices.size() % 3U) != 0U)
+        if ((indices.size() % 3U) != 0U || vertex_stride < 3U)
             return false;
 
         auto read_position = [&vertices](uint32 vertex_index)
@@ -67,9 +72,10 @@ namespace tbx::tests::graphics
         // Act
         const size_t vertex_float_count = mesh.vertices.vertices.size();
         const size_t index_count = mesh.indices.size();
+        const size_t vertex_stride = get_vertex_stride_float_count(mesh);
 
         // Assert
-        EXPECT_EQ(vertex_float_count, 24U * 12U);
+        EXPECT_EQ(vertex_float_count, 24U * vertex_stride);
         EXPECT_EQ(index_count, 36U);
     }
 
@@ -82,9 +88,10 @@ namespace tbx::tests::graphics
         // Act
         const size_t vertex_float_count = mesh.vertices.vertices.size();
         const size_t index_count = mesh.indices.size();
+        const size_t vertex_stride = get_vertex_stride_float_count(mesh);
 
         // Assert
-        EXPECT_EQ(vertex_float_count, 425U * 12U);
+        EXPECT_EQ(vertex_float_count, 425U * vertex_stride);
         EXPECT_EQ(index_count, 2160U);
     }
 
@@ -110,9 +117,10 @@ namespace tbx::tests::graphics
         // Act
         const size_t vertex_float_count = mesh.vertices.vertices.size();
         const size_t index_count = mesh.indices.size();
+        const size_t vertex_stride = get_vertex_stride_float_count(mesh);
 
         // Assert
-        EXPECT_EQ(vertex_float_count, 625U * 12U);
+        EXPECT_EQ(vertex_float_count, 625U * vertex_stride);
         EXPECT_EQ(index_count, 3456U);
     }
 
@@ -125,13 +133,14 @@ namespace tbx::tests::graphics
         // Act
         const size_t vertex_float_count = mesh.vertices.vertices.size();
         const size_t index_count = mesh.indices.size();
+        const size_t vertex_stride = get_vertex_stride_float_count(mesh);
         const float first_x = mesh.vertices.vertices[0];
         const float first_y = mesh.vertices.vertices[1];
-        const float third_x = mesh.vertices.vertices[24];
-        const float third_y = mesh.vertices.vertices[25];
+        const float third_x = mesh.vertices.vertices[vertex_stride * 2U];
+        const float third_y = mesh.vertices.vertices[vertex_stride * 2U + 1U];
 
         // Assert
-        EXPECT_EQ(vertex_float_count, 4U * 12U);
+        EXPECT_EQ(vertex_float_count, 4U * vertex_stride);
         EXPECT_EQ(index_count, 6U);
         EXPECT_FLOAT_EQ(first_x, -1.0F);
         EXPECT_FLOAT_EQ(first_y, -1.0F);
