@@ -14,10 +14,12 @@ function(tbx_set_test_output target_name)
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/testbin"
     )
 
-    add_custom_command(TARGET ${target_name} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_RUNTIME_DLLS:${target_name}>
-            $<TARGET_FILE_DIR:${target_name}>
-        COMMAND_EXPAND_LISTS
-    )
+    if(WIN32)
+        add_custom_command(TARGET ${target_name} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_RUNTIME_DLLS:${target_name}>
+                $<TARGET_FILE_DIR:${target_name}>
+            COMMAND_EXPAND_LISTS
+        )
+    endif()
 endfunction()
