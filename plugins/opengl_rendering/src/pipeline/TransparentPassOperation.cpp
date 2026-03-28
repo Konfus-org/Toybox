@@ -14,6 +14,32 @@ namespace opengl_rendering
     const auto TransparentViewProjUniformName = "u_view_proj";
     const auto TransparentModelUniformName = "u_model";
 
+    static GLenum to_gl_depth_function(const tbx::MaterialDepthFunction function)
+    {
+        switch (function)
+        {
+            case tbx::MaterialDepthFunction::Less:
+                return GL_LESS;
+            case tbx::MaterialDepthFunction::LessEqual:
+                return GL_LEQUAL;
+            case tbx::MaterialDepthFunction::Always:
+                return GL_ALWAYS;
+            default:
+                return GL_LESS;
+        }
+    }
+
+    static void apply_depth_config(const tbx::MaterialDepthConfig& depth_config)
+    {
+        if (depth_config.is_test_enabled)
+            glEnable(GL_DEPTH_TEST);
+        else
+            glDisable(GL_DEPTH_TEST);
+
+        glDepthMask(depth_config.is_write_enabled ? GL_TRUE : GL_FALSE);
+        glDepthFunc(to_gl_depth_function(depth_config.function));
+    }
+
     static bool are_texture_bindings_equal(
         const std::vector<GLuint>& current_texture_ids,
         const std::vector<GLuint>& previous_texture_ids)
@@ -76,6 +102,7 @@ namespace opengl_rendering
         _gbuffer.bind();
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
+        glDepthFunc(GL_LESS);
         glEnable(GL_BLEND);
         glBlendEquation(GL_FUNC_ADD);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -213,11 +240,14 @@ namespace opengl_rendering
                 currently_bound_mesh = draw_call.mesh;
             }
 
+            apply_depth_config(draw_call.material.render_config.depth);
             mesh->draw_bound();
             drew_mesh = true;
         }
 
+        glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_TRUE);
+        glDepthFunc(GL_LESS);
         glDisable(GL_BLEND);
         glEnable(GL_CULL_FACE);
         if (saw_failure && !drew_mesh)

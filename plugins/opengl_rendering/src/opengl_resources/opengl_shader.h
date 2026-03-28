@@ -22,6 +22,7 @@ namespace opengl_rendering
     struct OpenGlMaterialParams
     {
         tbx::Handle material_handle = {};
+        tbx::MaterialRenderConfig render_config = {};
         std::vector<tbx::MaterialParameter> parameters = {};
         std::vector<OpenGlMaterialTexture> textures = {};
     };

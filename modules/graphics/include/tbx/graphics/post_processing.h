@@ -16,6 +16,8 @@ namespace tbx
     /// </remarks>
     struct TBX_API PostProcessingEffect
     {
+        ~PostProcessingEffect();
+
         /// <summary>
         /// Purpose: Runtime material data used to shade this fullscreen post-processing pass.
         /// </summary>
@@ -53,6 +55,8 @@ namespace tbx
     /// </remarks>
     struct TBX_API PostProcessing
     {
+        ~PostProcessing();
+
         /// <summary>
         /// Purpose: Ordered list of effects to apply from first to last.
         /// </summary>

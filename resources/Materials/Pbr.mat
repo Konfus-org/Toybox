@@ -1,5 +1,16 @@
 {
   "shaders": { "vertex": "00000001", "fragment": "00000005" },
+  "config": {
+    "depth": {
+      "test": true,
+      "write": true,
+      "prepass": false,
+      "function": "less"
+    },
+    "transparency": {
+      "blend_mode": "opaque"
+    }
+  },
   "textures": [
     { "name": "diffuse_map", "value": "" },
     { "name": "normal_map", "value": "" },

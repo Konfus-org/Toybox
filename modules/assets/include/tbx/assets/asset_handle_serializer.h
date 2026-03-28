@@ -22,13 +22,14 @@ namespace tbx
         virtual ~IAssetHandleSerializer() = default;
 
         /// <summary>
-        /// Purpose: Reads an asset handle from disk and returns nullptr when metadata is missing or invalid.
+        /// Purpose: Reads an asset handle from disk and returns nullptr when metadata is missing or
+        /// invalid.
         /// </summary>
         /// <remarks>
         /// Ownership: Returns an owning unique_ptr to a Handle on success.
         /// Thread Safety: Safe when filesystem services used by the implementation are thread-safe.
         /// </remarks>
-        [[nodiscard]] virtual std::unique_ptr<Handle> read_from_disk(
+        virtual std::unique_ptr<Handle> read_from_disk(
             const std::filesystem::path& working_directory,
             const std::filesystem::path& asset_path) const = 0;
 
@@ -39,7 +40,7 @@ namespace tbx
         /// Ownership: Returns an owning unique_ptr to a Handle on success.
         /// Thread Safety: Safe when file_ops is thread-safe.
         /// </remarks>
-        [[nodiscard]] virtual std::unique_ptr<Handle> read_from_disk(
+        virtual std::unique_ptr<Handle> read_from_disk(
             const IFileOps& file_ops,
             const std::filesystem::path& asset_path) const = 0;
 
@@ -50,7 +51,7 @@ namespace tbx
         /// Ownership: Returns an owning unique_ptr to a Handle on success.
         /// Thread Safety: Safe to call concurrently.
         /// </remarks>
-        [[nodiscard]] virtual std::unique_ptr<Handle> read_from_source(
+        virtual std::unique_ptr<Handle> read_from_source(
             std::string_view meta_text,
             const std::filesystem::path& asset_path) const = 0;
 
@@ -89,15 +90,15 @@ namespace tbx
     class TBX_API AssetHandleSerializer final : public IAssetHandleSerializer
     {
       public:
-        [[nodiscard]] std::unique_ptr<Handle> read_from_disk(
+        std::unique_ptr<Handle> read_from_disk(
             const std::filesystem::path& working_directory,
             const std::filesystem::path& asset_path) const override;
 
-        [[nodiscard]] std::unique_ptr<Handle> read_from_disk(
+        std::unique_ptr<Handle> read_from_disk(
             const IFileOps& file_ops,
             const std::filesystem::path& asset_path) const override;
 
-        [[nodiscard]] std::unique_ptr<Handle> read_from_source(
+        std::unique_ptr<Handle> read_from_source(
             std::string_view meta_text,
             const std::filesystem::path& asset_path) const override;
 

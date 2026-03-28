@@ -32,6 +32,6 @@ namespace tbx
 
         // Startup icon asset used for native window icons.
         // Defaults to the built-in box icon.
-        Handle icon = box_icon;
+        Handle icon = BoxIcon::HANDLE;
     };
 }

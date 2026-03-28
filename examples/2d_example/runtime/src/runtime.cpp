@@ -1,11 +1,11 @@
 #include "runtime.h"
+#include "tbx/assets/material_descriptions.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/entity.h"
 #include "tbx/graphics/camera.h"
 #include "tbx/graphics/color.h"
 #include "tbx/graphics/mesh.h"
-#include "tbx/graphics/renderer.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
 
@@ -60,7 +60,9 @@ namespace two_d_example
                           * spacing, // shift on the x axis so they are not all in the same spot
                 0,
                 0));
-            ent.add_component<tbx::Renderer>(tbx::FlatMaterialInstance(tbx::Color::WHITE));
+            auto material = tbx::MaterialInstance(tbx::FlatMaterial::HANDLE);
+            material.set_parameter(tbx::FlatMaterial::COLOR, tbx::Color::WHITE);
+            ent.add_component<tbx::MaterialInstance>(material);
             ent.add_component<tbx::DynamicMesh>(tbx::quad);
         }
     }
@@ -78,14 +80,14 @@ namespace two_d_example
         // also change color over time...
         float offset = 0.0f;
         for (auto& entity :
-             get_host().get_entity_registry().get_with<tbx::Transform, tbx::Renderer>())
+             get_host().get_entity_registry().get_with<tbx::Transform, tbx::MaterialInstance>())
         {
             const auto world_transform = tbx::get_world_space_transform(entity);
             auto updated_world_transform = world_transform;
             updated_world_transform.position.y = sin(_elapsed_seconds * 2.0f + offset);
             set_world_space_transform(entity, updated_world_transform);
 
-            auto& renderer = entity.get_component<tbx::Renderer>();
+            auto& material = entity.get_component<tbx::MaterialInstance>();
             const float phase = world_transform.position.x;
             const float t = _elapsed_seconds * 1.5f + phase;
 
@@ -94,7 +96,7 @@ namespace two_d_example
             const float b = 0.5f + 0.5f * sin(t + 4.0f * tbx::PI / 3.0f);
 
             auto color = tbx::Color(r, g, b, 1.0f);
-            renderer.material.parameters.set("color", color);
+            material.set_parameter(tbx::FlatMaterial::COLOR, color);
 
             offset += 0.1f;
         }

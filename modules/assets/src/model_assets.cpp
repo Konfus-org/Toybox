@@ -23,7 +23,7 @@ namespace tbx
     static std::shared_ptr<Model> create_model_data()
     {
         Material material = {};
-        material.textures.set("diffuse_map", not_found_texture);
+        material.textures.set("diffuse_map", NotFoundIcon::HANDLE);
         return std::make_shared<Model>(create_two_sided_fallback_mesh(), material);
     }
 

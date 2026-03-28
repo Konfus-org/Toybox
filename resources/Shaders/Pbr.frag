@@ -18,16 +18,18 @@ in float v_world_tangent_sign;
 
 uniform vec4 u_color;
 uniform vec4 u_emissive;
-struct MaterialSurface
-{
-    vec4 primary;
-    vec4 secondary;
-    vec4 map_strengths;
-};
-
 layout(std140, binding = 9) uniform MaterialSurfaceBlock
 {
-    MaterialSurface u_material_surface;
+    float u_specular_strength;
+    float u_shininess_strength;
+    float u_alpha_cutoff;
+    float u_material_surface_padding0;
+    float u_transparency_amount;
+    float u_exposure;
+    float u_diffuse_strength;
+    float u_normal_strength;
+    float u_emissive_strength;
+    vec3 u_material_surface_padding1;
 };
 
 uniform sampler2D u_diffuse_map;
@@ -38,14 +40,14 @@ uniform sampler2D u_emissive_map;
 
 void main()
 {
-    float specular_strength = max(u_material_surface.primary.x, 0.0);
-    float shininess_strength = max(u_material_surface.primary.y, 1.0);
-    float alpha_cutoff = clamp(u_material_surface.primary.w, 0.0, 1.0);
-    float transparency_amount = clamp(u_material_surface.secondary.x, 0.0, 1.0);
-    float exposure = max(u_material_surface.secondary.y, 0.0);
-    float diffuse_strength = max(u_material_surface.secondary.z, 0.0);
-    float normal_strength = max(u_material_surface.secondary.w, 0.0);
-    float emissive_strength = max(u_material_surface.map_strengths.x, 0.0);
+    float specular_strength = max(u_specular_strength, 0.0);
+    float shininess_strength = max(u_shininess_strength, 1.0);
+    float alpha_cutoff = clamp(u_alpha_cutoff, 0.0, 1.0);
+    float transparency_amount = clamp(u_transparency_amount, 0.0, 1.0);
+    float exposure = max(u_exposure, 0.0);
+    float diffuse_strength = max(u_diffuse_strength, 0.0);
+    float normal_strength = max(u_normal_strength, 0.0);
+    float emissive_strength = max(u_emissive_strength, 0.0);
 
     vec4 diffuse_sample = texture(u_diffuse_map, v_tex_coord);
     vec3 normal_sample = texture(u_normal_map, v_tex_coord).xyz;

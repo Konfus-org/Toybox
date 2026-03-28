@@ -16,6 +16,14 @@ namespace tbx
     /// </remarks>
     struct TBX_API ModelPart
     {
+        /// <summary>
+        /// Purpose: Stores the transform relative to the parent part, or model root when the part
+        /// has no parent.
+        /// </summary>
+        /// <remarks>
+        /// Ownership: Value-owned matrix data with no external lifetime dependency.
+        /// Thread Safety: Safe to read and copy concurrently.
+        /// </remarks>
         Mat4 transform = Mat4(1.0f);
         uint32 mesh_index = 0U;
         uint32 material_index = 0U;

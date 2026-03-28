@@ -120,7 +120,7 @@ namespace tbx
       private:
         bool _should_exit = false;
         std::string _name = "App";
-        Handle _icon_handle = box_icon;
+        Handle _icon_handle = BoxIcon::HANDLE;
         EntityRegistry _entity_registry = {};
         AppMessageCoordinator _msg_coordinator = {};
         InputManager _input_manager;

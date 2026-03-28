@@ -20,6 +20,7 @@ namespace opengl_rendering
         tbx::Uuid add_dynamic_mesh(const tbx::DynamicMesh& dynamic_mesh, bool pin = false);
         tbx::Uuid add_static_mesh(const tbx::StaticMesh& static_mesh, bool pin = false);
         tbx::Uuid add_material(const tbx::MaterialInstance& material, bool pin = false);
+        std::shared_ptr<tbx::Material> get_material_asset(const tbx::Handle& material_handle);
         tbx::Uuid add_material(
             const std::shared_ptr<OpenGlShaderProgram>& shader_program,
             const tbx::Uuid& resource_uuid,
@@ -64,6 +65,7 @@ namespace opengl_rendering
       private:
         tbx::AssetManager& _asset_manager;
         std::unordered_map<tbx::Uuid, std::shared_ptr<IOpenGlResource>> _resources = {};
+        std::unordered_map<tbx::Uuid, std::shared_ptr<tbx::Material>> _material_assets = {};
         std::unordered_map<tbx::Uuid, std::shared_ptr<IOpenGlResource>> _pinned_resources = {};
         std::unordered_map<tbx::Uuid, std::chrono::steady_clock::time_point> _last_access = {};
     };

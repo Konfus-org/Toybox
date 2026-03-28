@@ -5,9 +5,11 @@
 #include "tbx/graphics/texture.h"
 #include "tbx/math/vectors.h"
 #include "tbx/tbx_api.h"
+#include <cstdint>
 #include <initializer_list>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -17,13 +19,83 @@ namespace tbx
         std::variant<bool, int, float, double, Vec2, Vec3, Vec4, Color, Mat3, Mat4>;
 
     using UniformData = MaterialParameterData;
+    struct MaterialParameterBindings;
+    struct MaterialTextureBindings;
+    struct MaterialDepthConfig;
+    using ParamBindings = MaterialParameterBindings;
+    using TextureBindings = MaterialTextureBindings;
+    using Depth = MaterialDepthConfig;
 
+    /// <summary>
+    /// Purpose: Selects the depth comparison function used when rendering a material.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    enum class MaterialDepthFunction : uint8_t
+    {
+        Less = 0,
+        LessEqual = 1,
+        Always = 2
+    };
+
+    /// <summary>
+    /// Purpose: Selects the transparency path used when rendering a material.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    enum class MaterialBlendMode : uint8_t
+    {
+        Opaque = 0,
+        AlphaBlend = 1
+    };
+
+    /// <summary>
+    /// Purpose: Controls when shadows are rendered for a material.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    enum class ShadowMode : uint8_t
+    {
+        None = 0,
+        Standard = 1,
+        Always = 2
+    };
+
+    /// <summary>
+    /// Purpose: Stores one named material parameter value.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns the parameter name by value and stores the parameter payload inline.
+    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    /// </remarks>
     struct TBX_API MaterialParameter
     {
+        MaterialParameter() = default;
+
+        template <typename TValue>
+        MaterialParameter(std::string_view parameter_name, TValue&& parameter_data)
+            : name(parameter_name)
+            , data(std::forward<TValue>(parameter_data))
+        {
+        }
+
         std::string name = "";
         MaterialParameterData data = 0.0f;
     };
 
+    /// <summary>
+    /// Purpose: Stores named parameter bindings for a material or material instance.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns all parameter entries by value.
+    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    /// </remarks>
     struct TBX_API MaterialParameterBindings
     {
         using iterator = std::vector<MaterialParameter>::iterator;
@@ -54,12 +126,26 @@ namespace tbx
         std::vector<MaterialParameter> values = {};
     };
 
+    /// <summary>
+    /// Purpose: Stores one named texture binding.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns the binding name by value and texture instance by value.
+    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    /// </remarks>
     struct TBX_API MaterialTextureBinding
     {
         std::string name = {};
         TextureInstance texture = {};
     };
 
+    /// <summary>
+    /// Purpose: Stores named texture bindings for a material or material instance.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns all texture entries by value.
+    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    /// </remarks>
     struct TBX_API MaterialTextureBindings
     {
         using iterator = std::vector<MaterialTextureBinding>::iterator;
@@ -91,134 +177,144 @@ namespace tbx
         std::vector<MaterialTextureBinding> values = {};
     };
 
+    /// <summary>
+    /// Purpose: Describes depth-test state for a material.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    struct TBX_API MaterialDepthConfig
+    {
+        bool is_test_enabled = true;
+        bool is_write_enabled = true;
+        bool is_prepass_enabled = false;
+        MaterialDepthFunction function = MaterialDepthFunction::Less;
+    };
+
+    /// <summary>
+    /// Purpose: Describes blend-path selection for a material.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    struct TBX_API MaterialTransparencyConfig
+    {
+        MaterialBlendMode blend_mode = MaterialBlendMode::Opaque;
+    };
+
+    /// <summary>
+    /// Purpose: Stores depth and transparency state used by the GPU pipeline.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to copy between threads.
+    /// </remarks>
+    struct TBX_API MaterialRenderConfig
+    {
+        Depth depth = {};
+        MaterialTransparencyConfig transparency = {};
+    };
+
+    /// <summary>
+    /// Purpose: Stores render-state configuration loaded from a material asset.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Value type owned by the containing material asset.
+    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    /// </remarks>
+    struct TBX_API MaterialConfig
+    {
+        Depth depth = {};
+        MaterialTransparencyConfig transparency = {};
+        bool is_two_sided = false;
+        bool is_cullable = true;
+        ShadowMode shadow_mode = ShadowMode::Standard;
+    };
+
+    /// <summary>
+    /// Purpose: Stores the shader program, default bindings, and render config for a material
+    /// asset.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns shader handles, default parameter bindings, default texture bindings, and
+    /// config by value.
+    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    /// </remarks>
     struct TBX_API Material
     {
         ShaderProgram program = {};
-        MaterialTextureBindings textures = {};
-        MaterialParameterBindings parameters = {};
+        ParamBindings parameters = {};
+        TextureBindings textures = {};
+        MaterialConfig config = {};
     };
 
+    /// <summary>
+    /// Purpose: Stores a material asset handle plus flat runtime override data.
+    /// </summary>
+    /// <remarks>
+    /// Ownership: Owns the material handle and all override bindings by value.
+    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    /// </remarks>
     struct TBX_API MaterialInstance
     {
-        Handle handle = {};
-        MaterialParameterBindings parameters = {};
-        MaterialTextureBindings textures = {};
-        bool has_loaded_defaults = false;
+        MaterialInstance();
+        explicit MaterialInstance(Handle handle);
+        MaterialInstance(
+            Handle handle,
+            ParamBindings parameter_overrides,
+            TextureBindings texture_overrides = {},
+            Depth depth_override = {},
+            bool has_depth_override = false);
+
+        bool is_dirty() const;
+        void clear_dirty();
+        void mark_dirty();
+
+        const Handle& get_handle() const;
+        bool has_depth_override_enabled() const;
+        void set_depth(Depth depth_override);
+        void set_parameter(std::string_view name, MaterialParameterData value);
+        void set_texture(std::string_view name, Handle texture);
+        void set_texture(std::string_view name, TextureInstance texture);
+
+        template <typename TValue>
+        TValue get_parameter_or(std::string_view name, const TValue& fallback) const
+        {
+            const auto* parameter = param_overrides.get(name);
+            if (!parameter)
+                return fallback;
+
+            if (const auto* value = std::get_if<TValue>(&parameter->data))
+                return *value;
+
+            return fallback;
+        }
+
+        bool get_bool_parameter_or(std::string_view name, bool fallback) const;
+        int get_int_parameter_or(std::string_view name, int fallback) const;
+        float get_float_parameter_or(std::string_view name, float fallback) const;
+        double get_double_parameter_or(std::string_view name, double fallback) const;
+        Handle get_texture_handle_or(std::string_view name, const Handle& fallback = {}) const;
+
+        Handle material = {};
+        TextureBindings texture_overrides = {};
+        ParamBindings param_overrides = {};
+        Depth depth = {};
+
+      private:
+        bool _is_dirty = true;
+        bool _has_depth_override = false;
     };
 
     /// <summary>
-    /// Purpose: PBR-oriented material instance with fixed default texture and parameter properties.
+    /// Purpose: Stores the sky material instance used for environment rendering.
     /// </summary>
     /// <remarks>
-    /// Ownership: Inherits and owns MaterialInstance binding state by value.
-    /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
+    /// Ownership: Owns the material instance by value.
+    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     /// </remarks>
-    struct TBX_API PbrMaterialInstance : public MaterialInstance
-    {
-        PbrMaterialInstance();
-        PbrMaterialInstance(
-            Color color,
-            Color emissive_color = Color(0.0f, 0.0f, 0.0f, 1.0f),
-            float specular_strength = 0.5f,
-            float shininess_strength = 32.0f,
-            float alpha_cutoff = 0.1f,
-            float diffuse_strength = 1.0f,
-            float normal_strength = 1.0f,
-            float emissive_strength = 1.0f,
-            const Handle& diffuse_map = Handle(),
-            const Handle& normal_map = Handle(),
-            const Handle& specular_map = Handle(),
-            const Handle& shininess_map = Handle(),
-            const Handle& emissive_map = Handle(),
-            const Handle& material_handle = Handle(),
-            float transparency_amount = 0.0f);
-        PbrMaterialInstance(const MaterialInstance& other);
-
-        void set_diffuse_map(Handle value);
-        Handle get_diffuse_map() const;
-
-        void set_normal_map(Handle value);
-        Handle get_normal_map() const;
-
-        void set_specular_map(Handle value);
-        Handle get_specular_map() const;
-
-        void set_shininess_map(Handle value);
-        Handle get_shininess_map() const;
-
-        void set_emissive_map(Handle value);
-        Handle get_emissive_map() const;
-
-        void set_color(Color value);
-        Color get_color() const;
-
-        void set_diffuse_strength(float value);
-        float get_diffuse_strength() const;
-
-        void set_normal_strength(float value);
-        float get_normal_strength() const;
-
-        void set_specular_strength(float value);
-        float get_specular_strength() const;
-
-        void set_shininess_strength(float value);
-        float get_shininess_strength() const;
-
-        void set_emissive_color(Color value);
-        Color get_emissive_color() const;
-
-        void set_emissive_strength(float value);
-        float get_emissive_strength() const;
-
-        void set_alpha_cutoff(float value);
-        float get_alpha_cutoff() const;
-
-        void set_transparency_amount(float value);
-        float get_transparency_amount() const;
-
-        void set_exposure(float value);
-        float get_exposure() const;
-    };
-
-    /// <summary>
-    /// Purpose: Unlit material instance with fixed default texture and parameter properties.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: Inherits and owns MaterialInstance binding state by value.
-    /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
-    /// </remarks>
-    struct TBX_API FlatMaterialInstance : public MaterialInstance
-    {
-        FlatMaterialInstance();
-        FlatMaterialInstance(
-            Color color,
-            Color emissive_color = Color(0.0f, 0.0f, 0.0f, 1.0f),
-            float alpha_cutoff = 0.1f,
-            const Handle& diffuse_map = Handle(),
-            const Handle& material_handle = Handle(),
-            float transparency_amount = 0.0f,
-            float exposure = 1.0f);
-        FlatMaterialInstance(const MaterialInstance& other);
-
-        void set_diffuse_map(Handle value);
-        Handle get_diffuse_map() const;
-
-        void set_color(Color value);
-        Color get_color() const;
-
-        void set_emissive_color(Color value);
-        Color get_emissive_color() const;
-
-        void set_alpha_cutoff(float value);
-        float get_alpha_cutoff() const;
-
-        void set_transparency_amount(float value);
-        float get_transparency_amount() const;
-
-        void set_exposure(float value);
-        float get_exposure() const;
-    };
-
     struct TBX_API Sky
     {
         MaterialInstance material = {};

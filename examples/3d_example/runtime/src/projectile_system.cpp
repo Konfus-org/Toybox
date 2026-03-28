@@ -1,6 +1,6 @@
 #include "projectile_system.h"
+#include "tbx/assets/material_descriptions.h"
 #include "tbx/graphics/light.h"
-#include "tbx/graphics/renderer.h"
 #include "tbx/math/transform.h"
 #include "tbx/physics/collider.h"
 #include "tbx/physics/physics.h"
@@ -87,10 +87,7 @@ namespace three_d_example
 
         constexpr auto projectile_visual_scale = 0.35F;
         auto projectile = tbx::Entity(projectile_name, *_entity_registry);
-        auto projectile_renderer = tbx::Renderer();
-        projectile_renderer.material = create_projectile_material();
-        projectile_renderer.shadow_mode = tbx::ShadowMode::None;
-        projectile.add_component<tbx::Renderer>(projectile_renderer);
+        projectile.add_component<tbx::MaterialInstance>(create_projectile_material());
         projectile.add_component<tbx::DynamicMesh>(_projectile_mesh);
         auto projectile_light = tbx::PointLight(tbx::Color(1.0F, 0.95F, 0.6F, 1.0F), 2.75F, 4.5F);
         projectile_light.shadows_enabled = false;
@@ -105,8 +102,8 @@ namespace three_d_example
             .linear_velocity = shot_direction * _projectile_speed,
             .friction = 0.2F,
             .restitution = 0.1F,
-            .default_linear_damping = 0.02F,
-            .default_angular_damping = 0.02F,
+            .linear_damping = 0.02F,
+            .angular_damping = 0.02F,
             .is_sleep_enabled = true,
         });
 
@@ -152,9 +149,10 @@ namespace three_d_example
 
     tbx::MaterialInstance ProjectileSystem::create_projectile_material() const
     {
-        auto material = tbx::PbrMaterialInstance(tbx::Color(1.0F, 0.92F, 0.15F, 1.0F));
-        material.set_emissive_color(tbx::Color(1.0F, 0.82F, 0.12F, 1.0F));
-        material.set_emissive_strength(1.75F);
+        auto material = tbx::MaterialInstance(tbx::PbrMaterial::HANDLE);
+        material.set_parameter(tbx::PbrMaterial::COLOR, tbx::Color(1.0F, 0.92F, 0.15F, 1.0F));
+        material.set_parameter(tbx::PbrMaterial::EMISSIVE, tbx::Color(1.0F, 0.82F, 0.12F, 1.0F));
+        material.set_parameter(tbx::PbrMaterial::EMISSIVE_STRENGTH, 1.75F);
         return material;
     }
 }

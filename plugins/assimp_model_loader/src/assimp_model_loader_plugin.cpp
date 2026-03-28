@@ -117,19 +117,20 @@ namespace assimp_model_loader
             tbx::Color(),
             tbx::Vec3(0.0f),
             tbx::Vec2(0.0f),
+            tbx::Vec4(0.0f),
         }};
     }
 
     static void append_parts_from_node(
         const aiNode& node,
-        const tbx::Mat4& parent_transform,
+        const tbx::Mat4& accumulated_transform,
         const std::vector<tbx::uint32>& mesh_material_indices,
         std::vector<tbx::ModelPart>& parts,
         const tbx::uint32 parent_index,
         const bool has_parent)
     {
-        // Compose the local transform with the accumulated parent transform.
-        const tbx::Mat4 local_transform = parent_transform * to_mat4(node.mTransformation);
+        // Accumulate transform-only ancestors until a model part is emitted.
+        const tbx::Mat4 local_transform = accumulated_transform * to_mat4(node.mTransformation);
         tbx::uint32 first_part_index = 0U;
         bool has_first_part = false;
 
@@ -137,7 +138,7 @@ namespace assimp_model_loader
         {
             // Use the mesh index referenced by the node.
             const tbx::uint32 mesh_index = node.mMeshes[mesh_offset];
-            // Create a model part referencing the mesh/material and local transform.
+            // Store the transform relative to the nearest emitted parent part.
             tbx::ModelPart part = {};
             part.transform = local_transform;
             part.mesh_index = mesh_index;
@@ -162,16 +163,19 @@ namespace assimp_model_loader
             }
         }
 
-        // Determine which part should own the children for the next recursion level.
+        // Children become relative to the first emitted part on this node. When the node only
+        // contributes transform, keep accumulating until a descendant emits a part.
         const bool next_has_parent = has_parent || has_first_part;
-        const tbx::uint32 next_parent_index = has_parent ? parent_index : first_part_index;
+        const tbx::uint32 next_parent_index = has_first_part ? first_part_index : parent_index;
+        const tbx::Mat4 next_accumulated_transform =
+            has_first_part ? tbx::Mat4(1.0f) : local_transform;
 
         // Recurse through child nodes to build nested parts.
         for (tbx::uint32 child_index = 0; child_index < node.mNumChildren; ++child_index)
         {
             append_parts_from_node(
                 *node.mChildren[child_index],
-                local_transform,
+                next_accumulated_transform,
                 mesh_material_indices,
                 parts,
                 next_parent_index,
@@ -288,6 +292,11 @@ namespace assimp_model_loader
                     vertex.normal = to_vec3(mesh->mNormals[vertex_index]);
                 if (mesh->HasTextureCoords(0))
                     vertex.uv = to_vec2(mesh->mTextureCoords[0][vertex_index]);
+                if (mesh->HasTangentsAndBitangents())
+                {
+                    const auto tangent = to_vec3(mesh->mTangents[vertex_index]);
+                    vertex.tangent = tbx::Vec4(tangent.x, tangent.y, tangent.z, 1.0f);
+                }
                 if (mesh->HasVertexColors(0))
                     vertex.color = to_color(mesh->mColors[0][vertex_index]);
                 else

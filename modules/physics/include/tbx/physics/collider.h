@@ -53,8 +53,8 @@ namespace tbx
     {
         bool is_trigger_only = false;
         bool is_overlap_enabled = false;
-        ColliderOverlapExecutionMode overlap_execution_mode = ColliderOverlapExecutionMode::AUTO;
         bool is_manual_scan_requested = false;
+        ColliderOverlapExecutionMode overlap_execution_mode = ColliderOverlapExecutionMode::AUTO;
 
         std::vector<ColliderOverlapCallback> overlap_begin_callbacks = {};
         std::vector<ColliderOverlapCallback> overlap_stay_callbacks = {};

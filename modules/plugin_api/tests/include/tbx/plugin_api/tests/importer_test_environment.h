@@ -167,7 +167,7 @@ namespace tbx::tests::plugin_api
 
       private:
         std::string _name = "ImporterTests";
-        Handle _icon_handle = box_icon;
+        Handle _icon_handle = BoxIcon::HANDLE;
         AppMessageCoordinator _coordinator = {};
         InputManager _input_manager = _coordinator;
         EntityRegistry _registry = {};

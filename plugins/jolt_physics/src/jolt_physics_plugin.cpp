@@ -43,7 +43,8 @@ namespace jolt_physics
         tbx::ColliderOverlapExecutionMode execution_mode,
         bool is_manual_trigger_requested)
     {
-        return execution_mode == tbx::ColliderOverlapExecutionMode::AUTO || is_manual_trigger_requested;
+        return execution_mode == tbx::ColliderOverlapExecutionMode::AUTO
+               || is_manual_trigger_requested;
     }
 
     static JPH::Vec3 to_jolt_vec3(const tbx::Vec3& value)
@@ -146,7 +147,8 @@ namespace jolt_physics
         tbx::Quat normalized_start = tbx::normalize(start_rotation);
         tbx::Quat normalized_target = tbx::normalize(target_rotation);
 
-        tbx::Quat delta_rotation = tbx::normalize(normalized_target * glm::conjugate(normalized_start));
+        tbx::Quat delta_rotation =
+            tbx::normalize(normalized_target * glm::conjugate(normalized_start));
         if (delta_rotation.w < 0.0F)
             delta_rotation = -delta_rotation;
 
@@ -155,8 +157,8 @@ namespace jolt_physics
         if (half_angle_sine <= 0.000001F)
             return tbx::Vec3(0.0F, 0.0F, 0.0F);
 
-        tbx::Vec3 axis =
-            tbx::Vec3(delta_rotation.x, delta_rotation.y, delta_rotation.z) * (1.0F / half_angle_sine);
+        tbx::Vec3 axis = tbx::Vec3(delta_rotation.x, delta_rotation.y, delta_rotation.z)
+                         * (1.0F / half_angle_sine);
         float angle_radians = 2.0F * std::atan2(half_angle_sine, clamped_w);
         return axis * (angle_radians / std::max(0.0001F, dt_seconds));
     }
@@ -201,8 +203,8 @@ namespace jolt_physics
         out_body_settings.mAllowSleeping = physics.is_sleep_enabled;
         out_body_settings.mFriction = physics.friction;
         out_body_settings.mRestitution = physics.restitution;
-        out_body_settings.mLinearDamping = physics.default_linear_damping;
-        out_body_settings.mAngularDamping = physics.default_angular_damping;
+        out_body_settings.mLinearDamping = physics.linear_damping;
+        out_body_settings.mAngularDamping = physics.angular_damping;
         out_body_settings.mLinearVelocity = to_jolt_vec3(physics.linear_velocity);
         out_body_settings.mAngularVelocity = to_jolt_vec3(physics.angular_velocity);
         out_body_settings.mGravityFactor = physics.is_gravity_enabled ? 1.0F : 0.0F;
@@ -379,7 +381,12 @@ namespace jolt_physics
             if (!mesh_data)
                 return false;
 
-            return try_append_mesh_geometry(*mesh_data, tbx::Mat4(1.0F), scale, positions, triangles);
+            return try_append_mesh_geometry(
+                *mesh_data,
+                tbx::Mat4(1.0F),
+                scale,
+                positions,
+                triangles);
         }
 
         if (!entity.has_component<tbx::StaticMesh>())
@@ -548,8 +555,10 @@ namespace jolt_physics
 
     static bool has_any_collider(const tbx::Entity& entity)
     {
-        return entity.has_component<tbx::SphereCollider>() || entity.has_component<tbx::CapsuleCollider>()
-               || entity.has_component<tbx::CubeCollider>() || entity.has_component<tbx::MeshCollider>();
+        return entity.has_component<tbx::SphereCollider>()
+               || entity.has_component<tbx::CapsuleCollider>()
+               || entity.has_component<tbx::CubeCollider>()
+               || entity.has_component<tbx::MeshCollider>();
     }
 
     static const tbx::ColliderTrigger* try_get_trigger_collider(const tbx::Entity& entity)
@@ -878,8 +887,8 @@ namespace jolt_physics
                 if (!shape)
                     continue;
 
-                auto object_layer = is_physics_driven ? get_moving_object_layer()
-                                                      : get_static_object_layer();
+                auto object_layer =
+                    is_physics_driven ? get_moving_object_layer() : get_static_object_layer();
                 auto motion_type =
                     is_physics_driven ? get_motion_type(*physics) : JPH::EMotionType::Static;
 
@@ -984,7 +993,8 @@ namespace jolt_physics
                 {
                     const tbx::Vec3 current_position =
                         to_tbx_vec3_from_rvec3(body_interface.GetPosition(body_id));
-                    const tbx::Quat current_rotation = to_tbx_quat(body_interface.GetRotation(body_id));
+                    const tbx::Quat current_rotation =
+                        to_tbx_quat(body_interface.GetRotation(body_id));
                     const float safe_dt_seconds = std::max(0.0001F, dt_seconds);
 
                     tbx::Vec3 linear_velocity =

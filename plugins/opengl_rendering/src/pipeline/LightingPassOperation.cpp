@@ -1,6 +1,6 @@
 #include "LightingPassOperation.h"
 #include "RenderPipelineFailure.h"
-#include "tbx/assets/builtin_assets.h"
+#include "tbx/assets/material_descriptions.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/material.h"
 #include "tbx/math/trig.h"
@@ -424,8 +424,7 @@ namespace opengl_rendering
         if (_shader_program)
             return true;
 
-        auto deferred_lighting_material = tbx::MaterialInstance();
-        deferred_lighting_material.handle = tbx::deferred_lighting_material;
+        auto deferred_lighting_material = tbx::MaterialInstance(tbx::DeferredLightingMaterial::HANDLE);
 
         const auto program_id = _resource_manager.add_material(deferred_lighting_material, true);
         if (!program_id.is_valid())

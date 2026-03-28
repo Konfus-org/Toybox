@@ -2,6 +2,9 @@
 #include "opengl_bindless.h"
 #include "tbx/common/int.h"
 #include "tbx/debugging/macros.h"
+#include <algorithm>
+#include <cstddef>
+#include <cstring>
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <string>
@@ -148,43 +151,157 @@ namespace opengl_rendering
         return nullptr;
     }
 
-    static float get_material_parameter_float(
-        const OpenGlMaterialParams& params,
-        const std::string_view parameter_name,
-        const float fallback)
+    static std::string get_material_block_parameter_name(const std::string& uniform_name)
     {
-        const auto* parameter = try_find_material_parameter(params, parameter_name);
+        auto parameter_name = uniform_name;
+        if (const auto member_separator_index = parameter_name.rfind('.');
+            member_separator_index != std::string::npos)
+            parameter_name = parameter_name.substr(member_separator_index + 1U);
+        if (parameter_name.rfind("u_", 0U) == 0U)
+            parameter_name = parameter_name.substr(2U);
+        return parameter_name;
+    }
+
+    static bool is_material_block_parameter(
+        const std::string& parameter_name,
+        const std::vector<OpenGlMaterialBlockUniform>& block_uniforms)
+    {
+        for (const auto& block_uniform : block_uniforms)
+            if (is_matching_parameter_name(parameter_name, block_uniform.name))
+                return true;
+
+        return false;
+    }
+
+    static bool try_get_parameter_float_value(
+        const tbx::MaterialParameterData& data,
+        float& out_value)
+    {
+        if (const auto* value = std::get_if<float>(&data))
+        {
+            out_value = *value;
+            return true;
+        }
+        if (const auto* value = std::get_if<double>(&data))
+        {
+            out_value = static_cast<float>(*value);
+            return true;
+        }
+        if (const auto* value = std::get_if<int>(&data))
+        {
+            out_value = static_cast<float>(*value);
+            return true;
+        }
+
+        return false;
+    }
+
+    static bool try_get_parameter_vec2_value(
+        const tbx::MaterialParameterData& data,
+        tbx::Vec2& out_value)
+    {
+        if (const auto* value = std::get_if<tbx::Vec2>(&data))
+        {
+            out_value = *value;
+            return true;
+        }
+
+        return false;
+    }
+
+    static bool try_get_parameter_vec3_value(
+        const tbx::MaterialParameterData& data,
+        tbx::Vec3& out_value)
+    {
+        if (const auto* value = std::get_if<tbx::Vec3>(&data))
+        {
+            out_value = *value;
+            return true;
+        }
+
+        return false;
+    }
+
+    static bool try_get_parameter_vec4_value(
+        const tbx::MaterialParameterData& data,
+        tbx::Vec4& out_value)
+    {
+        if (const auto* value = std::get_if<tbx::Vec4>(&data))
+        {
+            out_value = *value;
+            return true;
+        }
+        if (const auto* value = std::get_if<tbx::Color>(&data))
+        {
+            out_value = tbx::Vec4(value->r, value->g, value->b, value->a);
+            return true;
+        }
+
+        return false;
+    }
+
+    static bool try_write_material_block_uniform(
+        std::byte* block_data,
+        const int block_size,
+        const OpenGlMaterialBlockUniform& block_uniform,
+        const OpenGlMaterialParams& params)
+    {
+        if (block_data == nullptr || block_uniform.offset < 0 || block_uniform.offset >= block_size)
+            return false;
+        if (block_uniform.size != 1)
+            return false;
+
+        const auto* parameter = try_find_material_parameter(params, block_uniform.name);
         if (parameter == nullptr)
-            return fallback;
+            return false;
 
-        if (const auto* value = std::get_if<float>(&parameter->data))
-            return *value;
-        if (const auto* value = std::get_if<double>(&parameter->data))
-            return static_cast<float>(*value);
-        if (const auto* value = std::get_if<int>(&parameter->data))
-            return static_cast<float>(*value);
-
-        return fallback;
+        auto* destination = block_data + block_uniform.offset;
+        switch (block_uniform.type)
+        {
+            case GL_FLOAT:
+            {
+                auto value = 0.0F;
+                if (!try_get_parameter_float_value(parameter->data, value))
+                    return false;
+                if (block_uniform.offset + static_cast<int>(sizeof(value)) > block_size)
+                    return false;
+                std::memcpy(destination, &value, sizeof(value));
+                return true;
+            }
+            case GL_FLOAT_VEC2:
+            {
+                auto value = tbx::Vec2(0.0F);
+                if (!try_get_parameter_vec2_value(parameter->data, value))
+                    return false;
+                if (block_uniform.offset + static_cast<int>(sizeof(value)) > block_size)
+                    return false;
+                std::memcpy(destination, &value, sizeof(value));
+                return true;
+            }
+            case GL_FLOAT_VEC3:
+            {
+                auto value = tbx::Vec3(0.0F);
+                if (!try_get_parameter_vec3_value(parameter->data, value))
+                    return false;
+                if (block_uniform.offset + static_cast<int>(sizeof(value)) > block_size)
+                    return false;
+                std::memcpy(destination, &value, sizeof(value));
+                return true;
+            }
+            case GL_FLOAT_VEC4:
+            {
+                auto value = tbx::Vec4(0.0F);
+                if (!try_get_parameter_vec4_value(parameter->data, value))
+                    return false;
+                if (block_uniform.offset + static_cast<int>(sizeof(value)) > block_size)
+                    return false;
+                std::memcpy(destination, &value, sizeof(value));
+                return true;
+            }
+            default:
+                return false;
+        }
     }
-
-    static bool is_default_lit_surface_parameter(const std::string& parameter_name)
-    {
-        const auto normalized_name = normalize_uniform_name(parameter_name);
-        return normalized_name == "u_specular_strength"
-               || normalized_name == "u_shininess_strength"
-               || normalized_name == "u_alpha_cutoff"
-               || normalized_name == "u_transparency_amount" || normalized_name == "u_exposure"
-               || normalized_name == "u_diffuse_strength"
-               || normalized_name == "u_normal_strength"
-               || normalized_name == "u_emissive_strength";
-    }
-
-    struct alignas(16) MaterialSurfaceBlockGpu
-    {
-        tbx::Vec4 primary = tbx::Vec4(0.0F);
-        tbx::Vec4 secondary = tbx::Vec4(0.0F);
-        tbx::Vec4 map_strengths = tbx::Vec4(0.0F);
-    };
 
     OpenGlShader::OpenGlShader(const tbx::ShaderSource& shader)
         : _source(shader.source)
@@ -327,7 +444,84 @@ namespace opengl_rendering
                 &block_size);
             _material_uniform_block_size = block_size > 0
                                                ? block_size
-                                               : static_cast<int>(sizeof(MaterialSurfaceBlockGpu));
+                                               : static_cast<int>(sizeof(tbx::Vec4) * 3U);
+            auto active_uniform_count = GLint {0};
+            glGetActiveUniformBlockiv(
+                _program_id,
+                material_surface_block_index,
+                GL_UNIFORM_BLOCK_ACTIVE_UNIFORMS,
+                &active_uniform_count);
+            if (active_uniform_count > 0)
+            {
+                auto active_uniform_indices = std::vector<GLint>(
+                    static_cast<std::size_t>(active_uniform_count),
+                    0);
+                glGetActiveUniformBlockiv(
+                    _program_id,
+                    material_surface_block_index,
+                    GL_UNIFORM_BLOCK_ACTIVE_UNIFORM_INDICES,
+                    active_uniform_indices.data());
+
+                auto max_uniform_name_length = GLint {0};
+                glGetProgramiv(_program_id, GL_ACTIVE_UNIFORM_MAX_LENGTH, &max_uniform_name_length);
+                const auto uniform_name_buffer_size = max_uniform_name_length > 0
+                                                          ? max_uniform_name_length
+                                                          : 256;
+
+                _material_uniforms.reserve(static_cast<std::size_t>(active_uniform_count));
+                for (const auto uniform_index_value : active_uniform_indices)
+                {
+                    const auto uniform_index = static_cast<GLuint>(uniform_index_value);
+                    auto uniform_type = GLint {0};
+                    auto uniform_offset = GLint {0};
+                    auto uniform_size = GLint {0};
+                    glGetActiveUniformsiv(
+                        _program_id,
+                        1,
+                        &uniform_index,
+                        GL_UNIFORM_TYPE,
+                        &uniform_type);
+                    glGetActiveUniformsiv(
+                        _program_id,
+                        1,
+                        &uniform_index,
+                        GL_UNIFORM_OFFSET,
+                        &uniform_offset);
+                    glGetActiveUniformsiv(
+                        _program_id,
+                        1,
+                        &uniform_index,
+                        GL_UNIFORM_SIZE,
+                        &uniform_size);
+
+                    auto uniform_name = std::string(
+                        static_cast<std::size_t>(uniform_name_buffer_size),
+                        '\0');
+                    auto written_name_length = GLsizei {0};
+                    glGetActiveUniformName(
+                        _program_id,
+                        uniform_index,
+                        uniform_name_buffer_size,
+                        &written_name_length,
+                        uniform_name.data());
+                    uniform_name.resize(static_cast<std::size_t>(written_name_length));
+
+                    _material_uniforms.push_back(
+                        OpenGlMaterialBlockUniform {
+                            .name = get_material_block_parameter_name(uniform_name),
+                            .type = static_cast<tbx::uint32>(uniform_type),
+                            .offset = uniform_offset,
+                            .size = uniform_size,
+                        });
+                }
+                std::sort(
+                    _material_uniforms.begin(),
+                    _material_uniforms.end(),
+                    [](const OpenGlMaterialBlockUniform& left, const OpenGlMaterialBlockUniform& right)
+                    {
+                        return left.offset < right.offset;
+                    });
+            }
             glUniformBlockBinding(
                 _program_id,
                 material_surface_block_index,
@@ -426,7 +620,7 @@ namespace opengl_rendering
         if (_program_id == 0)
             return false;
 
-        auto used_packed_default_lit_surface = false;
+        auto used_material_uniform_block = false;
         if (_has_material_uniform_block)
         {
             if (_material_uniform_buffer == 0)
@@ -439,40 +633,32 @@ namespace opengl_rendering
                     GL_DYNAMIC_DRAW);
             }
 
-            const auto material_surface_block = MaterialSurfaceBlockGpu {
-                .primary = tbx::Vec4(
-                    get_material_parameter_float(params, "specular_strength", 0.5F),
-                    get_material_parameter_float(params, "shininess_strength", 32.0F),
-                    0.0F,
-                    get_material_parameter_float(params, "alpha_cutoff", 0.1F)),
-                .secondary = tbx::Vec4(
-                    get_material_parameter_float(params, "transparency_amount", 0.0F),
-                    get_material_parameter_float(params, "exposure", 1.0F),
-                    get_material_parameter_float(params, "diffuse_strength", 1.0F),
-                    get_material_parameter_float(params, "normal_strength", 1.0F)),
-                .map_strengths = tbx::Vec4(
-                    get_material_parameter_float(params, "emissive_strength", 1.0F),
-                    0.0F,
-                    0.0F,
-                    0.0F),
-            };
+            auto material_uniform_data = std::vector<std::byte>(
+                static_cast<std::size_t>(_material_uniform_block_size),
+                std::byte {0});
+            for (const auto& material_uniform : _material_uniforms)
+                try_write_material_block_uniform(
+                    material_uniform_data.data(),
+                    _material_uniform_block_size,
+                    material_uniform,
+                    params);
 
             glNamedBufferSubData(
                 _material_uniform_buffer,
                 0,
-                static_cast<GLsizeiptr>(sizeof(MaterialSurfaceBlockGpu)),
-                &material_surface_block);
+                static_cast<GLsizeiptr>(material_uniform_data.size()),
+                material_uniform_data.data());
             glBindBufferBase(
                 GL_UNIFORM_BUFFER,
                 MATERIAL_SURFACE_UBO_BINDING,
                 _material_uniform_buffer);
-            used_packed_default_lit_surface = true;
+            used_material_uniform_block = true;
         }
 
         for (const auto& parameter : params.parameters)
         {
-            if (used_packed_default_lit_surface
-                && is_default_lit_surface_parameter(parameter.name))
+            if (used_material_uniform_block
+                && is_material_block_parameter(parameter.name, _material_uniforms))
                 continue;
             if (!try_upload(parameter))
                 continue;
@@ -505,10 +691,8 @@ namespace opengl_rendering
         {
             const auto& texture_binding = params.textures[texture_slot];
             const auto normalized_name = normalize_uniform_name(texture_binding.name);
-            const auto sampler_uniform = tbx::MaterialParameter {
-                .name = normalized_name,
-                .data = static_cast<int>(texture_slot),
-            };
+            const auto sampler_uniform =
+                tbx::MaterialParameter(normalized_name, static_cast<int>(texture_slot));
             if (!try_upload(sampler_uniform))
                 continue;
             _sampler_uniform_layout.push_back(normalized_name);

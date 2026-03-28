@@ -38,8 +38,8 @@ namespace tbx
 
         float friction = 0.5F;
         float restitution = 0.0F;
-        float default_linear_damping = 0.05F;
-        float default_angular_damping = 0.05F;
+        float linear_damping = 0.05F;
+        float angular_damping = 0.05F;
 
         bool is_sleep_enabled = true;
         float sleep_velocity_threshold = 0.03F;

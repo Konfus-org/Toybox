@@ -1,10 +1,10 @@
 #include "demo_scene.h"
-#include "builtin_assets.generated.h"
+#include "tbx/assets/builtin_assets.h"
+#include "tbx/assets/material_descriptions.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/color.h"
 #include "tbx/graphics/light.h"
 #include "tbx/graphics/mesh.h"
-#include "tbx/graphics/renderer.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
 #include "tbx/physics/collider.h"
@@ -12,9 +12,7 @@
 
 namespace three_d_example
 {
-    DemoScene::DemoScene(
-        tbx::EntityRegistry& entity_registry,
-        tbx::InputManager& input_manager)
+    DemoScene::DemoScene(tbx::EntityRegistry& entity_registry, tbx::InputManager& input_manager)
         : _entity_registry(&entity_registry)
         , _demo_room(
               entity_registry,
@@ -48,11 +46,8 @@ namespace three_d_example
             tbx::Vec3(1.0F, 1.0F, 1.0F));
 
         _trigger_zone = tbx::Entity("TriggerZone", entity_registry);
-        auto trigger_zone_renderer = tbx::Renderer {};
-        trigger_zone_renderer.material = create_trigger_zone_material(tbx::Color::RED);
-        trigger_zone_renderer.is_two_sided = true;
-        trigger_zone_renderer.shadow_mode = tbx::ShadowMode::None;
-        _trigger_zone.add_component<tbx::Renderer>(trigger_zone_renderer);
+        _trigger_zone.add_component<tbx::MaterialInstance>(
+            create_trigger_zone_material(tbx::Color::RED));
         _trigger_zone.add_component<tbx::DynamicMesh>(tbx::cube);
         _trigger_zone.add_component<tbx::Transform>(
             tbx::Vec3(0.0F, 2.5F, -5.0F),
@@ -82,17 +77,19 @@ namespace three_d_example
         });
 
         _falling_sphere = tbx::Entity("FallingSphere", entity_registry);
-        _falling_sphere.add_component<tbx::Renderer>(tbx::PbrMaterialInstance(tbx::Color::RED));
+        auto falling_sphere_material = tbx::MaterialInstance(tbx::PbrMaterial::HANDLE);
+        falling_sphere_material.set_parameter(tbx::PbrMaterial::COLOR, tbx::Color::RED);
+        _falling_sphere.add_component<tbx::MaterialInstance>(falling_sphere_material);
         _falling_sphere.add_component<tbx::DynamicMesh>(tbx::sphere);
         _falling_sphere.add_component<tbx::Transform>(tbx::Vec3(0.0F, 6.0F, -5.2F));
         _falling_sphere.add_component<tbx::SphereCollider>(0.5F);
         _falling_sphere.add_component<tbx::Physics>();
 
         _falling_box = tbx::Entity("FallingBox", entity_registry);
-        _falling_box.add_component<tbx::Renderer>(create_falling_box_material());
-        _falling_box.add_component<tbx::DynamicMesh>(tbx::cube);
+        _falling_box.add_component<tbx::MaterialInstance>(create_falling_box_material());
+        _falling_box.add_component<tbx::StaticMesh>(tbx::Handle("Models/Green_Cube.fbx"));
         _falling_box.add_component<tbx::Transform>(tbx::Vec3(0.0F, 10.0F, -4.9F));
-        _falling_box.add_component<tbx::CubeCollider>(tbx::Vec3(0.5F, 0.5F, 0.5F));
+        _falling_box.add_component<tbx::CubeCollider>(tbx::Vec3(1.0F, 1.0F, 1.0F));
         _falling_box.add_component<tbx::Physics>();
     }
 
@@ -149,30 +146,27 @@ namespace three_d_example
 
     tbx::MaterialInstance DemoScene::create_trigger_zone_material(const tbx::Color& color) const
     {
-        auto material = tbx::FlatMaterialInstance(
-            color,
-            tbx::Color::BLACK,
-            0.1F,
-            tbx::Handle(),
-            tbx::wireframe_material);
-        material.parameters.set("wireframe_width", 1.6F);
+        auto material = tbx::MaterialInstance(tbx::WireframeMaterial::HANDLE);
+        material.set_parameter(tbx::WireframeMaterial::COLOR, color);
+        material.set_parameter(tbx::WireframeMaterial::WIREFRAME_WIDTH, 1.0F);
         return material;
     }
 
     tbx::MaterialInstance DemoScene::create_falling_box_material() const
     {
-        auto material = tbx::PbrMaterialInstance(tbx::Color::GREEN);
-        material.set_diffuse_map(tbx::Handle("Textures/Smily.png"));
-        material.set_alpha_cutoff(0.0F);
+        auto material = tbx::MaterialInstance(tbx::PbrMaterial::HANDLE);
+        material.set_parameter(tbx::PbrMaterial::COLOR, tbx::Color::GREEN);
+        material.set_parameter(tbx::PbrMaterial::ALPHA_CUTOFF, 0.0F);
+        material.set_texture(tbx::PbrMaterial::DIFFUSE_MAP, tbx::Handle("Textures/Smily.png"));
         return material;
     }
 
     void DemoScene::set_trigger_zone_color(const tbx::Color& color)
     {
-        if (!_trigger_zone.get_id().is_valid() || !_trigger_zone.has_component<tbx::Renderer>())
+        if (!_trigger_zone.get_id().is_valid()
+            || !_trigger_zone.has_component<tbx::MaterialInstance>())
             return;
 
-        auto& renderer = _trigger_zone.get_component<tbx::Renderer>();
-        renderer.material = create_trigger_zone_material(color);
+        _trigger_zone.get_component<tbx::MaterialInstance>() = create_trigger_zone_material(color);
     }
 }

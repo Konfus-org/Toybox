@@ -9,8 +9,8 @@ namespace tbx
     static std::shared_ptr<Material> create_material_data()
     {
         auto material = Material();
-        material.program.vertex = lit_vertex_shader;
-        material.program.fragment = lit_fragment_shader;
+        material.program.vertex = PbrVertexShader::HANDLE;
+        material.program.fragment = PbrFragmentShader::HANDLE;
         material.parameters.set("color", Color(1.0f, 0.0f, 1.0f, 1.0f));
         material.parameters.set("diffuse_strength", 1.0f);
         material.parameters.set("normal_strength", 1.0f);
@@ -21,6 +21,19 @@ namespace tbx
         material.parameters.set("alpha_cutoff", 0.1f);
         material.parameters.set("transparency_amount", 0.0f);
         material.parameters.set("exposure", 1.0f);
+        material.config = MaterialConfig {
+            .depth =
+                MaterialDepthConfig {
+                    .is_test_enabled = true,
+                    .is_write_enabled = true,
+                    .is_prepass_enabled = false,
+                    .function = MaterialDepthFunction::Less,
+                },
+            .transparency =
+                MaterialTransparencyConfig {
+                    .blend_mode = MaterialBlendMode::Opaque,
+                },
+        };
         return std::make_shared<Material>(std::move(material));
     }
 

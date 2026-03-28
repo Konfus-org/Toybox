@@ -21,6 +21,4 @@ tbx_register_plugin(
         NAME "${plugin_name}"
         VERSION "1.0.0"
         CATEGORY "default"
-        RESOURCES
-        "${PROJECT_SOURCE_DIR}/resources"
 )

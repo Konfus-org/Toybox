@@ -1,5 +1,5 @@
 include_guard(GLOBAL)
-include(TbxCopyAssets)
+include(code_gen_utility)
 
 # tbx_collect_plugin_dependencies
 # -------------------------------
@@ -93,14 +93,15 @@ endfunction()
 #   VERSION       - Semantic version string (required).
 #   DESCRIPTION   - Optional descriptive text.
 #   MODULE        - Optional override for module/manifest output directory.
-#   DEPENDENCIES      - Additional dependency identifiers to record.
-#   RESOURCES         - Optional asset/resource directory for this plugin (at most one).
-#   CATEGORY   - Optional update category (default, logging, input, audio, physics, rendering, gameplay).
-#   PRIORITY   - Optional update priority integer (lower updates first).
+#   DEPENDENCIES  - Additional dependency identifiers to record.
+#   ASSET_PATH    - Optional plugin-specific asset directory. When omitted,
+#                   `assets/` and sibling `../assets` conventions are auto-detected.
+#   CATEGORY      - Optional update category (default, logging, input, audio, physics, rendering, gameplay).
+#   PRIORITY      - Optional update priority integer (lower updates first).
 function(tbx_register_plugin)
     set(options)
-    set(one_value_args TARGET CLASS HEADER NAME VERSION DESCRIPTION MODULE CATEGORY PRIORITY)
-    set(multi_value_args DEPENDENCIES RESOURCES)
+    set(one_value_args TARGET CLASS HEADER NAME VERSION DESCRIPTION MODULE CATEGORY PRIORITY ASSET_PATH)
+    set(multi_value_args DEPENDENCIES)
     cmake_parse_arguments(TBX_PLUGIN "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
     if(NOT TBX_PLUGIN_TARGET)
@@ -202,15 +203,8 @@ function(tbx_register_plugin)
     set(MODULE_NAME ${module_name})
 
     # Emit generated sources alongside other project files.
-    set(generated_dir ${CMAKE_CURRENT_SOURCE_DIR}/generated/)
-    file(MAKE_DIRECTORY ${generated_dir})
-
-    set(registration_output ${generated_dir}/${TBX_PLUGIN_NAME}_registration.cpp)
-    set(registration_template "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/templates/plugin_registration.cpp.in")
-
-    set(REGISTER_MACRO ${register_macro})
-    set(PLUGIN_NAME_TOKEN ${TBX_PLUGIN_NAME})
-    set(PLUGIN_CLASS ${TBX_PLUGIN_CLASS})
+    set(generated_dir "${CMAKE_CURRENT_SOURCE_DIR}/generated")
+    file(MAKE_DIRECTORY "${generated_dir}")
 
     # Resolve the plugin header to an absolute path so we can add its directory to
     # the include search paths, keeping generated sources consistent with the rest
@@ -273,101 +267,36 @@ function(tbx_register_plugin)
     endif()
     set(PLUGIN_HEADER ${header_include})
 
-    # Instantiate the registration source that wires the plugin into the
-    # runtime registry.
-    configure_file(${registration_template} ${registration_output} @ONLY)
-    target_sources(${TBX_PLUGIN_TARGET} PRIVATE ${registration_output})
+    tbx_codegen_resolve_plugin_asset_path(
+        plugin_asset_path
+        BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
+        EXPLICIT_PATH "${TBX_PLUGIN_ASSET_PATH}"
+    )
 
-    # Build dependency JSON array string
-    # Build dependency JSON array string
-    set(dependencies_json "")
-    foreach(dep IN LISTS dependencies)
-        if(dependencies_json STREQUAL "")
-            string(APPEND dependencies_json "        \"${dep}\"")
-        else()
-            string(APPEND dependencies_json ",\n        \"${dep}\"")
-        endif()
-    endforeach()
-
-    set(meta_template "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/templates/plugin.meta.in")
-    set(meta_output ${generated_dir}/${TBX_PLUGIN_NAME}.meta)
-
-    if(TBX_PLUGIN_DESCRIPTION)
-        set(PLUGIN_DESCRIPTION_ENTRY "    \"description\": \"${TBX_PLUGIN_DESCRIPTION}\",\n")
-    else()
-        set(PLUGIN_DESCRIPTION_ENTRY "")
-    endif()
-
-    if(dependencies_json STREQUAL "")
-        set(PLUGIN_DEPENDENCIES_BLOCK "    \"dependencies\": [],\n")
-    else()
-        set(PLUGIN_DEPENDENCIES_BLOCK "    \"dependencies\": [\n${dependencies_json}\n    ],\n")
-    endif()
-
-    set(resource_directories "")
-    foreach(resource_dir IN LISTS TBX_PLUGIN_RESOURCES)
-        if(NOT resource_dir)
-            continue()
-        endif()
-
-        set(resolved_resource_dir "")
-        if(IS_ABSOLUTE "${resource_dir}")
-            set(resolved_resource_dir "${resource_dir}")
-        else()
-            get_filename_component(
-                resolved_resource_dir
-                "${resource_dir}"
-                ABSOLUTE
-                BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
-            )
-        endif()
-
-        if(resolved_resource_dir)
-            string(REPLACE "\\" "/" resolved_resource_dir "${resolved_resource_dir}")
-            list(APPEND resource_directories "${resolved_resource_dir}")
-        endif()
-    endforeach()
-    list(REMOVE_DUPLICATES resource_directories)
-
-    list(LENGTH resource_directories resource_directory_count)
-    if(resource_directory_count GREATER 1)
-        message(FATAL_ERROR
-            "tbx_register_plugin: RESOURCES supports at most one directory per plugin (got ${resource_directory_count})")
-    endif()
-
-    set(resources_json "")
-    foreach(resource_dir IN LISTS resource_directories)
-        if(resources_json STREQUAL "")
-            string(APPEND resources_json "        \"${resource_dir}\"")
-        else()
-            string(APPEND resources_json ",\n        \"${resource_dir}\"")
-        endif()
-    endforeach()
-
-    if(resources_json STREQUAL "")
-        set(PLUGIN_RESOURCES_BLOCK "    \"resources\": [],\n")
-    else()
-        set(PLUGIN_RESOURCES_BLOCK "    \"resources\": [\n${resources_json}\n    ],\n")
-    endif()
-
-    set(PLUGIN_CATEGORY "${update_category}")
-    set(PLUGIN_PRIORITY "${update_priority}")
-    set(PLUGIN_ABI_VERSION ${TBX_PLUGIN_ABI_VERSION})
-
-    configure_file(${meta_template} ${meta_output} @ONLY)
-    set_source_files_properties(${meta_output} PROPERTIES HEADER_FILE_ONLY TRUE)
-    target_sources(${TBX_PLUGIN_TARGET} PRIVATE ${meta_output})
-    source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${registration_output} ${meta_output})
-
-    add_custom_command(TARGET ${TBX_PLUGIN_TARGET} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                ${meta_output}
-                $<TARGET_FILE_DIR:${TBX_PLUGIN_TARGET}>/$<TARGET_FILE_NAME:${TBX_PLUGIN_TARGET}>.meta)
-
-    if(resource_directories)
-        tbx_copy_assets_to_bin(
+    if(plugin_asset_path)
+        tbx_register_asset_bundle_path(
             TARGET ${TBX_PLUGIN_TARGET}
-            SOURCES ${resource_directories}
+            PATH "${plugin_asset_path}"
         )
     endif()
+
+    tbx_codegen_generate_plugin_artifacts(
+        TARGET ${TBX_PLUGIN_TARGET}
+        BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
+        GENERATED_DIR "${generated_dir}"
+        REGISTER_MACRO "${register_macro}"
+        PLUGIN_NAME "${TBX_PLUGIN_NAME}"
+        PLUGIN_CLASS "${TBX_PLUGIN_CLASS}"
+        PLUGIN_HEADER "${PLUGIN_HEADER}"
+        PLUGIN_VERSION "${TBX_PLUGIN_VERSION}"
+        PLUGIN_DESCRIPTION "${TBX_PLUGIN_DESCRIPTION}"
+        MODULE_NAME "${MODULE_NAME}"
+        PLUGIN_CATEGORY "${update_category}"
+        PLUGIN_PRIORITY "${update_priority}"
+        PLUGIN_ABI_VERSION "${TBX_PLUGIN_ABI_VERSION}"
+        PLUGIN_ASSET_PATH "${plugin_asset_path}"
+        DEPENDENCIES ${dependencies}
+    )
+
+    tbx_enable_release_asset_bundling(TARGET ${TBX_PLUGIN_TARGET})
 endfunction()

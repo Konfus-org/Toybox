@@ -53,15 +53,9 @@ namespace opengl_rendering
         auto fallback_material = OpenGlMaterialParams();
         fallback_material.material_handle = material_handle;
         fallback_material.parameters.push_back(
-            tbx::MaterialParameter {
-                .name = "color",
-                .data = tbx::Color(1.0F, 0.0F, 1.0F, 1.0F),
-            });
+            tbx::MaterialParameter("color", tbx::Color(1.0F, 0.0F, 1.0F, 1.0F)));
         fallback_material.parameters.push_back(
-            tbx::MaterialParameter {
-                .name = "emissive",
-                .data = tbx::Color(1.0F, 0.0F, 1.0F, 1.0F),
-            });
+            tbx::MaterialParameter("emissive", tbx::Color(1.0F, 0.0F, 1.0F, 1.0F)));
         return fallback_material;
     }
 

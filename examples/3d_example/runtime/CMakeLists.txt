@@ -16,8 +16,6 @@ tbx_register_plugin(
     NAME "ThreeDExampleRuntime"
     VERSION "1.0.0"
     CATEGORY "gameplay"
-    RESOURCES
-        "${CMAKE_CURRENT_LIST_DIR}/../assets"
 )
 
 add_library(Tbx::Examples::ThreeDExampleRuntime ALIAS ThreeDExampleRuntime)

@@ -38,20 +38,17 @@
 
 ## Documentation Expectations
 
-- Every public API (classes, structs, functions, free helpers, message types) must be documented with:
+- Every public API (classes, structs, functions, free helpers, message types) must be documented using Doxygen format with:
     1. **Purpose** – what the API does.
-    2. **Ownership** – who owns returned or stored resources and lifetime notes (e.g., non-owning pointers, reference
-       expectations).
+    2. **Ownership** – who owns returned or stored resources and lifetime notes (e.g., non-owning pointers, reference expectations).
     3. **Thread Safety** – whether callers can use it concurrently, and any required synchronization.
 - Keep doc comments adjacent to declarations; brief inline notes are acceptable for complex implementation details.
-- Summaries should be in doxygen format.
-- Complex and long methods should be broken up with comments explaining things, and preferably if really large, they
-  should be broken up into sub methods that are then documented with summaries and meaningful names.
+- Complex and long methods should be broken up with comments explaining things, and preferably if really large, they should be broken up into sub methods that are then documented with summaries and meaningful names.
 
 ## Memory & Handle Management
 
-- Prefer smart pointers whenever ownership semantics are needed. Only fall back to raw pointers for non-owning
-  references that are trivially validated elsewhere.
+- Use references over pointers when object is guaranteed to be valid for the usage of the ref.
+- Prefer smart pointers whenever ownership semantics are needed. Only fall back to raw pointers for non-owning references that are trivially validated elsewhere.
 - When referencing engine objects without ownership, document the expectation and lifetime contract.
 
 ## Miscellaneous Practices

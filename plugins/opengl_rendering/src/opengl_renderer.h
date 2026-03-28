@@ -12,7 +12,6 @@
 #include <functional>
 #include <memory>
 #include <optional>
-#include <unordered_map>
 
 namespace opengl_rendering
 {
@@ -50,7 +49,6 @@ namespace opengl_rendering
         tbx::JobSystem& _job_system;
         OpenGlResourceManager _resource_manager;
         std::unique_ptr<OpenGlRenderPipeline> _render_pipeline = nullptr;
-        std::unordered_map<tbx::Uuid, tbx::Material> _material_defaults_cache = {};
 
         tbx::Size _viewport_size = {0, 0};
         tbx::Size _render_resolution = {0, 0};

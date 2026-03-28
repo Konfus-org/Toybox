@@ -4,6 +4,20 @@
     "geometry": "0000001E",
     "fragment": "0000001F"
   },
+  "config": {
+    "depth": {
+      "test": true,
+      "write": true,
+      "prepass": true,
+      "function": "less_equal"
+    },
+    "transparency": {
+      "blend_mode": "opaque"
+    },
+    "cullable": true,
+    "two_sided": true,
+    "shadow_mode": "none"
+  },
   "parameters": [
     { "name": "color", "type": "color", "value": [1.0, 0.0, 0.0, 1.0] },
     { "name": "emissive", "type": "color", "value": [0.0, 0.0, 0.0, 1.0] },

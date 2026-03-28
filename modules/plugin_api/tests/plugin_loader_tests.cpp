@@ -76,7 +76,7 @@ namespace tbx::tests::plugin_loader
 
       private:
         std::string _name = "PluginLoaderTests";
-        ::tbx::Handle _icon_handle = ::tbx::box_icon;
+        ::tbx::Handle _icon_handle = ::tbx::BoxIcon::HANDLE;
         ::tbx::AppMessageCoordinator _coordinator = {};
         ::tbx::InputManager _input_manager = _coordinator;
         ::tbx::EntityRegistry _ent_registry = {};

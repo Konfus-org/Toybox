@@ -1,5 +1,5 @@
 set(CMAKE_FOLDER "tests")
-include(TbxTestOutput)
+include(test_output)
 add_executable(TbxTimeTests)
 tbx_set_test_output(TbxTimeTests)
 

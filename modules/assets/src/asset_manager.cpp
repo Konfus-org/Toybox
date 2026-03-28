@@ -4,9 +4,40 @@
 #include <algorithm>
 #include <filesystem>
 #include <string>
+#include <string_view>
 
 namespace tbx
 {
+    static bool path_contains_directory_token(
+        const std::filesystem::path& path,
+        std::string_view directory_name_lowered)
+    {
+        if (directory_name_lowered.empty())
+            return false;
+
+        for (const auto& part : path)
+        {
+            if (to_lower(part.string()) == directory_name_lowered)
+                return true;
+        }
+
+        return false;
+    }
+
+    static bool is_non_asset_file(const std::filesystem::path& path)
+    {
+        const std::string lowered_name = to_lower(path.filename().string());
+        if (lowered_name == "cmakelists.txt")
+            return true;
+
+        const std::string lowered_extension = to_lower(path.extension().string());
+        return lowered_extension == ".cmake" || lowered_extension == ".h"
+               || lowered_extension == ".hh" || lowered_extension == ".hpp"
+               || lowered_extension == ".c" || lowered_extension == ".cc"
+               || lowered_extension == ".cpp" || lowered_extension == ".cxx"
+               || lowered_extension == ".in";
+    }
+
     static std::filesystem::path get_resources_directory()
     {
 #if defined(TBX_RESOURCES)
@@ -171,6 +202,10 @@ namespace tbx
             auto asset_entries = std::vector<std::filesystem::path>();
             for (const auto& entry : entries)
             {
+                if (path_contains_directory_token(entry, "generated"))
+                    continue;
+                if (is_non_asset_file(entry))
+                    continue;
                 if (file_operator.get_type(entry) != FileType::FILE)
                 {
                     continue;
