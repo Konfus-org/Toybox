@@ -65,6 +65,11 @@ namespace two_d_example
         }
     }
 
+    void TwoDExampleRuntimePlugin::on_detach()
+    {
+        _elapsed_seconds = 0.0f;
+    }
+
     void TwoDExampleRuntimePlugin::on_update(const tbx::DeltaTime& dt)
     {
         _elapsed_seconds += dt.seconds;
