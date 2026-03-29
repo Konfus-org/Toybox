@@ -12,7 +12,6 @@ namespace tbx
     /// @details
     /// Ownership: Not applicable; this is a value-type classification.
     /// Thread Safety: Safe to copy between threads.
-
     enum class FileType
     {
         NONE,
@@ -26,7 +25,6 @@ namespace tbx
     /// @details
     /// Ownership: Not applicable; this is a value-type classification.
     /// Thread Safety: Safe to copy between threads.
-
     enum class FileDataFormat
     {
         BINARY,
@@ -39,7 +37,6 @@ namespace tbx
     /// Ownership: Implementations own any backing filesystem state they require.
     /// Thread Safety: Callers may use concurrently only when the concrete implementation supports
     /// it.
-
     class TBX_API IFileOps
     {
       public:
@@ -50,7 +47,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a copy owned by the caller.
         /// Thread Safety: Depends on the implementation.
-
         virtual std::filesystem::path get_working_directory() const = 0;
 
         /// @brief
@@ -58,7 +54,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a copy owned by the caller.
         /// Thread Safety: Depends on the implementation.
-
         virtual std::filesystem::path resolve(const std::filesystem::path& path) const = 0;
 
         /// @brief
@@ -66,7 +61,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not retain references to path.
         /// Thread Safety: Depends on the implementation.
-
         virtual bool exists(const std::filesystem::path& path) const = 0;
 
         /// @brief
@@ -74,7 +68,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a value type owned by the caller.
         /// Thread Safety: Depends on the implementation.
-
         virtual FileType get_type(const std::filesystem::path& path) const = 0;
 
         /// @brief
@@ -82,7 +75,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a caller-owned collection of paths.
         /// Thread Safety: Depends on the implementation.
-
         virtual std::vector<std::filesystem::path> read_directory(
             const std::filesystem::path& root) const = 0;
 
@@ -91,7 +83,6 @@ namespace tbx
         /// @details
         /// Ownership: Writes into caller-owned storage.
         /// Thread Safety: Depends on the implementation.
-
         virtual bool read_file(
             const std::filesystem::path& path,
             FileDataFormat format,
@@ -102,7 +93,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not retain references after returning.
         /// Thread Safety: Depends on the implementation.
-
         virtual bool write_file(
             const std::filesystem::path& path,
             FileDataFormat format,
@@ -114,18 +104,16 @@ namespace tbx
     /// @details
     /// Ownership: Owns its working directory value; does not own external resources.
     /// Thread Safety: Safe to call concurrently when the underlying filesystem APIs are safe.
-
     class TBX_API FileOperator final : public IFileOps
     {
       public:
-        explicit FileOperator(std::filesystem::path working_directory = {});
+        FileOperator(std::filesystem::path working_directory = {});
 
         /// @brief
         /// Purpose: Returns the working directory used for relative path resolution.
         /// @details
         /// Ownership: Returns a copy; callers own the returned path value.
         /// Thread Safety: Safe to call concurrently.
-
         std::filesystem::path get_working_directory() const override;
 
         /// @brief
@@ -133,7 +121,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a path value owned by the caller.
         /// Thread Safety: Safe to call concurrently.
-
         std::filesystem::path resolve(const std::filesystem::path& path) const override;
 
         /// @brief
@@ -141,7 +128,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not retain references to the provided path.
         /// Thread Safety: Safe to call concurrently.
-
         bool is_valid(const std::filesystem::path& path) const;
 
         /// @brief
@@ -149,7 +135,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not retain references to the provided path.
         /// Thread Safety: Safe to call concurrently.
-
         bool exists(const std::filesystem::path& path) const override;
 
         /// @brief
@@ -157,7 +142,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a value classification owned by the caller.
         /// Thread Safety: Safe to call concurrently.
-
         FileType get_type(const std::filesystem::path& path) const override;
 
         /// @brief
@@ -165,7 +149,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a caller-owned list of path values.
         /// Thread Safety: Safe to call concurrently.
-
         std::vector<std::filesystem::path> read_directory(
             const std::filesystem::path& root) const override;
 
@@ -175,7 +158,6 @@ namespace tbx
         /// Ownership: Does not retain references to the provided path.
         /// Thread Safety: Safe to call concurrently. Deduces a file when the path has an extension;
         /// otherwise a directory.
-
         bool create(const std::filesystem::path& path);
 
         /// @brief
@@ -183,7 +165,6 @@ namespace tbx
         /// @details
         /// Ownership: Writes into the caller-owned output string.
         /// Thread Safety: Safe to call concurrently.
-
         bool read_file(const std::filesystem::path& path, FileDataFormat format, std::string& out)
             const override;
 
@@ -192,7 +173,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a caller-owned path value.
         /// Thread Safety: Not thread-safe; intended for one-time initialization.
-
         std::filesystem::path rotate(
             const std::filesystem::path& directory,
             std::string_view base_name,
@@ -204,7 +184,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not retain the provided data after the call returns.
         /// Thread Safety: Safe to call concurrently.
-
         bool write_file(
             const std::filesystem::path& path,
             FileDataFormat format,
@@ -215,7 +194,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not retain references to the provided path.
         /// Thread Safety: Safe to call concurrently.
-
         bool remove(const std::filesystem::path& path);
 
         /// @brief
@@ -223,7 +201,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not retain references to the provided paths.
         /// Thread Safety: Safe to call concurrently.
-
         bool rename(const std::filesystem::path& from, const std::filesystem::path& to);
 
         /// @brief
@@ -231,7 +208,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not retain references to the provided paths.
         /// Thread Safety: Safe to call concurrently.
-
         bool copy(const std::filesystem::path& from, const std::filesystem::path& to);
 
       private:

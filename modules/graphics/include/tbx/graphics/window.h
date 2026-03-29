@@ -13,7 +13,6 @@ namespace tbx
     /// @details
     /// Ownership: Non-owning opaque pointer; platform backend controls lifetime.
     /// Thread Safety: Pointer value is copyable; lifetime access must be externally synchronized.
-
     using NativeWindowHandle = void*;
 
     // Enumerates the presentation modes that a window can be configured for.

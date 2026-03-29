@@ -11,7 +11,6 @@ namespace tbx
     /// @details
     /// Ownership: Stores handles by value; does not own loaded model assets.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-
     struct TBX_API RendererLod
     {
         Handle handle = {};
@@ -23,7 +22,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns the LOD collection by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-
     struct TBX_API Lods
     {
         std::vector<RendererLod> values = {};

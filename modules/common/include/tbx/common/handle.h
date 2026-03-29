@@ -11,7 +11,6 @@ namespace tbx
     /// @details
     /// Ownership: Stores owned name strings and UUID values.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-
     struct Handle
     {
         Handle() = default;
@@ -32,7 +31,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not transfer ownership.
         /// Thread Safety: Safe to call concurrently.
-
         bool is_valid() const
         {
             return id.is_valid();

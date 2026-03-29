@@ -23,7 +23,6 @@ namespace tbx
     /// Ownership: Owns all registered lane threads and queued tasks for the manager lifetime.
     /// Thread Safety: `try_create_lane`, `has_lane`, `post`, `post_with_future`, `stop_lane`,
     /// `stop_all`, and `get_lane_count` are thread-safe.
-
     class TBX_API ThreadManager final
     {
       public:
@@ -41,7 +40,6 @@ namespace tbx
         /// @details
         /// Ownership: Manager owns the created lane and its worker thread.
         /// Thread Safety: Thread-safe.
-
         bool try_create_lane(std::string_view lane_name);
 
         /// @brief
@@ -49,7 +47,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns value only; no ownership transfer.
         /// Thread Safety: Thread-safe.
-
         bool has_lane(std::string_view lane_name) const;
 
         /// @brief
@@ -57,7 +54,6 @@ namespace tbx
         /// @details
         /// Ownership: Transfers task ownership to the target lane queue.
         /// Thread Safety: Thread-safe. Throws when lane is missing or stopped.
-
         void post(std::string_view lane_name, Task&& task);
 
         /// @brief
@@ -65,7 +61,6 @@ namespace tbx
         /// @details
         /// Ownership: Callable ownership is transferred to the lane queue; returned future is owned
         /// by the caller. Thread Safety: Thread-safe. Throws when lane is missing or stopped.
-
         template <typename TCallable, typename... TArgs>
             requires std::invocable<TCallable, TArgs...>
         auto post_with_future(std::string_view lane_name, TCallable&& callable, TArgs&&... args)
@@ -92,7 +87,6 @@ namespace tbx
         /// @details
         /// Ownership: Releases ownership of the removed lane and drains queued work.
         /// Thread Safety: Thread-safe. No-op when lane does not exist.
-
         void stop_lane(std::string_view lane_name);
 
         /// @brief
@@ -100,7 +94,6 @@ namespace tbx
         /// @details
         /// Ownership: Releases ownership of all lanes and drains queued work.
         /// Thread Safety: Thread-safe and idempotent.
-
         void stop_all();
 
         /// @brief
@@ -108,14 +101,13 @@ namespace tbx
         /// @details
         /// Ownership: Returns value only; no ownership transfer.
         /// Thread Safety: Thread-safe.
-
         std::size_t get_lane_count() const;
 
       private:
         class ThreadLane final
         {
           public:
-            explicit ThreadLane(std::string lane_name);
+            ThreadLane(std::string lane_name);
             ~ThreadLane() noexcept;
 
             ThreadLane(const ThreadLane&) = delete;

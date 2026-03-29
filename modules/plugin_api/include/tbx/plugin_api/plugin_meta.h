@@ -18,7 +18,6 @@ namespace tbx
     /// @details
     /// Ownership: Not applicable.
     /// Thread Safety: Immutable constant.
-
     inline constexpr uint32 PluginAbiVersion = static_cast<uint32>(TBX_PLUGIN_ABI_VERSION);
 
     /// @brief
@@ -26,7 +25,6 @@ namespace tbx
     /// @details
     /// Ownership: Not applicable.
     /// Thread Safety: Immutable enum values.
-
     enum class PluginCategory : uint32
     {
         DEFAULT = 0,
@@ -82,7 +80,6 @@ namespace tbx
     /// @details
     /// Ownership: Does not own file handles; reads data through FileOperator.
     /// Thread Safety: Safe to use concurrently when the file operator is thread-safe.
-
     class TBX_API PluginMetaParser final
     {
       public:
@@ -91,7 +88,6 @@ namespace tbx
         /// @details
         /// Ownership: Writes metadata into the caller-provided struct on success.
         /// Thread Safety: Safe to call concurrently when the file operator is thread-safe.
-
         bool try_parse_from_disk(
             const std::filesystem::path& working_directory,
             const std::filesystem::path& manifest_path,
@@ -102,7 +98,6 @@ namespace tbx
         /// @details
         /// Ownership: Writes metadata into the caller-provided struct on success.
         /// Thread Safety: Safe to call concurrently.
-
         bool try_parse_from_source(
             std::string_view manifest_text,
             const std::filesystem::path& manifest_path,

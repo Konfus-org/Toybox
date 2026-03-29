@@ -491,7 +491,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns binding and callback collections by value.
     /// Thread Safety: Not thread-safe for mutation; synchronize externally if shared.
-
     struct TBX_API InputActionConstruction
     {
         std::vector<InputBinding> bindings = {};

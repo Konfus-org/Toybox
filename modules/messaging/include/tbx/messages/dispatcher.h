@@ -17,7 +17,6 @@ namespace tbx
     /// ownership of a queued copy while `send` uses a stack instance. Thread Safety:
     /// Implementations may define their own guarantees. Unless documented otherwise by the concrete
     /// type, calls are expected from the engine's main thread.
-
     class TBX_API IMessageDispatcher
     {
       public:
@@ -28,7 +27,6 @@ namespace tbx
         /// @details
         /// Ownership: The caller retains ownership; the dispatcher operates on the provided object.
         /// Thread Safety: See class notes.
-
         template <typename TMessage>
             requires std::derived_from<TMessage, Message>
         Result send(TMessage& msg) const
@@ -41,7 +39,6 @@ namespace tbx
         /// @details
         /// Ownership: The message is constructed in-place for the dispatch.
         /// Thread Safety: See class notes.
-
         template <typename TMessage, typename... TArgs>
             requires(
                 std::derived_from<TMessage, Message> && (sizeof...(TArgs) > 0)
@@ -57,7 +54,6 @@ namespace tbx
         /// @details
         /// Ownership: Copies the message for queued delivery.
         /// Thread Safety: See class notes.
-
         template <typename TMessage>
             requires std::derived_from<TMessage, Message>
         std::shared_future<Result> post(const TMessage& msg) const
@@ -70,7 +66,6 @@ namespace tbx
         /// @details
         /// Ownership: Takes ownership of the queued copy until delivery. Returns a future that
         /// becomes ready once processing completes. Thread Safety: See class notes.
-
         template <typename TMessage, typename... TArgs>
             requires(
                 std::derived_from<TMessage, Message> && (sizeof...(TArgs) > 0)
@@ -92,7 +87,6 @@ namespace tbx
     /// Ownership: Implementations own their queued messages and handler registrations.
     /// Thread Safety: Not required to be thread-safe; expected single-thread usage unless
     /// documented otherwise by an implementation.
-
     class TBX_API IMessageQueue
     {
       public:
@@ -103,7 +97,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not transfer ownership of queued message storage.
         /// Thread Safety: See class notes.
-
         virtual void flush() = 0;
     };
 
@@ -112,7 +105,6 @@ namespace tbx
     /// @details
     /// Ownership: Implementations own stored handlers and their lifetimes.
     /// Thread Safety: Implementations define their own guarantees.
-
     class TBX_API IMessageHandlerRegistrar
     {
       public:
@@ -123,7 +115,6 @@ namespace tbx
         /// @details
         /// Ownership: The registrar stores the handler by value.
         /// Thread Safety: See class notes.
-
         virtual Uuid register_handler(MessageHandler handler) = 0;
 
         /// @brief
@@ -131,7 +122,6 @@ namespace tbx
         /// @details
         /// Ownership: The registrar releases its stored handler for the token.
         /// Thread Safety: See class notes.
-
         virtual void deregister_handler(const Uuid& token) = 0;
 
         /// @brief
@@ -139,7 +129,6 @@ namespace tbx
         /// @details
         /// Ownership: The registrar releases all stored handlers.
         /// Thread Safety: See class notes.
-
         virtual void clear_handlers() = 0;
     };
 
@@ -150,7 +139,6 @@ namespace tbx
     /// Ownership: Implementations own their handlers and queued messages; callers receive
     /// non-owning references. Thread Safety: Not required to be thread-safe; expected single-thread
     /// usage unless documented otherwise by an implementation.
-
     class TBX_API IMessageCoordinator
         : public IMessageDispatcher
         , public IMessageQueue
@@ -166,7 +154,6 @@ namespace tbx
     /// Ownership: Non-owning. The setter retains ownership and must ensure the dispatcher outlives
     /// its use through this API. Thread Safety: Thread-safe. Uses an atomic pointer to read the
     /// global dispatcher without additional synchronization.
-
     TBX_API IMessageDispatcher* get_global_dispatcher();
 
     /// @brief
@@ -175,7 +162,6 @@ namespace tbx
     /// Ownership: Non-owning. The caller retains ownership and must ensure the dispatcher outlives
     /// all use through this API. Thread Safety: Thread-safe. Uses an atomic pointer to exchange the
     /// dispatcher value for the process.
-
     TBX_API IMessageDispatcher* set_global_dispatcher(IMessageDispatcher* dispatcher);
 
     /// @brief
@@ -186,7 +172,6 @@ namespace tbx
     /// the scope where it is set. Thread Safety: Thread-safe for setting and restoring the global
     /// dispatcher pointer. The dispatcher instance itself must remain valid for the lifetime of the
     /// scope.
-
     class TBX_API GlobalDispatcherScope
     {
       public:

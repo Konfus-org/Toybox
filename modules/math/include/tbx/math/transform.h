@@ -38,7 +38,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns an owned Transform value.
     /// Thread Safety: Stateless helper; safe to call concurrently.
-
     TBX_API Transform
         world_to_local_tranform(const Transform& parent_world, const Transform& world);
 }

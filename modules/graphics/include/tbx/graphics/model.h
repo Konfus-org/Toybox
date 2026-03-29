@@ -12,7 +12,6 @@ namespace tbx
     /// @details
     /// Ownership: Stores owned child indices and non-owning references via indices.
     /// Thread Safety: Safe to copy between threads.
-
     struct TBX_API ModelPart
     {
         /// @brief
@@ -21,7 +20,6 @@ namespace tbx
         /// @details
         /// Ownership: Value-owned matrix data with no external lifetime dependency.
         /// Thread Safety: Safe to read and copy concurrently.
-
         Mat4 transform = Mat4(1.0f);
         uint32 mesh_index = 0U;
         uint32 material_index = 0U;
@@ -33,7 +31,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns mesh, material, and part data by value.
     /// Thread Safety: Safe to construct on any thread.
-
     struct TBX_API Model
     {
         Model();

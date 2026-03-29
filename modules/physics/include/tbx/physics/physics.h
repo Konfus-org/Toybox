@@ -10,7 +10,6 @@ namespace tbx
     /// @details
     /// Ownership: Value enum copied by value.
     /// Thread Safety: Immutable enum values; safe for concurrent reads.
-
     enum class PhysicsTransformSyncMode
     {
         NONE = 0,
@@ -23,7 +22,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type that owns all component data by copy.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
-
     struct TBX_API Physics
     {
         float mass = 1.0F;

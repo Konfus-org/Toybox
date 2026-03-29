@@ -9,7 +9,6 @@
         /// @details
         /// Ownership: Preprocessor macro with no ownership semantics.
         /// Thread Safety: Compile-time only.
-
             #define TBX_PLUGIN_API __declspec(dllexport)
         #else
         /// @brief
@@ -18,7 +17,6 @@
         /// @details
         /// Ownership: Preprocessor macro with no ownership semantics.
         /// Thread Safety: Compile-time only.
-
             #define TBX_PLUGIN_API __declspec(dllimport)
         #endif
     #else

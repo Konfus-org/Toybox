@@ -6,13 +6,11 @@
         /// @brief
         /// This macro is used to export functions and classes from a DLL.
         /// You want this macro defined when you are creating a DLL.
-
             #define TBX_API __declspec(dllexport)
         #else
         /// @brief
         /// This macro is used to import functions and classes from a DLL.
         /// If you are expecting export functionality ensure the TOOLBOX macro is defined.
-
             #define TBX_API __declspec(dllimport)
         #endif
     #else

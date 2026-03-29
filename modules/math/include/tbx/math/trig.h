@@ -11,7 +11,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns a value type.
     /// Thread Safety: Stateless; safe to call concurrently.
-
     TBX_API float to_radians(float degrees);
 
     /// @brief
@@ -19,7 +18,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns a value type.
     /// Thread Safety: Stateless; safe to call concurrently.
-
     TBX_API float to_degrees(float radians);
 
     /// @brief
@@ -27,7 +25,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns a value type.
     /// Thread Safety: Stateless; safe to call concurrently.
-
     TBX_API Vec3 to_radians(const Vec3& degrees);
 
     /// @brief
@@ -35,7 +32,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns a value type.
     /// Thread Safety: Stateless; safe to call concurrently.
-
     TBX_API Vec3 to_degrees(const Vec3& radians);
 
     /// @brief
@@ -43,7 +39,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns a value type.
     /// Thread Safety: Stateless; safe to call concurrently.
-
     TBX_API float min(float left, float right);
 
     /// @brief
@@ -51,7 +46,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns a value type.
     /// Thread Safety: Stateless; safe to call concurrently.
-
     TBX_API float max(float left, float right);
 
     /// @brief
@@ -59,7 +53,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns a value type.
     /// Thread Safety: Stateless; safe to call concurrently.
-
     TBX_API float clamp(float value, float minimum_value, float maximum_value);
 
     /// @brief
@@ -67,7 +60,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns a value type.
     /// Thread Safety: Stateless; safe to call concurrently.
-
     TBX_API float sqrt(float value);
 
     /// @brief
@@ -75,7 +67,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns a value type.
     /// Thread Safety: Stateless; safe to call concurrently.
-
     TBX_API float floor(float value);
 
     /// @brief
@@ -83,7 +74,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns a value type.
     /// Thread Safety: Stateless; safe to call concurrently.
-
     TBX_API float ceil(float value);
 
     TBX_API float cos(float x);

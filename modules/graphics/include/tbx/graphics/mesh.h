@@ -82,7 +82,6 @@ namespace tbx
     /// @details
     /// Ownership: Stores a non-owning model handle reference.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-
     struct TBX_API StaticMesh
     {
         /// @brief
@@ -90,7 +89,6 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-
         Handle handle = {};
     };
 
@@ -100,7 +98,6 @@ namespace tbx
     /// Ownership: Holds a shared pointer to mesh data owned by callers or producer systems.
     /// Thread Safety: Mesh content mutation must be synchronized externally; the shared pointer
     /// itself is safe to copy between threads.
-
     struct TBX_API DynamicMesh
     {
         DynamicMesh() = default;
@@ -118,7 +115,6 @@ namespace tbx
         /// @details
         /// Ownership: Shared ownership of the mesh data via std::shared_ptr.
         /// Thread Safety: Safe to copy; synchronize mutation of the pointed-to Mesh externally.
-
         std::shared_ptr<Mesh> data = {};
     };
 }

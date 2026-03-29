@@ -13,7 +13,6 @@ namespace tbx
     /// Ownership: Enum values are copied by value by configuration systems.
     /// Thread Safety: Thread-safe as immutable enum constants; consuming settings remain externally
     /// synchronized.
-
     enum class RenderStage
     {
         FINAL_COLOR,
@@ -28,7 +27,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns all setting values by value.
     /// Thread Safety: Not thread-safe; synchronize access externally.
-
     struct TBX_API GraphicsSettings
     {
         GraphicsSettings(
@@ -46,7 +44,6 @@ namespace tbx
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         Observable<GraphicsSettings, bool> vsync_enabled;
 
         /// @brief
@@ -54,7 +51,6 @@ namespace tbx
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         Observable<GraphicsSettings, GraphicsApi> graphics_api;
 
         /// @brief
@@ -62,7 +58,6 @@ namespace tbx
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         Observable<GraphicsSettings, Size> resolution;
 
         /// @brief
@@ -70,7 +65,6 @@ namespace tbx
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         Observable<GraphicsSettings, RenderStage> render_stage;
 
         /// @brief
@@ -78,7 +72,6 @@ namespace tbx
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         Observable<GraphicsSettings, uint32> shadow_map_resolution;
 
         /// @brief
@@ -87,7 +80,6 @@ namespace tbx
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         Observable<GraphicsSettings, float> shadow_render_distance;
 
         /// @brief
@@ -96,7 +88,6 @@ namespace tbx
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         Observable<GraphicsSettings, float> shadow_softness;
     };
 }

@@ -10,7 +10,6 @@ namespace jolt_physics
     /// @details
     /// Ownership: Returns a value; no ownership transfer.
     /// Thread Safety: Thread-safe and immutable.
-
     JPH::ObjectLayer get_static_object_layer();
 
     /// @brief
@@ -18,7 +17,6 @@ namespace jolt_physics
     /// @details
     /// Ownership: Returns a value; no ownership transfer.
     /// Thread Safety: Thread-safe and immutable.
-
     JPH::ObjectLayer get_moving_object_layer();
 
     /// @brief
@@ -26,7 +24,6 @@ namespace jolt_physics
     /// @details
     /// Ownership: Returns a non-owning reference to a process-lifetime singleton.
     /// Thread Safety: Thread-safe for concurrent read-only access.
-
     const JPH::BroadPhaseLayerInterface& get_broad_phase_layer_interface();
 
     /// @brief
@@ -34,7 +31,6 @@ namespace jolt_physics
     /// @details
     /// Ownership: Returns a non-owning reference to a process-lifetime singleton.
     /// Thread Safety: Thread-safe for concurrent read-only access.
-
     const JPH::ObjectVsBroadPhaseLayerFilter& get_object_vs_broad_phase_layer_filter();
 
     /// @brief
@@ -42,6 +38,5 @@ namespace jolt_physics
     /// @details
     /// Ownership: Returns a non-owning reference to a process-lifetime singleton.
     /// Thread Safety: Thread-safe for concurrent read-only access.
-
     const JPH::ObjectLayerPairFilter& get_object_layer_pair_filter();
 }

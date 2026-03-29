@@ -17,11 +17,10 @@ namespace tbx::tests::plugin_api
     /// receive copied data.
     /// Thread Safety: Not thread-safe; use on a single thread or protect with external
     /// synchronization.
-
     class InMemoryFileOps final : public IFileOps
     {
       public:
-        explicit InMemoryFileOps(std::filesystem::path working_directory)
+        InMemoryFileOps(std::filesystem::path working_directory)
             : _working_directory(std::move(working_directory))
         {
         }
@@ -95,7 +94,6 @@ namespace tbx::tests::plugin_api
     /// Purpose: Returns a deterministic absolute-style working directory path for tests on each
     /// platform. Ownership: Returns a value path object with no shared lifetime requirements.
     /// Thread Safety: Thread-safe; no shared mutable state.
-
     static std::filesystem::path get_test_working_directory()
     {
 #if defined(_WIN32)
@@ -110,11 +108,10 @@ namespace tbx::tests::plugin_api
     /// tests. Ownership: Owns coordinator, registry, settings, and asset manager for the test
     /// lifetime. Thread Safety: Not thread-safe; intended for single-threaded test setup and
     /// execution.
-
     class TestPluginHost final : public IPluginHost
     {
       public:
-        explicit TestPluginHost(const std::filesystem::path& working_directory)
+        TestPluginHost(const std::filesystem::path& working_directory)
             : _asset_manager(working_directory, {}, {}, false)
             , _settings(_coordinator, true, GraphicsApi::OPEN_GL, {640, 480})
         {

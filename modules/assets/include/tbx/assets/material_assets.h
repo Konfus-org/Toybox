@@ -12,7 +12,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns an AssetPromise that shares ownership of the material with the caller.
     /// Thread Safety: Safe to call concurrently provided the global dispatcher is thread-safe.
-
     TBX_API AssetPromise<Material> load_material_async(const std::filesystem::path& asset_path);
 
     /// @brief
@@ -20,6 +19,5 @@ namespace tbx
     /// @details
     /// Ownership: Returns shared material data owned by the caller.
     /// Thread Safety: Safe to call concurrently provided the global dispatcher is thread-safe.
-
     TBX_API std::shared_ptr<Material> load_material(const std::filesystem::path& asset_path);
 }

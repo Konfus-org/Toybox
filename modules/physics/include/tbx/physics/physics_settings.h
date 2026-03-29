@@ -11,7 +11,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns all configuration values by value.
     /// Thread Safety: Not thread-safe; synchronize access externally.
-
     struct TBX_API PhysicsSettings
     {
         PhysicsSettings(IMessageDispatcher& dispatcher);

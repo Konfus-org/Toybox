@@ -132,7 +132,6 @@ namespace tbx
 
     /// @brief
     /// Converts manifest JSON data into a populated PluginMeta structure.
-
     static bool try_parse_plugin_meta_data(
         const Json& data,
         const std::filesystem::path& manifest_path,
@@ -224,7 +223,6 @@ namespace tbx
 
     /// @brief
     /// Parses plugin metadata from raw JSON text.
-
     bool PluginMetaParser::try_parse_from_source(
         std::string_view manifest_text,
         const std::filesystem::path& manifest_path,
@@ -245,7 +243,6 @@ namespace tbx
 
     /// @brief
     /// Opens the manifest on disk and parses plugin metadata.
-
     bool PluginMetaParser::try_parse_from_disk(
         const std::filesystem::path& working_directory,
         const std::filesystem::path& manifest_path,

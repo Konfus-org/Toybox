@@ -25,7 +25,6 @@ namespace tbx
     /// @details
     /// Ownership: Does not own any resources.
     /// Thread Safety: Safe to copy between threads.
-
     enum class AssetStreamState
     {
         UNLOADED,
@@ -38,7 +37,6 @@ namespace tbx
     /// @details
     /// Ownership: Does not own any resources.
     /// Thread Safety: Safe to copy between threads.
-
     struct AssetUsage
     {
         uint ref_count = 0U;
@@ -52,7 +50,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type settings owned by the caller.
     /// Thread Safety: Safe to copy between threads.
-
     struct TextureLoadParameters
     {
         TextureSettings settings = {};
@@ -63,7 +60,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-
     struct ModelLoadParameters
     {
     };
@@ -73,7 +69,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-
     struct ShaderLoadParameters
     {
     };
@@ -83,7 +78,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-
     struct MaterialLoadParameters
     {
     };
@@ -93,7 +87,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-
     struct AudioLoadParameters
     {
     };
@@ -103,7 +96,6 @@ namespace tbx
     /// @details
     /// Ownership: Stores path copies owned by the record.
     /// Thread Safety: Safe to copy between threads.
-
     struct NormalizedAssetPath
     {
         std::filesystem::path resolved_path;
@@ -116,7 +108,6 @@ namespace tbx
     /// @details
     /// Ownership: Stores path copies owned by the registry.
     /// Thread Safety: Safe to copy between threads.
-
     struct AssetRegistryEntry
     {
         std::filesystem::path resolved_path;
@@ -130,7 +121,6 @@ namespace tbx
     /// @details
     /// Ownership: Implementations own their tracked asset records.
     /// Thread Safety: Requires external synchronization by AssetManager.
-
     struct IAssetStore
     {
         virtual ~IAssetStore() = default;
@@ -143,7 +133,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns the shared asset instance and load promise.
     /// Thread Safety: Requires external synchronization by AssetManager.
-
     template <typename TAsset>
     struct AssetRecord
     {
@@ -163,7 +152,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns AssetRecord instances for its asset type.
     /// Thread Safety: Requires external synchronization by AssetManager.
-
     template <typename TAsset>
     struct AssetStore final : IAssetStore
     {
@@ -196,12 +184,24 @@ namespace tbx
         }
     };
 
+    enum class AssetMetaState
+    {
+        VALID,
+        MISSING,
+        INVALID
+    };
+
+    struct ResolvedAssetMetaId
+    {
+        Uuid resolved_id = {};
+        AssetMetaState state = AssetMetaState::MISSING;
+    };
+
     /// @brief
     /// Purpose: Tracks streamed assets by normalized path and maintains usage metadata.
     /// @details
     /// Ownership: Owns shared asset instances for loaded assets and releases them when streamed
     /// out. Thread Safety: All public member functions are synchronized internally.
-
     class TBX_API AssetManager final
     {
       public:
@@ -210,9 +210,8 @@ namespace tbx
         /// @details
         /// Ownership: The manager stores a copy of the callable.
         /// Thread Safety: The callable must be safe to invoke concurrently.
-
         using HandleSource = std::function<bool(const std::filesystem::path&, Handle& out_handle)>;
-        explicit AssetManager(
+        AssetManager(
             std::filesystem::path working_directory,
             std::vector<std::filesystem::path> asset_directories = {},
             HandleSource handle_source = {},
@@ -229,7 +228,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         template <typename TAsset>
         std::shared_ptr<TAsset> load(const Handle& handle)
         {
@@ -272,7 +270,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a shared texture instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         std::shared_ptr<Texture> load(
             const Handle& handle,
             const TextureLoadParameters& parameters);
@@ -282,7 +279,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a shared model instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         std::shared_ptr<Model> load(const Handle& handle, const ModelLoadParameters&)
         {
             return load<Model>(handle);
@@ -293,7 +289,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a shared shader instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         std::shared_ptr<Shader> load(const Handle& handle, const ShaderLoadParameters&)
         {
             return load<Shader>(handle);
@@ -304,7 +299,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a shared material instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         std::shared_ptr<Material> load(const Handle& handle, const MaterialLoadParameters&)
         {
             return load<Material>(handle);
@@ -315,7 +309,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a shared audio instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         std::shared_ptr<AudioClip> load(const Handle& handle, const AudioLoadParameters&)
         {
             return load<AudioClip>(handle);
@@ -326,7 +319,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns caller-owned usage data by value.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         template <typename TAsset>
         AssetUsage get_usage(const Handle& handle) const
         {
@@ -350,7 +342,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a UUID value; no ownership transfer.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         Uuid resolve_asset_id(const Handle& handle);
 
         /// @brief
@@ -358,7 +349,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a path value owned by the caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         std::filesystem::path resolve_asset_path(const std::filesystem::path& asset_path) const;
 
         /// @brief
@@ -366,7 +356,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a path value owned by the caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         std::filesystem::path resolve_asset_path(const Handle& handle) const;
 
         /// @brief
@@ -374,7 +363,6 @@ namespace tbx
         /// @details
         /// Ownership: Copies the provided path into internal storage.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         void add_asset_directory(const std::filesystem::path& path);
 
         /// @brief
@@ -382,7 +370,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a copy; callers own the returned paths.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         std::vector<std::filesystem::path> get_asset_directories() const;
 
         /// @brief
@@ -390,7 +377,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns an AssetPromise that shares ownership with the caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         template <typename TAsset>
         AssetPromise<TAsset> load_async(const Handle& handle)
         {
@@ -433,7 +419,6 @@ namespace tbx
         /// @details
         /// Ownership: Releases the manager-owned asset instance when streaming out.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         template <typename TAsset>
         bool unload(const Handle& handle, bool force = false)
         {
@@ -467,7 +452,6 @@ namespace tbx
         /// @details
         /// Ownership: Releases manager-owned asset instances that are safe to evict.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         void unload_all();
 
         /// @brief
@@ -475,7 +459,6 @@ namespace tbx
         /// @details
         /// Ownership: Releases manager-owned asset instances that are safe to evict.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         void unload_unreferenced();
 
         /// @brief
@@ -483,7 +466,6 @@ namespace tbx
         /// @details
         /// Ownership: Replaces the manager-owned asset instance with the newly loaded instance.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         template <typename TAsset>
         bool reload(const Handle& handle)
         {
@@ -524,23 +506,9 @@ namespace tbx
         /// @details
         /// Ownership: Retains manager ownership of the asset instance while pinned.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-
         void set_pinned(const Handle& handle, bool is_pinned);
 
       private:
-        enum class AssetMetaState
-        {
-            VALID,
-            MISSING,
-            INVALID
-        };
-
-        struct ResolvedAssetMetaId
-        {
-            Uuid resolved_id = {};
-            AssetMetaState state = AssetMetaState::MISSING;
-        };
-
         void discover_assets();
 
         NormalizedAssetPath normalize_path(const std::filesystem::path& asset_path) const

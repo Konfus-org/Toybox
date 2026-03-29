@@ -10,11 +10,9 @@ namespace opengl_rendering
     /// @brief
     /// Purpose: Renders realtime shadow maps for deferred directional, point, spot, and area
     /// lights.
-
     /// @details
     /// Ownership: Owns the shadow framebuffer, depth textures, and shadow shader program.
     /// Thread Safety: Not thread-safe; render-thread only.
-
     class ShadowPassOperation final
     {
       public:
@@ -28,7 +26,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Does not take ownership of the supplied payload.
         /// Thread Safety: Not thread-safe; render-thread only.
-
         void execute(const std::any& payload);
 
         /// @brief
@@ -36,7 +33,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle managed by this pass.
         /// Thread Safety: Not thread-safe; render-thread only.
-
         tbx::uint32 get_directional_shadow_texture() const;
 
         /// @brief
@@ -44,7 +40,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle managed by this pass.
         /// Thread Safety: Not thread-safe; render-thread only.
-
         tbx::uint32 get_point_shadow_texture() const;
 
         /// @brief
@@ -52,7 +47,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle managed by this pass.
         /// Thread Safety: Not thread-safe; render-thread only.
-
         tbx::uint32 get_spot_shadow_texture() const;
 
         /// @brief
@@ -60,7 +54,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle managed by this pass.
         /// Thread Safety: Not thread-safe; render-thread only.
-
         tbx::uint32 get_area_shadow_texture() const;
 
       private:

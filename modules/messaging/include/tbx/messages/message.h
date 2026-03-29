@@ -91,7 +91,6 @@ namespace tbx
     /// Ownership: Non-owning. The coordinator stores a copy of the callable.
     /// Thread Safety: Invoked on the coordinator's calling thread; handlers should avoid blocking
     /// and must manage their own synchronization if touching shared state.
-
     using MessageHandler = std::function<void(Message&)>;
 
     /// @brief
@@ -99,7 +98,6 @@ namespace tbx
     /// @details
     /// Ownership: Non-owning; the returned pointer borrows from the input message.
     /// Thread Safety: Matches the caller's context. No synchronization is applied.
-
     template <typename TMessage>
     const TMessage* handle_message(const Message& message)
     {
@@ -111,7 +109,6 @@ namespace tbx
     /// @details
     /// Ownership: Non-owning; the returned pointer borrows from the input message.
     /// Thread Safety: Matches the caller's context. No synchronization is applied.
-
     template <typename TMessage>
     TMessage* handle_message(Message& message)
     {

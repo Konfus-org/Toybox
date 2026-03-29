@@ -33,7 +33,7 @@ namespace sdl_opengl_adapter
     class TBX_PLUGIN_API SdlOpenGlAdapter final
     {
       public:
-        explicit SdlOpenGlAdapter(const SdlOpenGlAdapterSettings& settings);
+        SdlOpenGlAdapter(const SdlOpenGlAdapterSettings& settings);
         ~SdlOpenGlAdapter() noexcept;
 
         /// @brief
@@ -91,14 +91,14 @@ namespace sdl_opengl_adapter
         /// @details
         /// Ownership: Non-owning pointer; valid as long as SDL is available.
         /// Thread Safety: Safe to copy; invocation must obey SDL context thread rules.
-        [[nodiscard]] tbx::GraphicsProcAddress get_proc_address() const;
+        tbx::GraphicsProcAddress get_proc_address() const;
 
         /// @brief
         /// Purpose: Allows callers to validate context availability.
         /// @details
         /// Ownership: Non-owning window pointer.
         /// Thread Safety: Not thread-safe; call on owning thread.
-        [[nodiscard]] bool has_context(SDL_Window* sdl_window) const;
+        bool has_context(SDL_Window* sdl_window) const;
 
       private:
         SdlOpenGlAdapterSettings _settings = {};

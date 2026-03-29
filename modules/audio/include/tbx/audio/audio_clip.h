@@ -10,7 +10,6 @@ namespace tbx
     /// @details
     /// Ownership: Instances own their sample buffers.
     /// Thread Safety: Safe to move across threads; synchronize shared mutation externally.
-
     struct TBX_API AudioClip
     {
         uint32 sample_rate = 44100;

@@ -8,7 +8,7 @@ namespace tbx::tests::assets
     class InMemoryFileOps final : public IFileOps
     {
       public:
-        explicit InMemoryFileOps(std::filesystem::path working_directory)
+        InMemoryFileOps(std::filesystem::path working_directory)
             : _working_directory(std::move(working_directory))
         {
         }

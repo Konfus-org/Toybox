@@ -9,7 +9,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type owned by callers and by AppSettings.
     /// Thread Safety: Safe for concurrent reads; synchronize concurrent writes externally.
-
     struct TBX_API AsyncSettings
     {
         JobSystemConfiguration job_system = {};

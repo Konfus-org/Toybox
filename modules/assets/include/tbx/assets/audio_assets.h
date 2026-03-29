@@ -13,7 +13,6 @@ namespace tbx
     /// Ownership: Returns an AssetPromise that shares ownership of the audio data with the caller.
     /// The payload is destroyed when the final shared reference is released. Thread Safety: Safe to
     /// call concurrently provided the global dispatcher is thread-safe.
-
     TBX_API AssetPromise<AudioClip> load_audio_async(const std::filesystem::path& asset_path);
 
     /// @brief
@@ -22,6 +21,5 @@ namespace tbx
     /// Ownership: Returns shared audio data owned by the caller. The payload is destroyed when the
     /// final shared reference is released. Thread Safety: Safe to call concurrently provided the
     /// global dispatcher is thread-safe.
-
     TBX_API std::shared_ptr<AudioClip> load_audio(const std::filesystem::path& asset_path);
 }
