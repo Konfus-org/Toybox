@@ -114,23 +114,21 @@ namespace tbx
         Observable<TOwner, TProp> TOwner::* _member = nullptr;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Extracts the owner and property types from an observable member pointer.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Type-only helper; no runtime ownership or storage.
     /// Thread Safety: Not applicable; compile-time only.
-    /// </remarks>
+
     template <auto TMember>
     struct ObservableMemberTraits;
 
-    /// <summary>
+    /// @brief
     /// Purpose: Provides typed information for observable member pointers.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Type-only helper; no runtime ownership or storage.
     /// Thread Safety: Not applicable; compile-time only.
-    /// </remarks>
+
     template <typename TOwner, typename TProp, Observable<TOwner, TProp> TOwner::* TMember>
     struct ObservableMemberTraits<TMember>
     {
@@ -139,22 +137,20 @@ namespace tbx
         static constexpr Observable<TOwner, TProp> TOwner::* member = TMember;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Attempts to retrieve a property changed event for a specific observable member.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Non-owning; the output pointer borrows from the input message.
     /// Thread Safety: Matches the caller's context. No synchronization is applied.
-    /// </remarks>
+
     template <auto TMember>
-    PropertyChangedEvent<
-        typename ObservableMemberTraits<TMember>::Owner,
-        typename ObservableMemberTraits<TMember>::Property>*
-        handle_property_changed(Message& msg)
+    PropertyChangedEvent<typename ObservableMemberTraits<TMember>::Owner, typename ObservableMemberTraits<TMember>::Property>* handle_property_changed(
+        Message& msg)
     {
         using Traits = ObservableMemberTraits<TMember>;
-        auto* typed = handle_message<
-            PropertyChangedEvent<typename Traits::Owner, typename Traits::Property>>(msg);
+        auto* typed =
+            handle_message<PropertyChangedEvent<typename Traits::Owner, typename Traits::Property>>(
+                msg);
         if (!typed || typed->member != Traits::member)
         {
             return nullptr;
@@ -163,22 +159,20 @@ namespace tbx
         return typed;
     }
 
-    /// <summary>
+    /// @brief
     /// Purpose: Attempts to retrieve a property changed event for a specific observable member.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Non-owning; the output pointer borrows from the input message.
     /// Thread Safety: Matches the caller's context. No synchronization is applied.
-    /// </remarks>
+
     template <auto TMember>
-    const PropertyChangedEvent<
-        typename ObservableMemberTraits<TMember>::Owner,
-        typename ObservableMemberTraits<TMember>::Property>*
-        handle_property_changed(const Message& msg)
+    const PropertyChangedEvent<typename ObservableMemberTraits<TMember>::Owner, typename ObservableMemberTraits<TMember>::Property>* handle_property_changed(
+        const Message& msg)
     {
         using Traits = ObservableMemberTraits<TMember>;
-        const auto* typed = handle_message<
-            PropertyChangedEvent<typename Traits::Owner, typename Traits::Property>>(msg);
+        const auto* typed =
+            handle_message<PropertyChangedEvent<typename Traits::Owner, typename Traits::Property>>(
+                msg);
         if (!typed || typed->member != Traits::member)
         {
             return nullptr;

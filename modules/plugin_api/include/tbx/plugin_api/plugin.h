@@ -25,22 +25,20 @@ namespace tbx
         Plugin(Plugin&&) noexcept = default;
         Plugin& operator=(Plugin&&) = default;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Initializes the plugin, wiring it to the given host.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Does not own the host or dispatcher references.
         /// Thread Safety: Not thread-safe; must be called exactly once before use.
-        /// </remarks>
+
         void attach(IPluginHost& host);
 
-        /// <summary>
+        /// @brief
         /// Purpose: Shuts the plugin down and clears host/dispatcher references.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Does not own the host or dispatcher references.
         /// Thread Safety: Not thread-safe; call from the main thread.
-        /// </remarks>
+
         void detach();
 
         // Ticks the plugin for the given frame delta.
@@ -142,13 +140,13 @@ namespace tbx
 
 #define TBX_REGISTER_PLUGIN(PluginName, PluginType)                                                \
     TBX_PLUGIN_ENTRY_EXPORT ::tbx::Plugin* create_##PluginName()                                   \
-    {                                                                                               \
-        ::tbx::Plugin* plugin = new PluginType();                                                   \
-        ::tbx::PluginRegistry::get_instance().register_plugin(#PluginName, plugin);                 \
-        return plugin;                                                                              \
-    }                                                                                               \
+    {                                                                                              \
+        ::tbx::Plugin* plugin = new PluginType();                                                  \
+        ::tbx::PluginRegistry::get_instance().register_plugin(#PluginName, plugin);                \
+        return plugin;                                                                             \
+    }                                                                                              \
     TBX_PLUGIN_ENTRY_EXPORT void destroy_##PluginName(::tbx::Plugin* plugin)                       \
-    {                                                                                               \
-        ::tbx::PluginRegistry::get_instance().unregister_plugin(#PluginName);                       \
-        delete plugin;                                                                              \
+    {                                                                                              \
+        ::tbx::PluginRegistry::get_instance().unregister_plugin(#PluginName);                      \
+        delete plugin;                                                                             \
     }

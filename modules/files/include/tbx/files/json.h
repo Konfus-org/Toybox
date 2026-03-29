@@ -104,13 +104,14 @@ namespace tbx
     template <>
     TBX_API bool Json::try_get<TextureWrap>(const std::string& key, TextureWrap& out_value) const;
     template <>
-    TBX_API bool Json::try_get<TextureFilter>(const std::string& key, TextureFilter& out_value) const;
+    TBX_API bool Json::try_get<TextureFilter>(const std::string& key, TextureFilter& out_value)
+        const;
     template <>
-    TBX_API bool Json::try_get<TextureFormat>(const std::string& key, TextureFormat& out_value) const;
+    TBX_API bool Json::try_get<TextureFormat>(const std::string& key, TextureFormat& out_value)
+        const;
     template <>
-    TBX_API bool Json::try_get<TextureMipmaps>(
-        const std::string& key,
-        TextureMipmaps& out_value) const;
+    TBX_API bool Json::try_get<TextureMipmaps>(const std::string& key, TextureMipmaps& out_value)
+        const;
     template <>
     TBX_API bool Json::try_get<TextureCompression>(
         const std::string& key,

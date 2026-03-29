@@ -12,97 +12,87 @@ namespace tbx
 {
     struct AppSettings;
 
-    /// <summary>
+    /// @brief
     /// Purpose: Defines the host interface provided to runtime plugins.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Implementations retain ownership of returned references.
     /// Thread Safety: Not thread-safe; expected to be used on the main thread.
-    /// </remarks>
+
     class TBX_API IPluginHost
     {
       public:
         virtual ~IPluginHost() noexcept = default;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the host name.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
+
         virtual const std::string& get_name() const = 0;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the immutable startup icon handle for native windows.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
+
         virtual const Handle& get_icon_handle() const = 0;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the host settings instance.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
+
         virtual AppSettings& get_settings() = 0;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the host message coordinator.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
+
         virtual IMessageCoordinator& get_message_coordinator() = 0;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the host input manager.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
+
         virtual InputManager& get_input_manager() = 0;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the host entity manager.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
+
         virtual EntityRegistry& get_entity_registry() = 0;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the host asset manager.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
+
         virtual AssetManager& get_asset_manager() = 0;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the host job manager for scheduling asynchronous work.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Thread-safe according to JobSystem guarantees.
-        /// </remarks>
+
         virtual JobSystem& get_job_system() = 0;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the host thread manager for dedicated lane scheduling.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Thread-safe according to ThreadManager guarantees.
-        /// </remarks>
+
         virtual ThreadManager& get_thread_manager() = 0;
     };
 }

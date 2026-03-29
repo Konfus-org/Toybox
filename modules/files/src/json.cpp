@@ -3,8 +3,8 @@
 #include <cctype>
 #include <charconv>
 #include <functional>
-#include <span>
 #include <nlohmann/json.hpp>
+#include <span>
 
 namespace tbx
 {
@@ -311,9 +311,7 @@ namespace tbx
         return false;
     }
 
-    static bool try_parse_texture_compression(
-        std::string_view value,
-        TextureCompression& out_value)
+    static bool try_parse_texture_compression(std::string_view value, TextureCompression& out_value)
     {
         auto lowered = to_lower(trim(value));
         if (lowered == "disabled")
@@ -366,9 +364,8 @@ namespace tbx
     }
 
     template <>
-    bool Json::try_get<TextureCompression>(
-        const std::string& key,
-        TextureCompression& out_value) const
+    bool Json::try_get<TextureCompression>(const std::string& key, TextureCompression& out_value)
+        const
     {
         auto text = std::string();
         if (!try_get<std::string>(key, text))
@@ -406,9 +403,13 @@ namespace tbx
             key,
             out_values,
             [](const nlohmann::json& entry)
-            { return entry.is_number_integer(); },
+            {
+                return entry.is_number_integer();
+            },
             [](const nlohmann::json& entry)
-            { return entry.get<int>(); });
+            {
+                return entry.get<int>();
+            });
     }
 
     template <>
@@ -419,9 +420,13 @@ namespace tbx
             key,
             out_values,
             [](const nlohmann::json& entry)
-            { return entry.is_boolean(); },
+            {
+                return entry.is_boolean();
+            },
             [](const nlohmann::json& entry)
-            { return entry.get<bool>(); });
+            {
+                return entry.get<bool>();
+            });
     }
 
     template <>
@@ -432,24 +437,31 @@ namespace tbx
             key,
             out_values,
             [](const nlohmann::json& entry)
-            { return entry.is_number(); },
+            {
+                return entry.is_number();
+            },
             [](const nlohmann::json& entry)
-            { return entry.get<float>(); });
+            {
+                return entry.get<float>();
+            });
     }
 
     template <>
-    bool Json::try_get<std::string>(
-        const std::string& key,
-        std::vector<std::string>& out_values) const
+    bool Json::try_get<std::string>(const std::string& key, std::vector<std::string>& out_values)
+        const
     {
         return try_get_array_impl<std::string>(
             _data->Data,
             key,
             out_values,
             [](const nlohmann::json& entry)
-            { return entry.is_string(); },
+            {
+                return entry.is_string();
+            },
             [](const nlohmann::json& entry)
-            { return entry.get<std::string>(); });
+            {
+                return entry.get<std::string>();
+            });
     }
     bool Json::try_get_child(const std::string& key, Json& out_value) const
     {

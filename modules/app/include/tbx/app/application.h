@@ -20,94 +20,84 @@ namespace tbx
         Application(const AppDescription& desc);
         ~Application() noexcept override;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Runs the application main loop and returns the process exit code.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Does not transfer ownership of application resources.
         /// Thread Safety: Not thread-safe; call from the main thread.
-        /// </remarks>
+
         int run();
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the application name.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
+
         const std::string& get_name() const override;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the immutable startup icon handle used for native windows.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
+
         const Handle& get_icon_handle() const override;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the mutable application settings.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
+
         AppSettings& get_settings() override;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the application message coordinator.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
+
         IMessageCoordinator& get_message_coordinator() override;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the application entity manager instance.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
+
         EntityRegistry& get_entity_registry() override;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the application-owned asset manager.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: The application retains ownership; callers receive a reference.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
+
         AssetManager& get_asset_manager() override;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the application job manager for asynchronous scheduling.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Thread-safe according to JobSystem guarantees.
-        /// </remarks>
+
         JobSystem& get_job_system() override;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the application thread manager for dedicated lane scheduling.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Thread-safe according to ThreadManager guarantees.
-        /// </remarks>
+
         ThreadManager& get_thread_manager() override;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the application input manager instance.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        /// </remarks>
+
         InputManager& get_input_manager() override;
 
       private:

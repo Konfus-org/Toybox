@@ -4,13 +4,12 @@
 namespace tbx
 {
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores asynchronous runtime configuration for the application.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Value type owned by callers and by AppSettings.
     /// Thread Safety: Safe for concurrent reads; synchronize concurrent writes externally.
-    /// </remarks>
+
     struct TBX_API AsyncSettings
     {
         JobSystemConfiguration job_system = {};

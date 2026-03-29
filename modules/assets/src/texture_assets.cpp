@@ -47,14 +47,8 @@ namespace tbx
             return result;
         }
 
-        LoadTextureRequest message(
-            asset_path,
-            asset.get(),
-            wrap,
-            filter,
-            format,
-            mipmaps,
-            compression);
+        LoadTextureRequest
+            message(asset_path, asset.get(), wrap, filter, format, mipmaps, compression);
         message.not_handled_behavior = MessageNotHandledBehavior::WARN;
         auto future = dispatcher->post(message);
         AssetPromise<Texture> result = {};
@@ -79,14 +73,8 @@ namespace tbx
             return asset;
         }
 
-        LoadTextureRequest message(
-            asset_path,
-            asset.get(),
-            wrap,
-            filter,
-            format,
-            mipmaps,
-            compression);
+        LoadTextureRequest
+            message(asset_path, asset.get(), wrap, filter, format, mipmaps, compression);
         message.not_handled_behavior = MessageNotHandledBehavior::WARN;
         auto result = dispatcher->send(message);
         if (!result.succeeded())

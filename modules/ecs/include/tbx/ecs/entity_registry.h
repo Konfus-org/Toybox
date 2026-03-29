@@ -12,13 +12,12 @@ namespace tbx
 {
     class Entity;
 
-    /// <summary>
+    /// @brief
     /// Purpose: Owns the ECS registry backend and provides entity lifecycle operations.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Owns the underlying entt registry instance.
     /// Thread Safety: Not thread-safe; synchronize external concurrent access.
-    /// </remarks>
+
     class TBX_API EntityRegistry
     {
       public:
@@ -28,13 +27,12 @@ namespace tbx
         bool is_empty() const;
         void clear();
 
-        /// <summary>
+        /// @brief
         /// Purpose: Checks whether this registry currently owns an entity for the specified id.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Does not transfer ownership; inspects registry-owned entity state only.
         /// Thread Safety: Not thread-safe; synchronize external concurrent access.
-        /// </remarks>
+
         bool has(const Uuid& id) const;
 
         template <typename TComponent>

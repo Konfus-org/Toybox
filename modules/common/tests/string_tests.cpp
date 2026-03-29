@@ -52,7 +52,7 @@ namespace tbx::tests::common
     {
         const std::string value = "path/./file";
 
-        const auto stripped = remove(value, std::string_view{"./"});
+        const auto stripped = remove(value, std::string_view {"./"});
         EXPECT_EQ(stripped, "path/file");
 
         const auto removed_char = remove("a-b-c", '-');

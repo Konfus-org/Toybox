@@ -32,14 +32,13 @@ namespace tbx
         Vec3 scale = Vec3(1.0f);
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Converts a world-space transform into a local-space transform relative to a parent
     /// world-space transform.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Returns an owned Transform value.
     /// Thread Safety: Stateless helper; safe to call concurrently.
-    /// </remarks>
+
     TBX_API Transform
         world_to_local_tranform(const Transform& parent_world, const Transform& world);
 }

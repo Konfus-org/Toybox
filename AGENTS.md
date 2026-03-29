@@ -38,6 +38,15 @@
 
 ## Documentation Expectations
 
+- Use the following exact Doxygen summary structure for public API docs:
+  ```
+  /// @brief
+  /// Purpose: ...
+  /// @details
+  /// Ownership: ...
+  /// Thread Safety: ...
+  ```
+- Do not add summary/documentation comments for constructors, destructors, copy constructors, move constructors, or assignment operators unless there is unusual ownership/threading behavior that truly needs explicit clarification.
 - Every public API (classes, structs, functions, free helpers, message types) must be documented using Doxygen format with:
     1. **Purpose** – what the API does.
     2. **Ownership** – who owns returned or stored resources and lifetime notes (e.g., non-owning pointers, reference expectations).

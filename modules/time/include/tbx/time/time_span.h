@@ -29,7 +29,8 @@ namespace tbx
         TimeUnit unit = TimeUnit::MILLISECONDS;
     };
 
-    /// <summary>Purpose: Formats a TimeSpan value with its unit for display.</summary>
-    /// <remarks>Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for concurrent use.</remarks>
+    /// @brief Purpose: Formats a TimeSpan value with its unit for display.
+    /// @details Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for
+    /// concurrent use.
     TBX_API std::string to_string(const TimeSpan& time_span);
 }

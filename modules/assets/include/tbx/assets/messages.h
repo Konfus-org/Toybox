@@ -12,13 +12,12 @@
 
 namespace tbx
 {
-    /// <summary>
+    /// @brief
     /// Purpose: Base message requesting that an asset payload be loaded.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: The asset pointer is non-owning and owned by the caller.
     /// Thread Safety: Payload access requires external synchronization.
-    /// </remarks>
+
     template <typename TAsset>
     struct LoadAssetRequest : public Request<void>
     {
@@ -34,13 +33,12 @@ namespace tbx
         TAsset* asset = nullptr;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Message requesting that a texture payload be loaded with specific settings.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: The texture asset pointer is non-owning and owned by the caller.
     /// Thread Safety: Payload access requires external synchronization.
-    /// </remarks>
+
     struct TBX_API LoadTextureRequest : public LoadAssetRequest<Texture>
     {
       public:
@@ -69,13 +67,12 @@ namespace tbx
         TextureCompression compression = TextureCompression::AUTO;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Message requesting that a model payload be loaded.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: The model pointer is non-owning and owned by the caller.
     /// Thread Safety: Payload access requires external synchronization.
-    /// </remarks>
+
     struct TBX_API LoadModelRequest : public LoadAssetRequest<Model>
     {
       public:
@@ -85,13 +82,12 @@ namespace tbx
         }
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Message requesting that a shader payload be loaded.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: The shader program pointer is non-owning and owned by the caller.
     /// Thread Safety: Payload access requires external synchronization.
-    /// </remarks>
+
     struct TBX_API LoadShaderRequest : public LoadAssetRequest<Shader>
     {
       public:
@@ -101,13 +97,12 @@ namespace tbx
         }
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Message requesting that a material payload be loaded.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: The material pointer is non-owning and owned by the caller.
     /// Thread Safety: Payload access requires external synchronization.
-    /// </remarks>
+
     struct TBX_API LoadMaterialRequest : public LoadAssetRequest<Material>
     {
       public:
@@ -117,13 +112,12 @@ namespace tbx
         }
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Message requesting that an audio clip payload be loaded.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: The audio clip pointer is non-owning and owned by the caller.
     /// Thread Safety: Payload access requires external synchronization.
-    /// </remarks>
+
     struct TBX_API LoadAudioRequest : public LoadAssetRequest<AudioClip>
     {
       public:

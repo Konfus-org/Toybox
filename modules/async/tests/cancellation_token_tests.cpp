@@ -39,4 +39,3 @@ namespace tbx::tests::async
         EXPECT_TRUE(late.is_cancelled());
     }
 }
-

@@ -13,24 +13,20 @@
 
 namespace tbx
 {
-    /// <summary>
-    /// Defines the plugin ABI version enforced by the host.
-    /// </summary>
-    /// <remarks>
+    /// @brief
     /// Purpose: Compare manifest ABI versions before loading plugins.
+    /// @details
     /// Ownership: Not applicable.
     /// Thread Safety: Immutable constant.
-    /// </remarks>
+
     inline constexpr uint32 PluginAbiVersion = static_cast<uint32>(TBX_PLUGIN_ABI_VERSION);
 
-    /// <summary>
-    /// Defines plugin scheduling categories used to order plugin updates.
-    /// </summary>
-    /// <remarks>
+    /// @brief
     /// Purpose: Describe broad update phases that the host can use when ordering plugin updates.
+    /// @details
     /// Ownership: Not applicable.
     /// Thread Safety: Immutable enum values.
-    /// </remarks>
+
     enum class PluginCategory : uint32
     {
         DEFAULT = 0,
@@ -81,35 +77,32 @@ namespace tbx
         std::filesystem::path library_path;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Parses plugin manifest metadata from disk or raw text.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Does not own file handles; reads data through FileOperator.
     /// Thread Safety: Safe to use concurrently when the file operator is thread-safe.
-    /// </remarks>
+
     class TBX_API PluginMetaParser final
     {
       public:
-        /// <summary>
+        /// @brief
         /// Purpose: Attempts to parse a plugin manifest from disk.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Writes metadata into the caller-provided struct on success.
         /// Thread Safety: Safe to call concurrently when the file operator is thread-safe.
-        /// </remarks>
+
         bool try_parse_from_disk(
             const std::filesystem::path& working_directory,
             const std::filesystem::path& manifest_path,
             PluginMeta& out_meta);
 
-        /// <summary>
+        /// @brief
         /// Purpose: Attempts to parse plugin metadata from raw manifest text.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Writes metadata into the caller-provided struct on success.
         /// Thread Safety: Safe to call concurrently.
-        /// </remarks>
+
         bool try_parse_from_source(
             std::string_view manifest_text,
             const std::filesystem::path& manifest_path,

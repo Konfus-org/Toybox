@@ -889,7 +889,8 @@ namespace opengl_rendering
 
         for (const auto& entity : entities)
         {
-            if (!entity.has_component<tbx::DynamicMesh>() && !entity.has_component<tbx::StaticMesh>())
+            if (!entity.has_component<tbx::DynamicMesh>()
+                && !entity.has_component<tbx::StaticMesh>())
                 continue;
 
             auto default_material_instance = create_default_pbr_material_instance();
@@ -897,7 +898,8 @@ namespace opengl_rendering
             if (entity.has_component<tbx::MaterialInstance>())
                 material_instance = &entity.get_component<tbx::MaterialInstance>();
             if (!material_instance->get_handle().is_valid())
-                default_material_instance = create_default_pbr_material_instance(*material_instance);
+                default_material_instance =
+                    create_default_pbr_material_instance(*material_instance);
             if (!material_instance->get_handle().is_valid())
                 material_instance = &default_material_instance;
 
@@ -915,7 +917,8 @@ namespace opengl_rendering
             const auto material_asset =
                 _resource_manager.get_material_asset(material_instance->material);
 
-            const auto material_config = resolve_material_config(*material_instance, material_asset);
+            const auto material_config =
+                resolve_material_config(*material_instance, material_asset);
             const auto material_parameters =
                 resolve_material_parameters(*material_instance, material_asset);
             const auto material_textures =
@@ -965,8 +968,7 @@ namespace opengl_rendering
             else if (entity.has_component<tbx::StaticMesh>())
             {
                 auto static_mesh = entity.get_component<tbx::StaticMesh>();
-                const auto lod_mesh_handle =
-                    resolve_renderer_mesh_handle(lods, camera_distance);
+                const auto lod_mesh_handle = resolve_renderer_mesh_handle(lods, camera_distance);
                 if (lod_mesh_handle.is_valid())
                     static_mesh.handle = lod_mesh_handle;
                 mesh_key = _resource_manager.add_static_mesh(static_mesh);
@@ -993,11 +995,10 @@ namespace opengl_rendering
                 for (const auto& [name, value] : material_parameters.values)
                     material_params.parameters.push_back(tbx::MaterialParameter(name, value));
             }
-            material_params.render_config =
-                tbx::MaterialRenderConfig {
-                    .depth = material_config.depth,
-                    .transparency = material_config.transparency,
-                };
+            material_params.render_config = tbx::MaterialRenderConfig {
+                .depth = material_config.depth,
+                .transparency = material_config.transparency,
+            };
 
             // Add textures
             material_params.textures.reserve(material_textures.values.size());

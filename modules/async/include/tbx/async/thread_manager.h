@@ -17,35 +17,18 @@
 
 namespace tbx
 {
-    /// <summary>
+    /// @brief
     /// Purpose: Owns named long-running worker threads and per-thread task queues.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Owns all registered lane threads and queued tasks for the manager lifetime.
     /// Thread Safety: `try_create_lane`, `has_lane`, `post`, `post_with_future`, `stop_lane`,
     /// `stop_all`, and `get_lane_count` are thread-safe.
-    /// </remarks>
+
     class TBX_API ThreadManager final
     {
       public:
         using Task = std::move_only_function<void()>;
-
-        /// <summary>
-        /// Purpose: Constructs an empty thread manager with no worker lanes.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Instance owns lane resources created after construction.
-        /// Thread Safety: Construction is not thread-safe for the same instance.
-        /// </remarks>
         ThreadManager() = default;
-
-        /// <summary>
-        /// Purpose: Stops all lanes and releases manager-owned resources.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Releases all owned lane threads and queued tasks.
-        /// Thread Safety: Not thread-safe against concurrent destruction and member calls.
-        /// </remarks>
         ~ThreadManager() noexcept;
 
         ThreadManager(const ThreadManager&) = delete;
@@ -53,41 +36,36 @@ namespace tbx
         ThreadManager(ThreadManager&&) = delete;
         ThreadManager& operator=(ThreadManager&&) = delete;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Creates a named thread lane when it does not already exist.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Manager owns the created lane and its worker thread.
         /// Thread Safety: Thread-safe.
-        /// </remarks>
+
         bool try_create_lane(std::string_view lane_name);
 
-        /// <summary>
+        /// @brief
         /// Purpose: Checks whether a named lane is currently registered.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns value only; no ownership transfer.
         /// Thread Safety: Thread-safe.
-        /// </remarks>
+
         bool has_lane(std::string_view lane_name) const;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Enqueues a fire-and-forget task onto the named lane.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Transfers task ownership to the target lane queue.
         /// Thread Safety: Thread-safe. Throws when lane is missing or stopped.
-        /// </remarks>
+
         void post(std::string_view lane_name, Task&& task);
 
-        /// <summary>
+        /// @brief
         /// Purpose: Enqueues a callable onto the named lane and returns a completion future.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Callable ownership is transferred to the lane queue; returned future is
-        /// owned by the caller.
-        /// Thread Safety: Thread-safe. Throws when lane is missing or stopped.
-        /// </remarks>
+        /// @details
+        /// Ownership: Callable ownership is transferred to the lane queue; returned future is owned
+        /// by the caller. Thread Safety: Thread-safe. Throws when lane is missing or stopped.
+
         template <typename TCallable, typename... TArgs>
             requires std::invocable<TCallable, TArgs...>
         auto post_with_future(std::string_view lane_name, TCallable&& callable, TArgs&&... args)
@@ -109,31 +87,28 @@ namespace tbx
             return task_future;
         }
 
-        /// <summary>
+        /// @brief
         /// Purpose: Stops one lane and removes it from the manager.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Releases ownership of the removed lane and drains queued work.
         /// Thread Safety: Thread-safe. No-op when lane does not exist.
-        /// </remarks>
+
         void stop_lane(std::string_view lane_name);
 
-        /// <summary>
+        /// @brief
         /// Purpose: Stops and removes all lanes.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Releases ownership of all lanes and drains queued work.
         /// Thread Safety: Thread-safe and idempotent.
-        /// </remarks>
+
         void stop_all();
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the count of currently registered lanes.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns value only; no ownership transfer.
         /// Thread Safety: Thread-safe.
-        /// </remarks>
+
         std::size_t get_lane_count() const;
 
       private:

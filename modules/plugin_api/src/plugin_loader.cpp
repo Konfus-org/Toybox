@@ -111,9 +111,8 @@ namespace tbx
 
         for (auto attempt = 0U; attempt < 128U; ++attempt)
         {
-            const auto copy_name =
-                copy_stem + ".load_copy_" + std::to_string(++next_shadow_copy_index)
-                + copy_extension;
+            const auto copy_name = copy_stem + ".load_copy_"
+                                   + std::to_string(++next_shadow_copy_index) + copy_extension;
             const auto copy_path = copy_directory / copy_name;
             if (!file_ops.exists(copy_path))
                 return copy_path;
@@ -192,9 +191,7 @@ namespace tbx
             }
             else
             {
-                TBX_TRACE_WARNING(
-                    "Failed to load plugin module '{}'.",
-                    load_path.string());
+                TBX_TRACE_WARNING("Failed to load plugin module '{}'.", load_path.string());
             }
             return {};
         }

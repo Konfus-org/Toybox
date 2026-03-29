@@ -9,14 +9,13 @@
 
 namespace tbx
 {
-    /// <summary>
+    /// @brief
     /// Purpose: Represents an asynchronous asset load with a ready promise.
-    /// </summary>
-    /// <remarks>
-    /// Ownership: The asset data is shared between the caller and the asset system.
-    /// The promise is shared and can be waited on by multiple callers.
-    /// Thread Safety: Safe to copy between threads; coordinate asset mutation externally.
-    /// </remarks>
+    /// @details
+    /// Ownership: The asset data is shared between the caller and the asset system. The promise is
+    /// shared and can be waited on by multiple callers. Thread Safety: Safe to copy between
+    /// threads; coordinate asset mutation externally.
+
     template <typename TAsset>
     struct AssetPromise
     {
@@ -24,21 +23,19 @@ namespace tbx
         std::shared_future<Result> promise;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Logs a warning when no global dispatcher is available.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Does not transfer ownership.
     /// Thread Safety: Safe to call concurrently.
-    /// </remarks>
+
     TBX_API void warn_missing_dispatcher(std::string_view action);
 
-    /// <summary>
+    /// @brief
     /// Purpose: Creates a shared future that completes with a missing-dispatcher failure.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: The returned future owns its shared state and completes with a failed Result.
     /// Thread Safety: Safe to call concurrently.
-    /// </remarks>
+
     TBX_API std::shared_future<Result> make_missing_dispatcher_future(std::string_view action);
 }

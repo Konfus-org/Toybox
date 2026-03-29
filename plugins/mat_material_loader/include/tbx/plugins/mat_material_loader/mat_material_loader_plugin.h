@@ -9,43 +9,44 @@
 
 namespace mat_material_loader
 {
-    /// <summary>
+    /// @brief
     /// Purpose: Loads material assets from .mat JSON files.
-    /// </summary>
-    /// <remarks>
+
+    /// @details
     /// Ownership: tbx::Plugin lifetime is owned by the host; it keeps non-owning references to the
     /// host. Thread Safety: Handles asset messages on the dispatcher thread; no internal
     /// synchronization.
-    /// </remarks>
+
     class TBX_PLUGIN_API MatMaterialLoaderPlugin final : public tbx::Plugin
     {
       public:
-        /// <summary>
+        /// @brief
         /// Purpose: Captures host references needed for asset resolution.
-        /// </summary>
-        /// <remarks>
+
+        /// @details
         /// Ownership: Does not take ownership of the host.
         /// Thread Safety: Called on the main thread during plugin attach.
-        /// </remarks>
+
         void on_attach(tbx::IPluginHost& host) override;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Releases any cached host references.
-        /// </summary>
-        /// <remarks>
+
+        /// @details
         /// Ownership: Does not destroy host resources.
         /// Thread Safety: Called on the main thread during plugin detach.
-        /// </remarks>
+
         void on_detach() override;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Receives material load requests and dispatches file parsing.
-        /// </summary>
-        /// <remarks>
+
+        /// @brief
+        /// Purpose: synchronization.
+        /// @details
         /// Ownership: Does not take ownership of messages or asset payloads.
         /// Thread Safety: Executes on the dispatcher thread; relies on tbx::Material payload
-        /// synchronization.
-        /// </remarks>
+
         void on_recieve_message(tbx::Message& msg) override;
 
       private:

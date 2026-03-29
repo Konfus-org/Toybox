@@ -26,13 +26,12 @@ namespace tbx
     using TextureBindings = MaterialTextureBindings;
     using Depth = MaterialDepthConfig;
 
-    /// <summary>
+    /// @brief
     /// Purpose: Selects the depth comparison function used when rendering a material.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-    /// </remarks>
+
     enum class MaterialDepthFunction : uint8_t
     {
         Less = 0,
@@ -40,26 +39,24 @@ namespace tbx
         Always = 2
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Selects the transparency path used when rendering a material.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-    /// </remarks>
+
     enum class MaterialBlendMode : uint8_t
     {
         Opaque = 0,
         AlphaBlend = 1
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Controls when shadows are rendered for a material.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-    /// </remarks>
+
     enum class ShadowMode : uint8_t
     {
         None = 0,
@@ -67,13 +64,12 @@ namespace tbx
         Always = 2
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores one named material parameter value.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Owns the parameter name by value and stores the parameter payload inline.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    /// </remarks>
+
     struct TBX_API MaterialParameter
     {
         MaterialParameter() = default;
@@ -89,13 +85,12 @@ namespace tbx
         MaterialParameterData data = 0.0f;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores named parameter bindings for a material or material instance.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Owns all parameter entries by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    /// </remarks>
+
     struct TBX_API MaterialParameterBindings
     {
         using iterator = std::vector<MaterialParameter>::iterator;
@@ -126,26 +121,24 @@ namespace tbx
         std::vector<MaterialParameter> values = {};
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores one named texture binding.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Owns the binding name by value and texture instance by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    /// </remarks>
+
     struct TBX_API MaterialTextureBinding
     {
         std::string name = {};
         TextureInstance texture = {};
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores named texture bindings for a material or material instance.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Owns all texture entries by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    /// </remarks>
+
     struct TBX_API MaterialTextureBindings
     {
         using iterator = std::vector<MaterialTextureBinding>::iterator;
@@ -177,13 +170,12 @@ namespace tbx
         std::vector<MaterialTextureBinding> values = {};
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Describes depth-test state for a material.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-    /// </remarks>
+
     struct TBX_API MaterialDepthConfig
     {
         bool is_test_enabled = true;
@@ -192,38 +184,35 @@ namespace tbx
         MaterialDepthFunction function = MaterialDepthFunction::Less;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Describes blend-path selection for a material.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-    /// </remarks>
+
     struct TBX_API MaterialTransparencyConfig
     {
         MaterialBlendMode blend_mode = MaterialBlendMode::Opaque;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores depth and transparency state used by the GPU pipeline.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-    /// </remarks>
+
     struct TBX_API MaterialRenderConfig
     {
         Depth depth = {};
         MaterialTransparencyConfig transparency = {};
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores render-state configuration loaded from a material asset.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Value type owned by the containing material asset.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    /// </remarks>
+
     struct TBX_API MaterialConfig
     {
         Depth depth = {};
@@ -233,15 +222,13 @@ namespace tbx
         ShadowMode shadow_mode = ShadowMode::Standard;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores the shader program, default bindings, and render config for a material
     /// asset.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Owns shader handles, default parameter bindings, default texture bindings, and
-    /// config by value.
-    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    /// </remarks>
+    /// config by value. Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+
     struct TBX_API Material
     {
         ShaderProgram program = {};
@@ -250,13 +237,12 @@ namespace tbx
         MaterialConfig config = {};
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores a material asset handle plus flat runtime override data.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Owns the material handle and all override bindings by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    /// </remarks>
+
     struct TBX_API MaterialInstance
     {
         MaterialInstance();
@@ -308,13 +294,12 @@ namespace tbx
         bool _has_depth_override = false;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores the sky material instance used for environment rendering.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Owns the material instance by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    /// </remarks>
+
     struct TBX_API Sky
     {
         MaterialInstance material = {};

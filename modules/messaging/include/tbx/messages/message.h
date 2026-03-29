@@ -84,37 +84,34 @@ namespace tbx
         virtual ~Request() noexcept = default;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Represents a subscriber callback invoked by the message coordinator during
     /// dispatch.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Non-owning. The coordinator stores a copy of the callable.
     /// Thread Safety: Invoked on the coordinator's calling thread; handlers should avoid blocking
     /// and must manage their own synchronization if touching shared state.
-    /// </remarks>
+
     using MessageHandler = std::function<void(Message&)>;
 
-    /// <summary>
+    /// @brief
     /// Purpose: Retrieves a typed message pointer from a const base message reference.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Non-owning; the returned pointer borrows from the input message.
     /// Thread Safety: Matches the caller's context. No synchronization is applied.
-    /// </remarks>
+
     template <typename TMessage>
     const TMessage* handle_message(const Message& message)
     {
         return dynamic_cast<const TMessage*>(&message);
     }
 
-    /// <summary>
+    /// @brief
     /// Purpose: Retrieves a typed message pointer from a mutable base message reference.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Non-owning; the returned pointer borrows from the input message.
     /// Thread Safety: Matches the caller's context. No synchronization is applied.
-    /// </remarks>
+
     template <typename TMessage>
     TMessage* handle_message(Message& message)
     {

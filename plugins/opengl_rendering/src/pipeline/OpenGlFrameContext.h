@@ -23,13 +23,13 @@ namespace opengl_rendering
         std::vector<tbx::Mat4> transforms;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Captures one mesh batch for directional shadow-map rendering.
-    /// </summary>
-    /// <remarks>
+
+    /// @details
     /// Ownership: Stores mesh handles and transforms by value for one frame.
     /// Thread Safety: Safe to move between threads; render-thread mutation only.
-    /// </remarks>
+
     struct ShadowDrawCall
     {
         bool is_two_sided = false;
@@ -39,13 +39,13 @@ namespace opengl_rendering
         std::vector<float> bounds_radii;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Captures one transparent surface draw submitted after deferred lighting.
-    /// </summary>
-    /// <remarks>
+
+    /// @details
     /// Ownership: Stores mesh, transform, and material data by value for one frame.
     /// Thread Safety: Safe to move between threads; render-thread mutation only.
-    /// </remarks>
+
     struct TransparentDrawCall
     {
         tbx::Uuid shader_program = {};
@@ -56,13 +56,13 @@ namespace opengl_rendering
         float camera_distance_squared = 0.0F;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Captures one directional light in the render-thread frame payload.
-    /// </summary>
-    /// <remarks>
+
+    /// @details
     /// Ownership: Value type copied into the frame context.
     /// Thread Safety: Safe to copy between threads; render-thread mutation only.
-    /// </remarks>
+
     struct DirectionalLightFrameData
     {
         tbx::Vec3 direction = tbx::Vec3(0.0F, 0.0F, -1.0F);
@@ -75,13 +75,13 @@ namespace opengl_rendering
         float padding1 = 0.0F;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores one stabilized directional shadow cascade for the lighting pass.
-    /// </summary>
-    /// <remarks>
+
+    /// @details
     /// Ownership: Value type copied into the frame context and GPU upload payloads.
     /// Thread Safety: Safe to copy between threads; render-thread mutation only.
-    /// </remarks>
+
     struct ShadowCascadeFrameData
     {
         tbx::Mat4 light_view_projection = tbx::Mat4(1.0F);
@@ -94,13 +94,13 @@ namespace opengl_rendering
         float padding1 = 0.0F;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores one projected local-light shadow map for spot and area lights.
-    /// </summary>
-    /// <remarks>
+
+    /// @details
     /// Ownership: Value type copied into the frame context and GPU upload payloads.
     /// Thread Safety: Safe to copy between threads; render-thread mutation only.
-    /// </remarks>
+
     struct ProjectedShadowFrameData
     {
         tbx::Mat4 light_view_projection = tbx::Mat4(1.0F);
@@ -114,13 +114,13 @@ namespace opengl_rendering
         float padding2 = 0.0F;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores directional shadow-map state consumed by render passes for one frame.
-    /// </summary>
-    /// <remarks>
+
+    /// @details
     /// Ownership: Owns cascade values by copy and references no external resources.
     /// Thread Safety: Safe to copy between threads; render-thread mutation only.
-    /// </remarks>
+
     struct ShadowFrameData
     {
         tbx::uint32 directional_map_resolution = 2048U;
@@ -133,13 +133,13 @@ namespace opengl_rendering
         std::vector<ProjectedShadowFrameData> area_maps = {};
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Captures one point light in the render-thread frame payload.
-    /// </summary>
-    /// <remarks>
+
+    /// @details
     /// Ownership: Value type copied into the frame context.
     /// Thread Safety: Safe to copy between threads; render-thread mutation only.
-    /// </remarks>
+
     struct PointLightFrameData
     {
         tbx::Vec3 position = tbx::Vec3(0.0F, 0.0F, 0.0F);
@@ -151,13 +151,13 @@ namespace opengl_rendering
         float padding1 = 0.0F;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Captures one spot light in the render-thread frame payload.
-    /// </summary>
-    /// <remarks>
+
+    /// @details
     /// Ownership: Value type copied into the frame context.
     /// Thread Safety: Safe to copy between threads; render-thread mutation only.
-    /// </remarks>
+
     struct SpotLightFrameData
     {
         tbx::Vec3 position = tbx::Vec3(0.0F, 0.0F, 0.0F);
@@ -171,13 +171,13 @@ namespace opengl_rendering
         float padding0 = 0.0F;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Captures one rectangular area light in the render-thread frame payload.
-    /// </summary>
-    /// <remarks>
+
+    /// @details
     /// Ownership: Value type copied into the frame context.
     /// Thread Safety: Safe to copy between threads; render-thread mutation only.
-    /// </remarks>
+
     struct AreaLightFrameData
     {
         tbx::Vec3 position = tbx::Vec3(0.0F, 0.0F, 0.0F);

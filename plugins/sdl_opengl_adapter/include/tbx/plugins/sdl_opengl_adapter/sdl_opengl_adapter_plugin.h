@@ -8,13 +8,13 @@
 #include <memory>
 #include <unordered_map>
 
-
 namespace sdl_opengl_adapter
 {
-    /// <summary>Hosts SDL/OpenGL adapter code as a standalone plugin module.</summary>
-    /// <remarks>Purpose: Packages SDL OpenGL bridging utilities into a dedicated plugin for reuse.
+    /// @brief
+    /// Purpose: Packages SDL OpenGL bridging utilities into a dedicated plugin for reuse.
+    /// @details
     /// Ownership: Owns no persistent resources by default.
-    /// Thread Safety: Expected to be attached/detached on the main thread.</remarks>
+    /// Thread Safety: Expected to be attached/detached on the main thread.
     class TBX_PLUGIN_API SdlOpenGlAdapterPlugin final : public tbx::Plugin
     {
       public:
