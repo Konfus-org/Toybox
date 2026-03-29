@@ -8,8 +8,19 @@ target_sources(${plugin_name} PRIVATE ${SRCS})
 target_include_directories(${plugin_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_include_directories(${plugin_name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(${plugin_name} PRIVATE
+        Tbx::Common
         Tbx::App
+        Tbx::PluginApi
+        Tbx::Time
+        EnTT::EnTT
+        Tbx::Input
+        Tbx::ECS
         Tbx::Assets
+        Tbx::Debugging
+        Tbx::Resources
+        Tbx::Audio
+        Tbx::Messaging
+        Tbx::Async
         Tbx::Files
         Tbx::Graphics
         stbimg
