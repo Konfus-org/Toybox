@@ -15,18 +15,24 @@ endif()
 add_library(Tbx::${module_name} ALIAS ${module_name})
 
 target_link_libraries(${module_name}
-    PUBLIC
+    PRIVATE
+        Tbx::Common
         Tbx::Time
-        Tbx::Math
-        Tbx::Messaging
         Tbx::Input
         Tbx::PluginApi
         Tbx::ECS
-        Tbx::Debugging
         Tbx::Graphics
         Tbx::Physics
         Tbx::Assets
+        Tbx::Audio
+        Tbx::Resources
         Tbx::Async
+        Tbx::Math
+        glm
+        Tbx::Messaging
+        Tbx::Debugging
+        EnTT::EnTT
+        Tbx::Files
 )
 
 tbx_setup_module(${module_name})

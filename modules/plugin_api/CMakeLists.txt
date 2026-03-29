@@ -16,15 +16,19 @@ endif()
 add_library(Tbx::${module_name} ALIAS ${module_name})
 
 target_link_libraries(${module_name}
-    PUBLIC
+    PRIVATE
+        Tbx::Common
         Tbx::Assets
+        Tbx::Resources
+        Tbx::Audio
         Tbx::ECS
-        Tbx::Messaging
+        EnTT::EnTT
         Tbx::Input
+        Tbx::Time
         Tbx::Async
         Tbx::Debugging
+        Tbx::Messaging
         Tbx::Files
-    PRIVATE
         nlohmann_json
 )
 
