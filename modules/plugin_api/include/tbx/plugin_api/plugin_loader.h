@@ -35,24 +35,22 @@ namespace tbx
     // Thread-safety: Not thread-safe; call from the main thread.
     TBX_API void unload_plugins(std::vector<LoadedPlugin>& loaded_plugins);
 
-    /// <summary>
+    /// @brief
     /// Purpose: Updates loaded plugins in deterministic category/priority order for
     /// variable-timestep frame updates.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Does not take ownership of plugin instances.
     /// Thread Safety: Not thread-safe; call from the main thread.
-    /// </remarks>
+
     TBX_API void update_plugins(std::vector<LoadedPlugin>& loaded_plugins, const DeltaTime& dt);
 
-    /// <summary>
+    /// @brief
     /// Purpose: Updates loaded plugins in deterministic category/priority order for fixed-timestep
     /// simulation updates.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Does not take ownership of plugin instances.
     /// Thread Safety: Not thread-safe; call from the main thread.
-    /// </remarks>
+
     TBX_API void update_plugins_fixed(
         std::vector<LoadedPlugin>& loaded_plugins,
         const DeltaTime& dt);

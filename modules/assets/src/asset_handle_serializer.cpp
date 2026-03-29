@@ -125,8 +125,11 @@ namespace tbx
         replacement += "\"";
 
         const auto id_pattern = std::regex("\\\"id\\\"\\s*:\\s*\\\"[^\\\"]*\\\"");
-        auto updated =
-            std::regex_replace(existing, id_pattern, replacement, std::regex_constants::format_first_only);
+        auto updated = std::regex_replace(
+            existing,
+            id_pattern,
+            replacement,
+            std::regex_constants::format_first_only);
         if (updated == existing)
         {
             auto closing_brace = existing.find_last_of('}');

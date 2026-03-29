@@ -14,8 +14,9 @@ namespace tbx
         double milliseconds = 0.0;
     };
 
-    /// <summary>Purpose: Formats a DeltaTime as a human-readable string.</summary>
-    /// <remarks>Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for concurrent use.</remarks>
+    /// @brief Purpose: Formats a DeltaTime as a human-readable string.
+    /// @details Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for
+    /// concurrent use.
     TBX_API std::string to_string(const DeltaTime& delta_time);
 
     // Simple per-thread timer to compute DeltaTime.
@@ -31,7 +32,7 @@ namespace tbx
         // Advances the timer and returns the time since the previous tick
         DeltaTime tick();
 
-       private:
+      private:
         std::chrono::steady_clock::time_point _last;
     };
 

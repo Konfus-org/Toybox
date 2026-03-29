@@ -85,10 +85,6 @@ namespace tbx::tests::plugin_loader
         ::tbx::JobSystem _job_manager;
         ::tbx::ThreadManager _thread_manager;
     };
-
-    /// <summary>
-    /// Validates no plugins are loaded when no metadata is provided.
-    /// </summary>
     TEST(plugin_loader, returns_empty_when_no_metadata_is_provided)
     {
         // Arrange
@@ -102,10 +98,6 @@ namespace tbx::tests::plugin_loader
         // Assert
         ASSERT_TRUE(loaded.empty());
     }
-
-    /// <summary>
-    /// Confirms mismatched ABI versions prevent a plugin from loading.
-    /// </summary>
     TEST(plugin_loader, rejects_plugin_with_mismatched_abi_version)
     {
         // Arrange
@@ -121,10 +113,6 @@ namespace tbx::tests::plugin_loader
         // Assert
         ASSERT_TRUE(loaded.empty());
     }
-
-    /// <summary>
-    /// Verifies load failures return an empty result when a dynamic plugin cannot be opened.
-    /// </summary>
     TEST(plugin_loader, returns_empty_when_dynamic_module_cannot_be_loaded)
     {
         // Arrange

@@ -6,13 +6,13 @@
 
 namespace opengl_rendering
 {
-    /// <summary>
+    /// @brief
     /// Purpose: Stores OpenGL-resolved data for a model part.
-    /// </summary>
-    /// <remarks>
+
+    /// @details
     /// Ownership: Owns transform and child index data; references GPU resources by UUID.
     /// Thread Safety: Not thread-safe; use on the render thread.
-    /// </remarks>
+
     struct OpenGlModelPart
     {
         tbx::Mat4 transform = tbx::Mat4(1.0f);
@@ -21,13 +21,13 @@ namespace opengl_rendering
         std::vector<tbx::uint32> children = {};
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Represents a GPU-ready model cache for OpenGL rendering.
-    /// </summary>
-    /// <remarks>
+
+    /// @details
     /// Ownership: Owns part hierarchy data and mesh references by UUID.
     /// Thread Safety: Not thread-safe; use on the render thread.
-    /// </remarks>
+
     struct OpenGlModel
     {
         tbx::Uuid model_id = {};

@@ -10,12 +10,14 @@
 
 namespace tbx::tests::plugin_api
 {
-    /// <summary>
+    /// @brief
     /// Purpose: Provides an in-memory implementation of file operations for plugin tests.
+    /// @details
     /// Ownership: Owns all staged file contents internally; callers pass paths/data by value and
-    /// receive copied data. Thread Safety: Not thread-safe; use on a single thread or protect with
-    /// external synchronization.
-    /// </summary>
+    /// receive copied data.
+    /// Thread Safety: Not thread-safe; use on a single thread or protect with external
+    /// synchronization.
+
     class InMemoryFileOps final : public IFileOps
     {
       public:
@@ -89,11 +91,11 @@ namespace tbx::tests::plugin_api
         std::unordered_map<std::filesystem::path, std::string> _files = {};
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Returns a deterministic absolute-style working directory path for tests on each
     /// platform. Ownership: Returns a value path object with no shared lifetime requirements.
     /// Thread Safety: Thread-safe; no shared mutable state.
-    /// </summary>
+
     static std::filesystem::path get_test_working_directory()
     {
 #if defined(_WIN32)
@@ -103,12 +105,12 @@ namespace tbx::tests::plugin_api
 #endif
     }
 
-    /// <summary>
+    /// @brief
     /// Purpose: Minimal plugin host implementation that exposes engine services needed by importer
     /// tests. Ownership: Owns coordinator, registry, settings, and asset manager for the test
     /// lifetime. Thread Safety: Not thread-safe; intended for single-threaded test setup and
     /// execution.
-    /// </summary>
+
     class TestPluginHost final : public IPluginHost
     {
       public:

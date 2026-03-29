@@ -9,10 +9,12 @@
 
 namespace opengl_rendering
 {
-    /// <summary>OpenGL vertex buffer resource.</summary>
-    /// <remarks>Purpose: Owns vertex data uploaded to GPU memory and configures VAO attribute
-    /// state. Ownership: Owns the OpenGL buffer handle and never owns caller-provided CPU data.
-    /// Thread Safety: Not thread-safe; call from the render thread.</remarks>
+    /// @brief
+    /// Purpose: OpenGL vertex buffer resource.
+    /// @details
+    /// Ownership: Owns vertex data uploaded to GPU memory, configures VAO attribute state, and
+    /// owns the OpenGL buffer handle without owning caller-provided CPU data.
+    /// Thread Safety: Not thread-safe; call from the render thread.
     class OpenGlVertexBuffer final : public IOpenGlResource
     {
       public:
@@ -34,10 +36,11 @@ namespace opengl_rendering
         tbx::uint32 _count = 0;
     };
 
-    /// <summary>OpenGL index buffer resource.</summary>
-    /// <remarks>Purpose: Owns index data uploaded to GPU memory and binds it to a VAO.
+    /// @brief
+    /// Purpose: Owns index data uploaded to GPU memory and binds it to a VAO.
+    /// @details
     /// Ownership: Owns the OpenGL buffer handle and never owns caller-provided CPU data.
-    /// Thread Safety: Not thread-safe; call from the render thread.</remarks>
+    /// Thread Safety: Not thread-safe; call from the render thread.
     class OpenGlIndexBuffer final : public IOpenGlResource
     {
       public:
@@ -59,14 +62,14 @@ namespace opengl_rendering
         tbx::uint32 _count = 0;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Owns deferred-rendering attachments used by future multi-pass rendering and debug
     /// presentation.
-    /// </summary>
-    /// <remarks>
+
+    /// @details
     /// Ownership: Owns OpenGL framebuffer and texture handles for the lifetime of this object.
     /// Thread Safety: Not thread-safe; use only on the active render thread/context.
-    /// </remarks>
+
     class OpenGlGBuffer final : public IOpenGlResource
     {
       public:
@@ -75,74 +78,84 @@ namespace opengl_rendering
         OpenGlGBuffer& operator=(const OpenGlGBuffer&) = delete;
         ~OpenGlGBuffer() noexcept override;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Recreates render targets to match the supplied dimensions.
+        /// @details
         /// Ownership: Keeps ownership of all allocated OpenGL objects.
         /// Thread Safety: Not thread-safe; caller must synchronize access.
-        /// </summary>
+
         void resize(const tbx::Size& size);
 
-        /// <summary>
+        /// @brief
         /// Purpose: Prepares the deferred framebuffer for geometry rendering.
+        /// @details
         /// Ownership: Does not transfer framebuffer ownership.
         /// Thread Safety: Not thread-safe; render-thread only.
-        /// </summary>
+
         void prepare_geometry_pass() const;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Copies the selected render stage texture to the default framebuffer.
+        /// @details
         /// Ownership: Does not transfer ownership of any OpenGL object.
         /// Thread Safety: Not thread-safe; render-thread only.
-        /// </summary>
+
         void present(tbx::RenderStage render_stage, const tbx::Size& viewport_size) const;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Prepares the deferred framebuffer for passes that only write final color.
+        /// @details
         /// Ownership: Does not transfer ownership of any OpenGL object.
         /// Thread Safety: Not thread-safe; render-thread only.
-        /// </summary>
+
         void bind() override;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Restores rendering to the default framebuffer.
+        /// @details
         /// Ownership: Does not transfer ownership of any OpenGL object.
         /// Thread Safety: Not thread-safe; render-thread only.
-        /// </summary>
+
         void unbind() override;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the albedo texture used by deferred lighting.
+        /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle.
         /// Thread Safety: Not thread-safe; render-thread only.
-        /// </summary>
+
         GLuint get_albedo_texture() const;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the normal texture used by deferred lighting.
+        /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle.
         /// Thread Safety: Not thread-safe; render-thread only.
-        /// </summary>
+
         GLuint get_normal_texture() const;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the emissive texture used by deferred lighting.
+        /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle.
         /// Thread Safety: Not thread-safe; render-thread only.
-        /// </summary>
+
         GLuint get_emissive_texture() const;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the packed material-properties texture used by deferred lighting.
+        /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle.
         /// Thread Safety: Not thread-safe; render-thread only.
-        /// </summary>
+
         GLuint get_material_texture() const;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the depth texture used for position reconstruction.
+        /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle.
         /// Thread Safety: Not thread-safe; render-thread only.
-        /// </summary>
+
         GLuint get_depth_texture() const;
 
       private:

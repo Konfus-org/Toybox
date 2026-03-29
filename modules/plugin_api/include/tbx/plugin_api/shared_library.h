@@ -14,9 +14,7 @@ namespace tbx
     class TBX_API SharedLibrary
     {
       public:
-        SharedLibrary(
-            std::filesystem::path path,
-            std::filesystem::path cleanup_path = {});
+        SharedLibrary(std::filesystem::path path, std::filesystem::path cleanup_path = {});
         ~SharedLibrary() noexcept;
 
         SharedLibrary(const SharedLibrary&) = delete;
@@ -45,12 +43,13 @@ namespace tbx
             return _path;
         }
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the operating-system error captured during the last library load
         /// attempt.
+        /// @details
         /// Ownership: Writes a copy of the stored message into the caller-provided string.
         /// Thread Safety: Not thread-safe; synchronize external access if shared.
-        /// </summary>
+
         bool try_get_load_error_message(std::string& out_error_message) const;
 
       private:

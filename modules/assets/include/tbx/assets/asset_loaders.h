@@ -8,13 +8,12 @@
 
 namespace tbx
 {
-    /// <summary>
+    /// @brief
     /// Purpose: Selects the loader endpoints for a given asset type.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Returns AssetPromise or shared asset pointers owned by the caller.
     /// Thread Safety: Safe to call concurrently; delegates to thread-safe loaders.
-    /// </remarks>
+
     template <typename TAsset>
     struct AssetLoader
     {
@@ -31,13 +30,12 @@ namespace tbx
         }
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Provides the async loader specialization for Model assets.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Returns an AssetPromise that shares ownership with the caller.
     /// Thread Safety: Safe to call concurrently.
-    /// </remarks>
+
     template <>
     struct AssetLoader<Model>
     {
@@ -52,13 +50,12 @@ namespace tbx
         }
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Provides the async loader specialization for Texture assets.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Returns an AssetPromise that shares ownership with the caller.
     /// Thread Safety: Safe to call concurrently.
-    /// </remarks>
+
     template <>
     struct AssetLoader<Texture>
     {
@@ -85,13 +82,12 @@ namespace tbx
         }
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Provides the async loader specialization for AudioClip assets.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Returns an AssetPromise that shares ownership with the caller.
     /// Thread Safety: Safe to call concurrently.
-    /// </remarks>
+
     template <>
     struct AssetLoader<AudioClip>
     {
@@ -106,13 +102,12 @@ namespace tbx
         }
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Provides the async loader specialization for Shader assets.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Returns an AssetPromise that shares ownership with the caller.
     /// Thread Safety: Safe to call concurrently.
-    /// </remarks>
+
     template <>
     struct AssetLoader<Shader>
     {
@@ -127,13 +122,12 @@ namespace tbx
         }
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Provides the async loader specialization for Material assets.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Returns an AssetPromise that shares ownership with the caller.
     /// Thread Safety: Safe to call concurrently.
-    /// </remarks>
+
     template <>
     struct AssetLoader<Material>
     {

@@ -20,13 +20,12 @@
 
 namespace tbx
 {
-    /// <summary>
+    /// @brief
     /// Purpose: Describes the streaming state for an asset record.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Does not own any resources.
     /// Thread Safety: Safe to copy between threads.
-    /// </remarks>
+
     enum class AssetStreamState
     {
         UNLOADED,
@@ -34,13 +33,12 @@ namespace tbx
         LOADED
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Captures usage details for an asset tracked by the manager.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Does not own any resources.
     /// Thread Safety: Safe to copy between threads.
-    /// </remarks>
+
     struct AssetUsage
     {
         uint ref_count = 0U;
@@ -49,69 +47,63 @@ namespace tbx
         std::chrono::steady_clock::time_point last_access = {};
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Provides texture-specific load parameters for AssetManager::load.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Value type settings owned by the caller.
     /// Thread Safety: Safe to copy between threads.
-    /// </remarks>
+
     struct TextureLoadParameters
     {
         TextureSettings settings = {};
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Provides model-specific load parameters for AssetManager::load.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-    /// </remarks>
+
     struct ModelLoadParameters
     {
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Provides shader-specific load parameters for AssetManager::load.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-    /// </remarks>
+
     struct ShaderLoadParameters
     {
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Provides material-specific load parameters for AssetManager::load.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-    /// </remarks>
+
     struct MaterialLoadParameters
     {
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Provides audio-specific load parameters for AssetManager::load.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-    /// </remarks>
+
     struct AudioLoadParameters
     {
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Holds resolved and normalized asset paths with a hashed key.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Stores path copies owned by the record.
     /// Thread Safety: Safe to copy between threads.
-    /// </remarks>
+
     struct NormalizedAssetPath
     {
         std::filesystem::path resolved_path;
@@ -119,13 +111,12 @@ namespace tbx
         Uuid path_key = {};
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Maps an asset path to its resolved UUID metadata.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Stores path copies owned by the registry.
     /// Thread Safety: Safe to copy between threads.
-    /// </remarks>
+
     struct AssetRegistryEntry
     {
         std::filesystem::path resolved_path;
@@ -134,13 +125,12 @@ namespace tbx
         Uuid id = {};
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Defines the interface for per-type asset stores.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Implementations own their tracked asset records.
     /// Thread Safety: Requires external synchronization by AssetManager.
-    /// </remarks>
+
     struct IAssetStore
     {
         virtual ~IAssetStore() = default;
@@ -148,13 +138,12 @@ namespace tbx
         virtual void set_pinned(Uuid path_key, bool is_pinned) = 0;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores the runtime state for a single tracked asset.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Owns the shared asset instance and load promise.
     /// Thread Safety: Requires external synchronization by AssetManager.
-    /// </remarks>
+
     template <typename TAsset>
     struct AssetRecord
     {
@@ -169,13 +158,12 @@ namespace tbx
         bool has_texture_settings = false;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores tracked assets for a single payload type.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Owns AssetRecord instances for its asset type.
     /// Thread Safety: Requires external synchronization by AssetManager.
-    /// </remarks>
+
     template <typename TAsset>
     struct AssetStore final : IAssetStore
     {
@@ -208,37 +196,22 @@ namespace tbx
         }
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Tracks streamed assets by normalized path and maintains usage metadata.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Owns shared asset instances for loaded assets and releases them when streamed
     /// out. Thread Safety: All public member functions are synchronized internally.
-    /// </remarks>
+
     class TBX_API AssetManager final
     {
       public:
-        /// <summary>
+        /// @brief
         /// Purpose: Supplies asset metadata without requiring disk access.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: The manager stores a copy of the callable.
         /// Thread Safety: The callable must be safe to invoke concurrently.
-        /// </remarks>
-        using HandleSource = std::function<bool(const std::filesystem::path&, Handle& out_handle)>;
 
-        /// <summary>
-        /// Purpose: Initializes the manager with a working directory, asset search roots, and an
-        /// optional handle source and optional asset handle serializer.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Takes ownership of the working directory and asset path values for
-        /// internal use and stores the handle source and takes ownership of the serializer when
-        /// provided. Thread Safety: Not thread-safe; construct on a single thread before sharing.
-        /// The handle source and serializer must be safe to invoke concurrently. When
-        /// include_default_resources is false, the constructor skips adding the built-in resources
-        /// directory.
-        /// </remarks>
+        using HandleSource = std::function<bool(const std::filesystem::path&, Handle& out_handle)>;
         explicit AssetManager(
             std::filesystem::path working_directory,
             std::vector<std::filesystem::path> asset_directories = {},
@@ -251,13 +224,12 @@ namespace tbx
         AssetManager& operator=(AssetManager&&) = delete;
         ~AssetManager() = default;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Loads an asset by handle synchronously and tracks usage.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         template <typename TAsset>
         std::shared_ptr<TAsset> load(const Handle& handle)
         {
@@ -295,72 +267,66 @@ namespace tbx
             return record.asset;
         }
 
-        /// <summary>
+        /// @brief
         /// Purpose: Loads a texture with explicit load parameters and tracks usage.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a shared texture instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         std::shared_ptr<Texture> load(
             const Handle& handle,
             const TextureLoadParameters& parameters);
 
-        /// <summary>
+        /// @brief
         /// Purpose: Loads a model with explicit load parameters and tracks usage.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a shared model instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         std::shared_ptr<Model> load(const Handle& handle, const ModelLoadParameters&)
         {
             return load<Model>(handle);
         }
 
-        /// <summary>
+        /// @brief
         /// Purpose: Loads a shader with explicit load parameters and tracks usage.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a shared shader instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         std::shared_ptr<Shader> load(const Handle& handle, const ShaderLoadParameters&)
         {
             return load<Shader>(handle);
         }
 
-        /// <summary>
+        /// @brief
         /// Purpose: Loads a material with explicit load parameters and tracks usage.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a shared material instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         std::shared_ptr<Material> load(const Handle& handle, const MaterialLoadParameters&)
         {
             return load<Material>(handle);
         }
 
-        /// <summary>
+        /// @brief
         /// Purpose: Loads an audio clip with explicit load parameters and tracks usage.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a shared audio instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         std::shared_ptr<AudioClip> load(const Handle& handle, const AudioLoadParameters&)
         {
             return load<AudioClip>(handle);
         }
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns usage metadata for a tracked asset handle.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns caller-owned usage data by value.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         template <typename TAsset>
         AssetUsage get_usage(const Handle& handle) const
         {
@@ -379,58 +345,52 @@ namespace tbx
             return build_usage(*record);
         }
 
-        /// <summary>
+        /// @brief
         /// Purpose: Resolves a handle to the registered asset UUID for caching or lookup.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a UUID value; no ownership transfer.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         Uuid resolve_asset_id(const Handle& handle);
 
-        /// <summary>
+        /// @brief
         /// Purpose: Resolves an asset path against the configured asset roots.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a path value owned by the caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         std::filesystem::path resolve_asset_path(const std::filesystem::path& asset_path) const;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Resolves a handle to its registered absolute asset path when available.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a path value owned by the caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         std::filesystem::path resolve_asset_path(const Handle& handle) const;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Adds an asset directory to the search list.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Copies the provided path into internal storage.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         void add_asset_directory(const std::filesystem::path& path);
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the ordered list of asset search roots.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a copy; callers own the returned paths.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         std::vector<std::filesystem::path> get_asset_directories() const;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Loads an asset asynchronously and tracks usage metadata.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns an AssetPromise that shares ownership with the caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         template <typename TAsset>
         AssetPromise<TAsset> load_async(const Handle& handle)
         {
@@ -468,13 +428,12 @@ namespace tbx
             return result;
         }
 
-        /// <summary>
+        /// @brief
         /// Purpose: Streams an asset out if it is unreferenced or forced.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Releases the manager-owned asset instance when streaming out.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         template <typename TAsset>
         bool unload(const Handle& handle, bool force = false)
         {
@@ -503,31 +462,28 @@ namespace tbx
             return true;
         }
 
-        /// <summary>
+        /// @brief
         /// Purpose: Streams out all assets of all types.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Releases manager-owned asset instances that are safe to evict.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         void unload_all();
 
-        /// <summary>
+        /// @brief
         /// Purpose: Streams out all unreferenced, unpinned assets and reclaims memory.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Releases manager-owned asset instances that are safe to evict.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         void unload_unreferenced();
 
-        /// <summary>
+        /// @brief
         /// Purpose: Reloads a streamed asset and swaps the managed asset instance.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Replaces the manager-owned asset instance with the newly loaded instance.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         template <typename TAsset>
         bool reload(const Handle& handle)
         {
@@ -563,13 +519,12 @@ namespace tbx
             return succeeded;
         }
 
-        /// <summary>
+        /// @brief
         /// Purpose: Pins or unpins a tracked asset to prevent automatic streaming out.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Retains manager ownership of the asset instance while pinned.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        /// </remarks>
+
         void set_pinned(const Handle& handle, bool is_pinned);
 
       private:

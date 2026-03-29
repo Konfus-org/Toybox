@@ -110,8 +110,7 @@ namespace tbx
     // ----------------------
 
     AppMessageCoordinator::AppMessageCoordinator()
-        : _handlers_snapshot(
-              std::make_shared<const std::vector<RegisteredMessageHandler>>())
+        : _handlers_snapshot(std::make_shared<const std::vector<RegisteredMessageHandler>>())
     {
     }
 

@@ -24,11 +24,12 @@ namespace tbx::tests::file_system
 
     TEST(JsonTests, ReadsStructuredMathTypes)
     {
-        const std::string text = "{\n"
-                                 "  \"color\": [0.1, 0.2, 0.3, 1.0],\n"
-                                 "  \"position\": [2.0, 3.0, 4.0],\n"
-                                 "  \"rotation\": [0.0, 0.0, 0.0, 1.0]\n"
-                                 "}";
+        const std::string text =
+            "{\n"
+            "  \"color\": [0.1, 0.2, 0.3, 1.0],\n"
+            "  \"position\": [2.0, 3.0, 4.0],\n"
+            "  \"rotation\": [0.0, 0.0, 0.0, 1.0]\n"
+            "}";
 
         Json json(text);
 
@@ -47,11 +48,12 @@ namespace tbx::tests::file_system
 
     TEST(JsonTests, ReadsTypedArrays)
     {
-        const std::string text = "{\n"
-                                 "  \"ints\": [1, 2, \"skip\"],\n"
-                                 "  \"bools\": [true, false, 5],\n"
-                                 "  \"floats\": [1.5, 4, \"nope\"]\n"
-                                 "}";
+        const std::string text =
+            "{\n"
+            "  \"ints\": [1, 2, \"skip\"],\n"
+            "  \"bools\": [true, false, 5],\n"
+            "  \"floats\": [1.5, 4, \"nope\"]\n"
+            "}";
 
         Json json(text);
 

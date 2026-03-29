@@ -1,6 +1,6 @@
 #include "tbx/assets/assets.h"
-#include <string>
 #include <cstdio>
+#include <string>
 
 namespace tbx
 {

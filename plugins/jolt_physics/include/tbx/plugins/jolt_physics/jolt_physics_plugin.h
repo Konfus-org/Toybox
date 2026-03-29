@@ -19,12 +19,12 @@
 
 namespace jolt_physics
 {
-    /// <summary>Tracks runtime body metadata for one entity-backed physics body.</summary>
-    /// <remarks>
+    /// @brief
     /// Purpose: Caches body identity and last synchronized transform state used by the plugin.
+    /// @details
     /// Ownership: Plain value type owned by `JoltPhysicsPlugin` body maps; no resource ownership.
     /// Thread Safety: Not thread-safe; accessed on the plugin physics lane.
-    /// </remarks>
+
     struct JoltBodyRecord
     {
         JPH::BodyID body_id = {};

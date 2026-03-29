@@ -8,85 +8,78 @@
 
 namespace tbx
 {
-    /// <summary>
+    /// @brief
     /// Purpose: Defines read/write operations for asset handles stored in .meta sidecar files.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Returns owned Handle instances to callers and does not retain file resources.
     /// Thread Safety: Implementations are safe for concurrent use when injected file services are
     /// thread-safe.
-    /// </remarks>
+
     class TBX_API IAssetHandleSerializer
     {
       public:
         virtual ~IAssetHandleSerializer() = default;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Reads an asset handle from disk and returns nullptr when metadata is missing or
         /// invalid.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns an owning unique_ptr to a Handle on success.
         /// Thread Safety: Safe when filesystem services used by the implementation are thread-safe.
-        /// </remarks>
+
         virtual std::unique_ptr<Handle> read_from_disk(
             const std::filesystem::path& working_directory,
             const std::filesystem::path& asset_path) const = 0;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Reads an asset handle from disk through injected file operations.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns an owning unique_ptr to a Handle on success.
         /// Thread Safety: Safe when file_ops is thread-safe.
-        /// </remarks>
+
         virtual std::unique_ptr<Handle> read_from_disk(
             const IFileOps& file_ops,
             const std::filesystem::path& asset_path) const = 0;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Parses an asset handle from raw .meta JSON text.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns an owning unique_ptr to a Handle on success.
         /// Thread Safety: Safe to call concurrently.
-        /// </remarks>
+
         virtual std::unique_ptr<Handle> read_from_source(
             std::string_view meta_text,
             const std::filesystem::path& asset_path) const = 0;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Writes only the id field in the sidecar .meta file, preserving other metadata.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Performs a read-modify-write and does not retain file contents.
         /// Thread Safety: Safe when filesystem services used by the implementation are thread-safe.
-        /// </remarks>
+
         virtual bool try_write_to_disk(
             const std::filesystem::path& working_directory,
             const std::filesystem::path& asset_path,
             const Handle& handle) const = 0;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Writes only the id field in the sidecar .meta file via injected file services.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Performs a read-modify-write and does not retain file contents.
         /// Thread Safety: Safe when file_ops is thread-safe.
-        /// </remarks>
+
         virtual bool try_write_to_disk(
             IFileOps& file_ops,
             const std::filesystem::path& asset_path,
             const Handle& handle) const = 0;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Default .meta serializer that reads and writes asset handle ids.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Returns owned Handle values and does not retain file content across calls.
     /// Thread Safety: Safe to call concurrently when file services are thread-safe.
-    /// </remarks>
+
     class TBX_API AssetHandleSerializer final : public IAssetHandleSerializer
     {
       public:

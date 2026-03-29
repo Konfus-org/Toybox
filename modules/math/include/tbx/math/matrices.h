@@ -66,11 +66,12 @@ namespace tbx
         return glm::inverse(matrix);
     }
 
-    /// <summary>
+    /// @brief
     /// Purpose: Computes the inverse-transpose of a 3x3 matrix.
+    /// @details
     /// Ownership: Returns a matrix by value; the caller owns the copy.
     /// Thread Safety: Stateless wrapper; safe to call concurrently.
-    /// </summary>
+
     inline Mat3 inverse_transpose(const Mat3& matrix)
     {
         return glm::inverseTranspose(matrix);
@@ -108,12 +109,12 @@ namespace tbx
         return glm::scale(Mat4(1.0f), factors);
     }
 
-    /// <summary>Builds a transform matrix from a position/rotation/scale triple.</summary>
-    /// <remarks>
+    /// @brief
     /// Purpose: Composes translation, rotation, and scale into a single matrix.
+    /// @details
     /// Ownership: Returns a matrix by value; the caller owns the copy.
     /// Thread Safety: Stateless wrapper; safe to call concurrently.
-    /// </remarks>
+
     inline Mat4 build_transform_matrix(const Transform& transform)
     {
         Mat4 translation = translate(transform.position);

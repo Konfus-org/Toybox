@@ -4,9 +4,6 @@
 
 namespace tbx::tests::plugin_api
 {
-    /// <summary>
-    /// Validates that parsing populates each metadata field from the manifest text.
-    /// </summary>
     TEST(plugin_meta_parse_test, populates_expected_fields)
     {
         // Arrange
@@ -45,10 +42,6 @@ namespace tbx::tests::plugin_api
         EXPECT_EQ(meta.library_path, manifest_path.parent_path() / "bin/logger.so");
         EXPECT_EQ(meta.linkage, PluginLinkage::DYNAMIC);
     }
-
-    /// <summary>
-    /// Validates relative module paths resolve against the manifest directory.
-    /// </summary>
     TEST(plugin_meta_parse_test, resolves_relative_module_paths)
     {
         // Arrange
@@ -71,10 +64,6 @@ namespace tbx::tests::plugin_api
         EXPECT_EQ(meta.library_path, manifest_path.parent_path() / "modules/example_renderer.so");
         EXPECT_EQ(meta.resource_directory, manifest_path.parent_path() / "assets");
     }
-
-    /// <summary>
-    /// Verifies a single resource directory can be supplied as a string.
-    /// </summary>
     TEST(plugin_meta_parse_test, accepts_string_resource_directory)
     {
         // Arrange
@@ -96,10 +85,6 @@ namespace tbx::tests::plugin_api
         // Assert
         EXPECT_EQ(meta.resource_directory, manifest_path.parent_path() / "assets");
     }
-
-    /// <summary>
-    /// Verifies parsing fails when more than one resource directory is supplied.
-    /// </summary>
     TEST(plugin_meta_parse_test, fails_with_multiple_resource_directories)
     {
         // Arrange
@@ -115,10 +100,6 @@ namespace tbx::tests::plugin_api
         // Act
         EXPECT_FALSE(parser.try_parse_from_source(manifest_text, "/virtual/multi.meta", meta));
     }
-
-    /// <summary>
-    /// Verifies parsing fails when required fields are missing.
-    /// </summary>
     TEST(plugin_meta_parse_test, fails_without_required_fields)
     {
         // Arrange
@@ -132,10 +113,6 @@ namespace tbx::tests::plugin_api
         // Act
         EXPECT_FALSE(parser.try_parse_from_source(manifest_text, "/virtual/invalid.meta", meta));
     }
-
-    /// <summary>
-    /// Verifies static plugin manifests are rejected now that only dynamic plugins are supported.
-    /// </summary>
     TEST(plugin_meta_parse_test, rejects_static_linkage)
     {
         // Arrange

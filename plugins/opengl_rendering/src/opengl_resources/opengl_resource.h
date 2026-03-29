@@ -2,36 +2,36 @@
 
 namespace opengl_rendering
 {
-    /// <summary>Base interface for OpenGL resources that can be bound/unbound.</summary>
-    /// <remarks>Purpose: Provides a common contract for binding OpenGL state.
+    /// @brief
+    /// Purpose: Provides a common contract for binding OpenGL state.
+    /// @details
     /// Ownership: Implementations own their underlying OpenGL handles.
-    /// Thread Safety: Not thread-safe; use on the render thread.</remarks>
+    /// Thread Safety: Not thread-safe; use on the render thread.
     class IOpenGlResource
     {
       public:
-        /// <summary>Destroys the OpenGL resource.</summary>
-        /// <remarks>Purpose: Releases any owned OpenGL handles.
-        /// Ownership: The resource owns its OpenGL state and releases it here.
-        /// Thread Safety: Destroy on the render thread.</remarks>
         virtual ~IOpenGlResource() noexcept = default;
 
-        /// <summary>Binds the OpenGL resource.</summary>
-        /// <remarks>Purpose: Makes the resource active for subsequent draw calls.
+        /// @brief
+        /// Purpose: Makes the resource active for subsequent draw calls.
+        /// @details
         /// Ownership: Does not transfer ownership of any handles.
-        /// Thread Safety: Call only on the render thread.</remarks>
+        /// Thread Safety: Call only on the render thread.
         virtual void bind() = 0;
 
-        /// <summary>Unbinds the OpenGL resource.</summary>
-        /// <remarks>Purpose: Clears the resource binding.
+        /// @brief
+        /// Purpose: Clears the resource binding.
+        /// @details
         /// Ownership: Does not transfer ownership of any handles.
-        /// Thread Safety: Call only on the render thread.</remarks>
+        /// Thread Safety: Call only on the render thread.
         virtual void unbind() = 0;
     };
 
-    /// <summary>RAII scope that binds a resource and unbinds on destruction.</summary>
-    /// <remarks>Purpose: Ensures OpenGL resources are unbound when leaving scope.
+    /// @brief
+    /// Purpose: Ensures OpenGL resources are unbound when leaving scope.
+    /// @details
     /// Ownership: Does not take ownership of the resource; stores a non-owning pointer.
-    /// Thread Safety: Use only on the render thread.</remarks>
+    /// Thread Safety: Use only on the render thread.
     class OpenGlResourceScope final
     {
       public:

@@ -7,10 +7,11 @@
 
 namespace opengl_rendering
 {
-    /// <summary>OpenGL implementation of a texture resource.</summary>
-    /// <remarks>Purpose: Wraps an OpenGL texture object and its binding state.
+    /// @brief
+    /// Purpose: Wraps an OpenGL texture object and its binding state.
+    /// @details
     /// Ownership: Owns the OpenGL texture identifier.
-    /// Thread Safety: Not thread-safe; use on the render thread.</remarks>
+    /// Thread Safety: Not thread-safe; use on the render thread.
     class OpenGlTexture final : public IOpenGlResource
     {
       public:

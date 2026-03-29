@@ -8,12 +8,13 @@
 
 namespace opengl_rendering
 {
-    /// <summary>
+    /// @brief
     /// Purpose: Hosts OpenGL renderer instances for each window that publishes a ready context.
+    /// @details
     /// Ownership: Plugin owns renderer instances and borrows host systems during attach/detach.
     /// Thread Safety: Public callbacks are expected to run on the host thread; render work is
     /// posted to a dedicated render lane.
-    /// </summary>
+
     class TBX_PLUGIN_API OpenGlRenderingPlugin final : public tbx::Plugin
     {
       public:

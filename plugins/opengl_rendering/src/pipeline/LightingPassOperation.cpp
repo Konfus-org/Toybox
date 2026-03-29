@@ -424,7 +424,8 @@ namespace opengl_rendering
         if (_shader_program)
             return true;
 
-        auto deferred_lighting_material = tbx::MaterialInstance(tbx::DeferredLightingMaterial::HANDLE);
+        auto deferred_lighting_material =
+            tbx::MaterialInstance(tbx::DeferredLightingMaterial::HANDLE);
 
         const auto program_id = _resource_manager.add_material(deferred_lighting_material, true);
         if (!program_id.is_valid())
@@ -517,8 +518,11 @@ namespace opengl_rendering
             const auto& light =
                 frame_context.directional_lights[static_cast<std::size_t>(light_index)];
             lighting_info.directional_lights[light_index] = GpuDirectionalLight {
-                .direction_ambient =
-                    tbx::Vec4(light.direction.x, light.direction.y, light.direction.z, light.ambient_intensity),
+                .direction_ambient = tbx::Vec4(
+                    light.direction.x,
+                    light.direction.y,
+                    light.direction.z,
+                    light.ambient_intensity),
                 .radiance_shadowed = tbx::Vec4(
                     light.radiance.x,
                     light.radiance.y,
@@ -608,13 +612,9 @@ namespace opengl_rendering
                         area_light.radiance.y,
                         area_light.radiance.z,
                         area_light.half_height),
-                    .right = tbx::Vec4(
-                        area_light.right.x,
-                        area_light.right.y,
-                        area_light.right.z,
-                        0.0F),
-                    .up =
-                        tbx::Vec4(area_light.up.x, area_light.up.y, area_light.up.z, 0.0F),
+                    .right =
+                        tbx::Vec4(area_light.right.x, area_light.right.y, area_light.right.z, 0.0F),
+                    .up = tbx::Vec4(area_light.up.x, area_light.up.y, area_light.up.z, 0.0F),
                     .shadow_info = glm::ivec4(area_light.shadow_index, 0, 0, 0),
                 });
 
@@ -715,16 +715,14 @@ namespace opengl_rendering
         for (tbx::uint32 tile_index = 0U; tile_index < tile_count; ++tile_index)
         {
             tile_spans[tile_index].point_and_spot.x =
-                tile_index == 0U
-                    ? 0U
-                    : tile_spans[tile_index - 1U].point_and_spot.x
-                          + tile_spans[tile_index - 1U].point_and_spot.y;
+                tile_index == 0U ? 0U
+                                 : tile_spans[tile_index - 1U].point_and_spot.x
+                                       + tile_spans[tile_index - 1U].point_and_spot.y;
             tile_spans[tile_index].point_and_spot.y = point_tile_data.tile_counts[tile_index];
             tile_spans[tile_index].point_and_spot.z =
-                tile_index == 0U
-                    ? 0U
-                    : tile_spans[tile_index - 1U].point_and_spot.z
-                          + tile_spans[tile_index - 1U].point_and_spot.w;
+                tile_index == 0U ? 0U
+                                 : tile_spans[tile_index - 1U].point_and_spot.z
+                                       + tile_spans[tile_index - 1U].point_and_spot.w;
             tile_spans[tile_index].point_and_spot.w = spot_tile_data.tile_counts[tile_index];
             tile_spans[tile_index].area.x =
                 tile_index == 0U

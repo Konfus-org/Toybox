@@ -212,7 +212,8 @@ namespace opengl_rendering
                 // Draw mesh
                 const auto& mesh_key = meshes_ids[draw_index];
                 auto mesh = std::shared_ptr<OpenGlMesh> {};
-                if (const auto cached_mesh = mesh_cache.find(mesh_key); cached_mesh != mesh_cache.end())
+                if (const auto cached_mesh = mesh_cache.find(mesh_key);
+                    cached_mesh != mesh_cache.end())
                 {
                     mesh = cached_mesh->second;
                 }

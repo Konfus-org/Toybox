@@ -19,33 +19,21 @@ namespace tbx
     // Thread-safety: Not thread-safe; expected to be used by the main thread.
     struct TBX_API LoadedPlugin
     {
-        /// <summary>Purpose: Creates an invalid placeholder loaded plugin.</summary>
-        /// <remarks>Ownership: Does not own any plugin resources.
-        /// Thread Safety: Not thread-safe.</remarks>
         LoadedPlugin() = default;
         LoadedPlugin(const LoadedPlugin&) = delete;
         LoadedPlugin& operator=(const LoadedPlugin&) = delete;
         LoadedPlugin(LoadedPlugin&&) noexcept = default;
         LoadedPlugin& operator=(LoadedPlugin&&) noexcept = default;
-
-        /// <summary>Purpose: Creates a loaded plugin wrapper and attaches it to the host.</summary>
-        /// <remarks>Ownership: Takes ownership of the plugin instance and library.
-        /// The host reference must outlive this LoadedPlugin.
-        /// Thread Safety: Not thread-safe.</remarks>
         LoadedPlugin(
             PluginMeta meta_data,
             std::unique_ptr<SharedLibrary> plugin_library,
             std::unique_ptr<Plugin, PluginDeleter> plugin_instance,
             IPluginHost& host);
-
-        /// <summary>Purpose: Releases plugin resources and logs unload details.</summary>
-        /// <remarks>Ownership: Frees owned plugin instance/library.
-        /// Thread Safety: Not thread-safe.</remarks>
         ~LoadedPlugin() noexcept;
 
-        /// <summary>Purpose: Reports whether the loaded plugin contains a valid instance.</summary>
-        /// <remarks>Ownership: Does not transfer ownership.
-        /// Thread Safety: Not thread-safe.</remarks>
+        /// @brief Purpose: Reports whether the loaded plugin contains a valid instance.
+        /// @details Ownership: Does not transfer ownership.
+        /// Thread Safety: Not thread-safe.
         bool is_valid() const;
 
         PluginMeta meta;
@@ -57,8 +45,8 @@ namespace tbx
         IPluginHost* _host = nullptr;
     };
 
-    /// <summary>Purpose: Formats a LoadedPlugin summary string.</summary>
-    /// <remarks>Ownership: Returns an owned std::string.
-    /// Thread Safety: Stateless and safe for concurrent use.</remarks>
+    /// @brief Purpose: Formats a LoadedPlugin summary string.
+    /// @details Ownership: Returns an owned std::string.
+    /// Thread Safety: Stateless and safe for concurrent use.
     TBX_API std::string to_string(const LoadedPlugin& loaded);
 }

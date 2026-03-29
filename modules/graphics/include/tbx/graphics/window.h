@@ -8,11 +8,12 @@
 
 namespace tbx
 {
-    /// <summary>Represents a non-owning native platform window handle.</summary>
-    /// <remarks>Purpose: Carries backend-specific window handle data across systems.
+    /// @brief
+    /// Purpose: Carries backend-specific window handle data across systems.
+    /// @details
     /// Ownership: Non-owning opaque pointer; platform backend controls lifetime.
     /// Thread Safety: Pointer value is copyable; lifetime access must be externally synchronized.
-    /// </remarks>
+
     using NativeWindowHandle = void*;
 
     // Enumerates the presentation modes that a window can be configured for.

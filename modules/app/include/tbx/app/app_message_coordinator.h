@@ -26,22 +26,7 @@ namespace tbx
     class TBX_API AppMessageCoordinator final : public IMessageCoordinator
     {
       public:
-        /// <summary>
-        /// Purpose: Creates a message coordinator that dispatches immediate and queued messages.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Owns registered handlers and queued message storage.
-        /// Thread Safety: Safe for concurrent posting/sending with concurrent handler updates.
-        /// </remarks>
         AppMessageCoordinator();
-
-        /// <summary>
-        /// Purpose: Flushes pending messages and releases all handlers during shutdown.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Releases all owned handlers and queued messages before returning.
-        /// Thread Safety: Must not race destruction; external synchronization required.
-        /// </remarks>
         ~AppMessageCoordinator() noexcept override;
 
         AppMessageCoordinator(const AppMessageCoordinator&) = delete;

@@ -7,10 +7,11 @@
 
 namespace sdl_input
 {
-    /// <summary>Provides SDL-backed keyboard, mouse, and controller state requests.</summary>
-    /// <remarks>Purpose: Handles core input requests and translates SDL state into engine messages.
+    /// @brief
+    /// Purpose: Handles core input requests and translates SDL state into engine messages.
+    /// @details
     /// Ownership: Owns initialization state for the SDL gamepad subsystem.
-    /// Thread Safety: Not thread-safe; expected to run on the main thread.</remarks>
+    /// Thread Safety: Not thread-safe; expected to run on the main thread.
     class TBX_PLUGIN_API SdlInputPlugin final : public tbx::Plugin
     {
       public:

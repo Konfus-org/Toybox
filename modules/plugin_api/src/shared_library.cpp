@@ -73,9 +73,7 @@ namespace tbx
 #endif
     }
 
-    SharedLibrary::SharedLibrary(
-        std::filesystem::path path,
-        std::filesystem::path cleanup_path)
+    SharedLibrary::SharedLibrary(std::filesystem::path path, std::filesystem::path cleanup_path)
         : _path(std::move(path))
         , _cleanup_path(std::move(cleanup_path))
     {

@@ -6,26 +6,24 @@
 
 namespace tbx
 {
-    /// <summary>
+    /// @brief
     /// Purpose: Defines a model handle to use within a specific distance band.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Stores handles by value; does not own loaded model assets.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    /// </remarks>
+
     struct TBX_API RendererLod
     {
         Handle handle = {};
         float max_distance = 0.0f;
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores mesh LOD selection data for a renderable entity.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Owns the LOD collection by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    /// </remarks>
+
     struct TBX_API Lods
     {
         std::vector<RendererLod> values = {};

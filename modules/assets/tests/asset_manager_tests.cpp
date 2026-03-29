@@ -107,10 +107,6 @@ namespace tbx::tests::assets
     {
         return AssetManager(working_directory, {}, {}, false);
     }
-
-    /// <summary>
-    /// Verifies loading by path reuses the same tracked asset instance.
-    /// </summary>
     TEST(asset_manager, resolves_handle_by_path)
     {
         // Arrange
@@ -133,10 +129,6 @@ namespace tbx::tests::assets
         AssetUsage usage = manager.get_usage<TestAsset>(path_handle);
         EXPECT_EQ(usage.ref_count, 2U);
     }
-
-    /// <summary>
-    /// Confirms handle resolution by id uses metadata-supplied UUIDs.
-    /// </summary>
     TEST(asset_manager, resolves_handle_by_id)
     {
         // Arrange
@@ -162,10 +154,6 @@ namespace tbx::tests::assets
         AssetUsage usage = manager.get_usage<TestAsset>(id_handle);
         EXPECT_EQ(usage.ref_count, 2U);
     }
-
-    /// <summary>
-    /// Ensures pinning prevents unload and unpinning allows eviction.
-    /// </summary>
     TEST(asset_manager, supports_stream_in_out_and_pin)
     {
         // Arrange
@@ -187,10 +175,6 @@ namespace tbx::tests::assets
 
         EXPECT_TRUE(manager.unload<TestAsset>(handle));
     }
-
-    /// <summary>
-    /// Verifies asynchronous loading updates the streamed asset payload.
-    /// </summary>
     TEST(asset_manager, streams_in_async_and_updates_payload)
     {
         // Arrange
@@ -217,10 +201,6 @@ namespace tbx::tests::assets
         EXPECT_EQ(usage.stream_state, AssetStreamState::LOADED);
         EXPECT_EQ(streamed_in.asset->value, 99);
     }
-
-    /// <summary>
-    /// Confirms unreferenced assets are released during cleanup.
-    /// </summary>
     TEST(asset_manager, unloads_unreferenced_assets)
     {
         // Arrange
@@ -256,10 +236,6 @@ namespace tbx::tests::assets
         EXPECT_EQ(keep_usage_after.stream_state, AssetStreamState::UNLOADED);
         EXPECT_EQ(keep_usage_after.ref_count, 0U);
     }
-
-    /// <summary>
-    /// Verifies the manager resolves asset ids from metadata when provided.
-    /// </summary>
     TEST(asset_manager, resolves_asset_id_from_handle_source)
     {
         // Arrange
@@ -275,10 +251,6 @@ namespace tbx::tests::assets
         // Assert
         EXPECT_EQ(resolved_id.value, 0x7aU);
     }
-
-    /// <summary>
-    /// Verifies missing disk metadata generates a stable runtime id for discovery.
-    /// </summary>
     TEST(asset_manager, generates_runtime_id_when_meta_is_missing)
     {
         // Arrange
@@ -294,10 +266,6 @@ namespace tbx::tests::assets
         EXPECT_TRUE(first.is_valid());
         EXPECT_EQ(first, second);
     }
-
-    /// <summary>
-    /// Ensures invalid ids from metadata providers fall back to a generated registry id.
-    /// </summary>
     TEST(asset_manager, falls_back_when_meta_provider_returns_invalid_id)
     {
         // Arrange
@@ -313,10 +281,6 @@ namespace tbx::tests::assets
         // Assert
         EXPECT_TRUE(resolved_id.is_valid());
     }
-
-    /// <summary>
-    /// Verifies duplicate metadata ids reject the conflicting asset registration.
-    /// </summary>
     TEST(asset_manager, rejects_conflicting_asset_when_meta_ids_collide)
     {
         // Arrange
@@ -342,10 +306,6 @@ namespace tbx::tests::assets
         EXPECT_FALSE(conflicting_id.is_valid());
         EXPECT_EQ(by_id_asset, first_asset);
     }
-
-    /// <summary>
-    /// Ensures asset paths resolve against the working directory when no roots are configured.
-    /// </summary>
     TEST(asset_manager, resolves_relative_paths_without_search_roots)
     {
         // Arrange
@@ -359,10 +319,6 @@ namespace tbx::tests::assets
         // Assert
         EXPECT_EQ(resolved, working_directory / relative_path);
     }
-
-    /// <summary>
-    /// Validates adding asset directories stores resolved roots.
-    /// </summary>
     TEST(asset_manager, tracks_asset_directories)
     {
         // Arrange
@@ -377,10 +333,6 @@ namespace tbx::tests::assets
         ASSERT_EQ(directories.size(), 1U);
         EXPECT_EQ(directories[0], working_directory / "content");
     }
-
-    /// <summary>
-    /// Confirms unload_all clears tracked assets across types.
-    /// </summary>
     TEST(asset_manager, unloads_all_assets)
     {
         // Arrange
@@ -399,10 +351,6 @@ namespace tbx::tests::assets
         EXPECT_EQ(usage.stream_state, AssetStreamState::UNLOADED);
         EXPECT_EQ(usage.ref_count, 0U);
     }
-
-    /// <summary>
-    /// Verifies reload replaces the asset payload when invoked.
-    /// </summary>
     TEST(asset_manager, reloads_assets)
     {
         // Arrange

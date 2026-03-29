@@ -11,14 +11,14 @@
 
 namespace opengl_rendering
 {
-    /// <summary>
+    /// @brief
     /// Purpose: Resolves deferred lighting from the geometry attachments into the final color
     /// target.
-    /// </summary>
-    /// <remarks>
+
+    /// @details
     /// Ownership: Owns the fullscreen draw state and shader program it creates lazily.
     /// Thread Safety: Not thread-safe; render-thread only.
-    /// </remarks>
+
     class LightingPassOperation final
     {
       public:
@@ -31,11 +31,12 @@ namespace opengl_rendering
         LightingPassOperation& operator=(const LightingPassOperation&) = delete;
         ~LightingPassOperation() noexcept;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Executes the fullscreen deferred lighting resolve for one frame.
+        /// @details
         /// Ownership: Does not take ownership of the supplied payload.
         /// Thread Safety: Not thread-safe; render-thread only.
-        /// </summary>
+
         void execute(const std::any& payload);
 
       private:
