@@ -71,11 +71,7 @@ namespace tbx
         MaterialParameter() = default;
 
         template <typename TValue>
-        MaterialParameter(std::string_view parameter_name, TValue&& parameter_data)
-            : name(parameter_name)
-            , data(std::forward<TValue>(parameter_data))
-        {
-        }
+        MaterialParameter(std::string_view parameter_name, TValue&& parameter_data);
 
         std::string name = "";
         MaterialParameterData data = 0.0f;
@@ -253,17 +249,7 @@ namespace tbx
         void set_texture(std::string_view name, TextureInstance texture);
 
         template <typename TValue>
-        TValue get_parameter_or(std::string_view name, const TValue& fallback) const
-        {
-            const auto* parameter = param_overrides.get(name);
-            if (!parameter)
-                return fallback;
-
-            if (const auto* value = std::get_if<TValue>(&parameter->data))
-                return *value;
-
-            return fallback;
-        }
+        TValue get_parameter_or(std::string_view name, const TValue& fallback) const;
 
         bool get_bool_parameter_or(std::string_view name, bool fallback) const;
         int get_int_parameter_or(std::string_view name, int fallback) const;
@@ -291,3 +277,5 @@ namespace tbx
         MaterialInstance material = {};
     };
 }
+
+#include "tbx/graphics/material.inl"

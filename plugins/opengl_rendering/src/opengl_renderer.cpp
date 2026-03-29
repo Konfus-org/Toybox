@@ -7,7 +7,6 @@
 #include "pipeline/OpenGlFrameContext.h"
 #include "pipeline/opengl_render_pipeline.h"
 #include "tbx/assets/builtin_assets.h"
-#include "tbx/assets/material_descriptions.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/entity.h"
 #include "tbx/graphics/camera.h"

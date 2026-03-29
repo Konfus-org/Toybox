@@ -19,10 +19,10 @@
 - Plugin and example lifecycle methods (`attach`, `detach`, `update`, including `on_attach`, `on_detach`, `on_update`, `on_fixed_update`) do not require Doxygen summaries.
 
 ## Class / Struct Layout
-Use this ordering for every class/struct:
+Use this ordering for every class:
 
 ```cpp
-class/struct Name :
+class Name :
     InheritFromA,
     InheritFromB
 {
@@ -57,6 +57,19 @@ class/struct Name :
   private:
     Properties (sort by keyword: static/inline/etc, then by name)
 };
+```
+
+Structs should remain simple and if everything is public they are exempt from the above layout, if a struct has private members then it should follow the same format as a class. Structs should be plain ol' data with little or no behavior
+
+Struct with all public members:
+```cpp
+struct Name
+{
+  Usings
+  Constructor
+  Destructor
+  Properties...
+}
 ```
 
 ## Type Organization

@@ -58,9 +58,8 @@ namespace std
     template <>
     struct hash<tbx::Uuid>
     {
-        std::size_t operator()(const tbx::Uuid& value) const
-        {
-            return hash<tbx::uint32>()(static_cast<tbx::uint32>(value));
-        }
+        std::size_t operator()(const tbx::Uuid& value) const;
     };
 }
+
+#include "tbx/common/uuid.inl"

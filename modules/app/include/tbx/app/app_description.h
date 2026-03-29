@@ -9,9 +9,6 @@
 namespace tbx
 {
     // Immutable application configuration passed to the host on construction.
-    // Ownership: caller owns any referenced filesystem paths; this is a value
-    // type copied into the Application.
-    // Thread-safety: Treated as read-only data shared on a single thread.
     struct TBX_API AppDescription
     {
         // Human-readable application name used in logs, manifests, and window names.
@@ -32,6 +29,6 @@ namespace tbx
 
         // Startup icon asset used for native window icons.
         // Defaults to the built-in box icon.
-        Handle icon = BoxIcon::HANDLE;
+        Handle icon = ToyboxIcon::HANDLE;
     };
 }

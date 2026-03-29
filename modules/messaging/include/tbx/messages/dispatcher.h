@@ -29,10 +29,7 @@ namespace tbx
         /// Thread Safety: See class notes.
         template <typename TMessage>
             requires std::derived_from<TMessage, Message>
-        Result send(TMessage& msg) const
-        {
-            return send(static_cast<Message&>(msg));
-        }
+        Result send(TMessage& msg) const;
 
         /// @brief
         /// Purpose: Immediately constructs and sends a message.
@@ -43,11 +40,7 @@ namespace tbx
             requires(
                 std::derived_from<TMessage, Message> && (sizeof...(TArgs) > 0)
                 && std::is_constructible_v<TMessage, TArgs...>)
-        Result send(TArgs&&... args) const
-        {
-            TMessage msg(std::forward<TArgs>(args)...);
-            return send(msg);
-        }
+        Result send(TArgs&&... args) const;
 
         /// @brief
         /// Purpose: Enqueues an existing message instance for deferred processing.
@@ -56,10 +49,7 @@ namespace tbx
         /// Thread Safety: See class notes.
         template <typename TMessage>
             requires std::derived_from<TMessage, Message>
-        std::shared_future<Result> post(const TMessage& msg) const
-        {
-            return post(std::make_unique<TMessage>(msg));
-        }
+        std::shared_future<Result> post(const TMessage& msg) const;
 
         /// @brief
         /// Purpose: Enqueues a constructed message for deferred processing.
@@ -70,10 +60,7 @@ namespace tbx
             requires(
                 std::derived_from<TMessage, Message> && (sizeof...(TArgs) > 0)
                 && std::is_constructible_v<TMessage, TArgs...>)
-        std::shared_future<Result> post(TArgs&&... args) const
-        {
-            return post(std::make_unique<TMessage>(std::forward<TArgs>(args)...));
-        }
+        std::shared_future<Result> post(TArgs&&... args) const;
 
       protected:
         virtual Result send(Message& msg) const = 0;
@@ -196,3 +183,5 @@ namespace tbx
         IMessageDispatcher* _prev = nullptr;
     };
 }
+
+#include "tbx/messages/dispatcher.inl"

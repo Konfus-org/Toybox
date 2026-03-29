@@ -536,14 +536,7 @@ namespace tbx
         /// Ownership: Writes a copied value into the provided output reference.
         /// Thread Safety: Read-only operation; synchronize externally if shared mutably.
         template <typename TValue>
-        bool try_get_value_as(TValue& out_value) const
-        {
-            if (!std::holds_alternative<TValue>(_value))
-                return false;
-
-            out_value = std::get<TValue>(_value);
-            return true;
-        }
+        bool try_get_value_as(TValue& out_value) const;
 
         /// @brief
         /// Purpose: Provides optional typed access without copying when available.
@@ -551,13 +544,7 @@ namespace tbx
         /// Ownership: Returns a non-owning pointer that aliases internal action storage.
         /// Thread Safety: Read-only operation; synchronize externally if shared mutably.
         template <typename TValue>
-        const TValue* try_get_value_as() const
-        {
-            if (!std::holds_alternative<TValue>(_value))
-                return nullptr;
-
-            return &std::get<TValue>(_value);
-        }
+        const TValue* try_get_value_as() const;
 
         bool get_is_active() const;
         std::chrono::duration<double> get_held_time() const;
@@ -587,3 +574,5 @@ namespace tbx
         std::vector<InputActionCallback> _on_cancelled_callbacks = {};
     };
 }
+
+#include "tbx/input/input_action.inl"

@@ -15,15 +15,16 @@ endif()
 add_library(Tbx::${module_name} ALIAS ${module_name})
 
 target_link_libraries(${module_name}
-    PRIVATE
+    PUBLIC
         Tbx::Common
         Tbx::Messaging
-        Tbx::Async
         Tbx::Audio
         Tbx::Graphics
         Tbx::Debugging
         Tbx::Files
         Tbx::Resources
+    PRIVATE
+        Tbx::Async
 )
 
 tbx_setup_module(${module_name})

@@ -32,11 +32,7 @@ namespace tbx
         // Returns the symbol cast to the requested pointer type `T`.
         // `T` must be a pointer (typically a function pointer).
         template <typename T>
-        T get_symbol(const char* name) const
-        {
-            static_assert(std::is_pointer_v<T>, "get_symbol<T> requires a pointer type");
-            return reinterpret_cast<T>(get_symbol_raw(name));
-        }
+        T get_symbol(const char* name) const;
 
         const std::filesystem::path& get_path() const
         {
@@ -62,3 +58,5 @@ namespace tbx
         std::string _load_error_message = {};
     };
 }
+
+#include "tbx/plugin_api/shared_library.inl"

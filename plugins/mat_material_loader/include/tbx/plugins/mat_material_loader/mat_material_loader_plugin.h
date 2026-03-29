@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/assets/asset_manager.h"
-#include "tbx/assets/messages.h"
+#include "tbx/assets/asset_requests.h"
 #include "tbx/files/file_ops.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_export.h"

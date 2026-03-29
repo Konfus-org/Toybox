@@ -535,13 +535,11 @@ if(TBX_ASSET_CODEGEN_MODE STREQUAL "BUILTIN_HEADER")
 
             string(APPEND group_content
                 "\n"
-                "    /// \n"
+                "    /// @brief \n"
                 "    /// Purpose: Typed built-in asset handle generated from bundled resources.\n"
-                "    \n"
-                "    /// \n"
+                "    /// @details \n"
                 "    /// Ownership: Stores the asset handle by value.\n"
                 "    /// Thread Safety: Safe to read concurrently.\n"
-                "    \n"
                 "    struct ${struct_name} final\n"
                 "    {\n"
                 "        static inline const Handle HANDLE = Handle(Uuid(0x${id_hex_upper}U));\n"

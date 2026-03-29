@@ -4,6 +4,7 @@
 #include "projectile_system.h"
 #include "tbx/ecs/entity_registry.h"
 #include "tbx/graphics/color.h"
+#include "tbx/graphics/material.h"
 #include "tbx/input/input_manager.h"
 #include "tbx/physics/collider.h"
 #include "tbx/time/delta_time.h"

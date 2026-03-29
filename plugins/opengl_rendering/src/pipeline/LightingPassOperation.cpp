@@ -1,6 +1,6 @@
 #include "LightingPassOperation.h"
 #include "RenderPipelineFailure.h"
-#include "tbx/assets/material_descriptions.h"
+#include "tbx/assets/builtin_assets.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/material.h"
 #include "tbx/math/trig.h"

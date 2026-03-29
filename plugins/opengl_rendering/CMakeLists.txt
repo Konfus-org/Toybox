@@ -11,7 +11,6 @@ target_link_libraries(${plugin_name} PRIVATE
         Tbx::App
         Tbx::PluginApi
         Tbx::Time
-        EnTT::EnTT
         Tbx::Debugging
         Tbx::Assets
         Tbx::Async

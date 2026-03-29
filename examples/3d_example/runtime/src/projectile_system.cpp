@@ -1,5 +1,5 @@
 #include "projectile_system.h"
-#include "tbx/assets/material_descriptions.h"
+#include "tbx/assets/builtin_assets.h"
 #include "tbx/graphics/light.h"
 #include "tbx/math/transform.h"
 #include "tbx/physics/collider.h"

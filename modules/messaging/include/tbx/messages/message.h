@@ -68,21 +68,11 @@ namespace tbx
 
     // Request message with a typed response.
     template <typename T>
-    struct Request : public RequestBase
-    {
-        Request() = default;
-        virtual ~Request() noexcept = default;
-
-        T result = {};
-    };
+    struct Request;
 
     // Void specialization to allow requests without a result payload.
     template <>
-    struct Request<void> : public RequestBase
-    {
-        Request() = default;
-        virtual ~Request() noexcept = default;
-    };
+    struct Request<void>;
 
     /// @brief
     /// Purpose: Represents a subscriber callback invoked by the message coordinator during
@@ -99,10 +89,7 @@ namespace tbx
     /// Ownership: Non-owning; the returned pointer borrows from the input message.
     /// Thread Safety: Matches the caller's context. No synchronization is applied.
     template <typename TMessage>
-    const TMessage* handle_message(const Message& message)
-    {
-        return dynamic_cast<const TMessage*>(&message);
-    }
+    const TMessage* handle_message(const Message& message);
 
     /// @brief
     /// Purpose: Retrieves a typed message pointer from a mutable base message reference.
@@ -110,8 +97,7 @@ namespace tbx
     /// Ownership: Non-owning; the returned pointer borrows from the input message.
     /// Thread Safety: Matches the caller's context. No synchronization is applied.
     template <typename TMessage>
-    TMessage* handle_message(Message& message)
-    {
-        return dynamic_cast<TMessage*>(&message);
-    }
+    TMessage* handle_message(Message& message);
 }
+
+#include "tbx/messages/message.inl"

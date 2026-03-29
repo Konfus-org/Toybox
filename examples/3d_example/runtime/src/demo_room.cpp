@@ -1,5 +1,6 @@
 #include "demo_room.h"
-#include "tbx/assets/material_descriptions.h"
+#include "tbx/assets/builtin_assets.h"
+#include "tbx/graphics/material.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"

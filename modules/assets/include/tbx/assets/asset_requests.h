@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/assets/assets.h"
+#include "tbx/assets/asset_loaders.h"
 #include "tbx/audio/audio_clip.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/model.h"
@@ -20,14 +20,8 @@ namespace tbx
     template <typename TAsset>
     struct LoadAssetRequest : public Request<void>
     {
-      public:
-        LoadAssetRequest(std::filesystem::path asset_path, TAsset* asset_payload)
-            : path(std::move(asset_path))
-            , asset(asset_payload)
-        {
-        }
+        LoadAssetRequest(std::filesystem::path asset_path, TAsset* asset_payload);
 
-      public:
         std::filesystem::path path;
         TAsset* asset = nullptr;
     };
@@ -39,7 +33,6 @@ namespace tbx
     /// Thread Safety: Payload access requires external synchronization.
     struct TBX_API LoadTextureRequest : public LoadAssetRequest<Texture>
     {
-      public:
         LoadTextureRequest(
             std::filesystem::path asset_path,
             Texture* asset_payload,
@@ -57,7 +50,6 @@ namespace tbx
         {
         }
 
-      public:
         TextureWrap wrap = TextureWrap::REPEAT;
         TextureFilter filter = TextureFilter::LINEAR;
         TextureFormat format = TextureFormat::RGBA;
@@ -72,7 +64,6 @@ namespace tbx
     /// Thread Safety: Payload access requires external synchronization.
     struct TBX_API LoadModelRequest : public LoadAssetRequest<Model>
     {
-      public:
         LoadModelRequest(std::filesystem::path asset_path, Model* asset_payload)
             : LoadAssetRequest<Model>(std::move(asset_path), asset_payload)
         {
@@ -86,7 +77,6 @@ namespace tbx
     /// Thread Safety: Payload access requires external synchronization.
     struct TBX_API LoadShaderRequest : public LoadAssetRequest<Shader>
     {
-      public:
         LoadShaderRequest(std::filesystem::path asset_path, Shader* asset_payload)
             : LoadAssetRequest<Shader>(std::move(asset_path), asset_payload)
         {
@@ -100,7 +90,6 @@ namespace tbx
     /// Thread Safety: Payload access requires external synchronization.
     struct TBX_API LoadMaterialRequest : public LoadAssetRequest<Material>
     {
-      public:
         LoadMaterialRequest(std::filesystem::path asset_path, Material* asset_payload)
             : LoadAssetRequest<Material>(std::move(asset_path), asset_payload)
         {
@@ -114,10 +103,11 @@ namespace tbx
     /// Thread Safety: Payload access requires external synchronization.
     struct TBX_API LoadAudioRequest : public LoadAssetRequest<AudioClip>
     {
-      public:
         LoadAudioRequest(std::filesystem::path asset_path, AudioClip* asset_payload)
             : LoadAssetRequest<AudioClip>(std::move(asset_path), asset_payload)
         {
         }
     };
 }
+
+#include "tbx/assets/asset_requests.inl"

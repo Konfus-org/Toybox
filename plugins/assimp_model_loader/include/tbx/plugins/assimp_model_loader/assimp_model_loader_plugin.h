@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/assets/messages.h"
+#include "tbx/assets/asset_requests.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_export.h"
 

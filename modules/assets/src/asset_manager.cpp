@@ -113,8 +113,7 @@ namespace tbx
         return generated;
     }
 
-    AssetManager::ResolvedAssetMetaId AssetManager::resolve_or_repair_asset_id(
-        const NormalizedAssetPath& normalized)
+    ResolvedAssetMetaId AssetManager::resolve_or_repair_asset_id(const NormalizedAssetPath& normalized)
     {
         auto file_operator = FileOperator(_working_directory);
 

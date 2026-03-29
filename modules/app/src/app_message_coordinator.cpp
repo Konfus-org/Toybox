@@ -277,12 +277,25 @@ namespace tbx
 
     std::shared_future<Result> AppMessageCoordinator::post(std::unique_ptr<Message> msg) const
     {
-        std::promise<Result> promise;
-        auto future = promise.get_future().share();
+        auto completion_state = std::make_shared<std::promise<Result>>();
+        auto future = completion_state->get_future().share();
+        auto on_processed = msg->callbacks.on_processed;
+
+        msg->callbacks.on_processed =
+            [completion_state = std::move(completion_state),
+             on_processed = std::move(on_processed)](const Message& processed)
+        {
+            if (on_processed)
+            {
+                on_processed(processed);
+            }
+
+            completion_state->set_value(processed.result);
+        };
 
         {
             std::lock_guard<std::mutex> lock(_pending_mutex);
-            _pending.emplace_back(QueuedMessage {std::move(msg), std::move(promise)});
+            _pending.emplace_back(QueuedMessage {std::move(msg)});
         }
 
         return future;
@@ -313,8 +326,6 @@ namespace tbx
                     MessageState::ERROR,
                     "Unknown exception during message dispatch.");
             }
-
-            entry.completion_state.set_value(entry.message->result);
         }
     }
 }

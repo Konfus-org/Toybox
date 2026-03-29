@@ -14,15 +14,14 @@
       "cacheVariables": {
         "TBX_RESOURCES_PATH": "${sourceDir}/resources",
         "TBX_PLUGIN_ABI_VERSION": "1",
+        "TBX_ENABLE_COMPILER_CACHE": "ON",
         "CMAKE_COMPILE_WARNING_AS_ERROR": "ON",
         "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/preset_compile_definitions.cmake;${sourceDir}/cmake/preset_msvc_options.cmake",
         "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/lib",
         "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
         "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
         "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/pdb",
-        "TBX_ENABLE_COMPILER_CACHE": "ON",
-        "CMAKE_CXX_SCAN_FOR_MODULES": "OFF",
-        "CMAKE_C_SCAN_FOR_MODULES": "OFF"
+        "CMAKE_CXX_SCAN_FOR_MODULES": "OFF"
       },
       "hidden": true
     },

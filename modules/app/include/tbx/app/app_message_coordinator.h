@@ -14,7 +14,6 @@ namespace tbx
     struct QueuedMessage
     {
         std::unique_ptr<Message> message;
-        std::promise<Result> completion_state;
     };
 
     struct RegisteredMessageHandler
@@ -26,6 +25,9 @@ namespace tbx
     class TBX_API AppMessageCoordinator final : public IMessageCoordinator
     {
       public:
+        using IMessageDispatcher::post;
+        using IMessageDispatcher::send;
+
         AppMessageCoordinator();
         ~AppMessageCoordinator() noexcept override;
 
@@ -33,9 +35,6 @@ namespace tbx
         AppMessageCoordinator& operator=(const AppMessageCoordinator&) = delete;
         AppMessageCoordinator(AppMessageCoordinator&&) = delete;
         AppMessageCoordinator& operator=(AppMessageCoordinator&&) = delete;
-
-        using IMessageDispatcher::post;
-        using IMessageDispatcher::send;
 
         Uuid register_handler(MessageHandler handler) override;
         void deregister_handler(const Uuid& token) override;

@@ -1,6 +1,5 @@
 #include "PCH.h"
 #include "tbx/assets/builtin_assets.h"
-#include "tbx/assets/material_descriptions.h"
 #include "tbx/common/handle.h"
 #include "tbx/graphics/material.h"
 

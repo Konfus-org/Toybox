@@ -15,14 +15,14 @@ endif()
 add_library(Tbx::${module_name} ALIAS ${module_name})
 
 target_link_libraries(${module_name}
-    PRIVATE
-        Tbx::Common
+    PUBLIC
         Tbx::Math
-        glm
         Tbx::Messaging
-        Tbx::Async
         Tbx::Time
     PRIVATE
+        Tbx::Common
+        glm
+        Tbx::Async
         Tbx::Debugging
 )
 

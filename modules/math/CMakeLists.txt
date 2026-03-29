@@ -15,9 +15,15 @@ endif()
 add_library(Tbx::${module_name} ALIAS ${module_name})
 
 target_link_libraries(${module_name}
+    PUBLIC
+        Tbx::Common
     PRIVATE
         glm
-        Tbx::Common
+)
+
+target_include_directories(${module_name}
+    PUBLIC
+        $<TARGET_PROPERTY:glm,INTERFACE_INCLUDE_DIRECTORIES>
 )
 
 tbx_setup_module(${module_name})
