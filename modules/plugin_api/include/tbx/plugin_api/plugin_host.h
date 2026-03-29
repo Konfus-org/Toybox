@@ -17,7 +17,6 @@ namespace tbx
     /// @details
     /// Ownership: Implementations retain ownership of returned references.
     /// Thread Safety: Not thread-safe; expected to be used on the main thread.
-
     class TBX_API IPluginHost
     {
       public:
@@ -28,7 +27,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         virtual const std::string& get_name() const = 0;
 
         /// @brief
@@ -36,7 +34,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         virtual const Handle& get_icon_handle() const = 0;
 
         /// @brief
@@ -44,7 +41,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         virtual AppSettings& get_settings() = 0;
 
         /// @brief
@@ -52,7 +48,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         virtual IMessageCoordinator& get_message_coordinator() = 0;
 
         /// @brief
@@ -60,7 +55,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         virtual InputManager& get_input_manager() = 0;
 
         /// @brief
@@ -68,7 +62,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         virtual EntityRegistry& get_entity_registry() = 0;
 
         /// @brief
@@ -76,7 +69,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         virtual AssetManager& get_asset_manager() = 0;
 
         /// @brief
@@ -84,7 +76,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Thread-safe according to JobSystem guarantees.
-
         virtual JobSystem& get_job_system() = 0;
 
         /// @brief
@@ -92,7 +83,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the host.
         /// Thread Safety: Thread-safe according to ThreadManager guarantees.
-
         virtual ThreadManager& get_thread_manager() = 0;
     };
 }

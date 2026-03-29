@@ -71,7 +71,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns a matrix by value; the caller owns the copy.
     /// Thread Safety: Stateless wrapper; safe to call concurrently.
-
     inline Mat3 inverse_transpose(const Mat3& matrix)
     {
         return glm::inverseTranspose(matrix);
@@ -114,7 +113,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns a matrix by value; the caller owns the copy.
     /// Thread Safety: Stateless wrapper; safe to call concurrently.
-
     inline Mat4 build_transform_matrix(const Transform& transform)
     {
         Mat4 translation = translate(transform.position);

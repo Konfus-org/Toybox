@@ -119,7 +119,6 @@ namespace tbx
     /// @details
     /// Ownership: Type-only helper; no runtime ownership or storage.
     /// Thread Safety: Not applicable; compile-time only.
-
     template <auto TMember>
     struct ObservableMemberTraits;
 
@@ -128,7 +127,6 @@ namespace tbx
     /// @details
     /// Ownership: Type-only helper; no runtime ownership or storage.
     /// Thread Safety: Not applicable; compile-time only.
-
     template <typename TOwner, typename TProp, Observable<TOwner, TProp> TOwner::* TMember>
     struct ObservableMemberTraits<TMember>
     {
@@ -142,7 +140,6 @@ namespace tbx
     /// @details
     /// Ownership: Non-owning; the output pointer borrows from the input message.
     /// Thread Safety: Matches the caller's context. No synchronization is applied.
-
     template <auto TMember>
     PropertyChangedEvent<typename ObservableMemberTraits<TMember>::Owner, typename ObservableMemberTraits<TMember>::Property>* handle_property_changed(
         Message& msg)
@@ -164,7 +161,6 @@ namespace tbx
     /// @details
     /// Ownership: Non-owning; the output pointer borrows from the input message.
     /// Thread Safety: Matches the caller's context. No synchronization is applied.
-
     template <auto TMember>
     const PropertyChangedEvent<typename ObservableMemberTraits<TMember>::Owner, typename ObservableMemberTraits<TMember>::Property>* handle_property_changed(
         const Message& msg)

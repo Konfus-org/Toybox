@@ -14,7 +14,6 @@ namespace opengl_rendering
     /// Ownership: Plugin owns renderer instances and borrows host systems during attach/detach.
     /// Thread Safety: Public callbacks are expected to run on the host thread; render work is
     /// posted to a dedicated render lane.
-
     class TBX_PLUGIN_API OpenGlRenderingPlugin final : public tbx::Plugin
     {
       public:

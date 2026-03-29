@@ -15,7 +15,6 @@ namespace tbx
     /// Ownership: The asset data is shared between the caller and the asset system. The promise is
     /// shared and can be waited on by multiple callers. Thread Safety: Safe to copy between
     /// threads; coordinate asset mutation externally.
-
     template <typename TAsset>
     struct AssetPromise
     {
@@ -28,7 +27,6 @@ namespace tbx
     /// @details
     /// Ownership: Does not transfer ownership.
     /// Thread Safety: Safe to call concurrently.
-
     TBX_API void warn_missing_dispatcher(std::string_view action);
 
     /// @brief
@@ -36,6 +34,5 @@ namespace tbx
     /// @details
     /// Ownership: The returned future owns its shared state and completes with a failed Result.
     /// Thread Safety: Safe to call concurrently.
-
     TBX_API std::shared_future<Result> make_missing_dispatcher_future(std::string_view action);
 }

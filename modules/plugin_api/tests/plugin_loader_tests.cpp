@@ -21,7 +21,7 @@ namespace tbx::tests::plugin_loader
     class TestPluginHost final : public ::tbx::IPluginHost
     {
       public:
-        explicit TestPluginHost(const std::filesystem::path& working_directory)
+        TestPluginHost(const std::filesystem::path& working_directory)
             : _asset_manager(working_directory)
             , _settings(_coordinator, true, ::tbx::GraphicsApi::OPEN_GL, {1280, 720})
         {

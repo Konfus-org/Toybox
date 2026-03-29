@@ -11,7 +11,6 @@ namespace tbx
     /// @details
     /// Ownership: Pipeline operations own their internal state and are held by unique ownership.
     /// Thread Safety: Not thread-safe; callers must synchronize access.
-
     class TBX_API PipelineOperation
     {
       public:
@@ -22,7 +21,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not transfer ownership of referenced resources.
         /// Thread Safety: Not thread-safe; call from the owning thread.
-
         virtual void execute(const std::any& payload) = 0;
 
         /// @brief
@@ -30,7 +28,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not transfer ownership of referenced resources.
         /// Thread Safety: Not thread-safe; call from the owning thread.
-
         void execute()
         {
             execute(std::any {});
@@ -42,7 +39,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns the operations via unique pointers.
     /// Thread Safety: Not thread-safe; synchronize when used across threads.
-
     class TBX_API Pipeline : public PipelineOperation
     {
       public:
@@ -57,7 +53,6 @@ namespace tbx
         /// @details
         /// Ownership: Takes unique ownership of the operation.
         /// Thread Safety: Not thread-safe; callers must synchronize.
-
         void add_operation(std::unique_ptr<PipelineOperation> operation);
 
         /// @brief
@@ -65,7 +60,6 @@ namespace tbx
         /// @details
         /// Ownership: Releases unique ownership of stored operations.
         /// Thread Safety: Not thread-safe; callers must synchronize.
-
         void clear_operations();
 
         /// @brief
@@ -73,7 +67,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a non-owning reference to the stored operations.
         /// Thread Safety: Not thread-safe; callers must synchronize.
-
         const std::vector<std::unique_ptr<PipelineOperation>>& get_operations() const;
 
         /// @brief
@@ -81,7 +74,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not transfer ownership of operations or payload resources.
         /// Thread Safety: Not thread-safe; call from the owning thread.
-
         void execute(const std::any& payload) override;
 
         /// @brief
@@ -89,7 +81,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not transfer ownership of operations.
         /// Thread Safety: Not thread-safe; call from the owning thread.
-
         void execute();
 
       private:

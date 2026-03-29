@@ -77,10 +77,9 @@ namespace tbx
     /// @details
     /// Ownership: The request owns the requested mode value.
     /// Thread Safety: Can be sent from any thread; backend handling is implementation-defined.
-
     struct TBX_API SetMouseLockRequest : public Request<void>
     {
-        explicit SetMouseLockRequest(MouseLockMode requested_lock_mode)
+        SetMouseLockRequest(MouseLockMode requested_lock_mode)
             : mode(requested_lock_mode)
         {
         }
@@ -102,7 +101,7 @@ namespace tbx
     /// Safety: Can be sent from any thread; backend handling is implementation-defined.
     struct TBX_API ControllerStateRequest : public Request<ControllerState>
     {
-        explicit ControllerStateRequest(int requested_index)
+        ControllerStateRequest(int requested_index)
             : controller_index(requested_index)
         {
         }

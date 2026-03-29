@@ -65,11 +65,9 @@ namespace opengl_rendering
     /// @brief
     /// Purpose: Owns deferred-rendering attachments used by future multi-pass rendering and debug
     /// presentation.
-
     /// @details
     /// Ownership: Owns OpenGL framebuffer and texture handles for the lifetime of this object.
     /// Thread Safety: Not thread-safe; use only on the active render thread/context.
-
     class OpenGlGBuffer final : public IOpenGlResource
     {
       public:
@@ -83,7 +81,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Keeps ownership of all allocated OpenGL objects.
         /// Thread Safety: Not thread-safe; caller must synchronize access.
-
         void resize(const tbx::Size& size);
 
         /// @brief
@@ -91,7 +88,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Does not transfer framebuffer ownership.
         /// Thread Safety: Not thread-safe; render-thread only.
-
         void prepare_geometry_pass() const;
 
         /// @brief
@@ -99,7 +95,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Does not transfer ownership of any OpenGL object.
         /// Thread Safety: Not thread-safe; render-thread only.
-
         void present(tbx::RenderStage render_stage, const tbx::Size& viewport_size) const;
 
         /// @brief
@@ -107,7 +102,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Does not transfer ownership of any OpenGL object.
         /// Thread Safety: Not thread-safe; render-thread only.
-
         void bind() override;
 
         /// @brief
@@ -115,7 +109,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Does not transfer ownership of any OpenGL object.
         /// Thread Safety: Not thread-safe; render-thread only.
-
         void unbind() override;
 
         /// @brief
@@ -123,7 +116,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle.
         /// Thread Safety: Not thread-safe; render-thread only.
-
         GLuint get_albedo_texture() const;
 
         /// @brief
@@ -131,7 +123,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle.
         /// Thread Safety: Not thread-safe; render-thread only.
-
         GLuint get_normal_texture() const;
 
         /// @brief
@@ -139,7 +130,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle.
         /// Thread Safety: Not thread-safe; render-thread only.
-
         GLuint get_emissive_texture() const;
 
         /// @brief
@@ -147,7 +137,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle.
         /// Thread Safety: Not thread-safe; render-thread only.
-
         GLuint get_material_texture() const;
 
         /// @brief
@@ -155,7 +144,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle.
         /// Thread Safety: Not thread-safe; render-thread only.
-
         GLuint get_depth_texture() const;
 
       private:

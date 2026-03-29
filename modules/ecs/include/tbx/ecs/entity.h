@@ -13,7 +13,6 @@ namespace tbx
     /// @details
     /// Ownership: Does not own the registry; caller ensures registry lifetime exceeds this
     /// instance. Thread Safety: Not thread-safe; synchronize external concurrent access.
-
     class TBX_API Entity
     {
       public:
@@ -46,7 +45,6 @@ namespace tbx
         /// @details
         /// Ownership: Writes a non-owning entity handle into out_parent when available.
         /// Thread Safety: Not thread-safe; synchronize external concurrent access.
-
         bool try_get_parent_entity(Entity& out_parent) const;
 
         template <typename TComponent>
@@ -79,7 +77,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns an owned std::string.
     /// Thread Safety: Safe for concurrent use when the entity metadata is not being mutated.
-
     TBX_API std::string to_string(const Entity& entity);
 
     /// @brief
@@ -88,7 +85,6 @@ namespace tbx
     /// Ownership: Returns an owned Transform value snapshot.
     /// Thread Safety: Not thread-safe; synchronize external concurrent access. Notes: Entity
     /// Transform components are authored and stored in local space.
-
     TBX_API Transform get_world_space_transform(const Entity& entity);
 
     /// @brief
@@ -96,7 +92,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns the contained Entity value only; does not own registry state.
     /// Thread Safety: Not thread-safe; synchronize external concurrent access.
-
     class TBX_API EntityScope
     {
       public:

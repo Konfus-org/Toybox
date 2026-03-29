@@ -13,7 +13,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns AssetPromise or shared asset pointers owned by the caller.
     /// Thread Safety: Safe to call concurrently; delegates to thread-safe loaders.
-
     template <typename TAsset>
     struct AssetLoader
     {
@@ -35,7 +34,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns an AssetPromise that shares ownership with the caller.
     /// Thread Safety: Safe to call concurrently.
-
     template <>
     struct AssetLoader<Model>
     {
@@ -55,7 +53,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns an AssetPromise that shares ownership with the caller.
     /// Thread Safety: Safe to call concurrently.
-
     template <>
     struct AssetLoader<Texture>
     {
@@ -87,7 +84,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns an AssetPromise that shares ownership with the caller.
     /// Thread Safety: Safe to call concurrently.
-
     template <>
     struct AssetLoader<AudioClip>
     {
@@ -107,7 +103,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns an AssetPromise that shares ownership with the caller.
     /// Thread Safety: Safe to call concurrently.
-
     template <>
     struct AssetLoader<Shader>
     {
@@ -127,7 +122,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns an AssetPromise that shares ownership with the caller.
     /// Thread Safety: Safe to call concurrently.
-
     template <>
     struct AssetLoader<Material>
     {

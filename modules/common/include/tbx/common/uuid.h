@@ -19,7 +19,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a value type; no ownership transfer.
         /// Thread Safety: Safe to call concurrently.
-
         TBX_API static Uuid combine(Uuid base, uint32 value);
 
         /// @brief
@@ -27,7 +26,6 @@ namespace tbx
         /// @details
         /// Ownership: Mutates this UUID in place.
         /// Thread Safety: Not thread-safe; synchronize mutation externally.
-
         TBX_API void combine(uint32 value);
 
         TBX_API bool is_valid() const;

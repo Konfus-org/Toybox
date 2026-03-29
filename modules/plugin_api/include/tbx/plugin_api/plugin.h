@@ -30,7 +30,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not own the host or dispatcher references.
         /// Thread Safety: Not thread-safe; must be called exactly once before use.
-
         void attach(IPluginHost& host);
 
         /// @brief
@@ -38,7 +37,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not own the host or dispatcher references.
         /// Thread Safety: Not thread-safe; call from the main thread.
-
         void detach();
 
         // Ticks the plugin for the given frame delta.

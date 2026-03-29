@@ -12,7 +12,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns all stored path values.
     /// Thread Safety: Not thread-safe; synchronize access externally.
-
     struct TBX_API PathSettings
     {
         std::filesystem::path working_directory = {};
@@ -24,7 +23,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns all stored settings values.
     /// Thread Safety: Not thread-safe; synchronize access externally.
-
     struct TBX_API AppSettings
     {
         AppSettings(

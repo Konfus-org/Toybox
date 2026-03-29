@@ -41,7 +41,6 @@ namespace tbx
     /// @details
     /// Ownership: Does not take ownership of plugin instances.
     /// Thread Safety: Not thread-safe; call from the main thread.
-
     TBX_API void update_plugins(std::vector<LoadedPlugin>& loaded_plugins, const DeltaTime& dt);
 
     /// @brief
@@ -50,7 +49,6 @@ namespace tbx
     /// @details
     /// Ownership: Does not take ownership of plugin instances.
     /// Thread Safety: Not thread-safe; call from the main thread.
-
     TBX_API void update_plugins_fixed(
         std::vector<LoadedPlugin>& loaded_plugins,
         const DeltaTime& dt);

@@ -49,7 +49,6 @@ namespace tbx
         /// @details
         /// Ownership: Writes a copy of the stored message into the caller-provided string.
         /// Thread Safety: Not thread-safe; synchronize external access if shared.
-
         bool try_get_load_error_message(std::string& out_error_message) const;
 
       private:

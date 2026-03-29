@@ -11,7 +11,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type containing non-owning entity identifiers.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
-
     struct TBX_API RaycastResult
     {
         bool has_hit = false;
@@ -32,7 +31,6 @@ namespace tbx
     /// Ownership: Value type that owns query parameters by copy.
     /// Thread Safety: Safe for concurrent reads; calling methods requires a valid thread-safe
     /// global dispatcher.
-
     struct TBX_API Raycast
     {
         Vec3 origin = Vec3(0.0F, 0.0F, 0.0F);
@@ -46,7 +44,6 @@ namespace tbx
         /// @details
         /// Ownership: Writes the result into the caller-provided output value.
         /// Thread Safety: Thread-safe if the global dispatcher implementation is thread-safe.
-
         bool try_cast(RaycastResult& out_result) const;
 
         /// @brief
@@ -55,7 +52,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns the result by value.
         /// Thread Safety: Thread-safe if the global dispatcher implementation is thread-safe.
-
         RaycastResult cast() const;
     };
 
@@ -64,10 +60,9 @@ namespace tbx
     /// @details
     /// Ownership: Owns a copy of the raycast query payload.
     /// Thread Safety: Safe to construct on any thread; handling depends on the dispatcher backend.
-
     struct TBX_API RaycastRequest : public Request<RaycastResult>
     {
-        explicit RaycastRequest(const Raycast& raycast_query);
+        RaycastRequest(const Raycast& raycast_query);
         ~RaycastRequest() noexcept override;
 
         Raycast raycast = {};

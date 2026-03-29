@@ -23,7 +23,7 @@ namespace opengl_rendering
     class OpenGlMesh final : public IOpenGlResource
     {
       public:
-        explicit OpenGlMesh(const tbx::Mesh& mesh);
+        OpenGlMesh(const tbx::Mesh& mesh);
         OpenGlMesh(const OpenGlMesh&) = delete;
         OpenGlMesh& operator=(const OpenGlMesh&) = delete;
         OpenGlMesh(OpenGlMesh&& other) noexcept;

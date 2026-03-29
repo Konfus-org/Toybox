@@ -7,7 +7,6 @@ namespace jolt_physics
     /// @details
     /// Ownership: Owns process-wide runtime reference counting only; does not own plugin state.
     /// Thread Safety: Thread-safe; acquire/release are synchronized internally.
-
     class JoltRuntimeLifetime final
     {
       public:

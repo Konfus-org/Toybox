@@ -12,7 +12,6 @@ namespace tbx
     /// @details
     /// Ownership: Stores a non-owning material handle reference and value settings.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-
     struct TBX_API PostProcessingEffect
     {
         ~PostProcessingEffect();
@@ -22,7 +21,6 @@ namespace tbx
         /// @details
         /// Ownership: Owns parameter/texture override sets and a base material handle.
         /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-
         MaterialInstance material = {};
 
         /// @brief
@@ -30,7 +28,6 @@ namespace tbx
         /// @details
         /// Ownership: Value type.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-
         bool is_enabled = true;
 
         /// @brief
@@ -38,7 +35,6 @@ namespace tbx
         /// @details
         /// Ownership: Value type.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-
         float blend = 1.0f;
     };
 
@@ -47,7 +43,6 @@ namespace tbx
     /// @details
     /// Ownership: Stores value settings and an ordered effect stack by value.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-
     struct TBX_API PostProcessing
     {
         ~PostProcessing();
@@ -57,7 +52,6 @@ namespace tbx
         /// @details
         /// Ownership: Owns the effect stack vector and effect settings.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-
         std::vector<PostProcessingEffect> effects = {};
 
         /// @brief
@@ -65,7 +59,6 @@ namespace tbx
         /// @details
         /// Ownership: Value type.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-
         bool is_enabled = true;
     };
 }

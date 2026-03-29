@@ -8,7 +8,6 @@ namespace tbx
     /// @details
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
-
     using Vec2 = glm::vec2;
 
     /// @brief
@@ -16,7 +15,6 @@ namespace tbx
     /// @details
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
-
     using Vec3 = glm::vec3;
 
     /// @brief
@@ -24,7 +22,6 @@ namespace tbx
     /// @details
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
-
     using Vec4 = glm::vec4;
 
     /// @brief
@@ -32,7 +29,6 @@ namespace tbx
     /// @details
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
-
     using IVec2 = glm::ivec2;
 
     /// @brief
@@ -40,7 +36,6 @@ namespace tbx
     /// @details
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
-
     using IVec3 = glm::ivec3;
 
     /// @brief
@@ -48,7 +43,6 @@ namespace tbx
     /// @details
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
-
     using IVec4 = glm::ivec4;
 
     /// @brief
@@ -56,7 +50,6 @@ namespace tbx
     /// @details
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
-
     using UVec2 = glm::uvec2;
 
     /// @brief
@@ -65,7 +58,6 @@ namespace tbx
     /// @details
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
-
     using UVec3 = glm::uvec3;
 
     /// @brief
@@ -73,7 +65,6 @@ namespace tbx
     /// @details
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
-
     using UVec4 = glm::uvec4;
 
     /// @brief
@@ -81,7 +72,6 @@ namespace tbx
     /// @details
     /// Ownership: returns a value copy; the caller owns the result.
     /// Thread Safety: stateless; safe to call concurrently.
-
     TBX_API Vec2 normalize(Vec2 v);
 
     /// @brief
@@ -89,7 +79,6 @@ namespace tbx
     /// @details
     /// Ownership: returns a value copy; the caller owns the result.
     /// Thread Safety: stateless; safe to call concurrently.
-
     TBX_API Vec3 normalize(Vec3 v);
 
     /// @brief
@@ -97,7 +86,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns a value copy; the caller owns the result.
     /// Thread Safety: Stateless; safe to call concurrently.
-
     TBX_API float dot(const Vec3& left, const Vec3& right);
 
     /// @brief
@@ -105,7 +93,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns a value copy; the caller owns the result.
     /// Thread Safety: Stateless; safe to call concurrently.
-
     TBX_API Vec3 cross(const Vec3& left, const Vec3& right);
 
     /// @brief
@@ -113,7 +100,6 @@ namespace tbx
     /// @details
     /// Ownership: returns a value copy; the caller owns the result.
     /// Thread Safety: stateless; safe to call concurrently.
-
     TBX_API Vec4 normalize(Vec4 v);
 
     /// @brief
@@ -121,6 +107,5 @@ namespace tbx
     /// @details
     /// Ownership: Returns a value type.
     /// Thread Safety: Stateless; safe to call concurrently.
-
     TBX_API float distance(const Vec3& a, const Vec3& b);
 }

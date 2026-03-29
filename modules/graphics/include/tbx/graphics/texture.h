@@ -50,7 +50,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type settings.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-
     struct TBX_API TextureSettings
     {
         Size resolution = {1, 1};
@@ -102,7 +101,6 @@ namespace tbx
     /// @details
     /// Ownership: Stores a non-owning handle reference and optional value settings.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-
     struct TBX_API TextureInstance
     {
         Handle handle = {};

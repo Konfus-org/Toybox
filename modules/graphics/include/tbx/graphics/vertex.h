@@ -11,7 +11,6 @@
 namespace tbx
 {
     /// ////////// VERTEX DATA //////////////////
-
     using VertexData = std::variant<int, float, Vec2, Vec3, Vec4, Color>;
 
     inline int32 get_vertex_data_count(const VertexData& data)
@@ -81,7 +80,6 @@ namespace tbx
     }
 
     /// ////////// VERTEX //////////////////
-
     struct TBX_API Vertex
     {
         // (x, y, z) in 3D space
@@ -97,7 +95,6 @@ namespace tbx
     };
 
     /// ////////// VERTEX BUFFER //////////////////
-
     inline std::vector<float> flatten_vertex_vector(const std::vector<Vertex>& vertices)
     {
         const auto vertex_count = vertices.size();

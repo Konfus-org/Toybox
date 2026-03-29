@@ -24,7 +24,6 @@ namespace jolt_physics
     /// @details
     /// Ownership: Plain value type owned by `JoltPhysicsPlugin` body maps; no resource ownership.
     /// Thread Safety: Not thread-safe; accessed on the plugin physics lane.
-
     struct JoltBodyRecord
     {
         JPH::BodyID body_id = {};

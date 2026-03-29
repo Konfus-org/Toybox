@@ -10,7 +10,6 @@ namespace opengl_rendering
     /// @details
     /// Ownership: Stateless; does not own external resources.
     /// Thread Safety: Safe to call concurrently.
-
     class GlIdProvider final
     {
       public:
@@ -19,7 +18,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Returns a value type; the caller owns the copy.
         /// Thread Safety: Safe to call concurrently.
-
         tbx::Uuid provide(const tbx::Uuid& first, tbx::uint32 second) const;
     };
 }

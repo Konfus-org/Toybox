@@ -38,7 +38,7 @@ namespace opengl_rendering
     class OpenGlShader final : public IOpenGlResource
     {
       public:
-        explicit OpenGlShader(const tbx::ShaderSource& shader);
+        OpenGlShader(const tbx::ShaderSource& shader);
         OpenGlShader(const OpenGlShader&) = delete;
         OpenGlShader& operator=(const OpenGlShader&) = delete;
         OpenGlShader(OpenGlShader&& other) noexcept;
@@ -63,7 +63,7 @@ namespace opengl_rendering
     class OpenGlShaderProgram final : public IOpenGlResource
     {
       public:
-        explicit OpenGlShaderProgram(const std::vector<std::shared_ptr<OpenGlShader>>& shaders);
+        OpenGlShaderProgram(const std::vector<std::shared_ptr<OpenGlShader>>& shaders);
         OpenGlShaderProgram(const OpenGlShaderProgram&) = delete;
         OpenGlShaderProgram& operator=(const OpenGlShaderProgram&) = delete;
         OpenGlShaderProgram(OpenGlShaderProgram&& other) noexcept;

@@ -18,7 +18,6 @@ namespace tbx
     /// @details
     /// Ownership: Does not own resources.
     /// Thread Safety: Safe to read concurrently.
-
     enum class ShaderType
     {
         NONE,
@@ -34,7 +33,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns the source string data.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-
     struct TBX_API ShaderSource
     {
         ShaderSource() = default;
@@ -53,15 +51,14 @@ namespace tbx
     /// @details
     /// Ownership: Owns the shader source collection.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-
     struct TBX_API Shader
     {
         Shader() = default;
-        explicit Shader(ShaderSource shader_source)
+        Shader(ShaderSource shader_source)
             : sources({std::move(shader_source)})
         {
         }
-        explicit Shader(std::vector<ShaderSource> shader_sources)
+        Shader(std::vector<ShaderSource> shader_sources)
             : sources(std::move(shader_sources))
         {
         }
@@ -74,7 +71,6 @@ namespace tbx
     /// @details
     /// Ownership: Stores stage handles by value; does not own loaded shader assets.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-
     struct TBX_API ShaderProgram
     {
         /// @brief
@@ -82,7 +78,6 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-
         Handle vertex = {};
 
         /// @brief
@@ -90,7 +85,6 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-
         Handle fragment = {};
 
         /// @brief
@@ -98,7 +92,6 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-
         Handle tesselation = {};
 
         /// @brief
@@ -106,7 +99,6 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-
         Handle geometry = {};
 
         /// @brief
@@ -114,7 +106,6 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-
         Handle compute = {};
 
         /// @brief
@@ -122,7 +113,6 @@ namespace tbx
         /// @details
         /// Ownership: Stateless; no ownership transfer.
         /// Thread Safety: Safe to call concurrently.
-
         bool is_valid() const
         {
             const bool has_compute = compute.is_valid();

@@ -14,11 +14,9 @@ namespace opengl_rendering
     /// @brief
     /// Purpose: Resolves deferred lighting from the geometry attachments into the final color
     /// target.
-
     /// @details
     /// Ownership: Owns the fullscreen draw state and shader program it creates lazily.
     /// Thread Safety: Not thread-safe; render-thread only.
-
     class LightingPassOperation final
     {
       public:
@@ -36,7 +34,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Does not take ownership of the supplied payload.
         /// Thread Safety: Not thread-safe; render-thread only.
-
         void execute(const std::any& payload);
 
       private:

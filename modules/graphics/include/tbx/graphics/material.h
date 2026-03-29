@@ -31,7 +31,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-
     enum class MaterialDepthFunction : uint8_t
     {
         Less = 0,
@@ -44,7 +43,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-
     enum class MaterialBlendMode : uint8_t
     {
         Opaque = 0,
@@ -56,7 +54,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-
     enum class ShadowMode : uint8_t
     {
         None = 0,
@@ -69,7 +66,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns the parameter name by value and stores the parameter payload inline.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-
     struct TBX_API MaterialParameter
     {
         MaterialParameter() = default;
@@ -90,7 +86,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns all parameter entries by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-
     struct TBX_API MaterialParameterBindings
     {
         using iterator = std::vector<MaterialParameter>::iterator;
@@ -126,7 +121,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns the binding name by value and texture instance by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-
     struct TBX_API MaterialTextureBinding
     {
         std::string name = {};
@@ -138,7 +132,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns all texture entries by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-
     struct TBX_API MaterialTextureBindings
     {
         using iterator = std::vector<MaterialTextureBinding>::iterator;
@@ -175,7 +168,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-
     struct TBX_API MaterialDepthConfig
     {
         bool is_test_enabled = true;
@@ -189,7 +181,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-
     struct TBX_API MaterialTransparencyConfig
     {
         MaterialBlendMode blend_mode = MaterialBlendMode::Opaque;
@@ -200,7 +191,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-
     struct TBX_API MaterialRenderConfig
     {
         Depth depth = {};
@@ -212,7 +202,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type owned by the containing material asset.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-
     struct TBX_API MaterialConfig
     {
         Depth depth = {};
@@ -228,7 +217,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns shader handles, default parameter bindings, default texture bindings, and
     /// config by value. Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-
     struct TBX_API Material
     {
         ShaderProgram program = {};
@@ -242,11 +230,10 @@ namespace tbx
     /// @details
     /// Ownership: Owns the material handle and all override bindings by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-
     struct TBX_API MaterialInstance
     {
         MaterialInstance();
-        explicit MaterialInstance(Handle handle);
+        MaterialInstance(Handle handle);
         MaterialInstance(
             Handle handle,
             ParamBindings parameter_overrides,
@@ -299,7 +286,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns the material instance by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-
     struct TBX_API Sky
     {
         MaterialInstance material = {};

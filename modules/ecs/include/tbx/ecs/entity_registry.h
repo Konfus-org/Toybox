@@ -17,7 +17,6 @@ namespace tbx
     /// @details
     /// Ownership: Owns the underlying entt registry instance.
     /// Thread Safety: Not thread-safe; synchronize external concurrent access.
-
     class TBX_API EntityRegistry
     {
       public:
@@ -32,7 +31,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not transfer ownership; inspects registry-owned entity state only.
         /// Thread Safety: Not thread-safe; synchronize external concurrent access.
-
         bool has(const Uuid& id) const;
 
         template <typename TComponent>

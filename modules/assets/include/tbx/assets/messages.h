@@ -17,7 +17,6 @@ namespace tbx
     /// @details
     /// Ownership: The asset pointer is non-owning and owned by the caller.
     /// Thread Safety: Payload access requires external synchronization.
-
     template <typename TAsset>
     struct LoadAssetRequest : public Request<void>
     {
@@ -38,7 +37,6 @@ namespace tbx
     /// @details
     /// Ownership: The texture asset pointer is non-owning and owned by the caller.
     /// Thread Safety: Payload access requires external synchronization.
-
     struct TBX_API LoadTextureRequest : public LoadAssetRequest<Texture>
     {
       public:
@@ -72,7 +70,6 @@ namespace tbx
     /// @details
     /// Ownership: The model pointer is non-owning and owned by the caller.
     /// Thread Safety: Payload access requires external synchronization.
-
     struct TBX_API LoadModelRequest : public LoadAssetRequest<Model>
     {
       public:
@@ -87,7 +84,6 @@ namespace tbx
     /// @details
     /// Ownership: The shader program pointer is non-owning and owned by the caller.
     /// Thread Safety: Payload access requires external synchronization.
-
     struct TBX_API LoadShaderRequest : public LoadAssetRequest<Shader>
     {
       public:
@@ -102,7 +98,6 @@ namespace tbx
     /// @details
     /// Ownership: The material pointer is non-owning and owned by the caller.
     /// Thread Safety: Payload access requires external synchronization.
-
     struct TBX_API LoadMaterialRequest : public LoadAssetRequest<Material>
     {
       public:
@@ -117,7 +112,6 @@ namespace tbx
     /// @details
     /// Ownership: The audio clip pointer is non-owning and owned by the caller.
     /// Thread Safety: Payload access requires external synchronization.
-
     struct TBX_API LoadAudioRequest : public LoadAssetRequest<AudioClip>
     {
       public:

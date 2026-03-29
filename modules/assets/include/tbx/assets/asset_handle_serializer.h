@@ -14,7 +14,6 @@ namespace tbx
     /// Ownership: Returns owned Handle instances to callers and does not retain file resources.
     /// Thread Safety: Implementations are safe for concurrent use when injected file services are
     /// thread-safe.
-
     class TBX_API IAssetHandleSerializer
     {
       public:
@@ -26,7 +25,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns an owning unique_ptr to a Handle on success.
         /// Thread Safety: Safe when filesystem services used by the implementation are thread-safe.
-
         virtual std::unique_ptr<Handle> read_from_disk(
             const std::filesystem::path& working_directory,
             const std::filesystem::path& asset_path) const = 0;
@@ -36,7 +34,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns an owning unique_ptr to a Handle on success.
         /// Thread Safety: Safe when file_ops is thread-safe.
-
         virtual std::unique_ptr<Handle> read_from_disk(
             const IFileOps& file_ops,
             const std::filesystem::path& asset_path) const = 0;
@@ -46,7 +43,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns an owning unique_ptr to a Handle on success.
         /// Thread Safety: Safe to call concurrently.
-
         virtual std::unique_ptr<Handle> read_from_source(
             std::string_view meta_text,
             const std::filesystem::path& asset_path) const = 0;
@@ -56,7 +52,6 @@ namespace tbx
         /// @details
         /// Ownership: Performs a read-modify-write and does not retain file contents.
         /// Thread Safety: Safe when filesystem services used by the implementation are thread-safe.
-
         virtual bool try_write_to_disk(
             const std::filesystem::path& working_directory,
             const std::filesystem::path& asset_path,
@@ -67,7 +62,6 @@ namespace tbx
         /// @details
         /// Ownership: Performs a read-modify-write and does not retain file contents.
         /// Thread Safety: Safe when file_ops is thread-safe.
-
         virtual bool try_write_to_disk(
             IFileOps& file_ops,
             const std::filesystem::path& asset_path,
@@ -79,7 +73,6 @@ namespace tbx
     /// @details
     /// Ownership: Returns owned Handle values and does not retain file content across calls.
     /// Thread Safety: Safe to call concurrently when file services are thread-safe.
-
     class TBX_API AssetHandleSerializer final : public IAssetHandleSerializer
     {
       public:

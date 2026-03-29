@@ -25,7 +25,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not transfer ownership of application resources.
         /// Thread Safety: Not thread-safe; call from the main thread.
-
         int run();
 
         /// @brief
@@ -33,7 +32,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         const std::string& get_name() const override;
 
         /// @brief
@@ -41,7 +39,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         const Handle& get_icon_handle() const override;
 
         /// @brief
@@ -49,7 +46,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         AppSettings& get_settings() override;
 
         /// @brief
@@ -57,7 +53,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         IMessageCoordinator& get_message_coordinator() override;
 
         /// @brief
@@ -65,7 +60,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         EntityRegistry& get_entity_registry() override;
 
         /// @brief
@@ -73,7 +67,6 @@ namespace tbx
         /// @details
         /// Ownership: The application retains ownership; callers receive a reference.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         AssetManager& get_asset_manager() override;
 
         /// @brief
@@ -81,7 +74,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Thread-safe according to JobSystem guarantees.
-
         JobSystem& get_job_system() override;
 
         /// @brief
@@ -89,7 +81,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Thread-safe according to ThreadManager guarantees.
-
         ThreadManager& get_thread_manager() override;
 
         /// @brief
@@ -97,7 +88,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-
         InputManager& get_input_manager() override;
 
       private:

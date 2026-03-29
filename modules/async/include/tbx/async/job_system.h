@@ -19,7 +19,6 @@ namespace tbx
     /// @details
     /// Ownership: Value type owned by callers and copied into the job system constructor.
     /// Thread Safety: Safe for concurrent use because it stores only plain data.
-
     struct TBX_API JobSystemConfiguration
     {
         std::size_t worker_count = {};
@@ -32,7 +31,6 @@ namespace tbx
     /// Thread Safety: `schedule`, `schedule_with_future`, `wait_for_idle`, `stop`, and
     /// `get_worker_count` are safe to call concurrently. Destruction must be externally
     /// synchronized against concurrent use.
-
     class TBX_API JobSystem
     {
       public:
@@ -50,7 +48,6 @@ namespace tbx
         /// @details
         /// Ownership: Transfers ownership of the job callable into the scheduler queue.
         /// Thread Safety: Thread-safe. Throws if scheduling is attempted after `stop`.
-
         void schedule(Job&& job);
 
         /// @brief
@@ -59,7 +56,6 @@ namespace tbx
         /// Ownership: Transfers the callable into the scheduler. Returned future is owned by the
         /// caller and stores result/exception state. Thread Safety: Thread-safe. Throws if
         /// scheduling is attempted after `stop`.
-
         template <typename TCallable, typename... TArgs>
             requires std::invocable<TCallable, TArgs...>
         auto schedule_with_future(TCallable&& callable, TArgs&&... args)
@@ -85,7 +81,6 @@ namespace tbx
         /// @details
         /// Ownership: Does not transfer ownership.
         /// Thread Safety: Thread-safe.
-
         void wait_for_idle();
 
         /// @brief
@@ -93,7 +88,6 @@ namespace tbx
         /// @details
         /// Ownership: Retains queued job ownership until they are drained, then releases all worker
         /// ownership. Thread Safety: Thread-safe and idempotent.
-
         void stop();
 
         /// @brief
@@ -101,7 +95,6 @@ namespace tbx
         /// @details
         /// Ownership: Returns a value copy.
         /// Thread Safety: Thread-safe.
-
         std::size_t get_worker_count() const;
 
       private:
